@@ -23,7 +23,10 @@ Compute and visualize running statistics that Strava doesn't readily offer, embe
 
 ### Active
 
-- [ ] Geographic statistics (countries, cities, unique routes, distance by location)
+- [ ] Geographic data extraction and storage (countries, cities from activities)
+- [ ] Geographic statistics (runs per city/country, km per country, ranked lists)
+- [ ] Geographic table/list widgets for embedding
+- [ ] Widget customization system (HTML attributes with defaults for title, labels, colors, size)
 
 ### Out of Scope
 
@@ -33,6 +36,21 @@ Compute and visualize running statistics that Strava doesn't readily offer, embe
 - Mobile app — web widgets only
 - Real-time Strava sync via webhooks — daily rebuild is sufficient
 - AI training recommendations — massive scope, liability, sports science needed
+- Interactive run maps — deferred to future milestone (v1.2+)
+- Map styling themes (topographic, neon, minimal) — deferred to future milestone
+- Animated run playback on maps — deferred to future milestone
+- Street View playback along runs — deferred to future milestone
+- Maps as post/page backgrounds — deferred to future milestone
+
+## Current Milestone: v1.1 Geographic & Widget Customization
+
+**Goal:** Add geographic running statistics with embeddable table/list widgets, and make all widgets customizable via HTML attributes.
+
+**Target features:**
+- Geographic data extraction from Strava activities (countries, cities)
+- Geographic statistics computation (runs per city/country, km per country, ranked lists)
+- Table/list widgets for geographic data
+- Widget customization system (title, labels, colors, size via HTML attributes with defaults)
 
 ## Context
 
@@ -40,6 +58,8 @@ Shipped v1.0 with 3,844 LOC TypeScript/JS across 9 plans in 1 day.
 Tech stack: TypeScript, Node.js 22, Chart.js, Vite (IIFE bundles), Shadow DOM, GitHub Actions.
 1,808 run activities synced from Strava. 3 widget types deployed to GitHub Pages.
 Repository: github.com/bacilo/strava-widgets (public).
+
+**Future vision (noted for v1.2+):** Interactive maps with run routes, static "picture frame" maps, map styling themes (topographic, neon, minimal), maps as post backgrounds, animated run playback, Street View playback along runs.
 
 ## Constraints
 
@@ -64,4 +84,4 @@ Repository: github.com/bacilo/strava-widgets (public).
 | UTC everywhere for dates | Timezone safety, consistent across environments | ✓ Good |
 
 ---
-*Last updated: 2026-02-14 after v1.0 milestone*
+*Last updated: 2026-02-14 after v1.1 milestone start*
