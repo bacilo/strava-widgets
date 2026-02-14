@@ -10,6 +10,8 @@
     "sync": "node dist/index.js sync",
     "auth": "node dist/index.js auth",
     "compute-stats": "node dist/index.js compute-stats",
+    "compute-advanced-stats": "node dist/index.js compute-advanced-stats",
+    "compute-all-stats": "node dist/index.js compute-all-stats",
     "test": "vitest run",
     "test:watch": "vitest"
   },

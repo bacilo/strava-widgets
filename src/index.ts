@@ -6,6 +6,7 @@ import { SyncStateManager } from './storage/sync-state.js';
 import { ActivitySync } from './sync/activity-sync.js';
 import { config } from './config/strava.config.js';
 import { computeAllStats } from './analytics/compute-stats.js';
+import { computeAdvancedStats } from './analytics/compute-advanced-stats.js';
 import * as fs from 'fs/promises';
 
 const command = process.argv[2];
@@ -144,19 +145,70 @@ async function computeStatsCommand() {
   }
 }
 
+async function computeAdvancedStatsCommand() {
+  try {
+    console.log('Computing advanced statistics from synced activities...\n');
+    await computeAdvancedStats({
+      activitiesDir: config.activitiesDir,
+      statsDir: 'data/stats',
+    });
+    console.log('\nAdvanced statistics generated successfully!');
+    process.exit(0);
+  } catch (error: any) {
+    console.error('Compute advanced stats error:', error.message);
+    if (error.code === 'ENOENT' && error.message.includes('activities')) {
+      console.error('\nActivities directory not found. Please run: npm run sync');
+    }
+    process.exit(1);
+  }
+}
+
+async function computeAllStatsCommand() {
+  try {
+    console.log('Computing all statistics from synced activities...\n');
+
+    // Run basic stats
+    await computeAllStats({
+      activitiesDir: config.activitiesDir,
+      statsDir: 'data/stats',
+    });
+
+    console.log(''); // Blank line separator
+
+    // Run advanced stats
+    await computeAdvancedStats({
+      activitiesDir: config.activitiesDir,
+      statsDir: 'data/stats',
+    });
+
+    console.log('\nAll statistics generated successfully!');
+    process.exit(0);
+  } catch (error: any) {
+    console.error('Compute all stats error:', error.message);
+    if (error.code === 'ENOENT' && error.message.includes('activities')) {
+      console.error('\nActivities directory not found. Please run: npm run sync');
+    }
+    process.exit(1);
+  }
+}
+
 function printHelp() {
   console.log('Usage: npm run [command]');
   console.log('\nAvailable commands:');
-  console.log('  auth          - Complete OAuth flow with Strava');
-  console.log('  sync          - Sync new activities from Strava');
-  console.log('  status        - Show current sync status');
-  console.log('  compute-stats - Compute statistics from synced activities');
+  console.log('  auth                  - Complete OAuth flow with Strava');
+  console.log('  sync                  - Sync new activities from Strava');
+  console.log('  status                - Show current sync status');
+  console.log('  compute-stats         - Compute basic statistics from synced activities');
+  console.log('  compute-advanced-stats - Compute advanced statistics (year-over-year, time-of-day, etc.)');
+  console.log('  compute-all-stats     - Compute both basic and advanced statistics');
   console.log('\nExamples:');
-  console.log('  npm run auth              # Get authorization URL');
-  console.log('  npm run auth CODE         # Exchange code for tokens');
-  console.log('  npm run sync              # Fetch new activities');
-  console.log('  npm start status          # Check sync state');
-  console.log('  npm run compute-stats     # Generate stats from activities');
+  console.log('  npm run auth                   # Get authorization URL');
+  console.log('  npm run auth CODE              # Exchange code for tokens');
+  console.log('  npm run sync                   # Fetch new activities');
+  console.log('  npm start status               # Check sync state');
+  console.log('  npm run compute-stats          # Generate basic stats');
+  console.log('  npm run compute-advanced-stats # Generate advanced stats');
+  console.log('  npm run compute-all-stats      # Generate all stats');
 }
 
 async function main() {
@@ -172,6 +224,12 @@ async function main() {
       break;
     case 'compute-stats':
       await computeStatsCommand();
+      break;
+    case 'compute-advanced-stats':
+      await computeAdvancedStatsCommand();
+      break;
+    case 'compute-all-stats':
+      await computeAllStatsCommand();
       break;
     case 'help':
     default:
