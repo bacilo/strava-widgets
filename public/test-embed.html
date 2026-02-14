@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Strava Widget - Embedding Test</title>
+  <style>
+    /* Host page styles - deliberately different to test isolation */
+    body {
+      font-family: Georgia, serif;
+      background: #f5f5f5;
+      color: #222;
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+    h1 { color: #333; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
+    p { line-height: 1.6; }
+    .embed-section {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 24px;
+      margin: 24px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Widget Embedding Test</h1>
+  <p>This page simulates embedding the Strava weekly bar chart widget on a personal website.
+     The widget should render inside Shadow DOM, isolated from these host page styles.</p>
+
+  <div class="embed-section">
+    <h2>Weekly Running Distance</h2>
+    <div id="strava-weekly-chart"></div>
+  </div>
+
+  <p>If the chart appears above with bar data, the widget is working correctly.
+     The widget styles should not affect this paragraph (it should remain Georgia serif).</p>
+
+  <!-- Widget embedding: exactly what a user would copy-paste -->
+  <script src="../dist/widget/weekly-bar-chart.iife.js"></script>
+  <script>
+    // Initialize with local data file path
+    WeeklyBarChart.init('strava-weekly-chart', '../data/stats/weekly-distance.json');
+  </script>
+</body>
+</html>
