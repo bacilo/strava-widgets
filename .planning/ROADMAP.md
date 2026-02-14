@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Data Foundation** - Secure Strava OAuth and incremental activity sync *(completed 2026-02-14)*
 - [x] **Phase 2: Core Analytics & First Widget** - Basic stats computation and embeddable weekly chart *(completed 2026-02-14)*
 - [x] **Phase 3: Advanced Analytics & Widget Library** - Streaks, trends, and multiple widget types *(completed 2026-02-14)*
-- [ ] **Phase 4: Automation & Deployment** - GitHub Actions pipeline for daily refresh and widget publishing
+- [x] **Phase 4: Automation & Deployment** - GitHub Actions pipeline for daily refresh and widget publishing *(completed 2026-02-14)*
 
 ## Phase Details
 
@@ -84,7 +84,7 @@ Plans:
 **Plans:** 1 plan
 
 Plans:
-- [ ] 04-01-PLAN.md — GitHub Actions daily-refresh workflow, CI token management, GitHub Pages deployment
+- [x] 04-01-PLAN.md — GitHub Actions daily-refresh workflow, CI token management, GitHub Pages deployment
 
 ## Progress
 
@@ -97,7 +97,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | 1. Data Foundation | 2/2 | ✓ Complete | 2026-02-14 |
 | 2. Core Analytics & First Widget | 2/2 | ✓ Complete | 2026-02-14 |
 | 3. Advanced Analytics & Widget Library | 4/4 | ✓ Complete | 2026-02-14 |
-| 4. Automation & Deployment | 0/1 | Not started | - |
+| 4. Automation & Deployment | 1/1 | ✓ Complete | 2026-02-14 |
 
 ---
 *Roadmap created: 2026-02-14*
