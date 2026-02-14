@@ -200,13 +200,11 @@
   <!-- Initialize all widgets -->
   <script>
     // Widget 1: Weekly Bar Chart (Phase 2)
-    window.WeeklyBarChart.init('weekly-chart', {
-      dataUrl: '../data/stats/weekly.json'
-    });
+    window.WeeklyBarChart.init('weekly-chart', '../data/stats/weekly-distance.json');
 
     // Widget 2: Stats Card
     window.StatsCard.init('stats-card', {
-      dataUrl: '../data/stats/all-time.json',
+      dataUrl: '../data/stats/all-time-totals.json',
       options: {
         showTitle: true,
         customTitle: 'Running Stats',
@@ -236,7 +234,7 @@
 
     // Widget 5: Stats Card with dark theme
     window.StatsCard.init('stats-card-dark', {
-      dataUrl: '../data/stats/all-time.json',
+      dataUrl: '../data/stats/all-time-totals.json',
       colors: {
         background: '#2d2d2d',
         text: '#e0e0e0',

@@ -44,16 +44,19 @@ export abstract class WidgetBase<T = unknown> {
   protected shadowRoot: ShadowRoot | null = null;
   protected container: HTMLElement | null = null;
 
-  constructor(containerId: string, config: WidgetConfig) {
+  constructor(containerId: string, config: WidgetConfig, skipAutoFetch: boolean = false) {
     this.containerId = containerId;
     this.config = config;
-    this.init();
+    this.initShadowDom();
+    if (!skipAutoFetch) {
+      this.fetchDataAndRender();
+    }
   }
 
   /**
-   * Initialize the widget: create Shadow DOM, fetch data, render
+   * Initialize the widget: create Shadow DOM and show loading
    */
-  private init(): void {
+  private initShadowDom(): void {
     // Find container element
     const containerElement = document.getElementById(this.containerId);
     if (!containerElement) {
@@ -67,9 +70,6 @@ export abstract class WidgetBase<T = unknown> {
 
     // Show loading state
     this.showLoading();
-
-    // Fetch data and render
-    this.fetchDataAndRender();
   }
 
   /**

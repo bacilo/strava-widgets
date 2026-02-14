@@ -81,7 +81,7 @@ class StreakWidget extends WidgetBase<StreakData> {
   private timeOfDayData: TimeOfDayPattern[] | null = null;
 
   constructor(containerId: string, config: WidgetConfig) {
-    super(containerId, config);
+    super(containerId, config, true);
   }
 
   /**

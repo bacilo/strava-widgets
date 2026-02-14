@@ -34,7 +34,7 @@ class ComparisonChartWidget extends WidgetBase<YearOverYearMonth[]> {
   private seasonalTrendsData: SeasonalTrendMonth[] | null = null;
 
   constructor(containerId: string, config: WidgetConfig) {
-    super(containerId, config);
+    super(containerId, config, true);
   }
 
   /**
@@ -59,29 +59,32 @@ class ComparisonChartWidget extends WidgetBase<YearOverYearMonth[]> {
     yoySection.appendChild(yoyCanvas);
     container.appendChild(yoySection);
 
-    // Render year-over-year chart
+    // Seasonal trends line chart section (if data available)
+    let trendsCanvas: HTMLCanvasElement | null = null;
+    if (this.seasonalTrendsData) {
+      const trendsSection = document.createElement('div');
+      trendsSection.className = 'chart-section';
+      trendsCanvas = document.createElement('canvas');
+      trendsSection.appendChild(trendsCanvas);
+      container.appendChild(trendsSection);
+    }
+
+    // Append to DOM BEFORE creating Chart.js instances (needs canvas dimensions)
+    this.shadowRoot.appendChild(container);
+
+    // Render charts after DOM attachment
     createYearOverYearChart(yoyCanvas, yearOverYearData, {
       chartColors: this.config.colors?.chartColors,
       showLegend: this.config.options?.showLegend,
       customTitle: this.config.options?.customTitle
     });
 
-    // Seasonal trends line chart section (if data available)
-    if (this.seasonalTrendsData) {
-      const trendsSection = document.createElement('div');
-      trendsSection.className = 'chart-section';
-      const trendsCanvas = document.createElement('canvas');
-      trendsSection.appendChild(trendsCanvas);
-      container.appendChild(trendsSection);
-
-      // Render seasonal trends chart
+    if (this.seasonalTrendsData && trendsCanvas) {
       createSeasonalTrendsChart(trendsCanvas, this.seasonalTrendsData, {
         chartColors: this.config.colors?.chartColors,
         showLegend: this.config.options?.showLegend
       });
     }
-
-    this.shadowRoot.appendChild(container);
   }
 }
 

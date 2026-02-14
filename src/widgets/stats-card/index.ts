@@ -100,7 +100,7 @@ class StatsCardWidget extends WidgetBase<AllTimeTotals> {
   private yearOverYearData: YearOverYearMonth[] | null = null;
 
   constructor(containerId: string, config: WidgetConfig) {
-    super(containerId, config);
+    super(containerId, config, true);
   }
 
   /**
