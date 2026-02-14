@@ -9,7 +9,9 @@
     "start": "node dist/index.js",
     "sync": "node dist/index.js sync",
     "auth": "node dist/index.js auth",
-    "compute-stats": "node dist/index.js compute-stats"
+    "compute-stats": "node dist/index.js compute-stats",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [],
   "author": "",
@@ -24,6 +26,7 @@
     "@types/node": "^25.2.3",
     "terser": "^5.46.0",
     "typescript": "^5.9.3",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "vitest": "^4.0.18"
   }
 }
