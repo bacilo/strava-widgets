@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateDailyStreaks, calculateWeeklyConsistency } from './streak-utils';
+import { calculateDailyStreaks, calculateWeeklyConsistency } from './streak-utils.js';
 
 describe('calculateDailyStreaks', () => {
   it('returns zeros for empty array', () => {
