@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-13)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 3 complete - Advanced Analytics & Widget Library (all 4 plans complete)
+**Current focus:** Phase 4 - Automation & Deployment (plan 1 of 1 complete)
 
 ## Current Position
 
-Phase: 3 of 4 (Advanced Analytics & Widget Library)
-Plan: 4 of 4 in current phase (PHASE COMPLETE)
-Status: Phase 03 complete, ready for verification
-Last activity: 2026-02-14 — Completed 03-04 streak widget, test page, visual verification (human approved)
+Phase: 4 of 4 (Automation & Deployment)
+Plan: 1 of 1 in current phase (PHASE COMPLETE)
+Status: Phase 04 complete, project feature-complete
+Last activity: 2026-02-14 — Completed 04-01 automation pipeline, CI/CD workflow, GitHub Pages deployment
 
-Progress: [████████░░] 80%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8
-- Average duration: 3.8 min
-- Total execution time: 0.50 hours
+- Total plans completed: 9
+- Average duration: 4.0 min
+- Total execution time: 0.60 hours
 
 **By Phase:**
 
@@ -30,10 +30,11 @@ Progress: [████████░░] 80%
 | 01 Data Foundation | 2 | 4 min | 2 min |
 | 02 Core Analytics & First Widget | 2 | 8 min | 4 min |
 | 03 Advanced Analytics & Widget Library | 4 | 20 min | 5 min |
+| 04 Automation & Deployment | 1 | 8 min | 8 min |
 
 **Recent Trend:**
-- Last 5 plans: 03-01 (3.5 min), 03-02 (3 min), 03-03 (5.6 min), 03-04 (8 min)
-- Trend: Increasing slightly (widget plans have more complexity)
+- Last 5 plans: 03-02 (3 min), 03-03 (5.6 min), 03-04 (8 min), 04-01 (8 min)
+- Trend: Stabilized at ~8min for complex plans with checkpoints
 
 *Updated after each plan completion*
 
@@ -80,6 +81,12 @@ Recent decisions affecting current work:
 - 03-04: skipAutoFetch for widgets with multi-source data fetching (prevents double render)
 - 03-04: Radar chart with 4 time-of-day segments (Morning/Afternoon/Evening/Night)
 - 03-04: Current streak shows dash when 0 (no active streak is expected behavior)
+- 04-01: CI token bootstrap from STRAVA_REFRESH_TOKEN secret only on first run, subsequent runs use committed tokens.json
+- 04-01: Git-tracked activity data (data/activities/, data/stats/) for incremental sync, exclude only data/tokens.json
+- 04-01: continue-on-error on fetch step allows widget rebuild from cached data if Strava API fails
+- 04-01: Node 22 LTS in CI for stability (not Node 24 current/unstable)
+- 04-01: npm ci for deterministic CI builds from package-lock.json
+- 04-01: [skip ci] in auto-commit message prevents recursive workflow triggers
 
 ### Pending Todos
 
@@ -92,5 +99,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-14 (plan execution)
-Stopped at: Completed 03-04-PLAN.md (streak widget, test page, visual verification) - PHASE 03 COMPLETE
+Stopped at: Completed 04-01-PLAN.md (automation pipeline, CI/CD, GitHub Pages) - PHASE 04 COMPLETE - PROJECT FEATURE-COMPLETE
 Resume file: None
