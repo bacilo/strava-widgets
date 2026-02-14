@@ -81,10 +81,10 @@ Plans:
   3. Generated widgets are committed to repository and deployed to GitHub Pages
   4. Workflow handles errors gracefully with notifications on failure
   5. User can manually trigger workflow for immediate refresh when needed
-**Plans**: TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] 04-01: TBD during phase planning
+- [ ] 04-01-PLAN.md — GitHub Actions daily-refresh workflow, CI token management, GitHub Pages deployment
 
 ## Progress
 
