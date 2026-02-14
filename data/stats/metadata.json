@@ -1,0 +1,15 @@
+{
+  "generatedAt": "2026-02-14T10:40:31.029Z",
+  "activityCount": 1808,
+  "dateRange": {
+    "from": "2011-08-16T18:55:32Z",
+    "to": "2026-02-02T06:29:04Z"
+  },
+  "files": [
+    "weekly-distance.json",
+    "all-time-totals.json",
+    "monthly-stats.json",
+    "yearly-stats.json",
+    "metadata.json"
+  ]
+}

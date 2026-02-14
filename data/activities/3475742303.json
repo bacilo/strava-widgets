@@ -1,0 +1,62 @@
+{
+  "resource_state": 2,
+  "athlete": {
+    "id": 23558655,
+    "resource_state": 1
+  },
+  "name": "Frederiksberg - Bellahøj",
+  "distance": 5081.5,
+  "moving_time": 1505,
+  "elapsed_time": 1505,
+  "total_elevation_gain": 19.4,
+  "type": "Run",
+  "sport_type": "Run",
+  "workout_type": null,
+  "id": 3475742303,
+  "start_date": "2017-03-27T04:16:10Z",
+  "start_date_local": "2017-03-27T06:16:10Z",
+  "timezone": "(GMT+01:00) Europe/Copenhagen",
+  "utc_offset": 7200,
+  "location_city": null,
+  "location_state": null,
+  "location_country": null,
+  "achievement_count": 1,
+  "kudos_count": 0,
+  "comment_count": 0,
+  "athlete_count": 1,
+  "photo_count": 0,
+  "map": {
+    "id": "a3475742303",
+    "summary_polyline": "{q{rIqepkAQh@Yl@M^I^G`@[n@K\\[v@a@p@{@pCk@tCc@tCUfDOSM\\YU?f@YbBk@hC_@fCIXQfAI^e@tAo@|CM^QTg@Ws@s@g@[eAsASQUIe@c@a@k@SQQRUK]i@SKONi@fC[fBWbAQ|@IZ[r@G`A[~AW|@QX[x@U~@]f@Yr@Uv@g@fAIZ?f@d@dGTbBr@bDVp@T~@d@fCL`@^l@J^h@nAXz@T~@RhALVRNRFPVh@pAj@dAZz@Zr@Jb@\\j@N\\P~@`@f@l@jAF\\PZf@vALVTz@PTj@vAVz@h@xAZr@ZfCNXXx@Z`B`@dBH`A@^l@|CHZJVH\\D~@ClA@`@\\`DRlCR`ADfEZtGBpB^rFHrBL`AV|AVbANnAP`AL~@JVPLR?N_@RWJWTMNSp@gAN[x@gDD_@@uBF_AJ}COWSDUASKUPMRWAQGOO]m@_@e@c@gAe@_BWyAK[M}@GkCUkBGeAM_Aa@sEAeAIc@MgBEkCE_@_@{Bq@mBU}@Ge@IeAI[O_AGaAOeA_@qASYAg@LaA\\{AJiA@mABa@d@}A`@eCJ[VmCAa@QSKYQSSIWCqA}@SCUQg@Uo@m@UMs@u@Ie@h@_Cj@qBRkA",
+    "resource_state": 2
+  },
+  "trainer": false,
+  "commute": false,
+  "manual": false,
+  "private": false,
+  "visibility": "everyone",
+  "flagged": false,
+  "gear_id": null,
+  "start_latlng": [
+    55.69,
+    12.54
+  ],
+  "end_latlng": [
+    55.69,
+    12.52
+  ],
+  "average_speed": 3.376,
+  "max_speed": 7.8,
+  "has_heartrate": false,
+  "heartrate_opt_out": false,
+  "display_hide_heartrate_option": false,
+  "elev_high": 18,
+  "elev_low": 8.1,
+  "upload_id": 3711990565,
+  "upload_id_str": "3711990565",
+  "external_id": "activity.fit",
+  "from_accepted_tag": false,
+  "pr_count": 1,
+  "total_photo_count": 0,
+  "has_kudoed": false
+}

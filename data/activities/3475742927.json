@@ -1,0 +1,62 @@
+{
+  "resource_state": 2,
+  "athlete": {
+    "id": 23558655,
+    "resource_state": 1
+  },
+  "name": "Frederiksberg - Brønshøj-Husum",
+  "distance": 12902.6,
+  "moving_time": 4453,
+  "elapsed_time": 4477,
+  "total_elevation_gain": 71.2,
+  "type": "Run",
+  "sport_type": "Run",
+  "workout_type": null,
+  "id": 3475742927,
+  "start_date": "2017-01-31T08:52:40Z",
+  "start_date_local": "2017-01-31T09:52:40Z",
+  "timezone": "(GMT+01:00) Europe/Copenhagen",
+  "utc_offset": 3600,
+  "location_city": null,
+  "location_state": null,
+  "location_country": null,
+  "achievement_count": 1,
+  "kudos_count": 0,
+  "comment_count": 0,
+  "athlete_count": 1,
+  "photo_count": 0,
+  "map": {
+    "id": "a3475742927",
+    "summary_polyline": "yr{rIkfpkAHZG`@iBbFU|@s@hBi@lAq@jEe@|Ae@pCs@xBMdA_AvC]hC]zA{@lF[v@SLQKy@mBi@We@s@Ws@e@c@oAUKY{AcAU?MVYbBc@h@OlBUTUB_@t@Gf@BnC[r@c@`@e@rDc@l@Af@_AnCgBtDc@xAyBvD}@l@MXUD}BzDcBxBy@`@_@b@g@AkAd@IXIdAQVcANQXG`AYx@O|@QVONe@Qu@j@STY`Ba@`@Gb@MRSHKXEd@OVgAdAyAzBc@d@UFaA|AqBxA}@Ra@\\yCrAcBd@cB~@y@V[r@QOSJ]j@g@R_@l@QHE`@Db@Eb@]t@MjAY`As@dAEhAM^MXe@d@KX@rAYnCQbAu@nCM`Ac@pAG\\?bAM`@cAhA_CxBkEbGSLwBrCeAdAaBhCeAdAy@`BoBzAu@|@_ArAIZy@z@KXu@h@iFzG}@dBcAzDu@nBS~@_BxDb@|ApAbGl@fE\\zA\\|@f@~BZ~@N~@v@lB|AhF^h@r@r@@rBE^g@|BYdCLTtBhARG\\_CFkAXy@HiAH]RAjDlEtBjEnAtBC`@QT}@QQRIbARLA`@QDoAc@{Au@}AgAoAi@a@i@SAI\\CnAMfAe@zAQpCIZSpB[fBYv@@fAEf@}AzGClBGb@{@pCe@bCSpB]~@UhBMXq@q@oA}B`@}BJoAP_An@mBFe@V{@TkBVy@PeBZu@`@cCDgBI]PUf@ENaAHmBj@{B^gCX}@X_BAqB{@UIaAg@oAaBy@iA}@?iAPuD~@_DFc@Aa@QmCo@kFo@cDa@qCsBeJAcAr@oAd@sArBmHf@oA~AkCb@c@tAqB\\u@rBuBp@cAdAgAZs@rCuBlAqBpAgBRMzAaCvBgCb@[vFmH~A_Cb@_@Zy@h@kD`BuG`BiIv@qCn@_DZk@LgAd@oAp@m@^q@jAi@bBa@`GcCjAcAfBw@jB{A~F_IbAqBtCiCj@eAbBqB^u@lAsArCiEd@WpA{BdBiBp@_AZq@b@Y~@kA~@aBj@sB`@k@v@oB^k@jCiHZcC`@q@p@aCHc@?cAl@yDT_AZu@NUh@RzB|BH\\lA~@`@f@j@VZt@v@p@d@KbA{EFiBZq@`@yAd@yB\\wDPUT_ARiCf@oAnAuFnCsG",
+    "resource_state": 2
+  },
+  "trainer": false,
+  "commute": false,
+  "manual": false,
+  "private": false,
+  "visibility": "everyone",
+  "flagged": false,
+  "gear_id": null,
+  "start_latlng": [
+    55.69,
+    12.54
+  ],
+  "end_latlng": [
+    55.69,
+    12.54
+  ],
+  "average_speed": 2.898,
+  "max_speed": 4.4,
+  "has_heartrate": false,
+  "heartrate_opt_out": false,
+  "display_hide_heartrate_option": false,
+  "elev_high": 28.3,
+  "elev_low": 8.9,
+  "upload_id": 3711991165,
+  "upload_id_str": "3711991165",
+  "external_id": "activity.fit",
+  "from_accepted_tag": false,
+  "pr_count": 0,
+  "total_photo_count": 0,
+  "has_kudoed": false
+}

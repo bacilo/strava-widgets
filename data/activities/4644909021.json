@@ -1,0 +1,63 @@
+{
+  "resource_state": 2,
+  "athlete": {
+    "id": 23558655,
+    "resource_state": 1
+  },
+  "name": "Morning Run",
+  "distance": 10379.1,
+  "moving_time": 3630,
+  "elapsed_time": 3728,
+  "total_elevation_gain": 17.4,
+  "type": "Run",
+  "sport_type": "Run",
+  "workout_type": 0,
+  "device_name": "Strava App",
+  "id": 4644909021,
+  "start_date": "2021-01-19T05:47:55Z",
+  "start_date_local": "2021-01-19T06:47:55Z",
+  "timezone": "(GMT+01:00) Europe/Copenhagen",
+  "utc_offset": 3600,
+  "location_city": null,
+  "location_state": null,
+  "location_country": null,
+  "achievement_count": 4,
+  "kudos_count": 1,
+  "comment_count": 0,
+  "athlete_count": 1,
+  "photo_count": 0,
+  "map": {
+    "id": "a4644909021",
+    "summary_polyline": "ij~rI{}nkAzAbAZm@j@gCPwERsB@qBIq@?y@Xm@XgCb@uA^mCRE\\kBPBTuAn@aBZe@b@cB\\g@XQFAHXL_@^]F?Zz@VNx@Nx@GrBl@rAUjBUr@DrA@l@WhAQnGa@TOt@Eh@VfAKp@c@JDnCiBb@Ex@u@dAS~@o@\\c@fAY`AeABWT]ZIZN@YHGn@BPMf@GnAq@v@Mn@q@hAX\\A^Kr@e@^?l@_@vAg@~@KNBfAnAl@Op@Pd@Tj@r@`@DZ`@v@d@Jh@d@tA~AzBdApAPt@RTJl@v@jCZh@Zg@f@oA^kBd@{Az@mF@cAWe@c@TW@G_BGU_@]a@Iq@c@[aAi@m@[LgABOE?YZaCLa@VSN_@JcB@aF^aCDiAX_CA_@Je@D_AHe@b@kAf@}DHoAXcBZw@PoABgDLkFD]XcAHwAA}@IkAM]o@s@c@@MQy@Q_EeDQ[gBwAuAy@Yc@iB{Ai@q@u@e@y@gAwBgB_BsBGuAQg@j@yB\\cA?Kl@oBXu@JM`@ITJnCpBp@|@~ArAjApAj@X\\ZZf@|AbBhCjBjB`C`@Vb@Gj@p@Eb@FPHF|CPj@ZjBNrDdAjBVl@ChBp@`BHdDx@lF^jAZNj@?~@n@bBBb@Rh@Nx@Bb@TvBD`BNp@LN`CkAJo@LU?e@?^GXPd@HMX^Nd@f@IRe@T{@RwBXaAd@i@z@[XZPCj@}@\\OP\\LDFTNLj@fAHZ@VXx@Am@\\oAr@mAf@kAZLZ\\b@dAR?TQPe@r@kAb@g@JGJ^CBHA~@sAjAoBf@k@fAOZn@~@pCj@~@VRv@S^CbAq@Ra@Z?f@iBv@iAbAyBn@eA|AwADMFEDUD?Ng@Cu@f@]Xg@H_@IiACkAH]f@_APKl@oA\\DHUZQIo@Dq@P{@X{@PATWPo@AiAEg@FaBr@_DjAcHAYOw@BOVa@DCDLBG?e@XyA@ME]|@qBVaB`@_BTQV{@Nu@D{@EIn@I]u@^q@PcBRy@HwBXoAHaBQiBcB{@MQ@a@XiBTyBDkBT}AFyA|@eFFqA@_AJi@RwCJ}C?_CDQRUTw@Ou@g@k@e@gCg@}AToCd@mAHc@Gq@a@cAO{@NgB@qAEQ^gBF}@Gk@",
+    "resource_state": 2
+  },
+  "trainer": false,
+  "commute": false,
+  "manual": false,
+  "private": false,
+  "visibility": "everyone",
+  "flagged": false,
+  "gear_id": "g7431700",
+  "start_latlng": [
+    55.7,
+    12.53
+  ],
+  "end_latlng": [
+    55.66,
+    12.59
+  ],
+  "average_speed": 2.859,
+  "max_speed": 6.4,
+  "has_heartrate": false,
+  "heartrate_opt_out": false,
+  "display_hide_heartrate_option": false,
+  "elev_high": 14.6,
+  "elev_low": 2.2,
+  "upload_id": 4960600302,
+  "upload_id_str": "4960600302",
+  "external_id": "FB01EFEC-4284-4279-A0B1-FD14F70BB2A8-activity.fit",
+  "from_accepted_tag": false,
+  "pr_count": 1,
+  "total_photo_count": 0,
+  "has_kudoed": false
+}

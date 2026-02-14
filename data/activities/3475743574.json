@@ -1,0 +1,62 @@
+{
+  "resource_state": 2,
+  "athlete": {
+    "id": 23558655,
+    "resource_state": 1
+  },
+  "name": "Elite Hotel Stockholm Plaza - Vasaparken",
+  "distance": 5528.3,
+  "moving_time": 2123,
+  "elapsed_time": 2147,
+  "total_elevation_gain": 49.2,
+  "type": "Run",
+  "sport_type": "Run",
+  "workout_type": null,
+  "id": 3475743574,
+  "start_date": "2015-03-19T23:10:03Z",
+  "start_date_local": "2015-03-20T00:10:03Z",
+  "timezone": "(GMT+01:00) Europe/Stockholm",
+  "utc_offset": 3600,
+  "location_city": null,
+  "location_state": null,
+  "location_country": null,
+  "achievement_count": 0,
+  "kudos_count": 0,
+  "comment_count": 0,
+  "athlete_count": 1,
+  "photo_count": 0,
+  "map": {
+    "id": "a3475743574",
+    "summary_polyline": "yidiJgbhmBBZCn@[^O|ADh@Jb@DdARfA@pANjABb@Gb@Bh@LRR?TGT?V@PHLRF\\BdANNPBPRFZ?tAG^Fb@A`@\\~APVNFJZLdAJXFd@Ed@\\f@J^L|@LZNxBRdAJVAd@@d@Sz@H\\t@CPEPKN[PSTBPNNVF`@DdAHd@BhAF`@P`Al@lBm@`ARdAVv@L\\f@\\H\\LjAAh@B^d@hCX~@XnDb@~Bb@dDj@vDLlAFfBIjAKbCBf@LX@b@YvCAf@]zAE^C^CtAUn@AhAMRUCWMa@_@O@QAc@LQEc@QQF}ByAe@Me@]_@_@c@WOSq@k@SIc@][k@OOMSg@cAM{@m@yBQ}@Ce@WgCOYe@TOJc@^[b@QNk@|@e@Ne@\\]p@a@ZSFOPe@ZOPa@J]b@Jr@LRJnBE`@I`@MP[n@kAZGpAl@xBJ~@JZF\\C\\SFYj@Gd@?^Q?MJeB|AMQi@mBOMSFMPMW]aBOaAe@kBWqCe@qAI]s@yA@g@IiA[wAS}AEcAMw@KgAKgBUeB_@{BAa@Gc@]k@U}@OYw@oBG]GgA?c@WaBI_@[gCWw@Ce@AgAI_AKa@[{@[{Au@oCAeAYiBO[_@wAQy@@g@?g@GgA_@}AGa@C_@KaAIk@M[WaBh@q@RAPUNkADcAJaAP@HXZgBLSRQZk@LOl@oAJYTaAV_Ah@sAPy@`@{AL[NQh@oB^m@JW~@sANQRANQZeBNONy@d@kAt@oCb@NRPNVv@XPJPDn@j@PA\\b@N?NIPCNF^_@b@K`@Q`@?PBNKP?`@PNG`@TPBPENJd@@NGNKLT@`@JXb@QTw@JWn@CLTJYPB",
+    "resource_state": 2
+  },
+  "trainer": false,
+  "commute": false,
+  "manual": false,
+  "private": false,
+  "visibility": "everyone",
+  "flagged": false,
+  "gear_id": null,
+  "start_latlng": [
+    59.34,
+    18.07
+  ],
+  "end_latlng": [
+    59.34,
+    18.07
+  ],
+  "average_speed": 2.604,
+  "max_speed": 5.2,
+  "has_heartrate": false,
+  "heartrate_opt_out": false,
+  "display_hide_heartrate_option": false,
+  "elev_high": 39,
+  "elev_low": 16.8,
+  "upload_id": 3711991896,
+  "upload_id_str": "3711991896",
+  "external_id": "activity.fit",
+  "from_accepted_tag": false,
+  "pr_count": 0,
+  "total_photo_count": 0,
+  "has_kudoed": false
+}

@@ -1,0 +1,62 @@
+{
+  "resource_state": 2,
+  "athlete": {
+    "id": 23558655,
+    "resource_state": 1
+  },
+  "name": "Hagalund - Stockholm",
+  "distance": 4670.7,
+  "moving_time": 1719,
+  "elapsed_time": 2102,
+  "total_elevation_gain": 42.2,
+  "type": "Run",
+  "sport_type": "Run",
+  "workout_type": null,
+  "id": 3475743837,
+  "start_date": "2011-08-18T18:06:06Z",
+  "start_date_local": "2011-08-18T20:06:06Z",
+  "timezone": "(GMT+01:00) Europe/Stockholm",
+  "utc_offset": 7200,
+  "location_city": null,
+  "location_state": null,
+  "location_country": null,
+  "achievement_count": 0,
+  "kudos_count": 0,
+  "comment_count": 0,
+  "athlete_count": 1,
+  "photo_count": 0,
+  "map": {
+    "id": "a3475743837",
+    "summary_polyline": "exgiJew}lB^Kd@Gl@}@PILe@NSVs@H]Dg@Hc@RKNCPDNAH[\\w@R}@Vs@NOJ]X{@LWTeALKLYPKb@sAH_@Zu@d@}A\\e@LYDq@j@qBLoBLULMNWPQX{@LUVcAPW@_@R{@POXwAJ[Vq@j@kAF]LSJkAR{@PQPYN_AJ[RUPO`@DLeAN[TaATCRKb@]PW\\o@H]PQRIJUJ_@F]To@PQ`@IP?RKPQD_@JWPSb@uAPOt@}AJ_@^s@`@c@Xo@Tw@A_@J_B?a@LQH]^WJ_@B_@PANE@a@LSPGZa@L]NWPDXBPIT@LOTMRy@LSLOJ_@NI\\i@NIPQLUR@h@Kb@HNCNSAg@BmCH]Fa@BqAOaAOYQoBHe@?a@H_A@g@Gg@PE@e@K[NKJUKa@Ge@B_@Ia@GeAW}BJe@HU@gACa@Ba@C_@AmACe@G[Fi@GwCKgAIcBOWCe@@g@Fa@LUb@ORC^w@^INQE_@Ca@K_@Ca@?e@C_@DeAIYOM[k@Km@HgAI[SGa@qBF[L_@[_AKi@M]G_@Ga@AqCOe@Ym@MiAW{@@a@Ba@Wo@SW?_@_@kCC]OQIe@VBJ^NPPGPANOJUNQb@sA?i@F_@Ec@Sy@Ak@G[Ea@Y}@OoBMc@Ha@PcBNIPUb@WT?L[H]NKGa@Yo@a@mBCu@@_@HYVOb@OPC^QAs@Da@Fa@?a@H_@c@mBLe@BeA^{AJaANKVFZVTDNSJWPOv@e@L_@F_@R@PEVOTWLWNEJWPMPHNIPQNKXi@f@c@NBd@C^Sn@QROQCXU^e@^qAvDHRANMlA^XUEa@@yAGo@",
+    "resource_state": 2
+  },
+  "trainer": false,
+  "commute": false,
+  "manual": false,
+  "private": false,
+  "visibility": "everyone",
+  "flagged": false,
+  "gear_id": null,
+  "start_latlng": [
+    59.36,
+    18.02
+  ],
+  "end_latlng": [
+    59.34,
+    18.07
+  ],
+  "average_speed": 2.717,
+  "max_speed": 7.7,
+  "has_heartrate": false,
+  "heartrate_opt_out": false,
+  "display_hide_heartrate_option": false,
+  "elev_high": 41,
+  "elev_low": 17.7,
+  "upload_id": 3711992169,
+  "upload_id_str": "3711992169",
+  "external_id": "activity.fit",
+  "from_accepted_tag": false,
+  "pr_count": 0,
+  "total_photo_count": 0,
+  "has_kudoed": false
+}

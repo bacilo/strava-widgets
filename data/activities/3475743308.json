@@ -1,0 +1,62 @@
+{
+  "resource_state": 2,
+  "athlete": {
+    "id": 23558655,
+    "resource_state": 1
+  },
+  "name": "Frederiksberg",
+  "distance": 3274.2,
+  "moving_time": 1105,
+  "elapsed_time": 1105,
+  "total_elevation_gain": 12,
+  "type": "Run",
+  "sport_type": "Run",
+  "workout_type": null,
+  "id": 3475743308,
+  "start_date": "2016-10-28T04:59:11Z",
+  "start_date_local": "2016-10-28T06:59:11Z",
+  "timezone": "(GMT+01:00) Europe/Copenhagen",
+  "utc_offset": 7200,
+  "location_city": null,
+  "location_state": null,
+  "location_country": null,
+  "achievement_count": 0,
+  "kudos_count": 0,
+  "comment_count": 0,
+  "athlete_count": 1,
+  "photo_count": 0,
+  "map": {
+    "id": "a3475743308",
+    "summary_polyline": "ar{rIcdpkAE^K^C^F^LVp@fAEb@_@|ASzAUbAEb@?d@k@|BYfBK^WhBk@bCI^MVk@Oe@_@i@MQAUKOOOXM^E`@_@z@e@~AEhA?`@Cb@]|AGb@K^OZKZ_@|AUASOi@Qw@e@iAiAq@eASMUGSOiAiAa@k@QQE]OSIXDf@@`@KZIdAm@dCC^Q`AK\\]j@Kb@AfAKXObAo@pAWt@G^W`As@dAQbAy@fB@d@D\\L`@LvBLfA^jB`@zAF`@n@~Bn@xC`@|AL~@l@lAL^\\v@V|@LVb@`@j@jA^n@d@pAV|@Xv@L\\\\l@VbALVRR^l@r@lB\\r@\\jCPVPz@JX\\r@PQJ_@Zo@p@y@NWP_ABa@V}Al@{BNuCFg@t@iEHgAL_AVeAXoCF_@PiBF_@?e@V_B@eAF_@Zo@l@kEJa@LWJ[D]JsBFa@L[CeAZy@Ba@AC",
+    "resource_state": 2
+  },
+  "trainer": false,
+  "commute": false,
+  "manual": false,
+  "private": false,
+  "visibility": "everyone",
+  "flagged": false,
+  "gear_id": null,
+  "start_latlng": [
+    55.69,
+    12.54
+  ],
+  "end_latlng": [
+    55.69,
+    12.53
+  ],
+  "average_speed": 2.963,
+  "max_speed": 4.5,
+  "has_heartrate": false,
+  "heartrate_opt_out": false,
+  "display_hide_heartrate_option": false,
+  "elev_high": 15.2,
+  "elev_low": 8.1,
+  "upload_id": 3711991619,
+  "upload_id_str": "3711991619",
+  "external_id": "activity.fit",
+  "from_accepted_tag": false,
+  "pr_count": 0,
+  "total_photo_count": 0,
+  "has_kudoed": false
+}

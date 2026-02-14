@@ -1,0 +1,63 @@
+{
+  "resource_state": 2,
+  "athlete": {
+    "id": 23558655,
+    "resource_state": 1
+  },
+  "name": "Morning Run",
+  "distance": 10824.3,
+  "moving_time": 3944,
+  "elapsed_time": 4007,
+  "total_elevation_gain": 42.2,
+  "type": "Run",
+  "sport_type": "Run",
+  "workout_type": 0,
+  "device_name": "Strava App",
+  "id": 12033241350,
+  "start_date": "2024-08-01T06:04:38Z",
+  "start_date_local": "2024-08-01T08:04:38Z",
+  "timezone": "(GMT+01:00) Europe/Copenhagen",
+  "utc_offset": 7200,
+  "location_city": null,
+  "location_state": null,
+  "location_country": null,
+  "achievement_count": 0,
+  "kudos_count": 2,
+  "comment_count": 0,
+  "athlete_count": 1,
+  "photo_count": 0,
+  "map": {
+    "id": "a12033241350",
+    "summary_polyline": "uq~rImnnkAw@_AOCKOCs@UQKMES?UKq@O]SZc@VYHSE_@d@gC`@}FMmBHs@OmAJuAOUHEIUTU?MSOCMHKGWDIDGPGUQ@EJc@[U?CIIFMMGDKXMJq@@m@UIHWGc@V[@aB?KKIP[FoBOW@EFi@CsB^SZcARKTLrBSdA]Mg@m@oATOFOTE^Qf@QNCPE@G^ODGNwAXwCr@EFBrAF\\E\\D^HnIDj@@lEH~DDRCpAMl@GLEAKb@o@\\_@t@s@Ju@Zo@We@oBa@wB?OIUy@gFSiBY}AS_Bo@sC[e@Sq@QKGa@g@cAi@w@a@]cA@ULm@lAi@|BOjAFv@ThAz@jBZhBH|A[~BWn@cA|A{@`A]LMVmAbAgCrAGLUNCJFtBKzM[tXR~AFL\\@ZR\\Ar@NFEBHRJp@L`Br@j@h@bAd@dAv@DFAHDDNATLVVPd@F?K`AEHc@~BSjBMpA?l@Id@IvBCxCMpB@bDJdAFPBf@\\xB`@`F@rAC@CPNjAAz@C`@EDBhAo@nG?ZK\\Eh@KZ@Nm@rBG|@]fA?d@FPj@v@?J\\\\pAjBHTlAvA`A|A`BzB~@pBh@|@p@jBV\\Ld@n@~DJXj@hDj@fCRZJh@JTx@rCp@jCp@jBXjAVh@PVXNn@\\`AT|@r@Z|@^h@~@`ALDbAlAtApCHXl@bAdAvAr@r@bD`ABPrA\\dBIdAi@d@Lz@j@b@G`@UVo@Hk@CwBIy@Qq@m@aB}AwAwBqA_Aw@a@m@c@qA]aCEeCDoCXmE?uAKiAQq@e@{@eBcAu@aAs@iBO_AEs@^cEb@eCZ_AfAyBNc@ZgBFwADS\\Kl@FhCIdBYFW?oIJOREJYRoAZyDbAs@FAb@TPe@RSH]NWHg@SwAE{CKgCEIKgBOu@?_@WaBUsCQiA@KdAcF@M`A{Dv@sDFKL{@f@gCNe@Hq@h@eBVqA`@sA[e@@m@Ve@D_@Ra@PGLg@?i@KaAXaCD_AJ[AaAJg@CGZ[Ec@?UFIEc@@{@F_A@gADSCQHWHoAHQ@s@N{AEi@B]b@uABwCJw@?ONo@?MGOT_@ZcA?Wv@cBp@gCXg@Hk@LSL_@Nq@NY@WJ_@j@mAHI@e@HS\\CLSH]Ze@PcALME@JWIDALFCCGBCAEBLGITqA~@}BEa@KUP[",
+    "resource_state": 2
+  },
+  "trainer": false,
+  "commute": false,
+  "manual": false,
+  "private": false,
+  "visibility": "everyone",
+  "flagged": false,
+  "gear_id": "g16649854",
+  "start_latlng": [
+    55.7,
+    12.53
+  ],
+  "end_latlng": [
+    55.7,
+    12.53
+  ],
+  "average_speed": 2.744,
+  "max_speed": 4.408,
+  "has_heartrate": false,
+  "heartrate_opt_out": false,
+  "display_hide_heartrate_option": false,
+  "elev_high": 31.6,
+  "elev_low": 12.1,
+  "upload_id": 12827652765,
+  "upload_id_str": "12827652765",
+  "external_id": "36B8E015-267F-473B-A540-908CB5B8F3D9-activity.fit",
+  "from_accepted_tag": false,
+  "pr_count": 0,
+  "total_photo_count": 0,
+  "has_kudoed": false
+}

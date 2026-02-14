@@ -1,0 +1,62 @@
+{
+  "resource_state": 2,
+  "athlete": {
+    "id": 23558655,
+    "resource_state": 1
+  },
+  "name": "Elite Hotel Stockholm Plaza - Lappkärrsberget",
+  "distance": 7787.5,
+  "moving_time": 3200,
+  "elapsed_time": 3409,
+  "total_elevation_gain": 71.9,
+  "type": "Run",
+  "sport_type": "Run",
+  "workout_type": null,
+  "id": 3475743844,
+  "start_date": "2013-06-27T09:02:56Z",
+  "start_date_local": "2013-06-27T11:02:56Z",
+  "timezone": "(GMT+01:00) Europe/Stockholm",
+  "utc_offset": 7200,
+  "location_city": null,
+  "location_state": null,
+  "location_country": null,
+  "achievement_count": 0,
+  "kudos_count": 0,
+  "comment_count": 0,
+  "athlete_count": 1,
+  "photo_count": 0,
+  "map": {
+    "id": "a3475743844",
+    "summary_polyline": "sldiJ}ihmBF\\SEu@XQNgATSMY?e@HQESH{ABgAMs@JQCkC_BUG]i@UQiAq@OSQ?I[QKQWQCoAq@MYWCOM]k@}@o@c@U]iBC_@YkAc@J}@?UUKSIeAJkAEqBFa@NU^}Ap@aBB_@?eAM[C_@@g@VeBKiABiAXeBG_@LNODOSg@Yq@y@OKs@aAc@_@u@iBI]QuBQ_AMUUEOWGg@M][kBJYS@q@ZuAdAc@N_@\\[^aAx@MHmAPu@`ASLS@MNK\\MRQLCd@G\\QBu@^QGOWKWGc@e@kA{@cBG]Ce@Ka@A]MSOqAm@}BcAg@y@EqB{@c@s@c@WQHOPMRWv@E^AfAM^Y`BOLK~@[|AE`AMhAYp@Eb@@h@MfAWp@I`@A`@FdATp@d@bAn@p@PBLNXp@E^a@nAMTEb@IZQJYr@MLa@VWl@Gb@AfAOfABhACrB?d@`@x@J^@^KnAAlAK`@OTEnAI^QlBBdAGfBu@`Ae@@a@X]n@g@|Ba@|By@nDK\\I`@ObBMNc@T}@~AKVe@vBEd@K\\?d@I|@I`@_AlBy@lDWr@OP]j@QP[p@QPs@Z]f@S~@e@TQVg@hAe@|@OHSEs@j@QXy@t@MTSNM^OhAM\\q@x@c@^c@Nc@QSA[l@Gd@FnB?h@D\\\\Xl@bAn@x@`@JfAJbAc@N?`@c@~AeAjAa@jDDz@J|A~@fA`A^f@d@RXn@`@d@Xj@r@b@bA~@j@hA`@TJXl@h@fA|A`@RPA^YnAoAPIPU`@UZm@d@a@b@eAd@yBJWPINFNVJ^Fd@?f@H`@NRb@ILS|@I`@Y@e@JU`@_@j@aATu@l@s@f@aAdAm@NWdAOTq@`@U\\_@r@MPSHWv@iA`@Y?a@WCa@u@Ak@a@uBZ}@dA_CfFaDLYbAy@h@_Ab@i@zEoBb@Wb@?^TbAPLXZd@^R`@UbAoB\\g@HWPKLNNQNAd@aAn@k@^g@F[^]NSr@KZo@PBNI`@w@NIXm@N}@LUNMHYLULQl@g@JUn@w@Xk@n@m@JUTy@^e@^OPAn@c@JWNMLULKd@GLRfBWLQNBKXa@JJW",
+    "resource_state": 2
+  },
+  "trainer": false,
+  "commute": false,
+  "manual": false,
+  "private": false,
+  "visibility": "everyone",
+  "flagged": false,
+  "gear_id": null,
+  "start_latlng": [
+    59.34,
+    18.07
+  ],
+  "end_latlng": [
+    59.34,
+    18.07
+  ],
+  "average_speed": 2.434,
+  "max_speed": 7,
+  "has_heartrate": false,
+  "heartrate_opt_out": false,
+  "display_hide_heartrate_option": false,
+  "elev_high": 36.2,
+  "elev_low": 10.2,
+  "upload_id": 3711992125,
+  "upload_id_str": "3711992125",
+  "external_id": "activity.fit",
+  "from_accepted_tag": false,
+  "pr_count": 0,
+  "total_photo_count": 0,
+  "has_kudoed": false
+}

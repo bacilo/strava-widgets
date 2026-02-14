@@ -1,0 +1,62 @@
+{
+  "resource_state": 2,
+  "athlete": {
+    "id": 23558655,
+    "resource_state": 1
+  },
+  "name": "Bellahøj - Virum",
+  "distance": 24007.7,
+  "moving_time": 7710,
+  "elapsed_time": 7710,
+  "total_elevation_gain": 128.7,
+  "type": "Run",
+  "sport_type": "Run",
+  "workout_type": null,
+  "id": 3475711501,
+  "start_date": "2020-04-26T12:22:25Z",
+  "start_date_local": "2020-04-26T14:22:25Z",
+  "timezone": "(GMT+01:00) Europe/Copenhagen",
+  "utc_offset": 7200,
+  "location_city": null,
+  "location_state": null,
+  "location_country": null,
+  "achievement_count": 18,
+  "kudos_count": 0,
+  "comment_count": 0,
+  "athlete_count": 1,
+  "photo_count": 0,
+  "map": {
+    "id": "a3475711501",
+    "summary_polyline": "aj|rIqekkAW_@aB`CeBhEa@~BqDxFG~@cChFsB~C{@bCiAjAa@zA_AdAc@JeAkA[q@cA[eCgBaJ}KqBqBiFeHeB_AaD{@mFwB_EeCgBM{@XoA_@e@RmA~@s@w@e@@cAhBS|@sArCqBrLa@vA]h@uA`GeApAwBbEyA`BaCtAoAzBgDhDsBnCiG~FmAf@qAnBqDnD}@zAuFzDgFz@iBbCDbAl@xBFfAcAdFk@jAeAnAcBbFkG`KcD~GeDlGeFhMeA~DoD`ImAtBiCzH_CnJiErHaAhCkChJu@fAcDfIqBrCwAhEcA|Ag@lAiAxDa@pCg@jAo@|CoBzEoAjByCnHcCjDaBhD_C`DiAnCy@`BoDnFiF~EmDfBs@lBm@x@sAf@iCjBIf@_@t@u@^q@~@cCxGsCrFqCjCqAb@{@Ac@xAsAfCcGtC}AbB}GdFgDfEkAf@yEjDcEnBqDdCiErAiE|CqKhE}AzAyBhA_EhEy@l@eAjAoApBg@lA_DfEiB~AoAhBUbAuBnCe@vAgAdG_C`I}@lBkAfDqD|E}@jBSGCa@HeAG]_A_BiAcCiB_Fc@qEq@qCw@q@kBaDeCiBcCk@u@y@E_@NeA\\u@RQf@ZdDfFrA`DTAJY`AsDPDjCnBjEvFlBjBT|ATpF^`B?b@]bBmAfCc@b@a@`BPHfBaBnDeGlCsFz@aCbBsCn@oBn@gDpAgDt@{Cj@o@f@Qb@uAvDaFh@uAp@_ApEoEzCoB~A_BdFeExDaAlAmAxDgBv@o@tASfBsAtA[vCaBtFcEbCuA`EkEdFoD`EgEzAmAlCcBl@cATeARUxCm@fC_B`CmClIuQfBqBx@i@`@k@f@sAjAaArEsBhEqDrBsCbEkIvCeEPCZhCP@nEaJjBcDrA{ChB_FfAqB|AyDfA}DdHqRdA_Cb@m@fAsDdAyBtDqKz@cBPcA`BkErA{C|@yA?gB|AoF`IiUzBoF`BmEHe@xBcEb@oAb@i@nBoEfGeJpAkC|FyJhAy@bB[NOb@oB`Ac@n@y@xBcGn@iCpAsClBsBhGaJtFuF|AmCdMyOfA_A|AcCjAy@pCmLv@mFTy@b@g@RaABeBn@uDj@Wb@T^S|@bBTLNKZcB~COnEzBfOnGjIlJ~AhAlAvBt@l@hGnHRRh@ANUf@`@l@jCdChPf@KH]@mDRmBFsCKyELaAl@cAt@e@`AiAj@mAh@_Cr@eBvAsCjAmAXs@d@Tn@rBbB}@fAmAN]@cAkAqGG_AhAoAb@FjBzJUmCm@kC",
+    "resource_state": 2
+  },
+  "trainer": false,
+  "commute": false,
+  "manual": false,
+  "private": false,
+  "visibility": "everyone",
+  "flagged": false,
+  "gear_id": null,
+  "start_latlng": [
+    55.69,
+    12.51
+  ],
+  "end_latlng": [
+    55.69,
+    12.51
+  ],
+  "average_speed": 3.114,
+  "max_speed": 8.7,
+  "has_heartrate": false,
+  "heartrate_opt_out": false,
+  "display_hide_heartrate_option": false,
+  "elev_high": 43.6,
+  "elev_low": 14,
+  "upload_id": 3711957499,
+  "upload_id_str": "3711957499",
+  "external_id": "activity.fit",
+  "from_accepted_tag": false,
+  "pr_count": 14,
+  "total_photo_count": 0,
+  "has_kudoed": false
+}

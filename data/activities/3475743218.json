@@ -1,0 +1,62 @@
+{
+  "resource_state": 2,
+  "athlete": {
+    "id": 23558655,
+    "resource_state": 1
+  },
+  "name": "Frederiksberg - Bellahøj",
+  "distance": 5006,
+  "moving_time": 1738,
+  "elapsed_time": 1738,
+  "total_elevation_gain": 14.2,
+  "type": "Run",
+  "sport_type": "Run",
+  "workout_type": null,
+  "id": 3475743218,
+  "start_date": "2017-01-04T07:46:03Z",
+  "start_date_local": "2017-01-04T08:46:03Z",
+  "timezone": "(GMT+01:00) Europe/Copenhagen",
+  "utc_offset": 3600,
+  "location_city": null,
+  "location_state": null,
+  "location_country": null,
+  "achievement_count": 0,
+  "kudos_count": 0,
+  "comment_count": 0,
+  "athlete_count": 1,
+  "photo_count": 0,
+  "map": {
+    "id": "a3475743218",
+    "summary_polyline": "is{rIigpkAF\\NRH`@m@vBi@nAIZQfAeB~DShAM\\S`Am@tDOXI^G^A^U`AAd@Kb@MXUx@_@~BM\\Ef@Uz@MdAk@fCM\\G^IZMVOz@c@dBQbA{@|Cy@zDGb@a@zA_@n@I^k@lAIhAIb@]l@OR[n@QFQPi@pAc@l@C`@q@dAMPOOMUQeAW{@IcAW}@_@oDAa@Dc@J[M]u@}@]i@S?ST]~AA^BbAD`@RfBJZL`AB^\\vALbAZ|A^vANZN~@Xx@F^b@n@Vz@Tz@bAjCf@VZr@Vz@LVZ~@Zl@PVJX\\h@JXj@~Bb@b@NVd@rA\\h@l@vARdAL^PXZz@PRf@vBNVf@dD^r@Vz@RfBh@zBDb@C_@i@mCQeAk@aCK]MQ[iCe@}AOWWq@UKQSQGAb@x@dBfByBJYNWv@kC\\eCZq@@a@LmCNcAH[P_AXwDT_AN]@g@P_BLWZu@JsCL_@Fe@@kAFc@T}AV}@N_ABi@ZkCP_A`@q@RiBBe@Ea@MYQSQYi@SQUQOSKCc@NWF]Fa@HkAP_AFeAG]A_@D]V}@JcAP]Hg@DcALa@Xq@He@Ca@m@wAaAgAOWJ_@NcAH]HgANgAR}@x@oFF]DkALcAH[NYRmCFc@L[De@Ga@h@_CP[ROPE?k@I[S]a@c@K[QUw@k@QLOt@",
+    "resource_state": 2
+  },
+  "trainer": false,
+  "commute": false,
+  "manual": false,
+  "private": false,
+  "visibility": "everyone",
+  "flagged": false,
+  "gear_id": null,
+  "start_latlng": [
+    55.69,
+    12.54
+  ],
+  "end_latlng": [
+    55.69,
+    12.54
+  ],
+  "average_speed": 2.88,
+  "max_speed": 5.2,
+  "has_heartrate": false,
+  "heartrate_opt_out": false,
+  "display_hide_heartrate_option": false,
+  "elev_high": 15.2,
+  "elev_low": 8.1,
+  "upload_id": 3711991514,
+  "upload_id_str": "3711991514",
+  "external_id": "activity.fit",
+  "from_accepted_tag": false,
+  "pr_count": 0,
+  "total_photo_count": 0,
+  "has_kudoed": false
+}

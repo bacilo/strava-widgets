@@ -1,0 +1,62 @@
+{
+  "resource_state": 2,
+  "athlete": {
+    "id": 23558655,
+    "resource_state": 1
+  },
+  "name": "Red Bluff",
+  "distance": 5099.5,
+  "moving_time": 1999,
+  "elapsed_time": 2028,
+  "total_elevation_gain": 89.7,
+  "type": "Run",
+  "sport_type": "Run",
+  "workout_type": null,
+  "id": 3475724210,
+  "start_date": "2019-07-18T01:46:59Z",
+  "start_date_local": "2019-07-18T07:16:59Z",
+  "timezone": "(GMT+05:30) Asia/Colombo",
+  "utc_offset": 19800,
+  "location_city": null,
+  "location_state": null,
+  "location_country": null,
+  "achievement_count": 1,
+  "kudos_count": 0,
+  "comment_count": 0,
+  "athlete_count": 1,
+  "photo_count": 0,
+  "map": {
+    "id": "a3475724210",
+    "summary_polyline": "c|ps@scvnNMEQ@QBa@VQEUCS@SCgDRQFW?i@He@Dg@?}BHqAHw@@_AHoABSAi@@g@Ak@Ge@@QDa@Xg@Bk@Gw@WQAi@A{@TU?i@Is@Yg@Mc@C}@O_D[e@O_@Wo@{@BPp@f@r@^b@Lz@DRF|@JdDVd@L^RPDd@E~@Af@HNHTDPILKRId@?~@Ez@@TDf@Cx@Bf@?RCd@?tBIjAKxBET@fAS|CQPEf@ANBPGNJV?z@Mz@ENGLIpASPEj@Ed@@x@Mv@Ix@Q~@IQ?g@FQFy@HUF}CVoBXUAS@SFg@Dg@LQFOKU?aBPg@AeBJy@P}@Ce@BQDg@Gy@R{EN}@Bg@?qBKqA@c@BqAAw@Pg@B_ACOIOKc@QUAe@GU?qBYe@@g@EQE_Ai@OOc@q@OOQISARFNLt@t@p@`@PHRDzANf@JP?x@HPDd@FRCb@JRFr@b@P@j@ChASpAInAFj@Ex@Fh@E`BDz@GfBEv@GP?b@IPFR?LNf@BLKREx@Kf@?PKPEPCPBVENGT@z@Cx@MPDR?b@IZ@",
+    "resource_state": 2
+  },
+  "trainer": false,
+  "commute": false,
+  "manual": false,
+  "private": false,
+  "visibility": "everyone",
+  "flagged": false,
+  "gear_id": null,
+  "start_latlng": [
+    8.61,
+    81.22
+  ],
+  "end_latlng": [
+    8.61,
+    81.22
+  ],
+  "average_speed": 2.551,
+  "max_speed": 3.7,
+  "has_heartrate": false,
+  "heartrate_opt_out": false,
+  "display_hide_heartrate_option": false,
+  "elev_high": 14.4,
+  "elev_low": 1.6,
+  "upload_id": 3711971319,
+  "upload_id_str": "3711971319",
+  "external_id": "activity.fit",
+  "from_accepted_tag": false,
+  "pr_count": 0,
+  "total_photo_count": 0,
+  "has_kudoed": false
+}

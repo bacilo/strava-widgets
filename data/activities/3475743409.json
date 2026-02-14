@@ -1,0 +1,62 @@
+{
+  "resource_state": 2,
+  "athlete": {
+    "id": 23558655,
+    "resource_state": 1
+  },
+  "name": "Frederiksberg",
+  "distance": 6467.6,
+  "moving_time": 2209,
+  "elapsed_time": 2209,
+  "total_elevation_gain": 8,
+  "type": "Run",
+  "sport_type": "Run",
+  "workout_type": null,
+  "id": 3475743409,
+  "start_date": "2016-09-19T15:30:43Z",
+  "start_date_local": "2016-09-19T17:30:43Z",
+  "timezone": "(GMT+01:00) Europe/Copenhagen",
+  "utc_offset": 7200,
+  "location_city": null,
+  "location_state": null,
+  "location_country": null,
+  "achievement_count": 1,
+  "kudos_count": 0,
+  "comment_count": 0,
+  "athlete_count": 1,
+  "photo_count": 0,
+  "map": {
+    "id": "a3475743409",
+    "summary_polyline": "gr{rI_epkAMRg@hAY`ACb@IXa@t@Ej@O`@MTe@f@YxAQXSLMXGhA?b@I\\MZGb@Cf@Gb@BlAK^QXc@\\OXEjAAh@Eb@Kb@Yn@Ah@SdAEb@_@~AMX?`@Kb@]r@MjBKXUBOVK`AKXU`ASNK`@KdAU|AIZO`BI`@QPw@yASSa@Wc@a@QYSUSOc@o@y@}@SGQKQUe@_@a@o@SKEa@H]H[NWJWH_@Bi@Hc@J[LcARcAb@{AEe@[q@UO[i@w@w@c@Bm@MQOUE}@DQMQIMe@Ia@Sw@a@w@g@i@KYOUSOSA_@e@SaBMWCc@@_AEc@AkACe@JoCCg@Ie@OWGc@Eg@EqBOkAAcAE_@L]T@PPTJTOTERHbAAPCPKb@e@TCRFR?VIh@Gj@BTKPCPDT@NMz@YTCTELWCg@@c@IiAHg@Zm@PQHYB_@V_AJWf@e@RBPATOPS`@q@RcA\\}@x@]PU@c@Fg@J]TCXy@RIL[JYJ_A^u@\\{@^uAx@uBDc@Fa@N]l@}CLa@JUx@yCJYR}@Xw@He@`@q@T}@LaA`@{AIc@QOSGQXO~@E`@I\\QXK\\OPe@e@SGOMa@g@JkAFe@H_@LWNQN[M]y@i@c@m@]o@SDQ|@ORa@b@a@\\?b@d@d@Xx@SGYw@e@c@SFQNm@|BQJ]n@STYt@MTs@n@OVm@hAK\\]d@IZ_@r@Ib@c@j@Ah@^f@^l@Pz@Ab@K`@MbAUFSLBb@Z~@LZRPPBPTRJb@b@t@^X~@RRJ\\NNf@ZT?NLl@bAZt@d@f@PTRHPMH]HeAH]RUNY`@_BXs@b@aBNYHa@LYR}@V{ANQL]^i@L_@@a@h@}ADa@AgAH]Rw@fAaCR}@Bc@eAoAQKQS[w@Ea@L_@REb@NRDV|@PHRDv@MPJV@PJHd@LVNNRJLZEf@Ib@QVY`AQbA_A|DORWn@QTI^Yp@[xA_@x@KXW`B[n@a@l@IZWzAi@xB?hAEhAB`@F\\C`@KZI^MZUFQJ?`@NXHZF`@@b@v@b@NRPPNTJ\\CX",
+    "resource_state": 2
+  },
+  "trainer": false,
+  "commute": false,
+  "manual": false,
+  "private": false,
+  "visibility": "everyone",
+  "flagged": false,
+  "gear_id": null,
+  "start_latlng": [
+    55.69,
+    12.54
+  ],
+  "end_latlng": [
+    55.69,
+    12.54
+  ],
+  "average_speed": 2.928,
+  "max_speed": 4.4,
+  "has_heartrate": false,
+  "heartrate_opt_out": false,
+  "display_hide_heartrate_option": false,
+  "elev_high": 14.3,
+  "elev_low": 8.9,
+  "upload_id": 3711991683,
+  "upload_id_str": "3711991683",
+  "external_id": "activity.fit",
+  "from_accepted_tag": false,
+  "pr_count": 0,
+  "total_photo_count": 0,
+  "has_kudoed": false
+}

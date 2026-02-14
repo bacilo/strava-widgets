@@ -1,0 +1,62 @@
+{
+  "resource_state": 2,
+  "athlete": {
+    "id": 23558655,
+    "resource_state": 1
+  },
+  "name": "Hagalund - Stockholm",
+  "distance": 4824.1,
+  "moving_time": 1950,
+  "elapsed_time": 2260,
+  "total_elevation_gain": 39.7,
+  "type": "Run",
+  "sport_type": "Run",
+  "workout_type": null,
+  "id": 3475743849,
+  "start_date": "2011-08-16T18:55:32Z",
+  "start_date_local": "2011-08-16T20:55:32Z",
+  "timezone": "(GMT+01:00) Europe/Stockholm",
+  "utc_offset": 7200,
+  "location_city": null,
+  "location_state": null,
+  "location_country": null,
+  "achievement_count": 0,
+  "kudos_count": 0,
+  "comment_count": 0,
+  "athlete_count": 1,
+  "photo_count": 0,
+  "map": {
+    "id": "a3475743849",
+    "summary_polyline": "}zgiJ}y}lBNL^Cz@hAT@n@Xt@iCXILWBuAFc@JWb@KJU`@RBc@PORq@Hy@Py@v@_@h@qBNy@NQVaAf@g@L[Fa@?c@P{@Xo@Do@F]ZURm@`@]`@i@@k@PmA?c@R]Bk@`@oAZ]Te@@i@Ri@Zo@Lm@Tc@Pi@XYVe@Le@?g@J[NYJm@R_@NSPe@VUJSG{@JqCOsCREfAtA`A`BPMb@gBTc@j@q@Be@Hi@Pa@\\W\\Ix@UHYJWRSN[Fc@LOFc@TIF_@LWb@YVo@Hg@XUTK?_@FYf@q@Pc@?m@Me@Ge@Dk@ZQPkAVSB}@H_@p@mANKl@Q\\h@^^h@Fv@TDkFEc@Cu@Ly@dArAp@h@PBTKPq@NYNOFu@?i@GaDKcANy@A_@I_AC_B@q@Gy@?o@Fa@Dk@_@eEAc@t@KPPQgBCs@Sw@HgCW{@O}@MSLQ@mBW_CKeC@c@Ae@DeAE_@@_@I_B@]GkBF_AGeAG[Ca@B}FEgAIeADiBOqAK[W_BY}CK]KiAWiAGk@EkAJe@BaADg@J]TW\\OTDPQB_@PI`@YZc@LSPOXATDRk@R_@r@GPMLi@FkARQzAIn@UPUVSP@TQLiATQRHb@WTGRMTGP[Da@^_@LWRNRKTJB]VOR[Ps@NOTENMR@PMLUNDJWEONEd@_@PKPQP?RGV@P[XoAf@y@NCn@WFs@H]E_@QSM[OQEmAB_@uBu\\SIPEPD",
+    "resource_state": 2
+  },
+  "trainer": false,
+  "commute": false,
+  "manual": false,
+  "private": false,
+  "visibility": "everyone",
+  "flagged": false,
+  "gear_id": null,
+  "start_latlng": [
+    59.36,
+    18.02
+  ],
+  "end_latlng": [
+    59.34,
+    18.07
+  ],
+  "average_speed": 2.474,
+  "max_speed": 15.5,
+  "has_heartrate": false,
+  "heartrate_opt_out": false,
+  "display_hide_heartrate_option": false,
+  "elev_high": 39,
+  "elev_low": 17.7,
+  "upload_id": 3711992220,
+  "upload_id_str": "3711992220",
+  "external_id": "activity.fit",
+  "from_accepted_tag": false,
+  "pr_count": 0,
+  "total_photo_count": 0,
+  "has_kudoed": false
+}

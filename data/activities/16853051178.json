@@ -1,0 +1,63 @@
+{
+  "resource_state": 2,
+  "athlete": {
+    "id": 23558655,
+    "resource_state": 1
+  },
+  "name": "Lunch Run",
+  "distance": 5259.1,
+  "moving_time": 1893,
+  "elapsed_time": 1921,
+  "total_elevation_gain": 74.2,
+  "type": "Run",
+  "sport_type": "Run",
+  "workout_type": null,
+  "device_name": "Strava App",
+  "id": 16853051178,
+  "start_date": "2025-12-27T11:05:19Z",
+  "start_date_local": "2025-12-27T11:05:19Z",
+  "timezone": "(GMT+00:00) Europe/Lisbon",
+  "utc_offset": 0,
+  "location_city": null,
+  "location_state": null,
+  "location_country": null,
+  "achievement_count": 0,
+  "kudos_count": 0,
+  "comment_count": 0,
+  "athlete_count": 1,
+  "photo_count": 0,
+  "map": {
+    "id": "a16853051178",
+    "summary_polyline": "_{kkFvnuv@c@eACKUa@Ya@k@g@MEQJO?_@I}Ay@SOMDQP]HY@YIe@c@ECQ?QHKPmAn@QDe@RMJIBMLQAUHSZ]Zg@JYPGJM@WPe@NMLGAIJCAGDEDI?GBQ?QNMP]zAEHSPIDOGWH_AO[Lk@PKCCDMBEFGBIA[PUBEAWNe@DYL[Fm@^a@LIHKAUHMJQT_@LSLKLIRULCRONMZQl@Al@ENSTJJDLFDF?BNCLMRAFQHUf@ARM^E^Sl@Cr@MV?DHVCR@JCFMJCF?TMXCBE@AB@?OH?FMRHL?DCHKJCRED@HKDq@FMJOVIYu@IQe@EEm@_@g@a@OEI?_@[QIYSCG[MKSOCk@i@SGKKSCGGa@KGG[IY?_@Mc@CMBq@Ak@KYCI@YSUD_@@GAEGG@KC_@?WCEGEAM?GEKLMCKDU@o@Ce@KK?UIUC_@Hm@?a@EKD[@QCeAEi@OyA@UAQEeACWCm@AOEO@YE[?GEaAASEK@SCg@?YIcA@WEO@UISAc@AKBMCY@WES@s@OY?WBME}@Ac@E[?_@E[Bo@IK@[AYGMB[GgAACCWEM@IAU@KECDMAGEK@SEW?o@Ca@@QGI@QEe@@u@Kk@@[Gi@AUEUAOE[D[Cg@Ka@@UI[@MCY@g@?OEY@YESBGCYBMI[?a@IGEE?GBe@IcAE[Yo@kAGCUB[JCOIEAGFOBYCUBKAWLiBHk@^gEr@yETeAP}@H[XkBCCO@MK_A[IAA@Yr@c@x@Yv@i@`AYz@w@|Ag@AOB]CO@IB_@Z_@LI?WUMOGe@H_@LSLK",
+    "resource_state": 2
+  },
+  "trainer": false,
+  "commute": false,
+  "manual": false,
+  "private": false,
+  "visibility": "everyone",
+  "flagged": false,
+  "gear_id": "g13535700",
+  "start_latlng": [
+    38.73,
+    -9.13
+  ],
+  "end_latlng": [
+    38.76,
+    -9.13
+  ],
+  "average_speed": 2.778,
+  "max_speed": 9.9,
+  "has_heartrate": false,
+  "heartrate_opt_out": false,
+  "display_hide_heartrate_option": false,
+  "elev_high": 111.5,
+  "elev_low": 60.9,
+  "upload_id": 17944927929,
+  "upload_id_str": "17944927929",
+  "external_id": "45A75DB3-489B-4E02-8011-4D9946D2A624-activity.fit",
+  "from_accepted_tag": false,
+  "pr_count": 0,
+  "total_photo_count": 0,
+  "has_kudoed": false
+}

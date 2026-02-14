@@ -1,0 +1,254 @@
+[
+  {
+    "month": 1,
+    "monthLabel": "Jan",
+    "years": {
+      "2024": {
+        "totalKm": 105.70360000000002,
+        "totalRuns": 10,
+        "totalHours": 11.549722222222222
+      },
+      "2025": {
+        "totalKm": 168.0945,
+        "totalRuns": 18,
+        "totalHours": 17.503333333333334
+      },
+      "2026": {
+        "totalKm": 153.98750000000004,
+        "totalRuns": 13,
+        "totalHours": 15.151944444444444
+      }
+    }
+  },
+  {
+    "month": 2,
+    "monthLabel": "Feb",
+    "years": {
+      "2024": {
+        "totalKm": 116.0992,
+        "totalRuns": 12,
+        "totalHours": 13.129999999999999
+      },
+      "2025": {
+        "totalKm": 231.54899999999998,
+        "totalRuns": 25,
+        "totalHours": 23.879166666666666
+      },
+      "2026": {
+        "totalKm": 11.6025,
+        "totalRuns": 1,
+        "totalHours": 1.1197222222222223
+      }
+    }
+  },
+  {
+    "month": 3,
+    "monthLabel": "Mar",
+    "years": {
+      "2024": {
+        "totalKm": 119.21340000000002,
+        "totalRuns": 12,
+        "totalHours": 13.778055555555557
+      },
+      "2025": {
+        "totalKm": 360.5188,
+        "totalRuns": 33,
+        "totalHours": 34.2761111111111
+      },
+      "2026": {
+        "totalKm": 0,
+        "totalRuns": 0,
+        "totalHours": 0
+      }
+    }
+  },
+  {
+    "month": 4,
+    "monthLabel": "Apr",
+    "years": {
+      "2024": {
+        "totalKm": 59.2289,
+        "totalRuns": 7,
+        "totalHours": 6.770555555555555
+      },
+      "2025": {
+        "totalKm": 132.7843,
+        "totalRuns": 19,
+        "totalHours": 12.814722222222223
+      },
+      "2026": {
+        "totalKm": 0,
+        "totalRuns": 0,
+        "totalHours": 0
+      }
+    }
+  },
+  {
+    "month": 5,
+    "monthLabel": "May",
+    "years": {
+      "2024": {
+        "totalKm": 70.6934,
+        "totalRuns": 8,
+        "totalHours": 7.773333333333333
+      },
+      "2025": {
+        "totalKm": 230.31809999999996,
+        "totalRuns": 21,
+        "totalHours": 22.431666666666665
+      },
+      "2026": {
+        "totalKm": 0,
+        "totalRuns": 0,
+        "totalHours": 0
+      }
+    }
+  },
+  {
+    "month": 6,
+    "monthLabel": "Jun",
+    "years": {
+      "2024": {
+        "totalKm": 187.05940000000004,
+        "totalRuns": 22,
+        "totalHours": 20.64861111111111
+      },
+      "2025": {
+        "totalKm": 90.8757,
+        "totalRuns": 10,
+        "totalHours": 9.080555555555556
+      },
+      "2026": {
+        "totalKm": 0,
+        "totalRuns": 0,
+        "totalHours": 0
+      }
+    }
+  },
+  {
+    "month": 7,
+    "monthLabel": "Jul",
+    "years": {
+      "2024": {
+        "totalKm": 130.6689,
+        "totalRuns": 14,
+        "totalHours": 15.27611111111111
+      },
+      "2025": {
+        "totalKm": 84.2031,
+        "totalRuns": 8,
+        "totalHours": 8.868611111111111
+      },
+      "2026": {
+        "totalKm": 0,
+        "totalRuns": 0,
+        "totalHours": 0
+      }
+    }
+  },
+  {
+    "month": 8,
+    "monthLabel": "Aug",
+    "years": {
+      "2024": {
+        "totalKm": 282.60710000000006,
+        "totalRuns": 28,
+        "totalHours": 29.991111111111113
+      },
+      "2025": {
+        "totalKm": 158.11759999999998,
+        "totalRuns": 13,
+        "totalHours": 15.732222222222223
+      },
+      "2026": {
+        "totalKm": 0,
+        "totalRuns": 0,
+        "totalHours": 0
+      }
+    }
+  },
+  {
+    "month": 9,
+    "monthLabel": "Sep",
+    "years": {
+      "2024": {
+        "totalKm": 180.66450000000006,
+        "totalRuns": 18,
+        "totalHours": 18.28611111111111
+      },
+      "2025": {
+        "totalKm": 171.38479999999998,
+        "totalRuns": 15,
+        "totalHours": 17.325277777777778
+      },
+      "2026": {
+        "totalKm": 0,
+        "totalRuns": 0,
+        "totalHours": 0
+      }
+    }
+  },
+  {
+    "month": 10,
+    "monthLabel": "Oct",
+    "years": {
+      "2024": {
+        "totalKm": 205.62459999999996,
+        "totalRuns": 19,
+        "totalHours": 20.70361111111111
+      },
+      "2025": {
+        "totalKm": 357.34880000000004,
+        "totalRuns": 27,
+        "totalHours": 34.78166666666667
+      },
+      "2026": {
+        "totalKm": 0,
+        "totalRuns": 0,
+        "totalHours": 0
+      }
+    }
+  },
+  {
+    "month": 11,
+    "monthLabel": "Nov",
+    "years": {
+      "2024": {
+        "totalKm": 124.5935,
+        "totalRuns": 13,
+        "totalHours": 13.283888888888889
+      },
+      "2025": {
+        "totalKm": 342.5575,
+        "totalRuns": 25,
+        "totalHours": 31.715277777777775
+      },
+      "2026": {
+        "totalKm": 0,
+        "totalRuns": 0,
+        "totalHours": 0
+      }
+    }
+  },
+  {
+    "month": 12,
+    "monthLabel": "Dec",
+    "years": {
+      "2024": {
+        "totalKm": 202.51999999999998,
+        "totalRuns": 20,
+        "totalHours": 21.03555555555556
+      },
+      "2025": {
+        "totalKm": 351.56870000000004,
+        "totalRuns": 25,
+        "totalHours": 33.49027777777778
+      },
+      "2026": {
+        "totalKm": 0,
+        "totalRuns": 0,
+        "totalHours": 0
+      }
+    }
+  }
+]
