@@ -2,7 +2,7 @@
 
 ## Overview
 
-This roadmap delivers a personal Strava analytics platform in 4 phases, progressing from data acquisition foundations through widget generation. Phase 1 establishes secure OAuth and incremental data syncing. Phase 2 validates the full pipeline (fetch → process → generate → deploy) with basic statistics and the first embeddable widget. Phase 3 adds differentiating analytics (streaks, trends, year-over-year comparisons) with multiple widget types. Phase 4 wraps up with automation via GitHub Actions for daily data refresh and deployment.
+This roadmap delivers a personal Strava analytics platform in 4 phases, progressing from data acquisition foundations through widget generation. Phase 1 establishes secure OAuth and incremental data syncing. Phase 2 validates the full pipeline (fetch -> process -> generate -> deploy) with basic statistics and the first embeddable widget. Phase 3 adds differentiating analytics (streaks, trends, year-over-year comparisons) with multiple widget types. Phase 4 wraps up with automation via GitHub Actions for daily data refresh and deployment.
 
 ## Phases
 
@@ -29,11 +29,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Developer can trigger incremental sync that fetches only new activities since last sync
   4. System respects Strava API rate limits (100 req/15min, 1000/day) with backoff and never exceeds limits
   5. Activity data persists as JSON files in local storage with sync state tracking
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 01-01: TBD during phase planning
-- [ ] 01-02: TBD during phase planning
+- [ ] 01-01-PLAN.md — Project setup, config, OAuth auth, and storage foundation
+- [ ] 01-02-PLAN.md — Rate-limited API client, sync orchestrator, and CLI entry point
 
 ### Phase 2: Core Analytics & First Widget
 **Goal**: User can see weekly running distance visualized in an embeddable widget on their personal website
@@ -88,12 +88,12 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 (Decimal phases execute between their surrounding integers if inserted later)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Data Foundation | 0/2 | Not started | - |
+| 1. Data Foundation | 0/2 | Planned | - |
 | 2. Core Analytics & First Widget | 0/3 | Not started | - |
 | 3. Advanced Analytics & Widget Library | 0/2 | Not started | - |
 | 4. Automation & Deployment | 0/1 | Not started | - |
