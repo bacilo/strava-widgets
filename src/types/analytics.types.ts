@@ -50,3 +50,44 @@ export interface StatsMetadata {
   dateRange: { from: string; to: string };
   files: string[];
 }
+
+// Year-over-year monthly comparison
+export interface YearOverYearMonth {
+  month: number;        // 1-12
+  monthLabel: string;   // "Jan", "Feb", ...
+  years: Record<string, { totalKm: number; totalRuns: number; totalHours: number }>;
+}
+
+// Time-of-day pattern
+export interface TimeOfDayPattern {
+  period: string;       // "Morning (6am-12pm)", "Afternoon (12pm-6pm)", "Evening (6pm-10pm)", "Night (10pm-6am)"
+  runCount: number;
+  totalKm: number;
+  percentage: number;   // % of total runs
+}
+
+// Seasonal trends (monthly volume per year)
+export interface SeasonalTrendMonth {
+  year: number;
+  month: number;        // 1-12
+  totalKm: number;
+  totalRuns: number;
+  totalHours: number;
+}
+
+// Streak data (output from streak-utils, stored in JSON)
+export interface StreakData {
+  currentStreak: number;
+  longestStreak: number;
+  withinCurrentStreak: boolean;
+  currentStreakStart: string;
+  longestStreakStart: string;
+  longestStreakEnd: string;
+  weeklyConsistency: {
+    currentStreak: number;
+    longestStreak: number;
+    totalConsistentWeeks: number;
+    totalWeeks: number;
+    minRunsPerWeek: number;
+  };
+}
