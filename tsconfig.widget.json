@@ -10,5 +10,5 @@
     "forceConsistentCasingInFileNames": true,
     "lib": ["ES2020", "DOM", "DOM.Iterable"]
   },
-  "include": ["src/widget/**/*", "src/types/**/*"]
+  "include": ["src/widget/**/*", "src/widgets/**/*", "src/types/**/*"]
 }

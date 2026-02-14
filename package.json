@@ -12,6 +12,8 @@
     "compute-stats": "node dist/index.js compute-stats",
     "compute-advanced-stats": "node dist/index.js compute-advanced-stats",
     "compute-all-stats": "node dist/index.js compute-all-stats",
+    "build-widget": "vite build",
+    "build-widgets": "node scripts/build-widgets.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },
