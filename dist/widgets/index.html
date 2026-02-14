@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Strava Analytics Widgets</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background: #f5f5f5;
+      padding: 2rem 1rem;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #fc4c02;
+      margin-bottom: 0.5rem;
+    }
+    .subtitle {
+      color: #666;
+      margin-bottom: 2rem;
+      padding-bottom: 1rem;
+      border-bottom: 2px solid #fc4c02;
+    }
+    .widget {
+      margin-bottom: 3rem;
+    }
+    .widget h2 {
+      color: #333;
+      margin-bottom: 0.5rem;
+      font-size: 1.25rem;
+    }
+    .widget p {
+      color: #666;
+      margin-bottom: 1rem;
+    }
+    pre {
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      padding: 1rem;
+      overflow-x: auto;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 0.875rem;
+      line-height: 1.4;
+    }
+    code {
+      color: #e83e8c;
+    }
+    .footer {
+      margin-top: 3rem;
+      padding-top: 1rem;
+      border-top: 1px solid #dee2e6;
+      color: #6c757d;
+      font-size: 0.875rem;
+      text-align: center;
+    }
+    .footer a {
+      color: #fc4c02;
+      text-decoration: none;
+    }
+    .footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Strava Analytics Widgets</h1>
+    <p class="subtitle">Embeddable widgets for your personal website</p>
+
+    <div class="widget">
+      <h2>Stats Card Widget</h2>
+      <p>Displays comprehensive running statistics including weekly distance, average pace, monthly trends, and year-over-year comparisons.</p>
+      <pre><code>&lt;div id="strava-stats"&gt;&lt;/div&gt;
+&lt;script src="https://your-username.github.io/your-repo/stats-card.iife.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+  new StravaStatsCard('#strava-stats', {
+    dataUrl: 'https://your-username.github.io/your-repo/weekly-stats.json',
+    secondaryDataUrl: 'https://your-username.github.io/your-repo/advanced-stats.json'
+  });
+&lt;/script&gt;</code></pre>
+    </div>
+
+    <div class="widget">
+      <h2>Comparison Chart Widget</h2>
+      <p>Interactive bar chart comparing running statistics across different time periods with multiple visualization options.</p>
+      <pre><code>&lt;div id="strava-chart"&gt;&lt;/div&gt;
+&lt;script src="https://your-username.github.io/your-repo/comparison-chart.iife.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+  new StravaComparisonChart('#strava-chart', {
+    dataUrl: 'https://your-username.github.io/your-repo/weekly-stats.json'
+  });
+&lt;/script&gt;</code></pre>
+    </div>
+
+    <div class="widget">
+      <h2>Streak Widget</h2>
+      <p>Visualizes running streaks and activity patterns with time-of-day radar chart and monthly heatmap.</p>
+      <pre><code>&lt;div id="strava-streak"&gt;&lt;/div&gt;
+&lt;script src="https://your-username.github.io/your-repo/streak-widget.iife.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+  new StravaStreakWidget('#strava-streak', {
+    dataUrl: 'https://your-username.github.io/your-repo/streaks.json',
+    secondaryDataUrl: 'https://your-username.github.io/your-repo/advanced-stats.json'
+  });
+&lt;/script&gt;</code></pre>
+    </div>
+
+    <div class="footer">
+      <p>Auto-updated daily by GitHub Actions</p>
+      <p>Powered by <a href="https://www.strava.com" target="_blank" rel="noopener">Strava</a></p>
+    </div>
+  </div>
+</body>
+</html>

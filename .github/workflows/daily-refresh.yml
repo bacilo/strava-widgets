@@ -1,0 +1,81 @@
+name: Daily Widget Refresh
+
+on:
+  schedule:
+    # Run daily at 5 AM UTC (morning in Europe, after overnight Strava uploads)
+    - cron: '0 5 * * *'
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Force rebuild all widgets'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: widget-refresh
+  cancel-in-progress: false  # Let current run finish
+
+permissions:
+  contents: write      # Commit generated files
+  pages: write        # Deploy to GitHub Pages
+  id-token: write     # OIDC for Pages
+
+jobs:
+  refresh-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'  # LTS for CI stability
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup tokens for Strava API
+        run: node scripts/ci-setup-tokens.mjs
+        env:
+          STRAVA_REFRESH_TOKEN: ${{ secrets.STRAVA_REFRESH_TOKEN }}
+
+      - name: Fetch new activities from Strava
+        id: fetch
+        continue-on-error: true  # Use cached data if Strava API fails
+        run: npm run fetch
+        env:
+          STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
+          STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
+
+      - name: Warn on fetch failure
+        if: steps.fetch.outcome == 'failure'
+        run: echo "::warning::Strava fetch failed, rebuilding with existing data"
+
+      - name: Compile TypeScript
+        run: npm run build
+
+      - name: Process statistics
+        run: node dist/index.js compute-all-stats
+
+      - name: Build widgets
+        run: npm run build-widgets
+
+      - name: Commit updated data and stats
+        uses: stefanzweifel/git-auto-commit-action@v7
+        with:
+          commit_message: 'chore: update activities and stats [skip ci]'
+          file_pattern: 'data/activities/*.json data/sync-state.json data/stats/*.json'
+          commit_user_name: 'github-actions[bot]'
+          commit_user_email: 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Deploy widgets to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist/widgets
+          enable_jekyll: false
