@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Strava Analytics Widget Library - Test Page</title>
+
+  <!--
+    To test: serve this directory and open in browser
+    npx serve . -p 4173
+    Then visit: http://localhost:4173/public/test-widgets.html
+  -->
+
+  <style>
+    /* Deliberately different host page styles to prove Shadow DOM isolation */
+    body {
+      font-family: Georgia, serif; /* Serif font (widgets use sans-serif) */
+      background-color: #f5f5dc; /* Beige background */
+      color: #2c3e50;
+      margin: 0;
+      padding: 20px;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      padding: 40px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      font-size: 32px;
+      margin: 0 0 10px 0;
+      color: #1a1a1a;
+    }
+
+    .subtitle {
+      font-size: 16px;
+      color: #666;
+      margin: 0 0 40px 0;
+    }
+
+    .widget-section {
+      margin-bottom: 50px;
+    }
+
+    .section-header {
+      font-size: 24px;
+      margin: 0 0 8px 0;
+      color: #2c3e50;
+      border-bottom: 2px solid #3498db;
+      padding-bottom: 8px;
+    }
+
+    .section-description {
+      font-size: 14px;
+      color: #7f8c8d;
+      margin: 0 0 20px 0;
+      font-style: italic;
+    }
+
+    .widget-container {
+      margin: 20px 0;
+    }
+
+    /* Jekyll-style context */
+    .jekyll-context {
+      background: #fafafa;
+      padding: 30px;
+      border-left: 4px solid #6c63ff;
+      margin: 30px 0;
+      font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+      font-size: 18px;
+    }
+
+    .jekyll-context h2 {
+      font-size: 28px;
+      margin-top: 0;
+      color: #6c63ff;
+    }
+
+    .markdown-body {
+      line-height: 1.8;
+    }
+
+    /* Astro-style context */
+    .astro-context {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 30px;
+      border-radius: 12px;
+      margin: 30px 0;
+      color: white;
+    }
+
+    .astro-context h2 {
+      font-size: 28px;
+      margin-top: 0;
+      color: white;
+      font-weight: 600;
+    }
+
+    .astro-island {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 20px;
+      border-radius: 8px;
+      backdrop-filter: blur(10px);
+    }
+
+    .footer {
+      margin-top: 60px;
+      padding-top: 20px;
+      border-top: 1px solid #ddd;
+      text-align: center;
+      color: #999;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Strava Analytics Widget Library</h1>
+    <p class="subtitle">Comprehensive test page demonstrating all 4 widget types with Shadow DOM isolation and framework-agnostic embedding</p>
+
+    <!-- Widget 1: Weekly Bar Chart (Phase 2) -->
+    <div class="widget-section">
+      <h2 class="section-header">1. Weekly Bar Chart</h2>
+      <p class="section-description">Bar chart showing weekly running distance (Phase 2 widget)</p>
+      <div class="widget-container">
+        <div id="weekly-chart"></div>
+      </div>
+    </div>
+
+    <!-- Widget 2: Stats Card (Phase 3, Plan 03) -->
+    <div class="widget-section">
+      <h2 class="section-header">2. Stats Card with Year-over-Year Comparison</h2>
+      <p class="section-description">Summary card displaying all-time totals and year-to-date comparison</p>
+      <div class="widget-container">
+        <div id="stats-card"></div>
+      </div>
+    </div>
+
+    <!-- Widget 3: Comparison Chart (Phase 3, Plan 03) -->
+    <div class="widget-section">
+      <h2 class="section-header">3. Comparison Chart (Grouped Bars + Seasonal Trend)</h2>
+      <p class="section-description">Year-over-year grouped bar chart with seasonal trend line overlay</p>
+      <div class="widget-container">
+        <div id="comparison-chart"></div>
+      </div>
+    </div>
+
+    <!-- Widget 4: Streak Widget (Phase 3, Plan 04) -->
+    <div class="widget-section">
+      <h2 class="section-header">4. Streak & Patterns Widget with Radar Chart</h2>
+      <p class="section-description">Daily streaks, weekly consistency, and time-of-day radar chart</p>
+      <div class="widget-container">
+        <div id="streak-widget"></div>
+      </div>
+    </div>
+
+    <!-- Widget with custom dark theme -->
+    <div class="widget-section">
+      <h2 class="section-header">5. Stats Card with Custom Dark Theme</h2>
+      <p class="section-description">Demonstrates CSS custom property theming capabilities</p>
+      <div class="widget-container" style="background: #1a1a1a; padding: 20px; border-radius: 8px;">
+        <div id="stats-card-dark"></div>
+      </div>
+    </div>
+
+    <!-- Jekyll embedding context -->
+    <div class="jekyll-context markdown-body">
+      <h2>Jekyll Context Embedding</h2>
+      <p>This section simulates a Jekyll static site with GitHub Pages styling (serif fonts, markdown body class). The widget below should maintain its own styling despite the host page's strong serif typography.</p>
+      <div id="jekyll-widget"></div>
+    </div>
+
+    <!-- Astro embedding context -->
+    <div class="astro-context">
+      <h2>Astro Context Embedding</h2>
+      <p>This section simulates an Astro island component with scoped styles and gradient background. The widget should render correctly without inheriting the gradient or white text color.</p>
+      <div class="astro-island">
+        <div id="astro-widget"></div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>All widgets use Shadow DOM for style isolation and accept configuration via init(id, config).</p>
+      <p>Widgets are framework-agnostic and can be embedded in Jekyll, Astro, WordPress, or any static/dynamic site.</p>
+    </div>
+  </div>
+
+  <!-- Load widget scripts -->
+  <script src="../dist/widget/weekly-bar-chart.iife.js"></script>
+  <script src="../dist/widgets/stats-card.iife.js"></script>
+  <script src="../dist/widgets/comparison-chart.iife.js"></script>
+  <script src="../dist/widgets/streak-widget.iife.js"></script>
+
+  <!-- Initialize all widgets -->
+  <script>
+    // Widget 1: Weekly Bar Chart (Phase 2)
+    window.WeeklyBarChart.init('weekly-chart', {
+      dataUrl: '../data/stats/weekly.json'
+    });
+
+    // Widget 2: Stats Card
+    window.StatsCard.init('stats-card', {
+      dataUrl: '../data/stats/all-time.json',
+      options: {
+        showTitle: true,
+        customTitle: 'Running Stats',
+        secondaryDataUrl: '../data/stats/year-over-year.json'
+      }
+    });
+
+    // Widget 3: Comparison Chart
+    window.ComparisonChart.init('comparison-chart', {
+      dataUrl: '../data/stats/year-over-year.json',
+      options: {
+        showTitle: true,
+        customTitle: 'Year-over-Year Comparison',
+        secondaryDataUrl: '../data/stats/seasonal-trends.json'
+      }
+    });
+
+    // Widget 4: Streak Widget
+    window.StreakWidget.init('streak-widget', {
+      dataUrl: '../data/stats/streaks.json',
+      options: {
+        showTitle: true,
+        customTitle: 'Streaks & Patterns',
+        secondaryDataUrl: '../data/stats/time-of-day.json'
+      }
+    });
+
+    // Widget 5: Stats Card with dark theme
+    window.StatsCard.init('stats-card-dark', {
+      dataUrl: '../data/stats/all-time.json',
+      colors: {
+        background: '#2d2d2d',
+        text: '#e0e0e0',
+        accent: '#ff6b35'
+      },
+      options: {
+        showTitle: true,
+        customTitle: 'Dark Theme Stats',
+        secondaryDataUrl: '../data/stats/year-over-year.json'
+      }
+    });
+
+    // Jekyll context widget
+    window.ComparisonChart.init('jekyll-widget', {
+      dataUrl: '../data/stats/year-over-year.json',
+      options: {
+        showTitle: false,
+        secondaryDataUrl: '../data/stats/seasonal-trends.json'
+      }
+    });
+
+    // Astro context widget
+    window.StreakWidget.init('astro-widget', {
+      dataUrl: '../data/stats/streaks.json',
+      colors: {
+        background: '#ffffff',
+        text: '#1a1a1a',
+        accent: '#667eea'
+      },
+      options: {
+        showTitle: false,
+        secondaryDataUrl: '../data/stats/time-of-day.json'
+      }
+    });
+  </script>
+</body>
+</html>
