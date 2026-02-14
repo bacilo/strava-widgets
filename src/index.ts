@@ -44,7 +44,7 @@ async function authCommand() {
 async function syncCommand() {
   try {
     // Instantiate all dependencies
-    const fileStore = new FileStore(config.dataDir);
+    const fileStore = new FileStore('.');
     const oauth = new StravaOAuth({
       clientId: config.clientId,
       clientSecret: config.clientSecret,
@@ -90,7 +90,7 @@ async function syncCommand() {
 
 async function statusCommand() {
   try {
-    const fileStore = new FileStore(config.dataDir);
+    const fileStore = new FileStore('.');
     const syncStateManager = new SyncStateManager(
       config.syncStatePath,
       fileStore
