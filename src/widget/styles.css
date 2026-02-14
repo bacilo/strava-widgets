@@ -1,0 +1,26 @@
+:host {
+  display: block;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #333;
+}
+.chart-container {
+  position: relative;
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+}
+.chart-container canvas {
+  min-width: 0; /* Prevent flexbox overflow (research pitfall #5) */
+}
+.widget-error {
+  padding: 16px;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+}
+.widget-loading {
+  padding: 16px;
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+}
