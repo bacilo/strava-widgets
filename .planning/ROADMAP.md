@@ -13,7 +13,7 @@ This roadmap delivers a personal Strava analytics platform in 4 phases, progress
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Data Foundation** - Secure Strava OAuth and incremental activity sync *(completed 2026-02-14)*
-- [ ] **Phase 2: Core Analytics & First Widget** - Basic stats computation and embeddable weekly chart
+- [x] **Phase 2: Core Analytics & First Widget** - Basic stats computation and embeddable weekly chart *(completed 2026-02-14)*
 - [ ] **Phase 3: Advanced Analytics & Widget Library** - Streaks, trends, and multiple widget types
 - [ ] **Phase 4: Automation & Deployment** - GitHub Actions pipeline for daily refresh and widget publishing
 
@@ -48,8 +48,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Statistics computation pipeline (types, date utils, aggregation engine, CLI command)
-- [ ] 02-02-PLAN.md — Embeddable weekly bar chart widget (Chart.js, Vite IIFE bundle, Shadow DOM, test page)
+- [x] 02-01-PLAN.md — Statistics computation pipeline (types, date utils, aggregation engine, CLI command)
+- [x] 02-02-PLAN.md — Embeddable weekly bar chart widget (Chart.js, Vite IIFE bundle, Shadow DOM, test page)
 
 ### Phase 3: Advanced Analytics & Widget Library
 **Goal**: User can visualize running patterns (streaks, trends, year-over-year comparisons) through multiple embeddable widget types
@@ -93,7 +93,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Data Foundation | 2/2 | ✓ Complete | 2026-02-14 |
-| 2. Core Analytics & First Widget | 0/2 | Planned | - |
+| 2. Core Analytics & First Widget | 2/2 | ✓ Complete | 2026-02-14 |
 | 3. Advanced Analytics & Widget Library | 0/2 | Not started | - |
 | 4. Automation & Deployment | 0/1 | Not started | - |
 
