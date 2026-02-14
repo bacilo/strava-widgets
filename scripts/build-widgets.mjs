@@ -20,6 +20,11 @@ const widgets = [
     name: 'comparison-chart',
     entry: resolve(__dirname, '../src/widgets/comparison-chart/index.ts'),
     globalName: 'ComparisonChart'
+  },
+  {
+    name: 'streak-widget',
+    entry: resolve(__dirname, '../src/widgets/streak-widget/index.ts'),
+    globalName: 'StreakWidget'
   }
 ];
 

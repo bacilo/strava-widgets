@@ -14,6 +14,7 @@ import type {
   SeasonalTrendMonth,
   StreakData,
 } from '../types/analytics.types.js';
+import { calculateDailyStreaks, calculateWeeklyConsistency } from './streak-utils.js';
 
 interface ComputeAdvancedStatsOptions {
   activitiesDir?: string;
@@ -202,19 +203,29 @@ export async function computeAdvancedStats(
       return a.month - b.month;
     });
 
-  // 6. Write placeholder streaks.json (will be updated by Plan 03+)
-  const placeholderStreaks: StreakData = {
-    currentStreak: 0,
-    longestStreak: 0,
-    withinCurrentStreak: false,
-    currentStreakStart: '',
-    longestStreakStart: '',
-    longestStreakEnd: '',
+  // 6. Compute streak data from activity dates
+  const activityDates = activities.map((a) => new Date(a.start_date));
+  const dailyStreaks = calculateDailyStreaks(activityDates);
+  const weeklyConsistency = calculateWeeklyConsistency(activityDates, 3);
+
+  const streakData: StreakData = {
+    currentStreak: dailyStreaks.currentStreak,
+    longestStreak: dailyStreaks.longestStreak,
+    withinCurrentStreak: dailyStreaks.withinCurrentStreak,
+    currentStreakStart: dailyStreaks.currentStreakStart
+      ? dailyStreaks.currentStreakStart.toISOString()
+      : '',
+    longestStreakStart: dailyStreaks.longestStreakStart
+      ? dailyStreaks.longestStreakStart.toISOString()
+      : '',
+    longestStreakEnd: dailyStreaks.longestStreakEnd
+      ? dailyStreaks.longestStreakEnd.toISOString()
+      : '',
     weeklyConsistency: {
-      currentStreak: 0,
-      longestStreak: 0,
-      totalConsistentWeeks: 0,
-      totalWeeks: 0,
+      currentStreak: weeklyConsistency.currentConsistencyStreak,
+      longestStreak: weeklyConsistency.longestConsistencyStreak,
+      totalConsistentWeeks: weeklyConsistency.totalConsistentWeeks,
+      totalWeeks: weeklyConsistency.totalWeeks,
       minRunsPerWeek: 3,
     },
   };
@@ -242,7 +253,7 @@ export async function computeAdvancedStats(
 
   await fs.writeFile(
     path.join(statsDir, 'streaks.json'),
-    JSON.stringify(placeholderStreaks, null, 2),
+    JSON.stringify(streakData, null, 2),
     'utf-8'
   );
 
@@ -250,6 +261,7 @@ export async function computeAdvancedStats(
   console.log(`- Year-over-year: 12 months across ${sortedYears.length} years`);
   console.log(`- Time-of-day: 4 buckets`);
   console.log(`- Seasonal trends: ${seasonalTrendsData.length} month entries`);
-  console.log(`- Streaks: placeholder (will be computed in Plan 03+)`);
+  console.log(`- Streaks: current=${streakData.currentStreak} days, longest=${streakData.longestStreak} days`);
+  console.log(`- Weekly consistency: current=${streakData.weeklyConsistency.currentStreak} weeks, longest=${streakData.weeklyConsistency.longestStreak} weeks`);
   console.log(`\nOutput written to: ${statsDir}`);
 }
