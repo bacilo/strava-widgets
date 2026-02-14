@@ -1,320 +1,241 @@
 # Project Research Summary
 
-**Project:** Strava Analytics & Visualization Platform
-**Domain:** Fitness data analytics with embeddable widgets
-**Researched:** 2026-02-13
+**Project:** Strava Analytics Platform - Geographic Features Milestone
+**Domain:** Running Analytics & Embeddable Widgets
+**Researched:** 2026-02-14
 **Confidence:** HIGH
 
 ## Executive Summary
 
-This project builds a personal Strava analytics platform that fetches running data via GitHub Actions, computes statistics in a TypeScript/Node.js pipeline, and generates embeddable JavaScript widgets for a static Jekyll/Astro site hosted on GitHub Pages. The architecture follows a JAMstack pattern with build-time data fetching, avoiding server-side dependencies while respecting Strava's API rate limits (100 requests/15min, 1000/day).
+This milestone extends an existing Strava analytics platform (TypeScript, Node.js 22, Chart.js, Vite IIFE bundles, Shadow DOM) with geographic capabilities. Research shows the optimal approach is to use **offline-geocode-city** for browser-based reverse geocoding (217 KB, zero API calls), native HTML tables for geographic statistics display, and Web Components API for attribute-based widget customization. The existing stack is validated and requires only one new dependency.
 
-The recommended approach separates concerns into three clear layers: a data acquisition layer (OAuth + API client with rate limiting), a processing layer (statistics computation with aggregations and geographic analysis), and an output layer (static JSON/widget generation). Daily batch processing via GitHub Actions cron jobs provides an optimal balance between data freshness and API constraint compliance, while incremental sync capabilities enable future near-real-time updates.
+The key architectural insight is separating concerns: geocoding happens at widget runtime using an offline library (not in CI), geographic statistics are computed like existing time-based stats, and the new table widget follows the established Shadow DOM pattern. This approach avoids the two critical pitfalls: API cost explosions from repeated geocoding calls and GPS data quality issues affecting 20-30% of activities.
 
-The primary risks center on OAuth token management in a static environment, API rate limit exhaustion, and geographic data privacy violations. These are mitigated through GitHub Secrets for tokens, aggressive caching with git-committed data, and privacy-aware GPS handling. The platform's unique value proposition is producing embeddable widgets for external sites—a capability no existing tool (Strava, VeloViewer, Statshunters, Elevate) currently offers.
+Primary risk is GPS coordinate availability - research shows treadmill runs, indoor activities, and GPS failures mean approximately 20-30% of activities lack location data. Mitigation requires robust filtering (validate start_latlng exists and isn't [0,0]) and graceful degradation (display "Based on X of Y activities with GPS data"). Secondary risk is Shadow DOM table performance with 100+ rows; solution is hard pagination limits (default 20 rows maximum).
 
 ## Key Findings
 
 ### Recommended Stack
 
-The stack centers on **TypeScript 5.3+ with Node.js 20 LTS** for type safety and native fetch API support, avoiding runtime dependencies. Native fetch eliminates the need for axios or strava-v3 libraries, giving full control over rate limiting and OAuth flows. Build-time processing uses date-fns for temporal calculations and lodash-es for aggregations, while avoiding heavyweight data processing libraries (pandas, DuckDB) unnecessary for <10k activities.
+**Single new dependency needed:** offline-geocode-city (217 KB gzipped) provides browser-based reverse geocoding with zero API calls, perfect for static GitHub Pages deployment. Unlike alternatives requiring Node.js-only processing (local-reverse-geocoder at 2.29 GB) or API keys with rate limits (Nominatim at 1 req/sec, Google Maps at $5/1000 requests), offline-geocode-city works instantly in browser/Node.js/web workers with city-level precision sufficient for "runs by city/country" statistics.
 
-**Core technologies:**
+**Core technologies (NO CHANGES to existing stack):**
+- **offline-geocode-city**: Offline reverse geocoding (GPS → city/country) — 217 KB, S2 cell-based, zero API calls, perfect for static sites
+- **Native HTML tables**: Table widget rendering — zero bundle overhead, full Shadow DOM control, consistent with existing widget approach
+- **Native Web Components API**: Attribute-based customization — observedAttributes + attributeChangedCallback provide declarative HTML configuration without dependencies
+- **Existing tools retained**: Chart.js (charts), Vite (IIFE bundles), bottleneck + p-retry (rate limiting if needed), TypeScript + Node.js 22 (pipeline)
 
-- **TypeScript 5.3+ / Node.js 20 LTS**: Runtime with native fetch, type safety for API responses, excellent GitHub Actions support
-- **Vite 5.1+**: Widget build system with library mode for UMD/IIFE bundles, tree-shaking for minimal bundle sizes (~150-200KB gzipped)
-- **Observable Plot 0.6+**: Primary visualization library (modern D3-based grammar, concise syntax, responsive by default)
-- **Leaflet 1.9+**: Map rendering for GPS routes with OpenStreetMap tiles (lighter than Mapbox GL for basic use cases)
-- **bottleneck 2.19+**: Rate limiting to respect Strava's 100/15min and 1000/day limits with reservoir pattern
-- **GitHub Actions**: CI/CD pipeline for daily cron jobs, secrets management, and automatic deployment to GitHub Pages
-- **Static JSON files**: Data storage committed to git (no database needed for personal use, provides audit trail)
-
-**Critical version requirements:**
-- Node.js 20 LTS (active until April 2026, native fetch API)
-- TypeScript 5.3+ (improved type inference for API responses)
-- Observable Plot 0.6+ (aggregation helpers ideal for fitness data)
+**Key architectural decision:** Use offline-geocode-city at widget runtime (not CI batch processing). This eliminates rate limiting concerns, API costs, quota management, and enables instant geographic lookups without pre-computing.
 
 ### Expected Features
 
-The feature landscape divides into table stakes (expected by any Strava tool), differentiators (competitive advantage), and anti-features (commonly requested but problematic).
-
 **Must have (table stakes):**
-- Strava OAuth + incremental data sync with token refresh
-- Distance totals by time period (weekly/monthly/yearly)
-- Pace/speed averages and elevation gain totals
-- Activity list with filtering by date range
-- Local caching to avoid redundant API calls
+- Countries visited list — standard in running apps like Wandrer/StatHunters, users expect geographic aggregation
+- Total distance by country — basic metric alongside activity count
+- Cities/locations visited — finer granularity than countries, city-level precision expected
+- Activity count by location — count activities per identified location
+- Data attribute configuration — HTML-only environments (CMSes) need declarative config without JavaScript
+- Style isolation (Shadow DOM) — widget must not break host page CSS (already implemented, maintain pattern)
 
-**Should have (competitive):**
-- **Weekly km bar chart** (primary "first win" visualization)
-- **Year-over-year comparison** (side-by-side progress tracking)
-- **Streak detection** (consecutive run days, weekly consistency patterns)
-- **Time-of-day patterns** (morning vs evening runner analysis)
-- **Embeddable widgets** (THE unique differentiator—drop stats into any webpage via `<script>` tag)
+**Should have (competitive advantage):**
+- CSV export of geographic data — low complexity, high user value differentiator
+- Dark/light mode support — standard expectation for modern widgets in 2026
+- Interactive table sorting — sort by distance, date, activity count (client-side only)
+- Responsive widget sizing — auto-adapt to container size using ResizeObserver
 
 **Defer (v2+):**
-- Countries/cities run in (requires reverse geocoding pipeline)
-- Route overlay maps (high complexity, needs polyline decoding + rendering)
-- Multi-sport support (doubles data model complexity for v1)
-- Heart rate zone analysis (requires premium Strava data)
-- Real-time sync via webhooks (server dependency, marginal value over daily rebuild)
+- Percentage completion badges — requires area boundary data, significant complexity (Wandrer-style gamification)
+- Choropleth country map — countries colored by distance, adds mapping library dependency
+- Custom location groupings — user-defined regions (e.g., "Nordic countries"), wait for feedback
+- Geographic heatmap visualization — high complexity, requires mapping library, defer until demand validated
 
-**Key insight:** No competitor offers embeddable widgets for external sites. This is the core value proposition—personal ownership of running data presentation.
+**Anti-features identified (commonly requested but problematic):**
+- Real-time location tracking — privacy nightmare, scope creep beyond static analytics
+- Every street completion (Wandrer clone) — massive complexity, OpenStreetMap integration challenges
+- Fine-grained street-level geocoding — poor accuracy, rate limiting issues, city-level is sufficient
+- Unlimited theme customization — maintenance burden, breaks layouts, use controlled CSS variable presets
 
 ### Architecture Approach
 
-The platform follows a **3-tier hybrid architecture** with clear component boundaries: data layer (OAuth + API client + rate limiter), storage layer (filesystem for raw JSON + SQLite optional for processed data), processing layer (aggregation engine, streak calculator, geographic analyzer), and output layer (HTML/JSON/GeoJSON widget generators). GitHub Actions orchestrates the daily pipeline: authenticate → fetch new activities → process statistics → generate widgets → commit to repo.
+The milestone adds four capabilities to existing infrastructure without changing core architecture: (1) geographic data extraction via offline-geocode-city at widget runtime, (2) geographic statistics computation mirroring existing time-based stats pattern, (3) native HTML table widget following Shadow DOM pattern, (4) Web Components attribute-based configuration extending existing widgets.
 
 **Major components:**
 
-1. **Auth Manager** — Manages OAuth 2.0 flow, token refresh (6-hour expiry), and secure GitHub Secrets storage
-2. **Data Fetcher** — Incremental sync of activities with bottleneck rate limiting, exponential backoff retries, and caching strategy (7-day athlete data, 1-day activity list)
-3. **Statistics Processor** — Computes aggregations (SUM/AVG/MAX), streak detection (consecutive days), time-series trends (weekly/monthly), and geographic analysis (bounding boxes, route clustering)
-4. **Widget Generator** — Creates embeddable outputs (static HTML cards, JSON for Chart.js consumption, GeoJSON for Leaflet maps, iframe-embeddable full widgets)
-5. **Orchestration Pipeline** — Scheduled batch processing (daily cron at 2 AM UTC), manual CLI trigger for testing, error handling with pipeline state management
-
-**Data flow:** Strava API → Auth (token refresh) → Fetcher (rate-limited requests) → Storage (raw JSON files) → Processor (compute stats) → Generator (widget files) → Git commit → GitHub Pages deployment
+1. **Reverse Geocoding Service** (`src/services/reverse-geocoder.ts`) — wraps offline-geocode-city, accepts [lat, lng] from activities, returns {city, country, countryCode, displayName}, handles null gracefully
+2. **Location Cache** (`data/geo/location-cache.json`) — persistent storage of coordinate → location mappings (2 decimal precision ~1km), git-tracked for reuse, enables >90% cache hit rate after initial run
+3. **Geographic Statistics Computation** (`src/analytics/compute-geo-stats.ts`) — reads activities with start_latlng, groups by country/city, aggregates count/distance/percentage, outputs `data/stats/geo-stats.json`
+4. **Geographic Table Widget** (`src/widgets/geo-table/index.ts`) — Shadow DOM table with sortable columns (Location, Distance, Runs, Percentage), responsive layout, IIFE bundle via Vite
+5. **Widget Attribute Configuration System** — extends WidgetBase with parseAttributes() method reading HTML data-* attributes (data-url, data-accent-color, data-group-by, data-sort-by), provides type parsing with validation and defaults
 
 **Key patterns:**
-- Immutable raw data (never modified after storage, enables reprocessing)
-- Separation between raw and processed storage (processed can regenerate without API calls)
-- Static-first output (self-contained files, no server required)
-- Incremental everything (sync, processing, widget generation for efficiency)
+- **Offline geocoding at runtime** (Pattern 1): Widget calls offline-geocode-city during initialization, instant lookups, zero API dependencies
+- **Persistent JSON cache** (Pattern 2): Git-tracked location-cache.json survives builds, unlimited caching, coordinate rounding reduces duplicates
+- **Shadow DOM + attribute config** (Pattern 3): HTML data-* attributes for declarative configuration, Web Components observedAttributes for parsing
+- **Git-tracked static generation** (Pattern 4): Compute stats → write JSON → commit → deploy (existing pattern extended for geographic data)
 
 ### Critical Pitfalls
 
-From the pitfalls research, five areas demand immediate attention during foundation phases:
+1. **GPS Coordinate Quality Issues** — 20-30% of activities lack GPS data (treadmill runs, indoor activities, GPS failures, privacy zones). **Avoid:** Pre-geocoding validation (check start_latlng exists and not [0,0], skip activities with no map.summary_polyline), graceful degradation (track total vs geolocated separately), fallback hierarchy (use timezone → country if GPS missing), data quality metadata (display "Based on X of Y activities with GPS").
 
-1. **OAuth Token Management in Static Sites** — NEVER store refresh tokens client-side or commit to repos. Use GitHub Secrets for tokens during Actions workflow. Token refresh must happen proactively before 6-hour expiry. Architecture: Manual OAuth during build time, access token as GitHub secret, Actions fetches data, commit processed data only (not tokens).
+2. **HTML Attribute Type Safety Collapse** — HTML attributes are strings, causing NaN errors when code expects numbers/booleans. **Avoid:** Strict parsing pattern (parseInt with NaN check + defaults, boolean via presence check, JSON.parse with try/catch), never setAttribute in attributeChangedCallback (infinite loops), validate enums against whitelist, document all attribute types with defaults.
 
-2. **Geographic Data Privacy Violations** — Respect Strava's `map.privacy` flags, implement privacy zones (blur routes within 200m of home/work clusters), add random offset (100-500m) to start/end GPS points, never display exact doorstep coordinates. Critical for legal/ethical compliance and Strava API terms.
+3. **Shadow DOM Table Rendering Performance Collapse** — 100+ rows cause 5+ second renders and browser lockup. **Avoid:** Pagination with hard limits (default 10-20 rows max), Constructible Stylesheets for shared CSS across instances, DocumentFragment for batch DOM updates, render only changed rows not entire table, separate Chart.js and table into different widgets.
 
-3. **Rate Limit Management** — Implement tiered caching (store API responses as static JSON committed to repo), incremental updates (fetch only new activities since last sync), request batching (summary endpoints first, detailed only when needed), rate limit buffer (target 80% of limits: 80 req/15min, 800/day). Local development mode must use cached fixtures instead of live API calls.
+4. **Strava Activity Data Lacking Coordinates** — Indoor/manual activities have null start_latlng. **Avoid:** Activity filtering (`hasValidGPS()` function checking map.summary_polyline and non-zero coordinates), display coverage percentage ("Geographic stats based on 1,250 of 1,808 activities"), fallback location inference via timezone, separate "Indoor (no location)" category.
 
-4. **Timezone and Time Series Handling** — Standardize on UTC for internal storage, use date-fns-tz for conversions, respect activity's local timezone from API response. Calculate daily stats using activity's local timezone (not viewer's) to avoid off-by-one errors at day boundaries. Test across DST transitions (March/November).
-
-5. **Metric Unit Inconsistencies** — Store all values in canonical metric (meters, seconds, kg), convert to user preference only at display time. Always show units in UI (5.2 km, not 5.2). Use precise conversion constants (1 mile = 1.609344 km). Format consistently: 1 decimal for km, mm:ss for pace, whole numbers for elevation.
+5. **Static Site API Key Exposure** — Calling geocoding APIs from browser widgets exposes keys. **Avoid:** Use offline-geocode-city (zero API calls), never import API keys in src/ (browser code), verify with `grep -r "API_KEY" src/` returns nothing, alternative if API needed: batch geocoding in GitHub Actions with keys in Secrets.
 
 ## Implications for Roadmap
 
-Based on research findings, the project naturally divides into 4 phases following dependency chains and risk mitigation priorities.
+Based on research, suggested 5-phase structure with clear dependency ordering:
 
-### Phase 1: Foundation (Data Acquisition)
-
-**Rationale:** OAuth and data fetching are hard dependencies for all features. Must establish secure token management and rate limit compliance before any other work. Architecture research indicates Auth → Fetcher → Storage as the critical path.
-
-**Delivers:**
-- Working OAuth flow with GitHub Secrets storage
-- Incremental activity sync with rate limiting
-- File-based storage for raw activities
-- CLI tool to manually trigger data fetch
-
-**Addresses (from FEATURES.md):**
-- Strava OAuth + data sync (table stakes)
-- Data persistence/caching (table stakes)
-
-**Avoids (from PITFALLS.md):**
-- #2: OAuth Token Management (security risk)
-- #3: Geographic Data Privacy (implement privacy checks from start)
-- #1: Rate Limit Management (bottleneck library + caching strategy)
-
-**Stack elements (from STACK.md):**
-- TypeScript 5.3+ / Node.js 20 LTS
-- Native fetch for API calls
-- bottleneck for rate limiting
-- GitHub Secrets for OAuth tokens
-- date-fns for timezone handling
-
-**Research flag:** SKIP — OAuth and REST API patterns are well-documented, standard implementation
-
-### Phase 2: Core Analytics & First Widget
-
-**Rationale:** Once data flows reliably, deliver immediate user value through basic statistics and the "first win" visualization (weekly km chart). This validates the full pipeline before investing in complex features.
+### Phase 1: Geocoding Infrastructure
+**Rationale:** Foundation for all geographic features - must establish offline geocoding before any statistics or widgets can be built. Research shows offline-geocode-city eliminates API cost/quota risks that plague traditional approaches.
 
 **Delivers:**
-- Statistics processor (distance totals, pace averages, elevation)
-- Weekly km bar chart (primary MVP feature)
-- Basic embeddable HTML widget
-- GitHub Actions daily cron workflow
-- Data staleness indicators ("Last updated" timestamps)
+- Reverse Geocoder Service wrapping offline-geocode-city
+- Location cache (data/geo/location-cache.json) with coordinate rounding
+- Geocoding CLI command (`npm run geocode`)
+- GPS validation logic (filter activities lacking coordinates)
 
-**Addresses (from FEATURES.md):**
-- Distance totals (weekly/monthly/yearly) — table stakes
-- Pace/speed averages — table stakes
-- Weekly km bar chart — PRIMARY differentiator
-- Embeddable widget system — unique value proposition
+**Addresses features:** GPS coordinate extraction (table stakes), graceful handling of missing data
 
-**Uses (from STACK.md):**
-- Observable Plot for weekly chart
-- Vite library mode for widget bundles
-- lodash-es for aggregations
-- date-fns for weekly buckets
+**Avoids pitfalls:** GPS coordinate quality issues (validation before geocoding), Strava activity data lacking coordinates (filtering logic), API key exposure (offline library, no API calls)
 
-**Implements (from ARCHITECTURE.md):**
-- Statistics Processor component
-- Widget Generator component
-- Orchestration Pipeline component
+**Research flag:** SKIP RESEARCH - offline-geocode-city has clear documentation, usage pattern is straightforward (import + call reverseGeocode function)
 
-**Avoids (from PITFALLS.md):**
-- #5: Static Site Data Staleness (display timestamps, cache busting)
-- #9: Metric Unit Inconsistencies (canonical storage + display conversion)
-- #6: Activity Type Assumptions (whitelist approach, fallback rendering)
-
-**Research flag:** SKIP — Time-series aggregation and charting are standard patterns
-
-### Phase 3: Advanced Analytics & Multiple Widgets
-
-**Rationale:** With core pipeline proven, expand to richer insights that differentiate from Strava's built-in stats. Year-over-year comparison and streak detection are high-value, medium-complexity features.
+### Phase 2: Geographic Statistics
+**Rationale:** Depends on Phase 1 geocoded data, needed before widgets can display anything. Follows existing pattern from weekly/monthly stats computation.
 
 **Delivers:**
-- Year-over-year comparison dashboard
-- Streak detection (consecutive days, weekly consistency)
-- Time-of-day and seasonal pattern analysis
-- Multiple widget types (stats cards, comparison charts, activity calendar)
-- JSON export for client-side Chart.js consumption
+- Geographic stats computation (src/analytics/compute-geo-stats.ts)
+- CLI integration (npm run compute-geo-stats, update compute-all-stats)
+- Output format (data/stats/geo-stats.json with byCountry/byCity arrays)
+- Data quality metadata tracking (total vs geolocated counts)
 
-**Addresses (from FEATURES.md):**
-- Year-over-year comparison — differentiator
-- Streak detection — differentiator
-- Time-of-day patterns — differentiator
-- Seasonal trends — differentiator
-- Multiple widget types — variety
+**Addresses features:** Countries visited list, total distance by country, cities visited, activity count by location (all table stakes)
 
-**Uses (from STACK.md):**
-- Observable Plot for trend visualizations
-- Chart.js (secondary) for specific chart types (doughnut, radar)
-- date-fns for streak algorithms
-- Static JSON output for widget data
+**Avoids pitfalls:** Strava data lacking coordinates (metadata shows X of Y activities), graceful degradation (separate counts)
 
-**Implements (from ARCHITECTURE.md):**
-- Advanced Statistics Processor (streaks, time-series)
-- Multiple Widget Generator types
-- Incremental processing optimization
+**Research flag:** SKIP RESEARCH - mirrors existing stats computation architecture, no new patterns needed
 
-**Avoids (from PITFALLS.md):**
-- #4: Timezone and Time Series Handling (test across DST transitions)
-- #10: Correlation vs Causation (humble language, descriptive not prescriptive)
-
-**Research flag:** SKIP — Streak detection and trend analysis follow established patterns
-
-### Phase 4: Geographic Features & Maps
-
-**Rationale:** Geographic visualizations (routes, heatmaps, countries/cities) are high-value but require additional API calls (activity streams) and complex processing. Defer until core analytics are stable to manage rate limits and complexity.
+### Phase 3: Widget Attribute System
+**Rationale:** Foundation for new widget AND improves existing widgets. Can be developed in parallel with Phase 1-2 (no dependency). Establishes pattern before building geographic table widget.
 
 **Delivers:**
-- Activity streams fetcher (GPS data)
-- Polyline decoder for route coordinates
-- GeoJSON generator for Leaflet maps
-- Route overlay map widget
-- Heatmap data generation
-- Cities/countries run in (with reverse geocoding)
+- WidgetBase refactor with parseAttributes() method
+- Attribute parsing utilities (parseInt with validation, boolean parsing, JSON.parse with try/catch)
+- Existing widget migration (StatsCardWidget, ComparisonChart, StreakWidget)
+- Documentation of all attributes with types and defaults
 
-**Addresses (from FEATURES.md):**
-- Countries run in (map) — differentiator (v2)
-- Cities run in (list) — differentiator (v2)
-- Route overlay map — differentiator (v2)
+**Addresses features:** Data attribute configuration (table stakes), basic theming via CSS variables
 
-**Uses (from STACK.md):**
-- Leaflet for map rendering
-- @mapbox/polyline for decoding
-- OpenStreetMap tiles (free)
-- GeoJSON export format
+**Avoids pitfalls:** HTML attribute type safety collapse (strict parsing with validation), infinite loops (no setAttribute in attributeChangedCallback)
 
-**Implements (from ARCHITECTURE.md):**
-- Activity Streams Fetcher component
-- Geographic Processor component
-- Map Widget Generator component
+**Research flag:** SKIP RESEARCH - Web Components API is well-documented, MDN has comprehensive guides on observedAttributes
 
-**Avoids (from PITFALLS.md):**
-- #3: Geographic Data Privacy (privacy zones, fuzzy start/end, respect map.privacy flags)
-- #8: Polyline Encoding/Decoding Errors (use @mapbox/polyline, validate coordinates)
-- #7: Large Dataset Performance (downsample GPS points, lazy-load streams)
+### Phase 4: Geographic Table Widget
+**Rationale:** Depends on Phase 2 (geo-stats.json) and Phase 3 (attribute system). Final deliverable combining all previous work.
 
-**Research flag:** PHASE RESEARCH RECOMMENDED — Reverse geocoding services (Nominatim vs Google), privacy zone algorithms, and heatmap generation strategies need deeper investigation
+**Delivers:**
+- Geographic Table Widget (src/widgets/geo-table/index.ts)
+- Table rendering with Shadow DOM and native HTML
+- Sorting functionality (click headers)
+- Build configuration (add to scripts/build-widgets.mjs)
+- Widget demo page for testing
+
+**Uses stack:** Native HTML tables (zero overhead), Shadow DOM (existing pattern), Constructible Stylesheets (performance)
+
+**Implements architecture:** Shadow DOM widget with attribute configuration (Pattern 3)
+
+**Addresses features:** Geographic statistics display (table stakes), interactive table sorting (competitive), responsive sizing (competitive)
+
+**Avoids pitfalls:** Shadow DOM performance collapse (pagination limits, Constructible Stylesheets, max 20 rows default)
+
+**Research flag:** SKIP RESEARCH - follows existing widget pattern exactly, no new concepts
+
+### Phase 5: CI/CD Integration
+**Rationale:** Integrates all components into automated workflow. Final step after all components validated independently.
+
+**Delivers:**
+- GitHub Actions workflow updates (add geocoding + geo-stats steps)
+- Error handling (continue-on-error for non-blocking failures)
+- Documentation updates (README with new commands, widget attributes guide)
+- Geocoding attribution requirements (Nominatim/OSM credit)
+
+**Addresses features:** Automated daily refresh of geographic data
+
+**Avoids pitfalls:** CI builds taking too long (incremental processing), build failures blocking deployment (non-blocking geocoding)
+
+**Research flag:** SKIP RESEARCH - GitHub Actions workflow is established, just adding steps
 
 ### Phase Ordering Rationale
 
-- **Foundation first:** OAuth and data fetching are hard blockers for everything else. Security risks (#2, #3) must be addressed before any data processing.
-- **Core analytics second:** Deliver user value quickly with basic stats + first widget. Validates full pipeline (fetch → process → generate → deploy) before complexity.
-- **Advanced analytics third:** Builds on proven processing patterns, adds differentiation without new data sources. Stays within established rate limits.
-- **Geographic last:** Requires additional API calls (streams), most complex processing, highest performance risks. Benefits from established infrastructure and rate limit management.
-
-**Dependency chain:**
-- Phase 2 depends on Phase 1 (data acquisition)
-- Phase 3 depends on Phase 2 (processing infrastructure)
-- Phase 4 depends on Phase 1 (streams API) and Phase 3 (widget generation patterns)
-
-**Risk mitigation progression:**
-- Phase 1 addresses critical security/privacy pitfalls (#2, #3, #1)
-- Phase 2 addresses UX and data integrity pitfalls (#5, #9, #6, #4)
-- Phase 3 addresses analytical rigor pitfalls (#10)
-- Phase 4 addresses performance and domain-specific pitfalls (#7, #8)
+- **Sequential dependencies:** 1 → 2 → 4 → 5 (each depends on previous), Phase 3 is independent and can run parallel to 1-2
+- **Validation gates:** Each phase can be tested independently before proceeding (1: geocoding works, 2: stats JSON correct, 3: attributes parse, 4: widget renders, 5: full pipeline)
+- **Pitfall avoidance built into order:** GPS validation in Phase 1 prevents bad data in Phase 2, attribute system in Phase 3 prevents type bugs in Phase 4
+- **Incremental value:** Phase 2 produces usable JSON even if widgets incomplete, Phase 3 improves existing widgets immediately
+- **Research efficiency:** All phases use standard/existing patterns, no deep research needed during planning
 
 ### Research Flags
 
-**Phases needing deeper research during planning:**
-
-- **Phase 4 (Geographic):** Reverse geocoding services comparison (Nominatim free tier limits vs Google Geocoding API costs), privacy zone detection algorithms (clustering start/end points, fuzzy radius determination), heatmap generation strategies (grid density vs kernel density estimation), polyline simplification for performance (Douglas-Peucker algorithm thresholds)
-
 **Phases with standard patterns (skip research-phase):**
+- **Phase 1:** offline-geocode-city has clear documentation, straightforward usage
+- **Phase 2:** Mirrors existing stats computation, established pattern
+- **Phase 3:** Web Components API well-documented by MDN, standard platform feature
+- **Phase 4:** Follows existing widget architecture exactly
+- **Phase 5:** GitHub Actions workflow established, incremental addition
 
-- **Phase 1 (Foundation):** OAuth 2.0 flows, REST API clients, rate limiting patterns extensively documented
-- **Phase 2 (Core Analytics):** Time-series aggregation, charting libraries, widget bundling well-established
-- **Phase 3 (Advanced Analytics):** Streak detection algorithms, trend analysis patterns common in fitness apps
+**No phases require deep research** - all technologies and patterns are well-documented with official sources.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | TypeScript/Node.js for build-time processing is industry standard. Observable Plot and Vite are well-documented. bottleneck library proven for rate limiting. |
-| Features | HIGH | Feature landscape well-understood from Strava API docs and competitor analysis. Embeddable widget differentiation validated. |
-| Architecture | HIGH | JAMstack pattern with static JSON storage is proven for personal projects. GitHub Actions orchestration widely used. Component boundaries clear from established patterns. |
-| Pitfalls | MEDIUM-HIGH | OAuth and rate limit pitfalls well-documented. Privacy pitfalls critical and research-backed. Geographic encoding pitfalls specific but addressable with proven libraries. |
+| Stack | HIGH | offline-geocode-city verified via GitHub/npm (217 KB, browser support), Web Components API is platform standard (MDN), native HTML tables proven approach |
+| Features | HIGH | Wandrer/StatHunters/Strava establish clear feature expectations, table stakes vs differentiators well-defined, anti-features backed by community wisdom |
+| Architecture | HIGH | Extends existing validated architecture, offline geocoding pattern verified, Shadow DOM + attribute config follows Web Components best practices |
+| Pitfalls | HIGH | GPS data quality issues documented by Strava Support, attribute type safety pitfalls well-known in Web Components community, Shadow DOM performance characteristics proven |
 
 **Overall confidence:** HIGH
 
-The project follows established patterns (JAMstack, build-time data fetching, static site widgets) with well-documented technologies. Strava API is mature with extensive community usage. The main unknowns are in Phase 4 geographic features (reverse geocoding service selection, privacy zone implementation), but these are deferred and can be researched during phase planning.
+Research sources include official documentation (MDN, Nominatim usage policy, Strava Support), verified npm packages (offline-geocode-city GitHub/npm), and multiple corroborating community sources (Open Web Components, API comparison guides). All architectural patterns have production precedents.
 
 ### Gaps to Address
 
-While research confidence is high, several areas need validation during implementation:
+**Minor gaps (handle during implementation):**
 
-- **Rate limit headroom:** The 80% buffer target (80 req/15min) assumes no parallel development activity. Monitor actual usage patterns during Phase 1 to validate this is sufficient.
-- **SQLite vs file-only storage:** Research recommends hybrid approach but doesn't quantify the performance breakpoint. Start with files only, add SQLite when queries become slow (likely Phase 3+).
-- **Widget embed compatibility:** Observable Plot and Chart.js compatibility with Jekyll/Astro needs hands-on validation. Test embed code early in Phase 2.
-- **Privacy zone accuracy:** Privacy research provides strategies but not specific clustering algorithms. Needs implementation experimentation in Phase 4.
-- **Bundle size optimization:** 150-200KB estimate for full widget may be too large for some pages. Investigate code splitting and lazy loading during Phase 2 widget development.
+- **Exact offline-geocode-city API:** Import syntax and return format verified via GitHub README, but exact TypeScript types may need adjustment during integration. Handle by: Read types from node_modules after install, adjust interface definitions.
 
-**Handling during planning/execution:**
+- **GPS coordinate precision for cache keys:** Research suggests 2 decimal places (~1km) for deduplication, but optimal rounding may vary. Handle by: Start with 2 decimals, add logging for cache hit rates, adjust if needed.
 
-- Phase 1: Instrument rate limit tracking to validate buffer strategy
-- Phase 2: Create test Jekyll/Astro pages early for widget integration validation
-- Phase 3: Profile file-based query performance, migrate to SQLite if needed
-- Phase 4: Research privacy zone algorithms before implementation (use `/gsd:research-phase`)
+- **Shadow DOM performance thresholds:** Research indicates 50+ rows causes issues, but exact threshold depends on complexity. Handle by: Performance measurement in Phase 4, adjust max-rows default based on actual benchmarks.
+
+- **Activity timezone → country mapping:** Fallback for activities without GPS requires timezone to country lookup table. Handle by: Use IANA timezone database mapping (well-established), implement in Phase 1 if needed.
+
+All gaps are implementation details, not architectural uncertainties. Core approach is validated.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-
-- **Strava API v3 Documentation** (developers.strava.com) — OAuth flow, rate limits, activity/stream endpoints, polyline encoding
-- **Official library docs** — Observable Plot (observablehq.com/plot), Vite (vitejs.dev), Leaflet (leafletjs.com), TypeScript (typescriptlang.org)
-- **GitHub Actions for Node.js** (docs.github.com/en/actions) — CI/CD workflows, cron scheduling, secrets management
-- **Node.js 20 LTS documentation** — Native fetch API, runtime features, LTS timeline
+- [MDN Web Components](https://developer.mozilla.org/en-US/docs/Web/API/Web_components) - Web Components API, Shadow DOM, Custom Elements, observedAttributes lifecycle
+- [MDN Using Custom Elements](https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_custom_elements) - attributeChangedCallback patterns
+- [Nominatim Usage Policy](https://operations.osmfoundation.org/policies/nominatim/) - Rate limits, caching policy, attribution requirements
+- [Strava Support - Bad GPS Data](https://support.strava.com/hc/en-us/articles/216917707-Bad-GPS-Data) - Official GPS data quality issues
+- [offline-geocode-city GitHub](https://github.com/kyr0/offline-geocode-city) - 217 KB bundle size, browser/Node.js support, S2 cells, city-level precision
 
 ### Secondary (MEDIUM confidence)
+- [Open Web Components - Attributes Guide](https://open-wc.org/guides/knowledge/attributes-and-properties/) - Type parsing, property-attribute reflection best practices
+- [Public APIs - Free Geocoding APIs 2026](https://publicapis.io/blog/free-geocoding-apis) - API comparison (Nominatim, LocationIQ, OpenCage, Google)
+- [Wandrer.earth](https://wandrer.earth/) - Competitor feature analysis (street-level exploration, % completion badges)
+- [StatHunters](https://www.statshunters.com/) - Competitor feature analysis (activity mapping, statistics tables)
+- [Mapscaping - Geocoding API Pricing Guide](https://mapscaping.com/guide-to-geocoding-api-pricing/) - Cost comparison and optimization strategies
+- [Does Shadow DOM Improve Style Performance?](https://nolanlawson.com/2021/08/15/does-shadow-dom-improve-style-performance/) - Performance benchmarks and analysis
 
-- **npm package documentation** — bottleneck, date-fns, lodash-es, @mapbox/polyline (active maintenance verified)
-- **Competitor analysis** — VeloViewer, Statshunters, Elevate feature sets (validated through public documentation)
-- **JAMstack architecture patterns** — Static site generation with build-time data fetching (established pattern)
-- **Fitness data visualization best practices** — Weekly aggregations, streak detection, pace/distance metrics (common in running apps)
-
-### Tertiary (LOW confidence, needs validation)
-
-- **Privacy zone algorithms** — Clustering strategies for start/end point fuzzing (needs implementation testing)
-- **Reverse geocoding service performance** — Nominatim vs Google comparison for personal use (needs Phase 4 research)
-- **Bundle size estimates** — 150-200KB for full widget based on library sizes (needs actual build verification)
+### Tertiary (LOW confidence - needs validation)
+- Exact npm version numbers (npm registry queries not performed, assumed ^1.x for offline-geocode-city based on GitHub)
+- GPS coordinate rounding precision (2 decimals recommended by multiple sources, but optimal value may vary)
 
 ---
-
-*Research completed: 2026-02-13*
+*Research completed: 2026-02-14*
 *Ready for roadmap: yes*

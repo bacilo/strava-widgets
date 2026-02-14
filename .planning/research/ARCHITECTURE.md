@@ -1,884 +1,971 @@
-# Architecture Research: Strava Analytics Platform
+# Architecture Research: Geographic Data Integration
 
-**Research Date:** 2026-02-13
-**Dimension:** Architecture
-**Milestone:** Greenfield - System Structure & Components
+**Domain:** Strava Analytics Platform - Geographic Data & Widget Customization Extension
+**Researched:** 2026-02-14
+**Confidence:** HIGH
+**Milestone Context:** Subsequent milestone adding geographic features to existing platform
 
-## Research Question
+## Integration Architecture Overview
 
-How are Strava analytics platforms typically structured? What are the major components for a system that fetches data, processes statistics, and serves embeddable widgets to a static site?
+This milestone adds four new capabilities to the existing Strava analytics platform:
+1. **Geographic data extraction** (reverse geocoding)
+2. **Geographic statistics computation**
+3. **Table/list widget rendering**
+4. **Widget customization via HTML attributes**
 
-## Executive Summary
-
-Strava analytics platforms typically follow a **3-tier architecture** with clear separation between data acquisition, processing, and presentation layers. Given the constraints (API rate limits: 100/15min, 1000/day; single user; static site embedding), the optimal structure is:
-
-1. **Data Layer**: OAuth + API client with caching and rate limit management
-2. **Processing Layer**: Statistics computation engine with aggregations, streaks, and geographic analysis
-3. **Output Layer**: Static JSON/HTML widget generator for embedding
-
-The architecture must balance between daily rebuild simplicity and live data freshness while respecting API constraints.
-
-## Core Components
-
-### 1. Authentication & Authorization Component
-
-**Purpose:** Manage Strava OAuth flow and token lifecycle
-
-**Responsibilities:**
-- OAuth 2.0 authorization code flow
-- Token storage (access + refresh tokens)
-- Automatic token refresh before expiration
-- Secure credential management
-
-**Key Considerations:**
-- Strava tokens expire after 6 hours
-- Refresh tokens are long-lived but must be persisted
-- For personal use, can use OAuth once and persist tokens
-- Need webhook endpoint if supporting token revocation
-
-**Data Flow:**
-- **Input:** User authorization grant
-- **Output:** Valid access token for API calls
-- **Storage:** Encrypted token store (file, env vars, or secrets manager)
-
-### 2. Data Fetching Component
-
-**Purpose:** Retrieve data from Strava API with rate limit respect
-
-**Responsibilities:**
-- Fetch activities (paginated)
-- Fetch athlete profile
-- Fetch detailed activity streams (GPS, heart rate, power, etc.)
-- Rate limit tracking and backoff
-- Request retry logic with exponential backoff
-- Incremental data sync (only new activities)
-
-**Key Considerations:**
-- API limits: 100 requests/15min, 1000/day
-- Activities endpoint returns 30 per page
-- Streams (GPS data) are separate API calls per activity
-- Support both full sync (initial) and incremental sync (updates)
-- Implement caching to avoid redundant API calls
-
-**Data Flow:**
-- **Input:** Valid access token, sync parameters (date range, activity IDs)
-- **Output:** Raw activity data (JSON)
-- **Storage:** Raw data cache (filesystem or database)
-
-**Rate Limit Strategy:**
-- Track remaining quota in-memory or persistence
-- Queue requests when approaching limits
-- Schedule intensive operations (full sync) during low-usage periods
-- For single user: ~1000 activities = 34 API calls (pagination) + activity details
-
-### 3. Data Storage Component
-
-**Purpose:** Persist raw and processed data efficiently
-
-**Responsibilities:**
-- Store raw API responses (activities, streams, athlete data)
-- Store processed statistics and aggregations
-- Support incremental updates
-- Enable fast queries for widget generation
-
-**Architecture Options:**
-
-**Option A: File-based Storage** (Simplest for personal use)
-- Raw data: `data/raw/activities/{activity_id}.json`
-- Streams: `data/raw/streams/{activity_id}.json`
-- Processed: `data/processed/stats.json`, `data/processed/summaries/{year}.json`
-- Widgets: `data/widgets/{widget_name}.json` or `.html`
-
-**Option B: SQLite Database** (Better for complex queries)
-- Tables: `activities`, `activity_streams`, `computed_stats`, `athlete`
-- Enables SQL aggregations and filtering
-- Single file, portable, no server required
-- Good for geographic queries and time-series analysis
-
-**Option C: Hybrid Approach** (Recommended)
-- Raw data in files (immutable, backup-friendly)
-- SQLite for processed data and queries
-- Widget outputs as static files
-
-**Data Flow:**
-- **Input:** Raw API responses, processed statistics
-- **Output:** Queryable data for processing and widget generation
-- **Patterns:** Write-once for raw data, read-heavy for processed data
-
-### 4. Statistics Processing Component
-
-**Purpose:** Compute aggregations, streaks, and custom metrics
-
-**Responsibilities:**
-- Aggregate by time period (weekly, monthly, yearly, all-time)
-- Compute running totals (distance, elevation, time)
-- Calculate streaks (current, longest)
-- Geographic analysis (routes, heatmaps, location clustering)
-- Activity type breakdowns (run, ride, swim)
-- Personal records and achievements
-- Trend analysis (pace progression, fitness improvements)
-
-**Processing Patterns:**
-
-**Batch Processing** (Daily rebuild)
-- Process all activities once per day
-- Generate complete statistics set
-- Simple, predictable, resource-efficient
-- Works well with API rate limits
-
-**Incremental Processing** (Near real-time)
-- Fetch only new activities since last sync
-- Update running totals and streaks
-- Recompute affected aggregations
-- More complex but fresher data
-
-**Key Computations:**
-- **Aggregations:** SUM(distance), AVG(pace), MAX(elevation), COUNT(activities)
-- **Streaks:** Consecutive days with activities
-- **Geographic:** Bounding boxes, unique locations, route clustering
-- **Time-series:** Weekly/monthly trends, year-over-year comparisons
-- **Pace zones:** Distribution of pace across activities
-- **Equipment:** Stats per bike/shoe (if tracking)
-
-**Data Flow:**
-- **Input:** Raw activity data from storage
-- **Output:** Computed statistics (JSON or database records)
-- **Dependencies:** Requires complete historical data for accurate totals
-
-### 5. Widget Generation Component
-
-**Purpose:** Create embeddable HTML/JS/JSON widgets for static site
-
-**Responsibilities:**
-- Generate static HTML widgets with inline CSS
-- Create JSON data files for JavaScript consumption
-- Support multiple widget types (stats cards, charts, maps)
-- Optimize for static site embedding (no server required)
-- Handle responsive design
-
-**Widget Types:**
-
-**Type 1: Static HTML Cards**
-- Pre-rendered HTML with statistics
-- Inline CSS for styling
-- No JavaScript required
-- Example: Total distance, activity count, current streak
-
-**Type 2: JSON + Client-side Rendering**
-- Export data as JSON
-- Consumed by JavaScript in static site
-- Enables charts (Chart.js, D3.js) and interactive visualizations
-- Example: Monthly distance chart, pace distribution
-
-**Type 3: Interactive Maps**
-- GeoJSON exports for route visualization
-- Integration with Leaflet/Mapbox in static site
-- Heatmap generation for activity density
-- Example: Year's routes, heatmap overlay
-
-**Type 4: Embeddable Iframes**
-- Standalone HTML pages with full widget
-- Can be embedded via iframe in static site
-- Self-contained with all assets inline
-- Example: Activity calendar, achievement gallery
-
-**Output Formats:**
-```
-widgets/
-├── stats-card.html          # Inline HTML widget
-├── monthly-distance.json    # Data for chart
-├── routes-2026.geojson      # Geographic data
-├── activity-calendar.html   # Full interactive widget
-└── metadata.json            # Widget catalog
-```
-
-**Data Flow:**
-- **Input:** Processed statistics, activity data
-- **Output:** Static files ready for embedding
-- **Integration:** Copy to static site or fetch via URL
-
-### 6. Orchestration Component
-
-**Purpose:** Coordinate data pipeline execution
-
-**Responsibilities:**
-- Schedule data fetching (daily, hourly, or on-demand)
-- Trigger processing after data updates
-- Generate widgets after processing
-- Handle errors and retry logic
-- Log pipeline execution
-
-**Execution Modes:**
-
-**Mode 1: Scheduled Batch** (Recommended for daily rebuild)
-- Cron job or GitHub Actions workflow
-- Daily execution (e.g., 2 AM local time)
-- Full pipeline: fetch → process → generate widgets
-- Commit and push widget outputs to website repo
-
-**Mode 2: Event-driven** (For live data)
-- Strava webhook subscription for new activities
-- Triggered processing on activity creation
-- Incremental update and widget regeneration
-- Requires server or serverless function
-
-**Mode 3: Manual Trigger**
-- CLI command or API endpoint
-- On-demand data sync and processing
-- Useful during development and testing
-
-**Pipeline Flow:**
-```
-1. Authenticate (refresh token if needed)
-2. Fetch new/updated activities
-3. Store raw data
-4. Process statistics
-5. Generate widgets
-6. Deploy to static site (copy or commit)
-7. Log results and update state
-```
-
-**Error Handling:**
-- Retry failed API calls with exponential backoff
-- Continue processing on partial failures
-- Log errors for debugging
-- Maintain pipeline state for resume capability
-
-## System Architecture Diagram
+### System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                         STRAVA API                          │
-│                  (Rate Limited: 100/15min)                  │
-└───────────────────────────┬─────────────────────────────────┘
-                            │
-                            │ OAuth + API Calls
-                            │
-┌───────────────────────────▼─────────────────────────────────┐
-│                    DATA LAYER                               │
-│  ┌──────────────┐  ┌─────────────────┐  ┌───────────────┐  │
-│  │   Auth       │  │  Data Fetcher   │  │  Rate Limiter │  │
-│  │   Manager    │→ │  (Incremental)  │→ │  & Cache      │  │
-│  └──────────────┘  └─────────────────┘  └───────────────┘  │
-└───────────────────────────┬─────────────────────────────────┘
-                            │
-                            │ Raw Activity Data (JSON)
-                            │
-┌───────────────────────────▼─────────────────────────────────┐
-│                   STORAGE LAYER                             │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │  Filesystem: data/raw/activities/{id}.json             │ │
-│  │  SQLite: processed.db (stats, aggregations)            │ │
-│  │  State: last_sync.json, rate_limits.json               │ │
-│  └────────────────────────────────────────────────────────┘ │
-└───────────────────────────┬─────────────────────────────────┘
-                            │
-                            │ Query Data
-                            │
-┌───────────────────────────▼─────────────────────────────────┐
-│                  PROCESSING LAYER                           │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
-│  │ Aggregation  │  │   Streak     │  │   Geographic     │  │
-│  │   Engine     │  │  Calculator  │  │   Analyzer       │  │
-│  └──────────────┘  └──────────────┘  └──────────────────┘  │
-└───────────────────────────┬─────────────────────────────────┘
-                            │
-                            │ Computed Statistics
-                            │
-┌───────────────────────────▼─────────────────────────────────┐
-│                   OUTPUT LAYER                              │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
-│  │ HTML Widget  │  │ JSON Data    │  │  GeoJSON Maps    │  │
-│  │  Generator   │  │  Exporter    │  │   Generator      │  │
-│  └──────────────┘  └──────────────┘  └──────────────────┘  │
-└───────────────────────────┬─────────────────────────────────┘
-                            │
-                            │ Static Files
-                            │
-┌───────────────────────────▼─────────────────────────────────┐
-│              STATIC SITE INTEGRATION                        │
-│  bacilo.github.io (Jekyll + Astro, GitHub Pages)           │
-│  - Embed HTML widgets directly                              │
-│  - Fetch JSON for client-side charts                        │
-│  - Display GeoJSON maps with Leaflet                        │
+│                    FRONTEND (GitHub Pages)                   │
+├─────────────────────────────────────────────────────────────┤
+│  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐        │
+│  │ Stats   │  │Compari- │  │ Streak  │  │  NEW:   │        │
+│  │ Card    │  │son Chart│  │ Widget  │  │Geographic│       │
+│  │ Widget  │  │ Widget  │  │         │  │  Table   │       │
+│  └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘        │
+│       │            │            │            │              │
+│       └────────────┴────────────┴────────────┘              │
+│                      │                                       │
+│              Shadow DOM Isolation                            │
+│              + Attribute Config (NEW)                        │
+├─────────────────────────────────────────────────────────────┤
+│                   STATIC JSON DATA                           │
+├─────────────────────────────────────────────────────────────┤
+│  ┌──────────────────┐  ┌──────────────────┐                │
+│  │ Existing Stats   │  │  NEW: Geographic │                │
+│  │ - weekly.json    │  │  - geo-stats.json│                │
+│  │ - monthly.json   │  │  - locations.json│                │
+│  │ - yearly.json    │  └──────────────────┘                │
+│  │ - all-time.json  │                                       │
+│  │ - streaks.json   │                                       │
+│  └──────────────────┘                                       │
 └─────────────────────────────────────────────────────────────┘
-
-                    ORCHESTRATION
-         (Cron/GitHub Actions/Manual CLI)
-         ┌────────────────────────────┐
-         │ 1. Fetch new activities    │
-         │ 2. Process statistics      │
-         │ 3. Generate widgets        │
-         │ 4. Deploy to static site   │
-         └────────────────────────────┘
+                          ↑
+                     (generated by)
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│               DATA PIPELINE (Node.js 22)                     │
+├─────────────────────────────────────────────────────────────┤
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │              Activity Sync Layer                       │  │
+│  │  ┌──────────┐ → ┌──────────┐ → ┌──────────┐          │  │
+│  │  │  Strava  │   │  OAuth   │   │   File   │          │  │
+│  │  │  Client  │   │  Manager │   │  Storage │          │  │
+│  │  └──────────┘   └──────────┘   └──────────┘          │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                          ↓                                   │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │         NEW: Geographic Enrichment Layer              │  │
+│  │  ┌──────────────┐ → ┌──────────────┐                 │  │
+│  │  │   Reverse    │   │  Location    │                 │  │
+│  │  │  Geocoder    │   │    Cache     │                 │  │
+│  │  │  Service     │   │  (JSON file) │                 │  │
+│  │  └──────────────┘   └──────────────┘                 │  │
+│  │       ↑                                                │  │
+│  │       └── Rate limited (1 req/sec max)                │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                          ↓                                   │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │            Statistics Computation Layer                │  │
+│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐              │  │
+│  │  │ Basic    │ │ Advanced │ │   NEW:   │              │  │
+│  │  │ Stats    │ │  Stats   │ │Geographic│              │  │
+│  │  │ Compute  │ │ Compute  │ │  Stats   │              │  │
+│  │  └──────────┘ └──────────┘ └──────────┘              │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                          ↓                                   │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │               JSON Output Layer                        │  │
+│  │  ┌──────────────────────────────────────────────────┐ │  │
+│  │  │  data/                                           │ │  │
+│  │  │  ├── activities/ (raw Strava JSON)               │ │  │
+│  │  │  ├── stats/ (computed statistics)                │ │  │
+│  │  │  └── NEW: geo/ (cached locations + geo-stats)    │ │  │
+│  │  └──────────────────────────────────────────────────┘ │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                          ↑
+                   (triggered daily by)
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│               GITHUB ACTIONS (CI/CD)                         │
+│  Daily cron: sync → geocode → compute-stats → deploy        │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## Data Flow Details
+## New Components
 
-### Primary Data Flow (Daily Rebuild)
+### 1. Reverse Geocoding Service
 
+**Location:** `src/services/reverse-geocoder.ts`
+
+**Purpose:** Converts lat/lng coordinates to human-readable locations (city, country)
+
+**Responsibilities:**
+- Accept `[lat, lng]` coordinates from activity data
+- Query reverse geocoding API with rate limiting
+- Handle API failures gracefully (return null on error)
+- Transform API response to standardized location format
+- Respect 1 req/sec rate limit (Nominatim)
+
+**Recommended Provider:** Nominatim (OpenStreetMap)
+- **Why:** Free, no API key required, permissive caching
+- **Rate limit:** 1 request/second
+- **Cost:** Free (donations appreciated)
+- **Caching:** Unlimited duration allowed
+- **Attribution:** Required in UI
+
+**Alternative if Nominatim blocked:** LocationIQ (5,000 req/day free, requires API key)
+
+**Interface:**
+```typescript
+export interface GeocodeResult {
+  city: string | null;
+  country: string;
+  countryCode: string;  // ISO 3166-1 alpha-2
+  displayName: string;  // "Lisbon, Portugal"
+}
+
+export interface ReverseGeocoderConfig {
+  provider: 'nominatim' | 'locationiq';
+  apiKey?: string;  // Only for LocationIQ
+  rateLimit: number;  // requests per second
+  timeout: number;    // milliseconds
+  userAgent: string;  // Required for Nominatim
+}
+
+export class ReverseGeocoder {
+  async geocode(lat: number, lng: number): Promise<GeocodeResult | null>;
+  async geocodeBatch(coords: [number, number][]): Promise<(GeocodeResult | null)[]>;
+}
 ```
-[Strava API]
-    ↓ (1) OAuth authentication
-[Auth Manager: Valid access token]
-    ↓ (2) Fetch activities since last sync
-[Data Fetcher: API requests with rate limiting]
-    ↓ (3) Raw JSON responses
-[Storage: data/raw/activities/*.json]
-    ↓ (4) Read all activities
-[Processing: Compute aggregations, streaks, geographic stats]
-    ↓ (5) Computed statistics
-[Storage: processed.db or data/processed/*.json]
-    ↓ (6) Read statistics
-[Widget Generator: Create HTML/JSON/GeoJSON]
-    ↓ (7) Static widget files
-[Output: widgets/*.html, *.json, *.geojson]
-    ↓ (8) Deploy (copy or git commit+push)
-[Static Site: bacilo.github.io]
+
+**Implementation notes:**
+- Use `bottleneck` (already in dependencies) for rate limiting
+- Set User-Agent header: `"StravaAnalytics/1.0 (your-email@example.com)"`
+- Cache results in JSON file (see Location Cache below)
+- Fail gracefully: if API errors, return `null` and continue
+
+**Sources:**
+- [Nominatim Usage Policy](https://operations.osmfoundation.org/policies/nominatim/)
+- [Public APIs - Free Geocoding APIs 2026](https://publicapis.io/blog/free-geocoding-apis)
+
+### 2. Location Cache
+
+**Location:** `data/geo/location-cache.json`
+
+**Purpose:** Permanent storage of geocoded locations to minimize API calls
+
+**Format:**
+```json
+{
+  "38.76,-9.12": {
+    "city": "Lisbon",
+    "country": "Portugal",
+    "countryCode": "PT",
+    "displayName": "Lisbon, Portugal",
+    "geocodedAt": "2026-02-14T10:00:00Z"
+  }
+}
 ```
 
-### Incremental Update Flow (Near Real-time)
-
-```
-[Strava Webhook: New activity created]
-    ↓ (1) Webhook notification
-[Orchestrator: Trigger incremental sync]
-    ↓ (2) Fetch specific activity
-[Data Fetcher: Single API call]
-    ↓ (3) Store new activity
-[Storage: Append to data/raw/]
-    ↓ (4) Incremental processing
-[Processing: Update affected statistics only]
-    ↓ (5) Updated statistics
-[Widget Generator: Regenerate affected widgets]
-    ↓ (6) Deploy updated widgets
-[Static Site: Fresh data without full rebuild]
-```
-
-## Component Boundaries
-
-### Clear Separation Principles
-
-1. **Authentication is separate from data fetching**
-   - Auth component only manages tokens
-   - Data fetcher receives valid tokens, never handles auth logic
-   - Enables token reuse across multiple data operations
-
-2. **Raw data storage is separate from processed data**
-   - Raw data is immutable (never modified after storage)
-   - Processed data can be regenerated from raw data
-   - Enables reprocessing without re-fetching from API
-
-3. **Processing is separate from output generation**
-   - Statistics computation is independent of output format
-   - Same processed data can generate multiple widget types
-   - Enables adding new widgets without reprocessing
-
-4. **Widget generation is separate from deployment**
-   - Widgets are generated as static files
-   - Deployment is handled by separate component or manual process
-   - Enables testing widgets before deployment
-
-### Interface Contracts
-
-**Auth Manager ↔ Data Fetcher**
-- Input: Token request
-- Output: Valid access token or error
-- Contract: Token is valid for at least next 5 minutes
-
-**Data Fetcher ↔ Storage**
-- Input: Raw API response (JSON)
-- Output: File path or database ID
-- Contract: Data stored exactly as received from API
-
-**Storage ↔ Processing**
-- Input: Query parameters (date range, activity types)
-- Output: Activity data collection
-- Contract: Data is complete and consistent
-
-**Processing ↔ Widget Generator**
-- Input: Statistic type request
-- Output: Computed statistics (typed data)
-- Contract: Statistics are accurate as of processing time
-
-**Widget Generator ↔ Static Site**
-- Input: Widget configuration
-- Output: Static file (HTML/JSON/GeoJSON)
-- Contract: File is self-contained and embeddable
-
-## Suggested Build Order
-
-### Phase 1: Foundation (Data Acquisition)
-
-**Build in this order:**
-
-1. **Auth Manager** (First - required for everything else)
-   - Implement OAuth flow
-   - Token storage and refresh
-   - Test with manual token retrieval
-   - **Deliverable:** Can obtain and maintain valid Strava access token
-
-2. **Basic Data Fetcher** (Second - core data pipeline)
-   - Fetch activities list (paginated)
-   - Basic rate limiting (simple counter)
-   - Error handling and retry logic
-   - **Deliverable:** Can retrieve all activities for user
-
-3. **File-based Storage** (Third - simplest persistence)
-   - Save raw activities as JSON files
-   - Track last sync timestamp
-   - **Deliverable:** Activities persisted locally
-
-**Why this order:**
-- Auth is a hard dependency for all API operations
-- Data fetcher needs auth but not storage (can print to console)
-- Storage is needed before processing makes sense
-- Each component can be tested independently
-
-**Milestone:** Can fetch and store all Strava activities
-
-### Phase 2: Basic Processing & Output
-
-**Build in this order:**
-
-4. **Simple Statistics Processor** (Fourth - basic value delivery)
-   - Aggregate totals (distance, time, elevation)
-   - Count activities by type
-   - All-time statistics
-   - **Deliverable:** Basic statistics computed from stored data
-
-5. **Basic Widget Generator** (Fifth - first user-visible output)
-   - Generate simple HTML stats card
-   - Inline CSS for styling
-   - **Deliverable:** Embeddable widget showing totals
-
-6. **Simple Orchestrator** (Sixth - automated pipeline)
-   - CLI command to run full pipeline
-   - Fetch → Store → Process → Generate
-   - **Deliverable:** One command to update all data and widgets
-
-**Why this order:**
-- Processing depends on stored data
-- Widget generation depends on processed statistics
-- Orchestrator ties everything together
-- Each step adds user-visible value
-
-**Milestone:** Can generate and embed basic statistics widget
-
-### Phase 3: Advanced Features
-
-**Build in this order:**
-
-7. **Incremental Data Fetching** (Seventh - optimization)
-   - Fetch only new activities since last sync
-   - Update existing activities if modified
-   - **Deliverable:** Faster updates, reduced API usage
-
-8. **Advanced Statistics** (Eighth - richer insights)
-   - Streak calculations
-   - Time-series aggregations (weekly, monthly)
-   - Pace and performance metrics
-   - **Deliverable:** More interesting statistics
-
-9. **Multiple Widget Types** (Ninth - variety)
-   - JSON export for charts
-   - Activity calendar widget
-   - Stats comparison widgets
-   - **Deliverable:** Rich set of embeddable visualizations
-
-**Why this order:**
-- Incremental sync is an optimization, not core functionality
-- Advanced stats build on basic aggregation patterns
-- Multiple widgets reuse processing infrastructure
-
-**Milestone:** Comprehensive analytics with multiple visualizations
-
-### Phase 4: Geographic & Advanced Visualization
-
-**Build in this order:**
-
-10. **Activity Streams Fetcher** (Tenth - enables geographic features)
-    - Fetch GPS data for activities
-    - Store coordinate streams
-    - **Deliverable:** Complete route data available
-
-11. **Geographic Processor** (Eleventh - spatial analysis)
-    - Generate GeoJSON from activity streams
-    - Compute heatmaps and route overlays
-    - Location clustering and analysis
-    - **Deliverable:** Geographic statistics and data
-
-12. **Map Widget Generator** (Twelfth - visual payoff)
-    - Generate GeoJSON for Leaflet/Mapbox
-    - Create heatmap data
-    - Route visualization widgets
-    - **Deliverable:** Interactive maps in static site
-
-**Why this order:**
-- Geographic features require additional API calls (streams)
-- Build after core pipeline is stable to manage rate limits
-- Most complex visualizations, benefit from established patterns
-
-**Milestone:** Full-featured analytics with geographic visualizations
-
-### Phase 5: Polish & Automation
-
-**Build in any order:**
-
-13. **Scheduled Automation**
-    - GitHub Actions workflow for daily updates
-    - Automatic widget deployment to static site
-    - **Deliverable:** Hands-free daily updates
-
-14. **Error Handling & Monitoring**
-    - Comprehensive logging
-    - Error notifications
-    - Pipeline health monitoring
-    - **Deliverable:** Reliable, observable system
-
-15. **SQLite Migration** (Optional)
-    - Migrate from file storage to SQLite for processed data
-    - Enables more complex queries
-    - **Deliverable:** Faster, more flexible data access
-
-**Why this order:**
-- These are enhancements to working system
-- Can be built independently in any order
-- Each adds operational value
-
-**Milestone:** Production-ready, automated platform
-
-## Technology Recommendations
-
-### Language & Runtime
-
-**Option 1: Python** (Recommended for rapid development)
-- Rich ecosystem: `requests`, `pandas`, `geojson`
-- Easy OAuth: `stravalib` library available
-- Good for data processing and statistics
-- Jupyter notebooks for exploration
-
-**Option 2: Node.js/TypeScript**
-- Good for async API calls
-- Easy JSON processing
-- Can share types with static site if using TypeScript
-- Rich charting libraries
-
-**Option 3: Go**
-- Excellent for CLI tools
-- Fast, single binary deployment
-- Good concurrency for API calls
-- Less rich data processing ecosystem
-
-### Key Dependencies
-
-**For Python Stack:**
-- `stravalib` or `requests` + OAuth2 handling
-- `pandas` for data aggregation
-- `sqlite3` (built-in) for database
-- `jinja2` for HTML template rendering
-- `geojson` for geographic data
-
-**For Node.js Stack:**
-- `strava-v3` or `axios` + OAuth2 library
-- `date-fns` for date calculations
-- `better-sqlite3` for database
-- `handlebars` for HTML templates
-- `@tmcw/togeojson` for geographic data
-
-### Storage Options
-
-**Recommended: Hybrid Approach**
-- Raw data: JSON files in `data/raw/`
-- Processed data: SQLite database `data/processed.db`
-- Widget output: Static files in `widgets/`
+**Key format:** `"{lat},{lng}"` rounded to 2 decimal places (~1km precision)
 
 **Rationale:**
-- JSON files are easy to inspect and backup
-- SQLite enables efficient queries for processing
-- Static files enable static site embedding
-- No external dependencies (no database server)
+- Activities starting in same area share coordinates
+- 2 decimal precision = sufficient for city-level accuracy
+- Unlimited caching allowed by Nominatim
+- Git-tracked for persistence across runs
 
-### Deployment Options
+**Cache hit rate:** Expected >90% after initial geocoding (most runs start from home/common locations)
 
-**Option 1: GitHub Actions** (Recommended)
-- Free for public repos
-- Scheduled workflows (cron)
-- Can commit widget outputs to website repo
-- Secrets management for Strava tokens
+**Sources:**
+- [Caching Geocoding Results - AddressHub](https://address-hub.com/address-intelligence/caching/)
+- [Sanborn - Optimizing Google Maps Geocoding](https://sanborn.com/blog/optimizing-google-maps-geocoding-api-at-scale-balancing-cost-and-performance/)
 
-**Option 2: Local Cron + Git**
-- Run on personal machine
-- Scheduled via crontab
-- Push to website repo via git
-- Simple, full control
+### 3. Geographic Statistics Computation
 
-**Option 3: Serverless (AWS Lambda, Cloudflare Workers)**
-- For webhook-driven updates
-- More complex setup
-- Good for near real-time updates
-- May incur costs
+**Location:** `src/analytics/compute-geo-stats.ts`
 
-## Constraints & Trade-offs
+**Purpose:** Aggregate activities by geographic location
 
-### API Rate Limits
+**Process:**
+1. Read all activities with `start_latlng`
+2. Lookup location from cache (or geocode if missing)
+3. Group by country/city
+4. Compute aggregates per location
 
-**Constraints:**
-- 100 requests per 15 minutes
-- 1000 requests per day
+**Output:** `data/stats/geo-stats.json`
 
-**Implications:**
-- Full sync of 500 activities: ~17 API calls (pagination)
-- With streams: 500+ API calls (one per activity)
-- **Trade-off:** Fetch streams incrementally, not for all activities at once
-- **Strategy:** Daily incremental sync fits well within limits
-
-### Static Site Integration
-
-**Constraints:**
-- No server-side processing on GitHub Pages
-- Must use static files (HTML, JSON, JS)
-- Client-side rendering for interactivity
-
-**Implications:**
-- Cannot fetch Strava data directly from browser (CORS, token exposure)
-- Must pre-generate all data and widgets
-- **Trade-off:** Fresh data requires rebuilding, but acceptable for daily cadence
-- **Strategy:** Generate JSON for client-side charts, HTML for simple widgets
-
-### Personal Use (Single User)
-
-**Constraints:**
-- Only need to support one Strava account
-- No multi-tenancy or user management
-
-**Implications:**
-- Simpler auth (one-time OAuth, persist tokens)
-- No need for database sharding or scaling
-- Can optimize for specific activity types and preferences
-- **Trade-off:** Not generalizable, but much simpler to build
-- **Strategy:** Hardcode or configure personal preferences
-
-### Daily Rebuild vs. Live Data
-
-**Constraints:**
-- Daily rebuild is acceptable
-- Live data is ideal but not required
-
-**Implications:**
-- **Daily Rebuild:** Simpler orchestration, batch processing, fits rate limits
-- **Live Data:** Requires webhooks, incremental processing, more complexity
-- **Trade-off:** Start with daily rebuild, add live updates later if needed
-- **Strategy:** Build incremental sync capability, use daily schedule initially
-
-## Architectural Risks & Mitigations
-
-### Risk 1: API Rate Limit Exhaustion
-
-**Risk:** Exceeding Strava API limits during processing
-
-**Mitigations:**
-- Implement rate limit tracking and backoff
-- Cache API responses aggressively
-- Use incremental sync instead of full sync
-- Schedule intensive operations during low-usage periods
-- Monitor rate limit headers in API responses
-
-### Risk 2: Token Expiration During Processing
-
-**Risk:** Access token expires mid-pipeline
-
-**Mitigations:**
-- Refresh token proactively before expiration
-- Handle 401 responses with automatic token refresh
-- Persist refresh token securely
-- Implement retry logic after token refresh
-
-### Risk 3: Large Dataset Growth
-
-**Risk:** Years of activities become too large to process efficiently
-
-**Mitigations:**
-- Use SQLite for indexed queries instead of scanning all files
-- Implement incremental processing (only update changed data)
-- Archive old raw data, keep processed summaries
-- Use pagination and batching for large operations
-
-### Risk 4: Strava API Changes
-
-**Risk:** API schema or rate limits change
-
-**Mitigations:**
-- Store raw API responses (enables reprocessing)
-- Version API response schemas
-- Monitor Strava API announcements
-- Implement graceful degradation for missing fields
-
-### Risk 5: Static Site Deployment Failures
-
-**Risk:** Widget generation succeeds but deployment fails
-
-**Mitigations:**
-- Separate widget generation from deployment
-- Test widgets locally before deployment
-- Use atomic deployments (all or nothing)
-- Keep previous widget versions for rollback
-
-## Recommendations for This Project
-
-Given the project context (personal use, static site, daily rebuild OK, API limits), here are specific architectural recommendations:
-
-### Recommended Architecture
-
-**3-Tier Hybrid Architecture:**
-
-1. **Data Layer**
-   - Python with `stravalib` for API access
-   - File-based storage for raw activities
-   - SQLite for processed data and queries
-   - Daily incremental sync via cron or GitHub Actions
-
-2. **Processing Layer**
-   - Python with `pandas` for aggregations
-   - Modular processors: aggregation, streaks, geographic
-   - Batch processing with incremental capability
-   - Outputs to SQLite and JSON files
-
-3. **Output Layer**
-   - Jinja2 templates for HTML widgets
-   - JSON export for Chart.js visualizations in static site
-   - GeoJSON for Leaflet maps
-   - Static files committed to website repo
-
-**Orchestration:**
-- GitHub Actions daily workflow (2 AM UTC)
-- Manual CLI for testing and on-demand updates
-- Logs stored in repository for debugging
-
-**Deployment:**
-- Widget outputs committed to website repo
-- GitHub Pages auto-deploys on commit
-- No manual deployment needed
-
-### Directory Structure
-
-```
-strava-analytics/
-├── auth/
-│   ├── oauth.py              # OAuth flow implementation
-│   └── token_store.py        # Token persistence
-├── fetch/
-│   ├── client.py             # Strava API client
-│   ├── rate_limiter.py       # Rate limiting logic
-│   └── sync.py               # Incremental sync coordinator
-├── storage/
-│   ├── raw.py                # Raw data file operations
-│   ├── database.py           # SQLite operations
-│   └── schema.sql            # Database schema
-├── processing/
-│   ├── aggregation.py        # Totals and summaries
-│   ├── streaks.py            # Streak calculations
-│   ├── geographic.py         # Geographic analysis
-│   └── time_series.py        # Trend analysis
-├── widgets/
-│   ├── generator.py          # Widget generation coordinator
-│   ├── templates/            # Jinja2 templates
-│   │   ├── stats_card.html
-│   │   └── activity_calendar.html
-│   └── exporters/
-│       ├── json.py           # JSON data export
-│       └── geojson.py        # GeoJSON export
-├── orchestration/
-│   ├── pipeline.py           # Main pipeline coordinator
-│   └── cli.py                # Command-line interface
-├── data/
-│   ├── raw/                  # Raw API responses (gitignored)
-│   │   ├── activities/
-│   │   └── streams/
-│   ├── processed/            # SQLite database (gitignored)
-│   └── state/                # Last sync, rate limits
-├── output/
-│   └── widgets/              # Generated widgets (committed to website)
-├── tests/
-├── config/
-│   └── settings.yaml         # Configuration
-├── .github/
-│   └── workflows/
-│       └── daily-sync.yml    # GitHub Actions workflow
-└── README.md
+**Format:**
+```json
+{
+  "byCountry": [
+    {
+      "country": "Portugal",
+      "countryCode": "PT",
+      "totalKm": 1234.5,
+      "runCount": 145,
+      "percentage": 65.2,
+      "cities": ["Lisbon", "Porto"]
+    }
+  ],
+  "byCity": [
+    {
+      "city": "Lisbon",
+      "country": "Portugal",
+      "totalKm": 987.3,
+      "runCount": 112,
+      "percentage": 50.4
+    }
+  ],
+  "metadata": {
+    "generatedAt": "2026-02-14T10:00:00Z",
+    "totalActivities": 222,
+    "activitiesWithLocation": 215,
+    "uniqueCountries": 3,
+    "uniqueCities": 8
+  }
+}
 ```
 
-### Build Order for This Project
+**Integration:** Called after `compute-advanced-stats` in pipeline
 
-**Phase 1 (Week 1-2): MVP**
-1. Auth manager with OAuth
-2. Basic data fetcher (activities only)
-3. File storage for raw data
-4. Simple aggregation processor
-5. HTML stats card widget
-6. CLI to run pipeline manually
+### 4. Geographic Table Widget
 
-**Phase 2 (Week 3-4): Automation**
-7. Incremental sync capability
-8. SQLite for processed data
-9. GitHub Actions workflow
-10. Automatic deployment to website
+**Location:** `src/widgets/geo-table/index.ts`
 
-**Phase 3 (Week 5-6): Rich Analytics**
-11. Streak calculations
-12. Time-series statistics
-13. Multiple widget types
-14. JSON export for charts
+**Purpose:** Display geographic statistics as sortable HTML table in Shadow DOM
 
-**Phase 4 (Week 7-8): Geographic**
-15. Activity streams fetcher
-16. Geographic processor
-17. GeoJSON export
-18. Map widgets
+**Features:**
+- Table rows for countries/cities
+- Columns: Location, Distance, Runs, Percentage
+- Sortable columns (click header to sort)
+- Responsive layout
+- Shadow DOM isolation
+- Attribute-based customization
 
-## Conclusion
+**Build:** Separate Vite IIFE entry point in `scripts/build-widgets.mjs`
 
-Strava analytics platforms for personal use with static site integration are best structured as 3-tier systems with clear separation between data acquisition, processing, and output generation. The recommended architecture balances simplicity (file-based storage, daily batch processing) with capability (incremental sync, rich analytics, geographic visualizations).
+**Example HTML usage:**
+```html
+<div id="geo-widget"
+     data-url="https://example.github.io/data/stats/geo-stats.json"
+     data-group-by="country"
+     data-sort-by="totalKm"
+     data-show-title="true"
+     data-custom-title="Running Locations"
+     data-accent-color="#fc4c02">
+</div>
+<script src="dist/widgets/geo-table.iife.js"></script>
+<script>
+  GeoTable.init('geo-widget');
+</script>
+```
 
-**Key Architectural Principles:**
+**Implementation:** Extends `WidgetBase` with table-specific rendering
 
-1. **Separation of Concerns:** Clear boundaries between auth, data, processing, and output
-2. **Immutable Raw Data:** Store API responses as-is, enables reprocessing
-3. **Incremental Everything:** Sync, processing, and widget generation should support incremental updates
-4. **Static-First:** Generate self-contained outputs that work without a server
-5. **Rate Limit Respect:** Track and honor API limits at every layer
+### 5. Widget Attribute Configuration System
 
-**Build Order Priority:**
+**Purpose:** Allow widget customization via HTML data attributes with defaults
 
-1. Auth → Data → Storage (foundation)
-2. Processing → Widgets → Orchestration (value delivery)
-3. Advanced stats → Multiple widgets (enrichment)
-4. Geographic → Maps (polish)
-5. Automation → Monitoring (production readiness)
+**Pattern:** Read attributes → parse with defaults → apply to widget config
 
-This architecture supports starting simple (daily batch, basic stats) while enabling future enhancements (live updates, advanced visualizations) without major refactoring.
+**Standard Attributes (all widgets):**
+- `data-url` (required): JSON data source URL
+- `data-accent-color` (optional): Brand color (default: `#fc4c02`)
+- `data-bg-color` (optional): Background (default: `#ffffff`)
+- `data-text-color` (optional): Text color (default: `#333333`)
+- `data-show-title` (optional): Show title (default: `true`)
+- `data-custom-title` (optional): Override title text
 
-## References & Further Reading
+**Widget-specific Attributes:**
+- GeoTable: `data-group-by`, `data-sort-by`, `data-max-rows`
+- Charts: `data-time-range`, `data-chart-type`
 
-**Strava API Documentation:**
-- Strava API v3 Documentation: https://developers.strava.com/docs/reference/
-- OAuth 2.0 Flow: https://developers.strava.com/docs/authentication/
-- Rate Limiting: https://developers.strava.com/docs/rate-limits/
-- Webhooks: https://developers.strava.com/docs/webhooks/
+**Implementation Location:** Extend `WidgetBase` with attribute parsing
 
-**Architecture Patterns:**
-- ETL Pipeline Design Patterns
-- Static Site Generator Integration Patterns
-- OAuth Token Management Best Practices
-- Rate-Limited API Client Design
+**Code pattern:**
+```typescript
+export abstract class WidgetBase<T = unknown> {
+  protected parseAttributes(container: HTMLElement): WidgetConfig {
+    return {
+      dataUrl: container.dataset.url || '',
+      colors: {
+        accent: container.dataset.accentColor || '#fc4c02',
+        background: container.dataset.bgColor || '#ffffff',
+        text: container.dataset.textColor || '#333333',
+      },
+      options: {
+        showTitle: container.dataset.showTitle !== 'false',
+        customTitle: container.dataset.customTitle,
+        ...this.parseWidgetSpecificAttributes(container)
+      }
+    };
+  }
 
-**Technology Ecosystems:**
-- Python `stravalib`: https://github.com/stravalib/stravalib
-- Pandas for Data Processing: https://pandas.pydata.org/
-- Jinja2 Templating: https://jinja.palletsprojects.com/
-- Leaflet.js for Maps: https://leafletjs.com/
+  protected abstract parseWidgetSpecificAttributes(container: HTMLElement): Record<string, any>;
+}
+```
 
-**Similar Projects (for inspiration):**
-- Various personal Strava dashboards on GitHub
-- Fitness data visualization platforms
-- Static site analytics integrations
+**Rationale:**
+- Uses standard HTML `data-*` attributes (best practice)
+- Browser automatically populates `dataset` property
+- No manual `getAttribute()` calls needed
+- Type-safe defaults in code
+- User overrides via HTML
+
+**Sources:**
+- [MDN: Using data attributes](https://developer.mozilla.org/en-US/docs/Web/HTML/How_to/Use_data_attributes)
+- [Open Web Components: Attributes and Properties](https://open-wc.org/guides/knowledge/attributes-and-properties/)
+- [Web.dev: Custom Elements Best Practices](https://web.dev/articles/custom-elements-best-practices)
+
+## Modified Components
+
+### 1. Data Pipeline CLI (`src/index.ts`)
+
+**Changes:**
+- Add new command: `geocode-activities`
+- Add new command: `compute-geo-stats`
+- Update `compute-all-stats` to include geographic stats
+
+**New commands:**
+```bash
+npm run geocode          # Geocode all activities with coordinates
+npm run compute-geo      # Compute geographic statistics
+npm run compute-all-stats # Now includes geographic stats
+```
+
+### 2. Widget Base Class (`src/widgets/shared/widget-base.ts`)
+
+**Changes:**
+- Add `parseAttributes()` method to read HTML data attributes
+- Modify constructor to call `parseAttributes()` instead of accepting config object
+- Add `parseWidgetSpecificAttributes()` abstract method for subclasses
+- Update `createShadowRoot()` to handle attribute-based config
+
+**Breaking change:** Widget initialization changes from config object to attribute-based
+
+**Migration:**
+```typescript
+// OLD (config object passed)
+new StatsCardWidget('container', {
+  dataUrl: 'data.json',
+  colors: { accent: '#fc4c02' }
+});
+
+// NEW (attributes read from DOM)
+// HTML: <div id="container" data-url="data.json" data-accent-color="#fc4c02"></div>
+new StatsCardWidget('container');
+```
+
+### 3. Widget Build Script (`scripts/build-widgets.mjs`)
+
+**Changes:**
+- Add geo-table widget to build list
+- No other changes needed (already supports multiple entry points)
+
+**New entry:**
+```javascript
+{
+  name: 'geo-table',
+  entry: resolve(__dirname, '../src/widgets/geo-table/index.ts'),
+  globalName: 'GeoTable'
+}
+```
+
+### 4. Strava Activity Types (`src/types/strava.types.ts`)
+
+**Changes:**
+- Add JSDoc comment documenting that `start_latlng` may be `undefined`
+- No interface changes (already optional with `?`)
+
+### 5. GitHub Actions Workflow (`.github/workflows/daily-refresh.yml`)
+
+**Changes:**
+- Add geocoding step before stats computation
+- Add error handling for geocoding failures (non-blocking)
+
+**New workflow:**
+```yaml
+- name: Geocode activities
+  run: npm run geocode
+  continue-on-error: true  # Don't fail if geocoding service down
+
+- name: Compute all statistics
+  run: npm run compute-all-stats  # Now includes geo stats
+```
+
+## Data Flow
+
+### Geographic Data Enrichment Flow
+
+```
+Activity Sync (existing)
+    ↓
+Read activities with start_latlng
+    ↓
+For each unique coordinate:
+    ├─ Check location-cache.json
+    ├─ If cached → use cached result
+    └─ If not cached:
+        ├─ Rate limit (wait if needed)
+        ├─ Call Nominatim API
+        ├─ Parse response
+        ├─ Save to cache
+        └─ Continue
+    ↓
+Compute geographic statistics
+    ↓
+Write geo-stats.json
+    ↓
+Deploy to GitHub Pages
+    ↓
+Widget fetches geo-stats.json
+    ↓
+Render table in Shadow DOM
+```
+
+### Widget Attribute Configuration Flow
+
+```
+Browser loads page with widget HTML
+    ↓
+Widget script executes (IIFE)
+    ↓
+Widget.init('container-id') called
+    ↓
+Find container element by ID
+    ↓
+Read dataset attributes
+    ├─ data-url → config.dataUrl
+    ├─ data-accent-color → config.colors.accent
+    ├─ data-show-title → config.options.showTitle
+    └─ ... (all attributes)
+    ↓
+Apply defaults for missing attributes
+    ↓
+Create Shadow DOM
+    ↓
+Apply CSS custom properties from config
+    ↓
+Fetch data from dataUrl
+    ↓
+Render widget content
+```
+
+## Integration Points
+
+### 1. Activity Sync → Geocoding
+
+**Integration:** After activity sync completes, geocoding step runs
+
+**Data dependency:** `start_latlng` field in activity JSON
+
+**Error handling:**
+- Activities without `start_latlng` → skipped (no error)
+- API failure → logged, cached as `null`, computation continues
+- Rate limit hit → wait, retry with exponential backoff
+
+**Performance:**
+- Initial run: ~200 activities × 1 req/sec = ~3 minutes
+- Subsequent runs: Only new activities need geocoding (~5-10 activities/week)
+- Cache hit rate: >90% after first run
+
+### 2. Geocoding → Statistics Computation
+
+**Integration:** Geographic stats computation reads location cache
+
+**Data dependency:** `data/geo/location-cache.json`
+
+**Behavior:**
+- Activities with cached location → included in stats
+- Activities without location → counted in metadata, excluded from aggregates
+
+### 3. Statistics Computation → Widget
+
+**Integration:** Widget fetches JSON via HTTP (same as existing widgets)
+
+**Data dependency:** `data/stats/geo-stats.json` served via GitHub Pages
+
+**Error handling:** Widget shows "Widget unavailable" if fetch fails
+
+### 4. HTML → Widget Configuration
+
+**Integration:** Widgets read configuration from HTML data attributes
+
+**Data dependency:** Container element must exist before widget initialization
+
+**Error handling:** Missing required attributes → console error, widget fails to initialize
+
+## Build Order (Suggested)
+
+### Phase 1: Geocoding Infrastructure
+**Why first:** Foundation for all geographic features
+
+1. **Reverse Geocoder Service**
+   - `src/services/reverse-geocoder.ts`
+   - `src/types/geo.types.ts`
+   - Tests for rate limiting, error handling
+
+2. **Location Cache**
+   - `data/geo/location-cache.json` (initially empty)
+   - File I/O functions in geocoder service
+
+3. **Geocoding CLI Command**
+   - Add `geocode-activities` command to `src/index.ts`
+   - Read activities, geocode unique coordinates, update cache
+
+**Validation:** Run geocoding on local activities, verify cache populated
+
+### Phase 2: Geographic Statistics
+**Why second:** Depends on geocoded data, needed for widget
+
+4. **Geographic Stats Computation**
+   - `src/analytics/compute-geo-stats.ts`
+   - Reads activities + location cache
+   - Outputs `data/stats/geo-stats.json`
+
+5. **CLI Integration**
+   - Add `compute-geo-stats` command
+   - Update `compute-all-stats` to call geo stats
+
+**Validation:** Run stats computation, verify geo-stats.json format
+
+### Phase 3: Widget Attribute System
+**Why third:** Foundation for new widget + existing widget improvements
+
+6. **Widget Base Refactor**
+   - Modify `WidgetBase` to parse HTML attributes
+   - Add `parseAttributes()` method
+   - Add abstract `parseWidgetSpecificAttributes()`
+   - Update constructor signature
+
+7. **Existing Widget Migration**
+   - Update `StatsCardWidget` to use attributes
+   - Update `ComparisonChart` to use attributes
+   - Update `StreakWidget` to use attributes
+   - Update documentation/examples
+
+**Validation:** Test existing widgets with new attribute-based config
+
+### Phase 4: Geographic Table Widget
+**Why last:** Depends on all previous components
+
+8. **Geographic Table Widget**
+   - `src/widgets/geo-table/index.ts`
+   - Table rendering logic
+   - Sorting functionality
+   - Responsive CSS
+
+9. **Build Configuration**
+   - Add geo-table to `scripts/build-widgets.mjs`
+   - Build and test IIFE bundle
+
+10. **Widget Demo Page**
+    - Create demo HTML page
+    - Test all attribute combinations
+
+**Validation:** Widget renders correctly, sorting works, responsive layout
+
+### Phase 5: CI/CD Integration
+**Why final:** Integrates all components into automated workflow
+
+11. **GitHub Actions Update**
+    - Add geocoding step to workflow
+    - Update stats computation step
+    - Add error handling
+
+12. **Documentation**
+    - Update README with new commands
+    - Document widget attributes
+    - Add geocoding attribution requirements
+
+**Validation:** Full pipeline runs on GitHub Actions, deploys successfully
+
+## Dependency Graph
+
+```
+Phase 1: Geocoding Infrastructure
+    ↓
+Phase 2: Geographic Statistics (depends on Phase 1)
+    ↓
+Phase 3: Widget Attribute System (independent of Phase 1-2)
+    ↓
+Phase 4: Geographic Table Widget (depends on Phase 2 + Phase 3)
+    ↓
+Phase 5: CI/CD Integration (depends on all phases)
+```
+
+**Parallel work opportunities:**
+- Phase 1 and Phase 3 can be developed in parallel (independent)
+- Testing can happen incrementally after each phase
+
+## Architectural Patterns
+
+### Pattern 1: Rate-Limited External API Integration
+
+**What:** Integrate external API with strict rate limits into batch processing pipeline
+
+**When to use:** Any external API with rate limits (geocoding, enrichment services)
+
+**Implementation:**
+```typescript
+import Bottleneck from 'bottleneck';
+
+const limiter = new Bottleneck({
+  minTime: 1000,  // 1 request per second
+  maxConcurrent: 1
+});
+
+export class ReverseGeocoder {
+  async geocode(lat: number, lng: number): Promise<GeocodeResult | null> {
+    return limiter.schedule(() => this.callAPI(lat, lng));
+  }
+
+  private async callAPI(lat: number, lng: number): Promise<GeocodeResult | null> {
+    try {
+      const response = await fetch(`https://nominatim.org/reverse?lat=${lat}&lon=${lng}`);
+      return this.parseResponse(response);
+    } catch (error) {
+      console.error('Geocoding failed:', error);
+      return null;  // Fail gracefully
+    }
+  }
+}
+```
+
+**Trade-offs:**
+- Pro: Respects API limits, avoids bans
+- Pro: Automatic queuing and retry
+- Con: Slow for initial bulk processing (mitigated by caching)
+
+### Pattern 2: Persistent JSON Cache
+
+**What:** Cache API responses in git-tracked JSON files
+
+**When to use:** API responses that rarely change (locations, metadata)
+
+**Implementation:**
+```typescript
+export class LocationCache {
+  private cache: Map<string, GeocodeResult>;
+  private cacheFile = 'data/geo/location-cache.json';
+
+  async load(): Promise<void> {
+    const data = await fs.readFile(this.cacheFile, 'utf-8');
+    this.cache = new Map(Object.entries(JSON.parse(data)));
+  }
+
+  async save(): Promise<void> {
+    const obj = Object.fromEntries(this.cache);
+    await fs.writeFile(this.cacheFile, JSON.stringify(obj, null, 2));
+  }
+
+  get(lat: number, lng: number): GeocodeResult | null {
+    const key = `${lat.toFixed(2)},${lng.toFixed(2)}`;
+    return this.cache.get(key) || null;
+  }
+
+  set(lat: number, lng: number, result: GeocodeResult): void {
+    const key = `${lat.toFixed(2)},${lng.toFixed(2)}`;
+    this.cache.set(key, result);
+  }
+}
+```
+
+**Trade-offs:**
+- Pro: Free, unlimited caching (within git repo size limits)
+- Pro: Survives across runs, deployments, CI rebuilds
+- Pro: Git-tracked, auditable, reversible
+- Con: Cache file grows over time (acceptable for location data)
+- Con: Merge conflicts if multiple users (unlikely for personal project)
+
+### Pattern 3: Shadow DOM Widget with Attribute Configuration
+
+**What:** Web component using Shadow DOM + HTML data attributes for configuration
+
+**When to use:** Embeddable widgets for third-party sites
+
+**Implementation:**
+```typescript
+export class GeoTableWidget extends WidgetBase<GeoStats> {
+  constructor(containerId: string) {
+    super(containerId);
+  }
+
+  protected parseWidgetSpecificAttributes(container: HTMLElement): Record<string, any> {
+    return {
+      groupBy: container.dataset.groupBy || 'country',
+      sortBy: container.dataset.sortBy || 'totalKm',
+      maxRows: parseInt(container.dataset.maxRows || '10', 10)
+    };
+  }
+
+  protected render(data: GeoStats): void {
+    const table = document.createElement('table');
+    // Render table from data
+    this.shadowRoot?.appendChild(table);
+  }
+}
+```
+
+**HTML usage:**
+```html
+<div id="widget"
+     data-url="geo-stats.json"
+     data-group-by="city"
+     data-sort-by="runCount"></div>
+<script src="geo-table.iife.js"></script>
+<script>GeoTable.init('widget');</script>
+```
+
+**Trade-offs:**
+- Pro: No JavaScript config object needed (HTML-only config)
+- Pro: Easy for non-developers to customize
+- Pro: Type-safe defaults in code
+- Con: All values are strings (need parsing for numbers/booleans)
+
+**Sources:**
+- [MDN: Using Custom Elements](https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_custom_elements)
+- [Smashing Magazine: Web Components and Shadow DOM](https://www.smashingmagazine.com/2025/07/web-components-working-with-shadow-dom/)
+
+### Pattern 4: Git-Tracked Static Site Generation
+
+**What:** Pre-compute all data as static JSON, commit to git, serve via GitHub Pages
+
+**When to use:** Analytics dashboards, personal data projects
+
+**Current implementation:** Already used for weekly/monthly stats
+
+**Extension for geographic data:**
+- Same pattern: compute → write JSON → commit → deploy
+- New files: `data/geo/location-cache.json`, `data/stats/geo-stats.json`
+
+**Trade-offs:**
+- Pro: Zero backend infrastructure cost
+- Pro: Fast widget loading (static files)
+- Pro: Works with GitHub Pages free tier
+- Con: Git repo size grows (mitigated by small JSON files)
+- Con: Rebuild needed for updates (acceptable for daily cron)
+
+## Anti-Patterns
+
+### Anti-Pattern 1: Client-Side Geocoding
+
+**What people do:** Call reverse geocoding API from browser in widget
+
+**Why it's wrong:**
+- Exposes API keys in client code
+- Hits rate limits quickly (every page load)
+- Can't cache results (no persistence in browser)
+- Slow widget loading
+
+**Do this instead:**
+- Geocode during build/CI pipeline
+- Cache results in static JSON
+- Widgets fetch pre-geocoded data
+
+### Anti-Pattern 2: Inline Widget Configuration
+
+**What people do:**
+```javascript
+new GeoTable('container', {
+  dataUrl: 'data.json',
+  groupBy: 'country',
+  sortBy: 'totalKm'
+  // ... 20 more config options
+});
+```
+
+**Why it's wrong:**
+- Non-developers can't customize (requires JS knowledge)
+- Config scattered across HTML + JS files
+- Hard to override defaults
+- Not declarative
+
+**Do this instead:**
+```html
+<div id="container"
+     data-url="data.json"
+     data-group-by="country"
+     data-sort-by="totalKm"></div>
+<script>GeoTable.init('container');</script>
+```
+
+**Benefits:**
+- Single source of truth (HTML)
+- Easy to customize without touching JS
+- Declarative configuration
+- Framework-agnostic
+
+### Anti-Pattern 3: Custom Attribute Names (Without data- Prefix)
+
+**What people do:**
+```html
+<div id="widget" url="data.json" group-by="country"></div>
+```
+
+**Why it's wrong:**
+- Violates HTML spec (custom attributes require `data-` prefix)
+- Won't populate `dataset` property automatically
+- May conflict with future HTML standards
+- Fails validation
+
+**Do this instead:**
+```html
+<div id="widget" data-url="data.json" data-group-by="country"></div>
+```
+
+Access via `element.dataset.url`, `element.dataset.groupBy`
+
+**Sources:**
+- [MDN: HTML Attribute Reference](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes)
+
+### Anti-Pattern 4: Synchronous Geocoding in Stats Computation
+
+**What people do:**
+```typescript
+for (const activity of activities) {
+  const location = await geocode(activity.start_latlng);  // Waits sequentially
+  stats[location.country] += activity.distance;
+}
+```
+
+**Why it's wrong:**
+- 200 activities × 1 second = 3+ minutes (serial processing)
+- Geocoding failure blocks stats computation
+- Can't separate geocoding from stats (tight coupling)
+
+**Do this instead:**
+```typescript
+// Step 1: Geocode (separate command, runs once)
+await geocodeAllActivities();  // Populates cache
+
+// Step 2: Compute stats (reads from cache)
+for (const activity of activities) {
+  const location = cache.get(activity.start_latlng);  // Instant
+  if (location) {
+    stats[location.country] += activity.distance;
+  }
+}
+```
+
+**Benefits:**
+- Geocoding and stats are independent
+- Stats computation is fast (no API calls)
+- Geocoding failures don't break stats
+- Can re-compute stats without re-geocoding
+
+## Scaling Considerations
+
+| Scale | Architecture Adjustments |
+|-------|--------------------------|
+| 1-500 activities | Current architecture sufficient. Geocoding takes ~5 minutes initially, <10 seconds for incremental updates. |
+| 500-2000 activities | Consider batching geocoding in parallel with multiple API keys (LocationIQ free tier supports this). Cache hit rate >95%. |
+| 2000+ activities | Migrate to paid geocoding service with higher rate limits, or self-host Nominatim instance for unlimited requests. |
+
+### Scaling Priorities
+
+1. **First bottleneck:** Geocoding rate limits (1 req/sec)
+   - **Fix:** Use LocationIQ free tier (5,000 req/day = 3.5 req/sec effective)
+   - **Cost:** Free
+   - **Effort:** Add `apiKey` config, change API endpoint
+
+2. **Second bottleneck:** Git repo size (location cache grows)
+   - **When:** ~10,000 unique locations (~5MB JSON)
+   - **Fix:** Switch to external storage (GitHub Gist, R2, etc.)
+   - **Cost:** Free (Gist) or ~$0.01/month (R2)
+   - **Effort:** Modify cache to fetch from external URL
+
+3. **Third bottleneck:** GitHub Actions minutes (geocoding takes too long)
+   - **When:** >1000 new activities/month
+   - **Fix:** Move geocoding to separate scheduled job, run less frequently
+   - **Cost:** Free (still within GitHub Actions limits)
+   - **Effort:** Split workflow into sync + geocode jobs
+
+**Current project scale:** ~200 activities, growing ~10/week
+**Estimated time to first bottleneck:** 50+ weeks (plenty of runway)
+
+## Technology Choices
+
+### Reverse Geocoding: Nominatim (OpenStreetMap)
+
+**Chosen:** Nominatim
+**Alternatives considered:** LocationIQ, OpenCage, Google Maps
+
+**Why Nominatim:**
+- Free, no API key required (lowest friction)
+- Unlimited caching allowed (critical for git-tracked approach)
+- 1 req/sec sufficient for incremental updates
+- Open source, community-supported
+- Attribution requirement acceptable
+
+**When to switch to LocationIQ:**
+- Initial geocoding of large backlog (>500 activities)
+- Nominatim service unreliable
+- Need faster rate limits
+
+**When to switch to paid service:**
+- >2000 activities
+- Need SLA guarantees
+- Commercial use
+
+### Widget Configuration: HTML data- Attributes
+
+**Chosen:** HTML `data-*` attributes
+**Alternatives considered:** JavaScript config object, Custom attributes, JSON config file
+
+**Why data- attributes:**
+- Standard HTML pattern (MDN recommended)
+- Automatic `dataset` property population
+- Declarative (configuration visible in HTML)
+- Easy for non-developers
+- Framework-agnostic
+
+**Trade-offs accepted:**
+- All values are strings (need parsing)
+- Verbose for complex config (acceptable for simple widgets)
+
+### Widget Rendering: Vanilla JS + Shadow DOM
+
+**Chosen:** Continue with vanilla JS + Shadow DOM
+**Alternatives considered:** Web Components v1, Lit, Svelte
+
+**Why vanilla JS:**
+- Already established in project
+- Zero dependencies (smallest bundle size)
+- Shadow DOM provides sufficient isolation
+- Simple enough for table rendering
+
+**When to switch to framework:**
+- Complex interactions (drag-drop, filtering)
+- State management needs
+- Reusable component library
+
+## Sources
+
+**Reverse Geocoding:**
+- [Nominatim Usage Policy](https://operations.osmfoundation.org/policies/nominatim/)
+- [Public APIs - Free Geocoding APIs 2026](https://publicapis.io/blog/free-geocoding-apis)
+- [Mapscaping - Geocoding API Pricing Guide](https://mapscaping.com/guide-to-geocoding-api-pricing/)
+- [OpenCage Geocoding Pricing](https://opencagedata.com/pricing)
+
+**Caching Best Practices:**
+- [AddressHub - Caching Geocoding Results](https://address-hub.com/address-intelligence/caching/)
+- [Sanborn - Optimizing Google Maps Geocoding](https://sanborn.com/blog/optimizing-google-maps-geocoding-api-at-scale-balancing-cost-and-performance/)
+- [Google - Optimizing Quota Usage](https://developers.google.com/maps/documentation/geocoding/geocoding-strategies)
+
+**Web Components & Attributes:**
+- [MDN: Using data attributes](https://developer.mozilla.org/en-US/docs/Web/HTML/How_to/Use_data_attributes)
+- [MDN: Using Custom Elements](https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_custom_elements)
+- [Web.dev: Custom Elements Best Practices](https://web.dev/articles/custom-elements-best-practices)
+- [Open Web Components: Attributes and Properties](https://open-wc.org/guides/knowledge/attributes-and-properties/)
+- [Smashing Magazine: Working With Shadow DOM](https://www.smashingmagazine.com/2025/07/web-components-working-with-shadow-dom/)
+- [Ultimate Courses: Using Attributes in Custom Elements](https://ultimatecourses.com/blog/using-attributes-and-properties-in-custom-elements)
+
+---
+*Architecture research for: Strava Analytics Geographic Extension*
+*Researched: 2026-02-14*
+*Confidence: HIGH (verified with current documentation and API policies)*
