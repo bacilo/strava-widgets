@@ -45,12 +45,11 @@ Plans:
   3. Widget renders as self-contained JavaScript bundle embeddable via script tag
   4. Widget loads pre-generated static JSON data without runtime API calls
   5. Widget displays correctly when embedded in a test HTML page
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 02-01: TBD during phase planning
-- [ ] 02-02: TBD during phase planning
-- [ ] 02-03: TBD during phase planning
+- [ ] 02-01-PLAN.md — Statistics computation pipeline (types, date utils, aggregation engine, CLI command)
+- [ ] 02-02-PLAN.md — Embeddable weekly bar chart widget (Chart.js, Vite IIFE bundle, Shadow DOM, test page)
 
 ### Phase 3: Advanced Analytics & Widget Library
 **Goal**: User can visualize running patterns (streaks, trends, year-over-year comparisons) through multiple embeddable widget types
@@ -94,7 +93,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Data Foundation | 2/2 | ✓ Complete | 2026-02-14 |
-| 2. Core Analytics & First Widget | 0/3 | Not started | - |
+| 2. Core Analytics & First Widget | 0/2 | Planned | - |
 | 3. Advanced Analytics & Widget Library | 0/2 | Not started | - |
 | 4. Automation & Deployment | 0/1 | Not started | - |
 
