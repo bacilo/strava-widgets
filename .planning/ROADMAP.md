@@ -12,7 +12,7 @@ This roadmap delivers a personal Strava analytics platform in 4 phases, progress
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Data Foundation** - Secure Strava OAuth and incremental activity sync
+- [x] **Phase 1: Data Foundation** - Secure Strava OAuth and incremental activity sync *(completed 2026-02-14)*
 - [ ] **Phase 2: Core Analytics & First Widget** - Basic stats computation and embeddable weekly chart
 - [ ] **Phase 3: Advanced Analytics & Widget Library** - Streaks, trends, and multiple widget types
 - [ ] **Phase 4: Automation & Deployment** - GitHub Actions pipeline for daily refresh and widget publishing
@@ -32,8 +32,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans:** 2 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Project setup, config, OAuth auth, and storage foundation
-- [ ] 01-02-PLAN.md — Rate-limited API client, sync orchestrator, and CLI entry point
+- [x] 01-01-PLAN.md — Project setup, config, OAuth auth, and storage foundation
+- [x] 01-02-PLAN.md — Rate-limited API client, sync orchestrator, and CLI entry point
 
 ### Phase 2: Core Analytics & First Widget
 **Goal**: User can see weekly running distance visualized in an embeddable widget on their personal website
@@ -93,7 +93,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Data Foundation | 0/2 | Planned | - |
+| 1. Data Foundation | 2/2 | ✓ Complete | 2026-02-14 |
 | 2. Core Analytics & First Widget | 0/3 | Not started | - |
 | 3. Advanced Analytics & Widget Library | 0/2 | Not started | - |
 | 4. Automation & Deployment | 0/1 | Not started | - |
