@@ -9,19 +9,19 @@ See: .planning/PROJECT.md (updated 2026-02-13)
 
 ## Current Position
 
-Phase: 2 of 4 (Core Analytics & First Widget)
-Plan: 2 of 2 in current phase (PHASE COMPLETE)
-Status: Phase 02 complete, ready for Phase 03
-Last activity: 2026-02-14 — Completed 02-02 embeddable widget (Chart.js bar chart with Shadow DOM, 142KB IIFE bundle)
+Phase: 3 of 4 (Advanced Analytics & Widget Library)
+Plan: 1 of 4 in current phase
+Status: Phase 03 in progress
+Last activity: 2026-02-14 — Completed 03-01 streak calculation algorithms (TDD, 18 passing tests, UTC date handling)
 
 Progress: [██████░░░░] 50%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
-- Average duration: 2.8 min
-- Total execution time: 0.18 hours
+- Total plans completed: 5
+- Average duration: 3.1 min
+- Total execution time: 0.26 hours
 
 **By Phase:**
 
@@ -29,10 +29,11 @@ Progress: [██████░░░░] 50%
 |-------|-------|-------|----------|
 | 01 Data Foundation | 2 | 4 min | 2 min |
 | 02 Core Analytics & First Widget | 2 | 8 min | 4 min |
+| 03 Advanced Analytics & Widget Library | 1 | 3.5 min | 3.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (3 min), 01-02 (1 min), 02-01 (3 min), 02-02 (5 min)
-- Trend: Stable (average 2.8 min/plan)
+- Last 5 plans: 01-02 (1 min), 02-01 (3 min), 02-02 (5 min), 03-01 (3.5 min)
+- Trend: Stable (average 3.1 min/plan)
 
 *Updated after each plan completion*
 
@@ -60,6 +61,11 @@ Recent decisions affecting current work:
 - 02-02: Tree-shaken Chart.js imports reduce bundle size (bar chart components only)
 - 02-02: Inlined CSS styles in TypeScript to avoid Vite CSS extraction complexity
 - 02-02: Last 12 weeks displayed by default (slice recent data for readability)
+- 03-01: Vitest for testing framework (lightweight, TypeScript native, fast)
+- 03-01: TDD approach for streak logic (complex edge cases benefit from test-first)
+- 03-01: MS_PER_DAY constant for millisecond calculations (86400000 → clarity)
+- 03-01: withinCurrentStreak true only if last activity was today or yesterday UTC
+- 03-01: Same-day activities deduplicated (multiple runs on one day = one streak day)
 
 ### Pending Todos
 
@@ -72,5 +78,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-14 (plan execution)
-Stopped at: Completed 02-02-PLAN.md (embeddable widget with Chart.js, Shadow DOM, 142KB IIFE bundle) - PHASE 02 COMPLETE
+Stopped at: Completed 03-01-PLAN.md (streak calculation algorithms with TDD, 18 passing tests)
 Resume file: None
