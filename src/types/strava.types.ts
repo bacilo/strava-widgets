@@ -40,7 +40,7 @@ export interface StravaActivity {
  */
 export interface SyncState {
   last_sync_timestamp: number; // Unix epoch seconds
-  last_activity_id: string;
+  last_activity_id: number | string; // Activity ID (number from API, string for compatibility)
   total_activities: number;
   last_sync_date: string; // ISO 8601
 }
