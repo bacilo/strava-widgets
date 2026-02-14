@@ -8,7 +8,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "sync": "node dist/index.js sync",
-    "auth": "node dist/index.js auth"
+    "auth": "node dist/index.js auth",
+    "compute-stats": "node dist/index.js compute-stats"
   },
   "keywords": [],
   "author": "",

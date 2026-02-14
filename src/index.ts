@@ -5,6 +5,7 @@ import { FileStore } from './storage/file-store.js';
 import { SyncStateManager } from './storage/sync-state.js';
 import { ActivitySync } from './sync/activity-sync.js';
 import { config } from './config/strava.config.js';
+import { computeAllStats } from './analytics/compute-stats.js';
 import * as fs from 'fs/promises';
 
 const command = process.argv[2];
@@ -125,17 +126,37 @@ async function statusCommand() {
   }
 }
 
+async function computeStatsCommand() {
+  try {
+    console.log('Computing statistics from synced activities...\n');
+    await computeAllStats({
+      activitiesDir: config.activitiesDir,
+      statsDir: 'data/stats',
+    });
+    console.log('\nStatistics generated successfully!');
+    process.exit(0);
+  } catch (error: any) {
+    console.error('Compute stats error:', error.message);
+    if (error.code === 'ENOENT' && error.message.includes('activities')) {
+      console.error('\nActivities directory not found. Please run: npm run sync');
+    }
+    process.exit(1);
+  }
+}
+
 function printHelp() {
   console.log('Usage: npm run [command]');
   console.log('\nAvailable commands:');
-  console.log('  auth   - Complete OAuth flow with Strava');
-  console.log('  sync   - Sync new activities from Strava');
-  console.log('  status - Show current sync status');
+  console.log('  auth          - Complete OAuth flow with Strava');
+  console.log('  sync          - Sync new activities from Strava');
+  console.log('  status        - Show current sync status');
+  console.log('  compute-stats - Compute statistics from synced activities');
   console.log('\nExamples:');
   console.log('  npm run auth              # Get authorization URL');
   console.log('  npm run auth CODE         # Exchange code for tokens');
   console.log('  npm run sync              # Fetch new activities');
   console.log('  npm start status          # Check sync state');
+  console.log('  npm run compute-stats     # Generate stats from activities');
 }
 
 async function main() {
@@ -148,6 +169,9 @@ async function main() {
       break;
     case 'status':
       await statusCommand();
+      break;
+    case 'compute-stats':
+      await computeStatsCommand();
       break;
     case 'help':
     default:
