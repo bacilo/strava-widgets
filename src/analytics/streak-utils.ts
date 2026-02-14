@@ -6,6 +6,8 @@
 
 import { getWeekStart } from './date-utils.js';
 
+const MS_PER_DAY = 86400000;
+
 export interface StreakResult {
   currentStreak: number;
   longestStreak: number;
@@ -78,7 +80,7 @@ export function calculateDailyStreaks(activityDates: Date[]): StreakResult {
   for (let i = 1; i < sortedDates.length; i++) {
     const prevDate = sortedDates[i - 1];
     const currDate = sortedDates[i];
-    const daysDiff = Math.round((currDate.getTime() - prevDate.getTime()) / 86400000);
+    const daysDiff = Math.round((currDate.getTime() - prevDate.getTime()) / MS_PER_DAY);
 
     if (daysDiff === 1) {
       // Consecutive day
@@ -103,7 +105,7 @@ export function calculateDailyStreaks(activityDates: Date[]): StreakResult {
   // Determine if within current streak
   const lastActivityDate = sortedDates[sortedDates.length - 1];
   const today = normalizeToUTCMidnight(new Date());
-  const daysSinceLastActivity = Math.round((today.getTime() - lastActivityDate.getTime()) / 86400000);
+  const daysSinceLastActivity = Math.round((today.getTime() - lastActivityDate.getTime()) / MS_PER_DAY);
   const withinCurrentStreak = daysSinceLastActivity <= 1;
 
   // If not within current streak, reset current streak to 0
@@ -179,13 +181,11 @@ export function calculateWeeklyConsistency(
       } else {
         const prevWeek = weeks[i - 1];
         const weeksDiff = Math.round(
-          (week.weekStart.getTime() - prevWeek.weekStart.getTime()) / (7 * 86400000)
+          (week.weekStart.getTime() - prevWeek.weekStart.getTime()) / (7 * MS_PER_DAY)
         );
 
         if (weeksDiff === 1 && prevWeek.meetsThreshold) {
           consecutiveCount++;
-        } else if (weeksDiff === 1 && !prevWeek.meetsThreshold) {
-          consecutiveCount = 1;
         } else {
           consecutiveCount = 1;
         }
