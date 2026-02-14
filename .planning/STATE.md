@@ -5,34 +5,34 @@
 See: .planning/PROJECT.md (updated 2026-02-13)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 2 in progress - Core Analytics & First Widget (Plan 01 complete)
+**Current focus:** Phase 2 complete - Core Analytics & First Widget (both plans complete)
 
 ## Current Position
 
 Phase: 2 of 4 (Core Analytics & First Widget)
-Plan: 1 of 2 in current phase
-Status: Plan 02-01 complete, ready for Plan 02-02
-Last activity: 2026-02-14 — Completed 02-01 statistics computation (465 weeks, 118 months, 14 years from 1,808 activities)
+Plan: 2 of 2 in current phase (PHASE COMPLETE)
+Status: Phase 02 complete, ready for Phase 03
+Last activity: 2026-02-14 — Completed 02-02 embeddable widget (Chart.js bar chart with Shadow DOM, 142KB IIFE bundle)
 
-Progress: [█████░░░░░] 38%
+Progress: [██████░░░░] 50%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: 2.3 min
-- Total execution time: 0.12 hours
+- Total plans completed: 4
+- Average duration: 2.8 min
+- Total execution time: 0.18 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01 Data Foundation | 2 | 4 min | 2 min |
-| 02 Core Analytics & First Widget | 1 | 3 min | 3 min |
+| 02 Core Analytics & First Widget | 2 | 8 min | 4 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (3 min), 01-02 (1 min), 02-01 (3 min)
-- Trend: Stable (average 2.3 min/plan)
+- Last 5 plans: 01-01 (3 min), 01-02 (1 min), 02-01 (3 min), 02-02 (5 min)
+- Trend: Stable (average 2.8 min/plan)
 
 *Updated after each plan completion*
 
@@ -55,6 +55,11 @@ Recent decisions affecting current work:
 - 02-01: Average pace computed as total_time/total_distance (not averaging individual paces)
 - 02-01: Generated stats stored as static JSON files in data/stats/ (excluded from git)
 - 02-01: All date utilities use UTC methods exclusively for timezone safety
+- 02-02: Shadow DOM for style isolation (host page styles cannot affect widget)
+- 02-02: Vite IIFE format for single-file embeddability (no module loader required)
+- 02-02: Tree-shaken Chart.js imports reduce bundle size (bar chart components only)
+- 02-02: Inlined CSS styles in TypeScript to avoid Vite CSS extraction complexity
+- 02-02: Last 12 weeks displayed by default (slice recent data for readability)
 
 ### Pending Todos
 
@@ -67,5 +72,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-14 (plan execution)
-Stopped at: Completed 02-01-PLAN.md (statistics computation engine with 465 weeks, 21,774 km total)
+Stopped at: Completed 02-02-PLAN.md (embeddable widget with Chart.js, Shadow DOM, 142KB IIFE bundle) - PHASE 02 COMPLETE
 Resume file: None
