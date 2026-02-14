@@ -37,10 +37,10 @@
   2. User can see which cities they have run in, extracted from activity GPS coordinates
   3. Activities without GPS data are gracefully excluded with coverage indicator displayed
   4. Geocoding service uses offline library (no API calls, no rate limits, zero cost)
-**Plans**: TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] 05-01: TBD during phase planning
+- [ ] 05-01-PLAN.md — Offline geocoding pipeline (geocoder, cache, compute-geo-stats CLI)
 
 #### Phase 6: Geographic Statistics
 **Goal**: User can view distance and run count aggregated by country and city.
@@ -111,11 +111,11 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9
 | 2. Analytics | v1.0 | 2/2 | Complete | 2026-02-14 |
 | 3. Widgets | v1.0 | 4/4 | Complete | 2026-02-14 |
 | 4. Pipeline | v1.0 | 1/1 | Complete | 2026-02-14 |
-| 5. Geocoding Infrastructure | v1.1 | 0/? | Not started | - |
+| 5. Geocoding Infrastructure | v1.1 | 0/1 | Planned | - |
 | 6. Geographic Statistics | v1.1 | 0/? | Not started | - |
 | 7. Widget Attribute System | v1.1 | 0/? | Not started | - |
 | 8. Geographic Table Widget | v1.1 | 0/? | Not started | - |
 | 9. CI/CD Integration | v1.1 | 0/? | Not started | - |
 
 ---
-*Last updated: 2026-02-14 after v1.1 roadmap creation*
+*Last updated: 2026-02-15 after Phase 5 planning*
