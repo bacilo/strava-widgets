@@ -5,33 +5,34 @@
 See: .planning/PROJECT.md (updated 2026-02-13)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 1 complete, ready for Phase 2 - Core Analytics & First Widget
+**Current focus:** Phase 2 in progress - Core Analytics & First Widget (Plan 01 complete)
 
 ## Current Position
 
-Phase: 1 of 4 (Data Foundation)
-Plan: 2 of 2 in current phase
-Status: Phase 1 verified and complete
-Last activity: 2026-02-14 — Phase 1 verified (14/14 truths, path bug fixed in 592cd20)
+Phase: 2 of 4 (Core Analytics & First Widget)
+Plan: 1 of 2 in current phase
+Status: Plan 02-01 complete, ready for Plan 02-02
+Last activity: 2026-02-14 — Completed 02-01 statistics computation (465 weeks, 118 months, 14 years from 1,808 activities)
 
-Progress: [████░░░░░░] 25%
+Progress: [█████░░░░░] 38%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
-- Average duration: 2 min
-- Total execution time: 0.07 hours
+- Total plans completed: 3
+- Average duration: 2.3 min
+- Total execution time: 0.12 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01 Data Foundation | 2 | 4 min | 2 min |
+| 02 Core Analytics & First Widget | 1 | 3 min | 3 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (3 min), 01-02 (1 min)
-- Trend: Accelerating (50% faster on plan 2)
+- Last 5 plans: 01-01 (3 min), 01-02 (1 min), 02-01 (3 min)
+- Trend: Stable (average 2.3 min/plan)
 
 *Updated after each plan completion*
 
@@ -50,6 +51,10 @@ Recent decisions affecting current work:
 - 01-02: Two-run historical sync acceptable (timestamp edge case, converges to complete dataset)
 - 01-02: 200ms minimum request spacing for rate limit safety buffer
 - 01-02: Serialize all API requests to eliminate race conditions (maxConcurrent: 1)
+- 02-01: Monday-start weeks (ISO 8601 standard) using UTC day-of-week calculations
+- 02-01: Average pace computed as total_time/total_distance (not averaging individual paces)
+- 02-01: Generated stats stored as static JSON files in data/stats/ (excluded from git)
+- 02-01: All date utilities use UTC methods exclusively for timezone safety
 
 ### Pending Todos
 
@@ -62,5 +67,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-14 (plan execution)
-Stopped at: Completed Phase 01 Data Foundation (01-02 finished, all phase plans complete)
+Stopped at: Completed 02-01-PLAN.md (statistics computation engine with 465 weeks, 21,774 km total)
 Resume file: None
