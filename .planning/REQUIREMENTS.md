@@ -75,37 +75,37 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DATA-01 | — | Pending |
-| DATA-02 | — | Pending |
-| DATA-03 | — | Pending |
-| DATA-04 | — | Pending |
-| DATA-05 | — | Pending |
-| DATA-06 | — | Pending |
-| DATA-07 | — | Pending |
-| DATA-08 | — | Pending |
-| STAT-01 | — | Pending |
-| STAT-02 | — | Pending |
-| STAT-03 | — | Pending |
-| STAT-04 | — | Pending |
-| STAT-05 | — | Pending |
-| STAT-06 | — | Pending |
-| STAT-07 | — | Pending |
-| STAT-08 | — | Pending |
-| STAT-09 | — | Pending |
-| STAT-10 | — | Pending |
-| WIDG-01 | — | Pending |
-| WIDG-02 | — | Pending |
-| WIDG-03 | — | Pending |
-| WIDG-04 | — | Pending |
-| WIDG-05 | — | Pending |
-| WIDG-06 | — | Pending |
-| WIDG-07 | — | Pending |
+| DATA-01 | Phase 1 | Pending |
+| DATA-02 | Phase 1 | Pending |
+| DATA-03 | Phase 1 | Pending |
+| DATA-04 | Phase 1 | Pending |
+| DATA-05 | Phase 1 | Pending |
+| DATA-06 | Phase 1 | Pending |
+| DATA-07 | Phase 4 | Pending |
+| DATA-08 | Phase 1 | Pending |
+| STAT-01 | Phase 2 | Pending |
+| STAT-02 | Phase 3 | Pending |
+| STAT-03 | Phase 2 | Pending |
+| STAT-04 | Phase 2 | Pending |
+| STAT-05 | Phase 2 | Pending |
+| STAT-06 | Phase 2 | Pending |
+| STAT-07 | Phase 3 | Pending |
+| STAT-08 | Phase 3 | Pending |
+| STAT-09 | Phase 3 | Pending |
+| STAT-10 | Phase 3 | Pending |
+| WIDG-01 | Phase 2 | Pending |
+| WIDG-02 | Phase 2 | Pending |
+| WIDG-03 | Phase 3 | Pending |
+| WIDG-04 | Phase 3 | Pending |
+| WIDG-05 | Phase 3 | Pending |
+| WIDG-06 | Phase 3 | Pending |
+| WIDG-07 | Phase 2 | Pending |
 
 **Coverage:**
 - v1 requirements: 25 total
-- Mapped to phases: 0
-- Unmapped: 25 ⚠️
+- Mapped to phases: 25
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-14*
-*Last updated: 2026-02-14 after initial definition*
+*Last updated: 2026-02-14 after roadmap creation*
