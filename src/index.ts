@@ -7,6 +7,7 @@ import { ActivitySync } from './sync/activity-sync.js';
 import { config } from './config/strava.config.js';
 import { computeAllStats } from './analytics/compute-stats.js';
 import { computeAdvancedStats } from './analytics/compute-advanced-stats.js';
+import { computeGeoStats } from './geo/compute-geo-stats.js';
 import * as fs from 'fs/promises';
 
 const command = process.argv[2];
@@ -163,6 +164,24 @@ async function computeAdvancedStatsCommand() {
   }
 }
 
+async function computeGeoStatsCommand() {
+  try {
+    console.log('Computing geographic statistics from synced activities...\n');
+    await computeGeoStats({
+      activitiesDir: config.activitiesDir,
+      geoDir: 'data/geo',
+    });
+    console.log('\nGeographic statistics generated successfully!');
+    process.exit(0);
+  } catch (error: any) {
+    console.error('Compute geo stats error:', error.message);
+    if (error.code === 'ENOENT' && error.message.includes('activities')) {
+      console.error('\nActivities directory not found. Please run: npm run sync');
+    }
+    process.exit(1);
+  }
+}
+
 async function computeAllStatsCommand() {
   try {
     console.log('Computing all statistics from synced activities...\n');
@@ -181,6 +200,14 @@ async function computeAllStatsCommand() {
       statsDir: 'data/stats',
     });
 
+    console.log(''); // Blank line separator
+
+    // Run geo stats
+    await computeGeoStats({
+      activitiesDir: config.activitiesDir,
+      geoDir: 'data/geo',
+    });
+
     console.log('\nAll statistics generated successfully!');
     process.exit(0);
   } catch (error: any) {
@@ -195,12 +222,13 @@ async function computeAllStatsCommand() {
 function printHelp() {
   console.log('Usage: npm run [command]');
   console.log('\nAvailable commands:');
-  console.log('  auth                  - Complete OAuth flow with Strava');
-  console.log('  sync                  - Sync new activities from Strava');
-  console.log('  status                - Show current sync status');
-  console.log('  compute-stats         - Compute basic statistics from synced activities');
+  console.log('  auth                   - Complete OAuth flow with Strava');
+  console.log('  sync                   - Sync new activities from Strava');
+  console.log('  status                 - Show current sync status');
+  console.log('  compute-stats          - Compute basic statistics from synced activities');
   console.log('  compute-advanced-stats - Compute advanced statistics (year-over-year, time-of-day, etc.)');
-  console.log('  compute-all-stats     - Compute both basic and advanced statistics');
+  console.log('  compute-geo-stats      - Compute geographic statistics (countries, cities) from GPS data');
+  console.log('  compute-all-stats      - Compute all statistics (basic, advanced, geo)');
   console.log('\nExamples:');
   console.log('  npm run auth                   # Get authorization URL');
   console.log('  npm run auth CODE              # Exchange code for tokens');
@@ -208,6 +236,7 @@ function printHelp() {
   console.log('  npm start status               # Check sync state');
   console.log('  npm run compute-stats          # Generate basic stats');
   console.log('  npm run compute-advanced-stats # Generate advanced stats');
+  console.log('  npm run compute-geo-stats      # Generate geo stats');
   console.log('  npm run compute-all-stats      # Generate all stats');
 }
 
@@ -227,6 +256,9 @@ async function main() {
       break;
     case 'compute-advanced-stats':
       await computeAdvancedStatsCommand();
+      break;
+    case 'compute-geo-stats':
+      await computeGeoStatsCommand();
       break;
     case 'compute-all-stats':
       await computeAllStatsCommand();

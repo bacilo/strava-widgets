@@ -11,6 +11,7 @@
     "auth": "node dist/index.js auth",
     "compute-stats": "node dist/index.js compute-stats",
     "compute-advanced-stats": "node dist/index.js compute-advanced-stats",
+    "compute-geo-stats": "node dist/index.js compute-geo-stats",
     "compute-all-stats": "node dist/index.js compute-all-stats",
     "build-widget": "vite build",
     "build-widgets": "node scripts/build-widgets.mjs",

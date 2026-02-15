@@ -1,0 +1,220 @@
+[
+  {
+    "countryName": "Denmark",
+    "countryIso2": "DK",
+    "activityCount": 1322,
+    "cities": [
+      "Roskilde",
+      "Sorø",
+      "Vejle"
+    ]
+  },
+  {
+    "countryName": "Portugal",
+    "countryIso2": "PT",
+    "activityCount": 231,
+    "cities": [
+      "Alcochete",
+      "Alfena",
+      "Almeida",
+      "Mafra",
+      "Montemor-o-Novo",
+      "Porto de Mós",
+      "Sesimbra",
+      "Silves",
+      "Óbidos"
+    ]
+  },
+  {
+    "countryName": "Sweden",
+    "countryIso2": "SE",
+    "activityCount": 29,
+    "cities": [
+      "Kalmar",
+      "Malmö",
+      "Stockholm",
+      "Visby"
+    ]
+  },
+  {
+    "countryName": "Philippines",
+    "countryIso2": "PH",
+    "activityCount": 12,
+    "cities": [
+      "Angat",
+      "El Nido",
+      "Malay"
+    ]
+  },
+  {
+    "countryName": "United Kingdom",
+    "countryIso2": "GB",
+    "activityCount": 11,
+    "cities": [
+      "Bangor",
+      "Giffnock",
+      "Lisburn",
+      "Musselburgh",
+      "Taunton",
+      "Totteridge"
+    ]
+  },
+  {
+    "countryName": "Greece",
+    "countryIso2": "GR",
+    "activityCount": 10,
+    "cities": [
+      "Chaniá",
+      "Ermoúpoli",
+      "Néa Moudaniá",
+      "Salamína",
+      "Spárti",
+      "Síndos"
+    ]
+  },
+  {
+    "countryName": "Finland",
+    "countryIso2": "FI",
+    "activityCount": 9,
+    "cities": [
+      "Askola",
+      "Sipoo"
+    ]
+  },
+  {
+    "countryName": "United States",
+    "countryIso2": "US",
+    "activityCount": 8,
+    "cities": [
+      "Bridgeview",
+      "Brushy Creek",
+      "Gretna",
+      "Lindenwold",
+      "Secaucus",
+      "Shenandoah"
+    ]
+  },
+  {
+    "countryName": "Germany",
+    "countryIso2": "DE",
+    "activityCount": 3,
+    "cities": [
+      "Stahnsdorf"
+    ]
+  },
+  {
+    "countryName": "Sri Lanka",
+    "countryIso2": "LK",
+    "activityCount": 3,
+    "cities": [
+      "Moratuwa",
+      "Trincomalee"
+    ]
+  },
+  {
+    "countryName": "France",
+    "countryIso2": "FR",
+    "activityCount": 3,
+    "cities": [
+      "Gif-sur-Yvette"
+    ]
+  },
+  {
+    "countryName": "Romania",
+    "countryIso2": "RO",
+    "activityCount": 2,
+    "cities": [
+      "Baia-Sprie",
+      "Floreşti"
+    ]
+  },
+  {
+    "countryName": "Bulgaria",
+    "countryIso2": "BG",
+    "activityCount": 2,
+    "cities": [
+      "Sofia"
+    ]
+  },
+  {
+    "countryName": "Croatia",
+    "countryIso2": "HR",
+    "activityCount": 2,
+    "cities": [
+      "Samobor"
+    ]
+  },
+  {
+    "countryName": "Georgia",
+    "countryIso2": "GE",
+    "activityCount": 2,
+    "cities": [
+      "Batumi",
+      "Rustavi"
+    ]
+  },
+  {
+    "countryName": "Belgium",
+    "countryIso2": "BE",
+    "activityCount": 2,
+    "cities": [
+      "Genappe"
+    ]
+  },
+  {
+    "countryName": "Malta",
+    "countryIso2": "MT",
+    "activityCount": 1,
+    "cities": [
+      "Imdina"
+    ]
+  },
+  {
+    "countryName": "Norway",
+    "countryIso2": "NO",
+    "activityCount": 1,
+    "cities": [
+      "Nesoddtangen"
+    ]
+  },
+  {
+    "countryName": "Serbia",
+    "countryIso2": "RS",
+    "activityCount": 1,
+    "cities": [
+      "Pančevo"
+    ]
+  },
+  {
+    "countryName": "Slovenia",
+    "countryIso2": "SI",
+    "activityCount": 1,
+    "cities": [
+      "Ig"
+    ]
+  },
+  {
+    "countryName": "Estonia",
+    "countryIso2": "EE",
+    "activityCount": 1,
+    "cities": [
+      "Tallinn"
+    ]
+  },
+  {
+    "countryName": "Italy",
+    "countryIso2": "IT",
+    "activityCount": 1,
+    "cities": [
+      "Paola"
+    ]
+  },
+  {
+    "countryName": "Ireland",
+    "countryIso2": "IE",
+    "activityCount": 1,
+    "cities": [
+      "Tallaght"
+    ]
+  }
+]
