@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-14)
 ## Current Position
 
 Phase: 6 of 9 (Geographic Statistics)
-Plan: Ready to plan
-Status: Phase 5 complete, ready to plan Phase 6
-Last activity: 2026-02-15 — Phase 5 complete: Geocoding infrastructure verified (23 countries, 57 cities, 92% coverage)
+Plan: 1 of 2
+Status: In progress - Phase 6 Plan 1 complete
+Last activity: 2026-02-15 — Phase 6 Plan 1 complete: Distance aggregation in geographic stats (20,138.7 km across 23 countries)
 
-Progress: [██████░░░░] 56% (5/9 phases complete)
+Progress: [██████░░░░] 56% (5/9 phases complete, 1/2 Phase 6 plans complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 10 (9 v1.0 + 1 v1.1)
-- Average duration: 3 minutes (Phase 5 Plan 1)
-- Total execution time: 1 day + 3 minutes
+- Total plans completed: 11 (9 v1.0 + 2 v1.1)
+- Average duration: 2 minutes (recent average)
+- Total execution time: 1 day + 4 minutes
 
 **By Phase:**
 
@@ -29,15 +29,19 @@ Progress: [██████░░░░] 56% (5/9 phases complete)
 |-------|-------|-------|----------|
 | v1.0 Phases 1-4 | 9 | 1 day | ~2.7 hours/plan |
 | Phase 5 | 1 | 3 min | 3 min/plan |
+| Phase 6 | 1 | 1.4 min | 1.4 min/plan |
 
 **Recent Completions:**
+- Phase 6 Plan 1 (2026-02-15): 1.4 minutes - Distance aggregation in geographic stats
+  - 1 task, 1 commit, 4 files modified
+  - Added totalDistanceKm to countries/cities, ranked by distance (20,138.7 km total)
 - Phase 5 Plan 1 (2026-02-15): 3 minutes - Offline geocoding pipeline (geocoder, cache, compute-geo-stats)
   - 2 tasks, 2 commits, 7 files created, 2 files modified
   - Geocoded 1,658 activities (92% coverage), 23 countries, 57 cities
 
 **Recent Trend:**
 - v1.0: 9 plans in 1 day (3,844 LOC TypeScript)
-- v1.1 Phase 5: Excellent start - first plan completed in 3 minutes
+- v1.1: Excellent velocity - Phase 5 (3 min), Phase 6 Plan 1 (1.4 min)
 
 *Updated after each plan completion*
 
@@ -54,6 +58,8 @@ Recent decisions affecting current work:
 - **GPS data validation**: Filter activities lacking coordinates before geocoding, display coverage metadata ("Based on X of Y activities")
 - **Coordinate rounding (Phase 5 Plan 1)**: Use 4 decimal places (≈11m precision) for cache keys to balance accuracy with cache efficiency (114 unique locations from 1,658 activities)
 - **Geo stats in compute-all-stats (Phase 5 Plan 1)**: Include geographic computation in main pipeline to ensure geo data stays fresh
+- **Distance aggregation in meters (Phase 6 Plan 1)**: Accumulate in meters during processing, convert to km with 1 decimal precision for output to prevent precision loss from repeated conversions
+- **Ranking by distance (Phase 6 Plan 1)**: Geographic entities ranked by totalDistanceKm descending instead of activityCount for more meaningful statistics
 
 ### Pending Todos
 
@@ -73,9 +79,9 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-15 (Phase 5 execution)
-Stopped at: Phase 5 complete, verified. Ready to plan Phase 6.
-Resume file: None — start with `/gsd:plan-phase 6`
+Last session: 2026-02-15 (Phase 6 execution)
+Stopped at: Phase 6 Plan 1 complete. Ready to execute Phase 6 Plan 2.
+Resume file: None — continue with `/gsd:execute-phase 6`
 
 ---
-*Last updated: 2026-02-15 after Phase 5 execution complete*
+*Last updated: 2026-02-15 after Phase 6 Plan 1 execution complete*
