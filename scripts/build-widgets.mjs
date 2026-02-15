@@ -25,6 +25,11 @@ const widgets = [
     name: 'streak-widget',
     entry: resolve(__dirname, '../src/widgets/streak-widget/index.ts'),
     globalName: 'StreakWidget'
+  },
+  {
+    name: 'geo-stats-widget',
+    entry: resolve(__dirname, '../src/widgets/geo-stats-widget/index.ts'),
+    globalName: 'GeoStatsWidget'
   }
 ];
 

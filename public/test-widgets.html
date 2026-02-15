@@ -160,9 +160,18 @@
       </div>
     </div>
 
+    <!-- Widget 5: Geo Stats Widget (Phase 6) -->
+    <div class="widget-section">
+      <h2 class="section-header">5. Geographic Statistics</h2>
+      <p class="section-description">Country and city running rankings with distance, run count, and CSV export (Phase 6 widget)</p>
+      <div class="widget-container">
+        <div id="geo-stats-widget"></div>
+      </div>
+    </div>
+
     <!-- Widget with custom dark theme -->
     <div class="widget-section">
-      <h2 class="section-header">5. Stats Card with Custom Dark Theme</h2>
+      <h2 class="section-header">6. Stats Card with Custom Dark Theme</h2>
       <p class="section-description">Demonstrates CSS custom property theming capabilities</p>
       <div class="widget-container" style="background: #1a1a1a; padding: 20px; border-radius: 8px;">
         <div id="stats-card-dark"></div>
@@ -196,6 +205,7 @@
   <script src="../dist/widgets/stats-card.iife.js"></script>
   <script src="../dist/widgets/comparison-chart.iife.js"></script>
   <script src="../dist/widgets/streak-widget.iife.js"></script>
+  <script src="../dist/widgets/geo-stats-widget.iife.js"></script>
 
   <!-- Initialize all widgets -->
   <script>
@@ -232,7 +242,18 @@
       }
     });
 
-    // Widget 5: Stats Card with dark theme
+    // Widget 5: Geo Stats Widget
+    window.GeoStatsWidget.init('geo-stats-widget', {
+      dataUrl: '../data/geo/countries.json',
+      options: {
+        showTitle: true,
+        customTitle: 'Running by Location',
+        secondaryDataUrl: '../data/geo/cities.json',
+        metadataUrl: '../data/geo/geo-metadata.json'
+      }
+    });
+
+    // Widget 6: Stats Card with dark theme
     window.StatsCard.init('stats-card-dark', {
       dataUrl: '../data/stats/all-time-totals.json',
       colors: {
