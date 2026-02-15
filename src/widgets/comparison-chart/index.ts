@@ -1,12 +1,14 @@
 /**
  * Comparison Chart Widget
  * Displays year-over-year grouped bar chart and seasonal trends line chart
+ * Custom Element: <strava-comparison-chart data-url="...">
  */
 
 import { WidgetBase } from '../shared/widget-base.js';
 import { WidgetConfig } from '../../types/widget-config.types.js';
 import { YearOverYearMonth, SeasonalTrendMonth } from '../../types/analytics.types.js';
 import { createYearOverYearChart, createSeasonalTrendsChart } from './chart-config.js';
+import { parseJSON, parseBoolean } from '../shared/attribute-parser.js';
 
 // Comparison chart specific styles
 const COMPARISON_CHART_STYLES = `
@@ -23,30 +25,121 @@ const COMPARISON_CHART_STYLES = `
   min-width: 0;
   max-width: 100%;
 }
+
+/* Dark mode styles */
+:host([data-theme="dark"]) .comparison-container {
+  background: transparent;
+}
+
+/* Responsive breakpoints */
+:host([data-size="compact"]) .comparison-container {
+  gap: 20px;
+}
+:host([data-size="compact"]) .chart-section {
+  height: 200px;
+}
+
+:host([data-size="medium"]) .chart-section {
+  height: 300px;
+}
+
+:host([data-size="large"]) .chart-section {
+  height: 400px;
+}
 `;
 
 interface ComparisonChartData {
   yearOverYear: YearOverYearMonth[];
-  seasonalTrends: SeasonalTrendMonth[];
+  seasonalTrends?: SeasonalTrendMonth[];
 }
 
-class ComparisonChartWidget extends WidgetBase<YearOverYearMonth[]> {
+class ComparisonChartWidget extends WidgetBase {
   private seasonalTrendsData: SeasonalTrendMonth[] | null = null;
 
-  constructor(containerId: string, config: WidgetConfig) {
-    super(containerId, config, true);
+  /**
+   * Observed attributes specific to comparison-chart
+   */
+  static observedAttributes = [
+    ...WidgetBase.observedAttributes,
+    'data-chart-colors',
+    'data-show-legend'
+  ];
+
+  /**
+   * Default data URL for this widget type
+   */
+  protected get dataUrl(): string {
+    return '/data/stats/year-over-year.json';
+  }
+
+  /**
+   * Override connectedCallback to inject widget-specific styles
+   */
+  connectedCallback(): void {
+    // Call parent first to set up Shadow DOM
+    super.connectedCallback();
+
+    // Inject widget-specific styles after base styles
+    if (this.shadowRoot) {
+      const styleElement = document.createElement('style');
+      styleElement.textContent = COMPARISON_CHART_STYLES;
+      this.shadowRoot.appendChild(styleElement);
+    }
+  }
+
+  /**
+   * Override fetchDataAndRender to handle dual data sources
+   */
+  protected async fetchDataAndRender(): Promise<void> {
+    try {
+      const primaryUrl = this.getAttribute('data-url') || this.dataUrl;
+      if (!primaryUrl) {
+        throw new Error('No data URL provided');
+      }
+
+      // Fetch primary data (year-over-year)
+      const yearOverYearData = await this.fetchData<YearOverYearMonth[]>(primaryUrl);
+
+      // Fetch secondary data (seasonal trends) if URL provided
+      const secondaryUrl = this.getAttribute('data-url-secondary');
+      if (secondaryUrl) {
+        try {
+          this.seasonalTrendsData = await this.fetchData<SeasonalTrendMonth[]>(secondaryUrl);
+        } catch (error) {
+          console.warn('ComparisonChart: Could not fetch seasonal trends data', error);
+          this.seasonalTrendsData = null;
+        }
+      } else {
+        this.seasonalTrendsData = null;
+      }
+
+      // Clear loading message
+      if (this.shadowRoot) {
+        const loadingEl = this.shadowRoot.querySelector('.widget-loading');
+        if (loadingEl) {
+          loadingEl.remove();
+        }
+      }
+
+      // Render widget with data
+      this.render(yearOverYearData);
+    } catch (error) {
+      console.error('ComparisonChart: Failed to load data', error);
+      this.showError();
+    }
   }
 
   /**
    * Render the comparison charts
    */
-  protected render(yearOverYearData: YearOverYearMonth[]): void {
+  protected render(data: unknown): void {
+    const yearOverYearData = data as YearOverYearMonth[];
     if (!this.shadowRoot) return;
 
-    // Inject chart-specific styles
-    const styleElement = document.createElement('style');
-    styleElement.textContent = COMPARISON_CHART_STYLES;
-    this.shadowRoot.appendChild(styleElement);
+    // Clear previous content except styles
+    const styles = Array.from(this.shadowRoot.querySelectorAll('style'));
+    this.shadowRoot.innerHTML = '';
+    styles.forEach(style => this.shadowRoot!.appendChild(style));
 
     // Create container for both charts
     const container = document.createElement('div');
@@ -72,59 +165,85 @@ class ComparisonChartWidget extends WidgetBase<YearOverYearMonth[]> {
     // Append to DOM BEFORE creating Chart.js instances (needs canvas dimensions)
     this.shadowRoot.appendChild(container);
 
+    // Get configuration from attributes
+    const theme = this.getAttribute('data-theme') || 'light';
+    const chartColors = parseJSON<string[]>(
+      this.getAttribute('data-chart-colors'),
+      ['#3b82f6', '#ef4444', '#22c55e']
+    );
+    const showLegend = this.getAttribute('data-show-legend') !== 'false'; // default true
+    const customTitle = this.getAttribute('data-title') || undefined;
+
     // Render charts after DOM attachment
     createYearOverYearChart(yoyCanvas, yearOverYearData, {
-      chartColors: this.config.colors?.chartColors,
-      showLegend: this.config.options?.showLegend,
-      customTitle: this.config.options?.customTitle
+      theme: theme as 'light' | 'dark',
+      chartColors,
+      showLegend,
+      customTitle
     });
 
     if (this.seasonalTrendsData && trendsCanvas) {
       createSeasonalTrendsChart(trendsCanvas, this.seasonalTrendsData, {
-        chartColors: this.config.colors?.chartColors,
-        showLegend: this.config.options?.showLegend
+        theme: theme as 'light' | 'dark',
+        chartColors,
+        showLegend
       });
     }
   }
 }
 
+// Register Custom Element
+WidgetBase.register('strava-comparison-chart', ComparisonChartWidget);
+
 /**
- * Global initialization function
+ * Backwards-compatible global initialization function
+ * Creates Custom Element programmatically from config object
  */
 const ComparisonChart = {
   async init(containerId: string, config: WidgetConfig): Promise<void> {
-    // Create widget instance
-    const widget = new ComparisonChartWidget(containerId, config);
-
-    try {
-      // Fetch year-over-year data (primary)
-      const yoyData = await widget['fetchData']<YearOverYearMonth[]>(config.dataUrl);
-
-      // Try to fetch seasonal trends data if secondary URL provided
-      if (config.options?.secondaryDataUrl) {
-        try {
-          const trendsData = await widget['fetchData']<SeasonalTrendMonth[]>(
-            config.options.secondaryDataUrl
-          );
-          widget['seasonalTrendsData'] = trendsData;
-        } catch (error) {
-          console.warn('ComparisonChart: Could not fetch seasonal trends data', error);
-        }
-      }
-
-      // Clear loading and render
-      if (widget['shadowRoot']) {
-        const loadingEl = widget['shadowRoot'].querySelector('.widget-loading');
-        if (loadingEl) {
-          loadingEl.remove();
-        }
-      }
-
-      widget['render'](yoyData);
-    } catch (error) {
-      console.error('ComparisonChart: Failed to load data', error);
-      widget['showError']();
+    const container = document.getElementById(containerId);
+    if (!container) {
+      console.error(`ComparisonChart: Container element "${containerId}" not found`);
+      return;
     }
+
+    // Create custom element
+    const element = document.createElement('strava-comparison-chart') as ComparisonChartWidget;
+
+    // Map config to attributes
+    if (config.dataUrl) {
+      element.setAttribute('data-url', config.dataUrl);
+    }
+    if (config.options?.secondaryDataUrl) {
+      element.setAttribute('data-url-secondary', config.options.secondaryDataUrl);
+    }
+    if (config.options?.customTitle) {
+      element.setAttribute('data-title', config.options.customTitle);
+    }
+    if (config.options?.showLegend === false) {
+      element.setAttribute('data-show-legend', 'false');
+    }
+    if (config.colors?.chartColors) {
+      element.setAttribute('data-chart-colors', JSON.stringify(config.colors.chartColors));
+    }
+    if (config.colors?.background) {
+      element.setAttribute('data-bg', config.colors.background);
+    }
+    if (config.colors?.text) {
+      element.setAttribute('data-text-color', config.colors.text);
+    }
+    if (config.colors?.accent) {
+      element.setAttribute('data-accent', config.colors.accent);
+    }
+    if (config.size?.width) {
+      element.setAttribute('data-width', config.size.width);
+    }
+    if (config.size?.maxWidth) {
+      element.setAttribute('data-max-width', config.size.maxWidth);
+    }
+
+    // Append to container
+    container.appendChild(element);
   }
 };
 

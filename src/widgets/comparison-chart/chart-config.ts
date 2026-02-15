@@ -52,7 +52,7 @@ const DEFAULT_YEAR_COLORS = [
 export function createYearOverYearChart(
   canvas: HTMLCanvasElement,
   data: YearOverYearMonth[],
-  config?: { chartColors?: string[]; showLegend?: boolean; customTitle?: string }
+  config?: { theme?: 'light' | 'dark'; chartColors?: string[]; showLegend?: boolean; customTitle?: string }
 ): Chart {
   // Extract unique years and sort descending (most recent first)
   const allYears = new Set<string>();
@@ -78,6 +78,12 @@ export function createYearOverYearChart(
     };
   });
 
+  // Theme-based colors
+  const isDark = config?.theme === 'dark';
+  const gridColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+  const tickColor = isDark ? '#999' : '#666';
+  const titleColor = isDark ? '#ccc' : '#333';
+
   const chartConfig: ChartConfiguration<'bar'> = {
     type: 'bar',
     data: {
@@ -91,19 +97,38 @@ export function createYearOverYearChart(
       scales: {
         y: {
           beginAtZero: true,
+          grid: {
+            color: gridColor
+          },
+          ticks: {
+            color: tickColor
+          },
           title: {
             display: true,
-            text: 'Distance (km)'
+            text: 'Distance (km)',
+            color: titleColor
+          }
+        },
+        x: {
+          grid: {
+            color: gridColor
+          },
+          ticks: {
+            color: tickColor
           }
         }
       },
       plugins: {
         title: {
           display: true,
-          text: config?.customTitle || 'Year-over-Year Monthly Comparison'
+          text: config?.customTitle || 'Year-over-Year Monthly Comparison',
+          color: titleColor
         },
         legend: {
-          display: config?.showLegend !== false
+          display: config?.showLegend !== false,
+          labels: {
+            color: titleColor
+          }
         },
         tooltip: {
           callbacks: {
@@ -130,7 +155,7 @@ export function createYearOverYearChart(
 export function createSeasonalTrendsChart(
   canvas: HTMLCanvasElement,
   data: SeasonalTrendMonth[],
-  config?: { chartColors?: string[]; showLegend?: boolean }
+  config?: { theme?: 'light' | 'dark'; chartColors?: string[]; showLegend?: boolean }
 ): Chart {
   // Extract unique years and sort descending
   const allYears = new Set<number>();
@@ -162,6 +187,12 @@ export function createSeasonalTrendsChart(
     };
   });
 
+  // Theme-based colors
+  const isDark = config?.theme === 'dark';
+  const gridColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+  const tickColor = isDark ? '#999' : '#666';
+  const titleColor = isDark ? '#ccc' : '#333';
+
   const chartConfig: ChartConfiguration<'line'> = {
     type: 'line',
     data: {
@@ -175,19 +206,38 @@ export function createSeasonalTrendsChart(
       scales: {
         y: {
           beginAtZero: true,
+          grid: {
+            color: gridColor
+          },
+          ticks: {
+            color: tickColor
+          },
           title: {
             display: true,
-            text: 'Distance (km)'
+            text: 'Distance (km)',
+            color: titleColor
+          }
+        },
+        x: {
+          grid: {
+            color: gridColor
+          },
+          ticks: {
+            color: tickColor
           }
         }
       },
       plugins: {
         title: {
           display: true,
-          text: 'Seasonal Trends'
+          text: 'Seasonal Trends',
+          color: titleColor
         },
         legend: {
-          display: config?.showLegend !== false
+          display: config?.showLegend !== false,
+          labels: {
+            color: titleColor
+          }
         },
         tooltip: {
           callbacks: {
