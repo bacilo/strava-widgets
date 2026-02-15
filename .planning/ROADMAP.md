@@ -83,10 +83,11 @@ Plans:
   2. User can sort the table by clicking column headers (location, distance, runs)
   3. Table widget paginates large datasets to maintain rendering performance
   4. Table widget follows Shadow DOM isolation pattern from existing widgets
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 08-01: TBD during phase planning
+- [ ] 08-01-PLAN.md — Geo-table-widget with sortable columns and pagination (TableSorter, TablePaginator, Custom Element)
+- [ ] 08-02-PLAN.md — Build system integration and test page with widget demos
 
 #### Phase 9: CI/CD Integration
 **Goal**: Geographic data and widgets automatically refresh daily via GitHub Actions.
@@ -117,8 +118,8 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9
 | 5. Geocoding Infrastructure | v1.1 | 1/1 | Complete | 2026-02-15 |
 | 6. Geographic Statistics | v1.1 | 2/2 | Complete | 2026-02-15 |
 | 7. Widget Attribute System | v1.1 | 0/3 | Planned | - |
-| 8. Geographic Table Widget | v1.1 | 0/? | Not started | - |
+| 8. Geographic Table Widget | v1.1 | 0/2 | Planned | - |
 | 9. CI/CD Integration | v1.1 | 0/? | Not started | - |
 
 ---
-*Last updated: 2026-02-15 after Phase 7 planning complete*
+*Last updated: 2026-02-15 after Phase 8 planning complete*
