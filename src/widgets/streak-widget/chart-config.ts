@@ -29,6 +29,7 @@ Chart.register(
 export interface RadarChartConfig {
   accentColor?: string;
   fillOpacity?: number;
+  theme?: 'light' | 'dark';
 }
 
 /**
@@ -42,6 +43,13 @@ export function createTimeOfDayRadarChart(
 ): Chart {
   const accentColor = config.accentColor || '#fc4c02'; // Strava orange
   const fillOpacity = config.fillOpacity || 0.2;
+  const theme = config.theme || 'light';
+
+  // Theme-aware colors
+  const isDark = theme === 'dark';
+  const gridColor = isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)';
+  const pointLabelColor = isDark ? '#ccc' : '#666';
+  const tickColor = isDark ? '#999' : '#666';
 
   // Extract labels and values
   const labels = data.map((d) => d.period);
@@ -76,10 +84,15 @@ export function createTimeOfDayRadarChart(
           beginAtZero: true, // CRITICAL: avoid pitfall 4 from research
           ticks: {
             stepSize: Math.ceil(Math.max(...values) / 5), // 5 tick marks
+            color: tickColor
           },
           grid: {
             circular: true,
+            color: gridColor
           },
+          pointLabels: {
+            color: pointLabelColor
+          }
         },
       },
       plugins: {
