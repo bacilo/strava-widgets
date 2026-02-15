@@ -67,10 +67,12 @@ Plans:
   3. Widgets auto-adapt to container size responsively
   4. All existing widgets (stats card, comparison chart, streak widget) support the new customization system
   5. Widget configuration works in HTML-only environments (CMSes, Jekyll pages) without JavaScript
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 07-01: TBD during phase planning
+- [ ] 07-01-PLAN.md — Shared attribute infrastructure (parser, theme, responsive, WidgetBase refactor)
+- [ ] 07-02-PLAN.md — Migrate stats-card and comparison-chart to Custom Elements
+- [ ] 07-03-PLAN.md — Migrate streak-widget and geo-stats-widget, create test page
 
 #### Phase 8: Geographic Table Widget
 **Goal**: User can embed geographic statistics table on any webpage.
@@ -114,9 +116,9 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9
 | 4. Pipeline | v1.0 | 1/1 | Complete | 2026-02-14 |
 | 5. Geocoding Infrastructure | v1.1 | 1/1 | Complete | 2026-02-15 |
 | 6. Geographic Statistics | v1.1 | 2/2 | Complete | 2026-02-15 |
-| 7. Widget Attribute System | v1.1 | 0/? | Not started | - |
+| 7. Widget Attribute System | v1.1 | 0/3 | Planned | - |
 | 8. Geographic Table Widget | v1.1 | 0/? | Not started | - |
 | 9. CI/CD Integration | v1.1 | 0/? | Not started | - |
 
 ---
-*Last updated: 2026-02-15 after Phase 6 execution complete*
+*Last updated: 2026-02-15 after Phase 7 planning complete*
