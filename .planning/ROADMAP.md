@@ -99,10 +99,11 @@ Plans:
   3. Geographic table widget is built and deployed to GitHub Pages
   4. CI pipeline continues working if geocoding fails (non-blocking errors)
   5. Documentation explains new commands, widget attributes, and data-attribution requirements
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 09-01: TBD during phase planning
+- [ ] 09-01-PLAN.md — CI/CD workflow update (non-blocking geocoding, commit patterns) and index.html Custom Elements migration
+- [ ] 09-02-PLAN.md — Comprehensive README.md with widget docs, CLI reference, and Strava attribution
 
 ## Progress
 
@@ -119,7 +120,7 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9
 | 6. Geographic Statistics | v1.1 | 2/2 | Complete | 2026-02-15 |
 | 7. Widget Attribute System | v1.1 | 0/3 | Planned | - |
 | 8. Geographic Table Widget | v1.1 | 0/2 | Planned | - |
-| 9. CI/CD Integration | v1.1 | 0/? | Not started | - |
+| 9. CI/CD Integration | v1.1 | 0/2 | Planned | - |
 
 ---
-*Last updated: 2026-02-15 after Phase 8 planning complete*
+*Last updated: 2026-02-15 after Phase 9 planning complete*
