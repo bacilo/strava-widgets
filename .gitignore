@@ -3,6 +3,7 @@ dist/*
 !dist/widgets/
 dist/widgets/*
 !dist/widgets/index.html
+!dist/widgets/test.html
 .env
 data/tokens.json
 .DS_Store
