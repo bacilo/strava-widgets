@@ -1,6 +1,7 @@
 /**
  * Stats Card Widget
  * Displays all-time totals with year-over-year comparison
+ * Custom Element: <strava-stats-card data-url="...">
  */
 
 import { WidgetBase } from '../shared/widget-base.js';
@@ -89,6 +90,44 @@ const STATS_CARD_STYLES = `
 .yoy-delta.negative {
   color: #ef4444;
 }
+
+/* Dark mode styles */
+:host([data-theme="dark"]) .stats-card {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+:host([data-theme="dark"]) .stat-item {
+  background: rgba(255, 107, 53, 0.1);
+}
+:host([data-theme="dark"]) .yoy-item {
+  background: #2a2a2a;
+}
+:host([data-theme="dark"]) .yoy-comparison {
+  border-top-color: #333;
+}
+:host([data-theme="dark"]) .stat-label,
+:host([data-theme="dark"]) .yoy-title {
+  color: #999;
+}
+:host([data-theme="dark"]) .yoy-year {
+  color: #777;
+}
+
+/* Responsive breakpoints */
+:host([data-size="compact"]) .stats-grid {
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+:host([data-size="compact"]) .stat-value {
+  font-size: 24px;
+}
+:host([data-size="compact"]) .card-title {
+  font-size: 18px;
+}
+
+:host([data-size="medium"]) .stats-grid {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
 `;
 
 interface StatsCardData {
@@ -96,64 +135,105 @@ interface StatsCardData {
   yearOverYear?: YearOverYearMonth[];
 }
 
-class StatsCardWidget extends WidgetBase<AllTimeTotals> {
+class StatsCardWidget extends WidgetBase {
   private yearOverYearData: YearOverYearMonth[] | null = null;
 
-  constructor(containerId: string, config: WidgetConfig) {
-    super(containerId, config, true);
+  /**
+   * Observed attributes specific to stats-card
+   */
+  static observedAttributes = [
+    ...WidgetBase.observedAttributes,
+    'data-show-yoy'
+  ];
+
+  /**
+   * Default data URL for this widget type
+   */
+  protected get dataUrl(): string {
+    return '/data/stats/all-time-totals.json';
   }
 
   /**
-   * Override fetchDataAndRender to fetch both data sources
+   * Override connectedCallback to inject widget-specific styles
    */
-  protected async fetchData<D = AllTimeTotals>(url: string): Promise<D> {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch data: ${response.status} ${response.statusText}`);
+  connectedCallback(): void {
+    // Call parent first to set up Shadow DOM
+    super.connectedCallback();
+
+    // Inject widget-specific styles after base styles
+    if (this.shadowRoot) {
+      const styleElement = document.createElement('style');
+      styleElement.textContent = STATS_CARD_STYLES;
+      this.shadowRoot.appendChild(styleElement);
     }
-    return response.json();
   }
 
   /**
-   * Override init to fetch year-over-year data if provided
+   * Override fetchDataAndRender to handle dual data sources
    */
-  private async fetchAllData(): Promise<StatsCardData> {
-    const allTime = await super.fetchData<AllTimeTotals>(this.config.dataUrl);
-
-    // Try to fetch year-over-year data if secondary URL provided
-    if (this.config.options?.secondaryDataUrl) {
-      try {
-        this.yearOverYearData = await super.fetchData<YearOverYearMonth[]>(
-          this.config.options.secondaryDataUrl
-        );
-      } catch (error) {
-        console.warn('StatsCard: Could not fetch year-over-year data', error);
+  protected async fetchDataAndRender(): Promise<void> {
+    try {
+      const primaryUrl = this.getAttribute('data-url') || this.dataUrl;
+      if (!primaryUrl) {
+        throw new Error('No data URL provided');
       }
-    }
 
-    return { allTime, yearOverYear: this.yearOverYearData || undefined };
+      // Fetch primary data (all-time totals)
+      const allTimeData = await this.fetchData<AllTimeTotals>(primaryUrl);
+
+      // Fetch secondary data (year-over-year) if URL provided and enabled
+      const secondaryUrl = this.getAttribute('data-url-secondary');
+      const showYoY = this.getAttribute('data-show-yoy') !== 'false'; // default true
+
+      if (secondaryUrl && showYoY) {
+        try {
+          this.yearOverYearData = await this.fetchData<YearOverYearMonth[]>(secondaryUrl);
+        } catch (error) {
+          console.warn('StatsCard: Could not fetch year-over-year data', error);
+          this.yearOverYearData = null;
+        }
+      } else {
+        this.yearOverYearData = null;
+      }
+
+      // Clear loading message
+      if (this.shadowRoot) {
+        const loadingEl = this.shadowRoot.querySelector('.widget-loading');
+        if (loadingEl) {
+          loadingEl.remove();
+        }
+      }
+
+      // Render widget with data
+      this.render(allTimeData);
+    } catch (error) {
+      console.error('StatsCard: Failed to load data', error);
+      this.showError();
+    }
   }
 
   /**
    * Render the stats card
    */
-  protected render(data: AllTimeTotals): void {
+  protected render(data: unknown): void {
+    const allTimeData = data as AllTimeTotals;
     if (!this.shadowRoot) return;
 
-    // Inject card-specific styles
-    const styleElement = document.createElement('style');
-    styleElement.textContent = STATS_CARD_STYLES;
-    this.shadowRoot.appendChild(styleElement);
+    // Clear previous content except styles
+    const styles = Array.from(this.shadowRoot.querySelectorAll('style'));
+    this.shadowRoot.innerHTML = '';
+    styles.forEach(style => this.shadowRoot!.appendChild(style));
 
     // Create card container
     const card = document.createElement('div');
     card.className = 'stats-card';
 
     // Add title if enabled
-    if (this.config.options?.showTitle !== false) {
+    const showTitle = this.getAttribute('data-show-title') !== 'false'; // default true
+    if (showTitle) {
       const title = document.createElement('h2');
       title.className = 'card-title';
-      title.textContent = this.config.options?.customTitle || 'Running Stats';
+      title.textContent = this.getAttribute('data-title') || 'Running Stats';
       card.appendChild(title);
     }
 
@@ -163,28 +243,28 @@ class StatsCardWidget extends WidgetBase<AllTimeTotals> {
 
     // Total distance
     const distanceItem = this.createStatItem(
-      this.formatNumber(data.totalKm, 0),
+      this.formatNumber(allTimeData.totalKm, 0),
       'Total KM'
     );
     statsGrid.appendChild(distanceItem);
 
     // Total runs
     const runsItem = this.createStatItem(
-      this.formatNumber(data.totalRuns, 0),
+      this.formatNumber(allTimeData.totalRuns, 0),
       'Total Runs'
     );
     statsGrid.appendChild(runsItem);
 
     // Total hours
     const hoursItem = this.createStatItem(
-      this.formatNumber(data.totalHours, 0),
+      this.formatNumber(allTimeData.totalHours, 0),
       'Total Hours'
     );
     statsGrid.appendChild(hoursItem);
 
     // Average pace
     const paceItem = this.createStatItem(
-      this.formatPace(data.avgPaceMinPerKm),
+      this.formatPace(allTimeData.avgPaceMinPerKm),
       'Avg Pace'
     );
     statsGrid.appendChild(paceItem);
@@ -326,43 +406,55 @@ class StatsCardWidget extends WidgetBase<AllTimeTotals> {
   }
 }
 
+// Register Custom Element
+WidgetBase.register('strava-stats-card', StatsCardWidget);
+
 /**
- * Global initialization function
+ * Backwards-compatible global initialization function
+ * Creates Custom Element programmatically from config object
  */
 const StatsCard = {
   async init(containerId: string, config: WidgetConfig): Promise<void> {
-    // Create widget instance
-    const widget = new StatsCardWidget(containerId, config);
-
-    // Fetch all data (all-time + year-over-year if available)
-    try {
-      const allTime = await widget['fetchData']<AllTimeTotals>(config.dataUrl);
-
-      // Try to fetch year-over-year data if secondary URL provided
-      if (config.options?.secondaryDataUrl) {
-        try {
-          const yoyData = await widget['fetchData']<YearOverYearMonth[]>(
-            config.options.secondaryDataUrl
-          );
-          widget['yearOverYearData'] = yoyData;
-        } catch (error) {
-          console.warn('StatsCard: Could not fetch year-over-year data', error);
-        }
-      }
-
-      // Clear loading and render
-      if (widget['shadowRoot']) {
-        const loadingEl = widget['shadowRoot'].querySelector('.widget-loading');
-        if (loadingEl) {
-          loadingEl.remove();
-        }
-      }
-
-      widget['render'](allTime);
-    } catch (error) {
-      console.error('StatsCard: Failed to load data', error);
-      widget['showError']();
+    const container = document.getElementById(containerId);
+    if (!container) {
+      console.error(`StatsCard: Container element "${containerId}" not found`);
+      return;
     }
+
+    // Create custom element
+    const element = document.createElement('strava-stats-card') as StatsCardWidget;
+
+    // Map config to attributes
+    if (config.dataUrl) {
+      element.setAttribute('data-url', config.dataUrl);
+    }
+    if (config.options?.secondaryDataUrl) {
+      element.setAttribute('data-url-secondary', config.options.secondaryDataUrl);
+    }
+    if (config.options?.customTitle) {
+      element.setAttribute('data-title', config.options.customTitle);
+    }
+    if (config.options?.showTitle === false) {
+      element.setAttribute('data-show-title', 'false');
+    }
+    if (config.colors?.background) {
+      element.setAttribute('data-bg', config.colors.background);
+    }
+    if (config.colors?.text) {
+      element.setAttribute('data-text-color', config.colors.text);
+    }
+    if (config.colors?.accent) {
+      element.setAttribute('data-accent', config.colors.accent);
+    }
+    if (config.size?.width) {
+      element.setAttribute('data-width', config.size.width);
+    }
+    if (config.size?.maxWidth) {
+      element.setAttribute('data-max-width', config.size.maxWidth);
+    }
+
+    // Append to container
+    container.appendChild(element);
   }
 };
 

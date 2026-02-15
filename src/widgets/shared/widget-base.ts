@@ -285,8 +285,9 @@ export abstract class WidgetBase extends HTMLElement {
 
   /**
    * Fetch data and render widget
+   * Can be overridden by subclasses that need to fetch multiple data sources
    */
-  private async fetchDataAndRender(): Promise<void> {
+  protected async fetchDataAndRender(): Promise<void> {
     try {
       const url = this.getAttribute('data-url') || this.dataUrl;
       if (!url) {
