@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-14)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 7 - Widget Attribute System (v1.1 milestone)
+**Current focus:** Phase 8 - Geographic Table Widget (v1.1 milestone)
 
 ## Current Position
 
-Phase: 7 of 9 (Widget Attribute System)
-Plan: 3 of 3
-Status: Complete - Phase 7 finished
-Last activity: 2026-02-15 — Phase 7 Plan 3 complete: Final widget migration and HTML-only test page
+Phase: 8 of 9 (Geographic Table Widget)
+Plan: 1 of 1
+Status: Complete - Phase 8 Plan 1 finished
+Last activity: 2026-02-15 — Phase 8 Plan 1 complete: Sortable, paginated geographic table widget
 
-Progress: [████████░░] 78% (7/9 phases complete)
+Progress: [████████░░] 78% (7/9 phases complete, Phase 8 ongoing)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 15 (9 v1.0 + 6 v1.1)
-- Average duration: 3.7 minutes (recent average)
-- Total execution time: 1 day + 20.2 minutes
+- Total plans completed: 16 (9 v1.0 + 7 v1.1)
+- Average duration: 3.6 minutes (recent average)
+- Total execution time: 1 day + 23.2 minutes
 
 **By Phase:**
 
@@ -31,8 +31,12 @@ Progress: [████████░░] 78% (7/9 phases complete)
 | Phase 5 | 1 | 3 min | 3 min/plan |
 | Phase 6 | 2 | 3.2 min | 1.6 min/plan |
 | Phase 7 | 3 | 14 min | 4.7 min/plan |
+| Phase 8 | 1 | 3 min | 3 min/plan |
 
 **Recent Completions:**
+- Phase 8 Plan 1 (2026-02-15): 3.0 minutes - Sortable, paginated geographic table widget
+  - 2 tasks, 2 commits, 3 files created (877 lines)
+  - TableSorter with Intl.Collator, TablePaginator with boundary checking, accessible table with aria-sort
 - Phase 7 Plan 3 (2026-02-15): 6.3 minutes - Final widget migration and HTML-only test page
   - 2 tasks, 2 commits, 4 files modified (1 created, 3 modified)
   - Streak-widget and geo-stats-widget as Custom Elements, comprehensive test page (352 lines)
@@ -45,14 +49,10 @@ Progress: [████████░░] 78% (7/9 phases complete)
 - Phase 6 Plan 2 (2026-02-15): 1.8 minutes - Geographic statistics widget with CSV export
   - 3 tasks, 2 commits, 4 files modified (2 created, 2 modified)
   - Embeddable widget with country/city rankings, CSV export, coverage metadata
-- Phase 6 Plan 1 (2026-02-15): 1.4 minutes - Distance aggregation in geographic stats
-  - 1 task, 1 commit, 4 files modified
-  - Added totalDistanceKm to countries/cities, ranked by distance (20,138.7 km total)
 
 **Recent Trend:**
 - v1.0: 9 plans in 1 day (3,844 LOC TypeScript)
-- v1.1: Excellent velocity - Phase 5 (3 min), Phase 6 (3.2 min, 2 plans), Phase 7 (14 min, 3 plans) ✅ COMPLETE
-- v1.1: Excellent velocity - Phase 5 (3 min), Phase 6 (3.2 min, 2 plans), Phase 7 ongoing (7.7 min, 2 of 3 plans)
+- v1.1: Excellent velocity - Phase 5 (3 min), Phase 6 (3.2 min, 2 plans), Phase 7 (14 min, 3 plans), Phase 8 (3 min, 1 plan) ✅ COMPLETE
 
 *Updated after each plan completion*
 
@@ -83,6 +83,10 @@ Recent decisions affecting current work:
 - **Inline style application (Phase 7 Plan 3)**: Apply CSS custom properties directly in connectedCallback() instead of separate private method to avoid duplicate method declarations with base class
 - **Dark mode chart theming (Phase 7 Plan 3)**: Pass theme parameter to Chart.js config functions for theme-aware grid lines, point labels, and tick colors (rgba values adapt to light/dark mode)
 - **Responsive table hiding (Phase 7 Plan 3)**: Use CSS :host([data-size="compact"]) selectors to hide less-important columns (cities count) in compact mode instead of JavaScript DOM manipulation
+- **Reusable Intl.Collator instance (Phase 8 Plan 1)**: Create collator once and reuse for all sorts (2x faster than String.localeCompare per call)
+- **Pagination default 20 rows with 1-50 clamp (Phase 8 Plan 1)**: Research shows Shadow DOM table performance degrades with 50+ rows, 20 is optimal
+- **Sort copy instead of mutating original (Phase 8 Plan 1)**: Preserves original data order, prevents bugs when resetting sort
+- **Constructible Stylesheets for table CSS (Phase 8 Plan 1)**: Shared CSS across multiple widget instances reduces memory usage
 
 ### Pending Todos
 
@@ -97,14 +101,14 @@ None yet.
 **Phase 7 readiness:** ✓ RESOLVED (Plan 1 complete)
 - ~~HTML attribute type safety~~ - Implemented strict attribute parsers with NaN checks, boolean hasAttribute() detection, JSON.parse try/catch, color validation via browser CSS parser
 
-**Phase 8 readiness:**
-- Shadow DOM table performance: Research shows 50+ rows can cause rendering issues. Plan pagination with hard limits (default 20 rows max), use Constructible Stylesheets for shared CSS.
+**Phase 8 readiness:** ✓ RESOLVED (Plan 1 complete)
+- ~~Shadow DOM table performance~~ - Implemented pagination with 20 row default (clamped 1-50), Constructible Stylesheets for shared CSS across instances
 
 ## Session Continuity
 
-Last session: 2026-02-15 (Phase 7 execution)
-Stopped at: Phase 7 complete! All widgets migrated to Custom Elements. Ready for Phase 8 (Widget Performance & UX).
-Resume file: None — continue with `/gsd:execute-phase 8` for next phase
+Last session: 2026-02-15 (Phase 8 Plan 1 execution)
+Stopped at: Phase 8 Plan 1 complete! Sortable, paginated geographic table widget created. Ready for Phase 9 (Widget Performance & UX enhancements).
+Resume file: None — continue with `/gsd:execute-phase 9` for next phase
 
 ---
-*Last updated: 2026-02-15 after Phase 7 Plan 3 execution complete (all widgets migrated, test page created)*
+*Last updated: 2026-02-15 after Phase 8 Plan 1 execution complete (geographic table widget with sorting and pagination)*
