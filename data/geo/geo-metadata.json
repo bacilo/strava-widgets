@@ -1,7 +1,8 @@
 {
-  "generatedAt": "2026-02-15T00:02:27.996Z",
+  "generatedAt": "2026-02-15T00:25:43.689Z",
   "totalActivities": 1808,
   "geocodedActivities": 1658,
   "coveragePercent": 92,
-  "cacheSize": 114
+  "cacheSize": 114,
+  "totalDistanceKm": 20138.7
 }

@@ -3,6 +3,7 @@
     "countryName": "Denmark",
     "countryIso2": "DK",
     "activityCount": 1322,
+    "totalDistanceKm": 16192.2,
     "cities": [
       "Roskilde",
       "Sorø",
@@ -13,6 +14,7 @@
     "countryName": "Portugal",
     "countryIso2": "PT",
     "activityCount": 231,
+    "totalDistanceKm": 2754.6,
     "cities": [
       "Alcochete",
       "Alfena",
@@ -29,6 +31,7 @@
     "countryName": "Sweden",
     "countryIso2": "SE",
     "activityCount": 29,
+    "totalDistanceKm": 295.2,
     "cities": [
       "Kalmar",
       "Malmö",
@@ -37,19 +40,10 @@
     ]
   },
   {
-    "countryName": "Philippines",
-    "countryIso2": "PH",
-    "activityCount": 12,
-    "cities": [
-      "Angat",
-      "El Nido",
-      "Malay"
-    ]
-  },
-  {
     "countryName": "United Kingdom",
     "countryIso2": "GB",
     "activityCount": 11,
+    "totalDistanceKm": 177.5,
     "cities": [
       "Bangor",
       "Giffnock",
@@ -60,9 +54,20 @@
     ]
   },
   {
+    "countryName": "Finland",
+    "countryIso2": "FI",
+    "activityCount": 9,
+    "totalDistanceKm": 120.7,
+    "cities": [
+      "Askola",
+      "Sipoo"
+    ]
+  },
+  {
     "countryName": "Greece",
     "countryIso2": "GR",
     "activityCount": 10,
+    "totalDistanceKm": 113.1,
     "cities": [
       "Chaniá",
       "Ermoúpoli",
@@ -73,18 +78,10 @@
     ]
   },
   {
-    "countryName": "Finland",
-    "countryIso2": "FI",
-    "activityCount": 9,
-    "cities": [
-      "Askola",
-      "Sipoo"
-    ]
-  },
-  {
     "countryName": "United States",
     "countryIso2": "US",
     "activityCount": 8,
+    "totalDistanceKm": 101.5,
     "cities": [
       "Bridgeview",
       "Brushy Creek",
@@ -95,76 +92,123 @@
     ]
   },
   {
-    "countryName": "Germany",
-    "countryIso2": "DE",
-    "activityCount": 3,
+    "countryName": "Philippines",
+    "countryIso2": "PH",
+    "activityCount": 12,
+    "totalDistanceKm": 90.2,
     "cities": [
-      "Stahnsdorf"
+      "Angat",
+      "El Nido",
+      "Malay"
     ]
   },
   {
-    "countryName": "Sri Lanka",
-    "countryIso2": "LK",
+    "countryName": "Germany",
+    "countryIso2": "DE",
     "activityCount": 3,
+    "totalDistanceKm": 43.6,
     "cities": [
-      "Moratuwa",
-      "Trincomalee"
+      "Stahnsdorf"
     ]
   },
   {
     "countryName": "France",
     "countryIso2": "FR",
     "activityCount": 3,
+    "totalDistanceKm": 35.3,
     "cities": [
       "Gif-sur-Yvette"
-    ]
-  },
-  {
-    "countryName": "Romania",
-    "countryIso2": "RO",
-    "activityCount": 2,
-    "cities": [
-      "Baia-Sprie",
-      "Floreşti"
     ]
   },
   {
     "countryName": "Bulgaria",
     "countryIso2": "BG",
     "activityCount": 2,
+    "totalDistanceKm": 31.9,
     "cities": [
       "Sofia"
     ]
   },
   {
-    "countryName": "Croatia",
-    "countryIso2": "HR",
+    "countryName": "Romania",
+    "countryIso2": "RO",
     "activityCount": 2,
+    "totalDistanceKm": 22.7,
     "cities": [
-      "Samobor"
-    ]
-  },
-  {
-    "countryName": "Georgia",
-    "countryIso2": "GE",
-    "activityCount": 2,
-    "cities": [
-      "Batumi",
-      "Rustavi"
+      "Baia-Sprie",
+      "Floreşti"
     ]
   },
   {
     "countryName": "Belgium",
     "countryIso2": "BE",
     "activityCount": 2,
+    "totalDistanceKm": 22.2,
     "cities": [
       "Genappe"
+    ]
+  },
+  {
+    "countryName": "Croatia",
+    "countryIso2": "HR",
+    "activityCount": 2,
+    "totalDistanceKm": 22,
+    "cities": [
+      "Samobor"
+    ]
+  },
+  {
+    "countryName": "Ireland",
+    "countryIso2": "IE",
+    "activityCount": 1,
+    "totalDistanceKm": 21.2,
+    "cities": [
+      "Tallaght"
+    ]
+  },
+  {
+    "countryName": "Georgia",
+    "countryIso2": "GE",
+    "activityCount": 2,
+    "totalDistanceKm": 20,
+    "cities": [
+      "Batumi",
+      "Rustavi"
+    ]
+  },
+  {
+    "countryName": "Slovenia",
+    "countryIso2": "SI",
+    "activityCount": 1,
+    "totalDistanceKm": 17.6,
+    "cities": [
+      "Ig"
+    ]
+  },
+  {
+    "countryName": "Sri Lanka",
+    "countryIso2": "LK",
+    "activityCount": 3,
+    "totalDistanceKm": 15.3,
+    "cities": [
+      "Moratuwa",
+      "Trincomalee"
+    ]
+  },
+  {
+    "countryName": "Serbia",
+    "countryIso2": "RS",
+    "activityCount": 1,
+    "totalDistanceKm": 11.6,
+    "cities": [
+      "Pančevo"
     ]
   },
   {
     "countryName": "Malta",
     "countryIso2": "MT",
     "activityCount": 1,
+    "totalDistanceKm": 10,
     "cities": [
       "Imdina"
     ]
@@ -173,30 +217,16 @@
     "countryName": "Norway",
     "countryIso2": "NO",
     "activityCount": 1,
+    "totalDistanceKm": 9,
     "cities": [
       "Nesoddtangen"
-    ]
-  },
-  {
-    "countryName": "Serbia",
-    "countryIso2": "RS",
-    "activityCount": 1,
-    "cities": [
-      "Pančevo"
-    ]
-  },
-  {
-    "countryName": "Slovenia",
-    "countryIso2": "SI",
-    "activityCount": 1,
-    "cities": [
-      "Ig"
     ]
   },
   {
     "countryName": "Estonia",
     "countryIso2": "EE",
     "activityCount": 1,
+    "totalDistanceKm": 6.4,
     "cities": [
       "Tallinn"
     ]
@@ -205,16 +235,9 @@
     "countryName": "Italy",
     "countryIso2": "IT",
     "activityCount": 1,
+    "totalDistanceKm": 5,
     "cities": [
       "Paola"
-    ]
-  },
-  {
-    "countryName": "Ireland",
-    "countryIso2": "IE",
-    "activityCount": 1,
-    "cities": [
-      "Tallaght"
     ]
   }
 ]

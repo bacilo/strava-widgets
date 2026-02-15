@@ -20,6 +20,7 @@ interface CountryStats {
   countryName: string;
   countryIso2: string;
   activityCount: number;
+  totalDistanceKm: number;
   cities: string[];
 }
 
@@ -28,6 +29,7 @@ interface CityStats {
   countryName: string;
   countryIso2: string;
   activityCount: number;
+  totalDistanceKm: number;
 }
 
 interface GeoMetadata {
@@ -36,6 +38,7 @@ interface GeoMetadata {
   geocodedActivities: number;
   coveragePercent: number;
   cacheSize: number;
+  totalDistanceKm: number;
 }
 
 /**
@@ -82,10 +85,12 @@ export async function computeGeoStats(
   // Step 3: Geocode activities
   let totalCount = 0;
   let successCount = 0;
+  let totalDistanceM = 0;
 
   const countryMap = new Map<string, {
     countryName: string;
     activityCount: number;
+    totalDistanceM: number;
     cities: Set<string>;
   }>();
 
@@ -94,6 +99,7 @@ export async function computeGeoStats(
     countryName: string;
     countryIso2: string;
     activityCount: number;
+    totalDistanceM: number;
   }>();
 
   for (const activity of activities) {
@@ -105,16 +111,19 @@ export async function computeGeoStats(
     }
 
     successCount++;
+    totalDistanceM += activity.distance || 0;
 
     // Aggregate by country
     const countryKey = location.countryIso2;
     const existingCountry = countryMap.get(countryKey) || {
       countryName: location.countryName,
       activityCount: 0,
+      totalDistanceM: 0,
       cities: new Set<string>(),
     };
 
     existingCountry.activityCount++;
+    existingCountry.totalDistanceM += activity.distance || 0;
     existingCountry.cities.add(location.cityName);
     countryMap.set(countryKey, existingCountry);
 
@@ -125,9 +134,11 @@ export async function computeGeoStats(
       countryName: location.countryName,
       countryIso2: location.countryIso2,
       activityCount: 0,
+      totalDistanceM: 0,
     };
 
     existingCity.activityCount++;
+    existingCity.totalDistanceM += activity.distance || 0;
     cityMap.set(cityKey, existingCity);
   }
 
@@ -140,13 +151,21 @@ export async function computeGeoStats(
       countryName: stats.countryName,
       countryIso2,
       activityCount: stats.activityCount,
+      totalDistanceKm: Math.round((stats.totalDistanceM / 1000) * 10) / 10,
       cities: Array.from(stats.cities).sort(),
     }))
-    .sort((a, b) => b.activityCount - a.activityCount);
+    .sort((a, b) => b.totalDistanceKm - a.totalDistanceKm);
 
   // Step 6: Aggregate cities
   const cities: CityStats[] = Array.from(cityMap.values())
-    .sort((a, b) => b.activityCount - a.activityCount);
+    .map((city) => ({
+      cityName: city.cityName,
+      countryName: city.countryName,
+      countryIso2: city.countryIso2,
+      activityCount: city.activityCount,
+      totalDistanceKm: Math.round((city.totalDistanceM / 1000) * 10) / 10,
+    }))
+    .sort((a, b) => b.totalDistanceKm - a.totalDistanceKm);
 
   // Step 7: Create output directory
   await fs.mkdir(geoDir, { recursive: true });
@@ -174,6 +193,7 @@ export async function computeGeoStats(
     geocodedActivities: successCount,
     coveragePercent,
     cacheSize: Object.keys(cache).length,
+    totalDistanceKm: Math.round((totalDistanceM / 1000) * 10) / 10,
   };
 
   await fs.writeFile(
@@ -186,6 +206,7 @@ export async function computeGeoStats(
   console.log(`\nGeocoded ${successCount} of ${totalCount} activities (${coveragePercent}%)`);
   console.log(`- ${countries.length} countries`);
   console.log(`- ${cities.length} cities`);
+  console.log(`- Total distance: ${(totalDistanceM / 1000).toFixed(1)} km`);
   console.log(`- Cache size: ${Object.keys(cache).length} locations`);
   console.log(`\nOutput written to: ${geoDir}`);
 }
