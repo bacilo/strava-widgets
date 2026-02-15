@@ -6,7 +6,7 @@
 import { build } from 'vite';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { copyFileSync, mkdirSync, readdirSync } from 'fs';
+import { copyFileSync, mkdirSync, readdirSync, existsSync } from 'fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -83,12 +83,33 @@ async function buildWidget(widget, index) {
   console.log(`✓ Built ${widget.name}.iife.js`);
 }
 
+function copyDataFiles() {
+  const dataDirs = [
+    { src: 'data/stats', dest: 'dist/widgets/data/stats' },
+    { src: 'data/geo', dest: 'dist/widgets/data/geo' }
+  ];
+
+  for (const { src, dest } of dataDirs) {
+    if (!existsSync(src)) continue;
+    mkdirSync(dest, { recursive: true });
+    for (const file of readdirSync(src)) {
+      if (file.endsWith('.json')) {
+        copyFileSync(resolve(src, file), resolve(dest, file));
+      }
+    }
+    console.log(`✓ Copied ${src}/*.json → ${dest}/`);
+  }
+}
+
 async function buildAllWidgets() {
   console.log('Building widget library...\n');
 
   for (let i = 0; i < widgets.length; i++) {
     await buildWidget(widgets[i], i);
   }
+
+  // Copy data JSON files into dist/widgets so they're deployed to GitHub Pages
+  copyDataFiles();
 
   console.log('\nWidget library build complete!');
   console.log('Output: dist/widgets/');
