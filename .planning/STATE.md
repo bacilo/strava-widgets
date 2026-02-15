@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-14)
 ## Current Position
 
 Phase: 6 of 9 (Geographic Statistics)
-Plan: 1 of 2
-Status: In progress - Phase 6 Plan 1 complete
-Last activity: 2026-02-15 — Phase 6 Plan 1 complete: Distance aggregation in geographic stats (20,138.7 km across 23 countries)
+Plan: 2 of 2
+Status: Complete - Phase 6 complete
+Last activity: 2026-02-15 — Phase 6 Plan 2 complete: Geographic statistics widget with CSV export
 
-Progress: [██████░░░░] 56% (5/9 phases complete, 1/2 Phase 6 plans complete)
+Progress: [██████░░░░] 67% (6/9 phases complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 11 (9 v1.0 + 2 v1.1)
+- Total plans completed: 12 (9 v1.0 + 3 v1.1)
 - Average duration: 2 minutes (recent average)
-- Total execution time: 1 day + 4 minutes
+- Total execution time: 1 day + 6 minutes
 
 **By Phase:**
 
@@ -29,9 +29,12 @@ Progress: [██████░░░░] 56% (5/9 phases complete, 1/2 Phase 6
 |-------|-------|-------|----------|
 | v1.0 Phases 1-4 | 9 | 1 day | ~2.7 hours/plan |
 | Phase 5 | 1 | 3 min | 3 min/plan |
-| Phase 6 | 1 | 1.4 min | 1.4 min/plan |
+| Phase 6 | 2 | 3.2 min | 1.6 min/plan |
 
 **Recent Completions:**
+- Phase 6 Plan 2 (2026-02-15): 1.8 minutes - Geographic statistics widget with CSV export
+  - 3 tasks, 2 commits, 4 files modified (2 created, 2 modified)
+  - Embeddable widget with country/city rankings, CSV export, coverage metadata
 - Phase 6 Plan 1 (2026-02-15): 1.4 minutes - Distance aggregation in geographic stats
   - 1 task, 1 commit, 4 files modified
   - Added totalDistanceKm to countries/cities, ranked by distance (20,138.7 km total)
@@ -41,7 +44,7 @@ Progress: [██████░░░░] 56% (5/9 phases complete, 1/2 Phase 6
 
 **Recent Trend:**
 - v1.0: 9 plans in 1 day (3,844 LOC TypeScript)
-- v1.1: Excellent velocity - Phase 5 (3 min), Phase 6 Plan 1 (1.4 min)
+- v1.1: Excellent velocity - Phase 5 (3 min), Phase 6 (3.2 min total, 2 plans)
 
 *Updated after each plan completion*
 
@@ -60,6 +63,9 @@ Recent decisions affecting current work:
 - **Geo stats in compute-all-stats (Phase 5 Plan 1)**: Include geographic computation in main pipeline to ensure geo data stays fresh
 - **Distance aggregation in meters (Phase 6 Plan 1)**: Accumulate in meters during processing, convert to km with 1 decimal precision for output to prevent precision loss from repeated conversions
 - **Ranking by distance (Phase 6 Plan 1)**: Geographic entities ranked by totalDistanceKm descending instead of activityCount for more meaningful statistics
+- **CSV download via document.body (Phase 6 Plan 2)**: Export functions append temporary `<a>` elements to document.body instead of shadowRoot for cross-browser download compatibility
+- **UTF-8 BOM for Excel CSV (Phase 6 Plan 2)**: Prepend \uFEFF to CSV content ensuring special characters display correctly in Excel
+- **Multi-source widget data fetching (Phase 6 Plan 2)**: Widgets can fetch multiple JSON files in parallel via Promise.all, storing secondary data on instance
 
 ### Pending Todos
 
@@ -80,8 +86,8 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-15 (Phase 6 execution)
-Stopped at: Phase 6 Plan 1 complete. Ready to execute Phase 6 Plan 2.
-Resume file: None — continue with `/gsd:execute-phase 6`
+Stopped at: Phase 6 complete. Ready to begin Phase 7 (Widget Customization).
+Resume file: None — continue with `/gsd:execute-phase 7`
 
 ---
-*Last updated: 2026-02-15 after Phase 6 Plan 1 execution complete*
+*Last updated: 2026-02-15 after Phase 6 Plan 2 execution complete (Phase 6 complete)*
