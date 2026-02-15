@@ -60,7 +60,16 @@ jobs:
         run: npm run build
 
       - name: Process statistics
-        run: node dist/index.js compute-all-stats
+        run: node dist/index.js compute-stats && node dist/index.js compute-advanced-stats
+
+      - name: Compute geographic statistics
+        id: geocode
+        continue-on-error: true
+        run: node dist/index.js compute-geo-stats
+
+      - name: Warn on geocoding failure
+        if: steps.geocode.outcome == 'failure'
+        run: echo "::warning::Geocoding failed, widgets will use cached geo data"
 
       - name: Build widgets
         run: npm run build-widgets
@@ -69,7 +78,7 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: 'chore: update activities and stats [skip ci]'
-          file_pattern: 'data/activities/*.json data/sync-state.json data/stats/*.json'
+          file_pattern: 'data/activities/*.json data/sync-state.json data/stats/*.json data/geo/*.json'
           commit_user_name: 'github-actions[bot]'
           commit_user_email: 'github-actions[bot]@users.noreply.github.com'
 
