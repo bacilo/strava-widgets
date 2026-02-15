@@ -54,8 +54,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 06-01-PLAN.md — Extend geo stats computation with distance aggregation
-- [ ] 06-02-PLAN.md — Build geo-stats widget (tables, CSV export, coverage metadata)
+- [x] 06-01-PLAN.md — Extend geo stats computation with distance aggregation
+- [x] 06-02-PLAN.md — Build geo-stats widget (tables, CSV export, coverage metadata)
 
 #### Phase 7: Widget Attribute System
 **Goal**: All widgets accept configuration via HTML data-attributes with sensible defaults.
@@ -113,10 +113,10 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9
 | 3. Widgets | v1.0 | 4/4 | Complete | 2026-02-14 |
 | 4. Pipeline | v1.0 | 1/1 | Complete | 2026-02-14 |
 | 5. Geocoding Infrastructure | v1.1 | 1/1 | Complete | 2026-02-15 |
-| 6. Geographic Statistics | v1.1 | 0/2 | Planned | - |
+| 6. Geographic Statistics | v1.1 | 2/2 | Complete | 2026-02-15 |
 | 7. Widget Attribute System | v1.1 | 0/? | Not started | - |
 | 8. Geographic Table Widget | v1.1 | 0/? | Not started | - |
 | 9. CI/CD Integration | v1.1 | 0/? | Not started | - |
 
 ---
-*Last updated: 2026-02-15 after Phase 6 planning complete*
+*Last updated: 2026-02-15 after Phase 6 execution complete*

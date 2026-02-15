@@ -5,7 +5,7 @@
 See: .planning/PROJECT.md (updated 2026-02-14)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 6 - Geographic Statistics (v1.1 milestone)
+**Current focus:** Phase 7 - Widget Attribute System (v1.1 milestone)
 
 ## Current Position
 
@@ -87,7 +87,7 @@ None yet.
 
 Last session: 2026-02-15 (Phase 6 execution)
 Stopped at: Phase 6 complete. Ready to begin Phase 7 (Widget Customization).
-Resume file: None — continue with `/gsd:execute-phase 7`
+Resume file: None — start with `/gsd:plan-phase 7`
 
 ---
 *Last updated: 2026-02-15 after Phase 6 Plan 2 execution complete (Phase 6 complete)*
