@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-14)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 5 - Geocoding Infrastructure (v1.1 milestone)
+**Current focus:** Phase 6 - Geographic Statistics (v1.1 milestone)
 
 ## Current Position
 
-Phase: 5 of 9 (Geocoding Infrastructure)
-Plan: 1 of 1 complete
-Status: Phase 5 Plan 1 complete - Offline geocoding pipeline operational
-Last activity: 2026-02-15 — Phase 5 Plan 1 executed: Geocoded 1,658/1,808 activities (92% coverage), 23 countries, 57 cities
+Phase: 6 of 9 (Geographic Statistics)
+Plan: Ready to plan
+Status: Phase 5 complete, ready to plan Phase 6
+Last activity: 2026-02-15 — Phase 5 complete: Geocoding infrastructure verified (23 countries, 57 cities, 92% coverage)
 
-Progress: [█████░░░░░] 55% (v1.0 shipped + Phase 5 Plan 1: 5/9 phases in progress)
+Progress: [██████░░░░] 56% (5/9 phases complete)
 
 ## Performance Metrics
 
@@ -73,14 +73,9 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-15 (Phase 5 Plan 1 execution)
-Stopped at: Completed 05-01-PLAN.md - Offline geocoding pipeline operational
-Resume file: .planning/phases/05-geocoding-infrastructure/05-01-SUMMARY.md
-
-**Session notes:**
-- Phase 5 Plan 1 executed successfully in 3 minutes
-- Geocoding infrastructure foundation complete
-- Ready to build geographic widgets (Phase 5 Plans 2-4)
+Last session: 2026-02-15 (Phase 5 execution)
+Stopped at: Phase 5 complete, verified. Ready to plan Phase 6.
+Resume file: None — start with `/gsd:plan-phase 6`
 
 ---
-*Last updated: 2026-02-15 after Phase 5 Plan 1 completion*
+*Last updated: 2026-02-15 after Phase 5 execution complete*

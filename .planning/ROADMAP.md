@@ -40,7 +40,7 @@
 **Plans:** 1 plan
 
 Plans:
-- [ ] 05-01-PLAN.md — Offline geocoding pipeline (geocoder, cache, compute-geo-stats CLI)
+- [x] 05-01-PLAN.md — Offline geocoding pipeline (geocoder, cache, compute-geo-stats CLI)
 
 #### Phase 6: Geographic Statistics
 **Goal**: User can view distance and run count aggregated by country and city.
@@ -111,11 +111,11 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9
 | 2. Analytics | v1.0 | 2/2 | Complete | 2026-02-14 |
 | 3. Widgets | v1.0 | 4/4 | Complete | 2026-02-14 |
 | 4. Pipeline | v1.0 | 1/1 | Complete | 2026-02-14 |
-| 5. Geocoding Infrastructure | v1.1 | 0/1 | Planned | - |
+| 5. Geocoding Infrastructure | v1.1 | 1/1 | Complete | 2026-02-15 |
 | 6. Geographic Statistics | v1.1 | 0/? | Not started | - |
 | 7. Widget Attribute System | v1.1 | 0/? | Not started | - |
 | 8. Geographic Table Widget | v1.1 | 0/? | Not started | - |
 | 9. CI/CD Integration | v1.1 | 0/? | Not started | - |
 
 ---
-*Last updated: 2026-02-15 after Phase 5 planning*
+*Last updated: 2026-02-15 after Phase 5 execution complete*
