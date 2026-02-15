@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Strava Widgets - HTML Attribute Configuration Test</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background: #f5f5f5;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      margin-bottom: 30px;
+    }
+
+    h1 {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: #fc4c02;
+    }
+
+    .subtitle {
+      font-size: 18px;
+      color: #666;
+      margin-bottom: 20px;
+    }
+
+    .instructions {
+      background: #fff3e0;
+      padding: 16px;
+      border-radius: 8px;
+      border-left: 4px solid #fc4c02;
+    }
+
+    .instructions p {
+      margin-bottom: 8px;
+    }
+
+    .instructions code {
+      background: rgba(252, 76, 2, 0.1);
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+    }
+
+    section {
+      margin-bottom: 40px;
+    }
+
+    .section-header {
+      background: white;
+      padding: 20px;
+      border-radius: 8px 8px 0 0;
+      border-bottom: 2px solid #eee;
+    }
+
+    h2 {
+      font-size: 24px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+    }
+
+    .section-desc {
+      color: #666;
+      font-size: 14px;
+    }
+
+    .widget-wrapper {
+      background: white;
+      padding: 30px;
+      border-radius: 0 0 8px 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .dark-section {
+      background: #121212;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .demo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 30px;
+      margin-top: 20px;
+    }
+
+    .demo-item {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .demo-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #666;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .responsive-container {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .narrow-container {
+      flex: 0 0 300px;
+      padding: 20px;
+      background: #f9f9f9;
+      border-radius: 8px;
+      border: 2px dashed #ddd;
+    }
+
+    .wide-container {
+      flex: 1 1 600px;
+      padding: 20px;
+      background: #f9f9f9;
+      border-radius: 8px;
+      border: 2px dashed #ddd;
+    }
+
+    .container-label {
+      font-size: 12px;
+      color: #999;
+      margin-bottom: 12px;
+      text-align: center;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Strava Widgets - HTML Attribute Configuration</h1>
+      <p class="subtitle">Pure HTML, Zero JavaScript Configuration</p>
+      <div class="instructions">
+        <p><strong>What you're seeing:</strong> All four Strava widgets configured purely via HTML data-attributes. No JavaScript initialization code required.</p>
+        <p><strong>How it works:</strong> Each widget is a Custom Element (Web Component) that reads its configuration from HTML attributes like <code>data-url</code>, <code>data-theme</code>, <code>data-accent</code>, etc.</p>
+        <p><strong>Use case:</strong> Perfect for static site generators (Jekyll, Hugo, Gatsby), CMSs (WordPress, Drupal), or any HTML-only environment.</p>
+      </div>
+    </header>
+
+    <!-- Stats Card Widget -->
+    <section>
+      <div class="section-header">
+        <h2>Stats Card Widget</h2>
+        <p class="section-desc">All-time running statistics with year-over-year comparison</p>
+      </div>
+      <div class="widget-wrapper">
+        <strava-stats-card
+          data-url="../../dist/widgets/data/stats/all-time-totals.json"
+          data-url-secondary="../../dist/widgets/data/stats/year-over-year.json"
+          data-title="All-Time Running Stats"
+        ></strava-stats-card>
+      </div>
+    </section>
+
+    <!-- Comparison Chart Widget -->
+    <section>
+      <div class="section-header">
+        <h2>Comparison Chart Widget</h2>
+        <p class="section-desc">Visual comparison of running metrics across time periods</p>
+      </div>
+      <div class="widget-wrapper">
+        <strava-comparison-chart
+          data-url="../../dist/widgets/data/stats/comparison-chart.json"
+          data-title="Year-Over-Year Comparison"
+        ></strava-comparison-chart>
+      </div>
+    </section>
+
+    <!-- Streak Widget -->
+    <section>
+      <div class="section-header">
+        <h2>Streak Widget</h2>
+        <p class="section-desc">Running streaks, weekly consistency, and time-of-day patterns</p>
+      </div>
+      <div class="widget-wrapper">
+        <strava-streak-widget
+          data-url="../../dist/widgets/data/stats/streaks.json"
+          data-url-secondary="../../dist/widgets/data/stats/time-of-day.json"
+          data-title="My Running Streaks"
+        ></strava-streak-widget>
+      </div>
+    </section>
+
+    <!-- Geo Stats Widget -->
+    <section>
+      <div class="section-header">
+        <h2>Geographic Statistics Widget</h2>
+        <p class="section-desc">Running by country and city with CSV export</p>
+      </div>
+      <div class="widget-wrapper">
+        <strava-geo-stats
+          data-url="../../dist/widgets/data/geo/countries.json"
+          data-url-secondary="../../dist/widgets/data/geo/cities.json"
+          data-url-metadata="../../dist/widgets/data/geo/geo-stats-metadata.json"
+          data-title="Running by Location"
+        ></strava-geo-stats>
+      </div>
+    </section>
+
+    <!-- Dark Mode Section -->
+    <section>
+      <div class="section-header">
+        <h2>Dark Mode</h2>
+        <p class="section-desc">All widgets support dark mode via <code>data-theme="dark"</code></p>
+      </div>
+      <div class="dark-section">
+        <div style="margin-bottom: 30px;">
+          <strava-stats-card
+            data-url="../../dist/widgets/data/stats/all-time-totals.json"
+            data-url-secondary="../../dist/widgets/data/stats/year-over-year.json"
+            data-title="Dark Mode Stats Card"
+            data-theme="dark"
+          ></strava-stats-card>
+        </div>
+
+        <div style="margin-bottom: 30px;">
+          <strava-streak-widget
+            data-url="../../dist/widgets/data/stats/streaks.json"
+            data-url-secondary="../../dist/widgets/data/stats/time-of-day.json"
+            data-title="Dark Mode Streaks"
+            data-theme="dark"
+          ></strava-streak-widget>
+        </div>
+
+        <div>
+          <strava-geo-stats
+            data-url="../../dist/widgets/data/geo/countries.json"
+            data-url-secondary="../../dist/widgets/data/geo/cities.json"
+            data-url-metadata="../../dist/widgets/data/geo/geo-stats-metadata.json"
+            data-title="Dark Mode Geography"
+            data-theme="dark"
+            data-max-rows="5"
+          ></strava-geo-stats>
+        </div>
+      </div>
+    </section>
+
+    <!-- Customization Examples -->
+    <section>
+      <div class="section-header">
+        <h2>Customization Examples</h2>
+        <p class="section-desc">Demonstrate custom colors, sizes, and configuration options</p>
+      </div>
+      <div class="widget-wrapper">
+        <div class="demo-grid">
+          <!-- Custom Accent Color -->
+          <div class="demo-item">
+            <div class="demo-label">Custom Accent Color (#22c55e)</div>
+            <strava-stats-card
+              data-url="../../dist/widgets/data/stats/all-time-totals.json"
+              data-title="Green Theme"
+              data-accent="#22c55e"
+              data-max-width="100%"
+            ></strava-stats-card>
+          </div>
+
+          <!-- Custom Width -->
+          <div class="demo-item">
+            <div class="demo-label">Fixed Width (400px)</div>
+            <strava-streak-widget
+              data-url="../../dist/widgets/data/stats/streaks.json"
+              data-url-secondary="../../dist/widgets/data/stats/time-of-day.json"
+              data-title="Fixed Width Streaks"
+              data-width="400px"
+              data-max-width="400px"
+              data-show-chart="false"
+            ></strava-streak-widget>
+          </div>
+
+          <!-- Max Rows Limit -->
+          <div class="demo-item" style="grid-column: span 2;">
+            <div class="demo-label">Limited Rows (data-max-rows="3")</div>
+            <strava-geo-stats
+              data-url="../../dist/widgets/data/geo/countries.json"
+              data-url-secondary="../../dist/widgets/data/geo/cities.json"
+              data-title="Top 3 Only"
+              data-max-rows="3"
+              data-show-export="false"
+            ></strava-geo-stats>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Responsive Behavior -->
+    <section>
+      <div class="section-header">
+        <h2>Responsive Behavior</h2>
+        <p class="section-desc">Widgets automatically adapt to container width (not viewport width)</p>
+      </div>
+      <div class="widget-wrapper">
+        <div class="responsive-container">
+          <div class="narrow-container">
+            <div class="container-label">Compact Layout (300px)</div>
+            <strava-stats-card
+              data-url="../../dist/widgets/data/stats/all-time-totals.json"
+              data-title="Compact"
+              data-width="100%"
+              data-max-width="100%"
+            ></strava-stats-card>
+          </div>
+
+          <div class="wide-container">
+            <div class="container-label">Large Layout (900px+)</div>
+            <strava-comparison-chart
+              data-url="../../dist/widgets/data/stats/comparison-chart.json"
+              data-title="Wide Layout"
+              data-width="100%"
+            ></strava-comparison-chart>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Widget Scripts -->
+  <script src="../../dist/widgets/stats-card.iife.js"></script>
+  <script src="../../dist/widgets/comparison-chart.iife.js"></script>
+  <script src="../../dist/widgets/streak-widget.iife.js"></script>
+  <script src="../../dist/widgets/geo-stats-widget.iife.js"></script>
+</body>
+</html>
