@@ -30,6 +30,11 @@ const widgets = [
     name: 'geo-stats-widget',
     entry: resolve(__dirname, '../src/widgets/geo-stats-widget/index.ts'),
     globalName: 'GeoStatsWidget'
+  },
+  {
+    name: 'geo-table-widget',
+    entry: resolve(__dirname, '../src/widgets/geo-table-widget/index.ts'),
+    globalName: 'GeoTableWidget'
   }
 ];
 
