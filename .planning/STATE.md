@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-14)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 8 - Geographic Table Widget (v1.1 milestone)
+**Current focus:** v1.1 milestone complete
 
 ## Current Position
 
-Phase: 8 of 9 (Geographic Table Widget)
+Phase: 9 of 9 (CI/CD Integration)
 Plan: 2 of 2
-Status: Complete - Phase 8 finished (all plans complete)
-Last activity: 2026-02-15 — Phase 8 Plan 2 complete: Build integration and test page for geo-table-widget
+Status: Complete - All phases finished, v1.1 milestone shipped
+Last activity: 2026-02-16 — Phase 9 complete: CI/CD integration with non-blocking geocoding and comprehensive README
 
-Progress: [█████████░] 89% (8/9 phases complete, ready for Phase 9)
+Progress: [██████████] 100% (9/9 phases complete, v1.1 milestone shipped)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 17 (9 v1.0 + 8 v1.1)
-- Average duration: 3.4 minutes (recent average)
-- Total execution time: 1 day + 25.7 minutes
+- Total plans completed: 19 (9 v1.0 + 10 v1.1)
+- Average duration: 3.2 minutes (recent average)
+- Total execution time: 1 day + 29 minutes
 
 **By Phase:**
 
@@ -32,8 +32,15 @@ Progress: [█████████░] 89% (8/9 phases complete, ready for P
 | Phase 6 | 2 | 3.2 min | 1.6 min/plan |
 | Phase 7 | 3 | 14 min | 4.7 min/plan |
 | Phase 8 | 2 | 5.5 min | 2.8 min/plan |
+| Phase 9 | 2 | 3 min | 1.5 min/plan |
 
 **Recent Completions:**
+- Phase 9 Plan 2 (2026-02-16): 1 minute - Comprehensive README with widget docs, CLI reference, Strava attribution
+  - 1 task, 1 commit, 1 file created (254 lines)
+  - All 5 widgets documented with Custom Elements embed examples, CLI commands table, setup guide
+- Phase 9 Plan 1 (2026-02-16): 2 minutes - CI/CD workflow update and index.html Custom Elements migration
+  - 2 tasks, 2 commits, 2 files modified
+  - Non-blocking geocoding step with continue-on-error, geo data in auto-commit, Custom Elements landing page
 - Phase 8 Plan 2 (2026-02-15): 2.5 minutes - Build integration and test page for geo-table-widget
   - 2 tasks, 2 commits, 1 file created (249 lines), 2 files modified
   - Integrated into build pipeline (21KB IIFE bundle), comprehensive test page with 4 demo variants
@@ -55,7 +62,7 @@ Progress: [█████████░] 89% (8/9 phases complete, ready for P
 
 **Recent Trend:**
 - v1.0: 9 plans in 1 day (3,844 LOC TypeScript)
-- v1.1: Excellent velocity - Phase 5 (3 min), Phase 6 (3.2 min, 2 plans), Phase 7 (14 min, 3 plans), Phase 8 (5.5 min, 2 plans) ✅ COMPLETE
+- v1.1: Excellent velocity - Phase 5 (3 min), Phase 6 (3.2 min), Phase 7 (14 min), Phase 8 (5.5 min), Phase 9 (3 min) — ALL COMPLETE
 
 *Updated after each plan completion*
 
@@ -91,6 +98,8 @@ Recent decisions affecting current work:
 - **Sort copy instead of mutating original (Phase 8 Plan 1)**: Preserves original data order, prevents bugs when resetting sort
 - **Constructible Stylesheets for table CSS (Phase 8 Plan 1)**: Shared CSS across multiple widget instances reduces memory usage
 - **Track test.html in git (Phase 8 Plan 2)**: Added !dist/widgets/test.html to .gitignore exceptions for GitHub Pages deployment alongside index.html
+- **Isolated geocoding in CI (Phase 9 Plan 1)**: Split compute-all-stats into separate blocking (stats) and non-blocking (geocoding) CI steps to prevent geo failures from halting pipeline
+- **outcome vs failure() in GitHub Actions (Phase 9 Plan 1)**: Used steps.geocode.outcome == 'failure' instead of failure() because continue-on-error sets conclusion to success but outcome reflects actual result
 
 ### Pending Todos
 
@@ -110,9 +119,9 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-15 (Phase 8 Plan 2 execution)
-Stopped at: Phase 8 complete! Geographic table widget with build integration and test page. Ready for Phase 9 (Widget Performance & UX enhancements).
-Resume file: None — continue with `/gsd:execute-phase 9` for next phase
+Last session: 2026-02-16 (Phase 9 execution — final phase)
+Stopped at: v1.1 milestone complete! All 9 phases shipped. Ready for `/gsd:audit-milestone` or `/gsd:new-milestone`.
+Resume file: None
 
 ---
-*Last updated: 2026-02-15 after Phase 8 Plan 2 execution complete (build integration and test page)*
+*Last updated: 2026-02-16 after Phase 9 execution complete — v1.1 Geographic & Widget Customization milestone shipped*

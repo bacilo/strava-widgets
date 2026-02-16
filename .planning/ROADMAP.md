@@ -3,7 +3,7 @@
 ## Milestones
 
 - ✅ **v1.0 MVP** - Phases 1-4 (shipped 2026-02-14)
-- 🚧 **v1.1 Geographic & Widget Customization** - Phases 5-9 (in progress)
+- ✅ **v1.1 Geographic & Widget Customization** - Phases 5-9 (shipped 2026-02-16)
 
 ## Phases
 
@@ -24,7 +24,7 @@
 
 </details>
 
-### 🚧 v1.1 Geographic & Widget Customization (In Progress)
+### ✅ v1.1 Geographic & Widget Customization (Shipped 2026-02-16)
 
 **Milestone Goal:** Add geographic running statistics with embeddable table/list widgets, and make all widgets customizable via HTML attributes.
 
@@ -70,9 +70,9 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 07-01-PLAN.md — Shared attribute infrastructure (parser, theme, responsive, WidgetBase refactor)
-- [ ] 07-02-PLAN.md — Migrate stats-card and comparison-chart to Custom Elements
-- [ ] 07-03-PLAN.md — Migrate streak-widget and geo-stats-widget, create test page
+- [x] 07-01-PLAN.md — Shared attribute infrastructure (parser, theme, responsive, WidgetBase refactor)
+- [x] 07-02-PLAN.md — Migrate stats-card and comparison-chart to Custom Elements
+- [x] 07-03-PLAN.md — Migrate streak-widget and geo-stats-widget, create test page
 
 #### Phase 8: Geographic Table Widget
 **Goal**: User can embed geographic statistics table on any webpage.
@@ -86,8 +86,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 08-01-PLAN.md — Geo-table-widget with sortable columns and pagination (TableSorter, TablePaginator, Custom Element)
-- [ ] 08-02-PLAN.md — Build system integration and test page with widget demos
+- [x] 08-01-PLAN.md — Geo-table-widget with sortable columns and pagination (TableSorter, TablePaginator, Custom Element)
+- [x] 08-02-PLAN.md — Build system integration and test page with widget demos
 
 #### Phase 9: CI/CD Integration
 **Goal**: Geographic data and widgets automatically refresh daily via GitHub Actions.
@@ -102,8 +102,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 09-01-PLAN.md — CI/CD workflow update (non-blocking geocoding, commit patterns) and index.html Custom Elements migration
-- [ ] 09-02-PLAN.md — Comprehensive README.md with widget docs, CLI reference, and Strava attribution
+- [x] 09-01-PLAN.md — CI/CD workflow update (non-blocking geocoding, commit patterns) and index.html Custom Elements migration
+- [x] 09-02-PLAN.md — Comprehensive README.md with widget docs, CLI reference, and Strava attribution
 
 ## Progress
 
@@ -118,9 +118,9 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9
 | 4. Pipeline | v1.0 | 1/1 | Complete | 2026-02-14 |
 | 5. Geocoding Infrastructure | v1.1 | 1/1 | Complete | 2026-02-15 |
 | 6. Geographic Statistics | v1.1 | 2/2 | Complete | 2026-02-15 |
-| 7. Widget Attribute System | v1.1 | 0/3 | Planned | - |
-| 8. Geographic Table Widget | v1.1 | 0/2 | Planned | - |
-| 9. CI/CD Integration | v1.1 | 0/2 | Planned | - |
+| 7. Widget Attribute System | v1.1 | 3/3 | Complete | 2026-02-15 |
+| 8. Geographic Table Widget | v1.1 | 2/2 | Complete | 2026-02-15 |
+| 9. CI/CD Integration | v1.1 | 2/2 | Complete | 2026-02-16 |
 
 ---
-*Last updated: 2026-02-15 after Phase 9 planning complete*
+*Last updated: 2026-02-16 after Phase 9 execution complete — v1.1 milestone shipped*
