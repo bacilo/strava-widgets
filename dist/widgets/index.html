@@ -75,6 +75,9 @@
     .footer a:hover {
       text-decoration: underline;
     }
+    .footer p {
+      margin-bottom: 0.5rem;
+    }
   </style>
 </head>
 <body>
@@ -85,71 +88,63 @@
     <div class="widget">
       <h2>Stats Card Widget</h2>
       <p>Displays comprehensive running statistics including all-time totals and year-over-year comparisons.</p>
-      <pre><code>&lt;div id="strava-stats"&gt;&lt;/div&gt;
-&lt;script src="https://bacilo.github.io/strava-widgets/stats-card.iife.js"&gt;&lt;/script&gt;
-&lt;script&gt;
-  window.StatsCard.init('strava-stats', {
-    dataUrl: 'https://bacilo.github.io/strava-widgets/data/stats/all-time-totals.json',
-    options: {
-      showTitle: true,
-      secondaryDataUrl: 'https://bacilo.github.io/strava-widgets/data/stats/year-over-year.json'
-    }
-  });
-&lt;/script&gt;</code></pre>
+      <pre><code>&lt;strava-stats-card
+  data-url="https://bacilo.github.io/strava-widgets/data/stats/all-time-totals.json"
+  data-secondary-url="https://bacilo.github.io/strava-widgets/data/stats/year-over-year.json"
+  data-title="My Running Stats"&gt;
+&lt;/strava-stats-card&gt;
+&lt;script src="https://bacilo.github.io/strava-widgets/stats-card.iife.js"&gt;&lt;/script&gt;</code></pre>
     </div>
 
     <div class="widget">
       <h2>Comparison Chart Widget</h2>
       <p>Interactive bar chart comparing running statistics across different time periods with multiple visualization options.</p>
-      <pre><code>&lt;div id="strava-chart"&gt;&lt;/div&gt;
-&lt;script src="https://bacilo.github.io/strava-widgets/comparison-chart.iife.js"&gt;&lt;/script&gt;
-&lt;script&gt;
-  window.ComparisonChart.init('strava-chart', {
-    dataUrl: 'https://bacilo.github.io/strava-widgets/data/stats/year-over-year.json',
-    options: {
-      showTitle: true,
-      secondaryDataUrl: 'https://bacilo.github.io/strava-widgets/data/stats/seasonal-trends.json'
-    }
-  });
-&lt;/script&gt;</code></pre>
+      <pre><code>&lt;strava-comparison-chart
+  data-url="https://bacilo.github.io/strava-widgets/data/stats/year-over-year.json"
+  data-secondary-url="https://bacilo.github.io/strava-widgets/data/stats/seasonal-trends.json"
+  data-title="Year-Over-Year Comparison"&gt;
+&lt;/strava-comparison-chart&gt;
+&lt;script src="https://bacilo.github.io/strava-widgets/comparison-chart.iife.js"&gt;&lt;/script&gt;</code></pre>
     </div>
 
     <div class="widget">
       <h2>Streak Widget</h2>
       <p>Visualizes running streaks and activity patterns with time-of-day radar chart and monthly heatmap.</p>
-      <pre><code>&lt;div id="strava-streak"&gt;&lt;/div&gt;
-&lt;script src="https://bacilo.github.io/strava-widgets/streak-widget.iife.js"&gt;&lt;/script&gt;
-&lt;script&gt;
-  window.StreakWidget.init('strava-streak', {
-    dataUrl: 'https://bacilo.github.io/strava-widgets/data/stats/streaks.json',
-    options: {
-      showTitle: true,
-      secondaryDataUrl: 'https://bacilo.github.io/strava-widgets/data/stats/time-of-day.json'
-    }
-  });
-&lt;/script&gt;</code></pre>
+      <pre><code>&lt;strava-streak-widget
+  data-url="https://bacilo.github.io/strava-widgets/data/stats/streaks.json"
+  data-secondary-url="https://bacilo.github.io/strava-widgets/data/stats/time-of-day.json"
+  data-title="Running Streaks &amp; Patterns"&gt;
+&lt;/strava-streak-widget&gt;
+&lt;script src="https://bacilo.github.io/strava-widgets/streak-widget.iife.js"&gt;&lt;/script&gt;</code></pre>
     </div>
 
     <div class="widget">
       <h2>Geographic Statistics Widget</h2>
       <p>Displays country and city running rankings with distance data, run counts, and CSV export.</p>
-      <pre><code>&lt;div id="strava-geo"&gt;&lt;/div&gt;
-&lt;script src="https://bacilo.github.io/strava-widgets/geo-stats-widget.iife.js"&gt;&lt;/script&gt;
-&lt;script&gt;
-  window.GeoStatsWidget.init('strava-geo', {
-    dataUrl: 'https://bacilo.github.io/strava-widgets/data/geo/countries.json',
-    options: {
-      showTitle: true,
-      secondaryDataUrl: 'https://bacilo.github.io/strava-widgets/data/geo/cities.json',
-      metadataUrl: 'https://bacilo.github.io/strava-widgets/data/geo/geo-metadata.json'
-    }
-  });
-&lt;/script&gt;</code></pre>
+      <pre><code>&lt;strava-geo-stats
+  data-url="https://bacilo.github.io/strava-widgets/data/geo/countries.json"
+  data-secondary-url="https://bacilo.github.io/strava-widgets/data/geo/cities.json"
+  data-metadata-url="https://bacilo.github.io/strava-widgets/data/geo/geo-metadata.json"
+  data-title="Where I've Run"&gt;
+&lt;/strava-geo-stats&gt;
+&lt;script src="https://bacilo.github.io/strava-widgets/geo-stats-widget.iife.js"&gt;&lt;/script&gt;</code></pre>
+    </div>
+
+    <div class="widget">
+      <h2>Geographic Table Widget</h2>
+      <p>Sortable and paginated table of countries or cities with distance rankings, activity counts, and interactive controls.</p>
+      <pre><code>&lt;strava-geo-table
+  data-url="https://bacilo.github.io/strava-widgets/data/geo/countries.json"
+  data-dataset="countries"
+  data-title="Countries I've Run In"
+  data-rows-per-page="10"&gt;
+&lt;/strava-geo-table&gt;
+&lt;script src="https://bacilo.github.io/strava-widgets/geo-table-widget.iife.js"&gt;&lt;/script&gt;</code></pre>
     </div>
 
     <div class="footer">
       <p>Auto-updated daily by GitHub Actions</p>
-      <p>Powered by <a href="https://www.strava.com" target="_blank" rel="noopener">Strava</a></p>
+      <p><a href="test.html">View Test Page</a> | Powered by <a href="https://www.strava.com" target="_blank" rel="noopener">Strava</a></p>
     </div>
   </div>
 </body>
