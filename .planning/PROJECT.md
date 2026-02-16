@@ -30,7 +30,17 @@ Compute and visualize running statistics that Strava doesn't readily offer, embe
 
 ### Active
 
-(None — planning next milestone)
+#### Current Milestone: v1.2 Maps & Geo Fix
+
+**Goal:** Fix city detection accuracy, add multi-city tracking per run, and build interactive map widgets (route maps, heatmap, country/city map).
+
+**Target features:**
+- Replace geocoding library with GeoNames-based solution (fix suburb-instead-of-city problem)
+- Multi-city tracking per run using decoded route polylines
+- Run route map widgets (single run, browser/gallery, latest N runs)
+- Heatmap widget showing all runs overlaid on a map
+- Country/city pin map widget
+- Both widget and standalone page formats for map visualizations
 
 ### Out of Scope
 
@@ -92,4 +102,4 @@ Repository: github.com/bacilo/strava-widgets (public).
 | UTF-8 BOM for CSV export | Special characters display correctly in Excel | ✓ Good |
 
 ---
-*Last updated: 2026-02-16 after v1.1 milestone*
+*Last updated: 2026-02-16 after v1.2 milestone started*
