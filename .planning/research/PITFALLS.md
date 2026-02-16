@@ -1,567 +1,466 @@
-# Pitfalls Research: Geographic Data Extraction & Widget Customization
+# Pitfalls Research: Maps & Geocoding Evolution
 
-**Domain:** Strava Analytics - Geographic Statistics & Widget System Enhancement
-**Researched:** 2026-02-14
+**Domain:** Adding Interactive Maps to Existing Shadow DOM Widget System
+**Researched:** 2026-02-16
 **Confidence:** HIGH
-
-**Context:** Milestone v1.1 adds reverse geocoding for 1,808 activities, geographic statistics/tables, and HTML attribute-based widget customization to an existing TypeScript/Vite/Chart.js platform on GitHub Pages.
-
----
 
 ## Critical Pitfalls
 
-### Pitfall 1: Reverse Geocoding API Cost Explosion
+### Pitfall 1: Leaflet CSS Not Loading in Shadow DOM
 
 **What goes wrong:**
-Processing 1,808+ activities through a reverse geocoding API during development/testing rapidly burns through free tiers and incurs unexpected costs. Multiple build attempts, CI failures, and iterative development can easily result in 10,000+ requests within days, triggering bills of $50-200+ or service suspension.
+Map tiles render outside their container boundaries, zoom controls appear broken or non-functional, and the map interface looks completely broken with overlapping UI elements. The map container might be invisible or tiles display in random positions on the page.
 
 **Why it happens:**
-- Developers run full geocoding in local dev without understanding request counts
-- CI rebuilds trigger full re-geocoding on every failed pipeline
-- No incremental processing logic (re-geocoding already processed activities)
-- Testing with full dataset instead of subset
-- GitHub Actions workflow failures cause repeated full runs
-- Team members running concurrent builds multiply request counts
+Shadow DOM creates an encapsulated style boundary. External stylesheets (including Leaflet's CSS loaded via `<link>` in the document head) cannot penetrate Shadow DOM boundaries. Leaflet's default assumption is that its CSS is globally available, so widgets using Shadow DOM must explicitly inject Leaflet CSS into each shadow root. Developers coming from standard DOM development forget that Shadow DOM isolates styles completely.
 
 **How to avoid:**
-- **Pre-flight cost calculation:** 1,808 activities at Google's $5 per 1,000 = $9 one-time, but development multiplier (10-20x) = $90-180 total
-- **Incremental geocoding:** Only geocode activities lacking location data (check for existing lat/lng → location mapping)
-- **Development subset:** Use first 50 activities for local development, full dataset only in CI
-- **Request tracking:** Log every API call with timestamp to monitor usage
-- **Geocoding cache:** Store coordinate → location mappings in separate JSON file, reuse across activities at same location
-- **Rate limit enforcement:** Use bottleneck library (already in dependencies) to limit to 1-2 req/sec maximum
-- **Free tier choice:** Nominatim (OpenStreetMap) free for reasonable use, LocationIQ free 10k/day
-- **One-time batch:** Run geocoding as separate script, commit results, never re-run unless new activities added
-- **CI guard:** Environment variable `SKIP_GEOCODING=true` for non-geocoding builds
+1. Import Leaflet CSS as a string (import as raw text or use Vite's `?inline` query)
+2. Create a `<style>` element inside the Shadow DOM during `connectedCallback()`
+3. Inject the Leaflet CSS string into that style element before initializing the map
+4. Verify CSS is present: `shadowRoot.querySelector('style')` should contain `.leaflet-container` rules
+
+**Example pattern:**
+```typescript
+import leafletCssText from 'leaflet/dist/leaflet.css?inline';
+
+connectedCallback() {
+  const style = document.createElement('style');
+  style.textContent = leafletCssText;
+  this.shadowRoot.appendChild(style);
+
+  // Now initialize Leaflet map
+  this.map = L.map(this.shadowRoot.querySelector('.map-container'));
+}
+```
 
 **Warning signs:**
-- API usage dashboard showing thousands of requests in single day
-- CI builds taking 30+ minutes (1,808 activities at 1 req/sec = 30 minutes minimum)
-- Email notifications about approaching/exceeding quota
-- 429 rate limit errors in logs
-- Unexpected charges on credit card
-- Service degradation or temporary bans
+- Map tiles visible but controls missing
+- Console errors about missing CSS classes
+- Elements positioned at page (0,0) instead of container-relative
+- Working in regular DOM but broken in Shadow DOM
 
 **Phase to address:**
-Phase 1 (Geographic Data Extraction) - before writing any geocoding code, establish cost guardrails and incremental processing strategy
+Phase 1 (Map Infrastructure) — must be solved before any map widget will render correctly. Add to widget-base pattern documentation and create reusable CSS injection utility.
 
 ---
 
-### Pitfall 2: GPS Coordinate Quality Issues Breaking Geocoding
+### Pitfall 2: Leaflet Event Handling Broken on Mobile in Shadow DOM
 
 **What goes wrong:**
-Strava GPS data contains missing coordinates, indoor activities with no GPS, signal loss segments, and low-accuracy points that cause reverse geocoding to return wrong cities, oceans, or ZERO_RESULTS errors. This produces garbage geographic statistics like "10 runs in Pacific Ocean" or missing data for 20% of activities.
+Touch events (zoom, pan, tap) don't work on iOS Safari/Chrome or Android Chrome. Click handlers aren't triggered on markers. Gesture controls fail silently. Map appears to load correctly but is completely unresponsive to user interaction on mobile devices, while desktop browsers work fine.
 
 **Why it happens:**
-- Indoor treadmill runs have no GPS data
-- Urban canyon signal loss creates gaps or straight-line interpolation
-- GPS bounce in tall buildings causes coordinates offset by 100m+
-- Start/end points may be in parking lots, not actual run location
-- Strava privacy zones mask exact coordinates (returns null)
-- Low battery causing GPS sampling degradation
-- Activities uploaded without time information have unreliable coordinates
+Shadow DOM's event retargeting changes `event.target` from the actual DOM element (like zoom controls) to the custom element containing the shadow root. Leaflet's event listeners expect specific DOM elements as targets. On mobile browsers (especially iOS), touch event handling is more strict about event propagation through shadow boundaries. This is a known Leaflet limitation documented in GitHub issues #3752 (Android Chrome zoom controls), #6705 (iOS click events).
 
 **How to avoid:**
-- **Pre-geocoding validation:**
-  ```typescript
-  - Check activity.map exists and map.summary_polyline is not null
-  - Verify start_latlng and end_latlng are not [0, 0] or null
-  - Skip activities with map.privacy === "only_me" or lacking GPS data
-  ```
-- **Coordinate selection strategy:**
-  - Don't use first GPS point (often parking lot/home driveway)
-  - Use point 500m into activity as "representative location"
-  - For short runs (<2km), use midpoint
-  - Weight toward middle of activity to avoid privacy zone issues
-- **Error handling for geocoding:**
-  - ZERO_RESULTS → mark as "Unknown Location", don't retry
-  - Ocean coordinates → validate with coastline database, mark as "Invalid GPS"
-  - Confidence scoring: require accuracy_type >= "rooftop" or similar
-- **Fallback hierarchy:**
-  - Primary: Reverse geocode representative point
-  - Fallback 1: Use activity.timezone to infer country
-  - Fallback 2: Use athlete.city from profile
-  - Last resort: Mark as "Location unavailable"
-- **Data quality tracking:**
-  - Track % of activities successfully geocoded
-  - Flag activities with suspicious results (ocean, different country than timezone)
-  - Maintain separate counts for "high confidence" vs "inferred" locations
+1. Test on real mobile devices (iOS Safari, Android Chrome) in Phase 1, not just desktop Chrome DevTools mobile emulation
+2. Consider using leaflet-map web component wrapper (leaflet-extras/leaflet-map) which handles Shadow DOM compatibility
+3. If events fail, implement manual event delegation: attach listeners to shadow root and use `event.composedPath()` to find actual targets
+4. For critical mobile support, consider rendering maps outside Shadow DOM in a connected light DOM container
 
-**Warning signs:**
-- Geographic stats showing activities in unexpected locations (ocean, wrong continent)
-- High percentage (>10%) of activities with no location
-- Cities appearing that don't match athlete's known locations
-- Activities geocoded to administrative boundaries rather than actual cities
-- Console logs showing ZERO_RESULTS for many activities
-- Coordinates at exactly (0, 0) - the "Null Island" indicator
-
-**Phase to address:**
-Phase 1 (Geographic Data Extraction) - build validation and fallback logic BEFORE first geocoding attempt
-
----
-
-### Pitfall 3: HTML Attribute Type Safety Collapse
-
-**What goes wrong:**
-HTML attributes only accept strings, causing type coercion bugs when widget code expects numbers, booleans, or objects. Developers write `<strava-widget max-items="10">` expecting number 10, but JavaScript receives string "10", breaking comparisons, arithmetic, and causing NaN errors. Worse, complex attributes like `colors='{"primary":"#ff0000"}'` require JSON parsing that fails silently or throws errors.
-
-**Why it happens:**
-- HTML spec: all attributes are DOMString type
-- JavaScript's loose equality (==) hides the problem in some cases
-- Developers test with hardcoded values, not attribute-passed values
-- TypeScript types don't enforce runtime attribute parsing
-- attributeChangedCallback receives string, must manually convert
-- No validation framework for attribute values
-- JSON.parse() failures on malformed JSON attributes
-
-**How to avoid:**
-- **Strict attribute parsing pattern:**
-  ```typescript
-  // In attributeChangedCallback
-  attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null) {
-    if (newValue === null) return;
-
-    switch (name) {
-      case 'max-items':
-        const parsed = parseInt(newValue, 10);
-        if (isNaN(parsed) || parsed < 1) {
-          console.warn(`Invalid max-items: ${newValue}, using default 10`);
-          this._maxItems = 10;
-        } else {
-          this._maxItems = parsed;
-        }
-        break;
-      case 'show-chart':
-        // Parse boolean: "true", "false", "", presence
-        this._showChart = newValue === 'true' || newValue === '';
-        break;
-      case 'colors':
-        try {
-          this._colors = JSON.parse(newValue);
-        } catch (e) {
-          console.error(`Invalid JSON in colors attribute: ${newValue}`);
-          this._colors = DEFAULT_COLORS;
-        }
-        break;
-    }
+**Workaround pattern:**
+```typescript
+// Manual event delegation for Shadow DOM
+this.shadowRoot.addEventListener('click', (e) => {
+  const path = e.composedPath();
+  const leafletElement = path.find(el => el.classList?.contains('leaflet-marker'));
+  if (leafletElement) {
+    // Handle click on marker
   }
-  ```
-- **Type coercion rules (mimic WebIDL):**
-  - Numbers: parseInt/parseFloat with NaN check, fallback to default
-  - Booleans: presence = true, "false" = false, "" = true
-  - JSON objects: try/catch with default fallback
-  - Enums: whitelist check, fallback to default
-- **Avoid infinite loops:**
-  - NEVER call setAttribute() in attributeChangedCallback
-  - Use internal property flag to prevent re-triggering
-- **Validation and defaults:**
-  - Every attribute must have documented default value
-  - Validate ranges (e.g., max-items must be 1-100)
-  - Type guards for enum values
-- **Documentation pattern:**
-  ```html
-  <!-- Document expected types clearly -->
-  <strava-geo-table
-    max-items="10"          <!-- number (1-100), default: 10 -->
-    show-count="true"       <!-- boolean, default: true -->
-    sort-by="runs"          <!-- "runs" | "distance", default: "runs" -->
-    colors='{"bg":"#fff"}'  <!-- JSON object, default: theme colors -->
-  >
-  </strava-geo-table>
-  ```
-- **TypeScript type definitions:**
-  - Extend HTMLElementTagNameMap for custom elements
-  - Use JSDoc to document attribute types for non-TS users
+}, { capture: true });
+```
 
 **Warning signs:**
-- Widget behaves differently with attributes vs without
-- Console showing NaN, Infinity, or [object Object]
-- Type errors: "Cannot read property of undefined"
-- Comparisons failing: maxItems > 5 returns false when maxItems="10"
-- JSON.parse errors in console
-- Attributes not reflecting to properties correctly
-- Infinite loops in attributeChangedCallback
+- Events work in Chrome desktop but fail on iOS Safari
+- Touch events work outside shadow root but not inside
+- Console shows event listeners attached but never firing
+- Map pans with mouse but not with touch
 
 **Phase to address:**
-Phase 3 (Widget Customization System) - create attribute parsing utilities BEFORE implementing first customizable widget
+Phase 1 (Map Infrastructure) — test and resolve before building widgets. If unsolvable, architectural decision required: render maps outside Shadow DOM or use web component wrapper.
 
 ---
 
-### Pitfall 4: Shadow DOM Table Rendering Performance Collapse
+### Pitfall 3: IIFE Bundle Size Explosion with Leaflet
 
 **What goes wrong:**
-Rendering large geographic tables (100+ rows) inside Shadow DOM with frequent updates causes browser lockup, 5+ second render times, and unresponsive UI. Shadow DOM's style encapsulation overhead multiplies per-row, and Chart.js integration in same component creates double-rendering bottleneck.
+Widget bundle size jumps from ~180KB (current Chart.js widgets) to 500KB-800KB+ with Leaflet. GitHub Pages has a soft 1MB file limit and loading delays increase significantly. Multiple map widgets on a page each load duplicate copies of Leaflet because IIFE bundles don't share dependencies. A page with 3 map widgets = 1.5-2.4MB of JavaScript.
 
 **Why it happens:**
-- Shadow DOM creates separate DOM tree for EACH widget instance (no shared rendering)
-- Each row requires style computation inside shadow boundary
-- Multiple widget instances on same page = multiplicative rendering cost
-- Chart.js canvas rendering blocks main thread
-- attributeChangedCallback triggering full re-renders on every attribute change
-- No virtualization or pagination for long lists
-- Constructible stylesheets not used, styles duplicated per instance
-- Sorting/filtering re-renders entire table
+Leaflet core is ~150KB minified + gzipped, but tile layer plugins, marker clustering, and utilities add up quickly. Vite's IIFE format (`formats: ['iife']`) bundles ALL dependencies into a single file with no sharing between widgets. Current Vite config sets `inlineDynamicImports: true` and `external: []`, meaning Leaflet cannot be externalized. Chart.js widgets already bundle Chart.js (181KB bundle), so adding Leaflet compounds the problem.
 
 **How to avoid:**
-- **Pagination/limits:**
-  - Default to 10-20 items max, require explicit attribute for more
-  - Add "Show more" button rather than rendering all upfront
-  - max-items="100" should trigger warning, cap at reasonable limit
-- **Efficient Shadow DOM patterns:**
-  ```typescript
-  // Use Constructible Stylesheets (shared across instances)
-  const tableStyles = new CSSStyleSheet();
-  tableStyles.replaceSync(/* CSS */);
-  shadowRoot.adoptedStyleSheets = [tableStyles]; // Shared, not duplicated
-  ```
-- **Render optimization:**
-  - Use DocumentFragment for batch DOM updates
-  - Only re-render changed rows, not entire table
-  - Debounce attribute changes (don't re-render on every keystroke if editing)
-  - requestAnimationFrame for visual updates
-- **Virtual scrolling (if >50 rows):**
-  - Only render visible rows + buffer
-  - Use intersection observer for lazy row rendering
-- **Separate concerns:**
-  - Don't mix Chart.js canvas and table in same component
-  - Use separate <strava-geo-chart> and <strava-geo-table> widgets
-- **Light DOM alternative:**
-  - If encapsulation not critical, render table in Light DOM
-  - Use BEM naming convention for style scoping instead
-  - 10x faster rendering for large datasets
-- **Performance budgets:**
-  - 10 rows: <50ms render
-  - 50 rows: <200ms render
-  - 100 rows: require pagination or warning
-- **Measure first:**
-  ```typescript
-  const start = performance.now();
-  // render logic
-  const duration = performance.now() - start;
-  if (duration > 200) console.warn(`Slow render: ${duration}ms`);
-  ```
+1. **Externalize Leaflet** — load Leaflet from CDN as a global, exclude from widget bundles:
+   ```typescript
+   // vite.config.ts
+   rollupOptions: {
+     external: ['leaflet'],
+     output: {
+       globals: { 'leaflet': 'L' }
+     }
+   }
+   ```
+   Load Leaflet globally on pages using map widgets: `<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>`
+
+2. **Split map widgets from chart widgets** — don't mix Leaflet and Chart.js in same bundle
+3. **Lazy load tile layers** — don't bundle tile layer plugins, load from CDN
+4. **Use manualChunks** (if moving away from IIFE) to share Leaflet across widgets
+5. **Measure bundle sizes** — add rollup-plugin-visualizer to see what's inflating bundles
 
 **Warning signs:**
-- Browser tab freezing during widget initialization
-- DevTools Performance showing long tasks >50ms
-- Frame drops in scrolling (visible stutter)
-- Multiple widget instances compounding slowdown
-- Layout thrashing warnings in console
-- Lighthouse performance score <80
-- Users reporting "page feels slow"
-- Fan spinning up on laptops when viewing page
+- Widget builds suddenly >500KB (check with `ls -lh dist/widgets/*.iife.js`)
+- GitHub Pages deployment warnings about large files
+- Slow page loads on mobile/3G connections
+- Duplicate code visible in bundle analyzer
 
 **Phase to address:**
-Phase 2 (Geographic Table Widgets) - establish performance budgets and measurement BEFORE building table component
+Phase 1 (Map Infrastructure) — configure before building first map widget. Update build scripts to externalize Leaflet, document CDN requirement for pages using map widgets. This is an architectural decision that affects all map widgets.
 
 ---
 
-### Pitfall 5: Static Site API Key Exposure via Client-Side Geocoding
+### Pitfall 4: Polyline Decoding Performance Collapse at Scale
 
 **What goes wrong:**
-Attempting to call reverse geocoding APIs directly from browser widgets exposes API keys in client-side JavaScript bundles. Keys become publicly visible in DevTools Network tab, page source, and minified bundle. Attackers extract keys within hours of deployment, abuse quota, and rack up bills or get service suspended.
+Decoding 1,808 polylines blocks the browser UI thread for 5-10+ seconds. Page becomes unresponsive during processing. Heatmap widget times out or crashes. Memory usage spikes to 500MB+ as decoded coordinates (arrays of [lat, lng]) accumulate. Browsers show "Page Unresponsive" warnings.
 
 **Why it happens:**
-- Confusion between build-time (Node.js/CI) and runtime (browser) execution contexts
-- Belief that minification/obfuscation hides keys (it doesn't)
-- Environment variables compiled into bundle at build time
-- CORS requirements forcing API key to be in client code
-- Lack of understanding that GitHub Pages = purely static, no server-side processing
+Strava's polyline encoding compresses routes efficiently (summary_polyline is ~200 chars), but decoding expands to hundreds/thousands of coordinate pairs per route. Decoding is CPU-intensive (loops over each character, bit shifting). Synchronous decoding of 1,808 polylines on the main thread locks up the UI. Each decoded route is a large array kept in memory (1,808 routes × 200 coords × 2 numbers × 8 bytes = ~5.8MB minimum, more with object overhead).
 
 **How to avoid:**
-- **Build-time geocoding only:**
-  - Geocoding happens in Node.js script during GitHub Actions build
-  - Results committed to repository as static JSON
-  - Widgets consume pre-geocoded data, never call API
-- **API key isolation:**
-  - Store geocoding API key in GitHub Secrets (never in code)
-  - Access via `process.env.GEOCODING_API_KEY` in Node.js scripts only
-  - Never import API key in any file bundled by Vite for browser
-- **Separation of concerns:**
-  ```
-  scripts/
-    geocode-activities.mjs  ← Node.js script with API key access
-    build-widgets.mjs       ← Uses geocoded data (no API key needed)
-  src/
-    widgets/                ← Browser code (no API key access ever)
-  ```
-- **Data flow architecture:**
-  ```
-  1. GitHub Actions runs: npm run geocode (Node.js, has API key)
-  2. Generates: data/geocoded-activities.json (no keys, committed)
-  3. Build widgets: npm run build-widget (reads JSON, no API calls)
-  4. Deploy: static HTML/JS/JSON to GitHub Pages (no keys anywhere)
-  ```
-- **Verification:**
-  - Audit: grep -r "API_KEY\|API_SECRET\|GEOCODING" src/ should return nothing
-  - Check bundle: search dist/*.js for sensitive strings
-  - DevTools Network tab should show ZERO external API calls from widgets
-  - Use GitHub secret scanning to catch accidental commits
-- **Alternative approaches (if runtime needed):**
-  - Proxy through GitHub Actions (API endpoint that runs geocoding)
-  - Serverless function (Netlify/Vercel) as API proxy
-  - **NOT viable for GitHub Pages static hosting**
+1. **Decode on-demand** — don't decode all 1,808 routes upfront. For heatmap, decode only routes currently in viewport bounds
+2. **Use Web Workers** — decode polylines in background thread:
+   ```typescript
+   const worker = new Worker('polyline-worker.js');
+   worker.postMessage({ polylines: chunk });
+   worker.onmessage = (e) => { renderRoutes(e.data.decoded); };
+   ```
+3. **Batch processing** — decode in chunks of 50-100 routes with `requestIdleCallback()` between batches
+4. **Use efficient library** — @mapbox/polyline is well-optimized (600 bytes minified). Avoid regex-heavy implementations
+5. **Cache decoded results** — decode once, store in IndexedDB for session reuse
+6. **Limit route display** — heatmap widget should default to "last 100 routes" with opt-in for full dataset
+
+**Performance targets:**
+- Single route decode: <1ms
+- 100 routes batch: <50ms
+- Full 1,808 routes: <2 seconds (with Web Worker, chunked)
 
 **Warning signs:**
-- API key visible in View Source or DevTools
-- Network tab showing API calls to geocoding service
-- process.env variables appearing in browser console
-- API usage dashboard showing requests from unexpected IPs
-- GitHub secret scanning alerts
-- Rate limit errors from client-side code
-- CORS errors trying to call API from browser
+- Browser "Page Unresponsive" dialogs
+- DevTools Performance tab shows long tasks (>50ms)
+- Memory profiler shows large array allocations
+- Widget initialization takes >3 seconds
 
 **Phase to address:**
-Phase 1 (Geographic Data Extraction) - architecture decision BEFORE writing any geocoding code
+Phase 2 (Polyline Processing) — before building heatmap widget. Implement chunked/async decoding infrastructure, benchmark with full dataset, set performance budgets. Add Web Worker if synchronous approach exceeds budgets.
 
 ---
 
-### Pitfall 6: Strava Activity Data Lacking Coordinates
+### Pitfall 5: Geocoding Library Migration Breaks Existing Location Cache
 
 **What goes wrong:**
-20-30% of activities (indoor runs, treadmill workouts, GPS failures) have no start_latlng/end_latlng or map.summary_polyline, causing geocoding pipeline to fail silently, produce null values, or crash. Geographic statistics become inaccurate, showing "800 runs in Unknown Location" and undermining widget credibility.
+Switching from offline-geocode-city to GeoNames-based solution invalidates all 114 cached locations. Cities change names (Roskilde → "Roskilde Kommune", Alcochete → "Montijo"). Countries.json and cities.json suddenly show different cities for same activities, breaking continuity. Historical stats become incomparable ("Where did Stockholm go?"). Widgets display conflicting data (old vs new geocoding).
 
 **Why it happens:**
-- Treadmill runs explicitly flagged as indoor (no GPS)
-- Manual activity entry (typed in, no device)
-- Watch/phone battery died mid-activity
-- GPS signal never acquired (started run immediately after device power-on)
-- Strava privacy settings hiding map data
-- Upload from TCX files without GPS data
-- Activities from devices without GPS (gym equipment uploads)
+Different geocoding libraries use different datasets (UN/LOCODE vs GeoNames) with different city name conventions, administrative boundaries, and granularity levels. Cache keys are coordinate-based (`"55.6415,12.0803"`), but values change when library changes. Offline-geocode-city returns suburb names, GeoNames returns proper cities, causing systematic inconsistencies. Cache was built incrementally over time, so partial migration creates mixed-source data.
 
 **How to avoid:**
-- **Activity filtering strategy:**
-  ```typescript
-  function hasValidGPS(activity: StravaActivity): boolean {
-    return !!(
-      activity.map?.summary_polyline &&
-      activity.start_latlng?.length === 2 &&
-      activity.start_latlng[0] !== 0 &&
-      activity.start_latlng[1] !== 0
-    );
-  }
-  ```
-- **Graceful degradation:**
-  - Track total activities vs. geolocated activities separately
-  - Display: "Geographic stats based on 1,250 of 1,808 activities (69%)"
-  - Don't show "Unknown Location" in top lists unless >50 activities
-- **Fallback location inference:**
-  - Use activity.timezone to determine country (timezone → country mapping)
-  - Use athlete.city from Strava profile as default city
-  - Tag as "Inferred location (no GPS)" for transparency
-- **Indoor activity handling:**
-  - Check activity.trainer, activity.gear_id (treadmill marker)
-  - Create separate category: "Indoor (no location)"
-  - Option to exclude indoor from geographic stats
-- **Data quality metadata:**
-  ```json
-  {
-    "total_activities": 1808,
-    "with_gps": 1250,
-    "inferred_location": 380,
-    "no_location": 178,
-    "confidence_threshold": "gps_required"
-  }
-  ```
-- **User communication:**
-  - Widget tooltip: "Based on outdoor activities with GPS data"
-  - Footnote: "Indoor activities excluded from geographic stats"
+1. **Version the cache** — add `version` field to location-cache.json, bump on library change:
+   ```json
+   {
+     "version": 2,
+     "geocoder": "geonames-cities1000",
+     "entries": { ... }
+   }
+   ```
+2. **Parallel validation** — run both libraries on same coordinates, compare differences before migration
+3. **Full cache rebuild** — don't merge old cache with new library, regenerate from scratch
+4. **Staged rollout** — keep old geocoded data files as `countries-v1.json`, generate `countries-v2.json`, compare before switching
+5. **Document breaking changes** — update documentation to note "Geographic data regenerated on [date] with improved accuracy"
+6. **Coordinate precision unchanged** — keep 4 decimal places (11m precision) to preserve cache hit rates
+
+**Migration checklist:**
+- [ ] Back up current location-cache.json, countries.json, cities.json
+- [ ] Run new geocoder on all 1,808 activities, generate new cache
+- [ ] Compare old vs new (expect ~10-20% differences, document major changes)
+- [ ] Commit new cache with version bump and changelog entry
+- [ ] Update CI to use new geocoder configuration
+- [ ] Archive old files as `data/geo/v1/` for reference
 
 **Warning signs:**
-- Geographic stats not adding up to total activity count
-- Large number of activities in "Unknown" category
-- Console errors: "Cannot read property of null (start_latlng)"
-- Empty tables/charts when data should exist
-- Stats showing lower counts than expected
-- TypeScript errors about undefined coordinate properties
+- City names change suddenly in widgets
+- "Roskilde" split into "Roskilde" and "Roskilde Kommune"
+- Activity counts don't match historical data
+- Cache hit rates drop below 85%
 
 **Phase to address:**
-Phase 1 (Geographic Data Extraction) - data filtering logic before geocoding pipeline
+Phase 0 (Planning/Research Validation) — assess migration impact before Phase 1. Compare offline-geocode-city vs GeoNames outputs, quantify differences, decide if accuracy improvement justifies breaking change. Execute full migration in Phase 1 before building new features on top.
+
+---
+
+### Pitfall 6: Multi-City Data Model Breaking Existing Single-City Aggregations
+
+**What goes wrong:**
+Existing countries.json format assumes `cities: string[]` (one city per activity). New multi-city model needs `cities: Array<{name, activityCount, distance}>` (activities can span multiple cities). Old stats computation breaks with "Cannot read property 'activityCount' of string" errors. Widgets expecting `cities[0]` get objects instead of strings. Geographic table sorting fails because data types changed.
+
+**Why it happens:**
+Original model simplified to one city per activity (activity start location). Multi-city tracking requires decoding full route polyline and geocoding all points, so a single activity can contribute to multiple cities. This is a breaking schema change from `string[]` to `Array<CityStats>`. JSON lacks schema enforcement, so runtime errors appear when old code meets new data structure.
+
+**How to avoid:**
+1. **Create new data files** — don't modify countries.json/cities.json, create countries-detailed.json with new schema:
+   ```json
+   {
+     "countries": [...], // old format
+     "countriesDetailed": [
+       {
+         "countryName": "Denmark",
+         "cities": [
+           { "name": "Roskilde", "activityCount": 1320, "distanceKm": 16162.8 },
+           { "name": "Sorø", "activityCount": 45, "distanceKm": 412.3 }
+         ]
+       }
+     ]
+   }
+   ```
+2. **Versioned endpoints** — widgets load `/data/geo/v2/countries.json` for new model, v1 still available
+3. **Backward-compatible writers** — stats computation writes both formats during transition
+4. **TypeScript interfaces** — define strict types for both formats to catch mismatches at compile time
+5. **Runtime validation** — check data shape before processing: `if (typeof cities[0] === 'string')` handle old format
+
+**Migration strategy:**
+- **Phase 1:** Keep existing single-city model, improve geocoding accuracy within same schema
+- **Phase 2:** Add multi-city as NEW data source (cities-multi.json), don't modify existing files
+- **Phase 3:** Build new widgets consuming multi-city data, old widgets unchanged
+- **Future:** Deprecate v1 files after 6 months, migrate all widgets to v2
+
+**Warning signs:**
+- TypeScript errors: `Type 'string' is not assignable to type 'CityStats'`
+- Runtime errors: `cities.map is not a function`
+- Widget rendering blank because data format unrecognized
+- Sort functions breaking on mixed string/object arrays
+
+**Phase to address:**
+Phase 2 (Multi-City Data Model) — design new schema BEFORE touching existing data structures. Write migration plan, implement parallel data generation, validate both formats coexist. Do not replace existing files until all widgets migrated.
+
+---
+
+### Pitfall 7: Tile Provider Rate Limiting and Attribution Requirements
+
+**What goes wrong:**
+Map tiles fail to load after 10-20 page views, showing gray squares instead of maps. OpenStreetMap blocks requests from GitHub Pages domain. Missing attribution (© OpenStreetMap contributors) violates tile provider terms of service, risking domain ban. Users report "maps not working" intermittently.
+
+**Why it happens:**
+Free tile providers (OpenStreetMap, OpenTopoMap) have rate limits (typically 300 requests/minute per IP, varies by provider). Static GitHub Pages sites can't implement server-side rate limiting or caching. Every page load requests 10-50 tiles (depending on zoom level and viewport), so 10 users = 500+ requests. Missing attribution text violates OSM's usage policy, which requires visible credit on every map.
+
+**How to avoid:**
+1. **Use approved tile CDN** — OSM tile usage policy recommends third-party providers for web apps:
+   - Thunderforest (free tier: 150k requests/month with attribution)
+   - Mapbox (free tier: 50k requests/month, requires account)
+   - Stamen (free with attribution)
+2. **Implement tile caching** — use Leaflet's built-in cache, set `maxAge` header hints
+3. **Always include attribution** — Leaflet automatically adds attribution if set:
+   ```typescript
+   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+   })
+   ```
+4. **Lazy load tiles** — don't initialize maps until widget is in viewport
+5. **Monitor usage** — log tile requests if using paid tier to detect quota exhaustion
+6. **Fallback providers** — implement tile layer switcher for redundancy
+
+**Attribution requirements checklist:**
+- [ ] Attribution visible on all map widgets
+- [ ] Attribution includes provider name and link to copyright info
+- [ ] Attribution persists when map is zoomed/panned
+- [ ] Screenshot functionality captures attribution text
+
+**Warning signs:**
+- Gray tiles or 403 errors in network tab
+- "Tile request failed" console errors
+- Maps load fine locally but fail in production
+- Email from tile provider about ToS violation
+
+**Phase to address:**
+Phase 1 (Map Infrastructure) — configure tile provider and attribution before any widget goes live. Document tile provider selection criteria and fallback strategy. Add attribution to base map configuration.
 
 ---
 
 ## Technical Debt Patterns
 
+Shortcuts that seem reasonable but create long-term problems.
+
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Geocode on every build instead of incrementally | Simpler code (no state tracking) | 10-20x API costs, 30min+ builds, quota exhaustion | Never - costs scale linearly |
-| Parse attribute strings without validation | Faster implementation | Type bugs, NaN errors, security issues | Never - creates silent failures |
-| Use Light DOM instead of Shadow DOM | 10x faster rendering | Host page styles can break widgets | Acceptable if widget used on controlled site only |
-| Hardcode widget defaults in code vs config | No config parsing needed | Every change requires rebuild, no user customization | Only for internal dashboards |
-| Skip GPS validation, assume all activities have coordinates | Less code complexity | 20-30% of activities fail, garbage statistics | Never - data quality is critical |
-| JSON.parse attributes without try/catch | Cleaner code | Unhandled exceptions crash widget | Never - user input is untrusted |
-| Render entire table, no pagination | Simpler rendering logic | Browser lockup with 100+ rows | Acceptable if guaranteed <20 rows |
-| Store API key in browser widget code | No build-time geocoding needed | Security breach, quota theft, service ban | Never - violates all security principles |
+| Bundle Leaflet in every widget | No external dependencies, works standalone | 500KB+ per widget, 2MB+ for multi-widget pages | Never — externalize to CDN |
+| Decode all polylines synchronously | Simpler code, no async complexity | UI freezes for 5-10 seconds, "Page Unresponsive" warnings | Only for single-route widgets (<10 routes) |
+| Keep old geocoded data without versioning | No migration needed upfront | Data inconsistency, impossible to track geocoder changes | Never — always version cache from day 1 |
+| Use OSM tiles directly from openstreetmap.org | Free, no signup required | Rate limiting, potential domain ban | Only for local development, never production |
+| Shadow DOM with Leaflet but no mobile testing | Works on desktop, ships faster | Broken mobile UX discovered by users | Never — mobile is 50%+ of traffic |
+| Modify existing countries.json schema in place | Single data file, no migration | Breaks all existing widgets, risky deployment | Never — always add new versioned files |
+| Import Leaflet CSS globally instead of per-widget | Less code duplication | Defeats Shadow DOM isolation, style leakage risks | Acceptable if NOT using Shadow DOM |
+| Cache polyline decoding in memory only | Fast repeat access | Lost on page refresh, rebuilds every session | OK for MVP, add IndexedDB in Phase 2+ |
 
 ---
 
 ## Integration Gotchas
 
+Common mistakes when integrating maps and geocoding services.
+
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| Reverse Geocoding API | Calling from browser widgets (exposes keys) | Build-time Node.js script with GitHub Secrets |
-| Strava GPS Data | Assuming all activities have coordinates | Validate start_latlng, check map.summary_polyline, handle nulls |
-| Chart.js in Shadow DOM | Importing Chart.js multiple times per widget instance | Import once globally, register once, reuse |
-| HTML Attributes | Treating as typed (expecting numbers/booleans) | Parse strings explicitly with validation and defaults |
-| Vite IIFE Bundles | Including Node.js-only code (breaks browser) | Separate src/ (browser) from scripts/ (Node.js) |
-| GitHub Actions Geocoding | Running on every commit (burns quota) | Run only when new activities added, cache results |
-| TypeScript Custom Elements | No type definitions for custom tags | Extend HTMLElementTagNameMap interface |
-| Bottleneck Rate Limiting | Forgetting to await throttled calls | Use with async/await, configure reservoir correctly |
+| Leaflet + Shadow DOM | Expecting global CSS to work | Inject Leaflet CSS into each shadow root as string |
+| Leaflet + Shadow DOM (mobile) | Testing only in desktop Chrome DevTools | Test on real iOS Safari and Android Chrome devices |
+| Leaflet + Vite IIFE | Including Leaflet in bundle with `external: []` | Externalize Leaflet, load from CDN as global `L` |
+| Polyline decoding | Decoding all 1,808 routes in `connectedCallback()` | Decode on-demand or in Web Worker with chunking |
+| Geocoding migration | Replacing library and merging old cache | Version cache, full rebuild, parallel validation |
+| Multi-city model | Modifying existing JSON schema | Create new versioned data files, keep old format |
+| OSM tiles | Using tile.openstreetmap.org directly | Use approved tile provider (Thunderforest, Mapbox, Stamen) |
+| Tile attribution | Adding attribution as separate div | Use Leaflet's built-in attribution control |
+| Map initialization | Creating map before container is in DOM | Wait for `connectedCallback()`, ensure container has dimensions |
+| Tile caching | Expecting browser cache to persist across sessions | Implement IndexedDB tile cache for offline support |
 
 ---
 
 ## Performance Traps
 
+Patterns that work at small scale but fail as usage grows.
+
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| Shadow DOM table with 100+ rows | 5+ second render, browser freeze | Pagination (max 20 rows), virtualization if needed | >50 rows without limits |
-| Multiple widget instances sharing no styles | Memory usage climbing, slow page load | Constructible Stylesheets (shared CSS) | >5 widgets on same page |
-| Re-geocoding same coordinates | 30min builds, API quota exhaustion | Coordinate → location cache JSON | First development iteration |
-| Parsing JSON attributes on every attributeChange | Layout thrashing, input lag | Parse once, cache result, debounce changes | Complex JSON attributes |
-| Chart.js re-initialization per render | Memory leak, slowing over time | Destroy old chart before creating new | Attribute changes trigger re-render |
-| Full table re-render on sort/filter | UI stuttering on interaction | Update DOM incrementally, only changed rows | Tables >30 rows |
-| Geocoding all 1,808 activities sequentially at 1 req/sec | 30+ minute builds | Parallel requests (5-10 concurrent) with rate limiter | Any non-trivial dataset |
-| No request caching across builds | Repeated API costs | Store geocode results in committed JSON | Multiple builds during development |
+| Synchronous polyline decoding | Blocking UI thread | Use Web Workers or chunked decoding with `requestIdleCallback()` | >200 routes (>1 second delay) |
+| Heatmap rendering all routes at once | Browser freezes, 500MB+ memory | Viewport culling, decode only visible routes, limit default to 100 routes | >500 routes |
+| No tile caching strategy | Slow page loads, rate limit errors | Configure Leaflet maxAge, consider IndexedDB for offline tile cache | >50 page views/hour |
+| Leaflet bundled per widget | Page load 2-3MB for 3 widgets | Externalize Leaflet to shared CDN script | >2 map widgets per page |
+| Geocoding all activities on every CI run | 10+ minute builds, high memory use | Cache location lookups, incremental geocoding only new activities | >1000 activities |
+| In-memory decoded polylines cache | High memory usage, cache lost on refresh | Use IndexedDB for persistent cache, LRU eviction policy | >500 cached routes |
+| Rendering 1,000+ markers directly | Map unresponsive, 60fps → 10fps | Use marker clustering plugin (Leaflet.markercluster) | >200 markers visible |
+| No bundle size monitoring | Unnoticed bundle bloat to 1MB+ | Add rollup-plugin-visualizer, set CI alerts at 500KB | Any widget >250KB |
 
 ---
 
 ## Security Mistakes
 
+Domain-specific security issues beyond general web security.
+
 | Mistake | Risk | Prevention |
 |---------|------|------------|
-| API key in browser bundle | Quota theft, service ban, financial loss | Build-time geocoding only, keys in GitHub Secrets |
-| Geocoding API key in .env committed to repo | Public exposure within minutes of push | Add .env to .gitignore, use .env.example template |
-| CORS-enabled geocoding from client | Key exposure in Network tab | Proxy through serverless function OR build-time only |
-| No rate limiting on API calls | Accidental DDoS, quota burn, IP ban | Bottleneck library with 1-2 req/sec limit |
-| Trusting user-provided attribute values | XSS via JSON attributes, injection | Sanitize and validate all attribute strings |
-| Displaying exact GPS coordinates in widgets | Privacy violations, Strava ToS breach | Use city-level aggregation only, never show precise coords |
-| API keys in source control history | Keys compromised even after removal | Immediately rotate exposed keys, use git-secrets pre-commit |
+| Embedding API keys in widget bundles | Key exposure in public JavaScript, quota theft | Use server-side geocoding in CI, never in browser code |
+| Loading tiles from HTTP instead of HTTPS | Mixed content warnings, blocked on HTTPS pages | Always use HTTPS tile URLs |
+| User-supplied coordinates without validation | SSRF via crafted tile requests, XSS via marker content | Validate lat/lng ranges, sanitize marker HTML |
+| Exposing full activity data including GPS | Privacy violation, Strava OAuth scope overreach | Limit widget data to aggregated stats, no raw GPS |
+| No CSP headers for tile providers | XSS via compromised tile CDN | Add CSP: `img-src https://cdn.tile-provider.com` |
+| Geocoding user input without rate limiting | DoS via geocoding quota exhaustion | Rate limit in CI, never expose geocoding API to client |
 
 ---
 
 ## UX Pitfalls
 
+Common user experience mistakes in map widgets.
+
 | Pitfall | User Impact | Better Approach |
 |---------|-------------|-----------------|
-| No feedback during 30min geocoding build | User thinks CI is broken, cancels build | Log progress: "Geocoded 500/1808 activities..." |
-| "Unknown Location" as top city in stats | Looks broken, unprofessional | Filter out or show as footnote, not top result |
-| Widget shows 0 activities when GPS data missing | Confusion - "where's my data?" | Display message: "No GPS data available for indoor activities" |
-| No indication of data freshness in widgets | User doesn't know if data is current | Timestamp: "Last updated: 2 hours ago" |
-| Attribute changes not reflecting visually | User edits HTML, nothing happens | Console warn invalid values, show current config in DevTools |
-| Geographic stats don't match Strava totals | Trust issues, debugging requests | Explain: "Based on X of Y activities with GPS data" |
-| Table showing 500 rows causing browser freeze | User can't interact, leaves page | Hard limit 20-50 rows, pagination for more |
-| Error states showing stack traces to users | Technical jargon confuses non-developers | User-friendly: "Could not load geographic data. Please try again later." |
+| Map loads blank (no error message) | User thinks widget is broken | Show loading spinner, error message if tiles fail |
+| Heatmap decodes all routes on load | 10-second page freeze, "Page Unresponsive" | Show loading progress, decode incrementally, render in batches |
+| No mobile touch support | Map unusable on phones (50%+ traffic) | Test on real devices, implement Shadow DOM event delegation |
+| Tiny map in widget (200px × 150px) | Can't see routes, tiles illegible | Minimum 400px × 300px, responsive sizing via container queries |
+| Map starts zoomed out to world view | User has to manually zoom to see activity | Auto-fit bounds to route/heatmap extent |
+| Attribution hidden or illegible | Legal violation, user doesn't know data source | Always visible in bottom-right, sufficient contrast |
+| Route colors all identical | Can't distinguish individual routes in heatmap | Color by date (gradient from old→new) or activity type |
+| No loading indicator for polyline decoding | User clicks widget, nothing happens for 5 seconds | Show "Loading 1,808 routes..." with progress bar |
+| Geocoding errors treated as hard failures | Widget crashes if one city lookup fails | Graceful degradation, show "X of Y activities geocoded" |
 
 ---
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Geographic Data:** Validated GPS coordinates exist before geocoding — verify not just truthy but actual lat/lng values
-- [ ] **Geocoding Cache:** Stored results committed to repo — verify JSON file exists and contains expected location data
-- [ ] **Incremental Processing:** Only geocodes new activities — verify script checks existing data, doesn't re-process
-- [ ] **Rate Limiting:** Bottleneck configured and awaited — verify requests throttled to 1-2/sec, not parallel flood
-- [ ] **API Key Security:** Never in browser bundle — verify grep -r "API_KEY" src/ returns nothing
-- [ ] **Widget Attributes:** Type parsing with validation — verify parseInt/parseFloat with NaN checks, not direct assignment
-- [ ] **Shadow DOM Styles:** Using Constructible Stylesheets — verify adoptedStyleSheets used, not <style> duplication
-- [ ] **Performance Budget:** Table renders <200ms for 50 rows — verify with performance.measure() in dev
-- [ ] **Error Handling:** Graceful degradation for missing GPS — verify "Unknown Location" not majority of results
-- [ ] **Data Quality Metadata:** Tracking geocoding success rate — verify stats show X of Y activities geocoded
-- [ ] **Indoor Activity Handling:** Filtered or categorized separately — verify not counted as geocoding failures
-- [ ] **Build-time Geocoding:** Runs in Node.js, not browser — verify script in scripts/, not src/
-- [ ] **Attribute Defaults:** Every attribute documented with default — verify README shows all attributes and fallback values
-- [ ] **Type Definitions:** Custom elements in HTMLElementTagNameMap — verify TypeScript autocomplete works
+Things that appear complete but are missing critical pieces.
+
+- [ ] **Map Widget:** Often missing attribution text — verify "© OpenStreetMap contributors" visible in bottom-right corner
+- [ ] **Map Widget:** Often missing mobile touch event support — verify pan/zoom works on iOS Safari, not just desktop Chrome
+- [ ] **Map Widget:** Often missing error handling for tile load failures — verify gray tiles show "Map tiles unavailable" message
+- [ ] **Leaflet Integration:** Often missing CSS injection into Shadow DOM — verify map displays correctly in custom element, not just standalone page
+- [ ] **Polyline Decoding:** Often missing performance optimization — verify 1,808 routes decode without UI freeze (use DevTools Performance tab)
+- [ ] **Geocoding Migration:** Often missing cache versioning — verify location-cache.json has `version` field and geocoder name
+- [ ] **Multi-City Data:** Often missing backward compatibility — verify old widgets still work with new data structure
+- [ ] **Bundle Size:** Often missing externalization check — verify Leaflet NOT bundled in IIFE (inspect with rollup-plugin-visualizer)
+- [ ] **Tile Provider:** Often missing usage policy compliance — verify using approved CDN, not openstreetmap.org directly
+- [ ] **Cache Invalidation:** Often missing strategy for geocoder changes — verify migration plan exists for switching geocoding libraries
+- [ ] **Mobile Testing:** Often skipped real device testing — verify widgets work on actual iOS/Android devices, not just emulators
+- [ ] **Rate Limiting:** Often missing monitoring for tile provider quotas — verify usage tracking if on paid/limited tier
 
 ---
 
 ## Recovery Strategies
 
+When pitfalls occur despite prevention, how to recover.
+
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| Exposed API key in committed code | MEDIUM | 1. Rotate key immediately 2. Rewrite git history (filter-branch) 3. Enable GitHub secret scanning 4. Add pre-commit hook |
-| Burned through geocoding quota | LOW-MEDIUM | 1. Wait for quota reset 2. Switch to free-tier provider (Nominatim) 3. Use cached results 4. Implement incremental processing |
-| 500+ activities with garbage locations | LOW | 1. Clear geocoding cache 2. Improve coordinate selection (use midpoint) 3. Add validation 4. Re-run batch geocoding |
-| Widget renders breaking host page styles | HIGH | 1. Switch to Shadow DOM (breaking change) 2. Namespace all CSS classes 3. Use :host selectors 4. Document migration guide |
-| Performance issues with 100+ row tables | LOW | 1. Add pagination (non-breaking) 2. Set max-items default to 20 3. Add virtual scrolling 4. Document performance notes |
-| Attribute type coercion bugs in production | MEDIUM | 1. Add validation/parsing utilities 2. Update all widgets 3. Add warning logs for invalid values 4. Document type expectations |
-| No GPS data for 30% of activities | LOW | 1. Add location inference fallback 2. Use timezone → country mapping 3. Display data quality metadata 4. Filter indoor activities |
-| CI builds taking 45+ minutes | LOW | 1. Implement incremental geocoding 2. Add activity hash to detect changes 3. Parallel API requests (10 concurrent) 4. Cache aggressively |
+| Leaflet CSS missing in Shadow DOM | LOW | Import CSS as string, inject into shadow root, redeploy |
+| Mobile events broken | MEDIUM | Add manual event delegation or switch to leaflet-map web component, requires code refactor |
+| Bundle size >500KB | MEDIUM | Externalize Leaflet to CDN, update Vite config, document CDN requirement for widget consumers |
+| Polyline decoding blocks UI | LOW | Add `requestIdleCallback()` chunking or move to Web Worker, 1-2 hour refactor |
+| Geocoding cache invalidated | LOW | Regenerate cache from scratch (10 minutes), commit new cache, redeploy |
+| Multi-city model breaks widgets | HIGH | Roll back data changes, implement versioned data files, migrate widgets one-by-one |
+| Tile rate limiting | LOW | Switch tile provider in config, add attribution, redeploy |
+| Map unresponsive on mobile | HIGH | Render maps outside Shadow DOM or use web component wrapper, architectural change |
+| Heatmap out of memory | MEDIUM | Implement viewport culling, limit default routes, add pagination controls |
+| Bundle leaked API key | CRITICAL | Rotate keys immediately, remove from bundle, implement server-side geocoding |
+| Missing attribution | MEDIUM | Add attribution control to all maps, redeploy, document in checklist |
 
 ---
 
 ## Pitfall-to-Phase Mapping
 
+How roadmap phases should address these pitfalls.
+
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| Reverse Geocoding API Cost Explosion | Phase 1: Geographic Data Extraction | API usage dashboard shows <2,000 total requests, incremental script runs <5min |
-| GPS Coordinate Quality Issues | Phase 1: Geographic Data Extraction | Geocoding success rate >70%, validation rejects invalid coords |
-| HTML Attribute Type Safety Collapse | Phase 3: Widget Customization | All attributes parse with validation, test suite covers invalid values |
-| Shadow DOM Table Rendering Performance | Phase 2: Geographic Table Widgets | 50 rows render <200ms, Lighthouse performance >90 |
-| Static Site API Key Exposure | Phase 1: Geographic Data Extraction | grep -r "API" src/ returns zero keys, bundle audit clean |
-| Strava Activity Data Lacking Coordinates | Phase 1: Geographic Data Extraction | Unknown Location <5% of results, metadata shows filtered count |
-| No Request Caching Across Builds | Phase 1: Geographic Data Extraction | Second build uses cache, completes in <2min vs 30min |
-| Attribute Parsing Infinite Loops | Phase 3: Widget Customization | No setAttribute in attributeChangedCallback, property flags used |
-| Chart.js Integration Memory Leaks | Phase 2: Geographic Table Widgets | chart.destroy() called before re-render, heap stable over time |
-| TypeScript Type Definition Missing | Phase 3: Widget Customization | HTMLElementTagNameMap extended, autocomplete works in VSCode |
+| Leaflet CSS missing in Shadow DOM | Phase 1 (Map Infrastructure) | Map renders correctly in custom element with zoom controls visible |
+| Mobile event handling broken | Phase 1 (Map Infrastructure) | Test passes on iOS Safari and Android Chrome physical devices |
+| IIFE bundle size explosion | Phase 1 (Map Infrastructure) | All map widget bundles <100KB when Leaflet externalized |
+| Polyline decoding performance | Phase 2 (Polyline Processing) | 1,808 routes decode in <2 seconds without blocking UI thread |
+| Geocoding library migration | Phase 0/1 (Planning/Geocoding Fix) | New cache versioned, old data archived, comparison documented |
+| Multi-city data model breakage | Phase 2 (Multi-City Model) | Old widgets load v1 data, new widgets load v2, both work simultaneously |
+| Tile provider rate limiting | Phase 1 (Map Infrastructure) | Approved tile CDN configured, attribution visible, usage monitored |
+| Mobile touch events | Phase 1 (Map Infrastructure) | Manual event delegation implemented if needed, tested on real devices |
+| Heatmap memory overflow | Phase 3 (Heatmap Widget) | Viewport culling active, default 100 routes, memory stays <200MB |
+| No tile attribution | Phase 1 (Map Infrastructure) | Attribution control visible on all map widgets |
+| Bundle size monitoring | Phase 1 (Map Infrastructure) | CI fails if any widget >250KB, rollup-plugin-visualizer in CI |
+| Geocoding cache versioning | Phase 1 (Geocoding Fix) | Cache includes version field, migration plan documented |
 
 ---
 
 ## Sources
 
-### Reverse Geocoding & APIs
-- [Google Maps Geocoding API Usage and Billing](https://developers.google.com/maps/documentation/geocoding/usage-and-billing) - Rate limits (3,000 QPM), pricing ($5/1K), quota management
-- [Guide To Geocoding API Pricing - February 13, 2026](https://mapscaping.com/guide-to-geocoding-api-pricing/) - Comparison of provider costs and free tiers
-- [Optimizing Quota Usage When Geocoding](https://developers.google.com/maps/documentation/geocoding/geocoding-strategies) - Best practices for batch processing and caching
-- [OpenCage Geocoding API Documentation](https://opencagedata.com/api) - Rate limiting approaches and soft limits
-- [Batch Geocoding - Bulk Convert Addresses](https://www.geoapify.com/solutions/batch-geocoding-requests/) - Efficient batch processing strategies
-- [Reverse Geocoding API: Complete Developer Guide](https://scrap.io/reverse-geocoding-api-comparison-save-costs) - Cost comparison and optimization
+### Primary Sources (HIGH confidence)
+- [Problems using Leaflet inside Shadow DOM · Issue #3246](https://github.com/Leaflet/Leaflet/issues/3246) — CSS injection solution for Shadow DOM
+- [Zoom controls broken in Shadow DOM on mobile Chrome · Issue #3752](https://github.com/Leaflet/Leaflet/issues/3752) — Android touch event issues
+- [Click events don't work in the shadow DOM on iOS · Issue #6705](https://github.com/Leaflet/Leaflet/issues/6705) — iOS Safari event handling
+- [Vite Build Options](https://vite.dev/config/build-options) — External dependencies, rollup configuration
+- [Library mode: How should I manage external dependencies? · Discussion #6198](https://github.com/vitejs/vite/discussions/6198) — Vite externalization patterns
+- [@mapbox/polyline GitHub](https://github.com/mapbox/polyline) — Polyline encoding/decoding library
+- [Polyline Decoder Guide 2025](https://nextbillion.ai/blog/polyline-encoder-decoder-tool-guide-2025) — Performance optimization strategies
+- [Leaflet Provider Demo](https://leaflet-extras.github.io/leaflet-providers/preview/) — Tile provider options and attribution requirements
+- [5 Caching Strategies for Large-Scale Geospatial Data](https://www.maplibrary.org/11469/5-caching-strategies-for-large-scale-geospatial-data/) — Cache invalidation strategies
+- [Evolutionary Database Design](https://martinfowler.com/articles/evodb.html) — Schema migration best practices
 
-### Strava GPS Data Quality
-- [Bad GPS Data – Strava Support](https://support.strava.com/hc/en-us/articles/216917707-Bad-GPS-Data) - Official documentation on GPS issues
-- [Why is GPS data sometimes inaccurate?](https://support.strava.com/hc/en-us/articles/216917917-Why-is-GPS-data-sometimes-inaccurate) - Common accuracy problems
-- [Strava Activities Project - Data Preparation](https://leavittmapping.com/projectpages/stravamapserverside) - Real-world GPS data processing challenges
-- [GPS Coordinates Precision and Accuracy](https://www.smarty.com/docs/geocoding-accuracy) - Understanding decimal precision and accuracy types
-- [What You Need to Know About the 2026 GPS Shift](https://www.precisionfarmingdealer.com/articles/6763-what-you-need-to-know-about-the-2026-gps-shift) - NAD 83 vs NATRF2022 datum changes
+### Secondary Sources (MEDIUM confidence)
+- [leaflet-extras/leaflet-map GitHub](https://github.com/leaflet-extras/leaflet-map) — Web component wrapper for Leaflet
+- [Drawing Thousands of Polylines via Google Maps API V3](https://spin.atomicobject.com/2020/12/02/multiple-polylines-google-maps-api/) — Performance benchmarks for large polyline datasets
+- [offline-geocoder npm](https://www.npmjs.com/package/offline-geocoder) — GeoNames-based geocoding alternatives
+- [GeoNames: The only terrible choice we have](https://tonyshowoff.com/articles/geonames-the-only-terrible-choice-we-have/) — GeoNames data quality issues
+- [Advanced Data Structures in JSON: Nested Objects & Arrays](https://blog.liquid-technologies.com/advanced-data-structures-in-json-part-3-of-4) — JSON schema evolution patterns
+- [Common Challenges in Schema Migration](https://medium.com/@adamf_64691/common-challenges-in-schema-migration-how-to-overcome-them-49ae26859c96) — Data model migration strategies
+- [8 Ways to Optimize Your JavaScript Bundle Size](https://about.codecov.io/blog/8-ways-to-optimize-your-javascript-bundle-size/) — Bundle optimization techniques
 
-### Web Components & Type Safety
-- [A Complete Introduction to Web Components in 2026](https://kinsta.com/blog/web-components/) - Modern best practices including TypeScript integration
-- [Using Attributes and Properties in Custom Elements](https://ultimatecourses.com/blog/using-attributes-and-properties-in-custom-elements) - Attribute reflection patterns
-- [Attributes and Properties: Open Web Components](https://open-wc.org/guides/knowledge/attributes-and-properties/) - Type coercion and validation strategies
-- [The Flaws Of Web Components](https://www.thinktecture.com/en/web-components/web-components-flaws/) - Common pitfalls including infinite loops
-- [Making Web Component Properties Behave Closer to Platform](https://blog.ltgt.net/web-component-properties/) - Reflection behaviors and best practices
-- [How to Use Web Components with TypeScript](https://blog.pixelfreestudio.com/how-to-use-web-components-with-typescript/) - Type definitions and strict mode
-
-### Shadow DOM Performance
-- [Optimizing Rendering Performance in Web Components](https://medium.com/@sudheer.gowrigari/optimizing-rendering-performance-in-web-components-a-comprehensive-guide-a507ba4afe19) - Performance optimization techniques
-- [Does Shadow DOM Improve Style Performance?](https://nolanlawson.com/2021/08/15/does-shadow-dom-improve-style-performance/) - Performance analysis and benchmarks
-- [Pros and Cons of Shadow DOM](https://www.matuzo.at/blog/2023/pros-and-cons-of-shadow-dom/) - Trade-offs and when to use Light DOM
-- [The Impact of Web Components on Web Performance](https://blog.pixelfreestudio.com/the-impact-of-web-components-on-web-performance/) - DOM complexity and rendering costs
-
-### Static Site Security
-- [Hiding API Keys on GitHub Pages](https://github.com/orgs/community/discussions/57070) - Fundamental limitations of static sites
-- [The Rising Risk of Exposed ChatGPT API Keys](https://cyble.com/blog/when-ai-secrets-go-public-chatgpt/) - Real-world 2026 exposure incidents
-- [8000+ ChatGPT API Keys Left Exposed Across GitHub](https://thecyberexpress.com/exposed-chatgpt-api-keys-github-websites/) - Scale of client-side key exposure problem
-- [Securing API Credentials When Deploying to GitHub Pages](https://community.latenode.com/t/securing-api-credentials-when-deploying-to-github-pages/14194) - Static site security patterns
-
-### Build Tools & Integration
-- [Bundling Web Components with Vite](https://docs.mia-platform.eu/docs/products/microfrontend-composer/external-components/bundling) - IIFE bundle configuration
-- [Vite and React-to-Web-Component](https://www.bitovi.com/blog/react-everywhere-with-vite-and-react-to-webcomponent) - Multi-entry build considerations
-- [Building Embeddable React Widgets](https://makerkit.dev/blog/tutorials/embeddable-widgets-react) - Shadow DOM and CORS patterns
-- [GitHub Actions Rate Limiting](https://www.cazzulino.com/github-actions-rate-limiting.html) - CI rate limit management
-- [Managing Rate Limits for GitHub API](https://www.lunar.dev/post/a-developers-guide-managing-rate-limits-for-the-github-api) - Best practices for automated workflows
-
-### TypeScript & Type Definitions
-- [Defining a Component – Lit](https://lit.dev/docs/components/defining/) - HTMLElementTagNameMap pattern
-- [Custom Element Types Generator](https://github.com/blueprintui/custom-element-types) - Automated type definition generation
-- [How to Add Custom HTML Tags in TSX: 2026](https://copyprogramming.com/howto/how-to-add-custom-html-tag-tsx) - Module augmentation for custom elements
-
-### Offline Geocoding & Alternatives
-- [offline-geocoder - Node Library](https://github.com/lucaspiller/offline-geocoder) - Build-time geocoding without API calls
-- [reverse-geocoder - Python Library](https://github.com/thampiman/reverse-geocoder) - K-D tree spatial indexing for offline use
-- [Nominatim](https://nominatim.org/) - OpenStreetMap-based free geocoding alternative
+### Tertiary Sources (LOW confidence - needs validation)
+- Static tile server on GitHub Pages (madefor/static-tile-server) — mentioned but not verified for production use
+- Exact mobile browser event handling quirks — based on GitHub issues but versions may have changed
+- Specific bundle size thresholds (500KB, 200 routes) — estimated from research, should be validated with actual measurements in Phase 1
 
 ---
 
-*Pitfalls research for: Strava Analytics v1.1 - Geographic Data & Widget Customization*
-*Researched: 2026-02-14*
-*Focus: Integration pitfalls when adding geographic extraction, statistics, table widgets, and HTML attribute customization to existing TypeScript/Vite/Chart.js platform on GitHub Pages*
+*Pitfalls research for: Strava Analytics Maps & Geocoding Evolution Milestone*
+*Researched: 2026-02-16*
+*Confidence: HIGH (based on official Leaflet issues, Vite documentation, established Shadow DOM patterns)*
