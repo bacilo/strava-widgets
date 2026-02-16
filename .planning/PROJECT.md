@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A personal Strava data pipeline and visualization platform that fetches run data via the Strava API, computes custom statistics (aggregations, streaks, trends, patterns), and produces embeddable widgets deployed to GitHub Pages. Widgets embed on a Jekyll+Astro personal website at bacilo.github.io via script tags. Lives in its own repo (strava-widgets), with a daily GitHub Actions pipeline for automated refresh.
+A personal Strava data pipeline and visualization platform that fetches run data via the Strava API, computes custom statistics (aggregations, streaks, trends, patterns, geographic data), and produces embeddable Custom Element widgets deployed to GitHub Pages. Five widget types cover stats, comparisons, streaks, geographic tables, and geographic statistics — all configurable via HTML attributes with dark/light theming and responsive sizing. Lives in its own repo (strava-widgets), with a daily GitHub Actions pipeline for automated refresh including non-blocking geocoding.
 
 ## Core Value
 
@@ -20,13 +20,17 @@ Compute and visualize running statistics that Strava doesn't readily offer, embe
 - ✓ Streak and pattern detection (consecutive run days, time-of-day, seasonal trends) — v1.0
 - ✓ Embeddable widget system for static site consumption — v1.0
 - ✓ Data refresh pipeline (daily automated rebuild via GitHub Actions) — v1.0
+- ✓ Geographic data extraction from activities (countries, cities from GPS coordinates) — v1.1
+- ✓ Geographic statistics (runs/distance per city and country, ranked lists, CSV export) — v1.1
+- ✓ Geographic table widget with sortable columns and pagination — v1.1
+- ✓ Widget customization via HTML data-attributes (title, labels, colors, size, theme) — v1.1
+- ✓ Dark/light mode support with auto-detection — v1.1
+- ✓ Responsive container-based widget sizing — v1.1
+- ✓ All widgets migrated to Custom Elements — v1.1
 
 ### Active
 
-- [ ] Geographic data extraction and storage (countries, cities from activities)
-- [ ] Geographic statistics (runs per city/country, km per country, ranked lists)
-- [ ] Geographic table/list widgets for embedding
-- [ ] Widget customization system (HTML attributes with defaults for title, labels, colors, size)
+(None — planning next milestone)
 
 ### Out of Scope
 
@@ -41,25 +45,19 @@ Compute and visualize running statistics that Strava doesn't readily offer, embe
 - Animated run playback on maps — deferred to future milestone
 - Street View playback along runs — deferred to future milestone
 - Maps as post/page backgrounds — deferred to future milestone
-
-## Current Milestone: v1.1 Geographic & Widget Customization
-
-**Goal:** Add geographic running statistics with embeddable table/list widgets, and make all widgets customizable via HTML attributes.
-
-**Target features:**
-- Geographic data extraction from Strava activities (countries, cities)
-- Geographic statistics computation (runs per city/country, km per country, ranked lists)
-- Table/list widgets for geographic data
-- Widget customization system (title, labels, colors, size via HTML attributes with defaults)
+- Street-level geocoding — city-level is sufficient, poor accuracy at finer granularity
+- Unlimited theme customization — controlled CSS variable presets, prevents layout breakage
+- Every-street completion (Wandrer clone) — massive complexity, OpenStreetMap integration
 
 ## Context
 
-Shipped v1.0 with 3,844 LOC TypeScript/JS across 9 plans in 1 day.
-Tech stack: TypeScript, Node.js 22, Chart.js, Vite (IIFE bundles), Shadow DOM, GitHub Actions.
-1,808 run activities synced from Strava. 3 widget types deployed to GitHub Pages.
+Shipped v1.0 + v1.1 with 6,702 LOC TypeScript across 19 plans in 4 days.
+Tech stack: TypeScript, Node.js 22, Chart.js, Vite (IIFE bundles), Custom Elements, Shadow DOM, GitHub Actions.
+1,808 run activities synced from Strava. 5 Custom Element widgets deployed to GitHub Pages.
+Geographic coverage: 23 countries, 57 cities from 92% of activities (offline geocoding, zero API calls).
 Repository: github.com/bacilo/strava-widgets (public).
 
-**Future vision (noted for v1.2+):** Interactive maps with run routes, static "picture frame" maps, map styling themes (topographic, neon, minimal), maps as post backgrounds, animated run playback, Street View playback along runs.
+**Future vision (noted for v1.2+):** Interactive maps with run routes, static "picture frame" maps, map styling themes (topographic, neon, minimal), maps as post backgrounds, animated run playback, Street View playback along runs, choropleth country maps, region completion badges.
 
 ## Constraints
 
@@ -67,6 +65,7 @@ Repository: github.com/bacilo/strava-widgets (public).
 - **API**: Strava API rate limits (100 requests per 15 minutes, 1000 per day) — data cached locally
 - **Auth**: Strava OAuth refresh token flow — tokens stored in GitHub Secrets + committed tokens.json
 - **Embedding**: Widgets must work within Jekyll+Astro pages as self-contained IIFE bundles
+- **Geocoding**: Offline only (offline-geocode-city library) — no external API calls
 
 ## Key Decisions
 
@@ -82,6 +81,15 @@ Repository: github.com/bacilo/strava-widgets (public).
 | CI token bootstrap pattern | First run uses secret, subsequent runs use committed tokens | ✓ Good |
 | TDD for streak logic | Complex edge cases benefit from test-first | ✓ Good |
 | UTC everywhere for dates | Timezone safety, consistent across environments | ✓ Good |
+| Offline geocoding (offline-geocode-city) | Zero API calls, no rate limits, no cost, 217KB library | ✓ Good |
+| Git-tracked location cache | >90% cache hit rate across CI builds, 114 unique locations | ✓ Good |
+| Coordinate rounding (4 decimal places) | ≈11m precision balances accuracy with cache efficiency | ✓ Good |
+| Native Custom Elements API | Zero dependencies, full attribute lifecycle control | ✓ Good |
+| ResizeObserver + requestAnimationFrame | Prevents "ResizeObserver loop" browser errors | ✓ Good |
+| Constructible Stylesheets for tables | Shared CSS across widget instances, reduced memory | ✓ Good |
+| Non-blocking geocoding in CI | Geo failures don't halt stats pipeline | ✓ Good |
+| Distance ranking over activity count | More meaningful geographic statistics | ✓ Good |
+| UTF-8 BOM for CSV export | Special characters display correctly in Excel | ✓ Good |
 
 ---
-*Last updated: 2026-02-14 after v1.1 milestone start*
+*Last updated: 2026-02-16 after v1.1 milestone*
