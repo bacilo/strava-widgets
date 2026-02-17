@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-16)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 12 - Heatmap and Pin Map Widgets
+**Current focus:** Phase 13 - Standalone Pages
 
 ## Current Position
 
-Phase: 12 of 13 (Heatmap and Pin Map Widgets)
-Plan: 2 of 2 in current phase
+Phase: 13 of 13 (Standalone Pages)
+Plan: 1 of 1 in current phase
 Status: Complete
-Last activity: 2026-02-17 — Completed 12-01 (Heatmap widget) and 12-02 (Pin map widget)
+Last activity: 2026-02-17 — Completed 13-01 (Standalone pages with navigation)
 
-Progress: [████████████████████████░░░░] 92% (24/26 total plans across all phases)
+Progress: [█████████████████████████░░░] 96% (25/26 total plans across all phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 24
-- Average duration: ~20 min per plan (estimated from v1.0 + v1.1 + v1.2)
-- Total execution time: ~15 hours
+- Total plans completed: 25
+- Average duration: ~15 min per plan (estimated from v1.0 + v1.1 + v1.2)
+- Total execution time: ~15.5 hours
 
 **By Milestone:**
 
@@ -32,11 +32,11 @@ Progress: [███████████████████████
 | v1.2 (in progress) | 6 | TBD | TBD |
 
 **Recent Trend:**
-- Phase 11-02 (3 min) — Single-run and multi-run map widgets
 - Phase 11-03 (4 min) — Route browser widget
 - Phase 12-01 (5.5 min) — Heatmap widget
 - Phase 12-02 (4 min) — Pin map widget
-- Trend: Excellent (Phase 12 complete: heatmap and pin map widgets, 11 total widgets deployed)
+- Phase 13-01 (3 min) — Standalone pages with navigation
+- Trend: Excellent (Phase 13 complete: standalone full-page views for all map widgets)
 
 *Updated after each plan completion*
 
@@ -73,6 +73,10 @@ Recent decisions affecting current work:
 - **Phase 12-02**: Bundle markercluster within widget instead of externalizing (simpler CDN setup, only 37KB overhead)
 - **Phase 12-02**: Quintile-based color scale for distance encoding (teal to orange, 5 levels) provides clear visual hierarchy
 - **Phase 12-02**: Average city coordinates for country-level centroids (simple, accurate for world-scale view)
+- **Phase 13-01**: Vite multi-page build with root: 'src/pages' for clean output paths (pages at dist/widgets/ root, not nested)
+- **Phase 13-01**: WidgetBase attribute overrides (data-max-width="none", data-padding="0") for full-page layouts vs embedded widgets
+- **Phase 13-01**: Navigation bar absolutely positioned overlay prevents covering Leaflet map controls
+- **Phase 13-01**: Standalone pages load existing IIFE bundles via script src (zero code duplication)
 
 ### Key Findings
 
@@ -107,8 +111,8 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed Phase 12-01 (Heatmap widget) and 12-02 (Pin map widget) — Phase 12 complete
+Stopped at: Completed Phase 13-01 (Standalone pages) — Phase 13 complete
 Resume file: None
 
 ---
-*Last updated: 2026-02-17 after Phase 12-01 and 12-02 completion*
+*Last updated: 2026-02-17 after Phase 13-01 completion*
