@@ -81,12 +81,11 @@ Plans:
   6. User can click a pin to see run count, distance, and visit dates
   7. User can toggle between country-level and city-level pin views
   8. Pin size or color reflects activity count (visual data encoding)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 12-01: TBD
-- [ ] 12-02: TBD
-- [ ] 12-03: TBD
+- [ ] 12-01-PLAN.md — Heatmap widget with pre-computed data, date filtering, and color schemes
+- [ ] 12-02-PLAN.md — Pin map widget with city/country toggle, popups, and visual encoding
 
 #### Phase 13: Standalone Pages
 **Goal**: Full-page versions of map visualizations for dedicated viewing
@@ -120,8 +119,8 @@ Phases execute in numeric order: 10 → 11 → 12 → 13
 | 9. CI/CD Integration | v1.1 | 2/2 | Complete | 2026-02-16 |
 | 10. Geocoding Foundation & Map Infrastructure | v1.2 | Complete    | 2026-02-17 | - |
 | 11. Route Map Widgets | v1.2 | Complete    | 2026-02-17 | - |
-| 12. Heatmap & Pin Map Widgets | v1.2 | 0/TBD | Not started | - |
+| 12. Heatmap & Pin Map Widgets | v1.2 | 0/2 | Not started | - |
 | 13. Standalone Pages | v1.2 | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-02-17 after Phase 11 planning*
+*Last updated: 2026-02-17 after Phase 12 planning*
