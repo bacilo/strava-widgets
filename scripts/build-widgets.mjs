@@ -151,6 +151,28 @@ function copyDataFiles() {
   }
 }
 
+async function buildPages() {
+  console.log('\nBuilding standalone pages...');
+  await build({
+    root: 'src/pages',
+    build: {
+      outDir: '../../dist/widgets',
+      emptyDir: false,
+      rollupOptions: {
+        input: {
+          heatmap: resolve(__dirname, '../src/pages/heatmap.html'),
+          pinmap: resolve(__dirname, '../src/pages/pinmap.html'),
+          routes: resolve(__dirname, '../src/pages/routes.html'),
+        },
+      },
+      target: 'es2020',
+      minify: 'terser',
+    },
+    logLevel: 'warn',
+  });
+  console.log('✓ Built standalone pages (heatmap.html, pinmap.html, routes.html)');
+}
+
 async function buildAllWidgets() {
   console.log('Building widget library...\n');
 
@@ -160,6 +182,9 @@ async function buildAllWidgets() {
 
   // Copy data JSON files into dist/widgets so they're deployed to GitHub Pages
   copyDataFiles();
+
+  // Build standalone pages
+  await buildPages();
 
   console.log('\nWidget library build complete!');
   console.log('Output: dist/widgets/');
