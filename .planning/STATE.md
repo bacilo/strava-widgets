@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-16)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 10 - Geocoding Foundation & Map Infrastructure
+**Current focus:** Phase 11 - Route Map Widgets
 
 ## Current Position
 
-Phase: 10 of 13 (Geocoding Foundation & Map Infrastructure)
-Plan: 4 of 4 in current phase
+Phase: 11 of 13 (Route Map Widgets)
+Plan: 1 of 3 in current phase
 Status: Complete
-Last activity: 2026-02-17 — Completed 10-04 (PNG module type declarations)
+Last activity: 2026-02-17 — Completed 11-01 (Route data infrastructure and RouteRenderer utility)
 
-Progress: [█████████████████████░░░░░░░] 81% (21/26 total plans across all phases)
+Progress: [██████████████████████░░░░░░] 85% (22/26 total plans across all phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 21
-- Average duration: ~37 min per plan (estimated from v1.0 + v1.1 + v1.2)
-- Total execution time: ~14.4 hours
+- Total plans completed: 22
+- Average duration: ~35 min per plan (estimated from v1.0 + v1.1 + v1.2)
+- Total execution time: ~14.5 hours
 
 **By Milestone:**
 
@@ -29,11 +29,11 @@ Progress: [█████████████████████░░
 |-----------|-------|-----|----------|
 | v1.0 | 9 | 3,844 | 1 day |
 | v1.1 | 10 | +2,858 | 3 days |
-| v1.2 (in progress) | 4 | TBD | TBD |
+| v1.2 (in progress) | 5 | TBD | TBD |
 
 **Recent Trend:**
-- Last plan: Phase 10-04 (1 min) — Gap closure for TypeScript compilation
-- Trend: Excellent (Phase 10 complete, all verification criteria met)
+- Last plan: Phase 11-01 (3 min) — Route data infrastructure
+- Trend: Excellent (Route data pre-computation reduces widget payload by 72%)
 
 *Updated after each plan completion*
 
@@ -56,6 +56,9 @@ Recent decisions affecting current work:
 - **Phase 10-03**: Externalized Leaflet to CDN (global L) to keep widget bundles < 50KB
 - **Phase 10-03**: Used vite-plugin-css-injected-by-js for Shadow DOM CSS injection
 - **Phase 10-04**: Used *.png wildcard module declaration (not specific marker icon paths) for broader compatibility
+- **Phase 11-01**: Pre-compute route data into optimized JSON files (2.0 MB) instead of loading full activity data (7.1 MB) in widgets — 72% payload reduction
+- **Phase 11-01**: Created shared RouteRenderer utility to avoid duplicating polyline decode, auto-fit, and popup logic across three route widgets
+- **Phase 11-01**: HSL color distribution for multi-route rendering provides visually distinct colors via hue rotation
 
 ### Key Findings
 
@@ -90,8 +93,8 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed Phase 10-04 (PNG module type declarations) — Phase 10 fully verified and complete
+Stopped at: Completed Phase 11-01 (Route data infrastructure and RouteRenderer utility)
 Resume file: None
 
 ---
-*Last updated: 2026-02-17 after Phase 10-04 completion*
+*Last updated: 2026-02-17 after Phase 11-01 completion*
