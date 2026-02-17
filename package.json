@@ -15,6 +15,7 @@
     "compute-all-stats": "node dist/index.js compute-all-stats",
     "build-widget": "vite build",
     "build-widgets": "node scripts/build-widgets.mjs",
+    "compare-geocoding": "node scripts/compare-geocoding.mjs",
     "fetch": "npm run build && node dist/index.js sync",
     "process": "npm run build && node dist/index.js compute-all-stats",
     "test": "vitest run",
