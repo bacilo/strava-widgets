@@ -14,6 +14,7 @@
     "compute-geo-stats": "node dist/index.js compute-geo-stats",
     "compute-all-stats": "node dist/index.js compute-all-stats",
     "compute-route-data": "node scripts/compute-route-data.mjs",
+    "compute-heatmap-data": "node scripts/compute-heatmap-data.mjs",
     "build-widget": "vite build",
     "build-widgets": "node scripts/build-widgets.mjs",
     "compare-geocoding": "node scripts/compare-geocoding.mjs",
@@ -31,6 +32,8 @@
     "chart.js": "^4.5.1",
     "dotenv": "^17.3.1",
     "leaflet": "^1.9.4",
+    "leaflet.heat": "^0.2.0",
+    "leaflet.markercluster": "^1.5.3",
     "offline-geocoder": "^1.0.0",
     "p-retry": "^7.1.1"
   },
