@@ -19,6 +19,7 @@ const BASE_WIDGET_STYLES = `
   width: var(--widget-width, 100%);
   max-width: var(--widget-max-width, 800px);
   padding: var(--widget-padding, 20px);
+  height: var(--widget-height, auto);
 
   /* Enable container queries for CSS-only responsive design */
   container-type: inline-size;
@@ -77,6 +78,7 @@ export abstract class WidgetBase extends HTMLElement {
     'data-theme',
     'data-width',
     'data-max-width',
+    'data-height',
     'data-padding',
     'data-bg',
     'data-text-color',
@@ -168,7 +170,7 @@ export abstract class WidgetBase extends HTMLElement {
    * Check if attribute is a style-related attribute (doesn't require data re-fetch)
    */
   private isStyleAttribute(name: string): boolean {
-    const styleAttrs = ['data-width', 'data-max-width', 'data-padding', 'data-bg', 'data-text-color', 'data-accent'];
+    const styleAttrs = ['data-width', 'data-max-width', 'data-height', 'data-padding', 'data-bg', 'data-text-color', 'data-accent'];
     return styleAttrs.includes(name);
   }
 
@@ -185,6 +187,12 @@ export abstract class WidgetBase extends HTMLElement {
     const maxWidth = this.getAttribute('data-max-width');
     if (maxWidth) {
       this.style.setProperty('--widget-max-width', parseCSSValue(maxWidth, '800px'));
+    }
+
+    const height = this.getAttribute('data-height');
+    if (height) {
+      this.style.setProperty('--widget-height', parseCSSValue(height, 'auto'));
+      this.style.height = parseCSSValue(height, 'auto');
     }
 
     const padding = this.getAttribute('data-padding');
