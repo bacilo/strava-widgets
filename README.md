@@ -4,11 +4,24 @@ Embeddable web components for visualizing Strava running data on personal websit
 
 ## Features
 
+### Statistics Widgets
 - **Stats Card**: Display all-time running totals with year-over-year comparisons, showing distance, time, elevation gain, and run counts
 - **Comparison Chart**: Interactive bar charts visualizing seasonal trends and time period comparisons using Chart.js
 - **Streak Widget**: Track consecutive run days, time-of-day activity patterns with radar charts, and monthly heatmaps
 - **Geographic Statistics**: Country and city rankings based on distance covered, with CSV export functionality
 - **Geographic Table**: Sortable, paginated tables showing detailed geographic data with interactive column sorting
+
+### Map Widgets
+- **Heatmap**: All runs visualized as a density heatmap with date range filtering and color scheme options
+- **Route Browser**: Browse a scrollable list of runs and view each route on an interactive map
+- **Single Run Map**: Display one activity's route on a map with auto-fit viewport and popup details
+- **Multi-Run Overlay**: Latest N runs overlaid on a single map with distinct colors
+- **Pin Map**: World map with pins for each city/country visited, with clickable popups and clustering
+
+### Standalone Pages
+- **[Heatmap](https://bacilo.github.io/strava-widgets/heatmap.html)**: Full-page heatmap visualization
+- **[Pin Map](https://bacilo.github.io/strava-widgets/pinmap.html)**: Full-page pin map
+- **[Route Browser](https://bacilo.github.io/strava-widgets/routes.html)**: Full-page route browser
 
 ## Quick Start
 
@@ -125,6 +138,102 @@ Sortable, paginated tables showing detailed geographic statistics.
 </strava-geo-table>
 ```
 
+### Map Widget Prerequisites
+
+All map widgets require the Leaflet library loaded via CDN. Add this once before any map widget:
+
+```html
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+```
+
+### Heatmap
+
+All runs visualized as a density heatmap with date range filtering and color scheme customization.
+
+- **Tag**: `<heatmap-widget>`
+- **Required**: `data-url` (all-points.json)
+- **Optional**: `data-height`, `data-color-scheme`
+
+```html
+<script src="https://bacilo.github.io/strava-widgets/heatmap-widget.iife.js"></script>
+
+<heatmap-widget
+  data-url="https://bacilo.github.io/strava-widgets/data/heatmap/all-points.json"
+  data-height="500px">
+</heatmap-widget>
+```
+
+### Route Browser
+
+Browse a scrollable list of runs and view each route on an interactive map with basemap selection.
+
+- **Tag**: `<route-browser>`
+- **Required**: `data-url` (route-list.json)
+- **Optional**: `data-height`
+
+```html
+<script src="https://bacilo.github.io/strava-widgets/route-browser.iife.js"></script>
+
+<route-browser
+  data-url="https://bacilo.github.io/strava-widgets/data/routes/route-list.json"
+  data-height="500px">
+</route-browser>
+```
+
+### Single Run Map
+
+Display one activity's route on a map with auto-fit viewport, popup details, and basemap selection.
+
+- **Tag**: `<single-run-map>`
+- **Required**: `data-url` (route-list.json)
+- **Optional**: `data-activity-id`, `data-height`
+
+```html
+<script src="https://bacilo.github.io/strava-widgets/single-run-map.iife.js"></script>
+
+<single-run-map
+  data-url="https://bacilo.github.io/strava-widgets/data/routes/route-list.json"
+  data-activity-id="17257505831"
+  data-height="400px">
+</single-run-map>
+```
+
+### Multi-Run Overlay
+
+Latest N runs overlaid on a single map with distinct colors, combined bounds, and click popups.
+
+- **Tag**: `<multi-run-overlay>`
+- **Required**: `data-url` (route-list.json)
+- **Optional**: `data-count` (default 10), `data-height`
+
+```html
+<script src="https://bacilo.github.io/strava-widgets/multi-run-overlay.iife.js"></script>
+
+<multi-run-overlay
+  data-url="https://bacilo.github.io/strava-widgets/data/routes/route-list.json"
+  data-count="10"
+  data-height="500px">
+</multi-run-overlay>
+```
+
+### Pin Map
+
+World map with pins for each city/country visited. Click pins for run count, distance, and dates.
+
+- **Tag**: `<pin-map-widget>`
+- **Required**: `data-url` (cities.json)
+- **Optional**: `data-height`
+
+```html
+<script src="https://bacilo.github.io/strava-widgets/pin-map-widget.iife.js"></script>
+
+<pin-map-widget
+  data-url="https://bacilo.github.io/strava-widgets/data/geo/cities.json"
+  data-height="500px">
+</pin-map-widget>
+```
+
 ## Common Attributes
 
 All widgets inherit from `WidgetBase` and support these common attributes:
@@ -134,6 +243,7 @@ All widgets inherit from `WidgetBase` and support these common attributes:
 | `data-url` | string | (required) | URL to primary data JSON file |
 | `data-secondary-url` | string | - | URL to secondary data JSON file |
 | `data-title` | string | - | Custom widget title |
+| `data-height` | string | varies | Widget height (CSS value, e.g. "500px", "100dvh") |
 | `data-show-title` | boolean | true | Show or hide the title |
 | `data-theme` | "light" \| "dark" | auto | Color theme (auto-detects from system) |
 | `data-width` | string | "100%" | Widget width |
@@ -218,8 +328,11 @@ The project includes an automated GitHub Actions workflow that runs daily at 5:0
 
 The pipeline includes non-blocking geocoding so widget deployment continues even if geocoding fails. View the live widgets at:
 
-- **Widget test page**: [bacilo.github.io/strava-widgets/test.html](https://bacilo.github.io/strava-widgets/test.html)
-- **Widget index**: [bacilo.github.io/strava-widgets/index.html](https://bacilo.github.io/strava-widgets/index.html)
+- **Widget index**: [bacilo.github.io/strava-widgets](https://bacilo.github.io/strava-widgets/) — embed codes for all widgets
+- **Heatmap**: [bacilo.github.io/strava-widgets/heatmap.html](https://bacilo.github.io/strava-widgets/heatmap.html)
+- **Pin Map**: [bacilo.github.io/strava-widgets/pinmap.html](https://bacilo.github.io/strava-widgets/pinmap.html)
+- **Route Browser**: [bacilo.github.io/strava-widgets/routes.html](https://bacilo.github.io/strava-widgets/routes.html)
+- **Test page**: [bacilo.github.io/strava-widgets/test.html](https://bacilo.github.io/strava-widgets/test.html) — live widget previews
 
 ## Data Attribution
 
@@ -241,10 +354,11 @@ Example attribution:
 
 - **Language**: TypeScript
 - **Runtime**: Node.js 22
-- **Visualization**: Chart.js (bar charts, radar charts)
+- **Visualization**: Chart.js (bar charts, radar charts), Leaflet (interactive maps)
 - **Build Tool**: Vite (IIFE bundles)
 - **Architecture**: Web Components, Shadow DOM, Custom Elements API
-- **Geocoding**: offline-geocode-city (zero API calls, 217 KB)
+- **Maps**: Leaflet with leaflet.heat and leaflet.markercluster (externalized to CDN)
+- **Geocoding**: offline-geocoder with GeoNames cities1000 (166K cities, zero API calls)
 - **CI/CD**: GitHub Actions
 - **Deployment**: GitHub Pages
 

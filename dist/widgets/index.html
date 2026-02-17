@@ -143,6 +143,66 @@
     </div>
 
     <div class="widget">
+      <h2>Map Widgets</h2>
+      <p>All map widgets require the Leaflet CDN script. Add this once before any map widget:</p>
+      <pre><code>&lt;!-- Required for all map widgets --&gt;
+&lt;script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"&gt;&lt;/script&gt;
+&lt;script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"&gt;&lt;/script&gt;</code></pre>
+    </div>
+
+    <div class="widget">
+      <h2>Heatmap Widget</h2>
+      <p>All runs visualized as a density heatmap with date range filtering and color scheme options.</p>
+      <pre><code>&lt;heatmap-widget
+  data-url="https://bacilo.github.io/strava-widgets/data/heatmap/all-points.json"
+  data-height="500px"&gt;
+&lt;/heatmap-widget&gt;
+&lt;script src="https://bacilo.github.io/strava-widgets/heatmap-widget.iife.js"&gt;&lt;/script&gt;</code></pre>
+    </div>
+
+    <div class="widget">
+      <h2>Route Browser Widget</h2>
+      <p>Browse a scrollable list of runs and view each route on an interactive map with basemap selection.</p>
+      <pre><code>&lt;route-browser
+  data-url="https://bacilo.github.io/strava-widgets/data/routes/route-list.json"
+  data-height="500px"&gt;
+&lt;/route-browser&gt;
+&lt;script src="https://bacilo.github.io/strava-widgets/route-browser.iife.js"&gt;&lt;/script&gt;</code></pre>
+    </div>
+
+    <div class="widget">
+      <h2>Single Run Map Widget</h2>
+      <p>Display one activity's route on an interactive map with auto-fit, popup details, and basemap selection.</p>
+      <pre><code>&lt;single-run-map
+  data-url="https://bacilo.github.io/strava-widgets/data/routes/route-list.json"
+  data-activity-id="17257505831"
+  data-height="400px"&gt;
+&lt;/single-run-map&gt;
+&lt;script src="https://bacilo.github.io/strava-widgets/single-run-map.iife.js"&gt;&lt;/script&gt;</code></pre>
+    </div>
+
+    <div class="widget">
+      <h2>Multi-Run Overlay Widget</h2>
+      <p>Latest N runs overlaid on a single map with distinct colors, combined bounds, and popups.</p>
+      <pre><code>&lt;multi-run-overlay
+  data-url="https://bacilo.github.io/strava-widgets/data/routes/route-list.json"
+  data-count="10"
+  data-height="500px"&gt;
+&lt;/multi-run-overlay&gt;
+&lt;script src="https://bacilo.github.io/strava-widgets/multi-run-overlay.iife.js"&gt;&lt;/script&gt;</code></pre>
+    </div>
+
+    <div class="widget">
+      <h2>Pin Map Widget</h2>
+      <p>World map with pins for each city/country visited. Click pins for run count, distance, and visit dates.</p>
+      <pre><code>&lt;pin-map-widget
+  data-url="https://bacilo.github.io/strava-widgets/data/geo/cities.json"
+  data-height="500px"&gt;
+&lt;/pin-map-widget&gt;
+&lt;script src="https://bacilo.github.io/strava-widgets/pin-map-widget.iife.js"&gt;&lt;/script&gt;</code></pre>
+    </div>
+
+    <div class="widget">
       <h2>Standalone Map Pages</h2>
       <p>Full-page interactive map visualizations for dedicated viewing.</p>
       <ul style="list-style: none; padding: 0;">
