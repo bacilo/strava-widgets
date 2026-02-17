@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-16)
 Phase: 11 of 13 (Route Map Widgets)
 Plan: 3 of 3 in current phase
 Status: Complete
-Last activity: 2026-02-17 — Completed 11-03 (Route browser widget with list selection and embedded map)
+Last activity: 2026-02-17 — Completed 11-02 (Single-run and multi-run map widgets) and 11-03 (Route browser widget)
 
 Progress: [███████████████████████░░░░░] 88% (23/26 total plans across all phases)
 
@@ -32,8 +32,9 @@ Progress: [███████████████████████
 | v1.2 (in progress) | 6 | TBD | TBD |
 
 **Recent Trend:**
-- Last plan: Phase 11-03 (4 min) — Route browser widget
-- Trend: Excellent (All Phase 11 route widgets complete, 9 total widgets deployed)
+- Phase 11-02 (3 min) — Single-run and multi-run map widgets
+- Phase 11-03 (4 min) — Route browser widget
+- Trend: Excellent (Phase 11 complete: 3 new route widgets added, 9 total widgets deployed)
 
 *Updated after each plan completion*
 
@@ -59,6 +60,9 @@ Recent decisions affecting current work:
 - **Phase 11-01**: Pre-compute route data into optimized JSON files (2.0 MB) instead of loading full activity data (7.1 MB) in widgets — 72% payload reduction
 - **Phase 11-01**: Created shared RouteRenderer utility to avoid duplicating polyline decode, auto-fit, and popup logic across three route widgets
 - **Phase 11-01**: HSL color distribution for multi-route rendering provides visually distinct colors via hue rotation
+- **Phase 11-02**: Use data-activity-id attribute for single-run-map to select specific route from route-list.json
+- **Phase 11-02**: Use data-count attribute for multi-run-overlay to control number of displayed routes (default 10)
+- **Phase 11-02**: Combined bounds fitting for multi-run overlay ensures all routes visible on load
 - **Phase 11-03**: Grid layout with 280px fixed sidebar for route list provides optimal readability while maximizing map viewport
 - **Phase 11-03**: CSS container queries enable widget-level responsiveness (side-by-side at 500px+, stacked below) independent of page layout
 
@@ -95,8 +99,8 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed Phase 11-03 (Route browser widget — Phase 11 complete)
+Stopped at: Completed Phase 11-02 and 11-03 (Route map widgets — Phase 11 complete)
 Resume file: None
 
 ---
-*Last updated: 2026-02-17 after Phase 11-03 completion*
+*Last updated: 2026-02-17 after Phase 11-02 completion*
