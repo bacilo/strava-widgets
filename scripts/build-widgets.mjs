@@ -55,6 +55,12 @@ const widgets = [
     isMapWidget: true
   },
   {
+    name: 'multi-run-overlay',
+    entry: resolve(__dirname, '../src/widgets/multi-run-overlay/index.ts'),
+    globalName: 'MultiRunOverlay',
+    isMapWidget: true
+  },
+  {
     name: 'route-browser',
     entry: resolve(__dirname, '../src/widgets/route-browser/index.ts'),
     globalName: 'RouteBrowser',
