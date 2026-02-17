@@ -251,7 +251,7 @@ class HeatmapWidgetElement extends WidgetBase {
         </div>
         <div class="custom-range">
           <input type="date" id="start-date" placeholder="Start date" />
-          <input type="date" id="end-date" placeholder="End date" />
+          <input type="date" id="end-date" placeholder="End date" value="${new Date().toISOString().split('T')[0]}" />
           <button id="apply-custom">Apply</button>
         </div>
       </div>
@@ -292,12 +292,12 @@ class HeatmapWidgetElement extends WidgetBase {
       });
     });
 
-    // Custom date range
+    // Custom date range — default end to today if not set
     controls.querySelector('#apply-custom')?.addEventListener('click', () => {
       const start = (controls.querySelector('#start-date') as HTMLInputElement).value;
-      const end = (controls.querySelector('#end-date') as HTMLInputElement).value;
+      const end = (controls.querySelector('#end-date') as HTMLInputElement).value || new Date().toISOString().split('T')[0];
 
-      if (start && end) {
+      if (start) {
         this.applyCustomDateFilter(start, end);
 
         // Deactivate preset buttons

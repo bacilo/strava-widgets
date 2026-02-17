@@ -157,12 +157,8 @@ class RouteBrowserElement extends WidgetBase {
     // Initialize Leaflet map
     this.map = L.map(mapDiv).setView([55.6761, 12.5683], 10);
 
-    // Add CartoDB Positron tile layer (cleaner basemap, better route contrast)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
-      maxZoom: 20,
-      subdomains: 'abcd'
-    }).addTo(this.map);
+    // Add basemap with layer switcher (Light/Dark/Street/Terrain)
+    RouteRenderer.addBasemapSwitcher(this.map);
 
     // Force Leaflet to recalculate tile positions after Shadow DOM layout
     requestAnimationFrame(() => {
