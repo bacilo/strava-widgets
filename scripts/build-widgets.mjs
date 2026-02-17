@@ -47,6 +47,18 @@ const widgets = [
     entry: resolve(__dirname, '../src/widgets/map-test-widget/index.ts'),
     globalName: 'MapTestWidget',
     isMapWidget: true
+  },
+  {
+    name: 'single-run-map',
+    entry: resolve(__dirname, '../src/widgets/single-run-map/index.ts'),
+    globalName: 'SingleRunMap',
+    isMapWidget: true
+  },
+  {
+    name: 'route-browser',
+    entry: resolve(__dirname, '../src/widgets/route-browser/index.ts'),
+    globalName: 'RouteBrowser',
+    isMapWidget: true
   }
 ];
 
