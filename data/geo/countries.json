@@ -1,0 +1,272 @@
+[
+  {
+    "countryName": "Denmark",
+    "countryIso2": "DK",
+    "activityCount": 1324,
+    "totalDistanceKm": 16218.4,
+    "cities": [
+      "Billund",
+      "Buddinge",
+      "Christianshavn",
+      "Frederiksberg",
+      "Herlev",
+      "Holbæk",
+      "Hvidovre",
+      "Indre By",
+      "Tårnby",
+      "Vanløse"
+    ]
+  },
+  {
+    "countryName": "Portugal",
+    "countryIso2": "PT",
+    "activityCount": 231,
+    "totalDistanceKm": 2754.6,
+    "cities": [
+      "Albufeira",
+      "Algés",
+      "Alvalade",
+      "Anjos",
+      "Armação de Pêra",
+      "Charneca de Caparica",
+      "Intendente",
+      "Massarelos",
+      "Monte Real",
+      "Montemor-o-Novo",
+      "Moscavide e Portela",
+      "Olivais",
+      "Parque das Nações",
+      "Porto",
+      "Pragal",
+      "Sacavém",
+      "Sequeira",
+      "Sesimbra",
+      "Zibreira"
+    ]
+  },
+  {
+    "countryName": "Sweden",
+    "countryIso2": "SE",
+    "activityCount": 27,
+    "totalDistanceKm": 269,
+    "cities": [
+      "Bergshamra",
+      "Blomstermåla",
+      "Gamla Stan",
+      "Hemse",
+      "Järna",
+      "Solna",
+      "Östermalm"
+    ]
+  },
+  {
+    "countryName": "United Kingdom",
+    "countryIso2": "GB",
+    "activityCount": 11,
+    "totalDistanceKm": 177.5,
+    "cities": [
+      "Belfast",
+      "Bow",
+      "City of London",
+      "Edinburgh",
+      "Glasgow",
+      "Lambeth",
+      "Portree",
+      "Taunton"
+    ]
+  },
+  {
+    "countryName": "Finland",
+    "countryIso2": "FI",
+    "activityCount": 9,
+    "totalDistanceKm": 120.7,
+    "cities": [
+      "Herttoniemi",
+      "Kumpula",
+      "Länsi-Herttoniemi",
+      "Porvoo"
+    ]
+  },
+  {
+    "countryName": "Greece",
+    "countryIso2": "GR",
+    "activityCount": 10,
+    "totalDistanceKm": 113.1,
+    "cities": [
+      "Chaniá",
+      "Emporeío",
+      "Firá",
+      "Kassándreia",
+      "Kipséli",
+      "Mykonos",
+      "Ágios Pávlos"
+    ]
+  },
+  {
+    "countryName": "United States",
+    "countryIso2": "US",
+    "activityCount": 8,
+    "totalDistanceKm": 101.5,
+    "cities": [
+      "Austin",
+      "Chicago Loop",
+      "Fairmount",
+      "Hell's Kitchen",
+      "New Orleans",
+      "Old City",
+      "Westminster"
+    ]
+  },
+  {
+    "countryName": "Philippines",
+    "countryIso2": "PH",
+    "activityCount": 12,
+    "totalDistanceKm": 90.2,
+    "cities": [
+      "Bagong Pagasa",
+      "El Nido",
+      "Tiniguiban",
+      "Yapak"
+    ]
+  },
+  {
+    "countryName": "Germany",
+    "countryIso2": "DE",
+    "activityCount": 3,
+    "totalDistanceKm": 43.6,
+    "cities": [
+      "Berlin",
+      "Gropiusstadt",
+      "Neukölln"
+    ]
+  },
+  {
+    "countryName": "France",
+    "countryIso2": "FR",
+    "activityCount": 3,
+    "totalDistanceKm": 35.3,
+    "cities": [
+      "Saint-Vincent de Paul"
+    ]
+  },
+  {
+    "countryName": "Bulgaria",
+    "countryIso2": "BG",
+    "activityCount": 2,
+    "totalDistanceKm": 31.9,
+    "cities": [
+      "Sofia"
+    ]
+  },
+  {
+    "countryName": "Romania",
+    "countryIso2": "RO",
+    "activityCount": 2,
+    "totalDistanceKm": 22.7,
+    "cities": [
+      "Baia Mare",
+      "Cluj-Napoca"
+    ]
+  },
+  {
+    "countryName": "Belgium",
+    "countryIso2": "BE",
+    "activityCount": 2,
+    "totalDistanceKm": 22.2,
+    "cities": [
+      "Saint-Josse-ten-Noode"
+    ]
+  },
+  {
+    "countryName": "Croatia",
+    "countryIso2": "HR",
+    "activityCount": 2,
+    "totalDistanceKm": 22,
+    "cities": [
+      "Centar"
+    ]
+  },
+  {
+    "countryName": "Ireland",
+    "countryIso2": "IE",
+    "activityCount": 1,
+    "totalDistanceKm": 21.2,
+    "cities": [
+      "Dublin"
+    ]
+  },
+  {
+    "countryName": "Georgia",
+    "countryIso2": "GE",
+    "activityCount": 2,
+    "totalDistanceKm": 20,
+    "cities": [
+      "Batumi",
+      "Tbilisi"
+    ]
+  },
+  {
+    "countryName": "Slovenia",
+    "countryIso2": "SI",
+    "activityCount": 1,
+    "totalDistanceKm": 17.6,
+    "cities": [
+      "Ljubljana"
+    ]
+  },
+  {
+    "countryName": "Sri Lanka",
+    "countryIso2": "LK",
+    "activityCount": 3,
+    "totalDistanceKm": 15.3,
+    "cities": [
+      "Colombo",
+      "Trincomalee"
+    ]
+  },
+  {
+    "countryName": "Serbia",
+    "countryIso2": "RS",
+    "activityCount": 1,
+    "totalDistanceKm": 11.6,
+    "cities": [
+      "Stari Grad"
+    ]
+  },
+  {
+    "countryName": "Malta",
+    "countryIso2": "MT",
+    "activityCount": 1,
+    "totalDistanceKm": 10,
+    "cities": [
+      "Sliema"
+    ]
+  },
+  {
+    "countryName": "Norway",
+    "countryIso2": "NO",
+    "activityCount": 1,
+    "totalDistanceKm": 9,
+    "cities": [
+      "Frydenberg"
+    ]
+  },
+  {
+    "countryName": "Estonia",
+    "countryIso2": "EE",
+    "activityCount": 1,
+    "totalDistanceKm": 6.4,
+    "cities": [
+      "Tallinn"
+    ]
+  },
+  {
+    "countryName": "Italy",
+    "countryIso2": "IT",
+    "activityCount": 1,
+    "totalDistanceKm": 5,
+    "cities": [
+      "San Lucido"
+    ]
+  }
+]

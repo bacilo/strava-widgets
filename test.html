@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Widget Test Page - Strava Analytics</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 2rem 1rem;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: white;
+      text-align: center;
+      margin-bottom: 0.5rem;
+      font-size: 2.5rem;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    }
+    .subtitle {
+      color: rgba(255,255,255,0.9);
+      text-align: center;
+      margin-bottom: 3rem;
+      font-size: 1.1rem;
+    }
+    .widget-section {
+      background: white;
+      border-radius: 12px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+    }
+    .widget-section h2 {
+      color: #667eea;
+      margin-bottom: 0.5rem;
+      font-size: 1.5rem;
+      border-bottom: 3px solid #667eea;
+      padding-bottom: 0.5rem;
+    }
+    .widget-section p {
+      color: #666;
+      margin-bottom: 1.5rem;
+      font-size: 0.95rem;
+    }
+    .demo-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+      margin-top: 1.5rem;
+    }
+    @media (min-width: 768px) {
+      .demo-grid.two-col {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    .demo-item {
+      padding: 1rem;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 2px solid #e9ecef;
+    }
+    .demo-item h3 {
+      color: #495057;
+      font-size: 1rem;
+      margin-bottom: 0.75rem;
+      font-weight: 600;
+    }
+    .demo-item p {
+      color: #6c757d;
+      font-size: 0.875rem;
+      margin-bottom: 1rem;
+    }
+    .dark-section {
+      background: #1a1a2e;
+      padding: 2rem;
+      border-radius: 12px;
+      margin-bottom: 2rem;
+    }
+    .dark-section h2 {
+      color: #667eea;
+      margin-bottom: 0.5rem;
+      font-size: 1.5rem;
+      border-bottom: 3px solid #667eea;
+      padding-bottom: 0.5rem;
+    }
+    .dark-section p {
+      color: #a0a0a0;
+      margin-bottom: 1.5rem;
+    }
+    .footer {
+      text-align: center;
+      color: rgba(255,255,255,0.8);
+      margin-top: 3rem;
+      padding-top: 2rem;
+      border-top: 2px solid rgba(255,255,255,0.2);
+      font-size: 0.875rem;
+    }
+    .footer a {
+      color: white;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Widget Test Page</h1>
+    <p class="subtitle">Visual testing for Strava Analytics Widgets</p>
+
+    <!-- Stats Card Widget Section -->
+    <div class="widget-section">
+      <h2>Stats Card Widget</h2>
+      <p>Displays comprehensive running statistics with year-over-year comparisons.</p>
+      <strava-stats-card
+        data-url="data/stats/all-time-totals.json"
+        data-secondary-url="data/stats/year-over-year.json"
+        data-title="My Running Stats">
+      </strava-stats-card>
+    </div>
+
+    <!-- Comparison Chart Widget Section -->
+    <div class="widget-section">
+      <h2>Comparison Chart Widget</h2>
+      <p>Interactive bar chart comparing statistics across time periods.</p>
+      <strava-comparison-chart
+        data-url="data/stats/year-over-year.json"
+        data-secondary-url="data/stats/seasonal-trends.json"
+        data-title="Year-Over-Year Comparison">
+      </strava-comparison-chart>
+    </div>
+
+    <!-- Streak Widget Section -->
+    <div class="widget-section">
+      <h2>Streak Widget</h2>
+      <p>Visualizes running streaks and activity patterns with time-of-day radar chart and monthly heatmap.</p>
+      <strava-streak-widget
+        data-url="data/stats/streaks.json"
+        data-secondary-url="data/stats/time-of-day.json"
+        data-title="Running Streaks & Patterns">
+      </strava-streak-widget>
+    </div>
+
+    <!-- Geographic Statistics Widget Section -->
+    <div class="widget-section">
+      <h2>Geographic Statistics Widget</h2>
+      <p>Country and city running rankings with distance data, run counts, and CSV export.</p>
+      <strava-geo-stats
+        data-url="data/geo/countries.json"
+        data-secondary-url="data/geo/cities.json"
+        data-metadata-url="data/geo/geo-metadata.json"
+        data-title="Where I've Run">
+      </strava-geo-stats>
+    </div>
+
+    <!-- Geographic Table Widget Section -->
+    <div class="widget-section">
+      <h2>Geographic Table Widget</h2>
+      <p>Sortable, paginated tables showing countries and cities with interactive sorting by name, distance, or run count.</p>
+
+      <div class="demo-grid two-col">
+        <!-- Countries Table (Default) -->
+        <div class="demo-item">
+          <h3>Countries Table (Default)</h3>
+          <p>Demonstrates default sorting, pagination (10 rows per page), and clickable column headers.</p>
+          <strava-geo-table
+            data-url="data/geo/countries.json"
+            data-dataset="countries"
+            data-title="Countries I've Run In"
+            data-rows-per-page="10">
+          </strava-geo-table>
+        </div>
+
+        <!-- Cities Table -->
+        <div class="demo-item">
+          <h3>Cities Table</h3>
+          <p>Shows cities data with 15 rows per page for denser display.</p>
+          <strava-geo-table
+            data-url="data/geo/cities.json"
+            data-dataset="cities"
+            data-title="Cities I've Run In"
+            data-rows-per-page="15">
+          </strava-geo-table>
+        </div>
+      </div>
+
+      <div class="demo-grid" style="margin-top: 2rem;">
+        <!-- Compact Responsive Variant -->
+        <div class="demo-item">
+          <h3>Compact Responsive Variant</h3>
+          <p>Demonstrates responsive sizing with max-width constraint and reduced pagination (5 rows).</p>
+          <strava-geo-table
+            data-url="data/geo/cities.json"
+            data-dataset="cities"
+            data-title="Cities (Compact)"
+            data-max-width="400px"
+            data-rows-per-page="5">
+          </strava-geo-table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dark Mode Section -->
+    <div class="dark-section">
+      <h2>Dark Mode Variant</h2>
+      <p>Geographic table widget with dark theme styling.</p>
+
+      <div style="padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 8px;">
+        <strava-geo-table
+          data-url="data/geo/countries.json"
+          data-dataset="countries"
+          data-theme="dark"
+          data-title="Countries (Dark Mode)"
+          data-rows-per-page="10"
+          data-bg="#1a1a2e"
+          data-text-color="#e0e0e0">
+        </strava-geo-table>
+      </div>
+    </div>
+
+    <!-- Route Map Widgets Section -->
+    <div class="widget-section">
+      <h2>Single Run Map Widget</h2>
+      <p>Display a single run on an interactive map with auto-fit and popup showing distance, date, and pace.</p>
+      <single-run-map
+        data-url="data/routes/route-list.json"
+        data-activity-id="17257505831"
+        data-height="400px">
+      </single-run-map>
+    </div>
+
+    <div class="widget-section">
+      <h2>Multi-Run Overlay Widget</h2>
+      <p>Overlay multiple runs on a single map with distinct colors and combined bounds fitting.</p>
+      <multi-run-overlay
+        data-url="data/routes/latest-runs.json"
+        data-count="10"
+        data-height="500px">
+      </multi-run-overlay>
+    </div>
+
+    <div class="widget-section">
+      <h2>Route Browser Widget</h2>
+      <p>Browse and select runs from a scrollable list to view on an interactive map with side-by-side layout.</p>
+      <route-browser
+        data-url="data/routes/route-list.json"
+        data-height="500px">
+      </route-browser>
+    </div>
+
+    <div class="widget-section">
+      <h2>Heatmap Widget</h2>
+      <p>Visualize all runs as a density heatmap with date range filtering and customizable color schemes.</p>
+      <heatmap-widget
+        data-url="data/heatmap/all-points.json"
+        data-color-scheme="strava"
+        data-height="600px">
+      </heatmap-widget>
+    </div>
+
+    <div class="footer">
+      <p>Test page for Strava Analytics Widgets</p>
+      <p>Auto-updated daily by GitHub Actions | Powered by <a href="https://www.strava.com" target="_blank" rel="noopener">Strava</a></p>
+    </div>
+  </div>
+
+  <!-- Widget Scripts -->
+  <script src="stats-card.iife.js"></script>
+  <script src="comparison-chart.iife.js"></script>
+  <script src="streak-widget.iife.js"></script>
+  <script src="geo-stats-widget.iife.js"></script>
+  <script src="geo-table-widget.iife.js"></script>
+  <script src="single-run-map.iife.js"></script>
+  <script src="multi-run-overlay.iife.js"></script>
+  <script src="route-browser.iife.js"></script>
+  <script src="heatmap-widget.iife.js"></script>
+</body>
+</html>

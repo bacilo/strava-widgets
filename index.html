@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Strava Analytics Widgets</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background: #f5f5f5;
+      padding: 2rem 1rem;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #fc4c02;
+      margin-bottom: 0.5rem;
+    }
+    .subtitle {
+      color: #666;
+      margin-bottom: 2rem;
+      padding-bottom: 1rem;
+      border-bottom: 2px solid #fc4c02;
+    }
+    .widget {
+      margin-bottom: 3rem;
+    }
+    .widget h2 {
+      color: #333;
+      margin-bottom: 0.5rem;
+      font-size: 1.25rem;
+    }
+    .widget p {
+      color: #666;
+      margin-bottom: 1rem;
+    }
+    pre {
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      padding: 1rem;
+      overflow-x: auto;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 0.875rem;
+      line-height: 1.4;
+    }
+    code {
+      color: #e83e8c;
+    }
+    .footer {
+      margin-top: 3rem;
+      padding-top: 1rem;
+      border-top: 1px solid #dee2e6;
+      color: #6c757d;
+      font-size: 0.875rem;
+      text-align: center;
+    }
+    .footer a {
+      color: #fc4c02;
+      text-decoration: none;
+    }
+    .footer a:hover {
+      text-decoration: underline;
+    }
+    .footer p {
+      margin-bottom: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Strava Analytics Widgets</h1>
+    <p class="subtitle">Embeddable widgets for your personal website</p>
+
+    <div class="widget">
+      <h2>Stats Card Widget</h2>
+      <p>Displays comprehensive running statistics including all-time totals and year-over-year comparisons.</p>
+      <pre><code>&lt;strava-stats-card
+  data-url="https://bacilo.github.io/strava-widgets/data/stats/all-time-totals.json"
+  data-secondary-url="https://bacilo.github.io/strava-widgets/data/stats/year-over-year.json"
+  data-title="My Running Stats"&gt;
+&lt;/strava-stats-card&gt;
+&lt;script src="https://bacilo.github.io/strava-widgets/stats-card.iife.js"&gt;&lt;/script&gt;</code></pre>
+    </div>
+
+    <div class="widget">
+      <h2>Comparison Chart Widget</h2>
+      <p>Interactive bar chart comparing running statistics across different time periods with multiple visualization options.</p>
+      <pre><code>&lt;strava-comparison-chart
+  data-url="https://bacilo.github.io/strava-widgets/data/stats/year-over-year.json"
+  data-secondary-url="https://bacilo.github.io/strava-widgets/data/stats/seasonal-trends.json"
+  data-title="Year-Over-Year Comparison"&gt;
+&lt;/strava-comparison-chart&gt;
+&lt;script src="https://bacilo.github.io/strava-widgets/comparison-chart.iife.js"&gt;&lt;/script&gt;</code></pre>
+    </div>
+
+    <div class="widget">
+      <h2>Streak Widget</h2>
+      <p>Visualizes running streaks and activity patterns with time-of-day radar chart and monthly heatmap.</p>
+      <pre><code>&lt;strava-streak-widget
+  data-url="https://bacilo.github.io/strava-widgets/data/stats/streaks.json"
+  data-secondary-url="https://bacilo.github.io/strava-widgets/data/stats/time-of-day.json"
+  data-title="Running Streaks &amp; Patterns"&gt;
+&lt;/strava-streak-widget&gt;
+&lt;script src="https://bacilo.github.io/strava-widgets/streak-widget.iife.js"&gt;&lt;/script&gt;</code></pre>
+    </div>
+
+    <div class="widget">
+      <h2>Geographic Statistics Widget</h2>
+      <p>Displays country and city running rankings with distance data, run counts, and CSV export.</p>
+      <pre><code>&lt;strava-geo-stats
+  data-url="https://bacilo.github.io/strava-widgets/data/geo/countries.json"
+  data-secondary-url="https://bacilo.github.io/strava-widgets/data/geo/cities.json"
+  data-metadata-url="https://bacilo.github.io/strava-widgets/data/geo/geo-metadata.json"
+  data-title="Where I've Run"&gt;
+&lt;/strava-geo-stats&gt;
+&lt;script src="https://bacilo.github.io/strava-widgets/geo-stats-widget.iife.js"&gt;&lt;/script&gt;</code></pre>
+    </div>
+
+    <div class="widget">
+      <h2>Geographic Table Widget</h2>
+      <p>Sortable and paginated table of countries or cities with distance rankings, activity counts, and interactive controls.</p>
+      <pre><code>&lt;strava-geo-table
+  data-url="https://bacilo.github.io/strava-widgets/data/geo/countries.json"
+  data-dataset="countries"
+  data-title="Countries I've Run In"
+  data-rows-per-page="10"&gt;
+&lt;/strava-geo-table&gt;
+&lt;script src="https://bacilo.github.io/strava-widgets/geo-table-widget.iife.js"&gt;&lt;/script&gt;</code></pre>
+    </div>
+
+    <div class="widget">
+      <h2>Map Widgets</h2>
+      <p>All map widgets require the Leaflet CDN script. Add this once before any map widget:</p>
+      <pre><code>&lt;!-- Required for all map widgets --&gt;
+&lt;script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"&gt;&lt;/script&gt;
+&lt;script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"&gt;&lt;/script&gt;</code></pre>
+    </div>
+
+    <div class="widget">
+      <h2>Heatmap Widget</h2>
+      <p>All runs visualized as a density heatmap with date range filtering and color scheme options.</p>
+      <pre><code>&lt;heatmap-widget
+  data-url="https://bacilo.github.io/strava-widgets/data/heatmap/all-points.json"
+  data-height="500px"&gt;
+&lt;/heatmap-widget&gt;
+&lt;script src="https://bacilo.github.io/strava-widgets/heatmap-widget.iife.js"&gt;&lt;/script&gt;</code></pre>
+    </div>
+
+    <div class="widget">
+      <h2>Route Browser Widget</h2>
+      <p>Browse a scrollable list of runs and view each route on an interactive map with basemap selection.</p>
+      <pre><code>&lt;route-browser
+  data-url="https://bacilo.github.io/strava-widgets/data/routes/route-list.json"
+  data-height="500px"&gt;
+&lt;/route-browser&gt;
+&lt;script src="https://bacilo.github.io/strava-widgets/route-browser.iife.js"&gt;&lt;/script&gt;</code></pre>
+    </div>
+
+    <div class="widget">
+      <h2>Single Run Map Widget</h2>
+      <p>Display one activity's route on an interactive map with auto-fit, popup details, and basemap selection.</p>
+      <pre><code>&lt;single-run-map
+  data-url="https://bacilo.github.io/strava-widgets/data/routes/route-list.json"
+  data-activity-id="17257505831"
+  data-height="400px"&gt;
+&lt;/single-run-map&gt;
+&lt;script src="https://bacilo.github.io/strava-widgets/single-run-map.iife.js"&gt;&lt;/script&gt;</code></pre>
+    </div>
+
+    <div class="widget">
+      <h2>Multi-Run Overlay Widget</h2>
+      <p>Latest N runs overlaid on a single map with distinct colors, combined bounds, and popups.</p>
+      <pre><code>&lt;multi-run-overlay
+  data-url="https://bacilo.github.io/strava-widgets/data/routes/route-list.json"
+  data-count="10"
+  data-height="500px"&gt;
+&lt;/multi-run-overlay&gt;
+&lt;script src="https://bacilo.github.io/strava-widgets/multi-run-overlay.iife.js"&gt;&lt;/script&gt;</code></pre>
+    </div>
+
+    <div class="widget">
+      <h2>Pin Map Widget</h2>
+      <p>World map with pins for each city/country visited. Click pins for run count, distance, and visit dates.</p>
+      <pre><code>&lt;pin-map-widget
+  data-url="https://bacilo.github.io/strava-widgets/data/geo/cities.json"
+  data-height="500px"&gt;
+&lt;/pin-map-widget&gt;
+&lt;script src="https://bacilo.github.io/strava-widgets/pin-map-widget.iife.js"&gt;&lt;/script&gt;</code></pre>
+    </div>
+
+    <div class="widget">
+      <h2>Standalone Map Pages</h2>
+      <p>Full-page interactive map visualizations for dedicated viewing.</p>
+      <ul style="list-style: none; padding: 0;">
+        <li style="margin-bottom: 0.5rem;"><a href="heatmap.html" style="color: #fc4c02; text-decoration: none; font-weight: 500;">Heatmap</a> — All runs visualized as a density heatmap</li>
+        <li style="margin-bottom: 0.5rem;"><a href="pinmap.html" style="color: #fc4c02; text-decoration: none; font-weight: 500;">Pin Map</a> — Cities and countries visited with interactive pins</li>
+        <li style="margin-bottom: 0.5rem;"><a href="routes.html" style="color: #fc4c02; text-decoration: none; font-weight: 500;">Route Browser</a> — Browse and view individual run routes</li>
+      </ul>
+    </div>
+
+    <div class="footer">
+      <p>Auto-updated daily by GitHub Actions</p>
+      <p>
+        <a href="heatmap.html">Heatmap</a> |
+        <a href="pinmap.html">Pin Map</a> |
+        <a href="routes.html">Route Browser</a>
+      </p>
+      <p><a href="test.html">View Test Page</a> | Powered by <a href="https://www.strava.com" target="_blank" rel="noopener">Strava</a></p>
+    </div>
+  </div>
+</body>
+</html>

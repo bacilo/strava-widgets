@@ -1,0 +1,604 @@
+[
+  {
+    "cityName": "Frederiksberg",
+    "countryName": "Denmark",
+    "countryIso2": "DK",
+    "activityCount": 872,
+    "totalDistanceKm": 10571.2
+  },
+  {
+    "cityName": "Vanløse",
+    "countryName": "Denmark",
+    "countryIso2": "DK",
+    "activityCount": 237,
+    "totalDistanceKm": 3173.4
+  },
+  {
+    "cityName": "Christianshavn",
+    "countryName": "Denmark",
+    "countryIso2": "DK",
+    "activityCount": 155,
+    "totalDistanceKm": 1718
+  },
+  {
+    "cityName": "Alvalade",
+    "countryName": "Portugal",
+    "countryIso2": "PT",
+    "activityCount": 103,
+    "totalDistanceKm": 1274.8
+  },
+  {
+    "cityName": "Olivais",
+    "countryName": "Portugal",
+    "countryIso2": "PT",
+    "activityCount": 90,
+    "totalDistanceKm": 1095.4
+  },
+  {
+    "cityName": "Herlev",
+    "countryName": "Denmark",
+    "countryIso2": "DK",
+    "activityCount": 39,
+    "totalDistanceKm": 503.3
+  },
+  {
+    "cityName": "Bergshamra",
+    "countryName": "Sweden",
+    "countryIso2": "SE",
+    "activityCount": 9,
+    "totalDistanceKm": 117.6
+  },
+  {
+    "cityName": "Zibreira",
+    "countryName": "Portugal",
+    "countryIso2": "PT",
+    "activityCount": 9,
+    "totalDistanceKm": 93.5
+  },
+  {
+    "cityName": "Indre By",
+    "countryName": "Denmark",
+    "countryIso2": "DK",
+    "activityCount": 8,
+    "totalDistanceKm": 74.9
+  },
+  {
+    "cityName": "Buddinge",
+    "countryName": "Denmark",
+    "countryIso2": "DK",
+    "activityCount": 6,
+    "totalDistanceKm": 65.4
+  },
+  {
+    "cityName": "Länsi-Herttoniemi",
+    "countryName": "Finland",
+    "countryIso2": "FI",
+    "activityCount": 4,
+    "totalDistanceKm": 65.1
+  },
+  {
+    "cityName": "Gamla Stan",
+    "countryName": "Sweden",
+    "countryIso2": "SE",
+    "activityCount": 4,
+    "totalDistanceKm": 61.9
+  },
+  {
+    "cityName": "Yapak",
+    "countryName": "Philippines",
+    "countryIso2": "PH",
+    "activityCount": 7,
+    "totalDistanceKm": 58.1
+  },
+  {
+    "cityName": "Tårnby",
+    "countryName": "Denmark",
+    "countryIso2": "DK",
+    "activityCount": 4,
+    "totalDistanceKm": 54.7
+  },
+  {
+    "cityName": "Sacavém",
+    "countryName": "Portugal",
+    "countryIso2": "PT",
+    "activityCount": 7,
+    "totalDistanceKm": 48.4
+  },
+  {
+    "cityName": "Östermalm",
+    "countryName": "Sweden",
+    "countryIso2": "SE",
+    "activityCount": 7,
+    "totalDistanceKm": 40.5
+  },
+  {
+    "cityName": "Saint-Vincent de Paul",
+    "countryName": "France",
+    "countryIso2": "FR",
+    "activityCount": 3,
+    "totalDistanceKm": 35.3
+  },
+  {
+    "cityName": "Albufeira",
+    "countryName": "Portugal",
+    "countryIso2": "PT",
+    "activityCount": 3,
+    "totalDistanceKm": 34.9
+  },
+  {
+    "cityName": "Hell's Kitchen",
+    "countryName": "United States",
+    "countryIso2": "US",
+    "activityCount": 2,
+    "totalDistanceKm": 34
+  },
+  {
+    "cityName": "Chaniá",
+    "countryName": "Greece",
+    "countryIso2": "GR",
+    "activityCount": 3,
+    "totalDistanceKm": 33
+  },
+  {
+    "cityName": "Sofia",
+    "countryName": "Bulgaria",
+    "countryIso2": "BG",
+    "activityCount": 2,
+    "totalDistanceKm": 31.9
+  },
+  {
+    "cityName": "Parque das Nações",
+    "countryName": "Portugal",
+    "countryIso2": "PT",
+    "activityCount": 2,
+    "totalDistanceKm": 31.3
+  },
+  {
+    "cityName": "Bow",
+    "countryName": "United Kingdom",
+    "countryIso2": "GB",
+    "activityCount": 2,
+    "totalDistanceKm": 29.6
+  },
+  {
+    "cityName": "Portree",
+    "countryName": "United Kingdom",
+    "countryIso2": "GB",
+    "activityCount": 2,
+    "totalDistanceKm": 29.1
+  },
+  {
+    "cityName": "Hvidovre",
+    "countryName": "Denmark",
+    "countryIso2": "DK",
+    "activityCount": 1,
+    "totalDistanceKm": 28.1
+  },
+  {
+    "cityName": "Bagong Pagasa",
+    "countryName": "Philippines",
+    "countryIso2": "PH",
+    "activityCount": 3,
+    "totalDistanceKm": 28
+  },
+  {
+    "cityName": "Belfast",
+    "countryName": "United Kingdom",
+    "countryIso2": "GB",
+    "activityCount": 2,
+    "totalDistanceKm": 26.3
+  },
+  {
+    "cityName": "Monte Real",
+    "countryName": "Portugal",
+    "countryIso2": "PT",
+    "activityCount": 2,
+    "totalDistanceKm": 26.1
+  },
+  {
+    "cityName": "Firá",
+    "countryName": "Greece",
+    "countryIso2": "GR",
+    "activityCount": 1,
+    "totalDistanceKm": 24.8
+  },
+  {
+    "cityName": "Edinburgh",
+    "countryName": "United Kingdom",
+    "countryIso2": "GB",
+    "activityCount": 1,
+    "totalDistanceKm": 24.2
+  },
+  {
+    "cityName": "City of London",
+    "countryName": "United Kingdom",
+    "countryIso2": "GB",
+    "activityCount": 1,
+    "totalDistanceKm": 23.8
+  },
+  {
+    "cityName": "Kassándreia",
+    "countryName": "Greece",
+    "countryIso2": "GR",
+    "activityCount": 2,
+    "totalDistanceKm": 23.4
+  },
+  {
+    "cityName": "Saint-Josse-ten-Noode",
+    "countryName": "Belgium",
+    "countryIso2": "BE",
+    "activityCount": 2,
+    "totalDistanceKm": 22.2
+  },
+  {
+    "cityName": "Porvoo",
+    "countryName": "Finland",
+    "countryIso2": "FI",
+    "activityCount": 2,
+    "totalDistanceKm": 22
+  },
+  {
+    "cityName": "Centar",
+    "countryName": "Croatia",
+    "countryIso2": "HR",
+    "activityCount": 2,
+    "totalDistanceKm": 22
+  },
+  {
+    "cityName": "Sesimbra",
+    "countryName": "Portugal",
+    "countryIso2": "PT",
+    "activityCount": 2,
+    "totalDistanceKm": 22
+  },
+  {
+    "cityName": "Berlin",
+    "countryName": "Germany",
+    "countryIso2": "DE",
+    "activityCount": 1,
+    "totalDistanceKm": 21.8
+  },
+  {
+    "cityName": "Pragal",
+    "countryName": "Portugal",
+    "countryIso2": "PT",
+    "activityCount": 1,
+    "totalDistanceKm": 21.4
+  },
+  {
+    "cityName": "Dublin",
+    "countryName": "Ireland",
+    "countryIso2": "IE",
+    "activityCount": 1,
+    "totalDistanceKm": 21.2
+  },
+  {
+    "cityName": "Lambeth",
+    "countryName": "United Kingdom",
+    "countryIso2": "GB",
+    "activityCount": 1,
+    "totalDistanceKm": 21
+  },
+  {
+    "cityName": "Kumpula",
+    "countryName": "Finland",
+    "countryIso2": "FI",
+    "activityCount": 2,
+    "totalDistanceKm": 20.9
+  },
+  {
+    "cityName": "Intendente",
+    "countryName": "Portugal",
+    "countryIso2": "PT",
+    "activityCount": 2,
+    "totalDistanceKm": 20.2
+  },
+  {
+    "cityName": "Holbæk",
+    "countryName": "Denmark",
+    "countryIso2": "DK",
+    "activityCount": 1,
+    "totalDistanceKm": 19.1
+  },
+  {
+    "cityName": "Ljubljana",
+    "countryName": "Slovenia",
+    "countryIso2": "SI",
+    "activityCount": 1,
+    "totalDistanceKm": 17.6
+  },
+  {
+    "cityName": "Järna",
+    "countryName": "Sweden",
+    "countryIso2": "SE",
+    "activityCount": 2,
+    "totalDistanceKm": 16.8
+  },
+  {
+    "cityName": "Austin",
+    "countryName": "United States",
+    "countryIso2": "US",
+    "activityCount": 1,
+    "totalDistanceKm": 16.5
+  },
+  {
+    "cityName": "Moscavide e Portela",
+    "countryName": "Portugal",
+    "countryIso2": "PT",
+    "activityCount": 2,
+    "totalDistanceKm": 16.4
+  },
+  {
+    "cityName": "Chicago Loop",
+    "countryName": "United States",
+    "countryIso2": "US",
+    "activityCount": 1,
+    "totalDistanceKm": 16.3
+  },
+  {
+    "cityName": "Algés",
+    "countryName": "Portugal",
+    "countryIso2": "PT",
+    "activityCount": 1,
+    "totalDistanceKm": 15.5
+  },
+  {
+    "cityName": "Montemor-o-Novo",
+    "countryName": "Portugal",
+    "countryIso2": "PT",
+    "activityCount": 1,
+    "totalDistanceKm": 14
+  },
+  {
+    "cityName": "Herttoniemi",
+    "countryName": "Finland",
+    "countryIso2": "FI",
+    "activityCount": 1,
+    "totalDistanceKm": 12.7
+  },
+  {
+    "cityName": "Baia Mare",
+    "countryName": "Romania",
+    "countryIso2": "RO",
+    "activityCount": 1,
+    "totalDistanceKm": 12.5
+  },
+  {
+    "cityName": "Hemse",
+    "countryName": "Sweden",
+    "countryIso2": "SE",
+    "activityCount": 2,
+    "totalDistanceKm": 12.2
+  },
+  {
+    "cityName": "Trincomalee",
+    "countryName": "Sri Lanka",
+    "countryIso2": "LK",
+    "activityCount": 2,
+    "totalDistanceKm": 12.1
+  },
+  {
+    "cityName": "Taunton",
+    "countryName": "United Kingdom",
+    "countryIso2": "GB",
+    "activityCount": 1,
+    "totalDistanceKm": 11.9
+  },
+  {
+    "cityName": "Gropiusstadt",
+    "countryName": "Germany",
+    "countryIso2": "DE",
+    "activityCount": 1,
+    "totalDistanceKm": 11.8
+  },
+  {
+    "cityName": "Stari Grad",
+    "countryName": "Serbia",
+    "countryIso2": "RS",
+    "activityCount": 1,
+    "totalDistanceKm": 11.6
+  },
+  {
+    "cityName": "Glasgow",
+    "countryName": "United Kingdom",
+    "countryIso2": "GB",
+    "activityCount": 1,
+    "totalDistanceKm": 11.6
+  },
+  {
+    "cityName": "Armação de Pêra",
+    "countryName": "Portugal",
+    "countryIso2": "PT",
+    "activityCount": 1,
+    "totalDistanceKm": 11.2
+  },
+  {
+    "cityName": "New Orleans",
+    "countryName": "United States",
+    "countryIso2": "US",
+    "activityCount": 1,
+    "totalDistanceKm": 10.5
+  },
+  {
+    "cityName": "Blomstermåla",
+    "countryName": "Sweden",
+    "countryIso2": "SE",
+    "activityCount": 1,
+    "totalDistanceKm": 10.5
+  },
+  {
+    "cityName": "Cluj-Napoca",
+    "countryName": "Romania",
+    "countryIso2": "RO",
+    "activityCount": 1,
+    "totalDistanceKm": 10.2
+  },
+  {
+    "cityName": "Billund",
+    "countryName": "Denmark",
+    "countryIso2": "DK",
+    "activityCount": 1,
+    "totalDistanceKm": 10.2
+  },
+  {
+    "cityName": "Sliema",
+    "countryName": "Malta",
+    "countryIso2": "MT",
+    "activityCount": 1,
+    "totalDistanceKm": 10
+  },
+  {
+    "cityName": "Neukölln",
+    "countryName": "Germany",
+    "countryIso2": "DE",
+    "activityCount": 1,
+    "totalDistanceKm": 10
+  },
+  {
+    "cityName": "Old City",
+    "countryName": "United States",
+    "countryIso2": "US",
+    "activityCount": 1,
+    "totalDistanceKm": 10
+  },
+  {
+    "cityName": "Westminster",
+    "countryName": "United States",
+    "countryIso2": "US",
+    "activityCount": 1,
+    "totalDistanceKm": 10
+  },
+  {
+    "cityName": "Ágios Pávlos",
+    "countryName": "Greece",
+    "countryIso2": "GR",
+    "activityCount": 1,
+    "totalDistanceKm": 10
+  },
+  {
+    "cityName": "Massarelos",
+    "countryName": "Portugal",
+    "countryIso2": "PT",
+    "activityCount": 1,
+    "totalDistanceKm": 10
+  },
+  {
+    "cityName": "Batumi",
+    "countryName": "Georgia",
+    "countryIso2": "GE",
+    "activityCount": 1,
+    "totalDistanceKm": 10
+  },
+  {
+    "cityName": "Tbilisi",
+    "countryName": "Georgia",
+    "countryIso2": "GE",
+    "activityCount": 1,
+    "totalDistanceKm": 10
+  },
+  {
+    "cityName": "Emporeío",
+    "countryName": "Greece",
+    "countryIso2": "GR",
+    "activityCount": 1,
+    "totalDistanceKm": 10
+  },
+  {
+    "cityName": "Solna",
+    "countryName": "Sweden",
+    "countryIso2": "SE",
+    "activityCount": 2,
+    "totalDistanceKm": 9.5
+  },
+  {
+    "cityName": "Frydenberg",
+    "countryName": "Norway",
+    "countryIso2": "NO",
+    "activityCount": 1,
+    "totalDistanceKm": 9
+  },
+  {
+    "cityName": "Kipséli",
+    "countryName": "Greece",
+    "countryIso2": "GR",
+    "activityCount": 1,
+    "totalDistanceKm": 7.4
+  },
+  {
+    "cityName": "Charneca de Caparica",
+    "countryName": "Portugal",
+    "countryIso2": "PT",
+    "activityCount": 1,
+    "totalDistanceKm": 6.8
+  },
+  {
+    "cityName": "Tallinn",
+    "countryName": "Estonia",
+    "countryIso2": "EE",
+    "activityCount": 1,
+    "totalDistanceKm": 6.4
+  },
+  {
+    "cityName": "Anjos",
+    "countryName": "Portugal",
+    "countryIso2": "PT",
+    "activityCount": 1,
+    "totalDistanceKm": 5.3
+  },
+  {
+    "cityName": "San Lucido",
+    "countryName": "Italy",
+    "countryIso2": "IT",
+    "activityCount": 1,
+    "totalDistanceKm": 5
+  },
+  {
+    "cityName": "Mykonos",
+    "countryName": "Greece",
+    "countryIso2": "GR",
+    "activityCount": 1,
+    "totalDistanceKm": 4.4
+  },
+  {
+    "cityName": "Fairmount",
+    "countryName": "United States",
+    "countryIso2": "US",
+    "activityCount": 1,
+    "totalDistanceKm": 4.2
+  },
+  {
+    "cityName": "Sequeira",
+    "countryName": "Portugal",
+    "countryIso2": "PT",
+    "activityCount": 1,
+    "totalDistanceKm": 3.7
+  },
+  {
+    "cityName": "Porto",
+    "countryName": "Portugal",
+    "countryIso2": "PT",
+    "activityCount": 1,
+    "totalDistanceKm": 3.6
+  },
+  {
+    "cityName": "Colombo",
+    "countryName": "Sri Lanka",
+    "countryIso2": "LK",
+    "activityCount": 1,
+    "totalDistanceKm": 3.2
+  },
+  {
+    "cityName": "El Nido",
+    "countryName": "Philippines",
+    "countryIso2": "PH",
+    "activityCount": 1,
+    "totalDistanceKm": 3
+  },
+  {
+    "cityName": "Tiniguiban",
+    "countryName": "Philippines",
+    "countryIso2": "PH",
+    "activityCount": 1,
+    "totalDistanceKm": 1
+  }
+]
