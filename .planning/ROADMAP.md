@@ -119,7 +119,7 @@ Phases execute in numeric order: 10 → 11 → 12 → 13
 | 9. CI/CD Integration | v1.1 | 2/2 | Complete | 2026-02-16 |
 | 10. Geocoding Foundation & Map Infrastructure | v1.2 | Complete    | 2026-02-17 | - |
 | 11. Route Map Widgets | v1.2 | Complete    | 2026-02-17 | - |
-| 12. Heatmap & Pin Map Widgets | v1.2 | 0/2 | Not started | - |
+| 12. Heatmap & Pin Map Widgets | v1.2 | Complete    | 2026-02-17 | - |
 | 13. Standalone Pages | v1.2 | 0/TBD | Not started | - |
 
 ---
