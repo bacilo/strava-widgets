@@ -67,6 +67,12 @@ const widgets = [
     isMapWidget: true
   },
   {
+    name: 'heatmap-widget',
+    entry: resolve(__dirname, '../src/widgets/heatmap-widget/index.ts'),
+    globalName: 'HeatmapWidget',
+    isMapWidget: true
+  },
+  {
     name: 'pin-map-widget',
     entry: resolve(__dirname, '../src/widgets/pin-map-widget/index.ts'),
     globalName: 'PinMapWidget',
@@ -129,7 +135,8 @@ function copyDataFiles() {
   const dataDirs = [
     { src: 'data/stats', dest: 'dist/widgets/data/stats' },
     { src: 'data/geo', dest: 'dist/widgets/data/geo' },
-    { src: 'data/routes', dest: 'dist/widgets/data/routes' }
+    { src: 'data/routes', dest: 'dist/widgets/data/routes' },
+    { src: 'data/heatmap', dest: 'dist/widgets/data/heatmap' }
   ];
 
   for (const { src, dest } of dataDirs) {

@@ -6,6 +6,7 @@
   <title>Widget Test Page - Strava Analytics</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
   <style>
     * {
       box-sizing: border-box;
@@ -264,6 +265,16 @@
       </route-browser>
     </div>
 
+    <div class="widget-section">
+      <h2>Heatmap Widget</h2>
+      <p>Visualize all runs as a density heatmap with date range filtering and customizable color schemes.</p>
+      <heatmap-widget
+        data-url="data/heatmap/all-points.json"
+        data-color-scheme="strava"
+        data-height="600px">
+      </heatmap-widget>
+    </div>
+
     <div class="footer">
       <p>Test page for Strava Analytics Widgets</p>
       <p>Auto-updated daily by GitHub Actions | Powered by <a href="https://www.strava.com" target="_blank" rel="noopener">Strava</a></p>
@@ -279,5 +290,6 @@
   <script src="single-run-map.iife.js"></script>
   <script src="multi-run-overlay.iife.js"></script>
   <script src="route-browser.iife.js"></script>
+  <script src="heatmap-widget.iife.js"></script>
 </body>
 </html>
