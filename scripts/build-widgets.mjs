@@ -65,6 +65,12 @@ const widgets = [
     entry: resolve(__dirname, '../src/widgets/route-browser/index.ts'),
     globalName: 'RouteBrowser',
     isMapWidget: true
+  },
+  {
+    name: 'pin-map-widget',
+    entry: resolve(__dirname, '../src/widgets/pin-map-widget/index.ts'),
+    globalName: 'PinMapWidget',
+    isMapWidget: true
   }
 ];
 

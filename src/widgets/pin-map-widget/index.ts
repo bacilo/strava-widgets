@@ -1,0 +1,514 @@
+/**
+ * Pin Map Widget - Displays geographic markers for cities and countries visited
+ * Shows pins on world map with toggle between country/city view, clickable popups, and visual encoding
+ */
+
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import 'leaflet.markercluster';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+import { WidgetBase } from '../shared/widget-base.js';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+// Fix default marker icons (required for Vite)
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconUrl: markerIcon,
+  iconRetinaUrl: markerIcon2x,
+  shadowUrl: markerShadow,
+});
+
+/**
+ * Data interfaces matching actual JSON structures from data/geo/
+ */
+interface CityData {
+  cityName: string;
+  countryName: string;
+  countryIso2: string;
+  activityCount: number;
+  totalDistanceKm: number;
+}
+
+interface CountryData {
+  countryName: string;
+  countryIso2: string;
+  activityCount: number;
+  totalDistanceKm: number;
+  cities: string[];
+}
+
+interface LocationEntry {
+  cityName: string;
+  countryName: string;
+  countryIso2: string;
+}
+
+interface LocationCache {
+  version: number;
+  geocoder: string;
+  entries: Record<string, LocationEntry>;
+}
+
+interface RouteListItem {
+  id: number;
+  date: string;
+}
+
+/**
+ * PinMapWidgetElement - Renders pins for cities and countries on a world map
+ */
+class PinMapWidgetElement extends WidgetBase {
+  private map: L.Map | null = null;
+  private markerLayer: L.LayerGroup | L.MarkerClusterGroup | null = null;
+  private viewMode: 'country' | 'city' = 'country';
+  private cities: CityData[] = [];
+  private countries: CountryData[] = [];
+  private locationCache: LocationCache | null = null;
+  private activityCities: Record<string, string[]> = {};
+  private allRouteData: Array<{ id: number; date: string }> = [];
+
+  /**
+   * Default data URL (fallback)
+   */
+  protected get dataUrl(): string {
+    return 'data/geo/cities.json';
+  }
+
+  /**
+   * Override to fetch multiple data sources
+   */
+  protected async fetchDataAndRender(): Promise<void> {
+    try {
+      // Fetch all required data in parallel
+      const [citiesData, countriesData, locationCacheData, activityCitiesData, routeListData] = await Promise.all([
+        this.fetchData<CityData[]>('data/geo/cities.json'),
+        this.fetchData<CountryData[]>('data/geo/countries.json'),
+        this.fetchData<LocationCache>('data/geo/location-cache.json'),
+        this.fetchData<Record<string, string[]>>('data/geo/activity-cities.json'),
+        this.fetchData<RouteListItem[]>('data/routes/route-list.json'),
+      ]);
+
+      // Store in instance properties
+      this.cities = citiesData;
+      this.countries = countriesData;
+      this.locationCache = locationCacheData;
+      this.activityCities = activityCitiesData;
+      this.allRouteData = routeListData;
+
+      // Get initial view mode from attribute
+      const viewAttr = this.getAttribute('data-view');
+      this.viewMode = (viewAttr === 'city' || viewAttr === 'country') ? viewAttr : 'country';
+
+      // Clear loading message
+      if (this.shadowRoot) {
+        const loadingEl = this.shadowRoot.querySelector('.widget-loading');
+        if (loadingEl) {
+          loadingEl.remove();
+        }
+      }
+
+      // Render the widget
+      this.render(citiesData);
+    } catch (error) {
+      console.error('PinMapWidget: Failed to load data', error);
+      this.showError();
+    }
+  }
+
+  /**
+   * Render the map with pins
+   */
+  protected render(data: unknown): void {
+    if (!this.shadowRoot) return;
+
+    // Clear shadow DOM content except style elements
+    const styles = Array.from(this.shadowRoot.querySelectorAll('style'));
+    this.shadowRoot.innerHTML = '';
+    styles.forEach(style => this.shadowRoot!.appendChild(style));
+
+    // Get height from data-height attribute (default 500px)
+    const height = this.getAttribute('data-height') || '500px';
+
+    // Create wrapper div
+    const wrapper = document.createElement('div');
+    wrapper.style.position = 'relative';
+
+    // Create map container
+    const container = document.createElement('div');
+    container.style.width = '100%';
+    container.style.height = height;
+    container.style.borderRadius = '8px';
+    container.style.overflow = 'hidden';
+
+    wrapper.appendChild(container);
+    this.shadowRoot.appendChild(wrapper);
+
+    // Initialize Leaflet map
+    this.map = L.map(container).setView([30, 0], 2); // World view
+
+    // Add OpenStreetMap tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 19,
+    }).addTo(this.map);
+
+    // Render pins based on view mode
+    this.renderPins();
+
+    // Add toggle controls and append to wrapper
+    const controls = this.renderToggleControls();
+    wrapper.appendChild(controls);
+  }
+
+  /**
+   * Render pins based on current view mode
+   */
+  private renderPins(): void {
+    // Remove existing marker layer if exists
+    if (this.markerLayer) {
+      this.markerLayer.remove();
+      this.markerLayer = null;
+    }
+
+    if (this.viewMode === 'country') {
+      this.renderCountryPins();
+    } else {
+      this.renderCityPins();
+    }
+  }
+
+  /**
+   * Render country-level pins
+   */
+  private renderCountryPins(): void {
+    if (!this.map) return;
+
+    const layerGroup = L.layerGroup();
+
+    for (const country of this.countries) {
+      const coords = this.getCountryCoordinates(country);
+      if (!coords) {
+        console.warn(`No coordinates found for country: ${country.countryName}`);
+        continue;
+      }
+
+      const marker = this.createScaledMarker(coords, country.activityCount, country.totalDistanceKm);
+      marker.bindPopup(this.formatCountryPopup(country));
+      marker.addTo(layerGroup);
+    }
+
+    layerGroup.addTo(this.map);
+    this.markerLayer = layerGroup;
+  }
+
+  /**
+   * Render city-level pins with clustering
+   */
+  private renderCityPins(): void {
+    if (!this.map) return;
+
+    const clusterGroup = L.markerClusterGroup({
+      maxClusterRadius: 50,
+      spiderfyOnMaxZoom: true,
+      showCoverageOnHover: false,
+    });
+
+    for (const city of this.cities) {
+      const coords = this.getCityCoordinates(city.cityName, city.countryIso2);
+      if (!coords) {
+        console.warn(`No coordinates found for city: ${city.cityName}, ${city.countryIso2}`);
+        continue;
+      }
+
+      const marker = this.createScaledMarker(coords, city.activityCount, city.totalDistanceKm);
+      marker.bindPopup(this.formatCityPopup(city));
+      marker.addTo(clusterGroup);
+    }
+
+    clusterGroup.addTo(this.map);
+    this.markerLayer = clusterGroup;
+  }
+
+  /**
+   * Get coordinates for a country (average of all city coordinates)
+   */
+  private getCountryCoordinates(country: CountryData): [number, number] | null {
+    if (!this.locationCache) return null;
+
+    const matchingCoords: Array<[number, number]> = [];
+
+    for (const [coordKey, entry] of Object.entries(this.locationCache.entries)) {
+      if (entry.countryIso2 === country.countryIso2) {
+        const [lat, lng] = coordKey.split(',').map(parseFloat);
+        if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+          matchingCoords.push([lat, lng]);
+        }
+      }
+    }
+
+    if (matchingCoords.length === 0) return null;
+
+    // Calculate average
+    const avgLat = matchingCoords.reduce((sum, c) => sum + c[0], 0) / matchingCoords.length;
+    const avgLng = matchingCoords.reduce((sum, c) => sum + c[1], 0) / matchingCoords.length;
+
+    return [avgLat, avgLng];
+  }
+
+  /**
+   * Get coordinates for a city
+   */
+  private getCityCoordinates(cityName: string, countryIso2: string): [number, number] | null {
+    if (!this.locationCache) return null;
+
+    // Try exact match first
+    for (const [coordKey, entry] of Object.entries(this.locationCache.entries)) {
+      if (entry.cityName === cityName && entry.countryIso2 === countryIso2) {
+        const [lat, lng] = coordKey.split(',').map(parseFloat);
+        if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+          return [lat, lng];
+        }
+      }
+    }
+
+    // Fuzzy fallback: case-insensitive partial match
+    const cityNameLower = cityName.toLowerCase();
+    for (const [coordKey, entry] of Object.entries(this.locationCache.entries)) {
+      if (entry.cityName.toLowerCase().includes(cityNameLower) && entry.countryIso2 === countryIso2) {
+        const [lat, lng] = coordKey.split(',').map(parseFloat);
+        if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+          return [lat, lng];
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Create a scaled marker with size and color encoding
+   */
+  private createScaledMarker(coords: [number, number], activityCount: number, totalDistanceKm: number): L.Marker {
+    // Calculate max activities for dynamic scaling
+    const maxActivities = Math.max(...this.cities.map(c => c.activityCount));
+
+    // Scale size: 1-maxActivities -> 20-60px
+    const minSize = 20;
+    const maxSize = 60;
+    const size = minSize + ((activityCount - 1) / (maxActivities - 1)) * (maxSize - minSize);
+
+    // Get color based on distance
+    const color = this.getDistanceColor(totalDistanceKm);
+
+    // Create custom div icon
+    const icon = L.divIcon({
+      className: 'custom-marker',
+      html: `<div style="
+        width: ${size}px;
+        height: ${size}px;
+        border-radius: 50%;
+        background: ${color};
+        border: 3px solid white;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+        font-size: ${Math.max(10, size * 0.3)}px;
+      ">${activityCount}</div>`,
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+    });
+
+    return L.marker(coords, { icon });
+  }
+
+  /**
+   * Get color based on distance quintiles
+   */
+  private getDistanceColor(distanceKm: number): string {
+    if (distanceKm > 5000) return '#fc4c02'; // Strava orange
+    if (distanceKm > 2000) return '#ff6b35';
+    if (distanceKm > 1000) return '#f7931e';
+    if (distanceKm > 500) return '#fdc500';
+    return '#4ecdc4'; // Teal
+  }
+
+  /**
+   * Format popup HTML for country
+   */
+  private formatCountryPopup(country: CountryData): string {
+    const dateRange = this.getVisitDateRange(country.cities);
+    const dateStr = dateRange
+      ? `${this.formatDate(dateRange.first)} - ${this.formatDate(dateRange.last)}`
+      : 'Unknown';
+
+    return `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <h3 style="margin: 0 0 8px 0; font-size: 16px;">${country.countryName}</h3>
+        <p style="margin: 4px 0; font-size: 14px;"><strong>Activities:</strong> ${country.activityCount}</p>
+        <p style="margin: 4px 0; font-size: 14px;"><strong>Distance:</strong> ${country.totalDistanceKm.toFixed(1)} km</p>
+        <p style="margin: 4px 0; font-size: 14px;"><strong>Visited:</strong> ${dateStr}</p>
+        <p style="margin: 4px 0 0 0; font-size: 12px; color: #666;"><strong>Cities:</strong> ${country.cities.join(', ')}</p>
+      </div>
+    `;
+  }
+
+  /**
+   * Format popup HTML for city
+   */
+  private formatCityPopup(city: CityData): string {
+    const dateRange = this.getVisitDateRange([city.cityName]);
+    const dateStr = dateRange
+      ? `${this.formatDate(dateRange.first)} - ${this.formatDate(dateRange.last)}`
+      : 'Unknown';
+
+    return `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <h3 style="margin: 0 0 8px 0; font-size: 16px;">${city.cityName}</h3>
+        <p style="margin: 4px 0; font-size: 14px; color: #666;">${city.countryName}</p>
+        <p style="margin: 4px 0; font-size: 14px;"><strong>Activities:</strong> ${city.activityCount}</p>
+        <p style="margin: 4px 0; font-size: 14px;"><strong>Distance:</strong> ${city.totalDistanceKm.toFixed(1)} km</p>
+        <p style="margin: 4px 0; font-size: 14px;"><strong>Visited:</strong> ${dateStr}</p>
+      </div>
+    `;
+  }
+
+  /**
+   * Get visit date range for given cities
+   */
+  private getVisitDateRange(cityNames: string[]): { first: Date; last: Date } | null {
+    const matchingDates: Date[] = [];
+
+    // Find all activities that visited any of these cities
+    for (const [activityId, cities] of Object.entries(this.activityCities)) {
+      const hasMatch = cities.some(city => cityNames.includes(city));
+      if (hasMatch) {
+        // Find the route data for this activity
+        const route = this.allRouteData.find(r => r.id.toString() === activityId);
+        if (route) {
+          matchingDates.push(new Date(route.date));
+        }
+      }
+    }
+
+    if (matchingDates.length === 0) return null;
+
+    // Sort dates
+    matchingDates.sort((a, b) => a.getTime() - b.getTime());
+
+    return {
+      first: matchingDates[0],
+      last: matchingDates[matchingDates.length - 1],
+    };
+  }
+
+  /**
+   * Format date as "Mon YYYY"
+   */
+  private formatDate(date: Date): string {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${months[date.getMonth()]} ${date.getFullYear()}`;
+  }
+
+  /**
+   * Render toggle controls for switching between country/city view
+   */
+  private renderToggleControls(): HTMLElement {
+    const container = document.createElement('div');
+    container.style.cssText = `
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 8px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      display: flex;
+      gap: 8px;
+    `;
+
+    const countryBtn = document.createElement('button');
+    countryBtn.textContent = `Countries (${this.countries.length})`;
+    countryBtn.style.cssText = `
+      padding: 8px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s;
+    `;
+
+    const cityBtn = document.createElement('button');
+    cityBtn.textContent = `Cities (${this.cities.length})`;
+    cityBtn.style.cssText = `
+      padding: 8px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s;
+    `;
+
+    // Update button styles based on active view
+    const updateButtonStyles = () => {
+      if (this.viewMode === 'country') {
+        countryBtn.style.background = '#fc4c02';
+        countryBtn.style.color = 'white';
+        cityBtn.style.background = '#f0f0f0';
+        cityBtn.style.color = '#333';
+      } else {
+        cityBtn.style.background = '#fc4c02';
+        cityBtn.style.color = 'white';
+        countryBtn.style.background = '#f0f0f0';
+        countryBtn.style.color = '#333';
+      }
+    };
+
+    // Initialize button styles
+    updateButtonStyles();
+
+    // Add click handlers
+    countryBtn.addEventListener('click', () => {
+      this.viewMode = 'country';
+      updateButtonStyles();
+      this.renderPins();
+    });
+
+    cityBtn.addEventListener('click', () => {
+      this.viewMode = 'city';
+      updateButtonStyles();
+      this.renderPins();
+    });
+
+    container.appendChild(countryBtn);
+    container.appendChild(cityBtn);
+
+    return container;
+  }
+
+  /**
+   * Clean up map when element is disconnected
+   */
+  disconnectedCallback(): void {
+    if (this.markerLayer) {
+      this.markerLayer.remove();
+      this.markerLayer = null;
+    }
+    if (this.map) {
+      this.map.remove();
+      this.map = null;
+    }
+    super.disconnectedCallback();
+  }
+}
+
+// Register custom element
+WidgetBase.register('pin-map-widget', PinMapWidgetElement);
