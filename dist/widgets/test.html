@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Widget Test Page - Strava Analytics</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     * {
       box-sizing: border-box;
@@ -232,6 +234,36 @@
       </div>
     </div>
 
+    <!-- Route Map Widgets Section -->
+    <div class="widget-section">
+      <h2>Single Run Map Widget</h2>
+      <p>Display a single run on an interactive map with auto-fit and popup showing distance, date, and pace.</p>
+      <single-run-map
+        data-url="data/routes/route-list.json"
+        data-activity-id="17257505831"
+        data-height="400px">
+      </single-run-map>
+    </div>
+
+    <div class="widget-section">
+      <h2>Multi-Run Overlay Widget</h2>
+      <p>Overlay multiple runs on a single map with distinct colors and combined bounds fitting.</p>
+      <multi-run-overlay
+        data-url="data/routes/latest-runs.json"
+        data-count="10"
+        data-height="500px">
+      </multi-run-overlay>
+    </div>
+
+    <div class="widget-section">
+      <h2>Route Browser Widget</h2>
+      <p>Browse and select runs from a scrollable list to view on an interactive map with side-by-side layout.</p>
+      <route-browser
+        data-url="data/routes/route-list.json"
+        data-height="500px">
+      </route-browser>
+    </div>
+
     <div class="footer">
       <p>Test page for Strava Analytics Widgets</p>
       <p>Auto-updated daily by GitHub Actions | Powered by <a href="https://www.strava.com" target="_blank" rel="noopener">Strava</a></p>
@@ -244,5 +276,8 @@
   <script src="streak-widget.iife.js"></script>
   <script src="geo-stats-widget.iife.js"></script>
   <script src="geo-table-widget.iife.js"></script>
+  <script src="single-run-map.iife.js"></script>
+  <script src="multi-run-overlay.iife.js"></script>
+  <script src="route-browser.iife.js"></script>
 </body>
 </html>
