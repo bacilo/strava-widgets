@@ -94,10 +94,11 @@ class MultiRunOverlayElement extends WidgetBase {
     // Initialize Leaflet map
     this.map = L.map(container).setView([0, 0], 2);
 
-    // Add OpenStreetMap tile layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19
+    // Add CartoDB Positron tile layer (cleaner basemap, better route contrast)
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
+      maxZoom: 20,
+      subdomains: 'abcd'
     }).addTo(this.map);
 
     // Force Leaflet to recalculate tile positions after Shadow DOM layout
@@ -105,14 +106,16 @@ class MultiRunOverlayElement extends WidgetBase {
       this.map?.invalidateSize();
     });
 
-    // Render multiple routes with distinct colors and combined bounds
+    // Render multiple routes with distinct colors, thicker lines for visibility
     this.polylines = RouteRenderer.renderMultipleRoutes(this.map, routes, {
+      weight: 4,
+      opacity: 0.9,
       showPopup: true,
     });
 
     // Add hover effects to each polyline
     for (const polyline of this.polylines) {
-      RouteRenderer.addHoverEffect(polyline);
+      RouteRenderer.addHoverEffect(polyline, 4, 6);
     }
   }
 }

@@ -157,10 +157,11 @@ class RouteBrowserElement extends WidgetBase {
     // Initialize Leaflet map
     this.map = L.map(mapDiv).setView([55.6761, 12.5683], 10);
 
-    // Add OpenStreetMap tile layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19
+    // Add CartoDB Positron tile layer (cleaner basemap, better route contrast)
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
+      maxZoom: 20,
+      subdomains: 'abcd'
     }).addTo(this.map);
 
     // Force Leaflet to recalculate tile positions after Shadow DOM layout
@@ -190,14 +191,16 @@ class RouteBrowserElement extends WidgetBase {
     // Update selected ID
     this.selectedId = activityId;
 
-    // Render route with popup and auto-fit
+    // Render route with popup and auto-fit, thicker line for visibility
     this.currentPolyline = RouteRenderer.renderRoute(this.map, route, {
+      weight: 5,
+      opacity: 1.0,
       showPopup: true,
       fitBounds: true
     });
 
     // Add hover effect
-    RouteRenderer.addHoverEffect(this.currentPolyline);
+    RouteRenderer.addHoverEffect(this.currentPolyline, 5, 7);
 
     // Update list selection visual state
     const items = this.shadowRoot!.querySelectorAll('.route-list-item');

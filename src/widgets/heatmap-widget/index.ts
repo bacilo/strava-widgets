@@ -36,6 +36,7 @@ class HeatmapWidgetElement extends WidgetBase {
   private map: L.Map | null = null;
   private heatLayer: L.HeatLayer | null = null;
   private allRoutes: HeatmapRouteData[] = [];
+  private currentPoints: [number, number][] = [];
   private currentScheme: string = DEFAULT_SCHEME;
   private currentFilter: 'all-time' | string = 'all-time';
 
@@ -134,6 +135,9 @@ class HeatmapWidgetElement extends WidgetBase {
     for (const route of routes) {
       points.push(...route.points);
     }
+
+    // Store current points for color scheme updates
+    this.currentPoints = points;
 
     // Remove existing heatmap layer
     if (this.heatLayer) {
@@ -321,23 +325,25 @@ class HeatmapWidgetElement extends WidgetBase {
     this.currentFilter = preset;
 
     let startDate: Date;
-    const endDate = new Date();  // Today
+    let endDate: Date;
 
     switch (preset) {
       case '2026':
-        startDate = new Date('2026-01-01');
+        startDate = new Date('2026-01-01T00:00:00Z');
+        endDate = new Date('2026-12-31T23:59:59Z');
         break;
       case '2025':
-        startDate = new Date('2025-01-01');
-        endDate.setFullYear(2025, 11, 31);  // Dec 31, 2025
+        startDate = new Date('2025-01-01T00:00:00Z');
+        endDate = new Date('2025-12-31T23:59:59Z');
         break;
       case '2024':
-        startDate = new Date('2024-01-01');
-        endDate.setFullYear(2024, 11, 31);  // Dec 31, 2024
+        startDate = new Date('2024-01-01T00:00:00Z');
+        endDate = new Date('2024-12-31T23:59:59Z');
         break;
       case 'all-time':
       default:
-        startDate = new Date('2000-01-01');  // Before first Strava activity
+        startDate = new Date('2000-01-01T00:00:00Z');
+        endDate = new Date('2099-12-31T23:59:59Z');
     }
 
     this.filterAndRenderByDateRange(startDate, endDate);
@@ -348,8 +354,9 @@ class HeatmapWidgetElement extends WidgetBase {
    */
   private applyCustomDateFilter(startStr: string, endStr: string): void {
     this.currentFilter = 'custom';
-    const startDate = new Date(startStr);
-    const endDate = new Date(endStr);
+    // HTML date inputs give "YYYY-MM-DD" — set start to beginning of day, end to end of day
+    const startDate = new Date(startStr + 'T00:00:00Z');
+    const endDate = new Date(endStr + 'T23:59:59Z');
     this.filterAndRenderByDateRange(startDate, endDate);
   }
 
@@ -379,11 +386,12 @@ class HeatmapWidgetElement extends WidgetBase {
     this.currentScheme = scheme;
 
     // Re-render heatmap with new color scheme
-    // Note: Gradient must be set at layer creation time, so we remove and recreate
-    if (this.heatLayer && this.map) {
-      const currentPoints = this.heatLayer.getLatLngs();
-      this.heatLayer.remove();
-      this.heatLayer = L.heatLayer(currentPoints as [number, number][], this.getHeatmapOptions()).addTo(this.map);
+    // Gradient must be set at layer creation time, so we remove and recreate
+    if (this.map && this.currentPoints.length > 0) {
+      if (this.heatLayer) {
+        this.heatLayer.remove();
+      }
+      this.heatLayer = L.heatLayer(this.currentPoints, this.getHeatmapOptions()).addTo(this.map);
     }
   }
 

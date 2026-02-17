@@ -99,10 +99,11 @@ class SingleRunMapElement extends WidgetBase {
     // Initialize Leaflet map
     this.map = L.map(container).setView([0, 0], 2);
 
-    // Add OpenStreetMap tile layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19
+    // Add CartoDB Positron tile layer (cleaner basemap, better route contrast)
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
+      maxZoom: 20,
+      subdomains: 'abcd'
     }).addTo(this.map);
 
     // Force Leaflet to recalculate tile positions after Shadow DOM layout
@@ -110,14 +111,16 @@ class SingleRunMapElement extends WidgetBase {
       this.map?.invalidateSize();
     });
 
-    // Render route with popup and auto-fit bounds
+    // Render route with popup and auto-fit bounds, thicker line for visibility
     this.polyline = RouteRenderer.renderRoute(this.map, route, {
+      weight: 5,
+      opacity: 1.0,
       showPopup: true,
       fitBounds: true,
     });
 
     // Add hover effect
-    RouteRenderer.addHoverEffect(this.polyline);
+    RouteRenderer.addHoverEffect(this.polyline, 5, 7);
   }
 }
 
