@@ -96,10 +96,11 @@ Plans:
   2. User can view pin map as a full standalone page
   3. User can view route browser as a full standalone page
   4. Standalone pages share underlying widgets (no code duplication)
-**Plans**: 1 plan
+**Plans**: 2 plans
 
 Plans:
-- [ ] 13-01-PLAN.md — Standalone pages for heatmap, pin map, and route browser with navigation and build integration
+- [x] 13-01-PLAN.md — Standalone pages for heatmap, pin map, and route browser with navigation and build integration
+- [ ] 13-02-PLAN.md — Fix Leaflet Shadow DOM CSS injection and height chain for full-viewport maps (gap closure)
 
 ## Progress
 
@@ -120,7 +121,7 @@ Phases execute in numeric order: 10 → 11 → 12 → 13
 | 10. Geocoding Foundation & Map Infrastructure | v1.2 | Complete    | 2026-02-17 | - |
 | 11. Route Map Widgets | v1.2 | Complete    | 2026-02-17 | - |
 | 12. Heatmap & Pin Map Widgets | v1.2 | Complete    | 2026-02-17 | - |
-| 13. Standalone Pages | v1.2 | Complete    | 2026-02-17 | - |
+| 13. Standalone Pages | v1.2 | 1/2 | In Progress | - |
 
 ---
-*Last updated: 2026-02-17 after Phase 12 planning*
+*Last updated: 2026-02-17 after Phase 13 gap closure planning*
