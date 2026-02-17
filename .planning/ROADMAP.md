@@ -61,11 +61,12 @@ Plans:
   3. User can see the latest N runs overlaid on a single map
   4. Route auto-fits to viewport on load without manual zooming
   5. User can click a route to see distance, date, and pace in a popup
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 11-01: TBD
-- [ ] 11-02: TBD
+- [ ] 11-01-PLAN.md — Route data pre-computation and shared RouteRenderer utility
+- [ ] 11-02-PLAN.md — Single-run map widget and multi-run overlay widget
+- [ ] 11-03-PLAN.md — Route browser widget with list selection and embedded map
 
 #### Phase 12: Heatmap & Pin Map Widgets
 **Goal**: All-runs heatmap and geographic pin map with click interactions
@@ -118,9 +119,9 @@ Phases execute in numeric order: 10 → 11 → 12 → 13
 | 8. Geographic Table Widget | v1.1 | 2/2 | Complete | 2026-02-15 |
 | 9. CI/CD Integration | v1.1 | 2/2 | Complete | 2026-02-16 |
 | 10. Geocoding Foundation & Map Infrastructure | v1.2 | Complete    | 2026-02-17 | - |
-| 11. Route Map Widgets | v1.2 | 0/TBD | Not started | - |
+| 11. Route Map Widgets | v1.2 | 0/3 | Not started | - |
 | 12. Heatmap & Pin Map Widgets | v1.2 | 0/TBD | Not started | - |
 | 13. Standalone Pages | v1.2 | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-02-16 after Phase 10 planning*
+*Last updated: 2026-02-17 after Phase 11 planning*
