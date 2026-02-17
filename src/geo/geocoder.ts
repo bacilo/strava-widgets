@@ -1,12 +1,18 @@
 /**
  * Geocoding module with coordinate rounding and caching
  *
- * Wraps offline-geocode-city for offline reverse geocoding.
+ * Wraps offline-geocoder (GeoNames cities1000) for offline reverse geocoding.
  * Uses coordinate rounding for cache efficiency (4 decimals ≈ 11m precision).
  */
 
-import { getNearestCity } from 'offline-geocode-city';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const geocoder = require('offline-geocoder');
+
 import type { StravaActivity } from '../types/strava.types.js';
+
+// Initialize geocoder with GeoNames cities1000 dataset
+const geo = geocoder();
 
 /**
  * Geographic location result
@@ -18,11 +24,12 @@ export interface GeoLocation {
 }
 
 /**
- * Cache of coordinate lookups
- * Key format: "lat,lng" with 4 decimal places
+ * Versioned cache of coordinate lookups
  */
 export interface GeoCache {
-  [coordKey: string]: GeoLocation;
+  version: number;
+  geocoder: string;
+  entries: { [coordKey: string]: GeoLocation; };
 }
 
 /**
@@ -46,12 +53,12 @@ export function coordToCacheKey(lat: number, lng: number): string {
  *
  * @param activity - Strava activity with start_latlng
  * @param cache - In-memory cache (mutated if new lookup performed)
- * @returns GeoLocation or null if no GPS data or geocoding failed
+ * @returns Promise resolving to GeoLocation or null if no GPS data or geocoding failed
  */
-export function geocodeActivity(
+export async function geocodeActivity(
   activity: StravaActivity,
   cache: GeoCache
-): GeoLocation | null {
+): Promise<GeoLocation | null> {
   // Guard: Missing or invalid GPS data
   if (!activity.start_latlng || activity.start_latlng.length !== 2) {
     return null;
@@ -66,25 +73,30 @@ export function geocodeActivity(
 
   // Check cache
   const cacheKey = coordToCacheKey(lat, lng);
-  if (cache[cacheKey]) {
-    return cache[cacheKey];
+  if (cache.entries[cacheKey]) {
+    return cache.entries[cacheKey];
   }
 
-  // Perform offline geocoding
-  const result = getNearestCity(lat, lng);
+  // Perform offline geocoding with GeoNames
+  try {
+    const result = await geo.reverse(lat, lng);
 
-  // Guard: Invalid result
-  if (!result || !result.cityName || !result.countryName) {
+    // Guard: No result (ocean coordinates, etc.)
+    if (!result || !result.name || !result.country || !result.country.id || !result.country.name) {
+      return null;
+    }
+
+    // Store in cache and return
+    const location: GeoLocation = {
+      cityName: result.name,
+      countryName: result.country.name,
+      countryIso2: result.country.id,
+    };
+
+    cache.entries[cacheKey] = location;
+    return location;
+  } catch (error) {
+    // Geocoding failed (e.g., ocean coordinates, database error)
     return null;
   }
-
-  // Store in cache and return
-  const location: GeoLocation = {
-    cityName: result.cityName,
-    countryName: result.countryName,
-    countryIso2: result.countryIso2,
-  };
-
-  cache[cacheKey] = location;
-  return location;
 }

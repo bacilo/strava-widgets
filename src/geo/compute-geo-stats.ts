@@ -39,6 +39,7 @@ interface GeoMetadata {
   coveragePercent: number;
   cacheSize: number;
   totalDistanceKm: number;
+  geocoderVersion: string;
 }
 
 /**
@@ -104,7 +105,7 @@ export async function computeGeoStats(
 
   for (const activity of activities) {
     totalCount++;
-    const location = geocodeActivity(activity, cache);
+    const location = await geocodeActivity(activity, cache);
 
     if (!location) {
       continue;
@@ -192,8 +193,9 @@ export async function computeGeoStats(
     totalActivities: totalCount,
     geocodedActivities: successCount,
     coveragePercent,
-    cacheSize: Object.keys(cache).length,
+    cacheSize: Object.keys(cache.entries).length,
     totalDistanceKm: Math.round((totalDistanceM / 1000) * 10) / 10,
+    geocoderVersion: 'geonames-cities1000',
   };
 
   await fs.writeFile(
@@ -207,6 +209,6 @@ export async function computeGeoStats(
   console.log(`- ${countries.length} countries`);
   console.log(`- ${cities.length} cities`);
   console.log(`- Total distance: ${(totalDistanceM / 1000).toFixed(1)} km`);
-  console.log(`- Cache size: ${Object.keys(cache).length} locations`);
+  console.log(`- Cache size: ${Object.keys(cache.entries).length} locations`);
   console.log(`\nOutput written to: ${geoDir}`);
 }

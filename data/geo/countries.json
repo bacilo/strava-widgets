@@ -2,12 +2,19 @@
   {
     "countryName": "Denmark",
     "countryIso2": "DK",
-    "activityCount": 1322,
-    "totalDistanceKm": 16192.2,
+    "activityCount": 1324,
+    "totalDistanceKm": 16218.4,
     "cities": [
-      "Roskilde",
-      "Sorø",
-      "Vejle"
+      "Billund",
+      "Buddinge",
+      "Christianshavn",
+      "Frederiksberg",
+      "Herlev",
+      "Holbæk",
+      "Hvidovre",
+      "Indre By",
+      "Tårnby",
+      "Vanløse"
     ]
   },
   {
@@ -16,27 +23,40 @@
     "activityCount": 231,
     "totalDistanceKm": 2754.6,
     "cities": [
-      "Alcochete",
-      "Alfena",
-      "Almeida",
-      "Mafra",
+      "Albufeira",
+      "Algés",
+      "Alvalade",
+      "Anjos",
+      "Armação de Pêra",
+      "Charneca de Caparica",
+      "Intendente",
+      "Massarelos",
+      "Monte Real",
       "Montemor-o-Novo",
-      "Porto de Mós",
+      "Moscavide e Portela",
+      "Olivais",
+      "Parque das Nações",
+      "Porto",
+      "Pragal",
+      "Sacavém",
+      "Sequeira",
       "Sesimbra",
-      "Silves",
-      "Óbidos"
+      "Zibreira"
     ]
   },
   {
     "countryName": "Sweden",
     "countryIso2": "SE",
-    "activityCount": 29,
-    "totalDistanceKm": 295.2,
+    "activityCount": 27,
+    "totalDistanceKm": 269,
     "cities": [
-      "Kalmar",
-      "Malmö",
-      "Stockholm",
-      "Visby"
+      "Bergshamra",
+      "Blomstermåla",
+      "Gamla Stan",
+      "Hemse",
+      "Järna",
+      "Solna",
+      "Östermalm"
     ]
   },
   {
@@ -45,12 +65,14 @@
     "activityCount": 11,
     "totalDistanceKm": 177.5,
     "cities": [
-      "Bangor",
-      "Giffnock",
-      "Lisburn",
-      "Musselburgh",
-      "Taunton",
-      "Totteridge"
+      "Belfast",
+      "Bow",
+      "City of London",
+      "Edinburgh",
+      "Glasgow",
+      "Lambeth",
+      "Portree",
+      "Taunton"
     ]
   },
   {
@@ -59,8 +81,10 @@
     "activityCount": 9,
     "totalDistanceKm": 120.7,
     "cities": [
-      "Askola",
-      "Sipoo"
+      "Herttoniemi",
+      "Kumpula",
+      "Länsi-Herttoniemi",
+      "Porvoo"
     ]
   },
   {
@@ -70,11 +94,12 @@
     "totalDistanceKm": 113.1,
     "cities": [
       "Chaniá",
-      "Ermoúpoli",
-      "Néa Moudaniá",
-      "Salamína",
-      "Spárti",
-      "Síndos"
+      "Emporeío",
+      "Firá",
+      "Kassándreia",
+      "Kipséli",
+      "Mykonos",
+      "Ágios Pávlos"
     ]
   },
   {
@@ -83,12 +108,13 @@
     "activityCount": 8,
     "totalDistanceKm": 101.5,
     "cities": [
-      "Bridgeview",
-      "Brushy Creek",
-      "Gretna",
-      "Lindenwold",
-      "Secaucus",
-      "Shenandoah"
+      "Austin",
+      "Chicago Loop",
+      "Fairmount",
+      "Hell's Kitchen",
+      "New Orleans",
+      "Old City",
+      "Westminster"
     ]
   },
   {
@@ -97,9 +123,10 @@
     "activityCount": 12,
     "totalDistanceKm": 90.2,
     "cities": [
-      "Angat",
+      "Bagong Pagasa",
       "El Nido",
-      "Malay"
+      "Tiniguiban",
+      "Yapak"
     ]
   },
   {
@@ -108,7 +135,9 @@
     "activityCount": 3,
     "totalDistanceKm": 43.6,
     "cities": [
-      "Stahnsdorf"
+      "Berlin",
+      "Gropiusstadt",
+      "Neukölln"
     ]
   },
   {
@@ -117,7 +146,7 @@
     "activityCount": 3,
     "totalDistanceKm": 35.3,
     "cities": [
-      "Gif-sur-Yvette"
+      "Saint-Vincent de Paul"
     ]
   },
   {
@@ -135,8 +164,8 @@
     "activityCount": 2,
     "totalDistanceKm": 22.7,
     "cities": [
-      "Baia-Sprie",
-      "Floreşti"
+      "Baia Mare",
+      "Cluj-Napoca"
     ]
   },
   {
@@ -145,7 +174,7 @@
     "activityCount": 2,
     "totalDistanceKm": 22.2,
     "cities": [
-      "Genappe"
+      "Saint-Josse-ten-Noode"
     ]
   },
   {
@@ -154,7 +183,7 @@
     "activityCount": 2,
     "totalDistanceKm": 22,
     "cities": [
-      "Samobor"
+      "Centar"
     ]
   },
   {
@@ -163,7 +192,7 @@
     "activityCount": 1,
     "totalDistanceKm": 21.2,
     "cities": [
-      "Tallaght"
+      "Dublin"
     ]
   },
   {
@@ -173,7 +202,7 @@
     "totalDistanceKm": 20,
     "cities": [
       "Batumi",
-      "Rustavi"
+      "Tbilisi"
     ]
   },
   {
@@ -182,7 +211,7 @@
     "activityCount": 1,
     "totalDistanceKm": 17.6,
     "cities": [
-      "Ig"
+      "Ljubljana"
     ]
   },
   {
@@ -191,7 +220,7 @@
     "activityCount": 3,
     "totalDistanceKm": 15.3,
     "cities": [
-      "Moratuwa",
+      "Colombo",
       "Trincomalee"
     ]
   },
@@ -201,7 +230,7 @@
     "activityCount": 1,
     "totalDistanceKm": 11.6,
     "cities": [
-      "Pančevo"
+      "Stari Grad"
     ]
   },
   {
@@ -210,7 +239,7 @@
     "activityCount": 1,
     "totalDistanceKm": 10,
     "cities": [
-      "Imdina"
+      "Sliema"
     ]
   },
   {
@@ -219,7 +248,7 @@
     "activityCount": 1,
     "totalDistanceKm": 9,
     "cities": [
-      "Nesoddtangen"
+      "Frydenberg"
     ]
   },
   {
@@ -237,7 +266,7 @@
     "activityCount": 1,
     "totalDistanceKm": 5,
     "cities": [
-      "Paola"
+      "San Lucido"
     ]
   }
 ]
