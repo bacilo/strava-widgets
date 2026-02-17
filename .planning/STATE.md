@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-16)
 ## Current Position
 
 Phase: 13 of 13 (Standalone Pages)
-Plan: 1 of 1 in current phase
+Plan: 2 of 2 in current phase
 Status: Complete
-Last activity: 2026-02-17 — Completed 13-01 (Standalone pages with navigation)
+Last activity: 2026-02-17 — Completed 13-02 (Leaflet Shadow DOM CSS and height fix)
 
-Progress: [█████████████████████████░░░] 96% (25/26 total plans across all phases)
+Progress: [████████████████████████████] 100% (26/26 total plans across all phases)
 
 ## Performance Metrics
 
@@ -32,11 +32,11 @@ Progress: [███████████████████████
 | v1.2 (in progress) | 6 | TBD | TBD |
 
 **Recent Trend:**
-- Phase 11-03 (4 min) — Route browser widget
 - Phase 12-01 (5.5 min) — Heatmap widget
 - Phase 12-02 (4 min) — Pin map widget
 - Phase 13-01 (3 min) — Standalone pages with navigation
-- Trend: Excellent (Phase 13 complete: standalone full-page views for all map widgets)
+- Phase 13-02 (5 min) — Leaflet Shadow DOM CSS and height fix
+- Trend: Excellent (Phase 13 complete: all standalone pages render correctly with full-viewport maps)
 
 *Updated after each plan completion*
 
@@ -77,6 +77,11 @@ Recent decisions affecting current work:
 - **Phase 13-01**: WidgetBase attribute overrides (data-max-width="none", data-padding="0") for full-page layouts vs embedded widgets
 - **Phase 13-01**: Navigation bar absolutely positioned overlay prevents covering Leaflet map controls
 - **Phase 13-01**: Standalone pages load existing IIFE bundles via script src (zero code duplication)
+- **Phase 13-02**: Vite ?inline suffix imports CSS as string for Shadow DOM injection (bypasses document.head injection)
+- **Phase 13-02**: Leaflet CSS injected into Shadow DOM as <style> element to penetrate encapsulation boundary
+- **Phase 13-02**: invalidateSize() in requestAnimationFrame after map init forces tile recalculation after Shadow DOM layout
+- **Phase 13-02**: data-height attribute on WidgetBase sets both CSS variable and inline style for height chain
+- **Phase 13-02**: 100dvh instead of 100% for standalone pages (no parent height dependency)
 
 ### Key Findings
 
@@ -111,8 +116,8 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed Phase 13-01 (Standalone pages) — Phase 13 complete
+Stopped at: Completed Phase 13-02 (Leaflet Shadow DOM CSS and height fix) — Phase 13 complete
 Resume file: None
 
 ---
-*Last updated: 2026-02-17 after Phase 13-01 completion*
+*Last updated: 2026-02-17 after Phase 13-02 completion*
