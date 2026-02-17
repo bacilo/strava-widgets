@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-16)
 Phase: 12 of 13 (Heatmap and Pin Map Widgets)
 Plan: 2 of 2 in current phase
 Status: Complete
-Last activity: 2026-02-17 — Completed 12-02 (Pin map widget with city/country toggle)
+Last activity: 2026-02-17 — Completed 12-01 (Heatmap widget) and 12-02 (Pin map widget)
 
 Progress: [████████████████████████░░░░] 92% (24/26 total plans across all phases)
 
@@ -34,8 +34,9 @@ Progress: [███████████████████████
 **Recent Trend:**
 - Phase 11-02 (3 min) — Single-run and multi-run map widgets
 - Phase 11-03 (4 min) — Route browser widget
+- Phase 12-01 (5.5 min) — Heatmap widget
 - Phase 12-02 (4 min) — Pin map widget
-- Trend: Excellent (Phase 12 in progress: pin map widget with markercluster, 11 total widgets deployed)
+- Trend: Excellent (Phase 12 complete: heatmap and pin map widgets, 11 total widgets deployed)
 
 *Updated after each plan completion*
 
@@ -66,6 +67,9 @@ Recent decisions affecting current work:
 - **Phase 11-02**: Combined bounds fitting for multi-run overlay ensures all routes visible on load
 - **Phase 11-03**: Grid layout with 280px fixed sidebar for route list provides optimal readability while maximizing map viewport
 - **Phase 11-03**: CSS container queries enable widget-level responsiveness (side-by-side at 500px+, stacked below) independent of page layout
+- **Phase 12-01**: Pre-decoded points over Web Worker for heatmap (10.6 MB data file trades size for zero UI blocking)
+- **Phase 12-01**: Per-route data structure enables client-side date filtering without re-decoding polylines
+- **Phase 12-01**: Gradient recreation pattern for Leaflet.heat color scheme updates (layer must be removed and recreated)
 - **Phase 12-02**: Bundle markercluster within widget instead of externalizing (simpler CDN setup, only 37KB overhead)
 - **Phase 12-02**: Quintile-based color scale for distance encoding (teal to orange, 5 levels) provides clear visual hierarchy
 - **Phase 12-02**: Average city coordinates for country-level centroids (simple, accurate for world-scale view)
@@ -96,15 +100,15 @@ None yet.
 - ~~TypeScript compilation fails on PNG imports~~ ✓ RESOLVED in 10-04 (added src/types/png-modules.d.ts)
 - GeoNames database (12MB) lives in node_modules - not committed to git. Future npm installs require running generation script OR moving database to project data/ directory
 
-**Phase 11-13:**
-- Polyline decoding for 1,808 routes must not block UI (chunking/Web Workers may be needed)
-- Heatmap memory usage must stay under 200MB (viewport culling required)
+**Phase 12 (Complete):**
+- ~~Polyline decoding for 1,808 routes must not block UI~~ ✓ RESOLVED in 12-01 (pre-decoded points at build time)
+- ~~Heatmap memory usage must stay under 200MB~~ ✓ RESOLVED in 12-01 (Leaflet.heat Canvas rendering, no sampling needed)
 
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed Phase 12-02 (Pin map widget — Phase 12 complete)
+Stopped at: Completed Phase 12-01 (Heatmap widget) and 12-02 (Pin map widget) — Phase 12 complete
 Resume file: None
 
 ---
-*Last updated: 2026-02-17 after Phase 12-02 completion*
+*Last updated: 2026-02-17 after Phase 12-01 and 12-02 completion*
