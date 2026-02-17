@@ -7,6 +7,7 @@ import { build } from 'vite';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { copyFileSync, mkdirSync, readdirSync, existsSync } from 'fs';
+import cssInjectedByJsPlugin from 'vite-plugin-css-injected-by-js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -14,27 +15,38 @@ const widgets = [
   {
     name: 'stats-card',
     entry: resolve(__dirname, '../src/widgets/stats-card/index.ts'),
-    globalName: 'StatsCard'
+    globalName: 'StatsCard',
+    isMapWidget: false
   },
   {
     name: 'comparison-chart',
     entry: resolve(__dirname, '../src/widgets/comparison-chart/index.ts'),
-    globalName: 'ComparisonChart'
+    globalName: 'ComparisonChart',
+    isMapWidget: false
   },
   {
     name: 'streak-widget',
     entry: resolve(__dirname, '../src/widgets/streak-widget/index.ts'),
-    globalName: 'StreakWidget'
+    globalName: 'StreakWidget',
+    isMapWidget: false
   },
   {
     name: 'geo-stats-widget',
     entry: resolve(__dirname, '../src/widgets/geo-stats-widget/index.ts'),
-    globalName: 'GeoStatsWidget'
+    globalName: 'GeoStatsWidget',
+    isMapWidget: false
   },
   {
     name: 'geo-table-widget',
     entry: resolve(__dirname, '../src/widgets/geo-table-widget/index.ts'),
-    globalName: 'GeoTableWidget'
+    globalName: 'GeoTableWidget',
+    isMapWidget: false
+  },
+  {
+    name: 'map-test',
+    entry: resolve(__dirname, '../src/widgets/map-test-widget/index.ts'),
+    globalName: 'MapTestWidget',
+    isMapWidget: true
   }
 ];
 
@@ -55,10 +67,10 @@ async function buildWidget(widget, index) {
       outDir: tempOutDir,
       emptyDir: true,
       rollupOptions: {
-        external: [],
+        external: widget.isMapWidget ? ['leaflet'] : [],
         output: {
           inlineDynamicImports: true,
-          globals: {}
+          globals: widget.isMapWidget ? { 'leaflet': 'L' } : {}
         }
       },
       target: 'es2020',
@@ -69,6 +81,7 @@ async function buildWidget(widget, index) {
         }
       }
     },
+    plugins: widget.isMapWidget ? [cssInjectedByJsPlugin()] : [],
     logLevel: 'warn'
   };
 
