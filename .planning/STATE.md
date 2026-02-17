@@ -5,22 +5,22 @@
 See: .planning/PROJECT.md (updated 2026-02-16)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 11 - Route Map Widgets
+**Current focus:** Phase 12 - Heatmap and Pin Map Widgets
 
 ## Current Position
 
-Phase: 11 of 13 (Route Map Widgets)
-Plan: 3 of 3 in current phase
+Phase: 12 of 13 (Heatmap and Pin Map Widgets)
+Plan: 2 of 2 in current phase
 Status: Complete
-Last activity: 2026-02-17 — Completed 11-02 (Single-run and multi-run map widgets) and 11-03 (Route browser widget)
+Last activity: 2026-02-17 — Completed 12-02 (Pin map widget with city/country toggle)
 
-Progress: [███████████████████████░░░░░] 88% (23/26 total plans across all phases)
+Progress: [████████████████████████░░░░] 92% (24/26 total plans across all phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 23
-- Average duration: ~30 min per plan (estimated from v1.0 + v1.1 + v1.2)
+- Total plans completed: 24
+- Average duration: ~20 min per plan (estimated from v1.0 + v1.1 + v1.2)
 - Total execution time: ~15 hours
 
 **By Milestone:**
@@ -34,7 +34,8 @@ Progress: [███████████████████████
 **Recent Trend:**
 - Phase 11-02 (3 min) — Single-run and multi-run map widgets
 - Phase 11-03 (4 min) — Route browser widget
-- Trend: Excellent (Phase 11 complete: 3 new route widgets added, 9 total widgets deployed)
+- Phase 12-02 (4 min) — Pin map widget
+- Trend: Excellent (Phase 12 in progress: pin map widget with markercluster, 11 total widgets deployed)
 
 *Updated after each plan completion*
 
@@ -65,6 +66,9 @@ Recent decisions affecting current work:
 - **Phase 11-02**: Combined bounds fitting for multi-run overlay ensures all routes visible on load
 - **Phase 11-03**: Grid layout with 280px fixed sidebar for route list provides optimal readability while maximizing map viewport
 - **Phase 11-03**: CSS container queries enable widget-level responsiveness (side-by-side at 500px+, stacked below) independent of page layout
+- **Phase 12-02**: Bundle markercluster within widget instead of externalizing (simpler CDN setup, only 37KB overhead)
+- **Phase 12-02**: Quintile-based color scale for distance encoding (teal to orange, 5 levels) provides clear visual hierarchy
+- **Phase 12-02**: Average city coordinates for country-level centroids (simple, accurate for world-scale view)
 
 ### Key Findings
 
@@ -99,8 +103,8 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed Phase 11-02 and 11-03 (Route map widgets — Phase 11 complete)
+Stopped at: Completed Phase 12-02 (Pin map widget — Phase 12 complete)
 Resume file: None
 
 ---
-*Last updated: 2026-02-17 after Phase 11-02 completion*
+*Last updated: 2026-02-17 after Phase 12-02 completion*
