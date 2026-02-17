@@ -4,7 +4,7 @@
  */
 
 import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import leafletCSS from 'leaflet/dist/leaflet.css?inline';
 import { WidgetBase } from '../shared/widget-base.js';
 import { RouteRenderer, RouteData } from '../shared/route-utils.js';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -63,6 +63,11 @@ class MultiRunOverlayElement extends WidgetBase {
     this.shadowRoot.innerHTML = '';
     styles.forEach(style => this.shadowRoot!.appendChild(style));
 
+    // Inject Leaflet CSS into Shadow DOM
+    const leafletStyle = document.createElement('style');
+    leafletStyle.textContent = leafletCSS;
+    this.shadowRoot.appendChild(leafletStyle);
+
     // Get height from data-height attribute (default 500px)
     const height = this.getAttribute('data-height') || '500px';
 
@@ -94,6 +99,11 @@ class MultiRunOverlayElement extends WidgetBase {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       maxZoom: 19
     }).addTo(this.map);
+
+    // Force Leaflet to recalculate tile positions after Shadow DOM layout
+    requestAnimationFrame(() => {
+      this.map?.invalidateSize();
+    });
 
     // Render multiple routes with distinct colors and combined bounds
     this.polylines = RouteRenderer.renderMultipleRoutes(this.map, routes, {

@@ -4,10 +4,10 @@
  */
 
 import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import leafletCSS from 'leaflet/dist/leaflet.css?inline';
 import 'leaflet.markercluster';
-import 'leaflet.markercluster/dist/MarkerCluster.css';
-import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+import markerClusterCSS from 'leaflet.markercluster/dist/MarkerCluster.css?inline';
+import markerClusterDefaultCSS from 'leaflet.markercluster/dist/MarkerCluster.Default.css?inline';
 import { WidgetBase } from '../shared/widget-base.js';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -129,6 +129,20 @@ class PinMapWidgetElement extends WidgetBase {
     this.shadowRoot.innerHTML = '';
     styles.forEach(style => this.shadowRoot!.appendChild(style));
 
+    // Inject Leaflet CSS into Shadow DOM
+    const leafletStyle = document.createElement('style');
+    leafletStyle.textContent = leafletCSS;
+    this.shadowRoot.appendChild(leafletStyle);
+
+    // Inject MarkerCluster CSS into Shadow DOM
+    const markerClusterStyle = document.createElement('style');
+    markerClusterStyle.textContent = markerClusterCSS;
+    this.shadowRoot.appendChild(markerClusterStyle);
+
+    const markerClusterDefaultStyle = document.createElement('style');
+    markerClusterDefaultStyle.textContent = markerClusterDefaultCSS;
+    this.shadowRoot.appendChild(markerClusterDefaultStyle);
+
     // Get height from data-height attribute (default 500px)
     const height = this.getAttribute('data-height') || '500px';
 
@@ -154,6 +168,11 @@ class PinMapWidgetElement extends WidgetBase {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       maxZoom: 19,
     }).addTo(this.map);
+
+    // Force Leaflet to recalculate tile positions after Shadow DOM layout
+    requestAnimationFrame(() => {
+      this.map?.invalidateSize();
+    });
 
     // Render pins based on view mode
     this.renderPins();

@@ -4,7 +4,7 @@
  */
 
 import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import leafletCSS from 'leaflet/dist/leaflet.css?inline';
 import 'leaflet.heat';
 import { WidgetBase } from '../shared/widget-base.js';
 import { COLOR_SCHEMES, DEFAULT_SCHEME } from './color-schemes.js';
@@ -72,6 +72,11 @@ class HeatmapWidgetElement extends WidgetBase {
     this.shadowRoot.innerHTML = '';
     styles.forEach(style => this.shadowRoot!.appendChild(style));
 
+    // Inject Leaflet CSS into Shadow DOM
+    const leafletStyle = document.createElement('style');
+    leafletStyle.textContent = leafletCSS;
+    this.shadowRoot.appendChild(leafletStyle);
+
     // Store all routes data
     this.allRoutes = data as HeatmapRouteData[];
 
@@ -101,6 +106,11 @@ class HeatmapWidgetElement extends WidgetBase {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       maxZoom: 19
     }).addTo(this.map);
+
+    // Force Leaflet to recalculate tile positions after Shadow DOM layout
+    requestAnimationFrame(() => {
+      this.map?.invalidateSize();
+    });
 
     // Render heatmap with all routes (default filter)
     this.renderHeatmapFromRoutes(this.allRoutes);

@@ -4,7 +4,7 @@
  */
 
 import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import leafletCSS from 'leaflet/dist/leaflet.css?inline';
 import { WidgetBase } from '../shared/widget-base.js';
 
 // Import marker icon images for Vite bundler fix
@@ -39,6 +39,11 @@ class MapTestWidgetElement extends WidgetBase {
   connectedCallback(): void {
     super.connectedCallback();
 
+    // Inject Leaflet CSS into Shadow DOM
+    const leafletStyle = document.createElement('style');
+    leafletStyle.textContent = leafletCSS;
+    this.shadowRoot!.appendChild(leafletStyle);
+
     // Create map container
     const container = document.createElement('div');
     container.style.width = '100%';
@@ -53,6 +58,11 @@ class MapTestWidgetElement extends WidgetBase {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       maxZoom: 19
     }).addTo(this.map);
+
+    // Force Leaflet to recalculate tile positions after Shadow DOM layout
+    requestAnimationFrame(() => {
+      this.map?.invalidateSize();
+    });
 
     // Add test marker at center
     L.marker([55.6761, 12.5683])
