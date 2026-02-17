@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-16)
 ## Current Position
 
 Phase: 11 of 13 (Route Map Widgets)
-Plan: 1 of 3 in current phase
+Plan: 3 of 3 in current phase
 Status: Complete
-Last activity: 2026-02-17 — Completed 11-01 (Route data infrastructure and RouteRenderer utility)
+Last activity: 2026-02-17 — Completed 11-03 (Route browser widget with list selection and embedded map)
 
-Progress: [██████████████████████░░░░░░] 85% (22/26 total plans across all phases)
+Progress: [███████████████████████░░░░░] 88% (23/26 total plans across all phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 22
-- Average duration: ~35 min per plan (estimated from v1.0 + v1.1 + v1.2)
-- Total execution time: ~14.5 hours
+- Total plans completed: 23
+- Average duration: ~30 min per plan (estimated from v1.0 + v1.1 + v1.2)
+- Total execution time: ~15 hours
 
 **By Milestone:**
 
@@ -29,11 +29,11 @@ Progress: [██████████████████████░
 |-----------|-------|-----|----------|
 | v1.0 | 9 | 3,844 | 1 day |
 | v1.1 | 10 | +2,858 | 3 days |
-| v1.2 (in progress) | 5 | TBD | TBD |
+| v1.2 (in progress) | 6 | TBD | TBD |
 
 **Recent Trend:**
-- Last plan: Phase 11-01 (3 min) — Route data infrastructure
-- Trend: Excellent (Route data pre-computation reduces widget payload by 72%)
+- Last plan: Phase 11-03 (4 min) — Route browser widget
+- Trend: Excellent (All Phase 11 route widgets complete, 9 total widgets deployed)
 
 *Updated after each plan completion*
 
@@ -59,6 +59,8 @@ Recent decisions affecting current work:
 - **Phase 11-01**: Pre-compute route data into optimized JSON files (2.0 MB) instead of loading full activity data (7.1 MB) in widgets — 72% payload reduction
 - **Phase 11-01**: Created shared RouteRenderer utility to avoid duplicating polyline decode, auto-fit, and popup logic across three route widgets
 - **Phase 11-01**: HSL color distribution for multi-route rendering provides visually distinct colors via hue rotation
+- **Phase 11-03**: Grid layout with 280px fixed sidebar for route list provides optimal readability while maximizing map viewport
+- **Phase 11-03**: CSS container queries enable widget-level responsiveness (side-by-side at 500px+, stacked below) independent of page layout
 
 ### Key Findings
 
@@ -93,8 +95,8 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed Phase 11-01 (Route data infrastructure and RouteRenderer utility)
+Stopped at: Completed Phase 11-03 (Route browser widget — Phase 11 complete)
 Resume file: None
 
 ---
-*Last updated: 2026-02-17 after Phase 11-01 completion*
+*Last updated: 2026-02-17 after Phase 11-03 completion*
