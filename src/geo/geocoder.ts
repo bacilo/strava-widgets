@@ -49,23 +49,18 @@ export function coordToCacheKey(lat: number, lng: number): string {
 }
 
 /**
- * Geocode activity start location using offline library with caching
+ * Geocode a single coordinate using offline library with caching
  *
- * @param activity - Strava activity with start_latlng
+ * @param lat - Latitude (-90 to 90)
+ * @param lng - Longitude (-180 to 180)
  * @param cache - In-memory cache (mutated if new lookup performed)
- * @returns Promise resolving to GeoLocation or null if no GPS data or geocoding failed
+ * @returns Promise resolving to GeoLocation or null if geocoding failed
  */
-export async function geocodeActivity(
-  activity: StravaActivity,
+export async function geocodeCoordinate(
+  lat: number,
+  lng: number,
   cache: GeoCache
 ): Promise<GeoLocation | null> {
-  // Guard: Missing or invalid GPS data
-  if (!activity.start_latlng || activity.start_latlng.length !== 2) {
-    return null;
-  }
-
-  const [lat, lng] = activity.start_latlng;
-
   // Guard: Validate coordinate ranges
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
     return null;
@@ -99,4 +94,24 @@ export async function geocodeActivity(
     // Geocoding failed (e.g., ocean coordinates, database error)
     return null;
   }
+}
+
+/**
+ * Geocode activity start location using offline library with caching
+ *
+ * @param activity - Strava activity with start_latlng
+ * @param cache - In-memory cache (mutated if new lookup performed)
+ * @returns Promise resolving to GeoLocation or null if no GPS data or geocoding failed
+ */
+export async function geocodeActivity(
+  activity: StravaActivity,
+  cache: GeoCache
+): Promise<GeoLocation | null> {
+  // Guard: Missing or invalid GPS data
+  if (!activity.start_latlng || activity.start_latlng.length !== 2) {
+    return null;
+  }
+
+  const [lat, lng] = activity.start_latlng;
+  return geocodeCoordinate(lat, lng, cache);
 }

@@ -8,8 +8,9 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import type { StravaActivity } from '../types/strava.types.js';
-import { geocodeActivity, type GeoCache } from './geocoder.js';
+import { geocodeActivity, geocodeCoordinate, type GeoCache } from './geocoder.js';
 import { loadCache, saveCache } from './cache-manager.js';
+import { decodeActivityPolyline, sampleRoutePoints } from './polyline-decoder.js';
 
 interface ComputeGeoStatsOptions {
   activitiesDir?: string;
@@ -103,6 +104,9 @@ export async function computeGeoStats(
     totalDistanceM: number;
   }>();
 
+  // Map to track which cities each activity passes through
+  const activityCitiesMap = new Map<number, string[]>();
+
   for (const activity of activities) {
     totalCount++;
     const location = await geocodeActivity(activity, cache);
@@ -114,7 +118,7 @@ export async function computeGeoStats(
     successCount++;
     totalDistanceM += activity.distance || 0;
 
-    // Aggregate by country
+    // Aggregate by country (start city only for distance stats)
     const countryKey = location.countryIso2;
     const existingCountry = countryMap.get(countryKey) || {
       countryName: location.countryName,
@@ -128,7 +132,7 @@ export async function computeGeoStats(
     existingCountry.cities.add(location.cityName);
     countryMap.set(countryKey, existingCountry);
 
-    // Aggregate by city
+    // Aggregate by city (start city only for distance stats)
     const cityKey = `${location.cityName},${location.countryIso2}`;
     const existingCity = cityMap.get(cityKey) || {
       cityName: location.cityName,
@@ -142,6 +146,41 @@ export async function computeGeoStats(
     existingCity.totalDistanceM += activity.distance || 0;
     cityMap.set(cityKey, existingCity);
   }
+
+  // Step 3.5: Multi-city detection via route polyline sampling
+  console.log('\nDetecting multi-city routes...');
+  let routesWithMultipleCities = 0;
+
+  for (const activity of activities) {
+    // Decode polyline
+    const decoded = decodeActivityPolyline(activity);
+    if (!decoded) {
+      continue;
+    }
+
+    // Sample route points
+    const sampledPoints = sampleRoutePoints(decoded.coordinates);
+
+    // Geocode each sampled point
+    const citiesSet = new Set<string>();
+    for (const [lat, lng] of sampledPoints) {
+      const location = await geocodeCoordinate(lat, lng, cache);
+      if (location) {
+        citiesSet.add(location.cityName);
+      }
+    }
+
+    // Store cities for this activity
+    const cities = Array.from(citiesSet).sort();
+    if (cities.length > 0) {
+      activityCitiesMap.set(activity.id, cities);
+      if (cities.length > 1) {
+        routesWithMultipleCities++;
+      }
+    }
+  }
+
+  console.log(`Found ${routesWithMultipleCities} activities passing through multiple cities`);
 
   // Step 4: Save updated cache
   await saveCache(cachePath, cache);
@@ -204,11 +243,20 @@ export async function computeGeoStats(
     'utf-8'
   );
 
+  // Step 8.5: Write activity-cities mapping
+  const activityCitiesObject = Object.fromEntries(activityCitiesMap);
+  await fs.writeFile(
+    path.join(geoDir, 'activity-cities.json'),
+    JSON.stringify(activityCitiesObject, null, 2),
+    'utf-8'
+  );
+
   // Step 9: Console log summary
   console.log(`\nGeocoded ${successCount} of ${totalCount} activities (${coveragePercent}%)`);
   console.log(`- ${countries.length} countries`);
   console.log(`- ${cities.length} cities`);
   console.log(`- Total distance: ${(totalDistanceM / 1000).toFixed(1)} km`);
   console.log(`- Cache size: ${Object.keys(cache.entries).length} locations`);
+  console.log(`- Multi-city activities: ${routesWithMultipleCities}`);
   console.log(`\nOutput written to: ${geoDir}`);
 }
