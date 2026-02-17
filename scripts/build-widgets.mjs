@@ -104,7 +104,8 @@ async function buildWidget(widget, index) {
 function copyDataFiles() {
   const dataDirs = [
     { src: 'data/stats', dest: 'dist/widgets/data/stats' },
-    { src: 'data/geo', dest: 'dist/widgets/data/geo' }
+    { src: 'data/geo', dest: 'dist/widgets/data/geo' },
+    { src: 'data/routes', dest: 'dist/widgets/data/routes' }
   ];
 
   for (const { src, dest } of dataDirs) {

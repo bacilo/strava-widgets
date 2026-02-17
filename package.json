@@ -13,6 +13,7 @@
     "compute-advanced-stats": "node dist/index.js compute-advanced-stats",
     "compute-geo-stats": "node dist/index.js compute-geo-stats",
     "compute-all-stats": "node dist/index.js compute-all-stats",
+    "compute-route-data": "node scripts/compute-route-data.mjs",
     "build-widget": "vite build",
     "build-widgets": "node scripts/build-widgets.mjs",
     "compare-geocoding": "node scripts/compare-geocoding.mjs",
