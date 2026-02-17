@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-16)
 ## Current Position
 
 Phase: 10 of 13 (Geocoding Foundation & Map Infrastructure)
-Plan: 1 of 3 in current phase
+Plan: 3 of 3 in current phase
 Status: In progress
-Last activity: 2026-02-17 — Completed 10-01 (GeoNames geocoder migration)
+Last activity: 2026-02-17 — Completed 10-03 (Leaflet setup & Shadow DOM integration)
 
-Progress: [████████████████████░░░░░░░░] 73% (19/26 total plans across all phases)
+Progress: [████████████████████░░░░░░░░] 77% (20/26 total plans across all phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 19
-- Average duration: ~43 min per plan (estimated from v1.0 + v1.1 + v1.2)
-- Total execution time: ~13.6 hours
+- Total plans completed: 20
+- Average duration: ~41 min per plan (estimated from v1.0 + v1.1 + v1.2)
+- Total execution time: ~13.7 hours
 
 **By Milestone:**
 
@@ -29,11 +29,11 @@ Progress: [████████████████████░░░
 |-----------|-------|-----|----------|
 | v1.0 | 9 | 3,844 | 1 day |
 | v1.1 | 10 | +2,858 | 3 days |
-| v1.2 (in progress) | 1 | TBD | TBD |
+| v1.2 (in progress) | 2 | TBD | TBD |
 
 **Recent Trend:**
-- Last plan: Phase 10-01 (5 min) — Fast geocoder migration
-- Trend: Improving (shorter execution times for focused migrations)
+- Last plan: Phase 10-03 (4 min) — Leaflet setup with Shadow DOM
+- Trend: Excellent (very fast execution for infrastructure setup)
 
 *Updated after each plan completion*
 
@@ -50,6 +50,9 @@ Recent decisions affecting current work:
 - **Phase 10-01**: Migrated to offline-geocoder (GeoNames cities1000) with versioned cache (v2) — Fixes suburb-instead-of-city problem, 166K cities vs 5K in UN/LOCODE
 - **Phase 10-01**: Made geocodeActivity async to work with offline-geocoder's promise-based SQLite API
 - **Phase 10-01**: Versioned cache schema (v2) includes version number and geocoder identifier for safe future migrations
+- **Phase 10-03**: Externalized Leaflet to CDN (global L) to keep widget bundles under 50KB (achieved 30KB)
+- **Phase 10-03**: Used vite-plugin-css-injected-by-js for Shadow DOM CSS injection
+- **Phase 10-03**: Added isMapWidget flag to build config for conditional Leaflet externalization (existing Chart.js widgets unaffected)
 
 ### Key Findings
 
@@ -68,10 +71,11 @@ None yet.
 
 **Phase 10 (Current):**
 - ~~Geocoding library migration requires cache invalidation and versioned schema~~ ✓ RESOLVED in 10-01
+- ~~Leaflet CSS must be injected into Shadow DOM (not globally)~~ ✓ RESOLVED in 10-03 (vite-plugin-css-injected-by-js)
+- ~~IIFE bundle size will grow from 180KB to 500KB+ unless Leaflet externalized to CDN~~ ✓ RESOLVED in 10-03 (30KB bundle, Leaflet externalized)
 - GeoNames database (12MB) lives in node_modules - not committed to git. Future npm installs require running generation script OR moving database to project data/ directory
-- Leaflet CSS must be injected into Shadow DOM (not globally)
-- IIFE bundle size will grow from 180KB to 500KB+ unless Leaflet externalized to CDN
-- Mobile touch events on iOS/Android may require manual event delegation
+- Leaflet CSS injection via vite-plugin-css-injected-by-js may need adjustment for true Shadow DOM isolation in Phase 11 (currently works due to CSS cascade)
+- Mobile touch events on iOS/Android may require manual event delegation in Phase 11
 
 **Phase 11-13:**
 - Polyline decoding for 1,808 routes must not block UI (chunking/Web Workers may be needed)
@@ -80,8 +84,8 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed Phase 10-01 (GeoNames geocoder migration)
+Stopped at: Completed Phase 10-03 (Leaflet setup & Shadow DOM integration)
 Resume file: None
 
 ---
-*Last updated: 2026-02-17 after Phase 10-01 completion*
+*Last updated: 2026-02-17 after Phase 10-03 completion*
