@@ -1,0 +1,109 @@
+/**
+ * Single Run Map Widget - Displays one activity's route on an interactive map
+ * Shows route with zoom/pan, auto-fit viewport, hover effects, and click popup
+ */
+import L from 'leaflet';
+import leafletCSS from 'leaflet/dist/leaflet.css?inline';
+import { WidgetBase } from '../shared/widget-base.js';
+import { RouteRenderer } from '../shared/route-utils.js';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+// Fix default marker icons (required for Vite)
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+    iconUrl: markerIcon,
+    iconRetinaUrl: markerIcon2x,
+    shadowUrl: markerShadow,
+});
+/**
+ * SingleRunMapElement - Renders a single activity's route on a map
+ */
+class SingleRunMapElement extends WidgetBase {
+    map = null;
+    polyline = null;
+    /**
+     * Default data URL (fallback)
+     */
+    get dataUrl() {
+        return 'data/routes/route-list.json';
+    }
+    /**
+     * Clean up map when element is disconnected
+     */
+    disconnectedCallback() {
+        if (this.polyline) {
+            this.polyline.remove();
+            this.polyline = null;
+        }
+        if (this.map) {
+            this.map.remove();
+            this.map = null;
+        }
+        super.disconnectedCallback();
+    }
+    /**
+     * Render the map with route data
+     */
+    render(data) {
+        if (!this.shadowRoot)
+            return;
+        // Clear shadow DOM content except style elements
+        const styles = Array.from(this.shadowRoot.querySelectorAll('style'));
+        this.shadowRoot.innerHTML = '';
+        styles.forEach(style => this.shadowRoot.appendChild(style));
+        // Inject Leaflet CSS into Shadow DOM
+        const leafletStyle = document.createElement('style');
+        leafletStyle.textContent = leafletCSS;
+        this.shadowRoot.appendChild(leafletStyle);
+        // Get height from data-height attribute (default 400px)
+        const height = this.getAttribute('data-height') || '400px';
+        // Create map container
+        const container = document.createElement('div');
+        container.style.width = '100%';
+        container.style.height = height;
+        container.style.borderRadius = '8px';
+        container.style.overflow = 'hidden';
+        this.shadowRoot.appendChild(container);
+        // Get route data
+        let route;
+        const activityId = this.getAttribute('data-activity-id');
+        if (activityId && Array.isArray(data)) {
+            // Find specific activity by ID
+            route = data.find(r => r.id === parseInt(activityId));
+        }
+        else if (!Array.isArray(data)) {
+            // Use data directly if it's a single RouteData object
+            route = data;
+        }
+        else if (Array.isArray(data) && data.length > 0) {
+            // Use first route if no activity ID specified
+            route = data[0];
+        }
+        // Check if route has polyline data
+        if (!route || !route.polyline) {
+            this.showError('No route data available');
+            return;
+        }
+        // Initialize Leaflet map
+        this.map = L.map(container).setView([0, 0], 2);
+        // Add basemap with layer switcher (Light/Dark/Street/Terrain)
+        RouteRenderer.addBasemapSwitcher(this.map);
+        // Force Leaflet to recalculate tile positions after Shadow DOM layout
+        requestAnimationFrame(() => {
+            this.map?.invalidateSize();
+        });
+        // Render route with popup and auto-fit bounds, thicker line for visibility
+        this.polyline = RouteRenderer.renderRoute(this.map, route, {
+            weight: 5,
+            opacity: 1.0,
+            showPopup: true,
+            fitBounds: true,
+        });
+        // Add hover effect
+        RouteRenderer.addHoverEffect(this.polyline, 5, 7);
+    }
+}
+// Register custom element
+WidgetBase.register('single-run-map', SingleRunMapElement);
+//# sourceMappingURL=index.js.map
