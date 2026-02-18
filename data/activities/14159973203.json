@@ -28,8 +28,9 @@
   "photo_count": 0,
   "map": {
     "id": "a14159973203",
-    "summary_polyline": "",
-    "resource_state": 2
+    "polyline": "agmxAq{{aV@@Dd@E^BX?fBDd@DhEBzDDj@AZKRBjACZDh@@x@Bb@ClAFJF|@PfA?Zb@lCBd@Xx@BNH\\Db@Jd@Nb@^t@Pr@VBBDDNHJA?AEI?]TkAh@QNBDAQ\\ZVLFHrAdCR|@?JI\\Q\\s@r@[b@wAhCs@hCW~AAXBZAPh@fCDZGXPp@h@DPTRJn@n@n@`@z@\\`APZJr@\\f@B?HE`@_@tAE`@UhAIp@UpA[|BOxB}@`HAd@Mh@O~Ag@zCOhAKT@l@MtAEPI`AMv@Ez@]nBm@~Cc@vDk@hBDp@EZ@\\[bBE`AIh@KX@RKd@A`@GVBDIRBF?FDB@NKr@NTY@ULKRAFoCdDY[Db@FCLh@{IzIF@CNUFk@Gq@JwASG@QTEPAtABVG`@",
+    "resource_state": 3,
+    "summary_polyline": "agmxAq{{aV@@Dd@E^BX?fBDd@DhEBzDDj@AZKRBjACZDh@@x@Bb@ClAFJF|@PfA?Zb@lCBd@Xx@BNH\\Db@Jd@Nb@^t@Pr@VBBDDNHJA?AEI?]TkAh@QNBDAQ\\ZVLFHrAdCR|@?JI\\Q\\s@r@[b@wAhCs@hCW~AAXBZAPh@fCDZGXPp@h@DPTRJn@n@n@`@z@\\`APZJr@\\f@B?HE`@_@tAE`@UhAIp@UpA[|BOxB}@`HAd@Mh@O~Ag@zCOhAKT@l@MtAEPI`AMv@Ez@]nBm@~Cc@vDk@hBDp@EZ@\\[bBE`AIh@KX@RKd@A`@GVBDIRBF?FDB@NKr@NTY@ULKRAFoCdDY[Db@FCLh@{IzIF@CNUFk@Gq@JwASG@QTEPAtABVG`@"
   },
   "trainer": false,
   "commute": false,

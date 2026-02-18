@@ -28,8 +28,9 @@
   "photo_count": 0,
   "map": {
     "id": "a16208563621",
-    "summary_polyline": "",
-    "resource_state": 2
+    "polyline": "q{`sIop}jAg@FmBCIBsABqA?gAEgA?]JCtBMd@Gn@AbAC`@GFk@Aw@DIESUGCQNEPAAyACCq@Oe@g@q@MEMUCk@Ti@Lk@Hw@R_AFm@?YU[WSUo@SOCBMp@EHC?Cd@U?KL]lAG@IGSW",
+    "resource_state": 3,
+    "summary_polyline": "q{`sIop}jAg@FmBCIBsABqA?gAEgA?]JCtBMd@Gn@AbAC`@GFk@Aw@DIESUGCQNEPAAyACCq@Oe@g@q@MEMUCk@Ti@Lk@Hw@R_AFm@?YU[WSUo@SOCBMp@EHC?Cd@U?KL]lAG@IGSW"
   },
   "trainer": false,
   "commute": false,

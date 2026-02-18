@@ -122,7 +122,7 @@ export class StravaOAuth {
       client_id: this.config.clientId,
       redirect_uri: redirectUri,
       response_type: 'code',
-      scope: 'activity:read',
+      scope: 'activity:read_all',
     });
 
     return `https://www.strava.com/oauth/authorize?${params.toString()}`;

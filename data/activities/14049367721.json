@@ -28,8 +28,9 @@
   "photo_count": 0,
   "map": {
     "id": "a14049367721",
-    "summary_polyline": "",
-    "resource_state": 2
+    "polyline": "s{urIc`zkABHAJC@CADCk@@ICQM{Am@w@KiAw@OFGF_@LGJMLG?OPOZg@@IAsAFUIUFa@t@On@Gl@Hp@M`A?tAIDBDWt@Ap@CX_@f@Uf@Sz@[t@ESI\\a@vCs@~B_@\\k@TGt@YfAQ`@y@v@U?M_@[_@Sa@QQU]m@wAE@MPEd@Uz@StBQb@e@dDe@xAU~@MfA[hAG\\KCMUSQq@iACK_@u@IGCF[Ve@jBSLNND^A\\_AtBu@tBg@r@i@hB_@Lc@AK@ICo@]i@Qm@a@OCOUkA_ASEq@{Ag@g@[m@GGCAABAJ?|@E`AI`Ac@bBo@lBKf@i@UYbAS~@Wn@Qt@CPO^W^Yt@c@dBMVm@lBYt@y@`BkApDc@x@]pAKLM\\q@t@[h@e@nAKNm@jBIHUj@WbAg@bAMJ[d@a@xAGd@IRCNE`AM^e@b@[d@Gf@MHE?c@t@Kf@[\\[n@Sr@_AtAg@Zo@j@gAjAa@Hw@@K@W?IDWzAFn@@p@UtCs@xAWZa@F_AxB[fBGf@EpAKhAIf@[j@Sl@q@|Ai@j@O`@_@h@Sf@e@|A[tAWx@OZSXo@`CO\\u@`CYt@i@vBOf@iAbAUHQCOJG?}@|@IRQ|@Qv@[r@UZUl@Oz@[dAQb@U`@Ol@KXe@~@a@Zu@~CSjACBO`@c@~AMTK`@IPKj@GDS~AIh@e@Z[tB?^S`@Or@Oj@e@rA_@vAUf@Mh@QlAaAvDe@vAG`@Q^Ql@Sv@Kr@e@lA]n@[tBi@nB{@pBo@pAMNa@`AKR_@`@o@zAa@l@QTc@Ve@d@[FaBr@YBs@\\a@H[CKGc@Gk@Xy@SIFm@@s@Zk@JW@SYOIYK]Gm@Lc@RS@MEWYaA[g@KIFw@Fy@JSFCP?nAEJUXAT`@vE@b@At@YJu@Nw@T[Cq@Lc@M[Ea@e@UJ_@Uq@y@i@BaAu@]LEAKSYYWEMEMSe@Ek@[MAa@Yc@QE?o@h@WJMf@c@vDOhCMx@W~BMp@UV]RYTg@h@m@Z]B?SJU^D~@@",
+    "resource_state": 3,
+    "summary_polyline": "s{urIc`zkABHAJC@CADCk@@ICQM{Am@w@KiAw@OFGF_@LGJMLG?OPOZg@@IAsAFUIUFa@t@On@Gl@Hp@M`A?tAIDBDWt@Ap@CX_@f@Uf@Sz@[t@ESI\\a@vCs@~B_@\\k@TGt@YfAQ`@y@v@U?M_@[_@Sa@QQU]m@wAE@MPEd@Uz@StBQb@e@dDe@xAU~@MfA[hAG\\KCMUSQq@iACK_@u@IGCF[Ve@jBSLNND^A\\_AtBu@tBg@r@i@hB_@Lc@AK@ICo@]i@Qm@a@OCOUkA_ASEq@{Ag@g@[m@GGCAABAJ?|@E`AI`Ac@bBo@lBKf@i@UYbAS~@Wn@Qt@CPO^W^Yt@c@dBMVm@lBYt@y@`BkApDc@x@]pAKLM\\q@t@[h@e@nAKNm@jBIHUj@WbAg@bAMJ[d@a@xAGd@IRCNE`AM^e@b@[d@Gf@MHE?c@t@Kf@[\\[n@Sr@_AtAg@Zo@j@gAjAa@Hw@@K@W?IDWzAFn@@p@UtCs@xAWZa@F_AxB[fBGf@EpAKhAIf@[j@Sl@q@|Ai@j@O`@_@h@Sf@e@|A[tAWx@OZSXo@`CO\\u@`CYt@i@vBOf@iAbAUHQCOJG?}@|@IRQ|@Qv@[r@UZUl@Oz@[dAQb@U`@Ol@KXe@~@a@Zu@~CSjACBO`@c@~AMTK`@IPKj@GDS~AIh@e@Z[tB?^S`@Or@Oj@e@rA_@vAUf@Mh@QlAaAvDe@vAG`@Q^Ql@Sv@Kr@e@lA]n@[tBi@nB{@pBo@pAMNa@`AKR_@`@o@zAa@l@QTc@Ve@d@[FaBr@YBs@\\a@H[CKGc@Gk@Xy@SIFm@@s@Zk@JW@SYOIYK]Gm@Lc@RS@MEWYaA[g@KIFw@Fy@JSFCP?nAEJUXAT`@vE@b@At@YJu@Nw@T[Cq@Lc@M[Ea@e@UJ_@Uq@y@i@BaAu@]LEAKSYYWEMEMSe@Ek@[MAa@Yc@QE?o@h@WJMf@c@vDOhCMx@W~BMp@UV]RYTg@h@m@Z]B?SJU^D~@@"
   },
   "trainer": false,
   "commute": false,

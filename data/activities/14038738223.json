@@ -28,8 +28,9 @@
   "photo_count": 0,
   "map": {
     "id": "a14038738223",
-    "summary_polyline": "",
-    "resource_state": 2
+    "polyline": "ue~rIe`okAC}@BsAAs@RcCAi@AGD]FMKq@XkCGm@@c@Pi@LeBJm@H{A@s@NW?El@KTKV_@bA_ALYDa@VW`AwBtAsANa@NeA^kAFO^OPa@ZW\\GRSXqAFMb@e@RIXTJAN_A\\e@^u@Py@@SPERU@OAYD[`@i@N]j@e@NANa@`@y@\\a@F?DC^g@Ru@GCBABBFCb@q@\\_ANy@hAeANe@TwAN]f@AFK\\eAx@gBz@}Ah@y@Ts@j@}@Vk@dAsALY\\k@JEXy@b@{@d@y@PS\\i@Vm@NSn@}ALOx@uAd@k@Zy@hByCXs@\\oATiARm@Lq@f@mAn@cCXw@\\uAHOn@qC`@{@J_@v@oE\\eA\\gBVs@p@mAXs@`@gAhAqDp@gBXiAVoAXcCr@yCr@{BLk@Xg@^{@R}@ZgBHU\\m@n@aC`@aAJi@Bs@Vk@j@cARo@FkAX}@Xi@Xu@Pu@dA_CHO`@g@^mA@B`@Cz@Y^a@^g@Hk@La@Pu@B]AYRgAj@uBR}@Tu@Ji@Fu@Ty@PSFUx@w@b@Wd@m@XFP@JEb@[ZGf@{@N?DCBIJCd@?\\DDI^UTB`@G`@Cb@}@Rw@L_B`BcFVk@b@`@Z}@tAcFh@cDBIVLF?JMZ}C^wBNiAJWd@q@lAqBz@kBl@{Ab@}A`@s@r@cCPe@d@aAb@{A`@g@d@_@HKHEDSh@sANw@d@qANs@XaAd@{@^kAVq@^e@ZO`AeAvBwBb@YhCaAXDb@?d@AHBNAp@Ob@Bd@HFAl@?LHXBVCXBPAd@Lb@XXHTCFBTZf@Nt@Jn@NRPJBPKJANJXBLDd@VbAPf@SJHXf@H@NC^Od@Df@X|@\\^W\\MXBZL~@ZlAJh@f@Pl@TJh@IR@t@\\b@DVHn@Jd@NLrAAd@F~AJr@\\Bz@Yh@Gx@g@l@J\\b@?lAKZ]l@GX",
+    "resource_state": 3,
+    "summary_polyline": "ue~rIe`okAC}@BsAAs@RcCAi@AGD]FMKq@XkCGm@@c@Pi@LeBJm@H{A@s@NW?El@KTKV_@bA_ALYDa@VW`AwBtAsANa@NeA^kAFO^OPa@ZW\\GRSXqAFMb@e@RIXTJAN_A\\e@^u@Py@@SPERU@OAYD[`@i@N]j@e@NANa@`@y@\\a@F?DC^g@Ru@GCBABBFCb@q@\\_ANy@hAeANe@TwAN]f@AFK\\eAx@gBz@}Ah@y@Ts@j@}@Vk@dAsALY\\k@JEXy@b@{@d@y@PS\\i@Vm@NSn@}ALOx@uAd@k@Zy@hByCXs@\\oATiARm@Lq@f@mAn@cCXw@\\uAHOn@qC`@{@J_@v@oE\\eA\\gBVs@p@mAXs@`@gAhAqDp@gBXiAVoAXcCr@yCr@{BLk@Xg@^{@R}@ZgBHU\\m@n@aC`@aAJi@Bs@Vk@j@cARo@FkAX}@Xi@Xu@Pu@dA_CHO`@g@^mA@B`@Cz@Y^a@^g@Hk@La@Pu@B]AYRgAj@uBR}@Tu@Ji@Fu@Ty@PSFUx@w@b@Wd@m@XFP@JEb@[ZGf@{@N?DCBIJCd@?\\DDI^UTB`@G`@Cb@}@Rw@L_B`BcFVk@b@`@Z}@tAcFh@cDBIVLF?JMZ}C^wBNiAJWd@q@lAqBz@kBl@{Ab@}A`@s@r@cCPe@d@aAb@{A`@g@d@_@HKHEDSh@sANw@d@qANs@XaAd@{@^kAVq@^e@ZO`AeAvBwBb@YhCaAXDb@?d@AHBNAp@Ob@Bd@HFAl@?LHXBVCXBPAd@Lb@XXHTCFBTZf@Nt@Jn@NRPJBPKJANJXBLDd@VbAPf@SJHXf@H@NC^Od@Df@X|@\\^W\\MXBZL~@ZlAJh@f@Pl@TJh@IR@t@\\b@DVHn@Jd@NLrAAd@F~AJr@\\Bz@Yh@Gx@g@l@J\\b@?lAKZ]l@GX"
   },
   "trainer": false,
   "commute": false,

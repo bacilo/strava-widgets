@@ -28,8 +28,9 @@
   "photo_count": 0,
   "map": {
     "id": "a14381676008",
-    "summary_polyline": "",
-    "resource_state": 2
+    "polyline": "ec~rIgbnkADGJqANQ`@AXI@ENMF[LMHUHGDAZ}@^WJQRSdAu@RKr@s@b@W\\m@\\_@\\u@R[VUn@mAf@}AHiBHi@Cw@@QEo@G}BDo@Re@PIhAF`@Ut@HBWFGDQ?i@Ey@UiC@oAEy@BcADEH@B@@FBFp@H|AK\\Or@e@TFr@Zt@Vh@`@XS^q@LE^FLZRRJ@L?RH^y@DCXCVBXAHDNVH@NIXC`AFVgAJGZI`@@d@PJANFz@wBp@i@JARIPDRQRWVu@R]h@m@fA}A|@yAd@eALeABMLATg@F_@DaAFUD?JIB?^gAXiBb@{Br@yCNFB?T_@n@qC\\_CDMJKPg@^mBJSLy@Na@`@gBFk@FADGRi@v@sCZo@Hs@ZqAp@wBXmAHkBCDLS|@mDXWhAoBFYPs@\\s@PU`@cBNUNOHHDAJMRINQJ@LKn@u@X{@T_@FCT_@VU^i@ToA^}@h@mCl@eBZiAP_@fAgEbAiCRw@JcAPgAp@}AVq@VEVWLUZ}BBCV@d@NBBTDJG`@eBd@cA`@o@l@IXYf@_@VIHIdAaBjAyBJKVMN?TS`@s@d@i@l@iAb@Iz@}@`@k@d@\\\\k@h@}AT{@`@cAj@}Al@uBVk@r@_Cb@u@^g@HS^sAR]RQDIjAwC`@}@p@eBNi@f@sAh@{Al@{ARUDARw@d@}@\\}@R}@?Wb@u@Hk@jBgEx@wBzAoDl@}Aj@qA`@uAlBmER]D?PJ^ZJRzApARf@LKAQJs@r@{Cd@?Xb@DT^n@v@`AFKAGN_C\\i@RORe@P_ATu@bAkEJw@AKFSZi@jAl@F?^QhAWLWFq@^KT@LEFGX{@ZmArBgFXkAJKHBd@qBCMDADKb@{BXi@d@?d@f@RBh@CFGJAd@BPPH\\LBx@FH?FGJ?FIJ{@Nc@LcCEkAFgALIDBt@bAlA|@b@VRD?K",
+    "resource_state": 3,
+    "summary_polyline": "ec~rIgbnkADGJqANQ`@AXI@ENMF[LMHUHGDAZ}@^WJQRSdAu@RKr@s@b@W\\m@\\_@\\u@R[VUn@mAf@}AHiBHi@Cw@@QEo@G}BDo@Re@PIhAF`@Ut@HBWFGDQ?i@Ey@UiC@oAEy@BcADEH@B@@FBFp@H|AK\\Or@e@TFr@Zt@Vh@`@XS^q@LE^FLZRRJ@L?RH^y@DCXCVBXAHDNVH@NIXC`AFVgAJGZI`@@d@PJANFz@wBp@i@JARIPDRQRWVu@R]h@m@fA}A|@yAd@eALeABMLATg@F_@DaAFUD?JIB?^gAXiBb@{Br@yCNFB?T_@n@qC\\_CDMJKPg@^mBJSLy@Na@`@gBFk@FADGRi@v@sCZo@Hs@ZqAp@wBXmAHkBCDLS|@mDXWhAoBFYPs@\\s@PU`@cBNUNOHHDAJMRINQJ@LKn@u@X{@T_@FCT_@VU^i@ToA^}@h@mCl@eBZiAP_@fAgEbAiCRw@JcAPgAp@}AVq@VEVWLUZ}BBCV@d@NBBTDJG`@eBd@cA`@o@l@IXYf@_@VIHIdAaBjAyBJKVMN?TS`@s@d@i@l@iAb@Iz@}@`@k@d@\\\\k@h@}AT{@`@cAj@}Al@uBVk@r@_Cb@u@^g@HS^sAR]RQDIjAwC`@}@p@eBNi@f@sAh@{Al@{ARUDARw@d@}@\\}@R}@?Wb@u@Hk@jBgEx@wBzAoDl@}Aj@qA`@uAlBmER]D?PJ^ZJRzApARf@LKAQJs@r@{Cd@?Xb@DT^n@v@`AFKAGN_C\\i@RORe@P_ATu@bAkEJw@AKFSZi@jAl@F?^QhAWLWFq@^KT@LEFGX{@ZmArBgFXkAJKHBd@qBCMDADKb@{BXi@d@?d@f@RBh@CFGJAd@BPPH\\LBx@FH?FGJ?FIJ{@Nc@LcCEkAFgALIDBt@bAlA|@b@VRD?K"
   },
   "trainer": false,
   "commute": false,

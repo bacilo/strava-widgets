@@ -28,8 +28,9 @@
   "photo_count": 0,
   "map": {
     "id": "a14412397788",
-    "summary_polyline": "",
-    "resource_state": 2
+    "polyline": "mg~rIq|nkANPDNMNm@jA]`@E`@EHKHWf@U`@KZCTLx@|@r@Jd@f@x@XXT\\`@`@DMKb@FLHCP@XL~A|ANb@@PSx@x@wCV]LU|C{DhAiBl@o@z@{AJMN]pAmANc@\\oAJw@FmAAmCO_CDW^SfAWVFv@Iv@LBUMq@e@eEIsACuAHw@Ri@j@m@RHf@Ot@?PJ`@Jh@Rj@Bb@\\^H\\CVc@fAHfA`@J?Rk@LEXHZ?tALXJZA`@[DKVQLAx@Oj@S\\g@b@_AHI~Ao@RA`@g@Ry@^[z@_A`AyALUt@wBLaAHUPa@\\eABg@D[Rc@v@_CLIH]X}Af@cAPQH?h@Qb@FJATSNYNOd@?h@Rd@Ab@Qj@Of@Cb@D`@NhAj@FCRFf@Fb@TdBjAX?FERFF?H{@r@yDJ_@XDREF}@v@qE|@qH^uB`@qCpAyHr@yFT{AP{@NaAJaA?OWmAIq@CcA?cACkBQqAAc@EaAFq@?i@Bg@Xs@Nw@xBqIl@cBNeA|@iDP}@\\qALaAVq@b@w@f@cAb@w@r@{@h@y@^QxA_@BCXm@tA}BZ{@n@gAb@e@jA_B|@yAh@i@bAk@PGb@BNUp@yATm@n@qARy@t@iBXeAJWPMb@sA`@k@Xs@b@yA~@kBt@wBx@}APMFMVw@Pq@Tk@r@aC`@}ATAxAqEXu@b@aB|BsE^cAJOr@sB^_AZk@Z_A`@{@`AoCr@uAj@{ALQRH^d@~A`BXt@n@`@Nv@HPd@v@FBh@DVw@Xo@VaA\\i@^ZLRN`@Xh@f@mA\\]h@uBpA_EFg@`@gBPk@l@}AVSRq@P}@J[LO@O^{AFGLmANm@Xo@j@eARg@x@iDTSXq@hAaAj@UhAYH?PFVAh@i@^Sv@bAPJPTDEJ]D_@LW@EIk@GgADcEL_@FBDJz@b@h@T`@\\n@\\",
+    "resource_state": 3,
+    "summary_polyline": "mg~rIq|nkANPDNMNm@jA]`@E`@EHKHWf@U`@KZCTLx@|@r@Jd@f@x@XXT\\`@`@DMKb@FLHCP@XL~A|ANb@@PSx@x@wCV]LU|C{DhAiBl@o@z@{AJMN]pAmANc@\\oAJw@FmAAmCO_CDW^SfAWVFv@Iv@LBUMq@e@eEIsACuAHw@Ri@j@m@RHf@Ot@?PJ`@Jh@Rj@Bb@\\^H\\CVc@fAHfA`@J?Rk@LEXHZ?tALXJZA`@[DKVQLAx@Oj@S\\g@b@_AHI~Ao@RA`@g@Ry@^[z@_A`AyALUt@wBLaAHUPa@\\eABg@D[Rc@v@_CLIH]X}Af@cAPQH?h@Qb@FJATSNYNOd@?h@Rd@Ab@Qj@Of@Cb@D`@NhAj@FCRFf@Fb@TdBjAX?FERFF?H{@r@yDJ_@XDREF}@v@qE|@qH^uB`@qCpAyHr@yFT{AP{@NaAJaA?OWmAIq@CcA?cACkBQqAAc@EaAFq@?i@Bg@Xs@Nw@xBqIl@cBNeA|@iDP}@\\qALaAVq@b@w@f@cAb@w@r@{@h@y@^QxA_@BCXm@tA}BZ{@n@gAb@e@jA_B|@yAh@i@bAk@PGb@BNUp@yATm@n@qARy@t@iBXeAJWPMb@sA`@k@Xs@b@yA~@kBt@wBx@}APMFMVw@Pq@Tk@r@aC`@}ATAxAqEXu@b@aB|BsE^cAJOr@sB^_AZk@Z_A`@{@`AoCr@uAj@{ALQRH^d@~A`BXt@n@`@Nv@HPd@v@FBh@DVw@Xo@VaA\\i@^ZLRN`@Xh@f@mA\\]h@uBpA_EFg@`@gBPk@l@}AVSRq@P}@J[LO@O^{AFGLmANm@Xo@j@eARg@x@iDTSXq@hAaAj@UhAYH?PFVAh@i@^Sv@bAPJPTDEJ]D_@LW@EIk@GgADcEL_@FBDJz@b@h@T`@\\n@\\"
   },
   "trainer": false,
   "commute": false,

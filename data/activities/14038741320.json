@@ -28,8 +28,9 @@
   "photo_count": 0,
   "map": {
     "id": "a14038741320",
-    "summary_polyline": "",
-    "resource_state": 2
+    "polyline": "i|urIoezkASHI`@CBK?MRKF[JQ@o@EI@Sj@MH_@[c@Bi@?c@LSEMD[N]XOMCNONqAEWd@Mz@?XIZAl@Mz@Qh@QZCLAd@]hAQlAWd@a@bBi@pAUp@Yn@ORWv@o@r@Iv@S|@ObAU~@CDGBUGSc@WOW[c@gAy@_AC@_@vAWvAg@dBk@hCIp@Mp@g@xAW|@[n@SGi@s@]o@AEa@e@g@JCDm@VWl@?t@SZUj@a@pBE\\Mh@INQt@_@r@]nAED_@VeAy@q@Uc@Im@aAIAIIcAeBy@eAQ[][E@In@OdCSfAg@lB]x@s@vCYRGAC`@Q\\E\\Uf@Ol@Sf@]p@Sn@KREBQVEDa@`A_@l@YROx@Ip@UN]p@SPYz@AVKZ{@~@I\\SPQbAc@^UXYr@Sr@Qx@ILSp@SdA_@v@iAvAo@rAYr@Qj@A`@Q^s@dDWt@Wf@YXE?CBi@fAo@p@]f@Kb@]XORKVa@h@WRc@VIBUBg@?WQID[dAGZDf@An@SbBEp@GPSX]t@UVQLeAxB_@tAWd@E\\{@vCcBhFG^[p@[bAs@jC_@nAkAbEgBhDs@`B{@zAe@h@{AjAc@f@Wt@OVi@zA}@jB_@vAYp@i@nBa@~@Qt@c@xBeAxDCPG@KN?JK^UrA@XEPo@xBYp@g@fCiAxDIn@aAxC}@tDi@dB]zAOb@s@zCQXGNa@`Bu@|Bk@~@s@xAY`Ac@j@[t@yAvCk@z@_@Hm@AgA`@m@PaCpAgAv@MV_AH}@@UJYVYEe@H]e@gA_Ai@\\q@LOGa@_@YQm@Kc@RORa@Bg@OKAUJEP?TH`CAv@Uh@B\\Lr@Fr@Gt@@l@CLO?WAy@Nk@@e@PMN?nAJxB?hBGhAOz@Wz@e@j@i@|@cArA[Xu@jAs@x@Wz@WHSVWb@e@h@_@R]d@UT]b@y@bB",
+    "resource_state": 3,
+    "summary_polyline": "i|urIoezkASHI`@CBK?MRKF[JQ@o@EI@Sj@MH_@[c@Bi@?c@LSEMD[N]XOMCNONqAEWd@Mz@?XIZAl@Mz@Qh@QZCLAd@]hAQlAWd@a@bBi@pAUp@Yn@ORWv@o@r@Iv@S|@ObAU~@CDGBUGSc@WOW[c@gAy@_AC@_@vAWvAg@dBk@hCIp@Mp@g@xAW|@[n@SGi@s@]o@AEa@e@g@JCDm@VWl@?t@SZUj@a@pBE\\Mh@INQt@_@r@]nAED_@VeAy@q@Uc@Im@aAIAIIcAeBy@eAQ[][E@In@OdCSfAg@lB]x@s@vCYRGAC`@Q\\E\\Uf@Ol@Sf@]p@Sn@KREBQVEDa@`A_@l@YROx@Ip@UN]p@SPYz@AVKZ{@~@I\\SPQbAc@^UXYr@Sr@Qx@ILSp@SdA_@v@iAvAo@rAYr@Qj@A`@Q^s@dDWt@Wf@YXE?CBi@fAo@p@]f@Kb@]XORKVa@h@WRc@VIBUBg@?WQID[dAGZDf@An@SbBEp@GPSX]t@UVQLeAxB_@tAWd@E\\{@vCcBhFG^[p@[bAs@jC_@nAkAbEgBhDs@`B{@zAe@h@{AjAc@f@Wt@OVi@zA}@jB_@vAYp@i@nBa@~@Qt@c@xBeAxDCPG@KN?JK^UrA@XEPo@xBYp@g@fCiAxDIn@aAxC}@tDi@dB]zAOb@s@zCQXGNa@`Bu@|Bk@~@s@xAY`Ac@j@[t@yAvCk@z@_@Hm@AgA`@m@PaCpAgAv@MV_AH}@@UJYVYEe@H]e@gA_Ai@\\q@LOGa@_@YQm@Kc@RORa@Bg@OKAUJEP?TH`CAv@Uh@B\\Lr@Fr@Gt@@l@CLO?WAy@Nk@@e@PMN?nAJxB?hBGhAOz@Wz@e@j@i@|@cArA[Xu@jAs@x@Wz@WHSVWb@e@h@_@R]d@UT]b@y@bB"
   },
   "trainer": false,
   "commute": false,

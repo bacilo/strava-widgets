@@ -28,8 +28,9 @@
   "photo_count": 0,
   "map": {
     "id": "a14675028146",
-    "summary_polyline": "",
-    "resource_state": 2
+    "polyline": "smvrIukzkArFjGJTKl@Q?MM_@S?LILU?d@?ANKROFEDARQ\\@NOUQEe@Qg@o@QPY|@CVOh@OPAhAQJWnBAHBE?FATSf@SZOp@MdAuAnGIzAUVk@pAG?oAs@_AEMEc@As@Ui@H]@KXKbAATDTBd@[jBk@~ASbA_@~@MjAWt@W`@Op@c@jAWIi@oAYoA[q@QDQXk@~AAR@REPm@dAuAdECd@c@r@i@~AORc@P]Os@m@e@Ym@GqB}APMI]Wm@gA}A[KU~BKt@a@`BaA~B[xCU`@WPm@|@e@hAMb@a@l@{@pBMPQ`@a@p@k@~AILYn@[jASh@Q`AIJeAtCKTQVODQPYz@MLE@]fAUb@i@bBYr@k@fA_@`@[p@Uz@K|AUpA[XO^UDAh@]tA]\\m@dAWZg@hA[f@_@LW\\g@b@]j@_@\\UZS@]f@UO[BSTM^Kb@FTH~@G\\BlAKf@G@MRe@d@_@j@]r@Yf@m@t@IXGJQdAQr@Mz@ATMZQ\\Kr@_ArCSt@]~@]V[h@]t@Mt@IRIjASVKPm@bBERGdAG`@]n@IDa@p@[p@qBpD[ZGJ[FCJg@^o@r@]h@]d@wAdEQj@Op@sArC_@nASv@Ir@]nAS`Ai@`BOx@CDa@fBSn@MTq@fCo@xCMd@OTQdAg@|AS~@Uh@o@tBW`Bg@jBQdAq@~BQ~@W`@s@g@M@Uq@QDC?MICKKEo@UMFEJa@Xe@TI?sAv@ORc@Tk@Ls@^q@n@u@\\a@Xu@^UJg@Hc@N[T]h@qA\\CBKP[U]Cs@Fc@R]\\QLCASHk@Vk@IUISEECCBQCU?MNc@TOGYWWIi@Da@@q@IQ^ARJlAArAPh@d@bCAN]tA_@b@MDUAc@c@]VMCa@H]_@OUKKOEWQCBa@[y@H]Cc@Lc@\\GBYRMA[TMl@U\\YJQSQGc@I",
+    "resource_state": 3,
+    "summary_polyline": "smvrIukzkArFjGJTKl@Q?MM_@S?LILU?d@?ANKROFEDARQ\\@NOUQEe@Qg@o@QPY|@CVOh@OPAhAQJWnBAHBE?FATSf@SZOp@MdAuAnGIzAUVk@pAG?oAs@_AEMEc@As@Ui@H]@KXKbAATDTBd@[jBk@~ASbA_@~@MjAWt@W`@Op@c@jAWIi@oAYoA[q@QDQXk@~AAR@REPm@dAuAdECd@c@r@i@~AORc@P]Os@m@e@Ym@GqB}APMI]Wm@gA}A[KU~BKt@a@`BaA~B[xCU`@WPm@|@e@hAMb@a@l@{@pBMPQ`@a@p@k@~AILYn@[jASh@Q`AIJeAtCKTQVODQPYz@MLE@]fAUb@i@bBYr@k@fA_@`@[p@Uz@K|AUpA[XO^UDAh@]tA]\\m@dAWZg@hA[f@_@LW\\g@b@]j@_@\\UZS@]f@UO[BSTM^Kb@FTH~@G\\BlAKf@G@MRe@d@_@j@]r@Yf@m@t@IXGJQdAQr@Mz@ATMZQ\\Kr@_ArCSt@]~@]V[h@]t@Mt@IRIjASVKPm@bBERGdAG`@]n@IDa@p@[p@qBpD[ZGJ[FCJg@^o@r@]h@]d@wAdEQj@Op@sArC_@nASv@Ir@]nAS`Ai@`BOx@CDa@fBSn@MTq@fCo@xCMd@OTQdAg@|AS~@Uh@o@tBW`Bg@jBQdAq@~BQ~@W`@s@g@M@Uq@QDC?MICKKEo@UMFEJa@Xe@TI?sAv@ORc@Tk@Ls@^q@n@u@\\a@Xu@^UJg@Hc@N[T]h@qA\\CBKP[U]Cs@Fc@R]\\QLCASHk@Vk@IUISEECCBQCU?MNc@TOGYWWIi@Da@@q@IQ^ARJlAArAPh@d@bCAN]tA_@b@MDUAc@c@]VMCa@H]_@OUKKOEWQCBa@[y@H]Cc@Lc@\\GBYRMA[TMl@U\\YJQSQGc@I"
   },
   "trainer": false,
   "commute": false,
