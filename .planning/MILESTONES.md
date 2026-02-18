@@ -29,3 +29,19 @@
 
 ---
 
+
+## v1.2 Maps & Geo Fix (Shipped: 2026-02-18)
+
+**Phases completed:** 4 phases (10-13), 11 plans | 9,148 LOC TypeScript (project total) | 2 days
+**Git range:** feat(10-01) → fix: recover polylines (49 commits, +118,693 / -1,074 lines)
+
+**Key accomplishments:**
+- GeoNames geocoding migration: accurate city names via 166K-city dataset, fixing suburb-instead-of-city problem across 23 countries
+- Multi-city route tracking: polyline decoding detects all cities a run passes through (86% of 1,808 activities are multi-city)
+- Interactive route map widgets: single-run map, multi-run overlay, and route browser with list selection and auto-fit
+- Heatmap widget: all 1,808 runs overlaid with date filtering, color scheme options, and pre-decoded points for zero UI blocking
+- Pin map widget: city/country toggle with quintile-based color encoding, cluster markers, and activity popups
+- Standalone full-page map views: heatmap, pin map, and route browser with Leaflet Shadow DOM CSS injection and navigation
+
+---
+
