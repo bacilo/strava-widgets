@@ -7,7 +7,6 @@ import { ActivitySync } from './sync/activity-sync.js';
 import { config } from './config/strava.config.js';
 import { computeAllStats } from './analytics/compute-stats.js';
 import { computeAdvancedStats } from './analytics/compute-advanced-stats.js';
-import { computeGeoStats } from './geo/compute-geo-stats.js';
 import * as fs from 'fs/promises';
 
 const command = process.argv[2];
@@ -166,6 +165,7 @@ async function computeAdvancedStatsCommand() {
 
 async function computeGeoStatsCommand() {
   try {
+    const { computeGeoStats } = await import('./geo/compute-geo-stats.js');
     console.log('Computing geographic statistics from synced activities...\n');
     await computeGeoStats({
       activitiesDir: config.activitiesDir,
@@ -203,6 +203,7 @@ async function computeAllStatsCommand() {
     console.log(''); // Blank line separator
 
     // Run geo stats
+    const { computeGeoStats } = await import('./geo/compute-geo-stats.js');
     await computeGeoStats({
       activitiesDir: config.activitiesDir,
       geoDir: 'data/geo',
