@@ -7,3 +7,4 @@ dist/widgets/*
 .env
 data/tokens.json
 .DS_Store
+data/stats/
