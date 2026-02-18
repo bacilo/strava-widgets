@@ -6,13 +6,20 @@
  */
 
 import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-const geocoder = require('offline-geocoder');
 
 import type { StravaActivity } from '../types/strava.types.js';
 
-// Initialize geocoder with GeoNames cities1000 dataset
-const geo = geocoder();
+// Lazy singleton — offline-geocoder (and its SQLite DB) only loads on first geocode call
+let geo: any = null;
+
+function getGeo(): any {
+  if (!geo) {
+    const require = createRequire(import.meta.url);
+    const geocoder = require('offline-geocoder');
+    geo = geocoder();
+  }
+  return geo;
+}
 
 /**
  * Geographic location result
@@ -74,7 +81,7 @@ export async function geocodeCoordinate(
 
   // Perform offline geocoding with GeoNames
   try {
-    const result = await geo.reverse(lat, lng);
+    const result = await getGeo().reverse(lat, lng);
 
     // Guard: No result (ocean coordinates, etc.)
     if (!result || !result.name || !result.country || !result.country.id || !result.country.name) {
