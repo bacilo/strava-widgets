@@ -12,7 +12,7 @@ import type { StravaActivity } from '../types/strava.types.js';
  * Decoded route with coordinates and bounds
  */
 export interface DecodedRoute {
-  activityId: number;
+  activityId: number | string;
   coordinates: [number, number][]; // [[lat, lng], ...]
   bounds: {
     north: number;

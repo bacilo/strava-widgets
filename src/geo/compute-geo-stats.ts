@@ -105,7 +105,7 @@ export async function computeGeoStats(
   }>();
 
   // Map to track which cities each activity passes through
-  const activityCitiesMap = new Map<number, string[]>();
+  const activityCitiesMap = new Map<number | string, string[]>();
 
   for (const activity of activities) {
     totalCount++;

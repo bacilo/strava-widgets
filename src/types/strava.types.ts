@@ -14,7 +14,10 @@ export interface StravaTokens {
  * allows storage of full API response for future extensibility.
  */
 export interface StravaActivity {
-  id: number;
+  // Widened from number: intervals.icu (and other non-Strava providers) use
+  // string ids such as 'i70023443'. All 1,808 archived Strava records remain
+  // numeric; consumers only ever stringify this for filenames and map keys.
+  id: number | string;
   name: string;
   type: string;
   start_date: string; // ISO 8601

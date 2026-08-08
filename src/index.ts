@@ -220,6 +220,80 @@ async function computeAllStatsCommand() {
   }
 }
 
+/**
+ * Dry-run the intervals.icu provider against a real account.
+ *
+ * Writes nothing. Confirms the API key works, then diffs what the API actually
+ * returns against what the mapper assumes, so the field-name guesses in
+ * intervals-provider.ts can be corrected before any sync depends on them.
+ */
+async function probeIntervalsCommand() {
+  const { IntervalsClient } = await import('./api/intervals-client.js');
+  const { IntervalsProvider } = await import('./api/intervals-provider.js');
+
+  const client = new IntervalsClient({
+    apiKey: process.env.INTERVALS_API_KEY || '',
+    athleteId: process.env.INTERVALS_ATHLETE_ID || '0',
+  });
+  const provider = new IntervalsProvider(client);
+
+  console.log('Probing intervals.icu...\n');
+
+  const identity = await provider.verify();
+  console.log(`Authenticated as: ${identity.name ?? '(no name)'} (athlete ${identity.athleteId})\n`);
+
+  // A short recent window keeps the probe to a couple of requests.
+  const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+  const raw = await provider.fetchRawActivities({ since, limit: 3 });
+
+  if (raw.length === 0) {
+    console.log('No activities in the last 90 days — nothing to inspect.');
+    console.log('Connect Garmin to intervals.icu and let one activity sync, then re-run.');
+    return;
+  }
+
+  console.log(`Fetched ${raw.length} recent activities. Inspecting the most recent.\n`);
+
+  const sample = raw[0];
+  console.log('--- Keys actually returned ---');
+  console.log(Object.keys(sample).sort().join(', '));
+
+  console.log('\n--- Required field mapping ---');
+  const reports = provider.explainMapping(sample);
+  for (const r of reports) {
+    const mark = r.provenance === 'direct' ? 'ok  ' : r.provenance === 'derived' ? 'calc' : 'MISS';
+    const from = r.sourceKey ? ` <- ${r.sourceKey}` : '';
+    console.log(`  [${mark}] ${r.field}${from}`);
+  }
+
+  const missing = reports.filter(r => r.provenance === 'missing');
+
+  console.log('\n--- Canonical record ---');
+  const canonical = provider.toCanonical(sample);
+  console.log(JSON.stringify(canonical, null, 2));
+
+  console.log('\n--- Route geometry ---');
+  try {
+    const encoded = await provider.fetchPolyline(String(sample.id));
+    if (encoded) {
+      console.log(`  Rebuilt polyline from latlng stream (${encoded.length} chars).`);
+    } else {
+      console.log('  No GPS stream on this activity (indoor run?). Try another.');
+    }
+  } catch (error: any) {
+    console.log(`  Streams endpoint failed: ${error.message}`);
+    console.log('  Route map widgets would need a different source for geometry.');
+  }
+
+  console.log('\n--- Verdict ---');
+  if (missing.length === 0) {
+    console.log('All required fields resolved. The adapter can drive the full pipeline.');
+  } else {
+    console.log(`${missing.length} required field(s) unresolved: ${missing.map(m => m.field).join(', ')}`);
+    console.log('Add the real key names to the candidate lists in intervals-provider.ts.');
+  }
+}
+
 function printHelp() {
   console.log('Usage: npm run [command]');
   console.log('\nAvailable commands:');
@@ -230,6 +304,7 @@ function printHelp() {
   console.log('  compute-advanced-stats - Compute advanced statistics (year-over-year, time-of-day, etc.)');
   console.log('  compute-geo-stats      - Compute geographic statistics (countries, cities) from GPS data');
   console.log('  compute-all-stats      - Compute all statistics (basic, advanced, geo)');
+  console.log('  probe-intervals        - Dry-run the intervals.icu provider (writes nothing)');
   console.log('\nExamples:');
   console.log('  npm run auth                   # Get authorization URL');
   console.log('  npm run auth CODE              # Exchange code for tokens');
@@ -263,6 +338,9 @@ async function main() {
       break;
     case 'compute-all-stats':
       await computeAllStatsCommand();
+      break;
+    case 'probe-intervals':
+      await probeIntervalsCommand();
       break;
     case 'help':
     default:
