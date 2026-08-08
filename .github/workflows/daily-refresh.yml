@@ -74,14 +74,24 @@ jobs:
       - name: Build widgets
         run: npm run build-widgets
 
+      # data/stats/ is gitignored (regenerated every run) — listing it here would
+      # make `git add` fail on an ignored path and skip the deploy below.
       - name: Commit updated data and stats
+        id: commit
+        continue-on-error: true  # Bookkeeping failure must not block the deploy
         uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: 'chore: update activities and stats [skip ci]'
-          file_pattern: 'data/activities/*.json data/sync-state.json data/stats/*.json data/geo/*.json'
+          file_pattern: 'data/activities/*.json data/sync-state.json data/geo/*.json'
           commit_user_name: 'github-actions[bot]'
           commit_user_email: 'github-actions[bot]@users.noreply.github.com'
 
+      - name: Warn on commit failure
+        if: steps.commit.outcome == 'failure'
+        run: echo "::warning::Data commit failed, deploying anyway — sync state not persisted"
+
+      # No `if: always()` here on purpose — dist/ is gitignored, so deploying after a
+      # failed widget build would publish an empty dist over a working site.
       - name: Deploy widgets to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
