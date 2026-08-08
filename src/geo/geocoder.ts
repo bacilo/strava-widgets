@@ -5,18 +5,39 @@
  * Uses coordinate rounding for cache efficiency (4 decimals ≈ 11m precision).
  */
 
+import { existsSync } from 'fs';
 import { createRequire } from 'module';
+import { fileURLToPath } from 'url';
 
 import type { StravaActivity } from '../types/strava.types.js';
+
+/**
+ * GeoNames database, committed to the repo.
+ *
+ * offline-geocoder ships no database — it defaults to one inside its own
+ * node_modules directory that only exists if you run its generation script by
+ * hand. That made geocoding silently unrunnable on any fresh `npm ci` (CI
+ * included). Keeping the DB in data/geo/ makes it survive dependency installs.
+ * Regenerate with: node_modules/offline-geocoder/scripts/generate_geonames.sh
+ */
+// Module-relative so it resolves identically from src/geo/ and dist/geo/
+const GEONAMES_DB = fileURLToPath(new URL('../../data/geo/geonames.db', import.meta.url));
 
 // Lazy singleton — offline-geocoder (and its SQLite DB) only loads on first geocode call
 let geo: any = null;
 
 function getGeo(): any {
   if (!geo) {
+    if (!existsSync(GEONAMES_DB)) {
+      throw new Error(
+        `GeoNames database not found at ${GEONAMES_DB}. ` +
+        `It is committed to the repo — check out data/geo/geonames.db, or regenerate ` +
+        `it with node_modules/offline-geocoder/scripts/generate_geonames.sh`
+      );
+    }
     const require = createRequire(import.meta.url);
     const geocoder = require('offline-geocoder');
-    geo = geocoder();
+    geo = geocoder({ database: GEONAMES_DB });
   }
   return geo;
 }
