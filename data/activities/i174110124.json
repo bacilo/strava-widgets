@@ -1,0 +1,21 @@
+{
+  "id": "i174110124",
+  "name": "Herlev Running",
+  "type": "Run",
+  "start_date": "2026-03-09T08:04:48Z",
+  "start_date_local": "2026-03-09T09:04:48",
+  "distance": 0.33,
+  "moving_time": 1,
+  "elapsed_time": 1,
+  "total_elevation_gain": 0,
+  "average_speed": 0.452,
+  "max_speed": 0,
+  "average_heartrate": 105,
+  "max_heartrate": 105,
+  "map": {
+    "summary_polyline": ""
+  },
+  "source_provider": "intervals",
+  "source_raw_id": "i174110124",
+  "strava_id": null
+}

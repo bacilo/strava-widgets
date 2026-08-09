@@ -17,8 +17,8 @@
     "cityName": "Christianshavn",
     "countryName": "Denmark",
     "countryIso2": "DK",
-    "activityCount": 155,
-    "totalDistanceKm": 1718
+    "activityCount": 159,
+    "totalDistanceKm": 1770.3
   },
   {
     "cityName": "Alvalade",
@@ -31,15 +31,15 @@
     "cityName": "Olivais",
     "countryName": "Portugal",
     "countryIso2": "PT",
-    "activityCount": 90,
-    "totalDistanceKm": 1095.4
+    "activityCount": 92,
+    "totalDistanceKm": 1116.3
   },
   {
     "cityName": "Herlev",
     "countryName": "Denmark",
     "countryIso2": "DK",
-    "activityCount": 39,
-    "totalDistanceKm": 503.3
+    "activityCount": 82,
+    "totalDistanceKm": 974.4
   },
   {
     "cityName": "Bergshamra",
@@ -280,6 +280,13 @@
     "totalDistanceKm": 21
   },
   {
+    "cityName": "el Clot",
+    "countryName": "Spain",
+    "countryIso2": "ES",
+    "activityCount": 2,
+    "totalDistanceKm": 21
+  },
+  {
     "cityName": "Kumpula",
     "countryName": "Finland",
     "countryIso2": "FI",
@@ -292,6 +299,13 @@
     "countryIso2": "PT",
     "activityCount": 2,
     "totalDistanceKm": 20.2
+  },
+  {
+    "cityName": "Moscavide e Portela",
+    "countryName": "Portugal",
+    "countryIso2": "PT",
+    "activityCount": 3,
+    "totalDistanceKm": 19.7
   },
   {
     "cityName": "Holbæk",
@@ -320,13 +334,6 @@
     "countryIso2": "US",
     "activityCount": 1,
     "totalDistanceKm": 16.5
-  },
-  {
-    "cityName": "Moscavide e Portela",
-    "countryName": "Portugal",
-    "countryIso2": "PT",
-    "activityCount": 2,
-    "totalDistanceKm": 16.4
   },
   {
     "cityName": "Chicago Loop",

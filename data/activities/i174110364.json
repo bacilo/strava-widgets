@@ -1,0 +1,25 @@
+{
+  "id": "i174110364",
+  "name": "Herlev Running",
+  "type": "Run",
+  "start_date": "2026-05-30T06:28:18Z",
+  "start_date_local": "2026-05-30T08:28:18",
+  "distance": 5334.88,
+  "moving_time": 2178,
+  "elapsed_time": 8173,
+  "total_elevation_gain": 17.559849,
+  "average_speed": 2.182,
+  "max_speed": 4.124,
+  "average_heartrate": 116,
+  "max_heartrate": 154,
+  "start_latlng": [
+    55.715508,
+    12.44438
+  ],
+  "map": {
+    "summary_polyline": "}|`sIkp}jAC@IEGEG?I@E?M?MBACOAECCEMCA???EAC?C@KFO@G@OBG@I?K@G?C@OCGAS@MAc@@MHADC@EFSDUAA?WACAUAACQQIXCV?TCt@?^A\\CbA?LA^AVGHGDG?IA]AUBG@_@OYOKDA@ABGBCCEGEGAAEGCCaB{@CEEECCMGMGECOa@ACCGOQGKECKm@@{@ASA@AA{@}@SOOWII?MB?????KGYS]UECICGGIGGIIM?G?IH]D[CWBIRq@Vs@Tu@BENe@Ng@Rs@P_A@ITc@DCVHb@^BBLDDGNSJJFH???@@?BDDJ@@MEAAGGW]OQOOCCEEECGGGKCCECOGEGKKOUEEC?EBCFEVK^CHGRS~@K\\IXETENSj@GREJSf@ITIb@EHGHCDSb@ENEJGLCXA?GXITCH?DCLAFMf@CFENMn@ADAFEVEP?DGVCh@Md@?@A?CDOZCFMf@ADCIA?IKc@YMICECGGKAE_@]CCU]EIUYSWOSKMC?EJAFCP?DKp@Gl@Id@?FEZEb@AFAFADMx@Oh@MBC?MFUD_@Fe@PA?GL?DG`@ABCJCDABE^GJA@?????AA?A?IHKVA\\ANCl@?P?VC\\?D?\\@N?D?FAN?D@NCLAVAJFT@JCNGh@Cd@Ef@?D?x@Ab@ABA@E@o@j@??NEZADXCPAL?F?FAL?LABELAJ@PEp@?BAV@FBJ@NANBn@?FBb@?B@D@L@JBT?PDr@@d@@DD^BT?R@HBd@@D@V?DACAM?A?@?HDf@@P?X?p@?J?BGHKPI@AAABSBQDKDo@e@A?A?YFW@C?Q?CAGEIBENEXK`@[d@_@b@OJKHGJCBABIHANAFEZAH_B~JABAFEPANA@?@wB|PB@@@LHHJBBPLHHHPVV@BJJNJPLLH`@\\\\VB@XTLHTDH@HDFLVC@@L@NBDJ?B@A??A??PAp@An@Ah@A^?N??????AFAZ?TARADhNlV?E?a@?k@@[Ac@@a@?s@AaA@OBaA@y@Bk@A_A?M?G?K@U@aA@[?MCOCy@?GDo@@cA?K@aA?UDgADQHu@AcA@QFe@DKHG^Gh@IDA^CDAN?N?L@L?L?N?Z@XEFAFAf@OD?TED?XMTO`@ELAVND@NBN@ZAP?FDBB?@@@??N@BA@A?AAQA_@?ECYAo@?SAaA?IAK?c@?U@U@eA?I@_AB]@IFcA?I?cA@OD{@Fy@DSLs@Dg@@MDi@?EFo@D]@YAG?k@Ao@?Q?I@_ABaA?I?IAq@CcA?A??????AM@MD[JUHy@J_AJ{@J{@@[L{@BE`@WP@VCh@?D@`@BD?d@PJBf@LB@H@BBTJb@RFFVJBDFJJHJHb@XNH@???@@`@Tb@PXPPRLLRHZVFD@@D??CA[?W?????A@A????LLPJBA@E@_@?m@ASAi@?]Bm@???G?G@M?A?????S?I?gA@I?o@Cc@AUAS?o@?S@Y?QAI?S?Q?[Bw@Bq@?cA?I?c@?SBg@Ay@D_A?GD_A@s@?IBo@?g@@W?i@?CAq@CaA?MAcADUHOFAP?R?P?L@V?L?TBPBJD?@?N?J?BAD"
+  },
+  "source_provider": "intervals",
+  "source_raw_id": "i174110364",
+  "strava_id": null
+}
