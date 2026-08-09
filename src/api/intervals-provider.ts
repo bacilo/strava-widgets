@@ -97,36 +97,144 @@ export class IntervalsProvider implements ActivityProvider {
   }
 
   /**
-   * Rebuild an encoded polyline from the activity's latlng stream.
+   * Extract the latlng coordinate series from a streams response.
    *
-   * Strava shipped `map.summary_polyline` on every activity; intervals.icu is
-   * not known to, so route geometry costs one extra request per activity. The
-   * encoding is the same format the widgets already decode.
-   *
-   * Returns undefined for activities with no GPS (treadmill runs).
+   * Confirmed against a live account: intervals.icu returns an array of stream
+   * objects. The coordinate payload has been seen under several key names, and
+   * some encodings split latitude and longitude into parallel series, so all
+   * known shapes are handled and unknown ones surface via describeStreams.
    */
-  async fetchPolyline(activityId: string): Promise<string | undefined> {
-    const streams = await this.client.getStreams(activityId, ['latlng']);
+  static extractCoordinates(streams: unknown): [number, number][] {
+    const asArray = Array.isArray(streams) ? (streams as Record<string, unknown>[]) : undefined;
+    const asObject = !Array.isArray(streams) && typeof streams === 'object' && streams !== null
+      ? (streams as Record<string, unknown>)
+      : undefined;
 
-    // Streams come back either as a keyed object or an array of {type, data}.
-    let points: unknown;
-    if (Array.isArray(streams)) {
-      points = (streams as Array<Record<string, unknown>>).find(s => s.type === 'latlng')?.data;
-    } else {
-      const latlng = streams.latlng as Record<string, unknown> | undefined;
-      points = latlng?.data ?? latlng;
+    const seriesNamed = (name: string): unknown => {
+      if (asArray) {
+        const hit = asArray.find(s => s.type === name || s.name === name);
+        return hit?.data ?? hit?.values ?? undefined;
+      }
+      if (asObject) {
+        const entry = asObject[name];
+        if (Array.isArray(entry)) return entry;
+        if (entry && typeof entry === 'object') {
+          const rec = entry as Record<string, unknown>;
+          return rec.data ?? rec.values;
+        }
+      }
+      return undefined;
+    };
+
+    // Paired form: [[lat, lng], ...]
+    for (const key of ['latlng', 'lat_lng', 'position', 'coordinates']) {
+      const series = seriesNamed(key);
+      if (Array.isArray(series)) {
+        const pairs = series.filter(
+          (p): p is [number, number] =>
+            Array.isArray(p) && p.length >= 2 && typeof p[0] === 'number' && typeof p[1] === 'number'
+        );
+        if (pairs.length > 0) return pairs;
+
+        // Some responses nest objects: [{lat, lng}, ...]
+        const objects = series.filter(
+          (p): p is Record<string, number> =>
+            !!p && typeof p === 'object' && !Array.isArray(p)
+        );
+        const fromObjects = objects
+          .map(o => [
+            num(o.lat ?? o.latitude) ?? NaN,
+            num(o.lng ?? o.lon ?? o.longitude) ?? NaN,
+          ] as [number, number])
+          .filter(([a, b]) => Number.isFinite(a) && Number.isFinite(b));
+        if (fromObjects.length > 0) return fromObjects;
+      }
     }
 
-    if (!Array.isArray(points) || points.length === 0) return undefined;
+    // Split form: parallel lat and lng series.
+    const lats = seriesNamed('lat') ?? seriesNamed('latitude');
+    const lngs = seriesNamed('lng') ?? seriesNamed('lon') ?? seriesNamed('longitude');
+    if (Array.isArray(lats) && Array.isArray(lngs)) {
+      const pairs: [number, number][] = [];
+      for (let i = 0; i < Math.min(lats.length, lngs.length); i++) {
+        const lat = num(lats[i]);
+        const lng = num(lngs[i]);
+        if (lat !== undefined && lng !== undefined) pairs.push([lat, lng]);
+      }
+      if (pairs.length > 0) return pairs;
+    }
 
-    const coordinates = points.filter(
-      (p): p is [number, number] =>
-        Array.isArray(p) && p.length >= 2 && typeof p[0] === 'number' && typeof p[1] === 'number'
+    return [];
+  }
+
+  /**
+   * Describe a streams payload's structure without dumping megabytes of samples.
+   *
+   * Diagnostic aid for probe-intervals: when extractCoordinates comes up empty,
+   * this shows the shape that defeated it.
+   */
+  static describeStreams(streams: unknown): string {
+    if (Array.isArray(streams)) {
+      const entries = streams as Record<string, unknown>[];
+      const summary = entries.map(s => {
+        const name = s.type ?? s.name ?? '(unnamed)';
+        const data = (s.data ?? s.values) as unknown;
+        const len = Array.isArray(data) ? data.length : 0;
+        const first = Array.isArray(data) && data.length > 0 ? JSON.stringify(data[0]) : 'n/a';
+        return `    ${String(name)}: ${len} samples, first=${first}`;
+      });
+      return `  array of ${entries.length} stream object(s)\n${summary.join('\n')}`;
+    }
+
+    if (streams && typeof streams === 'object') {
+      const rec = streams as Record<string, unknown>;
+      const keys = Object.keys(rec);
+      const detail = keys.slice(0, 12).map(k => {
+        const v = rec[k];
+        if (Array.isArray(v)) {
+          return `    ${k}: array(${v.length}), first=${v.length ? JSON.stringify(v[0]) : 'n/a'}`;
+        }
+        if (v && typeof v === 'object') {
+          return `    ${k}: object{${Object.keys(v as object).join(', ')}}`;
+        }
+        return `    ${k}: ${typeof v}`;
+      });
+      return `  object with keys: ${keys.join(', ')}\n${detail.join('\n')}`;
+    }
+
+    return `  ${typeof streams}`;
+  }
+
+  /**
+   * Fetch route geometry for an activity.
+   *
+   * intervals.icu ships no encoded polyline on the activity summary and no
+   * start_latlng either, so both come from the latlng stream in one request.
+   * The encoding matches what the widgets already decode.
+   *
+   * Returns empty geometry for activities with no GPS (treadmill runs).
+   */
+  async fetchGeometry(
+    activityId: string,
+    streamTypes?: string[]
+  ): Promise<{ startLatLng?: number[]; summaryPolyline?: string; raw: unknown }> {
+    // Ask for whatever coordinate stream the activity says it has, falling back
+    // to the documented name.
+    const wanted = (streamTypes ?? []).filter(t =>
+      ['latlng', 'lat', 'lng', 'position'].includes(t)
     );
+    const types = wanted.length > 0 ? wanted : ['latlng'];
 
-    if (coordinates.length === 0) return undefined;
+    const raw = await this.client.getStreams(activityId, types);
+    const coordinates = IntervalsProvider.extractCoordinates(raw);
 
-    return polyline.encode(coordinates);
+    if (coordinates.length === 0) return { raw };
+
+    return {
+      startLatLng: [coordinates[0][0], coordinates[0][1]],
+      summaryPolyline: polyline.encode(coordinates),
+      raw,
+    };
   }
 
   /**
@@ -174,6 +282,11 @@ export class IntervalsProvider implements ActivityProvider {
       // Provenance, so a mixed archive stays auditable after the migration.
       source_provider: 'intervals',
       source_raw_id: raw.id,
+
+      // intervals.icu keeps the originating Strava id on activities it imported
+      // from Strava. That gives an exact join key against the 1,808 archived
+      // records — reconciliation by id rather than by fuzzy timestamp match.
+      strava_id: raw.strava_id,
     };
   }
 
@@ -204,11 +317,16 @@ export class IntervalsProvider implements ActivityProvider {
     direct('moving_time', ['moving_time', 'icu_moving_time'], num);
     direct('total_elevation_gain', ['total_elevation_gain', 'icu_elevation_gain'], num);
 
+    // Confirmed against a live payload: intervals.icu carries no start_latlng on
+    // the activity summary. It comes from the first sample of the latlng stream,
+    // the same request that yields the polyline — so it costs nothing extra.
     const latlng = raw.start_latlng;
     reports.push({
       field: 'start_latlng',
-      provenance: Array.isArray(latlng) && latlng.length >= 2 ? 'direct' : 'missing',
-      sourceKey: Array.isArray(latlng) ? 'start_latlng' : undefined,
+      provenance: Array.isArray(latlng) && latlng.length >= 2 ? 'direct' : 'derived',
+      sourceKey: Array.isArray(latlng)
+        ? 'start_latlng'
+        : 'streams?types=latlng (first sample)',
       value: latlng,
     });
 

@@ -252,11 +252,27 @@ async function probeIntervalsCommand() {
     return;
   }
 
-  console.log(`Fetched ${raw.length} recent activities. Inspecting the most recent.\n`);
+  // An explicit id lets you re-probe a known-outdoor activity when the most
+  // recent one turns out to be a treadmill run.
+  const requestedId = process.argv[3];
+  const sample = requestedId
+    ? await provider.fetchRaw(requestedId)
+    : raw[0];
 
-  const sample = raw[0];
+  console.log(
+    requestedId
+      ? `Inspecting requested activity ${requestedId}.\n`
+      : `Fetched ${raw.length} recent activities. Inspecting the most recent.\n`
+  );
+
   console.log('--- Keys actually returned ---');
   console.log(Object.keys(sample).sort().join(', '));
+
+  console.log('\n--- Migration-relevant fields ---');
+  for (const key of ['strava_id', 'source', 'external_id', 'device_name', 'stream_types', 'route_id']) {
+    const value = sample[key];
+    console.log(`  ${key}: ${value === undefined ? '(absent)' : JSON.stringify(value)}`);
+  }
 
   console.log('\n--- Required field mapping ---');
   const reports = provider.explainMapping(sample);
@@ -273,24 +289,40 @@ async function probeIntervalsCommand() {
   console.log(JSON.stringify(canonical, null, 2));
 
   console.log('\n--- Route geometry ---');
+  let geometryOk = false;
+  const streamTypes = Array.isArray(sample.stream_types)
+    ? (sample.stream_types as string[])
+    : undefined;
+
   try {
-    const encoded = await provider.fetchPolyline(String(sample.id));
-    if (encoded) {
-      console.log(`  Rebuilt polyline from latlng stream (${encoded.length} chars).`);
+    const { IntervalsProvider: Provider } = await import('./api/intervals-provider.js');
+    const geometry = await provider.fetchGeometry(String(sample.id), streamTypes);
+
+    if (geometry.summaryPolyline && geometry.startLatLng) {
+      geometryOk = true;
+      console.log(`  Rebuilt polyline from latlng stream (${geometry.summaryPolyline.length} chars).`);
+      console.log(`  start_latlng derived: [${geometry.startLatLng.join(', ')}]`);
     } else {
-      console.log('  No GPS stream on this activity (indoor run?). Try another.');
+      console.log('  Could not extract coordinates. Actual streams shape:');
+      console.log(Provider.describeStreams(geometry.raw));
+      console.log('  If a coordinate series is listed above under an unexpected name,');
+      console.log('  add it to extractCoordinates in intervals-provider.ts.');
     }
   } catch (error: any) {
-    console.log(`  Streams endpoint failed: ${error.message}`);
-    console.log('  Route map widgets would need a different source for geometry.');
+    console.log(`  Streams request failed: ${error.message}`);
   }
 
   console.log('\n--- Verdict ---');
-  if (missing.length === 0) {
+  if (missing.length === 0 && geometryOk) {
     console.log('All required fields resolved. The adapter can drive the full pipeline.');
   } else {
-    console.log(`${missing.length} required field(s) unresolved: ${missing.map(m => m.field).join(', ')}`);
-    console.log('Add the real key names to the candidate lists in intervals-provider.ts.');
+    if (missing.length > 0) {
+      console.log(`${missing.length} summary field(s) unresolved: ${missing.map(m => m.field).join(', ')}`);
+    }
+    if (!geometryOk) {
+      console.log('Route geometry unresolved — map widgets would have no route data.');
+      console.log(`Re-probe a known outdoor run: node dist/index.js probe-intervals <activityId>`);
+    }
   }
 }
 
