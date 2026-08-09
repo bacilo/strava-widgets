@@ -188,6 +188,94 @@ describe('IntervalsProvider.pairFlatSeries', () => {
 });
 
 /**
+ * Mis-paired coordinates still encode into a structurally valid polyline, so
+ * "a polyline came back" is not evidence of a correct route. Walking the track
+ * and comparing its length to the device's own distance is.
+ */
+describe('IntervalsProvider.validateGeometry', () => {
+  // ~1 km due north from Herlev, sampled every ~100 m.
+  const northward: [number, number][] = Array.from(
+    { length: 11 },
+    (_, i) => [55.715 + i * 0.0009, 12.44]
+  );
+
+  it('accepts a track whose length matches the reported distance', () => {
+    const result = IntervalsProvider.validateGeometry(northward, 1000);
+
+    expect(result.ok).toBe(true);
+    expect(result.ratio).toBeGreaterThan(0.9);
+    expect(result.ratio).toBeLessThan(1.1);
+  });
+
+  it('rejects a latitude series paired against another latitude series', () => {
+    // Both components on the same axis — the failure that reached a false pass.
+    const latAgainstLat: [number, number][] = Array.from(
+      { length: 11 },
+      (_, i) => [55.715 + i * 0.0009, 55.72 + i * 0.0009]
+    );
+
+    const result = IntervalsProvider.validateGeometry(latAgainstLat, 1000);
+
+    expect(result.ok).toBe(false);
+    expect(result.reason).toMatch(/same axis/);
+  });
+
+  it('rejects a track far shorter than the reported distance', () => {
+    expect(IntervalsProvider.validateGeometry(northward, 50_000).ok).toBe(false);
+  });
+
+  it('rejects a track far longer than the reported distance', () => {
+    expect(IntervalsProvider.validateGeometry(northward, 100).ok).toBe(false);
+  });
+
+  it('rejects a degenerate track', () => {
+    expect(IntervalsProvider.validateGeometry([[55.7, 12.4]], 1000).ok).toBe(false);
+  });
+});
+
+describe('IntervalsProvider.resolveAxes', () => {
+  // An east-west route: at 55.7°N a degree of longitude covers only ~56% of a
+  // degree of latitude, so mirroring this one changes its length by ~1.8x. A
+  // north-south route has no such asymmetry and survives a swap intact — which
+  // is precisely why a passing reading is never overturned.
+  const eastWest: [number, number][] = Array.from(
+    { length: 11 },
+    (_, i) => [55.715, 12.44 + i * 0.002]
+  );
+  const EAST_WEST_METERS = 1254;
+
+  it('leaves a valid reading untouched', () => {
+    const result = IntervalsProvider.resolveAxes(eastWest, EAST_WEST_METERS);
+
+    expect(result.swapped).toBe(false);
+    expect(result.coordinates).toEqual(eastWest);
+  });
+
+  it('rescues a clearly failing reading by flipping the axes', () => {
+    const swapped = eastWest.map(([lat, lng]) => [lng, lat] as [number, number]);
+    const result = IntervalsProvider.resolveAxes(swapped, EAST_WEST_METERS);
+
+    expect(result.swapped).toBe(true);
+    expect(result.coordinates).toEqual(eastWest);
+  });
+
+  it('leaves a north-south route alone, since a swap is undetectable there', () => {
+    // Documents the known limit: distance cannot arbitrate this case, so the
+    // extracted order stands rather than being guessed at.
+    const northSouth: [number, number][] = Array.from(
+      { length: 11 },
+      (_, i) => [55.715 + i * 0.0009, 12.44]
+    );
+
+    expect(IntervalsProvider.resolveAxes(northSouth, 1000).swapped).toBe(false);
+  });
+
+  it('does not guess when there is no distance to measure against', () => {
+    expect(IntervalsProvider.resolveAxes(eastWest, 0).swapped).toBe(false);
+  });
+});
+
+/**
  * The canonical mapping is what keeps analytics, geo and all ten widgets
  * working unchanged across a provider switch.
  */

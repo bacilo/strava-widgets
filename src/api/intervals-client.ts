@@ -126,4 +126,15 @@ export class IntervalsClient {
     const query = new URLSearchParams({ types: types.join(',') });
     return this.request<Record<string, unknown>>(`/activity/${activityId}/streams?${query}`);
   }
+
+  /**
+   * Every stream for an activity, with no type filter.
+   *
+   * Asking for a single type can return a narrower payload than expected — a
+   * 'latlng' request came back holding latitudes with no longitudes anywhere —
+   * so the unfiltered response is the ground truth about what exists.
+   */
+  async getAllStreams(activityId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(`/activity/${activityId}/streams`);
+  }
 }

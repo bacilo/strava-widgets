@@ -296,17 +296,59 @@ async function probeIntervalsCommand() {
 
   try {
     const { IntervalsProvider: Provider } = await import('./api/intervals-provider.js');
-    const geometry = await provider.fetchGeometry(String(sample.id), streamTypes);
+    const expectedMeters = typeof sample.distance === 'number' ? sample.distance : 0;
+    const geometry = await provider.fetchGeometry(String(sample.id), {
+      streamTypes,
+      expectedMeters,
+    });
 
-    if (geometry.summaryPolyline && geometry.startLatLng) {
+    const v = geometry.validation;
+
+    if (geometry.summaryPolyline && geometry.startLatLng && v?.ok) {
       geometryOk = true;
       console.log(`  Rebuilt polyline from latlng stream (${geometry.summaryPolyline.length} chars).`);
       console.log(`  start_latlng derived: [${geometry.startLatLng.join(', ')}]`);
+      // Mis-paired coordinates still encode into a plausible-looking polyline,
+      // so the route is only trustworthy once its length agrees with the
+      // distance the device recorded.
+      console.log(
+        `  Validated: path ${(v.pathMeters / 1000).toFixed(2)} km vs reported ` +
+        `${(expectedMeters / 1000).toFixed(2)} km (${v.ratio.toFixed(3)}x).`
+      );
+
+      // Independent check. Distance alone cannot tell latitude from longitude
+      // on a route with balanced extent, but a place name can: mirrored
+      // coordinates land in the sea. Reuses the offline GeoNames database.
+      try {
+        const { geocodeCoordinate } = await import('./geo/geocoder.js');
+        const [lat, lng] = geometry.startLatLng;
+        const place = await geocodeCoordinate(lat, lng, {
+          version: 1,
+          geocoder: 'geonames-cities1000',
+          entries: {},
+        });
+        console.log(
+          place
+            ? `  Start point reverse-geocodes to: ${place.cityName}, ${place.countryName}`
+            : '  Start point does not resolve to any known city — coordinates may be mirrored.'
+        );
+      } catch (error: any) {
+        console.log(`  (Reverse-geocode check unavailable: ${error.message})`);
+      }
     } else {
-      console.log('  Could not extract coordinates. Actual streams shape:');
+      console.log(`  REJECTED: ${v?.reason ?? 'no coordinates extracted'}`);
+      if (v && v.pathMeters > 0) {
+        console.log(
+          `  Reconstructed path was ${(v.pathMeters / 1000).toFixed(2)} km against a ` +
+          `reported ${(expectedMeters / 1000).toFixed(2)} km.`
+        );
+      }
+      console.log('\n  Streams returned for types=latlng:');
       console.log(Provider.describeStreams(geometry.raw));
-      console.log('  If a coordinate series is listed above under an unexpected name,');
-      console.log('  add it to extractCoordinates in intervals-provider.ts.');
+      if (geometry.rawAll !== undefined) {
+        console.log('\n  Streams returned with NO type filter:');
+        console.log(Provider.describeStreams(geometry.rawAll));
+      }
     }
   } catch (error: any) {
     console.log(`  Streams request failed: ${error.message}`);

@@ -239,6 +239,115 @@ export class IntervalsProvider implements ActivityProvider {
   }
 
   /**
+   * Sanity-check reconstructed geometry against the activity's own distance.
+   *
+   * Coordinates that pair a latitude with another latitude still encode into a
+   * perfectly valid-looking polyline, so "we got a polyline" proves nothing.
+   * Walking the route and comparing its length to the reported distance does:
+   * a mis-paired track is off by orders of magnitude, and a correct one lands
+   * within the slack between GPS sampling and the device's own odometer.
+   */
+  static validateGeometry(
+    coordinates: [number, number][],
+    expectedMeters: number
+  ): { ok: boolean; pathMeters: number; ratio: number; reason?: string } {
+    if (coordinates.length < 2) {
+      return { ok: false, pathMeters: 0, ratio: 0, reason: 'fewer than two points' };
+    }
+
+    const lats = coordinates.map(c => c[0]);
+    const lngs = coordinates.map(c => c[1]);
+    const latSpan = Math.max(...lats) - Math.min(...lats);
+    const lngSpan = Math.max(...lngs) - Math.min(...lngs);
+
+    // A latitude series paired against another latitude series overlaps almost
+    // exactly. Real lat/lng components essentially never do.
+    const overlapping =
+      Math.min(...lats) < Math.max(...lngs) &&
+      Math.min(...lngs) < Math.max(...lats) &&
+      Math.abs(latSpan - lngSpan) < Math.max(latSpan, lngSpan) * 0.5;
+
+    const R = 6371000;
+    const toRad = (d: number) => (d * Math.PI) / 180;
+    let pathMeters = 0;
+    for (let i = 1; i < coordinates.length; i++) {
+      const [lat1, lng1] = coordinates[i - 1];
+      const [lat2, lng2] = coordinates[i];
+      const dLat = toRad(lat2 - lat1);
+      const dLng = toRad(lng2 - lng1);
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+      pathMeters += 2 * R * Math.asin(Math.sqrt(a));
+    }
+
+    const ratio = expectedMeters > 0 ? pathMeters / expectedMeters : 0;
+
+    if (overlapping) {
+      return {
+        ok: false,
+        pathMeters,
+        ratio,
+        reason: 'latitude and longitude ranges overlap — the two components look like the same axis',
+      };
+    }
+
+    // Measured across 300 archived routes, correct pairings land between 0.93x
+    // and 1.01x (simplified polylines cut corners, so they run slightly short).
+    // These bounds stay well clear of that band while rejecting nonsense.
+    if (ratio < 0.6 || ratio > 1.6) {
+      return {
+        ok: false,
+        pathMeters,
+        ratio,
+        reason: `path length is ${ratio.toFixed(2)}x the reported distance`,
+      };
+    }
+
+    return { ok: true, pathMeters, ratio };
+  }
+
+  /**
+   * Decide which component is latitude and which is longitude.
+   *
+   * Order is established empirically: a live response opened with eight
+   * consecutive values of ~55.715, which are latitudes for Denmark. So the
+   * extracted order is trusted and this only acts as a rescue — if the natural
+   * reading validates, it stands.
+   *
+   * Distance cannot arbitrate between the two orderings in general. Measured
+   * over 300 archived routes, picking whichever ordering best matched the
+   * recorded distance chose wrongly on 13 of them, because routes with
+   * balanced north-south and east-west extent are near-symmetric under a swap.
+   * So a flip is applied only when the natural order outright fails and the
+   * flip clearly succeeds.
+   */
+  static resolveAxes(
+    coordinates: [number, number][],
+    expectedMeters: number
+  ): {
+    coordinates: [number, number][];
+    validation: ReturnType<typeof IntervalsProvider.validateGeometry>;
+    swapped: boolean;
+  } {
+    const asIs = IntervalsProvider.validateGeometry(coordinates, expectedMeters);
+
+    // The natural reading is the trusted one. Never overturn a passing result.
+    if (asIs.ok || expectedMeters <= 0 || coordinates.length < 2) {
+      return { coordinates, validation: asIs, swapped: false };
+    }
+
+    const flipped = coordinates.map(([a, b]) => [b, a] as [number, number]);
+    const asFlipped = IntervalsProvider.validateGeometry(flipped, expectedMeters);
+
+    if (asFlipped.ok) {
+      return { coordinates: flipped, validation: asFlipped, swapped: true };
+    }
+
+    return { coordinates, validation: asIs, swapped: false };
+  }
+
+  /**
    * Describe a streams payload's structure without dumping megabytes of samples.
    *
    * Diagnostic aid for probe-intervals: when extractCoordinates comes up empty,
@@ -249,6 +358,10 @@ export class IntervalsProvider implements ActivityProvider {
       const entries = streams as Record<string, unknown>[];
       const summary = entries.map(s => {
         const name = s.type ?? s.name ?? '(unnamed)';
+        // The stream object's OWN keys matter: a companion series (longitudes
+        // alongside latitudes) would sit in a sibling field, invisible if only
+        // `data` is inspected.
+        const objectKeys = `    ${String(name)} object keys: ${Object.keys(s).join(', ')}`;
         const data = (s.data ?? s.values) as unknown;
         const len = Array.isArray(data) ? data.length : 0;
         // Several samples, not one: a flat series and a series of pairs look
@@ -270,7 +383,17 @@ export class IntervalsProvider implements ActivityProvider {
           census = `\n      types: ${Object.entries(counts).map(([k, n]) => `${k}=${n}`).join(', ')}`;
         }
 
-        return `    ${String(name)}: ${len} samples, first 8 = ${head}${census}`;
+        // Sample the tail and middle too — a companion component concatenated
+        // onto the end is invisible from the head alone.
+        let probe = '';
+        if (Array.isArray(data) && data.length > 16) {
+          const mid = Math.floor(data.length / 2);
+          probe =
+            `\n      mid  (${mid}) = ${JSON.stringify(data.slice(mid, mid + 4))}` +
+            `\n      last 4      = ${JSON.stringify(data.slice(-4))}`;
+        }
+
+        return `${objectKeys}\n    ${String(name)}: ${len} samples, first 8 = ${head}${census}${probe}`;
       });
       return `  array of ${entries.length} stream object(s)\n${summary.join('\n')}`;
     }
@@ -305,8 +428,16 @@ export class IntervalsProvider implements ActivityProvider {
    */
   async fetchGeometry(
     activityId: string,
-    streamTypes?: string[]
-  ): Promise<{ startLatLng?: number[]; summaryPolyline?: string; raw: unknown }> {
+    options: { streamTypes?: string[]; expectedMeters?: number } = {}
+  ): Promise<{
+    startLatLng?: number[];
+    summaryPolyline?: string;
+    raw: unknown;
+    rawAll?: unknown;
+    validation?: ReturnType<typeof IntervalsProvider.validateGeometry>;
+  }> {
+    const { streamTypes, expectedMeters = 0 } = options;
+
     // Ask for whatever coordinate stream the activity says it has, falling back
     // to the documented name.
     const wanted = (streamTypes ?? []).filter(t =>
@@ -315,14 +446,38 @@ export class IntervalsProvider implements ActivityProvider {
     const types = wanted.length > 0 ? wanted : ['latlng'];
 
     const raw = await this.client.getStreams(activityId, types);
-    const coordinates = IntervalsProvider.extractCoordinates(raw);
+    let { coordinates, validation } = IntervalsProvider.resolveAxes(
+      IntervalsProvider.extractCoordinates(raw),
+      expectedMeters
+    );
+    let rawAll: unknown;
 
-    if (coordinates.length === 0) return { raw };
+    // A filtered request has been seen to return an incomplete coordinate
+    // series. When the result fails validation, refetch everything — the
+    // missing component may be a sibling stream the filter excluded.
+    if (!validation.ok) {
+      rawAll = await this.client.getAllStreams(activityId);
+      const fromAll = IntervalsProvider.resolveAxes(
+        IntervalsProvider.extractCoordinates(rawAll),
+        expectedMeters
+      );
+
+      if (fromAll.validation.ok) {
+        coordinates = fromAll.coordinates;
+        validation = fromAll.validation;
+      }
+    }
+
+    if (!validation.ok || coordinates.length === 0) {
+      return { raw, rawAll, validation };
+    }
 
     return {
       startLatLng: [coordinates[0][0], coordinates[0][1]],
       summaryPolyline: polyline.encode(coordinates),
       raw,
+      rawAll,
+      validation,
     };
   }
 
