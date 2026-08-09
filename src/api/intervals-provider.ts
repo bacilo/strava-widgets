@@ -164,7 +164,61 @@ export class IntervalsProvider implements ActivityProvider {
       if (pairs.length > 0) return pairs;
     }
 
+    // Flat form: the live API returns latlng as one flat numeric series rather
+    // than an array of pairs. Two layouts are possible and indistinguishable by
+    // type alone, so both are scored and the coherent one wins.
+    for (const key of ['latlng', 'lat_lng', 'position', 'coordinates']) {
+      const series = seriesNamed(key);
+      if (Array.isArray(series) && series.length >= 4 && series.every(v => num(v) !== undefined)) {
+        const flat = series as number[];
+        return IntervalsProvider.pairFlatSeries(flat);
+      }
+    }
+
     return [];
+  }
+
+  /**
+   * Pair a flat coordinate series into [lat, lng] tuples.
+   *
+   * Two plausible layouts: interleaved (lat,lng,lat,lng...) or concatenated
+   * halves (all lats then all lngs). A GPS track's latitudes cluster tightly and
+   * so do its longitudes, whereas mis-splitting mixes the two and produces a
+   * wildly wider spread — so scoring by combined spread picks the right one.
+   */
+  static pairFlatSeries(flat: number[]): [number, number][] {
+    const spread = (values: number[]): number => {
+      if (values.length === 0) return Infinity;
+      return Math.max(...values) - Math.min(...values);
+    };
+
+    const plausible = (lat: number, lng: number) =>
+      Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
+
+    // Layout A: interleaved. An odd trailing value is a truncated sample.
+    const evens: number[] = [];
+    const odds: number[] = [];
+    for (let i = 0; i + 1 < flat.length; i += 2) {
+      evens.push(flat[i]);
+      odds.push(flat[i + 1]);
+    }
+
+    // Layout B: concatenated halves.
+    const half = Math.floor(flat.length / 2);
+    const firstHalf = flat.slice(0, half);
+    const secondHalf = flat.slice(half, half * 2);
+
+    const scoreA = spread(evens) + spread(odds);
+    const scoreB = spread(firstHalf) + spread(secondHalf);
+
+    const [lats, lngs] = scoreA <= scoreB ? [evens, odds] : [firstHalf, secondHalf];
+
+    const pairs: [number, number][] = [];
+    for (let i = 0; i < Math.min(lats.length, lngs.length); i++) {
+      if (plausible(lats[i], lngs[i])) pairs.push([lats[i], lngs[i]]);
+    }
+
+    return pairs;
   }
 
   /**
@@ -180,8 +234,10 @@ export class IntervalsProvider implements ActivityProvider {
         const name = s.type ?? s.name ?? '(unnamed)';
         const data = (s.data ?? s.values) as unknown;
         const len = Array.isArray(data) ? data.length : 0;
-        const first = Array.isArray(data) && data.length > 0 ? JSON.stringify(data[0]) : 'n/a';
-        return `    ${String(name)}: ${len} samples, first=${first}`;
+        // Several samples, not one: a flat series and a series of pairs look
+        // identical from a single element.
+        const head = Array.isArray(data) ? JSON.stringify(data.slice(0, 8)) : 'n/a';
+        return `    ${String(name)}: ${len} samples, first 8 = ${head}`;
       });
       return `  array of ${entries.length} stream object(s)\n${summary.join('\n')}`;
     }

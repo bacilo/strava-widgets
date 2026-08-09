@@ -81,6 +81,51 @@ describe('IntervalsProvider.extractCoordinates', () => {
     expect(IntervalsProvider.extractCoordinates(undefined)).toEqual([]);
     expect(IntervalsProvider.extractCoordinates('nope')).toEqual([]);
   });
+
+  // The live API returns latlng as one flat numeric series, not pairs.
+  it('pairs a flat interleaved series, as the live API returns it', () => {
+    const flat = [55.715, 12.44, 55.716, 12.441, 55.717, 12.442];
+
+    expect(IntervalsProvider.extractCoordinates([{ type: 'latlng', data: flat }])).toEqual([
+      [55.715, 12.44],
+      [55.716, 12.441],
+      [55.717, 12.442],
+    ]);
+  });
+
+  it('drops a truncated trailing sample from an odd-length flat series', () => {
+    const flat = [55.715, 12.44, 55.716, 12.441, 55.717];
+
+    expect(IntervalsProvider.extractCoordinates([{ type: 'latlng', data: flat }])).toEqual([
+      [55.715, 12.44],
+      [55.716, 12.441],
+    ]);
+  });
+});
+
+/**
+ * A flat series could be interleaved or two concatenated halves. Latitudes and
+ * longitudes each cluster tightly along a real route, so the wrong split is
+ * detectable by its much wider spread.
+ */
+describe('IntervalsProvider.pairFlatSeries', () => {
+  const lats = [55.715, 55.716, 55.717, 55.718];
+  const lngs = [12.44, 12.441, 12.442, 12.443];
+  const expected = lats.map((lat, i) => [lat, lngs[i]]);
+
+  it('detects an interleaved layout', () => {
+    const interleaved = lats.flatMap((lat, i) => [lat, lngs[i]]);
+
+    expect(IntervalsProvider.pairFlatSeries(interleaved)).toEqual(expected);
+  });
+
+  it('detects a concatenated-halves layout', () => {
+    expect(IntervalsProvider.pairFlatSeries([...lats, ...lngs])).toEqual(expected);
+  });
+
+  it('rejects samples outside valid coordinate ranges', () => {
+    expect(IntervalsProvider.pairFlatSeries([55.7, 12.4, 999, 12.5])).toEqual([[55.7, 12.4]]);
+  });
 });
 
 /**
