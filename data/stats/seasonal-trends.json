@@ -177,8 +177,50 @@
   {
     "year": 2026,
     "month": 2,
-    "totalKm": 11.6025,
-    "totalRuns": 1,
-    "totalHours": 1.1197222222222223
+    "totalKm": 31.68,
+    "totalRuns": 3,
+    "totalHours": 3.1733333333333333
+  },
+  {
+    "year": 2026,
+    "month": 3,
+    "totalKm": 60.16899,
+    "totalRuns": 6,
+    "totalHours": 6.225555555555556
+  },
+  {
+    "year": 2026,
+    "month": 4,
+    "totalKm": 152.35833000000002,
+    "totalRuns": 13,
+    "totalHours": 15.268333333333333
+  },
+  {
+    "year": 2026,
+    "month": 5,
+    "totalKm": 117.69828000000001,
+    "totalRuns": 12,
+    "totalHours": 12.010833333333332
+  },
+  {
+    "year": 2026,
+    "month": 6,
+    "totalKm": 99.21289999999999,
+    "totalRuns": 12,
+    "totalHours": 10.30361111111111
+  },
+  {
+    "year": 2026,
+    "month": 7,
+    "totalKm": 45.11632,
+    "totalRuns": 4,
+    "totalHours": 4.459722222222222
+  },
+  {
+    "year": 2026,
+    "month": 8,
+    "totalKm": 76.6341,
+    "totalRuns": 5,
+    "totalHours": 7.387500000000001
   }
 ]

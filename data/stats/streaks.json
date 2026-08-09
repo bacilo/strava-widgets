@@ -1,15 +1,15 @@
 {
-  "currentStreak": 0,
+  "currentStreak": 3,
   "longestStreak": 31,
-  "withinCurrentStreak": false,
-  "currentStreakStart": "",
+  "withinCurrentStreak": true,
+  "currentStreakStart": "2026-08-06T00:00:00.000Z",
   "longestStreakStart": "2021-06-13T00:00:00.000Z",
   "longestStreakEnd": "2021-07-13T00:00:00.000Z",
   "weeklyConsistency": {
-    "currentStreak": 0,
+    "currentStreak": 2,
     "longestStreak": 35,
-    "totalConsistentWeeks": 354,
-    "totalWeeks": 465,
+    "totalConsistentWeeks": 364,
+    "totalWeeks": 484,
     "minRunsPerWeek": 3
   }
 }

@@ -3718,5 +3718,157 @@
     "avgPaceMinPerKm": 5.790418731595203,
     "elevationGain": 68,
     "totalMovingTimeMin": 67.18333333333334
+  },
+  {
+    "weekStartISO": "2026-02-23T00:00:00.000Z",
+    "totalKm": 20.0775,
+    "runCount": 2,
+    "avgPaceMinPerKm": 6.137052255841946,
+    "elevationGain": 21.25771,
+    "totalMovingTimeMin": 123.21666666666667
+  },
+  {
+    "weekStartISO": "2026-03-02T00:00:00.000Z",
+    "totalKm": 24.294150000000002,
+    "runCount": 2,
+    "avgPaceMinPerKm": 6.150314650509141,
+    "elevationGain": 60.961893,
+    "totalMovingTimeMin": 149.41666666666666
+  },
+  {
+    "weekStartISO": "2026-03-09T00:00:00.000Z",
+    "totalKm": 35.87484,
+    "runCount": 4,
+    "avgPaceMinPerKm": 6.24718233354258,
+    "elevationGain": 90.401104,
+    "totalMovingTimeMin": 224.11666666666667
+  },
+  {
+    "weekStartISO": "2026-04-06T00:00:00.000Z",
+    "totalKm": 10.002229999999999,
+    "runCount": 1,
+    "avgPaceMinPerKm": 6.031988199964742,
+    "elevationGain": 12.656284,
+    "totalMovingTimeMin": 60.333333333333336
+  },
+  {
+    "weekStartISO": "2026-04-13T00:00:00.000Z",
+    "totalKm": 42.33578000000001,
+    "runCount": 4,
+    "avgPaceMinPerKm": 6.414196218895696,
+    "elevationGain": 156.335372,
+    "totalMovingTimeMin": 271.55
+  },
+  {
+    "weekStartISO": "2026-04-20T00:00:00.000Z",
+    "totalKm": 50.0441,
+    "runCount": 4,
+    "avgPaceMinPerKm": 5.816869521082405,
+    "elevationGain": 96.106898,
+    "totalMovingTimeMin": 291.1
+  },
+  {
+    "weekStartISO": "2026-04-27T00:00:00.000Z",
+    "totalKm": 75.87618,
+    "runCount": 6,
+    "avgPaceMinPerKm": 5.84966190970605,
+    "elevationGain": 141.844156,
+    "totalMovingTimeMin": 443.85
+  },
+  {
+    "weekStartISO": "2026-05-04T00:00:00.000Z",
+    "totalKm": 10.047270000000001,
+    "runCount": 1,
+    "avgPaceMinPerKm": 6.1923952144877825,
+    "elevationGain": 18.865044,
+    "totalMovingTimeMin": 62.21666666666667
+  },
+  {
+    "weekStartISO": "2026-05-11T00:00:00.000Z",
+    "totalKm": 33.78339,
+    "runCount": 3,
+    "avgPaceMinPerKm": 6.092737683617107,
+    "elevationGain": 54.3423,
+    "totalMovingTimeMin": 205.83333333333334
+  },
+  {
+    "weekStartISO": "2026-05-18T00:00:00.000Z",
+    "totalKm": 16.03357,
+    "runCount": 2,
+    "avgPaceMinPerKm": 6.307599201758144,
+    "elevationGain": 25.1176678,
+    "totalMovingTimeMin": 101.13333333333334
+  },
+  {
+    "weekStartISO": "2026-05-25T00:00:00.000Z",
+    "totalKm": 31.934089999999998,
+    "runCount": 4,
+    "avgPaceMinPerKm": 6.2858635813118,
+    "elevationGain": 62.153977999999995,
+    "totalMovingTimeMin": 200.73333333333332
+  },
+  {
+    "weekStartISO": "2026-06-01T00:00:00.000Z",
+    "totalKm": 13.00526,
+    "runCount": 2,
+    "avgPaceMinPerKm": 6.298733486809697,
+    "elevationGain": 9.833567,
+    "totalMovingTimeMin": 81.91666666666667
+  },
+  {
+    "weekStartISO": "2026-06-08T00:00:00.000Z",
+    "totalKm": 23.84617,
+    "runCount": 3,
+    "avgPaceMinPerKm": 6.221124817947705,
+    "elevationGain": 44.5429955,
+    "totalMovingTimeMin": 148.35
+  },
+  {
+    "weekStartISO": "2026-06-15T00:00:00.000Z",
+    "totalKm": 25.0578,
+    "runCount": 2,
+    "avgPaceMinPerKm": 6.199666371349439,
+    "elevationGain": 40.296268,
+    "totalMovingTimeMin": 155.35
+  },
+  {
+    "weekStartISO": "2026-06-22T00:00:00.000Z",
+    "totalKm": 34.04668,
+    "runCount": 4,
+    "avgPaceMinPerKm": 5.977087927515988,
+    "elevationGain": 214.5346723,
+    "totalMovingTimeMin": 203.5
+  },
+  {
+    "weekStartISO": "2026-06-29T00:00:00.000Z",
+    "totalKm": 3.2569899999999996,
+    "runCount": 1,
+    "avgPaceMinPerKm": 8.93462982692609,
+    "elevationGain": 21.633196,
+    "totalMovingTimeMin": 29.1
+  },
+  {
+    "weekStartISO": "2026-07-20T00:00:00.000Z",
+    "totalKm": 21.5271,
+    "runCount": 2,
+    "avgPaceMinPerKm": 5.941348346967312,
+    "elevationGain": 24.848053,
+    "totalMovingTimeMin": 127.9
+  },
+  {
+    "weekStartISO": "2026-07-27T00:00:00.000Z",
+    "totalKm": 40.03039,
+    "runCount": 3,
+    "avgPaceMinPerKm": 5.860131098731073,
+    "elevationGain": 68.191307,
+    "totalMovingTimeMin": 234.58333333333334
+  },
+  {
+    "weekStartISO": "2026-08-03T00:00:00.000Z",
+    "totalKm": 60.192930000000004,
+    "runCount": 4,
+    "avgPaceMinPerKm": 5.787224512912065,
+    "elevationGain": 92.29002349999999,
+    "totalMovingTimeMin": 348.35
   }
 ]

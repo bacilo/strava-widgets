@@ -2,8 +2,8 @@
   {
     "countryName": "Denmark",
     "countryIso2": "DK",
-    "activityCount": 1324,
-    "totalDistanceKm": 16218.4,
+    "activityCount": 1371,
+    "totalDistanceKm": 16741.7,
     "cities": [
       "Billund",
       "Buddinge",
@@ -20,8 +20,8 @@
   {
     "countryName": "Portugal",
     "countryIso2": "PT",
-    "activityCount": 231,
-    "totalDistanceKm": 2754.6,
+    "activityCount": 234,
+    "totalDistanceKm": 2778.8,
     "cities": [
       "Albufeira",
       "Algés",
@@ -193,6 +193,15 @@
     "totalDistanceKm": 21.2,
     "cities": [
       "Dublin"
+    ]
+  },
+  {
+    "countryName": "Spain",
+    "countryIso2": "ES",
+    "activityCount": 2,
+    "totalDistanceKm": 21,
+    "cities": [
+      "el Clot"
     ]
   },
   {
