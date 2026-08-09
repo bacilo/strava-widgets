@@ -110,21 +110,41 @@ export class IntervalsProvider implements ActivityProvider {
       ? (streams as Record<string, unknown>)
       : undefined;
 
-    const seriesNamed = (name: string): unknown => {
-      if (asArray) {
-        const hit = asArray.find(s => s.type === name || s.name === name);
-        return hit?.data ?? hit?.values ?? undefined;
-      }
+    const streamNamed = (name: string): Record<string, unknown> | undefined => {
+      if (asArray) return asArray.find(s => s.type === name || s.name === name);
       if (asObject) {
         const entry = asObject[name];
-        if (Array.isArray(entry)) return entry;
-        if (entry && typeof entry === 'object') {
-          const rec = entry as Record<string, unknown>;
-          return rec.data ?? rec.values;
-        }
+        if (Array.isArray(entry)) return { data: entry };
+        if (entry && typeof entry === 'object') return entry as Record<string, unknown>;
       }
       return undefined;
     };
+
+    const seriesNamed = (name: string): unknown => {
+      const hit = streamNamed(name);
+      return hit?.data ?? hit?.values ?? undefined;
+    };
+
+    // Confirmed live shape: the latlng stream carries two parallel arrays on
+    // the SAME object — `data` is latitudes, `data2` is longitudes. Zip them
+    // by index so nulls (GPS dropouts) stay aligned, then drop incomplete
+    // pairs. This is the primary path; everything below is defensive fallback.
+    for (const key of ['latlng', 'lat_lng', 'position', 'coordinates']) {
+      const stream = streamNamed(key);
+      const lats = stream?.data;
+      const lngs = stream?.data2;
+      if (Array.isArray(lats) && Array.isArray(lngs)) {
+        const pairs: [number, number][] = [];
+        for (let i = 0; i < Math.min(lats.length, lngs.length); i++) {
+          const lat = num(lats[i]);
+          const lng = num(lngs[i]);
+          if (lat !== undefined && lng !== undefined && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
+            pairs.push([lat, lng]);
+          }
+        }
+        if (pairs.length > 0) return pairs;
+      }
+    }
 
     // Paired form: [[lat, lng], ...]
     for (const key of ['latlng', 'lat_lng', 'position', 'coordinates']) {
@@ -391,6 +411,13 @@ export class IntervalsProvider implements ActivityProvider {
           probe =
             `\n      mid  (${mid}) = ${JSON.stringify(data.slice(mid, mid + 4))}` +
             `\n      last 4      = ${JSON.stringify(data.slice(-4))}`;
+        }
+
+        // data2 is where intervals.icu keeps the second component of a paired
+        // series (longitudes for latlng).
+        const data2 = s.data2;
+        if (Array.isArray(data2) && data2.length > 0) {
+          probe += `\n      data2: ${data2.length} samples, first 4 = ${JSON.stringify(data2.slice(0, 4))}`;
         }
 
         return `${objectKeys}\n    ${String(name)}: ${len} samples, first 8 = ${head}${census}${probe}`;

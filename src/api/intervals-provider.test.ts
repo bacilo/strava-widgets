@@ -117,6 +117,53 @@ describe('IntervalsProvider.extractCoordinates', () => {
     ]);
   });
 
+  /**
+   * The confirmed live shape: latlng arrives as two parallel arrays on the
+   * same stream object — `data` latitudes, `data2` longitudes.
+   */
+  it('zips data/data2 parallel arrays, as the live API returns them', () => {
+    const stream = {
+      type: 'latlng',
+      data: [55.71525, 55.71525, 55.715305],
+      data2: [12.44, 12.4401, 12.4402],
+    };
+
+    expect(IntervalsProvider.extractCoordinates([stream])).toEqual([
+      [55.71525, 12.44],
+      [55.71525, 12.4401],
+      [55.715305, 12.4402],
+    ]);
+  });
+
+  it('keeps data/data2 aligned across dropout nulls', () => {
+    const stream = {
+      type: 'latlng',
+      data: [55.715, null, 55.717],
+      data2: [12.44, null, 12.442],
+    };
+
+    expect(IntervalsProvider.extractCoordinates([stream])).toEqual([
+      [55.715, 12.44],
+      [55.717, 12.442],
+    ]);
+  });
+
+  it('prefers data/data2 over misreading data as a flat series', () => {
+    // With data2 present, data alone is only latitudes — the flat-series
+    // fallback must not fire on it.
+    const lats = [55.715, 55.716, 55.717, 55.718];
+    const lngs = [12.44, 12.441, 12.442, 12.443];
+    const out = IntervalsProvider.extractCoordinates([{ type: 'latlng', data: lats, data2: lngs }]);
+
+    expect(out).toEqual(lats.map((lat, i) => [lat, lngs[i]]));
+  });
+
+  it('rejects out-of-range values in data/data2 pairs', () => {
+    const stream = { type: 'latlng', data: [55.715, 999], data2: [12.44, 12.441] };
+
+    expect(IntervalsProvider.extractCoordinates([stream])).toEqual([[55.715, 12.44]]);
+  });
+
   it('ignores a series of nested objects rather than treating it as flat', () => {
     expect(
       IntervalsProvider.extractCoordinates([{ type: 'latlng', data: [{ nope: 1 }, { nope: 2 }] }])
