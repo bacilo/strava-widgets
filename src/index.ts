@@ -221,6 +221,50 @@ async function computeAllStatsCommand() {
 }
 
 /**
+ * Sync new activities from intervals.icu (which mirrors Garmin Connect).
+ *
+ * Replacement ingestion path for the Strava sync after Strava paywalled
+ * Standard-tier API access. Dedupes against everything already in
+ * data/activities/ by start_date epoch, so running it alongside or after the
+ * old Strava archive is safe.
+ */
+async function syncIntervalsCommand() {
+  try {
+    const { IntervalsClient } = await import('./api/intervals-client.js');
+    const { IntervalsSync } = await import('./sync/intervals-sync.js');
+
+    const fileStore = new FileStore('.');
+    const client = new IntervalsClient({
+      apiKey: process.env.INTERVALS_API_KEY || '',
+      athleteId: process.env.INTERVALS_ATHLETE_ID || '0',
+    });
+    const syncStateManager = new SyncStateManager(config.syncStatePath, fileStore);
+    const sync = new IntervalsSync({
+      client,
+      fileStore,
+      syncStateManager,
+      activitiesDir: config.activitiesDir,
+    });
+
+    console.log('Starting intervals.icu activity sync...\n');
+    const result = await sync.syncNewActivities();
+
+    console.log('\n=== Sync Summary ===');
+    console.log(`New runs saved: ${result.newRuns}`);
+    console.log(`Total activities fetched: ${result.totalFetched}`);
+    console.log(`Skipped (duplicates/non-runs): ${result.skipped}`);
+
+    process.exit(0);
+  } catch (error: any) {
+    console.error('Sync error:', error.message);
+    if (error.message.includes('INTERVALS_API_KEY')) {
+      console.error('\nSee .env.example — generate a key at https://intervals.icu/settings');
+    }
+    process.exit(1);
+  }
+}
+
+/**
  * Dry-run the intervals.icu provider against a real account.
  *
  * Writes nothing. Confirms the API key works, then diffs what the API actually
@@ -378,6 +422,7 @@ function printHelp() {
   console.log('  compute-advanced-stats - Compute advanced statistics (year-over-year, time-of-day, etc.)');
   console.log('  compute-geo-stats      - Compute geographic statistics (countries, cities) from GPS data');
   console.log('  compute-all-stats      - Compute all statistics (basic, advanced, geo)');
+  console.log('  sync-intervals         - Sync new activities from intervals.icu (Garmin bridge)');
   console.log('  probe-intervals        - Dry-run the intervals.icu provider (writes nothing)');
   console.log('\nExamples:');
   console.log('  npm run auth                   # Get authorization URL');
@@ -412,6 +457,9 @@ async function main() {
       break;
     case 'compute-all-stats':
       await computeAllStatsCommand();
+      break;
+    case 'sync-intervals':
+      await syncIntervalsCommand();
       break;
     case 'probe-intervals':
       await probeIntervalsCommand();

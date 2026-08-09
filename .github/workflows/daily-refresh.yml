@@ -39,22 +39,21 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Setup tokens for Strava API
-        run: node scripts/ci-setup-tokens.mjs
-        env:
-          STRAVA_REFRESH_TOKEN: ${{ secrets.STRAVA_REFRESH_TOKEN }}
-
-      - name: Fetch new activities from Strava
+      # Ingestion source is intervals.icu (bridging Garmin Connect) since
+      # Strava paywalled Standard-tier API access in June 2026. Requires the
+      # INTERVALS_API_KEY repo secret; without it this step fails and the
+      # pipeline rebuilds from committed data, same as any fetch outage.
+      - name: Fetch new activities from intervals.icu
         id: fetch
-        continue-on-error: true  # Use cached data if Strava API fails
+        continue-on-error: true  # Use cached data if the API fails
         run: npm run fetch
         env:
-          STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
-          STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
+          INTERVALS_API_KEY: ${{ secrets.INTERVALS_API_KEY }}
+          INTERVALS_ATHLETE_ID: '0'
 
       - name: Warn on fetch failure
         if: steps.fetch.outcome == 'failure'
-        run: echo "::warning::Strava fetch failed, rebuilding with existing data"
+        run: echo "::warning::intervals.icu fetch failed, rebuilding with existing data"
 
       - name: Compile TypeScript
         run: npm run build
