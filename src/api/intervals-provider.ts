@@ -164,15 +164,23 @@ export class IntervalsProvider implements ActivityProvider {
       if (pairs.length > 0) return pairs;
     }
 
-    // Flat form: the live API returns latlng as one flat numeric series rather
-    // than an array of pairs. Two layouts are possible and indistinguishable by
-    // type alone, so both are scored and the coherent one wins.
+    // Flat form: the live API returns latlng as one flat series rather than an
+    // array of pairs. Two layouts are possible and indistinguishable by type
+    // alone, so both are scored and the coherent one wins.
+    //
+    // Nulls are expected — GPS drops out — so the series is accepted as long as
+    // it holds no nested arrays/objects and enough numeric samples to pair.
     for (const key of ['latlng', 'lat_lng', 'position', 'coordinates']) {
       const series = seriesNamed(key);
-      if (Array.isArray(series) && series.length >= 4 && series.every(v => num(v) !== undefined)) {
-        const flat = series as number[];
-        return IntervalsProvider.pairFlatSeries(flat);
-      }
+      if (!Array.isArray(series) || series.length < 4) continue;
+
+      const hasNested = series.some(v => v !== null && typeof v === 'object');
+      if (hasNested) continue;
+
+      const numericCount = series.reduce<number>((n, v) => (num(v) !== undefined ? n + 1 : n), 0);
+      if (numericCount < 4) continue;
+
+      return IntervalsProvider.pairFlatSeries(series as (number | null)[]);
     }
 
     return [];
@@ -186,24 +194,29 @@ export class IntervalsProvider implements ActivityProvider {
    * so do its longitudes, whereas mis-splitting mixes the two and produces a
    * wildly wider spread — so scoring by combined spread picks the right one.
    */
-  static pairFlatSeries(flat: number[]): [number, number][] {
-    const spread = (values: number[]): number => {
-      if (values.length === 0) return Infinity;
-      return Math.max(...values) - Math.min(...values);
+  static pairFlatSeries(flat: (number | null)[]): [number, number][] {
+    // Nulls mark GPS dropouts. They must survive into the split so that the two
+    // halves stay index-aligned; discarding them first would shift latitudes
+    // against longitudes and silently bend the route.
+    const spread = (values: (number | null)[]): number => {
+      const finite = values.filter((v): v is number => num(v) !== undefined);
+      if (finite.length === 0) return Infinity;
+      return Math.max(...finite) - Math.min(...finite);
     };
 
     const plausible = (lat: number, lng: number) =>
       Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
 
     // Layout A: interleaved. An odd trailing value is a truncated sample.
-    const evens: number[] = [];
-    const odds: number[] = [];
+    const evens: (number | null)[] = [];
+    const odds: (number | null)[] = [];
     for (let i = 0; i + 1 < flat.length; i += 2) {
       evens.push(flat[i]);
       odds.push(flat[i + 1]);
     }
 
-    // Layout B: concatenated halves.
+    // Layout B: concatenated halves. Confirmed as the live shape — a real
+    // response opened with eight consecutive latitudes.
     const half = Math.floor(flat.length / 2);
     const firstHalf = flat.slice(0, half);
     const secondHalf = flat.slice(half, half * 2);
@@ -215,7 +228,11 @@ export class IntervalsProvider implements ActivityProvider {
 
     const pairs: [number, number][] = [];
     for (let i = 0; i < Math.min(lats.length, lngs.length); i++) {
-      if (plausible(lats[i], lngs[i])) pairs.push([lats[i], lngs[i]]);
+      const lat = num(lats[i]);
+      const lng = num(lngs[i]);
+      if (lat !== undefined && lng !== undefined && plausible(lat, lng)) {
+        pairs.push([lat, lng]);
+      }
     }
 
     return pairs;
@@ -237,7 +254,23 @@ export class IntervalsProvider implements ActivityProvider {
         // Several samples, not one: a flat series and a series of pairs look
         // identical from a single element.
         const head = Array.isArray(data) ? JSON.stringify(data.slice(0, 8)) : 'n/a';
-        return `    ${String(name)}: ${len} samples, first 8 = ${head}`;
+
+        // Element-type census: a single stray null used to disqualify an entire
+        // series, so the composition matters as much as the first few values.
+        let census = '';
+        if (Array.isArray(data)) {
+          const counts: Record<string, number> = {};
+          for (const v of data) {
+            const kind =
+              v === null ? 'null'
+                : Array.isArray(v) ? 'array'
+                  : typeof v;
+            counts[kind] = (counts[kind] ?? 0) + 1;
+          }
+          census = `\n      types: ${Object.entries(counts).map(([k, n]) => `${k}=${n}`).join(', ')}`;
+        }
+
+        return `    ${String(name)}: ${len} samples, first 8 = ${head}${census}`;
       });
       return `  array of ${entries.length} stream object(s)\n${summary.join('\n')}`;
     }

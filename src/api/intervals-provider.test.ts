@@ -101,6 +101,27 @@ describe('IntervalsProvider.extractCoordinates', () => {
       [55.716, 12.441],
     ]);
   });
+
+  /**
+   * Reproduces the live shape: 'latlng' as concatenated halves, odd length, and
+   * a null dropout. An earlier guard demanded every element be numeric, so one
+   * null silently disqualified the whole series and the route vanished.
+   */
+  it('reads concatenated halves containing a dropout', () => {
+    const flat = [55.715, 55.716, null, 55.718, 12.44, 12.441, null, 12.443, 0];
+
+    expect(IntervalsProvider.extractCoordinates([{ type: 'latlng', data: flat }])).toEqual([
+      [55.715, 12.44],
+      [55.716, 12.441],
+      [55.718, 12.443],
+    ]);
+  });
+
+  it('ignores a series of nested objects rather than treating it as flat', () => {
+    expect(
+      IntervalsProvider.extractCoordinates([{ type: 'latlng', data: [{ nope: 1 }, { nope: 2 }] }])
+    ).toEqual([]);
+  });
 });
 
 /**
@@ -125,6 +146,44 @@ describe('IntervalsProvider.pairFlatSeries', () => {
 
   it('rejects samples outside valid coordinate ranges', () => {
     expect(IntervalsProvider.pairFlatSeries([55.7, 12.4, 999, 12.5])).toEqual([[55.7, 12.4]]);
+  });
+
+  /**
+   * GPS dropouts put nulls in the series. Discarding them before splitting
+   * would shift the halves out of alignment and bend the route, so alignment
+   * is preserved and incomplete pairs are dropped instead.
+   */
+  it('keeps halves aligned when a dropout nulls one sample', () => {
+    const withGap = [55.715, 55.716, null, 55.718, 12.44, 12.441, null, 12.443];
+
+    expect(IntervalsProvider.pairFlatSeries(withGap)).toEqual([
+      [55.715, 12.44],
+      [55.716, 12.441],
+      [55.718, 12.443],
+    ]);
+  });
+
+  it('does not slide longitudes onto the wrong latitudes around a dropout', () => {
+    // Null only on the latitude side: index 2 must be dropped entirely rather
+    // than pulling 55.718 forward onto longitude 12.442.
+    const asymmetric = [55.715, 55.716, null, 55.718, 12.44, 12.441, 12.442, 12.443];
+    const pairs = IntervalsProvider.pairFlatSeries(asymmetric);
+
+    expect(pairs).toEqual([
+      [55.715, 12.44],
+      [55.716, 12.441],
+      [55.718, 12.443],
+    ]);
+    expect(pairs).not.toContainEqual([55.718, 12.442]);
+  });
+
+  it('still identifies the layout when nulls are present', () => {
+    const interleavedWithGap = [55.715, 12.44, null, null, 55.717, 12.442];
+
+    expect(IntervalsProvider.pairFlatSeries(interleavedWithGap)).toEqual([
+      [55.715, 12.44],
+      [55.717, 12.442],
+    ]);
   });
 });
 
