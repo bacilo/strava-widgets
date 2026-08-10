@@ -504,17 +504,20 @@ describe('computeBestEfforts — archive orchestration', () => {
       channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
     };
     await writeManifest(manifest);
-    await writeActivity('implausible', '2026-01-01T00:00:00Z');
-    // 1000m in 10s implies 100 m/s — beats the world-record ceiling.
+    await writeActivity('implausible', '2026-01-01T00:00:00Z', 1000);
+    // First 400m in 5s implies 80 m/s (implausible, beats the world-record
+    // ceiling); the remaining 600m over 295s is a normal ~2 m/s pace, so the
+    // 1k window (which spans the whole series) is plausible. Only the fastest
+    // (minimum-duration) 400m window is implausible — the 1k effort survives.
     await fileStore.writeJson(path.join('streams', 'implausible.json'), {
       schemaVersion: 1,
       id: 'implausible',
       source: 'fit',
       distanceSource: 'native',
-      sampleCount: 2,
+      sampleCount: 3,
       channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
-      t: [0, 10],
-      d: [0, 1000],
+      t: [0, 5, 300],
+      d: [0, 400, 1000],
     });
 
     const doc = await computeBestEfforts({
@@ -525,8 +528,9 @@ describe('computeBestEfforts — archive orchestration', () => {
     });
 
     expect(doc.rejected.length).toBe(1);
-    expect(doc.rejected[0]).toMatchObject({ activityId: 'implausible', distance: '1k' });
+    expect(doc.rejected[0]).toMatchObject({ activityId: 'implausible', distance: '400m' });
     expect(doc.rejected[0].reason).toMatch(/exceeds world-record pace/);
+    expect(doc.activities['implausible'].efforts.some((e) => e.distance === '1k')).toBe(true);
   });
 
   it('totals are internally consistent: effortsComputed and lowConfidenceEfforts match the activities data', async () => {
