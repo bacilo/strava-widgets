@@ -53,7 +53,10 @@ Compute and visualize running statistics that Strava doesn't readily offer, embe
 
 ### Active
 
-Milestone v2.0 Training Dashboard — requirements being defined (see Current Milestone above; REQUIREMENTS.md forthcoming).
+Milestone v2.0 Training Dashboard — in progress.
+
+- ✓ Committed per-activity stream data (time, distance, HR, cadence, elevation) via local backfill + daily sync, with per-channel availability manifest (STREAM-01/02/03) — Validated in Phase 14: Stream Ingestion Foundation
+- Remaining: best-effort engine, dashboard shell, activity browser, records & trends (Phases 15-18); STREAM-04 (Garmin adapter) deferred until export arrives.
 
 ### Out of Scope
 
@@ -141,4 +144,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-10 — milestone v2.0 Training Dashboard started*
+*Last updated: 2026-08-10 — Phase 14 (Stream Ingestion Foundation) complete: 1,842 activity streams committed, 25 explicitly flagged unavailable*
