@@ -612,4 +612,181 @@ describe('computeBestEfforts — archive orchestration', () => {
     expect(doc.totals.skippedUnreadable).toBe(0);
     expect(Object.keys(doc.activities)).toEqual([]);
   });
+
+  describe('exclusions', () => {
+    async function writeExclusions(
+      exclusions: Array<{ activityId: string; distances: string[] | null; reason: string }>
+    ): Promise<string> {
+      const exclusionsPath = path.join(tmpDir, 'best-effort-exclusions.json');
+      await fileStore.writeJson('best-effort-exclusions.json', {
+        schemaVersion: 1,
+        note: 'test',
+        exclusions,
+      });
+      return exclusionsPath;
+    }
+
+    it('with two activities where the faster one is excluded (all distances), rankings[1k][0] is the slower, non-excluded activity', async () => {
+      const manifest = emptyManifestDoc();
+      manifest.activities['fast-excluded'] = {
+        available: true,
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 2,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+      };
+      manifest.activities['slow'] = {
+        available: true,
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 2,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+      };
+      await writeManifest(manifest);
+      await writeActivity('fast-excluded', '2026-01-01T00:00:00Z');
+      await writeStream('fast-excluded', 250); // faster 1k, but excluded
+      await writeActivity('slow', '2026-01-02T00:00:00Z');
+      await writeStream('slow', 300); // slower 1k
+
+      const exclusionsPath = await writeExclusions([
+        { activityId: 'fast-excluded', distances: null, reason: 'bad gps device' },
+      ]);
+
+      const doc = await computeBestEfforts({
+        activitiesDir: path.join(tmpDir, 'activities'),
+        streamsDir: path.join(tmpDir, 'streams'),
+        streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+        statsDir: path.join(tmpDir, 'stats'),
+        exclusionsPath,
+      });
+
+      expect(doc.rankings['1k'][0].activityId).toBe('slow');
+    });
+
+    it('an excluded activity is still present in activities, with excludedFromRecords true on every effort and the activity, and wasPRAtTheTime false', async () => {
+      const manifest = emptyManifestDoc();
+      manifest.activities['excluded-act'] = {
+        available: true,
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 2,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+      };
+      await writeManifest(manifest);
+      await writeActivity('excluded-act', '2026-01-01T00:00:00Z');
+      await writeStream('excluded-act', 300);
+
+      const exclusionsPath = await writeExclusions([
+        { activityId: 'excluded-act', distances: null, reason: 'bad gps device' },
+      ]);
+
+      const doc = await computeBestEfforts({
+        activitiesDir: path.join(tmpDir, 'activities'),
+        streamsDir: path.join(tmpDir, 'streams'),
+        streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+        statsDir: path.join(tmpDir, 'stats'),
+        exclusionsPath,
+      });
+
+      const activity = doc.activities['excluded-act'];
+      expect(activity).toBeDefined();
+      expect(activity.efforts.length).toBeGreaterThan(0);
+      expect(activity.excludedFromRecords).toBe(true);
+      for (const effort of activity.efforts) {
+        expect(effort.excludedFromRecords).toBe(true);
+        expect(effort.wasPRAtTheTime).toBe(false);
+      }
+    });
+
+    it('totals.effortsExcluded equals the excluded activity effort count, and effortsComputed still counts them', async () => {
+      const manifest = emptyManifestDoc();
+      manifest.activities['excluded-act'] = {
+        available: true,
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 2,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+      };
+      manifest.activities['normal-act'] = {
+        available: true,
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 2,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+      };
+      await writeManifest(manifest);
+      await writeActivity('excluded-act', '2026-01-01T00:00:00Z');
+      await writeStream('excluded-act', 300);
+      await writeActivity('normal-act', '2026-01-02T00:00:00Z');
+      await writeStream('normal-act', 310);
+
+      const exclusionsPath = await writeExclusions([
+        { activityId: 'excluded-act', distances: null, reason: 'bad gps device' },
+      ]);
+
+      const doc = await computeBestEfforts({
+        activitiesDir: path.join(tmpDir, 'activities'),
+        streamsDir: path.join(tmpDir, 'streams'),
+        streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+        statsDir: path.join(tmpDir, 'stats'),
+        exclusionsPath,
+      });
+
+      const excludedEffortCount = doc.activities['excluded-act'].efforts.length;
+      expect(doc.totals.effortsExcluded).toBe(excludedEffortCount);
+      const sumEfforts = Object.values(doc.activities).reduce((sum, a) => sum + a.efforts.length, 0);
+      expect(doc.totals.effortsComputed).toBe(sumEfforts);
+    });
+
+    it('a per-distance exclusion removes the activity from that rankings entry but leaves it ranked elsewhere', async () => {
+      // Build a series long enough for both 1k and 5k.
+      const t: number[] = [0, 250, 1300];
+      const d: number[] = [0, 1000, 5000];
+
+      const manifest = emptyManifestDoc();
+      manifest.activities['partial-excluded'] = {
+        available: true,
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 3,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+      };
+      await writeManifest(manifest);
+
+      await fileStore.writeJson(path.join('activities', 'partial-excluded.json'), {
+        id: 'partial-excluded',
+        type: 'Run',
+        start_date: '2026-01-01T00:00:00Z',
+        start_date_local: '2026-01-01T00:00:00Z',
+        distance: 5000,
+        moving_time: 1300,
+        max_speed: undefined,
+      });
+      await fileStore.writeJson(path.join('streams', 'partial-excluded.json'), {
+        schemaVersion: 1,
+        id: 'partial-excluded',
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: t.length,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+        t,
+        d,
+      });
+
+      const exclusionsPath = await writeExclusions([
+        { activityId: 'partial-excluded', distances: ['1k'], reason: 'bad gps device for 1k only' },
+      ]);
+
+      const doc = await computeBestEfforts({
+        activitiesDir: path.join(tmpDir, 'activities'),
+        streamsDir: path.join(tmpDir, 'streams'),
+        streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+        statsDir: path.join(tmpDir, 'stats'),
+        exclusionsPath,
+      });
+
+      expect(doc.rankings['1k'].some((r) => r.activityId === 'partial-excluded')).toBe(false);
+      expect(doc.rankings['5k'].some((r) => r.activityId === 'partial-excluded')).toBe(true);
+    });
+  });
 });

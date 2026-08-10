@@ -28,6 +28,7 @@ import {
   validateStreamSeries,
   WORLD_RECORD_SPEED_MPS,
 } from './best-effort-utils.js';
+import { isExcluded, loadExclusions } from './best-effort-exclusions.js';
 import { loadManifest } from '../streams/stream-manifest.js';
 import type { CanonicalStream, DistanceSource } from '../streams/stream.types.js';
 import type { StravaActivity } from '../types/strava.types.js';
@@ -124,6 +125,7 @@ export interface ComputeBestEffortsOptions {
   streamsDir?: string;
   streamsManifestPath?: string;
   statsDir?: string;
+  exclusionsPath?: string;
 }
 
 interface PRAccumulatorEntry {
@@ -151,16 +153,19 @@ export async function computeBestEfforts(
   const streamsDir = options.streamsDir || 'data/streams';
   const streamsManifestPath = options.streamsManifestPath || 'data/streams/manifest.json';
   const statsDir = options.statsDir || 'data/stats';
+  const exclusionsPath = options.exclusionsPath || 'data/best-effort-exclusions.json';
 
   const fileStore = new FileStore('.');
 
   console.log(`Computing best efforts from manifest: ${streamsManifestPath}`);
 
   const manifest = await loadManifest(fileStore, streamsManifestPath);
+  const exclusions = await loadExclusions(fileStore, exclusionsPath);
 
   let skippedNoStream = 0;
   let skippedUnreadable = 0;
   let effortsRejected = 0;
+  let effortsExcluded = 0;
   let lowConfidenceEfforts = 0;
 
   const activities: Record<string, ActivityBestEfforts> = {};
@@ -207,6 +212,12 @@ export async function computeBestEfforts(
       for (const effort of result.efforts) {
         if (effort.lowConfidence) lowConfidenceEfforts++;
 
+        const isEffortExcluded = isExcluded(exclusions, id, effort.distance);
+        if (isEffortExcluded) {
+          effortsExcluded++;
+          continue;
+        }
+
         byDistance.get(effort.distance)!.push({
           activityId: id,
           startDate: activity.start_date,
@@ -220,7 +231,12 @@ export async function computeBestEfforts(
         activityId: id,
         startDate: activity.start_date,
         distanceSource: entry.distanceSource,
-        efforts: result.efforts.map((e) => ({ ...e, wasPRAtTheTime: false })),
+        efforts: result.efforts.map((e) => ({
+          ...e,
+          wasPRAtTheTime: false,
+          excludedFromRecords: isExcluded(exclusions, id, e.distance),
+        })),
+        excludedFromRecords: exclusions.has(id),
       };
     } catch (error) {
       // A truncated or hand-edited stream/activity file must not abort a
@@ -282,6 +298,7 @@ export async function computeBestEfforts(
       activitiesWithEfforts,
       effortsComputed,
       effortsRejected,
+      effortsExcluded,
       lowConfidenceEfforts,
       skippedNoStream,
       skippedUnreadable,
@@ -298,6 +315,7 @@ export async function computeBestEfforts(
   console.log(`- Activities with efforts: ${doc.totals.activitiesWithEfforts}`);
   console.log(`- Efforts computed: ${doc.totals.effortsComputed}`);
   console.log(`- Low-confidence efforts: ${doc.totals.lowConfidenceEfforts}`);
+  console.log(`- Efforts excluded (records): ${doc.totals.effortsExcluded}`);
   console.log(`- Skipped (no stream): ${doc.totals.skippedNoStream}`);
   console.log(`- Skipped (unreadable): ${doc.totals.skippedUnreadable}`);
   for (const key of TARGET_ORDER) {
