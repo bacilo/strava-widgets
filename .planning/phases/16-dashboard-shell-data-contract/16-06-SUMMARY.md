@@ -116,3 +116,17 @@ None - no external service configuration required.
 ---
 *Phase: 16-dashboard-shell-data-contract*
 *Completed: 2026-08-10*
+
+## Self-Check: PASSED
+
+- FOUND: `src/dashboard/index.html`
+- FOUND: `src/dashboard/nav.ts`
+- FOUND: `src/dashboard/views/stub-view.ts`
+- FOUND: `src/dashboard/views/calendar.stub.ts`
+- FOUND: `src/dashboard/views/records.stub.ts`
+- FOUND: `src/dashboard/views/trends.stub.ts`
+- FOUND: `.planning/phases/16-dashboard-shell-data-contract/16-06-SUMMARY.md`
+- FOUND commit: `c17823e` (feat, Task 1)
+- FOUND commit: `7842ca4` (feat, Task 2)
+- FOUND commit: `f81f812` (feat, Task 3)
+- FOUND commit: `e4441e0` (docs, summary)
