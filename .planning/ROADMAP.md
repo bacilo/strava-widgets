@@ -129,12 +129,33 @@ Plans:
   2. Dashboard loads a compact activity index manifest immediately and fetches per-activity detail data only when a specific activity is opened.
   3. Dashboard respects dark/light theme consistent with the existing widget system's theming.
 
-**Plans**: TBD
+**Plans**: 9 plans
 **UI hint**: yes
 
 Plans:
+**Wave 1**
 
-- [ ] 16-01: TBD
+- [ ] 16-01-PLAN.md — Best-effort exclusion list so untrusted-device activities stop holding PRs
+- [ ] 16-02-PLAN.md — Document-level theme engine and the global design-token stylesheet
+- [ ] 16-03-PLAN.md — Index manifest contract, view registry contract, and the hash router
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 16-04-PLAN.md — compute-dashboard-index generator, CLI subcommand, and gitignored output
+- [ ] 16-05-PLAN.md — Fetch-once index client and lazy, id-validated detail client
+- [ ] 16-06-PLAN.md — SPA entry with pre-paint theme bootstrap, top nav, and stub views
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 16-07-PLAN.md — Overview, list and detail views, the view registry, and the bootstrap
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 16-08-PLAN.md — Site-root migration, dashboard Vite entry, data publish copy, and the CI stage
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 16-09-PLAN.md — Publish-directory HTTP smoke check and end-to-end human verification
 
 ### Phase 17: Activity Browser & Detail Views
 
@@ -198,9 +219,9 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 | 13. Standalone Pages | v1.2 | 2/2 | Complete | 2026-02-18 |
 | 14. Stream Ingestion Foundation | v2.0 | 5/5 | Complete    | 2026-08-10 |
 | 15. Best-Effort Engine | v2.0 | 4/4 | Complete    | 2026-08-10 |
-| 16. Dashboard Shell & Data Contract | v2.0 | 0/TBD | Not started | - |
+| 16. Dashboard Shell & Data Contract | v2.0 | 0/9 | Not started | - |
 | 17. Activity Browser & Detail Views | v2.0 | 0/TBD | Not started | - |
 | 18. Records, Trends & Differentiators | v2.0 | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-08-10 — Phase 15 planned (4 plans, 4 waves)*
+*Last updated: 2026-08-10 — Phase 16 planned (9 plans, 5 waves)*

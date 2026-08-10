@@ -1,9 +1,9 @@
 ---
 phase: 16
 slug: dashboard-shell-data-contract
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: planned
+nyquist_compliant: true
+wave_0_complete: false  # test files are created inside their owning plans, not a separate wave
 created: 2026-08-10
 ---
 
@@ -38,21 +38,50 @@ created: 2026-08-10
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| — | — | — | DASH-01 | — | N/A | unit | `npx vitest run` | ❌ W0 | ⬜ pending |
-| — | — | — | DASH-02 | — | N/A | unit | `npx vitest run` | ❌ W0 | ⬜ pending |
-| — | — | — | DASH-03 | — | N/A | unit | `npx vitest run` | ❌ W0 | ⬜ pending |
+| 01-T1 | 16-01 | 1 | DASH-02 | T-16-EX-03 | Exclusion reasons carry no third-party data | contract | `node -e "require('./data/best-effort-exclusions.json')"` + tsc | ❌ W0 | ⬜ pending |
+| 01-T2 | 16-01 | 1 | DASH-02 | T-16-EX-01, T-16-EX-02 | Malformed/absent exclusions file degrades to zero exclusions, never aborts | unit | `npx vitest run src/analytics/best-effort-exclusions.test.ts src/analytics/compute-best-efforts.test.ts --reporter=dot` | ❌ W0 | ⬜ pending |
+| 01-T3 | 16-01 | 1 | DASH-02 | T-16-EX-04 | Excluded efforts retained and flagged, ranking change traceable | integration (real archive) | `node dist/index.js compute-best-efforts` + rank assertions | ❌ W0 | ⬜ pending |
+| 02-T1 | 16-02 | 1 | DASH-03 | T-16-TH-01, T-16-TH-02 | Tampered localStorage theme never reaches setAttribute; throwing storage degrades | unit | `npx vitest run src/dashboard/theme.test.ts --reporter=dot` | ❌ W0 | ⬜ pending |
+| 02-T2 | 16-02 | 1 | DASH-03 | — | N/A | contract | styles.css token/typography contract script | ❌ W0 | ⬜ pending |
+| 03-T1 | 16-03 | 1 | DASH-02 | T-16-RT-03 | Published index row carries no athlete/upload/external/gear identifier | contract | `npx tsc --noEmit` + index-contract grep script | ❌ W0 | ⬜ pending |
+| 03-T2 | 16-03 | 1 | DASH-01 | — | N/A | contract | view-contract grep script | ❌ W0 | ⬜ pending |
+| 03-T3 | 16-03 | 1 | DASH-01 | T-16-RT-01, T-16-RT-02 | `isValidActivityId` chokepoint; malformed escapes return null not throw | unit | `npx vitest run src/dashboard/router.test.ts --reporter=dot` | ❌ W0 | ⬜ pending |
+| 04-T1 | 16-04 | 2 | DASH-02 | T-16-IX-01, T-16-IX-02, T-16-IX-04 | Per-row error isolation; explicit member-by-member row build (no spread) | unit | `npx vitest run src/analytics/compute-dashboard-index.test.ts --reporter=dot` | ❌ W0 | ⬜ pending |
+| 04-T2 | 16-04 | 2 | DASH-02 | T-16-IX-02 | Real-archive index carries no leaked identifier field; output gitignored | integration (real archive) | `node dist/index.js compute-dashboard-index` + index assertions | ❌ W0 | ⬜ pending |
+| 05-T1 | 16-05 | 2 | DASH-02 | T-16-DC-02, T-16-DC-03 | Index fetched once even under concurrency; failure evicted so retry works | unit (mock fetch) | `npx vitest run src/dashboard/data/index-client.test.ts --reporter=dot` | ❌ W0 | ⬜ pending |
+| 05-T2 | 16-05 | 2 | DASH-02 | T-16-DC-01, T-16-DC-03 | Non-numeric id rejected with ZERO fetch calls; retry re-fetches | unit (mock fetch) | `npx vitest run src/dashboard/data --reporter=dot` | ❌ W0 | ⬜ pending |
+| 06-T1 | 16-06 | 2 | DASH-03 | T-16-SH-01, T-16-SH-03 | Inline bootstrap keeps the allow-list; CSP `default-src 'self'` declared | contract | index.html ordering + allow-list contract script | ❌ W0 | ⬜ pending |
+| 06-T2 | 16-06 | 2 | DASH-01, DASH-03 | T-16-SH-02 | nav.ts innerHTML-free and localStorage-free | contract | `npx tsc --noEmit` + nav hygiene script | ❌ W0 | ⬜ pending |
+| 06-T3 | 16-06 | 2 | DASH-01 | T-16-SH-02 | Stub panels innerHTML-free | contract | stub copy contract script | ❌ W0 | ⬜ pending |
+| 07-T1 | 16-07 | 3 | DASH-02 | T-16-VW-01, T-16-VW-03 | Athlete free text via textContent; 100-row render cap | contract | `npx tsc --noEmit` + views contract script | ❌ W0 | ⬜ pending |
+| 07-T2 | 16-07 | 3 | DASH-02 | T-16-VW-02, T-16-VW-04, T-16-VW-05 | Raw route param never in DOM; stale-response token; fixed error copy | contract | detail.ts contract script | ❌ W0 | ⬜ pending |
+| 07-T3 | 16-07 | 3 | DASH-01 | — | Detail route absent from nav | unit | `npx vitest run src/dashboard/view-registry.test.ts --reporter=dot` | ❌ W0 | ⬜ pending |
+| 08-T1 | 16-08 | 4 | DASH-01 | — | Showcase preserved, not silently overwritten | contract | relocation contract script | ❌ W0 | ⬜ pending |
+| 08-T2 | 16-08 | 4 | DASH-01 | T-16-BD-01 | `emptyDir: false` preserves 11 bundles + 5 pages | integration (build) | `npm run build-widgets` + artifact assertions | ❌ W0 | ⬜ pending |
+| 08-T3 | 16-08 | 4 | DASH-02 | T-16-BD-02, T-16-BD-04, T-16-BD-05 | Gitignored path kept out of commit file_pattern; CI stage isolated | integration (build + workflow) | build + publish-tree + workflow assertions | ❌ W0 | ⬜ pending |
+| 09-T1 | 16-09 | 5 | DASH-01, DASH-02 | T-16-VF-01 | Static server rejects path traversal outside dist/widgets | integration (HTTP) | `npm run verify-dashboard` | ❌ W0 | ⬜ pending |
+| 09-T2 | 16-09 | 5 | DASH-01, DASH-03 | T-16-VF-02, T-16-VF-03 | Manual gate recorded with observable evidence; no browser dep added | manual (checkpoint) | `npm run build-widgets && npm run verify-dashboard && npm test && npx tsc --noEmit` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
-*(To be filled in by the planner with concrete task IDs once plans exist.)*
+**Sampling continuity:** no 3 consecutive tasks lack an automated verify — every task in every plan carries an `<automated>` command (contract scripts count as automated gates and run in under a second).
 
 ---
 
 ## Wave 0 Requirements
 
-- [ ] Test files for pure dashboard logic (router resolution, view registry, theme resolution, index fetch client) — stubs for DASH-01, DASH-02, DASH-03
+Every test file below is CREATED by the task that needs it, inside the plan that owns the code under test — there is no separate Wave 0 plan, because this repo's vitest infrastructure already exists and each new suite is authored TDD-first alongside its module.
 
-*Existing vitest infrastructure covers the framework; no new install needed.*
+- [ ] `src/analytics/best-effort-exclusions.test.ts` — plan 16-01 task 2
+- [ ] `src/dashboard/theme.test.ts` — plan 16-02 task 1 (DASH-03)
+- [ ] `src/dashboard/router.test.ts` — plan 16-03 task 3 (DASH-01)
+- [ ] `src/analytics/compute-dashboard-index.test.ts` — plan 16-04 task 1 (DASH-02)
+- [ ] `src/dashboard/data/index-client.test.ts` — plan 16-05 task 1 (DASH-02)
+- [ ] `src/dashboard/data/detail-client.test.ts` — plan 16-05 task 2 (DASH-02)
+- [ ] `src/dashboard/view-registry.test.ts` — plan 16-07 task 3 (DASH-01)
+- [ ] `scripts/verify-dashboard-publish.mjs` — plan 16-09 task 1 (DASH-01/02 publish-tree gate)
+
+*Existing vitest infrastructure covers the framework; no new install needed. No jsdom or browser-automation dependency is added — D-01 locks the phase to zero new dependencies and RESEARCH.md recommends deferring that tooling decision.*
 
 ---
 
