@@ -144,4 +144,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-10 — Phase 14 (Stream Ingestion Foundation) complete: 1,842 activity streams committed, 25 explicitly flagged unavailable*
+*Last updated: 2026-08-10 — Phase 15 (Best-Effort Engine) complete: fastest 400m–marathon efforts computed from all 1,842 committed streams (8,806 efforts, externally validated against Strava/intervals.icu fixtures)*
