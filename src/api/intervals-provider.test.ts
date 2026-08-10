@@ -388,3 +388,101 @@ describe('IntervalsProvider.toCanonical', () => {
     expect(activity.average_heartrate).toBeUndefined();
   });
 });
+
+/**
+ * Confirms the bug this plan corrects: a filtered `getStreams` request
+ * discards every non-coordinate channel before the HTTP call is made, so
+ * persisting streams from the sync path requires bypassing that narrowing at
+ * the request itself, not merely widening the argument. The fake below
+ * honors `types` the way the live API does — a fake that ignores it would
+ * pass against the broken implementation.
+ */
+describe('IntervalsProvider.fetchGeometry allChannels', () => {
+  // Matches the haversine distance of the five latlng points below almost
+  // exactly, so validateGeometry passes without a second (widening) request.
+  const EXPECTED_METERS = 510;
+
+  const FULL_STREAMS_PAYLOAD: Record<string, unknown>[] = [
+    {
+      type: 'latlng',
+      data: [55.70, 55.701, 55.702, 55.703, 55.704],
+      data2: [12.50, 12.501, 12.502, 12.503, 12.504],
+    },
+    { type: 'time', data: [0, 10, 20, 30, 40] },
+    { type: 'distance', data: [0, 120, 250, 380, 510] },
+    { type: 'heartrate', data: [120, 125, 130, 128, 126] },
+    { type: 'cadence', data: [80, 82, 81, 83, 80] },
+    { type: 'altitude', data: [10, 11, 12, 11, 10] },
+  ];
+
+  function makeFakeClient() {
+    const getStreamsCalls: string[][] = [];
+    const state = { getAllStreamsCalls: 0 };
+    const client = {
+      async getStreams(_activityId: string, types: string[]) {
+        getStreamsCalls.push(types);
+        return FULL_STREAMS_PAYLOAD.filter(s => types.includes(s.type as string));
+      },
+      async getAllStreams(_activityId: string) {
+        state.getAllStreamsCalls++;
+        return FULL_STREAMS_PAYLOAD;
+      },
+    };
+    return { client, getStreamsCalls, state };
+  }
+
+  it('bypasses the coordinate narrowing at the request when allChannels is true', async () => {
+    const { client, getStreamsCalls, state } = makeFakeClient();
+    const provider = new IntervalsProvider(client as never);
+
+    await provider.fetchGeometry('1', { allChannels: true, expectedMeters: EXPECTED_METERS });
+
+    expect(getStreamsCalls).toEqual([]);
+    expect(state.getAllStreamsCalls).toBe(1);
+  });
+
+  it('returns raw and rawAll both carrying heartrate and cadence when allChannels is true', async () => {
+    const { client } = makeFakeClient();
+    const provider = new IntervalsProvider(client as never);
+
+    const geometry = await provider.fetchGeometry('1', {
+      allChannels: true,
+      expectedMeters: EXPECTED_METERS,
+    });
+
+    const rawEntries = geometry.raw as Record<string, unknown>[];
+    const rawAllEntries = geometry.rawAll as Record<string, unknown>[];
+    expect(rawEntries.some(s => s.type === 'heartrate')).toBe(true);
+    expect(rawEntries.some(s => s.type === 'cadence')).toBe(true);
+    expect(rawAllEntries.some(s => s.type === 'heartrate')).toBe(true);
+    expect(rawAllEntries.some(s => s.type === 'cadence')).toBe(true);
+  });
+
+  it('still produces valid geometry when allChannels is true — widening the request did not regress geometry', async () => {
+    const { client } = makeFakeClient();
+    const provider = new IntervalsProvider(client as never);
+
+    const geometry = await provider.fetchGeometry('1', {
+      allChannels: true,
+      expectedMeters: EXPECTED_METERS,
+    });
+
+    expect(geometry.validation?.ok).toBe(true);
+    expect(geometry.summaryPolyline).toBeTruthy();
+    expect(geometry.startLatLng).toEqual([55.70, 12.50]);
+  });
+
+  it('pins the default path: without allChannels, only coordinate names reach getStreams and getAllStreams is not called when validation passes', async () => {
+    const { client, getStreamsCalls, state } = makeFakeClient();
+    const provider = new IntervalsProvider(client as never);
+
+    await provider.fetchGeometry('1', {
+      streamTypes: ['latlng', 'heartrate', 'cadence'],
+      expectedMeters: EXPECTED_METERS,
+    });
+
+    expect(getStreamsCalls).toHaveLength(1);
+    expect(getStreamsCalls[0]).toEqual(['latlng']);
+    expect(state.getAllStreamsCalls).toBe(0);
+  });
+});
