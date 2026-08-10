@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Training Dashboard — Strava Analytics</title>
+  <meta name="color-scheme" content="light dark">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'">
+  <!--
+    Theme bootstrap: src/dashboard/theme.ts is the source of truth for this
+    logic (parseThemeMode / resolveEffectiveTheme). This inline copy is a
+    DELIBERATE duplication and must stay behaviourally identical, including
+    the 'light' | 'dark' | 'auto' allow-list — that allow-list is the
+    T-16-TH-01 mitigation and must never be dropped from this inline copy.
+    It must run synchronously, before the stylesheet link, because a
+    deferred module script is not run until after HTML parsing, which would
+    let the page paint the wrong theme first (RESEARCH.md Pitfall 4).
+  -->
+  <script>
+    (function () {
+      var STORAGE_KEY = 'dashboard-theme';
+      var mode = 'auto';
+      try {
+        var raw = localStorage.getItem(STORAGE_KEY);
+        if (raw === 'light' || raw === 'dark' || raw === 'auto') {
+          mode = raw;
+        }
+      } catch (e) {
+        mode = 'auto';
+      }
+      var effective = mode;
+      if (mode === 'auto') {
+        effective = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      document.documentElement.setAttribute('data-theme', effective);
+    })();
+  </script>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header id="app-nav-root"></header>
+  <main id="app" class="view"></main>
+  <noscript>
+    This dashboard requires JavaScript. You can still browse
+    <a href="./heatmap.html">Heatmap</a>, <a href="./pinmap.html">Pin Map</a> or
+    <a href="./routes.html">Routes</a> without it.
+  </noscript>
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>
