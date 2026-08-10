@@ -1,25 +1,36 @@
 ---
 phase: 04-automation-deployment
 verified: 2026-02-14T13:15:00Z
-status: human_needed
+status: passed
 score: 5/5
-re_verification: false
+re_verification: true
+re_verified: 2026-08-10
 human_verification:
   - test: "Verify workflow runs on schedule"
     expected: "Workflow triggers daily at 5 AM UTC and completes all steps successfully"
-    why_human: "Cannot programmatically verify scheduled execution without waiting 24 hours or accessing GitHub Actions environment"
+    result: passed
+    resolved: 2026-08-10
+    evidence: "Months of scheduled runs observed in Actions history; most recently runs 31297100069 (Aug 9, 05:37 UTC) and Aug 10 completed green with zero warnings"
   - test: "Verify GitHub Pages deployment"
     expected: "After workflow completes, widgets are accessible at GitHub Pages URL and landing page displays correctly"
-    why_human: "Requires GitHub repository setup with secrets, Pages enabled, and actual workflow execution"
+    result: passed
+    resolved: 2026-08-10
+    evidence: "gh-pages deploys observed throughout Aug 2026 (29154e3, 10ee82c, 86d651c); site serving current data at bacilo.github.io/strava-widgets"
   - test: "Verify manual trigger functionality"
     expected: "User can trigger workflow from GitHub Actions UI and workflow completes successfully"
-    why_human: "Requires GitHub Actions UI interaction"
+    result: passed
+    resolved: 2026-08-10
+    evidence: "Four workflow_dispatch runs triggered Aug 8-10 (31276162853, 31276426396, 31330523257, +1); all completed with deploys"
   - test: "Verify error handling on Strava API failure"
     expected: "If Strava API is unavailable, workflow shows warning annotation but continues to rebuild widgets from existing data"
-    why_human: "Requires simulating Strava API failure in live GitHub Actions environment"
+    result: passed
+    resolved: 2026-08-10
+    evidence: "Exercised in production for months: Strava 403 (Application Inactive) -> 'Strava fetch failed' warning annotation -> rebuild from committed data -> successful deploy (e.g. run 31276162853). Same continue-on-error path retained for the intervals.icu fetch that replaced Strava in f1f8b68"
   - test: "Verify token rotation mechanism"
     expected: "After first CI run, tokens.json is committed with rotated refresh token; subsequent runs skip bootstrap"
-    why_human: "Requires actual GitHub Actions execution to observe OAuth token rotation behavior"
+    result: obsolete
+    resolved: 2026-08-10
+    evidence: "Mechanism removed in f1f8b68 (intervals.icu cutover): ci-setup-tokens.mjs step deleted from workflow; auth is now a static INTERVALS_API_KEY secret with no rotation. Test is permanently untestable and moot"
 ---
 
 # Phase 04: Automation & Deployment Verification Report
@@ -27,8 +38,8 @@ human_verification:
 **Phase Goal:** System automatically refreshes data daily and publishes updated widgets to GitHub Pages without manual intervention
 
 **Verified:** 2026-02-14T13:15:00Z
-**Status:** human_needed
-**Re-verification:** No — initial verification
+**Status:** passed — human items closed 2026-08-10 with production evidence (see frontmatter); the pipeline these tests targeted ran live for six months, failed, was repaired, and was re-verified end to end during the Aug 2026 maintenance arc
+**Re-verification:** Yes — 2026-08-10
 
 ## Goal Achievement
 
