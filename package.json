@@ -19,6 +19,7 @@
     "compute-heatmap-data": "node scripts/compute-heatmap-data.mjs",
     "build-widget": "vite build",
     "build-widgets": "node scripts/build-widgets.mjs",
+    "verify-dashboard": "node scripts/verify-dashboard-publish.mjs",
     "compare-geocoding": "node scripts/compare-geocoding.mjs",
     "fetch": "npm run build && node dist/index.js sync-intervals",
     "backfill-streams": "npm run build && node dist/index.js backfill-streams",
