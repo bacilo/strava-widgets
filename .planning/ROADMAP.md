@@ -151,7 +151,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 16-08-PLAN.md — Site-root migration, dashboard Vite entry, data publish copy, and the CI stage
+- [x] 16-08-PLAN.md — Site-root migration, dashboard Vite entry, data publish copy, and the CI stage
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
@@ -219,7 +219,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 | 13. Standalone Pages | v1.2 | 2/2 | Complete | 2026-02-18 |
 | 14. Stream Ingestion Foundation | v2.0 | 5/5 | Complete    | 2026-08-10 |
 | 15. Best-Effort Engine | v2.0 | 4/4 | Complete    | 2026-08-10 |
-| 16. Dashboard Shell & Data Contract | v2.0 | 7/9 | In Progress|  |
+| 16. Dashboard Shell & Data Contract | v2.0 | 8/9 | In Progress|  |
 | 17. Activity Browser & Detail Views | v2.0 | 0/TBD | Not started | - |
 | 18. Records, Trends & Differentiators | v2.0 | 0/TBD | Not started | - |
 
