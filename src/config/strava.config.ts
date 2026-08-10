@@ -57,4 +57,12 @@ export const config = {
   get activitiesDir(): string {
     return path.join(this.dataDir, 'activities');
   },
+
+  get streamsDir(): string {
+    return path.join(this.dataDir, 'streams');
+  },
+
+  get streamsManifestPath(): string {
+    return path.join(this.streamsDir, 'manifest.json');
+  },
 };
