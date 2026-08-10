@@ -101,7 +101,7 @@ class ComparisonChartWidget extends WidgetBase {
       const yearOverYearData = await this.fetchData<YearOverYearMonth[]>(primaryUrl);
 
       // Fetch secondary data (seasonal trends) if URL provided
-      const secondaryUrl = this.getAttribute('data-url-secondary');
+      const secondaryUrl = this.attrAlias('data-secondary-url', 'data-url-secondary');
       if (secondaryUrl) {
         try {
           this.seasonalTrendsData = await this.fetchData<SeasonalTrendMonth[]>(secondaryUrl);
@@ -215,7 +215,7 @@ const ComparisonChart = {
       element.setAttribute('data-url', config.dataUrl);
     }
     if (config.options?.secondaryDataUrl) {
-      element.setAttribute('data-url-secondary', config.options.secondaryDataUrl);
+      element.setAttribute('data-secondary-url', config.options.secondaryDataUrl);
     }
     if (config.options?.customTitle) {
       element.setAttribute('data-title', config.options.customTitle);

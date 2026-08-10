@@ -168,7 +168,6 @@ class StreakWidgetElement extends WidgetBase {
    */
   static observedAttributes = [
     ...WidgetBase.observedAttributes,
-    'data-url-secondary',
     'data-show-chart'
   ];
 
@@ -193,7 +192,7 @@ class StreakWidgetElement extends WidgetBase {
       const streakData = await this.fetchData<StreakData>(primaryUrl);
 
       // Fetch time-of-day data (secondary)
-      const secondaryUrl = this.getAttribute('data-url-secondary');
+      const secondaryUrl = this.attrAlias('data-secondary-url', 'data-url-secondary');
       if (secondaryUrl) {
         try {
           this.timeOfDayData = await this.fetchData<TimeOfDayPattern[]>(secondaryUrl);
@@ -511,7 +510,7 @@ const StreakWidgetInit = {
       widget.setAttribute('data-url', config.dataUrl);
     }
     if (config.options?.secondaryDataUrl) {
-      widget.setAttribute('data-url-secondary', config.options.secondaryDataUrl);
+      widget.setAttribute('data-secondary-url', config.options.secondaryDataUrl);
     }
     if (config.options?.customTitle) {
       widget.setAttribute('data-title', config.options.customTitle);

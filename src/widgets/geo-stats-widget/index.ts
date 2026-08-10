@@ -204,7 +204,7 @@ class GeoStatsWidgetElement extends WidgetBase {
    */
   static observedAttributes = [
     ...WidgetBase.observedAttributes,
-    'data-url-secondary',
+    'data-metadata-url',
     'data-url-metadata',
     'data-show-export',
     'data-max-rows'
@@ -227,8 +227,8 @@ class GeoStatsWidgetElement extends WidgetBase {
     try {
       // Get URLs from attributes or defaults
       const primaryUrl = this.getAttribute('data-url') || this.dataUrl;
-      const secondaryUrl = this.getAttribute('data-url-secondary');
-      const metadataUrl = this.getAttribute('data-url-metadata');
+      const secondaryUrl = this.attrAlias('data-secondary-url', 'data-url-secondary');
+      const metadataUrl = this.attrAlias('data-metadata-url', 'data-url-metadata');
 
       // Fetch all data sources in parallel
       const [countries, cities, metadata] = await Promise.all([
@@ -641,7 +641,7 @@ const GeoStatsWidget = {
       widget.setAttribute('data-url', config.dataUrl);
     }
     if (config.options?.secondaryDataUrl) {
-      widget.setAttribute('data-url-secondary', config.options.secondaryDataUrl);
+      widget.setAttribute('data-secondary-url', config.options.secondaryDataUrl);
     }
     if (config.options?.metadataUrl) {
       widget.setAttribute('data-url-metadata', config.options.metadataUrl);
