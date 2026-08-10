@@ -74,11 +74,11 @@
   {
     "periodStart": "2021-01-01T00:00:00.000Z",
     "periodLabel": "2021",
-    "totalKm": 2985.6467999999995,
-    "runCount": 238,
-    "avgPaceMinPerKm": 5.629852131203196,
-    "elevationGain": 19968.5,
-    "totalMovingTimeMin": 16808.75
+    "totalKm": 3005.6347999999994,
+    "runCount": 239,
+    "avgPaceMinPerKm": 5.631383870499948,
+    "elevationGain": 20236.300000000003,
+    "totalMovingTimeMin": 16925.883333333335
   },
   {
     "periodStart": "2022-01-01T00:00:00.000Z",
@@ -101,11 +101,11 @@
   {
     "periodStart": "2024-01-01T00:00:00.000Z",
     "periodLabel": "2024",
-    "totalKm": 1784.6765000000005,
-    "runCount": 183,
-    "avgPaceMinPerKm": 6.462571788220441,
-    "elevationGain": 11561.1,
-    "totalMovingTimeMin": 11533.6
+    "totalKm": 1792.1621000000005,
+    "runCount": 184,
+    "avgPaceMinPerKm": 6.462175863816485,
+    "elevationGain": 11606.1,
+    "totalMovingTimeMin": 11581.266666666666
   },
   {
     "periodStart": "2025-01-01T00:00:00.000Z",
@@ -119,10 +119,10 @@
   {
     "periodStart": "2026-01-01T00:00:00.000Z",
     "periodLabel": "2026",
-    "totalKm": 748.1123200000002,
-    "runCount": 69,
-    "avgPaceMinPerKm": 6.018035723120648,
-    "elevationGain": 2275.3955451000006,
-    "totalMovingTimeMin": 4502.166666666667
+    "totalKm": 765.12482,
+    "runCount": 71,
+    "avgPaceMinPerKm": 6.025857759173637,
+    "elevationGain": 2312.0955451000004,
+    "totalMovingTimeMin": 4610.533333333334
   }
 ]

@@ -2,8 +2,8 @@
   {
     "countryName": "Denmark",
     "countryIso2": "DK",
-    "activityCount": 1372,
-    "totalDistanceKm": 16753,
+    "activityCount": 1374,
+    "totalDistanceKm": 16783,
     "cities": [
       "Billund",
       "Buddinge",
@@ -120,11 +120,12 @@
   {
     "countryName": "Philippines",
     "countryIso2": "PH",
-    "activityCount": 12,
-    "totalDistanceKm": 90.2,
+    "activityCount": 13,
+    "totalDistanceKm": 97.6,
     "cities": [
       "Bagong Pagasa",
       "El Nido",
+      "Quezon City",
       "Tiniguiban",
       "Yapak"
     ]

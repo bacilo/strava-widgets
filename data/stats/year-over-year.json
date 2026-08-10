@@ -67,9 +67,9 @@
     "monthLabel": "Apr",
     "years": {
       "2024": {
-        "totalKm": 59.2289,
-        "totalRuns": 7,
-        "totalHours": 6.770555555555555
+        "totalKm": 66.7145,
+        "totalRuns": 8,
+        "totalHours": 7.5649999999999995
       },
       "2025": {
         "totalKm": 132.7843,
@@ -77,9 +77,9 @@
         "totalHours": 12.814722222222223
       },
       "2026": {
-        "totalKm": 152.35833000000002,
-        "totalRuns": 13,
-        "totalHours": 15.268333333333333
+        "totalKm": 162.37083,
+        "totalRuns": 14,
+        "totalHours": 16.353055555555553
       }
     }
   },
@@ -98,9 +98,9 @@
         "totalHours": 22.431666666666665
       },
       "2026": {
-        "totalKm": 117.69828000000001,
-        "totalRuns": 12,
-        "totalHours": 12.010833333333332
+        "totalKm": 124.69828000000001,
+        "totalRuns": 13,
+        "totalHours": 12.732222222222221
       }
     }
   },
