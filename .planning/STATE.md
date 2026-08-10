@@ -3,8 +3,9 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Training Dashboard
 status: planning
-last_updated: "2026-08-10T13:35:00.000Z"
-last_activity: 2026-08-10
+stopped_at: Phase 14 context gathered
+last_updated: "2026-08-10T11:40:01.299Z"
+last_activity: 2026-08-10 — v2.0 roadmap created (Phases 14-18, 29/29 requirements mapped)
 progress:
   total_phases: 5
   completed_phases: 0
@@ -49,6 +50,7 @@ Progress: [░░░░░░░░░░] 0%
 All decisions logged in PROJECT.md Key Decisions table.
 
 Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.md):
+
 - Stream ingestion (Phase 14) is the foundational blocker — must land first, storage/algorithm decisions (decimation, native-distance, timestamp-indexing) locked before any file is committed.
 - Best-effort computation (Phase 15) is isolated as pure backend work, testable before it feeds any UI.
 - Records/trends "view" requirements (weekly/monthly totals, TRIMP, YoY) do not depend on streams and are grouped into presentation (Phase 18) rather than gated behind stream work.
@@ -86,9 +88,9 @@ None active — SQLITE_CANTOPEN CI failure resolved by quick-1-01 (lazy geocoder
 
 ## Session Continuity
 
-Last session: 2026-08-10
-Stopped at: v2.0 roadmap created (Phases 14-18), ready for `/gsd:plan-phase 14`
-Resume file: None
+Last session: 2026-08-10T11:40:01.288Z
+Stopped at: Phase 14 context gathered
+Resume file: .planning/phases/14-stream-ingestion-foundation/14-CONTEXT.md
 
 ---
 *Last updated: 2026-08-10 after v2.0 roadmap creation*
