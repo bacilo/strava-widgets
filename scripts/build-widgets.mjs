@@ -6,7 +6,7 @@
 import { build } from 'vite';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { copyFileSync, mkdirSync, readdirSync, existsSync } from 'fs';
+import { copyFileSync, mkdirSync, readdirSync, existsSync, statSync } from 'fs';
 import cssInjectedByJsPlugin from 'vite-plugin-css-injected-by-js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -136,18 +136,43 @@ function copyDataFiles() {
     { src: 'data/stats', dest: 'dist/widgets/data/stats' },
     { src: 'data/geo', dest: 'dist/widgets/data/geo' },
     { src: 'data/routes', dest: 'dist/widgets/data/routes' },
-    { src: 'data/heatmap', dest: 'dist/widgets/data/heatmap' }
+    { src: 'data/heatmap', dest: 'dist/widgets/data/heatmap' },
+    // Extended for the dashboard SPA (D-11): the generated index manifest
+    // plus every per-activity detail and stream file it can request.
+    { src: 'data/dashboard', dest: 'dist/widgets/data/dashboard' },
+    { src: 'data/activities', dest: 'dist/widgets/data/activities' },
+    // Whole-directory copy also carries data/streams/manifest.json.
+    { src: 'data/streams', dest: 'dist/widgets/data/streams' }
   ];
 
   for (const { src, dest } of dataDirs) {
     if (!existsSync(src)) continue;
     mkdirSync(dest, { recursive: true });
+    let copied = 0;
+    let skipped = 0;
     for (const file of readdirSync(src)) {
-      if (file.endsWith('.json')) {
-        copyFileSync(resolve(src, file), resolve(dest, file));
+      if (!file.endsWith('.json')) continue;
+      const srcPath = resolve(src, file);
+      const destPath = resolve(dest, file);
+      // Efficiency guard: skip the copy when the destination is already
+      // up to date, so local rebuilds don't recopy ~150MB every time. CI
+      // always runs on a fresh checkout, so it always does the full copy.
+      let shouldCopy = true;
+      if (existsSync(destPath)) {
+        const srcMtime = statSync(srcPath).mtimeMs;
+        const destMtime = statSync(destPath).mtimeMs;
+        if (destMtime >= srcMtime) {
+          shouldCopy = false;
+        }
+      }
+      if (shouldCopy) {
+        copyFileSync(srcPath, destPath);
+        copied++;
+      } else {
+        skipped++;
       }
     }
-    console.log(`✓ Copied ${src}/*.json → ${dest}/`);
+    console.log(`✓ Copied ${src}/*.json → ${dest}/ (${copied} copied, ${skipped} skipped)`);
   }
 }
 
