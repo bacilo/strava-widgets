@@ -64,10 +64,14 @@
   1. Running the local backfill command produces committed per-activity stream files (time, distance, pace, HR, cadence, elevation) for export-covered historical activities.
   2. The daily pipeline persists intervals.icu streams for newly-synced activities in the same canonical format, with cadence values verified/normalized against FIT convention.
   3. Activities with no recoverable original recording (treadmill/manual entries) are marked with a stream-unavailable flag rather than causing pipeline failures.
-**Plans**: TBD
+**Plans**: 5 plans
 
 Plans:
-- [ ] 14-01: TBD
+- [ ] 14-01-PLAN.md — Lock the committed stream schema and build the shared derivation seam
+- [ ] 14-02-PLAN.md — Extend FIT/GPX readers to multi-channel samples; build the availability manifest
+- [ ] 14-03-PLAN.md — Backfill core over provenance-linked originals with reason-coded flags
+- [ ] 14-04-PLAN.md — Persist streams in the daily intervals.icu sync; commit data/streams/ from CI
+- [ ] 14-05-PLAN.md — Live-API reconciliation, size gate, CLI wiring, and the real backfill run
 
 ### Phase 15: Best-Effort Engine
 **Goal**: The pipeline can determine, for any run, the fastest time achieved at each standard racing distance, using real stream data.
@@ -148,11 +152,11 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 | 11. Route Map Widgets | v1.2 | 3/3 | Complete | 2026-02-17 |
 | 12. Heatmap & Pin Map Widgets | v1.2 | 2/2 | Complete | 2026-02-17 |
 | 13. Standalone Pages | v1.2 | 2/2 | Complete | 2026-02-18 |
-| 14. Stream Ingestion Foundation | v2.0 | 0/TBD | Not started | - |
+| 14. Stream Ingestion Foundation | v2.0 | 0/5 | Planned | - |
 | 15. Best-Effort Engine | v2.0 | 0/TBD | Not started | - |
 | 16. Dashboard Shell & Data Contract | v2.0 | 0/TBD | Not started | - |
 | 17. Activity Browser & Detail Views | v2.0 | 0/TBD | Not started | - |
 | 18. Records, Trends & Differentiators | v2.0 | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-08-10 — v2.0 Training Dashboard roadmap created (Phases 14-18)*
+*Last updated: 2026-08-10 — Phase 14 planned (5 plans, 4 waves)*
