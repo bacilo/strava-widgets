@@ -313,6 +313,10 @@ describe('computeBestEfforts — archive orchestration', () => {
     });
 
     expect(doc.totals.skippedNoStream).toBe(2);
+    // activitiesConsidered excludes skippedNoStream entries — it counts only
+    // activities for which computation was actually attempted (3 available),
+    // not the full manifest size (5).
+    expect(doc.totals.activitiesConsidered).toBe(3);
     expect(Object.keys(doc.activities).sort()).toEqual(['a1', 'a2', 'a3']);
   });
 
