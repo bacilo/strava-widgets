@@ -106,3 +106,7 @@ None - no external service configuration required.
 - `excludedFromRecords` is available on both `BestEffort` and `ActivityBestEfforts` for Phase 16 plan 04's dashboard index generator to read directly (D-09's low-confidence/exclusion badge)
 - `data/best-effort-exclusions.json` is the durable, hand-editable extension point if more untrustworthy-device activities surface later — no code changes required, only a JSON entry
 - No blockers for downstream plans in this phase or Phase 18 (records/trends)
+
+## Self-Check: PASSED
+
+All created/modified files verified present on disk; all four commit hashes (`6bce9d8`, `c377a5a`, `b9d10cd`, `3f5f03c`) verified present in `git log --oneline --all`.
