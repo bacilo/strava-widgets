@@ -411,7 +411,7 @@ it.each(fixtures)('matches Strava-reported %s effort within tolerance', (fx) => 
 
 **If this table is empty:** N/A — see rows above.
 
-## Open Questions
+## Open Questions (RESOLVED — all three carry recommendations implemented in the plans)
 
 1. **Exact Strava/Garmin-reported best-effort values for the chosen fixture activities (D-05)**
    - What we know: The tolerance band (~1-2%) and fixture count (5-10, mixed source, at least one race) are locked; the algorithm and guard logic are implementable without these values.
