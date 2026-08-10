@@ -107,7 +107,7 @@ The view *content* is out of scope — Phase 17 fills the browser/detail views, 
 <deferred>
 ## Deferred Ideas
 
-None — discussion stayed within phase scope (both matched todos were folded in rather than deferred).
+- **Garmin export adapter** (`.planning/todos/pending/2026-08-10-garmin-export-adapter-when-export-arrives.md`) — deferred during planning with developer confirmation (2026-08-10). The Garmin Connect bulk export has not arrived (`export_data/` contains only `strava/`), and this context explicitly requires probing the real export structure before coding. Re-fold into whichever phase is active when the export lands.
 
 </deferred>
 
