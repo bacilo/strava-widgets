@@ -1,471 +1,292 @@
-# Feature Research: Interactive Maps & Multi-City Geocoding
+# Feature Research: Training Analytics Dashboard (v2.0)
 
-**Domain:** Running/Fitness App Map Visualization & Geographic Data
-**Researched:** 2026-02-16
-**Confidence:** HIGH
+**Domain:** Personal running-analytics dashboard (activity browsing, best efforts, records, trends)
+**Researched:** 2026-08-10
+**Confidence:** HIGH (official product docs + multiple independent sources per claim)
 
-**Context:** This research focuses on NEW features for v1.2 milestone — interactive route maps, heatmaps, country/city pin maps, and multi-city run tracking. Builds on existing v1.1 platform with offline geocoding (23 countries, 57 cities), geographic tables, and Custom Element widgets.
+**Context:** v2.0 adds a static SPA dashboard on top of the existing widget platform — activity
+browser, activity detail pages, self-computed best-effort PRs, and weekly/monthly/yearly/all-time
+records and trends. Reference products: Strava, Garmin Connect, intervals.icu, Runalyze, Smashrun,
+Elevate for Strava (browser extension, not a standalone product but a well-documented "power user
+overlay" pattern worth studying). This is a **single-athlete personal dashboard** — no social,
+no multi-user, no live sync (all already Out of Scope per PROJECT.md).
+
+**Data reality driving this research:** 1,867 run activities exist today as **summary rows**
+(distance, time, avg/max HR on ~90%, cadence on ~60%, elevation on ~90%). Time-series **streams**
+(second-by-second pace/HR/cadence/elevation/lat-lng) are a NEW capability this milestone, sourced
+two ways: (1) parsing the local Strava bulk-export FIT/GPX files via `provenance.json` for
+historical activities, and (2) intervals.icu streams for activities synced going forward. Not
+every activity will have streams — the bulk export covers ~1,841/1,866 canonical records per
+provenance linkage, and older phone-GPX or unlinked activities may never get one. **Every feature
+below is tagged with its data dependency** so the roadmap can sequence stream-dependent work after
+stream ingestion lands, and ship summary-only wins earlier.
 
 ## Feature Landscape
 
 ### Table Stakes (Users Expect These)
 
-Features users assume exist. Missing these = product feels incomplete.
+Features users assume exist in any modern training dashboard. Missing these makes the dashboard
+feel like a toy next to Strava/Garmin/intervals.icu, which is the explicit "more complete and
+versatile" bar this milestone sets.
 
-#### Interactive Route Map Features
+#### Activity Browser
 
-| Feature | Why Expected | Complexity | Dependencies |
-|---------|--------------|------------|--------------|
-| Display single run route as polyline | Core feature in Strava, MapMyRun, all fitness apps | LOW | Decode Google polyline format, map library (Leaflet) |
-| Zoom and pan controls | Standard web map interaction since Google Maps era (2005+) | LOW | Map library provides this (Leaflet built-in) |
-| Fit route to viewport on load | Prevents users hunting for their route on world map | LOW | Map library `fitBounds()` with polyline coordinates |
-| Basic route info popup (distance, date) | Users expect to see what run they're looking at | LOW | Popup overlay with run metadata |
-| Route color coding | Visual distinction between runs or activity types | LOW | Polyline styling options |
-| Clickable route for details | Modern UX expectation — click thing to see more | MEDIUM | Event handlers + state management for multi-route maps |
+| Feature | Why Expected | Complexity | Data Dependency |
+|---------|--------------|------------|------------------|
+| Paginated/virtualized activity list (1,867 rows) | Every reference product opens to a list/log view | MEDIUM | Summary only |
+| Sort by date, distance, pace, duration, HR | Standard column-sort UX (intervals.icu's grid has 70+ sortable columns) | LOW | Summary only |
+| Filter by date range (custom, this year, last 12mo) | Table stakes on Strava Training Log, Garmin, intervals.icu | MEDIUM | Summary only |
+| Filter by distance/pace/duration range | Common on intervals.icu's activity grid, Runalyze | MEDIUM | Summary only |
+| Text search (activity name/notes) | Universal list-view expectation | LOW | Summary only |
+| Calendar/month-grid view of training log | Strava Training Log, Garmin, TrainingPeaks, Runalyze all default to or offer this | MEDIUM | Summary only (daily rollups) |
+| Visible active-filter chips + result count | UX best practice for any filtered list (Filter UX pattern literature) | LOW | N/A (UI) |
+| Empty/missing-data states (no HR, no cadence) | ~10% of activities lack HR, ~40% lack cadence today | LOW | Summary only |
 
-#### Heatmap Features
+#### Activity Detail Page
 
-| Feature | Why Expected | Complexity | Dependencies |
-|---------|--------------|------------|--------------|
-| All runs overlaid on map | Core feature of Strava Personal Heatmap, expected in 2026 | MEDIUM | Polyline aggregation, map library layer system |
-| Color intensity by activity density | Visual "heat" representation, industry standard | LOW | CSS opacity stacking or heatmap plugin |
-| Date range filter | Strava offers this (custom range, specific year), table stakes | MEDIUM | Client-side filtering + re-render, date range UI |
-| Activity type filter (if multi-sport) | Strava Global Heatmap has this (Run/Ride/Water/Winter/Other) | MEDIUM | Activity type metadata + filter UI |
-| Zoom/pan interaction | Same as route map, users expect slippy map behavior | LOW | Map library provides this |
-| Toggle photo overlay (if GPS-tagged photos exist) | Strava Personal Heatmap feature for subscribers | HIGH | Photo metadata extraction, marker clustering |
+| Feature | Why Expected | Complexity | Data Dependency |
+|---------|--------------|------------|------------------|
+| Route map on detail page | Every reference product leads with the map | LOW | Reuse existing polyline/route-map widget (already built) |
+| Pace chart over distance/time | Strava's core "smoothed profile" analysis, Garmin's charts, intervals.icu | MEDIUM-HIGH | **Streams required** |
+| Elevation profile chart | Table stakes alongside pace chart; ~90% have summary elevation gain today but not a profile | MEDIUM | **Streams required** for the profile; summary gain already available |
+| HR chart over time | Standard on all reference products when a HR strap/watch was worn | MEDIUM | **Streams required**; only ~90% of activities have any HR at all |
+| Auto-splits (per-km or per-mile pace table) | Strava's "Splits" tab, Garmin's lap table — one of the most-used detail-page features | MEDIUM-HIGH | **Streams required** (distance-vs-time to compute split boundaries) |
+| Native laps (if device-recorded) | Toggle between splits/laps, per Strava's own docs | MEDIUM | **Streams + lap markers**, not present in current summary data — treat as summary-record splits only if lap markers can't be recovered from FIT |
+| Basic stats header (distance, time, pace, elevation, HR avg/max) | Every product shows this above the fold | LOW | Summary only |
+| Gear shown per activity (shoe) | Strava's automatic shoe-mileage attribution is widely used | LOW | Summary — **already available** via `provenance.json` gear linkage (per migration memory) |
 
-#### Country/City Pin Map Features
+#### Records/PRs
 
-| Feature | Why Expected | Complexity | Dependencies |
-|---------|--------------|------------|--------------|
-| Pin/marker for each visited location | Pin Traveler, Visited app, Been app standard | LOW | Marker for each unique city/country geocoded |
-| Click pin to see stats (runs, distance, dates) | Expected interaction — pin = clickable | LOW | Popup with aggregated geographic stats |
-| Visual distinction by activity count/distance | Pin size or color variation shows importance | MEDIUM | Marker styling based on data thresholds |
-| Country count / city count display | Simple numeric summary, all travel apps show this | LOW | Count unique locations from geocoded data |
-| Auto-zoom to show all pins | Prevents empty map or hunting for pins | LOW | Map library `fitBounds()` with marker positions |
+| Feature | Why Expected | Complexity | Data Dependency |
+|---------|--------------|------------|------------------|
+| All-time best per standard distance (5K, 10K, HM, marathon, etc.) | Strava's "All-Time PRs", Garmin's PR list — the anchor feature of any records page | HIGH | **Streams required** to detect a best-effort sub-segment inside a longer run (e.g., fastest 5K split within a 10-mile run), not just whole-activity times |
+| "Recent PR" badge/notification on a run that beats a record | Strava explicitly calls this out ("Track Your Run PRs") | LOW (once records engine exists) | Derived from best-efforts engine |
+| Per-distance history/trend (how has my 10K best evolved over years) | Strava's Progress tab shows top-10 times per year + trend graph | MEDIUM | Derived from best-efforts engine |
+| Weekly/monthly/yearly aggregate totals (distance, time, run count) | Already built in v1.0 widgets — must resurface inside the SPA | LOW | Summary only — **mostly reuse existing v1.0 aggregation logic** |
+| "Biggest week/month" and streak records | Already computed for v1.0 streak widgets | LOW | Summary only — **reuse existing pipeline output** |
 
-#### Multi-City Run Tracking (Data Layer)
+#### Trends
 
-| Feature | Why Expected | Complexity | Dependencies |
-|---------|--------------|------------|--------------|
-| Detect multiple cities in single run | Airport runs, city-border runs are common edge cases | HIGH | Decode full polyline, segment by city boundaries, reverse geocode segments |
-| Attribute distance to each city visited | Users want accurate distance-per-city stats | HIGH | Polyline segmentation + distance calculation per segment |
-| Handle city boundary crossings gracefully | Runs crossing borders shouldn't break stats | HIGH | Segment polyline at boundary crossing points |
-| Aggregate stats across multi-city runs | Total distance = sum of segments across cities | MEDIUM | Database/aggregation layer handles split attribution |
-
-#### Improved Geocoding (Fix Current Issues)
-
-| Feature | Why Expected | Complexity | Dependencies |
-|---------|--------------|------------|--------------|
-| Accurate city detection (not suburbs) | Current offline-geocode-city returns suburbs, not cities | MEDIUM | Switch to GeoNames or similar city-aware service |
-| Consistent city naming | "New York" vs "New York City" inconsistency breaks aggregation | MEDIUM | Canonical name resolution via GeoNames alternateNames |
-| Handle missing GPS data gracefully | 8% of activities lack GPS, system shouldn't crash | LOW | Skip geocoding for activities without coordinates |
-| Performance: geocode 1,808+ activities efficiently | Batch processing during CI, not blocking | MEDIUM | Rate limiting, caching, incremental geocoding |
+| Feature | Why Expected | Complexity | Data Dependency |
+|---------|--------------|------------|------------------|
+| Weekly/monthly volume trend chart (km over time) | Core of every dashboard's home page; already exists as a v1.0 widget | LOW | Summary only — reuse |
+| Year-over-year comparison | v1.0 already has YoY totals widget; needs SPA-native presentation | LOW | Summary only — reuse |
+| Cadence/HR averages trending over months | intervals.icu "Compare" pages, Elevate's yearly progression charts | MEDIUM | Summary only — **per-activity averages (already ~90%/60% coverage) are sufficient; full streams not required for a trend line of run-level averages** |
 
 ### Differentiators (Competitive Advantage)
 
-Features that set the product apart. Not required, but valuable.
+Not required for a credible dashboard, but where a personal, self-hosted, streams-owning platform
+can go further than the SaaS competitors — most of them gate advanced analytics behind
+subscriptions (Strava Summit) or cloud lock-in.
 
-| Feature | Value Proposition | Complexity | Dependencies |
-|---------|-------------------|------------|--------------|
-| Latest N runs gallery map | Show most recent runs at a glance, not on competitors | MEDIUM | Multi-polyline rendering, route list UI |
-| Route browser with map preview | Browse all runs with thumbnail maps, unique to embeddable widgets | HIGH | Route index, lazy-loading map tiles, pagination |
-| Heatmap color customization | Strava offers this (orange/red/blue/purple/grey) for subscribers | LOW | CSS variable theming + color picker UI |
-| Map style themes (light/dark/satellite) | Strava offers standard/hybrid/satellite/winter/light/dark | MEDIUM | Multiple tile layer providers or style switching |
-| Export heatmap as static image | Save "picture frame" map for sharing/printing, not common | HIGH | Canvas rendering or server-side tile generation |
-| Standalone map pages (not just widgets) | Full-page map experience + embeddable widget, unique flexibility | MEDIUM | Separate HTML page templates with same data |
-| Offline-first geocoding (zero API calls) | Current strength, competitors rely on API services | MEDIUM | GeoNames local database (existing approach) |
-| Time-of-day heatmap filter | Show only morning runs or evening runs on heatmap | MEDIUM | Filter by activity start time + re-render |
-| Pace/speed color coding on routes | Strava Activity Map shows green=fastest, red=slowest | HIGH | Decode polyline with pace metadata, gradient styling |
+| Feature | Value Proposition | Complexity | Data Dependency |
+|---------|-------------------|------------|------------------|
+| Self-computed best efforts within *any* run (not just races) | Strava/Garmin only surface all-time bests loosely; a full sliding-window best-effort scan (400m..marathon) across every run, including buried mid-run efforts, is more thorough than what any SaaS tool exposes for free | HIGH | **Streams required** — this is the explicit centerpiece of the milestone |
+| Training load (CTL/ATL/TSB "Fitness & Freshness" chart) via TRIMP | intervals.icu's headline feature (PMC chart); TRIMP needs only avg HR + duration per run — no power meter, no full streams | MEDIUM | **Summary only** — TRIMP = duration × avg-HR × HR-reserve weighting; computable today for the ~90% of activities with HR, uniformly across the full 1,867-run archive (unlike intervals.icu's own load, which only covers ~1yr of Garmin backfill) |
+| Age-graded performance % on every PR/best-effort | WMA age-grading is a well-documented open standard (finish time ÷ world record time × age factor); Strava doesn't offer this on the free tier, Runalyze does | LOW-MEDIUM | Summary only — needs just distance+time+birthdate, static WMA table |
+| Race-time prediction across distances (Riegel formula from PRs) | Cheaper and more transparent than Garmin's proprietary VO2max-based predictor, which is well-documented as overestimating | LOW | Derived from best-efforts engine, no streams needed beyond what PRs already require |
+| Full-archive PR history back to the oldest 2018-era Strava record | Garmin Connect only has ~1yr of comparable history for this user (per migration memory); Strava web PRs are also incomplete for old imported activities | MEDIUM | **Streams required** for the ~1,841 activities with recovered FIT/GPX via provenance.json |
+| Cross-widget deep-linking (dashboard activity → existing route-map/heatmap widgets) | Unique to owning both the widget layer and the dashboard; no reference competitor can do this | LOW | Reuses existing widget infra |
+| Gear-aware trend breakdown (pace/HR by shoe) | Strava gear tracking is mileage-only; combining it with pace/HR trend data per shoe is not offered anywhere | MEDIUM | Summary — gear already linked via provenance.json |
+| Pace-distribution / zone breakdown per run | Strava's "Pace Distribution" tab, useful for a personal training-quality view | MEDIUM-HIGH | **Streams required** |
+| Combined weather-agnostic "conditions-normalized" personal bests (future) | Speculative differentiator — normalize PRs for temperature once weather is available | HIGH | Streams + external weather data (see anti-features) |
 
 ### Anti-Features (Commonly Requested, Often Problematic)
 
-Features that seem good but create problems.
-
 | Feature | Why Requested | Why Problematic | Alternative |
-|---------|---------------|-----------------|-------------|
-| Real-time GPS tracking | "Live" map seems cool | Privacy nightmare, requires constant API calls, Strava webhooks not reliable, scope creep beyond personal analytics | Daily batch geocoding (existing GitHub Actions pipeline) |
-| Every-street completion (Wandrer clone) | Gamification is popular, "gotta catch 'em all" appeal | Requires OpenStreetMap street geometry data, massive complexity, huge database, street matching algorithms, 100x scope increase | Simple city/country pin map with visit counts |
-| 3D terrain visualization | "Looks impressive" appeal | Large tile data, WebGL complexity, doesn't add analytical value for personal stats | Elevation profile charts (already implemented in v1.0) |
-| Custom map tile providers | "Let users choose their basemap" | Licensing issues (Google/Mapbox require API keys), rate limiting, performance variability, maintenance burden | Single well-designed default (OpenStreetMap tiles) |
-| Animated run playback | "Relive your run" feature seems fun | High implementation complexity, video encoding, limited rewatchability, niche use case | Static route map with pace color coding |
-| Street View integration along routes | Google Maps Street View looks cool | Google Maps API costs money, embedding restrictions, performance issues, scope creep | Link to Google Maps route for users who want it |
-| Social features (compare routes with friends) | "See where others run" sounds useful | Requires multi-user system, authentication, privacy controls, 10x scope increase, not aligned with "personal analytics" | Link to Strava for social features |
-| Route recommendations / route planning | "Where should I run?" feature | Requires popularity data, routing algorithms, safety data, massive scope increase | Focus on visualizing existing runs, not planning new ones |
+|---------|---------------|------------------|-------------|
+| Segments & segment leaderboards | Strava's most iconic feature | Requires a community segment database and multi-athlete comparison — fundamentally a social/competitive feature; PROJECT.md already excludes social features | Personal best-efforts engine (this milestone) covers the "how fast have I gone over this distance" need without needing other athletes' data |
+| Garmin-style proprietary "Training Status"/"Readiness"/recovery-time scores | Looks authoritative, sounds actionable | Black-box algorithms (Garmin's own docs caution these are estimates, not lab-validated); reimplementing them is guesswork with no ground truth to validate against | Transparent, well-documented TRIMP-based CTL/ATL/TSB (differentiator above) — same value, auditable math |
+| Historical weather backfill for all 1,867 runs | "Nice context for why a run felt hard" | Requires a paid historical-weather API, backfill cost for the full archive, and ongoing capture going forward — high cost for low analytical value on a personal dashboard | Skip for v2.0; revisit only if a free/cheap bulk historical weather source appears |
+| VO2max / fitness-age estimation | Garmin shows this prominently, feels like a "score" | Proprietary, requires calibrated physiological models beyond pace+HR; recreating it credibly needs data (resting HR trends, HRV) this pipeline doesn't have | Riegel-based race predictions from PRs (differentiator above) — same "how fit am I" answer without pretending false precision |
+| Kudos/comments/social feed | Familiar Strava UX | Multi-user system, auth, moderation — explicitly Out of Scope (PROJECT.md: "Social features") | N/A — not needed for single-athlete tool |
+| Live/real-time activity sync during a run | "See it update live" | Requires webhooks/streaming infra; PROJECT.md already excludes real-time sync, static hosting can't do this anyway | Existing daily batch pipeline |
+| AI-generated training plans/recommendations | Sounds like the natural next step after records/trends | Explicitly excluded in PROJECT.md (liability, sports-science expertise required, massive scope) | Records/trends dashboard gives the athlete raw material to self-coach |
+| Route recommendations / "where should I run" | Natural extension once maps exist | Needs popularity/safety data and routing algorithms, unrelated to analytics goal | Out of scope, unchanged from v1.2 research |
 
 ## Feature Dependencies
 
 ```
-[Interactive Route Map Widget]
-    └──requires──> [Decoded Polyline Data]
-                       └──requires──> [Google Polyline Decoder]
-    └──requires──> [Map Library (Leaflet)]
-    └──enhances──> [Run Metadata Display]
+[Stream Ingestion: FIT/GPX + intervals.icu streams]  (NEW, blocking)
+    └──requires──> [provenance.json linkage] (already exists)
+    └──enables──> [Best Efforts Engine (sliding-window scan)]
+    └──enables──> [Activity Detail Charts: pace/HR/elevation]
+    └──enables──> [Auto-Splits table]
+    └──enables──> [Pace-distribution / zone breakdown]
 
-[Heatmap Widget]
-    └──requires──> [All Decoded Polylines]
-    └──requires──> [Map Library (Leaflet)]
-    └──requires──> [Date Range Filter UI]
-    └──enhances──> [Activity Type Filter]
+[Best Efforts Engine]
+    └──requires──> [Stream Ingestion]
+    └──enables──> [All-Time PR list per distance]
+    └──enables──> [Recent-PR badges]
+    └──enables──> [Per-distance history/trend]
+    └──enables──> [Age-graded % on PRs]  (also requires WMA table, no extra stream dep)
+    └──enables──> [Race-time prediction (Riegel)]
 
-[Country/City Pin Map Widget]
-    └──requires──> [Improved Geocoding System]
-                       └──requires──> [GeoNames Integration]
-    └──requires──> [Geographic Aggregation Stats]
-    └──requires──> [Map Library (Leaflet)]
+[Activity Browser (list/calendar/filters/sort/search)]
+    └──requires──> [Existing summary activity data] (already exists, no new dependency)
+    └──enhances──> [Activity Detail Page] (list → detail navigation)
 
-[Multi-City Run Tracking]
-    └──requires──> [Full Polyline Decoding]
-    └──requires──> [Polyline Segmentation Algorithm]
-    └──requires──> [Improved Geocoding for Segments]
-    └──requires──> [City Boundary Data or Proximity Detection]
-    └──updates──> [Geographic Aggregation Stats]
+[Weekly/Monthly/Yearly/All-Time Aggregates & Records]
+    └──requires──> [Existing v1.0 aggregation pipeline] (reuse, no new dependency)
+    └──enhances──> [Trends: volume, YoY]
 
-[Improved Geocoding]
-    └──requires──> [GeoNames Local Database]
-    └──requires──> [Canonical City Name Resolution]
-    └──replaces──> [offline-geocode-city library]
+[Training Load (CTL/ATL/TSB via TRIMP)]
+    └──requires──> [Summary avg HR + duration] (already ~90% available, no streams needed)
+    └──independent-of──> [Best Efforts Engine] (can ship before or after stream ingestion)
 
-[Latest N Runs Gallery Map]
-    └──requires──> [Interactive Route Map Widget]
-    └──requires──> [Multi-Polyline Rendering]
-    └──enhances──> [Run Filtering by Date]
+[Gear-aware breakdowns]
+    └──requires──> [provenance.json gear linkage] (already exists)
+    └──enhances──> [Activity Detail Page], [Trends]
+
+[Dashboard SPA Shell / routing]
+    └──requires──> [Pre-computed JSON build step] (static hosting constraint)
+    └──BLOCKS──> [everything above, at the presentation layer]
 ```
 
 ### Dependency Notes
 
-- **Map library choice:** Leaflet recommended over OpenLayers (30KB vs 200KB+, simpler API, zero npm dependencies, huge plugin ecosystem)
-- **Polyline decoding:** Required for all map visualizations; Google's encoded format needs decoding to lat/lon arrays
-- **Multi-city tracking blocks geographic stats accuracy:** Current 1-run=1-city model misattributes distance for border-crossing runs
-- **Geocoding improvement blocks multi-city tracking:** Can't segment runs by city if city detection is inaccurate
-- **Heatmap depends on date filtering:** Without date range filter, showing 1,808 routes creates unusable visual noise
-- **Pin map requires aggregated stats:** Not useful without distance/run counts per location from existing geographic pipeline
+- **Stream ingestion is the single biggest unlock:** best efforts, detail-page charts, splits, and
+  pace-distribution all sit behind it. Everything else in this milestone (browser, aggregates,
+  training load, gear breakdowns) can be built and shipped against summary data alone, in parallel
+  or before stream work lands — a natural phase-ordering signal for the roadmap.
+- **Training load (TRIMP) is deliberately summary-only:** don't gate it behind stream ingestion.
+  It's one of the highest-value "intervals.icu-style" features and is achievable today.
+- **Best-effort accuracy depends on stream coverage, not just presence:** a "best 5K" claim is
+  only as good as the GPS/pace-derivation quality of the source stream. Flag activities with only
+  partial or noisy streams (e.g., phone GPX) so PR lists don't get poisoned by bad data — this
+  echoes the geometry-validation lesson already learned during the intervals.icu migration
+  (0.6–1.6x distance sanity check).
+- **Records/aggregates reuse existing v1.0 logic** — this is presentation/routing work in the SPA,
+  not new computation, and should be sequenced early as low-risk, high-visible-progress work.
+- **Age-grading and race prediction are "free" once best efforts exist** — cheap additions with no
+  independent data dependency beyond the best-efforts output, good candidates to bundle into the
+  same phase as the PR list rather than a separate phase.
 
 ## MVP Definition
 
-### Phase 1: Geocoding Foundation (Blocking)
+### Launch With (v2.0 core)
 
-Critical infrastructure that blocks all other features.
+- [ ] Activity browser: list view with sort, filter (date/distance/pace), search — summary data, no stream dependency, ships immediately
+- [ ] Activity detail page: stats header + reused route map — summary data only
+- [ ] Weekly/monthly/yearly/all-time aggregates & records resurfaced in SPA — reuse v1.0 pipeline
+- [ ] Stream ingestion pipeline (FIT/GPX parse + intervals.icu streams) — blocking infrastructure for everything below
+- [ ] Best-effort engine (fastest 400m..marathon within runs) + PR list per distance — the explicit centerpiece
+- [ ] Activity detail charts: pace/elevation/HR over the route, once streams exist
 
-- [ ] **Replace offline-geocode-city with GeoNames** — Fixes suburb-instead-of-city problem (BLOCKS: all geographic features)
-- [ ] **Canonical city name resolution** — Prevents "New York" vs "New York City" aggregation bugs (BLOCKS: accurate stats)
-- [ ] **Incremental geocoding with caching** — Only geocode new/changed activities (IMPROVES: CI performance)
-- [ ] **Graceful handling of missing GPS** — 8% of activities lack coordinates (PREVENTS: crashes)
+### Add After Validation (v2.x)
 
-**Why first:** Can't build accurate maps or multi-city tracking on broken geocoding foundation.
+- [ ] Calendar/month-grid training-log view
+- [ ] Auto-splits table on activity detail
+- [ ] Training load (CTL/ATL/TSB via TRIMP) — cheap, summary-only, but sequence after core browser/PRs ship so it doesn't compete for attention
+- [ ] Age-graded % and Riegel race predictions on PR list
+- [ ] Gear-aware pace/HR trend breakdown
 
-### Phase 2: Basic Route Map (First User Value)
+### Future Consideration (v3+)
 
-Simplest map widget to validate approach.
-
-- [ ] **Decode Google polyline format** — Convert encoded strings to lat/lon arrays (ENABLES: all map rendering)
-- [ ] **Integrate Leaflet map library** — 30KB, zero dependencies, proven (ENABLES: map visualization)
-- [ ] **Single run route map widget** — Display one run's polyline with zoom/pan (DELIVERS: first map widget)
-- [ ] **Fit route to viewport on load** — Auto-zoom to route bounds (DELIVERS: good UX)
-- [ ] **Basic route info popup** — Show distance, date, pace on click (DELIVERS: context)
-
-**Why second:** Demonstrates map integration works, provides immediate user value, validates widget embedding.
-
-### Phase 3: Heatmap (High-Value Feature)
-
-Most requested feature, high visual impact.
-
-- [ ] **All runs heatmap widget** — Overlay all 1,808 routes on single map (DELIVERS: Strava-like heatmap)
-- [ ] **Date range filter UI** — Show runs from custom date range or specific year (DELIVERS: focused heatmap)
-- [ ] **Activity type filter (runs only for now)** — Prepare for future multi-sport (DELIVERS: filtered view)
-- [ ] **Heatmap color customization** — Orange/red/blue/purple options like Strava (DELIVERS: personalization)
-
-**Why third:** Builds on route map foundation, high user value, validates filtering UX.
-
-### Phase 4: Pin Map (Geographic Visualization)
-
-Visual representation of places visited.
-
-- [ ] **Country/city pin map widget** — Marker for each unique location (DELIVERS: travel map visualization)
-- [ ] **Click pin to see stats** — Popup with runs/distance/dates per location (DELIVERS: interactive detail)
-- [ ] **Visual distinction by activity count** — Pin size/color variation (DELIVERS: data-driven visualization)
-- [ ] **Country and city count display** — Simple numeric summary (DELIVERS: quick stats)
-
-**Why fourth:** Depends on improved geocoding from Phase 1, complements existing geographic table widget.
-
-### Defer to v1.3+
-
-Features requiring significant complexity or unclear value.
-
-- [ ] **Multi-city run tracking** — HIGH complexity, edge case feature (affects ~50-100 runs of 1,808)
-- [ ] **Latest N runs gallery map** — MEDIUM complexity, nice-to-have
-- [ ] **Route browser with map preview** — HIGH complexity, requires pagination/lazy-loading
-- [ ] **Standalone map pages** — MEDIUM complexity, can be added after widgets validated
-- [ ] **Pace/speed color coding** — HIGH complexity, requires pace metadata parsing
-- [ ] **Export heatmap as static image** — HIGH complexity, niche use case
-- [ ] **Time-of-day heatmap filter** — MEDIUM complexity, unclear user value
-
-**Why defer:** Multi-city tracking requires polyline segmentation algorithms + city boundary detection (massive scope). Other features are polish, not core value. Validate Phase 1-4 first.
+- [ ] Pace-distribution/zone breakdown charts
+- [ ] Native lap support (device-recorded laps, not just computed splits)
+- [ ] Cross-widget deep-linking from dashboard into existing map widgets
+- [ ] Weather-normalized PRs (only if a viable bulk historical weather source appears)
 
 ## Feature Prioritization Matrix
 
-| Feature | User Value | Implementation Cost | Priority | Phase |
-|---------|------------|---------------------|----------|-------|
-| GeoNames geocoding | HIGH | MEDIUM | P0 | 1 |
-| Canonical city names | HIGH | MEDIUM | P0 | 1 |
-| Polyline decoding | HIGH | LOW | P0 | 2 |
-| Leaflet integration | HIGH | LOW | P0 | 2 |
-| Single route map widget | HIGH | LOW | P1 | 2 |
-| Heatmap widget | HIGH | MEDIUM | P1 | 3 |
-| Date range filter | HIGH | MEDIUM | P1 | 3 |
-| Pin map widget | MEDIUM | LOW | P1 | 4 |
-| Pin click stats | MEDIUM | LOW | P1 | 4 |
-| Heatmap color customization | MEDIUM | LOW | P2 | 3 |
-| Activity type filter | MEDIUM | MEDIUM | P2 | 3 |
-| Visual pin distinction | LOW | MEDIUM | P2 | 4 |
-| Latest N runs gallery | MEDIUM | MEDIUM | P3 | v1.3+ |
-| Multi-city tracking | LOW | HIGH | P3 | v1.3+ |
-| Route browser | MEDIUM | HIGH | P3 | v1.3+ |
-| Pace color coding | MEDIUM | HIGH | P3 | v1.3+ |
-| Standalone map pages | MEDIUM | MEDIUM | P3 | v1.3+ |
+| Feature | User Value | Implementation Cost | Priority |
+|---------|------------|----------------------|----------|
+| Stream ingestion (FIT/GPX + intervals.icu) | HIGH | HIGH | P0 (blocking) |
+| Activity browser (list/filter/sort/search) | HIGH | MEDIUM | P1 |
+| Activity detail — stats + map | HIGH | LOW | P1 |
+| Weekly/monthly/yearly/all-time aggregates | HIGH | LOW | P1 |
+| Best-efforts engine + PR lists | HIGH | HIGH | P1 |
+| Activity detail charts (pace/HR/elevation) | HIGH | MEDIUM-HIGH | P1 |
+| Auto-splits table | MEDIUM | MEDIUM-HIGH | P2 |
+| Calendar/month-grid view | MEDIUM | MEDIUM | P2 |
+| Training load (TRIMP CTL/ATL/TSB) | MEDIUM | MEDIUM | P2 |
+| Age-graded % / Riegel prediction | MEDIUM | LOW | P2 |
+| Gear-aware breakdowns | LOW-MEDIUM | MEDIUM | P3 |
+| Pace-distribution/zones | MEDIUM | MEDIUM-HIGH | P3 |
+| Native laps | LOW | MEDIUM | P3 |
+| Weather backfill | LOW | HIGH | Not planned |
+| Segments/leaderboards | N/A | N/A | Excluded (social) |
+| Proprietary training status clone | LOW | HIGH | Excluded |
 
 **Priority key:**
-- P0: Blocking — must complete before other work
-- P1: Must have for v1.2 launch
-- P2: Should have if time permits
-- P3: Nice to have, defer to future milestone
+- P0: Blocking infrastructure — must exist before dependent features can ship
+- P1: Core v2.0 milestone deliverables
+- P2: Strong candidates for v2.x once core ships
+- P3: Nice to have, defer until v2.x is validated
 
 ## Competitor Feature Analysis
 
-| Feature | Strava Personal Heatmap | MapMyRun | Pin Traveler | CityStrides | Our Approach |
-|---------|-------------------------|----------|--------------|-------------|--------------|
-| **Single route map** | ✓ Activity detail page | ✓ Post-workout | N/A | N/A | ✓ Embeddable widget + standalone |
-| **Heatmap overlay** | ✓ Subscriber-only, all activities | ✓ Basic view | N/A | ✓ LifeMap | ✓ Free, date-filtered, embeddable |
-| **Date range filter** | ✓ Custom range + yearly | ✗ Limited | N/A | ✗ | ✓ Custom range + yearly |
-| **Color customization** | ✓ 6 colors (subscriber) | ✗ | N/A | ✗ | ✓ 4-5 colors, CSS variables |
-| **Activity type filter** | ✓ Run/Ride/Water/Winter/Other | ✓ Activity type | N/A | ✓ Run-focused | ✓ Runs only (v1.2) |
-| **Pin/visited map** | ✗ | ✗ | ✓ Core feature | ✓ City pins | ✓ Country + city pins |
-| **Pin stats on click** | N/A | N/A | ✓ Trip details | ✓ Street completion % | ✓ Runs/distance/dates |
-| **Multi-city per run** | ✗ | ✗ | N/A | ✗ | ✗ Deferred to v1.3+ |
-| **Embeddable widgets** | ✗ Platform-locked | ✗ Platform-locked | ✗ App-only | ✗ Platform-locked | ✓ Core differentiator |
-| **Offline geocoding** | N/A (cloud platform) | N/A (cloud platform) | N/A | N/A | ✓ Zero API calls, zero cost |
+| Feature | Strava | Garmin Connect | intervals.icu | Runalyze | Smashrun | Elevate (ext.) | Our Approach |
+|---------|--------|-----------------|----------------|----------|----------|-----------------|--------------|
+| Activity list/grid | ✓ Training Log | ✓ Calendar-first | ✓ 70+ column grid | ✓ | ✓ | ✓ overlay only | ✓ list + calendar, summary-only, ships first |
+| Activity detail charts | ✓ core feature | ✓ core feature | ✓ | ✓ | ✓ | ✓ enhanced overlay | ✓ gated on stream ingestion |
+| Splits/laps | ✓ | ✓ | ✓ | ✓ | Partial | — | ✓ P2, stream-dependent |
+| All-time PRs / best efforts | ✓ (whole-activity + some segments) | ✓ PR list | ✓ | ✓ | ✓ | — | ✓ deeper: sliding-window scan inside any run, full archive back to 2018-era |
+| Training load (CTL/ATL/TSB) | ✗ (Summit has "Fitness") | ✓ Training Status (proprietary) | ✓ headline feature (PMC) | ✓ | — | ✓ Fitness Trend | ✓ TRIMP-based, transparent, full-archive coverage (P2) |
+| Age-graded scoring | ✗ | ✗ | Partial | ✓ | — | — | ✓ differentiator, cheap (P2) |
+| Race prediction | ✗ (manual PRs only) | ✓ VO2max-based (overestimates per reviews) | Partial | ✓ | ✓ | — | ✓ Riegel-based, transparent (P2) |
+| Gear tracking | ✓ mileage only | ✓ | Partial | — | — | — | ✓ mileage + pace/HR-by-gear (P3), data already linked |
+| Segments/leaderboards | ✓ core, social | — | — | — | — | — | ✗ excluded (social, out of scope) |
+| Weather on activity | ✓ (partial) | ✓ | — | — | — | — | ✗ excluded (backfill cost) |
+| Embeddable/self-hosted | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ (browser ext, not standalone) | ✓ unique — static SPA, owns all data |
 
-**Our differentiators:**
-1. **Embeddable** — Only solution designed for personal website integration
-2. **Free and open** — No subscription required (Strava heatmap = subscriber-only)
-3. **Offline-first** — No API dependencies, no rate limits, no costs
-4. **Customizable** — CSS variables, theming, widget configuration
-5. **Privacy-focused** — Data stays in your GitHub repo, no third-party services
-
-## Expected User Interactions
-
-### Route Map Widget Interactions
-
-| Interaction | Expected Behavior | Implementation |
-|-------------|-------------------|----------------|
-| **Load widget** | Route auto-fits to viewport, controls visible | `map.fitBounds(polyline.getBounds())` |
-| **Scroll wheel** | Zoom in/out (cooperative mode: require Ctrl+scroll) | Leaflet `scrollWheelZoom: 'center'` + gestureHandling |
-| **Click + drag** | Pan map to explore area | Leaflet default drag behavior |
-| **Click route** | Show popup with distance, date, pace, elevation | Leaflet `polyline.bindPopup()` + event handler |
-| **+/- buttons** | Zoom in/out by fixed increment | Leaflet default zoom controls |
-| **Double-click** | Zoom in one level | Leaflet default behavior |
-| **Mobile pinch** | Zoom in/out | Leaflet touch gesture support |
-| **Resize container** | Map resizes to fit, route stays centered | Leaflet `map.invalidateSize()` on ResizeObserver |
-
-### Heatmap Widget Interactions
-
-| Interaction | Expected Behavior | Implementation |
-|-------------|-------------------|----------------|
-| **Load widget** | All routes shown, auto-fit to bounds, filter UI visible | Aggregate all polylines, `fitBounds()` to global extent |
-| **Date range filter** | Re-render with filtered routes only | Filter activities by date, clear/re-add polylines |
-| **Activity type filter** | Toggle run/ride/other on/off | Filter by activity type, re-render polylines |
-| **Color picker** | Change heatmap color scheme | Update polyline stroke colors, CSS variables |
-| **Zoom/pan** | Same as route map | Leaflet default behavior |
-| **Toggle photos** | Show/hide GPS-tagged photos as markers | DEFERRED — high complexity |
-
-### Pin Map Widget Interactions
-
-| Interaction | Expected Behavior | Implementation |
-|-------------|-------------------|----------------|
-| **Load widget** | All location pins shown, auto-fit to bounds | Place marker for each city/country, `fitBounds()` |
-| **Click pin** | Popup shows: location name, run count, distance, first/last visit dates | Leaflet `marker.bindPopup()` with geographic stats |
-| **Hover pin** | Tooltip shows location name | Leaflet `marker.bindTooltip()` |
-| **Zoom/pan** | Same as route map | Leaflet default behavior |
-| **Click country/city toggle** | Switch between country-level and city-level pins | Re-render markers from different dataset |
-
-## Technical Constraints & Considerations
-
-### Map Library Bundle Size
-
-| Library | Minified + Gzipped | Dependencies | Ecosystem | Recommendation |
-|---------|-------------------|--------------|-----------|----------------|
-| **Leaflet** | ~40KB | Zero npm deps | 350+ plugins | ✓ Use this |
-| **OpenLayers** | ~200KB+ | Multiple deps | Smaller ecosystem | ✗ Too heavy |
-| **Mapbox GL JS** | ~150KB | Requires API key | Mapbox-specific | ✗ API dependency |
-| **Google Maps** | ~100KB+ | Requires API key + billing | Google-specific | ✗ Cost + API dependency |
-
-**Decision:** Leaflet — lightweight, no API dependencies, zero npm dependencies (aligns with offline-first approach).
-
-### Polyline Rendering Performance
-
-| Scenario | Polyline Count | Optimization Strategy |
-|----------|---------------|----------------------|
-| Single route map | 1 polyline | No optimization needed |
-| Latest N runs | 5-10 polylines | No optimization needed |
-| Full heatmap | 1,808 polylines | **Required:** Simplify polylines with Ramer–Douglas–Peucker algorithm, cluster at low zoom, filter by viewport bounds |
-
-**Performance targets:**
-- Single route: <100ms render time
-- Heatmap (all routes): <2s initial render, <500ms pan/zoom updates
-- Pin map (57 cities): <200ms render time
-
-**Optimization techniques:**
-1. **Polyline simplification:** Reduce points in each polyline by 50-80% using RDP algorithm (invisible to eye at normal zoom)
-2. **Viewport filtering:** Only render polylines/pins visible in current map bounds
-3. **Progressive loading:** Render simplified polylines first, add detail on zoom
-4. **WebGL rendering:** Leaflet.Canvas or Leaflet.WebGL for GPU-accelerated polylines (if needed)
-
-### Geocoding Performance & Accuracy
-
-| Metric | Current (offline-geocode-city) | Target (GeoNames) |
-|--------|-------------------------------|-------------------|
-| **Accuracy** | ~60% (returns suburbs, not cities) | ~95% (city-aware with alternateNames) |
-| **Cache hit rate** | 92% (114 unique locations) | 95%+ (fewer unique locations after canonical names) |
-| **Processing time** | ~30min for 1,808 activities | ~10min (incremental + caching) |
-| **API calls** | Zero (offline database) | Zero (local GeoNames database) |
-| **Database size** | 217KB (offline-geocode-city) | ~50MB (GeoNames cities15000.txt — cities >15k population) |
-
-**GeoNames advantages:**
-- Canonical city names via `alternateNames` table (resolves "New York" vs "New York City")
-- City-aware (returns city, not suburb)
-- Population data (can prioritize larger cities for border cases)
-- Free, offline, no API keys
-
-**Implementation approach:**
-1. Download GeoNames `cities15000.txt` (cities with population >15,000)
-2. Build local search index (lat/lon → city lookup)
-3. Cache results in `.cache/geocoding.json` (existing pattern)
-4. Incremental geocoding: only process activities without cached location
-
-### Widget Embedding Constraints
-
-| Constraint | Impact | Mitigation |
-|------------|--------|------------|
-| **Bundle size** | Leaflet adds ~40KB to widget | Separate map widgets from stats widgets (users include only what they need) |
-| **Map tile loading** | External HTTP requests to OpenStreetMap servers | Expected for maps, tiles are cached by browser |
-| **Initial render performance** | Heatmap with 1,808 routes may be slow | Progressive loading, show spinner, optimize polylines |
-| **Shadow DOM + Leaflet** | Leaflet expects global CSS, may have issues with Shadow DOM | Test thoroughly, may need light DOM or CSS injection |
-| **Mobile responsiveness** | Maps need touch gesture handling | Leaflet provides this, test on mobile viewports |
-
-## Multi-City Run Tracking: Deep Dive
-
-**User story:** Runner crosses from San Francisco to Oakland during single run. Should attribute distance to both cities.
-
-**Current behavior (v1.1):** Single start coordinate → geocoded to "San Francisco" → all 15km attributed to San Francisco, Oakland gets zero.
-
-**Desired behavior (v1.2+):** Decode full polyline → segment at city boundary → 8km to SF, 7km to Oakland.
-
-**Implementation challenges:**
-
-| Challenge | Complexity | Solution Approach |
-|-----------|------------|-------------------|
-| **Detect boundary crossing** | HIGH | Check each polyline point against city boundaries OR use proximity-based heuristic (distance from city center) |
-| **Segment polyline** | MEDIUM | Split polyline array at boundary crossing points, calculate distance per segment |
-| **City boundary data** | HIGH | GeoNames provides city points, not boundaries; need GeoJSON city polygons (huge dataset) OR use radius approximation |
-| **Performance** | HIGH | 1,808 runs × ~200 points/run = 361,600 geocoding lookups (vs 1,808 currently) — requires aggressive caching |
-| **Edge cases** | MEDIUM | Runs through 3+ cities, runs along border (flipping back/forth), GPS noise at boundaries |
-
-**Recommendation:** **DEFER TO v1.3+**
-
-**Rationale:**
-1. **Low frequency:** Estimated <100 runs (of 1,808) cross city boundaries
-2. **High complexity:** Requires city boundary data (not in GeoNames), polyline segmentation algorithm, 100x more geocoding lookups
-3. **Acceptable workaround:** Attribute full run to start city (current behavior) — inaccurate but consistent
-4. **Blocking:** Should not delay v1.2 map widgets (higher user value)
-
-**Alternative for v1.2:** Add note in geographic stats: "Distance attributed to run start location. Multi-city runs may appear in one city only."
-
-## Implementation Phases & Dependencies
-
-```
-Phase 1: Geocoding Foundation (BLOCKING)
-├── Task: Replace offline-geocode-city with GeoNames
-├── Task: Implement canonical city name resolution
-├── Task: Add incremental geocoding with caching
-└── Task: Graceful handling for missing GPS
-    └── BLOCKS → Phase 2, 3, 4
-
-Phase 2: Basic Route Map (FIRST USER VALUE)
-├── Task: Decode Google polyline format
-├── Task: Integrate Leaflet into widget build
-├── Task: Build single-route map Custom Element
-├── Task: Add zoom/pan controls + auto-fit
-└── Task: Add route info popup
-    └── ENABLES → Phase 3 (heatmap builds on this)
-
-Phase 3: Heatmap (HIGH VALUE)
-├── Task: Multi-polyline heatmap rendering
-├── Task: Date range filter UI component
-├── Task: Activity type filter component
-└── Task: Heatmap color customization
-    └── REQUIRES → Phase 2 (route map foundation)
-
-Phase 4: Pin Map (COMPLEMENTARY)
-├── Task: Country/city pin map Custom Element
-├── Task: Pin click popup with stats
-├── Task: Visual distinction by activity count
-└── Task: Country/city count display
-    └── REQUIRES → Phase 1 (accurate geocoding)
-```
+**Our differentiators:** full-archive best-efforts scanning (deeper than any SaaS free tier),
+transparent open-formula training load and race prediction (vs. Garmin's proprietary black boxes),
+and gear-aware trend analysis — all built on data this project already owns outright, with no
+subscription gate.
 
 ## Sources
 
-**Strava Heatmap & Map Features:**
-- [Strava Global Heatmap](https://www.strava.com/maps/global-heatmap)
-- [Strava Personal Heatmaps Support](https://support.strava.com/hc/en-us/articles/216918467-Personal-Heatmaps)
-- [Strava Heatmaps vs Competition Guide (2026)](https://the5krunner.com/2026/01/16/strava-heatmaps-guide/)
-- [Strava Personal Heatmap Color Customization](https://cyclingmagazine.ca/sections/news/stravas-personal-heatmaps-feature-gets-more-customizable/)
-- [Strava Map Types Support](https://support.strava.com/hc/en-us/articles/360049869011-Map-Types)
+**intervals.icu:**
+- [Fitness, Fatigue & Form Chart (PMC)](https://www.intervals.icu/features/fitness-chart/)
+- [Manage Activities (70+ column grid)](https://www.intervals.icu/features/manage-activities/)
+- [Track Your Progress](https://www.intervals.icu/features/track/)
+- [Intervals.icu for Runners — STAS Guide](https://stas.run/en/guides/intervals-icu-beginners)
 
-**Running/Fitness App Map Features:**
-- [Best Apps for Mapping Your Run - TechRadar](https://www.techradar.com/health-fitness/fitness-apps/5-of-the-best-apps-for-mapping-your-run)
-- [15 Best Running Apps of 2026](https://runtothefinish.com/must-have-running-apps/)
-- [MapMyRun GPS Running Tracker](https://www.mapmyrun.com/)
-- [How Maps Help The Fitness Industry - Mapbox Blog](https://www.mapbox.com/blog/mapping-technology-fitness-industry)
+**Strava:**
+- [Run Activity Pages](https://support.strava.com/hc/en-us/articles/216919567-Run-Activity-Pages)
+- [Viewing Activities](https://support.strava.com/hc/en-us/articles/216919157-Viewing-Activities)
+- [All-Time PRs](https://support.strava.com/hc/en-us/articles/216918487-All-Time-PRs)
+- [Best Efforts - Running](https://support.strava.com/en-us/articles/15401661-best-efforts-running)
+- [Best Efforts - Overview](https://support.strava.com/hc/en-us/articles/19685360245005-Best-Efforts-Overview)
+- [My Segment Results](https://support.strava.com/hc/en-us/articles/216917447-My-Segment-Results)
+- [Track Your Run PRs on Strava](https://stories.strava.com/articles/track-your-run-prs)
+- [Training Log](https://support.strava.com/hc/en-us/articles/206535704-Training-Log)
+- [Strava Gear Tracking (mileage)](https://theservicecourse.net/strava-gear-tracking/)
+- [Adding Gear to Your Activities](https://support.strava.com/hc/en-us/articles/216918727-Adding-Gear-to-Your-Activities)
 
-**Pin Map / Travel Tracking Apps:**
-- [Pin Traveler: Travel Map App](https://pintraveler.net/)
-- [Visited: Travel Tracker & Map](https://visitedapp.com/)
-- [Been App - Track Countries Visited](https://been.app/)
+**Garmin Connect:**
+- [Performance Measurements manual](https://www8.garmin.com/manuals-apac/webhelp/fenix7series/EN-SG/GUID-0ECA590D-69D1-4223-96D9-4E222C58784D-8498.html)
+- [Predicted Race Times (Forerunner 945 manual)](https://www8.garmin.com/manuals/webhelp/forerunner945/EN-US/GUID-31B2458A-859A-4A34-AB83-224E4A29387A.html)
+- [Garmin VO2 Max Accuracy Reviewed — The Mother Runners](https://www.themotherrunners.com/garmin-vo2-max-explained-metrics-reviewed/)
 
-**Multi-City & Route Tracking:**
-- [CityStrides - Run Every Street](https://citystrides.com/)
-- [RunGo - Turn-by-Turn Navigation](https://www.rungoapp.com)
-- [MapMyFitness Workout Splits](https://support.mapmyfitness.com/hc/en-us/articles/1500009118742-Workout-Splits)
+**Elevate for Strava:**
+- [Elevate for Strava (GitHub)](https://github.com/thomaschampagne/elevate)
+- [Elevate for Strava overview](https://thomaschampagne.github.io/elevate/)
+- [Elevate for Strava — Coleman McCormick review](https://www.colemanm.org/post/elevate-for-strava/)
 
-**Web Map Interaction Best Practices:**
-- [Google Maps Platform: Controlling Zoom and Pan](https://developers.google.com/maps/documentation/javascript/interaction)
-- [Map UI Design: Best Practices, Tools & Examples](https://www.eleken.co/blog-posts/map-ui-design)
-- [Google Maps Platform Best Practices: Optimization and Performance](https://mapsplatform.google.com/resources/blog/google-maps-platform-best-practices-optimization-and-performance-tips/)
-- [Accessibility Guide for Interactive Web Maps](https://mn.gov/mnit/assets/Accessibility%20Guide%20for%20Interactive%20Web%20Maps_tcm38-403564.pdf)
+**Runalyze / Smashrun comparison:**
+- [Top 10 Best Running Analysis Software of 2026](https://worldmetrics.org/best/running-analysis-software/)
+- [Runalyze vs Smashrun — SaaSHub](https://www.saashub.com/compare-runalyze-vs-smashrun)
 
-**Leaflet & Map Libraries:**
-- [Leaflet Quick Start Guide](https://leafletjs.com/examples/quick-start/)
-- [Leaflet Documentation](https://leafletjs.com/reference.html)
-- [Leaflet vs OpenLayers Comparison](https://www.geoapify.com/leaflet-vs-openlayers/)
-- [Map Libraries Popularity: Leaflet vs MapLibre GL vs OpenLayers](https://www.geoapify.com/map-libraries-comparison-leaflet-vs-maplibre-gl-vs-openlayers-trends-and-statistics/)
-- [Mapbox Loves Leaflet](https://blog.mapbox.com/mapbox-%EF%B8%8F-leaflet-d60b1be96615)
+**Training load / TRIMP methodology:**
+- [What is TRIMP? — OpenAthlete](https://www.openathlete.org/blog/what-is-trimp-and-how-to-use-it)
+- [What is TRIMP? — Firstbeat](https://www.firstbeat.com/en/blog/what-is-trimp/)
+- [Quantifying training, TRIMP and TSS — Fellrnr.com](https://fellrnr.com/wiki/TRIMP)
 
-**Polyline Rendering & Performance:**
-- [Google Maps Platform: Polyline Optimization](https://cloud.google.com/blog/products/maps-platform/google-maps-platform-best-practices-optimization-and-performance-tips)
-- [Polylines: Supercharge Your Map](https://shurutech.com/blog/polylines-supercharge-your-map/)
-- [How to Improve Performance When Rendering Map Polygons](https://medium.com/game-development-stuff/how-to-improve-performance-when-rendering-map-polygons-on-react-native-projects-c6a75a5b1acd)
+**Age-grading:**
+- [Age Grade Calculator For Runners — Marathon Handbook](https://marathonhandbook.com/age-grade-calculator/)
+- [Age Graded Running Calculator — RunBikeCalc (WMA tables)](https://www.runbikecalc.com/age-graded-calculator)
 
-**Heatmap Implementation:**
-- [Activity Heatmap - Oobeya Docs](https://docs.oobeya.io/activity-heatmap/activity-heatmap)
-- [What Are Heatmaps? A Guide to Heat Maps](https://contentsquare.com/guides/heatmaps/)
-- [Heatmapper - Latitude/Longitude Heatmaps](https://heatmapper.ca/)
+**UX patterns:**
+- [Filter UX Design Patterns & Best Practices — Pencil & Paper](https://www.pencilandpaper.io/articles/ux-pattern-analysis-enterprise-filtering)
+- [Filter UI and UX Design — UXPin](https://www.uxpin.com/studio/blog/filter-ui-and-ux/)
 
-**UX & Interaction Patterns:**
-- [MVP Blog: Display an Activity Route On A Map](https://medium.com/@dev-john-nguyen/mvp-blog-display-an-activity-route-on-a-map-dfb1152e2101)
-- [UX Case Study: Design of a Fitness App](https://medium.com/pari-chowdhry/ux-case-study-design-of-a-fitness-app-e644790da19)
+**Internal:**
+- Project memory: intervals.icu migration (provenance.json linkage, geometry validation lessons, gear-per-activity availability)
 
 ---
-*Feature research for: Strava Analytics v1.2 Maps & Geo Fix Milestone*
-*Researched: 2026-02-16*
-*Confidence: HIGH (official sources + competitor analysis + technical documentation)*
+*Feature research for: Strava Analytics v2.0 Training Dashboard*
+*Researched: 2026-08-10*
+*Confidence: HIGH (official product docs for all major reference products, cross-verified with independent reviews/comparisons for proprietary-algorithm claims)*

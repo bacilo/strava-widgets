@@ -1,807 +1,149 @@
-# Technology Stack
+# Stack Research
 
-**Project:** Strava Widgets — Interactive Mapping Features Milestone
-**Researched:** 2026-02-16
-**Confidence:** MEDIUM-HIGH
+**Domain:** Training-analytics dashboard (static SPA) added to an existing TypeScript/Node.js Strava-widgets platform
+**Researched:** 2026-08-10
+**Confidence:** HIGH (verified against the actual repo, actual export files, and live package registry — not just training data)
 
-## Context
+## Headline Finding
 
-This research focuses on **stack additions for NEW interactive mapping features** in the subsequent v1.2 milestone. The v1.1 geographic statistics milestone is complete with offline-geocode-city (BEING REPLACED) and table widgets.
+**This milestone needs zero new production npm dependencies.** Every "new" capability — FIT stream parsing, GPX stream parsing, SPA routing, activity-list filter/sort, time-series charts — is either already solved by a dependency this repo already ships (`@garmin/fitsdk`, `chart.js`) or is better served by extending patterns the codebase has already proven at scale (regex GPX reader, hand-rolled `TableSorter`/`TablePaginator`, Custom Elements, native `fetch`/`Date`). This is a direct continuation of the project's validated "zero dependencies where practical" decisions (native Custom Elements, native `fetch`, offline geocoding) — not a new philosophy being introduced for v2.0.
 
-**NEW Capabilities Needed:**
-1. Interactive route maps (individual run route visualization)
-2. Heatmaps (density visualization of all run start points)
-3. Country/city pin maps (markers with aggregated stats)
-4. **Improved offline geocoding** (GeoNames-based, replacing offline-geocode-city)
-5. Multi-city tracking via polyline decoding
+I verified this by decoding real files from `export_data/` and reading the existing pipeline code, not just by inspecting package listings:
+- Decoded live `.fit.gz` and `.gpx` samples from the archive with the SDK/parser already in the repo — confirmed `heartRate`, `cadence`, `distance`, `speed`/`enhancedSpeed`, `altitude`/`enhancedAltitude` are all present directly on `recordMesgs` from `@garmin/fitsdk`, no extra parsing library needed.
+- Timed a 100-file batch decode: 7.2ms/file → ~13s to decode all 1,835 `.fit.gz` files in CI. Fast enough for a build-time pipeline step, no worker-thread/streaming complexity warranted.
+- Grepped 36 sampled `.gpx` files (of 306) for `gpxtpx`/`extensions`/`<hr>` — zero matches. Strava's exported phone-recorded GPX in this archive carries only `lat`/`lon`/`ele`/`time`, never heart rate or cadence extensions. This is a data fact, not a parsing limitation — confirms a regex-based reader is sufficient (there's no rich extension schema to navigate).
 
-**Validated Existing Stack (NO CHANGES):**
-- TypeScript, Node.js 22, Chart.js 4.5.1, Vite 7.3.1 (IIFE bundles)
-- Custom Elements, Shadow DOM, GitHub Actions CI/CD, GitHub Pages hosting
-- 5 existing widgets deployed, 1,808 run activities with stored route polylines
+## Recommended Stack
 
----
-
-## Recommended Stack Additions
-
-### Core Mapping Library
+### Core Technologies (unchanged — confirmed still correct for v2.0)
 
 | Technology | Version | Purpose | Why Recommended |
 |------------|---------|---------|-----------------|
-| Leaflet | ^1.9.4 | Interactive maps, route visualization, marker-based maps | Industry standard for DOM-based mapping. Lightweight (~40 KB gzipped), zero npm dependencies, extensive plugin ecosystem. Works with Vite IIFE bundles and Shadow DOM with proper configuration. |
-| leaflet.heat | ^0.2.0 | Heatmap visualization layer | Official Leaflet plugin. Tiny (~2 KB), fast with grid-based clustering, handles 10,000+ points efficiently. Perfect for visualizing run density from start coordinates. |
+| TypeScript | 5.9.3 (installed) | Whole pipeline + SPA | Already the project's only language; no reason to introduce anything else for a personal, single-maintainer dashboard |
+| Node.js | 22 | Build-time pipeline (stream parsing, best-effort computation, JSON generation) | Already the CI runtime; native `fetch`, native `zlib`, no new runtime needed |
+| Vite | 7.3.1 (installed) | Bundling for both widgets and the new dashboard SPA | `vite.config.pages.ts` already implements the exact multi-page pattern the dashboard needs (see Integration Points) |
+| Chart.js | 4.5.1 (installed, latest) | Per-activity detail charts (pace/HR/cadence vs. distance) | Already bundled and tree-shaken in 2 widgets; reusing avoids paying for a second charting library (see rationale below) |
 
-**Rationale for Leaflet over MapLibre GL:**
-- **Bundle size**: Leaflet 40 KB vs MapLibre GL 800 KB gzipped (~20x difference)
-- **Feature fit**: DOM-based rendering sufficient for polyline routes and point heatmaps. No need for WebGL vector tiles, 3D terrain, or complex styling.
-- **IIFE compatibility**: Leaflet bundles cleanly in Vite IIFE format. MapLibre's WebGL increases build complexity.
-- **Shadow DOM integration**: Proven patterns exist for Shadow DOM (requires CSS injection workaround for marker icons).
-- **Zero dependencies**: Leaflet has no npm dependencies. MapLibre requires vector tile infrastructure.
-- **Tile provider flexibility**: Works with any raster tile provider (OpenStreetMap, Mapbox Static API, self-hosted).
+### New Code, Not New Dependencies
 
-**When MapLibre GL makes sense**: Vector tile rendering, 3D terrain, building extrusion, real-time style updates. NOT needed for run route polylines and heatmaps.
+| Capability | What to Add | Why Not a Library |
+|------------|-------------|--------------------|
+| FIT stream parsing (HR, cadence, pace, elevation) | Extend `src/exports/geometry-readers.ts` `readFit()` to also pull `heartRate`, `cadence`, `distance`, `enhancedSpeed`/`speed`, `enhancedAltitude` off each `recordMesg` (currently only `positionLat`/`positionLong` are read) | `@garmin/fitsdk` (already a dependency, `^21.212.0`, verified latest) already returns every one of these fields per record — verified by decoding a real 2025 recording from the archive. No FIT parsing gap exists. |
+| GPX stream parsing (elevation, per-point time for pace) | Extend `readGpx()` to capture `lat`, `lon`, `ele`, `time` from each `<trkpt>` block in one regex pass instead of the current two-pass approach (all coords via one regex, only the *first* point's time via a second regex) | The archive's GPX files have a small, fixed, well-known schema (Strava's `StravaGPX` export) with no HR/cadence extensions present anywhere sampled. A full XML parser (fast-xml-parser, xml2js) would be solving a problem that doesn't exist here — the current regex-only approach was a deliberate, already-validated choice per the code comment in `geometry-readers.ts` ("targeted matching beats a full XML dependency") |
+| Best-effort computation (fastest 400m/1k/1mi/5k/10k/HM/marathon) | Plain TS: sliding-window scan over the distance/time stream per activity | Pure numeric algorithm over an array — no npm package adds value here |
+| Stream downsampling for published JSON | Hand-rolled fixed-stride or LTTB-style downsample function (~30 LOC) run in the Node pipeline before writing per-activity stream JSON | Keeps repo/JSON payload size bounded (see Charting section) without adding a downsampling package; full-resolution data stays available *within* the pipeline for best-effort math, only the *published* stream is capped |
+| SPA routing | Hand-rolled hash router (`hashchange` listener + view-dispatch table, ~40 LOC) | See Alternatives — deliberately not adding a router package |
+| Activity list filter/sort (~1,867 rows) | Reuse/extend `TableSorter` (locale-aware `Intl.Collator`, sort-a-copy pattern) and `TablePaginator` from `src/widgets/geo-table-widget/` | These utilities already exist, are already tested, and the scale difference (2,000 rows vs. the geo table's smaller row counts) doesn't change the approach — `Array.sort`/`Array.filter` over 2,000 items is sub-5ms |
+| Per-activity route map on detail view | Reuse existing Leaflet 1.9.4 + single-run-map widget pattern | Already validated infrastructure (CDN-externalized, Shadow DOM CSS injection) |
 
-### Improved Offline Geocoding (REPLACEMENT)
+### Supporting Libraries (none required, but here's what was evaluated and rejected)
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| offline-geocoder | ^1.0.2 | GeoNames-based offline reverse geocoding | **Replaces offline-geocode-city** (UN/LOCODE data returns suburbs, not cities). Uses GeoNames cities1000 dataset (12 MB SQLite). City-level accuracy, ~20,000+ cities worldwide, population ≥1,000 people. Node.js build-time geocoding (not browser runtime). |
-
-**Migration from offline-geocode-city:**
-| Current Issue | offline-geocoder Solution |
-|---------------|---------------------------|
-| Returns suburbs instead of cities | GeoNames cities1000 dataset provides accurate city names |
-| UN/LOCODE data source (limited coverage) | GeoNames worldwide coverage (20,000+ cities) |
-| 217 KB browser bundle overhead | 12 MB SQLite database used at BUILD TIME only (not bundled in widgets) |
-| Geocoding in widget runtime | Pre-compute during compute-geo-stats, cache results in JSON |
-
-**Why build-time only:**
-- 12 MB SQLite database too large for browser bundle
-- Widgets fetch pre-geocoded data from `data/geo/cities.json` (generated by compute-geo-stats)
-- No runtime geocoding needed—all activities geocoded once during CI rebuild
-
-**Alternative datasets:**
-- cities500 (24 MB, pop ≥500) — more coverage
-- cities5000 (8 MB, pop ≥5,000) — faster lookups
-- cities15000 (4 MB, pop ≥15,000) — fastest, less coverage
-
-Recommendation: cities1000 (default) balances coverage and accuracy for run tracking.
-
-### Polyline Decoding
-
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| @mapbox/polyline | ^1.2.1 | Decode Strava summary_polyline to lat/lng coordinates | Most popular polyline library (270K+ weekly downloads vs 27K for @googlemaps/polyline-codec). Actively maintained (Google's library: no updates in 12+ months). Encodes/decodes GeoJSON, outputs [lat, lng] pairs compatible with Leaflet's L.polyline(). |
-
-**Polyline Precision:**
-- Strava uses precision factor 1e5 (100,000) ≈ 1.1m accuracy at equator
-- @mapbox/polyline handles standard Google polyline encoding automatically
-- Output format: `[[lat, lng], [lat, lng], ...]` — directly usable in Leaflet
-
-**Build-time pattern:**
-1. During compute-geo-stats, decode all summary_polyline fields
-2. Store decoded coordinates in `data/routes/{activityId}.json`
-3. Widgets fetch pre-decoded routes (no runtime polyline library needed)
-
-**Why @mapbox/polyline over alternatives:**
-- @googlemaps/polyline-codec: Inactive maintenance (no npm updates 12+ months)
-- polyline (deprecated): Unmaintained, use @mapbox/polyline instead
-
-### Supporting Libraries
-
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| vite-plugin-css-injected-by-js | ^3.5.1 | Inject Leaflet CSS into IIFE bundle | **REQUIRED** for IIFE format. Bundles CSS with JavaScript so widgets are single-file embeddable. Automatically injects Leaflet styles at runtime. Fixes Vite/Webpack marker icon path hashing issues. |
-| @types/leaflet | ^1.9.14 | TypeScript type definitions for Leaflet | Development-time type safety for Leaflet API usage in widgets. |
-
----
+| Library | Purpose it would serve | Verdict |
+|---------|------------------------|---------|
+| `fit-file-parser` | Alternative FIT decoder | Rejected — `@garmin/fitsdk` is already integrated, official (Garmin-maintained), and proven against real files. Switching decoders for no functional gain is pure risk. |
+| `fit-decoder` | Alternative FIT decoder | Rejected — same reasoning; less actively maintained than the official SDK already in use. |
+| `fast-xml-parser` / `xml2js` | GPX parsing | Rejected — regex approach already validated in production for 306 files with a fixed, simple schema; would add ~30-50KB and a new dependency for zero new capability. |
+| `preact` (10.29.8) + `preact-router` (4.1.2) | SPA component model + routing | Rejected for v2.0, but the one framework worth reconsidering if reactive UI complexity grows (see Alternatives Considered below). |
+| `svelte` + `vite-plugin-svelte` | SPA component model | Rejected — introduces a compiler step into a build pipeline that is currently pure TypeScript+Vite; inconsistent with a single-maintainer project that already has zero build "magic." |
+| `vue` / `react` | SPA framework | Rejected — heaviest options (30-45KB+ runtime), directly contradicts the project's explicitly validated "small bundles, zero frameworks" decision (see PROJECT.md Key Decisions: "Native Custom Elements API — Zero dependencies, full attribute lifecycle control — ✓ Good"). |
+| `uplot` (1.6.32) | High-performance time-series charting | Rejected — see Charting rationale below. |
+| `fuse.js` (7.5.0) | Fuzzy search over activity list | Rejected — personal single-user dashboard; substring match (`.toLowerCase().includes()`) on activity titles is sufficient, fuzzy matching solves a UX problem this project doesn't have. |
+| `navigo` (8.11.1) or similar router | SPA routing | Rejected — only ~4-5 view types (activity list, activity detail, records, trends); a 40-line hand-rolled hash dispatcher covers this with no dependency and no risk of pulling in History-API assumptions that don't work on GitHub Pages (see rationale below). |
+| `date-fns` / `luxon` / `dayjs` | Date math for weekly/monthly/yearly aggregation | Rejected — project already has a validated "UTC everywhere, native `Date`" decision from v1.0; the records/trends aggregation is the same class of problem already solved without a date library. |
 
 ## Installation
 
+No new packages required. If any of the above are later warranted, this is the reference invocation for the one path worth revisiting first:
+
 ```bash
-# Core mapping (widget runtime dependencies)
-npm install leaflet@^1.9.4
-npm install leaflet.heat@^0.2.0
-
-# GeoNames geocoding (build-time only, Node.js)
-npm install offline-geocoder@^1.0.2
-
-# Polyline decoding (build-time only, Node.js)
-npm install @mapbox/polyline@^1.2.1
-
-# Dev dependencies (types + build tooling)
-npm install -D @types/leaflet@^1.9.14
-npm install -D vite-plugin-css-injected-by-js@^3.5.1
+# ONLY if reactive filter/sort UI complexity outgrows vanilla DOM updates
+npm install preact @preact/signals
 ```
 
-**REMOVE (after migration):**
-```bash
-npm uninstall offline-geocode-city
-```
-
----
+Everything else in this milestone ships with the existing `package.json`.
 
 ## Alternatives Considered
 
-| Category | Recommended | Alternative | Why Not Alternative |
-|----------|-------------|-------------|---------------------|
-| **Mapping Library** | Leaflet | MapLibre GL JS | Bundle size: MapLibre 800 KB vs Leaflet 40 KB gzipped. WebGL overkill for route polylines and point heatmaps. Best for vector tiles, 3D terrain (not needed). Vite IIFE + Shadow DOM complexity. |
-| **Mapping Library** | Leaflet | Google Maps API | Requires API key, usage pricing, online-only. Leaflet works offline with cached tiles. Proprietary vs open source. |
-| **Mapping Library** | Leaflet | Mapbox GL JS v2+ | Proprietary license after v1.13 (Dec 2020). Non-OSS. Use MapLibre GL if you need WebGL. |
-| **Heatmap** | leaflet.heat | heatmap.js + leaflet-heatmap plugin | leaflet.heat is official, simpler, faster for point-based heatmaps. heatmap.js better for custom gradients (not needed). ~10 KB larger. |
-| **Geocoding** | offline-geocoder | local-reverse-geocoder | local-reverse-geocoder requires 2 GB download, 1.3 GB disk space. Offline-geocoder is 12 MB SQLite. Overkill for city-level accuracy. |
-| **Geocoding** | offline-geocoder | Online APIs (Google, Nominatim) | Project requirement: offline geocoding in CI. No API calls from widgets. Nominatim has 1 req/sec rate limit (30 min for 1,808 activities). Offline-geocoder is instant. |
-| **Geocoding** | offline-geocoder (GeoNames) | offline-geocode-city (UN/LOCODE) | Current library inaccurate (returns suburbs instead of cities). GeoNames dataset more accurate for city names. |
-| **Polyline** | @mapbox/polyline | @googlemaps/polyline-codec | Google library inactive (no updates 12+ months). Mapbox library has 10x weekly downloads, active maintenance. |
-| **Polyline** | @mapbox/polyline | polyline (npm) | Deprecated. No longer maintained. Use @mapbox/polyline. |
+### (c) SPA framework: vanilla Custom Elements + hand-rolled hash router — chosen over Preact/Svelte/Vue/React
 
----
+| Recommended | Alternative | When to Use Alternative |
+|-------------|-------------|--------------------------|
+| Vanilla TS + native Custom Elements + hand-rolled hash router | Preact 10.29.8 + `preact-router` 4.1.2 (~5KB combined gzip) | If the activity list grows multiple *linked* filters with derived/computed state (e.g., filter-by-city updates available-year options which update available-distance-buckets), manual DOM sync becomes error-prone faster than a small VDOM diff would. Preact is deliberately compatible with rendering into a Custom Element's Shadow DOM, so it could be introduced incrementally (one view at a time) without a rewrite. Revisit if plan work reveals >2-3 interdependent filter dimensions. |
+| Vanilla TS + native Custom Elements + hand-rolled hash router | Svelte + `vite-plugin-svelte` | Only if the project ever gains a second contributor or grows well beyond a personal dashboard — Svelte's compile-time approach pays off at team/growth scale, but adds a new toolchain (`.svelte` files, compiler plugin) this single-maintainer, already-lean Vite setup doesn't need today. |
+| Vanilla TS + native Custom Elements + hand-rolled hash router | Vue / React | Not recommended at any point for this project's stated constraints (small bundles, zero frameworks explicitly validated as "Good" in PROJECT.md). Only reconsider if this dashboard is ever spun out into a separate, larger product with its own team. |
+
+**Why vanilla wins here, concretely:**
+- The codebase already proves the pattern works at real complexity: `geo-table-widget/index.ts` is 698 LOC of hand-rolled sortable/paginated table logic with zero framework, shipped and working.
+- GitHub Pages has no server-side rewrite rules for a static SPA. History-API (`pushState`) routing needs either a `404.html` redirect hack or a Pages-specific workaround to make deep links survive a hard refresh; **hash-based routing** (`#/activities/12345`) sidesteps this entirely with zero server configuration, and a hash router is trivial to hand-roll (listen for `hashchange`, parse the fragment, dispatch to a render function). This is the more consequential decision here — pick hash routing regardless of whether vanilla or Preact is used for rendering.
+- Introducing a framework would be the *one* inconsistent piece in an otherwise deliberately dependency-light codebase, for a UI surface (list + detail + two aggregate views) that isn't complex enough to need it.
+
+### (d) Charting: Chart.js (existing) — chosen over uPlot
+
+| Recommended | Alternative | When to Use Alternative |
+|-------------|-------------|--------------------------|
+| Chart.js 4.5.1 (already a dependency) with tree-shaken registration (`LineController`, `LineElement`, `PointElement`, `LinearScale`, `Decimation`, `Tooltip`, `Legend`) + built-in `Decimation` plugin (no separate package — bundled in Chart.js core since v3) | `uPlot` 1.6.32 (~45KB, much faster for very large series) | If per-activity streams grow to tens of thousands of points per chart *and* multiple series must render simultaneously without any server-side downsampling. Not the case here: real decoded activities in this archive run ~1,300-2,500 records; Chart.js's own docs cite decimation bringing 5,000-10,000-point render times down to ~100ms, comfortably covering this project's per-activity scale. |
+
+**Why Chart.js wins here, concretely:**
+- Chart.js is *already* a paid-for cost in this codebase — `comparison-chart.iife.js` and `streak-widget.iife.js` are both ~180KB minified already. Adding uPlot as a second charting library would mean shipping two charting engines in one SPA bundle for no capability gain, directly working against the "small bundles" value driving the framework decision above.
+- Combine Chart.js's built-in `Decimation` plugin (`algorithm: 'min-max'` to preserve pace/HR spikes, or `'lttb'` for smoother trend lines) with a small server-side downsample step in the Node pipeline that caps published per-activity stream JSON at a fixed point budget (e.g., 500-800 points). The downsample step is about *payload size* (1,867 activities × full-resolution multi-series streams would bloat the statically-hosted, git-tracked JSON significantly), not runtime chart performance — Chart.js alone already handles the runtime case fine at this data scale.
+- Full-resolution streams should stay available transiently within the Node pipeline (not published) so best-effort computation (fastest-1k, etc.) is never computed from decimated data — decimation is a presentation-layer concern only.
+
+### (e) Activity list filter/sort — vanilla, extending existing utilities
+
+| Recommended | Alternative | When to Use Alternative |
+|-------------|-------------|--------------------------|
+| Reuse/extend `TableSorter` + `TablePaginator` from `geo-table-widget`; plain `Array.filter` predicates for date-range/distance-range/text | TanStack Table, AG Grid, or similar headless table libraries | Only if the dashboard needs virtualized infinite-scroll over unpaginated data, column resizing/reordering, or multi-column complex query building. At ~1,867 rows with pagination (same UX pattern as the existing geo table), plain array operations complete in single-digit milliseconds — no library clears that bar in usefulness. |
+| Substring match (`.toLowerCase().includes()`) for text search | `fuse.js` 7.5.0 (fuzzy search) | Only if search needs to tolerate typos/partial word order across a large, unstructured corpus. This is a personal archive with a known, small vocabulary of activity titles — exact substring matching is sufficient and predictable. |
 
 ## What NOT to Use
 
 | Avoid | Why | Use Instead |
-|-------|-----|-------------|
-| **Mapbox GL JS v2+** | Proprietary license after v1.13 (Dec 2020). Non-OSS. | Leaflet or MapLibre GL JS (OSS fork of Mapbox GL v1.13) |
-| **offline-geocode-city** | Inaccurate (returns suburbs instead of cities). Uses UN/LOCODE data. Being replaced in this milestone. | offline-geocoder (GeoNames cities1000) |
-| **polyline (npm)** | Deprecated. No longer maintained. | @mapbox/polyline |
-| **Leaflet with default CSS imports in Vite** | Webpack/Vite bundlers break marker icon paths. CSS expects images at relative URLs but bundlers hash asset paths. | Manually import marker icons + use vite-plugin-css-injected-by-js |
-| **Runtime polyline decoding in widgets** | Adds unnecessary bundle size (~5 KB). Decoding 1,808 routes at runtime is slow. | Pre-decode during build, store in JSON, widgets fetch pre-decoded routes |
-| **Runtime geocoding in widgets** | offline-geocoder has 12 MB SQLite dependency (Node.js only). Cannot run in browser. | Pre-geocode during build (compute-geo-stats), widgets fetch cached results |
-
----
-
-## Integration Patterns
-
-### Pattern 1: Leaflet + Vite IIFE + Shadow DOM
-
-**Challenge:**
-1. Leaflet CSS references marker icon images via relative URLs (`url(images/marker-icon.png)`)
-2. Vite hashes asset paths during build, breaking CSS references
-3. Shadow DOM requires CSS to be injected into shadow root, not global document
-
-**Solution:**
-
-**Step 1: Install Vite CSS injection plugin**
-```bash
-npm install -D vite-plugin-css-injected-by-js
-```
-
-**Step 2: Configure vite.config.ts**
-```typescript
-import cssInjectedByJsPlugin from 'vite-plugin-css-injected-by-js'
-
-export default defineConfig({
-  plugins: [cssInjectedByJsPlugin()],
-  build: {
-    lib: {
-      entry: './src/widgets/route-map-widget/index.ts',
-      name: 'RouteMapWidget',
-      formats: ['iife'],
-      fileName: () => 'route-map.js'
-    },
-    rollupOptions: {
-      output: {
-        inlineDynamicImports: true // Bundle everything into single file
-      }
-    }
-  }
-})
-```
-
-**Step 3: Fix Leaflet marker icons in widget code**
-```typescript
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-
-// Import marker images directly (Vite will bundle them as base64 or assets)
-import markerIcon from 'leaflet/dist/images/marker-icon.png';
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
-import markerShadow from 'leaflet/dist/images/marker-shadow.png';
-
-// Fix default icon paths (required for Webpack/Vite bundlers)
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconUrl: markerIcon,
-  iconRetinaUrl: markerIcon2x,
-  shadowUrl: markerShadow,
-});
-```
-
-**Step 4: Create map widget with Shadow DOM**
-```typescript
-class RouteMapWidget extends WidgetBase {
-  private map: L.Map | null = null;
-
-  connectedCallback() {
-    super.connectedCallback(); // Sets up Shadow DOM
-
-    // CSS automatically injected by vite-plugin-css-injected-by-js
-    // Leaflet CSS now available in shadow root
-
-    // Create map container div
-    const mapContainer = document.createElement('div');
-    mapContainer.id = 'map';
-    mapContainer.style.width = '100%';
-    mapContainer.style.height = '400px';
-    this.shadowRoot!.appendChild(mapContainer);
-
-    // Initialize Leaflet map
-    this.map = L.map(mapContainer).setView([55.6761, 12.5683], 13);
-
-    // Add OpenStreetMap tile layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
-      maxZoom: 19
-    }).addTo(this.map);
-
-    // Fetch and render route
-    this.fetchAndRenderRoute();
-  }
-
-  async fetchAndRenderRoute() {
-    const activityId = this.getAttribute('data-activity-id');
-    const response = await fetch(`/data/routes/${activityId}.json`);
-    const route = await response.json();
-
-    // Add polyline to map
-    const polyline = L.polyline(route.coordinates, {
-      color: '#fc4c02',
-      weight: 3,
-      opacity: 0.8
-    }).addTo(this.map!);
-
-    // Fit map to route bounds
-    this.map!.fitBounds(polyline.getBounds());
-  }
-}
-
-customElements.define('route-map-widget', RouteMapWidget);
-```
-
-**Known Issue:** Leaflet has event retargeting problems with Shadow DOM on mobile (Android Chrome touch events, iOS click handlers not triggered). **Workaround:** Attach event listeners to Leaflet layer objects directly (e.g., `polyline.on('click', ...)`) instead of DOM elements.
-
-**References:**
-- [Leaflet Shadow DOM Issue #3246](https://github.com/Leaflet/Leaflet/issues/3246) — HIGH confidence
-- [Leaflet Marker Icon Webpack Issue #7424](https://github.com/Leaflet/Leaflet/issues/7424) — HIGH confidence
-- [Vite IIFE + Leaflet CSS Guide (MapTiler)](https://docs.maptiler.com/leaflet/examples/vite-vanilla-js-default/) — HIGH confidence
-
----
-
-### Pattern 2: Polyline Decoding (Build-time)
-
-**Goal:** Pre-decode all Strava summary_polyline fields during compute-geo-stats, store in JSON files.
-
-**Implementation:**
-```typescript
-// src/geo/polyline-decoder.ts
-import polyline from '@mapbox/polyline';
-import type { StravaActivity } from '../types/strava.types.js';
-
-interface DecodedRoute {
-  activityId: number;
-  coordinates: [number, number][]; // [[lat, lng], ...]
-  bounds: {
-    north: number;
-    south: number;
-    east: number;
-    west: number;
-  };
-}
-
-export function decodeActivityPolyline(activity: StravaActivity): DecodedRoute | null {
-  if (!activity.map?.summary_polyline) {
-    return null; // No route data (e.g., treadmill run)
-  }
-
-  try {
-    const coords = polyline.decode(activity.map.summary_polyline);
-    // coords format: [[lat, lng], [lat, lng], ...]
-
-    // Calculate bounds for map fitting
-    const lats = coords.map(c => c[0]);
-    const lngs = coords.map(c => c[1]);
-
-    return {
-      activityId: activity.id,
-      coordinates: coords,
-      bounds: {
-        north: Math.max(...lats),
-        south: Math.min(...lats),
-        east: Math.max(...lngs),
-        west: Math.min(...lngs)
-      }
-    };
-  } catch (error) {
-    console.error(`Failed to decode polyline for activity ${activity.id}:`, error);
-    return null;
-  }
-}
-```
-
-**Usage in compute-geo-stats:**
-```typescript
-// src/geo/compute-geo-stats.ts
-import { decodeActivityPolyline } from './polyline-decoder.js';
-import * as fs from 'fs/promises';
-import * as path from 'path';
-
-async function processRoutes(activities: StravaActivity[]) {
-  const routesDir = 'data/routes';
-  await fs.mkdir(routesDir, { recursive: true });
-
-  for (const activity of activities) {
-    const route = decodeActivityPolyline(activity);
-    if (route) {
-      const routePath = path.join(routesDir, `${activity.id}.json`);
-      await fs.writeFile(routePath, JSON.stringify(route, null, 2));
-    }
-  }
-
-  console.log(`Decoded ${activities.length} routes to ${routesDir}/`);
-}
-```
-
-**Widget fetches pre-decoded routes:**
-```typescript
-// No polyline library in widget bundle
-const response = await fetch(`/data/routes/${activityId}.json`);
-const route = await response.json();
-// route.coordinates is already [[lat, lng], ...]
-L.polyline(route.coordinates).addTo(map);
-```
-
-**Benefits:**
-- Zero polyline library overhead in widget bundles (~5 KB saved per widget)
-- Instant route rendering (no decoding latency)
-- Routes cached in GitHub Pages CDN
-
----
-
-### Pattern 3: GeoNames Geocoding (Build-time)
-
-**Goal:** Use offline-geocoder in compute-geo-stats script (Node.js only). Replace offline-geocode-city.
-
-**Implementation:**
-```typescript
-// src/geo/geocoder.ts
-import { geocode } from 'offline-geocoder';
-
-interface GeoLocation {
-  cityName: string;
-  countryName: string;
-  countryIso2: string;
-}
-
-export async function geocodeActivity(lat: number, lng: number): Promise<GeoLocation | null> {
-  try {
-    // offline-geocoder uses GeoNames cities1000 dataset (12 MB SQLite)
-    const result = await geocode({
-      latitude: lat,
-      longitude: lng
-    });
-
-    if (!result || !result.city || !result.country) {
-      return null; // Geocoding failed (e.g., ocean, remote area)
-    }
-
-    return {
-      cityName: result.city || result.name,
-      countryName: result.country,
-      countryIso2: result.countryCode
-    };
-  } catch (error) {
-    console.error('Geocoding failed:', error);
-    return null;
-  }
-}
-```
-
-**Usage in compute-geo-stats:**
-```typescript
-// First run downloads GeoNames cities1000 dataset (12 MB SQLite)
-// Subsequent runs use cached database
-
-for (const activity of activities) {
-  const [lat, lng] = activity.start_latlng;
-  const location = await geocodeActivity(lat, lng);
-
-  if (location) {
-    // Aggregate by city/country
-    cityMap.set(`${location.cityName},${location.countryIso2}`, {
-      ...location,
-      activityCount: (cityMap.get(key)?.activityCount || 0) + 1,
-      totalDistanceKm: (cityMap.get(key)?.totalDistanceKm || 0) + activity.distance / 1000
-    });
-  }
-}
-
-// Write to data/geo/cities.json
-await fs.writeFile('data/geo/cities.json', JSON.stringify([...cityMap.values()], null, 2));
-```
-
-**Widget fetches pre-geocoded data:**
-```typescript
-// No geocoding library in widget bundle
-const response = await fetch('/data/geo/cities.json');
-const cities = await response.json();
-// cities already have { cityName, countryName, activityCount, totalDistanceKm }
-```
-
-**Migration from offline-geocode-city:**
-1. Update `src/geo/geocoder.ts` to use offline-geocoder API
-2. Run `npm run compute-geo-stats` to re-geocode all activities
-3. Verify `data/geo/cities.json` has accurate city names (not suburbs)
-4. Remove offline-geocode-city from dependencies
-5. No widget changes needed (same JSON data format)
-
-**Accuracy comparison:**
-- offline-geocode-city: "Frederiksberg" (suburb) ❌
-- offline-geocoder: "Copenhagen" (city) ✅
-
----
-
-### Pattern 4: Heatmap Widget
-
-**Goal:** Visualize density of all run start points using leaflet.heat.
-
-**Implementation:**
-```typescript
-// src/widgets/heatmap-widget/index.ts
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import 'leaflet.heat';
-
-class HeatmapWidget extends WidgetBase {
-  private map: L.Map | null = null;
-
-  async connectedCallback() {
-    super.connectedCallback();
-
-    // Create map container
-    const mapContainer = document.createElement('div');
-    mapContainer.style.width = '100%';
-    mapContainer.style.height = '500px';
-    this.shadowRoot!.appendChild(mapContainer);
-
-    // Initialize map
-    this.map = L.map(mapContainer).setView([55.6761, 12.5683], 11);
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(this.map);
-
-    // Fetch all activities and extract start coordinates
-    const response = await fetch('/data/stats/all-activities.json');
-    const activities = await response.json();
-
-    const heatmapPoints = activities
-      .filter((a: any) => a.start_latlng)
-      .map((a: any) => {
-        const [lat, lng] = a.start_latlng;
-        return [lat, lng, 1]; // [lat, lng, intensity]
-      });
-
-    // Create heatmap layer
-    (L as any).heatLayer(heatmapPoints, {
-      radius: 25,
-      blur: 15,
-      maxZoom: 13,
-      gradient: {
-        0.0: '#313695',
-        0.25: '#4575b4',
-        0.5: '#fee090',
-        0.75: '#f46d43',
-        1.0: '#a50026'
-      }
-    }).addTo(this.map);
-  }
-}
-
-customElements.define('heatmap-widget', HeatmapWidget);
-```
-
-**Customization via attributes:**
-```html
-<heatmap-widget
-  data-radius="30"
-  data-blur="20"
-  data-center-lat="55.6761"
-  data-center-lng="12.5683"
-  data-zoom="11">
-</heatmap-widget>
-```
-
-**Performance:** leaflet.heat uses grid-based clustering. Handles 10,000+ points efficiently (1,808 activities is no problem).
-
----
-
-### Pattern 5: City Pin Map Widget
-
-**Goal:** Show markers for each city with aggregated run stats.
-
-**Implementation:**
-```typescript
-class CityPinMapWidget extends WidgetBase {
-  private map: L.Map | null = null;
-
-  async connectedCallback() {
-    super.connectedCallback();
-
-    // Create map
-    const mapContainer = document.createElement('div');
-    mapContainer.style.width = '100%';
-    mapContainer.style.height = '600px';
-    this.shadowRoot!.appendChild(mapContainer);
-
-    this.map = L.map(mapContainer).setView([20, 0], 2); // World view
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(this.map);
-
-    // Fetch city stats (pre-geocoded data)
-    const response = await fetch('/data/geo/cities.json');
-    const cities = await response.json();
-
-    // Add marker for each city
-    cities.forEach((city: any) => {
-      // Need to reverse-lookup city coordinates (city name → lat/lng)
-      // Two options:
-      // 1. Store lat/lng in cities.json during compute-geo-stats
-      // 2. Use offline-geocoder forward geocoding (city name → coords)
-
-      // Option 1 (recommended): Add representative lat/lng to cities.json
-      const marker = L.marker([city.lat, city.lng]).addTo(this.map!);
-
-      marker.bindPopup(`
-        <b>${city.cityName}, ${city.countryName}</b><br>
-        Runs: ${city.activityCount}<br>
-        Distance: ${city.totalDistanceKm.toFixed(1)} km
-      `);
-    });
-  }
-}
-```
-
-**Data structure update for cities.json:**
-```json
-[
-  {
-    "cityName": "Copenhagen",
-    "countryName": "Denmark",
-    "countryIso2": "DK",
-    "activityCount": 450,
-    "totalDistanceKm": 2340.5,
-    "lat": 55.6761,
-    "lng": 12.5683
-  }
-]
-```
-
-**Note:** Update compute-geo-stats to store representative lat/lng for each city (e.g., first activity's start_latlng in that city, or city center from GeoNames).
-
----
+|-------|-----|--------------|
+| A second FIT decoder (`fit-file-parser`, `fit-decoder`) | `@garmin/fitsdk` is already integrated, official, and verified against real archive files with all needed fields present | Extend the existing `readFit()` in `geometry-readers.ts` |
+| A GPX/XML parsing library | Regex extraction already proven for this exact export schema; no HR/cadence extensions exist in the archive to justify richer XML handling | Extend the existing `readGpx()` regex approach to capture `ele` and per-point `time` |
+| Any SPA framework (Preact/Svelte/Vue/React) for the initial dashboard shell | Contradicts the project's validated small-bundle, zero-framework stance; scope (4-5 views) doesn't need it | Native Custom Elements + hand-rolled hash router |
+| History-API (`pushState`) routing | GitHub Pages has no rewrite rules; hard refresh on a deep link 404s without extra `404.html` redirect tooling | Hash-based routing (`#/activities/:id`) |
+| A second charting library (uPlot, D3, ECharts) alongside Chart.js | Chart.js is already a ~180KB sunk cost in the bundle and covers this project's per-activity data scale (1,300-2,500 points/activity, well within documented decimation-plugin comfort zone) | Chart.js `Decimation` plugin (built-in) + a small server-side stream-downsample step in the Node pipeline |
+| A table/grid library (TanStack Table, AG Grid) | ~1,867 rows with pagination doesn't need virtualization or a headless table engine; existing hand-rolled `TableSorter`/`TablePaginator` already solves this class of problem | Extend `TableSorter`/`TablePaginator` from `geo-table-widget` |
+| A fuzzy-search library (Fuse.js) | Personal, small-vocabulary corpus; predictable substring matching is preferable UX for this use case anyway | `.toLowerCase().includes()` |
+| A date library (date-fns/luxon/dayjs) | Project already has a validated native-`Date`, UTC-everywhere pattern from v1.0 records/trends work | Native `Date` with UTC methods |
+
+## Stack Patterns by Variant
+
+**If reactive filter-state complexity grows beyond simple predicates during implementation:**
+- Introduce `preact` + `@preact/signals` incrementally, scoped to just the activity-list view (rendered inside its own Custom Element's shadow root)
+- Because it's the smallest possible step up in capability, keeps the rest of the app (detail view, records, trends) untouched, and doesn't force a wholesale framework migration
+
+**If the 2 outlier `.gpx.gz` files in `export_data/` need handling:**
+- Reuse the `gunzipSync` import already present in `geometry-readers.ts` (used for `.fit.gz`) as a pre-step before the GPX regex pass, replacing the current `throw new Error('gzipped gpx not implemented')` branch
+- Because it's a one-line addition to already-imported `node:zlib`, not a new dependency
 
 ## Version Compatibility
 
-| Package | Compatible With | Notes |
-|---------|-----------------|-------|
-| leaflet@1.9.4 | vite@7.x | Requires vite-plugin-css-injected-by-js for IIFE bundles. Works with Shadow DOM. |
-| leaflet@1.9.4 | leaflet.heat@0.2.0 | No compatibility issues. leaflet.heat is stable since 2014. |
-| leaflet@1.9.4 | TypeScript 5.9+ | Use @types/leaflet@^1.9.14 for type definitions. |
-| @mapbox/polyline@1.x | Node.js 22+ | ESM compatible. Works in both Node and browser (but use build-time only). |
-| offline-geocoder@1.0.2 | Node.js 22+ | Node.js only (SQLite dependency). Build-time geocoding. Not browser-compatible. |
-| vite-plugin-css-injected-by-js@3.5.1 | vite@7.x | Injects CSS into IIFE bundles. Required for Leaflet marker icons to work. |
+| Package A | Compatible With | Notes |
+|-----------|------------------|-------|
+| `@garmin/fitsdk@21.212.0` | Node.js 22 (installed runtime) | Verified working against real archive files (2017-2025 vintage devices) in this session; decodes gzipped buffers fine when pre-decompressed via `node:zlib.gunzipSync` (no native gzip support in the SDK itself — the existing code already handles this correctly) |
+| `chart.js@4.5.1` | Vite 7.3.1 tree-shaken build | Already proven — `Decimation` plugin ships in core since Chart.js v3, needs explicit `Chart.register(Decimation)` alongside the other tree-shaken components per the existing `chart-config.ts` pattern |
+| `vite.config.pages.ts` multi-page build | New dashboard entry point | Add a `dashboard.html` (or similarly named) entry to the existing `rollupOptions.input` map alongside `heatmap`, `pinmap`, `routes` — this is the exact mechanism already used for standalone full-page views; `emptyDir: false` must be preserved so widget bundles aren't wiped |
+| Custom Elements | GitHub Pages hash routing | No compatibility concern — both are pure client-side, no server dependency |
 
-**Future Consideration:**
-- Leaflet 2.0.0 alpha released (ESM-first, drops IE11, uses Pointer Events). Wait for stable release before upgrading.
-- Current 1.9.4 is production-ready, widely used, well-documented.
+## Integration Points (specific to this repo)
 
----
-
-## Bundle Size Impact
-
-| Component | Size (gzipped) | Notes |
-|-----------|----------------|-------|
-| Leaflet core | ~40 KB | Base map functionality |
-| leaflet.heat | ~2 KB | Heatmap layer plugin |
-| Leaflet CSS (injected) | ~8 KB | Includes marker icon assets |
-| Widget-specific code | ~5-10 KB | Route map, heatmap, pin map logic |
-| **Total per map widget** | **~55-60 KB** | Acceptable for GitHub Pages CDN |
-
-**Comparison:**
-- MapLibre GL: ~800 KB gzipped (13x larger)
-- Google Maps API: External script, ~500 KB + API key required
-
-**Multi-widget optimization:**
-If multiple map widgets on same page, Leaflet core can be shared. IIFE bundles will duplicate code by default. Consider UMD format + external Leaflet for advanced use cases (not recommended unless bundle size becomes critical).
-
-**Build-time dependencies (NOT in widget bundles):**
-- @mapbox/polyline: 0 KB (build-time only)
-- offline-geocoder: 0 KB (build-time only)
-
----
-
-## Stack Patterns by Feature
-
-### Feature: Interactive Route Map
-
-**Stack:**
-- Leaflet (base map + route polyline)
-- @mapbox/polyline (build-time decoding)
-- OpenStreetMap tiles
-
-**Data flow:**
-1. Build-time: Decode summary_polyline → save to data/routes/{id}.json
-2. Runtime: Widget fetches decoded route → L.polyline() → map.fitBounds()
-
-**Bundle size:** ~55 KB gzipped
-
----
-
-### Feature: Heatmap of Run Locations
-
-**Stack:**
-- Leaflet (base map)
-- leaflet.heat (heatmap layer)
-
-**Data flow:**
-1. Widget fetches all activities from data/stats/all-activities.json
-2. Extract start_latlng from each activity
-3. Render with L.heatLayer(points)
-
-**Bundle size:** ~57 KB gzipped (Leaflet + leaflet.heat)
-
----
-
-### Feature: Country/City Pin Maps
-
-**Stack:**
-- Leaflet (base map + markers)
-- offline-geocoder (build-time geocoding)
-
-**Data flow:**
-1. Build-time: Geocode activities → aggregate by city → save lat/lng to cities.json
-2. Runtime: Widget fetches cities.json → L.marker() for each city → bindPopup() with stats
-
-**Bundle size:** ~55 KB gzipped
-
----
-
-### Feature: Multi-City Tracking Table
-
-**Stack:**
-- offline-geocoder (build-time geocoding)
-- Existing geo-table-widget (no mapping library)
-
-**Data flow:**
-1. Build-time: Geocode activities, aggregate by city
-2. Runtime: Render table with city stats (no map visualization)
-
-**Bundle size:** Existing widget (no map dependencies)
-
----
-
-## Tile Provider Configuration
-
-| Provider | Cost | Tile URL | Notes |
-|----------|------|----------|-------|
-| OpenStreetMap | Free | `https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png` | Standard OSM tiles. Rate limits apply (tile usage policy). Attribution required. |
-| Mapbox Static API | Free tier: 50K loads/mo | `https://api.mapbox.com/styles/v1/{style}/tiles/{z}/{x}/{y}?access_token={token}` | Requires API token. No vector tile complexity (raster tiles only). Better styling than OSM. |
-| Stadia Maps | Free tier: 20K tiles/day | `https://tiles.stadiamaps.com/tiles/osm_bright/{z}/{x}/{y}{r}.png` | OSM-based tiles with better styling. Requires API key for production. |
-
-**Recommendation:** Start with OpenStreetMap (zero config). Switch to Mapbox Static API if OSM rate limits become an issue or better styling is needed.
-
-**Offline tiles:** For offline support, pre-download tiles using tools like `mbtiles-server`. Not needed for GitHub Pages (online deployment).
-
----
-
-## Anti-Patterns to Avoid
-
-### ❌ Using Leaflet default CSS import without fixing marker icons
-**Why avoid:** Vite/Webpack hash asset paths, breaking CSS url() references. Markers won't display.
-**Do instead:** Import marker icon PNGs directly, use L.Icon.Default.mergeOptions() to set paths.
-
-### ❌ Runtime polyline decoding in widgets
-**Why avoid:** Adds ~5 KB to bundle. Decoding 1,808 routes at runtime is slow (100ms+ on mobile).
-**Do instead:** Pre-decode during build, store in JSON, widgets fetch pre-decoded routes.
-
-### ❌ Runtime geocoding in widgets
-**Why avoid:** offline-geocoder has 12 MB SQLite dependency (Node.js only). Cannot run in browser.
-**Do instead:** Pre-geocode during build (compute-geo-stats), widgets fetch cached results.
-
-### ❌ Using MapLibre GL for simple polyline routes
-**Why avoid:** 800 KB bundle for features you don't need (vector tiles, 3D, advanced styling).
-**Do instead:** Use Leaflet (40 KB) for DOM-based rendering. MapLibre only if you need WebGL features.
-
-### ❌ Externalizing Leaflet in IIFE bundles without global variable
-**Why avoid:** IIFE format requires global variables for externals. Complicates embedding.
-**Do instead:** Bundle Leaflet in IIFE (40 KB is acceptable). Simpler deployment.
-
-### ❌ Calling Nominatim API from widgets
-**Why avoid:** 1 req/sec rate limit. Single point of failure. Requires internet. Adds latency.
-**Do instead:** Pre-geocode in CI, cache results, widgets fetch static JSON.
-
----
-
-## Dependency Summary
-
-### NEW Production Dependencies
-```json
-{
-  "dependencies": {
-    "leaflet": "^1.9.4",
-    "leaflet.heat": "^0.2.0",
-    "offline-geocoder": "^1.0.2",
-    "@mapbox/polyline": "^1.2.1"
-  }
-}
-```
-
-### NEW Dev Dependencies
-```json
-{
-  "devDependencies": {
-    "@types/leaflet": "^1.9.14",
-    "vite-plugin-css-injected-by-js": "^3.5.1"
-  }
-}
-```
-
-### REMOVE (Replaced)
-```json
-{
-  "dependencies": {
-    "offline-geocode-city": "^1.0.2" // REMOVE after migration
-  }
-}
-```
-
-### NO CHANGES
-- chart.js ^4.5.1 (existing widgets)
-- bottleneck ^2.19.5 (existing)
-- p-retry ^7.1.1 (existing)
-- vite ^7.3.1 (existing)
-- vitest ^4.0.18 (existing)
-
-**Total NEW bundle size per map widget:** ~55-60 KB gzipped (Leaflet + leaflet.heat + widget code)
-
----
+1. **`src/exports/geometry-readers.ts`** — extend `readFit()` to read `heartRate`, `cadence`, `distance`, `enhancedSpeed`/`speed`, `altitude`/`enhancedAltitude` off each `recordMesg` (fields confirmed present via live decode); extend `readGpx()` to capture `ele` and per-point `time` in a single regex pass over each `<trkpt>...</trkpt>` block.
+2. **`src/types/garmin-fitsdk.d.ts`** — currently a minimal 24-line ambient declaration with a `[key: string]: unknown` catch-all on `recordMesgs`. Functionally sufficient (fields are already accessible, just typed `unknown`), but worth widening with explicit optional fields (`heartRate?: number`, `cadence?: number`, `distance?: number`, `enhancedSpeed?: number`, `enhancedAltitude?: number`) for type safety in the new stream-extraction code.
+3. **`data/provenance.json`** — already maps canonical activity IDs to their original `export_data/` FIT/GPX file, exactly the linkage the stream-ingestion pipeline needs; no schema change required, just a new consumer.
+4. **`vite.config.pages.ts`** — add the dashboard SPA as a new entry in the existing multi-page `rollupOptions.input`, following the same pattern as `heatmap.html`/`pinmap.html`/`routes.html`.
+5. **`src/widgets/geo-table-widget/table-sorter.ts` and `table-paginator.ts`** — either import directly (if made shareable) or duplicate-and-adapt for the activity list; both are already generic (`<T>`) and dependency-free.
+6. **Chart.js registration** — follow the existing tree-shaken pattern from `src/widget/chart-config.ts` / `src/widgets/comparison-chart/chart-config.ts` (`Chart.register(...)` with only the components actually used) rather than importing `chart.js/auto`.
 
 ## Sources
 
-**Mapping Libraries:**
-- [Leaflet vs Mapbox comparison (Medium)](https://medium.com/visarsoft-blog/leaflet-or-mapbox-choosing-the-right-tool-for-interactive-maps-53dea7cc3c40) — MEDIUM confidence
-- [MapLibre GL vs Leaflet (Jawg Blog)](https://blog.jawg.io/maplibre-gl-vs-leaflet-choosing-the-right-tool-for-your-interactive-map/) — HIGH confidence
-- [Map libraries popularity (Geoapify)](https://www.geoapify.com/map-libraries-comparison-leaflet-vs-maplibre-gl-vs-openlayers-trends-and-statistics/) — MEDIUM confidence
-- [Bundle size comparison (GitHub)](https://github.com/maplibre/maplibre-gl-js/issues/59) — HIGH confidence
-- [Leaflet npm page](https://www.npmjs.com/package/leaflet) — HIGH confidence (version 1.9.4)
-
-**Geocoding:**
-- [offline-geocoder npm](https://www.npmjs.com/package/offline-geocoder) — HIGH confidence
-- [offline-geocoder GitHub](https://github.com/lucaspiller/offline-geocoder) — HIGH confidence
-- [local-reverse-geocoder comparison](https://github.com/tomayac/local-reverse-geocoder) — MEDIUM confidence
-
-**Polyline:**
-- [@mapbox/polyline vs @googlemaps/polyline-codec (npm trends)](https://npmtrends.com/@googlemaps/polyline-codec-vs-@mapbox/polyline) — HIGH confidence
-- [@mapbox/polyline GitHub](https://github.com/mapbox/polyline) — HIGH confidence
-- [Strava polyline precision (GitHub)](https://github.com/grafana/strava-datasource/blob/master/src/polyline.ts) — MEDIUM confidence
-
-**Heatmaps:**
-- [Leaflet.heat GitHub](https://github.com/Leaflet/Leaflet.heat) — HIGH confidence
-- [Leaflet.heat demo](https://leaflet.github.io/Leaflet.heat/demo/) — HIGH confidence
-- [Leaflet.heat npm](https://www.npmjs.com/package/leaflet.heat) — HIGH confidence (version 0.2.0)
-
-**Integration:**
-- [Leaflet Shadow DOM issue #3246](https://github.com/Leaflet/Leaflet/issues/3246) — HIGH confidence
-- [Leaflet marker icon bundling issue #7424](https://github.com/Leaflet/Leaflet/issues/7424) — HIGH confidence
-- [Vite IIFE + Leaflet CSS (MapTiler)](https://docs.maptiler.com/leaflet/examples/vite-vanilla-js-default/) — HIGH confidence
-- [Vite CSS injection plugin](https://www.npmjs.com/package/vite-plugin-css-injected-by-js) — HIGH confidence
-
-**MapLibre GL (Alternative):**
-- [MapLibre GL official site](https://maplibre.org/) — HIGH confidence
-- [MapLibre vs Mapbox (MapTiler)](https://www.maptiler.com/news/2021/01/maplibre-mapbox-gl-open-source-fork/) — MEDIUM confidence
+- Live repo inspection: `package.json`, `vite.config.ts`, `vite.config.pages.ts`, `scripts/build-widgets.mjs`, `src/exports/geometry-readers.ts`, `src/types/garmin-fitsdk.d.ts`, `src/widgets/geo-table-widget/*.ts` — HIGH confidence, verified directly.
+- Live decode of real archive files (`export_data/strava/activities/*.fit.gz`, `*.gpx`) using the already-installed `@garmin/fitsdk` — HIGH confidence, empirically verified in this session (field presence, decode performance, GPX extension absence).
+- npm registry (`npm view <pkg> version`), checked live: `@garmin/fitsdk@21.212.0` (installed = latest), `chart.js@4.5.1` (installed = latest), `preact@10.29.8`, `preact-router@4.1.2`, `uplot@1.6.32`, `fuse.js@7.5.0`, `navigo@8.11.1` — HIGH confidence, current as of 2026-08-10.
+- Chart.js official docs (decimation plugin, min-max/LTTB algorithms, built-in since v3, ~100ms render for 5-10k points post-decimation) via WebSearch — MEDIUM confidence, corroborated by the plugin file (`node_modules/chart.js/dist/plugins/plugin.decimation.d.ts`) actually present in the installed package. [Data Decimation | Chart.js](https://www.chartjs.org/docs/latest/configuration/decimation.html), [Performance | Chart.js](https://www.chartjs.org/docs/latest/general/performance.html)
+- `.planning/PROJECT.md` — Key Decisions table confirming "Native Custom Elements API — Zero dependencies... ✓ Good" and "Vite multi-page build for standalone... ✓ Good" as already-validated project values this research extends rather than contradicts.
 
 ---
-
-**Research completed:** 2026-02-16
-**Confidence:** MEDIUM-HIGH (Web Search sources authoritative; exact npm versions not verified via Context7 due to access limitations)
-**Next step:** Create FEATURES.md, ARCHITECTURE.md, PITFALLS.md, SUMMARY.md for mapping milestone
+*Stack research for: training-analytics dashboard SPA (v2.0 milestone), strava-widgets repo*
+*Researched: 2026-08-10*
