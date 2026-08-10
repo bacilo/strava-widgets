@@ -99,11 +99,24 @@ Plans:
   2. Best-effort results are written to a durable, gitignored records data file consumable by later phases.
   3. Computed best efforts validate against known reference activities without producing implausible results.
 
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
+**Wave 1**
 
-- [ ] 15-01: TBD
+- [ ] 15-01-PLAN.md — Lock the best-effort contracts and build the pure sweep, guards and PR marking
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 15-02-PLAN.md — Manifest-driven orchestration writing the gitignored best-efforts.json
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 15-03-PLAN.md — CLI, compute-all-stats chain and CI wiring, plus the real archive run
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 15-04-PLAN.md — External-reference fixture validation against Strava/Garmin reported times
 
 ### Phase 16: Dashboard Shell & Data Contract
 
@@ -184,10 +197,10 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 | 12. Heatmap & Pin Map Widgets | v1.2 | 2/2 | Complete | 2026-02-17 |
 | 13. Standalone Pages | v1.2 | 2/2 | Complete | 2026-02-18 |
 | 14. Stream Ingestion Foundation | v2.0 | 5/5 | Complete    | 2026-08-10 |
-| 15. Best-Effort Engine | v2.0 | 0/TBD | Not started | - |
+| 15. Best-Effort Engine | v2.0 | 0/4 | Planned      | - |
 | 16. Dashboard Shell & Data Contract | v2.0 | 0/TBD | Not started | - |
 | 17. Activity Browser & Detail Views | v2.0 | 0/TBD | Not started | - |
 | 18. Records, Trends & Differentiators | v2.0 | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-08-10 — Phase 14 planned (5 plans, 4 waves)*
+*Last updated: 2026-08-10 — Phase 15 planned (4 plans, 4 waves)*
