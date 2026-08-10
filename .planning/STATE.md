@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Training Dashboard
 status: planning
-last_updated: "2026-08-10T11:05:44.164Z"
+last_updated: "2026-08-10T13:35:00.000Z"
 last_activity: 2026-08-10
 progress:
-  total_phases: 0
+  total_phases: 5
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,17 +17,19 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-18)
+See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Planning next milestone
+**Current focus:** v2.0 Training Dashboard — Phase 14 (Stream Ingestion Foundation)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-08-10 — Milestone v2.0 started
+Phase: 14 of 18 (Stream Ingestion Foundation)
+Plan: — (roadmap approved, not yet planned)
+Status: Ready to plan
+Last activity: 2026-08-10 — v2.0 roadmap created (Phases 14-18, 29/29 requirements mapped)
+
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
@@ -46,6 +48,12 @@ Last activity: 2026-08-10 — Milestone v2.0 started
 
 All decisions logged in PROJECT.md Key Decisions table.
 
+Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.md):
+- Stream ingestion (Phase 14) is the foundational blocker — must land first, storage/algorithm decisions (decimation, native-distance, timestamp-indexing) locked before any file is committed.
+- Best-effort computation (Phase 15) is isolated as pure backend work, testable before it feeds any UI.
+- Records/trends "view" requirements (weekly/monthly totals, TRIMP, YoY) do not depend on streams and are grouped into presentation (Phase 18) rather than gated behind stream work.
+- Commit derived/decimated stream JSON to data/streams/, never raw full-resolution — repo already has a bloat precedent from data/heatmap/all-points.json.
+
 ### Key Findings
 
 Carried forward for future milestones:
@@ -53,6 +61,7 @@ Carried forward for future milestones:
 - ~~GeoNames database lives in node_modules~~ RESOLVED 2026-08: committed to data/geo/geonames.db (13.5 MB)
 - Multi-city route prevalence: 86% of activities pass through multiple cities
 - Pre-decoded heatmap points file is 12.7 MB — acceptable for CDN but worth monitoring
+- Cadence unit semantics on intervals.icu's streams endpoint not yet empirically verified — flagged for Phase 14 planning (probe-intervals-style check before trusting the field).
 
 ### Aug 2026 maintenance arc (outside GSD, commits 5e36da9..3787c20)
 
@@ -77,9 +86,9 @@ None active — SQLITE_CANTOPEN CI failure resolved by quick-1-01 (lazy geocoder
 
 ## Session Continuity
 
-Last session: 2026-02-18
-Stopped at: Completed quick-1-01 (fix Daily Widget Refresh CI failure)
+Last session: 2026-08-10
+Stopped at: v2.0 roadmap created (Phases 14-18), ready for `/gsd:plan-phase 14`
 Resume file: None
 
 ---
-*Last updated: 2026-08-10 after Strava→intervals.icu migration + export consolidation*
+*Last updated: 2026-08-10 after v2.0 roadmap creation*

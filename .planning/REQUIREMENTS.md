@@ -90,13 +90,41 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (populated by roadmap) | | |
+| STREAM-01 | Phase 14 | Pending |
+| STREAM-02 | Phase 14 | Pending |
+| STREAM-03 | Phase 14 | Pending |
+| REC-01 | Phase 15 | Pending |
+| DASH-01 | Phase 16 | Pending |
+| DASH-02 | Phase 16 | Pending |
+| DASH-03 | Phase 16 | Pending |
+| BROWSE-01 | Phase 17 | Pending |
+| BROWSE-02 | Phase 17 | Pending |
+| BROWSE-03 | Phase 17 | Pending |
+| BROWSE-04 | Phase 17 | Pending |
+| BROWSE-05 | Phase 17 | Pending |
+| BROWSE-06 | Phase 17 | Pending |
+| DETAIL-01 | Phase 17 | Pending |
+| DETAIL-02 | Phase 17 | Pending |
+| DETAIL-03 | Phase 17 | Pending |
+| DETAIL-04 | Phase 17 | Pending |
+| DETAIL-05 | Phase 17 | Pending |
+| REC-02 | Phase 18 | Pending |
+| REC-03 | Phase 18 | Pending |
+| REC-04 | Phase 18 | Pending |
+| REC-05 | Phase 18 | Pending |
+| REC-06 | Phase 18 | Pending |
+| REC-07 | Phase 18 | Pending |
+| TREND-01 | Phase 18 | Pending |
+| TREND-02 | Phase 18 | Pending |
+| TREND-03 | Phase 18 | Pending |
+| TREND-04 | Phase 18 | Pending |
+| TREND-05 | Phase 18 | Pending |
 
 **Coverage:**
 - v2.0 requirements: 29 total
-- Mapped to phases: 0
-- Unmapped: 29 ⚠️ (roadmap pending)
+- Mapped to phases: 29
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-08-10*
-*Last updated: 2026-08-10 after initial definition*
+*Last updated: 2026-08-10 after v2.0 roadmap creation (Phases 14-18, 29/29 mapped)*
