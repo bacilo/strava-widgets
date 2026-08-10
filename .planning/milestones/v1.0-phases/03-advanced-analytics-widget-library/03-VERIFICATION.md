@@ -1,19 +1,26 @@
 ---
 phase: 03-advanced-analytics-widget-library
 verified: 2026-02-14T12:30:00Z
-status: human_needed
+status: passed
 score: 22/22 must-haves verified
-re_verification: false
+re_verification: true
+re_verified: 2026-08-10
 human_verification:
   - test: "Open test-widgets.html in browser and verify all 4 widgets render correctly"
     expected: "All widgets display with proper styling, Shadow DOM isolation working, Jekyll/Astro contexts render correctly"
-    why_human: "Visual rendering, Shadow DOM isolation, and framework-agnostic embedding require visual inspection"
+    result: passed
+    resolved: 2026-08-10
+    evidence: "Deployed test.html loaded via browser automation 2026-08-10: stats card (22,402 km / 1,867 runs live data), comparison chart, streak widget (current streak from same-day run), geo widgets all render. NOTE: session also found+fixed a project-wide attribute mismatch (data-secondary-url vs data-url-secondary) that had silently disabled all secondary-data features since v1.1 (bac19ab)"
   - test: "Verify widget charts are interactive (hover, tooltips)"
     expected: "Chart.js tooltips appear on hover, showing detailed run data"
-    why_human: "Interactive behavior cannot be verified programmatically without browser automation"
+    result: passed
+    resolved: 2026-08-10
+    evidence: "Hover on comparison chart bar shows 'Mar - 2025: 360.5 km' tooltip"
   - test: "Verify host page styles do not leak into widgets"
     expected: "Widget text remains sans-serif despite host page using Georgia serif font"
-    why_human: "Visual styling isolation requires human eye verification"
+    result: passed
+    resolved: 2026-08-10
+    evidence: "Computed-style measurement with Georgia forced on host body: all widget shadow content stays -apple-system sans-serif"
 ---
 
 # Phase 03: Advanced Analytics & Widget Library Verification Report
@@ -22,7 +29,7 @@ human_verification:
 
 **Verified:** 2026-02-14T12:30:00Z
 
-**Status:** human_needed
+**Status:** passed — human items closed 2026-08-10 via in-browser verification; a real defect (documented attribute names ignored) was found by this UAT and fixed in bac19ab
 
 **Re-verification:** No — initial verification
 

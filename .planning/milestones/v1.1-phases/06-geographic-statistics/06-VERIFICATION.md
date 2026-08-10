@@ -1,22 +1,31 @@
 ---
 phase: 06-geographic-statistics
 verified: 2026-02-15T07:45:00Z
-status: human_needed
+status: passed
 score: 4/4
-re_verification: false
+re_verification: true
+re_verified: 2026-08-10
 human_verification:
   - test: "Visual verification of widget rendering and data accuracy"
     expected: "Country and city tables display with correct distance and run count data, ranked by distance"
-    why_human: "Table rendering, data accuracy, and visual appearance require human verification"
+    result: passed
+    resolved: 2026-08-10
+    evidence: "Rendered live 2026-08-10: 24 countries (Denmark 16,783 km / 1,374 runs first), 88 cities (Frederiksberg 10,591.2 km / 873 runs first), both ranked by distance, matching data/geo exports exactly"
   - test: "CSV export functionality"
     expected: "Both country and city CSV exports download with UTF-8 BOM, correct data, and proper formatting for Excel"
-    why_human: "File download behavior and Excel compatibility require human testing"
+    result: passed
+    resolved: 2026-08-10
+    evidence: "Cities CSV downloaded via Export button and inspected at byte level: UTF-8 BOM (ef bb bf) present, 88 data rows, quoted fields, Vanlose/Tarnby/Sacavem/Ostermalm/Parque das Nacoes characters intact. NOTE: export was EMPTY before this session - the widget ignored the documented data-secondary-url attribute; fixed in bac19ab"
   - test: "Coverage metadata display"
     expected: "Metadata shows 'Based on X of Y activities (Z% with GPS data)' with correct numbers"
-    why_human: "Visual appearance and data accuracy require human verification"
+    result: passed
+    resolved: 2026-08-10
+    evidence: "Renders 'Based on 1,714 of 1,867 activities (92% with GPS data) - 20,756 km total', matching geo-metadata.json exactly. Had NEVER rendered before bac19ab (data-metadata-url attribute was ignored)"
   - test: "Shadow DOM isolation"
     expected: "Widget uses sans-serif font despite host page using Georgia serif, styling is self-contained"
-    why_human: "CSS isolation and visual styling require human verification"
+    result: passed
+    resolved: 2026-08-10
+    evidence: "Computed-style measurement: geo widgets stay -apple-system sans-serif with Georgia forced on host body"
 ---
 
 # Phase 06: Geographic Statistics Verification Report
@@ -25,7 +34,7 @@ human_verification:
 
 **Verified:** 2026-02-15T07:45:00Z
 
-**Status:** human_needed (all automated checks passed, awaiting human verification)
+**Status:** passed — human items closed 2026-08-10 via in-browser verification; this UAT caught a real defect (cities/metadata attributes silently ignored), fixed in bac19ab (all automated checks passed, awaiting human verification)
 
 **Re-verification:** No - initial verification
 
