@@ -163,6 +163,7 @@ async function buildPages() {
           heatmap: resolve(__dirname, '../src/pages/heatmap.html'),
           pinmap: resolve(__dirname, '../src/pages/pinmap.html'),
           routes: resolve(__dirname, '../src/pages/routes.html'),
+          widgets: resolve(__dirname, '../src/pages/widgets.html'),
         },
       },
       target: 'es2020',
@@ -170,7 +171,32 @@ async function buildPages() {
     },
     logLevel: 'warn',
   });
-  console.log('✓ Built standalone pages (heatmap.html, pinmap.html, routes.html)');
+  console.log('✓ Built standalone pages (heatmap.html, pinmap.html, routes.html, widgets.html)');
+}
+
+async function buildDashboard() {
+  console.log('\nBuilding dashboard SPA...');
+  await build({
+    root: 'src/dashboard',
+    build: {
+      outDir: '../../dist/widgets',
+      // CRITICAL: same reason as buildPages() — by this point dist/widgets/
+      // holds 11 IIFE bundles, four page HTML files, and the copied data
+      // tree. Emptying it would destroy all of them.
+      emptyDir: false,
+      rollupOptions: {
+        input: {
+          // The `index` key is what makes the output land at
+          // dist/widgets/index.html, taking over the site root (D-08).
+          index: resolve(__dirname, '../src/dashboard/index.html'),
+        },
+      },
+      target: 'es2020',
+      minify: 'terser',
+    },
+    logLevel: 'warn',
+  });
+  console.log('✓ Built dashboard SPA (index.html)');
 }
 
 async function buildAllWidgets() {
@@ -186,8 +212,12 @@ async function buildAllWidgets() {
   // Build standalone pages
   await buildPages();
 
+  // Build the dashboard SPA last so it definitively replaces any
+  // pre-Phase-16 committed dist/widgets/index.html at the site root.
+  await buildDashboard();
+
   console.log('\nWidget library build complete!');
-  console.log('Output: dist/widgets/');
+  console.log('Output: dist/widgets/ (widgets, pages, and the dashboard SPA)');
 }
 
 buildAllWidgets().catch(error => {
