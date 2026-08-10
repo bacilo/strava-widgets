@@ -4,7 +4,8 @@ import path from 'node:path';
 import { readOriginal } from '../exports/geometry-readers.js';
 import { config } from '../config/strava.config.js';
 import { FileStore } from '../storage/file-store.js';
-import { deriveFromSamples } from './derive-stream.js';
+import { IntervalsClient } from '../api/intervals-client.js';
+import { deriveFromSamples, deriveFromIntervalsStreams } from './derive-stream.js';
 import { loadManifest, saveManifest, upsertAvailable, upsertUnavailable } from './stream-manifest.js';
 import type { StreamSource, StreamUnavailableReason } from './stream.types.js';
 
@@ -101,6 +102,75 @@ export function buildBackfillTargets(
   return { withOriginal, withoutOriginal: Array.from(withoutOriginalSet) };
 }
 
+/**
+ * Select the third reconciliation branch: archive activities synced from
+ * intervals.icu (RESEARCH.md Pitfall 3) that have no committed stream file
+ * yet, after the FIT/GPX and unavailable-flag passes ran.
+ *
+ * Keying on `source_provider === 'intervals'` rather than provenance
+ * membership is what makes this robust — it catches activities with no
+ * provenance entry at all, activities listed in
+ * `archive_without_original`, and any FIT/GPX decode failure, without three
+ * separate special cases. Pure — no filesystem or network access — so it is
+ * unit-testable in isolation.
+ */
+export function selectReconciliationTargets(
+  archive: Map<string, { source_provider?: string }>,
+  streamIds: Set<string>
+): string[] {
+  const targets: string[] = [];
+  for (const [id, record] of archive) {
+    if (record.source_provider === 'intervals' && !streamIds.has(id)) {
+      targets.push(id);
+    }
+  }
+  return targets;
+}
+
+/**
+ * Format a human-inspectable size report for the committed `data/streams/`
+ * tree. Pure — takes a pre-computed file list rather than reading the
+ * filesystem itself — so it is unit-testable without a real archive.
+ *
+ * CONTEXT.md D-02: the backfill enforces a size gate WITH a report, never
+ * auto-tightening decimation or dropping files to fit — the developer
+ * inspects this report and decides. This module never invokes git.
+ */
+export function formatSizeReport(
+  files: Array<{ name: string; bytes: number }>,
+  budgetMb = 50
+): string {
+  const lines: string[] = [];
+  const totalBytes = files.reduce((sum, f) => sum + f.bytes, 0);
+  const totalMb = totalBytes / (1024 * 1024);
+
+  lines.push('Size report: data/streams/');
+  lines.push(`  file count: ${files.length}`);
+  lines.push(`  total size: ${totalMb.toFixed(2)} MB`);
+
+  const largest = [...files].sort((a, b) => b.bytes - a.bytes).slice(0, 10);
+  if (largest.length > 0) {
+    lines.push('  ten largest files:');
+    for (const f of largest) {
+      lines.push(`    ${(f.bytes / 1024).toFixed(1)} KB  ${f.name}`);
+    }
+  }
+
+  const meanKb = files.length > 0 ? totalBytes / files.length / 1024 : 0;
+  lines.push(`  mean file size: ${meanKb.toFixed(2)} KB`);
+  lines.push(
+    `  git object estimate: ~${totalMb.toFixed(2)} MB raw (JSON compresses well in a packfile, so this is a ceiling, not a prediction)`
+  );
+
+  if (totalMb > budgetMb) {
+    lines.push(
+      `WARNING: total size ${totalMb.toFixed(2)} MB exceeds the ${budgetMb} MB budget by ${(totalMb - budgetMb).toFixed(2)} MB`
+    );
+  }
+
+  return lines.join('\n');
+}
+
 export async function backfillStreams(): Promise<void> {
   if (!fs.existsSync(PROVENANCE_PATH)) {
     console.log(
@@ -134,6 +204,7 @@ export async function backfillStreams(): Promise<void> {
   let written = 0;
   let flagged = 0;
   const flaggedByReason: Record<string, number> = {};
+  const writtenIds = new Set<string>();
   const total = withOriginal.length + withoutOriginal.length;
   let processed = 0;
 
@@ -160,6 +231,7 @@ export async function backfillStreams(): Promise<void> {
           channels: stream.channels,
         });
         written++;
+        writtenIds.add(id);
       } else {
         upsertUnavailable(manifest, id, 'no-samples');
         flaggedByReason['no-samples'] = (flaggedByReason['no-samples'] ?? 0) + 1;
@@ -184,11 +256,78 @@ export async function backfillStreams(): Promise<void> {
     reportProgress();
   }
 
+  // Third branch: activities already archived from intervals.icu with no
+  // export original and still no committed stream file (RESEARCH.md
+  // Pitfall 3) — neither STREAM-01-eligible nor STREAM-02-eligible, so they
+  // would silently have no streams forever without this pass.
+  const streamIdsAfterLocalPasses = new Set([...existingStreamIds, ...writtenIds]);
+  const reconciliationTargets = selectReconciliationTargets(archiveById, streamIdsAfterLocalPasses);
+
+  if (reconciliationTargets.length > 0) {
+    const apiKey = process.env.INTERVALS_API_KEY || '';
+    if (!apiKey) {
+      console.log(
+        `  ${reconciliationTargets.length} activities need live intervals.icu reconciliation but INTERVALS_API_KEY is not set; leaving them flagged`
+      );
+    } else {
+      const client = new IntervalsClient({
+        apiKey,
+        athleteId: process.env.INTERVALS_ATHLETE_ID || '0',
+      });
+
+      console.log(
+        `\nReconciling ${reconciliationTargets.length} intervals-sourced activities with no local original...`
+      );
+
+      for (const id of reconciliationTargets) {
+        const previousEntry = manifest.activities[id];
+        try {
+          const payload = await client.getAllStreams(id);
+          const stream = deriveFromIntervalsStreams(id, payload);
+          if (stream) {
+            await fileStore.writeJson(`${config.streamsDir}/${id}.json`, stream);
+            upsertAvailable(manifest, id, {
+              source: stream.source,
+              distanceSource: stream.distanceSource,
+              sampleCount: stream.sampleCount,
+              channels: stream.channels,
+            });
+            written++;
+            if (previousEntry && previousEntry.available === false) {
+              flagged--;
+              flaggedByReason[previousEntry.reason] = Math.max(
+                0,
+                (flaggedByReason[previousEntry.reason] ?? 0) - 1
+              );
+            }
+            console.log(`  ${id}: reconciled via live intervals.icu API`);
+          } else {
+            upsertUnavailable(manifest, id, 'no-samples');
+            if (!previousEntry || previousEntry.available !== false || previousEntry.reason !== 'no-samples') {
+              flaggedByReason['no-samples'] = (flaggedByReason['no-samples'] ?? 0) + 1;
+              if (!previousEntry) flagged++;
+            }
+            console.warn(`  ${id}: live intervals.icu fetch returned no usable samples; flagged no-samples`);
+          }
+        } catch (error: any) {
+          // RESEARCH.md Assumption A2: intervals.icu retains roughly a year,
+          // so an activity older than the window 404s here and correctly
+          // settles as no-original rather than aborting the reconciliation pass.
+          upsertUnavailable(manifest, id, 'no-original');
+          if (!previousEntry || previousEntry.available !== false || previousEntry.reason !== 'no-original') {
+            flaggedByReason['no-original'] = (flaggedByReason['no-original'] ?? 0) + 1;
+            if (!previousEntry) flagged++;
+          }
+          console.warn(`  ${id}: live intervals.icu reconciliation failed (${error.message}); flagged no-original`);
+        }
+      }
+    }
+  }
+
   await saveManifest(fileStore, config.streamsManifestPath, manifest);
 
-  const streamFilesNow = (await fileStore.listFiles(config.streamsDir, '.json')).filter(
-    name => name !== 'manifest.json'
-  ).length;
+  const allStreamFileNames = await fileStore.listFiles(config.streamsDir, '.json');
+  const streamFilesNow = allStreamFileNames.filter(name => name !== 'manifest.json').length;
 
   console.log(`\nBackfill complete.`);
   console.log(`  archive total: ${provenance.archive_total}`);
@@ -199,4 +338,16 @@ export async function backfillStreams(): Promise<void> {
     console.log(`    ${reason}: ${count}`);
   }
   console.log(`  files now under ${config.streamsDir}/: ${streamFilesNow}`);
+
+  // D-02 size gate: report every committed *.json under data/streams/
+  // (including the manifest itself) so the developer can inspect the total
+  // before deciding to commit. This command never runs git.
+  const sizeFiles = allStreamFileNames.map(name => ({
+    name,
+    bytes: fs.statSync(path.join(config.streamsDir, name)).size,
+  }));
+  console.log(`\n${formatSizeReport(sizeFiles)}`);
+  console.log(
+    '\nThis command wrote no git objects. Review the report above, then commit data/streams/ manually if it looks right.'
+  );
 }

@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildBackfillTargets, classifyUnavailable } from './backfill-streams.js';
+import {
+  buildBackfillTargets,
+  classifyUnavailable,
+  formatSizeReport,
+  selectReconciliationTargets,
+} from './backfill-streams.js';
 
 describe('classifyUnavailable', () => {
   it('maps a manual entry (23 real archive entries share this shape) to "manual"', () => {
@@ -112,5 +117,58 @@ describe('buildBackfillTargets', () => {
     };
     const { withoutOriginal } = buildBackfillTargets(provenance, new Set());
     expect(withoutOriginal).toEqual(['7']);
+  });
+});
+
+describe('selectReconciliationTargets', () => {
+  it('selects an intervals-sourced id with no stream file', () => {
+    const archive = new Map([['i1', { source_provider: 'intervals' }]]);
+    expect(selectReconciliationTargets(archive, new Set())).toEqual(['i1']);
+  });
+
+  it('excludes an intervals-sourced id that already has a stream file', () => {
+    const archive = new Map([['i1', { source_provider: 'intervals' }]]);
+    expect(selectReconciliationTargets(archive, new Set(['i1']))).toEqual([]);
+  });
+
+  it('excludes a strava-sourced id with no stream file (handled by the FIT/GPX branch instead)', () => {
+    const archive = new Map([['9', { source_provider: 'strava-export' }]]);
+    expect(selectReconciliationTargets(archive, new Set())).toEqual([]);
+  });
+
+  it('returns an empty list for an empty archive', () => {
+    expect(selectReconciliationTargets(new Map(), new Set())).toEqual([]);
+  });
+});
+
+describe('formatSizeReport', () => {
+  it('includes no WARNING: line when the total is under budget', () => {
+    const report = formatSizeReport([{ name: 'a.json', bytes: 1024 }]);
+    expect(report).not.toContain('WARNING:');
+  });
+
+  it('includes a WARNING: line when the total exceeds budget', () => {
+    const report = formatSizeReport([{ name: 'a.json', bytes: 60 * 1024 * 1024 }]);
+    expect(report).toContain('WARNING:');
+  });
+
+  it('lists the ten largest files largest-first', () => {
+    const files = [
+      { name: 'small.json', bytes: 100 },
+      { name: 'big.json', bytes: 10000 },
+      { name: 'medium.json', bytes: 5000 },
+    ];
+    const report = formatSizeReport(files);
+    const bigIndex = report.indexOf('big.json');
+    const mediumIndex = report.indexOf('medium.json');
+    const smallIndex = report.indexOf('small.json');
+    expect(bigIndex).toBeGreaterThan(-1);
+    expect(bigIndex).toBeLessThan(mediumIndex);
+    expect(mediumIndex).toBeLessThan(smallIndex);
+  });
+
+  it('produces a report for an empty file list without throwing', () => {
+    expect(() => formatSizeReport([])).not.toThrow();
+    expect(typeof formatSizeReport([])).toBe('string');
   });
 });
