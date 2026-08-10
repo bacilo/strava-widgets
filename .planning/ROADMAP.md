@@ -50,7 +50,7 @@
 - Decimal phases (14.1, 14.2): Urgent insertions (marked with INSERTED)
 
 - [x] **Phase 14: Stream Ingestion Foundation** - Backfill and daily-sync pipeline produces committed per-activity time-series data (or an explicit unavailable flag) (completed 2026-08-10)
-- [ ] **Phase 15: Best-Effort Engine** - Pipeline computes fastest 400m..marathon efforts within every run from streams
+- [x] **Phase 15: Best-Effort Engine** - Pipeline computes fastest 400m..marathon efforts within every run from streams (completed 2026-08-10)
 - [ ] **Phase 16: Dashboard Shell & Data Contract** - Navigable, themed SPA shell deployed to GitHub Pages with lazy-loaded data contract
 - [ ] **Phase 17: Activity Browser & Detail Views** - Browse, filter, and drill into any archived activity with full pace/HR/cadence detail
 - [ ] **Phase 18: Records, Trends & Differentiators** - PR lists, evolution, badges, aggregates, TRIMP training load, age-grading, Riegel predictions, gear-aware trends
@@ -116,7 +116,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 15-04-PLAN.md — External-reference fixture validation against Strava/Garmin reported times
+- [x] 15-04-PLAN.md — External-reference fixture validation against Strava/Garmin reported times
 
 ### Phase 16: Dashboard Shell & Data Contract
 
@@ -197,7 +197,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 | 12. Heatmap & Pin Map Widgets | v1.2 | 2/2 | Complete | 2026-02-17 |
 | 13. Standalone Pages | v1.2 | 2/2 | Complete | 2026-02-18 |
 | 14. Stream Ingestion Foundation | v2.0 | 5/5 | Complete    | 2026-08-10 |
-| 15. Best-Effort Engine | v2.0 | 3/4 | In Progress|  |
+| 15. Best-Effort Engine | v2.0 | 4/4 | Complete   | 2026-08-10 |
 | 16. Dashboard Shell & Data Contract | v2.0 | 0/TBD | Not started | - |
 | 17. Activity Browser & Detail Views | v2.0 | 0/TBD | Not started | - |
 | 18. Records, Trends & Differentiators | v2.0 | 0/TBD | Not started | - |

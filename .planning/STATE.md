@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Training Dashboard
 status: executing
-stopped_at: Phase 15 context gathered
-last_updated: "2026-08-10T15:17:39.630Z"
-last_activity: 2026-08-10 -- Phase 15 execution started
+stopped_at: Completed 15-04-PLAN.md — Phase 15 (best-effort-engine) fully complete
+last_updated: "2026-08-10T16:26:24.361Z"
+last_activity: 2026-08-10
 progress:
   total_phases: 5
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 9
-  completed_plans: 5
-  percent: 20
+  completed_plans: 9
+  percent: 40
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 15 — best-effort-engine
+**Current focus:** Phase 15 — best-effort-engine — COMPLETE. Next: Phase 16 (dashboard shell)
 
 ## Current Position
 
-Phase: 15 (best-effort-engine) — EXECUTING
-Plan: 1 of 4
-Status: Executing Phase 15
-Last activity: 2026-08-10 -- Phase 15 execution started
+Phase: 15 (best-effort-engine) — COMPLETE
+Plan: 4 of 4 (all plans complete)
+Status: Phase 15 complete — ready for Phase 16 planning
+Last activity: 2026-08-10
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██████████] 100% (within Phase 15)
 
 ## Performance Metrics
 
@@ -55,6 +55,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - Best-effort computation (Phase 15) is isolated as pure backend work, testable before it feeds any UI.
 - Records/trends "view" requirements (weekly/monthly totals, TRIMP, YoY) do not depend on streams and are grouped into presentation (Phase 18) rather than gated behind stream work.
 - Commit derived/decimated stream JSON to data/streams/, never raw full-resolution — repo already has a bloat precedent from data/heatmap/all-points.json.
+- Phase 15 plan 04 (D-05 external validation): 2 of 8 candidate fixture rows (5k on activities 7827165619 and 9716153503) were dropped rather than frozen, because Strava does not surface a 5k best-effort panel for either activity and no platform-reported value existed — only the developer's manual judgment, which the plan's own anti-circularity rule forbids using as an expected value. The remaining 6 rows still clear every coverage guard.
 
 ### Key Findings
 
@@ -76,6 +77,8 @@ Carried forward for future milestones:
 
 1 pending — `.planning/todos/pending/2026-08-10-garmin-export-adapter-when-export-arrives.md` (write garmin adapter for consolidate-exports once the requested Garmin bulk export lands in export_data/garmin/)
 
+**Not yet filed as a todo item — flagged during Phase 15 plan 04 for triage:** manual per-activity exclusion from personal-best/PR calculations (developer wants to exclude activities like `3475726256`/`3475725513`, recorded with an inaccurate GPS device, from PR consideration despite their engine-computed times matching Strava's own reported values exactly). Natural fit for Phase 18 (Records & Trends) planning — that's where PR-list presentation and any exclusion/override UI would live. See `.planning/phases/15-best-effort-engine/15-04-SUMMARY.md` Follow-ups section.
+
 ### Blockers/Concerns
 
 None active — SQLITE_CANTOPEN CI failure resolved by quick-1-01 (lazy geocoder init + dynamic import).
@@ -88,9 +91,9 @@ None active — SQLITE_CANTOPEN CI failure resolved by quick-1-01 (lazy geocoder
 
 ## Session Continuity
 
-Last session: 2026-08-10T13:46:47.229Z
-Stopped at: Phase 15 context gathered
-Resume file: .planning/phases/15-best-effort-engine/15-CONTEXT.md
+Last session: 2026-08-10T16:25:37Z
+Stopped at: Completed 15-04-PLAN.md — Phase 15 (best-effort-engine) fully complete
+Resume file: None
 
 ---
-*Last updated: 2026-08-10 after v2.0 roadmap creation*
+*Last updated: 2026-08-10 — Phase 15 (best-effort-engine) complete: engine validated internally (units), at scale (real archive run), and externally (Strava/intervals.icu fixtures)*
