@@ -1,3 +1,12 @@
+---
+phase: 15
+slug: best-effort-engine
+status: secured
+threats_open: 0
+asvs_level: 1
+created: 2026-08-10
+---
+
 # Security Audit — Phase 15: Best-Effort Engine
 
 **Audited:** 2026-08-10
