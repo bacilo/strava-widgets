@@ -4,7 +4,8 @@ import path from 'node:path';
 import { readOriginal } from '../exports/geometry-readers.js';
 import { config } from '../config/strava.config.js';
 import { FileStore } from '../storage/file-store.js';
-import { deriveFromSamples } from './derive-stream.js';
+import { IntervalsClient } from '../api/intervals-client.js';
+import { deriveFromSamples, deriveFromIntervalsStreams } from './derive-stream.js';
 import { loadManifest, saveManifest, upsertAvailable, upsertUnavailable } from './stream-manifest.js';
 import type { StreamSource, StreamUnavailableReason } from './stream.types.js';
 
@@ -101,6 +102,31 @@ export function buildBackfillTargets(
   return { withOriginal, withoutOriginal: Array.from(withoutOriginalSet) };
 }
 
+/**
+ * Select the third reconciliation branch: archive activities synced from
+ * intervals.icu (RESEARCH.md Pitfall 3) that have no committed stream file
+ * yet, after the FIT/GPX and unavailable-flag passes ran.
+ *
+ * Keying on `source_provider === 'intervals'` rather than provenance
+ * membership is what makes this robust — it catches activities with no
+ * provenance entry at all, activities listed in
+ * `archive_without_original`, and any FIT/GPX decode failure, without three
+ * separate special cases. Pure — no filesystem or network access — so it is
+ * unit-testable in isolation.
+ */
+export function selectReconciliationTargets(
+  archive: Map<string, { source_provider?: string }>,
+  streamIds: Set<string>
+): string[] {
+  const targets: string[] = [];
+  for (const [id, record] of archive) {
+    if (record.source_provider === 'intervals' && !streamIds.has(id)) {
+      targets.push(id);
+    }
+  }
+  return targets;
+}
+
 export async function backfillStreams(): Promise<void> {
   if (!fs.existsSync(PROVENANCE_PATH)) {
     console.log(
@@ -134,6 +160,7 @@ export async function backfillStreams(): Promise<void> {
   let written = 0;
   let flagged = 0;
   const flaggedByReason: Record<string, number> = {};
+  const writtenIds = new Set<string>();
   const total = withOriginal.length + withoutOriginal.length;
   let processed = 0;
 
@@ -160,6 +187,7 @@ export async function backfillStreams(): Promise<void> {
           channels: stream.channels,
         });
         written++;
+        writtenIds.add(id);
       } else {
         upsertUnavailable(manifest, id, 'no-samples');
         flaggedByReason['no-samples'] = (flaggedByReason['no-samples'] ?? 0) + 1;
@@ -182,6 +210,74 @@ export async function backfillStreams(): Promise<void> {
     flaggedByReason[reason] = (flaggedByReason[reason] ?? 0) + 1;
     flagged++;
     reportProgress();
+  }
+
+  // Third branch: activities already archived from intervals.icu with no
+  // export original and still no committed stream file (RESEARCH.md
+  // Pitfall 3) — neither STREAM-01-eligible nor STREAM-02-eligible, so they
+  // would silently have no streams forever without this pass.
+  const streamIdsAfterLocalPasses = new Set([...existingStreamIds, ...writtenIds]);
+  const reconciliationTargets = selectReconciliationTargets(archiveById, streamIdsAfterLocalPasses);
+
+  if (reconciliationTargets.length > 0) {
+    const apiKey = process.env.INTERVALS_API_KEY || '';
+    if (!apiKey) {
+      console.log(
+        `  ${reconciliationTargets.length} activities need live intervals.icu reconciliation but INTERVALS_API_KEY is not set; leaving them flagged`
+      );
+    } else {
+      const client = new IntervalsClient({
+        apiKey,
+        athleteId: process.env.INTERVALS_ATHLETE_ID || '0',
+      });
+
+      console.log(
+        `\nReconciling ${reconciliationTargets.length} intervals-sourced activities with no local original...`
+      );
+
+      for (const id of reconciliationTargets) {
+        const previousEntry = manifest.activities[id];
+        try {
+          const payload = await client.getAllStreams(id);
+          const stream = deriveFromIntervalsStreams(id, payload);
+          if (stream) {
+            await fileStore.writeJson(`${config.streamsDir}/${id}.json`, stream);
+            upsertAvailable(manifest, id, {
+              source: stream.source,
+              distanceSource: stream.distanceSource,
+              sampleCount: stream.sampleCount,
+              channels: stream.channels,
+            });
+            written++;
+            if (previousEntry && previousEntry.available === false) {
+              flagged--;
+              flaggedByReason[previousEntry.reason] = Math.max(
+                0,
+                (flaggedByReason[previousEntry.reason] ?? 0) - 1
+              );
+            }
+            console.log(`  ${id}: reconciled via live intervals.icu API`);
+          } else {
+            upsertUnavailable(manifest, id, 'no-samples');
+            if (!previousEntry || previousEntry.available !== false || previousEntry.reason !== 'no-samples') {
+              flaggedByReason['no-samples'] = (flaggedByReason['no-samples'] ?? 0) + 1;
+              if (!previousEntry) flagged++;
+            }
+            console.warn(`  ${id}: live intervals.icu fetch returned no usable samples; flagged no-samples`);
+          }
+        } catch (error: any) {
+          // RESEARCH.md Assumption A2: intervals.icu retains roughly a year,
+          // so an activity older than the window 404s here and correctly
+          // settles as no-original rather than aborting the reconciliation pass.
+          upsertUnavailable(manifest, id, 'no-original');
+          if (!previousEntry || previousEntry.available !== false || previousEntry.reason !== 'no-original') {
+            flaggedByReason['no-original'] = (flaggedByReason['no-original'] ?? 0) + 1;
+            if (!previousEntry) flagged++;
+          }
+          console.warn(`  ${id}: live intervals.icu reconciliation failed (${error.message}); flagged no-original`);
+        }
+      }
+    }
   }
 
   await saveManifest(fileStore, config.streamsManifestPath, manifest);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildBackfillTargets, classifyUnavailable } from './backfill-streams.js';
+import { buildBackfillTargets, classifyUnavailable, selectReconciliationTargets } from './backfill-streams.js';
 
 describe('classifyUnavailable', () => {
   it('maps a manual entry (23 real archive entries share this shape) to "manual"', () => {
@@ -112,5 +112,26 @@ describe('buildBackfillTargets', () => {
     };
     const { withoutOriginal } = buildBackfillTargets(provenance, new Set());
     expect(withoutOriginal).toEqual(['7']);
+  });
+});
+
+describe('selectReconciliationTargets', () => {
+  it('selects an intervals-sourced id with no stream file', () => {
+    const archive = new Map([['i1', { source_provider: 'intervals' }]]);
+    expect(selectReconciliationTargets(archive, new Set())).toEqual(['i1']);
+  });
+
+  it('excludes an intervals-sourced id that already has a stream file', () => {
+    const archive = new Map([['i1', { source_provider: 'intervals' }]]);
+    expect(selectReconciliationTargets(archive, new Set(['i1']))).toEqual([]);
+  });
+
+  it('excludes a strava-sourced id with no stream file (handled by the FIT/GPX branch instead)', () => {
+    const archive = new Map([['9', { source_provider: 'strava-export' }]]);
+    expect(selectReconciliationTargets(archive, new Set())).toEqual([]);
+  });
+
+  it('returns an empty list for an empty archive', () => {
+    expect(selectReconciliationTargets(new Map(), new Set())).toEqual([]);
   });
 });
