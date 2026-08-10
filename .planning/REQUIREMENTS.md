@@ -38,7 +38,7 @@ Requirements for the Training Dashboard milestone. Each maps to roadmap phases.
 
 ### Records & PRs
 
-- [ ] **REC-01**: Pipeline computes best efforts (fastest 400m, 1k, 1mi, 5k, 10k, half, marathon) within every run from streams
+- [x] **REC-01**: Pipeline computes best efforts (fastest 400m, 1k, 1mi, 5k, 10k, half, marathon) within every run from streams
 - [ ] **REC-02**: User can view all-time PR lists per distance
 - [ ] **REC-03**: User can view how each distance PR evolved over the years
 - [ ] **REC-04**: Runs that set a new PR show a "PR" badge in list and detail views
@@ -93,7 +93,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STREAM-01 | Phase 14 | Complete |
 | STREAM-02 | Phase 14 | Complete |
 | STREAM-03 | Phase 14 | Complete |
-| REC-01 | Phase 15 | Pending |
+| REC-01 | Phase 15 | Complete |
 | DASH-01 | Phase 16 | Pending |
 | DASH-02 | Phase 16 | Pending |
 | DASH-03 | Phase 16 | Pending |
