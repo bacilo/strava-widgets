@@ -15,6 +15,9 @@ import type { DistanceSource } from '../streams/stream.types.js';
 /** Bump only via an explicit, coordinated recomputation of `data/stats/best-efforts.json`. */
 export const BEST_EFFORTS_SCHEMA_VERSION = 1;
 
+/** Bump only via an explicit, coordinated migration of `data/best-effort-exclusions.json`. */
+export const BEST_EFFORT_EXCLUSIONS_SCHEMA_VERSION = 1;
+
 /** The seven standard racing distances this engine computes efforts for. */
 export type TargetDistanceKey = '400m' | '1k' | '1mi' | '5k' | '10k' | 'half' | 'marathon';
 
@@ -86,6 +89,8 @@ export interface ComputedEffort {
  */
 export interface BestEffort extends ComputedEffort {
   wasPRAtTheTime: boolean;
+  /** True when this effort matched an entry in the exclusion list — computed but withheld from PR marking/ranking. */
+  excludedFromRecords: boolean;
 }
 
 /** All best efforts for one activity. */
@@ -96,6 +101,26 @@ export interface ActivityBestEfforts {
   distanceSource: DistanceSource;
   /** Only computed-and-plausible distances, ordered by `TARGET_ORDER`. */
   efforts: BestEffort[];
+  /** True when this activity matched at least one entry in the exclusion list. */
+  excludedFromRecords: boolean;
+}
+
+/**
+ * One user-maintained entry in `data/best-effort-exclusions.json`. `distances:
+ * null` excludes every target distance for the activity; a non-empty array
+ * narrows the exclusion to those distances only.
+ */
+export interface BestEffortExclusion {
+  activityId: string;
+  distances: TargetDistanceKey[] | null;
+  reason: string;
+}
+
+/** The full contract of the committed, hand-maintained `data/best-effort-exclusions.json`. */
+export interface BestEffortExclusionsFile {
+  schemaVersion: 1;
+  note: string;
+  exclusions: BestEffortExclusion[];
 }
 
 /** One row in a per-distance top-N PR ranking. `rank` is 1-based. */
@@ -125,6 +150,8 @@ export interface BestEffortsDocument {
     activitiesWithEfforts: number;
     effortsComputed: number;
     effortsRejected: number;
+    /** Efforts computed and retained but withheld from PR marking and ranking. */
+    effortsExcluded: number;
     lowConfidenceEfforts: number;
     skippedNoStream: number;
     skippedUnreadable: number;

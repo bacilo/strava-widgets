@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "note": "Hand-maintained by the developer. Read by `node dist/index.js compute-best-efforts` to withhold specific activities from PR marking and ranking while still computing and retaining their efforts, flagged `excludedFromRecords`.",
+  "exclusions": [
+    {
+      "activityId": "3475726256",
+      "distances": null,
+      "reason": "Recorded with an inaccurate GPS device; its 400m time is not trusted as a genuine personal record."
+    },
+    {
+      "activityId": "3475725513",
+      "distances": null,
+      "reason": "Recorded with the same inaccurate GPS device class; its 1k time is not trusted as a genuine personal record."
+    }
+  ]
+}
