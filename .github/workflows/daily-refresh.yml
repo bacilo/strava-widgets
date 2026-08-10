@@ -70,6 +70,18 @@ jobs:
         if: steps.geocode.outcome == 'failure'
         run: echo "::warning::Geocoding failed, widgets will use cached geo data"
 
+      # compute-best-efforts output lands in gitignored data/stats/ (recomputed
+      # every run), so it is deliberately absent from the commit step's
+      # file_pattern below.
+      - name: Compute best efforts
+        id: best-efforts
+        continue-on-error: true
+        run: node dist/index.js compute-best-efforts
+
+      - name: Warn on best-effort failure
+        if: steps.best-efforts.outcome == 'failure'
+        run: echo "::warning::Best-effort computation failed, records data will be stale"
+
       - name: Build widgets
         run: npm run build-widgets
 

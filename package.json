@@ -12,6 +12,7 @@
     "compute-stats": "node dist/index.js compute-stats",
     "compute-advanced-stats": "node dist/index.js compute-advanced-stats",
     "compute-geo-stats": "node dist/index.js compute-geo-stats",
+    "compute-best-efforts": "node dist/index.js compute-best-efforts",
     "compute-all-stats": "node dist/index.js compute-all-stats",
     "compute-route-data": "node scripts/compute-route-data.mjs",
     "compute-heatmap-data": "node scripts/compute-heatmap-data.mjs",

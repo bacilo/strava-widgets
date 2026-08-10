@@ -182,6 +182,27 @@ async function computeGeoStatsCommand() {
   }
 }
 
+async function computeBestEffortsCommand() {
+  try {
+    const { computeBestEfforts } = await import('./analytics/compute-best-efforts.js');
+    console.log('Computing best efforts from committed streams...\n');
+    await computeBestEfforts({
+      activitiesDir: config.activitiesDir,
+      streamsDir: config.streamsDir,
+      streamsManifestPath: config.streamsManifestPath,
+      statsDir: 'data/stats',
+    });
+    console.log('\nBest efforts generated successfully!');
+    process.exit(0);
+  } catch (error: any) {
+    console.error('Compute best efforts error:', error.message);
+    if (error.code === 'ENOENT' && error.message.includes('streams')) {
+      console.error('\nStreams directory not found. Please run: npm run backfill-streams');
+    }
+    process.exit(1);
+  }
+}
+
 async function computeAllStatsCommand() {
   try {
     console.log('Computing all statistics from synced activities...\n');
@@ -207,6 +228,18 @@ async function computeAllStatsCommand() {
     await computeGeoStats({
       activitiesDir: config.activitiesDir,
       geoDir: 'data/geo',
+    });
+
+    console.log(''); // Blank line separator
+
+    // Run best-effort computation (depends on committed streams, not on the
+    // other stats outputs, so it runs last)
+    const { computeBestEfforts } = await import('./analytics/compute-best-efforts.js');
+    await computeBestEfforts({
+      activitiesDir: config.activitiesDir,
+      streamsDir: config.streamsDir,
+      streamsManifestPath: config.streamsManifestPath,
+      statsDir: 'data/stats',
     });
 
     console.log('\nAll statistics generated successfully!');
@@ -423,7 +456,8 @@ function printHelp() {
   console.log('  compute-stats          - Compute basic statistics from synced activities');
   console.log('  compute-advanced-stats - Compute advanced statistics (year-over-year, time-of-day, etc.)');
   console.log('  compute-geo-stats      - Compute geographic statistics (countries, cities) from GPS data');
-  console.log('  compute-all-stats      - Compute all statistics (basic, advanced, geo)');
+  console.log('  compute-best-efforts   - Compute best efforts (fastest 400m..marathon) from committed streams');
+  console.log('  compute-all-stats      - Compute all statistics (basic, advanced, geo, best efforts)');
   console.log('  sync-intervals         - Sync new activities from intervals.icu (Garmin bridge)');
   console.log('  consolidate-exports    - Reconcile bulk exports under export_data/ into the archive');
   console.log('  backfill-streams       - Derive committed per-activity streams from export_data/ originals, local only');
@@ -436,6 +470,7 @@ function printHelp() {
   console.log('  npm run compute-stats          # Generate basic stats');
   console.log('  npm run compute-advanced-stats # Generate advanced stats');
   console.log('  npm run compute-geo-stats      # Generate geo stats');
+  console.log('  npm run compute-best-efforts    # Generate best-effort records');
   console.log('  npm run compute-all-stats      # Generate all stats');
 }
 
@@ -458,6 +493,9 @@ async function main() {
       break;
     case 'compute-geo-stats':
       await computeGeoStatsCommand();
+      break;
+    case 'compute-best-efforts':
+      await computeBestEffortsCommand();
       break;
     case 'compute-all-stats':
       await computeAllStatsCommand();
