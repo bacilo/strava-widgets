@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Training Dashboard
-status: executing
-stopped_at: Completed 15-04-PLAN.md — Phase 15 (best-effort-engine) fully complete
-last_updated: "2026-08-10T16:26:24.361Z"
+status: ready_to_plan
+stopped_at: Phase 15 complete (4/4) — ready to discuss Phase 16
+last_updated: 2026-08-10T16:39:10.036Z
 last_activity: 2026-08-10
 progress:
   total_phases: 5
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 15 — best-effort-engine — COMPLETE. Next: Phase 16 (dashboard shell)
+**Current focus:** Phase 16 — dashboard shell & data contract
 
 ## Current Position
 
-Phase: 15 (best-effort-engine) — COMPLETE
-Plan: 4 of 4 (all plans complete)
-Status: Phase 15 complete — ready for Phase 16 planning
+Phase: 16
+Plan: Not started
+Status: Ready to plan
 Last activity: 2026-08-10
 
 Progress: [██████████] 100% (within Phase 15)
