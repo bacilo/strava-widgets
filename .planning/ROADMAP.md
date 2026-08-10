@@ -135,9 +135,9 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 16-01-PLAN.md — Best-effort exclusion list so untrusted-device activities stop holding PRs
-- [ ] 16-02-PLAN.md — Document-level theme engine and the global design-token stylesheet
-- [ ] 16-03-PLAN.md — Index manifest contract, view registry contract, and the hash router
+- [x] 16-01-PLAN.md — Best-effort exclusion list so untrusted-device activities stop holding PRs
+- [x] 16-02-PLAN.md — Document-level theme engine and the global design-token stylesheet
+- [x] 16-03-PLAN.md — Index manifest contract, view registry contract, and the hash router
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -219,7 +219,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 | 13. Standalone Pages | v1.2 | 2/2 | Complete | 2026-02-18 |
 | 14. Stream Ingestion Foundation | v2.0 | 5/5 | Complete    | 2026-08-10 |
 | 15. Best-Effort Engine | v2.0 | 4/4 | Complete    | 2026-08-10 |
-| 16. Dashboard Shell & Data Contract | v2.0 | 0/9 | Not started | - |
+| 16. Dashboard Shell & Data Contract | v2.0 | 3/9 | In Progress|  |
 | 17. Activity Browser & Detail Views | v2.0 | 0/TBD | Not started | - |
 | 18. Records, Trends & Differentiators | v2.0 | 0/TBD | Not started | - |
 

@@ -4,8 +4,8 @@ milestone: v2.0
 milestone_name: Training Dashboard
 status: executing
 stopped_at: Phase 16 UI-SPEC approved
-last_updated: "2026-08-10T18:29:20.612Z"
-last_activity: 2026-08-10 -- Phase 16 planning complete
+last_updated: "2026-08-10T18:39:41.651Z"
+last_activity: 2026-08-10 -- Phase 16 execution started
 progress:
   total_phases: 5
   completed_phases: 2
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 16 — dashboard shell & data contract
+**Current focus:** Phase 16 — dashboard-shell-data-contract
 
 ## Current Position
 
-Phase: 16
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-08-10 -- Phase 16 planning complete
+Phase: 16 (dashboard-shell-data-contract) — EXECUTING
+Plan: 1 of 9
+Status: Executing Phase 16
+Last activity: 2026-08-10 -- Phase 16 execution started
 
 Progress: [██████████] 100% (within Phase 15)
 
