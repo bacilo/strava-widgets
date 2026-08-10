@@ -19,6 +19,8 @@ Embeddable web components for visualizing Strava running data on personal websit
 - **Pin Map**: World map with pins for each city/country visited, with clickable popups and clustering
 
 ### Standalone Pages
+- **[Training Dashboard](https://bacilo.github.io/strava-widgets/)**: Browse the full running archive
+- **[Widget Gallery](https://bacilo.github.io/strava-widgets/widgets.html)**: Embed code and live previews for all 11 widgets
 - **[Heatmap](https://bacilo.github.io/strava-widgets/heatmap.html)**: Full-page heatmap visualization
 - **[Pin Map](https://bacilo.github.io/strava-widgets/pinmap.html)**: Full-page pin map
 - **[Route Browser](https://bacilo.github.io/strava-widgets/routes.html)**: Full-page route browser

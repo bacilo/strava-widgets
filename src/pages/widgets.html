@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Strava Analytics Widgets</title>
+  <title>Widget Gallery — Strava Analytics</title>
   <style>
     * {
       box-sizing: border-box;
@@ -16,6 +16,27 @@
       color: #333;
       background: #f5f5f5;
       padding: 2rem 1rem;
+    }
+    nav {
+      max-width: 900px;
+      margin: 0 auto 1rem;
+      background: white;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      padding: 8px 12px;
+      font-size: 14px;
+    }
+    nav a {
+      color: #333;
+      text-decoration: none;
+      margin: 0 8px;
+    }
+    nav a:hover {
+      color: #fc4c02;
+    }
+    nav a.active {
+      color: #fc4c02;
+      font-weight: 600;
     }
     .container {
       max-width: 900px;
@@ -81,6 +102,12 @@
   </style>
 </head>
 <body>
+  <nav>
+    <a href="./">Dashboard</a> |
+    <a href="./heatmap.html">Heatmap</a> |
+    <a href="./pinmap.html">Pin Map</a> |
+    <a href="./routes.html">Routes</a>
+  </nav>
   <div class="container">
     <h1>Strava Analytics Widgets</h1>
     <p class="subtitle">Embeddable widgets for your personal website</p>
