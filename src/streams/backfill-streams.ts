@@ -127,6 +127,50 @@ export function selectReconciliationTargets(
   return targets;
 }
 
+/**
+ * Format a human-inspectable size report for the committed `data/streams/`
+ * tree. Pure — takes a pre-computed file list rather than reading the
+ * filesystem itself — so it is unit-testable without a real archive.
+ *
+ * CONTEXT.md D-02: the backfill enforces a size gate WITH a report, never
+ * auto-tightening decimation or dropping files to fit — the developer
+ * inspects this report and decides. This module never invokes git.
+ */
+export function formatSizeReport(
+  files: Array<{ name: string; bytes: number }>,
+  budgetMb = 50
+): string {
+  const lines: string[] = [];
+  const totalBytes = files.reduce((sum, f) => sum + f.bytes, 0);
+  const totalMb = totalBytes / (1024 * 1024);
+
+  lines.push('Size report: data/streams/');
+  lines.push(`  file count: ${files.length}`);
+  lines.push(`  total size: ${totalMb.toFixed(2)} MB`);
+
+  const largest = [...files].sort((a, b) => b.bytes - a.bytes).slice(0, 10);
+  if (largest.length > 0) {
+    lines.push('  ten largest files:');
+    for (const f of largest) {
+      lines.push(`    ${(f.bytes / 1024).toFixed(1)} KB  ${f.name}`);
+    }
+  }
+
+  const meanKb = files.length > 0 ? totalBytes / files.length / 1024 : 0;
+  lines.push(`  mean file size: ${meanKb.toFixed(2)} KB`);
+  lines.push(
+    `  git object estimate: ~${totalMb.toFixed(2)} MB raw (JSON compresses well in a packfile, so this is a ceiling, not a prediction)`
+  );
+
+  if (totalMb > budgetMb) {
+    lines.push(
+      `WARNING: total size ${totalMb.toFixed(2)} MB exceeds the ${budgetMb} MB budget by ${(totalMb - budgetMb).toFixed(2)} MB`
+    );
+  }
+
+  return lines.join('\n');
+}
+
 export async function backfillStreams(): Promise<void> {
   if (!fs.existsSync(PROVENANCE_PATH)) {
     console.log(
@@ -282,9 +326,8 @@ export async function backfillStreams(): Promise<void> {
 
   await saveManifest(fileStore, config.streamsManifestPath, manifest);
 
-  const streamFilesNow = (await fileStore.listFiles(config.streamsDir, '.json')).filter(
-    name => name !== 'manifest.json'
-  ).length;
+  const allStreamFileNames = await fileStore.listFiles(config.streamsDir, '.json');
+  const streamFilesNow = allStreamFileNames.filter(name => name !== 'manifest.json').length;
 
   console.log(`\nBackfill complete.`);
   console.log(`  archive total: ${provenance.archive_total}`);
@@ -295,4 +338,16 @@ export async function backfillStreams(): Promise<void> {
     console.log(`    ${reason}: ${count}`);
   }
   console.log(`  files now under ${config.streamsDir}/: ${streamFilesNow}`);
+
+  // D-02 size gate: report every committed *.json under data/streams/
+  // (including the manifest itself) so the developer can inspect the total
+  // before deciding to commit. This command never runs git.
+  const sizeFiles = allStreamFileNames.map(name => ({
+    name,
+    bytes: fs.statSync(path.join(config.streamsDir, name)).size,
+  }));
+  console.log(`\n${formatSizeReport(sizeFiles)}`);
+  console.log(
+    '\nThis command wrote no git objects. Review the report above, then commit data/streams/ manually if it looks right.'
+  );
 }
