@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Training Dashboard
 status: planning
-stopped_at: Phase 16 context gathered
-last_updated: "2026-08-10T17:26:16.782Z"
+stopped_at: Phase 16 UI-SPEC approved
+last_updated: "2026-08-10T17:36:01.346Z"
 last_activity: 2026-08-10
 progress:
   total_phases: 5
@@ -91,9 +91,9 @@ None active — SQLITE_CANTOPEN CI failure resolved by quick-1-01 (lazy geocoder
 
 ## Session Continuity
 
-Last session: 2026-08-10T17:26:16.769Z
-Stopped at: Phase 16 context gathered
-Resume file: .planning/phases/16-dashboard-shell-data-contract/16-CONTEXT.md
+Last session: 2026-08-10T17:36:01.334Z
+Stopped at: Phase 16 UI-SPEC approved
+Resume file: .planning/phases/16-dashboard-shell-data-contract/16-UI-SPEC.md
 
 ---
 *Last updated: 2026-08-10 — Phase 15 (best-effort-engine) complete: engine validated internally (units), at scale (real archive run), and externally (Strava/intervals.icu fixtures)*
