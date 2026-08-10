@@ -1,0 +1,290 @@
+/*
+ * Dashboard global stylesheet — single source of design tokens (D-04).
+ * Plain light DOM (no Shadow DOM). Linked from index.html, never imported
+ * from TypeScript (tsc would fail on a CSS import).
+ *
+ * Theme tokens are declared twice, once per concrete `data-theme` value
+ * written by src/dashboard/theme.ts (never 'auto' — see theme.ts), so no
+ * system-color-scheme media query belongs in this file.
+ */
+
+:root {
+  /* Light values duplicated here (no attribute selector) so the page is
+     never unstyled if data-theme is somehow absent before theme.ts runs. */
+  --bg: #ffffff;
+  --surface: #f5f5f7;
+  --accent: #fc4c02;
+  --text: #333333;
+  --text-secondary: #666666;
+  --border: #e5e5e5;
+  --destructive: #dc2626;
+
+  /* Spacing scale (UI-SPEC) */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+
+  /* Font stack — character-for-character identical to src/widget/styles.css line 3 */
+  --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+:root[data-theme="light"] {
+  --bg: #ffffff;
+  --surface: #f5f5f7;
+  --accent: #fc4c02;
+  --text: #333333;
+  --text-secondary: #666666;
+  --border: #e5e5e5;
+  --destructive: #dc2626;
+}
+
+:root[data-theme="dark"] {
+  --bg: #1a1a2e;
+  --surface: #242444;
+  --accent: #ff6b35;
+  --text: #e0e0e0;
+  --text-secondary: #a0a0b8;
+  --border: #33334d;
+  --destructive: #f87171;
+}
+
+/* Typography — exactly 4 roles, 2 weights */
+
+body,
+.text-body {
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.text-label {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.text-heading,
+h1,
+h2 {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.text-display {
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+/* Base */
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-stack);
+}
+
+/* Navigation */
+
+.app-nav {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: var(--space-md);
+  position: sticky;
+  top: 0;
+}
+
+.app-nav__links {
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-sm);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.app-nav__link {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 2px solid transparent;
+}
+
+.app-nav__link:hover,
+.app-nav__link:focus-visible,
+.app-nav__link[aria-current="page"] {
+  color: var(--accent);
+  border-bottom: 2px solid var(--accent);
+}
+
+.app-nav__toggle {
+  display: none;
+  min-width: 44px;
+  min-height: 44px;
+  background: transparent;
+  border: none;
+}
+
+/* Theme toggle */
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  background: transparent;
+  border: none;
+  fill: currentColor;
+  cursor: pointer;
+}
+
+.theme-toggle__icon--active {
+  fill: var(--accent);
+}
+
+/* Layout */
+
+.view {
+  padding: var(--space-lg);
+  max-width: 1100px;
+  margin-inline: auto;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: var(--space-md);
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-xl);
+}
+
+/* Activities */
+
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.activity-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: var(--space-md);
+}
+
+.activity-row__name {
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--text);
+}
+
+.activity-row__meta {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.badge {
+  font-size: 14px;
+  font-weight: 400;
+  padding-inline: var(--space-xs);
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+/* Primary CTA */
+
+.cta {
+  display: inline-block;
+  background: var(--accent);
+  color: #ffffff;
+  border-radius: 6px;
+  padding: var(--space-sm) var(--space-md);
+  text-decoration: none;
+  border: none;
+}
+
+.cta:hover,
+.cta:focus-visible {
+  background: var(--accent);
+}
+
+/* In-flight loading indicator */
+
+.loading-indicator {
+  color: var(--accent);
+}
+
+/* Error / stub panels */
+
+.error-state,
+.stub-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  text-align: center;
+  padding: var(--space-2xl);
+}
+
+.error-state .text-heading,
+.stub-panel .text-heading {
+  color: var(--text);
+}
+
+.error-state .text-body,
+.stub-panel .text-body {
+  color: var(--text-secondary);
+}
+
+/* Global focus ring */
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Responsive nav collapse */
+
+@media (max-width: 640px) {
+  .app-nav__links {
+    display: none;
+  }
+
+  .app-nav__toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .app-nav[data-open="true"] .app-nav__links {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .app-nav[data-open="true"] .app-nav__link {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+}
