@@ -2,7 +2,8 @@ node_modules/
 dist/*
 !dist/widgets/
 dist/widgets/*
-!dist/widgets/index.html
+# index.html was removed from this exception list in Phase 16 because the
+# dashboard SPA now generates it (build-widgets.mjs buildDashboard()).
 !dist/widgets/test.html
 .env
 data/tokens.json

@@ -82,6 +82,17 @@ jobs:
         if: steps.best-efforts.outcome == 'failure'
         run: echo "::warning::Best-effort computation failed, records data will be stale"
 
+      # data/dashboard/ is gitignored (regenerated every run), like data/stats/ —
+      # deliberately absent from the commit step's file_pattern below.
+      - name: Compute dashboard index
+        id: dashboard-index
+        continue-on-error: true
+        run: node dist/index.js compute-dashboard-index
+
+      - name: Warn on dashboard-index failure
+        if: steps.dashboard-index.outcome == 'failure'
+        run: echo "::warning::Dashboard index computation failed, the dashboard will serve a stale index"
+
       - name: Build widgets
         run: npm run build-widgets
 

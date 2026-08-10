@@ -11,6 +11,7 @@ export default defineConfig({
         heatmap: resolve(__dirname, 'src/pages/heatmap.html'),
         pinmap: resolve(__dirname, 'src/pages/pinmap.html'),
         routes: resolve(__dirname, 'src/pages/routes.html'),
+        widgets: resolve(__dirname, 'src/pages/widgets.html'),
       },
     },
     target: 'es2020',
