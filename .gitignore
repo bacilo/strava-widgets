@@ -8,6 +8,9 @@ dist/widgets/*
 data/tokens.json
 .DS_Store
 data/stats/
+# Dashboard activity index manifest: regenerated compute-step output, same
+# convention as data/stats/ (D-12).
+data/dashboard/
 # Raw bulk exports (Strava/Garmin): full-resolution GPS+HR streams, too large
 # and too sensitive for a public repo. data/provenance.json indexes into them.
 export_data/

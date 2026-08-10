@@ -203,6 +203,28 @@ async function computeBestEffortsCommand() {
   }
 }
 
+async function computeDashboardIndexCommand() {
+  try {
+    const { computeDashboardIndex } = await import('./analytics/compute-dashboard-index.js');
+    console.log('Computing dashboard activity index...\n');
+    await computeDashboardIndex({
+      activitiesDir: config.activitiesDir,
+      streamsManifestPath: config.streamsManifestPath,
+      statsDir: 'data/stats',
+      geoDir: 'data/geo',
+      outDir: 'data/dashboard',
+    });
+    console.log('\nDashboard index generated successfully!');
+    process.exit(0);
+  } catch (error: any) {
+    console.error('Compute dashboard index error:', error.message);
+    if (error.code === 'ENOENT' || String(error.message).includes('manifest')) {
+      console.error('\nStream manifest not found. Please run: npm run backfill-streams');
+    }
+    process.exit(1);
+  }
+}
+
 async function computeAllStatsCommand() {
   try {
     console.log('Computing all statistics from synced activities...\n');
@@ -457,6 +479,7 @@ function printHelp() {
   console.log('  compute-advanced-stats - Compute advanced statistics (year-over-year, time-of-day, etc.)');
   console.log('  compute-geo-stats      - Compute geographic statistics (countries, cities) from GPS data');
   console.log('  compute-best-efforts   - Compute best efforts (fastest 400m..marathon) from committed streams');
+  console.log('  compute-dashboard-index - Compute the dashboard activity index manifest from the committed archive');
   console.log('  compute-all-stats      - Compute all statistics (basic, advanced, geo, best efforts)');
   console.log('  sync-intervals         - Sync new activities from intervals.icu (Garmin bridge)');
   console.log('  consolidate-exports    - Reconcile bulk exports under export_data/ into the archive');
@@ -471,6 +494,7 @@ function printHelp() {
   console.log('  npm run compute-advanced-stats # Generate advanced stats');
   console.log('  npm run compute-geo-stats      # Generate geo stats');
   console.log('  npm run compute-best-efforts    # Generate best-effort records');
+  console.log('  npm run compute-dashboard-index # Generate the dashboard index');
   console.log('  npm run compute-all-stats      # Generate all stats');
 }
 
@@ -496,6 +520,9 @@ async function main() {
       break;
     case 'compute-best-efforts':
       await computeBestEffortsCommand();
+      break;
+    case 'compute-dashboard-index':
+      await computeDashboardIndexCommand();
       break;
     case 'compute-all-stats':
       await computeAllStatsCommand();
