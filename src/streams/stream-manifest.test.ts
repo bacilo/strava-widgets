@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FileStore } from '../storage/file-store.js';
 import type { StreamChannels } from './stream.types.js';
@@ -135,17 +135,27 @@ describe('stream-manifest', () => {
   });
 
   it('saveManifest updates generated_at when any entry changed', async () => {
-    const manifest = emptyManifest();
-    upsertUnavailable(manifest, '1', 'manual');
-    await saveManifest(fileStore, MANIFEST_PATH, manifest);
-    const first = JSON.parse(await fs.readFile(path.join(tmpDir, MANIFEST_PATH), 'utf-8'));
+    // Fake timers avoid millisecond-resolution flakiness between the two
+    // saveManifest calls — real wall-clock ISO strings can collide when
+    // both writes land in the same millisecond on a fast test run.
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      const manifest = emptyManifest();
+      upsertUnavailable(manifest, '1', 'manual');
+      await saveManifest(fileStore, MANIFEST_PATH, manifest);
+      const first = JSON.parse(await fs.readFile(path.join(tmpDir, MANIFEST_PATH), 'utf-8'));
 
-    const manifestChanged = emptyManifest();
-    upsertUnavailable(manifestChanged, '1', 'manual');
-    upsertUnavailable(manifestChanged, '2', 'no-original');
-    await saveManifest(fileStore, MANIFEST_PATH, manifestChanged);
-    const second = JSON.parse(await fs.readFile(path.join(tmpDir, MANIFEST_PATH), 'utf-8'));
+      vi.setSystemTime(new Date('2026-01-01T00:01:00.000Z'));
+      const manifestChanged = emptyManifest();
+      upsertUnavailable(manifestChanged, '1', 'manual');
+      upsertUnavailable(manifestChanged, '2', 'no-original');
+      await saveManifest(fileStore, MANIFEST_PATH, manifestChanged);
+      const second = JSON.parse(await fs.readFile(path.join(tmpDir, MANIFEST_PATH), 'utf-8'));
 
-    expect(second.generated_at).not.toBe(first.generated_at);
+      expect(second.generated_at).not.toBe(first.generated_at);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
