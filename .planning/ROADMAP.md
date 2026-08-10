@@ -141,9 +141,9 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 16-04-PLAN.md — compute-dashboard-index generator, CLI subcommand, and gitignored output
-- [ ] 16-05-PLAN.md — Fetch-once index client and lazy, id-validated detail client
-- [ ] 16-06-PLAN.md — SPA entry with pre-paint theme bootstrap, top nav, and stub views
+- [x] 16-04-PLAN.md — compute-dashboard-index generator, CLI subcommand, and gitignored output
+- [x] 16-05-PLAN.md — Fetch-once index client and lazy, id-validated detail client
+- [x] 16-06-PLAN.md — SPA entry with pre-paint theme bootstrap, top nav, and stub views
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -219,7 +219,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 | 13. Standalone Pages | v1.2 | 2/2 | Complete | 2026-02-18 |
 | 14. Stream Ingestion Foundation | v2.0 | 5/5 | Complete    | 2026-08-10 |
 | 15. Best-Effort Engine | v2.0 | 4/4 | Complete    | 2026-08-10 |
-| 16. Dashboard Shell & Data Contract | v2.0 | 3/9 | In Progress|  |
+| 16. Dashboard Shell & Data Contract | v2.0 | 6/9 | In Progress|  |
 | 17. Activity Browser & Detail Views | v2.0 | 0/TBD | Not started | - |
 | 18. Records, Trends & Differentiators | v2.0 | 0/TBD | Not started | - |
 
