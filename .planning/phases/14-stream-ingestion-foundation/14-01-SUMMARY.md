@@ -101,6 +101,6 @@ None — plan executed exactly as written. Both tasks' acceptance criteria were 
 - `node -e "import('./dist/config/strava.config.js')..."` prints a path ending in `data/streams` after `npm run build`
 - No file under `data/streams/` was created by this plan
 
-## Self-Check
+## Self-Check: PASSED
 
-See below.
+All created files verified present on disk (`src/streams/stream.types.ts`, `src/streams/derive-stream.ts`, `src/streams/derive-stream.test.ts`, `src/config/strava.config.ts`, this SUMMARY.md). All commit hashes verified present in `git log` (`a946e86`, `1d49ee6`, `e8520e4`, `7939fd3`).
