@@ -168,7 +168,11 @@ export async function computeDashboardIndex(
         maxHr: numOrNull(activity.max_heartrate),
         avgCadenceRpm: numOrNull(activity.average_cadence),
         location,
-        sportType: activity.sport_type as string,
+        // Strava records carry `sport_type`; intervals.icu-migrated records
+        // (Aug 2026 ingestion switch, `i...`-prefixed ids) carry only `type`.
+        // Fall back so the real archive's mixed provenance doesn't produce
+        // rows with a missing sportType.
+        sportType: (activity.sport_type as string | undefined) ?? activity.type,
         streams,
         lowConfidence,
         excludedFromRecords,

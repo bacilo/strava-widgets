@@ -228,6 +228,22 @@ describe('computeDashboardIndex — archive orchestration', () => {
     expect(doc.activities[0].avgCadenceRpm).toBe(87.9);
   });
 
+  it('sportType falls back to type when sport_type is absent (intervals.icu-migrated records)', async () => {
+    const manifest = emptyManifestDoc();
+    manifest.activities['i123'] = {
+      available: true,
+      source: 'intervals',
+      distanceSource: 'native',
+      sampleCount: 2,
+      channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+    };
+    await writeManifest(manifest);
+    await writeActivity('i123', { type: 'Run', sport_type: undefined });
+
+    const doc = await computeDashboardIndex(baseOptions());
+    expect(doc.activities[0].sportType).toBe('Run');
+  });
+
   it('a manifest entry with available: false, reason: manual still produces a row with streams flags all false', async () => {
     const manifest = emptyManifestDoc();
     manifest.activities['a1'] = { available: false, reason: 'manual' };
