@@ -75,13 +75,15 @@ jobs:
 
       # data/stats/ is gitignored (regenerated every run) — listing it here would
       # make `git add` fail on an ignored path and skip the deploy below.
+      # data/streams/ is safe to list: it's a committed data family, not
+      # gitignored (confirmed against .gitignore), unlike data/stats/.
       - name: Commit updated data and stats
         id: commit
         continue-on-error: true  # Bookkeeping failure must not block the deploy
         uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: 'chore: update activities and stats [skip ci]'
-          file_pattern: 'data/activities/*.json data/sync-state.json data/geo/*.json'
+          file_pattern: 'data/activities/*.json data/sync-state.json data/geo/*.json data/streams/*.json'
           commit_user_name: 'github-actions[bot]'
           commit_user_email: 'github-actions[bot]@users.noreply.github.com'
 
