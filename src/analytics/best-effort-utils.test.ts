@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { findBestEffort, validateStreamSeries } from './best-effort-utils.js';
+import {
+  findBestEffort,
+  isPlausible,
+  markPRs,
+  rankTopN,
+  validateStreamSeries,
+  WORLD_RECORD_SPEED_MPS,
+} from './best-effort-utils.js';
+import { TARGET_ORDER } from './best-effort.types.js';
+import type { PRRankingEntry } from './best-effort.types.js';
 
 describe('findBestEffort — two-pointer sweep', () => {
   it('finds the minimum-duration window covering the target distance', () => {
@@ -127,5 +136,153 @@ describe('validateStreamSeries', () => {
   it('accepts a well-formed series including equal consecutive t values', () => {
     const result = validateStreamSeries([0, 1, 1, 2], [0, 100, 150, 200]);
     expect(result.ok).toBe(true);
+  });
+});
+
+describe('isPlausible — max_speed guard', () => {
+  it('accepts a normal effort well under both ceilings', () => {
+    const result = isPlausible(4.0, 5.5, 6.6);
+    expect(result.ok).toBe(true);
+  });
+
+  it('rejects an effort faster than the activity own max_speed plus margin, naming both numbers', () => {
+    const result = isPlausible(6.0, 5.0, 100);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toContain('6.00');
+      expect(result.reason).toContain('5.00');
+    }
+  });
+
+  it('tolerates interpolation noise inside the 1.02 margin', () => {
+    const result = isPlausible(5.05, 5.0, 100);
+    expect(result.ok).toBe(true);
+  });
+});
+
+describe('isPlausible — max_speed unavailable', () => {
+  it('does not reject a normal effort when max_speed is 0 (activity 11865310195)', () => {
+    const result = isPlausible(4.0, 0, 6.6);
+    expect(result.ok).toBe(true);
+  });
+
+  it('does not reject a normal effort when max_speed is undefined (activity 11865310195)', () => {
+    const result = isPlausible(4.0, undefined, 6.6);
+    expect(result.ok).toBe(true);
+  });
+
+  it('still rejects a world-record-beating effort when max_speed is unavailable', () => {
+    const result = isPlausible(8.0, 0, 6.62);
+    expect(result.ok).toBe(false);
+  });
+});
+
+describe('isPlausible — world-record ceiling', () => {
+  it('rejects an effort faster than the world record even when max_speed would allow it, naming the ceiling', () => {
+    const result = isPlausible(8.0, 20, 6.62);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toContain('6.62');
+    }
+  });
+});
+
+describe('WORLD_RECORD_SPEED_MPS', () => {
+  it('is strictly decreasing across TARGET_ORDER and every entry is finite and positive', () => {
+    for (let i = 0; i < TARGET_ORDER.length; i++) {
+      const speed = WORLD_RECORD_SPEED_MPS[TARGET_ORDER[i]];
+      expect(Number.isFinite(speed)).toBe(true);
+      expect(speed).toBeGreaterThan(0);
+      if (i > 0) {
+        const prevSpeed = WORLD_RECORD_SPEED_MPS[TARGET_ORDER[i - 1]];
+        expect(speed).toBeLessThan(prevSpeed);
+      }
+    }
+  });
+});
+
+describe('markPRs', () => {
+  it('marks the first effort chronologically as a PR', () => {
+    const result = markPRs([{ startDate: '2024-01-01T00:00:00Z', durationSec: 100 }]);
+    expect(result[0].wasPRAtTheTime).toBe(true);
+  });
+
+  it('marks a later faster effort as a PR', () => {
+    const result = markPRs([
+      { startDate: '2024-01-01T00:00:00Z', durationSec: 100 },
+      { startDate: '2024-02-01T00:00:00Z', durationSec: 90 },
+    ]);
+    expect(result[0].wasPRAtTheTime).toBe(true);
+    expect(result[1].wasPRAtTheTime).toBe(true);
+  });
+
+  it('does not mark a later slower effort as a PR', () => {
+    const result = markPRs([
+      { startDate: '2024-01-01T00:00:00Z', durationSec: 90 },
+      { startDate: '2024-02-01T00:00:00Z', durationSec: 100 },
+    ]);
+    expect(result[0].wasPRAtTheTime).toBe(true);
+    expect(result[1].wasPRAtTheTime).toBe(false);
+  });
+
+  it('orders by startDate, not input order (reverse-chronological input yields same marking)', () => {
+    const chronological = markPRs([
+      { startDate: '2024-01-01T00:00:00Z', durationSec: 100 },
+      { startDate: '2024-02-01T00:00:00Z', durationSec: 90 },
+      { startDate: '2024-03-01T00:00:00Z', durationSec: 95 },
+    ]);
+    const reversed = markPRs([
+      { startDate: '2024-03-01T00:00:00Z', durationSec: 95 },
+      { startDate: '2024-02-01T00:00:00Z', durationSec: 90 },
+      { startDate: '2024-01-01T00:00:00Z', durationSec: 100 },
+    ]);
+
+    const chronoByDate = new Map(chronological.map((e) => [e.startDate, e.wasPRAtTheTime]));
+    const reversedByDate = new Map(reversed.map((e) => [e.startDate, e.wasPRAtTheTime]));
+    expect(chronoByDate).toEqual(reversedByDate);
+  });
+
+  it('marks an exactly-equal-time later effort as NOT a PR (ties do not set a new record)', () => {
+    const result = markPRs([
+      { startDate: '2024-01-01T00:00:00Z', durationSec: 100 },
+      { startDate: '2024-02-01T00:00:00Z', durationSec: 100 },
+    ]);
+    expect(result[0].wasPRAtTheTime).toBe(true);
+    expect(result[1].wasPRAtTheTime).toBe(false);
+  });
+});
+
+describe('rankTopN', () => {
+  function entry(overrides: Partial<Omit<PRRankingEntry, 'rank'>>): Omit<PRRankingEntry, 'rank'> {
+    return {
+      activityId: 'a',
+      startDate: '2024-01-01T00:00:00Z',
+      durationSec: 100,
+      paceSecPerKm: 300,
+      lowConfidence: false,
+      ...overrides,
+    };
+  }
+
+  it('returns entries sorted fastest-first with 1-based rank, truncated to N', () => {
+    const efforts = [
+      entry({ activityId: 'slow', durationSec: 200 }),
+      entry({ activityId: 'fast', durationSec: 90 }),
+      entry({ activityId: 'mid', durationSec: 150 }),
+    ];
+    const result = rankTopN(efforts, 2);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toMatchObject({ rank: 1, activityId: 'fast' });
+    expect(result[1]).toMatchObject({ rank: 2, activityId: 'mid' });
+  });
+
+  it('breaks a duration tie in favour of the earlier startDate', () => {
+    const efforts = [
+      entry({ activityId: 'later', durationSec: 100, startDate: '2024-02-01T00:00:00Z' }),
+      entry({ activityId: 'earlier', durationSec: 100, startDate: '2024-01-01T00:00:00Z' }),
+    ];
+    const result = rankTopN(efforts, 2);
+    expect(result[0]).toMatchObject({ rank: 1, activityId: 'earlier' });
+    expect(result[1]).toMatchObject({ rank: 2, activityId: 'later' });
   });
 });
