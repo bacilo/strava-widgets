@@ -100,3 +100,13 @@ None - no external service configuration required.
 ---
 *Phase: 15-best-effort-engine*
 *Completed: 2026-08-10*
+
+## Self-Check: PASSED
+
+- FOUND: src/analytics/best-effort.types.ts
+- FOUND: src/analytics/best-effort-utils.ts
+- FOUND: src/analytics/best-effort-utils.test.ts
+- FOUND: .planning/phases/15-best-effort-engine/15-01-SUMMARY.md
+- FOUND commits: 559b4a3, 8b039f1, b4254a5, 29b196c, 749028e
+- Re-ran plan-level `<verification>`: `npx tsc --noEmit` exit 0; `npx vitest run src/analytics/best-effort-utils.test.ts` 30/30 passing; full suite `npx vitest run` 166/166 passing (no regressions vs. 136 baseline); zero `node:fs`/`node:path`/`src/geo/` imports in best-effort-utils.ts
+- Re-ran all task-level `<acceptance_criteria>`: all passing (see task commits)
