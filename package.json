@@ -28,6 +28,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@garmin/fitsdk": "^21.212.0",
     "@mapbox/polyline": "^1.2.1",
     "bottleneck": "^2.19.5",
     "chart.js": "^4.5.1",

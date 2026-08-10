@@ -423,6 +423,7 @@ function printHelp() {
   console.log('  compute-geo-stats      - Compute geographic statistics (countries, cities) from GPS data');
   console.log('  compute-all-stats      - Compute all statistics (basic, advanced, geo)');
   console.log('  sync-intervals         - Sync new activities from intervals.icu (Garmin bridge)');
+  console.log('  consolidate-exports    - Reconcile bulk exports under export_data/ into the archive');
   console.log('  probe-intervals        - Dry-run the intervals.icu provider (writes nothing)');
   console.log('\nExamples:');
   console.log('  npm run auth                   # Get authorization URL');
@@ -461,6 +462,11 @@ async function main() {
     case 'sync-intervals':
       await syncIntervalsCommand();
       break;
+    case 'consolidate-exports': {
+      const { consolidateExports } = await import('./exports/consolidate.js');
+      await consolidateExports();
+      break;
+    }
     case 'probe-intervals':
       await probeIntervalsCommand();
       break;

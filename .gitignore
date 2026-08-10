@@ -8,3 +8,6 @@ dist/widgets/*
 data/tokens.json
 .DS_Store
 data/stats/
+# Raw bulk exports (Strava/Garmin): full-resolution GPS+HR streams, too large
+# and too sensitive for a public repo. data/provenance.json indexes into them.
+export_data/
