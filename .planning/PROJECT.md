@@ -8,6 +8,19 @@ A personal Strava data pipeline and visualization platform that fetches run data
 
 Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
 
+## Current Milestone: v2.0 Training Dashboard
+
+**Goal:** A full analytics dashboard (static SPA on GitHub Pages) for browsing the complete running archive — activities with pace/cadence/HR detail, self-computed best-effort records, and weekly/monthly/yearly/all-time stats — built as a flexible foundation that many more functions can plug into over time.
+
+**Target features:**
+- Stream ingestion — parse time-series (pace, HR, cadence, elevation) from local Strava export FIT/GPX via provenance.json; intervals.icu streams for new activities going forward
+- Activity browser — list/filter/sort the full archive; per-activity detail view with pace/HR/cadence charts and route map
+- Best efforts — fastest 400m/1k/1mi/5k/10k/HM/marathon computed within each run from streams; PR lists per distance
+- Records & trends — weekly/monthly/yearly/all-time aggregates and records
+- Dashboard SPA shell — client-side routing over pre-computed JSON, designed for long-term extensibility
+
+**Key context:** Flexibility is the explicit priority — not everything ships now. Static-only hosting constrains everything to pre-computed JSON. Raw stream volume for ~1,867 activities needs a storage/derived-data strategy.
+
 ## Requirements
 
 ### Validated
@@ -40,7 +53,7 @@ Compute and visualize running statistics that Strava doesn't readily offer, embe
 
 ### Active
 
-(No active milestone — run `/gsd:new-milestone` to start next)
+Milestone v2.0 Training Dashboard — requirements being defined (see Current Milestone above; REQUIREMENTS.md forthcoming).
 
 ### Out of Scope
 
@@ -110,5 +123,22 @@ Repository: github.com/bacilo/strava-widgets (public).
 | Quintile color scale for pin map | Clear visual hierarchy with 5 teal-to-orange levels | ✓ Good |
 | Vite multi-page build for standalone | Clean output paths, pages load existing IIFE bundles (no duplication) | ✓ Good |
 
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd-transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd:complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
+
 ---
-*Last updated: 2026-02-18 after v1.2 milestone complete*
+*Last updated: 2026-08-10 — milestone v2.0 Training Dashboard started*

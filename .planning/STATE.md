@@ -1,3 +1,18 @@
+---
+gsd_state_version: 1.0
+milestone: v2.0
+milestone_name: Training Dashboard
+status: planning
+last_updated: "2026-08-10T11:05:44.164Z"
+last_activity: 2026-08-10
+progress:
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
+---
+
 # Project State
 
 ## Project Reference
@@ -9,11 +24,10 @@ See: .planning/PROJECT.md (updated 2026-02-18)
 
 ## Current Position
 
-Milestone: v1.2 Maps & Geo Fix — SHIPPED 2026-02-18
-Status: Between milestones
-Last activity: 2026-08-10 - Unplanned maintenance arc (12 commits, outside GSD): pipeline recovery + Strava→intervals.icu ingestion migration + bulk-export consolidation
-
-Progress: 3 milestones shipped (v1.0, v1.1, v1.2) — 13 phases, 30 plans total; 1 quick fix + Aug 2026 maintenance arc applied
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-08-10 — Milestone v2.0 started
 
 ## Performance Metrics
 
@@ -35,6 +49,7 @@ All decisions logged in PROJECT.md Key Decisions table.
 ### Key Findings
 
 Carried forward for future milestones:
+
 - ~~GeoNames database lives in node_modules~~ RESOLVED 2026-08: committed to data/geo/geonames.db (13.5 MB)
 - Multi-city route prevalence: 86% of activities pass through multiple cities
 - Pre-decoded heatmap points file is 12.7 MB — acceptable for CDN but worth monitoring
