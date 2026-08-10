@@ -48,7 +48,7 @@ Carried forward for future milestones:
 
 ### Pending Todos
 
-None.
+1 pending — `.planning/todos/pending/2026-08-10-garmin-export-adapter-when-export-arrives.md` (write garmin adapter for consolidate-exports once the requested Garmin bulk export lands in export_data/garmin/)
 
 ### Blockers/Concerns
 
