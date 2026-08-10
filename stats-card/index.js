@@ -165,7 +165,7 @@ class StatsCardWidget extends WidgetBase {
             // Fetch primary data (all-time totals)
             const allTimeData = await this.fetchData(primaryUrl);
             // Fetch secondary data (year-over-year) if URL provided and enabled
-            const secondaryUrl = this.getAttribute('data-url-secondary');
+            const secondaryUrl = this.attrAlias('data-secondary-url', 'data-url-secondary');
             const showYoY = this.getAttribute('data-show-yoy') !== 'false'; // default true
             if (secondaryUrl && showYoY) {
                 try {
@@ -355,7 +355,7 @@ const StatsCard = {
             element.setAttribute('data-url', config.dataUrl);
         }
         if (config.options?.secondaryDataUrl) {
-            element.setAttribute('data-url-secondary', config.options.secondaryDataUrl);
+            element.setAttribute('data-secondary-url', config.options.secondaryDataUrl);
         }
         if (config.options?.customTitle) {
             element.setAttribute('data-title', config.options.customTitle);

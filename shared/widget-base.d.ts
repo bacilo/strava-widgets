@@ -18,6 +18,16 @@ export declare abstract class WidgetBase extends HTMLElement {
     protected themeManager: ThemeManager | null;
     protected responsiveManager: ResponsiveManager | null;
     /**
+     * Read the first non-empty attribute among aliases.
+     *
+     * The documented embed API (README, landing page) uses `data-secondary-url`
+     * and `data-metadata-url`, but the widgets originally read
+     * `data-url-secondary` / `data-url-metadata` — so every documented
+     * secondary-data embed silently fell back to primary-only rendering.
+     * Widgets accept both spellings; the documented name wins.
+     */
+    protected attrAlias(...names: string[]): string | null;
+    /**
      * Constructor - attach Shadow DOM
      * DO NOT read attributes here (not available until connectedCallback)
      */

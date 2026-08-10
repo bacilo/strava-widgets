@@ -68,6 +68,7 @@ export class WidgetBase extends HTMLElement {
      */
     static observedAttributes = [
         'data-url',
+        'data-secondary-url',
         'data-url-secondary',
         'data-title',
         'data-show-title',
@@ -82,6 +83,23 @@ export class WidgetBase extends HTMLElement {
     ];
     themeManager = null;
     responsiveManager = null;
+    /**
+     * Read the first non-empty attribute among aliases.
+     *
+     * The documented embed API (README, landing page) uses `data-secondary-url`
+     * and `data-metadata-url`, but the widgets originally read
+     * `data-url-secondary` / `data-url-metadata` — so every documented
+     * secondary-data embed silently fell back to primary-only rendering.
+     * Widgets accept both spellings; the documented name wins.
+     */
+    attrAlias(...names) {
+        for (const name of names) {
+            const value = this.getAttribute(name);
+            if (value)
+                return value;
+        }
+        return null;
+    }
     /**
      * Constructor - attach Shadow DOM
      * DO NOT read attributes here (not available until connectedCallback)
@@ -214,7 +232,7 @@ export class WidgetBase extends HTMLElement {
             options: {
                 showTitle: parseBoolean(this, 'data-show-title', true),
                 customTitle: this.getAttribute('data-title') || undefined,
-                secondaryDataUrl: this.getAttribute('data-url-secondary') || undefined
+                secondaryDataUrl: this.attrAlias('data-secondary-url', 'data-url-secondary') || undefined
             }
         };
     }
