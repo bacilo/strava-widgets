@@ -10,6 +10,7 @@
  */
 
 import type {
+  BestEffortsDocument,
   ComputedEffort,
   RejectedEffort,
   TargetDistanceKey,
@@ -106,4 +107,27 @@ export function computeActivityEfforts(input: ActivityEffortInput): ActivityEffo
   }
 
   return { efforts, rejected, eligibleTargets };
+}
+
+/** Options for `computeBestEfforts`, each defaulted to the repo's standard data layout. */
+export interface ComputeBestEffortsOptions {
+  activitiesDir?: string;
+  streamsDir?: string;
+  streamsManifestPath?: string;
+  statsDir?: string;
+}
+
+/**
+ * Reads the stream manifest, sweeps every available activity's stream for
+ * the seven target distances, marks personal records chronologically, and
+ * writes `<statsDir>/best-efforts.json` atomically. Returns the document as
+ * well as writing it, so tests and the fixture suite can assert without
+ * re-reading the file.
+ *
+ * NOT YET IMPLEMENTED — RED phase stub.
+ */
+export async function computeBestEfforts(
+  _options: ComputeBestEffortsOptions = {}
+): Promise<BestEffortsDocument> {
+  throw new Error('not implemented');
 }
