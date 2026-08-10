@@ -77,7 +77,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 14-02-PLAN.md — Extend FIT/GPX readers to multi-channel samples; build the availability manifest
+- [x] 14-02-PLAN.md — Extend FIT/GPX readers to multi-channel samples; build the availability manifest
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -183,7 +183,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 | 11. Route Map Widgets | v1.2 | 3/3 | Complete | 2026-02-17 |
 | 12. Heatmap & Pin Map Widgets | v1.2 | 2/2 | Complete | 2026-02-17 |
 | 13. Standalone Pages | v1.2 | 2/2 | Complete | 2026-02-18 |
-| 14. Stream Ingestion Foundation | v2.0 | 1/5 | In Progress|  |
+| 14. Stream Ingestion Foundation | v2.0 | 2/5 | In Progress|  |
 | 15. Best-Effort Engine | v2.0 | 0/TBD | Not started | - |
 | 16. Dashboard Shell & Data Contract | v2.0 | 0/TBD | Not started | - |
 | 17. Activity Browser & Detail Views | v2.0 | 0/TBD | Not started | - |
