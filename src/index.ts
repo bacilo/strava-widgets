@@ -244,6 +244,8 @@ async function syncIntervalsCommand() {
       fileStore,
       syncStateManager,
       activitiesDir: config.activitiesDir,
+      streamsDir: config.streamsDir,
+      streamsManifestPath: config.streamsManifestPath,
     });
 
     console.log('Starting intervals.icu activity sync...\n');

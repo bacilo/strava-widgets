@@ -455,7 +455,7 @@ export class IntervalsProvider implements ActivityProvider {
    */
   async fetchGeometry(
     activityId: string,
-    options: { streamTypes?: string[]; expectedMeters?: number } = {}
+    options: { streamTypes?: string[]; expectedMeters?: number; allChannels?: boolean } = {}
   ): Promise<{
     startLatLng?: number[];
     summaryPolyline?: string;
@@ -463,7 +463,7 @@ export class IntervalsProvider implements ActivityProvider {
     rawAll?: unknown;
     validation?: ReturnType<typeof IntervalsProvider.validateGeometry>;
   }> {
-    const { streamTypes, expectedMeters = 0 } = options;
+    const { streamTypes, expectedMeters = 0, allChannels = false } = options;
 
     // Ask for whatever coordinate stream the activity says it has, falling back
     // to the documented name.
@@ -472,17 +472,33 @@ export class IntervalsProvider implements ActivityProvider {
     );
     const types = wanted.length > 0 ? wanted : ['latlng'];
 
-    const raw = await this.client.getStreams(activityId, types);
+    let raw: unknown;
+    let rawAll: unknown;
+
+    if (allChannels) {
+      // Issue the unfiltered request as the one and only fetch. Per
+      // getAllStreams's own doc comment the unfiltered response is the ground
+      // truth about what the activity has, so extractCoordinates gets
+      // strictly better input here than under the type-filtered path below —
+      // never worse. `raw` and `rawAll` both hold the same payload so callers
+      // that read either field see every channel.
+      rawAll = await this.client.getAllStreams(activityId);
+      raw = rawAll;
+    } else {
+      raw = await this.client.getStreams(activityId, types);
+    }
+
     let { coordinates, validation } = IntervalsProvider.resolveAxes(
       IntervalsProvider.extractCoordinates(raw),
       expectedMeters
     );
-    let rawAll: unknown;
 
     // A filtered request has been seen to return an incomplete coordinate
     // series. When the result fails validation, refetch everything — the
-    // missing component may be a sibling stream the filter excluded.
-    if (!validation.ok) {
+    // missing component may be a sibling stream the filter excluded. Skipped
+    // under allChannels: the first request was already unfiltered, so there
+    // is nothing left to widen.
+    if (!validation.ok && !allChannels) {
       rawAll = await this.client.getAllStreams(activityId);
       const fromAll = IntervalsProvider.resolveAxes(
         IntervalsProvider.extractCoordinates(rawAll),

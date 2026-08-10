@@ -2,6 +2,9 @@ import { IntervalsClient } from '../api/intervals-client.js';
 import { IntervalsProvider } from '../api/intervals-provider.js';
 import { FileStore } from '../storage/file-store.js';
 import { SyncStateManager } from '../storage/sync-state.js';
+import { deriveFromIntervalsStreams } from '../streams/derive-stream.js';
+import { loadManifest, saveManifest, upsertAvailable, upsertUnavailable } from '../streams/stream-manifest.js';
+import type { StreamManifest } from '../streams/stream.types.js';
 
 /**
  * Sync loop for the intervals.icu provider.
@@ -24,22 +27,30 @@ export class IntervalsSync {
   private fileStore: FileStore;
   private syncStateManager: SyncStateManager;
   private activitiesDir: string;
+  private streamsDir: string;
+  private streamsManifestPath: string;
 
   constructor({
     client,
     fileStore,
     syncStateManager,
     activitiesDir,
+    streamsDir,
+    streamsManifestPath,
   }: {
     client: IntervalsClient;
     fileStore: FileStore;
     syncStateManager: SyncStateManager;
     activitiesDir: string;
+    streamsDir: string;
+    streamsManifestPath: string;
   }) {
     this.provider = new IntervalsProvider(client);
     this.fileStore = fileStore;
     this.syncStateManager = syncStateManager;
     this.activitiesDir = activitiesDir;
+    this.streamsDir = streamsDir;
+    this.streamsManifestPath = streamsManifestPath;
   }
 
   /** Epoch seconds of every activity already on disk, for dedupe. */
@@ -82,6 +93,10 @@ export class IntervalsSync {
 
     const existing = await this.existingStartEpochs();
 
+    // Loaded once before the loop, saved once after — a 30-activity sync
+    // writes the manifest a single time, not per activity.
+    const manifest: StreamManifest = await loadManifest(this.fileStore, this.streamsManifestPath);
+
     let newRuns = 0;
     let skipped = 0;
     let maxTimestamp = state.last_sync_timestamp;
@@ -110,6 +125,7 @@ export class IntervalsSync {
         const geometry = await this.provider.fetchGeometry(String(activity.id), {
           streamTypes,
           expectedMeters: activity.distance,
+          allChannels: true,
         });
         if (geometry.summaryPolyline && geometry.startLatLng && geometry.validation?.ok) {
           activity.map = { summary_polyline: geometry.summaryPolyline };
@@ -121,8 +137,28 @@ export class IntervalsSync {
             `${geometry.validation?.reason ?? 'no coordinates'}; saving without route`
           );
         }
+
+        // Under the allChannels flag above, raw and rawAll hold the same
+        // unfiltered payload — the `??` here is belt-and-braces, not the
+        // mechanism that supplies HR/cadence/altitude.
+        const stream = deriveFromIntervalsStreams(String(activity.id), geometry.rawAll ?? geometry.raw);
+        if (stream) {
+          await this.fileStore.writeJson(`${this.streamsDir}/${activity.id}.json`, stream);
+          upsertAvailable(manifest, String(activity.id), {
+            source: stream.source,
+            distanceSource: stream.distanceSource,
+            sampleCount: stream.sampleCount,
+            channels: stream.channels,
+          });
+        } else {
+          upsertUnavailable(manifest, String(activity.id), 'no-samples');
+          console.warn(`  ${activity.id}: no usable stream samples; flagged no-samples`);
+        }
       } catch (error: any) {
-        console.warn(`  ${activity.id}: streams fetch failed (${error.message}); saving without route`);
+        console.warn(
+          `  ${activity.id}: streams fetch failed (${error.message}); saving without route or stream`
+        );
+        upsertUnavailable(manifest, String(activity.id), 'no-samples');
       }
 
       await this.fileStore.writeJson(`${this.activitiesDir}/${activity.id}.json`, activity);
@@ -143,6 +179,10 @@ export class IntervalsSync {
         `(${(activity.distance / 1000).toFixed(1)} km)`
       );
     }
+
+    // Written once per sync, not per activity — a no-op on disk when nothing
+    // about the entries changed.
+    await saveManifest(this.fileStore, this.streamsManifestPath, manifest);
 
     console.log(
       `Sync complete: ${newRuns} new runs saved, ${skipped} skipped (already present or not runs)`
