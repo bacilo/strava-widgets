@@ -56,16 +56,38 @@ was needed.
 
 | # | Activity ID | Date (UTC) | Source | distanceSource | Activity distance | Target | Engine computed time | Reported time | Notes | Lookup |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 1 | 3475726256 | 2019-05-12 05:46 UTC | fit | native | 32.05 km | 400m | 0:44.0 | | | https://www.strava.com/activities/3475726256 |
-| 2 | 3475725513 | 2019-06-09 06:57 UTC | fit | native | 32.01 km | 1k | 2:28.9 | | | https://www.strava.com/activities/3475725513 |
-| 3 | 7827165619 | 2022-09-18 09:16 UTC | fit | native | 21.35 km | 5k | 19:39.3 | | | https://www.strava.com/activities/7827165619 |
-| 4 | 7827165619 | 2022-09-18 09:16 UTC | fit | native | 21.35 km | 10k | 39:43.9 | | | https://www.strava.com/activities/7827165619 |
-| 5 | 7827165619 | 2022-09-18 09:16 UTC | fit | native | 21.35 km | half | 86:51.3 | | | https://www.strava.com/activities/7827165619 |
-| 6 | 9716153503 | 2023-08-25 05:16 UTC | gpx | geo | 11.91 km | 5k | 26:18.4 | | | https://www.strava.com/activities/9716153503 |
-| 7 | i174284902 | 2026-08-10 05:51 UTC | intervals | native | 11.26 km | 5k | 27:50.9 | | | intervals.icu / Garmin Connect — find by date 2026-08-10 |
-| 8 | i174284902 | 2026-08-10 05:51 UTC | intervals | native | 11.26 km | 10k | 56:52.5 | | | intervals.icu / Garmin Connect — find by date 2026-08-10 |
+| 1 | 3475726256 | 2019-05-12 05:46 UTC | fit | native | 32.05 km | 400m | 0:44.0 | 0:44.0 | CONFIRMED on Strava — exact match. Shows as the 3rd-best 400m time overall on this Strava account. This activity also holds the best 30km time. Recorded with a poor/inaccurate device (see Verification Notes below) — engine's calculation still matches the platform's own reported figure. | https://www.strava.com/activities/3475726256 |
+| 2 | 3475725513 | 2019-06-09 06:57 UTC | fit | native | 32.01 km | 1k | 2:28.9 | 2:28.9 | CONFIRMED on Strava — exact match. Best 1k time on the platform; other personal records also live on this activity. Same poor-device caveat as row 1. | https://www.strava.com/activities/3475725513 |
+| 3 | 7827165619 | 2022-09-18 09:16 UTC | fit | native | 21.35 km | 5k | 19:39.3 | not available | Strava does NOT display a 5k best effort for this activity (other distances on the same activity are shown). Human judges the engine's 19:39.3 correct by inspection, but that is a manual judgment, not a platform-reported value — dropped from the fixture set per the worksheet rule (no estimation). | https://www.strava.com/activities/7827165619 |
+| 4 | 7827165619 | 2022-09-18 09:16 UTC | fit | native | 21.35 km | 10k | 39:43.9 | 39:43.9 | CONFIRMED on Strava — same activity as row 3 ("same"). | https://www.strava.com/activities/7827165619 |
+| 5 | 7827165619 | 2022-09-18 09:16 UTC | fit | native | 21.35 km | half | 86:51.3 | 1:26:51.3 | CONFIRMED on Strava — same activity as rows 3-4 ("yes"). | https://www.strava.com/activities/7827165619 |
+| 6 | 9716153503 | 2023-08-25 05:16 UTC | gpx | geo | 11.91 km | 5k | 26:18.4 | not available | Platform does not display a 5k calculation for this activity. Human's own manual calculation confirms the engine's 26:18.4 ("Looks good"), but that manual check is not a platform-reported value — dropped from the fixture set per the worksheet rule (no estimation). | https://www.strava.com/activities/9716153503 |
+| 7 | i174284902 | 2026-08-10 05:51 UTC | intervals | native | 11.26 km | 5k | 27:50.9 | 27:50.9 | CONFIRMED ("looks good."). | intervals.icu / Garmin Connect — find by date 2026-08-10 |
+| 8 | i174284902 | 2026-08-10 05:51 UTC | intervals | native | 11.26 km | 10k | 56:52.5 | 56:52.5 | CONFIRMED ("looks good."). | intervals.icu / Garmin Connect — find by date 2026-08-10 |
 
 **Sanity check while filling this in:** on 5k and above the engine's computed
 time and the platform's reported time should agree to within a couple of
 seconds. A difference of more than a few percent on a long effort (rows 3-8) is
 worth flagging in Notes rather than accepting silently.
+
+## Verification Notes (developer-supplied, 2026-08-10)
+
+All 8 candidate rows were verified against Strava / intervals.icu / manual
+calculation. Rows 1 and 2 (activities `3475726256` and `3475725513`) were
+recorded with a poor/inaccurate GPS device — the reported values still match
+the engine's output exactly, but the developer flagged that these two
+activities are not fully trustworthy for personal-best purposes generally.
+This did not block freezing rows 1-2 as fixtures (the platform's own reported
+value matches the engine's computed value, which is what this suite checks),
+but it is recorded here for provenance (T-15-08).
+
+Rows 3 and 6 could not be sourced from a platform's own best-effort display
+(Strava does not surface a 5k calculation for either underlying activity) and
+are therefore marked `not available` and dropped from the frozen fixture set
+in Task 3, per this worksheet's own rule against estimating missing values.
+
+**Follow-up (not implemented in this plan):** the developer requested a future
+feature to manually exclude specific activities (e.g. `3475726256`,
+`3475725513`) from personal-best calculations, because they were recorded with
+an inaccurate device. Tracked as a decision/follow-up in
+`15-04-SUMMARY.md` — out of scope for this plan, no code changes made.
