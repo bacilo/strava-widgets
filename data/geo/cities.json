@@ -3,8 +3,8 @@
     "cityName": "Frederiksberg",
     "countryName": "Denmark",
     "countryIso2": "DK",
-    "activityCount": 872,
-    "totalDistanceKm": 10571.2
+    "activityCount": 873,
+    "totalDistanceKm": 10591.2
   },
   {
     "cityName": "Vanløse",
@@ -38,8 +38,8 @@
     "cityName": "Herlev",
     "countryName": "Denmark",
     "countryIso2": "DK",
-    "activityCount": 82,
-    "totalDistanceKm": 974.4
+    "activityCount": 83,
+    "totalDistanceKm": 984.4
   },
   {
     "cityName": "Bergshamra",
@@ -523,6 +523,13 @@
     "countryIso2": "NO",
     "activityCount": 1,
     "totalDistanceKm": 9
+  },
+  {
+    "cityName": "Quezon City",
+    "countryName": "Philippines",
+    "countryIso2": "PH",
+    "activityCount": 1,
+    "totalDistanceKm": 7.5
   },
   {
     "cityName": "Kipséli",
