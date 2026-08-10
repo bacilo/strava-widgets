@@ -32,8 +32,10 @@ function baseInput(overrides: Partial<ActivityEffortInput> = {}): ActivityEffort
 }
 
 describe('computeActivityEfforts — pre-filter', () => {
-  it('an activity with distance 3000m yields no 1mi/5k/10k/half/marathon entries, eligibleTargets count is 2', () => {
-    const input = baseInput({ activityDistanceM: 3000 });
+  it('an activity with distance 1500m (under the 1mi 0.99 threshold) yields no 1mi/5k/10k/half/marathon entries, eligibleTargets count is 2', () => {
+    // 1mi * 0.99 = 1593.25m — 1500m falls just short, isolating 400m/1k as the
+    // only eligible targets (D-01's own formula, verbatim from <action>).
+    const input = baseInput({ activityDistanceM: 1500 });
     const result = computeActivityEfforts(input);
     expect(result.eligibleTargets).toEqual(['400m', '1k']);
     expect(result.eligibleTargets.length).toBe(2);
