@@ -104,7 +104,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 15-01-PLAN.md — Lock the best-effort contracts and build the pure sweep, guards and PR marking
+- [x] 15-01-PLAN.md — Lock the best-effort contracts and build the pure sweep, guards and PR marking
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -197,7 +197,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 | 12. Heatmap & Pin Map Widgets | v1.2 | 2/2 | Complete | 2026-02-17 |
 | 13. Standalone Pages | v1.2 | 2/2 | Complete | 2026-02-18 |
 | 14. Stream Ingestion Foundation | v2.0 | 5/5 | Complete    | 2026-08-10 |
-| 15. Best-Effort Engine | v2.0 | 0/4 | Planned      | - |
+| 15. Best-Effort Engine | v2.0 | 1/4 | In Progress|  |
 | 16. Dashboard Shell & Data Contract | v2.0 | 0/TBD | Not started | - |
 | 17. Activity Browser & Detail Views | v2.0 | 0/TBD | Not started | - |
 | 18. Records, Trends & Differentiators | v2.0 | 0/TBD | Not started | - |

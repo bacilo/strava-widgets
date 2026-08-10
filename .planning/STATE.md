@@ -4,8 +4,8 @@ milestone: v2.0
 milestone_name: Training Dashboard
 status: executing
 stopped_at: Phase 15 context gathered
-last_updated: "2026-08-10T14:48:59.434Z"
-last_activity: 2026-08-10 -- Phase 15 planning complete
+last_updated: "2026-08-10T15:17:39.630Z"
+last_activity: 2026-08-10 -- Phase 15 execution started
 progress:
   total_phases: 5
   completed_phases: 1
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 15 — best effort engine
+**Current focus:** Phase 15 — best-effort-engine
 
 ## Current Position
 
-Phase: 15
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-08-10 -- Phase 15 planning complete
+Phase: 15 (best-effort-engine) — EXECUTING
+Plan: 1 of 4
+Status: Executing Phase 15
+Last activity: 2026-08-10 -- Phase 15 execution started
 
 Progress: [░░░░░░░░░░] 0%
 
