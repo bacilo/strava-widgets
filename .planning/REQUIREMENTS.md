@@ -9,9 +9,9 @@ Requirements for the Training Dashboard milestone. Each maps to roadmap phases.
 
 ### Stream Ingestion
 
-- [ ] **STREAM-01**: User can run a local backfill command that parses FIT/GPX originals from `export_data/` (via `data/provenance.json`) into committed per-activity stream files (time, distance, pace, HR, cadence, elevation)
-- [ ] **STREAM-02**: Daily pipeline fetches streams from intervals.icu for new activities and persists them in the same canonical format (with cadence unit normalization verified against FIT convention)
-- [ ] **STREAM-03**: Activities without recoverable streams (no original recording, treadmill/manual) are flagged so downstream features render degraded states instead of failing
+- [x] **STREAM-01**: User can run a local backfill command that parses FIT/GPX originals from `export_data/` (via `data/provenance.json`) into committed per-activity stream files (time, distance, pace, HR, cadence, elevation)
+- [x] **STREAM-02**: Daily pipeline fetches streams from intervals.icu for new activities and persists them in the same canonical format (with cadence unit normalization verified against FIT convention)
+- [x] **STREAM-03**: Activities without recoverable streams (no original recording, treadmill/manual) are flagged so downstream features render degraded states instead of failing
 
 ### Dashboard Shell
 
@@ -90,9 +90,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| STREAM-01 | Phase 14 | Pending |
-| STREAM-02 | Phase 14 | Pending |
-| STREAM-03 | Phase 14 | Pending |
+| STREAM-01 | Phase 14 | Complete |
+| STREAM-02 | Phase 14 | Complete |
+| STREAM-03 | Phase 14 | Complete |
 | REC-01 | Phase 15 | Pending |
 | DASH-01 | Phase 16 | Pending |
 | DASH-02 | Phase 16 | Pending |
