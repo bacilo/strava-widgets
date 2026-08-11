@@ -4,13 +4,13 @@ milestone: v2.0
 milestone_name: Training Dashboard
 status: executing
 stopped_at: Phase 16 plan 09 checkpoint PARTIAL - gap-closure pending on DASH-02/DASH-03
-last_updated: "2026-08-11T11:12:07.520Z"
+last_updated: "2026-08-11T11:32:09.702Z"
 last_activity: 2026-08-11 -- Phase 16 execution started
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 25
-  completed_plans: 18
+  completed_plans: 22
   percent: 40
 ---
 
@@ -86,6 +86,7 @@ Carried forward for future milestones:
 Previously resolved — SQLITE_CANTOPEN CI failure resolved by quick-1-01 (lazy geocoder init + dynamic import).
 
 - Phase 16 gap-closure needed before phase gate closes: GAP 1 (blocking, DASH-02) — deep-linked activity detail view renders 'Couldn't load this activity' in a real browser despite the same files serving 200 over plain HTTP in the automated smoke check; likely a client-side fetch-path bug in src/dashboard/data/detail-client.ts or how the hash router passes the id into it. GAP 2 (cosmetic, DASH-03) — theme toggle control is invisible in light mode though still functional when clicked. See .planning/phases/16-dashboard-shell-data-contract/16-09-SUMMARY.md Follow-ups section for full detail.
+- Plan 16-14 Task 2: git push origin master rejected as non-fast-forward. origin/master has 2 commits not in local master (dfaaf1e, bca8ae1 -- both automated 'chore: update activities and stats [skip ci]' from the nightly CI git-auto-commit-action), both touching only the generatedAt timestamp field in data/geo/geo-metadata.json. Local master is 177 commits ahead of the pre-divergence base but 2 commits behind current origin/master. A real 3-way merge would conflict on that single timestamp line. Per explicit authorization boundary (STOP and report, do not force), executor halted without force-pushing, merging, or rebasing. Awaiting explicit instruction on how to integrate (merge accepting origin's newer timestamp, or rebase local onto origin/master) before push/deploy can proceed.
 
 ### Quick Tasks Completed
 
