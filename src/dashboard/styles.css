@@ -5,7 +5,11 @@
  *
  * Theme tokens are declared twice, once per concrete `data-theme` value
  * written by src/dashboard/theme.ts (never 'auto' — see theme.ts), so no
- * system-color-scheme media query belongs in this file.
+ * system-color-scheme media query belongs in this file. For the same
+ * reason, `color-scheme` is declared per `data-theme` block rather than
+ * derived from an OS-level media query — the attribute is the single
+ * source of truth for both the design tokens and the browser's used
+ * color scheme.
  */
 
 :root {
@@ -33,6 +37,7 @@
 }
 
 :root[data-theme="light"] {
+  color-scheme: light;
   --bg: #ffffff;
   --surface: #f5f5f7;
   --accent: #fc4c02;
@@ -43,6 +48,7 @@
 }
 
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --bg: #1a1a2e;
   --surface: #242444;
   --accent: #ff6b35;
@@ -134,6 +140,7 @@ body {
   min-height: 44px;
   background: transparent;
   border: none;
+  color: var(--text);
 }
 
 /* Theme toggle */
@@ -147,11 +154,22 @@ body {
   background: transparent;
   border: none;
   fill: currentColor;
+  color: var(--text);
   cursor: pointer;
 }
 
+/* Icon swap uses `display`, not `fill`, because SVG presentation
+   attributes (fill="currentColor" on each child) always override an
+   inherited `fill` declared on the svg root — a `fill` rule here can
+   never win (WR-04). `color` works because every child references
+   currentColor and color is not overridden by a presentation attribute. */
+.theme-toggle__icon {
+  display: none;
+}
+
 .theme-toggle__icon--active {
-  fill: var(--accent);
+  display: inline;
+  color: var(--accent);
 }
 
 /* Layout */
