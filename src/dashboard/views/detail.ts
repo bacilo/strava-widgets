@@ -20,6 +20,9 @@ import type { AthleteConfigClient } from '../data/athlete-config-client.js';
 // and formatActivityDate. The private formatDurationHms this file used to
 // keep is deleted; this is the only copy in the dashboard now.
 import { formatActivityDate, formatPace, formatDurationHms, noteViewedActivity } from './list.js';
+import { computeSplits } from './detail-splits.js';
+import { computePaceDistribution, computeHrZoneTimes } from './detail-zones.js';
+import { buildSplitsSection, buildBreakdownSection } from './detail-sections.js';
 
 const DASH = '—';
 
@@ -138,6 +141,31 @@ function buildDetailNav(indexClient: IndexClient, currentId: string): HTMLElemen
   return nav;
 }
 
+/**
+ * Preserves the useful half of the deleted Phase-16 `buildStreamSummaryCard`
+ * — the reason badge — without its debug fields (Samples/Channels/Distance
+ * Source), for the 23 manual entries and other stream-unavailable
+ * activities where splits/breakdown cannot be computed at all.
+ */
+function buildNoStreamSection(reason: string | undefined): HTMLElement {
+  const section = document.createElement('section');
+  section.className = 'card detail-section';
+
+  const heading = document.createElement('h2');
+  heading.className = 'text-heading';
+  heading.textContent = 'No recorded stream';
+  section.appendChild(heading);
+
+  const body = document.createElement('p');
+  body.className = 'text-body';
+  body.textContent = reason
+    ? `This activity has no recorded time or distance stream (reason: ${reason}).`
+    : 'This activity has no recorded time or distance stream.';
+  section.appendChild(body);
+
+  return section;
+}
+
 export interface DetailViewDeps {
   detailClient: DetailClient;
   indexClient: IndexClient;
@@ -146,7 +174,7 @@ export interface DetailViewDeps {
 }
 
 export function createDetailView(deps: DetailViewDeps): DashboardView {
-  const { detailClient, indexClient, gearClient } = deps;
+  const { detailClient, indexClient, gearClient, athleteConfigClient } = deps;
   let mountedContainer: HTMLElement | null = null;
   let requestToken = 0;
 
@@ -221,6 +249,58 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
 
     statsCard.appendChild(statGrid);
     view.appendChild(statsCard);
+
+    // -- Route map placeholder (17-UI-SPEC § 4, fixed order) — Task 3 fills
+    // -- this asynchronously via the D-25 lazy import. -----------------------
+
+    const routeSection = document.createElement('section');
+    routeSection.className = 'detail-section';
+    const routeHeading = document.createElement('h2');
+    routeHeading.className = 'text-heading';
+    routeHeading.textContent = 'Route';
+    routeSection.appendChild(routeHeading);
+    const routeContainer = document.createElement('div');
+    routeSection.appendChild(routeContainer);
+    view.appendChild(routeSection);
+
+    // -- Chart bands placeholder — only when a stream exists to chart; Task 3
+    // -- fills it asynchronously via the D-25 lazy import. --------------------
+
+    let chartContainer: HTMLElement | null = null;
+    if (detail.stream !== null) {
+      const chartSection = document.createElement('section');
+      chartSection.className = 'detail-section';
+      const chartHeading = document.createElement('h2');
+      chartHeading.className = 'text-heading';
+      chartHeading.textContent = 'Pace & Effort';
+      chartSection.appendChild(chartHeading);
+      chartContainer = document.createElement('div');
+      chartSection.appendChild(chartContainer);
+      view.appendChild(chartSection);
+    }
+
+    // -- Splits / breakdown, or the named stream-absent state -----------------
+
+    if (detail.stream !== null) {
+      const splits = computeSplits(detail.stream);
+      view.appendChild(buildSplitsSection(splits, paceSecPerKm));
+
+      const buckets = computePaceDistribution(detail.stream);
+
+      // A second config-load await point in the render path — guarded
+      // exactly like the detail fetch and the gear load above.
+      const config = await athleteConfigClient.load();
+      if (myToken !== requestToken || mountedContainer !== container) {
+        return;
+      }
+
+      const zoneTimes = computeHrZoneTimes(detail.stream, config);
+      const breakdownSection = buildBreakdownSection(buckets, zoneTimes);
+      if (breakdownSection) view.appendChild(breakdownSection);
+    } else {
+      const reason = indexClient.getRow(detail.id)?.streams.reason;
+      view.appendChild(buildNoStreamSection(reason));
+    }
 
     const backCta = document.createElement('a');
     backCta.className = 'cta';
