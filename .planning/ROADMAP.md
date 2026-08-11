@@ -193,20 +193,31 @@ Plans:
 
 Plans:
 
+**Wave 1**
+
 - [ ] 17-01-PLAN.md — Design tokens and Phase 17 component CSS (single owner of styles.css)
 - [ ] 17-02-PLAN.md — Pure list sort/filter/paginate/URL-state logic + tests
 - [ ] 17-03-PLAN.md — Pure calendar month-grid date math + tests
 - [ ] 17-04-PLAN.md — Pure per-km splits and chart-series/smoothing/overlay-config logic + tests
 - [ ] 17-05-PLAN.md — Pure pace-distribution and HR-zone logic, athlete-config gate + tests
 - [ ] 17-06-PLAN.md — Committed data/config/{athlete,gear}.json plus publish pipeline and verifier
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 17-07-PLAN.md — Browser gear and athlete-config fetch clients + tests
 - [ ] 17-08-PLAN.md — List view: desktop table, mobile cards, sorting, numbered pagination
-- [ ] 17-09-PLAN.md — List view: search, range filters, presets, removable chips, empty state
 - [ ] 17-10-PLAN.md — Real calendar view, multi-run picker, registry wiring, stub removal
 - [ ] 17-11-PLAN.md — Lazily-imported route map reusing RouteRenderer, with position marker
 - [ ] 17-12-PLAN.md — Lazily-imported stacked chart bands, per-band overlays, x-axis toggle
 - [ ] 17-13-PLAN.md — Splits table and pace-distribution / HR-zone section renderers
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 17-09-PLAN.md — List view: search, range filters, presets, removable chips, empty state
 - [ ] 17-14-PLAN.md — Detail view orchestration: stats header, gear, lazy mounts, hover sync
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 17-15-PLAN.md — Automated gate plus blocking real-browser verification checkpoint
 
 ### Phase 18: Records, Trends & Differentiators

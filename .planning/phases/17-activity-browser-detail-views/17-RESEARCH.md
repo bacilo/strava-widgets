@@ -438,17 +438,21 @@ export function readStoredOverlayConfig(storage: Pick<Storage, 'getItem'>): Over
 
 **If this table is empty:** N/A — two low-risk assumptions logged above; every other claim in this document was verified directly against this repo's source, installed packages, or committed data.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Should the `data/config/` directory (or equivalent) house both `athlete.json` and `gear.json`, or should they stay flat at `data/` root with individual copy logic added to `copyDataFiles`?**
+*Both questions were settled during planning; each is annotated inline with the plan that resolved it.*
+
+1. **[RESOLVED — 17-06]** **Should the `data/config/` directory (or equivalent) house both `athlete.json` and `gear.json`, or should they stay flat at `data/` root with individual copy logic added to `copyDataFiles`?**
    - What we know: The directory-based copy pattern in `copyDataFiles` is simpler to extend correctly (Pitfall 7) and matches every existing entry in `dataDirs`.
    - What's unclear: Whether a new subdirectory is stylistically consistent with the rest of `data/`'s flat, purpose-named-directory convention (`data/stats/`, `data/geo/`, `data/streams/`) or whether these two files are conceptually closer to the flat `data/best-effort-exclusions.json`/`data/provenance.json` top-level files.
    - Recommendation: Either works; CONTEXT.md explicitly leaves "Concrete schema and file names... versus generated output" as Claude's Discretion. This research recommends the `data/config/` subdirectory purely because it reuses tested copy code with zero new logic — lower defect risk given the Phase 16 precedent of an omitted-copy-path production bug.
+   - **Resolution:** Plan 17-06 adopted the `data/config/` subdirectory, holding both `athlete.json` and `gear.json`, and extends `copyDataFiles`'s `dataDirs` array rather than adding per-file copy logic.
 
-2. **Does `verify-dashboard-publish.mjs` need a new check for the dynamically-imported Leaflet/Chart.js chunk specifically, beyond the existing module-script/stylesheet checks?**
+2. **[RESOLVED — 17-11 / 17-12 / 17-15]** **Does `verify-dashboard-publish.mjs` need a new check for the dynamically-imported Leaflet/Chart.js chunk specifically, beyond the existing module-script/stylesheet checks?**
    - What we know: The verifier currently resolves the `<script type="module">` and `<link rel="stylesheet">` referenced directly in `index.html`'s initial markup. It has no mechanism to discover or fetch a chunk that is only referenced from *inside* already-loaded JS (i.e., the target of a `import('leaflet')` call).
    - What's unclear: Whether extending the automated HTTP verifier to crawl dynamic-import targets is worth the added complexity, versus relying on the existing "real browser" manual-checkpoint step (which Phase 16's own postmortem shows is necessary anyway, since the verifier's own local-shape assertions previously missed a real production defect).
    - Recommendation: Treat automated dynamic-chunk-resolves-at-the-mount-prefix verification as nice-to-have; treat a real-browser manual check (open a detail view, confirm the map/charts actually render, check Network tab for 404s) as the mandatory gate, consistent with how Phase 16 handled its own analogous gaps.
+   - **Resolution:** Plans 17-11 and 17-12 prove the lazy-chunk boundary with a build-output assertion (entry chunk contains no Leaflet/Chart.js code), and plan 17-15 makes the real-browser checkpoint a blocking, non-autonomous gate covering dynamic-chunk 404s. The HTTP verifier is not extended to crawl dynamic imports.
 
 ## Environment Availability
 
