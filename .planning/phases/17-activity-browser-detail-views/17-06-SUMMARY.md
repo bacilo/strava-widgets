@@ -96,3 +96,8 @@ None - no external service configuration required. Both config files ship with p
 ---
 *Phase: 17-activity-browser-detail-views*
 *Completed: 2026-08-11*
+
+## Self-Check: PASSED
+
+All claimed created files verified present: `data/config/gear.json`, `data/config/athlete.json`, `scripts/build-widgets.mjs`, `scripts/verify-dashboard-publish.mjs`, `.planning/phases/17-activity-browser-detail-views/17-06-SUMMARY.md`.
+All claimed commits verified present in `git log`: `e72ae80`, `69f5d1c`, `b493ca8`.
