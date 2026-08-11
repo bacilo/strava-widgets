@@ -42,6 +42,7 @@ import {
   readStoredOverlayConfig,
   writeStoredOverlayConfig,
 } from './detail-charts-logic.js';
+import { resolveChannelPalette, resolveThemeColors, hexToRgba, Y_AXIS_WIDTH_PX } from './chart-theme.js';
 
 // ---------------------------------------------------------------------------
 // Registration — tree-shaken, mirroring comparison-chart/chart-config.ts and
@@ -60,95 +61,13 @@ Chart.register(LineController, LineElement, PointElement, LinearScale, Tooltip, 
  */
 const DECIMATION_CONFIG = { enabled: true, algorithm: 'lttb', samples: 500 } as const;
 
-/**
- * Fixed y-axis gutter width, in px, shared by every band.
- *
- * Chart.js sizes each chart's y-axis to ITS OWN widest tick label. Because the
- * pace band's labels (`10:00/km`) are far wider than heart rate's (`120`), each
- * band would otherwise reserve a different left gutter and start its plot area
- * at a different x — so the bands' x-axes would not line up vertically, and a
- * single screen x would map to a different distance/time per band, quietly
- * breaking the shared hover crosshair (D-26) as well as the visual alignment.
- *
- * Pinning one width across all bands makes the stacked bands share a common
- * left edge. 72px fits the widest label this file can produce (`10:00/km` at
- * the 14px tick font) with room for tick padding; any new channel whose labels
- * are wider must raise this number rather than remove the pin.
- */
-const Y_AXIS_WIDTH_PX = 72;
-
 // ---------------------------------------------------------------------------
-// Theme palette resolution
-//
-// DEVIATION from comparison-chart/chart-config.ts's hardcoded
-// `isDark ? ... : ...` branch: that widget has no access to the dashboard's
-// `data-theme` attribute, so it hardcodes two literal palettes. This module
-// DOES have access (it lives inside the same document), so every colour is
-// resolved from the live CSS custom properties at mount time instead of a
-// light/dark literal table — this is an intentional divergence from the
-// copied widgets, not a defect to reproduce.
+// Theme palette resolution and Y_AXIS_WIDTH_PX now live in `chart-theme.ts`
+// (imported above) — the single source of chart colour resolution for every
+// dashboard view. See that module's header comment for the DEVIATION note
+// on why this differs from comparison-chart/chart-config.ts's hardcoded
+// light/dark literal table.
 // ---------------------------------------------------------------------------
-
-/**
- * Reads a CSS custom property off `document.documentElement`, falling back
- * to `fallback` when the property is empty (e.g. a missing token) so a
- * theming gap degrades to a visible colour rather than an invisible chart.
- */
-function resolveToken(name: string, fallback: string): string {
-  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  return value.length > 0 ? value : fallback;
-}
-
-interface ChannelPalette {
-  pace: string;
-  hr: string;
-  cadence: string;
-  elevation: string;
-}
-
-function resolveChannelPalette(): ChannelPalette {
-  return {
-    pace: resolveToken('--chart-pace', '#fc4c02'),
-    hr: resolveToken('--chart-hr', '#e11d48'),
-    cadence: resolveToken('--chart-cadence', '#0891b2'),
-    elevation: resolveToken('--chart-elevation', '#16a34a'),
-  };
-}
-
-interface ThemeColors {
-  border: string;
-  text: string;
-  textSecondary: string;
-}
-
-function resolveThemeColors(): ThemeColors {
-  return {
-    border: resolveToken('--border', '#e5e5e5'),
-    text: resolveToken('--text', '#333333'),
-    textSecondary: resolveToken('--text-secondary', '#666666'),
-  };
-}
-
-/**
- * Converts a resolved `#rrggbb` (or `#rgb`) token into an `rgba(...)` string
- * at `alpha`. Every resolved token in this file's design-token contract is a
- * hex literal (styles.css), so a non-hex value degrades to opaque black
- * rather than producing an invalid canvas fill style.
- */
-function hexToRgba(hex: string, alpha: number): string {
-  const clean = hex.trim().replace('#', '');
-  const expanded = clean.length === 3
-    ? clean.split('').map((c) => c + c).join('')
-    : clean;
-  const parsed = parseInt(expanded, 16);
-  if (expanded.length !== 6 || Number.isNaN(parsed)) {
-    return `rgba(0, 0, 0, ${alpha})`;
-  }
-  const r = (parsed >> 16) & 255;
-  const g = (parsed >> 8) & 255;
-  const b = parsed & 255;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
 
 // ---------------------------------------------------------------------------
 // Channel presentation metadata (labels, aria descriptions, tooltip units)

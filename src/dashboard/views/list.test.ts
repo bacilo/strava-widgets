@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatActivityDate, formatPace } from './list.js';
+import { formatActivityDate, formatPace, formatEffortDuration } from './list.js';
 
 describe('formatActivityDate — WR-02 timezone-independent local dates', () => {
   it('formats a real intervals.icu no-Z record', () => {
@@ -67,5 +67,45 @@ describe('formatPace — CR-01 m:ss rollover', () => {
 
   it('returns an em dash for null', () => {
     expect(formatPace(null)).toBe('—');
+  });
+});
+
+describe('formatEffortDuration — 18-UI-SPEC § 14 (m:ss under an hour, h:mm:ss at/above)', () => {
+  it('renders m:ss for a 5K-scale duration', () => {
+    expect(formatEffortDuration(1179)).toBe('19:39');
+  });
+
+  it('renders m:ss for a very short duration', () => {
+    expect(formatEffortDuration(44)).toBe('0:44');
+  });
+
+  it('renders h:mm:ss exactly at the one-hour boundary', () => {
+    expect(formatEffortDuration(3600)).toBe('1:00:00');
+  });
+
+  it('renders h:mm:ss for a marathon-scale duration', () => {
+    expect(formatEffortDuration(5211)).toBe('1:26:51');
+  });
+
+  it('rounds in a single step, never producing a :60 seconds component', () => {
+    const out = formatEffortDuration(2388.9);
+    expect(out).not.toBe('39:60');
+    expect(out).toMatch(/^\d+:[0-5]\d$/);
+  });
+
+  it('rolls a near-minute-boundary value into the minutes component, not :60', () => {
+    expect(formatEffortDuration(59.6)).toBe('1:00');
+  });
+
+  it('returns an em dash for a negative duration', () => {
+    expect(formatEffortDuration(-1)).toBe('—');
+  });
+
+  it('returns an em dash for NaN', () => {
+    expect(formatEffortDuration(NaN)).toBe('—');
+  });
+
+  it('returns an em dash for Infinity', () => {
+    expect(formatEffortDuration(Infinity)).toBe('—');
   });
 });

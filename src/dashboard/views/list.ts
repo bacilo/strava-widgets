@@ -100,11 +100,77 @@ export function formatPace(secPerKm: number | null): string {
   return `${minutes}:${String(seconds).padStart(2, '0')}/km`;
 }
 
-function appendBadge(container: HTMLElement, text: string): void {
+/**
+ * Formats a duration in seconds as `m:ss` when under an hour, `h:mm:ss` at
+ * or above one hour — unlike `formatDurationHms`, which always shows a
+ * leading `0:` hour component (`formatDurationHms(1179)` -> `"0:19:39"`,
+ * wrong for a 5K PR; this returns `"19:39"`). Exists alongside
+ * `formatDurationHms` rather than replacing it: that formatter's `h:mm:ss`
+ * shape is correct for activity moving-time display (an activity is always
+ * "long enough" for the hour component to read naturally), while this one
+ * is for standalone effort/PR times that are usually well under an hour.
+ *
+ * Consumers (18-UI-SPEC § 14): PR tables, evolution progression tables, the
+ * Riegel matrix, and the best-efforts panel.
+ *
+ * Uses a SINGLE rounding step feeding both the minutes and seconds
+ * components (`Math.round` once, then `floor(/60)` and `% 60`), exactly as
+ * `formatPace`'s own JSDoc mandates above — deriving the two components
+ * independently is what caused that formatter's shipped 11-row `:60`
+ * rounding defect, and this formatter must not reintroduce that defect
+ * class.
+ */
+export function formatEffortDuration(totalSeconds: number): string {
+  if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return '—';
+  const rounded = Math.round(totalSeconds);
+  const hours = Math.floor(rounded / 3600);
+  const minutes = Math.floor((rounded % 3600) / 60);
+  const seconds = rounded % 60;
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+/**
+ * Appends one plain `.badge` span. Exported (18-UI-SPEC § 5) so `detail.ts`
+ * reuses it for the per-distance PR badge rather than duplicating this
+ * 5-line DOM builder — the same single-source discipline already applied
+ * to `formatActivityDate`/`formatPace`.
+ */
+export function appendBadge(container: HTMLElement, text: string): void {
   const badge = document.createElement('span');
   badge.className = 'badge';
   badge.textContent = text;
   container.appendChild(badge);
+}
+
+/**
+ * Appends a "Low confidence" badge whose explanation is reachable WITHOUT
+ * hovering (D-07, 18-UI-SPEC § 6) — closing a real gap in the badge that
+ * already ships on list/overview, which today carries no explanation at
+ * all. Renders the visible `.badge` with a `title` attribute (for pointer
+ * users) plus a sibling visually-hidden `.sr-only` span carrying the SAME
+ * text with a unique id, wired via `aria-describedby` on the badge so
+ * keyboard/assistive-tech users can reach the explanation too. Both spans
+ * use `textContent` only (T-18-XSS-01).
+ */
+export function appendLowConfidenceBadge(container: HTMLElement, idPrefix: string): void {
+  const explanation = 'GPS-reconstructed distance; treat this time with caution';
+  const descriptionId = `${idPrefix}-low-confidence-desc`;
+
+  const badge = document.createElement('span');
+  badge.className = 'badge';
+  badge.textContent = 'Low confidence';
+  badge.title = explanation;
+  badge.setAttribute('aria-describedby', descriptionId);
+  container.appendChild(badge);
+
+  const description = document.createElement('span');
+  description.className = 'sr-only';
+  description.id = descriptionId;
+  description.textContent = explanation;
+  container.appendChild(description);
 }
 
 /**
@@ -120,7 +186,7 @@ function appendStatusBadges(container: HTMLElement, row: DashboardIndexRow): voi
   }
 
   if (row.lowConfidence) {
-    appendBadge(container, 'Low confidence');
+    appendLowConfidenceBadge(container, `activity-${row.id}`);
   }
 
   if (row.excludedFromRecords) {
