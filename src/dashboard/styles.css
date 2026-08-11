@@ -23,6 +23,26 @@
   --border: #e5e5e5;
   --destructive: #dc2626;
 
+  /* Phase 17 — contrast-safe active-state fill (pagination + segmented
+     control only, never used elsewhere — see 17-UI-SPEC § Color). */
+  --accent-strong: #b3390a;
+
+  /* Phase 17 — chart channel palette. --chart-pace is a literal alias of
+     --accent per theme (not var(--accent)) so getComputedStyle returns a
+     concrete hex for the charting layer. */
+  --chart-pace: #fc4c02;
+  --chart-hr: #e11d48;
+  --chart-cadence: #0891b2;
+  --chart-elevation: #16a34a;
+
+  /* Phase 17 — fixed HR-zone colors, theme-independent (identical in both
+     themes per 17-UI-SPEC § HR zone colors), so declared only here. */
+  --zone-1: #3b82f6;
+  --zone-2: #22c55e;
+  --zone-3: #eab308;
+  --zone-4: #f97316;
+  --zone-5: #ef4444;
+
   /* Spacing scale (UI-SPEC) */
   --space-xs: 4px;
   --space-sm: 8px;
@@ -45,6 +65,11 @@
   --text-secondary: #666666;
   --border: #e5e5e5;
   --destructive: #dc2626;
+  --accent-strong: #b3390a;
+  --chart-pace: #fc4c02;
+  --chart-hr: #e11d48;
+  --chart-cadence: #0891b2;
+  --chart-elevation: #16a34a;
 }
 
 :root[data-theme="dark"] {
@@ -56,6 +81,11 @@
   --text-secondary: #a0a0b8;
   --border: #33334d;
   --destructive: #f87171;
+  --accent-strong: #c2410c;
+  --chart-pace: #ff6b35;
+  --chart-hr: #fb7185;
+  --chart-cadence: #22d3ee;
+  --chart-elevation: #4ade80;
 }
 
 /* Typography — exactly 4 roles, 2 weights */
