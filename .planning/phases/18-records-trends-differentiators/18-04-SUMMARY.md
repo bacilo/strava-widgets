@@ -112,3 +112,7 @@ _No TDD tasks in this plan — all three tasks are `type="auto"` with automated 
 ---
 *Phase: 18-records-trends-differentiators*
 *Completed: 2026-08-11*
+
+## Self-Check: PASSED
+
+All 5 created/modified files confirmed present on disk (`chart-theme.ts`, `detail-charts.ts`, `list.ts`, `list.test.ts`, `styles.css`). All 4 commits (`ffdcf3d`, `d7552ff`, `290f7d9`, `dbac249`) confirmed present in `git log`.
