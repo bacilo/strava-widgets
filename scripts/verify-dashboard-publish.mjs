@@ -232,6 +232,20 @@ async function main() {
       } else {
         ok('/data/dashboard/index.json parses with schemaVersion 1 and a non-empty activities array');
       }
+      // gearName (D-17) must survive publication: at least one row resolved,
+      // and no row leaks a raw gear id (T-18-GEAR-01).
+      if (Array.isArray(parsed.activities)) {
+        const badGearId = /^g\d{5,}$/;
+        const hasGearName = parsed.activities.some((row) => row.gearName !== null && row.gearName !== undefined);
+        const leakedRow = parsed.activities.find((row) => badGearId.test(row.gearName ?? ''));
+        if (!hasGearName) {
+          fail('/data/dashboard/index.json no row has a non-null "gearName" — gear resolution may not have survived publication');
+        } else if (leakedRow) {
+          fail(`/data/dashboard/index.json activity ${leakedRow.id} leaks a raw gear id in "gearName" (T-18-GEAR-01)`);
+        } else {
+          ok('/data/dashboard/index.json at least one row has "gearName" and no row leaks a raw gear id');
+        }
+      }
     }
 
     await expect200(baseUrl, '/data/stats/all-time-totals.json');
@@ -284,6 +298,114 @@ async function main() {
         fail('/data/best-effort-exclusions.json parsed but "exclusions" is not an array');
       } else {
         ok('/data/best-effort-exclusions.json parses with an "exclusions" array');
+      }
+    }
+
+    // --- 4b. Phase 18 published artifacts (D-20, D-22, T-18-AVAIL-03) -------
+    //
+    // Every file this phase adds must be asserted reachable at its production
+    // mount point AND correctly shaped — a dropped copyDataFiles entry or a
+    // missing CI compute step would otherwise 404 silently in production
+    // while every local dev-machine check stayed green (the exact Phase 16
+    // black-page failure mode this plan closes).
+
+    const trainingLoadBody = await expect200(baseUrl, '/data/stats/training-load.json');
+    if (trainingLoadBody) {
+      const parsedTrainingLoad = JSON.parse(trainingLoadBody);
+      if (parsedTrainingLoad.schemaVersion !== 1) {
+        fail(`/data/stats/training-load.json schemaVersion expected 1, got ${parsedTrainingLoad.schemaVersion}`);
+      } else if (!Array.isArray(parsedTrainingLoad.days) || parsedTrainingLoad.days.length <= 1000) {
+        fail(
+          `/data/stats/training-load.json "days" expected an array with more than 1000 entries, ` +
+            `got ${Array.isArray(parsedTrainingLoad.days) ? parsedTrainingLoad.days.length : typeof parsedTrainingLoad.days}`
+        );
+      } else if (parsedTrainingLoad.models?.edwards !== true) {
+        fail('/data/stats/training-load.json "models.edwards" expected true');
+      } else {
+        const day0Edwards = parsedTrainingLoad.days[0]?.edwards;
+        const edwardsFieldsFinite =
+          day0Edwards !== null &&
+          typeof day0Edwards === 'object' &&
+          Number.isFinite(day0Edwards.trimp) &&
+          Number.isFinite(day0Edwards.ctl) &&
+          Number.isFinite(day0Edwards.atl) &&
+          Number.isFinite(day0Edwards.tsb);
+        if (!edwardsFieldsFinite) {
+          fail('/data/stats/training-load.json days[0].edwards does not carry four finite numbers (trimp/ctl/atl/tsb)');
+        } else {
+          ok('/data/stats/training-load.json parses with schemaVersion 1, >1000 days, models.edwards true, and finite days[0].edwards');
+        }
+      }
+    }
+
+    const ageGradingBody = await expect200(baseUrl, '/data/stats/age-grading.json');
+    if (ageGradingBody) {
+      const parsedAgeGrading = JSON.parse(ageGradingBody);
+      if (parsedAgeGrading.schemaVersion !== 1) {
+        fail(`/data/stats/age-grading.json schemaVersion expected 1, got ${parsedAgeGrading.schemaVersion}`);
+      } else if (typeof parsedAgeGrading.enabled !== 'boolean') {
+        // Deliberately NOT asserting enabled === true: it is false in CI by
+        // design (data/private/athlete-private.json does not exist there,
+        // plan 18-08) — an assertion that only passes on the developer's
+        // machine is exactly the local-shape trap the Phase 16 postmortem
+        // names (T-18-VERIFY-01).
+        fail(`/data/stats/age-grading.json "enabled" expected a boolean, got ${typeof parsedAgeGrading.enabled}`);
+      } else {
+        ok('/data/stats/age-grading.json parses with schemaVersion 1 and a boolean "enabled"');
+      }
+      // Second, independent line of defence beside assertNoPrivateArtifacts
+      // (T-18-PII-01): scan the published body for identity fields as JSON
+      // KEYS (quoted-key-followed-by-colon), not as a raw substring — the
+      // disabledReason copy legitimately contains the plain-English words
+      // "birthDate" and "sex" in its user-facing guidance ("add birthDate
+      // and sex to data/private/athlete-private.json to enable it", the
+      // exact Copywriting Contract string plan 18-08 ships), and that is the
+      // CI-normal state (enabled: false). A raw substring match would fail
+      // on the very state this document is expected to publish in CI.
+      if (/"birthDate"\s*:|"restingHr"\s*:|"sex"\s*:/.test(ageGradingBody)) {
+        fail('/data/stats/age-grading.json body contains a "birthDate", "restingHr", or "sex" JSON key — identity fields must never be published');
+      } else {
+        ok('/data/stats/age-grading.json body has no birthDate/restingHr/sex JSON keys');
+      }
+    }
+
+    const gearAggregateBody = await expect200(baseUrl, '/data/stats/gear-aggregate.json');
+    if (gearAggregateBody) {
+      const parsedGearAggregate = JSON.parse(gearAggregateBody);
+      const badShoeKeyOrLabel = /^g\d{5,}$/;
+      if (parsedGearAggregate.schemaVersion !== 1) {
+        fail(`/data/stats/gear-aggregate.json schemaVersion expected 1, got ${parsedGearAggregate.schemaVersion}`);
+      } else if (!Array.isArray(parsedGearAggregate.shoes) || parsedGearAggregate.shoes.length === 0) {
+        fail('/data/stats/gear-aggregate.json "shoes" expected a non-empty array');
+      } else if (!(parsedGearAggregate.totals?.runs > 0)) {
+        fail(`/data/stats/gear-aggregate.json "totals.runs" expected > 0, got ${parsedGearAggregate.totals?.runs}`);
+      } else {
+        const leakedShoe = parsedGearAggregate.shoes.find(
+          (shoe) => badShoeKeyOrLabel.test(shoe.key) || badShoeKeyOrLabel.test(shoe.label)
+        );
+        if (leakedShoe) {
+          fail(`/data/stats/gear-aggregate.json shoe "${leakedShoe.key}" leaks a raw gear id in key/label (T-18-GEAR-01)`);
+        } else {
+          ok('/data/stats/gear-aggregate.json parses with schemaVersion 1, non-empty "shoes", totals.runs > 0, and no leaked gear ids');
+        }
+      }
+    }
+
+    for (const wmaFile of ['road-factors.json', 'track-factors.json']) {
+      const wmaBody = await expect200(baseUrl, `/data/wma/${wmaFile}`);
+      if (wmaBody) {
+        const parsedWma = JSON.parse(wmaBody);
+        const maleKeys = parsedWma.factors?.male ? Object.keys(parsedWma.factors.male) : [];
+        const femaleKeys = parsedWma.factors?.female ? Object.keys(parsedWma.factors.female) : [];
+        if (parsedWma.schemaVersion !== 1) {
+          fail(`/data/wma/${wmaFile} schemaVersion expected 1, got ${parsedWma.schemaVersion}`);
+        } else if (typeof parsedWma.edition !== 'string' || parsedWma.edition.length === 0) {
+          fail(`/data/wma/${wmaFile} "edition" expected a non-empty string`);
+        } else if (maleKeys.length === 0 || femaleKeys.length === 0) {
+          fail(`/data/wma/${wmaFile} "factors.male"/"factors.female" expected both present and non-empty`);
+        } else {
+          ok(`/data/wma/${wmaFile} parses with schemaVersion 1, a non-empty edition, and non-empty factors.male/factors.female`);
+        }
       }
     }
 
