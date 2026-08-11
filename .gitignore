@@ -15,3 +15,7 @@ data/dashboard/
 # Raw bulk exports (Strava/Garmin): full-resolution GPS+HR streams, too large
 # and too sensitive for a public repo. data/provenance.json indexes into them.
 export_data/
+# Raw downloaded WMA age-grading source artifacts (xlsx/html) that
+# scripts/convert-wma-tables.mjs parses into the committed data/wma/*.json
+# tables. Not committed themselves — re-download to re-run the converter.
+scripts/wma-source/
