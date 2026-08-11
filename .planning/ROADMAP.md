@@ -129,7 +129,7 @@ Plans:
   2. Dashboard loads a compact activity index manifest immediately and fetches per-activity detail data only when a specific activity is opened.
   3. Dashboard respects dark/light theme consistent with the existing widget system's theming.
 
-**Plans**: 9 plans
+**Plans**: 16 plans (9 original + 7 gap-closure, added 2026-08-11)
 **UI hint**: yes
 
 Plans:
@@ -156,6 +156,24 @@ Plans:
 **Wave 5** *(blocked on Wave 4 completion)*
 
 - [x] 16-09-PLAN.md — Publish-directory HTTP smoke check and end-to-end human verification
+
+**Gap closure** *(planned 2026-08-11 from 16-VERIFICATION.md — 5 failing must-haves, 4 flagged warnings)*
+
+**Wave 1** *(independent; no shared files)*
+
+- [ ] 16-10-PLAN.md — Widen the activity-id chokepoint to accept intervals.icu ids, with the missing regression cases (SC2, P07, CR-01, IN-07)
+- [ ] 16-11-PLAN.md — Make the theme toggle visible and single-icon, locked by a stylesheet regression test (SC3, WR-04)
+- [ ] 16-12-PLAN.md — Timezone-correct dates across all three views, a normalized index sort key, and stale-render guards (WR-02, WR-03, WR-01)
+- [ ] 16-13-PLAN.md — Real emptyOutDir build guards and the test + verify-dashboard exit gate in the publishing workflow (WR-05, WR-06)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 16-14-PLAN.md — Push master, run the gated workflow, and verify the deployed gh-pages tree and live origin (SC1, P08/D-08)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 16-15-PLAN.md — Human verification on the live origin: hash navigation and theme-toggle legibility (DASH-01, DASH-03)
+- [ ] 16-16-PLAN.md — Human verification on the live origin: intervals.icu deep-link detail and timezone-correct dates (DASH-02)
 
 ### Phase 17: Activity Browser & Detail Views
 
