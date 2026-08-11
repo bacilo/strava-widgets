@@ -31,8 +31,8 @@ Requirements for the Training Dashboard milestone. Each maps to roadmap phases.
 ### Activity Detail
 
 - [x] **DETAIL-01**: User can view a stats header per activity (distance, time, pace, elevation, avg/max HR, cadence, gear)
-- [ ] **DETAIL-02**: User can view the activity's route map on the detail page (reusing existing map infrastructure) — GAP 1 (17-15 checkpoint): basemap tiles do not render, route drawn over white background; see 17-VALIDATION.md Gap-Closure Record
-- [ ] **DETAIL-03**: User can view pace, HR, cadence, and elevation charts over distance/time from streams — GAP 2 (17-15 checkpoint): chart band x-axis origins misaligned across bands; see 17-VALIDATION.md Gap-Closure Record
+- [x] **DETAIL-02**: User can view the activity's route map on the detail page (reusing existing map infrastructure)
+- [x] **DETAIL-03**: User can view pace, HR, cadence, and elevation charts over distance/time from streams
 - [x] **DETAIL-04**: User can view an auto-computed per-km splits table
 - [x] **DETAIL-05**: User can view a pace-distribution/zone breakdown per activity
 
@@ -104,9 +104,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BROWSE-05 | Phase 17 | Complete |
 | BROWSE-06 | Phase 17 | Complete |
 | DETAIL-01 | Phase 17 | Complete |
-| DETAIL-02 | Phase 17 | Gap open (GAP 1, 17-15 checkpoint) |
-| DETAIL-03 | Phase 17 | Gap open (GAP 2, 17-15 checkpoint) |
-| DETAIL-04 | Phase 17 | Gap open (GAP 2, 17-15 checkpoint) |
+| DETAIL-02 | Phase 17 | Complete |
+| DETAIL-03 | Phase 17 | Complete |
+| DETAIL-04 | Phase 17 | Complete |
 | DETAIL-05 | Phase 17 | Complete |
 | REC-02 | Phase 18 | Pending |
 | REC-03 | Phase 18 | Pending |
@@ -127,4 +127,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-08-10*
-*Last updated: 2026-08-11 — Phase 17 plan 17-15's real-browser checkpoint marked BROWSE-01..06/DETAIL-01/DETAIL-05 complete; DETAIL-02 and DETAIL-03/DETAIL-04 reverted from a premature "Complete" mark back to open pending 2 named gaps (GAP 1: route-map basemap tiles; GAP 2: chart-band x-axis misalignment) — see 17-VALIDATION.md Gap-Closure Record*
+*Last updated: 2026-08-11 — Phase 17 plan 17-15's real-browser checkpoint marked BROWSE-01..06/DETAIL-01/DETAIL-05 complete; DETAIL-02 and DETAIL-03/DETAIL-04 were reverted from a premature "Complete" mark back to open pending 2 named gaps (GAP 1: route-map basemap tiles; GAP 2: chart-band x-axis misalignment), then marked Complete after both gaps were root-caused, fixed (commits `edef601`, `1e652ef`), and human-confirmed resolved — see 17-VALIDATION.md Gap-Closure Record*
