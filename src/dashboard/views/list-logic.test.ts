@@ -4,15 +4,22 @@ import type { DashboardIndexRow } from '../../analytics/dashboard-index.types.js
 import {
   DEFAULT_DIR,
   DEFAULT_LIST_STATE,
+  DISTANCE_PRESETS,
   EMPTY_FILTERS,
   PAGE_SIZE,
+  activeFilterCount,
+  buildFilterChips,
   compareRows,
+  datePresetRange,
+  filterRows,
   formatPaceInput,
   paginate,
   parseListQuery,
   parsePaceInput,
+  removeChip,
   serializeListQuery,
   sortRows,
+  type FilterState,
   type ListState,
   type SortDir,
   type SortKey,
@@ -273,5 +280,215 @@ describe('DEFAULT_DIR', () => {
     for (const key of keys) {
       expect(['asc', 'desc']).toContain(DEFAULT_DIR[key] as SortDir);
     }
+  });
+});
+
+describe('filterRows — AND semantics (D-11)', () => {
+  it('EMPTY_FILTERS returns every row (contents, not array identity)', () => {
+    const rows = [makeRow({ id: 'a' }), makeRow({ id: 'b' })];
+    const result = filterRows(rows, EMPTY_FILTERS);
+    expect(result.map((r) => r.id)).toEqual(['a', 'b']);
+    expect(result).not.toBe(rows);
+  });
+
+  it('two active filters narrow together — a distance filter AND a name filter', () => {
+    const rows = [
+      makeRow({ id: 'both', distanceM: 15000, name: 'Evening hills repeat' }),
+      makeRow({ id: 'distance-only', distanceM: 15000, name: 'Flat tempo' }),
+      makeRow({ id: 'name-only', distanceM: 5000, name: 'Hills recovery' }),
+    ];
+    const result = filterRows(rows, { ...EMPTY_FILTERS, dMinKm: 10, dMaxKm: 25, q: 'hills' });
+    expect(result.map((r) => r.id)).toEqual(['both']);
+  });
+
+  it('q matching is case-insensitive substring on name only, after trimming', () => {
+    const rows = [
+      makeRow({ id: 'match', name: 'Evening hills repeat' }),
+      makeRow({ id: 'no-match', name: 'Flat tempo' }),
+      makeRow({ id: 'location-only', name: 'Recovery jog', location: 'Hillsborough' }),
+    ];
+    const result = filterRows(rows, { ...EMPTY_FILTERS, q: '  HILLS ' });
+    expect(result.map((r) => r.id)).toEqual(['match']);
+  });
+
+  it('a row whose paceSecPerKm is null is excluded when a pace filter is active', () => {
+    const rows = [
+      makeRow({ id: 'has-pace', paceSecPerKm: 300 }),
+      makeRow({ id: 'no-pace', paceSecPerKm: null }),
+    ];
+    const result = filterRows(rows, { ...EMPTY_FILTERS, pMinSec: 200, pMaxSec: 400 });
+    expect(result.map((r) => r.id)).toEqual(['has-pace']);
+  });
+
+  it('a row whose paceSecPerKm is null is included when no pace filter is active', () => {
+    const rows = [makeRow({ id: 'no-pace', paceSecPerKm: null })];
+    const result = filterRows(rows, EMPTY_FILTERS);
+    expect(result.map((r) => r.id)).toEqual(['no-pace']);
+  });
+
+  it('from/to inclusive range includes a Z-suffixed boundary and excludes a no-Z row past it', () => {
+    const rows = [
+      makeRow({ id: 'inside', startDateLocal: '2024-12-31T23:30:00Z' }),
+      makeRow({ id: 'outside-no-z', startDateLocal: '2025-01-01T00:05:00' }),
+    ];
+    const result = filterRows(rows, { ...EMPTY_FILTERS, from: '2024-01-01', to: '2024-12-31' });
+    expect(result.map((r) => r.id)).toEqual(['inside']);
+  });
+
+  it('the intervals.icu no-Z startDateLocal form is compared correctly regardless of runner UTC offset', () => {
+    const rows = [
+      // Late-evening no-Z local time — must not shift to the next day under
+      // the Z-suffix normalization rule (WR-02 lineage).
+      makeRow({ id: 'late-evening', startDateLocal: '2024-12-31T23:30:00' }),
+    ];
+    const result = filterRows(rows, { ...EMPTY_FILTERS, from: '2024-01-01', to: '2024-12-31' });
+    expect(result.map((r) => r.id)).toEqual(['late-evening']);
+  });
+});
+
+describe('activeFilterCount', () => {
+  it('EMPTY_FILTERS is 0', () => {
+    expect(activeFilterCount(EMPTY_FILTERS)).toBe(0);
+  });
+
+  it('q + distance range + date range is 3 (one per chip group, not per bound)', () => {
+    const filters: FilterState = {
+      ...EMPTY_FILTERS,
+      q: 'hills',
+      dMinKm: 10,
+      dMaxKm: 25,
+      from: '2024-01-01',
+      to: '2024-12-31',
+    };
+    expect(activeFilterCount(filters)).toBe(3);
+  });
+});
+
+describe('buildFilterChips', () => {
+  it('a distance range with both bounds yields "10–25 km"', () => {
+    const chips = buildFilterChips({ ...EMPTY_FILTERS, dMinKm: 10, dMaxKm: 25 });
+    expect(chips).toEqual([{ key: 'distance', label: '10–25 km' }]);
+  });
+
+  it('a distance min-only yields "10 km+"', () => {
+    const chips = buildFilterChips({ ...EMPTY_FILTERS, dMinKm: 10, dMaxKm: null });
+    expect(chips).toEqual([{ key: 'distance', label: '10 km+' }]);
+  });
+
+  it('a distance max-only yields "up to 25 km"', () => {
+    const chips = buildFilterChips({ ...EMPTY_FILTERS, dMinKm: null, dMaxKm: 25 });
+    expect(chips).toEqual([{ key: 'distance', label: 'up to 25 km' }]);
+  });
+
+  it('a date range covering exactly one calendar year yields the chip label "2024"', () => {
+    const chips = buildFilterChips({ ...EMPTY_FILTERS, from: '2024-01-01', to: '2024-12-31' });
+    expect(chips).toEqual([{ key: 'date', label: '2024' }]);
+  });
+
+  it('a date range NOT covering exactly one calendar year yields "{from} – {to}"', () => {
+    const chips = buildFilterChips({ ...EMPTY_FILTERS, from: '2024-03-01', to: '2024-09-30' });
+    expect(chips).toEqual([{ key: 'date', label: '2024-03-01 – 2024-09-30' }]);
+  });
+
+  it('a from-only date range yields "from {from}"', () => {
+    const chips = buildFilterChips({ ...EMPTY_FILTERS, from: '2024-03-01', to: null });
+    expect(chips).toEqual([{ key: 'date', label: 'from 2024-03-01' }]);
+  });
+
+  it('a to-only date range yields "until {to}"', () => {
+    const chips = buildFilterChips({ ...EMPTY_FILTERS, from: null, to: '2024-09-30' });
+    expect(chips).toEqual([{ key: 'date', label: 'until 2024-09-30' }]);
+  });
+
+  it('q yields the chip label "name: hills"', () => {
+    const chips = buildFilterChips({ ...EMPTY_FILTERS, q: 'hills' });
+    expect(chips).toEqual([{ key: 'q', label: 'name: hills' }]);
+  });
+
+  it('chips are ordered q, date, distance, pace, duration', () => {
+    const chips = buildFilterChips({
+      ...EMPTY_FILTERS,
+      q: 'hills',
+      from: '2024-01-01',
+      to: '2024-12-31',
+      dMinKm: 10,
+      dMaxKm: 25,
+      pMinSec: 240,
+      pMaxSec: 330,
+      tMinMin: 20,
+      tMaxMin: 90,
+    });
+    expect(chips.map((c) => c.key)).toEqual(['q', 'date', 'distance', 'pace', 'duration']);
+  });
+
+  it('a pace range renders via formatPaceInput as e.g. "4:00–5:30/km"', () => {
+    const chips = buildFilterChips({ ...EMPTY_FILTERS, pMinSec: 240, pMaxSec: 330 });
+    expect(chips).toEqual([{ key: 'pace', label: '4:00–5:30/km' }]);
+  });
+
+  it('a duration range renders as e.g. "30–90 min"', () => {
+    const chips = buildFilterChips({ ...EMPTY_FILTERS, tMinMin: 30, tMaxMin: 90 });
+    expect(chips).toEqual([{ key: 'duration', label: '30–90 min' }]);
+  });
+});
+
+describe('removeChip', () => {
+  it('removeChip(filters, "distance") clears both dMinKm and dMaxKm and leaves everything else untouched', () => {
+    const filters: FilterState = {
+      ...EMPTY_FILTERS,
+      q: 'hills',
+      dMinKm: 10,
+      dMaxKm: 25,
+      from: '2024-01-01',
+    };
+    const result = removeChip(filters, 'distance');
+    expect(result).toEqual({ ...filters, dMinKm: null, dMaxKm: null });
+  });
+
+  it('removeChip(filters, "date") clears both from and to', () => {
+    const filters: FilterState = { ...EMPTY_FILTERS, from: '2024-01-01', to: '2024-12-31', q: 'kept' };
+    const result = removeChip(filters, 'date');
+    expect(result).toEqual({ ...filters, from: null, to: null });
+  });
+
+  it('removeChip(filters, "q") clears q only', () => {
+    const filters: FilterState = { ...EMPTY_FILTERS, q: 'hills', dMinKm: 10 };
+    const result = removeChip(filters, 'q');
+    expect(result).toEqual({ ...filters, q: '' });
+  });
+
+  it('removeChip(filters, "pace") clears both pMinSec and pMaxSec', () => {
+    const filters: FilterState = { ...EMPTY_FILTERS, pMinSec: 240, pMaxSec: 330 };
+    const result = removeChip(filters, 'pace');
+    expect(result).toEqual({ ...filters, pMinSec: null, pMaxSec: null });
+  });
+
+  it('removeChip(filters, "duration") clears both tMinMin and tMaxMin', () => {
+    const filters: FilterState = { ...EMPTY_FILTERS, tMinMin: 30, tMaxMin: 90 };
+    const result = removeChip(filters, 'duration');
+    expect(result).toEqual({ ...filters, tMinMin: null, tMaxMin: null });
+  });
+});
+
+describe('DISTANCE_PRESETS', () => {
+  it('has exactly four entries with the pinned numeric bounds', () => {
+    expect(DISTANCE_PRESETS).toEqual([
+      { id: '5k', label: '5K', dMinKm: 4.8, dMaxKm: 5.5 },
+      { id: '10k', label: '10K', dMinKm: 9.6, dMaxKm: 11.0 },
+      { id: 'hm', label: 'HM+', dMinKm: 21.0, dMaxKm: null },
+      { id: 'marathon', label: 'Marathon+', dMinKm: 42.0, dMaxKm: null },
+    ]);
+  });
+});
+
+describe('datePresetRange', () => {
+  it('"this-year" returns January 1 of the injected date\'s UTC year, open-ended', () => {
+    const result = datePresetRange('this-year', new Date('2026-08-11T00:00:00Z'));
+    expect(result).toEqual({ from: '2026-01-01', to: null });
+  });
+
+  it('"last-12-months" returns the same month/day one year earlier, open-ended', () => {
+    const result = datePresetRange('last-12-months', new Date('2026-08-11T00:00:00Z'));
+    expect(result).toEqual({ from: '2025-08-11', to: null });
   });
 });

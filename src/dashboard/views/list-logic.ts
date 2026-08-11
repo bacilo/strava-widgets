@@ -284,3 +284,192 @@ export function formatPaceInput(secPerKm: number): string {
   const seconds = totalSeconds % 60;
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
+
+// ---------------------------------------------------------------------------
+// Filter predicates (D-11 — AND semantics across every active filter)
+// ---------------------------------------------------------------------------
+
+function matchesQuery(row: DashboardIndexRow, q: string): boolean {
+  const trimmed = q.trim();
+  if (trimmed === '') return true;
+  // Case-insensitive substring on row.name ONLY — location is NOT searched
+  // (decided here; BROWSE-04 says "by name").
+  return row.name.toLowerCase().includes(trimmed.toLowerCase());
+}
+
+function matchesRange(value: number, min: number | null, max: number | null): boolean {
+  if (min !== null && value < min) return false;
+  if (max !== null && value > max) return false;
+  return true;
+}
+
+/**
+ * Inclusive date-range match against the Z-normalized `startDateLocal` date
+ * (same normalization rule as `normalizedDateMs`/the date sort) — so an
+ * intervals.icu-era no-Z row compares correctly regardless of the runner's
+ * own UTC offset.
+ */
+function matchesDateRange(row: DashboardIndexRow, from: string | null, to: string | null): boolean {
+  if (from === null && to === null) return true;
+  const ms = normalizedDateMs(row.startDateLocal);
+  if (from !== null && ms < Date.parse(`${from}T00:00:00Z`)) return false;
+  if (to !== null && ms > Date.parse(`${to}T23:59:59.999Z`)) return false;
+  return true;
+}
+
+/**
+ * AND semantics across all nine `FilterState` fields (D-11). Never mutates
+ * `rows`. A row whose `paceSecPerKm` is null is excluded whenever a pace
+ * bound is active (a missing pace can never satisfy a pace range).
+ */
+export function filterRows(
+  rows: readonly DashboardIndexRow[],
+  filters: FilterState
+): DashboardIndexRow[] {
+  return rows.filter((row) => {
+    if (!matchesQuery(row, filters.q)) return false;
+    if (!matchesDateRange(row, filters.from, filters.to)) return false;
+    if (!matchesRange(row.distanceM / 1000, filters.dMinKm, filters.dMaxKm)) return false;
+
+    if (filters.pMinSec !== null || filters.pMaxSec !== null) {
+      if (row.paceSecPerKm === null) return false;
+      if (!matchesRange(row.paceSecPerKm, filters.pMinSec, filters.pMaxSec)) return false;
+    }
+
+    if (!matchesRange(row.movingTimeSec / 60, filters.tMinMin, filters.tMaxMin)) return false;
+
+    return true;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Filter chips (D-12 — one removable chip per active filter group)
+// ---------------------------------------------------------------------------
+
+export type FilterChipKey = 'q' | 'date' | 'distance' | 'pace' | 'duration';
+
+export interface FilterChip {
+  key: FilterChipKey;
+  label: string;
+}
+
+function buildDateChipLabel(from: string | null, to: string | null): string {
+  if (from !== null && to !== null) {
+    const year = from.slice(0, 4);
+    if (from === `${year}-01-01` && to === `${year}-12-31`) {
+      return year;
+    }
+    return `${from} – ${to}`;
+  }
+  if (from !== null) return `from ${from}`;
+  return `until ${to}`;
+}
+
+function buildDistanceChipLabel(dMinKm: number | null, dMaxKm: number | null): string {
+  if (dMinKm !== null && dMaxKm !== null) return `${dMinKm}–${dMaxKm} km`;
+  if (dMinKm !== null) return `${dMinKm} km+`;
+  return `up to ${dMaxKm} km`;
+}
+
+function buildPaceChipLabel(pMinSec: number | null, pMaxSec: number | null): string {
+  if (pMinSec !== null && pMaxSec !== null) {
+    return `${formatPaceInput(pMinSec)}–${formatPaceInput(pMaxSec)}/km`;
+  }
+  if (pMinSec !== null) return `${formatPaceInput(pMinSec)}/km+`;
+  return `up to ${formatPaceInput(pMaxSec as number)}/km`;
+}
+
+function buildDurationChipLabel(tMinMin: number | null, tMaxMin: number | null): string {
+  if (tMinMin !== null && tMaxMin !== null) return `${tMinMin}–${tMaxMin} min`;
+  if (tMinMin !== null) return `${tMinMin} min+`;
+  return `up to ${tMaxMin} min`;
+}
+
+/**
+ * At most one chip per `FilterChipKey`, ordered `q`, `date`, `distance`,
+ * `pace`, `duration`. Every label is plain text (T-17-VW-01) — it is the
+ * caller's job to write it with `textContent`, never `innerHTML`.
+ */
+export function buildFilterChips(filters: FilterState): FilterChip[] {
+  const chips: FilterChip[] = [];
+
+  const trimmedQ = filters.q.trim();
+  if (trimmedQ !== '') {
+    chips.push({ key: 'q', label: `name: ${trimmedQ}` });
+  }
+
+  if (filters.from !== null || filters.to !== null) {
+    chips.push({ key: 'date', label: buildDateChipLabel(filters.from, filters.to) });
+  }
+
+  if (filters.dMinKm !== null || filters.dMaxKm !== null) {
+    chips.push({ key: 'distance', label: buildDistanceChipLabel(filters.dMinKm, filters.dMaxKm) });
+  }
+
+  if (filters.pMinSec !== null || filters.pMaxSec !== null) {
+    chips.push({ key: 'pace', label: buildPaceChipLabel(filters.pMinSec, filters.pMaxSec) });
+  }
+
+  if (filters.tMinMin !== null || filters.tMaxMin !== null) {
+    chips.push({ key: 'duration', label: buildDurationChipLabel(filters.tMinMin, filters.tMaxMin) });
+  }
+
+  return chips;
+}
+
+/** Returns a NEW `FilterState` with that chip's field(s) reset to EMPTY_FILTERS. */
+export function removeChip(filters: FilterState, key: FilterChipKey): FilterState {
+  switch (key) {
+    case 'q':
+      return { ...filters, q: EMPTY_FILTERS.q };
+    case 'date':
+      return { ...filters, from: EMPTY_FILTERS.from, to: EMPTY_FILTERS.to };
+    case 'distance':
+      return { ...filters, dMinKm: EMPTY_FILTERS.dMinKm, dMaxKm: EMPTY_FILTERS.dMaxKm };
+    case 'pace':
+      return { ...filters, pMinSec: EMPTY_FILTERS.pMinSec, pMaxSec: EMPTY_FILTERS.pMaxSec };
+    case 'duration':
+      return { ...filters, tMinMin: EMPTY_FILTERS.tMinMin, tMaxMin: EMPTY_FILTERS.tMaxMin };
+  }
+}
+
+/** Equals `buildFilterChips(filters).length` — one count per chip group, not per bound. */
+export function activeFilterCount(filters: FilterState): number {
+  return buildFilterChips(filters).length;
+}
+
+// ---------------------------------------------------------------------------
+// Presets (D-10 — quick chips for the common cases, alongside plain
+// min/max inputs)
+// ---------------------------------------------------------------------------
+
+export const DISTANCE_PRESETS: readonly {
+  id: string;
+  label: string;
+  dMinKm: number;
+  dMaxKm: number | null;
+}[] = [
+  { id: '5k', label: '5K', dMinKm: 4.8, dMaxKm: 5.5 },
+  { id: '10k', label: '10K', dMinKm: 9.6, dMaxKm: 11.0 },
+  { id: 'hm', label: 'HM+', dMinKm: 21.0, dMaxKm: null },
+  { id: 'marathon', label: 'Marathon+', dMinKm: 42.0, dMaxKm: null },
+];
+
+export type DatePresetId = 'this-year' | 'last-12-months';
+
+/**
+ * `now` is an injected parameter — the current wall-clock time is never
+ * read from inside this function — so it stays deterministic and testable.
+ */
+export function datePresetRange(id: DatePresetId, now: Date): { from: string; to: string | null } {
+  if (id === 'this-year') {
+    const year = now.getUTCFullYear();
+    return { from: `${year}-01-01`, to: null };
+  }
+
+  // last-12-months: same month/day one year earlier, open-ended.
+  const year = now.getUTCFullYear() - 1;
+  const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(now.getUTCDate()).padStart(2, '0');
+  return { from: `${year}-${month}-${day}`, to: null };
+}
