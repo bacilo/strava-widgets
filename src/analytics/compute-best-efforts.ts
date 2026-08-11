@@ -310,6 +310,17 @@ export async function computeBestEfforts(
 
   await fileStore.writeJson(path.join(statsDir, 'best-efforts.json'), doc);
 
+  // Per-activity shard files (18-13/T-18-AVAIL-04): the detail view's
+  // best-efforts panel needs exactly one activity's efforts, and must never
+  // fetch this whole archive-wide document in a browser (it is multiple MB
+  // for the live archive). Mirrors the existing data/activities/{id}.json /
+  // data/streams/{id}.json per-activity file convention already established
+  // for the raw record and stream — purely additive, does not change
+  // best-efforts.json's own shape or any existing consumer.
+  for (const [id, entry] of Object.entries(sortedActivities)) {
+    await fileStore.writeJson(path.join(statsDir, 'best-efforts', `${id}.json`), entry);
+  }
+
   console.log(`\nGenerated best efforts:`);
   console.log(`- Activities considered: ${doc.totals.activitiesConsidered}`);
   console.log(`- Activities with efforts: ${doc.totals.activitiesWithEfforts}`);
