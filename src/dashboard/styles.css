@@ -345,10 +345,6 @@ body {
 
 /* List — table + card switch */
 
-.activity-table-wrapper {
-  overflow-x: auto;
-}
-
 .activity-table {
   width: 100%;
   border-collapse: collapse;
@@ -534,9 +530,8 @@ body {
 }
 
 .pagination__button--current {
-  background: var(--accent-strong);
+  background: var(--accent-strong); border-color: var(--accent-strong);
   color: #ffffff;
-  border-color: var(--accent-strong);
 }
 
 .pagination__ellipsis {
@@ -673,4 +668,234 @@ body {
   background: var(--surface);
   border: 1px solid var(--border);
   padding: var(--space-md);
+}
+
+/* ==========================================================================
+   Phase 17 — Activity detail
+   Class contract for plans 17-11 (route map), 17-12 (charts), 17-13
+   (splits table), and 17-14 (distribution/zone bars).
+   ========================================================================== */
+
+.detail-section + .detail-section {
+  margin-top: var(--space-2xl);
+}
+
+/* Route map */
+
+.route-map {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: var(--space-md);
+}
+
+.route-map__canvas {
+  min-height: 220px;
+  width: 100%;
+}
+
+@media (min-width: 721px) {
+  .route-map__canvas {
+    min-height: 320px;
+  }
+}
+
+.route-map__caveat {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin-top: var(--space-sm);
+}
+
+/* Chart bands */
+
+.chart-stack {
+  display: grid;
+  gap: var(--space-lg);
+}
+
+.chart-band {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: var(--space-md);
+}
+
+.chart-band__canvas-wrap {
+  position: relative;
+  height: 140px;
+}
+
+@media (max-width: 380px) {
+  .chart-band__canvas-wrap {
+    height: 112px;
+  }
+}
+
+.chart-band__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.overlay-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.overlay-picker__hint {
+  color: var(--text-secondary);
+}
+
+/* Segmented control (x-axis toggle) */
+
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.segmented__option {
+  background: var(--surface);
+  color: var(--text-secondary);
+  border: none;
+  padding: var(--space-xs) var(--space-md);
+  cursor: pointer;
+}
+
+.segmented__option--active {
+  background: var(--accent-strong);
+  color: #ffffff;
+}
+
+/* Splits table */
+
+.splits-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.splits-table {
+  border-collapse: collapse;
+  min-width: 640px;
+}
+
+.splits-table th,
+.splits-table td {
+  padding: var(--space-sm) var(--space-md);
+  white-space: nowrap;
+}
+
+.splits-table__km {
+  position: sticky;
+  left: 0;
+  width: 64px;
+  background: var(--surface);
+  z-index: 1;
+}
+
+.splits-table__partial {
+  font-style: italic;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+/* Pace comparison bar (vs. Avg column) */
+
+.pace-bar {
+  position: relative;
+  height: 8px;
+  min-width: 96px;
+}
+
+.pace-bar__track {
+  background: var(--border);
+  width: 100%;
+  height: 100%;
+}
+
+.pace-bar__tick {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  background: var(--text-secondary);
+}
+
+.pace-bar__fill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: var(--chart-pace);
+}
+
+/* Distribution and zone bars */
+
+.distribution {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.distribution__row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+.distribution__label {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.distribution__bar {
+  height: 16px;
+  background: var(--chart-pace);
+}
+
+.distribution__value {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.distribution__bar--zone-1 {
+  background: var(--zone-1);
+}
+
+.distribution__bar--zone-2 {
+  background: var(--zone-2);
+}
+
+.distribution__bar--zone-3 {
+  background: var(--zone-3);
+}
+
+.distribution__bar--zone-4 {
+  background: var(--zone-4);
+}
+
+.distribution__bar--zone-5 {
+  background: var(--zone-5);
+}
+
+/* Prev/next detail nav */
+
+.detail-nav {
+  display: flex;
+  gap: var(--space-md);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
 }
