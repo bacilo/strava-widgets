@@ -179,3 +179,135 @@ export function mountRouteMap(container: HTMLElement, options: MountRouteMapOpti
 
   return { setPositionByFraction, destroy };
 }
+
+// ---------------------------------------------------------------------------
+// Route-absence and failure states (Task 2)
+// ---------------------------------------------------------------------------
+
+/**
+ * The four states the detail page's route section can be in. `ready` is the
+ * only state that touches Leaflet — the other three are plain, `textContent`-
+ * only DOM built from the pinned copy blocks below, which live in exactly
+ * this one place so plan 17-14 never has to author them.
+ */
+export type RouteSectionState =
+  | { kind: 'no-map' }
+  | { kind: 'no-polyline' }
+  | { kind: 'error' }
+  | { kind: 'ready'; options: MountRouteMapOptions };
+
+/**
+ * `activity.map` is entirely absent — e.g. a treadmill or manually-entered
+ * activity with no GPS data. Distinct copy from `no-polyline` (17-RESEARCH.md
+ * finding #3) — do not collapse the two states into one.
+ */
+function renderNoMapState(container: HTMLElement): void {
+  renderEmptyRouteState(
+    container,
+    'No route recorded',
+    'This activity has no GPS data (e.g. treadmill or manual entry).'
+  );
+}
+
+/**
+ * `activity.map` exists but `summary_polyline` is missing or empty — the
+ * 27-activity case (17-RESEARCH.md Pitfall 2 verified counts).
+ */
+function renderNoPolylineState(container: HTMLElement): void {
+  renderEmptyRouteState(container, 'Route unavailable', "This activity's route couldn't be rendered.");
+}
+
+function renderEmptyRouteState(container: HTMLElement, heading: string, body: string): void {
+  const empty = document.createElement('section');
+  empty.className = 'empty-state';
+
+  const headingEl = document.createElement('h3');
+  headingEl.className = 'text-heading';
+  headingEl.textContent = heading;
+  empty.appendChild(headingEl);
+
+  const bodyEl = document.createElement('p');
+  bodyEl.className = 'text-body';
+  bodyEl.textContent = body;
+  empty.appendChild(bodyEl);
+
+  container.appendChild(empty);
+}
+
+/**
+ * The dynamic import failed, Leaflet threw, or the polyline decode threw on
+ * a mangled value. Mirrors `detail.ts`'s existing `renderErrorState` markup
+ * shape — same `.error-state` section, same `.text-heading` / `.text-body` /
+ * `.cta` classes — with a working Retry.
+ */
+function renderMapErrorState(container: HTMLElement, onRetry: () => void): void {
+  const errorState = document.createElement('section');
+  errorState.className = 'error-state';
+
+  const heading = document.createElement('h3');
+  heading.className = 'text-heading';
+  heading.textContent = "Couldn't load the route map";
+  errorState.appendChild(heading);
+
+  const body = document.createElement('p');
+  body.className = 'text-body';
+  body.textContent = 'Check your connection and try again.';
+  errorState.appendChild(body);
+
+  const retryBtn = document.createElement('button');
+  retryBtn.type = 'button';
+  retryBtn.className = 'cta';
+  retryBtn.textContent = 'Retry';
+  retryBtn.addEventListener('click', onRetry);
+  errorState.appendChild(retryBtn);
+
+  container.appendChild(errorState);
+}
+
+/**
+ * Single entry point for all four route-section states, so plan 17-14 needs
+ * only one call per render. Builds the `.route-map` wrapper itself, then
+ * delegates to the matching state renderer.
+ *
+ * The `ready` path wraps the whole mount sequence — map creation,
+ * `RouteRenderer.renderRoute`, and the one-time polyline decode used for the
+ * marker — in a `try`/`catch` (T-17-POLY-01, T-17-MAP-02): a malformed
+ * polyline or a Leaflet failure degrades to the `error` state with a working
+ * Retry, never a thrown error that takes down the rest of the detail page.
+ *
+ * Callers that need the returned `RouteMapHandle` for hover-marker sync
+ * (D-26) should call `mountRouteMap` directly for the `ready` case instead —
+ * this function intentionally returns `void` so its signature matches every
+ * other state uniformly; the handle is retrievable only from `mountRouteMap`.
+ */
+export function renderRouteSection(container: HTMLElement, state: RouteSectionState, onRetry: () => void): void {
+  container.replaceChildren();
+
+  const section = document.createElement('div');
+  section.className = 'route-map';
+  container.appendChild(section);
+
+  if (state.kind === 'no-map') {
+    renderNoMapState(section);
+    return;
+  }
+
+  if (state.kind === 'no-polyline') {
+    renderNoPolylineState(section);
+    return;
+  }
+
+  if (state.kind === 'error') {
+    renderMapErrorState(section, onRetry);
+    return;
+  }
+
+  // state.kind === 'ready'
+  try {
+    mountRouteMap(section, state.options);
+  } catch (error) {
+    console.error(error);
+    section.replaceChildren();
+    renderMapErrorState(section, onRetry);
+  }
+}
