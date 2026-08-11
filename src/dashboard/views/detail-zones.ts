@@ -116,9 +116,58 @@ function hasOwn(obj: object, key: string): boolean {
  * a partially-valid config. Mirrors the tolerant-parse discipline of
  * `buildExclusionIndex` in `best-effort-exclusions.ts`.
  */
-export function parseAthleteConfig(_raw: unknown): AthleteConfig | null {
-  // RED stub — intentionally wrong pending Task 2 GREEN implementation.
-  return null;
+export function parseAthleteConfig(raw: unknown): AthleteConfig | null {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
+  const obj = raw as Record<string, unknown>;
+
+  if (!hasOwn(obj, 'schemaVersion')) return null;
+  const schemaVersion = obj.schemaVersion;
+  if (typeof schemaVersion !== 'number' || !Number.isFinite(schemaVersion)) return null;
+
+  if (!hasOwn(obj, 'maxHr')) return null;
+  const maxHr = obj.maxHr;
+  if (typeof maxHr !== 'number' || !Number.isFinite(maxHr) || maxHr <= 0 || maxHr > 260) return null;
+
+  if (!hasOwn(obj, 'hrZones')) return null;
+  const rawZones = obj.hrZones;
+  if (!Array.isArray(rawZones) || rawZones.length !== 5) return null;
+
+  const zones: AthleteHrZone[] = [];
+  let prevMax: number | null = null;
+
+  for (let i = 0; i < rawZones.length; i++) {
+    const rawZone = rawZones[i];
+    if (typeof rawZone !== 'object' || rawZone === null || Array.isArray(rawZone)) return null;
+    const z = rawZone as Record<string, unknown>;
+
+    const expectedZone = i + 1;
+    if (!hasOwn(z, 'zone') || z.zone !== expectedZone) return null;
+
+    if (!hasOwn(z, 'minBpm')) return null;
+    const minBpm = z.minBpm;
+    if (typeof minBpm !== 'number' || !Number.isFinite(minBpm)) return null;
+
+    if (!hasOwn(z, 'maxBpm')) return null;
+    const maxBpmRaw = z.maxBpm;
+    const isFinal = i === rawZones.length - 1;
+
+    let maxBpm: number | null;
+    if (maxBpmRaw === null) {
+      if (!isFinal) return null;
+      maxBpm = null;
+    } else {
+      if (typeof maxBpmRaw !== 'number' || !Number.isFinite(maxBpmRaw)) return null;
+      maxBpm = maxBpmRaw;
+    }
+
+    if (prevMax !== null && minBpm <= prevMax) return null;
+    if (maxBpm !== null && maxBpm <= minBpm) return null;
+
+    zones.push({ zone: expectedZone as 1 | 2 | 3 | 4 | 5, minBpm, maxBpm });
+    prevMax = maxBpm;
+  }
+
+  return { schemaVersion, maxHr, hrZones: zones };
 }
 
 export interface ZoneTime {
