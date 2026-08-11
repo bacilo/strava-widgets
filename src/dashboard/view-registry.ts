@@ -12,6 +12,8 @@
 import type { DashboardView } from './view.types.js';
 import { createIndexClient } from './data/index-client.js';
 import { createDetailClient } from './data/detail-client.js';
+import { createGearClient } from './data/gear-client.js';
+import { createAthleteConfigClient } from './data/athlete-config-client.js';
 import { createOverviewView } from './views/overview.js';
 import { createListView } from './views/list.js';
 import { createDetailView } from './views/detail.js';
@@ -21,9 +23,11 @@ import { trendsView } from './views/trends.stub.js';
 
 const indexClient = createIndexClient();
 const detailClient = createDetailClient();
+const gearClient = createGearClient();
+const athleteConfigClient = createAthleteConfigClient();
 
 /** Shared clients, constructed exactly once, so `main.ts` can prefetch the index without re-instantiating either client. */
-export const clients = { indexClient, detailClient };
+export const clients = { indexClient, detailClient, gearClient, athleteConfigClient };
 
 export const VIEWS: readonly DashboardView[] = [
   createOverviewView({ indexClient }),
@@ -31,7 +35,7 @@ export const VIEWS: readonly DashboardView[] = [
   createCalendarView({ indexClient }),
   recordsView,
   trendsView,
-  createDetailView({ detailClient, indexClient }),
+  createDetailView({ detailClient, indexClient, gearClient, athleteConfigClient }),
 ];
 
 const viewsByRoute = new Map<string, DashboardView>(VIEWS.map((view) => [view.route, view]));
