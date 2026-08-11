@@ -111,6 +111,10 @@ None - no external service configuration required.
 - `src/analytics/trimp.ts` and `src/analytics/training-load.ts` are ready for plan 18-07's `compute-training-load.ts` build step to consume: it sweeps the stream manifest, calls `computeActivityTrimp` per activity, accumulates into a `Map<string, number>` keyed by UTC date, and runs `computeCtlAtlTsb` over the resulting map to produce a `TrainingLoadDocument`.
 - No blockers. `TREND-04` remains "Pending" in REQUIREMENTS.md's traceability table by design — per this project's established convention (visible in the Phase 15/16/17 precedent), requirement checkboxes are marked complete only at the phase's validation/human-checkpoint plan, not by the individual plans that partially implement a multi-plan requirement. TREND-04 is claimed by 8 plans in this phase (18-01, 18-03, 18-04, 18-07, 18-10, 18-11, 18-15, 18-16); this plan supplies only the pure formula layer, not the build step or UI.
 
+## Self-Check: PASSED
+
+All 5 created source files and the SUMMARY.md itself confirmed present on disk. All 3 commits (`08bcaf0`, `bb10bee`, `729771f`) confirmed present in `git log`.
+
 ---
 *Phase: 18-records-trends-differentiators*
 *Completed: 2026-08-11*
