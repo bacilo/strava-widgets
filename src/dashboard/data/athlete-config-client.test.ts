@@ -43,7 +43,14 @@ function fakeFetch(responses: FakeResponseSpec[]): { fetchImpl: FetchLike; calls
   return { fetchImpl, calls };
 }
 
-function makeValidAthleteConfigBody(): unknown {
+interface ValidAthleteConfigBody {
+  schemaVersion: number;
+  note: string;
+  maxHr: number;
+  hrZones: Array<{ zone: number; minBpm: number; maxBpm: number | null }>;
+}
+
+function makeValidAthleteConfigBody(): ValidAthleteConfigBody {
   return {
     schemaVersion: 1,
     note: 'test fixture',
