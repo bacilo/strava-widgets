@@ -240,12 +240,12 @@ Plans:
 
 **Wave 1**
 
-- [ ] 18-01-PLAN.md — Private athlete config split, build-time PII guard, publish-contract 404 assertion
-- [ ] 18-02-PLAN.md — WMA factor tables (committed + reproducible converter) and the pure age-grade lookup
-- [ ] 18-03-PLAN.md — Edwards/Banister TRIMP and the continuous daily CTL/ATL/TSB spine
-- [ ] 18-04-PLAN.md — Shared UI foundation: chart-theme module, list.ts formatters/badges, stylesheet additions
-- [ ] 18-05-PLAN.md — Gear name in the dashboard index and the per-shoe aggregate compute step
-- [ ] 18-06-PLAN.md — Trends tab state, rolling totals, volume series and the year consistency grid
+- [x] 18-01-PLAN.md — Private athlete config split, build-time PII guard, publish-contract 404 assertion
+- [x] 18-02-PLAN.md — WMA factor tables (committed + reproducible converter) and the pure age-grade lookup
+- [x] 18-03-PLAN.md — Edwards/Banister TRIMP and the continuous daily CTL/ATL/TSB spine
+- [x] 18-04-PLAN.md — Shared UI foundation: chart-theme module, list.ts formatters/badges, stylesheet additions
+- [x] 18-05-PLAN.md — Gear name in the dashboard index and the per-shoe aggregate compute step
+- [x] 18-06-PLAN.md — Trends tab state, rolling totals, volume series and the year consistency grid
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -296,7 +296,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 | 15. Best-Effort Engine | v2.0 | 4/4 | Complete    | 2026-08-10 |
 | 16. Dashboard Shell & Data Contract | v2.0 | 16/16 | Complete    | 2026-08-11 |
 | 17. Activity Browser & Detail Views | v2.0 | 15/15 | Complete    | 2026-08-11 |
-| 18. Records, Trends & Differentiators | v2.0 | 0/16 | Not started | - |
+| 18. Records, Trends & Differentiators | v2.0 | 6/16 | In Progress|  |
 
 ---
 *Last updated: 2026-08-11 — Phase 16 gap closure planned (7 plans, 3 waves)*
