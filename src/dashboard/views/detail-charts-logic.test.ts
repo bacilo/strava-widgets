@@ -159,19 +159,13 @@ describe('distanceFractionAtX', () => {
     // First half: 10 m/s for 100s (1000m). Second half: 2 m/s for 400s (800m). Total 1800m over 500s.
     const t: number[] = [];
     const d: number[] = [];
-    let time = 0;
-    let dist = 0;
     for (let s = 0; s <= 100; s++) {
-      t.push(time);
-      d.push(dist);
-      time += 1;
-      dist += 10;
+      t.push(s);
+      d.push(s * 10);
     }
     for (let s = 1; s <= 400; s++) {
-      t.push(time);
-      d.push(dist);
-      time += 1;
-      dist += 2;
+      t.push(100 + s);
+      d.push(1000 + s * 2);
     }
     const stream = makeStream({ t, d });
 
