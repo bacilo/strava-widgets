@@ -53,9 +53,24 @@ const CONTENT_TYPES = {
   '.css': 'text/css',
 };
 
+// The publish directory is mounted under a non-root prefix on purpose. GitHub
+// Pages serves this repo as a *project* page at /strava-widgets/, never at a
+// domain root. Serving dist/widgets at '/' here is what let the absolute-asset
+// bug ship green at 15/15: '/assets/index-*.js' resolves fine at a root mount
+// and 404s on the real origin. Mounting under a prefix makes the local gate the
+// same shape as production, so any absolute '/...' URL now fails here first.
+const MOUNT_PREFIX = '/strava-widgets';
+
 function safeResolve(urlPath) {
   const decoded = decodeURIComponent(urlPath.split('?')[0]);
-  const relative = decoded === '/' ? 'index.html' : decoded.replace(/^\/+/, '');
+  // Anything outside the mount prefix is off-site as far as the deployed
+  // origin is concerned — treat it exactly as GitHub Pages would.
+  if (decoded !== MOUNT_PREFIX && !decoded.startsWith(MOUNT_PREFIX + '/')) {
+    return null;
+  }
+  const withinMount = decoded.slice(MOUNT_PREFIX.length);
+  const relative =
+    withinMount === '' || withinMount === '/' ? 'index.html' : withinMount.replace(/^\/+/, '');
   const resolved = resolve(ROOT, relative);
   if (resolved !== ROOT && !resolved.startsWith(ROOT + '/')) {
     // Path traversal outside dist/widgets — reject (T-16-VF-01).
@@ -63,6 +78,40 @@ function safeResolve(urlPath) {
   }
   return resolved;
 }
+
+/**
+ * Assert that an asset URL taken verbatim out of index.html actually resolves
+ * on a project-page mount.
+ *
+ * The previous implementation did `src.replace(/^\//, '')` before fetching,
+ * which silently rewrote a production-breaking absolute URL into a working
+ * relative one — so the check passed while the deployed site served a black
+ * page. Absolute URLs are therefore a hard failure here, not something to
+ * normalise away: on GitHub Pages '/assets/x.js' leaves the project, returns
+ * GitHub's 404 *HTML*, and the browser dies parsing that HTML as JS/CSS.
+ */
+async function expectAssetResolves(label, rawUrl) {
+  if (/^[a-z]+:\/\//i.test(rawUrl)) {
+    fail(`${label} URL "${rawUrl}" is absolute with a scheme — the publish tree must be self-contained`);
+    return;
+  }
+  if (rawUrl.startsWith('/')) {
+    fail(
+      `${label} URL "${rawUrl}" is root-absolute. This site deploys to a GitHub Pages project ` +
+        `page under ${MOUNT_PREFIX}/, where a root-absolute URL escapes the project and returns ` +
+        `GitHub's 404 HTML page — the browser then fails to parse that HTML as ${label} and the ` +
+        `page renders blank. Set Vite's \`base\` to './' for the dashboard build.`
+    );
+    return;
+  }
+  // Resolve exactly as a browser resolves a relative URL against the document.
+  const relative = rawUrl.replace(/^\.\//, '');
+  await expect200(baseUrlRef.value, `/${relative}`, { nonEmpty: true });
+}
+
+// expectAssetResolves runs after the server is up; hold the mounted base in a
+// small ref so it does not need threading through every call site.
+const baseUrlRef = { value: '' };
 
 function createServer() {
   return http.createServer((req, res) => {
@@ -91,7 +140,9 @@ function startServer(server) {
         rejectPromise(new Error('Failed to determine server address'));
         return;
       }
-      resolvePromise(`http://127.0.0.1:${address.port}`);
+      // Hand back the mounted base so every check below addresses the site the
+      // way the deployed origin does, prefix included.
+      resolvePromise(`http://127.0.0.1:${address.port}${MOUNT_PREFIX}`);
     });
     server.on('error', rejectPromise);
   });
@@ -159,6 +210,7 @@ async function main() {
 
   const server = createServer();
   const baseUrl = await startServer(server);
+  baseUrlRef.value = baseUrl;
 
   try {
     // --- 4. Core URL checks -------------------------------------------------
@@ -223,8 +275,16 @@ async function main() {
       if (!scriptMatch) {
         fail('Could not find a <script type="module" src="..."> tag in index.html');
       } else {
-        const scriptSrc = scriptMatch[1].replace(/^\//, '');
-        await expect200(baseUrl, `/${scriptSrc}`, { nonEmpty: true });
+        await expectAssetResolves('module script', scriptMatch[1]);
+      }
+
+      // The stylesheet fails the same way and is just as fatal to the page, so
+      // hold it to the identical rule rather than only checking the script.
+      const styleMatch = indexHtml.match(/<link[^>]*\srel="stylesheet"[^>]*\shref="([^"]+)"/);
+      if (!styleMatch) {
+        fail('Could not find a <link rel="stylesheet" href="..."> tag in index.html');
+      } else {
+        await expectAssetResolves('stylesheet', styleMatch[1]);
       }
     }
   } finally {

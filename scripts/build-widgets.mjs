@@ -203,6 +203,18 @@ async function buildDashboard() {
   console.log('\nBuilding dashboard SPA...');
   await build({
     root: 'src/dashboard',
+    // CRITICAL: the site deploys to a GitHub Pages *project* page served under
+    // https://bacilo.github.io/strava-widgets/, not at a domain root. Vite's
+    // default base of '/' emits <script src="/assets/index-*.js">, which the
+    // browser resolves to https://bacilo.github.io/assets/... — outside the
+    // project, where GitHub returns its 404 *HTML* page. The browser then tries
+    // to parse that HTML as JavaScript and dies on the first '{' inside its
+    // <style> block, leaving a black page with only the title. './' keeps every
+    // asset URL relative to index.html, which is correct at any mount depth.
+    // Safe with hash routing specifically: the document URL stays at the site
+    // root and only the fragment changes, so relative asset URLs never re-resolve
+    // against a deeper path. Do not change this to an absolute path.
+    base: './',
     build: {
       outDir: '../../dist/widgets',
       emptyOutDir: false,  // CRITICAL: same reason as buildPages() — by this point
