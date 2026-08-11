@@ -54,9 +54,10 @@ export function formatActivityDate(isoLocal: string): string {
 }
 
 /**
- * Formats a duration in seconds as `h:mm:ss`. Exported so `detail.ts` can
- * stop keeping its own copy — one formatter, same discipline already
- * applied to `formatActivityDate` and `formatPace`.
+ * Formats a duration in seconds as `h:mm:ss`. Exported so `detail.ts` and
+ * `detail-sections.ts` import it rather than each keeping their own copy —
+ * one duration formatter, the same discipline already applied to
+ * `formatActivityDate` and `formatPace`.
  */
 export function formatDurationHms(totalSeconds: number): string {
   const hours = Math.floor(totalSeconds / 3600);
