@@ -175,3 +175,11 @@ None — no external service configuration required.
 ---
 *Phase: 16-dashboard-shell-data-contract*
 *Completed: 2026-08-11*
+
+## Self-Check: PASSED
+
+- FOUND: `.planning/phases/16-dashboard-shell-data-contract/16-14-SUMMARY.md`
+- FOUND: commit `14f15f8` (blocker documentation)
+- FOUND: commit `95b499b` (merge resolution)
+- FOUND: commit `6a70d76` (this SUMMARY)
+- Confirmed via `gh run view 31487234659 --json conclusion -q .conclusion` → `success`
