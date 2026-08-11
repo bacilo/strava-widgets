@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "note": "Hand-maintained by the developer. Copy this file to athlete-private.json (gitignored) and fill in real values. Never commit real values here — this example ships with placeholders only, is intentionally rejected by parseAthletePrivateConfig, and is the only *.json under data/private/ that is NOT gitignored. birthDate feeds age-grading, sex feeds both age-grading and the Banister TRIMP coefficient, restingHr is optional and only sharpens Banister TRIMP. If this file is absent or fails validation, the dependent features are omitted with an actionable notice and the phase still passes.",
+  "birthDate": "YYYY-MM-DD",
+  "sex": "male",
+  "restingHr": 0
+}

@@ -15,3 +15,9 @@ data/dashboard/
 # Raw bulk exports (Strava/Garmin): full-resolution GPS+HR streams, too large
 # and too sensitive for a public repo. data/provenance.json indexes into them.
 export_data/
+# Hand-maintained identity/health inputs (birthDate, sex, restingHr) for
+# age-grading and TRIMP training load (Phase 18). This repo is PUBLIC —
+# these fields must never enter git history. The example template is the
+# one exception: it ships with placeholder-only values (T-18-PII-02).
+data/private/*.json
+!data/private/athlete-private.example.json
