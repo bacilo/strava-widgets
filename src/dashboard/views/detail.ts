@@ -1,9 +1,19 @@
 /**
- * Activity detail view (DETAIL-01, BROWSE-06 chrome) — stats header with
- * gear resolution, prev/next archive navigation, and the load/error/stale-
- * guard chrome carried over from the Phase 16 proving slice. The route map,
- * chart bands, splits table, and pace/zone breakdown are wired in by later
- * tasks in this same plan (17-14).
+ * Activity detail view (DETAIL-01..05, BROWSE-06) — the full activity page:
+ * stats header with gear resolution, prev/next archive navigation, route
+ * map, stacked chart bands, splits table, and pace/zone breakdown.
+ *
+ * The route map (`detail-map.ts`) and chart bands (`detail-charts.ts`) are
+ * reached ONLY through `await import(...)` (D-25) — Leaflet and Chart.js
+ * never enter the dashboard's main entry chunk. Every await point in the
+ * render path (detail fetch, gear load, athlete-config load, and both
+ * dynamic imports plus their mount calls) is guarded by the same
+ * `myToken !== requestToken || mountedContainer !== container` stale-render
+ * check, so a fast activity-to-activity navigation never paints a
+ * superseded result and never leaks a Leaflet map or Chart.js instance into
+ * a detached container. Hovering a chart band moves the route map's
+ * position marker (D-26) via `onHover` calling `routeMapHandle`'s
+ * `setPositionByFraction` — a harmless no-op when the map never mounted.
  */
 
 import type { DashboardView, ViewMountContext } from '../view.types.js';
@@ -23,8 +33,80 @@ import { formatActivityDate, formatPace, formatDurationHms, noteViewedActivity }
 import { computeSplits } from './detail-splits.js';
 import { computePaceDistribution, computeHrZoneTimes } from './detail-zones.js';
 import { buildSplitsSection, buildBreakdownSection } from './detail-sections.js';
+import type { CanonicalStream } from '../../streams/stream.types.js';
+import type { StravaActivity } from '../../types/strava.types.js';
+// @mapbox/polyline is a small, DOM-free decode library — not part of the
+// D-25 restriction (Leaflet/Chart.js only) — used here purely as a
+// startLat/startLng fallback when `activity.start_latlng` is absent.
+import polylineCodec from '@mapbox/polyline';
 
 const DASH = '—';
+
+// ---------------------------------------------------------------------------
+// D-25 lazy-module type aliases. `typeof import(...)` is a type-only query —
+// it erases completely at compile time and produces no runtime import, so
+// declaring these does NOT pull detail-map.ts/detail-charts.ts (and
+// therefore Leaflet/Chart.js) into this file's static import graph. The
+// actual VALUE import happens only inside `tryImportDetailMap`/
+// `tryImportDetailCharts` below, via `await import(...)`.
+// ---------------------------------------------------------------------------
+type RouteMapModule = typeof import('./detail-map.js');
+type ChartsModule = typeof import('./detail-charts.js');
+type RouteMapHandle = ReturnType<RouteMapModule['mountRouteMap']>;
+type ChartBandsHandle = ReturnType<ChartsModule['mountChartBands']>;
+
+/** Import `detail-map.ts` behind a try/catch — a failed chunk load degrades, never throws into the caller. */
+async function tryImportDetailMap(): Promise<RouteMapModule | null> {
+  try {
+    return await import('./detail-map.js');
+  } catch (error) {
+    console.error(error);
+    return null;
+  }
+}
+
+/** Import `detail-charts.ts` behind a try/catch — a failed chunk load degrades, never throws into the caller. */
+async function tryImportDetailCharts(): Promise<ChartsModule | null> {
+  try {
+    return await import('./detail-charts.js');
+  } catch (error) {
+    console.error(error);
+    return null;
+  }
+}
+
+/**
+ * Shared failure UI for a heavy-module import that threw outright — mirrors
+ * `detail.ts`'s own `renderErrorState` and `detail-map.ts`'s
+ * `renderMapErrorState` markup (`.error-state` + `.text-heading` +
+ * `.text-body` + `.cta` Retry), used only when the dynamic import itself
+ * fails (before the imported module's own state renderers are reachable).
+ */
+function renderHeavySectionError(container: HTMLElement, heading: string, onRetry: () => void): void {
+  container.replaceChildren();
+
+  const errorState = document.createElement('section');
+  errorState.className = 'error-state';
+
+  const headingEl = document.createElement('h3');
+  headingEl.className = 'text-heading';
+  headingEl.textContent = heading;
+  errorState.appendChild(headingEl);
+
+  const body = document.createElement('p');
+  body.className = 'text-body';
+  body.textContent = 'Check your connection and try again.';
+  errorState.appendChild(body);
+
+  const retryBtn = document.createElement('button');
+  retryBtn.type = 'button';
+  retryBtn.className = 'cta';
+  retryBtn.textContent = 'Retry';
+  retryBtn.addEventListener('click', onRetry);
+  errorState.appendChild(retryBtn);
+
+  container.appendChild(errorState);
+}
 
 /** Maps `undefined`, `null`, and `NaN` (or a non-number, since `StravaActivity`'s index signature widens unknown fields) to `null`. */
 function numOrNull(value: unknown): number | null {
@@ -177,6 +259,180 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
   const { detailClient, indexClient, gearClient, athleteConfigClient } = deps;
   let mountedContainer: HTMLElement | null = null;
   let requestToken = 0;
+  // Module-scoped (relative to this view instance) handles for the two
+  // heavy async mounts — destroyed in `unmount()` and before starting a new
+  // load, so no Leaflet map or Chart.js instance survives in a detached
+  // container (T-17-VW-04).
+  let routeMapHandle: RouteMapHandle | null = null;
+  let chartBandsHandle: ChartBandsHandle | null = null;
+
+  /**
+   * Mounts the route map (D-25 lazy import) into `routeContainer`. Reads the
+   * polyline from `activity.map?.summary_polyline` — already-fetched detail
+   * JSON (D-23) — issuing no new request. Every await point (the dynamic
+   * import, and the mount call itself) is re-guarded, since a fast
+   * activity-to-activity navigation can supersede either one.
+   */
+  async function mountRouteMapSection(
+    container: HTMLElement,
+    routeContainer: HTMLElement,
+    activity: StravaActivity,
+    myToken: number
+  ): Promise<void> {
+    const onRetry = (): void => {
+      void mountRouteMapSection(container, routeContainer, activity, myToken);
+    };
+
+    const mapModule = await tryImportDetailMap();
+    if (myToken !== requestToken || mountedContainer !== container) {
+      return;
+    }
+
+    if (mapModule === null) {
+      renderHeavySectionError(routeContainer, "Couldn't load the route map", onRetry);
+      return;
+    }
+
+    const { renderRouteSection, mountRouteMap } = mapModule;
+
+    if (!activity.map) {
+      renderRouteSection(routeContainer, { kind: 'no-map' }, onRetry);
+      return;
+    }
+
+    const polylineValue = activity.map.summary_polyline;
+    const polyline = typeof polylineValue === 'string' ? polylineValue : '';
+    if (polyline.length === 0) {
+      renderRouteSection(routeContainer, { kind: 'no-polyline' }, onRetry);
+      return;
+    }
+
+    try {
+      const rootStyles = getComputedStyle(document.documentElement);
+      const accentColor = rootStyles.getPropertyValue('--accent').trim() || '#fc4c02';
+      const bgColor = rootStyles.getPropertyValue('--bg').trim() || '#ffffff';
+
+      const startLatLng = activity.start_latlng;
+      let startLat: number;
+      let startLng: number;
+      if (startLatLng && startLatLng.length >= 2) {
+        startLat = startLatLng[0];
+        startLng = startLatLng[1];
+      } else {
+        // Fallback (D-24): the first decoded polyline coordinate, since
+        // `RouteData` requires both for the single-point bounds fallback.
+        const decoded: [number, number][] = polylineCodec.decode(polyline);
+        const first = decoded[0];
+        startLat = first ? first[0] : 0;
+        startLng = first ? first[1] : 0;
+      }
+
+      routeContainer.replaceChildren();
+      const routeWrapper = document.createElement('div');
+      routeWrapper.className = 'route-map';
+      routeContainer.appendChild(routeWrapper);
+
+      const handle = mountRouteMap(routeWrapper, {
+        polyline,
+        startLat,
+        startLng,
+        accentColor,
+        bgColor,
+        activityName: activity.name,
+        distanceM: numOrNull(activity.distance) ?? 0,
+        movingTimeSec: numOrNull(activity.moving_time) ?? 0,
+        startDateLocal: activity.start_date_local,
+        activityId: String(activity.id),
+      });
+
+      // A fast navigation away could have superseded this render while the
+      // synchronous mount above ran — destroy immediately rather than leak
+      // a live Leaflet instance into a container this view no longer owns.
+      if (myToken !== requestToken || mountedContainer !== container) {
+        handle.destroy();
+        return;
+      }
+      routeMapHandle = handle;
+    } catch (error) {
+      console.error(error);
+      if (myToken !== requestToken || mountedContainer !== container) {
+        return;
+      }
+      routeContainer.replaceChildren();
+      renderRouteSection(routeContainer, { kind: 'error' }, onRetry);
+    }
+  }
+
+  /**
+   * Mounts the chart bands (D-25 lazy import) into `chartContainer`. Only
+   * called when `detail.stream` is non-null. `onHover` drives the route
+   * map's position marker (D-26) — a harmless no-op when the map never
+   * mounted (`routeMapHandle` is null).
+   */
+  async function mountChartSection(
+    container: HTMLElement,
+    chartContainer: HTMLElement,
+    stream: CanonicalStream,
+    myToken: number
+  ): Promise<void> {
+    const onRetry = (): void => {
+      void mountChartSection(container, chartContainer, stream, myToken);
+    };
+
+    const chartsModule = await tryImportDetailCharts();
+    if (myToken !== requestToken || mountedContainer !== container) {
+      return;
+    }
+
+    if (chartsModule === null) {
+      renderHeavySectionError(chartContainer, "Couldn't load the charts", onRetry);
+      return;
+    }
+
+    try {
+      chartContainer.replaceChildren();
+      const handle = chartsModule.mountChartBands(chartContainer, {
+        stream,
+        onHover: (fraction) => {
+          routeMapHandle?.setPositionByFraction(fraction);
+        },
+      });
+
+      // Same supersede-after-synchronous-mount guard as the route map.
+      if (myToken !== requestToken || mountedContainer !== container) {
+        handle.destroy();
+        return;
+      }
+      chartBandsHandle = handle;
+    } catch (error) {
+      console.error(error);
+      if (myToken !== requestToken || mountedContainer !== container) {
+        return;
+      }
+      chartContainer.replaceChildren();
+      renderHeavySectionError(chartContainer, "Couldn't load the charts", onRetry);
+    }
+  }
+
+  /**
+   * Fired after the synchronous sections are already painted (stats header,
+   * splits, breakdown), so the map and charts fill in without blocking first
+   * paint. Route map mounts first so `routeMapHandle` is ready before the
+   * chart's `onHover` can fire.
+   */
+  async function mountHeavySections(
+    container: HTMLElement,
+    detail: ActivityDetail,
+    myToken: number,
+    routeContainer: HTMLElement,
+    chartContainer: HTMLElement | null
+  ): Promise<void> {
+    await mountRouteMapSection(container, routeContainer, detail.activity, myToken);
+
+    if (chartContainer && detail.stream !== null) {
+      await mountChartSection(container, chartContainer, detail.stream, myToken);
+    }
+  }
 
   async function renderSuccess(container: HTMLElement, detail: ActivityDetail, myToken: number): Promise<void> {
     const { activity } = detail;
@@ -315,6 +571,10 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
 
     // D-08: record this activity so returning to #/list highlights it.
     noteViewedActivity(detail.id);
+
+    // Heavy sections (D-25 lazy import) — fired without awaiting so the
+    // synchronous sections above are already painted; map/charts fill in.
+    void mountHeavySections(container, detail, myToken, routeContainer, chartContainer);
   }
 
   async function loadAndRender(container: HTMLElement, id: string): Promise<void> {
@@ -327,6 +587,14 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
     }
 
     const myToken = ++requestToken;
+
+    // A new load supersedes any in-flight heavy mounts from the previous
+    // activity — destroy before starting, so nothing leaks into a container
+    // this new render is about to replace.
+    routeMapHandle?.destroy();
+    routeMapHandle = null;
+    chartBandsHandle?.destroy();
+    chartBandsHandle = null;
 
     container.replaceChildren();
     const loading = document.createElement('div');
@@ -374,6 +642,10 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
 
     unmount(): void {
       requestToken++; // invalidate any in-flight request
+      routeMapHandle?.destroy();
+      routeMapHandle = null;
+      chartBandsHandle?.destroy();
+      chartBandsHandle = null;
       mountedContainer?.replaceChildren();
       mountedContainer = null;
     },
