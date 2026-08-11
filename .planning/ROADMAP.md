@@ -168,7 +168,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 16-14-PLAN.md — Push master, run the gated workflow, and verify the deployed gh-pages tree and live origin (SC1, P08/D-08)
+- [x] 16-14-PLAN.md — Push master, run the gated workflow, and verify the deployed gh-pages tree and live origin (SC1, P08/D-08)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -237,7 +237,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 | 13. Standalone Pages | v1.2 | 2/2 | Complete | 2026-02-18 |
 | 14. Stream Ingestion Foundation | v2.0 | 5/5 | Complete    | 2026-08-10 |
 | 15. Best-Effort Engine | v2.0 | 4/4 | Complete    | 2026-08-10 |
-| 16. Dashboard Shell & Data Contract | v2.0 | 13/16 | In Progress|  |
+| 16. Dashboard Shell & Data Contract | v2.0 | 14/16 | In Progress|  |
 | 17. Activity Browser & Detail Views | v2.0 | 0/TBD | Not started | - |
 | 18. Records, Trends & Differentiators | v2.0 | 0/TBD | Not started | - |
 

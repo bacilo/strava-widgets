@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Training Dashboard
 status: executing
-stopped_at: Phase 16 plan 09 checkpoint PARTIAL - gap-closure pending on DASH-02/DASH-03
-last_updated: "2026-08-11T11:32:09.702Z"
-last_activity: 2026-08-11 -- Phase 16 execution started
+stopped_at: Phase 16 plan 14 complete — phase pushed to origin/master and deployed to GitHub Pages (gh-pages HEAD 1646351); gap-closure plans 16-15/16-16 remain
+last_updated: "2026-08-11T11:40:16.763Z"
+last_activity: 2026-08-11
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 25
-  completed_plans: 22
+  completed_plans: 23
   percent: 40
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 16 (dashboard-shell-data-contract) — EXECUTING
-Plan: 1 of 16
-Status: Executing Phase 16
-Last activity: 2026-08-11 -- Phase 16 execution started
+Plan: 2 of 16
+Status: Ready to execute
+Last activity: 2026-08-11
 
-Progress: [██████████] 100% (plans); phase gate open pending gap-closure
+Progress: [█████████░] 92%
 
 ## Performance Metrics
 
@@ -43,6 +43,7 @@ Progress: [██████████] 100% (plans); phase gate open pending
 | v1.2 | 11 | +2,446 | 2 days |
 | **Total** | **30** | **9,148** | **6 days** |
 | Phase 16 P09 | ~30min | 2 tasks | 2 files |
+| Phase 16 P14 | 40min | 3 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -58,6 +59,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - Commit derived/decimated stream JSON to data/streams/, never raw full-resolution — repo already has a bloat precedent from data/heatmap/all-points.json.
 - Phase 15 plan 04 (D-05 external validation): 2 of 8 candidate fixture rows (5k on activities 7827165619 and 9716153503) were dropped rather than frozen, because Strava does not surface a 5k best-effort panel for either activity and no platform-reported value existed — only the developer's manual judgment, which the plan's own anti-circularity rule forbids using as an expected value. The remaining 6 rows still clear every coverage guard.
 - [Phase 16]: 16-09 human checkpoint recorded as PARTIAL, not approved: navigation (DASH-01) and error/degraded states confirmed working; deep-link detail rendering (DASH-02) and theme-toggle visibility (DASH-03) both surfaced real defects, logged verbatim as gap-closure work rather than patched under checkpoint pressure. requirements-completed for 16-09 lists only DASH-01.
+- [Phase 16]: Non-fast-forward push rejections halt the executor rather than auto-merge/rebase; a coordinator-level decision resolved the divergence (merge over rebase, to avoid rewriting 179 phase commits for a one-line auto-generated timestamp conflict)
 
 ### Key Findings
 
@@ -86,7 +88,6 @@ Carried forward for future milestones:
 Previously resolved — SQLITE_CANTOPEN CI failure resolved by quick-1-01 (lazy geocoder init + dynamic import).
 
 - Phase 16 gap-closure needed before phase gate closes: GAP 1 (blocking, DASH-02) — deep-linked activity detail view renders 'Couldn't load this activity' in a real browser despite the same files serving 200 over plain HTTP in the automated smoke check; likely a client-side fetch-path bug in src/dashboard/data/detail-client.ts or how the hash router passes the id into it. GAP 2 (cosmetic, DASH-03) — theme toggle control is invisible in light mode though still functional when clicked. See .planning/phases/16-dashboard-shell-data-contract/16-09-SUMMARY.md Follow-ups section for full detail.
-- Plan 16-14 Task 2: git push origin master rejected as non-fast-forward. origin/master has 2 commits not in local master (dfaaf1e, bca8ae1 -- both automated 'chore: update activities and stats [skip ci]' from the nightly CI git-auto-commit-action), both touching only the generatedAt timestamp field in data/geo/geo-metadata.json. Local master is 177 commits ahead of the pre-divergence base but 2 commits behind current origin/master. A real 3-way merge would conflict on that single timestamp line. Per explicit authorization boundary (STOP and report, do not force), executor halted without force-pushing, merging, or rebasing. Awaiting explicit instruction on how to integrate (merge accepting origin's newer timestamp, or rebase local onto origin/master) before push/deploy can proceed.
 
 ### Quick Tasks Completed
 
@@ -96,9 +97,9 @@ Previously resolved — SQLITE_CANTOPEN CI failure resolved by quick-1-01 (lazy 
 
 ## Session Continuity
 
-Last session: 2026-08-11T08:09:42.394Z
-Stopped at: Phase 16 plan 09 checkpoint PARTIAL - gap-closure pending on DASH-02/DASH-03
-Resume file: None (gap-closure planning next)
+Last session: 2026-08-11T11:40:16.757Z
+Stopped at: Phase 16 plan 14 complete — phase pushed to origin/master and deployed to GitHub Pages (gh-pages HEAD 1646351); gap-closure plans 16-15/16-16 remain
+Resume file: None
 
 ---
 *Last updated: 2026-08-11 — Phase 16 (dashboard-shell-data-contract) all 9 plans executed and summarized; human checkpoint on plan 09 came back PARTIAL — DASH-01 confirmed, DASH-02 (blocking) and DASH-03 (cosmetic) have open gaps pending gap-closure planning before the phase gate closes*
