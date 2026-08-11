@@ -123,3 +123,10 @@ None — no external service configuration required.
 ---
 *Phase: 17-activity-browser-detail-views*
 *Completed: 2026-08-11*
+
+## Self-Check: PASSED
+
+All 5 created files verified present on disk (`detail-splits.ts`, `detail-splits.test.ts`,
+`detail-charts-logic.ts`, `detail-charts-logic.test.ts`, this SUMMARY.md). All 5 referenced
+commit hashes (`707af08`, `822a962`, `555edfd`, `e225bc2`, `54f15fc`) verified present in
+`git log`.
