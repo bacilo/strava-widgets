@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Training Dashboard
-status: ready_to_plan
-stopped_at: Phase 16 complete (16/16) — ready to discuss Phase 17
-last_updated: 2026-08-11T12:47:19.301Z
+status: planning
+stopped_at: Phase 17 context gathered
+last_updated: "2026-08-11T13:18:48.260Z"
 last_activity: 2026-08-11
 progress:
   total_phases: 5
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 25
   completed_plans: 25
-  percent: 40
+  percent: 60
 ---
 
 # Project State
@@ -100,9 +100,9 @@ Previously resolved — SQLITE_CANTOPEN CI failure resolved by quick-1-01 (lazy 
 
 ## Session Continuity
 
-Last session: 2026-08-11T11:40:16.757Z
-Stopped at: Phase 16 plan 14 complete — phase pushed to origin/master and deployed to GitHub Pages (gh-pages HEAD 1646351); gap-closure plans 16-15/16-16 remain
-Resume file: None
+Last session: 2026-08-11T13:18:48.238Z
+Stopped at: Phase 17 context gathered
+Resume file: .planning/phases/17-activity-browser-detail-views/17-CONTEXT.md
 
 ---
 *Last updated: 2026-08-11 — Phase 16 (dashboard-shell-data-contract) all 9 plans executed and summarized; human checkpoint on plan 09 came back PARTIAL — DASH-01 confirmed, DASH-02 (blocking) and DASH-03 (cosmetic) have open gaps pending gap-closure planning before the phase gate closes*
