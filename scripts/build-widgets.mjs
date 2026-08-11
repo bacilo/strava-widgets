@@ -95,7 +95,7 @@ async function buildWidget(widget, index) {
         formats: ['iife']
       },
       outDir: tempOutDir,
-      emptyDir: true,
+      emptyOutDir: true,
       rollupOptions: {
         external: widget.isMapWidget ? ['leaflet'] : [],
         output: {
@@ -182,7 +182,7 @@ async function buildPages() {
     root: 'src/pages',
     build: {
       outDir: '../../dist/widgets',
-      emptyDir: false,
+      emptyOutDir: false,
       rollupOptions: {
         input: {
           heatmap: resolve(__dirname, '../src/pages/heatmap.html'),
@@ -205,10 +205,11 @@ async function buildDashboard() {
     root: 'src/dashboard',
     build: {
       outDir: '../../dist/widgets',
-      // CRITICAL: same reason as buildPages() — by this point dist/widgets/
-      // holds 11 IIFE bundles, four page HTML files, and the copied data
-      // tree. Emptying it would destroy all of them.
-      emptyDir: false,
+      emptyOutDir: false,  // CRITICAL: same reason as buildPages() — by this point
+      // dist/widgets/ already holds 11 IIFE bundles, four page HTML files, and the
+      // copied data tree. Setting this to false is what actually declares that
+      // don't-empty intent to Vite; emptying it would destroy all of them and the
+      // deploy step would publish the gutted directory.
       rollupOptions: {
         input: {
           // The `index` key is what makes the output land at

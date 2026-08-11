@@ -5,7 +5,9 @@ export default defineConfig({
   root: 'src/pages',
   build: {
     outDir: '../../dist/widgets',
-    emptyDir: false,  // CRITICAL: Do not delete widget bundles
+    emptyOutDir: false,  // CRITICAL: emptyOutDir is the real Vite option name — by the
+    // time this build runs, dist/widgets/ already holds 11 IIFE bundles, four page
+    // HTML files and the copied data tree; emptying it would destroy all of them.
     rollupOptions: {
       input: {
         heatmap: resolve(__dirname, 'src/pages/heatmap.html'),
