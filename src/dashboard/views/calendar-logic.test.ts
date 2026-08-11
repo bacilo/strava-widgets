@@ -14,9 +14,7 @@ import {
 /** Minimal fixture row builder — only the fields buildMonthGrid reads matter for these tests. */
 function fixtureRow(overrides: Partial<DashboardIndexRow> & { id: string; startDateLocal: string }): DashboardIndexRow {
   return {
-    id: overrides.id,
     startDate: overrides.startDateLocal,
-    startDateLocal: overrides.startDateLocal,
     name: 'Test Run',
     distanceM: 5000,
     movingTimeSec: 1800,
