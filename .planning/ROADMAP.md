@@ -51,7 +51,7 @@
 
 - [x] **Phase 14: Stream Ingestion Foundation** - Backfill and daily-sync pipeline produces committed per-activity time-series data (or an explicit unavailable flag) (completed 2026-08-10)
 - [x] **Phase 15: Best-Effort Engine** - Pipeline computes fastest 400m..marathon efforts within every run from streams (completed 2026-08-10)
-- [ ] **Phase 16: Dashboard Shell & Data Contract** - Navigable, themed SPA shell deployed to GitHub Pages with lazy-loaded data contract (9 plans executed; verification 2026-08-11 found gaps — not deployed, DASH-02 blocked; 7 gap-closure plans 16-10..16-16 planned 2026-08-11)
+- [x] **Phase 16: Dashboard Shell & Data Contract** - Navigable, themed SPA shell deployed to GitHub Pages with lazy-loaded data contract (9 plans executed; verification 2026-08-11 found gaps — not deployed, DASH-02 blocked; 7 gap-closure plans 16-10..16-16 planned 2026-08-11) (completed 2026-08-11)
 - [ ] **Phase 17: Activity Browser & Detail Views** - Browse, filter, and drill into any archived activity with full pace/HR/cadence detail
 - [ ] **Phase 18: Records, Trends & Differentiators** - PR lists, evolution, badges, aggregates, TRIMP training load, age-grading, Riegel predictions, gear-aware trends
 
@@ -172,8 +172,8 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 16-15-PLAN.md — Human verification on the live origin: hash navigation and theme-toggle legibility (DASH-01, DASH-03)
-- [ ] 16-16-PLAN.md — Human verification on the live origin: intervals.icu deep-link detail and timezone-correct dates (DASH-02)
+- [x] 16-15-PLAN.md — Human verification on the live origin: hash navigation and theme-toggle legibility (DASH-01, DASH-03)
+- [x] 16-16-PLAN.md — Human verification on the live origin: intervals.icu deep-link detail and timezone-correct dates (DASH-02)
 
 ### Phase 17: Activity Browser & Detail Views
 
@@ -237,7 +237,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 | 13. Standalone Pages | v1.2 | 2/2 | Complete | 2026-02-18 |
 | 14. Stream Ingestion Foundation | v2.0 | 5/5 | Complete    | 2026-08-10 |
 | 15. Best-Effort Engine | v2.0 | 4/4 | Complete    | 2026-08-10 |
-| 16. Dashboard Shell & Data Contract | v2.0 | 14/16 | In Progress|  |
+| 16. Dashboard Shell & Data Contract | v2.0 | 16/16 | Complete   | 2026-08-11 |
 | 17. Activity Browser & Detail Views | v2.0 | 0/TBD | Not started | - |
 | 18. Records, Trends & Differentiators | v2.0 | 0/TBD | Not started | - |
 
