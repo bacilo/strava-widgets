@@ -138,6 +138,11 @@ export function createListView(deps: ListViewDeps): DashboardView {
         await indexClient.loadIndex();
       } catch (error) {
         console.error(error);
+        // A rejection can arrive after the user navigated away — must not
+        // wipe the newly-mounted view (WR-01).
+        if (mountedContainer !== ctx.container) {
+          return;
+        }
         ctx.container.replaceChildren();
         const errorState = document.createElement('section');
         errorState.className = 'error-state';
