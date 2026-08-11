@@ -1,314 +1,199 @@
 ---
 phase: 16-dashboard-shell-data-contract
-verified: 2026-08-11T08:23:19Z
-status: gaps_found
-score: 33/38 must-haves verified
+verified: 2026-08-11T12:27:50Z
+status: human_needed
+score: 43/43 must-haves verified
 overrides_applied: 0
-gaps:
-  - truth: "SC1 — User can open the dashboard on GitHub Pages and navigate between list/calendar/detail/records/trends views via hash-based routes without full page reloads or 404s"
-    status: partial
-    reason: "The routing implementation is correct and was human-confirmed against a LOCAL build, but the dashboard has never been deployed. origin/master does not contain src/dashboard/ at all (local master is 148 commits unpushed), so every nightly CI deploy built the pre-Phase-16 tree. The live gh-pages branch (HEAD 7a1aa8a, deployed 2026-08-11T05:45:56Z) has no assets/ SPA bundle, no widgets.html, and its root index.html is still the old static widget showcase."
-    artifacts:
-      - path: "origin/master (remote)"
-        issue: "Missing src/dashboard/ entirely — 148 local commits containing the whole phase are unpushed"
-      - path: "origin/gh-pages:index.html"
-        issue: "Is the pre-Phase-16 static widget showcase, not the dashboard SPA"
-      - path: "origin/gh-pages:data/"
-        issue: "Contains only geo, heatmap, routes, stats — no dashboard/, activities/, or streams/, so the SPA could not load even if the shell were present"
-    missing:
-      - "Push master to origin so the deploying workflow builds a tree that contains src/dashboard/"
-      - "Confirm a post-push daily-refresh run deploys an index.html that is the SPA and a data/ tree containing dashboard/, activities/, and streams/"
-      - "Re-run the DASH-01 navigation UAT against the live GitHub Pages URL, not a local server"
-  - truth: "SC2 — Dashboard loads a compact activity index manifest immediately and fetches per-activity detail data only when a specific activity is opened"
-    status: partial
-    reason: "The 'loads index immediately' half is fully verified. The 'opens an activity' half is broken for the 55 newest activities: isValidActivityId in src/dashboard/router.ts is /^\\d{1,20}$/ (digits only), but every activity ingested since the Aug 2026 intervals.icu migration carries an 'i'-prefixed id, and those are rows 1-55 at the top of the list. detail.ts rejects the id and paints the error state before any fetch is attempted."
-    artifacts:
-      - path: "src/dashboard/router.ts:101-103"
-        issue: "isValidActivityId regex /^\\d{1,20}$/ returns false for i174284902 — the id of the very first row in data/dashboard/index.json"
-      - path: "src/dashboard/views/detail.ts:219-225"
-        issue: "loadAndRender calls renderErrorState (\"Couldn't load this activity\") on the failed id check, before any network request — the exact reported UAT symptom"
-      - path: "src/dashboard/data/detail-client.ts:83-86"
-        issue: "loadDetail rejects with InvalidActivityIdError on the same regex (defense-in-depth on the same broken pattern)"
-      - path: "src/dashboard/router.test.ts:86-108"
-        issue: "Every accept case is a bare numeric Strava id; no i-prefixed case exists, which is how 334/334 green tests shipped a broken feature"
-      - path: "src/dashboard/data/detail-client.test.ts:39-121"
-        issue: "Same gap — no i-prefixed happy path"
-    missing:
-      - "Widen isValidActivityId to /^i?\\d{1,20}$/ (single chokepoint; both consumers inherit it) while preserving the no-dot/slash/percent/angle-bracket traversal guarantee"
-      - "Add isValidActivityId('i174109928') === true and a reject case like 'x123' to router.test.ts"
-      - "Add an i-prefixed happy-path case to detail-client.test.ts"
-      - "Correct the mis-specified plan must-have 'An activity id that is not all digits is rejected' — as written it mandates the defect"
-  - truth: "SC3 — Dashboard respects dark/light theme consistent with the existing widget system's theming"
-    status: partial
-    reason: "Design-token parity with the widget ThemeManager is exact, and cycling/accent-discipline/no-flash were all human-confirmed. The theme toggle control itself is invisible in light mode (human-confirmed; still clickable). Three compounding structural defects confirmed in code."
-    artifacts:
-      - path: "src/dashboard/styles.css:141-155"
-        issue: ".theme-toggle sets no `color`, so the icons' currentColor falls back to the UA's ButtonText; .theme-toggle__icon--active { fill: var(--accent) } targets the <svg> root and is always beaten by the children's own fill=\"currentColor\" presentation attributes; no rule hides the inactive icon"
-      - path: "src/dashboard/nav.ts:59-117,168-169"
-        issue: "Every circle/path/line carries its own fill=\"currentColor\"/stroke=\"currentColor\" attribute (defeating the --active rule), and both sun and moon icons are appended unconditionally"
-      - path: "src/dashboard/index.html:7"
-        issue: "<meta name=\"color-scheme\" content=\"light dark\"> with no CSS syncing the used color-scheme to data-theme — a dark-OS browser renders ButtonText near-white on the forced-light #f5f5f7 nav surface"
-    missing:
-      - "Add :root[data-theme=\"light\"] { color-scheme: light } and :root[data-theme=\"dark\"] { color-scheme: dark }"
-      - "Add .theme-toggle, .app-nav__toggle { color: var(--text) }"
-      - "Replace the dead fill rule with .theme-toggle__icon { display: none } and .theme-toggle__icon--active { display: inline; color: var(--accent) }"
-      - "Re-run the DASH-03 toggle-visibility UAT step in light mode"
-  - truth: "P07 — Opening an activity lazy-fetches only that activity's detail and stream files and renders its stats header"
-    status: failed
-    reason: "Same root cause as SC2. For the 55 newest activities no fetch is ever issued; the stats header never renders. Verified independently: `npm run verify-dashboard` fetched /data/activities/i174284902.json and /data/streams/i174284902.json over HTTP from the exact built directory and got 200s with parseable JSON — the files are fine, the browser-side id gate is not."
-    artifacts:
-      - path: "src/dashboard/views/detail.ts:217-232"
-        issue: "Guard fires before the fetch for all i-prefixed ids"
-    missing:
-      - "Fix isValidActivityId (see SC2 gap) — no other change needed for this truth"
-  - truth: "P08/D-08 — The dashboard SPA is the generated index.html of the published site, and the widget showcase still exists at its own URL"
-    status: partial
-    reason: "True of the local publish directory (dist/widgets/index.html is the SPA, dist/widgets/widgets.html is the showcase, verify-dashboard confirms both serve 200). False of the actual published site: origin/gh-pages root index.html is still the old showcase page and no widgets.html exists there."
-    artifacts:
-      - path: "origin/gh-pages:index.html"
-        issue: "Old static showcase, not the SPA"
-      - path: "origin/gh-pages (tree)"
-        issue: "No widgets.html, no assets/"
-    missing:
-      - "Push master and let daily-refresh redeploy, then re-check the deployed tree"
+re_verification:
+  previous_status: gaps_found
+  previous_score: 33/38
+  gaps_closed:
+    - "SC1 — dashboard deployed to GitHub Pages, hash routing works with no reloads/404s"
+    - "SC2 — per-activity detail fetched lazily, including for i-prefixed intervals.icu ids"
+    - "SC3 — theme toggle visible and legible in light mode, color-scheme synced to data-theme"
+    - "P07 — opening an activity lazy-fetches and renders its stats header (i-prefixed ids)"
+    - "P08/D-08 — the deployed gh-pages tree carries the SPA at root and the showcase at widgets.html"
+  gaps_remaining: []
+  regressions: []
 human_verification:
-  - test: "Open the live GitHub Pages URL (not a local server) and navigate Overview -> Activities -> Calendar -> Records -> Trends and back"
-    expected: "All five views render via hash routes with no full page reload and no 404; deep-refresh on each hash still works"
-    why_human: "Requires the site to actually be deployed and a real browser; no automated tooling in this repo can reach the live Pages origin"
-  - test: "After the isValidActivityId fix, click 'View Activity' on the FIRST row of the Activities list (an i-prefixed intervals.icu activity), then reload that #/activity/i... URL cold"
-    expected: "The activity's stats header, distance/time/pace/elevation/HR/cadence numbers, and stream summary render — not 'Couldn't load this activity'"
-    why_human: "Browser-runtime fetch behavior and rendering; the HTTP smoke script cannot exercise the client-side id gate"
-  - test: "After the toggle-styling fix, view the nav in light mode on both a light-OS and a dark-OS machine"
-    expected: "Exactly one icon is visible, it is legible against the #f5f5f7 nav surface, and the active state uses the accent color"
-    why_human: "Visual contrast against a UA-derived ButtonText fallback; not assessable by grep"
-  - test: "With TZ set to a non-UTC zone, check the displayed date of a late-evening and an early-morning intervals.icu activity in the list, overview and detail views"
-    expected: "Displayed date matches the activity's local wall-clock date in every timezone"
-    why_human: "Confirms the WR-02 fix end to end across all three views; reproduction is scripted below but the rendered output needs eyes"
+  - test: "View the light-mode theme toggle and hamburger on an actual light-OS machine (all live-origin observation so far was performed under a dark-OS host with the toggle switched to the light theme in-app)."
+    expected: "Exactly one icon visible, legible against #f5f5f7, contrast ~3.12:1 for the toggle / ~11.60:1 for the hamburger, matching the dark-OS observation."
+    why_human: "16-11 pinned color-scheme to data-theme (not the OS), so this should be identical by construction, but no light-OS machine was available to 16-15 to confirm it directly."
+  - test: "Cold-load the live origin in dark mode and watch the very first rendered frame for a light-mode flash before the dark theme applies."
+    expected: "No white/light flash — dark paints on frame one."
+    why_human: "The synchronous inline bootstrap running before the stylesheet link is confirmed in the deployed HTML, but the actual first frame was not observed by a human eye; this is a timing property no static inspection can fully rule out."
+  - test: "With theme mode set to 'auto', change the OS-level light/dark appearance while the dashboard tab is open (no reload)."
+    expected: "The page's effective theme follows the OS change live, per watchSystemTheme's matchMedia listener."
+    why_human: "Not reachable from in-page script or curl; requires a human to toggle OS appearance and observe the tab."
+  - test: "Find or synthesize a late-evening (21:00-23:59 local) intervals.icu-sourced activity and confirm its displayed date matches its local wall-clock date across list, overview and detail."
+    expected: "Displayed date equals the local calendar date of startDateLocal, not shifted by the UTC-normalization fix."
+    why_human: "No such activity exists in the current archive (all 56 intervals.icu rows are morning runs, latest 07:19) so the 0/100-mismatch live observation cannot exercise this edge; the guarantee currently rests on 16-12's unit tests (mutation-checked: reverting the fix reproduces 2 failures), which is real coverage but not a live observation."
 ---
 
 # Phase 16: Dashboard Shell & Data Contract Verification Report
 
 **Phase Goal:** A navigable, themed single-page dashboard shell is deployed to GitHub Pages, loading only a compact index up front.
-**Verified:** 2026-08-11T08:23:19Z
-**Status:** gaps_found
-**Re-verification:** No — initial verification
+**Verified:** 2026-08-11T12:27:50Z
+**Status:** human_needed
+**Re-verification:** Yes — after gap closure (plans 16-10..16-16)
 
 ## Goal Achievement
 
-The engineering underneath this phase is genuinely strong — 334/334 tests green, `tsc --noEmit` clean, a real dependency-free publish probe that passes 15/15, exact design-token parity with the widget ThemeManager, and a router/registry/client layer that is correctly wired end to end. But the phase goal has three load-bearing clauses and **all three fail**:
+This is the third verification pass on Phase 16. The first (16-09's internal UAT) was a false pass against a local server. The second (this verifier's own prior run, 16-VERIFICATION.md dated 2026-08-11T08:23:19Z) correctly found the site was never deployed, the id-validation regex rejected all 55 intervals.icu activities, and the theme toggle was invisible in light mode — and scored 33/38. A third defect (root-absolute asset URLs producing a black page on the real `/strava-widgets/` project path) was found and fixed *after* that second pass's own "deployed" plan (16-14) reported success, which is exactly the kind of false-pass this phase has a track record of producing. This pass re-verifies every one of the prior gaps against the live origin directly, independently of the SUMMARY narrative, and finds all five closed.
 
-1. **"deployed to GitHub Pages"** — it is not. This is the finding the phase artifacts do not mention at all.
-2. **"loading only a compact index up front"** — the index half works; the lazy-detail half it exists to prove is broken for the newest 55 activities.
-3. **"themed"** — the tokens are right, but the control that operates the theme is invisible in light mode.
+**All verification below was performed against `https://bacilo.github.io/strava-widgets/` directly by this verifier (`curl`, `git ls-tree origin/gh-pages`, `gh run view`) — not by trusting the 16-14/16-15/16-16 SUMMARY claims, and not by treating a local dist/widgets/ HTTP check as a stand-in for the deployed origin.**
 
 ### ROADMAP Success Criteria (the contract)
 
 | # | Success Criterion | Status | Evidence |
 |---|-------------------|--------|----------|
-| SC1 | User can open the dashboard **on GitHub Pages** and navigate between list/calendar/detail/records/trends views via hash-based routes without reloads or 404s | ✗ FAILED | Routing logic verified (`view-registry.ts` exposes all 6 routes, `main.ts` starts `createRouter` with dual triggers, human confirmed navigation locally) — but **the dashboard is not deployed**. `git ls-tree origin/master src/` shows no `src/dashboard`; local master is **148 commits ahead and unpushed**. `origin/gh-pages` HEAD `7a1aa8a` (2026-08-11T05:45:56Z) has no `assets/`, no `widgets.html`, and its root `index.html` is the pre-Phase-16 static showcase. Its `data/` contains only `geo, heatmap, routes, stats`. |
-| SC2 | Dashboard loads a compact activity index manifest immediately and fetches per-activity detail data only when a specific activity is opened | ✗ FAILED | First half VERIFIED: `main.ts:31` fires `clients.indexClient.loadIndex().catch(() => {})` without awaiting; `index-client.ts` memoizes on a single `inFlight` promise and does not memoize failures. Second half FAILED: `isValidActivityId('i174284902')` → `false` (executed), and `i174284902` is **row 1** of the generated index. `detail.ts:219-225` paints "Couldn't load this activity" before any fetch. |
-| SC3 | Dashboard respects dark/light theme consistent with the existing widget system's theming | ✗ FAILED | Token parity is **exact** — `styles.css` light `#ffffff/#333333/#fc4c02` and dark `#1a1a2e/#e0e0e0/#ff6b35` match `src/widgets/shared/theme-manager.ts:44-70` character for character. Pre-paint bootstrap present in `index.html:19-37` before the stylesheet link. But the toggle is invisible in light mode (human-confirmed) with three confirmed structural causes — see WR-04 below. |
+| SC1 | User can open the dashboard **on GitHub Pages** and navigate between list/calendar/detail/records/trends views via hash-based routes without reloads or 404s | ✓ VERIFIED | Independently curled the live origin: `/` → 200, body contains `id="app-nav-root"`; `/assets/index-DJmOzHMs.js` and `.css` → 200 with real minified JS content (not GitHub's 404 HTML — the exact prior black-page defect); `git ls-tree origin/gh-pages` shows `index.html`, `widgets.html`, `assets/`, `data/`. `gh run view 31488806924` confirms the deploying workflow ran green with `Build widgets → Run test suite → Verify dashboard publish contract → Deploy widgets to GitHub Pages` in that order, all `success`. Human UAT (16-15) additionally confirmed cold-load-per-hash for all five views plus `#/nonsense`→Overview fallback and hamburger behavior, on the live origin in a real browser. |
+| SC2 | Dashboard loads a compact activity index manifest immediately and fetches per-activity detail data only when a specific activity is opened | ✓ VERIFIED | Independently fetched the live `/data/dashboard/index.json` (200, schemaVersion 1, 1868 rows, first row `i174601247`) and its detail/stream files (both 200). `isValidActivityId` in `src/dashboard/router.ts:104` is now `/^i?\d{1,20}$/`, confirmed by direct file read; `router.test.ts` asserts `isValidActivityId('i174109928') === true`. Human UAT (16-16) additionally confirmed on the live origin via network panel: cold `#/list` issues exactly one data request (the index), zero detail/stream requests; opening `i174601247` issues exactly two, both 200, and renders a populated stats header. |
+| SC3 | Dashboard respects dark/light theme consistent with the existing widget system's theming | ✓ VERIFIED | `src/dashboard/styles.css` confirmed to contain `color-scheme: light`/`dark` inside each `:root[data-theme=...]` block, `.theme-toggle`/`.app-nav__toggle { color: var(--text) }`, and the `display: none` / `display: inline; color: var(--accent)` icon-swap pair — all read directly from the file, not from the SUMMARY's description of it. `nav.ts:182-183` toggles the `--active` class correctly. Human UAT (16-15) measured contrast on the live origin: 3.12:1 (toggle) and 11.60:1 (hamburger) in light mode, both above WCAG AA's 3:1 non-text threshold, and confirmed exactly one icon renders at a time across all three theme cycles, with persistence across reload. See Human Verification for the residual light-OS-hardware and OS-live-change caveats, which are inference-backed but not directly observed. |
 
-### Merged Must-Have Truths (ROADMAP SCs + PLAN frontmatter)
+### Gap-Closure Verification (5 previously-failed truths)
 
-**Score: 33/38 truths verified**
+| # | Prior Status | Truth | Now | Evidence |
+|---|--------------|-------|-----|----------|
+| 1 | ✗ FAILED | SC1 — dashboard actually deployed to GitHub Pages (not just built locally) | ✓ VERIFIED | `git status`: local master is 2 commits ahead of `origin/master`, both docs-only (`.planning/ROADMAP.md`, two SUMMARY.md files) — no code is unpushed. `git ls-tree origin/master src/ --name-only` includes `src/dashboard`. `origin/gh-pages` HEAD carries the SPA; independently curled and confirmed rendering-capable (JS parses as JS, not a 404 HTML page). |
+| 2 | ✗ FAILED | SC2 — `isValidActivityId` accepts intervals.icu `i`-prefixed ids | ✓ VERIFIED | `src/dashboard/router.ts:104`: `/^i?\d{1,20}$/`. `router.test.ts:88-123` covers accept (`i174109928`, `i174284902`, 20-digit ceiling) and reject (`ii123`, `I174109928`, `1i23`, 21-digit) cases. `detail-client.test.ts` carries an i-prefixed happy-path fixture per 16-10's SUMMARY, confirmed present. |
+| 3 | ✗ FAILED | SC3 — theme toggle visible and legible in light mode | ✓ VERIFIED | `styles.css` fix confirmed by direct read (see SC3 row above); `styles.test.ts` (10 assertions) locks all six WR-04 rules at the text level; 16-11's SUMMARY documents a mutation check (flipped `display: inline`→`none`, confirmed the suite fails, restored, re-verified green) — this verifier did not re-run the mutation but did confirm the resulting file state matches what the mutation check claims to protect. |
+| 4 | ✗ FAILED | P07 — opening an activity lazy-fetches and renders its stats header for i-prefixed ids | ✓ VERIFIED | Same root-cause fix as #2. Live-origin human UAT (16-16) confirmed the rendered stats header content ("Herlev Running / Aug 11, 2026 / 10.0 km / ..."), not the error state. |
+| 5 | ✗ FAILED | P08/D-08 — deployed gh-pages tree has the SPA at root and the showcase at widgets.html | ✓ VERIFIED | `git ls-tree origin/gh-pages` (fetched fresh by this verifier): `index.html` (SPA, `app-nav-root` count 1, relative asset paths), `widgets.html` present, `data/` contains `activities, dashboard, geo, heatmap, routes, stats, streams`. |
+
+**A sixth, previously-undetected defect was found and fixed between the second and third verification passes:** root-absolute Vite asset URLs (`base: '/'` default) resolved outside the `/strava-widgets/` GitHub Pages project path, so the browser fetched GitHub's 404 HTML in place of the JS bundle and rendered a black page — this happened *after* 16-14 reported a successful deploy. Fixed in `0b59d8c` (`base: './'` in `scripts/build-widgets.mjs:217`, confirmed by direct file read) and closed with a hardened `verify-dashboard-publish.mjs` that now mounts under `/strava-widgets` and fails hard on absolute asset URLs rather than silently stripping the leading slash before checking. Independently re-ran the probe locally: **16/16 checks pass**, including the two new asset-URL checks.
+
+### Merged Must-Have Truths (ROADMAP SCs + all PLAN frontmatter, 16-01..16-16)
+
+**Score: 43/43 truths verified** (38 from the original 9 plans, all now closing after gap closure, plus 5 new gap-closure-plan truths for the deploy/UAT evidence chain)
+
+The 33 truths already VERIFIED in the prior pass (P01 exclusions, P02 theme engine, P03 router contracts, P04 index generator, P05 fetch-once/lazy clients, P06 nav/bootstrap, most of P07/overview/list, P09 URL probe) were spot-checked for regression only, per re-verification methodology, and show no regression: `npm test` → 368/368 passing (up from 334 at the original pass, reflecting the new gap-closure test cases), `npx tsc --noEmit` → clean, both re-run directly by this verifier.
+
+Full detail on the 5 closed failures is in the Gap-Closure table above. Additional gap-closure-only truths, all independently checked:
 
 | # | Source | Truth | Status | Evidence |
 |---|--------|-------|--------|----------|
-| 1 | ROADMAP | SC1 — navigable on GitHub Pages, no reloads/404s | ✗ FAILED | Not deployed — see SC table above |
-| 2 | ROADMAP | SC2 — index up front, detail lazy on open | ✗ FAILED | Detail half broken for 55 newest activities |
-| 3 | ROADMAP | SC3 — theme consistent with widget system | ✗ FAILED | Toggle invisible in light mode |
-| 4 | P01 | Excluded activities never appear in any per-distance PR ranking | ✓ VERIFIED | `compute-best-efforts.ts:215` gates the accumulator on `isExcluded(exclusions, id, effort.distance)`; suite green |
-| 5 | P01 | Excluded activities still computed and flagged, not deleted | ✓ VERIFIED | `compute-best-efforts.ts:237,239` write `excludedFromRecords` rather than dropping the effort |
-| 6 | P01 | Next-best genuine effort promoted to rank 1 | ✓ VERIFIED | Covered by `compute-best-efforts.test.ts`; 334/334 pass |
-| 7 | P01 | Missing/malformed exclusions file → zero exclusions, no crash | ✓ VERIFIED | `loadExclusions` tolerance covered in `best-effort-exclusions.test.ts` |
-| 8 | P02 | Theme resolves concrete light/dark for all 3 modes × 2 system prefs | ✓ VERIFIED | `resolveEffectiveTheme` + matrix coverage in `theme.test.ts` |
-| 9 | P02 | Tampered localStorage value falls back to auto | ✓ VERIFIED | `parseThemeMode` (theme.ts:32) + guard test; mirrored in the inline bootstrap |
-| 10 | P02 | One global stylesheet declares the same accent/bg/text hexes as the widget ThemeManager | ✓ VERIFIED | Hex-for-hex parity confirmed against `theme-manager.ts:44-70` |
-| 11 | P02 | System theme changes only re-render while stored mode is auto | ✓ VERIFIED | `watchSystemTheme` (theme.ts:124) with test coverage |
-| 12 | P03 | `#/activity/<id>` resolves to the detail route on initial load and on hashchange | ✓ VERIFIED | `createRouter` binds both `hashchange` and `DOMContentLoaded`; human UAT confirmed the hash updates |
-| 13 | P03 | `#/list?year=2024` parses into a URLSearchParams the view receives | ✓ VERIFIED | `parseHash` tests at `router.test.ts:13-19` |
-| 14 | P03 | An activity id that is not all digits is rejected before reaching a fetch URL or the DOM | ⚠️ VERIFIED (harmful as specified) | Literally true — and this literal must-have **is** the defect. It mandates rejecting `i`-prefixed intervals.icu ids, which is why a green 334-test suite shipped a broken detail view. Counted as verified; the goal-level failure lands on SC2. |
-| 15 | P03 | Every downstream plan codes against one index row shape and one view record shape | ✓ VERIFIED | `dashboard-index.types.ts` + `view.types.ts` are the only shape sources; all views/clients import from them |
-| 16 | P04 | Compute step produces `data/dashboard/index.json` with one row per manifest activity | ✓ VERIFIED | 1,867 rows generated vs 1,867 files in `data/activities/` |
-| 17 | P04 | Every row carries the full browse-complete field set | ✓ VERIFIED | 17 keys present incl. `paceSecPerKm`, `avgHr`, `avgCadenceRpm`, `location`, `streams`, `prCount` |
-| 18 | P04 | Stream/low-confidence/PR/exclusion flags resolved at generation time | ✓ VERIFIED | Flags materialized in the row; no render-time recomputation in the views |
-| 19 | P04 | One malformed activity file is skipped with a warning, not an aborted build | ✓ VERIFIED | Covered by `compute-dashboard-index.test.ts` (25 tests). See WR-07 for a related uncovered failure mode. |
-| 20 | P04 | Generated index is gitignored and regenerated every CI run | ✓ VERIFIED | `git check-ignore` → `.gitignore:14 data/dashboard/`; workflow step "Compute dashboard index" present |
-| 21 | P05 | Index manifest fetched exactly once per page session | ✓ VERIFIED | Single `inFlight` promise in `index-client.ts:69-88`; failures deliberately not memoized |
-| 22 | P05 | No detail file fetched until an activity is opened; reuses committed `data/activities`/`data/streams` | ✓ VERIFIED | `detail-client.ts` fetches only from `loadDetail`, called only from `detail.ts` mount |
-| 23 | P05 | Non-all-digits id rejected before any network request | ⚠️ VERIFIED (harmful as specified) | Same mis-specification as #14 |
-| 24 | P05 | Missing stream file resolves with a null stream instead of failing the load | ✓ VERIFIED | `detail-client.ts:70-78`; probe confirms the expected 404 path for `18702664326` |
-| 25 | P06 | Persisted theme applied before first paint — no light flash | ✓ VERIFIED | Synchronous IIFE at `index.html:19-37` sets `data-theme` before the `styles.css` link; human confirmed no flash |
-| 26 | P06 | Nav lists Overview, Activities, Calendar, Records, Trends in order, never the detail route | ✓ VERIFIED | `NAV_ORDER` (view.types.ts:56-62); `ROUTES.DETAIL` absent |
-| 27 | P06 | Below 640px the nav collapses behind a ≥44×44px hamburger | ✓ VERIFIED | `.app-nav__toggle` min-width/min-height 44px; shown in the `@media` block at styles.css:274 |
-| 28 | P06 | Calendar/Records/Trends render the UI-SPEC coming-soon copy naming the right future phase | ✓ VERIFIED | `stub-view.ts:27` interpolates `STUB_PHASE` → Calendar 17, Records 18, Trends 18 |
-| 29 | P07 | Landing view shows real archive headline stats and real recent activities | ✓ VERIFIED | `overview.ts` reads `data/stats/*.json` + the index client. See IN-10 for a malformed-stats escalation warning. |
-| 30 | P07 | Activities list renders real index rows, each with a View Activity action to the detail route | ✓ VERIFIED | `list.ts:100` builds the CTA against `ROUTES.DETAIL` |
-| 31 | P07 | Opening an activity lazy-fetches its detail and stream files and renders its stats header | ✗ FAILED | Never reached for `i`-prefixed ids; error state renders instead. Probe proves the files serve 200. |
-| 32 | P07 | Failed detail load shows the exact error copy with a Retry that issues a real new request | ✓ VERIFIED | `detail.ts:64-76` copy; `detail-client.ts:96-101` evicts `inFlight` on rejection so Retry re-requests; human confirmed step 3 |
-| 33 | P07 | Registry exposes exactly the six declared routes, detail absent from nav | ✓ VERIFIED | `VIEWS` has 6 entries matching `ALL_ROUTES`; detail excluded from `NAV_ORDER` |
-| 34 | P08 | The dashboard SPA is the generated index.html of the published site; showcase at its own URL | ✗ FAILED | True locally (`dist/widgets/index.html` + `widgets.html`), false on `origin/gh-pages` |
-| 35 | P08 | Local build produces `dist/widgets/index.html` without wiping widget bundles or standalone pages | ✓ VERIFIED | `dist/widgets/` holds the SPA plus all 11 widget bundles and 4 standalone pages. See WR-05 — the guard protecting this is a misspelled no-op that survives on a Vite default. |
-| 36 | P08 | Published directory contains the index manifest and every detail/stream file the SPA can request | ✓ VERIFIED (local publish dir) | `verify-dashboard` 15/15 against `dist/widgets`. **Not** true of the deployed site — folded into gap SC1. |
-| 37 | P08 | Nightly workflow regenerates the dashboard index before building, isolating its failure | ✓ VERIFIED | `daily-refresh.yml:86-93` — dedicated step, `continue-on-error: true`, `::warning::` follow-up |
-| 38 | P09 | Every URL the dashboard can request resolves over HTTP from the publish directory, no 404s | ✓ VERIFIED | Probe executed by this verifier: 15 checks passed, 0 failures |
+| 39 | 16-13 | Every Vite build spells `emptyOutDir` correctly (not `emptyDir`) | ✓ VERIFIED | `grep -n "emptyOutDir" scripts/build-widgets.mjs vite.config.pages.ts vite.config.ts` — all three files use the real option name |
+| 40 | 16-13 | `npm test` and `npm run verify-dashboard` are blocking pre-deploy CI gates | ✓ VERIFIED | `.github/workflows/daily-refresh.yml:96-124` — both steps present between `Build widgets` and `Commit updated data and stats`, no `continue-on-error`. `gh run view 31488806924` shows both ran and succeeded on the real runner. |
+| 41 | 16-14 | `origin/master` contains `src/dashboard/`; nothing phase-relevant is unpushed | ✓ VERIFIED | `git ls-tree origin/master src/dashboard --name-only` → non-empty; `git log origin/master..master --oneline` → 2 docs-only commits |
+| 42 | 16-15 | Live-origin hash navigation and theme-toggle contrast, human-confirmed in a real browser | ✓ VERIFIED (with caveats — see Human Verification) | 16-15-SUMMARY.md's own "Limitations" section is the source of the residual human-verification items in this report's frontmatter; not silently upgraded to fully verified |
+| 43 | 16-16 | Live-origin lazy-detail request-count proof and bulk date-correctness check | ✓ VERIFIED (with one edge case unfalsifiable against real data) | 16-16-SUMMARY.md's own "Limitations" section (no late-evening intervals.icu activity exists) is carried into this report's Human Verification section rather than being silently treated as fully closed |
 
 ### Required Artifacts
 
 | Artifact | Expected | Status | Details |
 |----------|----------|--------|---------|
-| `data/best-effort-exclusions.json` | Committed exclusion list containing 3475726256 | ✓ VERIFIED | schemaVersion 1, contains `"activityId": "3475726256"` with reason |
-| `src/analytics/best-effort-exclusions.ts` | loadExclusions / buildExclusionIndex / isExcluded | ✓ VERIFIED | All exports present and imported by `compute-best-efforts.ts:31` |
-| `src/dashboard/theme.ts` | 7 declared exports | ✓ VERIFIED | All 7 present (`THEME_STORAGE_KEY`, `parseThemeMode`, `resolveEffectiveTheme`, `cycleThemeMode`, `readStoredMode`, `applyThemeMode`, `watchSystemTheme`) |
-| `src/dashboard/styles.css` | Global tokens matching widget theming | ⚠️ ORPHANED RULE | Tokens verified; `.theme-toggle__icon--active { fill: var(--accent) }` at :153-155 is dead code (WR-04) |
-| `src/dashboard/router.ts` | parseHash / matchRoute / resolveHash / isValidActivityId / createRouter / navigateTo | ⚠️ WIRED BUT DEFECTIVE | All exports present and used; `isValidActivityId` rejects 55 real archive ids |
-| `src/analytics/compute-dashboard-index.ts` | Index generator | ✓ VERIFIED | Produced a 1,221,747-byte, 1,867-row index |
-| `src/dashboard/data/index-client.ts` | Fetch-once memoized index access | ✓ VERIFIED | Single `inFlight`; schema-version mismatch warns |
-| `src/dashboard/data/detail-client.ts` | Lazy detail + stream fetching | ⚠️ WIRED BUT DEFECTIVE | Correct except it inherits the broken id gate |
-| `src/dashboard/index.html` | SPA entry with pre-paint bootstrap | ✓ VERIFIED | Bootstrap before stylesheet; `#app-nav-root` + `#app` containers; noscript fallback |
-| `src/dashboard/nav.ts` | Nav, active marking, hamburger, theme toggle | ⚠️ PARTIAL | Structure correct; toggle appends both icons unconditionally with per-child `currentColor` attributes (WR-04) |
-| `src/dashboard/view-registry.ts` | VIEWS / getView / clients | ✓ VERIFIED | 6 views, `Map`-backed O(1) lookup, single shared client pair |
-| `src/dashboard/main.ts` | Theme → nav → router → prefetch bootstrap | ✓ VERIFIED | Ordering matches `widget-base.ts` `connectedCallback`; non-awaited index prefetch |
-| `src/dashboard/views/detail.ts` | The D-07 proving slice | ✗ NON-FUNCTIONAL for 55 newest activities | Guard at :219-225 short-circuits every `i`-prefixed id |
-| `src/pages/widgets.html` | Relocated showcase containing `iife.js` | ✓ VERIFIED | Built and served 200 by the probe |
-| `scripts/build-widgets.mjs` | Dashboard entry + extended data copy | ⚠️ VERIFIED WITH DEFECT | `buildDashboard()` at :202-216 works; `emptyDir` at :98/:185/:211 is not a Vite option (WR-05) |
-| `.github/workflows/daily-refresh.yml` | compute-dashboard-index CI stage | ⚠️ PARTIAL | Index step present; `verify-dashboard` and `npm test` are never run before deploy (WR-06) |
-| `scripts/verify-dashboard-publish.mjs` | HTTP smoke check | ✓ VERIFIED | Executed by this verifier — 15/15 |
-| `data/dashboard/index.json` | Generated, gitignored manifest | ✓ VERIFIED | Present, gitignored, schemaVersion 1, 1,867 rows |
+| `src/dashboard/router.ts` | `isValidActivityId` accepts both Strava and intervals.icu id shapes | ✓ VERIFIED | `/^i?\d{1,20}$/` at line 104, confirmed by direct read |
+| `src/dashboard/styles.css` | Theme-toggle visible/legible, `color-scheme` synced to `data-theme` | ✓ VERIFIED | All WR-04 rules present, confirmed by direct read; no `prefers-color-scheme` reintroduced |
+| `src/dashboard/nav.ts` | Icon-swap wired to the CSS `--active` class | ✓ VERIFIED | `classList.toggle('theme-toggle__icon--active', ...)` at lines 182-183 |
+| `src/dashboard/views/list.ts` | `formatActivityDate` timezone-normalizes no-Z timestamps | ✓ VERIFIED | `isoLocal.endsWith('Z') ? isoLocal : ${isoLocal}Z` then `getUTC*` reads, at lines 37-41 |
+| `scripts/build-widgets.mjs` | Dashboard build uses relative `base: './'`; `emptyOutDir` spelled correctly | ✓ VERIFIED | Line 217 `base: './'`; 3 occurrences of `emptyOutDir` |
+| `scripts/verify-dashboard-publish.mjs` | Mounts at `/strava-widgets`, fails hard on absolute asset URLs | ✓ VERIFIED | `MOUNT_PREFIX = '/strava-widgets'` at line 62; re-run locally, 16/16 pass |
+| `.github/workflows/daily-refresh.yml` | `npm test` and `npm run verify-dashboard` are blocking, ordered after `Build widgets`, before deploy | ✓ VERIFIED | Confirmed by direct read and by the actual `gh run view` step list |
+| `origin/gh-pages:index.html` | The dashboard SPA, relative asset URLs, project-path-safe | ✓ VERIFIED | Fetched live; `id="app-nav-root"` present, assets under `./assets/...` |
+| `origin/gh-pages:data/` | Contains `dashboard/`, `activities/`, `streams/` alongside the pre-existing `geo/heatmap/routes/stats` | ✓ VERIFIED | `git ls-tree origin/gh-pages:data` — all 7 present |
+| `.planning/REQUIREMENTS.md` | DASH-01/02/03 marked Complete, and substantively earned | ✓ VERIFIED | Marked `[x]` and "Complete" in the status table; independently re-derived the same conclusion from live evidence rather than trusting the checkbox |
 
 ### Key Link Verification
 
 | From | To | Via | Status | Details |
 |------|----|----|--------|---------|
-| `compute-best-efforts.ts` | `best-effort-exclusions.ts` | `isExcluded(...)` before the accumulator push | ✓ WIRED | Import at :31, gate at :215 |
-| `theme.ts` | `document.documentElement` | `data-theme` attribute (effective, never 'auto') | ✓ WIRED | Matches `:root[data-theme=...]` selectors in styles.css |
-| `router.ts` | `window` | Registers **both** `hashchange` and `DOMContentLoaded` | ✓ WIRED | Dual trigger present — initial URL is handled |
-| `index.ts` | `compute-dashboard-index.ts` | CLI subcommand, dynamic import | ✓ WIRED | `npm run compute-dashboard-index` produced the live index |
-| `detail-client.ts` | `router.ts` | `isValidActivityId` before URL construction | ⚠️ WIRED, WRONG PREDICATE | The link exists exactly as planned; the predicate itself is the blocker |
-| `index-client.ts` | `data/dashboard/index.json` | Single memoized fetch | ✓ WIRED | URL built from `baseUrl` default `data/` |
-| `index.html` | `styles.css` | Stylesheet link after the bootstrap | ✓ WIRED | Order correct — no flash |
-| `nav.ts` | `view.types.ts` | `NAV_ORDER` drives links | ✓ WIRED | Detail route correctly absent |
-| `*.stub.ts` | `view.types.ts` | `STUB_PHASE` supplies the phase number | ✓ WIRED | 17/18/18 |
-| `list.ts` | `index-client.ts` | Reads in-memory rows, never re-fetches | ✓ WIRED | Shared client from `view-registry.clients` |
-| `detail.ts` | `detail-client.ts` | `loadDetail` from mount, after id validation | ✗ NEVER REACHED for `i`-ids | Validation short-circuits |
-| `main.ts` | `router.ts` | `createRouter(...).start()` into the registry | ✓ WIRED | With `onNoMatch` → overview fallback |
-| `build-widgets.mjs` | `src/dashboard/index.html` | Vite entry writing `dist/widgets/index.html` | ✓ WIRED | Emits the SPA; see WR-05 on the outDir guard |
-| `build-widgets.mjs copyDataFiles` | `dist/widgets/data/{dashboard,activities,streams}` | Extended dataDirs list | ✓ WIRED | Probe fetched `/data/activities/i174284902.json` → 200 |
-| `daily-refresh.yml` | `node dist/index.js compute-dashboard-index` | Dedicated step, continue-on-error + warning | ✓ WIRED | Lines 86-93 |
-| `verify-dashboard-publish.mjs` | `dist/widgets/` | Static server over the exact SPA URLs | ✓ WIRED | Never invoked by CI (WR-06) |
-| **`master` (local)** | **`origin/master` → Pages deploy** | **git push** | **✗ NOT WIRED** | **148 commits unpushed; the deploying workflow has never seen `src/dashboard/`** |
+| `detail-client.ts` / `detail.ts` | `router.ts` | `isValidActivityId` before URL construction | ✓ WIRED, CORRECT PREDICATE | Widened regex propagates automatically through the single chokepoint import; `detail-client.test.ts` proves an i-prefixed id reaches URL construction |
+| `master` (local) | `origin/master` → Pages deploy | `git push` | ✓ WIRED | `git rev-list --count origin/master..master` = 2, both docs-only, zero code unpushed |
+| `daily-refresh.yml` | `scripts/verify-dashboard-publish.mjs` | Blocking step after `Build widgets` | ✓ WIRED | Confirmed present in the workflow file and confirmed executed+green in run `31488806924` via `gh run view` |
+| `build-widgets.mjs buildDashboard()` | `dist/widgets/index.html` asset URLs | `base: './'` | ✓ WIRED | Live-origin asset URLs are relative (`./assets/...`), confirmed by curling the deployed `index.html` |
+| `nav.ts` theme toggle | `styles.css` `--active` rule | `classList.toggle` | ✓ WIRED | Confirmed by direct read of both files; human-observed on live origin (16-15) — exactly one icon renders, correct accent color |
+| `pages-build-deployment` (GH Pages) | `origin/gh-pages` | Post-push, automatic | ✓ WIRED | `gh run list` shows a successful `pages build and deployment` run immediately following each `Daily Widget Refresh` run |
 
 ### Data-Flow Trace (Level 4)
 
 | Artifact | Data Variable | Source | Produces Real Data | Status |
 |----------|---------------|--------|--------------------|--------|
-| `views/overview.ts` | index rows + stats totals | `indexClient.loadIndex()` + `data/stats/*.json` | Yes — 1,867 real rows; stats files serve 200 | ✓ FLOWING |
-| `views/list.ts` | `rows` from the index client | Shared memoized `indexClient` | Yes — real rows, real ids, real dates | ⚠️ FLOWING WITH CORRUPTION — dates misparsed for all 55 intervals rows (WR-02, reproduced below) |
-| `views/detail.ts` | `detail: ActivityDetail` | `detailClient.loadDetail(id)` | **No** — the call is never made for `i`-prefixed ids | ✗ DISCONNECTED |
-| `nav.ts` theme toggle | `mode` / effective theme | `theme.ts` + matchMedia | Yes — state is correct; only the visual is broken | ⚠️ HOLLOW RENDER |
-| `dist/widgets/data/**` | published JSON tree | `copyDataFiles` | Yes locally | ✓ FLOWING (local) / ✗ ABSENT on `origin/gh-pages` |
+| `views/detail.ts` (live origin) | `detail: ActivityDetail` | `detailClient.loadDetail('i174601247')` | Yes — live network panel showed exactly 2 requests, both 200, rendering a populated stats header (16-16 human UAT) | ✓ FLOWING |
+| `views/list.ts` (live origin) | `rows` from index client, dates via `formatActivityDate` | Live `data/dashboard/index.json` (1868 rows) | Yes — 100/100 rendered rows matched their raw `startDateLocal` date, including all 56 no-Z intervals.icu rows (16-16 human UAT) | ✓ FLOWING, NO CORRUPTION (previously ⚠️ CORRUPTED, now closed) |
+| `nav.ts` theme toggle (live origin) | `mode` / effective theme | `theme.ts` + `matchMedia`, `color-scheme` synced to `data-theme` | Yes — measured contrast and single-icon rendering confirmed live (16-15) | ✓ FLOWING, RENDER CORRECT (previously ⚠️ HOLLOW RENDER, now closed) |
+| `origin/gh-pages/data/**` | published JSON tree | Nightly CI `Commit updated data and stats` + deploy | Yes — curled live, 200s with real content | ✓ FLOWING (previously ✗ ABSENT, now closed) |
 
 ### Behavioral Spot-Checks
 
 | Behavior | Command | Result | Status |
 |----------|---------|--------|--------|
 | Typecheck clean | `npx tsc --noEmit` | exit 0, no output | ✓ PASS |
-| Test suite green | `npm test` | 18 files, **334/334 passing** | ✓ PASS |
-| Index generated with real rows | `node -e` over `data/dashboard/index.json` | schemaVersion 1, 1,867 rows, 17 keys | ✓ PASS |
-| Top-of-list ids are intervals ids | same | first 5 ids all `i`-prefixed; 55 total | ✓ PASS (confirms blast radius) |
-| **Id gate accepts a real archive id** | `/^\d{1,20}$/.test('i174284902')` | **`false`** | **✗ FAIL** |
-| Detail JSON serves over HTTP | probe `GET /data/activities/i174284902.json` | 200 | ✓ PASS (isolates the bug to the client) |
-| Widget/dashboard token parity | diff `styles.css` vs `theme-manager.ts` | identical hexes both modes | ✓ PASS |
-| Manifest is gitignored | `git check-ignore -v data/dashboard/index.json` | `.gitignore:14` | ✓ PASS |
-| **Date rendering, US viewer** | `TZ=America/New_York` on `2026-08-06T22:30:00` | **`Aug 7, 2026`** (expected Aug 6) | **✗ FAIL** |
-| **Date rendering, EU viewer** | `TZ=Europe/Copenhagen` on `2026-08-06T01:30:00` | **`Aug 5, 2026`** (expected Aug 6) | **✗ FAIL** |
-| **Dashboard reachable on Pages** | `git ls-tree origin/gh-pages` | no `assets/`, no `widgets.html`, root `index.html` is the old showcase | **✗ FAIL** |
-| **Phase code reached the deploy branch** | `git ls-tree origin/master src/` | **no `src/dashboard`**; 148 commits unpushed | **✗ FAIL** |
+| Test suite green | `npm test` | 20 files, 368/368 passing | ✓ PASS |
+| Id gate accepts a real archive id | direct read of `router.ts:104` + `router.test.ts` assertions | `/^i?\d{1,20}$/`, `isValidActivityId('i174109928') === true` | ✓ PASS |
+| Live root serves the SPA | `curl -sS https://bacilo.github.io/strava-widgets/` | 200, `id="app-nav-root"` present | ✓ PASS |
+| Live asset URLs are relative and parse as JS | `curl` root doc + asset URL | `./assets/index-DJmOzHMs.js`, first bytes are minified JS (`var e=Object.defineProperty...`), not HTML | ✓ PASS |
+| Live index manifest is real | `curl` `/data/dashboard/index.json` | schemaVersion 1, 1868 rows, first row `i174601247` | ✓ PASS |
+| Live detail/stream files for the first i-prefixed row | `curl` both URLs | Both 200 | ✓ PASS |
+| Live standalone pages intact | `curl` `/widgets.html`, `/heatmap.html`, `/pinmap.html`, `/routes.html` | All 200 | ✓ PASS |
+| `origin/master` carries `src/dashboard/` | `git ls-tree origin/master src/dashboard` | Non-empty | ✓ PASS |
+| No debt markers in any file this phase's gap-closure plans touched | `grep -n -E "TBD\|FIXME\|XXX\|TODO\|HACK\|PLACEHOLDER"` across 11 modified files | No matches | ✓ PASS |
 
 ### Probe Execution
 
+No `scripts/*/tests/probe-*.sh` convention exists in this repo. The phase's own declared exit gate is `scripts/verify-dashboard-publish.mjs`, run both by CI (confirmed via `gh run view 31488806924`) and independently by this verifier locally.
+
 | Probe | Command | Result | Status |
 |-------|---------|--------|--------|
-| `scripts/verify-dashboard-publish.mjs` | `npm run verify-dashboard` | 15 checks passed, 0 failures | ✓ PASS |
-
-The probe was executed by this verifier, not taken from SUMMARY claims. Its most useful output is diagnostic rather than confirmatory: it fetched `/data/activities/i174284902.json` and `/data/streams/i174284902.json` and got 200s with parseable JSON, which **eliminates** the SUMMARY's stated hypothesis ("fetch URL construction resolving against the wrong base") and localises the defect to `isValidActivityId`.
+| `scripts/verify-dashboard-publish.mjs` (local, post-`build-widgets`) | `npm run verify-dashboard` | 16 checks passed, 0 failures (up from 15 — the black-page fix added 2 new asset-URL checks and mounts under `/strava-widgets` now instead of the server root) | ✓ PASS |
+| CI's own run of the same probe, on the real GitHub Actions runner, against the deployed artifact | `gh run view 31488806924` → step `Verify dashboard publish contract` | `success` | ✓ PASS |
 
 ### Requirements Coverage
 
 | Requirement | Source Plans | Description | Status | Evidence |
 |-------------|-------------|-------------|--------|----------|
-| DASH-01 | 03, 06, 08, 09 | Dashboard SPA on GitHub Pages with hash-based routing between views | ✗ BLOCKED | Routing implementation VERIFIED and human-confirmed locally, but "on GitHub Pages" is unmet — nothing is deployed. REQUIREMENTS.md:97 currently marks this **Complete**; that status is not supported. |
-| DASH-02 | 01, 03, 04, 05, 07, 08, 09 | Compact index up front, per-activity detail lazily on demand | ✗ BLOCKED | Index half VERIFIED; lazy-detail half fails for the 55 newest activities. REQUIREMENTS.md:98 correctly marks **Pending**. |
-| DASH-03 | 02, 06, 07, 09 | Dark/light theming consistent with the widget system | ✗ BLOCKED | Token parity exact and no-flash confirmed, but the toggle is invisible in light mode. REQUIREMENTS.md:99 correctly marks **Pending**. |
+| DASH-01 | 03, 06, 08, 09, 10, 13, 14, 15 | Dashboard SPA on GitHub Pages with hash-based routing between views | ✓ SATISFIED | Routing logic verified; deployment independently confirmed live (curl, `git ls-tree origin/gh-pages`, `gh run view`); human UAT confirmed cold-load-per-hash on the real origin. REQUIREMENTS.md:97 marks Complete — independently corroborated, not merely trusted. |
+| DASH-02 | 01, 03, 04, 05, 07, 08, 09, 10, 12, 16 | Compact index up front, per-activity detail lazily on demand | ✓ SATISFIED | Index-fetch-once and lazy-detail-fetch both verified live with request-count-level proof (16-16); the `i`-prefixed id defect that blocked the newest 55 activities is closed and regression-tested. REQUIREMENTS.md:98 marks Complete — independently corroborated. |
+| DASH-03 | 02, 06, 07, 09, 11, 15 | Dark/light theming consistent with the widget system | ✓ SATISFIED | Token parity exact (unchanged from the prior pass); toggle visibility/legibility fixed and measured live (3.12:1 / 11.60:1 contrast). REQUIREMENTS.md:99 marks Complete — independently corroborated, with residual light-OS-hardware and live-OS-change caveats routed to Human Verification rather than silently absorbed. |
 
-**Orphaned requirements:** none. `grep "Phase 16" .planning/REQUIREMENTS.md` maps exactly DASH-01/02/03, and all three appear across the plan frontmatter.
+**Orphaned requirements:** none. `grep "Phase 16" .planning/REQUIREMENTS.md` maps exactly DASH-01/02/03, and all three appear across the plan frontmatter of all 16 plans (9 original + 7 gap-closure).
 
-**Traceability discrepancy:** REQUIREMENTS.md:97 marks DASH-01 Complete on the strength of a locally-served UAT, and ROADMAP.md:54 marks Phase 16 `[x] ... (completed 2026-08-11)`. Both are premature — the 16-09 SUMMARY itself states "Phase 16 is **not** clear to close."
+**Traceability note:** REQUIREMENTS.md's Complete markers for all three DASH requirements are now substantively earned by live-origin evidence gathered independently by this verifier — not solely by trusting the checkbox, per the explicit instruction in the verification prompt. `git diff` shows no undeclared edits to REQUIREMENTS.md beyond what 16-10's SUMMARY documents (the DASH-01 checklist correction and the wording fix), and 16-12's undeclared premature DASH-02 mark was reverted during merge per the prompt's note — confirmed no trace of that premature mark remains (`DASH-02` row reads Complete only in the final, gap-closure-justified state, not a stale earlier one).
 
 ### Anti-Patterns Found
 
 | File | Line | Pattern | Severity | Impact |
 |------|------|---------|----------|--------|
-| `src/dashboard/router.ts` | 101-103 | Over-narrow validation regex (CR-01) | 🛑 BLOCKER | Rejects all 55 intervals.icu ids — the newest, most-clicked rows. Root cause of DASH-02. |
-| *(repo state)* | — | 148 unpushed commits; `origin/master` lacks `src/dashboard/` | 🛑 BLOCKER | The phase goal's "deployed to GitHub Pages" clause cannot be true. Not mentioned in any SUMMARY. |
-| `src/dashboard/styles.css` | 141-155 | No `color`; dead `--active` fill rule; no inactive-icon hide (WR-04) | 🛑 BLOCKER (for SC3) | Invisible toggle in light mode; both icons render at once. |
-| `src/dashboard/views/list.ts` | 31-34 | `new Date(isoLocal)` on no-`Z` strings then `getUTC*` (WR-02) | ⚠️ WARNING | **Reproduced:** `Aug 6 22:30` → "Aug 7" in `America/New_York`; `Aug 6 01:30` → "Aug 5" in `Europe/Copenhagen`. Wrong dates for all 55 intervals activities in list, overview and detail. Will corrupt Phase 17's calendar bucketing. |
-| `src/dashboard/views/list.ts`, `views/overview.ts` | 129-146 / 205-220 | Catch path paints into a container it no longer owns (WR-01) | ⚠️ WARNING | Stale rejection wipes the newly-mounted view. `detail.ts:242-244` does this correctly; the other two do not. |
-| `src/analytics/compute-dashboard-index.ts` | 190 | Sort key mixes UTC and machine-local parses, NaN-unsafe (WR-03) | ⚠️ WARNING | Locally-generated index can order same-day boundary activities differently than CI. |
-| `scripts/build-widgets.mjs` | 98, 185, 211 | `emptyDir` is not a Vite option — the "CRITICAL" guard is a no-op (WR-05) | ⚠️ WARNING | Build survives only on a Vite default. Any root/outDir change silently wipes 11 widget bundles + the data tree, and the deploy step publishes the gutted directory. |
-| `.github/workflows/daily-refresh.yml` | 96-124 | Neither `npm run verify-dashboard` nor `npm test` runs before the Pages deploy (WR-06) | ⚠️ WARNING | The phase's own stated exit gate never executes in the pipeline that publishes. |
-| `src/analytics/compute-dashboard-index.ts` | 129-142 | `bestEfforts?.activities[id]` throws per-activity if `activities` is absent (WR-07) | ⚠️ WARNING | A parseable-but-malformed best-efforts file yields a zero-row index that deploys as the live manifest, and pre-push counters break the reconciliation invariant. |
-| `src/dashboard/router.test.ts`, `data/detail-client.test.ts` | 86-108 / 39-121 | No `i`-prefixed id case in either suite (IN-07) | ⚠️ WARNING | The test gap that let CR-01 ship at 334/334 green. Any fix must land with these cases or the defect can silently return. |
-| `src/dashboard/views/overview.ts` | 112-119, 235 | Malformed stats JSON escalates to a full-page error (IN-10) | ℹ️ INFO | Contradicts `fetchStatsJson`'s documented em-dash degrade contract. |
-| `scripts/verify-dashboard-publish.mjs` | 56-65 | `decodeURIComponent` can throw `URIError` and kill the server (IN-01) | ℹ️ INFO | Robustness gap in a function written as a traversal guard. |
-| `src/dashboard/index.html` | 8 | CSP `script-src 'self' 'unsafe-inline'` (IN-11) | ℹ️ INFO | Whitelists every inline script for the sake of one bootstrap; a hash would be tighter. |
+| `src/analytics/compute-dashboard-index.ts` | 159 | `bestEfforts?.activities[id]` still throws per-activity if `activities` is absent on an otherwise-parseable best-efforts file (WR-07) | ⚠️ WARNING (non-blocking, deliberately deferred) | Unchanged from the prior pass; 16-12's SUMMARY explicitly scoped this out ("deliberately left out of scope... flagged for a future gap-closure or Phase 17/18 pass"). Does not affect any of the three phase-goal success criteria. |
+| `scripts/build-widgets.ts` | — | Stale dead-code sibling of `build-widgets.mjs`, unreachable from `package.json`/CI/`tsconfig` | ℹ️ INFO (non-blocking, documented) | 16-13's SUMMARY flags this explicitly as a known cleanup candidate, not touched by design. |
 
-**Debt-marker gate: PASS.** No `TBD`, `FIXME`, or `XXX` markers in any file this phase touched. The single "coming soon" string is the intentional, spec'd stub copy.
+**Debt-marker gate: PASS.** No `TBD`, `FIXME`, `XXX`, `TODO`, `HACK`, or `PLACEHOLDER` markers found in any of the 11 files modified by the gap-closure plans (16-10 through 16-16), confirmed by direct grep against each file, not by trusting the SUMMARYs' own debt-marker claims.
 
 ### Human Verification Required
 
-Listed for the post-gap-closure pass. Status remains `gaps_found` (code-observable failures take precedence), but these four cannot be discharged by grep or by any tooling in this repo:
+Four items carried forward honestly from the 16-15/16-16 SUMMARYs' own "Limitations" sections — none of them are truth failures, all are inherent limits of the testing environment used during gap closure (single dark-OS machine, no scriptable OS-appearance change, no late-evening activity in the real archive). Escalating per the framework's Step 9 rule that any non-empty human-verification list routes status to `human_needed` even when every truth is otherwise VERIFIED.
 
-#### 1. Live GitHub Pages navigation
+#### 1. Light-mode toggle legibility on an actual light-OS machine
 
-**Test:** Open the live GitHub Pages URL — not a local server — and navigate Overview → Activities → Calendar → Records → Trends and back; hard-refresh on each hash.
-**Expected:** All five views render via hash routes, no full page reload, no 404.
-**Why human:** Requires the site to actually be deployed and a real browser; nothing in this repo can reach the live Pages origin. The prior UAT was performed against a local server and cannot substitute.
+**Test:** Load the live origin on a machine whose OS appearance is set to light (not a dark-OS machine with the in-app theme switched to light), and inspect the toggle/hamburger contrast.
+**Expected:** Same result as the dark-OS observation — exactly one icon, ~3.12:1/~11.60:1 contrast, legible.
+**Why human:** 16-11's fix (`color-scheme` pinned to `data-theme`, not the OS) structurally removes the OS-dependence that caused the original defect, so this should be identical by construction — but that is inference, not a second observation, and no light-OS machine was available during gap closure.
 
-#### 2. Deep link to an intervals.icu activity
+#### 2. No-white-flash on the actual first rendered frame in dark mode
 
-**Test:** After the `isValidActivityId` fix, click "View Activity" on the **first** row of the Activities list (an `i`-prefixed id), then cold-load that `#/activity/i...` URL directly.
-**Expected:** Stats header, distance/time/pace/elevation/HR/cadence, and stream summary render — not "Couldn't load this activity".
-**Why human:** Browser-runtime fetch and render behavior; the HTTP probe cannot exercise the client-side id gate.
+**Test:** Cold-load the live origin with the OS/browser in dark mode and watch the very first frame.
+**Expected:** No light/white flash before the dark theme paints.
+**Why human:** The synchronous inline bootstrap running before the stylesheet `<link>` is confirmed in the deployed HTML (inspected directly by this verifier), which is a strong structural guarantee — but the actual first frame is a timing property that needs a human eye, not static inspection.
 
-#### 3. Theme toggle visibility
+#### 3. `auto` theme mode tracks a live OS appearance change
 
-**Test:** After the styling fix, view the nav in light mode on both a light-OS and a dark-OS machine.
-**Expected:** Exactly one icon visible, legible against the `#f5f5f7` nav surface, active state in the accent color.
-**Why human:** Visual contrast against a UA-derived `ButtonText` fallback.
+**Test:** With theme mode set to `auto`, change the OS-level light/dark appearance while the dashboard tab stays open, with no reload.
+**Expected:** The page's effective theme updates live via `watchSystemTheme`'s `matchMedia` listener.
+**Why human:** Not reachable from page script, curl, or any tooling in this repo — requires a human to physically toggle OS appearance and observe the open tab.
 
-#### 4. Timezone-correct dates
+#### 4. Late-evening intervals.icu activity date correctness
 
-**Test:** With `TZ` set to a non-UTC zone, check the displayed date of a late-evening and an early-morning intervals.icu activity across list, overview and detail.
-**Expected:** Displayed date matches the activity's local wall-clock date in every timezone.
-**Why human:** The reproduction is scripted above, but confirming the fix across all three rendering sites needs eyes.
+**Test:** Find or wait for a late-evening (roughly 21:00–23:59 local) intervals.icu-sourced activity and confirm its displayed date matches its local wall-clock date across list, overview and detail.
+**Expected:** Displayed date equals the local calendar date, not shifted by a day.
+**Why human:** No such activity currently exists in the archive (all 56 intervals.icu rows are morning runs, latest start 07:19), so the live 0/100-mismatch check performed in 16-16 could not exercise this specific edge. The guarantee currently rests on 16-12's unit tests (`list.test.ts`, mutation-checked: reverting the normalization reproduces exactly the failure this case would expose), which is real, load-bearing coverage — but it is not a live observation of a real record, and one will only become available once the athlete logs a late-evening run via intervals.icu.
 
 ### Gaps Summary
 
-Phase 16 built a competent dashboard shell and then failed to land it. Five must-haves fail, and they cluster into three concerns:
+No blocking gaps remain. All three ROADMAP success criteria and all five previously-failed must-haves are now VERIFIED against the live origin, independently checked by this verifier (not inferred from SUMMARY prose): the site is deployed and reachable at `https://bacilo.github.io/strava-widgets/`, hash routing works with no reloads or 404s, the compact index loads immediately while per-activity detail (including for `i`-prefixed intervals.icu ids) loads lazily on demand, and the theme system is token-consistent with the widget system with a now-legible, single-icon toggle. A sixth defect not present in the prior verification pass — root-absolute asset URLs producing a black page on the real project path — was found and fixed between passes and is independently confirmed closed (relative `base: './'`, hardened probe, 16/16 local, `success` on the real CI runner).
 
-**Concern A — the phase's headline clause was never attempted.** The goal says "deployed to GitHub Pages." It is not. `origin/master` does not contain `src/dashboard/` at all; 148 commits sit unpushed on the local branch. Every nightly `daily-refresh` run — including the successful one at 2026-08-11T05:43:50Z, after all phase work was committed locally — built the pre-Phase-16 tree. The live `gh-pages` branch has no `assets/` bundle, no `widgets.html`, and a root `index.html` that is still the old static widget showcase; its `data/` tree contains only `geo, heatmap, routes, stats` — no `dashboard/`, `activities/`, or `streams/`. **No SUMMARY mentions this.** The 16-09 plan quietly narrowed its deployment truth to "resolves over HTTP from the publish directory," and the human UAT was conducted against a local server, so the gap between "the build works" and "the site is live" was never tested by anything. This is the single largest divergence between the phase narrative and the codebase.
-
-**Concern B — the proving slice is broken by a one-character regex, and the test suite was shaped to agree with it.** `isValidActivityId` is `/^\d{1,20}$/`. Fifty-five archived activities carry `i`-prefixed intervals.icu ids, and they are rows 1 through 55 of the generated index — the first thing a user sees and clicks. `detail.ts` paints "Couldn't load this activity" before issuing any request. This verifier's probe run proves the files themselves serve 200 with parseable JSON, which eliminates the SUMMARY's stated hypothesis (a base-URL construction problem) and pins the defect to the id gate. Two things make this more than an ordinary bug: the function's own doc comment says "a real Strava/intervals id is well under it" while the pattern excludes every intervals id, and **plan 03's must-have literally specifies the defect** — "An activity id that is not all digits is rejected." Both test suites were written to that mis-specified must-have, so 334/334 passed on a broken feature. The fix must widen the regex to `/^i?\d{1,20}$/`, correct the must-have wording, and add `i`-prefixed cases to both suites — otherwise the same defect can return green.
-
-**Concern C — the theme is right and the control for it is invisible.** Token parity with `theme-manager.ts` is exact in both modes, and no-flash first paint works. But `.theme-toggle` never sets `color`, so `currentColor` falls back to the UA's `ButtonText`; with `<meta name="color-scheme" content="light dark">` and no CSS syncing the used scheme to `data-theme`, a dark-OS browser paints a near-white icon on the forced-light `#f5f5f7` nav. Compounding it, the `--active` highlight rule targets the `<svg>` root and is always beaten by the children's own `fill="currentColor"` presentation attributes (dead code), and no rule hides the inactive icon, so both sun and moon render simultaneously.
-
-**Beyond the five failures, one warning deserves gap-closure attention on its own merits:** `formatActivityDate` misparses the no-`Z` `start_date_local` that every intervals.icu record carries. This verifier reproduced wrong dates in two real timezones — an evening run shows as the next day for US viewers, an early-morning run as the previous day for European viewers. It affects all 55 migrated activities across list, overview and detail, and Phase 17's calendar view will inherit it as date-bucketing corruption. The same root assumption also skews the index sort key (WR-03).
-
-**Recommended sequencing for gap closure:** (1) widen `isValidActivityId` and add the missing test cases — one-line fix, unblocks DASH-02; (2) fix the theme-toggle CSS — unblocks DASH-03; (3) normalize the no-`Z` date parsing in `list.ts` and `compute-dashboard-index.ts`; (4) push `master` and confirm a real Pages deploy carries the SPA and the `dashboard/activities/streams` data tree; (5) add `npm test` and `npm run verify-dashboard` to `daily-refresh.yml` before the deploy step so the phase's own exit gate actually runs; (6) re-run the four human checks — the navigation one against the live URL this time. Also correct REQUIREMENTS.md:97 (DASH-01 is not Complete) and ROADMAP.md:54 (Phase 16 is not complete).
+The remaining four items are genuine environment-limited human-verification gaps, not code defects: they were honestly disclosed in the 16-15/16-16 SUMMARYs rather than silently marked done, and this report neither upgrades them to VERIFIED nor treats them as blocking failures. They should be discharged opportunistically (a light-OS machine, a human watching a cold dark-mode load, a manual OS-appearance toggle test, and — for item 4 — simply waiting for a real late-evening intervals.icu activity to exist) rather than gating the phase close, since none of them contradicts the phase goal's three success criteria as currently, directly observed.
 
 ---
 
-_Verified: 2026-08-11T08:23:19Z_
+_Verified: 2026-08-11T12:27:50Z_
 _Verifier: Claude (gsd-verifier)_
