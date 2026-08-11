@@ -132,3 +132,15 @@ Both tasks show the required RED → GREEN commit sequence:
 - Task 2: `819c0c6` (test, RED) → `14f639f` (feat, GREEN)
 
 No REFACTOR commits were needed for either task.
+
+## Self-Check: PASSED
+
+- FOUND: src/dashboard/data/gear-client.ts
+- FOUND: src/dashboard/data/gear-client.test.ts
+- FOUND: src/dashboard/data/athlete-config-client.ts
+- FOUND: src/dashboard/data/athlete-config-client.test.ts
+- FOUND: .planning/phases/17-activity-browser-detail-views/17-07-SUMMARY.md
+- FOUND: commit 48c4818 (test: gear client RED)
+- FOUND: commit 1fad85e (feat: gear client GREEN)
+- FOUND: commit 819c0c6 (test: athlete config client RED)
+- FOUND: commit 14f639f (feat: athlete config client GREEN)
