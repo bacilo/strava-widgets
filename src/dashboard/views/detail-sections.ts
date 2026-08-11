@@ -15,6 +15,7 @@
  */
 
 import type { Split } from './detail-splits.js';
+import type { PaceBucket, ZoneTime } from './detail-zones.js';
 // formatPace and formatDurationHms are the dashboard's only pace/duration
 // formatters (list.ts) — imported rather than duplicated, matching the
 // precedent detail.ts already set for formatPace.
@@ -184,5 +185,141 @@ export function buildSplitsSection(
 
   scroll.appendChild(table);
   section.appendChild(scroll);
+  return section;
+}
+
+/** Builds one `.distribution__row` shared by both the pace histogram and the HR-zone panel. */
+function buildDistributionRow(
+  label: string,
+  valueText: string,
+  ariaLabel: string,
+  barWidthPercent: number,
+  barModifierClass?: string
+): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'distribution__row';
+  row.setAttribute('aria-label', ariaLabel);
+
+  const labelEl = document.createElement('div');
+  labelEl.className = 'distribution__label';
+  labelEl.textContent = label;
+  row.appendChild(labelEl);
+
+  const bar = document.createElement('div');
+  bar.className = barModifierClass ? `distribution__bar ${barModifierClass}` : 'distribution__bar';
+  bar.style.width = `${barWidthPercent}%`;
+  row.appendChild(bar);
+
+  const valueEl = document.createElement('div');
+  valueEl.className = 'distribution__value';
+  valueEl.textContent = valueText;
+  row.appendChild(valueEl);
+
+  return row;
+}
+
+/**
+ * Builds the always-on pace-distribution histogram (D-29) — one
+ * `.distribution__row` per bucket, in ascending pace order (the order
+ * `computePaceDistribution` already returns them in). Each bar's width is
+ * that bucket's `timeSec` as a percentage of the LARGEST bucket's `timeSec`,
+ * so the longest bar is 100% and the shape stays readable. The bar color
+ * comes from `.distribution__bar`'s base `--chart-pace` rule — never set
+ * inline.
+ */
+function buildPaceDistributionRows(buckets: readonly PaceBucket[]): HTMLElement {
+  const container = document.createElement('div');
+  container.className = 'distribution';
+
+  const maxTimeSec = buckets.reduce((max, bucket) => Math.max(max, bucket.timeSec), 0);
+
+  for (const bucket of buckets) {
+    const minutes = bucket.timeSec / 60;
+    const widthPercent = maxTimeSec > 0 ? (bucket.timeSec / maxTimeSec) * 100 : 0;
+    container.appendChild(
+      buildDistributionRow(
+        bucket.label,
+        `${minutes.toFixed(1)} min`,
+        `${bucket.label}: ${minutes.toFixed(1)} min`,
+        widthPercent
+      )
+    );
+  }
+
+  return container;
+}
+
+/**
+ * Builds the HR-zone breakdown (D-29/D-31) — exactly five `.distribution__row`
+ * entries in ascending zone order, INCLUDING zero-time zones, so the
+ * five-bar shape is always stable. Each bar carries the matching
+ * `.distribution__bar--zone-{n}` modifier and a width equal to the zone's
+ * own `percent` (already computed by `computeHrZoneTimes`). Never
+ * constructs a zone boundary or a max HR here — it renders only what plan
+ * 17-05 computed.
+ */
+function buildHrZoneRows(zoneTimes: readonly ZoneTime[]): HTMLElement {
+  const container = document.createElement('div');
+  container.className = 'distribution';
+
+  for (const zone of zoneTimes) {
+    const minutes = zone.timeSec / 60;
+    const roundedPercent = Math.round(zone.percent);
+    container.appendChild(
+      buildDistributionRow(
+        zone.label,
+        `${minutes.toFixed(1)} min · ${roundedPercent}%`,
+        `${zone.label}: ${minutes.toFixed(1)} min, ${roundedPercent}%`,
+        zone.percent,
+        `distribution__bar--zone-${zone.zone}`
+      )
+    );
+  }
+
+  return container;
+}
+
+/**
+ * Builds the pace-distribution / HR-zone breakdown section.
+ *
+ * Return contract:
+ * - When `buckets` is empty AND `zoneTimes` is `null`, returns `null` — the
+ *   caller appends nothing, so an activity with no stream at all produces no
+ *   breakdown section rather than an empty card.
+ * - Otherwise returns a `<section class="card detail-section">` containing:
+ *   - The pace histogram (D-29, always renders when there are buckets — it
+ *     needs no configuration).
+ *   - The HR-zone panel, ADDITIONALLY and ONLY when `zoneTimes` is
+ *     non-null. When `zoneTimes` is `null`, this half renders NOTHING — no
+ *     heading, no empty box, no placeholder, no explanatory copy. Absence is
+ *     the correct, spec-compliant outcome (D-31): the missing-HR situation
+ *     is already communicated by the omitted HR chart band and the
+ *     em-dashed stats tiles, so no "no HR data" message belongs here.
+ */
+export function buildBreakdownSection(
+  buckets: readonly PaceBucket[],
+  zoneTimes: readonly ZoneTime[] | null
+): HTMLElement | null {
+  if (buckets.length === 0 && zoneTimes === null) return null;
+
+  const section = document.createElement('section');
+  section.className = 'card detail-section';
+
+  if (buckets.length > 0) {
+    const heading = document.createElement('h2');
+    heading.className = 'text-heading';
+    heading.textContent = 'Pace Distribution';
+    section.appendChild(heading);
+    section.appendChild(buildPaceDistributionRows(buckets));
+  }
+
+  if (zoneTimes !== null) {
+    const heading = document.createElement('h2');
+    heading.className = 'text-heading';
+    heading.textContent = 'Heart Rate Zones';
+    section.appendChild(heading);
+    section.appendChild(buildHrZoneRows(zoneTimes));
+  }
+
   return section;
 }
