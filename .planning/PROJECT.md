@@ -144,4 +144,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-10 — Phase 15 (Best-Effort Engine) complete: fastest 400m–marathon efforts computed from all 1,842 committed streams (8,806 efforts, externally validated against Strava/intervals.icu fixtures)*
+*Last updated: 2026-08-11 — Phase 16 (Dashboard Shell & Data Contract) complete: the dashboard SPA is live at https://bacilo.github.io/strava-widgets/ with hash routing over five views, document-level theming, and the lazy data contract (a compact index manifest up front; per-activity detail and stream JSON fetched only on open). The widget showcase moved to /widgets.html. DASH-01/02/03 validated in Phase 16. Took 16 plans — 9 original plus 7 gap-closure, after the first verification pass found the phase had never actually been pushed or deployed.*
