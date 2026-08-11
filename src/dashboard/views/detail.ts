@@ -1,11 +1,9 @@
 /**
- * Activity detail view — the D-07 proving slice. Lazily fetches exactly one
- * activity's two committed files (detail JSON + stream JSON) and renders
- * its stats header, with loading, stale-response guarding, an error state,
- * and a working Retry.
- *
- * Out of scope this phase: charts, route map, splits table, zone breakdown
- * (DETAIL-02..05 are Phase 17). No charting or mapping library import here.
+ * Activity detail view (DETAIL-01, BROWSE-06 chrome) — stats header with
+ * gear resolution, prev/next archive navigation, and the load/error/stale-
+ * guard chrome carried over from the Phase 16 proving slice. The route map,
+ * chart bands, splits table, and pace/zone breakdown are wired in by later
+ * tasks in this same plan (17-14).
  */
 
 import type { DashboardView, ViewMountContext } from '../view.types.js';
@@ -13,18 +11,17 @@ import { ROUTES } from '../view.types.js';
 import { isValidActivityId } from '../router.js';
 import type { DetailClient, ActivityDetail } from '../data/detail-client.js';
 import type { IndexClient } from '../data/index-client.js';
-// formatPace is imported rather than duplicated: this view previously kept its
-// own copy, and both copies carried the same m:ss rounding defect. One formatter.
-import { formatActivityDate, formatPace } from './list.js';
+import type { GearClient } from '../data/gear-client.js';
+import { resolveGearLabel } from '../data/gear-client.js';
+import type { AthleteConfigClient } from '../data/athlete-config-client.js';
+// formatPace/formatActivityDate/formatDurationHms/noteViewedActivity are the
+// dashboard's single formatter/list-highlight sources (list.ts) — imported
+// rather than duplicated, matching the precedent already set for formatPace
+// and formatActivityDate. The private formatDurationHms this file used to
+// keep is deleted; this is the only copy in the dashboard now.
+import { formatActivityDate, formatPace, formatDurationHms, noteViewedActivity } from './list.js';
 
 const DASH = '—';
-
-function formatDurationHms(totalSeconds: number): string {
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = Math.floor(totalSeconds % 60);
-  return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-}
 
 /** Maps `undefined`, `null`, and `NaN` (or a non-number, since `StravaActivity`'s index signature widens unknown fields) to `null`. */
 function numOrNull(value: unknown): number | null {
@@ -37,8 +34,15 @@ function formatOrDash(value: number | null, formatter: (v: number) => string): s
   return value === null ? DASH : formatter(value);
 }
 
-function buildStatCard(value: string, label: string): HTMLElement {
+/**
+ * Builds one stat-grid tile. `titleAttr`, when given, carries a unit/semantics
+ * note that doesn't fit the tile's own short label (e.g. Cadence's
+ * "rpm, single-leg" note) — set on the whole tile as a native tooltip rather
+ * than shown inline, so the tile-grid label stays a single 4-role Label size.
+ */
+function buildStatCard(value: string, label: string, titleAttr?: string): HTMLElement {
   const wrapper = document.createElement('div');
+  if (titleAttr) wrapper.title = titleAttr;
   const valueEl = document.createElement('div');
   valueEl.className = 'text-display';
   valueEl.textContent = value;
@@ -95,120 +99,143 @@ function renderErrorState(
   container.appendChild(errorState);
 }
 
-function buildStreamSummaryCard(detail: ActivityDetail, indexClient: IndexClient): HTMLElement {
-  const section = document.createElement('section');
-  section.className = 'card';
+/**
+ * Builds the 17-UI-SPEC § 5 prev/next nav — "‹ Newer" / "Older ›" — resolved
+ * from the full, unfiltered archive (`indexClient.getRows()`, documented as
+ * ordered newest-first by `compute-dashboard-index.ts`). Since the array is
+ * newest-first, the row immediately BEFORE the current index is the newer
+ * neighbour and the row immediately AFTER is the older one. Either link is
+ * simply omitted at the archive's start/end rather than rendered disabled;
+ * returns `null` entirely when the current activity isn't in the (possibly
+ * not-yet-loaded) index, so a fast deep link never renders a broken nav.
+ */
+function buildDetailNav(indexClient: IndexClient, currentId: string): HTMLElement | null {
+  const rows = indexClient.getRows();
+  const idx = rows.findIndex((row) => row.id === currentId);
+  if (idx === -1) return null;
 
-  const heading = document.createElement('h2');
-  heading.className = 'text-heading';
-  heading.textContent = 'Stream Data';
-  section.appendChild(heading);
+  const newer = idx > 0 ? rows[idx - 1] : undefined;
+  const older = idx < rows.length - 1 ? rows[idx + 1] : undefined;
+  if (!newer && !older) return null;
 
-  const { stream } = detail;
-  if (stream === null) {
-    const empty = document.createElement('p');
-    empty.className = 'text-body';
-    empty.textContent = 'No stream data for this activity.';
-    section.appendChild(empty);
+  const nav = document.createElement('div');
+  nav.className = 'detail-nav';
 
-    const row = indexClient.getRow(detail.id);
-    if (row && !row.streams.available && row.streams.reason) {
-      const badge = document.createElement('span');
-      badge.className = 'badge';
-      badge.textContent = row.streams.reason;
-      section.appendChild(badge);
-    }
-    return section;
+  if (newer) {
+    const link = document.createElement('a');
+    link.href = `#/activity/${newer.id}`;
+    link.textContent = '‹ Newer';
+    nav.appendChild(link);
   }
 
-  const grid = document.createElement('div');
-  grid.className = 'stat-grid';
-  grid.appendChild(buildStatCard(String(stream.t.length), 'Samples'));
+  if (older) {
+    const link = document.createElement('a');
+    link.href = `#/activity/${older.id}`;
+    link.textContent = 'Older ›';
+    nav.appendChild(link);
+  }
 
-  const channels: string[] = [];
-  if (stream.hr) channels.push('HR');
-  if (stream.cadence) channels.push('Cadence');
-  if (stream.alt) channels.push('Elevation');
-  grid.appendChild(buildStatCard(channels.length > 0 ? channels.join(', ') : DASH, 'Channels'));
-
-  grid.appendChild(buildStatCard(stream.distanceSource, 'Distance Source'));
-  section.appendChild(grid);
-
-  return section;
-}
-
-function renderSuccess(container: HTMLElement, detail: ActivityDetail, indexClient: IndexClient): void {
-  container.replaceChildren();
-
-  const view = document.createElement('div');
-  view.className = 'view';
-
-  const { activity } = detail;
-
-  const heading = document.createElement('h1');
-  heading.className = 'text-heading';
-  heading.textContent = activity.name; // athlete free text — textContent only
-  view.appendChild(heading);
-
-  const dateLine = document.createElement('p');
-  dateLine.className = 'text-label';
-  dateLine.textContent = formatActivityDate(activity.start_date_local);
-  view.appendChild(dateLine);
-
-  const statsCard = document.createElement('section');
-  statsCard.className = 'card';
-  const statGrid = document.createElement('div');
-  statGrid.className = 'stat-grid';
-
-  const distanceM = numOrNull(activity.distance);
-  const movingTimeSec = numOrNull(activity.moving_time);
-  const paceSecPerKm =
-    distanceM !== null && distanceM > 0 && movingTimeSec !== null && movingTimeSec > 0
-      ? movingTimeSec / (distanceM / 1000)
-      : null;
-
-  statGrid.appendChild(buildStatCard(formatOrDash(distanceM, (v) => `${(v / 1000).toFixed(1)} km`), 'Distance'));
-  statGrid.appendChild(buildStatCard(formatOrDash(movingTimeSec, formatDurationHms), 'Moving Time'));
-  statGrid.appendChild(buildStatCard(formatPace(paceSecPerKm), 'Average Pace'));
-  statGrid.appendChild(
-    buildStatCard(formatOrDash(numOrNull(activity.total_elevation_gain), (v) => `${Math.round(v)} m`), 'Elevation Gain')
-  );
-  statGrid.appendChild(
-    buildStatCard(formatOrDash(numOrNull(activity.average_heartrate), (v) => String(Math.round(v))), 'Average HR')
-  );
-  statGrid.appendChild(
-    buildStatCard(formatOrDash(numOrNull(activity.max_heartrate), (v) => String(Math.round(v))), 'Max HR')
-  );
-  statGrid.appendChild(
-    buildStatCard(
-      formatOrDash(numOrNull(activity.average_cadence), (v) => String(Math.round(v))),
-      'Avg Cadence (rpm, single-leg)'
-    )
-  );
-
-  statsCard.appendChild(statGrid);
-  view.appendChild(statsCard);
-
-  view.appendChild(buildStreamSummaryCard(detail, indexClient));
-
-  const backCta = document.createElement('a');
-  backCta.className = 'cta';
-  backCta.textContent = 'Back to Activities';
-  backCta.href = `#${ROUTES.LIST}`;
-  view.appendChild(backCta);
-
-  container.appendChild(view);
+  return nav;
 }
 
 export interface DetailViewDeps {
   detailClient: DetailClient;
   indexClient: IndexClient;
+  gearClient: GearClient;
+  athleteConfigClient: AthleteConfigClient;
 }
 
 export function createDetailView(deps: DetailViewDeps): DashboardView {
-  const { detailClient, indexClient } = deps;
+  const { detailClient, indexClient, gearClient } = deps;
   let mountedContainer: HTMLElement | null = null;
   let requestToken = 0;
+
+  async function renderSuccess(container: HTMLElement, detail: ActivityDetail, myToken: number): Promise<void> {
+    const { activity } = detail;
+
+    // Gear tile resolution (D-32/D-33) is itself a second await point in the
+    // render path — guarded exactly like the detail fetch above, since a
+    // fast activity-to-activity navigation can supersede it too.
+    const gearMap = await gearClient.load();
+    if (myToken !== requestToken || mountedContainer !== container) {
+      return;
+    }
+    const gearLabel = resolveGearLabel(gearMap, activity.gear_id, activity.device_name);
+
+    container.replaceChildren();
+
+    const view = document.createElement('div');
+    view.className = 'view';
+
+    const heading = document.createElement('h1');
+    heading.className = 'text-heading';
+    heading.tabIndex = -1;
+    heading.textContent = activity.name; // athlete free text — textContent only
+    view.appendChild(heading);
+
+    const dateLine = document.createElement('p');
+    dateLine.className = 'text-label';
+    dateLine.textContent = formatActivityDate(activity.start_date_local);
+    view.appendChild(dateLine);
+
+    const nav = buildDetailNav(indexClient, detail.id);
+    if (nav) view.appendChild(nav);
+
+    const statsCard = document.createElement('section');
+    statsCard.className = 'card detail-section';
+    const statGrid = document.createElement('div');
+    statGrid.className = 'stat-grid';
+
+    const distanceM = numOrNull(activity.distance);
+    const movingTimeSec = numOrNull(activity.moving_time);
+    const paceSecPerKm =
+      distanceM !== null && distanceM > 0 && movingTimeSec !== null && movingTimeSec > 0
+        ? movingTimeSec / (distanceM / 1000)
+        : null;
+
+    statGrid.appendChild(buildStatCard(formatOrDash(distanceM, (v) => `${(v / 1000).toFixed(1)} km`), 'Distance'));
+    statGrid.appendChild(buildStatCard(formatOrDash(movingTimeSec, formatDurationHms), 'Moving Time'));
+    statGrid.appendChild(buildStatCard(formatPace(paceSecPerKm), 'Pace'));
+    statGrid.appendChild(
+      buildStatCard(formatOrDash(numOrNull(activity.total_elevation_gain), (v) => `${Math.round(v)} m`), 'Elevation Gain')
+    );
+    statGrid.appendChild(
+      buildStatCard(formatOrDash(numOrNull(activity.average_heartrate), (v) => String(Math.round(v))), 'Avg HR')
+    );
+    statGrid.appendChild(
+      buildStatCard(formatOrDash(numOrNull(activity.max_heartrate), (v) => String(Math.round(v))), 'Max HR')
+    );
+    statGrid.appendChild(
+      buildStatCard(
+        formatOrDash(numOrNull(activity.average_cadence), (v) => String(Math.round(v))),
+        'Cadence',
+        'Cadence (rpm, single-leg)'
+      )
+    );
+    // Gear tile (D-32/D-33): appended ONLY when resolveGearLabel returns a
+    // string — omitting the DOM node entirely (never an empty-labelled
+    // tile) is the whole `.stat-grid` auto-fit reflow contract.
+    if (gearLabel !== null) {
+      statGrid.appendChild(buildStatCard(gearLabel, 'Gear'));
+    }
+
+    statsCard.appendChild(statGrid);
+    view.appendChild(statsCard);
+
+    const backCta = document.createElement('a');
+    backCta.className = 'cta';
+    backCta.textContent = 'Back to Activities';
+    backCta.href = `#${ROUTES.LIST}`;
+    view.appendChild(backCta);
+
+    container.appendChild(view);
+
+    // Focus management (17-UI-SPEC § 5): every view moves focus to its own <h1>.
+    heading.focus();
+
+    // D-08: record this activity so returning to #/list highlights it.
+    noteViewedActivity(detail.id);
+  }
 
   async function loadAndRender(container: HTMLElement, id: string): Promise<void> {
     if (!isValidActivityId(id)) {
@@ -251,7 +278,7 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
       return;
     }
 
-    renderSuccess(container, detail, indexClient);
+    await renderSuccess(container, detail, myToken);
   }
 
   return {
