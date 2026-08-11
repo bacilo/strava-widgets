@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Training Dashboard
 status: planning
-stopped_at: Phase 17 context gathered
-last_updated: "2026-08-11T13:18:48.260Z"
+stopped_at: Phase 17 UI-SPEC approved
+last_updated: "2026-08-11T13:57:29.557Z"
 last_activity: 2026-08-11
 progress:
   total_phases: 5
@@ -100,9 +100,9 @@ Previously resolved — SQLITE_CANTOPEN CI failure resolved by quick-1-01 (lazy 
 
 ## Session Continuity
 
-Last session: 2026-08-11T13:18:48.238Z
-Stopped at: Phase 17 context gathered
-Resume file: .planning/phases/17-activity-browser-detail-views/17-CONTEXT.md
+Last session: 2026-08-11T13:57:29.542Z
+Stopped at: Phase 17 UI-SPEC approved
+Resume file: .planning/phases/17-activity-browser-detail-views/17-UI-SPEC.md
 
 ---
 *Last updated: 2026-08-11 — Phase 16 (dashboard-shell-data-contract) all 9 plans executed and summarized; human checkpoint on plan 09 came back PARTIAL — DASH-01 confirmed, DASH-02 (blocking) and DASH-03 (cosmetic) have open gaps pending gap-closure planning before the phase gate closes*
