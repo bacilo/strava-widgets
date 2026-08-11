@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "note": "Hand-maintained by the developer. Explicit bpm boundaries, deliberately NOT derived from the archive's observed max (one strap spike would set zones for a decade) and NOT relative to each activity's own peak (D-30). Replace maxHr and the boundaries with the athlete's real training values. Phase 18's TRIMP training load reads this same file. If this file is absent or fails validation, the HR-zone panel is omitted entirely (D-31) and the phase still passes.",
+  "maxHr": 190,
+  "hrZones": [
+    { "zone": 1, "minBpm": 95, "maxBpm": 123 },
+    { "zone": 2, "minBpm": 124, "maxBpm": 142 },
+    { "zone": 3, "minBpm": 143, "maxBpm": 161 },
+    { "zone": 4, "minBpm": 162, "maxBpm": 180 },
+    { "zone": 5, "minBpm": 181, "maxBpm": null }
+  ]
+}

@@ -5,7 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Training Dashboard — Strava Analytics</title>
   <meta name="color-scheme" content="light dark">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'">
+  <!--
+    `img-src` MUST list every basemap tile host used by
+    RouteRenderer.addBasemapSwitcher (src/widgets/shared/route-utils.ts):
+    CARTO serves the Light and Dark basemaps, OpenStreetMap serves Street,
+    and OpenTopoMap serves Terrain. Leaflet loads tiles as plain <img>
+    elements, so a bare `img-src 'self' data:` blocks every one of them —
+    and its failure mode is silent: the route polyline still renders, so
+    the detail page shows a correct route floating on a blank white canvas
+    with nothing in the console to explain it (only "blocked" entries in
+    the Network panel). The standalone widget pages have no CSP, which is
+    why their maps kept working while the dashboard's did not.
+
+    Keep this list narrow — add a host only when a basemap layer actually
+    needs it, and never widen to a bare `*` or `https:`. If a new basemap
+    provider is added to addBasemapSwitcher, add its host here in the same
+    commit or that layer will silently render blank.
+  -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org https://*.tile.opentopomap.org; connect-src 'self'">
   <!--
     Theme bootstrap: src/dashboard/theme.ts is the source of truth for this
     logic (parseThemeMode / resolveEffectiveTheme). This inline copy is a
@@ -35,8 +52,8 @@
       document.documentElement.setAttribute('data-theme', effective);
     })();
   </script>
-  <script type="module" crossorigin src="./assets/index-GDSeiiKd.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-B1A6j1CT.css">
+  <script type="module" crossorigin src="./assets/index-DQtaLB-_.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index--8VKACN-.css">
 </head>
 <body>
   <header id="app-nav-root"></header>
