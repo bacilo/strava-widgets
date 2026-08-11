@@ -374,6 +374,141 @@ function buildMobileCardList(pageItems: readonly DashboardIndexRow[]): HTMLDivEl
 }
 
 // ---------------------------------------------------------------------------
+// Pagination (D-05/D-06/D-08)
+// ---------------------------------------------------------------------------
+
+/**
+ * Windows the numbered page buttons down to at most 7: page 1, the current
+ * page's immediate neighbourhood, and the last page, with `'ellipsis'`
+ * markers filling any gaps.
+ */
+function buildPageList(current: number, total: number): (number | 'ellipsis')[] {
+  const pageSet = new Set<number>([1, total]);
+  for (let p = current - 1; p <= current + 1; p++) {
+    if (p >= 1 && p <= total) {
+      pageSet.add(p);
+    }
+  }
+
+  const sortedPages = Array.from(pageSet).sort((a, b) => a - b);
+  const result: (number | 'ellipsis')[] = [];
+  for (let i = 0; i < sortedPages.length; i++) {
+    if (i > 0 && sortedPages[i] - sortedPages[i - 1] > 1) {
+      result.push('ellipsis');
+    }
+    result.push(sortedPages[i]);
+  }
+  return result;
+}
+
+function buildPagination(clampedPage: number, totalPages: number, state: ListState): HTMLDivElement {
+  const paginationEl = document.createElement('div');
+  paginationEl.className = 'pagination';
+
+  const prevBtn = document.createElement('button');
+  prevBtn.type = 'button';
+  prevBtn.className = 'pagination__button';
+  prevBtn.textContent = '‹ Prev';
+  prevBtn.disabled = clampedPage <= 1;
+  prevBtn.addEventListener('click', () => applyState({ ...state, page: clampedPage - 1 }));
+  paginationEl.appendChild(prevBtn);
+
+  for (const item of buildPageList(clampedPage, totalPages)) {
+    if (item === 'ellipsis') {
+      const span = document.createElement('span');
+      span.className = 'pagination__ellipsis';
+      span.textContent = '…';
+      paginationEl.appendChild(span);
+      continue;
+    }
+
+    const pageNum = item;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className =
+      pageNum === clampedPage ? 'pagination__button pagination__button--current' : 'pagination__button';
+    btn.textContent = String(pageNum);
+    if (pageNum === clampedPage) {
+      btn.setAttribute('aria-current', 'page');
+    }
+    btn.addEventListener('click', () => applyState({ ...state, page: pageNum }));
+    paginationEl.appendChild(btn);
+  }
+
+  const nextBtn = document.createElement('button');
+  nextBtn.type = 'button';
+  nextBtn.className = 'pagination__button';
+  nextBtn.textContent = 'Next ›';
+  nextBtn.disabled = clampedPage >= totalPages;
+  nextBtn.addEventListener('click', () => applyState({ ...state, page: clampedPage + 1 }));
+  paginationEl.appendChild(nextBtn);
+
+  const label = document.createElement('span');
+  label.className = 'pagination__label';
+  label.textContent = `Page ${clampedPage} of ${totalPages}`;
+  paginationEl.appendChild(label);
+
+  return paginationEl;
+}
+
+// ---------------------------------------------------------------------------
+// Return-from-detail restoration (D-08)
+// ---------------------------------------------------------------------------
+
+/**
+ * In-memory hint of the activity most recently viewed in the detail view.
+ * Deliberately NOT session/local storage — restorable state (page, sort,
+ * filters) genuinely lives in the URL; only this one-shot "which row did I
+ * just look at" needs remembering, and only for the current page session.
+ */
+let notedActivityId: string | null = null;
+
+/**
+ * Records which activity the visitor just viewed so returning to `#/list`
+ * can highlight, scroll to, and focus that row. Called by `detail.ts` on
+ * mount (a future plan) — `detail.ts` already imports formatters from this
+ * module, so the dependency direction already exists.
+ */
+export function noteViewedActivity(id: string): void {
+  notedActivityId = id;
+}
+
+function highlightAndFocus(el: HTMLElement | undefined): void {
+  if (!el) return;
+  el.classList.add('activity-table__row--highlight');
+  el.scrollIntoView({ block: 'center' });
+  el.querySelector('a')?.focus();
+}
+
+/**
+ * If the noted activity is present on the current page, highlights and
+ * focuses it in BOTH layouts (only one is visually shown per the 720px CSS
+ * switch — the hidden layout's elements are not focusable, so acting on
+ * both is harmless). Clears the noted id unconditionally so a later
+ * navigation to the list does not re-highlight.
+ */
+function applyReturnHighlight(
+  tableWrapper: HTMLElement,
+  cardList: HTMLElement,
+  pageItems: readonly DashboardIndexRow[]
+): void {
+  if (notedActivityId === null) {
+    return;
+  }
+
+  const idx = pageItems.findIndex((row) => row.id === notedActivityId);
+  notedActivityId = null;
+  if (idx === -1) {
+    return;
+  }
+
+  const tr = tableWrapper.querySelectorAll('tbody tr')[idx] as HTMLElement | undefined;
+  const card = cardList.children[idx] as HTMLElement | undefined;
+  highlightAndFocus(tr);
+  highlightAndFocus(card);
+}
+
+// ---------------------------------------------------------------------------
 // View factory
 // ---------------------------------------------------------------------------
 
@@ -466,11 +601,22 @@ export function createListView(deps: ListViewDeps): DashboardView {
       const cardList = buildMobileCardList(pageItems);
       view.appendChild(cardList);
 
+      if (totalPages > 1) {
+        view.appendChild(buildPagination(clampedPage, totalPages, state));
+      }
+
       ctx.container.appendChild(view);
 
       // Focus management (17-UI-SPEC § 5): every view moves focus to its
       // own `<h1>` after mount completes.
       heading.focus();
+
+      // Same stale-render guard as the rest of the mount path (WR-01
+      // lineage) — a fast navigation away must not scroll/focus a
+      // superseded view.
+      if (mountedContainer === ctx.container) {
+        applyReturnHighlight(tableWrapper, cardList, pageItems);
+      }
     },
 
     unmount(): void {
