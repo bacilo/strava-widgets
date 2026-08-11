@@ -116,3 +116,7 @@ None - no external service configuration required.
 ---
 *Phase: 18-records-trends-differentiators*
 *Completed: 2026-08-11*
+
+## Self-Check: PASSED
+
+All 5 claimed files verified present on disk (`src/analytics/riegel.ts`, `src/analytics/riegel.test.ts`, `src/dashboard/views/records-logic.ts`, `src/dashboard/views/records-logic.test.ts`, this SUMMARY.md). All 4 commits (`81c9799`, `4d4b3ad`, `c1fb361`, `55d27b1`) confirmed present in `git log --oneline --all`.
