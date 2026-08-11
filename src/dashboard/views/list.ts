@@ -1,14 +1,18 @@
 /**
  * Activities list view — renders real index rows end to end.
  *
- * Paginated, sortable activity browser (BROWSE-01..04, BROWSE-06): a real
- * `<table>` renders above 720px with clickable, aria-sort-annotated column
- * headers; at or below 720px the shared `renderActivityRow` card layout
- * renders instead, with an equivalent sort `<select>`. Sort key, direction,
- * and page all round-trip through the hash query string via
- * `parseListQuery`/`serializeListQuery` (`list-logic.ts`), so back/forward
- * and bookmarking work for free. All sort/filter/paginate arithmetic lives
- * in `list-logic.ts` — this file is DOM construction and event wiring only.
+ * Paginated, sortable, filterable, text-searchable browse over the full
+ * activity index (BROWSE-01..04, BROWSE-06): a real `<table>` renders above
+ * 720px with clickable, aria-sort-annotated column headers; at or below
+ * 720px the shared `renderActivityRow` card layout renders instead, with an
+ * equivalent sort `<select>`. A search box, removable filter chips, and a
+ * collapsible range-filter panel (date/distance/pace/duration, with date and
+ * distance presets) narrow the row set with AND semantics. Sort key,
+ * direction, page, and every filter value all round-trip through the hash
+ * query string via `parseListQuery`/`serializeListQuery` (`list-logic.ts`),
+ * so back/forward and bookmarking work for free. All sort/filter/paginate
+ * arithmetic lives in `list-logic.ts` — this file is DOM construction and
+ * event wiring only.
  *
  * `renderActivityRow` is exported so `overview.ts` reuses the exact same row
  * markup — one row renderer, two views.
@@ -32,6 +36,9 @@ import {
   datePresetRange,
   parsePaceInput,
   formatPaceInput,
+  buildFilterChips,
+  removeChip,
+  EMPTY_FILTERS,
 } from './list-logic.js';
 
 const MONTH_NAMES = [
@@ -467,6 +474,106 @@ function buildPagination(clampedPage: number, totalPages: number, state: ListSta
 
 const FILTER_PANEL_ID = 'list-filter-panel';
 
+function buildRemoveIconSvg(): SVGSVGElement {
+  const svg = document.createElementNS(SVG_NS, 'svg') as SVGSVGElement;
+  svg.setAttribute('width', '10');
+  svg.setAttribute('height', '10');
+  svg.setAttribute('viewBox', '0 0 10 10');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  const path = document.createElementNS(SVG_NS, 'path');
+  path.setAttribute('d', 'M1 1 L9 9 M9 1 L1 9');
+  path.setAttribute('stroke', 'currentColor');
+  path.setAttribute('stroke-width', '1.5');
+  path.setAttribute('fill', 'none');
+  svg.appendChild(path);
+  return svg;
+}
+
+/**
+ * Renders the active-filter chips row (D-12), rebuilt on every render from
+ * `buildFilterChips(state.filters)` — every label and removal rule is
+ * constructed in `list-logic.ts`; this function only wires DOM and events.
+ * Each chip's visible text is `textContent` only (T-17-VW-01) — chip labels
+ * can carry the athlete's own search string, a genuine XSS surface. `Clear
+ * all` renders only once 2+ chips are active.
+ */
+function buildChipsRow(state: ListState, applyImmediate: (next: ListState) => void): HTMLDivElement {
+  const row = document.createElement('div');
+  row.className = 'chip-row';
+
+  const chips = buildFilterChips(state.filters);
+
+  for (const chip of chips) {
+    const chipEl = document.createElement('span');
+    chipEl.className = 'chip';
+
+    const labelEl = document.createElement('span');
+    labelEl.textContent = chip.label;
+    chipEl.appendChild(labelEl);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'chip__remove';
+    // The × icon has no visible text label, so the aria-label is the
+    // authoritative accessible name — the chip's own visible text is
+    // decorative to assistive tech.
+    removeBtn.setAttribute('aria-label', `Remove ${chip.label} filter`);
+    removeBtn.appendChild(buildRemoveIconSvg());
+    removeBtn.addEventListener('click', () => {
+      applyImmediate({ ...state, page: 1, filters: removeChip(state.filters, chip.key) });
+    });
+    chipEl.appendChild(removeBtn);
+
+    row.appendChild(chipEl);
+  }
+
+  if (chips.length >= 2) {
+    const clearAllBtn = document.createElement('button');
+    clearAllBtn.type = 'button';
+    clearAllBtn.className = 'chip-clear-all';
+    clearAllBtn.textContent = 'Clear all';
+    clearAllBtn.addEventListener('click', () => {
+      applyImmediate({ ...state, page: 1, filters: EMPTY_FILTERS });
+    });
+    row.appendChild(clearAllBtn);
+  }
+
+  return row;
+}
+
+/**
+ * Zero-match empty state (D-12) — renders IN PLACE OF both the table
+ * wrapper and the card list when the filtered row set is empty, never a
+ * blank table with headers and no body. Offers Clear all even at exactly
+ * one active filter, the deliberate exception to the chips row's 2+ rule.
+ */
+function buildEmptyState(state: ListState, applyImmediate: (next: ListState) => void): HTMLElement {
+  const section = document.createElement('section');
+  section.className = 'empty-state';
+
+  const heading = document.createElement('h2');
+  heading.className = 'text-heading';
+  heading.textContent = 'No activities match your filters';
+  section.appendChild(heading);
+
+  const body = document.createElement('p');
+  body.className = 'text-body';
+  body.textContent = 'Try widening your date range or distance, or clear a filter below.';
+  section.appendChild(body);
+
+  const clearAllBtn = document.createElement('button');
+  clearAllBtn.type = 'button';
+  clearAllBtn.className = 'chip-clear-all';
+  clearAllBtn.textContent = 'Clear all';
+  clearAllBtn.addEventListener('click', () => {
+    applyImmediate({ ...state, page: 1, filters: EMPTY_FILTERS });
+  });
+  section.appendChild(clearAllBtn);
+
+  return section;
+}
+
 /** Parses a trimmed numeric string, tolerating garbage the same way
  * `list-logic.ts`'s `parseNonNegativeNumber` does — an unparseable or
  * negative value drops that one bound rather than producing a `NaN`
@@ -878,10 +985,7 @@ export function createListView(deps: ListViewDeps): DashboardView {
     toggleBtn.setAttribute('aria-controls', FILTER_PANEL_ID);
     toolbar.appendChild(toggleBtn);
 
-    // Chips row seam — Task 2 of this plan fills it with the active-filter
-    // chips built from buildFilterChips(state.filters).
-    const chipRow = document.createElement('div');
-    chipRow.className = 'chip-row';
+    const chipRow = buildChipsRow(state, applyImmediate);
     toolbar.appendChild(chipRow);
 
     const panel = buildFilterPanel(state, panelOpen, applyImmediate, applyDebounced);
@@ -965,29 +1069,38 @@ export function createListView(deps: ListViewDeps): DashboardView {
       const toolbar = buildToolbar(state);
       view.appendChild(toolbar);
 
-      const tableWrapper = buildDesktopTable(state, pageItems);
-      view.appendChild(tableWrapper);
+      if (filtered.length === 0) {
+        // Zero-match empty state (D-12) renders IN PLACE OF both the table
+        // wrapper and the card list — never a blank table, and pagination
+        // is hidden entirely in this state.
+        view.appendChild(buildEmptyState(state, applyImmediate));
+        ctx.container.appendChild(view);
+        heading.focus();
+      } else {
+        const tableWrapper = buildDesktopTable(state, pageItems);
+        view.appendChild(tableWrapper);
 
-      view.appendChild(buildSortSelect(state));
+        view.appendChild(buildSortSelect(state));
 
-      const cardList = buildMobileCardList(pageItems);
-      view.appendChild(cardList);
+        const cardList = buildMobileCardList(pageItems);
+        view.appendChild(cardList);
 
-      if (totalPages > 1) {
-        view.appendChild(buildPagination(clampedPage, totalPages, state));
-      }
+        if (totalPages > 1) {
+          view.appendChild(buildPagination(clampedPage, totalPages, state));
+        }
 
-      ctx.container.appendChild(view);
+        ctx.container.appendChild(view);
 
-      // Focus management (17-UI-SPEC § 5): every view moves focus to its
-      // own `<h1>` after mount completes.
-      heading.focus();
+        // Focus management (17-UI-SPEC § 5): every view moves focus to its
+        // own `<h1>` after mount completes.
+        heading.focus();
 
-      // Same stale-render guard as the rest of the mount path (WR-01
-      // lineage) — a fast navigation away must not scroll/focus a
-      // superseded view.
-      if (mountedContainer === ctx.container) {
-        applyReturnHighlight(tableWrapper, cardList, pageItems);
+        // Same stale-render guard as the rest of the mount path (WR-01
+        // lineage) — a fast navigation away must not scroll/focus a
+        // superseded view.
+        if (mountedContainer === ctx.container) {
+          applyReturnHighlight(tableWrapper, cardList, pageItems);
+        }
       }
     },
 
