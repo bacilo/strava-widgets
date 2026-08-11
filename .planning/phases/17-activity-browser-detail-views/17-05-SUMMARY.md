@@ -102,3 +102,13 @@ None — no external service configuration required. This plan does not create `
 ---
 *Phase: 17-activity-browser-detail-views*
 *Completed: 2026-08-11*
+
+## Self-Check: PASSED
+
+- FOUND: src/dashboard/views/detail-zones.ts
+- FOUND: src/dashboard/views/detail-zones.test.ts
+- FOUND: .planning/phases/17-activity-browser-detail-views/17-05-SUMMARY.md
+- FOUND: commit 1214f20 (test: pace distribution RED)
+- FOUND: commit 66abf95 (feat: pace distribution GREEN)
+- FOUND: commit fc15c49 (test: athlete-config/HR-zones RED)
+- FOUND: commit 5dc22fe (feat: athlete-config/HR-zones GREEN)
