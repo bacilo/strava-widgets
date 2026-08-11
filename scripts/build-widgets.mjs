@@ -142,7 +142,10 @@ function copyDataFiles() {
     { src: 'data/dashboard', dest: 'dist/widgets/data/dashboard' },
     { src: 'data/activities', dest: 'dist/widgets/data/activities' },
     // Whole-directory copy also carries data/streams/manifest.json.
-    { src: 'data/streams', dest: 'dist/widgets/data/streams' }
+    { src: 'data/streams', dest: 'dist/widgets/data/streams' },
+    // Hand-maintained athlete.json and gear.json that the activity detail
+    // view fetches at runtime (DETAIL-01 gear tile, DETAIL-05 HR-zone panel).
+    { src: 'data/config', dest: 'dist/widgets/data/config' }
   ];
 
   for (const { src, dest } of dataDirs) {

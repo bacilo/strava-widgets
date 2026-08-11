@@ -237,6 +237,26 @@ async function main() {
     await expect200(baseUrl, '/data/stats/all-time-totals.json');
     await expect200(baseUrl, '/data/stats/streaks.json');
 
+    const gearBody = await expect200(baseUrl, '/data/config/gear.json');
+    if (gearBody) {
+      const parsedGear = JSON.parse(gearBody);
+      if (!parsedGear.gear || typeof parsedGear.gear !== 'object') {
+        fail('/data/config/gear.json parsed but "gear" object is missing');
+      } else {
+        ok('/data/config/gear.json parses with a "gear" object');
+      }
+    }
+
+    const athleteBody = await expect200(baseUrl, '/data/config/athlete.json');
+    if (athleteBody) {
+      const parsedAthlete = JSON.parse(athleteBody);
+      if (!Array.isArray(parsedAthlete.hrZones) || parsedAthlete.hrZones.length !== 5) {
+        fail('/data/config/athlete.json parsed but "hrZones" is not a five-entry array');
+      } else {
+        ok('/data/config/athlete.json parses with a five-entry "hrZones" array');
+      }
+    }
+
     if (newestRow) {
       const activityBody = await expect200(baseUrl, `/data/activities/${newestRow.id}.json`);
       if (activityBody) {

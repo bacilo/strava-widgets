@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "note": "Hand-maintained by the developer. Fill in each gear id's real name from Strava's My Gear page; an empty value falls back to device_name.",
+  "gear": {
+    "g16649854": "",
+    "g10893777": "",
+    "g7431700": "",
+    "g9507379": "",
+    "g22495929": "",
+    "g6163866": "",
+    "g13535700": "",
+    "g7431711": "",
+    "g6163873": "",
+    "g6163870": "",
+    "g6163855": "",
+    "g6163875": "",
+    "g19682342": "",
+    "g12480911": "",
+    "g10893788": "",
+    "g10578855": ""
+  }
+}
