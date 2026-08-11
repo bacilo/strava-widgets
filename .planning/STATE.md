@@ -4,8 +4,8 @@ milestone: v2.0
 milestone_name: Training Dashboard
 status: executing
 stopped_at: Phase 18 UI-SPEC approved
-last_updated: "2026-08-11T19:24:01.729Z"
-last_activity: 2026-08-11 -- Phase 18 planning complete
+last_updated: "2026-08-11T19:26:28.022Z"
+last_activity: 2026-08-11 -- Phase 18 execution started
 progress:
   total_phases: 5
   completed_phases: 4
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 18 — records, trends & differentiators
+**Current focus:** Phase 18 — records-trends-differentiators
 
 ## Current Position
 
-Phase: 18
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-08-11 -- Phase 18 planning complete
+Phase: 18 (records-trends-differentiators) — EXECUTING
+Plan: 1 of 16
+Status: Executing Phase 18
+Last activity: 2026-08-11 -- Phase 18 execution started
 
 Progress: [██████░░░░] 60%
 
