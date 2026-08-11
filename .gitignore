@@ -21,3 +21,7 @@ export_data/
 # one exception: it ships with placeholder-only values (T-18-PII-02).
 data/private/*.json
 !data/private/athlete-private.example.json
+# Raw downloaded WMA age-grading source artifacts (xlsx/html) that
+# scripts/convert-wma-tables.mjs parses into the committed data/wma/*.json
+# tables. Not committed themselves — re-download to re-run the converter.
+scripts/wma-source/

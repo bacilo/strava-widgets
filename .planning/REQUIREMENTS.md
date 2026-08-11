@@ -43,7 +43,7 @@ Requirements for the Training Dashboard milestone. Each maps to roadmap phases.
 - [ ] **REC-03**: User can view how each distance PR evolved over the years
 - [ ] **REC-04**: Runs that set a new PR show a "PR" badge in list and detail views
 - [ ] **REC-05**: User can view weekly/monthly/yearly totals, biggest week/month, and streak records in the dashboard (reusing v1.0 aggregation logic)
-- [ ] **REC-06**: User can view age-graded performance percentages on PRs (WMA tables)
+- [x] **REC-06**: User can view age-graded performance percentages on PRs (WMA tables)
 - [ ] **REC-07**: User can view Riegel-based race-time predictions derived from PRs
 
 ### Trends
@@ -112,7 +112,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | REC-03 | Phase 18 | Pending |
 | REC-04 | Phase 18 | Pending |
 | REC-05 | Phase 18 | Pending |
-| REC-06 | Phase 18 | Pending |
+| REC-06 | Phase 18 | Complete |
 | REC-07 | Phase 18 | Pending |
 | TREND-01 | Phase 18 | Pending |
 | TREND-02 | Phase 18 | Pending |
