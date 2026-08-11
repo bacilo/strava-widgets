@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Training Dashboard
-status: executing
-stopped_at: Phase 17 plan 17-15 checkpoint returned PARTIAL — gap closure needed
-last_updated: "2026-08-11T16:27:58.271Z"
+status: ready_to_plan
+stopped_at: Phase 17 complete (15/15) — ready to discuss Phase 18
+last_updated: 2026-08-11T16:56:02.806Z
 last_activity: "2026-08-11 -- Plan 17-15 (Automated gate plus blocking real-browser verification checkpoint) executed; Task 1 automated gate green (592/592 tests, clean tsc, 20/20 verify-dashboard checks); Task 2 human checkpoint PARTIAL; Task 3 recorded result in 17-VALIDATION.md, status: partial"
 progress:
   total_phases: 5
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 40
   completed_plans: 40
-  percent: 60
+  percent: 80
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 17 — activity-browser-detail-views (gap-closure planning needed — 2 named gaps from the 17-15 checkpoint)
+**Current focus:** Phase 18 — records, trends & differentiators
 
 ## Current Position
 
-Phase: 17 (activity-browser-detail-views) — PARTIAL, gap closure needed
-Plan: 15 of 15 executed — 17-15's real-browser checkpoint returned PARTIAL (2 named gaps, not patched under checkpoint pressure per the 16-09 precedent)
-Status: Gap-closure planning needed (`/gsd-plan-phase 17 --gaps`) before this phase gate closes; local checkpoint server left running at http://127.0.0.1:4319/strava-widgets/ for re-verification
-Last activity: 2026-08-11 -- Plan 17-15 (Automated gate plus blocking real-browser verification checkpoint) executed; Task 1 automated gate green (592/592 tests, clean tsc, 20/20 verify-dashboard checks); Task 2 human checkpoint PARTIAL; Task 3 recorded result in 17-VALIDATION.md, status: partial
+Phase: 18
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-08-11
 
 Progress: [██████░░░░] 60%
 
