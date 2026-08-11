@@ -92,6 +92,44 @@ That said, this phase's own regression themes are not fully closed:
   run, then sorts with a comparator that dereferences a field without a null
   check, outside that try/catch.
 
+## Resolution Log
+
+Added by the execute-phase orchestrator after the review landed.
+
+| Finding | Status | Commit |
+|---|---|---|
+| CR-01 `formatPace` renders `X:60/km` | **RESOLVED** | `64046a5` |
+| CR-02 error boundary has no ownership guard | **RESOLVED** | `64046a5` |
+| WR-01 … WR-16, IN-01 … IN-11 | Open — tracked debt | — |
+
+**CR-01.** Confirmed empirically before fixing: replaying all 1,867
+`paceSecPerKm` values from the live index through the shipped function produced
+11 rows rendering `5:60/km`, `6:60/km`, `4:60/km`. Now rounds to whole seconds
+once and derives both components from that value; the same replay yields 0. The
+duplicate copy in `detail.ts` was deleted rather than patched — that view now
+imports the single exported `formatPace` from `list.ts`, matching the existing
+`formatActivityDate` sharing it already relied on. Five regression cases added to
+`list.test.ts`, including a sweep over the archive's value range asserting no
+input can emit a `:60` seconds component; verified load-bearing by restoring the
+old arithmetic (3 tests fail reproducing the defect, all pass once restored).
+
+**CR-02.** `main.ts` now returns early from its catch when `currentView !== view`.
+The ownership token is `currentView` rather than the container, because every view
+mounts into the same element. Remains latent — no reachable rejection exists
+against the current archive, as the review itself noted.
+
+Verified live after redeploy (run `31492406948`): the deployed bundle
+`assets/index-GDSeiiKd.js` carries the fixed shape, the buggy shape is absent, and
+it parses. Gate at time of fix: tsc clean, 373 tests (was 368), build clean,
+verify-dashboard 16/16.
+
+The remaining 27 findings are open and tracked in this document. The publish-gate
+observations (WR-01, WR-02, WR-15, WR-16) are the most valuable of them — the gate
+still validates asset URLs in `index.html` but never checks how the client builds
+data URLs, so switching `index-client.ts` to a root-absolute `'/data/'` would pass
+16/16 while every fetch 404s. Same false-pass shape this phase has already hit
+twice, through a different door.
+
 ## Critical Issues
 
 ### CR-01: `formatPace` renders an impossible `X:60/km` on real published data
