@@ -1,10 +1,11 @@
 ---
 phase: 18
 slug: records-trends-differentiators
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-08-11
+reviewed_at: 2026-08-11
 ---
 
 # Phase 18 — UI Design Contract
@@ -166,6 +167,13 @@ applicable to this phase.
 # Section Detail
 
 ## § 1 — Records page layout and the sticky jump list (D-02)
+
+**Focal point.** On `#/records`, the Superlatives card (§ 4a) is the first
+visual anchor after the `<h1>` — it is the largest-type content on the page
+and is what the eye should land on before the tables. Everything below it is
+progressively denser. Executors should not let the jump list, which sits
+above it, out-weigh it visually: the jump list is navigation chrome
+(`.text-label`, no accent fill except on the active item), not a headline.
 
 **Page structure.** `#/records` is a single `.view` (existing class, 1100px
 max-width, centered, `--space-lg` padding) containing, in this order:
@@ -656,6 +664,12 @@ full data is never hidden, only the chart's legend is bounded.
 
 ## § 13 — Rolling-totals header strip (D-01)
 
+**Focal point.** On `#/trends`, this strip is the first visual anchor above
+the tablist — it is the only content on the page that is true regardless of
+which tab is open, and its `.text-display` km figures are the largest type on
+the screen. The tablist below it is navigation chrome and must not compete
+with it for weight.
+
 Sits **above the tablist**, not inside any tab (it is Trends-page-global,
 not tab-specific, per D-01: "a header strip above the Trends charts"). One
 `.card` containing a `.stat-grid` (existing classes, zero new CSS) with 3
@@ -871,11 +885,31 @@ did not catch Phase 16's black page or Phase 17's two rendering defects.
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+Verified by gsd-ui-checker on 2026-08-11. The checker spot-checked every
+"reuses X verbatim" claim in this document against the live source
+(`styles.css`, `theme.ts`, `list.ts`, `overview.ts`, `detail-charts.ts`) and
+found no misstated tokens, no invented parallel tokens, and no falsely-claimed
+reuse. Locked decisions D-05, D-06, D-07, D-09, D-13, D-15, D-18 and D-19 were
+each confirmed present without contradiction, narrowing, or silent drop.
 
-**Approval:** pending
+- [x] Dimension 1 Copywriting: PASS (FLAG — see below)
+- [x] Dimension 2 Visuals: PASS (FLAG — resolved, see below)
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
+
+### Non-blocking flags
+
+**Dimension 1 — inherited single-word CTA.** The "Retry" CTA in the error
+state is a single word with no noun. It is reused verbatim from the
+already-shipped error-state formula in `list.ts` / `overview.ts` /
+`detail.ts`. Kept as-is: consistency with the shipped pattern outweighs the
+generic-CTA rule here. If the error-state copy is ever revisited project-wide,
+revisit it there rather than diverging in this phase alone.
+
+**Dimension 2 — focal point not named.** Resolved after verification: § 1 and
+§ 13 now each open with an explicit focal-point statement, so executors do not
+have to infer visual hierarchy from section ordering alone.
+
+**Approval:** approved 2026-08-11
