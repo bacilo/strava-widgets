@@ -123,3 +123,7 @@ None - no external service configuration required.
 ---
 *Phase: 18-records-trends-differentiators*
 *Completed: 2026-08-11*
+
+## Self-Check: PASSED
+
+All 8 claimed files verified present on disk; all 4 claimed commit hashes (`7c15c95`, `a2871a8`, `31ef530`, `3d89b0c`) verified present in `git log --oneline --all`.
