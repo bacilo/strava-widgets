@@ -127,7 +127,10 @@ export function mountRouteMap(container: HTMLElement, options: MountRouteMapOpti
     const notice = document.createElement('p');
     notice.className = 'route-map__caveat';
     notice.textContent =
-      'Base map tiles could not be loaded, so the route is shown without a background map. The route itself is unaffected.';
+      'Base map tiles could not be loaded, so the route is drawn without a background map. ' +
+      'The route itself is unaffected. This is usually a browser content blocker or network ' +
+      'filter rejecting the map tile provider — try a different base map from the layer control ' +
+      'on the map, since the alternatives use different domains.';
     container.appendChild(notice);
   });
 
