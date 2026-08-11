@@ -95,3 +95,14 @@ None - no external service configuration required.
 ---
 *Phase: 17-activity-browser-detail-views*
 *Completed: 2026-08-11*
+
+## Self-Check: PASSED
+
+- FOUND: src/dashboard/views/calendar-logic.ts
+- FOUND: src/dashboard/views/calendar-logic.test.ts
+- FOUND: .planning/phases/17-activity-browser-detail-views/17-03-SUMMARY.md
+- FOUND: 1779919 (test RED, Task 1)
+- FOUND: 3086ae9 (feat GREEN, Task 1)
+- FOUND: 94a76fa (test RED, Task 2)
+- FOUND: 78b429b (feat GREEN, Task 2)
+- FOUND: eda9379 (docs, this summary)
