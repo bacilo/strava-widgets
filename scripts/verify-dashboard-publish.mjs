@@ -179,13 +179,13 @@ async function expect200(baseUrl, path, { nonEmpty = true } = {}) {
   return body;
 }
 
-async function expect404(baseUrl, path) {
+async function expect404(baseUrl, path, reason) {
   const { status } = await get(`${baseUrl}${path}`);
   if (status !== 404) {
-    fail(`GET ${path} expected 404 (stream-unavailable activity), got ${status}`);
+    fail(`GET ${path} expected 404 (${reason}), got ${status}`);
     return;
   }
-  ok(`GET ${path} -> 404 (expected, stream-unavailable)`);
+  ok(`GET ${path} -> 404 (expected, ${reason})`);
 }
 
 async function main() {
@@ -255,6 +255,36 @@ async function main() {
       } else {
         ok('/data/config/athlete.json parses with a five-entry "hrZones" array');
       }
+      // Regression guard (T-18-PII-01): a well-meaning future edit must
+      // never re-merge the private identity fields back into the public
+      // config. Own-property check only — Object.prototype pollution is
+      // out of scope here (the file is parsed JSON, not attacker input).
+      if (
+        Object.prototype.hasOwnProperty.call(parsedAthlete, 'birthDate') ||
+        Object.prototype.hasOwnProperty.call(parsedAthlete, 'sex') ||
+        Object.prototype.hasOwnProperty.call(parsedAthlete, 'restingHr')
+      ) {
+        fail(
+          '/data/config/athlete.json has an own "birthDate", "sex", or "restingHr" property — ' +
+            'identity/health fields must live only in gitignored data/private/athlete-private.json (T-18-PII-01)'
+        );
+      } else {
+        ok('/data/config/athlete.json has no birthDate/sex/restingHr own properties (public config stays clean)');
+      }
+    }
+
+    // Private athlete config must never be reachable over HTTP (T-18-PII-01).
+    await expect404(baseUrl, '/data/private/athlete-private.json', 'private athlete config must never be published');
+    await expect404(baseUrl, '/data/private/', 'private config directory must never be published');
+
+    const exclusionsBody = await expect200(baseUrl, '/data/best-effort-exclusions.json');
+    if (exclusionsBody) {
+      const parsedExclusions = JSON.parse(exclusionsBody);
+      if (!Array.isArray(parsedExclusions.exclusions)) {
+        fail('/data/best-effort-exclusions.json parsed but "exclusions" is not an array');
+      } else {
+        ok('/data/best-effort-exclusions.json parses with an "exclusions" array');
+      }
     }
 
     if (newestRow) {
@@ -283,7 +313,7 @@ async function main() {
     // --- 5. Degraded state: stream-unavailable activity must 404 -----------
 
     if (newestWithoutStream) {
-      await expect404(baseUrl, `/data/streams/${newestWithoutStream.id}.json`);
+      await expect404(baseUrl, `/data/streams/${newestWithoutStream.id}.json`, 'stream-unavailable activity');
     } else {
       console.log('(skipped: no stream-unavailable activity found in the archive)');
     }
