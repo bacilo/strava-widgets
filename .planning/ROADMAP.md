@@ -195,12 +195,12 @@ Plans:
 
 **Wave 1**
 
-- [ ] 17-01-PLAN.md — Design tokens and Phase 17 component CSS (single owner of styles.css)
-- [ ] 17-02-PLAN.md — Pure list sort/filter/paginate/URL-state logic + tests
-- [ ] 17-03-PLAN.md — Pure calendar month-grid date math + tests
-- [ ] 17-04-PLAN.md — Pure per-km splits and chart-series/smoothing/overlay-config logic + tests
-- [ ] 17-05-PLAN.md — Pure pace-distribution and HR-zone logic, athlete-config gate + tests
-- [ ] 17-06-PLAN.md — Committed data/config/{athlete,gear}.json plus publish pipeline and verifier
+- [x] 17-01-PLAN.md — Design tokens and Phase 17 component CSS (single owner of styles.css)
+- [x] 17-02-PLAN.md — Pure list sort/filter/paginate/URL-state logic + tests
+- [x] 17-03-PLAN.md — Pure calendar month-grid date math + tests
+- [x] 17-04-PLAN.md — Pure per-km splits and chart-series/smoothing/overlay-config logic + tests
+- [x] 17-05-PLAN.md — Pure pace-distribution and HR-zone logic, athlete-config gate + tests
+- [x] 17-06-PLAN.md — Committed data/config/{athlete,gear}.json plus publish pipeline and verifier
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -263,7 +263,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 | 14. Stream Ingestion Foundation | v2.0 | 5/5 | Complete    | 2026-08-10 |
 | 15. Best-Effort Engine | v2.0 | 4/4 | Complete    | 2026-08-10 |
 | 16. Dashboard Shell & Data Contract | v2.0 | 16/16 | Complete    | 2026-08-11 |
-| 17. Activity Browser & Detail Views | v2.0 | 0/TBD | Not started | - |
+| 17. Activity Browser & Detail Views | v2.0 | 6/15 | In Progress|  |
 | 18. Records, Trends & Differentiators | v2.0 | 0/TBD | Not started | - |
 
 ---
