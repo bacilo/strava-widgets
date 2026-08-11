@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Training Dashboard
-status: executing
-stopped_at: Phase 16 plan 14 complete — phase pushed to origin/master and deployed to GitHub Pages (gh-pages HEAD 1646351); gap-closure plans 16-15/16-16 remain
-last_updated: "2026-08-11T11:41:13.895Z"
+status: ready_to_plan
+stopped_at: Phase 16 complete (16/16) — ready to discuss Phase 17
+last_updated: 2026-08-11T12:47:19.301Z
 last_activity: 2026-08-11
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 25
-  completed_plans: 23
+  completed_plans: 25
   percent: 40
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 16 — dashboard-shell-data-contract
+**Current focus:** Phase 17 — activity browser & detail views
 
 ## Current Position
 
-Phase: 16 (dashboard-shell-data-contract) — EXECUTING
-Plan: 2 of 16
-Status: Ready to execute
+Phase: 17
+Plan: Not started
+Status: Ready to plan
 Last activity: 2026-08-11
 
 Progress: [█████████░] 92%
