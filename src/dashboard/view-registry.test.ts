@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { ALL_ROUTES, NAV_ORDER, ROUTES } from './view.types.js';
+import { ALL_ROUTES, NAV_ORDER, ROUTES, STUB_PHASE } from './view.types.js';
 import { VIEWS, getView } from './view-registry.js';
 
 describe('VIEWS', () => {
@@ -50,6 +50,14 @@ describe('getView', () => {
 
   it('never surfaces the detail route in the nav — navEntry is undefined (D-05)', () => {
     expect(getView(ROUTES.DETAIL)!.navEntry).toBeUndefined();
+  });
+});
+
+describe('STUB_PHASE', () => {
+  it('has no entry for ROUTES.CALENDAR (BROWSE-05 shipped, no longer a stub) while RECORDS and TRENDS remain stubbed — regression guard against a silent revert (T-17-REG-01)', () => {
+    expect(STUB_PHASE[ROUTES.CALENDAR]).toBeUndefined();
+    expect(STUB_PHASE[ROUTES.RECORDS]).toBeDefined();
+    expect(STUB_PHASE[ROUTES.TRENDS]).toBeDefined();
   });
 });
 
