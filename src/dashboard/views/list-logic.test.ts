@@ -48,6 +48,7 @@ function makeRow(overrides: Partial<DashboardIndexRow> = {}): DashboardIndexRow 
     lowConfidence: false,
     excludedFromRecords: false,
     prCount: 0,
+    gearName: null,
     ...overrides,
   };
 }

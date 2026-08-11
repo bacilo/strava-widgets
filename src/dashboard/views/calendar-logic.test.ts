@@ -29,6 +29,7 @@ function fixtureRow(overrides: Partial<DashboardIndexRow> & { id: string; startD
     lowConfidence: false,
     excludedFromRecords: false,
     prCount: 0,
+    gearName: null,
     ...overrides,
   };
 }

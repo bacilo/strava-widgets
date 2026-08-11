@@ -53,6 +53,7 @@ function makeDocument(overrides: Partial<DashboardIndexDocument> = {}): Dashboar
       lowConfidence: 0,
       excludedFromRecords: 0,
       skippedUnreadable: 0,
+      withGear: 0,
     },
     activities: [
       {
@@ -73,6 +74,7 @@ function makeDocument(overrides: Partial<DashboardIndexDocument> = {}): Dashboar
         lowConfidence: false,
         excludedFromRecords: false,
         prCount: 0,
+        gearName: null,
       },
       {
         id: '1234',
@@ -92,6 +94,7 @@ function makeDocument(overrides: Partial<DashboardIndexDocument> = {}): Dashboar
         lowConfidence: false,
         excludedFromRecords: false,
         prCount: 1,
+        gearName: null,
       },
     ],
     ...overrides,
