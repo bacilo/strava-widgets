@@ -84,7 +84,7 @@ describe('resolveGearLabel — resolution ladder', () => {
       [{}, rawGearId, undefined],
       [null, rawGearId, undefined],
       [{ [rawGearId]: '' }, rawGearId, undefined],
-      [{ [rawGearId]: '' }, rawGearId, rawGearId],
+      [{ [rawGearId]: '' }, rawGearId, '   '],
     ];
     for (const [gearMap, gearId, deviceName] of cases) {
       const result = resolveGearLabel(gearMap, gearId, deviceName);
