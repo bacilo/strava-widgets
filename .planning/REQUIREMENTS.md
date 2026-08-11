@@ -31,7 +31,7 @@ Requirements for the Training Dashboard milestone. Each maps to roadmap phases.
 ### Activity Detail
 
 - [ ] **DETAIL-01**: User can view a stats header per activity (distance, time, pace, elevation, avg/max HR, cadence, gear)
-- [ ] **DETAIL-02**: User can view the activity's route map on the detail page (reusing existing map infrastructure)
+- [x] **DETAIL-02**: User can view the activity's route map on the detail page (reusing existing map infrastructure)
 - [x] **DETAIL-03**: User can view pace, HR, cadence, and elevation charts over distance/time from streams
 - [x] **DETAIL-04**: User can view an auto-computed per-km splits table
 - [ ] **DETAIL-05**: User can view a pace-distribution/zone breakdown per activity
@@ -104,7 +104,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BROWSE-05 | Phase 17 | Pending |
 | BROWSE-06 | Phase 17 | Pending |
 | DETAIL-01 | Phase 17 | Pending |
-| DETAIL-02 | Phase 17 | Pending |
+| DETAIL-02 | Phase 17 | Complete |
 | DETAIL-03 | Phase 17 | Complete |
 | DETAIL-04 | Phase 17 | Complete |
 | DETAIL-05 | Phase 17 | Pending |
