@@ -105,3 +105,38 @@ describe('styles.css — token parity with src/widgets/shared/theme-manager.ts',
     expect(decl).toContain('--text: #e0e0e0');
   });
 });
+
+describe('styles.css — Phase 17 tokens', () => {
+  it('--accent-strong is #b3390a in the light theme block', () => {
+    expect(declarationsFor(':root[data-theme="light"]')).toContain('--accent-strong: #b3390a');
+  });
+
+  it('--accent-strong is #c2410c in the dark theme block', () => {
+    expect(declarationsFor(':root[data-theme="dark"]')).toContain('--accent-strong: #c2410c');
+  });
+
+  it('all four --chart-* tokens are present with the exact light values in the light block', () => {
+    const decl = declarationsFor(':root[data-theme="light"]');
+    expect(decl).toContain('--chart-pace: #fc4c02');
+    expect(decl).toContain('--chart-hr: #e11d48');
+    expect(decl).toContain('--chart-cadence: #0891b2');
+    expect(decl).toContain('--chart-elevation: #16a34a');
+  });
+
+  it('all four --chart-* tokens are present with the exact dark values in the dark block', () => {
+    const decl = declarationsFor(':root[data-theme="dark"]');
+    expect(decl).toContain('--chart-pace: #ff6b35');
+    expect(decl).toContain('--chart-hr: #fb7185');
+    expect(decl).toContain('--chart-cadence: #22d3ee');
+    expect(decl).toContain('--chart-elevation: #4ade80');
+  });
+
+  it('all five --zone-* tokens are present in the bare :root block', () => {
+    const decl = declarationsFor(':root');
+    expect(decl).toContain('--zone-1: #3b82f6');
+    expect(decl).toContain('--zone-2: #22c55e');
+    expect(decl).toContain('--zone-3: #eab308');
+    expect(decl).toContain('--zone-4: #f97316');
+    expect(decl).toContain('--zone-5: #ef4444');
+  });
+});
