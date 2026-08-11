@@ -249,10 +249,10 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 18-07-PLAN.md — compute-training-load build step over the committed HR stream archive
-- [ ] 18-08-PLAN.md — compute-age-grading build step emitting percentages only
-- [ ] 18-09-PLAN.md — Riegel prediction/guarded fit and the Records page logic
-- [ ] 18-10-PLAN.md — Cadence/HR, training-load windowing and coverage spans, gear bucketing logic
+- [x] 18-07-PLAN.md — compute-training-load build step over the committed HR stream archive
+- [x] 18-08-PLAN.md — compute-age-grading build step emitting percentages only
+- [x] 18-09-PLAN.md — Riegel prediction/guarded fit and the Records page logic
+- [x] 18-10-PLAN.md — Cadence/HR, training-load windowing and coverage spans, gear bucketing logic
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -296,7 +296,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 | 15. Best-Effort Engine | v2.0 | 4/4 | Complete    | 2026-08-10 |
 | 16. Dashboard Shell & Data Contract | v2.0 | 16/16 | Complete    | 2026-08-11 |
 | 17. Activity Browser & Detail Views | v2.0 | 15/15 | Complete    | 2026-08-11 |
-| 18. Records, Trends & Differentiators | v2.0 | 6/16 | In Progress|  |
+| 18. Records, Trends & Differentiators | v2.0 | 10/16 | In Progress|  |
 
 ---
 *Last updated: 2026-08-11 — Phase 16 gap closure planned (7 plans, 3 waves)*
