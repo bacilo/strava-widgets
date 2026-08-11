@@ -59,11 +59,37 @@ function formatPaceBound(secPerKm: number): string {
  * non-finite pace is ever bucketed. Total function: never throws.
  */
 export function computePaceDistribution(
-  _stream: CanonicalStream,
-  _bucketWidthSec: number = PACE_BUCKET_WIDTH_SEC
+  stream: CanonicalStream,
+  bucketWidthSec: number = PACE_BUCKET_WIDTH_SEC
 ): PaceBucket[] {
-  // RED stub — intentionally wrong pending Task 1 GREEN implementation.
-  return [];
+  const { t, d } = stream;
+
+  if (!validateStreamSeries(t, d).ok) return [];
+
+  const bucketTimeSec = new Map<number, number>();
+
+  for (let i = 0; i < t.length - 1; i++) {
+    const dt = t[i + 1] - t[i];
+    const dd = d[i + 1] - d[i];
+    if (dt <= 0 || dd <= 0) continue;
+
+    const paceSecPerKm = dt / (dd / 1000);
+    const index = Math.floor(paceSecPerKm / bucketWidthSec);
+    bucketTimeSec.set(index, (bucketTimeSec.get(index) ?? 0) + dt);
+  }
+
+  const sortedIndices = [...bucketTimeSec.keys()].sort((a, b) => a - b);
+
+  return sortedIndices.map((index) => {
+    const minSecPerKm = index * bucketWidthSec;
+    const maxSecPerKm = (index + 1) * bucketWidthSec;
+    return {
+      minSecPerKm,
+      maxSecPerKm,
+      label: `${formatPaceBound(minSecPerKm)}–${formatPaceBound(maxSecPerKm)}/km`,
+      timeSec: bucketTimeSec.get(index) as number,
+    };
+  });
 }
 
 export interface AthleteHrZone {
