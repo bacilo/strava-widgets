@@ -233,12 +233,27 @@ Plans:
   4. User can view weekly/monthly volume trend charts, year-over-year comparisons, and cadence/HR average trends over months across the full archive.
   5. User can view a TRIMP-based training load chart (CTL/ATL/TSB "Fitness & Freshness") and pace/HR trend breakdowns per shoe.
 
-**Plans**: TBD
+**Plans**: 16 plans across 6 waves
 **UI hint**: yes
 
 Plans:
 
-- [ ] 18-01: TBD
+- [ ] 18-01-PLAN.md — Private athlete config split, build-time PII guard, publish-contract 404 assertion
+- [ ] 18-02-PLAN.md — WMA factor tables (committed + reproducible converter) and the pure age-grade lookup
+- [ ] 18-03-PLAN.md — Edwards/Banister TRIMP and the continuous daily CTL/ATL/TSB spine
+- [ ] 18-04-PLAN.md — Shared UI foundation: chart-theme module, list.ts formatters/badges, stylesheet additions
+- [ ] 18-05-PLAN.md — Gear name in the dashboard index and the per-shoe aggregate compute step
+- [ ] 18-06-PLAN.md — Trends tab state, rolling totals, volume series and the year consistency grid
+- [ ] 18-07-PLAN.md — compute-training-load build step over the committed HR stream archive
+- [ ] 18-08-PLAN.md — compute-age-grading build step emitting percentages only
+- [ ] 18-09-PLAN.md — Riegel prediction/guarded fit and the Records page logic
+- [ ] 18-10-PLAN.md — Cadence/HR, training-load windowing and coverage spans, gear bucketing logic
+- [ ] 18-11-PLAN.md — CLI subcommands, compute-all-stats chain, CI steps, publish verification
+- [ ] 18-12-PLAN.md — Records view: jump list, superlatives, PR tables, evolution charts, race predictions
+- [ ] 18-13-PLAN.md — Detail view PR badges and the Best Efforts This Run panel
+- [ ] 18-14-PLAN.md — Trends shell: ARIA tablist, rolling strip, Volume and Year-over-Year tabs
+- [ ] 18-15-PLAN.md — Trends: Cadence & HR, Training Load and Gear tabs
+- [ ] 18-16-PLAN.md — Full gate, validation reconciliation, and the real-browser human checkpoint
 
 ## Progress
 
@@ -264,7 +279,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 | 15. Best-Effort Engine | v2.0 | 4/4 | Complete    | 2026-08-10 |
 | 16. Dashboard Shell & Data Contract | v2.0 | 16/16 | Complete    | 2026-08-11 |
 | 17. Activity Browser & Detail Views | v2.0 | 15/15 | Complete    | 2026-08-11 |
-| 18. Records, Trends & Differentiators | v2.0 | 0/TBD | Not started | - |
+| 18. Records, Trends & Differentiators | v2.0 | 0/16 | Not started | - |
 
 ---
 *Last updated: 2026-08-11 — Phase 16 gap closure planned (7 plans, 3 waves)*
