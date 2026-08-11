@@ -60,6 +60,23 @@ Chart.register(LineController, LineElement, PointElement, LinearScale, Tooltip, 
  */
 const DECIMATION_CONFIG = { enabled: true, algorithm: 'lttb', samples: 500 } as const;
 
+/**
+ * Fixed y-axis gutter width, in px, shared by every band.
+ *
+ * Chart.js sizes each chart's y-axis to ITS OWN widest tick label. Because the
+ * pace band's labels (`10:00/km`) are far wider than heart rate's (`120`), each
+ * band would otherwise reserve a different left gutter and start its plot area
+ * at a different x — so the bands' x-axes would not line up vertically, and a
+ * single screen x would map to a different distance/time per band, quietly
+ * breaking the shared hover crosshair (D-26) as well as the visual alignment.
+ *
+ * Pinning one width across all bands makes the stacked bands share a common
+ * left edge. 72px fits the widest label this file can produce (`10:00/km` at
+ * the 14px tick font) with room for tick padding; any new channel whose labels
+ * are wider must raise this number rather than remove the pin.
+ */
+const Y_AXIS_WIDTH_PX = 72;
+
 // ---------------------------------------------------------------------------
 // Theme palette resolution
 //
@@ -489,6 +506,13 @@ export function mountChartBands(container: HTMLElement, options: MountChartBands
       },
       y: {
         type: 'linear',
+        // Pin every band's gutter to the same width so all bands share one
+        // left edge — see Y_AXIS_WIDTH_PX. Without this each band self-sizes
+        // to its own widest label and the x-axes drift out of alignment.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        afterFit: (scale: any) => {
+          scale.width = Y_AXIS_WIDTH_PX;
+        },
         grid: { display: true, color: hexToRgba(themeColors.border, 0.4) },
         ticks: {
           font: { size: 14 },

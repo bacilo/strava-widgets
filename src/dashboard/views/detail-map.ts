@@ -107,7 +107,29 @@ export function mountRouteMap(container: HTMLElement, options: MountRouteMapOpti
   container.appendChild(canvas);
 
   const map = L.map(canvas);
-  RouteRenderer.addBasemapSwitcher(map);
+  const basemap = RouteRenderer.addBasemapSwitcher(map);
+
+  // Basemap tiles come from a third-party CDN, so they can fail independently
+  // of everything else on the page — offline, CDN outage, or a content blocker
+  // filtering the tile domain. Leaflet's failure mode is silent: a tile that
+  // never loads keeps `visibility: hidden`, so the route polyline renders
+  // correctly over a blank white canvas with nothing explaining why.
+  //
+  // The route itself is still accurate and useful when this happens, so this
+  // does NOT swap in an empty state (that would discard good data). It adds a
+  // one-time note instead, reusing `.route-map__caveat` so no new CSS is
+  // needed. Fires once, not once per failed tile.
+  let basemapErrorNoted = false;
+  basemap.on('tileerror', () => {
+    if (basemapErrorNoted) return;
+    basemapErrorNoted = true;
+
+    const notice = document.createElement('p');
+    notice.className = 'route-map__caveat';
+    notice.textContent =
+      'Base map tiles could not be loaded, so the route is shown without a background map. The route itself is unaffected.';
+    container.appendChild(notice);
+  });
 
   // Force Leaflet to recalculate tile positions once the canvas has taken on
   // its real, laid-out size — the same sequence single-run-map's widget uses.
