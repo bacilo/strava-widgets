@@ -4,7 +4,7 @@ milestone: v2.0
 milestone_name: Training Dashboard
 status: executing
 stopped_at: Phase 16 plan 14 complete — phase pushed to origin/master and deployed to GitHub Pages (gh-pages HEAD 1646351); gap-closure plans 16-15/16-16 remain
-last_updated: "2026-08-11T11:40:16.763Z"
+last_updated: "2026-08-11T11:41:13.895Z"
 last_activity: 2026-08-11
 progress:
   total_phases: 5
@@ -88,6 +88,7 @@ Carried forward for future milestones:
 Previously resolved — SQLITE_CANTOPEN CI failure resolved by quick-1-01 (lazy geocoder init + dynamic import).
 
 - Phase 16 gap-closure needed before phase gate closes: GAP 1 (blocking, DASH-02) — deep-linked activity detail view renders 'Couldn't load this activity' in a real browser despite the same files serving 200 over plain HTTP in the automated smoke check; likely a client-side fetch-path bug in src/dashboard/data/detail-client.ts or how the hash router passes the id into it. GAP 2 (cosmetic, DASH-03) — theme toggle control is invisible in light mode though still functional when clicked. See .planning/phases/16-dashboard-shell-data-contract/16-09-SUMMARY.md Follow-ups section for full detail.
+- Plan 16-14 final push: git push origin master rejected a second time ('fetch first' / non-fast-forward). origin/master gained 1 new commit (76f9ecd, 'chore: update activities and stats [skip ci]') not in local master -- this is the git-auto-commit-action's data commit from the very daily-refresh run (31487234659) that Task 2 of this plan triggered, touching only data/activities/, data/geo/, data/streams/, data/sync-state.json. Zero file overlap with local's 3 unpushed commits (which touch only .planning/STATE.md, ROADMAP.md, REQUIREMENTS.md, and the new 16-14-SUMMARY.md). Per the explicit repeated authorization boundary ('If the push is rejected again for any reason, STOP and report rather than forcing'), executor halted again without merging, rebasing, or force-pushing. Awaiting explicit instruction to proceed.
 
 ### Quick Tasks Completed
 
