@@ -117,3 +117,7 @@ None - no external service configuration required.
 ---
 *Phase: 16-dashboard-shell-data-contract*
 *Completed: 2026-08-11*
+
+## Self-Check: PASSED
+
+All files referenced in this summary exist on disk (router.ts, router.test.ts, detail-client.test.ts, 16-03-PLAN.md, 16-05-PLAN.md, REQUIREMENTS.md, this SUMMARY.md). All three task commit hashes (`e9c9ca0`, `337c945`, `c7ed009`) are present in `git log --oneline`.
