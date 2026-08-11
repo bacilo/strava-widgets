@@ -204,12 +204,12 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 17-07-PLAN.md — Browser gear and athlete-config fetch clients + tests
-- [ ] 17-08-PLAN.md — List view: desktop table, mobile cards, sorting, numbered pagination
-- [ ] 17-10-PLAN.md — Real calendar view, multi-run picker, registry wiring, stub removal
-- [ ] 17-11-PLAN.md — Lazily-imported route map reusing RouteRenderer, with position marker
-- [ ] 17-12-PLAN.md — Lazily-imported stacked chart bands, per-band overlays, x-axis toggle
-- [ ] 17-13-PLAN.md — Splits table and pace-distribution / HR-zone section renderers
+- [x] 17-07-PLAN.md — Browser gear and athlete-config fetch clients + tests
+- [x] 17-08-PLAN.md — List view: desktop table, mobile cards, sorting, numbered pagination
+- [x] 17-10-PLAN.md — Real calendar view, multi-run picker, registry wiring, stub removal
+- [x] 17-11-PLAN.md — Lazily-imported route map reusing RouteRenderer, with position marker
+- [x] 17-12-PLAN.md — Lazily-imported stacked chart bands, per-band overlays, x-axis toggle
+- [x] 17-13-PLAN.md — Splits table and pace-distribution / HR-zone section renderers
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -263,7 +263,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 | 14. Stream Ingestion Foundation | v2.0 | 5/5 | Complete    | 2026-08-10 |
 | 15. Best-Effort Engine | v2.0 | 4/4 | Complete    | 2026-08-10 |
 | 16. Dashboard Shell & Data Contract | v2.0 | 16/16 | Complete    | 2026-08-11 |
-| 17. Activity Browser & Detail Views | v2.0 | 6/15 | In Progress|  |
+| 17. Activity Browser & Detail Views | v2.0 | 12/15 | In Progress|  |
 | 18. Records, Trends & Differentiators | v2.0 | 0/TBD | Not started | - |
 
 ---
