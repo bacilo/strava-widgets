@@ -111,6 +111,11 @@ None - no external service configuration required.
 - No rendering exists yet for any of these three tabs — that is explicitly out of scope for this plan and is the next plan's job.
 - `npm test` is green at 649/649 with zero regressions; `npm run build` is clean.
 
+## Self-Check: PASSED
+
+- All 6 created source/test files verified present on disk.
+- All 4 commits (`f06c115`, `b2ac8f4`, `75b8f95`, `3458d4d`) verified present in `git log --oneline --all`.
+
 ---
 *Phase: 18-records-trends-differentiators*
 *Completed: 2026-08-11*
