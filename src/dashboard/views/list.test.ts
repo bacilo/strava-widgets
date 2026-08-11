@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatActivityDate } from './list.js';
+import { formatActivityDate, formatPace } from './list.js';
 
 describe('formatActivityDate — WR-02 timezone-independent local dates', () => {
   it('formats a real intervals.icu no-Z record', () => {
@@ -32,5 +32,40 @@ describe('formatActivityDate — WR-02 timezone-independent local dates', () => 
 
   it('returns an em dash for an empty string', () => {
     expect(formatActivityDate('')).toBe('—');
+  });
+});
+
+describe('formatPace — CR-01 m:ss rollover', () => {
+  it('rolls 359.9 s/km up to the next minute instead of rendering :60', () => {
+    // The defect: floor(359.9/60)=5 while round(359.9%60)=60 -> "5:60/km".
+    expect(formatPace(359.9)).toBe('6:00/km');
+  });
+
+  it('handles the same boundary at other minute values', () => {
+    expect(formatPace(419.8)).toBe('7:00/km');
+    expect(formatPace(299.5)).toBe('5:00/km');
+    expect(formatPace(359.6)).toBe('6:00/km');
+  });
+
+  it('never emits a seconds component of 60 for any real archive value', () => {
+    // Guards the whole live dataset's value range, not just the 11 rows that
+    // happened to trip it — any pace within rounding distance of a minute
+    // boundary must roll over. Step is deliberately fine enough to land on
+    // fractional boundaries like x.5 and x.9.
+    for (let s = 60; s <= 1200; s = Math.round((s + 0.1) * 10) / 10) {
+      const out = formatPace(s);
+      expect(out, `formatPace(${s}) produced ${out}`).not.toMatch(/:60\/km$/);
+      expect(out).toMatch(/^\d+:[0-5]\d\/km$/);
+    }
+  });
+
+  it('rounds to nearest second rather than truncating', () => {
+    expect(formatPace(360.4)).toBe('6:00/km');
+    expect(formatPace(360.6)).toBe('6:01/km');
+    expect(formatPace(300)).toBe('5:00/km');
+  });
+
+  it('returns an em dash for null', () => {
+    expect(formatPace(null)).toBe('—');
   });
 });

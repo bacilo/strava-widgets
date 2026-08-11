@@ -49,11 +49,25 @@ function formatDurationHms(totalSeconds: number): string {
   return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
-/** Formats a pace in seconds-per-km as `m:ss/km`, or an em dash when null. */
-function formatPace(secPerKm: number | null): string {
+/**
+ * Formats a pace in seconds-per-km as `m:ss/km`, or an em dash when null.
+ *
+ * Rounds to whole seconds BEFORE splitting into minutes and seconds. Deriving
+ * the two components independently — `floor(s/60)` alongside `round(s % 60)` —
+ * lets the seconds half round up to 60 while the minutes half stays put, so
+ * 359.9 s/km rendered as "5:60/km" instead of "6:00/km". That hit 11 of the
+ * 1,867 rows in the live index. Any future edit must keep a single rounding
+ * step feeding both components.
+ *
+ * This is the ONE pace formatter in the dashboard — detail.ts imports it rather
+ * than keeping its own copy, matching how formatActivityDate is shared. The
+ * duplicate is why the defect had two homes; do not reintroduce one.
+ */
+export function formatPace(secPerKm: number | null): string {
   if (secPerKm === null) return '—';
-  const minutes = Math.floor(secPerKm / 60);
-  const seconds = Math.round(secPerKm % 60);
+  const totalSeconds = Math.round(secPerKm);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
   return `${minutes}:${String(seconds).padStart(2, '0')}/km`;
 }
 

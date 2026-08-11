@@ -13,7 +13,9 @@ import { ROUTES } from '../view.types.js';
 import { isValidActivityId } from '../router.js';
 import type { DetailClient, ActivityDetail } from '../data/detail-client.js';
 import type { IndexClient } from '../data/index-client.js';
-import { formatActivityDate } from './list.js';
+// formatPace is imported rather than duplicated: this view previously kept its
+// own copy, and both copies carried the same m:ss rounding defect. One formatter.
+import { formatActivityDate, formatPace } from './list.js';
 
 const DASH = '—';
 
@@ -22,13 +24,6 @@ function formatDurationHms(totalSeconds: number): string {
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = Math.floor(totalSeconds % 60);
   return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-}
-
-function formatPace(secPerKm: number | null): string {
-  if (secPerKm === null) return DASH;
-  const minutes = Math.floor(secPerKm / 60);
-  const seconds = Math.round(secPerKm % 60);
-  return `${minutes}:${String(seconds).padStart(2, '0')}/km`;
 }
 
 /** Maps `undefined`, `null`, and `NaN` (or a non-number, since `StravaActivity`'s index signature widens unknown fields) to `null`. */

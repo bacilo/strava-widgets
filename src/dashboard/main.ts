@@ -54,6 +54,15 @@ async function onMatch(match: RouteMatch): Promise<void> {
     await view.mount({ container, routeParams: match.routeParams, query: match.query });
   } catch (error) {
     console.error(error);
+    // Ownership guard. onMatch is async but the hashchange handler invokes it
+    // unawaited, so a slow navigation A can still be in flight when navigation B
+    // starts. Without this check, A's rejection would blow away B's freshly
+    // rendered view and strand a permanent error panel on a route that is fine.
+    // list.ts and overview.ts already guard their own error paths this way; this
+    // app-wide boundary was the one that got missed. The ownership token here is
+    // currentView rather than the container, because every view mounts into the
+    // same container element — only currentView distinguishes navigations.
+    if (currentView !== view) return;
     container.replaceChildren();
     const errorState = document.createElement('section');
     errorState.className = 'error-state';
