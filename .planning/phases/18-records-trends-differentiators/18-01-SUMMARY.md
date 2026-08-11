@@ -124,3 +124,7 @@ Both `scripts/build-widgets.mjs` and `data/config/athlete.json` were restored to
 ---
 *Phase: 18-records-trends-differentiators*
 *Completed: 2026-08-11*
+
+## Self-Check: PASSED
+
+All 8 claimed files verified present on disk. All 4 commit hashes (5c19676, 9933d7f, a0d938f, 8227f96) verified present in git log.
