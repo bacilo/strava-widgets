@@ -213,8 +213,8 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 17-09-PLAN.md — List view: search, range filters, presets, removable chips, empty state
-- [ ] 17-14-PLAN.md — Detail view orchestration: stats header, gear, lazy mounts, hover sync
+- [x] 17-09-PLAN.md — List view: search, range filters, presets, removable chips, empty state
+- [x] 17-14-PLAN.md — Detail view orchestration: stats header, gear, lazy mounts, hover sync
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -263,7 +263,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 | 14. Stream Ingestion Foundation | v2.0 | 5/5 | Complete    | 2026-08-10 |
 | 15. Best-Effort Engine | v2.0 | 4/4 | Complete    | 2026-08-10 |
 | 16. Dashboard Shell & Data Contract | v2.0 | 16/16 | Complete    | 2026-08-11 |
-| 17. Activity Browser & Detail Views | v2.0 | 12/15 | In Progress|  |
+| 17. Activity Browser & Detail Views | v2.0 | 14/15 | In Progress|  |
 | 18. Records, Trends & Differentiators | v2.0 | 0/TBD | Not started | - |
 
 ---
