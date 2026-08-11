@@ -10,7 +10,7 @@ export default defineConfig({
       formats: ['iife']
     },
     outDir: 'dist/widget',
-    emptyDir: true,
+    emptyOutDir: true,
     rollupOptions: {
       external: [],
       output: {

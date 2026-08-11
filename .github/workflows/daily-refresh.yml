@@ -96,6 +96,24 @@ jobs:
       - name: Build widgets
         run: npm run build-widgets
 
+      # Phase 16 exit gate (WR-06): before this pair of steps was added, both
+      # `npm test` and `npm run verify-dashboard` were wired in package.json but
+      # never ran in the pipeline that publishes, so a regression in URL shape,
+      # data copying, or the index contract deployed silently every night. Both
+      # steps below are blocking, with no error-tolerant escape hatch, on purpose
+      # -- that is the entire point of a gate. The verify step runs after `Build widgets`
+      # because scripts/verify-dashboard-publish.mjs serves the built
+      # dist/widgets/ directory over HTTP; running it earlier would probe a
+      # stale or absent directory. The test step runs first so a logic
+      # regression is reported before the slower HTTP probe. Necessary but not
+      # sufficient: the HTTP probe exercises URL paths, not browser-side logic,
+      # and could not have caught CR-01.
+      - name: Run test suite
+        run: npm test
+
+      - name: Verify dashboard publish contract
+        run: npm run verify-dashboard
+
       # data/stats/ is gitignored (regenerated every run) — listing it here would
       # make `git add` fail on an ignored path and skip the deploy below.
       # data/streams/ is safe to list: it's a committed data family, not
