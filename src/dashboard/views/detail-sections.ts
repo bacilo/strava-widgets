@@ -16,10 +16,12 @@
 
 import type { Split } from './detail-splits.js';
 import type { PaceBucket, ZoneTime } from './detail-zones.js';
-// formatPace and formatDurationHms are the dashboard's only pace/duration
-// formatters (list.ts) — imported rather than duplicated, matching the
+// formatPace, formatDurationHms, formatEffortDuration, appendBadge, and
+// appendLowConfidenceBadge are the dashboard's only pace/duration/badge
+// builders (list.ts) — imported rather than duplicated, matching the
 // precedent detail.ts already set for formatPace.
-import { formatPace, formatDurationHms } from './list.js';
+import { formatPace, formatDurationHms, formatEffortDuration, appendBadge, appendLowConfidenceBadge } from './list.js';
+import type { BestEffortPanelRow } from './detail-best-efforts-logic.js';
 
 // Same em dash as `DASH` in detail.ts. Defined locally rather than imported:
 // detail.ts imports THIS module, so importing back would create a cycle.
@@ -319,6 +321,118 @@ export function buildBreakdownSection(
     heading.textContent = 'Heart Rate Zones';
     section.appendChild(heading);
     section.appendChild(buildHrZoneRows(zoneTimes));
+  }
+
+  return section;
+}
+
+/** Builds the Age-Grade cell: one decimal + `%`, em dash when absent, `1k` rows append `*` (18-UI-SPEC § 6's footnote asterisk). */
+function buildAgeGradeCell(row: BestEffortPanelRow): HTMLTableCellElement {
+  if (row.agePercent === null) {
+    return buildTextCell(DASH, 'pr-table__numeric');
+  }
+  const suffix = row.distance === '1k' ? '*' : '';
+  return buildTextCell(`${row.agePercent.toFixed(1)}%${suffix}`, 'pr-table__numeric');
+}
+
+/** Builds the PR? cell: a plain `PR` badge when `isPr`, plus the low-confidence and excluded badges when applicable. */
+function buildPrFlagsCell(row: BestEffortPanelRow, exclusionReason: string | null): HTMLTableCellElement {
+  const cell = document.createElement('td');
+
+  if (row.isPr) {
+    appendBadge(cell, 'PR');
+  }
+  if (row.lowConfidence) {
+    appendLowConfidenceBadge(cell, `best-efforts-${row.distance}`);
+  }
+  if (row.excluded) {
+    appendBadge(cell, exclusionReason ? `Excluded — ${exclusionReason}` : 'Excluded from records');
+  }
+
+  return cell;
+}
+
+/**
+ * Builds the "Best Efforts This Run" panel (18-UI-SPEC § 5, D-08, REC-04) —
+ * one row per distance this activity produced ANY effort for, not only its
+ * PR-setting ones. Mirrors `buildSplitsSection`'s shape exactly: a
+ * `<section class="card detail-section">`, a heading, an empty-state early
+ * return, then the table.
+ *
+ * The section is NEVER omitted — a run with zero qualifying efforts still
+ * renders the named empty state rather than disappearing, so its absence
+ * always reads as a real "too short" fact, never as a bug (18-UI-SPEC § 15).
+ */
+export function buildBestEffortsSection(
+  rows: readonly BestEffortPanelRow[],
+  exclusionReason: string | null
+): HTMLElement {
+  const section = document.createElement('section');
+  section.className = 'card detail-section';
+
+  const heading = document.createElement('h2');
+  heading.className = 'text-heading';
+  heading.textContent = 'Best Efforts This Run';
+  section.appendChild(heading);
+
+  if (rows.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+
+    const emptyHeading = document.createElement('h3');
+    emptyHeading.textContent = 'No qualifying efforts';
+    empty.appendChild(emptyHeading);
+
+    const emptyBody = document.createElement('p');
+    emptyBody.textContent = 'This run is shorter than 400m or below the shortest effort threshold.';
+    empty.appendChild(emptyBody);
+
+    section.appendChild(empty);
+    return section;
+  }
+
+  const table = document.createElement('table');
+  table.className = 'activity-table pr-table';
+
+  const thead = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  const headers = ['Distance', 'Time', 'Pace', 'Age-Grade', 'PR?'];
+  for (const headerText of headers) {
+    const th = document.createElement('th');
+    th.textContent = headerText;
+    headRow.appendChild(th);
+  }
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  let hasFootnoteRow = false;
+  for (const row of rows) {
+    const tr = document.createElement('tr');
+    if (row.isPr) tr.classList.add('pr-table__row--pr');
+
+    tr.appendChild(buildTextCell(row.display));
+    tr.appendChild(buildTextCell(formatEffortDuration(row.durationSec), 'pr-table__numeric'));
+    tr.appendChild(buildTextCell(formatPace(row.paceSecPerKm), 'pr-table__numeric'));
+    tr.appendChild(buildAgeGradeCell(row));
+    tr.appendChild(buildPrFlagsCell(row, exclusionReason));
+
+    if (row.distance === '1k' && row.agePercent !== null) {
+      hasFootnoteRow = true;
+    }
+
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+
+  section.appendChild(table);
+
+  if (hasFootnoteRow) {
+    const footnote = document.createElement('p');
+    footnote.className = 'text-label';
+    footnote.textContent =
+      '* Interpolated between 800m and mile factors — no official WMA standard exists for 1k.';
+    section.appendChild(footnote);
   }
 
   return section;

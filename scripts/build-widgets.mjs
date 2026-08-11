@@ -205,34 +205,58 @@ function assertNoPrivateArtifacts() {
   console.log(`✓ Private-artifact scan: ${scanned} published JSON file${scanned === 1 ? '' : 's'} scanned, none contain identity/health fields.`);
 }
 
+/**
+ * Copies every `.json` file from `srcDir` into `destDir`, recursing into
+ * subdirectories (e.g. `data/stats/best-efforts/{id}.json`, added 18-13) so
+ * a per-activity shard directory nested one level inside an already-listed
+ * `dataDirs` entry is published exactly like its flat siblings, with no
+ * separate `dataDirs` entry required. Returns `{ copied, skipped }` totals
+ * across the whole subtree.
+ */
+function copyJsonTree(srcDir, destDir) {
+  mkdirSync(destDir, { recursive: true });
+  let copied = 0;
+  let skipped = 0;
+
+  for (const entry of readdirSync(srcDir, { withFileTypes: true })) {
+    const srcPath = resolve(srcDir, entry.name);
+    const destPath = resolve(destDir, entry.name);
+
+    if (entry.isDirectory()) {
+      const nested = copyJsonTree(srcPath, destPath);
+      copied += nested.copied;
+      skipped += nested.skipped;
+      continue;
+    }
+
+    if (!entry.name.endsWith('.json')) continue;
+
+    // Efficiency guard: skip the copy when the destination is already
+    // up to date, so local rebuilds don't recopy ~150MB every time. CI
+    // always runs on a fresh checkout, so it always does the full copy.
+    let shouldCopy = true;
+    if (existsSync(destPath)) {
+      const srcMtime = statSync(srcPath).mtimeMs;
+      const destMtime = statSync(destPath).mtimeMs;
+      if (destMtime >= srcMtime) {
+        shouldCopy = false;
+      }
+    }
+    if (shouldCopy) {
+      copyFileSync(srcPath, destPath);
+      copied++;
+    } else {
+      skipped++;
+    }
+  }
+
+  return { copied, skipped };
+}
+
 function copyDataFiles() {
   for (const { src, dest } of dataDirs) {
     if (!existsSync(src)) continue;
-    mkdirSync(dest, { recursive: true });
-    let copied = 0;
-    let skipped = 0;
-    for (const file of readdirSync(src)) {
-      if (!file.endsWith('.json')) continue;
-      const srcPath = resolve(src, file);
-      const destPath = resolve(dest, file);
-      // Efficiency guard: skip the copy when the destination is already
-      // up to date, so local rebuilds don't recopy ~150MB every time. CI
-      // always runs on a fresh checkout, so it always does the full copy.
-      let shouldCopy = true;
-      if (existsSync(destPath)) {
-        const srcMtime = statSync(srcPath).mtimeMs;
-        const destMtime = statSync(destPath).mtimeMs;
-        if (destMtime >= srcMtime) {
-          shouldCopy = false;
-        }
-      }
-      if (shouldCopy) {
-        copyFileSync(srcPath, destPath);
-        copied++;
-      } else {
-        skipped++;
-      }
-    }
+    const { copied, skipped } = copyJsonTree(src, dest);
     console.log(`✓ Copied ${src}/*.json → ${dest}/ (${copied} copied, ${skipped} skipped)`);
   }
 
