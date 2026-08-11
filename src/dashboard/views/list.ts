@@ -41,8 +41,12 @@ export function formatActivityDate(isoLocal: string): string {
   return `${MONTH_NAMES[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
 }
 
-/** Formats a duration in seconds as `h:mm:ss`. */
-function formatDurationHms(totalSeconds: number): string {
+/**
+ * Formats a duration in seconds as `h:mm:ss`. Exported so `detail-sections.ts`
+ * (17-13) imports it rather than keeping its own copy, matching the
+ * `formatPace` precedent above — one duration formatter, not two.
+ */
+export function formatDurationHms(totalSeconds: number): string {
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = Math.floor(totalSeconds % 60);
