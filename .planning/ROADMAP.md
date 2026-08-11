@@ -51,7 +51,7 @@
 
 - [x] **Phase 14: Stream Ingestion Foundation** - Backfill and daily-sync pipeline produces committed per-activity time-series data (or an explicit unavailable flag) (completed 2026-08-10)
 - [x] **Phase 15: Best-Effort Engine** - Pipeline computes fastest 400m..marathon efforts within every run from streams (completed 2026-08-10)
-- [ ] **Phase 16: Dashboard Shell & Data Contract** - Navigable, themed SPA shell deployed to GitHub Pages with lazy-loaded data contract (all 9 plans executed; verification 2026-08-11 found gaps — not deployed, DASH-02 blocked)
+- [ ] **Phase 16: Dashboard Shell & Data Contract** - Navigable, themed SPA shell deployed to GitHub Pages with lazy-loaded data contract (9 plans executed; verification 2026-08-11 found gaps — not deployed, DASH-02 blocked; 7 gap-closure plans 16-10..16-16 planned 2026-08-11)
 - [ ] **Phase 17: Activity Browser & Detail Views** - Browse, filter, and drill into any archived activity with full pace/HR/cadence detail
 - [ ] **Phase 18: Records, Trends & Differentiators** - PR lists, evolution, badges, aggregates, TRIMP training load, age-grading, Riegel predictions, gear-aware trends
 
@@ -242,4 +242,4 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 | 18. Records, Trends & Differentiators | v2.0 | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-08-10 — Phase 16 planned (9 plans, 5 waves)*
+*Last updated: 2026-08-11 — Phase 16 gap closure planned (7 plans, 3 waves)*
