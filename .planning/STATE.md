@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Training Dashboard
 status: executing
-stopped_at: Phase 16 UI-SPEC approved
-last_updated: "2026-08-10T18:39:41.651Z"
-last_activity: 2026-08-10 -- Phase 16 execution started
+stopped_at: Phase 16 plan 09 checkpoint PARTIAL - gap-closure pending on DASH-02/DASH-03
+last_updated: "2026-08-11T08:09:50.790Z"
+last_activity: 2026-08-11
 progress:
   total_phases: 5
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 18
-  completed_plans: 9
-  percent: 40
+  completed_plans: 18
+  percent: 60
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 
 ## Current Position
 
-Phase: 16 (dashboard-shell-data-contract) — EXECUTING
-Plan: 1 of 9
-Status: Executing Phase 16
-Last activity: 2026-08-10 -- Phase 16 execution started
+Phase: 16 (dashboard-shell-data-contract) — GAP CLOSURE NEEDED
+Plan: 9 of 9 executed; human checkpoint PARTIAL (DASH-01 pass, DASH-02 fail, DASH-03 partial)
+Status: Executing — all 9 plans summarized; gap-closure pending (see Blockers/Concerns)
+Last activity: 2026-08-11
 
-Progress: [██████████] 100% (within Phase 15)
+Progress: [██████████] 100% (plans); phase gate open pending gap-closure
 
 ## Performance Metrics
 
@@ -42,6 +42,7 @@ Progress: [██████████] 100% (within Phase 15)
 | v1.1 | 10 | +2,858 | 3 days |
 | v1.2 | 11 | +2,446 | 2 days |
 | **Total** | **30** | **9,148** | **6 days** |
+| Phase 16 P09 | ~30min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -56,6 +57,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - Records/trends "view" requirements (weekly/monthly totals, TRIMP, YoY) do not depend on streams and are grouped into presentation (Phase 18) rather than gated behind stream work.
 - Commit derived/decimated stream JSON to data/streams/, never raw full-resolution — repo already has a bloat precedent from data/heatmap/all-points.json.
 - Phase 15 plan 04 (D-05 external validation): 2 of 8 candidate fixture rows (5k on activities 7827165619 and 9716153503) were dropped rather than frozen, because Strava does not surface a 5k best-effort panel for either activity and no platform-reported value existed — only the developer's manual judgment, which the plan's own anti-circularity rule forbids using as an expected value. The remaining 6 rows still clear every coverage guard.
+- [Phase 16]: 16-09 human checkpoint recorded as PARTIAL, not approved: navigation (DASH-01) and error/degraded states confirmed working; deep-link detail rendering (DASH-02) and theme-toggle visibility (DASH-03) both surfaced real defects, logged verbatim as gap-closure work rather than patched under checkpoint pressure. requirements-completed for 16-09 lists only DASH-01.
 
 ### Key Findings
 
@@ -81,7 +83,9 @@ Carried forward for future milestones:
 
 ### Blockers/Concerns
 
-None active — SQLITE_CANTOPEN CI failure resolved by quick-1-01 (lazy geocoder init + dynamic import).
+Previously resolved — SQLITE_CANTOPEN CI failure resolved by quick-1-01 (lazy geocoder init + dynamic import).
+
+- Phase 16 gap-closure needed before phase gate closes: GAP 1 (blocking, DASH-02) — deep-linked activity detail view renders 'Couldn't load this activity' in a real browser despite the same files serving 200 over plain HTTP in the automated smoke check; likely a client-side fetch-path bug in src/dashboard/data/detail-client.ts or how the hash router passes the id into it. GAP 2 (cosmetic, DASH-03) — theme toggle control is invisible in light mode though still functional when clicked. See .planning/phases/16-dashboard-shell-data-contract/16-09-SUMMARY.md Follow-ups section for full detail.
 
 ### Quick Tasks Completed
 
@@ -91,9 +95,9 @@ None active — SQLITE_CANTOPEN CI failure resolved by quick-1-01 (lazy geocoder
 
 ## Session Continuity
 
-Last session: 2026-08-10T17:36:01.334Z
-Stopped at: Phase 16 UI-SPEC approved
-Resume file: .planning/phases/16-dashboard-shell-data-contract/16-UI-SPEC.md
+Last session: 2026-08-11T08:09:42.394Z
+Stopped at: Phase 16 plan 09 checkpoint PARTIAL - gap-closure pending on DASH-02/DASH-03
+Resume file: None (gap-closure planning next)
 
 ---
-*Last updated: 2026-08-10 — Phase 15 (best-effort-engine) complete: engine validated internally (units), at scale (real archive run), and externally (Strava/intervals.icu fixtures)*
+*Last updated: 2026-08-11 — Phase 16 (dashboard-shell-data-contract) all 9 plans executed and summarized; human checkpoint on plan 09 came back PARTIAL — DASH-01 confirmed, DASH-02 (blocking) and DASH-03 (cosmetic) have open gaps pending gap-closure planning before the phase gate closes*
