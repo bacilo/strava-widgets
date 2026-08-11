@@ -97,3 +97,12 @@ None - no external service configuration required.
 ---
 *Phase: 17-activity-browser-detail-views*
 *Completed: 2026-08-11*
+
+## Self-Check: PASSED
+
+- FOUND: src/dashboard/views/list-logic.ts
+- FOUND: src/dashboard/views/list-logic.test.ts
+- FOUND: .planning/phases/17-activity-browser-detail-views/17-02-SUMMARY.md
+- FOUND: commit c3a99ce (Task 1)
+- FOUND: commit ead6ede (Task 2)
+- FOUND: commit 3e8c2f3 (docs: SUMMARY)
