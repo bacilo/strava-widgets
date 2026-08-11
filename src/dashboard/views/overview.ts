@@ -235,6 +235,12 @@ export function createOverviewView(deps: OverviewViewDeps): DashboardView {
       const view = document.createElement('div');
       view.className = 'view';
 
+      const heading = document.createElement('h1');
+      heading.className = 'text-heading';
+      heading.textContent = 'Overview';
+      heading.setAttribute('tabindex', '-1');
+      view.appendChild(heading);
+
       const rows = indexClient.getRows();
 
       view.appendChild(buildHeadlineStatsCard(totals, streaks));
@@ -242,6 +248,11 @@ export function createOverviewView(deps: OverviewViewDeps): DashboardView {
       view.appendChild(buildRecentActivitiesCard(rows));
 
       ctx.container.appendChild(view);
+
+      // Every hash navigation announces a context change to assistive tech
+      // (17-UI-SPEC § 5 Cross-Surface focus management) — overview is the
+      // only view no other Phase 17 plan touches.
+      heading.focus();
     },
 
     unmount(): void {
