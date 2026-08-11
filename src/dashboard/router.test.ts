@@ -88,6 +88,11 @@ describe('isValidActivityId — the single id-validation chokepoint', () => {
     expect(isValidActivityId('3475726256')).toBe(true);
   });
 
+  it('accepts an intervals.icu i-prefixed id (CR-01 regression)', () => {
+    expect(isValidActivityId('i174109928')).toBe(true);
+    expect(isValidActivityId('i174284902')).toBe(true);
+  });
+
   it.each([
     ['', 'empty string'],
     ['abc', 'non-numeric'],
@@ -98,11 +103,23 @@ describe('isValidActivityId — the single id-validation chokepoint', () => {
     ['../secrets', 'path traversal attempt'],
     ['12%2F..', 'percent-encoded traversal attempt'],
     ['<script>', 'markup injection attempt'],
+    ['x123', 'wrong prefix letter'],
+    ['i', 'prefix with no digits'],
+    ['ii123', 'doubled prefix'],
+    ['I174109928', 'uppercase prefix'],
+    ['1i23', 'interior letter'],
+    ['i12.3', 'prefix plus decimal'],
+    ['i../secrets', 'prefix plus traversal'],
   ])('rejects %j (%s)', (value) => {
     expect(isValidActivityId(value)).toBe(false);
   });
 
   it('rejects an id over the length ceiling (40 digits)', () => {
     expect(isValidActivityId('0'.repeat(40))).toBe(false);
+  });
+
+  it('accepts an i-prefixed id at the 20-digit ceiling and rejects one over it', () => {
+    expect(isValidActivityId('i' + '0'.repeat(20))).toBe(true);
+    expect(isValidActivityId('i' + '0'.repeat(21))).toBe(false);
   });
 });

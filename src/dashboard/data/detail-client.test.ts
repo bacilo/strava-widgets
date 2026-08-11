@@ -39,6 +39,16 @@ function fakeFetch(responses: FakeResponseSpec[]): { fetchImpl: FetchLike; calls
 const fakeActivity = { id: 3475726256, name: 'Morning Run', distance: 5000 };
 const fakeStream = { schemaVersion: 1, id: '3475726256', channels: {} };
 
+// The no-`Z` shape on `start_date_local` is deliberate — it is the real
+// intervals.icu record shape (see data/activities/i174109928.json).
+const fakeIntervalsActivity = {
+  id: 'i174109928',
+  name: 'Morning Run',
+  distance: 5000,
+  start_date_local: '2026-08-06T07:28:22',
+};
+const fakeIntervalsStream = { schemaVersion: 1, id: 'i174109928', channels: {} };
+
 describe('createDetailClient — construction', () => {
   it('performs zero fetches at construction time', () => {
     const { fetchImpl, calls } = fakeFetch([]);
@@ -69,6 +79,18 @@ describe('createDetailClient — happy path fetch order and shape', () => {
     expect(result.activity).toEqual(fakeActivity);
     expect(result.stream).toEqual(fakeStream);
   });
+
+  it('loadDetail(i174109928) — the id survives the guard and reaches URL construction (CR-01 regression)', async () => {
+    const { fetchImpl, calls } = fakeFetch([
+      { ok: true, status: 200, statusText: 'OK', body: fakeIntervalsActivity },
+      { ok: true, status: 200, statusText: 'OK', body: fakeIntervalsStream },
+    ]);
+    const client = createDetailClient({ fetchImpl });
+    const result = await client.loadDetail('i174109928');
+    expect(calls).toEqual(['data/activities/i174109928.json', 'data/streams/i174109928.json']);
+    expect(result.id).toBe('i174109928');
+    expect(result.activity).toEqual(fakeIntervalsActivity);
+  });
 });
 
 describe('createDetailClient — missing stream tolerance', () => {
@@ -95,7 +117,7 @@ describe('createDetailClient — activity fetch failure', () => {
 });
 
 describe('createDetailClient — id validation chokepoint', () => {
-  const invalidIds = ['abc', '../../secrets', '12%2F..', '', '<script>'];
+  const invalidIds = ['abc', '../../secrets', '12%2F..', '', '<script>', 'x123', 'i', 'I174109928', '1i23'];
 
   for (const id of invalidIds) {
     it(`loadDetail(${JSON.stringify(id)}) rejects with InvalidActivityIdError and records zero fetches`, async () => {

@@ -94,12 +94,14 @@ export function resolveHash(hash: string, routes: readonly string[]): RouteMatch
  * The single exported chokepoint every fetch-URL builder and every DOM
  * writer in plans 05-07 must call before using a route param (threat
  * T-16-RT-01). Do not duplicate this regex anywhere else in `src/dashboard/`.
- * The 20-digit ceiling is a generous bound — a real Strava/intervals id is
- * well under it — chosen to reject pathological input without encoding any
- * real id's exact length.
+ * Strava-era ids are bare digits (`3475726256`); ids ingested since the Aug
+ * 2026 intervals.icu migration carry a single leading lowercase `i`
+ * (`i174109928`). The 20-digit ceiling applies to the digit run only. The
+ * pattern still admits no `.`, `/`, `\`, `%`, `<`, `>`, `-`, or whitespace,
+ * which is the T-16-RT-01 traversal/injection guarantee.
  */
 export function isValidActivityId(id: string): boolean {
-  return typeof id === 'string' && /^\d{1,20}$/.test(id);
+  return typeof id === 'string' && /^i?\d{1,20}$/.test(id);
 }
 
 export interface RouterOptions {
