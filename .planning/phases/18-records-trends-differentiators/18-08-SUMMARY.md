@@ -110,3 +110,7 @@ None — the phase continues to pass with `data/private/athlete-private.json` ab
 ---
 *Phase: 18-records-trends-differentiators*
 *Completed: 2026-08-11*
+
+## Self-Check: PASSED
+
+Both claimed files (`src/analytics/compute-age-grading.ts`, `src/analytics/compute-age-grading.test.ts`) and the SUMMARY.md itself verified present on disk; all 3 claimed commit hashes (`ac994d8`, `7114476`, `f20c8c3`) verified present in `git log --oneline --all`.
