@@ -19,7 +19,7 @@ import { ROUTES } from '../view.types.js';
 import type { IndexClient } from '../data/index-client.js';
 import type { DashboardIndexRow } from '../../analytics/dashboard-index.types.js';
 import { navigateTo } from '../router.js';
-import type { SortKey, SortDir, ListState } from './list-logic.js';
+import type { SortKey, SortDir, ListState, DatePresetId } from './list-logic.js';
 import {
   DEFAULT_DIR,
   parseListQuery,
@@ -27,6 +27,11 @@ import {
   filterRows,
   sortRows,
   paginate,
+  activeFilterCount,
+  DISTANCE_PRESETS,
+  datePresetRange,
+  parsePaceInput,
+  formatPaceInput,
 } from './list-logic.js';
 
 const MONTH_NAMES = [
@@ -453,6 +458,294 @@ function buildPagination(clampedPage: number, totalPages: number, state: ListSta
 }
 
 // ---------------------------------------------------------------------------
+// Filter bar (BROWSE-03/BROWSE-04/BROWSE-06) — search box + collapsible
+// range-filter panel with presets. All filter VALUES flow through the URL
+// exactly like sort/page do; the panel's open/closed state is a plain
+// in-memory boolean owned by the view factory (D-09), never persisted and
+// never written to the URL.
+// ---------------------------------------------------------------------------
+
+const FILTER_PANEL_ID = 'list-filter-panel';
+
+/** Parses a trimmed numeric string, tolerating garbage the same way
+ * `list-logic.ts`'s `parseNonNegativeNumber` does — an unparseable or
+ * negative value drops that one bound rather than producing a `NaN`
+ * comparison that would silently pass every row (T-17-URL-02 lineage). */
+function parseOptionalNonNegativeNumber(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (trimmed === '') return null;
+  const value = Number(trimmed);
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+function buildDateField(
+  state: ListState,
+  applyImmediate: (next: ListState) => void,
+  applyDebounced: (next: ListState) => void
+): HTMLDivElement {
+  const field = document.createElement('div');
+  field.className = 'filter-field';
+
+  const legend = document.createElement('span');
+  legend.className = 'text-label';
+  legend.textContent = 'Date range';
+  field.appendChild(legend);
+
+  const fromInput = document.createElement('input');
+  fromInput.type = 'date';
+  fromInput.setAttribute('aria-label', 'From date');
+  fromInput.value = state.filters.from ?? '';
+
+  const toInput = document.createElement('input');
+  toInput.type = 'date';
+  toInput.setAttribute('aria-label', 'To date');
+  toInput.value = state.filters.to ?? '';
+
+  function buildNext(): ListState {
+    return {
+      ...state,
+      page: 1,
+      filters: { ...state.filters, from: fromInput.value || null, to: toInput.value || null },
+    };
+  }
+
+  fromInput.addEventListener('input', () => applyDebounced(buildNext()));
+  fromInput.addEventListener('change', () => applyImmediate(buildNext()));
+  toInput.addEventListener('input', () => applyDebounced(buildNext()));
+  toInput.addEventListener('change', () => applyImmediate(buildNext()));
+
+  field.appendChild(fromInput);
+  field.appendChild(toInput);
+
+  const presetRow = document.createElement('div');
+  presetRow.className = 'chip-row';
+  const datePresets: readonly { id: DatePresetId; label: string }[] = [
+    { id: 'this-year', label: 'This year' },
+    { id: 'last-12-months', label: 'Last 12 months' },
+  ];
+  for (const preset of datePresets) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'preset-chip';
+    btn.textContent = preset.label;
+    btn.addEventListener('click', () => {
+      const range = datePresetRange(preset.id, new Date());
+      applyImmediate({
+        ...state,
+        page: 1,
+        filters: { ...state.filters, from: range.from, to: range.to },
+      });
+    });
+    presetRow.appendChild(btn);
+  }
+  field.appendChild(presetRow);
+
+  return field;
+}
+
+function buildDistanceField(
+  state: ListState,
+  applyImmediate: (next: ListState) => void,
+  applyDebounced: (next: ListState) => void
+): HTMLDivElement {
+  const field = document.createElement('div');
+  field.className = 'filter-field';
+
+  const legend = document.createElement('span');
+  legend.className = 'text-label';
+  legend.textContent = 'Distance range (km)';
+  field.appendChild(legend);
+
+  const minInput = document.createElement('input');
+  minInput.type = 'number';
+  minInput.step = '0.1';
+  minInput.min = '0';
+  minInput.setAttribute('aria-label', 'Min distance (km)');
+  minInput.value = state.filters.dMinKm !== null ? String(state.filters.dMinKm) : '';
+
+  const maxInput = document.createElement('input');
+  maxInput.type = 'number';
+  maxInput.step = '0.1';
+  maxInput.min = '0';
+  maxInput.setAttribute('aria-label', 'Max distance (km)');
+  maxInput.value = state.filters.dMaxKm !== null ? String(state.filters.dMaxKm) : '';
+
+  function buildNext(): ListState {
+    return {
+      ...state,
+      page: 1,
+      filters: {
+        ...state.filters,
+        dMinKm: parseOptionalNonNegativeNumber(minInput.value),
+        dMaxKm: parseOptionalNonNegativeNumber(maxInput.value),
+      },
+    };
+  }
+
+  minInput.addEventListener('input', () => applyDebounced(buildNext()));
+  minInput.addEventListener('change', () => applyImmediate(buildNext()));
+  minInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') applyImmediate(buildNext());
+  });
+  maxInput.addEventListener('input', () => applyDebounced(buildNext()));
+  maxInput.addEventListener('change', () => applyImmediate(buildNext()));
+  maxInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') applyImmediate(buildNext());
+  });
+
+  field.appendChild(minInput);
+  field.appendChild(maxInput);
+
+  const presetRow = document.createElement('div');
+  presetRow.className = 'chip-row';
+  for (const preset of DISTANCE_PRESETS) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'preset-chip';
+    btn.textContent = preset.label;
+    btn.addEventListener('click', () => {
+      applyImmediate({
+        ...state,
+        page: 1,
+        filters: { ...state.filters, dMinKm: preset.dMinKm, dMaxKm: preset.dMaxKm },
+      });
+    });
+    presetRow.appendChild(btn);
+  }
+  field.appendChild(presetRow);
+
+  return field;
+}
+
+/** No preset chips (D-10 names presets only for date and distance). */
+function buildPaceField(
+  state: ListState,
+  applyImmediate: (next: ListState) => void,
+  applyDebounced: (next: ListState) => void
+): HTMLDivElement {
+  const field = document.createElement('div');
+  field.className = 'filter-field';
+
+  const legend = document.createElement('span');
+  legend.className = 'text-label';
+  legend.textContent = 'Pace range (m:ss/km)';
+  field.appendChild(legend);
+
+  const minInput = document.createElement('input');
+  minInput.type = 'text';
+  minInput.inputMode = 'numeric';
+  minInput.setAttribute('aria-label', 'Min pace (m:ss/km)');
+  minInput.value = state.filters.pMinSec !== null ? formatPaceInput(state.filters.pMinSec) : '';
+
+  const maxInput = document.createElement('input');
+  maxInput.type = 'text';
+  maxInput.inputMode = 'numeric';
+  maxInput.setAttribute('aria-label', 'Max pace (m:ss/km)');
+  maxInput.value = state.filters.pMaxSec !== null ? formatPaceInput(state.filters.pMaxSec) : '';
+
+  function buildNext(): ListState {
+    return {
+      ...state,
+      page: 1,
+      filters: {
+        ...state.filters,
+        // An unparseable value clears that one bound rather than blocking
+        // the others (matching parseListQuery's per-filter tolerance).
+        pMinSec: parsePaceInput(minInput.value),
+        pMaxSec: parsePaceInput(maxInput.value),
+      },
+    };
+  }
+
+  minInput.addEventListener('input', () => applyDebounced(buildNext()));
+  minInput.addEventListener('change', () => applyImmediate(buildNext()));
+  minInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') applyImmediate(buildNext());
+  });
+  maxInput.addEventListener('input', () => applyDebounced(buildNext()));
+  maxInput.addEventListener('change', () => applyImmediate(buildNext()));
+  maxInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') applyImmediate(buildNext());
+  });
+
+  field.appendChild(minInput);
+  field.appendChild(maxInput);
+  return field;
+}
+
+/** No preset chips (D-10 names presets only for date and distance). */
+function buildDurationField(
+  state: ListState,
+  applyImmediate: (next: ListState) => void,
+  applyDebounced: (next: ListState) => void
+): HTMLDivElement {
+  const field = document.createElement('div');
+  field.className = 'filter-field';
+
+  const legend = document.createElement('span');
+  legend.className = 'text-label';
+  legend.textContent = 'Duration range (min)';
+  field.appendChild(legend);
+
+  const minInput = document.createElement('input');
+  minInput.type = 'number';
+  minInput.min = '0';
+  minInput.setAttribute('aria-label', 'Min duration (min)');
+  minInput.value = state.filters.tMinMin !== null ? String(state.filters.tMinMin) : '';
+
+  const maxInput = document.createElement('input');
+  maxInput.type = 'number';
+  maxInput.min = '0';
+  maxInput.setAttribute('aria-label', 'Max duration (min)');
+  maxInput.value = state.filters.tMaxMin !== null ? String(state.filters.tMaxMin) : '';
+
+  function buildNext(): ListState {
+    return {
+      ...state,
+      page: 1,
+      filters: {
+        ...state.filters,
+        tMinMin: parseOptionalNonNegativeNumber(minInput.value),
+        tMaxMin: parseOptionalNonNegativeNumber(maxInput.value),
+      },
+    };
+  }
+
+  minInput.addEventListener('input', () => applyDebounced(buildNext()));
+  minInput.addEventListener('change', () => applyImmediate(buildNext()));
+  minInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') applyImmediate(buildNext());
+  });
+  maxInput.addEventListener('input', () => applyDebounced(buildNext()));
+  maxInput.addEventListener('change', () => applyImmediate(buildNext()));
+  maxInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') applyImmediate(buildNext());
+  });
+
+  field.appendChild(minInput);
+  field.appendChild(maxInput);
+  return field;
+}
+
+function buildFilterPanel(
+  state: ListState,
+  panelOpen: boolean,
+  applyImmediate: (next: ListState) => void,
+  applyDebounced: (next: ListState) => void
+): HTMLDivElement {
+  const panel = document.createElement('div');
+  panel.id = FILTER_PANEL_ID;
+  panel.className = panelOpen ? 'filter-panel filter-panel--open' : 'filter-panel';
+
+  panel.appendChild(buildDateField(state, applyImmediate, applyDebounced));
+  panel.appendChild(buildDistanceField(state, applyImmediate, applyDebounced));
+  panel.appendChild(buildPaceField(state, applyImmediate, applyDebounced));
+  panel.appendChild(buildDurationField(state, applyImmediate, applyDebounced));
+
+  return panel;
+}
+
+// ---------------------------------------------------------------------------
 // Return-from-detail restoration (D-08)
 // ---------------------------------------------------------------------------
 
@@ -517,9 +810,90 @@ export interface ListViewDeps {
   indexClient: IndexClient;
 }
 
+/** Debounce window for free-text search and numeric range inputs (D-11). */
+const FILTER_DEBOUNCE_MS = 200;
+
 export function createListView(deps: ListViewDeps): DashboardView {
   const { indexClient } = deps;
   let mountedContainer: HTMLElement | null = null;
+
+  // Panel open/closed is a plain in-memory boolean owned by this factory
+  // instance — NOT persisted to storage and NOT written to the URL
+  // (17-UI-SPEC § 2). It outlives a re-mount within the same SPA session
+  // because the factory instance is created once and reused across
+  // navigations, so toggling it survives paginating/sorting.
+  let panelOpen = false;
+
+  // Debounce timer id for the search box and every numeric/text range
+  // input (D-11). Held on the factory instance and cleared in unmount() so
+  // a pending update can never fire into a torn-down view — the same
+  // discipline as the mountedContainer stale guard.
+  let debounceTimerId: ReturnType<typeof setTimeout> | null = null;
+
+  function applyImmediate(next: ListState): void {
+    if (debounceTimerId !== null) {
+      clearTimeout(debounceTimerId);
+      debounceTimerId = null;
+    }
+    applyState(next);
+  }
+
+  function applyDebounced(next: ListState): void {
+    if (debounceTimerId !== null) {
+      clearTimeout(debounceTimerId);
+    }
+    debounceTimerId = setTimeout(() => {
+      debounceTimerId = null;
+      applyState(next);
+    }, FILTER_DEBOUNCE_MS);
+  }
+
+  function buildToolbar(state: ListState): HTMLDivElement {
+    const toolbar = document.createElement('div');
+    toolbar.className = 'list-toolbar';
+
+    const search = document.createElement('input');
+    search.type = 'search';
+    search.className = 'list-search';
+    search.placeholder = 'Search activities by name…';
+    search.setAttribute('aria-label', 'Search activities');
+    search.value = state.filters.q;
+
+    function buildNextQuery(): ListState {
+      return { ...state, page: 1, filters: { ...state.filters, q: search.value } };
+    }
+    search.addEventListener('input', () => applyDebounced(buildNextQuery()));
+    search.addEventListener('change', () => applyImmediate(buildNextQuery()));
+    search.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') applyImmediate(buildNextQuery());
+    });
+    toolbar.appendChild(search);
+
+    const activeCount = activeFilterCount(state.filters);
+    const toggleBtn = document.createElement('button');
+    toggleBtn.type = 'button';
+    toggleBtn.className = 'filter-toggle';
+    toggleBtn.textContent = activeCount > 0 ? `Filters (${activeCount} active)` : 'Filters';
+    toggleBtn.setAttribute('aria-expanded', String(panelOpen));
+    toggleBtn.setAttribute('aria-controls', FILTER_PANEL_ID);
+    toolbar.appendChild(toggleBtn);
+
+    // Chips row seam — Task 2 of this plan fills it with the active-filter
+    // chips built from buildFilterChips(state.filters).
+    const chipRow = document.createElement('div');
+    chipRow.className = 'chip-row';
+    toolbar.appendChild(chipRow);
+
+    const panel = buildFilterPanel(state, panelOpen, applyImmediate, applyDebounced);
+    toggleBtn.addEventListener('click', () => {
+      panelOpen = !panelOpen;
+      panel.classList.toggle('filter-panel--open', panelOpen);
+      toggleBtn.setAttribute('aria-expanded', String(panelOpen));
+    });
+    toolbar.appendChild(panel);
+
+    return toolbar;
+  }
 
   return {
     route: ROUTES.LIST,
@@ -588,10 +962,7 @@ export function createListView(deps: ListViewDeps): DashboardView {
       countLine.textContent = `${filtered.length} activities`;
       view.appendChild(countLine);
 
-      // Seam for the filter bar (a later plan populates this placeholder —
-      // left empty here on purpose).
-      const toolbar = document.createElement('div');
-      toolbar.className = 'list-toolbar';
+      const toolbar = buildToolbar(state);
       view.appendChild(toolbar);
 
       const tableWrapper = buildDesktopTable(state, pageItems);
@@ -621,6 +992,10 @@ export function createListView(deps: ListViewDeps): DashboardView {
     },
 
     unmount(): void {
+      if (debounceTimerId !== null) {
+        clearTimeout(debounceTimerId);
+        debounceTimerId = null;
+      }
       mountedContainer?.replaceChildren();
       mountedContainer = null;
     },
