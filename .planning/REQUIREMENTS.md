@@ -16,7 +16,7 @@ Requirements for the Training Dashboard milestone. Each maps to roadmap phases.
 ### Dashboard Shell
 
 - [x] **DASH-01**: User can open a dashboard SPA on GitHub Pages with hash-based routing between views (list, calendar, detail, records, trends)
-- [ ] **DASH-02**: Dashboard loads a compact activity index manifest up front and fetches per-activity detail data lazily on demand
+- [x] **DASH-02**: Dashboard loads a compact activity index manifest up front and fetches per-activity detail data lazily on demand
 - [ ] **DASH-03**: Dashboard supports dark/light theming consistent with the existing widget system
 
 ### Activity Browser
@@ -95,7 +95,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STREAM-03 | Phase 14 | Complete |
 | REC-01 | Phase 15 | Complete |
 | DASH-01 | Phase 16 | Pending |
-| DASH-02 | Phase 16 | Pending |
+| DASH-02 | Phase 16 | Complete |
 | DASH-03 | Phase 16 | Pending |
 | BROWSE-01 | Phase 17 | Pending |
 | BROWSE-02 | Phase 17 | Pending |
