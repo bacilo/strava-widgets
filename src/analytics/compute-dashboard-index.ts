@@ -35,6 +35,25 @@ function numOrNull(value: unknown): number | null {
   return value;
 }
 
+/**
+ * Normalized, NaN-safe sort key for `startDateLocal` (WR-03). Z-suffixed
+ * Strava values parse as UTC while no-`Z` intervals.icu values parse in the
+ * build machine's local timezone, so on a CET developer machine the
+ * intervals rows are skewed by one to two hours relative to CI (UTC) — a
+ * locally generated `index.json` can order same-day boundary activities
+ * differently than the deployed one. Appending `Z` to the no-Z form before
+ * parsing makes both shapes comparable on the same UTC axis. An unparseable
+ * value previously made `Date.parse` return `NaN`, which leaves the whole
+ * comparator (and therefore the whole sort order) unspecified rather than
+ * merely misplacing one row; falling back to `0` here confines the damage
+ * to that single row instead.
+ */
+function startDateSortKey(startDateLocal: string): number {
+  const normalized = startDateLocal.endsWith('Z') ? startDateLocal : `${startDateLocal}Z`;
+  const parsed = Date.parse(normalized);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
 /** Options for `computeDashboardIndex`, each defaulted to the repo's standard data layout. */
 export interface ComputeDashboardIndexOptions {
   activitiesDir?: string;
@@ -187,7 +206,7 @@ export async function computeDashboardIndex(
     }
   }
 
-  rows.sort((a, b) => Date.parse(b.startDateLocal) - Date.parse(a.startDateLocal));
+  rows.sort((a, b) => startDateSortKey(b.startDateLocal) - startDateSortKey(a.startDateLocal));
 
   const totals: DashboardIndexTotals = {
     activities: rows.length,

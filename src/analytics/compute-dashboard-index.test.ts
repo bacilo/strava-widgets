@@ -498,6 +498,63 @@ describe('computeDashboardIndex — archive orchestration', () => {
     expect(doc.activities.map((r) => r.id)).toEqual(['new', 'mid', 'old']);
   });
 
+  it('orders a mixed-suffix boundary pair correctly regardless of build-machine timezone (WR-03)', async () => {
+    const manifest = emptyManifestDoc();
+    manifest.activities['3475726256'] = {
+      available: true,
+      source: 'fit',
+      distanceSource: 'native',
+      sampleCount: 2,
+      channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+    };
+    manifest.activities['i174109928'] = {
+      available: true,
+      source: 'intervals',
+      distanceSource: 'native',
+      sampleCount: 2,
+      channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+    };
+    await writeManifest(manifest);
+    await writeActivity('3475726256', { start_date_local: '2026-08-06T23:30:00Z' });
+    await writeActivity('i174109928', { start_date_local: '2026-08-07T00:30:00' });
+
+    const doc = await computeDashboardIndex(baseOptions());
+    expect(doc.activities.map((r) => r.id)).toEqual(['i174109928', '3475726256']);
+  });
+
+  it('sorts around a malformed start_date_local without corrupting the whole order', async () => {
+    const manifest = emptyManifestDoc();
+    manifest.activities['old'] = {
+      available: true,
+      source: 'fit',
+      distanceSource: 'native',
+      sampleCount: 2,
+      channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+    };
+    manifest.activities['new'] = {
+      available: true,
+      source: 'fit',
+      distanceSource: 'native',
+      sampleCount: 2,
+      channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+    };
+    manifest.activities['bad'] = {
+      available: true,
+      source: 'fit',
+      distanceSource: 'native',
+      sampleCount: 2,
+      channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+    };
+    await writeManifest(manifest);
+    await writeActivity('old', { start_date_local: '2024-01-01T09:00:00Z' });
+    await writeActivity('new', { start_date_local: '2026-06-01T09:00:00Z' });
+    await writeActivity('bad', { start_date_local: 'not-a-date' });
+
+    const doc = await computeDashboardIndex(baseOptions());
+    expect(doc.activities).toHaveLength(3);
+    expect(doc.activities.map((r) => r.id)).toEqual(['new', 'old', 'bad']);
+  });
+
   it('an activity file that is missing increments totals.skippedUnreadable, logs a warning, and does not abort the run', async () => {
     const manifest = emptyManifestDoc();
     manifest.activities['missing1'] = {
