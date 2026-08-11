@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "id": "11865310195",
+  "source": "fit",
+  "distanceSource": "native",
+  "sampleCount": 6,
+  "channels": {
+    "time": true,
+    "distance": true,
+    "hr": false,
+    "cadence": true,
+    "elevation": true
+  },
+  "t": [
+    0,
+    1,
+    2,
+    14,
+    17,
+    18
+  ],
+  "d": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "cadence": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "alt": [
+    96.39999999999998,
+    96.39999999999998,
+    96.39999999999998,
+    95.60000000000002,
+    95.20000000000005,
+    95.20000000000005
+  ]
+}

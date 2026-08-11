@@ -1,0 +1,62 @@
+{
+  "resource_state": 2,
+  "athlete": {
+    "id": 23558655,
+    "resource_state": 1
+  },
+  "name": "Bellahøj - Husum",
+  "distance": 10683.4,
+  "moving_time": 3854,
+  "elapsed_time": 3854,
+  "total_elevation_gain": 45.6,
+  "type": "Run",
+  "sport_type": "Run",
+  "workout_type": null,
+  "id": 3475712045,
+  "start_date": "2020-03-22T08:34:46Z",
+  "start_date_local": "2020-03-22T09:34:46Z",
+  "timezone": "(GMT+01:00) Europe/Copenhagen",
+  "utc_offset": 3600,
+  "location_city": null,
+  "location_state": null,
+  "location_country": null,
+  "achievement_count": 1,
+  "kudos_count": 0,
+  "comment_count": 0,
+  "athlete_count": 1,
+  "photo_count": 0,
+  "map": {
+    "id": "a3475712045",
+    "summary_polyline": "gi|rIcckkAIS@e@JY\\o@`@g@L_@t@oAb@g@PLdB`E`@`CJVRtB`AbFZfC?hALnBh@pEP|ENbCBfAF\\HpA@hBN|@@rBJpBTfDx@hFX`AH~@JX^l@`AfAHZb@p@z@DdAdAh@Nd@~An@lAXx@Zj@XbA^p@d@lAh@jADpADb@\\n@h@`CVz@D^@hAHd@Zv@RRZp@J^\\f@h@dAnBrB\\t@j@`AzBhBTHPVz@p@h@Lh@XLVf@^~@d@RBt@l@bBf@f@\\LVPL\\t@\\h@Zx@PPz@~Aj@lAH^Bb@j@`AL\\@`APD|AtAd@Xd@h@PJPVH^\\l@`A~BzB|Db@PtADbBNf@NbBJTFPNLXT|@LbAZ~AZr@HZj@lAD`@l@nE?`@QdBBrACb@?nCElA@tCKpE@b@Ib@DfAMdAm@zC]t@_@d@UFw@d@yA|Ag@Xg@Nm@AaBTUE}@Fu@\\{AnAgB^g@@y@XgBpBm@jAc@h@]r@SRMXOPaBv@{AhAsAn@Ah@QPgBQm@BUHa@^i@hAk@|@_BpAi@VgBJoAd@eAP{@FkAGu@Zg@Dw@\\i@LwAEy@TaD\\}Bf@i@@e@TeBZw@Fw@Xg@Bi@IcBw@w@m@s@u@u@_Ak@DmA`@sAFWGa@_@SAgB^k@@g@Rq@t@s@bAkBbB]h@iAhASL_@h@i@Xe@`@s@fAc@`@w@j@YHy@@{@W{@P_@d@e@@sAq@cBUQO}@AoAPk@?eB^qALg@COWAc@l@_Dd@iDfBcKPcBf@aCBg@H[ReBP_AP_BRcALaAH[Ba@r@yETiBhAkHPeBx@aEh@eFEqDBgBXy@QYG]CgAFeAM{H@eAKsEJcAH_@Zo@N_A`@yAJWH_@Xy@F_@CiBDa@h@cBPQF]@a@p@sBZ{AbAsDL[\\eBv@yCXy@Pw@l@kBP}@Vy@TgAz@oCFkAN}@T}@VcBc@iCScB]_Bg@iDSaAm@_ESaB]uAs@cEKcAUcAMYc@aCKeA_@eCRgAJeBJcE?gAMyEGe@@_@_@mCAc@F]JW\\e@l@kANS\\s@^e@Zq@x@uA^c@N[T_ANUHYtAiBj@kAzAcCL[Ha@p@yBj@iAVcAhBoB",
+    "resource_state": 2
+  },
+  "trainer": false,
+  "commute": false,
+  "manual": false,
+  "private": false,
+  "visibility": "everyone",
+  "flagged": false,
+  "gear_id": null,
+  "start_latlng": [
+    55.69,
+    12.51
+  ],
+  "end_latlng": [
+    55.69,
+    12.51
+  ],
+  "average_speed": 2.772,
+  "max_speed": 4,
+  "has_heartrate": false,
+  "heartrate_opt_out": false,
+  "display_hide_heartrate_option": false,
+  "elev_high": 32.5,
+  "elev_low": 7.9,
+  "upload_id": 3711958093,
+  "upload_id_str": "3711958093",
+  "external_id": "activity.fit",
+  "from_accepted_tag": false,
+  "pr_count": 0,
+  "total_photo_count": 0,
+  "has_kudoed": false
+}

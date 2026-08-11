@@ -1,0 +1,17 @@
+{
+  "id": 18702664326,
+  "name": "Morning Run",
+  "type": "Run",
+  "start_date": "2026-05-25T08:57:00Z",
+  "start_date_local": "2026-05-25T08:57:00Z",
+  "distance": 7000,
+  "moving_time": 2597,
+  "elapsed_time": 2597,
+  "total_elevation_gain": 0,
+  "average_speed": 2.6954177897574123,
+  "max_speed": 0,
+  "map": {
+    "summary_polyline": ""
+  },
+  "source_provider": "strava-export"
+}

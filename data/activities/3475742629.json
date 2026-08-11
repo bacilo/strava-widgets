@@ -1,0 +1,62 @@
+{
+  "resource_state": 2,
+  "athlete": {
+    "id": 23558655,
+    "resource_state": 1
+  },
+  "name": "Frederiksberg - Vanløse",
+  "distance": 8062.4,
+  "moving_time": 2652,
+  "elapsed_time": 2652,
+  "total_elevation_gain": 23.3,
+  "type": "Run",
+  "sport_type": "Run",
+  "workout_type": null,
+  "id": 3475742629,
+  "start_date": "2017-02-20T08:59:09Z",
+  "start_date_local": "2017-02-20T09:59:09Z",
+  "timezone": "(GMT+01:00) Europe/Copenhagen",
+  "utc_offset": 3600,
+  "location_city": null,
+  "location_state": null,
+  "location_country": null,
+  "achievement_count": 1,
+  "kudos_count": 0,
+  "comment_count": 0,
+  "athlete_count": 1,
+  "photo_count": 0,
+  "map": {
+    "id": "a3475742629",
+    "summary_polyline": "er{rIaepkAaC`G[`A]r@iAlDmAzFMlAa@xAQz@Ed@KV]lBI`A[dBW`AC`@M^OfAUlACb@a@xAQRQMc@_@g@Wy@{@e@a@i@Uc@o@UMQWSMUGUKw@q@WAKTK\\MfA[v@S~@ObAc@|AG~@ShAI\\a@fCK`@a@n@c@xAMVMRQNeApCEd@HjA@f@JfAl@nE\\dBD^lAfEHb@r@fBV`Av@tB^v@L\\NXNNPHPTh@rA^n@Fb@b@`@H`AZp@LRN\\VfANXb@j@LVVz@\\t@L`@`AfBN^@b@HZl@lAd@fBRRJVRlBL\\RPJZdArGLjAr@pDR`B@pADdANjANfBLbAPbEFd@BlAVfGHhAHtCR~DRlBVnBR|@LVJ`@R~ABb@J^t@r@j@rANT`@d@TNb@CTJNVd@d@f@Xb@xAp@pAf@rA|@lBDd@NTNNp@zA?`AMnBDf@NXVHPAb@RL^J`AX`AN\\^b@\\l@TDRIPCTBd@^RLl@z@PQV{@T{@P}@D_@NaGAmARwJCsA@_@LiAFiBGgA@uELcBHwDNoEBqBZcDDgET{EBiADc@@oAAsCTmFGaAFcBAgABe@Hg@DcACoBE]N}@HsBAa@@i@NgAPcEH_AAkBDeAAmABgA?kAFgAd@eFTaAPcAAa@Fa@LeAFiACg@E_@UESBSKk@{AOSc@a@OYUEOOi@WOMi@Ci@Ua@i@SKSWQMMSOMWIgAoAg@Uc@YK]]m@S@_A]y@g@OOeB}@e@a@g@WOOUKa@k@g@Wu@k@e@Sc@_@i@YQWO]QOe@g@S?i@Qe@a@u@y@O[e@g@y@i@WESMMW_@c@yAkBe@[c@e@UOm@QSMQQUKQUIe@JeBF_@f@sARaABc@R}@LiAV}@F]Zm@H[Fa@HmAFa@Ja@Zw@J[LgALa@b@kC^cB@c@Ha@d@wA\\s@H_@NUROPUv@mBJ_@NWRCNL\\r@PTNIN]Jc@LiAP}@Da@J]PKNU@e@I]QQW?OLQVg@rAWh@",
+    "resource_state": 2
+  },
+  "trainer": false,
+  "commute": false,
+  "manual": false,
+  "private": false,
+  "visibility": "everyone",
+  "flagged": false,
+  "gear_id": null,
+  "start_latlng": [
+    55.69,
+    12.54
+  ],
+  "end_latlng": [
+    55.69,
+    12.54
+  ],
+  "average_speed": 3.04,
+  "max_speed": 4.5,
+  "has_heartrate": false,
+  "heartrate_opt_out": false,
+  "display_hide_heartrate_option": false,
+  "elev_high": 16.9,
+  "elev_low": 8.1,
+  "upload_id": 3711990877,
+  "upload_id_str": "3711990877",
+  "external_id": "activity.fit",
+  "from_accepted_tag": false,
+  "pr_count": 0,
+  "total_photo_count": 0,
+  "has_kudoed": false
+}

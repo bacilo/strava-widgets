@@ -1,0 +1,62 @@
+{
+  "resource_state": 2,
+  "athlete": {
+    "id": 23558655,
+    "resource_state": 1
+  },
+  "name": "Bairro dos Lóios - Areeiro",
+  "distance": 10021.6,
+  "moving_time": 3744,
+  "elapsed_time": 3826,
+  "total_elevation_gain": 118,
+  "type": "Run",
+  "sport_type": "Run",
+  "workout_type": null,
+  "id": 3475713144,
+  "start_date": "2019-12-29T09:17:57Z",
+  "start_date_local": "2019-12-29T09:17:57Z",
+  "timezone": "(GMT+00:00) Europe/Lisbon",
+  "utc_offset": 0,
+  "location_city": null,
+  "location_state": null,
+  "location_country": null,
+  "achievement_count": 0,
+  "kudos_count": 0,
+  "comment_count": 0,
+  "athlete_count": 1,
+  "photo_count": 0,
+  "map": {
+    "id": "a3475713144",
+    "summary_polyline": "carkFnfuv@r@Gb@PRALO`@cAt@mARq@j@{@l@sA^g@HWZg@d@_BQFQp@LSNm@f@CRFJPSjATk@T?NPSlAIhC^xDFjAXlA\\f@p@`@\\^h@APLz@lAxAlCp@r@vBt@j@H|@@bBU|@A~@SPMxDe@n@k@Ja@LOTg@Nm@PMd@OvABrBc@vA?d@V^`@Vj@NJt@]|@LRARGJUf@Oj@JnAa@Ri@NSPOPCNQNHFVKVBVTDNJJTEv@@p@HTRFdAFx@Mx@_@RC~CGx@MtAId@?^XR?^Sj@u@j@Ob@YNSRo@DmAc@aAKm@IgC[_C?]DYPGbBZ|@Ix@g@RE~@?hAu@bA{@?XEX[`@IRu@R_@^Nh@^`@b@@NNBt@LPjB`Bp@f@n@r@p@j@HVb@z@`Az@tA`AZb@HTn@x@fAVx@[|@APDPJ^`ALPPB@VRj@z@N|@Aj@QdB{@`AOPMd@OT]f@FLLPGb@THRL~@Dv@RlAEx@@p@KNaA~@CXIXAnAEX?XHXHdBK`BFlACZJVEnAJT?`BJt@CZJVKp@QNuCViG_AmCW}@BaBSSFYl@g@J]^U?GnBQnBCnAa@`BCv@SdBUbAQnAJTETFRBb@KVMNIjAONSLk@LsAfAw@ZOPe@LOMQBc@\\]f@SIKSSEy@\\w@b@u@r@oBlA_@g@CVQXcBh@iAv@wBbA[@KP_ALSEU@g@NQ?OMS?[d@UJUd@c@PcAMk@Pi@GSHQGWNUDSPQBYn@e@DOVm@l@a@V[b@Q@_@ZGVw@Hc@YSg@Ye@y@[[g@cAcC[{Ac@u@IYKq@MSIy@KSCWOi@Iy@Mm@OWUKIY_@X}@MoAA_AMg@BSKSAQJo@~@AJNZi@iBGo@IWe@{@Oq@MOCWFoAw@eDIs@So@MQmA[]_@e@y@SeBa@QMOGWJQEiAFq@?WOo@Bq@EkABo@Nm@\\e@b@]TANK`@_@@WJWCWWk@MOQMSCy@^Sl@Op@_@d@SE]_@a@WU~AKT_@^QDu@OgA{Bs@sBSeAaA{Aa@]MQEYAu@FkAEUuBMu@c@y@iASAMNMQ@q@EWMQ@gBFq@AiAVyBDkAHW?YCUcBPQs@Go@d@}@IUg@E",
+    "resource_state": 2
+  },
+  "trainer": false,
+  "commute": false,
+  "manual": false,
+  "private": false,
+  "visibility": "everyone",
+  "flagged": false,
+  "gear_id": null,
+  "start_latlng": [
+    38.76,
+    -9.13
+  ],
+  "end_latlng": [
+    38.76,
+    -9.13
+  ],
+  "average_speed": 2.677,
+  "max_speed": 4.6,
+  "has_heartrate": false,
+  "heartrate_opt_out": false,
+  "display_hide_heartrate_option": false,
+  "elev_high": 111.4,
+  "elev_low": 69.3,
+  "upload_id": 3711959277,
+  "upload_id_str": "3711959277",
+  "external_id": "activity.fit",
+  "from_accepted_tag": false,
+  "pr_count": 0,
+  "total_photo_count": 0,
+  "has_kudoed": false
+}

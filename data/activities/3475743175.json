@@ -1,0 +1,62 @@
+{
+  "resource_state": 2,
+  "athlete": {
+    "id": 23558655,
+    "resource_state": 1
+  },
+  "name": "Frederiksberg - Bellahøj",
+  "distance": 5781.1,
+  "moving_time": 1902,
+  "elapsed_time": 1902,
+  "total_elevation_gain": 10.1,
+  "type": "Run",
+  "sport_type": "Run",
+  "workout_type": null,
+  "id": 3475743175,
+  "start_date": "2017-01-11T07:15:05Z",
+  "start_date_local": "2017-01-11T08:15:05Z",
+  "timezone": "(GMT+01:00) Europe/Copenhagen",
+  "utc_offset": 3600,
+  "location_city": null,
+  "location_state": null,
+  "location_country": null,
+  "achievement_count": 0,
+  "kudos_count": 0,
+  "comment_count": 0,
+  "athlete_count": 1,
+  "photo_count": 0,
+  "map": {
+    "id": "a3475743175",
+    "summary_polyline": "ir{rIsdpkAEP[z@_@p@G^a@|A_@r@ONOR[x@Gb@GZM`@[p@MhAA^WdAG`@M`@Qx@_@hCIXQNi@iAOQSKSEO[I[UHIb@s@hAUNk@LUHi@\\UBSLMXSBm@CQ@g@ROLg@[QFK^[x@M`AY~@@b@Ed@QfAYx@WfAMRMdBa@jCg@zAsAbGEb@QTSLMR_@|@WbA_@`@M\\Cd@LhB?`@H`@B~@JdA^bBHb@T~@Dd@d@pA`@dBbAnCV`APVt@nCRTXz@f@Xb@l@T|@d@p@P|@Xx@v@jBNZH^D^f@j@j@hAH`@h@fARRf@rAZp@d@tATz@\\v@V`B^xANTHb@h@jDPbAZ~@JhAN~@L\\NfBRz@EnABd@ZlCb@rEHlEPfBD]QqBKaDWqCs@aH@mAMaAm@_Ci@kEKa@e@gCU}@MWOUSiBaAyBkBuGa@m@s@uBaAqAM[Ga@y@mBq@uBa@k@]_Aw@kBSGSM_@q@I[Ie@Ic@Uu@_@i@o@yBO[Ka@Ie@WcAa@wAOUK_@Ke@OsBQeA?c@]qCIkA?g@H]`@q@bAcC\\w@J]D_@N]n@{Cl@oA@e@J[Bg@Dc@Ae@RcA\\k@Ja@L]D]?a@D_@Zo@REPRRPUBOSAi@PqBDe@Jg@Nc@n@{ARATNRG`@a@b@QPMTG|@c@~@URKR@j@Kj@DRCPENQb@Z^f@LXv@|@x@v@VPTFNNVv@PARJPPR@`@d@h@XL[HmBHa@ROH[Ee@K_@NaAH]XkBBa@Ja@Ji@NgBf@kD",
+    "resource_state": 2
+  },
+  "trainer": false,
+  "commute": false,
+  "manual": false,
+  "private": false,
+  "visibility": "everyone",
+  "flagged": false,
+  "gear_id": null,
+  "start_latlng": [
+    55.69,
+    12.54
+  ],
+  "end_latlng": [
+    55.69,
+    12.54
+  ],
+  "average_speed": 3.039,
+  "max_speed": 5.7,
+  "has_heartrate": false,
+  "heartrate_opt_out": false,
+  "display_hide_heartrate_option": false,
+  "elev_high": 13,
+  "elev_low": 8.1,
+  "upload_id": 3711991436,
+  "upload_id_str": "3711991436",
+  "external_id": "activity.fit",
+  "from_accepted_tag": false,
+  "pr_count": 0,
+  "total_photo_count": 0,
+  "has_kudoed": false
+}

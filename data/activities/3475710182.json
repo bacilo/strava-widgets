@@ -1,0 +1,62 @@
+{
+  "resource_state": 2,
+  "athlete": {
+    "id": 23558655,
+    "resource_state": 1
+  },
+  "name": "Bellahøj - Kleine Meerjungfrau",
+  "distance": 20013.2,
+  "moving_time": 6927,
+  "elapsed_time": 6941,
+  "total_elevation_gain": 54.4,
+  "type": "Run",
+  "sport_type": "Run",
+  "workout_type": null,
+  "id": 3475710182,
+  "start_date": "2020-05-14T07:55:08Z",
+  "start_date_local": "2020-05-14T09:55:08Z",
+  "timezone": "(GMT+01:00) Europe/Copenhagen",
+  "utc_offset": 7200,
+  "location_city": null,
+  "location_state": null,
+  "location_country": null,
+  "achievement_count": 12,
+  "kudos_count": 0,
+  "comment_count": 0,
+  "athlete_count": 1,
+  "photo_count": 0,
+  "map": {
+    "id": "a3475710182",
+    "summary_polyline": "wh|rIadkkAMg@N]v@]`@m@hAgDfAyB|BcKr@oBhF_^tAfFp@bEJXJ[EcAwAcH_@}FnAaNf@NIwCTgCb@{BAmA\\uEn@oFjAwEPgB@_D^}B|@sIp@sHKaAo@aAWy@k@oEq@uBeBeA}@yBfAyDr@kEJqAEgBJk@h@uAp@s@~BiJZ{@r@}@XaCJkGPeAJyCa@eGbByLbDcG`AmC`BsA`AgBhAcA?e@kCwC{DyCwAeBg@IiA{@uDqDoHaIiAuC}BmC{CqEe@iAqCqDe@oAmE}HaC_GoBoBqCmE}AwDc@c@sAe@wEaFoBaFy@cDaA}AgAmA{@}Fw@mBD]n@}@bCgBnCc@vAiBj@mA~AeAdBcGrBuEhC{Go@sBj@{Fd@G`AkClAw@tCiEdEqElCqEtAoAhA}BvCoBnA_CGgAsDeJHeAVm@HgAS{@kAgAIc@DoDMiBM[aBVuB}@oCM]g@uEF{Bq@u@o@eAhAs@vEDnCTxFgCtCo@hEgAtDqCvMkAZe@l@a@J{CKmCo@wEr@w@h@qDfAa@bAoAn@c@v@qDtBoB\\u@r@iBIMTaABI\\_Bj@K\\eCxAqA?e@Zy@Ss@z@kEvAk@bAiBNw@~@uALiAjAeAbEk@pAGpDi@pBa@`DGnBLhCa@WE_@r@_A@_@Sy@WyDYs@UAo@x@Y|@\\j@jCBJ^@zFKjCXdJVp@AdA^rE`@|ATlDv@~DPpCt@nG|@jFdGi@jB}Ed@e@f@qAnAi@z@Jb@d@tAjDbBbBf@Nb@h@tBf@p@|@hCM|BoA~@oAxCaHt@}@hAq@~@ZrCIdA`AzBbEJfCoA|FWzEqAzCiAdFcCvD_Bb@e@tAMjB`@fDGhETz@KdA_@h@_Ni@mFm@yIMsBs@{@Zc@d@i@bEEfBVhMf@vKEhDPdDB|ENlBp@pB`@pGIxH`@|IVnDt@pCpBhCTz@zBlCjC|AlBxCf@NxELhBIp@~@dElBzCx@l@~@jFh@TDL\\NdBL`Hx@xCNdBPzFCrBH\\f@HWz@[rDQnIBpGOlMJ|FMpCH`Gs@lBEjAY|AcChDk@pAF^xBbCJ`Ai@jLu@vJBxDq@|DGpB~BxCh@rApAfBtAzBh@tAlD`GJ]Ee@uAmJCiBPHz@zDz@dHnAzFh@jAN|@`@n@PBrCfIr@s@HiBLUjAWEuGrCcEF_@SmCiA{FZa@",
+    "resource_state": 2
+  },
+  "trainer": false,
+  "commute": false,
+  "manual": false,
+  "private": false,
+  "visibility": "everyone",
+  "flagged": false,
+  "gear_id": null,
+  "start_latlng": [
+    55.69,
+    12.51
+  ],
+  "end_latlng": [
+    55.69,
+    12.51
+  ],
+  "average_speed": 2.889,
+  "max_speed": 5.9,
+  "has_heartrate": false,
+  "heartrate_opt_out": false,
+  "display_hide_heartrate_option": false,
+  "elev_high": 21.1,
+  "elev_low": 4.5,
+  "upload_id": 3711956054,
+  "upload_id_str": "3711956054",
+  "external_id": "activity.fit",
+  "from_accepted_tag": false,
+  "pr_count": 5,
+  "total_photo_count": 0,
+  "has_kudoed": false
+}

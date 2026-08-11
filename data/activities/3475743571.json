@@ -1,0 +1,62 @@
+{
+  "resource_state": 2,
+  "athlete": {
+    "id": 23558655,
+    "resource_state": 1
+  },
+  "name": "Elite Hotel Stockholm Plaza - Debaser Slussen",
+  "distance": 5243.8,
+  "moving_time": 1876,
+  "elapsed_time": 4999,
+  "total_elevation_gain": 24.4,
+  "type": "Run",
+  "sport_type": "Run",
+  "workout_type": null,
+  "id": 3475743571,
+  "start_date": "2015-03-22T23:05:41Z",
+  "start_date_local": "2015-03-23T00:05:41Z",
+  "timezone": "(GMT+01:00) Europe/Stockholm",
+  "utc_offset": 3600,
+  "location_city": null,
+  "location_state": null,
+  "location_country": null,
+  "achievement_count": 0,
+  "kudos_count": 0,
+  "comment_count": 0,
+  "athlete_count": 1,
+  "photo_count": 0,
+  "map": {
+    "id": "a3475743571",
+    "summary_polyline": "}hdiJachmBh@CJcA?_@J_BRqAHWPOx@g@b@?RGb@Gd@Cj@XPAFg@Ja@\\N^rAPMPWLMf@OVG`@VLSH[NSNNRVPSPo@Fj@JWd@]NEPPJVPLPIDc@I]MUD\\PMx@[^IPONDPPN@v@U^QNM`@I`@e@b@Yt@K\\e@Fc@J_@POPAROb@Kl@aARIP?VD`@Xb@Jb@PNBb@@PDRFPNf@D`@APCRK~@aA`DwD`Aw@n@aANO^s@NQr@YN?PFNRfAk@`@IP@NNPDd@Qr@XNBRNVr@h@x@N@PLRJRARDPDPJr@p@H\\NRRBNNLTPB`@?f@JNJCb@s@~CYr@s@~DT~@Bd@Ed@?pAJvDGbAc@zAIb@MRYp@]l@s@jBa@\\a@AQJYj@a@\\MVQJe@XODQ?e@Jg@Ba@f@a@H]f@QMSeAEc@MYO?I`AQVSLM^K`@KXMLMRQR}@bBk@|@g@bA]j@kD~GOLoA~Fg@OKbAY|@MPQ@OJk@x@OFOL]`@s@l@QCQJ[p@]d@QLCbAIXMTMP}@OOF]j@m@tBs@DON[l@]f@SPQDSLa@d@QBSFOJs@h@ORkAPYv@Md@]d@]De@Ke@Pa@VG]McAKkBg@yBKSEa@IY]c@KUDeACe@O{@MWK_@UDSLSBOJS@}@]QFSfAOHq@eBMMOcAU{@IgAAmAO_AEa@Qu@Cc@JYdAm@^a@RK^e@PQOcBWeAOWOKUk@G[McBAc@Vm@H]Cc@DeAKSFc@?e@Ww@S_ABa@H_@CaAHcABeA?c@K[G[J[Fa@J[aDgCPGHZ",
+    "resource_state": 2
+  },
+  "trainer": false,
+  "commute": false,
+  "manual": false,
+  "private": false,
+  "visibility": "everyone",
+  "flagged": false,
+  "gear_id": null,
+  "start_latlng": [
+    59.34,
+    18.07
+  ],
+  "end_latlng": [
+    59.34,
+    18.07
+  ],
+  "average_speed": 2.795,
+  "max_speed": 8.9,
+  "has_heartrate": false,
+  "heartrate_opt_out": false,
+  "display_hide_heartrate_option": false,
+  "elev_high": 25.8,
+  "elev_low": 12.5,
+  "upload_id": 3711991854,
+  "upload_id_str": "3711991854",
+  "external_id": "activity.fit",
+  "from_accepted_tag": false,
+  "pr_count": 0,
+  "total_photo_count": 0,
+  "has_kudoed": false
+}
