@@ -8,7 +8,15 @@
  * - The index is a public artifact published to GitHub Pages, so it carries
  *   only the D-09 field set and never copies athlete identifiers, upload
  *   ids, external ids, gear ids, or privacy flags out of the source activity
- *   record.
+ *   record. This rule still forbids copying **gear ids** verbatim; D-17
+ *   deliberately threads a resolved *name* through instead (`gearName`
+ *   below), which is why that field is a `string | null` label and never an
+ *   id. Adding this field is what settles the "gear as an index field"
+ *   question Phase 17 deferred.
+ *
+ * `DASHBOARD_INDEX_SCHEMA_VERSION` stays at `1` for the `gearName` addition
+ * below — it is a purely additive field, and `scripts/verify-dashboard-publish.mjs`
+ * asserts `schemaVersion === 1`.
  */
 
 import type { DistanceSource, StreamUnavailableReason } from '../streams/stream.types.js';
@@ -60,6 +68,8 @@ export interface DashboardIndexRow {
   excludedFromRecords: boolean;
   /** Count of that activity's efforts with `wasPRAtTheTime === true`; 0 when unknown. */
   prCount: number;
+  /** Resolved human gear label from data/config/gear.json, or the deterministic "Shoe N" ordinal, or null when the activity has no gear. NEVER the raw gear id (17-D32/D33, D-17). */
+  gearName: string | null;
 }
 
 /** Aggregate counts written alongside the row array, mirroring `best-effort.types.ts`'s `totals` convention. */
@@ -72,6 +82,7 @@ export interface DashboardIndexTotals {
   lowConfidence: number;
   excludedFromRecords: number;
   skippedUnreadable: number;
+  withGear: number;
 }
 
 /** The full document written to `data/dashboard/index.json`. */

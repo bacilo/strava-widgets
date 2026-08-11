@@ -22,6 +22,8 @@ import type { ActivityBestEfforts, BestEffortsDocument } from './best-effort.typ
 import type { StreamManifest } from '../streams/stream.types.js';
 import type { StravaActivity } from '../types/strava.types.js';
 import { FileStore } from '../storage/file-store.js';
+import { buildGearLabelMap, type GearUsage } from './gear-naming.js';
+import { parseGearDocument } from '../dashboard/data/gear-client.js';
 
 /** Rounds to at most one decimal place. */
 function round1(value: number): number {
@@ -61,6 +63,7 @@ export interface ComputeDashboardIndexOptions {
   statsDir?: string;
   geoDir?: string;
   outDir?: string;
+  gearConfigPath?: string;
 }
 
 /**
@@ -77,6 +80,7 @@ export async function computeDashboardIndex(
   const statsDir = options.statsDir || 'data/stats';
   const geoDir = options.geoDir || 'data/geo';
   const outDir = options.outDir || 'data/dashboard';
+  const gearConfigPath = options.gearConfigPath || 'data/config/gear.json';
 
   const fileStore = new FileStore('.');
 
@@ -113,6 +117,22 @@ export async function computeDashboardIndex(
     );
   }
 
+  // OPTIONAL — degrade to a null map on any failure, warning why (D-19: gear
+  // is not a phase blocker). A null map still lets buildGearLabelMap assign
+  // full ordinal labelling below.
+  let gearMap: Record<string, string> | null = null;
+  try {
+    const rawGearDoc = await fileStore.readJson<unknown>(gearConfigPath);
+    gearMap = parseGearDocument(rawGearDoc);
+    if (gearMap === null) {
+      console.warn(`Gear config at ${gearConfigPath} is malformed; gear names will use ordinals only.`);
+    }
+  } catch (error) {
+    console.warn(
+      `Could not read gear config (${(error as Error).message}); gear names will use ordinals only.`
+    );
+  }
+
   let withStreams = 0;
   let withoutStreams = 0;
   let withHr = 0;
@@ -120,8 +140,16 @@ export async function computeDashboardIndex(
   let lowConfidenceCount = 0;
   let excludedFromRecordsCount = 0;
   let skippedUnreadable = 0;
+  let withGear = 0;
 
-  const rows: DashboardIndexRow[] = [];
+  // First pass: build every row EXCEPT gearName, and collect gear usage
+  // ({ gearId, startDate }) for every activity that has a non-empty string
+  // gear_id. The label map needs every activity's usage before any label
+  // can be assigned, so gearName is deliberately left for the second pass
+  // below — the activity file is read exactly once here, never twice.
+  const pendingRows: Array<{ row: Omit<DashboardIndexRow, 'gearName'>; gearId: string | null }> =
+    [];
+  const gearUsages: GearUsage[] = [];
 
   for (const [id, entry] of Object.entries(manifest.activities)) {
     try {
@@ -174,7 +202,15 @@ export async function computeDashboardIndex(
       const paceSecPerKm =
         distanceM > 0 && movingTimeSec > 0 ? round1(movingTimeSec / (distanceM / 1000)) : null;
 
-      const row: DashboardIndexRow = {
+      // Raw gear id, used only as a map key/sort input for the label map
+      // below — never assigned directly to any row field (17-D32/D33).
+      const rawGearId = (activity as unknown as { gear_id?: unknown }).gear_id;
+      const gearId = typeof rawGearId === 'string' && rawGearId.length > 0 ? rawGearId : null;
+      if (gearId !== null) {
+        gearUsages.push({ gearId, startDate: activity.start_date });
+      }
+
+      const row: Omit<DashboardIndexRow, 'gearName'> = {
         id: String(id),
         startDate: activity.start_date,
         startDateLocal: activity.start_date_local,
@@ -198,13 +234,28 @@ export async function computeDashboardIndex(
         prCount,
       };
 
-      rows.push(row);
+      pendingRows.push({ row, gearId });
     } catch (error) {
       console.warn(`  ${id}: ${(error as Error).message}; skipping`);
       skippedUnreadable++;
       continue;
     }
   }
+
+  // Second pass: resolve every gear id to a human label in one deterministic
+  // call, then assemble the final rows. The recording device's own name is
+  // deliberately NOT used as a shoe fallback here — `resolveGearLabel`'s
+  // ladder does that for the detail view's single-activity Gear tile, but a
+  // device is not a shoe, and putting it in a *shoe* aggregate would
+  // silently invent gear coverage the archive does not have (D-18's
+  // "absence made up" failure).
+  const gearLabelMap = buildGearLabelMap(gearUsages, gearMap);
+
+  const rows: DashboardIndexRow[] = pendingRows.map(({ row, gearId }) => {
+    const gearName = gearId !== null ? (gearLabelMap.get(gearId) ?? null) : null;
+    if (gearName !== null) withGear++;
+    return { ...row, gearName };
+  });
 
   rows.sort((a, b) => startDateSortKey(b.startDateLocal) - startDateSortKey(a.startDateLocal));
 
@@ -217,6 +268,7 @@ export async function computeDashboardIndex(
     lowConfidence: lowConfidenceCount,
     excludedFromRecords: excludedFromRecordsCount,
     skippedUnreadable,
+    withGear,
   };
 
   const doc: DashboardIndexDocument = {
@@ -240,6 +292,7 @@ export async function computeDashboardIndex(
   console.log(`- Low confidence: ${totals.lowConfidence}`);
   console.log(`- Excluded from records: ${totals.excludedFromRecords}`);
   console.log(`- Skipped (unreadable): ${totals.skippedUnreadable}`);
+  console.log(`- With gear: ${totals.withGear}`);
   console.log(`\nOutput written to: ${path.join(outDir, 'index.json')}`);
 
   return doc;

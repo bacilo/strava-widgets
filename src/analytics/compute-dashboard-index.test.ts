@@ -16,6 +16,7 @@ const EXPECTED_ROW_KEYS = [
   'distanceM',
   'elevationGainM',
   'excludedFromRecords',
+  'gearName',
   'id',
   'location',
   'lowConfidence',
@@ -105,12 +106,21 @@ describe('computeDashboardIndex — archive orchestration', () => {
     await fileStore.writeJson(path.join('geo', 'activity-cities.json'), map);
   }
 
+  async function writeGearConfig(gear: Record<string, string>): Promise<void> {
+    await fileStore.writeJson(path.join('config', 'gear.json'), {
+      schemaVersion: 1,
+      note: 'test gear config',
+      gear,
+    });
+  }
+
   const baseOptions = () => ({
     activitiesDir: path.join(tmpDir, 'activities'),
     streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
     statsDir: path.join(tmpDir, 'stats'),
     geoDir: path.join(tmpDir, 'geo'),
     outDir: path.join(tmpDir, 'dashboard'),
+    gearConfigPath: path.join(tmpDir, 'config', 'gear.json'),
   });
 
   it('an available manifest entry with a readable activity produces a row with fields straight from the activity record', async () => {
@@ -715,6 +725,136 @@ describe('computeDashboardIndex — archive orchestration', () => {
     const doc = await computeDashboardIndex(baseOptions());
     const row = doc.activities[0];
     expect(Object.keys(row).sort()).toEqual(EXPECTED_ROW_KEYS);
+  });
+
+  it('a gear_id present in a populated gear map yields the real name', async () => {
+    const manifest = emptyManifestDoc();
+    manifest.activities['a1'] = {
+      available: true,
+      source: 'fit',
+      distanceSource: 'native',
+      sampleCount: 2,
+      channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+    };
+    await writeManifest(manifest);
+    await writeActivity('a1', { gear_id: 'g123' });
+    await writeGearConfig({ g123: 'Pegasus 40' });
+
+    const doc = await computeDashboardIndex(baseOptions());
+    expect(doc.activities[0].gearName).toBe('Pegasus 40');
+  });
+
+  it('a gear_id absent from the gear map yields a Shoe N ordinal', async () => {
+    const manifest = emptyManifestDoc();
+    manifest.activities['a1'] = {
+      available: true,
+      source: 'fit',
+      distanceSource: 'native',
+      sampleCount: 2,
+      channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+    };
+    await writeManifest(manifest);
+    await writeActivity('a1', { gear_id: 'g999' });
+    await writeGearConfig({});
+
+    const doc = await computeDashboardIndex(baseOptions());
+    expect(doc.activities[0].gearName).toBe('Shoe 1');
+  });
+
+  it('an activity with no gear_id yields gearName: null', async () => {
+    const manifest = emptyManifestDoc();
+    manifest.activities['a1'] = {
+      available: true,
+      source: 'fit',
+      distanceSource: 'native',
+      sampleCount: 2,
+      channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+    };
+    await writeManifest(manifest);
+    await writeActivity('a1');
+    await writeGearConfig({});
+
+    const doc = await computeDashboardIndex(baseOptions());
+    expect(doc.activities[0].gearName).toBeNull();
+  });
+
+  it('a missing gear config file yields ordinals for geared rows and null for ungeared rows with no thrown error', async () => {
+    const manifest = emptyManifestDoc();
+    manifest.activities['geared'] = {
+      available: true,
+      source: 'fit',
+      distanceSource: 'native',
+      sampleCount: 2,
+      channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+    };
+    manifest.activities['ungeared'] = {
+      available: true,
+      source: 'fit',
+      distanceSource: 'native',
+      sampleCount: 2,
+      channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+    };
+    await writeManifest(manifest);
+    await writeActivity('geared', { gear_id: 'g555' });
+    await writeActivity('ungeared');
+    // No gear.json written.
+
+    const doc = await computeDashboardIndex(baseOptions());
+    const byId = Object.fromEntries(doc.activities.map((r) => [r.id, r]));
+    expect(byId['geared'].gearName).toBe('Shoe 1');
+    expect(byId['ungeared'].gearName).toBeNull();
+  });
+
+  it('totals.withGear matches the number of non-null gearName rows', async () => {
+    const manifest = emptyManifestDoc();
+    manifest.activities['geared1'] = {
+      available: true,
+      source: 'fit',
+      distanceSource: 'native',
+      sampleCount: 2,
+      channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+    };
+    manifest.activities['geared2'] = {
+      available: true,
+      source: 'fit',
+      distanceSource: 'native',
+      sampleCount: 2,
+      channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+    };
+    manifest.activities['ungeared'] = {
+      available: true,
+      source: 'fit',
+      distanceSource: 'native',
+      sampleCount: 2,
+      channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+    };
+    await writeManifest(manifest);
+    await writeActivity('geared1', { gear_id: 'g1' });
+    await writeActivity('geared2', { gear_id: 'g2' });
+    await writeActivity('ungeared');
+    await writeGearConfig({ g1: 'Shoe A', g2: 'Shoe B' });
+
+    const doc = await computeDashboardIndex(baseOptions());
+    const withGear = doc.activities.filter((r) => r.gearName !== null);
+    expect(doc.totals.withGear).toBe(withGear.length);
+    expect(doc.totals.withGear).toBe(2);
+  });
+
+  it('no emitted row gearName equals its source gear_id', async () => {
+    const manifest = emptyManifestDoc();
+    manifest.activities['a1'] = {
+      available: true,
+      source: 'fit',
+      distanceSource: 'native',
+      sampleCount: 2,
+      channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+    };
+    await writeManifest(manifest);
+    await writeActivity('a1', { gear_id: 'g16649854' });
+    await writeGearConfig({ g16649854: '' });
+
+    const doc = await computeDashboardIndex(baseOptions());
+    expect(doc.activities[0].gearName).not.toBe('g16649854');
   });
 
   it('writes the document to <outDir>/index.json on disk', async () => {
