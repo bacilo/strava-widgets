@@ -94,7 +94,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STREAM-02 | Phase 14 | Complete |
 | STREAM-03 | Phase 14 | Complete |
 | REC-01 | Phase 15 | Complete |
-| DASH-01 | Phase 16 | Complete |
+| DASH-01 | Phase 16 | Pending |
 | DASH-02 | Phase 16 | Pending |
 | DASH-03 | Phase 16 | Pending |
 | BROWSE-01 | Phase 17 | Pending |
