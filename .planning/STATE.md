@@ -4,8 +4,8 @@ milestone: v2.0
 milestone_name: Training Dashboard
 status: executing
 stopped_at: Phase 16 plan 09 checkpoint PARTIAL - gap-closure pending on DASH-02/DASH-03
-last_updated: "2026-08-11T11:07:15.539Z"
-last_activity: 2026-08-11 -- Phase 16 planning complete
+last_updated: "2026-08-11T11:12:07.520Z"
+last_activity: 2026-08-11 -- Phase 16 execution started
 progress:
   total_phases: 5
   completed_phases: 2
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 
 ## Current Position
 
-Phase: 16 (dashboard-shell-data-contract) — GAP CLOSURE NEEDED
-Plan: 9 of 9 executed; human checkpoint PARTIAL (DASH-01 pass, DASH-02 fail, DASH-03 partial)
-Status: Ready to execute
-Last activity: 2026-08-11 -- Phase 16 planning complete
+Phase: 16 (dashboard-shell-data-contract) — EXECUTING
+Plan: 1 of 16
+Status: Executing Phase 16
+Last activity: 2026-08-11 -- Phase 16 execution started
 
 Progress: [██████████] 100% (plans); phase gate open pending gap-closure
 

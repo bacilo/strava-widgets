@@ -161,10 +161,10 @@ Plans:
 
 **Wave 1** *(independent; no shared files)*
 
-- [ ] 16-10-PLAN.md — Widen the activity-id chokepoint to accept intervals.icu ids, with the missing regression cases (SC2, P07, CR-01, IN-07)
-- [ ] 16-11-PLAN.md — Make the theme toggle visible and single-icon, locked by a stylesheet regression test (SC3, WR-04)
-- [ ] 16-12-PLAN.md — Timezone-correct dates across all three views, a normalized index sort key, and stale-render guards (WR-02, WR-03, WR-01)
-- [ ] 16-13-PLAN.md — Real emptyOutDir build guards and the test + verify-dashboard exit gate in the publishing workflow (WR-05, WR-06)
+- [x] 16-10-PLAN.md — Widen the activity-id chokepoint to accept intervals.icu ids, with the missing regression cases (SC2, P07, CR-01, IN-07)
+- [x] 16-11-PLAN.md — Make the theme toggle visible and single-icon, locked by a stylesheet regression test (SC3, WR-04)
+- [x] 16-12-PLAN.md — Timezone-correct dates across all three views, a normalized index sort key, and stale-render guards (WR-02, WR-03, WR-01)
+- [x] 16-13-PLAN.md — Real emptyOutDir build guards and the test + verify-dashboard exit gate in the publishing workflow (WR-05, WR-06)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -237,7 +237,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 | 13. Standalone Pages | v1.2 | 2/2 | Complete | 2026-02-18 |
 | 14. Stream Ingestion Foundation | v2.0 | 5/5 | Complete    | 2026-08-10 |
 | 15. Best-Effort Engine | v2.0 | 4/4 | Complete    | 2026-08-10 |
-| 16. Dashboard Shell & Data Contract | v2.0 | 9/9 | Complete   | 2026-08-11 |
+| 16. Dashboard Shell & Data Contract | v2.0 | 13/16 | In Progress|  |
 | 17. Activity Browser & Detail Views | v2.0 | 0/TBD | Not started | - |
 | 18. Records, Trends & Differentiators | v2.0 | 0/TBD | Not started | - |
 
