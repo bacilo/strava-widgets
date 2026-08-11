@@ -238,21 +238,38 @@ Plans:
 
 Plans:
 
+**Wave 1**
+
 - [ ] 18-01-PLAN.md — Private athlete config split, build-time PII guard, publish-contract 404 assertion
 - [ ] 18-02-PLAN.md — WMA factor tables (committed + reproducible converter) and the pure age-grade lookup
 - [ ] 18-03-PLAN.md — Edwards/Banister TRIMP and the continuous daily CTL/ATL/TSB spine
 - [ ] 18-04-PLAN.md — Shared UI foundation: chart-theme module, list.ts formatters/badges, stylesheet additions
 - [ ] 18-05-PLAN.md — Gear name in the dashboard index and the per-shoe aggregate compute step
 - [ ] 18-06-PLAN.md — Trends tab state, rolling totals, volume series and the year consistency grid
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 18-07-PLAN.md — compute-training-load build step over the committed HR stream archive
 - [ ] 18-08-PLAN.md — compute-age-grading build step emitting percentages only
 - [ ] 18-09-PLAN.md — Riegel prediction/guarded fit and the Records page logic
 - [ ] 18-10-PLAN.md — Cadence/HR, training-load windowing and coverage spans, gear bucketing logic
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 18-11-PLAN.md — CLI subcommands, compute-all-stats chain, CI steps, publish verification
 - [ ] 18-12-PLAN.md — Records view: jump list, superlatives, PR tables, evolution charts, race predictions
 - [ ] 18-13-PLAN.md — Detail view PR badges and the Best Efforts This Run panel
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 18-14-PLAN.md — Trends shell: ARIA tablist, rolling strip, Volume and Year-over-Year tabs
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
 - [ ] 18-15-PLAN.md — Trends: Cadence & HR, Training Load and Gear tabs
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
 - [ ] 18-16-PLAN.md — Full gate, validation reconciliation, and the real-browser human checkpoint
 
 ## Progress
