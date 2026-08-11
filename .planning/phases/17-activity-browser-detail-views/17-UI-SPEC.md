@@ -50,6 +50,7 @@ Reused verbatim from `src/dashboard/styles.css` — **no new spacing tokens this
 - Filter-chip remove control: minimum 24×24px hit area (WCAG 2.5.8 floor), not the 44px floor reserved for the Phase 16 nav toggle — chips are dense and inline by design (D-09).
 - Pagination buttons and calendar day-cell buttons: minimum 32×32px hit area (larger than a chip, smaller than the 44px nav-toggle exception, appropriate for a dense grid of ~35–42 cells or up to 7 page buttons).
 - Splits-table sticky first column (`Km`) width: fixed 64px, so the scroll affordance (below) has a stable anchor.
+- Chart-band height at viewports <380px: **112px** (not 110px — 112 is the nearest multiple of 4 that stays under the 140px default while preserving the 4px-grid discipline every other declared dimension in this document follows: 140, 220, 320, 380, 400, 720, 24, 32, 64 are all clean multiples of 4).
 
 **New breakpoint (Claude's Discretion, CONTEXT.md flagged the exact number as open):** **720px** — the list's table/card switch (D-01's "roughly 700px"). This is distinct from Phase 16's existing 640px nav-collapse breakpoint; the two do not coincide, so between 641px and 720px the nav is expanded but the list is already in card mode. Verified no ~700px breakpoint previously existed in `styles.css` (17-RESEARCH.md Sources).
 
@@ -95,13 +96,31 @@ Reused verbatim from `src/dashboard/styles.css` — **no changes to the base sem
 2. Loading indicator/spinner (Phase 16, unchanged)
 3. Focus-visible outline ring (Phase 16, unchanged)
 4. **NEW:** Active sort-column direction arrow in the list table header
-5. **NEW:** Current-page indicator in numbered pagination (background fill, white text)
-6. **NEW:** Active option in the distance/time x-axis segmented control (background fill, white text)
-7. **NEW:** Calendar distance tint scale (a *derived opacity wash* of this same hex, not a new hue — see below)
-8. **NEW:** Route-map polyline and position marker (already `#fc4c02`/`RouteRenderer`'s default — pass the resolved `--accent` value explicitly per theme rather than relying on the hardcoded default, so the route recolors correctly in dark mode)
-9. **NEW:** Pace-channel chart color (`--chart-pace`, below, is a literal alias of `--accent` — not a separate color)
+5. **NEW:** Calendar distance tint scale (a *derived opacity wash* of this same hex, not a new hue — see below)
+6. **NEW:** Route-map polyline and position marker (already `#fc4c02`/`RouteRenderer`'s default — pass the resolved `--accent` value explicitly per theme rather than relying on the hardcoded default, so the route recolors correctly in dark mode)
+7. **NEW:** Pace-channel chart color (`--chart-pace`, below, is a literal alias of `--accent` — not a separate color)
 
 Do not use accent for body text, badges, table row hover state, or any non-interactive surface — unchanged from Phase 16.
+
+**Explicitly NOT on this list — pagination current-page fill and the x-axis segmented-control active fill:** the checker measured white text directly on raw `--accent` at ~3.4:1 in light mode and ~2.8:1 in dark mode — both below WCAG AA's 4.5:1 floor for normal-size text. This is a live, shipped contrast defect inherited from Phase 16's `.cta` pattern (`background: var(--accent); color: #ffffff;` in `src/dashboard/styles.css`), and this phase must not propagate it into two new surfaces. Both controls instead use the dedicated `--accent-strong` variant defined immediately below, never raw `--accent`.
+
+### NEW: Accent-strong (contrast-safe active-state fill — pagination + segmented control only)
+
+A darker, more saturated variant of the accent hue, reserved exclusively for the two controls named above. It exists solely because raw `--accent` fails WCAG AA 4.5:1 with white text in both themes (measured above); `--accent-strong` is verified below to clear it with margin.
+
+| Token | Light | Dark |
+|-------|-------|------|
+| `--accent-strong` | `#b3390a` | `#c2410c` |
+
+**Contrast (white `#ffffff` text on `--accent-strong` fill, WCAG relative-luminance formula — figures below so the manual checkpoint can verify rather than re-derive them):**
+- Light: `#ffffff` on `#b3390a` → **5.99:1** (clears AA 4.5:1)
+- Dark: `#ffffff` on `#c2410c` → **5.18:1** (clears AA 4.5:1)
+
+**Used by (exhaustive — do not extend `--accent-strong` to any other control without re-verifying contrast):**
+1. Pagination current-page button — background `--accent-strong`, text `#ffffff` (Activity List, §1).
+2. X-axis segmented-control active option ("Distance"/"Time") — background `--accent-strong`, text `#ffffff` (§4c Charts).
+
+Inactive/rest states are unaffected: pagination non-current-page buttons keep neutral `--surface`/`--text` chrome, and the segmented control's inactive option keeps `--surface` background / `--text-secondary` text — both unchanged from the original draft.
 
 ### NEW: Chart channel colors (data-visualization palette, exempt from the 60/30/10 chrome split)
 
@@ -199,7 +218,7 @@ Each surface below is written as a checkable statement, doubling as the manual-v
 
 **Mobile card mode (≤720px):** unchanged `renderActivityRow` cards, plus a compact **sort `<select>`** above the list replacing the header-click affordance, with options like "Date (newest)", "Pace (fastest)", etc. — each option maps to one (sortKey, direction) pair; changing it updates the same URL query params a header click would (D-03).
 
-**Pagination:** numbered, 50 rows/page (D-05/D-06). Controls: `‹ Prev`, up to 7 numbered buttons (ellipsis beyond that), `Next ›`, plus the always-visible "Page {n} of {total}" label. Current-page button uses the accent fill/white-text treatment (Color § accent reserved-for #5). Changing sort or any filter resets to page 1 (D-05).
+**Pagination:** numbered, 50 rows/page (D-05/D-06). Controls: `‹ Prev`, up to 7 numbered buttons (ellipsis beyond that), `Next ›`, plus the always-visible "Page {n} of {total}" label. Current-page button uses the `--accent-strong` fill / white-text treatment (Color § "Accent-strong" — 5.99:1 light / 5.18:1 dark, both clear WCAG AA 4.5:1), not raw `--accent`. Changing sort or any filter resets to page 1 (D-05).
 
 **Return-from-detail (D-08):** navigating back to `#/list` restores page/sort/filters from the URL (no separate storage) and applies a brief highlight to the row for the activity just viewed — background flashes `--accent` at 15% opacity, fading to transparent over 1.5s via CSS transition — and calls `.focus()` on that row's anchor for keyboard users.
 
@@ -217,7 +236,15 @@ Each surface below is written as a checkable statement, doubling as the manual-v
 
 **Live result count (D-11):** a Label-typography line ("{n} activities" — reusing the existing count-line pattern from `list.ts`) updates as filters change: immediately for chips/presets, debounced 200ms for the free-text search input and numeric range inputs.
 
-**Chips (D-12):** one pill per active filter (reused `.badge`-adjacent pill styling, not the neutral `.badge`), each with a 24×24px minimum remove-button hit area (× icon). **Clear all** appears once 2+ chips are present, right-aligned in the chips row.
+**Chips (D-12):** one pill per active filter. Exact token pair, pinned for both themes so contrast is verifiable without re-deriving it during implementation:
+- Background: `--surface` (`#f5f5f7` light / `#242444` dark)
+- Text: `--text` (`#333333` light / `#e0e0e0` dark) — the same pairing already relied on throughout the app by `.activity-row` and `.card` content; not a new contrast pair.
+- Border: `1px solid var(--accent)` — distinguishes an *active* filter pill from the neutral `.badge`'s `1px solid var(--border)`, mirroring the existing `.app-nav__link[aria-current="page"]` accent-border precedent (`src/dashboard/styles.css` lines 130–135) rather than inventing a new visual language.
+- Shape/padding: `border-radius: 999px` (a true pill, vs. `.badge`'s 4px), `padding: 4px 8px` (`--space-xs` block / `--space-sm` inline).
+
+Each chip's remove control is a 24×24px minimum hit-area `<button>` containing the × icon (inline SVG, `--text-secondary` color). Because the icon has no visible text label, it carries an explicit accessible name: **`aria-label="Remove {constraint} filter"`**, e.g. `aria-label="Remove 10–25 km filter"`, `aria-label="Remove 2024 filter"`, `aria-label="Remove name: hills filter"` — the chip's own visible text (e.g. "10–25 km ×") is decorative to assistive tech; the button's `aria-label` is the authoritative accessible name so the executor does not have to invent one per chip type.
+
+**Clear all** appears once 2+ chips are present, right-aligned in the chips row.
 
 **Zero-match state:** see Copywriting Contract — renders in place of the table/cards, never a blank table (D-12).
 
@@ -275,12 +302,12 @@ Tile grid reuses the existing `.stat-grid` CSS (`repeat(auto-fit, minmax(200px, 
 
 **Per-band chrome:**
 - Card wrapper: `.card` styling (unchanged — `--surface` background, `--border` border, 8px radius).
-- Fixed height **140px** per band (110px if viewport <380px — the only band-height concession to narrow screens).
+- Fixed height **140px** per band (**112px** if viewport <380px — the only band-height concession to narrow screens; 112 is a clean multiple of 4, keeping the grid discipline every other declared dimension in this document follows).
 - Y-axis: own auto-scaled range per band, ticks in Label typography, axis/gridlines in `--border` (gridlines at reduced ~40% opacity, horizontal only — no vertical gridlines, since the crosshair already provides the vertical reference).
 - X-axis tick labels: rendered **only on the bottom-most visible band** (reduces repeated labels across 2–4 vertically-aligned charts); all bands still share the same x-scale domain so the crosshair aligns correctly.
 - Primary line: full-opacity 2px stroke in that channel's `--chart-*` color (Color section), no point markers except a single hover dot.
 
-**X-axis toggle (D-21):** a 2-option segmented control ("Distance" / "Time") above the stacked bands — active option uses the accent fill/white-text treatment (Color § accent reserved-for #6), inactive option uses `--surface`/`--text-secondary`. Default: **Distance.**
+**X-axis toggle (D-21):** a 2-option segmented control ("Distance" / "Time") above the stacked bands — active option uses the `--accent-strong` fill / white-text treatment (Color § "Accent-strong" — 5.99:1 light / 5.18:1 dark, both clear WCAG AA 4.5:1), not raw `--accent`; inactive option uses `--surface`/`--text-secondary`. Default: **Distance.**
 
 **Overlay picker (D-18/D-19):** each band has its own small "Shade behind" checkbox row listing the *other* 3 channels (a band cannot overlay itself). Checking one renders it as an 18%-opacity filled area on that band's own auto-scaled, undrawn axis (no competing tick labels — tooltip carries the true value + unit). A 2nd checked overlay renders at 10% opacity, drawn behind the first. Checking a 3rd is blocked — remaining checkboxes disable with the **"Up to 2"** inline hint (Copywriting).
 
@@ -326,7 +353,7 @@ Tile grid reuses the existing `.stat-grid` CSS (`repeat(auto-fit, minmax(200px, 
 | Filter panel | Same collapsible behavior at every width; chips wrap to multiple lines |
 | Calendar | Grid cells shrink but never introduce horizontal scroll; weekday header abbreviates to single letters below ~400px; month/year jump stacks under the prev/next row if needed |
 | Stats header | `.stat-grid`'s existing `auto-fit` reflows automatically; no new code |
-| Chart bands | Fixed 140px height down to 380px viewport width, then 110px below that |
+| Chart bands | Fixed 140px height down to 380px viewport width, then 112px below that |
 | Splits table | Horizontal-scroll wrapper with sticky `Km` column (never page-level scroll) |
 | Map | min-height drops from 320px (desktop) to 220px (mobile), full width either way |
 
