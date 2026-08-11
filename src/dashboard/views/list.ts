@@ -23,13 +23,21 @@ const MONTH_NAMES = [
 ];
 
 /**
- * Formats a Strava-style `startDateLocal` (Z-suffixed but representing
- * local wall-clock time, not UTC — Strava's own convention) as e.g.
- * "Jan 15, 2024" by reading UTC components straight off the parsed value,
- * so no timezone conversion is applied on top of the already-local string.
+ * Formats a `startDateLocal` value as e.g. "Jan 15, 2024". The archive
+ * contains two shapes, both wall-clock LOCAL time — never UTC:
+ * Strava-era rows are Z-suffixed (`2024-01-15T09:00:00Z`, Strava's own
+ * convention), while intervals.icu-migrated rows have no `Z`
+ * (`2026-08-06T07:28:22`). Appending `Z` to the no-Z form before parsing
+ * makes the subsequent `getUTC*` reads return the wall-clock components
+ * unchanged, instead of the viewer's browser shifting them by its own UTC
+ * offset (WR-02). This is the single date formatter for list, overview and
+ * detail — no view may add its own.
  */
 export function formatActivityDate(isoLocal: string): string {
-  const d = new Date(isoLocal);
+  if (typeof isoLocal !== 'string') return '—';
+  const normalized = isoLocal.endsWith('Z') ? isoLocal : `${isoLocal}Z`;
+  const d = new Date(normalized);
+  if (Number.isNaN(d.getTime())) return '—';
   return `${MONTH_NAMES[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
 }
 
