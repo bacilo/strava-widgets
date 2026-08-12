@@ -56,7 +56,8 @@ Compute and visualize running statistics that Strava doesn't readily offer, embe
 Milestone v2.0 Training Dashboard — in progress.
 
 - ✓ Committed per-activity stream data (time, distance, HR, cadence, elevation) via local backfill + daily sync, with per-channel availability manifest (STREAM-01/02/03) — Validated in Phase 14: Stream Ingestion Foundation
-- Remaining: best-effort engine, dashboard shell, activity browser, records & trends (Phases 15-18); STREAM-04 (Garmin adapter) deferred until export arrives.
+- ✓ Records, trends & differentiators — PR tables with honesty badges, PR-evolution charts, Riegel race predictions, WMA age-grading, volume/consistency/year-over-year trends, cadence & HR, CTL/ATL/TSB training load, and per-shoe gear analysis (REC-02..07, TREND-01..05) — Validated in Phase 18: Records, Trends & Differentiators
+- All v2.0 phases (14-18) are complete. STREAM-04 (Garmin adapter) remains deferred until the export arrives.
 
 ### Out of Scope
 
@@ -144,4 +145,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-11 — Phase 16 (Dashboard Shell & Data Contract) complete: the dashboard SPA is live at https://bacilo.github.io/strava-widgets/ with hash routing over five views, document-level theming, and the lazy data contract (a compact index manifest up front; per-activity detail and stream JSON fetched only on open). The widget showcase moved to /widgets.html. DASH-01/02/03 validated in Phase 16. Took 16 plans — 9 original plus 7 gap-closure, after the first verification pass found the phase had never actually been pushed or deployed.*
+*Last updated: 2026-08-12 — Phase 18 (Records, Trends & Differentiators) complete, closing milestone v2.0. Records and Trends replaced their stubs: seven PR tables with honesty badges and age-grade columns, a seven-card PR-evolution grid, Riegel race predictions with a self-suppressing fitted exponent, and a five-tab Trends page (Volume, Year-over-Year, Cadence & HR, Training Load, Gear). Identity inputs (birthDate/sex/restingHr) live in a gitignored data/private/ with a two-layer publish guard, since the repo is public — age-grading and Banister TRIMP ship disabled by default. 16 plans across 6 waves; verification passed 5/5 criteria and 11/11 requirement IDs, with a human browser checkpoint approved. Known soft spots recorded in 18-VALIDATION.md and 18-REVIEW.md: REC-06's external evidence is one distance with a 0.51-point unexplained delta, and the Current Streak tile's "ended {date}" sub-label is structurally unreachable (WR-01).*
