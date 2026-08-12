@@ -1214,11 +1214,38 @@ input[type="radio"] {
    `input, select, textarea` rule's own `font: inherit`). Every one of the 12
    existing button-class rules already declares its own colors/backgrounds
    and, where relevant, its own min-width/min-height, so this `0,0,1`
-   baseline only fills in what those classes leave unset — nothing currently
-   rendered changes shape or color. No `:not()` exclusion is needed for
-   `.chip__remove` (24px) or `.theme-toggle`/`.app-nav__toggle` (44px): all
-   three are class selectors at `0,1,0` and beat this rule's min-height
-   automatically. */
+   baseline only fills in what those classes leave unset for THOSE buttons.
+   No `:not()` exclusion is needed for `.chip__remove` (24px) or
+   `.theme-toggle`/`.app-nav__toggle` (44px): all three are class selectors
+   at `0,1,0` and beat this rule's min-height automatically.
+
+   WR-02 (19-REVIEW.md), resolved by plan 19-07: that "fills in what's
+   unset" framing is NOT true for three real, shipped `<button>` elements
+   that carry no class at all — this rule is the FIRST CSS ever applied to
+   them, not a gap-filler:
+   - `src/dashboard/views/calendar.ts:74` — the multi-run day picker's
+     "Close" button
+   - `src/dashboard/views/calendar.ts:257` — the month-nav "‹ {month}" button
+   - `src/dashboard/views/calendar.ts:265` — the month-nav "{month} ›" button
+   For these three, this rule changes three concrete things that were
+   previously unstyled platform chrome: `font: inherit` moves their text
+   from the browser's UA button default (commonly ~13px, platform font) to
+   the inherited page body font at 16px (`--font-stack`); `min-height: 32px`
+   imposes a height floor that previously had none; `border-radius:
+   var(--radius-control)` rounds corners that previously used the native
+   button's square/platform-default chrome. This rule is deliberately NOT
+   scoped away from these three — reaching every class-less button is D-05's
+   intent (the baseline exists to close the inherited-font-and-cursor gap on
+   every button in the dashboard), and excluding them would re-open exactly
+   that gap on shipped, production controls (the calendar's month
+   navigation renders on every calendar page load). Verified by reading each
+   site's surrounding code, not by a lookahead heuristic: a wider scan
+   during 19-07 planning also flagged `trends.ts:225,815,819,882` as
+   candidates, but each of those four is classed via a same-tick
+   `className`/`classList` assignment that runs before the button is ever
+   appended to the DOM (`applyTabButtonState`/`updateModelButtons`/
+   `updateWindowButtons`), so none of them are actually class-less in the
+   rendered DOM — only the three calendar.ts sites above are. */
 button {
   font: inherit;
   min-height: 32px;
