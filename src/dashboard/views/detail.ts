@@ -24,15 +24,25 @@ import type { IndexClient } from '../data/index-client.js';
 import type { GearClient } from '../data/gear-client.js';
 import { resolveGearLabel } from '../data/gear-client.js';
 import type { AthleteConfigClient } from '../data/athlete-config-client.js';
-// formatPace/formatActivityDate/formatDurationHms/noteViewedActivity are the
-// dashboard's single formatter/list-highlight sources (list.ts) — imported
-// rather than duplicated, matching the precedent already set for formatPace
-// and formatActivityDate. The private formatDurationHms this file used to
-// keep is deleted; this is the only copy in the dashboard now.
-import { formatActivityDate, formatPace, formatDurationHms, noteViewedActivity } from './list.js';
+import type { AgeGradingClient } from '../data/age-grading-client.js';
+import { createAgeGradingClient } from '../data/age-grading-client.js';
+import type { BestEffortsClient } from '../data/best-efforts-client.js';
+import { createBestEffortsClient } from '../data/best-efforts-client.js';
+// formatPace/formatActivityDate/formatDurationHms/noteViewedActivity/
+// appendBadge are the dashboard's single formatter/list-highlight/badge
+// sources (list.ts) — imported rather than duplicated, matching the
+// precedent already set for formatPace and formatActivityDate. The private
+// formatDurationHms this file used to keep is deleted; this is the only
+// copy in the dashboard now.
+import { formatActivityDate, formatPace, formatDurationHms, noteViewedActivity, appendBadge } from './list.js';
 import { computeSplits } from './detail-splits.js';
 import { computePaceDistribution, computeHrZoneTimes } from './detail-zones.js';
-import { buildSplitsSection, buildBreakdownSection } from './detail-sections.js';
+import { buildSplitsSection, buildBreakdownSection, buildBestEffortsSection } from './detail-sections.js';
+import { buildPrBadgeLabels, buildBestEffortsPanelRows } from './detail-best-efforts-logic.js';
+// buildExclusionReasonIndex is records-logic.ts's pure, __proto__-safe
+// exclusion-reason parser (18-09) — reused here rather than duplicated, the
+// same single-source discipline as the badge/formatter imports above.
+import { buildExclusionReasonIndex } from './records-logic.js';
 import type { CanonicalStream } from '../../streams/stream.types.js';
 import type { StravaActivity } from '../../types/strava.types.js';
 // @mapbox/polyline is a small, DOM-free decode library — not part of the
@@ -253,10 +263,18 @@ export interface DetailViewDeps {
   indexClient: IndexClient;
   gearClient: GearClient;
   athleteConfigClient: AthleteConfigClient;
+  // Both optional and defaulted below (never registered in
+  // view-registry.ts, which plan 18-12 edits concurrently in the same
+  // wave) — dependency injection stays available for tests without any
+  // change to the shared registry's construction call.
+  ageGradingClient?: AgeGradingClient;
+  bestEffortsClient?: BestEffortsClient;
 }
 
 export function createDetailView(deps: DetailViewDeps): DashboardView {
   const { detailClient, indexClient, gearClient, athleteConfigClient } = deps;
+  const ageGradingClient = deps.ageGradingClient ?? createAgeGradingClient();
+  const bestEffortsClient = deps.bestEffortsClient ?? createBestEffortsClient();
   let mountedContainer: HTMLElement | null = null;
   let requestToken = 0;
   // Module-scoped (relative to this view instance) handles for the two
@@ -434,6 +452,64 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
     }
   }
 
+  /**
+   * Looks up this one activity's exclusion reason (18-UI-SPEC § 6's
+   * `Excluded — {reason}` badge) from the small, already-published
+   * `data/best-effort-exclusions.json` (2 entries in the live archive) —
+   * never rejects, resolves `null` on any fetch/parse failure so a missing
+   * or unreachable document degrades to the generic "Excluded from records"
+   * fallback the panel already supports.
+   */
+  async function loadExclusionReason(activityId: string): Promise<string | null> {
+    try {
+      const response = await fetch('data/best-effort-exclusions.json');
+      if (!response.ok) return null;
+      const body = await response.json();
+      return buildExclusionReasonIndex(body).get(activityId) ?? null;
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
+  }
+
+  /**
+   * Fills in the header PR badges and the "Best Efforts This Run" panel
+   * once the per-activity best-efforts entry, the age-grading document, and
+   * the exclusion-reason lookup all resolve — fired WITHOUT awaiting
+   * (mirrors `mountHeavySections`) so this supplementary content never
+   * delays the synchronous render (stats, route, charts, splits,
+   * breakdown) that already painted. `badgesContainer`/`panelContainer` are
+   * empty placeholders appended synchronously in `renderSuccess`; they stay
+   * empty (no badges, panel section omitted) until this resolves, which is
+   * an honest interim state rather than a fabricated one. The single
+   * `Promise.all` below is this function's only await point, guarded once
+   * immediately after it settles.
+   */
+  async function mountBestEffortsAndBadges(
+    container: HTMLElement,
+    badgesContainer: HTMLElement,
+    panelContainer: HTMLElement,
+    detail: ActivityDetail,
+    myToken: number
+  ): Promise<void> {
+    const [bestEffortsEntry, ageGrading, exclusionReason] = await Promise.all([
+      bestEffortsClient.load(detail.id),
+      ageGradingClient.load(),
+      loadExclusionReason(detail.id),
+    ]);
+
+    if (myToken !== requestToken || mountedContainer !== container) {
+      return;
+    }
+
+    for (const label of buildPrBadgeLabels(bestEffortsEntry)) {
+      appendBadge(badgesContainer, label);
+    }
+
+    const rows = buildBestEffortsPanelRows(bestEffortsEntry, ageGrading);
+    panelContainer.replaceChildren(buildBestEffortsSection(rows, exclusionReason));
+  }
+
   async function renderSuccess(container: HTMLElement, detail: ActivityDetail, myToken: number): Promise<void> {
     const { activity } = detail;
 
@@ -456,6 +532,14 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
     heading.tabIndex = -1;
     heading.textContent = activity.name; // athlete free text — textContent only
     view.appendChild(heading);
+
+    // PR badge row (18-UI-SPEC § 5) — empty placeholder appended
+    // synchronously; `mountBestEffortsAndBadges` fills it in once the
+    // per-activity best-efforts entry resolves, without blocking this
+    // synchronous render. Reuses the plain `.badge` class via the shared
+    // `appendBadge` builder, never a local copy.
+    const badgesContainer = document.createElement('div');
+    view.appendChild(badgesContainer);
 
     const dateLine = document.createElement('p');
     dateLine.className = 'text-label';
@@ -558,6 +642,14 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
       view.appendChild(buildNoStreamSection(reason));
     }
 
+    // Best-efforts panel placeholder (18-UI-SPEC § 5, D-08) — supplementary
+    // content positioned after Splits/Breakdown and before the closing CTA;
+    // `mountBestEffortsAndBadges` fills it in once the per-activity
+    // best-efforts entry and age-grading document resolve, so it never
+    // blocks understanding pace/HR/route if it resolves last.
+    const bestEffortsContainer = document.createElement('div');
+    view.appendChild(bestEffortsContainer);
+
     const backCta = document.createElement('a');
     backCta.className = 'cta';
     backCta.textContent = 'Back to Activities';
@@ -575,6 +667,11 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
     // Heavy sections (D-25 lazy import) — fired without awaiting so the
     // synchronous sections above are already painted; map/charts fill in.
     void mountHeavySections(container, detail, myToken, routeContainer, chartContainer);
+
+    // PR badges + best-efforts panel (18-UI-SPEC § 5, D-08) — also fired
+    // without awaiting, so this supplementary content never delays the
+    // synchronous render above.
+    void mountBestEffortsAndBadges(container, badgesContainer, bestEffortsContainer, detail, myToken);
   }
 
   async function loadAndRender(container: HTMLElement, id: string): Promise<void> {
