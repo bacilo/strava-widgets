@@ -48,6 +48,45 @@ function declarationsFor(selector: string): string {
 }
 
 /**
+ * Splits a rule head into its comma-separated selectors without breaking
+ * apart a selector list nested inside a functional pseudo-class such as
+ * `:not(a, b)` or `:where(...)`. Walks the head character by character,
+ * tracking parenthesis depth, and breaks only on a comma at depth 0.
+ *
+ * `selectorListDeclares` and `bodyForSelectorListToken` used to split each
+ * rule head with a plain, unconditional comma split, which splits on every
+ * comma regardless of context. Plan 19-03's shared hover selector head
+ * contains commas *inside* `:where(:not(...))` — splitting on `,` there
+ * produces standalone fragments byte-identical to real, unrelated
+ * top-level selectors, one of which (`[aria-disabled="true"]`) is the
+ * exact needle asserted at the disabled-treatment rule below. That
+ * assertion returned the right answer only because the hover rule's body
+ * happens not to contain `opacity: 0.6` — a coincidence of what the body
+ * currently holds, not a property of the helper being selector-boundary-safe.
+ * Depth-aware splitting keeps that fragment inside its parent selector
+ * where it belongs, so a nested selector can never be mistaken for a
+ * top-level one. See WR-03 (19-REVIEW.md) for the finding and the
+ * reference implementation this is based on.
+ */
+function splitTopLevelSelectors(head: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let current = '';
+  for (const ch of head) {
+    if (ch === '(') depth++;
+    if (ch === ')') depth--;
+    if (ch === ',' && depth === 0) {
+      parts.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  parts.push(current.trim());
+  return parts;
+}
+
+/**
  * Confirms some rule whose selector list includes `needle` declares
  * `declaration` in its body — covers both the combined-selector form
  * (`.theme-toggle, .app-nav__toggle { ... }`) and two separate rules.
@@ -59,7 +98,7 @@ function selectorListDeclares(needle: string, declaration: string): boolean {
   let match: RegExpExecArray | null;
   while ((match = ruleHeadAndBody.exec(cssNoComments)) !== null) {
     const [, head, body] = match;
-    const selectors = head.split(',').map((s) => s.trim());
+    const selectors = splitTopLevelSelectors(head);
     if (selectors.some((s) => s === needle) && body.includes(declaration)) {
       return true;
     }
@@ -83,7 +122,7 @@ function bodyForSelectorListToken(needle: string): string {
   let match: RegExpExecArray | null;
   while ((match = ruleHeadAndBody.exec(cssNoComments)) !== null) {
     const [, head, body] = match;
-    const selectors = head.split(',').map((s) => s.trim());
+    const selectors = splitTopLevelSelectors(head);
     if (selectors.some((s) => s === needle)) {
       return body;
     }
