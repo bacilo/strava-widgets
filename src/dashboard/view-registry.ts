@@ -19,7 +19,7 @@ import { createListView } from './views/list.js';
 import { createDetailView } from './views/detail.js';
 import { createCalendarView } from './views/calendar.js';
 import { createRecordsView } from './views/records.js';
-import { trendsView } from './views/trends.stub.js';
+import { createTrendsView } from './views/trends.js';
 
 const indexClient = createIndexClient();
 const detailClient = createDetailClient();
@@ -34,7 +34,7 @@ export const VIEWS: readonly DashboardView[] = [
   createListView({ indexClient }),
   createCalendarView({ indexClient }),
   createRecordsView({ indexClient }),
-  trendsView,
+  createTrendsView({ indexClient }),
   createDetailView({ detailClient, indexClient, gearClient, athleteConfigClient }),
 ];
 
