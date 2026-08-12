@@ -122,7 +122,7 @@ Plans:
 
 **Wave 8** *(gap closure — blocked on Wave 7 completion)*
 
-- [ ] 19-08-PLAN.md — parenthesis-aware selector splitting in `styles.test.ts` (WR-03)
+- [x] 19-08-PLAN.md — parenthesis-aware selector splitting in `styles.test.ts` (WR-03)
 
 **Wave 9** *(gap closure — blocked on Wave 8 completion)*
 
@@ -251,7 +251,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 16. Dashboard Shell & Data Contract | v2.0 | 16/16 | Complete    | 2026-08-11 |
 | 17. Activity Browser & Detail Views | v2.0 | 15/15 | Complete    | 2026-08-11 |
 | 18. Records, Trends & Differentiators | v2.0 | 16/16 | Complete    | 2026-08-12 |
-| 19. Design System & Control Styling | v2.1 | 7/9 | In Progress|  |
+| 19. Design System & Control Styling | v2.1 | 8/9 | In Progress|  |
 | 20. Row-Click Interaction Pattern | v2.1 | 0/TBD | Not started | - |
 | 21. Overview Rebuild | v2.1 | 0/TBD | Not started | - |
 | 22. Calendar Week-Start & Totals | v2.1 | 0/TBD | Not started | - |
