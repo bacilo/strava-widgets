@@ -48,6 +48,45 @@ function declarationsFor(selector: string): string {
 }
 
 /**
+ * Splits a rule head into its comma-separated selectors without breaking
+ * apart a selector list nested inside a functional pseudo-class such as
+ * `:not(a, b)` or `:where(...)`. Walks the head character by character,
+ * tracking parenthesis depth, and breaks only on a comma at depth 0.
+ *
+ * `selectorListDeclares` and `bodyForSelectorListToken` used to split each
+ * rule head with a plain, unconditional comma split, which splits on every
+ * comma regardless of context. Plan 19-03's shared hover selector head
+ * contains commas *inside* `:where(:not(...))` — splitting on `,` there
+ * produces standalone fragments byte-identical to real, unrelated
+ * top-level selectors, one of which (`[aria-disabled="true"]`) is the
+ * exact needle asserted at the disabled-treatment rule below. That
+ * assertion returned the right answer only because the hover rule's body
+ * happens not to contain `opacity: 0.6` — a coincidence of what the body
+ * currently holds, not a property of the helper being selector-boundary-safe.
+ * Depth-aware splitting keeps that fragment inside its parent selector
+ * where it belongs, so a nested selector can never be mistaken for a
+ * top-level one. See WR-03 (19-REVIEW.md) for the finding and the
+ * reference implementation this is based on.
+ */
+function splitTopLevelSelectors(head: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let current = '';
+  for (const ch of head) {
+    if (ch === '(') depth++;
+    if (ch === ')') depth--;
+    if (ch === ',' && depth === 0) {
+      parts.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  parts.push(current.trim());
+  return parts;
+}
+
+/**
  * Confirms some rule whose selector list includes `needle` declares
  * `declaration` in its body — covers both the combined-selector form
  * (`.theme-toggle, .app-nav__toggle { ... }`) and two separate rules.
@@ -59,7 +98,7 @@ function selectorListDeclares(needle: string, declaration: string): boolean {
   let match: RegExpExecArray | null;
   while ((match = ruleHeadAndBody.exec(cssNoComments)) !== null) {
     const [, head, body] = match;
-    const selectors = head.split(',').map((s) => s.trim());
+    const selectors = splitTopLevelSelectors(head);
     if (selectors.some((s) => s === needle) && body.includes(declaration)) {
       return true;
     }
@@ -83,7 +122,7 @@ function bodyForSelectorListToken(needle: string): string {
   let match: RegExpExecArray | null;
   while ((match = ruleHeadAndBody.exec(cssNoComments)) !== null) {
     const [, head, body] = match;
-    const selectors = head.split(',').map((s) => s.trim());
+    const selectors = splitTopLevelSelectors(head);
     if (selectors.some((s) => s === needle)) {
       return body;
     }
@@ -130,6 +169,39 @@ function ruleWithHeadContaining(needle: string): string {
   }
   throw new Error(`No rule found with head containing: ${needle}`);
 }
+
+// Self-tests for splitTopLevelSelectors (19-08, WR-03), so a future edit to
+// the splitter fails on its own terms rather than only through a downstream
+// selectorListDeclares assertion that might not exercise the nested-comma
+// path it exists to guard.
+describe('splitTopLevelSelectors — self-tests', () => {
+  it('splits a plain multi-selector list on every comma', () => {
+    expect(splitTopLevelSelectors('.a, .b, .c')).toEqual(['.a', '.b', '.c']);
+  });
+
+  it('splits the real shared hover head from styles.css into exactly one top-level selector', () => {
+    // Derived from the actual stylesheet rather than a pasted copy, so this
+    // case tracks the real selector if it is ever edited.
+    const match = cssNoComments.match(/([^{}]*:where\(:not\([^{}]*)\{/);
+    if (!match) {
+      throw new Error('shared hover rule head not found in styles.css');
+    }
+    const parts = splitTopLevelSelectors(match[1]);
+    expect(parts).toHaveLength(1);
+    expect(parts).not.toContain('[aria-disabled="true"]');
+  });
+
+  it('keeps a selector with nested parentheses inside :not(:is(...)) whole', () => {
+    const head = '.a:not(:is(.b, .c)), .d';
+    expect(splitTopLevelSelectors(head)).toEqual(['.a:not(:is(.b, .c))', '.d']);
+  });
+
+  it('does not produce spurious empty parts for an empty-ish or single-selector head', () => {
+    expect(splitTopLevelSelectors('.solo')).toEqual(['.solo']);
+    expect(splitTopLevelSelectors('  .solo  ')).toEqual(['.solo']);
+    expect(splitTopLevelSelectors('')).toEqual(['']);
+  });
+});
 
 describe('styles.css — WR-04 theme toggle visibility regressions', () => {
   it('data-theme="light" declares color-scheme: light', () => {
@@ -222,6 +294,53 @@ describe('styles.css — Phase 17 tokens', () => {
 // states are perceptually legible, or that the segmented control's
 // silhouette matches. Plan 19-05's human checkpoint is the sole proof of
 // rendering (19-VALIDATION.md's two-mechanism constraint).
+//
+// Helper audit (19-08 Task 2), so a future author extending this file
+// knows which layer a new claim belongs in. Each line states what the
+// helper proves and the class of false pass it cannot rule out:
+// - declarationsFor: proves a rule with this exact selector exists and
+//   returns its body. Cannot rule out a body edit that preserves the
+//   substring an assertion checks while changing the declaration's actual
+//   meaning (e.g. an added `!important`, or the same property repeated
+//   later in the same body with a different value that wins the cascade).
+// - selectorListDeclares (now depth-aware, WR-03/19-08): proves some rule
+//   whose top-level selector list contains `needle` also contains
+//   `declaration` as a body substring. Cannot rule out a coincidental
+//   substring match inside an unrelated declaration's value — it checks
+//   `.includes()` on the whole body, not that `declaration` is a distinct,
+//   whole `property: value` pair.
+// - ruleWithHeadContaining: proves some rule's head contains `needle` as a
+//   raw substring; deliberately does not parse selector structure at all.
+//   Cannot rule out matching the wrong rule if `needle` is short/generic
+//   enough to also appear in an unrelated head, or missing the intended
+//   rule entirely if `cssNoComments`'s own comment-stripping is ever wrong.
+// - splitTopLevelSelectors: proves a comma nested inside parentheses is
+//   never mistaken for a selector-list boundary. Cannot rule out a false
+//   split on an attribute selector containing a literal comma inside its
+//   own quoted value (e.g. `[data-x="a,b"]`) — a construct that does not
+//   occur anywhere in this stylesheet today, so it is untested by the
+//   self-tests above and would need a fifth case if it were ever added.
+//
+// All four operate on stylesheet TEXT — none of them observe a rendered
+// page. GAP 1 (19-VALIDATION.md) proved text-level agreement between an
+// assertion and the source characters is not sufficient on its own: a
+// comment terminated early and discarded a declaration a real parser never
+// saw, while every substring assertion in this file still passed. The
+// parse-level block plan 19-06 added below (`styles.css — Phase 19 radius
+// tokens (parse level)`, using esbuild's real CSS parser) is the layer
+// that closes that specific gap; a future claim that depends on the file
+// actually PARSING as intended — not merely containing the right
+// characters — belongs there, not in a new substring assertion here.
+//
+// Scope, stated plainly (T-19G-FALSEGREEN-13, accepted risk, not
+// eliminated): the 40 pre-existing Phase 19 substring assertions in the
+// blocks below were not individually rewritten to close every theoretical
+// false pass the four helpers above cannot rule out. Doing so is out of
+// scope for a gap-closure pass and would put a large unreviewed diff in
+// front of the phase gate for defects that are theoretical here, not
+// observed — the residual risk is mitigated in depth, not eliminated, by
+// the parse-level block's independent check on the one property (custom
+// property registration) GAP 1 actually broke.
 
 describe('styles.css — Phase 19 control baseline', () => {
   it('input, select, textarea declares the shared box treatment', () => {
