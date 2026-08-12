@@ -160,3 +160,11 @@ The `input, select, textarea` baseline and its type-reset override now exist at 
 ---
 *Phase: 19-design-system-control-styling*
 *Completed: 2026-08-12*
+
+## Self-Check: PASSED
+
+- FOUND: src/dashboard/styles.css
+- FOUND: .planning/phases/19-design-system-control-styling/19-02-SUMMARY.md
+- FOUND commit: 4bb31cb (Task 1)
+- FOUND commit: 0419c6d (Task 2)
+- FOUND commit: dbdf26d (docs: SUMMARY.md)
