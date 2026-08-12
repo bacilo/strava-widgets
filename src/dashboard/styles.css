@@ -1132,3 +1132,20 @@ textarea {
   min-height: 32px;
   font: inherit;
 }
+
+/* Only the checkbox arm is load-bearing today: it excludes the one live
+   input[type="checkbox"] site (detail-charts.ts:373, the overlay-cap
+   checkbox) from the box treatment above. The button and radio arms match
+   zero elements in this codebase right now — every type='button' assignment
+   is on a createElement('button') result, which the `input` selector never
+   matches — and are kept purely as cheap, forward-compatible exclusions for
+   future checkbox/radio sites (e.g. Phase 24's curation UI). */
+input[type="button"],
+input[type="checkbox"],
+input[type="radio"] {
+  border: none;
+  background: transparent;
+  padding: 0;
+  min-height: auto;
+  width: auto;
+}
