@@ -313,6 +313,15 @@ describe('styles.css — Phase 19 focus ring', () => {
     ).toBe(true);
   });
 
+  // WR-01 (19-REVIEW.md): .segmented's own corner radius used to be a
+  // literal `border-radius: 4px`, while its end children above already
+  // derived theirs from --radius-control -- container and children could
+  // disagree if the token were ever retuned. Migrated onto the token so
+  // there is one source of truth for this radius.
+  it('.segmented derives its own corner radius from --radius-control, not a literal', () => {
+    expect(declarationsFor('.segmented')).toContain('border-radius: var(--radius-control)');
+  });
+
   it('.splits-scroll has room for the ring', () => {
     expect(declarationsFor('.splits-scroll')).toContain('padding: var(--space-xs)');
   });
