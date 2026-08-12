@@ -1167,6 +1167,37 @@ button {
   border-radius: var(--radius-control);
 }
 
+/* Shared button hover (D-06). Selector stays at `0,1,1` — identical to a
+   bare `button:hover` — via `:where()`, which contributes zero specificity;
+   only the exclusions inside it change what the rule reaches. Each
+   exclusion below is required, not defensive:
+   - `:disabled` / `[aria-disabled="true"]` — a disabled control must not
+     offer hover feedback (pagination prev/next, the Banister toggle,
+     outside-month/rest-day calendar cells).
+   - `.pagination__button--current` — keeps its `var(--accent-strong)` fill
+     under its `color: #ffffff` text; without this, hovering the current
+     page would put white text on the surface mix.
+   - `.segmented__option--active` — same shape, same failure, on the detail
+     view's x-axis toggle.
+   - `.calendar-day--tint-1` through `--tint-4` — these carry the accent
+     distance-tint scale; a bare hover would flatten the hovered day to
+     grey exactly where the pointer is. Written out explicitly rather than
+     an attribute-substring match so they stay greppable.
+   `.cta` needs no exclusion — `.cta:hover` is `0,2,0` and already beats
+   this rule; its own dead-declaration repair is a separate edit below. */
+button:where(:not(
+      :disabled,
+      [aria-disabled="true"],
+      .pagination__button--current,
+      .segmented__option--active,
+      .calendar-day--tint-1,
+      .calendar-day--tint-2,
+      .calendar-day--tint-3,
+      .calendar-day--tint-4
+    )):hover {
+  background: color-mix(in srgb, var(--surface) 92%, var(--text));
+}
+
 /* Unscoped disabled treatment (19-UI-SPEC): both `:disabled` (the property,
    used by pagination prev/next, the overlay-cap checkbox and outside-month
    calendar cells) and `[aria-disabled="true"]` (used by calendar rest days,
