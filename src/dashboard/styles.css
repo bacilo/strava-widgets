@@ -1099,3 +1099,36 @@ body {
 .year-heatmap__cell--tint-4 {
   background: color-mix(in srgb, var(--accent) 55%, transparent);
 }
+
+/* ==========================================================================
+   Phase 19 — Design System & Control Styling
+   Element-level baseline for every `input`, `select` and `textarea` the
+   dashboard renders, reached by bare element selector rather than a new
+   class — this phase introduces no new classes. Do not delete these rules;
+   removing them requires re-auditing every createElement('button'|'input'|
+   'select') site across the 8 view files that currently rely on this
+   cascade to receive their box treatment.
+
+   This `input, select, textarea` rule's `font: inherit` is the first of two
+   intentional shorthand `font:` declarations added in this Phase 19 block —
+   the second is the `button` baseline plan 19-03 adds later in this same
+   block (D-05). The two rules target disjoint element sets, so there is no
+   cascade-order conflict between them. Do not add a third shorthand `font:`
+   rule anywhere in this file without checking cascade order first: every
+   existing class here overrides with longhand `font-size`/`font-weight`/
+   `line-height`, which win on their own sub-properties regardless of a
+   shorthand set by a lower-specificity rule — but that guarantee only holds
+   because no other shorthand `font:` competes with it today.
+   ========================================================================== */
+
+input,
+select,
+textarea {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-control);
+  min-height: 32px;
+  font: inherit;
+}
