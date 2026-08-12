@@ -53,7 +53,7 @@
   --space-3xl: 64px;
 
   /* Phase 19 — radius scale, theme-invariant (identical in light and dark),
-     so declared only here, following the --space-*/--zone-*/--load-*
+     so declared only here, following the --space-*, --zone-*, --load-*
      precedent rather than the --chart-* per-theme precedent. */
   --radius-control: 4px;
   --radius-panel: 8px;

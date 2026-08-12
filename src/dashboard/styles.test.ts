@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { transformSync } from 'esbuild';
 import { describe, expect, it } from 'vitest';
 
 /*
@@ -337,5 +338,25 @@ describe('styles.css — Phase 19 radius tokens', () => {
   it('no retired --space-2xl padding or --space-xl gap survived on these selectors', () => {
     expect(css).not.toContain('padding: var(--space-2xl)');
     expect(css).not.toContain('gap: var(--space-xl)');
+  });
+});
+
+// GAP 1 (19-VALIDATION.md, Phase 19 gap-closure record): every assertion
+// above this point is a substring match over the literal characters of
+// styles.css. A stray `*/` inside the Phase 19 radius-scale comment
+// (lines 55-57) terminated that comment early, so `--radius-control: 4px`
+// was silently discarded by real CSS parsers while remaining present, byte
+// for byte, in the source text — invisible to every assertion above,
+// because they all check "are the right characters somewhere in the file"
+// rather than "does the file parse to the declarations those characters
+// claim to declare". This block proves the stronger claim: that the
+// stylesheet PARSES, not merely that it contains the right characters.
+describe('styles.css — Phase 19 radius tokens (parse level)', () => {
+  it('the whole file has zero CSS syntax warnings under a real parser', () => {
+    const result = transformSync(css, { loader: 'css' });
+    expect(
+      result.warnings,
+      `esbuild reported ${result.warnings.length} warning(s) parsing styles.css: ${JSON.stringify(result.warnings)}`,
+    ).toHaveLength(0);
   });
 });
