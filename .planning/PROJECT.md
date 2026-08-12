@@ -32,14 +32,19 @@ Milestone audit: `tech_debt` — 29/29 requirements satisfied, 0 blockers, 41/43
 
 </details>
 
-## Next Milestone Goals
+## Current Milestone: v2.1 Interface Polish
 
-Not yet defined. Run `/gsd-new-milestone` to scope the next version.
+**Goal:** Bring the whole dashboard up to the standard its best screens already set — consistent interaction, properly styled controls, and charts you can actually navigate.
 
-Carried forward as candidates:
-- STREAM-04 — Garmin export adapter, blocked on the export arriving
-- Manual exclusion of activities from best efforts
-- Phase 16's three unverified theme/first-paint items, and the two integration warnings from the v2.0 audit
+**Target features:**
+- Design system pass — style form controls (the stylesheet has zero `input` rules today), unify buttons and focus states, one spacing rhythm across all five screens
+- Interaction consistency — every activity row clickable, redundant "view activity" CTAs removed, Overview and Records brought up to the Activities standard
+- Overview rebuild — structured PR/activity rows, a current-year records tab, distance and hours this year in Headline Stats
+- Calendar — selectable Sunday/Monday week start affecting week totals, totals at the end of each week row
+- Trends — zoom and horizontal pan via `chartjs-plugin-zoom` with explicit +/− and arrow controls, taller chart bands
+- Carried forward — exclusion tickbox via local curation mode, two code-review fixes, Phase 16's unverified theme items, two CI hardening items
+
+**Key context:** Refinement, not new capability — the dashboard already does what it should and some screens are genuinely good. Scope came from a screen-by-screen walkthrough plus a source audit that traced complaints to root causes. Deliberately excludes a design-language refresh. Every requirement here is visual or interactive, and automated gates have missed rendering defects in this project three times, so each phase ends with a human browser checkpoint.
 
 ## Requirements
 

@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.0
-milestone_name: Training Dashboard
-status: milestone_complete
-stopped_at: Milestone complete (Phase 18 was final phase)
-last_updated: 2026-08-12T10:25:19.187Z
-last_activity: 2026-08-11 -- Phase 18 execution started
+milestone: v2.1
+milestone_name: Interface Polish
+status: milestone_planned
+stopped_at: Roadmap created (Phases 19-25); no phase started
+last_updated: 2026-08-12T11:40:00.000Z
+last_activity: 2026-08-12 -- v2.1 milestone scoped, requirements and roadmap created
 progress:
-  total_phases: 5
-  completed_phases: 4
-  total_plans: 56
-  completed_plans: 56
-  percent: 80
+  total_phases: 7
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Milestone complete
+**Current focus:** v2.1 Interface Polish — Phase 19 (Design System & Control Styling) is next
 
 ## Current Position
 
-Phase: 18
+Phase: 19 (not started)
 Plan: Not started
-Status: Milestone complete
+Status: Roadmap created, awaiting /gsd-plan-phase 19
 Last activity: 2026-08-12
 
-Progress: [██████░░░░] 60%
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
@@ -104,7 +104,9 @@ Previously resolved — SQLITE_CANTOPEN CI failure resolved by quick-1-01 (lazy 
 
 ## Deferred Items
 
-Items acknowledged and deferred at the v2.0 milestone close on 2026-08-12. Full detail in `.planning/v2.0-MILESTONE-AUDIT.md` (status `tech_debt`).
+Items acknowledged and deferred at the v2.0 milestone close on 2026-08-12.
+
+**Update 2026-08-12:** six of these were absorbed into milestone v2.1 as requirements and are now tracked in ROADMAP.md, not here — CUR-01 (Phase 24), FIX-01 (Phase 21), FIX-02 / CI-01 / CI-02 / VER-01 (Phase 25). They remain listed below for the record but are no longer outstanding debt. Full detail in `.planning/v2.0-MILESTONE-AUDIT.md` (status `tech_debt`).
 
 | Category | Item | Status |
 |----------|------|--------|
