@@ -92,10 +92,24 @@ Full phase details: [`milestones/v2.0-ROADMAP.md`](milestones/v2.0-ROADMAP.md) �
 **Plans**: 5 plans in 5 waves (all sequential — every implementation plan writes to `src/dashboard/styles.css`)
 
 Plans:
+**Wave 1**
+
 - [ ] 19-01-PLAN.md — radius tokens + card/panel/spacing rhythm (D-13, D-14)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 19-02-PLAN.md — input/select/textarea baseline + type reset (D-01..D-03)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 19-03-PLAN.md — button baseline, scoped shared hover, disabled treatment, row-hover retrofit (D-05..D-08)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 19-04-PLAN.md — two-tone focus ring, container clipping fixes, five regression describe blocks (D-04, D-09..D-12)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
 - [ ] 19-05-PLAN.md — full gate + BLOCKING human browser checkpoint under /strava-widgets (13-row agenda)
 
 **UI hint**: yes
