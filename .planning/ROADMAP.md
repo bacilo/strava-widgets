@@ -256,9 +256,9 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 18-11-PLAN.md — CLI subcommands, compute-all-stats chain, CI steps, publish verification
-- [ ] 18-12-PLAN.md — Records view: jump list, superlatives, PR tables, evolution charts, race predictions
-- [ ] 18-13-PLAN.md — Detail view PR badges and the Best Efforts This Run panel
+- [x] 18-11-PLAN.md — CLI subcommands, compute-all-stats chain, CI steps, publish verification
+- [x] 18-12-PLAN.md — Records view: jump list, superlatives, PR tables, evolution charts, race predictions
+- [x] 18-13-PLAN.md — Detail view PR badges and the Best Efforts This Run panel
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -296,7 +296,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 | 15. Best-Effort Engine | v2.0 | 4/4 | Complete    | 2026-08-10 |
 | 16. Dashboard Shell & Data Contract | v2.0 | 16/16 | Complete    | 2026-08-11 |
 | 17. Activity Browser & Detail Views | v2.0 | 15/15 | Complete    | 2026-08-11 |
-| 18. Records, Trends & Differentiators | v2.0 | 10/16 | In Progress|  |
+| 18. Records, Trends & Differentiators | v2.0 | 13/16 | In Progress|  |
 
 ---
 *Last updated: 2026-08-11 — Phase 16 gap closure planned (7 plans, 3 waves)*
