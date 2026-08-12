@@ -118,8 +118,9 @@ Items acknowledged and deferred at the v2.0 milestone close on 2026-08-12. Full 
 | evidence_gap | REC-06's external correctness evidence is one distance (5k) with a 0.51-point unexplained delta; the plan asked for two | open |
 | doc_defect | `18-UI-SPEC.md:843` checklist wording contradicts the authoritative chart spec at line 319 | open |
 | quick_task | `1-fix-daily-widget-refresh-github-actions-` | missing |
+| todo | Exclusion tickbox / local curation mode (`npm run curate`) — approach chosen 2026-08-12, not yet planned | new |
 | todo | Garmin export adapter (STREAM-04) — blocked on the export arriving | deferred |
-| todo | Manual exclusion of activities from best efforts | deferred |
+| ~~todo~~ | ~~Manual exclusion of activities from best efforts~~ — **CORRECTION 2026-08-12: not deferred. Shipped in Phase 16 plan 16-01 (`b9d10cd`); the todo file was simply never closed, so `audit-open` miscounted it and the v2.0 audit repeated the error.** | resolved |
 
 ## Session Continuity
 

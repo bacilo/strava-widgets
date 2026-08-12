@@ -26,6 +26,11 @@ on:
       - 'vite.config*.ts'
       - 'data/config/**'
       - 'data/wma/**'
+      # Hand-edited by the developer to withhold specific activities from PR
+      # marking (see data/best-effort-exclusions.json). Editing it changes the
+      # published records, so it must rebuild. CI never writes this file, so
+      # it cannot self-trigger.
+      - 'data/best-effort-exclusions.json'
   schedule:
     # Run daily at 5 AM UTC (morning in Europe, after overnight Strava uploads)
     - cron: '0 5 * * *'
