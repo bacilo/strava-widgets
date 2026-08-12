@@ -68,6 +68,46 @@ function selectorListDeclares(needle: string, declaration: string): boolean {
 }
 
 /**
+ * Returns the declaration body of the rule whose selector list contains
+ * `needle` as an exact, post-trim token — the same selector-boundary
+ * anchoring `selectorListDeclares` uses and for the same reason (so a bare
+ * `:focus-visible` is never confused with `.cta:focus-visible` or
+ * `.app-nav__link:focus-visible`). Unlike `selectorListDeclares`, this
+ * returns the body text itself rather than a boolean, for callers (plan
+ * 19-07's numeric z-index comparison) that need to parse a value out of it
+ * rather than just check a declaration is present. Throws when no rule's
+ * selector list contains the token, so a deleted rule fails loudly.
+ */
+function bodyForSelectorListToken(needle: string): string {
+  const ruleHeadAndBody = /([^{}]+)\{([^}]*)\}/g;
+  let match: RegExpExecArray | null;
+  while ((match = ruleHeadAndBody.exec(cssNoComments)) !== null) {
+    const [, head, body] = match;
+    const selectors = head.split(',').map((s) => s.trim());
+    if (selectors.some((s) => s === needle)) {
+      return body;
+    }
+  }
+  throw new Error(`No rule found whose selector list contains: ${needle}`);
+}
+
+/**
+ * Parses the numeric value of `property: <int>` out of a declaration body
+ * (e.g. the body returned by `declarationsFor` or `bodyForSelectorListToken`).
+ * Used to compare two z-index values numerically (plan 19-07) rather than
+ * as literal strings, so the comparison still means something if either
+ * value is retuned. Throws when the property is absent, so a deleted
+ * declaration fails loudly rather than silently comparing against NaN.
+ */
+function extractNumericDeclaration(body: string, property: string): number {
+  const match = body.match(new RegExp(`${property}:\\s*(-?\\d+)`));
+  if (!match) {
+    throw new Error(`No numeric ${property} declaration found in: ${body}`);
+  }
+  return Number(match[1]);
+}
+
+/**
  * Finds the first rule whose head (the text up to `{`) contains `needle` as
  * a substring, and returns `head + body` concatenated. `selectorListDeclares`
  * cannot serve this case: it splits a rule head on `,` and requires an exact
@@ -268,8 +308,24 @@ describe('styles.css — Phase 19 focus ring', () => {
   // ":focus-visible {", so declarationsFor would match that rule instead of
   // the bare one this block guards. selectorListDeclares splits each rule
   // head on `,` and requires an exact post-trim token match, so it
-  // correctly discriminates ":focus-visible" from ".cta:focus-visible" —
-  // no new helper needed.
+  // correctly discriminates ":focus-visible" from ".cta:focus-visible" and
+  // from ".app-nav__link:focus-visible" — no new helper needed for the
+  // boolean presence checks below.
+  //
+  // Plan 19-07 (GAP 2, 19-05 checkpoint row 6): the two assertions added by
+  // that plan — the stacking-declaration check and the numeric ordering
+  // check against `.records-jump` — prove only that the source declares
+  // `position: relative; z-index: 1` on the bare selector, and that the two
+  // z-index values are ordered as intended. They prove NOTHING about
+  // whether the ring is actually visible in a rendered browser: there is no
+  // DOM/CSSOM in this test run (vitest environment is 'node'), so no
+  // assertion here can observe paint order. Row 6 of 19-VALIDATION.md's
+  // Manual-Only Verifications table, re-run by plan 19-09's human
+  // checkpoint, is the SOLE proof that the ring renders unoccluded. The
+  // defect this whole gap-closure phase exists to repair is precisely a
+  // green source-level suite being mistaken for a rendered guarantee —
+  // these two assertions must not be read as closing that gap by
+  // themselves.
   it(':focus-visible declares the two-tone box-shadow ring and suppresses the UA outline', () => {
     expect(selectorListDeclares(':focus-visible', 'outline: none')).toBe(true);
     expect(
@@ -328,6 +384,32 @@ describe('styles.css — Phase 19 focus ring', () => {
 
   it('.records-jump padding is unchanged', () => {
     expect(declarationsFor('.records-jump')).toContain('padding: var(--space-sm)');
+  });
+
+  // GAP 2 fix (19-07): the bare :focus-visible rule is promoted to its own
+  // stacking context so it paints above later in-flow siblings and
+  // positioned neighbours. selectorListDeclares again discriminates the
+  // bare selector from `.cta:focus-visible` / `.app-nav__link:focus-visible`.
+  it(':focus-visible establishes a stacking context above later siblings and positioned neighbours', () => {
+    expect(selectorListDeclares(':focus-visible', 'position: relative')).toBe(true);
+    expect(selectorListDeclares(':focus-visible', 'z-index: 1')).toBe(true);
+  });
+
+  // The sticky-layer ordering invariant (T-19G-A11Y-06): `.records-jump`
+  // must keep painting above a focused control elsewhere on the page.
+  // Parsed and compared as numbers, not literal strings, so this assertion
+  // still means something if either z-index is ever retuned — a string
+  // comparison of '10' vs '1' would pass by coincidence today but say
+  // nothing about which value is actually larger.
+  it('.records-jump paints above a focused control (strictly greater z-index, compared numerically)', () => {
+    const focusRingZIndex = extractNumericDeclaration(
+      bodyForSelectorListToken(':focus-visible'),
+      'z-index',
+    );
+    const recordsJumpZIndex = extractNumericDeclaration(declarationsFor('.records-jump'), 'z-index');
+    expect(focusRingZIndex).toBe(1);
+    expect(recordsJumpZIndex).toBe(10);
+    expect(recordsJumpZIndex).toBeGreaterThan(focusRingZIndex);
   });
 });
 
