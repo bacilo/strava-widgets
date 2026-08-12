@@ -12,8 +12,8 @@ Each maps to roadmap phases.
 ### Design System
 
 - [ ] **UI-01**: Form controls (text, date, number, search inputs) are styled consistently across every screen — the stylesheet currently has **zero `input` rules**, so all inputs render as unstyled browser defaults. This is the single root cause of the "raw" feel on Activities and Calendar.
-- [x] **UI-02**: Buttons, selects and other controls share one visual treatment, with a consistent `:focus-visible` ring meeting non-text contrast requirements in both themes
-- [ ] **UI-03**: Spacing, density and card treatment follow one rhythm across all five screens, applied without changing the existing visual language
+- [ ] **UI-02**: Buttons, selects and other controls share one visual treatment, with a consistent `:focus-visible` ring meeting non-text contrast requirements in both themes — **reverted from complete 2026-08-12**: plan 19-05's browser checkpoint returned PARTIAL; the focus ring is occluded on the detail view's segmented control (row 6) and the button/segmented radius baseline was judged under a broken `--radius-control` token (rows 3, 12). See `19-VALIDATION.md` Gap-Closure Record.
+- [x] **UI-03**: Spacing, density and card treatment follow one rhythm across all five screens, applied without changing the existing visual language
 
 ### Interaction Consistency
 
@@ -72,9 +72,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| UI-01 | Phase 19 | Pending |
-| UI-02 | Phase 19 | Complete |
-| UI-03 | Phase 19 | Pending |
+| UI-01 | Phase 19 | Blocked (19-05 checkpoint PARTIAL — dead `--radius-control` token) |
+| UI-02 | Phase 19 | Blocked (19-05 checkpoint PARTIAL — dead `--radius-control` token + occluded focus ring) |
+| UI-03 | Phase 19 | Complete |
 | ACT-01 | Phase 19 | Complete |
 | UX-01 | Phase 20 | Pending |
 | UX-02 | Phase 20 | Pending |
