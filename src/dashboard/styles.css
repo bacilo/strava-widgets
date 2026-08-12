@@ -339,11 +339,24 @@ body {
   color: var(--text-secondary);
 }
 
-/* Global focus ring */
+/* Global focus ring (D-09, D-12). Two-tone box-shadow ring, not an outline:
+   the inner stop is always `--bg`, so the ring never sits accent-on-accent
+   against an `--accent-strong` fill (the current pagination page, the active
+   segmented option — both #b3390a light / #c2410c dark under white text).
+   Precomputed non-text contrast (W3C relative-luminance formula, 3:1
+   threshold, SC 1.4.11): light `--accent` #fc4c02 on `--bg` #ffffff is
+   3.40:1; dark `--accent` #ff6b35 on `--bg` #1a1a2e is 6.02:1. Both clear the
+   threshold; the numbers are closed-form and do not get a test helper (D-11)
+   — they change only if `--accent` or `--bg` themselves change.
+   `outline: none` MUST stay in this same rule — without it, browsers that
+   supply a default UA focus outline paint it in addition to the box-shadow,
+   producing a visible double ring. Selector stays bare and unscoped (D-12)
+   so links and any future clickable row inherit the ring with no opt-in
+   work. */
 
 :focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
 }
 
 /* Responsive nav collapse */
@@ -794,7 +807,6 @@ body {
   display: inline-flex;
   border: 1px solid var(--border);
   border-radius: 4px;
-  overflow: hidden;
 }
 
 .segmented__option {
@@ -803,6 +815,19 @@ body {
   border: none;
   padding: var(--space-xs) var(--space-md);
   cursor: pointer;
+}
+
+/* D-10: .segmented used to get its rounded silhouette entirely from
+   `overflow: hidden` clipping its square children — which also clipped the
+   focus ring (D-09) on the active option. The container's own `border-radius`
+   above still draws the outer border sliver; these two end-child rules
+   reproduce the previous rounded silhouette without clipping anything. */
+.segmented__option:first-child {
+  border-radius: var(--radius-control) 0 0 var(--radius-control);
+}
+
+.segmented__option:last-child {
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
 }
 
 .segmented__option--active {
@@ -815,6 +840,10 @@ body {
 .splits-scroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  /* D-10: 4px of room for the focus ring at either scroll edge. No
+     focusable element lives inside this wrapper today — this is a guard
+     for consistency and for anything focusable added later. */
+  padding: var(--space-xs);
 }
 
 .splits-table {
