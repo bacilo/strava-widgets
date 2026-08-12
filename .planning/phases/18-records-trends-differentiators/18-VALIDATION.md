@@ -1,9 +1,9 @@
 ---
 phase: 18
 slug: records-trends-differentiators
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: approved
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-08-11
 ---
 
@@ -87,18 +87,39 @@ created: 2026-08-11
 
 No jsdom, no headless browser → all canvas/DOM behavior is manual. This is the phase's highest-risk surface: **Phase 16 shipped a black page behind a 15/15 green gate, and Phase 17 shipped two chart/map defects behind 592/592 tests, clean tsc, and 20/20 verify-dashboard. Both escapes were rendering defects invisible to automated checks.** A five-tab, ~15-chart phase is maximally exposed to this class.
 
-| Behavior | Requirement | Why Manual | Test Instructions |
-|----------|-------------|------------|-------------------|
-| All 7 PR-evolution step charts render | REC-03 | Canvas paint — no headless browser | Open `#/records`; confirm each of the 7 small multiples shows a visible descending step line and a correctly-directioned duration y-axis |
-| `rankings.marathon` empty state | REC-02 | DOM render | Confirm the marathon table shows a proper empty state — not a blank block, not a crash |
-| Low-confidence / excluded badges visible | REC-02, REC-07 | DOM render | Confirm low-confidence rows carry a marker with tooltip, and excluded activities show their `reason` string |
-| Detail-view PR badge + best-efforts panel | REC-04 | DOM render | Open a run with `prCount > 0`; confirm named per-distance badges in the stats header and a best-efforts panel listing all efforts with PR-setting rows highlighted |
-| Age-grade column hides with actionable notice | REC-06 | DOM render | With `birthDate` unset, confirm the column is absent and a notice names the file and field — no placeholder number |
-| 53×7 year consistency heatmap | TREND-01 | Canvas/CSS grid layout | Confirm the grid renders 53×7 with no overlapping or missing cells and a legible color scale |
-| Thin-HR-coverage shading | TREND-04 | Canvas paint | Confirm spans with sparse HR are visually distinguishable from genuine zero-load — a dip must read as "no data", not "no training" |
-| Edwards/Banister toggle changes the series | TREND-04 | Canvas paint | Toggle the model; confirm the plotted series actually changes, not just the label |
-| Tab switching does not throw | TREND-01..05 | Runtime canvas lifecycle | Cycle all 5 Trends tabs twice; confirm no "Canvas is already in use" error in the console |
-| Unknown gear bucket + stated coverage | TREND-05 | DOM render | Confirm an explicit Unknown row and a plain-numbers coverage statement (62% archive-wide, 19% in 2026) |
+**Performed 2026-08-12 against `http://localhost:8099/strava-widgets/` (production-shaped path, console visible for the whole session), walking § 19's 20-item checklist item by item. Observations below are the developer's own words, recorded verbatim per T-18-VERIFY-03 — not smoothed, not paraphrased, not upgraded past what was actually said.**
+
+| # | Item | Requirement | Verbatim Observation |
+|---|------|-------------|----------------------|
+| 1 | Hash-router safety (§ 1 landmine) | REC-02/03/05 | "yes" — URL hash stayed `#/records` across all four jump-list clicks, page scrolled to the right section |
+| 2 | Sticky offset (§ 1 landmine) | REC-02/03/05 | "the 'superlatives, pr tables' etc... top row is on front and as we scroll everything seems to go behind it. It's fine just not sure that was the intended effect." Confirmed by the orchestrator as intended sticky behaviour; developer later reconfirmed overall with "it's all good". **The 640px resize gap/overlap sub-check was not separately confirmed** — recorded honestly as a limitation rather than assumed passing. |
+| 3 | Seven evolution charts (§ 3) | REC-03 | "are the 'step lines' the PR evolution? They look great but they're not descending but ascending. I think the y scale is reversed. It's fine though..." **This is a real finding and a DOCUMENTATION defect, not a code defect.** `src/dashboard/views/records-charts.ts:97` sets `reverse: true`, exactly as `18-UI-SPEC.md:319` requires ("`y`: linear scale, **`reverse: true`**"). But `18-UI-SPEC.md:843`'s § 19 checklist item reads "each renders a visibly descending step" — which contradicts the reversed scale that line 319 mandates. **The implementation follows the authoritative chart spec (line 319); the § 19 checklist wording (line 843) is wrong and must be corrected in a future doc pass.** Also recorded honestly: the second half of this item — that the big `.text-display` current-PR number matches the chart's lowest/best point — was not separately confirmed by the developer. |
+| 4 | Evolution grid breakpoints (§ 3) | REC-03 | "yes" — column counts matched 1 / 2 / 3 across the <640px, 640-999px, ≥1000px breakpoints |
+| 5 | Marathon empty state (§ 2) | REC-02 | "yes" — named empty state, reachable from the jump list |
+| 6 | Age-grade column (§ 2) | REC-06 | "yes" — em-dash cells, single config notice naming `data/private/athlete-private.json` |
+| 7 | Riegel suppression (§ 4b) | REC-07 | "yeah fitted component table exists" — matches the live data recorded in Live Archive Measurements above: fitted branch, b=1.1935142631296778, 6 points across 4 distinct activities |
+| 8 | Progression disclosure (§ 3) | REC-03 | "yes!" — `<details>` opens, signed improvements with leading `−` for faster times |
+| 9 | Tablist keyboard model (§ 7) | TREND-01..05 | "good" — Left/Right moved and activated across all five tabs, Home/End jumped to Volume/Gear |
+| 10 | Bookmarkability | TREND-01..05 | "good" — `#/trends?tab=training-load` opened directly on that tab; Back/Forward worked across tab changes |
+| 11 | Canvas lifecycle | TREND-01..05 | "good" — no "Canvas is already in use" error and no other console error across two full cycles of all five tabs; pasted server log for the session shows only one 404, for `/favicon.ico`, unrelated to the dashboard and outside the `/strava-widgets/` path |
+| 12 | Year heatmap (§ 8) | TREND-01 | "yes" — 53×7 grid, no overlapping/missing cells, rest days visibly distinct with zero accent tint, "View as table" discloses real per-day data |
+| 13 | Cadence & HR (§ 10) | TREND-03 | "looks good" — the Phase 17 GAP 2 signature (both bands sharing the same x offset) checked deliberately and confirmed |
+| 14 | Training load (§ 11) | TREND-04 | "yes" — shaded no-HR regions distinguishable from a genuine zero-load valley, caption legible, Edwards/Banister toggle and window control behave as specified |
+| 15 | Gear (§ 12) | TREND-05 | "yes good" — bounded bars, all 16 shoes plus Unknown listed, Unknown stays last after sorting, coverage sentence shows real numbers |
+| 16 | PR badge + panel (§ 5) | REC-04 | "yes" — checked against a multi-PR activity (candidates given: 7827165619, 6709874572, 3475734859); named per-distance badges and a permanently-highlighted best-efforts panel |
+| 17 | Both themes | cross-cutting | "good" — colour-sensitive checks repeated in dark mode |
+| 18 | New-token contrast (§ 16) | cross-cutting | "looks fine" — `--cat-1..8` and `--load-tsb` eyeballed against both light and dark surface pairs |
+| 19 | `STUB_PHASE` removal | cross-cutting | "couldn't find any" — no stub panel found on either `#/records` or `#/trends` |
+| 20 | Independent age-grade cross-check (RESEARCH Assumption A1, REC-06's only correctness check) | REC-06 | PASSES, with a small unexplained residual. Verbatim: "Age-grading: 63.11% — Your time of 21:26 for 5 kilometres as a 40 year old male yields an age-grading percentage of 63.11% ALMOST the same but a little differet from: #5    21:26    4:17/km    62.6%    May 29, 2022". Distance 5k, time 21:26 (4:17/km), effort date May 29, 2022, age 40 at that date, male. Dashboard 62.6% vs external calculator 63.11% at the **same age (40)** (delta 0.51, inside the plan's ~1-point tolerance). The developer confirmed, verbatim, when asked to clarify: "no. i am 44 i put 40 because it was the age i had at the time" — i.e. both the dashboard (which resolves age at the effort's own date) and the external calculator (entered manually as 40) used the same age. **The delta is therefore NOT explained by age-resolution semantics** — both figures used the same age, so no cause is asserted. As an explicitly **unverified hypothesis, not investigated**: the repo bundles the WMA road 2025 edition while public calculators often use an earlier edition, and edition differences or rounding are candidate explanations — this was not checked and must not be treated as established. **Limitation recorded honestly: the plan asked for two PR rows at two different distances; only one distance (5k) was cross-checked.** The external calculator's identity was not stated by the developer and is recorded as unspecified rather than guessed. |
+
+**Developer's overall verdict, given verbatim: "it's all good"**
+
+### Honest limitations of this checkpoint (recorded so a future phase is not misled)
+
+1. **§ 19 checklist wording defect (item 3).** `18-UI-SPEC.md:843` reads "each renders a visibly descending step", which contradicts `18-UI-SPEC.md:319`'s mandatory `reverse: true` y-scale. The shipped code (`src/dashboard/views/records-charts.ts:97`) correctly implements line 319. The checklist wording at line 843 is wrong and needs correcting in a future documentation pass — this is not a code defect and does not block approval.
+2. **Item 3's second sub-check (current-PR number vs. chart low point) was not separately confirmed** by the developer — only the ascending/reversed-scale observation was made.
+3. **Item 2's 640px resize gap/overlap sub-check was not separately confirmed**, and **item 20 cross-checked one distance (5k) rather than the two the plan asked for.** Both are recorded as coverage gaps in this checkpoint, not as failures — the developer's overall verdict ("it's all good") stands, but future phases should not assume these specific sub-checks were exercised.
+4. **Item 20's 0.51-point delta between the bundled WMA tables and an independent calculator, evaluated at the same age (40), is within the plan's ~1-point tolerance but unexplained.** No cause was confirmed; a possible WMA-edition or rounding difference is noted only as an unverified, uninvestigated hypothesis. A second distance was never cross-checked, so REC-06's external evidence remains one data point with a small, unresolved residual — not a fully independent two-point confirmation.
 
 ---
 
@@ -121,12 +142,12 @@ Recorded during plan 18-16, Task 1, by running the full gate from a clean state 
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 5s
-- [ ] Manual browser checkpoint script written and executed
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 5s
+- [x] Manual browser checkpoint script written and executed
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved 2026-08-12
