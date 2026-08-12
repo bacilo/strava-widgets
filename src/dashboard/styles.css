@@ -352,11 +352,36 @@ body {
    supply a default UA focus outline paint it in addition to the box-shadow,
    producing a visible double ring. Selector stays bare and unscoped (D-12)
    so links and any future clickable row inherit the ring with no opt-in
-   work. */
+   work.
+
+   GAP 2 (19-05 checkpoint row 6, closed by plan 19-07): a `box-shadow` paints
+   as part of its OWN element's box, in that element's normal paint step. A
+   non-positioned, non-promoted focused element paints in CSS 2.1 Appendix E
+   step 7 (in-flow, in tree order) — so any later in-flow sibling paints over
+   the overflow of its ring, and any positioned neighbour (step 8) paints over
+   it regardless of tree order. That is exactly what the developer saw on the
+   detail view's x-axis segmented control: the "Distance" option's ring was
+   covered on the right by its later sibling, the "Time" option
+   (`.segmented__option`, an in-flow step-7 sibling with an opaque
+   `background: var(--surface)`), and on the bottom by
+   `.chart-band__canvas-wrap`, a `position: relative` step-8 neighbour with no
+   `z-index` of its own. This is a different mechanism from the
+   `overflow: hidden` clip plan 19-04 already removed from `.segmented` — that
+   fix remains necessary, it just was not sufficient.
+   `position: relative` + `z-index: 1` below promotes the focused element to
+   its own step-9 stacking context, painted after every step-7 sibling and
+   every step-8 positioned neighbour, so the ring always wins. `1` is the
+   smallest value that clears those occluders (none of which declare a
+   `z-index` above `auto`) while staying strictly below `.records-jump`'s
+   deliberate `z-index: 10` (line ~996), so the sticky jump bar still paints
+   above a focused control elsewhere on the page. See 19-07-SUMMARY.md for the
+   full blast-radius audit of promoting every focused element this way. */
 
 :focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+  position: relative;
+  z-index: 1;
 }
 
 /* Responsive nav collapse */
@@ -1189,11 +1214,38 @@ input[type="radio"] {
    `input, select, textarea` rule's own `font: inherit`). Every one of the 12
    existing button-class rules already declares its own colors/backgrounds
    and, where relevant, its own min-width/min-height, so this `0,0,1`
-   baseline only fills in what those classes leave unset — nothing currently
-   rendered changes shape or color. No `:not()` exclusion is needed for
-   `.chip__remove` (24px) or `.theme-toggle`/`.app-nav__toggle` (44px): all
-   three are class selectors at `0,1,0` and beat this rule's min-height
-   automatically. */
+   baseline only fills in what those classes leave unset for THOSE buttons.
+   No `:not()` exclusion is needed for `.chip__remove` (24px) or
+   `.theme-toggle`/`.app-nav__toggle` (44px): all three are class selectors
+   at `0,1,0` and beat this rule's min-height automatically.
+
+   WR-02 (19-REVIEW.md), resolved by plan 19-07: that "fills in what's
+   unset" framing is NOT true for three real, shipped `<button>` elements
+   that carry no class at all — this rule is the FIRST CSS ever applied to
+   them, not a gap-filler:
+   - `src/dashboard/views/calendar.ts:74` — the multi-run day picker's
+     "Close" button
+   - `src/dashboard/views/calendar.ts:257` — the month-nav "‹ {month}" button
+   - `src/dashboard/views/calendar.ts:265` — the month-nav "{month} ›" button
+   For these three, this rule changes three concrete things that were
+   previously unstyled platform chrome: `font: inherit` moves their text
+   from the browser's UA button default (commonly ~13px, platform font) to
+   the inherited page body font at 16px (`--font-stack`); `min-height: 32px`
+   imposes a height floor that previously had none; `border-radius:
+   var(--radius-control)` rounds corners that previously used the native
+   button's square/platform-default chrome. This rule is deliberately NOT
+   scoped away from these three — reaching every class-less button is D-05's
+   intent (the baseline exists to close the inherited-font-and-cursor gap on
+   every button in the dashboard), and excluding them would re-open exactly
+   that gap on shipped, production controls (the calendar's month
+   navigation renders on every calendar page load). Verified by reading each
+   site's surrounding code, not by a lookahead heuristic: a wider scan
+   during 19-07 planning also flagged `trends.ts:225,815,819,882` as
+   candidates, but each of those four is classed via a same-tick
+   `className`/`classList` assignment that runs before the button is ever
+   appended to the DOM (`applyTabButtonState`/`updateModelButtons`/
+   `updateWindowButtons`), so none of them are actually class-less in the
+   rendered DOM — only the three calendar.ts sites above are. */
 button {
   font: inherit;
   min-height: 32px;
