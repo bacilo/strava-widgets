@@ -60,6 +60,20 @@ import {
   toggleYoyYear,
 } from './trends-yoy-logic.js';
 import { buildMonthlyChannelSeries } from './trends-cadence-hr-logic.js';
+import {
+  parseTrainingLoad,
+  parseTrimpModel,
+  parseLoadWindow,
+  sliceLoadWindow,
+  selectModelSeries,
+  findThinCoverageSpans,
+  coverageCaption,
+  TRAINING_LOAD_WINDOWS,
+  DEFAULT_LOAD_WINDOW,
+  type TrimpModel,
+  type LoadWindow,
+} from './trends-training-load-logic.js';
+import type { TrainingLoadDocument } from '../../analytics/training-load.types.js';
 
 const STATS_BASE_URL = 'data/stats/';
 
@@ -281,6 +295,15 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
   // Year-over-Year tab's own within-tab state (18-UI-SPEC § 9) — the set of
   // selected years, defaulted to the 3 most recent on first activation.
   let yoySelectedYears: number[] = [];
+
+  // Training Load tab's own within-tab state (18-UI-SPEC § 11) — the parsed
+  // document (this tab's own fetch, not part of the shared TrendsRawData),
+  // the TRIMP model toggle (D-14, default Edwards), and the display window
+  // (D-16, default 12mo — the underlying series always covers the full
+  // archive; only the DISPLAYED window is scoped).
+  let trainingLoadDoc: TrainingLoadDocument | null = null;
+  let trimpModel: TrimpModel = 'edwards';
+  let loadWindow: LoadWindow = DEFAULT_LOAD_WINDOW;
 
   function destroyActiveChart(): void {
     activeChartHandle?.destroy();
@@ -590,9 +613,195 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
   }
 
   /**
+   * Mounts the Training Load tab (18-UI-SPEC § 11, D-13/D-14/D-15/D-16):
+   * fetches `data/stats/training-load.json` (this tab's own fetch, guarded
+   * by the shared `requestToken`), an Edwards/Banister model toggle
+   * (`role="group"` + `aria-pressed` — correct here, unlike the outer
+   * tablist) that is a PURE client-side re-render (both series already live
+   * in the one fetched document), a 3mo/12mo/All window control that scopes
+   * only the DISPLAYED slice, and the thin-HR-coverage shading + caption —
+   * the phase's single most load-bearing honesty requirement.
+   */
+  async function renderTrainingLoadTab(panel: HTMLElement, myToken: number): Promise<void> {
+    showTabLoading(panel, 'training-load');
+
+    const doFetch = deps.fetchImpl ?? (globalThis.fetch as unknown as FetchLike);
+    const [chartsModule, rawDoc] = await Promise.all([
+      import('./trends-charts.js'),
+      fetchStatsJson<unknown>(`${STATS_BASE_URL}training-load.json`, doFetch),
+    ]);
+    if (myToken !== requestToken || !mountedContainer) return;
+
+    trainingLoadDoc = parseTrainingLoad(rawDoc);
+    panel.replaceChildren();
+
+    if (trainingLoadDoc === null) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      const heading = document.createElement('h3');
+      heading.className = 'text-heading';
+      heading.textContent = 'No training load data yet';
+      empty.appendChild(heading);
+      const body = document.createElement('p');
+      body.className = 'text-body';
+      body.textContent = 'Training load will appear here once the archive has been processed.';
+      empty.appendChild(body);
+      panel.appendChild(empty);
+      return;
+    }
+
+    const doc = trainingLoadDoc;
+
+    // Re-clamp the in-memory model selection against THIS document — a
+    // stored 'banister' selection can never survive an unconfigured model.
+    trimpModel = parseTrimpModel(trimpModel, doc);
+    loadWindow = parseLoadWindow(loadWindow);
+
+    const banisterUnavailable = doc.models.banister === false;
+
+    // -- TRIMP model toggle (a genuine two-state toggle, role="group") -----
+
+    const modelGroup = document.createElement('div');
+    modelGroup.className = 'segmented';
+    modelGroup.setAttribute('role', 'group');
+    modelGroup.setAttribute('aria-label', 'TRIMP model');
+
+    const edwardsBtn = document.createElement('button');
+    edwardsBtn.type = 'button';
+    edwardsBtn.textContent = 'Edwards';
+
+    const banisterBtn = document.createElement('button');
+    banisterBtn.type = 'button';
+    banisterBtn.textContent = 'Banister';
+    // The option stays visible but DISABLED when unconfigured — the model
+    // still exists, it just is not configured (D-13, 17-D31 precedent).
+    banisterBtn.disabled = banisterUnavailable;
+
+    function updateModelButtons(): void {
+      const isEdwards = trimpModel === 'edwards';
+      edwardsBtn.setAttribute('aria-pressed', isEdwards ? 'true' : 'false');
+      edwardsBtn.className = isEdwards ? 'segmented__option segmented__option--active' : 'segmented__option';
+      banisterBtn.setAttribute('aria-pressed', isEdwards ? 'false' : 'true');
+      banisterBtn.className = !isEdwards ? 'segmented__option segmented__option--active' : 'segmented__option';
+    }
+    updateModelButtons();
+
+    edwardsBtn.addEventListener('click', () => {
+      if (trimpModel === 'edwards') return;
+      trimpModel = 'edwards';
+      updateModelButtons();
+      rebuildChart();
+    });
+    banisterBtn.addEventListener('click', () => {
+      if (banisterBtn.disabled || trimpModel === 'banister') return;
+      trimpModel = 'banister';
+      updateModelButtons();
+      rebuildChart();
+    });
+
+    modelGroup.appendChild(edwardsBtn);
+    modelGroup.appendChild(banisterBtn);
+    panel.appendChild(modelGroup);
+
+    if (banisterUnavailable) {
+      const notice = document.createElement('div');
+      notice.className = 'config-notice';
+      notice.textContent =
+        doc.banisterDisabledReason ??
+        'Training load is off — add birthDate, sex, and restingHr to data/private/athlete-private.json to enable it.';
+      panel.appendChild(notice);
+    }
+
+    // -- Window control (scopes only the DISPLAYED slice, D-16) ------------
+
+    const WINDOW_LABELS: Record<LoadWindow, string> = { '3mo': '3mo', '12mo': '12mo', all: 'All' };
+    const windowButtons: Partial<Record<LoadWindow, HTMLButtonElement>> = {};
+
+    const windowGroup = document.createElement('div');
+    windowGroup.className = 'segmented';
+    windowGroup.setAttribute('role', 'group');
+    windowGroup.setAttribute('aria-label', 'Training load window');
+
+    function updateWindowButtons(): void {
+      TRAINING_LOAD_WINDOWS.forEach((w) => {
+        const btn = windowButtons[w];
+        if (!btn) return;
+        const active = w === loadWindow;
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        btn.className = active ? 'segmented__option segmented__option--active' : 'segmented__option';
+      });
+    }
+
+    TRAINING_LOAD_WINDOWS.forEach((w) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = WINDOW_LABELS[w];
+      btn.addEventListener('click', () => {
+        if (loadWindow === w) return;
+        loadWindow = w;
+        updateWindowButtons();
+        rebuildChart();
+      });
+      windowGroup.appendChild(btn);
+      windowButtons[w] = btn;
+    });
+    updateWindowButtons();
+    panel.appendChild(windowGroup);
+
+    // -- Chart + empty-model state + caption --------------------------------
+
+    const canvasWrap = document.createElement('div');
+    const canvas = document.createElement('canvas');
+    canvasWrap.appendChild(canvas);
+    panel.appendChild(canvasWrap);
+
+    const emptyModelState = document.createElement('div');
+    emptyModelState.className = 'empty-state';
+    emptyModelState.hidden = true;
+    const emptyHeading = document.createElement('h3');
+    emptyHeading.className = 'text-heading';
+    emptyHeading.textContent = 'No data for this model';
+    emptyModelState.appendChild(emptyHeading);
+    const emptyBody = document.createElement('p');
+    emptyBody.className = 'text-body';
+    emptyBody.textContent = 'This model has no computed data for the selected window.';
+    emptyModelState.appendChild(emptyBody);
+    panel.appendChild(emptyModelState);
+
+    const caption = document.createElement('p');
+    caption.className = 'text-label';
+    panel.appendChild(caption);
+
+    function rebuildChart(): void {
+      destroyActiveChart();
+
+      // `now` is constructed HERE, in the view, never inside
+      // trends-training-load-logic.ts (that module stays deterministic and
+      // total under vitest's node environment).
+      const windowedDays = sliceLoadWindow(doc.days, loadWindow, new Date());
+      const points = selectModelSeries(windowedDays, trimpModel);
+      const spans = findThinCoverageSpans(windowedDays);
+
+      if (points.length === 0) {
+        canvasWrap.hidden = true;
+        emptyModelState.hidden = false;
+        caption.textContent = '';
+        return;
+      }
+
+      canvasWrap.hidden = false;
+      emptyModelState.hidden = true;
+      activeChartHandle = chartsModule.mountTrainingLoadChart(canvas, points, spans);
+      caption.textContent = coverageCaption(spans);
+    }
+
+    rebuildChart();
+  }
+
+  /**
    * Renders whichever tab is now active into its (already-mounted) panel.
-   * Training Load and Gear stay a named placeholder until later in this
-   * plan's task sequence.
+   * Gear stays a named placeholder until later in this plan's task
+   * sequence.
    */
   async function renderActiveTabContent(tab: TrendTabKey, myToken: number): Promise<void> {
     const panel = tabPanels[tab];
@@ -606,6 +815,9 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
         break;
       case 'cadence-hr':
         await renderCadenceHrTab(panel, myToken);
+        break;
+      case 'training-load':
+        await renderTrainingLoadTab(panel, myToken);
         break;
       default:
         renderPlaceholderTab(panel, tab);
