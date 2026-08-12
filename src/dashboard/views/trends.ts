@@ -59,6 +59,7 @@ import {
   buildYoySeries,
   toggleYoyYear,
 } from './trends-yoy-logic.js';
+import { buildMonthlyChannelSeries } from './trends-cadence-hr-logic.js';
 
 const STATS_BASE_URL = 'data/stats/';
 
@@ -552,9 +553,46 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
   }
 
   /**
+   * Mounts the Cadence & HR tab (18-UI-SPEC § 10): two stacked, pinned-gutter
+   * single-axis bands (monthly average cadence, monthly average heart rate)
+   * computed client-side from the already-fetched index rows via
+   * `buildMonthlyChannelSeries`. A plain-numbers caption below states how
+   * many months have no data for each channel — derived from the series,
+   * never a hardcoded claim.
+   */
+  async function renderCadenceHrTab(panel: HTMLElement, myToken: number): Promise<void> {
+    if (!data) return;
+    showTabLoading(panel, 'cadence-hr');
+
+    const chartsModule = await import('./trends-charts.js');
+    if (myToken !== requestToken || !mountedContainer) return;
+
+    panel.replaceChildren();
+
+    const cadenceSeries = buildMonthlyChannelSeries(data.rows, 'cadence');
+    const hrSeries = buildMonthlyChannelSeries(data.rows, 'hr');
+
+    const chartRoot = document.createElement('div');
+    panel.appendChild(chartRoot);
+
+    destroyActiveChart();
+    activeChartHandle = chartsModule.mountChannelBands(chartRoot, cadenceSeries, hrSeries);
+
+    const cadenceMissingMonths = cadenceSeries.filter((point) => point.value === null).length;
+    const hrMissingMonths = hrSeries.filter((point) => point.value === null).length;
+
+    const caption = document.createElement('p');
+    caption.className = 'text-label';
+    caption.textContent =
+      `${cadenceMissingMonths} month${cadenceMissingMonths === 1 ? '' : 's'} with no cadence data; ` +
+      `${hrMissingMonths} month${hrMissingMonths === 1 ? '' : 's'} with no heart rate data.`;
+    panel.appendChild(caption);
+  }
+
+  /**
    * Renders whichever tab is now active into its (already-mounted) panel.
-   * Cadence & HR, Training Load, and Gear stay a named placeholder until
-   * plan 18-15.
+   * Training Load and Gear stay a named placeholder until later in this
+   * plan's task sequence.
    */
   async function renderActiveTabContent(tab: TrendTabKey, myToken: number): Promise<void> {
     const panel = tabPanels[tab];
@@ -565,6 +603,9 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
         break;
       case 'yoy':
         await renderYoyTab(panel, myToken);
+        break;
+      case 'cadence-hr':
+        await renderCadenceHrTab(panel, myToken);
         break;
       default:
         renderPlaceholderTab(panel, tab);

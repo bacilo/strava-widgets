@@ -37,6 +37,7 @@ import {
 import { resolveToken, resolveThemeColors, hexToRgba, Y_AXIS_WIDTH_PX } from './chart-theme.js';
 import type { VolumePoint, VolumeGranularity } from './trends-volume-logic.js';
 import type { YoySeries } from './trends-yoy-logic.js';
+import { channelLabel, type MonthlyChannel, type MonthlyPoint } from './trends-cadence-hr-logic.js';
 
 // ---------------------------------------------------------------------------
 // Registration — Bar* powers both this plan's Volume and Year-over-Year
@@ -263,6 +264,167 @@ export function mountYoyChart(
       if (destroyed) return;
       destroyed = true;
       chart.destroy();
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Cadence & HR (18-UI-SPEC § 10) — two stacked SINGLE-AXIS bands sharing one
+// x-axis meaning (month), never one dual-axis chart (D-19's "no competing
+// right-hand tick labels" rule, reapplied here). Reuses the exact
+// `.chart-stack`/`.chart-band`/`.chart-band__canvas-wrap` markup
+// `detail-charts.ts` already established.
+// ---------------------------------------------------------------------------
+
+const CHANNEL_ARIA_LABELS: Record<MonthlyChannel, string> = {
+  cadence: 'Average cadence by month chart',
+  hr: 'Average heart rate by month chart',
+};
+
+const CHANNEL_COLOR_TOKENS: Record<MonthlyChannel, string> = {
+  cadence: '--chart-cadence',
+  hr: '--chart-hr',
+};
+
+function formatMonthYearTick(epochMs: number): string {
+  const d = new Date(epochMs);
+  return `${MONTH_ABBR[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
+function formatChannelValue(channel: MonthlyChannel, value: number): string {
+  return channel === 'cadence' ? `${value.toFixed(1)} rpm` : `${Math.round(value)} bpm`;
+}
+
+/**
+ * Mounts one stacked, single-axis line band into `stack` for `channel`.
+ * `spanGaps: false` and the raw (possibly-null) `MonthlyPoint.value` are
+ * passed straight through — a month with no qualifying data renders as a
+ * genuine GAP in the line, never a zero and never an interpolated bridge
+ * (18-UI-SPEC § 10, D-15's principle applied to a new context). The nulls
+ * are NEVER filtered out of the dataset — filtering them would close the gap.
+ *
+ * THE GUTTER IS THE LOAD-BEARING DETAIL: `scale.width = Y_AXIS_WIDTH_PX` is
+ * pinned unconditionally, exactly as `detail-charts.ts` does, even though
+ * cadence (`170`) and HR (`142`) tick labels happen to be similar widths
+ * today — a future channel with wider labels must not silently reintroduce
+ * Phase 17's GAP 2 (misaligned stacked-band x-axes).
+ */
+function buildChannelBand(
+  stack: HTMLElement,
+  points: readonly MonthlyPoint[],
+  channel: MonthlyChannel,
+  themeColors: { border: string; text: string; textSecondary: string }
+): Chart {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'chart-band';
+
+  const header = document.createElement('div');
+  header.className = 'chart-band__header';
+  const headingEl = document.createElement('span');
+  headingEl.className = 'text-label';
+  // channelLabel's cadence heading states the single-leg rpm unit explicitly
+  // (matching detail.ts's `Cadence (rpm, single-leg)` stat-card label),
+  // because the index value is deliberately not doubled to steps-per-minute.
+  headingEl.textContent = channelLabel(channel);
+  header.appendChild(headingEl);
+  wrapper.appendChild(header);
+
+  const canvasWrap = document.createElement('div');
+  canvasWrap.className = 'chart-band__canvas-wrap';
+  const canvas = document.createElement('canvas');
+  canvas.setAttribute('aria-label', CHANNEL_ARIA_LABELS[channel]);
+  canvasWrap.appendChild(canvas);
+  wrapper.appendChild(canvasWrap);
+
+  stack.appendChild(wrapper);
+
+  const color = resolveToken(CHANNEL_COLOR_TOKENS[channel], channel === 'cadence' ? '#0891b2' : '#e11d48');
+
+  return new Chart(canvas, {
+    type: 'line',
+    data: {
+      datasets: [
+        {
+          label: channelLabel(channel),
+          data: points.map((point) => ({ x: point.x, y: point.value })),
+          parsing: false,
+          spanGaps: false,
+          borderColor: color,
+          backgroundColor: color,
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          fill: false,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      parsing: false,
+      scales: {
+        x: {
+          type: 'linear',
+          grid: { display: false },
+          ticks: {
+            callback: (value: number | string) => formatMonthYearTick(Number(value)),
+          },
+        },
+        y: {
+          type: 'linear',
+          // Pin the gutter unconditionally — see this function's doc comment.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          afterFit: (scale: any) => {
+            scale.width = Y_AXIS_WIDTH_PX;
+          },
+          grid: { color: hexToRgba(themeColors.border, 0.4) },
+        },
+      },
+      plugins: {
+        tooltip: {
+          callbacks: {
+            label: (context: { dataIndex: number }) => {
+              const point = points[context.dataIndex];
+              if (!point || point.value === null) {
+                return `No data (${point?.runs ?? 0} run${(point?.runs ?? 0) === 1 ? '' : 's'})`;
+              }
+              return `${formatChannelValue(channel, point.value)} (${point.contributing} of ${point.runs} run${point.runs === 1 ? '' : 's'})`;
+            },
+          },
+        },
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any,
+  });
+}
+
+/**
+ * Mounts the Cadence & HR tab's two stacked bands (cadence, then HR) sharing
+ * one `.chart-stack`. Idempotent `destroy()` destroys both Chart.js
+ * instances and removes the stack element.
+ */
+export function mountChannelBands(
+  root: HTMLElement,
+  cadence: readonly MonthlyPoint[],
+  hr: readonly MonthlyPoint[]
+): ChartHandle {
+  const themeColors = resolveThemeColors();
+
+  const stack = document.createElement('div');
+  stack.className = 'chart-stack';
+  root.appendChild(stack);
+
+  const cadenceChart = buildChannelBand(stack, cadence, 'cadence', themeColors);
+  const hrChart = buildChannelBand(stack, hr, 'hr', themeColors);
+
+  let destroyed = false;
+  return {
+    destroy(): void {
+      if (destroyed) return;
+      destroyed = true;
+      cadenceChart.destroy();
+      hrChart.destroy();
+      stack.remove();
     },
   };
 }
