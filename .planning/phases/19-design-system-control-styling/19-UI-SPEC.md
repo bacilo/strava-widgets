@@ -294,6 +294,14 @@ Also correct the one out-of-step grid gap: `.stat-grid { gap: var(--space-xl); }
 
 ---
 
+## Visual Hierarchy (unchanged this phase)
+
+**No screen's focal point or visual hierarchy changes in Phase 19.** All five screens (Overview, Activities, Calendar, Records, Trends) inherit the hierarchy established in Phases 16–18 unchanged: this phase touches only control/button/focus-ring chrome and card-box + spacing rhythm, never element order, prominence, or which element a screen leads with. Any hierarchy work (e.g. the Overview stacked-div PR rows) is explicitly deferred — see D-14 above and Phase 21.
+
+This is the standard against which success criterion 3's "without altering the existing visual language elsewhere" is judged at the human checkpoint: if a screen's focal point reads differently after the change, that's a regression, not an improvement.
+
+---
+
 ## Copywriting Contract
 
 **No new copy this phase.** D-01 through D-14 are exhaustively CSS-only decisions — no new user-facing strings, no new empty/error states, no new CTA. The existing contract (established in 16-UI-SPEC.md, extended in 17/18-UI-SPEC.md) is unchanged and carried forward for reference only:
