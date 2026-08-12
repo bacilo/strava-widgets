@@ -114,7 +114,7 @@ Plans:
 
 **Wave 6** *(gap closure — blocked on Wave 5 completion)*
 
-- [ ] 19-06-PLAN.md — parse-level CSS gate + dead `--radius-control` token fix + `.segmented` radius token (GAP 1, GAP 3, WR-01)
+- [x] 19-06-PLAN.md — parse-level CSS gate + dead `--radius-control` token fix + `.segmented` radius token (GAP 1, GAP 3, WR-01)
 
 **Wave 7** *(gap closure — blocked on Wave 6 completion)*
 
@@ -251,7 +251,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 16. Dashboard Shell & Data Contract | v2.0 | 16/16 | Complete    | 2026-08-11 |
 | 17. Activity Browser & Detail Views | v2.0 | 15/15 | Complete    | 2026-08-11 |
 | 18. Records, Trends & Differentiators | v2.0 | 16/16 | Complete    | 2026-08-12 |
-| 19. Design System & Control Styling | v2.1 | 5/5 | Complete   | 2026-08-12 |
+| 19. Design System & Control Styling | v2.1 | 6/9 | In Progress|  |
 | 20. Row-Click Interaction Pattern | v2.1 | 0/TBD | Not started | - |
 | 21. Overview Rebuild | v2.1 | 0/TBD | Not started | - |
 | 22. Calendar Week-Start & Totals | v2.1 | 0/TBD | Not started | - |
