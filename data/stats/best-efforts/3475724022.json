@@ -1,0 +1,58 @@
+{
+  "activityId": "3475724022",
+  "startDate": "2019-08-15T05:44:05Z",
+  "distanceSource": "native",
+  "efforts": [
+    {
+      "distance": "400m",
+      "durationSec": 121,
+      "paceSecPerKm": 302.4,
+      "startOffsetSec": 4020,
+      "endOffsetSec": 4141,
+      "lowConfidence": false,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "1k",
+      "durationSec": 312.8,
+      "paceSecPerKm": 312.8,
+      "startOffsetSec": 508,
+      "endOffsetSec": 820.8,
+      "lowConfidence": false,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "1mi",
+      "durationSec": 508.3,
+      "paceSecPerKm": 315.8,
+      "startOffsetSec": 314,
+      "endOffsetSec": 822.3,
+      "lowConfidence": false,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "5k",
+      "durationSec": 1631.3,
+      "paceSecPerKm": 326.3,
+      "startOffsetSec": 60,
+      "endOffsetSec": 1691.3,
+      "lowConfidence": false,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "10k",
+      "durationSec": 3332.2,
+      "paceSecPerKm": 333.2,
+      "startOffsetSec": 62,
+      "endOffsetSec": 3394.2,
+      "lowConfidence": false,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    }
+  ],
+  "excludedFromRecords": false
+}

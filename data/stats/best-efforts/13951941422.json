@@ -1,0 +1,68 @@
+{
+  "activityId": "13951941422",
+  "startDate": "2025-03-22T07:38:47Z",
+  "distanceSource": "native",
+  "efforts": [
+    {
+      "distance": "400m",
+      "durationSec": 109.9,
+      "paceSecPerKm": 274.8,
+      "startOffsetSec": 6437,
+      "endOffsetSec": 6546.9,
+      "lowConfidence": false,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "1k",
+      "durationSec": 292.6,
+      "paceSecPerKm": 292.6,
+      "startOffsetSec": 6415,
+      "endOffsetSec": 6707.6,
+      "lowConfidence": false,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "1mi",
+      "durationSec": 479.4,
+      "paceSecPerKm": 297.9,
+      "startOffsetSec": 1655,
+      "endOffsetSec": 2134.4,
+      "lowConfidence": false,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "5k",
+      "durationSec": 1573.6,
+      "paceSecPerKm": 314.7,
+      "startOffsetSec": 557,
+      "endOffsetSec": 2130.6,
+      "lowConfidence": false,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "10k",
+      "durationSec": 3246.9,
+      "paceSecPerKm": 324.7,
+      "startOffsetSec": 468,
+      "endOffsetSec": 3714.9,
+      "lowConfidence": false,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "half",
+      "durationSec": 7108.2,
+      "paceSecPerKm": 336.9,
+      "startOffsetSec": 0,
+      "endOffsetSec": 7108.2,
+      "lowConfidence": false,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    }
+  ],
+  "excludedFromRecords": false
+}

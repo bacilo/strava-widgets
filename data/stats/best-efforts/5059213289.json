@@ -1,0 +1,28 @@
+{
+  "activityId": "5059213289",
+  "startDate": "2021-04-03T06:27:59Z",
+  "distanceSource": "native",
+  "efforts": [
+    {
+      "distance": "5k",
+      "durationSec": 1224,
+      "paceSecPerKm": 244.8,
+      "startOffsetSec": 672,
+      "endOffsetSec": 1896,
+      "lowConfidence": false,
+      "wasPRAtTheTime": true,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "10k",
+      "durationSec": 2984.8,
+      "paceSecPerKm": 298.5,
+      "startOffsetSec": 672,
+      "endOffsetSec": 3656.8,
+      "lowConfidence": false,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    }
+  ],
+  "excludedFromRecords": false
+}

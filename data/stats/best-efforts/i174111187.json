@@ -1,0 +1,38 @@
+{
+  "activityId": "i174111187",
+  "startDate": "2026-06-06T07:08:39Z",
+  "distanceSource": "native",
+  "efforts": [
+    {
+      "distance": "400m",
+      "durationSec": 158.7,
+      "paceSecPerKm": 396.8,
+      "startOffsetSec": 2837,
+      "endOffsetSec": 2995.7,
+      "lowConfidence": false,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "1k",
+      "durationSec": 525.7,
+      "paceSecPerKm": 525.7,
+      "startOffsetSec": 2639,
+      "endOffsetSec": 3164.7,
+      "lowConfidence": false,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "1mi",
+      "durationSec": 1082.7,
+      "paceSecPerKm": 672.7,
+      "startOffsetSec": 2639,
+      "endOffsetSec": 3721.7,
+      "lowConfidence": false,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    }
+  ],
+  "excludedFromRecords": false
+}

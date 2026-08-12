@@ -1,0 +1,58 @@
+{
+  "activityId": "3990602140",
+  "startDate": "2020-08-31T09:55:26Z",
+  "distanceSource": "native",
+  "efforts": [
+    {
+      "distance": "400m",
+      "durationSec": 123.1,
+      "paceSecPerKm": 307.9,
+      "startOffsetSec": 1038,
+      "endOffsetSec": 1161.1,
+      "lowConfidence": false,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "1k",
+      "durationSec": 314.7,
+      "paceSecPerKm": 314.7,
+      "startOffsetSec": 3079,
+      "endOffsetSec": 3393.7,
+      "lowConfidence": false,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "1mi",
+      "durationSec": 519.3,
+      "paceSecPerKm": 322.7,
+      "startOffsetSec": 218,
+      "endOffsetSec": 737.3,
+      "lowConfidence": false,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "5k",
+      "durationSec": 1636.8,
+      "paceSecPerKm": 327.4,
+      "startOffsetSec": 6,
+      "endOffsetSec": 1642.8,
+      "lowConfidence": false,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "10k",
+      "durationSec": 3343,
+      "paceSecPerKm": 334.3,
+      "startOffsetSec": 6,
+      "endOffsetSec": 3349,
+      "lowConfidence": false,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    }
+  ],
+  "excludedFromRecords": false
+}

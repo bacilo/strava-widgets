@@ -1,0 +1,48 @@
+{
+  "activityId": "4185723902",
+  "startDate": "2020-10-12T07:28:45Z",
+  "distanceSource": "native",
+  "efforts": [
+    {
+      "distance": "400m",
+      "durationSec": 123.5,
+      "paceSecPerKm": 308.8,
+      "startOffsetSec": 2491,
+      "endOffsetSec": 2614.5,
+      "lowConfidence": false,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "1k",
+      "durationSec": 317.8,
+      "paceSecPerKm": 317.8,
+      "startOffsetSec": 2532,
+      "endOffsetSec": 2849.8,
+      "lowConfidence": false,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "1mi",
+      "durationSec": 516.1,
+      "paceSecPerKm": 320.7,
+      "startOffsetSec": 2450,
+      "endOffsetSec": 2966.1,
+      "lowConfidence": false,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "5k",
+      "durationSec": 1768.3,
+      "paceSecPerKm": 353.7,
+      "startOffsetSec": 1248,
+      "endOffsetSec": 3016.3,
+      "lowConfidence": false,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    }
+  ],
+  "excludedFromRecords": false
+}
