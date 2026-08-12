@@ -53,7 +53,7 @@
 - [x] **Phase 15: Best-Effort Engine** - Pipeline computes fastest 400m..marathon efforts within every run from streams (completed 2026-08-10)
 - [x] **Phase 16: Dashboard Shell & Data Contract** - Navigable, themed SPA shell deployed to GitHub Pages with lazy-loaded data contract (16 plans: 9 original + 7 gap-closure 16-10..16-16; the first verification pass found the phase was never actually pushed or deployed and DASH-02 was blocked, both closed by gap closure; live at https://bacilo.github.io/strava-widgets/ and re-verified 43/43 must-haves) (completed 2026-08-11)
 - [x] **Phase 17: Activity Browser & Detail Views** - Browse, filter, and drill into any archived activity with full pace/HR/cadence detail (15/15 plans executed 2026-08-11; 17-15's real-browser checkpoint returned PARTIAL with 2 named gaps — route-map basemap tiles blocked by the dashboard CSP's `img-src` (fixed in `edef601`) and chart-band x-axis misalignment from per-band y-axis gutter sizing (fixed in `1e652ef`) — both re-confirmed in a real browser; validation gate approved, verification passed 11/11) (completed 2026-08-11)
-- [ ] **Phase 18: Records, Trends & Differentiators** - PR lists, evolution, badges, aggregates, TRIMP training load, age-grading, Riegel predictions, gear-aware trends
+- [x] **Phase 18: Records, Trends & Differentiators** - PR lists, evolution, badges, aggregates, TRIMP training load, age-grading, Riegel predictions, gear-aware trends (completed 2026-08-12)
 
 ## Phase Details
 
@@ -270,7 +270,7 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 18-16-PLAN.md — Full gate, validation reconciliation, and the real-browser human checkpoint
+- [x] 18-16-PLAN.md — Full gate, validation reconciliation, and the real-browser human checkpoint
 
 ## Progress
 
@@ -296,7 +296,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 | 15. Best-Effort Engine | v2.0 | 4/4 | Complete    | 2026-08-10 |
 | 16. Dashboard Shell & Data Contract | v2.0 | 16/16 | Complete    | 2026-08-11 |
 | 17. Activity Browser & Detail Views | v2.0 | 15/15 | Complete    | 2026-08-11 |
-| 18. Records, Trends & Differentiators | v2.0 | 15/16 | In Progress|  |
+| 18. Records, Trends & Differentiators | v2.0 | 16/16 | Complete   | 2026-08-12 |
 
 ---
 *Last updated: 2026-08-11 — Phase 16 gap closure planned (7 plans, 3 waves)*
