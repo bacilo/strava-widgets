@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { transformSync } from 'esbuild';
 import { describe, expect, it } from 'vitest';
 
 /*
@@ -15,6 +16,16 @@ const css = readFileSync(new URL('./styles.css', import.meta.url), 'utf8');
 // be mistaken for part of a rule head. Declaration-text assertions below
 // (fill/prefers-color-scheme absence) intentionally use the raw `css`
 // instead, so even a stray mention in a comment would still fail loudly.
+//
+// The non-greedy `[\s\S]*?` is deliberate, not an oversight to "simplify"
+// into a greedy `[\s\S]*`. Non-greedy is first-`*/`-wins, which is exactly
+// how a real CSS parser terminates a comment — the moment it sees a closing
+// `*/`, the comment is over, regardless of what `/*`-like text appears
+// later. GAP 1 (19-VALIDATION.md, Phase 19 gap-closure record) was exactly
+// this: a stray `*/` inside a comment's prose terminated it early. A greedy
+// regex would swallow everything between the FIRST `/*` and the LAST `*/`
+// in the whole file, diverging from real parsing and hiding this entire
+// class of defect far more thoroughly than the current, correct behavior.
 const cssNoComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
 
 /**
@@ -302,6 +313,15 @@ describe('styles.css — Phase 19 focus ring', () => {
     ).toBe(true);
   });
 
+  // WR-01 (19-REVIEW.md): .segmented's own corner radius used to be a
+  // literal `border-radius: 4px`, while its end children above already
+  // derived theirs from --radius-control -- container and children could
+  // disagree if the token were ever retuned. Migrated onto the token so
+  // there is one source of truth for this radius.
+  it('.segmented derives its own corner radius from --radius-control, not a literal', () => {
+    expect(declarationsFor('.segmented')).toContain('border-radius: var(--radius-control)');
+  });
+
   it('.splits-scroll has room for the ring', () => {
     expect(declarationsFor('.splits-scroll')).toContain('padding: var(--space-xs)');
   });
@@ -337,5 +357,60 @@ describe('styles.css — Phase 19 radius tokens', () => {
   it('no retired --space-2xl padding or --space-xl gap survived on these selectors', () => {
     expect(css).not.toContain('padding: var(--space-2xl)');
     expect(css).not.toContain('gap: var(--space-xl)');
+  });
+});
+
+// GAP 1 (19-VALIDATION.md, Phase 19 gap-closure record): every assertion
+// above this point is a substring match over the literal characters of
+// styles.css. A stray `*/` inside the Phase 19 radius-scale comment
+// (lines 55-57) terminated that comment early, so `--radius-control: 4px`
+// was silently discarded by real CSS parsers while remaining present, byte
+// for byte, in the source text — invisible to every assertion above,
+// because they all check "are the right characters somewhere in the file"
+// rather than "does the file parse to the declarations those characters
+// claim to declare". This block proves the stronger claim: that the
+// stylesheet PARSES, not merely that it contains the right characters.
+describe('styles.css — Phase 19 radius tokens (parse level)', () => {
+  it('the whole file has zero CSS syntax warnings under a real parser', () => {
+    const result = transformSync(css, { loader: 'css' });
+    expect(
+      result.warnings,
+      `esbuild reported ${result.warnings.length} warning(s) parsing styles.css: ${JSON.stringify(result.warnings)}`,
+    ).toHaveLength(0);
+  });
+
+  // Anchored declaration-name match, not `.toContain()` and not a fragment
+  // count. <groundwork> records both as blind to GAP 1's failure mode: the
+  // leaked comment prose merges into a single ';'-separated fragment
+  // together with the swallowed declaration, so the fragment count is 39 in
+  // the broken file and 39 in the fixed file alike, and the literal
+  // substring '--radius-control: 4px' is still present as text even while
+  // the declaration itself is discarded by a real parser. Only checking
+  // that a fragment's *name*, anchored at its start, matches the token name
+  // discriminates broken from fixed. Do not "simplify" this back to
+  // `.toContain()` or a count comparison — both were measured during
+  // planning to pass identically against the broken and fixed file.
+  it('--radius-control and --radius-panel are anchored, reachable :root declarations', () => {
+    const rootBody = declarationsFor(':root');
+    const fragments = rootBody
+      .split(';')
+      .map((fragment) => fragment.trim())
+      .filter(Boolean);
+    for (const name of ['--radius-control', '--radius-panel']) {
+      const anchored = new RegExp(`^${name}\\s*:`);
+      expect(
+        fragments.some((fragment) => anchored.test(fragment)),
+        `${name} is not an anchored :root declaration in the parsed fragment list`,
+      ).toBe(true);
+    }
+  });
+
+  // General form of GAP 1, dependency-free: any surviving `*/` in the
+  // comment-stripped view means some comment terminated earlier than its
+  // author intended and leaked prose into live stylesheet content, and
+  // catches the next instance of this defect class regardless of whether
+  // the leaked text happens to produce a parser warning this time.
+  it('comment stripping leaves no stray */ — no comment terminated early', () => {
+    expect(cssNoComments).not.toContain('*/');
   });
 });
