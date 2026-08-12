@@ -248,7 +248,7 @@ body {
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: var(--space-xl);
+  gap: var(--space-lg);
 }
 
 /* Activities */
@@ -319,8 +319,9 @@ body {
 .stub-panel {
   background: var(--surface);
   border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
   text-align: center;
-  padding: var(--space-2xl);
+  padding: var(--space-lg);
 }
 
 .error-state .text-heading,
@@ -579,8 +580,9 @@ body {
 .empty-state {
   background: var(--surface);
   border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
   text-align: center;
-  padding: var(--space-2xl) var(--space-lg);
+  padding: var(--space-lg);
 }
 
 .empty-state .text-heading {
@@ -695,7 +697,8 @@ body {
 .calendar-picker {
   background: var(--surface);
   border: 1px solid var(--border);
-  padding: var(--space-md);
+  border-radius: var(--radius-panel);
+  padding: var(--space-lg);
 }
 
 /* ==========================================================================
@@ -991,8 +994,8 @@ body {
 .config-notice {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: var(--space-md);
+  border-radius: var(--radius-panel);
+  padding: var(--space-lg);
   margin-bottom: var(--space-md);
   font-size: 16px;
   font-weight: 400;
