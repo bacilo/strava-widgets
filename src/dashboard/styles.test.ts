@@ -16,6 +16,16 @@ const css = readFileSync(new URL('./styles.css', import.meta.url), 'utf8');
 // be mistaken for part of a rule head. Declaration-text assertions below
 // (fill/prefers-color-scheme absence) intentionally use the raw `css`
 // instead, so even a stray mention in a comment would still fail loudly.
+//
+// The non-greedy `[\s\S]*?` is deliberate, not an oversight to "simplify"
+// into a greedy `[\s\S]*`. Non-greedy is first-`*/`-wins, which is exactly
+// how a real CSS parser terminates a comment — the moment it sees a closing
+// `*/`, the comment is over, regardless of what `/*`-like text appears
+// later. GAP 1 (19-VALIDATION.md, Phase 19 gap-closure record) was exactly
+// this: a stray `*/` inside a comment's prose terminated it early. A greedy
+// regex would swallow everything between the FIRST `/*` and the LAST `*/`
+// in the whole file, diverging from real parsing and hiding this entire
+// class of defect far more thoroughly than the current, correct behavior.
 const cssNoComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
 
 /**
@@ -358,5 +368,40 @@ describe('styles.css — Phase 19 radius tokens (parse level)', () => {
       result.warnings,
       `esbuild reported ${result.warnings.length} warning(s) parsing styles.css: ${JSON.stringify(result.warnings)}`,
     ).toHaveLength(0);
+  });
+
+  // Anchored declaration-name match, not `.toContain()` and not a fragment
+  // count. <groundwork> records both as blind to GAP 1's failure mode: the
+  // leaked comment prose merges into a single ';'-separated fragment
+  // together with the swallowed declaration, so the fragment count is 39 in
+  // the broken file and 39 in the fixed file alike, and the literal
+  // substring '--radius-control: 4px' is still present as text even while
+  // the declaration itself is discarded by a real parser. Only checking
+  // that a fragment's *name*, anchored at its start, matches the token name
+  // discriminates broken from fixed. Do not "simplify" this back to
+  // `.toContain()` or a count comparison — both were measured during
+  // planning to pass identically against the broken and fixed file.
+  it('--radius-control and --radius-panel are anchored, reachable :root declarations', () => {
+    const rootBody = declarationsFor(':root');
+    const fragments = rootBody
+      .split(';')
+      .map((fragment) => fragment.trim())
+      .filter(Boolean);
+    for (const name of ['--radius-control', '--radius-panel']) {
+      const anchored = new RegExp(`^${name}\\s*:`);
+      expect(
+        fragments.some((fragment) => anchored.test(fragment)),
+        `${name} is not an anchored :root declaration in the parsed fragment list`,
+      ).toBe(true);
+    }
+  });
+
+  // General form of GAP 1, dependency-free: any surviving `*/` in the
+  // comment-stripped view means some comment terminated earlier than its
+  // author intended and leaked prose into live stylesheet content, and
+  // catches the next instance of this defect class regardless of whether
+  // the leaked text happens to produce a parser warning this time.
+  it('comment stripping leaves no stray */ — no comment terminated early', () => {
+    expect(cssNoComments).not.toContain('*/');
   });
 });
