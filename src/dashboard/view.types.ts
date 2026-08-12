@@ -61,8 +61,7 @@ export const NAV_ORDER: readonly { route: string; label: string; order: number }
   { route: ROUTES.TRENDS, label: 'Trends', order: 5 },
 ];
 
-/** Which future phase ships each stub view's real content — interpolated into the UI-SPEC empty-state body copy. Calendar shipped in Phase 17 and is no longer a stub. */
+/** Which future phase ships each stub view's real content — interpolated into the UI-SPEC empty-state body copy. Calendar shipped in Phase 17 and Records shipped in Phase 18 (this plan) — neither is a stub any longer. */
 export const STUB_PHASE: Readonly<Record<string, '17' | '18'>> = {
-  [ROUTES.RECORDS]: '18',
   [ROUTES.TRENDS]: '18',
 };

@@ -54,9 +54,9 @@ describe('getView', () => {
 });
 
 describe('STUB_PHASE', () => {
-  it('has no entry for ROUTES.CALENDAR (BROWSE-05 shipped, no longer a stub) while RECORDS and TRENDS remain stubbed — regression guard against a silent revert (T-17-REG-01)', () => {
+  it('has no entry for ROUTES.CALENDAR (BROWSE-05 shipped) or ROUTES.RECORDS (this plan shipped it) while TRENDS remains stubbed — regression guard against a silent revert (T-17-REG-01)', () => {
     expect(STUB_PHASE[ROUTES.CALENDAR]).toBeUndefined();
-    expect(STUB_PHASE[ROUTES.RECORDS]).toBeDefined();
+    expect(STUB_PHASE[ROUTES.RECORDS]).toBeUndefined();
     expect(STUB_PHASE[ROUTES.TRENDS]).toBeDefined();
   });
 });
