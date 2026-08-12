@@ -44,6 +44,14 @@ import {
   type TrendTabKey,
   type RollingTotals,
 } from './trends-logic.js';
+import {
+  buildVolumeSeries,
+  buildYearGrid,
+  listActivityYears,
+  yearGridSummary,
+  VOLUME_GRANULARITIES,
+  type VolumeGranularity,
+} from './trends-volume-logic.js';
 
 const STATS_BASE_URL = 'data/stats/';
 
@@ -256,21 +264,216 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
   let tabButtons: Partial<Record<TrendTabKey, HTMLButtonElement>> = {};
   let tabPanels: Partial<Record<TrendTabKey, HTMLElement>> = {};
 
+  // Volume tab's own within-tab state (18-UI-SPEC § 8) — survives a
+  // granularity/year change (destroy-and-rebuild the chart only), but not a
+  // full page remount (reset on unmount()).
+  let volumeGranularity: VolumeGranularity = 'weekly';
+  let volumeYear: number | null = null;
+
   function destroyActiveChart(): void {
     activeChartHandle?.destroy();
     activeChartHandle = null;
   }
 
   /**
+   * Builds the Volume tab's year consistency heatmap (18-UI-SPEC § 8): a
+   * native `<select>` year picker, a 53x7 CSS-grid heatmap whose 371 cells
+   * are never individually focusable or clickable (T-18-A11Y-03), one
+   * summarizing `aria-label` on the grid container, and a disclosure
+   * (labelled below) carrying the same day-by-day data as a real HTML
+   * table — the accessible-equivalent content the grid itself cannot
+   * provide.
+   */
+  function buildYearHeatmapSection(rows: readonly DashboardIndexRow[]): HTMLElement {
+    const section = document.createElement('div');
+
+    const years = listActivityYears(rows);
+    const fallbackYear = new Date().getUTCFullYear();
+    const defaultYear = years[0] ?? fallbackYear;
+    if (volumeYear === null || !years.includes(volumeYear)) {
+      volumeYear = defaultYear;
+    }
+
+    const selectLabel = document.createElement('label');
+    const labelText = document.createElement('span');
+    labelText.textContent = 'Year';
+    selectLabel.appendChild(labelText);
+
+    const select = document.createElement('select');
+    years.forEach((year) => {
+      const option = document.createElement('option');
+      option.value = String(year);
+      option.textContent = String(year);
+      if (year === volumeYear) option.selected = true;
+      select.appendChild(option);
+    });
+    selectLabel.appendChild(select);
+    section.appendChild(selectLabel);
+
+    const gridWrap = document.createElement('div');
+    section.appendChild(gridWrap);
+
+    function renderGridForYear(): void {
+      gridWrap.replaceChildren();
+      if (volumeYear === null) return;
+
+      const cells = buildYearGrid(rows, volumeYear);
+      const summary = yearGridSummary(cells);
+
+      const grid = document.createElement('div');
+      grid.className = 'year-heatmap';
+      grid.setAttribute(
+        'aria-label',
+        `${summary.year ?? volumeYear} training consistency: ${summary.activeDays} active days, ${summary.totalKm.toFixed(0)} km`
+      );
+
+      for (const cell of cells) {
+        const cellEl = document.createElement('div');
+        // Interpolated from the cell's own computed tint — a rest day (tint
+        // 0) reaches `--tint-0`, which the stylesheet renders with NO
+        // accent at all (D-15).
+        cellEl.className = `year-heatmap__cell year-heatmap__cell--tint-${cell.tint}`;
+        cellEl.style.gridColumn = String(cell.week + 1);
+        cellEl.style.gridRow = String(cell.dow + 1);
+        cellEl.title = `${cell.dateISO}: ${cell.km.toFixed(1)} km`;
+        grid.appendChild(cellEl);
+      }
+
+      gridWrap.appendChild(grid);
+
+      const details = document.createElement('details');
+      const detailsSummary = document.createElement('summary');
+      detailsSummary.textContent = 'View as table';
+      details.appendChild(detailsSummary);
+
+      const table = document.createElement('table');
+      table.className = 'activity-table pr-table';
+
+      const thead = document.createElement('thead');
+      const headRow = document.createElement('tr');
+      for (const columnLabel of ['Date', 'Distance']) {
+        const th = document.createElement('th');
+        th.textContent = columnLabel;
+        headRow.appendChild(th);
+      }
+      thead.appendChild(headRow);
+      table.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
+      for (const cell of cells) {
+        if (cell.runs === 0) continue;
+        const tr = document.createElement('tr');
+        const dateTd = document.createElement('td');
+        dateTd.textContent = cell.dateISO;
+        tr.appendChild(dateTd);
+        const kmTd = document.createElement('td');
+        kmTd.className = 'pr-table__numeric';
+        kmTd.textContent = `${cell.km.toFixed(1)} km`;
+        tr.appendChild(kmTd);
+        tbody.appendChild(tr);
+      }
+      table.appendChild(tbody);
+      details.appendChild(table);
+
+      gridWrap.appendChild(details);
+    }
+
+    select.addEventListener('change', () => {
+      volumeYear = Number(select.value);
+      renderGridForYear();
+    });
+
+    renderGridForYear();
+
+    return section;
+  }
+
+  /**
+   * Mounts the Volume tab (18-UI-SPEC § 8): one chart plus a 3-way
+   * `.segmented` granularity toggle (`role="group"` + a pressed-state
+   * attribute — the correct pattern here, unlike the outer 5-way tablist)
+   * and the year consistency heatmap. Switching granularity destroys the
+   * live chart and mounts a fresh one — never an in-place dataset mutation.
+   */
+  async function renderVolumeTab(panel: HTMLElement, myToken: number): Promise<void> {
+    if (!data) return;
+    showTabLoading(panel, 'volume');
+
+    const chartsModule = await import('./trends-charts.js');
+    if (myToken !== requestToken || !mountedContainer) return;
+
+    panel.replaceChildren();
+
+    const GRANULARITY_LABELS: Record<VolumeGranularity, string> = {
+      weekly: 'Weekly',
+      monthly: 'Monthly',
+      yearly: 'Yearly',
+    };
+
+    const controls = document.createElement('div');
+    controls.className = 'segmented';
+    controls.setAttribute('role', 'group');
+    controls.setAttribute('aria-label', 'Volume granularity');
+
+    const granularityButtons: Partial<Record<VolumeGranularity, HTMLButtonElement>> = {};
+
+    const canvasWrap = document.createElement('div');
+    const canvas = document.createElement('canvas');
+    canvasWrap.appendChild(canvas);
+
+    function mountChartForGranularity(): void {
+      if (!data) return;
+      destroyActiveChart();
+      const points = buildVolumeSeries(data.weekly, data.monthly, data.yearly, volumeGranularity);
+      activeChartHandle = chartsModule.mountVolumeChart(canvas, points, volumeGranularity);
+    }
+
+    VOLUME_GRANULARITIES.forEach((granularity) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = GRANULARITY_LABELS[granularity];
+      const isActive = granularity === volumeGranularity;
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      btn.className = isActive ? 'segmented__option segmented__option--active' : 'segmented__option';
+      btn.addEventListener('click', () => {
+        if (volumeGranularity === granularity) return;
+        volumeGranularity = granularity;
+        VOLUME_GRANULARITIES.forEach((g) => {
+          const b = granularityButtons[g];
+          if (!b) return;
+          const active = g === volumeGranularity;
+          b.setAttribute('aria-pressed', active ? 'true' : 'false');
+          b.className = active ? 'segmented__option segmented__option--active' : 'segmented__option';
+        });
+        mountChartForGranularity();
+      });
+      controls.appendChild(btn);
+      granularityButtons[granularity] = btn;
+    });
+
+    panel.appendChild(controls);
+    panel.appendChild(canvasWrap);
+
+    mountChartForGranularity();
+
+    panel.appendChild(buildYearHeatmapSection(data.rows));
+  }
+
+  /**
    * Renders whichever tab is now active into its (already-mounted) panel.
-   * Tasks 2 and 3 replace the `volume`/`yoy` branches below with real
-   * chart-mounting logic; the remaining three tabs stay a named placeholder
-   * until plan 18-15.
+   * Task 3 replaces the `yoy` branch below with real chart-mounting logic;
+   * the remaining two tabs stay a named placeholder until plan 18-15.
    */
   async function renderActiveTabContent(tab: TrendTabKey, myToken: number): Promise<void> {
     const panel = tabPanels[tab];
     if (!panel || !data) return;
-    renderPlaceholderTab(panel, tab);
+    switch (tab) {
+      case 'volume':
+        await renderVolumeTab(panel, myToken);
+        break;
+      default:
+        renderPlaceholderTab(panel, tab);
+    }
   }
 
   function switchTab(tab: TrendTabKey, focusButton: boolean): void {
