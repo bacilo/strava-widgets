@@ -59,6 +59,30 @@ import {
   buildYoySeries,
   toggleYoyYear,
 } from './trends-yoy-logic.js';
+import { buildMonthlyChannelSeries } from './trends-cadence-hr-logic.js';
+import {
+  parseTrainingLoad,
+  parseTrimpModel,
+  parseLoadWindow,
+  sliceLoadWindow,
+  selectModelSeries,
+  findThinCoverageSpans,
+  coverageCaption,
+  TRAINING_LOAD_WINDOWS,
+  DEFAULT_LOAD_WINDOW,
+  type TrimpModel,
+  type LoadWindow,
+} from './trends-training-load-logic.js';
+import type { TrainingLoadDocument } from '../../analytics/training-load.types.js';
+import {
+  parseGearAggregate,
+  sortShoes,
+  buildGearChartBuckets,
+  coverageSentence,
+  type GearSortKey,
+} from './trends-gear-logic.js';
+import type { GearShoeAggregate } from '../../analytics/gear-aggregate.types.js';
+import { formatPace, formatActivityDate } from './list.js';
 
 const STATS_BASE_URL = 'data/stats/';
 
@@ -230,13 +254,144 @@ function showTabLoading(panel: HTMLElement, tab: TrendTabKey): void {
   panel.appendChild(loading);
 }
 
-/** Cadence & HR, Training Load, and Gear are real, switchable tabs from this plan — their chart content ships in plan 18-15. */
-function renderPlaceholderTab(panel: HTMLElement, tab: TrendTabKey): void {
-  panel.replaceChildren();
-  const note = document.createElement('p');
-  note.className = 'text-body';
-  note.textContent = `${TAB_LABELS[tab]} is coming in a future update.`;
-  panel.appendChild(note);
+// ---------------------------------------------------------------------------
+// Gear tab table (18-UI-SPEC § 12) — click-to-sort column headers mirroring
+// `list.ts`'s `buildHeaderRow`/`buildSortArrowSvg` shape (not exported from
+// that module, so this is a genuine, full reuse of the SAME pattern against
+// a tiny ≤17-row dataset, not a re-derivation of a different one).
+// ---------------------------------------------------------------------------
+
+const GEAR_SVG_NS = 'http://www.w3.org/2000/svg';
+
+function buildGearSortArrowSvg(dir: 'asc' | 'desc'): SVGSVGElement {
+  const svg = document.createElementNS(GEAR_SVG_NS, 'svg') as SVGSVGElement;
+  svg.setAttribute('width', '10');
+  svg.setAttribute('height', '10');
+  svg.setAttribute('viewBox', '0 0 10 10');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  const path = document.createElementNS(GEAR_SVG_NS, 'path');
+  path.setAttribute('fill', 'currentColor');
+  path.setAttribute('d', dir === 'asc' ? 'M5 1 L9 8 L1 8 Z' : 'M1 2 L9 2 L5 9 Z');
+  svg.appendChild(path);
+  return svg;
+}
+
+interface GearColumnDef {
+  key: GearSortKey | null;
+  label: string;
+  numeric: boolean;
+}
+
+/** Exactly seven columns, in this order (18-UI-SPEC § 12). Coverage % has no sort key — it is derived per row, mirroring list.ts's null-key Activity/Status columns. */
+const GEAR_COLUMNS: readonly GearColumnDef[] = [
+  { key: 'label', label: 'Shoe', numeric: false },
+  { key: 'distanceM', label: 'Distance', numeric: true },
+  { key: 'runs', label: 'Runs', numeric: true },
+  { key: 'avgPaceSecPerKm', label: 'Avg Pace', numeric: true },
+  { key: 'avgHr', label: 'Avg HR', numeric: true },
+  { key: 'firstDate', label: 'Date Range', numeric: false },
+  { key: null, label: 'Coverage %', numeric: true },
+];
+
+const GEAR_DEFAULT_DIR: Readonly<Record<GearSortKey, 'asc' | 'desc'>> = {
+  label: 'asc',
+  distanceM: 'desc',
+  runs: 'desc',
+  avgPaceSecPerKm: 'asc',
+  avgHr: 'desc',
+  firstDate: 'desc',
+};
+
+/** Applies the same click/select semantics as `list.ts`'s `nextSortState`: clicking the active column flips direction, clicking a different one resets to that column's default. */
+function buildGearHeaderRow(
+  sort: GearSortKey,
+  dir: 'asc' | 'desc',
+  onSort: (key: GearSortKey) => void
+): HTMLTableRowElement {
+  const tr = document.createElement('tr');
+
+  for (const col of GEAR_COLUMNS) {
+    const th = document.createElement('th');
+
+    if (col.key === null) {
+      th.textContent = col.label;
+      th.setAttribute('aria-sort', 'none');
+      tr.appendChild(th);
+      continue;
+    }
+
+    const key = col.key;
+    const isActive = sort === key;
+    th.setAttribute('aria-sort', isActive ? (dir === 'asc' ? 'ascending' : 'descending') : 'none');
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'activity-table__sort-button';
+    btn.textContent = col.label;
+
+    if (isActive) {
+      const arrowWrap = document.createElement('span');
+      arrowWrap.className = 'activity-table__sort-arrow';
+      arrowWrap.appendChild(buildGearSortArrowSvg(dir));
+      btn.appendChild(arrowWrap);
+    }
+
+    btn.addEventListener('click', () => onSort(key));
+    th.appendChild(btn);
+    tr.appendChild(th);
+  }
+
+  return tr;
+}
+
+/**
+ * Builds one gear table row. Every athlete-authored/derived string is
+ * assigned via `textContent` — never an HTML-string assignment — per
+ * T-18-XSS-01: shoe names are blank today but will carry athlete-typed free
+ * text once `data/config/gear.json` is filled in.
+ */
+function buildGearTableRow(shoe: GearShoeAggregate, totalDistanceM: number): HTMLTableRowElement {
+  const tr = document.createElement('tr');
+
+  const shoeTd = document.createElement('td');
+  shoeTd.textContent = shoe.label;
+  tr.appendChild(shoeTd);
+
+  const distanceTd = document.createElement('td');
+  distanceTd.className = 'pr-table__numeric';
+  distanceTd.textContent = `${(shoe.distanceM / 1000).toFixed(1)} km`;
+  tr.appendChild(distanceTd);
+
+  const runsTd = document.createElement('td');
+  runsTd.className = 'pr-table__numeric';
+  runsTd.textContent = String(shoe.runs);
+  tr.appendChild(runsTd);
+
+  const paceTd = document.createElement('td');
+  paceTd.className = 'pr-table__numeric';
+  paceTd.textContent = formatPace(shoe.avgPaceSecPerKm);
+  tr.appendChild(paceTd);
+
+  const hrTd = document.createElement('td');
+  hrTd.className = 'pr-table__numeric';
+  hrTd.textContent = shoe.avgHr === null ? '—' : `${Math.round(shoe.avgHr)} bpm`;
+  tr.appendChild(hrTd);
+
+  const dateRangeTd = document.createElement('td');
+  dateRangeTd.textContent =
+    shoe.firstDate !== null && shoe.lastDate !== null
+      ? `${formatActivityDate(shoe.firstDate)} – ${formatActivityDate(shoe.lastDate)}`
+      : '—';
+  tr.appendChild(dateRangeTd);
+
+  const coverageTd = document.createElement('td');
+  coverageTd.className = 'pr-table__numeric';
+  const coveragePercent = totalDistanceM > 0 ? (shoe.distanceM / totalDistanceM) * 100 : 0;
+  coverageTd.textContent = `${coveragePercent.toFixed(1)}%`;
+  tr.appendChild(coverageTd);
+
+  return tr;
 }
 
 /**
@@ -280,6 +435,21 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
   // Year-over-Year tab's own within-tab state (18-UI-SPEC § 9) — the set of
   // selected years, defaulted to the 3 most recent on first activation.
   let yoySelectedYears: number[] = [];
+
+  // Training Load tab's own within-tab state (18-UI-SPEC § 11) — the parsed
+  // document (this tab's own fetch, not part of the shared TrendsRawData),
+  // the TRIMP model toggle (D-14, default Edwards), and the display window
+  // (D-16, default 12mo — the underlying series always covers the full
+  // archive; only the DISPLAYED window is scoped).
+  let trainingLoadDoc: TrainingLoadDocument | null = null;
+  let trimpModel: TrimpModel = 'edwards';
+  let loadWindow: LoadWindow = DEFAULT_LOAD_WINDOW;
+
+  // Gear tab's own within-tab state (18-UI-SPEC § 12) — the active sort
+  // column/direction; re-sorting rebuilds nothing on the canvas (the chart
+  // is unaffected by table sort order).
+  let gearSort: GearSortKey = 'distanceM';
+  let gearSortDir: 'asc' | 'desc' = 'desc';
 
   function destroyActiveChart(): void {
     activeChartHandle?.destroy();
@@ -552,9 +722,333 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
   }
 
   /**
+   * Mounts the Cadence & HR tab (18-UI-SPEC § 10): two stacked, pinned-gutter
+   * single-axis bands (monthly average cadence, monthly average heart rate)
+   * computed client-side from the already-fetched index rows via
+   * `buildMonthlyChannelSeries`. A plain-numbers caption below states how
+   * many months have no data for each channel — derived from the series,
+   * never a hardcoded claim.
+   */
+  async function renderCadenceHrTab(panel: HTMLElement, myToken: number): Promise<void> {
+    if (!data) return;
+    showTabLoading(panel, 'cadence-hr');
+
+    const chartsModule = await import('./trends-charts.js');
+    if (myToken !== requestToken || !mountedContainer) return;
+
+    panel.replaceChildren();
+
+    const cadenceSeries = buildMonthlyChannelSeries(data.rows, 'cadence');
+    const hrSeries = buildMonthlyChannelSeries(data.rows, 'hr');
+
+    const chartRoot = document.createElement('div');
+    panel.appendChild(chartRoot);
+
+    destroyActiveChart();
+    activeChartHandle = chartsModule.mountChannelBands(chartRoot, cadenceSeries, hrSeries);
+
+    const cadenceMissingMonths = cadenceSeries.filter((point) => point.value === null).length;
+    const hrMissingMonths = hrSeries.filter((point) => point.value === null).length;
+
+    const caption = document.createElement('p');
+    caption.className = 'text-label';
+    caption.textContent =
+      `${cadenceMissingMonths} month${cadenceMissingMonths === 1 ? '' : 's'} with no cadence data; ` +
+      `${hrMissingMonths} month${hrMissingMonths === 1 ? '' : 's'} with no heart rate data.`;
+    panel.appendChild(caption);
+  }
+
+  /**
+   * Mounts the Training Load tab (18-UI-SPEC § 11, D-13/D-14/D-15/D-16):
+   * fetches `data/stats/training-load.json` (this tab's own fetch, guarded
+   * by the shared `requestToken`), an Edwards/Banister model toggle
+   * (`role="group"` + `aria-pressed` — correct here, unlike the outer
+   * tablist) that is a PURE client-side re-render (both series already live
+   * in the one fetched document), a 3mo/12mo/All window control that scopes
+   * only the DISPLAYED slice, and the thin-HR-coverage shading + caption —
+   * the phase's single most load-bearing honesty requirement.
+   */
+  async function renderTrainingLoadTab(panel: HTMLElement, myToken: number): Promise<void> {
+    showTabLoading(panel, 'training-load');
+
+    const doFetch = deps.fetchImpl ?? (globalThis.fetch as unknown as FetchLike);
+    const [chartsModule, rawDoc] = await Promise.all([
+      import('./trends-charts.js'),
+      fetchStatsJson<unknown>(`${STATS_BASE_URL}training-load.json`, doFetch),
+    ]);
+    if (myToken !== requestToken || !mountedContainer) return;
+
+    trainingLoadDoc = parseTrainingLoad(rawDoc);
+    panel.replaceChildren();
+
+    if (trainingLoadDoc === null) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      const heading = document.createElement('h3');
+      heading.className = 'text-heading';
+      heading.textContent = 'No training load data yet';
+      empty.appendChild(heading);
+      const body = document.createElement('p');
+      body.className = 'text-body';
+      body.textContent = 'Training load will appear here once the archive has been processed.';
+      empty.appendChild(body);
+      panel.appendChild(empty);
+      return;
+    }
+
+    const doc = trainingLoadDoc;
+
+    // Re-clamp the in-memory model selection against THIS document — a
+    // stored 'banister' selection can never survive an unconfigured model.
+    trimpModel = parseTrimpModel(trimpModel, doc);
+    loadWindow = parseLoadWindow(loadWindow);
+
+    const banisterUnavailable = doc.models.banister === false;
+
+    // -- TRIMP model toggle (a genuine two-state toggle, role="group") -----
+
+    const modelGroup = document.createElement('div');
+    modelGroup.className = 'segmented';
+    modelGroup.setAttribute('role', 'group');
+    modelGroup.setAttribute('aria-label', 'TRIMP model');
+
+    const edwardsBtn = document.createElement('button');
+    edwardsBtn.type = 'button';
+    edwardsBtn.textContent = 'Edwards';
+
+    const banisterBtn = document.createElement('button');
+    banisterBtn.type = 'button';
+    banisterBtn.textContent = 'Banister';
+    // The option stays visible but DISABLED when unconfigured — the model
+    // still exists, it just is not configured (D-13, 17-D31 precedent).
+    banisterBtn.disabled = banisterUnavailable;
+
+    function updateModelButtons(): void {
+      const isEdwards = trimpModel === 'edwards';
+      edwardsBtn.setAttribute('aria-pressed', isEdwards ? 'true' : 'false');
+      edwardsBtn.className = isEdwards ? 'segmented__option segmented__option--active' : 'segmented__option';
+      banisterBtn.setAttribute('aria-pressed', isEdwards ? 'false' : 'true');
+      banisterBtn.className = !isEdwards ? 'segmented__option segmented__option--active' : 'segmented__option';
+    }
+    updateModelButtons();
+
+    edwardsBtn.addEventListener('click', () => {
+      if (trimpModel === 'edwards') return;
+      trimpModel = 'edwards';
+      updateModelButtons();
+      rebuildChart();
+    });
+    banisterBtn.addEventListener('click', () => {
+      if (banisterBtn.disabled || trimpModel === 'banister') return;
+      trimpModel = 'banister';
+      updateModelButtons();
+      rebuildChart();
+    });
+
+    modelGroup.appendChild(edwardsBtn);
+    modelGroup.appendChild(banisterBtn);
+    panel.appendChild(modelGroup);
+
+    if (banisterUnavailable) {
+      const notice = document.createElement('div');
+      notice.className = 'config-notice';
+      notice.textContent =
+        doc.banisterDisabledReason ??
+        'Training load is off — add birthDate, sex, and restingHr to data/private/athlete-private.json to enable it.';
+      panel.appendChild(notice);
+    }
+
+    // -- Window control (scopes only the DISPLAYED slice, D-16) ------------
+
+    const WINDOW_LABELS: Record<LoadWindow, string> = { '3mo': '3mo', '12mo': '12mo', all: 'All' };
+    const windowButtons: Partial<Record<LoadWindow, HTMLButtonElement>> = {};
+
+    const windowGroup = document.createElement('div');
+    windowGroup.className = 'segmented';
+    windowGroup.setAttribute('role', 'group');
+    windowGroup.setAttribute('aria-label', 'Training load window');
+
+    function updateWindowButtons(): void {
+      TRAINING_LOAD_WINDOWS.forEach((w) => {
+        const btn = windowButtons[w];
+        if (!btn) return;
+        const active = w === loadWindow;
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        btn.className = active ? 'segmented__option segmented__option--active' : 'segmented__option';
+      });
+    }
+
+    TRAINING_LOAD_WINDOWS.forEach((w) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = WINDOW_LABELS[w];
+      btn.addEventListener('click', () => {
+        if (loadWindow === w) return;
+        loadWindow = w;
+        updateWindowButtons();
+        rebuildChart();
+      });
+      windowGroup.appendChild(btn);
+      windowButtons[w] = btn;
+    });
+    updateWindowButtons();
+    panel.appendChild(windowGroup);
+
+    // -- Chart + empty-model state + caption --------------------------------
+
+    const canvasWrap = document.createElement('div');
+    const canvas = document.createElement('canvas');
+    canvasWrap.appendChild(canvas);
+    panel.appendChild(canvasWrap);
+
+    const emptyModelState = document.createElement('div');
+    emptyModelState.className = 'empty-state';
+    emptyModelState.hidden = true;
+    const emptyHeading = document.createElement('h3');
+    emptyHeading.className = 'text-heading';
+    emptyHeading.textContent = 'No data for this model';
+    emptyModelState.appendChild(emptyHeading);
+    const emptyBody = document.createElement('p');
+    emptyBody.className = 'text-body';
+    emptyBody.textContent = 'This model has no computed data for the selected window.';
+    emptyModelState.appendChild(emptyBody);
+    panel.appendChild(emptyModelState);
+
+    const caption = document.createElement('p');
+    caption.className = 'text-label';
+    panel.appendChild(caption);
+
+    function rebuildChart(): void {
+      destroyActiveChart();
+
+      // `now` is constructed HERE, in the view, never inside
+      // trends-training-load-logic.ts (that module stays deterministic and
+      // total under vitest's node environment).
+      const windowedDays = sliceLoadWindow(doc.days, loadWindow, new Date());
+      const points = selectModelSeries(windowedDays, trimpModel);
+      const spans = findThinCoverageSpans(windowedDays);
+
+      if (points.length === 0) {
+        canvasWrap.hidden = true;
+        emptyModelState.hidden = false;
+        caption.textContent = '';
+        return;
+      }
+
+      canvasWrap.hidden = false;
+      emptyModelState.hidden = true;
+      activeChartHandle = chartsModule.mountTrainingLoadChart(canvas, points, spans);
+      caption.textContent = coverageCaption(spans);
+    }
+
+    rebuildChart();
+  }
+
+  /**
+   * Mounts the Gear tab (18-UI-SPEC § 12, decisions D17/D18/D19): a coverage
+   * sentence FIRST (above everything else, so a reader sees the real
+   * coverage numbers before the picture, per D-18), a top-8-plus-Other bar
+   * chart with its own caption, and a sortable table listing every shoe
+   * including an always-present Unknown row (its label comes from the
+   * fetched data — `UNKNOWN_GEAR_LABEL` via the aggregate — never a literal
+   * in this view). Re-sorting the table never touches the canvas; the chart
+   * is unaffected by table sort order.
+   */
+  async function renderGearTab(panel: HTMLElement, myToken: number): Promise<void> {
+    showTabLoading(panel, 'gear');
+
+    const doFetch = deps.fetchImpl ?? (globalThis.fetch as unknown as FetchLike);
+    const [chartsModule, rawDoc] = await Promise.all([
+      import('./trends-charts.js'),
+      fetchStatsJson<unknown>(`${STATS_BASE_URL}gear-aggregate.json`, doFetch),
+    ]);
+    if (myToken !== requestToken || !mountedContainer) return;
+
+    const gearDoc = parseGearAggregate(rawDoc);
+    panel.replaceChildren();
+
+    if (gearDoc === null) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      const heading = document.createElement('h3');
+      heading.className = 'text-heading';
+      heading.textContent = 'No gear data yet';
+      empty.appendChild(heading);
+      const body = document.createElement('p');
+      body.className = 'text-body';
+      body.textContent = 'Gear coverage will appear here once it has been computed.';
+      empty.appendChild(body);
+      panel.appendChild(empty);
+      return;
+    }
+
+    // Captured into its own `const` (rather than relying on narrowing of
+    // `gearDoc` inside the nested `renderTable` closure below, which
+    // TypeScript's control-flow analysis does not carry through a function
+    // declaration hoisted above the narrowing check).
+    const shoes: readonly GearShoeAggregate[] = gearDoc.shoes;
+
+    // Coverage sentence FIRST — D-18's real coverage in plain numbers,
+    // above the chart so a reader sees the caveat before the picture.
+    const coverageEl = document.createElement('p');
+    coverageEl.className = 'text-body';
+    coverageEl.textContent = coverageSentence(gearDoc.totals, gearDoc.byYear);
+    panel.appendChild(coverageEl);
+
+    // Bar chart, top 8 named shoes plus one merged Other bar.
+    const { buckets, caption: chartCaption } = buildGearChartBuckets(shoes);
+
+    const canvasWrap = document.createElement('div');
+    const canvas = document.createElement('canvas');
+    canvasWrap.appendChild(canvas);
+    panel.appendChild(canvasWrap);
+
+    if (chartCaption.length > 0) {
+      const chartCaptionEl = document.createElement('p');
+      chartCaptionEl.className = 'text-label';
+      chartCaptionEl.textContent = chartCaption;
+      panel.appendChild(chartCaptionEl);
+    }
+
+    destroyActiveChart();
+    activeChartHandle = chartsModule.mountGearChart(canvas, buckets);
+
+    // Sortable table — every shoe including the always-present Unknown row.
+    const totalDistanceM = shoes.reduce((sum, s) => sum + s.distanceM, 0);
+
+    const tableWrap = document.createElement('div');
+    tableWrap.className = 'activity-table-wrapper';
+    const table = document.createElement('table');
+    table.className = 'activity-table pr-table';
+    const thead = document.createElement('thead');
+    const tbody = document.createElement('tbody');
+    table.appendChild(thead);
+    table.appendChild(tbody);
+    tableWrap.appendChild(table);
+    panel.appendChild(tableWrap);
+
+    function renderTable(): void {
+      thead.replaceChildren(
+        buildGearHeaderRow(gearSort, gearSortDir, (key) => {
+          if (gearSort === key) {
+            gearSortDir = gearSortDir === 'asc' ? 'desc' : 'asc';
+          } else {
+            gearSort = key;
+            gearSortDir = GEAR_DEFAULT_DIR[key];
+          }
+          renderTable();
+        })
+      );
+
+      const sorted = sortShoes(shoes, gearSort, gearSortDir);
+      tbody.replaceChildren(...sorted.map((shoe) => buildGearTableRow(shoe, totalDistanceM)));
+    }
+
+    renderTable();
+  }
+
+  /**
    * Renders whichever tab is now active into its (already-mounted) panel.
-   * Cadence & HR, Training Load, and Gear stay a named placeholder until
-   * plan 18-15.
    */
   async function renderActiveTabContent(tab: TrendTabKey, myToken: number): Promise<void> {
     const panel = tabPanels[tab];
@@ -566,8 +1060,15 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
       case 'yoy':
         await renderYoyTab(panel, myToken);
         break;
-      default:
-        renderPlaceholderTab(panel, tab);
+      case 'cadence-hr':
+        await renderCadenceHrTab(panel, myToken);
+        break;
+      case 'training-load':
+        await renderTrainingLoadTab(panel, myToken);
+        break;
+      case 'gear':
+        await renderGearTab(panel, myToken);
+        break;
     }
   }
 

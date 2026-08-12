@@ -32,17 +32,27 @@ import {
   CategoryScale,
   Tooltip,
   Filler,
+  Decimation,
+  type Plugin,
 } from 'chart.js';
 
 import { resolveToken, resolveThemeColors, hexToRgba, Y_AXIS_WIDTH_PX } from './chart-theme.js';
 import type { VolumePoint, VolumeGranularity } from './trends-volume-logic.js';
 import type { YoySeries } from './trends-yoy-logic.js';
+import { channelLabel, type MonthlyChannel, type MonthlyPoint } from './trends-cadence-hr-logic.js';
+import type { CoverageSpan, LoadPoint } from './trends-training-load-logic.js';
+import type { GearChartBucket } from './trends-gear-logic.js';
 
 // ---------------------------------------------------------------------------
 // Registration — Bar* powers both this plan's Volume and Year-over-Year
-// charts; Line*/CategoryScale/Filler are registered now too since plan
-// 18-15 (Cadence & HR's line charts, Training Load's Filler-based CTL area
-// fill) extends this SAME shared module rather than re-registering.
+// charts; Line*/CategoryScale/Filler power the Cadence & HR bands and the
+// Training Load area/lines; Decimation caps the Training Load chart's drawn
+// points (its series can carry 5,000+ days), mirroring detail-charts.ts's
+// DECIMATION_CONFIG. ONE registration call for this module — the
+// thin-coverage shading plugin below is deliberately NOT registered here; it
+// is passed via each Training Load chart instance's own `plugins:` array
+// instead (T-18-CANVAS-01/the same local-plugin idiom `detail-charts.ts`'s
+// crosshair plugin already uses).
 // ---------------------------------------------------------------------------
 Chart.register(
   BarController,
@@ -53,8 +63,15 @@ Chart.register(
   LinearScale,
   CategoryScale,
   Tooltip,
-  Filler
+  Filler,
+  Decimation
 );
+
+/**
+ * D-22-style cap: mirrors `detail-charts.ts`'s `DECIMATION_CONFIG` exactly,
+ * applied here to the Training Load chart's 5,000+ day series.
+ */
+const DECIMATION_CONFIG = { enabled: true, algorithm: 'lttb', samples: 500 } as const;
 
 export interface ChartHandle {
   destroy(): void;
@@ -249,6 +266,421 @@ export function mountYoyChart(
               const raw = context.parsed.y;
               const km = typeof raw === 'number' ? raw.toFixed(1) : '0.0';
               return `${context.dataset.label ?? ''}: ${km} km`;
+            },
+          },
+        },
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any,
+  });
+
+  let destroyed = false;
+  return {
+    destroy(): void {
+      if (destroyed) return;
+      destroyed = true;
+      chart.destroy();
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Cadence & HR (18-UI-SPEC § 10) — two stacked SINGLE-AXIS bands sharing one
+// x-axis meaning (month), never one dual-axis chart (D-19's "no competing
+// right-hand tick labels" rule, reapplied here). Reuses the exact
+// `.chart-stack`/`.chart-band`/`.chart-band__canvas-wrap` markup
+// `detail-charts.ts` already established.
+// ---------------------------------------------------------------------------
+
+const CHANNEL_ARIA_LABELS: Record<MonthlyChannel, string> = {
+  cadence: 'Average cadence by month chart',
+  hr: 'Average heart rate by month chart',
+};
+
+const CHANNEL_COLOR_TOKENS: Record<MonthlyChannel, string> = {
+  cadence: '--chart-cadence',
+  hr: '--chart-hr',
+};
+
+function formatMonthYearTick(epochMs: number): string {
+  const d = new Date(epochMs);
+  return `${MONTH_ABBR[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
+function formatChannelValue(channel: MonthlyChannel, value: number): string {
+  return channel === 'cadence' ? `${value.toFixed(1)} rpm` : `${Math.round(value)} bpm`;
+}
+
+/**
+ * Mounts one stacked, single-axis line band into `stack` for `channel`.
+ * `spanGaps: false` and the raw (possibly-null) `MonthlyPoint.value` are
+ * passed straight through — a month with no qualifying data renders as a
+ * genuine GAP in the line, never a zero and never an interpolated bridge
+ * (18-UI-SPEC § 10, D-15's principle applied to a new context). The nulls
+ * are NEVER filtered out of the dataset — filtering them would close the gap.
+ *
+ * THE GUTTER IS THE LOAD-BEARING DETAIL: `scale.width = Y_AXIS_WIDTH_PX` is
+ * pinned unconditionally, exactly as `detail-charts.ts` does, even though
+ * cadence (`170`) and HR (`142`) tick labels happen to be similar widths
+ * today — a future channel with wider labels must not silently reintroduce
+ * Phase 17's GAP 2 (misaligned stacked-band x-axes).
+ */
+function buildChannelBand(
+  stack: HTMLElement,
+  points: readonly MonthlyPoint[],
+  channel: MonthlyChannel,
+  themeColors: { border: string; text: string; textSecondary: string }
+): Chart {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'chart-band';
+
+  const header = document.createElement('div');
+  header.className = 'chart-band__header';
+  const headingEl = document.createElement('span');
+  headingEl.className = 'text-label';
+  // channelLabel's cadence heading states the single-leg rpm unit explicitly
+  // (matching detail.ts's `Cadence (rpm, single-leg)` stat-card label),
+  // because the index value is deliberately not doubled to steps-per-minute.
+  headingEl.textContent = channelLabel(channel);
+  header.appendChild(headingEl);
+  wrapper.appendChild(header);
+
+  const canvasWrap = document.createElement('div');
+  canvasWrap.className = 'chart-band__canvas-wrap';
+  const canvas = document.createElement('canvas');
+  canvas.setAttribute('aria-label', CHANNEL_ARIA_LABELS[channel]);
+  canvasWrap.appendChild(canvas);
+  wrapper.appendChild(canvasWrap);
+
+  stack.appendChild(wrapper);
+
+  const color = resolveToken(CHANNEL_COLOR_TOKENS[channel], channel === 'cadence' ? '#0891b2' : '#e11d48');
+
+  return new Chart(canvas, {
+    type: 'line',
+    data: {
+      datasets: [
+        {
+          label: channelLabel(channel),
+          data: points.map((point) => ({ x: point.x, y: point.value })),
+          parsing: false,
+          spanGaps: false,
+          borderColor: color,
+          backgroundColor: color,
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          fill: false,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      parsing: false,
+      scales: {
+        x: {
+          type: 'linear',
+          grid: { display: false },
+          ticks: {
+            callback: (value: number | string) => formatMonthYearTick(Number(value)),
+          },
+        },
+        y: {
+          type: 'linear',
+          // Pin the gutter unconditionally — see this function's doc comment.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          afterFit: (scale: any) => {
+            scale.width = Y_AXIS_WIDTH_PX;
+          },
+          grid: { color: hexToRgba(themeColors.border, 0.4) },
+        },
+      },
+      plugins: {
+        tooltip: {
+          callbacks: {
+            label: (context: { dataIndex: number }) => {
+              const point = points[context.dataIndex];
+              if (!point || point.value === null) {
+                return `No data (${point?.runs ?? 0} run${(point?.runs ?? 0) === 1 ? '' : 's'})`;
+              }
+              return `${formatChannelValue(channel, point.value)} (${point.contributing} of ${point.runs} run${point.runs === 1 ? '' : 's'})`;
+            },
+          },
+        },
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any,
+  });
+}
+
+/**
+ * Mounts the Cadence & HR tab's two stacked bands (cadence, then HR) sharing
+ * one `.chart-stack`. Idempotent `destroy()` destroys both Chart.js
+ * instances and removes the stack element.
+ */
+export function mountChannelBands(
+  root: HTMLElement,
+  cadence: readonly MonthlyPoint[],
+  hr: readonly MonthlyPoint[]
+): ChartHandle {
+  const themeColors = resolveThemeColors();
+
+  const stack = document.createElement('div');
+  stack.className = 'chart-stack';
+  root.appendChild(stack);
+
+  const cadenceChart = buildChannelBand(stack, cadence, 'cadence', themeColors);
+  const hrChart = buildChannelBand(stack, hr, 'hr', themeColors);
+
+  let destroyed = false;
+  return {
+    destroy(): void {
+      if (destroyed) return;
+      destroyed = true;
+      cadenceChart.destroy();
+      hrChart.destroy();
+      stack.remove();
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Training Load (18-UI-SPEC § 11, D-14/D-15/D-16) — CTL/ATL/TSB over a
+// selectable window, with a thin-HR-coverage shading plugin drawn as a FLAT
+// rectangle (never a diagonal cross-pattern fill — a flat fill is trivially
+// verifiable in a screenshot, and a hand-rolled diagonal-pattern primitive is
+// one more canvas primitive this phase does not need to risk getting subtly
+// wrong).
+// ---------------------------------------------------------------------------
+
+/**
+ * A sibling of `detail-charts.ts`'s `createCrosshairPlugin`, in exactly the
+ * same shape: a local plugin with an `id` and an `afterDraw` hook, handed to
+ * each chart instance's OWN `plugins: [...]` array — NEVER registered
+ * module-wide (T-18-CANVAS-01, T-18-SC). For each span it computes the
+ * pixel x for `startX`/`endX`, guards both for finiteness (a span outside
+ * the current window/scale range must not throw or draw garbage), and fills
+ * a flat, low-opacity rectangle from `chartArea.top` to `chartArea.bottom`.
+ */
+export function createThinCoverageShadingPlugin(getSpans: () => CoverageSpan[], color: string): Plugin<'line'> {
+  return {
+    id: 'trainingLoadCoverageShading',
+    afterDraw(chart) {
+      const spans = getSpans();
+      if (spans.length === 0) return;
+
+      const xScale = chart.scales.x;
+      if (!xScale) return;
+
+      const { top, bottom } = chart.chartArea;
+      const ctx = chart.ctx;
+      ctx.save();
+      ctx.fillStyle = color;
+
+      for (const span of spans) {
+        const startPixel = xScale.getPixelForValue(span.startX);
+        const endPixel = xScale.getPixelForValue(span.endX);
+        if (!Number.isFinite(startPixel) || !Number.isFinite(endPixel)) continue;
+
+        const left = Math.min(startPixel, endPixel);
+        const width = Math.max(1, Math.abs(endPixel - startPixel));
+        ctx.fillRect(left, top, width, bottom - top);
+      }
+
+      ctx.restore();
+    },
+  };
+}
+
+function formatLoadValue(raw: unknown): string {
+  return typeof raw === 'number' ? raw.toFixed(1) : '—';
+}
+
+/**
+ * Mounts the Training Load chart: three datasets over `{ x: epochMs, y }` —
+ * CTL as a `Filler`-based filled area (mirroring `detail-charts.ts`'s
+ * `hexToRgba(palette[channel], 0.18)` overlay-fill technique), ATL and TSB
+ * as plain lines. `pointRadius: 0` plus Chart.js's built-in LTTB
+ * `Decimation` handle the series's 5,000+ possible days. The caller
+ * destroys the previous instance before calling this again — never an
+ * in-place dataset mutation.
+ */
+export function mountTrainingLoadChart(
+  canvas: HTMLCanvasElement,
+  points: readonly LoadPoint[],
+  spans: readonly CoverageSpan[]
+): ChartHandle {
+  const ctlColor = resolveToken('--load-ctl', '#3b82f6');
+  const atlColor = resolveToken('--load-atl', '#ef4444');
+  const tsbColor = resolveToken('--load-tsb', '#9ca3af');
+  const themeColors = resolveThemeColors();
+
+  canvas.setAttribute('aria-label', 'Training load chart: CTL, ATL, and TSB over time');
+
+  const shadingColor = hexToRgba(resolveToken('--text-secondary', themeColors.textSecondary), 0.08);
+  const shadingPlugin = createThinCoverageShadingPlugin(() => [...spans], shadingColor);
+
+  const chart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      datasets: [
+        {
+          label: 'CTL (Fitness)',
+          data: points.map((p) => ({ x: p.x, y: p.ctl })),
+          parsing: false,
+          borderColor: ctlColor,
+          backgroundColor: hexToRgba(ctlColor, 0.18),
+          fill: 'origin',
+          borderWidth: 2,
+          pointRadius: 0,
+        },
+        {
+          label: 'ATL (Fatigue)',
+          data: points.map((p) => ({ x: p.x, y: p.atl })),
+          parsing: false,
+          borderColor: atlColor,
+          backgroundColor: atlColor,
+          fill: false,
+          borderWidth: 2,
+          pointRadius: 0,
+        },
+        {
+          label: 'TSB (Form)',
+          data: points.map((p) => ({ x: p.x, y: p.tsb })),
+          parsing: false,
+          borderColor: tsbColor,
+          backgroundColor: tsbColor,
+          fill: false,
+          borderWidth: 2,
+          pointRadius: 0,
+        },
+      ],
+    },
+    plugins: [shadingPlugin],
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      parsing: false,
+      interaction: { mode: 'index', intersect: false },
+      scales: {
+        x: {
+          type: 'linear',
+          grid: { display: false },
+          ticks: {
+            callback: (value: number | string) => formatMonthYearTick(Number(value)),
+          },
+        },
+        y: {
+          type: 'linear',
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          afterFit: (scale: any) => {
+            scale.width = Y_AXIS_WIDTH_PX;
+          },
+          grid: { color: hexToRgba(themeColors.border, 0.4) },
+        },
+      },
+      plugins: {
+        decimation: DECIMATION_CONFIG,
+        tooltip: {
+          callbacks: {
+            label: (context: { dataset: { label?: string }; parsed: { y: unknown } }) =>
+              `${context.dataset.label ?? ''}: ${formatLoadValue(context.parsed.y)}`,
+          },
+        },
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any,
+  });
+
+  let destroyed = false;
+  return {
+    destroy(): void {
+      if (destroyed) return;
+      destroyed = true;
+      chart.destroy();
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Gear (18-UI-SPEC § 12, D-17/D-18/D-19) — a bounded bar chart, at most the
+// top 8 named shoes plus one neutral merged Other bar (never inside the
+// 8-colour category budget, since "Other" is not itself a category).
+// ---------------------------------------------------------------------------
+
+const CATEGORY_TOKENS = [
+  '--cat-1',
+  '--cat-2',
+  '--cat-3',
+  '--cat-4',
+  '--cat-5',
+  '--cat-6',
+  '--cat-7',
+  '--cat-8',
+] as const;
+
+/**
+ * Mounts the Gear tab's bar chart: one bar per bucket, height =
+ * `distanceM / 1000`. Named buckets take `--cat-1` through `--cat-8` IN
+ * ORDER, derived from the bucket's position (never eight hardcoded
+ * branches); the Other bucket takes a neutral, deliberately-outside-the-
+ * budget `--text-secondary` at low opacity.
+ */
+export function mountGearChart(canvas: HTMLCanvasElement, buckets: readonly GearChartBucket[]): ChartHandle {
+  const themeColors = resolveThemeColors();
+  const otherColor = hexToRgba(resolveToken('--text-secondary', themeColors.textSecondary), 0.5);
+
+  canvas.setAttribute('aria-label', 'Total distance by shoe chart, top 8 shown');
+
+  let namedIndex = 0;
+  const colors = buckets.map((bucket) => {
+    if (bucket.isOther) return otherColor;
+    const token = CATEGORY_TOKENS[namedIndex % CATEGORY_TOKENS.length];
+    namedIndex += 1;
+    return resolveToken(token, '#4E79A7');
+  });
+
+  const chart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: buckets.map((b) => b.label),
+      datasets: [
+        {
+          label: 'Distance',
+          data: buckets.map((b) => b.distanceM / 1000),
+          backgroundColor: colors,
+          borderColor: colors,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          type: 'category',
+          grid: { display: false },
+        },
+        y: {
+          type: 'linear',
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          afterFit: (scale: any) => {
+            scale.width = Y_AXIS_WIDTH_PX;
+          },
+          ticks: {
+            callback: (value: number | string) => `${value} km`,
+          },
+          grid: { color: hexToRgba(themeColors.border, 0.4) },
+        },
+      },
+      plugins: {
+        tooltip: {
+          callbacks: {
+            label: (context: { dataIndex: number }) => {
+              const bucket = buckets[context.dataIndex];
+              if (!bucket) return '';
+              return `${bucket.label}: ${(bucket.distanceM / 1000).toFixed(1)} km`;
             },
           },
         },
