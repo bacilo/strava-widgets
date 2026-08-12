@@ -225,6 +225,67 @@ async function computeDashboardIndexCommand() {
   }
 }
 
+async function computeTrainingLoadCommand() {
+  try {
+    const { computeTrainingLoad } = await import('./analytics/compute-training-load.js');
+    console.log('Computing training load from committed streams...\n');
+    await computeTrainingLoad({
+      activitiesDir: config.activitiesDir,
+      streamsDir: config.streamsDir,
+      streamsManifestPath: config.streamsManifestPath,
+      statsDir: 'data/stats',
+    });
+    console.log('\nTraining load generated successfully!');
+    process.exit(0);
+  } catch (error: any) {
+    console.error('Compute training load error:', error.message);
+    if (error.code === 'ENOENT' && error.message.includes('streams')) {
+      console.error('\nStreams directory not found. Please run: npm run backfill-streams');
+    }
+    process.exit(1);
+  }
+}
+
+async function computeAgeGradingCommand() {
+  try {
+    const { computeAgeGrading } = await import('./analytics/compute-age-grading.js');
+    console.log('Computing age-grading percentages...\n');
+    await computeAgeGrading({
+      statsDir: 'data/stats',
+      wmaDir: 'data/wma',
+    });
+    console.log('\nAge-grading generated successfully!');
+    process.exit(0);
+  } catch (error: any) {
+    console.error('Compute age grading error:', error.message);
+    if (error.message.includes('best-efforts')) {
+      console.error('\nBest-efforts document not found. Please run: npm run compute-best-efforts');
+    } else if (error.message.includes('wma')) {
+      console.error('\nWMA factor tables not found. Please run: node scripts/convert-wma-tables.mjs');
+    }
+    process.exit(1);
+  }
+}
+
+async function computeGearAggregateCommand() {
+  try {
+    const { computeGearAggregate } = await import('./analytics/compute-gear-aggregate.js');
+    console.log('Computing per-shoe gear aggregate...\n');
+    await computeGearAggregate({
+      indexPath: 'data/dashboard/index.json',
+      outDir: 'data/stats',
+    });
+    console.log('\nGear aggregate generated successfully!');
+    process.exit(0);
+  } catch (error: any) {
+    console.error('Compute gear aggregate error:', error.message);
+    if (error.message.includes('index')) {
+      console.error('\nDashboard index not found. Please run: npm run compute-dashboard-index');
+    }
+    process.exit(1);
+  }
+}
+
 async function computeAllStatsCommand() {
   try {
     console.log('Computing all statistics from synced activities...\n');
@@ -255,9 +316,65 @@ async function computeAllStatsCommand() {
     console.log(''); // Blank line separator
 
     // Run best-effort computation (depends on committed streams, not on the
-    // other stats outputs, so it runs last)
+    // other stats outputs)
     const { computeBestEfforts } = await import('./analytics/compute-best-efforts.js');
     await computeBestEfforts({
+      activitiesDir: config.activitiesDir,
+      streamsDir: config.streamsDir,
+      streamsManifestPath: config.streamsManifestPath,
+      statsDir: 'data/stats',
+    });
+
+    console.log(''); // Blank line separator
+
+    // Chain ordering below is load-bearing — each step consumes a previous
+    // step's output, except compute-training-load which is independent of
+    // the others and runs last for the same reason compute-best-efforts used
+    // to run last (nothing downstream of it in this chain depends on it):
+    //   1-4. basic / advanced / geo / best-efforts (above, unchanged)
+    //   5. compute-age-grading   — reads best-efforts.json (step 4)
+    //   6. compute-dashboard-index — reads best-efforts.json + gear.json;
+    //      newly added to this chain (previously only a standalone CI step)
+    //      because it is the prerequisite for step 7
+    //   7. compute-gear-aggregate — reads data/dashboard/index.json (step 6)
+    //   8. compute-training-load  — reads the stream manifest; independent
+
+    // Run age-grading (depends on best-efforts.json from step 4)
+    const { computeAgeGrading } = await import('./analytics/compute-age-grading.js');
+    await computeAgeGrading({
+      statsDir: 'data/stats',
+      wmaDir: 'data/wma',
+    });
+
+    console.log(''); // Blank line separator
+
+    // Run dashboard index (depends on best-efforts.json + data/config/gear.json;
+    // prerequisite for compute-gear-aggregate)
+    const { computeDashboardIndex } = await import('./analytics/compute-dashboard-index.js');
+    await computeDashboardIndex({
+      activitiesDir: config.activitiesDir,
+      streamsManifestPath: config.streamsManifestPath,
+      statsDir: 'data/stats',
+      geoDir: 'data/geo',
+      outDir: 'data/dashboard',
+    });
+
+    console.log(''); // Blank line separator
+
+    // Run gear aggregate (depends on data/dashboard/index.json from the step above)
+    const { computeGearAggregate } = await import('./analytics/compute-gear-aggregate.js');
+    await computeGearAggregate({
+      indexPath: 'data/dashboard/index.json',
+      outDir: 'data/stats',
+    });
+
+    console.log(''); // Blank line separator
+
+    // Run training load (independent of the others; reads the stream
+    // manifest directly, so it runs last, matching how compute-best-efforts
+    // was placed last for the same reason)
+    const { computeTrainingLoad } = await import('./analytics/compute-training-load.js');
+    await computeTrainingLoad({
       activitiesDir: config.activitiesDir,
       streamsDir: config.streamsDir,
       streamsManifestPath: config.streamsManifestPath,
@@ -480,7 +597,10 @@ function printHelp() {
   console.log('  compute-geo-stats      - Compute geographic statistics (countries, cities) from GPS data');
   console.log('  compute-best-efforts   - Compute best efforts (fastest 400m..marathon) from committed streams');
   console.log('  compute-dashboard-index - Compute the dashboard activity index manifest from the committed archive');
-  console.log('  compute-all-stats      - Compute all statistics (basic, advanced, geo, best efforts)');
+  console.log('  compute-training-load  - Compute CTL/ATL/TSB training load from committed streams');
+  console.log('  compute-age-grading    - Compute age-grade percentages from best efforts and WMA tables');
+  console.log('  compute-gear-aggregate - Compute the per-shoe gear aggregate from the dashboard index');
+  console.log('  compute-all-stats      - Compute all statistics (basic, advanced, geo, best efforts, age-grading, dashboard index, gear aggregate, training load)');
   console.log('  sync-intervals         - Sync new activities from intervals.icu (Garmin bridge)');
   console.log('  consolidate-exports    - Reconcile bulk exports under export_data/ into the archive');
   console.log('  backfill-streams       - Derive committed per-activity streams from export_data/ originals, local only');
@@ -495,6 +615,9 @@ function printHelp() {
   console.log('  npm run compute-geo-stats      # Generate geo stats');
   console.log('  npm run compute-best-efforts    # Generate best-effort records');
   console.log('  npm run compute-dashboard-index # Generate the dashboard index');
+  console.log('  npm run compute-training-load   # Generate CTL/ATL/TSB training load');
+  console.log('  npm run compute-age-grading     # Generate age-grade percentages');
+  console.log('  npm run compute-gear-aggregate  # Generate the per-shoe gear aggregate');
   console.log('  npm run compute-all-stats      # Generate all stats');
 }
 
@@ -523,6 +646,15 @@ async function main() {
       break;
     case 'compute-dashboard-index':
       await computeDashboardIndexCommand();
+      break;
+    case 'compute-training-load':
+      await computeTrainingLoadCommand();
+      break;
+    case 'compute-age-grading':
+      await computeAgeGradingCommand();
+      break;
+    case 'compute-gear-aggregate':
+      await computeGearAggregateCommand();
       break;
     case 'compute-all-stats':
       await computeAllStatsCommand();
