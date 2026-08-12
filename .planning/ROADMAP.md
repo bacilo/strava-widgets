@@ -89,7 +89,15 @@ Full phase details: [`milestones/v2.0-ROADMAP.md`](milestones/v2.0-ROADMAP.md) �
   4. The Activities screen (`list.ts`) picks up the new control styling while its existing row-click interaction model — the reference pattern for Phase 20 — is visually and functionally unchanged.
   5. **Human checkpoint**: served under a production-shaped `/strava-widgets` URL in a real browser, all five screens are visually compared side by side; every input/button/select looks intentional, and `:focus-visible` rings are checked by tabbing through controls in both themes.
 
-**Plans**: TBD
+**Plans**: 5 plans in 5 waves (all sequential — every implementation plan writes to `src/dashboard/styles.css`)
+
+Plans:
+- [ ] 19-01-PLAN.md — radius tokens + card/panel/spacing rhythm (D-13, D-14)
+- [ ] 19-02-PLAN.md — input/select/textarea baseline + type reset (D-01..D-03)
+- [ ] 19-03-PLAN.md — button baseline, scoped shared hover, disabled treatment, row-hover retrofit (D-05..D-08)
+- [ ] 19-04-PLAN.md — two-tone focus ring, container clipping fixes, five regression describe blocks (D-04, D-09..D-12)
+- [ ] 19-05-PLAN.md — full gate + BLOCKING human browser checkpoint under /strava-widgets (13-row agenda)
+
 **UI hint**: yes
 
 ### Phase 20: Row-Click Interaction Pattern
