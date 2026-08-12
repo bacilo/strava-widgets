@@ -102,7 +102,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 19-03-PLAN.md — button baseline, scoped shared hover, disabled treatment, row-hover retrofit (D-05..D-08)
+- [x] 19-03-PLAN.md — button baseline, scoped shared hover, disabled treatment, row-hover retrofit (D-05..D-08)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -235,7 +235,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 16. Dashboard Shell & Data Contract | v2.0 | 16/16 | Complete    | 2026-08-11 |
 | 17. Activity Browser & Detail Views | v2.0 | 15/15 | Complete    | 2026-08-11 |
 | 18. Records, Trends & Differentiators | v2.0 | 16/16 | Complete    | 2026-08-12 |
-| 19. Design System & Control Styling | v2.1 | 2/5 | In Progress|  |
+| 19. Design System & Control Styling | v2.1 | 3/5 | In Progress|  |
 | 20. Row-Click Interaction Pattern | v2.1 | 0/TBD | Not started | - |
 | 21. Overview Rebuild | v2.1 | 0/TBD | Not started | - |
 | 22. Calendar Week-Start & Totals | v2.1 | 0/TBD | Not started | - |
