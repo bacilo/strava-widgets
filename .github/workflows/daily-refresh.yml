@@ -1,6 +1,31 @@
 name: Daily Widget Refresh
 
 on:
+  # Rebuild and redeploy whenever code or build inputs land on master. Without
+  # this, a push that changed the site produced no deploy at all until the next
+  # scheduled run — the site silently served the previous day's bundle. This bit
+  # us repeatedly through phases 16-18, most visibly when the whole v2.0
+  # milestone was pushed and nothing changed on the live URL.
+  #
+  # Loop safety (two independent guards, either one sufficient):
+  #   1. The auto-commit step below tags its message '[skip ci]'.
+  #   2. That step only writes data/activities, data/sync-state.json,
+  #      data/geo/* and data/streams/* — none of which appear in `paths` here.
+  # data/config/ and data/wma/ ARE listed: they are hand-maintained build inputs
+  # (gear names, WMA factor tables) that CI never writes, so editing one should
+  # rebuild.
+  push:
+    branches: [master]
+    paths:
+      - 'src/**'
+      - 'scripts/**'
+      - '.github/workflows/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig*.json'
+      - 'vite.config*.ts'
+      - 'data/config/**'
+      - 'data/wma/**'
   schedule:
     # Run daily at 5 AM UTC (morning in Europe, after overnight Strava uploads)
     - cron: '0 5 * * *'
