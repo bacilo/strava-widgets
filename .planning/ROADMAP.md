@@ -89,7 +89,7 @@ Full phase details: [`milestones/v2.0-ROADMAP.md`](milestones/v2.0-ROADMAP.md) �
   4. The Activities screen (`list.ts`) picks up the new control styling while its existing row-click interaction model — the reference pattern for Phase 20 — is visually and functionally unchanged.
   5. **Human checkpoint**: served under a production-shaped `/strava-widgets` URL in a real browser, all five screens are visually compared side by side; every input/button/select looks intentional, and `:focus-visible` rings are checked by tabbing through controls in both themes.
 
-**Plans**: 5 plans in 5 waves (all sequential — every implementation plan writes to `src/dashboard/styles.css`)
+**Plans**: 9 plans in 9 waves (all sequential — every implementation plan writes to `src/dashboard/styles.css`). Plans 01-05 shipped; 19-05's checkpoint returned PARTIAL, so plans 06-09 are gap closure.
 
 Plans:
 **Wave 1**
@@ -110,7 +110,23 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [x] 19-05-PLAN.md — full gate + BLOCKING human browser checkpoint under /strava-widgets (13-row agenda)
+- [x] 19-05-PLAN.md — full gate + BLOCKING human browser checkpoint under /strava-widgets (13-row agenda) — returned **PARTIAL**
+
+**Wave 6** *(gap closure — blocked on Wave 5 completion)*
+
+- [ ] 19-06-PLAN.md — parse-level CSS gate + dead `--radius-control` token fix + `.segmented` radius token (GAP 1, GAP 3, WR-01)
+
+**Wave 7** *(gap closure — blocked on Wave 6 completion)*
+
+- [ ] 19-07-PLAN.md — focus-ring stacking context against neighbour paint order + button-baseline comment correction (GAP 2, WR-02)
+
+**Wave 8** *(gap closure — blocked on Wave 7 completion)*
+
+- [ ] 19-08-PLAN.md — parenthesis-aware selector splitting in `styles.test.ts` (WR-03)
+
+**Wave 9** *(gap closure — blocked on Wave 8 completion)*
+
+- [ ] 19-09-PLAN.md — BLOCKING human re-verification of rows 1, 3, 6, 12 only, under /strava-widgets
 
 **UI hint**: yes
 
