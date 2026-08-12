@@ -302,9 +302,14 @@ body {
   border: none;
 }
 
+/* Replaces a dead declaration: this was byte-identical to .cta's own base
+   `background: var(--accent)`, so the primary CTA never had hover feedback.
+   Mixes from `var(--accent)`, not `var(--surface)` like the shared button
+   hover, because .cta's base fill is accent itself — mixing surface in
+   would turn an orange CTA grey under its white label. */
 .cta:hover,
 .cta:focus-visible {
-  background: var(--accent);
+  background: color-mix(in srgb, var(--accent) 92%, var(--text));
 }
 
 /* In-flight loading indicator */
@@ -411,7 +416,7 @@ body {
 }
 
 .activity-table tbody tr:hover {
-  background: color-mix(in srgb, var(--surface) 92%, black);
+  background: color-mix(in srgb, var(--surface) 92%, var(--text));
 }
 
 .activity-table__row--highlight {
