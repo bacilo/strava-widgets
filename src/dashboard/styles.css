@@ -302,9 +302,14 @@ body {
   border: none;
 }
 
+/* Replaces a dead declaration: this was byte-identical to .cta's own base
+   `background: var(--accent)`, so the primary CTA never had hover feedback.
+   Mixes from `var(--accent)`, not `var(--surface)` like the shared button
+   hover, because .cta's base fill is accent itself — mixing surface in
+   would turn an orange CTA grey under its white label. */
 .cta:hover,
 .cta:focus-visible {
-  background: var(--accent);
+  background: color-mix(in srgb, var(--accent) 92%, var(--text));
 }
 
 /* In-flight loading indicator */
@@ -411,7 +416,7 @@ body {
 }
 
 .activity-table tbody tr:hover {
-  background: color-mix(in srgb, var(--surface) 92%, black);
+  background: color-mix(in srgb, var(--surface) 92%, var(--text));
 }
 
 .activity-table__row--highlight {
@@ -1148,4 +1153,72 @@ input[type="radio"] {
   padding: 0;
   min-height: auto;
   width: auto;
+}
+
+/* Bare `button` baseline — the second and last shorthand `font: inherit`
+   this Phase 19 block adds (see the banner comment above; the first is the
+   `input, select, textarea` rule's own `font: inherit`). Every one of the 12
+   existing button-class rules already declares its own colors/backgrounds
+   and, where relevant, its own min-width/min-height, so this `0,0,1`
+   baseline only fills in what those classes leave unset — nothing currently
+   rendered changes shape or color. No `:not()` exclusion is needed for
+   `.chip__remove` (24px) or `.theme-toggle`/`.app-nav__toggle` (44px): all
+   three are class selectors at `0,1,0` and beat this rule's min-height
+   automatically. */
+button {
+  font: inherit;
+  min-height: 32px;
+  cursor: pointer;
+  border-radius: var(--radius-control);
+}
+
+/* Shared button hover (D-06). Selector stays at `0,1,1` — identical to a
+   bare `button:hover` — via `:where()`, which contributes zero specificity;
+   only the exclusions inside it change what the rule reaches. Each
+   exclusion below is required, not defensive:
+   - `:disabled` / `[aria-disabled="true"]` — a disabled control must not
+     offer hover feedback (pagination prev/next, the Banister toggle,
+     outside-month/rest-day calendar cells).
+   - `.pagination__button--current` — keeps its `var(--accent-strong)` fill
+     under its `color: #ffffff` text; without this, hovering the current
+     page would put white text on the surface mix.
+   - `.segmented__option--active` — same shape, same failure, on the detail
+     view's x-axis toggle.
+   - `.calendar-day--tint-1` through `--tint-4` — these carry the accent
+     distance-tint scale; a bare hover would flatten the hovered day to
+     grey exactly where the pointer is. Written out explicitly rather than
+     an attribute-substring match so they stay greppable.
+   `.cta` needs no exclusion — `.cta:hover` is `0,2,0` and already beats
+   this rule; its own dead-declaration repair is a separate edit below. */
+button:where(:not(
+      :disabled,
+      [aria-disabled="true"],
+      .pagination__button--current,
+      .segmented__option--active,
+      .calendar-day--tint-1,
+      .calendar-day--tint-2,
+      .calendar-day--tint-3,
+      .calendar-day--tint-4
+    )):hover {
+  background: color-mix(in srgb, var(--surface) 92%, var(--text));
+}
+
+/* Unscoped disabled treatment (19-UI-SPEC): both `:disabled` (the property,
+   used by pagination prev/next, the overlay-cap checkbox and outside-month
+   calendar cells) and `[aria-disabled="true"]` (used by calendar rest days,
+   which stay informative rather than removed) are required — neither
+   selector alone reaches every live disabled state. `opacity: 0.6` rather
+   than lower keeps the two informative-but-disabled cases (pagination
+   labels, calendar rest-day labels) legible. `cursor: default` matches the
+   existing `.calendar-day--rest` precedent rather than introducing
+   `not-allowed`. Placed at the end of the file, this rule's `color`
+   deliberately wins the same-specificity tiebreak against
+   `.pagination__button { color: var(--text) }` (a disabled pagination
+   button must read as muted) and matches `.calendar-day--rest`'s existing
+   `color: var(--text-secondary)` exactly, so nothing changes there. */
+:disabled,
+[aria-disabled="true"] {
+  color: var(--text-secondary);
+  opacity: 0.6;
+  cursor: default;
 }
