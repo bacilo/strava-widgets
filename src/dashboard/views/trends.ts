@@ -52,6 +52,13 @@ import {
   VOLUME_GRANULARITIES,
   type VolumeGranularity,
 } from './trends-volume-logic.js';
+import {
+  parseYearOverYear,
+  listYoyYears,
+  defaultYoyYears,
+  buildYoySeries,
+  toggleYoyYear,
+} from './trends-yoy-logic.js';
 
 const STATS_BASE_URL = 'data/stats/';
 
@@ -270,6 +277,10 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
   let volumeGranularity: VolumeGranularity = 'weekly';
   let volumeYear: number | null = null;
 
+  // Year-over-Year tab's own within-tab state (18-UI-SPEC § 9) — the set of
+  // selected years, defaulted to the 3 most recent on first activation.
+  let yoySelectedYears: number[] = [];
+
   function destroyActiveChart(): void {
     activeChartHandle?.destroy();
     activeChartHandle = null;
@@ -460,9 +471,90 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
   }
 
   /**
+   * Mounts the Year-over-Year tab (18-UI-SPEC § 9): a `.chip-row` of
+   * `.preset-chip` year toggles (defaulting to the 3 most recent years)
+   * plus one grouped-bar chart. Selecting or deselecting a year always
+   * destroys and rebuilds the chart — never mutates a live instance's
+   * datasets in place (the "Canvas is already in use" defect class).
+   */
+  async function renderYoyTab(panel: HTMLElement, myToken: number): Promise<void> {
+    if (!data) return;
+    showTabLoading(panel, 'yoy');
+
+    const chartsModule = await import('./trends-charts.js');
+    if (myToken !== requestToken || !mountedContainer) return;
+
+    panel.replaceChildren();
+
+    const months = parseYearOverYear(data.yoy);
+
+    if (months.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      const heading = document.createElement('h3');
+      heading.className = 'text-heading';
+      heading.textContent = 'No year-over-year data yet';
+      empty.appendChild(heading);
+      const body = document.createElement('p');
+      body.className = 'text-body';
+      body.textContent =
+        'Once more than one year of activity is recorded, a year-over-year comparison will appear here.';
+      empty.appendChild(body);
+      panel.appendChild(empty);
+      return;
+    }
+
+    const orderedMonths = [...months].sort((a, b) => a.month - b.month);
+    const monthLabels = orderedMonths.map((m) => m.monthLabel);
+    const availableYears = listYoyYears(orderedMonths);
+
+    if (yoySelectedYears.length === 0 || yoySelectedYears.some((year) => !availableYears.includes(year))) {
+      yoySelectedYears = defaultYoyYears(orderedMonths);
+    }
+
+    const chipRow = document.createElement('div');
+    chipRow.className = 'chip-row';
+
+    const canvasWrap = document.createElement('div');
+    const canvas = document.createElement('canvas');
+    canvasWrap.appendChild(canvas);
+
+    function mountYoyForSelection(): void {
+      destroyActiveChart();
+      const series = buildYoySeries(orderedMonths, yoySelectedYears);
+      activeChartHandle = chartsModule.mountYoyChart(canvas, series, monthLabels);
+    }
+
+    function renderChips(): void {
+      chipRow.replaceChildren();
+      availableYears.forEach((year) => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'preset-chip';
+        chip.textContent = String(year);
+        const isSelected = yoySelectedYears.includes(year);
+        chip.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+        chip.addEventListener('click', () => {
+          // toggleYoyYear's own never-empty guard means the UI never needs
+          // a duplicate "is this the last one" check here.
+          yoySelectedYears = toggleYoyYear(yoySelectedYears, year, availableYears);
+          renderChips();
+          mountYoyForSelection();
+        });
+        chipRow.appendChild(chip);
+      });
+    }
+
+    renderChips();
+    panel.appendChild(chipRow);
+    panel.appendChild(canvasWrap);
+    mountYoyForSelection();
+  }
+
+  /**
    * Renders whichever tab is now active into its (already-mounted) panel.
-   * Task 3 replaces the `yoy` branch below with real chart-mounting logic;
-   * the remaining two tabs stay a named placeholder until plan 18-15.
+   * Cadence & HR, Training Load, and Gear stay a named placeholder until
+   * plan 18-15.
    */
   async function renderActiveTabContent(tab: TrendTabKey, myToken: number): Promise<void> {
     const panel = tabPanels[tab];
@@ -470,6 +562,9 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
     switch (tab) {
       case 'volume':
         await renderVolumeTab(panel, myToken);
+        break;
+      case 'yoy':
+        await renderYoyTab(panel, myToken);
         break;
       default:
         renderPlaceholderTab(panel, tab);

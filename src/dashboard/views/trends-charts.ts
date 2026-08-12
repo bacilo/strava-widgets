@@ -154,3 +154,115 @@ export function mountVolumeChart(
     },
   };
 }
+
+// ---------------------------------------------------------------------------
+// Year-over-Year (18-UI-SPEC § 9) — per-year colour resolved from LIVE CSS
+// tokens via resolveToken, never a hardcoded rgba palette (the mechanism
+// `src/widgets/comparison-chart/chart-config.ts` correctly uses instead,
+// since that widget renders in Shadow DOM with no access to the dashboard's
+// `data-theme` attribute — reproducing that pattern here would regress).
+// ---------------------------------------------------------------------------
+
+/**
+ * Ordered token budget for up to 11 simultaneously-visible years: the three
+ * channel colours first (matching the default 3-year selection), then the
+ * 8 categorical tokens. A 12th+ selected year falls back to `hexToRgba` at
+ * decreasing alpha over the LAST token, rather than silently repeating an
+ * already-visible colour for two different years.
+ */
+const YOY_YEAR_TOKENS = [
+  '--chart-pace',
+  '--chart-hr',
+  '--chart-cadence',
+  '--cat-1',
+  '--cat-2',
+  '--cat-3',
+  '--cat-4',
+  '--cat-5',
+  '--cat-6',
+  '--cat-7',
+  '--cat-8',
+] as const;
+
+function resolveYoyYearColor(index: number): string {
+  if (index < YOY_YEAR_TOKENS.length) {
+    return resolveToken(YOY_YEAR_TOKENS[index], '#4E79A7');
+  }
+  const lastToken = resolveToken(YOY_YEAR_TOKENS[YOY_YEAR_TOKENS.length - 1], '#9C755F');
+  const overflow = index - YOY_YEAR_TOKENS.length + 1;
+  const alpha = Math.max(0.3, 1 - overflow * 0.15);
+  return hexToRgba(lastToken, alpha);
+}
+
+/**
+ * Mounts the Year-over-Year tab's grouped bar chart: one dataset per
+ * selected year, twelve `monthLabels` (from the parsed document, `Jan`…
+ * `Dec`) on a `'category'` x-scale, y pinned to `Y_AXIS_WIDTH_PX`. The
+ * caller destroys the previous instance before calling this again on any
+ * year-selection change — never an in-place dataset mutation.
+ */
+export function mountYoyChart(
+  canvas: HTMLCanvasElement,
+  series: readonly YoySeries[],
+  monthLabels: readonly string[]
+): ChartHandle {
+  canvas.setAttribute('aria-label', 'Year-over-year monthly distance comparison chart');
+
+  const datasets = series.map((s, index) => {
+    const color = resolveYoyYearColor(index);
+    return {
+      label: String(s.year),
+      data: s.km,
+      backgroundColor: color,
+      borderColor: color,
+    };
+  });
+
+  const chart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: [...monthLabels],
+      datasets,
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          type: 'category',
+        },
+        y: {
+          type: 'linear',
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          afterFit: (scale: any) => {
+            scale.width = Y_AXIS_WIDTH_PX;
+          },
+          ticks: {
+            callback: (value: number | string) => `${value} km`,
+          },
+        },
+      },
+      plugins: {
+        tooltip: {
+          callbacks: {
+            label: (context: { dataset: { label?: string }; parsed: { y: unknown } }) => {
+              const raw = context.parsed.y;
+              const km = typeof raw === 'number' ? raw.toFixed(1) : '0.0';
+              return `${context.dataset.label ?? ''}: ${km} km`;
+            },
+          },
+        },
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any,
+  });
+
+  let destroyed = false;
+  return {
+    destroy(): void {
+      if (destroyed) return;
+      destroyed = true;
+      chart.destroy();
+    },
+  };
+}
