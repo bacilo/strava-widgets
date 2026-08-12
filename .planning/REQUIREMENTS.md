@@ -39,20 +39,20 @@ Requirements for the Training Dashboard milestone. Each maps to roadmap phases.
 ### Records & PRs
 
 - [x] **REC-01**: Pipeline computes best efforts (fastest 400m, 1k, 1mi, 5k, 10k, half, marathon) within every run from streams
-- [ ] **REC-02**: User can view all-time PR lists per distance
-- [ ] **REC-03**: User can view how each distance PR evolved over the years
-- [ ] **REC-04**: Runs that set a new PR show a "PR" badge in list and detail views
-- [ ] **REC-05**: User can view weekly/monthly/yearly totals, biggest week/month, and streak records in the dashboard (reusing v1.0 aggregation logic)
+- [x] **REC-02**: User can view all-time PR lists per distance
+- [x] **REC-03**: User can view how each distance PR evolved over the years
+- [x] **REC-04**: Runs that set a new PR show a "PR" badge in list and detail views
+- [x] **REC-05**: User can view weekly/monthly/yearly totals, biggest week/month, and streak records in the dashboard (reusing v1.0 aggregation logic)
 - [x] **REC-06**: User can view age-graded performance percentages on PRs (WMA tables)
-- [ ] **REC-07**: User can view Riegel-based race-time predictions derived from PRs
+- [x] **REC-07**: User can view Riegel-based race-time predictions derived from PRs
 
 ### Trends
 
-- [ ] **TREND-01**: User can view weekly/monthly volume trend charts over the full archive
-- [ ] **TREND-02**: User can view year-over-year comparisons
-- [ ] **TREND-03**: User can view cadence and HR average trends over months
-- [ ] **TREND-04**: User can view a TRIMP-based training load chart (CTL/ATL/TSB "Fitness & Freshness") covering the full archive
-- [ ] **TREND-05**: User can view pace/HR trend breakdowns per shoe (gear-aware trends)
+- [x] **TREND-01**: User can view weekly/monthly volume trend charts over the full archive
+- [x] **TREND-02**: User can view year-over-year comparisons
+- [x] **TREND-03**: User can view cadence and HR average trends over months
+- [x] **TREND-04**: User can view a TRIMP-based training load chart (CTL/ATL/TSB "Fitness & Freshness") covering the full archive
+- [x] **TREND-05**: User can view pace/HR trend breakdowns per shoe (gear-aware trends)
 
 ## Future Requirements
 
@@ -108,17 +108,17 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DETAIL-03 | Phase 17 | Complete |
 | DETAIL-04 | Phase 17 | Complete |
 | DETAIL-05 | Phase 17 | Complete |
-| REC-02 | Phase 18 | Pending |
-| REC-03 | Phase 18 | Pending |
-| REC-04 | Phase 18 | Pending |
-| REC-05 | Phase 18 | Pending |
+| REC-02 | Phase 18 | Complete |
+| REC-03 | Phase 18 | Complete |
+| REC-04 | Phase 18 | Complete |
+| REC-05 | Phase 18 | Complete |
 | REC-06 | Phase 18 | Complete |
-| REC-07 | Phase 18 | Pending |
-| TREND-01 | Phase 18 | Pending |
-| TREND-02 | Phase 18 | Pending |
-| TREND-03 | Phase 18 | Pending |
-| TREND-04 | Phase 18 | Pending |
-| TREND-05 | Phase 18 | Pending |
+| REC-07 | Phase 18 | Complete |
+| TREND-01 | Phase 18 | Complete |
+| TREND-02 | Phase 18 | Complete |
+| TREND-03 | Phase 18 | Complete |
+| TREND-04 | Phase 18 | Complete |
+| TREND-05 | Phase 18 | Complete |
 
 **Coverage:**
 - v2.0 requirements: 29 total
