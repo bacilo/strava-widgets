@@ -12,7 +12,7 @@ Each maps to roadmap phases.
 ### Design System
 
 - [ ] **UI-01**: Form controls (text, date, number, search inputs) are styled consistently across every screen — the stylesheet currently has **zero `input` rules**, so all inputs render as unstyled browser defaults. This is the single root cause of the "raw" feel on Activities and Calendar.
-- [ ] **UI-02**: Buttons, selects and other controls share one visual treatment, with a consistent `:focus-visible` ring meeting non-text contrast requirements in both themes
+- [x] **UI-02**: Buttons, selects and other controls share one visual treatment, with a consistent `:focus-visible` ring meeting non-text contrast requirements in both themes
 - [ ] **UI-03**: Spacing, density and card treatment follow one rhythm across all five screens, applied without changing the existing visual language
 
 ### Interaction Consistency
@@ -44,7 +44,7 @@ Each maps to roadmap phases.
 ### Records & Activities
 
 - [ ] **REC-08**: Records rows navigate on row click rather than via a large button
-- [ ] **ACT-01**: Activities screen controls adopt the shared styling; the screen's existing interaction model (row click) is preserved as the reference pattern
+- [x] **ACT-01**: Activities screen controls adopt the shared styling; the screen's existing interaction model (row click) is preserved as the reference pattern
 
 ### Carried Forward from v2.0
 
@@ -73,9 +73,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | UI-01 | Phase 19 | Pending |
-| UI-02 | Phase 19 | Pending |
+| UI-02 | Phase 19 | Complete |
 | UI-03 | Phase 19 | Pending |
-| ACT-01 | Phase 19 | Pending |
+| ACT-01 | Phase 19 | Complete |
 | UX-01 | Phase 20 | Pending |
 | UX-02 | Phase 20 | Pending |
 | UX-03 | Phase 20 | Pending |
