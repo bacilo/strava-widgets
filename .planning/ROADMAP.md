@@ -94,7 +94,7 @@ Full phase details: [`milestones/v2.0-ROADMAP.md`](milestones/v2.0-ROADMAP.md) �
 Plans:
 **Wave 1**
 
-- [ ] 19-01-PLAN.md — radius tokens + card/panel/spacing rhythm (D-13, D-14)
+- [x] 19-01-PLAN.md — radius tokens + card/panel/spacing rhythm (D-13, D-14)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -235,7 +235,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 16. Dashboard Shell & Data Contract | v2.0 | 16/16 | Complete    | 2026-08-11 |
 | 17. Activity Browser & Detail Views | v2.0 | 15/15 | Complete    | 2026-08-11 |
 | 18. Records, Trends & Differentiators | v2.0 | 16/16 | Complete    | 2026-08-12 |
-| 19. Design System & Control Styling | v2.1 | 0/TBD | Not started | - |
+| 19. Design System & Control Styling | v2.1 | 1/5 | In Progress|  |
 | 20. Row-Click Interaction Pattern | v2.1 | 0/TBD | Not started | - |
 | 21. Overview Rebuild | v2.1 | 0/TBD | Not started | - |
 | 22. Calendar Week-Start & Totals | v2.1 | 0/TBD | Not started | - |
