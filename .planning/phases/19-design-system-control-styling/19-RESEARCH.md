@@ -425,9 +425,9 @@ Not applicable in the conventional sense — this phase does not adopt a new fra
 
 **No claim in this document's Empirical Verification, Contrast Computation, or Code Examples sections is `[ASSUMED]`** — every factual claim there was independently checked against the actual file contents in this session (`[VERIFIED: src/dashboard/styles.css]`, `[VERIFIED: src/dashboard/styles.test.ts]`, `[VERIFIED: src/dashboard/views/*.ts grep]`, or `[VERIFIED: WCAG 2.1 relative-luminance formula, computed from raw hex values]`).
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Should the seven minor count/reference corrections above be back-ported into `19-UI-SPEC.md` before planning?**
+1. **RESOLVED: Should the seven minor count/reference corrections above be back-ported into `19-UI-SPEC.md` before planning?** Resolved as recommended below — the Phase 19 plans use this document's corrected figures and `19-UI-SPEC.md` was left unedited. No locked decision and no CSS value is affected. Nothing in this section blocks planning or execution.
    - What we know: none of the seven corrections change any locked decision or any CSS value; they are narrative-accuracy issues only (counts, one mis-scoped file reference).
    - What's unclear: whether the planner should silently use the corrected figures (recommended) or whether 19-UI-SPEC.md itself should be edited for consistency with future re-reads.
    - Recommendation: use the corrected figures in plan-level file:line references (this document is now the source of truth for those specific numbers); editing 19-UI-SPEC.md is optional and low-priority since the checker already approved it and no decision changes.
