@@ -52,6 +52,12 @@
   --space-2xl: 48px;
   --space-3xl: 64px;
 
+  /* Phase 19 — radius scale, theme-invariant (identical in light and dark),
+     so declared only here, following the --space-*/--zone-*/--load-*
+     precedent rather than the --chart-* per-theme precedent. */
+  --radius-control: 4px;
+  --radius-panel: 8px;
+
   /* Font stack — character-for-character identical to src/widget/styles.css line 3 */
   --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
