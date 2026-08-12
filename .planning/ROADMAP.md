@@ -262,7 +262,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 18-14-PLAN.md — Trends shell: ARIA tablist, rolling strip, Volume and Year-over-Year tabs
+- [x] 18-14-PLAN.md — Trends shell: ARIA tablist, rolling strip, Volume and Year-over-Year tabs
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
@@ -296,7 +296,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 | 15. Best-Effort Engine | v2.0 | 4/4 | Complete    | 2026-08-10 |
 | 16. Dashboard Shell & Data Contract | v2.0 | 16/16 | Complete    | 2026-08-11 |
 | 17. Activity Browser & Detail Views | v2.0 | 15/15 | Complete    | 2026-08-11 |
-| 18. Records, Trends & Differentiators | v2.0 | 13/16 | In Progress|  |
+| 18. Records, Trends & Differentiators | v2.0 | 14/16 | In Progress|  |
 
 ---
 *Last updated: 2026-08-11 — Phase 16 gap closure planned (7 plans, 3 waves)*
