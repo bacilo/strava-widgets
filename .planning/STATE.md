@@ -102,6 +102,25 @@ Previously resolved — SQLITE_CANTOPEN CI failure resolved by quick-1-01 (lazy 
 |---|-------------|------|--------|-----------|
 | 1 | Fix Daily Widget Refresh GitHub Actions workflow error | 2026-02-18 | 0f1d761 | [1-fix-daily-widget-refresh-github-actions-](./quick/1-fix-daily-widget-refresh-github-actions-/) |
 
+## Deferred Items
+
+Items acknowledged and deferred at the v2.0 milestone close on 2026-08-12. Full detail in `.planning/v2.0-MILESTONE-AUDIT.md` (status `tech_debt`).
+
+| Category | Item | Status |
+|----------|------|--------|
+| uat_gap | Phase 16 — `16-HUMAN-UAT.md`, 4 pending scenarios | partial |
+| verification_gap | Phase 16 — `16-VERIFICATION.md` | human_needed |
+| untested_seam | Phase 16 UAT items 1-3: light-OS legibility, first-paint white flash, live OS auto-follow — NOT discharged by phases 17/18 despite both running human checkpoints on the same shell | open |
+| integration_warning | `daily-refresh.yml` runs the 8 compute steps in a different order than `src/index.ts`'s `compute-all-stats` chain; both currently safe, no shared source of truth | open |
+| integration_warning | `verify-dashboard-publish.mjs` does not individually assert reachability for `weekly-distance`/`monthly-stats`/`yearly-stats`/`year-over-year`/`best-efforts.json`/shards — affects REC-02/03/05, TREND-01/02 | open |
+| code_review | WR-01: Current Streak tile's `ended {date}` sub-label is structurally unreachable (root cause `streak-utils.ts:118`) | open |
+| code_review | WR-02: `gear-aggregate-logic.ts` strict `label === null` Unknown-bucket test crashes `slugify()` on an absent `gearName` key | open |
+| evidence_gap | REC-06's external correctness evidence is one distance (5k) with a 0.51-point unexplained delta; the plan asked for two | open |
+| doc_defect | `18-UI-SPEC.md:843` checklist wording contradicts the authoritative chart spec at line 319 | open |
+| quick_task | `1-fix-daily-widget-refresh-github-actions-` | missing |
+| todo | Garmin export adapter (STREAM-04) — blocked on the export arriving | deferred |
+| todo | Manual exclusion of activities from best efforts | deferred |
+
 ## Session Continuity
 
 Last session: 2026-08-11T18:28:38.198Z

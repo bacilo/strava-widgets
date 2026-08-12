@@ -5,7 +5,7 @@
 - ✅ **v1.0 MVP** — Phases 1-4 (shipped 2026-02-14)
 - ✅ **v1.1 Geographic & Widget Customization** — Phases 5-9 (shipped 2026-02-16)
 - ✅ **v1.2 Maps & Geo Fix** — Phases 10-13 (shipped 2026-02-18)
-- 🚧 **v2.0 Training Dashboard** — Phases 14-18 (in progress)
+- ✅ **v2.0 Training Dashboard** — Phases 14-18 (shipped 2026-08-12)
 
 ## Phases
 
@@ -40,237 +40,18 @@
 
 </details>
 
-### 🚧 v2.0 Training Dashboard (Phases 14-18, in progress)
+<details>
+<summary>✅ v2.0 Training Dashboard (Phases 14-18) — SHIPPED 2026-08-12</summary>
 
-**Milestone Goal:** A full analytics dashboard (static SPA on GitHub Pages) for browsing the complete running archive — activities with pace/cadence/HR detail, self-computed best-effort records, and weekly/monthly/yearly/all-time stats — built as a flexible foundation that many more functions can plug into over time.
+- [x] Phase 14: Stream Ingestion Foundation (5/5 plans) — completed 2026-08-10
+- [x] Phase 15: Best-Effort Engine (4/4 plans) — completed 2026-08-10
+- [x] Phase 16: Dashboard Shell & Data Contract (16/16 plans) — completed 2026-08-11
+- [x] Phase 17: Activity Browser & Detail Views (15/15 plans) — completed 2026-08-11
+- [x] Phase 18: Records, Trends & Differentiators (16/16 plans) — completed 2026-08-12
 
-**Phase Numbering:**
+Full phase details: [`milestones/v2.0-ROADMAP.md`](milestones/v2.0-ROADMAP.md) · Audit: [`v2.0-MILESTONE-AUDIT.md`](v2.0-MILESTONE-AUDIT.md)
 
-- Integer phases (14, 15, 16...): Planned milestone work
-- Decimal phases (14.1, 14.2): Urgent insertions (marked with INSERTED)
-
-- [x] **Phase 14: Stream Ingestion Foundation** - Backfill and daily-sync pipeline produces committed per-activity time-series data (or an explicit unavailable flag) (completed 2026-08-10)
-- [x] **Phase 15: Best-Effort Engine** - Pipeline computes fastest 400m..marathon efforts within every run from streams (completed 2026-08-10)
-- [x] **Phase 16: Dashboard Shell & Data Contract** - Navigable, themed SPA shell deployed to GitHub Pages with lazy-loaded data contract (16 plans: 9 original + 7 gap-closure 16-10..16-16; the first verification pass found the phase was never actually pushed or deployed and DASH-02 was blocked, both closed by gap closure; live at https://bacilo.github.io/strava-widgets/ and re-verified 43/43 must-haves) (completed 2026-08-11)
-- [x] **Phase 17: Activity Browser & Detail Views** - Browse, filter, and drill into any archived activity with full pace/HR/cadence detail (15/15 plans executed 2026-08-11; 17-15's real-browser checkpoint returned PARTIAL with 2 named gaps — route-map basemap tiles blocked by the dashboard CSP's `img-src` (fixed in `edef601`) and chart-band x-axis misalignment from per-band y-axis gutter sizing (fixed in `1e652ef`) — both re-confirmed in a real browser; validation gate approved, verification passed 11/11) (completed 2026-08-11)
-- [x] **Phase 18: Records, Trends & Differentiators** - PR lists, evolution, badges, aggregates, TRIMP training load, age-grading, Riegel predictions, gear-aware trends (completed 2026-08-12)
-
-## Phase Details
-
-### Phase 14: Stream Ingestion Foundation
-
-**Goal**: Every historical and newly-synced activity has committed time-series stream data (pace, HR, cadence, elevation), or an explicit flag when unavailable, ready for downstream computation.
-**Depends on**: Nothing (v2.0 entry point; builds atop the existing v1.2 pipeline)
-**Requirements**: STREAM-01, STREAM-02, STREAM-03
-**Success Criteria** (what must be TRUE):
-
-  1. Running the local backfill command produces committed per-activity stream files (time, distance, pace, HR, cadence, elevation) for export-covered historical activities.
-  2. The daily pipeline persists intervals.icu streams for newly-synced activities in the same canonical format, with cadence values verified/normalized against FIT convention.
-  3. Activities with no recoverable original recording (treadmill/manual entries) are marked with a stream-unavailable flag rather than causing pipeline failures.
-
-**Plans**: 5 plans
-
-Plans:
-**Wave 1**
-
-- [x] 14-01-PLAN.md — Lock the committed stream schema and build the shared derivation seam
-
-**Wave 2** *(blocked on Wave 1 completion)*
-
-- [x] 14-02-PLAN.md — Extend FIT/GPX readers to multi-channel samples; build the availability manifest
-
-**Wave 3** *(blocked on Wave 2 completion)*
-
-- [x] 14-03-PLAN.md — Backfill core over provenance-linked originals with reason-coded flags
-- [x] 14-04-PLAN.md — Persist streams in the daily intervals.icu sync; commit data/streams/ from CI
-
-**Wave 4** *(blocked on Wave 3 completion)*
-
-- [x] 14-05-PLAN.md — Live-API reconciliation, size gate, CLI wiring, and the real backfill run
-
-### Phase 15: Best-Effort Engine
-
-**Goal**: The pipeline can determine, for any run, the fastest time achieved at each standard racing distance, using real stream data.
-**Depends on**: Phase 14
-**Requirements**: REC-01
-**Success Criteria** (what must be TRUE):
-
-  1. For every activity with streams, the pipeline computes fastest 400m/1k/1mi/5k/10k/half/marathon efforts using native (not haversine-recomputed) distance and timestamp-indexed (not index-based) duration.
-  2. Best-effort results are written to a durable, gitignored records data file consumable by later phases.
-  3. Computed best efforts validate against known reference activities without producing implausible results.
-
-**Plans**: 4 plans
-
-Plans:
-**Wave 1**
-
-- [x] 15-01-PLAN.md — Lock the best-effort contracts and build the pure sweep, guards and PR marking
-
-**Wave 2** *(blocked on Wave 1 completion)*
-
-- [x] 15-02-PLAN.md — Manifest-driven orchestration writing the gitignored best-efforts.json
-
-**Wave 3** *(blocked on Wave 2 completion)*
-
-- [x] 15-03-PLAN.md — CLI, compute-all-stats chain and CI wiring, plus the real archive run
-
-**Wave 4** *(blocked on Wave 3 completion)*
-
-- [x] 15-04-PLAN.md — External-reference fixture validation against Strava/Garmin reported times
-
-### Phase 16: Dashboard Shell & Data Contract
-
-**Goal**: A navigable, themed single-page dashboard shell is deployed to GitHub Pages, loading only a compact index up front.
-**Depends on**: Phase 14, Phase 15
-**Requirements**: DASH-01, DASH-02, DASH-03
-**Success Criteria** (what must be TRUE):
-
-  1. User can open the dashboard on GitHub Pages and navigate between list/calendar/detail/records/trends views via hash-based routes without full page reloads or 404s.
-  2. Dashboard loads a compact activity index manifest immediately and fetches per-activity detail data only when a specific activity is opened.
-  3. Dashboard respects dark/light theme consistent with the existing widget system's theming.
-
-**Plans**: 16 plans (9 original + 7 gap-closure, added 2026-08-11)
-**UI hint**: yes
-
-Plans:
-**Wave 1**
-
-- [x] 16-01-PLAN.md — Best-effort exclusion list so untrusted-device activities stop holding PRs
-- [x] 16-02-PLAN.md — Document-level theme engine and the global design-token stylesheet
-- [x] 16-03-PLAN.md — Index manifest contract, view registry contract, and the hash router
-
-**Wave 2** *(blocked on Wave 1 completion)*
-
-- [x] 16-04-PLAN.md — compute-dashboard-index generator, CLI subcommand, and gitignored output
-- [x] 16-05-PLAN.md — Fetch-once index client and lazy, id-validated detail client
-- [x] 16-06-PLAN.md — SPA entry with pre-paint theme bootstrap, top nav, and stub views
-
-**Wave 3** *(blocked on Wave 2 completion)*
-
-- [x] 16-07-PLAN.md — Overview, list and detail views, the view registry, and the bootstrap
-
-**Wave 4** *(blocked on Wave 3 completion)*
-
-- [x] 16-08-PLAN.md — Site-root migration, dashboard Vite entry, data publish copy, and the CI stage
-
-**Wave 5** *(blocked on Wave 4 completion)*
-
-- [x] 16-09-PLAN.md — Publish-directory HTTP smoke check and end-to-end human verification
-
-**Gap closure** *(planned 2026-08-11 from 16-VERIFICATION.md — 5 failing must-haves, 4 flagged warnings)*
-
-**Wave 1** *(independent; no shared files)*
-
-- [x] 16-10-PLAN.md — Widen the activity-id chokepoint to accept intervals.icu ids, with the missing regression cases (SC2, P07, CR-01, IN-07)
-- [x] 16-11-PLAN.md — Make the theme toggle visible and single-icon, locked by a stylesheet regression test (SC3, WR-04)
-- [x] 16-12-PLAN.md — Timezone-correct dates across all three views, a normalized index sort key, and stale-render guards (WR-02, WR-03, WR-01)
-- [x] 16-13-PLAN.md — Real emptyOutDir build guards and the test + verify-dashboard exit gate in the publishing workflow (WR-05, WR-06)
-
-**Wave 2** *(blocked on Wave 1 completion)*
-
-- [x] 16-14-PLAN.md — Push master, run the gated workflow, and verify the deployed gh-pages tree and live origin (SC1, P08/D-08)
-
-**Wave 3** *(blocked on Wave 2 completion)*
-
-- [x] 16-15-PLAN.md — Human verification on the live origin: hash navigation and theme-toggle legibility (DASH-01, DASH-03)
-- [x] 16-16-PLAN.md — Human verification on the live origin: intervals.icu deep-link detail and timezone-correct dates (DASH-02)
-
-### Phase 17: Activity Browser & Detail Views
-
-**Goal**: User can browse, filter, and drill into any of the 1,867+ archived activities, viewing full pace/HR/cadence/elevation detail per run.
-**Depends on**: Phase 16 (shell), Phase 14 (streams for detail charts)
-**Requirements**: BROWSE-01, BROWSE-02, BROWSE-03, BROWSE-04, BROWSE-05, BROWSE-06, DETAIL-01, DETAIL-02, DETAIL-03, DETAIL-04, DETAIL-05
-**Success Criteria** (what must be TRUE):
-
-  1. User can browse a paginated, sortable list of all activities by date, distance, pace, duration, and heart rate.
-  2. User can filter by date range and distance/pace/duration ranges, text-search by activity name, and see active filters as removable chips with a live result count.
-  3. User can view a calendar/month-grid training log.
-  4. User can open any activity and see a stats header (distance, time, pace, elevation, avg/max HR, cadence, gear), its route map, and pace/HR/cadence/elevation charts.
-  5. User can view an auto-computed per-km splits table and a pace-distribution/zone breakdown per activity, with missing-data states (no HR/cadence) rendering cleanly instead of breaking.
-
-**Plans**: 15 plans
-**UI hint**: yes
-
-Plans:
-
-**Wave 1**
-
-- [x] 17-01-PLAN.md — Design tokens and Phase 17 component CSS (single owner of styles.css)
-- [x] 17-02-PLAN.md — Pure list sort/filter/paginate/URL-state logic + tests
-- [x] 17-03-PLAN.md — Pure calendar month-grid date math + tests
-- [x] 17-04-PLAN.md — Pure per-km splits and chart-series/smoothing/overlay-config logic + tests
-- [x] 17-05-PLAN.md — Pure pace-distribution and HR-zone logic, athlete-config gate + tests
-- [x] 17-06-PLAN.md — Committed data/config/{athlete,gear}.json plus publish pipeline and verifier
-
-**Wave 2** *(blocked on Wave 1 completion)*
-
-- [x] 17-07-PLAN.md — Browser gear and athlete-config fetch clients + tests
-- [x] 17-08-PLAN.md — List view: desktop table, mobile cards, sorting, numbered pagination
-- [x] 17-10-PLAN.md — Real calendar view, multi-run picker, registry wiring, stub removal
-- [x] 17-11-PLAN.md — Lazily-imported route map reusing RouteRenderer, with position marker
-- [x] 17-12-PLAN.md — Lazily-imported stacked chart bands, per-band overlays, x-axis toggle
-- [x] 17-13-PLAN.md — Splits table and pace-distribution / HR-zone section renderers
-
-**Wave 3** *(blocked on Wave 2 completion)*
-
-- [x] 17-09-PLAN.md — List view: search, range filters, presets, removable chips, empty state
-- [x] 17-14-PLAN.md — Detail view orchestration: stats header, gear, lazy mounts, hover sync
-
-**Wave 4** *(blocked on Wave 3 completion)*
-
-- [x] 17-15-PLAN.md — Automated gate plus blocking real-browser verification checkpoint (PARTIAL — 2 named gaps open, see 17-VALIDATION.md Gap-Closure Record; gap-closure plans pending)
-
-### Phase 18: Records, Trends & Differentiators
-
-**Goal**: User can see PRs, how they evolved, and full-archive volume/load/gear trends, plus derived racing insights.
-**Depends on**: Phase 15 (best efforts), Phase 16 (shell), Phase 17 (list/detail views for PR badges)
-**Requirements**: REC-02, REC-03, REC-04, REC-05, REC-06, REC-07, TREND-01, TREND-02, TREND-03, TREND-04, TREND-05
-**Success Criteria** (what must be TRUE):
-
-  1. User can view all-time PR lists per distance, how each PR evolved over the years, and a "PR" badge on runs that set a new PR in both list and detail views.
-  2. User can view weekly/monthly/yearly totals, biggest week/month, and streak records in the dashboard.
-  3. User can view age-graded performance percentages and Riegel-based race-time predictions on PRs.
-  4. User can view weekly/monthly volume trend charts, year-over-year comparisons, and cadence/HR average trends over months across the full archive.
-  5. User can view a TRIMP-based training load chart (CTL/ATL/TSB "Fitness & Freshness") and pace/HR trend breakdowns per shoe.
-
-**Plans**: 16 plans across 6 waves
-**UI hint**: yes
-
-Plans:
-
-**Wave 1**
-
-- [x] 18-01-PLAN.md — Private athlete config split, build-time PII guard, publish-contract 404 assertion
-- [x] 18-02-PLAN.md — WMA factor tables (committed + reproducible converter) and the pure age-grade lookup
-- [x] 18-03-PLAN.md — Edwards/Banister TRIMP and the continuous daily CTL/ATL/TSB spine
-- [x] 18-04-PLAN.md — Shared UI foundation: chart-theme module, list.ts formatters/badges, stylesheet additions
-- [x] 18-05-PLAN.md — Gear name in the dashboard index and the per-shoe aggregate compute step
-- [x] 18-06-PLAN.md — Trends tab state, rolling totals, volume series and the year consistency grid
-
-**Wave 2** *(blocked on Wave 1 completion)*
-
-- [x] 18-07-PLAN.md — compute-training-load build step over the committed HR stream archive
-- [x] 18-08-PLAN.md — compute-age-grading build step emitting percentages only
-- [x] 18-09-PLAN.md — Riegel prediction/guarded fit and the Records page logic
-- [x] 18-10-PLAN.md — Cadence/HR, training-load windowing and coverage spans, gear bucketing logic
-
-**Wave 3** *(blocked on Wave 2 completion)*
-
-- [x] 18-11-PLAN.md — CLI subcommands, compute-all-stats chain, CI steps, publish verification
-- [x] 18-12-PLAN.md — Records view: jump list, superlatives, PR tables, evolution charts, race predictions
-- [x] 18-13-PLAN.md — Detail view PR badges and the Best Efforts This Run panel
-
-**Wave 4** *(blocked on Wave 3 completion)*
-
-- [x] 18-14-PLAN.md — Trends shell: ARIA tablist, rolling strip, Volume and Year-over-Year tabs
-
-**Wave 5** *(blocked on Wave 4 completion)*
-
-- [x] 18-15-PLAN.md — Trends: Cadence & HR, Training Load and Gear tabs
-
-**Wave 6** *(blocked on Wave 5 completion)*
-
-- [x] 18-16-PLAN.md — Full gate, validation reconciliation, and the real-browser human checkpoint
+</details>
 
 ## Progress
 
@@ -299,4 +80,4 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 | 18. Records, Trends & Differentiators | v2.0 | 16/16 | Complete    | 2026-08-12 |
 
 ---
-*Last updated: 2026-08-11 — Phase 16 gap closure planned (7 plans, 3 waves)*
+*Last updated: 2026-08-12 — v2.0 Training Dashboard shipped (phases 14-18, 56 plans). Milestone archived to `milestones/v2.0-ROADMAP.md`; audit `tech_debt` with 29/29 requirements satisfied and 0 blockers.*
