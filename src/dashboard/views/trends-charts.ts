@@ -41,6 +41,7 @@ import type { VolumePoint, VolumeGranularity } from './trends-volume-logic.js';
 import type { YoySeries } from './trends-yoy-logic.js';
 import { channelLabel, type MonthlyChannel, type MonthlyPoint } from './trends-cadence-hr-logic.js';
 import type { CoverageSpan, LoadPoint } from './trends-training-load-logic.js';
+import type { GearChartBucket } from './trends-gear-logic.js';
 
 // ---------------------------------------------------------------------------
 // Registration — Bar* powers both this plan's Volume and Year-over-Year
@@ -585,6 +586,102 @@ export function mountTrainingLoadChart(
           callbacks: {
             label: (context: { dataset: { label?: string }; parsed: { y: unknown } }) =>
               `${context.dataset.label ?? ''}: ${formatLoadValue(context.parsed.y)}`,
+          },
+        },
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any,
+  });
+
+  let destroyed = false;
+  return {
+    destroy(): void {
+      if (destroyed) return;
+      destroyed = true;
+      chart.destroy();
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Gear (18-UI-SPEC § 12, D-17/D-18/D-19) — a bounded bar chart, at most the
+// top 8 named shoes plus one neutral merged Other bar (never inside the
+// 8-colour category budget, since "Other" is not itself a category).
+// ---------------------------------------------------------------------------
+
+const CATEGORY_TOKENS = [
+  '--cat-1',
+  '--cat-2',
+  '--cat-3',
+  '--cat-4',
+  '--cat-5',
+  '--cat-6',
+  '--cat-7',
+  '--cat-8',
+] as const;
+
+/**
+ * Mounts the Gear tab's bar chart: one bar per bucket, height =
+ * `distanceM / 1000`. Named buckets take `--cat-1` through `--cat-8` IN
+ * ORDER, derived from the bucket's position (never eight hardcoded
+ * branches); the Other bucket takes a neutral, deliberately-outside-the-
+ * budget `--text-secondary` at low opacity.
+ */
+export function mountGearChart(canvas: HTMLCanvasElement, buckets: readonly GearChartBucket[]): ChartHandle {
+  const themeColors = resolveThemeColors();
+  const otherColor = hexToRgba(resolveToken('--text-secondary', themeColors.textSecondary), 0.5);
+
+  canvas.setAttribute('aria-label', 'Total distance by shoe chart, top 8 shown');
+
+  let namedIndex = 0;
+  const colors = buckets.map((bucket) => {
+    if (bucket.isOther) return otherColor;
+    const token = CATEGORY_TOKENS[namedIndex % CATEGORY_TOKENS.length];
+    namedIndex += 1;
+    return resolveToken(token, '#4E79A7');
+  });
+
+  const chart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: buckets.map((b) => b.label),
+      datasets: [
+        {
+          label: 'Distance',
+          data: buckets.map((b) => b.distanceM / 1000),
+          backgroundColor: colors,
+          borderColor: colors,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          type: 'category',
+          grid: { display: false },
+        },
+        y: {
+          type: 'linear',
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          afterFit: (scale: any) => {
+            scale.width = Y_AXIS_WIDTH_PX;
+          },
+          ticks: {
+            callback: (value: number | string) => `${value} km`,
+          },
+          grid: { color: hexToRgba(themeColors.border, 0.4) },
+        },
+      },
+      plugins: {
+        tooltip: {
+          callbacks: {
+            label: (context: { dataIndex: number }) => {
+              const bucket = buckets[context.dataIndex];
+              if (!bucket) return '';
+              return `${bucket.label}: ${(bucket.distanceM / 1000).toFixed(1)} km`;
+            },
           },
         },
       },
