@@ -8,7 +8,16 @@ A personal Strava data pipeline and visualization platform that fetches run data
 
 Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
 
-## Current Milestone: v2.0 Training Dashboard
+## Current State
+
+**Shipped: v2.0 Training Dashboard** (2026-08-12) — phases 14-18, 56 plans.
+
+A full analytics dashboard lives at https://bacilo.github.io/strava-widgets/ as a static SPA over pre-computed JSON: hash routing across six views, committed per-activity streams for the whole archive, a self-computed best-effort engine, an activity browser with per-run pace/HR/cadence detail and route maps, and a Records + Trends layer covering PR tables and evolution, Riegel race predictions, WMA age-grading, volume/consistency/year-over-year, cadence & HR, CTL/ATL/TSB training load, and per-shoe gear analysis.
+
+Milestone audit: `tech_debt` — 29/29 requirements satisfied, 0 blockers, 41/43 integration checks wired, 6/6 E2E flows. Deferred items are listed in STATE.md and `.planning/v2.0-MILESTONE-AUDIT.md`; the notable one is Phase 16's three unverified theme/first-paint UAT items.
+
+<details>
+<summary>v2.0 milestone goal and target features (archived)</summary>
 
 **Goal:** A full analytics dashboard (static SPA on GitHub Pages) for browsing the complete running archive — activities with pace/cadence/HR detail, self-computed best-effort records, and weekly/monthly/yearly/all-time stats — built as a flexible foundation that many more functions can plug into over time.
 
@@ -19,7 +28,18 @@ Compute and visualize running statistics that Strava doesn't readily offer, embe
 - Records & trends — weekly/monthly/yearly/all-time aggregates and records
 - Dashboard SPA shell — client-side routing over pre-computed JSON, designed for long-term extensibility
 
-**Key context:** Flexibility is the explicit priority — not everything ships now. Static-only hosting constrains everything to pre-computed JSON. Raw stream volume for ~1,867 activities needs a storage/derived-data strategy.
+**Key context:** Flexibility was the explicit priority — not everything shipped. Static-only hosting constrains everything to pre-computed JSON.
+
+</details>
+
+## Next Milestone Goals
+
+Not yet defined. Run `/gsd-new-milestone` to scope the next version.
+
+Carried forward as candidates:
+- STREAM-04 — Garmin export adapter, blocked on the export arriving
+- Manual exclusion of activities from best efforts
+- Phase 16's three unverified theme/first-paint items, and the two integration warnings from the v2.0 audit
 
 ## Requirements
 
@@ -51,13 +71,17 @@ Compute and visualize running statistics that Strava doesn't readily offer, embe
 - ✓ Standalone full-page views for heatmap, pin map, and route browser — v1.2
 - ✓ Leaflet map infrastructure with Shadow DOM CSS injection and CDN externalization — v1.2
 
+- ✓ Committed per-activity stream data (time, distance, HR, cadence, elevation) via local backfill + daily sync, with per-channel availability manifest (STREAM-01/02/03) — v2.0
+- ✓ Best-effort engine — fastest 400m..marathon computed within every run from streams (REC-01) — v2.0
+- ✓ Dashboard SPA shell — hash routing, document-level theming, lazy data contract (DASH-01/02/03) — v2.0
+- ✓ Activity browser and detail views — filter/sort the archive, per-run pace/HR/cadence charts, route maps, splits and zones (BROWSE-01..06, DETAIL-01..05) — v2.0
+- ✓ Records, trends & differentiators — PR tables with honesty badges, PR-evolution charts, Riegel race predictions, WMA age-grading, volume/consistency/year-over-year, cadence & HR, CTL/ATL/TSB training load, per-shoe gear analysis (REC-02..07, TREND-01..05) — v2.0
+
 ### Active
 
-Milestone v2.0 Training Dashboard — in progress.
+No active milestone. Run `/gsd-new-milestone` to scope the next version.
 
-- ✓ Committed per-activity stream data (time, distance, HR, cadence, elevation) via local backfill + daily sync, with per-channel availability manifest (STREAM-01/02/03) — Validated in Phase 14: Stream Ingestion Foundation
-- ✓ Records, trends & differentiators — PR tables with honesty badges, PR-evolution charts, Riegel race predictions, WMA age-grading, volume/consistency/year-over-year trends, cadence & HR, CTL/ATL/TSB training load, and per-shoe gear analysis (REC-02..07, TREND-01..05) — Validated in Phase 18: Records, Trends & Differentiators
-- All v2.0 phases (14-18) are complete. STREAM-04 (Garmin adapter) remains deferred until the export arrives.
+- STREAM-04 (Garmin export adapter) deferred out of v2.0 — blocked on the export arriving.
 
 ### Out of Scope
 
@@ -77,9 +101,9 @@ Milestone v2.0 Training Dashboard — in progress.
 
 ## Context
 
-Shipped v1.0 + v1.1 + v1.2 with 9,148 LOC TypeScript across 30 plans in 6 days.
-Tech stack: TypeScript, Node.js 22, Chart.js, Leaflet 1.9.4, Vite (IIFE bundles), Custom Elements, Shadow DOM, GitHub Actions.
-1,808 run activities synced from Strava. 10 Custom Element widgets + 3 standalone pages deployed to GitHub Pages.
+Shipped v1.0 + v1.1 + v1.2 + v2.0. v2.0 added ~30,700 lines across src/scripts/CI in 56 plans (phases 14-18); 26,430 LOC of non-test TypeScript in src/ and 884 unit tests overall.
+Tech stack: TypeScript, Node.js 22, Chart.js, Leaflet 1.9.4, Vite (IIFE bundles + the dashboard SPA), Custom Elements, Shadow DOM, GitHub Actions, vitest.
+1,868 run activities synced; per-activity streams committed for the full archive; data pipeline migrated off the Strava API to intervals.icu (Aug 2026). 10 Custom Element widgets + 3 standalone pages deployed to GitHub Pages.
 Geographic coverage: 23 countries, 57 cities from 92% of activities (GeoNames offline geocoding, zero API calls).
 Multi-city tracking: 86% of activities pass through multiple cities via polyline route sampling.
 Repository: github.com/bacilo/strava-widgets (public).
@@ -145,4 +169,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-12 — Phase 18 (Records, Trends & Differentiators) complete, closing milestone v2.0. Records and Trends replaced their stubs: seven PR tables with honesty badges and age-grade columns, a seven-card PR-evolution grid, Riegel race predictions with a self-suppressing fitted exponent, and a five-tab Trends page (Volume, Year-over-Year, Cadence & HR, Training Load, Gear). Identity inputs (birthDate/sex/restingHr) live in a gitignored data/private/ with a two-layer publish guard, since the repo is public — age-grading and Banister TRIMP ship disabled by default. 16 plans across 6 waves; verification passed 5/5 criteria and 11/11 requirement IDs, with a human browser checkpoint approved. Known soft spots recorded in 18-VALIDATION.md and 18-REVIEW.md: REC-06's external evidence is one distance with a 0.51-point unexplained delta, and the Current Streak tile's "ended {date}" sub-label is structurally unreachable (WR-01).*
+*Last updated: 2026-08-12 — v2.0 Training Dashboard shipped and archived (phases 14-18, 56 plans, 29/29 requirements). Milestone audit returned `tech_debt`: no blockers, but Phase 16's three theme/first-paint UAT items remain genuinely unverified and two integration warnings (CI-vs-compute-all-stats ordering divergence; incomplete publish-verifier reachability coverage) are carried forward. See .planning/v2.0-MILESTONE-AUDIT.md and STATE.md Deferred Items.*
