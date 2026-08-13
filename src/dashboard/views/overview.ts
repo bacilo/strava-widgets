@@ -12,7 +12,7 @@ import type { DashboardView, ViewMountContext } from '../view.types.js';
 import { ROUTES } from '../view.types.js';
 import type { IndexClient, FetchLike } from '../data/index-client.js';
 import type { DashboardIndexRow } from '../../analytics/dashboard-index.types.js';
-import { renderActivityRow, formatActivityDate } from './list.js';
+import { renderActivityRow, formatActivityDate, composeRowAriaLabel } from './list.js';
 import { activityDetailHref } from '../row-navigation.js';
 
 const RECENT_PR_COUNT = 5;
@@ -76,6 +76,35 @@ async function fetchStatsJson<T>(url: string, doFetch: FetchLike): Promise<T | n
 }
 
 /**
+ * The PR-count badge text for a Recent PRs row — `<row.prCount> PR`. Single
+ * definition shared by the visible `.badge` span and `recentPrRowAriaLabel`
+ * so the rendered badge and the announced tail can never diverge (CR-02).
+ */
+export function recentPrBadgeText(row: DashboardIndexRow): string {
+  return `${row.prCount} PR`;
+}
+
+/**
+ * Builds the accessible name for a Recent PRs row anchor: the curated D-04
+ * three-part base (`row.name`, the formatted local date, the one-decimal
+ * kilometre distance) with the PR-count badge folded on via the shared
+ * `composeRowAriaLabel` (CR-02, mirroring `list.ts`'s `activityRowAriaLabel`).
+ *
+ * This reverses plan 20-02's Task 3 step 3, which deliberately did NOT put
+ * the PR count in the label, citing D-04. That instruction predates CR-02's
+ * discovery that an `aria-label` on a whole-row anchor replaces every
+ * descendant string, including this row's badge — the PR count was
+ * announced nowhere. This is the D-04 curated shape EXTENDED by the badge
+ * text, not a reversion to raw descendant concatenation: the three-part
+ * base is unchanged, only the one PR-count string is appended.
+ */
+export function recentPrRowAriaLabel(row: DashboardIndexRow): string {
+  const distanceKm = (row.distanceM / 1000).toFixed(1);
+  const base = `${row.name}, ${formatActivityDate(row.startDateLocal)}, ${distanceKm} km`;
+  return composeRowAriaLabel(base, [recentPrBadgeText(row)]);
+}
+
+/**
  * A lighter-weight recent-PR row: name, local date, distance, and a
  * PR-count badge — not the full `renderActivityRow`.
  *
@@ -91,10 +120,7 @@ function renderRecentPrRow(row: DashboardIndexRow): HTMLElement {
   rowEl.className = 'activity-row';
   const distanceKm = (row.distanceM / 1000).toFixed(1);
   rowEl.href = activityDetailHref(row.id);
-  rowEl.setAttribute(
-    'aria-label',
-    `${row.name}, ${formatActivityDate(row.startDateLocal)}, ${distanceKm} km`
-  );
+  rowEl.setAttribute('aria-label', recentPrRowAriaLabel(row));
 
   const nameEl = document.createElement('div');
   nameEl.className = 'activity-row__name';
@@ -108,7 +134,7 @@ function renderRecentPrRow(row: DashboardIndexRow): HTMLElement {
 
   const badge = document.createElement('span');
   badge.className = 'badge';
-  badge.textContent = `${row.prCount} PR`;
+  badge.textContent = recentPrBadgeText(row);
   rowEl.appendChild(badge);
 
   return rowEl;
