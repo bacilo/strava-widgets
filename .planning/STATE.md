@@ -4,13 +4,13 @@ milestone: v2.1
 milestone_name: Interface Polish
 status: executing
 stopped_at: "Completed 20-05-PLAN.md (checkpoint recorded, status: partial)"
-last_updated: "2026-08-13T19:14:15.011Z"
-last_activity: 2026-08-13 -- Phase 20 execution started
+last_updated: "2026-08-13T20:50:26.940Z"
+last_activity: 2026-08-13 -- Phase 20 planning complete
 progress:
   total_phases: 7
   completed_phases: 1
-  total_plans: 25
-  completed_plans: 22
+  total_plans: 28
+  completed_plans: 25
   percent: 14
 ---
 
@@ -27,13 +27,13 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 
 Phase: 20 (row-click-interaction-pattern) — EXECUTING
 Plan: 1 of 8
-Status: Executing Phase 20
+Status: Ready to execute
         Blockers: CR-01 (mobile focus restoration dead, list.ts:963) and CR-02 (status badges
         dropped from accessible name, list.ts:241 + overview.ts:108-112).
         Criterion 4 checkpoint evidence insufficient (20-VALIDATION.md: partial,
         nyquist_compliant: false — blanket approval, no theme coverage stated).
         Next: /gsd-plan-phase 20 --gaps
-Last activity: 2026-08-13 -- Phase 20 execution started
+Last activity: 2026-08-13 -- Phase 20 planning complete
 
 Progress: [██████████] 100%
 
