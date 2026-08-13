@@ -204,10 +204,29 @@ function appendStatusBadges(container: HTMLElement, row: DashboardIndexRow): voi
  * written with `textContent` — an HTML-string assignment is never used —
  * per T-16-VW-01, the explicit deviation from `route-browser`'s known
  * unescaped-interpolation anti-pattern.
+ *
+ * This row is now a whole-row `<a>` (D-07): the entire row is the
+ * navigation affordance, not a bare `<div>` with a click handler bolted on.
+ * It is the single shared seam between Overview's Recent Activities card
+ * and the Activities mobile card view — one edit here changes both
+ * screens. The redundant "View Activity" CTA that used to live inside the
+ * row was removed under UX-02, since the row itself is now the affordance.
+ * The curated `aria-label` exists because a whole-row link otherwise
+ * announces every descendant string concatenated (name, date, distance,
+ * duration, pace, every status badge) — verbose and inconsistent with what
+ * the same activity announces elsewhere (D-04). `.activity-row` in
+ * `styles.css` declares `display: flex`, which is what keeps the row laid
+ * out now that the element is an inline-by-default anchor.
  */
 export function renderActivityRow(row: DashboardIndexRow): HTMLElement {
-  const rowEl = document.createElement('div');
+  const rowEl = document.createElement('a');
   rowEl.className = 'activity-row';
+  const distanceKm = (row.distanceM / 1000).toFixed(1);
+  rowEl.href = activityDetailHref(row.id);
+  rowEl.setAttribute(
+    'aria-label',
+    `${row.name}, ${formatActivityDate(row.startDateLocal)}, ${distanceKm} km`
+  );
 
   const nameEl = document.createElement('div');
   nameEl.className = 'activity-row__name';
@@ -216,17 +235,10 @@ export function renderActivityRow(row: DashboardIndexRow): HTMLElement {
 
   const metaEl = document.createElement('div');
   metaEl.className = 'activity-row__meta';
-  const distanceKm = (row.distanceM / 1000).toFixed(1);
   metaEl.textContent = `${formatActivityDate(row.startDateLocal)} · ${distanceKm} km · ${formatDurationHms(row.movingTimeSec)} · ${formatPace(row.paceSecPerKm)}`;
   rowEl.appendChild(metaEl);
 
   appendStatusBadges(rowEl, row);
-
-  const cta = document.createElement('a');
-  cta.className = 'cta';
-  cta.textContent = 'View Activity';
-  cta.href = `#/activity/${row.id}`;
-  rowEl.appendChild(cta);
 
   return rowEl;
 }
