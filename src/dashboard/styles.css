@@ -874,6 +874,7 @@ body {
   background: var(--surface);
   color: var(--text-secondary);
   border: none;
+  border-radius: 0;
   padding: var(--space-xs) var(--space-md);
   cursor: pointer;
 }
@@ -882,7 +883,31 @@ body {
    `overflow: hidden` clipping its square children — which also clipped the
    focus ring (D-09) on the active option. The container's own `border-radius`
    above still draws the outer border sliver; these two end-child rules
-   reproduce the previous rounded silhouette without clipping anything. */
+   reproduce the previous rounded silhouette without clipping anything.
+
+   CR-02 (19-REVIEW.md): that "without clipping anything" claim was true for
+   exactly two options. `button { border-radius: var(--radius-control) }`
+   (this file, § Phase 19 — Design System & Control Styling button baseline)
+   is specificity `0,0,1` and reaches every `.segmented__option`, which
+   declared no `border-radius` of its own and so never cancelled it — every
+   middle option in a 3+-option group got 4px on all four corners, while the
+   page background showed through a notch at every internal join (nothing
+   else clips them square once `overflow: hidden` was removed from
+   `.segmented`, see the note above). `.segmented__option`'s own
+   `border-radius: 0` above is `0,1,0`: it beats the `0,0,1` baseline and is
+   itself beaten by these two end-child rules at `0,1,1`, so end caps keep
+   their radii with no ordering dependency and the button baseline itself is
+   never touched. Three live 3+-option groups exist, all in
+   `src/dashboard/views/trends.ts`: the 5-option Trends tablist
+   (`trends.ts:1110`, 3 middle options — Year-over-Year, Cadence & HR,
+   Training Load), the 3-option volume-granularity group (`trends.ts:595`, 1
+   middle option — Monthly), and the 3-option training-load-window group
+   (`trends.ts:867`, 1 middle option — 12mo). The two-option Edwards/Banister
+   model group (`trends.ts:811`) and the detail view's two-option x-axis
+   toggle (`detail-charts.ts:258`) have no middle option and were never
+   affected. This shipped unobserved because the only segmented control any
+   19-05 checkpoint row had ever named was that two-option detail-view
+   toggle. */
 .segmented__option:first-child {
   border-radius: var(--radius-control) 0 0 var(--radius-control);
 }
@@ -1334,17 +1359,65 @@ button:where(:not(
    calendar cells) and `[aria-disabled="true"]` (used by calendar rest days,
    which stay informative rather than removed) are required — neither
    selector alone reaches every live disabled state. `opacity: 0.6` rather
-   than lower keeps the two informative-but-disabled cases (pagination
-   labels, calendar rest-day labels) legible. `cursor: default` matches the
-   existing `.calendar-day--rest` precedent rather than introducing
-   `not-allowed`. Placed at the end of the file, this rule's `color`
-   deliberately wins the same-specificity tiebreak against
-   `.pagination__button { color: var(--text) }` (a disabled pagination
-   button must read as muted) and matches `.calendar-day--rest`'s existing
-   `color: var(--text-secondary)` exactly, so nothing changes there. */
+   than lower keeps the informative-but-disabled calendar rest-day case
+   legible. `cursor: default` matches the existing `.calendar-day--rest`
+   precedent rather than introducing `not-allowed`. Placed at the end of the
+   file, this rule's `color` deliberately wins the same-specificity tiebreak
+   against `.pagination__button { color: var(--text) }` (a disabled
+   pagination button must read as muted) and matches `.calendar-day--rest`'s
+   existing `color: var(--text-secondary)` exactly, so nothing changes
+   there.
+
+   CORRECTED (CR-03, 19-REVIEW.md): this comment used to cite "pagination
+   labels" as a second informative-but-disabled case the 0.6 opacity keeps
+   legible. That was never true, confirmed by reading `list.ts`:
+   `.pagination__label` is a `<span>` (`list.ts:526-528`) that neither
+   `:disabled` nor `[aria-disabled="true"]` ever matches. The genuinely
+   disabled pagination controls are prev/next (`list.ts:491`, `list.ts:521`),
+   which use the real `disabled` property and are therefore never focusable
+   — a `<button disabled>` cannot receive focus, so they never interact with
+   the `:focus-visible` restoration below. */
 :disabled,
 [aria-disabled="true"] {
   color: var(--text-secondary);
   opacity: 0.6;
   cursor: default;
+}
+
+/* CR-03 (19-REVIEW.md): `opacity` applies to an element's entire rendered
+   output, including its own `box-shadow` — so the disabled rule above
+   composited the `:focus-visible` ring (styles.css, § Global focus ring) at
+   60% on any element that is BOTH focusable and disabled/aria-disabled.
+   `[aria-disabled="true"]` controls can still be focusable, and calendar
+   rest days deliberately are (`calendar.ts:118-131`): real `<button>`
+   elements with no `disabled` attribute, kept in the Tab order on purpose.
+   Recomputing the focus-ring comment's own W3C relative-luminance numbers
+   with the accent ring stop blended at 60% over the backdrop gives 2.19:1
+   light and 2.93:1 dark — both fail the 3:1 SC 1.4.11 non-text floor that
+   comment documents the unblended ring clearing at 3.40:1 / 6.02:1. Full
+   opacity restored under `:focus-visible` recovers those audited numbers.
+
+   This does not re-open D-07 while focused: `color: var(--text-secondary)`
+   and `cursor: default` both persist from the rule above (only `opacity` is
+   overridden here), and the shared hover rule (this file, § Phase 19 button
+   baseline) still lists both `:disabled` and `[aria-disabled="true"]` in its
+   `:where(:not(...))` exclusion regardless of focus state — so the control
+   keeps reading as disabled at rest and while focused; the only cue dropped
+   is the dimming, in the one state where the ring must be legible.
+
+   Rejected alternative: moving the dimming off the disabled element onto an
+   inner content wrapper instead of restoring `opacity`. The disabled rule
+   above is global and reaches elements with no inner wrapper (e.g. bare
+   `<button disabled>`), and a `> *` variant would not dim bare text nodes,
+   so this alternative cannot replace the element-level `opacity` uniformly.
+
+   `:disabled:focus-visible` is specificity `0,2,0`, mirroring D-07's dual
+   selector even though it is symmetric rather than live today — a `<button
+   disabled>` is not focusable, so only the `[aria-disabled="true"]:
+   focus-visible` arm actually fires (calendar rest days). Both are kept so
+   a future disabled-but-focusable case is covered without another edit
+   here. */
+:disabled:focus-visible,
+[aria-disabled="true"]:focus-visible {
+  opacity: 1;
 }

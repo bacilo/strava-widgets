@@ -498,6 +498,39 @@ describe('styles.css — Phase 19 disabled treatment', () => {
   it('[aria-disabled="true"] declares opacity: 0.6', () => {
     expect(selectorListDeclares('[aria-disabled="true"]', 'opacity: 0.6')).toBe(true);
   });
+
+  // CR-03 (19-REVIEW.md): `opacity` applies to an element's entire rendered
+  // output, including its own `box-shadow` — so the `:disabled,
+  // [aria-disabled="true"] { opacity: 0.6 }` rule above composites the
+  // `:focus-visible` ring at 60% on any element that is BOTH focusable and
+  // disabled/aria-disabled. Calendar rest days (`calendar.ts`) are exactly
+  // that: real, focusable `<button>` elements with no `disabled` attribute,
+  // carrying only `aria-disabled="true"`, kept in the Tab order on purpose.
+  // Recomputing the file's own W3C relative-luminance numbers with the
+  // accent ring stop blended at 60% over the backdrop gives 2.19:1 light and
+  // 2.93:1 dark — both fail the 3:1 SC 1.4.11 non-text floor the
+  // :focus-visible comment documents at 3.40:1 / 6.02:1. The invariant this
+  // test guards: a control that is both focusable and disabled must not
+  // composite its focus ring below that floor. Uses selectorListDeclares for
+  // presence (both `:disabled:focus-visible` and
+  // `[aria-disabled="true"]:focus-visible` must be in the same rule's
+  // selector list) and an anchored `;`-split fragment check for the values,
+  // so `opacity: 1` cannot be satisfied by a substring of some other
+  // declaration.
+  it('a control that is both focusable and aria-disabled restores full opacity under :focus-visible, not composited below the 3:1 ring floor (CR-03)', () => {
+    expect(selectorListDeclares(':disabled:focus-visible', 'opacity: 1')).toBe(true);
+    expect(selectorListDeclares('[aria-disabled="true"]:focus-visible', 'opacity: 1')).toBe(true);
+
+    const body = bodyForSelectorListToken(':disabled:focus-visible');
+    const fragments = body
+      .split(';')
+      .map((fragment) => fragment.trim())
+      .filter(Boolean);
+    expect(fragments).toEqual(['opacity: 1']);
+
+    // The at-rest dimming (D-07) must remain exactly as shipped.
+    expect(selectorListDeclares(':disabled', 'opacity: 0.6')).toBe(true);
+  });
 });
 
 describe('styles.css — Phase 19 focus ring', () => {
@@ -566,6 +599,30 @@ describe('styles.css — Phase 19 focus ring', () => {
         'border-radius: 0 var(--radius-control) var(--radius-control) 0',
       ),
     ).toBe(true);
+  });
+
+  // CR-02 (19-REVIEW.md): `.segmented__option` used to declare no
+  // `border-radius` of its own, so the bare `button { border-radius:
+  // var(--radius-control) }` baseline (0,0,1) reached every option
+  // uncancelled — middle options of any 3+-option group rendered as fully
+  // rounded pills instead of square-jointed segments, only the two
+  // end-child rules (0,1,1) re-rounding the outer corners. This test
+  // requires an exact, anchored `border-radius: 0` fragment — not a
+  // `.toContain('border-radius: 0')` substring check — because the two
+  // end-child rules' own values begin with the characters
+  // `border-radius: 0 var(...)`, so a substring check would pass against
+  // the wrong shape if the rules were ever merged. The second assertion
+  // proves the fix is a cancellation at the option, not a weakening of the
+  // baseline: a future "fix" that deletes the baseline's radius instead
+  // must fail this test too.
+  it('.segmented__option cancels the button baseline radius so middle options render square (CR-02)', () => {
+    const body = bodyForSelectorListToken('.segmented__option');
+    const fragments = body
+      .split(';')
+      .map((fragment) => fragment.trim())
+      .filter(Boolean);
+    expect(fragments).toContain('border-radius: 0');
+    expect(selectorListDeclares('button', 'border-radius: var(--radius-control)')).toBe(true);
   });
 
   // WR-01 (19-REVIEW.md): .segmented's own corner radius used to be a
