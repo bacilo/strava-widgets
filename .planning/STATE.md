@@ -25,9 +25,14 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 
 ## Current Position
 
-Phase: 20 (row-click-interaction-pattern) — EXECUTING
-Plan: 2 of 5
-Status: Ready to execute
+Phase: 20 (row-click-interaction-pattern) — GAPS FOUND
+Plan: 5 of 5 executed
+Status: Verification scored 2/4 must-haves — gap closure required before Phase 20 closes.
+        Blockers: CR-01 (mobile focus restoration dead, list.ts:963) and CR-02 (status badges
+        dropped from accessible name, list.ts:241 + overview.ts:108-112).
+        Criterion 4 checkpoint evidence insufficient (20-VALIDATION.md: partial,
+        nyquist_compliant: false — blanket approval, no theme coverage stated).
+        Next: /gsd-plan-phase 20 --gaps
 Last activity: 2026-08-13
 
 Progress: [██████████] 100%
