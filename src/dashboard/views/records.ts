@@ -43,6 +43,7 @@ import {
   appendBadge,
   appendLowConfidenceBadge,
 } from './list.js';
+import { attachRowNavigation, activityDetailHref } from '../row-navigation.js';
 
 const STATS_BASE_URL = 'data/stats/';
 const EXCLUSIONS_URL = 'data/best-effort-exclusions.json';
@@ -333,6 +334,17 @@ function buildPrTableEmptyState(): HTMLElement {
   return empty;
 }
 
+/**
+ * Renders one distance's PR table. Every row is a single navigable
+ * affordance (REC-08, UX-02): the Date cell carries the real anchor
+ * because `PrTableRow` has no activity-name field to anchor instead
+ * (D-05 explicitly defers joining one in — that is Phase 21-shaped work),
+ * and `attachRowNavigation` adds the row-level click/mouse path on top,
+ * guarded so the two never double-navigate (D-03). The `<tr>` itself
+ * deliberately carries no `tabindex` and no `role="link"` — the keyboard
+ * path is the Date-cell anchor alone (D-01). The former "View Activity"
+ * column is gone under UX-02: the row itself is now the affordance.
+ */
 function buildPrTable(distance: TargetDistanceKey, rows: readonly PrTableRow[]): HTMLElement {
   const table = document.createElement('table');
   table.className = 'activity-table pr-table';
@@ -345,7 +357,6 @@ function buildPrTable(distance: TargetDistanceKey, rows: readonly PrTableRow[]):
     { label: 'Pace', numeric: true },
     { label: 'Age-Grade', numeric: true },
     { label: 'Date', numeric: false },
-    { label: 'Activity', numeric: false },
     { label: 'Flags', numeric: false },
   ];
   for (const header of headers) {
@@ -383,16 +394,18 @@ function buildPrTable(distance: TargetDistanceKey, rows: readonly PrTableRow[]):
     tr.appendChild(ageTd);
 
     const dateTd = document.createElement('td');
-    dateTd.textContent = formatActivityDate(row.startDate);
+    const dateAnchor = document.createElement('a');
+    dateAnchor.href = activityDetailHref(row.activityId);
+    dateAnchor.textContent = formatActivityDate(row.startDate);
+    // Curated label built only from fields PrTableRow carries (D-04):
+    // PrTableRow has no activity name (D-05 defers joining one in), so
+    // this deliberately differs from list.ts's name-first template.
+    dateAnchor.setAttribute(
+      'aria-label',
+      `${formatActivityDate(row.startDate)}, ${DISTANCE_LABELS[distance]}, ${formatEffortDuration(row.durationSec)}`
+    );
+    dateTd.appendChild(dateAnchor);
     tr.appendChild(dateTd);
-
-    const activityTd = document.createElement('td');
-    const cta = document.createElement('a');
-    cta.className = 'cta';
-    cta.textContent = 'View Activity';
-    cta.href = `#/activity/${row.activityId}`;
-    activityTd.appendChild(cta);
-    tr.appendChild(activityTd);
 
     const flagsTd = document.createElement('td');
     if (row.lowConfidence) {
@@ -403,6 +416,7 @@ function buildPrTable(distance: TargetDistanceKey, rows: readonly PrTableRow[]):
     }
     tr.appendChild(flagsTd);
 
+    attachRowNavigation(tr, row.activityId);
     tbody.appendChild(tr);
   }
   table.appendChild(tbody);
@@ -469,13 +483,21 @@ function buildPrTablesSection(
 // PR evolution grid (18-UI-SPEC § 3)
 // ---------------------------------------------------------------------------
 
-function buildProgressionTable(series: readonly EvolutionPoint[]): HTMLElement {
+/**
+ * Renders one distance's PR-progression table. Takes `distance` only to
+ * build the D-04 curated label (identical three-part shape to the PR
+ * table's, so a progression row and a PR row for the same activity
+ * announce the same way). The Date cell carries the anchor because
+ * `ProgressionRow` has no activity-name field (D-05); the row-level click
+ * comes from the shared `attachRowNavigation` helper (D-03).
+ */
+function buildProgressionTable(distance: TargetDistanceKey, series: readonly EvolutionPoint[]): HTMLElement {
   const table = document.createElement('table');
   table.className = 'activity-table pr-table';
 
   const thead = document.createElement('thead');
   const headRow = document.createElement('tr');
-  for (const label of ['Date', 'Time', 'Improvement', 'Run']) {
+  for (const label of ['Date', 'Time', 'Improvement']) {
     const th = document.createElement('th');
     th.textContent = label;
     headRow.appendChild(th);
@@ -488,7 +510,14 @@ function buildProgressionTable(series: readonly EvolutionPoint[]): HTMLElement {
     const tr = document.createElement('tr');
 
     const dateTd = document.createElement('td');
-    dateTd.textContent = formatActivityDate(row.startDate);
+    const dateAnchor = document.createElement('a');
+    dateAnchor.href = activityDetailHref(row.activityId);
+    dateAnchor.textContent = formatActivityDate(row.startDate);
+    dateAnchor.setAttribute(
+      'aria-label',
+      `${formatActivityDate(row.startDate)}, ${DISTANCE_LABELS[distance]}, ${formatEffortDuration(row.durationSec)}`
+    );
+    dateTd.appendChild(dateAnchor);
     tr.appendChild(dateTd);
 
     const timeTd = document.createElement('td');
@@ -500,14 +529,7 @@ function buildProgressionTable(series: readonly EvolutionPoint[]): HTMLElement {
       row.improvementSec === null ? '—' : `−${formatEffortDuration(Math.abs(row.improvementSec))}`;
     tr.appendChild(improvementTd);
 
-    const runTd = document.createElement('td');
-    const cta = document.createElement('a');
-    cta.className = 'cta';
-    cta.textContent = 'View Activity';
-    cta.href = `#/activity/${row.activityId}`;
-    runTd.appendChild(cta);
-    tr.appendChild(runTd);
-
+    attachRowNavigation(tr, row.activityId);
     tbody.appendChild(tr);
   }
   table.appendChild(tbody);
@@ -561,7 +583,7 @@ function buildEvolutionCard(
   const summaryEl = document.createElement('summary');
   summaryEl.textContent = `Show progression (${series.length} steps)`;
   details.appendChild(summaryEl);
-  details.appendChild(buildProgressionTable(series));
+  details.appendChild(buildProgressionTable(distance, series));
   card.appendChild(details);
 
   return { card, canvas };
