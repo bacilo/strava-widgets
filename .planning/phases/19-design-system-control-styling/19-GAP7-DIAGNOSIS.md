@@ -309,10 +309,60 @@ records that run as **Probe G** — the letter advances because it is an indepen
 because the snippet differs. Round 3 used A through D and plan 19-13 used E1 and E2, so the
 sequence stays monotone and no letter is reused.
 
-**`#/list` — Probe F output:**
+**`#/list` — Probe F output (2026-08-13):**
 
-_(awaiting human paste)_
+Session run in Chrome against the staged production-shaped build at
+`http://localhost:8099/strava-widgets/`, hard-refreshed so the new stylesheet was in play.
+Before the run, the orchestrator independently confirmed the served bundle
+`assets/index-OOJ4Ed94.css` contains `#app-nav-root{position:sticky;top:0;z-index:20}` — the
+observation below was made against the fixed CSS, not a stale build.
 
-**`#/records` — Probe F output:**
+```
+{"route":"#/list","sy":600,"rootTop":0,"navTop":0,"rootPos":"sticky","navPos":"static"}
+```
 
-_(awaiting human paste)_
+`sy: 600` clears the 400 floor — not a failed capture. `rootTop` and `navTop` both read `0`
+(within the `<= 1` pass condition) after a 600px scroll. `rootPos: "sticky"` with
+`navPos: "static"` confirms the sticky rung actually lives on `#app-nav-root` alone, with no
+duplicate declaration on `.app-nav` — the exact shape H1's fix prescribes.
+
+Developer's verbatim qualitative observation: "Stay put. It slides away 'slightly' then
+bounces back when reaching the beginning/end. As if 'hitting a wall'. I think this is normal
+behavior but just pointing it out."
+
+**Assessment (spec-derived reasoning, not a probe measurement):** the "slides away slightly
+then bounces back" motion at the scroll extremes is macOS rubber-band overscroll — scrolling
+past the document's top or bottom edge drags the document itself beyond its bounds, and
+everything painted in it, sticky elements included, travels with it until the platform snaps
+it back. This is standard platform behavior triggered at the scroll boundary, not a
+regression introduced by this fix, and not something a CSS-only fix could prevent short of
+`overscroll-behavior`, which is out of this plan's scope. Recorded here as an observed
+non-defect so a later round does not relitigate it. No gap is opened for it and nothing is
+patched for it in this plan.
+
+**`#/records` — Probe F output (2026-08-13):**
+
+Same staged build, same hard-refreshed session, immediately following the `#/list` run above.
+
+```
+{"route":"#/records","sy":600,"rootTop":0,"navTop":0,"rootPos":"sticky","navPos":"static"}
+```
+
+`sy: 600` clears the 400 floor — not a failed capture. `rootTop` and `navTop` both read `0`
+after a 600px scroll, and `rootPos`/`navPos` again show the sticky rung on `#app-nav-root`
+only.
+
+Developer's verbatim qualitative observation, regarding the jump bar: "Much nicer now with
+the jump bar! It sits just below the navbar (when the navbar hits it on the way down)."
+
+This is the rendered confirmation — not a code reading — that `updateJumpOffset`'s
+live-height coupling to `.app-nav` still resolves after the fix: the jump bar is observed
+abutting the nav correctly during scroll on the actual served page, which is the must_have
+this plan's diagnosis section (`records.ts`'s `updateJumpOffset` implication, above) predicted
+rather than merely asserted.
+
+**Both routes pass the numeric condition stated above.** Plan 19-14's Task 3 checkpoint is
+satisfied; the fix is confirmed against the rendered page rather than the stylesheet alone.
+Plan 19-17 re-runs this same snippet as Probe G against both themes as its own gate-quality
+row; UI-02 remains open until that re-verification completes — it is not marked complete by
+this plan.
