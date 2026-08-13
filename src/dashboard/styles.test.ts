@@ -666,8 +666,11 @@ describe('styles.css — Phase 19 focus ring', () => {
   // `bodyForSelectorListToken(':focus-visible')` is used for the ring
   // (not `declarationsFor`) for the reason stated above: its regex is not
   // selector-boundary-anchored and would match `.cta:focus-visible`.
-  it('the sticky-layer ladder (.app-nav > .records-jump > .splits-table__km > :focus-visible) holds numerically and in order', () => {
-    const appNavZIndex = extractNumericDeclaration(bodyForSelectorListToken('.app-nav'), 'z-index');
+  it('the sticky-layer ladder (#app-nav-root > .records-jump > .splits-table__km > :focus-visible) holds numerically and in order', () => {
+    const appNavZIndex = extractNumericDeclaration(
+      bodyForSelectorListToken('#app-nav-root'),
+      'z-index',
+    );
     const recordsJumpZIndex = extractNumericDeclaration(declarationsFor('.records-jump'), 'z-index');
     const splitsKmZIndex = extractNumericDeclaration(
       bodyForSelectorListToken('.splits-table__km'),
@@ -686,6 +689,34 @@ describe('styles.css — Phase 19 focus ring', () => {
     expect(appNavZIndex).toBeGreaterThan(recordsJumpZIndex);
     expect(recordsJumpZIndex).toBeGreaterThan(splitsKmZIndex);
     expect(splitsKmZIndex).toBeGreaterThan(focusRingZIndex);
+
+    // R3-WR-01 (19-REVIEW-round3.md): the ladder assertions above pinned
+    // only z-index numbers, which stayed green under an executed mutation
+    // that deleted `position: sticky` from every sticky rung — proving a
+    // z-index-only ladder is a repudiation-prone guard, since the whole
+    // CR-01 fix could go inert while this test kept passing. GAP 7
+    // (19-13-PLAN.md / 19-GAP7-DIAGNOSIS.md, confirmed root cause H1,
+    // 2026-08-13) showed concretely why the positioning precondition
+    // matters: `.app-nav` was `position: sticky` inside a containing block
+    // (`#app-nav-root`) sized exactly to its own height, giving it zero
+    // travel distance, so it left the viewport in lock-step with its parent
+    // despite `position: sticky` being present in the rule the whole time.
+    // The fix moved the sticky declaration to `#app-nav-root` itself, whose
+    // containing block (BODY) has real travel room. These assertions pin
+    // that positioning precondition directly rather than only the numbers
+    // layered on top of it.
+    expect(bodyForSelectorListToken('#app-nav-root')).toContain('position: sticky');
+    expect(declarationsFor('.records-jump')).toContain('position: sticky');
+    expect(bodyForSelectorListToken('.splits-table__km')).toContain('position: sticky');
+    expect(selectorListDeclares(':focus-visible', 'position: relative')).toBe(true);
+
+    // GAP 7 / H1 invariant, dated 2026-08-13: `.app-nav` itself must NOT
+    // declare `position: sticky`. A sticky element nested inside a
+    // zero-travel sticky parent is the exact shape GAP 7's confirmed root
+    // cause diagnosed, and reintroducing a second, nested sticky
+    // declaration on `.app-nav` — even alongside the correct
+    // `#app-nav-root` declaration — would silently restore that defect.
+    expect(declarationsFor('.app-nav')).not.toContain('position: sticky');
   });
 });
 

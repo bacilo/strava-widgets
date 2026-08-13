@@ -161,7 +161,7 @@ body {
    totally-ordered statement of that order — no rung's position is left to
    tree order or CSS 2.1 Appendix E happening to resolve favourably.
 
-     4 (top)  .app-nav              z-index: 20  (this rule)
+     4 (top)  #app-nav-root         z-index: 20  (this rule)
      3        .records-jump         z-index: 10  (styles.css, § Records sticky jump list)
      2        .splits-table__km     z-index: 2   (styles.css, § Splits table)
      1 (bottom) :focus-visible      z-index: 1   (styles.css, § Global focus ring)
@@ -191,6 +191,12 @@ body {
 
    Gaps of 8-10x are deliberate, leaving room for a future layer between any
    two rungs without renumbering the rest. */
+#app-nav-root {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
 .app-nav {
   display: flex;
   flex-direction: row;
@@ -198,9 +204,6 @@ body {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   padding: var(--space-md);
-  position: sticky;
-  top: 0;
-  z-index: 20;
 }
 
 .app-nav__links {
