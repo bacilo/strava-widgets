@@ -10,6 +10,8 @@ Compute and visualize running statistics that Strava doesn't readily offer, embe
 
 ## Current State
 
+**In progress: v2.1 Interface Polish** — Phase 19 (design system & control styling) complete 2026-08-13, 17 plans across four gap-closure rounds. Form controls, buttons and focus rings now share one treatment across all five screens; the sticky nav defect that blocked sign-off for three rounds was diagnosed empirically and fixed. Phases 20-25 remain.
+
 **Shipped: v2.0 Training Dashboard** (2026-08-12) — phases 14-18, 56 plans.
 
 A full analytics dashboard lives at https://bacilo.github.io/strava-widgets/ as a static SPA over pre-computed JSON: hash routing across six views, committed per-activity streams for the whole archive, a self-computed best-effort engine, an activity browser with per-run pace/HR/cadence detail and route maps, and a Records + Trends layer covering PR tables and evolution, Riegel race predictions, WMA age-grading, volume/consistency/year-over-year, cadence & HR, CTL/ATL/TSB training load, and per-shoe gear analysis.
@@ -82,9 +84,11 @@ Milestone audit: `tech_debt` — 29/29 requirements satisfied, 0 blockers, 41/43
 - ✓ Activity browser and detail views — filter/sort the archive, per-run pace/HR/cadence charts, route maps, splits and zones (BROWSE-01..06, DETAIL-01..05) — v2.0
 - ✓ Records, trends & differentiators — PR tables with honesty badges, PR-evolution charts, Riegel race predictions, WMA age-grading, volume/consistency/year-over-year, cadence & HR, CTL/ATL/TSB training load, per-shoe gear analysis (REC-02..07, TREND-01..05) — v2.0
 
+- ✓ Design system & control styling — shared box treatment for every input/select/textarea, one button baseline with shared hover and disabled states, a two-tone focus ring visible on any fill, and one card/panel/grid rhythm across all five screens (UI-01, UI-02, UI-03, ACT-01) — v2.1, Phase 19
+
 ### Active
 
-No active milestone. Run `/gsd-new-milestone` to scope the next version.
+**v2.1 Interface Polish** — Phase 19 complete; phases 20-25 remain (row-click interaction, Overview rebuild, calendar week start, Trends zoom/pan, local curation mode, CI hardening).
 
 - STREAM-04 (Garmin export adapter) deferred out of v2.0 — blocked on the export arriving.
 
@@ -174,4 +178,6 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-12 — v2.0 Training Dashboard shipped and archived (phases 14-18, 56 plans, 29/29 requirements). Milestone audit returned `tech_debt`: no blockers, but Phase 16's three theme/first-paint UAT items remain genuinely unverified and two integration warnings (CI-vs-compute-all-stats ordering divergence; incomplete publish-verifier reachability coverage) are carried forward. See .planning/v2.0-MILESTONE-AUDIT.md and STATE.md Deferred Items.*
+*Last updated: 2026-08-13 — Phase 19 (design system & control styling) complete: 17 plans, four gap-closure rounds, UI-01/UI-02/UI-03/ACT-01 all verified on rendered browser evidence. One open decision carried forward: GAP 8 (Leaflet map panes paint over the nav; the sticky-layer ladder comment's totality claim is incomplete) — recorded, unpatched, disposition deferred to the user. Three latent test-helper warnings from `19-REVIEW-round4.md` are advisory and unreachable by existing tests.*
+
+*Previously: 2026-08-12 — v2.0 Training Dashboard shipped and archived (phases 14-18, 56 plans, 29/29 requirements). Milestone audit returned `tech_debt`: no blockers, but Phase 16's three theme/first-paint UAT items remain genuinely unverified and two integration warnings (CI-vs-compute-all-stats ordering divergence; incomplete publish-verifier reachability coverage) are carried forward. See .planning/v2.0-MILESTONE-AUDIT.md and STATE.md Deferred Items.*
