@@ -156,6 +156,41 @@ body {
 
 /* Navigation */
 
+/* Sticky-layer ladder (CR-01, 19-REVIEW.md). Four sticky/promoted rules in
+   this file compete for paint order; this comment is the single, written,
+   totally-ordered statement of that order — no rung's position is left to
+   tree order or CSS 2.1 Appendix E happening to resolve favourably.
+
+     4 (top)  .app-nav              z-index: 20  (this rule)
+     3        .records-jump         z-index: 10  (styles.css, § Records sticky jump list)
+     2        .splits-table__km     z-index: 2   (styles.css, § Splits table)
+     1 (bottom) :focus-visible      z-index: 1   (styles.css, § Global focus ring)
+
+   .app-nav is `position: sticky; top: 0` with opaque `background:
+   var(--surface)`, and every route scrolls its content underneath it. A
+   sticky element with `z-index: auto` paints in CSS 2.1 Appendix E step 8;
+   `:focus-visible`'s promoted stacking context (added by plan 19-07 to fix
+   GAP 2, see that rule's own comment below) paints in step 9 — so with no
+   `z-index` here, a focused control scrolled under the nav painted OVER the
+   opaque global chrome on every route. That is CR-01, a regression
+   introduced by 19-07's own fix: it was audited against `.records-jump`
+   only, never against `.app-nav`. `z-index: 20` fixes it by giving the nav
+   an explicit layer above `:focus-visible`'s `z-index: 1` — a layer added
+   ABOVE the ring, not a demotion of the ring itself; `:focus-visible`'s
+   `position: relative; z-index: 1` is unchanged by this plan.
+
+   `.records-jump` sits below the nav at `10`: its `top` is computed at
+   runtime from the live `.app-nav` height (see that rule's own comment), so
+   the jump bar abuts the nav rather than overlapping it in normal layout —
+   nav-over-jump-bar is the correct, intended outcome in the rare case a
+   resize transiently overlaps them.
+
+   `.splits-table__km` moved from `1` to `2` (see that rule's own comment)
+   to break what was otherwise an equal-value tie with `:focus-visible`,
+   which tree order — not design — would have resolved.
+
+   Gaps of 8-10x are deliberate, leaving room for a future layer between any
+   two rungs without renumbering the rest. */
 .app-nav {
   display: flex;
   flex-direction: row;
@@ -165,6 +200,7 @@ body {
   padding: var(--space-md);
   position: sticky;
   top: 0;
+  z-index: 20;
 }
 
 .app-nav__links {
@@ -882,12 +918,21 @@ body {
   white-space: nowrap;
 }
 
+/* z-index: 2, not 1 — CR-01 sticky-layer ladder (see .app-nav's comment
+   above). Breaks what was otherwise an equal-value tie with
+   `:focus-visible`'s `z-index: 1`, which `.splits-scroll` (no `position`,
+   no stacking context of its own) would have let resolve by tree order. No
+   focusable element lives inside `.splits-scroll` today (confirmed by
+   reading detail-sections.ts's `buildSplitsSection`: only `<th>`/`<td>` text
+   cells and `.pace-bar` divs), so this has no rendered effect yet — it
+   exists so a focusable cell added later cannot silently paint over the
+   sticky km column. */
 .splits-table__km {
   position: sticky;
   left: 0;
   width: 64px;
   background: var(--surface);
-  z-index: 1;
+  z-index: 2;
 }
 
 .splits-table__partial {

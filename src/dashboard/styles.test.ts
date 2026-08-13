@@ -514,21 +514,41 @@ describe('styles.css — Phase 19 focus ring', () => {
     expect(selectorListDeclares(':focus-visible', 'z-index: 1')).toBe(true);
   });
 
-  // The sticky-layer ordering invariant (T-19G-A11Y-06): `.records-jump`
-  // must keep painting above a focused control elsewhere on the page.
-  // Parsed and compared as numbers, not literal strings, so this assertion
-  // still means something if either z-index is ever retuned — a string
-  // comparison of '10' vs '1' would pass by coincidence today but say
-  // nothing about which value is actually larger.
-  it('.records-jump paints above a focused control (strictly greater z-index, compared numerically)', () => {
+  // The sticky-layer ordering invariant (CR-01, 19-REVIEW.md), extended from
+  // the two-rung .records-jump-vs-ring check plan 19-07 added. That check
+  // audited only downward and upward against `.records-jump`; it never
+  // looked at `.app-nav`, which is `position: sticky` with no `z-index` at
+  // all — a sticky element with `z-index: auto` paints in CSS 2.1 Appendix E
+  // step 8, and the promoted ring paints in step 9, so a focused control
+  // scrolled under the header painted OVER the opaque global nav on every
+  // route. This assertion reads all four rungs of the ladder and asserts
+  // they are strictly descending, in exactly this order, as parsed numbers
+  // — not literal strings, so the comparison still means something if any
+  // value is retuned — and pins the four exact expected values so a silent
+  // renumbering that preserves order is still visible in the diff.
+  // `bodyForSelectorListToken(':focus-visible')` is used for the ring
+  // (not `declarationsFor`) for the reason stated above: its regex is not
+  // selector-boundary-anchored and would match `.cta:focus-visible`.
+  it('the sticky-layer ladder (.app-nav > .records-jump > .splits-table__km > :focus-visible) holds numerically and in order', () => {
+    const appNavZIndex = extractNumericDeclaration(bodyForSelectorListToken('.app-nav'), 'z-index');
+    const recordsJumpZIndex = extractNumericDeclaration(declarationsFor('.records-jump'), 'z-index');
+    const splitsKmZIndex = extractNumericDeclaration(
+      bodyForSelectorListToken('.splits-table__km'),
+      'z-index',
+    );
     const focusRingZIndex = extractNumericDeclaration(
       bodyForSelectorListToken(':focus-visible'),
       'z-index',
     );
-    const recordsJumpZIndex = extractNumericDeclaration(declarationsFor('.records-jump'), 'z-index');
-    expect(focusRingZIndex).toBe(1);
+
+    expect(appNavZIndex).toBe(20);
     expect(recordsJumpZIndex).toBe(10);
-    expect(recordsJumpZIndex).toBeGreaterThan(focusRingZIndex);
+    expect(splitsKmZIndex).toBe(2);
+    expect(focusRingZIndex).toBe(1);
+
+    expect(appNavZIndex).toBeGreaterThan(recordsJumpZIndex);
+    expect(recordsJumpZIndex).toBeGreaterThan(splitsKmZIndex);
+    expect(splitsKmZIndex).toBeGreaterThan(focusRingZIndex);
   });
 });
 
