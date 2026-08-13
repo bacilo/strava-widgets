@@ -121,3 +121,11 @@ None - no external service configuration required.
 ---
 *Phase: 19-design-system-control-styling*
 *Completed: 2026-08-13*
+
+## Self-Check: PASSED
+
+- FOUND: `.planning/phases/19-design-system-control-styling/19-14-SUMMARY.md`
+- FOUND: commit `4a5bc27` (Task 1)
+- FOUND: commit `817f7bd` (Task 2)
+- FOUND: commit `a20250c` (Task 3)
+- FOUND: commit `f24e89e` (SUMMARY)
