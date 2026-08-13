@@ -17,9 +17,9 @@ Each maps to roadmap phases.
 
 ### Interaction Consistency
 
-- [ ] **UX-01**: Any row representing an activity is clickable through to that activity, on every screen. `overview.ts` currently has zero click handlers; `list.ts` already has the pattern to propagate.
-- [ ] **UX-02**: Redundant "view activity" call-to-action controls are removed where the row itself is the affordance (`list.ts:224`, Records)
-- [ ] **UX-03**: Row-level navigation is keyboard-accessible and announced correctly, not a click handler on a bare `<div>`
+- [ ] **UX-01**: Any row representing an activity is clickable through to that activity, on every screen. `overview.ts` currently has zero click handlers; `list.ts` already has the pattern to propagate. **Round 2 gap-closure 2026-08-13 — still open**: plan 20-08's Round 2 checkpoint (`20-VALIDATION.md`) recorded genuine, individually-described evidence for two of this requirement's eight mapped rows — R5 PASS (Records six-column header read back verbatim) and R13 PASS (CR-01's focus-restoration fix, plan 20-06, confirmed on rendered evidence via keyboard-back, with a false-alarm history from a mouse-Back procedure trap recorded alongside it). The other six mapped rows (R1, R2, R3, R11, R12, R14) carry no individual observation this round — only a blanket "all pass" / "1. Yes 3. yes 6. confirm" / "all good" — so per the plan's gating rule (every mapped row must pass) this requirement stays open pending those six rows' individual re-verification.
+- [ ] **UX-02**: Redundant "view activity" call-to-action controls are removed where the row itself is the affordance (`list.ts:224`, Records). **Round 2 gap-closure 2026-08-13 — still open**: plan 20-08's Round 2 checkpoint recorded genuine, individually-described evidence for two of this requirement's four mapped rows — R5 PASS and R6 PASS (the Records six-column and three-column table headers each read back verbatim). R2 and R4 carry no individual observation this round (blanket approval only), so per the plan's gating rule this requirement stays open pending those two rows.
+- [ ] **UX-03**: Row-level navigation is keyboard-accessible and announced correctly, not a click handler on a bare `<div>`. **Round 2 gap-closure 2026-08-13 — still open**: plan 20-08's Round 2 checkpoint recorded genuine evidence for one of this requirement's eleven mapped rows — R10 PASS on substance (the developer's word for the full-width focus ring was "fine", no clipping/overlap/nav-occlusion reported), though no theme was named, leaving an open coverage gap even on this row. The remaining ten mapped rows (R1, R2, R3, R4, R7, R8, R9, R15, R16, R17) carry no individual observation this round. R15/R16/R17 specifically exist to observe CR-02 (plan 20-07, status-badge text in the accessible name) in a real screen reader; CR-02's failure mode was the badge text being *silently dropped*, so an undescribed "yes" is indistinguishable from the defect still being present. CR-02 therefore remains unobserved in a real screen reader, and this requirement stays open.
 
 ### Overview
 
@@ -43,7 +43,7 @@ Each maps to roadmap phases.
 
 ### Records & Activities
 
-- [ ] **REC-08**: Records rows navigate on row click rather than via a large button
+- [x] **REC-08**: Records rows navigate on row click rather than via a large button. **Closed 2026-08-13 (plan 20-08, Round 2)**: plan 20-08's Round 2 checkpoint recorded genuine, individually-described evidence for both of this requirement's mapped rows — R5 PASS (the developer read back the PR table header verbatim: "Rank  Time  Pace  Age-Grade  Date  Flags", six columns, matching exactly) and R6 PASS (the PR-progression header read back verbatim: "Date  Time  Improvement", three columns, matching exactly). Neither row is theme-sensitive. See `20-VALIDATION.md` Round 2.
 - [x] **ACT-01**: Activities screen controls adopt the shared styling; the screen's existing interaction model (row click) is preserved as the reference pattern. **Round 3 confirmed-unregressed 2026-08-13**: row 19 sub-check (d) — an Activities row click still navigates to the detail view, per the developer's "all look good and unchanged". See `19-VALIDATION.md` row 19. **Round 4 confirmed-unregressed 2026-08-13**: row 24 sub-check (d) — an Activities row click still navigates to the detail view, per the developer's verbatim "d. pass" against this specific sub-check. See `19-VALIDATION.md` row 24.
 
 ### Carried Forward from v2.0
@@ -79,7 +79,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UX-01 | Phase 20 | Pending |
 | UX-02 | Phase 20 | Pending |
 | UX-03 | Phase 20 | Pending |
-| REC-08 | Phase 20 | Pending |
+| REC-08 | Phase 20 | Complete (Round 2, 2026-08-13 — R5/R6 individually evidenced) |
 | OVR-01 | Phase 21 | Pending |
 | OVR-02 | Phase 21 | Pending |
 | OVR-03 | Phase 21 | Pending |
