@@ -147,3 +147,11 @@ Phase 19's gate is closed: `nyquist_compliant: true`, all four requirements (UI-
 ---
 *Phase: 19-design-system-control-styling*
 *Completed: 2026-08-13*
+
+## Self-Check: PASSED
+
+- FOUND: `.planning/phases/19-design-system-control-styling/19-17-SUMMARY.md`
+- FOUND: `781b3e5` (Task 1, prior session)
+- FOUND: `9bb6cd7` (Task 2)
+- FOUND: `2dbb4f8` (Task 3)
+- FOUND: `c95ea16` (this SUMMARY's own commit)
