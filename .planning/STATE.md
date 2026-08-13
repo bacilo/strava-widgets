@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
 status: executing
-stopped_at: 19-09 approved — phase 19 gate closed, nyquist_compliant true
-last_updated: "2026-08-13T03:44:22.906Z"
+stopped_at: 19 reopened — 19-VERIFICATION.md gaps_found (3/4), UI-02 failed on CR-01/CR-02/CR-03
+last_updated: "2026-08-13T06:20:00.000Z"
 last_activity: 2026-08-13
 progress:
   total_phases: 7
-  completed_phases: 1
+  completed_phases: 0
   total_plans: 9
   completed_plans: 9
-  percent: 14
+  percent: 0
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 20 — row-click-interaction-pattern (next; Phase 19 complete)
+**Current focus:** Phase 19 — design-system-control-styling (REOPENED; UI-02 gap closure needed before Phase 20)
 
 ## Current Position
 
-Phase: 19 (design-system-control-styling) — COMPLETE (9/9 plans, `nyquist_compliant: true`)
-Plan: 9 of 9
-Status: Phase complete — Phase 20 not yet started
+Phase: 19 (design-system-control-styling) — GAPS FOUND (9/9 plans executed, 3/4 must-haves verified)
+Plan: 9 of 9 executed
+Status: Reopened 2026-08-13 — `19-VERIFICATION.md` re-verified at 3/4 after the post-checkpoint code review. UI-01, UI-03 and ACT-01 confirmed complete; UI-02 failed on three defects the 19-09 browser checkpoint never exercised (CR-01 focus ring over the sticky `.app-nav`; CR-02 middle `.segmented__option` radius in the three 3+-option Trends groups; CR-03 `opacity: 0.6` dimming the ring below the 3:1 floor on focusable `aria-disabled` calendar rest days). The 19-09 human sign-off stands as accurate for what it covered — see `19-VALIDATION.md`. Next: `/gsd-plan-phase 19 --gaps`.
 Last activity: 2026-08-13
 
-Progress: [██████████] 100%
+Progress: [█████████░] 9/9 plans executed, phase gate open
 
 ## Performance Metrics
 
