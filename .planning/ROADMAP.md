@@ -142,7 +142,7 @@ Plans:
 
 **Wave 13** *(gap closure round 3 — blocked on Wave 12 completion)*
 
-- [ ] 19-13-PLAN.md — diagnose GAP 7 empirically: five candidate root causes, a field-level discrimination matrix, two rendered DOM probes, one confirmed cause or an INCONCLUSIVE stop (no fix written)
+- [x] 19-13-PLAN.md — diagnose GAP 7 empirically: five candidate root causes, a field-level discrimination matrix, two rendered DOM probes, one confirmed cause or an INCONCLUSIVE stop (no fix written)
 
 **Wave 14** *(gap closure round 3 — blocked on Wave 13 completion)*
 
@@ -283,7 +283,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 16. Dashboard Shell & Data Contract | v2.0 | 16/16 | Complete    | 2026-08-11 |
 | 17. Activity Browser & Detail Views | v2.0 | 15/15 | Complete    | 2026-08-11 |
 | 18. Records, Trends & Differentiators | v2.0 | 16/16 | Complete    | 2026-08-12 |
-| 19. Design System & Control Styling | v2.1 | 12/12 | Gaps Found (Round 3, row 18 open) |  |
+| 19. Design System & Control Styling | v2.1 | 13/17 | In Progress|  |
 | 20. Row-Click Interaction Pattern | v2.1 | 0/TBD | Not started | - |
 | 21. Overview Rebuild | v2.1 | 0/TBD | Not started | - |
 | 22. Calendar Week-Start & Totals | v2.1 | 0/TBD | Not started | - |

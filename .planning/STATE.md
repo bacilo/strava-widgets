@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
-status: executing
+status: completed
 stopped_at: 19-12 Round 3 PARTIAL — UI-02 still open (row 18 / GAP 7), phase 19 gate not closed, /gsd-plan-phase 19 --gaps required
-last_updated: "2026-08-13T10:11:10.294Z"
-last_activity: 2026-08-13 -- Phase 19 planning complete
+last_updated: "2026-08-13T11:07:16.388Z"
+last_activity: "2026-08-13 -- Completed 19-13-PLAN.md (GAP 7 diagnosis: H1 confirmed)"
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 17
-  completed_plans: 12
+  completed_plans: 13
   percent: 0
 ---
 
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 
 ## Current Position
 
-Phase: 19 (design-system-control-styling) — GAP CLOSURE (gate not closed)
-Plan: 12 of 12
-Status: Ready to execute
-Last activity: 2026-08-13 -- Phase 19 planning complete
+Phase: 19 (design-system-control-styling) — EXECUTING
+Plan: 14 of 17
+Status: Ready to execute (19-13 complete; 19-14 applies the H1 fix)
+Last activity: 2026-08-13 -- Completed 19-13-PLAN.md (GAP 7 diagnosis: H1 confirmed)
 
-Progress: [██████████] 100% (12/12 plans have summaries; phase gate still open)
+Progress: [████████░░] 76%
 
 ## Performance Metrics
 
@@ -48,6 +48,7 @@ Progress: [██████████] 100% (12/12 plans have summaries; pha
 | Phase 19 P05 | 35min | 3 tasks | 1 files |
 | Phase 19 P09 | 25min | 3 tasks | 2 files |
 | Phase 19 P12 | ~10min agent time + held checkpoint | 3 tasks | 2 files |
+| Phase 19 P13 | 30min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -68,6 +69,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 19]: 19-05 human checkpoint recorded as PARTIAL, not approved: 8 of 13 Manual-Only Verifications rows confirmed clean (rows 2, 4-hover-half, 5, 7, 8, 9, 10, 11, 13); rows 1, 3, 12 (UI-01/UI-02) surfaced a shipped defect — a stray `*/` inside a CSS comment at styles.css lines 54-56 silently discards the --radius-control token from the parsed stylesheet, invisible to all four automated gate commands (909/909 tests, clean tsc, clean build-widgets, 37/37 verify-dashboard checks all passed against the broken build) — and row 6 (UI-02, focus ring) failed outright, occluded on the detail view's segmented control by neighbouring painted elements. requirements-completed for 19-05 lists only UI-03 and ACT-01; UI-01 and UI-02 reverted from complete to blocked in REQUIREMENTS.md pending gap closure via /gsd-plan-phase 19 --gaps. Three non-Phase-19 issues (a Safari-specific JS SyntaxError on every page load, a dead Records "View Activity" click handler, and Safari's type="month" degradation) were logged separately in 19-VALIDATION.md's Gap-Closure Record, not counted against the phase.
 - [Phase 19]: 19-09 human checkpoint recorded as approved, closing the phase gate: rows 1, 3, 6 and 12 re-verified in a real browser after GAP 1 (dead --radius-control token, plan 19-06), GAP 2 (occluded focus ring, plan 19-07) and GAP 3 (misclassified css-syntax-error warning, plan 19-06) were closed. The developer gave a single blanket verdict ("Everything looks good. Approved.") rather than per-row detail; every row's Re-verification entry, the Gap-Closure Record resolutions, and REQUIREMENTS.md state that granularity explicitly rather than inventing per-sub-check observations. nyquist_compliant flipped to true; UI-01 and UI-02 both ticked complete. No further gap-closure pass required for Phase 19.
 - [Phase 19]: 19-12 Round 3 human checkpoint recorded PARTIAL, not approved: rows 14, 15, 16, 17 and 19 confirmed clean (CR-02 segmented middle-option radius and CR-03 focus-ring opacity both closed on rendered evidence); row 18 FAILED — the sticky nav does not remain on screen while scrolling (new GAP 7, Probe D: navH 77 = parentH 77), distinct from CR-01's z-index fix, whose declaration Probe B confirms is shipped but whose paint-order effect remains unconfirmed (GAP 6). nyquist_compliant stays false; requirements-completed for 19-12 lists only UI-01, UI-03, ACT-01 (confirmed-unregressed via row 19); UI-02 remains open pending another /gsd-plan-phase 19 --gaps pass.
+- [Phase 19]: 19-13 GAP 7 diagnosis confirmed H1 (zero-travel containing block: #app-nav-root.clientHeight == .app-nav.offsetHeight, both 77) as the sole root cause of the sticky nav not remaining on screen, via three rendered-build Chrome console probes (E1 structural chain, E2 scroll behaviour on #/list and #/records). H2 (ancestor clip/scroll container), H3 (scroll container is not the document), H4 (ancestor height/display cap), and H5 (not sticky at tested width) were each excluded by a cited probe field. A matrix wording defect was found and documented: getComputedStyle().height never returns the literal string 'auto', so H4's originally-drafted excluding signature is unsatisfiable and was resolved instead via the plan's explicit H1-vs-H4 split. records.ts's updateJumpOffset is judged not implicated. No fix was written and no source file was touched, per the plan's constraint; 19-14 is unblocked to apply the H1 fix.
 
 ### Key Findings
 
@@ -134,7 +136,7 @@ Items acknowledged and deferred at the v2.0 milestone close on 2026-08-12.
 
 ## Session Continuity
 
-Last session: 2026-08-13T09:07:54.583Z
+Last session: 2026-08-13T11:05:21.535Z
 Stopped at: 19-12 Round 3 PARTIAL — UI-02 still open (row 18 / GAP 7), phase 19 gate not closed, /gsd-plan-phase 19 --gaps required
 Resume file: None
 
