@@ -11,9 +11,9 @@ Each maps to roadmap phases.
 
 ### Design System
 
-- [x] **UI-01**: Form controls (text, date, number, search inputs) are styled consistently across every screen — the stylesheet currently has **zero `input` rules**, so all inputs render as unstyled browser defaults. This is the single root cause of the "raw" feel on Activities and Calendar. **Re-verified 2026-08-13**: plan 19-09's browser checkpoint re-confirmed rows 1-2 clean after GAP 1 (dead `--radius-control` token) was closed by plan 19-06; the developer's blanket verdict "Everything looks good. Approved." covers row 1 alongside rows 3, 6 and 12. See `19-VALIDATION.md` Gap-Closure Record.
-- [ ] **UI-02**: Buttons, selects and other controls share one visual treatment, with a consistent `:focus-visible` ring meeting non-text contrast requirements in both themes — **re-verified 2026-08-13**: plan 19-09's browser checkpoint re-confirmed rows 3, 6 and 12 clean after GAP 1 (dead `--radius-control` token, plan 19-06) and GAP 2 (focus-ring paint-order occlusion, plan 19-07) were both closed; the developer's blanket verdict "Everything looks good. Approved." covers all four re-verified rows together. See `19-VALIDATION.md` Gap-Closure Record. **REOPENED 2026-08-13**: `19-REVIEW.md` (post-checkpoint) found three critical defects the browser checkpoint never exercised — CR-01 (`:focus-visible` `z-index: 1` paints over the `z-index`-less sticky `.app-nav`), CR-02 (the `button` baseline's radius rounds middle `.segmented__option`s in the three 3+-option Trends groups), CR-03 (`opacity: 0.6` on focusable `[aria-disabled="true"]` composites the ring to ~2.19:1 light / ~2.93:1 dark, under the 3:1 floor this requirement names). See `19-VERIFICATION.md`.
-- [x] **UI-03**: Spacing, density and card treatment follow one rhythm across all five screens, applied without changing the existing visual language
+- [x] **UI-01**: Form controls (text, date, number, search inputs) are styled consistently across every screen — the stylesheet currently has **zero `input` rules**, so all inputs render as unstyled browser defaults. This is the single root cause of the "raw" feel on Activities and Calendar. **Re-verified 2026-08-13**: plan 19-09's browser checkpoint re-confirmed rows 1-2 clean after GAP 1 (dead `--radius-control` token) was closed by plan 19-06; the developer's blanket verdict "Everything looks good. Approved." covers row 1 alongside rows 3, 6 and 12. See `19-VALIDATION.md` Gap-Closure Record. **Round 3 confirmed-unregressed 2026-08-13**: row 19 sub-check (b) — input, select and textarea baselines across Activities and Calendar still render bordered, padded, 4px-cornered boxes with no unstyled browser default, per the developer's "all look good and unchanged" — confirms UI-01 was not broken by the CR-01/CR-02/CR-03 fixes in plans 19-10/19-11. See `19-VALIDATION.md` row 19.
+- [ ] **UI-02**: Buttons, selects and other controls share one visual treatment, with a consistent `:focus-visible` ring meeting non-text contrast requirements in both themes — **re-verified 2026-08-13**: plan 19-09's browser checkpoint re-confirmed rows 3, 6 and 12 clean after GAP 1 (dead `--radius-control` token, plan 19-06) and GAP 2 (focus-ring paint-order occlusion, plan 19-07) were both closed; the developer's blanket verdict "Everything looks good. Approved." covers all four re-verified rows together. See `19-VALIDATION.md` Gap-Closure Record. **REOPENED 2026-08-13**: `19-REVIEW.md` (post-checkpoint) found three critical defects the browser checkpoint never exercised — CR-01 (`:focus-visible` `z-index: 1` paints over the `z-index`-less sticky `.app-nav`), CR-02 (the `button` baseline's radius rounds middle `.segmented__option`s in the three 3+-option Trends groups), CR-03 (`opacity: 0.6` on focusable `[aria-disabled="true"]` composites the ring to ~2.19:1 light / ~2.93:1 dark, under the 3:1 floor this requirement names). See `19-VERIFICATION.md`. **Round 3 2026-08-13 — still open**: CR-02 and CR-03 are confirmed closed on rendered evidence (rows 14, 15, 16 and 17 each independently PASS). CR-01's `z-index: 20` declaration is confirmed present in the shipped bundle (Probe B), but row 18 FAILED: the sticky nav does not remain on screen while scrolling on Activities (Probe D, `navH` 77 = `parentH` 77), a newly-found defect (`19-VALIDATION.md` GAP 7) that blocks this requirement independently of the z-index fix. Another `/gsd-plan-phase 19 --gaps` pass is required before UI-02 can close.
+- [x] **UI-03**: Spacing, density and card treatment follow one rhythm across all five screens, applied without changing the existing visual language. **Round 3 confirmed-unregressed 2026-08-13**: row 19 sub-check (c) — the card and panel rhythm on Overview and Records still reads as one rhythm, per the developer's "all look good and unchanged". See `19-VALIDATION.md` row 19.
 
 ### Interaction Consistency
 
@@ -44,7 +44,7 @@ Each maps to roadmap phases.
 ### Records & Activities
 
 - [ ] **REC-08**: Records rows navigate on row click rather than via a large button
-- [x] **ACT-01**: Activities screen controls adopt the shared styling; the screen's existing interaction model (row click) is preserved as the reference pattern
+- [x] **ACT-01**: Activities screen controls adopt the shared styling; the screen's existing interaction model (row click) is preserved as the reference pattern. **Round 3 confirmed-unregressed 2026-08-13**: row 19 sub-check (d) — an Activities row click still navigates to the detail view, per the developer's "all look good and unchanged". See `19-VALIDATION.md` row 19.
 
 ### Carried Forward from v2.0
 
@@ -73,7 +73,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | UI-01 | Phase 19 | Complete |
-| UI-02 | Phase 19 | Gaps Found |
+| UI-02 | Phase 19 | Gaps Found (Round 3, row 18 open) |
 | UI-03 | Phase 19 | Complete |
 | ACT-01 | Phase 19 | Complete |
 | UX-01 | Phase 20 | Pending |
