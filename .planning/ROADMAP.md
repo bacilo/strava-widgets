@@ -208,8 +208,8 @@ Plans:
 
 **Wave 8** *(gap closure round 3 — blocked on Wave 7; the two plans have zero file overlap and run in parallel)*
 
-- [ ] 20-09-PLAN.md — the BLOCKER: `attachRowNavigation` honours the browser's link contract (modifier keys, non-primary buttons, active text selection), the decision logic extracted into a pure node-testable predicate proven RED first, and D-12 recorded in 20-CONTEXT.md declaring middle-click/`auxclick` out of scope (UX-01, REC-08)
-- [ ] 20-10-PLAN.md — the two WARNING guard-layer defects: the case-blind D-01 `tabindex`/`role="link"` source guards become spelling-agnostic, and the four Phase 20 CSS assertions move off first-wins `declarationsFor` onto last-wins cascade resolution, each with an in-suite proof of the blind spot they close (UX-01, UX-03)
+- [x] 20-09-PLAN.md — the BLOCKER: `attachRowNavigation` honours the browser's link contract (modifier keys, non-primary buttons, active text selection), the decision logic extracted into a pure node-testable predicate proven RED first, and D-12 recorded in 20-CONTEXT.md declaring middle-click/`auxclick` out of scope (UX-01, REC-08)
+- [x] 20-10-PLAN.md — the two WARNING guard-layer defects: the case-blind D-01 `tabindex`/`role="link"` source guards become spelling-agnostic, and the four Phase 20 CSS assertions move off first-wins `declarationsFor` onto last-wins cascade resolution, each with an in-suite proof of the blind spot they close (UX-01, UX-03)
 
 **Wave 9** *(blocked on Wave 8 — the checkpoint must run after the link-contract fix lands)*
 
@@ -324,7 +324,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 17. Activity Browser & Detail Views | v2.0 | 15/15 | Complete    | 2026-08-11 |
 | 18. Records, Trends & Differentiators | v2.0 | 16/16 | Complete    | 2026-08-12 |
 | 19. Design System & Control Styling | v2.1 | 17/17 | Complete    | 2026-08-13 |
-| 20. Row-Click Interaction Pattern | v2.1 | 8/8 | Complete   | 2026-08-13 |
+| 20. Row-Click Interaction Pattern | v2.1 | 10/11 | In Progress|  |
 | 21. Overview Rebuild | v2.1 | 0/TBD | Not started | - |
 | 22. Calendar Week-Start & Totals | v2.1 | 0/TBD | Not started | - |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 0/TBD | Not started | - |
