@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
-status: ready_to_plan
-stopped_at: Phase 19 complete (17/17) — ready to discuss Phase 20
-last_updated: 2026-08-13T13:57:04.485Z
+status: planning
+stopped_at: Phase 20 context gathered
+last_updated: "2026-08-13T16:57:41.199Z"
 last_activity: 2026-08-13
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 17
-  completed_plans: 73
+  completed_plans: 17
   percent: 14
 ---
 
@@ -145,9 +145,9 @@ Items acknowledged and deferred at the v2.0 milestone close on 2026-08-12.
 
 ## Session Continuity
 
-Last session: 2026-08-13T13:43:19.698Z
-Stopped at: Completed 19-17-PLAN.md (Round 4 human checkpoint clean sweep — rows 20-24 all PASS; GAP 6/GAP 7 resolved; UI-02 complete; Phase 19 gate closed; GAP 8 opened, unpatched, deferred)
-Resume file: None
+Last session: 2026-08-13T16:57:41.188Z
+Stopped at: Phase 20 context gathered
+Resume file: .planning/phases/20-row-click-interaction-pattern/20-CONTEXT.md
 
 ---
 *Last updated: 2026-08-11 — Phase 17 (activity-browser-detail-views) all 15 planned plans executed and summarized; human checkpoint on plan 17-15 came back PARTIAL — 8/10 Manual-Only Verifications rows confirmed clean, GAP 1 (DETAIL-02, route-map basemap tiles absent) and GAP 2 (DETAIL-03/04, chart band x-axis misalignment) have open gaps pending gap-closure planning (`/gsd-plan-phase 17 --gaps`) before the phase gate closes*
