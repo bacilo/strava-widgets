@@ -66,7 +66,7 @@ Full phase details: [`milestones/v2.0-ROADMAP.md`](milestones/v2.0-ROADMAP.md) �
 
 **Verification note:** every phase below ends with a mandatory human browser checkpoint against a production-shaped URL (served under `/strava-widgets`, matching how GitHub Pages actually serves this app — not the server root). This project has shipped rendering defects behind a fully green automated gate three times (Phase 16's black page behind 15/15 checks; Phase 17's two rendering defects behind 592/592 tests, clean `tsc`, and 20/20 `verify-dashboard`; Phase 18's near-miss needing a human checkpoint to confirm ~15 canvases). There is no jsdom and no headless browser in this repo, so no phase's success criteria can be satisfied by `npm test` alone.
 
-- [ ] **Phase 19: Design System & Control Styling** - Every input, button, select and card follows one shared visual treatment, with a visible focus ring in both themes, across all five screens (9 plans executed; 19-05 human checkpoint returned PARTIAL — a dead `--radius-control` CSS token and an occluded focus ring were open gaps, closed by plans 19-06/19-07; 19-09 gap-closure re-verification checkpoint returned approved 2026-08-13 on the developer's blanket verdict — see 19-VALIDATION.md Gap-Closure Record; `nyquist_compliant: true`. REOPENED 2026-08-13: post-checkpoint code review (19-REVIEW.md) surfaced three critical defects the checkpoint never exercised; 19-VERIFICATION.md re-verified at 3/4 must-haves with UI-02 failed — see CR-01/CR-02/CR-03)
+- [ ] **Phase 19: Design System & Control Styling** - Every input, button, select and card follows one shared visual treatment, with a visible focus ring in both themes, across all five screens (12 plans executed; 19-05 human checkpoint returned PARTIAL — a dead `--radius-control` CSS token and an occluded focus ring were open gaps, closed by plans 19-06/19-07; 19-09 gap-closure re-verification checkpoint returned approved 2026-08-13 on the developer's blanket verdict — see 19-VALIDATION.md Gap-Closure Record; `nyquist_compliant: true`. REOPENED 2026-08-13: post-checkpoint code review (19-REVIEW.md) surfaced three critical defects the checkpoint never exercised; 19-VERIFICATION.md re-verified at 3/4 must-haves with UI-02 failed — see CR-01/CR-02/CR-03. Round 3 (19-10/19-11/19-12) closed CR-02/CR-03 on rendered evidence but found a new defect (GAP 7: sticky nav does not remain on screen while scrolling) blocking row 18/UI-02; `nyquist_compliant: false` again, gate still open, another `/gsd-plan-phase 19 --gaps` pass required)
 - [ ] **Phase 20: Row-Click Interaction Pattern** - Every activity row, on every screen, is clickable, keyboard-accessible, and free of redundant "View Activity" buttons
 - [ ] **Phase 21: Overview Rebuild** - Overview's PR/activity rows, records scope toggle, headline stats, and the Current Streak "ended" label all reach the standard the rest of the dashboard sets
 - [ ] **Phase 22: Calendar Week-Start & Totals** - User controls whether the week starts Sunday or Monday, with correct persisted totals either way
@@ -138,7 +138,7 @@ Plans:
 
 **Wave 12** *(gap closure round 2 — blocked on Wave 11 completion)*
 
-- [ ] 19-12-PLAN.md — BLOCKING human checkpoint, six-row agenda with one named verdict per row, both themes, under /strava-widgets
+- [x] 19-12-PLAN.md — BLOCKING human checkpoint, six-row agenda with one named verdict per row, both themes, under /strava-widgets
 
 **UI hint**: yes
 
@@ -263,7 +263,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 16. Dashboard Shell & Data Contract | v2.0 | 16/16 | Complete    | 2026-08-11 |
 | 17. Activity Browser & Detail Views | v2.0 | 15/15 | Complete    | 2026-08-11 |
 | 18. Records, Trends & Differentiators | v2.0 | 16/16 | Complete    | 2026-08-12 |
-| 19. Design System & Control Styling | v2.1 | 11/12 | In Progress|  |
+| 19. Design System & Control Styling | v2.1 | 12/12 | Gaps Found (Round 3, row 18 open) |  |
 | 20. Row-Click Interaction Pattern | v2.1 | 0/TBD | Not started | - |
 | 21. Overview Rebuild | v2.1 | 0/TBD | Not started | - |
 | 22. Calendar Week-Start & Totals | v2.1 | 0/TBD | Not started | - |

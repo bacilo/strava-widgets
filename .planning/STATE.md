@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
 status: executing
-stopped_at: 19-09 approved — phase 19 gate closed, nyquist_compliant true
-last_updated: "2026-08-13T04:54:23.264Z"
-last_activity: 2026-08-13 -- Phase 19 execution started
+stopped_at: 19-12 Round 3 PARTIAL — UI-02 still open (row 18 / GAP 7), phase 19 gate not closed, /gsd-plan-phase 19 --gaps required
+last_updated: "2026-08-13T09:08:04.543Z"
+last_activity: 2026-08-13 -- 19-12 Round 3 checkpoint resolved PARTIAL
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 12
-  completed_plans: 9
+  completed_plans: 12
   percent: 0
 ---
 
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 
 ## Current Position
 
-Phase: 19 (design-system-control-styling) — EXECUTING
-Plan: 1 of 12
-Status: Executing Phase 19
-Last activity: 2026-08-13 -- Phase 19 execution started
+Phase: 19 (design-system-control-styling) — GAP CLOSURE (gate not closed)
+Plan: 12 of 12
+Status: All 12 plans executed; Round 3 gap-closure checkpoint (19-12) returned PARTIAL — UI-02 blocked by row 18 / GAP 7 (sticky nav does not remain on screen). nyquist_compliant: false. Another /gsd-plan-phase 19 --gaps pass is required before this phase can close.
+Last activity: 2026-08-13 -- 19-12 Round 3 checkpoint resolved PARTIAL
 
-Progress: [█████████░] 9/9 plans executed, phase gate open
+Progress: [██████████] 100% (12/12 plans have summaries; phase gate still open)
 
 ## Performance Metrics
 
@@ -47,6 +47,7 @@ Progress: [█████████░] 9/9 plans executed, phase gate open
 | Phase 17 P15 | 25min | 3 tasks | 1 files |
 | Phase 19 P05 | 35min | 3 tasks | 1 files |
 | Phase 19 P09 | 25min | 3 tasks | 2 files |
+| Phase 19 P12 | ~10min agent time + held checkpoint | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -66,6 +67,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 17]: 17-15 human checkpoint recorded as PARTIAL, not approved: 8 of 10 Manual-Only Verifications rows confirmed clean (BROWSE-01..06, DETAIL-01, DETAIL-05); DETAIL-02 (route-map basemap tiles absent, GAP 1) and DETAIL-03/DETAIL-04 (chart band x-axis misalignment undermining the shared crosshair, GAP 2) surfaced real defects, logged verbatim as gap-closure work rather than patched under checkpoint pressure, mirroring the 16-09 precedent. requirements-completed for 17-15 lists only BROWSE-01..06, DETAIL-01, DETAIL-05.
 - [Phase 19]: 19-05 human checkpoint recorded as PARTIAL, not approved: 8 of 13 Manual-Only Verifications rows confirmed clean (rows 2, 4-hover-half, 5, 7, 8, 9, 10, 11, 13); rows 1, 3, 12 (UI-01/UI-02) surfaced a shipped defect — a stray `*/` inside a CSS comment at styles.css lines 54-56 silently discards the --radius-control token from the parsed stylesheet, invisible to all four automated gate commands (909/909 tests, clean tsc, clean build-widgets, 37/37 verify-dashboard checks all passed against the broken build) — and row 6 (UI-02, focus ring) failed outright, occluded on the detail view's segmented control by neighbouring painted elements. requirements-completed for 19-05 lists only UI-03 and ACT-01; UI-01 and UI-02 reverted from complete to blocked in REQUIREMENTS.md pending gap closure via /gsd-plan-phase 19 --gaps. Three non-Phase-19 issues (a Safari-specific JS SyntaxError on every page load, a dead Records "View Activity" click handler, and Safari's type="month" degradation) were logged separately in 19-VALIDATION.md's Gap-Closure Record, not counted against the phase.
 - [Phase 19]: 19-09 human checkpoint recorded as approved, closing the phase gate: rows 1, 3, 6 and 12 re-verified in a real browser after GAP 1 (dead --radius-control token, plan 19-06), GAP 2 (occluded focus ring, plan 19-07) and GAP 3 (misclassified css-syntax-error warning, plan 19-06) were closed. The developer gave a single blanket verdict ("Everything looks good. Approved.") rather than per-row detail; every row's Re-verification entry, the Gap-Closure Record resolutions, and REQUIREMENTS.md state that granularity explicitly rather than inventing per-sub-check observations. nyquist_compliant flipped to true; UI-01 and UI-02 both ticked complete. No further gap-closure pass required for Phase 19.
+- [Phase 19]: 19-12 Round 3 human checkpoint recorded PARTIAL, not approved: rows 14, 15, 16, 17 and 19 confirmed clean (CR-02 segmented middle-option radius and CR-03 focus-ring opacity both closed on rendered evidence); row 18 FAILED — the sticky nav does not remain on screen while scrolling (new GAP 7, Probe D: navH 77 = parentH 77), distinct from CR-01's z-index fix, whose declaration Probe B confirms is shipped but whose paint-order effect remains unconfirmed (GAP 6). nyquist_compliant stays false; requirements-completed for 19-12 lists only UI-01, UI-03, ACT-01 (confirmed-unregressed via row 19); UI-02 remains open pending another /gsd-plan-phase 19 --gaps pass.
 
 ### Key Findings
 
@@ -100,6 +102,7 @@ Previously resolved — SQLITE_CANTOPEN CI failure resolved by quick-1-01 (lazy 
 - OPEN 2026-08-11: Phase 17 GAP 1 (DETAIL-02) — route-map basemap tiles do not render in a real browser; polyline renders correctly over a white background. RouteRenderer.addBasemapSwitcher() does register the tile layer, so the vector-renders-but-tiles-absent signature points at leaflet/dist/leaflet.css not taking effect for the dynamically-imported map chunk (implicates the phase's own MEDIUM-confidence async-CSS-injection assumption, T-17-MAP-04). Root cause still under active diagnosis, not yet fixed. See 17-VALIDATION.md Gap-Closure Record.
 - OPEN 2026-08-11: Phase 17 GAP 2 (DETAIL-03/DETAIL-04) — chart band x-axis origins are not vertically aligned across bands in a real browser; each band auto-sizes its own y-axis gutter to its widest tick label (pace's '10:00/km' vs HR's '120'), so the bands' plot areas start at different x-offsets. This also undermines the shared hover-crosshair guarantee (17-UI-SPEC.md § 4c), since one screen x maps to a different data x per band. Not yet fixed. See 17-VALIDATION.md Gap-Closure Record.
 - OPEN 2026-08-12: Phase 19 gap-closure register (19-05 checkpoint, PARTIAL) — GAP 1 (UI-01/UI-02): a stray `*/` inside a CSS comment at src/dashboard/styles.css lines 54-56 (`--space-*/--zone-*/--load-*` prose) terminates the comment early, silently discarding the `--radius-control` custom property from the parsed stylesheet in production. Browser-confirmed: `{radiusControl: "(EMPTY)", radiusPanel: "8px", sample: "button.app-nav__toggle", borderRadius: "0px"}`. Affects 4 rules (input/select/textarea baseline, button baseline, both .segmented__option end-child radii) — all render 0px corners instead of 4px. Invisible to all four automated gate commands (all text-assertion over source, which still contains the correct declaration). GAP 2 (UI-02): the focus ring on the detail view's x-axis segmented control is occluded at the bottom by the first chart and on the right by the sibling option — a distinct mechanism from the overflow:hidden clipping plan 19-04 fixed. GAP 3: the esbuild css-syntax-error warning emitted during `npm run build-widgets` (`Expected ":" [css-syntax-error]` at `<stdin>:56:59`) was misclassified as non-blocking by 19-05 Task 1 — it is the build-time signature of GAP 1. Not yet fixed. See 19-VALIDATION.md Gap-Closure Record. Three additional non-Phase-19 issues (Safari-specific JS SyntaxError on page load, dead Records "View Activity" click handler, Safari type="month" degradation) logged in the same record but confirmed out of scope for this phase (git diff 670b3ec..HEAD touches only styles.css and styles.test.ts).
+- OPEN 2026-08-13: Phase 19 gap-closure register (19-12 Round 3 checkpoint, PARTIAL) — GAP 7 (UI-02, new): the sticky top nav does not remain on screen while scrolling on Activities, confirmed by an ad-hoc probe (navH 77 = parentH 77, position: sticky computed but not holding). Blocks row 18 of 19-VALIDATION.md and UI-02. No suggested fix or root-cause theory recorded, per house rule for still-failing rows — next planning round (/gsd-plan-phase 19 --gaps) diagnoses and fixes it. GAP 6 (CR-01's z-index: 20 fix) is not marked resolved either: Probe B confirms the declaration ships in the bundle, but its rendered paint-order effect could not be observed because row 18 failed for the unrelated GAP 7 reason first. GAP 4 (CR-02) and GAP 5 (CR-03) ARE resolved this round on rendered evidence (rows 14-16 and row 17 all PASS). See 19-VALIDATION.md Gap-Closure Record and 19-12-SUMMARY.md.
 
 ### Quick Tasks Completed
 
@@ -131,8 +134,8 @@ Items acknowledged and deferred at the v2.0 milestone close on 2026-08-12.
 
 ## Session Continuity
 
-Last session: 2026-08-13T03:44:22.900Z
-Stopped at: 19-09 approved — phase 19 gate closed, nyquist_compliant true
+Last session: 2026-08-13T09:07:54.583Z
+Stopped at: 19-12 Round 3 PARTIAL — UI-02 still open (row 18 / GAP 7), phase 19 gate not closed, /gsd-plan-phase 19 --gaps required
 Resume file: None
 
 ---
