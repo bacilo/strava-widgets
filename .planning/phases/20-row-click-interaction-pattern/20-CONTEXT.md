@@ -55,6 +55,39 @@ activity names into the Records data shape, and any new screen or capability.
   is discharged by native link semantics. **Recorded explicitly so a later agent does not "fix"
   this as an oversight.** The human checkpoint must test Enter, not Space.
 
+- **D-12: The row-click listener honours the browser's link contract; middle-click
+  (`auxclick`) is explicitly out of scope.**
+  1. **What the listener now refuses to do.** It returns without navigating when `event.button` is
+     not `0`, when any of `metaKey` / `ctrlKey` / `shiftKey` / `altKey` is set, or when
+     `window.getSelection()` returns a selection that is both non-collapsed and non-empty. The
+     existing `closest('a')` guard stays first and unchanged.
+  2. **Why this is load-bearing rather than cosmetic.** Plan 20-03 (`670e368`) removed the
+     "View Activity" anchor column from both Records PR tables, so row-click is now the *sole*
+     affordance on five of six PR-table cells (Rank, Time, Pace, Age-Grade, Flags — only Date
+     carries an anchor, `records.ts:396-419`), while D-10's `.activity-table__row--navigable
+     { cursor: pointer }` advertises them as link-shaped. Swallowing a Cmd+click into a same-tab
+     hash change, or destroying a drag-selection, is the opposite of "propagating `list.ts`'s
+     established pattern" — a real `<a href>`, the pattern being propagated, honours all of these
+     natively.
+  3. **Why `auxclick` is NOT handled, stated as a decision rather than left as a gap.** Browsers
+     fire `auxclick`, not `click`, for the middle button, so a middle-click on a row-only cell does
+     nothing — which is exactly what a middle-click does on any non-link element, so it is an absent
+     affordance, not a hijacked gesture. Synthesising one would mean calling
+     `window.open(activityDetailHref(activityId), '_blank')`, which *invents* behaviour instead of
+     propagating `list.ts`'s (contradicting D-03 and UX-01), adds a popup-blocker and
+     `noopener`-shaped surface for no requirement, and is unverifiable in this repository (no DOM
+     and no browser in the test environment — see the Established Patterns note in `<code_context>`).
+     The real fix is to give those five cells a real anchor, which needs the activity-name join D-05
+     already deferred to Phase 21. Recorded here explicitly so a later agent does not read the
+     absence as an oversight — the same reason D-02 exists.
+  4. **How the decision is enforced.** `row-navigation.test.ts` asserts that comment-stripped
+     `row-navigation.ts` contains zero occurrences of `auxclick`, so silently reversing this
+     decision turns the suite red.
+  5. **Where it is observed.** The listener's DOM plumbing is unprovable by any automated test in
+     this repository; the rendered behaviour is checked by the Round 3 human checkpoint rows
+     covering modifier-click, Shift/Alt-click, middle-click and drag-select on the Records PR table
+     (plan 20-11).
+
 - **D-03: The row-click behavior lives in one shared DOM helper module.** A small module beside
   `router.ts` / `nav.ts` (it is a navigation concern, and it touches the DOM so it is *not* a
   `*-logic.ts` module under this codebase's convention) exporting something like
@@ -144,8 +177,11 @@ activity names into the Records data shape, and any new screen or capability.
 ### Claude's Discretion
 
 - Whether the `<tr>` click handler additionally guards against text-selection drags and
-  cmd/ctrl/shift/middle-clicks on the non-anchor part of a row. Default: match what `list.ts`
-  already ships (the `closest('a')` guard only).
+  cmd/ctrl/shift/middle-clicks on the non-anchor part of a row. **Exercised, and now superseded by
+  D-12**: `20-VERIFICATION.md` recorded the unguarded listener as a BLOCKER once plan 20-03 removed
+  the Records PR table's CTA anchor, making row-click the sole affordance on five of six cells — the
+  stated default here (match `list.ts`'s `closest('a')`-only guard) was the wrong call once that
+  happened, and D-12 replaces it.
 - The exact name, file path and signature of the D-03 helper module.
 - Exact color and `text-decoration` values for the D-06 link rule, provided they use existing
   tokens and do not fight `.activity-row__name` / `.activity-row__meta`'s own colors.
@@ -315,6 +351,11 @@ activity names into the Records data shape, and any new screen or capability.
 - **GAP 8 from Phase 19** (Leaflet map tiles paint over the nav, plus the totality defect in the
   ladder comment) — recorded in `19-VALIDATION.md`, left unpatched, disposition still with the
   user. Unrelated to row clicking; not folded here.
+- **An `auxclick` handler, or a real anchor on the Records PR table's remaining five cells** —
+  either would make middle-click work natively on Rank/Time/Pace/Age-Grade/Flags. D-12 declines
+  both for this phase (synthesising `window.open` invents behaviour rather than propagating
+  `list.ts`'s pattern; a real anchor needs the activity-name join D-05 already deferred to Phase
+  21). Revisit once Phase 21 joins the activity name into `PrTableRow`.
 
 ### Reviewed Todos (not folded)
 - **"Exclusion tickbox via local curation mode"**
