@@ -183,8 +183,8 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1; the two plans have zero file overlap and run in parallel)*
 
-- [ ] 20-02-PLAN.md — `list.ts` and `overview.ts`: div rows become real anchors, the mobile-card CTA is deleted, `buildTableRow` moves onto the helper and its criterion-3-contradicting comment is repaired (D-01, D-04, D-07, D-08)
-- [ ] 20-03-PLAN.md — `records.ts`: both activity tables drop their CTA column (7→6 and 4→3), the Date cell carries the anchor, both gain the helper (D-05)
+- [x] 20-02-PLAN.md — `list.ts` and `overview.ts`: div rows become real anchors, the mobile-card CTA is deleted, `buildTableRow` moves onto the helper and its criterion-3-contradicting comment is repaired (D-01, D-04, D-07, D-08)
+- [x] 20-03-PLAN.md — `records.ts`: both activity tables drop their CTA column (7→6 and 4→3), the Date cell carries the anchor, both gain the helper (D-05)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -303,7 +303,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 17. Activity Browser & Detail Views | v2.0 | 15/15 | Complete    | 2026-08-11 |
 | 18. Records, Trends & Differentiators | v2.0 | 16/16 | Complete    | 2026-08-12 |
 | 19. Design System & Control Styling | v2.1 | 17/17 | Complete    | 2026-08-13 |
-| 20. Row-Click Interaction Pattern | v2.1 | 1/5 | In Progress|  |
+| 20. Row-Click Interaction Pattern | v2.1 | 3/5 | In Progress|  |
 | 21. Overview Rebuild | v2.1 | 0/TBD | Not started | - |
 | 22. Calendar Week-Start & Totals | v2.1 | 0/TBD | Not started | - |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 0/TBD | Not started | - |
