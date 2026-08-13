@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
-status: completed
-stopped_at: 19-12 Round 3 PARTIAL — UI-02 still open (row 18 / GAP 7), phase 19 gate not closed, /gsd-plan-phase 19 --gaps required
-last_updated: "2026-08-13T11:07:16.388Z"
-last_activity: "2026-08-13 -- Completed 19-13-PLAN.md (GAP 7 diagnosis: H1 confirmed)"
+status: executing
+stopped_at: "Completed 19-14-PLAN.md (GAP 7 closed: H1 fix confirmed on rendered page, Probe F both routes pass)"
+last_updated: "2026-08-13T11:21:45.222Z"
+last_activity: 2026-08-13
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 17
-  completed_plans: 13
+  completed_plans: 14
   percent: 0
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 19 (design-system-control-styling) — EXECUTING
-Plan: 14 of 17
-Status: Ready to execute (19-13 complete; 19-14 applies the H1 fix)
-Last activity: 2026-08-13 -- Completed 19-13-PLAN.md (GAP 7 diagnosis: H1 confirmed)
+Plan: 15 of 17
+Status: Ready to execute
+Last activity: 2026-08-13
 
-Progress: [████████░░] 76%
+Progress: [████████░░] 82%
 
 ## Performance Metrics
 
@@ -49,6 +49,7 @@ Progress: [████████░░] 76%
 | Phase 19 P09 | 25min | 3 tasks | 2 files |
 | Phase 19 P12 | ~10min agent time + held checkpoint | 3 tasks | 2 files |
 | Phase 19 P13 | 30min | 3 tasks | 2 files |
+| Phase 19 P14 | 8min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -70,6 +71,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 19]: 19-09 human checkpoint recorded as approved, closing the phase gate: rows 1, 3, 6 and 12 re-verified in a real browser after GAP 1 (dead --radius-control token, plan 19-06), GAP 2 (occluded focus ring, plan 19-07) and GAP 3 (misclassified css-syntax-error warning, plan 19-06) were closed. The developer gave a single blanket verdict ("Everything looks good. Approved.") rather than per-row detail; every row's Re-verification entry, the Gap-Closure Record resolutions, and REQUIREMENTS.md state that granularity explicitly rather than inventing per-sub-check observations. nyquist_compliant flipped to true; UI-01 and UI-02 both ticked complete. No further gap-closure pass required for Phase 19.
 - [Phase 19]: 19-12 Round 3 human checkpoint recorded PARTIAL, not approved: rows 14, 15, 16, 17 and 19 confirmed clean (CR-02 segmented middle-option radius and CR-03 focus-ring opacity both closed on rendered evidence); row 18 FAILED — the sticky nav does not remain on screen while scrolling (new GAP 7, Probe D: navH 77 = parentH 77), distinct from CR-01's z-index fix, whose declaration Probe B confirms is shipped but whose paint-order effect remains unconfirmed (GAP 6). nyquist_compliant stays false; requirements-completed for 19-12 lists only UI-01, UI-03, ACT-01 (confirmed-unregressed via row 19); UI-02 remains open pending another /gsd-plan-phase 19 --gaps pass.
 - [Phase 19]: 19-13 GAP 7 diagnosis confirmed H1 (zero-travel containing block: #app-nav-root.clientHeight == .app-nav.offsetHeight, both 77) as the sole root cause of the sticky nav not remaining on screen, via three rendered-build Chrome console probes (E1 structural chain, E2 scroll behaviour on #/list and #/records). H2 (ancestor clip/scroll container), H3 (scroll container is not the document), H4 (ancestor height/display cap), and H5 (not sticky at tested width) were each excluded by a cited probe field. A matrix wording defect was found and documented: getComputedStyle().height never returns the literal string 'auto', so H4's originally-drafted excluding signature is unsatisfiable and was resolved instead via the plan's explicit H1-vs-H4 split. records.ts's updateJumpOffset is judged not implicated. No fix was written and no source file was touched, per the plan's constraint; 19-14 is unblocked to apply the H1 fix.
+- [Phase 19]: 19-14 applied the H1-prescribed fix, moving the sticky rung (position: sticky, top: 0, z-index: 20) from .app-nav to #app-nav-root, and closed R3-WR-01 by extending the ladder test to pin position: sticky/relative rather than only z-index numbers. Confirmed on the rendered page via two Probe F runs (#/list, #/records), both meeting sy>=400 and top<=1. Rubber-band bounce reported on #/list is a recorded non-defect (macOS overscroll), not a new gap. requirements-completed for this plan is empty — UI-02 stays open; plan 19-17 performs the gate-quality re-verification across both themes as Probe G.
 
 ### Key Findings
 
@@ -136,8 +138,8 @@ Items acknowledged and deferred at the v2.0 milestone close on 2026-08-12.
 
 ## Session Continuity
 
-Last session: 2026-08-13T11:05:21.535Z
-Stopped at: 19-12 Round 3 PARTIAL — UI-02 still open (row 18 / GAP 7), phase 19 gate not closed, /gsd-plan-phase 19 --gaps required
+Last session: 2026-08-13T11:21:45.215Z
+Stopped at: Completed 19-14-PLAN.md (GAP 7 closed: H1 fix confirmed on rendered page, Probe F both routes pass)
 Resume file: None
 
 ---

@@ -146,7 +146,7 @@ Plans:
 
 **Wave 14** *(gap closure round 3 — blocked on Wave 13 completion)*
 
-- [ ] 19-14-PLAN.md — apply the fix the confirmed root cause prescribes, pin the ladder's positioning precondition (R3-WR-01), confirm on rendered evidence with Probe F on two routes
+- [x] 19-14-PLAN.md — apply the fix the confirmed root cause prescribes, pin the ladder's positioning precondition (R3-WR-01), confirm on rendered evidence with Probe F on two routes
 
 **Wave 15** *(gap closure round 3 — blocked on Wave 14 completion)*
 
@@ -283,7 +283,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 16. Dashboard Shell & Data Contract | v2.0 | 16/16 | Complete    | 2026-08-11 |
 | 17. Activity Browser & Detail Views | v2.0 | 15/15 | Complete    | 2026-08-11 |
 | 18. Records, Trends & Differentiators | v2.0 | 16/16 | Complete    | 2026-08-12 |
-| 19. Design System & Control Styling | v2.1 | 13/17 | In Progress|  |
+| 19. Design System & Control Styling | v2.1 | 14/17 | In Progress|  |
 | 20. Row-Click Interaction Pattern | v2.1 | 0/TBD | Not started | - |
 | 21. Overview Rebuild | v2.1 | 0/TBD | Not started | - |
 | 22. Calendar Week-Start & Totals | v2.1 | 0/TBD | Not started | - |
