@@ -87,6 +87,37 @@ function splitTopLevelSelectors(head: string): string[] {
 }
 
 /**
+ * Factory for the shared rule-scanning regex: text up to a `{`, captured as
+ * the head, followed by everything up to the matching `}`, captured as the
+ * body. Returns a FRESH `RegExp` instance on every call rather than a
+ * shared module-level constant — a global-flag regex used with `.exec()` in
+ * a loop is stateful (`lastIndex` advances as it scans), so two callers
+ * sharing one instance, or the same instance reused across two separate
+ * loops, would silently resume scanning from wherever the previous caller
+ * left off. R3-IN-03 (19-REVIEW-round3.md): this rule-scanning regex literal
+ * used to be duplicated verbatim in three helpers below; consolidated here
+ * so a future correction to how rules are scanned (such as this plan's
+ * at-rule and last-wins fixes) lands in one place instead of needing to
+ * land in three.
+ */
+function RULE_SCANNER(): RegExp {
+  return /([^{}]+)\{([^}]*)\}/g;
+}
+
+/**
+ * Splits a declaration body on `;` into trimmed, non-empty fragments.
+ * R3-IN-03 (19-REVIEW-round3.md): this `body.split(';').map(trim).filter(Boolean)`
+ * idiom used to be repeated at three separate test call sites; consolidated
+ * here for the same one-place-to-fix reason as `RULE_SCANNER` above.
+ */
+function declarationFragments(body: string): string[] {
+  return body
+    .split(';')
+    .map((fragment) => fragment.trim())
+    .filter(Boolean);
+}
+
+/**
  * Confirms some rule whose selector list includes `needle` declares
  * `declaration` in its body — covers both the combined-selector form
  * (`.theme-toggle, .app-nav__toggle { ... }`) and two separate rules.
@@ -94,7 +125,7 @@ function splitTopLevelSelectors(head: string): string[] {
 function selectorListDeclares(needle: string, declaration: string): boolean {
   // Match any rule head (text up to `{`) that contains `needle` as a
   // selector token, then check the rule body for the declaration.
-  const ruleHeadAndBody = /([^{}]+)\{([^}]*)\}/g;
+  const ruleHeadAndBody = RULE_SCANNER();
   let match: RegExpExecArray | null;
   while ((match = ruleHeadAndBody.exec(cssNoComments)) !== null) {
     const [, head, body] = match;
@@ -107,69 +138,171 @@ function selectorListDeclares(needle: string, declaration: string): boolean {
 }
 
 /**
- * Throws when a rule-scanning helper is about to resolve a match whose head
- * begins with `@` (WR-02, 19-REVIEW.md). All three rule-scanning helpers in
- * this file iterate `/([^{}]+)\{([^}]*)\}/g`, whose body class `[^}]*`
- * permits `{`, so an `@media` prelude is consumed as a rule HEAD and the
- * first nested rule is swallowed into its "body" — none of these helpers
- * descend into `@media` blocks. Applied only in the two helpers below that
- * return a single resolved match and already throw on failure
- * (`bodyForSelectorListToken`, `ruleWithHeadContaining`); deliberately NOT
- * applied in `selectorListDeclares`, which iterates every rule in the file
- * and returns a boolean — throwing there would fire on the first at-rule
- * pseudo-rule it walks past and break unrelated, currently-passing
+ * Every `[start, end)` character offset range in `cssNoComments` occupied by
+ * an at-rule block (`@media`, or any other `@`-prefixed rule), computed once
+ * by brace matching: for each `@`-prelude's opening `{`, walk forward
+ * tracking nesting depth until the block closes, and record the offsets.
+ * R3-CR-01 (19-REVIEW-round3.md): the previous guard (a head-only check,
+ * removed below) only rejected a match whose HEAD itself began with `@` —
+ * the at-rule prelude pseudo-rule the shared scanner produces — which no
+ * real needle ever reaches, since the only selector-list token an at-rule
+ * prelude produces is the literal prelude text itself (e.g.
+ * `'@media (max-width: 640px)'`). It did nothing for every rule NESTED
+ * inside the block, which the scanner emits as an ordinary-looking
+ * head+body pair with no `@` anywhere in it — proven executed against this
+ * stylesheet in the review: `bodyForSelectorListToken('.app-nav[data-open="true"]
+ * .app-nav__links')` resolved without throwing and returned the `@media`
+ * body. Brace matching (rather than assuming exactly one level of nesting)
+ * is deliberate: it finds the block's true end even for a construct nested
+ * inside the `@media` body, not just a flat rule list.
+ */
+const AT_RULE_RANGES: Array<[number, number]> = (() => {
+  const ranges: Array<[number, number]> = [];
+  for (const m of cssNoComments.matchAll(/@[a-z-]+[^{]*\{/g)) {
+    let i = m.index! + m[0].length;
+    let depth = 1;
+    while (depth > 0 && i < cssNoComments.length) {
+      if (cssNoComments[i] === '{') depth++;
+      else if (cssNoComments[i] === '}') depth--;
+      i++;
+    }
+    ranges.push([m.index!, i]);
+  }
+  return ranges;
+})();
+
+/**
+ * Predicate backing `assertNotAtRuleScoped` below: true when a match lives
+ * inside an at-rule block — either because the match IS the at-rule prelude
+ * itself (its head starts with `@`), or because its offset falls strictly
+ * inside one of the brace-matched `AT_RULE_RANGES` above, which catches a
+ * nested rule at ANY position inside the block, not only the first. Split
+ * out from `assertNotAtRuleScoped` (rather than inlined into it) so
+ * `bodyForSelectorListToken` below can SKIP an at-rule-scoped candidate and
+ * keep scanning for a valid one — a real selector can appear once at the
+ * top level and again, separately, nested inside `@media` (e.g.
+ * `.app-nav__toggle`), and the top-level rule must still resolve even
+ * though a later or earlier at-rule-scoped match for the same token exists.
+ */
+function isAtRuleScoped(offset: number, head: string): boolean {
+  const trimmed = head.trim();
+  return (
+    trimmed.startsWith('@') || AT_RULE_RANGES.some(([start, end]) => offset > start && offset < end)
+  );
+}
+
+/**
+ * Throws when a rule-scanning helper is about to resolve a match that lives
+ * inside an at-rule block (see `isAtRuleScoped` above for the two ways).
+ * Replaces the old head-only guard entirely (R3-CR-01, 19-REVIEW-round3.md) —
+ * one function rather than layering the range check alongside the old head
+ * check, since the old check's one reachable case (the prelude itself) is a
+ * strict subset of what the range check, plus a `startsWith('@')` fast path
+ * kept for a clearer error message naming the prelude, now covers. Applied
+ * only in the two helpers below that resolve a single match and already
+ * throw on failure (`bodyForSelectorListToken`, `ruleWithHeadContaining`);
+ * deliberately NOT applied in `selectorListDeclares`, which iterates every
+ * rule in the file and returns a boolean — throwing there would fire on the
+ * first at-rule it walks past and break unrelated, currently-passing
  * assertions that have nothing to do with the needle it is checking.
  */
-function assertNotAtRuleHead(head: string, needle: string): void {
-  const trimmedHead = head.trim();
-  if (trimmedHead.startsWith('@')) {
+function assertNotAtRuleScoped(offset: number, head: string, needle: string): void {
+  const trimmed = head.trim();
+  if (trimmed.startsWith('@')) {
     throw new Error(
-      `Matched an @-rule prelude ("${trimmedHead}") while looking for "${needle}" — ` +
+      `Matched an @-rule prelude ("${trimmed}") while looking for "${needle}" — ` +
         'these helpers do not descend into @media (or other at-rule) blocks, so this ' +
         'match is the at-rule prelude itself, not the rule the caller intended.',
+    );
+  }
+  if (AT_RULE_RANGES.some(([start, end]) => offset > start && offset < end)) {
+    throw new Error(
+      `Match for "${needle}" resolves inside an at-rule block (head: "${trimmed}") — ` +
+        'these helpers do not model at-rule nesting; assert on a top-level rule instead.',
     );
   }
 }
 
 /**
- * Returns the declaration body of the rule whose selector list contains
- * `needle` as an exact, post-trim token — the same selector-boundary
- * anchoring `selectorListDeclares` uses and for the same reason (so a bare
- * `:focus-visible` is never confused with `.cta:focus-visible` or
- * `.app-nav__link:focus-visible`). Unlike `selectorListDeclares`, this
- * returns the body text itself rather than a boolean, for callers (plan
- * 19-07's numeric z-index comparison) that need to parse a value out of it
- * rather than just check a declaration is present. Throws when no rule's
- * selector list contains the token, so a deleted rule fails loudly.
+ * Returns the declaration body of the LAST rule (in source order) whose
+ * selector list contains `needle` as an exact, post-trim token — the same
+ * selector-boundary anchoring `selectorListDeclares` uses and for the same
+ * reason (so a bare `:focus-visible` is never confused with
+ * `.cta:focus-visible` or `.app-nav__link:focus-visible`). Collects every
+ * NON-at-rule-scoped candidate match and returns the LAST one's body rather
+ * than the first, matching how CSS actually resolves a selector redeclared
+ * at equal specificity (R3-WR-02, 19-REVIEW-round3.md): the previous
+ * first-wins behavior could read a value a later declaration overrides —
+ * the review's executed case appended `.app-nav { z-index: 0; }` to the end
+ * of the stylesheet and the old helper kept reporting `20`. An at-rule-scoped
+ * candidate (R3-CR-01) is SKIPPED rather than counted, so a rule
+ * unreachable inside `@media` can never win the last-wins comparison, and a
+ * real top-level rule for the same selector (e.g. `.app-nav__toggle`,
+ * which exists both at the top level and nested inside `@media`) still
+ * resolves correctly even when the at-rule-scoped duplicate is scanned
+ * first or last. Throws when NO non-at-rule-scoped match is found — naming
+ * the specific at-rule block via `assertNotAtRuleScoped` if the token was
+ * seen only at-rule-scoped (the review's proof case,
+ * `.app-nav[data-open="true"] .app-nav__links`, which has no top-level
+ * counterpart), or the generic "no rule found" message if the token was
+ * never seen at all — so a deleted rule fails loudly either way. Accepts an
+ * optional `source` (default: the real stylesheet with comments stripped)
+ * purely so the self-tests below can exercise last-wins against small
+ * synthetic CSS strings without editing `styles.css` — every existing call
+ * site omits it and keeps reading the real stylesheet exactly as before.
  */
-function bodyForSelectorListToken(needle: string): string {
-  const ruleHeadAndBody = /([^{}]+)\{([^}]*)\}/g;
+function bodyForSelectorListToken(needle: string, source: string = cssNoComments): string {
+  const ruleHeadAndBody = RULE_SCANNER();
   let match: RegExpExecArray | null;
-  while ((match = ruleHeadAndBody.exec(cssNoComments)) !== null) {
+  let lastBody: string | undefined;
+  let found = false;
+  let atRuleScopedMatch: { offset: number; head: string } | undefined;
+  while ((match = ruleHeadAndBody.exec(source)) !== null) {
     const [, head, body] = match;
     const selectors = splitTopLevelSelectors(head);
-    if (selectors.some((s) => s === needle)) {
-      assertNotAtRuleHead(head, needle);
-      return body;
+    if (!selectors.some((s) => s === needle)) {
+      continue;
     }
+    if (isAtRuleScoped(match.index, head)) {
+      atRuleScopedMatch = { offset: match.index, head };
+      continue;
+    }
+    lastBody = body;
+    found = true;
   }
-  throw new Error(`No rule found whose selector list contains: ${needle}`);
+  if (!found) {
+    if (atRuleScopedMatch) {
+      assertNotAtRuleScoped(atRuleScopedMatch.offset, atRuleScopedMatch.head, needle);
+    }
+    throw new Error(`No rule found whose selector list contains: ${needle}`);
+  }
+  return lastBody as string;
 }
 
 /**
  * Parses the numeric value of `property: <int>` out of a declaration body
- * (e.g. the body returned by `declarationsFor` or `bodyForSelectorListToken`).
- * Used to compare two z-index values numerically (plan 19-07) rather than
- * as literal strings, so the comparison still means something if either
- * value is retuned. Throws when the property is absent, so a deleted
- * declaration fails loudly rather than silently comparing against NaN.
+ * (e.g. the body returned by `declarationsFor` or `bodyForSelectorListToken`),
+ * returning the LAST match in source order rather than the first — matching
+ * how CSS resolves a property redeclared twice in one rule body (R3-WR-02,
+ * 19-REVIEW-round3.md): the review's executed case was a body declaring
+ * `z-index` twice (20 then 0), where the old first-match helper reported 20
+ * even though 0 is the real cascade winner. Escapes `property` with the
+ * same `.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')` guard `declarationsFor`
+ * already uses (R3-IN-01) — without it, a property name containing a regex
+ * metacharacter would be interpreted as regex syntax instead of a literal
+ * string. Anchors each match to a declaration boundary (start of body, or a
+ * preceding `;` or whitespace) so a property name that is a SUFFIX of a
+ * longer property (e.g. `index` inside `z-index`) can never match. Throws
+ * when there are no matches, so a deleted declaration fails loudly rather
+ * than silently comparing against `NaN`.
  */
 function extractNumericDeclaration(body: string, property: string): number {
-  const match = body.match(new RegExp(`${property}:\\s*(-?\\d+)`));
-  if (!match) {
+  const escaped = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const matches = [...body.matchAll(new RegExp(`(?:^|;|\\s)${escaped}\\s*:\\s*(-?\\d+)`, 'g'))];
+  if (matches.length === 0) {
     throw new Error(`No numeric ${property} declaration found in: ${body}`);
   }
-  return Number(match[1]);
+  return Number(matches[matches.length - 1][1]);
 }
 
 /**
@@ -185,12 +318,12 @@ function extractNumericDeclaration(body: string, property: string): number {
  * loudly rather than silently matching nothing.
  */
 function ruleWithHeadContaining(needle: string): string {
-  const ruleHeadAndBody = /([^{}]+)\{([^}]*)\}/g;
+  const ruleHeadAndBody = RULE_SCANNER();
   let match: RegExpExecArray | null;
   while ((match = ruleHeadAndBody.exec(cssNoComments)) !== null) {
     const [, head, body] = match;
     if (head.includes(needle)) {
-      assertNotAtRuleHead(head, needle);
+      assertNotAtRuleScoped(match.index, head, needle);
       return head + body;
     }
   }
@@ -227,6 +360,49 @@ describe('splitTopLevelSelectors — self-tests', () => {
     expect(splitTopLevelSelectors('.solo')).toEqual(['.solo']);
     expect(splitTopLevelSelectors('  .solo  ')).toEqual(['.solo']);
     expect(splitTopLevelSelectors('')).toEqual(['']);
+  });
+});
+
+// Self-tests for the helper substrate hardened by plan 19-15 in response to
+// 19-REVIEW-round3.md (R3-CR-01 at-rule hole, R3-WR-02 first-wins blind
+// spots). Each case here is a mutation the review executed against the OLD
+// helper bodies and observed staying green (or silently wrong); the
+// corresponding assertion below is the new, closed-loop guard.
+describe('AT_RULE_RANGES / assertNotAtRuleScoped / last-wins — self-tests', () => {
+  it('throws for a selector that exists only inside an @media block (R3-CR-01) — the review\'s old helper resolved this without throwing and returned "display: flex;\\n    flex-direction: column;"', () => {
+    expect(() =>
+      bodyForSelectorListToken('.app-nav[data-open="true"] .app-nav__links'),
+    ).toThrow(/at-rule block/);
+  });
+
+  it('still resolves .app-nav__toggle to its TOP-LEVEL rule, not the media-nested one, once the media-nested match is rejected by offset', () => {
+    const body = bodyForSelectorListToken('.app-nav__toggle');
+    expect(body).toContain('display: none');
+    expect(body).not.toContain('inline-flex');
+  });
+
+  it('bodyForSelectorListToken is last-wins: a token declared twice in synthetic CSS resolves to the second rule\'s body', () => {
+    const synthetic = '.token { value: 1; } .token { value: 2; }';
+    expect(bodyForSelectorListToken('.token', synthetic)).toContain('value: 2');
+    expect(bodyForSelectorListToken('.token', synthetic)).not.toContain('value: 1');
+  });
+
+  it('extractNumericDeclaration is last-wins: a property declared twice inside one body resolves to the second value', () => {
+    const body = 'z-index: 5; other: 1; z-index: 9;';
+    expect(extractNumericDeclaration(body, 'z-index')).toBe(9);
+  });
+
+  it('extractNumericDeclaration does not match a property name occurring as a suffix of another declaration', () => {
+    const body = 'max-z-index: 40; other: 1;';
+    expect(() => extractNumericDeclaration(body, 'z-index')).toThrow(/No numeric/);
+  });
+
+  it('extractNumericDeclaration escapes a property containing a regex metacharacter instead of treating it as regex syntax', () => {
+    // Unescaped, `grid.column` as a regex would also match the LATER
+    // `grid-column: 8` declaration (`.` matching the literal `-`), and
+    // last-wins would then incorrectly return 8 instead of 4.
+    const body = 'grid.column: 4; grid-column: 8;';
+    expect(extractNumericDeclaration(body, 'grid.column')).toBe(4);
   });
 });
 
@@ -367,13 +543,13 @@ describe('styles.css — Phase 17 tokens', () => {
 //
 // At-rule nesting (WR-02, 19-REVIEW.md): all THREE rule-scanning helpers —
 // selectorListDeclares, bodyForSelectorListToken, ruleWithHeadContaining —
-// share one generic regex, `/([^{}]+)\{([^}]*)\}/g`, whose body class
-// `[^}]*` permits `{`. Against an `@media` block, that regex consumes the
+// share one generic regex (see RULE_SCANNER above), whose body class
+// permits an unmatched `{`. Against an `@media` block, that regex consumes the
 // `@media (...)` prelude itself as a rule HEAD and swallows the first
 // nested rule into its "body" — seven pseudo-rules come out this way in
 // this stylesheet today. No assertion in this file may target a rule
 // living inside an `@media` (or other at-rule) block; none of these three
-// helpers descend into one. `assertNotAtRuleHead` now makes the two
+// helpers descend into one. The at-rule guard now makes the two
 // single-match helpers (`bodyForSelectorListToken`, `ruleWithHeadContaining`)
 // fail loudly with a message naming the at-rule prelude and the needle,
 // instead of either silently matching the wrong block or failing closed.
@@ -522,10 +698,7 @@ describe('styles.css — Phase 19 disabled treatment', () => {
     expect(selectorListDeclares('[aria-disabled="true"]:focus-visible', 'opacity: 1')).toBe(true);
 
     const body = bodyForSelectorListToken(':disabled:focus-visible');
-    const fragments = body
-      .split(';')
-      .map((fragment) => fragment.trim())
-      .filter(Boolean);
+    const fragments = declarationFragments(body);
     expect(fragments).toEqual(['opacity: 1']);
 
     // The at-rest dimming (D-07) must remain exactly as shipped.
@@ -617,10 +790,7 @@ describe('styles.css — Phase 19 focus ring', () => {
   // must fail this test too.
   it('.segmented__option cancels the button baseline radius so middle options render square (CR-02)', () => {
     const body = bodyForSelectorListToken('.segmented__option');
-    const fragments = body
-      .split(';')
-      .map((fragment) => fragment.trim())
-      .filter(Boolean);
+    const fragments = declarationFragments(body);
     expect(fragments).toContain('border-radius: 0');
     expect(selectorListDeclares('button', 'border-radius: var(--radius-control)')).toBe(true);
   });
@@ -781,10 +951,7 @@ describe('styles.css — Phase 19 radius tokens (parse level)', () => {
   // planning to pass identically against the broken and fixed file.
   it('--radius-control and --radius-panel are anchored, reachable :root declarations', () => {
     const rootBody = declarationsFor(':root');
-    const fragments = rootBody
-      .split(';')
-      .map((fragment) => fragment.trim())
-      .filter(Boolean);
+    const fragments = declarationFragments(rootBody);
     for (const name of ['--radius-control', '--radius-panel']) {
       const anchored = new RegExp(`^${name}\\s*:`);
       expect(
