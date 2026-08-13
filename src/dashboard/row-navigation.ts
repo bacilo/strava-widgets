@@ -50,17 +50,46 @@ export function activityDetailHref(activityId: string): string {
 }
 
 /**
+ * The DOM-free description of one row click, extracted so the link-contract
+ * decision (D-12) is testable under `environment: 'node'`.
+ */
+export interface RowClickContext {
+  button: number;
+  metaKey: boolean;
+  ctrlKey: boolean;
+  shiftKey: boolean;
+  altKey: boolean;
+  insideAnchor: boolean;
+  hasTextSelection: boolean;
+}
+
+// Pre-fix baseline (plan 20-09 Task 2): only `insideAnchor` is considered.
+// Task 3 replaces this body with the full link contract; every other field
+// is deliberately ignored until then.
+export function shouldNavigateOnRowClick(context: RowClickContext): boolean {
+  return !context.insideAnchor;
+}
+
+/**
  * Extracted from `buildTableRow` (`list.ts:333-343`) — behavior preserved
  * exactly (D-03). Adds `NAVIGABLE_ROW_CLASS` to `rowEl` and registers a click
- * listener that defers to an in-row anchor's own navigation (the
- * `closest('a')` guard) and otherwise navigates via `navigateTo`.
+ * listener that builds a `RowClickContext` from the event and the current
+ * selection, then delegates the decision to `shouldNavigateOnRowClick`.
  */
 export function attachRowNavigation(rowEl: HTMLElement, activityId: string): void {
   rowEl.classList.add(NAVIGABLE_ROW_CLASS);
-  rowEl.addEventListener('click', (event) => {
-    // The row's own in-cell anchor already navigates on its own; do not
-    // double-navigate when the click originated from it.
-    if ((event.target as HTMLElement).closest('a')) {
+  rowEl.addEventListener('click', (event: MouseEvent) => {
+    const selection = window.getSelection();
+    const context: RowClickContext = {
+      button: event.button,
+      metaKey: event.metaKey,
+      ctrlKey: event.ctrlKey,
+      shiftKey: event.shiftKey,
+      altKey: event.altKey,
+      insideAnchor: Boolean((event.target as HTMLElement).closest('a')),
+      hasTextSelection: Boolean(selection && !selection.isCollapsed && selection.toString().length > 0),
+    };
+    if (!shouldNavigateOnRowClick(context)) {
       return;
     }
     navigateTo(activityDetailPath(activityId));

@@ -1,9 +1,13 @@
+import { readFileSync } from 'node:fs';
+
 import { describe, expect, it } from 'vitest';
 
 import {
   NAVIGABLE_ROW_CLASS,
+  type RowClickContext,
   activityDetailHref,
   activityDetailPath,
+  shouldNavigateOnRowClick,
 } from './row-navigation.js';
 
 // Node-environment-only test file — this repo has no jsdom, so this file
@@ -49,5 +53,137 @@ describe('activityDetailHref', () => {
 describe('NAVIGABLE_ROW_CLASS', () => {
   it('equals activity-table__row--navigable', () => {
     expect(NAVIGABLE_ROW_CLASS).toBe('activity-table__row--navigable');
+  });
+});
+
+/**
+ * The permissive baseline: a plain primary click on a non-anchor cell, with
+ * no modifiers and no active selection. Every case below spreads this and
+ * overrides exactly one field, so each `it` names precisely one condition.
+ */
+function plainPrimaryClick(): RowClickContext {
+  return {
+    button: 0,
+    metaKey: false,
+    ctrlKey: false,
+    shiftKey: false,
+    altKey: false,
+    insideAnchor: false,
+    hasTextSelection: false,
+  };
+}
+
+// The row-click link contract (D-12) — closing the BLOCKER 20-VERIFICATION.md
+// recorded against row-navigation.ts:58-67. These cases apply to the five
+// anchor-less Records PR-table cells (Rank, Time, Pace, Age-Grade, Flags;
+// only Date carries a real anchor — records.ts:396-419), the sole affordance
+// on those cells since plan 20-03 (670e368) removed the "View Activity"
+// anchor column.
+describe('shouldNavigateOnRowClick — the row-click link contract (D-12)', () => {
+  it('baseline: a plain primary click on a non-anchor cell navigates', () => {
+    expect(shouldNavigateOnRowClick(plainPrimaryClick())).toBe(true);
+  });
+
+  it('baseline: a click inside the row\'s own anchor does not double-navigate', () => {
+    expect(
+      shouldNavigateOnRowClick({ ...plainPrimaryClick(), insideAnchor: true }),
+    ).toBe(false);
+  });
+
+  it('Cmd+click (metaKey) on a Rank/Time/Pace/Age-Grade/Flags cell must defer to the browser\'s new-tab gesture (D-12) — will fail against the pre-fix baseline', () => {
+    expect(
+      shouldNavigateOnRowClick({ ...plainPrimaryClick(), metaKey: true }),
+    ).toBe(false);
+  });
+
+  it('Ctrl+click (ctrlKey) on a Rank/Time/Pace/Age-Grade/Flags cell must defer to the browser\'s new-tab gesture (D-12) — will fail against the pre-fix baseline', () => {
+    expect(
+      shouldNavigateOnRowClick({ ...plainPrimaryClick(), ctrlKey: true }),
+    ).toBe(false);
+  });
+
+  it('Shift+click on a Rank/Time/Pace/Age-Grade/Flags cell must defer to the browser\'s new-window gesture (D-12) — will fail against the pre-fix baseline', () => {
+    expect(
+      shouldNavigateOnRowClick({ ...plainPrimaryClick(), shiftKey: true }),
+    ).toBe(false);
+  });
+
+  it('Alt+click on a Rank/Time/Pace/Age-Grade/Flags cell must defer to the browser\'s download gesture (D-12) — will fail against the pre-fix baseline', () => {
+    expect(
+      shouldNavigateOnRowClick({ ...plainPrimaryClick(), altKey: true }),
+    ).toBe(false);
+  });
+
+  it('a middle-click (button: 1) on a Rank/Time/Pace/Age-Grade/Flags cell must not navigate in this tab (D-12) — will fail against the pre-fix baseline', () => {
+    expect(
+      shouldNavigateOnRowClick({ ...plainPrimaryClick(), button: 1 }),
+    ).toBe(false);
+  });
+
+  it('a secondary/right-click (button: 2) on a Rank/Time/Pace/Age-Grade/Flags cell must not navigate (D-12) — will fail against the pre-fix baseline', () => {
+    expect(
+      shouldNavigateOnRowClick({ ...plainPrimaryClick(), button: 2 }),
+    ).toBe(false);
+  });
+
+  it('a drag-select ending inside a Rank/Time/Pace/Age-Grade/Flags cell must survive, not navigate away (D-12) — will fail against the pre-fix baseline', () => {
+    expect(
+      shouldNavigateOnRowClick({ ...plainPrimaryClick(), hasTextSelection: true }),
+    ).toBe(false);
+  });
+
+  it('anti-over-blocking: each single guard field refuses navigation while the plain primary click still navigates (D-12) — will fail against the pre-fix baseline', () => {
+    const plain = plainPrimaryClick();
+    expect(shouldNavigateOnRowClick(plain)).toBe(true);
+    const singleFieldVariants: Array<Partial<RowClickContext>> = [
+      { metaKey: true },
+      { ctrlKey: true },
+      { shiftKey: true },
+      { altKey: true },
+      { button: 1 },
+      { button: 2 },
+      { hasTextSelection: true },
+    ];
+    for (const variant of singleFieldVariants) {
+      expect(
+        shouldNavigateOnRowClick({ ...plain, ...variant }),
+        `variant ${JSON.stringify(variant)} must refuse to navigate on a Rank/Time/Pace/Age-Grade/Flags cell (D-12) even though the plain primary click still does`,
+      ).toBe(false);
+    }
+  });
+});
+
+/**
+ * Strips block comments, non-greedy, then `//`-to-end-of-line where the `//`
+ * is not immediately preceded by `:` — mirrors `row-semantics.test.ts`'s
+ * `stripComments` so prose in a comment cannot collide with these assertions.
+ */
+function stripComments(source: string): string {
+  const withoutBlockComments = source.replace(/\/\*[\s\S]*?\*\//g, '');
+  return withoutBlockComments.replace(/(?<!:)\/\/.*$/gm, '');
+}
+
+describe('row-navigation.ts wiring — the listener actually consults the predicate', () => {
+  const stripped = stripComments(
+    readFileSync(new URL('./row-navigation.ts', import.meta.url), 'utf8'),
+  );
+
+  it('shouldNavigateOnRowClick( occurs exactly twice — the definition and its single call site', () => {
+    const matches = stripped.match(/shouldNavigateOnRowClick\(/g) || [];
+    expect(matches.length).toBe(2);
+  });
+
+  it("the listener reads event.button, every modifier key and window.getSelection(", () => {
+    expect(stripped).toContain('event.button');
+    expect(stripped).toContain('event.metaKey');
+    expect(stripped).toContain('event.ctrlKey');
+    expect(stripped).toContain('event.shiftKey');
+    expect(stripped).toContain('event.altKey');
+    expect(stripped).toContain('window.getSelection(');
+  });
+
+  it("closest('a') still occurs exactly once", () => {
+    const matches = stripped.match(/closest\('a'\)/g) || [];
+    expect(matches.length).toBe(1);
   });
 });
