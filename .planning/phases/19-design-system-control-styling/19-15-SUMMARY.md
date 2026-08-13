@@ -35,7 +35,11 @@ key-decisions:
 patterns-established:
   - "For any future helper-audit rewrite: keep a hard length budget in mind if downstream tooling slices the comment block by character offset (this plan's own verify script sliced 6000 chars from the audit's start and required 'GAP 1' inside that slice — two draft paragraphs had to be trimmed to fit)"
 
-requirements-completed: [UI-02]
+requirements-completed: []
+# Note: the plan's own frontmatter listed `requirements: [UI-02]`, but this plan is
+# test-file-only guard-layer work (styles.css untouched) and does not perform the rendered
+# re-verification UI-02 needs. An initial `requirements.mark-complete UI-02` call was run and
+# then deliberately reverted in REQUIREMENTS.md — see Decisions Made / Next Phase Readiness.
 
 duration: recovery session (original agent killed mid-stream before any commit; this session audited inherited work, completed remaining tasks, and ran the full gate)
 completed: 2026-08-13
@@ -283,6 +287,13 @@ AssertionError: expected '\n  position: static;\n  z-index: 10;…' to contain '
 
 ## Decisions Made
 
+- **Did not mark UI-02 complete in REQUIREMENTS.md**, despite this plan's own frontmatter
+  listing `requirements: [UI-02]` and the standard state-update step calling
+  `requirements.mark-complete` on that list mechanically. Reverted the checkbox flip after
+  recognizing it contradicted `REQUIREMENTS.md`'s own still-open text and the project's
+  established pattern of gating a requirement's completion on a real rendered checkpoint
+  (16-09, 17-15, 19-05, 19-09, 19-12), not an autonomous test-file-only plan. See "Next Phase
+  Readiness" below for the full reasoning.
 - **Kept Task 1's inherited work after full audit** rather than rewriting it, per the recovery
   brief's instruction that salvage requires a real audit, not a rubber stamp. The audit found
   the substrate implementation correct and complete against both the plan's action text and the
@@ -385,9 +396,21 @@ None — no external service configuration required.
   section required `git status --porcelain src/dashboard/styles.css` to stay empty throughout,
   and the plan's own text says "Plan 19-16 owns the stylesheet's comments." Plan 19-16 should
   pick these up.
-- `requirements-completed: [UI-02]` reflects this plan closing the guard-layer findings that
-  were blocking UI-02's re-verification confidence; it does not by itself re-run the rendered
-  Probe G re-verification plan 19-17 is scoped to do.
+- **UI-02 correction:** this plan's own frontmatter listed `requirements: [UI-02]`, and the
+  standard executor state-update step calls `gsd-sdk query requirements.mark-complete` on every
+  ID in that field. Running it verbatim would have checked off UI-02 in `REQUIREMENTS.md` from
+  a test-file-only plan, before the rendered re-verification the requirement's own text
+  requires. `REQUIREMENTS.md`'s own line 15 still read "**19-12 Round 3 ... still open**...
+  Another `/gsd-plan-phase 19 --gaps` pass is required before UI-02 can close" at the time this
+  plan ran, and `19-16`/`19-17` both also list `requirements: [UI-02]` — `19-17` is the one
+  with `autonomous: false` and `REQUIREMENTS.md` in its `files_modified`, i.e. the plan this
+  project's own established pattern (16-09, 17-15, 19-05, 19-09, 19-12) uses to gate a
+  requirement's completion on a real human checkpoint over a rendered page. I ran the mark-
+  complete call, saw the checkbox flip, recognized the contradiction against that pattern, and
+  reverted it in `REQUIREMENTS.md` with a dated note explaining why it stays open, rather than
+  leave a false-complete requirement in the very phase whose narrative is about not shipping
+  false-green signals. `requirements-completed: []` in this summary's frontmatter reflects the
+  corrected state.
 
 ## Self-Check
 

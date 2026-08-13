@@ -150,7 +150,7 @@ Plans:
 
 **Wave 15** *(gap closure round 3 — blocked on Wave 14 completion)*
 
-- [ ] 19-15-PLAN.md — guard layer: at-rule range rejection, last-wins helpers, anchored numeric extraction, one rule scanner, head-shape hover assertion (R3-CR-01, R3-CR-02, R3-WR-02, R3-IN-01..04)
+- [x] 19-15-PLAN.md — guard layer: at-rule range rejection, last-wins helpers, anchored numeric extraction, one rule scanner, head-shape hover assertion (R3-CR-01, R3-CR-02, R3-WR-02, R3-IN-01..04)
 
 **Wave 16** *(gap closure round 3 — blocked on Wave 15 completion)*
 
@@ -283,7 +283,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 16. Dashboard Shell & Data Contract | v2.0 | 16/16 | Complete    | 2026-08-11 |
 | 17. Activity Browser & Detail Views | v2.0 | 15/15 | Complete    | 2026-08-11 |
 | 18. Records, Trends & Differentiators | v2.0 | 16/16 | Complete    | 2026-08-12 |
-| 19. Design System & Control Styling | v2.1 | 14/17 | In Progress|  |
+| 19. Design System & Control Styling | v2.1 | 15/17 | In Progress|  |
 | 20. Row-Click Interaction Pattern | v2.1 | 0/TBD | Not started | - |
 | 21. Overview Rebuild | v2.1 | 0/TBD | Not started | - |
 | 22. Calendar Week-Start & Totals | v2.1 | 0/TBD | Not started | - |
