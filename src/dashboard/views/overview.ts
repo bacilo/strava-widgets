@@ -13,6 +13,7 @@ import { ROUTES } from '../view.types.js';
 import type { IndexClient, FetchLike } from '../data/index-client.js';
 import type { DashboardIndexRow } from '../../analytics/dashboard-index.types.js';
 import { renderActivityRow, formatActivityDate } from './list.js';
+import { activityDetailHref } from '../row-navigation.js';
 
 const RECENT_PR_COUNT = 5;
 const RECENT_ACTIVITY_COUNT = 10;
@@ -74,10 +75,26 @@ async function fetchStatsJson<T>(url: string, doFetch: FetchLike): Promise<T | n
   }
 }
 
-/** A lighter-weight recent-PR row: name, local date, distance, and a PR-count badge — not the full `renderActivityRow`. */
+/**
+ * A lighter-weight recent-PR row: name, local date, distance, and a
+ * PR-count badge — not the full `renderActivityRow`.
+ *
+ * This row is now a whole-row `<a>` (D-08). Its three children — the name
+ * div, the meta div, the PR-count badge — are deliberately unchanged in
+ * this edit: Phase 20 owns the row's link semantic, Phase 21
+ * (OVR-01/OVR-02) owns the row's contents, following Phase 19's D-14
+ * precedent. `row.name` continues to reach the DOM only through
+ * `textContent`, never an HTML-string assignment.
+ */
 function renderRecentPrRow(row: DashboardIndexRow): HTMLElement {
-  const rowEl = document.createElement('div');
+  const rowEl = document.createElement('a');
   rowEl.className = 'activity-row';
+  const distanceKm = (row.distanceM / 1000).toFixed(1);
+  rowEl.href = activityDetailHref(row.id);
+  rowEl.setAttribute(
+    'aria-label',
+    `${row.name}, ${formatActivityDate(row.startDateLocal)}, ${distanceKm} km`
+  );
 
   const nameEl = document.createElement('div');
   nameEl.className = 'activity-row__name';
@@ -86,7 +103,6 @@ function renderRecentPrRow(row: DashboardIndexRow): HTMLElement {
 
   const metaEl = document.createElement('div');
   metaEl.className = 'activity-row__meta';
-  const distanceKm = (row.distanceM / 1000).toFixed(1);
   metaEl.textContent = `${formatActivityDate(row.startDateLocal)} · ${distanceKm} km`;
   rowEl.appendChild(metaEl);
 

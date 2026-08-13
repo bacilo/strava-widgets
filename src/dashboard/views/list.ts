@@ -23,6 +23,7 @@ import { ROUTES } from '../view.types.js';
 import type { IndexClient } from '../data/index-client.js';
 import type { DashboardIndexRow } from '../../analytics/dashboard-index.types.js';
 import { navigateTo } from '../router.js';
+import { attachRowNavigation, activityDetailHref } from '../row-navigation.js';
 import type { SortKey, SortDir, ListState, DatePresetId } from './list-logic.js';
 import {
   DEFAULT_DIR,
@@ -203,10 +204,29 @@ function appendStatusBadges(container: HTMLElement, row: DashboardIndexRow): voi
  * written with `textContent` — an HTML-string assignment is never used —
  * per T-16-VW-01, the explicit deviation from `route-browser`'s known
  * unescaped-interpolation anti-pattern.
+ *
+ * This row is now a whole-row `<a>` (D-07): the entire row is the
+ * navigation affordance, not a bare `<div>` with a click handler bolted on.
+ * It is the single shared seam between Overview's Recent Activities card
+ * and the Activities mobile card view — one edit here changes both
+ * screens. The redundant "View Activity" CTA that used to live inside the
+ * row was removed under UX-02, since the row itself is now the affordance.
+ * The curated `aria-label` exists because a whole-row link otherwise
+ * announces every descendant string concatenated (name, date, distance,
+ * duration, pace, every status badge) — verbose and inconsistent with what
+ * the same activity announces elsewhere (D-04). `.activity-row` in
+ * `styles.css` declares `display: flex`, which is what keeps the row laid
+ * out now that the element is an inline-by-default anchor.
  */
 export function renderActivityRow(row: DashboardIndexRow): HTMLElement {
-  const rowEl = document.createElement('div');
+  const rowEl = document.createElement('a');
   rowEl.className = 'activity-row';
+  const distanceKm = (row.distanceM / 1000).toFixed(1);
+  rowEl.href = activityDetailHref(row.id);
+  rowEl.setAttribute(
+    'aria-label',
+    `${row.name}, ${formatActivityDate(row.startDateLocal)}, ${distanceKm} km`
+  );
 
   const nameEl = document.createElement('div');
   nameEl.className = 'activity-row__name';
@@ -215,17 +235,10 @@ export function renderActivityRow(row: DashboardIndexRow): HTMLElement {
 
   const metaEl = document.createElement('div');
   metaEl.className = 'activity-row__meta';
-  const distanceKm = (row.distanceM / 1000).toFixed(1);
   metaEl.textContent = `${formatActivityDate(row.startDateLocal)} · ${distanceKm} km · ${formatDurationHms(row.movingTimeSec)} · ${formatPace(row.paceSecPerKm)}`;
   rowEl.appendChild(metaEl);
 
   appendStatusBadges(rowEl, row);
-
-  const cta = document.createElement('a');
-  cta.className = 'cta';
-  cta.textContent = 'View Activity';
-  cta.href = `#/activity/${row.id}`;
-  rowEl.appendChild(cta);
 
   return rowEl;
 }
@@ -327,20 +340,27 @@ function buildHeaderRow(state: ListState): HTMLTableRowElement {
 
 /**
  * Builds one desktop `<tr>`, separate from `renderActivityRow` (D-04, two
- * renderers each with one job). Keyboard users operate the Activity-cell
- * anchor (already Tab+Enter operable) — no `tabindex` on the `<tr>` itself.
+ * renderers each with one job).
+ *
+ * The row's keyboard path is the Activity-cell anchor below: a real link,
+ * so Tab reaches it, Enter activates it, and assistive tech announces it as
+ * a link with the curated `aria-label`. The `<tr>` itself deliberately
+ * carries no `tabindex` and no `role="link"` — `role="link"` on a `<tr>`
+ * removes it from the table's accessibility tree and breaks screen-reader
+ * table navigation (D-01). Phase 20 success criterion 3's "Tab reaches the
+ * row" is satisfied here via the row's single activation control, not via a
+ * `tabindex` on the row wrapper itself; on the div rows (`renderActivityRow`,
+ * `renderRecentPrRow`) it is satisfied literally, because those rows are
+ * themselves anchors. This is a deliberate reading (D-01 of
+ * `20-CONTEXT.md`), not a shortcut — the alternative degrades real
+ * assistive-tech table navigation to satisfy a wording. The row-level click
+ * behavior (mouse path, guarded so it never double-navigates with the
+ * in-cell anchor) now lives in `src/dashboard/row-navigation.ts` (D-03).
  */
 function buildTableRow(row: DashboardIndexRow): HTMLTableRowElement {
   const tr = document.createElement('tr');
   tr.dataset.activityId = row.id;
-  tr.addEventListener('click', (event) => {
-    // The Activity-cell anchor already navigates on its own; do not
-    // double-navigate when the click originated from it.
-    if ((event.target as HTMLElement).closest('a')) {
-      return;
-    }
-    navigateTo(`/activity/${row.id}`);
-  });
+  attachRowNavigation(tr, row.id);
 
   const distanceKm = (row.distanceM / 1000).toFixed(1);
 
@@ -350,7 +370,7 @@ function buildTableRow(row: DashboardIndexRow): HTMLTableRowElement {
 
   const activityTd = document.createElement('td');
   const anchor = document.createElement('a');
-  anchor.href = `#/activity/${row.id}`;
+  anchor.href = activityDetailHref(row.id);
   anchor.textContent = row.name; // athlete free text — textContent only (T-17-VW-01)
   anchor.setAttribute(
     'aria-label',
