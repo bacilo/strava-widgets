@@ -503,10 +503,12 @@ describe('styles.css — Phase 17 tokens', () => {
 // silhouette matches. Plan 19-05's human checkpoint is the sole proof of
 // rendering (19-VALIDATION.md's two-mechanism constraint).
 //
-// Helper audit (19-08 Task 2, at-rule nesting added by 19-10 Task 2 / WR-02),
-// so a future author extending this file knows which layer a new claim
-// belongs in. Each line states what the helper proves and the class of
-// false pass it cannot rule out:
+// Helper audit (19-08 Task 2, at-rule nesting added by 19-10 Task 2 / WR-02,
+// corrected by plan 19-15 in response to 19-REVIEW-round3.md after Round 3
+// proved two of the audit's own prior claims false — see the at-rule and
+// cascade paragraphs below), so a future author extending this file knows
+// which layer a new claim belongs in. Each line states what the helper
+// proves and the class of false pass it cannot rule out:
 // - declarationsFor: proves a rule with this exact selector exists and
 //   returns its body. Cannot rule out a body edit that preserves the
 //   substring an assertion checks while changing the declaration's actual
@@ -521,24 +523,31 @@ describe('styles.css — Phase 17 tokens', () => {
 //   `declaration` as a body substring. Cannot rule out a coincidental
 //   substring match inside an unrelated declaration's value — it checks
 //   `.includes()` on the whole body, not that `declaration` is a distinct,
-//   whole `property: value` pair. At-rule nesting (WR-02, below): does NOT
-//   throw on an at-rule pseudo-rule, because it iterates every rule in the
-//   file and returns a boolean — it silently walks past the wrong block
-//   rather than raising, so a false `false` from this helper may mean
-//   either "not declared" or "declared, but only inside an @media block
-//   this helper cannot see."
+//   whole `property: value` pair. At-rule nesting (below): remains
+//   DELIBERATELY unguarded — it iterates every rule in the file and
+//   returns a boolean, so throwing on an at-rule-scoped match would fire on
+//   the first at-rule it walks past and break unrelated, currently-passing
+//   assertions that have nothing to do with the needle being checked. Its
+//   blind spot therefore stays a silent `false`: a false `false` from this
+//   helper may mean either "not declared" or "declared, but only inside an
+//   `@media` block this helper cannot see."
 // - bodyForSelectorListToken: proves some rule whose top-level selector
 //   list contains `needle` exists, and returns its body text for the
 //   caller to parse a value out of (plan 19-07/19-10's numeric z-index
-//   comparisons). At-rule nesting (WR-02, below): guarded — throws rather
-//   than silently returning the wrong block's body.
+//   comparisons). At-rule nesting (below): guarded by offset, not just by
+//   head shape — see that paragraph for what changed. Cascade (below):
+//   last-wins, matching CSS.
 // - ruleWithHeadContaining: proves some rule's head contains `needle` as a
 //   raw substring; deliberately does not parse selector structure at all.
 //   Cannot rule out matching the wrong rule if `needle` is short/generic
 //   enough to also appear in an unrelated head, or missing the intended
 //   rule entirely if `cssNoComments`'s own comment-stripping is ever wrong.
-//   At-rule nesting (WR-02, below): guarded — throws rather than silently
-//   matching the wrong block.
+//   At-rule nesting (below): guarded by offset, same as
+//   bodyForSelectorListToken. Returns its match as `head + '{' + body +
+//   '}'` (brace boundary preserved, not `head + body` concatenated), so a
+//   caller can recover `head` alone by slicing at the first `{` — added by
+//   plan 19-15 for the hover-shape assertion below, which needs the head's
+//   structure rather than a head+body substring search.
 // - splitTopLevelSelectors: proves a comma nested inside parentheses is
 //   never mistaken for a selector-list boundary. Cannot rule out a false
 //   split on an attribute selector containing a literal comma inside its
@@ -546,23 +555,55 @@ describe('styles.css — Phase 17 tokens', () => {
 //   occur anywhere in this stylesheet today, so it is untested by the
 //   self-tests above and would need a fifth case if it were ever added.
 //
-// At-rule nesting (WR-02, 19-REVIEW.md): all THREE rule-scanning helpers —
+// At-rule nesting (WR-02, 19-REVIEW.md; corrected by R3-CR-01,
+// 19-REVIEW-round3.md): all THREE rule-scanning helpers —
 // selectorListDeclares, bodyForSelectorListToken, ruleWithHeadContaining —
-// share one generic regex (see RULE_SCANNER above), whose body class
-// permits an unmatched `{`. Against an `@media` block, that regex consumes the
+// share one generic regex (RULE_SCANNER above), whose body class permits an
+// unmatched `{`. Against an `@media` block, that regex consumes the
 // `@media (...)` prelude itself as a rule HEAD and swallows the first
 // nested rule into its "body" — seven pseudo-rules come out this way in
-// this stylesheet today. No assertion in this file may target a rule
-// living inside an `@media` (or other at-rule) block; none of these three
-// helpers descend into one. The at-rule guard now makes the two
-// single-match helpers (`bodyForSelectorListToken`, `ruleWithHeadContaining`)
-// fail loudly with a message naming the at-rule prelude and the needle,
-// instead of either silently matching the wrong block or failing closed.
-// It is deliberately NOT applied inside `selectorListDeclares`, which walks
-// every rule and returns a boolean rather than resolving a single match —
-// throwing there would fire on the first at-rule pseudo-rule it passes and
-// break unrelated, currently-passing assertions; that helper's blind spot
-// stays a silent `false`, documented above rather than eliminated.
+// this stylesheet today. Round 3 proved the guard this file shipped for
+// that — a check that a resolved match's HEAD merely begins with `@` — only
+// ever fires on the at-rule prelude pseudo-rule itself, which no real
+// needle reaches (the only selector-list token a prelude produces is its
+// own literal text, e.g. `'@media (max-width: 640px)'`); every rule NESTED
+// inside the block resolved silently with no `@` anywhere in its head.
+// Executed proof: `bodyForSelectorListToken('.app-nav[data-open="true"]
+// .app-nav__links')` used to resolve without throwing and return the
+// `@media` body. `AT_RULE_RANGES` now computes every at-rule block's
+// `[start, end)` offset once by brace matching over `cssNoComments`, and
+// `assertNotAtRuleScoped` rejects a match whose OFFSET falls inside any
+// range — catching a nested rule at every position in the block, not only
+// the first. Applied in the two single-match helpers
+// (`bodyForSelectorListToken`, `ruleWithHeadContaining`), which already
+// throw on failure; still deliberately NOT applied inside
+// `selectorListDeclares`, for the reason stated in its bullet above — that
+// helper's blind spot is retired from "documented as guarded but is not" to
+// "known and left open, because closing it would break other assertions."
+//
+// Cascade order (R3-WR-02, 19-REVIEW-round3.md): this audit used to omit
+// two blind spots entirely. `bodyForSelectorListToken` was first-rule-wins
+// and `extractNumericDeclaration` was first-declaration-wins, while CSS
+// resolves both LAST-wins, so an assertion built on either could read a
+// value a later, real declaration overrides. Concrete case: a later
+// `.segmented__option { border-radius: var(--radius-control) }` would
+// silently cancel the CR-02 fix's own `.segmented__option { border-radius:
+// 0 }` cancellation, and the CR-02 test written to guard exactly that
+// stayed green, because the helper read the FIRST declaration, not the one
+// the browser applies. Both are now last-wins: `bodyForSelectorListToken`
+// returns the last non-at-rule-scoped candidate's body;
+// `extractNumericDeclaration` uses `matchAll` and returns the final match,
+// anchored to a declaration boundary, `property` escaped like
+// `declarationsFor` escapes `selector` (R3-IN-01). Needle enumeration
+// (19-15-SUMMARY.md) confirms this changed no existing assertion's value.
+//
+// Substrate consolidation (R3-IN-03, 19-REVIEW-round3.md): the rule-scanning
+// regex used to be duplicated verbatim in three helpers, and the
+// `;`-split fragment idiom was repeated at three call sites. Both are now
+// single points of correction, `RULE_SCANNER()` (a factory — a shared
+// `RegExp`'s `lastIndex` is stateful across callers) and
+// `declarationFragments(body)`, so a future fix lands in one place, not
+// three.
 //
 // All helpers above operate on stylesheet TEXT — none of them observe a
 // rendered page. GAP 1 (19-VALIDATION.md) proved text-level agreement between
@@ -573,7 +614,14 @@ describe('styles.css — Phase 17 tokens', () => {
 // tokens (parse level)`, using esbuild's real CSS parser) is the layer
 // that closes that specific gap; a future claim that depends on the file
 // actually PARSING as intended — not merely containing the right
-// characters — belongs there, not in a new substring assertion here.
+// characters — belongs there, not in a new substring assertion here. Round
+// 4 (19-REVIEW-round3.md) added a fourth false-green mechanism to this
+// file's record, distinct from GAP 1's text-vs-parse gap: a guard
+// documented in this very comment as closing a hole (the at-rule and
+// cascade paragraphs above) that it did not close, proven only by mutation
+// against the real stylesheet — not by re-reading the code — so the fix
+// above is itself evidence that "the assertion exists and the file says so"
+// is not sufficient either.
 //
 // Scope, stated plainly (T-19G-FALSEGREEN-13, accepted risk, not
 // eliminated): the 40 pre-existing Phase 19 substring assertions in the
