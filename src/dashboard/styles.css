@@ -157,27 +157,61 @@ body {
 /* Navigation */
 
 /* Sticky-layer ladder (CR-01, 19-REVIEW.md). Four sticky/promoted rules in
-   this file compete for paint order; this comment is the single, written,
-   totally-ordered statement of that order — no rung's position is left to
-   tree order or CSS 2.1 Appendix E happening to resolve favourably.
+   this file compete for paint order within the root stacking context; this
+   comment is the single, written statement of that order — no rung's
+   position is left to tree order or CSS 2.1 Appendix E happening to
+   resolve favourably.
 
      4 (top)  #app-nav-root         z-index: 20  (this rule)
      3        .records-jump         z-index: 10  (styles.css, § Records sticky jump list)
      2        .splits-table__km     z-index: 2   (styles.css, § Splits table)
      1 (bottom) :focus-visible      z-index: 1   (styles.css, § Global focus ring)
 
-   .app-nav is `position: sticky; top: 0` with opaque `background:
-   var(--surface)`, and every route scrolls its content underneath it. A
-   sticky element with `z-index: auto` paints in CSS 2.1 Appendix E step 8;
-   `:focus-visible`'s promoted stacking context (added by plan 19-07 to fix
-   GAP 2, see that rule's own comment below) paints in step 9 — so with no
-   `z-index` here, a focused control scrolled under the nav painted OVER the
-   opaque global chrome on every route. That is CR-01, a regression
-   introduced by 19-07's own fix: it was audited against `.records-jump`
-   only, never against `.app-nav`. `z-index: 20` fixes it by giving the nav
-   an explicit layer above `:focus-visible`'s `z-index: 1` — a layer added
-   ABOVE the ring, not a demotion of the ring itself; `:focus-visible`'s
-   `position: relative; z-index: 1` is unchanged by this plan.
+   This ordering governs sibling and cousin ordering, within the root
+   stacking context, between exactly these four rules — nothing more.
+   `z-index` only totally orders elements that share a stacking context,
+   and three of these four rungs establish their own (`position: sticky`,
+   like a promoted element, always does). A `:focus-visible` ring on a
+   DESCENDANT of a sticky rung — `.app-nav__link:focus-visible` is the
+   live case, a link built inside `.app-nav` (nav.ts) which itself sits
+   inside `#app-nav-root` — is contained by that ancestor's own stacking
+   context and never reaches rung 1 at all; it paints above its own
+   ancestor's background regardless of these numbers. That containment is
+   spec-derived from CSS 2.1's stacking-context rules (R3-WR-03,
+   INFERRED-ONLY) and has not been measured on a rendered page. The same
+   gap applies to any focusable element added directly inside
+   `.splits-table__km`, outside what that rung's own `1`-to-`2` bump
+   covers — see that rule's own comment.
+
+   `#app-nav-root` carries `position: sticky; top: 0; z-index: 20` (this
+   rule), moved here from `.app-nav` by plan 19-14 to fix GAP 7 — the
+   sticky rung must sit on an element whose own containing block has room
+   to travel, and `.app-nav`'s box was exactly as tall as its own content,
+   leaving zero travel distance when the rule sat there directly. `.app-nav`
+   keeps its opaque `background: var(--surface)` beneath it. Confirmed, not
+   merely intended: Probe F (19-GAP7-DIAGNOSIS.md, § Fix confirmation
+   (Round 4)) recorded `rootTop: 0` with `rootPos: "sticky"` and
+   `navPos: "static"` after a 600px scroll on both `#/list` and `#/records`,
+   dated 2026-08-13 — the nav remains on screen while each route's content
+   scrolls beneath it.
+
+   A sticky element with `z-index: auto` paints in CSS 2.1 Appendix E step
+   8; `:focus-visible`'s promoted stacking context (added by plan 19-07 to
+   fix GAP 2, see that rule's own comment below) paints in step 9 — so with
+   no `z-index` here, a focused control scrolled under the nav would paint
+   OVER the opaque chrome, per that spec ordering alone. That collision has
+   never been observed on a rendered page: GAP 6 (19-VALIDATION.md) records
+   the `z-index: 20` declaration as shipped but its paint-order effect as
+   unconfirmed, because the row built to test it (row 18, Round 3) failed
+   on the separate GAP 7 premise before the paint-order question could be
+   exercised. Plan 19-17's row 21 is the first observation planned to
+   settle it. Either way, `z-index: 20` is the correct mitigation: it
+   closes CR-01, a regression introduced by 19-07's own fix (audited
+   against `.records-jump` only, never against `.app-nav`), by giving the
+   nav an explicit layer above `:focus-visible`'s `z-index: 1` — a layer
+   added ABOVE the ring, not a demotion of the ring itself;
+   `:focus-visible`'s `position: relative; z-index: 1` is unchanged by
+   this plan.
 
    `.records-jump` sits below the nav at `10`: its `top` is computed at
    runtime from the live `.app-nav` height (see that rule's own comment), so
@@ -946,15 +980,21 @@ body {
   white-space: nowrap;
 }
 
-/* z-index: 2, not 1 — CR-01 sticky-layer ladder (see .app-nav's comment
-   above). Breaks what was otherwise an equal-value tie with
-   `:focus-visible`'s `z-index: 1`, which `.splits-scroll` (no `position`,
-   no stacking context of its own) would have let resolve by tree order. No
-   focusable element lives inside `.splits-scroll` today (confirmed by
-   reading detail-sections.ts's `buildSplitsSection`: only `<th>`/`<td>` text
-   cells and `.pace-bar` divs), so this has no rendered effect yet — it
-   exists so a focusable cell added later cannot silently paint over the
-   sticky km column. */
+/* z-index: 2, not 1 — CR-01 sticky-layer ladder (see the ladder comment
+   above `#app-nav-root`, § Navigation). Breaks what was otherwise an
+   equal-value tie with `:focus-visible`'s `z-index: 1` for a focusable
+   SIBLING cell elsewhere in `.splits-scroll` (no `position`, no stacking
+   context of its own, so tree order would otherwise decide it). Scoped to
+   the sibling-cell case only: a focusable element added directly INSIDE
+   `.splits-table__km` itself would be contained by this rule's own
+   stacking context regardless of the number, and is outside what this
+   bump protects — the ladder comment's descendant-containment sentence
+   covers that case, not this bump. No focusable element lives inside
+   `.splits-scroll` today (confirmed by reading detail-sections.ts's
+   `buildSplitsSection`: only `<th>`/`<td>` text cells and `.pace-bar`
+   divs), so this has no rendered effect yet — it exists so a focusable
+   sibling cell added later cannot silently paint over the sticky km
+   column. */
 .splits-table__km {
   position: sticky;
   left: 0;
