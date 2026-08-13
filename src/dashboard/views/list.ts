@@ -966,12 +966,36 @@ export function noteViewedActivity(id: string): void {
  * has no jsdom and no headless browser, so a stub-element unit test is the
  * only automated proof available. Not part of this module's public surface
  * for any other caller.
+ *
+ * CR-01: plan 20-02 made the card row element itself the `<a>`
+ * (`renderActivityRow`) and deleted its `.cta` descendant, so the previous
+ * `el.querySelector('a')` assumption became false on that branch and the
+ * optional chain swallowed the failure silently (confirmed in
+ * `20-VERIFICATION.md`). Below the 720px breakpoint the card is the only
+ * focusable branch, so Phase 17 D-08's return-from-detail focus restoration
+ * was dead on mobile while the highlight class still made the row look
+ * restored.
+ *
+ * The branch below checks `el.tagName === 'A'` rather than
+ * `el instanceof HTMLAnchorElement` (the form `20-REVIEW.md` proposed)
+ * because vitest runs this repository with `environment: 'node'`, where
+ * `HTMLAnchorElement` is not a defined global — the `instanceof` form would
+ * throw `ReferenceError` in the very regression test that proves this
+ * branch works. Both forms select the same elements in an HTML document;
+ * this is a deliberate, recorded deviation from the review's proposed
+ * patch.
+ *
+ * Standing invariant for future row renderers: this phase produced two row
+ * shapes (D-01/D-07's deliberate hybrid) — the row that IS its own anchor
+ * (card) and the row that CONTAINS one (`<tr>`). Any future row renderer
+ * must be checked against both branches of this function.
  */
 export function highlightAndFocus(el: HTMLElement | undefined): void {
   if (!el) return;
   el.classList.add('activity-table__row--highlight');
   el.scrollIntoView({ block: 'center' });
-  el.querySelector('a')?.focus();
+  const focusTarget = el.tagName === 'A' ? el : el.querySelector('a');
+  focusTarget?.focus();
 }
 
 /**
