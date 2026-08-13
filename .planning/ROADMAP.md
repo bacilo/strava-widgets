@@ -134,7 +134,7 @@ Plans:
 
 **Wave 11** *(gap closure round 2 — blocked on Wave 10 completion)*
 
-- [ ] 19-11-PLAN.md — `.segmented__option` cancels the button baseline radius; focus ring kept at full opacity on focusable aria-disabled controls (CR-02, CR-03)
+- [x] 19-11-PLAN.md — `.segmented__option` cancels the button baseline radius; focus ring kept at full opacity on focusable aria-disabled controls (CR-02, CR-03)
 
 **Wave 12** *(gap closure round 2 — blocked on Wave 11 completion)*
 
@@ -263,7 +263,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 16. Dashboard Shell & Data Contract | v2.0 | 16/16 | Complete    | 2026-08-11 |
 | 17. Activity Browser & Detail Views | v2.0 | 15/15 | Complete    | 2026-08-11 |
 | 18. Records, Trends & Differentiators | v2.0 | 16/16 | Complete    | 2026-08-12 |
-| 19. Design System & Control Styling | v2.1 | 10/12 | In Progress|  |
+| 19. Design System & Control Styling | v2.1 | 11/12 | In Progress|  |
 | 20. Row-Click Interaction Pattern | v2.1 | 0/TBD | Not started | - |
 | 21. Overview Rebuild | v2.1 | 0/TBD | Not started | - |
 | 22. Calendar Week-Start & Totals | v2.1 | 0/TBD | Not started | - |
