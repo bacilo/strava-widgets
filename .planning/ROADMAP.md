@@ -174,7 +174,7 @@ Plans:
   3. Row-level navigation is keyboard-operable — Tab reaches the row, Enter/Space activates it — and is announced correctly to assistive tech (a real link/button semantic, not a bare clickable `<div>`).
   4. **Human checkpoint**: served under `/strava-widgets` in a real browser, tab through Overview and Records rows keyboard-only, confirm consistent focus order and activation, and confirm mouse clicks on rows across all screens land on the correct activity.
 
-**Plans**: 5 plans in 4 waves. The ROADMAP's own criterion-2 citation (`list.ts:224`) is wrong and is not planned from: that line *is* one of the three "View Activity" CTAs this phase removes. The reference pattern is `buildTableRow` at `list.ts:333-360`.
+**Plans**: 8 plans in 7 waves (5 shipped in waves 1-4; 3 gap-closure plans in waves 5-7 after 20-VERIFICATION.md scored 2/4 must-haves). The ROADMAP's own criterion-2 citation (`list.ts:224`) is wrong and is not planned from: that line *is* one of the three "View Activity" CTAs this phase removes. The reference pattern is `buildTableRow` at `list.ts:333-360`.
 
 Plans:
 **Wave 1**
@@ -193,6 +193,18 @@ Plans:
 **Wave 4** *(blocked on Wave 3 completion)*
 
 - [x] 20-05-PLAN.md — full gate + BLOCKING human browser checkpoint under `/strava-widgets`, twelve-row agenda, keyboard-only and mouse, both themes
+
+**Wave 5** *(gap closure — blocked on Wave 4; CR-01 from 20-VERIFICATION.md)*
+
+- [ ] 20-06-PLAN.md — CR-01: highlightAndFocus resolves the focus target for both row shapes, restoring D-08 return-from-detail focus on the mobile card layout, with a regression test proven RED first (UX-01)
+
+**Wave 6** *(blocked on Wave 5 — same files; CR-02 from 20-VERIFICATION.md)*
+
+- [ ] 20-07-PLAN.md — CR-02: status-badge text folded into the whole-row link's accessible name on all three affected surfaces, one badge-text source feeding both spans and label, records.ts pinned unaffected (UX-03)
+
+**Wave 7** *(blocked on Wave 6 — the checkpoint must run after the fixes land)*
+
+- [ ] 20-08-PLAN.md — full gate + BLOCKING Round 2 human checkpoint, seventeen rows, one named verdict each, both themes where the claim depends on them, plus return-focus and VoiceOver announcement rows the Round 1 agenda could not ask for
 
 **UI hint**: yes
 
