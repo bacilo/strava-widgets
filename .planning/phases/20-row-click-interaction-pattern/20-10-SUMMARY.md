@@ -91,6 +91,15 @@ None — both changes are text-guard-over-source-on-disk (`readFileSync`, no net
 
 Plan 20-09 (same wave) still leaves `row-navigation.test.ts` RED between its own Task 2 and Task 3, deliberately, per this plan's constraints. Plan 20-11's Task 1 is the combined green-gate check across all of wave 8-9's work, not performed here.
 
+## Self-Check: PASSED
+
+- FOUND: `src/dashboard/row-semantics.test.ts`
+- FOUND: `src/dashboard/styles.test.ts`
+- FOUND: `.planning/phases/20-row-click-interaction-pattern/20-10-SUMMARY.md`
+- FOUND: commit `2229fe9` (Task 1)
+- FOUND: commit `e68a2bd` (Task 2)
+- FOUND: commit `4b09b3c` (SUMMARY)
+
 ---
 *Phase: 20-row-click-interaction-pattern*
 *Plan: 10*
