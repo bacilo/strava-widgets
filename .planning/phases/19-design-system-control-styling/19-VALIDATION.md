@@ -359,6 +359,30 @@ Recorded verbatim rather than patched under checkpoint pressure, per T-19-VERIFY
 - **Why the automated gate did not catch it:** this is a rendered-layout question (whether an element's `position: sticky` actually keeps it pinned during scroll) that no test in this repository's `environment: 'node'` suite can observe; it was also outside the original CR-01 finding's own scope, which addressed paint order between two elements assuming both were already correctly positioned.
 - **Resolution:** NOT resolved. Per the plan's rule for a still-failing row, no suggested fix and no root-cause theory is recorded here — a future gap-closure pass does that work.
 
+**Diagnosis (Round 4, 2026-08-13).** Plan 19-13 confirmed **H1 — zero-travel containing
+block** as the sole root cause, on evidence recorded against the rendered, production-shaped
+build at `http://localhost:8099/strava-widgets/` (Chrome), not from reading `styles.css`. The
+confirming field: `#app-nav-root`'s `clientHeight` (77) equals `.app-nav`'s `offsetHeight`
+(77) — the sticky element's own containing block is exactly as tall as the element itself, so
+it has zero travel distance and leaves the viewport in lock-step with its parent, corroborated
+by both Probe E2 runs (`#/list` and `#/records`) showing `after.navTop` equal to
+`after.parTop`, both equal to `0 - after.sy`. Four competing hypotheses were excluded, each by
+a cited field: H2 (ancestor clip/scroll container) excluded by every chain entry's
+`overflow-x` and `overflow-y` computing to `visible`; H3 (scroll container is not the
+document) excluded by `after.sy` reaching 600 on both routes and `scrollingIsDoc` computing to
+`true`; H4 (an ancestor caps travel by height/display, independent of H1) excluded by every
+ancestor's `display` computing to `block` (never `contents`, `flex` or `grid`) and by every
+ancestor's rendered height equaling its own content-derived scroll/offset height rather than a
+smaller, externally-imposed value; H5 (not sticky at the tested width) excluded by `.app-nav`'s
+`position` computing to `sticky` at the recorded 1920px width. A matrix-wording defect was
+found and recorded rather than papered over: H4's excluding signature as originally drafted
+("no chain entry has a non-`auto` height") is not satisfiable, because `getComputedStyle()`
+never returns the literal string `auto` for `height` — H4 was excluded instead via the plan's
+explicit H1-versus-H4 split (ancestor height equal to its own content size, not smaller than
+it). `records.ts`'s `updateJumpOffset` is judged not implicated: it reads `.app-nav`'s live
+rendered height, which H1's containing-block defect does not change. Full probe outputs,
+matrix application and the wording-defect note are in `19-GAP7-DIAGNOSIS.md`.
+
 ### Non-Phase-19 Issues (pre-existing / out-of-scope, logged separately)
 
 Phase 19 shipped exactly two files — `src/dashboard/styles.css` and `src/dashboard/styles.test.ts` — and only the stylesheet reaches the browser. `git diff --name-only 670b3ec..HEAD -- . ':(exclude).planning/*'` returns only those two paths, so none of the following can originate from this phase. Logged here so they are not lost and not miscounted against Phase 19's gap register.

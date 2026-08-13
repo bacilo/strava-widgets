@@ -206,4 +206,58 @@ clearing the invalidation rule's 400 floor.
 
 ## Confirmed Root Cause
 
-_pending Task 3_
+Applying the Task 1 matrix mechanically to the Task 2 outputs, field by field:
+
+- **H1 — CONFIRMED by: `#app-nav-root` entry `ch` = 77 equal to `.app-nav` entry `oh` = 77**,
+  with every chain entry's `oX` and `oY` = `visible` (NAV, HEADER, BODY and HTML all report
+  `"oX":"visible","oY":"visible"`), and E2 corroborating on both routes: `after.navTop` = -600
+  equal to `after.parTop` = -600, both equal to `0 - after.sy` (`0 - 600 = -600`). The nav's
+  own containing block (`#app-nav-root`, `clientHeight` 77) is exactly as tall as the nav's own
+  `offsetHeight` (77) — zero travel distance — so the sticky element leaves the viewport in
+  lock-step with its parent, which is exactly what both E2 runs show.
+- **H2 — excluded by: `oX` = `visible`, `oY` = `visible` on every chain entry above `.app-nav`**
+  (HEADER `"oX":"visible","oY":"visible"`; BODY `"oX":"visible","oY":"visible"`; HTML
+  `"oX":"visible","oY":"visible"`). No ancestor establishes a clip or scroll container.
+- **H3 — excluded by: `after.sy` = 600 (>= 400) on both routes and `scrollingIsDoc` = `true`**
+  in E1. The document itself is the scroll container; `window`/`document.scrollingElement`
+  reports real scroll movement on both `#/list` and `#/records`.
+- **H4 — excluded by: `disp` = `"block"` on every chain entry above `.app-nav`** (HEADER, BODY
+  and HTML all report `"disp":"block"`; none is `contents`, `flex` or `grid`), **and by HEADER
+  `h` (77px) = HEADER `sh`/`oh` (77), BODY `h` (2472.390625px) ≈ BODY `sh`/`oh` (2472), and
+  HTML `h` (2472.390625px) ≈ HTML `sh`/`oh` (2472)** — every ancestor's rendered height equals
+  its own content-derived scroll/offset height rather than a smaller, externally-imposed value.
+  Nothing above `#app-nav-root` is capping travel independently of H1.
+- **H5 — excluded by: `pos` = `"sticky"` on the `.app-nav` chain entry at `w` = 1920.**
+  The element is sticky at the tested viewport width; non-stickiness is not in play.
+
+**Matrix wording defect, recorded honestly rather than papered over.** The Task 1 matrix's H4
+excluding signature as literally written — "no chain entry above `.app-nav` has a non-`auto`
+`h`" — is not satisfiable from E1's data by construction: `getComputedStyle().height` always
+resolves to a used pixel value (e.g. `"77px"`, `"2472.390625px"`) and never returns the literal
+string `auto`, regardless of whether the underlying CSS `height` property is `auto` or a fixed
+length. Every chain entry in this probe carries a non-`auto`, pixel-valued `h`, so the literal
+excluding signature as drafted would exclude H4 for every conceivable input and is not a real
+discriminator. H4 is excluded here instead via the plan's explicit H1-versus-H4 split paragraph:
+the question that actually separates the two hypotheses is not "is `h` the literal string
+`auto`" but "does an ancestor's rendered height equal its own content size (`sh`/`oh`), or is it
+smaller than its content — an imposed cap." HEADER's `h` (77px) equals its own `sh` (77) and
+`oh` (77); BODY's `h` (2472.390625px) equals its own `sh` (2472) and `oh` (2472); HTML's `h`
+(2472.390625px) equals its own `sh` (2472) and `oh` (2472) (HTML's smaller `ch` of 617 is the
+*viewport* clientHeight — the scrolling element's visible window — not a CSS-imposed height cap,
+and is expected on any page taller than the viewport). None of the three ancestors is shorter
+than its own content, so none is imposing a cap distinct from H1's own zero-travel finding. This
+wording defect should be corrected in any future round of this matrix — replace "non-`auto` `h`"
+with "an ancestor `h` value smaller than that same entry's `sh`" so the excluding signature is
+mechanically checkable against real `getComputedStyle` output instead of an unreachable literal.
+
+**`records.ts`'s `updateJumpOffset` implication.** H1 is not implicated by, and does not
+implicate, `updateJumpOffset`: that function reads `.app-nav`'s live
+`getBoundingClientRect().height` (a rendered size, currently 44-77px depending on breakpoint) to
+position the Records jump bar's `top` offset, and H1's defect is about the nav's containing
+block having zero *travel distance*, not about the nav's rendered *height* — the height value
+`updateJumpOffset` reads is unaffected by whether the nav's containing block permits it to stay
+pinned during scroll. A fix for H1 (enlarging `#app-nav-root`'s effective travel distance) is
+not expected to change `.app-nav`'s own rendered height, so `updateJumpOffset`'s live-height
+read should continue to return the same values it does today; the next plan should still
+re-verify this by eye on Records since the jump bar's own `top` offset assumes the nav is
+correctly pinned when it computes that offset.
