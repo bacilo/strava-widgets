@@ -332,6 +332,9 @@ body {
   gap: var(--space-sm);
 }
 
+/* Phase 20: .activity-row is an <a> as of plan 20-02/20-03, and anchors are
+   `inline` by default — `display: flex` here is load-bearing for laying the
+   now-inline element out as a row; do not restructure it away. */
 .activity-row {
   display: flex;
   flex-direction: row;
@@ -521,14 +524,6 @@ body {
 .activity-table__sort-arrow {
   display: inline-flex;
   color: var(--accent);
-}
-
-.activity-table tbody tr {
-  cursor: pointer;
-}
-
-.activity-table tbody tr:hover {
-  background: color-mix(in srgb, var(--surface) 92%, var(--text));
 }
 
 .activity-table__row--highlight {
@@ -1464,4 +1459,92 @@ button:where(:not(
 :disabled:focus-visible,
 [aria-disabled="true"]:focus-visible {
   opacity: 1;
+}
+
+/* ==========================================================================
+   Phase 20 — Row-click interaction pattern
+   Class contract: `.activity-table__row--navigable` is applied only by
+   `src/dashboard/row-navigation.ts`'s `attachRowNavigation` helper. It is
+   never hand-written in a view file. Rename it in one place and you must
+   rename it in both, which is exactly what the parity test in
+   `styles.test.ts` (Phase 20 block) checks for.
+
+   Why the scoping below is not `.activity-table pr-table`: six tables in
+   this app share that identical class string, but only two of them — the
+   Records PR table and the Records PR-progression table — are activities
+   that can actually be navigated to. The other four — Riegel race
+   predictions, the two Trends tables, and the detail view's best-efforts
+   table — are not activities and never will be clickable. Scoping the
+   pointer cursor and hover feedback on the marker class instead of the
+   shared table class means a future non-clickable table inherits nothing
+   by default. An opt-out class on the four innocent tables was rejected:
+   opt-out is the wrong default here, since forgetting to opt a new
+   non-clickable table out would silently reintroduce the defect this phase
+   closes.
+
+   D-11, recorded here so it is not "fixed" later as an oversight: these
+   navigable rows deliberately have no row-specific focus-ring variant. They
+   inherit the global two-tone `:focus-visible` ring defined earlier in this
+   file (Phase 19's D-09/D-12), because D-12 deliberately left
+   `:focus-visible` unscoped so every focusable element in the dashboard —
+   these rows included — gets it for free. `.activity-list`'s
+   `gap: var(--space-sm)` (8px) leaves room for the ring's 4px spread, and no
+   ancestor clips it: `.activity-table-wrapper` declares no `overflow`, and
+   the two `overflow-x: auto` containers in this file (`.records-jump`,
+   `.splits-scroll`) were already padded for exactly this by Phase 19's
+   D-10. Whether it actually reads well in a browser is plan 20-05's human
+   checkpoint to arbitrate, not a follow-up ticket to file speculatively.
+
+   `.cta` is untouched by this phase and still has seven consumers (four in
+   detail.ts, one each in trends.ts, detail-map.ts and records.ts) — do not
+   fold it into the rules below.
+   ========================================================================== */
+
+/* D-06: every bare anchor in the app reads in theme colours instead of
+   browser-default blue, in both themes. `color: inherit` is a deliberate
+   choice over `color: var(--accent)` — this repository's own measured
+   contrast for accent-on-bg is roughly 3.4 to 1 in light and 2.8 to 1 in
+   dark, both under the 4.5 to 1 floor normal-size text needs, so an
+   accent-coloured link would ship a contrast failure across every anchor at
+   once. `inherit` also cannot fight `.activity-row__name` or
+   `.activity-row__meta`, which set their own colour already. The underline
+   below carries the affordance, so the link is not identified by colour
+   alone. Both existing `text-decoration: none` rules (`.app-nav__link`,
+   `.cta`) are class selectors and keep winning regardless of source order,
+   and `.records-jump__link` is a button, not an anchor, so it is unaffected.
+   This rule also normalizes two anchors that previously had no styling of
+   their own and rendered browser-default blue: `.app-nav__brand` (no CSS
+   rule at all before this) and `.detail-nav`'s "Newer"/"Older" links. That
+   is an intended, in-scope side effect of a shared link treatment, and plan
+   20-05's checkpoint has a row confirming neither looks wrong afterward. */
+a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+/* The whole-row link is not a text link — its own underline would read as
+   one long link cutting across the row instead of a clickable row. Does not
+   redeclare `display: flex`; that already lives on `.activity-row` earlier
+   in this file, and duplicating it here would create two places to keep in
+   sync. */
+.activity-row {
+  text-decoration: none;
+}
+
+/* D-09: byte-identical to the formula this phase removed from
+   `.activity-table tbody tr:hover` below — not a re-derived equivalent. The
+   pointer cursor comes free from the anchor itself. */
+.activity-row:hover {
+  background: color-mix(in srgb, var(--surface) 92%, var(--text));
+}
+
+/* D-10: only rows the shared helper actually marked get the pointer and the
+   hover feedback. See the banner comment above for why this keys off the
+   marker class rather than the shared `pr-table` class. */
+.activity-table__row--navigable {
+  cursor: pointer;
+}
+
+.activity-table__row--navigable:hover {
+  background: color-mix(in srgb, var(--surface) 92%, var(--text));
 }

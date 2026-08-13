@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 import { transformSync } from 'esbuild';
 import { describe, expect, it } from 'vitest';
 
+import { NAVIGABLE_ROW_CLASS } from './row-navigation.js';
+
 /*
  * Regression guard for WR-04 (theme toggle invisible in light mode) and for
  * design-token parity with src/widgets/shared/theme-manager.ts. There is no
@@ -726,12 +728,6 @@ describe('styles.css — Phase 19 button baseline', () => {
     ).toBe(true);
   });
 
-  it('.activity-table tbody tr:hover mixes from var(--surface) toward var(--text)', () => {
-    expect(declarationsFor('.activity-table tbody tr:hover')).toContain(
-      'color-mix(in srgb, var(--surface) 92%, var(--text))',
-    );
-  });
-
   it('the retired literal-black row-hover mix is gone', () => {
     expect(css).not.toContain('92%, black)');
   });
@@ -1060,5 +1056,77 @@ describe('styles.css — Phase 19 radius tokens (parse level)', () => {
   // the leaked text happens to produce a parser warning this time.
   it('comment stripping leaves no stray */ — no comment terminated early', () => {
     expect(cssNoComments).not.toContain('*/');
+  });
+});
+
+describe('styles.css - Phase 20 row-click interaction pattern', () => {
+  // Do NOT use the declarationsFor helper on the bare `a` selector for these
+  // three assertions. That helper's regex is
+  // `new RegExp(escaped + '\\s*\\{')` and is unanchored — it matches the
+  // FIRST `a {`-shaped substring anywhere in the file, which is `.cta {`
+  // (styles.css, § Primary CTA), not the bare `a` rule this phase adds.
+  // Using it here would silently assert against the wrong rule and pass or
+  // fail for the wrong reason — exactly the kind of assertion this
+  // repository has shipped once already (GAP 1) and now mutation-proves
+  // against. selectorListDeclares walks the parsed rule list and matches
+  // `a` as an exact top-level selector token, so it cannot make this
+  // mistake.
+  it('D-06: the bare a rule declares color: inherit', () => {
+    expect(selectorListDeclares('a', 'color: inherit')).toBe(true);
+  });
+
+  it('D-06: the bare a rule declares text-decoration: underline', () => {
+    expect(selectorListDeclares('a', 'text-decoration: underline')).toBe(true);
+  });
+
+  it('D-06: the bare a rule does not declare color: var(--accent)', () => {
+    // --accent on --bg measures ~3.4:1 light / ~2.8:1 dark in this
+    // repository's own record (17-UI-SPEC.md:105), both under the 4.5:1 AA
+    // floor for normal-size text. This assertion is what stops an
+    // accent-coloured link text regression from creeping back in.
+    expect(selectorListDeclares('a', 'color: var(--accent)')).toBe(false);
+  });
+
+  it('.activity-row keeps display: flex - load-bearing now that it is an <a>', () => {
+    expect(declarationsFor('.activity-row')).toContain('display: flex');
+  });
+
+  it('.activity-row declares text-decoration: none - the whole-row link is not a text link', () => {
+    expect(selectorListDeclares('.activity-row', 'text-decoration: none')).toBe(true);
+  });
+
+  it('D-09: .activity-row:hover mixes from var(--surface) toward var(--text)', () => {
+    expect(declarationsFor('.activity-row:hover')).toContain(
+      'color-mix(in srgb, var(--surface) 92%, var(--text))',
+    );
+  });
+
+  it('D-10: .activity-table__row--navigable declares cursor: pointer', () => {
+    expect(declarationsFor('.activity-table__row--navigable')).toContain('cursor: pointer');
+  });
+
+  it('D-09/D-10: .activity-table__row--navigable:hover mixes with the byte-identical formula', () => {
+    expect(declarationsFor('.activity-table__row--navigable:hover')).toContain(
+      'color-mix(in srgb, var(--surface) 92%, var(--text))',
+    );
+  });
+
+  it('D-10: .activity-table tbody tr no longer declares cursor: pointer', () => {
+    // The negative half of D-10 - proves the four non-activity tables
+    // (Riegel, two Trends, best-efforts) no longer inherit a pointer cursor
+    // they cannot honor.
+    expect(selectorListDeclares('.activity-table tbody tr', 'cursor: pointer')).toBe(false);
+  });
+
+  it('D-10: .activity-table tbody tr:hover no longer declares a color-mix hover', () => {
+    expect(selectorListDeclares('.activity-table tbody tr:hover', 'color-mix')).toBe(false);
+  });
+
+  it('T-20-CSS-02: the marker class literal matches NAVIGABLE_ROW_CLASS from row-navigation.ts', () => {
+    // The single most likely silent break in this phase: the marker class
+    // name is duplicated across a TypeScript module and this stylesheet. If
+    // either side is renamed without the other, every navigable row loses
+    // its cursor and hover feedback with no error anywhere.
+    expect(cssNoComments).toContain('.' + NAVIGABLE_ROW_CLASS);
   });
 });
