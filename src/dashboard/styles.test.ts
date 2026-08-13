@@ -568,6 +568,30 @@ describe('styles.css — Phase 19 focus ring', () => {
     ).toBe(true);
   });
 
+  // CR-02 (19-REVIEW.md): `.segmented__option` used to declare no
+  // `border-radius` of its own, so the bare `button { border-radius:
+  // var(--radius-control) }` baseline (0,0,1) reached every option
+  // uncancelled — middle options of any 3+-option group rendered as fully
+  // rounded pills instead of square-jointed segments, only the two
+  // end-child rules (0,1,1) re-rounding the outer corners. This test
+  // requires an exact, anchored `border-radius: 0` fragment — not a
+  // `.toContain('border-radius: 0')` substring check — because the two
+  // end-child rules' own values begin with the characters
+  // `border-radius: 0 var(...)`, so a substring check would pass against
+  // the wrong shape if the rules were ever merged. The second assertion
+  // proves the fix is a cancellation at the option, not a weakening of the
+  // baseline: a future "fix" that deletes the baseline's radius instead
+  // must fail this test too.
+  it('.segmented__option cancels the button baseline radius so middle options render square (CR-02)', () => {
+    const body = bodyForSelectorListToken('.segmented__option');
+    const fragments = body
+      .split(';')
+      .map((fragment) => fragment.trim())
+      .filter(Boolean);
+    expect(fragments).toContain('border-radius: 0');
+    expect(selectorListDeclares('button', 'border-radius: var(--radius-control)')).toBe(true);
+  });
+
   // WR-01 (19-REVIEW.md): .segmented's own corner radius used to be a
   // literal `border-radius: 4px`, while its end children above already
   // derived theirs from --radius-control -- container and children could

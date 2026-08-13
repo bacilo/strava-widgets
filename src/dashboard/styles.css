@@ -874,6 +874,7 @@ body {
   background: var(--surface);
   color: var(--text-secondary);
   border: none;
+  border-radius: 0;
   padding: var(--space-xs) var(--space-md);
   cursor: pointer;
 }
@@ -882,7 +883,31 @@ body {
    `overflow: hidden` clipping its square children — which also clipped the
    focus ring (D-09) on the active option. The container's own `border-radius`
    above still draws the outer border sliver; these two end-child rules
-   reproduce the previous rounded silhouette without clipping anything. */
+   reproduce the previous rounded silhouette without clipping anything.
+
+   CR-02 (19-REVIEW.md): that "without clipping anything" claim was true for
+   exactly two options. `button { border-radius: var(--radius-control) }`
+   (this file, § Phase 19 — Design System & Control Styling button baseline)
+   is specificity `0,0,1` and reaches every `.segmented__option`, which
+   declared no `border-radius` of its own and so never cancelled it — every
+   middle option in a 3+-option group got 4px on all four corners, while the
+   page background showed through a notch at every internal join (nothing
+   else clips them square once `overflow: hidden` was removed from
+   `.segmented`, see the note above). `.segmented__option`'s own
+   `border-radius: 0` above is `0,1,0`: it beats the `0,0,1` baseline and is
+   itself beaten by these two end-child rules at `0,1,1`, so end caps keep
+   their radii with no ordering dependency and the button baseline itself is
+   never touched. Three live 3+-option groups exist, all in
+   `src/dashboard/views/trends.ts`: the 5-option Trends tablist
+   (`trends.ts:1110`, 3 middle options — Year-over-Year, Cadence & HR,
+   Training Load), the 3-option volume-granularity group (`trends.ts:595`, 1
+   middle option — Monthly), and the 3-option training-load-window group
+   (`trends.ts:867`, 1 middle option — 12mo). The two-option Edwards/Banister
+   model group (`trends.ts:811`) and the detail view's two-option x-axis
+   toggle (`detail-charts.ts:258`) have no middle option and were never
+   affected. This shipped unobserved because the only segmented control any
+   19-05 checkpoint row had ever named was that two-option detail-view
+   toggle. */
 .segmented__option:first-child {
   border-radius: var(--radius-control) 0 0 var(--radius-control);
 }
