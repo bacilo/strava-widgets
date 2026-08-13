@@ -188,7 +188,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 20-04-PLAN.md — `styles.css` Phase 20 block (bare `a` link treatment, row-anchor hover, navigable-row scoping), `styles.test.ts` assertions, and a new `row-semantics.test.ts` source-structure guard (D-06, D-09, D-10, D-11)
+- [x] 20-04-PLAN.md — `styles.css` Phase 20 block (bare `a` link treatment, row-anchor hover, navigable-row scoping), `styles.test.ts` assertions, and a new `row-semantics.test.ts` source-structure guard (D-06, D-09, D-10, D-11)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -303,7 +303,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 17. Activity Browser & Detail Views | v2.0 | 15/15 | Complete    | 2026-08-11 |
 | 18. Records, Trends & Differentiators | v2.0 | 16/16 | Complete    | 2026-08-12 |
 | 19. Design System & Control Styling | v2.1 | 17/17 | Complete    | 2026-08-13 |
-| 20. Row-Click Interaction Pattern | v2.1 | 3/5 | In Progress|  |
+| 20. Row-Click Interaction Pattern | v2.1 | 4/5 | In Progress|  |
 | 21. Overview Rebuild | v2.1 | 0/TBD | Not started | - |
 | 22. Calendar Week-Start & Totals | v2.1 | 0/TBD | Not started | - |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 0/TBD | Not started | - |
