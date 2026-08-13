@@ -960,7 +960,14 @@ export function noteViewedActivity(id: string): void {
   notedActivityId = id;
 }
 
-function highlightAndFocus(el: HTMLElement | undefined): void {
+/**
+ * Exported solely so the Phase 17 D-08 return-focus behaviour is
+ * regression-testable under vitest's `environment: 'node'`; this repository
+ * has no jsdom and no headless browser, so a stub-element unit test is the
+ * only automated proof available. Not part of this module's public surface
+ * for any other caller.
+ */
+export function highlightAndFocus(el: HTMLElement | undefined): void {
   if (!el) return;
   el.classList.add('activity-table__row--highlight');
   el.scrollIntoView({ block: 'center' });

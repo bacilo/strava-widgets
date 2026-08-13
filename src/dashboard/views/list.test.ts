@@ -1,5 +1,48 @@
 import { describe, it, expect } from 'vitest';
-import { formatActivityDate, formatPace, formatEffortDuration } from './list.js';
+import { formatActivityDate, formatPace, formatEffortDuration, highlightAndFocus } from './list.js';
+
+/**
+ * Minimal stub shape for the parts of `HTMLElement` `highlightAndFocus`
+ * actually touches. Each stub records what was done to it so assertions are
+ * about behaviour, not source text.
+ */
+interface StubRow {
+  tagName: string;
+  classList: { add: (className: string) => void };
+  scrollIntoView: () => void;
+  focus: () => void;
+  querySelector: (selector: string) => StubRow | null;
+  addedClasses: string[];
+  scrollIntoViewCalled: boolean;
+  focusCalled: boolean;
+  queriedSelectors: string[];
+}
+
+function buildStubRow(opts: { tagName: string; querySelectorResult: StubRow | null }): StubRow {
+  const stub: StubRow = {
+    tagName: opts.tagName,
+    addedClasses: [],
+    scrollIntoViewCalled: false,
+    focusCalled: false,
+    queriedSelectors: [],
+    classList: {
+      add(className: string) {
+        stub.addedClasses.push(className);
+      },
+    },
+    scrollIntoView() {
+      stub.scrollIntoViewCalled = true;
+    },
+    focus() {
+      stub.focusCalled = true;
+    },
+    querySelector(selector: string) {
+      stub.queriedSelectors.push(selector);
+      return opts.querySelectorResult;
+    },
+  };
+  return stub;
+}
 
 describe('formatActivityDate — WR-02 timezone-independent local dates', () => {
   it('formats a real intervals.icu no-Z record', () => {
@@ -107,5 +150,48 @@ describe('formatEffortDuration — 18-UI-SPEC § 14 (m:ss under an hour, h:mm:ss
 
   it('returns an em dash for Infinity', () => {
     expect(formatEffortDuration(Infinity)).toBe('—');
+  });
+});
+
+describe('highlightAndFocus — CR-01 / Phase 17 D-08 return-from-detail focus restoration', () => {
+  it('focuses the card row itself below the 720px breakpoint, where the mobile card IS the anchor (renderActivityRow) and has no descendant anchor to delegate to', () => {
+    // This is the CR-01 regression: renderActivityRow (list.ts) made the
+    // card row element itself the <a> and removed its .cta descendant, so
+    // querySelector('a') on this shape returns null and the old
+    // implementation's optional chain silently no-ops, leaving Phase 17
+    // D-08's return-from-detail focus restoration dead on mobile.
+    const row = buildStubRow({ tagName: 'A', querySelectorResult: null });
+
+    highlightAndFocus(row as unknown as HTMLElement);
+
+    expect(
+      row.focusCalled,
+      'card-shaped row (tagName A, no descendant anchor): highlightAndFocus must focus the row itself, or Phase 17 D-08 return-focus is dead on the mobile card layout below the 720px breakpoint'
+    ).toBe(true);
+    expect(row.addedClasses).toContain('activity-table__row--highlight');
+    expect(row.scrollIntoViewCalled).toBe(true);
+  });
+
+  it('delegates focus to the descendant anchor for the table row shape (non-regression)', () => {
+    const anchor = buildStubRow({ tagName: 'A', querySelectorResult: null });
+    const row = buildStubRow({ tagName: 'TR', querySelectorResult: anchor });
+
+    highlightAndFocus(row as unknown as HTMLElement);
+
+    expect(anchor.focusCalled).toBe(true);
+    expect(row.focusCalled).toBe(false);
+    expect(row.addedClasses).toContain('activity-table__row--highlight');
+    expect(row.scrollIntoViewCalled).toBe(true);
+  });
+
+  it('does not throw when the row has neither shape (no descendant anchor, not itself an anchor)', () => {
+    const row = buildStubRow({ tagName: 'TR', querySelectorResult: null });
+
+    expect(() => highlightAndFocus(row as unknown as HTMLElement)).not.toThrow();
+    expect(row.addedClasses).toContain('activity-table__row--highlight');
+  });
+
+  it('does not throw when the element is undefined', () => {
+    expect(() => highlightAndFocus(undefined)).not.toThrow();
   });
 });
