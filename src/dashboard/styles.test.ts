@@ -498,6 +498,39 @@ describe('styles.css — Phase 19 disabled treatment', () => {
   it('[aria-disabled="true"] declares opacity: 0.6', () => {
     expect(selectorListDeclares('[aria-disabled="true"]', 'opacity: 0.6')).toBe(true);
   });
+
+  // CR-03 (19-REVIEW.md): `opacity` applies to an element's entire rendered
+  // output, including its own `box-shadow` — so the `:disabled,
+  // [aria-disabled="true"] { opacity: 0.6 }` rule above composites the
+  // `:focus-visible` ring at 60% on any element that is BOTH focusable and
+  // disabled/aria-disabled. Calendar rest days (`calendar.ts`) are exactly
+  // that: real, focusable `<button>` elements with no `disabled` attribute,
+  // carrying only `aria-disabled="true"`, kept in the Tab order on purpose.
+  // Recomputing the file's own W3C relative-luminance numbers with the
+  // accent ring stop blended at 60% over the backdrop gives 2.19:1 light and
+  // 2.93:1 dark — both fail the 3:1 SC 1.4.11 non-text floor the
+  // :focus-visible comment documents at 3.40:1 / 6.02:1. The invariant this
+  // test guards: a control that is both focusable and disabled must not
+  // composite its focus ring below that floor. Uses selectorListDeclares for
+  // presence (both `:disabled:focus-visible` and
+  // `[aria-disabled="true"]:focus-visible` must be in the same rule's
+  // selector list) and an anchored `;`-split fragment check for the values,
+  // so `opacity: 1` cannot be satisfied by a substring of some other
+  // declaration.
+  it('a control that is both focusable and aria-disabled restores full opacity under :focus-visible, not composited below the 3:1 ring floor (CR-03)', () => {
+    expect(selectorListDeclares(':disabled:focus-visible', 'opacity: 1')).toBe(true);
+    expect(selectorListDeclares('[aria-disabled="true"]:focus-visible', 'opacity: 1')).toBe(true);
+
+    const body = bodyForSelectorListToken(':disabled:focus-visible');
+    const fragments = body
+      .split(';')
+      .map((fragment) => fragment.trim())
+      .filter(Boolean);
+    expect(fragments).toEqual(['opacity: 1']);
+
+    // The at-rest dimming (D-07) must remain exactly as shipped.
+    expect(selectorListDeclares(':disabled', 'opacity: 0.6')).toBe(true);
+  });
 });
 
 describe('styles.css — Phase 19 focus ring', () => {
