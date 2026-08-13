@@ -23,6 +23,7 @@ import { ROUTES } from '../view.types.js';
 import type { IndexClient } from '../data/index-client.js';
 import type { DashboardIndexRow } from '../../analytics/dashboard-index.types.js';
 import { navigateTo } from '../router.js';
+import { attachRowNavigation, activityDetailHref } from '../row-navigation.js';
 import type { SortKey, SortDir, ListState, DatePresetId } from './list-logic.js';
 import {
   DEFAULT_DIR,
@@ -327,20 +328,27 @@ function buildHeaderRow(state: ListState): HTMLTableRowElement {
 
 /**
  * Builds one desktop `<tr>`, separate from `renderActivityRow` (D-04, two
- * renderers each with one job). Keyboard users operate the Activity-cell
- * anchor (already Tab+Enter operable) — no `tabindex` on the `<tr>` itself.
+ * renderers each with one job).
+ *
+ * The row's keyboard path is the Activity-cell anchor below: a real link,
+ * so Tab reaches it, Enter activates it, and assistive tech announces it as
+ * a link with the curated `aria-label`. The `<tr>` itself deliberately
+ * carries no `tabindex` and no `role="link"` — `role="link"` on a `<tr>`
+ * removes it from the table's accessibility tree and breaks screen-reader
+ * table navigation (D-01). Phase 20 success criterion 3's "Tab reaches the
+ * row" is satisfied here via the row's single activation control, not via a
+ * `tabindex` on the row wrapper itself; on the div rows (`renderActivityRow`,
+ * `renderRecentPrRow`) it is satisfied literally, because those rows are
+ * themselves anchors. This is a deliberate reading (D-01 of
+ * `20-CONTEXT.md`), not a shortcut — the alternative degrades real
+ * assistive-tech table navigation to satisfy a wording. The row-level click
+ * behavior (mouse path, guarded so it never double-navigates with the
+ * in-cell anchor) now lives in `src/dashboard/row-navigation.ts` (D-03).
  */
 function buildTableRow(row: DashboardIndexRow): HTMLTableRowElement {
   const tr = document.createElement('tr');
   tr.dataset.activityId = row.id;
-  tr.addEventListener('click', (event) => {
-    // The Activity-cell anchor already navigates on its own; do not
-    // double-navigate when the click originated from it.
-    if ((event.target as HTMLElement).closest('a')) {
-      return;
-    }
-    navigateTo(`/activity/${row.id}`);
-  });
+  attachRowNavigation(tr, row.id);
 
   const distanceKm = (row.distanceM / 1000).toFixed(1);
 
@@ -350,7 +358,7 @@ function buildTableRow(row: DashboardIndexRow): HTMLTableRowElement {
 
   const activityTd = document.createElement('td');
   const anchor = document.createElement('a');
-  anchor.href = `#/activity/${row.id}`;
+  anchor.href = activityDetailHref(row.id);
   anchor.textContent = row.name; // athlete free text — textContent only (T-17-VW-01)
   anchor.setAttribute(
     'aria-label',
