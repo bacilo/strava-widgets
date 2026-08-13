@@ -147,6 +147,26 @@ export function appendBadge(container: HTMLElement, text: string): void {
 }
 
 /**
+ * The exact text of the low-confidence badge — the single definition
+ * `appendLowConfidenceBadge`, `statusBadgeTexts` and `appendStatusBadges`
+ * all read from, so the rendered badge and the composed aria-label can never
+ * disagree on the string (CR-02).
+ */
+export const LOW_CONFIDENCE_BADGE_TEXT = 'Low confidence';
+
+/**
+ * The `id` a low-confidence badge's `.sr-only` explanation span is given,
+ * derived from `idPrefix` — the single definition of this id shape, read by
+ * both `appendLowConfidenceBadge` (which creates the element) and
+ * `renderActivityRow` (which points a row-level `aria-describedby` at it,
+ * CR-02). `idPrefix` must be unique per simultaneously-rendered surface —
+ * see `appendStatusBadges`'s JSDoc for why.
+ */
+export function lowConfidenceDescriptionId(idPrefix: string): string {
+  return `${idPrefix}-low-confidence-desc`;
+}
+
+/**
  * Appends a "Low confidence" badge whose explanation is reachable WITHOUT
  * hovering (D-07, 18-UI-SPEC § 6) — closing a real gap in the badge that
  * already ships on list/overview, which today carries no explanation at
@@ -155,14 +175,20 @@ export function appendBadge(container: HTMLElement, text: string): void {
  * text with a unique id, wired via `aria-describedby` on the badge so
  * keyboard/assistive-tech users can reach the explanation too. Both spans
  * use `textContent` only (T-18-XSS-01).
+ *
+ * Signature and DOM output are unchanged by plan 20-07 (CR-02) —
+ * `records.ts:412` and `detail-sections.ts:346` call this and are out of
+ * that plan's scope. What changed is that `idPrefix` now flows through
+ * `lowConfidenceDescriptionId`, the same helper `renderActivityRow` calls to
+ * point its row-level `aria-describedby` at this badge's description span.
  */
 export function appendLowConfidenceBadge(container: HTMLElement, idPrefix: string): void {
   const explanation = 'GPS-reconstructed distance; treat this time with caution';
-  const descriptionId = `${idPrefix}-low-confidence-desc`;
+  const descriptionId = lowConfidenceDescriptionId(idPrefix);
 
   const badge = document.createElement('span');
   badge.className = 'badge';
-  badge.textContent = 'Low confidence';
+  badge.textContent = LOW_CONFIDENCE_BADGE_TEXT;
   badge.title = explanation;
   badge.setAttribute('aria-describedby', descriptionId);
   container.appendChild(badge);
@@ -175,28 +201,96 @@ export function appendLowConfidenceBadge(container: HTMLElement, idPrefix: strin
 }
 
 /**
- * Appends every applicable status badge to `container` — shared by
- * `renderActivityRow` (mobile card) and `buildTableRow` (desktop Status
- * cell) so the two surfaces show identical badges from one source of truth.
+ * The status-badge strings for one row, in render order — the single source
+ * of truth `appendStatusBadges` iterates to build the visible `.badge`
+ * spans and `activityRowAriaLabel` folds into the row anchor's `aria-label`
+ * (CR-02). Returns an empty array for a row with streams, HR, no
+ * low-confidence flag, no exclusion and `prCount` 0. Because both the
+ * rendered spans and the announced label read from this one array, they
+ * cannot drift apart the way `20-REVIEW.md` CR-02 found them to.
  */
-function appendStatusBadges(container: HTMLElement, row: DashboardIndexRow): void {
+export function statusBadgeTexts(row: DashboardIndexRow): string[] {
+  const texts: string[] = [];
+
   if (!row.streams.available) {
-    appendBadge(container, row.streams.reason ? `No streams (${row.streams.reason})` : 'No streams');
+    texts.push(row.streams.reason ? `No streams (${row.streams.reason})` : 'No streams');
   } else if (!row.streams.hr) {
-    appendBadge(container, 'No HR');
+    texts.push('No HR');
   }
 
   if (row.lowConfidence) {
-    appendLowConfidenceBadge(container, `activity-${row.id}`);
+    texts.push(LOW_CONFIDENCE_BADGE_TEXT);
   }
 
   if (row.excludedFromRecords) {
-    appendBadge(container, 'Excluded from records');
+    texts.push('Excluded from records');
   }
 
   if (row.prCount > 0) {
-    appendBadge(container, `${row.prCount} PR`);
+    texts.push(`${row.prCount} PR`);
   }
+
+  return texts;
+}
+
+/**
+ * Appends every applicable status badge to `container` — shared by
+ * `renderActivityRow` (mobile card) and `buildTableRow` (desktop Status
+ * cell) so the two surfaces show identical badges from one source of truth
+ * (`statusBadgeTexts`).
+ *
+ * `idPrefix` must differ between the two call sites: `#/list` renders both
+ * the card and the table layout simultaneously (CSS hides one via media
+ * query), so a shared `<id>-low-confidence-desc` element id would collide
+ * and `aria-describedby` could resolve to the wrong, hidden copy. See
+ * `renderActivityRow` (`'activity-card-' + row.id`) and `buildTableRow`
+ * (`'activity-table-' + row.id`).
+ */
+function appendStatusBadges(container: HTMLElement, row: DashboardIndexRow, idPrefix: string): void {
+  for (const text of statusBadgeTexts(row)) {
+    if (text === LOW_CONFIDENCE_BADGE_TEXT) {
+      appendLowConfidenceBadge(container, idPrefix);
+    } else {
+      appendBadge(container, text);
+    }
+  }
+}
+
+/**
+ * Returns `base` unchanged when `badgeTexts` is empty, otherwise `base`
+ * followed by `, ` and the badge texts joined with `, `. The shared
+ * composer every surface that folds status-badge text into a curated
+ * `aria-label` (CR-02) imports, so the three surfaces cannot each invent
+ * their own separator.
+ */
+export function composeRowAriaLabel(base: string, badgeTexts: readonly string[]): string {
+  if (badgeTexts.length === 0) return base;
+  return `${base}, ${badgeTexts.join(', ')}`;
+}
+
+/**
+ * Builds the accessible name for an activity row anchor: the curated D-04
+ * three-part base (`row.name`, the formatted local date, the one-decimal
+ * kilometre distance) with `statusBadgeTexts(row)` folded on via
+ * `composeRowAriaLabel` (CR-02).
+ *
+ * This REFINES D-04, it does not overturn it. D-04's rationale is that a
+ * whole-row link must not announce every descendant string concatenated
+ * (name, date, distance, duration, pace, badges) and must match what the
+ * same activity announces elsewhere. The curated three-part base stays
+ * exactly as it is; only the status-badge texts are appended, and only on
+ * `renderActivityRow`'s card surface where those badges are trapped inside
+ * the anchor and would otherwise be silently dropped from the accessible
+ * name (`20-VERIFICATION.md` confirmed this as CR-02). `buildTableRow` and
+ * `records.ts` deliberately do NOT fold badges into their anchor labels —
+ * on both of those surfaces the badges live in a sibling `<td>` in the same
+ * row and are already announced by table navigation, so folding them in
+ * here too would double-announce them.
+ */
+export function activityRowAriaLabel(row: DashboardIndexRow): string {
+  const distanceKm = (row.distanceM / 1000).toFixed(1);
+  const base = `${row.name}, ${formatActivityDate(row.startDateLocal)}, ${distanceKm} km`;
+  return composeRowAriaLabel(base, statusBadgeTexts(row));
 }
 
 /**
@@ -211,22 +305,32 @@ function appendStatusBadges(container: HTMLElement, row: DashboardIndexRow): voi
  * and the Activities mobile card view — one edit here changes both
  * screens. The redundant "View Activity" CTA that used to live inside the
  * row was removed under UX-02, since the row itself is now the affordance.
- * The curated `aria-label` exists because a whole-row link otherwise
- * announces every descendant string concatenated (name, date, distance,
- * duration, pace, every status badge) — verbose and inconsistent with what
- * the same activity announces elsewhere (D-04). `.activity-row` in
- * `styles.css` declares `display: flex`, which is what keeps the row laid
- * out now that the element is an inline-by-default anchor.
+ * The curated `aria-label`, built by `activityRowAriaLabel`, exists because
+ * a whole-row link otherwise announces every descendant string concatenated
+ * (name, date, distance, duration, pace, every status badge) — verbose and
+ * inconsistent with what the same activity announces elsewhere (D-04).
+ * `activityRowAriaLabel` folds `statusBadgeTexts(row)` onto that curated
+ * base (CR-02) because this card IS the anchor: the status badges appended
+ * below are descendants of the very element that carries the `aria-label`,
+ * so without the fold their text is silently dropped from the accessible
+ * name. When `row.lowConfidence` is true, `aria-describedby` is also set on
+ * the row itself (not just on the badge span `appendStatusBadges` creates)
+ * — a description is only announced when its host is announced, and on
+ * this surface the row anchor is the only element that gets announced.
+ * `.activity-row` in `styles.css` declares `display: flex`, which is what
+ * keeps the row laid out now that the element is an inline-by-default
+ * anchor.
  */
 export function renderActivityRow(row: DashboardIndexRow): HTMLElement {
   const rowEl = document.createElement('a');
   rowEl.className = 'activity-row';
   const distanceKm = (row.distanceM / 1000).toFixed(1);
+  const idPrefix = `activity-card-${row.id}`;
   rowEl.href = activityDetailHref(row.id);
-  rowEl.setAttribute(
-    'aria-label',
-    `${row.name}, ${formatActivityDate(row.startDateLocal)}, ${distanceKm} km`
-  );
+  rowEl.setAttribute('aria-label', activityRowAriaLabel(row));
+  if (row.lowConfidence) {
+    rowEl.setAttribute('aria-describedby', lowConfidenceDescriptionId(idPrefix));
+  }
 
   const nameEl = document.createElement('div');
   nameEl.className = 'activity-row__name';
@@ -238,7 +342,7 @@ export function renderActivityRow(row: DashboardIndexRow): HTMLElement {
   metaEl.textContent = `${formatActivityDate(row.startDateLocal)} · ${distanceKm} km · ${formatDurationHms(row.movingTimeSec)} · ${formatPace(row.paceSecPerKm)}`;
   rowEl.appendChild(metaEl);
 
-  appendStatusBadges(rowEl, row);
+  appendStatusBadges(rowEl, row, idPrefix);
 
   return rowEl;
 }
@@ -396,7 +500,7 @@ function buildTableRow(row: DashboardIndexRow): HTMLTableRowElement {
   tr.appendChild(avgHrTd);
 
   const statusTd = document.createElement('td');
-  appendStatusBadges(statusTd, row);
+  appendStatusBadges(statusTd, row, `activity-table-${row.id}`);
   tr.appendChild(statusTd);
 
   return tr;
