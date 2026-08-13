@@ -261,3 +261,58 @@ not expected to change `.app-nav`'s own rendered height, so `updateJumpOffset`'s
 read should continue to return the same values it does today; the next plan should still
 re-verify this by eye on Records since the jump bar's own `top` offset assumes the nav is
 correctly pinned when it computes that offset.
+
+## Fix confirmation (Round 4)
+
+Plan 19-14 applied the H1-prescribed edit: `position: sticky`, `top: 0` and `z-index: 20` moved
+from `.app-nav` onto a new `#app-nav-root` rule (the nav's own containing block, whose parent —
+`BODY`, `clientHeight` 2472 in the E1 probe above — has real travel room, unlike the tight
+77px-in-77px wrap `.app-nav` itself sat inside). `.app-nav` keeps its `display`,
+`flex-direction`, `align-items`, `background`, `border-bottom` and `padding` unchanged.
+
+A source-level assertion cannot discharge this claim: `styles.test.ts` runs in vitest's `node`
+environment with no DOM and no CSSOM, so no assertion in this repository can observe whether a
+sticky element actually holds during a scroll. That is the whole reason Task 3 is a human
+checkpoint rather than an automated one.
+
+**Probe F** — single-paste console expression, run once per route. Reads `#app-nav-root` and
+`.app-nav`, scrolls the page by 600px, waits ~400ms, and prints one `JSON.stringify` line
+carrying `scrollY`, both elements' `getBoundingClientRect().top`, and both elements' computed
+`position`:
+
+```js
+(async () => {
+  const root = document.getElementById('app-nav-root');
+  const nav = document.querySelector('.app-nav');
+  window.scrollTo(0, 600);
+  await new Promise(function (r) { setTimeout(r, 400); });
+  console.log(JSON.stringify({
+    route: location.hash,
+    sy: document.scrollingElement.scrollTop,
+    rootTop: root.getBoundingClientRect().top,
+    navTop: nav.getBoundingClientRect().top,
+    rootPos: getComputedStyle(root).position,
+    navPos: getComputedStyle(nav).position
+  }));
+})();
+```
+
+**Pass condition, stated as concrete numbers:** `sy` at or above 400, and both `rootTop` and
+`navTop` at or below 1.
+
+**Failed-capture rule:** if `sy` comes back below 400, the route was too short to scroll and the
+run proves nothing — it must be re-run (on the same route, after confirming there is content
+below the fold) and logged as a failed capture, never counted as evidence.
+
+Plan 19-17's checkpoint re-runs this same snippet in a later session, in a different file, and
+records that run as **Probe G** — the letter advances because it is an independent run, not
+because the snippet differs. Round 3 used A through D and plan 19-13 used E1 and E2, so the
+sequence stays monotone and no letter is reused.
+
+**`#/list` — Probe F output:**
+
+_(awaiting human paste)_
+
+**`#/records` — Probe F output:**
+
+_(awaiting human paste)_
