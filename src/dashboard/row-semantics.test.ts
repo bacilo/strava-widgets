@@ -18,6 +18,23 @@ import { describe, expect, it } from 'vitest';
  * only proof of those is plan 20-05's human browser checkpoint. A green
  * run of this file is coverage of SOURCE TEXT SHAPE only; do not read it
  * as coverage of row clicking.
+ *
+ * D-01 guard, spelling-agnostic as of this round (20-10): the guard below
+ * (`rowSemanticViolations`) scans `list.ts`, `records.ts`, `overview.ts` and
+ * `row-navigation.ts` for a `tabindex`/`role` write in ANY spelling this
+ * codebase uses — camelCase `tabIndex` or lowercase `setAttribute('tabindex',
+ * ...)`, single- or double-quoted — not only the lowercase attribute form the
+ * old two-`it` guard checked (proven vacuous by WR-02, 20-REVIEW.md: it read
+ * `tabindex` at 0 while camelCase `tabIndex` was 1 in `list.ts` and 5 in
+ * `records.ts`). Its allowlist is exactly two rules: a `tabindex` write is
+ * permitted only when the receiver identifier is `heading` or `h1` AND the
+ * value is `-1` (the six programmatic focus targets enumerated in
+ * `rowSemanticViolations`'s own comment below), and a `role` write is
+ * permitted only when its value is not `link`, case-insensitively (the two
+ * `loading.setAttribute('role', 'status')` live regions). Widening either
+ * rule to cover a new call site requires naming that call site explicitly in
+ * the comment next to the rule — do not widen the receiver list, the allowed
+ * value, or the role exclusion just to turn a red test green.
  */
 
 const VIEWS_DIR = new URL('./views/', import.meta.url);
@@ -81,6 +98,78 @@ const rowNavigationStripped = stripComments(rowNavigationSource);
 
 function countOccurrences(haystack: string, needle: string): number {
   return haystack.split(needle).length - 1;
+}
+
+/**
+ * Scans a comment-stripped source for every `tabindex`/`role` write, in any
+ * spelling this codebase uses, and returns the full matched text of each one
+ * that is NOT on the two-rule allowlist below. Replaces the old lowercase-
+ * attribute-only guard (`countOccurrences(stripped, 'tabindex')`), proven
+ * vacuous by WR-02 (20-REVIEW.md): `list.ts` and `records.ts` between them
+ * use camelCase `tabIndex` six times, and the old guard's literal lowercase
+ * needle never matched any of them.
+ *
+ * Four spellings are scanned, all case-insensitive and all global:
+ *   1. property assignment   — `receiver.tabIndex = value;`
+ *   2. attribute call        — `receiver.setAttribute('tabindex', value)`
+ *   3. role property assign  — `receiver.role = 'value';`
+ *   4. role attribute call   — `receiver.setAttribute('role', 'value')`
+ * Each assignment form's `=` is anchored `=(?!=)` so a `===` comparison
+ * (e.g. `el.tabIndex === -1`) can never be mistaken for an assignment.
+ *
+ * Allowlist, each rule naming the real call sites it exists for:
+ *   - a tabindex hit is allowed only when the receiver identifier is
+ *     `heading` or `h1` AND the value is `-1` — the six programmatic focus
+ *     targets: `list.ts:1277`, `records.ts:248/465/602/679/797`,
+ *     `overview.ts:283`. Any other receiver, or any other value, is a
+ *     violation — including `row.tabIndex = -1` (allowed value, disallowed
+ *     receiver), which is precisely the shape of the regression D-01 exists
+ *     to block.
+ *   - a role hit is allowed only when its value is not `link`, compared
+ *     case-insensitively — the two `loading.setAttribute('role', 'status')`
+ *     live regions: `list.ts:1233`, `records.ts:762`.
+ *
+ * Widening either rule requires naming the new call site in the comment
+ * above it — do not widen the receiver list, the allowed value, or the role
+ * exclusion just to turn a red test green.
+ */
+function rowSemanticViolations(source: string): string[] {
+  const violations: string[] = [];
+  const isAllowedTabIndexReceiver = (receiver: string, value: string): boolean =>
+    (receiver === 'heading' || receiver === 'h1') && value === '-1';
+  const isAllowedRoleValue = (value: string): boolean => value.toLowerCase() !== 'link';
+
+  // 1. property assignment: `receiver.tabIndex = value;`
+  const tabIndexPropertyPattern = /([A-Za-z_$][\w$]*)\s*\.\s*tabIndex\s*=(?!=)\s*([^;]*);/gi;
+  for (const match of source.matchAll(tabIndexPropertyPattern)) {
+    if (isAllowedTabIndexReceiver(match[1], match[2].trim())) continue;
+    violations.push(match[0]);
+  }
+
+  // 2. attribute call: `receiver.setAttribute('tabindex', value)`
+  const tabIndexAttrPattern =
+    /([A-Za-z_$][\w$]*)\s*\.\s*setAttribute\s*\(\s*['"]tabindex['"]\s*,\s*['"]?([^'")]*?)['"]?\s*\)/gi;
+  for (const match of source.matchAll(tabIndexAttrPattern)) {
+    if (isAllowedTabIndexReceiver(match[1], match[2].trim())) continue;
+    violations.push(match[0]);
+  }
+
+  // 3. role property assignment: `receiver.role = 'value';`
+  const rolePropertyPattern = /([A-Za-z_$][\w$]*)\s*\.\s*role\s*=(?!=)\s*['"]([^'"]*)['"]/gi;
+  for (const match of source.matchAll(rolePropertyPattern)) {
+    if (isAllowedRoleValue(match[2])) continue;
+    violations.push(match[0]);
+  }
+
+  // 4. role attribute call: `receiver.setAttribute('role', 'value')`
+  const roleAttrPattern =
+    /([A-Za-z_$][\w$]*)\s*\.\s*setAttribute\s*\(\s*['"]role['"]\s*,\s*['"]([^'"]*)['"]\s*\)/gi;
+  for (const match of source.matchAll(roleAttrPattern)) {
+    if (isAllowedRoleValue(match[2])) continue;
+    violations.push(match[0]);
+  }
+
+  return violations;
 }
 
 describe('UX-02 - the CTAs are gone, and .cta survives', () => {
@@ -155,19 +244,91 @@ describe('D-05 - the Records columns are gone', () => {
 });
 
 describe('D-01 - no fake link semantics on a <tr>', () => {
-  it('comment-stripped list.ts, records.ts and row-navigation.ts each contain zero occurrences of tabindex', () => {
-    expect(countOccurrences(listStripped, 'tabindex')).toBe(0);
-    expect(countOccurrences(recordsStripped, 'tabindex')).toBe(0);
-    expect(countOccurrences(rowNavigationStripped, 'tabindex')).toBe(0);
+  // The four literal-count assertions this block used to carry
+  // (`countOccurrences(..., 'tabindex')` and the `role="link"` / `'role',
+  // 'link'` counts) are gone. WR-02 (20-REVIEW.md) proved them vacuous by
+  // executed mutation: appending `tr.tabIndex = 0; tr.role = 'link';` to a
+  // row builder left the lowercase-`tabindex` count at 0 in both `list.ts`
+  // and `records.ts` while the camelCase `tabIndex` count sat at 1 and 5
+  // respectively — the old guard could never see the exact regression D-01
+  // exists to block. `rowSemanticViolations` (module scope, above) replaces
+  // both with a single spelling-agnostic scan; see its own comment for the
+  // four spellings covered and the two-rule allowlist.
+  it('rowSemanticViolations finds no violations in list.ts, records.ts, overview.ts or row-navigation.ts', () => {
+    const sources: Array<[string, string]> = [
+      ['list.ts', listStripped],
+      ['records.ts', recordsStripped],
+      ['overview.ts', overviewStripped],
+      ['row-navigation.ts', rowNavigationStripped],
+    ];
+    for (const [name, src] of sources) {
+      expect(rowSemanticViolations(src), name).toEqual([]);
+    }
+  });
+});
+
+describe('rowSemanticViolations - self-tests', () => {
+  it("tr.tabIndex = 0; yields exactly one violation whose text contains 'tabIndex'", () => {
+    const violations = rowSemanticViolations('tr.tabIndex = 0;');
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toContain('tabIndex');
   });
 
-  it('comment-stripped list.ts, records.ts and row-navigation.ts each contain zero occurrences of role="link" or \'role\', \'link\'', () => {
-    expect(countOccurrences(listStripped, 'role="link"')).toBe(0);
-    expect(countOccurrences(listStripped, "'role', 'link'")).toBe(0);
-    expect(countOccurrences(recordsStripped, 'role="link"')).toBe(0);
-    expect(countOccurrences(recordsStripped, "'role', 'link'")).toBe(0);
-    expect(countOccurrences(rowNavigationStripped, 'role="link"')).toBe(0);
-    expect(countOccurrences(rowNavigationStripped, "'role', 'link'")).toBe(0);
+  it("tr.setAttribute('tabindex', '0'); yields exactly one violation", () => {
+    expect(rowSemanticViolations("tr.setAttribute('tabindex', '0');")).toHaveLength(1);
+  });
+
+  it('tr.setAttribute("tabindex", "0"); (double quotes) yields exactly one violation', () => {
+    expect(rowSemanticViolations('tr.setAttribute("tabindex", "0");')).toHaveLength(1);
+  });
+
+  it("tr.role = 'link'; yields exactly one violation", () => {
+    expect(rowSemanticViolations("tr.role = 'link';")).toHaveLength(1);
+  });
+
+  it("tr.setAttribute('role', 'link'); yields exactly one violation", () => {
+    expect(rowSemanticViolations("tr.setAttribute('role', 'link');")).toHaveLength(1);
+  });
+
+  it('row.tabIndex = -1; yields exactly one violation - the value is allowed but the receiver is not, so a row made programmatically focusable still trips the guard', () => {
+    expect(rowSemanticViolations('row.tabIndex = -1;')).toHaveLength(1);
+  });
+
+  it('heading.tabIndex = -1; yields no violations', () => {
+    expect(rowSemanticViolations('heading.tabIndex = -1;')).toEqual([]);
+  });
+
+  it('h1.tabIndex = -1; yields no violations', () => {
+    expect(rowSemanticViolations('h1.tabIndex = -1;')).toEqual([]);
+  });
+
+  it("heading.setAttribute('tabindex', '-1'); yields no violations", () => {
+    expect(rowSemanticViolations("heading.setAttribute('tabindex', '-1');")).toEqual([]);
+  });
+
+  it("loading.setAttribute('role', 'status'); yields no violations", () => {
+    expect(rowSemanticViolations("loading.setAttribute('role', 'status');")).toEqual([]);
+  });
+
+  it('if (el.tabIndex === -1) { return; } yields no violations - the =(?!=) assignment anchor holds', () => {
+    expect(rowSemanticViolations('if (el.tabIndex === -1) { return; }')).toEqual([]);
+  });
+
+  it("WR-02 blind-spot proof: the old guard's exact miss stays documented, and rowSemanticViolations closes it", () => {
+    // The first expectation documents the defect the old guard shipped with
+    // (WR-02, 20-REVIEW.md): a lowercase-only 'tabindex' needle counts zero
+    // occurrences in "tr.tabIndex = 0;" because the real text is camelCase.
+    // The second expectation documents that closure: the new, spelling-
+    // agnostic guard catches the identical mutation. Do not "fix" the zero
+    // in the first assertion - it is the proof the defect existed, not a bug.
+    expect(
+      countOccurrences('tr.tabIndex = 0;', 'tabindex'),
+      "documents the old guard's miss - must stay 0",
+    ).toBe(0);
+    expect(
+      rowSemanticViolations('tr.tabIndex = 0;'),
+      'documents the new guard catching the identical mutation',
+    ).toHaveLength(1);
   });
 });
 

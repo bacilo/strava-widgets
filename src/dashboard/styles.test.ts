@@ -39,10 +39,23 @@ const cssNoComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
  * when the selector is not found, so a deleted rule fails loudly rather
  * than silently matching an empty string.
  */
-function declarationsFor(selector: string): string {
+/**
+ * FIRST-rule-wins: matches the FIRST `selector {`-shaped substring in
+ * `source` (default: the real stylesheet, comments stripped) and returns its
+ * body. Unsuitable for any assertion about a selector that can be declared
+ * more than once — for that, use `bodyForSelectorListToken` (single rule) or
+ * `cascadeWinningBodyDeclaring` (the cascade winner for one property across
+ * every rule declaring that selector), both last-wins. Accepts an optional
+ * `source` purely so the self-tests below can exercise first-wins against
+ * small synthetic CSS strings without editing `styles.css` — every existing
+ * call site omits it and keeps reading the real stylesheet exactly as
+ * before (20-10, closing R3-WR-02's remaining first-wins call sites in this
+ * file's own Phase 20 assertions — see the helper audit entry below).
+ */
+function declarationsFor(selector: string, source: string = cssNoComments): string {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const ruleRegex = new RegExp(`${escaped}\\s*\\{([^}]*)\\}`);
-  const match = cssNoComments.match(ruleRegex);
+  const match = source.match(ruleRegex);
   if (!match) {
     throw new Error(`No rule found for selector: ${selector}`);
   }
@@ -282,6 +295,89 @@ function bodyForSelectorListToken(needle: string, source: string = cssNoComments
 }
 
 /**
+ * Returns EVERY non-at-rule-scoped body (in source order) whose selector
+ * list contains `needle` as an exact, post-trim token — the multi-body
+ * sibling of `bodyForSelectorListToken`, which returns only the last one.
+ * Exists because `.activity-row` is declared TWICE at the top level
+ * (`styles.css:338`, carrying `display: flex`, and `styles.css:1530`,
+ * carrying only `text-decoration: none`), and `bodyForSelectorListToken`
+ * returning only the last body is wrong for a caller that needs to find
+ * which of several bodies declares a given property (20-10, WR-03,
+ * 20-REVIEW.md). Skips at-rule-scoped candidates via `isAtRuleScoped`,
+ * exactly as `bodyForSelectorListToken` does, so a rule unreachable inside
+ * `@media` never appears in the returned list. Throws using the same
+ * two-path message shape `bodyForSelectorListToken` uses — naming the
+ * at-rule block via `assertNotAtRuleScoped` when the token was seen only
+ * at-rule-scoped, or the generic "no rule found" message when it was never
+ * seen at all — so a deleted rule fails loudly rather than returning an
+ * empty array a caller might mistake for "zero legitimately".
+ */
+function bodiesForSelectorListToken(needle: string, source: string = cssNoComments): string[] {
+  const ruleHeadAndBody = RULE_SCANNER();
+  let match: RegExpExecArray | null;
+  const bodies: string[] = [];
+  let atRuleScopedMatch: { offset: number; head: string } | undefined;
+  while ((match = ruleHeadAndBody.exec(source)) !== null) {
+    const [, head, body] = match;
+    const selectors = splitTopLevelSelectors(head);
+    if (!selectors.some((s) => s === needle)) {
+      continue;
+    }
+    if (isAtRuleScoped(match.index, head)) {
+      atRuleScopedMatch = { offset: match.index, head };
+      continue;
+    }
+    bodies.push(body);
+  }
+  if (bodies.length === 0) {
+    if (atRuleScopedMatch) {
+      assertNotAtRuleScoped(atRuleScopedMatch.offset, atRuleScopedMatch.head, needle);
+    }
+    throw new Error(`No rule found whose selector list contains: ${needle}`);
+  }
+  return bodies;
+}
+
+/**
+ * Returns the LAST body (in source order, among every non-at-rule-scoped
+ * rule whose selector list contains `needle`) that declares `property` — the
+ * cascade winner for that property, matching how CSS resolves a selector
+ * declared more than once at the top level. `bodyForSelectorListToken`
+ * returns the last body whether or not that body declares the property
+ * under test, which is right for a single-declaration selector and wrong
+ * for `.activity-row`: its last top-level body (`styles.css:1530`) carries
+ * only `text-decoration: none`, so `bodyForSelectorListToken('.activity-row')
+ * .toContain('display: flex')` would fail even though `display: flex` is
+ * exactly what a real browser renders, from the earlier body at
+ * `styles.css:338` (20-10, WR-03, 20-REVIEW.md). CSS resolves per property,
+ * not per rule — the winner for `display` is the last body that mentions
+ * `display`, which is what this computes. Anchors the property match to a
+ * declaration boundary (start of body, or a preceding `;` or whitespace)
+ * the same way `extractNumericDeclaration` does, so a property that is a
+ * suffix of a longer property name can never match, and escapes `property`
+ * with the same `.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')` guard the other
+ * helpers use (R3-IN-01). Throws, naming both `needle` and `property`, when
+ * no non-at-rule-scoped body declares it.
+ */
+function cascadeWinningBodyDeclaring(
+  needle: string,
+  property: string,
+  source: string = cssNoComments,
+): string {
+  const bodies = bodiesForSelectorListToken(needle, source);
+  const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const declarationPattern = new RegExp(`(?:^|;|\\s)${escapedProperty}\\s*:`);
+  for (let i = bodies.length - 1; i >= 0; i--) {
+    if (declarationPattern.test(bodies[i])) {
+      return bodies[i];
+    }
+  }
+  throw new Error(
+    `No body among the rules whose selector list contains "${needle}" declares "${property}"`,
+  );
+}
+
+/**
  * Parses the numeric value of `property: <int>` out of a declaration body
  * (e.g. the body returned by `declarationsFor` or `bodyForSelectorListToken`),
  * returning the LAST match in source order rather than the first — matching
@@ -410,6 +506,72 @@ describe('AT_RULE_RANGES / assertNotAtRuleScoped / last-wins — self-tests', ()
     // last-wins would then incorrectly return 8 instead of 4.
     const body = 'grid.column: 4; grid-column: 8;';
     expect(extractNumericDeclaration(body, 'grid.column')).toBe(4);
+  });
+});
+
+// Self-tests for cascadeWinningBodyDeclaring / bodiesForSelectorListToken
+// (20-10, migrating WR-03's four Phase 20 CSS assertions off the first-wins
+// declarationsFor helper). Each case is the false-green mechanism WR-03
+// (20-REVIEW.md) proved by executed mutation against the OLD assertions:
+// they stayed green while the rules they guard went dead, because
+// declarationsFor reads the FIRST matching rule instead of the cascade
+// winner. Every case below runs against synthetic CSS passed through the
+// `source` parameter, so styles.css is never edited to make a self-test
+// pass.
+describe('cascadeWinningBodyDeclaring / bodiesForSelectorListToken — self-tests', () => {
+  it('R3-WR-02 / WR-03: declarationsFor returns the FALSE GREEN first body, cascadeWinningBodyDeclaring returns the cascade winner', () => {
+    const synthetic = '.x { display: flex; } .x { display: block; }';
+    expect(
+      declarationsFor('.x', synthetic),
+      'documents the false green the old first-wins assertion would have produced',
+    ).toContain('display: flex');
+    expect(
+      cascadeWinningBodyDeclaring('.x', 'display', synthetic),
+      'documents the cascade winner the browser actually applies',
+    ).toContain('display: block');
+  });
+
+  it("WR-03: the real .activity-row shape - a later rule that does NOT redeclare the property under test - resolves to the EARLIER rule's value, not the last rule's body", () => {
+    // The real stylesheet's exact shape: styles.css:338 declares `display:
+    // flex` and styles.css:1530 (later, Phase 20) declares only
+    // `text-decoration: none`. bodyForSelectorListToken, which returns
+    // whichever body is LAST regardless of what it declares, resolves to
+    // the second rule and does not contain `display` at all — this is the
+    // trap 20-REVIEW.md's WR-03 closing paragraph names.
+    const synthetic = '.x { display: flex; } .x { text-decoration: none; }';
+    const lastBody = bodyForSelectorListToken('.x', synthetic);
+    expect(lastBody).toContain('text-decoration: none');
+    expect(lastBody).not.toContain('display');
+    expect(cascadeWinningBodyDeclaring('.x', 'display', synthetic)).toContain('display: flex');
+  });
+
+  it("the navigable-row cursor's own version of the same mutation: declarationsFor reads the stale first cursor, bodyForSelectorListToken reads the cascade winner", () => {
+    const synthetic = '.n { cursor: pointer; } .n { cursor: default; }';
+    expect(declarationsFor('.n', synthetic)).toContain('cursor: pointer');
+    expect(bodyForSelectorListToken('.n', synthetic)).toContain('cursor: default');
+  });
+
+  it('bodiesForSelectorListToken returns every body in source order', () => {
+    const synthetic = '.x { a: 1; } .x { a: 2; } .x { a: 3; }';
+    expect(bodiesForSelectorListToken('.x', synthetic)).toEqual([
+      ' a: 1; ',
+      ' a: 2; ',
+      ' a: 3; ',
+    ]);
+  });
+
+  it('cascadeWinningBodyDeclaring throws when no body declares the property', () => {
+    const synthetic = '.x { display: flex; } .x { text-decoration: none; }';
+    expect(() => cascadeWinningBodyDeclaring('.x', 'color', synthetic)).toThrow(
+      /No body among the rules/,
+    );
+  });
+
+  it('bodiesForSelectorListToken throws when the selector is absent entirely - a deleted rule fails loudly', () => {
+    const synthetic = '.y { display: flex; }';
+    expect(() => bodiesForSelectorListToken('.x', synthetic)).toThrow(
+      /No rule found whose selector list contains/,
+    );
   });
 });
 
@@ -624,6 +786,32 @@ describe('styles.css — Phase 17 tokens', () => {
 // against the real stylesheet — not by re-reading the code — so the fix
 // above is itself evidence that "the assertion exists and the file says so"
 // is not sufficient either.
+//
+// Phase 20 cascade migration (WR-03, 20-REVIEW.md; plan 20-10): the four
+// Phase 20 assertions below ('.activity-row keeps display: flex', the two
+// D-09 hover-mix checks, and D-10's cursor: pointer check) used to read
+// through `declarationsFor`, which is first-rule-wins over the raw
+// stylesheet text — the same false-green mechanism the R3-WR-02 paragraph
+// above already proved for `bodyForSelectorListToken` and
+// `extractNumericDeclaration`. The review's executed mutation showed all
+// four staying green while the rules they guard were dead. They now read
+// through `bodyForSelectorListToken` (three of the four — each targets a
+// selector declared exactly once at the top level, so last-wins and
+// first-wins coincide today, but only last-wins matches what a browser
+// actually resolves if a later override is ever added) or
+// `cascadeWinningBodyDeclaring` (the `.activity-row` / `display` case,
+// which needs it for real: `.activity-row` is declared TWICE at the top
+// level — styles.css:338 carrying `display: flex`, styles.css:1530 carrying
+// only `text-decoration: none` — so `bodyForSelectorListToken` alone would
+// resolve to the second body and fail the assertion; `cascadeWinningBodyDeclaring`
+// finds the last body that actually declares `display`). `declarationsFor`
+// itself is NOT converted to last-wins — doing so would change the reading
+// of roughly forty pre-existing Phase 16-19 assertions built on it, in a
+// gap-closure plan that has no rendered verification to catch a regression
+// any of those forty might introduce. It remains first-wins and is now
+// documented as such (see its own JSDoc above), with `bodyForSelectorListToken`
+// and `cascadeWinningBodyDeclaring` named as the correct choices for any
+// selector that might be declared more than once.
 //
 // Scope, stated plainly (T-19G-FALSEGREEN-13, accepted risk, not
 // eliminated): the 40 pre-existing Phase 19 substring assertions in the
@@ -1088,7 +1276,16 @@ describe('styles.css - Phase 20 row-click interaction pattern', () => {
   });
 
   it('.activity-row keeps display: flex - load-bearing now that it is an <a>', () => {
-    expect(declarationsFor('.activity-row')).toContain('display: flex');
+    // cascadeWinningBodyDeclaring, not declarationsFor: `.activity-row` is
+    // declared TWICE at the top level (styles.css:338 carrying `display:
+    // flex`, styles.css:1530 carrying only `text-decoration: none`), and
+    // declarationsFor is first-rule-wins over the raw stylesheet text, which
+    // happens to read the right rule here only because the `display`-
+    // carrying rule comes first in source order — a coincidence of file
+    // layout, not a property of the helper. cascadeWinningBodyDeclaring
+    // resolves per property, the way a browser does, so it stays correct
+    // even if the two rules are ever reordered. See WR-03 (20-REVIEW.md).
+    expect(cascadeWinningBodyDeclaring('.activity-row', 'display')).toContain('display: flex');
   });
 
   it('.activity-row declares text-decoration: none - the whole-row link is not a text link', () => {
@@ -1096,17 +1293,17 @@ describe('styles.css - Phase 20 row-click interaction pattern', () => {
   });
 
   it('D-09: .activity-row:hover mixes from var(--surface) toward var(--text)', () => {
-    expect(declarationsFor('.activity-row:hover')).toContain(
+    expect(bodyForSelectorListToken('.activity-row:hover')).toContain(
       'color-mix(in srgb, var(--surface) 92%, var(--text))',
     );
   });
 
   it('D-10: .activity-table__row--navigable declares cursor: pointer', () => {
-    expect(declarationsFor('.activity-table__row--navigable')).toContain('cursor: pointer');
+    expect(bodyForSelectorListToken('.activity-table__row--navigable')).toContain('cursor: pointer');
   });
 
   it('D-09/D-10: .activity-table__row--navigable:hover mixes with the byte-identical formula', () => {
-    expect(declarationsFor('.activity-table__row--navigable:hover')).toContain(
+    expect(bodyForSelectorListToken('.activity-table__row--navigable:hover')).toContain(
       'color-mix(in srgb, var(--surface) 92%, var(--text))',
     );
   });
