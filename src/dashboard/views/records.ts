@@ -483,13 +483,21 @@ function buildPrTablesSection(
 // PR evolution grid (18-UI-SPEC § 3)
 // ---------------------------------------------------------------------------
 
-function buildProgressionTable(series: readonly EvolutionPoint[]): HTMLElement {
+/**
+ * Renders one distance's PR-progression table. Takes `distance` only to
+ * build the D-04 curated label (identical three-part shape to the PR
+ * table's, so a progression row and a PR row for the same activity
+ * announce the same way). The Date cell carries the anchor because
+ * `ProgressionRow` has no activity-name field (D-05); the row-level click
+ * comes from the shared `attachRowNavigation` helper (D-03).
+ */
+function buildProgressionTable(distance: TargetDistanceKey, series: readonly EvolutionPoint[]): HTMLElement {
   const table = document.createElement('table');
   table.className = 'activity-table pr-table';
 
   const thead = document.createElement('thead');
   const headRow = document.createElement('tr');
-  for (const label of ['Date', 'Time', 'Improvement', 'Run']) {
+  for (const label of ['Date', 'Time', 'Improvement']) {
     const th = document.createElement('th');
     th.textContent = label;
     headRow.appendChild(th);
@@ -502,7 +510,14 @@ function buildProgressionTable(series: readonly EvolutionPoint[]): HTMLElement {
     const tr = document.createElement('tr');
 
     const dateTd = document.createElement('td');
-    dateTd.textContent = formatActivityDate(row.startDate);
+    const dateAnchor = document.createElement('a');
+    dateAnchor.href = activityDetailHref(row.activityId);
+    dateAnchor.textContent = formatActivityDate(row.startDate);
+    dateAnchor.setAttribute(
+      'aria-label',
+      `${formatActivityDate(row.startDate)}, ${DISTANCE_LABELS[distance]}, ${formatEffortDuration(row.durationSec)}`
+    );
+    dateTd.appendChild(dateAnchor);
     tr.appendChild(dateTd);
 
     const timeTd = document.createElement('td');
@@ -514,14 +529,7 @@ function buildProgressionTable(series: readonly EvolutionPoint[]): HTMLElement {
       row.improvementSec === null ? '—' : `−${formatEffortDuration(Math.abs(row.improvementSec))}`;
     tr.appendChild(improvementTd);
 
-    const runTd = document.createElement('td');
-    const cta = document.createElement('a');
-    cta.className = 'cta';
-    cta.textContent = 'View Activity';
-    cta.href = `#/activity/${row.activityId}`;
-    runTd.appendChild(cta);
-    tr.appendChild(runTd);
-
+    attachRowNavigation(tr, row.activityId);
     tbody.appendChild(tr);
   }
   table.appendChild(tbody);
@@ -575,7 +583,7 @@ function buildEvolutionCard(
   const summaryEl = document.createElement('summary');
   summaryEl.textContent = `Show progression (${series.length} steps)`;
   details.appendChild(summaryEl);
-  details.appendChild(buildProgressionTable(series));
+  details.appendChild(buildProgressionTable(distance, series));
   card.appendChild(details);
 
   return { card, canvas };
