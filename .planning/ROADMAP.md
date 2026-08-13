@@ -174,7 +174,26 @@ Plans:
   3. Row-level navigation is keyboard-operable — Tab reaches the row, Enter/Space activates it — and is announced correctly to assistive tech (a real link/button semantic, not a bare clickable `<div>`).
   4. **Human checkpoint**: served under `/strava-widgets` in a real browser, tab through Overview and Records rows keyboard-only, confirm consistent focus order and activation, and confirm mouse clicks on rows across all screens land on the correct activity.
 
-**Plans**: TBD
+**Plans**: 5 plans in 4 waves. The ROADMAP's own criterion-2 citation (`list.ts:224`) is wrong and is not planned from: that line *is* one of the three "View Activity" CTAs this phase removes. The reference pattern is `buildTableRow` at `list.ts:333-360`.
+
+Plans:
+**Wave 1**
+
+- [ ] 20-01-PLAN.md — the shared row-navigation helper module plus its pure unit test (D-01, D-02, D-03), with the helper's non-testable surface stated explicitly
+
+**Wave 2** *(blocked on Wave 1; the two plans have zero file overlap and run in parallel)*
+
+- [ ] 20-02-PLAN.md — `list.ts` and `overview.ts`: div rows become real anchors, the mobile-card CTA is deleted, `buildTableRow` moves onto the helper and its criterion-3-contradicting comment is repaired (D-01, D-04, D-07, D-08)
+- [ ] 20-03-PLAN.md — `records.ts`: both activity tables drop their CTA column (7→6 and 4→3), the Date cell carries the anchor, both gain the helper (D-05)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 20-04-PLAN.md — `styles.css` Phase 20 block (bare `a` link treatment, row-anchor hover, navigable-row scoping), `styles.test.ts` assertions, and a new `row-semantics.test.ts` source-structure guard (D-06, D-09, D-10, D-11)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 20-05-PLAN.md — full gate + BLOCKING human browser checkpoint under `/strava-widgets`, twelve-row agenda, keyboard-only and mouse, both themes
+
 **UI hint**: yes
 
 ### Phase 21: Overview Rebuild
@@ -284,7 +303,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 17. Activity Browser & Detail Views | v2.0 | 15/15 | Complete    | 2026-08-11 |
 | 18. Records, Trends & Differentiators | v2.0 | 16/16 | Complete    | 2026-08-12 |
 | 19. Design System & Control Styling | v2.1 | 17/17 | Complete    | 2026-08-13 |
-| 20. Row-Click Interaction Pattern | v2.1 | 0/TBD | Not started | - |
+| 20. Row-Click Interaction Pattern | v2.1 | 0/5 | Planned | - |
 | 21. Overview Rebuild | v2.1 | 0/TBD | Not started | - |
 | 22. Calendar Week-Start & Totals | v2.1 | 0/TBD | Not started | - |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 0/TBD | Not started | - |
