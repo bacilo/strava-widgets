@@ -173,6 +173,16 @@ None - no external service configuration required.
 - WR-03 (radius literals) and the R3-IN-05 narrative-relocation remainder are recorded in `deferred-items.md` with re-entry triggers, not silently dropped.
 - UI-02 remains open, as intended — this plan is documentation-only and does not discharge the rendered-checkpoint requirement plan 19-17 owns.
 
+## Self-Check: PASSED
+
+- FOUND: `src/dashboard/styles.css`
+- FOUND: `.planning/phases/19-design-system-control-styling/deferred-items.md`
+- FOUND: `.planning/phases/19-design-system-control-styling/19-16-SUMMARY.md`
+- FOUND commit `9ef5465` (Task 1: ladder comment correction)
+- FOUND commit `21393be` (Task 2: strip foreign line-number citations)
+- FOUND commit `b11de39` (Task 3: record deferrals)
+- FOUND commit `c913103` (this SUMMARY)
+
 ---
 *Phase: 19-design-system-control-styling*
 *Completed: 2026-08-13*
