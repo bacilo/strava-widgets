@@ -200,7 +200,7 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5 — same files; CR-02 from 20-VERIFICATION.md)*
 
-- [ ] 20-07-PLAN.md — CR-02: status-badge text folded into the whole-row link's accessible name on all three affected surfaces, one badge-text source feeding both spans and label, records.ts pinned unaffected (UX-03)
+- [x] 20-07-PLAN.md — CR-02: status-badge text folded into the whole-row link's accessible name on all three affected surfaces, one badge-text source feeding both spans and label, records.ts pinned unaffected (UX-03)
 
 **Wave 7** *(blocked on Wave 6 — the checkpoint must run after the fixes land)*
 
@@ -315,7 +315,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 17. Activity Browser & Detail Views | v2.0 | 15/15 | Complete    | 2026-08-11 |
 | 18. Records, Trends & Differentiators | v2.0 | 16/16 | Complete    | 2026-08-12 |
 | 19. Design System & Control Styling | v2.1 | 17/17 | Complete    | 2026-08-13 |
-| 20. Row-Click Interaction Pattern | v2.1 | 6/8 | In Progress|  |
+| 20. Row-Click Interaction Pattern | v2.1 | 7/8 | In Progress|  |
 | 21. Overview Rebuild | v2.1 | 0/TBD | Not started | - |
 | 22. Calendar Week-Start & Totals | v2.1 | 0/TBD | Not started | - |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 0/TBD | Not started | - |
