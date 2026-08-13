@@ -180,7 +180,29 @@ E2 runs on `#/list` and again on `#/records` — two separate recorded outputs, 
 
 ## Probe outputs (verbatim)
 
-_pending Task 2_
+Session run in Chrome against the staged production-shaped build at
+`http://localhost:8099/strava-widgets/` (URL confirmed to contain `/strava-widgets/`; server
+still running, HTTP 200). Theme is irrelevant to this probe — it measures geometry, not
+appearance — and neither run is a failed capture: both Probe E2 runs return `after.sy: 600`,
+clearing the invalidation rule's 400 floor.
+
+**Probe E1 — route `#/list`:**
+
+```
+{"w":1920,"scrollingIsDoc":true,"docSH":2472,"docCH":617,"chain":[{"el":"NAV.app-nav","pos":"sticky","top":"0px","oX":"visible","oY":"visible","disp":"flex","h":"44px","transform":"none","filter":"none","willChange":"auto","contain":"none","ch":76,"sh":76,"oh":77},{"el":"HEADER#app-nav-root","pos":"static","top":"auto","oX":"visible","oY":"visible","disp":"block","h":"77px","transform":"none","filter":"none","willChange":"auto","contain":"none","ch":77,"sh":77,"oh":77},{"el":"BODY","pos":"static","top":"auto","oX":"visible","oY":"visible","disp":"block","h":"2472.390625px","transform":"none","filter":"none","willChange":"auto","contain":"none","ch":2472,"sh":2472,"oh":2472},{"el":"HTML","pos":"static","top":"auto","oX":"visible","oY":"visible","disp":"block","h":"2472.390625px","transform":"none","filter":"none","willChange":"auto","contain":"none","ch":617,"sh":2472,"oh":2472}]}
+```
+
+**Probe E2 — route `#/list`:**
+
+```
+{"route":"#/list","before":{"sy":0,"navTop":0,"parTop":0},"after":{"sy":600,"navTop":-600,"parTop":-600}}
+```
+
+**Probe E2 — route `#/records`:**
+
+```
+{"route":"#/records","before":{"sy":0,"navTop":0,"parTop":0},"after":{"sy":600,"navTop":-600,"parTop":-600}}
+```
 
 ## Confirmed Root Cause
 
