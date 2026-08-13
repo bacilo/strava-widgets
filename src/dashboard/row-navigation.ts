@@ -23,15 +23,39 @@
  * "Enter/Space" is discharged by native link semantics — see D-02 in
  * `.planning/phases/20-row-click-interaction-pattern/20-CONTEXT.md`.
  *
- * The assertable surface, honestly: `activityDetailPath`, `activityDetailHref`
- * and `NAVIGABLE_ROW_CLASS` are pure and unit-tested in
- * `row-navigation.test.ts`. `attachRowNavigation` cannot be unit-tested in
- * this repository — vitest runs with `environment: 'node'`, and there is no
- * jsdom and no headless browser anywhere in this repo — so it is proven only
- * by `row-semantics.test.ts`'s source-structure guard (plan 20-04) and by the
- * human browser checkpoint (plan 20-05). This file's own test does not cover
- * `attachRowNavigation`; do not read a green run of it as coverage of row
- * clicking.
+ * D-12, closing the BLOCKER `20-VERIFICATION.md` recorded against
+ * `row-navigation.ts:58-67`: the row-click listener now honours the
+ * browser's own link contract. A non-primary button, any of
+ * meta/ctrl/shift/alt, or an active (non-collapsed, non-empty) text
+ * selection all refuse navigation, in addition to the pre-existing
+ * `closest('a')` guard. This became load-bearing, not cosmetic, when plan
+ * 20-03 (`670e368`) removed the "View Activity" anchor column from both
+ * Records PR tables, leaving five of six PR-table cells (Rank, Time, Pace,
+ * Age-Grade, Flags — only Date carries a real anchor) row-click-only.
+ * Middle-click (`auxclick`) is deliberately NOT handled — see D-12 in
+ * `.planning/phases/20-row-click-interaction-pattern/20-CONTEXT.md` for the
+ * full reasoning, recorded there so a later agent does not "fix" the
+ * absence as an oversight, the same register D-02's paragraph above uses.
+ * Deviation from `20-REVIEW.md`'s drafted patch: the review inlined all
+ * three checks directly in the listener; this implementation extracts them
+ * into `shouldNavigateOnRowClick` instead, because a check inline inside an
+ * `addEventListener` callback is unreachable from any test in a repository
+ * with no DOM — the same reasoning that drove `20-06-PLAN.md` to prefer
+ * `tagName === 'A'` over `instanceof HTMLAnchorElement`. The refusal
+ * conditions themselves are the review's, unchanged.
+ *
+ * The assertable surface, honestly: `activityDetailPath`, `activityDetailHref`,
+ * `NAVIGABLE_ROW_CLASS` and now `shouldNavigateOnRowClick` — the whole click
+ * decision, including D-12's guards — are pure and unit-tested in
+ * `row-navigation.test.ts`. `attachRowNavigation`'s remaining DOM plumbing
+ * (`closest`, `window.getSelection`, the `addEventListener` wiring) still
+ * cannot be unit-tested in this repository — vitest runs with
+ * `environment: 'node'`, and there is no jsdom and no headless browser
+ * anywhere in this repo — so that plumbing is proven only by
+ * `row-navigation.test.ts`'s own source-structure wiring assertions plus
+ * `row-semantics.test.ts`'s guard (plan 20-04) and the Round 3 human
+ * checkpoint (plan 20-11). Do not read a green run of this file as coverage
+ * of the DOM wiring itself — only of the decision logic it delegates to.
  */
 
 import { navigateTo } from './router.js';
@@ -63,11 +87,33 @@ export interface RowClickContext {
   hasTextSelection: boolean;
 }
 
-// Pre-fix baseline (plan 20-09 Task 2): only `insideAnchor` is considered.
-// Task 3 replaces this body with the full link contract; every other field
-// is deliberately ignored until then.
+/**
+ * The whole row-click decision (D-12), pure so it can be unit-tested under
+ * `environment: 'node'`. Refuses navigation, in order, when:
+ * - `insideAnchor` — the row's own in-cell anchor already navigates itself;
+ *   this is the pre-existing guard and stays first, so an anchor click is
+ *   refused for the double-navigation reason rather than incidentally by a
+ *   later guard.
+ * - `button !== 0` — a non-primary mouse button is the browser's to own.
+ * - any of `metaKey` / `ctrlKey` / `shiftKey` / `altKey` — new tab, new
+ *   window and download all belong to the browser.
+ * - `hasTextSelection` — a drag-select that ends inside the row must survive.
+ * Otherwise navigates.
+ */
 export function shouldNavigateOnRowClick(context: RowClickContext): boolean {
-  return !context.insideAnchor;
+  if (context.insideAnchor) {
+    return false;
+  }
+  if (context.button !== 0) {
+    return false;
+  }
+  if (context.metaKey || context.ctrlKey || context.shiftKey || context.altKey) {
+    return false;
+  }
+  if (context.hasTextSelection) {
+    return false;
+  }
+  return true;
 }
 
 /**
