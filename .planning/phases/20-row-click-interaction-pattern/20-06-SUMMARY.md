@@ -148,3 +148,12 @@ None - no external service configuration required.
 ---
 *Phase: 20-row-click-interaction-pattern*
 *Completed: 2026-08-13*
+
+## Self-Check: PASSED
+
+- FOUND: src/dashboard/views/list.ts
+- FOUND: src/dashboard/views/list.test.ts
+- FOUND: .planning/phases/20-row-click-interaction-pattern/20-06-SUMMARY.md
+- FOUND commit: 3e60456 (test)
+- FOUND commit: db9fb4b (fix)
+- FOUND commit: 6163cf7 (docs — summary)
