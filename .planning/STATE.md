@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
-status: verifying
-stopped_at: Completed 19-17-PLAN.md (Round 4 human checkpoint clean sweep — rows 20-24 all PASS; GAP 6/GAP 7 resolved; UI-02 complete; Phase 19 gate closed; GAP 8 opened, unpatched, deferred)
-last_updated: "2026-08-13T13:43:19.708Z"
+status: ready_to_plan
+stopped_at: Phase 19 complete (17/17) — ready to discuss Phase 20
+last_updated: 2026-08-13T13:57:04.485Z
 last_activity: 2026-08-13
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 17
-  completed_plans: 17
+  completed_plans: 73
   percent: 14
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 19 — design-system-control-styling
+**Current focus:** Phase 20 — row click interaction pattern
 
 ## Current Position
 
-Phase: 19 (design-system-control-styling) — EXECUTING
-Plan: 17 of 17
-Status: Phase complete — ready for verification
+Phase: 20
+Plan: Not started
+Status: Ready to plan
 Last activity: 2026-08-13
 
 Progress: [██████████] 100%
