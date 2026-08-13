@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
 status: executing
-stopped_at: Phase 20 context gathered
-last_updated: "2026-08-13T17:31:35.474Z"
-last_activity: 2026-08-13 -- Phase 20 execution started
+stopped_at: "Completed 20-05-PLAN.md (checkpoint recorded, status: partial)"
+last_updated: "2026-08-13T18:14:05.289Z"
+last_activity: 2026-08-13
 progress:
   total_phases: 7
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 22
-  completed_plans: 17
-  percent: 14
+  completed_plans: 22
+  percent: 29
 ---
 
 # Project State
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 20 (row-click-interaction-pattern) — EXECUTING
-Plan: 1 of 5
-Status: Executing Phase 20
-Last activity: 2026-08-13 -- Phase 20 execution started
+Plan: 2 of 5
+Status: Ready to execute
+Last activity: 2026-08-13
 
 Progress: [██████████] 100%
 
@@ -53,6 +53,7 @@ Progress: [██████████] 100%
 | Phase 19 P15 | recovery session | 3 tasks | 1 files |
 | Phase 19 P16 | 14min | 3 tasks | 2 files |
 | Phase 19 P17 | ~25min (continuation) | 3 tasks | 3 files |
+| Phase 20 P05 | ~9min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -78,6 +79,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 19]: 19-15 recovered from a killed prior executor that committed nothing but left uncommitted, unreviewed Task 1 work (+221/-54 in styles.test.ts). Audited line by line against the plan and 19-REVIEW-round3.md, found materially correct, and kept it - salvage, not rewrite. Fixed one real defect the review's own proposed hover-assertion snippet had (ruleWithHeadContaining's head+body return shape had no brace for indexOf('{') to find; changed to head+'{'+body+'}', its only call site). All three tasks complete: R3-CR-01/CR-02/WR-02/IN-01/IN-02/IN-03/IN-04 closed with 7 mutations executed and reverted, styles.css confirmed byte-identical to 19-14's end state, full gate green (927/927 tests, clean tsc, clean build-widgets, 37/37 verify-dashboard). requirements-completed for this plan is empty — an initial `requirements.mark-complete UI-02` call (mechanically run from the plan's `requirements: [UI-02]` frontmatter) was reverted in REQUIREMENTS.md after it contradicted that file's own still-open text and the project's established pattern of gating a requirement's completion on a rendered checkpoint (19-17's Probe G), not an autonomous test-file-only plan; UI-02 stays open. R3-WR-03 and R3-WR-04 (both styles.css comment fixes, out of this plan's test-file-only scope) remain open for plan 19-16.
 - [Phase 19]: 19-16 corrected the sticky-layer ladder comment's disproven rung-4 stickiness claim (R3-WR-04) to cite dated Probe F evidence from 19-14's fix, hedged the still-unconfirmed paint-order claim naming GAP 6 and plan 19-17's row 21 as the observation that will settle it, and added a spec-derived (marked unobserved) descendant-containment scope statement (R3-WR-03). Stripped all foreign .ts:{line} citations plus one same-file rotted citation discovered in the process (R3-IN-05 partial). Deferred WR-03 radius literals and R3-IN-05's narrative-relocation remainder with dated reasoning in deferred-items.md. All eleven Round 3 findings now have a stated disposition (R3-CR-01/CR-02/WR-02/IN-01..04 closed in 19-15, R3-WR-01 closed in 19-14, R3-WR-03/WR-04 closed in 19-16, R3-IN-05 partial). requirements-completed for this plan is empty — UI-02 stays open, gated on plan 19-17's rendered checkpoint.
 - [Phase 19]: 19-17 Round 4 human checkpoint returned a clean sweep — rows 20-24 all PASS, closing GAP 7 (row 20, the nav holds on both routes/themes) and GAP 6 (row 21, the original CR-01 paint-order question, first observed) on rendered evidence gated by Probes G and H. nyquist_compliant: true; UI-02 ticked complete, closing Phase 19's gate. One new gap found unprompted (GAP 8: Leaflet map tiles paint over the nav, plus a totality defect in plan 19-16's own ladder comment) is recorded, argued not to block UI-02 (different component, no checkpoint row named it), left unpatched per house rule, disposition deferred to the user. requirements-completed for this checkpoint lists UI-01, UI-02, UI-03, ACT-01.
+- [Phase 20]: 20-05 human checkpoint closed with all twelve rows PASS on the developer's own words (rows 1-11 as one blanket approval, row 12 individually confirmed after clarification), but nyquist_compliant stays false and status is partial - seven theme-sensitive rows (1-4, 7, 9, 10) have no stated theme coverage, an evidence gap rather than a defect. No requirement ticked in REQUIREMENTS.md this session (plan's own files_modified scope names only 20-VALIDATION.md); the actionable follow-up is confirming theme coverage, not a code fix.
 
 ### Key Findings
 
@@ -145,9 +147,9 @@ Items acknowledged and deferred at the v2.0 milestone close on 2026-08-12.
 
 ## Session Continuity
 
-Last session: 2026-08-13T16:57:41.188Z
-Stopped at: Phase 20 context gathered
-Resume file: .planning/phases/20-row-click-interaction-pattern/20-CONTEXT.md
+Last session: 2026-08-13T18:14:05.283Z
+Stopped at: Completed 20-05-PLAN.md (checkpoint recorded, status: partial)
+Resume file: None
 
 ---
 *Last updated: 2026-08-11 — Phase 17 (activity-browser-detail-views) all 15 planned plans executed and summarized; human checkpoint on plan 17-15 came back PARTIAL — 8/10 Manual-Only Verifications rows confirmed clean, GAP 1 (DETAIL-02, route-map basemap tiles absent) and GAP 2 (DETAIL-03/04, chart band x-axis misalignment) have open gaps pending gap-closure planning (`/gsd-plan-phase 17 --gaps`) before the phase gate closes*

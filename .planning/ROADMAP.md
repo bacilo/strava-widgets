@@ -67,7 +67,7 @@ Full phase details: [`milestones/v2.0-ROADMAP.md`](milestones/v2.0-ROADMAP.md) �
 **Verification note:** every phase below ends with a mandatory human browser checkpoint against a production-shaped URL (served under `/strava-widgets`, matching how GitHub Pages actually serves this app — not the server root). This project has shipped rendering defects behind a fully green automated gate three times (Phase 16's black page behind 15/15 checks; Phase 17's two rendering defects behind 592/592 tests, clean `tsc`, and 20/20 `verify-dashboard`; Phase 18's near-miss needing a human checkpoint to confirm ~15 canvases). There is no jsdom and no headless browser in this repo, so no phase's success criteria can be satisfied by `npm test` alone.
 
 - [x] **Phase 19: Design System & Control Styling** - Every input, button, select and card follows one shared visual treatment, with a visible focus ring in both themes, across all five screens (17 plans executed; 19-05 human checkpoint returned PARTIAL — a dead `--radius-control` CSS token and an occluded focus ring were open gaps, closed by plans 19-06/19-07; 19-09 gap-closure re-verification checkpoint returned approved 2026-08-13 on the developer's blanket verdict — see 19-VALIDATION.md Gap-Closure Record; `nyquist_compliant: true`. REOPENED 2026-08-13: post-checkpoint code review (19-REVIEW.md) surfaced three critical defects the checkpoint never exercised; 19-VERIFICATION.md re-verified at 3/4 must-haves with UI-02 failed — see CR-01/CR-02/CR-03. Round 3 (19-10/19-11/19-12) closed CR-02/CR-03 on rendered evidence but found a new defect (GAP 7: sticky nav does not remain on screen while scrolling) blocking row 18/UI-02; `nyquist_compliant: false` again, gate still open. Round 4 (19-13..19-17) planned 2026-08-13: GAP 7 diagnosed empirically (19-13, H1 confirmed — zero-travel containing block) before being fixed (19-14), two critical guard-layer defects from `19-REVIEW-round3.md` closed with mutation-proven fixes (19-15), the ladder comment's truth repaired (19-16), and 19-17's five-row human checkpoint returned a **CLEAN SWEEP**: rows 20-24 all PASS, closing GAP 7 (row 20) and GAP 6 (row 21) on rendered evidence, gated on Probes G and H. `nyquist_compliant: true`; UI-02 ticked complete — phase gate closes 2026-08-13. One new gap found unprompted this round, GAP 8 (Leaflet map tiles paint over the nav, plus a totality defect in the ladder comment itself), left unpatched, reasoned not to block UI-02, disposition deferred to the user as a possible follow-up plan or a logged deferral)
-- [ ] **Phase 20: Row-Click Interaction Pattern** - Every activity row, on every screen, is clickable, keyboard-accessible, and free of redundant "View Activity" buttons
+- [x] **Phase 20: Row-Click Interaction Pattern** - Every activity row, on every screen, is clickable, keyboard-accessible, and free of redundant "View Activity" buttons (completed 2026-08-13)
 - [ ] **Phase 21: Overview Rebuild** - Overview's PR/activity rows, records scope toggle, headline stats, and the Current Streak "ended" label all reach the standard the rest of the dashboard sets
 - [ ] **Phase 22: Calendar Week-Start & Totals** - User controls whether the week starts Sunday or Monday, with correct persisted totals either way
 - [ ] **Phase 23: Trends Zoom, Pan & Taller Bands** - User can zoom and pan trend charts with mouse, touch, or on-screen controls, on taller bands, without breaking tab-cycling or the canvas lifecycle
@@ -192,7 +192,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 20-05-PLAN.md — full gate + BLOCKING human browser checkpoint under `/strava-widgets`, twelve-row agenda, keyboard-only and mouse, both themes
+- [x] 20-05-PLAN.md — full gate + BLOCKING human browser checkpoint under `/strava-widgets`, twelve-row agenda, keyboard-only and mouse, both themes
 
 **UI hint**: yes
 
@@ -303,7 +303,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 17. Activity Browser & Detail Views | v2.0 | 15/15 | Complete    | 2026-08-11 |
 | 18. Records, Trends & Differentiators | v2.0 | 16/16 | Complete    | 2026-08-12 |
 | 19. Design System & Control Styling | v2.1 | 17/17 | Complete    | 2026-08-13 |
-| 20. Row-Click Interaction Pattern | v2.1 | 4/5 | In Progress|  |
+| 20. Row-Click Interaction Pattern | v2.1 | 5/5 | Complete   | 2026-08-13 |
 | 21. Overview Rebuild | v2.1 | 0/TBD | Not started | - |
 | 22. Calendar Week-Start & Totals | v2.1 | 0/TBD | Not started | - |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 0/TBD | Not started | - |
