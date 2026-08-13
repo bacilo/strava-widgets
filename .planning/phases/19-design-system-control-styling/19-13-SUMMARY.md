@@ -35,7 +35,7 @@ key-decisions:
 
 patterns-established: []
 
-requirements-completed: [UI-02]
+requirements-completed: []  # UI-02 stays open — this plan diagnoses GAP 7 (root cause H1) but writes no fix, per its own constraint. UI-02 closes only after 19-14 (fix) and 19-17 (Round 4 checkpoint) both land, matching the 19-12 precedent of excluding UI-02 until the row itself passes.
 
 # Metrics
 duration: 30min (across two agent sessions, separated by a human-verify checkpoint)
