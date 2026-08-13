@@ -3881,10 +3881,10 @@
   },
   {
     "weekStartISO": "2026-08-10T00:00:00.000Z",
-    "totalKm": 33.88709,
-    "runCount": 3,
-    "avgPaceMinPerKm": 5.798176631080844,
-    "elevationGain": 47.76160900000001,
-    "totalMovingTimeMin": 196.48333333333332
+    "totalKm": 46.64159,
+    "runCount": 4,
+    "avgPaceMinPerKm": 5.80990770969286,
+    "elevationGain": 95.131791,
+    "totalMovingTimeMin": 270.98333333333335
   }
 ]
