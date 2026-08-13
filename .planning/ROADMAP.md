@@ -89,7 +89,7 @@ Full phase details: [`milestones/v2.0-ROADMAP.md`](milestones/v2.0-ROADMAP.md) �
   4. The Activities screen (`list.ts`) picks up the new control styling while its existing row-click interaction model — the reference pattern for Phase 20 — is visually and functionally unchanged.
   5. **Human checkpoint**: served under a production-shaped `/strava-widgets` URL in a real browser, all five screens are visually compared side by side; every input/button/select looks intentional, and `:focus-visible` rings are checked by tabbing through controls in both themes.
 
-**Plans**: 9 plans in 9 waves (all sequential — every implementation plan writes to `src/dashboard/styles.css`). Plans 01-05 shipped; 19-05's checkpoint returned PARTIAL, so plans 06-09 are gap closure.
+**Plans**: 12 plans in 12 waves (all sequential — every implementation plan writes to `src/dashboard/styles.css`). Plans 01-05 shipped; 19-05's checkpoint returned PARTIAL, so plans 06-09 are gap closure; 19-09's blanket approval was found not defensible by `19-VERIFICATION.md`, which reopened UI-02 on three code-review defects (CR-01/CR-02/CR-03), so plans 10-12 are a second gap-closure round.
 
 Plans:
 **Wave 1**
@@ -127,6 +127,18 @@ Plans:
 **Wave 9** *(gap closure — blocked on Wave 8 completion)*
 
 - [x] 19-09-PLAN.md — BLOCKING human re-verification of rows 1, 3, 6, 12 only, under /strava-widgets
+
+**Wave 10** *(gap closure round 2 — blocked on Wave 9 completion)*
+
+- [ ] 19-10-PLAN.md — sticky-layer ladder: `.app-nav` z-index above the focus ring, `.splits-table__km` tie resolved, plus WR-01/WR-02 test hardening (CR-01)
+
+**Wave 11** *(gap closure round 2 — blocked on Wave 10 completion)*
+
+- [ ] 19-11-PLAN.md — `.segmented__option` cancels the button baseline radius; focus ring kept at full opacity on focusable aria-disabled controls (CR-02, CR-03)
+
+**Wave 12** *(gap closure round 2 — blocked on Wave 11 completion)*
+
+- [ ] 19-12-PLAN.md — BLOCKING human checkpoint, six-row agenda with one named verdict per row, both themes, under /strava-widgets
 
 **UI hint**: yes
 
