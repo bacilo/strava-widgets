@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
-status: executing
-stopped_at: "Completed 19-16-PLAN.md (sticky-layer ladder comment truth repair: R3-WR-03/WR-04 closed, R3-IN-05 partial, all eleven Round 3 findings dispositioned)"
-last_updated: "2026-08-13T12:58:58.784Z"
+status: verifying
+stopped_at: Completed 19-17-PLAN.md (Round 4 human checkpoint clean sweep — rows 20-24 all PASS; GAP 6/GAP 7 resolved; UI-02 complete; Phase 19 gate closed; GAP 8 opened, unpatched, deferred)
+last_updated: "2026-08-13T13:43:19.708Z"
 last_activity: 2026-08-13
 progress:
   total_phases: 7
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 17
-  completed_plans: 16
-  percent: 0
+  completed_plans: 17
+  percent: 14
 ---
 
 # Project State
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 
 Phase: 19 (design-system-control-styling) — EXECUTING
 Plan: 17 of 17
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-13
 
-Progress: [█████████░] 94%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -52,6 +52,7 @@ Progress: [█████████░] 94%
 | Phase 19 P14 | 8min | 3 tasks | 3 files |
 | Phase 19 P15 | recovery session | 3 tasks | 1 files |
 | Phase 19 P16 | 14min | 3 tasks | 2 files |
+| Phase 19 P17 | ~25min (continuation) | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -76,6 +77,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 19]: 19-14 applied the H1-prescribed fix, moving the sticky rung (position: sticky, top: 0, z-index: 20) from .app-nav to #app-nav-root, and closed R3-WR-01 by extending the ladder test to pin position: sticky/relative rather than only z-index numbers. Confirmed on the rendered page via two Probe F runs (#/list, #/records), both meeting sy>=400 and top<=1. Rubber-band bounce reported on #/list is a recorded non-defect (macOS overscroll), not a new gap. requirements-completed for this plan is empty — UI-02 stays open; plan 19-17 performs the gate-quality re-verification across both themes as Probe G.
 - [Phase 19]: 19-15 recovered from a killed prior executor that committed nothing but left uncommitted, unreviewed Task 1 work (+221/-54 in styles.test.ts). Audited line by line against the plan and 19-REVIEW-round3.md, found materially correct, and kept it - salvage, not rewrite. Fixed one real defect the review's own proposed hover-assertion snippet had (ruleWithHeadContaining's head+body return shape had no brace for indexOf('{') to find; changed to head+'{'+body+'}', its only call site). All three tasks complete: R3-CR-01/CR-02/WR-02/IN-01/IN-02/IN-03/IN-04 closed with 7 mutations executed and reverted, styles.css confirmed byte-identical to 19-14's end state, full gate green (927/927 tests, clean tsc, clean build-widgets, 37/37 verify-dashboard). requirements-completed for this plan is empty — an initial `requirements.mark-complete UI-02` call (mechanically run from the plan's `requirements: [UI-02]` frontmatter) was reverted in REQUIREMENTS.md after it contradicted that file's own still-open text and the project's established pattern of gating a requirement's completion on a rendered checkpoint (19-17's Probe G), not an autonomous test-file-only plan; UI-02 stays open. R3-WR-03 and R3-WR-04 (both styles.css comment fixes, out of this plan's test-file-only scope) remain open for plan 19-16.
 - [Phase 19]: 19-16 corrected the sticky-layer ladder comment's disproven rung-4 stickiness claim (R3-WR-04) to cite dated Probe F evidence from 19-14's fix, hedged the still-unconfirmed paint-order claim naming GAP 6 and plan 19-17's row 21 as the observation that will settle it, and added a spec-derived (marked unobserved) descendant-containment scope statement (R3-WR-03). Stripped all foreign .ts:{line} citations plus one same-file rotted citation discovered in the process (R3-IN-05 partial). Deferred WR-03 radius literals and R3-IN-05's narrative-relocation remainder with dated reasoning in deferred-items.md. All eleven Round 3 findings now have a stated disposition (R3-CR-01/CR-02/WR-02/IN-01..04 closed in 19-15, R3-WR-01 closed in 19-14, R3-WR-03/WR-04 closed in 19-16, R3-IN-05 partial). requirements-completed for this plan is empty — UI-02 stays open, gated on plan 19-17's rendered checkpoint.
+- [Phase 19]: 19-17 Round 4 human checkpoint returned a clean sweep — rows 20-24 all PASS, closing GAP 7 (row 20, the nav holds on both routes/themes) and GAP 6 (row 21, the original CR-01 paint-order question, first observed) on rendered evidence gated by Probes G and H. nyquist_compliant: true; UI-02 ticked complete, closing Phase 19's gate. One new gap found unprompted (GAP 8: Leaflet map tiles paint over the nav, plus a totality defect in plan 19-16's own ladder comment) is recorded, argued not to block UI-02 (different component, no checkpoint row named it), left unpatched per house rule, disposition deferred to the user. requirements-completed for this checkpoint lists UI-01, UI-02, UI-03, ACT-01.
 
 ### Key Findings
 
@@ -111,6 +113,7 @@ Previously resolved — SQLITE_CANTOPEN CI failure resolved by quick-1-01 (lazy 
 - OPEN 2026-08-11: Phase 17 GAP 2 (DETAIL-03/DETAIL-04) — chart band x-axis origins are not vertically aligned across bands in a real browser; each band auto-sizes its own y-axis gutter to its widest tick label (pace's '10:00/km' vs HR's '120'), so the bands' plot areas start at different x-offsets. This also undermines the shared hover-crosshair guarantee (17-UI-SPEC.md § 4c), since one screen x maps to a different data x per band. Not yet fixed. See 17-VALIDATION.md Gap-Closure Record.
 - OPEN 2026-08-12: Phase 19 gap-closure register (19-05 checkpoint, PARTIAL) — GAP 1 (UI-01/UI-02): a stray `*/` inside a CSS comment at src/dashboard/styles.css lines 54-56 (`--space-*/--zone-*/--load-*` prose) terminates the comment early, silently discarding the `--radius-control` custom property from the parsed stylesheet in production. Browser-confirmed: `{radiusControl: "(EMPTY)", radiusPanel: "8px", sample: "button.app-nav__toggle", borderRadius: "0px"}`. Affects 4 rules (input/select/textarea baseline, button baseline, both .segmented__option end-child radii) — all render 0px corners instead of 4px. Invisible to all four automated gate commands (all text-assertion over source, which still contains the correct declaration). GAP 2 (UI-02): the focus ring on the detail view's x-axis segmented control is occluded at the bottom by the first chart and on the right by the sibling option — a distinct mechanism from the overflow:hidden clipping plan 19-04 fixed. GAP 3: the esbuild css-syntax-error warning emitted during `npm run build-widgets` (`Expected ":" [css-syntax-error]` at `<stdin>:56:59`) was misclassified as non-blocking by 19-05 Task 1 — it is the build-time signature of GAP 1. Not yet fixed. See 19-VALIDATION.md Gap-Closure Record. Three additional non-Phase-19 issues (Safari-specific JS SyntaxError on page load, dead Records "View Activity" click handler, Safari type="month" degradation) logged in the same record but confirmed out of scope for this phase (git diff 670b3ec..HEAD touches only styles.css and styles.test.ts).
 - OPEN 2026-08-13: Phase 19 gap-closure register (19-12 Round 3 checkpoint, PARTIAL) — GAP 7 (UI-02, new): the sticky top nav does not remain on screen while scrolling on Activities, confirmed by an ad-hoc probe (navH 77 = parentH 77, position: sticky computed but not holding). Blocks row 18 of 19-VALIDATION.md and UI-02. No suggested fix or root-cause theory recorded, per house rule for still-failing rows — next planning round (/gsd-plan-phase 19 --gaps) diagnoses and fixes it. GAP 6 (CR-01's z-index: 20 fix) is not marked resolved either: Probe B confirms the declaration ships in the bundle, but its rendered paint-order effect could not be observed because row 18 failed for the unrelated GAP 7 reason first. GAP 4 (CR-02) and GAP 5 (CR-03) ARE resolved this round on rendered evidence (rows 14-16 and row 17 all PASS). See 19-VALIDATION.md Gap-Closure Record and 19-12-SUMMARY.md.
+- OPEN 2026-08-13: Phase 19 GAP 8 (new, found unprompted during 19-17's Round 4 checkpoint) — Leaflet map tiles paint over the top nav on the detail-view route map. Source-derived (not measured): Leaflet's own panes (z-index 400) and controls (z-index 1000) are untouched by src/dashboard/styles.css and sit above #app-nav-root's z-index: 20. Second face: plan 19-16's sticky-layer ladder comment claims a totally-ordered four-rung ladder that does not list Leaflet's panes as a fifth, unlisted rung above it. Argued in 19-VALIDATION.md and REQUIREMENTS.md not to block UI-02 (different component, no checkpoint row named it) — UI-02 is ticked complete. Not patched per house rule since 16-09. Disposition (a small follow-up plan: z-index fix + one browser re-check + ladder-comment correction, or a deferred item) is the user's call after Phase 19 closes. See 19-VALIDATION.md GAP 8.
 
 ### Quick Tasks Completed
 
@@ -142,8 +145,8 @@ Items acknowledged and deferred at the v2.0 milestone close on 2026-08-12.
 
 ## Session Continuity
 
-Last session: 2026-08-13T12:58:58.776Z
-Stopped at: Completed 19-16-PLAN.md (sticky-layer ladder comment truth repair: R3-WR-03/WR-04 closed, R3-IN-05 partial, all eleven Round 3 findings dispositioned)
+Last session: 2026-08-13T13:43:19.698Z
+Stopped at: Completed 19-17-PLAN.md (Round 4 human checkpoint clean sweep — rows 20-24 all PASS; GAP 6/GAP 7 resolved; UI-02 complete; Phase 19 gate closed; GAP 8 opened, unpatched, deferred)
 Resume file: None
 
 ---
