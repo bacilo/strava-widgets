@@ -174,7 +174,7 @@ Plans:
   3. Row-level navigation is keyboard-operable — Tab reaches the row, Enter/Space activates it — and is announced correctly to assistive tech (a real link/button semantic, not a bare clickable `<div>`).
   4. **Human checkpoint**: served under `/strava-widgets` in a real browser, tab through Overview and Records rows keyboard-only, confirm consistent focus order and activation, and confirm mouse clicks on rows across all screens land on the correct activity.
 
-**Plans**: 8 plans in 7 waves (5 shipped in waves 1-4; 3 gap-closure plans in waves 5-7 after 20-VERIFICATION.md scored 2/4 must-haves). The ROADMAP's own criterion-2 citation (`list.ts:224`) is wrong and is not planned from: that line *is* one of the three "View Activity" CTAs this phase removes. The reference pattern is `buildTableRow` at `list.ts:333-360`.
+**Plans**: 11 plans in 9 waves (5 shipped in waves 1-4; 3 gap-closure plans in waves 5-7 after the first verification round scored 2/4 must-haves; 3 more in waves 8-9 after re-verification confirmed CR-01/CR-02 fixed but found a new BLOCKER in `row-navigation.ts` and left SC4 undischarged on the checkpoint's own recorded evidence). The ROADMAP's own criterion-2 citation (`list.ts:224`) is wrong and is not planned from: that line *is* one of the three "View Activity" CTAs this phase removes. The reference pattern is `buildTableRow` at `list.ts:333-360`.
 
 Plans:
 **Wave 1**
@@ -205,6 +205,15 @@ Plans:
 **Wave 7** *(blocked on Wave 6 — the checkpoint must run after the fixes land)*
 
 - [x] 20-08-PLAN.md — full gate + BLOCKING Round 2 human checkpoint, seventeen rows, one named verdict each, both themes where the claim depends on them, plus return-focus and VoiceOver announcement rows the Round 1 agenda could not ask for
+
+**Wave 8** *(gap closure round 3 — blocked on Wave 7; the two plans have zero file overlap and run in parallel)*
+
+- [ ] 20-09-PLAN.md — the BLOCKER: `attachRowNavigation` honours the browser's link contract (modifier keys, non-primary buttons, active text selection), the decision logic extracted into a pure node-testable predicate proven RED first, and D-12 recorded in 20-CONTEXT.md declaring middle-click/`auxclick` out of scope (UX-01, REC-08)
+- [ ] 20-10-PLAN.md — the two WARNING guard-layer defects: the case-blind D-01 `tabindex`/`role="link"` source guards become spelling-agnostic, and the four Phase 20 CSS assertions move off first-wins `declarationsFor` onto last-wins cascade resolution, each with an in-suite proof of the blind spot they close (UX-01, UX-03)
+
+**Wave 9** *(blocked on Wave 8 — the checkpoint must run after the link-contract fix lands)*
+
+- [ ] 20-11-PLAN.md — full gate + BLOCKING Round 3 human checkpoint, eighteen rows asked one at a time with a per-row required detail, re-attempting the thirteen rows Round 2 recorded as insufficiently evidenced, closing R10's theme gap, quoting back what VoiceOver announces for R15/R16/R17, and observing the four newly-guarded gestures on the five anchor-less Records PR-table cells (UX-01, UX-02, UX-03, REC-08)
 
 **UI hint**: yes
 
