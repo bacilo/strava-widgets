@@ -307,15 +307,20 @@ function extractNumericDeclaration(body: string, property: string): number {
 
 /**
  * Finds the first rule whose head (the text up to `{`) contains `needle` as
- * a substring, and returns `head + body` concatenated. `selectorListDeclares`
- * cannot serve this case: it splits a rule head on `,` and requires an exact
- * post-trim match against one comma-separated token, but plan 19-03's shared
- * hover selector head contains commas *inside* `:where(:not(…))` — splitting
- * on `,` there produces fragments like `.pagination__button--current` that
- * never equal the full head, so no split-token would ever match. Scanning
- * for a substring instead sidesteps the comma-splitting problem entirely.
- * Throws when no rule's head contains the needle, so a deleted rule fails
- * loudly rather than silently matching nothing.
+ * a substring, and returns `head + '{' + body + '}'` — the brace boundary is
+ * kept in the returned string (unlike a plain `head + body` concatenation)
+ * specifically so a caller can recover `head` alone by slicing at the first
+ * `{`, which plan 19-15's hover-shape assertion (below) needs to inspect the
+ * selector's structure rather than just search text across head and body.
+ * `selectorListDeclares` cannot serve this case: it splits a rule head on
+ * `,` and requires an exact post-trim match against one comma-separated
+ * token, but plan 19-03's shared hover selector head contains commas
+ * *inside* `:where(:not(…))` — splitting on `,` there produces fragments
+ * like `.pagination__button--current` that never equal the full head, so no
+ * split-token would ever match. Scanning for a substring instead sidesteps
+ * the comma-splitting problem entirely. Throws when no rule's head contains
+ * the needle, so a deleted rule fails loudly rather than silently matching
+ * nothing.
  */
 function ruleWithHeadContaining(needle: string): string {
   const ruleHeadAndBody = RULE_SCANNER();
@@ -324,7 +329,7 @@ function ruleWithHeadContaining(needle: string): string {
     const [, head, body] = match;
     if (head.includes(needle)) {
       assertNotAtRuleScoped(match.index, head, needle);
-      return head + body;
+      return `${head}{${body}}`;
     }
   }
   throw new Error(`No rule found with head containing: ${needle}`);
@@ -618,29 +623,49 @@ describe('styles.css — Phase 19 button baseline', () => {
   // and `.calendar-day--tint-4` of the four required tint exclusions, so
   // deleting `--tint-2` or `--tint-3` from styles.css left the suite green
   // while reintroducing exactly the defect the shared-hover-rule comment
-  // there says the exclusions prevent. Now asserts all eight required
-  // exclusion tokens.
+  // there says the exclusions prevent. Widened to all eight required
+  // exclusion tokens (still true below).
   //
-  // Limitation, stated rather than silently left implicit: `ruleWithHeadContaining`
-  // returns `head + body` concatenated, so these `.toContain()` checks
-  // cannot distinguish a selector token appearing in the HEAD (an actual
-  // `:not()` exclusion) from the same text appearing as a substring inside
-  // a declaration VALUE in the body. Fixing that would mean changing the
-  // helper's return shape, which every caller depends on — out of scope for
-  // this task. The next reader should know this assertion proves presence
-  // of the token somewhere in the rule's text, not specifically that it is
-  // one of the `:not()` exclusions.
-  it('the shared hover rule excludes disabled controls and the accent-strong fills (all eight tokens)', () => {
+  // R3-CR-02 (19-REVIEW-round3.md): the eight-token widening above closed
+  // the exclusion-list gap but introduced two much larger ones, both proven
+  // by executed mutation — the assertion below never checked that the rule
+  // was still a `:hover` rule, and never checked it was still scoped to
+  // `button`. Deleting `:hover` from the head (applying the surface-mix
+  // background to every non-excluded button unconditionally) and widening
+  // `button` to `*` (applying it to every element on the page) both stayed
+  // green. This assertion now proves the head's SHAPE — anchored `button`
+  // scope, anchored `:hover` gate, and the `:not()` argument compared as an
+  // ORDERED LIST via `splitTopLevelSelectors` (so a reorder is visible in
+  // the diff, not silently accepted) — retiring the old limitation this
+  // comment used to document (that the concatenated rule text could not
+  // distinguish a selector token from the same text inside a declaration
+  // value), since the token list is now extracted from the parsed head
+  // alone. What it still cannot prove: that the rule renders — see the
+  // closing paragraph of the helper audit above.
+  it('the shared hover rule is button-scoped, hover-gated, and excludes all eight tokens', () => {
     const rule = ruleWithHeadContaining(':where(:not(');
+    const braceIndex = rule.indexOf('{');
+    const head = braceIndex === -1 ? rule : rule.slice(0, braceIndex);
+    const normalized = head.replace(/\s+/g, ' ').trim();
+
+    expect(normalized.startsWith('button:where(:not(')).toBe(true);
+    expect(normalized.endsWith(')):hover')).toBe(true);
+
+    const notArg = normalized.slice(
+      'button:where(:not('.length,
+      normalized.lastIndexOf(')):hover'),
+    );
+    expect(splitTopLevelSelectors(notArg)).toEqual([
+      ':disabled',
+      '[aria-disabled="true"]',
+      '.pagination__button--current',
+      '.segmented__option--active',
+      '.calendar-day--tint-1',
+      '.calendar-day--tint-2',
+      '.calendar-day--tint-3',
+      '.calendar-day--tint-4',
+    ]);
     expect(rule).toContain('color-mix(in srgb, var(--surface) 92%, var(--text))');
-    expect(rule).toContain(':disabled');
-    expect(rule).toContain('[aria-disabled="true"]');
-    expect(rule).toContain('.pagination__button--current');
-    expect(rule).toContain('.segmented__option--active');
-    expect(rule).toContain('.calendar-day--tint-1');
-    expect(rule).toContain('.calendar-day--tint-2');
-    expect(rule).toContain('.calendar-day--tint-3');
-    expect(rule).toContain('.calendar-day--tint-4');
   });
 
   it('no bare button:hover rule exists', () => {
@@ -787,7 +812,11 @@ describe('styles.css — Phase 19 focus ring', () => {
   // the wrong shape if the rules were ever merged. The second assertion
   // proves the fix is a cancellation at the option, not a weakening of the
   // baseline: a future "fix" that deletes the baseline's radius instead
-  // must fail this test too.
+  // must fail this test too. R3-IN-04 (19-REVIEW-round3.md): that second
+  // assertion is a deliberate, verbatim duplicate of the button-baseline
+  // radius check in the "button declares the quiet baseline" test above —
+  // kept so a reader seeing two failures at once knows they are one fact,
+  // not two independent regressions.
   it('.segmented__option cancels the button baseline radius so middle options render square (CR-02)', () => {
     const body = bodyForSelectorListToken('.segmented__option');
     const fragments = declarationFragments(body);
@@ -836,12 +865,27 @@ describe('styles.css — Phase 19 focus ring', () => {
   // `bodyForSelectorListToken(':focus-visible')` is used for the ring
   // (not `declarationsFor`) for the reason stated above: its regex is not
   // selector-boundary-anchored and would match `.cta:focus-visible`.
+  //
+  // R3-IN-02 (19-REVIEW-round3.md): `.records-jump` used to be the one rung
+  // read through `declarationsFor` instead of `bodyForSelectorListToken`,
+  // for no stated reason — the two helpers have different blind-spot
+  // profiles (`declarationsFor` is not selector-boundary-anchored;
+  // `bodyForSelectorListToken` is now last-wins per plan 19-15's substrate
+  // hardening above), so a reader could not reason about this test
+  // uniformly. `.records-jump` resolves as an exact top-level selector
+  // token with no other rule sharing it, so switching it to
+  // `bodyForSelectorListToken` for both its z-index and position reads
+  // below is behaviour-preserving; confirmed by running the suite. All
+  // four rungs now read through the same helper.
   it('the sticky-layer ladder (#app-nav-root > .records-jump > .splits-table__km > :focus-visible) holds numerically and in order', () => {
     const appNavZIndex = extractNumericDeclaration(
       bodyForSelectorListToken('#app-nav-root'),
       'z-index',
     );
-    const recordsJumpZIndex = extractNumericDeclaration(declarationsFor('.records-jump'), 'z-index');
+    const recordsJumpZIndex = extractNumericDeclaration(
+      bodyForSelectorListToken('.records-jump'),
+      'z-index',
+    );
     const splitsKmZIndex = extractNumericDeclaration(
       bodyForSelectorListToken('.splits-table__km'),
       'z-index',
@@ -876,9 +920,9 @@ describe('styles.css — Phase 19 focus ring', () => {
     // that positioning precondition directly rather than only the numbers
     // layered on top of it.
     expect(bodyForSelectorListToken('#app-nav-root')).toContain('position: sticky');
-    expect(declarationsFor('.records-jump')).toContain('position: sticky');
+    expect(bodyForSelectorListToken('.records-jump')).toContain('position: sticky');
     expect(bodyForSelectorListToken('.splits-table__km')).toContain('position: sticky');
-    expect(selectorListDeclares(':focus-visible', 'position: relative')).toBe(true);
+    expect(bodyForSelectorListToken(':focus-visible')).toContain('position: relative');
 
     // GAP 7 / H1 invariant, dated 2026-08-13: `.app-nav` itself must NOT
     // declare `position: sticky`. A sticky element nested inside a
@@ -886,7 +930,7 @@ describe('styles.css — Phase 19 focus ring', () => {
     // cause diagnosed, and reintroducing a second, nested sticky
     // declaration on `.app-nav` — even alongside the correct
     // `#app-nav-root` declaration — would silently restore that defect.
-    expect(declarationsFor('.app-nav')).not.toContain('position: sticky');
+    expect(bodyForSelectorListToken('.app-nav')).not.toContain('position: sticky');
   });
 });
 
