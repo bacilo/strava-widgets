@@ -107,6 +107,31 @@ function selectorListDeclares(needle: string, declaration: string): boolean {
 }
 
 /**
+ * Throws when a rule-scanning helper is about to resolve a match whose head
+ * begins with `@` (WR-02, 19-REVIEW.md). All three rule-scanning helpers in
+ * this file iterate `/([^{}]+)\{([^}]*)\}/g`, whose body class `[^}]*`
+ * permits `{`, so an `@media` prelude is consumed as a rule HEAD and the
+ * first nested rule is swallowed into its "body" — none of these helpers
+ * descend into `@media` blocks. Applied only in the two helpers below that
+ * return a single resolved match and already throw on failure
+ * (`bodyForSelectorListToken`, `ruleWithHeadContaining`); deliberately NOT
+ * applied in `selectorListDeclares`, which iterates every rule in the file
+ * and returns a boolean — throwing there would fire on the first at-rule
+ * pseudo-rule it walks past and break unrelated, currently-passing
+ * assertions that have nothing to do with the needle it is checking.
+ */
+function assertNotAtRuleHead(head: string, needle: string): void {
+  const trimmedHead = head.trim();
+  if (trimmedHead.startsWith('@')) {
+    throw new Error(
+      `Matched an @-rule prelude ("${trimmedHead}") while looking for "${needle}" — ` +
+        'these helpers do not descend into @media (or other at-rule) blocks, so this ' +
+        'match is the at-rule prelude itself, not the rule the caller intended.',
+    );
+  }
+}
+
+/**
  * Returns the declaration body of the rule whose selector list contains
  * `needle` as an exact, post-trim token — the same selector-boundary
  * anchoring `selectorListDeclares` uses and for the same reason (so a bare
@@ -124,6 +149,7 @@ function bodyForSelectorListToken(needle: string): string {
     const [, head, body] = match;
     const selectors = splitTopLevelSelectors(head);
     if (selectors.some((s) => s === needle)) {
+      assertNotAtRuleHead(head, needle);
       return body;
     }
   }
@@ -164,6 +190,7 @@ function ruleWithHeadContaining(needle: string): string {
   while ((match = ruleHeadAndBody.exec(cssNoComments)) !== null) {
     const [, head, body] = match;
     if (head.includes(needle)) {
+      assertNotAtRuleHead(head, needle);
       return head + body;
     }
   }
@@ -295,25 +322,42 @@ describe('styles.css — Phase 17 tokens', () => {
 // silhouette matches. Plan 19-05's human checkpoint is the sole proof of
 // rendering (19-VALIDATION.md's two-mechanism constraint).
 //
-// Helper audit (19-08 Task 2), so a future author extending this file
-// knows which layer a new claim belongs in. Each line states what the
-// helper proves and the class of false pass it cannot rule out:
+// Helper audit (19-08 Task 2, at-rule nesting added by 19-10 Task 2 / WR-02),
+// so a future author extending this file knows which layer a new claim
+// belongs in. Each line states what the helper proves and the class of
+// false pass it cannot rule out:
 // - declarationsFor: proves a rule with this exact selector exists and
 //   returns its body. Cannot rule out a body edit that preserves the
 //   substring an assertion checks while changing the declaration's actual
 //   meaning (e.g. an added `!important`, or the same property repeated
 //   later in the same body with a different value that wins the cascade).
+//   Its regex requires the literal selector text immediately (optional
+//   whitespace only) before `{`, so it does not share the other three
+//   helpers' at-rule blind spot below — `.app-nav\s*{` never appears as a
+//   substring inside an `@media` prelude's swallowed body.
 // - selectorListDeclares (now depth-aware, WR-03/19-08): proves some rule
 //   whose top-level selector list contains `needle` also contains
 //   `declaration` as a body substring. Cannot rule out a coincidental
 //   substring match inside an unrelated declaration's value — it checks
 //   `.includes()` on the whole body, not that `declaration` is a distinct,
-//   whole `property: value` pair.
+//   whole `property: value` pair. At-rule nesting (WR-02, below): does NOT
+//   throw on an at-rule pseudo-rule, because it iterates every rule in the
+//   file and returns a boolean — it silently walks past the wrong block
+//   rather than raising, so a false `false` from this helper may mean
+//   either "not declared" or "declared, but only inside an @media block
+//   this helper cannot see."
+// - bodyForSelectorListToken: proves some rule whose top-level selector
+//   list contains `needle` exists, and returns its body text for the
+//   caller to parse a value out of (plan 19-07/19-10's numeric z-index
+//   comparisons). At-rule nesting (WR-02, below): guarded — throws rather
+//   than silently returning the wrong block's body.
 // - ruleWithHeadContaining: proves some rule's head contains `needle` as a
 //   raw substring; deliberately does not parse selector structure at all.
 //   Cannot rule out matching the wrong rule if `needle` is short/generic
 //   enough to also appear in an unrelated head, or missing the intended
 //   rule entirely if `cssNoComments`'s own comment-stripping is ever wrong.
+//   At-rule nesting (WR-02, below): guarded — throws rather than silently
+//   matching the wrong block.
 // - splitTopLevelSelectors: proves a comma nested inside parentheses is
 //   never mistaken for a selector-list boundary. Cannot rule out a false
 //   split on an attribute selector containing a literal comma inside its
@@ -321,9 +365,27 @@ describe('styles.css — Phase 17 tokens', () => {
 //   occur anywhere in this stylesheet today, so it is untested by the
 //   self-tests above and would need a fifth case if it were ever added.
 //
-// All four operate on stylesheet TEXT — none of them observe a rendered
-// page. GAP 1 (19-VALIDATION.md) proved text-level agreement between an
-// assertion and the source characters is not sufficient on its own: a
+// At-rule nesting (WR-02, 19-REVIEW.md): all THREE rule-scanning helpers —
+// selectorListDeclares, bodyForSelectorListToken, ruleWithHeadContaining —
+// share one generic regex, `/([^{}]+)\{([^}]*)\}/g`, whose body class
+// `[^}]*` permits `{`. Against an `@media` block, that regex consumes the
+// `@media (...)` prelude itself as a rule HEAD and swallows the first
+// nested rule into its "body" — seven pseudo-rules come out this way in
+// this stylesheet today. No assertion in this file may target a rule
+// living inside an `@media` (or other at-rule) block; none of these three
+// helpers descend into one. `assertNotAtRuleHead` now makes the two
+// single-match helpers (`bodyForSelectorListToken`, `ruleWithHeadContaining`)
+// fail loudly with a message naming the at-rule prelude and the needle,
+// instead of either silently matching the wrong block or failing closed.
+// It is deliberately NOT applied inside `selectorListDeclares`, which walks
+// every rule and returns a boolean rather than resolving a single match —
+// throwing there would fire on the first at-rule pseudo-rule it passes and
+// break unrelated, currently-passing assertions; that helper's blind spot
+// stays a silent `false`, documented above rather than eliminated.
+//
+// All helpers above operate on stylesheet TEXT — none of them observe a
+// rendered page. GAP 1 (19-VALIDATION.md) proved text-level agreement between
+// an assertion and the source characters is not sufficient on its own: a
 // comment terminated early and discarded a declaration a real parser never
 // saw, while every substring assertion in this file still passed. The
 // parse-level block plan 19-06 added below (`styles.css — Phase 19 radius
@@ -376,7 +438,23 @@ describe('styles.css — Phase 19 button baseline', () => {
     expect(selectorListDeclares('button', 'border-radius: var(--radius-control)')).toBe(true);
   });
 
-  it('the shared hover rule excludes disabled controls and the accent-strong fills', () => {
+  // WR-01 (19-REVIEW.md): this used to assert only `.calendar-day--tint-1`
+  // and `.calendar-day--tint-4` of the four required tint exclusions, so
+  // deleting `--tint-2` or `--tint-3` from styles.css left the suite green
+  // while reintroducing exactly the defect the shared-hover-rule comment
+  // there says the exclusions prevent. Now asserts all eight required
+  // exclusion tokens.
+  //
+  // Limitation, stated rather than silently left implicit: `ruleWithHeadContaining`
+  // returns `head + body` concatenated, so these `.toContain()` checks
+  // cannot distinguish a selector token appearing in the HEAD (an actual
+  // `:not()` exclusion) from the same text appearing as a substring inside
+  // a declaration VALUE in the body. Fixing that would mean changing the
+  // helper's return shape, which every caller depends on — out of scope for
+  // this task. The next reader should know this assertion proves presence
+  // of the token somewhere in the rule's text, not specifically that it is
+  // one of the `:not()` exclusions.
+  it('the shared hover rule excludes disabled controls and the accent-strong fills (all eight tokens)', () => {
     const rule = ruleWithHeadContaining(':where(:not(');
     expect(rule).toContain('color-mix(in srgb, var(--surface) 92%, var(--text))');
     expect(rule).toContain(':disabled');
@@ -384,6 +462,8 @@ describe('styles.css — Phase 19 button baseline', () => {
     expect(rule).toContain('.pagination__button--current');
     expect(rule).toContain('.segmented__option--active');
     expect(rule).toContain('.calendar-day--tint-1');
+    expect(rule).toContain('.calendar-day--tint-2');
+    expect(rule).toContain('.calendar-day--tint-3');
     expect(rule).toContain('.calendar-day--tint-4');
   });
 
@@ -514,21 +594,41 @@ describe('styles.css — Phase 19 focus ring', () => {
     expect(selectorListDeclares(':focus-visible', 'z-index: 1')).toBe(true);
   });
 
-  // The sticky-layer ordering invariant (T-19G-A11Y-06): `.records-jump`
-  // must keep painting above a focused control elsewhere on the page.
-  // Parsed and compared as numbers, not literal strings, so this assertion
-  // still means something if either z-index is ever retuned — a string
-  // comparison of '10' vs '1' would pass by coincidence today but say
-  // nothing about which value is actually larger.
-  it('.records-jump paints above a focused control (strictly greater z-index, compared numerically)', () => {
+  // The sticky-layer ordering invariant (CR-01, 19-REVIEW.md), extended from
+  // the two-rung .records-jump-vs-ring check plan 19-07 added. That check
+  // audited only downward and upward against `.records-jump`; it never
+  // looked at `.app-nav`, which is `position: sticky` with no `z-index` at
+  // all — a sticky element with `z-index: auto` paints in CSS 2.1 Appendix E
+  // step 8, and the promoted ring paints in step 9, so a focused control
+  // scrolled under the header painted OVER the opaque global nav on every
+  // route. This assertion reads all four rungs of the ladder and asserts
+  // they are strictly descending, in exactly this order, as parsed numbers
+  // — not literal strings, so the comparison still means something if any
+  // value is retuned — and pins the four exact expected values so a silent
+  // renumbering that preserves order is still visible in the diff.
+  // `bodyForSelectorListToken(':focus-visible')` is used for the ring
+  // (not `declarationsFor`) for the reason stated above: its regex is not
+  // selector-boundary-anchored and would match `.cta:focus-visible`.
+  it('the sticky-layer ladder (.app-nav > .records-jump > .splits-table__km > :focus-visible) holds numerically and in order', () => {
+    const appNavZIndex = extractNumericDeclaration(bodyForSelectorListToken('.app-nav'), 'z-index');
+    const recordsJumpZIndex = extractNumericDeclaration(declarationsFor('.records-jump'), 'z-index');
+    const splitsKmZIndex = extractNumericDeclaration(
+      bodyForSelectorListToken('.splits-table__km'),
+      'z-index',
+    );
     const focusRingZIndex = extractNumericDeclaration(
       bodyForSelectorListToken(':focus-visible'),
       'z-index',
     );
-    const recordsJumpZIndex = extractNumericDeclaration(declarationsFor('.records-jump'), 'z-index');
-    expect(focusRingZIndex).toBe(1);
+
+    expect(appNavZIndex).toBe(20);
     expect(recordsJumpZIndex).toBe(10);
-    expect(recordsJumpZIndex).toBeGreaterThan(focusRingZIndex);
+    expect(splitsKmZIndex).toBe(2);
+    expect(focusRingZIndex).toBe(1);
+
+    expect(appNavZIndex).toBeGreaterThan(recordsJumpZIndex);
+    expect(recordsJumpZIndex).toBeGreaterThan(splitsKmZIndex);
+    expect(splitsKmZIndex).toBeGreaterThan(focusRingZIndex);
   });
 });
 
