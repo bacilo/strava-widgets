@@ -446,9 +446,10 @@ body {
    every step-8 positioned neighbour, so the ring always wins. `1` is the
    smallest value that clears those occluders (none of which declare a
    `z-index` above `auto`) while staying strictly below `.records-jump`'s
-   deliberate `z-index: 10` (line ~996), so the sticky jump bar still paints
-   above a focused control elsewhere on the page. See 19-07-SUMMARY.md for the
-   full blast-radius audit of promoting every focused element this way. */
+   deliberate `z-index: 10` (styles.css, § Records sticky jump list), so the
+   sticky jump bar still paints above a focused control elsewhere on the
+   page. See 19-07-SUMMARY.md for the full blast-radius audit of promoting
+   every focused element this way. */
 
 :focus-visible {
   outline: none;
@@ -936,12 +937,12 @@ body {
    their radii with no ordering dependency and the button baseline itself is
    never touched. Three live 3+-option groups exist, all in
    `src/dashboard/views/trends.ts`: the 5-option Trends tablist
-   (`trends.ts:1110`, 3 middle options — Year-over-Year, Cadence & HR,
-   Training Load), the 3-option volume-granularity group (`trends.ts:595`, 1
+   (`trends.ts`, 3 middle options — Year-over-Year, Cadence & HR,
+   Training Load), the 3-option volume-granularity group (`trends.ts`, 1
    middle option — Monthly), and the 3-option training-load-window group
-   (`trends.ts:867`, 1 middle option — 12mo). The two-option Edwards/Banister
-   model group (`trends.ts:811`) and the detail view's two-option x-axis
-   toggle (`detail-charts.ts:258`) have no middle option and were never
+   (`trends.ts`, 1 middle option — 12mo). The two-option Edwards/Banister
+   model group (`trends.ts`) and the detail view's two-option x-axis
+   toggle (`detail-charts.ts`) have no middle option and were never
    affected. This shipped unobserved because the only segmented control any
    19-05 checkpoint row had ever named was that two-option detail-view
    toggle. */
@@ -1306,7 +1307,7 @@ textarea {
 }
 
 /* Only the checkbox arm is load-bearing today: it excludes the one live
-   input[type="checkbox"] site (detail-charts.ts:373, the overlay-cap
+   input[type="checkbox"] site (`detail-charts.ts`, the overlay-cap
    checkbox) from the box treatment above. The button and radio arms match
    zero elements in this codebase right now — every type='button' assignment
    is on a createElement('button') result, which the `input` selector never
@@ -1336,10 +1337,10 @@ input[type="radio"] {
    unset" framing is NOT true for three real, shipped `<button>` elements
    that carry no class at all — this rule is the FIRST CSS ever applied to
    them, not a gap-filler:
-   - `src/dashboard/views/calendar.ts:74` — the multi-run day picker's
+   - `src/dashboard/views/calendar.ts` — the multi-run day picker's
      "Close" button
-   - `src/dashboard/views/calendar.ts:257` — the month-nav "‹ {month}" button
-   - `src/dashboard/views/calendar.ts:265` — the month-nav "{month} ›" button
+   - `src/dashboard/views/calendar.ts` — the month-nav "‹ {month}" button
+   - `src/dashboard/views/calendar.ts` — the month-nav "{month} ›" button
    For these three, this rule changes three concrete things that were
    previously unstyled platform chrome: `font: inherit` moves their text
    from the browser's UA button default (commonly ~13px, platform font) to
@@ -1353,7 +1354,7 @@ input[type="radio"] {
    that gap on shipped, production controls (the calendar's month
    navigation renders on every calendar page load). Verified by reading each
    site's surrounding code, not by a lookahead heuristic: a wider scan
-   during 19-07 planning also flagged `trends.ts:225,815,819,882` as
+   during 19-07 planning also flagged four `trends.ts` call sites as
    candidates, but each of those four is classed via a same-tick
    `className`/`classList` assignment that runs before the button is ever
    appended to the DOM (`applyTabButtonState`/`updateModelButtons`/
@@ -1414,9 +1415,9 @@ button:where(:not(
    CORRECTED (CR-03, 19-REVIEW.md): this comment used to cite "pagination
    labels" as a second informative-but-disabled case the 0.6 opacity keeps
    legible. That was never true, confirmed by reading `list.ts`:
-   `.pagination__label` is a `<span>` (`list.ts:526-528`) that neither
+   `.pagination__label` is a `<span>` (`list.ts`) that neither
    `:disabled` nor `[aria-disabled="true"]` ever matches. The genuinely
-   disabled pagination controls are prev/next (`list.ts:491`, `list.ts:521`),
+   disabled pagination controls are the prev/next buttons (`list.ts`),
    which use the real `disabled` property and are therefore never focusable
    — a `<button disabled>` cannot receive focus, so they never interact with
    the `:focus-visible` restoration below. */
@@ -1432,7 +1433,7 @@ button:where(:not(
    composited the `:focus-visible` ring (styles.css, § Global focus ring) at
    60% on any element that is BOTH focusable and disabled/aria-disabled.
    `[aria-disabled="true"]` controls can still be focusable, and calendar
-   rest days deliberately are (`calendar.ts:118-131`): real `<button>`
+   rest days deliberately are (`calendar.ts`): real `<button>`
    elements with no `disabled` attribute, kept in the Tab order on purpose.
    Recomputing the focus-ring comment's own W3C relative-luminance numbers
    with the accent ring stop blended at 60% over the backdrop gives 2.19:1
