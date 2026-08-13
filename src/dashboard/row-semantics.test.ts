@@ -212,3 +212,64 @@ describe('Standing house rules (constraints 8 and 9)', () => {
     }
   });
 });
+
+describe('CR-02 - status-badge text is folded into whole-row aria-labels, not swallowed', () => {
+  it('list.ts defines and uses activityRowAriaLabel exactly twice (its definition and its single use)', () => {
+    expect(countOccurrences(listStripped, 'activityRowAriaLabel(')).toBe(2);
+  });
+
+  it('list.ts defines and uses composeRowAriaLabel exactly twice (its definition and its single use)', () => {
+    expect(countOccurrences(listStripped, 'composeRowAriaLabel(')).toBe(2);
+  });
+
+  it('overview.ts defines and uses recentPrRowAriaLabel exactly twice (its definition and its single use)', () => {
+    expect(countOccurrences(overviewStripped, 'recentPrRowAriaLabel(')).toBe(2);
+  });
+
+  it('overview.ts contains exactly one aria-label occurrence, and it sits on the same line as (or the line before) the recentPrRowAriaLabel call - proving no raw inline label template literal survives alongside the composed one', () => {
+    expect(countOccurrences(overviewStripped, 'aria-label')).toBe(1);
+
+    const lines = overviewStripped.split('\n');
+    const ariaLabelLineIndex = lines.findIndex((line) => line.includes('aria-label'));
+    // The LAST occurrence of `recentPrRowAriaLabel(` is the call site
+    // (`rowEl.setAttribute('aria-label', recentPrRowAriaLabel(row))`), not
+    // the first, which is the function's own `export function` definition.
+    const usageLineIndex = lines.reduce(
+      (found, line, i) => (line.includes('recentPrRowAriaLabel(') ? i : found),
+      -1
+    );
+    expect(ariaLabelLineIndex).toBeGreaterThanOrEqual(0);
+    expect(usageLineIndex).toBeGreaterThanOrEqual(0);
+    expect(
+      ariaLabelLineIndex === usageLineIndex || ariaLabelLineIndex === usageLineIndex - 1,
+      `expected the aria-label occurrence (line ${ariaLabelLineIndex}) to be on the same line as, or the line before, the recentPrRowAriaLabel call (line ${usageLineIndex})`
+    ).toBe(true);
+  });
+
+  it("list.ts's card and table id-prefix templates each appear exactly once, and are different strings — deviation note: a naive substring count of the bare 'activity-table-' literal would double-count the pre-existing, unrelated 'activity-table-wrapper' className (buildDesktopTable), so this guard matches the id-prefix TEMPLATE LITERAL construction ( `` `activity-card-${row.id}` `` / `` `activity-table-${row.id}` `` ) precisely rather than the bare prefix substring", () => {
+    const cardPrefixTemplate = /`activity-card-\$\{row\.id\}`/g;
+    const tablePrefixTemplate = /`activity-table-\$\{row\.id\}`/g;
+    const cardMatches = listStripped.match(cardPrefixTemplate) ?? [];
+    const tableMatches = listStripped.match(tablePrefixTemplate) ?? [];
+
+    expect(cardMatches.length).toBe(1);
+    expect(tableMatches.length).toBe(1);
+    expect(cardMatches[0]).not.toBe(tableMatches[0]);
+  });
+
+  it('records.ts non-regression: the anchor stays confined to the Date cell and badges stay in the sibling Flags cell, so its aria-label never swallows them', () => {
+    // Records.ts was confirmed unaffected by CR-02 (20-07-PLAN.md): its
+    // row anchor lives in dateTd and its badges live in a sibling flagsTd,
+    // so the anchor's curated aria-label was never positioned to swallow
+    // badge text the way list.ts's and overview.ts's whole-row anchors
+    // were. This guard is what keeps a future edit from accidentally
+    // moving the badges inside the anchor and making this surface affected
+    // too.
+    expect(countOccurrences(recordsStripped, 'dateTd.appendChild(dateAnchor)')).toBeGreaterThanOrEqual(1);
+    expect(countOccurrences(recordsStripped, 'appendLowConfidenceBadge(flagsTd')).toBeGreaterThanOrEqual(1);
+    expect(countOccurrences(recordsStripped, 'appendBadge(flagsTd')).toBeGreaterThanOrEqual(1);
+    expect(countOccurrences(recordsStripped, 'dateAnchor.appendChild(')).toBe(0);
+    expect(countOccurrences(recordsStripped, 'appendBadge(dateTd')).toBe(0);
+    expect(countOccurrences(recordsStripped, 'appendLowConfidenceBadge(dateTd')).toBe(0);
+  });
+});

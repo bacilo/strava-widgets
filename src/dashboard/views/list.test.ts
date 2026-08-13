@@ -1,5 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { formatActivityDate, formatPace, formatEffortDuration, highlightAndFocus } from './list.js';
+import {
+  formatActivityDate,
+  formatPace,
+  formatEffortDuration,
+  highlightAndFocus,
+  statusBadgeTexts,
+  activityRowAriaLabel,
+  composeRowAriaLabel,
+  lowConfidenceDescriptionId,
+} from './list.js';
+import type { DashboardIndexRow } from '../../analytics/dashboard-index.types.js';
 
 /**
  * Minimal stub shape for the parts of `HTMLElement` `highlightAndFocus`
@@ -193,5 +203,144 @@ describe('highlightAndFocus — CR-01 / Phase 17 D-08 return-from-detail focus r
 
   it('does not throw when the element is undefined', () => {
     expect(() => highlightAndFocus(undefined)).not.toThrow();
+  });
+});
+
+/**
+ * A complete, typed `DashboardIndexRow` fixture with every status-badge
+ * condition clean: streams available, HR present, not low-confidence, not
+ * excluded, zero PRs — `statusBadgeTexts` must return an empty array for
+ * this row. `overrides` lets each test flip only the fields it needs, with
+ * no cast to `any` and no partial type anywhere in this file.
+ */
+function baseRow(overrides: Partial<DashboardIndexRow> = {}): DashboardIndexRow {
+  return {
+    id: '123',
+    startDate: '2026-08-06T07:28:22Z',
+    startDateLocal: '2026-08-06T07:28:22',
+    name: 'Morning Run',
+    distanceM: 5000,
+    movingTimeSec: 1500,
+    paceSecPerKm: 300,
+    elevationGainM: 50,
+    avgHr: 150,
+    maxHr: 170,
+    avgCadenceRpm: 85,
+    location: 'Copenhagen',
+    sportType: 'Run',
+    streams: {
+      available: true,
+      hr: true,
+      cadence: true,
+      elevation: true,
+    },
+    lowConfidence: false,
+    excludedFromRecords: false,
+    prCount: 0,
+    gearName: null,
+    ...overrides,
+  };
+}
+
+describe('statusBadgeTexts — CR-02 single source of truth for badge text', () => {
+  it('returns an empty array for a clean row (streams, HR, no flags, no PRs)', () => {
+    expect(statusBadgeTexts(baseRow())).toEqual([]);
+  });
+
+  it('returns "No streams (<reason>)" when streams are unavailable with a reason', () => {
+    const row = baseRow({ streams: { available: false, reason: 'manual', hr: false, cadence: false, elevation: false } });
+    expect(statusBadgeTexts(row)).toEqual(['No streams (manual)']);
+  });
+
+  it('returns bare "No streams" when streams are unavailable with no reason', () => {
+    const row = baseRow({ streams: { available: false, hr: false, cadence: false, elevation: false } });
+    expect(statusBadgeTexts(row)).toEqual(['No streams']);
+  });
+
+  it('returns "No HR" when streams are available but HR is not', () => {
+    const row = baseRow({ streams: { available: true, hr: false, cadence: true, elevation: true } });
+    expect(statusBadgeTexts(row)).toEqual(['No HR']);
+  });
+
+  it('returns "Low confidence" for a low-confidence row', () => {
+    expect(statusBadgeTexts(baseRow({ lowConfidence: true }))).toEqual(['Low confidence']);
+  });
+
+  it('returns "Excluded from records" for an excluded row', () => {
+    expect(statusBadgeTexts(baseRow({ excludedFromRecords: true }))).toEqual(['Excluded from records']);
+  });
+
+  it('returns "<n> PR" for a row with PRs', () => {
+    expect(statusBadgeTexts(baseRow({ prCount: 3 }))).toEqual(['3 PR']);
+  });
+
+  it('returns every applicable flag in the exact render order for a row carrying several at once', () => {
+    const row = baseRow({
+      streams: { available: false, reason: 'treadmill', hr: false, cadence: false, elevation: false },
+      lowConfidence: true,
+      excludedFromRecords: true,
+      prCount: 2,
+    });
+    expect(statusBadgeTexts(row)).toEqual([
+      'No streams (treadmill)',
+      'Low confidence',
+      'Excluded from records',
+      '2 PR',
+    ]);
+  });
+});
+
+describe('activityRowAriaLabel — CR-02 badge text folded into the row anchor label', () => {
+  it('is exactly the curated three-part base for a clean row, with no trailing separator', () => {
+    expect(activityRowAriaLabel(baseRow())).toBe('Morning Run, Aug 6, 2026, 5.0 km');
+  });
+
+  it('ends with ", Low confidence" for a low-confidence row', () => {
+    const label = activityRowAriaLabel(baseRow({ lowConfidence: true }));
+    expect(label.endsWith(', Low confidence')).toBe(true);
+  });
+
+  it('contains both "Excluded from records" and the PR text for an excluded row with PRs', () => {
+    const label = activityRowAriaLabel(baseRow({ excludedFromRecords: true, prCount: 1 }));
+    expect(label).toContain('Excluded from records');
+    expect(label).toContain('1 PR');
+  });
+
+  it('orders badges inside the label exactly as statusBadgeTexts does, for a row carrying several', () => {
+    const row = baseRow({ lowConfidence: true, excludedFromRecords: true, prCount: 4 });
+    expect(activityRowAriaLabel(row)).toBe(
+      `Morning Run, Aug 6, 2026, 5.0 km, ${statusBadgeTexts(row).join(', ')}`
+    );
+  });
+
+  it('always still starts with the activity name, so the fold cannot displace the curated base', () => {
+    const row = baseRow({ lowConfidence: true, excludedFromRecords: true, prCount: 4, name: 'Evening Long Run' });
+    expect(activityRowAriaLabel(row).startsWith('Evening Long Run,')).toBe(true);
+  });
+});
+
+describe('composeRowAriaLabel — the shared separator every surface imports', () => {
+  it('returns the base unchanged for an empty badge array', () => {
+    expect(composeRowAriaLabel('base label', [])).toBe('base label');
+  });
+
+  it('appends one badge with a comma and space', () => {
+    expect(composeRowAriaLabel('base label', ['Low confidence'])).toBe('base label, Low confidence');
+  });
+
+  it('joins several badges in order', () => {
+    expect(composeRowAriaLabel('base label', ['No HR', 'Excluded from records', '2 PR'])).toBe(
+      'base label, No HR, Excluded from records, 2 PR'
+    );
+  });
+});
+
+describe('lowConfidenceDescriptionId — CR-02 duplicate-element-id fix', () => {
+  it('produces two different ids for the card prefix and the table prefix of the same activity', () => {
+    const cardId = lowConfidenceDescriptionId('activity-card-123');
+    const tableId = lowConfidenceDescriptionId('activity-table-123');
+    expect(cardId).not.toBe(tableId);
+    expect(cardId).toBe('activity-card-123-low-confidence-desc');
+    expect(tableId).toBe('activity-table-123-low-confidence-desc');
   });
 });
