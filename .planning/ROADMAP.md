@@ -154,7 +154,7 @@ Plans:
 
 **Wave 16** *(gap closure round 3 — blocked on Wave 15 completion)*
 
-- [ ] 19-16-PLAN.md — stylesheet comment corrections: ladder rung 4, the disproven stickiness claim, the descendant-containment scope, foreign line-citation rot, plus reasoned deferrals (R3-WR-03, R3-WR-04, R3-IN-05, WR-03)
+- [x] 19-16-PLAN.md — stylesheet comment corrections: ladder rung 4, the disproven stickiness claim, the descendant-containment scope, foreign line-citation rot, plus reasoned deferrals (R3-WR-03, R3-WR-04, R3-IN-05, WR-03)
 
 **Wave 17** *(gap closure round 3 — blocked on Wave 16 completion)*
 
@@ -283,7 +283,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 16. Dashboard Shell & Data Contract | v2.0 | 16/16 | Complete    | 2026-08-11 |
 | 17. Activity Browser & Detail Views | v2.0 | 15/15 | Complete    | 2026-08-11 |
 | 18. Records, Trends & Differentiators | v2.0 | 16/16 | Complete    | 2026-08-12 |
-| 19. Design System & Control Styling | v2.1 | 15/17 | In Progress|  |
+| 19. Design System & Control Styling | v2.1 | 16/17 | In Progress|  |
 | 20. Row-Click Interaction Pattern | v2.1 | 0/TBD | Not started | - |
 | 21. Overview Rebuild | v2.1 | 0/TBD | Not started | - |
 | 22. Calendar Week-Start & Totals | v2.1 | 0/TBD | Not started | - |
