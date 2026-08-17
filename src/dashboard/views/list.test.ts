@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import {
   formatActivityDate,
   formatPace,
@@ -8,6 +9,9 @@ import {
   activityRowAriaLabel,
   composeRowAriaLabel,
   lowConfidenceDescriptionId,
+  noteViewedActivity,
+  takeNotedActivityId,
+  applyReturnHighlight,
 } from './list.js';
 import type { DashboardIndexRow } from '../../analytics/dashboard-index.types.js';
 
@@ -205,6 +209,160 @@ describe('highlightAndFocus — CR-01 / Phase 17 D-08 return-from-detail focus r
     expect(() => highlightAndFocus(undefined)).not.toThrow();
   });
 });
+
+/**
+ * Builds the two container stubs `applyReturnHighlight` needs, using the same
+ * hand-stub discipline as `buildStubRow` above — no DOM library, every
+ * selector queried is recorded, exactly as `buildStubRow` records
+ * `queriedSelectors`.
+ */
+function buildStubTableWrapper(rowStubs: StubRow[]): {
+  queriedSelectors: string[];
+  querySelectorAll: (selector: string) => StubRow[];
+} {
+  const queriedSelectors: string[] = [];
+  return {
+    queriedSelectors,
+    querySelectorAll(selector: string) {
+      queriedSelectors.push(selector);
+      return rowStubs;
+    },
+  };
+}
+
+function buildStubCardList(rowStubs: StubRow[]): { children: StubRow[] } {
+  return { children: rowStubs };
+}
+
+/**
+ * `applyReturnHighlight` only reads `row.id` off each page item, so a full
+ * `DashboardIndexRow` fixture is unnecessary noise here — this cast helper
+ * builds the minimal shape and asserts it through as `readonly
+ * DashboardIndexRow[]`.
+ */
+function pageItemsFrom(ids: string[]): readonly DashboardIndexRow[] {
+  return ids.map((id) => ({ id }) as unknown as DashboardIndexRow);
+}
+
+describe(
+  'takeNotedActivityId / applyReturnHighlight - CR-01 the one-shot return hint is consumed on every render path',
+  () => {
+    it('happy path still works: the noted id is consumed once and highlights the matching row in both layouts', () => {
+      noteViewedActivity('X');
+      const notedId = takeNotedActivityId();
+
+      const trX = buildStubRow({ tagName: 'A', querySelectorResult: null });
+      const trY = buildStubRow({ tagName: 'A', querySelectorResult: null });
+      const cardX = buildStubRow({ tagName: 'A', querySelectorResult: null });
+      const cardY = buildStubRow({ tagName: 'A', querySelectorResult: null });
+      const tableWrapper = buildStubTableWrapper([trX, trY]);
+      const cardList = buildStubCardList([cardX, cardY]);
+      const pageItems = pageItemsFrom(['X', 'Y']);
+
+      applyReturnHighlight(
+        notedId,
+        tableWrapper as unknown as HTMLElement,
+        cardList as unknown as HTMLElement,
+        pageItems
+      );
+
+      for (const stub of [trX, cardX]) {
+        expect(stub.scrollIntoViewCalled).toBe(true);
+        expect(stub.focusCalled).toBe(true);
+        expect(stub.addedClasses).toContain('activity-table__row--highlight');
+      }
+      for (const stub of [trY, cardY]) {
+        expect(stub.scrollIntoViewCalled).toBe(false);
+        expect(stub.focusCalled).toBe(false);
+        expect(stub.addedClasses).not.toContain('activity-table__row--highlight');
+      }
+    });
+
+    it('the leak sequence — WCAG 3.2.x unexpected focus movement: a zero-match render that discards the consume must not let a later render re-highlight', () => {
+      noteViewedActivity('X');
+      // Simulates mount()'s zero-match branch: it must consume the hint even
+      // though it never calls applyReturnHighlight.
+      takeNotedActivityId();
+
+      // Simulates the next, unrelated render — with the fix, the hint is
+      // already spent, so this consume returns null and nothing highlights.
+      const notedId = takeNotedActivityId();
+
+      const trX = buildStubRow({ tagName: 'A', querySelectorResult: null });
+      const cardX = buildStubRow({ tagName: 'A', querySelectorResult: null });
+      const tableWrapper = buildStubTableWrapper([trX]);
+      const cardList = buildStubCardList([cardX]);
+      const pageItems = pageItemsFrom(['X']);
+
+      applyReturnHighlight(
+        notedId,
+        tableWrapper as unknown as HTMLElement,
+        cardList as unknown as HTMLElement,
+        pageItems
+      );
+
+      for (const stub of [trX, cardX]) {
+        expect(stub.scrollIntoViewCalled).toBe(false);
+        expect(stub.focusCalled).toBe(false);
+        expect(stub.addedClasses).not.toContain('activity-table__row--highlight');
+      }
+    });
+
+    it('the load-failure and stale-container branches leak nothing either: two discarded consumes before the eventual render', () => {
+      noteViewedActivity('X');
+      // Stands in for the load-failure return.
+      takeNotedActivityId();
+      // Stands in for the stale-container return.
+      takeNotedActivityId();
+      // The eventual normal render — the hint was already spent twice over.
+      const notedId = takeNotedActivityId();
+
+      const trX = buildStubRow({ tagName: 'A', querySelectorResult: null });
+      const cardX = buildStubRow({ tagName: 'A', querySelectorResult: null });
+      const tableWrapper = buildStubTableWrapper([trX]);
+      const cardList = buildStubCardList([cardX]);
+      const pageItems = pageItemsFrom(['X']);
+
+      applyReturnHighlight(
+        notedId,
+        tableWrapper as unknown as HTMLElement,
+        cardList as unknown as HTMLElement,
+        pageItems
+      );
+
+      for (const stub of [trX, cardX]) {
+        expect(stub.scrollIntoViewCalled).toBe(false);
+        expect(stub.focusCalled).toBe(false);
+        expect(stub.addedClasses).not.toContain('activity-table__row--highlight');
+      }
+    });
+
+    it('applyReturnHighlight never reads module state — pins the parameterisation itself against a future revert', () => {
+      noteViewedActivity('X');
+      // Module state still holds 'X', but applyReturnHighlight must not read
+      // it — only the explicit `notedId` parameter matters.
+
+      const trX = buildStubRow({ tagName: 'A', querySelectorResult: null });
+      const cardX = buildStubRow({ tagName: 'A', querySelectorResult: null });
+      const tableWrapper = buildStubTableWrapper([trX]);
+      const cardList = buildStubCardList([cardX]);
+      const pageItems = pageItemsFrom(['X']);
+
+      applyReturnHighlight(
+        null,
+        tableWrapper as unknown as HTMLElement,
+        cardList as unknown as HTMLElement,
+        pageItems
+      );
+
+      for (const stub of [trX, cardX]) {
+        expect(stub.scrollIntoViewCalled).toBe(false);
+        expect(stub.focusCalled).toBe(false);
+        expect(stub.addedClasses).not.toContain('activity-table__row--highlight');
+      }
+    });
+  }
+);
 
 /**
  * A complete, typed `DashboardIndexRow` fixture with every status-badge
