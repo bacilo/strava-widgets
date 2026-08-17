@@ -125,9 +125,21 @@ function countOccurrences(haystack: string, needle: string): number {
  *     violation — including `row.tabIndex = -1` (allowed value, disallowed
  *     receiver), which is precisely the shape of the regression D-01 exists
  *     to block.
- *   - a role hit is allowed only when its value is not `link`, compared
- *     case-insensitively — the two `loading.setAttribute('role', 'status')`
- *     live regions: `list.ts:1233`, `records.ts:762`.
+ *   - a role hit is permitted only when the receiver identifier is `loading`
+ *     AND the value is `status`, compared case-insensitively — the two
+ *     `loading.setAttribute('role', 'status')` live regions: `list.ts:1233`,
+ *     `records.ts:762`. Any role write on any OTHER receiver is a violation
+ *     whatever its value, because a role on a `<tr>` removes it from the
+ *     table accessibility tree regardless of which role it is (WR-01,
+ *     20-REVIEW.md: the old rule keyed on the value not being `link`, so
+ *     `role="presentation"`, `role="button"` and `role="row"` on a `<tr>`
+ *     all passed undetected — this rule is receiver-keyed instead, exactly
+ *     like the tabindex rule above, so every one of those is now caught).
+ *
+ * Both role patterns accept a value written with single quotes, double
+ * quotes, backticks, or as a bare identifier (a variable or constant): an
+ * unresolvable value is reported as a violation rather than silently
+ * skipped, since the receiver alone already decides the verdict.
  *
  * Widening either rule requires naming the new call site in the comment
  * above it — do not widen the receiver list, the allowed value, or the role
@@ -137,7 +149,8 @@ function rowSemanticViolations(source: string): string[] {
   const violations: string[] = [];
   const isAllowedTabIndexReceiver = (receiver: string, value: string): boolean =>
     (receiver === 'heading' || receiver === 'h1') && value === '-1';
-  const isAllowedRoleValue = (value: string): boolean => value.toLowerCase() !== 'link';
+  const isAllowedRoleWrite = (receiver: string, value: string): boolean =>
+    receiver === 'loading' && value.toLowerCase() === 'status';
 
   // 1. property assignment: `receiver.tabIndex = value;`
   const tabIndexPropertyPattern = /([A-Za-z_$][\w$]*)\s*\.\s*tabIndex\s*=(?!=)\s*([^;]*);/gi;
@@ -154,18 +167,25 @@ function rowSemanticViolations(source: string): string[] {
     violations.push(match[0]);
   }
 
-  // 3. role property assignment: `receiver.role = 'value';`
-  const rolePropertyPattern = /([A-Za-z_$][\w$]*)\s*\.\s*role\s*=(?!=)\s*['"]([^'"]*)['"]/gi;
+  // 3. role property assignment: `receiver.role = 'value';` — the quote
+  // class accepts backticks alongside single/double quotes, and the second
+  // alternation branch matches a bare identifier value (e.g. `role =
+  // ROLE_LINK`) so a non-literal value is reported rather than skipped.
+  const rolePropertyPattern =
+    /([A-Za-z_$][\w$]*)\s*\.\s*role\s*=(?!=)\s*(?:['"`]([^'"`]*)['"`]|([A-Za-z_$][\w$]*))/gi;
   for (const match of source.matchAll(rolePropertyPattern)) {
-    if (isAllowedRoleValue(match[2])) continue;
+    const value = match[2] !== undefined ? match[2] : match[3];
+    if (isAllowedRoleWrite(match[1], value)) continue;
     violations.push(match[0]);
   }
 
-  // 4. role attribute call: `receiver.setAttribute('role', 'value')`
+  // 4. role attribute call: `receiver.setAttribute('role', 'value')` — same
+  // backtick + bare-identifier widening as rule 3 above.
   const roleAttrPattern =
-    /([A-Za-z_$][\w$]*)\s*\.\s*setAttribute\s*\(\s*['"]role['"]\s*,\s*['"]([^'"]*)['"]\s*\)/gi;
+    /([A-Za-z_$][\w$]*)\s*\.\s*setAttribute\s*\(\s*['"]role['"]\s*,\s*(?:['"`]([^'"`]*)['"`]|([A-Za-z_$][\w$]*))\s*\)/gi;
   for (const match of source.matchAll(roleAttrPattern)) {
-    if (isAllowedRoleValue(match[2])) continue;
+    const value = match[2] !== undefined ? match[2] : match[3];
+    if (isAllowedRoleWrite(match[1], value)) continue;
     violations.push(match[0]);
   }
 
@@ -328,6 +348,50 @@ describe('rowSemanticViolations - self-tests', () => {
     expect(
       rowSemanticViolations('tr.tabIndex = 0;'),
       'documents the new guard catching the identical mutation',
+    ).toHaveLength(1);
+  });
+
+  it("tr.setAttribute('role', 'presentation'); yields exactly one violation - WR-01, a role hit is now receiver-keyed, not value-keyed", () => {
+    expect(rowSemanticViolations("tr.setAttribute('role', 'presentation');")).toHaveLength(1);
+  });
+
+  it("tr.setAttribute('role', 'button'); yields exactly one violation - WR-01", () => {
+    expect(rowSemanticViolations("tr.setAttribute('role', 'button');")).toHaveLength(1);
+  });
+
+  it("tr.role = 'row'; yields exactly one violation - WR-01, the property-assignment spelling of the same miss", () => {
+    expect(rowSemanticViolations("tr.role = 'row';")).toHaveLength(1);
+  });
+
+  it('a backtick-quoted role value on tr yields exactly one violation - WR-01, the widened quote class', () => {
+    expect(rowSemanticViolations('tr.setAttribute("role", `link`);')).toHaveLength(1);
+  });
+
+  it('an identifier-valued role write on tr yields exactly one violation - WR-01, an unresolvable value is reported rather than skipped', () => {
+    expect(rowSemanticViolations("tr.setAttribute('role', ROLE_LINK);")).toHaveLength(1);
+  });
+
+  it("WR-01 blind-spot proof: the old value-keyed role rule's exact miss stays documented, and isAllowedRoleWrite closes it", () => {
+    // Local replica of the OLD value-keyed rule this file shipped with
+    // (WR-01, 20-REVIEW.md): a predicate reading `value.toLowerCase() !==
+    // 'link'`, applied via the same role attribute-call pattern the guard
+    // used before this fix. The first
+    // expectation documents the defect existed - do not "fix" the zero to a
+    // non-zero value, it is the proof, not a bug. The second expectation
+    // documents that rowSemanticViolations, receiver-keyed as of this
+    // round, catches the identical mutation.
+    const oldIsAllowedRoleValue = (value: string): boolean => value.toLowerCase() !== 'link';
+    const oldRoleAttrPattern =
+      /([A-Za-z_$][\w$]*)\s*\.\s*setAttribute\s*\(\s*['"]role['"]\s*,\s*['"]([^'"]*)['"]\s*\)/gi;
+    const oldViolations: string[] = [];
+    for (const match of "tr.setAttribute('role', 'presentation');".matchAll(oldRoleAttrPattern)) {
+      if (oldIsAllowedRoleValue(match[2])) continue;
+      oldViolations.push(match[0]);
+    }
+    expect(oldViolations, "documents the old value-keyed rule's miss - must stay 0").toHaveLength(0);
+    expect(
+      rowSemanticViolations("tr.setAttribute('role', 'presentation');"),
+      'documents the new receiver-keyed rule catching the identical mutation',
     ).toHaveLength(1);
   });
 });
