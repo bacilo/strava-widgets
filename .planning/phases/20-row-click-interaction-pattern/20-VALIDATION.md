@@ -1,13 +1,14 @@
 ---
 phase: 20
 slug: row-click-interaction-pattern
-status: partial
+status: pending
 nyquist_compliant: false
-round: 3
+round: 4
 round2_staged: 2026-08-13
 round2_recorded: 2026-08-13
 round3_staged: 2026-08-13
 round3_recorded: 2026-08-17
+round4_staged: 2026-08-17
 created: 2026-08-13
 ---
 
@@ -529,3 +530,92 @@ checkpoint 16-09. No suggested fix, no root-cause theory, and no severity downgr
   of the gesture being unobservable this round, and answered yes. Re-observation, if ever needed,
   requires a mouse with a middle button (or equivalent trackpad software) or an automation tool that
   can dispatch a real `auxclick` event. Not implemented here.
+
+---
+
+## Round 4 - Re-run Verifications (gap closure)
+
+`20-VERIFICATION.md` scored 1/4 on Phase 20's success criterion 4 and named three problems: a
+newly-found CRITICAL focus-stealing regression in `list.ts` that no Round 3 row exercised (the
+`notedActivityId` one-shot hint surviving an empty-filter or error-state `#/list` render and
+stealing keyboard focus on a later, unrelated navigation); R18 and R19 recorded FAIL because the
+five non-Date Records PR-table cells carried no anchor for a modified click to act on; and R2/R16
+recorded BLOCKED because no row in the Overview Recent Activities dataset carried a status badge to
+quote. Decisions D-13, D-14 and D-15 were locked in response, and plans 20-12 through 20-17
+implemented them: plan 20-12 made the one-shot return-hint consume unconditional, spending it as the
+first statement of `mount()` before any render branch can leak it; plan 20-13 refused navigation
+whenever a click's `MouseEvent.detail` is greater than 1, so a double-click selects rather than
+navigates; plans 20-16 and 20-17 gave every content-carrying cell of both Records tables a real
+anchor sharing the Date cell's curated label, at `tabIndex = -1`, styled to read as plain data.
+
+Sixteen Round 3 rows are carried forward below and are not re-asked. R7 and R9 return only because
+`20-VERIFICATION.md` recorded that their claims are inherently about appearance — legibility and
+hover paint — and that Round 3 settled them with computed-style and selector-structure reads rather
+than by a human looking at the screen; they are re-asked of a human here as R33. Rounds 1, 2 and 3
+stand exactly as they were recorded above, unedited.
+
+**Fixture disclosure.** To close the R2/R16 dataset gap, the staged build's
+`dist/widgets/data/dashboard/index.json` had exactly one boolean edited — after this task's gate ran
+and after `build-widgets` had already copied the data into `dist/widgets` — setting `streams.hr` to
+`false` on the entry with id `i174109950` ("Herlev Running", the fourth entry of the `activities`
+array). `statusBadgeTexts` turns that into the badge string `No HR` on both the Overview Recent
+Activities row and the Activities card for the same activity. This is fixture-induced, not organic
+archive data: the repository copy at `data/dashboard/index.json` still has `streams.hr === true` for
+the same id, and the next `npm run build-widgets` overwrites the staged edit. The badge was confirmed
+rendering in the served build before this checkpoint opened, via a headless-Chrome DOM dump of
+`http://localhost:8099/strava-widgets/#/`: `aria-label="Herlev Running, Aug 7, 2026, 10.1 km, No
+HR"` on that row's anchor.
+
+**Carried forward from Round 3 (not re-asked):**
+
+- **R1** (Overview Recent PRs, one tab stop, Enter activates) — PASS, both themes named; unaffected
+  by this round's changes. See R1's Round 3 Observation cell.
+- **R3** (Activities desktop table unregressed) — PASS, observed by developer; unaffected by this
+  round's changes. See R3's Round 3 Observation cell.
+- **R4** (Activities mobile card, one link, no CTA) — PASS, both themes named; unaffected by this
+  round's changes. See R4's Round 3 Observation cell.
+- **R5** (Records PR tables, six columns) — PASS, carried from Round 2 on a verbatim header
+  read-back; column count is unaffected by D-13's cell-link change. See R5's Round 2 Observation
+  cell.
+- **R6** (Records PR-progression tables, three columns) — PASS, same reasoning as R5. See R6's
+  Round 2 Observation cell.
+- **R8** (Space does not activate a focused row, per D-02) — PASS; D-02 is untouched by this round's
+  plans. See R8's Round 3 Observation cell.
+- **R10** (inherited focus ring on a full-width row) — PASS, both themes named; unaffected by this
+  round's changes. See R10's Round 3 Observation cell.
+- **R11** (clicks land on the correct activity, three screens) — PASS, three distinct ids;
+  unaffected by this round's changes. See R11's Round 3 Observation cell.
+- **R12** (Calendar day cells untouched) — PASS, both dates named; Calendar is outside this round's
+  scope. See R12's Round 3 Observation cell.
+- **R13** (return-from-detail focus below 720px) — PASS, carried from Round 2; unaffected by this
+  round's changes. See R13's Round 2 Observation cell.
+- **R14** (the same above 720px) — PASS, observed by developer; unaffected by this round's changes.
+  See R14's Round 3 Observation cell.
+- **R15** (badge text in the Activities card's accessible name) — PASS, announcement quoted; CR-02
+  is untouched by this round's plans. See R15's Round 3 Observation cell.
+- **R17** (`N PR` in the Overview Recent PRs accessible name) — PASS, announcement quoted;
+  untouched by this round's plans. See R17's Round 3 Observation cell.
+
+| Behavior | Requirement | Why Manual | Test Instructions | Observation |
+|----------|-------------|------------|--------------------|--------------|
+| R22. A visit to a detail view no longer steals focus on a later, unrelated list render. | UX-01, UX-03 | module state leaking across two navigations is a rendered-sequence fact no text assertion can see, and no row in three prior rounds exercised it — which is why the regression shipped behind 1022 green tests and 21 genuine browser rows. | open any activity detail view from `#/list`; go back to `#/list`; type a search term that matches nothing so the "no activities" empty state appears; clear the search so rows return. No row may be highlighted, no row may be scrolled to, and keyboard focus must be on the page heading, not on a row. Then repeat once with the browser offline (or with the network panel blocking `data/dashboard/index.json`) so the error state renders instead of the empty state, and confirm the same. **Required detail:** the name of the activity whose detail view you opened, what the page did after clearing the filter (highlight, scroll or focus — or none of the three), and whether you were able to exercise the error-state variant. **Observer required:** developer or agent. | PENDING — awaiting Round 4 checkpoint (Task 2). |
+| R23. Cmd/Ctrl+click on a Records PR-table cell opens a background tab. | UX-01, UX-03 (D-13) | whether a modified click opens a tab or rewrites the current hash is a rendered browser-behaviour fact; the repository's automated proof is a pure predicate that never touches a browser. | at `#/records`, Cmd+click (Ctrl+click on a non-Mac keyboard) a **Rank, Time, Pace or Age-Grade** cell — not the Date cell. A new background tab must open on that activity, and the tab you clicked in must still show `#/records`. Then plain-click the same cell and confirm it navigates in the current tab to that same activity. Round 3 recorded this FAIL: the tab was not hijacked but nothing opened either. **Required detail:** which cell you clicked, the URL of the new tab (it must end `#/activity/<id>`), confirmation the original tab did not navigate, and the activity the plain click opened. **Observer required:** developer or agent. | PENDING — awaiting Round 4 checkpoint (Task 2). |
+| R24. The same, on the PR-progression table. | UX-01, UX-03 (D-13) | same as R23, applied to the second table D-13's heading names and no previous round ever exercised. | at `#/records`, open a distance's PR-progression table and Cmd+click its **Time** or **Improvement** cell — not the Date cell. Same expectation as R23. **Required detail:** which table (which distance) and which cell, and the URL of the new tab. **Observer required:** developer or agent. | PENDING — awaiting Round 4 checkpoint (Task 2). |
+| R25. Shift+click opens a new window; Alt+click does not navigate in place. | UX-01, UX-03 (D-13) | same reasoning as R23/R24: what a modified click does to browser tab/window state is a rendered fact no text assertion can see. | same non-Date cells, either table. Shift+click one — a new window must open on that activity. Then Alt+click one — whatever the browser chooses to do, the current window must not navigate to the activity. Round 3 recorded the Shift half FAIL and the Alt half PASS. **Required detail:** which cell you used for each, that a new window appeared for Shift+click, and what the original window was still showing after each of the two clicks. **Observer required:** developer or agent. | PENDING — awaiting Round 4 checkpoint (Task 2). |
+| R26. Overview Recent Activities behaves identically and carries no button — badge row. | UX-01, UX-02, UX-03 | tab-stop count and Enter activation are rendered-interaction facts, and the absence of a "View Activity" button in the painted card is a visual fact the source guard proves only for source text. | at `http://localhost:8099/strava-widgets/#/`, find the Recent Activities row carrying the `No HR` badge (see the fixture disclosure in this section's preamble). One Tab stop for that row, Enter navigates to that activity, and no "View Activity" button appears anywhere in the card. Both themes. Round 3 recorded this BLOCKED because no badge-carrying row existed. **Required detail:** the badge text quoted exactly, the name on the row, and both theme names. **Observer required:** developer or agent. | PENDING — awaiting Round 4 checkpoint (Task 2). |
+| R27. The same row's accessible name includes its badge text. | UX-03 (CR-02) | this repository has no way to compute an accessible name; the automated proof covers only the composed string. | with VoiceOver (Cmd+F5) navigate to that same `No HR` row on Overview and report what is announced. If you would rather not run VoiceOver, say so — the agent will instead read the composed accessible name off the rendered card and the Observation cell will record that substitution explicitly, exactly as Round 3 did for R17. Round 3 recorded this BLOCKED for want of a badge-carrying row. **Required detail:** the announced or composed string quoted verbatim, including the badge text. **Observer required:** developer or agent (the Observation cell must name which, and must say if VoiceOver was declined). | PENDING — awaiting Round 4 checkpoint (Task 2). |
+| R28. Middle-click, and what D-13 changes about D-12. | UX-03 (D-12, D-13) | `auxclick` behaviour cannot be observed by any test in this repository. | Round 3 recorded this NOT EXERCISABLE — a trackpad has no middle button and the agent's tooling exposes no middle-click action. If you now have a mouse with a middle button, middle-click a non-Date Records cell: with D-13's anchor under the pointer, the browser's own middle-click should open a new tab, natively, with no `auxclick` handler in this codebase. If you do not, say so and the row is recorded NOT EXERCISABLE again. Either way, confirm the disposition in writing: D-12's "`auxclick` is deliberately not handled" clause stands and nothing is synthesised; D-13 makes it no longer load-bearing on these cells because the browser now has an `<a>` to act on. **Required detail:** whether the gesture was performed at all, its outcome if so, and an explicit yes or no on the stated disposition. **Observer required:** developer's own eyes. | PENDING — awaiting Round 4 checkpoint (Task 2). |
+| R29. The Records tables look exactly as they did. | UX-03 (D-06, D-13) | whether seven new anchors per row changed the tables' appearance is a perceptual question, and this repository's only check is that a CSS rule's text exists. | at `#/records`, look at a PR table and a PR-progression table. The Rank, Time, Pace, Age-Grade, Flags, Time and Improvement values must read as plain data — **not underlined**, not a different colour, numbers still right aligned. The Date cell must still read as a link. Hovering a row must still light the whole row and show a pointer cursor. Both themes. **Required detail:** whether any value is underlined, whether the Date cell still reads as a link, whether the row hover and pointer are unchanged, and both theme names. **Observer required:** developer's own eyes. | PENDING — awaiting Round 4 checkpoint (Task 2). |
+| R30. Keyboard tab order through the Records tables is still one stop per row. | UX-03 (D-13) | tab-stop count is a rendered-interaction fact, and D-13 added six or seven anchors per row whose `tabindex="-1"` is the only thing keeping them out of the order. | at `#/records`, click the page background and Tab forward into a PR table. Each row must take exactly one Tab press — landing on the Date link — not six. Press Enter on one and confirm it opens that activity. Repeat in a progression table. **Required detail:** how many Tab presses moved you from one row to the next in each table, and the activity Enter opened. **Observer required:** developer or agent. | PENDING — awaiting Round 4 checkpoint (Task 2). |
+| R31. Drag-selecting text inside a now-anchored cell still selects. | UX-01, UX-03 (D-12, D-13) | whether a drag starting on an anchor becomes a text selection or a link drag is a rendered browser fact. | at `#/records`, press the mouse down inside a Pace or Age-Grade cell, drag across the text, release inside the row. The text must stay selected, no link-drag ghost image may appear, and the page must stay on `#/records`. Copy with Cmd+C to confirm. Round 3 recorded this PASS before the cell had an anchor under the pointer. **Required detail:** the text you selected quoted exactly, whether a drag ghost appeared, and confirmation the page was still on `#/records`. **Observer required:** developer or agent. | PENDING — awaiting Round 4 checkpoint (Task 2). |
+| R32. Double-clicking a value selects the word instead of navigating. | UX-01, UX-03 (D-14) | the browser fires the first click of a double-click before the word selection exists, so only a real double-click can exercise the new refusal. | at `#/records`, double-click a Pace or Time value on a PR-table row. The word must select and the page must stay on `#/records` — before D-14 the first click navigated away before the selection happened. **Required detail:** the value you double-clicked quoted exactly, whether it ended up selected, and what the URL was afterwards. **Observer required:** developer or agent. | PENDING — awaiting Round 4 checkpoint (Task 2). |
+| R33. The two appearance claims Round 3 settled by measurement, re-asked of a human. | UX-03 (D-06, D-10) | `20-VERIFICATION.md` recorded that these two rows' claims are inherently about legibility and paint, and that Round 3 settled them with computed-style and selector-structure reads rather than by a human looking at the screen. | two parts, answered separately: (a) hover the rows of the Riegel race-predictions table at `#/records`, the gear/shoe table and the other table at `#/trends`, and the best-efforts table on any activity detail view — none may show a pointer cursor or light up on hover; (b) look at the nav brand ("Training Dashboard", top left) and the "‹ Newer" / "Older ›" links on an activity detail view — both must read in the normal text colour, legible against the page, not browser-default blue and not invisible. Both themes, both parts. **Required detail:** all four table names with pointer and hover stated for each, your own words on how the brand and pager links read in each theme, and both theme names. **Observer required:** developer's own eyes. | PENDING — awaiting Round 4 checkpoint (Task 2). |
+
+Each row above needs its own independent verdict, its own detail named in that row's Test
+Instructions cell, and its own observer named — a blanket statement covering several rows is not
+sufficient evidence. Any row left individually undescribed, or answered without the detail its own
+row demands after one re-ask, is recorded as failing for insufficient evidence rather than
+manufactured into detail that was never observed. Rows R26, R29 and R33 need both the light and the
+dark theme named before they can pass. Rows R28, R29 and R33 cannot be discharged by agent
+automation — their Observation cell must say "observed by developer" or the row is recorded BLOCKED
+with the decline quoted.
