@@ -26,9 +26,14 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 20 (row-click-interaction-pattern) — EXECUTING
-Plan: 2 of 11
-Status: Ready to execute
-        Blockers: CR-01 (mobile focus restoration dead, list.ts:963) and CR-02 (status badges
+Plan: 11 of 11 (all plans complete; phase gate still open)
+Status: Round-3 gap closure executed (20-09..20-11). 20-VERIFICATION.md re-run scores
+        1/4 must-haves, status: gaps_found — round 4 required.
+        Blockers: NEW CRITICAL — notedActivityId leaks past mount()'s zero-match /
+        load-error / stale-container branches (list.ts:1112-1131), stealing focus on an
+        unrelated navigation; and R18/R19 — modified clicks on the five anchor-less
+        Records PR cells no longer hijack the tab but open no tab/window either.
+        Historical blockers (both CLOSED): CR-01 (mobile focus restoration dead, list.ts:963) and CR-02 (status badges
         dropped from accessible name, list.ts:241 + overview.ts:108-112).
         Criterion 4 checkpoint evidence insufficient (20-VALIDATION.md: partial,
         nyquist_compliant: false — blanket approval, no theme coverage stated).
