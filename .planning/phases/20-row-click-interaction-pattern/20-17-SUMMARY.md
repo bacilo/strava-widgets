@@ -114,3 +114,11 @@ D-13 is implemented exactly as locked, on both Records tables, with the invarian
 ---
 *Phase: 20-row-click-interaction-pattern*
 *Completed: 2026-08-17*
+
+## Self-Check: PASSED
+
+- FOUND: `src/dashboard/views/records.ts`
+- FOUND: `src/dashboard/row-semantics.test.ts`
+- FOUND: `.planning/phases/20-row-click-interaction-pattern/20-17-SUMMARY.md`
+- FOUND commit: `d433bcd` (Task 1)
+- FOUND commit: `630bd6e` (Task 2)
