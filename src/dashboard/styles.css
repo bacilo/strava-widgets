@@ -1498,6 +1498,15 @@ button:where(:not(
    `.cta` is untouched by this phase and still has seven consumers (four in
    detail.ts, one each in trends.ts, detail-map.ts and records.ts) — do not
    fold it into the rules below.
+
+   D-13, locked in `20-CONTEXT.md`: Rank, Time, Pace, Age-Grade and Flags on
+   the PR table (and Time and Improvement on the progression table) each wrap
+   their value in a real `<a href>` with `tabIndex = -1`, purely so the
+   browser's own modifier-click, middle-click and drag gestures have an `<a>`
+   to act on — the Date cell keeps the one real keyboard stop. The class
+   contract for `.pr-table__cell-link` below is frozen downstream the same
+   way the rest of this block is: rename it in one place and every consumer
+   of it breaks silently.
    ========================================================================== */
 
 /* D-06: every bare anchor in the app reads in theme colours instead of
@@ -1536,6 +1545,34 @@ a {
    pointer cursor comes free from the anchor itself. */
 .activity-row:hover {
   background: color-mix(in srgb, var(--surface) 92%, var(--text));
+}
+
+/* D-13: gives every non-Date cell of both Records tables (PR table's Rank,
+   Time, Pace, Age-Grade, Flags; progression table's Time, Improvement) a
+   real anchor purely so the browser's own modifier-click, middle-click and
+   drag gestures have an `<a>` to act on — checkpoint rows R18 and R19 in
+   `20-VALIDATION.md` failed for exactly the lack of one. The Date cell
+   deliberately keeps the D-06 underline: it is the row's single keyboard
+   stop and its one visible link, while these cells are `tabIndex = -1`
+   gesture targets whose values must keep reading as data, not as seven
+   links per row.
+
+   `display: block` here is load-bearing, not cosmetic: an inline anchor
+   covers only its glyphs, so a click landing in the cell's padding falls
+   through to the row listener, which refuses every modified click by design
+   (D-12) — exactly the R18/R19 failure mode this rule exists to avoid
+   re-creating. `text-align` and `font-variant-numeric` are inherited from
+   `.pr-table__numeric` on the parent `<td>`, so right alignment and tabular
+   figures are unaffected by the anchor filling the cell.
+
+   This does not contradict D-06's "the underline carries the affordance"
+   sentence: the affordance on these cells is the row-level pointer cursor
+   from D-10 plus the Date cell's own visible link, not the cell text
+   itself. */
+.pr-table__cell-link {
+  color: inherit;
+  text-decoration: none;
+  display: block;
 }
 
 /* D-10: only rows the shared helper actually marked get the pointer and the

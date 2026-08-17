@@ -1587,4 +1587,57 @@ describe('styles.css - Phase 20 row-click interaction pattern', () => {
     // its cursor and hover feedback with no error anywhere.
     expect(cssNoComments).toContain('.' + NAVIGABLE_ROW_CLASS);
   });
+
+  // D-13 (20-16): .pr-table__cell-link gives the five PR-table cells and two
+  // progression-table cells a real anchor without turning them into visible
+  // text links. Same two-statement shape as the seven assertions above — a
+  // cascade-winner expectation paired with the matching at-rule companion.
+  it('D-13: .pr-table__cell-link declares text-decoration: none - the cell anchors are gesture targets, not text links', () => {
+    expect(cascadeWinningBodyDeclaring('.pr-table__cell-link', 'text-decoration')).toContain(
+      'text-decoration: none',
+    );
+    assertNoAtRuleOverride('.pr-table__cell-link', 'text-decoration');
+  });
+
+  it('D-13: .pr-table__cell-link declares color: inherit - the cell keeps its column colour', () => {
+    expect(cascadeWinningBodyDeclaring('.pr-table__cell-link', 'color')).toContain(
+      'color: inherit',
+    );
+    assertNoAtRuleOverride('.pr-table__cell-link', 'color');
+  });
+
+  it('D-13: .pr-table__cell-link declares display: block - load-bearing, not cosmetic', () => {
+    // An inline anchor would leave the cell's padding falling through to the
+    // row listener, which refuses modified clicks by design (D-12),
+    // re-creating the R18/R19 failure this rule exists to avoid.
+    expect(cascadeWinningBodyDeclaring('.pr-table__cell-link', 'display')).toContain(
+      'display: block',
+    );
+    assertNoAtRuleOverride('.pr-table__cell-link', 'display');
+  });
+
+  it('D-13: .pr-table__cell-link does not declare text-decoration: underline', () => {
+    // IN-10 (20-REVIEW.md): a negative assertion expressed as
+    // selectorListDeclares(...).toBe(false) would still (coincidentally, not
+    // correctly) read false after the rule is deleted outright - it cannot
+    // distinguish "never declared" from "correctly absent by design".
+    // Resolving through the cascade winner instead makes a deletion throw
+    // rather than pass vacuously, applying the IN-10 lesson to this new
+    // assertion instead of leaving it to be rediscovered.
+    const winner = cascadeWinningBodyDeclaring('.pr-table__cell-link', 'text-decoration');
+    expect(winner).not.toContain('underline');
+  });
+
+  it('D-13: the bare a rule stays underlined while .pr-table__cell-link stays none - class beats type', () => {
+    // A class selector (0,1,0) beats the bare `a` type selector (0,0,1)
+    // regardless of source order, so this holds even though .pr-table__cell-
+    // link is declared before the bare `a` rule in this file. Asserted
+    // together, not as two separate `it`s, so deleting either half of the
+    // pair is visible in one failing assertion rather than two independent
+    // ones that could each be "fixed" without noticing the other broke.
+    expect(cascadeWinningBodyDeclaring('a', 'text-decoration')).toContain('underline');
+    expect(cascadeWinningBodyDeclaring('.pr-table__cell-link', 'text-decoration')).toContain(
+      'none',
+    );
+  });
 });
