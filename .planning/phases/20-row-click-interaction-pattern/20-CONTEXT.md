@@ -174,6 +174,54 @@ activity names into the Records data shape, and any new screen or capability.
   containers (`.records-jump`, `.splits-scroll`) were already padded by Phase 19's D-10. Phase 19's
   GAP 2 should not repeat here.
 
+### Gap-closure round 4 (locked 2026-08-17, after `20-VERIFICATION.md` scored 1/4)
+
+- **D-13: Every cell of both Records PR tables carries a real `<a href>`; D-12's "no real anchor
+  on the remaining five cells" clause is superseded.**
+  1. **What changes.** Rank, Time, Pace, Age-Grade and Flags each wrap their content in
+     `<a href={activityDetailHref(row.activityId)}>`, matching the Date cell's existing
+     construction (`records.ts:396-419`, and the progression table at `:512-521`).
+  2. **Why D-12's stated blocker does not hold.** D-12 declined real anchors because "a real
+     anchor needs the activity-name join D-05 already deferred to Phase 21". The Date cell
+     disproves that: it already builds a working anchor from `row.activityId` alone, with a
+     curated `aria-label` assembled only from fields `PrTableRow` carries
+     (date, distance label, duration). The `href` was never blocked on D-05 — only a
+     *name-first* label template was. The five new anchors reuse the Date cell's curated label
+     verbatim rather than inventing a name.
+  3. **Focus order is preserved at one stop per row.** The five new anchors take
+     `tabIndex = -1`, so they are mouse/gesture targets only; the Date anchor remains the single
+     keyboard stop. This keeps SC3's "consistent focus order" true and stops a screen reader
+     announcing the same curated label six times per row.
+  4. **What this closes.** `20-VALIDATION.md` R18 (Cmd/Ctrl+click opens a new background tab) and
+     R19 (Shift+click opens a new window) become genuinely satisfiable on all six cells, because
+     the browser's own gesture handling now has an `<a>` to act on. SC1's "using `list.ts`'s
+     existing pattern" — a real `<a href>`, not a row-click substitute that merely fails safe —
+     becomes literally true on the Records PR tables.
+  5. **Middle-click follows for free.** With a real anchor under the pointer, middle-click is
+     native browser behaviour. D-12's `auxclick` out-of-scope clause stays correct as written
+     (we still synthesise nothing) but stops being load-bearing on these cells. R20 remains
+     not-exercisable on the developer's hardware; that is an observation gap, not an
+     implementation one.
+
+- **D-14: The row-click listener refuses navigation on the first click of a double-click.**
+  `RowClickContext` gains a `clickCount` field sourced from `event.detail`, and
+  `shouldNavigateOnRowClick` gains a fifth refusal class — `clickCount > 1` — alongside the four
+  D-12 already implements (`row-navigation.ts:103-117`). This closes `20-REVIEW.md`'s WR-05: a
+  double-click intended as word-select no longer navigates away before the selection completes.
+  Unit coverage extends `row-navigation.test.ts`'s existing 21 cases; the refusal order stays as
+  documented, with `closest('a')` first.
+
+- **D-15: The three guard-layer WARNINGs this phase's own work introduced are closed in this
+  round.** All three are false-green mechanisms in the phase's own test guards, not product
+  defects: `row-semantics.test.ts:140`'s `isAllowedRoleValue` keys on the value being `link`
+  rather than on the receiver, so `role="presentation"` / `role="button"` on a `<tr>` passes
+  undetected (WR-01); three of seven Phase 20 CSS assertions
+  (`styles.test.ts:1263, 1267, 1292`) are still on any-rule-wins `selectorListDeclares` — the
+  exact mechanism plan 20-10 was raised to close and only half-closed (WR-02); and
+  `cascadeWinningBodyDeclaring` skips every at-rule-scoped rule, so a `@media` override of
+  `.activity-row` leaves all four already-converted assertions green (WR-03). Each fix carries an
+  in-suite proof of the blind spot it closes, matching 20-10's established shape.
+
 ### Claude's Discretion
 
 - Whether the `<tr>` click handler additionally guards against text-selection drags and
@@ -352,10 +400,13 @@ activity names into the Records data shape, and any new screen or capability.
   ladder comment) — recorded in `19-VALIDATION.md`, left unpatched, disposition still with the
   user. Unrelated to row clicking; not folded here.
 - **An `auxclick` handler, or a real anchor on the Records PR table's remaining five cells** —
-  either would make middle-click work natively on Rank/Time/Pace/Age-Grade/Flags. D-12 declines
+  either would make middle-click work natively on Rank/Time/Pace/Age-Grade/Flags. D-12 declined
   both for this phase (synthesising `window.open` invents behaviour rather than propagating
   `list.ts`'s pattern; a real anchor needs the activity-name join D-05 already deferred to Phase
-  21). Revisit once Phase 21 joins the activity name into `PrTableRow`.
+  21). **Half superseded by D-13 (round 4):** the real-anchor half is now in scope — the Date
+  cell proved the `href` never needed D-05, only a name-first label did — so the five cells get
+  real anchors and middle-click works natively. The `auxclick`-handler half stays declined, and
+  stays declined for the same reason. The activity-*name* join remains deferred to Phase 21.
 
 ### Reviewed Todos (not folded)
 - **"Exclusion tickbox via local curation mode"**
