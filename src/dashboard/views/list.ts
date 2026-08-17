@@ -1103,23 +1103,39 @@ export function highlightAndFocus(el: HTMLElement | undefined): void {
 }
 
 /**
- * If the noted activity is present on the current page, highlights and
- * focuses it in BOTH layouts (only one is visually shown per the 720px CSS
- * switch — the hidden layout's elements are not focusable, so acting on
- * both is harmless). Clears the noted id unconditionally so a later
- * navigation to the list does not re-highlight.
+ * Reads the noted activity id and clears the module state in the same call,
+ * unconditionally — this is the only writer of `notedActivityId = null` in
+ * the module. Consuming is unconditional by construction, so no render
+ * branch can leak the hint into a later, unrelated navigation and steal
+ * keyboard focus there (CR-01, `20-REVIEW.md`; a WCAG 3.2.x class defect —
+ * "On Input" / unexpected context changes). Callers must consume this
+ * before any early return, not just before the branch that would use it.
  */
-function applyReturnHighlight(
+export function takeNotedActivityId(): string | null {
+  const id = notedActivityId;
+  notedActivityId = null;
+  return id;
+}
+
+/**
+ * If `notedId` is present on the current page, highlights and focuses it in
+ * BOTH layouts (only one is visually shown per the 720px CSS switch — the
+ * hidden layout's elements are not focusable, so acting on both is
+ * harmless). The caller has already consumed the id via
+ * `takeNotedActivityId()`; this function neither reads nor writes the
+ * module state.
+ */
+export function applyReturnHighlight(
+  notedId: string | null,
   tableWrapper: HTMLElement,
   cardList: HTMLElement,
   pageItems: readonly DashboardIndexRow[]
 ): void {
-  if (notedActivityId === null) {
+  if (notedId === null) {
     return;
   }
 
-  const idx = pageItems.findIndex((row) => row.id === notedActivityId);
-  notedActivityId = null;
+  const idx = pageItems.findIndex((row) => row.id === notedId);
   if (idx === -1) {
     return;
   }
@@ -1225,6 +1241,16 @@ export function createListView(deps: ListViewDeps): DashboardView {
     title: 'Activities',
 
     async mount(ctx: ViewMountContext): Promise<void> {
+      // CR-01: consume the one-shot return hint as the very first statement,
+      // before the try that awaits loadIndex(), so every one of this
+      // method's four exits spends it — the load-failure return below, the
+      // stale-container return, the zero-match branch, and the normal
+      // render. 20-REVIEW.md drafted placing this consume after the
+      // stale-container guard instead; that placement leaves the
+      // load-failure branch leaking (it returns first), so this plan moves
+      // the call site earlier — see this plan's deviation_from_the_review.
+      const notedId = takeNotedActivityId();
+
       mountedContainer = ctx.container;
       ctx.container.replaceChildren();
 
@@ -1320,7 +1346,7 @@ export function createListView(deps: ListViewDeps): DashboardView {
         // lineage) — a fast navigation away must not scroll/focus a
         // superseded view.
         if (mountedContainer === ctx.container) {
-          applyReturnHighlight(tableWrapper, cardList, pageItems);
+          applyReturnHighlight(notedId, tableWrapper, cardList, pageItems);
         }
       }
     },
