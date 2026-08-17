@@ -1,8 +1,8 @@
 {
-  "currentStreak": 0,
+  "currentStreak": 1,
   "longestStreak": 31,
-  "withinCurrentStreak": false,
-  "currentStreakStart": "",
+  "withinCurrentStreak": true,
+  "currentStreakStart": "2026-08-16T00:00:00.000Z",
   "longestStreakStart": "2021-06-13T00:00:00.000Z",
   "longestStreakEnd": "2021-07-13T00:00:00.000Z",
   "weeklyConsistency": {
