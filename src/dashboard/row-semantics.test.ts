@@ -118,13 +118,20 @@ function countOccurrences(haystack: string, needle: string): number {
  * (e.g. `el.tabIndex === -1`) can never be mistaken for an assignment.
  *
  * Allowlist, each rule naming the real call sites it exists for:
- *   - a tabindex hit is allowed only when the receiver identifier is
- *     `heading` or `h1` AND the value is `-1` — the six programmatic focus
+ *   - a tabindex hit is allowed only when the receiver/value pair is one of:
+ *     `heading` or `h1` with value `-1` — the six programmatic focus
  *     targets: `list.ts:1277`, `records.ts:248/465/602/679/797`,
- *     `overview.ts:283`. Any other receiver, or any other value, is a
- *     violation — including `row.tabIndex = -1` (allowed value, disallowed
- *     receiver), which is precisely the shape of the regression D-01 exists
- *     to block.
+ *     `overview.ts:283`; or `cellAnchor` with value `-1` — D-13's single
+ *     `cellAnchor.tabIndex = -1;` write inside `records.ts`'s cell-link
+ *     factory, shared by both Records tables (the five PR-table cells and
+ *     the two progression-table cells), which exists so those cells are
+ *     mouse/gesture targets only while the Date-cell anchor stays the row's
+ *     one keyboard stop (D-13 point 3, `20-CONTEXT.md`). This is a named
+ *     receiver-and-value pair, not a general anchor allowance — any other
+ *     receiver, or any other value, is a violation, including
+ *     `row.tabIndex = -1` (allowed value, disallowed receiver) and
+ *     `anchor.tabIndex = -1` (a differently-named anchor), which are
+ *     precisely the shapes D-01 exists to block.
  *   - a role hit is permitted only when the receiver identifier is `loading`
  *     AND the value is `status`, compared case-insensitively — the two
  *     `loading.setAttribute('role', 'status')` live regions: `list.ts:1233`,
@@ -148,7 +155,7 @@ function countOccurrences(haystack: string, needle: string): number {
 function rowSemanticViolations(source: string): string[] {
   const violations: string[] = [];
   const isAllowedTabIndexReceiver = (receiver: string, value: string): boolean =>
-    (receiver === 'heading' || receiver === 'h1') && value === '-1';
+    (receiver === 'heading' || receiver === 'h1' || receiver === 'cellAnchor') && value === '-1';
   const isAllowedRoleWrite = (receiver: string, value: string): boolean =>
     receiver === 'loading' && value.toLowerCase() === 'status';
 
@@ -314,12 +321,20 @@ describe('rowSemanticViolations - self-tests', () => {
     expect(rowSemanticViolations('row.tabIndex = -1;')).toHaveLength(1);
   });
 
+  it('anchor.tabIndex = -1; yields exactly one violation - D-13 widened the allowlist to the named receiver cellAnchor, not to any anchor, so a differently-named anchor still violates', () => {
+    expect(rowSemanticViolations('anchor.tabIndex = -1;')).toHaveLength(1);
+  });
+
   it('heading.tabIndex = -1; yields no violations', () => {
     expect(rowSemanticViolations('heading.tabIndex = -1;')).toEqual([]);
   });
 
   it('h1.tabIndex = -1; yields no violations', () => {
     expect(rowSemanticViolations('h1.tabIndex = -1;')).toEqual([]);
+  });
+
+  it('cellAnchor.tabIndex = -1; yields no violations - D-13, the cell-link factory shared by both Records tables (records.ts, plan 20-17)', () => {
+    expect(rowSemanticViolations('cellAnchor.tabIndex = -1;')).toEqual([]);
   });
 
   it("heading.setAttribute('tabindex', '-1'); yields no violations", () => {
@@ -482,19 +497,38 @@ describe('CR-02 - status-badge text is folded into whole-row aria-labels, not sw
     expect(cardMatches[0]).not.toBe(tableMatches[0]);
   });
 
-  it('records.ts non-regression: the anchor stays confined to the Date cell and badges stay in the sibling Flags cell, so its aria-label never swallows them', () => {
-    // Records.ts was confirmed unaffected by CR-02 (20-07-PLAN.md): its
-    // row anchor lives in dateTd and its badges live in a sibling flagsTd,
-    // so the anchor's curated aria-label was never positioned to swallow
-    // badge text the way list.ts's and overview.ts's whole-row anchors
-    // were. This guard is what keeps a future edit from accidentally
-    // moving the badges inside the anchor and making this surface affected
-    // too.
+  it('records.ts non-regression: the Date-cell anchor stays exclusive to the Date cell; the Flags-cell badges land in the plain flagsTd cell or (D-13) its own flagsAnchor, never in dateTd/dateAnchor', () => {
+    // Records.ts was confirmed unaffected by CR-02 (20-07-PLAN.md): its row
+    // anchor lives in dateTd and its badges lived in a sibling flagsTd, so
+    // the anchor's curated aria-label was never positioned to swallow badge
+    // text the way list.ts's and overview.ts's whole-row anchors were.
+    //
+    // D-13 (`20-CONTEXT.md`, plan 20-17) supersedes that framing for the
+    // Flags cell only: the badges move from `flagsTd` into that cell's own
+    // anchor, `flagsAnchor`. That relaxation is safe because, exactly like
+    // `dateAnchor`, the D-13 cell anchor carries an explicit curated
+    // aria-label, so descendant badge text cannot become that anchor's
+    // accessible name the way CR-02's whole-row anchors made it. The
+    // Date-cell exclusion below is unchanged and still absolute — this
+    // guard is what keeps a future edit from accidentally moving badges
+    // into `dateAnchor`. What a screen reader announces for a cell whose
+    // anchor has an explicit label differing from the cell's own text is
+    // not decidable in this repository; that is a named Round 4 checkpoint
+    // observation (D-13), not a claim this guard makes.
     expect(countOccurrences(recordsStripped, 'dateTd.appendChild(dateAnchor)')).toBeGreaterThanOrEqual(1);
-    expect(countOccurrences(recordsStripped, 'appendLowConfidenceBadge(flagsTd')).toBeGreaterThanOrEqual(1);
-    expect(countOccurrences(recordsStripped, 'appendBadge(flagsTd')).toBeGreaterThanOrEqual(1);
+
+    const lowConfidenceFlagsReceiverPattern = /\bappendLowConfidenceBadge\(\s*(?:flagsTd|flagsAnchor)\b/g;
+    const badgeFlagsReceiverPattern = /\bappendBadge\(\s*(?:flagsTd|flagsAnchor)\b/g;
+    expect([...recordsStripped.matchAll(lowConfidenceFlagsReceiverPattern)].length).toBeGreaterThanOrEqual(1);
+    expect([...recordsStripped.matchAll(badgeFlagsReceiverPattern)].length).toBeGreaterThanOrEqual(1);
+
     expect(countOccurrences(recordsStripped, 'dateAnchor.appendChild(')).toBe(0);
     expect(countOccurrences(recordsStripped, 'appendBadge(dateTd')).toBe(0);
     expect(countOccurrences(recordsStripped, 'appendLowConfidenceBadge(dateTd')).toBe(0);
+
+    // No badge append call, under either spelling, ever targets dateAnchor
+    // - the D-13 relaxation admits flagsAnchor only, not dateAnchor.
+    const badgeDateAnchorReceiverPattern = /\bappend(?:LowConfidenceBadge|Badge)\(\s*dateAnchor\b/g;
+    expect([...recordsStripped.matchAll(badgeDateAnchorReceiverPattern)].length).toBe(0);
   });
 });
