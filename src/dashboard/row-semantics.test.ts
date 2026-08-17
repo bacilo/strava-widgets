@@ -118,16 +118,35 @@ function countOccurrences(haystack: string, needle: string): number {
  * (e.g. `el.tabIndex === -1`) can never be mistaken for an assignment.
  *
  * Allowlist, each rule naming the real call sites it exists for:
- *   - a tabindex hit is allowed only when the receiver identifier is
- *     `heading` or `h1` AND the value is `-1` — the six programmatic focus
+ *   - a tabindex hit is allowed only when the receiver/value pair is one of:
+ *     `heading` or `h1` with value `-1` — the six programmatic focus
  *     targets: `list.ts:1277`, `records.ts:248/465/602/679/797`,
- *     `overview.ts:283`. Any other receiver, or any other value, is a
- *     violation — including `row.tabIndex = -1` (allowed value, disallowed
- *     receiver), which is precisely the shape of the regression D-01 exists
- *     to block.
- *   - a role hit is allowed only when its value is not `link`, compared
- *     case-insensitively — the two `loading.setAttribute('role', 'status')`
- *     live regions: `list.ts:1233`, `records.ts:762`.
+ *     `overview.ts:283`; or `cellAnchor` with value `-1` — D-13's single
+ *     `cellAnchor.tabIndex = -1;` write inside `records.ts`'s cell-link
+ *     factory, shared by both Records tables (the five PR-table cells and
+ *     the two progression-table cells), which exists so those cells are
+ *     mouse/gesture targets only while the Date-cell anchor stays the row's
+ *     one keyboard stop (D-13 point 3, `20-CONTEXT.md`). This is a named
+ *     receiver-and-value pair, not a general anchor allowance — any other
+ *     receiver, or any other value, is a violation, including
+ *     `row.tabIndex = -1` (allowed value, disallowed receiver) and
+ *     `anchor.tabIndex = -1` (a differently-named anchor), which are
+ *     precisely the shapes D-01 exists to block.
+ *   - a role hit is permitted only when the receiver identifier is `loading`
+ *     AND the value is `status`, compared case-insensitively — the two
+ *     `loading.setAttribute('role', 'status')` live regions: `list.ts:1233`,
+ *     `records.ts:762`. Any role write on any OTHER receiver is a violation
+ *     whatever its value, because a role on a `<tr>` removes it from the
+ *     table accessibility tree regardless of which role it is (WR-01,
+ *     20-REVIEW.md: the old rule keyed on the value not being `link`, so
+ *     `role="presentation"`, `role="button"` and `role="row"` on a `<tr>`
+ *     all passed undetected — this rule is receiver-keyed instead, exactly
+ *     like the tabindex rule above, so every one of those is now caught).
+ *
+ * Both role patterns accept a value written with single quotes, double
+ * quotes, backticks, or as a bare identifier (a variable or constant): an
+ * unresolvable value is reported as a violation rather than silently
+ * skipped, since the receiver alone already decides the verdict.
  *
  * Widening either rule requires naming the new call site in the comment
  * above it — do not widen the receiver list, the allowed value, or the role
@@ -136,8 +155,9 @@ function countOccurrences(haystack: string, needle: string): number {
 function rowSemanticViolations(source: string): string[] {
   const violations: string[] = [];
   const isAllowedTabIndexReceiver = (receiver: string, value: string): boolean =>
-    (receiver === 'heading' || receiver === 'h1') && value === '-1';
-  const isAllowedRoleValue = (value: string): boolean => value.toLowerCase() !== 'link';
+    (receiver === 'heading' || receiver === 'h1' || receiver === 'cellAnchor') && value === '-1';
+  const isAllowedRoleWrite = (receiver: string, value: string): boolean =>
+    receiver === 'loading' && value.toLowerCase() === 'status';
 
   // 1. property assignment: `receiver.tabIndex = value;`
   const tabIndexPropertyPattern = /([A-Za-z_$][\w$]*)\s*\.\s*tabIndex\s*=(?!=)\s*([^;]*);/gi;
@@ -154,18 +174,25 @@ function rowSemanticViolations(source: string): string[] {
     violations.push(match[0]);
   }
 
-  // 3. role property assignment: `receiver.role = 'value';`
-  const rolePropertyPattern = /([A-Za-z_$][\w$]*)\s*\.\s*role\s*=(?!=)\s*['"]([^'"]*)['"]/gi;
+  // 3. role property assignment: `receiver.role = 'value';` — the quote
+  // class accepts backticks alongside single/double quotes, and the second
+  // alternation branch matches a bare identifier value (e.g. `role =
+  // ROLE_LINK`) so a non-literal value is reported rather than skipped.
+  const rolePropertyPattern =
+    /([A-Za-z_$][\w$]*)\s*\.\s*role\s*=(?!=)\s*(?:['"`]([^'"`]*)['"`]|([A-Za-z_$][\w$]*))/gi;
   for (const match of source.matchAll(rolePropertyPattern)) {
-    if (isAllowedRoleValue(match[2])) continue;
+    const value = match[2] !== undefined ? match[2] : match[3];
+    if (isAllowedRoleWrite(match[1], value)) continue;
     violations.push(match[0]);
   }
 
-  // 4. role attribute call: `receiver.setAttribute('role', 'value')`
+  // 4. role attribute call: `receiver.setAttribute('role', 'value')` — same
+  // backtick + bare-identifier widening as rule 3 above.
   const roleAttrPattern =
-    /([A-Za-z_$][\w$]*)\s*\.\s*setAttribute\s*\(\s*['"]role['"]\s*,\s*['"]([^'"]*)['"]\s*\)/gi;
+    /([A-Za-z_$][\w$]*)\s*\.\s*setAttribute\s*\(\s*['"]role['"]\s*,\s*(?:['"`]([^'"`]*)['"`]|([A-Za-z_$][\w$]*))\s*\)/gi;
   for (const match of source.matchAll(roleAttrPattern)) {
-    if (isAllowedRoleValue(match[2])) continue;
+    const value = match[2] !== undefined ? match[2] : match[3];
+    if (isAllowedRoleWrite(match[1], value)) continue;
     violations.push(match[0]);
   }
 
@@ -294,12 +321,20 @@ describe('rowSemanticViolations - self-tests', () => {
     expect(rowSemanticViolations('row.tabIndex = -1;')).toHaveLength(1);
   });
 
+  it('anchor.tabIndex = -1; yields exactly one violation - D-13 widened the allowlist to the named receiver cellAnchor, not to any anchor, so a differently-named anchor still violates', () => {
+    expect(rowSemanticViolations('anchor.tabIndex = -1;')).toHaveLength(1);
+  });
+
   it('heading.tabIndex = -1; yields no violations', () => {
     expect(rowSemanticViolations('heading.tabIndex = -1;')).toEqual([]);
   });
 
   it('h1.tabIndex = -1; yields no violations', () => {
     expect(rowSemanticViolations('h1.tabIndex = -1;')).toEqual([]);
+  });
+
+  it('cellAnchor.tabIndex = -1; yields no violations - D-13, the cell-link factory shared by both Records tables (records.ts, plan 20-17)', () => {
+    expect(rowSemanticViolations('cellAnchor.tabIndex = -1;')).toEqual([]);
   });
 
   it("heading.setAttribute('tabindex', '-1'); yields no violations", () => {
@@ -328,6 +363,50 @@ describe('rowSemanticViolations - self-tests', () => {
     expect(
       rowSemanticViolations('tr.tabIndex = 0;'),
       'documents the new guard catching the identical mutation',
+    ).toHaveLength(1);
+  });
+
+  it("tr.setAttribute('role', 'presentation'); yields exactly one violation - WR-01, a role hit is now receiver-keyed, not value-keyed", () => {
+    expect(rowSemanticViolations("tr.setAttribute('role', 'presentation');")).toHaveLength(1);
+  });
+
+  it("tr.setAttribute('role', 'button'); yields exactly one violation - WR-01", () => {
+    expect(rowSemanticViolations("tr.setAttribute('role', 'button');")).toHaveLength(1);
+  });
+
+  it("tr.role = 'row'; yields exactly one violation - WR-01, the property-assignment spelling of the same miss", () => {
+    expect(rowSemanticViolations("tr.role = 'row';")).toHaveLength(1);
+  });
+
+  it('a backtick-quoted role value on tr yields exactly one violation - WR-01, the widened quote class', () => {
+    expect(rowSemanticViolations('tr.setAttribute("role", `link`);')).toHaveLength(1);
+  });
+
+  it('an identifier-valued role write on tr yields exactly one violation - WR-01, an unresolvable value is reported rather than skipped', () => {
+    expect(rowSemanticViolations("tr.setAttribute('role', ROLE_LINK);")).toHaveLength(1);
+  });
+
+  it("WR-01 blind-spot proof: the old value-keyed role rule's exact miss stays documented, and isAllowedRoleWrite closes it", () => {
+    // Local replica of the OLD value-keyed rule this file shipped with
+    // (WR-01, 20-REVIEW.md): a predicate reading `value.toLowerCase() !==
+    // 'link'`, applied via the same role attribute-call pattern the guard
+    // used before this fix. The first
+    // expectation documents the defect existed - do not "fix" the zero to a
+    // non-zero value, it is the proof, not a bug. The second expectation
+    // documents that rowSemanticViolations, receiver-keyed as of this
+    // round, catches the identical mutation.
+    const oldIsAllowedRoleValue = (value: string): boolean => value.toLowerCase() !== 'link';
+    const oldRoleAttrPattern =
+      /([A-Za-z_$][\w$]*)\s*\.\s*setAttribute\s*\(\s*['"]role['"]\s*,\s*['"]([^'"]*)['"]\s*\)/gi;
+    const oldViolations: string[] = [];
+    for (const match of "tr.setAttribute('role', 'presentation');".matchAll(oldRoleAttrPattern)) {
+      if (oldIsAllowedRoleValue(match[2])) continue;
+      oldViolations.push(match[0]);
+    }
+    expect(oldViolations, "documents the old value-keyed rule's miss - must stay 0").toHaveLength(0);
+    expect(
+      rowSemanticViolations("tr.setAttribute('role', 'presentation');"),
+      'documents the new receiver-keyed rule catching the identical mutation',
     ).toHaveLength(1);
   });
 });
@@ -418,19 +497,38 @@ describe('CR-02 - status-badge text is folded into whole-row aria-labels, not sw
     expect(cardMatches[0]).not.toBe(tableMatches[0]);
   });
 
-  it('records.ts non-regression: the anchor stays confined to the Date cell and badges stay in the sibling Flags cell, so its aria-label never swallows them', () => {
-    // Records.ts was confirmed unaffected by CR-02 (20-07-PLAN.md): its
-    // row anchor lives in dateTd and its badges live in a sibling flagsTd,
-    // so the anchor's curated aria-label was never positioned to swallow
-    // badge text the way list.ts's and overview.ts's whole-row anchors
-    // were. This guard is what keeps a future edit from accidentally
-    // moving the badges inside the anchor and making this surface affected
-    // too.
+  it('records.ts non-regression: the Date-cell anchor stays exclusive to the Date cell; the Flags-cell badges land in the plain flagsTd cell or (D-13) its own flagsAnchor, never in dateTd/dateAnchor', () => {
+    // Records.ts was confirmed unaffected by CR-02 (20-07-PLAN.md): its row
+    // anchor lives in dateTd and its badges lived in a sibling flagsTd, so
+    // the anchor's curated aria-label was never positioned to swallow badge
+    // text the way list.ts's and overview.ts's whole-row anchors were.
+    //
+    // D-13 (`20-CONTEXT.md`, plan 20-17) supersedes that framing for the
+    // Flags cell only: the badges move from `flagsTd` into that cell's own
+    // anchor, `flagsAnchor`. That relaxation is safe because, exactly like
+    // `dateAnchor`, the D-13 cell anchor carries an explicit curated
+    // aria-label, so descendant badge text cannot become that anchor's
+    // accessible name the way CR-02's whole-row anchors made it. The
+    // Date-cell exclusion below is unchanged and still absolute — this
+    // guard is what keeps a future edit from accidentally moving badges
+    // into `dateAnchor`. What a screen reader announces for a cell whose
+    // anchor has an explicit label differing from the cell's own text is
+    // not decidable in this repository; that is a named Round 4 checkpoint
+    // observation (D-13), not a claim this guard makes.
     expect(countOccurrences(recordsStripped, 'dateTd.appendChild(dateAnchor)')).toBeGreaterThanOrEqual(1);
-    expect(countOccurrences(recordsStripped, 'appendLowConfidenceBadge(flagsTd')).toBeGreaterThanOrEqual(1);
-    expect(countOccurrences(recordsStripped, 'appendBadge(flagsTd')).toBeGreaterThanOrEqual(1);
+
+    const lowConfidenceFlagsReceiverPattern = /\bappendLowConfidenceBadge\(\s*(?:flagsTd|flagsAnchor)\b/g;
+    const badgeFlagsReceiverPattern = /\bappendBadge\(\s*(?:flagsTd|flagsAnchor)\b/g;
+    expect([...recordsStripped.matchAll(lowConfidenceFlagsReceiverPattern)].length).toBeGreaterThanOrEqual(1);
+    expect([...recordsStripped.matchAll(badgeFlagsReceiverPattern)].length).toBeGreaterThanOrEqual(1);
+
     expect(countOccurrences(recordsStripped, 'dateAnchor.appendChild(')).toBe(0);
     expect(countOccurrences(recordsStripped, 'appendBadge(dateTd')).toBe(0);
     expect(countOccurrences(recordsStripped, 'appendLowConfidenceBadge(dateTd')).toBe(0);
+
+    // No badge append call, under either spelling, ever targets dateAnchor
+    // - the D-13 relaxation admits flagsAnchor only, not dateAnchor.
+    const badgeDateAnchorReceiverPattern = /\bappend(?:LowConfidenceBadge|Badge)\(\s*dateAnchor\b/g;
+    expect([...recordsStripped.matchAll(badgeDateAnchorReceiverPattern)].length).toBe(0);
   });
 });
