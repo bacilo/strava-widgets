@@ -74,6 +74,7 @@ function plainPrimaryClick(): RowClickContext {
     altKey: false,
     insideAnchor: false,
     hasTextSelection: false,
+    clickCount: 1,
   };
 }
 
@@ -83,7 +84,7 @@ function plainPrimaryClick(): RowClickContext {
 // only Date carries a real anchor — records.ts:396-419), the sole affordance
 // on those cells since plan 20-03 (670e368) removed the "View Activity"
 // anchor column.
-describe('shouldNavigateOnRowClick — the row-click link contract (D-12)', () => {
+describe('shouldNavigateOnRowClick — the row-click link contract (D-12, D-14)', () => {
   it('baseline: a plain primary click on a non-anchor cell navigates', () => {
     expect(shouldNavigateOnRowClick(plainPrimaryClick())).toBe(true);
   });
@@ -136,7 +137,41 @@ describe('shouldNavigateOnRowClick — the row-click link contract (D-12)', () =
     ).toBe(false);
   });
 
-  it('anti-over-blocking: each single guard field refuses navigation while the plain primary click still navigates (D-12)', () => {
+  it('the first click of a double-click (clickCount: 2) on a Rank/Time/Pace/Age-Grade/Flags cell is a select gesture, not a navigate gesture, and must not navigate (D-14, WR-05)', () => {
+    expect(
+      shouldNavigateOnRowClick({ ...plainPrimaryClick(), clickCount: 2 }),
+    ).toBe(false);
+  });
+
+  it('a triple-click (clickCount: 3, paragraph select) must also refuse to navigate — the guard is a > 1 comparison, not an equality check against 2 (D-14)', () => {
+    expect(
+      shouldNavigateOnRowClick({ ...plainPrimaryClick(), clickCount: 3 }),
+    ).toBe(false);
+  });
+
+  it('a single primary click (clickCount: 1) with everything else at baseline still navigates — non-regression for D-14', () => {
+    expect(
+      shouldNavigateOnRowClick({ ...plainPrimaryClick(), clickCount: 1 }),
+    ).toBe(true);
+  });
+
+  // The WR-05 blind spot: hasTextSelection alone cannot cover the first click
+  // of a double-click, because the browser fires `click` (detail 1) before the
+  // word selection exists — the selection is only present from the second
+  // `click` (detail 2) onward. This is precisely why clickCount was added as
+  // its own field; do not delete this case as redundant with the
+  // hasTextSelection guard above — it proves the case that guard cannot see.
+  it('WR-05 blind spot: clickCount: 2 with hasTextSelection: false (the actual first-click state) is still refused (D-14)', () => {
+    expect(
+      shouldNavigateOnRowClick({
+        ...plainPrimaryClick(),
+        clickCount: 2,
+        hasTextSelection: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('anti-over-blocking: each single guard field refuses navigation while the plain primary click still navigates (D-12, D-14)', () => {
     const plain = plainPrimaryClick();
     expect(shouldNavigateOnRowClick(plain)).toBe(true);
     const singleFieldVariants: Array<Partial<RowClickContext>> = [
@@ -147,6 +182,7 @@ describe('shouldNavigateOnRowClick — the row-click link contract (D-12)', () =
       { button: 1 },
       { button: 2 },
       { hasTextSelection: true },
+      { clickCount: 2 },
     ];
     for (const variant of singleFieldVariants) {
       expect(
@@ -167,6 +203,12 @@ function stripComments(source: string): string {
   return withoutBlockComments.replace(/(?<!:)\/\/.*$/gm, '');
 }
 
+// What these source-text assertions cannot see, honestly (20-REVIEW.md
+// WR-09): a comment-stripped substring check cannot detect a field fed from
+// the wrong event property — for example `clickCount: event.button` would
+// still make every assertion below pass. The real evidence for D-14's wiring
+// is the Round 4 human checkpoint row that double-clicks a Records PR-table
+// cell in a browser, not this file. Do not claim more than that.
 describe('row-navigation.ts wiring — the listener actually consults the predicate', () => {
   const stripped = stripComments(
     readFileSync(new URL('./row-navigation.ts', import.meta.url), 'utf8'),
@@ -177,12 +219,13 @@ describe('row-navigation.ts wiring — the listener actually consults the predic
     expect(matches.length).toBe(2);
   });
 
-  it("the listener reads event.button, every modifier key and window.getSelection(", () => {
+  it("the listener reads event.button, every modifier key, event.detail and window.getSelection(", () => {
     expect(stripped).toContain('event.button');
     expect(stripped).toContain('event.metaKey');
     expect(stripped).toContain('event.ctrlKey');
     expect(stripped).toContain('event.shiftKey');
     expect(stripped).toContain('event.altKey');
+    expect(stripped).toContain('event.detail');
     expect(stripped).toContain('window.getSelection(');
   });
 
@@ -196,6 +239,27 @@ describe('row-navigation.ts wiring — the listener actually consults the predic
     expect(
       matches.length,
       'auxclick must not appear in row-navigation.ts; see D-12 in 20-CONTEXT.md for why middle-click is deliberately unhandled',
+    ).toBe(0);
+  });
+
+  it('clickCount occurs exactly three times — the interface field, the predicate comparison and the listener context literal (D-14)', () => {
+    const matches = stripped.match(/clickCount/g) || [];
+    expect(
+      matches.length,
+      'clickCount count changed; update D-14 in 20-CONTEXT.md before changing this count',
+    ).toBe(3);
+  });
+
+  it('contains zero occurrences of dblclick and zero occurrences of setTimeout — D-14 is a predicate field, not a second listener and not a debounce', () => {
+    const dblclickMatches = stripped.match(/dblclick/gi) || [];
+    const setTimeoutMatches = stripped.match(/setTimeout/g) || [];
+    expect(
+      dblclickMatches.length,
+      'dblclick must not appear in row-navigation.ts; D-14 is a predicate field on the existing click listener, not a second dblclick listener',
+    ).toBe(0);
+    expect(
+      setTimeoutMatches.length,
+      'setTimeout must not appear in row-navigation.ts; a timer would make the decision untestable under environment: node — the exact reason D-12\'s checks were extracted into a pure predicate in the first place',
     ).toBe(0);
   });
 });
