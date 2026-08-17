@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
 status: executing
-stopped_at: "Completed 20-05-PLAN.md (checkpoint recorded, status: partial)"
-last_updated: "2026-08-13T21:16:15.089Z"
-last_activity: 2026-08-13 -- Phase 20 execution started
+stopped_at: "Completed 20-11-PLAN.md (Round 3 checkpoint recorded, status: partial)"
+last_updated: "2026-08-17T19:20:50.981Z"
+last_activity: 2026-08-17
 progress:
   total_phases: 7
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 28
-  completed_plans: 25
-  percent: 14
+  completed_plans: 28
+  percent: 29
 ---
 
 # Project State
@@ -26,14 +26,14 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 20 (row-click-interaction-pattern) — EXECUTING
-Plan: 1 of 11
-Status: Executing Phase 20
+Plan: 2 of 11
+Status: Ready to execute
         Blockers: CR-01 (mobile focus restoration dead, list.ts:963) and CR-02 (status badges
         dropped from accessible name, list.ts:241 + overview.ts:108-112).
         Criterion 4 checkpoint evidence insufficient (20-VALIDATION.md: partial,
         nyquist_compliant: false — blanket approval, no theme coverage stated).
         Next: /gsd-plan-phase 20 --gaps
-Last activity: 2026-08-13 -- Phase 20 execution started
+Last activity: 2026-08-17
 
 Progress: [██████████] 100%
 
@@ -59,6 +59,7 @@ Progress: [██████████] 100%
 | Phase 19 P16 | 14min | 3 tasks | 2 files |
 | Phase 19 P17 | ~25min (continuation) | 3 tasks | 3 files |
 | Phase 20 P05 | ~9min | 1 tasks | 1 files |
+| Phase 20 P11 | multi-session | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -85,6 +86,8 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 19]: 19-16 corrected the sticky-layer ladder comment's disproven rung-4 stickiness claim (R3-WR-04) to cite dated Probe F evidence from 19-14's fix, hedged the still-unconfirmed paint-order claim naming GAP 6 and plan 19-17's row 21 as the observation that will settle it, and added a spec-derived (marked unobserved) descendant-containment scope statement (R3-WR-03). Stripped all foreign .ts:{line} citations plus one same-file rotted citation discovered in the process (R3-IN-05 partial). Deferred WR-03 radius literals and R3-IN-05's narrative-relocation remainder with dated reasoning in deferred-items.md. All eleven Round 3 findings now have a stated disposition (R3-CR-01/CR-02/WR-02/IN-01..04 closed in 19-15, R3-WR-01 closed in 19-14, R3-WR-03/WR-04 closed in 19-16, R3-IN-05 partial). requirements-completed for this plan is empty — UI-02 stays open, gated on plan 19-17's rendered checkpoint.
 - [Phase 19]: 19-17 Round 4 human checkpoint returned a clean sweep — rows 20-24 all PASS, closing GAP 7 (row 20, the nav holds on both routes/themes) and GAP 6 (row 21, the original CR-01 paint-order question, first observed) on rendered evidence gated by Probes G and H. nyquist_compliant: true; UI-02 ticked complete, closing Phase 19's gate. One new gap found unprompted (GAP 8: Leaflet map tiles paint over the nav, plus a totality defect in plan 19-16's own ladder comment) is recorded, argued not to block UI-02 (different component, no checkpoint row named it), left unpatched per house rule, disposition deferred to the user. requirements-completed for this checkpoint lists UI-01, UI-02, UI-03, ACT-01.
 - [Phase 20]: 20-05 human checkpoint closed with all twelve rows PASS on the developer's own words (rows 1-11 as one blanket approval, row 12 individually confirmed after clarification), but nyquist_compliant stays false and status is partial - seven theme-sensitive rows (1-4, 7, 9, 10) have no stated theme coverage, an evidence gap rather than a defect. No requirement ticked in REQUIREMENTS.md this session (plan's own files_modified scope names only 20-VALIDATION.md); the actionable follow-up is confirming theme coverage, not a code fix.
+- [Phase 20]: Round 3 checkpoint recorded with a four-state verdict vocabulary (PASS/FAIL/BLOCKED/NOT EXERCISABLE) distinguishing dataset-coverage gaps and hardware limits from actual defects; R18/R19 FAIL recorded verbatim against D-12's stated expectation and left unpatched
+- [Phase 20]: UX-02 stays open despite three of its four mapped rows passing cleanly, because R2 is BLOCKED (no badge-carrying row exists in the current Overview Recent Activities dataset) and every mapped row must pass before a requirement is ticked
 
 ### Key Findings
 
@@ -152,8 +155,8 @@ Items acknowledged and deferred at the v2.0 milestone close on 2026-08-12.
 
 ## Session Continuity
 
-Last session: 2026-08-13T18:14:05.283Z
-Stopped at: Completed 20-05-PLAN.md (checkpoint recorded, status: partial)
+Last session: 2026-08-17T19:20:50.960Z
+Stopped at: Completed 20-11-PLAN.md (Round 3 checkpoint recorded, status: partial)
 Resume file: None
 
 ---
