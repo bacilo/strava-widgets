@@ -229,7 +229,7 @@ Plans:
 
 **Wave 12** *(gap closure round 4 — blocked on Wave 11; the CSS class must exist before the markup uses it)*
 
-- [ ] 20-17-PLAN.md — D-13: every content-carrying cell of both Records tables gets a real `<a href>` via one factory, `tabIndex = -1` so the row keeps one keyboard stop, with the invariants pinned in source (UX-01, UX-03, REC-08)
+- [x] 20-17-PLAN.md — D-13: every content-carrying cell of both Records tables gets a real `<a href>` via one factory, `tabIndex = -1` so the row keeps one keyboard stop, with the invariants pinned in source (UX-01, UX-03, REC-08)
 
 **Wave 13** *(blocked on Wave 12 — the checkpoint must run after every fix lands)*
 
@@ -344,7 +344,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 17. Activity Browser & Detail Views | v2.0 | 15/15 | Complete    | 2026-08-11 |
 | 18. Records, Trends & Differentiators | v2.0 | 16/16 | Complete    | 2026-08-12 |
 | 19. Design System & Control Styling | v2.1 | 17/17 | Complete    | 2026-08-13 |
-| 20. Row-Click Interaction Pattern | v2.1 | 16/18 | In Progress|  |
+| 20. Row-Click Interaction Pattern | v2.1 | 17/18 | In Progress|  |
 | 21. Overview Rebuild | v2.1 | 0/TBD | Not started | - |
 | 22. Calendar Week-Start & Totals | v2.1 | 0/TBD | Not started | - |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 0/TBD | Not started | - |
