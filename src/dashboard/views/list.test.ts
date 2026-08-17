@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import {
   formatActivityDate,
   formatPace,
@@ -8,6 +9,9 @@ import {
   activityRowAriaLabel,
   composeRowAriaLabel,
   lowConfidenceDescriptionId,
+  noteViewedActivity,
+  takeNotedActivityId,
+  applyReturnHighlight,
 } from './list.js';
 import type { DashboardIndexRow } from '../../analytics/dashboard-index.types.js';
 
@@ -207,6 +211,160 @@ describe('highlightAndFocus — CR-01 / Phase 17 D-08 return-from-detail focus r
 });
 
 /**
+ * Builds the two container stubs `applyReturnHighlight` needs, using the same
+ * hand-stub discipline as `buildStubRow` above — no DOM library, every
+ * selector queried is recorded, exactly as `buildStubRow` records
+ * `queriedSelectors`.
+ */
+function buildStubTableWrapper(rowStubs: StubRow[]): {
+  queriedSelectors: string[];
+  querySelectorAll: (selector: string) => StubRow[];
+} {
+  const queriedSelectors: string[] = [];
+  return {
+    queriedSelectors,
+    querySelectorAll(selector: string) {
+      queriedSelectors.push(selector);
+      return rowStubs;
+    },
+  };
+}
+
+function buildStubCardList(rowStubs: StubRow[]): { children: StubRow[] } {
+  return { children: rowStubs };
+}
+
+/**
+ * `applyReturnHighlight` only reads `row.id` off each page item, so a full
+ * `DashboardIndexRow` fixture is unnecessary noise here — this cast helper
+ * builds the minimal shape and asserts it through as `readonly
+ * DashboardIndexRow[]`.
+ */
+function pageItemsFrom(ids: string[]): readonly DashboardIndexRow[] {
+  return ids.map((id) => ({ id }) as unknown as DashboardIndexRow);
+}
+
+describe(
+  'takeNotedActivityId / applyReturnHighlight - CR-01 the one-shot return hint is consumed on every render path',
+  () => {
+    it('happy path still works: the noted id is consumed once and highlights the matching row in both layouts', () => {
+      noteViewedActivity('X');
+      const notedId = takeNotedActivityId();
+
+      const trX = buildStubRow({ tagName: 'A', querySelectorResult: null });
+      const trY = buildStubRow({ tagName: 'A', querySelectorResult: null });
+      const cardX = buildStubRow({ tagName: 'A', querySelectorResult: null });
+      const cardY = buildStubRow({ tagName: 'A', querySelectorResult: null });
+      const tableWrapper = buildStubTableWrapper([trX, trY]);
+      const cardList = buildStubCardList([cardX, cardY]);
+      const pageItems = pageItemsFrom(['X', 'Y']);
+
+      applyReturnHighlight(
+        notedId,
+        tableWrapper as unknown as HTMLElement,
+        cardList as unknown as HTMLElement,
+        pageItems
+      );
+
+      for (const stub of [trX, cardX]) {
+        expect(stub.scrollIntoViewCalled).toBe(true);
+        expect(stub.focusCalled).toBe(true);
+        expect(stub.addedClasses).toContain('activity-table__row--highlight');
+      }
+      for (const stub of [trY, cardY]) {
+        expect(stub.scrollIntoViewCalled).toBe(false);
+        expect(stub.focusCalled).toBe(false);
+        expect(stub.addedClasses).not.toContain('activity-table__row--highlight');
+      }
+    });
+
+    it('the leak sequence — WCAG 3.2.x unexpected focus movement: a zero-match render that discards the consume must not let a later render re-highlight', () => {
+      noteViewedActivity('X');
+      // Simulates mount()'s zero-match branch: it must consume the hint even
+      // though it never calls applyReturnHighlight.
+      takeNotedActivityId();
+
+      // Simulates the next, unrelated render — with the fix, the hint is
+      // already spent, so this consume returns null and nothing highlights.
+      const notedId = takeNotedActivityId();
+
+      const trX = buildStubRow({ tagName: 'A', querySelectorResult: null });
+      const cardX = buildStubRow({ tagName: 'A', querySelectorResult: null });
+      const tableWrapper = buildStubTableWrapper([trX]);
+      const cardList = buildStubCardList([cardX]);
+      const pageItems = pageItemsFrom(['X']);
+
+      applyReturnHighlight(
+        notedId,
+        tableWrapper as unknown as HTMLElement,
+        cardList as unknown as HTMLElement,
+        pageItems
+      );
+
+      for (const stub of [trX, cardX]) {
+        expect(stub.scrollIntoViewCalled).toBe(false);
+        expect(stub.focusCalled).toBe(false);
+        expect(stub.addedClasses).not.toContain('activity-table__row--highlight');
+      }
+    });
+
+    it('the load-failure and stale-container branches leak nothing either: two discarded consumes before the eventual render', () => {
+      noteViewedActivity('X');
+      // Stands in for the load-failure return.
+      takeNotedActivityId();
+      // Stands in for the stale-container return.
+      takeNotedActivityId();
+      // The eventual normal render — the hint was already spent twice over.
+      const notedId = takeNotedActivityId();
+
+      const trX = buildStubRow({ tagName: 'A', querySelectorResult: null });
+      const cardX = buildStubRow({ tagName: 'A', querySelectorResult: null });
+      const tableWrapper = buildStubTableWrapper([trX]);
+      const cardList = buildStubCardList([cardX]);
+      const pageItems = pageItemsFrom(['X']);
+
+      applyReturnHighlight(
+        notedId,
+        tableWrapper as unknown as HTMLElement,
+        cardList as unknown as HTMLElement,
+        pageItems
+      );
+
+      for (const stub of [trX, cardX]) {
+        expect(stub.scrollIntoViewCalled).toBe(false);
+        expect(stub.focusCalled).toBe(false);
+        expect(stub.addedClasses).not.toContain('activity-table__row--highlight');
+      }
+    });
+
+    it('applyReturnHighlight never reads module state — pins the parameterisation itself against a future revert', () => {
+      noteViewedActivity('X');
+      // Module state still holds 'X', but applyReturnHighlight must not read
+      // it — only the explicit `notedId` parameter matters.
+
+      const trX = buildStubRow({ tagName: 'A', querySelectorResult: null });
+      const cardX = buildStubRow({ tagName: 'A', querySelectorResult: null });
+      const tableWrapper = buildStubTableWrapper([trX]);
+      const cardList = buildStubCardList([cardX]);
+      const pageItems = pageItemsFrom(['X']);
+
+      applyReturnHighlight(
+        null,
+        tableWrapper as unknown as HTMLElement,
+        cardList as unknown as HTMLElement,
+        pageItems
+      );
+
+      for (const stub of [trX, cardX]) {
+        expect(stub.scrollIntoViewCalled).toBe(false);
+        expect(stub.focusCalled).toBe(false);
+        expect(stub.addedClasses).not.toContain('activity-table__row--highlight');
+      }
+    });
+  }
+);
+
+/**
  * A complete, typed `DashboardIndexRow` fixture with every status-badge
  * condition clean: streams available, HR present, not low-confidence, not
  * excluded, zero PRs — `statusBadgeTexts` must return an empty array for
@@ -342,5 +500,143 @@ describe('lowConfidenceDescriptionId — CR-02 duplicate-element-id fix', () => 
     expect(cardId).not.toBe(tableId);
     expect(cardId).toBe('activity-card-123-low-confidence-desc');
     expect(tableId).toBe('activity-table-123-low-confidence-desc');
+  });
+});
+
+/**
+ * Strips block comments, non-greedy, then `//`-to-end-of-line where the `//`
+ * is not immediately preceded by `:` — mirrors `row-semantics.test.ts`'s and
+ * `row-navigation.test.ts`'s `stripComments` so prose in a comment cannot
+ * collide with these assertions. This is a knowing third copy; `20-REVIEW.md`
+ * WR-04 asks for a shared `test-utils` module and that extraction is out of
+ * this round's scope — logged in `deferred-items.md` under `## Plan 20-12`.
+ */
+function stripComments(source: string): string {
+  const withoutBlockComments = source.replace(/\/\*[\s\S]*?\*\//g, '');
+  return withoutBlockComments.replace(/(?<!:)\/\/.*$/gm, '');
+}
+
+describe('stripComments - self-tests', () => {
+  it('removes a trailing // comment', () => {
+    expect(stripComments('const x = 1; // trailing comment\n')).toBe('const x = 1; \n');
+  });
+
+  it('removes a full-line // comment', () => {
+    expect(stripComments('// a full line comment\nconst y = 2;')).toBe('\nconst y = 2;');
+  });
+
+  it('removes a block comment', () => {
+    expect(stripComments('/* a block comment */ const z = 3;')).toBe(' const z = 3;');
+  });
+
+  it('preserves a string literal containing https://example.com', () => {
+    const source = "const url = 'https://example.com';";
+    expect(stripComments(source)).toBe(source);
+  });
+});
+
+/**
+ * True only when `takeNotedActivityId()` is called inside `mount()` at a
+ * character offset strictly earlier than `loadIndex()`'s offset. Returns
+ * false — not a thrown error — when either landmark, or the call itself,
+ * cannot be found at all; this is deliberate so the blind-spot proof below
+ * can assert `false` on a pre-fix-shaped synthetic that has no
+ * `takeNotedActivityId()` call anywhere, rather than the check vacuously
+ * passing because `indexOf` returns -1 (which is numerically less than any
+ * real offset).
+ */
+function consumePrecedesLoad(source: string): boolean {
+  const mountIdx = source.indexOf('async mount(');
+  const loadIdx = source.indexOf('loadIndex()');
+  if (mountIdx < 0 || loadIdx < 0) return false;
+  const callIdx = source.indexOf('takeNotedActivityId()', mountIdx);
+  if (callIdx < 0) return false;
+  return callIdx < loadIdx;
+}
+
+describe('list.ts wiring - CR-01 the consume is unconditional by construction', () => {
+  const listSource = readFileSync(new URL('./list.ts', import.meta.url), 'utf8');
+  const listStripped = stripComments(listSource);
+
+  it('notedActivityId = null occurs exactly once — one writer, and it is the consume function', () => {
+    const matches = listStripped.match(/notedActivityId\s*=\s*null/g) || [];
+    expect(
+      matches.length,
+      'a second `notedActivityId = null` writer reopens the leak this plan closed — only takeNotedActivityId() may clear the hint'
+    ).toBe(1);
+  });
+
+  it('export function takeNotedActivityId occurs exactly once, and takeNotedActivityId( occurs exactly twice in total (definition + single call site)', () => {
+    const exportMatches = listStripped.match(/export function takeNotedActivityId/g) || [];
+    expect(
+      exportMatches.length,
+      'takeNotedActivityId must be exported exactly once — a duplicate or un-exported definition breaks the module contract Task 1 tests against'
+    ).toBe(1);
+
+    const callMatches = listStripped.match(/takeNotedActivityId\(/g) || [];
+    expect(
+      callMatches.length,
+      'takeNotedActivityId( must occur exactly twice (its definition and mount()\'s single consume) — more call sites risk consuming the hint more than once per render, fewer means mount() no longer consumes it at all'
+    ).toBe(2);
+  });
+
+  it("takeNotedActivityId() runs inside mount() before loadIndex() — the consume runs before the load can reject", () => {
+    expect(
+      consumePrecedesLoad(listStripped),
+      'the consume must appear inside mount() at an offset earlier than loadIndex(), so a rejected load cannot leak the hint (CR-01)'
+    ).toBe(true);
+  });
+
+  it('the slice of source between function applyReturnHighlight and async mount( contains zero occurrences of notedActivityId', () => {
+    const start = listStripped.indexOf('function applyReturnHighlight');
+    const end = listStripped.indexOf('async mount(');
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const applySlice = listStripped.slice(start, end);
+    expect(
+      /notedActivityId/.test(applySlice),
+      'applyReturnHighlight must not reference notedActivityId at all — it is pure with respect to module state after this plan'
+    ).toBe(false);
+  });
+
+  it('CR-01 blind-spot proof: a pre-fix-shaped synthetic (the consume lives inside applyReturnHighlight, called only from the else branch) fails the ordering check above, proving the guard catches the shipped defect rather than merely describing it', () => {
+    // This is the historical CR-01 defect shape, reproduced verbatim as a
+    // synthetic string — it must NOT be "fixed" to make this test pass. The
+    // whole point is that consumePrecedesLoad() returns false on it.
+    const preFixSynthetic = `
+      function applyReturnHighlight(tableWrapper, cardList, pageItems) {
+        if (notedActivityId === null) {
+          return;
+        }
+        const idx = pageItems.findIndex((row) => row.id === notedActivityId);
+        notedActivityId = null;
+        if (idx === -1) {
+          return;
+        }
+        highlightAndFocus(tr);
+        highlightAndFocus(card);
+      }
+
+      async mount(ctx) {
+        mountedContainer = ctx.container;
+        try {
+          await indexClient.loadIndex();
+        } catch (error) {
+          return;
+        }
+        if (mountedContainer !== ctx.container) {
+          return;
+        }
+        if (filtered.length === 0) {
+          return;
+        } else {
+          if (mountedContainer === ctx.container) {
+            applyReturnHighlight(tableWrapper, cardList, pageItems);
+          }
+        }
+      }
+    `;
+    const syntheticStripped = stripComments(preFixSynthetic);
+    expect(consumePrecedesLoad(syntheticStripped)).toBe(false);
   });
 });

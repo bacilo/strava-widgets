@@ -37,3 +37,17 @@ task's changes).
   confirming the widget/dashboard bundle compiles cleanly; only the
   publish-verifier's dashboard-index reachability check is blocked by
   missing local data.
+
+## Plan 20-12
+
+- **WR-04 (20-REVIEW.md) still open — third `stripComments` copy.** This
+  plan's Task 3 adds a `stripComments` helper to
+  `src/dashboard/views/list.test.ts`, identical in body and four self-tests
+  to the one in `src/dashboard/row-semantics.test.ts` and the one in
+  `src/dashboard/row-navigation.test.ts`. `stripComments` now exists,
+  hand-copied, in three test files: `row-semantics.test.ts`,
+  `row-navigation.test.ts`, and `views/list.test.ts`. WR-04 asks for a
+  shared `test-utils` module so this logic has one source of truth instead
+  of three drift-prone copies; that extraction remains out of this
+  gap-closure round's scope (this plan closes a CRITICAL focus-theft
+  regression, not a test-infrastructure refactor) and is still open.
