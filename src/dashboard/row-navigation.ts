@@ -44,6 +44,17 @@
  * `tagName === 'A'` over `instanceof HTMLAnchorElement`. The refusal
  * conditions themselves are the review's, unchanged.
  *
+ * D-14, written so a later agent does not undo it: the row-click listener
+ * refuses navigation on the first click of a double-click, closing
+ * `20-REVIEW.md`'s WR-05. `RowClickContext` gains a `clickCount` field fed
+ * from `MouseEvent.detail`, and `shouldNavigateOnRowClick` gains a fifth
+ * refusal class, `clickCount > 1`, appended after D-12's four. D-12's
+ * `auxclick` out-of-scope disposition is unchanged by this — no `auxclick`
+ * or `dblclick` handler is added. The refusal order deliberately keeps
+ * `closest('a')` first, so a click inside the row's own anchor is still
+ * refused for the double-navigation reason rather than incidentally by this
+ * later guard.
+ *
  * The assertable surface, honestly: `activityDetailPath`, `activityDetailHref`,
  * `NAVIGABLE_ROW_CLASS` and now `shouldNavigateOnRowClick` — the whole click
  * decision, including D-12's guards — are pure and unit-tested in
@@ -85,6 +96,12 @@ export interface RowClickContext {
   altKey: boolean;
   insideAnchor: boolean;
   hasTextSelection: boolean;
+  /**
+   * `MouseEvent.detail` — the browser's own click-repeat counter. 1 is a
+   * single click; 2 or more means this click is part of a double-click (or
+   * triple-click) sequence.
+   */
+  clickCount: number;
 }
 
 /**
@@ -98,6 +115,9 @@ export interface RowClickContext {
  * - any of `metaKey` / `ctrlKey` / `shiftKey` / `altKey` — new tab, new
  *   window and download all belong to the browser.
  * - `hasTextSelection` — a drag-select that ends inside the row must survive.
+ * - `clickCount > 1` (D-14) — the first click of a double-click is a select
+ *   gesture, not a navigate gesture, and `hasTextSelection` cannot cover it:
+ *   the browser fires the first `click` before the word selection exists.
  * Otherwise navigates.
  */
 export function shouldNavigateOnRowClick(context: RowClickContext): boolean {
@@ -111,6 +131,9 @@ export function shouldNavigateOnRowClick(context: RowClickContext): boolean {
     return false;
   }
   if (context.hasTextSelection) {
+    return false;
+  }
+  if (context.clickCount > 1) {
     return false;
   }
   return true;
@@ -134,6 +157,7 @@ export function attachRowNavigation(rowEl: HTMLElement, activityId: string): voi
       altKey: event.altKey,
       insideAnchor: Boolean((event.target as HTMLElement).closest('a')),
       hasTextSelection: Boolean(selection && !selection.isCollapsed && selection.toString().length > 0),
+      clickCount: event.detail,
     };
     if (!shouldNavigateOnRowClick(context)) {
       return;
