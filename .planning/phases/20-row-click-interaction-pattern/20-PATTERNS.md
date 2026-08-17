@@ -515,3 +515,35 @@ anchor.setAttribute(
 **Analog search scope:** `src/dashboard/` (views/, styles.css, styles.test.ts, router.ts, nav.ts) — matches CONTEXT.md's "Files this phase changes" and "read-only but affected" lists exactly; no search outside `src/dashboard/` was needed since CONTEXT.md's `<canonical_refs>` already pre-identified every touched file with line numbers.
 **Files scanned:** `list.ts`, `overview.ts`, `records.ts`, `records-logic.ts` (interfaces only), `router.ts`, `nav.ts`, `calendar.ts` (:95-163), `styles.css` (:320-560), `styles.test.ts` (:1-160, :700-740), `trends.ts` (:525-540, :1015-1030), `detail-sections.ts` (:388-400), `list-logic.ts`/`list-logic.test.ts` (headers only, for the `*-logic.ts` contrast).
 **Pattern extraction date:** 2026-08-13
+
+
+---
+
+## Round 4 additions (appended 2026-08-17 — the table above is NOT complete)
+
+The classification table, pattern assignments and "No Analog Found" list above were produced on
+2026-08-13 for plans 20-01…20-11. They were **not** regenerated for gap-closure round 4 (plans
+20-12…20-18), so a reader must not treat them as a complete inventory of this phase's patterns.
+Two new patterns were introduced by round 4 and are recorded here only:
+
+| New pattern | Location | Closest analog | Match quality | Introduced by |
+|-------------|----------|----------------|---------------|---------------|
+| `buildCellLink(activityId, ariaLabel)` — a module-private factory returning a contentless `<a>` carrying `href`, a curated `aria-label` and `tabIndex = -1`, called once per non-Date cell | `src/dashboard/views/records.ts`, immediately above `buildPrTable` | the Date cell's own `dateAnchor` construction (`records.ts:396-407`, `:512-520`) — the factory is that construction extracted and given `tabIndex = -1` | exact (self) | plan 20-17 (D-13) |
+| `.pr-table__cell-link` — a class rule that cancels the D-06 bare-`a` underline and makes the anchor fill its cell's inline box (`color: inherit; text-decoration: none; display: block`) | `src/dashboard/styles.css`, Phase 20 block, between the `.activity-row` rules and the `.activity-table__row--navigable` rules | `.activity-row { text-decoration: none }` (`styles.css:1530`) — the same "this anchor is not a text link" move, applied at cell scope instead of row scope | exact | plan 20-16 (D-13 support) |
+
+Two entries above are also **corrections** to this document's earlier reasoning, recorded rather
+than silently overwritten:
+
+- The **curated `aria-label`** entry above states that Records' row types carry no name field and
+  therefore need "an equivalently curated but differently-shaped label". That is still true of the
+  *label*, but round 4's D-13 established that it was never true of the *`href`*: the Date cell
+  already built a working anchor from `row.activityId` alone. The absence of a name blocked a
+  name-first label template only — never a real link. D-12's "a real anchor needs the D-05
+  activity-name join" clause was superseded on exactly that ground.
+- The **"No Analog Found"** table's D-06 bare-`a` entry now has a downstream consequence it could
+  not have anticipated: because that rule underlines every bare anchor in the app, any later phase
+  adding anchors inside dense tabular data needs a cell-scoped cancellation like
+  `.pr-table__cell-link`, not a new token. That is the analog to copy next time.
+
+Round 4's plans carry self-contained `<interfaces>` blocks with the source facts each executor
+needs, so nothing downstream depends on this document being extended further.
