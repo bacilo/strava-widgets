@@ -225,7 +225,7 @@ Plans:
 
 **Wave 11** *(gap closure round 4 — blocked on Wave 10; same file as 20-14)*
 
-- [ ] 20-16-PLAN.md — the `.pr-table__cell-link` treatment D-13's anchors need, so seven new anchors per Records row do not ship as underlined text links, guarded to 20-14's standard (UX-03)
+- [x] 20-16-PLAN.md — the `.pr-table__cell-link` treatment D-13's anchors need, so seven new anchors per Records row do not ship as underlined text links, guarded to 20-14's standard (UX-03)
 
 **Wave 12** *(gap closure round 4 — blocked on Wave 11; the CSS class must exist before the markup uses it)*
 
@@ -344,7 +344,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 17. Activity Browser & Detail Views | v2.0 | 15/15 | Complete    | 2026-08-11 |
 | 18. Records, Trends & Differentiators | v2.0 | 16/16 | Complete    | 2026-08-12 |
 | 19. Design System & Control Styling | v2.1 | 17/17 | Complete    | 2026-08-13 |
-| 20. Row-Click Interaction Pattern | v2.1 | 15/18 | In Progress|  |
+| 20. Row-Click Interaction Pattern | v2.1 | 16/18 | In Progress|  |
 | 21. Overview Rebuild | v2.1 | 0/TBD | Not started | - |
 | 22. Calendar Week-Start & Totals | v2.1 | 0/TBD | Not started | - |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 0/TBD | Not started | - |
