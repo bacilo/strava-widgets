@@ -153,10 +153,10 @@ function selectorListDeclares(needle: string, declaration: string): boolean {
 }
 
 /**
- * Every `[start, end)` character offset range in `cssNoComments` occupied by
- * an at-rule block (`@media`, or any other `@`-prefixed rule), computed once
- * by brace matching: for each `@`-prelude's opening `{`, walk forward
- * tracking nesting depth until the block closes, and record the offsets.
+ * Computes every `[start, end)` character offset range in `source` occupied
+ * by an at-rule block (`@media`, or any other `@`-prefixed rule), by brace
+ * matching: for each `@`-prelude's opening `{`, walk forward tracking
+ * nesting depth until the block closes, and record the offsets.
  * R3-CR-01 (19-REVIEW-round3.md): the previous guard (a head-only check,
  * removed below) only rejected a match whose HEAD itself began with `@` —
  * the at-rule prelude pseudo-rule the shared scanner produces — which no
@@ -170,39 +170,61 @@ function selectorListDeclares(needle: string, declaration: string): boolean {
  * body. Brace matching (rather than assuming exactly one level of nesting)
  * is deliberate: it finds the block's true end even for a construct nested
  * inside the `@media` body, not just a flat rule list.
+ *
+ * Parameterized by `source` (WR-03, 20-14): this used to be a module-level
+ * constant computed once from `cssNoComments`, which is correct only for
+ * callers reading the real stylesheet. Every offset-consuming helper below
+ * also accepts an optional `source` for synthetic self-tests, and an offset
+ * computed against a small synthetic string has no relationship to a range
+ * computed from the (much larger) real file — comparing the two would
+ * silently never match, making the at-rule check inert for every synthetic
+ * `@media` proof. Memoized per distinct `source` string (a `Map`, not a
+ * `WeakMap` — the keys here are string values compared by content, most
+ * calls reuse the default `cssNoComments` instance) so repeated calls
+ * against the real stylesheet stay O(1) after the first.
  */
-const AT_RULE_RANGES: Array<[number, number]> = (() => {
+const atRuleRangesCache = new Map<string, Array<[number, number]>>();
+function computeAtRuleRanges(source: string): Array<[number, number]> {
+  const cached = atRuleRangesCache.get(source);
+  if (cached) {
+    return cached;
+  }
   const ranges: Array<[number, number]> = [];
-  for (const m of cssNoComments.matchAll(/@[a-z-]+[^{]*\{/g)) {
+  for (const m of source.matchAll(/@[a-z-]+[^{]*\{/g)) {
     let i = m.index! + m[0].length;
     let depth = 1;
-    while (depth > 0 && i < cssNoComments.length) {
-      if (cssNoComments[i] === '{') depth++;
-      else if (cssNoComments[i] === '}') depth--;
+    while (depth > 0 && i < source.length) {
+      if (source[i] === '{') depth++;
+      else if (source[i] === '}') depth--;
       i++;
     }
     ranges.push([m.index!, i]);
   }
+  atRuleRangesCache.set(source, ranges);
   return ranges;
-})();
+}
 
 /**
  * Predicate backing `assertNotAtRuleScoped` below: true when a match lives
  * inside an at-rule block — either because the match IS the at-rule prelude
  * itself (its head starts with `@`), or because its offset falls strictly
- * inside one of the brace-matched `AT_RULE_RANGES` above, which catches a
- * nested rule at ANY position inside the block, not only the first. Split
- * out from `assertNotAtRuleScoped` (rather than inlined into it) so
- * `bodyForSelectorListToken` below can SKIP an at-rule-scoped candidate and
- * keep scanning for a valid one — a real selector can appear once at the
- * top level and again, separately, nested inside `@media` (e.g.
- * `.app-nav__toggle`), and the top-level rule must still resolve even
- * though a later or earlier at-rule-scoped match for the same token exists.
+ * inside one of the brace-matched ranges `computeAtRuleRanges` returns for
+ * `source`, which catches a nested rule at ANY position inside the block,
+ * not only the first. Split out from `assertNotAtRuleScoped` (rather than
+ * inlined into it) so `bodyForSelectorListToken` below can SKIP an
+ * at-rule-scoped candidate and keep scanning for a valid one — a real
+ * selector can appear once at the top level and again, separately, nested
+ * inside `@media` (e.g. `.app-nav__toggle`), and the top-level rule must
+ * still resolve even though a later or earlier at-rule-scoped match for the
+ * same token exists. Takes `source` explicitly (WR-03, 20-14) rather than
+ * reading a module-level constant, so the ranges it checks against always
+ * match the text `offset` was computed from.
  */
-function isAtRuleScoped(offset: number, head: string): boolean {
+function isAtRuleScoped(offset: number, head: string, source: string = cssNoComments): boolean {
   const trimmed = head.trim();
   return (
-    trimmed.startsWith('@') || AT_RULE_RANGES.some(([start, end]) => offset > start && offset < end)
+    trimmed.startsWith('@') ||
+    computeAtRuleRanges(source).some(([start, end]) => offset > start && offset < end)
   );
 }
 
@@ -219,9 +241,16 @@ function isAtRuleScoped(offset: number, head: string): boolean {
  * deliberately NOT applied in `selectorListDeclares`, which iterates every
  * rule in the file and returns a boolean — throwing there would fire on the
  * first at-rule it walks past and break unrelated, currently-passing
- * assertions that have nothing to do with the needle it is checking.
+ * assertions that have nothing to do with the needle it is checking. Takes
+ * `source` explicitly (WR-03, 20-14) for the same reason `isAtRuleScoped`
+ * does — see that function's JSDoc.
  */
-function assertNotAtRuleScoped(offset: number, head: string, needle: string): void {
+function assertNotAtRuleScoped(
+  offset: number,
+  head: string,
+  needle: string,
+  source: string = cssNoComments,
+): void {
   const trimmed = head.trim();
   if (trimmed.startsWith('@')) {
     throw new Error(
@@ -230,7 +259,7 @@ function assertNotAtRuleScoped(offset: number, head: string, needle: string): vo
         'match is the at-rule prelude itself, not the rule the caller intended.',
     );
   }
-  if (AT_RULE_RANGES.some(([start, end]) => offset > start && offset < end)) {
+  if (computeAtRuleRanges(source).some(([start, end]) => offset > start && offset < end)) {
     throw new Error(
       `Match for "${needle}" resolves inside an at-rule block (head: "${trimmed}") — ` +
         'these helpers do not model at-rule nesting; assert on a top-level rule instead.',
@@ -265,6 +294,17 @@ function assertNotAtRuleScoped(offset: number, head: string, needle: string): vo
  * purely so the self-tests below can exercise last-wins against small
  * synthetic CSS strings without editing `styles.css` — every existing call
  * site omits it and keeps reading the real stylesheet exactly as before.
+ *
+ * Exclusion (WR-03, 20-REVIEW.md): the returned body is the cascade winner
+ * AMONG TOP-LEVEL RULES ONLY — at-rule-scoped rules are skipped by
+ * construction (`isAtRuleScoped` above), so a guard built on this helper
+ * cannot see a `@media` (or other at-rule) override of the same selector. A
+ * guard that needs to rule that out must pair with `assertNoAtRuleOverride`.
+ * The name is not qualified with "top-level" — `20-REVIEW.md` offered
+ * `topLevelCascadeWinningBodyDeclaring` as an option for the sibling helper
+ * below, but renaming any of these three would churn every Phase 16-19 call
+ * site for no behavioural gain; the exclusion is recorded here in the docs
+ * instead, so the naming question is closed rather than left open.
  */
 function bodyForSelectorListToken(needle: string, source: string = cssNoComments): string {
   const ruleHeadAndBody = RULE_SCANNER();
@@ -278,7 +318,7 @@ function bodyForSelectorListToken(needle: string, source: string = cssNoComments
     if (!selectors.some((s) => s === needle)) {
       continue;
     }
-    if (isAtRuleScoped(match.index, head)) {
+    if (isAtRuleScoped(match.index, head, source)) {
       atRuleScopedMatch = { offset: match.index, head };
       continue;
     }
@@ -287,7 +327,7 @@ function bodyForSelectorListToken(needle: string, source: string = cssNoComments
   }
   if (!found) {
     if (atRuleScopedMatch) {
-      assertNotAtRuleScoped(atRuleScopedMatch.offset, atRuleScopedMatch.head, needle);
+      assertNotAtRuleScoped(atRuleScopedMatch.offset, atRuleScopedMatch.head, needle, source);
     }
     throw new Error(`No rule found whose selector list contains: ${needle}`);
   }
@@ -311,6 +351,15 @@ function bodyForSelectorListToken(needle: string, source: string = cssNoComments
  * at-rule-scoped, or the generic "no rule found" message when it was never
  * seen at all — so a deleted rule fails loudly rather than returning an
  * empty array a caller might mistake for "zero legitimately".
+ *
+ * Exclusion (WR-03, 20-REVIEW.md): the returned list is TOP-LEVEL bodies
+ * ONLY — at-rule-scoped rules are skipped by construction, so a caller
+ * (including `cascadeWinningBodyDeclaring`, built on this) cannot see a
+ * `@media` (or other at-rule) override of the same selector. A guard that
+ * needs to rule that out must pair with `assertNoAtRuleOverride`. Not
+ * renamed to signal this (e.g. `topLevelBodiesForSelectorListToken`) for the
+ * same reason `cascadeWinningBodyDeclaring` below is not renamed — see its
+ * JSDoc for the recorded decision.
  */
 function bodiesForSelectorListToken(needle: string, source: string = cssNoComments): string[] {
   const ruleHeadAndBody = RULE_SCANNER();
@@ -323,7 +372,7 @@ function bodiesForSelectorListToken(needle: string, source: string = cssNoCommen
     if (!selectors.some((s) => s === needle)) {
       continue;
     }
-    if (isAtRuleScoped(match.index, head)) {
+    if (isAtRuleScoped(match.index, head, source)) {
       atRuleScopedMatch = { offset: match.index, head };
       continue;
     }
@@ -331,7 +380,7 @@ function bodiesForSelectorListToken(needle: string, source: string = cssNoCommen
   }
   if (bodies.length === 0) {
     if (atRuleScopedMatch) {
-      assertNotAtRuleScoped(atRuleScopedMatch.offset, atRuleScopedMatch.head, needle);
+      assertNotAtRuleScoped(atRuleScopedMatch.offset, atRuleScopedMatch.head, needle, source);
     }
     throw new Error(`No rule found whose selector list contains: ${needle}`);
   }
@@ -358,6 +407,23 @@ function bodiesForSelectorListToken(needle: string, source: string = cssNoCommen
  * with the same `.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')` guard the other
  * helpers use (R3-IN-01). Throws, naming both `needle` and `property`, when
  * no non-at-rule-scoped body declares it.
+ *
+ * Exclusion (WR-03, 20-REVIEW.md): "matching how CSS resolves a selector
+ * declared more than once" above is true only AMONG TOP-LEVEL RULES — this
+ * is built on `bodiesForSelectorListToken`, which skips every at-rule-scoped
+ * rule by construction, so this helper is structurally incapable of seeing a
+ * `@media` (or other at-rule) override of `property` for `needle`. That is
+ * not theoretical: `.activity-row`'s `display` is genuinely governed by the
+ * 720px breakpoint in this very stylesheet (`styles.css:545-553`), and an
+ * executed mutation appending a `@media` override of it left this helper
+ * green. A guard built on this return value claims the rule is LIVE, so a
+ * guard that needs that claim to be true must pair with
+ * `assertNoAtRuleOverride`, which is the companion this helper cannot be by
+ * construction. `20-REVIEW.md` offered renaming this to
+ * `topLevelCascadeWinningBodyDeclaring` to make the exclusion visible in the
+ * name; that rename is declined here because it would churn every Phase
+ * 16-19 call site for no behavioural gain, and the exclusion is recorded in
+ * this doc instead — the naming question is closed, not left open.
  */
 function cascadeWinningBodyDeclaring(
   needle: string,
@@ -375,6 +441,59 @@ function cascadeWinningBodyDeclaring(
   throw new Error(
     `No body among the rules whose selector list contains "${needle}" declares "${property}"`,
   );
+}
+
+/**
+ * Companion for the blind spot `cascadeWinningBodyDeclaring`,
+ * `bodyForSelectorListToken` and `bodiesForSelectorListToken` cannot see by
+ * construction (WR-03, 20-REVIEW.md): all three `continue` on
+ * `isAtRuleScoped`, so none of them can ever observe an at-rule-scoped rule
+ * that redeclares a guarded property for a guarded selector. This helper
+ * scans the opposite half of the same rule list — reusing the same
+ * `RULE_SCANNER()` walk and `splitTopLevelSelectors` head-splitting the
+ * other helpers use, so the two halves can never disagree about what a
+ * "rule" or a "selector token" is — keeps only the candidates whose selector
+ * list contains `needle` as an exact token AND for which `isAtRuleScoped` is
+ * true, and throws when any such body declares `property`. Anchors the
+ * property match to a declaration boundary (start of body, or a preceding
+ * `;` or whitespace) and escapes `property` with the same
+ * `.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')` guard the other helpers use
+ * (R3-IN-01), so a property that is a suffix of a longer property name (e.g.
+ * `index` inside `z-index`) can never match. The thrown message names the
+ * selector, the property and the offending at-rule head, so a failure says
+ * which breakpoint kills the rule. Accepts an optional `source` (default:
+ * the real stylesheet with comments stripped), for the same reason the
+ * other selector-token helpers do — every proof in this file's Phase 20
+ * block exercises it against a synthetic CSS string rather than editing
+ * `styles.css`.
+ */
+function assertNoAtRuleOverride(
+  needle: string,
+  property: string,
+  source: string = cssNoComments,
+): void {
+  const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const declarationPattern = new RegExp(`(?:^|;|\\s)${escapedProperty}\\s*:`);
+  const ruleHeadAndBody = RULE_SCANNER();
+  let match: RegExpExecArray | null;
+  while ((match = ruleHeadAndBody.exec(source)) !== null) {
+    const [, head, body] = match;
+    if (!isAtRuleScoped(match.index, head, source)) {
+      continue;
+    }
+    const selectors = splitTopLevelSelectors(head);
+    if (!selectors.some((s) => s === needle)) {
+      continue;
+    }
+    if (declarationPattern.test(body)) {
+      throw new Error(
+        `An at-rule-scoped rule (head: "${head.trim()}") redeclares "${property}" for ` +
+          `"${needle}" — this override is invisible to cascadeWinningBodyDeclaring, ` +
+          'bodyForSelectorListToken and bodiesForSelectorListToken, which skip every ' +
+          'at-rule-scoped rule by construction.',
+      );
+    }
+  }
 }
 
 /**
@@ -787,31 +906,66 @@ describe('styles.css — Phase 17 tokens', () => {
 // above is itself evidence that "the assertion exists and the file says so"
 // is not sufficient either.
 //
-// Phase 20 cascade migration (WR-03, 20-REVIEW.md; plan 20-10): the four
-// Phase 20 assertions below ('.activity-row keeps display: flex', the two
-// D-09 hover-mix checks, and D-10's cursor: pointer check) used to read
-// through `declarationsFor`, which is first-rule-wins over the raw
-// stylesheet text — the same false-green mechanism the R3-WR-02 paragraph
-// above already proved for `bodyForSelectorListToken` and
-// `extractNumericDeclaration`. The review's executed mutation showed all
-// four staying green while the rules they guard were dead. They now read
-// through `bodyForSelectorListToken` (three of the four — each targets a
-// selector declared exactly once at the top level, so last-wins and
-// first-wins coincide today, but only last-wins matches what a browser
-// actually resolves if a later override is ever added) or
-// `cascadeWinningBodyDeclaring` (the `.activity-row` / `display` case,
-// which needs it for real: `.activity-row` is declared TWICE at the top
-// level — styles.css:338 carrying `display: flex`, styles.css:1530 carrying
-// only `text-decoration: none` — so `bodyForSelectorListToken` alone would
-// resolve to the second body and fail the assertion; `cascadeWinningBodyDeclaring`
-// finds the last body that actually declares `display`). `declarationsFor`
-// itself is NOT converted to last-wins — doing so would change the reading
-// of roughly forty pre-existing Phase 16-19 assertions built on it, in a
-// gap-closure plan that has no rendered verification to catch a regression
-// any of those forty might introduce. It remains first-wins and is now
-// documented as such (see its own JSDoc above), with `bodyForSelectorListToken`
-// and `cascadeWinningBodyDeclaring` named as the correct choices for any
-// selector that might be declared more than once.
+// Phase 20 cascade migration (WR-02/WR-03, 20-REVIEW.md; plans 20-10 and
+// 20-14): the seven positive assertions in the Phase 20 block below split
+// into two migration steps, neither of which is complete on its own.
+//
+// Step one (plan 20-10, WR-03 in its round): four of the seven assertions
+// ('.activity-row keeps display: flex', the two D-09 hover-mix checks, and
+// D-10's cursor: pointer check) used to read through `declarationsFor`,
+// which is first-rule-wins over the raw stylesheet text — the same
+// false-green mechanism the R3-WR-02 paragraph above already proved for
+// `bodyForSelectorListToken` and `extractNumericDeclaration`. The review's
+// executed mutation showed all four staying green while the rules they
+// guard were dead. They were converted to `bodyForSelectorListToken` (three
+// of the four — each targets a selector declared exactly once at the top
+// level, so last-wins and first-wins coincide today, but only last-wins
+// matches what a browser actually resolves if a later override is ever
+// added) or `cascadeWinningBodyDeclaring` (the `.activity-row` / `display`
+// case, which needs it for real: `.activity-row` is declared TWICE at the
+// top level — styles.css:338 carrying `display: flex`, styles.css:1530
+// carrying only `text-decoration: none` — so `bodyForSelectorListToken`
+// alone would resolve to the second body and fail the assertion;
+// `cascadeWinningBodyDeclaring` finds the last body that actually declares
+// `display`). Plan 20-10 left the remaining THREE assertions — the two bare
+// `a` checks and `.activity-row declares text-decoration: none` — on
+// `selectorListDeclares`, which is any-rule-wins rather than last-wins, a
+// strictly weaker guarantee than the first-wins helper it had just replaced
+// the other four away from (WR-02, 20-REVIEW.md). Plan 20-14 converted
+// those three to `cascadeWinningBodyDeclaring` as well, so all seven
+// positive assertions now read the cascade winner, and added an executed
+// blind-spot proof of the any-rule-wins mechanism it closed.
+//
+// Step two (plan 20-14, WR-03): `bodyForSelectorListToken` and
+// `cascadeWinningBodyDeclaring` are both built on
+// `bodiesForSelectorListToken`, which skips every at-rule-scoped rule by
+// construction — so even after step one, a `@media` override of a guarded
+// selector left every converted assertion green. That is not theoretical
+// for this selector: `.activity-row`'s `display` is genuinely governed by
+// the 720px breakpoint elsewhere in this file (styles.css:545-553), and the
+// review's executed mutation proved it. Plan 20-14 added
+// `assertNoAtRuleOverride` and paired it with all seven positive
+// assertions, plus an executed blind-spot proof covering both of the
+// review's mutations.
+//
+// `declarationsFor` itself is NOT converted to last-wins — doing so would
+// change the reading of roughly forty pre-existing Phase 16-19 assertions
+// built on it, in a gap-closure plan that has no rendered verification to
+// catch a regression any of those forty might introduce. It remains
+// first-wins and is now documented as such (see its own JSDoc above), with
+// `bodyForSelectorListToken` and `cascadeWinningBodyDeclaring` named as the
+// correct choices for any selector that might be declared more than once.
+//
+// The Phase 20 block's three NEGATIVE assertions (`selectorListDeclares('a',
+// 'color: var(--accent)')`, and D-10's two `.activity-table tbody tr[:hover]`
+// checks) deliberately stay on `selectorListDeclares` — neither plan
+// converts them, because any-rule-wins over a negative claim ("no rule
+// declares this") is the conservative direction, not the false-green one.
+// IN-10 (20-REVIEW.md) notes their vacuity on deletion remains open: if the
+// guarded rule were deleted outright rather than overridden, these negative
+// assertions would still (correctly, but coincidentally) read `false`, and
+// nothing in this file distinguishes "never declared" from "correctly
+// absent by design". That gap is not addressed by plan 20-14 and stays open.
 //
 // Scope, stated plainly (T-19G-FALSEGREEN-13, accepted risk, not
 // eliminated): the 40 pre-existing Phase 19 substring assertions in the
@@ -1258,13 +1412,29 @@ describe('styles.css - Phase 20 row-click interaction pattern', () => {
   // repository has shipped once already (GAP 1) and now mutation-proves
   // against. selectorListDeclares walks the parsed rule list and matches
   // `a` as an exact top-level selector token, so it cannot make this
-  // mistake.
+  // mistake — but it was not the right replacement either: it is
+  // any-rule-wins (WR-02, 20-REVIEW.md), so a later, cascade-winning
+  // override of the same selector cannot make it fail. See the WR-02
+  // blind-spot proof below for an executed case where that is exactly what
+  // happens.
+  //
+  // cascadeWinningBodyDeclaring, not bodyForSelectorListToken, for the two
+  // `a` assertions below, even though `a` is declared exactly once today:
+  // bodyForSelectorListToken returns the last body whether or not it
+  // declares the property under test, which is wrong the moment a second
+  // `a` rule is added that does not carry `color` (or `text-decoration`).
+  // cascadeWinningBodyDeclaring resolves per property, so it stays correct
+  // even if that happens.
   it('D-06: the bare a rule declares color: inherit', () => {
-    expect(selectorListDeclares('a', 'color: inherit')).toBe(true);
+    expect(cascadeWinningBodyDeclaring('a', 'color')).toContain('color: inherit');
+    assertNoAtRuleOverride('a', 'color');
   });
 
   it('D-06: the bare a rule declares text-decoration: underline', () => {
-    expect(selectorListDeclares('a', 'text-decoration: underline')).toBe(true);
+    expect(cascadeWinningBodyDeclaring('a', 'text-decoration')).toContain(
+      'text-decoration: underline',
+    );
+    assertNoAtRuleOverride('a', 'text-decoration');
   });
 
   it('D-06: the bare a rule does not declare color: var(--accent)', () => {
@@ -1286,26 +1456,72 @@ describe('styles.css - Phase 20 row-click interaction pattern', () => {
     // resolves per property, the way a browser does, so it stays correct
     // even if the two rules are ever reordered. See WR-03 (20-REVIEW.md).
     expect(cascadeWinningBodyDeclaring('.activity-row', 'display')).toContain('display: flex');
+    assertNoAtRuleOverride('.activity-row', 'display');
   });
 
   it('.activity-row declares text-decoration: none - the whole-row link is not a text link', () => {
-    expect(selectorListDeclares('.activity-row', 'text-decoration: none')).toBe(true);
+    // cascadeWinningBodyDeclaring, not selectorListDeclares: `.activity-row`
+    // is also declared at styles.css:338 (carrying `display: flex`, not
+    // `text-decoration`), so any-rule-wins would report `true` even if the
+    // text-decoration-carrying rule at :1530 were later overridden — see the
+    // WR-02 blind-spot proof immediately below for the executed case.
+    expect(cascadeWinningBodyDeclaring('.activity-row', 'text-decoration')).toContain(
+      'text-decoration: none',
+    );
+    assertNoAtRuleOverride('.activity-row', 'text-decoration');
+  });
+
+  it('WR-02: selectorListDeclares is any-rule-wins; cascadeWinningBodyDeclaring is not (20-REVIEW.md)', () => {
+    // The first expectation below documents the defect the old any-rule-wins
+    // guard shipped with and must not be "fixed" to a passing value — it is
+    // the false-green this plan closes, preserved here as evidence that the
+    // mechanism is real. The second expectation shows the cascade-aware
+    // replacement resolving to the actual override instead. Runs against a
+    // synthetic string via the helpers' optional `source` argument, not
+    // against styles.css.
+    const synthetic =
+      '.activity-row { text-decoration: none; }\n' +
+      '.activity-row { text-decoration: underline; }';
+    // selectorListDeclares has no `source` parameter, so its any-rule-wins
+    // scan (return true on the FIRST matching rule, ignoring source order)
+    // is reproduced inline here rather than called directly.
+    const anyRuleWinsDeclares = (needle: string, declaration: string): boolean => {
+      const ruleHeadAndBody = RULE_SCANNER();
+      let match: RegExpExecArray | null;
+      while ((match = ruleHeadAndBody.exec(synthetic)) !== null) {
+        const [, head, body] = match;
+        if (splitTopLevelSelectors(head).some((s) => s === needle) && body.includes(declaration)) {
+          return true;
+        }
+      }
+      return false;
+    };
+    // Documents the miss: the stale first rule's declaration reads as
+    // present even though a later rule overrides it.
+    expect(anyRuleWinsDeclares('.activity-row', 'text-decoration: none')).toBe(true);
+    // The cascade-aware replacement resolves to the actual override.
+    const winner = cascadeWinningBodyDeclaring('.activity-row', 'text-decoration', synthetic);
+    expect(winner).toContain('underline');
+    expect(winner).not.toContain('text-decoration: none');
   });
 
   it('D-09: .activity-row:hover mixes from var(--surface) toward var(--text)', () => {
     expect(bodyForSelectorListToken('.activity-row:hover')).toContain(
       'color-mix(in srgb, var(--surface) 92%, var(--text))',
     );
+    assertNoAtRuleOverride('.activity-row:hover', 'background');
   });
 
   it('D-10: .activity-table__row--navigable declares cursor: pointer', () => {
     expect(bodyForSelectorListToken('.activity-table__row--navigable')).toContain('cursor: pointer');
+    assertNoAtRuleOverride('.activity-table__row--navigable', 'cursor');
   });
 
   it('D-09/D-10: .activity-table__row--navigable:hover mixes with the byte-identical formula', () => {
     expect(bodyForSelectorListToken('.activity-table__row--navigable:hover')).toContain(
       'color-mix(in srgb, var(--surface) 92%, var(--text))',
     );
+    assertNoAtRuleOverride('.activity-table__row--navigable:hover', 'background');
   });
 
   it('D-10: .activity-table tbody tr no longer declares cursor: pointer', () => {
@@ -1317,6 +1533,51 @@ describe('styles.css - Phase 20 row-click interaction pattern', () => {
 
   it('D-10: .activity-table tbody tr:hover no longer declares a color-mix hover', () => {
     expect(selectorListDeclares('.activity-table tbody tr:hover', 'color-mix')).toBe(false);
+  });
+
+  it('WR-03: cascadeWinningBodyDeclaring and bodyForSelectorListToken are blind to @media overrides; assertNoAtRuleOverride is not (20-REVIEW.md)', () => {
+    // Each pair below documents the blind spot first (the old helper stays
+    // green against a synthetic @media override — this must not be "fixed"
+    // to a failing value, it is the false-green this plan closes) and then
+    // proves the closure (assertNoAtRuleOverride throws on the same input).
+    // Both run against synthetic CSS strings via the helpers' optional
+    // `source` argument, not against styles.css.
+
+    // Mutation 1 (the review's `.activity-row` / `display` case): a
+    // top-level `display: flex` is overridden at the 720px breakpoint,
+    // exactly as `.activity-row` is genuinely governed by that breakpoint
+    // in this stylesheet (styles.css:545-553). A leading `.placeholder` rule
+    // inside the `@media` block is deliberate, matching the real
+    // stylesheet's shape (styles.css:545-556 holds three rules, not one):
+    // RULE_SCANNER's shared regex consumes the `@media` prelude itself as a
+    // pseudo rule head and swallows the FIRST nested rule into that pseudo
+    // rule's captured body (see the `computeAtRuleRanges` JSDoc above), so a
+    // single-rule `@media` block would never produce a real head+body match
+    // for `.activity-row` to test against at all — this needs a second rule
+    // in the block for the override to be reachable by the scanner the same
+    // way it is reachable in the real file.
+    const displaySynthetic =
+      '.activity-row { display: flex; }\n' +
+      '@media (max-width: 720px) { .placeholder { color: red; } .activity-row { display: block; } }';
+    expect(cascadeWinningBodyDeclaring('.activity-row', 'display', displaySynthetic)).toContain(
+      'display: flex',
+    );
+    expect(() => assertNoAtRuleOverride('.activity-row', 'display', displaySynthetic)).toThrow();
+
+    // Mutation 2 (the review's `.activity-table__row--navigable` / `cursor`
+    // case): a top-level `cursor: pointer` is redeclared to `cursor:
+    // default` inside a `@media` block for the same selector. Same leading
+    // `.placeholder` rule, for the same reason as mutation 1.
+    const cursorSynthetic =
+      '.activity-table__row--navigable { cursor: pointer; }\n' +
+      '@media (max-width: 720px) { .placeholder { color: red; } ' +
+      '.activity-table__row--navigable { cursor: default; } }';
+    expect(bodyForSelectorListToken('.activity-table__row--navigable', cursorSynthetic)).toContain(
+      'cursor: pointer',
+    );
+    expect(() =>
+      assertNoAtRuleOverride('.activity-table__row--navigable', 'cursor', cursorSynthetic),
+    ).toThrow();
   });
 
   it('T-20-CSS-02: the marker class literal matches NAVIGABLE_ROW_CLASS from row-navigation.ts', () => {
