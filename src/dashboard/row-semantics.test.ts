@@ -237,7 +237,11 @@ describe('UX-01 / D-03 - one definition of the URL and the click', () => {
   it('activityDetailHref( appears the expected number of times per file', () => {
     expect(countOccurrences(listStripped, 'activityDetailHref(')).toBe(2);
     expect(countOccurrences(overviewStripped, 'activityDetailHref(')).toBe(1);
-    expect(countOccurrences(recordsStripped, 'activityDetailHref(')).toBe(2);
+    // 3, not 2, as of D-13 (plan 20-17): the two dateAnchor call sites plus
+    // buildCellLink's own single href construction, reused by all seven of
+    // its call sites. See the 'D-13' describe block below for the
+    // dedicated assertion this count exists alongside.
+    expect(countOccurrences(recordsStripped, 'activityDetailHref(')).toBe(3);
   });
 
   it("the literal '#/activity/' appears zero times in list.ts, overview.ts and records.ts", () => {
@@ -530,5 +534,69 @@ describe('CR-02 - status-badge text is folded into whole-row aria-labels, not sw
     // - the D-13 relaxation admits flagsAnchor only, not dateAnchor.
     const badgeDateAnchorReceiverPattern = /\bappend(?:LowConfidenceBadge|Badge)\(\s*dateAnchor\b/g;
     expect([...recordsStripped.matchAll(badgeDateAnchorReceiverPattern)].length).toBe(0);
+  });
+});
+
+describe('D-13 - every content-carrying Records cell is a real link, with one keyboard stop per row', () => {
+  it('buildCellLink( occurs exactly eight times in records.ts - one definition plus seven call sites', () => {
+    // The seven call sites: Rank, Time, Pace, Age-Grade and Flags in
+    // buildPrTable, plus Time and Improvement in buildProgressionTable.
+    // If this count changes, update D-13 in 20-CONTEXT.md before changing
+    // the number here.
+    expect(
+      countOccurrences(recordsStripped, 'buildCellLink('),
+      'expected 1 definition + 7 call sites (PR-table Rank/Time/Pace/Age-Grade/Flags, progression-table Time/Improvement) - update D-13 in 20-CONTEXT.md before changing this count',
+    ).toBe(8);
+  });
+
+  it("cellAnchor.tabIndex = -1 occurs exactly once in records.ts - D-13 point 3's one-keyboard-stop-per-row invariant", () => {
+    // Deviation from a literal "count every .tabIndex = write" scan:
+    // records.ts also carries five pre-existing, deliberate
+    // heading/h1.tabIndex = -1 focus-management writes (documented in this
+    // file's rowSemanticViolations comment, receivers 'heading'/'h1'),
+    // unrelated to D-13 and not something this guard should flag. The
+    // invariant this assertion actually protects - a second FOCUSABLE CELL
+    // per row - is expressed precisely by scoping the match to the
+    // cellAnchor receiver: a second `cellAnchor.tabIndex = -1` (or a
+    // differently-named anchor receiver) would mean a second focusable
+    // cell in some row, which is exactly what this guard exists to catch.
+    const cellAnchorTabIndexPattern = /cellAnchor\.tabIndex\s*=\s*-1/g;
+    const matches = [...recordsStripped.matchAll(cellAnchorTabIndexPattern)];
+    expect(matches, 'a second cellAnchor.tabIndex write means a second focusable cell per row - update D-13 in 20-CONTEXT.md first').toHaveLength(1);
+    expect(matches[0][0]).toBe('cellAnchor.tabIndex = -1');
+  });
+
+  it('pr-table__cell-link occurs exactly once in records.ts - the factory is the only place the class is applied', () => {
+    expect(
+      countOccurrences(recordsStripped, 'pr-table__cell-link'),
+      'the CSS contract (plan 20-16) must not drift per cell - only buildCellLink may apply this class',
+    ).toBe(1);
+  });
+
+  it('activityDetailHref( occurs exactly three times in records.ts - every cell link derives its URL from the single sanctioned builder', () => {
+    // The two Date anchors (buildPrTable, buildProgressionTable) plus
+    // buildCellLink's own single construction, reused by all seven of its
+    // call sites - never an inline `#/activity/` template per cell.
+    expect(countOccurrences(recordsStripped, 'activityDetailHref(')).toBe(3);
+  });
+
+  it('rowSemanticViolations(recordsStripped) is still empty - D-01: the <tr> gained no tabindex and no role, whatever else changed', () => {
+    expect(rowSemanticViolations(recordsStripped)).toEqual([]);
+  });
+
+  it('flagsTd.appendChild(flagsAnchor) occurs exactly once, and only inside a conditional', () => {
+    // An unconditional append would put an empty labelled anchor in every
+    // flag-less row, which announces as an empty link with no clickable
+    // box - so the append must be guarded by an `if (`.
+    const appendNeedle = 'flagsTd.appendChild(flagsAnchor)';
+    expect(countOccurrences(recordsStripped, appendNeedle)).toBe(1);
+
+    const declIndex = recordsStripped.indexOf('flagsAnchor');
+    const appendIndex = recordsStripped.indexOf(appendNeedle);
+    expect(declIndex).toBeGreaterThanOrEqual(0);
+    expect(appendIndex).toBeGreaterThan(declIndex);
+
+    const between = recordsStripped.slice(declIndex, appendIndex);
+    expect(between, 'the append must be guarded by an if ( - see comment above').toContain('if (');
   });
 });
