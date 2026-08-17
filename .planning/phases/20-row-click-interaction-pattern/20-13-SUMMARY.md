@@ -109,3 +109,13 @@ src/dashboard/row-navigation.test.ts(185,9): error TS2353: Object literal may on
 ---
 *Phase: 20-row-click-interaction-pattern*
 *Completed: 2026-08-17*
+
+## Self-Check: PASSED
+
+- FOUND: `.planning/phases/20-row-click-interaction-pattern/20-13-SUMMARY.md`
+- FOUND: `src/dashboard/row-navigation.ts`
+- FOUND: `src/dashboard/row-navigation.test.ts`
+- FOUND commit: `695b083` (Task 1)
+- FOUND commit: `57a7f9b` (Task 2)
+- FOUND commit: `57feb44` (Task 3)
+- FOUND commit: `87deca7` (SUMMARY.md)
