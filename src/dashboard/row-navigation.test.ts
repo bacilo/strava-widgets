@@ -74,6 +74,7 @@ function plainPrimaryClick(): RowClickContext {
     altKey: false,
     insideAnchor: false,
     hasTextSelection: false,
+    clickCount: 1,
   };
 }
 
@@ -83,7 +84,7 @@ function plainPrimaryClick(): RowClickContext {
 // only Date carries a real anchor — records.ts:396-419), the sole affordance
 // on those cells since plan 20-03 (670e368) removed the "View Activity"
 // anchor column.
-describe('shouldNavigateOnRowClick — the row-click link contract (D-12)', () => {
+describe('shouldNavigateOnRowClick — the row-click link contract (D-12, D-14)', () => {
   it('baseline: a plain primary click on a non-anchor cell navigates', () => {
     expect(shouldNavigateOnRowClick(plainPrimaryClick())).toBe(true);
   });
@@ -136,7 +137,41 @@ describe('shouldNavigateOnRowClick — the row-click link contract (D-12)', () =
     ).toBe(false);
   });
 
-  it('anti-over-blocking: each single guard field refuses navigation while the plain primary click still navigates (D-12)', () => {
+  it('the first click of a double-click (clickCount: 2) on a Rank/Time/Pace/Age-Grade/Flags cell is a select gesture, not a navigate gesture, and must not navigate (D-14, WR-05)', () => {
+    expect(
+      shouldNavigateOnRowClick({ ...plainPrimaryClick(), clickCount: 2 }),
+    ).toBe(false);
+  });
+
+  it('a triple-click (clickCount: 3, paragraph select) must also refuse to navigate — the guard is a > 1 comparison, not an equality check against 2 (D-14)', () => {
+    expect(
+      shouldNavigateOnRowClick({ ...plainPrimaryClick(), clickCount: 3 }),
+    ).toBe(false);
+  });
+
+  it('a single primary click (clickCount: 1) with everything else at baseline still navigates — non-regression for D-14', () => {
+    expect(
+      shouldNavigateOnRowClick({ ...plainPrimaryClick(), clickCount: 1 }),
+    ).toBe(true);
+  });
+
+  // The WR-05 blind spot: hasTextSelection alone cannot cover the first click
+  // of a double-click, because the browser fires `click` (detail 1) before the
+  // word selection exists — the selection is only present from the second
+  // `click` (detail 2) onward. This is precisely why clickCount was added as
+  // its own field; do not delete this case as redundant with the
+  // hasTextSelection guard above — it proves the case that guard cannot see.
+  it('WR-05 blind spot: clickCount: 2 with hasTextSelection: false (the actual first-click state) is still refused (D-14)', () => {
+    expect(
+      shouldNavigateOnRowClick({
+        ...plainPrimaryClick(),
+        clickCount: 2,
+        hasTextSelection: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('anti-over-blocking: each single guard field refuses navigation while the plain primary click still navigates (D-12, D-14)', () => {
     const plain = plainPrimaryClick();
     expect(shouldNavigateOnRowClick(plain)).toBe(true);
     const singleFieldVariants: Array<Partial<RowClickContext>> = [
@@ -147,6 +182,7 @@ describe('shouldNavigateOnRowClick — the row-click link contract (D-12)', () =
       { button: 1 },
       { button: 2 },
       { hasTextSelection: true },
+      { clickCount: 2 },
     ];
     for (const variant of singleFieldVariants) {
       expect(
