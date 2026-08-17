@@ -1258,13 +1258,27 @@ describe('styles.css - Phase 20 row-click interaction pattern', () => {
   // repository has shipped once already (GAP 1) and now mutation-proves
   // against. selectorListDeclares walks the parsed rule list and matches
   // `a` as an exact top-level selector token, so it cannot make this
-  // mistake.
+  // mistake — but it was not the right replacement either: it is
+  // any-rule-wins (WR-02, 20-REVIEW.md), so a later, cascade-winning
+  // override of the same selector cannot make it fail. See the WR-02
+  // blind-spot proof below for an executed case where that is exactly what
+  // happens.
+  //
+  // cascadeWinningBodyDeclaring, not bodyForSelectorListToken, for the two
+  // `a` assertions below, even though `a` is declared exactly once today:
+  // bodyForSelectorListToken returns the last body whether or not it
+  // declares the property under test, which is wrong the moment a second
+  // `a` rule is added that does not carry `color` (or `text-decoration`).
+  // cascadeWinningBodyDeclaring resolves per property, so it stays correct
+  // even if that happens.
   it('D-06: the bare a rule declares color: inherit', () => {
-    expect(selectorListDeclares('a', 'color: inherit')).toBe(true);
+    expect(cascadeWinningBodyDeclaring('a', 'color')).toContain('color: inherit');
   });
 
   it('D-06: the bare a rule declares text-decoration: underline', () => {
-    expect(selectorListDeclares('a', 'text-decoration: underline')).toBe(true);
+    expect(cascadeWinningBodyDeclaring('a', 'text-decoration')).toContain(
+      'text-decoration: underline',
+    );
   });
 
   it('D-06: the bare a rule does not declare color: var(--accent)', () => {
@@ -1289,7 +1303,48 @@ describe('styles.css - Phase 20 row-click interaction pattern', () => {
   });
 
   it('.activity-row declares text-decoration: none - the whole-row link is not a text link', () => {
-    expect(selectorListDeclares('.activity-row', 'text-decoration: none')).toBe(true);
+    // cascadeWinningBodyDeclaring, not selectorListDeclares: `.activity-row`
+    // is also declared at styles.css:338 (carrying `display: flex`, not
+    // `text-decoration`), so any-rule-wins would report `true` even if the
+    // text-decoration-carrying rule at :1530 were later overridden — see the
+    // WR-02 blind-spot proof immediately below for the executed case.
+    expect(cascadeWinningBodyDeclaring('.activity-row', 'text-decoration')).toContain(
+      'text-decoration: none',
+    );
+  });
+
+  it('WR-02: selectorListDeclares is any-rule-wins; cascadeWinningBodyDeclaring is not (20-REVIEW.md)', () => {
+    // The first expectation below documents the defect the old any-rule-wins
+    // guard shipped with and must not be "fixed" to a passing value — it is
+    // the false-green this plan closes, preserved here as evidence that the
+    // mechanism is real. The second expectation shows the cascade-aware
+    // replacement resolving to the actual override instead. Runs against a
+    // synthetic string via the helpers' optional `source` argument, not
+    // against styles.css.
+    const synthetic =
+      '.activity-row { text-decoration: none; }\n' +
+      '.activity-row { text-decoration: underline; }';
+    // selectorListDeclares has no `source` parameter, so its any-rule-wins
+    // scan (return true on the FIRST matching rule, ignoring source order)
+    // is reproduced inline here rather than called directly.
+    const anyRuleWinsDeclares = (needle: string, declaration: string): boolean => {
+      const ruleHeadAndBody = RULE_SCANNER();
+      let match: RegExpExecArray | null;
+      while ((match = ruleHeadAndBody.exec(synthetic)) !== null) {
+        const [, head, body] = match;
+        if (splitTopLevelSelectors(head).some((s) => s === needle) && body.includes(declaration)) {
+          return true;
+        }
+      }
+      return false;
+    };
+    // Documents the miss: the stale first rule's declaration reads as
+    // present even though a later rule overrides it.
+    expect(anyRuleWinsDeclares('.activity-row', 'text-decoration: none')).toBe(true);
+    // The cascade-aware replacement resolves to the actual override.
+    const winner = cascadeWinningBodyDeclaring('.activity-row', 'text-decoration', synthetic);
+    expect(winner).toContain('underline');
+    expect(winner).not.toContain('text-decoration: none');
   });
 
   it('D-09: .activity-row:hover mixes from var(--surface) toward var(--text)', () => {
