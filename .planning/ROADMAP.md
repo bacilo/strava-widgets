@@ -218,10 +218,10 @@ Plans:
 
 **Wave 10** *(gap closure round 4 — blocked on Wave 9; the four plans have zero file overlap and run in parallel)*
 
-- [ ] 20-12-PLAN.md — the CRITICAL regression: the one-shot return hint is consumed unconditionally at the top of `mount()`, ahead of the load, with a RED-first regression test for the empty-filter / load-error / stale-container leak sequence (UX-01, UX-03)
-- [ ] 20-13-PLAN.md — D-14: `RowClickContext` gains `clickCount` from `MouseEvent.detail` and a fifth refusal class, closing WR-05's double-click-navigates-away gap (UX-01, UX-03)
-- [ ] 20-14-PLAN.md — D-15 (WR-02, WR-03): the last three Phase 20 CSS assertions move onto the cascade winner and all seven gain an `assertNoAtRuleOverride` companion, each with an executed blind-spot proof (UX-03)
-- [ ] 20-15-PLAN.md — D-15 (WR-01): the D-01 `role` allowlist becomes receiver-keyed so `role="presentation"` on a `<tr>` is caught, plus the narrow, receiver-named pre-authorisation D-13 needs (UX-01, UX-03)
+- [x] 20-12-PLAN.md — the CRITICAL regression: the one-shot return hint is consumed unconditionally at the top of `mount()`, ahead of the load, with a RED-first regression test for the empty-filter / load-error / stale-container leak sequence (UX-01, UX-03)
+- [x] 20-13-PLAN.md — D-14: `RowClickContext` gains `clickCount` from `MouseEvent.detail` and a fifth refusal class, closing WR-05's double-click-navigates-away gap (UX-01, UX-03)
+- [x] 20-14-PLAN.md — D-15 (WR-02, WR-03): the last three Phase 20 CSS assertions move onto the cascade winner and all seven gain an `assertNoAtRuleOverride` companion, each with an executed blind-spot proof (UX-03)
+- [x] 20-15-PLAN.md — D-15 (WR-01): the D-01 `role` allowlist becomes receiver-keyed so `role="presentation"` on a `<tr>` is caught, plus the narrow, receiver-named pre-authorisation D-13 needs (UX-01, UX-03)
 
 **Wave 11** *(gap closure round 4 — blocked on Wave 10; same file as 20-14)*
 
@@ -344,7 +344,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 17. Activity Browser & Detail Views | v2.0 | 15/15 | Complete    | 2026-08-11 |
 | 18. Records, Trends & Differentiators | v2.0 | 16/16 | Complete    | 2026-08-12 |
 | 19. Design System & Control Styling | v2.1 | 17/17 | Complete    | 2026-08-13 |
-| 20. Row-Click Interaction Pattern | v2.1 | 11/11 | Complete   | 2026-08-17 |
+| 20. Row-Click Interaction Pattern | v2.1 | 15/18 | In Progress|  |
 | 21. Overview Rebuild | v2.1 | 0/TBD | Not started | - |
 | 22. Calendar Week-Start & Totals | v2.1 | 0/TBD | Not started | - |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 0/TBD | Not started | - |
