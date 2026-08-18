@@ -132,3 +132,14 @@ None - no external service configuration required.
 ---
 *Phase: 22-calendar-week-start-totals*
 *Completed: 2026-08-18*
+
+## Self-Check: PASSED
+
+- FOUND: `src/dashboard/views/calendar-preferences.ts`
+- FOUND: `src/dashboard/views/calendar-preferences.test.ts`
+- FOUND: `src/dashboard/views/calendar.ts`
+- FOUND: `src/dashboard/views/calendar-logic.ts`
+- FOUND: `src/dashboard/views/calendar-logic.test.ts`
+- FOUND: `7436632` (Task 1 commit)
+- FOUND: `ae80646` (Task 2 commit)
+- FOUND: `d3eb948` (SUMMARY.md commit)
