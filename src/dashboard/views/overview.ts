@@ -12,8 +12,7 @@ import type { DashboardView, ViewMountContext } from '../view.types.js';
 import { ROUTES } from '../view.types.js';
 import type { IndexClient, FetchLike } from '../data/index-client.js';
 import type { DashboardIndexRow } from '../../analytics/dashboard-index.types.js';
-import { renderActivityRow, formatActivityDate, composeRowAriaLabel } from './list.js';
-import { activityDetailHref } from '../row-navigation.js';
+import { renderActivityRow } from './list.js';
 
 const RECENT_PR_COUNT = 5;
 const RECENT_ACTIVITY_COUNT = 10;
@@ -75,71 +74,6 @@ async function fetchStatsJson<T>(url: string, doFetch: FetchLike): Promise<T | n
   }
 }
 
-/**
- * The PR-count badge text for a Recent PRs row — `<row.prCount> PR`. Single
- * definition shared by the visible `.badge` span and `recentPrRowAriaLabel`
- * so the rendered badge and the announced tail can never diverge (CR-02).
- */
-export function recentPrBadgeText(row: DashboardIndexRow): string {
-  return `${row.prCount} PR`;
-}
-
-/**
- * Builds the accessible name for a Recent PRs row anchor: the curated D-04
- * three-part base (`row.name`, the formatted local date, the one-decimal
- * kilometre distance) with the PR-count badge folded on via the shared
- * `composeRowAriaLabel` (CR-02, mirroring `list.ts`'s `activityRowAriaLabel`).
- *
- * This reverses plan 20-02's Task 3 step 3, which deliberately did NOT put
- * the PR count in the label, citing D-04. That instruction predates CR-02's
- * discovery that an `aria-label` on a whole-row anchor replaces every
- * descendant string, including this row's badge — the PR count was
- * announced nowhere. This is the D-04 curated shape EXTENDED by the badge
- * text, not a reversion to raw descendant concatenation: the three-part
- * base is unchanged, only the one PR-count string is appended.
- */
-export function recentPrRowAriaLabel(row: DashboardIndexRow): string {
-  const distanceKm = (row.distanceM / 1000).toFixed(1);
-  const base = `${row.name}, ${formatActivityDate(row.startDateLocal)}, ${distanceKm} km`;
-  return composeRowAriaLabel(base, [recentPrBadgeText(row)]);
-}
-
-/**
- * A lighter-weight recent-PR row: name, local date, distance, and a
- * PR-count badge — not the full `renderActivityRow`.
- *
- * This row is now a whole-row `<a>` (D-08). Its three children — the name
- * div, the meta div, the PR-count badge — are deliberately unchanged in
- * this edit: Phase 20 owns the row's link semantic, Phase 21
- * (OVR-01/OVR-02) owns the row's contents, following Phase 19's D-14
- * precedent. `row.name` continues to reach the DOM only through
- * `textContent`, never an HTML-string assignment.
- */
-function renderRecentPrRow(row: DashboardIndexRow): HTMLElement {
-  const rowEl = document.createElement('a');
-  rowEl.className = 'activity-row';
-  const distanceKm = (row.distanceM / 1000).toFixed(1);
-  rowEl.href = activityDetailHref(row.id);
-  rowEl.setAttribute('aria-label', recentPrRowAriaLabel(row));
-
-  const nameEl = document.createElement('div');
-  nameEl.className = 'activity-row__name';
-  nameEl.textContent = row.name;
-  rowEl.appendChild(nameEl);
-
-  const metaEl = document.createElement('div');
-  metaEl.className = 'activity-row__meta';
-  metaEl.textContent = `${formatActivityDate(row.startDateLocal)} · ${distanceKm} km`;
-  rowEl.appendChild(metaEl);
-
-  const badge = document.createElement('span');
-  badge.className = 'badge';
-  badge.textContent = recentPrBadgeText(row);
-  rowEl.appendChild(badge);
-
-  return rowEl;
-}
-
 function buildHeadlineStatsCard(totals: AllTimeTotals | null, streaks: StreaksStats | null): HTMLElement {
   const section = document.createElement('section');
   section.className = 'card';
@@ -164,6 +98,16 @@ function buildHeadlineStatsCard(totals: AllTimeTotals | null, streaks: StreaksSt
   return section;
 }
 
+/**
+ * D-05/D-07: Recent PRs and Recent Activities render through the one shared
+ * `renderActivityRow` — Overview builds no row DOM of its own. The PR badge
+ * arrives via `statusBadgeTexts` (already emits `${row.prCount} PR`), so no
+ * separate badge source is needed here. The two cards pass different
+ * `RowSurface` values (`overview-prs` / `overview-activities`) because both
+ * are in the document at once, and an activity with `prCount > 0` inside the
+ * ten most recent activities appears in both lists — without distinct
+ * surfaces the two rows would emit the same `.sr-only` description id.
+ */
 function buildRecentPrsCard(rows: DashboardIndexRow[]): HTMLElement {
   const section = document.createElement('section');
   section.className = 'card';
@@ -184,7 +128,7 @@ function buildRecentPrsCard(rows: DashboardIndexRow[]): HTMLElement {
     const listEl = document.createElement('div');
     listEl.className = 'activity-list';
     for (const row of recentPrs) {
-      listEl.appendChild(renderRecentPrRow(row));
+      listEl.appendChild(renderActivityRow(row, 'overview-prs'));
     }
     section.appendChild(listEl);
   }
@@ -204,7 +148,7 @@ function buildRecentActivitiesCard(rows: DashboardIndexRow[]): HTMLElement {
   const listEl = document.createElement('div');
   listEl.className = 'activity-list';
   for (const row of rows.slice(0, RECENT_ACTIVITY_COUNT)) {
-    listEl.appendChild(renderActivityRow(row));
+    listEl.appendChild(renderActivityRow(row, 'overview-activities'));
   }
   section.appendChild(listEl);
 

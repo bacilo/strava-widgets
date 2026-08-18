@@ -514,8 +514,8 @@ function buildHeaderRow(state: ListState): HTMLTableRowElement {
  * removes it from the table's accessibility tree and breaks screen-reader
  * table navigation (D-01). Phase 20 success criterion 3's "Tab reaches the
  * row" is satisfied here via the row's single activation control, not via a
- * `tabindex` on the row wrapper itself; on the div rows (`renderActivityRow`,
- * `renderRecentPrRow`) it is satisfied literally, because those rows are
+ * `tabindex` on the row wrapper itself; on the div rows built by
+ * `renderActivityRow` it is satisfied literally, because those rows are
  * themselves anchors. This is a deliberate reading (D-01 of
  * `20-CONTEXT.md`), not a shortcut — the alternative degrades real
  * assistive-tech table navigation to satisfy a wording. The row-level click
