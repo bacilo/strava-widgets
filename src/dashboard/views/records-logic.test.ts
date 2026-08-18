@@ -17,6 +17,7 @@ import {
   buildPrTableRows,
   buildProgressionRows,
   evolutionCardSummary,
+  filterRankingsToYear,
   isEmptyRanking,
   selectSuperlatives,
   type EvolutionPoint,
@@ -418,5 +419,70 @@ describe('selectCurrentStreak — FIX-01 endedISO comes from currentStreakEnd, n
     expect(result.currentStreak).not.toBeNull();
     expect(result.currentStreak!.active).toBe(true);
     expect(result.currentStreak!.endedISO).toBeNull();
+  });
+});
+
+describe('filterRankingsToYear — OVR-03 year scope (D-01/D-02)', () => {
+  // Five entries, ranks 1..5, spanning three years and both archive date
+  // spellings (Z-suffixed and no-Z), including both year-boundary dates.
+  const fixture: PRRankingEntry[] = [
+    rankingEntry({ rank: 1, activityId: '2024-mid', durationSec: 1000, startDate: '2024-06-01T09:00:00Z' }),
+    rankingEntry({ rank: 2, activityId: '2025-new-year', durationSec: 1010, startDate: '2025-01-01T00:30:00' }),
+    rankingEntry({ rank: 3, activityId: '2025-mid', durationSec: 1020, startDate: '2025-07-04T06:00:00Z' }),
+    rankingEntry({ rank: 4, activityId: '2025-year-end', durationSec: 1030, startDate: '2025-12-31T23:30:00' }),
+    rankingEntry({ rank: 5, activityId: '2026-mid', durationSec: 1040, startDate: '2026-03-10T08:00:00Z' }),
+  ];
+
+  it('returns only the entries whose startDate falls in the requested year, in source order', () => {
+    const result = filterRankingsToYear(fixture, 2025);
+    expect(result).toHaveLength(3);
+    expect(result.map((e) => e.activityId)).toEqual(['2025-new-year', '2025-mid', '2025-year-end']);
+  });
+
+  it('re-ranks the subset 1..N — never the source ranks [2, 3, 4]', () => {
+    const result = filterRankingsToYear(fixture, 2025);
+    expect(result.map((e) => e.rank)).toEqual([1, 2, 3]);
+  });
+
+  it('a year with no matching efforts returns [], and isEmptyRanking of that result is true', () => {
+    const result = filterRankingsToYear(fixture, 2023);
+    expect(result).toEqual([]);
+    expect(isEmptyRanking(result)).toBe(true);
+  });
+
+  it('filterRankingsToYear(undefined, 2025) is [] and does not throw', () => {
+    expect(() => filterRankingsToYear(undefined, 2025)).not.toThrow();
+    expect(filterRankingsToYear(undefined, 2025)).toEqual([]);
+  });
+
+  it('a 1 January and a 31 December entry both land in the correct UTC year, not the local-timezone-shifted neighbour', () => {
+    // Hazard this guards: getFullYear() (local time) can move a
+    // 2025-01-01T00:30:00 or 2025-12-31T23:30:00 entry into 2024 or 2026
+    // depending on the runner's timezone offset. getUTCFullYear() must not
+    // drift with TZ.
+    const result = filterRankingsToYear(fixture, 2025);
+    const newYear = result.find((e) => e.activityId === '2025-new-year');
+    const yearEnd = result.find((e) => e.activityId === '2025-year-end');
+    expect(newYear).toBeDefined();
+    expect(yearEnd).toBeDefined();
+    expect(filterRankingsToYear(fixture, 2024).some((e) => e.activityId === '2025-new-year')).toBe(false);
+    expect(filterRankingsToYear(fixture, 2026).some((e) => e.activityId === '2025-year-end')).toBe(false);
+  });
+
+  it('does not mutate the input array or its entries', () => {
+    const originalFirstRank = fixture[0].rank;
+    const result = filterRankingsToYear(fixture, 2025);
+    expect(fixture[0].rank).toBe(originalFirstRank);
+    expect(result[0]).not.toBe(fixture[1]);
+  });
+
+  it('drops an entry with an unparseable startDate rather than throwing or counting it', () => {
+    const withBadDate: PRRankingEntry[] = [
+      ...fixture,
+      rankingEntry({ rank: 6, activityId: 'bad-date', durationSec: 1050, startDate: 'not-a-date' }),
+    ];
+    expect(() => filterRankingsToYear(withBadDate, 2025)).not.toThrow();
+    const result = filterRankingsToYear(withBadDate, 2025);
+    expect(result.some((e) => e.activityId === 'bad-date')).toBe(false);
   });
 });
