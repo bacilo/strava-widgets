@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
 status: executing
-stopped_at: "Completed 20-18-PLAN.md (Round 4 checkpoint recorded, status: blocked, GAP 12 found)"
-last_updated: "2026-08-18T05:28:09.945Z"
-last_activity: 2026-08-18 -- Phase 20 execution started
+stopped_at: "Completed 20-20-PLAN.md (Round 5 checkpoint recorded, status: passed, GAP 12 and GAP 11 both closed, UX-01/UX-03 complete)"
+last_updated: "2026-08-18T06:25:24.190Z"
+last_activity: 2026-08-18
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 37
-  completed_plans: 35
+  completed_plans: 36
   percent: 14
 ---
 
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 20 (row-click-interaction-pattern) — EXECUTING
-Plan: 1 of 20
-Status: Executing Phase 20
+Plan: 2 of 20
+Status: Ready to execute
         8/12 rows PASS, 1 BLOCKED (R25), 1 NOT EXERCISABLE (R28), 2 FAIL (R31, R32).
         R18/R19's original expectation is CLOSED (R23/R24 PASS: a genuine background tab
         opens on a modified click on both Records tables) and the notedActivityId focus-leak
@@ -41,9 +41,9 @@ Status: Executing Phase 20
         Next: /gsd-plan-phase 20 --gaps (Round 5 must reconcile D-13 with D-12/D-14; also
         needs a developer's-eyes re-test for R25's new-window half and R28's unanswered
         disposition question).
-Last activity: 2026-08-18 -- Phase 20 execution started
+Last activity: 2026-08-18
 
-Progress: [██████████] 100%
+Progress: [██████████] 97%
 
 ## Performance Metrics
 
@@ -69,6 +69,7 @@ Progress: [██████████] 100%
 | Phase 20 P05 | ~9min | 1 tasks | 1 files |
 | Phase 20 P11 | multi-session | 2 tasks | 3 files |
 | Phase 20 P18 | 25min | 2 tasks | 2 files |
+| Phase 20 P20 | ~35min (continuation) | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -98,6 +99,8 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 20]: Round 3 checkpoint recorded with a four-state verdict vocabulary (PASS/FAIL/BLOCKED/NOT EXERCISABLE) distinguishing dataset-coverage gaps and hardware limits from actual defects; R18/R19 FAIL recorded verbatim against D-12's stated expectation and left unpatched
 - [Phase 20]: UX-02 stays open despite three of its four mapped rows passing cleanly, because R2 is BLOCKED (no badge-carrying row exists in the current Overview Recent Activities dataset) and every mapped row must pass before a requirement is ticked
 - [Phase 20]: GAP 12: D-13 real cell anchors defeat D-12 drag-select and D-14 double-click guards on Records PR-table cells; recorded FAIL, unpatched, Round 5 must reconcile
+- [Phase 20]: 20-20 Round 5 checkpoint recorded a clean sweep — all ten rows (R34-R43) PASS, closing GAP 12 (drag-select and double-click) and GAP 11 (middle-click disposition) fully. R35's double-click-still-navigates-on-first-click residual is a developer-accepted shipped limitation of D-16, not a defect. UX-01 and UX-03 both ticked complete.
+- [Phase 20]: NEW DISPOSITION discovered during R36 corroboration — D-16's click-guard and draggable=false do not cover the Date-cell anchor (hand-built at records.ts:502-507, not via buildCellLink), so a drag or double-click starting in the Date cell still behaves natively. Developer explicitly accepted this as a deliberate, minor scope boundary rather than requesting an extension of D-16's contract.
 
 ### Key Findings
 
@@ -165,8 +168,8 @@ Items acknowledged and deferred at the v2.0 milestone close on 2026-08-12.
 
 ## Session Continuity
 
-Last session: 2026-08-18T04:25:39.399Z
-Stopped at: Completed 20-18-PLAN.md (Round 4 checkpoint recorded, status: blocked, GAP 12 found)
+Last session: 2026-08-18T06:25:24.171Z
+Stopped at: Completed 20-20-PLAN.md (Round 5 checkpoint recorded, status: passed, GAP 12 and GAP 11 both closed, UX-01/UX-03 complete)
 Resume file: None
 
 ---
