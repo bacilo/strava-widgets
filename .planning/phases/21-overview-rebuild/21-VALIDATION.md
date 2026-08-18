@@ -5,9 +5,10 @@ status: partial
 nyquist_compliant: false
 wave_0_complete: true
 created: 2026-08-18
-round: 1
+round: 2
 round1_staged: 2026-08-18
 round1_answered: 2026-08-18
+round2_staged: 2026-08-18
 ---
 
 # Phase 21 — Validation Strategy
@@ -238,3 +239,82 @@ independent observation of R12/R13 is load-bearing rather than redundant with th
 
 Developer confirmation, verbatim: "confirmed, R7 blocked". R7 is mapped to OVR-03; because it is
 not PASS, OVR-03 is not ticked in this round.
+
+## Round 2
+
+Round 2 exists because Round 1's R7 was recorded BLOCKED: with "This year" selected, every one of
+the seven distance tables rendered an empty state, because the live archive holds zero best-effort
+ranking entries dated 2026 in any distance. `filterRankingsToYear`
+(`src/dashboard/views/records-logic.ts:176-191`) is pure, correctly wired at `records.ts:661`,
+covered by 7 targeted unit tests, and independently confirmed correct by `21-REVIEW.md` — but this
+project's house rule since checkpoint 16-09 is "Never cite an automated result as evidence for a
+manual row", so a unit-test pass cannot discharge R7. Round 2 closes the gap the same way FIX-01's
+identical problem closed in Round 1: a disclosed, discriminator-designed staged-build fixture, plus
+a checkpoint that reads a VALUE back rather than confirming a presence.
+
+Task 1's full gate ran green on a clean working tree: `npm test` 1122/1122 across 49 files, `npx tsc
+--noEmit -p tsconfig.json` clean, `npm run build-widgets` exit 0 with zero `css-syntax-error`
+occurrences in the captured log, `npm run verify-dashboard` 37/37 checks passed. The build is staged
+under the production path shape and served from `127.0.0.1`, never `localhost` — served URL prefix
+`http://127.0.0.1:8099/strava-widgets/`. The one route this session uses is
+`http://127.0.0.1:8099/strava-widgets/#/records`. The bundle filename read from the staged
+`index.html` is `assets/index-C0m8pdqN.js` (unchanged from Round 1 — no source file changed between
+rounds).
+
+**Fixture disclosure.** The archive cannot produce a current-year PR ranking row. Row R15 is
+observed against a deliberate, disclosed edit to the STAGED build only —
+`dist/widgets/data/stats/best-efforts.json`, never the repository copy at
+`data/stats/best-efforts.json` (2.9 MB, gitignored pipeline output).
+
+Exactly two fields change, both `startDate` values inside `rankings["400m"]`. No `rank`, no
+`durationSec`, no `activityId`, no other distance, no other file:
+
+| Array index | activityId | `rank` (unchanged) | `durationSec` | Repository `startDate` | Staged `startDate` |
+|-------------|-----------|--------------------|---------------|------------------------|--------------------|
+| 3 | `3475732221` | `4` | `54.6` | `2018-09-04T16:26:06Z` | `2026-03-14T09:12:00Z` |
+| 8 | `14122328106` | `9` | `62.1` | `2025-04-09T00:02:51Z` | `2026-06-02T07:30:00Z` |
+
+**The source ranks are left at 4 and 9 ON PURPOSE. They are the discriminator.** `rankings["400m"]`
+is sorted ascending by `durationSec`, and `filterRankingsToYear` preserves that order, so the
+filtered 2026 subset is `[54.6s, 62.1s]` and a correct 1..N re-rank renders:
+
+| Under "This year", 400m | Rank cell | Time cell | Date cell |
+|-------------------------|-----------|-----------|-----------|
+| first row | `#1` | `0:55` | `Mar 14, 2026` |
+| second row | `#2` | `1:02` | `Jun 2, 2026` |
+
+An implementation that merely filtered and passed the SOURCE ranks through would render **`#4`** and
+**`#9`** instead. R15 is therefore not answerable by "a row appeared" — `#4`/`#9` is a recordable
+FAIL with the numbers quoted, exactly as `ended Aug 10, 2026` was for Round 1's R12/R13.
+
+**Three honest limitations of this fixture, disclosed so nothing downstream over-reads it:**
+1. `data/stats/age-grading.json` and the `activities` map inside `best-efforts.json` are NOT
+   edited, so the 400m Age-Grade cell and the 400m PR-Evolution chart still reflect the real 2018
+   and 2025 dates. Neither is part of R14's or R15's read-back.
+2. Under the fixture the 400m table is no longer empty under "This year". Round 1's R10 used the
+   400m empty state (`"No 400m efforts in 2026"`) as its example and PASSED against the
+   un-fixtured build; that verdict stands on its own evidence and is NOT re-litigated here. The six
+   other distances still render their empty states under the fixture.
+3. `dist/widgets/*` is gitignored (`.gitignore:4`), so the fixture cannot be committed by accident —
+   but Task 3 still restores the staged file explicitly, because "it can't be committed" is not the
+   same as "it can't be mistaken for archive data by the next person who opens the staged build".
+
+### Cache trap (Round 1's R13 incident)
+
+Serving from `127.0.0.1` is NOT sufficient on its own: in Round 1 the observing tab rendered a
+stale cached `streaks.json` and only corrected after a hard reload (Cmd+Shift+R). Round 2 therefore
+makes the hard reload its own row (R14), which must be PASS before R15 may be judged.
+
+The house rules established in Round 1 (16-09, 17-15, 19-05, 19-12, 19-17, 20-05, 20-11, 20-18,
+20-20, 21-07) govern Round 2 unchanged — see the `<house_rules>` block above under Round 1. Not
+repeated here to avoid a second copy of the document's evidence-vocabulary text.
+
+| Row | Behavior | Requirement | Instructions | Observation |
+|-----|----------|--------------|---------------|-------------|
+| R14. | The fixture actually reached the tab (D-16, the Round 1 cache trap) | OVR-03 | On `http://127.0.0.1:8099/strava-widgets/#/records`, confirm the URL bar reads `127.0.0.1` and `/strava-widgets/`, then hard-reload the page (Cmd+Shift+R, or open DevTools with "Disable cache" ticked and reload). With **All time** selected, scroll to the 400m table and read the Date cells of the rows ranked `#4` and `#9`. Under the loaded fixture these read `Mar 14, 2026` and `Jun 2, 2026`. If either still reads `Sep 4, 2018` or `Apr 9, 2025`, the tab is serving a stale `best-efforts.json`; record FAIL and do not judge R15. Required detail: whether a hard reload was performed and by what method, and the Date cell text of the 400m All-time rows ranked `#4` and `#9`, quoted exactly. Observer required: developer's own eyes. | |
+| R15. | The year scope re-ranks — re-ask of Round 1's R7 (OVR-03, D-01, D-11) | OVR-03 | Only if R14 is PASS. Click **This year**. The 400m table now has rows. Read both of them. A correct 1..N re-rank over the filtered subset renders first row `#1` / `0:55` / `Mar 14, 2026` and second row `#2` / `1:02` / `Jun 2, 2026`. Ranks reading `#4` and `#9` mean the source ranks were passed straight through instead of being re-ranked within the scope — that is a FAIL, quoted. Required detail: the rank shown in the 400m table's first row and the date in that row, and the rank and date in its second row, all quoted exactly as rendered. Observer required: developer's own eyes. | |
+
+### Row-to-requirement map (Round 2)
+
+OVR-03 → R6, R8, R9, R10 (Round 1, PASS) + R14, R15 (Round 2). R15 supersedes Round 1's R7, which
+stays recorded BLOCKED and is not edited. OVR-03 ticks only when every one of those rows is PASS.
