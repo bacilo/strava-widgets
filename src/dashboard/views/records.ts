@@ -43,7 +43,12 @@ import {
   appendBadge,
   appendLowConfidenceBadge,
 } from './list.js';
-import { attachRowNavigation, activityDetailHref } from '../row-navigation.js';
+import {
+  attachRowNavigation,
+  activityDetailHref,
+  shouldNavigateOnRowClick,
+  type RowClickContext,
+} from '../row-navigation.js';
 
 const STATS_BASE_URL = 'data/stats/';
 const EXCLUSIONS_URL = 'data/best-effort-exclusions.json';
@@ -357,6 +362,26 @@ function buildPrTableEmptyState(): HTMLElement {
  * the date rather than the pace. Plan 20-18's Round 4 checkpoint carries
  * an observation row for this; do not silently substitute a different
  * label to work around it.
+ *
+ * D-16: this anchor is also non-draggable (`draggable = false`) — the
+ * whole fix for R31's dragstart, since an `<a>` is draggable by default
+ * and a mouse-down-and-drag inside the cell would otherwise start a native
+ * link drag instead of a text selection. It carries its own `click`
+ * listener that decides only the two refusal classes the browser cannot
+ * see for us — an active text selection (D-12) and a repeat click (D-14) —
+ * via the same imported `shouldNavigateOnRowClick` predicate
+ * `attachRowNavigation` uses, so D-12's and D-14's definitions stay
+ * single-sourced across both call sites (D-16 point 3) and are never
+ * reimplemented here. `insideAnchor`, `button` and the four modifier keys
+ * are presented neutral (`false` / `0`) rather than read from the event,
+ * because the browser itself owns those gestures on a real anchor: reading
+ * the real values and then calling `preventDefault()` would cancel the
+ * browser's own Cmd/Ctrl+click new-tab and Shift+click new-window
+ * handling. Navigation on the allowed path stays the browser's own, via
+ * `href` — `navigateTo` is deliberately absent here. Changing
+ * `metaKey: false` and its three siblings to read the real event fields
+ * would silently re-break R23/R24; `row-semantics.test.ts` is the guard
+ * that catches it.
  */
 function buildCellLink(activityId: string, ariaLabel: string): HTMLAnchorElement {
   const cellAnchor = document.createElement('a');
@@ -364,6 +389,23 @@ function buildCellLink(activityId: string, ariaLabel: string): HTMLAnchorElement
   cellAnchor.href = activityDetailHref(activityId);
   cellAnchor.setAttribute('aria-label', ariaLabel);
   cellAnchor.tabIndex = -1;
+  cellAnchor.draggable = false;
+  cellAnchor.addEventListener('click', (event: MouseEvent) => {
+    const selection = window.getSelection();
+    const context: RowClickContext = {
+      button: 0,
+      metaKey: false,
+      ctrlKey: false,
+      shiftKey: false,
+      altKey: false,
+      insideAnchor: false,
+      hasTextSelection: Boolean(selection && !selection.isCollapsed && selection.toString().length > 0),
+      clickCount: event.detail,
+    };
+    if (!shouldNavigateOnRowClick(context)) {
+      event.preventDefault();
+    }
+  });
   return cellAnchor;
 }
 
