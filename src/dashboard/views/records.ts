@@ -26,6 +26,7 @@ import type { AgeGradingDocument } from '../../analytics/age-grading.types.js';
 import {
   buildExclusionReasonIndex,
   buildPrTableRows,
+  filterRankingsToYear,
   isEmptyRanking,
   buildEvolutionSeries,
   buildProgressionRows,
@@ -33,6 +34,7 @@ import {
   evolutionCardSummary,
   type PrTableRow,
   type EvolutionPoint,
+  type RecordScope,
   type Superlatives,
 } from './records-logic.js';
 import { buildRiegelMatrix, fitRiegelExponent, selectFitPoints } from '../../analytics/riegel.js';
@@ -321,19 +323,34 @@ function buildConfigNotice(ageGrading: AgeGradingDocument | null): HTMLElement |
   return notice;
 }
 
-function buildPrTableEmptyState(): HTMLElement {
+/**
+ * Distance- and scope-aware empty state. Previously took no arguments and
+ * hardcoded `'No marathon efforts yet'` for EVERY empty distance — a latent
+ * defect surfaced by `21-RESEARCH.md` Pitfall 3 (found during research,
+ * outside CONTEXT.md's decision set, disposition: fix in this phase).
+ * OVR-03's year scope makes far more distances hit this path (a distance
+ * with efforts all-time can easily have none in the current year), so
+ * shipping the scope toggle over the old copy would present, say, a 5K
+ * table captioned as a marathon table. Two copy variants exist because "no
+ * efforts yet" and "no efforts in 2026" are different statements a reader
+ * must be able to tell apart.
+ */
+function buildPrTableEmptyState(distance: TargetDistanceKey, scope: RecordScope, year: number): HTMLElement {
+  const label = DISTANCE_LABELS[distance];
   const empty = document.createElement('div');
   empty.className = 'empty-state';
 
   const heading = document.createElement('h3');
   heading.className = 'text-heading';
-  heading.textContent = 'No marathon efforts yet';
+  heading.textContent = scope === 'this-year' ? `No ${label} efforts in ${year}` : `No ${label} efforts yet`;
   empty.appendChild(heading);
 
   const body = document.createElement('p');
   body.className = 'text-body';
   body.textContent =
-    'The archive has no completed marathon-distance run. Once one is recorded, its rank will appear here.';
+    scope === 'this-year'
+      ? `The archive has no ${label} effort recorded in ${year}. Switch to All time to see every ranked effort.`
+      : `The archive has no completed ${label} effort. Once one is recorded, its rank will appear here.`;
   empty.appendChild(body);
 
   return empty;
@@ -536,7 +553,13 @@ function buildPrTable(distance: TargetDistanceKey, rows: readonly PrTableRow[]):
   return table;
 }
 
-function buildPrTableSection(distance: TargetDistanceKey, rows: readonly PrTableRow[], empty: boolean): HTMLElement {
+function buildPrTableSection(
+  distance: TargetDistanceKey,
+  rows: readonly PrTableRow[],
+  empty: boolean,
+  scope: RecordScope,
+  year: number
+): HTMLElement {
   const section = document.createElement('section');
   section.className = 'card detail-section';
   section.id = `pr-table-${DISTANCE_SLUGS[distance]}`;
@@ -547,7 +570,7 @@ function buildPrTableSection(distance: TargetDistanceKey, rows: readonly PrTable
   section.appendChild(heading);
 
   if (empty) {
-    section.appendChild(buildPrTableEmptyState());
+    section.appendChild(buildPrTableEmptyState(distance, scope, year));
     return section;
   }
 
@@ -581,11 +604,15 @@ function buildPrTablesSection(
   const notice = buildConfigNotice(ageGrading);
   if (notice) section.appendChild(notice);
 
+  // Task 2 note: this loop is a placeholder call shape kept type-correct
+  // for this task's own verification gate. Task 3 replaces it wholesale
+  // with the scope-toggle-driven renderTables closure.
+  const placeholderYear = new Date().getUTCFullYear();
   for (const distance of TARGET_ORDER) {
     const entries = bestEfforts.rankings[distance];
     const empty = isEmptyRanking(entries);
     const rows = buildPrTableRows(entries, ageGrading, distance, exclusionReasons);
-    section.appendChild(buildPrTableSection(distance, rows, empty));
+    section.appendChild(buildPrTableSection(distance, rows, empty, 'all-time', placeholderYear));
   }
 
   return section;
