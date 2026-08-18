@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { resolveStorage, type WebStorage } from './storage.js';
@@ -111,5 +112,59 @@ describe('storage.ts — GC-5d: stays a narrow handle resolver, not the deferred
     expect(storageSourceNoComments).not.toContain('STORAGE_KEY');
     expect(storageSourceNoComments).not.toContain('JSON.parse');
     expect(storageSourceNoComments).not.toContain('console.');
+  });
+});
+
+/**
+ * BL-03's app-wide invariant, enforced repo-wide rather than trusted: every
+ * non-test `.ts` module under `src/dashboard/` — walked recursively, so this
+ * reaches `src/dashboard/views/` too — must resolve its storage handle
+ * through `resolveStorage`, never by dereferencing `globalThis.localStorage`
+ * / `globalThis.sessionStorage` or a bare `localStorage`/`sessionStorage`
+ * identifier itself. `storage.ts` is the sole, deliberate exception: it is
+ * the ONE place the dereference is allowed to live.
+ *
+ * Six sites carried the unguarded shape before Round 3: `main.ts:19`,
+ * `nav.ts:186`, `nav.ts:206`, `theme.ts:93`, `theme.ts:130` and
+ * `detail-charts.ts:218`. Comment-stripping is mandatory before scanning —
+ * several of these files discuss `localStorage` in prose (this file's own
+ * header included), which a naive raw-text scan would false-positive on.
+ */
+describe('storage.test.ts — BL-03: the app-wide single-dereference-site guard', () => {
+  const DASHBOARD_ROOT = new URL('.', import.meta.url).pathname;
+
+  function walk(dir: string): string[] {
+    return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const full = join(dir, entry.name);
+      return entry.isDirectory() ? walk(full) : [full];
+    });
+  }
+
+  function stripComments(source: string): string {
+    return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  }
+
+  it('finds zero storage-global dereferences in every non-test dashboard module except storage.ts itself', () => {
+    const files = walk(DASHBOARD_ROOT).filter(
+      (f) => f.endsWith('.ts') && !f.endsWith('.test.ts') && !f.endsWith('storage.ts')
+    );
+    expect(files.length).toBeGreaterThan(0);
+
+    const offenders: string[] = [];
+    for (const file of files) {
+      const live = stripComments(readFileSync(file, 'utf8'));
+      const hasGlobalThisDeref = /globalThis\.(localStorage|sessionStorage)/.test(live);
+      const hasBareIdentifier = /(^|[^.\w])(localStorage|sessionStorage)\b/m.test(live);
+      if (hasGlobalThisDeref || hasBareIdentifier) offenders.push(file);
+    }
+
+    expect(offenders, `these files still dereference a storage global directly: ${offenders.join(', ')}`).toEqual([]);
+  });
+
+  it('storage.ts itself, comments stripped, contains exactly one globalThis.localStorage occurrence', () => {
+    const storageSource = readFileSync(join(DASHBOARD_ROOT, 'storage.ts'), 'utf8');
+    const live = stripComments(storageSource);
+    const matches = live.match(/globalThis\.localStorage/g) ?? [];
+    expect(matches.length).toBe(1);
   });
 });

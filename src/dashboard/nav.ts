@@ -6,8 +6,12 @@
  * `textContent` — no HTML-string assignment anywhere — establishing the
  * DOM-construction pattern plan 07's athlete free text must also follow
  * (T-16-SH-02).
- * Theming always goes through theme.ts; this file never touches
- * localStorage directly.
+ * Theming always goes through theme.ts; this file never touches localStorage directly.
+ * Its two theme reads (the initial toggle render below, and the click
+ * handler in `handleThemeToggleClick`) resolve their storage HANDLE via
+ * `storage.ts`'s `resolveStorage` (BL-03). The initial read is reached from
+ * `main.ts`'s module-scope `createNav(...)` call, so it had to be guarded —
+ * not merely tidied — the same as `main.ts:19`.
  */
 
 import { NAV_ORDER } from './view.types.js';
@@ -20,6 +24,7 @@ import {
   type Theme,
   type ThemeMode,
 } from './theme.js';
+import { resolveStorage } from './storage.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -183,7 +188,7 @@ export function createNav(root: HTMLElement): { setActiveRoute(route: string): v
     moonIcon.classList.toggle('theme-toggle__icon--active', effective === 'dark');
   }
 
-  updateThemeToggle(readStoredMode(localStorage));
+  updateThemeToggle(readStoredMode(resolveStorage()));
 
   function handleToggleClick(): void {
     const isOpen = navEl.getAttribute('data-open') === 'true';
@@ -203,7 +208,7 @@ export function createNav(root: HTMLElement): { setActiveRoute(route: string): v
   linksEl.addEventListener('click', handleLinksClick);
 
   function handleThemeToggleClick(): void {
-    const current = readStoredMode(localStorage);
+    const current = readStoredMode(resolveStorage());
     const next = cycleThemeMode(current);
     applyThemeMode(next);
     updateThemeToggle(next);

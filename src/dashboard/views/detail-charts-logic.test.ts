@@ -15,6 +15,7 @@ import {
   writeStoredOverlayConfig,
 } from './detail-charts-logic.js';
 import type { CanonicalStream } from '../../streams/stream.types.js';
+import type { WebStorage } from '../storage.js';
 
 function makeStream(partial: Partial<CanonicalStream> & { t: number[]; d: number[] }): CanonicalStream {
   return {
@@ -250,45 +251,56 @@ describe('parseOverlayConfig', () => {
 
 describe('readStoredOverlayConfig', () => {
   it('returns the default when getItem throws', () => {
-    const storage = {
+    const storage: WebStorage = {
       getItem() {
         throw new Error('SecurityError');
       },
+      setItem() {},
     };
     expect(readStoredOverlayConfig(storage)).toEqual(DEFAULT_OVERLAY_CONFIG);
   });
 
   it('returns the default when getItem returns null', () => {
-    const storage = { getItem: () => null };
+    const storage: WebStorage = { getItem: () => null, setItem: () => {} };
     expect(readStoredOverlayConfig(storage)).toEqual(DEFAULT_OVERLAY_CONFIG);
   });
 
   it('returns the default when getItem returns invalid JSON', () => {
-    const storage = { getItem: () => '{not valid json' };
+    const storage: WebStorage = { getItem: () => '{not valid json', setItem: () => {} };
     expect(readStoredOverlayConfig(storage)).toEqual(DEFAULT_OVERLAY_CONFIG);
   });
 
   it('parses and validates a well-formed stored value', () => {
-    const storage = { getItem: () => JSON.stringify({ pace: ['hr'] }) };
+    const storage: WebStorage = {
+      getItem: () => JSON.stringify({ pace: ['hr'] }),
+      setItem: () => {},
+    };
     expect(readStoredOverlayConfig(storage).pace).toEqual(['hr']);
   });
 
   it('reads from OVERLAY_STORAGE_KEY', () => {
     const calls: string[] = [];
-    const storage = {
+    const storage: WebStorage = {
       getItem: (key: string) => {
         calls.push(key);
         return null;
       },
+      setItem: () => {},
     };
     readStoredOverlayConfig(storage);
     expect(calls).toEqual([OVERLAY_STORAGE_KEY]);
+  });
+
+  it('returns the default without throwing when storage is null (BL-03)', () => {
+    expect(() => readStoredOverlayConfig(null)).not.toThrow();
+    expect(readStoredOverlayConfig(null)).toEqual(DEFAULT_OVERLAY_CONFIG);
   });
 });
 
 describe('writeStoredOverlayConfig', () => {
   it('swallows a throwing setItem without propagating', () => {
-    const storage = {
+    const storage: WebStorage = {
+      getItem: () => null,
       setItem() {
         throw new Error('QuotaExceededError');
       },
@@ -298,7 +310,8 @@ describe('writeStoredOverlayConfig', () => {
 
   it('writes the config as JSON under OVERLAY_STORAGE_KEY', () => {
     const written: Record<string, string> = {};
-    const storage = {
+    const storage: WebStorage = {
+      getItem: () => null,
       setItem: (key: string, value: string) => {
         written[key] = value;
       },
@@ -310,5 +323,11 @@ describe('writeStoredOverlayConfig', () => {
       cadence: [],
       elevation: [],
     });
+  });
+
+  it('does not throw and performs no observable work when storage is null (BL-03)', () => {
+    expect(() =>
+      writeStoredOverlayConfig(null, DEFAULT_OVERLAY_CONFIG)
+    ).not.toThrow();
   });
 });

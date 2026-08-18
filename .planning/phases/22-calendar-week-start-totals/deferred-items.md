@@ -38,3 +38,44 @@ path) — well outside plan 22-10's scope and files_modified list.
 `npx tsc --noEmit -p tsconfig.json` exits 0. The remaining 47 test files that do
 not depend on `data/stats/` all pass (1143 tests), so no test regressed as a result
 of this plan's changes.
+
+## 22-11: `npm run verify-dashboard` fails in this worktree — missing generated `data/dashboard/index.json`
+
+**Found during:** Task 3's chained verify command, which ends with
+`npm run build-widgets && ... && npm run verify-dashboard`.
+
+**Symptom:** `verify-dashboard-publish.mjs` exits with `FATAL: dist/widgets is not
+fully built. Missing: .../dist/widgets/data/dashboard/index.json`, even after a
+clean `npm run build-widgets` (exit 0, zero `css-syntax-error`).
+
+**Root cause:** Same class of gap as 22-10's `data/stats/` finding above.
+`data/dashboard/` is gitignored (`.gitignore` — "regenerated compute-step output,
+same convention as `data/stats/` (D-12)") and is produced by
+`npm run compute-dashboard-index`, which itself reads `data/stats/best-efforts.json`
+and `data/stats/gear-aggregate.json` (per `src/index.ts:336`'s own comment) — the
+same pipeline-generated files confirmed absent in this fresh worktree checkout.
+Neither `data/dashboard/` nor `data/stats/` was ever committed to `master` (checked
+via `git log --all -- data/dashboard/index.json`: only present in `deploy:` commits
+on the `gh-pages` branch, never on `master`).
+
+**Scope:** None of Task 3's `files_modified`
+(`detail-charts.ts`, `detail-charts-logic.ts`, `detail-charts-logic.test.ts`,
+`storage.test.ts`) touch the stats/index pipeline. Confirmed pre-existing and
+environment-caused: `data/dashboard/` and `data/stats/` are absent regardless of
+any edit made in plan 22-11.
+
+**Not fixed:** Generating `data/dashboard/index.json` requires
+`npm run compute-dashboard-index`, which itself requires `data/stats/*.json` to
+exist first (`npm run compute-all-stats`) — the same full-pipeline dependency
+22-10 already declined to run, well outside this plan's scope.
+
+**Verification substitute:** `npm run build-widgets` itself — the step that would
+surface a `css-syntax-error` or a build-time regression from this plan's TypeScript
+changes — exits 0 with none in its output. `npx tsc --noEmit -p tsconfig.json`
+exits 0. `npx vitest run src/dashboard/views/detail-charts-logic.test.ts
+src/dashboard/storage.test.ts` passes in full (44 tests, 0 failures), and the
+BL-03 repo-wide source guard added in this plan's Task 3 (a `storage.test.ts`
+test, not a build artifact) independently proves the invariant `verify-dashboard`
+would otherwise be asked to observe at runtime. `npm test` shows the same 5
+pre-existing `data/stats/`-dependent failures as 22-10 and no others — 1160
+passed (4 more than 22-10's 1156, the new BL-03 cases), 0 newly failing.

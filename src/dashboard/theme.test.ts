@@ -154,6 +154,11 @@ describe('readStoredMode', () => {
     expect(() => readStoredMode(storage)).not.toThrow();
     expect(readStoredMode(storage)).toBe('auto');
   });
+
+  it("falls back to 'auto' without rethrowing when storage is null (BL-03)", () => {
+    expect(() => readStoredMode(null)).not.toThrow();
+    expect(readStoredMode(null)).toBe('auto');
+  });
 });
 
 describe('applyThemeMode', () => {
@@ -189,6 +194,21 @@ describe('applyThemeMode', () => {
       applyThemeMode('dark', { prefersDark: false, doc, storage })
     ).not.toThrow();
     expect(attrs['data-theme']).toBe('dark');
+  });
+
+  it('sets data-theme even with a null storage handle (BL-03) — the DOM update is not conditional on a usable storage handle', () => {
+    const { doc, attrs } = fakeDoc();
+    const effective = applyThemeMode('dark', { prefersDark: false, doc, storage: null });
+    expect(effective).toBe('dark');
+    expect(attrs['data-theme']).toBe('dark');
+  });
+
+  it('does not throw with a null storage handle and persist left at its default true (BL-03)', () => {
+    const { doc, attrs } = fakeDoc();
+    expect(() =>
+      applyThemeMode('light', { prefersDark: true, doc, storage: null })
+    ).not.toThrow();
+    expect(attrs['data-theme']).toBe('light');
   });
 });
 
@@ -243,4 +263,20 @@ describe('watchSystemTheme', () => {
     mediaQuery.fire(true);
     expect(called).toBe(0);
   });
+
+  it(
+    "registers its listener and invokes the callback with a null storage handle (BL-03) — " +
+      "readStoredMode(null) is 'auto', so the auto-only guard passes; a blocked-storage user " +
+      'therefore keeps following the system theme, which is the correct default',
+    () => {
+      const mediaQuery = fakeMediaQuery(false);
+      let called = 0;
+      const unsubscribe = watchSystemTheme(() => {
+        called += 1;
+      }, { mediaQuery, storage: null });
+      mediaQuery.fire(true);
+      expect(called).toBe(1);
+      unsubscribe();
+    }
+  );
 });
