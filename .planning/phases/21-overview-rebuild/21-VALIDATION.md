@@ -1,14 +1,15 @@
 ---
 phase: 21
 slug: overview-rebuild
-status: partial
-nyquist_compliant: false
+status: passed
+nyquist_compliant: true
 wave_0_complete: true
 created: 2026-08-18
 round: 2
 round1_staged: 2026-08-18
 round1_answered: 2026-08-18
 round2_staged: 2026-08-18
+round2_answered: 2026-08-18
 ---
 
 # Phase 21 — Validation Strategy
@@ -56,7 +57,7 @@ mandatory, not a formality. A fully green automated gate has masked real breakag
 | OVR-02 | Recent Activities and Recent PRs invoke the *same* renderer (source-identity), same linking semantics | unit | `npx vitest run src/dashboard/views/row-semantics.test.ts` | ✅ (extend) | ✅ green (npm test 1122/1122, Task 1 gate) |
 | OVR-02 | Rows visually match across both cards and the Activities mobile card | manual-only | — | N/A | ✅ PASS (R2, R3) |
 | OVR-03 | Year filter + re-rank produces correct `PrTableRow[]` (correct subset, correct 1..N ranks) | unit | `npx vitest run src/dashboard/views/records-logic.test.ts` | ✅ (new describe) | ✅ green (npm test 1122/1122, Task 1 gate) |
-| OVR-03 | `.segmented` scope control renders, toggles, and re-renders correct table data | manual-only | — | N/A | ⚠️ BLOCKED (R6, R8, R9, R10 PASS; R7 BLOCKED — no current-year rows exist to re-rank) |
+| OVR-03 | `.segmented` scope control renders, toggles, and re-renders correct table data | manual-only | — | N/A | ✅ PASS (R6, R8, R9, R10 Round 1; R14, R15 Round 2 — R15 supersedes Round 1's R7 BLOCKED via a staged best-efforts.json fixture) |
 | OVR-04 | This-year tile values computed/formatted correctly from `yearly-stats.json`; em-dash degradation when absent | unit | `npx vitest run src/dashboard/views/overview.test.ts` | ✅ (new describe) | ✅ green (npm test 1122/1122, Task 1 gate) |
 | OVR-04 | Two new tiles appear in `.stat-grid`, correctly positioned, both themes | manual-only | — | N/A | ✅ PASS (R11) |
 | FIX-01 | `calculateDailyStreaks` returns correct `currentStreakEnd` in every scenario (active, ended, empty) | unit | `npx vitest run src/analytics/streak-utils.test.ts` | ✅ (new assertions) | ✅ green (npm test 1122/1122, Task 1 gate) |
@@ -311,10 +312,54 @@ repeated here to avoid a second copy of the document's evidence-vocabulary text.
 
 | Row | Behavior | Requirement | Instructions | Observation |
 |-----|----------|--------------|---------------|-------------|
-| R14. | The fixture actually reached the tab (D-16, the Round 1 cache trap) | OVR-03 | On `http://127.0.0.1:8099/strava-widgets/#/records`, confirm the URL bar reads `127.0.0.1` and `/strava-widgets/`, then hard-reload the page (Cmd+Shift+R, or open DevTools with "Disable cache" ticked and reload). With **All time** selected, scroll to the 400m table and read the Date cells of the rows ranked `#4` and `#9`. Under the loaded fixture these read `Mar 14, 2026` and `Jun 2, 2026`. If either still reads `Sep 4, 2018` or `Apr 9, 2025`, the tab is serving a stale `best-efforts.json`; record FAIL and do not judge R15. Required detail: whether a hard reload was performed and by what method, and the Date cell text of the 400m All-time rows ranked `#4` and `#9`, quoted exactly. Observer required: developer's own eyes. | |
-| R15. | The year scope re-ranks — re-ask of Round 1's R7 (OVR-03, D-01, D-11) | OVR-03 | Only if R14 is PASS. Click **This year**. The 400m table now has rows. Read both of them. A correct 1..N re-rank over the filtered subset renders first row `#1` / `0:55` / `Mar 14, 2026` and second row `#2` / `1:02` / `Jun 2, 2026`. Ranks reading `#4` and `#9` mean the source ranks were passed straight through instead of being re-ranked within the scope — that is a FAIL, quoted. Required detail: the rank shown in the 400m table's first row and the date in that row, and the rank and date in its second row, all quoted exactly as rendered. Observer required: developer's own eyes. | |
+| R14. | The fixture actually reached the tab (D-16, the Round 1 cache trap) | OVR-03 | On `http://127.0.0.1:8099/strava-widgets/#/records`, confirm the URL bar reads `127.0.0.1` and `/strava-widgets/`, then hard-reload the page (Cmd+Shift+R, or open DevTools with "Disable cache" ticked and reload). With **All time** selected, scroll to the 400m table and read the Date cells of the rows ranked `#4` and `#9`. Under the loaded fixture these read `Mar 14, 2026` and `Jun 2, 2026`. If either still reads `Sep 4, 2018` or `Apr 9, 2025`, the tab is serving a stale `best-efforts.json`; record FAIL and do not judge R15. Required detail: whether a hard reload was performed and by what method, and the Date cell text of the 400m All-time rows ranked `#4` and `#9`, quoted exactly. Observer required: developer's own eyes. | Hard reload performed via Command+Option+R (on mac) (Reload From Origin), on http://127.0.0.1:8099/strava-widgets/#/records with the URL bar confirmed to read 127.0.0.1 and /strava-widgets/. With All time selected, the developer read back the 400m table's rows ranked #4 and #9 as rendered: #4 / 0:55 / 2:17/km / 81.0% / Mar 14, 2026; #9 / 1:02 / 2:35/km / 74.1% / Jun 2, 2026. The developer explicitly identified this as "the first case" — the fixture dates, not the stale Sep/Apr archive dates. The fixture reached the tab. R21-VERDICT: PASS — observed by developer. |
+| R15. | The year scope re-ranks — re-ask of Round 1's R7 (OVR-03, D-01, D-11) | OVR-03 | Only if R14 is PASS. Click **This year**. The 400m table now has rows. Read both of them. A correct 1..N re-rank over the filtered subset renders first row `#1` / `0:55` / `Mar 14, 2026` and second row `#2` / `1:02` / `Jun 2, 2026`. Ranks reading `#4` and `#9` mean the source ranks were passed straight through instead of being re-ranked within the scope — that is a FAIL, quoted. Required detail: the rank shown in the 400m table's first row and the date in that row, and the rank and date in its second row, all quoted exactly as rendered. Observer required: developer's own eyes. | With This year selected, the 400m table rendered exactly two rows, read back verbatim under the column header row Rank, Time, Pace, Age-Grade, Date, Flags: first row #1 / 0:55 / 2:17/km / 81.0% / Mar 14, 2026; second row #2 / 1:02 / 2:35/km / 74.1% / Jun 2, 2026. The discriminator held: the staged source ranks were left unchanged, and the rendered ranks re-rank to 1 and 2 over the filtered subset rather than passing source ranks through. This closes Round 1's R7 BLOCKED. R21-VERDICT: PASS — observed by developer. |
 
 ### Row-to-requirement map (Round 2)
 
 OVR-03 → R6, R8, R9, R10 (Round 1, PASS) + R14, R15 (Round 2). R15 supersedes Round 1's R7, which
 stays recorded BLOCKED and is not edited. OVR-03 ticks only when every one of those rows is PASS.
+
+## Checkpoint Outcome (Round 2)
+
+2 PASS, 0 FAIL, 0 BLOCKED, 0 NOT EXERCISABLE.
+
+Both Round 2 rows passed. R14 confirmed the fixture actually reached the observing tab after a hard
+reload, and R15 confirmed the 400m This-year table re-ranks the filtered subset to `#1`/`#2` rather
+than passing the staged source ranks (`4`/`9`) straight through. With R6, R8, R9 and R10 already
+PASS from Round 1, every row mapped to OVR-03 is now PASS, closing Round 1's R7 BLOCKED via
+supersession rather than by editing R7's cell.
+
+## Evidence Quality (Round 2)
+
+Both R14 and R15 were observed by the developer's own eyes directly in their own browser; no agent
+corroboration was used for either row this round.
+
+R14 named the hard reload method explicitly: Command+Option+R (macOS "Reload From Origin"),
+performed on `http://127.0.0.1:8099/strava-widgets/#/records` with the URL bar confirmed to read
+`127.0.0.1` and `/strava-widgets/` before judging. This satisfies the Cache trap requirement that a
+hard reload be its own row and be PASS before R15 is judged.
+
+R15 rests on the same deliberate, disclosed STAGED-BUILD FIXTURE that R14 verified was live in the
+tab, not on organic archive data. The edited file is
+`dist/widgets/data/stats/best-efforts.json`. Exactly two `startDate` values inside
+`rankings["400m"]` were changed: array index 3 (`activityId 3475732221`) from `2018-09-04T16:26:06Z`
+to `2026-03-14T09:12:00Z`, and array index 8 (`activityId 14122328106`) from
+`2025-04-09T00:02:51Z` to `2026-06-02T07:30:00Z`. Both entries' `rank` fields were deliberately
+LEFT UNCHANGED at `4` and `9` — this untouched `rank: 4` / `rank: 9` pair is the discriminator: a
+pass-through implementation would have rendered those source ranks, while the correct 1..N re-rank
+that was actually observed rendered `#1` and `#2`.
+
+Three honest limitations of this fixture, disclosed so nothing downstream over-reads it:
+
+1. `data/stats/age-grading.json` and the `activities` map inside `best-efforts.json` were NOT
+   edited, so the 400m Age-Grade cell and the 400m PR-Evolution chart still reflect the real 2018
+   and 2025 dates. Neither was part of R14's or R15's read-back.
+2. Under the fixture the 400m table is no longer empty under "This year". Round 1's R10 used the
+   400m empty state (`"No 400m efforts in 2026"`) as its example and PASSED against the
+   un-fixtured build; that verdict stands on its own evidence and was not re-litigated here. The
+   six other distances still rendered their empty states under the fixture.
+3. `dist/widgets/*` is gitignored (`.gitignore:4`), so the fixture could not be committed by
+   accident — but Task 3 still restores the staged file explicitly from the repository copy,
+   because "it can't be committed" is not the same as "it can't be mistaken for archive data by
+   the next person who opens the staged build".
