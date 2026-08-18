@@ -342,7 +342,7 @@ Plans:
 
 **Wave 10** *(blocked on Wave 9 — imports the module 22-10 creates)*
 
-- [ ] 22-11-PLAN.md — wire the app-wide guard: `main.ts:19`, `nav.ts:186`, `nav.ts:206`, `theme.ts:93`, `theme.ts:130`, `detail-charts.ts:218`, plus a repo-wide test proving `storage.ts` is the only storage-global dereference site
+- [x] 22-11-PLAN.md — wire the app-wide guard: `main.ts:19`, `nav.ts:186`, `nav.ts:206`, `theme.ts:93`, `theme.ts:130`, `detail-charts.ts:218`, plus a repo-wide test proving `storage.ts` is the only storage-global dereference site
 
 **Wave 11** *(blocked on Waves 9 and 10 — the checkpoint must observe the fixed build)*
 
@@ -426,7 +426,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 19. Design System & Control Styling | v2.1 | 17/17 | Complete    | 2026-08-13 |
 | 20. Row-Click Interaction Pattern | v2.1 | 20/20 | Complete    | 2026-08-18 |
 | 21. Overview Rebuild | v2.1 | 8/8 | Complete    | 2026-08-18 |
-| 22. Calendar Week-Start & Totals | v2.1 | 10/12 | In Progress|  |
+| 22. Calendar Week-Start & Totals | v2.1 | 11/12 | In Progress|  |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 0/TBD | Not started | - |
 | 24. Local Curation Mode | v2.1 | 0/TBD | Not started | - |
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 0/TBD | Not started | - |
