@@ -282,3 +282,136 @@ describe('buildMonthGrid — per-day aggregation (Sunday-start)', () => {
     expect(grid.monthTotalM).toBe(2000);
   });
 });
+
+describe('buildMonthGrid — weekday offset (Monday-start)', () => {
+  it('March 2024 (starts Friday, Monday-start) produces 4 leading null cells (Mon-Thu) in week 0', () => {
+    const grid = buildMonthGrid([], { year: 2024, month: 3 }, 'monday');
+    expect(grid.weeks[0].slice(0, 4)).toEqual([null, null, null, null]);
+    expect(grid.weeks[0][4]?.dayOfMonth).toBe(1);
+  });
+
+  it('September 2024 (September 1 is a Sunday, Monday-start) produces 6 leading null cells', () => {
+    const grid = buildMonthGrid([], { year: 2024, month: 9 }, 'monday');
+    expect(grid.weeks[0].slice(0, 6)).toEqual([null, null, null, null, null, null]);
+    expect(grid.weeks[0][6]?.dayOfMonth).toBe(1);
+  });
+
+  it('February 2024 (leap year, Monday-start) produces 3 leading null cells', () => {
+    const grid = buildMonthGrid([], { year: 2024, month: 2 }, 'monday');
+    expect(grid.weeks[0].slice(0, 3)).toEqual([null, null, null]);
+    expect(grid.weeks[0][3]?.dayOfMonth).toBe(1);
+  });
+
+  it('February 2023 (non-leap, Monday-start) produces 2 leading null cells', () => {
+    const grid = buildMonthGrid([], { year: 2023, month: 2 }, 'monday');
+    expect(grid.weeks[0].slice(0, 2)).toEqual([null, null]);
+    expect(grid.weeks[0][2]?.dayOfMonth).toBe(1);
+  });
+
+  it('June 2024 (starts Saturday, Monday-start) produces 5 leading null cells; every row still has 7 entries and at least MIN_WEEK_ROWS week rows', () => {
+    const grid = buildMonthGrid([], { year: 2024, month: 6 }, 'monday');
+    expect(grid.weeks[0].slice(0, 5)).toEqual([null, null, null, null, null]);
+    expect(grid.weeks[0][5]?.dayOfMonth).toBe(1);
+    expect(grid.weeks.every((w) => w.length === 7)).toBe(true);
+    expect(grid.weeks.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('the same month built with both week starts places day 1 at different grid indices — fails loudly if a default or stale offset sneaks back in', () => {
+    const sundayGrid = buildMonthGrid([], { year: 2024, month: 3 }, 'sunday');
+    const mondayGrid = buildMonthGrid([], { year: 2024, month: 3 }, 'monday');
+    const sundayIndex = sundayGrid.weeks[0].findIndex((cell) => cell?.dayOfMonth === 1);
+    const mondayIndex = mondayGrid.weeks[0].findIndex((cell) => cell?.dayOfMonth === 1);
+    expect(sundayIndex).not.toBe(mondayIndex);
+  });
+});
+
+describe('buildMonthGrid — weekTotals derivation', () => {
+  it('weekTotals.length always equals weeks.length', () => {
+    const grid = buildMonthGrid([], { year: 2024, month: 6 }, 'sunday');
+    expect(grid.weekTotals.length).toBe(grid.weeks.length);
+  });
+
+  it('a full in-month week sums distance/time/runCount over its non-null cells, daysShown 7, isPartial false', () => {
+    // September 2024: Sept 1 is a Sunday, so week 0 under Sunday-start is
+    // Sep 1-7, entirely in-month — a full week.
+    const rows = [
+      fixtureRow({ id: 'sep1', startDateLocal: '2024-09-01T09:00:00Z', distanceM: 5000, movingTimeSec: 1800 }),
+      fixtureRow({ id: 'sep3', startDateLocal: '2024-09-03T09:00:00Z', distanceM: 8000, movingTimeSec: 2400 }),
+    ];
+    const grid = buildMonthGrid(rows, { year: 2024, month: 9 }, 'sunday');
+    expect(grid.weekTotals[0]).toEqual({
+      totalDistanceM: 13000,
+      totalTimeSec: 4200,
+      runCount: 2,
+      daysShown: 7,
+      isPartial: false,
+    });
+  });
+
+  it('D-13: a boundary week sums ONLY its in-month cells — a fixture run in the previous month, though inside the row\'s true calendar week, is excluded from both the week total and monthTotalM', () => {
+    const rows = [
+      // Feb 27, 2024 falls inside week 0's true 7-day calendar week (Sun Feb 25 - Sat Mar 2)
+      // under a Sunday-start March grid, but it is in February, not March.
+      fixtureRow({ id: 'feb-boundary', startDateLocal: '2024-02-27T09:00:00Z', distanceM: 9999 }),
+      fixtureRow({ id: 'mar1', startDateLocal: '2024-03-01T09:00:00Z', distanceM: 3000 }),
+    ];
+    const grid = buildMonthGrid(rows, { year: 2024, month: 3 }, 'sunday');
+    expect(grid.weekTotals[0].daysShown).toBe(2); // only Mar 1 (Fri) and Mar 2 (Sat)
+    expect(grid.weekTotals[0].isPartial).toBe(true);
+    expect(grid.weekTotals[0].totalDistanceM).toBe(3000); // the Feb 27 run is excluded
+    expect(grid.monthTotalM).toBe(3000); // and excluded from the month total too
+  });
+
+  it('a rest week (no runs, daysShown 7) yields real zero values, not a sentinel, isPartial consistent with daysShown', () => {
+    // February 2023: Feb 1 is a Wednesday, Sunday-start padding is 3.
+    // Week 1 (Feb 5-11) is entirely in-month — a full rest week.
+    const grid = buildMonthGrid([], { year: 2023, month: 2 }, 'sunday');
+    expect(grid.weekTotals[1]).toEqual({
+      totalDistanceM: 0,
+      totalTimeSec: 0,
+      runCount: 0,
+      daysShown: 7,
+      isPartial: false,
+    });
+  });
+
+  it('multiple runs on one day roll into that day\'s totalTimeSec and into its week\'s totalTimeSec', () => {
+    const rows = [
+      fixtureRow({ id: 'am', startDateLocal: '2024-09-05T06:00:00Z', movingTimeSec: 1200 }),
+      fixtureRow({ id: 'pm', startDateLocal: '2024-09-05T18:00:00Z', movingTimeSec: 2400 }),
+    ];
+    const grid = buildMonthGrid(rows, { year: 2024, month: 9 }, 'sunday');
+    const cell = grid.weeks.flat().find((c) => c?.dateKey === '2024-09-05');
+    expect(cell?.totalTimeSec).toBe(3600);
+    // Sep 5 falls in week 0 (Sep 1-7 under Sunday-start), the only week with any runs.
+    expect(grid.weekTotals[0].totalTimeSec).toBe(3600);
+  });
+
+  it('reconciliation: weekTotals distance sum equals monthTotalM and runCount sum equals runCount, for the same month under both week starts', () => {
+    const rows = [
+      fixtureRow({ id: 'r1', startDateLocal: '2024-03-03T09:00:00Z', distanceM: 4000 }),
+      fixtureRow({ id: 'r2', startDateLocal: '2024-03-15T09:00:00Z', distanceM: 6000 }),
+      fixtureRow({ id: 'r3', startDateLocal: '2024-03-28T09:00:00Z', distanceM: 8000 }),
+    ];
+    for (const weekStart of ['sunday', 'monday'] as const) {
+      const grid = buildMonthGrid(rows, { year: 2024, month: 3 }, weekStart);
+      const distanceSum = grid.weekTotals.reduce((sum, w) => sum + w.totalDistanceM, 0);
+      const runCountSum = grid.weekTotals.reduce((sum, w) => sum + w.runCount, 0);
+      expect(distanceSum).toBe(grid.monthTotalM);
+      expect(runCountSum).toBe(grid.runCount);
+    }
+  });
+
+  it('a NaN movingTimeSec still produces a finite totalTimeSec — the || 0 coercion keeps buildMonthGrid total', () => {
+    const rows = [
+      fixtureRow({ id: 'nan-time', startDateLocal: '2024-03-10T09:00:00Z', movingTimeSec: NaN }),
+    ];
+    const grid = buildMonthGrid(rows, { year: 2024, month: 3 }, 'sunday');
+    const cell = grid.weeks.flat().find((c) => c?.dateKey === '2024-03-10');
+    expect(cell?.totalTimeSec).toBe(0);
+    expect(Number.isFinite(cell?.totalTimeSec)).toBe(true);
+    const weekTotal = grid.weekTotals.find((w) => w.runCount > 0);
+    expect(weekTotal).toBeDefined();
+    expect(Number.isFinite(weekTotal?.totalTimeSec)).toBe(true);
+  });
+});
