@@ -370,3 +370,53 @@ describe('selectSuperlatives — tolerant of null/malformed inputs', () => {
     expect(result.currentStreak).toBeNull();
   });
 });
+
+describe('selectCurrentStreak — FIX-01 endedISO comes from currentStreakEnd, not currentStreakStart (D-12 layer 2)', () => {
+  it('an ended streak carrying both fields with different values yields endedISO from currentStreakEnd, not currentStreakStart', () => {
+    const fixture = {
+      currentStreak: 0,
+      withinCurrentStreak: false,
+      currentStreakStart: '2026-07-30T00:00:00.000Z',
+      currentStreakEnd: '2026-08-03T00:00:00.000Z',
+    };
+    const result = selectSuperlatives(null, null, fixture);
+    expect(result.currentStreak).not.toBeNull();
+    expect(result.currentStreak!.endedISO).toBe('2026-08-03T00:00:00.000Z');
+    expect(result.currentStreak!.endedISO).not.toBe('2026-07-30T00:00:00.000Z');
+  });
+
+  it('an ended streak with no currentStreakEnd key still renders a tile with a null sub-label (pre-compute-run degrade path, D-13)', () => {
+    const fixture = {
+      currentStreak: 0,
+      withinCurrentStreak: false,
+    };
+    const result = selectSuperlatives(null, null, fixture);
+    expect(result.currentStreak).not.toBeNull();
+    expect(result.currentStreak!.days).toBe(0);
+    expect(result.currentStreak!.active).toBe(false);
+    expect(result.currentStreak!.endedISO).toBeNull();
+  });
+
+  it('an ended streak with currentStreakEnd as an empty string yields endedISO === null', () => {
+    const fixture = {
+      currentStreak: 0,
+      withinCurrentStreak: false,
+      currentStreakEnd: '',
+    };
+    const result = selectSuperlatives(null, null, fixture);
+    expect(result.currentStreak).not.toBeNull();
+    expect(result.currentStreak!.endedISO).toBeNull();
+  });
+
+  it('an active streak carrying a currentStreakEnd still resolves endedISO to null — the active branch wins', () => {
+    const fixture = {
+      currentStreak: 2,
+      withinCurrentStreak: true,
+      currentStreakEnd: '2026-08-17T00:00:00.000Z',
+    };
+    const result = selectSuperlatives(null, null, fixture);
+    expect(result.currentStreak).not.toBeNull();
+    expect(result.currentStreak!.active).toBe(true);
+    expect(result.currentStreak!.endedISO).toBeNull();
+  });
+});
