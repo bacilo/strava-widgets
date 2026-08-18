@@ -325,7 +325,7 @@ Plans:
 
 **Wave 6** *(gap closure — blocked on Wave 5's verification result)*
 
-- [ ] 22-06-PLAN.md — close Gap 1: deepen the 380px compaction (GC-1), right-align the `Total` header (IN-05), correct the third-block comment (IN-06), and add override-aware CSS guards
+- [x] 22-06-PLAN.md — close Gap 1: deepen the 380px compaction (GC-1), right-align the `Total` header (IN-05), correct the third-block comment (IN-06), and add override-aware CSS guards
 
 **Wave 7** *(blocked on Wave 6 — both waves write `calendar.ts`)*
 
@@ -413,7 +413,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 19. Design System & Control Styling | v2.1 | 17/17 | Complete    | 2026-08-13 |
 | 20. Row-Click Interaction Pattern | v2.1 | 20/20 | Complete    | 2026-08-18 |
 | 21. Overview Rebuild | v2.1 | 8/8 | Complete    | 2026-08-18 |
-| 22. Calendar Week-Start & Totals | v2.1 | 5/5 | Complete   | 2026-08-18 |
+| 22. Calendar Week-Start & Totals | v2.1 | 6/8 | In Progress|  |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 0/TBD | Not started | - |
 | 24. Local Curation Mode | v2.1 | 0/TBD | Not started | - |
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 0/TBD | Not started | - |
