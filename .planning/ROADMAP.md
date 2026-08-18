@@ -300,7 +300,7 @@ Plans:
   4. The week-start control and any other Calendar inputs use the shared styling from Phase 19 (UI-01/UI-02).
   5. **Human checkpoint**: served under `/strava-widgets` in a real browser, toggle week start, confirm the grid re-flows, week totals recompute correctly for a week that straddles the old/new start boundary, and the setting survives a reload.
 
-**Plans**: 5 plans in 5 waves (all sequential — 22-02 imports the `WeekStart` union 22-01 exports, and 22-03/22-04 both write `src/dashboard/views/calendar.ts`). The phase is deliberately split at the riskiest seam: 22-03 restructures the render loop, and 22-04 adds the toggle handler on its own so D-04's no-focus-theft contract gets its own review and its own source guard (Phase 20 shipped two focus-theft regressions of exactly that shape). Criterion 5 is discharged by 22-05's eleven-row checkpoint, served from `127.0.0.1` under `/strava-widgets` against ORGANIC archive data — no fixture is needed or permitted, because October 2025 holds exactly one Sunday-dated run and is a natural single-variable discriminator (`22-RESEARCH.md` § D-16).
+**Plans**: 8 plans in 8 waves (plans 22-01..22-05 shipped the phase; 22-06..22-08 are the gap-closure round for the two gaps `22-VERIFICATION.md` found. All sequential — 22-02 imports the `WeekStart` union 22-01 exports, and 22-03/22-04 both write `src/dashboard/views/calendar.ts`). The phase is deliberately split at the riskiest seam: 22-03 restructures the render loop, and 22-04 adds the toggle handler on its own so D-04's no-focus-theft contract gets its own review and its own source guard (Phase 20 shipped two focus-theft regressions of exactly that shape). Criterion 5 is discharged by 22-05's eleven-row checkpoint, served from `127.0.0.1` under `/strava-widgets` against ORGANIC archive data — no fixture is needed or permitted, because October 2025 holds exactly one Sunday-dated run and is a natural single-variable discriminator (`22-RESEARCH.md` § D-16).
 
 Plans:
 **Wave 1**
@@ -322,6 +322,18 @@ Plans:
 **Wave 5** *(blocked on Wave 4 completion)*
 
 - [x] 22-05-PLAN.md — the blocking eleven-row browser checkpoint reading the October 2025 totals back under both week starts
+
+**Wave 6** *(gap closure — blocked on Wave 5's verification result)*
+
+- [ ] 22-06-PLAN.md — close Gap 1: deepen the 380px compaction (GC-1), right-align the `Total` header (IN-05), correct the third-block comment (IN-06), and add override-aware CSS guards
+
+**Wave 7** *(blocked on Wave 6 — both waves write `calendar.ts`)*
+
+- [ ] 22-07-PLAN.md — close Gap 2: guard the `globalThis.localStorage` property access (CR-01), make `buildMonthGrid` total for an off-union `weekStart` (WR-01), and correct the T-22-WK-01/02 security notes
+
+**Wave 8** *(blocked on Waves 6 and 7 — the checkpoint must observe the fixed build)*
+
+- [ ] 22-08-PLAN.md — the blocking Round 2 browser checkpoint (rows R12..R17), re-asking the ~380px question R11 failed and observing the blocked-storage path in a real browser
 
 **UI hint**: yes
 
