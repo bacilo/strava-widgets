@@ -26,9 +26,22 @@ import {
   shiftMonth,
   type CalendarMonth,
   type DayCell,
+  type WeekStart,
+  type WeekTotal,
 } from './calendar-logic.js';
 
-const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const WEEKDAY_NAMES_SUNDAY_FIRST = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/**
+ * Week-start-aware weekday header labels (DISC-4). `'sunday'` returns the
+ * Sunday-first array unchanged; `'monday'` returns the same seven names
+ * rotated left by one (Mon..Sun) — a rotation, not a rewrite, so both
+ * orderings always contain the same seven names.
+ */
+export function weekdayLabels(weekStart: WeekStart): readonly string[] {
+  if (weekStart === 'sunday') return WEEKDAY_NAMES_SUNDAY_FIRST;
+  return [...WEEKDAY_NAMES_SUNDAY_FIRST.slice(1), WEEKDAY_NAMES_SUNDAY_FIRST[0]];
+}
 
 /**
  * Full date text for a day cell's `aria-label`, e.g. "August 11, 2026".
@@ -38,6 +51,70 @@ const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 function fullDateLabel(cell: DayCell, month: CalendarMonth): string {
   const [monthName, year] = monthLabel(month).split(' ');
   return `${monthName} ${cell.dayOfMonth}, ${year}`;
+}
+
+/**
+ * Formats a week total's summed moving time as `"{h}h {m}m"` (or `"{m}m"`
+ * when the hour count is 0) — DISC-2. This is a NEW formatter, not a reuse
+ * of `list.ts`'s `formatDurationHms` (`h:mm:ss`, shaped for one activity's
+ * moving time, e.g. `"1:32:00"`) or `formatEffortDuration` (shaped for a
+ * standalone effort/PR time usually under an hour) — a week total is a
+ * different kind of duration (always likely well over an hour, an
+ * aggregate rather than a per-activity figure), and CONTEXT.md's own D-14
+ * illustrative aria-label example ("...1h 32m...") already implies this
+ * "Xh Ym" shape without seconds.
+ *
+ * ROUNDING IS LOAD-BEARING (see 22-03-PLAN.md `<rounding_is_load_bearing>`):
+ * plan 22-05's blocking checkpoint reads ten week-total time values back
+ * from the browser against tables computed with round-to-nearest-minute.
+ * Truncating instead would make 8 of those 10 rows disagree by one minute
+ * and record a false FAIL against correct code. Total function: a
+ * non-finite or non-positive input returns `"0m"` rather than `NaN`.
+ */
+export function formatWeekDuration(totalTimeSec: number): string {
+  if (!Number.isFinite(totalTimeSec) || totalTimeSec <= 0) return '0m';
+  const totalMinutes = Math.round(totalTimeSec / 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
+/**
+ * The `.sr-only` accessible name for a week-total cell (DISC-9/D-11/D-14).
+ * Built as ONE template literal per case, mirroring `buildDayCellButton`'s
+ * rest-day branch having its own whole sentence rather than splicing an
+ * optional segment into the normal sentence. The date range is derived from
+ * the first and last non-null cells in `week`, using the en-dash U+2013 (the
+ * same glyph as the rest-day cell) rather than a hyphen-minus.
+ */
+export function weekTotalAccessibleName(
+  total: WeekTotal,
+  week: readonly (DayCell | null)[],
+  month: CalendarMonth
+): string {
+  const cells = week.filter((c): c is DayCell => c !== null);
+  if (cells.length === 0) return 'Empty week';
+
+  const [monthName, year] = monthLabel(month).split(' ');
+  const first = cells[0];
+  const last = cells[cells.length - 1];
+  const range =
+    first.dayOfMonth === last.dayOfMonth
+      ? `${monthName} ${first.dayOfMonth}, ${year}`
+      : `${monthName} ${first.dayOfMonth}–${last.dayOfMonth}, ${year}`;
+
+  const dayWord = total.daysShown === 1 ? 'day' : 'days';
+  const prefix = total.isPartial
+    ? `Partial week, ${total.daysShown} ${dayWord} shown, week of ${range}`
+    : `Week of ${range}`;
+
+  if (total.runCount === 0) return `${prefix}, rest week`;
+
+  const km = (total.totalDistanceM / 1000).toFixed(1);
+  const duration = formatWeekDuration(total.totalTimeSec);
+  const runsWord = total.runCount === 1 ? 'run' : 'runs';
+  return `${prefix}, ${km} km, ${duration}, ${total.runCount} ${runsWord}`;
 }
 
 /**
@@ -296,7 +373,7 @@ export function createCalendarView(deps: CalendarViewDeps): DashboardView {
       const gridEl = document.createElement('div');
       gridEl.className = 'calendar-grid';
 
-      for (const wd of WEEKDAY_LABELS) {
+      for (const wd of WEEKDAY_NAMES_SUNDAY_FIRST) {
         const wdEl = document.createElement('div');
         wdEl.className = 'calendar-weekday';
         wdEl.textContent = wd;
