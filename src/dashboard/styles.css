@@ -706,6 +706,15 @@ body {
 
 /* Calendar */
 
+/* Phase 22 CAL-03: the week-start `.segmented` control (D-01) is a third
+   instance of the existing segmented-toggle pattern below (§ "Segmented
+   control (x-axis toggle)") — it inherits the button baseline, the shared
+   hover exclusion and the two-tone focus ring with ZERO new CSS. No
+   Calendar-scoped nesting of the `segmented` selector under either the
+   header or the view root was added; confirmed by reading `.segmented`/
+   `.segmented__option` (class-selector-based, not per-instance-scoped) and
+   the button baseline's `--active`-class hover exclusion. */
+
 .calendar-header {
   display: flex;
   flex-wrap: wrap;
@@ -724,9 +733,14 @@ body {
   line-height: 1.5;
 }
 
+/* D-10: the 8th track is `auto`-sized (content-sized), not an equal `1fr`
+   share, because it holds three stacked values (distance/time/count) rather
+   than one. CSS grid auto-flow wraps every 8 children onto a new row with no
+   row/column index bookkeeping needed in calendar.ts — the same mechanism
+   that already wraps every 7 children today. */
 .calendar-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, 1fr) auto;
   gap: var(--space-xs);
 }
 
@@ -787,6 +801,65 @@ body {
   font-weight: 400;
   line-height: 1.5;
   justify-self: end;
+}
+
+/* D-10/D-11: a vertically stacked three-line cell (distance/time/count), NOT
+   a reuse of `.calendar-day`'s 3x3 `grid-template-areas`. Pitfall 3: that
+   grid has a day-number slot this cell has no use for, no fourth slot for a
+   time value, and `--outside`/`--rest`/`--tint-N` modifiers that are
+   nonsensical on a total — so this gets its own class and its own, simpler
+   implicit-row layout instead of retrofitting the day-cell grid areas. No
+   border, no background, no tint (D-11: static content, not an interactive
+   cell) — being borderless beside bordered day cells is its visual
+   distinction. `white-space: nowrap` makes `auto` track-sizing meaningful
+   for a value like "10h 14m". */
+.calendar-week-total {
+  display: grid;
+  align-content: center;
+  justify-items: end;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.calendar-week-total__distance {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.calendar-week-total__time {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.calendar-week-total__count {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+/* DISC-6b: padding + type compaction at the existing 380px breakpoint, not a
+   `.splits-scroll`-style horizontal-scroll wrapper. The scroll-wrapper is
+   the documented FALLBACK, applied only if plan 22-04's narrow-viewport
+   checkpoint row fails — it was not chosen first because, unlike
+   `.splits-scroll`, this grid is full of focusable day buttons, and a
+   horizontal-scroll container with focusable content scroll-jumps on Tab. */
+@media (max-width: 380px) {
+  .calendar-day,
+  .calendar-week-total {
+    padding: var(--space-xs);
+  }
+
+  .calendar-week-total__distance {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.5;
+  }
 }
 
 .calendar-day--tint-1 {
