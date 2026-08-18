@@ -317,7 +317,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 22-04-PLAN.md — the `.segmented` Sunday/Monday control, persisting and rebuilding the grid in place without moving focus
+- [x] 22-04-PLAN.md — the `.segmented` Sunday/Monday control, persisting and rebuilding the grid in place without moving focus
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
@@ -401,7 +401,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 19. Design System & Control Styling | v2.1 | 17/17 | Complete    | 2026-08-13 |
 | 20. Row-Click Interaction Pattern | v2.1 | 20/20 | Complete    | 2026-08-18 |
 | 21. Overview Rebuild | v2.1 | 8/8 | Complete    | 2026-08-18 |
-| 22. Calendar Week-Start & Totals | v2.1 | 3/5 | In Progress|  |
+| 22. Calendar Week-Start & Totals | v2.1 | 4/5 | In Progress|  |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 0/TBD | Not started | - |
 | 24. Local Curation Mode | v2.1 | 0/TBD | Not started | - |
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 0/TBD | Not started | - |
