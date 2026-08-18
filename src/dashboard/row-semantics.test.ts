@@ -247,15 +247,23 @@ describe('UX-02 - the CTAs are gone, and .cta survives', () => {
 });
 
 describe('UX-01 / D-03 - one definition of the URL and the click', () => {
-  it("list.ts, overview.ts and records.ts each import from '../row-navigation.js'", () => {
+  it("list.ts and records.ts each import from '../row-navigation.js'; overview.ts imports it zero times", () => {
+    // D-05 (plan 21-04) moved Overview's href construction into the shared
+    // renderActivityRow — Overview importing the navigation helper directly
+    // would now mean a SECOND row model had been reintroduced. The zero for
+    // overview.ts is the STRONGER assertion here, not a relaxation of the
+    // original "each import it" guard.
     expect(listStripped).toContain("from '../row-navigation.js'");
-    expect(overviewStripped).toContain("from '../row-navigation.js'");
     expect(recordsStripped).toContain("from '../row-navigation.js'");
+    expect(countOccurrences(overviewStripped, "from '../row-navigation.js'")).toBe(0);
   });
 
   it('activityDetailHref( appears the expected number of times per file', () => {
     expect(countOccurrences(listStripped, 'activityDetailHref(')).toBe(2);
-    expect(countOccurrences(overviewStripped, 'activityDetailHref(')).toBe(1);
+    // 0, not 1, as of D-05 (plan 21-04): Overview no longer constructs its
+    // own href at all - every athlete-facing anchor href is built exclusively
+    // by renderActivityRow (list.ts).
+    expect(countOccurrences(overviewStripped, 'activityDetailHref(')).toBe(0);
     // 3, not 2, as of D-13 (plan 20-17): the two dateAnchor call sites plus
     // buildCellLink's own single href construction, reused by all seven of
     // its call sites. See the 'D-13' describe block below for the
@@ -485,28 +493,30 @@ describe('CR-02 - status-badge text is folded into whole-row aria-labels, not sw
     expect(countOccurrences(listStripped, 'composeRowAriaLabel(')).toBe(2);
   });
 
-  it('overview.ts defines and uses recentPrRowAriaLabel exactly twice (its definition and its single use)', () => {
-    expect(countOccurrences(overviewStripped, 'recentPrRowAriaLabel(')).toBe(2);
-  });
+  // D-05 (plan 21-04) retired Overview's private row renderer and its
+  // accessible-name/href builders into the shared renderActivityRow. This
+  // guard proves Overview has no second row model left: it builds no row
+  // DOM, composes no accessible name of its own, and scopes its two lists'
+  // element ids apart by passing distinct RowSurface values to the two call
+  // sites. The distinct-surface assertion below lives here (a source guard)
+  // rather than being left to the browser checkpoint, because no row in
+  // data/dashboard/index.json currently carries prCount > 0 inside the ten
+  // most recent activities - the id collision this guards against is
+  // unobservable against today's archive.
+  it('overview.ts has no second row model: no row DOM, no accessible-name composition, and two distinct-surface renderActivityRow call sites', () => {
+    for (const dead of [
+      'recentPrRowAriaLabel',
+      'recentPrBadgeText',
+      'aria-label',
+      "'activity-row'",
+      "createElement('a')",
+    ]) {
+      expect(countOccurrences(overviewStripped, dead), `expected zero occurrences of ${dead}`).toBe(0);
+    }
 
-  it('overview.ts contains exactly one aria-label occurrence, and it sits on the same line as (or the line before) the recentPrRowAriaLabel call - proving no raw inline label template literal survives alongside the composed one', () => {
-    expect(countOccurrences(overviewStripped, 'aria-label')).toBe(1);
-
-    const lines = overviewStripped.split('\n');
-    const ariaLabelLineIndex = lines.findIndex((line) => line.includes('aria-label'));
-    // The LAST occurrence of `recentPrRowAriaLabel(` is the call site
-    // (`rowEl.setAttribute('aria-label', recentPrRowAriaLabel(row))`), not
-    // the first, which is the function's own `export function` definition.
-    const usageLineIndex = lines.reduce(
-      (found, line, i) => (line.includes('recentPrRowAriaLabel(') ? i : found),
-      -1
-    );
-    expect(ariaLabelLineIndex).toBeGreaterThanOrEqual(0);
-    expect(usageLineIndex).toBeGreaterThanOrEqual(0);
-    expect(
-      ariaLabelLineIndex === usageLineIndex || ariaLabelLineIndex === usageLineIndex - 1,
-      `expected the aria-label occurrence (line ${ariaLabelLineIndex}) to be on the same line as, or the line before, the recentPrRowAriaLabel call (line ${usageLineIndex})`
-    ).toBe(true);
+    expect(countOccurrences(overviewStripped, 'renderActivityRow(')).toBe(2);
+    expect(countOccurrences(overviewStripped, "renderActivityRow(row, 'overview-prs')")).toBe(1);
+    expect(countOccurrences(overviewStripped, "renderActivityRow(row, 'overview-activities')")).toBe(1);
   });
 
   it("every row element-id prefix is built in exactly one place, and no surface constructs one inline — deviation note: a naive substring count of the bare 'activity-table-' literal would double-count the pre-existing, unrelated 'activity-table-wrapper' className (buildDesktopTable); that double-counting hazard is now moot because no bare prefix substring is constructed inline at all — plan 21-02 replaced both inline id-prefix TEMPLATE LITERALS ( `` `activity-card-${row.id}` `` / `` `activity-table-${row.id}` `` ) with the single rowIdPrefix(surface, rowId) helper", () => {
