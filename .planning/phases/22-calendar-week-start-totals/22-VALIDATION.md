@@ -6,11 +6,12 @@ nyquist_compliant: false
 wave_0_complete: false
 created: 2026-08-18
 planned: 2026-08-18
-round: 2
+round: 3
 round1_staged: 2026-08-18
 round1_answered: 2026-08-18
 round2_staged: 2026-08-18
 round2_answered: 2026-08-18
+round3_staged: 2026-08-18
 ---
 
 # Phase 22 — Validation Strategy
@@ -77,6 +78,8 @@ its Task 2 is the blocking human checkpoint by design.
 | 22-05-T2 (R9, R10) | 22-05 | 5 | CAL-03 | — | Segmented control visually inherits Phase 19's button baseline, shared hover and two-tone focus ring in **both** themes, and `.calendar-header`'s `align-items: baseline` holds across five mixed-height controls | manual-only | — (visual claim; house rule forbids discharging by unit test) | N/A | ✅ green (Round 1: R9, R10 both PASS. Round 2: R17 PASS — confirm-unregressed, the `Total` header still sits right-aligned over the widest week-total cell; does not re-gate CAL-03) |
 | 22-06-T3 | 22-06 | 6 | CAL-02 | — | The 380px compaction declarations and the `Total` header modifier are guarded with at-rule-override-aware assertions | unit | `npx vitest run src/dashboard/styles.test.ts` | ✅ exists | ✅ green (npm test 1222/1222, plan 22-08 Task 1 gate) |
 | 22-07-T1 | 22-07 | 7 | CAL-01 | T-22-WK-02 | A storage stand-in whose property getter throws resolves to a null handle and the read falls back to the Monday default | unit | `npx vitest run src/dashboard/views/calendar-preferences.test.ts` | ✅ exists | ✅ green (npm test 1222/1222, plan 22-08 Task 1 gate) |
+| 22-09-T2 | 22-09 | 9 | CAL-02 | — | The BL-01/BL-02 380px overrides are asserted BY VALUE via `atRuleBodiesFor`, not merely proven to exist | unit | `npx vitest run src/dashboard/styles.test.ts` | ✅ exists | ✅ green (npm test 1253/1253, plan 22-12 Task 1 gate) |
+| 22-11-T3 | 22-11 | 10 | CAL-01 | T-22-WK-02 | `resolveStorage` guards the property getter app-wide, both its failing and its live-and-working branches are covered, and a repo-wide source guard proves it is the only dereference site | unit | `npx vitest run src/dashboard/storage.test.ts` | ✅ exists | ✅ green (npm test 1253/1253, plan 22-12 Task 1 gate) |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -545,3 +548,205 @@ house-rule-1 waiver question — no waiver was requested or granted for R16; it 
   grid is full of focusable day buttons and a horizontal-scroll container with focusable content
   scroll-jumps on Tab. R13's FAIL shows the compaction alone did not fully close Gap 1; the documented
   fallback remains available for a future round to pick up.
+
+## Round 3
+
+Task 1's full gate ran green on a clean working tree: `npm test` 1253/1253 across 52 files, `npx tsc
+--noEmit -p tsconfig.json` clean, `npm run build-widgets` exit 0 with zero `css-syntax-error`
+occurrences in the captured log, `npm run verify-dashboard` 37/37 checks passed. The build is staged
+under the production path shape and served from `127.0.0.1`, never `localhost` — served URL prefix
+`http://127.0.0.1:8099/strava-widgets/`. The two calendar routes this session uses are
+`http://127.0.0.1:8099/strava-widgets/#/calendar?month=2025-10` (R18-R20, R22, R23) and, for R21 only,
+the same route under Sunday-start. The observed bundle filenames read from the served `index.html` are
+`assets/index-Bsnjp2E6.js` and `assets/index-C-Jvo-sR.css`; the JS filename differs from BOTH Round 1's
+`assets/index-YqJHQsHW.js` and Round 2's `assets/index-Dlom2BM3.js`, and the CSS filename differs from
+Round 2's `assets/index-aaEmW9us.css`. A served `max-width: 380px` block was independently fetched over
+HTTP and confirmed to contain all of `minmax(0, max-content)`, a `grid-template-areas` declaration and
+an `overflow-wrap` declaration — the BL-01/BL-02 fixes are actually in the observed artifact, not just
+claimed. **No staged fixture is used or permitted in this round** — every value below comes from the
+live, organic `data/dashboard/index.json` archive (1,868 activities).
+
+Honestly noted: the JS-side Round 3 change (the shared `resolveStorage()` wiring six previously-
+unguarded call sites, including `main.ts:19` and `nav.ts:186`) cannot be discriminated in a minified
+bundle by string match, so its freshness rests on the changed filename plus the behavioural rows R22
+and R23, not on a served-text assertion.
+
+The gate commands and their results: `npm test` → 1253/1253 passed, 52 files; `npx tsc --noEmit -p
+tsconfig.json` → exit 0; `npm run build-widgets` → exit 0, zero `css-syntax-error`; `npm run
+verify-dashboard` → 37/37 checks passed.
+
+<cache_trap>
+`127.0.0.1` alone is NOT sufficient. This project has been bitten repeatedly: Phase 21 Round 1's R13
+only passed after a hard reload cleared a stale cached `streaks.json`, and the staged-build trap
+recurs with a stale `index.html` / `index.json` in the observing tab.
+
+Every checkpoint session must: browse `127.0.0.1`, never `localhost`; serve under the
+`/strava-widgets` project path, never the server root; and hard-reload (Cmd+Shift+R, Cmd+Option+R in
+Safari, or DevTools open with "Disable cache" ticked, then reload) before judging any row.
+
+**Round 3's build-freshness bar is the strictest yet, because two builds have already been observed.**
+Round 1 was judged against `assets/index-YqJHQsHW.js`. Round 2 was judged against
+`assets/index-Dlom2BM3.js` and `assets/index-aaEmW9us.css`. If Round 3 is judged against either, the
+Round 3 fixes are not in the observed artifact and every verdict is worthless. Task 1 asserts the
+served JS filename differs from BOTH, that the served CSS filename differs from Round 2's, and that
+the served CSS actually carries the Round 3 declarations — `minmax(0, max-content)`, a
+single-column `grid-template-areas` and an `overflow-wrap` declaration, all inside a
+`max-width: 380px` block. R18 then makes the developer read the filename off the page after a hard
+reload and compare it against the preamble.
+
+The `localStorage` surface persists too: R22 requires a specific browser-level storage state and R23
+requires it restored, and each is judged only after a reload.
+</cache_trap>
+
+<house_rules>
+Carried forward from `22-08-PLAN.md` (and from checkpoint 16-09 before it), with three Round 3
+additions that are **not negotiable mid-session**. These bind Task 2.
+
+1. **Never cite an automated result as evidence for a manual row.** A green `npm test`, a source
+   grep, or an agent's own DOM read is not an answer to a row whose observer is the developer's eyes.
+2. **Present rows ONE AT A TIME**, in order, quoting each row's instructions including its own
+   detail-to-quote and named-observer clauses in full.
+3. **Read values back, do not confirm presence.** A row answered "the totals are there" is not
+   answered. Quote the rendered text.
+4. **Record the developer's own words.** Do not summarise, do not merge answers, do not fill a cell
+   with what the implementation ought to produce.
+5. **Do not fix anything during the session.** A failing row is recorded and the session continues to
+   the next row; no source file may be edited. `git status --porcelain src scripts` must be empty at
+   the end.
+6. **R18 gates everything.** If R18 is not PASS, every subsequent row is recorded BLOCKED naming R18.
+7. **Do not write a failure's wrong values into a PASS cell.** Task 3's checks treat that as a
+   contradiction.
+8. **Four-state verdict vocabulary:** `PASS` / `FAIL` / `BLOCKED` / `NOT EXERCISABLE`.
+   `NOT EXERCISABLE` is for a row whose claim could not be reached because something outside this
+   round's scope failed first. It is not a soft FAIL and it is not a PASS. **R22 has no
+   `NOT EXERCISABLE` disposition this round** — see rule 12.
+9. **Restore the browser.** R22 changes a browser-wide privacy setting. It must be reverted before
+   the session ends, and the revert confirmed by reloading the Calendar and seeing the week-start
+   preference work again (that confirmation is R23).
+10. **(Round 3) The waiver is not carried forward AND cannot be granted for R19 or R22.** Round 1
+    waived house rule 1 for R6/R7/R8/R10; Round 2's preamble stated the waiver was NOT pre-granted
+    and the developer re-granted it mid-session for R12/R14/R15/R17 anyway. `22-VERIFICATION.md`
+    scored both as a real weakening of the evidence behind ticked requirements. For Round 3:
+    - **R19 and R22 are non-waivable.** If the developer offers or asks for a waiver on either, the
+      executor **declines**, records the request and the developer's words verbatim in that row's
+      Observation cell, and records the row **BLOCKED** — never PASS, never FAIL. An agent-observed
+      result on those rows is not evidence.
+    - For R18, R20, R21 and R23 a mid-session waiver remains the developer's to grant. It is recorded
+      verbatim in that row's Observation cell and written into the Checkpoint Outcome as a stated
+      deviation.
+11. **(Round 3) The executor must not offer to observe R19 or R22 on the developer's behalf**, must
+    not resize a window or change a browser setting to observe them, and must not fill either
+    Observation cell from a DOM read, a computed-style dump, a screenshot it took itself, or static
+    analysis. The only admissible content in those two cells is the developer's own reported
+    observation.
+12. **(Round 3) R22 is mandatory and may not be declined.** It was declined in Round 2 ("decline
+    it"). If it is declined again, the row is recorded **BLOCKED**, `Gap 2` is recorded **STILL
+    OPEN** in the Gap Closure Record, and the Checkpoint Outcome states plainly that the app-level
+    blocked-site-data claim remains unobserved for a third round. It may not be recorded as
+    informational and it may not be closed on R15's isolated devtools evidence or on source reading.
+13. **(Round 3) Hard-reload before judging any rendering row.** `127.0.0.1` alone is not sufficient
+    — see `<cache_trap>`. Every rendering row is judged only after a cache-bypassing reload, and R18
+    exists to record that it happened against a build whose filename is neither Round 1's nor
+    Round 2's.
+</house_rules>
+
+<what_this_round_ships>
+Quoted into the Round 3 preamble so the developer knows what they are looking at.
+
+**Plan 22-09 (GC-4, closing `22-REVIEW.md` BL-01 + BL-02 together).** The `@media (max-width: 380px)`
+calendar block now also declares:
+`.calendar-grid { grid-template-columns: repeat(7, minmax(0, 1fr)) minmax(0, max-content) }` — so
+the eighth (Total) track can finally be squeezed instead of holding a hard content floor that the
+seven day columns paid for;
+`.calendar-week-total { min-width: 0; white-space: normal; overflow-wrap: anywhere }` — so
+`10h 14m` may wrap rather than pinning the track wide;
+`.calendar-day { grid-template-areas: "number" "distance" "count"; grid-template-columns: 1fr }` plus
+`justify-self: start` on all three children — so the distance value gets the cell's FULL width
+instead of a centred third of it; and `.calendar-day__distance { overflow-wrap: anywhere }` so a
+numeric token that still cannot fit breaks rather than spilling past the border. The `line-height:
+1.5` that made the total cell taller at this breakpoint (WR-07) was dropped. The eight-column
+contract is unchanged at the default breakpoint — only the 380px track SIZING changed.
+**The `.splits-scroll`-style horizontal-scroll wrapper (DISC-6b) is STILL deliberately not
+implemented** and remains the documented fallback if this round fails too.
+
+**Plans 22-10 and 22-11 (GC-5, closing `22-REVIEW.md` BL-03 app-wide — a locked user decision).**
+A new `src/dashboard/storage.ts` exports `resolveStorage()`, which wraps the `globalThis.localStorage`
+PROPERTY GETTER in try/catch and returns `null` when it throws or is absent. It is now the ONLY place
+in `src/dashboard/` that dereferences a storage global, and a repo-wide test proves it. Six
+previously-unguarded sites were wired to it: `main.ts:19`, `nav.ts:186`, `nav.ts:206`, `theme.ts:93`,
+`theme.ts:130` and `detail-charts.ts:218`. Two of those (`main.ts:19` and, via `main.ts:22`'s
+`createNav`, `nav.ts:186`) ran at MODULE SCOPE, which is why blocked site data previously killed the
+whole dashboard module graph and rendered a blank page before any view could mount. Every reader now
+tolerates a null handle explicitly: the theme falls back to `auto`, the week start to Monday, the
+overlay config to its default. `calendar-preferences.ts`'s header and `calendar.ts`'s rationale
+comment — which claimed a calendar-scoped guard closed the app-level threat, and claimed a "generic
+error panel" would catch it — were corrected to describe what actually happens.
+
+**What this round did NOT touch:** `index.html`'s inline pre-paint script (already try/catch-wrapped
+since Phase 16 — it is why the theme ATTRIBUTE has always survived blocked storage even while the
+module script died), the `.splits-scroll` fallback, WR-05's 8px header/value offset (R17 read the
+current alignment as correct), and the D-15 scope fence.
+</what_this_round_ships>
+
+<round_carryover>
+Facts the Round 3 agenda quotes. All are already recorded in `22-VALIDATION.md`'s Round 1 and Round 2
+sections and are restated here so the executor does not re-derive them.
+
+**The failing row this round re-asks, twice over.**
+Round 1 R11 (FAIL), developer's words: *"Total column values seem fine. Day cell values can slightly
+overflow once width to narrow (not a big issue for me, can just be documented if not fixable very
+quickly)"* and *"behavior similar in light and dark theme"*. They were explicitly offered a
+documented-PASS framing and chose FAIL.
+Round 2 R13 (FAIL), the re-ask against the fixed build, developer's words: *"Days still overflow.
+Total colum remains wide (wider than any other column) and all text fits. But other columns (day
+columns) become narrow and distance text overflows."* No width was stated on that row, because the
+agent's attempted narrow-viewport method never engaged the media query
+(`matchMedia('(max-width: 380px)').matches` returned `false`) and the row reverted to the developer.
+**R19 must state a width.**
+
+**The row that was declined and has never been run.** Round 2 R16 (BLOCKED), developer's word:
+*"decline it"*. Nothing has been established in a real browser about the browser-configuration-level
+blocked-storage path in this phase. `22-REVIEW.md` BL-03 predicted a blank page from static analysis;
+that prediction has never been observed.
+
+**October 2025, Monday-start week totals** (recomputed from the live archive during Round 1 planning;
+`data/dashboard/index.json`, 1,868 activities):
+
+| Wk | Days (Oct) | Distance | Time | Runs |
+|-----|------------|----------|------|------|
+| 1 | 1–5 | 59.1 km | 5h 42m | 5 |
+| 2 | 6–12 | 80.0 km | 7h 53m | 6 |
+| 3 | 13–19 | 80.0 km | 7h 58m | 5 |
+| 4 | 20–26 | 80.0 km | 7h 42m | 6 |
+| 5 | 27–31 | 58.1 km | 5h 32m | 5 |
+
+**Known rounding artifact — NOT a bug.** The month header renders `357.3 km`; the Monday-start rows
+display-sum to `357.2 km`, purely from independent per-row `toFixed(1)`. Unrounded metres reconcile
+at 357.349 km under both week starts. Do not open a row about it and do not record it as a defect.
+
+**The Sunday-start values, for the contradiction guard only:** rows 3 and 4 read `56.0 km / 5h 27m /
+4 runs` and `104.1 km / 10h 14m / 7 runs` under Sunday. R20 is a Monday-start row; those values must
+not appear in its PASS cell.
+
+**Bundles already observed:** Round 1 `assets/index-YqJHQsHW.js`; Round 2
+`assets/index-Dlom2BM3.js` + `assets/index-aaEmW9us.css`.
+</round_carryover>
+
+**D-15 scope fence.** Trends, `records-logic.ts`'s biggest week, and the streak logic all stay
+Monday-fixed by design — they read the pipeline's pre-computed Monday `weekStartISO` and this phase
+deliberately does not touch them; no row on this agenda is opened against those surfaces.
+
+| Row | Requirement | Instructions | Observation | Verdict |
+|-----|-------------|---------------|-------------|---------|
+| R18. | precondition | The URL bar reads `127.0.0.1` and includes `/strava-widgets/`; a hard reload was performed and the method is named; the `assets/index-*.js` filename read from the page matches the preamble AND is neither `index-YqJHQsHW.js` nor `index-Dlom2BM3.js`. **Required detail:** the URL as typed, the reload method, the bundle filename as read. **Observer required:** the developer's own eyes. | | |
+| R19. | CAL-02, D-10, GC-4 | **The R13/R11 re-ask, third time, against BOTH the BL-01 and BL-02 fixes.** Narrow the viewport to a STATED pixel width, down to at least 380px (responsive-design mode or a phone emulation preset — name which, and name the width). Confirm the 380px rules are actually engaged before judging (`matchMedia('(max-width: 380px)').matches` should read `true`; Round 2's attempt failed exactly here). At that width read back the rendered text of at least three day cells that carry a distance, and the rendered text of one week-total cell. Then answer: does ANY value still overflow its cell? Does the eight-column grid overflow the panel or the viewport? Are the day columns still legible? Is the behaviour the same in the other theme? A value that is CLIPPED or TRUNCATED rather than overflowing is ALSO a FAIL — say which it is. A value that WRAPS onto two lines inside its cell is NOT a failure; that is the intended Round 3 behaviour. **Required detail:** the stated width, the `matchMedia` result, the quoted text of at least three day cells and one total cell, an explicit yes/no on overflow, an explicit clipped-versus-overflowing statement, and the both-themes comparison. **Observer required:** the developer's own eyes — NON-WAIVABLE (house rules 10 and 11). | | |
+| R20. | CAL-02, D-16 | Back at normal width on `#/calendar?month=2025-10` under Monday-start, read back all five week-total cells: distance, time and run count. Compare against the Monday-start table in the preamble. This is the regression check on the BL-01/BL-02 CSS and on the app-wide storage refactor — the grid math and the total cell must be unchanged by both. **Required detail:** five triples of distance / time / run count, quoted as rendered. **Observer required:** the developer's own eyes. | | |
+| R21. | CAL-03, IN-05 | Confirm-unregressed. At normal width, look along `.calendar-header` (month total, two nav buttons, the `Jump to month` input, the segmented group) and confirm nothing is misaligned or overlapping; then find a wide week-total cell (October 2025 under Sunday-start has `104.1 km / 10h 14m / ×7`) and confirm the `Total` header still sits over the values it labels rather than centred away from them. Both themes. This row does not re-gate CAL-03. **Required detail:** a description of the header alignment, where the `Total` header sits relative to the values, the week used, and the theme comparison. **Observer required:** the developer's own eyes. | | |
+| R22. | CAL-01, T-22-WK-02, GC-5, BL-03 | **Gap 2, real browser configuration. MANDATORY — this row may not be declined (house rule 12) and may not be waived (house rules 10, 11).** Block site data for the origin — Firefox: Settings → Privacy & Security → Cookies and Site Data → Custom → Cookies → **All cookies**; Chrome: `chrome://settings/content/siteData` → *Don't allow sites to save data*. Then RELOAD `http://127.0.0.1:8099/strava-widgets/#/calendar?month=2025-10` (a full reload, not a hash navigation — the whole point is to re-run the app bootstrap under the blocked configuration) and describe what the page shows. **Disposition rules, applied by the executor when recording:** (a) the app boots — the nav renders, the Calendar route renders its grid AND its five week-total cells, the week start reads Monday, and the console carries no application error → **PASS**; (b) the page is blank, with no nav and no view content → **FAIL** of the Gap 2 fix (this is the outcome `22-REVIEW.md` BL-03 predicted for the PRE-fix build; the app-wide guard exists to prevent it); (c) the generic `Something went wrong` panel → **FAIL**. **Only PASS, FAIL or BLOCKED are valid outcomes for this row — the soft-fail verdict this agenda's vocabulary otherwise allows for an unreachable claim does not apply here.** **Required detail:** the browser and the exact setting used, what the page rendered (nav present? grid present? how many week-total cells? which week start?), any console error text, and which of (a)/(b)/(c) it matches. **Observer required:** the developer's own eyes — NON-WAIVABLE (house rules 10 and 11). | | |
+| R23. | CAL-01, GC-5 | **Restore and regression-check.** Restore the browser setting changed at R22 and confirm it is restored. Then, with storage working normally: hard-reload the Calendar, select `Sunday`, hard-reload again and confirm `Sunday` is still the filled option with `Sun` as the first weekday heading; then cycle the header theme toggle once, reload, and confirm the theme mode stuck. This is the regression row the app-wide storage refactor requires — six call sites moved onto a shared resolver and both persistence paths must still work for a normal user. **Required detail:** confirmation the browser setting was restored, which option was filled and the first weekday heading after the reload, and what the theme was before and after its reload. **Observer required:** the developer's own eyes. | | |
+
+### Row-to-requirement map (Round 3)
+
+**R18 gates all rows.** **CAL-02 → R19, R20 (both gating).** **CAL-01 → R23 (gating); R22 gates Gap 2's
+disposition and is mandatory, but does not by itself re-gate CAL-01's persistence claim.** **CAL-03 →
+R21 (confirm-unregressed, not gating).**
