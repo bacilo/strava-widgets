@@ -325,6 +325,31 @@ describe('buildMonthGrid — weekday offset (Monday-start)', () => {
   });
 });
 
+describe('buildMonthGrid — off-union weekStart is total (WR-01 defence in depth)', () => {
+  it("does not throw for the reviewed off-union value 'MONDAY' as never (22-REVIEW.md WR-01: RangeError: Invalid array length)", () => {
+    expect(() => buildMonthGrid([], { year: 2024, month: 3 }, 'MONDAY' as never)).not.toThrow();
+  });
+
+  it("an off-union 'MONDAY' grid deep-equals the legitimate 'monday' grid — degrades to the D-03 default, not to Sunday", () => {
+    const offUnionGrid = buildMonthGrid([], { year: 2024, month: 3 }, 'MONDAY' as never);
+    const mondayGrid = buildMonthGrid([], { year: 2024, month: 3 }, 'monday');
+    expect(offUnionGrid).toEqual(mondayGrid);
+  });
+
+  it('an off-union undefined value also degrades to the Monday grid, for a second month with different leading padding', () => {
+    const offUnionGrid = buildMonthGrid([], { year: 2024, month: 9 }, undefined as never);
+    const mondayGrid = buildMonthGrid([], { year: 2024, month: 9 }, 'monday');
+    expect(offUnionGrid).toEqual(mondayGrid);
+  });
+
+  it('legitimate week starts are unaffected by the total accessor', () => {
+    const sundayGrid = buildMonthGrid([], { year: 2024, month: 3 }, 'sunday');
+    expect(sundayGrid.weeks[0].slice(0, 5)).toEqual([null, null, null, null, null]);
+    const mondayGrid = buildMonthGrid([], { year: 2024, month: 3 }, 'monday');
+    expect(mondayGrid.weeks[0].slice(0, 4)).toEqual([null, null, null, null]);
+  });
+});
+
 describe('buildMonthGrid — weekTotals derivation', () => {
   it('weekTotals.length always equals weeks.length', () => {
     const grid = buildMonthGrid([], { year: 2024, month: 6 }, 'sunday');
