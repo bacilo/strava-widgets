@@ -509,15 +509,22 @@ describe('CR-02 - status-badge text is folded into whole-row aria-labels, not sw
     ).toBe(true);
   });
 
-  it("list.ts's card and table id-prefix templates each appear exactly once, and are different strings — deviation note: a naive substring count of the bare 'activity-table-' literal would double-count the pre-existing, unrelated 'activity-table-wrapper' className (buildDesktopTable), so this guard matches the id-prefix TEMPLATE LITERAL construction ( `` `activity-card-${row.id}` `` / `` `activity-table-${row.id}` `` ) precisely rather than the bare prefix substring", () => {
+  it("every row element-id prefix is built in exactly one place, and no surface constructs one inline — deviation note: a naive substring count of the bare 'activity-table-' literal would double-count the pre-existing, unrelated 'activity-table-wrapper' className (buildDesktopTable); that double-counting hazard is now moot because no bare prefix substring is constructed inline at all — plan 21-02 replaced both inline id-prefix TEMPLATE LITERALS ( `` `activity-card-${row.id}` `` / `` `activity-table-${row.id}` `` ) with the single rowIdPrefix(surface, rowId) helper", () => {
+    const rowIdPrefixCalls = listStripped.match(/rowIdPrefix\(/g) ?? [];
+    expect(
+      rowIdPrefixCalls.length >= 3,
+      `expected rowIdPrefix( to occur at least three times (definition, renderActivityRow's use, buildTableRow's use), found ${rowIdPrefixCalls.length}`
+    ).toBe(true);
+
     const cardPrefixTemplate = /`activity-card-\$\{row\.id\}`/g;
     const tablePrefixTemplate = /`activity-table-\$\{row\.id\}`/g;
     const cardMatches = listStripped.match(cardPrefixTemplate) ?? [];
     const tableMatches = listStripped.match(tablePrefixTemplate) ?? [];
+    expect(cardMatches.length).toBe(0);
+    expect(tableMatches.length).toBe(0);
 
-    expect(cardMatches.length).toBe(1);
-    expect(tableMatches.length).toBe(1);
-    expect(cardMatches[0]).not.toBe(tableMatches[0]);
+    const constructionSite = listStripped.match(/`\$\{surface\}-\$\{rowId\}`/g) ?? [];
+    expect(constructionSite.length).toBe(1);
   });
 
   it('records.ts non-regression: the Date-cell anchor stays exclusive to the Date cell; the Flags-cell badges land in the plain flagsTd cell or (D-13) its own flagsAnchor, never in dateTd/dateAnchor', () => {

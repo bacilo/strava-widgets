@@ -155,6 +155,47 @@ export function appendBadge(container: HTMLElement, text: string): void {
 export const LOW_CONFIDENCE_BADGE_TEXT = 'Low confidence';
 
 /**
+ * Every surface that renders a `.activity-row` via `renderActivityRow` or
+ * shares its badge helper (`appendStatusBadges`), in one place (D-05,
+ * `21-CONTEXT.md`).
+ *
+ * `'activity-card'` and `'activity-table'` are the two pre-existing
+ * surfaces — the Activities screen's mobile card (`renderActivityRow`,
+ * unchanged default) and its desktop table (`buildTableRow`). They were
+ * never simultaneously visible: `styles.css` CSS-hides one of the pair via
+ * a media query, so the old two-string prefix scheme sufficed on its own.
+ *
+ * `'overview-prs'` and `'overview-activities'` are new (plan 21-04):
+ * Overview renders its "Recent PRs" and "Recent Activities" cards in the
+ * SAME document at the same time, both calling `renderActivityRow`. An
+ * activity with `prCount > 0` that also sits among the ten most recent
+ * activities appears in both cards. `appendLowConfidenceBadge` mints an
+ * element `id` from the surface's prefix (via `lowConfidenceDescriptionId`)
+ * — without a fourth-and-fifth distinct prefix, that row would emit the
+ * SAME `id` twice in one document, invalid HTML with an ambiguous
+ * `aria-describedby` resolution target. `rowIdPrefix` exists so every
+ * surface gets a distinct prefix from one place, closing that collision
+ * before the call site that would trigger it (plan 21-04) exists.
+ */
+export type RowSurface =
+  | 'activity-card'
+  | 'activity-table'
+  | 'overview-prs'
+  | 'overview-activities';
+
+/**
+ * Builds the element-id prefix for one row on one surface — the single
+ * construction site every simultaneously-rendered surface's element ids
+ * derive from (D-05). Pre-Phase-21 callers relied on two inline template
+ * literals (`` `activity-card-${row.id}` `` and `` `activity-table-${row.id}` ``)
+ * that this function now replaces; both come out byte-identical to their
+ * old values, so the surface scheme is additive, not a rename.
+ */
+export function rowIdPrefix(surface: RowSurface, rowId: string): string {
+  return `${surface}-${rowId}`;
+}
+
+/**
  * The `id` a low-confidence badge's `.sr-only` explanation span is given,
  * derived from `idPrefix` — the single definition of this id shape, read by
  * both `appendLowConfidenceBadge` (which creates the element) and
@@ -239,12 +280,11 @@ export function statusBadgeTexts(row: DashboardIndexRow): string[] {
  * cell) so the two surfaces show identical badges from one source of truth
  * (`statusBadgeTexts`).
  *
- * `idPrefix` must differ between the two call sites: `#/list` renders both
- * the card and the table layout simultaneously (CSS hides one via media
- * query), so a shared `<id>-low-confidence-desc` element id would collide
- * and `aria-describedby` could resolve to the wrong, hidden copy. See
- * `renderActivityRow` (`'activity-card-' + row.id`) and `buildTableRow`
- * (`'activity-table-' + row.id`).
+ * `idPrefix` must differ between every simultaneously-rendered surface, or a
+ * shared `<id>-low-confidence-desc` element id would collide and
+ * `aria-describedby` could resolve to the wrong copy. `rowIdPrefix` is the
+ * single source of that prefix now — see its JSDoc for the full surface
+ * list and the Overview collision (D-05) it exists to prevent.
  */
 function appendStatusBadges(container: HTMLElement, row: DashboardIndexRow, idPrefix: string): void {
   for (const text of statusBadgeTexts(row)) {
@@ -301,10 +341,24 @@ export function activityRowAriaLabel(row: DashboardIndexRow): string {
  *
  * This row is now a whole-row `<a>` (D-07): the entire row is the
  * navigation affordance, not a bare `<div>` with a click handler bolted on.
- * It is the single shared seam between Overview's Recent Activities card
- * and the Activities mobile card view — one edit here changes both
- * screens. The redundant "View Activity" CTA that used to live inside the
- * row was removed under UX-02, since the row itself is now the affordance.
+ * It is the single shared renderer for the Activities mobile card and both
+ * Overview cards ("Recent PRs" and "Recent Activities", plan 21-04) — one
+ * edit here changes all three screens; the desktop table (`buildTableRow`)
+ * shares only the badge helpers, not this function. The redundant "View
+ * Activity" CTA that used to live inside the row was removed under UX-02,
+ * since the row itself is now the affordance.
+ *
+ * D-06's two-line hierarchy (`21-CONTEXT.md`): the row has exactly two
+ * direct children now, `div.activity-row__header` then
+ * `div.activity-row__meta`. The header itself has two children,
+ * `div.activity-row__name` then `div.activity-row__badges` — the badges
+ * wrapper is appended UNCONDITIONALLY, even when `statusBadgeTexts(row)` is
+ * empty. An always-present empty flex child is what keeps the header's
+ * `justify-content: space-between` behaviour identical between
+ * badge-carrying and badge-free rows; a conditional wrapper would make the
+ * name's width jump between rows in the same list. D-07 keeps the full
+ * field set — the meta line's text is unchanged.
+ *
  * The curated `aria-label`, built by `activityRowAriaLabel`, exists because
  * a whole-row link otherwise announces every descendant string concatenated
  * (name, date, distance, duration, pace, every status badge) — verbose and
@@ -314,35 +368,42 @@ export function activityRowAriaLabel(row: DashboardIndexRow): string {
  * below are descendants of the very element that carries the `aria-label`,
  * so without the fold their text is silently dropped from the accessible
  * name. When `row.lowConfidence` is true, `aria-describedby` is also set on
- * the row itself (not just on the badge span `appendStatusBadges` creates)
- * — a description is only announced when its host is announced, and on
- * this surface the row anchor is the only element that gets announced.
+ * the row itself — not on the header or badges wrapper — because a
+ * description is only announced when its host is announced, and on this
+ * surface the row anchor is the only element that gets announced.
  * `.activity-row` in `styles.css` declares `display: flex`, which is what
  * keeps the row laid out now that the element is an inline-by-default
  * anchor.
  */
-export function renderActivityRow(row: DashboardIndexRow): HTMLElement {
+export function renderActivityRow(row: DashboardIndexRow, surface: RowSurface = 'activity-card'): HTMLElement {
   const rowEl = document.createElement('a');
   rowEl.className = 'activity-row';
   const distanceKm = (row.distanceM / 1000).toFixed(1);
-  const idPrefix = `activity-card-${row.id}`;
+  const idPrefix = rowIdPrefix(surface, row.id);
   rowEl.href = activityDetailHref(row.id);
   rowEl.setAttribute('aria-label', activityRowAriaLabel(row));
   if (row.lowConfidence) {
     rowEl.setAttribute('aria-describedby', lowConfidenceDescriptionId(idPrefix));
   }
 
+  const headerEl = document.createElement('div');
+  headerEl.className = 'activity-row__header';
+  rowEl.appendChild(headerEl);
+
   const nameEl = document.createElement('div');
   nameEl.className = 'activity-row__name';
   nameEl.textContent = row.name;
-  rowEl.appendChild(nameEl);
+  headerEl.appendChild(nameEl);
+
+  const badgesEl = document.createElement('div');
+  badgesEl.className = 'activity-row__badges';
+  headerEl.appendChild(badgesEl);
+  appendStatusBadges(badgesEl, row, idPrefix);
 
   const metaEl = document.createElement('div');
   metaEl.className = 'activity-row__meta';
   metaEl.textContent = `${formatActivityDate(row.startDateLocal)} · ${distanceKm} km · ${formatDurationHms(row.movingTimeSec)} · ${formatPace(row.paceSecPerKm)}`;
   rowEl.appendChild(metaEl);
-
-  appendStatusBadges(rowEl, row, idPrefix);
 
   return rowEl;
 }
@@ -500,7 +561,7 @@ function buildTableRow(row: DashboardIndexRow): HTMLTableRowElement {
   tr.appendChild(avgHrTd);
 
   const statusTd = document.createElement('td');
-  appendStatusBadges(statusTd, row, `activity-table-${row.id}`);
+  appendStatusBadges(statusTd, row, rowIdPrefix('activity-table', row.id));
   tr.appendChild(statusTd);
 
   return tr;
