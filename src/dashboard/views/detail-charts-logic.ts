@@ -17,6 +17,7 @@
 
 import type { CanonicalStream } from '../../streams/stream.types.js';
 import { validateStreamSeries } from '../../analytics/best-effort-utils.js';
+import type { WebStorage } from '../storage.js';
 
 // ---------------------------------------------------------------------------
 // Channels and series
@@ -294,11 +295,13 @@ export function parseOverlayConfig(raw: unknown): OverlayConfig {
 }
 
 /**
- * Reads the persisted overlay config from `storage`, tolerating a throwing
- * `getItem`, a `null` result, or invalid JSON by falling back to
- * `DEFAULT_OVERLAY_CONFIG`.
+ * Reads the persisted overlay config from `storage`, tolerating a missing
+ * handle (BL-03, `storage` is `null` when `resolveStorage` could not obtain
+ * one), a throwing `getItem`, a `null` result, or invalid JSON by falling
+ * back to `DEFAULT_OVERLAY_CONFIG`.
  */
-export function readStoredOverlayConfig(storage: Pick<Storage, 'getItem'>): OverlayConfig {
+export function readStoredOverlayConfig(storage: WebStorage | null): OverlayConfig {
+  if (!storage) return DEFAULT_OVERLAY_CONFIG;
   try {
     const raw = storage.getItem(OVERLAY_STORAGE_KEY);
     if (raw === null) return DEFAULT_OVERLAY_CONFIG;
@@ -309,13 +312,15 @@ export function readStoredOverlayConfig(storage: Pick<Storage, 'getItem'>): Over
 }
 
 /**
- * Writes `config` to `storage`, swallowing a throwing `setItem` (e.g. a
- * private-browsing quota failure) without propagating.
+ * Writes `config` to `storage`, tolerating a missing handle (BL-03) and
+ * swallowing a throwing `setItem` (e.g. a private-browsing quota failure)
+ * without propagating.
  */
 export function writeStoredOverlayConfig(
-  storage: Pick<Storage, 'setItem'>,
+  storage: WebStorage | null,
   config: OverlayConfig
 ): void {
+  if (!storage) return;
   try {
     storage.setItem(OVERLAY_STORAGE_KEY, JSON.stringify(config));
   } catch {

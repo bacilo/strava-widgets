@@ -43,6 +43,7 @@ import {
   writeStoredOverlayConfig,
 } from './detail-charts-logic.js';
 import { resolveChannelPalette, resolveThemeColors, hexToRgba, Y_AXIS_WIDTH_PX } from './chart-theme.js';
+import { resolveStorage, type WebStorage } from '../storage.js';
 
 // ---------------------------------------------------------------------------
 // Registration — tree-shaken, mirroring comparison-chart/chart-config.ts and
@@ -178,7 +179,7 @@ function createCrosshairPlugin(getActiveX: () => number | null, color: string): 
 
 export interface MountChartBandsOptions {
   stream: CanonicalStream;
-  storage?: Pick<Storage, 'getItem' | 'setItem'>;
+  storage?: WebStorage;
   onHover?: (fraction: number | null) => void;
 }
 
@@ -215,7 +216,12 @@ export function mountChartBands(container: HTMLElement, options: MountChartBands
     };
   }
 
-  const storage = options.storage ?? globalThis.localStorage;
+  // BL-03: the `localStorage` property GETTER (not just getItem/setItem)
+  // throws under blocked site data, so the property access itself is
+  // guarded in storage.ts's resolveStorage rather than here. A null handle
+  // degrades this view to DEFAULT_OVERLAY_CONFIG rather than taking the
+  // detail view down.
+  const storage = resolveStorage(options.storage);
   let overlayConfig: OverlayConfig = readStoredOverlayConfig(storage);
   let xAxisMode: XAxisMode = 'distance';
 
