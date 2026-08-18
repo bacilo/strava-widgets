@@ -844,21 +844,51 @@ body {
 }
 
 /* DISC-6b: padding + type compaction at the existing 380px breakpoint, not a
-   `.splits-scroll`-style horizontal-scroll wrapper. The scroll-wrapper is
-   the documented FALLBACK, applied only if plan 22-04's narrow-viewport
-   checkpoint row fails — it was not chosen first because, unlike
-   `.splits-scroll`, this grid is full of focusable day buttons, and a
-   horizontal-scroll container with focusable content scroll-jumps on Tab. */
+   `.splits-scroll`-style horizontal-scroll wrapper. The scroll-wrapper
+   remains the documented FALLBACK and is still UNIMPLEMENTED — it was not
+   chosen because, unlike `.splits-scroll`, this grid is full of focusable
+   day buttons, and a horizontal-scroll container with focusable content
+   scroll-jumps on Tab.
+
+   Round 1 checkpoint row R11 recorded FAIL: at ~380px the day-cell values
+   slightly overflowed their cells. Per gap-closure decision GC-1, the fix
+   is to deepen this same compaction rather than build the scroll wrapper,
+   for the same focus-order reason DISC-6b gave originally.
+
+   IN-06: this is one of THREE independent `@media (max-width: 380px)`
+   blocks in this file — the other two govern `.chart-band__canvas-wrap`
+   and `.pr-evolution-card__canvas-wrap` — and it does not join either.
+   Consolidating them was declined: it would relocate rules for two
+   selectors outside this phase's scope and change their source-order
+   cascade.
+
+   WR-03: `styles.test.ts`'s RULE_SCANNER swallows an at-rule block's first
+   nested rule into the prelude's pseudo-body, making it invisible to every
+   override-checking helper. The padding rule below is deliberately kept in
+   position 1 for that reason, so every rule a test guards sits below it. */
 @media (max-width: 380px) {
   .calendar-day,
   .calendar-week-total {
     padding: var(--space-xs);
   }
 
+  .calendar-day {
+    min-width: 0;
+  }
+
+  .calendar-day__distance {
+    font-size: 14px;
+  }
+
   .calendar-week-total__distance {
     font-size: 14px;
     font-weight: 600;
     line-height: 1.5;
+  }
+
+  .calendar-week-total__time,
+  .calendar-week-total__count {
+    font-size: 12px;
   }
 }
 
