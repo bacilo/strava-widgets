@@ -329,7 +329,7 @@ Plans:
 
 **Wave 7** *(blocked on Wave 6 — both waves write `calendar.ts`)*
 
-- [ ] 22-07-PLAN.md — close Gap 2: guard the `globalThis.localStorage` property access (CR-01), make `buildMonthGrid` total for an off-union `weekStart` (WR-01), and correct the T-22-WK-01/02 security notes
+- [x] 22-07-PLAN.md — close Gap 2: guard the `globalThis.localStorage` property access (CR-01), make `buildMonthGrid` total for an off-union `weekStart` (WR-01), and correct the T-22-WK-01/02 security notes
 
 **Wave 8** *(blocked on Waves 6 and 7 — the checkpoint must observe the fixed build)*
 
@@ -413,7 +413,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 19. Design System & Control Styling | v2.1 | 17/17 | Complete    | 2026-08-13 |
 | 20. Row-Click Interaction Pattern | v2.1 | 20/20 | Complete    | 2026-08-18 |
 | 21. Overview Rebuild | v2.1 | 8/8 | Complete    | 2026-08-18 |
-| 22. Calendar Week-Start & Totals | v2.1 | 6/8 | In Progress|  |
+| 22. Calendar Week-Start & Totals | v2.1 | 7/8 | In Progress|  |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 0/TBD | Not started | - |
 | 24. Local Curation Mode | v2.1 | 0/TBD | Not started | - |
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 0/TBD | Not started | - |
