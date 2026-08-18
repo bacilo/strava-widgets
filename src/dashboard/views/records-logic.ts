@@ -144,6 +144,52 @@ export function isEmptyRanking(entries: readonly PRRankingEntry[] | undefined): 
   return !entries || entries.length === 0;
 }
 
+/** The two scopes OVR-03 names. Nothing persists this value — D-04. */
+export type RecordScope = 'all-time' | 'this-year';
+
+/**
+ * Filters a distance's all-time ranking down to the efforts whose
+ * `startDate` falls in `year` (UTC) and reassigns `rank` sequentially from
+ * 1. A "This year's records" table showing ranks 4, 9 and 17 would be
+ * incoherent to a reader — re-ranking within the scope is the only sane
+ * presentation (CONTEXT.md's Claude's Discretion default for this plan).
+ *
+ * The result feeds the UNCHANGED `buildPrTableRows` above; `isEmptyRanking`
+ * works on the filtered array too, with no new sentinel needed for the
+ * year-scoped empty case.
+ *
+ * `year` is an injected parameter, never read from an ambient clock — this
+ * keeps the function pure and testable, matching this module's header
+ * discipline. Every date is normalized through `parseStartDateToEpochMs`
+ * (the shared Z-suffix rule) rather than a bare `new Date(startDate)`, and
+ * compared via `getUTCFullYear` — a local-timezone `getFullYear` read would
+ * move a 31 December or 1 January effort into the wrong year. An entry
+ * whose `startDate` fails to parse is dropped from the scoped view rather
+ * than thrown on or silently counted as the current year. Source order
+ * (already rank-ascending, fastest first, from the build-time generator) is
+ * preserved and never re-sorted — that would be a second, divergent ranking
+ * policy alongside the generator's. New objects are produced via spread; no
+ * input entry is ever mutated, since `bestEfforts` is held for the lifetime
+ * of the view and the all-time scope reads the same array again on toggle
+ * back.
+ */
+export function filterRankingsToYear(
+  entries: readonly PRRankingEntry[] | undefined,
+  year: number
+): PRRankingEntry[] {
+  if (!entries || entries.length === 0) return [];
+
+  const inYear: PRRankingEntry[] = [];
+  for (const entry of entries) {
+    const epochMs = parseStartDateToEpochMs(entry.startDate);
+    if (epochMs === null) continue;
+    if (new Date(epochMs).getUTCFullYear() !== year) continue;
+    inYear.push(entry);
+  }
+
+  return inYear.map((entry, i) => ({ ...entry, rank: i + 1 }));
+}
+
 /** One point on a distance's PR-evolution step series. */
 export interface EvolutionPoint {
   /** Epoch-ms of the effort's activity date — a `'linear'` chart scale value, not a date-adapter-backed one (18-UI-SPEC § 3/§ 14). */

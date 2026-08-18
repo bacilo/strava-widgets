@@ -26,6 +26,7 @@ import type { AgeGradingDocument } from '../../analytics/age-grading.types.js';
 import {
   buildExclusionReasonIndex,
   buildPrTableRows,
+  filterRankingsToYear,
   isEmptyRanking,
   buildEvolutionSeries,
   buildProgressionRows,
@@ -33,6 +34,7 @@ import {
   evolutionCardSummary,
   type PrTableRow,
   type EvolutionPoint,
+  type RecordScope,
   type Superlatives,
 } from './records-logic.js';
 import { buildRiegelMatrix, fitRiegelExponent, selectFitPoints } from '../../analytics/riegel.js';
@@ -321,19 +323,34 @@ function buildConfigNotice(ageGrading: AgeGradingDocument | null): HTMLElement |
   return notice;
 }
 
-function buildPrTableEmptyState(): HTMLElement {
+/**
+ * Distance- and scope-aware empty state. Previously took no arguments and
+ * hardcoded `'No marathon efforts yet'` for EVERY empty distance — a latent
+ * defect surfaced by `21-RESEARCH.md` Pitfall 3 (found during research,
+ * outside CONTEXT.md's decision set, disposition: fix in this phase).
+ * OVR-03's year scope makes far more distances hit this path (a distance
+ * with efforts all-time can easily have none in the current year), so
+ * shipping the scope toggle over the old copy would present, say, a 5K
+ * table captioned as a marathon table. Two copy variants exist because "no
+ * efforts yet" and "no efforts in 2026" are different statements a reader
+ * must be able to tell apart.
+ */
+function buildPrTableEmptyState(distance: TargetDistanceKey, scope: RecordScope, year: number): HTMLElement {
+  const label = DISTANCE_LABELS[distance];
   const empty = document.createElement('div');
   empty.className = 'empty-state';
 
   const heading = document.createElement('h3');
   heading.className = 'text-heading';
-  heading.textContent = 'No marathon efforts yet';
+  heading.textContent = scope === 'this-year' ? `No ${label} efforts in ${year}` : `No ${label} efforts yet`;
   empty.appendChild(heading);
 
   const body = document.createElement('p');
   body.className = 'text-body';
   body.textContent =
-    'The archive has no completed marathon-distance run. Once one is recorded, its rank will appear here.';
+    scope === 'this-year'
+      ? `The archive has no ${label} effort recorded in ${year}. Switch to All time to see every ranked effort.`
+      : `The archive has no completed ${label} effort. Once one is recorded, its rank will appear here.`;
   empty.appendChild(body);
 
   return empty;
@@ -536,7 +553,13 @@ function buildPrTable(distance: TargetDistanceKey, rows: readonly PrTableRow[]):
   return table;
 }
 
-function buildPrTableSection(distance: TargetDistanceKey, rows: readonly PrTableRow[], empty: boolean): HTMLElement {
+function buildPrTableSection(
+  distance: TargetDistanceKey,
+  rows: readonly PrTableRow[],
+  empty: boolean,
+  scope: RecordScope,
+  year: number
+): HTMLElement {
   const section = document.createElement('section');
   section.className = 'card detail-section';
   section.id = `pr-table-${DISTANCE_SLUGS[distance]}`;
@@ -547,7 +570,7 @@ function buildPrTableSection(distance: TargetDistanceKey, rows: readonly PrTable
   section.appendChild(heading);
 
   if (empty) {
-    section.appendChild(buildPrTableEmptyState());
+    section.appendChild(buildPrTableEmptyState(distance, scope, year));
     return section;
   }
 
@@ -564,6 +587,29 @@ function buildPrTableSection(distance: TargetDistanceKey, rows: readonly PrTable
   return section;
 }
 
+/**
+ * OVR-03's All time / This year scope toggle for the seven per-distance PR
+ * tables (D-01). The control sits inside `section#records-pr-tables` right
+ * above the tables it governs, because it is the only thing on this page it
+ * governs — D-03 keeps Superlatives, the PR-evolution charts and the Riegel
+ * predictions all-time in both scopes, so the control never leaves this
+ * section.
+ *
+ * `year` is resolved ONCE per section build via `getUTCFullYear` (D-11's
+ * clock rule, matching `records-logic.ts`'s own UTC discipline) and handed
+ * down to both the filter and the empty state; the pure `filterRankingsToYear`
+ * itself never reads a clock.
+ *
+ * `scope` is a plain local, re-initialised to `'all-time'` every time this
+ * function runs. `load()` calls `buildPrTablesSection` fresh on every arrival
+ * at `#/records`, so a fresh closure with a fresh `'all-time'` default is
+ * created each time — D-04 (no persisted scope) falls out of that by
+ * construction, with no reset step anyone could forget to write. Two
+ * explicit non-choices: no `localStorage`/`sessionStorage` key (Phase 22's
+ * CAL-01 owns the decision to introduce a storage mechanism for view state)
+ * and no URL query parameter (`navigateTo` in `router.ts` is the only
+ * sanctioned hash writer and has no query-param contract).
+ */
 function buildPrTablesSection(
   bestEfforts: BestEffortsDocument,
   ageGrading: AgeGradingDocument | null,
@@ -581,12 +627,62 @@ function buildPrTablesSection(
   const notice = buildConfigNotice(ageGrading);
   if (notice) section.appendChild(notice);
 
-  for (const distance of TARGET_ORDER) {
-    const entries = bestEfforts.rankings[distance];
-    const empty = isEmptyRanking(entries);
-    const rows = buildPrTableRows(entries, ageGrading, distance, exclusionReasons);
-    section.appendChild(buildPrTableSection(distance, rows, empty));
+  const year = new Date().getUTCFullYear();
+  let scope: RecordScope = 'all-time';
+
+  const segmented = document.createElement('div');
+  segmented.className = 'segmented';
+  segmented.setAttribute('role', 'group');
+  segmented.setAttribute('aria-label', 'Records scope');
+
+  const allTimeOption = document.createElement('button');
+  allTimeOption.type = 'button';
+  allTimeOption.className = 'segmented__option segmented__option--active';
+  allTimeOption.textContent = 'All time';
+  allTimeOption.setAttribute('aria-pressed', 'true');
+
+  const thisYearOption = document.createElement('button');
+  thisYearOption.type = 'button';
+  thisYearOption.className = 'segmented__option';
+  thisYearOption.textContent = 'This year';
+  thisYearOption.setAttribute('aria-pressed', 'false');
+
+  segmented.appendChild(allTimeOption);
+  segmented.appendChild(thisYearOption);
+  section.appendChild(segmented);
+
+  const tablesContainer = document.createElement('div');
+  section.appendChild(tablesContainer);
+
+  function renderTables(currentScope: RecordScope): void {
+    const tables: HTMLElement[] = [];
+    for (const distance of TARGET_ORDER) {
+      const allTimeEntries = bestEfforts.rankings[distance];
+      const entries = currentScope === 'this-year' ? filterRankingsToYear(allTimeEntries, year) : allTimeEntries;
+      const empty = isEmptyRanking(entries);
+      const rows = buildPrTableRows(entries, ageGrading, distance, exclusionReasons);
+      tables.push(buildPrTableSection(distance, rows, empty, currentScope, year));
+    }
+    tablesContainer.replaceChildren(...tables);
   }
+
+  function setScope(next: RecordScope): void {
+    if (next === scope) return;
+    scope = next;
+
+    const isAllTime = scope === 'all-time';
+    allTimeOption.classList.toggle('segmented__option--active', isAllTime);
+    allTimeOption.setAttribute('aria-pressed', String(isAllTime));
+    thisYearOption.classList.toggle('segmented__option--active', !isAllTime);
+    thisYearOption.setAttribute('aria-pressed', String(!isAllTime));
+
+    renderTables(scope);
+  }
+
+  allTimeOption.addEventListener('click', () => setScope('all-time'));
+  thisYearOption.addEventListener('click', () => setScope('this-year'));
+
+  renderTables(scope);
 
   return section;
 }
