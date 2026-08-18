@@ -337,8 +337,7 @@ body {
    now-inline element out as a row; do not restructure it away. */
 .activity-row {
   display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
+  flex-direction: column;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -1584,4 +1583,82 @@ a {
 
 .activity-table__row--navigable:hover {
   background: color-mix(in srgb, var(--surface) 92%, var(--text));
+}
+
+/* ==========================================================================
+   Phase 21 — Overview rebuild: the two-line activity row
+   Class contract: `.activity-row__header` and `.activity-row__badges` are
+   NEW in this phase, introduced by plan 21-02's DOM restructure. Both are
+   frozen from here on — rename either and every consumer (`renderActivityRow`
+   in `src/dashboard/views/list.ts`, and this file's own rules) breaks
+   silently. `.activity-row`, `.activity-row__name`, `.activity-row__meta` and
+   `.badge` are pre-existing names this block does not redefine; it only adds
+   one new property (`gap`) to `.activity-row` and two new properties
+   (`flex: 1 1 auto`, `min-width: 0`) to `.activity-row__name`, both called
+   out individually below.
+
+   D-06's two-line shape is produced entirely by `flex-direction: column`
+   on `.activity-row` (edited in place at the base rule above, not
+   overridden here — a second `.activity-row` rule declaring
+   `flex-direction` again would be exactly the declared-twice trap
+   `cascadeWinningBodyDeclaring` exists to catch, and Phase 19's dead
+   `--radius-control` token is this project's own precedent for what that
+   costs) plus the two new rules below. No media query is involved anywhere
+   in this block: narrow-width degradation is text wrapping inside
+   `.activity-row__meta`, which is a text-flow behaviour, not a breakpoint.
+
+   D-08 froze the bordered-card treatment (`background`, `border`,
+   `border-radius: 8px`, `padding: var(--space-md)` on `.activity-row`, and
+   `gap: var(--space-sm)` on `.activity-list`). This block declares none of
+   those four properties on `.activity-row` and no `gap` change on
+   `.activity-list` — the only property this block adds to `.activity-row`
+   is a NEW `gap` (for the vertical space between the header and meta
+   lines), which does not reopen any D-08 value since D-08 never mentioned
+   a `.activity-row` gap. */
+
+/* NEW property on `.activity-row`, not a redeclaration of anything the base
+   rule above sets: the row is now a column flex container with two
+   children (`.activity-row__header`, `.activity-row__meta`) and had no
+   vertical separation between them until this line. */
+.activity-row {
+  gap: var(--space-xs);
+}
+
+/* The header line: name grows to fill available width, badges stay right-
+   aligned and never wrap down onto the meta line. `flex-wrap: nowrap` is
+   the load-bearing declaration — it is what keeps a badge from wrapping
+   into the metrics line, which is D-06's stated requirement; removing it
+   would silently restore the pre-Phase-21 flat-wrap behaviour.
+   `align-items: baseline` aligns the badge text to the name's text
+   baseline rather than to the (taller) box edges. */
+.activity-row__header {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-sm);
+}
+
+/* Added in this block, not the base `.activity-row__name` type-role rule
+   above: `flex: 1 1 auto` lets the name grow into the header's available
+   width, and `min-width: 0` is required for a long name to shrink inside a
+   flex item instead of pushing the badges off the row — flex items default
+   to `min-width: auto`, which would otherwise let the name's intrinsic
+   width win over the badges' `flex-shrink: 0` below. */
+.activity-row__name {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* `flex-shrink: 0` is what makes the NAME absorb width pressure instead of
+   the badges being pushed off the row or wrapping — the complement of the
+   name's `flex: 1 1 auto` above. */
+.activity-row__badges {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  gap: var(--space-xs);
+  align-items: baseline;
 }
