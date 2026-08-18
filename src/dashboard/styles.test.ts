@@ -1641,3 +1641,109 @@ describe('styles.css - Phase 20 row-click interaction pattern', () => {
     );
   });
 });
+
+// These assertions read stylesheet TEXT, the same limitation every describe
+// block above operates under. They can prove which declarations exist, which
+// rule wins the cascade for a property, and whether a media query overrides
+// one — they CANNOT prove that the header line actually renders with the
+// badges on the right, that nothing wraps at 360px, or that the two-line
+// result reads as a hierarchy to a human eye. That is plan 21-07's checkpoint
+// rows R1-R4, and 21-VALIDATION.md lists it as manual-only.
+describe('styles.css — Phase 21 two-line activity row (D-06/D-08)', () => {
+  it('D-06: .activity-row declares flex-direction: column, with no @media override', () => {
+    // cascadeWinningBodyDeclaring, not declarationsFor/bodyForSelectorListToken:
+    // `.activity-row` is now declared THREE times at top level (styles.css
+    // :338 display/background/border/etc., :~1539 text-decoration: none, and
+    // this phase's new gap-only block) — see the WR-03 blind-spot proofs
+    // above for why a non-cascade-aware helper would be wrong here.
+    expect(cascadeWinningBodyDeclaring('.activity-row', 'flex-direction')).toContain(
+      'flex-direction: column',
+    );
+    // The no-media-query requirement (D-06: "no media query involved") is
+    // exactly what this checks — it throws if any @media block redeclares
+    // flex-direction for .activity-row.
+    assertNoAtRuleOverride('.activity-row', 'flex-direction');
+  });
+
+  it('D-06: no top-level .activity-row body anywhere declares flex-wrap: wrap', () => {
+    // Written as a scan over every top-level `.activity-row` body (via
+    // bodiesForSelectorListToken), not a single cascade-winner check: a
+    // single-body check would go green even if a stale `flex-wrap: wrap`
+    // sat in one of the OTHER two bodies the cascade does not currently
+    // win for — exactly the kind of false-green this file's WR-02/WR-03
+    // proofs above exist to close.
+    const bodies = bodiesForSelectorListToken('.activity-row');
+    for (const body of bodies) {
+      expect(body).not.toMatch(/flex-wrap\s*:\s*wrap\b/);
+    }
+  });
+
+  it('D-06: .activity-row__header declares flex-wrap: nowrap - the line whose removal would silently restore the pre-Phase-21 wrap behaviour', () => {
+    // `nowrap` is what D-06's "badges never wrapping into the metrics line"
+    // reduces to in CSS.
+    expect(bodyForSelectorListToken('.activity-row__header')).toContain('flex-wrap: nowrap');
+    assertNoAtRuleOverride('.activity-row__header', 'flex-wrap');
+  });
+
+  it('D-06: .activity-row__header declares justify-content: space-between - name left, badges right', () => {
+    expect(bodyForSelectorListToken('.activity-row__header')).toContain(
+      'justify-content: space-between',
+    );
+    assertNoAtRuleOverride('.activity-row__header', 'justify-content');
+  });
+
+  it('D-06: .activity-row__header declares display: flex', () => {
+    expect(bodyForSelectorListToken('.activity-row__header')).toContain('display: flex');
+    assertNoAtRuleOverride('.activity-row__header', 'display');
+  });
+
+  it('D-06: .activity-row__badges declares flex-shrink: 0 - makes the NAME absorb width pressure, not the badges', () => {
+    expect(bodyForSelectorListToken('.activity-row__badges')).toContain('flex-shrink: 0');
+    assertNoAtRuleOverride('.activity-row__badges', 'flex-shrink');
+  });
+
+  it('D-06: .activity-row__name declares min-width: 0 - the flex-item shrink enabler', () => {
+    // cascadeWinningBodyDeclaring, not bodyForSelectorListToken:
+    // `.activity-row__name` is now declared TWICE at top level (the
+    // pre-existing type-role rule and this phase's new flex/min-width
+    // block), for the same reason `.activity-row` needs the cascade-aware
+    // helper above.
+    expect(cascadeWinningBodyDeclaring('.activity-row__name', 'min-width')).toContain(
+      'min-width: 0',
+    );
+    assertNoAtRuleOverride('.activity-row__name', 'min-width');
+  });
+
+  it('D-08: .activity-row still declares border-radius: 8px', () => {
+    expect(cascadeWinningBodyDeclaring('.activity-row', 'border-radius')).toContain('8px');
+    assertNoAtRuleOverride('.activity-row', 'border-radius');
+  });
+
+  it('D-08: .activity-row still declares padding: var(--space-md)', () => {
+    expect(cascadeWinningBodyDeclaring('.activity-row', 'padding')).toContain(
+      'var(--space-md)',
+    );
+    assertNoAtRuleOverride('.activity-row', 'padding');
+  });
+
+  it('D-08: .activity-row still declares background: var(--surface) - the value Phase 20 D-09s hover color-mix mixes against', () => {
+    expect(cascadeWinningBodyDeclaring('.activity-row', 'background')).toContain(
+      'var(--surface)',
+    );
+    assertNoAtRuleOverride('.activity-row', 'background');
+  });
+
+  it('D-08: .activity-list still declares gap: var(--space-sm) - Phase 20 D-11s focus-ring clearance', () => {
+    expect(cascadeWinningBodyDeclaring('.activity-list', 'gap')).toContain('var(--space-sm)');
+    assertNoAtRuleOverride('.activity-list', 'gap');
+  });
+
+  it('D-08: .activity-row still declares display: flex - flex-direction: column is meaningless without it', () => {
+    // Duplicates the Phase 20 assertion at line ~1458 deliberately, inside
+    // this Phase 21 describe, so a later edit that drops `display: flex`
+    // while touching only this block's neighbourhood still fails loudly
+    // here too.
+    expect(cascadeWinningBodyDeclaring('.activity-row', 'display')).toContain('display: flex');
+    assertNoAtRuleOverride('.activity-row', 'display');
+  });
+});
