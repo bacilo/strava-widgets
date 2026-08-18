@@ -276,7 +276,7 @@ Plans:
 
 **Wave 3** *(blocked on Waves 1 and 2 — both edit `overview.ts`)*
 
-- [ ] 21-06-PLAN.md — Distance This Year and Hours This Year appended to the `.stat-grid` from the already-published `yearly-stats.json`, and Overview's Current Streak tile gains the `ended {date}` sub-label, with every rendered value and all three degradation paths asserted as exact strings (OVR-04, FIX-01)
+- [x] 21-06-PLAN.md — Distance This Year and Hours This Year appended to the `.stat-grid` from the already-published `yearly-stats.json`, and Overview's Current Streak tile gains the `ended {date}` sub-label, with every rendered value and all three degradation paths asserted as exact strings (OVR-04, FIX-01)
 
 **Wave 4** *(blocked on everything — the checkpoint runs after every fix lands)*
 
@@ -375,7 +375,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 18. Records, Trends & Differentiators | v2.0 | 16/16 | Complete    | 2026-08-12 |
 | 19. Design System & Control Styling | v2.1 | 17/17 | Complete    | 2026-08-13 |
 | 20. Row-Click Interaction Pattern | v2.1 | 20/20 | Complete    | 2026-08-18 |
-| 21. Overview Rebuild | v2.1 | 5/7 | In Progress|  |
+| 21. Overview Rebuild | v2.1 | 6/7 | In Progress|  |
 | 22. Calendar Week-Start & Totals | v2.1 | 0/TBD | Not started | - |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 0/TBD | Not started | - |
 | 24. Local Curation Mode | v2.1 | 0/TBD | Not started | - |
