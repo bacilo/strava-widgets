@@ -167,12 +167,29 @@ function firstWeekdayOfMonth(m: CalendarMonth): number {
 }
 
 /**
+ * Total offset accessor (WR-01): indexing `WEEK_START_OFFSET` by weekday
+ * key is only `undefined` for a `weekStart` outside the
+ * `'sunday' | 'monday'` union, which is reachable only by bypassing
+ * `parseWeekStart` or TypeScript itself (T-22-WK-01's allow-list is the
+ * sanctioned path). Rather than let that `undefined` propagate to `NaN`
+ * and then to `new Array(NaN)`'s `RangeError: Invalid array length` (as it
+ * did at this file's line 219 before this fix), an off-union value falls
+ * back to the D-03 Monday offset. An explicit equality ternary, not `??`,
+ * is used — a direct index into `WEEK_START_OFFSET` is typed non-nullable,
+ * so `??` would read as dead code to a future reader while being the only
+ * live branch at runtime.
+ */
+function weekStartOffset(weekStart: WeekStart): number {
+  return weekStart === 'sunday' ? WEEK_START_OFFSET.sunday : WEEK_START_OFFSET.monday;
+}
+
+/**
  * Number of leading `null` cells before day 1, relative to `weekStart`.
  * `weekStart` is injected by the caller, exactly as `now` is elsewhere in
  * this module — never read from storage or a clock here.
  */
 function leadingPaddingFor(m: CalendarMonth, weekStart: WeekStart): number {
-  return (firstWeekdayOfMonth(m) - WEEK_START_OFFSET[weekStart] + 7) % 7;
+  return (firstWeekdayOfMonth(m) - weekStartOffset(weekStart) + 7) % 7;
 }
 
 /**
@@ -180,14 +197,19 @@ function leadingPaddingFor(m: CalendarMonth, weekStart: WeekStart): number {
  * order determined by the injected `weekStart` — with leading/trailing
  * `null` padding so every week row has exactly 7 entries, and computes
  * per-day, per-week and month-level distance/time/run totals. Total
- * function: never throws, never returns fewer than 4 week rows. Rows whose
- * `startDateLocal` doesn't parse (`activityDayKey` returns null) or that
- * fall outside the requested month are skipped, not counted
- * (T-17-CAL-02). `activityIds` within a day preserves the input array's
- * ordering (the published index is newest-first; this function does not
- * re-sort — see `dashboard-index.types.ts`). `weekStart` is a REQUIRED
- * parameter (D-08) — never read from `localStorage` or a clock inside this
- * module, injected by the caller exactly as `now` already is elsewhere.
+ * function: never throws, never returns fewer than 4 week rows — including
+ * for a `weekStart` outside the `'sunday' | 'monday'` union, via
+ * `weekStartOffset`'s total lookup (WR-01), which was not the case before
+ * that fix (an off-union value used to produce `NaN` and throw
+ * `RangeError: Invalid array length`). Rows whose `startDateLocal` doesn't
+ * parse (`activityDayKey` returns null) or that fall outside the requested
+ * month are skipped, not counted (T-17-CAL-02). `activityIds` within a day
+ * preserves the input array's ordering (the published index is
+ * newest-first; this function does not re-sort — see
+ * `dashboard-index.types.ts`). `weekStart` stays a REQUIRED parameter with
+ * no default (D-08) — never read from `localStorage` or a clock inside
+ * this module, injected by the caller exactly as `now` already is
+ * elsewhere; the module stays pure, DOM-free and clock-free.
  */
 export function buildMonthGrid(
   rows: readonly DashboardIndexRow[],

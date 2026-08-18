@@ -30,7 +30,12 @@ import {
   type WeekStart,
   type WeekTotal,
 } from './calendar-logic.js';
-import { readStoredWeekStart, writeWeekStart, type WeekStartStorage } from './calendar-preferences.js';
+import {
+  readStoredWeekStart,
+  resolveWeekStartStorage,
+  writeWeekStart,
+  type WeekStartStorage,
+} from './calendar-preferences.js';
 
 const WEEKDAY_NAMES_SUNDAY_FIRST = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -420,8 +425,12 @@ export function createCalendarView(deps: CalendarViewDeps): DashboardView {
       // default) so this module stays importable in the Node test
       // environment with no `localStorage` global — the same discipline
       // `theme.ts`'s `applyThemeMode` and `detail-charts.ts`'s
-      // `mountChartBands` already follow.
-      const storage = deps.storage ?? globalThis.localStorage;
+      // `mountChartBands` already follow. The resolution itself is
+      // delegated to `calendar-preferences.ts` (CR-01): the storage global's
+      // property access throws under blocked site data, and doing that
+      // unguarded here would take the whole view down through `main.ts`'s
+      // generic error panel for the sake of an optional cosmetic preference.
+      const storage = resolveWeekStartStorage(deps.storage);
       // `let`, not `const` — plan 22-04's toggle handler reassigns both.
       let weekStart = readStoredWeekStart(storage);
       let grid = buildMonthGrid(indexClient.getRows(), month, weekStart);

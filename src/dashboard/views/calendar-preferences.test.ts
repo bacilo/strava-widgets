@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   parseWeekStart,
   readStoredWeekStart,
+  resolveWeekStartStorage,
   writeWeekStart,
   WEEK_START_STORAGE_KEY,
   type WeekStartStorage,
@@ -115,5 +116,76 @@ describe('writeWeekStart', () => {
   it('does not throw when setItem throws', () => {
     const storage = fakeStorage({}, { throwOnSet: true });
     expect(() => writeWeekStart(storage, 'monday')).not.toThrow();
+  });
+});
+
+describe('readStoredWeekStart(null) / writeWeekStart(null, ...) — falsy handle (CR-01/GC-2b)', () => {
+  it("readStoredWeekStart(null) returns 'monday' and does not throw", () => {
+    expect(() => readStoredWeekStart(null)).not.toThrow();
+    expect(readStoredWeekStart(null)).toBe('monday');
+  });
+
+  it('writeWeekStart(null, ...) does not throw and performs no observable work', () => {
+    expect(() => writeWeekStart(null, 'sunday')).not.toThrow();
+  });
+});
+
+describe('resolveWeekStartStorage — CR-01: guards the globalThis.localStorage property GETTER, not just getItem/setItem', () => {
+  afterEach(() => {
+    Reflect.deleteProperty(globalThis, 'localStorage');
+  });
+
+  it('returns the exact override object (identity) when one is supplied', () => {
+    const fake = fakeStorage();
+    expect(resolveWeekStartStorage(fake)).toBe(fake);
+  });
+
+  it('returns the override without ever touching globalThis.localStorage, even while its getter throws', () => {
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      get() {
+        throw new Error('SecurityError: should never be read when an override is supplied');
+      },
+    });
+    const fake = fakeStorage();
+    expect(() => resolveWeekStartStorage(fake)).not.toThrow();
+    expect(resolveWeekStartStorage(fake)).toBe(fake);
+  });
+
+  it('returns null, without throwing, when the globalThis.localStorage GETTER throws (blocked site data)', () => {
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      get() {
+        throw new Error('SecurityError');
+      },
+    });
+    expect(() => resolveWeekStartStorage()).not.toThrow();
+    expect(resolveWeekStartStorage()).toBeNull();
+  });
+
+  it("returns null when globalThis has no 'localStorage' (this repo's default environment: 'node' state)", () => {
+    expect('localStorage' in globalThis).toBe(false);
+    expect(resolveWeekStartStorage()).toBeNull();
+  });
+
+  it('a full resolve-then-read cycle under the throwing getter writes nothing to the console (D-07 silence rule)', () => {
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      get() {
+        throw new Error('SecurityError');
+      },
+    });
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const storage = resolveWeekStartStorage();
+    const weekStart = readStoredWeekStart(storage);
+
+    expect(weekStart).toBe('monday');
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(errorSpy).not.toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+    errorSpy.mockRestore();
   });
 });
