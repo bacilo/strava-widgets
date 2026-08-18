@@ -587,6 +587,29 @@ function buildPrTableSection(
   return section;
 }
 
+/**
+ * OVR-03's All time / This year scope toggle for the seven per-distance PR
+ * tables (D-01). The control sits inside `section#records-pr-tables` right
+ * above the tables it governs, because it is the only thing on this page it
+ * governs — D-03 keeps Superlatives, the PR-evolution charts and the Riegel
+ * predictions all-time in both scopes, so the control never leaves this
+ * section.
+ *
+ * `year` is resolved ONCE per section build via `getUTCFullYear` (D-11's
+ * clock rule, matching `records-logic.ts`'s own UTC discipline) and handed
+ * down to both the filter and the empty state; the pure `filterRankingsToYear`
+ * itself never reads a clock.
+ *
+ * `scope` is a plain local, re-initialised to `'all-time'` every time this
+ * function runs. `load()` calls `buildPrTablesSection` fresh on every arrival
+ * at `#/records`, so a fresh closure with a fresh `'all-time'` default is
+ * created each time — D-04 (no persisted scope) falls out of that by
+ * construction, with no reset step anyone could forget to write. Two
+ * explicit non-choices: no `localStorage`/`sessionStorage` key (Phase 22's
+ * CAL-01 owns the decision to introduce a storage mechanism for view state)
+ * and no URL query parameter (`navigateTo` in `router.ts` is the only
+ * sanctioned hash writer and has no query-param contract).
+ */
 function buildPrTablesSection(
   bestEfforts: BestEffortsDocument,
   ageGrading: AgeGradingDocument | null,
@@ -604,16 +627,62 @@ function buildPrTablesSection(
   const notice = buildConfigNotice(ageGrading);
   if (notice) section.appendChild(notice);
 
-  // Task 2 note: this loop is a placeholder call shape kept type-correct
-  // for this task's own verification gate. Task 3 replaces it wholesale
-  // with the scope-toggle-driven renderTables closure.
-  const placeholderYear = new Date().getUTCFullYear();
-  for (const distance of TARGET_ORDER) {
-    const entries = bestEfforts.rankings[distance];
-    const empty = isEmptyRanking(entries);
-    const rows = buildPrTableRows(entries, ageGrading, distance, exclusionReasons);
-    section.appendChild(buildPrTableSection(distance, rows, empty, 'all-time', placeholderYear));
+  const year = new Date().getUTCFullYear();
+  let scope: RecordScope = 'all-time';
+
+  const segmented = document.createElement('div');
+  segmented.className = 'segmented';
+  segmented.setAttribute('role', 'group');
+  segmented.setAttribute('aria-label', 'Records scope');
+
+  const allTimeOption = document.createElement('button');
+  allTimeOption.type = 'button';
+  allTimeOption.className = 'segmented__option segmented__option--active';
+  allTimeOption.textContent = 'All time';
+  allTimeOption.setAttribute('aria-pressed', 'true');
+
+  const thisYearOption = document.createElement('button');
+  thisYearOption.type = 'button';
+  thisYearOption.className = 'segmented__option';
+  thisYearOption.textContent = 'This year';
+  thisYearOption.setAttribute('aria-pressed', 'false');
+
+  segmented.appendChild(allTimeOption);
+  segmented.appendChild(thisYearOption);
+  section.appendChild(segmented);
+
+  const tablesContainer = document.createElement('div');
+  section.appendChild(tablesContainer);
+
+  function renderTables(currentScope: RecordScope): void {
+    const tables: HTMLElement[] = [];
+    for (const distance of TARGET_ORDER) {
+      const allTimeEntries = bestEfforts.rankings[distance];
+      const entries = currentScope === 'this-year' ? filterRankingsToYear(allTimeEntries, year) : allTimeEntries;
+      const empty = isEmptyRanking(entries);
+      const rows = buildPrTableRows(entries, ageGrading, distance, exclusionReasons);
+      tables.push(buildPrTableSection(distance, rows, empty, currentScope, year));
+    }
+    tablesContainer.replaceChildren(...tables);
   }
+
+  function setScope(next: RecordScope): void {
+    if (next === scope) return;
+    scope = next;
+
+    const isAllTime = scope === 'all-time';
+    allTimeOption.classList.toggle('segmented__option--active', isAllTime);
+    allTimeOption.setAttribute('aria-pressed', String(isAllTime));
+    thisYearOption.classList.toggle('segmented__option--active', !isAllTime);
+    thisYearOption.setAttribute('aria-pressed', String(!isAllTime));
+
+    renderTables(scope);
+  }
+
+  allTimeOption.addEventListener('click', () => setScope('all-time'));
+  thisYearOption.addEventListener('click', () => setScope('this-year'));
+
+  renderTables(scope);
 
   return section;
 }

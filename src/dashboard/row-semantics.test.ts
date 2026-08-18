@@ -135,13 +135,21 @@ function countOccurrences(haystack: string, needle: string): number {
  *   - a role hit is permitted only when the receiver identifier is `loading`
  *     AND the value is `status`, compared case-insensitively — the two
  *     `loading.setAttribute('role', 'status')` live regions: `list.ts:1233`,
- *     `records.ts:762`. Any role write on any OTHER receiver is a violation
- *     whatever its value, because a role on a `<tr>` removes it from the
- *     table accessibility tree regardless of which role it is (WR-01,
- *     20-REVIEW.md: the old rule keyed on the value not being `link`, so
- *     `role="presentation"`, `role="button"` and `role="row"` on a `<tr>`
- *     all passed undetected — this rule is receiver-keyed instead, exactly
- *     like the tabindex rule above, so every one of those is now caught).
+ *     `records.ts:762` — OR the receiver identifier is `segmented` AND the
+ *     value is `group`, case-insensitively — plan 21-05's OVR-03 scope
+ *     toggle, `records.ts`'s `segmented.setAttribute('role', 'group')`
+ *     inside `buildPrTablesSection`, copied near-verbatim from
+ *     `detail-charts.ts`'s existing (unscanned-by-this-file) `.segmented`
+ *     x-axis control. `group` is the correct native ARIA role for a set of
+ *     mutually-exclusive toggle buttons and is never confusable with a
+ *     `<tr>` row role. Any role write on any OTHER receiver, or either
+ *     named receiver with a different value, is still a violation, because
+ *     a role on a `<tr>` removes it from the table accessibility tree
+ *     regardless of which role it is (WR-01, 20-REVIEW.md: the old rule
+ *     keyed on the value not being `link`, so `role="presentation"`,
+ *     `role="button"` and `role="row"` on a `<tr>` all passed undetected —
+ *     this rule is receiver-keyed instead, exactly like the tabindex rule
+ *     above, so every one of those is now caught).
  *
  * Both role patterns accept a value written with single quotes, double
  * quotes, backticks, or as a bare identifier (a variable or constant): an
@@ -157,7 +165,8 @@ function rowSemanticViolations(source: string): string[] {
   const isAllowedTabIndexReceiver = (receiver: string, value: string): boolean =>
     (receiver === 'heading' || receiver === 'h1' || receiver === 'cellAnchor') && value === '-1';
   const isAllowedRoleWrite = (receiver: string, value: string): boolean =>
-    receiver === 'loading' && value.toLowerCase() === 'status';
+    (receiver === 'loading' && value.toLowerCase() === 'status') ||
+    (receiver === 'segmented' && value.toLowerCase() === 'group');
 
   // 1. property assignment: `receiver.tabIndex = value;`
   const tabIndexPropertyPattern = /([A-Za-z_$][\w$]*)\s*\.\s*tabIndex\s*=(?!=)\s*([^;]*);/gi;
