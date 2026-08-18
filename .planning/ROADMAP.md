@@ -337,8 +337,8 @@ Plans:
 
 **Wave 9** *(gap closure Round 3 — blocked on Wave 8's re-verification result; 22-09 and 22-10 touch disjoint files and run in parallel)*
 
-- [ ] 22-09-PLAN.md — close Gap 1 properly: land BL-01 (cap the Total track so it participates in the 380px squeeze) and BL-02 (collapse the day cell's inner 3-column grid to a single-column stack) TOGETHER, add the two `overflow-wrap: anywhere` floors, and invert `styles.test.ts:1858`'s assertion that locked the failing shape in place
-- [ ] 22-10-PLAN.md — open Gap 2's app-wide fix (BL-03, locked user decision): create the shared `resolveStorage()` in `src/dashboard/storage.ts`, reconcile `resolveWeekStartStorage` with it, close WR-01 and WR-02, and correct the two overclaiming source comments
+- [x] 22-09-PLAN.md — close Gap 1 properly: land BL-01 (cap the Total track so it participates in the 380px squeeze) and BL-02 (collapse the day cell's inner 3-column grid to a single-column stack) TOGETHER, add the two `overflow-wrap: anywhere` floors, and invert `styles.test.ts:1858`'s assertion that locked the failing shape in place
+- [x] 22-10-PLAN.md — open Gap 2's app-wide fix (BL-03, locked user decision): create the shared `resolveStorage()` in `src/dashboard/storage.ts`, reconcile `resolveWeekStartStorage` with it, close WR-01 and WR-02, and correct the two overclaiming source comments
 
 **Wave 10** *(blocked on Wave 9 — imports the module 22-10 creates)*
 
@@ -426,7 +426,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 19. Design System & Control Styling | v2.1 | 17/17 | Complete    | 2026-08-13 |
 | 20. Row-Click Interaction Pattern | v2.1 | 20/20 | Complete    | 2026-08-18 |
 | 21. Overview Rebuild | v2.1 | 8/8 | Complete    | 2026-08-18 |
-| 22. Calendar Week-Start & Totals | v2.1 | 7/8 | In Progress|  |
+| 22. Calendar Week-Start & Totals | v2.1 | 10/12 | In Progress|  |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 0/TBD | Not started | - |
 | 24. Local Curation Mode | v2.1 | 0/TBD | Not started | - |
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 0/TBD | Not started | - |
