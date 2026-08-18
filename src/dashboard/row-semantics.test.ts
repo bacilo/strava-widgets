@@ -199,6 +199,25 @@ function rowSemanticViolations(source: string): string[] {
   return violations;
 }
 
+/**
+ * Returns the full matched text of every `buildCellLink(` call in `source`
+ * that carries a second argument — an identifier/member-expression or
+ * template-literal first argument followed by a comma inside the call's
+ * parentheses. This is the enforceable form of D-17 point 5's "the anchors
+ * built for one row do not share an identical `aria-label`": since only a
+ * labelled anchor can collide with another, a source in which no cell link
+ * is labelled at all cannot produce two identical cell labels. The
+ * identifier/template-literal-then-comma shape deliberately does not match
+ * `buildCellLink`'s own `function buildCellLink(activityId: string,
+ * ariaLabel?: string)` definition, since a typed parameter is followed by
+ * `:`, not `,`. Widening this pattern to admit a newly-labelled call site
+ * requires naming that call site here.
+ */
+export function cellLinkLabelViolations(source: string): string[] {
+  const pattern = /buildCellLink\(\s*(?:[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*|`[^`]*`)\s*,/g;
+  return [...source.matchAll(pattern)].map((match) => match[0]);
+}
+
 describe('UX-02 - the CTAs are gone, and .cta survives', () => {
   it("list.ts, overview.ts and records.ts each contain zero occurrences of the quoted literal 'View Activity'", () => {
     // Assert the quoted form (with surrounding quotes), not the bare words,
@@ -509,16 +528,17 @@ describe('CR-02 - status-badge text is folded into whole-row aria-labels, not sw
     //
     // D-13 (`20-CONTEXT.md`, plan 20-17) supersedes that framing for the
     // Flags cell only: the badges move from `flagsTd` into that cell's own
-    // anchor, `flagsAnchor`. That relaxation is safe because, exactly like
-    // `dateAnchor`, the D-13 cell anchor carries an explicit curated
-    // aria-label, so descendant badge text cannot become that anchor's
-    // accessible name the way CR-02's whole-row anchors made it. The
-    // Date-cell exclusion below is unchanged and still absolute — this
+    // anchor, `flagsAnchor`. D-17 (plan 20-19) inverts the original
+    // rationale for why this is safe: `flagsAnchor` now carries NO label of
+    // its own (D-13's original curated `aria-label` was CR-01, and D-17
+    // removed it), so the descendant badge text becoming that anchor's
+    // accessible name is the intended, decided outcome, not an open
+    // question — the WAI-ARIA accessible-name computation is deterministic
+    // per spec, and name-from-content is exactly what an unlabelled anchor
+    // falls through to. The rendered observation is plan 20-20's row R38.
+    // The Date-cell exclusion below is unchanged and still absolute — this
     // guard is what keeps a future edit from accidentally moving badges
-    // into `dateAnchor`. What a screen reader announces for a cell whose
-    // anchor has an explicit label differing from the cell's own text is
-    // not decidable in this repository; that is a named Round 4 checkpoint
-    // observation (D-13), not a claim this guard makes.
+    // into `dateAnchor`, which does keep its own curated label.
     expect(countOccurrences(recordsStripped, 'dateTd.appendChild(dateAnchor)')).toBeGreaterThanOrEqual(1);
 
     const lowConfidenceFlagsReceiverPattern = /\bappendLowConfidenceBadge\(\s*(?:flagsTd|flagsAnchor)\b/g;
@@ -598,5 +618,214 @@ describe('D-13 - every content-carrying Records cell is a real link, with one ke
 
     const between = recordsStripped.slice(declIndex, appendIndex);
     expect(between, 'the append must be guarded by an if ( - see comment above').toContain('if (');
+  });
+});
+
+describe('D-16 / D-17 - the Records cell anchors enforce the link contract and announce their own text', () => {
+  // --- D-16 group ---------------------------------------------------------
+
+  it('shouldNavigateOnRowClick( is imported and called exactly once in records.ts, never reimplemented', () => {
+    expect(
+      countOccurrences(recordsStripped, 'shouldNavigateOnRowClick('),
+      'the predicate must be imported, never reimplemented (D-16 point 3) - update this count only if a second legitimate call site is added',
+    ).toBe(1);
+    expect(recordsStripped).toContain('shouldNavigateOnRowClick');
+    expect(recordsStripped).toContain("'../row-navigation.js'");
+  });
+
+  it('cellAnchor.draggable = false occurs exactly once - R31 dragstart is closed by this one line', () => {
+    expect(
+      countOccurrences(recordsStripped, 'cellAnchor.draggable = false'),
+      'an <a> is draggable by default; this line is the whole fix for R31 (a link drag means no text selection ever starts)',
+    ).toBe(1);
+  });
+
+  it("the factory registers exactly one click listener, calls preventDefault() exactly once, and never navigates itself", () => {
+    // Scoped to the factory's own receiver rather than a bare
+    // `addEventListener(` count: records.ts already registers three other
+    // listeners unrelated to this plan (the error-state Retry button, each
+    // jump-list button, and the window resize listener for the sticky jump
+    // offset) - a bare count would break the moment any of those pre-exist,
+    // which is exactly what happened when this guard was first drafted.
+    expect(
+      countOccurrences(recordsStripped, "cellAnchor.addEventListener('click'"),
+      "the cell-anchor factory must register exactly one click listener",
+    ).toBe(1);
+    expect(
+      countOccurrences(recordsStripped, 'event.preventDefault()'),
+      'D-16 point 4 - navigation on the allowed path stays the browser\'s own, via the href',
+    ).toBe(1);
+    expect(
+      countOccurrences(recordsStripped, 'navigateTo'),
+      'the anchor listener must never navigate itself - that is what href is for',
+    ).toBe(0);
+  });
+
+  it('the click context presents insideAnchor/button/modifiers neutral and never reads the real event fields', () => {
+    // Highest-value assertion in this block. Feeding the real modifier
+    // fields into the anchor's context would make preventDefault() cancel
+    // the browser's own new-tab (Cmd/Ctrl+click) and new-window
+    // (Shift+click) gestures, silently re-breaking 20-VALIDATION.md's
+    // R23/R24 - see this plan's decision_conflict_resolved_here block and
+    // plan 20-20's row R36, the rendered evidence that those gestures
+    // still work. Do NOT "fix" the neutral literals below to read
+    // event.metaKey and friends.
+    for (const literal of [
+      'button: 0',
+      'metaKey: false',
+      'ctrlKey: false',
+      'shiftKey: false',
+      'altKey: false',
+      'insideAnchor: false',
+    ]) {
+      expect(recordsStripped, `missing context field literal: ${literal}`).toContain(literal);
+    }
+    for (const forbidden of ['event.metaKey', 'event.ctrlKey', 'event.shiftKey', 'event.altKey', 'event.button']) {
+      expect(
+        countOccurrences(recordsStripped, forbidden),
+        `${forbidden} must never reach the anchor's click context - it would cancel the browser's own new-tab/new-window gesture and re-break R23/R24 (see decision_conflict_resolved_here, plan 20-20 row R36)`,
+      ).toBe(0);
+    }
+  });
+
+  it('clickCount is sourced from event.detail exactly once, identically to attachRowNavigation', () => {
+    expect(recordsStripped).toContain('clickCount: event.detail');
+    expect(countOccurrences(recordsStripped, 'event.detail')).toBe(1);
+  });
+
+  it("hasTextSelection is the same expression, character for character, in records.ts and row-navigation.ts", () => {
+    // D-12's definition of an active selection is single-sourced by
+    // convention, not by the compiler - if these two ever differ, one call
+    // site has a different idea of what a drag-select is.
+    const extract = (source: string): string => {
+      // The marker is the ASSIGNMENT ('hasTextSelection: Boolean('), not
+      // the RowClickContext interface's field DECLARATION
+      // ('hasTextSelection: boolean;') - `Boolean(` (constructor call) vs
+      // `boolean;` (primitive type) disambiguates the two, since a naive
+      // `indexOf('hasTextSelection:')` finds the interface field first.
+      const marker = 'hasTextSelection: Boolean(';
+      const start = source.indexOf(marker);
+      expect(start, `${marker} not found`).toBeGreaterThanOrEqual(0);
+      const afterMarker = source.slice(start + marker.length);
+      const end = afterMarker.indexOf(',\n');
+      const raw = end >= 0 ? afterMarker.slice(0, end) : afterMarker;
+      return (marker + raw).replace(/\s+/g, ' ').trim();
+    };
+    const recordsExpr = extract(recordsStripped);
+    const rowNavExpr = extract(rowNavigationStripped);
+    expect(recordsExpr.length).toBeGreaterThan(0);
+    expect(recordsExpr, 'records.ts and row-navigation.ts must define an active selection identically').toBe(
+      rowNavExpr,
+    );
+  });
+
+  it('records.ts synthesises nothing - zero auxclick, dragstart, dblclick and setTimeout', () => {
+    for (const forbidden of ['auxclick', 'dragstart', 'dblclick', 'setTimeout']) {
+      expect(
+        countOccurrences(recordsStripped, forbidden),
+        `${forbidden} must not appear in records.ts (D-16 point 5, D-12) - no second listener, no timer, nothing synthesised`,
+      ).toBe(0);
+    }
+  });
+
+  it('blind-spot proof: the pre-D-16 factory body had no suppression at all; the current factory has exactly one', () => {
+    // Local replica of the factory body as it shipped before this plan
+    // (the string ending `cellAnchor.tabIndex = -1;` then `return
+    // cellAnchor;`, with no draggable write and no listener at all) -
+    // documents that the shipped code contained zero occurrences of
+    // `preventDefault`, i.e. GAP 12 was real: nothing suppressed the
+    // default anchor activation on a drag-select or a repeat click. Do NOT
+    // "fix" the zero below - it is the proof the defect existed, not a bug.
+    const preD16FactoryBody = "  cellAnchor.tabIndex = -1;\n  return cellAnchor;\n}";
+    expect(
+      countOccurrences(preD16FactoryBody, 'preventDefault'),
+      "documents the pre-D-16 factory's miss - must stay 0",
+    ).toBe(0);
+    expect(
+      countOccurrences(recordsStripped, 'preventDefault'),
+      'documents the D-16 factory now suppressing the default exactly once',
+    ).toBe(1);
+  });
+
+  // --- D-17 group ----------------------------------------------------------
+
+  it('cellLinkLabelViolations(recordsStripped) is empty - no cell anchor is labelled', () => {
+    expect(
+      cellLinkLabelViolations(recordsStripped),
+      'a labelled cell anchor is CR-01 (20-REVIEW.md) - only the Date anchor may be labelled, and it does not go through buildCellLink',
+    ).toEqual([]);
+  });
+
+  it('buildCellLink(row.activityId) occurs exactly 7 times, and ariaLabel is optional and conditionally written', () => {
+    expect(countOccurrences(recordsStripped, 'buildCellLink(row.activityId)')).toBe(7);
+    expect(recordsStripped).toContain('ariaLabel?: string');
+    expect(recordsStripped).toContain('if (ariaLabel)');
+  });
+
+  it('curatedLabel is built once per table and consumed once per table, by the Date anchor alone', () => {
+    // One declaration and one dateAnchor use per table (D-04, D-17 point
+    // 2) - the row's only keyboard stop is the row's only labelled cell.
+    expect(countOccurrences(recordsStripped, 'curatedLabel')).toBe(4);
+    expect(countOccurrences(recordsStripped, "dateAnchor.setAttribute('aria-label', curatedLabel)")).toBe(2);
+  });
+
+  it('exactly the two Date anchors and the factory carry an aria-label write, receiver-scoped', () => {
+    // Deviation from a bare `countOccurrences(recordsStripped,
+    // 'aria-label')` check: records.ts also carries one pre-existing,
+    // unrelated `nav.setAttribute('aria-label', 'Records sections')` on
+    // the jump-list <nav> landmark (outside this plan's scope), which a
+    // bare substring count would incorrectly fold into this invariant.
+    // Scoping to the two named receivers this plan actually governs -
+    // cellAnchor (the factory's single conditional write) and dateAnchor
+    // (both tables' Date cells) - measures D-17's real invariant without
+    // being tripped by an unrelated landmark label.
+    const scopedAriaLabelPattern = /\b(?:cellAnchor|dateAnchor)\.setAttribute\(\s*['"]aria-label['"]/g;
+    const matches = [...recordsStripped.matchAll(scopedAriaLabelPattern)];
+    expect(matches, 'expected exactly 3: the factory\'s one conditional write plus both Date anchors').toHaveLength(3);
+  });
+
+  it("the superseded 'not decidable in this repository' comment is gone, and D-17/R38 are cited", () => {
+    // Read the RAW, un-stripped source for this one assertion only - the
+    // point is precisely that a COMMENT changed - every other assertion in
+    // this file deliberately reads stripped source.
+    expect(recordsSource).not.toContain('not decidable in this repository');
+    expect(recordsSource).toContain('D-17');
+    expect(recordsSource).toContain('R38');
+  });
+
+  it('blind-spot proof: a naive aria-label-counting guard could never have seen CR-01; cellLinkLabelViolations does', () => {
+    // Local replica of a naive guard that counts raw 'aria-label'
+    // occurrences over a single call-site sample - CR-01 is an argument at
+    // a call site, not an attribute write, so no aria-label-counting guard
+    // could ever have caught it. Do NOT "fix" the zero below - it is the
+    // proof, not a bug.
+    const sample = "const paceLink = buildCellLink(row.activityId, curatedLabel);";
+    expect(
+      countOccurrences(sample, 'aria-label'),
+      "documents that a naive aria-label count over this sample misses CR-01 entirely - must stay 0",
+    ).toBe(0);
+    expect(
+      cellLinkLabelViolations(sample),
+      'documents cellLinkLabelViolations catching the identical sample',
+    ).toHaveLength(1);
+  });
+
+  describe('cellLinkLabelViolations - self-tests', () => {
+    it('buildCellLink(row.activityId) yields no violations', () => {
+      expect(cellLinkLabelViolations('buildCellLink(row.activityId)')).toEqual([]);
+    });
+
+    it('buildCellLink(row.activityId, curatedLabel) yields exactly one violation', () => {
+      expect(cellLinkLabelViolations('buildCellLink(row.activityId, curatedLabel)')).toHaveLength(1);
+    });
+
+    it('a call passing any second argument at all yields exactly one violation', () => {
+      expect(cellLinkLabelViolations("buildCellLink(row.activityId, 'some label')")).toHaveLength(1);
+    });
+
+    it('a call spread over two lines with the second argument on the second line still yields one violation', () => {
+      const spread = 'buildCellLink(\n  row.activityId,\n  curatedLabel,\n)';
+      expect(cellLinkLabelViolations(spread)).toHaveLength(1);
+    });
   });
 });

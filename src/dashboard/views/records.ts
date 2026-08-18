@@ -43,7 +43,12 @@ import {
   appendBadge,
   appendLowConfidenceBadge,
 } from './list.js';
-import { attachRowNavigation, activityDetailHref } from '../row-navigation.js';
+import {
+  attachRowNavigation,
+  activityDetailHref,
+  shouldNavigateOnRowClick,
+  type RowClickContext,
+} from '../row-navigation.js';
 
 const STATS_BASE_URL = 'data/stats/';
 const EXCLUSIONS_URL = 'data/best-effort-exclusions.json';
@@ -343,27 +348,72 @@ function buildPrTableEmptyState(): HTMLElement {
  * stop per row stays the Date-cell anchor (D-13 point 3). This must be the
  * only `tabIndex` write in this file — `row-semantics.test.ts` pins that.
  *
- * `ariaLabel` is always the Date cell's curated three-part label
- * (formatted date, distance label, formatted duration), reused verbatim
- * rather than a name-first template: `PrTableRow` and `ProgressionRow`
- * carry no activity-name field, and D-05 keeps that join deferred to
- * Phase 21. The `href` was never blocked on D-05 — only a name-first label
- * template was (D-13 point 2).
+ * `ariaLabel` is optional (D-17 point 2) and no current call site passes
+ * one: each cell anchor's accessible name falls through to its own visible
+ * text, which is already correct and cell-specific (the Rank cell
+ * announces its rank, the Pace cell its pace, and so on). The parameter is
+ * retained rather than deleted so a future labelled cell has one place to
+ * be labelled from, and so the "set only when passed" contract is explicit
+ * rather than implied by its absence.
  *
- * Open question, not decidable in this repository (no DOM, no
- * accessibility tooling): what a screen reader announces for these cells
- * in table-browse mode, where an anchor's explicit `aria-label` may be
- * read instead of the cell's own text — so the Pace cell could announce
- * the date rather than the pace. Plan 20-18's Round 4 checkpoint carries
- * an observation row for this; do not silently substitute a different
- * label to work around it.
+ * D-17 point 4: the accessible-name question this JSDoc used to call
+ * undecidable here — what a screen reader announces when an anchor's
+ * explicit `aria-label` competes with its own visible text — was decidable
+ * after all. The WAI-ARIA accessible-name computation is deterministic per
+ * spec: an explicit `aria-label` wins unconditionally over name-from-
+ * content. Passing the Date cell's label to every cell (as this factory
+ * did before D-17) therefore made a screen reader announce the identical
+ * phrase five or six times per row and discarded the Flags anchor's badge
+ * text entirely (`20-REVIEW.md` CR-01, corroborated live during the Round
+ * 4 checkpoint). The resolution is to label nothing but the Date cell; the
+ * rendered observation is plan 20-20's row R38. Do not re-substitute the
+ * curated label into a cell anchor to "restore" a label — that is CR-01.
+ *
+ * D-16: this anchor is also non-draggable (`draggable = false`) — the
+ * whole fix for R31's dragstart, since an `<a>` is draggable by default
+ * and a mouse-down-and-drag inside the cell would otherwise start a native
+ * link drag instead of a text selection. It carries its own `click`
+ * listener that decides only the two refusal classes the browser cannot
+ * see for us — an active text selection (D-12) and a repeat click (D-14) —
+ * via the same imported `shouldNavigateOnRowClick` predicate
+ * `attachRowNavigation` uses, so D-12's and D-14's definitions stay
+ * single-sourced across both call sites (D-16 point 3) and are never
+ * reimplemented here. `insideAnchor`, `button` and the four modifier keys
+ * are presented neutral (`false` / `0`) rather than read from the event,
+ * because the browser itself owns those gestures on a real anchor: reading
+ * the real values and then calling `preventDefault()` would cancel the
+ * browser's own Cmd/Ctrl+click new-tab and Shift+click new-window
+ * handling. Navigation on the allowed path stays the browser's own, via
+ * `href` — `navigateTo` is deliberately absent here. Changing
+ * `metaKey: false` and its three siblings to read the real event fields
+ * would silently re-break R23/R24; `row-semantics.test.ts` is the guard
+ * that catches it.
  */
-function buildCellLink(activityId: string, ariaLabel: string): HTMLAnchorElement {
+function buildCellLink(activityId: string, ariaLabel?: string): HTMLAnchorElement {
   const cellAnchor = document.createElement('a');
   cellAnchor.className = 'pr-table__cell-link';
   cellAnchor.href = activityDetailHref(activityId);
-  cellAnchor.setAttribute('aria-label', ariaLabel);
+  if (ariaLabel) {
+    cellAnchor.setAttribute('aria-label', ariaLabel);
+  }
   cellAnchor.tabIndex = -1;
+  cellAnchor.draggable = false;
+  cellAnchor.addEventListener('click', (event: MouseEvent) => {
+    const selection = window.getSelection();
+    const context: RowClickContext = {
+      button: 0,
+      metaKey: false,
+      ctrlKey: false,
+      shiftKey: false,
+      altKey: false,
+      insideAnchor: false,
+      hasTextSelection: Boolean(selection && !selection.isCollapsed && selection.toString().length > 0),
+      clickCount: event.detail,
+    };
+    if (!shouldNavigateOnRowClick(context)) {
+      event.preventDefault();
+    }
+  });
   return cellAnchor;
 }
 
@@ -412,35 +462,38 @@ function buildPrTable(distance: TargetDistanceKey, rows: readonly PrTableRow[]):
 
     // Curated label built only from fields PrTableRow carries (D-04):
     // PrTableRow has no activity name (D-05 defers joining one in), so
-    // this deliberately differs from list.ts's name-first template.
-    // Hoisted once per row (D-13) so every cell link in this row shares
-    // exactly the Date cell's label, verbatim.
+    // this deliberately differs from list.ts's name-first template. Built
+    // for the Date anchor alone (D-04, D-17) — the row's other cells are
+    // deliberately unlabelled, since each cell's own visible text is
+    // already its correct accessible name. Re-passing this label to a
+    // cell link is the CR-01 defect and is guarded by
+    // row-semantics.test.ts.
     const curatedLabel = `${formatActivityDate(row.startDate)}, ${DISTANCE_LABELS[distance]}, ${formatEffortDuration(row.durationSec)}`;
 
     const rankTd = document.createElement('td');
     rankTd.className = 'pr-table__numeric';
-    const rankLink = buildCellLink(row.activityId, curatedLabel);
+    const rankLink = buildCellLink(row.activityId);
     rankLink.textContent = `#${row.rank}`;
     rankTd.appendChild(rankLink);
     tr.appendChild(rankTd);
 
     const timeTd = document.createElement('td');
     timeTd.className = 'pr-table__numeric';
-    const timeLink = buildCellLink(row.activityId, curatedLabel);
+    const timeLink = buildCellLink(row.activityId);
     timeLink.textContent = formatEffortDuration(row.durationSec);
     timeTd.appendChild(timeLink);
     tr.appendChild(timeTd);
 
     const paceTd = document.createElement('td');
     paceTd.className = 'pr-table__numeric';
-    const paceLink = buildCellLink(row.activityId, curatedLabel);
+    const paceLink = buildCellLink(row.activityId);
     paceLink.textContent = formatPace(row.paceSecPerKm);
     paceTd.appendChild(paceLink);
     tr.appendChild(paceTd);
 
     const ageTd = document.createElement('td');
     ageTd.className = 'pr-table__numeric';
-    const ageLink = buildCellLink(row.activityId, curatedLabel);
+    const ageLink = buildCellLink(row.activityId);
     ageLink.textContent =
       row.agePercent !== null ? `${row.agePercent.toFixed(1)}%${row.ageDerived ? '*' : ''}` : '—';
     ageTd.appendChild(ageLink);
@@ -455,7 +508,7 @@ function buildPrTable(distance: TargetDistanceKey, rows: readonly PrTableRow[]):
     tr.appendChild(dateTd);
 
     const flagsTd = document.createElement('td');
-    const flagsAnchor = buildCellLink(row.activityId, curatedLabel);
+    const flagsAnchor = buildCellLink(row.activityId);
     let hasFlagBadge = false;
     if (row.lowConfidence) {
       appendLowConfidenceBadge(flagsAnchor, `pr-${distance}-${row.activityId}`);
@@ -465,9 +518,11 @@ function buildPrTable(distance: TargetDistanceKey, rows: readonly PrTableRow[]):
       appendBadge(flagsAnchor, `Excluded — ${row.exclusionReason}`);
       hasFlagBadge = true;
     }
-    // An empty anchor with an aria-label would announce as an empty link
-    // and has no clickable box, so a flag-less row's Flags cell stays a
-    // plain empty <td> (D-13).
+    // An empty anchor announces as an empty link and has no clickable box
+    // either way, so a flag-less row's Flags cell stays a plain empty <td>.
+    // Now the anchor carries no label of its own (D-17), the badge text
+    // written into it by appendLowConfidenceBadge / appendBadge above is
+    // precisely what a screen reader announces for this cell (D-17 point 2).
     if (hasFlagBadge) {
       flagsTd.appendChild(flagsAnchor);
     }
@@ -543,12 +598,14 @@ function buildPrTablesSection(
 /**
  * Renders one distance's PR-progression table. Takes `distance` only to
  * build the D-04 curated label (identical three-part shape to the PR
- * table's, so a progression row and a PR row for the same activity
- * announce the same way). D-13 extends this table too — both non-Date
- * cells (Time, Improvement) now carry the same real `buildCellLink`
- * anchor the PR table's cells do, `tabIndex = -1` so the Date anchor stays
- * the row's only keyboard stop. The row-level click still comes from the
- * shared `attachRowNavigation` helper (D-03).
+ * table's) for the Date anchor alone (D-17) — the row's Date cell
+ * announces the same way a PR row's Date cell does, for the same
+ * activity. D-13 extends this table too — both non-Date cells (Time,
+ * Improvement) carry the same real `buildCellLink` anchor the PR table's
+ * cells do, `tabIndex = -1` so the Date anchor stays the row's only
+ * keyboard stop, and (D-17) unlabelled, so each announces its own visible
+ * text. The row-level click still comes from the shared
+ * `attachRowNavigation` helper (D-03).
  */
 function buildProgressionTable(distance: TargetDistanceKey, series: readonly EvolutionPoint[]): HTMLElement {
   const table = document.createElement('table');
@@ -568,7 +625,10 @@ function buildProgressionTable(distance: TargetDistanceKey, series: readonly Evo
   for (const row of buildProgressionRows(series)) {
     const tr = document.createElement('tr');
 
-    // Hoisted once per row (D-13), identical shape to buildPrTable's.
+    // Hoisted once per row (D-13), identical shape to buildPrTable's,
+    // built for the Date anchor alone (D-04, D-17). The row's other cells
+    // are deliberately unlabelled; re-passing this label to a cell link is
+    // the CR-01 defect and is guarded by row-semantics.test.ts.
     const curatedLabel = `${formatActivityDate(row.startDate)}, ${DISTANCE_LABELS[distance]}, ${formatEffortDuration(row.durationSec)}`;
 
     const dateTd = document.createElement('td');
@@ -580,13 +640,13 @@ function buildProgressionTable(distance: TargetDistanceKey, series: readonly Evo
     tr.appendChild(dateTd);
 
     const timeTd = document.createElement('td');
-    const timeLink = buildCellLink(row.activityId, curatedLabel);
+    const timeLink = buildCellLink(row.activityId);
     timeLink.textContent = formatEffortDuration(row.durationSec);
     timeTd.appendChild(timeLink);
     tr.appendChild(timeTd);
 
     const improvementTd = document.createElement('td');
-    const improvementLink = buildCellLink(row.activityId, curatedLabel);
+    const improvementLink = buildCellLink(row.activityId);
     improvementLink.textContent =
       row.improvementSec === null ? '—' : `−${formatEffortDuration(Math.abs(row.improvementSec))}`;
     improvementTd.appendChild(improvementLink);
