@@ -145,3 +145,21 @@ None — no external service configuration required.
 ---
 *Phase: 22-calendar-week-start-totals*
 *Completed: 2026-08-18*
+
+## Self-Check: PASSED
+
+- FOUND: src/dashboard/theme.ts
+- FOUND: src/dashboard/theme.test.ts
+- FOUND: src/dashboard/main.ts
+- FOUND: src/dashboard/nav.ts
+- FOUND: src/dashboard/views/detail-charts.ts
+- FOUND: src/dashboard/views/detail-charts-logic.ts
+- FOUND: src/dashboard/views/detail-charts-logic.test.ts
+- FOUND: src/dashboard/storage.test.ts
+- FOUND: .planning/phases/22-calendar-week-start-totals/deferred-items.md
+- FOUND commit: 20e4ed2 (Task 1 RED)
+- FOUND commit: 327cd2a (Task 1 GREEN)
+- FOUND commit: 61b381e (Task 2)
+- FOUND commit: 523b41e (Task 3 RED)
+- FOUND commit: 568ba89 (Task 3 GREEN)
+- FOUND commit: 9376e82 (SUMMARY.md)
