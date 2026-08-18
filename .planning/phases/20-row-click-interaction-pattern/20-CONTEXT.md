@@ -32,7 +32,7 @@ activity names into the Records data shape, and any new screen or capability.
 
 ### Row semantic and keyboard model
 
-- **D-01: Hybrid semantic — `<div>` rows become real `<a>` elements; `<tr>` rows keep
+- **D-01:** **Hybrid semantic — `<div>` rows become real `<a>` elements; `<tr>` rows keep
   anchor-in-cell plus a row-click handler.** These are genuinely different problems. A
   `.activity-row` div can legitimately *become* an anchor, so it does: `<a class="activity-row"
   href="#/activity/{id}">`, the whole row is the link, Tab reaches it, activation is native. A
@@ -49,13 +49,13 @@ activity names into the Records data shape, and any new screen or capability.
     card's `.cta` "View Activity" anchor — i.e. one of the CTAs this phase **removes**, not the row
     pattern. The actual reference pattern is `buildTableRow` at `list.ts:333-343`.
 
-- **D-02: Enter-only activation. No Space keydown handler.** An `<a href>` activates on Enter;
+- **D-02:** **Enter-only activation. No Space keydown handler.** An `<a href>` activates on Enter;
   Space is the page-scroll key. A control announced as "link" is expected to take Enter, and
   hijacking Space on a focused full-width row surprises keyboard users. Criterion 3's "Enter/Space"
   is discharged by native link semantics. **Recorded explicitly so a later agent does not "fix"
   this as an oversight.** The human checkpoint must test Enter, not Space.
 
-- **D-12: The row-click listener honours the browser's link contract; middle-click
+- **D-12:** **The row-click listener honours the browser's link contract; middle-click
   (`auxclick`) is explicitly out of scope.**
   1. **What the listener now refuses to do.** It returns without navigating when `event.button` is
      not `0`, when any of `metaKey` / `ctrlKey` / `shiftKey` / `altKey` is set, or when
@@ -88,7 +88,7 @@ activity names into the Records data shape, and any new screen or capability.
      covering modifier-click, Shift/Alt-click, middle-click and drag-select on the Records PR table
      (plan 20-11).
 
-- **D-03: The row-click behavior lives in one shared DOM helper module.** A small module beside
+- **D-03:** **The row-click behavior lives in one shared DOM helper module.** A small module beside
   `router.ts` / `nav.ts` (it is a navigation concern, and it touches the DOM so it is *not* a
   `*-logic.ts` module under this codebase's convention) exporting something like
   `attachRowNavigation(el, activityId)`. `list.ts`'s inline handler at `list.ts:336-343` is
@@ -99,7 +99,7 @@ activity names into the Records data shape, and any new screen or capability.
     the identical handler behind a helper preserves the model. Any behavioral change to it is a
     deviation requiring a checkpoint call-out.
 
-- **D-04: Row anchors carry a curated `aria-label` matching `list.ts:354-357`'s existing shape** —
+- **D-04:** **Row anchors carry a curated `aria-label` matching `list.ts:354-357`'s existing shape** —
   `{name}, {date}, {distance} km`. Without it, a whole-row link's accessible name becomes every
   descendant string concatenated (name + date + distance + duration + pace + every status badge),
   which is both verbose and *different* from what the same activity announces in the Activities
@@ -108,7 +108,7 @@ activity names into the Records data shape, and any new screen or capability.
 
 ### Records — CTA removal and what replaces it
 
-- **D-05: Drop the CTA column entirely from both Records tables; the `Date` cell carries the
+- **D-05:** **Drop the CTA column entirely from both Records tables; the `Date` cell carries the
   anchor.** The PR table loses its `Activity` column (7 → 6 columns, `records.ts:338`); the
   progression table loses its `Run` column (4 → 3, `records.ts:474`). In each row the Date cell
   holds `<a href="#/activity/{id}">`, mirroring `list.ts`'s anchor-in-cell exactly. `Date` is the
@@ -118,7 +118,7 @@ activity names into the Records data shape, and any new screen or capability.
   - Joining the activity name in from the dashboard index was considered and rejected for this
     phase: it is a new data dependency and a row-type change, which is Phase 21-shaped work.
 
-- **D-06: The shared link treatment Phase 19 deferred lands in this phase.** `styles.css` has
+- **D-06:** **The shared link treatment Phase 19 deferred lands in this phase.** `styles.css` has
   **zero rules for a bare `a`** — the only `text-decoration: none` declarations are on
   `.app-nav__link` and `.cta`. So `list.ts`'s Activity-cell anchor renders as a **browser-default
   blue underlined link** today, and every anchor this phase adds would too, including in dark
@@ -129,14 +129,14 @@ activity names into the Records data shape, and any new screen or capability.
 
 ### Overview and the Phase 21 seam
 
-- **D-07: `renderActivityRow` is changed in place — both surfaces get the whole-row link.** It
+- **D-07:** **`renderActivityRow` is changed in place — both surfaces get the whole-row link.** It
   returns `<a class="activity-row">` with the `.cta` removed, so Overview's Recent Activities and
   the Activities **mobile card view** both become row-as-affordance in one edit. UX-02 says remove
   redundant CTAs "anywhere else the row itself is now the affordance", which names the mobile card.
   Not parameterized (`asLink`) and not forked — two live interaction models for the same visual row
   is precisely the inconsistency this phase exists to remove.
 
-- **D-08: Phase 20 owns the row *semantic*; Phase 21 owns the row *contents*.** `renderRecentPrRow`
+- **D-08:** **Phase 20 owns the row *semantic*; Phase 21 owns the row *contents*.** `renderRecentPrRow`
   (`overview.ts:78`) becomes an `<a class="activity-row">` keeping its **exact three children**
   (name div, meta div, PR badge) — no hierarchy change, no new classes. Phase 21's OVR-01/OVR-02
   then restructure what is inside the link without touching the interaction. This follows Phase
@@ -146,14 +146,14 @@ activity names into the Records data shape, and any new screen or capability.
 
 ### Row affordance — hover, cursor, focus ring
 
-- **D-09: The new row anchors reuse Phase 19's shared hover formula verbatim** —
+- **D-09:** **The new row anchors reuse Phase 19's shared hover formula verbatim** —
   `background: color-mix(in srgb, var(--surface) 92%, var(--text))`, the same declaration
   `.activity-table tbody tr:hover` already carries (Phase 19 D-06/D-08). A hovered Overview row and
   a hovered Records/Activities table row then feel identical, it is correct in both themes by
   construction, and no new value or token is introduced. The pointer cursor comes free from the
   anchor.
 
-- **D-10: Scope `cursor: pointer` and the row hover to actually-clickable rows.** Today
+- **D-10:** **Scope `cursor: pointer` and the row hover to actually-clickable rows.** Today
   `.activity-table tbody tr { cursor: pointer }` (styles.css:526) applies to four tables whose rows
   are **not** activities and never will be clickable: the Riegel race-predictions table
   (`records.ts:608`), the gear/shoe table (`trends.ts:1022`), a trends table (`trends.ts:531`), and
@@ -163,7 +163,7 @@ activity names into the Records data shape, and any new screen or capability.
   rows advertise themselves. An opt-out class on the four innocent tables was rejected: opt-out is
   the wrong default, and the next non-clickable table would inherit the lie again.
 
-- **D-11: Inherit Phase 19's D-09 focus ring unchanged; the human checkpoint arbitrates.** Phase
+- **D-11:** **Inherit Phase 19's D-09 focus ring unchanged; the human checkpoint arbitrates.** Phase
   19's **D-12** deliberately left `:focus-visible` global and unscoped so these rows inherit the
   two-tone ring with no opt-in work, and explicitly pre-authorized Phase 20 to refine ring placement
   on full-width rows *if it reads badly*. Do not pre-emptively add a row-specific variant — this
@@ -176,7 +176,7 @@ activity names into the Records data shape, and any new screen or capability.
 
 ### Gap-closure round 4 (locked 2026-08-17, after `20-VERIFICATION.md` scored 1/4)
 
-- **D-13: Every cell of both Records PR tables carries a real `<a href>`; D-12's "no real anchor
+- **D-13:** **Every cell of both Records PR tables carries a real `<a href>`; D-12's "no real anchor
   on the remaining five cells" clause is superseded.**
   1. **What changes.** Rank, Time, Pace, Age-Grade and Flags each wrap their content in
      `<a href={activityDetailHref(row.activityId)}>`, matching the Date cell's existing
@@ -203,7 +203,7 @@ activity names into the Records data shape, and any new screen or capability.
      not-exercisable on the developer's hardware; that is an observation gap, not an
      implementation one.
 
-- **D-14: The row-click listener refuses navigation on the first click of a double-click.**
+- **D-14:** **The row-click listener refuses navigation on the first click of a double-click.**
   `RowClickContext` gains a `clickCount` field sourced from `event.detail`, and
   `shouldNavigateOnRowClick` gains a fifth refusal class — `clickCount > 1` — alongside the four
   D-12 already implements (`row-navigation.ts:103-117`). This closes `20-REVIEW.md`'s WR-05: a
@@ -211,7 +211,7 @@ activity names into the Records data shape, and any new screen or capability.
   Unit coverage extends `row-navigation.test.ts`'s existing 21 cases; the refusal order stays as
   documented, with `closest('a')` first.
 
-- **D-15: The three guard-layer WARNINGs this phase's own work introduced are closed in this
+- **D-15:** **The three guard-layer WARNINGs this phase's own work introduced are closed in this
   round.** All three are false-green mechanisms in the phase's own test guards, not product
   defects: `row-semantics.test.ts:140`'s `isAllowedRoleValue` keys on the value being `link`
   rather than on the receiver, so `role="presentation"` / `role="button"` on a `<tr>` passes
@@ -221,6 +221,71 @@ activity names into the Records data shape, and any new screen or capability.
   `cascadeWinningBodyDeclaring` skips every at-rule-scoped rule, so a `@media` override of
   `.activity-row` leaves all four already-converted assertions green (WR-03). Each fix carries an
   in-suite proof of the blind spot it closes, matching 20-10's established shape.
+
+### Gap-closure round 5 (locked 2026-08-18, after `20-VERIFICATION.md` scored 1/4 again)
+
+- **D-16:** **D-13's cell anchors enforce the same link contract the row listener enforces;
+  `shouldNavigateOnRowClick` stays the single source of truth for both scopes.**
+  1. **The defect this closes (GAP 12).** D-12's drag-select guard and D-14's double-click
+     refusal live *only* inside `attachRowNavigation`'s row-level click listener
+     (`row-navigation.ts:145-172`). Once D-13 gave every content-carrying Records cell a real
+     `<a href>`, a click landing on that anchor is handled natively by the browser and never
+     consults the predicate — indeed the predicate's own first clause (`insideAnchor`) refuses
+     on purpose, precisely so the row listener does not double-navigate. Nothing then calls
+     `preventDefault()`, so `20-VALIDATION.md` R31 (drag-select inside an anchored Pace cell
+     starts a native link-drag) and R32 (double-click navigates before word-select completes)
+     both FAIL live, on the same cells D-13 fixed R18/R19 on.
+  2. **The fix.** `buildCellLink` sets `draggable = false` on each anchor it builds and
+     registers a per-anchor `click` listener that assembles a `RowClickContext` from the event
+     and the current selection exactly as `attachRowNavigation` does, with **`insideAnchor`
+     forced to `false`** — this element *is* the anchor, so the double-navigation clause must
+     not fire — and calls `event.preventDefault()` when `shouldNavigateOnRowClick` returns
+     `false`. Navigation on the allowed path stays the browser's own, via the `href`.
+  3. **`shouldNavigateOnRowClick` is not modified.** No sixth refusal class, no new parameter,
+     no branch keyed on scope. The predicate's five refusal classes and their documented order
+     are correct as written for both call sites; only the *number of call sites* changes. This
+     keeps `row-navigation.test.ts`'s existing case table load-bearing for cell anchors too,
+     and keeps D-12/D-14 single-sourced rather than reimplemented per surface.
+  4. **Why `preventDefault` and not a synthetic navigation.** Suppressing the default is the
+     minimum intervention that restores the guard: the modifier-click, middle-click and
+     new-tab paths D-13 bought by using a real anchor all keep working untouched, because
+     `shouldNavigateOnRowClick` returns `false` for them and `preventDefault()` is *not* what
+     opens the tab — the browser's own handling of the unprevented anchor is. Calling
+     `navigateTo` from the anchor listener would re-break exactly what D-13 fixed.
+  5. **What stays out.** `draggable = false` addresses R31's dragstart specifically; no
+     `dragstart` listener is added, and no `auxclick` is synthesised — D-12's out-of-scope
+     clause on middle-click stands unchanged.
+
+- **D-17:** **Only the Date cell carries an explicit `aria-label`; every other cell anchor
+  derives its accessible name from its own visible text.**
+  1. **The defect this closes (CR-01).** `buildCellLink(activityId, ariaLabel)` sets an explicit
+     `aria-label` on every anchor, and every call site in a row passes the identical
+     `curatedLabel` — the Date cell's three-part string (`records.ts:422, 429, 436, 443, 458`
+     for the PR table; `:583, 589` for the progression table). Per the WAI-ARIA accessible-name
+     computation order an explicit `aria-label` wins unconditionally over name-from-content, so
+     a screen reader announces the same phrase five or six times per row, the anchor's own
+     visible text (rank, time, pace, age-grade %) is never announced, and the Flags anchor's
+     badge text (`Low confidence`, `Excluded — <reason>`, written as descendants by
+     `appendLowConfidenceBadge` / `appendBadge`) is discarded entirely. This is the CR-02 defect
+     class this phase already fixed at row scope, reintroduced at cell scope.
+  2. **The fix.** `buildCellLink`'s `ariaLabel` parameter becomes optional and the attribute is
+     set only when a label is passed. The five PR-table and two progression-table non-Date call
+     sites stop passing `curatedLabel`; the Date cell alone keeps it. Each remaining anchor's
+     accessible name then falls through to its own cell text, which is already correct and
+     cell-specific, and the Flags anchor announces its badge text again.
+  3. **Why not per-cell composed labels.** A `Rank #1, <curated>` style template was considered
+     and declined: it repeats the row context on every cell for no added information in
+     table-browse mode, and it re-establishes the hand-maintained label duplication D-13's
+     comment already flags as fragile. Falling through to visible text is also the option
+     consistent with D-13 point 3's own framing of these anchors as gesture-only targets.
+  4. **This supersedes `records.ts:353-359`'s "open question" comment.** That comment defers the
+     announcement question to a checkpoint observation row on the grounds that it is "not
+     decidable in this repository (no DOM, no accessibility tooling)". The accessible-name
+     computation is deterministic per spec and *is* decidable here; the comment is rewritten to
+     record D-17's resolution rather than left inviting a future re-substitution.
+  5. **Guarded by test.** `row-semantics.test.ts` gains an assertion that the anchors built for
+     one row do not share an identical `aria-label`, and that the non-Date call sites pass no
+     label at all — the grep in `20-VERIFICATION.md` confirms no such guard exists today.
 
 ### Claude's Discretion
 
