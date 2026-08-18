@@ -270,9 +270,9 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 21-03-PLAN.md — the D-06 layout in a Phase 21 banner block with a stated class contract, and cascade-aware assertions pinning every D-08-frozen bordered-card value it must not disturb (OVR-01, OVR-02)
-- [ ] 21-04-PLAN.md — Overview retires `renderRecentPrRow` / `recentPrBadgeText` / `recentPrRowAriaLabel` outright and both cards delegate to the shared renderer with distinct surfaces, with three invalidated source guards re-pointed at least as strongly (OVR-01, OVR-02)
-- [ ] 21-05-PLAN.md — the `.segmented` All time / This year control above the PR tables, a pure clock-free year filter that re-ranks 1..N, and a per-distance empty state replacing the hardcoded marathon copy year-scoping would have made far more visible (OVR-03)
+- [x] 21-03-PLAN.md — the D-06 layout in a Phase 21 banner block with a stated class contract, and cascade-aware assertions pinning every D-08-frozen bordered-card value it must not disturb (OVR-01, OVR-02)
+- [x] 21-04-PLAN.md — Overview retires `renderRecentPrRow` / `recentPrBadgeText` / `recentPrRowAriaLabel` outright and both cards delegate to the shared renderer with distinct surfaces, with three invalidated source guards re-pointed at least as strongly (OVR-01, OVR-02)
+- [x] 21-05-PLAN.md — the `.segmented` All time / This year control above the PR tables, a pure clock-free year filter that re-ranks 1..N, and a per-distance empty state replacing the hardcoded marathon copy year-scoping would have made far more visible (OVR-03)
 
 **Wave 3** *(blocked on Waves 1 and 2 — both edit `overview.ts`)*
 
@@ -375,7 +375,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 18. Records, Trends & Differentiators | v2.0 | 16/16 | Complete    | 2026-08-12 |
 | 19. Design System & Control Styling | v2.1 | 17/17 | Complete    | 2026-08-13 |
 | 20. Row-Click Interaction Pattern | v2.1 | 20/20 | Complete    | 2026-08-18 |
-| 21. Overview Rebuild | v2.1 | 2/7 | In Progress|  |
+| 21. Overview Rebuild | v2.1 | 5/7 | In Progress|  |
 | 22. Calendar Week-Start & Totals | v2.1 | 0/TBD | Not started | - |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 0/TBD | Not started | - |
 | 24. Local Curation Mode | v2.1 | 0/TBD | Not started | - |
