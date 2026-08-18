@@ -23,10 +23,10 @@ Each maps to roadmap phases.
 
 ### Overview
 
-- [ ] **OVR-01**: Recent PRs rows show name, date, distance and PR badge in a deliberate visual hierarchy rather than three stacked divs, and link to the activity
-- [ ] **OVR-02**: Recent Activities rows follow the same structure and linking
-- [ ] **OVR-03**: User can switch the records section between at least all-time and current-year views (e.g. a "This year's records" tab)
-- [ ] **OVR-04**: Headline Stats includes distance this year and hours this year alongside the existing all-time figures
+- [x] **OVR-01**: Recent PRs rows show name, date, distance and PR badge in a deliberate visual hierarchy rather than three stacked divs, and link to the activity. **Closed 2026-08-18 (plan 21-07, Round 1)**: all three mapped rows passed — R1 PASS (two-line hierarchy, both themes), R4 PASS (no badge wrap, though observed at ~521px rather than the specified ~360px due to a Chrome minimum-window-width constraint the developer accepted), R5 PASS (single Tab stop, focus ring, `#/activity/...` navigation confirmed). See `21-VALIDATION.md` Round 1.
+- [x] **OVR-02**: Recent Activities rows follow the same structure and linking. **Closed 2026-08-18 (plan 21-07, Round 1)**: both mapped rows passed — R2 PASS (Recent Activities row matches a Recent PRs row directly above it, same two-line shape and badge placement) and R3 PASS (Activities mobile card below 720px shows the same two-line shape). See `21-VALIDATION.md` Round 1.
+- [ ] **OVR-03**: User can switch the records section between at least all-time and current-year views (e.g. a "This year's records" tab). **Round 1 gap 2026-08-18 — still open**: four of five mapped rows passed (R6, R8, R9, R10 all PASS — the control renders and toggles, the scope governs only the PR tables, the scope does not persist, and each empty state names its own distance) but R7 was recorded BLOCKED, not PASS: every one of the seven distance tables renders an empty state under "This year", so no table has current-year rows whose rank and date could be read back — the year-scope re-rank itself was never observed against real rendered rows. See `21-VALIDATION.md` Round 1.
+- [x] **OVR-04**: Headline Stats includes distance this year and hours this year alongside the existing all-time figures. **Closed 2026-08-18 (plan 21-07, Round 1)**: its one mapped row passed — R11 PASS (8 tiles total, the last two reading "775.1 km / Distance This Year" and "78 / Hours This Year", both themes confirmed). See `21-VALIDATION.md` Round 1.
 
 ### Calendar
 
@@ -49,7 +49,7 @@ Each maps to roadmap phases.
 ### Carried Forward from v2.0
 
 - [ ] **CUR-01**: User can toggle an activity's exclusion from PR calculations from the interface rather than hand-editing `data/best-effort-exclusions.json`, via a local curation mode (`npm run curate`) with a localhost-only write path. Per-distance exclusion must be selectable, not just whole-run — a GPS spike typically corrupts only the short splits while the same run's 5k/10k remain honest. A reason is required and is surfaced in the detail view. The write path must be provably absent from the published bundle, verified by an assertion in `verify-dashboard-publish.mjs` following the `assertNoPrivateArtifacts` precedent.
-- [ ] **FIX-01**: The "Current Streak" tile's `ended {date}` sub-label renders when a streak has ended. Currently structurally unreachable — it reads `currentStreakStart`, which is only populated while a streak is active (root cause `src/analytics/streak-utils.ts:118`; code review WR-01).
+- [x] **FIX-01**: The "Current Streak" tile's `ended {date}` sub-label renders when a streak has ended. Currently structurally unreachable — it reads `currentStreakStart`, which is only populated while a streak is active (root cause `src/analytics/streak-utils.ts:118`; code review WR-01). **Closed 2026-08-18 (plan 21-07, Round 1)**: both mapped rows passed — R12 PASS (Records Current Streak tile: '0 days' / 'ended Aug 3, 2026') and R13 PASS (Overview Current Streak tile: same values, both themes). The `ended` branch was confirmed against a staged-build fixture (`dist/widgets/data/stats/streaks.json`), not organic archive data — the archive's live streak is still active, and `currentStreakEnd` is absent from the published `streaks.json` until a compute run regenerates it. See `21-VALIDATION.md` Round 1.
 - [ ] **FIX-02**: `gear-aggregate-logic.ts` degrades rather than crashing when an index row lacks a `gearName` key — the Unknown-bucket test is a strict `label === null`, so an absent key reaches `slugify(undefined)` (code review WR-02)
 - [ ] **VER-01**: Phase 16's three unverified theme items are confirmed in a real browser: legibility on a light-OS machine, absence of a first-paint white flash, and live following of an OS appearance change. These were never discharged by the Phase 17/18 checkpoints, which evidence suggests both ran from a dark-OS machine.
 - [ ] **CI-01**: The nightly workflow and `compute-all-stats` no longer maintain two independent orderings of the compute chain with no shared source of truth
@@ -80,11 +80,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UX-02 | Phase 20 | Complete (Round 4, 2026-08-18 — R26/R4/R5/R6 clean sweep, badge fixture-induced) |
 | UX-03 | Phase 20 | Complete (Round 5, 2026-08-18 — GAP 11 and GAP 12 closed, R34-R43 clean sweep) |
 | REC-08 | Phase 20 | Complete (Round 2, 2026-08-13 — R5/R6 individually evidenced) |
-| OVR-01 | Phase 21 | Pending |
-| OVR-02 | Phase 21 | Pending |
+| OVR-01 | Phase 21 | Complete |
+| OVR-02 | Phase 21 | Complete |
 | OVR-03 | Phase 21 | Pending |
-| OVR-04 | Phase 21 | Pending |
-| FIX-01 | Phase 21 | Pending |
+| OVR-04 | Phase 21 | Complete |
+| FIX-01 | Phase 21 | Complete |
 | CAL-01 | Phase 22 | Pending |
 | CAL-02 | Phase 22 | Pending |
 | CAL-03 | Phase 22 | Pending |

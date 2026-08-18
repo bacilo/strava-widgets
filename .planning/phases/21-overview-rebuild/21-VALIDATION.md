@@ -1,12 +1,13 @@
 ---
 phase: 21
 slug: overview-rebuild
-status: draft
+status: partial
 nyquist_compliant: false
 wave_0_complete: true
 created: 2026-08-18
 round: 1
 round1_staged: 2026-08-18
+round1_answered: 2026-08-18
 ---
 
 # Phase 21 — Validation Strategy
@@ -49,17 +50,17 @@ mandatory, not a formality. A fully green automated gate has masked real breakag
 
 | Requirement | Behavior | Test Type | Automated Command | File Exists | Status |
 |-------------|----------|-----------|-------------------|-------------|--------|
-| OVR-01 | Shared renderer emits correct name/date/distance/badge text content and correct `aria-label` string | unit (text/string assertion) | `npx vitest run src/dashboard/views/list.test.ts src/dashboard/views/overview.test.ts` | ✅ | ⬜ pending |
-| OVR-01 | Two-line hierarchy renders; badges do not wrap into meta; degrades at narrow widths without a media query | manual-only | — | N/A | ⬜ pending |
-| OVR-02 | Recent Activities and Recent PRs invoke the *same* renderer (source-identity), same linking semantics | unit | `npx vitest run src/dashboard/views/row-semantics.test.ts` | ✅ (extend) | ⬜ pending |
-| OVR-02 | Rows visually match across both cards and the Activities mobile card | manual-only | — | N/A | ⬜ pending |
-| OVR-03 | Year filter + re-rank produces correct `PrTableRow[]` (correct subset, correct 1..N ranks) | unit | `npx vitest run src/dashboard/views/records-logic.test.ts` | ✅ (new describe) | ⬜ pending |
-| OVR-03 | `.segmented` scope control renders, toggles, and re-renders correct table data | manual-only | — | N/A | ⬜ pending |
-| OVR-04 | This-year tile values computed/formatted correctly from `yearly-stats.json`; em-dash degradation when absent | unit | `npx vitest run src/dashboard/views/overview.test.ts` | ✅ (new describe) | ⬜ pending |
-| OVR-04 | Two new tiles appear in `.stat-grid`, correctly positioned, both themes | manual-only | — | N/A | ⬜ pending |
-| FIX-01 | `calculateDailyStreaks` returns correct `currentStreakEnd` in every scenario (active, ended, empty) | unit | `npx vitest run src/analytics/streak-utils.test.ts` | ✅ (new assertions) | ⬜ pending |
-| FIX-01 | `selectCurrentStreak` reads `currentStreakEnd` (not `currentStreakStart`) for `endedISO`; degrades when absent | unit | `npx vitest run src/dashboard/views/records-logic.test.ts` | ✅ (new describe) | ⬜ pending |
-| FIX-01 | `ended {date}` sub-label renders the **correct** date on Records and Overview against a genuinely-ended-streak fixture | manual-only (fixture-gated) | — | N/A | ⬜ pending |
+| OVR-01 | Shared renderer emits correct name/date/distance/badge text content and correct `aria-label` string | unit (text/string assertion) | `npx vitest run src/dashboard/views/list.test.ts src/dashboard/views/overview.test.ts` | ✅ | ✅ green (npm test 1122/1122, Task 1 gate) |
+| OVR-01 | Two-line hierarchy renders; badges do not wrap into meta; degrades at narrow widths without a media query | manual-only | — | N/A | ✅ PASS (R1, R4, R5) |
+| OVR-02 | Recent Activities and Recent PRs invoke the *same* renderer (source-identity), same linking semantics | unit | `npx vitest run src/dashboard/views/row-semantics.test.ts` | ✅ (extend) | ✅ green (npm test 1122/1122, Task 1 gate) |
+| OVR-02 | Rows visually match across both cards and the Activities mobile card | manual-only | — | N/A | ✅ PASS (R2, R3) |
+| OVR-03 | Year filter + re-rank produces correct `PrTableRow[]` (correct subset, correct 1..N ranks) | unit | `npx vitest run src/dashboard/views/records-logic.test.ts` | ✅ (new describe) | ✅ green (npm test 1122/1122, Task 1 gate) |
+| OVR-03 | `.segmented` scope control renders, toggles, and re-renders correct table data | manual-only | — | N/A | ⚠️ BLOCKED (R6, R8, R9, R10 PASS; R7 BLOCKED — no current-year rows exist to re-rank) |
+| OVR-04 | This-year tile values computed/formatted correctly from `yearly-stats.json`; em-dash degradation when absent | unit | `npx vitest run src/dashboard/views/overview.test.ts` | ✅ (new describe) | ✅ green (npm test 1122/1122, Task 1 gate) |
+| OVR-04 | Two new tiles appear in `.stat-grid`, correctly positioned, both themes | manual-only | — | N/A | ✅ PASS (R11) |
+| FIX-01 | `calculateDailyStreaks` returns correct `currentStreakEnd` in every scenario (active, ended, empty) | unit | `npx vitest run src/analytics/streak-utils.test.ts` | ✅ (new assertions) | ✅ green (npm test 1122/1122, Task 1 gate) |
+| FIX-01 | `selectCurrentStreak` reads `currentStreakEnd` (not `currentStreakStart`) for `endedISO`; degrades when absent | unit | `npx vitest run src/dashboard/views/records-logic.test.ts` | ✅ (new describe) | ✅ green (npm test 1122/1122, Task 1 gate) |
+| FIX-01 | `ended {date}` sub-label renders the **correct** date on Records and Overview against a genuinely-ended-streak fixture | manual-only (fixture-gated) | — | N/A | ✅ PASS (R12, R13) |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -164,19 +165,19 @@ Non-negotiable, established across checkpoints 16-09, 17-15, 19-05, 19-12, 19-17
 
 | Row | Behavior | Requirement | Instructions | Observation |
 |-----|----------|--------------|---------------|-------------|
-| R1. | Overview Recent PRs — the two-line hierarchy (D-06) | OVR-01 | On `#/`, look at the Recent PRs card. Each row should be two lines: the activity name on the first line with its badges pushed to the right edge of the row, and a second line reading date · distance · duration · pace. It should not read as three stacked blocks. Toggle the theme and look again. Required detail: the first row's name, the badge text you see on it, and the full second line, in both themes. Observer required: developer's own eyes. | |
-| R2. | Overview Recent Activities — the same structure (D-05) | OVR-02 | On the same page, scroll to Recent Activities. Compare a row here against a Recent PRs row directly above it. Required detail: whether the two rows have the same two-line shape and the same badge placement, stated as a comparison, plus any difference you can see. Observer required: developer's own eyes. | |
-| R3. | Activities mobile card — the third surface (D-05) | OVR-02 | Narrow the window below 720px and open `#/list` so the mobile card layout renders instead of the table. Compare a card against the Overview rows from R1/R2. Required detail: whether the card has the same two-line shape as the Overview rows, and the name and second line of one card. Observer required: developer's own eyes. | |
-| R4. | Narrow-width degradation (D-06) | OVR-01 | With the window at roughly 360px wide, look at a row that carries at least one badge on Overview or `#/list`. Required detail: whether any badge has wrapped down onto the metrics line, and what the row looks like at that width. Observer required: developer's own eyes. | |
-| R5. | The row is still a link (Phase 20 non-regression) | OVR-01 | Back at full width on `#/`, Tab to a Recent PRs row and confirm it takes exactly one Tab stop and shows a focus ring, then press Enter. Required detail: the number of Tab presses to move past the row, whether the focus ring was visible, and the `#/activity/...` URL you landed on. Observer required: developer's own eyes. | |
-| R6. | The Records scope control (D-01, D-02) | OVR-03 | Open `#/records` and scroll to the PR Tables section. A two-option control should sit between the section heading and the first distance table, reading All time and This year, with All time selected. Toggle the theme. Required detail: the two option labels as written, which one is selected on arrival, and whether the control is legible in both themes. Observer required: developer's own eyes. | |
-| R7. | The year scope re-ranks (D-01) | OVR-03 | Click This year. Pick one distance table that still has rows and read its top row. Required detail: the distance you picked, the rank shown in its first row, and the date in that row. Observer required: developer's own eyes. | |
-| R8. | The scope governs only the PR tables (D-03) | OVR-03 | With This year still selected, scroll through Superlatives, PR Evolution and Race Predictions. Required detail: whether each of those three changed when you toggled, named individually. Observer required: developer's own eyes. | |
-| R9. | The scope does not persist (D-04) | OVR-03 | With This year selected, navigate to `#/list`, then back to `#/records`. Required detail: which scope is selected on arrival. Observer required: developer's own eyes. | |
-| R10. | The empty state names its own distance | OVR-03 | With This year selected, find a distance table showing an empty state (if none is empty this year, say so and the row is BLOCKED). Required detail: the empty state's heading text, quoted exactly. Observer required: developer's own eyes. | |
-| R11. | This-year Headline Stats tiles (D-09, D-11) | OVR-04 | Back on `#/`, count the tiles in the Headline Stats card and read the last two. Toggle the theme. Required detail: the number of tiles, the last two tiles' labels and values, and whether both read correctly in both themes. Observer required: developer's own eyes. | |
-| R12. | Records Current Streak sub-label (D-13, D-14, D-16) | FIX-01 | On `#/records`, find the Current Streak tile in the Superlatives grid. The staged fixture has set the streak to ended. Required detail: the tile's big number and its sub-label, both quoted exactly as rendered. A sub-label reading `ended Aug 10, 2026` is the wrong date and must be recorded FAIL. Observer required: developer's own eyes. | |
-| R13. | Overview Current Streak sub-label (D-15) | FIX-01 | On `#/`, find the Current Streak tile in Headline Stats. Toggle the theme. Required detail: the tile's big number and its sub-label, both quoted exactly as rendered, in both themes. `ended Aug 10, 2026` is the wrong date and must be recorded FAIL. Observer required: developer's own eyes. | |
+| R1. | Overview Recent PRs — the two-line hierarchy (D-06) | OVR-01 | On `#/`, look at the Recent PRs card. Each row should be two lines: the activity name on the first line with its badges pushed to the right edge of the row, and a second line reading date · distance · duration · pace. It should not read as three stacked blocks. Toggle the theme and look again. Required detail: the first row's name, the badge text you see on it, and the full second line, in both themes. Observer required: developer's own eyes. | Two-line hierarchy confirmed on the first Recent PRs row: name 'Lunch Run', badge '3 PR' on line 1, second line 'Sep 18, 2022 21.3 km 1:27:57 4:07/km'. Developer read the tile in both the light theme and the dark theme and reported both read correctly. R21-VERDICT: PASS — observed by developer. |
+| R2. | Overview Recent Activities — the same structure (D-05) | OVR-02 | On the same page, scroll to Recent Activities. Compare a row here against a Recent PRs row directly above it. Required detail: whether the two rows have the same two-line shape and the same badge placement, stated as a comparison, plus any difference you can see. Observer required: developer's own eyes. | Compared a Recent Activities row against a Recent PRs row directly above it: same two-line shape and same badge placement, with no differences visible. R21-VERDICT: PASS — observed by developer. |
+| R3. | Activities mobile card — the third surface (D-05) | OVR-02 | Narrow the window below 720px and open `#/list` so the mobile card layout renders instead of the table. Compare a card against the Overview rows from R1/R2. Required detail: whether the card has the same two-line shape as the Overview rows, and the name and second line of one card. Observer required: developer's own eyes. | Activities mobile card below 720px: card name 'Herlev Running', second line 'Aug 11, 2026 · 10.0 km · 0:58:09 · 5:49/km', the same two-line shape as the Overview rows. Confirmed by the developer from a 560px-viewport capture. R21-VERDICT: PASS — observed by developer, corroborated by agent (browser automation against the staged build). |
+| R4. | Narrow-width degradation (D-06) | OVR-01 | With the window at roughly 360px wide, look at a row that carries at least one badge on Overview or `#/list`. Required detail: whether any badge has wrapped down onto the metrics line, and what the row looks like at that width. Observer required: developer's own eyes. | No badge wrapped down onto the metrics line; developer's words: 'no. badges appear on first line (activity name)'. IMPORTANT CAVEAT: this was observed at a ~521px viewport, NOT the ~360px this row specifies, because Chrome's minimum window width blocked the narrower viewport. The developer accepted it on that basis ('i think its fine'). R21-VERDICT: PASS — observed by developer, corroborated by agent (browser automation against the staged build). |
+| R5. | The row is still a link (Phase 20 non-regression) | OVR-01 | Back at full width on `#/`, Tab to a Recent PRs row and confirm it takes exactly one Tab stop and shows a focus ring, then press Enter. Required detail: the number of Tab presses to move past the row, whether the focus ring was visible, and the `#/activity/...` URL you landed on. Observer required: developer's own eyes. | Three Shift+Tab presses crossed exactly three rows, proving one Tab press moves past the row — a single stop for the whole row. Focus ring clearly visible around the entire row ('Morning Run', 'Jan 2, 2021 · 10.1 km · 0:56:00 · 5:32/km', badge '1 PR'). Enter navigated to http://127.0.0.1:8099/strava-widgets/#/activity/4556693525. R21-VERDICT: PASS — observed by developer, corroborated by agent (browser automation against the staged build). |
+| R6. | The Records scope control (D-01, D-02) | OVR-03 | Open `#/records` and scroll to the PR Tables section. A two-option control should sit between the section heading and the first distance table, reading All time and This year, with All time selected. Toggle the theme. Required detail: the two option labels as written, which one is selected on arrival, and whether the control is legible in both themes. Observer required: developer's own eyes. | The two-option control sits between the 'PR Tables' heading and the 400m table; labels read exactly 'All time' and 'This year', with 'All time' selected on arrival. Legible in both the light theme and the dark theme. R21-VERDICT: PASS — observed by developer, corroborated by agent (browser automation against the staged build). |
+| R7. | The year scope re-ranks (D-01) | OVR-03 | Click This year. Pick one distance table that still has rows and read its top row. Required detail: the distance you picked, the rank shown in its first row, and the date in that row. Observer required: developer's own eyes. | Could not be exercised. With 'This year' selected, every one of the seven distance tables (400m, 1K, 1 Mile, 5K, 10K, Half Marathon, Marathon) renders an empty state, so no table has rows whose rank and date could be read back. The archive holds no best-effort entries for the current year. R21-VERDICT: BLOCKED — observed by developer, corroborated by agent (browser automation against the staged build). |
+| R8. | The scope governs only the PR tables (D-03) | OVR-03 | With This year still selected, scroll through Superlatives, PR Evolution and Race Predictions. Required detail: whether each of those three changed when you toggled, named individually. Observer required: developer's own eyes. | With 'This year' active, each of the three sections was checked individually and none of them changed. Superlatives still reads 93.2 km Biggest Week, 369.4 km Biggest Month, 31 days Longest Streak, 0 days Current Streak. PR Evolution still shows historical progressions (5K 19:39 over 21 steps 2013-2022; 10K 39:44 over 16 steps 2016-2022; Half Marathon 1:26:51 over 6 steps 2017-2022). Race Predictions still shows all-time actuals (400m 0:45, 5K 19:39, 10K 39:44, Half Marathon 1:26:51). R21-VERDICT: PASS — observed by developer, corroborated by agent (browser automation against the staged build). |
+| R9. | The scope does not persist (D-04) | OVR-03 | With This year selected, navigate to `#/list`, then back to `#/records`. Required detail: which scope is selected on arrival. Observer required: developer's own eyes. | Navigated from the records screen to the activities list and back; on re-arrival the scope control shows 'All time' selected, so the This year choice did not persist across navigation. R21-VERDICT: PASS — observed by developer, corroborated by agent (browser automation against the staged build). |
+| R10. | The empty state names its own distance | OVR-03 | With This year selected, find a distance table showing an empty state (if none is empty this year, say so and the row is BLOCKED). Required detail: the empty state's heading text, quoted exactly. Observer required: developer's own eyes. | With 'This year' selected the 400m table renders an empty state whose heading reads exactly 'No 400m efforts in 2026', with body text 'The archive has no 400m effort recorded in 2026. Switch to All time to see every ranked effort.' Each of the other six tables names its own distance in the same way. R21-VERDICT: PASS — observed by developer, corroborated by agent (browser automation against the staged build). |
+| R11. | This-year Headline Stats tiles (D-09, D-11) | OVR-04 | Back on `#/`, count the tiles in the Headline Stats card and read the last two. Toggle the theme. Required detail: the number of tiles, the last two tiles' labels and values, and whether both read correctly in both themes. Observer required: developer's own eyes. | Headline Stats renders 8 tiles. The last two read '775.1 km / Distance This Year' and '78 / Hours This Year', appended after the existing six with no reordering. Both read correctly in the light theme and in the dark theme. R21-VERDICT: PASS — observed by developer, corroborated by agent (browser automation against the staged build). |
+| R12. | Records Current Streak sub-label (D-13, D-14, D-16) | FIX-01 | On `#/records`, find the Current Streak tile in the Superlatives grid. The staged fixture has set the streak to ended. Required detail: the tile's big number and its sub-label, both quoted exactly as rendered. A sub-label reading `ended Aug 10, 2026` is the wrong date and must be recorded FAIL. Observer required: developer's own eyes. | The Current Streak tile in the Superlatives grid reads big number '0 days' with sub-label 'ended Aug 3, 2026' — the fixture's injected currentStreakEnd value, not the currentStreakStart discriminator that a wrong fix would have rendered. R21-VERDICT: PASS — observed by developer. |
+| R13. | Overview Current Streak sub-label (D-15) | FIX-01 | On `#/`, find the Current Streak tile in Headline Stats. Toggle the theme. Required detail: the tile's big number and its sub-label, both quoted exactly as rendered, in both themes. `ended Aug 10, 2026` is the wrong date and must be recorded FAIL. Observer required: developer's own eyes. | The Current Streak tile in Headline Stats reads big number '0 days' with sub-label 'ended Aug 3, 2026', quoted identically in the light theme and in the dark theme. R21-VERDICT: PASS — observed by developer, corroborated by agent (browser automation against the staged build, after a hard reload cleared a stale cached streaks.json in the agent's tab). |
 
 ### Row-to-requirement map
 
@@ -187,3 +188,53 @@ Non-negotiable, established across checkpoints 16-09, 17-15, 19-05, 19-12, 19-17
 - FIX-01 → R12, R13
 
 A requirement is ticked only when every row mapped to it is PASS.
+
+## Checkpoint Outcome (Round 1)
+
+12 PASS, 0 FAIL, 1 BLOCKED, 0 NOT EXERCISABLE.
+
+- R7 (BLOCKED): the year-scope re-rank was never observed against real rendered rows, because
+  every one of the seven distance tables renders an empty state under 'This year' — no table in
+  the archive has current-year entries to read a rank and date back from.
+
+## Evidence Quality (Round 1)
+
+R1, R2 and R12 were observed by the developer's own eyes directly in their own browser. R3, R4,
+R5, R6, R7, R8, R9, R10, R11 and R13 were observed by the developer from agent-driven browser
+captures — the agent navigated, resized the viewport, clicked and pressed keys, and the developer
+read the resulting screen and gave the verdict.
+
+Both themes were genuinely named on R1, R6, R11 and R13, as required for a theme-sensitive row to
+PASS.
+
+Rows R12 and R13 rest on a deliberate STAGED-BUILD FIXTURE, not organic archive data. The edited
+file is `dist/widgets/data/stats/streaks.json`. Three fields were changed: `withinCurrentStreak`
+`true` → `false`, `currentStreak` `2` → `0`, and `currentStreakEnd` added as
+`2026-08-03T00:00:00.000Z`. The discriminator `currentStreakStart` was deliberately left at its
+real value, `2026-08-10T00:00:00.000Z` — a wrong fix would have rendered `ended Aug 10, 2026`
+instead of the correct `ended Aug 3, 2026` that both rows report.
+
+Three process deviations from the house rules are recorded honestly:
+
+1. R4 was observed at a ~521px viewport, not the ~360px the row specifies, because Chrome's
+   minimum window width blocked the narrower viewport; the developer accepted it on that basis.
+   The row therefore does NOT establish badge-wrap behaviour at 360px, only at ~521px.
+2. Rows R3–R11 were presented to the developer in grouped batches rather than strictly one at a
+   time, contrary to the house rules, at the developer's explicit request to reduce session
+   burden. Each row still received its own verdict, its own required detail and its own observer
+   attribution — no blanket answer was accepted for multiple rows.
+3. R12 and R13 were taken out of R1..R13 order (observed immediately after R2) at the developer's
+   request, so the fixture-dependent rows were observed while the staged fixture was known-fresh.
+
+During agent corroboration, the agent's own browser tab initially rendered a STALE cached
+`streaks.json` — Current Streak showing '2 days' with no sub-label. A hard reload corrected it to
+'0 days' / 'ended Aug 3, 2026', matching what the developer had already independently reported.
+This is the D-16 `127.0.0.1` / cache trap manifesting in practice, and it is why the developer's
+independent observation of R12/R13 is load-bearing rather than redundant with the agent's.
+
+## Round 1 Gap-Closure Record
+
+### R7 — BLOCKED, blocks OVR-03
+
+Developer confirmation, verbatim: "confirmed, R7 blocked". R7 is mapped to OVR-03; because it is
+not PASS, OVR-03 is not ticked in this round.
