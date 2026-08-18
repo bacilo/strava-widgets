@@ -1815,3 +1815,57 @@ describe('styles.css — Phase 22 calendar week totals', () => {
     expect(css).not.toContain('.calendar .segmented');
   });
 });
+
+describe('styles.css — Phase 22 gap closure (22-06): the 380px compaction and the Total header modifier', () => {
+  it('GC-1: .calendar-day keeps min-width: 32px at the default breakpoint and is relaxed at 380px', () => {
+    expect(cascadeWinningBodyDeclaring('.calendar-day', 'min-width')).toContain('min-width: 32px');
+    expect(() => assertNoAtRuleOverride('.calendar-day', 'min-width')).toThrow(/redeclares "min-width"/);
+  });
+
+  it('GC-1: .calendar-day__distance is 20px at the default breakpoint and overridden at 380px', () => {
+    expect(bodyForSelectorListToken('.calendar-day__distance')).toContain('font-size: 20px');
+    expect(() => assertNoAtRuleOverride('.calendar-day__distance', 'font-size')).toThrow(/redeclares "font-size"/);
+  });
+
+  it('GC-1: .calendar-week-total__time is 14px at the default breakpoint and overridden at 380px', () => {
+    expect(bodyForSelectorListToken('.calendar-week-total__time')).toContain('font-size: 14px');
+    expect(() => assertNoAtRuleOverride('.calendar-week-total__time', 'font-size')).toThrow(/redeclares "font-size"/);
+  });
+
+  it('GC-1: .calendar-week-total__count is 14px at the default breakpoint and overridden at 380px', () => {
+    expect(bodyForSelectorListToken('.calendar-week-total__count')).toContain('font-size: 14px');
+    expect(() => assertNoAtRuleOverride('.calendar-week-total__count', 'font-size')).toThrow(/redeclares "font-size"/);
+  });
+
+  it("WR-02 caveat: .calendar-week-total__distance's 380px override is asserted, not assumed away", () => {
+    // The neighbouring pre-existing case in the "Phase 22 calendar week totals"
+    // describe above asserts .calendar-week-total__distance's 20px base in
+    // isolation, with no assertNoAtRuleOverride pairing — that is WR-02's
+    // documented false green and is deliberately left in place this round.
+    // This case supplies the missing override-aware half.
+    expect(() => assertNoAtRuleOverride('.calendar-week-total__distance', 'font-size')).toThrow(/redeclares "font-size"/);
+  });
+
+  it('IN-05: .calendar-weekday--total declares text-align: right and is not overridden at any breakpoint', () => {
+    expect(bodyForSelectorListToken('.calendar-weekday--total')).toContain('text-align: right');
+    expect(() => assertNoAtRuleOverride('.calendar-weekday--total', 'text-align')).not.toThrow();
+    expect(bodyForSelectorListToken('.calendar-weekday')).toContain('text-align: center');
+  });
+
+  it('D-10/GC-1: the eight-column contract survives the compaction and the scroll wrapper stays unimplemented', () => {
+    const body = bodyForSelectorListToken('.calendar-grid');
+    expect(body).toContain('grid-template-columns: repeat(7, 1fr) auto');
+    expect(() => assertNoAtRuleOverride('.calendar-grid', 'grid-template-columns')).not.toThrow();
+    expect(body).not.toMatch(/overflow/);
+  });
+
+  it('IN-06: this stylesheet carries exactly three disjoint @media (max-width: 380px) blocks', () => {
+    // Pairs with the reworded IN-06 comment in styles.css: if a future edit
+    // consolidates the blocks, this goes red and the comment must be
+    // corrected with it. Reads cssNoComments, never the raw css, whose
+    // comments now name the breakpoint in prose (IN-09's rationale applied
+    // to a structural check).
+    const matches = cssNoComments.match(/@media \(max-width: 380px\)/g) ?? [];
+    expect(matches).toHaveLength(3);
+  });
+});
