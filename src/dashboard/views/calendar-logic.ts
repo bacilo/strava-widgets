@@ -7,6 +7,12 @@
  *
  * `now` is always injected by the caller, never constructed fresh
  * inside this module — keeps every function here total and deterministic.
+ *
+ * Phase 22 (D-15 scope fence): this module's `weekStart` parameter governs
+ * the Calendar grid ONLY. `trends-logic.ts`'s `weekStartKey`,
+ * `records-logic.ts`'s biggest-week selection and
+ * `src/types/analytics.types.ts`'s `weekStartISO` all stay Monday-fixed and
+ * are deliberately NOT unified with this module's week-start math.
  */
 
 import type { DashboardIndexRow } from '../../analytics/dashboard-index.types.js';
@@ -93,20 +99,45 @@ export function activityDayKey(startDateLocal: string): string | null {
 
 const MIN_WEEK_ROWS = 4;
 
+/** Which weekday starts a Calendar week row. Injected by the caller — see D-08. */
+export type WeekStart = 'sunday' | 'monday';
+
+/** Offset (in days) from Sunday to the chosen week-start weekday. */
+const WEEK_START_OFFSET: Record<WeekStart, number> = { sunday: 0, monday: 1 };
+
 /** One day cell in a rendered month grid. */
 export interface DayCell {
   dateKey: string;
   dayOfMonth: number;
   totalDistanceM: number;
+  totalTimeSec: number;
   runCount: number;
   activityIds: string[];
   tintStep: 0 | 1 | 2 | 3 | 4;
 }
 
-/** A full Sunday-first 7-column month grid, plus month-level totals. */
+/**
+ * One week row's total (CAL-02). D-13: sums ONLY the visible in-month
+ * `DayCell`s in that row — never the true 7-day calendar week across a
+ * month boundary. `daysShown` is the count of non-null cells in the row;
+ * `isPartial` is `daysShown < 7`, D-14's accessible-name disclosure
+ * trigger. A row with zero runs still yields real zero values, never a
+ * sentinel — the `–` en-dash rendering is the view's job, not this
+ * module's.
+ */
+export interface WeekTotal {
+  totalDistanceM: number;
+  totalTimeSec: number;
+  runCount: number;
+  daysShown: number;
+  isPartial: boolean;
+}
+
+/** A full month grid, column order determined by the injected `weekStart`, plus month-level totals. */
 export interface MonthGrid {
   month: CalendarMonth;
   weeks: (DayCell | null)[][];
+  weekTotals: WeekTotal[];
   monthTotalM: number;
   runCount: number;
 }
@@ -136,17 +167,33 @@ function firstWeekdayOfMonth(m: CalendarMonth): number {
 }
 
 /**
- * Groups `rows` by local day, lays out a Sunday-first 7-column month grid
- * with leading/trailing `null` padding so every week row has exactly 7
- * entries, and computes per-day and month-level distance/run totals. Total
+ * Number of leading `null` cells before day 1, relative to `weekStart`.
+ * `weekStart` is injected by the caller, exactly as `now` is elsewhere in
+ * this module — never read from storage or a clock here.
+ */
+function leadingPaddingFor(m: CalendarMonth, weekStart: WeekStart): number {
+  return (firstWeekdayOfMonth(m) - WEEK_START_OFFSET[weekStart] + 7) % 7;
+}
+
+/**
+ * Groups `rows` by local day, lays out a 7-column month grid — column
+ * order determined by the injected `weekStart` — with leading/trailing
+ * `null` padding so every week row has exactly 7 entries, and computes
+ * per-day, per-week and month-level distance/time/run totals. Total
  * function: never throws, never returns fewer than 4 week rows. Rows whose
  * `startDateLocal` doesn't parse (`activityDayKey` returns null) or that
  * fall outside the requested month are skipped, not counted
  * (T-17-CAL-02). `activityIds` within a day preserves the input array's
  * ordering (the published index is newest-first; this function does not
- * re-sort — see `dashboard-index.types.ts`).
+ * re-sort — see `dashboard-index.types.ts`). `weekStart` is a REQUIRED
+ * parameter (D-08) — never read from `localStorage` or a clock inside this
+ * module, injected by the caller exactly as `now` already is elsewhere.
  */
-export function buildMonthGrid(rows: readonly DashboardIndexRow[], month: CalendarMonth): MonthGrid {
+export function buildMonthGrid(
+  rows: readonly DashboardIndexRow[],
+  month: CalendarMonth,
+  weekStart: WeekStart
+): MonthGrid {
   const monthPrefix = formatMonthParam(month);
   const byDay = new Map<string, DashboardIndexRow[]>();
 
@@ -164,8 +211,8 @@ export function buildMonthGrid(rows: readonly DashboardIndexRow[], month: Calend
   }
 
   const totalDays = daysInMonth(month);
-  const leadingPadding = firstWeekdayOfMonth(month);
-  const cellCount = leadingPadding + totalDays;
+  const padding = leadingPaddingFor(month, weekStart);
+  const cellCount = padding + totalDays;
   const weekCount = Math.max(MIN_WEEK_ROWS, Math.ceil(cellCount / 7));
   const totalSlots = weekCount * 7;
 
@@ -178,14 +225,16 @@ export function buildMonthGrid(rows: readonly DashboardIndexRow[], month: Calend
     const dateKey = `${monthPrefix}-${String(day).padStart(2, '0')}`;
     const dayRows = byDay.get(dateKey) ?? [];
     const totalDistanceM = dayRows.reduce((sum, r) => sum + (r.distanceM || 0), 0);
+    const totalTimeSec = dayRows.reduce((sum, r) => sum + (r.movingTimeSec || 0), 0);
 
     monthTotalM += totalDistanceM;
     runCount += dayRows.length;
 
-    flatCells[leadingPadding + day - 1] = {
+    flatCells[padding + day - 1] = {
       dateKey,
       dayOfMonth: day,
       totalDistanceM,
+      totalTimeSec,
       runCount: dayRows.length,
       activityIds: dayRows.map((r) => r.id),
       tintStep: tintStepForDistance(totalDistanceM),
@@ -197,5 +246,13 @@ export function buildMonthGrid(rows: readonly DashboardIndexRow[], month: Calend
     weeks.push(flatCells.slice(i, i + 7));
   }
 
-  return { month, weeks, monthTotalM, runCount };
+  const weekTotals: WeekTotal[] = weeks.map((week) => {
+    const cells = week.filter((c): c is DayCell => c !== null);
+    const totalDistanceM = cells.reduce((sum, c) => sum + c.totalDistanceM, 0);
+    const totalTimeSec = cells.reduce((sum, c) => sum + c.totalTimeSec, 0);
+    const runCount = cells.reduce((sum, c) => sum + c.runCount, 0);
+    return { totalDistanceM, totalTimeSec, runCount, daysShown: cells.length, isPartial: cells.length < 7 };
+  });
+
+  return { month, weeks, weekTotals, monthTotalM, runCount };
 }

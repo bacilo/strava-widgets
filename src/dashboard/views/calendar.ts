@@ -233,7 +233,11 @@ export function createCalendarView(deps: CalendarViewDeps): DashboardView {
       h1.setAttribute('tabindex', '-1');
       view.appendChild(h1);
 
-      const grid = buildMonthGrid(indexClient.getRows(), month);
+      // TODO(22-03): pass the persisted WeekStart preference here instead of
+      // the literal 'sunday' — this call site is temporarily pinned to
+      // preserve today's runtime behavior until plan 22-03 wires the
+      // segmented toggle and calendar-preferences.ts's stored value in.
+      const grid = buildMonthGrid(indexClient.getRows(), month, 'sunday');
 
       const header = document.createElement('div');
       header.className = 'calendar-header';

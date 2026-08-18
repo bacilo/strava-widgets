@@ -169,8 +169,8 @@ describe('tintStepForDistance — explicit metre boundaries', () => {
   });
 });
 
-describe('buildMonthGrid — weekday offset and week-row shape', () => {
-  it('every week row has exactly 7 entries for all five fixture months', () => {
+describe('buildMonthGrid — weekday offset and week-row shape (Sunday-start)', () => {
+  it('every week row has exactly 7 entries for all five fixture months (Sunday-start)', () => {
     const fixtures: Array<{ year: number; month: number }> = [
       { year: 2024, month: 3 }, // March 2024 — starts Friday
       { year: 2024, month: 9 }, // September 2024 — starts Sunday
@@ -180,56 +180,56 @@ describe('buildMonthGrid — weekday offset and week-row shape', () => {
     ];
 
     for (const month of fixtures) {
-      const grid = buildMonthGrid([], month);
+      const grid = buildMonthGrid([], month, 'sunday');
       expect(grid.weeks.every((w) => w.length === 7)).toBe(true);
     }
   });
 
-  it('March 2024 (starts Friday) produces 5 leading null cells (Sun-Thu) in week 0', () => {
-    const grid = buildMonthGrid([], { year: 2024, month: 3 });
+  it('March 2024 (starts Friday, Sunday-start) produces 5 leading null cells (Sun-Thu) in week 0', () => {
+    const grid = buildMonthGrid([], { year: 2024, month: 3 }, 'sunday');
     expect(grid.weeks[0].slice(0, 5)).toEqual([null, null, null, null, null]);
     expect(grid.weeks[0][5]?.dayOfMonth).toBe(1);
   });
 
-  it('September 2024 (September 1 is a Sunday) produces zero leading null padding', () => {
-    const grid = buildMonthGrid([], { year: 2024, month: 9 });
+  it('September 2024 (September 1 is a Sunday, Sunday-start) produces zero leading null padding', () => {
+    const grid = buildMonthGrid([], { year: 2024, month: 9 }, 'sunday');
     expect(grid.weeks[0][0]?.dayOfMonth).toBe(1);
     expect(grid.weeks[0].some((cell) => cell === null)).toBe(false);
   });
 
-  it('February 2024 (leap year) produces 29 non-null day cells', () => {
-    const grid = buildMonthGrid([], { year: 2024, month: 2 });
+  it('February 2024 (leap year, Sunday-start) produces 29 non-null day cells', () => {
+    const grid = buildMonthGrid([], { year: 2024, month: 2 }, 'sunday');
     const nonNull = grid.weeks.flat().filter((cell) => cell !== null);
     expect(nonNull).toHaveLength(29);
   });
 
-  it('February 2023 (non-leap) produces 28 non-null day cells', () => {
-    const grid = buildMonthGrid([], { year: 2023, month: 2 });
+  it('February 2023 (non-leap, Sunday-start) produces 28 non-null day cells', () => {
+    const grid = buildMonthGrid([], { year: 2023, month: 2 }, 'sunday');
     const nonNull = grid.weeks.flat().filter((cell) => cell !== null);
     expect(nonNull).toHaveLength(28);
   });
 
-  it('June 2024 (starts Saturday, 30 days) spans 6 week rows; every row still has 7 entries', () => {
-    const grid = buildMonthGrid([], { year: 2024, month: 6 });
+  it('June 2024 (starts Saturday, 30 days, Sunday-start) spans 6 week rows; every row still has 7 entries', () => {
+    const grid = buildMonthGrid([], { year: 2024, month: 6 }, 'sunday');
     expect(grid.weeks).toHaveLength(6);
     expect(grid.weeks.every((w) => w.length === 7)).toBe(true);
   });
 
-  it('padding cells are null, never a DayCell with a zero distance', () => {
-    const grid = buildMonthGrid([], { year: 2024, month: 3 });
+  it('padding cells are null, never a DayCell with a zero distance (Sunday-start)', () => {
+    const grid = buildMonthGrid([], { year: 2024, month: 3 }, 'sunday');
     for (const cell of grid.weeks[0].slice(0, 5)) {
       expect(cell).toBeNull();
     }
   });
 });
 
-describe('buildMonthGrid — per-day aggregation', () => {
-  it('a day with two runs produces one DayCell with runCount 2, summed distance, and newest-first activityIds', () => {
+describe('buildMonthGrid — per-day aggregation (Sunday-start)', () => {
+  it('a day with two runs produces one DayCell with runCount 2, summed distance, and newest-first activityIds (Sunday-start)', () => {
     const rows = [
       fixtureRow({ id: 'newer', startDateLocal: '2024-03-10T18:00:00Z', distanceM: 3000 }),
       fixtureRow({ id: 'older', startDateLocal: '2024-03-10T07:00:00Z', distanceM: 4000 }),
     ];
-    const grid = buildMonthGrid(rows, { year: 2024, month: 3 });
+    const grid = buildMonthGrid(rows, { year: 2024, month: 3 }, 'sunday');
     const cell = grid.weeks.flat().find((c) => c?.dateKey === '2024-03-10');
     expect(cell).toBeDefined();
     expect(cell?.runCount).toBe(2);
@@ -237,32 +237,33 @@ describe('buildMonthGrid — per-day aggregation', () => {
     expect(cell?.activityIds).toEqual(['newer', 'older']);
   });
 
-  it('a day with no runs produces a rest-day DayCell', () => {
-    const grid = buildMonthGrid([], { year: 2024, month: 3 });
+  it('a day with no runs produces a rest-day DayCell (Sunday-start)', () => {
+    const grid = buildMonthGrid([], { year: 2024, month: 3 }, 'sunday');
     const cell = grid.weeks.flat().find((c) => c?.dayOfMonth === 15);
     expect(cell).toEqual({
       dateKey: '2024-03-15',
       dayOfMonth: 15,
       totalDistanceM: 0,
+      totalTimeSec: 0,
       runCount: 0,
       activityIds: [],
       tintStep: 0,
     });
   });
 
-  it('monthTotalM sums in-month day cells and runCount counts in-month activities', () => {
+  it('monthTotalM sums in-month day cells and runCount counts in-month activities (Sunday-start)', () => {
     const rows = [
       fixtureRow({ id: 'a', startDateLocal: '2024-03-05T09:00:00Z', distanceM: 5000 }),
       fixtureRow({ id: 'b', startDateLocal: '2024-03-20T09:00:00Z', distanceM: 10000 }),
     ];
-    const grid = buildMonthGrid(rows, { year: 2024, month: 3 });
+    const grid = buildMonthGrid(rows, { year: 2024, month: 3 }, 'sunday');
     expect(grid.monthTotalM).toBe(15000);
     expect(grid.runCount).toBe(2);
   });
 
-  it('a month with zero matching rows returns a full grid of rest-day cells, no throw', () => {
+  it('a month with zero matching rows returns a full grid of rest-day cells, no throw (Sunday-start)', () => {
     const rows = [fixtureRow({ id: 'other-month', startDateLocal: '2024-04-05T09:00:00Z' })];
-    const grid = buildMonthGrid(rows, { year: 2024, month: 3 });
+    const grid = buildMonthGrid(rows, { year: 2024, month: 3 }, 'sunday');
     expect(grid.monthTotalM).toBe(0);
     expect(grid.runCount).toBe(0);
     const nonNull = grid.weeks.flat().filter((cell) => cell !== null);
@@ -270,13 +271,13 @@ describe('buildMonthGrid — per-day aggregation', () => {
     expect(nonNull.every((cell) => cell?.runCount === 0)).toBe(true);
   });
 
-  it('rows with an unparseable startDateLocal are skipped, not counted, and do not throw', () => {
+  it('rows with an unparseable startDateLocal are skipped, not counted, and do not throw (Sunday-start)', () => {
     const rows = [
       fixtureRow({ id: 'bad', startDateLocal: 'not-a-date' }),
       fixtureRow({ id: 'good', startDateLocal: '2024-03-05T09:00:00Z', distanceM: 2000 }),
     ];
-    expect(() => buildMonthGrid(rows, { year: 2024, month: 3 })).not.toThrow();
-    const grid = buildMonthGrid(rows, { year: 2024, month: 3 });
+    expect(() => buildMonthGrid(rows, { year: 2024, month: 3 }, 'sunday')).not.toThrow();
+    const grid = buildMonthGrid(rows, { year: 2024, month: 3 }, 'sunday');
     expect(grid.runCount).toBe(1);
     expect(grid.monthTotalM).toBe(2000);
   });
