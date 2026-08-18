@@ -426,10 +426,18 @@ export function createCalendarView(deps: CalendarViewDeps): DashboardView {
       // environment with no `localStorage` global — the same discipline
       // `theme.ts`'s `applyThemeMode` and `detail-charts.ts`'s
       // `mountChartBands` already follow. The resolution itself is
-      // delegated to `calendar-preferences.ts` (CR-01): the storage global's
-      // property access throws under blocked site data, and doing that
-      // unguarded here would take the whole view down through `main.ts`'s
-      // generic error panel for the sake of an optional cosmetic preference.
+      // delegated to `calendar-preferences.ts` (CR-01, BL-03): under
+      // blocked site data, the storage global's property access throws
+      // BEFORE any getItem/setItem call could run. An unguarded read
+      // reached here at module-mount time would take down the entire
+      // dashboard module graph — the page would render blank, with no nav
+      // and no view content, and `main.ts`'s error panel would NOT be
+      // reachable, because that try/catch wraps `view.mount(...)` inside
+      // `onMatch`, which never runs if module evaluation itself fails.
+      // This is why Round 3 moved the guard into the shared
+      // `src/dashboard/storage.ts` and applied it at every bootstrap-
+      // reachable site; this call site delegates to that same guard via
+      // `resolveWeekStartStorage`.
       const storage = resolveWeekStartStorage(deps.storage);
       // `let`, not `const` — plan 22-04's toggle handler reassigns both.
       let weekStart = readStoredWeekStart(storage);

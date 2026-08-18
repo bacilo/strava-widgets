@@ -333,4 +333,32 @@ describe('calendar.ts — Phase 22 source-structure guards', () => {
       expect(controlIdx).toBeLessThan(headerAppendIdx);
     });
   });
+
+  describe('WR-02 — regression guard: calendar.ts never dereferences a storage global directly', () => {
+    // Comment-stripped, the same two-step `22-REVIEW.md` WR-02 writes and
+    // `styles.test.ts`'s `cssNoComments` / `row-semantics.test.ts`'s
+    // `stripComments` precedent follow: block comments first, then
+    // `//`-to-end-of-line. Comment-stripping is mandatory here — this
+    // file's own rationale comment discusses `localStorage` at length, so a
+    // raw-source guard would be red on arrival. This is the single
+    // regression the Round 3 gap-closure round exists to prevent: re-adding
+    // `const storage = globalThis.localStorage;` (or a bare `localStorage`
+    // reference) used to pass every test in the repository, because no test
+    // anywhere asserted its absence from this file's live code.
+    const calendarSourceNoComments = calendarSource
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '');
+
+    it('never dereferences globalThis.localStorage or globalThis.sessionStorage', () => {
+      expect(calendarSourceNoComments).not.toMatch(/globalThis\.(localStorage|sessionStorage)/);
+    });
+
+    it('never references a bare localStorage or sessionStorage identifier', () => {
+      expect(calendarSourceNoComments).not.toMatch(/(?<![.\w])(localStorage|sessionStorage)(?!\w)/);
+    });
+
+    it('resolves storage only through resolveWeekStartStorage(', () => {
+      expect(calendarSourceNoComments).toContain('resolveWeekStartStorage(');
+    });
+  });
 });

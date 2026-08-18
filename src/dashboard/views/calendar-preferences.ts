@@ -11,23 +11,37 @@
  * extension-writable, so `parseWeekStart` allow-lists exactly
  * `'sunday' | 'monday'` and falls back to `'monday'` for anything else.
  * That allow-list is the ONLY path by which a stored value reaches the
- * grid math — the resolver below returns a handle, never a value, and
- * performs no parsing, normalisation, repair or write-back. Defence in
- * depth: `calendar-logic.ts`'s offset lookup is itself total (WR-01), so
- * an off-union value that somehow bypassed `parseWeekStart` degrades to
- * the Monday default rather than reaching `new Array(NaN)`.
+ * grid math — `resolveStorage` (imported from `../storage.js`, the app-wide
+ * resolver this module's `resolveWeekStartStorage` delegates to) returns a
+ * handle, never a value, and performs no parsing, normalisation, repair or
+ * write-back. Defence in depth: `calendar-logic.ts`'s offset lookup is
+ * itself total (WR-01), so an off-union value that somehow bypassed
+ * `parseWeekStart` degrades to the Monday default rather than reaching
+ * `new Array(NaN)`.
  *
  * Security note (threat T-22-WK-02, CR-01, BL-03): the read and the write
  * are wrapped against a throwing `getItem`/`setItem` (Safari private mode,
- * quota exceeded) — but that alone does NOT cover a browser configuration
- * where site data is blocked (Firefox "Block cookies and site data",
- * Chrome blocked-origin storage, a storage-partitioned iframe). In that
- * case the storage global's property GETTER ITSELF throws `SecurityError`
- * before `readStoredWeekStart`'s try/catch is ever entered. This claim was
- * false as originally shipped in Round 1. Round 2 fixed it with a
- * calendar-local guard; Round 3 (BL-03) moved that guard into the shared,
- * app-wide `src/dashboard/storage.ts` — `resolveWeekStartStorage` below is
- * this module's named entry point into it, and delegates in one line.
+ * quota exceeded). Separately — and this is the part Round 1 got wrong —
+ * the storage global's property GETTER throws before either `getItem` or
+ * `setItem` is ever called, when site data is blocked (Firefox "Block
+ * cookies and site data", Chrome "Don't allow sites to save data", a
+ * storage-partitioned iframe). That property access is now guarded in
+ * exactly ONE place app-wide: `src/dashboard/storage.ts`'s `resolveStorage`,
+ * which `resolveWeekStartStorage` below delegates to in one line.
+ *
+ * As shipped in Rounds 1 and 2, this note claimed a calendar-scoped guard
+ * closed an app-level threat. That claim was FALSE: `main.ts:19` and
+ * `nav.ts:186` ran the same unguarded property access at MODULE SCOPE, so
+ * under blocked site data the entire dashboard module graph failed to
+ * evaluate and the page rendered BLANK — before the Calendar's own working
+ * guard was ever reached, and before any router, any view or any error
+ * panel existed. This module's own guard is, and always was, correct in
+ * isolation; the false claim was about what it closed at the app level.
+ *
+ * The closure claim is only true once plan `22-11` has wired `main.ts`,
+ * `nav.ts`, `theme.ts` and `detail-charts.ts` to `resolveStorage` too — that
+ * dependency is named here rather than asserting a closure this module
+ * cannot deliver alone.
  */
 
 import type { WeekStart } from './calendar-logic.js';
