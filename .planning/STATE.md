@@ -4,8 +4,8 @@ milestone: v2.1
 milestone_name: Interface Polish
 status: executing
 stopped_at: Phase 21 context gathered
-last_updated: "2026-08-18T08:03:30.930Z"
-last_activity: 2026-08-18 -- Phase 21 planning complete
+last_updated: "2026-08-18T08:32:23.610Z"
+last_activity: 2026-08-18 -- Phase 21 execution started
 progress:
   total_phases: 7
   completed_phases: 2
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 21 — overview rebuild
+**Current focus:** Phase 21 — overview-rebuild
 
 ## Current Position
 
-Phase: 21
-Plan: Not started
-Status: Ready to execute
+Phase: 21 (overview-rebuild) — EXECUTING
+Plan: 1 of 7
+Status: Executing Phase 21
         Round 5 checkpoint (plan 20-20) recorded a clean sweep: all ten rows (R34-R43) PASS,
         against bundle assets/index-F1PDLvBt.js. GAP 12 CLOSED (R34 drag-select PASS; R35
         double-click PASS on the developer's explicit accepted-behaviour disposition — a
@@ -42,7 +42,7 @@ Status: Ready to execute
         extending D-16's contract.
         UX-01, UX-02, UX-03 and REC-08 are all Complete in REQUIREMENTS.md.
         Next: Phase 21 (Overview enhancements: OVR-01..OVR-04, FIX-01) — /gsd-plan-phase 21.
-Last activity: 2026-08-18 -- Phase 21 planning complete
+Last activity: 2026-08-18 -- Phase 21 execution started
 
 Progress: [██████████] 97%
 
