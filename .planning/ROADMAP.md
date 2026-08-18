@@ -174,7 +174,7 @@ Plans:
   3. Row-level navigation is keyboard-operable — Tab reaches the row, Enter/Space activates it — and is announced correctly to assistive tech (a real link/button semantic, not a bare clickable `<div>`).
   4. **Human checkpoint**: served under `/strava-widgets` in a real browser, tab through Overview and Records rows keyboard-only, confirm consistent focus order and activation, and confirm mouse clicks on rows across all screens land on the correct activity.
 
-**Plans**: 18 plans in 13 waves (5 shipped in waves 1-4; 3 gap-closure plans in waves 5-7 after the first verification round scored 2/4 must-haves; 3 more in waves 8-9 after re-verification confirmed CR-01/CR-02 fixed but found a new BLOCKER in `row-navigation.ts` and left SC4 undischarged on the checkpoint's own recorded evidence; 7 more in waves 10-13 after the third verification round scored 1/4, found a CRITICAL focus-stealing regression in list.ts, and the developer locked D-13, D-14 and D-15 in response). The ROADMAP's own criterion-2 citation (`list.ts:224`) is wrong and is not planned from: that line *is* one of the three "View Activity" CTAs this phase removes. The reference pattern is `buildTableRow` at `list.ts:333-360`.
+**Plans**: 20 plans in 15 waves (5 shipped in waves 1-4; 3 gap-closure plans in waves 5-7 after the first verification round scored 2/4 must-haves; 3 more in waves 8-9 after re-verification confirmed CR-01/CR-02 fixed but found a new BLOCKER in `row-navigation.ts` and left SC4 undischarged on the checkpoint's own recorded evidence; 7 more in waves 10-13 after the third verification round scored 1/4, found a CRITICAL focus-stealing regression in list.ts, and the developer locked D-13, D-14 and D-15 in response; 2 more in waves 14-15 after the fourth verification round scored 1/4 again, with D-13's own cell anchors found to defeat D-12's drag-select guard and D-14's double-click refusal (GAP 12) and to announce one identical `aria-label` for every cell in a row (CR-01), for which the developer locked D-16 and D-17). The ROADMAP's own criterion-2 citation (`list.ts:224`) is wrong and is not planned from: that line *is* one of the three "View Activity" CTAs this phase removes. The reference pattern is `buildTableRow` at `list.ts:333-360`.
 
 Plans:
 **Wave 1**
@@ -234,6 +234,14 @@ Plans:
 **Wave 13** *(blocked on Wave 12 — the checkpoint must run after every fix lands)*
 
 - [x] 20-18-PLAN.md — full gate + BLOCKING Round 4 human checkpoint, twelve rows each with its own required detail **and** its own named observer, re-asking R18/R19 against real anchors on both tables, exercising the focus-leak sequence for the first time, and unblocking R2/R16 with a disclosed staged-data fixture (UX-01, UX-02, UX-03, REC-08)
+
+**Wave 14** *(gap closure round 5 — blocked on Wave 13; one plan, because D-16 and D-17 modify adjacent lines of the same eight-line factory in the same file)*
+
+- [ ] 20-19-PLAN.md — D-16 and D-17: the Records cell anchors are non-draggable and guard their own click through the unmodified shared predicate, and only the Date cell keeps an `aria-label` so every other cell announces its own text and the Flags cell announces its badge, both pinned by source guards with in-suite blind-spot proofs (UX-01, UX-03, REC-08)
+
+**Wave 15** *(blocked on Wave 14 — the checkpoint must run after the fix lands)*
+
+- [ ] 20-20-PLAN.md — full gate + BLOCKING Round 5 human checkpoint, ten rows on the full agenda, re-testing R31/R32 against D-16 by a human hand, observing CR-01's per-cell announcement for the first time, answering R25 by the developer's own eyes and R28's disposition in writing, re-asking R29/R33 as lettered sub-questions, and serving from 127.0.0.1 against a bundle proven to be the one on disk (UX-01, UX-02, UX-03, REC-08)
 
 **UI hint**: yes
 
