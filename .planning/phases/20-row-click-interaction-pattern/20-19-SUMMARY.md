@@ -117,6 +117,16 @@ None - no external service configuration required.
 - `git status --porcelain src/dashboard/row-navigation.ts src/dashboard/row-navigation.test.ts` is empty across all three tasks — D-16 point 3 held; `row-navigation.ts` was not modified at any point in this plan.
 - R31 (drag-select) is fully closed. R32 (double-click's first click still navigates) is NOT closed and cannot be by any permitted mechanism — recorded as a residual, per this plan's binding instruction, for plan 20-20's Round 5 checkpoint (row R35) to put to the developer as an explicit disposition question, alongside rows R23/R24/R36 (browser-gesture preservation re-verification) and R38 (the rendered single-label-per-row observation).
 
+## Self-Check: PASSED
+
+- FOUND: src/dashboard/views/records.ts
+- FOUND: src/dashboard/row-semantics.test.ts
+- FOUND: .planning/phases/20-row-click-interaction-pattern/20-19-SUMMARY.md
+- FOUND commit: 3ef216e (Task 1)
+- FOUND commit: 2e54d73 (Task 2)
+- FOUND commit: 3a3016a (Task 3)
+- FOUND commit: 01aafd5 (SUMMARY.md)
+
 ---
 *Phase: 20-row-click-interaction-pattern*
 *Completed: 2026-08-18*
