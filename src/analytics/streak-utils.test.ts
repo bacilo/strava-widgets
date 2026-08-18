@@ -9,6 +9,7 @@ describe('calculateDailyStreaks', () => {
       longestStreak: 0,
       withinCurrentStreak: false,
       currentStreakStart: null,
+      currentStreakEnd: null,
       longestStreakStart: null,
       longestStreakEnd: null,
     });
@@ -124,6 +125,37 @@ describe('calculateDailyStreaks', () => {
 
     const result = calculateDailyStreaks([threeDaysAgo]);
     expect(result.withinCurrentStreak).toBe(false);
+  });
+
+  it('currentStreakEnd names the last run day for an ACTIVE streak (FIX-01)', () => {
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const yesterday = new Date(today);
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+
+    const result = calculateDailyStreaks([yesterday, today]);
+    expect(result.withinCurrentStreak).toBe(true);
+    expect(result.currentStreakEnd).not.toBeNull();
+    expect(result.currentStreakEnd!.getTime()).toBe(today.getTime());
+  });
+
+  it('currentStreakEnd names the last run day for an ENDED streak, not the start day (FIX-01, D-12/D-13/D-14)', () => {
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const fourDaysAgo = new Date(today);
+    fourDaysAgo.setUTCDate(fourDaysAgo.getUTCDate() - 4);
+    const fiveDaysAgo = new Date(today);
+    fiveDaysAgo.setUTCDate(fiveDaysAgo.getUTCDate() - 5);
+    const sixDaysAgo = new Date(today);
+    sixDaysAgo.setUTCDate(sixDaysAgo.getUTCDate() - 6);
+
+    const result = calculateDailyStreaks([sixDaysAgo, fiveDaysAgo, fourDaysAgo]);
+    expect(result.withinCurrentStreak).toBe(false);
+    expect(result.currentStreak).toBe(0);
+    expect(result.currentStreakStart).toBeNull();
+    expect(result.currentStreakEnd).not.toBeNull();
+    expect(result.currentStreakEnd!.getTime()).toBe(fourDaysAgo.getTime());
+    expect(result.currentStreakEnd!.getTime()).not.toBe(sixDaysAgo.getTime());
   });
 });
 

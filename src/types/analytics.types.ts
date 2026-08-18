@@ -81,6 +81,7 @@ export interface StreakData {
   longestStreak: number;
   withinCurrentStreak: boolean;
   currentStreakStart: string;
+  currentStreakEnd: string;
   longestStreakStart: string;
   longestStreakEnd: string;
   weeklyConsistency: {

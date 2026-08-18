@@ -264,18 +264,28 @@ function selectLongestStreak(raw: unknown): { days: number; startISO: string; en
  * value today) and must still produce a tile — `typeof currentStreak !==
  * 'number'` is the only rejection check, never a falsy/truthy shortcut
  * that would silently drop a real zero (T-18-HONEST-02).
+ *
+ * `endedISO` comes from `currentStreakEnd`, and from nothing else.
+ * `currentStreakStart` is deliberately NOT read here: it is `null` for an
+ * ended streak, and when non-null it names the streak's start day, not
+ * the day it ended (D-12 layer 2). `currentStreakEnd` is not added to the
+ * required-field guard above — a `streaks.json` written before this field
+ * existed still has no `currentStreakEnd` key, and widening the guard
+ * would drop the whole tile instead of just the sub-label. The
+ * `typeof currentStreakEnd === 'string'` check below already yields
+ * `false` for an absent key, so the degrade falls out for free (D-13).
  */
 function selectCurrentStreak(raw: unknown): { days: number; active: boolean; endedISO: string | null } | null {
   if (!isRecord(raw)) return null;
   if (!hasOwn(raw, 'currentStreak') || !hasOwn(raw, 'withinCurrentStreak')) return null;
 
-  const { currentStreak, withinCurrentStreak, currentStreakStart } = raw;
+  const { currentStreak, withinCurrentStreak, currentStreakEnd } = raw;
   if (typeof currentStreak !== 'number' || typeof withinCurrentStreak !== 'boolean') return null;
 
   const active = withinCurrentStreak;
   const endedISO =
-    !active && typeof currentStreakStart === 'string' && currentStreakStart.length > 0
-      ? currentStreakStart
+    !active && typeof currentStreakEnd === 'string' && currentStreakEnd.length > 0
+      ? currentStreakEnd
       : null;
 
   return { days: currentStreak, active, endedISO };
