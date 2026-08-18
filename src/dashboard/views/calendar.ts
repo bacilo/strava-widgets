@@ -30,7 +30,7 @@ import {
   type WeekStart,
   type WeekTotal,
 } from './calendar-logic.js';
-import { readStoredWeekStart, type WeekStartStorage } from './calendar-preferences.js';
+import { readStoredWeekStart, writeWeekStart, type WeekStartStorage } from './calendar-preferences.js';
 
 const WEEKDAY_NAMES_SUNDAY_FIRST = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -477,6 +477,84 @@ export function createCalendarView(deps: CalendarViewDeps): DashboardView {
       jumpLabel.appendChild(jumpInput);
       jumpWrapper.appendChild(jumpLabel);
       header.appendChild(jumpWrapper);
+
+      // D-01: a `.segmented` Sun/Mon toggle, not a `<select>` — a faithful
+      // THIRD instance of the shape already shipped at `records.ts:633-652`
+      // (Records scope) and `detail-charts.ts:257-276` (chart x-axis). This
+      // is a deliberate divergence from 19-CONTEXT.md D-01's "week-start
+      // select" parenthetical: the segmented pattern won on consistency with
+      // the two toggles already shipped, so CAL-03 is discharged through
+      // Phase 19's BUTTON baseline (D-05/D-06) and its two-tone focus ring
+      // (D-09/D-10) rather than its `input, select, textarea` baseline. No
+      // new CSS is required — `.segmented`/`.segmented__option[--active]`
+      // (styles.css:897-954) and the shared hover/focus rules already reach
+      // a third instance with zero opt-in.
+      const weekStartControl = document.createElement('div');
+      weekStartControl.className = 'segmented';
+      weekStartControl.setAttribute('role', 'group');
+      weekStartControl.setAttribute('aria-label', 'Week start');
+
+      // Unlike both shipped instances (which always start on their
+      // first-listed option), this control's initial active state is
+      // DERIVED from the week start already read from storage above, not
+      // hard-coded — with nothing stored, `weekStart` is 'monday' (D-03), so
+      // Monday starts active.
+      const isSunday = weekStart === 'sunday';
+
+      const sundayOption = document.createElement('button');
+      sundayOption.type = 'button';
+      sundayOption.className = isSunday ? 'segmented__option segmented__option--active' : 'segmented__option';
+      sundayOption.textContent = 'Sunday';
+      sundayOption.setAttribute('aria-pressed', String(isSunday));
+
+      const mondayOption = document.createElement('button');
+      mondayOption.type = 'button';
+      mondayOption.className = isSunday ? 'segmented__option' : 'segmented__option segmented__option--active';
+      mondayOption.textContent = 'Monday';
+      mondayOption.setAttribute('aria-pressed', String(!isSunday));
+
+      weekStartControl.appendChild(sundayOption);
+      weekStartControl.appendChild(mondayOption);
+      header.appendChild(weekStartControl);
+
+      // D-04: toggling rebuilds the grid IN PLACE and moves focus nowhere.
+      // Re-running the whole `mount()` path was explicitly rejected — it
+      // ends by moving focus to the heading below, which would steal focus
+      // from the segmented button the user just pressed, the exact
+      // regression class Phase 20 shipped twice. This handler is fully
+      // synchronous end to end (no `await`), so it opens no window for the
+      // `mountedContainer !== ctx.container` race those guards above exist
+      // to close, and no `await` may be introduced into this path.
+      //
+      // `setWeekStart` closes over `gridEl` and `pickerHost`, both declared
+      // later in this `mount()` body. That is safe and deliberate: the
+      // whole view is constructed synchronously and is not appended to
+      // `ctx.container` until the end of `mount()`, so no click can fire
+      // before those bindings exist.
+      function setWeekStart(next: WeekStart): void {
+        if (next === weekStart) return;
+        weekStart = next;
+
+        const nextIsSunday = weekStart === 'sunday';
+        sundayOption.classList.toggle('segmented__option--active', nextIsSunday);
+        sundayOption.setAttribute('aria-pressed', String(nextIsSunday));
+        mondayOption.classList.toggle('segmented__option--active', !nextIsSunday);
+        mondayOption.setAttribute('aria-pressed', String(!nextIsSunday));
+
+        writeWeekStart(storage, next);
+        // DISC-7: clear an open day picker so it does not sit beside a grid
+        // that just changed shape underneath it. Safe with respect to D-04 —
+        // the toggle is only reachable by clicking or key-activating the
+        // segmented button, so the active element stays on that button,
+        // never inside the picker, when it is cleared.
+        pickerHost.replaceChildren();
+
+        grid = buildMonthGrid(indexClient.getRows(), month, weekStart);
+        renderGrid(gridEl, grid, month, weekStart, pickerHost, indexClient);
+      }
+
+      sundayOption.addEventListener('click', () => setWeekStart('sunday'));
+      mondayOption.addEventListener('click', () => setWeekStart('monday'));
 
       view.appendChild(header);
 

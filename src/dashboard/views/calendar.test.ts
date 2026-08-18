@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import { weekdayLabels, formatWeekDuration, weekTotalAccessibleName } from './calendar.js';
 import type { DayCell, WeekTotal } from './calendar-logic.js';
@@ -213,5 +214,123 @@ describe('weekTotalAccessibleName', () => {
     };
     expect(() => weekTotalAccessibleName(total, week, october2025)).not.toThrow();
     expect(weekTotalAccessibleName(total, week, october2025)).toBe('Empty week');
+  });
+});
+
+/**
+ * Source-structure regression guard for plan 22-04's week-start toggle, in
+ * the same spirit as `row-semantics.test.ts` is a text guard over the view
+ * files' TypeScript source. This block proves SOURCE TEXT SHAPE only — that
+ * `setWeekStart`'s body contains none of the four calls that would reopen
+ * Phase 20's two shipped focus-theft regressions, and that the segmented
+ * markup matches the two shipped `.segmented` instances (`records.ts`,
+ * `detail-charts.ts`).
+ *
+ * It proves NOTHING about rendering, clicking, focus order or screen-reader
+ * announcement. Vitest runs in this repository with `environment: 'node'` —
+ * there is no jsdom and no headless browser anywhere in it — so nothing here
+ * can construct a live DOM, dispatch a click event, or observe where focus
+ * actually lands. The only proof of that is plan 22-05's blocking browser
+ * checkpoint (PROJECT.md line 49 — automated gates never discharge a visual
+ * or interaction claim). A green run of this block is coverage of source
+ * text only; do not read it as coverage of the toggle actually working.
+ */
+describe('calendar.ts — Phase 22 source-structure guards', () => {
+  const calendarSource = readFileSync(new URL('./calendar.ts', import.meta.url), 'utf8');
+
+  /**
+   * Extracts a function's full body (the outermost `{...}` following the
+   * given signature substring), balancing nested braces rather than matching
+   * the first `}` — `setWeekStart`'s body has none today, but this stays
+   * correct if a future edit adds one.
+   */
+  function extractFunctionBody(source: string, signature: string): string {
+    const startIdx = source.indexOf(signature);
+    if (startIdx === -1) throw new Error(`"${signature}" not found in calendar.ts`);
+    const openBraceIdx = source.indexOf('{', startIdx);
+    let depth = 0;
+    let i = openBraceIdx;
+    for (; i < source.length; i++) {
+      if (source[i] === '{') depth++;
+      else if (source[i] === '}') {
+        depth--;
+        if (depth === 0) break;
+      }
+    }
+    return source.slice(openBraceIdx, i + 1);
+  }
+
+  const setWeekStartBody = extractFunctionBody(calendarSource, 'function setWeekStart');
+
+  describe('D-04 — the toggle never steals focus or re-enters mount', () => {
+    it('setWeekStart contains none of focus, mount(, navigateTo, await', () => {
+      expect(setWeekStartBody).not.toContain('focus');
+      expect(setWeekStartBody).not.toContain('mount(');
+      expect(setWeekStartBody).not.toContain('navigateTo');
+      expect(setWeekStartBody).not.toContain('await');
+    });
+
+    it('setWeekStart persists, clears the picker, and rebuilds the grid', () => {
+      expect(setWeekStartBody).toContain('writeWeekStart');
+      expect(setWeekStartBody).toContain('replaceChildren');
+      expect(setWeekStartBody).toContain('buildMonthGrid');
+      expect(setWeekStartBody).toContain('renderGrid');
+    });
+
+    it('the file has exactly two .focus() call sites, neither inside setWeekStart', () => {
+      const focusMatches = calendarSource.match(/\.focus\(\)/g) ?? [];
+      expect(focusMatches).toHaveLength(2);
+      expect(setWeekStartBody).not.toMatch(/\.focus\(\)/);
+    });
+  });
+
+  describe('D-01 — segmented markup invariants match the two shipped instances', () => {
+    it('builds a role="group" .segmented container with aria-label "Week start"', () => {
+      expect(calendarSource).toContain("'segmented'");
+      expect(calendarSource).toContain("'role', 'group'");
+      expect(calendarSource).toContain("'aria-label', 'Week start'");
+    });
+
+    it('has at least two segmented__option and two aria-pressed occurrences', () => {
+      const optionMatches = calendarSource.match(/segmented__option/g) ?? [];
+      const pressedMatches = calendarSource.match(/aria-pressed/g) ?? [];
+      expect(optionMatches.length).toBeGreaterThanOrEqual(2);
+      expect(pressedMatches.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('uses segmented__option--active, the shared active-state class', () => {
+      expect(calendarSource).toContain('segmented__option--active');
+    });
+
+    it('never creates a <select> — D-01 chose a segmented control, not a select', () => {
+      expect(calendarSource).not.toContain("createElement('select')");
+    });
+  });
+
+  describe('D-11 — the week-total cell adds no focus stop', () => {
+    it('has exactly two tabindex writes (the picker heading and h1)', () => {
+      const tabindexMatches = calendarSource.match(/tabindex/g) ?? [];
+      expect(tabindexMatches).toHaveLength(2);
+    });
+
+    it('never introduces ARIA grid roles', () => {
+      expect(calendarSource).not.toContain('role="gridcell"');
+      expect(calendarSource).not.toContain('role="row"');
+      expect(calendarSource).not.toContain('role="grid"');
+    });
+  });
+
+  describe('D-02 — the control sits between the month input and the header end', () => {
+    it('places the Week start control after the jump-to-month append and before the header append', () => {
+      const jumpAppendIdx = calendarSource.indexOf('header.appendChild(jumpWrapper)');
+      const controlIdx = calendarSource.indexOf("'aria-label', 'Week start'");
+      const headerAppendIdx = calendarSource.indexOf('view.appendChild(header)');
+
+      expect(jumpAppendIdx).toBeGreaterThan(-1);
+      expect(controlIdx).toBeGreaterThan(-1);
+      expect(headerAppendIdx).toBeGreaterThan(-1);
+      expect(controlIdx).toBeGreaterThan(jumpAppendIdx);
+      expect(controlIdx).toBeLessThan(headerAppendIdx);
+    });
   });
 });
