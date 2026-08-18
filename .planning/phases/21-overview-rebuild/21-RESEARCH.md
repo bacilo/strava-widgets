@@ -941,10 +941,17 @@ process defines (no external package names, no unverified library capabilities) 
 exists only to flag DESIGN recommendations that remain Claude's Discretion per CONTEXT.md, not
 verification gaps.
 
-## Open Questions
+## Open Questions (RESOLVED — closed at planning, 2026-08-18)
+
+Both questions were resolved during Phase 21 planning. Neither remains a live risk; the
+resolutions are recorded inline below and are already reflected in the plans.
 
 1. **Does a row genuinely appear in both Recent PRs and Recent Activities simultaneously in the
    live archive today, making Pitfall 2's `idPrefix` collision observable rather than theoretical?**
+   - **RESOLVED — moot.** Plan `21-02` implements the `idPrefix` fix *unconditionally* (a
+     `RowSurface` union plus an exported pure `rowIdPrefix`, with a `Set`-size-4 distinctness
+     assertion), so the empirical frequency no longer gates any decision. The legacy prefix
+     strings come out byte-identical, so no shipped element id changes.
    - What we know: Recent PRs = up to 5 most recent PR-carrying rows; Recent Activities = up to 10
      most recent rows overall. A PR-carrying activity within the most recent 10 activities would
      appear in both.
@@ -957,6 +964,10 @@ verification gaps.
 
 2. **Should the Overview and Records `streaks.json` type definitions be unified into one shared
    interface, now that both need the new `currentStreakEnd` field?**
+   - **RESOLVED — keep the duplication.** Plan `21-06` adds `currentStreakEnd` to the existing
+     duplicated `StreaksStats` interface rather than consolidating, per the recommendation below
+     and consistent with D-15 (which already declined unifying `buildStatCard` /
+     `buildSuperlativeTile` in this phase). Recorded as a candidate for a future cleanup phase.
    - What we know: today `overview.ts` and `records.ts`/`records-logic.ts` each define their own
      local interface for the same file, and CONTEXT.md's Claude's Discretion list does not mention
      this consolidation question at all (it only discusses unifying `buildStatCard`/
