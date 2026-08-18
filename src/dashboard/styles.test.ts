@@ -497,6 +497,58 @@ function assertNoAtRuleOverride(
 }
 
 /**
+ * WR-03 (22-REVIEW.md): the RETURNING sibling of the THROWING
+ * `assertNoAtRuleOverride` above. Walks `RULE_SCANNER()` the same way,
+ * keeps only the candidates for which `isAtRuleScoped` is true AND whose
+ * `splitTopLevelSelectors(head)` contains `needle` as an exact token AND
+ * whose body declares `property` at the same declaration-boundary-anchored
+ * pattern the other helpers use — so the two functions share
+ * `RULE_SCANNER`/`isAtRuleScoped`/`splitTopLevelSelectors` and can never
+ * disagree about what a "rule" or a "selector token" is. Returns the
+ * matching bodies in source order.
+ *
+ * `assertNoAtRuleOverride`'s `.toThrow`/`.not.toThrow` pairing is an
+ * EXISTENCE proof only: it is satisfied by any override at any breakpoint
+ * with any value, so a mutation that changes `min-width: 0` to
+ * `min-width: 200px`, or `font-size: 14px` to `font-size: 40px`, leaves
+ * every such assertion green. A guard that needs to know an override's
+ * VALUE — not merely that one exists — must read it through this helper
+ * instead. Throws, naming both `needle` and `property`, when no at-rule-
+ * scoped body declares it, so a deleted override fails loudly rather than
+ * silently comparing against `undefined`.
+ */
+function atRuleBodiesFor(
+  needle: string,
+  property: string,
+  source: string = cssNoComments,
+): string[] {
+  const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const declarationPattern = new RegExp(`(?:^|;|\\s)${escapedProperty}\\s*:`);
+  const ruleHeadAndBody = RULE_SCANNER();
+  let match: RegExpExecArray | null;
+  const bodies: string[] = [];
+  while ((match = ruleHeadAndBody.exec(source)) !== null) {
+    const [, head, body] = match;
+    if (!isAtRuleScoped(match.index, head, source)) {
+      continue;
+    }
+    const selectors = splitTopLevelSelectors(head);
+    if (!selectors.some((s) => s === needle)) {
+      continue;
+    }
+    if (declarationPattern.test(body)) {
+      bodies.push(body);
+    }
+  }
+  if (bodies.length === 0) {
+    throw new Error(
+      `No at-rule-scoped rule whose selector list contains "${needle}" declares "${property}"`,
+    );
+  }
+  return bodies;
+}
+
+/**
  * Parses the numeric value of `property: <int>` out of a declaration body
  * (e.g. the body returned by `declarationsFor` or `bodyForSelectorListToken`),
  * returning the LAST match in source order rather than the first — matching
@@ -1852,10 +1904,23 @@ describe('styles.css — Phase 22 gap closure (22-06): the 380px compaction and 
     expect(bodyForSelectorListToken('.calendar-weekday')).toContain('text-align: center');
   });
 
-  it('D-10/GC-1: the eight-column contract survives the compaction and the scroll wrapper stays unimplemented', () => {
+  it('D-10/GC-4/BL-01: the eight-column contract is the DEFAULT shape and is deliberately overridden at 380px', () => {
+    // Previously this case asserted the opposite: that .calendar-grid's
+    // track list is NEVER overridden at any breakpoint
+    // (`assertNoAtRuleOverride(...).not.toThrow()`). 22-VERIFICATION.md
+    // named that exact assertion as what locked Round 2's failing eight-
+    // track shape in place — R13 recorded FAIL against a build this
+    // assertion still passed. GC-4c (22-09-PLAN.md) inverts it
+    // deliberately, under 22-CONTEXT.md's Claude's-Discretion clause
+    // assigning the 8th column's exact CSS track to the planner: the
+    // eight-track CONTRACT survives as the default-breakpoint shape, but
+    // its SIZING FUNCTION is now allowed to change at 380px.
     const body = bodyForSelectorListToken('.calendar-grid');
     expect(body).toContain('grid-template-columns: repeat(7, 1fr) auto');
-    expect(() => assertNoAtRuleOverride('.calendar-grid', 'grid-template-columns')).not.toThrow();
+    expect(() => assertNoAtRuleOverride('.calendar-grid', 'grid-template-columns')).toThrow(/redeclares "grid-template-columns"/);
+    expect(atRuleBodiesFor('.calendar-grid', 'grid-template-columns')[0]).toContain(
+      'repeat(7, minmax(0, 1fr)) minmax(0, max-content)',
+    );
     expect(body).not.toMatch(/overflow/);
   });
 
@@ -1867,5 +1932,132 @@ describe('styles.css — Phase 22 gap closure (22-06): the 380px compaction and 
     // to a structural check).
     const matches = cssNoComments.match(/@media \(max-width: 380px\)/g) ?? [];
     expect(matches).toHaveLength(3);
+  });
+});
+
+/**
+ * Extracts the body of the ONE `@media (max-width: 380px)` block that
+ * mentions a `.calendar-` selector, by brace-matching from its `@media`
+ * prelude to its closing `}` — the same brace-walk `computeAtRuleRanges`
+ * performs, applied to a single needle block rather than every at-rule in
+ * the file. Used by the round 3 describe below (cases 8 and 9) to make a
+ * positional assertion about the block's FIRST nested rule, which
+ * `RULE_SCANNER` itself swallows into the `@media` prelude's pseudo-body
+ * (WR-03/WR-06) and so cannot be read through any of the selector-token
+ * helpers above.
+ */
+function calendar380Block(): string {
+  const starts = [...cssNoComments.matchAll(/@media \(max-width: 380px\)\s*\{/g)];
+  for (const m of starts) {
+    let i = m.index! + m[0].length;
+    let depth = 1;
+    while (depth > 0 && i < cssNoComments.length) {
+      if (cssNoComments[i] === '{') depth++;
+      else if (cssNoComments[i] === '}') depth--;
+      i++;
+    }
+    const body = cssNoComments.slice(m.index! + m[0].length, i - 1);
+    if (body.includes('.calendar-')) {
+      return body;
+    }
+  }
+  throw new Error('No @media (max-width: 380px) block mentioning a .calendar- selector was found');
+}
+
+describe('styles.css — Phase 22 gap closure round 3 (22-09): BL-01/BL-02 and the 380px override VALUES', () => {
+  it('BL-01: .calendar-week-total is nowrap at the default breakpoint and wraps with a zero floor at 380px', () => {
+    expect(bodyForSelectorListToken('.calendar-week-total')).toContain('white-space: nowrap');
+    expect(atRuleBodiesFor('.calendar-week-total', 'white-space')[0]).toContain(
+      'white-space: normal',
+    );
+    expect(atRuleBodiesFor('.calendar-week-total', 'min-width')[0]).toContain('min-width: 0');
+    expect(atRuleBodiesFor('.calendar-week-total', 'overflow-wrap')[0]).toContain(
+      'overflow-wrap: anywhere',
+    );
+  });
+
+  it('BL-02: .calendar-day is a three-column grid at the default breakpoint and a single-column stack at 380px', () => {
+    expect(bodyForSelectorListToken('.calendar-day')).toContain(
+      'grid-template-columns: 1fr 1fr 1fr',
+    );
+    const gtc = atRuleBodiesFor('.calendar-day', 'grid-template-columns')[0];
+    expect(gtc).toContain('grid-template-columns: 1fr');
+    expect(gtc).not.toMatch(/1fr 1fr 1fr/);
+    expect(atRuleBodiesFor('.calendar-day', 'grid-template-areas')[0]).not.toMatch(
+      /number\s*\.\s*\./,
+    );
+  });
+
+  it('BL-02: all three day-cell children are start-aligned at 380px, overriding centre and end', () => {
+    expect(bodyForSelectorListToken('.calendar-day__distance')).toContain(
+      'justify-self: center',
+    );
+    expect(bodyForSelectorListToken('.calendar-day__count')).toContain('justify-self: end');
+    for (const needle of [
+      '.calendar-day__number',
+      '.calendar-day__distance',
+      '.calendar-day__count',
+    ]) {
+      expect(atRuleBodiesFor(needle, 'justify-self')[0]).toContain('justify-self: start');
+    }
+  });
+
+  it('GC-4e: the two overflowing values declare overflow-wrap: anywhere, not break-word, at 380px', () => {
+    for (const needle of ['.calendar-day__distance', '.calendar-week-total']) {
+      const body = atRuleBodiesFor(needle, 'overflow-wrap')[0];
+      expect(body).toContain('anywhere');
+      expect(body).not.toMatch(/break-word/);
+    }
+  });
+
+  it('WR-03: the 380px day-cell compaction is asserted by VALUE', () => {
+    // The gap this case closes: the pre-existing existence-only pairing
+    // (`assertNoAtRuleOverride(...).toThrow(...)`) proves only that SOME
+    // override exists — mutating `min-width: 0` to `min-width: 200px`, or
+    // `font-size: 14px` to `font-size: 40px`, used to leave every such
+    // assertion green. Reading the value through `atRuleBodiesFor` closes
+    // that gap: it now goes red on exactly those mutations.
+    expect(atRuleBodiesFor('.calendar-day', 'min-width')[0]).toContain('min-width: 0');
+    expect(atRuleBodiesFor('.calendar-day__distance', 'font-size')[0]).toContain(
+      'font-size: 14px',
+    );
+  });
+
+  it('WR-03: the 380px total-cell compaction is asserted by VALUE', () => {
+    expect(atRuleBodiesFor('.calendar-week-total__time', 'font-size')[0]).toContain(
+      'font-size: 12px',
+    );
+    expect(atRuleBodiesFor('.calendar-week-total__count', 'font-size')[0]).toContain(
+      'font-size: 12px',
+    );
+  });
+
+  it('WR-07: the 380px .calendar-week-total__distance override is font-size only', () => {
+    const body = atRuleBodiesFor('.calendar-week-total__distance', 'font-size')[0];
+    expect(body).toContain('font-size: 14px');
+    expect(body).not.toMatch(/line-height/);
+    expect(body).not.toMatch(/font-weight/);
+    expect(bodyForSelectorListToken('.calendar-week-total__distance')).toContain(
+      'line-height: 1.2',
+    );
+  });
+
+  it('WR-06: the padding rule is still the FIRST rule inside the calendar 380px block', () => {
+    // WR-06 (22-REVIEW.md): the positional convention `styles.css`'s WR-03
+    // paragraph has been holding in prose, now held by a test instead.
+    // `RULE_SCANNER` swallows an at-rule block's first nested rule into its
+    // prelude pseudo-body, which is exactly why that rule is structurally
+    // unguardable through any of the selector-token helpers above — a
+    // future rule accidentally inserted ahead of the padding rule would be
+    // silently invisible to every other case in this file.
+    const block = calendar380Block();
+    const firstRuleBody = block.slice(0, block.indexOf('}'));
+    expect(firstRuleBody).toContain('padding: var(--space-xs)');
+  });
+
+  it('GC-4: no scroll wrapper was built — no calendar rule declares overflow at any breakpoint', () => {
+    expect(() => atRuleBodiesFor('.calendar-grid', 'overflow')).toThrow();
+    const block = calendar380Block();
+    expect(block).not.toMatch(/(^|[^-\w])overflow\s*:/);
   });
 });
