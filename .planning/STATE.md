@@ -4,8 +4,8 @@ milestone: v2.1
 milestone_name: Interface Polish
 status: executing
 stopped_at: "Completed 20-18-PLAN.md (Round 4 checkpoint recorded, status: blocked, GAP 12 found)"
-last_updated: "2026-08-18T05:17:48.682Z"
-last_activity: 2026-08-18 -- Phase 20 planning complete
+last_updated: "2026-08-18T05:28:09.945Z"
+last_activity: 2026-08-18 -- Phase 20 execution started
 progress:
   total_phases: 7
   completed_phases: 1
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 
 ## Current Position
 
-Phase: 20 (row-click-interaction-pattern) — BLOCKED (all 18 plans executed; gate not closed)
-Plan: 18 of 18 (complete)
-Status: Ready to execute
+Phase: 20 (row-click-interaction-pattern) — EXECUTING
+Plan: 1 of 20
+Status: Executing Phase 20
         8/12 rows PASS, 1 BLOCKED (R25), 1 NOT EXERCISABLE (R28), 2 FAIL (R31, R32).
         R18/R19's original expectation is CLOSED (R23/R24 PASS: a genuine background tab
         opens on a modified click on both Records tables) and the notedActivityId focus-leak
@@ -41,7 +41,7 @@ Status: Ready to execute
         Next: /gsd-plan-phase 20 --gaps (Round 5 must reconcile D-13 with D-12/D-14; also
         needs a developer's-eyes re-test for R25's new-window half and R28's unanswered
         disposition question).
-Last activity: 2026-08-18 -- Phase 20 planning complete
+Last activity: 2026-08-18 -- Phase 20 execution started
 
 Progress: [██████████] 100%
 

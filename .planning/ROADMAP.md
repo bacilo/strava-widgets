@@ -237,7 +237,7 @@ Plans:
 
 **Wave 14** *(gap closure round 5 — blocked on Wave 13; one plan, because D-16 and D-17 modify adjacent lines of the same eight-line factory in the same file)*
 
-- [ ] 20-19-PLAN.md — D-16 and D-17: the Records cell anchors are non-draggable and guard their own click through the unmodified shared predicate, and only the Date cell keeps an `aria-label` so every other cell announces its own text and the Flags cell announces its badge, both pinned by source guards with in-suite blind-spot proofs (UX-01, UX-03, REC-08)
+- [x] 20-19-PLAN.md — D-16 and D-17: the Records cell anchors are non-draggable and guard their own click through the unmodified shared predicate, and only the Date cell keeps an `aria-label` so every other cell announces its own text and the Flags cell announces its badge, both pinned by source guards with in-suite blind-spot proofs (UX-01, UX-03, REC-08)
 
 **Wave 15** *(blocked on Wave 14 — the checkpoint must run after the fix lands)*
 
@@ -352,7 +352,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 17. Activity Browser & Detail Views | v2.0 | 15/15 | Complete    | 2026-08-11 |
 | 18. Records, Trends & Differentiators | v2.0 | 16/16 | Complete    | 2026-08-12 |
 | 19. Design System & Control Styling | v2.1 | 17/17 | Complete    | 2026-08-13 |
-| 20. Row-Click Interaction Pattern | v2.1 | 18/18 | Blocked (Round 4 FAIL, GAP 12) |  |
+| 20. Row-Click Interaction Pattern | v2.1 | 19/20 | In Progress|  |
 | 21. Overview Rebuild | v2.1 | 0/TBD | Not started | - |
 | 22. Calendar Week-Start & Totals | v2.1 | 0/TBD | Not started | - |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 0/TBD | Not started | - |
