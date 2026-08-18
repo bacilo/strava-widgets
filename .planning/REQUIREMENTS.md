@@ -30,9 +30,9 @@ Each maps to roadmap phases.
 
 ### Calendar
 
-- [ ] **CAL-01**: User can choose whether weeks start on Sunday or Monday; the choice persists. `calendar-logic.ts` is currently hard-coded Sunday-first, so this changes pure grid logic, not just display.
-- [ ] **CAL-02**: Week totals are computed and shown at the end of each week row, and respect the selected week start
-- [ ] **CAL-03**: Calendar controls use the shared control styling from UI-01/UI-02
+- [x] **CAL-01**: User can choose whether weeks start on Sunday or Monday; the choice persists. `calendar-logic.ts` is currently hard-coded Sunday-first, so this changes pure grid logic, not just display. **Closed 2026-08-18 (plan 22-05, Round 1)**: all four mapped rows passed — R2 PASS (Monday-default headings read back verbatim after clearing storage, confirmed as the intended D-03 change), R5 PASS (focus stays on the pressed segmented option; an open picker clears on toggle), R7 PASS (Sunday selection survives a real hard reload), R8 PASS (a devtools-tampered `'MONDAY'` value renders Monday-first with no console error and is read back unrepaired, confirming T-22-WK-01/D-07). See `22-VALIDATION.md` Round 1.
+- [ ] **CAL-02**: Week totals are computed and shown at the end of each week row, and respect the selected week start. **Not closed 2026-08-18 (plan 22-05, Round 1)**: R3, R4 and R6 passed (October 2025 boundary weeks re-grouped correctly under both week starts; June 2025 rest weeks render only the en-dash), but R11 recorded FAIL — day-cell values slightly overflow their cells once the viewport narrows toward ~380px. See `22-VALIDATION.md` Round 1.
+- [x] **CAL-03**: Calendar controls use the shared control styling from UI-01/UI-02. **Closed 2026-08-18 (plan 22-05, Round 1)**: both mapped rows passed — R9 PASS (`.calendar-header`'s baseline holds across five mixed-height controls in both themes, with responsive wrapping at narrow widths, not misalignment) and R10 PASS (hover feedback, two-tone `:focus-visible` ring, and WCAG AA text contrast all confirmed on the segmented control in both themes). See `22-VALIDATION.md` Round 1.
 
 ### Trends
 
@@ -85,9 +85,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | OVR-03 | Phase 21 | Complete |
 | OVR-04 | Phase 21 | Complete |
 | FIX-01 | Phase 21 | Complete |
-| CAL-01 | Phase 22 | Pending |
+| CAL-01 | Phase 22 | Complete |
 | CAL-02 | Phase 22 | Pending |
-| CAL-03 | Phase 22 | Pending |
+| CAL-03 | Phase 22 | Complete |
 | TRN-01 | Phase 23 | Pending |
 | TRN-02 | Phase 23 | Pending |
 | TRN-03 | Phase 23 | Pending |
