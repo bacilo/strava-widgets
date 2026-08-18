@@ -109,3 +109,7 @@ Plan 21-06 can safely add `formatActivityDate` back to `overview.ts`'s imports w
 ---
 *Phase: 21-overview-rebuild*
 *Completed: 2026-08-18*
+
+## Self-Check: PASSED
+
+All modified files found on disk (`src/dashboard/views/overview.ts`, `src/dashboard/views/overview.test.ts`, `src/dashboard/row-semantics.test.ts`, `src/dashboard/views/list.ts`, `21-04-SUMMARY.md`). All four commits found in git log (`0a8eb65`, `b93884b`, `1580519`, `f78ad2e`).
