@@ -25,22 +25,23 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 
 ## Current Position
 
-Phase: 20 (row-click-interaction-pattern) — EXECUTING
-Plan: 2 of 20
-Status: Ready to execute
-        8/12 rows PASS, 1 BLOCKED (R25), 1 NOT EXERCISABLE (R28), 2 FAIL (R31, R32).
-        R18/R19's original expectation is CLOSED (R23/R24 PASS: a genuine background tab
-        opens on a modified click on both Records tables) and the notedActivityId focus-leak
-        regression is exercised and confirmed fixed (R22 PASS).
-        NEW BLOCKER (GAP 12): D-13's real Records-cell anchors (plan 20-17) defeat both
-        D-12's drag-select guarantee (R31 FAIL — a drag now starts a native link-drag ghost)
-        and D-14's double-click refusal (R32 FAIL — a double-click still navigates away),
-        because both guards live in the row-level click listener, not on the anchors the
-        browser now handles natively. Recorded verbatim and left unpatched.
-        UX-02 CLOSED this round (badge-fixture gap resolved). UX-01 and UX-03 remain open.
-        Next: /gsd-plan-phase 20 --gaps (Round 5 must reconcile D-13 with D-12/D-14; also
-        needs a developer's-eyes re-test for R25's new-window half and R28's unanswered
-        disposition question).
+Phase: 20 (row-click-interaction-pattern) — COMPLETE (20/20 plans, gate closed)
+Plan: 20 of 20
+Status: Phase 20 gate closed — success criterion 4 discharged
+        Round 5 checkpoint (plan 20-20) recorded a clean sweep: all ten rows (R34-R43) PASS,
+        against bundle assets/index-F1PDLvBt.js. GAP 12 CLOSED (R34 drag-select PASS; R35
+        double-click PASS on the developer's explicit accepted-behaviour disposition — a
+        double-click still navigates on its first click, MouseEvent.detail==1 at fire time,
+        no non-degrading fix exists, developer said yes to accepting it as shipped; R36
+        modifier-click regression check PASS on both Records tables). GAP 11 CLOSED (R39's
+        two D-12/D-13 disposition questions both answered explicitly). CR-01 observed for
+        the first time (R38: six distinct per-cell accessible names, Flags cell announces
+        its own badge text). NEW accepted scope boundary recorded: D-16's click guard and
+        draggable=false do not cover the Date-cell anchor (records.ts:502-507, hand-built
+        outside buildCellLink) — developer explicitly accepted this as shipped rather than
+        extending D-16's contract.
+        UX-01, UX-02, UX-03 and REC-08 are all Complete in REQUIREMENTS.md.
+        Next: Phase 21 (Overview enhancements: OVR-01..OVR-04, FIX-01) — /gsd-plan-phase 21.
 Last activity: 2026-08-18
 
 Progress: [██████████] 97%
