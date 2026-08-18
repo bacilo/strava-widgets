@@ -108,6 +108,16 @@ _No separate plan-metadata commit in this worktree — orchestrator commits STAT
 - D-15 scope fence held: `git status --porcelain` on `trends-logic.ts`, `records-logic.ts`, and `analytics.types.ts` is empty — none were touched.
 - No blockers. The `calendar.ts:236` literal is a known, documented placeholder, not a hidden gap — it is named explicitly in both the inline `TODO(22-03)` comment and this summary.
 
+## Self-Check: PASSED
+
+- FOUND: src/dashboard/views/calendar-logic.ts
+- FOUND: src/dashboard/views/calendar-logic.test.ts
+- FOUND: src/dashboard/views/calendar.ts
+- FOUND: .planning/phases/22-calendar-week-start-totals/22-01-SUMMARY.md
+- FOUND commit: e92b494 (Task 1)
+- FOUND commit: 4b28caa (Task 2)
+- FOUND commit: 9bd9e19 (SUMMARY.md)
+
 ---
 *Phase: 22-calendar-week-start-totals*
 *Completed: 2026-08-18*
