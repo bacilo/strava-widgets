@@ -96,3 +96,10 @@ None in source code — plan executed exactly as written for both tasks.
 ## Next Phase Readiness
 - The `StreakResult`/`StreakData`/`selectCurrentStreak` contracts this plan establishes are ready for plans 21-05 (Records) and 21-06 (Overview) to consume, per the plan's own `<interfaces>` block.
 - `data/stats/streaks.json` will not carry a real `currentStreakEnd` value until the next `npm run compute-advanced-stats` or the nightly CI's `compute-all-stats` run — this is the expected degrade path Task 2 asserts, not a blocker. Plan 21-07's checkpoint is documented to use a staged-build fixture rather than waiting for that live regeneration.
+
+## Self-Check: PASSED
+
+- FOUND: .planning/phases/21-overview-rebuild/21-01-SUMMARY.md
+- FOUND: 8acb9bc (Task 1 commit)
+- FOUND: 891286b (Task 2 commit)
+- FOUND: 12f816c (plan metadata commit)
