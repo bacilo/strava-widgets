@@ -259,7 +259,7 @@ Plans:
   5. The Current Streak tile's `ended {date}` sub-label renders when a streak has ended, verified against a fixture with a genuinely ended streak (root cause was `currentStreakStart` only being populated while a streak is active — `streak-utils.ts:118`).
   6. **Human checkpoint**: served under `/strava-widgets` in a real browser, confirm Overview visually and interactively matches the polish level of Activities/Records, toggle the records scope, and confirm an ended-streak fixture renders its sub-label.
 
-**Plans**: 7 plans in 4 waves. Two of the five requirements resolve onto the **Records** screen, not Overview (D-01 puts the scope toggle on `records.ts`'s PR tables, the app's only records section; D-15 puts FIX-01's sub-label on both the Records and the Overview Current Streak tiles) — this is decided in `21-CONTEXT.md`, not scope creep. FIX-01 is planned as a two-layer fix in one plan (`streak-utils.ts:118` AND `records-logic.ts:274-282`, which maps `currentStreakStart` onto `endedISO`), because fixing only the layer the requirement names would ship a confidently wrong date. The `idPrefix` collision the shared renderer introduces is planned explicitly (21-02), not left for the executor to trip on. Criterion 6 is discharged by plan 21-07's thirteen-row checkpoint, served from `127.0.0.1` against a staged ended-streak fixture.
+**Plans**: 8 plans in 5 waves (7 executed, plus gap-closure plan 21-08 in Wave 5). Two of the five requirements resolve onto the **Records** screen, not Overview (D-01 puts the scope toggle on `records.ts`'s PR tables, the app's only records section; D-15 puts FIX-01's sub-label on both the Records and the Overview Current Streak tiles) — this is decided in `21-CONTEXT.md`, not scope creep. FIX-01 is planned as a two-layer fix in one plan (`streak-utils.ts:118` AND `records-logic.ts:274-282`, which maps `currentStreakStart` onto `endedISO`), because fixing only the layer the requirement names would ship a confidently wrong date. The `idPrefix` collision the shared renderer introduces is planned explicitly (21-02), not left for the executor to trip on. Criterion 6 is discharged by plan 21-07's thirteen-row checkpoint, served from `127.0.0.1` against a staged ended-streak fixture.
 
 Plans:
 
@@ -281,6 +281,10 @@ Plans:
 **Wave 4** *(blocked on everything — the checkpoint runs after every fix lands)*
 
 - [x] 21-07-PLAN.md — full gate + BLOCKING thirteen-row human checkpoint on a `127.0.0.1`-served `/strava-widgets` build, with a disclosed staged-only ended-streak fixture whose `currentStreakStart` is deliberately left intact so the two `ended {date}` rows must read the date's value back rather than its presence (OVR-01, OVR-02, OVR-03, OVR-04, FIX-01)
+
+**Wave 5** *(gap closure — `21-VERIFICATION.md` scored 5/6, OVR-03 open because Round 1's R7 was BLOCKED)*
+
+- [ ] 21-08-PLAN.md — full gate + BLOCKING two-row Round 2 human checkpoint closing OVR-03's one gap: a disclosed staged-only `best-efforts.json` fixture redating two 400m ranking entries into 2026 with their source ranks `4` and `9` deliberately intact, so the re-rank row must read `#1` / `Mar 14, 2026` back rather than confirm a row appeared, preceded by its own hard-reload freshness row (OVR-03)
 
 **UI hint**: yes
 
