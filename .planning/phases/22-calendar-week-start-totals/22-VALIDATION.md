@@ -6,6 +6,8 @@ nyquist_compliant: false
 wave_0_complete: false
 created: 2026-08-18
 planned: 2026-08-18
+round: 1
+round1_staged: 2026-08-18
 ---
 
 # Phase 22 — Validation Strategy
@@ -61,12 +63,12 @@ its Task 2 is the blocking human checkpoint by design.
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 22-02-T1 | 22-02 | 2 | CAL-01 | T-22-WK-01 | `parseWeekStart` allow-lists only `'sunday'` / `'monday'`; anything else (null, `''`, `'MONDAY'`, `'3'`, object) silently falls back to `'monday'` with no console noise and no key rewrite (D-07) | unit | `npx vitest run src/dashboard/views/calendar-preferences.test.ts` | ❌ W0 (new file) | ⬜ pending |
-| 22-02-T1 | 22-02 | 2 | CAL-01 | T-22-WK-02 | Throwing `storage.getItem` / `setItem` (Safari private mode, disabled cookies, quota) is caught; read falls back to the default, write failure is swallowed — mirrors `theme.ts` | unit | `npx vitest run src/dashboard/views/calendar-preferences.test.ts` | ❌ W0 (new file) | ⬜ pending |
-| 22-01-T1, 22-01-T2 | 22-01 | 1 | CAL-02 | — | `buildMonthGrid` leading padding correct for **both** `'sunday'` and `'monday'`; every pre-existing expectation re-pinned to pass `'sunday'` **explicitly** (D-03/D-08 — no default parameter) | unit | `npx vitest run src/dashboard/views/calendar-logic.test.ts` | ✅ exists, needs W0 edits | ⬜ pending |
-| 22-01-T2 | 22-01 | 1 | CAL-02 | — | Week-total derivation sums only the non-null in-month `DayCell`s per row (D-13); correct under both week starts; a zero-run week yields zeros (the `–` is a render decision, D-12); partial week flagged via `isPartial` for the accessible name (D-14) | unit | `npx vitest run src/dashboard/views/calendar-logic.test.ts` | ❌ W0 (new cases in existing file) | ⬜ pending |
-| 22-03-T1 | 22-03 | 3 | CAL-02 | — | `formatWeekDuration` is pinned to archive-derived seconds→string pairs (round-to-nearest-minute, load-bearing for the checkpoint read-back), and `weekTotalAccessibleName` to the four D-12/D-14 sentence shapes | unit | `npx vitest run src/dashboard/views/calendar.test.ts` | ❌ W0 (new file) | ⬜ pending |
-| 22-04-T2 | 22-04 | 4 | CAL-01 | — | Source-structure guard: `setWeekStart`'s body contains none of `focus` / `mount(` / `navigateTo` / `await` (D-04), and the `.segmented` markup matches the two shipped instances (D-01). **Guards source shape only — does NOT discharge CAL-03's visual claim** | unit (source guard) | `npx vitest run src/dashboard/views/calendar.test.ts` | ❌ W0 (added to the 22-03 file) | ⬜ pending |
+| 22-02-T1 | 22-02 | 2 | CAL-01 | T-22-WK-01 | `parseWeekStart` allow-lists only `'sunday'` / `'monday'`; anything else (null, `''`, `'MONDAY'`, `'3'`, object) silently falls back to `'monday'` with no console noise and no key rewrite (D-07) | unit | `npx vitest run src/dashboard/views/calendar-preferences.test.ts` | ✅ exists | ✅ green (npm test 1203/1203, plan 22-05 Task 1 gate) |
+| 22-02-T1 | 22-02 | 2 | CAL-01 | T-22-WK-02 | Throwing `storage.getItem` / `setItem` (Safari private mode, disabled cookies, quota) is caught; read falls back to the default, write failure is swallowed — mirrors `theme.ts` | unit | `npx vitest run src/dashboard/views/calendar-preferences.test.ts` | ✅ exists | ✅ green (npm test 1203/1203, plan 22-05 Task 1 gate) |
+| 22-01-T1, 22-01-T2 | 22-01 | 1 | CAL-02 | — | `buildMonthGrid` leading padding correct for **both** `'sunday'` and `'monday'`; every pre-existing expectation re-pinned to pass `'sunday'` **explicitly** (D-03/D-08 — no default parameter) | unit | `npx vitest run src/dashboard/views/calendar-logic.test.ts` | ✅ exists | ✅ green (npm test 1203/1203, plan 22-05 Task 1 gate) |
+| 22-01-T2 | 22-01 | 1 | CAL-02 | — | Week-total derivation sums only the non-null in-month `DayCell`s per row (D-13); correct under both week starts; a zero-run week yields zeros (the `–` is a render decision, D-12); partial week flagged via `isPartial` for the accessible name (D-14) | unit | `npx vitest run src/dashboard/views/calendar-logic.test.ts` | ✅ exists | ✅ green (npm test 1203/1203, plan 22-05 Task 1 gate) |
+| 22-03-T1 | 22-03 | 3 | CAL-02 | — | `formatWeekDuration` is pinned to archive-derived seconds→string pairs (round-to-nearest-minute, load-bearing for the checkpoint read-back), and `weekTotalAccessibleName` to the four D-12/D-14 sentence shapes | unit | `npx vitest run src/dashboard/views/calendar.test.ts` | ✅ exists | ✅ green (npm test 1203/1203, plan 22-05 Task 1 gate) |
+| 22-04-T2 | 22-04 | 4 | CAL-01 | — | Source-structure guard: `setWeekStart`'s body contains none of `focus` / `mount(` / `navigateTo` / `await` (D-04), and the `.segmented` markup matches the two shipped instances (D-01). **Guards source shape only — does NOT discharge CAL-03's visual claim** | unit (source guard) | `npx vitest run src/dashboard/views/calendar.test.ts` | ✅ exists | ✅ green (npm test 1203/1203, plan 22-05 Task 1 gate) |
 | 22-05-T2 (R2, R5, R7, R8) | 22-05 | 5 | CAL-01 | T-22-WK-01 | Control renders, toggles, keeps focus on the pressed option, clears an open picker, the choice **survives a real browser reload**, and a devtools-tampered `'MONDAY'` renders Monday-first without being repaired | manual-only | — (no jsdom; a real reload and a real focus observation cannot be exercised in a Node-environment Vitest run) | N/A | ⬜ pending |
 | 22-05-T2 (R3, R4, R6, R11) | 22-05 | 5 | CAL-02 | — | Total cell **actually renders** at the end of each week row with correct on-screen numbers for the October 2025 boundary weeks under both week starts; a rest week shows only `–`; eight columns survive a narrow viewport | manual-only | — (DOM rendering) | N/A | ⬜ pending |
 | 22-05-T2 (R9, R10) | 22-05 | 5 | CAL-03 | — | Segmented control visually inherits Phase 19's button baseline, shared hover and two-tone focus ring in **both** themes, and `.calendar-header`'s `align-items: baseline` holds across five mixed-height controls | manual-only | — (visual claim; house rule forbids discharging by unit test) | N/A | ⬜ pending |
@@ -177,3 +179,131 @@ en-dash `–` with no time line and no `×N` line. Checkpoint row R6.
       eleven checkpoint rows PASS
 
 **Approval:** planned 2026-08-18; checkpoint pending (plan `22-05`).
+
+---
+
+## Round 1
+
+Task 1's full gate ran green on a clean working tree: `npm test` 1203/1203 across 51 files, `npx tsc
+--noEmit -p tsconfig.json` clean, `npm run build-widgets` exit 0 with zero `css-syntax-error`
+occurrences in the captured log, `npm run verify-dashboard` 37/37 checks passed. The build is staged
+under the production path shape and served from `127.0.0.1`, never `localhost` — served URL prefix
+`http://127.0.0.1:8099/strava-widgets/`. The one route this session uses is
+`http://127.0.0.1:8099/strava-widgets/#/calendar?month=2025-10`. The bundle filename read from the
+staged `index.html` is `assets/index-YqJHQsHW.js`. **No staged fixture is used or permitted in this
+round** — every value below comes from the live, organic `data/dashboard/index.json` archive (1,868
+activities). Rows R2 and R8 exercise the `localStorage` key `dashboard-calendar-week-start` directly
+from devtools — R2 removes it to observe the D-03 Monday default, and R8 tampers it to the literal
+string `MONDAY` to exercise the T-22-WK-01 allow-list without repair (D-07).
+
+<cache_trap>
+`127.0.0.1` alone is NOT sufficient. This project has been bitten twice: Phase 21 Round 1's R13 only
+passed after a hard reload cleared a stale cached `streaks.json`, and the staged-build trap recurs
+with a stale `index.html` / `index.json` in the observing tab.
+
+Every checkpoint session must: browse `127.0.0.1`, never `localhost`; serve under the
+`/strava-widgets` project path, never the server root; and hard-reload (Cmd+Shift+R, or DevTools open
+with "Disable cache" ticked, then reload) before judging any row. R1 exists solely to record that
+this happened.
+
+This phase adds a second cache surface: `localStorage`. Rows R2 and R8 require a specific storage
+state, so each names the exact devtools command that establishes it, and each is followed by a hard
+reload before it is judged.
+</cache_trap>
+
+<house_rules>
+Carried forward from checkpoint 16-09 and every v2.1 phase since. These bind Task 2.
+
+1. **Never cite an automated result as evidence for a manual row.** A green `npm test`, a source
+   grep, or an agent's own DOM read is not an answer to a row whose observer is the developer's eyes.
+2. **Present rows ONE AT A TIME**, in order, quoting each row's instructions including its own
+   detail-to-quote and named-observer clauses in full.
+3. **Read values back, do not confirm presence.** A row answered "the totals are there" is not
+   answered. Quote the rendered text.
+4. **Record the developer's own words.** Do not summarise, do not merge answers, do not fill a cell
+   with what the implementation ought to produce.
+5. **Do not fix anything during the session.** A failing row is recorded and the session continues to
+   the next row; no source file may be edited. `git status --porcelain src scripts` must be empty at
+   the end.
+6. **R1 gates everything.** If R1 is not PASS, every subsequent row is recorded BLOCKED naming R1.
+7. **Do not write a failure's wrong values into a PASS cell.** Task 3's checks treat that as a
+   contradiction.
+</house_rules>
+
+<discriminator_data>
+Copied verbatim from `22-RESEARCH.md` § D-16 Discriminator Month and independently recomputed against
+the committed `data/dashboard/index.json` (1,868 activities, `generatedAt: 2026-08-12`) during
+planning. These tables go into the agenda unaltered.
+
+**Why October 2025 qualifies:** exactly one activity in the month falls on a Sunday — Oct 19, 2025,
+"Morning Run", 24.0 km, raw moving time 2h 31m 37s (9,097 s). October 1, 2025 is a Wednesday
+(`getUTCDay() === 3`), so leading padding is 3 under Sunday-start and 2 under Monday-start. That
+single Sunday activity moves from ending one week row to starting the next, changing exactly two
+adjacent rows — the cleanest possible single-variable discriminator.
+
+### Sunday-start week totals (October 2025)
+
+| Wk | Days (Oct) | Distance | Time | Runs |
+|-----|------------|----------|------|------|
+| 1 | 1–4 | 59.1 km | 5h 42m | 5 |
+| 2 | 5–11 | 80.0 km | 7h 53m | 6 |
+| **3** | **12–18** | **56.0 km** | **5h 27m** | **4** |
+| **4** | **19–25** | **104.1 km** | **10h 14m** | **7** |
+| 5 | 26–31 | 58.1 km | 5h 32m | 5 |
+
+### Monday-start week totals (October 2025)
+
+| Wk | Days (Oct) | Distance | Time | Runs |
+|-----|------------|----------|------|------|
+| 1 | 1–5 | 59.1 km | 5h 42m | 5 |
+| 2 | 6–12 | 80.0 km | 7h 53m | 6 |
+| **3** | **13–19** | **80.0 km** | **7h 58m** | **5** |
+| **4** | **20–26** | **80.0 km** | **7h 42m** | **6** |
+| 5 | 27–31 | 58.1 km | 5h 32m | 5 |
+
+**The tell.** Toggling Sunday → Monday must turn rows 3 and 4 from `56.0 km / 5h 27m / 4 runs` and
+`104.1 km / 10h 14m / 7 runs` into `80.0 km / 7h 58m / 5 runs` and `80.0 km / 7h 42m / 6 runs`. A
+toggle that re-paints the grid without actually re-grouping the weeks leaves 56.0 / 104.1 in place.
+The two Monday rows landing on the *same* 80.0 km display value while carrying *different* run counts
+(5 vs 6) is the second tell against a partially-correct regrouping.
+
+**Known rounding artifact — NOT a bug.** The month header renders `357.3 km` under both week starts
+(`monthTotalM` does not depend on the week start). The Sunday-start rows display-sum to 357.3 km; the
+Monday-start rows display-sum to **357.2 km**, 0.1 km lower, purely from independent per-row
+`toFixed(1)`. The exact unrounded metres are identical under both groupings at 357.349 km. Do not
+record this as a computation error, and do not ask the developer to verify that the rows sum to the
+header.
+
+**Rest-week month (D-12), also read from the live archive during planning:** navigating to
+`http://127.0.0.1:8099/strava-widgets/#/calendar?month=2025-06` under Monday-start, June 2025 has a
+full zero-run week covering **June 16–22** (7 days, no runs), and its first row is **June 1 alone**
+(1 day, no runs). Both must render the en-dash `–` with no time line and no `×N` line.
+</discriminator_data>
+
+**D-15 scope fence.** Trends, `records-logic.ts`'s biggest week, and the streak logic all stay
+Monday-fixed by design — they read the pipeline's pre-computed Monday `weekStartISO` and this phase
+deliberately does not touch them. No row on this agenda is opened against those surfaces, and a user
+who selects Sunday will still see Monday-based weeks there; that is knowingly shipped, not a gap.
+
+| Row | Requirement | Instructions | Observation | Verdict |
+|-----|-------------|---------------|-------------|---------|
+| R1. | precondition | The URL bar reads `127.0.0.1` and includes `/strava-widgets/`; a hard reload was performed and the method is named; the bundle filename matches the one in the preamble (`assets/index-YqJHQsHW.js`). **Required detail:** the URL as typed, the reload method, the `assets/index-*.js` filename. **Observer required:** developer's own eyes. | | |
+| R2. | CAL-01, D-03 | Run `localStorage.removeItem('dashboard-calendar-week-start')` in devtools, hard-reload, then read back the seven weekday headings left to right plus the eighth heading, and say which of the two segmented options is the filled one. Expected `Mon Tue Wed Thu Fri Sat Sun` then `Total`, with `Monday` filled. **Also confirm explicitly** that the calendar now starting weeks on Monday is understood as the intended D-03 change and not a regression. **Required detail:** the eight heading texts in order, and which option is filled. **Observer required:** developer's own eyes. | | |
+| R3. | CAL-02, D-16 | On `#/calendar?month=2025-10` under Monday-start, read back all five week-total cells: day range implied by the row, distance, time and run count. Compare against the Monday-start table. **Required detail:** five triples of distance / time / run count, quoted as rendered. **Observer required:** developer's own eyes. | | |
+| R4. | CAL-02, D-16 | Click `Sunday`. Read back all five week-total cells again. Expected the Sunday-start table. Rows 3 and 4 must now read `56.0 km / 5h 27m / 4 runs` and `104.1 km / 10h 14m / 7 runs`; still reading `80.0` on both is the failure the discriminator exists to expose and must be recorded FAIL with the numbers quoted. **Required detail:** five triples, and an explicit statement of what rows 3 and 4 read. **Observer required:** developer's own eyes. | | |
+| R5. | CAL-01, D-04 | Tab to a segmented option and activate it with the keyboard. Confirm focus stays on the option just pressed (the focus ring is still on it; optionally confirm `document.activeElement` in the console). Then open a multi-run day's picker, toggle the week start, and confirm the picker panel is cleared rather than left beside the reorganised grid. **Required detail:** where the focus ring was immediately after activation, and what happened to the open picker. **Observer required:** developer's own eyes. | | |
+| R6. | CAL-02, D-12 | Navigate to `#/calendar?month=2025-06` under Monday-start. Read back the total cell for the week covering June 16–22 and the total cell for the first row (June 1 alone). Expected: an en-dash `–` only, with no time line and no `×N` line, in both. **Required detail:** exactly what text appears in each of those two cells. **Observer required:** developer's own eyes. | | |
+| R7. | CAL-01 | With `Sunday` selected, hard-reload the page. Confirm `Sunday` is still the filled option and the weekday row still begins with `Sun`. **Required detail:** which option is filled after the reload, and the first weekday heading. **Observer required:** developer's own eyes. | | |
+| R8. | CAL-01, T-22-WK-01 | In devtools run `localStorage.setItem('dashboard-calendar-week-start','MONDAY')`, hard-reload, and confirm three things: the calendar renders Monday-first, the console shows no error or warning from the app, and `localStorage.getItem('dashboard-calendar-week-start')` STILL returns `'MONDAY'` — the app must not repair or rewrite a tampered key (D-07). **Required detail:** the first weekday heading, the console state, and the value the getItem call returned. **Observer required:** developer's own eyes. | | |
+| R9. | CAL-03, D-02 | Look along `.calendar-header`: the month total, the two month-nav buttons, the `Jump to month` input and the segmented group. Confirm they sit on a coherent baseline and nothing is visibly misaligned or overlapping, in BOTH light and dark themes. **Required detail:** a description of the alignment and any control that sits noticeably off. **Observer required:** developer's own eyes. | | |
+| R10. | CAL-03 | On the segmented control confirm all four of: hover feedback on the inactive option, the two-tone `:focus-visible` ring when keyboard-focused, sufficient contrast between the active and inactive options, and that all of it holds in BOTH themes. **Required detail:** one sentence per item, per theme. **Observer required:** developer's own eyes. | | |
+| R11. | CAL-02, D-10 | Narrow the viewport to roughly 380px (or use a phone emulation preset). Confirm the eight-column grid does not crush the day columns into illegibility and does not overflow the panel. **Required detail:** what happens to the day columns and the total column at that width, and whether anything overflows. **Observer required:** developer's own eyes. | | |
+
+### Row-to-requirement map (Round 1)
+
+- CAL-01 → R2, R5, R7, R8
+- CAL-02 → R3, R4, R6, R11
+- CAL-03 → R9, R10
+- R1 gates all of them: if R1 is not PASS, every row after it is recorded BLOCKED naming R1.
+
+A requirement is ticked only when every row mapped to it is PASS.
