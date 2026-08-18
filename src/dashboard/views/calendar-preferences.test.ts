@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   parseWeekStart,
@@ -8,6 +8,7 @@ import {
   WEEK_START_STORAGE_KEY,
   type WeekStartStorage,
 } from './calendar-preferences.js';
+import { resolveStorage } from '../storage.js';
 
 /** In-memory WeekStartStorage backed by a plain object, with optional throw-on-access modes. */
 function fakeStorage(
@@ -187,5 +188,40 @@ describe('resolveWeekStartStorage — CR-01: guards the globalThis.localStorage 
 
     warnSpy.mockRestore();
     errorSpy.mockRestore();
+  });
+
+  it('WR-01 — the live and working branch: with a working globalThis.localStorage stand-in holding sunday, resolveWeekStartStorage() returns that exact object AND readStoredWeekStart(resolveWeekStartStorage()) returns sunday, not the monday default', () => {
+    const live = fakeStorage({ [WEEK_START_STORAGE_KEY]: 'sunday' });
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      get() {
+        return live;
+      },
+    });
+
+    const resolved = resolveWeekStartStorage();
+    expect(resolved).toBe(live);
+    expect(readStoredWeekStart(resolveWeekStartStorage())).toBe('sunday');
+  });
+
+  it('resolveWeekStartStorage and resolveStorage agree: same working stand-in returns the same object, throwing getter returns null for both', () => {
+    const live = fakeStorage({ [WEEK_START_STORAGE_KEY]: 'sunday' });
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      get() {
+        return live;
+      },
+    });
+    expect(resolveWeekStartStorage()).toBe(resolveStorage());
+
+    Reflect.deleteProperty(globalThis, 'localStorage');
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      get() {
+        throw new Error('SecurityError');
+      },
+    });
+    expect(resolveWeekStartStorage()).toBeNull();
+    expect(resolveStorage()).toBeNull();
   });
 });
