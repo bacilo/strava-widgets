@@ -95,3 +95,7 @@ Plan 21-03 can now write CSS against the frozen `.activity-row__header` / `.acti
 ---
 *Phase: 21-overview-rebuild*
 *Completed: 2026-08-18*
+
+## Self-Check: PASSED
+
+All created/modified files found on disk (`src/dashboard/views/list.ts`, `src/dashboard/views/list.test.ts`, `src/dashboard/row-semantics.test.ts`, `21-02-SUMMARY.md`, `deferred-items.md`). All four task/metadata commits found in git log (`324e8fe`, `0a3554c`, `ada9c30`, `359c501`).
