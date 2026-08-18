@@ -12,11 +12,21 @@ import { createNav } from './nav.js';
 import { createRouter, navigateTo, type RouteMatch } from './router.js';
 import { ALL_ROUTES, ROUTES, type DashboardView } from './view.types.js';
 import { clients, getView } from './view-registry.js';
+import { resolveStorage } from './storage.js';
 
 // 1. Re-apply at module scope what the inline pre-paint script in index.html
 // already set, so module-side state and the DOM attribute agree and the
-// toggle starts from the right mode.
-applyThemeMode(readStoredMode(localStorage));
+// toggle starts from the right mode. This statement runs at MODULE SCOPE
+// (BL-03): an unguarded storage-global read here throws during module
+// evaluation under blocked site data (Firefox "Block cookies and site data",
+// Chrome "Don't allow sites to save data"), and the entire dashboard module
+// graph fails — the page renders blank, with no nav and no view, and the
+// `onMatch` try/catch below (which renders the generic error panel) is never
+// reached because it wraps `view.mount(...)`, not module evaluation.
+// `resolveStorage` wraps the throwing property getter instead. The next
+// statement, `createNav(...)`, is module-scope too and carries the same
+// requirement — see `nav.ts:186`.
+applyThemeMode(readStoredMode(resolveStorage()));
 
 // 2. Mount the nav chrome.
 const nav = createNav(document.getElementById('app-nav-root')!);
