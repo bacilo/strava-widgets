@@ -12,7 +12,9 @@ import {
   noteViewedActivity,
   takeNotedActivityId,
   applyReturnHighlight,
+  rowIdPrefix,
 } from './list.js';
+import type { RowSurface } from './list.js';
 import type { DashboardIndexRow } from '../../analytics/dashboard-index.types.js';
 
 /**
@@ -500,6 +502,49 @@ describe('lowConfidenceDescriptionId — CR-02 duplicate-element-id fix', () => 
     expect(cardId).not.toBe(tableId);
     expect(cardId).toBe('activity-card-123-low-confidence-desc');
     expect(tableId).toBe('activity-table-123-low-confidence-desc');
+  });
+});
+
+/**
+ * D-05 per-surface element-id scoping. Nothing in this describe proves the
+ * two-line row RENDERS correctly: vitest runs this repository with
+ * `environment: 'node'`, there is no jsdom and no headless browser here, so
+ * D-06's header/meta hierarchy is discharged only by plan 21-07's browser
+ * checkpoint. These assertions are behavioural — `rowIdPrefix` is a pure,
+ * importable function — not source-text scans.
+ */
+describe('rowIdPrefix — D-05 per-surface element-id scoping', () => {
+  it('produces the two pre-Phase-21 literal values unchanged', () => {
+    // Pinned to their pre-Phase-21 literal values: the surface scheme is
+    // additive, and a change here would silently renumber every element id
+    // the Activities screen already ships.
+    expect(rowIdPrefix('activity-card', '456')).toBe('activity-card-456');
+    expect(rowIdPrefix('activity-table', '456')).toBe('activity-table-456');
+  });
+
+  it('produces four pairwise-distinct prefixes for one row id, across all four surfaces', () => {
+    const SURFACES: RowSurface[] = ['activity-card', 'activity-table', 'overview-prs', 'overview-activities'];
+    const prefixes = new Set(SURFACES.map((s) => rowIdPrefix(s, '456')));
+    expect(prefixes.size).toBe(4);
+  });
+
+  it('produces four pairwise-distinct lowConfidenceDescriptionId values, one per surface', () => {
+    // This is the id that actually reaches the DOM as an `id` attribute, so
+    // it is the one that must not collide.
+    const SURFACES: RowSurface[] = ['activity-card', 'activity-table', 'overview-prs', 'overview-activities'];
+    const descriptionIds = new Set(SURFACES.map((s) => lowConfidenceDescriptionId(rowIdPrefix(s, '456'))));
+    expect(descriptionIds.size).toBe(4);
+  });
+
+  it("overview-prs and overview-activities never produce the same lowConfidenceDescriptionId — the Overview collision D-05 exists to prevent", () => {
+    // These are the two lists Overview renders in the same document (plan
+    // 21-04). A PR-carrying activity within the ten most recent activities
+    // appears in both. No such row exists in the archive as checked against
+    // data/dashboard/index.json during planning — so this guard, not the
+    // browser checkpoint, is what holds the invariant.
+    const prsId = lowConfidenceDescriptionId(rowIdPrefix('overview-prs', '456'));
+    const activitiesId = lowConfidenceDescriptionId(rowIdPrefix('overview-activities', '456'));
+    expect(prsId).not.toBe(activitiesId);
   });
 });
 
