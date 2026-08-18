@@ -1747,3 +1747,71 @@ describe('styles.css — Phase 21 two-line activity row (D-06/D-08)', () => {
     assertNoAtRuleOverride('.activity-row', 'display');
   });
 });
+
+describe('styles.css — Phase 22 calendar week totals', () => {
+  it('D-10: .calendar-grid declares grid-template-columns: repeat(7, 1fr) auto', () => {
+    expect(bodyForSelectorListToken('.calendar-grid')).toContain(
+      'grid-template-columns: repeat(7, 1fr) auto',
+    );
+  });
+
+  it('.calendar-week-total resolves to a top-level rule (not media-nested)', () => {
+    expect(bodyForSelectorListToken('.calendar-week-total')).toBeTruthy();
+  });
+
+  it('.calendar-week-total__distance resolves to a top-level rule (not media-nested)', () => {
+    expect(bodyForSelectorListToken('.calendar-week-total__distance')).toBeTruthy();
+  });
+
+  it('.calendar-week-total__time resolves to a top-level rule (not media-nested)', () => {
+    expect(bodyForSelectorListToken('.calendar-week-total__time')).toBeTruthy();
+  });
+
+  it('.calendar-week-total__count resolves to a top-level rule (not media-nested)', () => {
+    expect(bodyForSelectorListToken('.calendar-week-total__count')).toBeTruthy();
+  });
+
+  it('.calendar-week-total__distance declares font-size: 20px and font-weight: 600', () => {
+    const decl = bodyForSelectorListToken('.calendar-week-total__distance');
+    expect(decl).toContain('font-size: 20px');
+    expect(decl).toContain('font-weight: 600');
+  });
+
+  it('.calendar-week-total__time declares font-size: 14px and color: var(--text-secondary)', () => {
+    const decl = bodyForSelectorListToken('.calendar-week-total__time');
+    expect(decl).toContain('font-size: 14px');
+    expect(decl).toContain('color: var(--text-secondary)');
+  });
+
+  it('.calendar-week-total declares white-space: nowrap', () => {
+    expect(bodyForSelectorListToken('.calendar-week-total')).toContain('white-space: nowrap');
+  });
+
+  it('.calendar-week-total does NOT declare grid-template-areas (Pitfall 3 guard: a total cell with a day-number slot is the bug)', () => {
+    expect(bodyForSelectorListToken('.calendar-week-total')).not.toMatch(/grid-template-areas/);
+  });
+
+  it('.calendar-week-total does NOT declare a border', () => {
+    expect(bodyForSelectorListToken('.calendar-week-total')).not.toMatch(/\bborder\s*:/);
+  });
+
+  it('no .calendar-week-total--tint modifier was invented', () => {
+    expect(css).not.toContain('.calendar-week-total--tint');
+  });
+
+  it('no .calendar-week-total--outside modifier was invented', () => {
+    expect(css).not.toContain('.calendar-week-total--outside');
+  });
+
+  it('.sr-only still resolves (plan 22-03 depends on it existing)', () => {
+    expect(bodyForSelectorListToken('.sr-only')).toBeTruthy();
+  });
+
+  it('the .segmented block gained no calendar-scoped selector: no ".calendar-header .segmented" rule', () => {
+    expect(css).not.toContain('.calendar-header .segmented');
+  });
+
+  it('the .segmented block gained no calendar-scoped selector: no ".calendar .segmented" rule', () => {
+    expect(css).not.toContain('.calendar .segmented');
+  });
+});
