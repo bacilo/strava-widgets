@@ -215,7 +215,6 @@ Plans:
 
 - [x] 20-11-PLAN.md — full gate + BLOCKING Round 3 human checkpoint, eighteen rows asked one at a time with a per-row required detail, re-attempting the thirteen rows Round 2 recorded as insufficiently evidenced, closing R10's theme gap, quoting back what VoiceOver announces for R15/R16/R17, and observing the four newly-guarded gestures on the five anchor-less Records PR-table cells (UX-01, UX-02, UX-03, REC-08)
 
-
 **Wave 10** *(gap closure round 4 — blocked on Wave 9; the four plans have zero file overlap and run in parallel)*
 
 - [x] 20-12-PLAN.md — the CRITICAL regression: the one-shot return hint is consumed unconditionally at the top of `mount()`, ahead of the load, with a RED-first regression test for the empty-filter / load-error / stale-container leak sequence (UX-01, UX-03)
@@ -304,11 +303,26 @@ Plans:
 **Plans**: 5 plans in 5 waves (all sequential — 22-02 imports the `WeekStart` union 22-01 exports, and 22-03/22-04 both write `src/dashboard/views/calendar.ts`). The phase is deliberately split at the riskiest seam: 22-03 restructures the render loop, and 22-04 adds the toggle handler on its own so D-04's no-focus-theft contract gets its own review and its own source guard (Phase 20 shipped two focus-theft regressions of exactly that shape). Criterion 5 is discharged by 22-05's eleven-row checkpoint, served from `127.0.0.1` under `/strava-widgets` against ORGANIC archive data — no fixture is needed or permitted, because October 2025 holds exactly one Sunday-dated run and is a natural single-variable discriminator (`22-RESEARCH.md` § D-16).
 
 Plans:
+**Wave 1**
+
 - [ ] 22-01-PLAN.md — generalize `buildMonthGrid` to a required `weekStart`, derive per-week totals, re-pin every Sunday expectation explicitly
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 22-02-PLAN.md — the calendar-scoped week-start persistence module (`theme.ts` discipline) and the 8th grid column CSS
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 22-03-PLAN.md — week-start-aware weekday row, `Total` header, and a non-focusable screen-reader-named total cell after every week
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 22-04-PLAN.md — the `.segmented` Sunday/Monday control, persisting and rebuilding the grid in place without moving focus
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
 - [ ] 22-05-PLAN.md — the blocking eleven-row browser checkpoint reading the October 2025 totals back under both week starts
+
 **UI hint**: yes
 
 ### Phase 23: Trends Zoom, Pan & Taller Bands

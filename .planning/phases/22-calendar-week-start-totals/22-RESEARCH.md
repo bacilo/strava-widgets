@@ -490,14 +490,22 @@ Not applicable in the traditional "library version drift" sense — this is a ze
 | A6 | `aria-label="Week start"` on the segmented group, with option button text `"Sunday"`/`"Monday"` (full words) | Pattern 3 | Low — cosmetic/a11y-wording choice; any reasonable, distinct wording satisfies CAL-01's "selectable" requirement, and this mirrors the existing `"Records scope"` / `"Chart x-axis"` naming convention exactly |
 | A7 | Suggested threat-ID label `T-22-WK-01` for the new localStorage tamper-tolerance note, following the project's existing `T-16-TH-01`/`T-17-URL-04`/`T-17-CAL-02`/`T-17-CAL-03` naming convention | Security Domain | Low — a documentation-convention suggestion only, not a functional claim; any consistent ID works |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Week-total time format: "Xh Ym" vs. reuse of `formatDurationHms` (`h:mm:ss`)**
+> Both questions were settled during planning (2026-08-18). Q1 → `22-03-PLAN.md` **DISC-2**;
+> Q2 → `22-02-PLAN.md` **DISC-8**. Retained below for the reasoning, not as open items.
+
+1. **RESOLVED — Week-total time format: "Xh Ym" vs. reuse of `formatDurationHms` (`h:mm:ss`)**
+   → **Resolved as DISC-2 in `22-03-PLAN.md`:** a local `formatWeekDuration` in `calendar.ts`
+   producing `"{h}h {m}m"`, **round-to-nearest-minute**. The rounding mode is load-bearing for
+   the D-16 checkpoint read-back — see `22-03-PLAN.md` § `<rounding_is_load_bearing>`.
    - What we know: D-09 explicitly leaves this open ("planning picks it — day cells set no precedent"). `list.ts` already exports THREE duration formatters (`formatDurationHms` for activity moving-time stats, `formatPace` for pace, `formatEffortDuration` for PR/effort times under an hour) — none is a perfect semantic fit for "one week's summed moving time," which is a genuinely new kind of duration (always likely well over an hour, aggregated rather than per-activity).
    - What's unclear: D-14's own illustrative aria-label example in CONTEXT.md ("...18.2 km, 1h 32m, 2 runs") already implies an "Xh Ym" shape, which is neither of the two existing formatters' exact output shape (`formatDurationHms` would render that as `1:32:00`).
    - Recommendation: define one small new formatter local to `calendar.ts` (not `calendar-logic.ts`, matching the existing precedent that km-string formatting is inline in `calendar.ts` rather than in the pure module) producing `"{h}h {m}m"` with no seconds and no zero-padding, e.g. `formatWeekDuration(totalTimeSec: number): string`. This avoids inventing a fourth generic duration formatter for reuse elsewhere (there is no other consumer today) while matching CONTEXT's own illustrative wording. Flag this choice explicitly for user confirmation if the planner wants certainty rather than a research recommendation.
 
-2. **Should `monthTotalTimeSec` be added to `MonthGrid` even though no success criterion explicitly asks for it?**
+2. **RESOLVED — Should `monthTotalTimeSec` be added to `MonthGrid` even though no success criterion explicitly asks for it?**
+   → **Resolved as DISC-8 in `22-02-PLAN.md`: not added.** No consumer exists today, so the
+   recommendation below (add for symmetry) was declined in favour of holding scope to CAL-01/02/03.
    - What we know: Adding `totalTimeSec` to `DayCell` (needed for week totals) makes a parallel `monthTotalTimeSec` essentially free — same reduce, same loop.
    - What's unclear: Nothing in ROADMAP.md's five success criteria or REQUIREMENTS.md's CAL-01..03 text asks for a month-level time figure; `calendar.ts:243`'s header currently shows only `{km} km` / `across {N} runs`.
    - Recommendation: add the field to the pure module for symmetry/cheapness, but do NOT render it in the header unless the planner decides it's in scope — rendering it would be a scope addition beyond CAL-01/02/03, however small.
