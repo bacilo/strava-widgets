@@ -284,6 +284,11 @@ describe('readStoredOverlayConfig', () => {
     readStoredOverlayConfig(storage);
     expect(calls).toEqual([OVERLAY_STORAGE_KEY]);
   });
+
+  it('returns the default without throwing when storage is null (BL-03)', () => {
+    expect(() => readStoredOverlayConfig(null)).not.toThrow();
+    expect(readStoredOverlayConfig(null)).toEqual(DEFAULT_OVERLAY_CONFIG);
+  });
 });
 
 describe('writeStoredOverlayConfig', () => {
@@ -310,5 +315,11 @@ describe('writeStoredOverlayConfig', () => {
       cadence: [],
       elevation: [],
     });
+  });
+
+  it('does not throw and performs no observable work when storage is null (BL-03)', () => {
+    expect(() =>
+      writeStoredOverlayConfig(null, DEFAULT_OVERLAY_CONFIG)
+    ).not.toThrow();
   });
 });
