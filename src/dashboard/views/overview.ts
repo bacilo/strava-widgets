@@ -12,7 +12,7 @@ import type { DashboardView, ViewMountContext } from '../view.types.js';
 import { ROUTES } from '../view.types.js';
 import type { IndexClient, FetchLike } from '../data/index-client.js';
 import type { DashboardIndexRow } from '../../analytics/dashboard-index.types.js';
-import { renderActivityRow } from './list.js';
+import { renderActivityRow, formatActivityDate } from './list.js';
 
 const RECENT_PR_COUNT = 5;
 const RECENT_ACTIVITY_COUNT = 10;
@@ -30,18 +30,19 @@ interface AllTimeTotals {
   generatedAt: string;
 }
 
-/** Live shape of `data/stats/streaks.json` (streak-utils.ts). */
-interface StreaksStats {
+/** Live shape of `data/stats/streaks.json` — now exported so the tile logic is testable. */
+export interface StreaksStats {
   currentStreak: number;
   longestStreak: number;
   withinCurrentStreak: boolean;
   currentStreakStart: string | null;
+  currentStreakEnd: string | null;
   longestStreakStart: string | null;
   longestStreakEnd: string | null;
   weeklyConsistency: unknown;
 }
 
-function buildStatCard(value: string, label: string): HTMLElement {
+function buildStatCard(value: string, label: string, sublabel?: string): HTMLElement {
   const wrapper = document.createElement('div');
   const valueEl = document.createElement('div');
   valueEl.className = 'text-display';
@@ -51,7 +52,46 @@ function buildStatCard(value: string, label: string): HTMLElement {
   labelEl.textContent = label;
   wrapper.appendChild(valueEl);
   wrapper.appendChild(labelEl);
+
+  if (sublabel) {
+    const subEl = document.createElement('div');
+    subEl.className = 'text-label';
+    subEl.textContent = sublabel;
+    wrapper.appendChild(subEl);
+  }
+
   return wrapper;
+}
+
+/**
+ * `ended {date}` for the Current Streak tile's third line — Overview's half
+ * of FIX-01/D-15. The date named is the streak's LAST RUN DAY
+ * (`currentStreakEnd`, D-13), not when it was computed or observed.
+ *
+ * Read directly from `streaks.json` rather than derived from
+ * `all-time-totals.json`'s `lastActivityDate`: deriving it from a second
+ * file would encode an unstated cross-file invariant (that the two files'
+ * "last activity" always agree) in view code, with no unit boundary to pin
+ * it at — precisely the shape of bug FIX-01 exists to close.
+ *
+ * `fetchStatsJson` casts the response without validating it, so a
+ * `streaks.json` written before plan 21-01's compute run has `undefined` at
+ * `currentStreakEnd` despite the declared type. The `typeof` guard (not a
+ * bare truthiness check) is what makes that D-13 degrade path produce "no
+ * third line" rather than a crash or the literal string `'ended undefined'`.
+ *
+ * Overview and Records (`records-logic.ts`'s `selectCurrentStreak`)
+ * deliberately keep separate local `StreaksStats`/streak interfaces rather
+ * than sharing one import — matching the existing duplication between the
+ * two view modules rather than introducing a new cross-view dependency.
+ */
+export function currentStreakSublabel(streaks: StreaksStats | null): string | undefined {
+  if (!streaks) return undefined;
+  if (streaks.withinCurrentStreak) return undefined;
+  if (typeof streaks.currentStreakEnd === 'string' && streaks.currentStreakEnd.length > 0) {
+    return `ended ${formatActivityDate(streaks.currentStreakEnd)}`;
+  }
+  return undefined;
 }
 
 /**
@@ -91,7 +131,13 @@ function buildHeadlineStatsCard(totals: AllTimeTotals | null, streaks: StreaksSt
   grid.appendChild(
     buildStatCard(totals ? `${Math.round(totals.totalElevation)} m` : '—', 'Total Elevation')
   );
-  grid.appendChild(buildStatCard(streaks ? `${streaks.currentStreak} days` : '—', 'Current Streak'));
+  grid.appendChild(
+    buildStatCard(
+      streaks ? `${streaks.currentStreak} days` : '—',
+      'Current Streak',
+      currentStreakSublabel(streaks)
+    )
+  );
   grid.appendChild(buildStatCard(streaks ? `${streaks.longestStreak} days` : '—', 'Longest Streak'));
   section.appendChild(grid);
 
