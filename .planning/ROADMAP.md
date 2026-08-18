@@ -305,7 +305,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 22-01-PLAN.md — generalize `buildMonthGrid` to a required `weekStart`, derive per-week totals, re-pin every Sunday expectation explicitly
+- [x] 22-01-PLAN.md — generalize `buildMonthGrid` to a required `weekStart`, derive per-week totals, re-pin every Sunday expectation explicitly
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -401,7 +401,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 19. Design System & Control Styling | v2.1 | 17/17 | Complete    | 2026-08-13 |
 | 20. Row-Click Interaction Pattern | v2.1 | 20/20 | Complete    | 2026-08-18 |
 | 21. Overview Rebuild | v2.1 | 8/8 | Complete    | 2026-08-18 |
-| 22. Calendar Week-Start & Totals | v2.1 | 0/TBD | Not started | - |
+| 22. Calendar Week-Start & Totals | v2.1 | 1/5 | In Progress|  |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 0/TBD | Not started | - |
 | 24. Local Curation Mode | v2.1 | 0/TBD | Not started | - |
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 0/TBD | Not started | - |
