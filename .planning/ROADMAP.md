@@ -300,7 +300,7 @@ Plans:
   4. The week-start control and any other Calendar inputs use the shared styling from Phase 19 (UI-01/UI-02).
   5. **Human checkpoint**: served under `/strava-widgets` in a real browser, toggle week start, confirm the grid re-flows, week totals recompute correctly for a week that straddles the old/new start boundary, and the setting survives a reload.
 
-**Plans**: 8 plans in 8 waves (plans 22-01..22-05 shipped the phase; 22-06..22-08 are the gap-closure round for the two gaps `22-VERIFICATION.md` found. All sequential — 22-02 imports the `WeekStart` union 22-01 exports, and 22-03/22-04 both write `src/dashboard/views/calendar.ts`). The phase is deliberately split at the riskiest seam: 22-03 restructures the render loop, and 22-04 adds the toggle handler on its own so D-04's no-focus-theft contract gets its own review and its own source guard (Phase 20 shipped two focus-theft regressions of exactly that shape). Criterion 5 is discharged by 22-05's eleven-row checkpoint, served from `127.0.0.1` under `/strava-widgets` against ORGANIC archive data — no fixture is needed or permitted, because October 2025 holds exactly one Sunday-dated run and is a natural single-variable discriminator (`22-RESEARCH.md` § D-16).
+**Plans**: 12 plans in 11 waves (plans 22-01..22-05 shipped the phase; 22-06..22-08 were gap-closure Round 2; 22-09..22-12 are gap-closure Round 3, opened because `22-VERIFICATION.md` re-verified at 4/7 with the ~380px overflow still open after two developer-observed FAILs (R11, R13) and with a new Critical finding, BL-03, that the CR-01 fix's own documentation overclaimed what it closed. Waves 1-8 were all sequential — 22-02 imports the `WeekStart` union 22-01 exports, and 22-03/22-04 both write `src/dashboard/views/calendar.ts`; Round 3's wave 9 runs 22-09 and 22-10 in parallel because their file sets are disjoint). The phase is deliberately split at the riskiest seam: 22-03 restructures the render loop, and 22-04 adds the toggle handler on its own so D-04's no-focus-theft contract gets its own review and its own source guard (Phase 20 shipped two focus-theft regressions of exactly that shape). Criterion 5 is discharged by 22-05's eleven-row checkpoint, served from `127.0.0.1` under `/strava-widgets` against ORGANIC archive data — no fixture is needed or permitted, because October 2025 holds exactly one Sunday-dated run and is a natural single-variable discriminator (`22-RESEARCH.md` § D-16).
 
 Plans:
 **Wave 1**
@@ -333,7 +333,20 @@ Plans:
 
 **Wave 8** *(blocked on Waves 6 and 7 — the checkpoint must observe the fixed build)*
 
-- [ ] 22-08-PLAN.md — the blocking Round 2 browser checkpoint (rows R12..R17), re-asking the ~380px question R11 failed and observing the blocked-storage path in a real browser
+- [x] 22-08-PLAN.md — the blocking Round 2 browser checkpoint (rows R12..R17), re-asking the ~380px question R11 failed and observing the blocked-storage path in a real browser
+
+**Wave 9** *(gap closure Round 3 — blocked on Wave 8's re-verification result; 22-09 and 22-10 touch disjoint files and run in parallel)*
+
+- [ ] 22-09-PLAN.md — close Gap 1 properly: land BL-01 (cap the Total track so it participates in the 380px squeeze) and BL-02 (collapse the day cell's inner 3-column grid to a single-column stack) TOGETHER, add the two `overflow-wrap: anywhere` floors, and invert `styles.test.ts:1858`'s assertion that locked the failing shape in place
+- [ ] 22-10-PLAN.md — open Gap 2's app-wide fix (BL-03, locked user decision): create the shared `resolveStorage()` in `src/dashboard/storage.ts`, reconcile `resolveWeekStartStorage` with it, close WR-01 and WR-02, and correct the two overclaiming source comments
+
+**Wave 10** *(blocked on Wave 9 — imports the module 22-10 creates)*
+
+- [ ] 22-11-PLAN.md — wire the app-wide guard: `main.ts:19`, `nav.ts:186`, `nav.ts:206`, `theme.ts:93`, `theme.ts:130`, `detail-charts.ts:218`, plus a repo-wide test proving `storage.ts` is the only storage-global dereference site
+
+**Wave 11** *(blocked on Waves 9 and 10 — the checkpoint must observe the fixed build)*
+
+- [ ] 22-12-PLAN.md — the blocking Round 3 browser checkpoint (rows R18..R23): the third narrow-viewport re-ask at a stated width, and the mandatory, non-waivable blocked-site-data row declined in Round 2
 
 **UI hint**: yes
 
