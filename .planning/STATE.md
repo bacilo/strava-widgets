@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
-status: executing
-stopped_at: "Completed 20-11-PLAN.md (Round 3 checkpoint recorded, status: partial)"
-last_updated: "2026-08-17T20:27:00.353Z"
-last_activity: 2026-08-17 -- Phase 20 execution started
+status: "Round 4 checkpoint recorded (20-VALIDATION.md, `status: blocked`, `nyquist_compliant: false`)."
+stopped_at: "Completed 20-18-PLAN.md (Round 4 checkpoint recorded, status: blocked, GAP 12 found)"
+last_updated: "2026-08-18T04:27:20.075Z"
+last_activity: 2026-08-18
 progress:
   total_phases: 7
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 35
-  completed_plans: 28
-  percent: 14
+  completed_plans: 35
+  percent: 29
 ---
 
 # Project State
@@ -25,20 +25,23 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 
 ## Current Position
 
-Phase: 20 (row-click-interaction-pattern) — EXECUTING
-Plan: 1 of 18
-Status: Executing Phase 20
-        1/4 must-haves, status: gaps_found — round 4 required.
-        Blockers: NEW CRITICAL — notedActivityId leaks past mount()'s zero-match /
-        load-error / stale-container branches (list.ts:1112-1131), stealing focus on an
-        unrelated navigation; and R18/R19 — modified clicks on the five anchor-less
-        Records PR cells no longer hijack the tab but open no tab/window either.
-        Historical blockers (both CLOSED): CR-01 (mobile focus restoration dead, list.ts:963) and CR-02 (status badges
-        dropped from accessible name, list.ts:241 + overview.ts:108-112).
-        Criterion 4 checkpoint evidence insufficient (20-VALIDATION.md: partial,
-        nyquist_compliant: false — blanket approval, no theme coverage stated).
-        Next: /gsd-plan-phase 20 --gaps
-Last activity: 2026-08-17 -- Phase 20 execution started
+Phase: 20 (row-click-interaction-pattern) — BLOCKED (all 18 plans executed; gate not closed)
+Plan: 18 of 18 (complete)
+Status: Round 4 checkpoint recorded (20-VALIDATION.md, `status: blocked`, `nyquist_compliant: false`).
+        8/12 rows PASS, 1 BLOCKED (R25), 1 NOT EXERCISABLE (R28), 2 FAIL (R31, R32).
+        R18/R19's original expectation is CLOSED (R23/R24 PASS: a genuine background tab
+        opens on a modified click on both Records tables) and the notedActivityId focus-leak
+        regression is exercised and confirmed fixed (R22 PASS).
+        NEW BLOCKER (GAP 12): D-13's real Records-cell anchors (plan 20-17) defeat both
+        D-12's drag-select guarantee (R31 FAIL — a drag now starts a native link-drag ghost)
+        and D-14's double-click refusal (R32 FAIL — a double-click still navigates away),
+        because both guards live in the row-level click listener, not on the anchors the
+        browser now handles natively. Recorded verbatim and left unpatched.
+        UX-02 CLOSED this round (badge-fixture gap resolved). UX-01 and UX-03 remain open.
+        Next: /gsd-plan-phase 20 --gaps (Round 5 must reconcile D-13 with D-12/D-14; also
+        needs a developer's-eyes re-test for R25's new-window half and R28's unanswered
+        disposition question).
+Last activity: 2026-08-18
 
 Progress: [██████████] 100%
 
@@ -65,6 +68,7 @@ Progress: [██████████] 100%
 | Phase 19 P17 | ~25min (continuation) | 3 tasks | 3 files |
 | Phase 20 P05 | ~9min | 1 tasks | 1 files |
 | Phase 20 P11 | multi-session | 2 tasks | 3 files |
+| Phase 20 P18 | 25min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -93,6 +97,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 20]: 20-05 human checkpoint closed with all twelve rows PASS on the developer's own words (rows 1-11 as one blanket approval, row 12 individually confirmed after clarification), but nyquist_compliant stays false and status is partial - seven theme-sensitive rows (1-4, 7, 9, 10) have no stated theme coverage, an evidence gap rather than a defect. No requirement ticked in REQUIREMENTS.md this session (plan's own files_modified scope names only 20-VALIDATION.md); the actionable follow-up is confirming theme coverage, not a code fix.
 - [Phase 20]: Round 3 checkpoint recorded with a four-state verdict vocabulary (PASS/FAIL/BLOCKED/NOT EXERCISABLE) distinguishing dataset-coverage gaps and hardware limits from actual defects; R18/R19 FAIL recorded verbatim against D-12's stated expectation and left unpatched
 - [Phase 20]: UX-02 stays open despite three of its four mapped rows passing cleanly, because R2 is BLOCKED (no badge-carrying row exists in the current Overview Recent Activities dataset) and every mapped row must pass before a requirement is ticked
+- [Phase 20]: GAP 12: D-13 real cell anchors defeat D-12 drag-select and D-14 double-click guards on Records PR-table cells; recorded FAIL, unpatched, Round 5 must reconcile
 
 ### Key Findings
 
@@ -160,8 +165,8 @@ Items acknowledged and deferred at the v2.0 milestone close on 2026-08-12.
 
 ## Session Continuity
 
-Last session: 2026-08-17T19:20:50.960Z
-Stopped at: Completed 20-11-PLAN.md (Round 3 checkpoint recorded, status: partial)
+Last session: 2026-08-18T04:25:39.399Z
+Stopped at: Completed 20-18-PLAN.md (Round 4 checkpoint recorded, status: blocked, GAP 12 found)
 Resume file: None
 
 ---
