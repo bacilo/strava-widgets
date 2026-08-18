@@ -328,7 +328,7 @@ function renderGrid(
   }
 
   const totalHeaderEl = document.createElement('div');
-  totalHeaderEl.className = 'calendar-weekday';
+  totalHeaderEl.className = 'calendar-weekday calendar-weekday--total';
   totalHeaderEl.textContent = 'Total';
   children.push(totalHeaderEl);
 

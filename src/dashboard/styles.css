@@ -752,6 +752,15 @@ body {
   text-align: center;
 }
 
+/* IN-05: the "Total" header sits above .calendar-week-total's
+   `justify-items: end` column, so the shared .calendar-weekday
+   `text-align: center` leaves the label off-centre from the values it
+   names in any `auto` track wider than the word "Total". Applied
+   ALONGSIDE .calendar-weekday, never instead of it. */
+.calendar-weekday--total {
+  text-align: right;
+}
+
 .calendar-day {
   display: grid;
   min-width: 32px;
