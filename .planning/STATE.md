@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
-status: executing
-stopped_at: "Completed 20-20-PLAN.md (Round 5 checkpoint recorded, status: passed, GAP 12 and GAP 11 both closed, UX-01/UX-03 complete)"
-last_updated: "2026-08-18T06:25:24.190Z"
+status: ready_to_plan
+stopped_at: Phase 20 complete (20/20) — ready to discuss Phase 21
+last_updated: 2026-08-18T06:47:41.775Z
 last_activity: 2026-08-18
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 37
-  completed_plans: 36
+  completed_plans: 93
   percent: 14
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 20 — row-click-interaction-pattern
+**Current focus:** Phase 21 — overview rebuild
 
 ## Current Position
 
-Phase: 20 (row-click-interaction-pattern) — COMPLETE (20/20 plans, gate closed)
-Plan: 20 of 20
-Status: Phase 20 gate closed — success criterion 4 discharged
+Phase: 21
+Plan: Not started
+Status: Ready to plan
         Round 5 checkpoint (plan 20-20) recorded a clean sweep: all ten rows (R34-R43) PASS,
         against bundle assets/index-F1PDLvBt.js. GAP 12 CLOSED (R34 drag-select PASS; R35
         double-click PASS on the developer's explicit accepted-behaviour disposition — a
