@@ -1,6 +1,6 @@
 ---
 phase: 22-calendar-week-start-totals
-reviewed: 2026-08-18T13:43:45Z
+reviewed: 2026-08-18T19:23:08Z
 depth: standard
 files_reviewed: 8
 files_reviewed_list:
@@ -13,621 +13,534 @@ files_reviewed_list:
   - src/dashboard/views/calendar.test.ts
   - src/dashboard/views/calendar.ts
 findings:
-  critical: 1
-  warning: 6
-  info: 13
-  total: 20
+  critical: 3
+  warning: 11
+  info: 0
+  total: 14
 status: issues_found
 ---
 
-# Phase 22: Code Review Report
+# Phase 22: Code Review Report (re-review after gap-closure round 22-06..22-08)
 
-**Reviewed:** 2026-08-18T13:43:45Z
+**Reviewed:** 2026-08-18T19:23:08Z
 **Depth:** standard
 **Files Reviewed:** 8
 **Status:** issues_found
 
 ## Summary
 
-Phase 22 adds a Sunday/Monday week-start toggle and per-week total cells to the
-Calendar view. The data-derivation change (`buildMonthGrid`'s `weekStart`
-parameter, `DayCell.totalTimeSec`, `MonthGrid.weekTotals`) is correct on every
-path I traced, `npx tsc --noEmit` is clean, and all 215 tests in the four
-reviewed test files pass. The `.sr-only` + `aria-hidden` construction in
-`buildWeekTotalCell` is correct, every string reaches the DOM through
-`textContent`, and `calendar-preferences.ts` genuinely honours D-07 (no repair,
-no write-back) and T-22-WK-01 (exact allow-list).
+Two of the three gap-closure claims hold up under inspection; one does not, and the
+known-open R13 rendering defect has a demonstrable cause in the CSS.
 
-Three real problems survive that scrutiny, two of them proven by execution
-rather than reading:
+- **WR-01 (`weekStartOffset`) is genuinely fixed.** `calendar-logic.ts:182-184` is total
+  for any input, `leadingPaddingFor` is its only consumer, and
+  `calendar-logic.test.ts:328-351` covers both the `'MONDAY' as never` and
+  `undefined as never` paths with deep-equality against the real Monday grid. No defect
+  found here.
+- **CR-01 (`resolveWeekStartStorage`) is locally sound but does not deliver the claimed
+  outcome.** The try/catch around the property getter is correctly placed
+  (`calendar-preferences.ts:57-64`) and `calendar.ts:433` is the only call site — but in
+  the exact browser configuration the fix targets, `src/dashboard/main.ts:19` throws
+  during module evaluation and the calendar view never mounts. See BL-03. The
+  production branch of the new function is also completely untested (WR-01 below).
+- **22-06's 380px compaction did not fix R13 and cannot fix it.** The CSS supports the
+  working hypothesis and adds a second, larger cause the hypothesis does not name. See
+  BL-01 and BL-02 — these two are the direct input to the next gap-closure round.
 
-1. **`globalThis.localStorage` is dereferenced outside any `try`** at
-   `calendar.ts:424`. In a browser configuration where site data is blocked
-   (Firefox "block cookies and site data", Chrome blocked-origin, cross-origin
-   iframe), the property *getter itself* throws `SecurityError` before
-   `readStoredWeekStart`'s guard is ever entered. `calendar-preferences.ts`'s
-   own header claims T-22-WK-02 covers exactly this case ("disabled cookies").
-   It does not; the whole Calendar view collapses into `main.ts`'s generic
-   "Something went wrong" panel.
-2. **`buildMonthGrid` throws `RangeError: Invalid array length`** for any
-   `weekStart` outside the union, contradicting its JSDoc's "Total function:
-   never throws" and T-22-WK-01's "can never reach the grid math". Proven by
-   execution against the real module (stack: `calendar-logic.ts:219`).
-3. **The Phase 22 CSS test block ships the exact false-green class
-   `styles.test.ts` documents at length.** The block asserts
-   `.calendar-week-total__distance` declares `font-size: 20px` through
-   `bodyForSelectorListToken`, which is structurally blind to at-rule
-   overrides, and the *same phase* added a `@media (max-width: 380px)` rule
-   overriding it to `14px`. No `assertNoAtRuleOverride` pairing was added,
-   unlike Phase 21's block. Proven by execution: calling
-   `assertNoAtRuleOverride('.calendar-week-total__distance', 'font-size')`
-   against the shipped stylesheet throws.
-
-Also of note: `calendar.test.ts`'s exact-count source guards ("exactly two
-`.focus()` call sites", "exactly two `tabindex` writes") have already visibly
-distorted the source they guard — `buildWeekTotalCell`'s JSDoc says
-"focus-index attribute" to avoid writing `tabindex`, and `setWeekStart`'s
-comment says "the active element stays on that button" to avoid writing
-`focus`. They also block the fix for a real pre-existing focus-loss defect in
-the day picker's Close button.
-
-Explicitly **not** reported, per the phase's known-and-accepted list: the
-357.2/357.3 km per-row `toFixed(1)` rounding artifact, the Monday-fixed
-Trends/Records/streak surfaces (D-15), and the tracked ~380px day-cell overflow
-gap (IN-05 comments on the *shape* of the compaction, not the gap itself).
-
-_No `<structural_findings>` pre-pass was supplied with this review; all findings
-below are narrative._
-
-## Narrative Findings (AI reviewer)
+Beyond that, the test substrate added for 22-06 asserts only that a media override
+*exists*, never what it says, so the compaction's actual values are unguarded.
 
 ## Critical Issues
 
-### CR-01: `globalThis.localStorage` dereferenced outside the storage guard — Calendar dies with site data blocked
+### BL-01: The 380px compaction released the day columns' floor while leaving the Total track's floor intact — this is the R13 cause
 
-**File:** `src/dashboard/views/calendar.ts:424`
-**Issue:**
+**File:** `src/dashboard/styles.css:741-745`, `:764-778`, `:825-833`, `:878-902`
 
-```ts
-const storage = deps.storage ?? globalThis.localStorage;
-let weekStart = readStoredWeekStart(storage);
+**Issue:** The developer's R13 observation ("Total column remains wide … other columns
+become narrow and distance text overflows") is exactly what these four declarations
+produce together. The grid is:
+
+```css
+.calendar-grid {
+  grid-template-columns: repeat(7, 1fr) auto;   /* styles.css:743 */
+  gap: var(--space-xs);                          /* 4px, 7 gaps = 28px */
+}
 ```
 
-`readStoredWeekStart` and `writeWeekStart` both wrap `getItem`/`setItem` in
-`try/catch`, and `calendar-preferences.ts:15-18` claims that discipline covers
-"Safari private mode, disabled cookies, quota exceeded" (T-22-WK-02). But the
-*property access* `globalThis.localStorage` is the throwing operation in the
-"disabled cookies" case — Firefox with "Block cookies and site data", Chrome
-with site data blocked for the origin, and any cross-origin iframe with storage
-partitioning all throw `SecurityError` from the getter, before
-`readStoredWeekStart` is called. Line 424 is not inside any `try`.
+`repeat(7, 1fr)` is `minmax(auto, 1fr)`. The `auto` minimum of a grid track is the
+item's *automatic minimum size*, which resolves to the item's specified `min-width`
+whenever that is not `auto`. 22-06 added:
 
-The throw lands in the middle of `mount()`, **after** `ctx.container.replaceChildren()`
-at line 404 has already emptied the container, so it propagates to `main.ts:53-77`
-and the entire Calendar route renders the generic "Something went wrong" panel.
-Every non-storage feature of the view (grid, totals, month nav, picker) is lost
-because an optional cosmetic preference could not be read.
+```css
+@media (max-width: 380px) {
+  .calendar-day { min-width: 0; }              /* styles.css:884-886 */
+}
+```
 
-`theme.ts:91` has the same unguarded shape (`options.storage ?? localStorage`),
-so this is a repeated pattern rather than a novel one — but this phase newly
-documented a threat mitigation the code does not deliver, and the calendar's
-blast radius is a whole view rather than a colour attribute.
+so all seven day tracks now floor at **0** and can be squeezed arbitrarily.
 
-**Fix:** resolve the storage handle defensively and let the (already total)
-preference functions absorb a missing handle:
+The 8th track is `auto`, and its item declares:
+
+```css
+.calendar-week-total {
+  white-space: nowrap;                          /* styles.css:832 */
+  /* no min-width; not overridden at 380px */
+}
+```
+
+With `white-space: nowrap`, `.calendar-week-total`'s min-content width equals its
+max-content width (the full `"123.4 km"` / `"10h 14m"` line). The 380px block overrides
+only its `padding` (`:880-882`) and its three font sizes (`:891-901`) — it never sets
+`min-width: 0`, never relaxes `white-space`, and never re-declares
+`grid-template-columns` (styles.test.ts:1858 explicitly asserts the 8-track shape is
+*not* overridden at any breakpoint).
+
+Net result: the Total track keeps a hard content-based floor, the seven day tracks have
+none, so 100% of the width shortfall at 380px is absorbed by the day columns. 22-06 did
+not reduce the overflow — it *relocated* it, from the page (Round 1 / R11: the grid was
+wider than the viewport) into the day cells (Round 2 / R13: the grid fits, the cells do
+not). The hypothesis in the task brief is correct, and the CSS supports it in the exact
+terms stated.
+
+**Fix:** constrain the Total track and let it participate in the squeeze, instead of
+leaving it as the only unyielding track:
+
+```css
+@media (max-width: 380px) {
+  .calendar-grid {
+    /* Cap the 8th track so it can no longer win the whole negotiation. */
+    grid-template-columns: repeat(7, minmax(0, 1fr)) minmax(0, max-content);
+  }
+
+  .calendar-week-total {
+    min-width: 0;
+    white-space: normal;   /* "10h 14m" may wrap at this width */
+  }
+}
+```
+
+Note this change requires editing `styles.test.ts:1855-1860`, which currently asserts
+`assertNoAtRuleOverride('.calendar-grid', 'grid-template-columns')` does **not** throw.
+That assertion is what locks the current, failing shape in place.
+
+### BL-02: `.calendar-day`'s inner 3-column grid gives the distance value one third of an already-collapsed cell — the dominant overflow amplifier, untouched by 22-06
+
+**File:** `src/dashboard/styles.css:764-778`, `:799-805`, `:888-890`
+
+**Issue:** Fixing BL-01 alone will not clear R13. Each day cell is itself a 3-column
+grid with the distance pinned to the **middle** column:
+
+```css
+.calendar-day {
+  display: grid;
+  grid-template-areas:
+    "number . ."
+    ". distance ."
+    ". . count";
+  grid-template-columns: 1fr 1fr 1fr;           /* styles.css:773-777 */
+}
+
+.calendar-day__distance {
+  grid-area: distance;
+  justify-self: center;                          /* styles.css:804 */
+}
+```
+
+The 380px block touches only `font-size` on this element (`:888-890`); the inner
+`grid-template-columns` is never compacted. So the string `"12.3 km"` is laid out in a
+track roughly `(day-track-width − 10px) / 3` wide. The inner tracks are themselves
+`minmax(auto, 1fr)` with `min-width: auto` items, so the inner grid's min-content width
+is the *sum* of the three spans' min-contents — which now exceeds the day cell's own
+content box (whose floor 22-06 just set to 0). `justify-self: center` then centers the
+overflowing span, so it spills symmetrically past both cell borders. That is precisely
+"distance text overflows".
+
+This is a separate cause from BL-01 with a separate fix. Capping the Total track
+(BL-01) returns roughly 30-60px to the seven day columns collectively — the distance
+value only sees a third of its column's share of that.
+
+**Fix:** collapse the day cell to a single-column stack at the narrow breakpoint, so the
+distance gets the full cell width:
+
+```css
+@media (max-width: 380px) {
+  .calendar-day {
+    min-width: 0;
+    grid-template-areas:
+      "number"
+      "distance"
+      "count";
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-day__number,
+  .calendar-day__distance,
+  .calendar-day__count {
+    justify-self: start;
+  }
+}
+```
+
+Both BL-01 and BL-02 should land in the same round; verifying either in isolation will
+produce another ambiguous R13-style result.
+
+### BL-03: The CR-01 storage fix is unreachable in the browser configuration it was written for, and the source comments assert the opposite
+
+**File:** `src/dashboard/views/calendar-preferences.ts:20-31`, `src/dashboard/views/calendar.ts:424-433`
+
+**Issue:** `resolveWeekStartStorage` is correctly implemented — the getter access is
+inside the `try`, `?? null` covers the "returns null" browsers, and the override path
+short-circuits before any global is touched. But its stated threat model is not closed
+end to end.
+
+`calendar-preferences.ts:22-26` claims the fix covers "a browser configuration where
+site data is blocked (Firefox 'Block cookies and site data', Chrome blocked-origin
+storage, a storage-partitioned iframe)". In that configuration, `src/dashboard/main.ts`
+line 19 executes at **module scope**, before any router or view code runs:
 
 ```ts
-// calendar-preferences.ts
-export function resolveWeekStartStorage(
-  override?: WeekStartStorage
-): WeekStartStorage | null {
+applyThemeMode(readStoredMode(localStorage));   // main.ts:19 — bare global reference
+```
+
+The bare `localStorage` identifier is the same throwing property getter. It is not
+inside a `try`, and it is a top-level statement, so the entire dashboard module graph
+fails to evaluate and the page renders blank. `theme.ts:93`, `theme.ts:130` and
+`detail-charts.ts:218` have the identical unguarded shape (`options.storage ?? localStorage`
+— the `??` right operand is still a getter read).
+
+The rationale comment at `calendar.ts:429-432` is therefore factually wrong about the
+failure mode it claims to prevent:
+
+> "doing that unguarded here would take the whole view down through `main.ts`'s generic
+> error panel for the sake of an optional cosmetic preference."
+
+There is no reachable "generic error panel" in this scenario — `main.ts` dies during
+module evaluation, before `onMatch` or any view exists. A future maintainer reading
+`calendar-preferences.ts`'s header will reasonably conclude blocked-site-data is a
+handled case for the dashboard. It is not.
+
+**Fix:** pick one and make the source tell the truth. Either extend the guard:
+
+```ts
+// src/dashboard/storage.ts (new, shared)
+export function resolveStorage(override?: WebStorage): WebStorage | null {
   if (override) return override;
-  try {
-    // The GETTER throws (SecurityError) when site data is blocked — not just
-    // getItem/setItem. T-22-WK-02 is only covered if this access is guarded.
-    return globalThis.localStorage ?? null;
-  } catch {
-    return null;
-  }
+  try { return globalThis.localStorage ?? null; } catch { return null; }
 }
-
-export function readStoredWeekStart(storage: WeekStartStorage | null): WeekStart {
-  if (!storage) return 'monday';
-  try {
-    return parseWeekStart(storage.getItem(WEEK_START_STORAGE_KEY));
-  } catch {
-    return 'monday';
-  }
-}
-
-export function writeWeekStart(storage: WeekStartStorage | null, value: WeekStart): void {
-  if (!storage) return;
-  try {
-    storage.setItem(WEEK_START_STORAGE_KEY, value);
-  } catch {
-    // Swallow storage write failures — the grid is already rebuilt in memory.
-  }
-}
+// main.ts:19
+applyThemeMode(readStoredMode(resolveStorage()));
 ```
 
-```ts
-// calendar.ts:424
-const storage = resolveWeekStartStorage(deps.storage);
-```
+(`readStoredMode`/`applyThemeMode`/`watchSystemTheme` already accept an injected
+storage, so the change is small and the theme module already tolerates a throwing
+`getItem`/`setItem`.)
 
-Add a `calendar-preferences.test.ts` case with a getter-throwing stand-in to
-lock the behaviour in (`Object.defineProperty(fake, 'storage', { get() { throw new Error('SecurityError'); } })`).
+Or, if that is deliberately out of Phase 22's scope, amend
+`calendar-preferences.ts:20-31` and `calendar.ts:426-432` to say so explicitly — that
+the calendar's own read is guarded but the dashboard bootstrap is not, so the
+blocked-site-data threat remains open at the app level. Do not leave the current text,
+which reads as a closure claim.
 
 ## Warnings
 
-### WR-01: `buildMonthGrid` throws `RangeError` for an off-union `weekStart` — contradicts its documented totality
+### WR-01: `resolveWeekStartStorage`'s production branch is untested — mutating it to `return null` leaves the whole suite green
 
-**File:** `src/dashboard/views/calendar-logic.ts:106, 174-176, 214-219`
-**Issue:** `WEEK_START_OFFSET[weekStart]` returns `undefined` for anything
-outside `'sunday' | 'monday'`. That propagates as `NaN` through
-`leadingPaddingFor` → `padding` → `cellCount` → `Math.ceil(NaN)` →
-`Math.max(4, NaN) === NaN` → `totalSlots === NaN` → `new Array(NaN)`, which
-throws.
+**File:** `src/dashboard/views/calendar-preferences.test.ts:133-191`
 
-Executed against the shipped module:
+**Issue:** The five cases cover: override identity; override with a throwing getter;
+throwing getter → `null`; global absent → `null`; and a resolve-then-read cycle under a
+throwing getter. There is no case where `globalThis.localStorage` is present and
+working. Replacing line 60 with `return null;` therefore passes every test in this
+file, in `calendar.test.ts`, and in `styles.test.ts` — while silently disabling
+week-start persistence for every real user. Given this is the one function the
+gap-closure round exists to add, the missing case is the one that matters.
 
-```
-RESULT: RangeError: Invalid array length
-    at buildMonthGrid (src/dashboard/views/calendar-logic.ts:219:41)
-```
-
-This directly contradicts three claims in the same file: the JSDoc's "Total
-function: never throws" (line 185), the D-08 "injected by the caller"
-framing, and `calendar-preferences.ts:11-13`'s "a tampered or unrecognised
-stored value can never reach the grid math" (T-22-WK-01). The *only* thing
-standing between a tampered `localStorage` value and this throw is
-`parseWeekStart` plus TypeScript's compile-time union — there is no runtime
-defence in the module that advertises itself as total. `buildMonthGrid` is an
-exported, deliberately DOM-free, "reusable and total" function; a future second
-caller that does not route through `parseWeekStart` turns this into a crash.
-
-**Fix:** make the offset lookup total, matching the module's stated contract:
-
-```ts
-function weekStartOffset(weekStart: WeekStart): number {
-  // Total: an off-union value (only reachable by bypassing parseWeekStart or
-  // TypeScript) falls back to the D-03 default rather than producing NaN and
-  // a RangeError from `new Array(NaN)` below.
-  return weekStart === 'sunday' ? 0 : 1;
-}
-
-function leadingPaddingFor(m: CalendarMonth, weekStart: WeekStart): number {
-  return (firstWeekdayOfMonth(m) - weekStartOffset(weekStart) + 7) % 7;
-}
-```
-
-Add the regression test:
-
-```ts
-it('an off-union weekStart does not throw (T-22-WK-01 defence in depth)', () => {
-  expect(() => buildMonthGrid([], { year: 2024, month: 3 }, 'MONDAY' as never)).not.toThrow();
-});
-```
-
-### WR-02: Phase 22 CSS assertions are false-green — no `assertNoAtRuleOverride` pairing, and the phase itself added the overriding `@media`
-
-**File:** `src/dashboard/styles.test.ts:1751-1817`, `src/dashboard/styles.css:826-863`
-**Issue:** `styles.test.ts` documents at length (lines 298-307, 411-426,
-446-468, 939-949) that `bodyForSelectorListToken` /
-`bodiesForSelectorListToken` / `cascadeWinningBodyDeclaring` **skip every
-at-rule-scoped rule by construction**, and that "a guard that needs that claim
-to be true must pair with `assertNoAtRuleOverride`". Phase 21's block
-(line 1748) does exactly that. The Phase 22 block adds **zero**
-`assertNoAtRuleOverride` calls.
-
-That is not theoretical here — the phase created the override itself:
-
-```css
-.calendar-week-total__distance { font-size: 20px; ... }   /* styles.css:826 */
-@media (max-width: 380px) {
-  .calendar-week-total__distance { font-size: 14px; ... } /* styles.css:858 */
-}
-```
-
-Executed against the shipped stylesheet:
-
-```
-assertNoAtRuleOverride('.calendar-week-total__distance', 'font-size')
-→ Error: An at-rule-scoped rule (head: ".calendar-week-total__distance")
-  redeclares "font-size" for ".calendar-week-total__distance" — this override
-  is invisible to cascadeWinningBodyDeclaring, bodyForSelectorListToken and
-  bodiesForSelectorListToken ...
-```
-
-So `it('.calendar-week-total__distance declares font-size: 20px ...')` is green
-while the browser renders `14px` at every viewport ≤380px — the precise defect
-class the file's own 200-line helper audit exists to prevent.
-
-**Fix:** pair every positive Phase 22 assertion with the companion guard, and
-where a deliberate override exists, assert the override instead of pretending
-it isn't there:
-
-```ts
-it('D-10: .calendar-grid declares grid-template-columns: repeat(7, 1fr) auto', () => {
-  expect(bodyForSelectorListToken('.calendar-grid')).toContain(
-    'grid-template-columns: repeat(7, 1fr) auto',
-  );
-  assertNoAtRuleOverride('.calendar-grid', 'grid-template-columns');
-});
-
-it('.calendar-week-total__distance is 20px at the default breakpoint', () => {
-  expect(bodyForSelectorListToken('.calendar-week-total__distance'))
-    .toContain('font-size: 20px');
-  // DELIBERATE override, DISC-6b: assert it exists rather than assuming none.
-  expect(() =>
-    assertNoAtRuleOverride('.calendar-week-total__distance', 'font-size'),
-  ).toThrow(/redeclares "font-size"/);
-});
-```
-
-Apply the same pairing to `.calendar-week-total`'s `white-space` and
-`.calendar-week-total__time`'s `font-size`/`color` assertions.
-
-### WR-03: the new `@media` block's first rule is structurally unguardable by every helper in `styles.test.ts`
-
-**File:** `src/dashboard/styles.css:852-856`
-**Issue:** `RULE_SCANNER()`'s body class (`[^}]*`) permits an unmatched `{`, so
-an `@media` prelude swallows the **first** nested rule into its pseudo-body —
-a limitation `styles.test.ts:841-853` documents explicitly ("swallows the first
-nested rule into its 'body' — seven pseudo-rules come out this way"). The new
-block puts `.calendar-day, .calendar-week-total { padding: var(--space-xs) }`
-first, so it is invisible to *both* halves of the guard machinery.
-
-Executed proof: `assertNoAtRuleOverride('.calendar-week-total', 'padding')`
-returns **cleanly** against the real stylesheet, even though the override
-demonstrably exists three lines below the assertion's own selector. Any future
-guard on `.calendar-week-total`'s or `.calendar-day`'s padding is therefore
-unprovable — a silent hole, not a loud failure.
-
-**Fix (either):**
-1. Reorder so a rule nobody guards is first in the block:
-   ```css
-   @media (max-width: 380px) {
-     /* First nested rule is swallowed by styles.test.ts's RULE_SCANNER
-        pseudo-rule (see that file's at-rule audit) — keep the guarded
-        padding rule out of position 1. */
-     .calendar-week-total__distance { font-size: 14px; font-weight: 600; line-height: 1.5; }
-     .calendar-day,
-     .calendar-week-total { padding: var(--space-xs); }
-   }
-   ```
-2. Or add the padding claim to the esbuild parse-level block
-   (`styles.css — Phase 19 radius tokens (parse level)`), which uses a real CSS
-   parser and does not share the regex substrate's blind spot.
-
-### WR-04: exact-count source guards in `calendar.test.ts` cement a real defect and are already distorting the source's documentation
-
-**File:** `src/dashboard/views/calendar.test.ts:280-284, 311-314`
-**Issue:** Two guards count *whole-file substring occurrences*, comments
-included:
-
-```ts
-const focusMatches = calendarSource.match(/\.focus\(\)/g) ?? [];
-expect(focusMatches).toHaveLength(2);
-
-const tabindexMatches = calendarSource.match(/tabindex/g) ?? [];
-expect(tabindexMatches).toHaveLength(2);
-```
-
-Three concrete problems:
-
-1. **They lock in a real focus-management defect.** `renderPicker`'s Close
-   button (`calendar.ts:156-158`) removes itself from the DOM
-   (`pickerHost.replaceChildren()`), dropping focus to `<body>` — a WCAG 2.4.3
-   focus-order failure. The correct fix is to restore focus to the originating
-   day button, which requires a third `.focus()` call site and fails this
-   assertion. A guard that fails when a bug is fixed is worse than no guard.
-2. **They have already warped the source's documentation.**
-   `buildWeekTotalCell`'s JSDoc (`calendar.ts:248`) writes "never given a
-   focus-index attribute" instead of the accurate word `tabindex`, and
-   `setWeekStart`'s comment (`calendar.ts:548-549`) writes "the active element
-   stays on that button" instead of "focus stays". Both circumlocutions exist
-   only to keep the counters at 2.
-3. **`tabindex` matching is unanchored** — a comment, a class name, or a string
-   containing the substring inflates the count with no relation to a real
-   attribute write.
-
-**Fix:** assert the invariant that actually matters (no focus call and no
-tabindex inside `setWeekStart` / `buildWeekTotalCell`) rather than a global
-count:
-
-```ts
-const buildWeekTotalCellBody = extractFunctionBody(calendarSource, 'function buildWeekTotalCell');
-
-it('setWeekStart and buildWeekTotalCell contain no focus call and no tabindex write', () => {
-  expect(setWeekStartBody).not.toMatch(/\.focus\(\)/);
-  expect(setWeekStartBody).not.toMatch(/tabindex/);
-  expect(buildWeekTotalCellBody).not.toMatch(/\.focus\(\)/);
-  expect(buildWeekTotalCellBody).not.toMatch(/tabindex/);
-});
-```
-
-This keeps the D-04/D-11 guarantees, drops the false coupling to unrelated
-parts of the file, and unblocks the Close-button focus fix (IN-12).
-
-### WR-05: `WeekStartStorage` parameters are typed non-nullable but are already called with `undefined` — the storage `catch` is doing double duty
-
-**File:** `src/dashboard/views/calendar-preferences.ts:46, 60`; `src/dashboard/views/calendar.ts:424, 426, 544`
-**Issue:** `readStoredWeekStart(storage: WeekStartStorage)` and
-`writeWeekStart(storage: WeekStartStorage, ...)` declare a non-nullable handle,
-but `calendar.ts:424` resolves `deps.storage ?? globalThis.localStorage`, which
-is `undefined` in the Node test environment this repo deliberately runs under
-(`environment: 'node'`, no `localStorage` global). The calls "work" only
-because `undefined.getItem(...)` raises a `TypeError` that the same `catch`
-block — written for storage-subsystem failures — silently absorbs.
-
-The type signature therefore lies (`storage` can be `undefined`), and the
-`catch` conflates two unrelated failure classes: an environment problem the
-fallback is correct for, and a programming error (`undefined` handle) that
-should be impossible. TypeScript cannot warn about it because
-`globalThis.localStorage` is typed `Storage`, never `Storage | undefined`.
-
-**Fix:** widen the parameter type to `WeekStartStorage | null` with an explicit
-early return (see CR-01's fix, which resolves both findings together). The
-explicit `if (!storage) return 'monday';` also makes the fallback intentional
-rather than an artefact of exception handling.
-
-### WR-06: `extractFunctionBody` brace-counts without string/comment awareness and never fails loudly on an unbalanced body
-
-**File:** `src/dashboard/views/calendar.test.ts:247-261`
-**Issue:** The helper walks characters counting `{`/`}` with no awareness of
-string literals, template literals, regex literals or comments, and if `depth`
-never returns to zero it exits the loop with `i === source.length` and returns
-`source.slice(openBraceIdx, source.length + 1)` — silently the rest of the file,
-with no error.
-
-Both failure modes make every D-04 guard built on it silently *wrong* rather
-than red:
-
-- If `setWeekStart` ever gains a template literal containing a `}` (e.g.
-  `` `${x}` `` inside a string, or an `aria-label` string with a brace), the
-  extracted body truncates early and the `not.toContain('focus')` /
-  `not.toContain('await')` assertions pass vacuously against a fragment.
-- If it truncates late, the body swallows the whole remainder of `mount()` and
-  `not.toContain('focus')` fails on `h1.focus()` — a confusing false red.
-
-The JSDoc's claim that it "stays correct if a future edit adds one [a nested
-brace]" is true only for braces outside literals, which is not stated.
-
-**Fix:** fail loudly on an unbalanced scan, and document the literal-blindness:
-
-```ts
-function extractFunctionBody(source: string, signature: string): string {
-  const startIdx = source.indexOf(signature);
-  if (startIdx === -1) throw new Error(`"${signature}" not found in calendar.ts`);
-  const openBraceIdx = source.indexOf('{', startIdx);
-  if (openBraceIdx === -1) throw new Error(`no body brace after "${signature}"`);
-  let depth = 0;
-  let i = openBraceIdx;
-  for (; i < source.length; i++) {
-    if (source[i] === '{') depth++;
-    else if (source[i] === '}' && --depth === 0) break;
-  }
-  // NOT literal-aware: a `{`/`}` inside a string, template literal, regex or
-  // comment inside the extracted function will mis-scope this. Fail loudly
-  // rather than silently returning the rest of the file.
-  if (depth !== 0) throw new Error(`unbalanced braces extracting "${signature}"`);
-  return source.slice(openBraceIdx, i + 1);
-}
-```
-
-## Info
-
-### IN-01: `weekdayLabels('sunday')` leaks the shared module-level array; `'monday'` returns a fresh copy
-
-**File:** `src/dashboard/views/calendar.ts:35, 43-46`
-**Issue:** The `'sunday'` branch returns `WEEKDAY_NAMES_SUNDAY_FIRST` itself.
-The declared `readonly string[]` return type is erased at runtime, and the
-backing array is a plain mutable `const`. A caller that mutates the returned
-array (or the exported function's result cast to `string[]`) corrupts every
-subsequent Sunday-start render for the session — an asymmetry with the
-`'monday'` branch, which always allocates.
-**Fix:** `const WEEKDAY_NAMES_SUNDAY_FIRST = ['Sun', ...] as const;` and return
-`[...WEEKDAY_NAMES_SUNDAY_FIRST]` from both branches, or `Object.freeze` the
-constant.
-
-### IN-02: `grid` is reassigned in `setWeekStart` but never read again; month-header totals are not re-derived
-
-**File:** `src/dashboard/views/calendar.ts:427, 432-440, 552-553`
-**Issue:** `let grid` is reassigned at line 552 and consumed one line later;
-nothing outside `setWeekStart` reads the outer binding after line 568. Meanwhile
-`totalEl` (`grid.monthTotalM`) and `captionEl` (`grid.runCount`) are computed
-once at lines 434/439 and never updated. This is correct *today* only because
-those two values are week-start-invariant — but the `let` reassignment signals
-the opposite, inviting a future edit that adds a week-start-dependent header
-value and silently leaves it stale.
-**Fix:** make the outer binding `const`, use a local inside the handler, and
-add a one-line comment recording why the header is not re-rendered:
-
-```ts
-const initialGrid = buildMonthGrid(indexClient.getRows(), month, weekStart);
-// ...
-function setWeekStart(next: WeekStart): void {
-  // ...
-  // monthTotalM / runCount are week-start-invariant, so the header above is
-  // deliberately NOT re-rendered here.
-  const nextGrid = buildMonthGrid(indexClient.getRows(), month, weekStart);
-  renderGrid(gridEl, nextGrid, month, weekStart, pickerHost, indexClient);
-}
-```
-
-### IN-03: stale hardcoded line references in the new comments
-
-**File:** `src/dashboard/views/calendar.ts:276, 490`
-**Issue:** `buildWeekTotalCell`'s comment cites "the rest-day cell's `–`
-(calendar.ts:206 above)" — the actual assignment is line 208. The segmented
-comment cites "`.segmented`/`.segmented__option[--active]` (styles.css:897-954)"
-— the actual block is `styles.css:972-1030`; line 897 is inside the Phase 17
-activity-detail section. Line-number citations in comments rot on the first
-edit above them.
-**Fix:** cite the symbol/selector name only ("see the rest-day branch of
-`buildDayCellButton`", "see the § Segmented control block in `styles.css`").
-
-### IN-04: `.calendar-week-total__time` and `.calendar-week-total__count` are byte-identical rules
-
-**File:** `src/dashboard/styles.css:832-844`
-**Issue:** Both declare the same four properties with the same values. Pure
-duplication; a future change to one will silently diverge from the other.
 **Fix:**
-```css
-.calendar-week-total__time,
-.calendar-week-total__count {
-  font-size: 14px;
-  font-weight: 400;
-  line-height: 1.5;
-  color: var(--text-secondary);
-}
-```
-
-### IN-05: the "Total" header is centred over a right-aligned column, and the 380px compaction is partial
-
-**File:** `src/dashboard/views/calendar.ts:330-333`; `src/dashboard/styles.css:747-753, 816-863`
-**Issue:** The 8th header cell reuses `.calendar-weekday`, which declares
-`text-align: center`, while `.calendar-week-total` declares
-`justify-items: end`. In an `auto`-sized track wider than the word "Total"
-(any week whose distance/time strings are longer), the header label does not
-sit above the values it labels.
-
-Separately, the `@media (max-width: 380px)` block shrinks only
-`.calendar-week-total__distance` (20px → 14px). `.calendar-week-total__time`
-and `__count` stay at 14px and `.calendar-day__distance` stays at 20px, so the
-compaction leaves the widest contributors untouched. Combined with
-`white-space: nowrap` on an `auto` track inside a
-`repeat(7, 1fr) auto` grid with no `min-width: 0` on the day columns, the total
-column can push the grid past the viewport. (The narrow-viewport overflow itself
-is already tracked as an open gap — recorded here only because the compaction
-rule's *shape* does not address the widest text.)
-**Fix:** give the total header its own modifier, e.g.
-`.calendar-weekday--total { text-align: right; }`, applied alongside
-`.calendar-weekday` at `calendar.ts:331`; and consider adding
-`.calendar-week-total__time, .calendar-week-total__count { font-size: 12px }`
-to the 380px block when the tracked overflow gap is closed.
-
-### IN-06: a third disjoint `@media (max-width: 380px)` block, described as "the existing breakpoint"
-
-**File:** `src/dashboard/styles.css:846-863`
-**Issue:** The comment reads "padding + type compaction at the existing 380px
-breakpoint", but the change adds a **third** independent
-`@media (max-width: 380px)` block (the existing ones are at lines 945 and
-1294) rather than joining either. Three disjoint blocks for one breakpoint make
-the responsive contract harder to read and make the source-order cascade
-(WR-03) harder to reason about.
-**Fix:** either consolidate the breakpoint into one block, or reword the comment
-to "at the same 380px breakpoint used elsewhere in this file" so it stops
-implying reuse that did not happen.
-
-### IN-07: five vacuous `toBeTruthy()` assertions
-
-**File:** `src/dashboard/styles.test.ts:1756-1774, 1809-1811`
-**Issue:** `expect(bodyForSelectorListToken('.calendar-week-total')).toBeTruthy()`
-adds nothing beyond "the helper did not throw" — the helper already throws on
-absence, and an empty rule body (`.calendar-week-total { }`) returns `' '`,
-which is truthy. Two of the four (`__time`, `__count`) additionally cannot fail
-their stated purpose ("not media-nested") because those selectors appear in no
-at-rule anywhere in the file.
-**Fix:** assert a real declaration from each body (the neighbouring tests
-already do this for `__distance` and `__time`), or drop the four
-existence-only cases as redundant.
-
-### IN-08: duplicate test case for `'MONDAY'` in the preferences suite
-
-**File:** `src/dashboard/views/calendar-preferences.test.ts:45-51, 53-55`
-**Issue:** `'MONDAY'` is already in the `tamperedValues` array, so the loop
-generates `falls back to 'monday' for "MONDAY"`; line 53 asserts the identical
-thing again with a different title.
-**Fix:** delete the standalone case and move its "rather than normalising it"
-intent into the loop's title, or keep only the standalone one.
-
-### IN-09: negative CSS assertions run against raw `css` including comments
-
-**File:** `src/dashboard/styles.test.ts:1794-1808`
-**Issue:** Four new assertions (`.calendar-week-total--tint`,
-`.calendar-week-total--outside`, `.calendar-header .segmented`,
-`.calendar .segmented`) match against `css`, not `cssNoComments`. Today's
-comments dodge those exact strings (`styles.css:809` writes
-"`--outside`/`--rest`/`--tint-N`" precisely to avoid them), but a future
-explanatory comment that names a selector in prose fails the suite for a reason
-unrelated to the stylesheet's behaviour.
-**Fix:** run structural absence checks against `cssNoComments`, matching the
-rationale already stated at `styles.test.ts:16-20` (the raw-`css` form is
-justified there for *declaration-text* assertions, not selector-structure ones).
-
-### IN-10: unreachable `'Empty week'` branch, and `MIN_WEEK_ROWS` can never bind
-
-**File:** `src/dashboard/views/calendar.ts:99`; `src/dashboard/views/calendar-logic.ts:100, 216`
-**Issue:** `weekCount = Math.max(MIN_WEEK_ROWS, Math.ceil(cellCount / 7))`, and
-`cellCount = padding + totalDays ≥ 0 + 28`, so `Math.ceil(cellCount / 7) ≥ 4`
-unconditionally — `MIN_WEEK_ROWS` is inert and the "never returns fewer than 4
-week rows" JSDoc clause is guaranteed by the arithmetic, not by the guard.
-Consequently no week row can be entirely `null` (the last row always holds at
-least one in-month day), so `weekTotalAccessibleName`'s `cells.length === 0` →
-`'Empty week'` branch is unreachable from `buildWeekTotalCell`. It is only
-exercised by `calendar.test.ts:206-217`, which constructs the state directly.
-Not a bug — but two pieces of defensive code that the tests present as live
-behaviour.
-**Fix:** keep both (cheap totality for an exported function) and annotate them
-as unreachable-by-construction, or drop `MIN_WEEK_ROWS` and simplify the JSDoc
-to state why 4 is the arithmetic minimum.
-
-### IN-11: redundant parameters that must agree with each other
-
-**File:** `src/dashboard/views/calendar.ts:93-97, 256-260, 313-320, 341`
-**Issue:** `renderGrid` takes both `grid` and `month`, but `MonthGrid` already
-carries `grid.month` — a caller can pass a mismatched pair and every day-cell
-`aria-label` and week-total accessible name silently names the wrong month.
-Likewise `weekTotalAccessibleName(total, week, month)` derives `daysShown`
-messaging from `total` but the date range from `week`; if the two disagree the
-generated name lies ("Partial week, 5 days shown, week of October 13–19").
-Nothing enforces the pairing.
-**Fix:** drop the redundant `month` parameter from `renderGrid` and read
-`grid.month`; and derive `daysShown`/`isPartial` inside
-`weekTotalAccessibleName` from `week` rather than trusting `total`, or take a
-single `{ total, week }` pair produced by `buildMonthGrid`.
-
-### IN-12: the picker's Close button drops focus to `<body>` (pre-existing)
-
-**File:** `src/dashboard/views/calendar.ts:153-159`
-**Issue:** `closeBtn`'s handler calls `pickerHost.replaceChildren()`, which
-removes the button the user just activated. Focus falls to `<body>`, so the
-next Tab restarts from the top of the document — a WCAG 2.4.3 focus-order
-failure. Symmetrical with `renderPicker` moving focus *into* the panel on open,
-which makes the missing restore-on-close conspicuous. Pre-existing (not
-introduced by Phase 22), but it lives in a reviewed file and WR-04's exact-count
-guard currently blocks the fix.
-**Fix:** capture the originating day button when the picker opens and restore
-focus to it on close:
 
 ```ts
-function renderPicker(pickerHost, cell, indexClient, returnFocusTo: HTMLElement) {
+it('returns the live global when it is present and readable', () => {
+  const fake = fakeStorage({ [WEEK_START_STORAGE_KEY]: 'sunday' });
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: fake });
+  expect(resolveWeekStartStorage()).toBe(fake);
+  expect(readStoredWeekStart(resolveWeekStartStorage())).toBe('sunday');
+});
+```
+
+### WR-02: Nothing prevents `calendar.ts` from re-introducing the direct `globalThis.localStorage` access CR-01 removed
+
+**File:** `src/dashboard/views/calendar.test.ts:238-336`
+
+**Issue:** The Phase 22 source-structure guard block checks `.focus()` counts, `tabindex`
+counts, segmented markup and control ordering — but not the single regression this round
+was created to prevent. Re-adding `const storage = globalThis.localStorage;` to
+`calendar.ts` would pass every test in the repository. This repo uses source-text guards
+for exactly this class of invariant elsewhere (`row-semantics.test.ts`, the
+`NAVIGABLE_ROW_CLASS` parity check at `styles.test.ts:1583`), so the omission is
+inconsistent with its own conventions.
+
+**Fix:**
+
+```ts
+it('CR-01: calendar.ts never touches a storage global directly', () => {
+  const live = calendarSource.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  expect(live).not.toMatch(/globalThis\.(localStorage|sessionStorage)/);
+  expect(live).not.toMatch(/(^|[^.\w])localStorage\b/);
+  expect(live).toContain('resolveWeekStartStorage(');
+});
+```
+
+### WR-03: The 22-06 media-query tests assert that an override exists, never what it says
+
+**File:** `src/dashboard/styles.test.ts:1819-1847`
+
+**Issue:** All five compaction assertions have the shape
+`expect(() => assertNoAtRuleOverride(sel, prop)).toThrow(/redeclares "prop"/)`. That is
+an existence proof only — it is satisfied by *any* at-rule override of that property, at
+*any* breakpoint, with *any* value. Concretely: changing `min-width: 0` to
+`min-width: 200px` (line 885), or `font-size: 14px` to `font-size: 40px` (line 889),
+keeps every one of these five tests green. For a phase whose open defect is a
+width/size rendering failure, the compaction's actual values are the only thing worth
+guarding and they are the one thing unguarded.
+
+**Fix:** pair each existence check with a value check read from the media block. The
+existing `RULE_SCANNER`/`isAtRuleScoped` substrate already has everything needed — add a
+sibling to `assertNoAtRuleOverride` that *returns* the offending at-rule body instead of
+throwing, then assert on it:
+
+```ts
+expect(atRuleBodyFor('.calendar-day', 'min-width')).toContain('min-width: 0');
+expect(atRuleBodyFor('.calendar-day__distance', 'font-size')).toContain('font-size: 14px');
+```
+
+### WR-04: `setWeekStart`'s D-04 focus claim is false on macOS Safari and Firefox
+
+**File:** `src/dashboard/views/calendar.ts:554-562`
+
+**Issue:** The comment states:
+
+> "Safe with respect to D-04 — the toggle is only reachable by clicking or
+> key-activating the segmented button, so the active element stays on that button,
+> never inside the picker, when it is cleared."
+
+macOS Safari and Firefox do **not** move focus to a `<button>` on mouse click (this is
+long-standing platform behaviour, not a bug). So in those browsers the active element
+when `setWeekStart` runs is wherever it was before the click — which can be the picker
+heading (`tabindex="-1"`, focused at `calendar.ts:176`), an activity row link inside the
+picker, or any `.calendar-day` button the user tabbed to earlier. Lines 559 and 562 then
+call `pickerHost.replaceChildren()` and `gridEl.replaceChildren(...)`, destroying that
+element and resetting focus to `<body>` — the exact focus-loss class D-04 exists to
+prevent, in two of the three shipped engines.
+
+**Fix:** make the invariant real instead of assuming it, and correct the comment:
+
+```ts
+function setWeekStart(next: WeekStart, source: HTMLElement): void {
+  if (next === weekStart) return;
   // ...
-  closeBtn.addEventListener('click', () => {
-    pickerHost.replaceChildren();
-    returnFocusTo.focus();
-  });
+  const focusWasInsideRebuiltRegion =
+    pickerHost.contains(document.activeElement) || gridEl.contains(document.activeElement);
+  pickerHost.replaceChildren();
+  grid = buildMonthGrid(indexClient.getRows(), month, weekStart);
+  renderGrid(gridEl, grid, month, weekStart, pickerHost, indexClient);
+  if (focusWasInsideRebuiltRegion) source.focus();
 }
 ```
 
-(Requires relaxing `calendar.test.ts:280-284` per WR-04.)
+Note this introduces a `.focus()` call inside `setWeekStart`, which
+`calendar.test.ts:266-284` currently forbids outright — that assertion encodes "never
+call focus" rather than "never steal focus", and needs to be narrowed alongside the fix.
 
-### IN-13: `ROUTES.DETAIL.replace(':id', id)` interprets `$`-patterns in the replacement (pre-existing)
+### WR-05: `.calendar-weekday--total` is right-aligned to the track edge, but the values it labels are inset by the cell's own padding
 
-**File:** `src/dashboard/views/calendar.ts:235`
-**Issue:** `String.prototype.replace` with a *string* replacement interprets
-`$&`, `` $` ``, `$'` and `$1` in that replacement. An activity id containing a
-`$` sequence produces a malformed detail URL rather than a literal
-substitution. Ids come from the published index rather than user input, so this
-is latent rather than exploitable — but it is a data-shape assumption that is
-never validated.
-**Fix:** use a replacer function, which never interprets `$` patterns:
-`ROUTES.DETAIL.replace(':id', () => encodeURIComponent(cell.activityIds[0]))`.
+**File:** `src/dashboard/styles.css:755-762`
+
+**Issue:** IN-05's stated goal is that the "Total" header line up with the values beneath
+it. `.calendar-week-total` declares `justify-items: end` **and**
+`padding: var(--space-sm)` (8px, or 4px inside the 380px block), so its values stop 8px
+(4px) short of the track's right edge. The header div carries no padding at all, so
+`text-align: right` puts "Total" flush against the track edge — permanently offset from
+the column it names by exactly the cell padding, at both breakpoints. The fix half-lands.
+
+**Fix:**
+
+```css
+.calendar-weekday--total {
+  text-align: right;
+  padding-right: var(--space-sm);
+}
+
+@media (max-width: 380px) {
+  .calendar-weekday--total { padding-right: var(--space-xs); }
+}
+```
+
+### WR-06: The first rule inside the 380px block is structurally unguardable, and nothing enforces that it stays first
+
+**File:** `src/dashboard/styles.css:874-882`, `src/dashboard/styles.test.ts:118-120`
+
+**Issue:** `RULE_SCANNER`'s `([^{}]+)\{([^}]*)\}` consumes the `@media` prelude as a
+pseudo-head and swallows the block's first nested rule into that pseudo-body, so
+`.calendar-day, .calendar-week-total { padding: var(--space-xs) }` is invisible to
+`selectorListDeclares`, `bodyForSelectorListToken`, `bodiesForSelectorListToken`,
+`cascadeWinningBodyDeclaring` **and** `assertNoAtRuleOverride`. The styles.css comment
+(`:874-877`) acknowledges this and says the padding rule is "deliberately kept in
+position 1 … so every rule a test guards sits below it" — but that is a convention held
+in a comment with no test behind it, and it means the one rule that changes both cell
+paddings at the failing breakpoint has zero coverage. This is directly relevant to
+BL-01/BL-02: any new rule the next round adds to fix them must not land in position 1,
+or it will be silently unguarded.
+
+**Fix:** repair the scanner rather than routing around it. `RULE_SCANNER`'s body class
+should exclude `{` as well as `}` (`([^{}]*)`), and the at-rule prelude should be
+consumed separately — `computeAtRuleRanges` already brace-matches every block, so the
+prelude's extent is known. Failing that, add a positional guard so the convention is
+enforced rather than documented:
+
+```ts
+it('the padding rule is still the first rule inside the 380px calendar block', () => {
+  const block = cssNoComments.slice(cssNoComments.indexOf('@media (max-width: 380px)'));
+  expect(block.slice(0, block.indexOf('}') + 1)).toContain('padding: var(--space-xs)');
+});
+```
+
+### WR-07: The 380px override makes the Total cell *taller* during a compaction, and diverges from its day-cell counterpart
+
+**File:** `src/dashboard/styles.css:893-901`
+
+**Issue:**
+
+```css
+.calendar-week-total__distance {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;   /* base rule at :838 is 1.2 */
+}
+```
+
+The base `.calendar-week-total__distance` uses `line-height: 1.2`. The 380px override
+raises it to `1.5` — increasing the line box height at the one breakpoint where space is
+scarcest. The neighbouring `.calendar-day__distance` override (`:888-890`) changes only
+`font-size` and keeps `1.2`. There is no comment explaining the divergence, so this reads
+as an accidental copy of the `.text-label` type role rather than a decision. Since
+`.calendar-week-total` stacks three lines, this adds real height to the tallest cell in
+every row.
+
+**Fix:** drop the `line-height` (and `font-weight`, which is unchanged from the base
+rule's `600` and so is a no-op) from the override:
+
+```css
+.calendar-week-total__distance { font-size: 14px; }
+```
+
+If 1.5 is intentional, state why in the block comment.
+
+### WR-08: `ROUTES.DETAIL.replace(':id', …)` interprets `$` patterns in the activity id
+
+**File:** `src/dashboard/views/calendar.ts:240`
+
+**Issue:**
+
+```ts
+navigateTo(ROUTES.DETAIL.replace(':id', cell.activityIds[0]));
+```
+
+`String.prototype.replace` treats `$&`, `` $` ``, `$'`, `$$` and `$1`..`$9` in the
+*replacement* string as substitution patterns. An id containing any of those produces a
+route that is not `/activity/<id>`. The id is also not URL-encoded, so a `/`, `#` or `?`
+in an id silently changes the route's shape. Ids come from this repo's own published
+index today, so this is low-likelihood — but it is free to close and the same pattern
+will be copied to the next view.
+
+**Fix:**
+
+```ts
+navigateTo(ROUTES.DETAIL.replace(':id', () => encodeURIComponent(cell.activityIds[0])));
+```
+
+(The function form of the replacement is never scanned for `$` patterns.)
+
+### WR-09: Multiple stale line-number cross-references in load-bearing comments
+
+**Files:** `src/dashboard/views/calendar.ts:284`, `:499-500`;
+`src/dashboard/views/calendar-logic.ts:175-176`; `src/dashboard/styles.test.ts:1450-1451`, `:1551`, `:1657-1658`
+
+**Issue:** These comments are the primary documentation for several non-obvious
+decisions, and their pointers no longer resolve:
+
+| Comment | Cites | Actual |
+| --- | --- | --- |
+| `calendar.ts:284` | "the rest-day cell's `–` (calendar.ts:206 above)" | `calendar.ts:213` |
+| `calendar.ts:499-500` | "`.segmented`/`.segmented__option[--active]` (styles.css:897-954)" | `styles.css:1011-1066` |
+| `calendar-logic.ts:176` | "`new Array(NaN)` … as it did at this file's line 219" | now `const monthPrefix = …`; the `new Array` call is at `:241` |
+| `styles.test.ts:1451`, `:1657` | "`.activity-row` … styles.css:1530" | `styles.css:1650` (and a third rule at `:1735`) |
+| `styles.test.ts:1551` | "styles.css:545-556 holds three rules" | the 720px block is `:544-556` |
+
+A reader chasing `calendar-logic.ts`'s "line 219" lands on the wrong statement and may
+conclude the WR-01 fix was never applied.
+
+**Fix:** replace numeric line citations with symbol names, which do not rot — e.g. "as
+`buildMonthGrid`'s `new Array(totalSlots)` did before this fix", "see the
+`§ Segmented control (x-axis toggle)` block in styles.css".
+
+### WR-10: Three dead constructs in `calendar-logic.ts`, two of them documented as live
+
+**File:** `src/dashboard/views/calendar-logic.ts:100`, `:106`, `:238`; `src/dashboard/views/calendar.ts:104`
+
+**Issue:**
+
+1. `MIN_WEEK_ROWS = 4` (`:100`, used at `:238`) is unreachable. Every Gregorian month
+   has ≥28 days, so `Math.ceil((padding + totalDays) / 7) >= 4` always holds and
+   `Math.max` never selects the floor. The comment at `:200-201` ("never returns fewer
+   than 4 week rows") describes a guarantee that the other operand already provides.
+2. Consequently `weekTotalAccessibleName`'s `if (cells.length === 0) return 'Empty week'`
+   (`calendar.ts:104`) is unreachable from `buildMonthGrid` output — an all-null week row
+   cannot be produced. It is reachable only from the direct unit test at
+   `calendar.test.ts:206-217`, which is testing a state the system never enters.
+3. `WEEK_START_OFFSET: Record<WeekStart, number>` (`:106`) is now dead indirection:
+   `weekStartOffset` (`:182-184`) hard-codes both branches of the ternary, so the map is
+   two constants reachable only through a lookup that never varies. It is now two places
+   to change instead of one, which is the opposite of what a lookup table buys.
+
+**Fix:** either delete `MIN_WEEK_ROWS` and the `Math.max` (and note in the comment that
+the ≥4-row guarantee follows from `daysInMonth >= 28`), or keep them and mark them
+explicitly as unreachable defence-in-depth the way `weekStartOffset` is. For (3), inline
+the two values into `weekStartOffset` and drop the `Record`, or keep the `Record` and
+have `weekStartOffset` read `WEEK_START_OFFSET[weekStart] ?? WEEK_START_OFFSET.monday` —
+one or the other, not both shapes at once.
+
+### WR-11: Brittle count-based source guards, plus an unused import
+
+**Files:** `src/dashboard/views/calendar.test.ts:280-284`, `:311-314`; `src/dashboard/views/calendar-preferences.test.ts:1`
+
+**Issue:**
+
+- `calendarSource.match(/\.focus\(\)/g)` and `calendarSource.match(/tabindex/g)` run
+  against the **raw** source including comments. `calendar.ts` is heavily commented and
+  those comments already discuss focus behaviour at length (`:529-542`, `:554-558`);
+  adding the literal text `tabindex` or `.focus()` to any comment turns both assertions
+  red for a reason unrelated to what they guard. Conversely, deleting a real
+  `.focus()` call and mentioning `.focus()` in a comment keeps them green. Both should
+  scan a comment-stripped view, exactly as `styles.test.ts` does via `cssNoComments`.
+- `expect(setWeekStartBody).not.toContain('focus')` (`:267`) matches the bare substring
+  `focus` anywhere in the function body, including inside any future comment or an
+  unrelated identifier such as `focusable`.
+- `calendar-preferences.test.ts:1` imports `beforeEach` and never uses it (only
+  `afterEach` appears, at `:134`). `tsconfig.json` sets neither `noUnusedLocals` nor
+  `noUnusedParameters`, so nothing catches this.
+
+**Fix:** strip comments before counting, and drop the unused import:
+
+```ts
+const liveSource = calendarSource.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+expect(liveSource.match(/\.focus\(\)/g) ?? []).toHaveLength(2);
+```
+
+```ts
+import { afterEach, describe, expect, it, vi } from 'vitest';
+```
 
 ---
 
-_Reviewed: 2026-08-18T13:43:45Z_
+_Reviewed: 2026-08-18T19:23:08Z_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
