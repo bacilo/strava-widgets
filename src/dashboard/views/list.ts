@@ -341,10 +341,24 @@ export function activityRowAriaLabel(row: DashboardIndexRow): string {
  *
  * This row is now a whole-row `<a>` (D-07): the entire row is the
  * navigation affordance, not a bare `<div>` with a click handler bolted on.
- * It is the single shared seam between Overview's Recent Activities card
- * and the Activities mobile card view — one edit here changes both
- * screens. The redundant "View Activity" CTA that used to live inside the
- * row was removed under UX-02, since the row itself is now the affordance.
+ * It is the single shared renderer for the Activities mobile card and both
+ * Overview cards ("Recent PRs" and "Recent Activities", plan 21-04) — one
+ * edit here changes all three screens; the desktop table (`buildTableRow`)
+ * shares only the badge helpers, not this function. The redundant "View
+ * Activity" CTA that used to live inside the row was removed under UX-02,
+ * since the row itself is now the affordance.
+ *
+ * D-06's two-line hierarchy (`21-CONTEXT.md`): the row has exactly two
+ * direct children now, `div.activity-row__header` then
+ * `div.activity-row__meta`. The header itself has two children,
+ * `div.activity-row__name` then `div.activity-row__badges` — the badges
+ * wrapper is appended UNCONDITIONALLY, even when `statusBadgeTexts(row)` is
+ * empty. An always-present empty flex child is what keeps the header's
+ * `justify-content: space-between` behaviour identical between
+ * badge-carrying and badge-free rows; a conditional wrapper would make the
+ * name's width jump between rows in the same list. D-07 keeps the full
+ * field set — the meta line's text is unchanged.
+ *
  * The curated `aria-label`, built by `activityRowAriaLabel`, exists because
  * a whole-row link otherwise announces every descendant string concatenated
  * (name, date, distance, duration, pace, every status badge) — verbose and
@@ -354,9 +368,9 @@ export function activityRowAriaLabel(row: DashboardIndexRow): string {
  * below are descendants of the very element that carries the `aria-label`,
  * so without the fold their text is silently dropped from the accessible
  * name. When `row.lowConfidence` is true, `aria-describedby` is also set on
- * the row itself (not just on the badge span `appendStatusBadges` creates)
- * — a description is only announced when its host is announced, and on
- * this surface the row anchor is the only element that gets announced.
+ * the row itself — not on the header or badges wrapper — because a
+ * description is only announced when its host is announced, and on this
+ * surface the row anchor is the only element that gets announced.
  * `.activity-row` in `styles.css` declares `display: flex`, which is what
  * keeps the row laid out now that the element is an inline-by-default
  * anchor.
@@ -372,17 +386,24 @@ export function renderActivityRow(row: DashboardIndexRow, surface: RowSurface = 
     rowEl.setAttribute('aria-describedby', lowConfidenceDescriptionId(idPrefix));
   }
 
+  const headerEl = document.createElement('div');
+  headerEl.className = 'activity-row__header';
+  rowEl.appendChild(headerEl);
+
   const nameEl = document.createElement('div');
   nameEl.className = 'activity-row__name';
   nameEl.textContent = row.name;
-  rowEl.appendChild(nameEl);
+  headerEl.appendChild(nameEl);
+
+  const badgesEl = document.createElement('div');
+  badgesEl.className = 'activity-row__badges';
+  headerEl.appendChild(badgesEl);
+  appendStatusBadges(badgesEl, row, idPrefix);
 
   const metaEl = document.createElement('div');
   metaEl.className = 'activity-row__meta';
   metaEl.textContent = `${formatActivityDate(row.startDateLocal)} · ${distanceKm} km · ${formatDurationHms(row.movingTimeSec)} · ${formatPace(row.paceSecPerKm)}`;
   rowEl.appendChild(metaEl);
-
-  appendStatusBadges(rowEl, row, idPrefix);
 
   return rowEl;
 }
