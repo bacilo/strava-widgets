@@ -14,7 +14,15 @@
  * way a Shadow-DOM host attribute is not, so `parseThemeMode` allow-lists exactly
  * `'light' | 'dark' | 'auto'` and falls back to `'auto'` for anything else — a
  * tampered or unrecognised stored value can never reach `setAttribute('data-theme', ...)`.
+ *
+ * BL-03: the storage HANDLE (not the theme contract) is now resolved by
+ * `storage.ts`'s `resolveStorage`. The `localStorage` PROPERTY GETTER throws
+ * under blocked site data, and the previous `options.storage ?? localStorage`
+ * form threw during module evaluation when reached from `main.ts`'s module
+ * scope — `resolveStorage` wraps that property access in try/catch instead.
  */
+
+import { resolveStorage, type WebStorage } from './storage.js';
 
 export type Theme = 'light' | 'dark';
 export type ThemeMode = Theme | 'auto';
@@ -51,16 +59,18 @@ export function cycleThemeMode(mode: ThemeMode): ThemeMode {
   return 'light';
 }
 
-export interface ThemeStorage {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-}
+/** The shape is declared once, in `storage.ts` (BL-03/GC-5l); the exported
+ * NAME survives so `theme.test.ts` and `nav.ts` keep compiling unchanged. */
+export type ThemeStorage = WebStorage;
 
 /**
- * Reads the persisted theme mode from storage, tolerating a throwing `getItem`
- * (e.g. Safari private-mode) by falling back to 'auto' rather than propagating.
+ * Reads the persisted theme mode from storage, tolerating a missing handle
+ * (BL-03, `storage` is `null` when `resolveStorage` could not obtain one)
+ * and a throwing `getItem` (e.g. Safari private-mode) by falling back to
+ * 'auto' rather than propagating.
  */
-export function readStoredMode(storage: ThemeStorage): ThemeMode {
+export function readStoredMode(storage: ThemeStorage | null): ThemeMode {
+  if (!storage) return 'auto';
   try {
     return parseThemeMode(storage.getItem(THEME_STORAGE_KEY));
   } catch {
@@ -71,7 +81,7 @@ export function readStoredMode(storage: ThemeStorage): ThemeMode {
 export interface ApplyThemeOptions {
   prefersDark?: boolean;
   doc?: Document;
-  storage?: ThemeStorage;
+  storage?: ThemeStorage | null;
   persist?: boolean;
 }
 
@@ -80,17 +90,22 @@ export interface ApplyThemeOptions {
  * `doc.documentElement` (always 'light' or 'dark' — never 'auto', since the
  * global stylesheet selects on the concrete attribute value with no
  * prefers-color-scheme fallback branch), and persists the MODE string (unless
- * `persist === false`) under THEME_STORAGE_KEY. Storage write failures are
- * swallowed so a throwing setItem never prevents the DOM update. Returns the
+ * `persist === false` or no storage handle could be resolved) under
+ * THEME_STORAGE_KEY. Storage write failures are swallowed so a throwing
+ * setItem never prevents the DOM update, and the `data-theme` write itself is
+ * unconditional — it never depends on a usable storage handle. Returns the
  * effective theme that was applied.
  *
  * Defaults are resolved lazily inside the function body (not as parameter
  * defaults) so this module stays importable in a Node test environment with no
- * `document`/`window`/`localStorage` globals.
+ * `document`/`window`/`localStorage` globals. The storage handle specifically
+ * is resolved via `resolveStorage` (BL-03), which returns `null` rather than
+ * throwing when the storage global's property getter itself throws (blocked
+ * site data) or when no override and no global are available.
  */
 export function applyThemeMode(mode: ThemeMode, options: ApplyThemeOptions = {}): Theme {
   const doc = options.doc ?? document;
-  const storage = options.storage ?? localStorage;
+  const storage = resolveStorage(options.storage ?? undefined);
   const prefersDark =
     options.prefersDark ?? window.matchMedia('(prefers-color-scheme: dark)').matches;
   const persist = options.persist ?? true;
@@ -98,7 +113,7 @@ export function applyThemeMode(mode: ThemeMode, options: ApplyThemeOptions = {})
   const effective = resolveEffectiveTheme(mode, prefersDark);
   doc.documentElement.setAttribute('data-theme', effective);
 
-  if (persist) {
+  if (persist && storage) {
     try {
       storage.setItem(THEME_STORAGE_KEY, mode);
     } catch {
@@ -123,11 +138,11 @@ export interface ThemeMediaQuery {
  */
 export function watchSystemTheme(
   callback: (prefersDark: boolean) => void,
-  options: { mediaQuery?: ThemeMediaQuery; storage?: ThemeStorage } = {}
+  options: { mediaQuery?: ThemeMediaQuery; storage?: ThemeStorage | null } = {}
 ): () => void {
   const mediaQuery =
     options.mediaQuery ?? window.matchMedia('(prefers-color-scheme: dark)');
-  const storage = options.storage ?? localStorage;
+  const storage = resolveStorage(options.storage ?? undefined);
 
   const listener = (e: { matches: boolean }) => {
     if (readStoredMode(storage) === 'auto') {
