@@ -26,9 +26,11 @@ import {
   shiftMonth,
   type CalendarMonth,
   type DayCell,
+  type MonthGrid,
   type WeekStart,
   type WeekTotal,
 } from './calendar-logic.js';
+import { readStoredWeekStart, type WeekStartStorage } from './calendar-preferences.js';
 
 const WEEKDAY_NAMES_SUNDAY_FIRST = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -239,8 +241,112 @@ function buildDayCellButton(
   return btn;
 }
 
+/**
+ * Builds one `.calendar-week-total` cell, appended after a week row's seven
+ * day buttons (D-10). Always a `div` — never a `<button>`, never given a
+ * focus-index attribute or an ARIA role (D-11): each week row's Tab stops
+ * still end at day 7, and `buildDayCellButton`'s every-slot-is-a-real-button
+ * invariant above is untouched. A `.sr-only` span carries the full
+ * accessible name (DISC-9, via `weekTotalAccessibleName`, already
+ * unit-covered in `calendar.test.ts`) and every visible span is
+ * `aria-hidden` so the name is announced once, not twice. Every string
+ * reaches the DOM via a `textContent` assignment, never via raw markup
+ * injection (T-18-XSS-01).
+ */
+function buildWeekTotalCell(
+  total: WeekTotal,
+  week: readonly (DayCell | null)[],
+  month: CalendarMonth
+): HTMLElement {
+  const cellEl = document.createElement('div');
+  cellEl.className = 'calendar-week-total';
+
+  const nameEl = document.createElement('span');
+  nameEl.className = 'sr-only';
+  nameEl.textContent = weekTotalAccessibleName(total, week, month);
+  cellEl.appendChild(nameEl);
+
+  const distanceEl = document.createElement('span');
+  distanceEl.className = 'calendar-week-total__distance';
+  distanceEl.setAttribute('aria-hidden', 'true');
+
+  if (total.runCount === 0) {
+    // Rest week: only the en-dash, matching the rest-day cell's `–`
+    // (calendar.ts:206 above). No time or count span at all — omitted,
+    // not `0h 0m` / `×0` (D-12). The cell renders identically for a
+    // partial and a full rest week (D-14) — the disclosure lives only in
+    // the .sr-only sentence built above.
+    distanceEl.textContent = '–';
+    cellEl.appendChild(distanceEl);
+    return cellEl;
+  }
+
+  distanceEl.textContent = `${(total.totalDistanceM / 1000).toFixed(1)} km`;
+  cellEl.appendChild(distanceEl);
+
+  const timeEl = document.createElement('span');
+  timeEl.className = 'calendar-week-total__time';
+  timeEl.setAttribute('aria-hidden', 'true');
+  timeEl.textContent = formatWeekDuration(total.totalTimeSec);
+  cellEl.appendChild(timeEl);
+
+  const countEl = document.createElement('span');
+  countEl.className = 'calendar-week-total__count';
+  countEl.setAttribute('aria-hidden', 'true');
+  countEl.textContent = `×${total.runCount}`;
+  cellEl.appendChild(countEl);
+
+  return cellEl;
+}
+
+/**
+ * Builds the weekday header row (week-start-aware, plus a fixed "Total" 8th
+ * cell) and every week's seven day buttons followed by its total cell, then
+ * replaces `.calendar-grid`'s children in one `replaceChildren` call. The
+ * weekday label row already lives INSIDE `.calendar-grid`, so this one call
+ * covers both the header row and the day/total rows. `.calendar-grid` has 8
+ * CSS grid tracks (D-10, plan 22-02's CSS), so appending 8 children per
+ * week lets grid auto-flow wrap onto the next row with no manual
+ * row/column index bookkeeping — the same reason the previous flat loop
+ * worked with 7.
+ */
+function renderGrid(
+  gridEl: HTMLElement,
+  grid: MonthGrid,
+  month: CalendarMonth,
+  weekStart: WeekStart,
+  pickerHost: HTMLElement,
+  indexClient: IndexClient
+): void {
+  const children: HTMLElement[] = [];
+
+  for (const wd of weekdayLabels(weekStart)) {
+    const wdEl = document.createElement('div');
+    wdEl.className = 'calendar-weekday';
+    wdEl.textContent = wd;
+    children.push(wdEl);
+  }
+
+  const totalHeaderEl = document.createElement('div');
+  totalHeaderEl.className = 'calendar-weekday';
+  totalHeaderEl.textContent = 'Total';
+  children.push(totalHeaderEl);
+
+  grid.weeks.forEach((week, i) => {
+    for (const cell of week) {
+      children.push(
+        buildDayCellButton(cell, month, (openedCell) => renderPicker(pickerHost, openedCell, indexClient))
+      );
+    }
+    children.push(buildWeekTotalCell(grid.weekTotals[i], week, month));
+  });
+
+  gridEl.replaceChildren(...children);
+}
+
 export interface CalendarViewDeps {
   indexClient: IndexClient;
+  storage?: WeekStartStorage;
 }
 
 export function createCalendarView(deps: CalendarViewDeps): DashboardView {
@@ -310,11 +416,15 @@ export function createCalendarView(deps: CalendarViewDeps): DashboardView {
       h1.setAttribute('tabindex', '-1');
       view.appendChild(h1);
 
-      // TODO(22-03): pass the persisted WeekStart preference here instead of
-      // the literal 'sunday' — this call site is temporarily pinned to
-      // preserve today's runtime behavior until plan 22-03 wires the
-      // segmented toggle and calendar-preferences.ts's stored value in.
-      const grid = buildMonthGrid(indexClient.getRows(), month, 'sunday');
+      // Resolved lazily here (not as a field initializer or a parameter
+      // default) so this module stays importable in the Node test
+      // environment with no `localStorage` global — the same discipline
+      // `theme.ts`'s `applyThemeMode` and `detail-charts.ts`'s
+      // `mountChartBands` already follow.
+      const storage = deps.storage ?? globalThis.localStorage;
+      // `let`, not `const` — plan 22-04's toggle handler reassigns both.
+      let weekStart = readStoredWeekStart(storage);
+      let grid = buildMonthGrid(indexClient.getRows(), month, weekStart);
 
       const header = document.createElement('div');
       header.className = 'calendar-header';
@@ -373,23 +483,11 @@ export function createCalendarView(deps: CalendarViewDeps): DashboardView {
       const gridEl = document.createElement('div');
       gridEl.className = 'calendar-grid';
 
-      for (const wd of WEEKDAY_NAMES_SUNDAY_FIRST) {
-        const wdEl = document.createElement('div');
-        wdEl.className = 'calendar-weekday';
-        wdEl.textContent = wd;
-        gridEl.appendChild(wdEl);
-      }
-
       // Rendered below the grid, not a modal or tooltip — cleared whenever
       // a different day opens the picker, or the view unmounts.
       const pickerHost = document.createElement('div');
 
-      const flatCells = grid.weeks.flat();
-      for (const cell of flatCells) {
-        gridEl.appendChild(
-          buildDayCellButton(cell, month, (openedCell) => renderPicker(pickerHost, openedCell, indexClient))
-        );
-      }
+      renderGrid(gridEl, grid, month, weekStart, pickerHost, indexClient);
 
       view.appendChild(gridEl);
       view.appendChild(pickerHost);
