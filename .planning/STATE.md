@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
-status: executing
-stopped_at: Phase 22 context gathered
-last_updated: "2026-08-18T16:09:02.643Z"
-last_activity: 2026-08-18 -- Phase 22 execution started
+status: verifying
+stopped_at: Completed 22-08-PLAN.md (Round 2 gap-closure checkpoint recorded)
+last_updated: "2026-08-18T19:15:12.435Z"
+last_activity: 2026-08-18
 progress:
   total_phases: 7
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 53
-  completed_plans: 50
-  percent: 43
+  completed_plans: 53
+  percent: 57
 ---
 
 # Project State
@@ -25,26 +25,30 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 
 ## Current Position
 
-Phase: 22 (calendar-week-start-totals) — EXECUTING
-Plan: 1 of 8
-Status: Executing Phase 22
-        Round 5 checkpoint (plan 20-20) recorded a clean sweep: all ten rows (R34-R43) PASS,
-        against bundle assets/index-F1PDLvBt.js. GAP 12 CLOSED (R34 drag-select PASS; R35
-        double-click PASS on the developer's explicit accepted-behaviour disposition — a
-        double-click still navigates on its first click, MouseEvent.detail==1 at fire time,
-        no non-degrading fix exists, developer said yes to accepting it as shipped; R36
-        modifier-click regression check PASS on both Records tables). GAP 11 CLOSED (R39's
-        two D-12/D-13 disposition questions both answered explicitly). CR-01 observed for
-        the first time (R38: six distinct per-cell accessible names, Flags cell announces
-        its own badge text). NEW accepted scope boundary recorded: D-16's click guard and
-        draggable=false do not cover the Date-cell anchor (records.ts:502-507, hand-built
-        outside buildCellLink) — developer explicitly accepted this as shipped rather than
-        extending D-16's contract.
-        UX-01, UX-02, UX-03 and REC-08 are all Complete in REQUIREMENTS.md.
-        Next: Phase 21 (Overview enhancements: OVR-01..OVR-04, FIX-01) — /gsd-plan-phase 21.
-Last activity: 2026-08-18 -- Phase 22 execution started
+Phase: 22 (calendar-week-start-totals) — ALL 8 PLANS EXECUTED, PENDING RE-VERIFICATION
+Plan: 8 of 8
+Status: Executed; not yet re-verified
+        Plan 22-08's Round 2 gap-closure checkpoint ran against a provably fresh build
+        (assets/index-Dlom2BM3.js / index-aaEmW9us.css, not Round 1's index-YqJHQsHW.js).
+        Gap 2 (CR-01, unguarded localStorage getter crashing the Calendar under blocked
+        storage) is CLOSED — R15 PASS observed a throwing storage getter no longer takes
+        down the view via a hash navigation. Gap 1 (CAL-02, ~380px day-cell overflow) is
+        STILL OPEN — R13, the R11 re-ask against plan 22-06's deeper CSS compaction, again
+        recorded FAIL in the developer's own words. R16 (browser-config-level storage
+        block) was declined by the developer and recorded BLOCKED, informational only.
+        REQUIREMENTS.md re-gated strictly on the Round 2 row map: CAL-01 stays Complete
+        (R15 PASS), CAL-02 stays Pending (R13 FAIL), CAL-03 left untouched (not re-gated,
+        R17 confirm-unregressed PASS anyway).
+        ROADMAP.md and 22-VERIFICATION.md were deliberately NOT touched by plan 22-08 —
+        that is /gsd-verify-work's job, which must re-run to reconcile Phase 22's overall
+        status against these Round 2 results (CAL-02 still Pending means the phase is not
+        fully done even though every plan executed).
+        Next: /gsd-verify-work 22, then a further gap-closure round for CAL-02 if the
+        developer wants to pursue the documented DISC-6b `.splits-scroll` fallback GC-1
+        deliberately did not build.
+Last activity: 2026-08-18
 
-Progress: [██████████] 97%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -71,6 +75,7 @@ Progress: [██████████] 97%
 | Phase 20 P11 | multi-session | 2 tasks | 3 files |
 | Phase 20 P18 | 25min | 2 tasks | 2 files |
 | Phase 20 P20 | ~35min (continuation) | 1 tasks | 2 files |
+| Phase 22 P08 | 15min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -102,6 +107,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 20]: GAP 12: D-13 real cell anchors defeat D-12 drag-select and D-14 double-click guards on Records PR-table cells; recorded FAIL, unpatched, Round 5 must reconcile
 - [Phase 20]: 20-20 Round 5 checkpoint recorded a clean sweep — all ten rows (R34-R43) PASS, closing GAP 12 (drag-select and double-click) and GAP 11 (middle-click disposition) fully. R35's double-click-still-navigates-on-first-click residual is a developer-accepted shipped limitation of D-16, not a defect. UX-01 and UX-03 both ticked complete.
 - [Phase 20]: NEW DISPOSITION discovered during R36 corroboration — D-16's click-guard and draggable=false do not cover the Date-cell anchor (hand-built at records.ts:502-507, not via buildCellLink), so a drag or double-click starting in the Date cell still behaves natively. Developer explicitly accepted this as a deliberate, minor scope boundary rather than requesting an extension of D-16's contract.
+- [Phase 22]: Phase 22 plan 22-08 Round 2: Gap 2 (CR-01, unguarded localStorage getter) CLOSED via R15 PASS; Gap 1 (CAL-02, ~380px day-cell overflow) STILL OPEN via R13 FAIL, so CAL-02 stays Pending while CAL-01 keeps its Complete tick. R16 was declined by the developer and recorded BLOCKED, not NOT EXERCISABLE.
 
 ### Key Findings
 
@@ -169,9 +175,9 @@ Items acknowledged and deferred at the v2.0 milestone close on 2026-08-12.
 
 ## Session Continuity
 
-Last session: 2026-08-18T11:26:49.219Z
-Stopped at: Phase 22 context gathered
-Resume file: .planning/phases/22-calendar-week-start-totals/22-CONTEXT.md
+Last session: 2026-08-18T19:15:12.415Z
+Stopped at: Completed 22-08-PLAN.md (Round 2 gap-closure checkpoint recorded)
+Resume file: None
 
 ---
 *Last updated: 2026-08-11 — Phase 17 (activity-browser-detail-views) all 15 planned plans executed and summarized; human checkpoint on plan 17-15 came back PARTIAL — 8/10 Manual-Only Verifications rows confirmed clean, GAP 1 (DETAIL-02, route-map basemap tiles absent) and GAP 2 (DETAIL-03/04, chart band x-axis misalignment) have open gaps pending gap-closure planning (`/gsd-plan-phase 17 --gaps`) before the phase gate closes*
