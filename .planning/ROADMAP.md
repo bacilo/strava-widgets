@@ -259,7 +259,29 @@ Plans:
   5. The Current Streak tile's `ended {date}` sub-label renders when a streak has ended, verified against a fixture with a genuinely ended streak (root cause was `currentStreakStart` only being populated while a streak is active — `streak-utils.ts:118`).
   6. **Human checkpoint**: served under `/strava-widgets` in a real browser, confirm Overview visually and interactively matches the polish level of Activities/Records, toggle the records scope, and confirm an ended-streak fixture renders its sub-label.
 
-**Plans**: TBD
+**Plans**: 7 plans in 4 waves. Two of the five requirements resolve onto the **Records** screen, not Overview (D-01 puts the scope toggle on `records.ts`'s PR tables, the app's only records section; D-15 puts FIX-01's sub-label on both the Records and the Overview Current Streak tiles) — this is decided in `21-CONTEXT.md`, not scope creep. FIX-01 is planned as a two-layer fix in one plan (`streak-utils.ts:118` AND `records-logic.ts:274-282`, which maps `currentStreakStart` onto `endedISO`), because fixing only the layer the requirement names would ship a confidently wrong date. The `idPrefix` collision the shared renderer introduces is planned explicitly (21-02), not left for the executor to trip on. Criterion 6 is discharged by plan 21-07's thirteen-row checkpoint, served from `127.0.0.1` against a staged ended-streak fixture.
+
+Plans:
+
+**Wave 1** *(independent — no shared files)*
+
+- [ ] 21-01-PLAN.md — FIX-01 both layers: `currentStreakEnd` produced unconditionally by `calculateDailyStreaks`, threaded through `StreakData` and `compute-advanced-stats`, and read by `selectCurrentStreak` in place of the misread `currentStreakStart`, with the two-distinct-dates discriminator pinned in tests (FIX-01)
+- [ ] 21-02-PLAN.md — the shared row renderer: a four-member `RowSurface` scheme so two Overview cards can render the same activity without duplicating an element id, plus D-06's two-line `.activity-row__header` / `.activity-row__badges` DOM (OVR-01, OVR-02)
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 21-03-PLAN.md — the D-06 layout in a Phase 21 banner block with a stated class contract, and cascade-aware assertions pinning every D-08-frozen bordered-card value it must not disturb (OVR-01, OVR-02)
+- [ ] 21-04-PLAN.md — Overview retires `renderRecentPrRow` / `recentPrBadgeText` / `recentPrRowAriaLabel` outright and both cards delegate to the shared renderer with distinct surfaces, with three invalidated source guards re-pointed at least as strongly (OVR-01, OVR-02)
+- [ ] 21-05-PLAN.md — the `.segmented` All time / This year control above the PR tables, a pure clock-free year filter that re-ranks 1..N, and a per-distance empty state replacing the hardcoded marathon copy year-scoping would have made far more visible (OVR-03)
+
+**Wave 3** *(blocked on Waves 1 and 2 — both edit `overview.ts`)*
+
+- [ ] 21-06-PLAN.md — Distance This Year and Hours This Year appended to the `.stat-grid` from the already-published `yearly-stats.json`, and Overview's Current Streak tile gains the `ended {date}` sub-label, with every rendered value and all three degradation paths asserted as exact strings (OVR-04, FIX-01)
+
+**Wave 4** *(blocked on everything — the checkpoint runs after every fix lands)*
+
+- [ ] 21-07-PLAN.md — full gate + BLOCKING thirteen-row human checkpoint on a `127.0.0.1`-served `/strava-widgets` build, with a disclosed staged-only ended-streak fixture whose `currentStreakStart` is deliberately left intact so the two `ended {date}` rows must read the date's value back rather than its presence (OVR-01, OVR-02, OVR-03, OVR-04, FIX-01)
+
 **UI hint**: yes
 
 ### Phase 22: Calendar Week-Start & Totals
