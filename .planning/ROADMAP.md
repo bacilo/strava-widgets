@@ -301,7 +301,14 @@ Plans:
   4. The week-start control and any other Calendar inputs use the shared styling from Phase 19 (UI-01/UI-02).
   5. **Human checkpoint**: served under `/strava-widgets` in a real browser, toggle week start, confirm the grid re-flows, week totals recompute correctly for a week that straddles the old/new start boundary, and the setting survives a reload.
 
-**Plans**: TBD
+**Plans**: 5 plans in 5 waves (all sequential — 22-02 imports the `WeekStart` union 22-01 exports, and 22-03/22-04 both write `src/dashboard/views/calendar.ts`). The phase is deliberately split at the riskiest seam: 22-03 restructures the render loop, and 22-04 adds the toggle handler on its own so D-04's no-focus-theft contract gets its own review and its own source guard (Phase 20 shipped two focus-theft regressions of exactly that shape). Criterion 5 is discharged by 22-05's eleven-row checkpoint, served from `127.0.0.1` under `/strava-widgets` against ORGANIC archive data — no fixture is needed or permitted, because October 2025 holds exactly one Sunday-dated run and is a natural single-variable discriminator (`22-RESEARCH.md` § D-16).
+
+Plans:
+- [ ] 22-01-PLAN.md — generalize `buildMonthGrid` to a required `weekStart`, derive per-week totals, re-pin every Sunday expectation explicitly
+- [ ] 22-02-PLAN.md — the calendar-scoped week-start persistence module (`theme.ts` discipline) and the 8th grid column CSS
+- [ ] 22-03-PLAN.md — week-start-aware weekday row, `Total` header, and a non-focusable screen-reader-named total cell after every week
+- [ ] 22-04-PLAN.md — the `.segmented` Sunday/Monday control, persisting and rebuilding the grid in place without moving focus
+- [ ] 22-05-PLAN.md — the blocking eleven-row browser checkpoint reading the October 2025 totals back under both week starts
 **UI hint**: yes
 
 ### Phase 23: Trends Zoom, Pan & Taller Bands
