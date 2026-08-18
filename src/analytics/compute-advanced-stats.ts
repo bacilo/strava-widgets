@@ -215,6 +215,9 @@ export async function computeAdvancedStats(
     currentStreakStart: dailyStreaks.currentStreakStart
       ? dailyStreaks.currentStreakStart.toISOString()
       : '',
+    currentStreakEnd: dailyStreaks.currentStreakEnd
+      ? dailyStreaks.currentStreakEnd.toISOString()
+      : '',
     longestStreakStart: dailyStreaks.longestStreakStart
       ? dailyStreaks.longestStreakStart.toISOString()
       : '',

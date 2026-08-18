@@ -13,6 +13,13 @@ export interface StreakResult {
   longestStreak: number;
   withinCurrentStreak: boolean;
   currentStreakStart: Date | null;
+  /**
+   * The last day a run happened during the current streak, set regardless of
+   * whether the streak is still active. Unlike `currentStreakStart`, this is
+   * never nulled when the streak has ended — that unconditional behaviour is
+   * what makes it usable for an "ended {date}" sub-label.
+   */
+  currentStreakEnd: Date | null;
   longestStreakStart: Date | null;
   longestStreakEnd: Date | null;
 }
@@ -53,6 +60,7 @@ export function calculateDailyStreaks(activityDates: Date[]): StreakResult {
       longestStreak: 0,
       withinCurrentStreak: false,
       currentStreakStart: null,
+      currentStreakEnd: null,
       longestStreakStart: null,
       longestStreakEnd: null,
     };
@@ -116,6 +124,7 @@ export function calculateDailyStreaks(activityDates: Date[]): StreakResult {
     longestStreak,
     withinCurrentStreak,
     currentStreakStart: withinCurrentStreak ? currentStreakStart : null,
+    currentStreakEnd: lastActivityDate,
     longestStreakStart,
     longestStreakEnd,
   };
