@@ -236,25 +236,46 @@ activity names into the Records data shape, and any new screen or capability.
      starts a native link-drag) and R32 (double-click navigates before word-select completes)
      both FAIL live, on the same cells D-13 fixed R18/R19 on.
   2. **The fix.** `buildCellLink` sets `draggable = false` on each anchor it builds and
-     registers a per-anchor `click` listener that assembles a `RowClickContext` from the event
-     and the current selection exactly as `attachRowNavigation` does, with **`insideAnchor`
-     forced to `false`** — this element *is* the anchor, so the double-navigation clause must
-     not fire — and calls `event.preventDefault()` when `shouldNavigateOnRowClick` returns
-     `false`. Navigation on the allowed path stays the browser's own, via the `href`.
+     registers a per-anchor `click` listener that assembles a `RowClickContext` and calls
+     `event.preventDefault()` when `shouldNavigateOnRowClick` returns `false`. Navigation on
+     the allowed path stays the browser's own, via the `href`. The context is built with
+     **`insideAnchor` forced to `false`** — this element *is* the anchor, so the
+     double-navigation clause must not fire — and with the four browser-owned classes
+     presented neutral: `button: 0` and all four modifier flags `false`. Only
+     `hasTextSelection` and `clickCount` are read from the live event. See point 4 for why.
   3. **`shouldNavigateOnRowClick` is not modified.** No sixth refusal class, no new parameter,
      no branch keyed on scope. The predicate's five refusal classes and their documented order
      are correct as written for both call sites; only the *number of call sites* changes. This
      keeps `row-navigation.test.ts`'s existing case table load-bearing for cell anchors too,
      and keeps D-12/D-14 single-sourced rather than reimplemented per surface.
-  4. **Why `preventDefault` and not a synthetic navigation.** Suppressing the default is the
-     minimum intervention that restores the guard: the modifier-click, middle-click and
-     new-tab paths D-13 bought by using a real anchor all keep working untouched, because
-     `shouldNavigateOnRowClick` returns `false` for them and `preventDefault()` is *not* what
-     opens the tab — the browser's own handling of the unprevented anchor is. Calling
-     `navigateTo` from the anchor listener would re-break exactly what D-13 fixed.
+  4. **Why the browser-owned classes are presented neutral — corrected 2026-08-18 during
+     planning.** This decision as first drafted claimed the modifier-click paths survive
+     "because `shouldNavigateOnRowClick` returns `false` for them and `preventDefault()` is
+     *not* what opens the tab." **That is wrong**, and plan 20-19 caught it before execution:
+     `preventDefault()` on a click cancels the anchor's default activation *including* the
+     Cmd+click new-tab and Shift+click new-window opens. Feeding the live modifier flags into
+     the anchor's context would make the predicate refuse, `preventDefault()` fire, and
+     R23/R24 — both current PASSes and the entire yield of D-13 — regress to failures. So the
+     anchor listener presents `button: 0` and the four modifier flags `false`, leaving the
+     predicate to decide only the two classes the browser cannot see for itself
+     (`hasTextSelection`, `clickCount`). The modifier list is *not* duplicated in `records.ts`;
+     `shouldNavigateOnRowClick` still stays untouched. Calling `navigateTo` from the anchor
+     listener would likewise re-break what D-13 fixed, and is not done.
   5. **What stays out.** `draggable = false` addresses R31's dragstart specifically; no
      `dragstart` listener is added, and no `auxclick` is synthesised — D-12's out-of-scope
      clause on middle-click stands unchanged.
+  6. **What D-16 does not close, recorded rather than defined away.** D-16 closes R31
+     completely. It does **not** close R32, and no mechanism this round permits can:
+     `MouseEvent.detail` is `1` on the *first* click of a double-click (`2` only from the
+     second), so at the moment that click fires it is indistinguishable from a single click,
+     the predicate correctly returns `true`, and the browser navigates. D-14's `clickCount > 1`
+     refusal can only ever refuse the *second* click — **at both call sites**. That is a
+     property of D-14 as locked, not something D-16 introduces; D-14 is therefore weaker at row
+     scope than its own text implies, and this is the first round to say so. The only
+     suppression would be delaying navigation by the double-click threshold, which
+     `row-navigation.test.ts` forbids by assertion and which would make every single click feel
+     sluggish. Plan 20-20's row **R35** puts the disposition to the developer as an explicit
+     yes/no — accept native link double-click behaviour, or escalate D-14 to a new round.
 
 - **D-17:** **Only the Date cell carries an explicit `aria-label`; every other cell anchor
   derives its accessible name from its own visible text.**
