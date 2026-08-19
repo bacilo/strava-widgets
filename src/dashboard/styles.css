@@ -852,78 +852,37 @@ body {
   color: var(--text-secondary);
 }
 
-/* DISC-6b: padding + type compaction at the existing 380px breakpoint, not a
-   `.splits-scroll`-style horizontal-scroll wrapper. The scroll-wrapper
-   remains the documented FALLBACK and is still UNIMPLEMENTED — it was not
-   chosen because, unlike `.splits-scroll`, this grid is full of focusable
-   day buttons, and a horizontal-scroll container with focusable content
-   scroll-jumps on Tab.
+/* GC-7: compaction COVERAGE BAND is 0-640px inclusive. Above 640px the
+   default eight-column shape has a content-derived minimum of ~480px (7 day
+   tracks ≈ 350px incl. 32px min-width/padding/borders; 7 gaps at
+   --space-xs ≈ 28px; the `auto` Total track's `nowrap` min-content ≈
+   100-105px) against `viewport - 2 * var(--space-lg)` of available width —
+   so the first non-overflowing viewport is ~530px, and 640px clears that
+   with ~110px of headroom. 390/393/412px (iPhone 12-15, iPhone 15/16 Pro,
+   Pixel) all sit inside this band.
 
-   Round 1 checkpoint row R11 recorded FAIL: at ~380px the day-cell values
-   slightly overflowed their cells. Per gap-closure decision GC-1, the fix
-   is to deepen this same compaction rather than build the scroll wrapper,
-   for the same focus-order reason DISC-6b gave originally.
+   The fix is a breakpoint move only, not new declarations: BL-01 (the
+   Total track's nowrap floor winning the width negotiation) and BL-02 (the
+   day cell's centred middle column) were correctly diagnosed and fixed in
+   Round 3 — just gated one breakpoint above where the defect lives.
+   `overflow-wrap: anywhere` (not `break-word`) is required because only
+   `anywhere` lowers an element's MIN-CONTENT contribution, which the grid
+   track floor is computed from.
 
-   R13 re-asked R11 against this deepened compaction (plan 22-06) and again
-   recorded FAIL, verbatim. GC-4 / 22-REVIEW.md root-caused it as two
-   compounding causes, both fixed together below because verifying either
-   alone reproduces another ambiguous R13-style result:
+   No `overflow`/`overflow-x`/`text-overflow` appears anywhere in this
+   block — that remains the `.splits-scroll` scroll-wrapper fallback,
+   still deliberately unimplemented (focusable day buttons + a scroll
+   container scroll-jumps focus on Tab); truncation would render a WRONG
+   number rather than a clipped one.
 
-   BL-01: the 8th (Total) track kept a `white-space: nowrap` content floor
-   while only the day tracks were relaxed to `min-width: 0`, so the Total
-   track held a hard content-based floor that won 100% of the width
-   negotiation and the seven day tracks absorbed the entire shortfall. Fixed
-   by giving every track (day AND Total) an explicit zero floor —
-   `repeat(7, minmax(0, 1fr)) minmax(0, max-content)` on `.calendar-grid`,
-   plus `min-width: 0` and `white-space: normal` on `.calendar-week-total`
-   itself — so the Total track now participates in the squeeze instead of
-   forcing it entirely onto the day columns.
+   WR-06: the padding rule below must stay FIRST — RULE_SCANNER swallows
+   an at-rule block's first nested rule into the prelude's pseudo-body, so
+   every other assertion depends on it; a test enforces this position.
 
-   BL-02: each `.calendar-day` is itself a three-column grid with
-   `.calendar-day__distance` pinned to the CENTRED middle column, so the
-   overflowing string was laid out in roughly a third of an already-
-   collapsed cell and spilled symmetrically past both borders. Fixed by
-   collapsing the day cell to a single-column stack at this breakpoint only
-   (`grid-template-areas: "number" "distance" "count"`, one column) and
-   giving all three children `justify-self: start`, so the distance string
-   gets the cell's full width instead of a third of it.
-
-   `overflow-wrap: anywhere` (not `break-word`) is deliberately added on
-   both `.calendar-day__distance` and `.calendar-week-total`: only
-   `anywhere` lowers an element's MIN-CONTENT contribution, and the grid
-   track floor above is computed from min-content, so `anywhere` is what
-   makes the BL-01/BL-02 fix hold at the arithmetic edge rather than merely
-   sketching it.
-
-   WR-07: the `.calendar-week-total__distance` 380px override drops
-   `line-height: 1.5` and the no-op `font-weight: 600`, keeping only
-   `font-size: 14px`. `line-height: 1.5` raised the tallest cell's line box
-   at the one breakpoint where space is scarcest, diverging from both the
-   base 1.2 and its `.calendar-day__distance` counterpart, for no benefit.
-
-   GC-4: no `overflow`, `overflow-x` or `text-overflow` is declared
-   anywhere in this block — that would be the scroll-wrapper fallback this
-   round is still not building, and truncation would silently render a
-   WRONG number instead of a clipped one. The `.splits-scroll` wrapper
-   remains the documented, unimplemented fallback if R19 fails too.
-
-   IN-06: this is one of THREE independent `@media (max-width: 380px)`
-   blocks in this file — the other two govern `.chart-band__canvas-wrap`
-   and `.pr-evolution-card__canvas-wrap` — and it does not join either.
-   Consolidating them was declined: it would relocate rules for two
-   selectors outside this phase's scope and change their source-order
-   cascade.
-
-   WR-03: `styles.test.ts`'s RULE_SCANNER swallows an at-rule block's first
-   nested rule into the prelude's pseudo-body, making it invisible to every
-   override-checking helper. The padding rule below is deliberately kept in
-   position 1 for that reason, so every rule a test guards sits below it.
-
-   WR-06: as of Round 3 this positional convention is enforced by a TEST,
-   not only by this paragraph — see `styles.test.ts`'s
-   "the padding rule is still the FIRST rule inside the calendar 380px
-   block" case. */
-@media (max-width: 380px) {
+   `styles.css` now has exactly TWO `@media (max-width: 380px)` blocks
+   (`.chart-band__canvas-wrap`, `.pr-evolution-card__canvas-wrap`) —
+   neither is calendar-related. */
+@media (max-width: 640px) {
   .calendar-day,
   .calendar-week-total {
     padding: var(--space-xs);
