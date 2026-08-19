@@ -312,6 +312,72 @@ function formatChannelValue(channel: MonthlyChannel, value: number): string {
 }
 
 /**
+ * The shape of one `.chart-band` built by `buildChartBand`: the outer band
+ * element, its header (title only — plan 23-05 appends the D-10 zoom
+ * control cluster as the header's SECOND child), the canvas-wrap, and the
+ * canvas itself.
+ */
+export interface ChartBandParts {
+  band: HTMLElement;
+  header: HTMLElement;
+  canvasWrap: HTMLElement;
+  canvas: HTMLCanvasElement;
+}
+
+/**
+ * Builds one `.chart-band` / `.chart-band__header` / `.chart-band__canvas-wrap`
+ * / `canvas` markup tree, appends it to `parent`, and returns the parts.
+ *
+ * WHY THIS EXISTS (D-04): before Phase 23, only this Cadence & HR module
+ * built this markup (`buildChannelBand`, below) — the Volume tab
+ * (`trends.ts`) and the Training Load tab (`trends.ts`) each created a bare,
+ * unclassed `<div>` of their own. That meant three call sites were
+ * independently deciding whether to add `.chart-band__canvas-wrap`, and two
+ * of them silently did not, so those two charts got NO height rule at all
+ * and nowhere for D-10's control cluster or D-18/D-19's tall modifier to
+ * attach. `buildChartBand` is the single, shared source of this markup for
+ * every Trends band, extract-don't-duplicate applied to the wrapper itself.
+ *
+ * `detail-charts.ts` has its own `buildBand` (activity detail view, the
+ * OTHER consumer of these same three class names) and is deliberately NOT
+ * converted to this helper in this phase — D-04 scopes Phase 23 to
+ * `#/trends` only, and the detail view's bands stay at the shared 140px
+ * height, never the Trends-only `--tall` modifier.
+ *
+ * The `--zoom` header modifier and `--tall` canvas-wrap modifier are the
+ * Trends-only CSS plan 23-02 added as siblings of the shared rules; the
+ * shared `.chart-band__header` / `.chart-band__canvas-wrap` rules themselves
+ * are untouched by this helper, so `detail-charts.ts`'s bands are unaffected.
+ */
+export function buildChartBand(
+  parent: HTMLElement,
+  headingText: string,
+  ariaLabel: string
+): ChartBandParts {
+  const band = document.createElement('div');
+  band.className = 'chart-band';
+
+  const header = document.createElement('div');
+  header.className = 'chart-band__header chart-band__header--zoom';
+  const headingEl = document.createElement('span');
+  headingEl.className = 'text-label';
+  headingEl.textContent = headingText;
+  header.appendChild(headingEl);
+  band.appendChild(header);
+
+  const canvasWrap = document.createElement('div');
+  canvasWrap.className = 'chart-band__canvas-wrap chart-band__canvas-wrap--tall';
+  const canvas = document.createElement('canvas');
+  canvas.setAttribute('aria-label', ariaLabel);
+  canvasWrap.appendChild(canvas);
+  band.appendChild(canvasWrap);
+
+  parent.appendChild(band);
+
+  return { band, header, canvasWrap, canvas };
+}
+
+/**
  * Mounts one stacked, single-axis line band into `stack` for `channel`.
  * `spanGaps: false` and the raw (possibly-null) `MonthlyPoint.value` are
  * passed straight through — a month with no qualifying data renders as a
@@ -331,28 +397,10 @@ function buildChannelBand(
   channel: MonthlyChannel,
   themeColors: { border: string; text: string; textSecondary: string }
 ): Chart {
-  const wrapper = document.createElement('div');
-  wrapper.className = 'chart-band';
-
-  const header = document.createElement('div');
-  header.className = 'chart-band__header';
-  const headingEl = document.createElement('span');
-  headingEl.className = 'text-label';
   // channelLabel's cadence heading states the single-leg rpm unit explicitly
   // (matching detail.ts's `Cadence (rpm, single-leg)` stat-card label),
   // because the index value is deliberately not doubled to steps-per-minute.
-  headingEl.textContent = channelLabel(channel);
-  header.appendChild(headingEl);
-  wrapper.appendChild(header);
-
-  const canvasWrap = document.createElement('div');
-  canvasWrap.className = 'chart-band__canvas-wrap';
-  const canvas = document.createElement('canvas');
-  canvas.setAttribute('aria-label', CHANNEL_ARIA_LABELS[channel]);
-  canvasWrap.appendChild(canvas);
-  wrapper.appendChild(canvasWrap);
-
-  stack.appendChild(wrapper);
+  const { canvas } = buildChartBand(stack, channelLabel(channel), CHANNEL_ARIA_LABELS[channel]);
 
   const color = resolveToken(CHANNEL_COLOR_TOKENS[channel], channel === 'cadence' ? '#0891b2' : '#e11d48');
 
