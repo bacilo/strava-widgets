@@ -440,3 +440,48 @@ export function attachZoomController(args: {
 // cluster decisions it forwards to are D-10 through D-13, all implemented
 // above. Recorded here so a reviewer does not read D-08 as an
 // unimplemented decision.
+
+// =============================================================================
+// What automated tests in this repo can and cannot see
+// =============================================================================
+//
+// There is no jsdom, no headless browser and no canvas polyfill in this
+// repo — `vitest.config.ts` runs with `environment: 'node'` — so no test in
+// this project can construct a Chart.js instance, and therefore no test can
+// exercise anything in this file. There is deliberately no
+// `chart-zoom.test.ts`.
+//
+// Every piece of arithmetic and formatting this file depends on (D-06's
+// default window, D-09's limits, D-12's zoom/pan arithmetic, D-13's label
+// formatting) is unit-tested in `trends-zoom-logic.ts` /
+// `trends-zoom-logic.test.ts` instead — this file is composition and DOM
+// wiring only. Anyone adding computation here in the future should move it
+// to the logic module rather than leaving it unreachable by any test.
+//
+// Three specific claims this module makes can only be settled by a real
+// browser checkpoint, not by this repo's automated gate (see
+// `23-VALIDATION.md`'s Manual-Only Verifications table):
+//
+//   1. The canvas aria-label actually updates after a BUTTON press, not
+//      only after a gesture (Pitfall 3, source-verified: chart.zoom()/
+//      chart.pan() never fire onZoomComplete/onPanComplete) — the row
+//      "aria-label names the visible range on settle (D-13)", which asks
+//      for the canvas aria-label quoted verbatim after both a gesture zoom
+//      and a button zoom.
+//   2. The → button reveals LATER, not earlier, data — the sign Pitfall 5
+//      warns is easy to invert unnoticed — the row "All four buttons
+//      operate with no pointing device at all (D-11)", which asks for each
+//      button's aria-label and the x-range change it produced to be quoted,
+//      not just "the chart moved."
+//   3. The Cadence & HR pair stays in lockstep across a settle originating
+//      on either chart (D-02's sibling-sync requirement, implemented in
+//      this file's settle()). No 23-VALIDATION.md row is quoted verbatim
+//      here because the pair itself is wired together by plan 23-05, which
+//      is where that checkpoint row belongs — this module only supplies the
+//      sync mechanism the later checkpoint will exercise.
+//
+// No test file was added for this module. A test that imports it would
+// either fail to construct a chart (no canvas polyfill) or assert nothing
+// meaningful about its DOM wiring — this project has been burned three
+// times before (16-09, 17-15, 19-05) by tests that assert a shape
+// production does not have.
