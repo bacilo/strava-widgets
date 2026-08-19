@@ -72,6 +72,17 @@ describe('resolveStorage — BL-03: the single app-wide storage-handle resolver'
     expect(resolved?.getItem('probe-key')).toBe('probe-value');
   });
 
+  it('GC-9a: resolveStorage(null) returns null — an explicit opt-out is HONOURED even while a live, readable sentinel globalThis.localStorage is installed (WR-01)', () => {
+    const live = fakeStorage();
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      get() {
+        return live;
+      },
+    });
+    expect(resolveStorage(null)).toBeNull();
+  });
+
   it('a full resolve cycle under the throwing getter writes nothing to the console (D-07 silence rule)', () => {
     Object.defineProperty(globalThis, 'localStorage', {
       configurable: true,

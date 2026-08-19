@@ -35,16 +35,31 @@ export interface WebStorage {
 }
 
 /**
- * Resolves the storage handle a caller should use. Returns `override`
- * immediately when one is supplied — the override path never touches
- * `globalThis.localStorage` at all, so a caller-injected fake (tests, or a
- * future non-browser host) is never at the mercy of the global's
- * accessibility. Otherwise reads `globalThis.localStorage` **inside a
- * `try` block**, returning that handle or `null` when it is absent, and
- * returning `null` from the `catch` when the property getter throws.
+ * Resolves the storage handle a caller should use. The contract is
+ * three-way, discriminated on whether `override` was supplied at all —
+ * NOT on its truthiness:
+ *
+ *  - A supplied non-null override is returned as-is, immediately, without
+ *    ever touching `globalThis.localStorage` — so a caller-injected fake
+ *    (tests, or a future non-browser host) is never at the mercy of the
+ *    global's accessibility.
+ *  - An explicitly supplied `null` is an HONOURED opt-out — "this caller
+ *    has no storage" — and is likewise returned immediately without
+ *    touching the global.
+ *  - Only an omitted/`undefined` override falls through to the
+ *    try-wrapped `globalThis.localStorage` read, returning that handle or
+ *    `null` when it is absent, and returning `null` from the `catch` when
+ *    the property getter throws.
+ *
+ * WR-01: the previous body used `if (override) return override;`, a
+ * truthiness check. `null` and `undefined` are both falsy, so that check
+ * could not distinguish "caller has no storage" from "caller did not
+ * say" — every explicit `null` fell through and was silently upgraded to
+ * the real `globalThis.localStorage`. The `override !== undefined` test
+ * below fixes that by discriminating on presence, not truthiness.
  */
-export function resolveStorage(override?: WebStorage): WebStorage | null {
-  if (override) return override;
+export function resolveStorage(override?: WebStorage | null): WebStorage | null {
+  if (override !== undefined) return override;
   try {
     return globalThis.localStorage ?? null;
   } catch {
