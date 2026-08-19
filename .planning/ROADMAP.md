@@ -396,7 +396,7 @@ Plans:
 
 **Wave 4** *(blocked on 23-05)*
 
-- [ ] 23-06-PLAN.md — granularity change resets to the new default window; Training Load's 3mo/12mo/All becomes zoom presets over the full series; `sliceLoadWindow` retired (D-03, D-23)
+- [x] 23-06-PLAN.md — granularity change resets to the new default window; Training Load's 3mo/12mo/All becomes zoom presets over the full series; `sliceLoadWindow` retired (D-03, D-23)
 
 **Wave 5** *(blocked on 23-06)*
 
@@ -463,7 +463,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 20. Row-Click Interaction Pattern | v2.1 | 20/20 | Complete    | 2026-08-18 |
 | 21. Overview Rebuild | v2.1 | 8/8 | Complete    | 2026-08-18 |
 | 22. Calendar Week-Start & Totals | v2.1 | 16/16 | Complete   | 2026-08-19 |
-| 23. Trends Zoom, Pan & Taller Bands | v2.1 | 5/7 | In Progress|  |
+| 23. Trends Zoom, Pan & Taller Bands | v2.1 | 6/7 | In Progress|  |
 | 24. Local Curation Mode | v2.1 | 0/TBD | Not started | - |
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 0/TBD | Not started | - |
 
