@@ -83,6 +83,7 @@ import {
 } from './trends-gear-logic.js';
 import type { GearShoeAggregate } from '../../analytics/gear-aggregate.types.js';
 import { formatPace, formatActivityDate } from './list.js';
+import type { ZoomRange } from './trends-zoom-logic.js';
 
 const STATS_BASE_URL = 'data/stats/';
 
@@ -427,8 +428,14 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
   let tabPanels: Partial<Record<TrendTabKey, HTMLElement>> = {};
 
   // Volume tab's own within-tab state (18-UI-SPEC § 8) — survives a
-  // granularity/year change (destroy-and-rebuild the chart only), but not a
-  // full page remount (reset on unmount()).
+  // granularity/year change (destroy-and-rebuild the chart only). Verified
+  // fact, correcting this comment's prior claim: `createTrendsView(...)` is
+  // called exactly once at app startup (`view-registry.ts:37`), so every
+  // `let` in this factory's closure outlives `unmount()` too — this state
+  // does NOT reset on a full page remount, unlike what this comment used to
+  // say. The zoom-state block below (D-22) is the one exception: it is the
+  // first within-tab state `unmount()` genuinely resets, by explicit
+  // decision — see that block's own comment for why.
   let volumeGranularity: VolumeGranularity = 'weekly';
   let volumeYear: number | null = null;
 
@@ -450,6 +457,26 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
   // is unaffected by table sort order).
   let gearSort: GearSortKey = 'distanceM';
   let gearSortDir: 'asc' | 'desc' = 'desc';
+
+  // Zoom state for the three zoomable tabs (D-22, 18-UI-SPEC § 8's
+  // within-tab-state contract applied to zoom) — each slot survives a
+  // granularity change's destroy-and-rebuild and a tab switch, because every
+  // `render*Tab` re-reads its own slot when it rebuilds its chart. `null`
+  // means "use the D-06 default window". Volume keeps ONE slot rather than
+  // one per granularity, because D-23 resets the zoom on every granularity
+  // change anyway (plan 23-06 wires that reset).
+  //
+  // Unlike the six variables above, these three ARE explicitly reset by
+  // `unmount()` (below) — the first within-tab state with a real reset.
+  // D-22's own text says zoom "resets on unmount", and 23-VALIDATION.md's
+  // TRN-04 row requires a developer to remount the view and observe the
+  // D-06 default returning, which cannot pass if these slots merely
+  // persisted like the other six. The other six are deliberately left
+  // alone: changing shipped behaviour nobody asked for, with no checkpoint
+  // row watching it, is exactly what this project's house rules forbid.
+  let volumeZoomRange: ZoomRange | null = null;
+  let cadenceHrZoomRange: ZoomRange | null = null;
+  let loadZoomRange: ZoomRange | null = null;
 
   function destroyActiveChart(): void {
     activeChartHandle?.destroy();
@@ -606,7 +633,13 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
       if (!data) return;
       destroyActiveChart();
       const points = buildVolumeSeries(data.weekly, data.monthly, data.yearly, volumeGranularity);
-      activeChartHandle = chartsModule.mountVolumeChart(band.canvas, points, volumeGranularity);
+      activeChartHandle = chartsModule.mountVolumeChart(band.canvas, points, volumeGranularity, {
+        header: band.header,
+        savedRange: volumeZoomRange,
+        onRangeChange: (r) => {
+          volumeZoomRange = r;
+        },
+      });
     }
 
     VOLUME_GRANULARITIES.forEach((granularity) => {
@@ -742,7 +775,12 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
     panel.appendChild(chartRoot);
 
     destroyActiveChart();
-    activeChartHandle = chartsModule.mountChannelBands(chartRoot, cadenceSeries, hrSeries);
+    activeChartHandle = chartsModule.mountChannelBands(chartRoot, cadenceSeries, hrSeries, {
+      savedRange: cadenceHrZoomRange,
+      onRangeChange: (r) => {
+        cadenceHrZoomRange = r;
+      },
+    });
 
     const cadenceMissingMonths = cadenceSeries.filter((point) => point.value === null).length;
     const hrMissingMonths = hrSeries.filter((point) => point.value === null).length;
@@ -935,7 +973,13 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
 
       band.band.hidden = false;
       emptyModelState.hidden = true;
-      activeChartHandle = chartsModule.mountTrainingLoadChart(band.canvas, points, spans);
+      activeChartHandle = chartsModule.mountTrainingLoadChart(band.canvas, points, spans, {
+        header: band.header,
+        savedRange: loadZoomRange,
+        onRangeChange: (r) => {
+          loadZoomRange = r;
+        },
+      });
       caption.textContent = coverageCaption(spans);
     }
 
@@ -1230,6 +1274,11 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
       data = null;
       tabButtons = {};
       tabPanels = {};
+      // D-22: explicitly reset all three zoom slots — see their declaration
+      // comment above for the verified fact and the decision this follows.
+      volumeZoomRange = null;
+      cadenceHrZoomRange = null;
+      loadZoomRange = null;
     },
   };
 }
