@@ -355,7 +355,7 @@ Plans:
 
 **Wave 13** *(blocked on Wave 12 — consumes the `isAuto` option 22-13 adds to `theme.ts`)*
 
-- [ ] 22-14-PLAN.md — close Gap 2 (CR-01): move the theme mode into an in-session `nav-theme.ts` controller seeded once at mount, so the header toggle reaches dark and auto under a null storage handle, and route `watchSystemTheme`'s auto-only guard through it
+- [x] 22-14-PLAN.md — close Gap 2 (CR-01): move the theme mode into an in-session `nav-theme.ts` controller seeded once at mount, so the header toggle reaches dark and auto under a null storage handle, and route `watchSystemTheme`'s auto-only guard through it
 
 **Wave 14** *(blocked on Waves 12 and 13 — the checkpoint must observe the fixed build)*
 
@@ -439,7 +439,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 19. Design System & Control Styling | v2.1 | 17/17 | Complete    | 2026-08-13 |
 | 20. Row-Click Interaction Pattern | v2.1 | 20/20 | Complete    | 2026-08-18 |
 | 21. Overview Rebuild | v2.1 | 8/8 | Complete    | 2026-08-18 |
-| 22. Calendar Week-Start & Totals | v2.1 | 14/16 | In Progress|  |
+| 22. Calendar Week-Start & Totals | v2.1 | 15/16 | In Progress|  |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 0/TBD | Not started | - |
 | 24. Local Curation Mode | v2.1 | 0/TBD | Not started | - |
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 0/TBD | Not started | - |
