@@ -104,3 +104,32 @@ truncation — none of which occurred. R19 recorded PASS.
 `overflow-wrap: anywhere` to a last-resort selector, or introduce a non-breaking
 space / `min-width` floor between the numeral and its unit that prevents breaking
 inside a number while still preventing overflow at the 380px breakpoint.
+
+## 22-15 Round 4: `npx vitest run src/dashboard` still shows the same 5 pre-existing `data/stats/`-dependent failures as 22-10/22-11
+
+**Found during:** Task 2's chained verify command (`npx vitest run src/dashboard/styles.test.ts && npx tsc ... `),
+followed by an additional full-directory run performed as this plan's own
+`<verification>` section requires (`npx vitest run src/dashboard` fully green).
+
+**Symptom:** Same 5 suites as 22-10/22-11 fail at import time with
+`ENOENT: no such file or directory, open 'data/stats/<name>.json'` — no new
+failures, no change from the 22-10/22-11 baseline:
+`records-logic.test.ts`, `trends-cadence-hr-logic.test.ts`,
+`trends-gear-logic.test.ts`, `trends-training-load-logic.test.ts`,
+`trends-yoy-logic.test.ts`.
+
+**Scope:** None of these 5 files are in plan 22-15's `files_modified` list
+(`src/dashboard/styles.css`, `src/dashboard/styles.test.ts`). `data/stats/` is
+still absent in this worktree, same root cause as 22-10 (gitignored, produced by
+`npm run compute-all-stats`, not run in this session).
+
+**Not fixed:** Same reasoning as 22-10/22-11 — out of this plan's scope and
+files_modified list.
+
+**Verification substitute:** `npx vitest run src/dashboard/styles.test.ts` passes
+in full (129/129, up from 121 pre-plan — 8 new GC-7a/b/c/d + IN-06 rewording
+cases), `npx tsc --noEmit -p tsconfig.json` exits 0, `npm run build-widgets` exits
+0 with zero `css-syntax-error`, and both non-vacuity mutation gates (Task 1's CSS
+move, Task 2's breakpoint-renarrowing red-then-restore) confirmed. The
+directory-wide run shows 807 passed / 0 newly failing across the 25 suites that
+do not depend on `data/stats/`.

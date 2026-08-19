@@ -1868,28 +1868,28 @@ describe('styles.css — Phase 22 calendar week totals', () => {
   });
 });
 
-describe('styles.css — Phase 22 gap closure (22-06): the 380px compaction and the Total header modifier', () => {
-  it('GC-1: .calendar-day keeps min-width: 32px at the default breakpoint and is relaxed at 380px', () => {
+describe('styles.css — Phase 22 gap closure (22-06): the 640px calendar compaction breakpoint and the Total header modifier', () => {
+  it('GC-1: .calendar-day keeps min-width: 32px at the default breakpoint and is relaxed at <=640px', () => {
     expect(cascadeWinningBodyDeclaring('.calendar-day', 'min-width')).toContain('min-width: 32px');
     expect(() => assertNoAtRuleOverride('.calendar-day', 'min-width')).toThrow(/redeclares "min-width"/);
   });
 
-  it('GC-1: .calendar-day__distance is 20px at the default breakpoint and overridden at 380px', () => {
+  it('GC-1: .calendar-day__distance is 20px at the default breakpoint and overridden at <=640px', () => {
     expect(bodyForSelectorListToken('.calendar-day__distance')).toContain('font-size: 20px');
     expect(() => assertNoAtRuleOverride('.calendar-day__distance', 'font-size')).toThrow(/redeclares "font-size"/);
   });
 
-  it('GC-1: .calendar-week-total__time is 14px at the default breakpoint and overridden at 380px', () => {
+  it('GC-1: .calendar-week-total__time is 14px at the default breakpoint and overridden at <=640px', () => {
     expect(bodyForSelectorListToken('.calendar-week-total__time')).toContain('font-size: 14px');
     expect(() => assertNoAtRuleOverride('.calendar-week-total__time', 'font-size')).toThrow(/redeclares "font-size"/);
   });
 
-  it('GC-1: .calendar-week-total__count is 14px at the default breakpoint and overridden at 380px', () => {
+  it('GC-1: .calendar-week-total__count is 14px at the default breakpoint and overridden at <=640px', () => {
     expect(bodyForSelectorListToken('.calendar-week-total__count')).toContain('font-size: 14px');
     expect(() => assertNoAtRuleOverride('.calendar-week-total__count', 'font-size')).toThrow(/redeclares "font-size"/);
   });
 
-  it("WR-02 caveat: .calendar-week-total__distance's 380px override is asserted, not assumed away", () => {
+  it("WR-02 caveat: .calendar-week-total__distance's <=640px override is asserted, not assumed away", () => {
     // The neighbouring pre-existing case in the "Phase 22 calendar week totals"
     // describe above asserts .calendar-week-total__distance's 20px base in
     // isolation, with no assertNoAtRuleOverride pairing — that is WR-02's
@@ -1904,7 +1904,7 @@ describe('styles.css — Phase 22 gap closure (22-06): the 380px compaction and 
     expect(bodyForSelectorListToken('.calendar-weekday')).toContain('text-align: center');
   });
 
-  it('D-10/GC-4/BL-01: the eight-column contract is the DEFAULT shape and is deliberately overridden at 380px', () => {
+  it('D-10/GC-4/BL-01: the eight-column contract is the DEFAULT shape and is deliberately overridden at <=640px', () => {
     // Previously this case asserted the opposite: that .calendar-grid's
     // track list is NEVER overridden at any breakpoint
     // (`assertNoAtRuleOverride(...).not.toThrow()`). 22-VERIFICATION.md
@@ -1914,7 +1914,8 @@ describe('styles.css — Phase 22 gap closure (22-06): the 380px compaction and 
     // deliberately, under 22-CONTEXT.md's Claude's-Discretion clause
     // assigning the 8th column's exact CSS track to the planner: the
     // eight-track CONTRACT survives as the default-breakpoint shape, but
-    // its SIZING FUNCTION is now allowed to change at 380px.
+    // its SIZING FUNCTION is now allowed to change at <=640px (widened from
+    // 380px in round 4, GC-7).
     const body = bodyForSelectorListToken('.calendar-grid');
     expect(body).toContain('grid-template-columns: repeat(7, 1fr) auto');
     expect(() => assertNoAtRuleOverride('.calendar-grid', 'grid-template-columns')).toThrow(/redeclares "grid-template-columns"/);
@@ -1924,30 +1925,45 @@ describe('styles.css — Phase 22 gap closure (22-06): the 380px compaction and 
     expect(body).not.toMatch(/overflow/);
   });
 
-  it('IN-06: this stylesheet carries exactly three disjoint @media (max-width: 380px) blocks', () => {
+  it('IN-06/GC-7: this stylesheet carries exactly two disjoint @media (max-width: 380px) blocks, neither calendar-related', () => {
     // Pairs with the reworded IN-06 comment in styles.css: if a future edit
     // consolidates the blocks, this goes red and the comment must be
     // corrected with it. Reads cssNoComments, never the raw css, whose
     // comments now name the breakpoint in prose (IN-09's rationale applied
-    // to a structural check).
-    const matches = cssNoComments.match(/@media \(max-width: 380px\)/g) ?? [];
-    expect(matches).toHaveLength(3);
+    // to a structural check). GC-7 (round 4): the calendar compaction
+    // moved to 640px, so the two remaining 380px blocks govern only
+    // `.chart-band__canvas-wrap` and `.pr-evolution-card__canvas-wrap`.
+    const preludes = [...cssNoComments.matchAll(/@media \(max-width: 380px\)\s*\{/g)];
+    expect(preludes).toHaveLength(2);
+    for (const m of preludes) {
+      let i = m.index! + m[0].length;
+      let depth = 1;
+      while (depth > 0 && i < cssNoComments.length) {
+        if (cssNoComments[i] === '{') depth++;
+        else if (cssNoComments[i] === '}') depth--;
+        i++;
+      }
+      const body = cssNoComments.slice(m.index! + m[0].length, i - 1);
+      expect(body).not.toContain('.calendar-');
+    }
   });
 });
 
 /**
- * Extracts the body of the ONE `@media (max-width: 380px)` block that
+ * Extracts the body of the ONE `@media (max-width: 640px)` block that
  * mentions a `.calendar-` selector, by brace-matching from its `@media`
  * prelude to its closing `}` — the same brace-walk `computeAtRuleRanges`
  * performs, applied to a single needle block rather than every at-rule in
- * the file. Used by the round 3 describe below (cases 8 and 9) to make a
- * positional assertion about the block's FIRST nested rule, which
- * `RULE_SCANNER` itself swallows into the `@media` prelude's pseudo-body
- * (WR-03/WR-06) and so cannot be read through any of the selector-token
- * helpers above.
+ * the file. The `.calendar-` body filter is what disambiguates this from
+ * the OTHER 640px block in the file (the nav-collapse block at
+ * `styles.css:465`, `.app-nav__links` / `.app-nav__toggle`). Used by the
+ * round 3 describe below (cases 8 and 9) to make a positional assertion
+ * about the block's FIRST nested rule, which `RULE_SCANNER` itself
+ * swallows into the `@media` prelude's pseudo-body (WR-03/WR-06) and so
+ * cannot be read through any of the selector-token helpers above.
  */
-function calendar380Block(): string {
-  const starts = [...cssNoComments.matchAll(/@media \(max-width: 380px\)\s*\{/g)];
+function calendarCompactionBlock(): string {
+  const starts = [...cssNoComments.matchAll(/@media \(max-width: 640px\)\s*\{/g)];
   for (const m of starts) {
     let i = m.index! + m[0].length;
     let depth = 1;
@@ -1961,11 +1977,11 @@ function calendar380Block(): string {
       return body;
     }
   }
-  throw new Error('No @media (max-width: 380px) block mentioning a .calendar- selector was found');
+  throw new Error('No @media (max-width: 640px) block mentioning a .calendar- selector was found');
 }
 
-describe('styles.css — Phase 22 gap closure round 3 (22-09): BL-01/BL-02 and the 380px override VALUES', () => {
-  it('BL-01: .calendar-week-total is nowrap at the default breakpoint and wraps with a zero floor at 380px', () => {
+describe('styles.css — Phase 22 gap closure round 3 (22-09): BL-01/BL-02 and the <=640px override VALUES', () => {
+  it('BL-01: .calendar-week-total is nowrap at the default breakpoint and wraps with a zero floor at <=640px', () => {
     expect(bodyForSelectorListToken('.calendar-week-total')).toContain('white-space: nowrap');
     expect(atRuleBodiesFor('.calendar-week-total', 'white-space')[0]).toContain(
       'white-space: normal',
@@ -1976,7 +1992,7 @@ describe('styles.css — Phase 22 gap closure round 3 (22-09): BL-01/BL-02 and t
     );
   });
 
-  it('BL-02: .calendar-day is a three-column grid at the default breakpoint and a single-column stack at 380px', () => {
+  it('BL-02: .calendar-day is a three-column grid at the default breakpoint and a single-column stack at <=640px', () => {
     expect(bodyForSelectorListToken('.calendar-day')).toContain(
       'grid-template-columns: 1fr 1fr 1fr',
     );
@@ -1988,7 +2004,7 @@ describe('styles.css — Phase 22 gap closure round 3 (22-09): BL-01/BL-02 and t
     );
   });
 
-  it('BL-02: all three day-cell children are start-aligned at 380px, overriding centre and end', () => {
+  it('BL-02: all three day-cell children are start-aligned at <=640px, overriding centre and end', () => {
     expect(bodyForSelectorListToken('.calendar-day__distance')).toContain(
       'justify-self: center',
     );
@@ -2002,7 +2018,7 @@ describe('styles.css — Phase 22 gap closure round 3 (22-09): BL-01/BL-02 and t
     }
   });
 
-  it('GC-4e: the two overflowing values declare overflow-wrap: anywhere, not break-word, at 380px', () => {
+  it('GC-4e: the two overflowing values declare overflow-wrap: anywhere, not break-word, at <=640px', () => {
     for (const needle of ['.calendar-day__distance', '.calendar-week-total']) {
       const body = atRuleBodiesFor(needle, 'overflow-wrap')[0];
       expect(body).toContain('anywhere');
@@ -2010,7 +2026,7 @@ describe('styles.css — Phase 22 gap closure round 3 (22-09): BL-01/BL-02 and t
     }
   });
 
-  it('WR-03: the 380px day-cell compaction is asserted by VALUE', () => {
+  it('WR-03: the <=640px day-cell compaction is asserted by VALUE', () => {
     // The gap this case closes: the pre-existing existence-only pairing
     // (`assertNoAtRuleOverride(...).toThrow(...)`) proves only that SOME
     // override exists — mutating `min-width: 0` to `min-width: 200px`, or
@@ -2023,7 +2039,7 @@ describe('styles.css — Phase 22 gap closure round 3 (22-09): BL-01/BL-02 and t
     );
   });
 
-  it('WR-03: the 380px total-cell compaction is asserted by VALUE', () => {
+  it('WR-03: the <=640px total-cell compaction is asserted by VALUE', () => {
     expect(atRuleBodiesFor('.calendar-week-total__time', 'font-size')[0]).toContain(
       'font-size: 12px',
     );
@@ -2032,7 +2048,7 @@ describe('styles.css — Phase 22 gap closure round 3 (22-09): BL-01/BL-02 and t
     );
   });
 
-  it('WR-07: the 380px .calendar-week-total__distance override is font-size only', () => {
+  it('WR-07: the <=640px .calendar-week-total__distance override is font-size only', () => {
     const body = atRuleBodiesFor('.calendar-week-total__distance', 'font-size')[0];
     expect(body).toContain('font-size: 14px');
     expect(body).not.toMatch(/line-height/);
@@ -2042,7 +2058,7 @@ describe('styles.css — Phase 22 gap closure round 3 (22-09): BL-01/BL-02 and t
     );
   });
 
-  it('WR-06: the padding rule is still the FIRST rule inside the calendar 380px block', () => {
+  it('WR-06: the padding rule is still the FIRST rule inside the calendar compaction block', () => {
     // WR-06 (22-REVIEW.md): the positional convention `styles.css`'s WR-03
     // paragraph has been holding in prose, now held by a test instead.
     // `RULE_SCANNER` swallows an at-rule block's first nested rule into its
@@ -2050,14 +2066,103 @@ describe('styles.css — Phase 22 gap closure round 3 (22-09): BL-01/BL-02 and t
     // unguardable through any of the selector-token helpers above — a
     // future rule accidentally inserted ahead of the padding rule would be
     // silently invisible to every other case in this file.
-    const block = calendar380Block();
+    const block = calendarCompactionBlock();
     const firstRuleBody = block.slice(0, block.indexOf('}'));
     expect(firstRuleBody).toContain('padding: var(--space-xs)');
   });
 
   it('GC-4: no scroll wrapper was built — no calendar rule declares overflow at any breakpoint', () => {
     expect(() => atRuleBodiesFor('.calendar-grid', 'overflow')).toThrow();
-    const block = calendar380Block();
+    const block = calendarCompactionBlock();
     expect(block).not.toMatch(/(^|[^-\w])overflow\s*:/);
+  });
+});
+
+/**
+ * Parses the numeric `max-width` value out of the calendar compaction
+ * block's own `@media` prelude, by locating the `@media (max-width: NNNpx) {`
+ * whose brace-matched body contains `.calendar-` and capturing `NNN` as an
+ * integer. Used by the GC-7a/GC-7b breadth guards below so the assertion
+ * reads the breakpoint the stylesheet actually ships, rather than a literal
+ * hard-coded in the test.
+ */
+function parsedCalendarBreakpointPx(): number {
+  const starts = [...cssNoComments.matchAll(/@media \(max-width: (\d+)px\)\s*\{/g)];
+  for (const m of starts) {
+    let i = m.index! + m[0].length;
+    let depth = 1;
+    while (depth > 0 && i < cssNoComments.length) {
+      if (cssNoComments[i] === '{') depth++;
+      else if (cssNoComments[i] === '}') depth--;
+      i++;
+    }
+    const body = cssNoComments.slice(m.index! + m[0].length, i - 1);
+    if (body.includes('.calendar-')) {
+      return parseInt(m[1], 10);
+    }
+  }
+  throw new Error('No @media (max-width: NNNpx) block mentioning a .calendar- selector was found');
+}
+
+describe("styles.css — Phase 22 gap closure round 4 (22-15): GC-7, the compaction breakpoint COVERAGE BAND", () => {
+  it('GC-7a: the breadth guard — the calendar compaction breakpoint is parsed from its own prelude and is >= 530px', () => {
+    // CR-02's arithmetic puts the grid's content-derived minimum at ~480px
+    // against `viewport - 48px` of available width, so the last
+    // overflowing viewport is around 530px. A compaction gated below that
+    // leaves real phone widths (390/393/412px) exposed — exactly how
+    // 22-VERIFICATION.md reopened Gap 1 after Round 3's 380px-scoped fix
+    // passed a 375px-only observation (R19). This case exists to make the
+    // fix's BREADTH, not merely its existence, a test-enforced invariant:
+    // narrowing the breakpoint back toward 380px in a future edit must
+    // turn this red, which is the guard Round 3 lacked.
+    const breakpointPx = parsedCalendarBreakpointPx();
+    expect(breakpointPx).toBeGreaterThanOrEqual(530);
+  });
+
+  it('GC-7b: the three most common real phone widths (iPhone 12-15 @390px, iPhone 15/16 Pro @393px, Pixel @412px) all fall inside the compaction band', () => {
+    // Deliberately redundant with GC-7a: written so that a reader of a
+    // future failure sees immediately which real devices fall out of
+    // coverage, named explicitly rather than only implied by a number.
+    const breakpointPx = parsedCalendarBreakpointPx();
+    expect(breakpointPx, 'iPhone 12/13/14/15 @390px CSS width').toBeGreaterThanOrEqual(390);
+    expect(breakpointPx, 'iPhone 15/16 Pro @393px CSS width').toBeGreaterThanOrEqual(393);
+    expect(breakpointPx, 'Pixel @412px CSS width').toBeGreaterThanOrEqual(412);
+  });
+
+  it('GC-7c: no calendar rule was left behind at 380px — every compaction declaration lives in the moved block', () => {
+    const block = calendarCompactionBlock();
+    for (const needle of [
+      'minmax(0, max-content)',
+      'min-width: 0',
+      'white-space: normal',
+      'overflow-wrap: anywhere',
+      'justify-self: start',
+      'grid-template-columns: 1fr',
+    ]) {
+      expect(block).toContain(needle);
+    }
+    const preludes = [...cssNoComments.matchAll(/@media \(max-width: 380px\)\s*\{/g)];
+    for (const m of preludes) {
+      let i = m.index! + m[0].length;
+      let depth = 1;
+      while (depth > 0 && i < cssNoComments.length) {
+        if (cssNoComments[i] === '{') depth++;
+        else if (cssNoComments[i] === '}') depth--;
+        i++;
+      }
+      const body = cssNoComments.slice(m.index! + m[0].length, i - 1);
+      expect(body).not.toContain('.calendar-');
+    }
+  });
+
+  it('GC-7d: D-10 survives at desktop — the eight-column contract and default cell shape are unchanged above the breakpoint', () => {
+    expect(bodyForSelectorListToken('.calendar-grid')).toContain(
+      'grid-template-columns: repeat(7, 1fr) auto',
+    );
+    expect(bodyForSelectorListToken('.calendar-day')).toContain('min-width: 32px');
+    expect(bodyForSelectorListToken('.calendar-day')).toContain(
+      'grid-template-columns: 1fr 1fr 1fr',
+    );
+    expect(bodyForSelectorListToken('.calendar-week-total')).toContain('white-space: nowrap');
   });
 });
