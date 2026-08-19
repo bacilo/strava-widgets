@@ -14,6 +14,7 @@ round2_answered: 2026-08-18
 round3_staged: 2026-08-18
 round3_answered: 2026-08-19
 round4_planned: 2026-08-19
+round4_staged: 2026-08-19
 ---
 
 # Phase 22 — Validation Strategy
@@ -82,6 +83,9 @@ its Task 2 is the blocking human checkpoint by design.
 | 22-07-T1 | 22-07 | 7 | CAL-01 | T-22-WK-02 | A storage stand-in whose property getter throws resolves to a null handle and the read falls back to the Monday default | unit | `npx vitest run src/dashboard/views/calendar-preferences.test.ts` | ✅ exists | ✅ green (npm test 1222/1222, plan 22-08 Task 1 gate) |
 | 22-09-T2 | 22-09 | 9 | CAL-02 | — | The BL-01/BL-02 380px overrides are asserted BY VALUE via `atRuleBodiesFor`, not merely proven to exist | unit | `npx vitest run src/dashboard/styles.test.ts` | ✅ exists | ✅ green (npm test 1253/1253, plan 22-12 Task 1 gate) |
 | 22-11-T3 | 22-11 | 10 | CAL-01 | T-22-WK-02 | `resolveStorage` guards the property getter app-wide, both its failing and its live-and-working branches are covered, and a repo-wide source guard proves it is the only dereference site | unit | `npx vitest run src/dashboard/storage.test.ts` | ✅ exists | ✅ green (npm test 1253/1253, plan 22-12 Task 1 gate) |
+| 22-15-T2 | 22-15 | 12 | CAL-02 | no threat ref | the calendar compaction breakpoint is parsed from its own prelude and asserted `>= 530px`, so the fix's COVERAGE BAND is enforced, not merely its existence | unit | `npx vitest run src/dashboard/styles.test.ts` | ✅ exists | ✅ green (npm test 1272/1272, plan 22-16 Task 1 gate) |
+| 22-14-T1 | 22-14 | 13 | CAL-01 | T-22-R4-04 | three consecutive toggles advance light->dark->auto with no storage handle available, and a source guard proves `nav.ts` performs no per-click storage read | unit | `npx vitest run src/dashboard/nav-theme.test.ts` | ✅ exists | ✅ green (npm test 1272/1272, plan 22-16 Task 1 gate) |
+| 22-13-T2 | 22-13 | 12 | CAL-01 | T-22-R4-03 | an explicit `storage: null` is honoured, proven against an installed sentinel global that records every write, with a control case proving the fallthrough branch still writes | unit | `npx vitest run src/dashboard/theme.test.ts src/dashboard/storage.test.ts` | ✅ exists | ✅ green (npm test 1272/1272, plan 22-16 Task 1 gate) |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -843,6 +847,129 @@ at 5/8 with `status: gaps_found`. This section is APPEND-ONLY: the Round 1 (R1�
 (R12–R17) and Round 3 (R18–R23) sections, their verdicts and their frontmatter dates are not
 rewritten. Plan `22-16` Task 1 inserts the build-freshness preamble immediately below the
 `## Round 4` heading; plan `22-16` Task 3 fills the Observation and Verdict cells._
+
+Task 1's full gate ran green on a clean working tree: `npm test` 1272/1272 across 53 files (exit 0);
+`npx tsc --noEmit -p tsconfig.json` clean (exit 0); `npx vitest run src/dashboard` 915/915 across 31
+files (exit 0); `npm run build-widgets` exit 0 with zero `css-syntax-error` occurrences in the captured
+log; `npm run verify-dashboard` 37/37 checks passed (exit 0). Unlike every prior round, no
+`deferred-items.md`-shaped environmental failure occurred this round — all five gate commands passed
+cleanly with no exceptions to record. `git status --porcelain src scripts data dist` was empty both
+before and after staging.
+
+The build is staged under the production path shape and served from `127.0.0.1`, never `localhost` —
+served URL prefix `http://127.0.0.1:8099/strava-widgets/`. The two calendar routes this session uses
+are `http://127.0.0.1:8099/strava-widgets/#/calendar?month=2025-10` (R24–R27, R28 ii/iii) and, for
+R28(i) only, the same route under Sunday-start.
+
+**Then the served artifact was proven to be THIS round's build, not any of the three previously
+observed builds.** The `assets/index-*.js` and `assets/index-*.css` filenames were read out of the
+served `index.html`: JS `assets/index-BWkFUnJ1.js`, CSS `assets/index-BnKFUiAg.css`. The JS filename
+differs from ALL THREE prior rounds' — Round 1's `assets/index-YqJHQsHW.js`, Round 2's
+`assets/index-Dlom2BM3.js`, and Round 3's `assets/index-Bsnjp2E6.js` — and the CSS filename differs
+from BOTH prior stylesheets — Round 2's `assets/index-aaEmW9us.css` and Round 3's
+`assets/index-C-Jvo-sR.css`. The served CSS was independently fetched over HTTP and parsed: exactly one
+`@media (max-width: 640px)` block mentions `.calendar-week-total`, and that block positively contains
+`minmax(0, max-content)` — the Round 4 track-widening fix (plan `22-15`) is actually present in the
+observed artifact, not merely claimed by a changed hash — and no `@media (max-width: 380px)` block in
+the served CSS mentions any `.calendar-` selector, confirming the compaction rules were moved rather
+than duplicated. Honestly noted: the JS-side changes (`nav-theme.ts`'s in-memory controller, the
+null-honouring `resolveStorage` override) cannot be discriminated in a minified bundle by string match,
+so their freshness rests on the changed filename plus the behavioural rows R27 and R28, exactly as
+`<cache_trap>` below states. **No staged fixture is used or permitted in this round** — every value
+below comes from the live, organic `data/dashboard/index.json` archive (1,868 activities).
+
+<cache_trap>
+`127.0.0.1` alone is NOT sufficient. This project has been bitten repeatedly: Phase 21 Round 1's R13
+only passed after a hard reload cleared a stale cached `streaks.json`, and the staged-build trap
+recurs with a stale `index.html` / `index.json` in the observing tab.
+
+Every checkpoint session must: browse `127.0.0.1`, never `localhost`; serve under the
+`/strava-widgets` project path, never the server root; and hard reload (Cmd+Shift+R, Cmd+Option+R in
+Safari, or DevTools open with "Disable cache" ticked, then reload) before judging any row.
+
+**Round 4's build-freshness bar is the strictest of the phase, because THREE builds have now been
+observed.** Round 1 was judged against `assets/index-YqJHQsHW.js`. Round 2 against
+`assets/index-Dlom2BM3.js` + `assets/index-aaEmW9us.css`. Round 3 against `assets/index-Bsnjp2E6.js` +
+`assets/index-C-Jvo-sR.css`. If Round 4 is judged against any of them, the Round 4 fixes are not in the
+observed artifact and every verdict is worthless.
+
+Round 4 additionally has a POSITIVE served-text discriminator the earlier rounds lacked for the CSS
+side: the served stylesheet must carry a `@media (max-width: 640px)` block that contains both
+`.calendar-week-total` and `minmax(0, max-content)`. A build that does not carry it is pre-`22-15`.
+Honestly noted: the JS-side changes (`nav-theme.ts`'s controller, the null-honouring resolver) cannot
+be discriminated in a minified bundle by string match, so their freshness rests on the changed filename
+plus the behavioural rows R27 and R28.
+
+The `localStorage` surface persists too: R27 requires a browser-wide storage state and R28 requires it
+restored, and each is judged only after a reload.
+</cache_trap>
+
+<round_carryover>
+Facts the Round 4 agenda quotes. All are already recorded in `22-VALIDATION.md`'s earlier sections and
+are restated here so the executor does not re-derive them.
+
+**The claim R25 re-asks, for the fourth time, in a band no row has ever entered.**
+Round 1 R11 (FAIL), developer's words: *"Total column values seem fine. Day cell values can slightly
+overflow once width to narrow"*, *"behavior similar in light and dark theme"*.
+Round 2 R13 (FAIL), the re-ask against the fixed build: *"Days still overflow. Total colum remains wide
+(wider than any other column) and all text fits. But other columns (day columns) become narrow and
+distance text overflows."* No width was stated — the agent's resize attempt never engaged the media
+query.
+Round 3 R19 (PASS), at a stated **375px** via Chrome DevTools device emulation with
+`matchMedia('(max-width: 380px)').matches === true`: *"Day cell texts doesn't overflow. It gets stacked
+until there is space so one row could have only the first number of a distance for instance."* and
+*"dark and light behave same"*. **That PASS is valid for the sub-380px half of the band and nothing
+else.** R25 exists because 381-640px was governed by disjoint CSS rules until plan `22-15`, and no row
+in any round has ever been judged there.
+
+**The control R27 exercises, which R22 rendered but never touched.** Round 3 R22 (PASS,
+non-waivable, three stages), developer's words: *"Safari,blocked cookies. Nav rendered and grid.
+Started at monday as default. no errors. a)."* The page rendered — and the theme toggle on it was
+broken the whole time.
+
+**The half R28(i) re-asks.** Round 3 R23 (PASS, thin/waived), developer's words after the restore:
+*"1. Yeah theme sticks after allowing cookines."* The week-start half — select Sunday, hard-reload,
+confirm `Sunday` filled with `Sun` first — was answered only by an earlier, stale bare *"R23: confirm"*
+given BEFORE R22 was run. `22-VERIFICATION.md` records this as a real evidence-quality gap.
+
+**October 2025, Monday-start week totals** (from the live archive, `data/dashboard/index.json`,
+1,868 activities):
+
+| Wk | Days (Oct) | Distance | Time | Runs |
+|-----|------------|----------|------|------|
+| 1 | 1-5 | 59.1 km | 5h 42m | 5 |
+| 2 | 6-12 | 80.0 km | 7h 53m | 6 |
+| 3 | 13-19 | 80.0 km | 7h 58m | 5 |
+| 4 | 20-26 | 80.0 km | 7h 42m | 6 |
+| 5 | 27-31 | 58.1 km | 5h 32m | 5 |
+
+**Known rounding artifact — NOT a bug.** The month header renders `357.3 km`; the Monday-start rows
+display-sum to `357.2 km`, purely from independent per-row `toFixed(1)`. Unrounded metres reconcile at
+357.349 km under both week starts. Do not open a row about it.
+
+**Known and accepted, not a defect.** `deferred-items.md` records that at very narrow widths a distance
+value may wrap after its first digit (`overflow-wrap: anywhere` has no preference for breaking between
+tokens). R19's own criterion treats wrapping as intended behaviour, and R25/R26 carry the same clause.
+
+**The Sunday-start values, for the contradiction guard only:** October 2025 rows 3 and 4 read
+`56.0 km / 5h 27m / 4 runs` and `104.1 km / 10h 14m / 7 runs` under Sunday. R28(ii) is a Monday-start
+reading; those values must not appear in its PASS cell.
+
+**Bundles already observed:** Round 1 `assets/index-YqJHQsHW.js`; Round 2 `assets/index-Dlom2BM3.js` +
+`assets/index-aaEmW9us.css`; Round 3 `assets/index-Bsnjp2E6.js` + `assets/index-C-Jvo-sR.css`.
+
+**The three aria-label strings R27 reads back**, from `nav.ts`'s `THEME_MODE_LABEL`:
+`Theme: light`, `Theme: dark`, `Theme: auto`.
+</round_carryover>
+
+**D-15 scope fence.** Trends' weekly volume, `records-logic.ts`'s biggest week, and the streak logic
+all stay Monday-fixed by design — they read the pipeline's pre-computed Monday `weekStartISO` and this
+phase deliberately does not touch them. No row on this agenda is opened against those surfaces.
+
+**House rule 14 reminder.** R25, R26 and R27 below are all marked **NON-WAIVABLE** — the executor
+must not observe them on the developer's behalf, must not resize a window or open device emulation or
+change a browser privacy setting to fill their Observation cells, and must decline and record BLOCKED
+if a waiver is offered or requested on any of the three. R27 additionally may not be declined.
 
 ### What Round 4 ships
 
