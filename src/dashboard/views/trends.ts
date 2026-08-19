@@ -598,15 +598,15 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
 
     const granularityButtons: Partial<Record<VolumeGranularity, HTMLButtonElement>> = {};
 
-    const canvasWrap = document.createElement('div');
-    const canvas = document.createElement('canvas');
-    canvasWrap.appendChild(canvas);
+    panel.appendChild(controls);
+
+    const band = chartsModule.buildChartBand(panel, 'Distance', 'Weekly distance chart');
 
     function mountChartForGranularity(): void {
       if (!data) return;
       destroyActiveChart();
       const points = buildVolumeSeries(data.weekly, data.monthly, data.yearly, volumeGranularity);
-      activeChartHandle = chartsModule.mountVolumeChart(canvas, points, volumeGranularity);
+      activeChartHandle = chartsModule.mountVolumeChart(band.canvas, points, volumeGranularity);
     }
 
     VOLUME_GRANULARITIES.forEach((granularity) => {
@@ -631,9 +631,6 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
       controls.appendChild(btn);
       granularityButtons[granularity] = btn;
     });
-
-    panel.appendChild(controls);
-    panel.appendChild(canvasWrap);
 
     mountChartForGranularity();
 
@@ -896,10 +893,11 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
 
     // -- Chart + empty-model state + caption --------------------------------
 
-    const canvasWrap = document.createElement('div');
-    const canvas = document.createElement('canvas');
-    canvasWrap.appendChild(canvas);
-    panel.appendChild(canvasWrap);
+    const band = chartsModule.buildChartBand(
+      panel,
+      'Training load',
+      'Training load chart: CTL, ATL, and TSB over time'
+    );
 
     const emptyModelState = document.createElement('div');
     emptyModelState.className = 'empty-state';
@@ -929,15 +927,15 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
       const spans = findThinCoverageSpans(windowedDays);
 
       if (points.length === 0) {
-        canvasWrap.hidden = true;
+        band.band.hidden = true;
         emptyModelState.hidden = false;
         caption.textContent = '';
         return;
       }
 
-      canvasWrap.hidden = false;
+      band.band.hidden = false;
       emptyModelState.hidden = true;
-      activeChartHandle = chartsModule.mountTrainingLoadChart(canvas, points, spans);
+      activeChartHandle = chartsModule.mountTrainingLoadChart(band.canvas, points, spans);
       caption.textContent = coverageCaption(spans);
     }
 

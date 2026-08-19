@@ -26,3 +26,27 @@ files fail to even load their live-data fixture. Someone running
 `npm run compute-all-stats` (or an equivalent stats-generation step) before
 `npm test` would resolve this; it is orthogonal to Phase 23's CSS/zoom-pan
 work.
+
+**RESOLVED 2026-08-19 during plan 23-03 Task 2:** Plan 23-03's own verify
+step for Task 2 required `npm run verify-dashboard`, which itself requires
+`data/dashboard/index.json` and the `data/stats/*.json` fixtures above — so
+this pre-existing environment gap became directly blocking, not just
+pre-existing test noise. Ran `npm run build` (tsc, `dist/index.js` also did
+not exist yet), then `npm run compute-dashboard-index` and
+`npm run compute-all-stats`, both of which succeed entirely from the
+committed archive (`data/activities/`, `data/streams/`) with no network
+calls — `data/private/athlete-private.json` is absent (expected on a fresh
+worktree; age-grading/Banister TRIMP degrade to disabled, non-fatal, matches
+the athlete-private test's own documented ENOENT-tolerant behavior). All
+five previously-failing test files now pass (54/54 files, 1317/1317 tests),
+`npm run build-widgets` copies the new `data/stats/`/`data/dashboard/` into
+`dist/widgets/`, and `npm run verify-dashboard` reports 37/37 checks
+passing. `data/stats/` and `data/dashboard/` are both gitignored — nothing
+from this generation step is committed. One side effect was caught and
+reverted before committing: `npm run compute-all-stats` also touches
+`data/geo/geo-metadata.json`'s `generatedAt` timestamp as a byproduct of a
+shared code path; that file was restored via `git checkout --` before the
+Task 2 commit, since it is unrelated to Phase 23. Left in place (not
+reverted) for any later Phase 23 plan that also runs the full verification
+gate: the generated `data/stats/`/`data/dashboard/` files themselves,
+since they are gitignored and regenerating them is idempotent/free.
