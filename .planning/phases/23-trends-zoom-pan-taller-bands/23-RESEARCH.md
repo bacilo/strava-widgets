@@ -852,17 +852,19 @@ function platformModifierKey(): 'meta' | 'ctrl' {
 
 **Package-name provenance note:** `chartjs-plugin-zoom` and `hammerjs` are tagged `[VERIFIED: npm registry]` above (not `[ASSUMED]`) because both names were confirmed via an authoritative source (the plugin's own shipped `package.json`, which names `hammerjs` as its dependency, plus the plugin's official `chartjs.org` docs site) *and* passed `slopcheck`, satisfying both provenance-rule conditions — not registry-existence alone.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Exact D-06 default-window spans, D-09 limits/minRange constants, D-12 zoom-factor/pan-fraction, D-19 clamp values, and D-21 breakpoint**
    - What we know: CONTEXT.md explicitly leaves all of these as Claude's Discretion, "tuned against a real browser" / "against the real archive" / "against real phone widths." The archive itself is confirmed concrete: 486 weekly entries spanning `2011-08-15` to `2026-08-10` (≈15 years), read directly from `data/stats/weekly-distance.json`.
    - What's unclear: the actual pixel/visual outcome of any specific constant choice can only be judged by looking at the rendered chart — this genuinely is not something research (or code-reading) can settle.
    - Recommendation: the planner should pick starting values consistent with CONTEXT.md's stated shapes (weekly≈12mo, monthly≈5yr, yearly=all; ~1.5× zoom; ~25% pan; `clamp(180px, 34vh, 420px)`-shaped height) and write them into the plan as the checkpoint's expected-values table (per D-25's discipline), explicitly flagged as subject to correction at the checkpoint rather than presented as final.
+   - RESOLVED: pinned in `23-01-PLAN.md`'s Task 2 constant table (D-06 default spans, D-09 `minRange` floors, `ZOOM_FACTOR = 1.5`, `PAN_FRACTION = 0.25`) and asserted by value in its Task 3 tests, and in `23-02-PLAN.md`'s by-value CSS assertions (`clamp(200px, 34dvh, 420px)`, the `@media (max-width: 430px)` floor `clamp(160px, 30dvh, 260px)`, D-21's breakpoint). Every one of those values is read back by a human at the browser checkpoint in `23-07-PLAN.md` (rows R2–R5, R13, R15) and is correctable there, exactly as this recommendation asked.
 
 2. **Whether the Training Load LTTB decimation genuinely resolves to daily granularity at a deep zoom (D-03(b))**
    - What we know: Chart.js's `Decimation` plugin (already registered module-wide in `trends-charts.ts`) samples from the data visible to the *current scale range* — this is documented Chart.js behavior, and D-03(b) explicitly names it as a checkpoint item.
    - What's unclear: whether the existing `DECIMATION_CONFIG` (`{ enabled: true, algorithm: 'lttb', samples: 500 }`, mirrored from `detail-charts.ts`) was tuned assuming a fixed window (`sliceLoadWindow`'s old behavior) — under D-03, the full 5,000+-day series is always the dataset the scale ranges over, which changes what "500 samples" means at different zoom depths. This needs the D-25 checkpoint's explicit "zoom into a two-week span, confirm daily resolution" row — not something this research session's static reading of the Decimation plugin's source can settle without a real render.
    - Recommendation: keep this as an explicit, separate checkpoint row (already named in CONTEXT.md D-03(b)) rather than assuming it "just works" because the config already exists.
+   - RESOLVED: exercised by checkpoint row R18 in `23-07-PLAN.md` ("On Training Load, zoom in to roughly a two-week span. State whether the series resolves to finer (near-daily) detail or stays visibly decimated"), which is one of the rows TRN-01 is gated on. `23-05-PLAN.md` Task 1 additionally comments `DECIMATION_CONFIG`'s use with D-03(b) so the open question is visible at the code site.
 
 ## Environment Availability
 
