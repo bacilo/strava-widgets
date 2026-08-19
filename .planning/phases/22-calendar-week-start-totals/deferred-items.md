@@ -79,3 +79,28 @@ test, not a build artifact) independently proves the invariant `verify-dashboard
 would otherwise be asked to observe at runtime. `npm test` shows the same 5
 pre-existing `data/stats/`-dependent failures as 22-10 and no others — 1160
 passed (4 more than 22-10's 1156, the new BL-03 cases), 0 newly failing.
+
+## 22-12 Round 3: Mid-number wrapping at ≤380px (polish, not a gate, not a FAIL)
+
+**Found during:** Task 2's Round 3 checkpoint, row R19 (the third and final ask of the
+~380px day-cell overflow claim, which PASSED this round).
+
+**Symptom, developer's own words:** *"It gets stacked until there is space so one row
+could have only the first number of a distance for instance."* At a stated 375px
+viewport (Chrome DevTools device emulation), a distance value such as `26.0 km` can
+wrap after the `2`, splitting the numeric token itself across two lines inside the
+day cell.
+
+**Root cause:** `.calendar-day__distance { overflow-wrap: anywhere }`, added by plan
+`22-09` as the arithmetic-edge floor for BL-01/BL-02 (so a numeric token that cannot
+fit breaks rather than spilling past the cell border), has no preference for breaking
+between tokens (e.g. before `km`) over breaking inside a number.
+
+**Not a defect:** R19's own row criterion explicitly treats wrapping onto additional
+lines as the intended Round 3 behaviour, distinct from overflow, clipping or
+truncation — none of which occurred. R19 recorded PASS.
+
+**Not fixed — out of scope for Phase 22.** A future polish pass could scope
+`overflow-wrap: anywhere` to a last-resort selector, or introduce a non-breaking
+space / `min-width` floor between the numeral and its unit that prevents breaking
+inside a number while still preventing overflow at the 380px breakpoint.
