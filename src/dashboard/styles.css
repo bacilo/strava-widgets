@@ -881,7 +881,13 @@ body {
 
    `styles.css` now has exactly TWO `@media (max-width: 380px)` blocks
    (`.chart-band__canvas-wrap`, `.pr-evolution-card__canvas-wrap`) —
-   neither is calendar-related. */
+   neither is calendar-related.
+
+   Phase 23 (TRN-03/D-21) added ONE `@media (max-width: 430px)` block for
+   the new tall-band modifier and its zoom hint, deliberately at a DIFFERENT
+   breakpoint (430px, not 380px) so the two-block count above stays exactly
+   two — 430px covers the real phone widths (390/393/412/430)
+   that sit above 380px and were left uncovered by it. */
 @media (max-width: 640px) {
   .calendar-day,
   .calendar-week-total {
@@ -1018,6 +1024,71 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+/* Phase 23 (TRN-02/TRN-03) — Trends zoom/pan + taller bands.
+   D-18: this tall modifier is a SIBLING of the shared `.chart-band__canvas-wrap`
+   rule above (also consumed by `detail-charts.ts:401`), never an edit to it —
+   the shared rule and its 380px override both stay byte-unchanged. */
+.chart-band__canvas-wrap--tall {
+  height: clamp(200px, 34dvh, 420px);
+}
+
+/* Trends-only header modifier: the shared `.chart-band__header` rule has no
+   flex-wrap, and at 390px the band title plus five zoom buttons plus the
+   D-17 hint cannot fit on one line. Adding wrap to the shared rule would
+   change the activity detail view's overlay-picker header too — exactly
+   what D-18's discipline forbids. */
+.chart-band__header--zoom {
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+/* D-10 cluster: the header's second flex child, holding the D-17 hint and
+   the five zoom buttons. The buttons need no class of their own — Phase 19's
+   bare-<button> baseline already supplies size, radius, hover, disabled and
+   focus-ring treatment. */
+.chart-zoom-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+/* D-17's persistent modifier hint. Never hidden by a media query at any
+   width — hiding it at phone widths would make D-14's modifier-gated wheel
+   zoom undiscoverable exactly where discovery is hardest. */
+.chart-zoom-hint {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+/* D-21: floor pinned at 430px, not the existing 380px breakpoint. 430px
+   covers every real phone width this dashboard has been observed at -
+   390px (iPhone 12-15), 393px (Pixel 5, the width Phase 22's Round 3
+   finally passed at), 412px (Pixel 7/8) and 430px (iPhone Pro Max) - all
+   four sit ABOVE 380px and were left uncovered by it, which is precisely
+   what reopened CAL-02 in Phase 22 and cost a full gap-closure round.
+   Reusing that existing breakpoint was rejected on both grounds: it misses
+   all four real widths, AND it would push the file's 380px-block count from
+   two to three, breaking styles.test.ts's IN-06/GC-7 exact-count invariant.
+   The 260px cap below keeps the band shorter than the narrowest covered
+   viewport is wide, satisfying D-21's "a phone must never get a band taller
+   than it is wide". This is a NEW breakpoint value (430px), distinct from
+   the file's two existing narrower blocks (see the count note near line
+   882-884, extended below).
+   Ordering below is load-bearing: RULE_SCANNER swallows an at-rule block's
+   FIRST nested rule into the prelude's pseudo-body (the same WR-06 hazard
+   documented near line 878-880), so the height rule the tests read by
+   value must not be first. Do not reorder these two rules. */
+@media (max-width: 430px) {
+  .chart-zoom-hint {
+    font-size: 12px;
+  }
+
+  .chart-band__canvas-wrap--tall {
+    height: clamp(160px, 30dvh, 260px);
+  }
 }
 
 .overlay-picker {

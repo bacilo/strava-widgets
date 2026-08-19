@@ -2166,3 +2166,64 @@ describe("styles.css — Phase 22 gap closure round 4 (22-15): GC-7, the compact
     expect(bodyForSelectorListToken('.calendar-week-total')).toContain('white-space: nowrap');
   });
 });
+
+describe('Phase 23 (TRN-03) — .chart-band__canvas-wrap--tall tall Trends bands', () => {
+  it('TRN-03/D-19: the tall modifier declares a viewport-relative clamp by value', () => {
+    expect(bodyForSelectorListToken('.chart-band__canvas-wrap--tall')).toContain(
+      'clamp(200px, 34dvh, 420px)',
+    );
+  });
+
+  it('TRN-03/D-21: the phone-width floor is asserted by value at its own breakpoint', () => {
+    // If this throws, the 430px block's rule ordering is wrong — fix the
+    // CSS ordering (styles.css, Task 1), not this test. RULE_SCANNER
+    // swallows an at-rule block's FIRST nested rule into the prelude's
+    // pseudo-body (WR-06), so the height rule must not be first in the
+    // block for atRuleBodiesFor to see it.
+    expect(atRuleBodiesFor('.chart-band__canvas-wrap--tall', 'height')[0]).toContain(
+      'clamp(160px, 30dvh, 260px)',
+    );
+  });
+
+  it('TRN-03/D-18: the SHARED .chart-band__canvas-wrap rule is untouched', () => {
+    // Guards against a future change silently resizing the activity detail
+    // view's bands, which also render through this shared rule
+    // (detail-charts.ts:401).
+    expect(bodyForSelectorListToken('.chart-band__canvas-wrap')).toContain('height: 140px');
+    const overrideMatch = cssNoComments.match(
+      /@media \(max-width: 380px\)\s*\{[\s\S]*?\.chart-band__canvas-wrap\s*\{[\s\S]*?height:\s*112px/,
+    );
+    expect(overrideMatch).not.toBeNull();
+  });
+
+  it('TRN-03/D-21: exactly one @media (max-width: 430px) block exists, and it is chart-band scoped', () => {
+    const preludes = [...cssNoComments.matchAll(/@media \(max-width: 430px\)\s*\{/g)];
+    expect(preludes).toHaveLength(1);
+    const m = preludes[0];
+    let i = m.index! + m[0].length;
+    let depth = 1;
+    while (depth > 0 && i < cssNoComments.length) {
+      if (cssNoComments[i] === '{') depth++;
+      else if (cssNoComments[i] === '}') depth--;
+      i++;
+    }
+    const body = cssNoComments.slice(m.index! + m[0].length, i - 1);
+    expect(body).not.toContain('.calendar-');
+    expect(body).not.toContain('.pr-evolution-');
+  });
+
+  it('TRN-02/D-10/D-17: the zoom cluster layout classes exist by value', () => {
+    expect(bodyForSelectorListToken('.chart-zoom-controls')).toContain('display: flex');
+    expect(bodyForSelectorListToken('.chart-zoom-controls')).toContain('gap: var(--space-xs)');
+    expect(bodyForSelectorListToken('.chart-band__header--zoom')).toContain('flex-wrap: wrap');
+    expect(bodyForSelectorListToken('.chart-zoom-hint')).toContain(
+      'color: var(--text-secondary)',
+    );
+  });
+
+  it('TRN-02/D-17: the modifier hint is never hidden at any breakpoint', () => {
+    // D-17's hint is persistent; a future `display: none` at a phone width
+    // would silently defeat the discoverability D-14 depends on.
+    expect(() => atRuleBodiesFor('.chart-zoom-hint', 'display')).toThrow();
+  });
+});
