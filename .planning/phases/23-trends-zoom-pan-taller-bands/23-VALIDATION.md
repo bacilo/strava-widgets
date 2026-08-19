@@ -46,20 +46,26 @@ command. Plans must be written so the automatable logic is extracted into a pure
 
 ## Per-Task Verification Map
 
-> Task IDs are assigned by the planner. Populate this table from the generated `*-PLAN.md`
-> files before execution begins; the requirement/test-type/command columns below are already
-> fixed by research and should not be re-derived.
+> Task IDs assigned by the planner on 2026-08-19. Plan 23-07 Task 1 sets each Status once
+> the command has actually been run in that session; plan 23-07 Task 2's rows R1-R20 carry every
+> manual claim.
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| TBD | TBD | 0 | TRN-01 | — | N/A | unit | `npx vitest run src/dashboard/views/trends-zoom-logic.test.ts -t "computeDefaultWindow"` | ❌ W0 | ⬜ pending |
-| TBD | TBD | 0 | TRN-01 | — | N/A | unit | `npx vitest run src/dashboard/views/trends-zoom-logic.test.ts -t "computeLimits"` | ❌ W0 | ⬜ pending |
-| TBD | TBD | 0 | TRN-02 | — | N/A | unit | `npx vitest run src/dashboard/views/trends-zoom-logic.test.ts -t "panDeltaPx\|zoomFactor"` | ❌ W0 | ⬜ pending |
-| TBD | TBD | 0 | TRN-02 | — | N/A | unit | `npx vitest run src/dashboard/views/trends-zoom-logic.test.ts -t "formatRangeLabel"` | ❌ W0 | ⬜ pending |
-| TBD | TBD | 0 | TRN-04 | — | N/A | unit | `npx vitest run src/dashboard/views/trends-zoom-logic.test.ts -t "restoreOrDefault"` | ❌ W0 | ⬜ pending |
-| TBD | TBD | — | TRN-03 | — | N/A | unit (rule scanner, by VALUE) | `npx vitest run src/dashboard/styles.test.ts -t "chart-band__canvas-wrap--tall"` | ❌ W0 (new case in existing file) | ⬜ pending |
-| TBD | TBD | — | TRN-03 | — | N/A | unit (regression guard) | `npx vitest run src/dashboard/styles.test.ts -t "IN-06"` | ✅ `styles.test.ts:1928` | ⬜ pending |
-| TBD | TBD | — | — | Supply chain (Tampering) | Pinned, audited `chartjs-plugin-zoom` + `hammerjs` versions | build | `npm audit` at install time | ✅ | ⬜ pending |
+| 23-01/T3 | 23-01 | 1 | TRN-01 | — | N/A | unit | `npx vitest run src/dashboard/views/trends-zoom-logic.test.ts -t "computeDefaultWindow"` | ❌ W0 | ⬜ pending |
+| 23-01/T3 | 23-01 | 1 | TRN-01 | — | N/A | unit | `npx vitest run src/dashboard/views/trends-zoom-logic.test.ts -t "computeLimits"` | ❌ W0 | ⬜ pending |
+| 23-01/T3 | 23-01 | 1 | TRN-02 | — | N/A | unit | `npx vitest run src/dashboard/views/trends-zoom-logic.test.ts -t "panDeltaPx|zoomFactor"` | ❌ W0 | ⬜ pending |
+| 23-01/T3 | 23-01 | 1 | TRN-02 | — | N/A | unit | `npx vitest run src/dashboard/views/trends-zoom-logic.test.ts -t "formatRangeLabel"` | ❌ W0 | ⬜ pending |
+| 23-01/T3 | 23-01 | 1 | TRN-04 | — | N/A | unit | `npx vitest run src/dashboard/views/trends-zoom-logic.test.ts -t "restoreOrDefault"` | ❌ W0 | ⬜ pending |
+| 23-02/T2 | 23-02 | 1 | TRN-03 | — | N/A | unit (rule scanner, by VALUE) | `npx vitest run src/dashboard/styles.test.ts -t "chart-band__canvas-wrap--tall"` | ❌ W0 (new case in existing file) | ⬜ pending |
+| 23-02/T2 | 23-02 | 1 | TRN-03 | — | N/A | unit (regression guard) | `npx vitest run src/dashboard/styles.test.ts -t "IN-06"` | ✅ `styles.test.ts:1928` | ⬜ pending |
+| 23-01/T1 | 23-01 | 1 | — | T-23-SC (Tampering) | Pinned, audited `chartjs-plugin-zoom` + `hammerjs` versions | build | `npm audit` at install time | ✅ | ⬜ pending |
+| 23-03/T1,T2 | 23-03 | 2 | TRN-03 | T-23-DETAIL | Shared `.chart-band__canvas-wrap` rule untouched | source assertion + gate | `npx tsc --noEmit && npm test && npm run build-widgets` | ✅ | ⬜ pending |
+| 23-04/T1,T2,T3 | 23-04 | 2 | TRN-01, TRN-02 | T-23-A11Y | Every button handler calls the settle updater directly (Pitfall 3) | source assertion + gate | `npx tsc --noEmit && npm test && npm run build-widgets` | ✅ | ⬜ pending |
+| 23-05/T1,T2,T3 | 23-05 | 3 | TRN-01, TRN-02, TRN-04 | T-23-CANVAS, T-23-LAZY | Plugin per-instance only, never `Chart.register`; no persistence | source assertion + gate | `npx tsc --noEmit && npm test && npm run verify-dashboard` | ✅ | ⬜ pending |
+| 23-06/T1,T2,T3 | 23-06 | 4 | TRN-01, TRN-04 | T-23-REGRESS | `sliceLoadWindow` retired; every other export intact | source assertion + gate | `npx tsc --noEmit && npm test && npm run build-widgets` | ✅ | ⬜ pending |
+| 23-07/T1 | 23-07 | 5 | TRN-01..04 | T-23-LAZY, T-23-STALE | Entry chunk carries no Hammer; served build provably fresh | build-artifact assertion | `npm test && npx tsc --noEmit && npm run build-widgets && npm run verify-dashboard` | ✅ | ⬜ pending |
+| 23-07/T2 | 23-07 | 5 | TRN-01..04 | T-23-EVIDENCE | 20 non-waivable browser rows, each with its own stated proof | manual-only (blocking checkpoint) | — none; see Manual-Only Verifications below | N/A | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -90,6 +96,11 @@ command. Plans must be written so the automatable logic is extracted into a pure
 > repeatedly been passed on substituted evidence; each row therefore states the exact
 > observation that constitutes proof. Developer or orchestrator authority does **not** stand
 > in for the stated observation.
+>
+> **Row agenda:** `23-07-PLAN.md` Task 2 expands this table into 20 numbered rows
+> (R1-R20), each carrying the expected read-back value computed in advance per D-25, plus a
+> build-freshness prerequisite (R1) and an explicit row-to-requirement gating map. Run the
+> checkpoint from that agenda, not from this table alone.
 
 | Behavior | Requirement | Why Manual | Test Instructions (what counts as proof) |
 |----------|-------------|------------|------------------------------------------|

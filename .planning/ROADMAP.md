@@ -376,8 +376,31 @@ Plans:
   4. Zoom/pan composes correctly with the existing granularity toggle and the five-tab structure: rapidly cycling tabs with zoom/pan state present does not throw "Canvas is already in use" and each tab's chart destroys/reinitializes cleanly (the failure mode Phase 18 flagged as the one to watch).
   5. **Human checkpoint**: served under `/strava-widgets` in a real browser, exercise zoom/pan via mouse and via the on-screen controls on multiple tabs, rapidly cycle through all five Trends tabs and the granularity toggle several times, and confirm no console errors and no stuck/duplicated canvases.
 
-**Plans**: TBD
-**UI hint**: yes
+**Plans**: 7 plans in 5 waves. Sequential where `trends-charts.ts` / `trends.ts` ownership forces it; Wave 1 and Wave 2 each carry two parallel plans with disjoint files.
+**UI hint**: yes — no 23-UI-SPEC.md; the visual contract is 23-CONTEXT.md (D-10/D-11/D-17/D-18..D-21) extending 18-UI-SPEC.md §§ 7, 8, 10, 11, 14, 16.
+
+Plans:
+**Wave 1**
+
+- [ ] 23-01-PLAN.md — install `chartjs-plugin-zoom` + `hammerjs`, and create the pure `trends-zoom-logic.ts` module + tests (D-06, D-09, D-12, D-13, D-14, D-16, D-22, D-24)
+- [ ] 23-02-PLAN.md — Trends-only tall-band CSS and zoom-cluster layout classes, with by-value tests (D-18, D-19, D-20, D-21)
+
+**Wave 2** *(23-03 blocked on 23-02; 23-04 blocked on 23-01)*
+
+- [ ] 23-03-PLAN.md — shared `buildChartBand` helper; Volume and Training Load gain `.chart-band` markup for the first time (D-04, D-10, D-18, D-20)
+- [ ] 23-04-PLAN.md — new `chart-zoom.ts`: plugin config, control cluster, hint, grab cursor, and the settle updater every button calls directly (D-05, D-07, D-09, D-11, D-12, D-13, D-14, D-15, D-17)
+
+**Wave 3** *(blocked on 23-03 and 23-04)*
+
+- [ ] 23-05-PLAN.md — wire the three zoomable mount functions, one shared controller for the Cadence & HR pair, and D-22 within-tab zoom state incl. the unmount reset (D-01, D-02, D-05, D-06, D-22, D-24)
+
+**Wave 4** *(blocked on 23-05)*
+
+- [ ] 23-06-PLAN.md — granularity change resets to the new default window; Training Load's 3mo/12mo/All becomes zoom presets over the full series; `sliceLoadWindow` retired (D-03, D-23)
+
+**Wave 5** *(blocked on 23-06)*
+
+- [ ] 23-07-PLAN.md — full gate + lazy-chunk-graph proof + recomputed expected values, then a BLOCKING 20-row human browser checkpoint under /strava-widgets (D-25)
 
 ### Phase 24: Local Curation Mode
 
