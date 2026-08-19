@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
 status: executing
-stopped_at: Completed 22-08-PLAN.md (Round 2 gap-closure checkpoint recorded)
-last_updated: "2026-08-18T20:19:07.814Z"
-last_activity: 2026-08-18 -- Phase 22 execution started
+stopped_at: Completed 22-12-PLAN.md (Round 3 gap-closure checkpoint recorded — clean sweep, phase 22 nyquist_compliant)
+last_updated: "2026-08-19T08:35:02.299Z"
+last_activity: 2026-08-19
 progress:
   total_phases: 7
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 57
-  completed_plans: 53
-  percent: 43
+  completed_plans: 57
+  percent: 57
 ---
 
 # Project State
@@ -25,28 +25,37 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 
 ## Current Position
 
-Phase: 22 (calendar-week-start-totals) — EXECUTING
-Plan: 1 of 12
-Status: Executing Phase 22
-        Plan 22-08's Round 2 gap-closure checkpoint ran against a provably fresh build
-        (assets/index-Dlom2BM3.js / index-aaEmW9us.css, not Round 1's index-YqJHQsHW.js).
-        Gap 2 (CR-01, unguarded localStorage getter crashing the Calendar under blocked
-        storage) is CLOSED — R15 PASS observed a throwing storage getter no longer takes
-        down the view via a hash navigation. Gap 1 (CAL-02, ~380px day-cell overflow) is
-        STILL OPEN — R13, the R11 re-ask against plan 22-06's deeper CSS compaction, again
-        recorded FAIL in the developer's own words. R16 (browser-config-level storage
-        block) was declined by the developer and recorded BLOCKED, informational only.
-        REQUIREMENTS.md re-gated strictly on the Round 2 row map: CAL-01 stays Complete
-        (R15 PASS), CAL-02 stays Pending (R13 FAIL), CAL-03 left untouched (not re-gated,
-        R17 confirm-unregressed PASS anyway).
-        ROADMAP.md and 22-VERIFICATION.md were deliberately NOT touched by plan 22-08 —
+Phase: 22 (calendar-week-start-totals) — Plan 22-12 (Round 3) EXECUTED, phase gate closed
+Plan: 12 of 12
+Status: Ready for /gsd-verify-work 22
+        Plan 22-12's Round 3 gap-closure checkpoint ran against a provably fresh build
+        (assets/index-Bsnjp2E6.js / index-C-Jvo-sR.css, neither Round 1's index-YqJHQsHW.js
+        nor Round 2's index-Dlom2BM3.js) and returned a clean sweep — all six rows
+        (R18..R23) PASS.
+        Gap 1 (CAL-02, ~380px day-cell overflow, FAILED twice at R11/R13) is CLOSED — R19
+        PASS at a stated 375px (Chrome DevTools device emulation) with
+        matchMedia('(max-width: 380px)').matches confirmed true for the first time in this
+        phase; no overflow/clip/truncation, values wrap onto additional lines instead
+        (the row's own defined non-failure behaviour). R20 PASS as the regression check.
+        Gap 2 (BL-03, app-level blocked-site-data, declined at Round 2's R16) is CLOSED —
+        R22 PASS disposition (a) in Safari with "Block all cookies" active, after a genuine
+        Chrome org-managed-preference block (DefaultCookiesSetting=1) made Chrome itself
+        un-usable for the row; nav rendered, grid rendered, Monday default, no console
+        errors. First real-browser exercise of this path in the phase.
+        R23 PASS confirmed the R22 setting was restored and theme persistence survived a
+        reload; R21 PASS (confirm-unregressed) left CAL-03 untouched.
+        REQUIREMENTS.md re-gated strictly on the Round 3 row map: CAL-02 now Complete
+        (R18+R19+R20 all PASS), CAL-01 stays Complete (R23 PASS), CAL-03 left untouched.
+        22-VALIDATION.md frontmatter: status: complete, nyquist_compliant: true.
+        One non-gating polish item logged to deferred-items.md: mid-number wrapping at
+        <=380px (overflow-wrap: anywhere splitting inside a numeral), explicitly accepted
+        by R19's own criterion, not a defect.
+        ROADMAP.md and 22-VERIFICATION.md were deliberately NOT touched by plan 22-12 —
         that is /gsd-verify-work's job, which must re-run to reconcile Phase 22's overall
-        status against these Round 2 results (CAL-02 still Pending means the phase is not
-        fully done even though every plan executed).
-        Next: /gsd-verify-work 22, then a further gap-closure round for CAL-02 if the
-        developer wants to pursue the documented DISC-6b `.splits-scroll` fallback GC-1
-        deliberately did not build.
-Last activity: 2026-08-18 -- Phase 22 execution started
+        status now that both gaps are closed and every Calendar requirement (CAL-01,
+        CAL-02, CAL-03) is ticked complete.
+        Next: /gsd-verify-work 22 to close the phase gate formally.
+Last activity: 2026-08-19
 
 Progress: [██████████] 100%
 
@@ -76,6 +85,7 @@ Progress: [██████████] 100%
 | Phase 20 P18 | 25min | 2 tasks | 2 files |
 | Phase 20 P20 | ~35min (continuation) | 1 tasks | 2 files |
 | Phase 22 P08 | 15min | 1 tasks | 2 files |
+| Phase 22 P12 | 20min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -108,6 +118,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 20]: 20-20 Round 5 checkpoint recorded a clean sweep — all ten rows (R34-R43) PASS, closing GAP 12 (drag-select and double-click) and GAP 11 (middle-click disposition) fully. R35's double-click-still-navigates-on-first-click residual is a developer-accepted shipped limitation of D-16, not a defect. UX-01 and UX-03 both ticked complete.
 - [Phase 20]: NEW DISPOSITION discovered during R36 corroboration — D-16's click-guard and draggable=false do not cover the Date-cell anchor (hand-built at records.ts:502-507, not via buildCellLink), so a drag or double-click starting in the Date cell still behaves natively. Developer explicitly accepted this as a deliberate, minor scope boundary rather than requesting an extension of D-16's contract.
 - [Phase 22]: Phase 22 plan 22-08 Round 2: Gap 2 (CR-01, unguarded localStorage getter) CLOSED via R15 PASS; Gap 1 (CAL-02, ~380px day-cell overflow) STILL OPEN via R13 FAIL, so CAL-02 stays Pending while CAL-01 keeps its Complete tick. R16 was declined by the developer and recorded BLOCKED, not NOT EXERCISABLE.
+- [Phase 22]: 22-12 Round 3 human checkpoint recorded a clean sweep — all six rows (R18-R23) PASS, closing both remaining Phase 22 gaps. R19 PASS closed Gap 1 (CAL-02, ~380px day-cell overflow, FAILED twice at R11/R13) at a stated 375px with matchMedia('(max-width: 380px)').matches confirmed engaged for the first time; values wrap rather than overflow. R22 PASS disposition (a) closed Gap 2 (BL-03, app-level blocked-site-data) in Safari after a genuine Chrome org-managed-preference block, the first real-browser exercise of that path in the phase. CAL-02 ticked complete; CAL-01's tick survives via R23 PASS; CAL-03 left untouched. nyquist_compliant: true.
 
 ### Key Findings
 
@@ -175,8 +186,8 @@ Items acknowledged and deferred at the v2.0 milestone close on 2026-08-12.
 
 ## Session Continuity
 
-Last session: 2026-08-18T19:15:12.415Z
-Stopped at: Completed 22-08-PLAN.md (Round 2 gap-closure checkpoint recorded)
+Last session: 2026-08-19T08:35:02.284Z
+Stopped at: Completed 22-12-PLAN.md (Round 3 gap-closure checkpoint recorded — clean sweep, phase 22 nyquist_compliant)
 Resume file: None
 
 ---
