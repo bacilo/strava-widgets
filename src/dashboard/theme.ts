@@ -89,12 +89,19 @@ export interface ApplyThemeOptions {
  * Resolves the effective theme for `mode`, writes it to `data-theme` on
  * `doc.documentElement` (always 'light' or 'dark' — never 'auto', since the
  * global stylesheet selects on the concrete attribute value with no
- * prefers-color-scheme fallback branch), and persists the MODE string (unless
- * `persist === false` or no storage handle could be resolved) under
- * THEME_STORAGE_KEY. Storage write failures are swallowed so a throwing
+ * prefers-color-scheme fallback branch), and persists the MODE string under
+ * THEME_STORAGE_KEY UNLESS `persist === false`, OR the caller passed
+ * `storage: null` explicitly, OR no storage handle could be resolved from
+ * the environment. Storage write failures are swallowed so a throwing
  * setItem never prevents the DOM update, and the `data-theme` write itself is
  * unconditional — it never depends on a usable storage handle. Returns the
  * effective theme that was applied.
+ *
+ * `storage: null` is the caller-side opt-out — "I have no storage, do not
+ * persist" (WR-01). It is passed to `resolveStorage` untouched rather than
+ * coerced with `?? undefined`; the previous `?? undefined` form silently
+ * upgraded that explicit opt-out into a read of the real
+ * `globalThis.localStorage`, contradicting this very paragraph.
  *
  * Defaults are resolved lazily inside the function body (not as parameter
  * defaults) so this module stays importable in a Node test environment with no
@@ -105,7 +112,7 @@ export interface ApplyThemeOptions {
  */
 export function applyThemeMode(mode: ThemeMode, options: ApplyThemeOptions = {}): Theme {
   const doc = options.doc ?? document;
-  const storage = resolveStorage(options.storage ?? undefined);
+  const storage = resolveStorage(options.storage);
   const prefersDark =
     options.prefersDark ?? window.matchMedia('(prefers-color-scheme: dark)').matches;
   const persist = options.persist ?? true;
@@ -135,17 +142,35 @@ export interface ThemeMediaQuery {
  * Registers a 'change' listener on the system color-scheme media query that
  * invokes `callback` only when the currently stored mode is 'auto', mirroring
  * ThemeManager.listenForChanges' auto-only guard. Returns an unsubscribe function.
+ *
+ * `storage: null` is honoured the same way `applyThemeMode` honours it (WR-01)
+ * — it is passed to `resolveStorage` untouched, never coerced to `undefined`.
+ *
+ * `isAuto`, when supplied, decides the auto-only guard INSTEAD of re-deriving
+ * it from storage via `readStoredMode`. This exists for a caller that holds
+ * the theme mode in memory (plan 22-14's `nav-theme.ts` controller) rather
+ * than reading it back from storage on every media-query event: under a null
+ * or unusable storage handle, `readStoredMode(null)` is unconditionally
+ * `'auto'`, so without this seam every system colour-scheme change would
+ * override a mode the user explicitly picked in this session (CR-01).
+ * Omitting `isAuto` preserves today's storage-derived behavior byte for byte.
  */
 export function watchSystemTheme(
   callback: (prefersDark: boolean) => void,
-  options: { mediaQuery?: ThemeMediaQuery; storage?: ThemeStorage | null } = {}
+  options: {
+    mediaQuery?: ThemeMediaQuery;
+    storage?: ThemeStorage | null;
+    isAuto?: () => boolean;
+  } = {}
 ): () => void {
   const mediaQuery =
     options.mediaQuery ?? window.matchMedia('(prefers-color-scheme: dark)');
-  const storage = resolveStorage(options.storage ?? undefined);
+  const storage = resolveStorage(options.storage);
+  const isAuto = options.isAuto;
 
   const listener = (e: { matches: boolean }) => {
-    if (readStoredMode(storage) === 'auto') {
+    const auto = isAuto ? isAuto() : readStoredMode(storage) === 'auto';
+    if (auto) {
       callback(e.matches);
     }
   };
