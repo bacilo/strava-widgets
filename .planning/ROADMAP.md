@@ -300,7 +300,7 @@ Plans:
   4. The week-start control and any other Calendar inputs use the shared styling from Phase 19 (UI-01/UI-02).
   5. **Human checkpoint**: served under `/strava-widgets` in a real browser, toggle week start, confirm the grid re-flows, week totals recompute correctly for a week that straddles the old/new start boundary, and the setting survives a reload.
 
-**Plans**: 12 plans in 11 waves (plans 22-01..22-05 shipped the phase; 22-06..22-08 were gap-closure Round 2; 22-09..22-12 are gap-closure Round 3, opened because `22-VERIFICATION.md` re-verified at 4/7 with the ~380px overflow still open after two developer-observed FAILs (R11, R13) and with a new Critical finding, BL-03, that the CR-01 fix's own documentation overclaimed what it closed. Waves 1-8 were all sequential — 22-02 imports the `WeekStart` union 22-01 exports, and 22-03/22-04 both write `src/dashboard/views/calendar.ts`; Round 3's wave 9 runs 22-09 and 22-10 in parallel because their file sets are disjoint). The phase is deliberately split at the riskiest seam: 22-03 restructures the render loop, and 22-04 adds the toggle handler on its own so D-04's no-focus-theft contract gets its own review and its own source guard (Phase 20 shipped two focus-theft regressions of exactly that shape). Criterion 5 is discharged by 22-05's eleven-row checkpoint, served from `127.0.0.1` under `/strava-widgets` against ORGANIC archive data — no fixture is needed or permitted, because October 2025 holds exactly one Sunday-dated run and is a natural single-variable discriminator (`22-RESEARCH.md` § D-16).
+**Plans**: 16 plans in 14 waves (plans 22-01..22-05 shipped the phase; 22-06..22-08 were gap-closure Round 2; 22-09..22-12 are gap-closure Round 3, opened because `22-VERIFICATION.md` re-verified at 4/7 with the ~380px overflow still open after two developer-observed FAILs (R11, R13) and with a new Critical finding, BL-03, that the CR-01 fix's own documentation overclaimed what it closed. Waves 1-8 were all sequential — 22-02 imports the `WeekStart` union 22-01 exports, and 22-03/22-04 both write `src/dashboard/views/calendar.ts`; Round 3's wave 9 runs 22-09 and 22-10 in parallel because their file sets are disjoint). The phase is deliberately split at the riskiest seam: 22-03 restructures the render loop, and 22-04 adds the toggle handler on its own so D-04's no-focus-theft contract gets its own review and its own source guard (Phase 20 shipped two focus-theft regressions of exactly that shape). 22-13..22-16 are gap-closure Round 4, opened because `22-VERIFICATION.md` re-verified at 5/8: Round 3's overflow fix was pinned to `@media (max-width: 380px)` while the defect-causing rules stayed unconditional at 381px+ (reopening CAL-02 at the 390/393/412px phone widths no round ever tested), and Round 3's own BL-03 fix made a Critical newly reachable — the header theme toggle re-derives its mode from storage per click, so under a null handle it is stranded on light. Round 4's wave 12 runs 22-13 and 22-15 in parallel because their file sets are disjoint. Criterion 5 is discharged by 22-05's eleven-row checkpoint, served from `127.0.0.1` under `/strava-widgets` against ORGANIC archive data — no fixture is needed or permitted, because October 2025 holds exactly one Sunday-dated run and is a natural single-variable discriminator (`22-RESEARCH.md` § D-16).
 
 Plans:
 **Wave 1**
@@ -347,6 +347,19 @@ Plans:
 **Wave 11** *(blocked on Waves 9 and 10 — the checkpoint must observe the fixed build)*
 
 - [x] 22-12-PLAN.md — the blocking Round 3 browser checkpoint (rows R18..R23): the third narrow-viewport re-ask at a stated width, and the mandatory, non-waivable blocked-site-data row declined in Round 2
+
+**Wave 12** *(gap closure Round 4 — blocked on Wave 11's re-verification result; 22-13 and 22-15 touch disjoint files and run in parallel)*
+
+- [ ] 22-13-PLAN.md — close WR-01 / truth #8: honour an explicit `storage: null` in `resolveStorage`, drop `theme.ts`'s `?? undefined` coercions, add `watchSystemTheme`'s `isAuto` guard seam, and replace the three vacuous BL-03 tests with sentinel-backed cases that fail if the override is ignored
+- [ ] 22-15-PLAN.md — close Gap 1 (CAL-02/SC3, reopened): raise the calendar compaction block from `@media (max-width: 380px)` to `@media (max-width: 640px)` so the 381-530px overflow band — which contains 390/393/412px — is covered, and add a parsed-breakpoint `>= 530px` guard so the fix's breadth is enforced, not just its existence
+
+**Wave 13** *(blocked on Wave 12 — consumes the `isAuto` option 22-13 adds to `theme.ts`)*
+
+- [ ] 22-14-PLAN.md — close Gap 2 (CR-01): move the theme mode into an in-session `nav-theme.ts` controller seeded once at mount, so the header toggle reaches dark and auto under a null storage handle, and route `watchSystemTheme`'s auto-only guard through it
+
+**Wave 14** *(blocked on Waves 12 and 13 — the checkpoint must observe the fixed build)*
+
+- [ ] 22-16-PLAN.md — the blocking Round 4 browser checkpoint (rows R24..R28): the first observation ever taken in the 381-640px phone-width band, and the first three clicks ever made on the theme toggle under real blocked site data
 
 **UI hint**: yes
 

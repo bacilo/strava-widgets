@@ -1,18 +1,19 @@
 ---
 phase: 22
 slug: calendar-week-start-totals
-status: complete
-nyquist_compliant: true
+status: partial
+nyquist_compliant: false
 wave_0_complete: false
 created: 2026-08-18
 planned: 2026-08-18
-round: 3
+round: 4
 round1_staged: 2026-08-18
 round1_answered: 2026-08-18
 round2_staged: 2026-08-18
 round2_answered: 2026-08-18
 round3_staged: 2026-08-18
 round3_answered: 2026-08-19
+round4_planned: 2026-08-19
 ---
 
 # Phase 22 — Validation Strategy
@@ -834,3 +835,99 @@ No source file was edited during the session.
   open code-review warnings for the user to disposition.** R21 read the current WR-05 8px header/value
   offset as correct alignment, not misaligned, but WR-05 itself was not re-opened or re-scoped by this
   round — it stays an open code-review item outside this checkpoint's row map.
+
+## Round 4
+
+_Staged by the planner 2026-08-19 (plans `22-13` … `22-16`), after `22-VERIFICATION.md` re-verified
+at 5/8 with `status: gaps_found`. This section is APPEND-ONLY: the Round 1 (R1–R11), Round 2
+(R12–R17) and Round 3 (R18–R23) sections, their verdicts and their frontmatter dates are not
+rewritten. Plan `22-16` Task 1 inserts the build-freshness preamble immediately below the
+`## Round 4` heading; plan `22-16` Task 3 fills the Observation and Verdict cells._
+
+### What Round 4 ships
+
+Quoted into the Round 4 preamble so the developer knows what they are looking at.
+
+**Plan `22-15` (GC-7, closing `22-REVIEW.md` CR-02 / `22-VERIFICATION.md` Gap 1).** Round 3's overflow
+fix was real but was pinned to `@media (max-width: 380px)`. Above that breakpoint the original
+defect-causing rules were still unconditional — `.calendar-grid { grid-template-columns: repeat(7, 1fr)
+auto }`, `.calendar-day { min-width: 32px }` and `.calendar-week-total { white-space: nowrap }` with no
+`min-width` override — and they governed every width from 381px up to at least 1000px. That band
+contains the three most common real phone CSS widths (390px iPhone 12–15, 393px iPhone 15/16 Pro,
+412px Pixel), and no checkpoint row in any of the three prior rounds ever observed a width inside it:
+R19, the row that closed Gap 1, observed exactly 375px. Round 4 raises the whole calendar compaction
+block's prelude from `@media (max-width: 380px)` to `@media (max-width: 640px)`. Every declaration
+inside it is unchanged; only the breakpoint moved. `.view`'s 24px padding is deliberately NOT touched —
+it is shared by all five screens and the 640px cutoff already clears CR-02's computed ~530px overflow
+edge by roughly 113px. D-10's eight-column contract (`repeat(7, 1fr) auto`) survives unchanged as the
+default-breakpoint shape at 641px and above.
+
+**Plans `22-13` and `22-14` (GC-8/GC-9, closing `22-REVIEW.md` CR-01 and WR-01 / `22-VERIFICATION.md`
+Gap 2 and Finding 8).** The header theme toggle held no in-memory state: `handleThemeToggleClick`
+re-derived the current mode from storage on every click, so under a null or unusable storage handle
+`readStoredMode(null)` returned `'auto'` every time, `cycleThemeMode('auto')` returned `'light'` every
+time, and the toggle was permanently stuck on light with dark and auto unreachable. This became
+reachable only because Round 3's own fix stopped the same blocked-site-data configuration crashing the
+page blank — the round traded a blank page for a working page with a broken control, and R22 never
+clicked the toggle. Round 4 moves the mode into an in-session variable owned by a new
+`src/dashboard/nav-theme.ts` controller, seeded once from storage at mount and reassigned on each
+click — the same `let weekStart` pattern `calendar.ts:443` already uses, which is exactly why the
+week-start toggle never had this bug. `watchSystemTheme`'s auto-only guard now consults that in-memory
+mode via an `isAuto` callback instead of re-reading storage, so an OS colour-scheme change can no
+longer silently override a mode the user picked in this session. Separately, `resolveStorage` now
+honours an explicit `storage: null` as "no storage" instead of coercing it to `undefined` and falling
+through to the real `globalThis.localStorage`; the three Round 3 `theme.test.ts` cases that passed
+`storage: null` were passing vacuously only because `vitest.config.ts` runs `environment: 'node'` with
+no `globalThis.localStorage` anywhere, and they are replaced with sentinel-global cases that fail if
+the override is ignored.
+
+**What Round 4 did NOT touch:** `index.html`'s inline pre-paint script, the DISC-6b `.splits-scroll`
+horizontal-scroll fallback (still documented, still deliberately unimplemented), `.view`'s padding,
+WR-05's 8px header/value cosmetic offset, and the D-15 scope fence (Trends' weekly volume,
+`records-logic.ts`'s biggest week and the streak logic all stay Monday-fixed by design and no Round 4
+row is opened against them).
+
+### House rules (Round 4)
+
+House rules **1 through 13** are carried forward **verbatim** from the `<house_rules>` block in the
+Round 3 section above and bind this round unchanged. Plan `22-16` Task 1 re-quotes them in full into
+the Round 4 preamble. One Round 4 addition, **not negotiable mid-session**:
+
+14. **(Round 4) R25, R26 and R27 are NON-WAIVABLE, and R27 additionally may not be declined.**
+    Three rounds of this phase have now been scored down for thin or agent-substituted evidence on
+    exactly the rows that decided a gap. `22-VERIFICATION.md` reopened Gap 1 specifically because R19,
+    a non-waivable row that PASSED, only ever observed one pixel width; and it found Gap 2's new
+    Critical specifically because R22, a non-waivable row that PASSED, only observed a page rendering
+    and never exercised a control on it.
+    - If the developer offers or asks for a waiver on R25, R26 or R27, the executor **declines**,
+      records the request and the developer's words verbatim in that row's Observation cell, and
+      records that row **BLOCKED** — never PASS, never FAIL. An agent-observed result on those three
+      rows is not evidence, and neither is a source read, a computed-style dump, a screenshot the
+      executor took itself, or a `matchMedia` result the executor evaluated.
+    - The executor must not resize a window, open device emulation, or change a browser privacy
+      setting in order to observe R25, R26 or R27 on the developer's behalf.
+    - **R27 may not be declined.** It is the only row that exercises the control CR-01 broke, under the
+      only configuration that breaks it. If it is declined, the row is recorded **BLOCKED**, Gap 2 is
+      recorded **STILL OPEN**, and the Checkpoint Outcome states plainly that the theme toggle's
+      behaviour under blocked storage remains unobserved. It has no `NOT EXERCISABLE` disposition and
+      may not be closed on `nav-theme.test.ts`'s unit evidence or on source reading.
+    - For R24 and R28 a mid-session waiver remains the developer's to grant, recorded verbatim in that
+      row's Observation cell and written into the Checkpoint Outcome as a stated deviation.
+
+### Agenda (Round 4)
+
+| Row | Requirement | Instructions | Observation | Verdict |
+|-----|-------------|--------------|-------------|---------|
+| R24. | precondition | The URL bar reads `127.0.0.1` and includes `/strava-widgets/`; a hard reload was performed and the method is named; the `assets/index-*.js` filename read from the page matches the preamble AND is none of `index-YqJHQsHW.js` (Round 1), `index-Dlom2BM3.js` (Round 2) or `index-Bsnjp2E6.js` (Round 3); the `assets/index-*.css` filename is neither `index-aaEmW9us.css` (Round 2) nor `index-C-Jvo-sR.css` (Round 3). Three builds have now been observed in this phase — if a fourth round is judged against any of them, every verdict below is worthless. **Required detail:** the URL as typed, the reload method, and BOTH asset filenames as read off the page. **Observer required:** the developer's own eyes. | | |
+| R25. | CAL-02, D-10, GC-7 | **The band no round has ever tested: strictly above 380px.** Use Chrome DevTools device emulation (Cmd+Shift+M) or Firefox/Safari responsive-design mode — a native window resize cannot reach these widths on macOS and is what defeated Round 2's R13 and Round 3's R19 first attempt. Set a STATED width of 390px (iPhone 12/13/14/15), 393px (iPhone 15/16 Pro) or 412px (Pixel) — say which. **Before judging, confirm BOTH of:** `matchMedia('(max-width: 640px)').matches` reads `true` AND `matchMedia('(max-width: 380px)').matches` reads `false`. Both are required: the first proves the widened compaction is engaged, the second proves you are in the newly-covered band and not repeating R19's 375px observation. On `#/calendar?month=2025-10`, read back the rendered text of at least three day cells that carry a distance, and the rendered text of at least one week-total cell. Then answer: does ANY value overflow its cell? Does the eight-column grid overflow the panel or the viewport? Are the day columns legible? Is the behaviour the same in the other theme? A value that is CLIPPED or TRUNCATED rather than overflowing is ALSO a FAIL — say which it is. A value that WRAPS onto additional lines inside its cell is NOT a failure. **Required detail:** the stated width and the emulation method named, BOTH `matchMedia` results, the quoted text of at least three day cells and one total cell, an explicit yes/no on overflow, an explicit clipped-versus-overflowing statement, and the both-themes comparison. **Observer required:** the developer's own eyes — NON-WAIVABLE (house rules 10, 11 and 14). | | |
+| R26. | CAL-02, GC-7 | **The new risk this round's own fix creates.** The compaction that used to apply only at ≤380px — the single-column day-cell stack, the start-aligned children, the 14px/12px type steps — now applies at every width up to 640px. No round has ever seen the calendar render that way at a large-phone or small-tablet width. At a STATED width of roughly 600px (device emulation or responsive mode — name which), confirm `matchMedia('(max-width: 640px)').matches` reads `true`, then read back the rendered text of at least two day cells that carry a distance and one week-total cell, and say whether the calendar looks intentional or looks broken at that width: is the compacted type legible, and does anything overflow, clip or truncate? **Required detail:** the stated width, the emulation method, the `matchMedia` result, the quoted text of at least two day cells and one total cell, an explicit legible / not-legible judgement, and an explicit yes/no on overflow. **Observer required:** the developer's own eyes — NON-WAIVABLE (house rules 10, 11 and 14). | | |
+| R27. | CAL-01, GC-8, BL-03, CR-01 | **Gap 2's new Critical, exercised. MANDATORY — this row may not be declined (house rules 12 and 14) and may not be waived (house rules 10, 11 and 14).** Re-enable site-data blocking for the origin, the SAME configuration R22 used — Safari: Settings → Privacy → **Block all cookies**; Firefox: Settings → Privacy & Security → Cookies and Site Data → Custom → Cookies → **All cookies**. Then RELOAD `http://127.0.0.1:8099/strava-widgets/#/calendar?month=2025-10` (a full reload, not a hash navigation). Then click the header **theme toggle** — the sun/moon button at the right-hand end of the nav bar — **three times in a row**. After each click, read the button's `aria-label` (devtools Elements panel, or hover for the tooltip) and note whether the page's colours actually changed. R22 proved the page renders under this configuration; it never clicked anything on it, which is how this defect escaped. **Disposition rules, applied by the executor when recording:** (a) the `aria-label` CHANGES on each click and `Theme: dark` is reached at least once, with the page colours visibly changing → **PASS**; (b) the `aria-label` reads `Theme: light` after every click and dark is never reached → **FAIL** (this is exactly CR-01's predicted behaviour and means the Round 4 fix did not land in the observed build); (c) the page is blank, or shows the generic `Something went wrong` panel → **FAIL**, recorded additionally as a BL-03 regression. **There is no `NOT EXERCISABLE` disposition for this row.** **Required detail:** the browser and the exact setting used, the three `aria-label` values in the order they were read, an explicit statement of whether the page colours visibly changed on each click, and which of (a)/(b)/(c) it matches. **Observer required:** the developer's own eyes — NON-WAIVABLE (house rules 10, 11 and 14). | | |
+| R28. | CAL-01, CAL-02, GC-5, D-16 | **Restore, and close the half R23 left thin.** First restore the browser setting changed at R27 and confirm it is restored (house rule 9). Then, with storage working normally and after a hard reload: **(i)** select `Sunday` on the segmented control, hard-reload again, and confirm `Sunday` is still the filled option AND that the first weekday heading reads `Sun` — `22-VERIFICATION.md` records that R23 answered this half only with an earlier, stale bare "confirm" given before R22 was run, and flagged it as a real evidence-quality gap; this row re-asks it properly. **(ii)** Return to Monday and, at normal desktop width on `#/calendar?month=2025-10`, read back all five week-total cells (distance, time, run count) and compare them against the Monday-start table in the preamble — the regression check that the widened CSS breakpoint and the nav/theme refactor changed no grid math. **(iii)** Cycle the header theme toggle once, reload, and confirm the mode stuck. **Required detail:** confirmation the browser setting was restored; which option was filled and the first weekday heading after the reload; five distance / time / run-count triples quoted as rendered; and the theme mode before and after its reload. **Observer required:** the developer's own eyes. | | |
+
+### Row-to-requirement map (Round 4)
+
+**R24 gates all rows.** **CAL-02 → R25, R26 and R28(ii) (all three gating — CAL-02's tick was found
+OVERSTATED by `22-VERIFICATION.md` and is reverted to Pending until this round's rows decide it).**
+**CAL-01 → R27 and R28 (both gating: R27 decides the CR-01 regression, R28(i) supplies the week-start
+persistence evidence R23 left thin).** **CAL-03 → not re-gated this round; R21's Round 3
+confirm-unregressed state stands.**
