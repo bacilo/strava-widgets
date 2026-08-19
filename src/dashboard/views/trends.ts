@@ -64,7 +64,6 @@ import {
   parseTrainingLoad,
   parseTrimpModel,
   parseLoadWindow,
-  sliceLoadWindow,
   selectModelSeries,
   findThinCoverageSpans,
   coverageCaption,
@@ -83,7 +82,7 @@ import {
 } from './trends-gear-logic.js';
 import type { GearShoeAggregate } from '../../analytics/gear-aggregate.types.js';
 import { formatPace, formatActivityDate } from './list.js';
-import type { ZoomRange } from './trends-zoom-logic.js';
+import { computeArchiveBounds, loadWindowRange, type ZoomRange } from './trends-zoom-logic.js';
 
 const STATS_BASE_URL = 'data/stats/';
 
@@ -659,6 +658,13 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
           b.setAttribute('aria-pressed', active ? 'true' : 'false');
           b.className = active ? 'segmented__option segmented__option--active' : 'segmented__option';
         });
+        // D-23: each granularity has its own designed opening density, and
+        // that is what the toggle is for - a null slot makes the rebuilt
+        // chart fall back to computeDefaultWindow for the NEW granularity,
+        // so switching to Yearly cannot land on three bars and switching to
+        // Weekly cannot recreate the fifteen-year compression TRN-01 exists
+        // to fix.
+        volumeZoomRange = null;
         mountChartForGranularity();
       });
       controls.appendChild(btn);
@@ -867,6 +873,9 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
     }
     updateModelButtons();
 
+    // Deliberate: switching the TRIMP model changes the y series, not the x
+    // domain, so `loadZoomRange` is never cleared here - the visible date
+    // range must survive a model switch.
     edwardsBtn.addEventListener('click', () => {
       if (trimpModel === 'edwards') return;
       trimpModel = 'edwards';
@@ -893,7 +902,14 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
       panel.appendChild(notice);
     }
 
-    // -- Window control (scopes only the DISPLAYED slice, D-16) ------------
+    // -- Window control (D-03: sets a zoom range over the always-complete
+    // series, no longer slices the dataset) -------------------------------
+    //
+    // The preset is an action, not a mode flag: it writes the same
+    // `loadZoomRange` slot the zoom controller's settle writes, so free
+    // zoom/pan continue from a preset, and re-pressing the active preset
+    // re-applies its range instead of being a no-op - a preset switch can
+    // no longer silently discard a zoom the way a dataset slicer would.
 
     const WINDOW_LABELS: Record<LoadWindow, string> = { '3mo': '3mo', '12mo': '12mo', all: 'All' };
     const windowButtons: Partial<Record<LoadWindow, HTMLButtonElement>> = {};
@@ -913,14 +929,20 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
       });
     }
 
+    // Stable across a model switch (shared x domain).
+    function currentBounds(): ZoomRange | null {
+      return computeArchiveBounds(selectModelSeries(doc.days, trimpModel).map((p) => p.x));
+    }
+
     TRAINING_LOAD_WINDOWS.forEach((w) => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.textContent = WINDOW_LABELS[w];
       btn.addEventListener('click', () => {
-        if (loadWindow === w) return;
         loadWindow = w;
         updateWindowButtons();
+        const b = currentBounds();
+        loadZoomRange = b === null ? null : loadWindowRange(loadWindow, b);
         rebuildChart();
       });
       windowGroup.appendChild(btn);
@@ -957,12 +979,11 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
     function rebuildChart(): void {
       destroyActiveChart();
 
-      // `now` is constructed HERE, in the view, never inside
-      // trends-training-load-logic.ts (that module stays deterministic and
-      // total under vitest's node environment).
-      const windowedDays = sliceLoadWindow(doc.days, loadWindow, new Date());
-      const points = selectModelSeries(windowedDays, trimpModel);
-      const spans = findThinCoverageSpans(windowedDays);
+      // D-03(a): the window control no longer gates what the chart holds,
+      // only which part of it is visible. The chart is handed every day
+      // the document has, always - `doc.days` is never filtered here.
+      const points = selectModelSeries(doc.days, trimpModel);
+      const spans = findThinCoverageSpans(doc.days);
 
       if (points.length === 0) {
         band.band.hidden = true;

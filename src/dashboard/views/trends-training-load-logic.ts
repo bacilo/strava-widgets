@@ -3,13 +3,23 @@
  * (TREND-04, D-13/D-14/D-15/D-16). Parses the published
  * `data/stats/training-load.json` document (plan 18-03's contract — both
  * the Edwards and Banister series live in one document, so the model
- * toggle never refetches per 18-UI-SPEC § 11), scopes it to a displayed
- * window without ever discarding from the underlying full-archive series,
- * selects the active TRIMP model's series, and detects thin-HR-coverage
- * spans for the honesty shading.
+ * toggle never refetches per 18-UI-SPEC § 11), selects the active TRIMP
+ * model's series, and detects thin-HR-coverage spans for the honesty
+ * shading.
  *
  * `now` is always injected by the caller, never constructed fresh inside
  * this module — the same `calendar-logic.ts` discipline.
+ *
+ * Retired 2026-08-19 (Phase 23, D-03): the trailing-window dataset filter
+ * this module used to export, plus its module-private day-count lookup
+ * table, are gone. The Training Load window control became a set of zoom
+ * presets over an always-complete series (`trends.ts`'s `rebuildChart` now
+ * hands the chart the full `doc.days` unconditionally), so nothing here
+ * filters `doc.days` any more. The filter was deleted rather than kept as
+ * an unused pure helper: an exported dataset-scoping export is an open
+ * invitation for a future caller to reintroduce exactly the mechanism D-03
+ * removed, and a test for an uncalled function proves nothing about the
+ * shipped view.
  */
 
 import type { DailyLoadEntry, TrainingLoadDocument } from '../../analytics/training-load.types.js';
@@ -165,34 +175,6 @@ export function parseLoadWindow(raw: string | null): LoadWindow {
     return raw as LoadWindow;
   }
   return DEFAULT_LOAD_WINDOW;
-}
-
-const WINDOW_DAYS: Readonly<Record<Exclude<LoadWindow, 'all'>, number>> = {
-  '3mo': 90,
-  '12mo': 365,
-};
-
-/**
- * Returns the trailing 90 days, 365 days, or everything, relative to `now`.
- * The underlying series always covers the full archive (D-16); only the
- * DISPLAYED window is scoped here, so this function never mutates or
- * discards from the source array — it returns a new array (a slice/filter),
- * leaving `days` itself untouched.
- */
-export function sliceLoadWindow(
-  days: readonly DailyLoadEntry[],
-  window: LoadWindow,
-  now: Date
-): DailyLoadEntry[] {
-  if (window === 'all') return [...days];
-
-  const windowDays = WINDOW_DAYS[window];
-  const cutoffMs = now.getTime() - windowDays * 24 * 60 * 60 * 1000;
-
-  return days.filter((d) => {
-    const ms = Date.parse(`${d.date}T00:00:00Z`);
-    return Number.isFinite(ms) && ms >= cutoffMs;
-  });
 }
 
 // ---------------------------------------------------------------------------
