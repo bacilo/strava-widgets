@@ -6,18 +6,19 @@
  * `textContent` — no HTML-string assignment anywhere — establishing the
  * DOM-construction pattern plan 07's athlete free text must also follow
  * (T-16-SH-02).
- * Theming always goes through theme.ts; this file never touches localStorage directly.
- * Its two theme reads (the initial toggle render below, and the click
- * handler in `handleThemeToggleClick`) resolve their storage HANDLE via
- * `storage.ts`'s `resolveStorage` (BL-03). The initial read is reached from
- * `main.ts`'s module-scope `createNav(...)` call, so it had to be guarded —
- * not merely tidied — the same as `main.ts:19`.
+ * Theming always goes through theme.ts; this file never touches localStorage
+ * directly. There is exactly ONE theme read, the mount-time seed, whose
+ * storage handle resolves through `storage.ts`'s `resolveStorage` (BL-03) —
+ * reached from `main.ts`'s module-scope `createNav(...)` call, so it had to
+ * be guarded, not merely tidied, the same as `main.ts:19`. The session mode
+ * itself lives in `nav-theme.ts`'s controller (CR-01): re-deriving it from
+ * storage on every click made `readStoredMode(null)` a constant `'auto'`
+ * under a null handle, stranding the toggle on light forever.
  */
 
 import { NAV_ORDER } from './view.types.js';
 import {
   applyThemeMode,
-  cycleThemeMode,
   readStoredMode,
   watchSystemTheme,
   resolveEffectiveTheme,
@@ -25,6 +26,7 @@ import {
   type ThemeMode,
 } from './theme.js';
 import { resolveStorage } from './storage.js';
+import { createThemeToggleController } from './nav-theme.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -188,7 +190,12 @@ export function createNav(root: HTMLElement): { setActiveRoute(route: string): v
     moonIcon.classList.toggle('theme-toggle__icon--active', effective === 'dark');
   }
 
-  updateThemeToggle(readStoredMode(resolveStorage()));
+  const themeController = createThemeToggleController({
+    initialMode: readStoredMode(resolveStorage()),
+    apply: applyThemeMode,
+    render: updateThemeToggle,
+  });
+  updateThemeToggle(themeController.mode());
 
   function handleToggleClick(): void {
     const isOpen = navEl.getAttribute('data-open') === 'true';
@@ -208,17 +215,16 @@ export function createNav(root: HTMLElement): { setActiveRoute(route: string): v
   linksEl.addEventListener('click', handleLinksClick);
 
   function handleThemeToggleClick(): void {
-    const current = readStoredMode(resolveStorage());
-    const next = cycleThemeMode(current);
-    applyThemeMode(next);
-    updateThemeToggle(next);
+    themeController.toggle();
   }
   themeToggleBtn.addEventListener('click', handleThemeToggleClick);
 
-  const unsubscribeSystemTheme = watchSystemTheme((prefersDark) => {
-    applyThemeMode('auto', { prefersDark });
-    updateThemeToggle('auto', prefersDark);
-  });
+  const unsubscribeSystemTheme = watchSystemTheme(
+    (prefersDark) => {
+      themeController.syncSystemTheme(prefersDark);
+    },
+    { isAuto: () => themeController.isAuto() }
+  );
 
   function setActiveRoute(route: string): void {
     for (const [linkRoute, link] of linkByRoute) {
