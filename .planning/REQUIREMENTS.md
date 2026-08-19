@@ -37,8 +37,8 @@ Each maps to roadmap phases.
 ### Trends
 
 - [ ] **TRN-01**: User can zoom in and out of trend charts via `chartjs-plugin-zoom`, so a weekly view no longer shows the entire 15-year archive at once
-- [ ] **TRN-02**: User can scroll/pan charts horizontally, with explicit +/− and left/right controls in addition to gestures (controls must work without a pointer)
-- [ ] **TRN-03**: Chart bands are taller than the current fixed 140px so the y-axis has usable range on a page with room to spare
+- [ ] **TRN-02**: User can scroll/pan charts horizontally, with explicit +/− and left/right controls in addition to gestures (controls must work without a pointer). **Plan 23-02 (2026-08-19)** shipped the CSS layout classes (`.chart-band__header--zoom`, `.chart-zoom-controls`, `.chart-zoom-hint`) the control cluster will attach to, but no JS wiring or actual pan/scroll behavior exists yet — plans 23-04/23-05 apply these classes and implement the interactive behavior this requirement describes. Not ticked, per this project's established pattern (Phase 19 UI-01/UI-02, plan 19-15) of gating a requirement's completion on its user-facing behavior actually existing, not on a mechanical `requirements:` frontmatter match.
+- [ ] **TRN-03**: Chart bands are taller than the current fixed 140px so the y-axis has usable range on a page with room to spare. **Plan 23-02 (2026-08-19)** shipped `.chart-band__canvas-wrap--tall` with the exact `clamp(200px, 34dvh, 420px)` value (plus a 430px phone-width floor), fully tested by value — but `trends-charts.ts:349` still constructs its canvas wrap with the plain (untall) class, so no chart band in the running app is actually taller yet. Not ticked until a later Phase 23 plan applies the modifier class to the real DOM.
 - [ ] **TRN-04**: Zoom/pan composes correctly with the existing granularity toggle and the five-tab structure, and does not regress the canvas lifecycle (no "Canvas is already in use" on tab cycling)
 
 ### Records & Activities
@@ -89,8 +89,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CAL-02 | Phase 22 | Pending (Round 4, plan 22-16, 2026-08-19 — R24/R25/R28(ii) PASS, 381-530px band closed at a stated 393px; R26 BLOCKED, ~600px band still unobserved) |
 | CAL-03 | Phase 22 | Complete |
 | TRN-01 | Phase 23 | Pending |
-| TRN-02 | Phase 23 | Pending |
-| TRN-03 | Phase 23 | Pending |
+| TRN-02 | Phase 23 | Pending (CSS layout classes shipped, plan 23-02; JS wiring/interactive behavior pending) |
+| TRN-03 | Phase 23 | Pending (CSS rule shipped and tested, plan 23-02; not yet applied to trends-charts.ts DOM) |
 | TRN-04 | Phase 23 | Pending |
 | CUR-01 | Phase 24 | Pending |
 | FIX-02 | Phase 25 | Pending |

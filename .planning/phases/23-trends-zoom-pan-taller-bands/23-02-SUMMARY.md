@@ -39,7 +39,7 @@ key-decisions:
 patterns-established:
   - "By-value structural CSS tests (WR-03 precedent extended): every new rule asserted by its exact declaration value via bodyForSelectorListToken/atRuleBodiesFor, never by selector existence alone, and proved load-bearing via three executed-and-reverted mutations"
 
-requirements-completed: [TRN-03, TRN-02]
+requirements-completed: []  # TRN-03/TRN-02 deliberately NOT ticked — see Decisions Made below
 
 # Metrics
 duration: ~23min
@@ -80,6 +80,7 @@ _Note: styles.css comment wording was tuned in-place during Task 1 (before commi
 ## Decisions Made
 - Kept the CSS comments' literal occurrences of `chart-band__canvas-wrap--tall` (2) and `@media (max-width: 380px)` (3) exactly matching the plan's stated `grep -c` acceptance criteria, rewording the explanatory prose around those points rather than the plan's specified values, since the plan listed those exact counts as pass/fail acceptance criteria.
 - Used `atRuleBodiesFor('.chart-zoom-hint', 'display')` wrapped in `.toThrow()` (rather than `assertNoAtRuleOverride`) for the "hint never hidden" guard — functionally equivalent per the plan's stated options, chosen because it's the more direct read of "no override declares `display`" for a property that legitimately has zero at-rule-scoped declarations anywhere in the file.
+- **Did NOT tick TRN-02/TRN-03 complete in REQUIREMENTS.md**, despite the plan's `requirements: [TRN-03, TRN-02]` frontmatter. Verified `trends-charts.ts:349` still constructs its canvas wrap with the plain `chart-band__canvas-wrap` class — the new `--tall` modifier and zoom-cluster classes this plan ships are unused by any real DOM yet (the plan's own interfaces section says "plans 23-04 and 23-05 apply them"). Neither requirement's user-facing behavior (taller bands actually rendering; a working, keyboard-usable pan/zoom control cluster) exists in the running app after this plan alone. This project has explicit precedent for reverting exactly this kind of premature mechanical completion: plan 19-15's STATE.md decision record notes an initial `requirements.mark-complete UI-02` call run mechanically from a plan's `requirements:` frontmatter was reverted because it "contradicted [REQUIREMENTS.md's] own still-open text and the project's established pattern of gating a requirement's completion on a rendered checkpoint... not an autonomous test-file-only plan." The `gsd-sdk query requirements.mark-complete` call was run once (mechanically, per the standard workflow step), then reverted in REQUIREMENTS.md with a note recording plan 23-02's real (partial, CSS-only) contribution — mirroring that precedent exactly.
 
 ## Deviations from Plan
 
