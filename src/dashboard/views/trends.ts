@@ -659,6 +659,13 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
           b.setAttribute('aria-pressed', active ? 'true' : 'false');
           b.className = active ? 'segmented__option segmented__option--active' : 'segmented__option';
         });
+        // D-23: each granularity has its own designed opening density, and
+        // that is what the toggle is for - a null slot makes the rebuilt
+        // chart fall back to computeDefaultWindow for the NEW granularity,
+        // so switching to Yearly cannot land on three bars and switching to
+        // Weekly cannot recreate the fifteen-year compression TRN-01 exists
+        // to fix.
+        volumeZoomRange = null;
         mountChartForGranularity();
       });
       controls.appendChild(btn);
