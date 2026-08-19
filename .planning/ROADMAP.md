@@ -350,8 +350,8 @@ Plans:
 
 **Wave 12** *(gap closure Round 4 — blocked on Wave 11's re-verification result; 22-13 and 22-15 touch disjoint files and run in parallel)*
 
-- [ ] 22-13-PLAN.md — close WR-01 / truth #8: honour an explicit `storage: null` in `resolveStorage`, drop `theme.ts`'s `?? undefined` coercions, add `watchSystemTheme`'s `isAuto` guard seam, and replace the three vacuous BL-03 tests with sentinel-backed cases that fail if the override is ignored
-- [ ] 22-15-PLAN.md — close Gap 1 (CAL-02/SC3, reopened): raise the calendar compaction block from `@media (max-width: 380px)` to `@media (max-width: 640px)` so the 381-530px overflow band — which contains 390/393/412px — is covered, and add a parsed-breakpoint `>= 530px` guard so the fix's breadth is enforced, not just its existence
+- [x] 22-13-PLAN.md — close WR-01 / truth #8: honour an explicit `storage: null` in `resolveStorage`, drop `theme.ts`'s `?? undefined` coercions, add `watchSystemTheme`'s `isAuto` guard seam, and replace the three vacuous BL-03 tests with sentinel-backed cases that fail if the override is ignored
+- [x] 22-15-PLAN.md — close Gap 1 (CAL-02/SC3, reopened): raise the calendar compaction block from `@media (max-width: 380px)` to `@media (max-width: 640px)` so the 381-530px overflow band — which contains 390/393/412px — is covered, and add a parsed-breakpoint `>= 530px` guard so the fix's breadth is enforced, not just its existence
 
 **Wave 13** *(blocked on Wave 12 — consumes the `isAuto` option 22-13 adds to `theme.ts`)*
 
@@ -439,7 +439,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 19. Design System & Control Styling | v2.1 | 17/17 | Complete    | 2026-08-13 |
 | 20. Row-Click Interaction Pattern | v2.1 | 20/20 | Complete    | 2026-08-18 |
 | 21. Overview Rebuild | v2.1 | 8/8 | Complete    | 2026-08-18 |
-| 22. Calendar Week-Start & Totals | v2.1 | 12/12 | Complete   | 2026-08-19 |
+| 22. Calendar Week-Start & Totals | v2.1 | 14/16 | In Progress|  |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 0/TBD | Not started | - |
 | 24. Local Curation Mode | v2.1 | 0/TBD | Not started | - |
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 0/TBD | Not started | - |
