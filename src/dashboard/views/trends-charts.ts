@@ -42,6 +42,19 @@ import type { YoySeries } from './trends-yoy-logic.js';
 import { channelLabel, type MonthlyChannel, type MonthlyPoint } from './trends-cadence-hr-logic.js';
 import type { CoverageSpan, LoadPoint } from './trends-training-load-logic.js';
 import type { GearChartBucket } from './trends-gear-logic.js';
+import {
+  chartZoomPlugin,
+  buildZoomPluginOptions,
+  attachZoomController,
+  type ZoomController,
+} from './chart-zoom.js';
+import {
+  type ZoomRange,
+  computeArchiveBounds,
+  computeDefaultWindow,
+  restoreOrDefault,
+  volumeScaleKey,
+} from './trends-zoom-logic.js';
 
 // ---------------------------------------------------------------------------
 // Registration — Bar* powers both this plan's Volume and Year-over-Year
@@ -77,6 +90,20 @@ export interface ChartHandle {
   destroy(): void;
 }
 
+/**
+ * D-22's per-mount zoom contract: the header a chart's D-10 control cluster
+ * attaches to, the D-22 saved range to restore (`null` means "use the D-06
+ * default"), and the settle-time write-back to the caller's own zoom-range
+ * slot. `mountChannelBands` takes `Omit<ZoomMountOptions, 'header'>` because
+ * it builds its own two bands and therefore owns the header the shared
+ * cluster attaches to (the cadence band's header, per D-10).
+ */
+export interface ZoomMountOptions {
+  header: HTMLElement;
+  savedRange: ZoomRange | null;
+  onRangeChange: (range: ZoomRange) => void;
+}
+
 const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 const VOLUME_ARIA_LABELS: Record<VolumeGranularity, string> = {
@@ -101,16 +128,96 @@ function formatVolumeTick(epochMs: number, granularity: VolumeGranularity): stri
  * `aria-label` changes with `granularity`; the caller is responsible for
  * destroying the previous instance before calling this again (never an
  * in-place dataset mutation — the "Canvas is already in use" defect class).
+ *
+ * D-05: the zoom plugin is added to THIS chart's own `plugins: [...]` array
+ * only — never to the module-wide `Chart.register(...)` call above. An empty
+ * series (`computeArchiveBounds` returns `null`) mounts with no zoom plugin,
+ * no zoom options and no control cluster at all: a chart with no data has no
+ * range to zoom.
  */
 export function mountVolumeChart(
   canvas: HTMLCanvasElement,
   points: readonly VolumePoint[],
-  granularity: VolumeGranularity
+  granularity: VolumeGranularity,
+  zoom: ZoomMountOptions
 ): ChartHandle {
   const color = resolveToken('--chart-pace', '#fc4c02');
   const themeColors = resolveThemeColors();
 
   canvas.setAttribute('aria-label', VOLUME_ARIA_LABELS[granularity]);
+
+  const bounds = computeArchiveBounds(points.map((p) => p.x));
+
+  if (bounds === null) {
+    const chart = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        datasets: [
+          {
+            label: 'Distance',
+            data: points.map((point) => ({ x: point.x, y: point.km })),
+            backgroundColor: color,
+            borderColor: color,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        parsing: false,
+        scales: {
+          x: {
+            type: 'linear',
+            grid: { display: false },
+            ticks: {
+              callback: (value: number | string) => formatVolumeTick(Number(value), granularity),
+            },
+          },
+          y: {
+            type: 'linear',
+            // Pin every Trends chart's gutter to the same width every detail
+            // band already shares — see Y_AXIS_WIDTH_PX's own doc comment.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            afterFit: (scale: any) => {
+              scale.width = Y_AXIS_WIDTH_PX;
+            },
+            grid: { color: hexToRgba(themeColors.border, 0.4) },
+          },
+        },
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: (context: { dataIndex: number }) => {
+                const point = points[context.dataIndex];
+                if (!point) return '';
+                return `${point.km.toFixed(1)} km, ${point.runs} run${point.runs === 1 ? '' : 's'}`;
+              },
+            },
+          },
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any,
+    });
+
+    let destroyedEmpty = false;
+    return {
+      destroy(): void {
+        if (destroyedEmpty) return;
+        destroyedEmpty = true;
+        chart.destroy();
+      },
+    };
+  }
+
+  const scaleKey = volumeScaleKey(granularity);
+  // D-06/D-22: this ONE line serves both the opening picture (no saved
+  // range yet, falls through to the granularity's D-06 default window) and
+  // the restore-after-rebuild (a saved range from a prior settle) — there is
+  // one mechanism, not two, because both cases are "what range does this
+  // chart open at".
+  const initial = restoreOrDefault(zoom.savedRange, computeDefaultWindow(scaleKey, bounds));
+
+  let controller: ZoomController | null = null;
 
   const chart = new Chart(canvas, {
     type: 'bar',
@@ -124,6 +231,7 @@ export function mountVolumeChart(
         },
       ],
     },
+    plugins: [chartZoomPlugin],
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -131,6 +239,8 @@ export function mountVolumeChart(
       scales: {
         x: {
           type: 'linear',
+          min: initial.min,
+          max: initial.max,
           grid: { display: false },
           ticks: {
             callback: (value: number | string) => formatVolumeTick(Number(value), granularity),
@@ -148,6 +258,7 @@ export function mountVolumeChart(
         },
       },
       plugins: {
+        zoom: buildZoomPluginOptions({ scaleKey, bounds, onSettle: (c) => controller?.settle(c) }),
         tooltip: {
           callbacks: {
             label: (context: { dataIndex: number }) => {
@@ -162,11 +273,21 @@ export function mountVolumeChart(
     } as any,
   });
 
+  controller = attachZoomController({
+    members: [{ chart, canvas, ariaBase: VOLUME_ARIA_LABELS[granularity] }],
+    header: zoom.header,
+    scaleKey,
+    bounds,
+    groupLabel: 'Volume chart zoom and pan controls',
+    onRangeChange: zoom.onRangeChange,
+  });
+
   let destroyed = false;
   return {
     destroy(): void {
       if (destroyed) return;
       destroyed = true;
+      controller?.destroy();
       chart.destroy();
     },
   };
@@ -545,6 +666,9 @@ function formatLoadValue(raw: unknown): string {
   return typeof raw === 'number' ? raw.toFixed(1) : '—';
 }
 
+/** Hoisted so the string is not duplicated between `aria-label` and the D-13 `ariaBase`. */
+const TRAINING_LOAD_ARIA_LABEL = 'Training load chart: CTL, ATL, and TSB over time';
+
 /**
  * Mounts the Training Load chart: three datasets over `{ x: epochMs, y }` —
  * CTL as a `Filler`-based filled area (mirroring `detail-charts.ts`'s
@@ -553,21 +677,121 @@ function formatLoadValue(raw: unknown): string {
  * `Decimation` handle the series's 5,000+ possible days. The caller
  * destroys the previous instance before calling this again — never an
  * in-place dataset mutation.
+ *
+ * D-03(b): from this phase on, the chart always holds the full 5,000+ day
+ * series (D-06/D-16's "never filter the dataset" rule applies here too), so
+ * `DECIMATION_CONFIG`'s LTTB sampling runs over everything the scale can
+ * see at every zoom level, not a pre-filtered slice. Whether a deep zoom
+ * actually resolves to daily resolution on screen is a browser-checkpoint
+ * question (23-VALIDATION.md's last Manual-Only row) — this config alone
+ * does not settle it.
  */
 export function mountTrainingLoadChart(
   canvas: HTMLCanvasElement,
   points: readonly LoadPoint[],
-  spans: readonly CoverageSpan[]
+  spans: readonly CoverageSpan[],
+  zoom: ZoomMountOptions
 ): ChartHandle {
   const ctlColor = resolveToken('--load-ctl', '#3b82f6');
   const atlColor = resolveToken('--load-atl', '#ef4444');
   const tsbColor = resolveToken('--load-tsb', '#9ca3af');
   const themeColors = resolveThemeColors();
 
-  canvas.setAttribute('aria-label', 'Training load chart: CTL, ATL, and TSB over time');
+  canvas.setAttribute('aria-label', TRAINING_LOAD_ARIA_LABEL);
 
   const shadingColor = hexToRgba(resolveToken('--text-secondary', themeColors.textSecondary), 0.08);
   const shadingPlugin = createThinCoverageShadingPlugin(() => [...spans], shadingColor);
+
+  const bounds = computeArchiveBounds(points.map((p) => p.x));
+
+  if (bounds === null) {
+    const chart = new Chart(canvas, {
+      type: 'line',
+      data: {
+        datasets: [
+          {
+            label: 'CTL (Fitness)',
+            data: points.map((p) => ({ x: p.x, y: p.ctl })),
+            parsing: false,
+            borderColor: ctlColor,
+            backgroundColor: hexToRgba(ctlColor, 0.18),
+            fill: 'origin',
+            borderWidth: 2,
+            pointRadius: 0,
+          },
+          {
+            label: 'ATL (Fatigue)',
+            data: points.map((p) => ({ x: p.x, y: p.atl })),
+            parsing: false,
+            borderColor: atlColor,
+            backgroundColor: atlColor,
+            fill: false,
+            borderWidth: 2,
+            pointRadius: 0,
+          },
+          {
+            label: 'TSB (Form)',
+            data: points.map((p) => ({ x: p.x, y: p.tsb })),
+            parsing: false,
+            borderColor: tsbColor,
+            backgroundColor: tsbColor,
+            fill: false,
+            borderWidth: 2,
+            pointRadius: 0,
+          },
+        ],
+      },
+      plugins: [shadingPlugin],
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        parsing: false,
+        interaction: { mode: 'index', intersect: false },
+        scales: {
+          x: {
+            type: 'linear',
+            grid: { display: false },
+            ticks: {
+              callback: (value: number | string) => formatMonthYearTick(Number(value)),
+            },
+          },
+          y: {
+            type: 'linear',
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            afterFit: (scale: any) => {
+              scale.width = Y_AXIS_WIDTH_PX;
+            },
+            grid: { color: hexToRgba(themeColors.border, 0.4) },
+          },
+        },
+        plugins: {
+          decimation: DECIMATION_CONFIG,
+          tooltip: {
+            callbacks: {
+              label: (context: { dataset: { label?: string }; parsed: { y: unknown } }) =>
+                `${context.dataset.label ?? ''}: ${formatLoadValue(context.parsed.y)}`,
+            },
+          },
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any,
+    });
+
+    let destroyedEmpty = false;
+    return {
+      destroy(): void {
+        if (destroyedEmpty) return;
+        destroyedEmpty = true;
+        chart.destroy();
+      },
+    };
+  }
+
+  const scaleKey = 'training-load' as const;
+  // D-06/D-22: same one-mechanism rationale as `mountVolumeChart` above.
+  const initial = restoreOrDefault(zoom.savedRange, computeDefaultWindow(scaleKey, bounds));
+
+  let controller: ZoomController | null = null;
 
   const chart = new Chart(canvas, {
     type: 'line',
@@ -605,7 +829,7 @@ export function mountTrainingLoadChart(
         },
       ],
     },
-    plugins: [shadingPlugin],
+    plugins: [chartZoomPlugin, shadingPlugin],
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -614,6 +838,8 @@ export function mountTrainingLoadChart(
       scales: {
         x: {
           type: 'linear',
+          min: initial.min,
+          max: initial.max,
           grid: { display: false },
           ticks: {
             callback: (value: number | string) => formatMonthYearTick(Number(value)),
@@ -629,6 +855,7 @@ export function mountTrainingLoadChart(
         },
       },
       plugins: {
+        zoom: buildZoomPluginOptions({ scaleKey, bounds, onSettle: (c) => controller?.settle(c) }),
         decimation: DECIMATION_CONFIG,
         tooltip: {
           callbacks: {
@@ -641,11 +868,21 @@ export function mountTrainingLoadChart(
     } as any,
   });
 
+  controller = attachZoomController({
+    members: [{ chart, canvas, ariaBase: TRAINING_LOAD_ARIA_LABEL }],
+    header: zoom.header,
+    scaleKey,
+    bounds,
+    groupLabel: 'Training load chart zoom and pan controls',
+    onRangeChange: zoom.onRangeChange,
+  });
+
   let destroyed = false;
   return {
     destroy(): void {
       if (destroyed) return;
       destroyed = true;
+      controller?.destroy();
       chart.destroy();
     },
   };

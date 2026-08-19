@@ -29,7 +29,7 @@
  */
 
 import zoomPlugin from 'chartjs-plugin-zoom';
-import type { Chart } from 'chart.js';
+import type { Chart, Plugin } from 'chart.js';
 
 import {
   type ZoomScaleKey,
@@ -66,8 +66,20 @@ import {
  * globally-registered one (verified against Chart.js core's plugin
  * service), so `chart.destroy()` alone is sufficient teardown; no extra
  * code is needed to tear the plugin or its Hammer manager down.
+ *
+ * The `as unknown as Plugin` below is a type-only cast, not a runtime
+ * change: `chartjs-plugin-zoom@2.2.0` ships as CommonJS with an ambient
+ * `.d.ts` that uses a bare `export default Zoom` (no `export =`) — under
+ * this repo's `moduleResolution: Node16` + `esModuleInterop`, that shape
+ * makes TypeScript infer the DEFAULT IMPORT's type as the whole module
+ * namespace (`typeof import(...)`, missing `id`/`start`/`stop`/etc.)
+ * instead of the actual `Plugin`-shaped value `export default` names.
+ * Confirmed as a types-only mismatch, not a real runtime shape mismatch,
+ * by reading the same `.d.ts`'s own `declare const Zoom: Plugin & {...}`
+ * — the RUNTIME default export genuinely is a `Plugin`, only its inferred
+ * TYPE at the import site is wrong.
  */
-export const chartZoomPlugin = zoomPlugin;
+export const chartZoomPlugin: Plugin = zoomPlugin as unknown as Plugin;
 
 // ---------------------------------------------------------------------------
 // D-14 — cross-platform wheel-modifier-key resolution
