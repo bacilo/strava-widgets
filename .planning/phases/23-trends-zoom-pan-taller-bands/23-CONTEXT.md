@@ -45,7 +45,7 @@ items (Phase 25).
 
 ### Zoom scope — which charts
 
-- **D-01: Zoom/pan lands on the three time-axis tabs only — Volume, Cadence & HR, and
+- **D-01:** **Zoom/pan lands on the three time-axis tabs only — Volume, Cadence & HR, and
   Training Load.** Year-over-Year and Gear are excluded because their x scales are
   `'category'`, not `'linear'`: zooming them means "show fewer bars", which is not what
   TRN-01 describes. YoY's 12-month axis exists precisely so multiple years overlay on one
@@ -53,7 +53,7 @@ items (Phase 25).
   ordering that panning would respect.
   **The exclusion is enforced, not merely unconfigured** — see D-05.
 
-- **D-02: Cadence & HR's two stacked bands zoom and pan in lockstep.** `mountChannelBands`
+- **D-02:** **Cadence & HR's two stacked bands zoom and pan in lockstep.** `mountChannelBands`
   (`trends-charts.ts:422`) builds two Chart.js instances in one `.chart-stack` behind a
   single `ChartHandle`. An `onZoom`/`onPan` callback on either applies the same x min/max
   to its sibling, so the two series always show the same date range — which is the entire
@@ -62,7 +62,7 @@ items (Phase 25).
   *looking* aligned, so you would be comparing cadence in 2019 against HR in 2024 —
   actively misleading, and worse than not zooming at all.
 
-- **D-03: Training Load keeps its 3mo/12mo/All control, but the control now sets the
+- **D-03:** **Training Load keeps its 3mo/12mo/All control, but the control now sets the
   chart's zoom min/max instead of slicing the dataset.** It becomes a set of zoom
   **presets**, and free zoom/pan continues from wherever a preset put you. One mechanism
   underneath, two ways to drive it — the same shape as D-06's default window.
@@ -81,7 +81,7 @@ items (Phase 25).
   "3mo" become two paths to one picture with different state. Also rejected: dropping the
   control, which would remove 18-D16's readable 12mo default.
 
-- **D-04: Trends only — the activity detail view's chart bands do not get zoom.** The
+- **D-04:** **Trends only — the activity detail view's chart bands do not get zoom.** The
   phase boundary is `#/trends`, the detail view was not among the walkthrough complaints,
   and a single run's bands cover one activity rather than 15 years, so the compression
   problem does not exist there. **Extract any shared zoom wiring into a module both
@@ -89,7 +89,7 @@ items (Phase 25).
   extract-don't-duplicate rule) so a later phase can adopt it cheaply — but wire it only
   on Trends in this phase.
 
-- **D-05: `chartjs-plugin-zoom` is passed per-instance via each chart's own
+- **D-05:** **`chartjs-plugin-zoom` is passed per-instance via each chart's own
   `plugins: [...]` array — never added to `trends-charts.ts`'s module-wide
   `Chart.register(...)` call.** This follows the codebase's own stated discipline
   (T-18-CANVAS-01, the reason the thin-coverage shading plugin at
@@ -103,7 +103,7 @@ items (Phase 25).
 
 ### The opening picture
 
-- **D-06: Each granularity opens on a readable default window, expressed as initial zoom
+- **D-06:** **Each granularity opens on a readable default window, expressed as initial zoom
   state over the full dataset — never as a dataset slice.** Weekly ≈ last 12 months,
   monthly ≈ last 5 years, yearly = everything. **Exact spans are for planning to settle
   against a real browser at the D-14 band height** — this decision locks the shape, not
@@ -114,7 +114,7 @@ items (Phase 25).
   zoom. Because it is zoom state and not a slice, "zoom out to see everything" stays
   literally true, and it is the same one-mechanism shape as D-03.
 
-- **D-07: Zoom and pan act on the x-axis only (`mode: 'x'`), and the y-axis rescales to
+- **D-07:** **Zoom and pan act on the x-axis only (`mode: 'x'`), and the y-axis rescales to
   the visible window.** Every complaint here is horizontal compression. X-only gives
   "reset" one meaning and maps the +/− and ←/→ controls onto exactly two behaviours.
   Y-rescale is what makes zoom feel like it did something — zooming into a quiet year
@@ -128,7 +128,7 @@ items (Phase 25).
 
 ### Limits
 
-- **D-09: `limits` clamps pan to the data range, floors the zoom-in, and caps zoom-out at
+- **D-09:** **`limits` clamps pan to the data range, floors the zoom-in, and caps zoom-out at
   the full range.** Panning stops at the first and last data point, so you can never
   scroll off into blank space and lose the chart. Zoom-in stops at a sensible minimum span
   (order of a handful of periods) so a single bar cannot fill the screen with no context.
@@ -138,7 +138,7 @@ items (Phase 25).
 
 ### Controls (TRN-02)
 
-- **D-10: The control cluster lives in each `.chart-band__header`.** That header is
+- **D-10:** **The control cluster lives in each `.chart-band__header`.** That header is
   already `display: flex; align-items: center; justify-content: space-between`
   (`styles.css:1017`) holding the band title, so it absorbs a right-hand cluster with no
   new layout CSS — the same way `.calendar-header` absorbed Phase 22's toggle (22-D02).
@@ -148,7 +148,7 @@ items (Phase 25).
   keeps the zoom controls clear of each tab's existing `.segmented` controls, which sit
   above the chart.
 
-- **D-11: The cluster is `←` `→` `−` `+`, plus a Reset that appears only when zoomed.**
+- **D-11:** **The cluster is `←` `→` `−` `+`, plus a Reset that appears only when zoomed.**
   Four always-present buttons cover both halves of TRN-02 plainly. Reset materialises once
   the chart is off its D-06 default view, so it never advertises an action on an
   already-default chart — **and its presence doubles as the only visible signal that you
@@ -163,7 +163,7 @@ items (Phase 25).
   Reset entirely (pressing `−` repeatedly reaches full zoom-out but never restores the
   designed opening window, making it unreachable).
 
-- **D-12: One press zooms ~1.5× or pans ~25% of the visible range.** Proportional steps
+- **D-12:** **One press zooms ~1.5× or pans ~25% of the visible range.** Proportional steps
   mean the same thing at every zoom level and under every granularity, so one
   implementation serves weekly, monthly and yearly with no per-granularity table, and it
   maps directly onto the plugin's `zoom(factor)` / `pan({x})` API. 25% keeps enough of the
@@ -173,7 +173,7 @@ items (Phase 25).
   view — fifty presses to reach last year), and a fixed-span zoom ladder (fights free
   wheel/pinch zoom, which lands between rungs, and needs different rungs per granularity).
 
-- **D-13: The canvas `aria-label` is rewritten to name the visible range** — e.g.
+- **D-13:** **The canvas `aria-label` is rewritten to name the visible range** — e.g.
   "Weekly distance chart, Sep 2025 to Aug 2026" — on every zoom/pan settle. This extends
   the existing `VOLUME_ARIA_LABELS` mechanism (`trends-charts.ts:112`) rather than
   inventing a second one, needs no new ARIA machinery, and does not fire on every wheel
@@ -191,21 +191,21 @@ items (Phase 25).
 
 ### Gestures
 
-- **D-14: ⌘/Ctrl + wheel zooms; a bare wheel scrolls the page as it does today.**
+- **D-14:** **⌘/Ctrl + wheel zooms; a bare wheel scrolls the page as it does today.**
   Via `zoom.wheel.modifierKey`. The reason is specific to this page: on a macOS trackpad a
   two-finger scroll **is** a wheel event, so bare-wheel zoom means the page traps your
   scroll every time you pass a chart — and Cadence & HR stacks two, at the D-16 height.
   This is the convention Google Maps embeds settled on, and the single most-reported
   `chartjs-plugin-zoom` complaint is the behaviour it avoids.
 
-- **D-15: Dragging across the plot area pans.** The natural gesture on a zoomed chart, and
+- **D-15:** **Dragging across the plot area pans.** The natural gesture on a zoomed chart, and
   Trends charts carry no click-to-navigate behaviour to conflict with — unlike the
   activity rows, where Phase 20 spent five gap-closure rounds on exactly that ambiguity
   (20-D16's `shouldNavigateOnRowClick` predicate). Tooltips still work on hover; only a
   real drag pans. The cursor should signal it (`grab` / `grabbing`); that is a checkpoint
   row.
 
-- **D-16: Take the Hammer.js dependency for pinch-to-zoom and touch pan.** TRN-01 names
+- **D-16:** **Take the Hammer.js dependency for pinch-to-zoom and touch pan.** TRN-01 names
   pinch explicitly, and Phase 22 established that real phone widths (390/393/412px) are a
   live concern for this dashboard rather than hypothetical. `chartjs-plugin-zoom`'s wheel
   and mouse-drag paths work without it; pinch and touch pan do not. It lands inside the
@@ -216,7 +216,7 @@ items (Phase 25).
   Hammer requirement and whether a maintained fork or a pointer-events alternative is
   viable before the dependency is added.
 
-- **D-17: A persistent hint in the band header advertises the modifier.** Something like
+- **D-17:** **A persistent hint in the band header advertises the modifier.** Something like
   "⌘/Ctrl + scroll to zoom", sitting near the D-10 control cluster. Modifier-gated wheel
   zoom is otherwise undiscoverable — you cannot find it by trying. Fits the existing
   `.chart-band__header` and matches this project's actionable-notice habit (18-D13's
@@ -227,7 +227,7 @@ items (Phase 25).
 
 ### Band height (TRN-03)
 
-- **D-18: A Trends-only modifier class — the shared `.chart-band__canvas-wrap` rule and
+- **D-18:** **A Trends-only modifier class — the shared `.chart-band__canvas-wrap` rule and
   the detail view are byte-unchanged.** Something like
   `.chart-band__canvas-wrap--tall`, applied by `trends-charts.ts` only. TRN-03's own
   justification is "on a page with room to spare", which is the Trends page: the detail
@@ -235,7 +235,7 @@ items (Phase 25).
   to spare. Silently doubling its height would be a rendering change nobody asked for on a
   screen Phase 17 tuned and Phase 19 restyled, and no checkpoint row would be watching it.
 
-- **D-19: The height is viewport-relative with clamps — shape `clamp(180px, 34vh, 420px)`,
+- **D-19:** **The height is viewport-relative with clamps — shape `clamp(180px, 34vh, 420px)`,
   exact numbers for planning to settle against a real browser.** Roughly doubles the band
   on a laptop, grows on a large monitor where "room to spare" is literally true, and never
   collapses below a readable floor on a short window. This matters more than usual here:
@@ -248,14 +248,14 @@ items (Phase 25).
   ResizeObserver path in ways this codebase has zero precedent for, and the Trends page is
   not where to find that out.
 
-- **D-20: Cadence & HR's two stacked bands both get the full height; the tab scrolls.**
+- **D-20:** **Cadence & HR's two stacked bands both get the full height; the tab scrolls.**
   The two series are meant to be read against each other, so shrinking them undercuts the
   reason they are stacked — and it would reintroduce exactly the squashed y-axis TRN-03
   exists to fix, on the one tab with two charts to squash. A scrolling tab is normal here
   (Records is deliberately long enough to need a sticky jump list, 18-D02). Equal heights
   also keep D-02's synced pair on one plot geometry.
 
-- **D-21: Keep an explicit small-screen floor, retuned against real phone widths.** A
+- **D-21:** **Keep an explicit small-screen floor, retuned against real phone widths.** A
   clamp's lower bound does most of the work, but a phone must never get a band taller than
   it is wide. **Whatever breakpoint is chosen must be justified against real phone widths,
   not inherited** — Phase 22 pinned its Round 3 overflow fix to `@media (max-width: 380px)`
@@ -268,7 +268,7 @@ items (Phase 25).
 
 ### Zoom state lifecycle (TRN-04)
 
-- **D-22: Zoom is within-tab state held in the view closure — survives a tab switch,
+- **D-22:** **Zoom is within-tab state held in the view closure — survives a tab switch,
   resets on unmount.** Store each zoomable tab's x min/max exactly the way
   `volumeGranularity`, `volumeYear`, `yoySelectedYears`, `trimpModel`, `loadWindow`,
   `gearSort` already are (`trends.ts:427-452`). This is 18-UI-SPEC § 8's within-tab-state
@@ -278,7 +278,7 @@ items (Phase 25).
   it** — rapid tab cycling with zoom present is a real state round-trip, which is exactly
   what criterion 4 asks to be proven.
 
-- **D-23: A granularity change resets to the new granularity's D-06 default window.**
+- **D-23:** **A granularity change resets to the new granularity's D-06 default window.**
   Each granularity has its own designed opening density, and that is what the toggle is
   for. Carrying a 3-month zoom into "Yearly" would show three bars; carrying a 15-year
   view into "Weekly" recreates the exact compression TRN-01 exists to fix.
@@ -287,7 +287,7 @@ items (Phase 25).
   collides with D-06 (which granularity's window wins on first open?) and can land you on
   Yearly showing a single bar.
 
-- **D-24: Zoom position does NOT survive a page reload — no `localStorage`, no storage
+- **D-24:** **Zoom position does NOT survive a page reload — no `localStorage`, no storage
   module in this phase.** A reload should give you the designed opening picture, not
   wherever you left the chart last week. A persisted window is a silent data filter that
   survives long enough to forget you set it, which cuts against this project's hard rule
@@ -299,7 +299,7 @@ items (Phase 25).
 
 ### Verification
 
-- **D-25: The TRN-04 checkpoint must be a discriminator, not a presence check.**
+- **D-25:** **The TRN-04 checkpoint must be a discriminator, not a presence check.**
   "Cycle the tabs, see no console errors" is the weak form that scored FAIL across two
   rounds of Phase 20's validation and that 22-D16 was written to prevent — a
   silently-reset zoom, a stranded duplicate canvas, and a correctly-working chart can all
