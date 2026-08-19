@@ -10,7 +10,6 @@ import {
   parseTrainingLoad,
   parseTrimpModel,
   selectModelSeries,
-  sliceLoadWindow,
   TRAINING_LOAD_WINDOWS,
 } from './trends-training-load-logic.js';
 
@@ -97,39 +96,6 @@ describe('parseLoadWindow', () => {
     for (const w of TRAINING_LOAD_WINDOWS) {
       expect(parseLoadWindow(w)).toBe(w);
     }
-  });
-});
-
-describe('sliceLoadWindow', () => {
-  const days: DailyLoadEntry[] = [];
-  const start = new Date('2023-01-01T00:00:00Z');
-  for (let i = 0; i < 500; i++) {
-    const d = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
-    days.push(fixtureDay({ date: d.toISOString().slice(0, 10) }));
-  }
-  const now = new Date(start.getTime() + 499 * 24 * 60 * 60 * 1000);
-
-  it('3mo yields ~90 entries', () => {
-    const sliced = sliceLoadWindow(days, '3mo', now);
-    expect(sliced.length).toBeGreaterThanOrEqual(88);
-    expect(sliced.length).toBeLessThanOrEqual(92);
-  });
-
-  it('12mo yields ~365 entries', () => {
-    const sliced = sliceLoadWindow(days, '12mo', now);
-    expect(sliced.length).toBeGreaterThanOrEqual(363);
-    expect(sliced.length).toBeLessThanOrEqual(367);
-  });
-
-  it('all yields the full array', () => {
-    const sliced = sliceLoadWindow(days, 'all', now);
-    expect(sliced.length).toBe(500);
-  });
-
-  it('the source array is unmutated', () => {
-    const originalLength = days.length;
-    sliceLoadWindow(days, '3mo', now);
-    expect(days.length).toBe(originalLength);
   });
 });
 

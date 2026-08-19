@@ -64,7 +64,6 @@ import {
   parseTrainingLoad,
   parseTrimpModel,
   parseLoadWindow,
-  sliceLoadWindow,
   selectModelSeries,
   findThinCoverageSpans,
   coverageCaption,
