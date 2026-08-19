@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   applyThemeMode,
@@ -31,6 +31,44 @@ function fakeStorage(
       data[key] = value;
     },
   };
+}
+
+/**
+ * Recording sentinel that stands in for the REAL globalThis.localStorage —
+ * every setItem call is pushed to setItemCalls so a fallthrough to the
+ * global (rather than honouring an explicit override) is DETECTABLE. WR-01's
+ * previous three `storage: null` cases passed only because
+ * `vitest.config.ts` is `environment: 'node'` with no setup file assigning
+ * `globalThis.localStorage`, so they exercised the absent-global path rather
+ * than the null-override path their titles claimed to test. Installing this
+ * sentinel is what makes the GC-9 assertions below mean what their titles say.
+ */
+function sentinelStorage(
+  initial: Record<string, string> = {}
+): ThemeStorage & { data: Record<string, string>; setItemCalls: Array<[string, string]> } {
+  const data: Record<string, string> = { ...initial };
+  const setItemCalls: Array<[string, string]> = [];
+  return {
+    data,
+    setItemCalls,
+    getItem(key: string): string | null {
+      return key in data ? data[key] : null;
+    },
+    setItem(key: string, value: string): void {
+      setItemCalls.push([key, value]);
+      data[key] = value;
+    },
+  };
+}
+
+/** Installs `sentinel` as globalThis.localStorage via a getter — the identical install shape storage.test.ts already uses. */
+function installSentinelGlobal(sentinel: ThemeStorage): void {
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    get() {
+      return sentinel;
+    },
+  });
 }
 
 /** Minimal fake Document exposing only documentElement.setAttribute, with recorded attrs. */
@@ -162,6 +200,10 @@ describe('readStoredMode', () => {
 });
 
 describe('applyThemeMode', () => {
+  afterEach(() => {
+    Reflect.deleteProperty(globalThis, 'localStorage');
+  });
+
   it("mode 'auto' with prefersDark true sets data-theme to 'dark' and persists the MODE 'auto'", () => {
     const { doc, attrs } = fakeDoc();
     const storage = fakeStorage();
@@ -196,23 +238,43 @@ describe('applyThemeMode', () => {
     expect(attrs['data-theme']).toBe('dark');
   });
 
-  it('sets data-theme even with a null storage handle (BL-03) — the DOM update is not conditional on a usable storage handle', () => {
-    const { doc, attrs } = fakeDoc();
-    const effective = applyThemeMode('dark', { prefersDark: false, doc, storage: null });
-    expect(effective).toBe('dark');
-    expect(attrs['data-theme']).toBe('dark');
-  });
+  it(
+    'GC-9b: storage: null writes data-theme but records ZERO setItem calls and no dashboard-theme key ' +
+      'on an installed sentinel global — the sentinel is what makes this discriminate from an accidental ' +
+      'fallthrough (WR-01)',
+    () => {
+      const sentinel = sentinelStorage();
+      installSentinelGlobal(sentinel);
+      const { doc, attrs } = fakeDoc();
+      const effective = applyThemeMode('dark', { prefersDark: false, doc, storage: null });
+      expect(effective).toBe('dark');
+      expect(attrs['data-theme']).toBe('dark');
+      expect(sentinel.setItemCalls).toEqual([]);
+      expect(THEME_STORAGE_KEY in sentinel.data).toBe(false);
+    }
+  );
 
-  it('does not throw with a null storage handle and persist left at its default true (BL-03)', () => {
-    const { doc, attrs } = fakeDoc();
-    expect(() =>
-      applyThemeMode('light', { prefersDark: true, doc, storage: null })
-    ).not.toThrow();
-    expect(attrs['data-theme']).toBe('light');
-  });
+  it(
+    'GC-9d control: with the SAME sentinel installed and storage OMITTED entirely, applyThemeMode DOES write ' +
+      'into it — proves the fallthrough branch still works and that GC-9b is discriminating rather than passing ' +
+      'because nothing is ever written',
+    () => {
+      const sentinel = sentinelStorage();
+      installSentinelGlobal(sentinel);
+      const { doc, attrs } = fakeDoc();
+      const effective = applyThemeMode('dark', { prefersDark: false, doc });
+      expect(effective).toBe('dark');
+      expect(attrs['data-theme']).toBe('dark');
+      expect(sentinel.setItemCalls).toEqual([[THEME_STORAGE_KEY, 'dark']]);
+    }
+  );
 });
 
 describe('watchSystemTheme', () => {
+  afterEach(() => {
+    Reflect.deleteProperty(globalThis, 'localStorage');
+  });
+
   it("invokes the callback when the media query fires and the stored mode is 'auto'", () => {
     const mediaQuery = fakeMediaQuery(false);
     const storage = fakeStorage({ [THEME_STORAGE_KEY]: 'auto' });
@@ -265,10 +327,11 @@ describe('watchSystemTheme', () => {
   });
 
   it(
-    "registers its listener and invokes the callback with a null storage handle (BL-03) — " +
-      "readStoredMode(null) is 'auto', so the auto-only guard passes; a blocked-storage user " +
-      'therefore keeps following the system theme, which is the correct default',
+    'GC-9c: storage: null still follows the system theme even though an installed sentinel holds a ' +
+      "contradicting stored 'light' — fires the callback exactly once on the media query change (WR-01)",
     () => {
+      const sentinel = sentinelStorage({ [THEME_STORAGE_KEY]: 'light' });
+      installSentinelGlobal(sentinel);
       const mediaQuery = fakeMediaQuery(false);
       let called = 0;
       const unsubscribe = watchSystemTheme(() => {
@@ -279,4 +342,46 @@ describe('watchSystemTheme', () => {
       unsubscribe();
     }
   );
+
+  it("GC-8a: isAuto: () => true overrides a contradicting stored 'light' value, firing the callback", () => {
+    const mediaQuery = fakeMediaQuery(false);
+    const storage = fakeStorage({ [THEME_STORAGE_KEY]: 'light' });
+    let called = 0;
+    watchSystemTheme(
+      () => {
+        called += 1;
+      },
+      { mediaQuery, storage, isAuto: () => true }
+    );
+    mediaQuery.fire(true);
+    expect(called).toBe(1);
+  });
+
+  it("GC-8b: isAuto: () => false overrides a contradicting stored 'auto' value, suppressing the callback", () => {
+    const mediaQuery = fakeMediaQuery(false);
+    const storage = fakeStorage({ [THEME_STORAGE_KEY]: 'auto' });
+    let called = 0;
+    watchSystemTheme(
+      () => {
+        called += 1;
+      },
+      { mediaQuery, storage, isAuto: () => false }
+    );
+    mediaQuery.fire(true);
+    expect(called).toBe(0);
+  });
+
+  it('GC-8c: with isAuto omitted, the guard still consults the supplied storage — the option is additive, not a replacement', () => {
+    const mediaQuery = fakeMediaQuery(false);
+    const storage = fakeStorage({ [THEME_STORAGE_KEY]: 'auto' });
+    let called = 0;
+    watchSystemTheme(
+      () => {
+        called += 1;
+      },
+      { mediaQuery, storage }
+    );
+    mediaQuery.fire(true);
+    expect(called).toBe(1);
+  });
 });
