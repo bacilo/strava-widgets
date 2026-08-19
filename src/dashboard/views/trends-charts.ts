@@ -498,6 +498,13 @@ export function buildChartBand(
   return { band, header, canvasWrap, canvas };
 }
 
+/** `buildChannelBand`'s return shape: the constructed chart plus the `canvas` and `header` `buildChartBand` gave it, so `mountChannelBands` can attach one shared D-10 cluster to the cadence band's header without rebuilding any markup. */
+interface ChannelBandHandle {
+  chart: Chart;
+  canvas: HTMLCanvasElement;
+  header: HTMLElement;
+}
+
 /**
  * Mounts one stacked, single-axis line band into `stack` for `channel`.
  * `spanGaps: false` and the raw (possibly-null) `MonthlyPoint.value` are
@@ -511,21 +518,28 @@ export function buildChartBand(
  * cadence (`170`) and HR (`142`) tick labels happen to be similar widths
  * today — a future channel with wider labels must not silently reintroduce
  * Phase 17's GAP 2 (misaligned stacked-band x-axes).
+ *
+ * `zoom` is `null` only when `mountChannelBands` found BOTH channels' series
+ * empty (D-05: a chart with no data has no range to zoom) — in that one
+ * case this function omits the plugin, the zoom options and the x-scale
+ * min/max entirely, mirroring `mountVolumeChart`/`mountTrainingLoadChart`'s
+ * own empty-series branch (Task 1).
  */
 function buildChannelBand(
   stack: HTMLElement,
   points: readonly MonthlyPoint[],
   channel: MonthlyChannel,
-  themeColors: { border: string; text: string; textSecondary: string }
-): Chart {
+  themeColors: { border: string; text: string; textSecondary: string },
+  zoom: { initial: ZoomRange; onSettle: (chart: Chart) => void } | null
+): ChannelBandHandle {
   // channelLabel's cadence heading states the single-leg rpm unit explicitly
   // (matching detail.ts's `Cadence (rpm, single-leg)` stat-card label),
   // because the index value is deliberately not doubled to steps-per-minute.
-  const { canvas } = buildChartBand(stack, channelLabel(channel), CHANNEL_ARIA_LABELS[channel]);
+  const { canvas, header } = buildChartBand(stack, channelLabel(channel), CHANNEL_ARIA_LABELS[channel]);
 
   const color = resolveToken(CHANNEL_COLOR_TOKENS[channel], channel === 'cadence' ? '#0891b2' : '#e11d48');
 
-  return new Chart(canvas, {
+  const chart = new Chart(canvas, {
     type: 'line',
     data: {
       datasets: [
@@ -543,6 +557,7 @@ function buildChannelBand(
         },
       ],
     },
+    plugins: zoom ? [chartZoomPlugin] : [],
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -550,6 +565,7 @@ function buildChannelBand(
       scales: {
         x: {
           type: 'linear',
+          ...(zoom ? { min: zoom.initial.min, max: zoom.initial.max } : {}),
           grid: { display: false },
           ticks: {
             callback: (value: number | string) => formatMonthYearTick(Number(value)),
@@ -566,6 +582,9 @@ function buildChannelBand(
         },
       },
       plugins: {
+        ...(zoom
+          ? { zoom: buildZoomPluginOptions({ scaleKey: 'cadence-hr', bounds: zoom.initial, onSettle: zoom.onSettle }) }
+          : {}),
         tooltip: {
           callbacks: {
             label: (context: { dataIndex: number }) => {
@@ -581,17 +600,29 @@ function buildChannelBand(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any,
   });
+
+  return { chart, canvas, header };
 }
 
 /**
  * Mounts the Cadence & HR tab's two stacked bands (cadence, then HR) sharing
  * one `.chart-stack`. Idempotent `destroy()` destroys both Chart.js
  * instances and removes the stack element.
+ *
+ * D-02/D-10: both bands are constructed at the SAME initial range and share
+ * ONE `settle`-driven controller, whose D-10 cluster lives in the cadence
+ * band's header rather than above the stack. D-02 means the pair always
+ * shows the same range, so two clusters would just be two ways to drive one
+ * piece of state — one cluster is the only shape that cannot go out of sync
+ * with itself. The header choice mirrors `detail-charts.ts`'s existing
+ * pattern of putting a band's own overlay picker inside that band's header,
+ * rather than inventing a page-level control location.
  */
 export function mountChannelBands(
   root: HTMLElement,
   cadence: readonly MonthlyPoint[],
-  hr: readonly MonthlyPoint[]
+  hr: readonly MonthlyPoint[],
+  zoom: Omit<ZoomMountOptions, 'header'>
 ): ChartHandle {
   const themeColors = resolveThemeColors();
 
@@ -599,16 +630,49 @@ export function mountChannelBands(
   stack.className = 'chart-stack';
   root.appendChild(stack);
 
-  const cadenceChart = buildChannelBand(stack, cadence, 'cadence', themeColors);
-  const hrChart = buildChannelBand(stack, hr, 'hr', themeColors);
+  // Union of both channels' x values: the pair shares one domain even if one
+  // channel's data starts later than the other's.
+  const bounds = computeArchiveBounds([...cadence.map((p) => p.x), ...hr.map((p) => p.x)]);
+
+  let controller: ZoomController | null = null;
+  const onSettle = (c: Chart) => controller?.settle(c);
+
+  // D-05: `zoomCfg` is `null` only when BOTH channels' series are empty — a
+  // chart with no data has no range to zoom, so `buildChannelBand` omits the
+  // plugin, the zoom options and the x-scale min/max entirely for that one
+  // case (mirroring mountVolumeChart/mountTrainingLoadChart's own
+  // empty-series branch, Task 1) while still calling `buildChannelBand`
+  // exactly once per channel either way.
+  const zoomCfg =
+    bounds === null
+      ? null
+      : { initial: restoreOrDefault(zoom.savedRange, computeDefaultWindow('cadence-hr', bounds)), onSettle };
+
+  const cadenceHandle = buildChannelBand(stack, cadence, 'cadence', themeColors, zoomCfg);
+  const hrHandle = buildChannelBand(stack, hr, 'hr', themeColors, zoomCfg);
+
+  if (bounds !== null) {
+    controller = attachZoomController({
+      members: [
+        { chart: cadenceHandle.chart, canvas: cadenceHandle.canvas, ariaBase: CHANNEL_ARIA_LABELS.cadence },
+        { chart: hrHandle.chart, canvas: hrHandle.canvas, ariaBase: CHANNEL_ARIA_LABELS.hr },
+      ],
+      header: cadenceHandle.header,
+      scaleKey: 'cadence-hr',
+      bounds,
+      groupLabel: 'Cadence and heart rate chart zoom and pan controls',
+      onRangeChange: zoom.onRangeChange,
+    });
+  }
 
   let destroyed = false;
   return {
     destroy(): void {
       if (destroyed) return;
       destroyed = true;
-      cadenceChart.destroy();
-      hrChart.destroy();
+      controller?.destroy();
+      cadenceHandle.chart.destroy();
+      hrHandle.chart.destroy();
       stack.remove();
     },
   };
