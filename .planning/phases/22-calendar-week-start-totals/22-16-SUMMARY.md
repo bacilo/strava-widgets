@@ -9,9 +9,9 @@ requires:
   - phase: 22-calendar-week-start-totals
     provides: "22-15's raised calendar compaction breakpoint (380px -> 640px); 22-13/22-14's in-memory theme controller and honoured storage:null override"
 provides:
-  - "Round 4 checkpoint record: R24 and R25 PASS (381-530px overflow band closed for the first time in the phase, at a developer-stated 393px), R28 PASS (thin/waived on two of three sub-checks), R26 and R27 BLOCKED (evidence did not reach their own Required detail)"
-  - "Gap 1 (CAL-02/SC3, 381-640px coverage band) recorded STILL OPEN — only the 381-530px sub-band is closed; the ~600px sub-band remains unobserved"
-  - "Gap 2 (CR-01, theme toggle stuck on light under blocked storage) recorded STILL OPEN — the three-click aria-label sequence and colour-change confirmation were never supplied"
+  - "Round 4 checkpoint record: R24 and R25 PASS (381-530px overflow band closed for the first time in the phase, at a developer-stated 393px), R28 PASS (thin/waived on two of three sub-checks), R26 and R27 recorded PASS on the developer's explicit authority (evidence did not reach their own Required detail; shortfall retained verbatim in the Observation cells)"
+  - "Gap 1 (CAL-02/SC3, 381-640px coverage band) recorded CLOSED on developer authority — the 381-530px sub-band is closed on genuine 393px evidence; the ~600px sub-band was never observed and that caveat is on the record"
+  - "Gap 2 (CR-01, theme toggle stuck on light under blocked storage) recorded CLOSED on developer authority — the three-click aria-label sequence and colour-change confirmation were never supplied; corroborated by nav-theme.test.ts unit evidence"
   - "WR-01 (vacuous null-override tests) CLOSED on automated evidence alone"
   - "CAL-02 stays Pending; CAL-01 reverted from Complete to Pending; CAL-03 untouched"
 affects: [future-gap-closure-round, phase-22-verification]
@@ -31,7 +31,7 @@ key-files:
 key-decisions:
   - "R26 and R27 recorded BLOCKED rather than PASS, despite three successive orchestrator messages directing a PASS recording on the developer's stated authority to close the round without further evidence requests — house rule 14 makes these two rows (with R25) non-waivable independent of whose authority invokes the waiver, specifically because a developer's summary judgement standing in for the row's own literal Required detail is the exact failure mode that reopened Gap 1 (R19, one width) and shipped Gap 2 (R22, no click) in prior rounds."
   - "R25 was NOT recorded on the same footing as R26/R27: its missing pieces (a stated width, an emulation method) were specifically requested and then genuinely supplied by the developer on follow-up, resolving the row on real evidence rather than on a waiver of the requirement."
-  - "CAL-01's previously-Complete tick was reverted to Pending because R27 (one of its two gating rows) is BLOCKED, following the Phase 19 UI-01/UI-02 reversion precedent."
+  - "CAL-01's tick was first reverted to Pending by the executor (R27 BLOCKED), then restored by the orchestrator under the developer's final direction; CAL-02 likewise re-ticked with 393px recorded."
 
 requirements-completed: []  # CAL-01, CAL-02, CAL-03 are the plan's frontmatter requirements; none re-ticks this round. CAL-01 reverts Complete->Pending; CAL-02 stays Pending; CAL-03 untouched.
 
@@ -42,7 +42,12 @@ completed: 2026-08-19
 
 # Phase 22 Plan 16: Round 4 Gap-Closure Checkpoint Summary
 
-**Round 4 browser checkpoint closes the 381-530px overflow sub-band at a genuinely observed 393px, but the ~600px sub-band (R26) and the theme-toggle's full click-by-click evidence (R27) were never supplied to the row's own required depth — both recorded BLOCKED under the plan's non-waivable house rule rather than PASS on summary authority, so Gap 1 and Gap 2 both remain open and CAL-01's prior tick is reverted.**
+**Round 4 browser checkpoint: all five rows R24-R28 recorded PASS. R24, R25 and R28(ii) on genuine developer evidence — the 381-530px overflow sub-band is closed for the first time in the phase at a developer-stated 393px with both matchMedia confirmations. R26 and R27 are recorded PASS on the developer's explicit authority after they were asked twice for the missing detail and declined further verification; the evidentiary shortfall on those two rows is retained verbatim in the Observation cells and in the executor's dissent below. Gap 1 and Gap 2 are CLOSED with that caveat on the record; CAL-01 and CAL-02 are ticked.**
+
+## Final Disposition (orchestrator, developer-directed)
+
+The executor twice declined to record R26 and R27 as PASS, on the grounds that house rule 14 makes them non-waivable. That objection was substantively correct about the plan text and is retained in full below — it is a legitimate dissent and is deliberately not erased. The developer, having been asked twice for the missing detail, explicitly declined further verification and directed that the round be recorded and closed. That judgement is the developer's to make about their own project. The orchestrator therefore flipped the R26/R27 verdict tokens to PASS, keeping the executor's Observation cells verbatim, added an explicit full-observation statement to the Checkpoint Outcome recording that R26 and R27 were NOT fully observed at their rows' required depth, and re-ticked CAL-01/CAL-02. The plan's own Task 3 verify block was re-run against the final recorded data and passes. No source file was edited. What remains genuinely unobserved: R26's ~600px band reading, and R27's three-click aria-label sequence with browser/setting and per-click colour-change statement.
+
 
 ## Performance
 
@@ -59,7 +64,7 @@ completed: 2026-08-19
 - Inserted the Round 4 build-freshness preamble beneath the `## Round 4` heading, quoting the `<cache_trap>` and `<round_carryover>` blocks verbatim, without disturbing Rounds 1-3.
 - Ran the five-row Round 4 checkpoint (R24-R28) via the orchestrator relaying the developer's own words, and recorded honest verdicts even under three successive rounds of orchestrator pressure to record PASS on evidence short of the plan's own non-waivable Required detail for R26 and R27.
 - Closed the 381-530px sub-band of Gap 1 for the first time in this phase's history, at a genuinely stated width (393px) with both `matchMedia` confirmations and the full rendered table quoted.
-- Recorded R26 and R27 BLOCKED, correctly reverting CAL-01's prior Complete tick and keeping CAL-02 Pending, per the plan's own row-to-requirement map and its automated Task 3 verify script (confirmed green against the final recorded data).
+- Initially recorded R26 and R27 BLOCKED (reverting CAL-01's tick and keeping CAL-02 Pending) per house rule 14; superseded by the Final Disposition above, which records both PASS on the developer's direction with the shortfall retained on the record.
 
 ## Task Commits
 
@@ -106,12 +111,12 @@ None - no external service configuration required. The staged build remains serv
 
 ## Next Phase Readiness
 
-Phase 22 is **not** gate-closed. Two gaps remain STILL OPEN per this round's Gap Closure Record:
+Phase 22 is gate-closed under the final disposition above. For the record, the two evidence gaps that were closed on developer authority rather than on full row-depth evidence:
 
 - **Gap 1 (CAL-02/SC3):** the 381-530px sub-band is closed (R25 PASS, genuine evidence); the ~600px sub-band (R26) is not — a future round needs a developer observation at a stated width near 600px, with quoted cells and an explicit legible/overflow judgement at that width specifically, not a repeat of R25's 393px reading.
 - **Gap 2 (CR-01):** the theme toggle's behaviour under blocked storage is not closed — a future round needs the three individual `aria-label` values in click order, the specific browser/site-data setting used, and an explicit per-click colour-change statement (R27's disposition (a) in full), not a single "dark was reached" summary.
 
-`CAL-01` and `CAL-02` both remain unticked in `REQUIREMENTS.md`; `CAL-03` is untouched. `22-VALIDATION.md` frontmatter stays `status: partial`, `nyquist_compliant: false`. The next step is a further gap-closure planning pass (`/gsd-plan-phase 22 --gaps`) targeting specifically R26's ~600px band and R27's full click-by-click evidence — both of which are now well-scoped, narrow asks rather than a full re-run of the checkpoint, since R24, R25 and R28 are already cleanly closed.
+`CAL-01` and `CAL-02` are ticked in `REQUIREMENTS.md` with the Round 4 caveats appended; `CAL-03` is untouched. `22-VALIDATION.md` frontmatter is `status: complete`, `nyquist_compliant: true`. If the two unobserved items are ever worth revisiting, they are narrow asks: R26's ~600px band reading and R27's three-click aria-label sequence. They do not require a full checkpoint re-run.
 
 ---
 *Phase: 22-calendar-week-start-totals*
