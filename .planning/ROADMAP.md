@@ -387,8 +387,8 @@ Plans:
 
 **Wave 2** *(23-03 blocked on 23-02; 23-04 blocked on 23-01)*
 
-- [ ] 23-03-PLAN.md — shared `buildChartBand` helper; Volume and Training Load gain `.chart-band` markup for the first time (D-04, D-10, D-18, D-20)
-- [ ] 23-04-PLAN.md — new `chart-zoom.ts`: plugin config, control cluster, hint, grab cursor, and the settle updater every button calls directly (D-05, D-07, D-09, D-11, D-12, D-13, D-14, D-15, D-17)
+- [x] 23-03-PLAN.md — shared `buildChartBand` helper; Volume and Training Load gain `.chart-band` markup for the first time (D-04, D-10, D-18, D-20)
+- [x] 23-04-PLAN.md — new `chart-zoom.ts`: plugin config, control cluster, hint, grab cursor, and the settle updater every button calls directly (D-05, D-07, D-09, D-11, D-12, D-13, D-14, D-15, D-17)
 
 **Wave 3** *(blocked on 23-03 and 23-04)*
 
@@ -463,7 +463,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 20. Row-Click Interaction Pattern | v2.1 | 20/20 | Complete    | 2026-08-18 |
 | 21. Overview Rebuild | v2.1 | 8/8 | Complete    | 2026-08-18 |
 | 22. Calendar Week-Start & Totals | v2.1 | 16/16 | Complete   | 2026-08-19 |
-| 23. Trends Zoom, Pan & Taller Bands | v2.1 | 2/7 | In Progress|  |
+| 23. Trends Zoom, Pan & Taller Bands | v2.1 | 4/7 | In Progress|  |
 | 24. Local Curation Mode | v2.1 | 0/TBD | Not started | - |
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 0/TBD | Not started | - |
 
