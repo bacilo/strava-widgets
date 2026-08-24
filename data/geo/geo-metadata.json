@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-08-23T05:19:11.556Z",
-  "totalActivities": 1875,
-  "geocodedActivities": 1722,
+  "generatedAt": "2026-08-24T05:28:20.375Z",
+  "totalActivities": 1876,
+  "geocodedActivities": 1723,
   "coveragePercent": 92,
-  "cacheSize": 17243,
-  "totalDistanceKm": 20863.7,
+  "cacheSize": 17252,
+  "totalDistanceKm": 20874.9,
   "geocoderVersion": "geonames-cities1000"
 }
