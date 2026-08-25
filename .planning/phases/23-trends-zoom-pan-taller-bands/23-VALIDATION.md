@@ -1,9 +1,9 @@
 ---
 phase: 23
 slug: trends-zoom-pan-taller-bands
-status: draft
+status: partial
 nyquist_compliant: false
-wave_0_complete: false
+wave_0_complete: true
 created: 2026-08-19
 ---
 
@@ -141,18 +141,18 @@ mechanism, extended by `withRangeSuffix`): `Weekly distance chart`, `Monthly dis
 
 ## Wave 0 Requirements
 
-- [ ] `src/dashboard/views/trends-zoom-logic.ts` — new pure module holding D-06 default-window
+- [x] `src/dashboard/views/trends-zoom-logic.ts` — new pure module holding D-06 default-window
       computation, D-09 limits computation, D-12 zoom-factor / pan-pixel-delta math, D-13
       range→label formatting, and D-22 restore-or-default state shape. **This extraction is
       what makes any of this phase automatable at all** — logic left inline in `trends.ts`
       is unreachable by this repo's test setup.
-- [ ] `src/dashboard/views/trends-zoom-logic.test.ts` — unit-test sibling, following the
+- [x] `src/dashboard/views/trends-zoom-logic.test.ts` — unit-test sibling, following the
       existing `*-logic.test.ts` pattern exactly.
-- [ ] New case(s) in the existing `src/dashboard/styles.test.ts` asserting the
+- [x] New case(s) in the existing `src/dashboard/styles.test.ts` asserting the
       `.chart-band__canvas-wrap--tall` rule **by value, not existence** — per that file's own
       `WR-03` precedent (`styles.test.ts:2029` comments on why existence-only assertions are
       insufficient).
-- [ ] No framework install needed — Vitest is present and configured. The gap is test *files*,
+- [x] No framework install needed — Vitest is present and configured. The gap is test *files*,
       not test *infrastructure*.
 
 ---
@@ -186,63 +186,100 @@ mechanism, extended by `withRangeSuffix`): `Weekly distance chart`, `Monthly dis
 | Small-screen floor holds at real phone widths (D-21) | TRN-03 | Breakpoint behavior at specific widths | At **each** of 390px, 393px and 412px (state the emulation method), report the computed band height and confirm no horizontal overflow. Naming a width other than the required one does not discharge the row — this is the exact substitution that reopened CAL-02 in Phase 22. |
 | No "Canvas is already in use" under rapid tab cycling with zoom state present (TRN-04, success criterion 4) | TRN-04 | Console + canvas lifecycle | Zoom on ≥2 tabs, then cycle all five Trends tabs rapidly ≥3 full passes, toggling granularity in between. Paste the console output (must be empty of errors) and state the count of `<canvas>` elements in the DOM afterward (must equal the expected count, with no stranded duplicates). |
 | Zoom state survives a tab switch, resets on unmount (D-22) | TRN-04 | State round-trip through destroy-and-rebuild | Zoom the Volume tab, switch away and back; quote first/last tick and confirm the zoom is preserved. Then fully remount the view; confirm it returned to the D-06 default. |
-| Thin-HR-coverage shading still draws correctly at every zoom level (18-D15) | TRN-04 | Rendering | On Cadence & HR, zoom into a known thin-coverage span and state that the shading still renders over the correct region. |
+| Thin-HR-coverage shading still draws correctly at every zoom level (18-D15) | TRN-04 | Rendering | On **Training Load** (the shading plugin is attached there, `trends-charts.ts` `createThinCoverageShadingPlugin`; this table previously said Cadence & HR — the 23-07 row agenda is authoritative), zoom into a known thin-coverage span and state that the shading still renders over the correct region. |
 | LTTB decimation resolves to daily granularity at deep zoom on Training Load (D-03b) | TRN-01 | Open question research could not settle | Zoom deeply on Training Load; state whether the series resolves to finer granularity or stays decimated. |
 
 ---
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references (the `trends-zoom-logic.ts` extraction above)
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 5s
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references (the `trends-zoom-logic.ts` extraction above)
+- [x] No watch-mode flags
+- [x] Feedback latency < 5s
 - [ ] Every Manual-Only row above observed with its **stated** proof, not a substitute
-- [ ] `nyquist_compliant: true` set in frontmatter
+      — **NOT met.** Round 1 closed with 5 BLOCKED rows (R2, R6, R11, R13, R15).
+- [ ] `nyquist_compliant: true` set in frontmatter — **NOT met** (2 FAIL, 5 BLOCKED).
 
-**Approval:** pending
+**Approval:** Round 1 recorded 2026-08-25 — **partial**. 13 PASS / 2 FAIL / 5 BLOCKED.
+All four TRN requirements stay Pending; see the Round 1 requirement-gating table below.
 
 ---
+## Round 1 — checkpoint record (COMPLETE)
 
-## Round 1 — evidence log (DRAFT, verdicts pending)
-
-> Recorded 2026-08-20. **No verdicts assigned.** Rows marked `[pending]` await the
-> developer's own verdict from the four-verdict vocabulary (PASS / FAIL / BLOCKED /
-> NOT EXERCISABLE). Rows marked `machine-observed` were read out of a real browser at
-> `http://127.0.0.1:8099/strava-widgets/` via instrumented DOM reads and real key
-> presses; rows marked `developer-observed` are the developer's own words. Per house
-> rule 4, nothing found here has been patched.
+> Round 1 opened 2026-08-20 (evidence log, verdicts pending) and was closed 2026-08-25.
+> Verdict vocabulary: PASS / FAIL / BLOCKED / NOT EXERCISABLE (Phase 20).
 >
-> Build restaged mid-checkpoint: the original staged tree was a symlink into the 23-07
-> worktree and was destroyed when that worktree was merged and removed. Rebuilt clean
-> from master `fad88ae`; entry asset reproduced identically as `index-D2l-GZfl.js`, and
-> the lazy chunk boundary re-proved (entry `Hammer` = 0, `trends-charts-BFx4OoZH.js`
-> `Hammer` = 1). Stale sibling chunks from earlier builds were purged so a cached
-> `index.html` 404s loudly instead of silently resolving.
+> **Build freshness at close.** The 2026-08-20 staged tree was a symlink into the 23-07
+> worktree and was destroyed when that worktree merged. On 2026-08-25 the gate was re-run
+> green in full (`npm test` 54 files / 1313 tests; `npx tsc --noEmit` exit 0;
+> `npm run build-widgets` after `rm -rf dist/widgets`; `npm run verify-dashboard` 37 checks,
+> 0 failures), the entry asset reproduced **identically** as `assets/index-D2l-GZfl.js`, the
+> lazy chunk boundary re-proved (entry `Hammer` = 0; `assets/trends-charts-BFx4OoZH.js`
+> `Hammer` = 1, and after the clean rebuild that is the ONLY `trends-charts-*.js` chunk on
+> disk, so a stale sibling cannot be served). Re-staged from the main checkout (not a
+> worktree) at `http://127.0.0.1:8099/strava-widgets/`.
+>
+> **Archive unchanged** since Task 1's recomputation — last weekly `2026-08-10`, monthly
+> `2026-08-01`, yearly `2026-01-01`; last commit touching `data/stats/` is `fe53914`
+> (2026-08-09). The "Expected read-back values (Round 1)" table above therefore still
+> stands and every quoted `aria-label` remains comparable.
+>
+> **Source key.** `machine-observed` = read out of the real browser at
+> `http://127.0.0.1:8099/strava-widgets/` via instrumented DOM/canvas reads and real
+> clicks/key presses. `developer-observed` = the developer's own words.
+>
+> **Why four rows are BLOCKED and not PASS.** R2, R6 and R11's gesture half are
+> gesture-path rows. Synthetic pointer and wheel input dispatched through browser
+> automation does **not** drive `chartjs-plugin-zoom` — a `cmd`-modified and a
+> `ctrl`-modified wheel both scrolled the page instead of zooming, and a synthetic
+> drag left the range untouched (`Weekly distance chart, Aug 2025 to Aug 2026`
+> before and after). This is the same mechanism the withdrawn Finding 2 identified.
+> The developer's 2026-08-20 words for these rows are on record, but they are
+> summaries ("it zooms in and out", "labels follow the ticks") and the rows demand
+> **quoted** tick labels / `aria-label`s. Recording PASS on a summary is precisely
+> the substitution house rule 1 forbids and precisely what reopened CAL-02 in
+> Phase 22, so they are BLOCKED. R13(b) and R15 are BLOCKED on a hardware/browser
+> limit proven below, by explicit developer decision on 2026-08-25.
 
-| Row | Verdict | Source | Observation |
-|-----|---------|--------|-------------|
-| R1 | [pending] | developer-observed | Loaded `index-D2l-GZfl.js` after restage; matches Task 1's recorded filename |
-| R2 | [pending] | developer-observed | "If I do Command+Scroll then it zooms in and out" |
-| R3 | [pending] | machine-observed | Bare wheel over plot area: page scrolled `scrollY 0 → 300`; label unchanged `Weekly distance chart, Dec 2025 to Mar 2026` |
-| R4 | [pending] | machine-observed | `Weekly distance chart, Aug 2025 to Aug 2026` — matches table; contains no 2011 |
-| R5 | [pending] | machine-observed | `Monthly distance chart, Aug 2021 to Aug 2026`; `Yearly distance chart, Jul 2010 to Jul 2026` — both match table |
-| R6 | [pending] | developer-observed | Drag pans; "labels follow the ticks"; cursor `grab` at rest (computed), "becomes a closed fist as we drag" |
-| R7 | [pending] | machine-observed | All four activated individually by real Enter/Space. `←`: `Aug 2025 to Aug 2026` → `Apr 2025 to Apr 2026`. `→`: → `Aug 2025 to Aug 2026`. `+`: → `Nov 2025 to May 2026`. `−` (×14): → `Aug 2011 to Aug 2026`. Tab-order trail reached `Pan to earlier dates`, `Zoom out`, `Zoom in`; `→` correctly skipped while disabled |
-| R8 | [pending] | machine-observed | Direction NOT inverted; `←`/`→` round-trip returned to the exact default. **Magnitude mismatch** — see Finding 1 |
-| R9 | [pending] | machine-observed | (a) fresh weekly: `→` disabled, `←` enabled. (b) clamp: `Weekly distance chart, Aug 2011 to Aug 2026` (matches table); `−`,`←`,`→` disabled, `+` enabled; ticks `11 Aug 2011 … 13 Aug 2026` |
-| R10 | [pending] | machine-observed | (a) Reset hidden on fresh load. (b) appears after `+`. (c) Reset → `Aug 2025 to Aug 2026`, the DEFAULT, not the `Aug 2011` full zoom-out |
-| R11 | [pending] | both | Button half (machine): label updates after `+`/`−`/`←`/`→`. Gesture half (developer): labels follow the ticks on a real drag |
-| R12 | [pending] | machine-observed | `⌘ + scroll to zoom · drag or pinch to pan`, rendered in the "Distance" band header |
-| R13 | [pending] | machine-observed | (a) `innerHeight` = **600** exactly, computed height = **204px** = 34% of 600; width 1200 (>430, phone override not in play); method: window resize. (b) **NOT OBSERVED** — `screen.availHeight` 1084 caps reachable `innerHeight` at ~941; needs browser zoom-out or DevTools responsive mode |
-| R14 | [pending] | machine-observed | Both bands `200px` and `200px` (at `innerHeight` 552); tab scrolls |
-| R15 | [pending] | — | **NOT OBSERVED** — Chrome's minimum window width (~500px) is above all four required widths (390/393/412/430); needs DevTools device toolbar |
-| R16 | [pending] | both | Button zoom (machine): both canvases `Jul 2023 to Sep 2024` — identical, lockstep holds. Wheel zoom over one band (developer): "zooms in/out only the chart we're on", and after a deliberate ≥1s pause the other band "doesn't seem to catch up" — see Finding 4 |
-| R17 | [pending] | machine-observed | (a) Volume `Yearly distance chart, Jul 2016 to Jul 2020`; TL `Training load chart: CTL, ATL, and TSB over time, Nov 2025 to May 2026`. (b) after 3 full 5-tab passes both read identically — zoom survived. (c) weekly→monthly→weekly → `Weekly distance chart, Aug 2025 to Aug 2026`, the weekly default, Reset hidden (D-23 holds). (d) zero app-origin console errors; specifically no "Canvas is already in use". (e) `tabpanel-volume:1, tabpanel-yoy:1, tabpanel-cadence-hr:0, tabpanel-training-load:1, tabpanel-gear:1`; `.chart-zoom-controls` count = 1 |
-| R18 | [pending] | developer-observed | At ~2-week zoom the series "stays smooth and simplified, just stretched and wider" — does not resolve to near-daily detail. See Finding 3 |
-| R19 | [pending] | partial | Developer: "I think I see some shades but they're very narrow and subtle." The dates-covered comparison the row requires has NOT yet been made |
-| R20 | [pending] | machine-observed | Zoomed to `Dec 2025 to Mar 2026` → `#/records` → `#/trends` → `Weekly distance chart, Aug 2025 to Aug 2026` (D-22 reset on full remount) |
+| Row | Verdict | Source | Evidence as the row demanded it |
+|-----|---------|--------|----------------------------------|
+| R1 | **PASS** | machine-observed | Served page loaded `assets/index-D2l-GZfl.js` — read back live from the browser two ways: the module `<script src>` and the `performance` resource entry, both `http://127.0.0.1:8099/strava-widgets/assets/index-D2l-GZfl.js`. Matches the freshly built entry filename verbatim. |
+| R2 | **BLOCKED** | developer-observed | Developer 2026-08-20: "If I do Command+Scroll then it zooms in and out". The row requires the first and last x-axis tick **quoted before and after**; those were never quoted. Re-attempt 2026-08-25 failed: `cmd`+wheel and `ctrl`+wheel over the plot area both scrolled the page, ticks unchanged `13 Aug 2025` … `13 Aug 2026`, `aria-label` unchanged `Weekly distance chart, Aug 2025 to Aug 2026`. |
+| R3 | **PASS** | machine-observed | Bare wheel over plot area: page scrolled `scrollY 0 → 300`; chart range unchanged, label `Weekly distance chart, Dec 2025 to Mar 2026` before and after. |
+| R4 | **PASS** | machine-observed | Fresh Volume weekly: `Weekly distance chart, Aug 2025 to Aug 2026` — matches the expected table; contains no 2011. Ticks `13 Aug 2025` … `13 Aug 2026` (re-confirmed 2026-08-25). |
+| R5 | **PASS** | machine-observed | Monthly `Monthly distance chart, Aug 2021 to Aug 2026`; Yearly `Yearly distance chart, Jul 2010 to Jul 2026`. Both match the expected table. |
+| R6 | **BLOCKED** | developer-observed | Cursor at rest re-confirmed 2026-08-25 as computed `grab`. Developer 2026-08-20: drag pans, "labels follow the ticks", "becomes a closed fist as we drag". The row requires first/last tick **quoted before and after**; never quoted, and a synthetic drag (900,590)→(600,590) did not pan (`Weekly distance chart, Aug 2025 to Aug 2026` unchanged, cursor `grab`). |
+| R7 | **PASS** | machine-observed | Four individual real Enter/Space activations. `←`: `Aug 2025 to Aug 2026` → `Apr 2025 to Apr 2026`. `→`: → `Aug 2025 to Aug 2026`. `+`: → `Nov 2025 to May 2026`. `−` (×14): → `Aug 2011 to Aug 2026`. Tab-order trail reached `Pan to earlier dates`, `Zoom out`, `Zoom in`; `→` correctly skipped while disabled. |
+| R8 | **FAIL** | machine-observed | Direction is **not** inverted and the `←`/`→` round-trip returned exactly to the default. But the magnitude misses the expected table: after `←` observed `Apr 2025 to Apr 2026` against the expected `May 2025 to May 2026`. See Finding 1. |
+| R9 | **PASS** | machine-observed | (a) Fresh weekly: `→` disabled, `←` enabled. (b) At the clamp: `Weekly distance chart, Aug 2011 to Aug 2026` (matches the full-zoom-out expected row); `−`, `←`, `→` all disabled, `+` enabled; ticks `11 Aug 2011` … `13 Aug 2026`. |
+| R10 | **PASS** | machine-observed | (a) Reset absent on fresh load (present in DOM but zero-size, `getBoundingClientRect()` `{x:0,y:0}`). (b) Appears after `+`. (c) Reset → `Weekly distance chart, Aug 2025 to Aug 2026` — the **DEFAULT**, not the `Aug 2011 to Aug 2026` full zoom-out. |
+| R11 | **BLOCKED** | both | Button half (machine-observed): `aria-label` updates after `+`, `−`, `←` and `→` — quoted in R7. Gesture half: developer's 2026-08-20 words are "labels follow the ticks", not a verbatim `aria-label` quote, and a gesture zoom could not be reproduced on 2026-08-25 (see R2). The row is explicit that quoting only one of the two cases does not discharge it. |
+| R12 | **PASS** | machine-observed | Hint rendered verbatim as `⌘ + scroll to zoom · drag or pinch to pan`, in the **"Distance"** band header. Independently re-observed on screen 2026-08-25. |
+| R13 | **BLOCKED** | machine-observed | (a) OBSERVED: `window.innerHeight` = **600** exactly, computed `.chart-band__canvas-wrap--tall` height = **204px** = 34% of 600, at width 1200 (>430, phone override not in play), method window resize. (b) **NOT OBSERVED — proven unreachable.** `screen.availHeight` = 1084; a resize request of 1200×2000 was clamped to `innerHeight` = **941** (band then 319.938px = 34% of 941, still below the ceiling). The 420px ceiling only binds at `innerHeight` ≥ 1235.3. Browser zoom-out could reach it but page-zoom shortcuts are not deliverable through this tooling. Per house rule 1, a shorter window is **not** substituted. |
+| R14 | **PASS** | machine-observed | Both Cadence & HR bands reported individually: **200px** and **200px** (at `innerHeight` 552); tab scrolls. |
+| R15 | **BLOCKED** | machine-observed | **NOT OBSERVED — proven unreachable.** Chrome clamps its own window to a 500px minimum width: a resize request of 390×800 produced `window.innerWidth` = **500**. All four required widths (390, 393, 412, 430) sit below that floor and need DevTools device emulation, which is not drivable from this tooling. Naming a nearby width instead is the exact substitution that reopened CAL-02, so nothing is substituted here. See Finding 9 for what *was* seen at 500px — it does **not** discharge this row. |
+| R16 | **FAIL** | both | Button zoom (machine-observed): both canvases `Jul 2023 to Sep 2024` — identical, lockstep holds. Wheel zoom over one band (developer-observed): "zooms in/out only the chart we're on", and after a deliberate ≥1s pause the other band "doesn't seem to catch up". See Finding 4. |
+| R17 | **PASS** | machine-observed | (a) Volume `Yearly distance chart, Jul 2016 to Jul 2020`; Training Load `Training load chart: CTL, ATL, and TSB over time, Nov 2025 to May 2026`. (b) After 3 full 5-tab passes both read identically — zoom survived. (c) weekly→monthly→weekly → `Weekly distance chart, Aug 2025 to Aug 2026`, the weekly default, Reset hidden (D-23 holds). (d) Zero app-origin console errors; specifically no "Canvas is already in use". (e) `tabpanel-volume:1, tabpanel-yoy:1, tabpanel-cadence-hr:2, tabpanel-training-load:1, tabpanel-gear:1`; `.chart-zoom-controls` count = **1**. |
+| R18 | **PASS** | machine-observed | At `Training load chart: CTL, ATL, and TSB over time, Feb 2026 to Feb 2026` (five `+` presses from the 12mo default ⇒ ≈11 days, "roughly a two-week span"), the series **does resolve to near-daily detail**: two adjacent tooltip readings gave `1,770,336,000,000` (2026-02-06) and `1,770,422,400,000` (2026-02-07) — a difference of exactly **86,400,000 ms = 1 day** — with individual point markers rendered on the series. This **supersedes** the 2026-08-20 impression that it "stays smooth and simplified"; CTL/ATL/TSB are exponentially-weighted moving averages and are inherently smooth, so smoothness is not evidence of decimation. See Finding 3 (WITHDRAWN). |
+| R19 | **PASS** | machine-observed | Shading covers the **same dates** at both zoom levels. Zoomed out, `Training load chart: CTL, ATL, and TSB over time, Aug 2011 to Aug 2026`: widest shaded rect spans canvas-buffer x 144.14 → 717.26; anchoring x=144 ↔ data start 2011-08-16 and x=1674.64 ↔ data end 2026-08-11 (3.5764 days/px) gives **2011-08-16 → 2017-03-27**. Zoomed in, `Training load chart: CTL, ATL, and TSB over time, Apr 2016 to Mar 2018`: the same span's right edge is at x=903.67; anchoring on the chart's own tooltip readout `1,489,622,400,000` (2017-03-16) at x=880 with 2.14 px/day gives **2017-03-27**. Both zoom levels also drew all **42** spans. |
+| R20 | **PASS** | machine-observed | Zoomed to `Dec 2025 to Mar 2026` → navigated `#/records` → back to `#/trends` → `Weekly distance chart, Aug 2025 to Aug 2026`, the weekly default (D-22 reset on full remount). |
+
+**Tally:** 13 PASS · 2 FAIL · 5 BLOCKED · 0 NOT EXERCISABLE.
+(BLOCKED: R2, R6, R11, R13, R15. FAIL: R8, R16.)
+
+### Requirement gating (strictly on the row map)
+
+| Requirement | Mapped rows | Result | Blocking rows |
+|-------------|-------------|--------|---------------|
+| TRN-01 | R2, R3, R4, R5, R18 | **Pending** | R2 (BLOCKED) |
+| TRN-02 | R6, R7, R8, R9, R10, R11, R12 | **Pending** | R6 (BLOCKED), R8 (FAIL), R11 (BLOCKED) |
+| TRN-03 | R13, R14, R15 | **Pending** | R13 (BLOCKED), R15 (BLOCKED) |
+| TRN-04 | R16, R17, R19, R20 | **Pending** | R16 (FAIL) |
+
+No TRN requirement has every mapped row PASSED, so none is ticked.
+`status: partial`, `nyquist_compliant: false`.
 
 ### Findings (recorded, NOT patched — house rule 4)
 
@@ -252,23 +289,28 @@ calls `chart.zoom(ZOOM_FACTOR)` with `ZOOM_FACTOR = 1.5`, but chartjs-plugin-zoo
 `12 months × 0.5 = 6` removed, leaving 6. The design intent, and what
 `trends-zoom-logic.ts` is unit-tested on, is `span / 1.5` = 8 months. Observed
 `Nov 2025 to May 2026` (6 months) against the table's `Oct 2025 to Jun 2026` (8 months).
-Corroborated on Training Load (12mo → 6mo) and Cadence & HR (60mo → ~14mo after two
-presses). The pure module's arithmetic is tested; the runtime bypasses it by delegating
-to the plugin, so the suite stays green while shipped behaviour differs. Blocks TRN-01,
-TRN-02 via R8/R11.
+Corroborated again 2026-08-25 on Training Load: the full-zoom-out ladder stepped
+180 → 90 → 45 → 22 → 11 months, and the 12mo default halved to 6mo on the first `+`.
+The pure module's arithmetic is tested; the runtime bypasses it by delegating to the
+plugin, so the suite stays green while shipped behaviour differs. **Blocks TRN-01 and
+TRN-02 via R8** (and is the reason R8 is FAIL rather than PASS).
 
 **Finding 2 — WITHDRAWN.** An apparent stale aria-label after drag-pan was an artifact of
 synthetic pointer input failing to produce a gesture-end (`onPanComplete`). The
 developer's real hand-drag showed labels tracking the ticks correctly. Recorded here so
-the retraction is auditable.
+the retraction is auditable. *(Re-confirmed 2026-08-25: synthetic drag and synthetic
+modifier-wheel produce no gesture at all — see the note above the verdict table.)*
 
-**Finding 3 — decimation does not resolve at deep zoom.** Training Load carries 5,475
-daily points against `DECIMATION_CONFIG = { enabled: true, algorithm: 'lttb', samples: 500 }`.
-At a ~2-week zoom (~14 real points, far under the 500 threshold) the series should return
-full daily resolution but stays visibly decimated. `parsing: false` is set, so the plugin's
-preconditions are met and are not the cause. Suspected mechanism: LTTB sampling across the
-full series rather than the visible window, so zooming stretches the same 500 samples.
-Mechanism SUSPECTED, not proven. Blocks TRN-01 via R18.
+**Finding 3 — WITHDRAWN 2026-08-25.** Previously recorded as "decimation does not resolve
+at deep zoom", on the developer's impression that at a ~2-week zoom the Training Load
+series "stays smooth and simplified, just stretched and wider". Direct measurement
+contradicts it: at an ≈11-day window, adjacent tooltip points are exactly 86,400,000 ms
+(one day) apart — `1,770,336,000,000` (2026-02-06) then `1,770,422,400,000` (2026-02-07) —
+and individual point markers are rendered. `DECIMATION_CONFIG` is
+`{ enabled: true, algorithm: 'lttb', samples: 500 }`; with ~11 points visible, far under
+the 500 threshold, Chart.js does no decimation at all, which is exactly what was measured.
+The smooth appearance is intrinsic: CTL, ATL and TSB are exponentially-weighted moving
+averages and carry no daily jitter to reveal. **No longer blocks TRN-01**; R18 is PASS.
 
 **Finding 4 — D-02 lockstep breaks on the gesture path.** Wheel-zooming over one band of the
 Cadence & HR pair moves only the hovered chart; the sibling does not follow, and does not
@@ -280,7 +322,7 @@ writing `options.scales.x.min/max` + `update('none')` onto the non-source member
 different mechanism from how the source chart's own range was set (the zoom plugin's
 internal state), and the non-source chart's plugin state is never updated. Open question
 for gap closure: why the button path (always sourced from `members[0]`) syncs while a
-gesture sourced from `members[1]` does not. Blocks TRN-04 via R16.
+gesture sourced from `members[1]` does not. **Blocks TRN-04 via R16.**
 
 **Finding 5 — OUT OF SCOPE for Phase 23: `avgCadenceRpm` ingestion stopped in Feb 2026.**
 Surfaced while looking at the Cadence & HR tab. `avgCadenceRpm` is last populated
@@ -290,13 +332,46 @@ on every November run). The chart renders the data faithfully — this is an ing
 not a rendering or zoom defect, and predates the August intervals.icu cutover. No Phase 23
 row covers it; it must NOT gate any TRN requirement. Track separately.
 
-### R19 targets (to make the remaining row cheap to observe)
+**Finding 6 — NEW, OUT OF SCOPE for Phase 23: Training Load tooltip title renders a raw
+epoch.** The tooltip title shows the millisecond timestamp instead of a date — observed at
+the 12mo default as `1,769,990,400,000` (2026-02-02) and at deep zoom as
+`1,489,622,400,000` (2017-03-16). Cause: no `title` callback is defined for any tooltip in
+`trends-charts.ts`, so Chart.js falls back to the raw x value, and Training Load's x scale
+is `type: 'linear'` with `parsing: false`. **Pre-existing, not a Phase 23 regression** —
+`git show 61ee687:src/dashboard/views/trends-charts.ts` (last pre-Phase-23 commit touching
+the file, `feat(18-15)`) already has `type: 'linear'` + `parsing: false` and no `title:`
+callback anywhere. No Phase 23 row covers tooltips; must NOT gate any TRN requirement.
+
+**Finding 7 — NEW, OUT OF SCOPE for Phase 23: x-axis tick labels do not adapt below month
+granularity.** At an ≈11-day Training Load window, all eight rendered x-axis ticks read
+`Feb 2026` — captured verbatim at canvas-buffer x 144, 420.8, 648.4, 876, 1103.6, 1331.3,
+1558.9, 1979.5. The axis becomes unreadable at the zoom depths this phase newly makes
+reachable. Same root-cause family as Finding 6 (linear scale, no time-unit formatting).
+No Phase 23 row covers tick formatting; must NOT gate any TRN requirement, but it is worth
+a gap-closure item because zoom is what exposes it.
+
+**Finding 8 — NEW: chart canvas does not re-fit when the viewport narrows.** After resizing
+the window from 1200px to a 500px-wide viewport, the band wrapper correctly shrank to 370px
+but the canvas stayed at its previous **770 × 206 CSS px** (buffer 1540 × 412), producing
+horizontal overflow: `document.documentElement.scrollWidth` **835** vs `clientWidth` **500**.
+A fresh load at the same 500px viewport sizes the canvas correctly at **370 × 223**, so this
+is a resize-handling bug, not a narrow-width layout bug. Not covered by any row (R15's widths
+are 390–430, not 500), so it does not discharge or fail R15 — recorded for gap closure.
+
+**Finding 9 — NEW: horizontal overflow at a 500px viewport persists on a fresh load.** On a
+fresh load at `innerWidth` 500, `document.documentElement.scrollWidth` is **682** vs
+`clientWidth` **500**. The offender is the year heatmap: `.year-heatmap` measures
+`scrollWidth` **634** against `clientWidth` **404**. This is on the Volume tab and is
+plausibly the same family as Phase 22's still-open CAL-02 overflow band. 500px is **not** one
+of R15's four required widths, so this does **not** discharge R15 — it is a separate,
+recorded observation.
+
+### R19 targets (retained for reference)
 
 42 thin-coverage spans exist; most are 2–4 days wide, which is why they read as narrow and
-subtle. The two worth using for the dates-covered comparison:
+subtle. The two worth using for a dates-covered comparison:
 
 | Span | Length |
 |------|--------|
-| 2011-08-16 → 2017-03-27 | 2051 days (the whole pre-HR-monitor era) |
+| 2011-08-16 → 2017-03-27 | 2051 days (the whole pre-HR-monitor era) — this is the one R19 used |
 | 2020-02-25 → 2020-05-19 | 85 days |
-
