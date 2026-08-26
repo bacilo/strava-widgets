@@ -16,9 +16,9 @@ requires:
     plan: 06
     provides: "D-23 granularity zoom reset and the Training Load preset-as-zoom-write path"
 provides:
-  - "23-VALIDATION.md Round 1: a closed 20-row checkpoint record with a verdict and the row's own stated evidence per row"
-  - "REQUIREMENTS.md gated strictly on the row-to-requirement map — all four TRN requirements stay Pending with their blocking rows named"
-  - "Nine recorded findings (two withdrawn), none patched, per house rule 4"
+  - "23-VALIDATION.md Round 1: a closed 20-row checkpoint record, 16 PASS / 4 FAIL / 0 BLOCKED, each row carrying its own stated evidence"
+  - "REQUIREMENTS.md gated strictly on the row-to-requirement map — TRN-01 ticked; TRN-02/03/04 Pending with their blocking rows named"
+  - "Ten recorded findings (two withdrawn, one superseded), none patched, per house rule 4; Finding 10 is the single root cause behind R11 and R16"
 affects: []
 
 # Tech tracking
@@ -29,7 +29,7 @@ tech-stack:
     - "Tooltip-as-oracle: reading the chart's own tooltip title back off the canvas gives an exact pixel-to-date anchor without needing a handle on the Chart.js instance"
 
 status: complete
-completed: 2026-08-25
+completed: 2026-08-26
 ---
 
 # 23-07 — Full gate, chunk-graph proof, and the blocking Round 1 browser checkpoint
@@ -82,76 +82,88 @@ Round 1 record is comparable against it.
 
 ## Task 2 — Round 1 checkpoint, all 20 rows
 
-**Tally: 13 PASS · 2 FAIL · 5 BLOCKED · 0 NOT EXERCISABLE.**
+**Tally: 16 PASS · 4 FAIL · 0 BLOCKED · 0 NOT EXERCISABLE.** No row is left unobserved.
 
 | Verdict | Rows |
 |---------|------|
-| PASS | R1, R3, R4, R5, R7, R9, R10, R12, R14, R17, R18, R19, R20 |
-| FAIL | R8, R16 |
-| BLOCKED | R2, R6, R11, R13, R15 |
+| PASS | R1, R2, R3, R4, R5, R6, R7, R9, R10, R12, R13, R14, R17, R18, R19, R20 |
+| FAIL | R8, R11, R15, R16 |
 
-Full per-row evidence is in `23-VALIDATION.md` § *Round 1 — checkpoint record*. Two rows were
-newly observed in this session and are worth calling out:
+Round 1 ran in two sittings. On 2026-08-25 five rows were left BLOCKED; all five were closed on
+2026-08-26 — three by the developer performing the real gesture on an instrumented canvas, two
+under Chrome DevTools Responsive emulation.
 
-- **R19 PASS** — the thin-HR-coverage shading covers the **same dates at both zoom levels**.
-  Zoomed out (`… Aug 2011 to Aug 2026`) the widest shaded rect spans canvas-buffer x 144.14 →
-  717.26, which against the data range (x=144 ↔ 2011-08-16, x=1674.64 ↔ 2026-08-11, 3.5764
-  days/px) is **2011-08-16 → 2017-03-27**. Zoomed in (`… Apr 2016 to Mar 2018`) the same edge sits
-  at x=903.67, which against the chart's own tooltip anchor (`1,489,622,400,000` = 2017-03-16 at
-  x=880, 2.14 px/day) is **2017-03-27**. Both levels drew all 42 spans. Evidence was gathered by
-  patching the canvas's 2D context to capture the shading plugin's own `fillRect` calls and the
-  rendered axis ticks, rather than eyeballing pixels.
-- **R18 PASS, and it withdrew Finding 3** — at an ≈11-day Training Load window
-  (`… Feb 2026 to Feb 2026`) adjacent tooltip points read `1,770,336,000,000` (2026-02-06) and
-  `1,770,422,400,000` (2026-02-07): exactly **86,400,000 ms = 1 day** apart, with individual point
-  markers rendered. The series **does** resolve to near-daily detail. The earlier "stays visibly
-  decimated" impression is explained by CTL/ATL/TSB being exponentially-weighted moving averages,
-  which are inherently smooth; with ~11 points visible, far under `samples: 500`, Chart.js does no
-  decimation at all.
+### The headline: Finding 10, a root cause behind two failures
 
-### Why five rows are BLOCKED rather than PASS
+`buildZoomOptions()` in `chart-zoom.ts` returns `onZoomComplete` and `onPanComplete` as **top-level
+siblings** of the `zoom` and `pan` option objects. chartjs-plugin-zoom reads them from **inside**
+those objects — `state.options.zoom.onZoomComplete` (plugin lines 388/616/674/767) and
+`state.options.pan.onPanComplete` (line 800). The plugin never sees either, so `settle()` never runs
+on any gesture.
 
-- **R2, R6, R11 (gesture half).** Synthetic input does not drive `chartjs-plugin-zoom`: a
-  `cmd`-modified wheel and a `ctrl`-modified wheel both scrolled the page instead of zooming, and a
-  synthetic drag left `Weekly distance chart, Aug 2025 to Aug 2026` and the ticks
-  `13 Aug 2025` … `13 Aug 2026` untouched. The developer's 2026-08-20 words for these rows are on
-  record but are summaries ("it zooms in and out", "labels follow the ticks"); the rows demand
-  **quoted** ticks / `aria-label`s. Recording PASS on a summary is the substitution house rule 1
-  forbids and is what reopened CAL-02 in Phase 22.
-- **R13(b), R15.** Blocked on a proven environment limit, by explicit developer decision. A resize
-  request of 1200×2000 clamped to `innerHeight` **941** (`screen.availHeight` 1084), while the 420px
-  ceiling only binds at `innerHeight` ≥ 1235.3. A resize request of 390×800 clamped to
-  `innerWidth` **500**, above all four of R15's required widths. Both need DevTools device emulation
-  or browser zoom-out, neither drivable from this tooling. Nothing was substituted.
+Observed directly, on real human input: a ⌘+wheel moved the rendered ticks to `11 Aug 2011` …
+`13 Aug 2026` while the `aria-label` stayed `Weekly distance chart, Aug 2025 to Aug 2026` and Reset
+never appeared; a +576px drag moved the ticks to `22 Nov 2024` … `22 Nov 2025` with the same frozen
+label. The wheel listener itself is correctly wired — a synthetic `WheelEvent` with `metaKey` came
+back `defaultPrevented: true` (the plugin's own `preventDefault()`, reached only past its modifier
+check) while `ctrlKey` and bare wheels came back `false`.
+
+This is exactly the defect the plan predicted would be "silently broken if `onZoomComplete` alone
+were relied on, and no automated check in this repository can see it". It blocks TRN-02 via R11 and
+TRN-04 via R16, it subsumes Finding 4, and it is a nesting change to fix.
+
+### Rows closed on 2026-08-26
+
+- **R2 PASS** — 84 wheel events, every one `isTrusted` with `metaKey: true`; ticks
+  `13 Aug 2025`/`13 Aug 2026` → `11 Aug 2011`/`13 Aug 2026`.
+- **R6 PASS** — drag measured at **+576px over 119 `pointermove` events**; ticks →
+  `22 Nov 2024`/`22 Nov 2025`; cursor `grab` at rest → `grabbing` on six consecutive move samples.
+  A first attempt dragging *left* moved nothing across 582px — correct behaviour, because the D-06
+  default already ends at the newest data and `Pan to later dates` reads `disabled: true` there.
+  The row's own wording ("drag left") points at the clamped direction and should be fixed.
+- **R11 FAIL** — the gesture half never updates the label or reveals Reset (Finding 10).
+- **R13 PASS** — closed at **1200 × 1400** under Responsive emulation: `clientHeight` 1400 and
+  `100dvh` 1400 agreeing, `matchMedia('(max-width: 430px)')` false, computed height exactly
+  **`420px`** where 34dvh would be 476px. Both ends of the clamp now exercised.
+- **R15 FAIL** — the D-21 floor **holds** at all four widths (390/393/412/430 → 240px each, canvas
+  reflowing correctly), but the no-horizontal-overflow clause fails at every one:
+  `documentElement.scrollWidth` pinned at **682**, caused by `.year-heatmap`'s fixed **634px** grid.
+
+A device *preset* was rejected before any of this was recorded: it produced an internally
+inconsistent viewport (`matchMedia('(max-width: 430px)')` true at `innerWidth` 682; `100dvh` 326
+against `innerHeight` 571). Under emulation `window.innerWidth`/`innerHeight` read stale, so
+`clientWidth`/`clientHeight` and `100dvh` were used and cross-checked against `matchMedia` at every
+width before anything was written down.
 
 ## REQUIREMENTS.md gating decision
 
-Gated strictly on the plan's row map. **No TRN requirement has every mapped row PASSED, so none is
-ticked** — all four stay `- [ ]` / Pending with their blocking rows named in both the requirement
-body and the traceability table.
+Gated strictly on the plan's row map.
 
 | Requirement | Mapped rows | Result | Blocking rows |
 |-------------|-------------|--------|---------------|
-| TRN-01 | R2, R3, R4, R5, R18 | Pending | R2 (BLOCKED) |
-| TRN-02 | R6, R7, R8, R9, R10, R11, R12 | Pending | R8 (FAIL), R6 (BLOCKED), R11 (BLOCKED) |
-| TRN-03 | R13, R14, R15 | Pending | R13 (BLOCKED), R15 (BLOCKED) |
+| TRN-01 | R2, R3, R4, R5, R18 | **TICKED** | none — all five PASSED |
+| TRN-02 | R6, R7, R8, R9, R10, R11, R12 | Pending | R8 (FAIL), R11 (FAIL) |
+| TRN-03 | R13, R14, R15 | Pending | R15 (FAIL) |
 | TRN-04 | R16, R17, R19, R20 | Pending | R16 (FAIL) |
 
-`23-VALIDATION.md` frontmatter set to `status: partial`, `nyquist_compliant: false`.
+**TRN-01 is ticked** — the first requirement in this phase to have every mapped row PASS. The other
+three stay Pending on four located, reproducible defects rather than on missing evidence.
+`23-VALIDATION.md` frontmatter: `status: partial`, `nyquist_compliant: false`.
 
 ## Findings (recorded, NOT patched)
 
 | # | Finding | Gates |
 |---|---------|-------|
-| 1 | `+`/`−` step is a factor of 2, not the designed 1.5 — `chart-zoom.ts:401` hands `ZOOM_FACTOR = 1.5` to the plugin, whose `linearZoomDelta` removes `range * (zoom - 1)`. The pure module is unit-tested on `span / 1.5`; the runtime bypasses it, so the suite stays green while shipped behaviour differs. | TRN-01, TRN-02 via R8 |
-| 2 | **WITHDRAWN** — apparent stale aria-label after drag-pan was a synthetic-input artifact. | — |
-| 3 | **WITHDRAWN 2026-08-25** — "decimation does not resolve at deep zoom" is contradicted by measured 1-day point spacing. | — (no longer gates TRN-01) |
-| 4 | D-02 lockstep breaks on the gesture path — wheel-zooming one Cadence & HR band leaves its sibling behind, and it does not catch up after ≥1s. The button path syncs. `onZoomComplete` *does* fire (250ms-debounced), so a never-firing callback is ruled out; `settle(source)` writes `options.scales.x.min/max` + `update('none')` onto the non-source member without touching its plugin state. | TRN-04 via R16 |
-| 5 | **OUT OF SCOPE** — `avgCadenceRpm` ingestion stopped 2026-02-02; an ingestion defect, not a rendering one. | none |
-| 6 | **NEW, OUT OF SCOPE** — Training Load tooltip title renders a raw epoch (`1,769,990,400,000`) instead of a date. No `title` callback is defined anywhere in `trends-charts.ts` and the x scale is `type: 'linear'` + `parsing: false`. **Pre-existing, not a Phase 23 regression**: `61ee687` (last pre-Phase-23 commit, `feat(18-15)`) already had both and no `title:` callback. | none |
-| 7 | **NEW, OUT OF SCOPE** — x-axis ticks do not adapt below month granularity; at an ≈11-day window all eight ticks read `Feb 2026`. Same root-cause family as #6, but zoom is what exposes it. | none |
-| 8 | **NEW** — chart canvas does not re-fit when the viewport narrows: after resizing to a 500px viewport the wrapper shrank to 370px but the canvas stayed 770×206 CSS px, giving `scrollWidth` 835 vs `clientWidth` 500. A fresh load at 500px sizes it correctly (370×223), so it is a resize-handling bug. | none (R15's widths are 390–430) |
-| 9 | **NEW** — at a 500px viewport on a **fresh** load the Trends view still overflows: `scrollWidth` 682 vs `clientWidth` 500, from `.year-heatmap` (634 vs 404). Plausibly the same family as Phase 22's still-open CAL-02. | none (does not discharge R15) |
+| 10 | **ROOT CAUSE** — `onZoomComplete`/`onPanComplete` nested one level too high in `buildZoomOptions()`, so the plugin never sees them and `settle()` never runs on a gesture. Highest-value fix in the phase. | TRN-02 via R11, TRN-04 via R16 |
+| 1 | `+`/`−` step is a factor of 2, not the designed 1.5 — `chart-zoom.ts:401` hands `ZOOM_FACTOR = 1.5` to the plugin, whose `linearZoomDelta` removes `range * (zoom - 1)`. The pure module is unit-tested on `span / 1.5`; the runtime bypasses it. | TRN-02 via R8 |
+| 2 | **WITHDRAWN — and the withdrawal was wrong.** The original stale-aria-label-after-pan observation was correct; Finding 10 proves it on real input. Kept as an audit trail. | — |
+| 3 | **WITHDRAWN** — "decimation does not resolve at deep zoom" is contradicted by measured 1-day point spacing. | — |
+| 4 | **SUPERSEDED BY 10** — D-02 lockstep breaking on the gesture path is a symptom; its open question is answered, since `settle()` is what propagates to the sibling and it never runs. | via R16 |
+| 5 | **OUT OF SCOPE** — `avgCadenceRpm` ingestion stopped 2026-02-02; an ingestion defect. | none |
+| 6 | **OUT OF SCOPE** — Training Load tooltip title renders a raw epoch. **Pre-existing from Phase 18**, verified against `61ee687`. | none |
+| 7 | **OUT OF SCOPE** — x-axis ticks do not adapt below month granularity; at ≈11 days all eight read `Feb 2026`. Zoom is what exposes it. | none |
+| 8 | Chart canvas does not re-fit when the viewport narrows (wrapper 370px, canvas stayed 770px, `scrollWidth` 835 vs 500). Fresh load is fine — a resize-handling bug, distinct from Finding 9. | none |
+| 9 | **Upgraded to a row-level cause.** `.year-heatmap` renders a fixed **634px** grid at every viewport (390/393/412/430/500 alike) and never reflows, pinning `documentElement.scrollWidth` at 682. | TRN-03 via R15 |
 
 ## Deviations
 
@@ -164,12 +176,29 @@ body and the traceability table.
   Load) is authoritative and R19 was run there. The table now says so.
 - **Verdicts were assigned by the orchestrator from recorded evidence, not by the developer
   row-by-row**, at the developer's explicit request to handle the checkpoint. Every PASS rests on
-  the row's own stated observation being present and quoted; where only a summary existed and the
-  observation could not be reproduced, the row was recorded BLOCKED rather than PASS.
+  the row's own stated observation being present and quoted. On 2026-08-25 five rows were recorded
+  BLOCKED rather than PASS because only summaries existed for them; on 2026-08-26 the developer
+  supplied the physical gestures and the DevTools viewports, and all five were closed on their own
+  stated evidence.
+- **A test-design false negative is recorded rather than hidden.** R6's first attempt followed the
+  row's literal wording ("drag left") and moved nothing, because that is the clamped direction at
+  the D-06 default window. The row wording, not the feature, is at fault; flagged for a later round.
+- **Finding 2's withdrawal is itself retracted.** The 2026-08-20 observation it dismissed was
+  correct, as Finding 10 now proves on real human input.
 
 ## Next
 
-Phase 23 cannot complete: two real defects (Findings 1 and 4) and five unobserved rows stand.
-Route to gap closure — `/gsd-plan-phase 23 --gaps`. The gap round needs to fix the zoom-step
-magnitude and the gesture-path lockstep, and to re-run R2, R6, R11, R13 and R15 under DevTools
-device emulation.
+Phase 23 cannot complete: TRN-01 ticks, but TRN-02, TRN-03 and TRN-04 stay Pending on four
+located defects. Every row is now observed, so the gap round has no evidence-gathering left to do —
+only fixes and a re-test.
+
+Route to gap closure — `/gsd-plan-phase 23 --gaps`. In priority order:
+
+1. **Finding 10** (nesting of `onZoomComplete`/`onPanComplete`) — one change, expected to close
+   both R11 and R16, i.e. TRN-02's and TRN-04's remaining blockers. Re-test rather than assume.
+2. **Finding 1** (zoom step ×2 instead of ÷1.5) — closes R8, TRN-02's other blocker.
+3. **Finding 9** (year heatmap's fixed 634px grid) — closes R15, TRN-03's only blocker.
+4. Non-gating but cheap and exposed by this phase: Findings 6, 7 and 8.
+
+Also worth fixing in the plan itself: R6's wording says "drag left", which is the clamped direction
+at the default window and produces a false negative.
