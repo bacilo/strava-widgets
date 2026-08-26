@@ -376,7 +376,7 @@ Plans:
   4. Zoom/pan composes correctly with the existing granularity toggle and the five-tab structure: rapidly cycling tabs with zoom/pan state present does not throw "Canvas is already in use" and each tab's chart destroys/reinitializes cleanly (the failure mode Phase 18 flagged as the one to watch).
   5. **Human checkpoint**: served under `/strava-widgets` in a real browser, exercise zoom/pan via mouse and via the on-screen controls on multiple tabs, rapidly cycle through all five Trends tabs and the granularity toggle several times, and confirm no console errors and no stuck/duplicated canvases.
 
-**Plans**: 7 plans in 5 waves. Sequential where `trends-charts.ts` / `trends.ts` ownership forces it; Wave 1 and Wave 2 each carry two parallel plans with disjoint files.
+**Plans**: 11 plans in 7 waves. Waves 1-5 shipped the feature; waves 6-7 are the gap-closure round opened by Round 1's four FAILs (R8, R11, R15, R16). Wave 6 carries three parallel plans with disjoint file ownership; wave 7 is the blocking Round 2 browser checkpoint.
 **UI hint**: yes — no 23-UI-SPEC.md; the visual contract is 23-CONTEXT.md (D-10/D-11/D-17/D-18..D-21) extending 18-UI-SPEC.md §§ 7, 8, 10, 11, 14, 16.
 
 Plans:
@@ -401,6 +401,16 @@ Plans:
 **Wave 5** *(blocked on 23-06)*
 
 - [x] 23-07-PLAN.md — full gate + lazy-chunk-graph proof + recomputed expected values, then a BLOCKING 20-row human browser checkpoint under /strava-widgets (D-25)
+
+**Wave 6** *(gap closure — blocked on 23-07's Round 1 checkpoint; three parallel plans, disjoint files)*
+
+- [ ] 23-08-PLAN.md — nest the settle callbacks inside the plugin's `zoom`/`pan` options and route the four buttons through the pure range math (Findings 10 + 1; closes R8, R11, R16)
+- [ ] 23-09-PLAN.md — contain the year heatmap's fixed 634px grid in a `.splits-scroll`-style scroll wrapper (Finding 9; closes R15)
+- [ ] 23-10-PLAN.md — step-aware x-axis tick formatting and an explicit per-chart ResizeObserver (Findings 7 + 8)
+
+**Wave 7** *(blocked on 23-08, 23-09 and 23-10)*
+
+- [ ] 23-11-PLAN.md — fresh-build proof + recomputed expected values, then a BLOCKING 22-row Round 2 human browser checkpoint (R21-R42) and strict re-gating of TRN-01..TRN-04
 
 ### Phase 24: Local Curation Mode
 
