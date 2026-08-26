@@ -156,6 +156,63 @@ export function computeLimits(key: ZoomScaleKey, bounds: ZoomRange): { min: numb
 }
 
 /**
+ * Builds the whole `options.plugins.zoom` shape `chartjs-plugin-zoom` reads
+ * from, with `onZoomComplete`/`onPanComplete` correctly nested INSIDE the
+ * `zoom`/`pan` objects (Finding 10, 23-08 gap closure). Verified against
+ * `chartjs-plugin-zoom@2.2.0`'s shipped source: every read of these two
+ * callbacks is qualified by `.zoom.` or `.pan.` — at
+ * `state.options.zoom.onZoomComplete` and `state.options.pan.onPanComplete`
+ * — never as a top-level sibling of `zoom`/`pan`. The previous shape put
+ * both callbacks at the TOP LEVEL of the returned object, so the plugin
+ * never saw either one and `settle()` never ran on any gesture.
+ *
+ * Uses a bare type parameter `C` for the chart rather than importing
+ * anything from `chart.js`, so this module stays import-free of the
+ * charting stack and loadable under vitest's `environment: 'node'`.
+ */
+export function buildZoomPluginOptionsShape<C>(args: {
+  scaleKey: ZoomScaleKey;
+  bounds: ZoomRange;
+  modifierKey: 'meta' | 'ctrl';
+  onSettle: (chart: C) => void;
+}): Record<string, unknown> {
+  const { scaleKey, bounds, modifierKey, onSettle } = args;
+
+  return {
+    limits: {
+      // D-09: literal computed numbers ONLY — the plugin's `'original'`
+      // sentinel string must never appear here. Under D-06 the scale is
+      // constructed at the granularity's opening window, not the archive,
+      // so `'original'` would capture THAT window on first zoom/pan and
+      // hard-stop pan/zoom-out there, making D-06's own promise ("zoom out
+      // to see everything stays literally true") false (Pitfall 1,
+      // verified against chartjs-plugin-zoom@2.2.0's `getLimit`/
+      // `storeOriginalScaleLimits`, which capture 'original' lazily from
+      // whatever `scale.options.min/max` happen to be at the first
+      // zoom/pan call).
+      x: computeLimits(scaleKey, bounds),
+    },
+    pan: {
+      enabled: true, // D-15
+      mode: 'x', // D-07
+      onPanComplete: ({ chart }: { chart: C }) => onSettle(chart),
+    },
+    zoom: {
+      wheel: { enabled: true, modifierKey }, // D-14
+      pinch: { enabled: true }, // D-16
+      // `zoom.drag` (rectangle-select-zoom, wired on native mouse
+      // listeners) and `pan` (Hammer.Pan) are two independent gesture
+      // engines that would fight over the same physical canvas drag if
+      // both were enabled at once. D-15 wants plain drag-to-pan, so
+      // `zoom.drag.enabled` MUST stay false (Pitfall 4).
+      drag: { enabled: false },
+      mode: 'x', // D-07
+      onZoomComplete: ({ chart }: { chart: C }) => onSettle(chart),
+    },
+  };
+}
+
+/**
  * D-03's training-load window presets, expressed as a zoom RANGE over the
  * always-full series — never a dataset slice. `'all'` equals
  * `computeFullRange('training-load', bounds)` exactly; `'3mo'`/`'12mo'`

@@ -34,11 +34,10 @@ import type { Chart, Plugin } from 'chart.js';
 import {
   type ZoomScaleKey,
   type ZoomRange,
-  ZOOM_FACTOR,
   computeFullRange,
   computeDefaultWindow,
   computeLimits,
-  panDeltaPx,
+  buildZoomPluginOptionsShape,
   withRangeSuffix,
   rangesEqual,
   isAtEarliestEdge,
@@ -46,6 +45,8 @@ import {
   isAtFullRange,
   modifierKeyForPlatform,
   zoomHintText,
+  zoomStepRange,
+  panStepRange,
 } from './trends-zoom-logic.js';
 
 // ---------------------------------------------------------------------------
@@ -121,52 +122,17 @@ export function buildZoomPluginOptions(args: {
 }): Record<string, unknown> {
   const { scaleKey, bounds, onSettle } = args;
 
-  return {
-    limits: {
-      // D-09: literal computed numbers ONLY — the plugin's `'original'`
-      // sentinel string must never appear here. Under D-06 the scale is
-      // constructed at the granularity's opening window, not the archive,
-      // so `'original'` would capture THAT window on first zoom/pan and
-      // hard-stop pan/zoom-out there, making D-06's own promise ("zoom out
-      // to see everything stays literally true") false (Pitfall 1,
-      // verified against chartjs-plugin-zoom@2.2.0's `getLimit`/
-      // `storeOriginalScaleLimits`, which capture 'original' lazily from
-      // whatever `scale.options.min/max` happen to be at the first
-      // zoom/pan call).
-      x: computeLimits(scaleKey, bounds),
-    },
-    pan: {
-      enabled: true, // D-15
-      mode: 'x', // D-07
-    },
-    zoom: {
-      wheel: { enabled: true, modifierKey: resolveModifierKey() }, // D-14
-      pinch: { enabled: true }, // D-16
-      // `zoom.drag` (rectangle-select-zoom, wired on native mouse
-      // listeners) and `pan` (Hammer.Pan) are two independent gesture
-      // engines that would fight over the same physical canvas drag if
-      // both were enabled at once. D-15 wants plain drag-to-pan, so
-      // `zoom.drag.enabled` MUST stay false (Pitfall 4).
-      drag: { enabled: false },
-      mode: 'x', // D-07
-    },
-    // Pitfall 3 (source-verified against chartjs-plugin-zoom@2.2.0's
-    // shipped `zoom()`/`pan()` functions): `chart.zoom()` and `chart.pan()`
-    // — the exact imperative API the D-11 buttons call — fire `onZoom`/
-    // `onPan` ONLY, never `onZoomComplete`/`onPanComplete`. These two
-    // callbacks below are wired to the GESTURE half of the settle
-    // contract only (250ms-debounced wheel, drag `mouseup`, Hammer
-    // `panend`/`pinchend`). Every button handler in
-    // `attachZoomController` (Task 2, below) must call the same settle
-    // function DIRECTLY, right after its imperative `chart.zoom()`/
-    // `chart.pan()` call, or the buttons will visibly move the chart
-    // while the aria-label and Reset button silently never update — a
-    // defect this repo's DOM-less test suite structurally cannot see. Do
-    // not let this comment drift from `attachZoomController`'s button
-    // handlers.
-    onZoomComplete: ({ chart }: { chart: Chart }) => onSettle(chart),
-    onPanComplete: ({ chart }: { chart: Chart }) => onSettle(chart),
-  };
+  // Finding 10 (23-08 gap closure): the whole option-object shape,
+  // including the settle callbacks correctly nested INSIDE `zoom`/`pan`,
+  // now lives in the pure, unit-tested `buildZoomPluginOptionsShape`. This
+  // adapter's exported signature stays byte-for-byte unchanged so
+  // `trends-charts.ts` needs no edit.
+  return buildZoomPluginOptionsShape<Chart>({
+    scaleKey,
+    bounds,
+    modifierKey: resolveModifierKey(), // D-14 — the `navigator` read stays in this DOM layer
+    onSettle,
+  });
 }
 
 // ---------------------------------------------------------------------------

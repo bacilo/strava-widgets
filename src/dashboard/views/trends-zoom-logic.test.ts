@@ -1,6 +1,9 @@
+import { readFileSync } from 'node:fs';
+
 import { describe, expect, it } from 'vitest';
 
 import {
+  buildZoomPluginOptionsShape,
   computeArchiveBounds,
   computeDefaultWindow,
   computeFullRange,
@@ -343,5 +346,119 @@ describe('never throws on malformed input', () => {
   it('formatRangeLabel(NaN, NaN) returns the empty string rather than throwing', () => {
     expect(() => formatRangeLabel(NaN, NaN)).not.toThrow();
     expect(formatRangeLabel(NaN, NaN)).toBe('');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Finding 10 (23-08 gap closure): the shipped shape put `onZoomComplete`/
+// `onPanComplete` as top-level siblings of `zoom`/`pan`, so
+// `chartjs-plugin-zoom` never saw either callback and `settle()` never ran
+// on any gesture. These structural assertions are the ones that would have
+// caught it — the exact inversion of the shipped defect.
+// ---------------------------------------------------------------------------
+
+describe('buildZoomPluginOptionsShape', () => {
+  it('nests onZoomComplete inside zoom and onPanComplete inside pan, not as top-level siblings', () => {
+    const shape = buildZoomPluginOptionsShape<{ id: string }>({
+      scaleKey: 'volume-weekly',
+      bounds: weeklyBounds,
+      modifierKey: 'meta',
+      onSettle: () => {},
+    });
+    const zoom = shape.zoom as Record<string, unknown>;
+    const pan = shape.pan as Record<string, unknown>;
+
+    expect(typeof zoom.onZoomComplete).toBe('function');
+    expect(typeof pan.onPanComplete).toBe('function');
+    // The exact inversion of the shipped defect (Finding 10): the shipped
+    // shape had these two callbacks at the TOP LEVEL of the returned
+    // object. They must NOT be there any more.
+    expect('onZoomComplete' in shape).toBe(false);
+    expect('onPanComplete' in shape).toBe(false);
+  });
+
+  it('invoking the nested callbacks forwards chart to onSettle exactly once', () => {
+    const sentinel = { id: 'sentinel-chart' };
+    let calls: unknown[] = [];
+    const shape = buildZoomPluginOptionsShape<typeof sentinel>({
+      scaleKey: 'volume-weekly',
+      bounds: weeklyBounds,
+      modifierKey: 'meta',
+      onSettle: (chart) => calls.push(chart),
+    });
+    const zoom = shape.zoom as { onZoomComplete: (args: { chart: typeof sentinel }) => void };
+    const pan = shape.pan as { onPanComplete: (args: { chart: typeof sentinel }) => void };
+
+    zoom.onZoomComplete({ chart: sentinel });
+    expect(calls).toEqual([sentinel]);
+
+    calls = [];
+    pan.onPanComplete({ chart: sentinel });
+    expect(calls).toEqual([sentinel]);
+  });
+
+  it('wires wheel modifierKey, pinch/drag/mode and pan.enabled per D-07/D-14/D-15/D-16', () => {
+    const metaShape = buildZoomPluginOptionsShape<{ id: string }>({
+      scaleKey: 'volume-weekly',
+      bounds: weeklyBounds,
+      modifierKey: 'meta',
+      onSettle: () => {},
+    });
+    const zoom = metaShape.zoom as Record<string, unknown>;
+    const pan = metaShape.pan as Record<string, unknown>;
+
+    expect(zoom.wheel).toEqual({ enabled: true, modifierKey: 'meta' });
+    expect((zoom.pinch as { enabled: boolean }).enabled).toBe(true);
+    expect((zoom.drag as { enabled: boolean }).enabled).toBe(false);
+    expect(zoom.mode).toBe('x');
+    expect(pan.mode).toBe('x');
+    expect(pan.enabled).toBe(true);
+
+    const ctrlShape = buildZoomPluginOptionsShape<{ id: string }>({
+      scaleKey: 'volume-weekly',
+      bounds: weeklyBounds,
+      modifierKey: 'ctrl',
+      onSettle: () => {},
+    });
+    expect((ctrlShape.zoom as Record<string, unknown>).wheel).toEqual({ enabled: true, modifierKey: 'ctrl' });
+  });
+
+  it('limits.x deep-equals computeLimits and never emits the plugin original sentinel', () => {
+    const shape = buildZoomPluginOptionsShape<{ id: string }>({
+      scaleKey: 'volume-weekly',
+      bounds: weeklyBounds,
+      modifierKey: 'meta',
+      onSettle: () => {},
+    });
+    const limits = shape.limits as { x: unknown };
+
+    expect(limits.x).toEqual(computeLimits('volume-weekly', weeklyBounds));
+    expect(JSON.stringify(shape.limits)).not.toContain('original');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// This block proves that the option PATH the vendored plugin reads still
+// matches the path this module writes (`state.options.zoom.onZoomComplete`
+// / `state.options.pan.onPanComplete`), so a future dependency upgrade that
+// moves the lookup fails this test loudly instead of silently reintroducing
+// Finding 10 at a real gesture. It proves NOTHING about a real gesture
+// itself — that stays browser-checkpoint-only (see 23-VALIDATION.md).
+// ---------------------------------------------------------------------------
+
+describe('chartjs-plugin-zoom option lookup contract', () => {
+  const pluginSource = readFileSync(
+    new URL('../../../node_modules/chartjs-plugin-zoom/dist/chartjs-plugin-zoom.esm.js', import.meta.url),
+    'utf8',
+  );
+
+  it('reads onZoomComplete and onPanComplete off state.options.zoom / state.options.pan', () => {
+    expect(pluginSource).toContain('state.options.zoom.onZoomComplete');
+    expect(pluginSource).toContain('state.options.pan.onPanComplete');
+  });
+
+  it('never reads either callback as an unqualified top-level sibling of state.options', () => {
+    expect(pluginSource).not.toContain('state.options.onZoomComplete');
+    expect(pluginSource).not.toContain('state.options.onPanComplete');
   });
 });
