@@ -518,6 +518,7 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
     section.appendChild(selectLabel);
 
     const gridWrap = document.createElement('div');
+    gridWrap.className = 'year-heatmap-scroll';
     section.appendChild(gridWrap);
 
     function renderGridForYear(): void {

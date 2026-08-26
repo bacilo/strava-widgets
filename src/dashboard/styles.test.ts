@@ -1211,9 +1211,9 @@ describe('styles.css — Phase 19 focus ring', () => {
 
   // A whole-file raw-css negative on the bare word "overflow" cannot be used
   // here: .sr-only legitimately declares `overflow: hidden` and
-  // .records-jump/.splits-scroll both declare `overflow-x`, so an unscoped
-  // negative would fail for the wrong reason. This assertion is scoped to
-  // .segmented specifically via declarationsFor.
+  // .records-jump/.splits-scroll/.year-heatmap-scroll all declare
+  // `overflow-x`, so an unscoped negative would fail for the wrong reason.
+  // This assertion is scoped to .segmented specifically via declarationsFor.
   it('.segmented no longer clips its children', () => {
     expect(declarationsFor('.segmented')).not.toContain('overflow');
   });
@@ -2225,5 +2225,43 @@ describe('Phase 23 (TRN-03) — .chart-band__canvas-wrap--tall tall Trends bands
     // D-17's hint is persistent; a future `display: none` at a phone width
     // would silently defeat the discoverability D-14 depends on.
     expect(() => atRuleBodiesFor('.chart-zoom-hint', 'display')).toThrow();
+  });
+});
+
+describe('Phase 23 (TRN-03, gap closure) — .year-heatmap-scroll containment', () => {
+  it('declares overflow-x: auto', () => {
+    expect(declarationsFor('.year-heatmap-scroll')).toContain('overflow-x: auto');
+  });
+
+  it('D-10: has room for the focus ring, matching the other two scroll wrappers', () => {
+    expect(declarationsFor('.year-heatmap-scroll')).toContain('padding: var(--space-xs)');
+  });
+
+  it('carries the forward min-width: 0 guard', () => {
+    expect(declarationsFor('.year-heatmap-scroll')).toContain('min-width: 0');
+  });
+
+  // 53 × 10 + 52 × 2 = 634 — the exact px floor R15 measured on
+  // `.year-heatmap`, driven entirely by these two values. A future change
+  // that lowers this floor (e.g. to make the grid itself reflow instead of
+  // scroll) has to confront this arithmetic and R15's own measurement.
+  it('the 634px floor arithmetic still holds: 53 columns at min-width: 10px', () => {
+    expect(declarationsFor('.year-heatmap')).toContain('repeat(53, 1fr)');
+    expect(declarationsFor('.year-heatmap__cell')).toContain('min-width: 10px');
+  });
+
+  it('.year-heatmap itself declares no overflow — containment lives on the wrapper', () => {
+    expect(declarationsFor('.year-heatmap')).not.toContain('overflow');
+  });
+
+  // Consumer guard (mirrors row-semantics.test.ts's source-text-shape
+  // precedent). This entire fix is one `className` assignment in
+  // buildYearHeatmapSection, so a CSS rule that ships with no consumer
+  // would leave R15 failing for the identical reason while every
+  // by-value assertion above stayed green — that consumer gap is the
+  // failure mode this guard exists for. It proves nothing about rendering.
+  it('trends.ts actually applies the class to the heatmap wrapper', () => {
+    const trendsSource = readFileSync(new URL('./views/trends.ts', import.meta.url), 'utf8');
+    expect(trendsSource).toContain('year-heatmap-scroll');
   });
 });
