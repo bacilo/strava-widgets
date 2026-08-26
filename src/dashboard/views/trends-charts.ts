@@ -55,6 +55,7 @@ import {
   restoreOrDefault,
   volumeScaleKey,
 } from './trends-zoom-logic.js';
+import { formatAdaptiveTimeTick, stepMsFromTicks } from './trends-tick-format.js';
 
 // ---------------------------------------------------------------------------
 // Registration — Bar* powers both this plan's Volume and Year-over-Year
@@ -104,22 +105,11 @@ export interface ZoomMountOptions {
   onRangeChange: (range: ZoomRange) => void;
 }
 
-const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
 const VOLUME_ARIA_LABELS: Record<VolumeGranularity, string> = {
   weekly: 'Weekly distance chart',
   monthly: 'Monthly distance chart',
   yearly: 'Yearly distance chart',
 };
-
-function formatVolumeTick(epochMs: number, granularity: VolumeGranularity): string {
-  const d = new Date(epochMs);
-  const year = d.getUTCFullYear();
-  if (granularity === 'yearly') return String(year);
-  const month = MONTH_ABBR[d.getUTCMonth()];
-  if (granularity === 'monthly') return `${month} ${year}`;
-  return `${d.getUTCDate()} ${month} ${year}`;
-}
 
 /**
  * Mounts the Volume tab's single chart — a bar per period, x pinned to the
@@ -170,7 +160,22 @@ export function mountVolumeChart(
             type: 'linear',
             grid: { display: false },
             ticks: {
-              callback: (value: number | string) => formatVolumeTick(Number(value), granularity),
+              // Finding 7 fix: the tick format now follows the axis's own
+              // visible span (via each callback's own tick step) instead of
+              // the `granularity` toggle, so `granularity` still selects the
+              // aria-label base and the scale key below but no longer
+              // selects the tick format directly. Visible consequence at
+              // D-06's default weekly window (~365 days, ~8 ticks, a ~46-day
+              // step): renders `Aug 2025` rather than `13 Aug 2025`; at full
+              // zoom-out (~685-day step): renders `2011` rather than
+              // `11 Aug 2011`. Both are the intended outcome of an
+              // axis that follows the visible span, and both invalidate the
+              // first/last-tick columns of `23-VALIDATION.md`'s Round 1
+              // expected-value table — plan 23-11 Task 1 recomputes those
+              // before Round 2 opens; the two documents must not drift apart
+              // silently.
+              callback: (value: number | string, _index: number, ticks: readonly { value: number }[]) =>
+                formatAdaptiveTimeTick(Number(value), stepMsFromTicks(ticks)),
             },
           },
           y: {
@@ -243,7 +248,8 @@ export function mountVolumeChart(
           max: initial.max,
           grid: { display: false },
           ticks: {
-            callback: (value: number | string) => formatVolumeTick(Number(value), granularity),
+            callback: (value: number | string, _index: number, ticks: readonly { value: number }[]) =>
+              formatAdaptiveTimeTick(Number(value), stepMsFromTicks(ticks)),
           },
         },
         y: {
@@ -423,11 +429,6 @@ const CHANNEL_COLOR_TOKENS: Record<MonthlyChannel, string> = {
   hr: '--chart-hr',
 };
 
-function formatMonthYearTick(epochMs: number): string {
-  const d = new Date(epochMs);
-  return `${MONTH_ABBR[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
-}
-
 function formatChannelValue(channel: MonthlyChannel, value: number): string {
   return channel === 'cadence' ? `${value.toFixed(1)} rpm` : `${Math.round(value)} bpm`;
 }
@@ -568,7 +569,8 @@ function buildChannelBand(
           ...(zoom ? { min: zoom.initial.min, max: zoom.initial.max } : {}),
           grid: { display: false },
           ticks: {
-            callback: (value: number | string) => formatMonthYearTick(Number(value)),
+            callback: (value: number | string, _index: number, ticks: readonly { value: number }[]) =>
+              formatAdaptiveTimeTick(Number(value), stepMsFromTicks(ticks)),
           },
         },
         y: {
@@ -816,7 +818,8 @@ export function mountTrainingLoadChart(
             type: 'linear',
             grid: { display: false },
             ticks: {
-              callback: (value: number | string) => formatMonthYearTick(Number(value)),
+              callback: (value: number | string, _index: number, ticks: readonly { value: number }[]) =>
+                formatAdaptiveTimeTick(Number(value), stepMsFromTicks(ticks)),
             },
           },
           y: {
@@ -906,7 +909,8 @@ export function mountTrainingLoadChart(
           max: initial.max,
           grid: { display: false },
           ticks: {
-            callback: (value: number | string) => formatMonthYearTick(Number(value)),
+            callback: (value: number | string, _index: number, ticks: readonly { value: number }[]) =>
+              formatAdaptiveTimeTick(Number(value), stepMsFromTicks(ticks)),
           },
         },
         y: {
