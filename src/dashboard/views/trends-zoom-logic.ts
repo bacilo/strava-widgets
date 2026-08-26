@@ -3,7 +3,7 @@
  * feature (TRN-01/TRN-02/TRN-04, D-06/D-09/D-12/D-13/D-14/D-22). Computes
  * each zoomable scale's D-06 default opening window and D-09 pan/zoom
  * limits as literal numeric bounds over the series' own archive bounds,
- * D-12's zoom-factor/pan-pixel-delta arithmetic, D-13's range-to-label
+ * D-12's zoom-step/pan-step range arithmetic, D-13's range-to-label
  * formatting, D-14's cross-platform wheel-modifier-key resolution, and
  * D-22's restore-or-default state shape shared by first-open and
  * restore-on-rebuild.
@@ -31,8 +31,9 @@ export interface ZoomRange {
 }
 
 // ---------------------------------------------------------------------------
-// D-12 — zoom factor and pan fraction, shared by the button handlers (23-04)
-// and this module's own pixel-delta math.
+// D-12 — zoom factor and pan fraction, shared by the button handlers
+// (23-04, rewired to pure range math in 23-08's gap closure) and this
+// module's own zoomStepRange/panStepRange arithmetic below.
 // ---------------------------------------------------------------------------
 
 export const ZOOM_FACTOR = 1.5;
@@ -169,23 +170,115 @@ export function loadWindowRange(window: LoadWindow, bounds: ZoomRange): ZoomRang
 
 // ---------------------------------------------------------------------------
 // D-12 — zoom/pan arithmetic
+//
+// Both functions below work entirely in VALUE space (epoch-ms bounds), not
+// pixel space. The button handlers in `chart-zoom.ts` no longer hand a
+// pixel delta or a zoom factor to the plugin's imperative `chart.zoom()` /
+// `chart.pan()` API at all (Finding 1, 23-08 gap-closure): the plugin's own
+// `linearZoomDelta` computes `newRange = range * (zoom - 1)` and REMOVES
+// that much, so passing `ZOOM_FACTOR` (1.5) directly halved the window
+// instead of dividing it by 1.5, and `chart.pan()`'s `panNumericalScale`
+// re-derives its delta through `scale.getPixelForValue` /
+// `scale.getValueForPixel` rather than through the plot width the caller
+// measured, producing a step of roughly 33% of the visible span instead of
+// this module's own `PAN_FRACTION` (25%). `zoomStepRange` and
+// `panStepRange` are the pure replacement: the runtime now computes a
+// target range here and writes it straight onto the scale via `applyRange`,
+// so the step magnitude the tests below assert is the step magnitude the
+// browser renders.
 // ---------------------------------------------------------------------------
 
 /**
- * The pixel delta a single pan-button press moves the visible window by:
- * `PAN_FRACTION` (25%) of the plot area's pixel width. Sign convention
- * (verified against `chartjs-plugin-zoom@2.2.0`'s source, Pitfall 5): the
- * plugin's `pan()` treats a POSITIVE x delta as revealing earlier/
- * smaller-value data (drag-right convention), so `'earlier'` returns a
- * POSITIVE delta and `'later'` returns the negation. This sign is the
- * single easiest thing in this phase to invert unnoticed — verify it
- * empirically at the checkpoint by reading the aria-label's date range
- * after a `→` press, not by watching the chart move.
+ * Centre-preserving proportional zoom. Computes the current span and
+ * centre, targets `span / ZOOM_FACTOR` ('in') or `span * ZOOM_FACTOR`
+ * ('out'), clamps that target span into `[minRangeMs, full.max - full.min]`,
+ * lays it symmetrically around the unchanged centre, then TRANSLATES
+ * (never re-scales) the result back inside `full`: shift left if the new
+ * max would exceed `full.max`, then shift right if the new min would then
+ * fall below `full.min`, and finally hard-clamp each bound to `full`.
+ *
+ * Returns `current` unchanged, without throwing, when any of `current.min`,
+ * `current.max`, `full.min`, `full.max` or `minRangeMs` is non-finite, or
+ * when `current.max <= current.min`.
  */
-export function panDeltaPx(plotWidthPx: number, direction: 'earlier' | 'later'): number {
-  if (!Number.isFinite(plotWidthPx) || plotWidthPx <= 0) return 0;
-  const magnitude = PAN_FRACTION * plotWidthPx;
-  return direction === 'earlier' ? magnitude : -magnitude;
+export function zoomStepRange(current: ZoomRange, full: ZoomRange, minRangeMs: number, direction: 'in' | 'out'): ZoomRange {
+  if (
+    !Number.isFinite(current.min) ||
+    !Number.isFinite(current.max) ||
+    !Number.isFinite(full.min) ||
+    !Number.isFinite(full.max) ||
+    !Number.isFinite(minRangeMs) ||
+    current.max <= current.min
+  ) {
+    return current;
+  }
+
+  const span = current.max - current.min;
+  const centre = (current.min + current.max) / 2;
+  const fullSpan = full.max - full.min;
+  const rawTargetSpan = direction === 'in' ? span / ZOOM_FACTOR : span * ZOOM_FACTOR;
+  const targetSpan = Math.min(Math.max(rawTargetSpan, minRangeMs), fullSpan);
+
+  let min = centre - targetSpan / 2;
+  let max = centre + targetSpan / 2;
+
+  if (max > full.max) {
+    const overshoot = max - full.max;
+    min -= overshoot;
+    max -= overshoot;
+  }
+  if (min < full.min) {
+    const undershoot = full.min - min;
+    min += undershoot;
+    max += undershoot;
+  }
+
+  return { min: Math.max(min, full.min), max: Math.min(max, full.max) };
+}
+
+/**
+ * Span-preserving proportional pan. Computes `delta = PAN_FRACTION * span`,
+ * signed negative for `'earlier'` (smaller epoch-ms — the retired pixel-space
+ * handler's drag-right convention made `'earlier'` positive; this function
+ * works in value space, where earlier genuinely means smaller, so
+ * `'earlier'` subtracts) and positive for `'later'`. Adds the signed
+ * delta to both bounds, then translates the pair back inside `full` the
+ * same way `zoomStepRange` does (shift, never shrink), so the span is
+ * preserved exactly whenever `span <= full.max - full.min`.
+ *
+ * Returns `current` unchanged, without throwing, when any of `current.min`,
+ * `current.max`, `full.min` or `full.max` is non-finite, or when
+ * `current.max <= current.min`.
+ */
+export function panStepRange(current: ZoomRange, full: ZoomRange, direction: 'earlier' | 'later'): ZoomRange {
+  if (
+    !Number.isFinite(current.min) ||
+    !Number.isFinite(current.max) ||
+    !Number.isFinite(full.min) ||
+    !Number.isFinite(full.max) ||
+    current.max <= current.min
+  ) {
+    return current;
+  }
+
+  const span = current.max - current.min;
+  const delta = PAN_FRACTION * span * (direction === 'earlier' ? -1 : 1);
+
+  let min = current.min + delta;
+  let max = current.max + delta;
+
+  if (max > full.max) {
+    const overshoot = max - full.max;
+    min -= overshoot;
+    max -= overshoot;
+  }
+  if (min < full.min) {
+    const undershoot = full.min - min;
+    min += undershoot;
+    max += undershoot;
+  }
+
+  return { min: Math.max(min, full.min), max: Math.min(max, full.max) };
 }
 
 // ---------------------------------------------------------------------------

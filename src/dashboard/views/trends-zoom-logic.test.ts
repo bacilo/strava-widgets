@@ -11,7 +11,7 @@ import {
   isAtLatestEdge,
   loadWindowRange,
   modifierKeyForPlatform,
-  panDeltaPx,
+  panStepRange,
   PAN_FRACTION,
   rangesEqual,
   restoreOrDefault,
@@ -19,6 +19,7 @@ import {
   withRangeSuffix,
   ZOOM_FACTOR,
   zoomHintText,
+  zoomStepRange,
   type ZoomRange,
 } from './trends-zoom-logic.js';
 
@@ -109,18 +110,86 @@ describe('computeLimits', () => {
   });
 });
 
-describe('panDeltaPx and zoomFactor', () => {
-  it('panDeltaPx(800, "earlier") returns +200 (25% of plot width)', () => {
-    expect(panDeltaPx(800, 'earlier')).toBe(200);
-  });
-
-  it('panDeltaPx(800, "later") returns -200 — Pitfall 5 sign convention', () => {
-    expect(panDeltaPx(800, 'later')).toBe(-200);
-  });
+describe('zoomStepRange and panStepRange', () => {
+  const full = computeFullRange('volume-weekly', weeklyBounds);
+  const def = computeDefaultWindow('volume-weekly', weeklyBounds);
+  const minRange = computeLimits('volume-weekly', weeklyBounds).minRange;
 
   it('PAN_FRACTION is 0.25 and ZOOM_FACTOR is 1.5', () => {
     expect(PAN_FRACTION).toBe(0.25);
     expect(ZOOM_FACTOR).toBe(1.5);
+  });
+
+  it('formatRangeLabel(def.min, def.max) is "Aug 2025 to Aug 2026" (unchanged baseline)', () => {
+    expect(formatRangeLabel(def.min, def.max)).toBe('Aug 2025 to Aug 2026');
+  });
+
+  it('zoomStepRange("in") from the weekly default formats to "Oct 2025 to Jun 2026" — the designed 8-month window, not Round 1\'s 6-month "Nov 2025 to May 2026"', () => {
+    const zoomedIn = zoomStepRange(def, full, minRange, 'in');
+    expect(formatRangeLabel(zoomedIn.min, zoomedIn.max)).toBe('Oct 2025 to Jun 2026');
+  });
+
+  it('zoomStepRange("in") span is within 1 ms of (def.max - def.min) / 1.5', () => {
+    const zoomedIn = zoomStepRange(def, full, minRange, 'in');
+    const expectedSpan = (def.max - def.min) / ZOOM_FACTOR;
+    expect(Math.abs(zoomedIn.max - zoomedIn.min - expectedSpan)).toBeLessThanOrEqual(1);
+  });
+
+  it('zoomStepRange("out") from the weekly default formats to "Feb 2025 to Aug 2026" — 18 months, shifted left so it does not pass full.max', () => {
+    const zoomedOut = zoomStepRange(def, full, minRange, 'out');
+    expect(formatRangeLabel(zoomedOut.min, zoomedOut.max)).toBe('Feb 2025 to Aug 2026');
+  });
+
+  it('zoomStepRange("out") already at the ceiling (full) returns full unchanged', () => {
+    const zoomedOut = zoomStepRange(full, full, minRange, 'out');
+    expect(zoomedOut).toEqual(full);
+  });
+
+  it('repeated zoomStepRange("in") never produces a span below minRange, and never produces min >= max', () => {
+    let current = def;
+    for (let i = 0; i < 20; i++) {
+      current = zoomStepRange(current, full, minRange, 'in');
+      expect(current.max - current.min).toBeGreaterThanOrEqual(minRange - 1);
+      expect(current.min).toBeLessThan(current.max);
+    }
+  });
+
+  it('panStepRange("earlier") from the weekly default formats to "May 2025 to May 2026" — the exact string R8 failed on, not "Apr 2025 to Apr 2026"', () => {
+    const panned = panStepRange(def, full, 'earlier');
+    expect(formatRangeLabel(panned.min, panned.max)).toBe('May 2025 to May 2026');
+  });
+
+  it('panStepRange("earlier") preserves the span exactly and moves min back by exactly PAN_FRACTION * span', () => {
+    const panned = panStepRange(def, full, 'earlier');
+    const span = def.max - def.min;
+    expect(Math.abs(panned.max - panned.min - span)).toBeLessThanOrEqual(1);
+    expect(Math.abs(def.min - panned.min - PAN_FRACTION * span)).toBeLessThanOrEqual(1);
+  });
+
+  it('panStepRange("later") from the weekly default returns def unchanged (already clamped at the latest edge)', () => {
+    const panned = panStepRange(def, full, 'later');
+    expect(panned).toEqual(def);
+  });
+
+  it('panStepRange("earlier") at the earliest edge clamps min to full.min without shrinking the span', () => {
+    const edge: ZoomRange = { min: full.min, max: full.min + 86400000 };
+    const panned = panStepRange(edge, full, 'earlier');
+    expect(panned.min).toBe(full.min);
+    expect(panned.max - panned.min).toBe(edge.max - edge.min);
+  });
+
+  it('zoomStepRange and panStepRange return current unchanged, without throwing, on malformed input', () => {
+    const malformedCases: ZoomRange[] = [
+      { min: NaN, max: def.max },
+      { min: def.min, max: NaN },
+      { min: def.max, max: def.min }, // min >= max
+    ];
+    for (const malformed of malformedCases) {
+      expect(() => zoomStepRange(malformed, full, minRange, 'in')).not.toThrow();
+      expect(zoomStepRange(malformed, full, minRange, 'in')).toEqual(malformed);
+      expect(() => panStepRange(malformed, full, 'earlier')).not.toThrow();
+      expect(panStepRange(malformed, full, 'earlier')).toEqual(malformed);
+    }
   });
 });
 
@@ -269,16 +338,6 @@ describe('never throws on malformed input', () => {
 
   it('restoreOrDefault with a saved range whose min > max', () => {
     expect(() => restoreOrDefault({ min: 100, max: 0 }, { min: 0, max: 1 })).not.toThrow();
-  });
-
-  it('panDeltaPx(0, "earlier") returns 0 rather than throwing', () => {
-    expect(() => panDeltaPx(0, 'earlier')).not.toThrow();
-    expect(panDeltaPx(0, 'earlier')).toBe(0);
-  });
-
-  it('panDeltaPx(NaN, "later") returns 0 rather than throwing', () => {
-    expect(() => panDeltaPx(NaN, 'later')).not.toThrow();
-    expect(panDeltaPx(NaN, 'later')).toBe(0);
   });
 
   it('formatRangeLabel(NaN, NaN) returns the empty string rather than throwing', () => {
