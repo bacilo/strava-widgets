@@ -870,10 +870,14 @@ body {
    track floor is computed from.
 
    No `overflow`/`overflow-x`/`text-overflow` appears anywhere in this
-   block — that remains the `.splits-scroll` scroll-wrapper fallback,
-   still deliberately unimplemented (focusable day buttons + a scroll
-   container scroll-jumps focus on Tab); truncation would render a WRONG
-   number rather than a clipped one.
+   block — a `.splits-scroll`-style scroll-wrapper fallback remains
+   deliberately unimplemented FOR THE CALENDAR specifically (focusable day
+   buttons + a scroll container scroll-jumps focus on Tab); truncation
+   would render a WRONG number rather than a clipped one. Phase 23 gap
+   closure applied the same wrapper pattern to `.year-heatmap` instead (see
+   the "Year consistency heatmap" block below), where this objection does
+   not apply — those cells are deliberately non-focusable (T-18-A11Y-03),
+   so there is no focus-jump to guard against.
 
    WR-06: the padding rule below must stay FIRST — RULE_SCANNER swallows
    an at-rule block's first nested rule into the prelude's pseudo-body, so
@@ -1439,7 +1443,44 @@ body {
   margin-top: var(--space-sm);
 }
 
-/* Year consistency heatmap (§ 8) — plain CSS grid, no chart dependency. */
+/* Year consistency heatmap (§ 8) — plain CSS grid, no chart dependency.
+
+   Phase 23 gap closure (Finding 9, R15): `.year-heatmap` is
+   `grid-template-columns: repeat(53, 1fr)` with `gap: 2px`, and
+   `.year-heatmap__cell` declares `min-width: 10px`. A `1fr` track is
+   `minmax(auto, 1fr)`, so each track's floor is the cell's min-content
+   contribution: 53 × 10 + 52 × 2 = 634px exactly, at every viewport. The
+   grid cannot reflow below that by construction, so the wrapper rule below
+   contains that 634px inside a scrolling container instead of letting it
+   push the document wide — the same `.splits-scroll` pattern already
+   shipped for the splits table.
+
+   Rejected alternative: making the grid itself reflow instead of scroll
+   would need `.year-heatmap__cell`'s `min-width` lowered. At the 294px
+   column R15 measured, that yields `(294 − 8 − 104) / 53 ≈ 3.4px` cells —
+   below the 10px floor 18-UI-SPEC § 8 sets for day-cell legibility, so the
+   grid would become an unreadable smear rather than a scrollable one.
+
+   The wrapper deliberately does NOT get `tabindex="0"` despite being a
+   scroll container: the heatmap's 371 cells are deliberately non-focusable
+   (T-18-A11Y-03), and the "View as table" `<details>` disclosure directly
+   below already carries the same day-by-day data as a real table, so the
+   accessible equivalent exists without adding a Tab stop that has no
+   visible focus indication — the same reasoning D-13 used to reject a
+   focusable canvas. */
+.year-heatmap-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  /* D-10: 4px of room for the focus ring at either scroll edge, matching
+     the other two `overflow-x: auto` containers in this file. */
+  padding: var(--space-xs);
+  /* Forward guard only, not load-bearing today: `section` in
+     `buildYearHeatmapSection` is a plain block `<div>`, so this wrapper
+     already shrinks without it. Exists so a future flex or grid parent
+     cannot silently reintroduce the overflow via `min-width: auto`. */
+  min-width: 0;
+}
+
 .year-heatmap {
   display: grid;
   grid-template-columns: repeat(53, 1fr);
@@ -1699,9 +1740,11 @@ button:where(:not(
    these rows included — gets it for free. `.activity-list`'s
    `gap: var(--space-sm)` (8px) leaves room for the ring's 4px spread, and no
    ancestor clips it: `.activity-table-wrapper` declares no `overflow`, and
-   the two `overflow-x: auto` containers in this file (`.records-jump`,
-   `.splits-scroll`) were already padded for exactly this by Phase 19's
-   D-10. Whether it actually reads well in a browser is plan 20-05's human
+   the three `overflow-x: auto` containers in this file (`.records-jump`,
+   `.splits-scroll`, and the year-heatmap's scroll wrapper below) were
+   already padded for exactly this by Phase 19's D-10 (the third added in
+   Phase 23 gap closure, following the same padding rule). Whether it
+   actually reads well in a browser is plan 20-05's human
    checkpoint to arbitrate, not a follow-up ticket to file speculatively.
 
    `.cta` is untouched by this phase and still has seven consumers (four in
