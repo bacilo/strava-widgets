@@ -105,6 +105,55 @@ export interface ZoomMountOptions {
   onRangeChange: (range: ZoomRange) => void;
 }
 
+/**
+ * Finding 8's fix: attaches a `ResizeObserver` to `canvas.parentElement` —
+ * the `.chart-band__canvas-wrap` `buildChartBand` puts every canvas inside
+ * — so a narrowing viewport re-fits the chart the same way a fresh load at
+ * that width already does. Chart.js's own `responsive: true` handling did
+ * not act on the observed R15/Finding-8 regression (a 770 × 206 canvas
+ * left inside a 370px wrapper after a 1200 → 500px narrowing, against a
+ * correct 370 × 223 on a fresh load at the same width); Round 1 measured
+ * that empirically but did not isolate why Chart.js 4.5.1's own internal
+ * observer failed to act on it. This explicit observer is a deterministic
+ * remedy regardless of that cause.
+ *
+ * Deliberately calls `chart.resize()` with NO arguments and ignores the
+ * observer entry's `contentRect` entirely: a no-arg `resize()` makes
+ * Chart.js re-measure the container itself, which is what makes this
+ * robust for a chart constructed while its tab panel was hidden.
+ * `chart.resize()` compares against the current size and no-ops when
+ * nothing changed, so the common case is cheap.
+ *
+ * Cannot feed back on itself: the OBSERVED element is the wrapper, whose
+ * height comes from the `.chart-band__canvas-wrap`/`--tall` CSS `clamp()`
+ * and whose width comes from its block containing block — neither is
+ * content-derived, so resizing the canvas inside it cannot change the
+ * observed box and cannot re-trigger this callback.
+ *
+ * Rejected alternative: adding `overflow: hidden` to the wrapper or
+ * `max-width: 100%` to the canvas would make R15's `scrollWidth` clause
+ * pass while the chart stayed drawn at the wrong scale — clipping or
+ * rescaling a mis-sized canvas instead of resizing it. This plan fixes the
+ * size; it does not hide the symptom. No CSS is changed by this plan.
+ *
+ * Returns a no-op detach when `ResizeObserver` is unavailable (keeps this
+ * module importable with no DOM) or when the canvas has no parent yet.
+ */
+function observeCanvasResize(chart: Chart, canvas: HTMLCanvasElement): () => void {
+  if (typeof ResizeObserver === 'undefined') return () => {};
+  const wrap = canvas.parentElement;
+  if (wrap === null) return () => {};
+
+  const observer = new ResizeObserver(() => {
+    chart.resize();
+  });
+  observer.observe(wrap);
+
+  return () => {
+    observer.disconnect();
+  };
+}
+
 const VOLUME_ARIA_LABELS: Record<VolumeGranularity, string> = {
   weekly: 'Weekly distance chart',
   monthly: 'Monthly distance chart',
@@ -204,11 +253,14 @@ export function mountVolumeChart(
       } as any,
     });
 
+    const detachEmpty = observeCanvasResize(chart, canvas);
+
     let destroyedEmpty = false;
     return {
       destroy(): void {
         if (destroyedEmpty) return;
         destroyedEmpty = true;
+        detachEmpty();
         chart.destroy();
       },
     };
@@ -288,12 +340,15 @@ export function mountVolumeChart(
     onRangeChange: zoom.onRangeChange,
   });
 
+  const detach = observeCanvasResize(chart, canvas);
+
   let destroyed = false;
   return {
     destroy(): void {
       if (destroyed) return;
       destroyed = true;
       controller?.destroy();
+      detach();
       chart.destroy();
     },
   };
@@ -401,11 +456,14 @@ export function mountYoyChart(
     } as any,
   });
 
+  const detach = observeCanvasResize(chart, canvas);
+
   let destroyed = false;
   return {
     destroy(): void {
       if (destroyed) return;
       destroyed = true;
+      detach();
       chart.destroy();
     },
   };
@@ -499,11 +557,12 @@ export function buildChartBand(
   return { band, header, canvasWrap, canvas };
 }
 
-/** `buildChannelBand`'s return shape: the constructed chart plus the `canvas` and `header` `buildChartBand` gave it, so `mountChannelBands` can attach one shared D-10 cluster to the cadence band's header without rebuilding any markup. */
+/** `buildChannelBand`'s return shape: the constructed chart plus the `canvas` and `header` `buildChartBand` gave it, so `mountChannelBands` can attach one shared D-10 cluster to the cadence band's header without rebuilding any markup. `detach` disconnects this band's own `observeCanvasResize` (Finding 8) — `mountChannelBands` calls both bands' `detach` in its own `destroy()`. */
 interface ChannelBandHandle {
   chart: Chart;
   canvas: HTMLCanvasElement;
   header: HTMLElement;
+  detach: () => void;
 }
 
 /**
@@ -603,7 +662,9 @@ function buildChannelBand(
     } as any,
   });
 
-  return { chart, canvas, header };
+  const detach = observeCanvasResize(chart, canvas);
+
+  return { chart, canvas, header, detach };
 }
 
 /**
@@ -673,6 +734,8 @@ export function mountChannelBands(
       if (destroyed) return;
       destroyed = true;
       controller?.destroy();
+      cadenceHandle.detach();
+      hrHandle.detach();
       cadenceHandle.chart.destroy();
       hrHandle.chart.destroy();
       stack.remove();
@@ -844,11 +907,14 @@ export function mountTrainingLoadChart(
       } as any,
     });
 
+    const detachEmpty = observeCanvasResize(chart, canvas);
+
     let destroyedEmpty = false;
     return {
       destroy(): void {
         if (destroyedEmpty) return;
         destroyedEmpty = true;
+        detachEmpty();
         chart.destroy();
       },
     };
@@ -945,12 +1011,15 @@ export function mountTrainingLoadChart(
     onRangeChange: zoom.onRangeChange,
   });
 
+  const detach = observeCanvasResize(chart, canvas);
+
   let destroyed = false;
   return {
     destroy(): void {
       if (destroyed) return;
       destroyed = true;
       controller?.destroy();
+      detach();
       chart.destroy();
     },
   };
@@ -1042,11 +1111,14 @@ export function mountGearChart(canvas: HTMLCanvasElement, buckets: readonly Gear
     } as any,
   });
 
+  const detach = observeCanvasResize(chart, canvas);
+
   let destroyed = false;
   return {
     destroy(): void {
       if (destroyed) return;
       destroyed = true;
+      detach();
       chart.destroy();
     },
   };
