@@ -1,6 +1,9 @@
+import { readFileSync } from 'node:fs';
+
 import { describe, expect, it } from 'vitest';
 
 import {
+  buildZoomPluginOptionsShape,
   computeArchiveBounds,
   computeDefaultWindow,
   computeFullRange,
@@ -11,7 +14,7 @@ import {
   isAtLatestEdge,
   loadWindowRange,
   modifierKeyForPlatform,
-  panDeltaPx,
+  panStepRange,
   PAN_FRACTION,
   rangesEqual,
   restoreOrDefault,
@@ -19,6 +22,7 @@ import {
   withRangeSuffix,
   ZOOM_FACTOR,
   zoomHintText,
+  zoomStepRange,
   type ZoomRange,
 } from './trends-zoom-logic.js';
 
@@ -109,18 +113,86 @@ describe('computeLimits', () => {
   });
 });
 
-describe('panDeltaPx and zoomFactor', () => {
-  it('panDeltaPx(800, "earlier") returns +200 (25% of plot width)', () => {
-    expect(panDeltaPx(800, 'earlier')).toBe(200);
-  });
-
-  it('panDeltaPx(800, "later") returns -200 — Pitfall 5 sign convention', () => {
-    expect(panDeltaPx(800, 'later')).toBe(-200);
-  });
+describe('zoomStepRange and panStepRange', () => {
+  const full = computeFullRange('volume-weekly', weeklyBounds);
+  const def = computeDefaultWindow('volume-weekly', weeklyBounds);
+  const minRange = computeLimits('volume-weekly', weeklyBounds).minRange;
 
   it('PAN_FRACTION is 0.25 and ZOOM_FACTOR is 1.5', () => {
     expect(PAN_FRACTION).toBe(0.25);
     expect(ZOOM_FACTOR).toBe(1.5);
+  });
+
+  it('formatRangeLabel(def.min, def.max) is "Aug 2025 to Aug 2026" (unchanged baseline)', () => {
+    expect(formatRangeLabel(def.min, def.max)).toBe('Aug 2025 to Aug 2026');
+  });
+
+  it('zoomStepRange("in") from the weekly default formats to "Oct 2025 to Jun 2026" — the designed 8-month window, not Round 1\'s 6-month "Nov 2025 to May 2026"', () => {
+    const zoomedIn = zoomStepRange(def, full, minRange, 'in');
+    expect(formatRangeLabel(zoomedIn.min, zoomedIn.max)).toBe('Oct 2025 to Jun 2026');
+  });
+
+  it('zoomStepRange("in") span is within 1 ms of (def.max - def.min) / 1.5', () => {
+    const zoomedIn = zoomStepRange(def, full, minRange, 'in');
+    const expectedSpan = (def.max - def.min) / ZOOM_FACTOR;
+    expect(Math.abs(zoomedIn.max - zoomedIn.min - expectedSpan)).toBeLessThanOrEqual(1);
+  });
+
+  it('zoomStepRange("out") from the weekly default formats to "Feb 2025 to Aug 2026" — 18 months, shifted left so it does not pass full.max', () => {
+    const zoomedOut = zoomStepRange(def, full, minRange, 'out');
+    expect(formatRangeLabel(zoomedOut.min, zoomedOut.max)).toBe('Feb 2025 to Aug 2026');
+  });
+
+  it('zoomStepRange("out") already at the ceiling (full) returns full unchanged', () => {
+    const zoomedOut = zoomStepRange(full, full, minRange, 'out');
+    expect(zoomedOut).toEqual(full);
+  });
+
+  it('repeated zoomStepRange("in") never produces a span below minRange, and never produces min >= max', () => {
+    let current = def;
+    for (let i = 0; i < 20; i++) {
+      current = zoomStepRange(current, full, minRange, 'in');
+      expect(current.max - current.min).toBeGreaterThanOrEqual(minRange - 1);
+      expect(current.min).toBeLessThan(current.max);
+    }
+  });
+
+  it('panStepRange("earlier") from the weekly default formats to "May 2025 to May 2026" — the exact string R8 failed on, not "Apr 2025 to Apr 2026"', () => {
+    const panned = panStepRange(def, full, 'earlier');
+    expect(formatRangeLabel(panned.min, panned.max)).toBe('May 2025 to May 2026');
+  });
+
+  it('panStepRange("earlier") preserves the span exactly and moves min back by exactly PAN_FRACTION * span', () => {
+    const panned = panStepRange(def, full, 'earlier');
+    const span = def.max - def.min;
+    expect(Math.abs(panned.max - panned.min - span)).toBeLessThanOrEqual(1);
+    expect(Math.abs(def.min - panned.min - PAN_FRACTION * span)).toBeLessThanOrEqual(1);
+  });
+
+  it('panStepRange("later") from the weekly default returns def unchanged (already clamped at the latest edge)', () => {
+    const panned = panStepRange(def, full, 'later');
+    expect(panned).toEqual(def);
+  });
+
+  it('panStepRange("earlier") at the earliest edge clamps min to full.min without shrinking the span', () => {
+    const edge: ZoomRange = { min: full.min, max: full.min + 86400000 };
+    const panned = panStepRange(edge, full, 'earlier');
+    expect(panned.min).toBe(full.min);
+    expect(panned.max - panned.min).toBe(edge.max - edge.min);
+  });
+
+  it('zoomStepRange and panStepRange return current unchanged, without throwing, on malformed input', () => {
+    const malformedCases: ZoomRange[] = [
+      { min: NaN, max: def.max },
+      { min: def.min, max: NaN },
+      { min: def.max, max: def.min }, // min >= max
+    ];
+    for (const malformed of malformedCases) {
+      expect(() => zoomStepRange(malformed, full, minRange, 'in')).not.toThrow();
+      expect(zoomStepRange(malformed, full, minRange, 'in')).toEqual(malformed);
+      expect(() => panStepRange(malformed, full, 'earlier')).not.toThrow();
+      expect(panStepRange(malformed, full, 'earlier')).toEqual(malformed);
+    }
   });
 });
 
@@ -271,18 +343,122 @@ describe('never throws on malformed input', () => {
     expect(() => restoreOrDefault({ min: 100, max: 0 }, { min: 0, max: 1 })).not.toThrow();
   });
 
-  it('panDeltaPx(0, "earlier") returns 0 rather than throwing', () => {
-    expect(() => panDeltaPx(0, 'earlier')).not.toThrow();
-    expect(panDeltaPx(0, 'earlier')).toBe(0);
-  });
-
-  it('panDeltaPx(NaN, "later") returns 0 rather than throwing', () => {
-    expect(() => panDeltaPx(NaN, 'later')).not.toThrow();
-    expect(panDeltaPx(NaN, 'later')).toBe(0);
-  });
-
   it('formatRangeLabel(NaN, NaN) returns the empty string rather than throwing', () => {
     expect(() => formatRangeLabel(NaN, NaN)).not.toThrow();
     expect(formatRangeLabel(NaN, NaN)).toBe('');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Finding 10 (23-08 gap closure): the shipped shape put `onZoomComplete`/
+// `onPanComplete` as top-level siblings of `zoom`/`pan`, so
+// `chartjs-plugin-zoom` never saw either callback and `settle()` never ran
+// on any gesture. These structural assertions are the ones that would have
+// caught it — the exact inversion of the shipped defect.
+// ---------------------------------------------------------------------------
+
+describe('buildZoomPluginOptionsShape', () => {
+  it('nests onZoomComplete inside zoom and onPanComplete inside pan, not as top-level siblings', () => {
+    const shape = buildZoomPluginOptionsShape<{ id: string }>({
+      scaleKey: 'volume-weekly',
+      bounds: weeklyBounds,
+      modifierKey: 'meta',
+      onSettle: () => {},
+    });
+    const zoom = shape.zoom as Record<string, unknown>;
+    const pan = shape.pan as Record<string, unknown>;
+
+    expect(typeof zoom.onZoomComplete).toBe('function');
+    expect(typeof pan.onPanComplete).toBe('function');
+    // The exact inversion of the shipped defect (Finding 10): the shipped
+    // shape had these two callbacks at the TOP LEVEL of the returned
+    // object. They must NOT be there any more.
+    expect('onZoomComplete' in shape).toBe(false);
+    expect('onPanComplete' in shape).toBe(false);
+  });
+
+  it('invoking the nested callbacks forwards chart to onSettle exactly once', () => {
+    const sentinel = { id: 'sentinel-chart' };
+    let calls: unknown[] = [];
+    const shape = buildZoomPluginOptionsShape<typeof sentinel>({
+      scaleKey: 'volume-weekly',
+      bounds: weeklyBounds,
+      modifierKey: 'meta',
+      onSettle: (chart) => calls.push(chart),
+    });
+    const zoom = shape.zoom as { onZoomComplete: (args: { chart: typeof sentinel }) => void };
+    const pan = shape.pan as { onPanComplete: (args: { chart: typeof sentinel }) => void };
+
+    zoom.onZoomComplete({ chart: sentinel });
+    expect(calls).toEqual([sentinel]);
+
+    calls = [];
+    pan.onPanComplete({ chart: sentinel });
+    expect(calls).toEqual([sentinel]);
+  });
+
+  it('wires wheel modifierKey, pinch/drag/mode and pan.enabled per D-07/D-14/D-15/D-16', () => {
+    const metaShape = buildZoomPluginOptionsShape<{ id: string }>({
+      scaleKey: 'volume-weekly',
+      bounds: weeklyBounds,
+      modifierKey: 'meta',
+      onSettle: () => {},
+    });
+    const zoom = metaShape.zoom as Record<string, unknown>;
+    const pan = metaShape.pan as Record<string, unknown>;
+
+    expect(zoom.wheel).toEqual({ enabled: true, modifierKey: 'meta' });
+    expect((zoom.pinch as { enabled: boolean }).enabled).toBe(true);
+    expect((zoom.drag as { enabled: boolean }).enabled).toBe(false);
+    expect(zoom.mode).toBe('x');
+    expect(pan.mode).toBe('x');
+    expect(pan.enabled).toBe(true);
+
+    const ctrlShape = buildZoomPluginOptionsShape<{ id: string }>({
+      scaleKey: 'volume-weekly',
+      bounds: weeklyBounds,
+      modifierKey: 'ctrl',
+      onSettle: () => {},
+    });
+    expect((ctrlShape.zoom as Record<string, unknown>).wheel).toEqual({ enabled: true, modifierKey: 'ctrl' });
+  });
+
+  it('limits.x deep-equals computeLimits and never emits the plugin original sentinel', () => {
+    const shape = buildZoomPluginOptionsShape<{ id: string }>({
+      scaleKey: 'volume-weekly',
+      bounds: weeklyBounds,
+      modifierKey: 'meta',
+      onSettle: () => {},
+    });
+    const limits = shape.limits as { x: unknown };
+
+    expect(limits.x).toEqual(computeLimits('volume-weekly', weeklyBounds));
+    expect(JSON.stringify(shape.limits)).not.toContain('original');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// This block proves that the option PATH the vendored plugin reads still
+// matches the path this module writes (`state.options.zoom.onZoomComplete`
+// / `state.options.pan.onPanComplete`), so a future dependency upgrade that
+// moves the lookup fails this test loudly instead of silently reintroducing
+// Finding 10 at a real gesture. It proves NOTHING about a real gesture
+// itself — that stays browser-checkpoint-only (see 23-VALIDATION.md).
+// ---------------------------------------------------------------------------
+
+describe('chartjs-plugin-zoom option lookup contract', () => {
+  const pluginSource = readFileSync(
+    new URL('../../../node_modules/chartjs-plugin-zoom/dist/chartjs-plugin-zoom.esm.js', import.meta.url),
+    'utf8',
+  );
+
+  it('reads onZoomComplete and onPanComplete off state.options.zoom / state.options.pan', () => {
+    expect(pluginSource).toContain('state.options.zoom.onZoomComplete');
+    expect(pluginSource).toContain('state.options.pan.onPanComplete');
+  });
+
+  it('never reads either callback as an unqualified top-level sibling of state.options', () => {
+    expect(pluginSource).not.toContain('state.options.onZoomComplete');
+    expect(pluginSource).not.toContain('state.options.onPanComplete');
   });
 });
