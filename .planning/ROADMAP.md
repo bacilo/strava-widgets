@@ -404,9 +404,9 @@ Plans:
 
 **Wave 6** *(gap closure — blocked on 23-07's Round 1 checkpoint; three parallel plans, disjoint files)*
 
-- [ ] 23-08-PLAN.md — nest the settle callbacks inside the plugin's `zoom`/`pan` options and route the four buttons through the pure range math (Findings 10 + 1; closes R8, R11, R16)
-- [ ] 23-09-PLAN.md — contain the year heatmap's fixed 634px grid in a `.splits-scroll`-style scroll wrapper (Finding 9; closes R15)
-- [ ] 23-10-PLAN.md — step-aware x-axis tick formatting and an explicit per-chart ResizeObserver (Findings 7 + 8)
+- [x] 23-08-PLAN.md — nest the settle callbacks inside the plugin's `zoom`/`pan` options and route the four buttons through the pure range math (Findings 10 + 1; closes R8, R11, R16)
+- [x] 23-09-PLAN.md — contain the year heatmap's fixed 634px grid in a `.splits-scroll`-style scroll wrapper (Finding 9; closes R15)
+- [x] 23-10-PLAN.md — step-aware x-axis tick formatting and an explicit per-chart ResizeObserver (Findings 7 + 8)
 
 **Wave 7** *(blocked on 23-08, 23-09 and 23-10)*
 
@@ -473,7 +473,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 20. Row-Click Interaction Pattern | v2.1 | 20/20 | Complete    | 2026-08-18 |
 | 21. Overview Rebuild | v2.1 | 8/8 | Complete    | 2026-08-18 |
 | 22. Calendar Week-Start & Totals | v2.1 | 16/16 | Complete   | 2026-08-19 |
-| 23. Trends Zoom, Pan & Taller Bands | v2.1 | 7/7 | Complete   | 2026-08-25 |
+| 23. Trends Zoom, Pan & Taller Bands | v2.1 | 10/11 | In Progress|  |
 | 24. Local Curation Mode | v2.1 | 0/TBD | Not started | - |
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 0/TBD | Not started | - |
 
