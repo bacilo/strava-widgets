@@ -271,6 +271,7 @@ export function attachZoomController(args: {
 
   const full = computeFullRange(scaleKey, bounds);
   const defaultWindow = computeDefaultWindow(scaleKey, bounds);
+  const limits = computeLimits(scaleKey, bounds);
 
   const cluster = buildZoomControlCluster(header, groupLabel);
   const cursorDetachers = members.map((member) => applyGrabCursor(member.canvas));
@@ -355,36 +356,46 @@ export function attachZoomController(args: {
     onRangeChange?.(current);
   }
 
-  // Pitfall 3: every handler below calls settle() DIRECTLY, never relying
-  // on onZoomComplete/onPanComplete alone, because chart.zoom()/chart.pan()
-  // do not fire those callbacks. Omitting the direct call here would
-  // reproduce exactly the defect this repo's DOM-less test suite cannot
-  // see: the chart visibly moves, but the aria-label and Reset button
-  // never update.
+  // Finding 1 (23-08 gap closure): none of the four handlers below touch
+  // the plugin's imperative zoom()/pan() API any more. The plugin's own
+  // `linearZoomDelta` computes `newRange = range * (zoom - 1)` and REMOVES
+  // that much, so passing the old 1.5 zoom factor directly halved the window
+  // instead of dividing it by 1.5; `chart.pan()`'s `panNumericalScale`
+  // re-derives its pixel delta through `scale.getPixelForValue` rather
+  // than the plot width the caller measured, which produced a step of
+  // roughly 33% of the visible span instead of the designed 25%. Each
+  // handler now reads the rendered range with `currentRange()`, computes
+  // a target range with the pure `zoomStepRange`/`panStepRange` functions
+  // (`trends-zoom-logic.ts`), hands it to `applyRange`, then calls
+  // `settle()` directly — the same, already-proven shape Reset already
+  // used (R10(c) PASS in Round 1). `applyRange` writes `min`/`max`
+  // straight onto the scale and deliberately bypasses the plugin's own
+  // `limits` enforcement; that is safe only because `zoomStepRange` and
+  // `panStepRange` already clamp into `full` and `limits.minRange`
+  // themselves — do not remove that clamping from the pure functions
+  // without noticing what depends on it here.
   cluster.zoomIn.addEventListener('click', () => {
-    const chart = members[0]?.chart;
-    if (!chart) return;
-    chart.zoom(ZOOM_FACTOR);
+    const current = currentRange();
+    if (!current) return;
+    applyRange(zoomStepRange(current, full, limits.minRange, 'in'));
     settle();
   });
   cluster.zoomOut.addEventListener('click', () => {
-    const chart = members[0]?.chart;
-    if (!chart) return;
-    chart.zoom(1 / ZOOM_FACTOR);
+    const current = currentRange();
+    if (!current) return;
+    applyRange(zoomStepRange(current, full, limits.minRange, 'out'));
     settle();
   });
   cluster.panEarlier.addEventListener('click', () => {
-    const chart = members[0]?.chart;
-    if (!chart) return;
-    const deltaPx = panDeltaPx(chart.chartArea.right - chart.chartArea.left, 'earlier');
-    chart.pan({ x: deltaPx });
+    const current = currentRange();
+    if (!current) return;
+    applyRange(panStepRange(current, full, 'earlier'));
     settle();
   });
   cluster.panLater.addEventListener('click', () => {
-    const chart = members[0]?.chart;
-    if (!chart) return;
-    const deltaPx = panDeltaPx(chart.chartArea.right - chart.chartArea.left, 'later');
-    chart.pan({ x: deltaPx });
+    const current = currentRange();
+    if (!current) return;
+    applyRange(panStepRange(current, full, 'later'));
     settle();
   });
   cluster.reset.addEventListener('click', () => {
@@ -436,22 +447,24 @@ export function attachZoomController(args: {
 // wiring only. Anyone adding computation here in the future should move it
 // to the logic module rather than leaving it unreachable by any test.
 //
-// Three specific claims this module makes can only be settled by a real
+// Two specific claims this module makes can only be settled by a real
 // browser checkpoint, not by this repo's automated gate (see
-// `23-VALIDATION.md`'s Manual-Only Verifications table):
+// `23-VALIDATION.md`'s Manual-Only Verifications table). A third claim —
+// the → button's step MAGNITUDE and direction — used to belong on this
+// list (Pitfall 5's sign-inversion risk), but is now pure arithmetic
+// covered by `trends-zoom-logic.test.ts`'s `zoomStepRange`/`panStepRange`
+// suite (23-08 gap closure, Finding 1): the buttons no longer touch the
+// plugin's imperative API, so the step size the tests assert IS the step
+// size the browser renders.
 //
 //   1. The canvas aria-label actually updates after a BUTTON press, not
-//      only after a gesture (Pitfall 3, source-verified: chart.zoom()/
-//      chart.pan() never fire onZoomComplete/onPanComplete) — the row
+//      only after a gesture (source-verified: chart.zoom()/chart.pan()
+//      never fire onZoomComplete/onPanComplete, which is exactly why every
+//      button handler above calls settle() directly) — the row
 //      "aria-label names the visible range on settle (D-13)", which asks
 //      for the canvas aria-label quoted verbatim after both a gesture zoom
 //      and a button zoom.
-//   2. The → button reveals LATER, not earlier, data — the sign Pitfall 5
-//      warns is easy to invert unnoticed — the row "All four buttons
-//      operate with no pointing device at all (D-11)", which asks for each
-//      button's aria-label and the x-range change it produced to be quoted,
-//      not just "the chart moved."
-//   3. The Cadence & HR pair stays in lockstep across a settle originating
+//   2. The Cadence & HR pair stays in lockstep across a settle originating
 //      on either chart (D-02's sibling-sync requirement, implemented in
 //      this file's settle()). No 23-VALIDATION.md row is quoted verbatim
 //      here because the pair itself is wired together by plan 23-05, which
