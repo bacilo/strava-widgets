@@ -54,7 +54,7 @@ command. Plans must be written so the automatable logic is extracted into a pure
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
 | 23-01/T3 | 23-01 | 1 | TRN-01 | — | N/A | unit | `npx vitest run src/dashboard/views/trends-zoom-logic.test.ts -t "computeDefaultWindow"` | ✅ | ✅ green |
 | 23-01/T3 | 23-01 | 1 | TRN-01 | — | N/A | unit | `npx vitest run src/dashboard/views/trends-zoom-logic.test.ts -t "computeLimits"` | ✅ | ✅ green |
-| 23-01/T3 | 23-01 | 1 | TRN-02 | — | N/A | unit | `npx vitest run src/dashboard/views/trends-zoom-logic.test.ts -t "panDeltaPx|zoomFactor"` | ✅ | ✅ green |
+| 23-01/T3 | 23-01 | 1 | TRN-02 | — | N/A | unit | `npx vitest run src/dashboard/views/trends-zoom-logic.test.ts -t "zoomStepRange and panStepRange"` | ✅ | ✅ green |
 | 23-01/T3 | 23-01 | 1 | TRN-02 | — | N/A | unit | `npx vitest run src/dashboard/views/trends-zoom-logic.test.ts -t "formatRangeLabel"` | ✅ | ✅ green |
 | 23-01/T3 | 23-01 | 1 | TRN-04 | — | N/A | unit | `npx vitest run src/dashboard/views/trends-zoom-logic.test.ts -t "restoreOrDefault"` | ✅ | ✅ green |
 | 23-02/T2 | 23-02 | 1 | TRN-03 | — | N/A | unit (rule scanner, by VALUE) | `npx vitest run src/dashboard/styles.test.ts -t "chart-band__canvas-wrap--tall"` | ✅ | ✅ green |
@@ -65,7 +65,16 @@ command. Plans must be written so the automatable logic is extracted into a pure
 | 23-05/T1,T2,T3 | 23-05 | 3 | TRN-01, TRN-02, TRN-04 | T-23-CANVAS, T-23-LAZY | Plugin per-instance only, never `Chart.register`; no persistence | source assertion + gate | `npx tsc --noEmit && npm test && npm run verify-dashboard` | ✅ | ✅ green |
 | 23-06/T1,T2,T3 | 23-06 | 4 | TRN-01, TRN-04 | T-23-REGRESS | `sliceLoadWindow` retired; every other export intact | source assertion + gate | `npx tsc --noEmit && npm test && npm run build-widgets` | ✅ | ✅ green |
 | 23-07/T1 | 23-07 | 5 | TRN-01..04 | T-23-LAZY, T-23-STALE | Entry chunk carries no Hammer; served build provably fresh | build-artifact assertion | `npm test && npx tsc --noEmit && npm run build-widgets && npm run verify-dashboard` | ✅ | ✅ green |
-| 23-07/T2 | 23-07 | 5 | TRN-01..04 | T-23-EVIDENCE | 20 non-waivable browser rows, each with its own stated proof | manual-only (blocking checkpoint) | — none; see Manual-Only Verifications below | N/A | ⬜ pending |
+| 23-07/T2 | 23-07 | 5 | TRN-01..04 | T-23-EVIDENCE | 20 non-waivable browser rows, each with its own stated proof | manual-only (blocking checkpoint) | — none; see Manual-Only Verifications below | N/A | ✅ green (Round 1 closed 2026-08-26, see below) |
+| 23-08/T1 | 23-08 | 6 | TRN-02 | — | `zoomStepRange`/`panStepRange` pinned to the design-intent date strings (Finding 1 fix) | unit | `npx vitest run src/dashboard/views/trends-zoom-logic.test.ts -t "zoomStepRange and panStepRange"` | ✅ | ✅ green (12 passed) |
+| 23-08/T2 | 23-08 | 6 | TRN-02, TRN-04 | — | `buildZoomPluginOptionsShape` nests `onZoomComplete`/`onPanComplete` inside `zoom`/`pan` (Finding 10 fix) | unit | `npx vitest run src/dashboard/views/trends-zoom-logic.test.ts -t "buildZoomPluginOptionsShape"` | ✅ | ✅ green (4 passed) |
+| 23-08/T3 | 23-08 | 6 | TRN-02, TRN-04 | — | Source-text guard pinning `chartjs-plugin-zoom@2.2.0`'s own `.zoom.`/`.pan.`-qualified lookup paths | unit (source-text guard) | `npx vitest run src/dashboard/views/trends-zoom-logic.test.ts -t "chartjs-plugin-zoom option lookup contract"` | ✅ | ✅ green (2 passed) |
+| 23-09/T1 | 23-09 | 6 | TRN-03 | — | `.year-heatmap-scroll` containment wrapper pinned by value (3 declarations + 634px arithmetic) | unit (rule scanner, by VALUE) | `npx vitest run src/dashboard/styles.test.ts -t "year-heatmap-scroll"` | ✅ | ✅ green (6 passed, covers both T1's and T2's assertions in one describe block) |
+| 23-09/T2 | 23-09 | 6 | TRN-03 | — | `buildYearHeatmapSection`'s `gridWrap` actually carries the new class (consumer guard) | unit (consumer guard) | `npx vitest run src/dashboard/styles.test.ts -t "year-heatmap-scroll"` | ✅ | ✅ green (same 6/6 run as T1 — the consumer-guard assertion lives in the same describe block) |
+| 23-10/T1 | 23-10 | 6 | TRN-01 | — | `tickGranularityForStep`/`formatTimeAxisTick`/`stepMsFromTicks` implement the never-duplicate-a-label invariant (Finding 7 fix) | unit (TDD) | `npx vitest run src/dashboard/views/trends-tick-format.test.ts` | ✅ | ✅ green (16 passed) |
+| 23-10/T2 | 23-10 | 6 | TRN-01 | — | All five Trends x-axis tick callbacks route through `formatAdaptiveTimeTick`/`stepMsFromTicks` | source assertion + gate | `npx tsc --noEmit && npm test && npm run build-widgets` | ✅ | ✅ green (this session's step (b) run) |
+| 23-10/T3 | 23-10 | 6 | TRN-04 | — | `observeCanvasResize` attached at all seven chart mounts with matching `destroy()` teardown (Finding 8 fix) | source assertion + gate | `npx tsc --noEmit && npm test && npm run build-widgets && npm run verify-dashboard` | ✅ | ✅ green (this session's step (b) run) |
+| 23-11/T2 | 23-11 | 7 | TRN-01..04 | T-23-EVIDENCE-R2, T-23-PRESSURE | 22 non-waivable browser rows (R21-R42), each with its own stated proof | manual-only (blocking checkpoint) | — none; see Round 2 checkpoint record below | N/A | ⬜ pending |
 
 *Status column above reflects this session's actual run (2026-08-19, plan 23-07 Task 1): `npm test` 54/54 files, 1313/1313 tests, all 5 `trends-zoom-logic.test.ts` `-t` filters and both `styles.test.ts` filters passed within that run; `npm audit` re-confirmed no advisory names `chartjs-plugin-zoom` or `hammerjs`; `npx tsc --noEmit` clean; `npm run build-widgets` succeeded; `npm run verify-dashboard` 37/37. Only the 23-07/T2 row (the browser checkpoint) remains pending — it is this plan's Task 2.*
 
@@ -377,3 +386,135 @@ phone width. Plausibly the same family as Phase 22's still-open CAL-02. **Blocks
 |------|--------|
 | 2011-08-16 → 2017-03-27 | 2051 days (the whole pre-HR-monitor era) — the one R19 used |
 | 2020-02-25 → 2020-05-19 | 85 days |
+
+---
+
+## Round 2 — build, staging and expected values
+
+> Run 2026-08-26 in this session, in the main checkout on branch `master` (no worktree — this
+> plan's checkpoint must run against the real checkout, per its own execution instructions).
+> Plans 23-08, 23-09 and 23-10 are all merged into `master` at this session's `HEAD`.
+
+### (a) Port cleared before trusting anything
+
+A process WAS already bound to port 8099: `python3 -m http.server 8099 --bind 127.0.0.1`
+(pid 11541), cwd `/private/tmp/strava-serve`, whose `strava-widgets` entry was a symlink to
+`/Users/pedf/workspace/strava-widgets/dist/widgets` — i.e. THIS session's own main checkout, not
+an unrelated session and not a worktree. This is consistent with Round 1's own 2026-08-25
+re-staging (`23-VALIDATION.md`'s Round 1 record: "Re-staged from the main checkout … at
+`http://127.0.0.1:8099/strava-widgets/`"), left running since then. Because it pointed at
+`dist/widgets` by symlink rather than a copy, it was already serving stale bytes relative to this
+round's three merged fix plans until a fresh build landed under it. Killed (`kill 11541`) before
+any gate command ran; `lsof -i :8099` confirmed the port free immediately after.
+
+### (b) Clean rebuild and full gate
+
+- `rm -rf dist/widgets` — removed.
+- `npm test` → **55/55 test files, 1348/1348 tests, exit 0.**
+- `npx tsc --noEmit` → **exit 0.**
+- `npm run build-widgets` → **exit 0** (all ten widgets, four standalone pages, and the dashboard
+  SPA built cleanly; private-artifact scan: 5587 published JSON files scanned, none contain
+  identity/health fields).
+- `npm run verify-dashboard` → **37/37 checks passed, 0 failures, exit 0** — matches Round 1's
+  37-check baseline exactly (no check added or removed by 23-08/09/10).
+
+### (c) Proof the build is NEW
+
+Read from `dist/widgets/index.html`'s module `<script src>` and stylesheet `<link>`:
+
+- Entry script: **`assets/index-D01ardNQ.js`**
+- Stylesheet: **`assets/index-Duibt5wO.css`**
+
+Both differ from Round 1's entry `assets/index-D2l-GZfl.js`, which reproduced byte-identically
+across two separate Round 1 rebuilds. **This round's hash is new**, confirming the 23-08/09/10
+fixes are actually present in the built artifact — an unchanged hash would have meant otherwise,
+per this task's own stop-and-investigate instruction, which did not trigger.
+
+### (d) Lazy chunk boundary re-proof (T-23-LAZY)
+
+- `grep -c "Hammer" dist/widgets/assets/index-D01ardNQ.js` → **`0`**
+- Newest `dist/widgets/assets/trends-charts-*.js` chunk (the only one on disk after the clean
+  rebuild): **`assets/trends-charts-CfzuCWdi.js`**
+- `grep -c "Hammer" dist/widgets/assets/trends-charts-CfzuCWdi.js` → **`1`**
+- **Minifier caveat (restated per Round 1):** minifiers preserve legal-comment banners and
+  property names, so `Hammer` remains a reliable marker; `0` on the entry chunk together with a
+  non-zero count on the trends chunk proves `trends.ts`'s static import graph still never pays for
+  Hammer or the zoom plugin — 23-08's fix to `chart-zoom.ts`'s option-building did not add a new
+  static import of either, and 23-10's `trends-tick-format.ts` (confirmed pure, no imports at all)
+  cannot have dragged either dependency across the boundary either.
+
+### (e) Expected read-back values (Round 2)
+
+**Archive-unchanged re-check (before any browser was opened, D-25):** last weekly bucket
+`weekStartISO: "2026-08-10T00:00:00.000Z"`, last monthly `periodStart: "2026-08-01T00:00:00.000Z"`,
+last yearly `periodStart: "2026-01-01T00:00:00.000Z"`, last training-load day `date: "2026-08-11"`,
+last commit touching `data/stats/` = `fe5391476c8b1dc3cac7298ba1010502484c4f77` (`fe53914`
+short). **All four match Round 1's recorded values exactly — no drift.**
+
+Recomputed with a standalone Node script (not carried forward from Round 1) that re-implements,
+verbatim, `trends-zoom-logic.ts`'s current `computeArchiveBounds`, `computeFullRange`,
+`computeDefaultWindow`, `computeLimits`, `zoomStepRange`, `panStepRange`, `formatRangeLabel`, and
+`trends-tick-format.ts`'s current `tickGranularityForStep`/`formatTimeAxisTick`, against the real
+`data/stats/*.json` archive read directly off disk. The approximate step between adjacent
+Chart.js autoticks is taken as `span / 8`, the same assumption `23-10-SUMMARY.md`'s own
+invalidation table used (verified by reproducing its stated ~46/~30/~685/~228-day steps exactly
+before trusting the assumption for rows it did not cover). **Exact literal tick-label counts and
+positions still require live-browser confirmation** — Chart.js's real autotick placement is not
+reproducible outside a browser; the granularity (day/month/year) is what this script computes
+with certainty, and is what determines the tick STRING shape below.
+
+| Tab / state | Expected canvas `aria-label` (verbatim) | Expected first x-axis tick | Expected last x-axis tick | Changed since Round 1? |
+|---|---|---|---|---|
+| Volume weekly, default (D-06 opening window) | `Weekly distance chart, Aug 2025 to Aug 2026` | **Aug 2025** | **Aug 2026** | **Yes** — Round 1 observed day-precision (`13 Aug 2025` … `13 Aug 2026`, R4); the 46-day approx. tick step now exceeds the 32-day day/month threshold, so ticks render month-precision |
+| Volume monthly, default (D-06 opening window) | `Monthly distance chart, Aug 2021 to Aug 2026` | Aug 2021 | Aug 2026 | No — Round 1's `Aug 2021` / `Aug 2026` already matched month-precision (~228-day step, unchanged bucket) |
+| Volume yearly, default (= full range, D-06) | `Yearly distance chart, Jul 2010 to Jul 2026` | **2010** | **2026** | Table cell only — see note below. The ~685-day approx. step is year-precision both before and after 23-10, so the RENDERED ticks are unchanged; flagging that Round 1's own table cell (`Jul 2010`/`Jul 2026`, with month) does not match either the old or the new code's actual bare-year output. Pre-existing table inaccuracy per `23-10-SUMMARY.md`'s own flag — not caused by this round's plans, not fixed here |
+| Volume weekly, after one `+` (zoom in ÷1.5 from default) | `Weekly distance chart, Oct 2025 to Jun 2026` | 13 Oct 2025 | 13 Jun 2026 | No — 243-day span, ~30-day approx. step stays below the 32-day threshold, day-precision both before and after 23-10 |
+| Volume weekly, after one `−` (zoom out ×1.5 from default) | `Weekly distance chart, Feb 2025 to Aug 2026` | **Feb 2025** | **Aug 2026** | New row this round (Round 1's table had no dedicated `−` row; R28(d) needs it). 548-day span, ~68-day approx. step, month-precision |
+| Volume weekly, after one `←` (pan earlier 25% of visible span from default) | `Weekly distance chart, May 2025 to May 2026` | **May 2025** | **May 2026** | **Yes** — same day→month change as the default row (identical 365-day span, ~46-day step) |
+| Volume weekly, at full zoom-out (Reset-to-everything / `−` clamp) | `Weekly distance chart, Aug 2011 to Aug 2026` | **2011** | **2026** | **Yes** — Round 1 observed day-precision (`11 Aug 2011` … `13 Aug 2026`, R9(b)); the ~685-day approx. step is now above the 366-day month/year threshold, dropping the month entirely |
+| Training Load, 12mo default | `Training load chart: CTL, ATL, and TSB over time, Aug 2025 to Aug 2026` | Aug 2025 | Aug 2026 | No — 365-day span, ~46-day step, month-precision both before (fixed `formatMonthYearTick`) and after (step-derived) |
+| Training Load, at an ≈11-day window | *(depends on the live zoom gesture's exact endpoints — no fixed aria-label to precompute)* | *(distinct dates, day-precision)* | *(distinct dates, day-precision)* | **Granularity guaranteed changed** — an ≈11-day span's ~1.4-day approx. step is far below the 32-day threshold, so day-precision applies; Round 1 (R18 note, Finding 7) observed all eight ticks read the identical `Feb 2026` under the old fixed-format code. R41(a) requires quoting every rendered tick and confirming they are now distinct `D MMM YYYY` strings, not a single computed pair |
+
+**Aria-label base strings** (unchanged from Round 1, `VOLUME_ARIA_LABELS` + `withRangeSuffix`):
+`Weekly distance chart`, `Monthly distance chart`, `Yearly distance chart`, `Training load chart:
+CTL, ATL, and TSB over time`.
+
+**Cross-check against `23-10-SUMMARY.md`'s own invalidation table:** that table named exactly
+three invalidated rows (weekly default, weekly after `←`, weekly full zoom-out) and four
+unaffected rows (weekly after `+`, monthly default, yearly default, Training Load 12mo default),
+plus one pre-existing yearly-row table inaccuracy it explicitly flagged as unrelated. This
+recomputation reproduces all of that exactly, and additionally publishes the weekly-after-`−` row
+23-10's table did not need to cover (its scope was tick granularity, not the ÷1.5/×1.5 zoom-step
+values 23-08 fixed) and the ≈11-day Training Load row Finding 7's own re-ask (R41(a)) requires. No
+disagreement to reconcile.
+
+**Zoom-out (`−`) step count to full zoom, for R29(b):** recomputed at **7 presses** from the
+weekly default to the full-range clamp (`2011-08-11T12:00 … 2026-08-13T12:00`), down from Round
+1's 14 (the halving-bug count) — expected, since the step is now ÷1.5/×1.5 per press instead of
+÷2/×2.
+
+### (f) Per-Task Verification Map extended
+
+Done above, in the existing `## Per-Task Verification Map` table: rows `23-08/T1`, `23-08/T2`,
+`23-08/T3`, `23-09/T1`, `23-09/T2`, `23-10/T1`, `23-10/T2`, `23-10/T3` and `23-11/T2` added, each
+Status set from this session's actual run (all green except `23-11/T2`, pending — this plan's own
+Task 2). The stale `23-01/T3` row, previously filtered on the now-retired pixel-space pan handler
+alongside `zoomFactor`, is re-keyed to `-t "zoomStepRange and panStepRange"`, matching the
+describe block 23-08 actually renamed it to. `23-07/T2`'s Status is updated from `⬜ pending` to
+`✅ green`, reflecting Round 1's closure recorded below (it was still pending at the point this
+map was first drafted, 2026-08-19). The retired pixel-space pan handler's identifier no longer
+appears anywhere in this file (confirmed by direct repo-wide grep of this document during Task 1).
+
+### (g) Staged build
+
+- Served `dist/widgets` from the MAIN CHECKOUT (not a worktree) via `python3 -m http.server 8099
+  --bind 127.0.0.1 --directory /tmp/strava-serve`, with `/tmp/strava-serve/strava-widgets`
+  symlinked to `/Users/pedf/workspace/strava-widgets/dist/widgets`, matching production's URL
+  path shape: `http://127.0.0.1:8099/strava-widgets/`.
+- `curl -sI http://127.0.0.1:8099/strava-widgets/` → **`HTTP/1.0 200 OK`**.
+- `curl -s http://127.0.0.1:8099/strava-widgets/ | grep -o 'assets/index-[A-Za-z0-9_-]*\.js'` →
+  **`assets/index-D01ardNQ.js`** — matches step (c)'s built entry filename verbatim.
+
+`git status --porcelain src/` is empty; no source file was modified by this task.
+
+---
