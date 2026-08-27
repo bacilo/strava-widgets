@@ -291,6 +291,23 @@ async function main() {
     await expect404(baseUrl, '/data/private/athlete-private.json', 'private athlete config must never be published');
     await expect404(baseUrl, '/data/private/', 'private config directory must never be published');
 
+    // D-10(b): the HTTP half of the two-layer curation-write-path absence guard
+    // (build-time half is assertNoCurationArtifacts in build-widgets.mjs, called
+    // per OD-2 at the end of buildAllWidgets()). These paths are written relative
+    // to baseUrl, which already carries MOUNT_PREFIX (/strava-widgets) — GitHub
+    // Pages serves this repo as a project page under /strava-widgets/, so a leaked
+    // curate artifact would be reachable at exactly that URL. An origin-root
+    // request (no prefix) would return 403 from safeResolve, not 404, and would
+    // make this assertion lie about what a real deploy would do.
+    //
+    // These are literal /__curate/... paths and must NEVER be widened into a
+    // wildcard or prefix match against /data/ — /data/best-effort-exclusions.json
+    // is public, already published, and already asserted 200-and-parses on the
+    // very next lines below. Only the write PATH is private; the data is not.
+    await expect404(baseUrl, '/__curate/health', 'the curate health probe must never be published');
+    await expect404(baseUrl, '/__curate/overlay.js', 'the curate overlay bundle must never be published');
+    await expect404(baseUrl, '/__curate/exclusions/3475726256', 'the curate write endpoint must never be published');
+
     const exclusionsBody = await expect200(baseUrl, '/data/best-effort-exclusions.json');
     if (exclusionsBody) {
       const parsedExclusions = JSON.parse(exclusionsBody);
