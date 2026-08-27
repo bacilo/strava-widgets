@@ -414,7 +414,7 @@ Plans:
 
 **Wave 8** *(gap closure round 2 — blocked on 23-11's Round 2 checkpoint)*
 
-- [ ] 23-12-PLAN.md — contain the five-tab Trends tablist in a `.splits-scroll`-style `.trends-tablist-scroll` wrapper, pinned by value, and record Finding 12's dated deferral (Finding 11; closes R35)
+- [x] 23-12-PLAN.md — contain the five-tab Trends tablist in a `.splits-scroll`-style `.trends-tablist-scroll` wrapper, pinned by value, and record Finding 12's dated deferral (Finding 11; closes R35)
 
 **Wave 9** *(blocked on 23-12)*
 
@@ -481,7 +481,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 20. Row-Click Interaction Pattern | v2.1 | 20/20 | Complete    | 2026-08-18 |
 | 21. Overview Rebuild | v2.1 | 8/8 | Complete    | 2026-08-18 |
 | 22. Calendar Week-Start & Totals | v2.1 | 16/16 | Complete   | 2026-08-19 |
-| 23. Trends Zoom, Pan & Taller Bands | v2.1 | 11/11 | In Progress|  |
+| 23. Trends Zoom, Pan & Taller Bands | v2.1 | 12/13 | In Progress|  |
 | 24. Local Curation Mode | v2.1 | 0/TBD | Not started | - |
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 0/TBD | Not started | - |
 
