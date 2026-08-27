@@ -438,9 +438,9 @@ Plans:
 
 **Wave 1** *(three parallel plans, disjoint files — build tier, dashboard seam, docs)*
 
-- [ ] 24-01-PLAN.md — widen the vitest glob to `scripts/`, extract `copy-data-tree.mjs`, and ship D-10(a)'s curation guard as a pure violations-returning function called at the END of `buildAllWidgets()` (OD-2), observed red against five planted fixtures (D-11)
-- [ ] 24-02-PLAN.md — D-03's two inert additions: `data-activity-id` on the Best Efforts `<section>` and one `dashboard:best-efforts-mounted` CustomEvent dispatched as the last statement of `mountBestEffortsAndBadges`, pinned by a source-structure guard observed red
-- [ ] 24-03-PLAN.md — the D-04 requirements change this phase owns: amend CUR-01, the milestone-checklist line, the Phase 24 goal and criteria 1 and 4, and record OD-1..OD-4 as dated notes in `24-CONTEXT.md`
+- [x] 24-01-PLAN.md — widen the vitest glob to `scripts/`, extract `copy-data-tree.mjs`, and ship D-10(a)'s curation guard as a pure violations-returning function called at the END of `buildAllWidgets()` (OD-2), observed red against five planted fixtures (D-11)
+- [x] 24-02-PLAN.md — D-03's two inert additions: `data-activity-id` on the Best Efforts `<section>` and one `dashboard:best-efforts-mounted` CustomEvent dispatched as the last statement of `mountBestEffortsAndBadges`, pinned by a source-structure guard observed red
+- [x] 24-03-PLAN.md — the D-04 requirements change this phase owns: amend CUR-01, the milestone-checklist line, the Phase 24 goal and criteria 1 and 4, and record OD-1..OD-4 as dated notes in `24-CONTEXT.md`
 
 **Wave 2** *(blocked on 24-01; two parallel plans, disjoint files)*
 
@@ -505,7 +505,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 21. Overview Rebuild | v2.1 | 8/8 | Complete    | 2026-08-18 |
 | 22. Calendar Week-Start & Totals | v2.1 | 16/16 | Complete   | 2026-08-19 |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 13/13 | Complete    | 2026-08-27 |
-| 24. Local Curation Mode | v2.1 | 0/TBD | Not started | - |
+| 24. Local Curation Mode | v2.1 | 3/8 | In Progress|  |
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 0/TBD | Not started | - |
 
 ---
