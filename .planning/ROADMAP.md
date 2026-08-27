@@ -444,8 +444,8 @@ Plans:
 
 **Wave 2** *(blocked on 24-01; two parallel plans, disjoint files)*
 
-- [ ] 24-04-PLAN.md — the curate server's serving half: FATAL missing-build check, fixed `127.0.0.1:4173` bind (OD-4), `/strava-widgets` prefix mount, in-flight overlay-tag injection, esbuild bundling into gitignored `.curate-dist/`, and `/__curate/health` + `/__curate/overlay.js`
-- [ ] 24-05-PLAN.md — D-10(b)'s three `expect404` assertions in `verify-dashboard-publish.mjs` plus a subprocess planted-fixture test proving the shipped verifier exits non-zero, with `/data/best-effort-exclusions.json` still 200-and-parsing
+- [x] 24-04-PLAN.md — the curate server's serving half: FATAL missing-build check, fixed `127.0.0.1:4173` bind (OD-4), `/strava-widgets` prefix mount, in-flight overlay-tag injection, esbuild bundling into gitignored `.curate-dist/`, and `/__curate/health` + `/__curate/overlay.js`
+- [x] 24-05-PLAN.md — D-10(b)'s three `expect404` assertions in `verify-dashboard-publish.mjs` plus a subprocess planted-fixture test proving the shipped verifier exits non-zero, with `/data/best-effort-exclusions.json` still 200-and-parsing
 
 **Wave 3** *(24-06 blocked on 24-04; 24-07 blocked on 24-02 and 24-04; disjoint files)*
 
@@ -505,7 +505,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 21. Overview Rebuild | v2.1 | 8/8 | Complete    | 2026-08-18 |
 | 22. Calendar Week-Start & Totals | v2.1 | 16/16 | Complete   | 2026-08-19 |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 13/13 | Complete    | 2026-08-27 |
-| 24. Local Curation Mode | v2.1 | 3/8 | In Progress|  |
+| 24. Local Curation Mode | v2.1 | 5/8 | In Progress|  |
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 0/TBD | Not started | - |
 
 ---
