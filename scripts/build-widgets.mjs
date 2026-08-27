@@ -6,8 +6,10 @@
 import { build } from 'vite';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { copyFileSync, mkdirSync, readdirSync, readFileSync, existsSync, statSync } from 'fs';
+import { copyFileSync, mkdirSync, readdirSync, readFileSync, existsSync } from 'fs';
 import cssInjectedByJsPlugin from 'vite-plugin-css-injected-by-js';
+import { copyJsonTree } from './lib/copy-data-tree.mjs';
+import { findCurationArtifacts } from './lib/curation-guard.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -206,51 +208,23 @@ function assertNoPrivateArtifacts() {
 }
 
 /**
- * Copies every `.json` file from `srcDir` into `destDir`, recursing into
- * subdirectories (e.g. `data/stats/best-efforts/{id}.json`, added 18-13) so
- * a per-activity shard directory nested one level inside an already-listed
- * `dataDirs` entry is published exactly like its flat siblings, with no
- * separate `dataDirs` entry required. Returns `{ copied, skipped }` totals
- * across the whole subtree.
+ * Build-time guard against local curation mode's write path (Phase 24,
+ * D-10(a)) ever reaching the publish directory. Hard-fails the build —
+ * never a warning — because dist/widgets/ is what actually gets deployed
+ * from this public repo. Delegates the scan to the pure, importable
+ * findCurationArtifacts() (scripts/lib/curation-guard.mjs) so that
+ * function can be unit-tested directly against a planted-fixture tree
+ * (D-11); this wrapper owns the only process.exit(1) in the pair.
  */
-function copyJsonTree(srcDir, destDir) {
-  mkdirSync(destDir, { recursive: true });
-  let copied = 0;
-  let skipped = 0;
-
-  for (const entry of readdirSync(srcDir, { withFileTypes: true })) {
-    const srcPath = resolve(srcDir, entry.name);
-    const destPath = resolve(destDir, entry.name);
-
-    if (entry.isDirectory()) {
-      const nested = copyJsonTree(srcPath, destPath);
-      copied += nested.copied;
-      skipped += nested.skipped;
-      continue;
+function assertNoCurationArtifacts() {
+  const violations = findCurationArtifacts('dist/widgets');
+  if (violations.length > 0) {
+    for (const { path, reason } of violations) {
+      console.error(`✗ Curation-artifact guard failed: ${path} — ${reason}`);
     }
-
-    if (!entry.name.endsWith('.json')) continue;
-
-    // Efficiency guard: skip the copy when the destination is already
-    // up to date, so local rebuilds don't recopy ~150MB every time. CI
-    // always runs on a fresh checkout, so it always does the full copy.
-    let shouldCopy = true;
-    if (existsSync(destPath)) {
-      const srcMtime = statSync(srcPath).mtimeMs;
-      const destMtime = statSync(destPath).mtimeMs;
-      if (destMtime >= srcMtime) {
-        shouldCopy = false;
-      }
-    }
-    if (shouldCopy) {
-      copyFileSync(srcPath, destPath);
-      copied++;
-    } else {
-      skipped++;
-    }
+    process.exit(1);
   }
-
-  return { copied, skipped };
+  console.log(`✓ Curation-artifact scan: dist/widgets tree scanned, no curation-mode artifacts found.`);
 }
 
 function copyDataFiles() {
@@ -347,6 +321,17 @@ async function buildAllWidgets() {
   // Build the dashboard SPA last so it definitively replaces any
   // pre-Phase-16 committed dist/widgets/index.html at the site root.
   await buildDashboard();
+
+  // OD-2 (dated amendment to D-10(a)'s literal "same place as
+  // assertNoPrivateArtifacts" wording, decided during Phase 24 planning):
+  // this guard is called HERE — after buildPages()/buildDashboard(), not
+  // inside copyDataFiles() where assertNoPrivateArtifacts fires — because
+  // copyDataFiles() runs before the JS/HTML side of dist/widgets exists.
+  // A guard called there would pass trivially against a real curate-leak
+  // regression (the most likely vector is the JS/HTML build output, not
+  // the data tree), which is exactly the never-red failure mode D-11
+  // exists to prevent (Phase 19 R3-CR-01, Phase 23 WR-06 precedent).
+  assertNoCurationArtifacts();
 
   console.log('\nWidget library build complete!');
   console.log('Output: dist/widgets/ (widgets, pages, and the dashboard SPA)');
