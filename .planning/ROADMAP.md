@@ -432,7 +432,30 @@ Plans:
   3. `verify-dashboard-publish.mjs` gains a new assertion, following the `assertNoPrivateArtifacts` precedent, that the curation write path (server code, curate UI bundle, write endpoints) is absent from the published GitHub Pages bundle — and that assertion demonstrably fails against a build that regresses this.
   4. **Human checkpoint**: run `npm run curate` locally, toggle a per-distance exclusion end-to-end with a reason, confirm it lands in `data/best-effort-exclusions.json` and renders in the detail view; separately, load the production build served under `/strava-widgets` in a real browser and confirm no curation write endpoint is present or reachable.
 
-**Plans**: TBD
+**Plans**: 8 plans in 4 waves
+
+Plans:
+
+**Wave 1** *(three parallel plans, disjoint files — build tier, dashboard seam, docs)*
+
+- [ ] 24-01-PLAN.md — widen the vitest glob to `scripts/`, extract `copy-data-tree.mjs`, and ship D-10(a)'s curation guard as a pure violations-returning function called at the END of `buildAllWidgets()` (OD-2), observed red against five planted fixtures (D-11)
+- [ ] 24-02-PLAN.md — D-03's two inert additions: `data-activity-id` on the Best Efforts `<section>` and one `dashboard:best-efforts-mounted` CustomEvent dispatched as the last statement of `mountBestEffortsAndBadges`, pinned by a source-structure guard observed red
+- [ ] 24-03-PLAN.md — the D-04 requirements change this phase owns: amend CUR-01, the milestone-checklist line, the Phase 24 goal and criteria 1 and 4, and record OD-1..OD-4 as dated notes in `24-CONTEXT.md`
+
+**Wave 2** *(blocked on 24-01; two parallel plans, disjoint files)*
+
+- [ ] 24-04-PLAN.md — the curate server's serving half: FATAL missing-build check, fixed `127.0.0.1:4173` bind (OD-4), `/strava-widgets` prefix mount, in-flight overlay-tag injection, esbuild bundling into gitignored `.curate-dist/`, and `/__curate/health` + `/__curate/overlay.js`
+- [ ] 24-05-PLAN.md — D-10(b)'s three `expect404` assertions in `verify-dashboard-publish.mjs` plus a subprocess planted-fixture test proving the shipped verifier exits non-zero, with `/data/best-effort-exclusions.json` still 200-and-parsing
+
+**Wave 3** *(24-06 blocked on 24-04; 24-07 blocked on 24-02 and 24-04; disjoint files)*
+
+- [ ] 24-06-PLAN.md — the write half: pure `applyUpsert`/`applyRemove` honouring D-05 (`distances: null`, untick deletes and never leaves `[]`), atomic write + instant mirror (D-07), D-12's Origin/Host gate, server-side id/reason validation, body cap, and the ordered recompute chain
+- [ ] 24-07-PLAN.md — the overlay UI: D-08's two-step commit with a required reason, pre-ticked already-excluded state, confirm-before-delete, OD-1's reload-not-re-render, streamed Recompute, and zero shipped CSS (OD-3)
+
+**Wave 4** *(blocked on 24-02, 24-03, 24-05, 24-06 and 24-07)*
+
+- [ ] 24-08-PLAN.md — fresh full gate with recorded asset hashes and expected values derived from `best-efforts.json`/`weekly-distance.json`/`monthly-stats.json` BEFORE any write, then a BLOCKING 14-row human browser checkpoint (R1-R14) whose extent rows assert the promoted next-best effort comes from a different activity and that totals are unchanged
+
 **UI hint**: yes
 
 ### Phase 25: CI Hardening & Light-Theme Verification
