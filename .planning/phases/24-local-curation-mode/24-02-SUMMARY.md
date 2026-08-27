@@ -153,3 +153,15 @@ The published dashboard now carries D-03's two inert additions, pinned by a regr
 ---
 *Phase: 24-local-curation-mode*
 *Completed: 2026-08-27*
+
+## Self-Check: PASSED
+
+- FOUND: src/dashboard/views/detail-sections.ts
+- FOUND: src/dashboard/views/detail.ts
+- FOUND: src/dashboard/curation-seam.test.ts
+- FOUND: .planning/phases/24-local-curation-mode/24-02-SUMMARY.md
+- FOUND: .planning/phases/24-local-curation-mode/deferred-items.md
+- FOUND commit: 8160bc4 (Task 1)
+- FOUND commit: 1a3506f (Task 2)
+- FOUND commit: 738b4c6 (Task 3)
+- FOUND commit: feb2320 (docs: SUMMARY + deferred-items)
