@@ -1,0 +1,25 @@
+{
+  "id": "i180111421",
+  "name": "Copenhagen Running",
+  "type": "Run",
+  "start_date": "2026-08-26T16:50:50Z",
+  "start_date_local": "2026-08-26T18:50:50",
+  "distance": 3070.7,
+  "moving_time": 1098,
+  "elapsed_time": 1886,
+  "total_elevation_gain": 5.1261463,
+  "average_speed": 2.789,
+  "max_speed": 4.189,
+  "average_heartrate": 150,
+  "max_heartrate": 174,
+  "start_latlng": [
+    55.698723,
+    12.568676
+  ],
+  "map": {
+    "summary_polyline": "_t}rIgyukAA?ICCAK?GBG?CA]CC@Mz@CDGNIREJI~@?JGREJMXGFA@MIUYISEGWSa@_@MMCEQMUOGEGCWMg@SICWAAAkFwD??@AD[BSDSDIJQHGNAH@BDJTPZ\\\\D@D@LX@RELGFGA]SYHUh@[r@SZMLOJICM?IHSn@CDQz@Bl@Pp@FFMYW{@CK?S@]L_@BEDELONUBCREJK\\U@EPOBC@EAOKSAAIG[YCEEIGQSOIGGK@?@DDF@@NJJHq@tFADOl@?TDVDTDNBDFTHRB@BC?CMSGQIKKQKo@?o@No@DWAGACCDAp@AFGb@Bl@Lb@L\\FVFPDA@CAIMYEAQUMo@As@Tq@d@]ZYZYPOFI@E?UOUUOCGGg@@K@EBC@EVs@b@SPVDT?FHNRD?AKCQa@KS]NSd@Qf@CLJXNFLJHJ@FCPUd@WZWRe@T]j@GRANDp@Tt@BDVRDH@D?D?FEFEAQYGOUs@EUGg@@q@La@ACA?CDCl@?r@R|@LRFP@ECCGGCECC[s@CGCQA]Lw@Te@ZQDAd@CBCRUT[?]][Mc@?OPu@BKA@GZCPCRCN?NBHBBDDZXNV?FCLEHYJEHELYVe@ZCFKPCHGVEb@?JLl@P^Tf@@AIQ]c@GKMy@?s@Le@Zm@?EAGEB?DG\\Sp@AJ?p@N~@P`@FPLZ@CGQ]c@Wm@CECU@CHJVt@Th@BLAJGGAGWs@Oq@G_@A@FVHZDLDLFHP^@AEOWa@Qq@McABK\\s@Hg@KR?HMv@Ez@Px@FTBD"
+  },
+  "source_provider": "intervals",
+  "source_raw_id": "i180111421",
+  "strava_id": null
+}

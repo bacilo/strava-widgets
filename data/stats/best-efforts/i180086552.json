@@ -1,0 +1,18 @@
+{
+  "activityId": "i180086552",
+  "startDate": "2026-08-26T15:37:16Z",
+  "distanceSource": "native",
+  "efforts": [
+    {
+      "distance": "400m",
+      "durationSec": 130.2,
+      "paceSecPerKm": 325.6,
+      "startOffsetSec": 1,
+      "endOffsetSec": 131.2,
+      "lowConfidence": false,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    }
+  ],
+  "excludedFromRecords": false
+}
