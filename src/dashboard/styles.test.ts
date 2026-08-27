@@ -2335,7 +2335,32 @@ describe('Phase 23 (TRN-03, gap closure round 2) — .trends-tablist-scroll cont
     ).toBe(true);
   });
 
-  // Task 2 (trends.ts) adds the consumer guard and the two ARIA/visual and
-  // tabIndex contract guards directly below this line, once the wrapper
-  // element actually exists in trends.ts.
+  // Consumer guard (mirrors the `.year-heatmap-scroll` guard above). This
+  // entire fix is one wrapper element plus one `className` assignment in
+  // `buildTablistAndPanels`, so a CSS rule shipping with no consumer would
+  // leave R35 failing for an identical `documentElement.scrollWidth` while
+  // every by-value assertion above stayed green. It proves nothing about
+  // rendering.
+  it('trends.ts actually applies the class to the tablist wrapper', () => {
+    const trendsSource = readFileSync(new URL('./views/trends.ts', import.meta.url), 'utf8');
+    expect(trendsSource).toContain('trends-tablist-scroll');
+  });
+
+  // 18-UI-SPEC § 7 tab-ownership/visual contract guard: moving `role="tablist"`
+  // onto the new wrapper, or replacing the bar's `.segmented` class, would
+  // satisfy the consumer guard above while breaking § 7's contract.
+  it('trends.ts keeps role="tablist" and the .segmented class on the bar itself, not the wrapper', () => {
+    const trendsSource = readFileSync(new URL('./views/trends.ts', import.meta.url), 'utf8');
+    expect(trendsSource).toContain("setAttribute('role', 'tablist')");
+    expect(trendsSource).toContain("tablist.className = 'segmented'");
+  });
+
+  // Second-Tab-stop guard: § 7's roving tabindex gives the strip exactly ONE
+  // Tab stop today; a `tabIndex` write on the wrapper would add a second,
+  // unindicated one, defeating the reasoning above for why the wrapper does
+  // not need one.
+  it('trends.ts never writes a tabIndex onto the tablist scroll wrapper', () => {
+    const trendsSource = readFileSync(new URL('./views/trends.ts', import.meta.url), 'utf8');
+    expect(trendsSource).not.toMatch(/tablistScroll\s*\.\s*tabIndex/);
+  });
 });

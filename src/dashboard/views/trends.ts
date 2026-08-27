@@ -1164,7 +1164,9 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
     void renderActiveTabContent(tab, myToken);
   }
 
-  function buildTablistAndPanels(initialTab: TrendTabKey): { tablist: HTMLElement; panelsWrap: HTMLElement } {
+  function buildTablistAndPanels(
+    initialTab: TrendTabKey,
+  ): { tablistScroll: HTMLElement; panelsWrap: HTMLElement } {
     tabButtons = {};
     tabPanels = {};
 
@@ -1206,7 +1208,20 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
       tabPanels[tab] = panel;
     });
 
-    return { tablist, panelsWrap };
+    // Finding 11 (23-VALIDATION.md R35(b)): the five-tab strip's shrink-to-fit
+    // min-content floor (412px at 390/393/412/430 phone widths) exceeds the
+    // usable content width, pushing documentElement.scrollWidth past
+    // clientWidth. Contained in a scroll wrapper OUTSIDE the tablist — never
+    // inside it, since role="tab" ownership is DOM containment and moving the
+    // wrapper inside would sever it. `tablist` itself keeps its role,
+    // aria-label and .segmented class untouched; see styles.css's
+    // .trends-tablist-scroll comment for the full arithmetic and the two
+    // rejected alternatives.
+    const tablistScroll = document.createElement('div');
+    tablistScroll.className = 'trends-tablist-scroll';
+    tablistScroll.appendChild(tablist);
+
+    return { tablistScroll, panelsWrap };
   }
 
   async function load(ctx: ViewMountContext): Promise<void> {
@@ -1264,8 +1279,8 @@ export function createTrendsView(deps: TrendsViewDeps): DashboardView {
     view.appendChild(buildRollingTotalsStrip(totals));
 
     activeTab = parseTrendTab(ctx.query.get('tab'));
-    const { tablist, panelsWrap } = buildTablistAndPanels(activeTab);
-    view.appendChild(tablist);
+    const { tablistScroll, panelsWrap } = buildTablistAndPanels(activeTab);
+    view.appendChild(tablistScroll);
     view.appendChild(panelsWrap);
 
     ctx.container.appendChild(view);
