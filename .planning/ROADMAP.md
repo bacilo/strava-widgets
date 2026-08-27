@@ -449,8 +449,8 @@ Plans:
 
 **Wave 3** *(24-06 blocked on 24-04; 24-07 blocked on 24-02 and 24-04; disjoint files)*
 
-- [ ] 24-06-PLAN.md — the write half: pure `applyUpsert`/`applyRemove` honouring D-05 (`distances: null`, untick deletes and never leaves `[]`), atomic write + instant mirror (D-07), D-12's Origin/Host gate, server-side id/reason validation, body cap, and the ordered recompute chain
-- [ ] 24-07-PLAN.md — the overlay UI: D-08's two-step commit with a required reason, pre-ticked already-excluded state, confirm-before-delete, OD-1's reload-not-re-render, streamed Recompute, and zero shipped CSS (OD-3)
+- [x] 24-06-PLAN.md — the write half: pure `applyUpsert`/`applyRemove` honouring D-05 (`distances: null`, untick deletes and never leaves `[]`), atomic write + instant mirror (D-07), D-12's Origin/Host gate, server-side id/reason validation, body cap, and the ordered recompute chain
+- [x] 24-07-PLAN.md — the overlay UI: D-08's two-step commit with a required reason, pre-ticked already-excluded state, confirm-before-delete, OD-1's reload-not-re-render, streamed Recompute, and zero shipped CSS (OD-3)
 
 **Wave 4** *(blocked on 24-02, 24-03, 24-05, 24-06 and 24-07)*
 
@@ -505,7 +505,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 21. Overview Rebuild | v2.1 | 8/8 | Complete    | 2026-08-18 |
 | 22. Calendar Week-Start & Totals | v2.1 | 16/16 | Complete   | 2026-08-19 |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 13/13 | Complete    | 2026-08-27 |
-| 24. Local Curation Mode | v2.1 | 5/8 | In Progress|  |
+| 24. Local Curation Mode | v2.1 | 7/8 | In Progress|  |
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 0/TBD | Not started | - |
 
 ---
