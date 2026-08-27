@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
-status: completed
-stopped_at: Completed 23-13-PLAN.md
-last_updated: "2026-08-27T06:58:48.621Z"
+status: ready_to_plan
+stopped_at: Phase 23 complete (13/13) — ready to discuss Phase 24
+last_updated: 2026-08-27T07:36:39.976Z
 last_activity: 2026-08-27
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 74
-  completed_plans: 74
+  completed_plans: 130
   percent: 71
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 23 — trends-zoom-pan-taller-bands
+**Current focus:** Phase 24 — local curation mode
 
 ## Current Position
 
-Phase: 23 (trends-zoom-pan-taller-bands) — COMPLETE
-Plan: 13 of 13
-Status: Phase complete — requirement gate closed
+Phase: 24
+Plan: Not started
+Status: Ready to plan
         Plan 23-13's Round 3 gap-closure checkpoint (R43-R54) closed 2026-08-27 against a fresh
         build (`assets/index-BQy-1dz6.js` / `assets/index-B573RjUr.css`, both differing from
         Round 2's): **12 PASS / 0 FAIL / 0 BLOCKED / 0 NOT EXERCISABLE — a clean sweep.**
