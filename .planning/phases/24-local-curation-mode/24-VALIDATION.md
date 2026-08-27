@@ -17,7 +17,11 @@ created: 2026-08-27
 ## Fresh Gate Run (plan 24-08, Task 1, 2026-08-27)
 
 One fresh build, all five gate commands run in order against `git rev-parse HEAD`
-`05a2d9beee2fa0f7afffc58c9ae27388bdd7e153`:
+`05a2d9beee2fa0f7afffc58c9ae27388bdd7e153` (the pre-Task-1 tree). This Task's own commit of
+`24-VALIDATION.md` then advances HEAD to `cf18820ce7ab6b47981d3840a418032aa82371fb` — THAT is the
+value the checkpoint (R5, R11, final state check) must treat as the unchanged baseline, since it
+is the HEAD in place before the developer's checkpoint session begins. See "Expected Values"
+below for the pinned baseline used by R5/R11.
 
 | # | Command | Exit code | Notable output |
 |---|---------|-----------|-----------------|
@@ -147,7 +151,11 @@ the entry for the target's month:
 
 **Pre-checkpoint archive state**, from `data/best-effort-exclusions.json`:
 - `exclusions` array length: **2**
-- `git rev-parse HEAD`: **05a2d9beee2fa0f7afffc58c9ae27388bdd7e153**
+- `git rev-parse HEAD` (BASELINE for R5/R11/the final state check — this is the HEAD in place
+  when the developer's checkpoint session begins, i.e. AFTER this Task's own docs-only commit of
+  `24-VALIDATION.md` landed): **cf18820ce7ab6b47981d3840a418032aa82371fb**
+  - (for reference only: HEAD immediately before this Task's own commit was
+    `05a2d9beee2fa0f7afffc58c9ae27388bdd7e153`)
 - `git status --porcelain data/best-effort-exclusions.json`: **empty** (confirmed after this
   Task — nothing has been written yet)
 
