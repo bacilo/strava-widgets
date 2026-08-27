@@ -1,8 +1,8 @@
 ---
 phase: 23
 slug: trends-zoom-pan-taller-bands
-status: partial
-nyquist_compliant: false
+status: complete
+nyquist_compliant: true
 wave_0_complete: true
 created: 2026-08-19
 ---
@@ -785,3 +785,105 @@ Done above, in the existing `## Per-Task Verification Map` table: rows `23-12/T1
 
 `git status --porcelain src/` is empty; no source file was modified by this task.
 
+
+---
+
+## Round 3 — checkpoint record
+
+> Held 2026-08-27 against the fresh build `assets/index-BQy-1dz6.js` / `assets/index-B573RjUr.css`
+> at `http://127.0.0.1:8099/strava-widgets/`, staged from the main checkout per Task 1's § (i).
+> Verdict vocabulary: PASS / FAIL / BLOCKED / NOT EXERCISABLE (Phase 20). House rules 1-14 from
+> this plan's Task 2 govern every row below; no row is discharged on a summary, a different
+> width/height/control, a synthetic event where a real gesture was required, or on
+> developer/orchestrator authority.
+
+**Method disclosure (mandatory, recorded per this round's own instruction — three distinct
+evidence channels plus the iframe fallback, disclosed per row rather than collapsed):**
+
+- **(i) REAL HUMAN TRUSTED GESTURE — the developer's own hands, real trackpad hardware.** Rows
+  R48 and R51(b) (R50(a) is corroborated from the same gesture data as R48/R51(b), not a separate
+  gesture). A first attempt landed on a stale Chrome tab and recorded nothing; the developer
+  repeated it on the correct tab. Four instrumented bursts, 118 wheel events total, `isTrusted:
+  true` on all 118; 43 carried `metaKey: true`, 75 did not — consistent with a genuine two-handed
+  ⌘+scroll vs. bare-scroll test sequence, which JS cannot forge (`isTrusted` is a browser-owned,
+  script-unsettable flag).
+- **(ii) AGENT-INJECTED TRUSTED KEYBOARD (CDP).** Rows R46(g)(ii), R49(b) and R51(a). Keydown/Enter
+  events dispatched via the orchestrator's browser-automation harness (Chrome DevTools Protocol
+  Input domain), which the browser reports as `isTrusted: true` because they arrive through the
+  OS/browser input pipeline rather than `dispatchEvent()` — but they were NOT produced by a human
+  hand. Recorded here explicitly as "trusted keyboard, agent-injected, not a human gesture" so this
+  round's record cannot be misread as claiming human keyboard input for these three rows. Rule 6
+  (this plan's Task 2) names only R48, R50(a) and R51(b) as requiring a REAL HUMAN gesture
+  specifically; R46(g)(ii) and R49(b) are keyboard-activation rows, and Round 2's own equivalent
+  rows (R27, the four-button keyboard activations) were accepted on trusted-keyboard evidence
+  without a human-hands distinction — this round applies the same bar, now with the distinction
+  made explicit rather than left ambiguous.
+- **(iii) SCRIPTED DOM READ / SCRIPTED CLICK.** All remaining non-gesture, non-keyboard rows —
+  R43, R44, R45, R47, R52, R53, R54, and the DOM-read portions of R46 and R49(a).
+- **(iv) IFRAME-EMULATED VIEWPORT, house rule 9 fallback.** All four phone widths in R46 (390,
+  393, 412, 430) and R49(a)'s Tab-order read at 390px. The real Chrome window itself was 1440×813
+  throughout — Chrome refuses to size a real window below 500px — so all four widths were measured
+  inside a same-origin iframe sized to the exact target width/height, the identical fallback
+  Rounds 1 and 2 used. **No real-device confirmation was taken this round.** Per this plan's own
+  environment-constraints text: "A real phone is stronger evidence and is OFFERED, NOT REQUIRED
+  … Its absence is not a BLOCKED — the iframe reading remains the row's primary evidence, exactly
+  as in Rounds 1 and 2." Applying that standard here: the absence of a real-device reading does
+  NOT block or downgrade R46, consistent with how Rounds 1 and 2 treated the identical gap.
+
+| Row | Verdict | Evidence as the row demanded it |
+|-----|---------|----------------------------------|
+| R43 | **PASS** | Method (iii). Entry/stylesheet read back live two ways — script/link tags `./assets/index-BQy-1dz6.js` / `./assets/index-B573RjUr.css`; `performance.getEntriesByType('resource')` entries at the same two filenames. Both differ from Round 2's `index-D01ardNQ.js` / `index-Duibt5wO.css`. `getComputedStyle(document.querySelector('.trends-tablist-scroll')).overflowX` → `"auto"`; element exists, count exactly 1, contains the `[role=tablist].segmented` with its five tabs (Volume, Year-over-Year, Cadence & HR, Training Load, Gear). Total `.segmented` elements on the page = 2 (tablist + granularity strip). |
+| R44 | **PASS** | Method (iv), width 900 (>430) throughout. `clientHeight` 600 → `.chart-band__canvas-wrap--tall` computed height **204px** (≈34dvh, NOT 420px). `clientHeight` 1400 → exactly **420px** (34dvh would be 476px, ceiling binds). `documentElement.scrollWidth/clientWidth` 900/900 at both heights. |
+| R45 | **PASS** | Methods (iii)+(iv), viewport 1000×900. Active `tabpanel-cadence-hr` holds exactly 2 `--tall` bands: "Average cadence (rpm, single-l…)" **306px**, "Average heart rate (bpm)" **306px** — equal. Tab scrolls vertically: `scrollHeight` 1181 > `clientHeight` 900. (A third `--tall` wrap exists in the hidden `tabpanel-volume`, correctly excluded by scoping to the active panel.) |
+| R46 | **PASS** at all four widths | Methods (iv) for the DOM reads, (ii) for (g)(ii). `clientHeight` 800 at every width, `matchMedia('(max-width: 430px)')` cross-checked true at each. All seven sub-cases at 390/393/412/430: (a) tall-band height 240/240/240/240px. **(b) `documentElement.scrollWidth`/`clientWidth`: 390/390, 393/393, 412/412, 430/430 — EQUAL at every one of the four widths**, closing R35's non-waivable clause; the overflow-driver enumeration (elements whose `getBoundingClientRect().right` exceeds `clientWidth`) returned EMPTY at all four widths — no Finding 13 is warranted. (c) `.year-heatmap` 634/286, 634/289, 634/308, 634/326 — the expected internal grid floor, not a defect. (d) `.year-heatmap-scroll` 638/294 auto, 638/297 auto, 638/316 auto, 638/334 auto — `clientWidth` matches the `viewport − 96` arithmetic exactly (294/297/316/334), confirming the inset by measurement. (e) rightmost heatmap weeks reachable at all four widths (390: `scrollLeft` 0→344=max, last cell rect 332..342 inside wrapper 48..342). (f) NEW — `.trends-tablist-scroll` 420/294 auto, 420/297 auto, 420/316 auto, 420/334 auto — within Task 1's predicted ≈416-420 `scrollWidth` range and `scrollWidth > clientWidth` at every width; `[role=tablist]` rect `w=411.6 left=52 right=463.6` (consistent across widths) — the strip's min-content floor is unchanged (not a defect) but is now CONTAINED, the document no longer widens. (g)(i) — scroll-to-reveal-Gear: at 390, `scrollLeft` 0→125.5 (max 126), Gear rect 395.8..462.6 → 270.3..337.1, inside wrapper 48..342, `fully_visible: true`; same pattern at 393/412/430. (g)(ii) — method (ii), agent-injected trusted keyboard (`isTrusted: true` verified on every ArrowRight, explicitly NOT a human hand): four presses from Volume — 1 Year-over-Year (`aria-selected=true`, `tabindex=0`, `scrollLeft` 0), 2 Cadence & HR (same), 3 Training Load (same at focusin; re-checked after scroll settles: rect 180.6..270.3, `fully_visible: true` — the `false` reading at focusin was scroll-in-progress, not clipping), 4 Gear (`scrollLeft` 125.5, rect 270.3..337.1, `fully_visible: true`); roving tabindex correct afterward (Volume/YoY/Cadence/Training Load all `-1`, Gear `0`); `documentElement.scrollWidth/clientWidth` stayed 390/390 throughout. (g)(iii) — trailing tab's focus ring not clipped: ring is a box-shadow (`rgb(26,26,46) 0 0 0 2px, rgb(255,107,53) 0 0 0 4px`), `:focus-visible` true, Gear right 337.1 vs wrapper right 342 (4.9px clearance); noted for the record that `outlineStyle` reads `none` — the visible indicator is entirely the box-shadow, so a future reader checking `outline` alone would misread it as absent. |
+| R47 | **PASS** | Method (iii). All three granularities' aria-labels verbatim-match the Round 3 expected-value table: Weekly `Weekly distance chart, Aug 2025 to Aug 2026` (ticks first Aug 2025, last Aug 2026); Monthly `Monthly distance chart, Aug 2021 to Aug 2026` (first Aug 2021, last Aug 2026); Yearly `Yearly distance chart, Jul 2010 to Jul 2026` (first 2010, last 2026). All nine values match. |
+| R48 | **PASS** | Method (i), REAL HUMAN GESTURE, from a known baseline (`Weekly distance chart, Aug 2025 to Aug 2026`, `scrollY` 0). **(a)** ⌘+scroll over the chart: 10 wheel events, all `isTrusted: true`, all 10 `metaKey: true`, all over the canvas; `scrollY` stayed 0→0 (page did not move); range changed to `Weekly distance chart, Oct 2025 to Mar 2026`, ticks consistent (29 Oct 2025 … 5 Mar 2026). **(b)** bare scroll: two bursts, all trusted, 0 with modifier — off-canvas burst `scrollY` 1→176; over-canvas burst (32 events, all over the canvas) `scrollY` 0→273 while the chart aria stayed pinned at `Average cadence by month chart, Aug 2021 to Aug 2026` across all 32 events. Page scrolled, range did not change, in both cases. |
+| R49 | **PASS** | **(a)** Method (ii)+(iv), Tab order quoted at 390px (where the wrapper IS scrollable): Volume → tabpanel (DIV, pre-existing) → Weekly → Monthly → Yearly → `Pan to earlier dates` → `Zoom out` → `Zoom in`. **No new Tab stop from the wrapper** — `.trends-tablist-scroll` never received focus (`wrapper_ever_focused: false`), has no `tabindex`; Chrome only makes a scrollable region itself focusable when it contains no focusable descendants, and this one contains five buttons. Observation (not a defect): `Pan to later dates` is absent from this Tab-order reading only because it is `disabled: true` at the default window (already at the latest data) — confirmed it appears and is reachable after `+` or `←`. **(b)** Method (ii), all four buttons individually by trusted Enter, from a freshly reset default each time — all four exact matches to the Round 3 expected table: `Zoom in` → `Weekly distance chart, Oct 2025 to Jun 2026`; `Zoom out` → `Weekly distance chart, Feb 2025 to Aug 2026`; `Pan to earlier dates` → `Weekly distance chart, May 2025 to May 2026`; `Pan to later dates` (from the panned state) → back to `Weekly distance chart, Aug 2025 to Aug 2026`. |
+| R50 | **PASS** | **(a)** Method (i), taken on the same human-gesture-zoomed HR band as R51(b): aria `Average heart rate by month chart, Jun 2023 to Dec 2023`; rendered ticks first `5 Jun 2023`, last `5 Dec 2023` — label names the same range the ticks show. Corroborated on Volume (label `Oct 2025 to Mar 2026` vs. ticks 29 Oct 2025…5 Mar 2026, from R48(a)'s own gesture). **(b)** Method (iii), `+` button `aria-label` verbatim `Zoom in`; full control set `Pan to earlier dates` / `Pan to later dates` / `Zoom out` / `Zoom in`. **(c)** Method (iii), hint text verbatim `⌘ + scroll to zoom · drag or pinch to pan`, exactly 1 `span.chart-zoom-hint` on the page, in the `Distance` band header inside `div.chart-band__header.chart-band__header--zoom`. |
+| R51 | **PASS** | **(a)** Method (ii), button path: both bands start `Aug 2021 to Aug 2026`; one shared `.chart-zoom-controls` serves both; after trusted Enter on `Zoom in`, cadence and HR both read `Jun 2022 to Oct 2025` — identical. **(b)** Method (i), REAL HUMAN GESTURE over the HR band specifically: 33 wheel events, all `isTrusted: true`, all 33 `metaKey: true`, all 33 over the HR canvas; `scrollY` frozen 273→273 throughout. HR walked through six intermediate ranges to a final `Jun 2023 to Dec 2023`; cadence's final state matches exactly — the gesture was applied to HR alone and cadence followed. Lockstep confirmed under a real gesture, not only via buttons. |
+| R52 | **PASS** | Method (iii). Zoomed Cadence & HR to `Jun 2022 to Oct 2025`, cycled Volume → Training Load → Gear, returned — both bands preserved at `Jun 2022 to Oct 2025`. Per-panel canvas counts on return, active tab Cadence & HR: volume 1 (hidden), yoy 0 (hidden), cadence-hr 2 (ACTIVE), training-load 1 (hidden), gear 1 (hidden) — total 5, no duplication; cadence-hr's count going 2→0→2 across the hide/show cycle with the zoom range intact confirms the range is held outside the canvas instance. Granularity toggle resets to default (D-23): Weekly zoomed to `Nov 2025 to May 2026`, toggled to Monthly → `Monthly distance chart, Aug 2021 to Aug 2026` (that granularity's own default), back to Weekly → `Weekly distance chart, Aug 2025 to Aug 2026` (default) — reset confirmed both directions. Console clean across a reload + full five-tab exercise + a zoom: 76 messages captured, every one originating from `chrome-extension://ffpmdofklpmnbkgiocdcofknfjckhbjl` ("Facebook Extractor"), stated explicitly as an extension origin per house rule; zero app-origin messages, zero errors/exceptions, no "Canvas is already in use". |
+| R53 | **PASS** | Method (iii). Zoomed to `Weekly distance chart, Oct 2025 to Jun 2026`, navigated to Overview (`#/`), returned to `#/trends` (granularity and tab both reset to Volume/Weekly on the way). Chart reads `Weekly distance chart, Aug 2025 to Aug 2026` — the weekly DEFAULT, not the range left behind. |
+| R54 | **PASS** | Method (iii), real window, `documentElement.clientWidth` 1440 (≥1000, no emulation). Exactly 1 `.trends-tablist-scroll`. Does not scroll here: `scrollWidth` 1052 == `clientWidth` 1052. Five tabs on one row: all `top` = 290.4, inter-tab gaps 0/0/0/0 — joined silhouette, no gap or notch (the CR-02 defect class does not reproduce). Granularity strip untouched and NOT contained by the wrapper: `.trends-tablist-scroll.contains(granularityGroup)` = `false`; the granularity group is `role="group"`, class `segmented`, buttons Weekly/Monthly/Yearly, parent carries no wrapper class. Trailing tab's focus ring fully visible at this width (`:focus-visible` true, same box-shadow ring, Gear right 758.3 vs. wrapper right 1246 — ample clearance); 4px wrapper padding visible as the expected, deliberate small delta from `padding: var(--space-xs)`. `documentElement.scrollWidth/clientWidth` 1440/1440 EQUAL. |
+
+**Tally:** 12 PASS · 0 FAIL · 0 BLOCKED · 0 NOT EXERCISABLE. **Clean sweep.**
+
+**No new findings.** R46(b)'s overflow-driver enumeration returned empty at all four widths, so
+Finding 13 was NOT opened. Three items are recorded as observations, explicitly NOT defects: (1)
+`Pan to later dates` is absent from a Tab-order reading taken at the default window only because
+it is legitimately `disabled` there, not because the wrapper broke anything; (2) the focus
+indicator on the tab strip is implemented as a `box-shadow`, not a CSS `outline` — `outlineStyle:
+none` is correct and expected, recorded so a future reader checking `outline` alone does not
+misdiagnose it as missing; (3) 23-12's `.trends-tablist-scroll` class assignment lands in the
+entry JS chunk rather than a lazy `trends-*` chunk (Task 1 § (d)) — a chunk-boundary location
+correction against the plan's own prediction, not a functional defect, and independently confirmed
+not to reintroduce Hammer/zoom-plugin weight into the entry chunk (Task 1 § (e)).
+
+**Finding 12** remains **DEFERRED**, dated 2026-08-27, disposition recorded in `deferred-items.md`
+by plan 23-12. This round deliberately adds no row for it, per the plan's own instruction, and it
+therefore does not count against the clean sweep.
+
+**Evidentiary gap, stated plainly rather than absorbed:** all four R46 phone widths, and R49(a)'s
+Tab-order read, rest on iframe emulation (method (iv)) rather than a real device — no real-phone
+reading was taken this round. Applying this plan's own environment-constraints text ("A real
+phone is stronger evidence and is OFFERED, NOT REQUIRED … Its absence is not a BLOCKED — the
+iframe reading remains the row's primary evidence, exactly as in Rounds 1 and 2"), this gap does
+NOT downgrade R46 or block the sweep: it is the same evidentiary bar Rounds 1 and 2 used for the
+same rows, and the plan pre-emptively accepts it as sufficient. Recorded here so it is not later
+mistaken for a silent evidentiary shortcut.
+
+### Requirement gating (strictly on the Round 3 row map)
+
+| Requirement | Mapped rows | Result | Blocking rows |
+|-------------|-------------|--------|----------------|
+| TRN-03 | R44, R45, R46 | **TICKED — closed for the first time** | none — all three PASSED, R46(b) equal at all four widths |
+| TRN-01 | R47, R48 | **Confirmed unregressed** (regression confirmation over Round 2's full R22/R23/R24/R25/R38 discharge, not a fresh discharge) | none — both PASSED |
+| TRN-02 | R49, R50 | **Confirmed unregressed** (regression confirmation over Round 2's full R26-R32 discharge, not a fresh discharge) | none — both PASSED |
+| TRN-04 | R51, R52, R53 | **Confirmed unregressed** (regression confirmation over Round 2's full R36/R37/R39/R40 discharge, not a fresh discharge) | none — all three PASSED |
+
+R54 gates no requirement but counts toward the clean sweep; PASSED. All 12 rows PASS — this is a
+clean sweep. `nyquist_compliant` is set to `true` and `status` to `complete`: every row R43-R54
+PASSED, satisfying the plan's own stated criterion in full, including the iframe-fallback
+phone-width rows per the plan's own pre-accepted evidentiary standard for that gap.
+
+**TRN-03 is Phase 23's last open requirement. With this round's clean sweep, Phase 23's gate is
+CLOSED — all four requirements (TRN-01..04) now tick Complete.**
