@@ -151,6 +151,14 @@ only), any change to what exclusion means for aggregates (it already means nothi
     activities' streams; curating five runs would pay that five times.
   - **Rejected: write-only with a manual rebuild.** Criterion 2 could not then be shown in the
     same session, which makes the human checkpoint clumsier for no gain.
+  - **Orchestrator decision 2026-08-27 (OD-1):** D-07's "the overlay re-renders" is discharged by
+    a full `location.reload()` after the server mirrors the written file into
+    `dist/widgets/data/best-effort-exclusions.json`. The existing, unmodified
+    `detail.ts`/`detail-sections.ts` renderer repaints from the fresh file — one renderer, no
+    drift seam, which is what reconciles D-07 with D-03's rejection of the overlay rebuilding the
+    panel. Rejected alternative: a narrow DOM patch of the flags cell, rejected because it would
+    couple the overlay to the badge's internal markup — the exact coupling D-03's
+    rejected-MutationObserver note warns against.
 
 - **D-08:** **The two-step commit.** Ticking reveals a required reason textarea and a Save button;
   **nothing is written until Save with non-empty text**. An already-excluded activity loads with
@@ -184,6 +192,16 @@ only), any change to what exclusion means for aggregates (it already means nothi
   **`/data/best-effort-exclusions.json` must keep returning 200** — the existing assertion at
   `verify-dashboard-publish.mjs:294` stays, and the new guards must not be written in a way that
   catches it.
+  - **Orchestrator decision 2026-08-27 (OD-2):** the build-time guard from (a) is called at the
+    END of `buildAllWidgets()`, after `await buildDashboard()`, scanning the fully-populated
+    `dist/widgets` tree — not from inside `copyDataFiles()` where `assertNoPrivateArtifacts`
+    fires. Reason: that call site runs BEFORE `buildPages()`/`buildDashboard()`, so a guard there
+    could never see a leaked curate bundle or `__curate` marker in JS/HTML, which is the most
+    likely vector and exactly the never-red guard D-11 exists to prevent. D-10's intent (same
+    guard shape, same `process.exit(1)` discipline, defined beside `assertNoPrivateArtifacts` in
+    the file) is preserved; only the call site moves. The guard's content scan is restricted to
+    `.js`/`.html`/`.css`/`.map` so it can never catch the public, already-shipped
+    `dist/widgets/data/best-effort-exclusions.json`.
 
 - **D-11:** **The guard must be proven by a test that plants a regression.** Criterion 3 says the
   assertion "demonstrably fails against a build that regresses this", so a test seeds a fake
@@ -218,6 +236,17 @@ but must stay inside the decisions above:
   correct by construction. It was previously over-broad for partially-excluded runs; D-04
   removes that case.
 - **Port choice** for the curate server.
+  - **Orchestrator decision 2026-08-27 (OD-4):** the curate server binds a FIXED port 4173 held
+    in a single named constant, prints `http://127.0.0.1:4173/strava-widgets/` on start, and
+    fails fast with a clear message if the port is in use rather than hunting for a free one — a
+    curate server on an unpredictable port is one the developer bookmarks wrongly. 4173 is free
+    in this repo (no `vite preview` script exists in `package.json`).
+- **Orchestrator decision 2026-08-27 (OD-3):** no UI-SPEC.md is produced for this phase. The
+  overlay is a developer-only local tool that never ships; `src/dashboard/styles.css` lines
+  ~1618-1689 already carry Phase 19's bare-element `input`/`textarea`/`button` baseline and its
+  comment explicitly anticipates "Phase 24's curation UI", so plain elements inherit the
+  treatment with zero new CSS. D-08's ASCII sketch in the `<specifics>` section is the
+  interaction contract.
 
 ### Folded Todos
 
