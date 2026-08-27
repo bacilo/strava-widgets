@@ -21,8 +21,16 @@
  */
 
 import http from 'node:http';
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import { resolve, extname } from 'node:path';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
+import { resolve, extname, dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import * as esbuild from 'esbuild';
 
@@ -50,6 +58,14 @@ export const CURATE_PREFIX = '/__curate';
 
 export const OVERLAY_ENTRY = 'scripts/curate-overlay/index.ts';
 export const OVERLAY_OUTFILE = '.curate-dist/overlay.js';
+
+// D-05/D-07: the two files joined only by build-widgets.mjs's copy step.
+// EXCLUSIONS_PATH is the working-tree source of truth the developer reviews
+// and commits by hand; PUBLISH_EXCLUSIONS_PATH is the served copy inside the
+// already-built dist/widgets tree. Nothing curate writes is visible in the
+// page the developer is looking at until mirrorExclusions() re-copies it.
+export const EXCLUSIONS_PATH = 'data/best-effort-exclusions.json';
+export const PUBLISH_EXCLUSIONS_PATH = 'dist/widgets/data/best-effort-exclusions.json';
 
 const ROOT = resolve(process.cwd(), 'dist/widgets');
 const INDEX_HTML = resolve(ROOT, 'index.html');
@@ -167,6 +183,106 @@ export async function buildOverlay() {
   });
 }
 
+// --- Exclusion mutations, honoring D-05's exact JSON contract ---------------
+//
+// D-09: curate performs WORKING-TREE WRITES ONLY. data/best-effort-exclusions.json
+// sits in the nightly workflow's push-paths filter (added 2026-08-12), so a
+// commit reaching origin triggers a full rebuild and deploy — a tickbox must
+// not be able to cause that. Consequently NO CODE PATH in this file may
+// invoke `git`; the developer reviews `git diff`, commits and pushes by hand.
+
+/**
+ * D-05/D-06: returns a NEW document — never mutates `fileDoc`. The written
+ * entry is ALWAYS exactly `{ activityId, distances: null, reason }` —
+ * `distances` is the literal `null`, never an array, never `[]`, never
+ * omitted. Curate is never a producer of the narrow distance-array form;
+ * that form stays readable only because best-effort-exclusions.ts's own
+ * tolerance (T-16-EX-01/T-16-EX-02) is a separate, untouched contract.
+ *
+ * If an entry for `activityId` already exists, it is replaced AT THE SAME
+ * INDEX so a Save on an already-excluded activity edits in place and the
+ * array length never grows — one reason per activity (D-06).
+ *
+ * `schemaVersion` and `note` are carried through unchanged — schemaVersion
+ * is bumped only via a coordinated migration (best-effort.types.ts:18),
+ * never here.
+ *
+ * @param {{schemaVersion: number, note: string, exclusions: Array<{activityId: string, distances: null, reason: string}>}} fileDoc
+ * @param {string} activityId
+ * @param {string} reason
+ * @returns {object}
+ */
+export function applyUpsert(fileDoc, activityId, reason) {
+  const exclusions = fileDoc.exclusions.slice();
+  const entry = { activityId, distances: null, reason };
+  const existingIndex = exclusions.findIndex((e) => e.activityId === activityId);
+  if (existingIndex === -1) {
+    exclusions.push(entry);
+  } else {
+    exclusions[existingIndex] = entry;
+  }
+  return { ...fileDoc, exclusions };
+}
+
+/**
+ * D-05 (the untick rule): returns a NEW document with every entry whose
+ * `activityId` matches REMOVED from the array.
+ *
+ * THIS MUST NEVER rewrite an entry to `distances: []` instead of removing
+ * it. `buildExclusionIndex` (src/analytics/best-effort-exclusions.ts)
+ * silently SKIPS an entry whose `distances` is an empty array — its
+ * `known.size === 0` branch `continue`s without recording anything — so a
+ * file that did that would read as "this activity is excluded" while the
+ * loaded index excludes nothing at all. Filtering the entry OUT is the only
+ * correct implementation of an untick.
+ *
+ * @param {object} fileDoc
+ * @param {string} activityId
+ * @returns {object}
+ */
+export function applyRemove(fileDoc, activityId) {
+  const exclusions = fileDoc.exclusions.filter((e) => e.activityId !== activityId);
+  return { ...fileDoc, exclusions };
+}
+
+/**
+ * D-07: atomic write. Writes `contents` to a sibling temp file
+ * (`${path}.tmp-${process.pid}`) then `renameSync`s it onto `path`.
+ * `renameSync` is atomic on the same filesystem, which a sibling temp file
+ * guarantees. This is a new pattern for this repo — every existing
+ * `writeFileSync` call site writes directly — because
+ * `data/best-effort-exclusions.json` (via its mirrored copy) is read
+ * concurrently by the browser's own fetch: a half-written file must never
+ * be observable.
+ *
+ * @param {string} path
+ * @param {string} contents
+ */
+export function writeAtomic(path, contents) {
+  const tmp = `${path}.tmp-${process.pid}`;
+  writeFileSync(tmp, contents, 'utf8');
+  renameSync(tmp, path);
+}
+
+/**
+ * D-07: instant mirror. Copies the working-tree EXCLUSIONS_PATH into the
+ * served PUBLISH_EXCLUSIONS_PATH synchronously, immediately after a
+ * successful write, so the badge and reason are visible in the same
+ * session without a rebuild. Creates the destination DIRECTORY
+ * (dist/widgets/data) if absent, but throws — rather than writing a half
+ * state — if the PUBLISH ROOT (dist/widgets, i.e. an unbuilt tree) is
+ * itself missing; callers must catch and respond 500.
+ */
+export function mirrorExclusions() {
+  if (!existsSync(ROOT)) {
+    throw new Error(
+      `dist/widgets is not built (${ROOT} missing). Run \`npm run build-widgets\` first.`
+    );
+  }
+  mkdirSync(dirname(PUBLISH_EXCLUSIONS_PATH), { recursive: true });
+  copyFileSync(EXCLUSIONS_PATH, PUBLISH_EXCLUSIONS_PATH);
+}
+
 // --- Request handler ---------------------------------------------------------
 
 function serveCurateRoute(req, res) {
@@ -189,7 +305,7 @@ function serveCurateRoute(req, res) {
     return;
   }
 
-  // Plan 24-06 adds the write and recompute routes into this same branch.
+  // Plan 24-06 Task 2 adds the write and recompute routes into this same branch.
   res.writeHead(404);
   res.end('Not Found');
 }
