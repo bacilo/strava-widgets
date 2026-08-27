@@ -155,3 +155,10 @@ None — no external service configuration required.
 ---
 *Phase: 24-local-curation-mode*
 *Completed: 2026-08-27*
+
+## Self-Check: PASSED
+
+All created/modified files verified present (`scripts/verify-dashboard-publish.mjs`,
+`scripts/verify-dashboard-publish-guard.test.mjs`,
+`.planning/phases/24-local-curation-mode/24-05-SUMMARY.md`) and all three commit
+hashes (`aee96b6`, `308249a`, `ba7d9b6`) confirmed present in `git log`.
