@@ -1,9 +1,9 @@
 ---
 phase: 24
 slug: local-curation-mode
-status: draft
+status: partial
 nyquist_compliant: false
-wave_0_complete: false
+wave_0_complete: true
 created: 2026-08-27
 ---
 
@@ -181,7 +181,9 @@ the entry for the target's month:
 
 ---
 
-## Checkpoint Round 1 (plan 24-08, Task 2, 2026-08-27)
+## Round 1 Checkpoint (R1-R14)
+
+*(plan 24-08, Task 2, 2026-08-27)*
 
 **BASELINE_HEAD recorded at session start:** `44e6f3ad56a441c939c12e673671b3107f8579e8`
 
@@ -219,11 +221,49 @@ No row below was passed on a synthesised event, a headless probe, or a `window.c
 | R7 | **PASS** (write half; badge half blocked by F-1) | After hard reload: checkbox **pre-ticked**, textarea **pre-filled** with `CHECKPOINT-2026-08-27 GPS device unreliable`. After editing to `CHECKPOINT-2026-08-27 edited` and Save, on-disk reason became `CHECKPOINT-2026-08-27 edited` and the `exclusions` array length is **3** — Task-1 length 2 **plus one**, not plus two. Badge did not render at this point (F-1); it did render after R8's recompute. |
 | R8 | **PASS** | Records screen 400 m table rank 1 now displays time **`0:47`**, date **`Apr 2, 2019`**, and its row links to **`#/activity/3475727228`** (read from the `href`, not a label). **`3475727228` DIFFERS from the excluded activity `4556693525`.** Matches Task 1's pinned rank-2 promotion target (`3475727228`, `durationSec` 46.5; the UI displays 46.5 s as `0:47`). The excluded activity no longer appears anywhere in the 400 m table. Header `PR — 400m` badge on the excluded activity disappeared. **Not observed:** the streaming progress text — the recompute completed and reloaded before a frame could be captured. Recorded as not-observed rather than passed. |
 | R9 | **PASS** | Weekly, week of 2020-12-28 (pinned **88.864 km / 7 runs**): the Calendar clips week totals to month boundaries, so the week renders as two cells — `Partial week, 4 days shown, week of December 28–31, 2020, 46.6 km, 4h 33m, 4 runs` and `Partial week, 3 days shown, week of January 1–3, 2021, 42.3 km, 4h 10m, 3 runs` → **46.6 + 42.3 = 88.9 km** (88.864 at 1 dp) and **4 + 3 = 7 runs**. Monthly, Jan 2021 (pinned **362.2411 km / 29 runs**): Trends → Volume → Monthly tooltip read **`362.2 km, 29 runs`**. Both match their pinned pre-exclusion values while the exclusion was active. |
-| R10 | *(deferred to developer — native `confirm()` blocks the automation extension)* | — |
-| R11 | *(pending R10)* | — |
-| R12 | *(pending R10/R11)* | — |
-| R13 | *(pending R10/R11)* | — |
+| R10 | **PASS** | Performed by the **developer** (the only human-hand row this round). Confirm dialog text, in the developer's own words: **“Removing this exclusion deletes it and changes PR history. Continue?”** — it names the consequence, per D-08. After Cancel then a second untick with OK, read back from disk: (a) **no entry with `"activityId": "4556693525"` remains**; (b) `grep -c '"distances": \[\]' data/best-effort-exclusions.json` → **`0`**; (c) `exclusions` array length back to **`2`** = the Task-1-recorded length. `git status --porcelain data/best-effort-exclusions.json` was already **empty** at this point. *Not independently observed by the agent:* that Cancel left the entry in place and returned the checkbox to ticked — recorded on the developer's report plus the final length of 2. |
+| R11 | **PASS** | After the second Recompute, `data/stats/best-efforts.json` `rankings['400m']` rank 1 is once more **`4556693525`** at `durationSec` **45.2**, with `3475727228` back at rank 2 (46.5). Rendered Records screen 400 m rank 1: time **`0:45`**, date **`Jan 2, 2021`**, link **`#/activity/4556693525`**; the word “Excluded” appears **nowhere** on the page. `git status --porcelain data/best-effort-exclusions.json` → **no output** — byte-identical to its pre-checkpoint state. |
+| R12 | **PASS** | Curate stopped; `dist/widgets` served by a plain static Node server under `/strava-widgets` (port 4180) and loaded in real Chrome. (a) **No curation control renders** — the enumeration of `button,input,textarea` inside the Best Efforts panel returned **`[]`**, and the panel shows the normal `400m 0:45 … PR` table. (b) **`document.documentElement.outerHTML.includes('__curate')` → `false`**; the document's only script src is `./assets/index-xwaleiOf.js` — no overlay tag. Served `index.html` contains **0** occurrences of `__curate` per `curl \| grep -c`. (c) `GET /strava-widgets/__curate/health` → **404**, `…/overlay.js` → **404**, `…/exclusions/4556693525` → **404** (control: `GET /strava-widgets/` → 200). (d) In the DevTools console, the `PUT` to `/strava-widgets/__curate/exclusions/4556693525` returned **status 404** (`ok: false`), and `git status --porcelain data/best-effort-exclusions.json` afterwards was **empty**. |
+| R13 | **PASS** | Planted `dist/widgets/__curate/overlay.js` containing the literal `__curate`. `npm run build-widgets` → **exit code 1** with two guard lines: **`✗ Curation-artifact guard failed: /Users/pedf/workspace/strava-widgets/dist/widgets/__curate — a directory named "__curate" must never exist under the published bundle`** and **`✗ Curation-artifact guard failed: /Users/pedf/workspace/strava-widgets/dist/widgets/__curate/overlay.js — file contents contain the literal "__curate" marker — the curation write path must be structurally absent from the published bundle`**. After `rm -rf dist/widgets/__curate`, re-running exited **0** with **`✓ Curation-artifact scan: dist/widgets tree scanned, no curation-mode artifacts found.`** The clean rebuild reproduced the same asset hashes (`index-xwaleiOf.js`, `index-B573RjUr.css`), so R12 ran against the pinned build identity. |
 | R14 | **PASS** | `-H "Origin: http://evil.example"` → **`HTTP/1.1 403 Forbidden`**. `-H "Host: evil.example"` → **`HTTP/1.1 403 Forbidden`**. Neither request altered the file: the stored reason was still `CHECKPOINT-2026-08-27 edited` immediately afterwards. Run out of plan order (before R10/R11), so the file was legitimately still modified by R5/R7 at the time; the empty-`git status` half of this row is re-checked after R11. |
+
+### Final state check
+
+| Assertion | Observed |
+|---|---|
+| `git status --porcelain data/best-effort-exclusions.json` empty | **empty** (`''`) |
+| `exclusions` array length restored | **2** (Task-1-recorded length) |
+| `dist/widgets/__curate` absent | **absent** |
+| HEAD unchanged across the curate session | **held.** R1-R11 ran against `BASELINE_HEAD` `44e6f3ad…`, unchanged throughout — curate created no commit (D-09). The agent then made one **docs-only** commit (`5262b91`, this file) between R14 and R10, so R10-R13 ran against baseline `5262b91…`, also unchanged. Neither commit came from curate; D-09 is about the curate write path and holds for both segments. |
+| Working tree otherwise clean | only the pre-existing, unrelated `D dist/widgets/test.html` |
+
+---
+
+## Gap-Closure Record
+
+**GAP-24-01 — `Excluded — {reason}` badge does not render at Save (ROW R5, FAIL).**
+
+Observed, verbatim: after ticking the box, entering `CHECKPOINT-2026-08-27 GPS device unreliable`
+and pressing Save, the page reloaded and the Best Efforts panel showed **no** `Excluded — …` badge
+on any distance row. The entry was on disk and correct at that moment
+(`{"activityId": "4556693525", "distances": null, "reason": "CHECKPOINT-2026-08-27 GPS device unreliable"}`),
+and the browser had re-fetched it: `performance.getEntriesByType('navigation')[0].type` was
+`"reload"`, the app fetched `best-effort-exclusions.json` twice after that reload, and a
+cache-busted fetch returned byte-identical JSON (`identical: true`, `exclusions.length: 3`).
+The documented staged-build cache trap was therefore excluded before the FAIL was recorded.
+
+The badge did render — `Excluded — CHECKPOINT-2026-08-27 edited`, on all five distance rows —
+only after ROW R8's "Recompute records". The reverse asymmetry was also observed at R11: with the
+exclusion already deleted from disk but the stats not yet recomputed, the panel showed the
+reason-less fallback badge **`Excluded from records`** on all five rows.
+
+ROADMAP criterion 2 requires the reason to render "in the same session, with no rebuild". It does
+render in-session and with no `npm run build-widgets` — but only after the Recompute step, not
+after Save alone, which is the sequencing ROW R5 asserts.
+
+No fix is proposed here, per the house rule since 16-09. The next planning round diagnoses it.
+
+---
 
 ### Findings (recorded verbatim, left UNPATCHED per the house rule since 16-09)
 
@@ -280,14 +320,25 @@ outside this phase's scope.
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 20s
-- [ ] **D-11 discharged: each new guard has been *observed failing* against a planted
+- [ ] All tasks have `<automated>` verify or Wave 0 dependencies — every coverage row above
+      carries one; plan 24-08's Task 2 is manual by design (`<automated>MISSING`, justified:
+      no DOM test environment and no headless browser for rendering, focus rings, confirm
+      dialogs and trusted input). Left unticked rather than claimed.
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags — every command uses `vitest run`
+- [ ] Feedback latency < 20s — not measured this round; left unticked rather than assumed
+- [x] **D-11 discharged: each new guard has been *observed failing* against a planted
       regression** — a guard that has never been seen red is not evidence
-      (Phase 19 R3-CR-01, Phase 23 WR-06)
+      (Phase 19 R3-CR-01, Phase 23 WR-06). Build-time guard: ROW R13 planted
+      `dist/widgets/__curate/overlay.js` and observed `npm run build-widgets` exit **1** with
+      `✗ Curation-artifact guard failed: …` naming both the directory and the file, then exit
+      **0** with `✓ Curation-artifact scan: …` once removed. HTTP guard: planted-fixture
+      subprocess test `scripts/verify-dashboard-publish-guard.test.mjs`, 5/5 green.
 - [ ] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**`nyquist_compliant` is `false`** because ROW R5 is a FAIL (GAP-24-01: the `Excluded — {reason}`
+badge does not render at Save, only after Recompute) — every automated coverage row above is green,
+so the gap is in rendered behaviour, which is exactly what this checkpoint exists to catch.
+
+**Approval:** partial — 13 of 14 checkpoint rows PASS, ROW R5 FAIL. CUR-01 held `Pending`.
