@@ -1211,9 +1211,10 @@ describe('styles.css — Phase 19 focus ring', () => {
 
   // A whole-file raw-css negative on the bare word "overflow" cannot be used
   // here: .sr-only legitimately declares `overflow: hidden` and
-  // .records-jump/.splits-scroll/.year-heatmap-scroll all declare
-  // `overflow-x`, so an unscoped negative would fail for the wrong reason.
-  // This assertion is scoped to .segmented specifically via declarationsFor.
+  // .records-jump/.splits-scroll/.year-heatmap-scroll/.trends-tablist-scroll
+  // all declare `overflow-x`, so an unscoped negative would fail for the
+  // wrong reason. This assertion is scoped to .segmented specifically via
+  // declarationsFor.
   it('.segmented no longer clips its children', () => {
     expect(declarationsFor('.segmented')).not.toContain('overflow');
   });
@@ -2264,4 +2265,77 @@ describe('Phase 23 (TRN-03, gap closure) — .year-heatmap-scroll containment', 
     const trendsSource = readFileSync(new URL('./views/trends.ts', import.meta.url), 'utf8');
     expect(trendsSource).toContain('year-heatmap-scroll');
   });
+});
+
+describe('Phase 23 (TRN-03, gap closure round 2) — .trends-tablist-scroll containment', () => {
+  it('declares overflow-x: auto', () => {
+    expect(declarationsFor('.trends-tablist-scroll')).toContain('overflow-x: auto');
+  });
+
+  it('carries the iOS momentum-scroll declaration, matching the other scroll wrappers', () => {
+    expect(declarationsFor('.trends-tablist-scroll')).toContain(
+      '-webkit-overflow-scrolling: touch',
+    );
+  });
+
+  // D-10: unlike `.splits-scroll` and `.year-heatmap-scroll`, this padding is
+  // LOAD-BEARING here rather than a forward guard: all five children of
+  // `.trends-tablist-scroll` are focusable tab buttons, and `overflow-x: auto`
+  // forces `overflow-y`'s used value to `auto` too, so an unpadded wrapper
+  // would clip the two-tone `:focus-visible` ring's 4px spread on the leading
+  // and trailing tabs. `--space-xs` is exactly that 4px spread.
+  it('D-10: has room for the focus ring, load-bearing here (five focusable children)', () => {
+    expect(declarationsFor('.trends-tablist-scroll')).toContain('padding: var(--space-xs)');
+  });
+
+  it('carries the forward min-width: 0 guard', () => {
+    expect(declarationsFor('.trends-tablist-scroll')).toContain('min-width: 0');
+  });
+
+  // TRN-03/D-21: exactly one @media (max-width: 430px) block exists in this
+  // file (asserted above), and it is scoped to `.chart-band__canvas-wrap--tall`
+  // only — this rule must stay unconditional, or a second such block would
+  // repeat the exact "fix pinned one breakpoint above where the defect lives"
+  // failure D-21 was written about.
+  it('the rule is unconditional — no @media gate on overflow-x', () => {
+    expect(() => atRuleBodiesFor('.trends-tablist-scroll', 'overflow-x')).toThrow();
+  });
+
+  // Restates the Phase 19/CR-02 `.segmented` assertions at their Phase 23
+  // call site: containment lives on the new wrapper class, never on
+  // `.segmented` itself, because `.segmented` is shared by seven live
+  // instances and any `overflow` on it would clip the focus ring — the exact
+  // defect 19-04 removed.
+  it('.segmented itself still declares no overflow — containment lives on the wrapper', () => {
+    expect(declarationsFor('.segmented')).not.toContain('overflow');
+  });
+
+  // The combination that produces the 412px min-content floor (no
+  // `flex-wrap`) and the joined-pill silhouette (the shared corner-radius
+  // token). R35 measured the strip at exactly 412px wide at available widths
+  // of both 294 and 334 — a future change that adds `flex-wrap: wrap` here
+  // has to confront that measurement.
+  it('.segmented is still inline-flex with the shared control radius token', () => {
+    expect(declarationsFor('.segmented')).toContain('display: inline-flex');
+    expect(declarationsFor('.segmented')).toContain('border-radius: var(--radius-control)');
+  });
+
+  it('.segmented__option end-child radii are unaffected by the wrapper (Rejected A stays rejected)', () => {
+    expect(
+      selectorListDeclares(
+        '.segmented__option:first-child',
+        'border-radius: var(--radius-control) 0 0 var(--radius-control)',
+      ),
+    ).toBe(true);
+    expect(
+      selectorListDeclares(
+        '.segmented__option:last-child',
+        'border-radius: 0 var(--radius-control) var(--radius-control) 0',
+      ),
+    ).toBe(true);
+  });
+
+  // Task 2 (trends.ts) adds the consumer guard and the two ARIA/visual and
+  // tabIndex contract guards directly below this line, once the wrapper
+  // element actually exists in trends.ts.
 });
