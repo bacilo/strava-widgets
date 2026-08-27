@@ -484,6 +484,18 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
    * an honest interim state rather than a fabricated one. The single
    * `Promise.all` below is this function's only await point, guarded once
    * immediately after it settles.
+   *
+   * Phase 24's D-03(b): the very last statement of this function dispatches
+   * one bubbling mount CustomEvent (see the literal event-name string at its
+   * single dispatch call site below) carrying `{ activityId }`. Position is
+   * non-negotiable: it must fire AFTER the `requestToken`/`mountedContainer`
+   * guard has passed AND AFTER `panelContainer.replaceChildren(...)` has
+   * placed the section in the DOM — firing right after the guard would
+   * predate the `<section data-activity-id="...">` this event exists to
+   * announce; firing before the guard would attach a developer-only local
+   * overlay (`npm run curate`) to a panel a fast activity-to-activity
+   * navigation is about to discard. The event is inert — it carries only
+   * the activity id, performs no fetch, and reaches no endpoint.
    */
   async function mountBestEffortsAndBadges(
     container: HTMLElement,
@@ -507,7 +519,13 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
     }
 
     const rows = buildBestEffortsPanelRows(bestEffortsEntry, ageGrading);
-    panelContainer.replaceChildren(buildBestEffortsSection(rows, exclusionReason));
+    panelContainer.replaceChildren(buildBestEffortsSection(rows, exclusionReason, detail.id));
+    container.dispatchEvent(
+      new CustomEvent('dashboard:best-efforts-mounted', {
+        detail: { activityId: detail.id },
+        bubbles: true,
+      })
+    );
   }
 
   async function renderSuccess(container: HTMLElement, detail: ActivityDetail, myToken: number): Promise<void> {
