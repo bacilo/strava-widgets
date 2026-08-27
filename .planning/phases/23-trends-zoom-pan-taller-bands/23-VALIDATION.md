@@ -75,10 +75,16 @@ command. Plans must be written so the automatable logic is extracted into a pure
 | 23-10/T2 | 23-10 | 6 | TRN-01 | — | All five Trends x-axis tick callbacks route through `formatAdaptiveTimeTick`/`stepMsFromTicks` | source assertion + gate | `npx tsc --noEmit && npm test && npm run build-widgets` | ✅ | ✅ green (this session's step (b) run) |
 | 23-10/T3 | 23-10 | 6 | TRN-04 | — | `observeCanvasResize` attached at all seven chart mounts with matching `destroy()` teardown (Finding 8 fix) | source assertion + gate | `npx tsc --noEmit && npm test && npm run build-widgets && npm run verify-dashboard` | ✅ | ✅ green (this session's step (b) run) |
 | 23-11/T2 | 23-11 | 7 | TRN-01..04 | T-23-EVIDENCE-R2, T-23-PRESSURE | 22 non-waivable browser rows (R21-R42), each with its own stated proof | manual-only (blocking checkpoint) | — none; see Round 2 checkpoint record below | N/A | ⚠️ partial (21 PASS / 1 FAIL — R35) |
+| 23-12/T1 | 23-12 | 8 | TRN-03 | T-23-STALE-R3, T-23-HASHMOVE | `.trends-tablist-scroll` — a contained horizontal-scroll wrapper, pinned by value (Finding 11 fix) | unit (rule scanner, by VALUE) | `npx vitest run src/dashboard/styles.test.ts -t "trends-tablist-scroll"` | ✅ | ✅ green (this session's Round 3 rebuild — 11/11 passed, 141 skipped) |
+| 23-12/T2 | 23-12 | 8 | TRN-03 | T-23-A11Y-SILENT | `buildTablistAndPanels` wraps the `role="tablist"` `.segmented` element in the new wrapper, outside it, never inside — ARIA ownership intact; consumer guard + ARIA/tabIndex contract guards | unit (consumer guard) | `npx vitest run src/dashboard/styles.test.ts -t "trends-tablist-scroll"` (same describe block as T1) | ✅ | ✅ green (same 11/11 run) |
+| 23-12/T3 | 23-12 | 8 | — | — | Finding 12's dated DEFERRED disposition recorded in `deferred-items.md` | docs (no automated command) | — none; source-text review only | ✅ `deferred-items.md` contains "Finding 12" | ✅ green |
+| 23-13/T2 | 23-13 | 9 | TRN-01..04 | T-23-EVIDENCE-R3, T-23-PARTIAL-R3, T-23-PRESSURE-R3, T-23-A11Y-SILENT | 12 non-waivable browser rows (R43-R54), each with its own stated proof | manual-only (blocking checkpoint) | — none; see Round 3 checkpoint record below | N/A | ⬜ pending |
 
 *Status column above reflects this session's actual run (2026-08-19, plan 23-07 Task 1): `npm test` 54/54 files, 1313/1313 tests, all 5 `trends-zoom-logic.test.ts` `-t` filters and both `styles.test.ts` filters passed within that run; `npm audit` re-confirmed no advisory names `chartjs-plugin-zoom` or `hammerjs`; `npx tsc --noEmit` clean; `npm run build-widgets` succeeded; `npm run verify-dashboard` 37/37. Only the 23-07/T2 row (the browser checkpoint) remains pending — it is this plan's Task 2.*
 
 *23-11/T2 updated 2026-08-27 to reflect the Round 2 checkpoint's actual close: 21 PASS / 1 FAIL (R35) / 0 BLOCKED. See the `## Round 2 — checkpoint record` section below for the full row-by-row evidence and the requirement-gating table.*
+
+*23-12/T1, 23-12/T2 and 23-12/T3 added 2026-08-27 (plan 23-13 Task 1), Status set from THIS session's actual run of `npx vitest run src/dashboard/styles.test.ts -t "trends-tablist-scroll"` (11/11 passed, 141 skipped) against the Round 3 clean rebuild — not anticipated from 23-12-SUMMARY.md's own claim of "9 new by-value tests" (the filter also picks up 2 pre-existing ARIA/tabIndex-adjacent tests in the same describe block). 23-13/T2 added as `⬜ pending`, to be set by this plan's own Task 2.*
 
 ---
 
@@ -610,4 +616,172 @@ to 23-10's tick-formatter change is an UNVERIFIED HYPOTHESIS, not a conclusion �
 axis tick callback, not the tooltip `title` callback, and Finding 6 already predates Phase 23
 entirely (confirmed against `61ee687`, the last pre-Phase-23 commit). Gates no TRN requirement but
 breaks the clean sweep were it not already broken by R35. Not patched, per house rule 4.
+
+---
+
+## Round 3 — build, staging and expected values
+
+> Run 2026-08-27 in this session, in the main checkout on branch `master` (no worktree). Plan
+> 23-12 (wave 8, `.trends-tablist-scroll`) is merged into `master` at this session's `HEAD`
+> (commits `bc565ec`, `742f632`, `463b97f`, merge `c307363`, tracking `8d7c39d`).
+
+### (a) Port cleared before trusting anything
+
+A process WAS already bound to port 8099: `python3 -m http.server 8099 --bind 127.0.0.1` (pid
+44837), cwd `/Users/pedf/workspace/strava-widgets`, command line
+`python3 -m http.server 8099 --bind 127.0.0.1 --directory /tmp/strava-serve`. This is THIS
+session's own Round 2 server (`23-VALIDATION.md`'s Round 2 record and `STATE.md` both flagged it
+as "may still be running" from the prior session), pointing at `/tmp/strava-serve/strava-widgets`
+— a symlink to this same checkout's `dist/widgets` — so it was serving Round 2's pre-23-12 bytes
+until a fresh build landed under it. Killed (`kill 44837`) before any gate command ran; `lsof -i
+:8099` returned nothing (confirmed free) immediately after.
+
+### (b) Clean rebuild and full gate
+
+- `rm -rf dist/widgets` — removed.
+- `npm test` → **55/55 test files, 1359/1359 tests, exit 0.** Delta against Round 2's 1348: **+11
+  tests**, matching plan 23-12's new `.trends-tablist-scroll` describe block (9 new by-value tests
+  plus 2 pre-existing ARIA/tabIndex-adjacent tests re-scoped into the same `-t` filter — see the
+  Per-Task Verification Map note above).
+- `npx tsc --noEmit` → **exit 0.**
+- `npm run build-widgets` → **exit 0** (all ten widgets, four standalone pages, and the dashboard
+  SPA built cleanly; private-artifact scan: 5587 published JSON files scanned, none contain
+  identity/health fields).
+- `npm run verify-dashboard` → **37/37 checks passed, 0 failures, exit 0** — matches Round 2's
+  37-check baseline exactly (no check added or removed by 23-12).
+
+### (c) Proof the build is NEW
+
+Read from `dist/widgets/index.html`'s module `<script src>` and stylesheet `<link>`:
+
+- Entry script: **`assets/index-BQy-1dz6.js`**
+- Stylesheet: **`assets/index-B573RjUr.css`**
+
+The stylesheet **differs from Round 2's `assets/index-Duibt5wO.css`** — the sharper of the two
+checks this round, since 23-12's substance is a CSS rule and an unchanged stylesheet hash would
+have meant the fix is not in the artifact. The entry script **differs from both Round 2's
+`assets/index-D01ardNQ.js` and Round 1's `assets/index-D2l-GZfl.js`.** Both hashes moved; this
+round's build is confirmed new. Note for the record: these two hashes are byte-identical to the
+values `23-12-SUMMARY.md` recorded from its own local build — expected, since no source file has
+changed between that plan's commit and this session's rebuild (deterministic content hashing over
+unchanged inputs), not a sign of a stale artifact; step (d) below independently confirms the fix's
+own bytes are present, not just that a hash reproduced.
+
+### (d) Proof 23-12's own bytes are in the artifact
+
+- `grep -c "trends-tablist-scroll" dist/widgets/assets/index-B573RjUr.css` → **`1`**, and it is the
+  ONLY `dist/widgets/assets/index-*.css` file on disk after the clean rebuild (the other CSS asset,
+  `detail-map-CIGW-MKW.css`, greps `0`).
+- `grep -c "trends-tablist-scroll" dist/widgets/assets/index-BQy-1dz6.js` → **`1`**.
+  **Recorded where it actually landed, not where predicted:** the plan's `<read_first>` expected
+  this string in a `trends-*` chunk because `trends.ts` sits "behind the lazy route boundary" —
+  but a direct grep of `src/dashboard/views/trends.ts` shows only `trends-charts.js` is
+  dynamically imported (`await import('./trends-charts.js')`, five call sites); `trends.ts` itself
+  — which contains `buildTablistAndPanels` and the `.trends-tablist-scroll` `className` assignment
+  — is part of the STATICALLY-imported view-registry graph and therefore lands in the entry chunk.
+  `dist/widgets/assets/trends-charts-BCV4BfN7.js` (the actual lazy chunk) greps `0` for this
+  string, confirming the tab-strip wrapper's own class name never depended on the lazy chart code
+  loading. This is a location correction, not a defect — the string's PRESENCE (not its chunk) is
+  what step (i) below re-confirms over HTTP.
+
+### (e) Re-proof the lazy chunk boundary (T-23-LAZY)
+
+- `grep -c "Hammer" dist/widgets/assets/index-BQy-1dz6.js` → **`0`**.
+- Newest `dist/widgets/assets/trends-charts-*.js` chunk (the only one on disk after the clean
+  rebuild): **`assets/trends-charts-BCV4BfN7.js`**.
+- `grep -c "Hammer" dist/widgets/assets/trends-charts-BCV4BfN7.js` → **`1`**.
+- **Minifier caveat (restated per Round 2):** minifiers preserve legal-comment banners and property
+  names, so `Hammer` remains a reliable marker; `0` on the entry chunk together with a non-zero
+  count on the trends-charts chunk proves the static import graph still never pays for Hammer or
+  the zoom plugin. 23-12 adds no import at all (its own `<files_modified>` names only
+  `styles.css`, `styles.test.ts`, `trends.ts` and `deferred-items.md`) — this re-measurement
+  confirms the boundary holds rather than assuming it from that fact alone.
+
+### Expected read-back values (Round 3)
+
+**Archive-unchanged re-check (before any browser was opened, D-25):** last weekly bucket
+`weekStartISO: "2026-08-10T00:00:00.000Z"`, last monthly `periodStart: "2026-08-01T00:00:00.000Z"`,
+last yearly `periodStart: "2026-01-01T00:00:00.000Z"`, last training-load day
+`date: "2026-08-11"`, last commit touching `data/stats/` = `fe5391476c8b1dc3cac7298ba1010502484c4f77`
+(`fe53914` short). **All four match Round 2's recorded values exactly — no drift.**
+
+Recomputed with a standalone Node script (not carried forward from Round 2) that re-implements,
+verbatim, `trends-zoom-logic.ts`'s CURRENT `computeArchiveBounds`, `computeFullRange`,
+`computeDefaultWindow`, `computeLimits`, `zoomStepRange`, `panStepRange`, `formatRangeLabel` and
+`trends-tick-format.ts`'s CURRENT `tickGranularityForStep`/`formatTimeAxisTick`, against the real
+`data/stats/*.json` archive read directly off disk (`git log` confirms neither file has changed
+since the `76cdcce`/`8c7291c` commits Round 2 already validated against — `trends-zoom-logic.ts`'s
+and `trends-tick-format.ts`'s content is byte-identical to Round 2). The approximate step between
+adjacent Chart.js autoticks is taken as `span / 8`, the same assumption Round 2's script used. Each
+scale's own series (`weekly-distance.json`, `monthly-stats.json`, `yearly-stats.json`,
+`training-load.json`'s `days`) supplies that scale's own x-values, matching `trends.ts`'s runtime
+wiring.
+
+| Tab / state | Expected canvas `aria-label` (verbatim) | Expected first x-axis tick | Expected last x-axis tick | Round 3 result |
+|---|---|---|---|---|
+| Volume weekly, default (D-06 opening window) | `Weekly distance chart, Aug 2025 to Aug 2026` | Aug 2025 | Aug 2026 | **re-affirmed identical to Round 2** |
+| Volume monthly, default (D-06 opening window) | `Monthly distance chart, Aug 2021 to Aug 2026` | Aug 2021 | Aug 2026 | **re-affirmed identical to Round 2** |
+| Volume yearly, default (= full range, D-06) | `Yearly distance chart, Jul 2010 to Jul 2026` | 2010 | 2026 | **re-affirmed identical to Round 2** (re-derived from `yearly-stats.json`'s own `periodStart` series, not weekly bounds — see note below) |
+| Volume weekly, after one `+` (zoom in ÷1.5 from default) | `Weekly distance chart, Oct 2025 to Jun 2026` | 13 Oct 2025 | 13 Jun 2026 | **re-affirmed identical to Round 2** |
+| Volume weekly, after one `−` (zoom out ×1.5 from default) | `Weekly distance chart, Feb 2025 to Aug 2026` | Feb 2025 | Aug 2026 | **re-affirmed identical to Round 2** |
+| Volume weekly, after one `←` (pan earlier 25% of visible span from default) | `Weekly distance chart, May 2025 to May 2026` | May 2025 | May 2026 | **re-affirmed identical to Round 2** |
+| Volume weekly, at full zoom-out (Reset-to-everything / `−` clamp) | `Weekly distance chart, Aug 2011 to Aug 2026` | 2011 | 2026 | **re-affirmed identical to Round 2** |
+| Training Load, 12mo default | `Training load chart: CTL, ATL, and TSB over time, Aug 2025 to Aug 2026` | Aug 2025 | Aug 2026 | **re-affirmed identical to Round 2** (re-derived from `training-load.json`'s own `days[].date` series, not weekly bounds) |
+
+**Zoom-out (`−`) step count to full zoom, for R29-class corroboration:** recomputed at **7
+presses** from the weekly default to the full-range clamp — identical to Round 2's 7 (down from
+Round 1's 14 halving-bug count). Nothing in 23-12 touches this arithmetic.
+
+**Note on per-scale bounds:** the recomputation script initially ran the yearly and monthly rows
+against `weekly-distance.json`'s x-values by mistake, which produced a DIFFERENT (wrong) label
+(`Feb 2011 to Feb 2027`) than Round 2's recorded `Jul 2010 to Jul 2026`. Re-running each scale
+against its OWN series (`yearly-stats.json`'s `periodStart` array for yearly, `monthly-stats.json`'s
+for monthly) reproduced Round 2's table exactly, confirming `trends.ts` feeds each zoomable scale
+its own granularity's series, not a shared one. Recorded here so the discrepancy is not mistaken
+for archive drift.
+
+### (g) Predicted phone-width geometry for R46
+
+Published BEFORE any browser is opened, so R46 is scored against a prediction. Carried forward
+verbatim from plan 23-12's own `<objective>` "Expected post-fix geometry" paragraph — nothing in
+this round's Task 1 changes that arithmetic, since no source file was touched:
+
+| Measurement | 390 | 393 | 412 | 430 |
+|---|---|---|---|---|
+| `documentElement.scrollWidth` must EQUAL `clientWidth` | 390 | 393 | 412 | 430 |
+| `.trends-tablist-scroll` `clientWidth` (= viewport − 96) | 294 | 297 | 316 | 334 |
+| `.trends-tablist-scroll` `scrollWidth` | > `clientWidth`, ≈416-420 | ≈416-420 | ≈416-420 | ≈416-420 |
+| `[role=tablist]` rect width (min-content floor, NOT a defect) | ≈412 | ≈412 | ≈412 | ≈412 |
+| `.chart-band__canvas-wrap--tall` computed height | 240px | 240px | 240px | 240px |
+| `.year-heatmap` `scrollWidth`/`clientWidth` (expected, NOT a defect) | 634/286 | 634/289 | 634/308 | 634/326 |
+| `.year-heatmap-scroll` `scrollWidth`/`clientWidth` | 638/294 | 638/297 | 638/316 | 638/334 |
+
+**Arithmetic:** `.view` is declared once on `index.html`'s `<main id="app" class="view">` and again
+on `trends.ts`'s inner `view` div, each with `padding: var(--space-lg)` (24px), giving a
+`viewport − 96` content width — confirmed by measurement, not asserted, because R35(d) measured
+`.year-heatmap-scroll` `clientWidth` at exactly 294 / 297 / 316 / 334. The `.trends-tablist-scroll`
+`scrollWidth` band is 412 (the strip's min-content floor) plus the wrapper's own 4px leading
+padding, plus the trailing 4px depending on the engine's end-padding treatment — stated as a range,
+scored on `scrollWidth > clientWidth`, never on an exact number. The last three rows are carried
+from R35's own PASSing sub-cases and are expected UNCHANGED; a change in them is itself a finding.
+
+### (h) Per-Task Verification Map extended
+
+Done above, in the existing `## Per-Task Verification Map` table: rows `23-12/T1`, `23-12/T2`,
+`23-12/T3` and `23-13/T2` added, each Status set from this session's actual run (all green except
+`23-13/T2`, `⬜ pending` — this plan's own Task 2).
+
+### (i) Stage the build
+
+- Re-created `/tmp/strava-serve/strava-widgets` (the same symlink target as Round 2, now pointing
+  at the fresh `dist/widgets`) and started
+  `python3 -m http.server 8099 --bind 127.0.0.1 --directory /tmp/strava-serve` from the MAIN
+  CHECKOUT, matching production's URL path shape: `http://127.0.0.1:8099/strava-widgets/`.
+- `curl -sI http://127.0.0.1:8099/strava-widgets/` → **`HTTP/1.0 200 OK`**.
+- `curl -s http://127.0.0.1:8099/strava-widgets/ | grep -o 'assets/index-[A-Za-z0-9_-]*\.js'` →
+  **`assets/index-BQy-1dz6.js`** — matches step (c)'s built entry filename verbatim.
+- `curl -s http://127.0.0.1:8099/strava-widgets/assets/index-B573RjUr.css | grep -c "trends-tablist-scroll"`
+  → **`1`** — the SERVED stylesheet (not just the built one) carries the new rule.
+
+`git status --porcelain src/` is empty; no source file was modified by this task.
 
