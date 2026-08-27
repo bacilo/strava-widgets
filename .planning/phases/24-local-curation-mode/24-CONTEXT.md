@@ -50,7 +50,7 @@ only), any change to what exclusion means for aggregates (it already means nothi
 
 ### Where the curation UI lives
 
-- **D-01: `npm run curate` serves the built `dist/widgets` and injects the overlay in-flight.**
+- **D-01:** **`npm run curate` serves the built `dist/widgets` and injects the overlay in-flight.**
   The server streams `dist/widgets/index.html` with `<script src="/__curate/overlay.js"></script>`
   appended before `</body>`. The overlay is a separate esbuild bundle emitted to a gitignored
   directory (e.g. `.curate-dist/`) that is **never** an input to `vite.config.pages.ts` and
@@ -67,14 +67,14 @@ only), any change to what exclusion means for aggregates (it already means nothi
     could only assert the endpoints are gone, not the UI. That is the opt-out shape Phase 23's
     D-05 rejected, and it is the weakest available reading of "provably absent".
 
-- **D-02: Mount `dist/widgets` under `/strava-widgets`, with `/__curate/*` served outside the
+- **D-02:** **Mount `dist/widgets` under `/strava-widgets`, with `/__curate/*` served outside the
   prefix.** Matches `verify-dashboard-publish.mjs`'s deliberate prefix mount and the comment
   that records why: GitHub Pages serves this repo as a *project* page, never at a domain root,
   and serving at `/` is precisely what let the absolute-asset bug ship green at 15/15. Curating
   against production's URL shape means the overlay cannot silently acquire a root-relative path
   dependency, and criterion 4's two halves run against the same shape.
 
-- **D-03: The published dashboard gains an inert, documented attach seam — no write path.**
+- **D-03:** **The published dashboard gains an inert, documented attach seam — no write path.**
   Two additions, both semantically neutral and both unit-testable:
   (a) `data-activity-id` on the `<section>` that `buildBestEffortsSection` returns
       (`detail-sections.ts:365`), and
@@ -96,7 +96,7 @@ only), any change to what exclusion means for aggregates (it already means nothi
 
 ### What exclusion means
 
-- **D-04: Exclusion is whole-activity. CUR-01 and ROADMAP criterion 1 are amended in this phase
+- **D-04:** **Exclusion is whole-activity. CUR-01 and ROADMAP criterion 1 are amended in this phase
   to drop the per-distance clause.** Developer decision, 2026-08-27, stated directly: *"When
   there is an exclusion from PRs it's for the whole activity. If an activity is excluded we
   should no longer use it to calculate PRs of any kind. It only counts towards aggregates like
@@ -117,7 +117,7 @@ only), any change to what exclusion means for aggregates (it already means nothi
     with a select-all.** Both honour CUR-01 as originally written; both were declined in favour
     of the simpler semantics.
 
-- **D-05: Curate writes `distances: null` and nothing else; the read path keeps its full
+- **D-05:** **Curate writes `distances: null` and nothing else; the read path keeps its full
   tolerance.** `buildExclusionIndex` (`best-effort-exclusions.ts:29`) continues to accept
   distance arrays, duplicate entries per activity, and malformed rows exactly as it does today
   — T-16-EX-01/T-16-EX-02 are unchanged, and the two existing live entries (which already use
@@ -128,7 +128,7 @@ only), any change to what exclusion means for aggregates (it already means nothi
     `distances: []`, which `buildExclusionIndex` silently skips — the entry would read as
     excluded in the file while excluding nothing.
 
-- **D-06: One reason per activity — `buildExclusionReasonIndex` is unchanged.**
+- **D-06:** **One reason per activity — `buildExclusionReasonIndex` is unchanged.**
   `records-logic.ts:69` stays `Map<string, string>`, and `buildPrFlagsCell`
   (`detail-sections.ts:339`), `buildPrTableRows` and `records.ts:534` keep their current
   signatures. Whole-activity exclusion (D-04) makes one reason per activity exactly right, so
@@ -139,7 +139,7 @@ only), any change to what exclusion means for aggregates (it already means nothi
 
 ### The write loop
 
-- **D-07: Save mirrors instantly; recompute is a separate, deliberate press.**
+- **D-07:** **Save mirrors instantly; recompute is a separate, deliberate press.**
   On Save the server writes `data/best-effort-exclusions.json`, immediately copies it to
   `dist/widgets/data/best-effort-exclusions.json`, and the overlay re-renders — so the badge and
   reason appear at once, which is what makes criterion 2 demonstrable in one session without a
@@ -152,7 +152,7 @@ only), any change to what exclusion means for aggregates (it already means nothi
   - **Rejected: write-only with a manual rebuild.** Criterion 2 could not then be shown in the
     same session, which makes the human checkpoint clumsier for no gain.
 
-- **D-08: The two-step commit.** Ticking reveals a required reason textarea and a Save button;
+- **D-08:** **The two-step commit.** Ticking reveals a required reason textarea and a Save button;
   **nothing is written until Save with non-empty text**. An already-excluded activity loads with
   the box ticked and its stored reason in the field, so editing the text and pressing Save
   updates the entry in place. Unticking triggers a confirm before deleting the entry — it
@@ -164,7 +164,7 @@ only), any change to what exclusion means for aggregates (it already means nothi
     D-05/D-06 (button baseline, scoped hover, disabled treatment), D-09/D-10 (two-tone focus
     ring). This is the roadmap's stated dependency on Phase 19 and the only reason it exists.
 
-- **D-09: Curate never touches git.** Working-tree writes only. The developer reviews
+- **D-09:** **Curate never touches git.** Working-tree writes only. The developer reviews
   `git diff`, commits and pushes. Deliberate on two counts: `data/best-effort-exclusions.json`
   sits in the nightly workflow's push-paths filter, so a commit reaching origin triggers a full
   rebuild and deploy — a tickbox must not be able to cause that — and the curate server needs no
@@ -172,7 +172,7 @@ only), any change to what exclusion means for aggregates (it already means nothi
 
 ### Keeping the write path out of production
 
-- **D-10: Two enforcement layers, mirroring `assertNoPrivateArtifacts`'s actual shape.**
+- **D-10:** **Two enforcement layers, mirroring `assertNoPrivateArtifacts`'s actual shape.**
   The named precedent is already two-layered and both layers are required here:
   (a) **Build-time hard-fail** in `build-widgets.mjs`, beside `assertNoPrivateArtifacts` and
       called from the same place: no curate bundle may exist anywhere under `dist/widgets`, and
@@ -185,13 +185,13 @@ only), any change to what exclusion means for aggregates (it already means nothi
   `verify-dashboard-publish.mjs:294` stays, and the new guards must not be written in a way that
   catches it.
 
-- **D-11: The guard must be proven by a test that plants a regression.** Criterion 3 says the
+- **D-11:** **The guard must be proven by a test that plants a regression.** Criterion 3 says the
   assertion "demonstrably fails against a build that regresses this", so a test seeds a fake
   curate artifact into the publish directory and asserts the guard fails. Phase 19's R3-CR-01
   and Phase 23's WR-06 both recorded guards that stayed green when the thing they guarded was
   removed; a guard that has never been observed failing is not evidence.
 
-- **D-12: Bind to `127.0.0.1` explicitly and reject cross-origin writes.** `server.listen(PORT,
+- **D-12:** **Bind to `127.0.0.1` explicitly and reject cross-origin writes.** `server.listen(PORT,
   '127.0.0.1')` — never `0.0.0.0` — and every write rejects unless `Origin`/`Host` matches the
   curate origin. Binding alone satisfies the literal "localhost-only" wording but leaves the
   endpoint reachable from any other tab in the developer's own browser; the header check closes
