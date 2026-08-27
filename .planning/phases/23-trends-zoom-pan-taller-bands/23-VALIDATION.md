@@ -74,9 +74,11 @@ command. Plans must be written so the automatable logic is extracted into a pure
 | 23-10/T1 | 23-10 | 6 | TRN-01 | — | `tickGranularityForStep`/`formatTimeAxisTick`/`stepMsFromTicks` implement the never-duplicate-a-label invariant (Finding 7 fix) | unit (TDD) | `npx vitest run src/dashboard/views/trends-tick-format.test.ts` | ✅ | ✅ green (16 passed) |
 | 23-10/T2 | 23-10 | 6 | TRN-01 | — | All five Trends x-axis tick callbacks route through `formatAdaptiveTimeTick`/`stepMsFromTicks` | source assertion + gate | `npx tsc --noEmit && npm test && npm run build-widgets` | ✅ | ✅ green (this session's step (b) run) |
 | 23-10/T3 | 23-10 | 6 | TRN-04 | — | `observeCanvasResize` attached at all seven chart mounts with matching `destroy()` teardown (Finding 8 fix) | source assertion + gate | `npx tsc --noEmit && npm test && npm run build-widgets && npm run verify-dashboard` | ✅ | ✅ green (this session's step (b) run) |
-| 23-11/T2 | 23-11 | 7 | TRN-01..04 | T-23-EVIDENCE-R2, T-23-PRESSURE | 22 non-waivable browser rows (R21-R42), each with its own stated proof | manual-only (blocking checkpoint) | — none; see Round 2 checkpoint record below | N/A | ⬜ pending |
+| 23-11/T2 | 23-11 | 7 | TRN-01..04 | T-23-EVIDENCE-R2, T-23-PRESSURE | 22 non-waivable browser rows (R21-R42), each with its own stated proof | manual-only (blocking checkpoint) | — none; see Round 2 checkpoint record below | N/A | ⚠️ partial (21 PASS / 1 FAIL — R35) |
 
 *Status column above reflects this session's actual run (2026-08-19, plan 23-07 Task 1): `npm test` 54/54 files, 1313/1313 tests, all 5 `trends-zoom-logic.test.ts` `-t` filters and both `styles.test.ts` filters passed within that run; `npm audit` re-confirmed no advisory names `chartjs-plugin-zoom` or `hammerjs`; `npx tsc --noEmit` clean; `npm run build-widgets` succeeded; `npm run verify-dashboard` 37/37. Only the 23-07/T2 row (the browser checkpoint) remains pending — it is this plan's Task 2.*
+
+*23-11/T2 updated 2026-08-27 to reflect the Round 2 checkpoint's actual close: 21 PASS / 1 FAIL (R35) / 0 BLOCKED. See the `## Round 2 — checkpoint record` section below for the full row-by-row evidence and the requirement-gating table.*
 
 ---
 
@@ -518,3 +520,94 @@ appears anywhere in this file (confirmed by direct repo-wide grep of this docume
 `git status --porcelain src/` is empty; no source file was modified by this task.
 
 ---
+
+## Round 2 — checkpoint record
+
+> Held 2026-08-26/27 against the fresh build `assets/index-D01ardNQ.js` at
+> `http://127.0.0.1:8099/strava-widgets/`, staged from the main checkout per Task 1's § (g).
+> Verdict vocabulary: PASS / FAIL / BLOCKED / NOT EXERCISABLE (Phase 20). House rules 1-10 from
+> this plan's Task 2 govern every row below; no row is discharged on a summary, a different
+> width/height/control, a synthetic event where a real gesture was required, or on
+> developer/orchestrator authority (house rule 14, restated from Phase 22).
+
+**Method disclosure (recorded per this round's own instruction, for auditability):**
+- Rows R33, R34, R35 and R42 were measured inside a same-origin iframe sized to the exact target
+  widths/heights, because Chrome refuses to size a real window below 500px wide. Media queries and
+  `dvh` resolve against the iframe viewport, so layout evaluation is faithful, but this is NOT a
+  real device viewport (no mobile UA, no touch emulation, no browser chrome).
+- Rows R25, R28(c), R29, R30(a,b,c), R31(c), R36(a), R37 and R40 were driven by scripted
+  `element.click()` activation (`isTrusted: false`) because the browser-automation input channel
+  could not deliver real pointer events to this page (a click on the button's exact coordinates
+  produced zero click events). R28(a),(b),(d) were independently corroborated under R27's fully
+  trusted keyboard activation.
+- Rows R22, R23, R26, R30(d), R31(a,b), R36(b), R38 and R41(a) were performed by the human with
+  real trusted input, verified in-page via `isTrusted`/`metaKey` counters.
+
+| Row | Verdict | Evidence as the row demanded it |
+|-----|---------|----------------------------------|
+| R21 | **PASS** | Entry asset `./assets/index-D01ardNQ.js` read back live two ways — the module `<script src>` and the `performance` resource entry (`http://127.0.0.1:8099/strava-widgets/assets/index-D01ardNQ.js`). Differs from Round 1's `assets/index-D2l-GZfl.js`. |
+| R22 | **PASS** | Real gesture: 19 wheel events, ALL `isTrusted: true`, ALL `metaKey: true`. Ticks before `Aug 2025 \| Dec 2025 \| Feb 2026 \| Mar 2026 \| May 2026 \| Aug 2026`; after `2019 \| 2022 \| 2023 \| 2026`. Label `Weekly distance chart, Aug 2025 to Aug 2026` → `Weekly distance chart, Mar 2019 to Aug 2026`. |
+| R23 | **PASS** | Real bare scroll: 51 wheel events, all trusted, 0 with meta/ctrl. `scrollY` 0 → 178 (CHANGED). Label unchanged (`Weekly distance chart, Sep 2025 to Mar 2026`) and x-ticks unchanged (`23 Sep 2025 \| 1 Nov 2025 \| 24 Nov 2025 \| 17 Dec 2025 \| 9 Jan 2026 \| 2 Feb 2026 \| 4 Mar 2026`). Note for the record: a first attempt showed `scrollY` 0→0 because the gesture ended back at the top; the in-gesture time series recorded max `scrollY` 178, and a clean one-direction re-run gave 0 → 178. |
+| R24 | **PASS** | Fresh load Volume weekly: aria-label `Weekly distance chart, Aug 2025 to Aug 2026`; ticks `Aug 2025 \| Oct 2025 \| Dec 2025 \| Feb 2026 \| Mar 2026 \| May 2026 \| Aug 2026` — first `Aug 2025`, last `Aug 2026`. Matches the Round 2 table (month precision), not Round 1's day precision. |
+| R25 | **PASS** | Monthly: `Monthly distance chart, Aug 2021 to Aug 2026`, ticks `Aug 2021 \| Aug 2022 \| Mar 2023 \| Nov 2023 \| Jul 2024 \| Feb 2025 \| Oct 2025 \| Aug 2026` (first `Aug 2021`, last `Aug 2026`). Yearly: `Yearly distance chart, Jul 2010 to Jul 2026`, bare-year ticks `2010 \| 2014 \| 2017 \| 2020 \| 2023 \| 2026`. |
+| R26 | **PASS** | Real rightward drag. 135 `pointermove` events, all trusted; `down@507,490 trusted=true` → `up@762,481`; dx +255px. Cursor at rest `grab`, cursors observed during drag `["grab","grabbing"]`. Range `Weekly distance chart, Nov 2025 to May 2026` → `Weekly distance chart, Sep 2025 to Mar 2026`; ticks `22 Nov 2025 \| 17 Dec 2025 \| 9 Jan 2026 \| 2 Feb 2026 \| 25 Feb 2026 \| 20 Mar 2026 \| 4 May 2026` → `23 Sep 2025 \| 1 Nov 2025 \| 24 Nov 2025 \| 17 Dec 2025 \| 9 Jan 2026 \| 2 Feb 2026 \| 4 Mar 2026`. |
+| R27 | **PASS** | Keyboard only, no pointing device, all four buttons individually, every activation `trusted=true` with Enter. Tab order observed: `Theme: dark` → `Volume` → `Weekly` → `Monthly` → `Yearly` → `Pan to earlier dates` → `Pan to later dates` → `Zoom out` → `Zoom in`. `[Pan to earlier dates]` BEFORE `Weekly distance chart, Aug 2025 to Aug 2026` AFTER `Weekly distance chart, May 2025 to May 2026`. `[Pan to later dates]` BEFORE `Weekly distance chart, May 2025 to May 2026` AFTER `Weekly distance chart, Aug 2025 to Aug 2026`. `[Zoom out]` BEFORE `Weekly distance chart, Aug 2025 to Aug 2026` AFTER `Weekly distance chart, Feb 2025 to Aug 2026`. `[Zoom in]` BEFORE `Weekly distance chart, Feb 2025 to Aug 2026` AFTER `Weekly distance chart, May 2025 to May 2026`. |
+| R28 | **PASS** | All four exact matches from default: (a) `Weekly distance chart, May 2025 to May 2026`; (b) returns exactly to `Weekly distance chart, Aug 2025 to Aug 2026`; (c) `Weekly distance chart, Oct 2025 to Jun 2026`; (d) `Weekly distance chart, Feb 2025 to Aug 2026`. Corroboration: (a), (b) and (d) were independently reproduced under R27's fully trusted keyboard activation, so they do not rest on scripted activation. |
+| R29 | **PASS** | (a) fresh weekly: `Pan to later dates` `disabled=true`, `Pan to earlier dates` `disabled=false`. (b) `Zoom out` pressed until it disabled itself after exactly **7 presses** (Round 1 took 14 under the halving bug); final `Weekly distance chart, Aug 2011 to Aug 2026`; at the clamp `Zoom out`, `Pan to earlier dates` and `Pan to later dates` all `disabled=true`; ticks `2011 \| 2014 \| 2015 \| 2017 \| 2019 \| 2020 \| 2022 \| 2023 \| 2026`. |
+| R30 | **PASS** | (a) on fresh load Reset is present in the DOM but `hidden=true`, `display:none`, `offsetParent=null`, bounding rect 0x0 (not rendered, not focusable). (b) after one `+`: `hidden=false`, `display:block`, `offsetParent=present`. (c) pressing Reset returned `Weekly distance chart, Aug 2025 to Aug 2026` — the DEFAULT, not full zoom-out — and Reset returned to hidden. (d) NEW HALF, PASSES: after reload and a real trusted metaKey wheel zoom, Reset went HIDDEN → VISIBLE. Round 1 found it never appeared after a gesture. |
+| R31 | **PASS** | All three halves, label naming the same range the ticks show: (a) real wheel zoom: label `Weekly distance chart, Mar 2019 to Aug 2026`, ticks `2019 \| 2022 \| 2023 \| 2026`. (b) real drag-pan: label `Weekly distance chart, Sep 2025 to Mar 2026`, ticks `23 Sep 2025 ... 4 Mar 2026`. (c) `+` button: label `Weekly distance chart, Oct 2025 to Jun 2026`, ticks `Oct 2025 \| Dec 2025 \| Feb 2026 \| Mar 2026 \| Jun 2026`. |
+| R32 | **PASS** | Hint text verbatim `⌘ + scroll to zoom · drag or pinch to pan`, in the "Distance" band header. |
+| R33 | **PASS** | Width 900 (>430) throughout. At `clientHeight` 600: `.chart-band__canvas-wrap--tall` computed height `204px`, equal to 34dvh (204.0px), NOT 420px. At `clientHeight` 1400: exactly `420px`, with 34dvh being 476.0px so the ceiling binds. |
+| R34 | **PASS** | Cadence & HR at 900x800: 2 canvases on the panel, both bands `272px` (equal, = 34dvh of 800). Tab scrolls vertically: `document.documentElement.scrollHeight/clientHeight = 1105/800`. |
+| R35 | **FAIL** | At each of 390, 393, 412 and 430 px (all with `matchMedia('(max-width: 430px)')` true, `clientHeight` 800): (a) PASSES — `.chart-band__canvas-wrap--tall` computed height `240px` at every one of the four widths. (b) **FAILS** — `documentElement.scrollWidth/clientWidth` = `460/390`, `460/393`, `460/412`, `460/430`. NOT equal at any width. Round 1 measured 682 pinned regardless of width, so 23-09 improved it 682 → 460 but did not eliminate it. (c) PASSES (expected, not a defect) — `.year-heatmap` `scrollWidth/clientWidth` = `634/286`, `634/289`, `634/308`, `634/326`. (d) PASSES — `.year-heatmap-scroll` = `638/294`, `638/297`, `638/316`, `638/334`, `overflow-x: auto`. The wrapper's clientWidth sits inside the viewport while its scrollWidth stays ~638, proving 23-09's containment works. (e) the heatmap's rightmost weeks are reachable by scrolling the wrapper horizontally (overflow-x auto container, scrollWidth 638 > clientWidth). ROOT CAUSE LOCATED — the sole remaining overflow driver is the five-button Trends tab strip `div.segmented` (the one with 5 buttons, not the 3-button granularity strip): width 412px, left 48, right 460, `overflow-x: visible` on the element AND on its parent div (parent `scrollWidth/clientWidth = 436/342`). It was never given a scroll wrapper. The 3-button granularity `.segmented` is fine (w=253, right=301). The overflow only manifests below ~460px viewport width, which is why R42 at 500px reads clean. |
+| R36 | **PASS** | (a) button path: after `+` both canvases read `Jun 2022 to Oct 2025`; after `←` both read `Aug 2021 to Dec 2024` (ranges equal). (b) SEPARATE, real gesture: 111 wheel events all trusted with metaKey, applied over the HR (lower) band, waited ≥1s — `Average cadence by month chart, Jul 2021 to Aug 2026` and `Average heart rate by month chart, Jul 2021 to Aug 2026`, ranges MATCH. Round 1's "doesn't seem to catch up" is fixed. |
+| R37 | **PASS** | (a) Volume zoomed to `Weekly distance chart, Jan 2026 to Mar 2026`, Training Load to `Training load chart: CTL, ATL, and TSB over time, Nov 2025 to May 2026`. (b) after 3 full passes of all five tabs both still read exactly those ranges. (c) granularity weekly→monthly→weekly returned `Weekly distance chart, Aug 2025 to Aug 2026` (the weekly DEFAULT). (d) console clean — 64 messages captured across the sequence, ALL originating from an unrelated third-party Chrome extension (`chrome-extension://ffpmdofklpmnbkgiocdcofknfjckhbjl`, a Facebook/video extractor); ZERO messages from the app, no "Canvas is already in use", no errors. Caveat: a clean browser profile would make this cleaner. (e) `tabpanel-volume:1, tabpanel-yoy:1, tabpanel-cadence-hr:2, tabpanel-training-load:1, tabpanel-gear:1` and `.chart-zoom-controls` count exactly `1`. IMPORTANT CAVEAT: that panel string only reproduces while Cadence & HR is the ACTIVE tab; read from Volume it returns `tabpanel-cadence-hr:0` because the pair is unmounted when inactive. |
+| R38 | **PASS** | Training Load zoomed by real trusted gesture (49 wheel events, all trusted+metaKey) to `Training load chart: CTL, ATL, and TSB over time, Nov 2025 to Nov 2025`, an ~10-day window. Resolves near-daily: eight distinct daily ticks. Two adjacent tooltip readings captured: title `1,762,473,600,000` with `CTL (Fitness): 147.9`, and the adjacent point title `1,762,560,000,000` with `CTL (Fitness): 150.8` — a spacing of exactly 86,400,000 ms = 1 day. The row's own assertions are satisfied; see Finding 12 for the tooltip title defect. |
+| R39 | **PASS** | Confirmed by the human tester that the thin-HR-coverage shading still covers the same dates across two zoom levels. aria-labels quoted at both levels: `Training load chart: CTL, ATL, and TSB over time, Apr 2023 to Oct 2023` and, one step further in, `Training load chart: CTL, ATL, and TSB over time, May 2023 to Sep 2023`. Recorded honestly: the automated attempt to measure the shaded span by canvas pixel scanning was ABANDONED as unreliable — the candidate blue (61,128,244) appeared only at a mid-height scanline and was absent at 12% and 88% height, proving it was the CTL area fill rather than a full-height no-HR band — so this row rests on the human's stated observation plus the quoted labels. |
+| R40 | **PASS** | Volume zoomed to `Weekly distance chart, Nov 2025 to May 2026`, navigated to `#/records`, returned to `#/trends`, canvas read `Weekly distance chart, Aug 2025 to Aug 2026` (the weekly DEFAULT). |
+| R41 | **PASS** | (a) real trusted gesture zoom on Training Load to `Training load chart: CTL, ATL, and TSB over time, Nov 2025 to Nov 2025`; EVERY rendered x-axis tick left to right: `5 Nov 2025 \| 7 Nov 2025 \| 8 Nov 2025 \| 9 Nov 2025 \| 10 Nov 2025 \| 11 Nov 2025 \| 13 Nov 2025 \| 14 Nov 2025` — eight distinct `D MMM YYYY` dates where Round 1 had all eight reading `Feb 2026`. (b) Volume weekly at D-06 default: first `Aug 2025`, last `Aug 2026` (`MMM YYYY`). (c) Volume weekly at full zoom-out: first `2011`, last `2026` (bare `YYYY`). |
+| R42 | **PASS** | Loaded at viewport width 1200: canvas CSS `1018px x 238px`, canvas attribute `1018x238`, `.chart-band__canvas-wrap` width 1018, `documentElement.scrollWidth/clientWidth` `1200/1200`. Then narrowed to 500 WITHOUT reloading: canvas CSS `370px x 238px`, attribute `370x238`, wrapper width 370, `500/500` EQUAL. No-reload proven three ways: `performance.getEntriesByType('navigation').length === 1`, navigation `startTime` identical before and after, and the same `document` object identity across both readings. Round 1 measured the canvas stuck at 770x206 in a 370px wrapper with scrollWidth 835 vs clientWidth 500. |
+
+**Tally:** 21 PASS · 1 FAIL · 0 BLOCKED · 0 NOT EXERCISABLE.
+(FAIL: R35.)
+
+### Requirement gating (strictly on the Round 2 row map)
+
+| Requirement | Mapped rows | Result | Blocking rows |
+|-------------|-------------|--------|----------------|
+| TRN-01 | R22, R23, R24, R25, R38 | **TICKED (re-confirmed)** | none — all five PASSED |
+| TRN-02 | R26, R27, R28, R29, R30, R31, R32 | **TICKED** | none — all seven PASSED |
+| TRN-03 | R33, R34, R35 | **Pending** | R35 (FAIL) |
+| TRN-04 | R36, R37, R39, R40 | **TICKED** | none — all four PASSED |
+
+R41 and R42 gate no requirement but count toward the clean sweep; both PASSED. The round is 21
+PASS / 1 FAIL, not a clean sweep — `nyquist_compliant` stays `false` and `status` stays `partial`.
+TRN-03 is the only requirement this round leaves Pending; TRN-01, TRN-02 and TRN-04 all close.
+
+### Findings (recorded, NOT patched — house rule 4)
+
+**Finding 11 — NEW, ROOT CAUSE: the five-button Trends tab strip has no scroll wrapper and is the
+sole remaining phone-width overflow driver.** R35(b) measured `document.documentElement.scrollWidth`
+at 460 against `clientWidth` 390/393/412/430 — improved from Round 1's pinned 682 (23-09's
+year-heatmap wrapper is confirmed working, R35(c)/(d)/(e) all PASS) but not eliminated. The
+remaining 460px is produced by `div.segmented`, the five-tab Trends navigation strip (Volume /
+Year-over-Year / Cadence & HR / Training Load / Gear), measured at width 412px with `left: 48,
+right: 460`, `overflow-x: visible` on the element itself AND on its parent container (parent
+`scrollWidth/clientWidth = 436/342`). Unlike the 3-button granularity `.segmented` (weekly/monthly/
+yearly, w=253, right=301, no overflow), the five-tab strip was never given a scroll wrapper. The
+defect only manifests below ~460px viewport width, which is why R42 (loaded/resized at 500px) reads
+clean scrollWidth/clientWidth equality. **Blocks TRN-03 via R35.** Not patched, per house rule 4 —
+left for a gap-closure plan.
+
+**Finding 12 — NEW: the Training Load tooltip TITLE renders a raw epoch-millisecond value instead
+of a formatted date.** Observed at `1,762,646,400,000` in the tooltip header while the x-axis
+directly beneath it correctly read `9 Nov 2025`. Tooltip body lines are correct (`CTL (Fitness):
+147.3`, `ATL (Fatigue): 167.9`, `TSB (Form): -42.8`). Confirmed visually in a screenshot, not only
+via instrumentation. This is the same defect class Round 1 recorded as Finding 6 (OUT OF SCOPE,
+pre-existing, no `title` callback defined anywhere in `trends-charts.ts`) — Finding 12 re-observes
+it against this round's fresh build to confirm it survived 23-08/09/10 unchanged. Plausibly related
+to 23-10's tick-formatter change is an UNVERIFIED HYPOTHESIS, not a conclusion — 23-10 touched the
+axis tick callback, not the tooltip `title` callback, and Finding 6 already predates Phase 23
+entirely (confirmed against `61ee687`, the last pre-Phase-23 commit). Gates no TRN requirement but
+breaks the clean sweep were it not already broken by R35. Not patched, per house rule 4.
+
