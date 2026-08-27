@@ -17,11 +17,11 @@ created: 2026-08-27
 ## Fresh Gate Run (plan 24-08, Task 1, 2026-08-27)
 
 One fresh build, all five gate commands run in order against `git rev-parse HEAD`
-`05a2d9beee2fa0f7afffc58c9ae27388bdd7e153` (the pre-Task-1 tree). This Task's own commit of
-`24-VALIDATION.md` then advances HEAD to `cf18820ce7ab6b47981d3840a418032aa82371fb` — THAT is the
-value the checkpoint (R5, R11, final state check) must treat as the unchanged baseline, since it
-is the HEAD in place before the developer's checkpoint session begins. See "Expected Values"
-below for the pinned baseline used by R5/R11.
+`05a2d9beee2fa0f7afffc58c9ae27388bdd7e153` (the pre-Task-1 tree). Task 1's own docs-only commits
+of `24-VALIDATION.md` then advance HEAD past that value, so no literal hash written INTO this file
+can name the HEAD that will be in place once the file itself has been committed — each correction
+invalidates its own pin. The checkpoint baseline is therefore defined operationally, not as a
+literal: see "Expected Values" below.
 
 | # | Command | Exit code | Notable output |
 |---|---------|-----------|-----------------|
@@ -151,11 +151,16 @@ the entry for the target's month:
 
 **Pre-checkpoint archive state**, from `data/best-effort-exclusions.json`:
 - `exclusions` array length: **2**
-- `git rev-parse HEAD` (BASELINE for R5/R11/the final state check — this is the HEAD in place
-  when the developer's checkpoint session begins, i.e. AFTER this Task's own docs-only commit of
-  `24-VALIDATION.md` landed): **cf18820ce7ab6b47981d3840a418032aa82371fb**
-  - (for reference only: HEAD immediately before this Task's own commit was
-    `05a2d9beee2fa0f7afffc58c9ae27388bdd7e153`)
+- `git rev-parse HEAD` (BASELINE for R5/R11/the final state check) — **recorded by the
+  developer, not pinned here**. Before ROW R1, run `git rev-parse HEAD` and write the value down;
+  that recorded value is `BASELINE_HEAD`. R5, R11 and the final state check pass only if
+  `git rev-parse HEAD` still equals it. This is what D-09 actually asserts: curate creates no
+  commit, so HEAD at the end of the session equals HEAD at the start. A literal pin cannot serve
+  here — committing the pin moves HEAD past it (this is exactly how `cf18820` was stale on
+  arrival, corrected at hand-off).
+  - (for reference only: HEAD immediately before Task 1's first docs commit was
+    `05a2d9beee2fa0f7afffc58c9ae27388bdd7e153`; at checkpoint hand-off it was
+    `1d58c79cf98ed1a8762231203d8eaf2d27130179` plus this correction commit)
 - `git status --porcelain data/best-effort-exclusions.json`: **empty** (confirmed after this
   Task — nothing has been written yet)
 
