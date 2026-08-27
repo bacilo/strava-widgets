@@ -290,23 +290,39 @@ Save **then Recompute**, not via Save alone. The defect is in the plan's stated 
 the implementation's data flow, not in the feature being unreachable. Severity: Medium. The
 CUR-01 disposition below is written against what was actually observed.
 
-**F-2 (incidental, out of Phase 24 scope) — Trends → Volume → Monthly tooltip title renders a raw
-epoch timestamp instead of a month label.**
+**F-2 (incidental, out of Phase 24 scope; NOT a new defect — a known one, wider than recorded) —
+the raw-epoch tooltip title also affects Trends → Volume → Monthly, not only Training Load.**
 Observed while gathering R9's monthly figure. The tooltip title read **`1,609,459,200,000`** for
 Jan 2021 and **`1,693,526,400,000`** for Sep 2023 (= 2021-01-01 and 2023-09-01 in epoch
 milliseconds) where a label like `Jan 2021` belongs. The value line beneath it is correct
 (`362.2 km, 29 runs` and `201.4 km, 15 runs` respectively). Reproduced on a freshly loaded page
 with **no** instrumentation attached, so it is not an artefact of the canvas patching used earlier
-in the session. This belongs to the Trends/volume chart work, not to CUR-01 — recorded here only
-because this checkpoint is where it surfaced.
+in the session.
 
-**F-3 (incidental, out of Phase 24 scope) — Monthly volume chart zoom-out appears caged at a
-5-year window.** The `−` / "Zoom out" button is enabled but two consecutive clicks left the
-chart's own `aria-label` unchanged at `Monthly distance chart, Aug 2021 to Aug 2026`; only the `←`
-pan button moved the window (to `May 2020 to May 2025`). The archive begins well before 2020. This
-is the same shape as Phase 23's Critical CR-01 (zoom-out caged at ~5 years of a ~15-year archive)
-and should be checked against that fix rather than assumed resolved. Not investigated further —
-outside this phase's scope.
+This is the same defect already on record: `23-07-SUMMARY.md` finding 6 logged it as
+**pre-existing from Phase 18** (verified against `61ee687`) and `23-10-PLAN.md` explicitly scoped
+it out of Phase 23. What is new here is only its **extent** — the existing record names the
+*Training Load* tooltip; this round shows the *Volume → Monthly* tooltip has it too, so whoever
+picks it up should treat it as a shared formatter defect across `trends-charts.ts` rather than a
+single-chart fix. Nothing about CUR-01 depends on it.
+
+**F-3 (incidental, out of Phase 24 scope; UNCONFIRMED — needs a dedicated check, do not treat as
+established) — Monthly volume chart zoom-out may still be caged at a 5-year window.** The `−` /
+"Zoom out" button reported `disabled: false`, but two consecutive clicks left the chart's own
+`aria-label` unchanged at `Monthly distance chart, Aug 2021 to Aug 2026`; only the `←` pan button
+moved the window, to `May 2020 to May 2025`. The archive begins well before 2020.
+
+Confidence and its limits: clicks in that same control row were landing (the `←` click at the
+adjacent coordinate did change the range), which argues the `−` clicks were not simply missing —
+but this was a two-click incidental observation taken while gathering R9's monthly figure, not a
+row with a pinned expected value, and no reachable-extent value was derived independently. It is
+recorded because it has the same shape as Phase 23's Critical CR-01 (gesture zoom-out caged at
+~5 years of a ~15-year archive), and because [[checkpoint-rows-must-assert-extent]]'s lesson is
+that a stopping point which is not the archive edge is worth raising even on a passing row.
+Phase 23 Round 3 recorded CR-01's fix as verified, so this either is a residue on a chart that
+round did not exercise this way, or is my observation being wrong. Someone should press `−`
+repeatedly on the Monthly volume chart and check whether it reaches the true archive start before
+concluding either way.
 
 ### Observations (not defects, not blocking)
 

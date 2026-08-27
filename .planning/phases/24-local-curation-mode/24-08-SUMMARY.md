@@ -85,12 +85,18 @@ would repeat the v2.0 audit's stale-todo error in the opposite direction.
 
 ## Incidental findings, outside this phase's scope
 
-- **F-2** — Trends → Volume → Monthly tooltip title renders a raw epoch timestamp
-  (`1,609,459,200,000` for Jan 2021, `1,693,526,400,000` for Sep 2023) where a month label
-  belongs. Values beneath are correct. Reproduced on a clean page with no instrumentation.
-- **F-3** — Monthly volume zoom-out appears caged at a 5-year window: `−` is enabled but two
-  clicks left `aria-label` at `Monthly distance chart, Aug 2021 to Aug 2026`; only `←` moved
-  it. Same shape as Phase 23's Critical CR-01 and worth checking against that fix.
+- **F-2** — the raw-epoch tooltip title is NOT new: `23-07-SUMMARY.md` finding 6 logged it as
+  pre-existing from Phase 18 and `23-10-PLAN.md` scoped it out of Phase 23. What this round adds
+  is its extent — the record names the *Training Load* tooltip, but *Volume → Monthly* has it too
+  (`1,609,459,200,000` for Jan 2021, `1,693,526,400,000` for Sep 2023, values beneath correct,
+  reproduced on a clean page with no instrumentation). Treat as a shared `trends-charts.ts`
+  formatter defect, not a single-chart fix.
+- **F-3 (UNCONFIRMED)** — Monthly volume zoom-out may still be caged at a 5-year window: `−`
+  reported `disabled: false` but two clicks left `aria-label` at `Aug 2021 to Aug 2026`; only `←`
+  moved it. Clicks in that control row were landing (`←` at the adjacent coordinate worked), but
+  this was a two-click incidental observation with no independently derived extent value, so it is
+  explicitly not established. Same shape as Phase 23's CR-01, which Round 3 recorded as fixed —
+  needs a dedicated check before anyone concludes either way.
 - `dist/widgets/test.html` is tracked but no longer emitted by `build-widgets`, so it shows as
   a pending deletion throughout. Pre-existing and unrelated.
 
