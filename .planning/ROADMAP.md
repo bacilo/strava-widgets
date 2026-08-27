@@ -432,7 +432,7 @@ Plans:
   3. `verify-dashboard-publish.mjs` gains a new assertion, following the `assertNoPrivateArtifacts` precedent, that the curation write path (server code, curate UI bundle, write endpoints) is absent from the published GitHub Pages bundle — and that assertion demonstrably fails against a build that regresses this.
   4. **Human checkpoint**: run `npm run curate` locally, toggle a whole-activity exclusion end-to-end with a reason, confirm it lands in `data/best-effort-exclusions.json` and renders in the detail view; separately, load the production build served under `/strava-widgets` in a real browser and confirm no curation write endpoint is present or reachable. (**amended 2026-08-27 per D-04**)
 
-**Plans**: 8 plans in 4 waves
+**Plans**: 10 plans in 6 waves
 
 Plans:
 
@@ -455,6 +455,14 @@ Plans:
 **Wave 4** *(blocked on 24-02, 24-03, 24-05, 24-06 and 24-07)*
 
 - [x] 24-08-PLAN.md — fresh full gate with recorded asset hashes and expected values derived from `best-efforts.json`/`weekly-distance.json`/`monthly-stats.json` BEFORE any write, then a BLOCKING 14-row human browser checkpoint (R1-R14) whose extent rows assert the promoted next-best effort comes from a different activity and that totals are unchanged
+
+**Wave 5** *(gap closure — blocked on 24-08; closes GAP-24-01 from `24-VALIDATION.md` Round 1 R5)*
+
+- [ ] 24-09-PLAN.md — derive the `Excluded — {reason}` badge's on/off state from the LIVE `data/best-effort-exclusions.json` at render time instead of the precomputed `excludedFromRecords` flag, so the badge is correct immediately after Save and immediately after an untick with no Recompute and no rebuild; both new guards observed red against a planted regression (D-11)
+
+**Wave 6** *(blocked on 24-09)*
+
+- [ ] 24-10-PLAN.md — BLOCKING Round 2 browser checkpoint (R15-R23) re-running R5 in its original sequencing plus its mirror direction, and re-asserting edit-in-place, the Recompute extent row, totals, untick/restore and the three production-absence rows; then the CUR-01 disposition
 
 **UI hint**: yes
 
