@@ -362,13 +362,22 @@ function buildPrFlagsCell(row: BestEffortPanelRow, exclusionReason: string | nul
  * The section is NEVER omitted — a run with zero qualifying efforts still
  * renders the named empty state rather than disappearing, so its absence
  * always reads as a real "too short" fact, never as a bug (18-UI-SPEC § 15).
+ *
+ * Phase 24's D-03(a) attach seam: `section.dataset.activityId` is set here,
+ * unconditionally, before ANY early return. This is inert — it carries no
+ * endpoint, no fetch, no write, and no curate code — it exists purely so a
+ * developer-only local overlay (`npm run curate`) can find this exact panel
+ * by activity id rather than by matching visible label text or table column
+ * order. It ships in the published bundle deliberately (24-CONTEXT.md D-03).
  */
 export function buildBestEffortsSection(
   rows: readonly BestEffortPanelRow[],
-  exclusionReason: string | null
+  exclusionReason: string | null,
+  activityId: string
 ): HTMLElement {
   const section = document.createElement('section');
   section.className = 'card detail-section';
+  section.dataset.activityId = activityId;
 
   const heading = document.createElement('h2');
   heading.className = 'text-heading';
