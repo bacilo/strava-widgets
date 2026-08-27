@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
 status: executing
-stopped_at: Phase 23 context gathered
-last_updated: "2026-08-26T07:42:26.561Z"
-last_activity: 2026-08-26 -- Phase 23 execution started
+stopped_at: Completed 23-11-PLAN.md
+last_updated: "2026-08-27T05:01:17.030Z"
+last_activity: 2026-08-27
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 72
-  completed_plans: 68
+  completed_plans: 72
   percent: 57
 ---
 
@@ -26,47 +26,40 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 23 (trends-zoom-pan-taller-bands) — EXECUTING
-Plan: 1 of 11
-Status: Executing Phase 23
-        Plan 22-16's Round 4 gap-closure checkpoint ran against a provably fresh build
-        (assets/index-BWkFUnJ1.js / index-BnKFUiAg.css, differing from all three prior
-        rounds' builds) and returned 3 PASS / 2 BLOCKED — R24, R25 and R28 PASS; R26 and
-        R27 BLOCKED.
-        Gap 1 (CAL-02, the 381-640px overflow band `22-VERIFICATION.md` reopened) is
-        PARTIALLY closed: R25 PASS closed the 381-530px sub-band for the first time in
-        this phase, at a genuinely developer-stated 393px (Chrome DevTools device
-        emulation) with both matchMedia confirmations and the full rendered table quoted.
-        R26 — the row testing the ~600px sub-band where the widened compaction's
-        single-column stack renders for the first time — is BLOCKED: the evidence given
-        was at R25's own 393px, not R26's own required ~600px width, so that sub-band
-        remains unobserved. Gap 1 stays STILL OPEN.
-        Gap 2 (CR-01, theme toggle stuck on light under blocked storage) is STILL OPEN:
-        R27, the mandatory non-waivable row that exercises the exact control under the
-        exact configuration, is BLOCKED — only "Theme dark is reached" was reported,
-        without the three individual aria-label values in click order, the specific
-        browser/setting, or a per-click colour-change statement disposition (a) requires.
-        WR-01 (vacuous null-override tests) is CLOSED on automated evidence alone
-        (plan 22-13's sentinel-backed mutation-verified tests).
-        Process note: three successive rounds of orchestrator-relayed pressure to record
-        R26/R27 as PASS on incomplete evidence were received during the checkpoint
-        session. The first two were declined outright; the third supplied genuine
-        width/method evidence that resolved R25 on its own merits, but continued to press
-        for R26/R27 PASS on evidence short of their own Required detail. Both were
-        declined per the plan's own non-waivable house rule 14, which is explicit that
-        this exact substitution (developer/orchestrator authority standing in for a
-        non-waivable row's literal Required detail) is the failure mode that reopened
-        Gap 1 and shipped Gap 2 as a Critical in prior rounds. See 22-16-SUMMARY.md
-        Deviations for the full record.
-        REQUIREMENTS.md re-gated strictly on the Round 4 row map: CAL-02 stays Pending
-        (R26 BLOCKED); CAL-01 REVERTED from Complete to Pending (R27 BLOCKED); CAL-03
-        left untouched. 22-VALIDATION.md frontmatter: status: partial,
-        nyquist_compliant: false.
-        Next: a further gap-closure planning pass (/gsd-plan-phase 22 --gaps) targeting
-        specifically R26's own ~600px band and R27's full three-click aria-label
-        sequence with the specific browser/setting used — both narrow, well-scoped asks
-        since R24, R25 and R28 are already cleanly closed. The staged build remains
-        served at http://127.0.0.1:8099/strava-widgets/ for that session.
-Last activity: 2026-08-26 -- Phase 23 execution started
+Plan: 11 of 11 (all drafted plans executed; phase gate still open)
+Status: Gap closure in progress — 1 of 4 TRN requirements still Pending
+        Plan 23-11's Round 2 gap-closure checkpoint (R21-R42) closed 2026-08-26/27 against a
+        fresh build (`assets/index-D01ardNQ.js`, differing from Round 1's `assets/index-D2l-GZfl.js`):
+        **21 PASS / 1 FAIL (R35) / 0 BLOCKED.**
+        Plan 23-08's settle-nesting fix (nesting `onZoomComplete`/`onPanComplete` inside the
+        `zoom`/`pan` option objects) and its ÷1.5/×1.5 step-magnitude fix, together with plan
+        23-09's year-heatmap scroll wrapper, closed all three of Round 1's other FAILs
+        (R8, R11, R16) — TRN-01, TRN-02 and TRN-04 all tick Complete in REQUIREMENTS.md.
+        TRN-03 stays Pending, blocked by R35: 23-09's wrapper narrowed the phone-width
+        horizontal overflow from Round 1's pinned `documentElement.scrollWidth` 682 down to
+        460, but 460 still exceeds `clientWidth` at every required phone width (390/393/412/430)
+        — the row's own non-waivable no-horizontal-overflow clause needs equality, not
+        improvement. Finding 11 (new root cause): the overflow now traces to the five-tab
+        Trends navigation strip (`div.segmented`, Volume/YoY/Cadence & HR/Training Load/Gear),
+        412px wide with `overflow-x: visible` on itself and its parent, never given a scroll
+        wrapper — a different element than Round 1's Finding 9 (the year heatmap, now genuinely
+        fixed). Only manifests below ~460px viewport width. Finding 12 (gates nothing): the
+        Training Load tooltip title still renders a raw epoch-millisecond value — a
+        re-observation of Round 1's out-of-scope Finding 6 against the fresh build, confirming
+        it survived 23-08/09/10 unchanged. Both findings recorded verbatim, unpatched, per house
+        rule 4. `23-VALIDATION.md` frontmatter: `status: partial`, `nyquist_compliant: false`.
+        All 11 of Phase 23's currently-drafted plans (23-01..23-11) have executed and have
+        SUMMARY.md files, but the phase gate is NOT closed — `completed_phases` in this file's
+        frontmatter is deliberately held at 4, not 5, because plan-execution completeness and
+        requirement-gate closure are different things (a mechanical disk-based check would
+        otherwise call the phase complete on plan count alone).
+        Next: a further gap-closure planning pass (`/gsd-plan-phase 23 --gaps`) targeting
+        specifically Finding 11 — wrap or constrain the five-tab `div.segmented` strip so
+        `documentElement.scrollWidth` equals `clientWidth` at 390/393/412/430px — would close
+        TRN-03 and the phase gate. This is a narrow, well-scoped ask since TRN-01/02/04 are
+        already cleanly closed. The staged build may still be running at
+        `http://127.0.0.1:8099/strava-widgets/` for that session.
+Last activity: 2026-08-27
 
 Progress: [██████████] 100%
 
@@ -98,6 +91,7 @@ Progress: [██████████] 100%
 | Phase 22 P08 | 15min | 1 tasks | 2 files |
 | Phase 22 P12 | 20min | 3 tasks | 3 files |
 | Phase 22 P16 | ~35min | 3 tasks | 2 files |
+| Phase 23 P11 | 30min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -132,6 +126,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 22]: Phase 22 plan 22-08 Round 2: Gap 2 (CR-01, unguarded localStorage getter) CLOSED via R15 PASS; Gap 1 (CAL-02, ~380px day-cell overflow) STILL OPEN via R13 FAIL, so CAL-02 stays Pending while CAL-01 keeps its Complete tick. R16 was declined by the developer and recorded BLOCKED, not NOT EXERCISABLE.
 - [Phase 22]: 22-12 Round 3 human checkpoint recorded a clean sweep — all six rows (R18-R23) PASS, closing both remaining Phase 22 gaps. R19 PASS closed Gap 1 (CAL-02, ~380px day-cell overflow, FAILED twice at R11/R13) at a stated 375px with matchMedia('(max-width: 380px)').matches confirmed engaged for the first time; values wrap rather than overflow. R22 PASS disposition (a) closed Gap 2 (BL-03, app-level blocked-site-data) in Safari after a genuine Chrome org-managed-preference block, the first real-browser exercise of that path in the phase. CAL-02 ticked complete; CAL-01's tick survives via R23 PASS; CAL-03 left untouched. nyquist_compliant: true.
 - [Phase 22]: 22-16 Round 4 checkpoint recorded 3 PASS / 2 BLOCKED (R24/R25/R28 PASS, R26/R27 BLOCKED). R25 PASS closed the 381-530px overflow sub-band for the first time in the phase at a genuinely stated 393px; R26 was BLOCKED because the evidence given was at R25's own width, not R26's own required ~600px band; R27 was BLOCKED because only a summary 'dark reached' claim was given, not the three aria-label values disposition (a) requires. Both BLOCKED verdicts were held against three rounds of orchestrator-relayed pressure to record PASS on incomplete evidence, per the plan's non-waivable house rule 14. Gap 1 and Gap 2 both remain STILL OPEN; WR-01 CLOSED on automated evidence. CAL-01 reverted Complete->Pending (R27 BLOCKED); CAL-02 stays Pending (R26 BLOCKED); CAL-03 untouched.
+- [Phase 23]: 23-11 Round 2 checkpoint recorded 21 PASS / 1 FAIL (R35) / 0 BLOCKED against a fresh build (assets/index-D01ardNQ.js). 23-08's settle-nesting/step-magnitude fixes and 23-09's year-heatmap wrapper closed Round 1's R8/R11/R16, ticking TRN-01/TRN-02/TRN-04. TRN-03 stays Pending: R35 narrowed the phone-width overflow from 682px to 460px but did not close it -- the root cause relocated to the unwrapped five-tab div.segmented strip (Finding 11). Finding 12 (pre-existing Training Load tooltip epoch, re-observed) recorded unpatched.
 
 ### Key Findings
 
@@ -199,9 +194,9 @@ Items acknowledged and deferred at the v2.0 milestone close on 2026-08-12.
 
 ## Session Continuity
 
-Last session: 2026-08-19T13:37:32.007Z
-Stopped at: Phase 23 context gathered
-Resume file: .planning/phases/23-trends-zoom-pan-taller-bands/23-CONTEXT.md
+Last session: 2026-08-27T05:00:02.617Z
+Stopped at: Completed 23-11-PLAN.md
+Resume file: None
 
 ---
 *Last updated: 2026-08-11 — Phase 17 (activity-browser-detail-views) all 15 planned plans executed and summarized; human checkpoint on plan 17-15 came back PARTIAL — 8/10 Manual-Only Verifications rows confirmed clean, GAP 1 (DETAIL-02, route-map basemap tiles absent) and GAP 2 (DETAIL-03/04, chart band x-axis misalignment) have open gaps pending gap-closure planning (`/gsd-plan-phase 17 --gaps`) before the phase gate closes*
