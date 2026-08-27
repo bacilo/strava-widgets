@@ -465,19 +465,28 @@ This phase must edit both files with a dated note pointing back at D-04. Suggest
 
 **If this table is empty:** N/A — see rows above.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Exact re-render mechanism after Save (see A1)**
+> **All three resolved 2026-08-27 by binding orchestrator decisions taken during
+> `/gsd-plan-phase 24`.** The decisions are recorded verbatim in `24-CONTEXT.md`
+> (plan 24-03) as OD-1, OD-2 and OD-4, and rank alongside D-01..D-12. The original
+> question text is retained below for provenance; do not re-open it.
+
+
+1. **Exact re-render mechanism after Save (see A1)** — **RESOLVED → OD-1: full `location.reload()`.**
+   The server mirrors the written file into `dist/widgets/data/best-effort-exclusions.json`, then the overlay calls `location.reload()`; the existing unmodified `detail.ts`/`detail-sections.ts` renderer repaints from the fresh file. One renderer, no drift seam. The narrower DOM patch was **rejected** — it would couple the overlay to the badge's internal markup, the exact coupling D-03's rejected-MutationObserver note warns against.
    - What we know: D-07 says "the overlay re-renders"; D-03 forbids the overlay rebuilding the whole panel.
    - What's unclear: whether a full `location.reload()` (this research's recommendation) or a narrower, overlay-owned DOM patch of just the flags cell is intended.
    - Recommendation: lock this explicitly in planning/discuss before task-writing, since it changes what the overlay bundle needs to know about the panel's internal DOM shape (a reload needs to know nothing beyond the attach seam; a patch needs to know the flags `<td>` structure, coupling it more tightly to `detail-sections.ts`).
 
-2. **Guard call-site correction (see A2)**
+2. **Guard call-site correction (see A2)** — **RESOLVED → OD-2: end of `buildAllWidgets()`, whole-tree scan.**
+   Confirmed as this research recommended. This is a deliberate, dated amendment to D-10(a)'s literal "same place as `assertNoPrivateArtifacts`" wording: that place is inside `copyDataFiles()`, which runs before the JS/HTML build and would be blind to a leaked curate bundle — the most likely vector, and exactly the never-red guard D-11 exists to prevent.
    - What we know: the literal call site D-10 names (same place as `assertNoPrivateArtifacts`, i.e. inside `copyDataFiles()`) runs before `buildPages()`/`buildDashboard()` populate the rest of `dist/widgets`.
    - What's unclear: whether this is a genuine oversight in D-10's phrasing (most likely, since D-10's own intent — proving absence from "the published bundle" — requires scanning the built dashboard, not just the data copy) or whether the developer specifically wants the check scoped to the data tree only.
    - Recommendation: treat this as settled in favor of "end of `buildAllWidgets()`, whole-tree scan" (this research's position) unless the discuss/plan-check step surfaces a reason to keep it narrower — the whole-tree scan is strictly more capable and costs nothing extra (one more recursive walk over an already-small tree).
 
-3. **Port choice (explicitly Claude's Discretion in CONTEXT.md)**
+3. **Port choice (explicitly Claude's Discretion in CONTEXT.md)** — **RESOLVED → OD-4: fixed port.**
+   A fixed port held in a single named constant, printed on start, failing fast with a clear message if already in use rather than silently hunting for a free one. A curate server on an unpredictable port is one the developer bookmarks wrongly.
    - What we know: no port is specified; `verify-dashboard-publish.mjs` uses `server.listen(0, '127.0.0.1')` (OS-assigned ephemeral port) since it's a short-lived test run.
    - What's unclear: whether curate should use a fixed, memorable port (so the developer can bookmark `http://127.0.0.1:5175/strava-widgets/`) or an ephemeral one (printed to the console each run).
    - Recommendation: a fixed port (e.g., 4173, matching Vite preview's conventional default, or any unused port) is more usable for a tool the developer returns to repeatedly across a curation session — recommend fixed over ephemeral, but this is genuinely discretionary.
