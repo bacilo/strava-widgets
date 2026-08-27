@@ -462,3 +462,50 @@ describe('chartjs-plugin-zoom option lookup contract', () => {
     expect(pluginSource).not.toContain('state.options.onPanComplete');
   });
 });
+
+// ---------------------------------------------------------------------------
+// CR-01 (phase 23 code review) — the zoom plugin's `bounds` argument MUST be
+// the ARCHIVE bounds at every call site, never the opening window.
+//
+// `computeDefaultWindow(...)` and `computeArchiveBounds(...)` both return a
+// `ZoomRange`, so TypeScript cannot tell them apart. `trends-charts.ts`'s
+// Cadence & HR call site passed `zoom.initial` — the opening window — which
+// caged gesture zoom-out at ~5 years of a ~15-year archive. The `-` button
+// still reached full range (`applyRange` bypasses plugin limits), so every
+// button-driven check passed and three browser rounds missed it: no round
+// ever gestured OUTWARD past the default on that tab.
+//
+// The first test below proves the two arguments are not interchangeable —
+// i.e. that the mix-up has a real effect worth guarding. The second is a
+// source-text consumer guard over `trends-charts.ts` in the same spirit as
+// the plugin-lookup contract above: it fails loudly if any call site goes
+// back to handing a window where archive bounds belong.
+// ---------------------------------------------------------------------------
+
+describe('CR-01 — zoom plugin bounds are archive bounds, not the opening window', () => {
+  it('clamping to the opening window is strictly narrower than clamping to the archive', () => {
+    const archiveLimits = computeLimits('cadence-hr', monthlyBounds);
+    const windowLimits = computeLimits('cadence-hr', computeDefaultWindow('cadence-hr', monthlyBounds));
+
+    // The window-derived cage starts later than the archive-derived one, so
+    // the two are demonstrably not interchangeable.
+    expect(windowLimits.min).toBeGreaterThan(archiveLimits.min);
+    expect(archiveLimits.min).toBe(computeFullRange('cadence-hr', monthlyBounds).min);
+  });
+
+  it('every buildZoomPluginOptions call site in trends-charts.ts passes archive bounds', () => {
+    const source = readFileSync(new URL('./trends-charts.ts', import.meta.url), 'utf8');
+    const callSites = source.match(/buildZoomPluginOptions\(\{[^}]*\}\)/g) ?? [];
+
+    // All three zoomable tabs (Volume, Cadence & HR, Training Load).
+    expect(callSites).toHaveLength(3);
+
+    for (const site of callSites) {
+      // Either the bare `bounds` shorthand or an explicit `bounds: <x>.bounds`.
+      expect(site).toMatch(/\bbounds(\s*:\s*[A-Za-z_$][\w$]*\.bounds)?\s*[,}]/);
+      // Never the opening window, under any of the names it travels under.
+      expect(site).not.toMatch(/\bbounds\s*:\s*[A-Za-z_$][\w$]*\.initial\b/);
+      expect(site).not.toMatch(/\bbounds\s*:\s*initial\b/);
+    }
+  });
+});

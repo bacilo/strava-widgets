@@ -590,7 +590,7 @@ function buildChannelBand(
   points: readonly MonthlyPoint[],
   channel: MonthlyChannel,
   themeColors: { border: string; text: string; textSecondary: string },
-  zoom: { initial: ZoomRange; onSettle: (chart: Chart) => void } | null
+  zoom: { initial: ZoomRange; bounds: ZoomRange; onSettle: (chart: Chart) => void } | null
 ): ChannelBandHandle {
   // channelLabel's cadence heading states the single-leg rpm unit explicitly
   // (matching detail.ts's `Cadence (rpm, single-leg)` stat-card label),
@@ -644,7 +644,7 @@ function buildChannelBand(
       },
       plugins: {
         ...(zoom
-          ? { zoom: buildZoomPluginOptions({ scaleKey: 'cadence-hr', bounds: zoom.initial, onSettle: zoom.onSettle }) }
+          ? { zoom: buildZoomPluginOptions({ scaleKey: 'cadence-hr', bounds: zoom.bounds, onSettle: zoom.onSettle }) }
           : {}),
         tooltip: {
           callbacks: {
@@ -709,7 +709,20 @@ export function mountChannelBands(
   const zoomCfg =
     bounds === null
       ? null
-      : { initial: restoreOrDefault(zoom.savedRange, computeDefaultWindow('cadence-hr', bounds)), onSettle };
+      : {
+          initial: restoreOrDefault(zoom.savedRange, computeDefaultWindow('cadence-hr', bounds)),
+          // CR-01: the zoom plugin's limits MUST come from the archive bounds,
+          // never from `initial`. `initial` is the OPENING WINDOW (a default
+          // window, or a D-22 restored range) — handing it to
+          // `buildZoomPluginOptions` as `bounds` caps gesture zoom-out at the
+          // opening window instead of the archive, and a restored range
+          // narrows the cage further on every subsequent mount. Both are
+          // `ZoomRange`, so the compiler cannot tell them apart; keep these
+          // two fields separate and pass `bounds` — matching what
+          // `attachZoomController` below already receives.
+          bounds,
+          onSettle,
+        };
 
   const cadenceHandle = buildChannelBand(stack, cadence, 'cadence', themeColors, zoomCfg);
   const hrHandle = buildChannelBand(stack, hr, 'hr', themeColors, zoomCfg);
