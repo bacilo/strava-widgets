@@ -21,10 +21,21 @@
  */
 
 import http from 'node:http';
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import { resolve, extname } from 'node:path';
+import { spawn } from 'node:child_process';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
+import { resolve, extname, dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import * as esbuild from 'esbuild';
+
+import { copyJsonTree, RECOMPUTE_DATA_DIRS } from './lib/copy-data-tree.mjs';
 
 // --- Constants (all exported) -----------------------------------------------
 
@@ -51,8 +62,35 @@ export const CURATE_PREFIX = '/__curate';
 export const OVERLAY_ENTRY = 'scripts/curate-overlay/index.ts';
 export const OVERLAY_OUTFILE = '.curate-dist/overlay.js';
 
+// D-05/D-07: the two files joined only by build-widgets.mjs's copy step.
+// EXCLUSIONS_PATH is the working-tree source of truth the developer reviews
+// and commits by hand; PUBLISH_EXCLUSIONS_PATH is the served copy inside the
+// already-built dist/widgets tree. Nothing curate writes is visible in the
+// page the developer is looking at until mirrorExclusions() re-copies it.
+export const EXCLUSIONS_PATH = 'data/best-effort-exclusions.json';
+export const PUBLISH_EXCLUSIONS_PATH = 'dist/widgets/data/best-effort-exclusions.json';
+
+// T-24-WRITE-DOS: Node's raw req.on('data') accumulation has no built-in
+// size limit, and a reason string is never legitimately large.
+export const MAX_BODY_BYTES = 10 * 1024;
+export const MAX_REASON_CHARS = 2000;
+
+// Pitfall 4: dist/index.js is tsc's output (`npm run build`), a completely
+// separate build from dist/widgets. Recompute must FATAL-check this rather
+// than let child_process.spawn fail with a raw "Cannot find module" trace.
+const RECOMPUTE_CLI_PATH = 'dist/index.js';
+
 const ROOT = resolve(process.cwd(), 'dist/widgets');
 const INDEX_HTML = resolve(ROOT, 'index.html');
+
+// D-02: the write/recompute routes live under CURATE_PREFIX, outside the
+// published mount, matching every other /__curate/* route in this file.
+const EXCLUSIONS_ROUTE_PREFIX = `${CURATE_PREFIX}/exclusions/`;
+const RECOMPUTE_ROUTE = `${CURATE_PREFIX}/recompute`;
+
+// D-12: computed once from the same CURATE_HOST/CURATE_PORT constants the
+// server itself binds to — never derived from request input.
+const EXPECTED_HOST = `${CURATE_HOST}:${CURATE_PORT}`;
 
 const CONTENT_TYPES = {
   '.html': 'text/html',
@@ -167,9 +205,372 @@ export async function buildOverlay() {
   });
 }
 
+// --- Exclusion mutations, honoring D-05's exact JSON contract ---------------
+//
+// D-09: curate performs WORKING-TREE WRITES ONLY. data/best-effort-exclusions.json
+// sits in the nightly workflow's push-paths filter (added 2026-08-12), so a
+// commit reaching origin triggers a full rebuild and deploy — a tickbox must
+// not be able to cause that. Consequently NO CODE PATH in this file may
+// invoke `git`; the developer reviews `git diff`, commits and pushes by hand.
+
+/**
+ * D-05/D-06: returns a NEW document — never mutates `fileDoc`. The written
+ * entry is ALWAYS exactly `{ activityId, distances: null, reason }` —
+ * `distances` is the literal `null`, never an array, never `[]`, never
+ * omitted. Curate is never a producer of the narrow distance-array form;
+ * that form stays readable only because best-effort-exclusions.ts's own
+ * tolerance (T-16-EX-01/T-16-EX-02) is a separate, untouched contract.
+ *
+ * If an entry for `activityId` already exists, it is replaced AT THE SAME
+ * INDEX so a Save on an already-excluded activity edits in place and the
+ * array length never grows — one reason per activity (D-06).
+ *
+ * `schemaVersion` and `note` are carried through unchanged — schemaVersion
+ * is bumped only via a coordinated migration (best-effort.types.ts:18),
+ * never here.
+ *
+ * @param {{schemaVersion: number, note: string, exclusions: Array<{activityId: string, distances: null, reason: string}>}} fileDoc
+ * @param {string} activityId
+ * @param {string} reason
+ * @returns {object}
+ */
+export function applyUpsert(fileDoc, activityId, reason) {
+  const exclusions = fileDoc.exclusions.slice();
+  const entry = { activityId, distances: null, reason };
+  const existingIndex = exclusions.findIndex((e) => e.activityId === activityId);
+  if (existingIndex === -1) {
+    exclusions.push(entry);
+  } else {
+    exclusions[existingIndex] = entry;
+  }
+  return { ...fileDoc, exclusions };
+}
+
+/**
+ * D-05 (the untick rule): returns a NEW document with every entry whose
+ * `activityId` matches REMOVED from the array.
+ *
+ * THIS MUST NEVER rewrite an entry to `distances: []` instead of removing
+ * it. `buildExclusionIndex` (src/analytics/best-effort-exclusions.ts)
+ * silently SKIPS an entry whose `distances` is an empty array — its
+ * `known.size === 0` branch `continue`s without recording anything — so a
+ * file that did that would read as "this activity is excluded" while the
+ * loaded index excludes nothing at all. Filtering the entry OUT is the only
+ * correct implementation of an untick.
+ *
+ * @param {object} fileDoc
+ * @param {string} activityId
+ * @returns {object}
+ */
+export function applyRemove(fileDoc, activityId) {
+  const exclusions = fileDoc.exclusions.filter((e) => e.activityId !== activityId);
+  return { ...fileDoc, exclusions };
+}
+
+/**
+ * D-07: atomic write. Writes `contents` to a sibling temp file
+ * (`${path}.tmp-${process.pid}`) then `renameSync`s it onto `path`.
+ * `renameSync` is atomic on the same filesystem, which a sibling temp file
+ * guarantees. This is a new pattern for this repo — every existing
+ * `writeFileSync` call site writes directly — because
+ * `data/best-effort-exclusions.json` (via its mirrored copy) is read
+ * concurrently by the browser's own fetch: a half-written file must never
+ * be observable.
+ *
+ * @param {string} path
+ * @param {string} contents
+ */
+export function writeAtomic(path, contents) {
+  const tmp = `${path}.tmp-${process.pid}`;
+  writeFileSync(tmp, contents, 'utf8');
+  renameSync(tmp, path);
+}
+
+/**
+ * D-07: instant mirror. Copies the working-tree EXCLUSIONS_PATH into the
+ * served PUBLISH_EXCLUSIONS_PATH synchronously, immediately after a
+ * successful write, so the badge and reason are visible in the same
+ * session without a rebuild. Creates the destination DIRECTORY
+ * (dist/widgets/data) if absent, but throws — rather than writing a half
+ * state — if the PUBLISH ROOT (dist/widgets, i.e. an unbuilt tree) is
+ * itself missing; callers must catch and respond 500.
+ */
+export function mirrorExclusions() {
+  if (!existsSync(ROOT)) {
+    throw new Error(
+      `dist/widgets is not built (${ROOT} missing). Run \`npm run build-widgets\` first.`
+    );
+  }
+  mkdirSync(dirname(PUBLISH_EXCLUSIONS_PATH), { recursive: true });
+  copyFileSync(EXCLUSIONS_PATH, PUBLISH_EXCLUSIONS_PATH);
+}
+
+function readExclusionsFile() {
+  return JSON.parse(readFileSync(EXCLUSIONS_PATH, 'utf8'));
+}
+
+function persistExclusions(doc) {
+  writeAtomic(EXCLUSIONS_PATH, `${JSON.stringify(doc, null, 2)}\n`);
+  mirrorExclusions();
+}
+
+// --- Origin/Host gate & input validation (D-12, ASVS V4/V5) ------------------
+
+/**
+ * D-12: binding to 127.0.0.1 alone satisfies the literal "localhost-only"
+ * wording but leaves the endpoint reachable from any OTHER TAB in the
+ * developer's own browser — the header check here is what closes drive-by
+ * CSRF and DNS rebinding. A startup session token was explicitly rejected
+ * as redundant, since the overlay is served from the same origin the token
+ * would protect.
+ *
+ * Returns false unless `req.headers.host` matches `expectedHost` exactly.
+ * If `Origin` is absent, returns true (same-origin fetches from same-page
+ * JS often omit it). Otherwise the Origin's own host must also match.
+ * Never throws — a malformed Origin header returns false.
+ *
+ * @param {{headers: {host?: string, origin?: string}}} req
+ * @param {string} expectedHost
+ * @returns {boolean}
+ */
+export function isTrustedOrigin(req, expectedHost) {
+  if (req.headers.host !== expectedHost) return false;
+  const origin = req.headers.origin;
+  if (origin === undefined) return true;
+  try {
+    return new URL(origin).host === expectedHost;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * ASVS V5: the SAME pattern as src/dashboard/router.ts's isValidActivityId
+ * (`/^i?\d{1,20}$/`) mirrored server-side rather than a second invented
+ * regex, plus an explicit `__proto__` rejection matching
+ * records-logic.ts:82's buildExclusionReasonIndex guard. The write TARGET
+ * path is always the hardcoded EXCLUSIONS_PATH constant, never derived
+ * from this id — no traversal surface exists here by construction; this
+ * validation exists only so a malformed id can never become a corrupt JSON
+ * field value.
+ *
+ * @param {string} id
+ * @returns {boolean}
+ */
+export function isValidCurateActivityId(id) {
+  return typeof id === 'string' && id !== '__proto__' && /^i?\d{1,20}$/.test(id);
+}
+
+/**
+ * D-08's server-side half: never trust the client's required-field
+ * enforcement alone. Returns the trimmed string when `raw` is a string
+ * whose trimmed length is between 1 and MAX_REASON_CHARS; otherwise null.
+ *
+ * @param {unknown} raw
+ * @returns {string | null}
+ */
+export function normalizeReason(raw) {
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (trimmed.length === 0 || trimmed.length > MAX_REASON_CHARS) return null;
+  return trimmed;
+}
+
+/**
+ * Reads and JSON-parses a request body, capped at MAX_BODY_BYTES
+ * (T-24-WRITE-DOS). Resolves `{ ok: true, body }` on success, or
+ * `{ ok: false, status, message }` for the caller to respond with
+ * directly. Destroys the request on the over-limit path. `JSON.parse`
+ * runs inside a try/catch so a malformed body responds 400 rather than
+ * crashing the process.
+ *
+ * @param {import('node:http').IncomingMessage} req
+ * @returns {Promise<{ok: true, body: unknown} | {ok: false, status: number, message: string}>}
+ */
+function readJsonBody(req) {
+  return new Promise((settle) => {
+    let received = 0;
+    const chunks = [];
+    let done = false;
+
+    req.on('data', (chunk) => {
+      if (done) return;
+      received += chunk.length;
+      if (received > MAX_BODY_BYTES) {
+        done = true;
+        req.destroy();
+        settle({ ok: false, status: 413, message: 'Payload Too Large' });
+        return;
+      }
+      chunks.push(chunk);
+    });
+
+    req.on('end', () => {
+      if (done) return;
+      done = true;
+      try {
+        const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+        settle({ ok: true, body });
+      } catch {
+        settle({ ok: false, status: 400, message: 'Bad Request: invalid JSON' });
+      }
+    });
+
+    req.on('error', () => {
+      if (done) return;
+      done = true;
+      settle({ ok: false, status: 400, message: 'Bad Request' });
+    });
+  });
+}
+
+// --- Write routes (PUT/DELETE /__curate/exclusions/:activityId) -------------
+
+async function handleExclusionWrite(req, res, urlPath) {
+  if (!isTrustedOrigin(req, EXPECTED_HOST)) {
+    res.writeHead(403, { 'Content-Type': 'text/plain' });
+    res.end('Forbidden: cross-origin write rejected');
+    return;
+  }
+
+  let activityId;
+  try {
+    activityId = decodeURIComponent(urlPath.slice(EXCLUSIONS_ROUTE_PREFIX.length));
+  } catch {
+    res.writeHead(400, { 'Content-Type': 'text/plain' });
+    res.end('Bad Request: malformed activity id');
+    return;
+  }
+
+  if (!isValidCurateActivityId(activityId)) {
+    res.writeHead(400, { 'Content-Type': 'text/plain' });
+    res.end('Bad Request: invalid activity id');
+    return;
+  }
+
+  if (req.method === 'PUT') {
+    const bodyResult = await readJsonBody(req);
+    if (!bodyResult.ok) {
+      res.writeHead(bodyResult.status, { 'Content-Type': 'text/plain' });
+      res.end(bodyResult.message);
+      return;
+    }
+    const rawReason =
+      bodyResult.body && typeof bodyResult.body === 'object' ? bodyResult.body.reason : undefined;
+    const reason = normalizeReason(rawReason);
+    if (reason === null) {
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      res.end('Bad Request: reason must be a non-empty string');
+      return;
+    }
+
+    try {
+      persistExclusions(applyUpsert(readExclusionsFile(), activityId, reason));
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.end(`Internal Server Error: ${error.message}`);
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  if (req.method === 'DELETE') {
+    try {
+      persistExclusions(applyRemove(readExclusionsFile(), activityId));
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.end(`Internal Server Error: ${error.message}`);
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  res.writeHead(405, { 'Content-Type': 'text/plain' });
+  res.end('Method Not Allowed');
+}
+
+// --- Recompute route (POST /__curate/recompute) ------------------------------
+//
+// D-07: rejected running the full chain on every Save — compute-best-efforts
+// walks all ~1,868 activities' streams, and curating five runs would pay
+// that cost five times. Recompute is a separate, deliberate press.
+
+/**
+ * Spawns one `node dist/index.js <command>` step, piping its stdout/stderr
+ * into `res` as chunked text as they arrive. Resolves with the child's exit
+ * code (or 1 on a spawn error, after writing the error message).
+ *
+ * @param {string[]} args
+ * @param {import('node:http').ServerResponse} res
+ * @returns {Promise<number>}
+ */
+function runComputeStep(args, res) {
+  return new Promise((settle) => {
+    const child = spawn('node', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    child.stdout.on('data', (chunk) => res.write(chunk));
+    child.stderr.on('data', (chunk) => res.write(chunk));
+    child.on('error', (error) => {
+      res.write(`\n${error.message}\n`);
+      settle(1);
+    });
+    child.on('close', (code) => settle(code ?? 1));
+  });
+}
+
+async function handleRecompute(req, res) {
+  if (!isTrustedOrigin(req, EXPECTED_HOST)) {
+    res.writeHead(403, { 'Content-Type': 'text/plain' });
+    res.end('Forbidden: cross-origin write rejected');
+    return;
+  }
+
+  if (!existsSync(RECOMPUTE_CLI_PATH)) {
+    res.writeHead(412, { 'Content-Type': 'text/plain' });
+    res.end(
+      `Precondition Failed: ${RECOMPUTE_CLI_PATH} is missing.\n` +
+        'Run `npm run build` first, then retry Recompute.'
+    );
+    return;
+  }
+
+  res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+
+  // ORDER MATTERS: compute-best-efforts must run, and succeed, before
+  // compute-dashboard-index — the second must not run if the first failed.
+  const bestEffortsCode = await runComputeStep(['dist/index.js', 'compute-best-efforts'], res);
+  if (bestEffortsCode !== 0) {
+    res.end(`\n__CURATE_RECOMPUTE_FAILED__ (compute-best-efforts exited ${bestEffortsCode})\n`);
+    return;
+  }
+
+  const dashboardIndexCode = await runComputeStep(['dist/index.js', 'compute-dashboard-index'], res);
+  if (dashboardIndexCode !== 0) {
+    res.end(
+      `\n__CURATE_RECOMPUTE_FAILED__ (compute-dashboard-index exited ${dashboardIndexCode})\n`
+    );
+    return;
+  }
+
+  try {
+    for (const dir of RECOMPUTE_DATA_DIRS) {
+      copyJsonTree(dir.src, dir.dest);
+    }
+    mirrorExclusions();
+  } catch (error) {
+    res.end(`\n__CURATE_RECOMPUTE_FAILED__ (re-mirror error: ${error.message})\n`);
+    return;
+  }
+
+  res.end('\n__CURATE_RECOMPUTE_DONE__\n');
+}
+
 // --- Request handler ---------------------------------------------------------
 
-function serveCurateRoute(req, res) {
+async function serveCurateRoute(req, res) {
   const urlPath = (req.url ?? '/').split('?')[0];
 
   if (req.method === 'GET' && urlPath === `${CURATE_PREFIX}/health`) {
@@ -189,7 +590,19 @@ function serveCurateRoute(req, res) {
     return;
   }
 
-  // Plan 24-06 adds the write and recompute routes into this same branch.
+  if (
+    (req.method === 'PUT' || req.method === 'DELETE') &&
+    urlPath.startsWith(EXCLUSIONS_ROUTE_PREFIX)
+  ) {
+    await handleExclusionWrite(req, res, urlPath);
+    return;
+  }
+
+  if (req.method === 'POST' && urlPath === RECOMPUTE_ROUTE) {
+    await handleRecompute(req, res);
+    return;
+  }
+
   res.writeHead(404);
   res.end('Not Found');
 }
@@ -222,7 +635,12 @@ function serveStaticRoute(req, res) {
 function createServer() {
   return http.createServer((req, res) => {
     if (isCurateRoute(req.url ?? '/')) {
-      serveCurateRoute(req, res);
+      serveCurateRoute(req, res).catch((error) => {
+        if (!res.headersSent) {
+          res.writeHead(500, { 'Content-Type': 'text/plain' });
+        }
+        res.end(`Internal Server Error: ${error.message}`);
+      });
       return;
     }
     serveStaticRoute(req, res);
