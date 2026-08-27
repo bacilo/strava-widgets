@@ -15,15 +15,16 @@
  * overlay's script tag into index.html as a response-body patch — never a
  * disk write, since dist/widgets/index.html is the real publish artifact.
  *
- * ESM, Node built-ins only (node:http, node:fs, node:path, node:url) — the
- * overlay bundling step (buildOverlay, using the already-installed esbuild
- * devDependency) is added in a later task in this same file.
+ * ESM, Node built-ins only (node:http, node:fs, node:path, node:url) plus
+ * the already-installed esbuild devDependency for the overlay bundle step
+ * (buildOverlay). No new dependency.
  */
 
 import http from 'node:http';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve, extname } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import * as esbuild from 'esbuild';
 
 // --- Constants (all exported) -----------------------------------------------
 
@@ -143,6 +144,29 @@ export function injectOverlayTag(html) {
   return html.slice(0, lastBodyClose) + scriptTag + html.slice(lastBodyClose);
 }
 
+// --- Overlay bundling (D-01) -------------------------------------------------
+
+/**
+ * The ONLY thing that ever builds the curation overlay. scripts/curate-overlay/
+ * is deliberately outside tsconfig.json's `include` (["src/**\/*"]), not an
+ * input to vite.config.ts or vite.config.pages.ts, and not in
+ * build-widgets.mjs's widgets array or copy lists — D-01's structural
+ * absence from the publish pipeline. target: 'es2020' matches every other
+ * build in this repo (build-widgets.mjs, vite.config.ts).
+ *
+ * @returns {Promise<void>}
+ */
+export async function buildOverlay() {
+  await esbuild.build({
+    entryPoints: [OVERLAY_ENTRY],
+    bundle: true,
+    format: 'iife',
+    target: 'es2020',
+    outfile: OVERLAY_OUTFILE,
+    logLevel: 'info',
+  });
+}
+
 // --- Request handler ---------------------------------------------------------
 
 function serveCurateRoute(req, res) {
@@ -209,6 +233,7 @@ function createServer() {
 
 export async function main() {
   assertBuilt();
+  await buildOverlay();
 
   const server = createServer();
 
