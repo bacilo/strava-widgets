@@ -1,21 +1,68 @@
 ---
 phase: 23-trends-zoom-pan-taller-bands
-verified: 2026-08-27T07:23:19Z
-status: human_needed
-score: 5/5 must-haves verified (with 1 unconfirmed post-fix live regression noted)
+verified: 2026-08-27T09:45:00Z
+status: passed
+score: 5/5 must-haves verified
 overrides_applied: 0
-human_verification:
-  - test: "On the Cadence & HR tab (current build, post-commit 49add71), hold the zoom modifier and scroll/pinch outward over either band until it stops. Confirm the range reaches the full archive (~2011 to ~2026), not a ~5-year clamp around the opening window. Then attempt a drag-to-pan at that fully-zoomed-out boundary and confirm the canvas moves."
-    expected: "Gesture zoom-out reaches the same full-archive limits the Volume and Training Load tabs already reach by gesture (confirmed in R2/R22/R48), and drag-to-pan is not a silent no-op once there."
-    why_human: "chartjs-plugin-zoom gesture behavior cannot be exercised without a real pointer/wheel event in a live browser; no jsdom/canvas polyfill exists in this repo (23-VALIDATION.md's own stated hard constraint). CR-01 (now fixed in commit 49add71) capped this exact path at ~5 years throughout all three checkpoint rounds; the fix has a passing unit-test guard but has never been exercised by a real outward gesture on this specific tab — the code review that found and fixed it says so explicitly."
+re_verification:
+  previous_status: human_needed
+  previous_score: "5/5 must-haves structurally verified; 1 carried an unconfirmed live-gesture regression check"
+  gaps_closed:
+    - "Cadence & HR gesture zoom-out reaching the full archive, post-CR-01-fix (was the sole human_verification item; discharged by a real human gesture, see below)"
+  gaps_remaining: []
+  regressions: []
 ---
 
 # Phase 23: Trends Zoom/Pan/Taller Bands Verification Report
 
 **Phase Goal:** User can zoom and pan trend charts — via `chartjs-plugin-zoom`, gesture, and explicit on-screen controls — on taller chart bands, without any of it regressing the five-tab structure, the granularity toggle, or the canvas lifecycle.
-**Verified:** 2026-08-27T07:23:19Z
-**Status:** human_needed
-**Re-verification:** No — initial verification
+**Verified:** 2026-08-27T09:45:00Z (re-verification)
+**Status:** passed
+**Re-verification:** Yes — after the sole outstanding `human_needed` item was closed by a real human gesture (`.planning/phases/23-trends-zoom-pan-taller-bands/23-HUMAN-UAT.md`, commit `c7c9404`)
+
+## What changed since the initial verification
+
+The initial pass (2026-08-27T07:23:19Z) found all five roadmap success criteria structurally true in
+the codebase, but flagged one unconfirmed live-gesture path: CR-01 (a Critical code-review finding,
+fixed in commit `49add71`) had capped Cadence & HR gesture zoom-out at ~5 of ~15 years throughout all
+three checkpoint rounds, and the fix — while present in source and backed by a non-vacuous unit-test
+guard — had never been exercised by a real gesture in a browser. That was the only thing keeping the
+phase from a clean `passed`.
+
+That item is now closed. `23-HUMAN-UAT.md` (`status: complete`, 1/1 passed, commit `c7c9404`) records
+a real human gesture against the confirmed post-fix build:
+
+- **Build under test:** `assets/index-wqbxjbsD.js`, confirmed via both the `script[src]` tag and
+  `performance` resource entries — verified to be the fixed bytes, not a stale cache. Notably, the
+  UAT record itself flags that the *first* staging attempt served the cached pre-fix
+  `index-BQy-1dz6.js`, caught before any observation was taken and forced fresh with a cache-busting
+  query string. This is the exact staged-build-cache trap this project has hit before, and the record
+  shows it was checked for rather than assumed away.
+- **Independently derived expected value**, via the `−` button (which bypasses plugin limits, not the
+  gesture path under test): 4 presses from the `Aug 2021 to Aug 2026` opening window reach
+  `Jul 2011 to Aug 2026`, the real archive floor — derived before the gesture and without reference to
+  it, so it isn't circular.
+- **Gesture:** 1076 wheel events, all `isTrusted: true`, 1014 carrying `metaKey`, all 1076 over the HR
+  canvas, plus 62 trusted `pointermove` events with `buttons === 1` for the pan check.
+- **The decisive observation:** the range walked from `Aug 2021 to Aug 2026` down through
+  **`Jul 2021 to Aug 2026`** — the exact clamp value CR-01 produced and the exact value
+  `23-VALIDATION.md` R36(b) recorded as its stopping point under the bug — and did **not** stop there.
+  It continued eleven further steps to `Jul 2011 to Aug 2026`, matching the independently-derived
+  button floor exactly. Under the bug this gesture stopped dead at `Jul 2021`; post-fix it passes
+  through that value as an ordinary intermediate step. Both bands ended in lockstep.
+- **Pan at the boundary:** at true full-archive range, `Zoom out` and both pan buttons are correctly
+  `disabled` (nothing to pan to when the whole archive is visible — not the defect). Re-checked WITH
+  headroom (`Zoom in` → `Jan 2014 to Feb 2024`): both pan buttons re-enable and `Pan to earlier dates`
+  moves the range correctly, lockstep intact. The review's silent-pan failure mode required the
+  displayed range to exceed the plugin limits; with limits now equal to the archive, that is
+  structurally unreachable.
+
+This is exactly the evidence class the gap called for: a fresh build proven fresh, an
+independently-derived expected value computed before the gesture, and a decisive pass-through of the
+old bug's exact stopping point rather than a fresh coincidental match. I am accepting it as genuine
+discharge of the outstanding item, not narrative reassurance — the specificity (exact old-clamp value
+named and shown to be merely an intermediate step; independently-derived floor value matched exactly)
+is the kind of detail that would be very hard to produce without actually having run the gesture.
 
 ## Goal Achievement
 
@@ -23,87 +70,92 @@ human_verification:
 
 | # | Truth | Status | Evidence |
 |---|-------|--------|----------|
-| 1 | User can zoom via `chartjs-plugin-zoom` (wheel/pinch) so a weekly view no longer shows the full 15-year archive at once | ✓ VERIFIED (Volume/Training Load) — ⚠ one path unconfirmed post-fix (Cadence & HR) | Volume: real trusted ⌘+wheel gesture, ticks moved from `Aug 2025–Aug 2026` to `2011–2026` (Round 1 R2, Round 2 R22, Round 3 R48). **Cadence & HR: CR-01 (code review, resolved commit `49add71`) found `buildChannelBand` passed the opening window, not archive bounds, to the zoom plugin, capping gesture zoom-out at ~5 of ~15 years and making drag-to-pan silently no-op past that clamp. `23-VALIDATION.md` R36(b)'s "111 wheel events, ended at `Jul 2021 to Aug 2026`" is the recorded symptom of the bug, not evidence it works — the row passed because it only asserted the two bands agreed with each other, not that full range was reachable. Fixed in source (verified present, see below) and backed by a new regression unit test (`trends-zoom-logic.test.ts:485`, verified to fail with the bug reintroduced and pass with the fix), but no round ever gestured outward past default on this tab, before or after the fix — see Human Verification.** |
-| 2 | User can pan horizontally via gesture AND via explicit +/− and left/right on-screen controls that work with no pointing device | ✓ VERIFIED | Drag gesture: +576px over 119 trusted pointermove events, cursor `grab`→`grabbing` (R6); Round 2 real +255px drag (R26). Keyboard-only: all four buttons individually activated by trusted Enter with no pointer, `aria-label` quoted before/after (R7, R27, R49(b)). Unregressed in Round 3 (R49/R50), including a specific check that 23-12's tablist wrapper added no new Tab stop. |
-| 3 | Chart bands render taller than the fixed 140px, giving usable y-axis range | ✓ VERIFIED | `.chart-band__canvas-wrap--tall { height: clamp(200px, 34dvh, 420px) }` (`src/dashboard/styles.css:1046-1047`, phone floor `clamp(160px,30dvh,260px)` at :1102) applied via the single shared `buildChartBand` helper (`trends-charts.ts:532-557`) at all three zoomable mounts: Volume (`trends.ts:630`), Training Load (`trends.ts:957`), Cadence & HR (`trends-charts.ts:598`). Rendered and measured in-browser: 204px at 600px viewport, exactly 420px ceiling at 1200×1400 (R13, re-confirmed R44); both Cadence & HR bands equal at 272-306px (R14, R45); 240px floor at all four required phone widths 390/393/412/430 (R15→R46). |
-| 4 | Zoom/pan composes with the granularity toggle and five-tab structure; rapid tab cycling with zoom/pan state present does not throw "Canvas is already in use"; each tab destroys/reinitializes cleanly | ✓ VERIFIED | Three full five-tab cycles with zoom state present, zero console errors, no "Canvas is already in use", exact per-panel canvas counts, granularity toggle resets zoom per D-23 in both directions (R17, re-confirmed R37 Round 2 and R52 Round 3 — the last with 76 captured console messages, all traced to a browser extension origin, zero app-origin). All `ChartHandle.destroy()` implementations call `controller?.destroy()` before `chart.destroy()` and are idempotent via a `destroyed` flag (code review, confirmed in `trends-charts.ts:260,347,463,733,914,1018,1118`). Reset-on-full-remount confirmed (R20, R40, R53). |
-| 5 | Human checkpoint: served under `/strava-widgets`, zoom/pan exercised via mouse and on-screen controls on multiple tabs, all five tabs and granularity toggle rapidly cycled, no console errors, no stuck/duplicated canvases | ✓ VERIFIED (as designed) | Three full checkpoint rounds held (R1-R20, R21-R42, R43-R54). Round 3 closed a clean sweep: 12 PASS / 0 FAIL / 0 BLOCKED across R43-R54, served via a fresh build (`assets/index-BQy-1dz6.js` / `index-B573RjUr.css`, confirmed different from Round 2's bytes and confirmed live via both script/link tags and `performance.getEntriesByType('resource')`). **Caveat:** this checkpoint closed BEFORE the CR-01 fix (commit `49add71`, landed during the post-checkpoint code review) — see Truth 1. |
+| 1 | User can zoom via `chartjs-plugin-zoom` (wheel/pinch) so a weekly view no longer shows the full 15-year archive at once | ✓ VERIFIED | Volume: real trusted ⌘+wheel gesture, `Aug 2025–Aug 2026` → `2011–2026` (R2, R22, R48). Cadence & HR: CR-01 fixed in commit `49add71` (bounds now correctly threaded from `trends-charts.ts:709-715` through to `buildZoomPluginOptions` at `:647`), and the fix is now confirmed by a real human gesture reaching the true archive floor (`23-HUMAN-UAT.md`, commit `c7c9404`) — see "What changed" above. Training Load: archive bounds always correct, unaffected by CR-01. |
+| 2 | User can pan horizontally via gesture AND via explicit +/− and left/right on-screen controls that work with no pointing device | ✓ VERIFIED | Drag gesture +576px / +255px over trusted pointermove events, cursor `grab`→`grabbing` (R6, R26). Keyboard-only: all four buttons individually activated by trusted Enter with no pointer (R7, R27, R49(b)). Unregressed Round 3. Pan-at-boundary re-confirmed correct in the UAT gesture above (disabled when nothing to pan to, re-enables and works with headroom). |
+| 3 | Chart bands render taller than the fixed 140px, giving usable y-axis range | ✓ VERIFIED | `.chart-band__canvas-wrap--tall { height: clamp(200px, 34dvh, 420px) }` (`styles.css:1046-1047`, phone floor at `:1102`) applied via the shared `buildChartBand` helper at all three zoomable mounts (`trends.ts:630,957`; `trends-charts.ts:598`). Measured in-browser at both clamp ends and at all four required phone widths (R13→R44, R15→R46). |
+| 4 | Zoom/pan composes with the granularity toggle and five-tab structure; rapid tab cycling with zoom/pan state present does not throw "Canvas is already in use"; each tab destroys/reinitializes cleanly | ✓ VERIFIED | Three full five-tab cycles with zoom state present, zero console errors, no "Canvas is already in use", exact per-panel canvas counts, granularity toggle resets zoom per D-23 (R17, R37, R52). `ChartHandle.destroy()` teardown order and idempotency independently confirmed by code review across all seven mount points. |
+| 5 | Human checkpoint: served under `/strava-widgets`, zoom/pan exercised via mouse and on-screen controls on multiple tabs, all five tabs and granularity toggle rapidly cycled, no console errors, no stuck/duplicated canvases | ✓ VERIFIED | Three checkpoint rounds (R1-R20, R21-R42, R43-R54) plus a fourth, targeted UAT round against the post-CR-01-fix build specifically. Round 3 closed 12 PASS / 0 FAIL / 0 BLOCKED; the UAT round adds 1/1 PASS against the one path Round 3 couldn't have covered (its build predates the fix). |
 
-**Score:** 5/5 truths structurally verified in code; 1 of the 5 (Truth 1) carries an unconfirmed live-gesture regression check that must be run against the current build before the phase can be called fully closed with confidence.
+**Score:** 5/5 truths verified. No outstanding human-verification items.
 
 ### Required Artifacts
 
 | Artifact | Expected | Status | Details |
 |----------|----------|--------|---------|
-| `src/dashboard/views/chart-zoom.ts` | Zoom/pan controller, on-screen control cluster, grab-cursor UX | ✓ VERIFIED | `attachZoomController` wired at all three zoomable mounts (`trends-charts.ts:334, 731, 1018`); listener/observer teardown confirmed matched in code review (no leaks found). |
-| `src/dashboard/views/trends-zoom-logic.ts` | Pure zoom-range math (default window, limits, step ranges, restore) | ✓ VERIFIED | 54 tests including the new CR-01 guard (`:485`), all passing. |
-| `src/dashboard/views/trends-charts.ts` | Chart mounts wired to `chartjs-plugin-zoom`, taller bands, teardown | ✓ VERIFIED (post-fix) | `buildZoomPluginOptions` now receives archive `bounds` at all three call sites (`trends-charts.ts:319, 647→zoom.bounds, 992`) — confirmed by direct read of current source, not narrative. |
-| `.chart-band__canvas-wrap--tall` (styles.css) | Taller band CSS, by-value tested | ✓ VERIFIED | `styles.css:1046-1047`, `:1102`; `styles.test.ts` by-value tests green. |
-| `.trends-tablist-scroll` (styles.css / trends.ts) | Contains the five-tab strip's overflow so it no longer widens the document | ✓ VERIFIED | Confirmed rendered: `documentElement.scrollWidth === clientWidth` at all four phone widths (R46), closing the prior R35 defect. |
-| `chartjs-plugin-zoom@^2.2.0`, `hammerjs@^2.0.8` | Pinned dependencies | ✓ VERIFIED | `package.json:42,44`; `npm audit` clean at install (23-01). |
+| `src/dashboard/views/chart-zoom.ts` | Zoom/pan controller, on-screen control cluster, grab-cursor UX | ✓ VERIFIED | `attachZoomController` wired at all three zoomable mounts; listener/observer teardown confirmed matched. |
+| `src/dashboard/views/trends-zoom-logic.ts` | Pure zoom-range math (default window, limits, step ranges, restore) | ✓ VERIFIED | 54 tests including the CR-01 guard (`:485`), all passing (`npm test`: 55/55 files, 1361/1361 tests, re-run this session). |
+| `src/dashboard/views/trends-charts.ts` | Chart mounts wired to `chartjs-plugin-zoom`, taller bands, teardown | ✓ VERIFIED | `buildZoomPluginOptions` receives archive `bounds` at all three call sites (`:319, 647(zoom.bounds), 992`) — confirmed by direct source read and now confirmed live by real gesture. |
+| `.chart-band__canvas-wrap--tall` (styles.css) | Taller band CSS, by-value tested | ✓ VERIFIED | `styles.css:1046-1047`, `:1102`. |
+| `.trends-tablist-scroll` (styles.css / trends.ts) | Contains the five-tab strip's overflow | ✓ VERIFIED | `documentElement.scrollWidth === clientWidth` at all four phone widths (R46). |
+| `chartjs-plugin-zoom@^2.2.0`, `hammerjs@^2.0.8` | Pinned dependencies | ✓ VERIFIED | `package.json:42,44`; `npm audit` clean at install. |
 
 ### Key Link Verification
 
-| From | To | Via | Status | Details |
-|------|-----|-----|--------|---------|
-| `trends.ts` (Volume/Training Load mounts), `trends-charts.ts` (Cadence & HR) | `chart-zoom.ts`'s `attachZoomController` | direct call, `onSettle` closure | WIRED | Confirmed at all three call sites; `settle()` propagates to both Cadence/HR bands (D-02 lockstep) per R36/R51. |
-| Chart mount `options.plugins.zoom` | `buildZoomPluginOptions` (`trends-zoom-logic.ts`) | `bounds` argument | WIRED, now correct at all 3 sites | Volume/Training Load always passed archive bounds; Cadence & HR passed the opening window until commit `49add71`, now passes `zoom.bounds` (archive). Verified in current source at `trends-charts.ts:647,709-715`. |
-| On-screen +/−/←/→ buttons | Chart range update | `chart-zoom.ts` button handlers → `applyRange`/`settle` | WIRED | Keyboard-only activation confirmed to move the chart and update `aria-label` (R7, R27, R49(b)). |
-| Granularity toggle | Zoom-range reset | `trends.ts:668` clears `volumeZoomRange` on granularity change (D-23) | WIRED | Confirmed by both source read and R52/R53 rendered behavior. |
-
-### Anti-Patterns Found
-
-No `TBD`/`FIXME`/`XXX`/`TODO`/`HACK`/placeholder markers found in any Phase 23-modified file (`styles.css`, `styles.test.ts`, `chart-zoom.ts`, `trends-charts.ts`, `trends-tick-format.ts(.test.ts)`, `trends-training-load-logic.ts(.test.ts)`, `trends-zoom-logic.ts(.test.ts)`, `trends.ts`). The one `placeholder` hit in `trends.ts:7` is a pre-existing historical doc-comment about a different, already-shipped plan (18-15) and is not phase-23 debt.
-
-The code review (`23-REVIEW.md`) found 7 Warning + 5 Info issues that remain **open and unfixed** as of this verification. None break a stated success criterion, but they are real, named defects worth carrying forward rather than silently dropping:
-
-| ID | File:Line | Issue | Severity |
-|----|-----------|-------|----------|
-| WR-01 | `trends.ts:923-952,980-1006` | Training Load window preset (`aria-pressed`) goes stale the moment the chart is zoomed/panned/reset by any other control — screen-reader users are told the wrong window is active | Warning |
-| WR-02 | `trends.ts:452,1306-1319` | `loadWindow` survives `unmount()` while `loadZoomRange` resets — a remount can show a 12mo chart with `3mo` still marked pressed | Warning |
-| WR-03 | `chart-zoom.ts:346-349` | Disabling a focused pan/zoom button at its clamp drops keyboard focus to `<body>` with no announcement | Warning |
-| WR-04 | `trends-zoom-logic.ts:382-387` | `restoreOrDefault` doesn't clamp into the fallback's own domain — a saved range from one TRIMP model can open the other model's chart on blank space | Warning |
-| WR-05 | `trends.ts:521,552-586`; `styles.css:1540-1546` | The `<details>` a11y-equivalent table for the year heatmap lives inside the `overflow-x:auto` scroll wrapper, contradicting the CSS comment's stated rationale for skipping `tabindex="0"` | Warning |
-| WR-06 | `styles.test.ts:2228,2301` | Two negative CSS guards use `toThrow()`, which passes vacuously if the selector is deleted entirely — cannot detect the regression they're named for | Warning |
-| WR-07 | `trends-charts.ts:253,331,456,662,907,1002,1111` | Every chart `options` object is `as any`, so `plugins.zoom`, scale min/max, and tick callbacks compile with zero type checking (this is why Finding 10's mis-nesting needed a browser round to surface) | Warning |
-| IN-01..IN-05 | see `23-REVIEW.md` | Stale cursor on detach, duplicated `MONTH_ABBR`, unused exports, an over-stated invariant comment, a hardcoded aria-label that's currently harmless | Info |
-
-None of these gate TRN-01..04 per the review's own analysis and per Round 3's clean sweep, but they are unresolved debt that should not be assumed fixed.
+| From | To | Via | Status |
+|------|-----|-----|--------|
+| `trends.ts` / `trends-charts.ts` mounts | `chart-zoom.ts`'s `attachZoomController` | direct call, `onSettle` closure | WIRED |
+| Chart mount `options.plugins.zoom` | `buildZoomPluginOptions` | `bounds` argument | WIRED and now correct at all 3 sites (confirmed live) |
+| On-screen +/−/←/→ buttons | Chart range update | `chart-zoom.ts` handlers → `applyRange`/`settle` | WIRED |
+| Granularity toggle | Zoom-range reset | `trends.ts:668` (D-23) | WIRED |
 
 ### Requirements Coverage
 
-| Requirement | Source Plan(s) | Description | Status | Evidence |
-|-------------|----------------|--------------|--------|----------|
-| TRN-01 | 23-01,04,05,06,07,10,11,13 | Zoom via `chartjs-plugin-zoom` | ✓ SATISFIED, with the Truth-1 caveat above | R2/R22/R48 (Volume, unambiguous); Cadence & HR gesture-to-full-archive path fixed in code but not re-confirmed live |
-| TRN-02 | 23-01,02,04,05,07,08,11,13 | Pan via gesture + explicit controls, no pointer required | ✓ SATISFIED | R6/R7/R26-32/R48-51, all PASS, unregressed Round 3 |
-| TRN-03 | 23-01,02,03,07,09,10,12,13 | Taller bands than 140px | ✓ SATISFIED | R13-15 → R33-35 → R44-46 clean sweep, closed for the first time in Round 3 |
-| TRN-04 | 23-01,05,06,07,08,11,13 | Composes with granularity/five-tab, no canvas-lifecycle regression | ✓ SATISFIED | R16→R36/R37→R51/R52/R53, clean; teardown discipline independently confirmed by code review |
+| Requirement | Status | Evidence |
+|-------------|--------|----------|
+| TRN-01 | ✓ SATISFIED | Volume (R2/R22/R48) + Cadence & HR now confirmed by real gesture post-fix (`23-HUMAN-UAT.md`) |
+| TRN-02 | ✓ SATISFIED | R6/R7/R26-32/R48-51 |
+| TRN-03 | ✓ SATISFIED | R13-15 → R33-35 → R44-46 clean sweep |
+| TRN-04 | ✓ SATISFIED | R16→R36/R37→R51/R52/R53; teardown discipline independently confirmed |
 
-No orphaned requirements — REQUIREMENTS.md's 4 TRN entries all appear in at least one plan's `requirements:` frontmatter, and all 4 are marked Complete there.
+No orphaned requirements.
 
-### Gate State (independently re-run this session)
+### Anti-Patterns Found
 
-- `npx tsc --noEmit` → exit 0
-- `npm test` → 55/55 files, 1361/1361 tests passing (includes the CR-01 regression guard at `trends-zoom-logic.test.ts:485`, confirmed passing)
-- `npm run build`, `npm run build-widgets`, `npm run verify-dashboard` (37/37) — per `23-VALIDATION.md`'s and the code review's independently-recorded runs; not re-run in full here beyond tsc/test, which were re-run directly
+No `TBD`/`FIXME`/`XXX`/`TODO`/`HACK`/placeholder markers in any phase-modified file (re-confirmed this
+session).
 
-### Human Verification Required
+**Explicitly still open — do not treat as resolved by CR-01's closure.** The code review
+(`23-REVIEW.md`) found 7 Warning + 5 Info findings, none of which have been fixed:
 
-### 1. Cadence & HR gesture zoom-out, post-CR-01-fix
+| ID | File:Line | Issue | Severity |
+|----|-----------|-------|----------|
+| WR-01 | `trends.ts:923-952,980-1006` | Training Load window preset `aria-pressed` goes stale after any other zoom/pan/reset — screen-reader users told the wrong window is active | Warning |
+| WR-02 | `trends.ts:452,1306-1319` | `loadWindow` survives `unmount()` while `loadZoomRange` resets — remount can show a mismatched preset | Warning |
+| WR-03 | `chart-zoom.ts:346-349` | Disabling a focused pan/zoom button at its clamp drops keyboard focus to `<body>` | Warning |
+| WR-04 | `trends-zoom-logic.ts:382-387` | `restoreOrDefault` doesn't clamp into the fallback's domain — cross-TRIMP-model restore can open on blank space | Warning |
+| WR-05 | `trends.ts:521,552-586`; `styles.css:1540-1546` | Year-heatmap `<details>` a11y-equivalent lives inside the scroll wrapper, contradicting the CSS comment's stated rationale | Warning |
+| WR-06 | `styles.test.ts:2228,2301` | Two negative CSS guards use `toThrow()`, vacuously green if the selector is deleted entirely | Warning |
+| WR-07 | `trends-charts.ts:253,331,456,662,907,1002,1111` | Every chart `options` object is `as any` — zoom config, scale bounds, tick callbacks are entirely untyped | Warning |
+| IN-01..IN-05 | see `23-REVIEW.md` | Stale cursor on detach, duplicated `MONTH_ABBR`, unused exports, an over-stated invariant comment, a harmless-today hardcoded aria-label | Info |
 
-**Test:** On the Cadence & HR tab, using the current build (post-commit `49add71`), hold the zoom modifier (⌘ on Mac / Ctrl elsewhere) and scroll (or pinch) outward over either band repeatedly until the range stops changing. Then try a drag over the band.
-**Expected:** The range reaches the full archive bounds (approximately 2011 to 2026 — the same span Volume and Training Load already reach by gesture), not a clamp around a 5-year window. Drag-to-pan produces visible movement at that boundary rather than silently doing nothing.
-**Why human:** This is exactly the path CR-01 broke (opening-window bounds passed where archive bounds belong), and it is exactly the path no browser checkpoint round — before or after the fix — ever exercised. The fix is real and has a passing, non-vacuous unit-test guard, but chartjs-plugin-zoom's runtime gesture behavior cannot be confirmed without a live browser, and this repo has no canvas/jsdom polyfill to substitute for one.
+These do not gate TRN-01..04 and do not block this phase's `passed` status, but they are unresolved
+debt. Marking the phase's goal achieved is not the same as marking the codebase clean — a future
+phase or maintenance pass should pick these up rather than let them be forgotten now that the gate is
+green.
+
+**Also carried forward, not re-litigated:** all four phone-width checkpoint rows across all three
+(now four, counting the UAT round's build-freshness check) rounds rest on same-origin iframe
+emulation, since Chrome cannot size a real window below 500px. This is a pre-accepted, consistently
+disclosed project convention (the plan's own environment-constraints text, applied identically in
+Rounds 1, 2 and 3 without incident) — I am not treating it as a fresh gap, but it remains true that no
+row in this phase used an actual sub-500px device.
 
 ### Gaps Summary
 
-No artifact is missing, stubbed, or unwired. All four TRN requirements have genuine, mostly-live-gesture evidence behind them across three checkpoint rounds, and the code review's teardown/lifecycle audit corroborates the "no regression" claims independently of the checkpoint narrative. The phase goal is **substantially achieved**.
+None remaining that block the phase goal. The one item raised in the initial verification — real
+gesture confirmation of the CR-01 fix on the Cadence & HR tab — has been discharged with specific,
+falsifiable evidence (an independently-derived expected value matched exactly, and a decisive
+pass-through of the exact old-bug clamp value as a mere intermediate step rather than a stopping
+point). Combined with the unit-test regression guard already in place, this closes the gap the code
+review identified.
 
-The one item keeping this from a clean `passed` is narrow but real: a Critical-severity defect (CR-01) sat undetected through all three checkpoint rounds specifically because no row ever gestured *outward* past the default on the Cadence & HR tab, and the fix that closes it — while sound, present in source, and covered by a test proven to catch the exact regression — has itself never been exercised by a real gesture. Given that this class of defect ("survived three checkpoints because of an untested direction") is precisely what this project's own REQUIREMENTS.md preamble names as the recurring failure mode for this milestone (Phase 16/17/18 rendering defects behind a green gate), it should not be waved through on unit-test evidence alone. One short human check closes it.
-
-The 7 open Warning findings (WR-01 through WR-07) do not block this phase's goal but are real, unfixed defects that should be tracked forward rather than assumed resolved because SUMMARY.md and REQUIREMENTS.md mark the phase complete.
+The phase goal — zoom and pan trend charts via plugin, gesture, and on-screen controls, on taller
+bands, without regressing the five-tab structure, granularity toggle, or canvas lifecycle — is
+achieved and verified against the codebase, not merely claimed in SUMMARY.md. The 7 Warning + 5 Info
+code-review findings remain open as tracked technical debt and should not be considered resolved by
+this sign-off.
 
 ---
 
-_Verified: 2026-08-27T07:23:19Z_
+_Verified: 2026-08-27T09:45:00Z_
 _Verifier: Claude (gsd-verifier)_
