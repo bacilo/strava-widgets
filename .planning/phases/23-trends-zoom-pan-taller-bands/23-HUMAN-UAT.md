@@ -1,14 +1,14 @@
 ---
-status: partial
+status: complete
 phase: 23-trends-zoom-pan-taller-bands
 source: [23-VERIFICATION.md]
 started: 2026-08-27T07:30:00Z
-updated: 2026-08-27T07:30:00Z
+updated: 2026-08-27T07:55:00Z
 ---
 
 ## Current Test
 
-[awaiting human testing]
+[none — all items complete]
 
 ## Tests
 
@@ -39,15 +39,46 @@ round, before or after the fix, has gestured outward past the default on this ta
 a non-vacuous regression guard (`src/dashboard/views/trends-zoom-logic.test.ts`, verified to fail
 with the bug reintroduced), but a unit guard cannot discharge a gesture claim.
 
-result: [pending]
+result: **PASS** — closed 2026-08-27 by a real human gesture, method (i).
+
+Build under test: `assets/index-wqbxjbsD.js` (post-fix, commit `49add71`), confirmed via both the
+`script[src]` tag and `performance` resource entries. **Cache note:** the first staging attempt
+served the CACHED pre-fix `index-BQy-1dz6.js`; caught on the `performance` entries and forced fresh
+with a cache-busting query string before any observation was taken. Serving `127.0.0.1` alone was
+not sufficient — the same trap this project has hit before.
+
+Expected value derived independently BEFORE the gesture, via the `-` button (which bypasses plugin
+limits): 4 presses from the `Aug 2021 to Aug 2026` opening window reach `Jul 2011 to Aug 2026`,
+after which `Zoom out` disables. That is the real archive floor.
+
+Gesture: **1076 wheel events, all `isTrusted: true`, 1014 carrying `metaKey`, all 1076 over the HR
+canvas**, plus 62 trusted `pointermove` events with `buttons === 1` (the drag).
+
+**The decisive observation:** the range walked from `Aug 2021 to Aug 2026` down through
+`Jul 2021 to Aug 2026` — the exact clamp CR-01 produced and the exact value R36(b) recorded as its
+stopping point — and did NOT stop there. It continued eleven further steps: `Dec 2020`, `May 2020`,
+`Aug 2019`, `Nov 2018`, `Jan 2018`, `Jan 2017`, `Jan 2016`, `Oct 2014`, `Jul 2013`, `Jan 2012`, and
+finally **`Jul 2011 to Aug 2026`** — matching the button-derived archive floor exactly. Under the
+bug the gesture stopped dead at `Jul 2021`; post-fix it passes through that value as an ordinary
+intermediate step. Both bands ended in lockstep at `Jul 2011 to Aug 2026`.
+
+Pan at the boundary: at true full-archive range, `Zoom out`, `Pan to earlier dates` and `Pan to
+later dates` are all correctly `disabled` — nothing to pan to when the whole archive is visible, so
+a no-op there is right, not the defect. Re-checked WITH headroom: one `Zoom in` gives
+`Jan 2014 to Feb 2024`, both pan buttons re-enable, and `Pan to earlier dates` moves the range to
+`Jul 2011 to Aug 2021` with lockstep intact. The review's silent-pan failure mode required the
+displayed range to EXCEED the plugin limits; with limits now equal to the archive that is
+structurally unreachable.
 
 ## Summary
 
 total: 1
-passed: 0
+passed: 1
 issues: 0
-pending: 1
+pending: 0
 skipped: 0
 blocked: 0
 
 ## Gaps
+
+None. CR-01 is confirmed closed in a live browser by a real human gesture.
