@@ -25,3 +25,7 @@ data/private/*.json
 # scripts/convert-wma-tables.mjs parses into the committed data/wma/*.json
 # tables. Not committed themselves — re-download to re-run the converter.
 scripts/wma-source/
+# Local curation mode's overlay bundle (esbuild output, Phase 24). Never an
+# input to vite.config.pages.ts or build-widgets.mjs — keeping it out of git
+# is half of D-01's structural-absence guarantee for the write path.
+.curate-dist/
