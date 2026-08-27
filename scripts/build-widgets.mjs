@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import { copyFileSync, mkdirSync, readdirSync, readFileSync, existsSync } from 'fs';
 import cssInjectedByJsPlugin from 'vite-plugin-css-injected-by-js';
 import { copyJsonTree } from './lib/copy-data-tree.mjs';
+import { findCurationArtifacts } from './lib/curation-guard.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -206,6 +207,26 @@ function assertNoPrivateArtifacts() {
   console.log(`✓ Private-artifact scan: ${scanned} published JSON file${scanned === 1 ? '' : 's'} scanned, none contain identity/health fields.`);
 }
 
+/**
+ * Build-time guard against local curation mode's write path (Phase 24,
+ * D-10(a)) ever reaching the publish directory. Hard-fails the build —
+ * never a warning — because dist/widgets/ is what actually gets deployed
+ * from this public repo. Delegates the scan to the pure, importable
+ * findCurationArtifacts() (scripts/lib/curation-guard.mjs) so that
+ * function can be unit-tested directly against a planted-fixture tree
+ * (D-11); this wrapper owns the only process.exit(1) in the pair.
+ */
+function assertNoCurationArtifacts() {
+  const violations = findCurationArtifacts('dist/widgets');
+  if (violations.length > 0) {
+    for (const { path, reason } of violations) {
+      console.error(`✗ Curation-artifact guard failed: ${path} — ${reason}`);
+    }
+    process.exit(1);
+  }
+  console.log(`✓ Curation-artifact scan: dist/widgets tree scanned, no curation-mode artifacts found.`);
+}
+
 function copyDataFiles() {
   for (const { src, dest } of dataDirs) {
     if (!existsSync(src)) continue;
@@ -300,6 +321,17 @@ async function buildAllWidgets() {
   // Build the dashboard SPA last so it definitively replaces any
   // pre-Phase-16 committed dist/widgets/index.html at the site root.
   await buildDashboard();
+
+  // OD-2 (dated amendment to D-10(a)'s literal "same place as
+  // assertNoPrivateArtifacts" wording, decided during Phase 24 planning):
+  // this guard is called HERE — after buildPages()/buildDashboard(), not
+  // inside copyDataFiles() where assertNoPrivateArtifacts fires — because
+  // copyDataFiles() runs before the JS/HTML side of dist/widgets exists.
+  // A guard called there would pass trivially against a real curate-leak
+  // regression (the most likely vector is the JS/HTML build output, not
+  // the data tree), which is exactly the never-red failure mode D-11
+  // exists to prevent (Phase 19 R3-CR-01, Phase 23 WR-06 precedent).
+  assertNoCurationArtifacts();
 
   console.log('\nWidget library build complete!');
   console.log('Output: dist/widgets/ (widgets, pages, and the dashboard SPA)');
