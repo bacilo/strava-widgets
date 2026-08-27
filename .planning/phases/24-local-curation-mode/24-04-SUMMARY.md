@@ -190,3 +190,10 @@ None - no external service configuration required.
 ---
 *Phase: 24-local-curation-mode*
 *Completed: 2026-08-27*
+
+## Self-Check: PASSED
+
+All created files verified present (`scripts/curate-server.mjs`, `scripts/curate-overlay/index.ts`,
+`scripts/curate-overlay/exclusion-panel.ts`, `scripts/curate-server.test.mjs`,
+`.planning/phases/24-local-curation-mode/24-04-SUMMARY.md`) and all four commit hashes
+(`dce5853`, `b52c5d4`, `37282ec`, `f4ec0d3`) confirmed present in `git log`.
