@@ -147,3 +147,9 @@ None - no external service configuration required.
 ---
 *Phase: 24-local-curation-mode*
 *Completed: 2026-08-27*
+
+## Self-Check: PASSED
+
+All created files verified present (`scripts/lib/copy-data-tree.mjs`, `scripts/lib/curation-guard.mjs`,
+`scripts/lib/curation-guard.test.mjs`, `.planning/phases/24-local-curation-mode/24-01-SUMMARY.md`) and
+all four commit hashes (`8c61b2b`, `5bba986`, `49b9e33`, `9828b58`) confirmed present in `git log`.
