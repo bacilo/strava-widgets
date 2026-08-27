@@ -376,7 +376,7 @@ Plans:
   4. Zoom/pan composes correctly with the existing granularity toggle and the five-tab structure: rapidly cycling tabs with zoom/pan state present does not throw "Canvas is already in use" and each tab's chart destroys/reinitializes cleanly (the failure mode Phase 18 flagged as the one to watch).
   5. **Human checkpoint**: served under `/strava-widgets` in a real browser, exercise zoom/pan via mouse and via the on-screen controls on multiple tabs, rapidly cycle through all five Trends tabs and the granularity toggle several times, and confirm no console errors and no stuck/duplicated canvases.
 
-**Plans**: 11 plans in 7 waves. Waves 1-5 shipped the feature; waves 6-7 are the gap-closure round opened by Round 1's four FAILs (R8, R11, R15, R16). Wave 6 carries three parallel plans with disjoint file ownership; wave 7 is the blocking Round 2 browser checkpoint.
+**Plans**: 13 plans in 9 waves. Waves 1-5 shipped the feature; waves 6-7 are the first gap-closure round, opened by Round 1's four FAILs (R8, R11, R15, R16) — wave 6 carries three parallel plans with disjoint file ownership, wave 7 is the blocking Round 2 browser checkpoint. Waves 8-9 are the second gap-closure round, opened by Round 2's single remaining FAIL (R35) and its located root cause (Finding 11, the five-tab `div.segmented` strip's uncontained 412px min-content floor): wave 8 is the containment fix plus Finding 12's deferral, wave 9 is the blocking Round 3 browser checkpoint that closes or re-blocks TRN-03.
 **UI hint**: yes — no 23-UI-SPEC.md; the visual contract is 23-CONTEXT.md (D-10/D-11/D-17/D-18..D-21) extending 18-UI-SPEC.md §§ 7, 8, 10, 11, 14, 16.
 
 Plans:
@@ -411,6 +411,14 @@ Plans:
 **Wave 7** *(blocked on 23-08, 23-09 and 23-10)*
 
 - [x] 23-11-PLAN.md — fresh-build proof + recomputed expected values, then a BLOCKING 22-row Round 2 human browser checkpoint (R21-R42) and strict re-gating of TRN-01..TRN-04
+
+**Wave 8** *(gap closure round 2 — blocked on 23-11's Round 2 checkpoint)*
+
+- [ ] 23-12-PLAN.md — contain the five-tab Trends tablist in a `.splits-scroll`-style `.trends-tablist-scroll` wrapper, pinned by value, and record Finding 12's dated deferral (Finding 11; closes R35)
+
+**Wave 9** *(blocked on 23-12)*
+
+- [ ] 23-13-PLAN.md — fresh-build + served-bytes proof + re-affirmed expected values and a predicted phone-width geometry table, then a BLOCKING 12-row Round 3 human browser checkpoint (R43-R54) and strict re-gating of TRN-01..TRN-04
 
 ### Phase 24: Local Curation Mode
 
