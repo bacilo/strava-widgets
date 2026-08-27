@@ -21,6 +21,9 @@ findings:
   info: 5
   total: 13
 status: issues_found
+critical_resolved: 1
+resolved_commits:
+  - 49add71  # CR-01 — archive bounds threaded to the Cadence & HR zoom plugin
 ---
 
 # Phase 23: Code Review Report
@@ -41,6 +44,20 @@ What the phase did **not** get right is one asymmetric argument at the Cadence &
 The remaining findings are state-consistency and test-strength defects. Finding 12, the `.trends-tablist-scroll` chunk location, the box-shadow focus indicator, and the `→`-disabled-at-default behaviour are all treated as already-dispositioned and are not re-raised.
 
 ## Critical Issues
+
+> **RESOLVED 2026-08-27 — commit `49add71`.** Confirmed independently before fixing:
+> `:712` builds `initial` from `computeDefaultWindow`/`restoreOrDefault` (the opening
+> window), and `buildChannelBand`'s parameter type at `:593` never carried the archive
+> bounds, so they were not in scope at `:647`. Fix threads `bounds` through
+> `buildChannelBand` alongside `initial` and passes it at the call site, matching what
+> `attachZoomController` already received. Two guards added to
+> `trends-zoom-logic.test.ts`: one proving window-derived and archive-derived clamps are
+> not interchangeable, and a source-text consumer guard over all three call sites. The
+> guard was verified to FAIL with the bug reintroduced and PASS with it fixed, so it is
+> not a vacuous assertion. Gate after fix: tsc 0, build 0, 1361 tests (+2),
+> build-widgets 0, verify-dashboard 37/37. A real outward gesture on the Cadence & HR
+> tab remains unconfirmed in a browser — no round ever exercised that path, which is
+> exactly why this survived three checkpoints.
 
 ### CR-01: Cadence & HR zoom limits are computed from the opening window, not the archive — two thirds of the data is unreachable by gesture, and drag-to-pan dies silently after a button zoom-out
 
