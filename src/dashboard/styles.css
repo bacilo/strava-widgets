@@ -874,10 +874,19 @@ body {
    deliberately unimplemented FOR THE CALENDAR specifically (focusable day
    buttons + a scroll container scroll-jumps focus on Tab); truncation
    would render a WRONG number rather than a clipped one. Phase 23 gap
-   closure applied the same wrapper pattern to `.year-heatmap` instead (see
-   the "Year consistency heatmap" block below), where this objection does
-   not apply — those cells are deliberately non-focusable (T-18-A11Y-03),
-   so there is no focus-jump to guard against.
+   closure applied the same wrapper pattern twice elsewhere instead: once to
+   `.year-heatmap` (see the "Year consistency heatmap" block below), and
+   again, round 2, to the Trends five-tab tablist's own scroll wrapper (see
+   the "Segmented control" block above) — the objection here is really
+   about the NUMBER of Tab stops a scroll container holds, not focusability
+   as such. The calendar has 28-31 focusable day buttons inside one
+   container, so Tab lands on any of them and a scroll-into-view would jump
+   focus unpredictably. The year-heatmap's cells are deliberately
+   non-focusable (T-18-A11Y-03), so there is no focus-jump to guard against
+   at all. The tablist's five buttons are focusable, but 18-UI-SPEC § 7's
+   roving tabindex gives the strip exactly ONE Tab stop, so scroll-into-view
+   on ArrowLeft/ArrowRight/Home/End is the desired reach mechanism, not an
+   unpredictable jump.
 
    WR-06: the padding rule below must stay FIRST — RULE_SCANNER swallows
    an at-rule block's first nested rule into the prelude's pseudo-body, so
@@ -1165,6 +1174,73 @@ body {
 .segmented__option--active {
   background: var(--accent-strong);
   color: #ffffff;
+}
+
+/* Phase 23 gap closure round 2 (Finding 11, R35(b)): `documentElement.scrollWidth`/
+   `clientWidth` read `460/390`, `460/393`, `460/412`, `460/430` — not equal at any
+   required phone width. The Trends five-tab tablist (`div.segmented[role=tablist]`,
+   Volume / Year-over-Year / Cadence & HR / Training Load / Gear) measured `412` wide
+   at `left: 48, right: 460`, with `overflow-x: visible` on itself AND its parent.
+
+   Why 412 is a structural floor, not a coincidence: `.segmented` is
+   `display: inline-flex` with no `flex-wrap`, so its shrink-to-fit width cannot go
+   below the sum of its five options' min-content contributions. Round 2 measured the
+   strip at exactly `412` at an available width of 294 (viewport 390) and again at 334
+   (viewport 430) — two data points, same number, so 412 is the floor by construction
+   and cannot reflow below it.
+
+   Why the left offset is 48 and the usable width is `viewport - 96`: `index.html`'s
+   `<main id="app" class="view">` and `trends.ts`'s inner `view.className = 'view'` div
+   each declare `padding: var(--space-lg)` (24px), so the content inset is 24 + 24 = 48px
+   each side. R35(d) measured `.year-heatmap-scroll`'s `clientWidth` at exactly
+   294 / 297 / 316 / 334 for viewports 390 / 393 / 412 / 430, confirming the arithmetic:
+   `48 + 412 = 460`, precisely the `documentElement.scrollWidth` R35(b) recorded at
+   every width.
+
+   Rejected alternative — `flex-wrap: wrap`: `.segmented__option:first-child`/
+   `:last-child` (specificity `0,1,1`) draw the joined-pill end caps against
+   `.segmented__option { border-radius: 0 }`. A wrapped second row would leave row one's
+   `:last-child` a visual row END with square corners and row two's `:first-child`
+   likewise — reintroducing exactly the notched-join defect CR-02 (19-REVIEW.md)
+   recorded and fixed. It would also need a new Trends-scoped selector on a rule seven
+   live instances share.
+
+   Rejected alternative — shrinking `.segmented__option` padding below 430px:
+   `5 × 2 × var(--space-md)` = 160px of the measured 412px, leaving ≈252px of
+   irreducible text min-content — it would collapse every tab's hit target to its text
+   box, do nothing for a future sixth tab or longer label, and require a SECOND
+   `@media (max-width: 430px)` block, which the `TRN-03/D-21: exactly one
+   @media (max-width: 430px) block exists` assertion below forbids. It also repeats
+   the exact mistake D-21 exists to prevent: pinning a fix to a breakpoint instead of
+   removing the structural cause.
+
+   Why the wrapper does NOT get `tabindex="0"` even though it is a scroll container:
+   18-UI-SPEC § 7's roving tabindex gives the strip exactly ONE Tab stop (only the
+   active tab carries `tabIndex = 0`), and `switchTab(tab, true)`'s `focus()` call makes
+   the browser scroll an off-screen tab into view on ArrowLeft/ArrowRight/Home/End —
+   every tab stays keyboard-reachable without adding a Tab stop that has no visible
+   focus indication. Same reasoning D-13 and 23-09 used to reject a focusable canvas /
+   `tabindex` on `.year-heatmap-scroll`.
+
+   The rule is UNCONDITIONAL, no `@media` gate: at widths where the strip fits,
+   `overflow-x: auto` paints no scrollbar and costs nothing, so a breakpoint would add a
+   second code path for no benefit — and a `@media (max-width: 430px)` gate would add a
+   SECOND such block, which the D-21 assertion below forbids. */
+.trends-tablist-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  /* D-10: 4px of room for the focus ring at either scroll edge. Unlike
+     `.splits-scroll` and `.year-heatmap-scroll`, this is LOAD-BEARING here, not a
+     forward guard: all five children are focusable buttons, and `overflow-x: auto`
+     forces `overflow-y`'s used value to `auto` too, so an unpadded wrapper would clip
+     the two-tone `:focus-visible` ring's 4px spread on the leading and trailing tabs.
+     `--space-xs` is 4px — exactly the ring's outer spread. */
+  padding: var(--space-xs);
+  /* Forward guard only, matching `.year-heatmap-scroll`'s: the wrapper's parent is
+     `view`, a plain block `<div>`, so it already shrinks without this. Exists so a
+     future flex or grid parent cannot silently reintroduce the overflow via
+     `min-width: auto`. */
+  min-width: 0;
 }
 
 /* Splits table */
@@ -1472,7 +1548,7 @@ body {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   /* D-10: 4px of room for the focus ring at either scroll edge, matching
-     the other two `overflow-x: auto` containers in this file. */
+     the other three `overflow-x: auto` containers in this file. */
   padding: var(--space-xs);
   /* Forward guard only, not load-bearing today: `section` in
      `buildYearHeatmapSection` is a plain block `<div>`, so this wrapper
@@ -1740,10 +1816,11 @@ button:where(:not(
    these rows included — gets it for free. `.activity-list`'s
    `gap: var(--space-sm)` (8px) leaves room for the ring's 4px spread, and no
    ancestor clips it: `.activity-table-wrapper` declares no `overflow`, and
-   the three `overflow-x: auto` containers in this file (`.records-jump`,
-   `.splits-scroll`, and the year-heatmap's scroll wrapper below) were
-   already padded for exactly this by Phase 19's D-10 (the third added in
-   Phase 23 gap closure, following the same padding rule). Whether it
+   the four `overflow-x: auto` containers in this file (`.records-jump`,
+   `.splits-scroll`, the year-heatmap's scroll wrapper, and the Trends
+   tablist's scroll wrapper below) were already padded for exactly this by
+   Phase 19's D-10 (the latter two added in Phase 23 gap closure, following
+   the same padding rule). Whether it
    actually reads well in a browser is plan 20-05's human
    checkpoint to arbitrate, not a follow-up ticket to file speculatively.
 
