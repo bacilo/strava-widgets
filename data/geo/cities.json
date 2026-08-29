@@ -511,6 +511,13 @@
     "totalDistanceKm": 10
   },
   {
+    "cityName": "Meri-Rastila",
+    "countryName": "Finland",
+    "countryIso2": "FI",
+    "activityCount": 1,
+    "totalDistanceKm": 10
+  },
+  {
     "cityName": "Solna",
     "countryName": "Sweden",
     "countryIso2": "SE",

@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generated_at": "2026-08-27T15:57:14.139Z",
+  "generated_at": "2026-08-29T11:24:29.185Z",
   "note": "Stream availability index for data/streams/. Written by both backfill-streams and the daily intervals.icu sync. available:false means no data/streams/<id>.json exists for that activity.",
   "totals": {
-    "activities": 1880,
-    "with_streams": 1855,
+    "activities": 1881,
+    "with_streams": 1856,
     "without_streams": 25,
     "by_reason": {
       "manual": 23,
@@ -24220,6 +24220,19 @@
       "source": "intervals",
       "distanceSource": "native",
       "sampleCount": 402,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i180870297": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 944,
       "channels": {
         "time": true,
         "distance": true,
