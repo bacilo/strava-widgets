@@ -78,12 +78,13 @@
   {
     "countryName": "Finland",
     "countryIso2": "FI",
-    "activityCount": 9,
-    "totalDistanceKm": 120.7,
+    "activityCount": 10,
+    "totalDistanceKm": 130.7,
     "cities": [
       "Herttoniemi",
       "Kumpula",
       "Länsi-Herttoniemi",
+      "Meri-Rastila",
       "Porvoo"
     ]
   },
