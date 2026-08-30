@@ -259,6 +259,13 @@
     "totalDistanceKm": 21.8
   },
   {
+    "cityName": "Meri-Rastila",
+    "countryName": "Finland",
+    "countryIso2": "FI",
+    "activityCount": 2,
+    "totalDistanceKm": 21.5
+  },
+  {
     "cityName": "Pragal",
     "countryName": "Portugal",
     "countryIso2": "PT",
@@ -507,13 +514,6 @@
     "cityName": "Emporeío",
     "countryName": "Greece",
     "countryIso2": "GR",
-    "activityCount": 1,
-    "totalDistanceKm": 10
-  },
-  {
-    "cityName": "Meri-Rastila",
-    "countryName": "Finland",
-    "countryIso2": "FI",
     "activityCount": 1,
     "totalDistanceKm": 10
   },
