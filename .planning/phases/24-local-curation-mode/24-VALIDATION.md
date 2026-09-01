@@ -358,3 +358,107 @@ badge does not render at Save, only after Recompute) — every automated coverag
 so the gap is in rendered behaviour, which is exactly what this checkpoint exists to catch.
 
 **Approval:** partial — 13 of 14 checkpoint rows PASS, ROW R5 FAIL. CUR-01 held `Pending`.
+
+---
+
+## Fresh Gate Run (plan 24-10, Round 2)
+
+*(plan 24-10, Task 1, 2026-09-01, run from the main checkout
+`/Users/pedf/workspace/strava-widgets` — not a parallel-execution worktree, so none of the
+gitignored-artifact ENOENT gaps logged in `deferred-items.md` for plans 24-01/24-02/24-09 apply
+here; every command below ran against the full local `data/` and `node_modules/` trees.)*
+
+Pre-run: `git status --short` showed only the pre-existing, unrelated `D dist/widgets/test.html`
+(see Findings, "Observations" — logged since Round 1, not caused by this plan).
+`git rev-parse HEAD` at the start of this task: `c975d45d82c836b83f72f5457f233da92bd2fe21`.
+
+| # | Command | Exit code | Notable output |
+|---|---------|-----------|-----------------|
+| 1 | `npm test` | 0 | `Test Files 60 passed (60)` / `Tests 1511 passed (1511)` |
+| 2 | `npx tsc --noEmit` | 0 | (no output — clean) |
+| 3 | `npm run build` | 0 | `tsc` clean, produces `dist/index.js` |
+| 4 | `npm run build-widgets` | 0 | `✓ Curation-artifact scan: dist/widgets tree scanned, no curation-mode artifacts found.` |
+| 5 | `npm run verify-dashboard` | 0 | `40 check(s) passed, 0 failure(s).`, including `✓ GET /data/best-effort-exclusions.json -> 200`, `✓ /data/best-effort-exclusions.json parses with an "exclusions" array`, `✓ GET /__curate/health -> 404`, `✓ GET /__curate/overlay.js -> 404`, `✓ GET /__curate/exclusions/3475726256 -> 404` |
+
+`git status --porcelain data/best-effort-exclusions.json` after this run: **empty** (nothing
+written by the gate commands).
+
+### Build identity (this gate run)
+
+`dist/widgets/assets/` contains stale files left over from earlier sessions
+(`index-BQy-1dz6.js`, `index-wqbxjbsD.js`, `index-xwaleiOf.js` — none referenced by the built
+`index.html`), because `build-widgets` does not delete unreferenced prior hashes from the assets
+directory. The build identity that matters is what `dist/widgets/index.html` actually references,
+confirmed via `grep -o 'assets/index-[A-Za-z0-9_-]*\.\(js\|css\)' dist/widgets/index.html`:
+
+- **JS:** `assets/index-UHckEgvm.js`
+- **CSS:** `assets/index-B573RjUr.css`
+
+**Comparison against Round 1's `index-xwaleiOf.js`: the JS hash DIFFERS** (`index-UHckEgvm.js` ≠
+`index-xwaleiOf.js`). This is expected and required — plan 24-09 changed `detail.ts` and
+`detail-best-efforts-logic.ts`, both in the dashboard entry graph, so the checkpoint below is
+running against bytes that include the fix. (The CSS hash `index-B573RjUr.css` is unchanged from
+Round 1, matching `24-09-SUMMARY.md`'s own recorded build identity exactly — OD-3: that plan
+shipped zero CSS changes. `index-UHckEgvm.js` also matches 24-09-SUMMARY.md's recorded JS hash
+precisely, confirming this is the same fix, freshly rebuilt.)
+
+These are the ONLY hashes Task 2's rows are valid against. If the developer's browser reports
+different hashes, hard-reload; if they still differ, the round is invalid per T-24-CACHE.
+
+### Expected values re-derived LIVE from disk (2026-09-01, BEFORE any write this round)
+
+> Re-derived independently in this session from the files below — not copied forward from
+> Round 1's literals. Every value below happens to match Round 1's pinned literals exactly, which
+> is itself confirmation `data/stats/*.json` has not been regenerated (e.g. by a nightly CI run)
+> since Round 1's own two Recompute presses last touched it.
+
+**Exclusion target**, from `data/stats/best-efforts.json`'s `rankings` object:
+- `activityId`: **4556693525** — Round 1's target still holds rank 1 in `400m`, confirmed
+  live; it is reused rather than substituted.
+- `startDate`: **2021-01-02T08:00:54Z**
+- Appears in three distances' rankings: `400m` (rank **1**, `durationSec` **45.2**), `1k` (rank
+  **8**, `durationSec` **207.4**), `1mi` (rank **9**, `durationSec` **393.8**) — it holds
+  **rank 1 only in `400m`**.
+
+**Rank-2 promotion target (the value R17 is judged against)**, for the one distance (`400m`)
+where the target holds rank 1, read from `rankings["400m"][1]` (the entry immediately after rank
+1):
+- `activityId`: **3475727228**
+- `durationSec`: **46.5**
+- `startDate`: 2019-04-02T16:38:33Z
+- **`3475727228` is a DIFFERENT string from the exclusion target's `4556693525`** — confirmed by
+  direct string comparison (`String(entries[0].activityId) !== String(entries[1].activityId)` →
+  `true`).
+
+**Weekly total (the value R18 is judged against)**, from `data/stats/weekly-distance.json`, the
+entry whose `weekStartISO`..`+7d` window covers the target's `startDate`
+(`2021-01-02T08:00:54Z`):
+- `weekStartISO`: **2020-12-28T00:00:00.000Z**
+- `totalKm`: **88.864**
+- `runCount`: **7**
+
+**Monthly total (the second value R18 is judged against)**, from
+`data/stats/monthly-stats.json`, the entry for the target's month:
+- `periodLabel`: **Jan 2021**
+- `totalKm`: **362.2411**
+- `runCount`: **29**
+
+**Pre-checkpoint archive state**, from `data/best-effort-exclusions.json`:
+- `exclusions` array length: **2** (the two Phase-15/16 GPS-device exclusions
+  `3475726256`/`3475725513`, unrelated to this round's target)
+- `git status --porcelain data/best-effort-exclusions.json`: **empty** (confirmed after this
+  Task's gate run — nothing has been written yet)
+
+### D-09 baseline — recorded operationally, not as a literal
+
+Before ROW R15, the developer runs `git rev-parse HEAD` and writes the value down; that recorded
+value is `BASELINE_HEAD`. ROW R15, ROW R19 and the Final State Check in Task 2 pass only if
+`git rev-parse HEAD` still equals `BASELINE_HEAD` at the time each is checked.
+
+Why a literal cannot be pinned here instead: this file's own Task-1 commit (and any later
+correction commit) advances HEAD past whatever value is written into it — that is exactly how
+Round 1's `cf18820` pin was stale on arrival, corrected at hand-off (see the "Fresh Gate Run
+(plan 24-08, Task 1)" section above). Recording the instruction rather than a value keeps the
+baseline valid regardless of how many docs-only commits land between this task and the
+checkpoint. (For reference only, not as a baseline: HEAD at the start of this task was
+`c975d45d82c836b83f72f5457f233da92bd2fe21`; this task's own commit will advance past it.)
