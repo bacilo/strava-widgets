@@ -132,3 +132,13 @@ Phase 25 (CI Hardening & Light-Theme Verification) remains; it has no dependency
 ---
 *Phase: 24-local-curation-mode*
 *Completed: 2026-09-01*
+
+## Self-Check: PASSED
+
+- FOUND: `.planning/phases/24-local-curation-mode/24-10-SUMMARY.md`
+- FOUND: `.planning/todos/completed/2026-08-12-exclusion-tickbox-local-curation-mode.md`
+- CONFIRMED: `.planning/todos/pending/2026-08-12-exclusion-tickbox-local-curation-mode.md` no longer exists
+- FOUND commit: `cc695a5` (Task 1)
+- FOUND commit: `c2070e4` (Task 3, partial — todo rename only)
+- FOUND commit: `db31626` (Task 3 correction — REQUIREMENTS.md/ROADMAP.md/24-VALIDATION.md)
+- FOUND commit: `8d0ce35` (this SUMMARY)
