@@ -1,8 +1,8 @@
 ---
 phase: 24
 slug: local-curation-mode
-status: partial
-nyquist_compliant: false
+status: complete
+nyquist_compliant: true
 wave_0_complete: true
 created: 2026-08-27
 ---
@@ -263,6 +263,21 @@ after Save alone, which is the sequencing ROW R5 asserts.
 
 No fix is proposed here, per the house rule since 16-09. The next planning round diagnoses it.
 
+**RESOLVED 2026-09-01 (plan 24-10, Round 2 Checkpoint, R15 and R19 both PASS).** Plan 24-09
+derived `buildBestEffortsPanelRows`'s `excluded` flag from a live `data/best-effort-exclusions.json`
+read at render time instead of the precomputed `excludedFromRecords` flag. Round 2 re-ran R5's
+exact sequencing (tick, reason, Save, badge check, BEFORE any Recompute) as **ROW R15**: the badge
+rendered immediately as `Excluded — ROUND2-2026-09-01 GPS device unreliable`, cache trap excluded
+first (`navigation[0].type === "reload"`, refetch confirmed, cache-busted fetch identical). The
+mirror direction closed at **ROW R19**: after untick + confirm + OK, WITHOUT any Recompute, no
+badge of any kind rendered (neither `Excluded — {reason}` nor the reason-less `Excluded from
+records` fallback R11 observed) — and this was proven against an independently-derived value, not
+the UI agreeing with itself: the precomputed `data/stats/best-efforts.json` still carried
+`excludedFromRecords === true` for all five distances at that moment (R17's Recompute had not
+been rerun since), so a badge gated on the old precomputed flag would have shown the reason-less
+fallback. It showed nothing — the flag can only have come from the live document. GAP-24-01 is
+**CLOSED**.
+
 ---
 
 ### Findings (recorded verbatim, left UNPATCHED per the house rule since 16-09)
@@ -462,3 +477,79 @@ Round 1's `cf18820` pin was stale on arrival, corrected at hand-off (see the "Fr
 baseline valid regardless of how many docs-only commits land between this task and the
 checkpoint. (For reference only, not as a baseline: HEAD at the start of this task was
 `c975d45d82c836b83f72f5457f233da92bd2fe21`; this task's own commit will advance past it.)
+
+---
+
+## Round 2 Checkpoint (R15-R23)
+
+*(plan 24-10, Task 2, 2026-09-01)*
+
+**BASELINE_HEAD recorded at session start:** `cc695a537a16ea557bf1b7427b2dd8823d4e34fb`
+
+**HEAD at end of session:** `cc695a537a16ea557bf1b7427b2dd8823d4e34fb` — EQUAL. No commit was
+made mid-session; every row (R15-R23) ran against this single baseline.
+
+**Build identity verified in-browser before ROW R15:** scripts =
+`["./assets/index-UHckEgvm.js", "/__curate/overlay.js"]`, stylesheet =
+`"./assets/index-B573RjUr.css"`, `performance` resource entries =
+`["index-B573RjUr.css","index-UHckEgvm.js"]` — exactly the hashes Task 1 recorded, and NOT Round
+1's `index-xwaleiOf.js`. The round is valid against those bytes.
+
+### Evidence provenance (non-waivable disclosure)
+
+| Evidence class | How it was produced | Counts as |
+|---|---|---|
+| R15, R16, R17, R18, R20, R21 (clicks, typing, hovers, reloads) | Agent-driven through Claude-in-Chrome in real Chrome, at the developer's explicit delegation (*"I opened chrome already so you can handle things"*, *"Please do everything you can yourself"*) | Real browser, agent-injected — NOT a human hand. Same class as Round 1. |
+| R19 (untick, native `window.confirm()`, Cancel, untick again, OK) | **The developer personally** unticked the checkbox, read the dialog, pressed Cancel, then unticked again and pressed OK, and quoted the dialog text verbatim | Human-only — a native `window.confirm()` blocks the browser-automation extension outright, exactly as Round 1's R10 |
+| R21(c)/(d), R22, R23 terminal commands and all on-disk/git assertions | Run by the executor/orchestrator in the shell | Exit codes and file reads are the executor's, not the developer's |
+| R17 streaming sub-check | Not captured before the page reloaded | Recorded NOT OBSERVED — see R17 below, Round 1 R8 precedent |
+
+No row below was passed on a synthesised event, a headless probe, or a `window.confirm` override.
+
+### Row verdicts
+
+| Row | Verdict | Quoted evidence |
+|-----|---------|-----------------|
+| R15 | **PASS** | (a) `document.querySelectorAll('section[data-activity-id="4556693525"]').length === 1`; curation controls render below the panel. (b) Ticked, typed `ROUND2-2026-09-01 GPS device unreliable`, pressed Save. **No Recompute pressed before the badge was observed.** (c) Rendered badge, quoted exactly: **`Excluded — ROUND2-2026-09-01 GPS device unreliable`** — present on all five distance rows; the 400m flags cell read `PRExcluded — ROUND2-2026-09-01 GPS device unreliable`. Em dash present; NOT the reason-less fallback. (d) Cache trap excluded BEFORE the render verdict: `performance.getEntriesByType('navigation')[0].type === "reload"`; `best-effort-exclusions.json` refetched twice after that reload (startTime 212ms and 236ms, transferSize 1104 each); cache-busted fetch vs. plain fetch — bodies **identical** (`plain === busted` → `true`), `exclusions.length: 3` in both, busted body contains `activityId 4556693525` with the typed reason. (e) On disk: `{"activityId": "4556693525", "distances": null, "reason": "ROUND2-2026-09-01 GPS device unreliable"}`. (f) `git rev-parse HEAD` = `cc695a53...` = BASELINE_HEAD. (g) No rebuild: still `./assets/index-UHckEgvm.js` loaded. |
+| R16 | **PASS** | Hard-reload, navType `"reload"`. Checkbox **pre-ticked** (`checked === true`); textarea **pre-filled** with `ROUND2-2026-09-01 GPS device unreliable`. Edited to `ROUND2-2026-09-01 edited`, Save, no Recompute. (a) On-disk reason became exactly `ROUND2-2026-09-01 edited`. (b) `exclusions.length === 3` — Task 1's recorded length (2) **plus one**, not plus two. (c) Rendered badge: `Excluded — ROUND2-2026-09-01 edited` (`badgeCount 5`, unique text across all five rows). |
+| R17 | **PASS**, streaming sub-check **NOT OBSERVED** | Pressed "Recompute records"; the recompute completed and the page reloaded before a progress frame could be captured — recorded NOT OBSERVED for the streaming sub-check only, per the Round 1 R8 precedent, without demoting the row. Records screen 400m rank 1: href `#/activity/3475727228`, time `0:47`, date `Apr 2, 2019` — **matches Task 1's pinned rank-2 promotion target** (`3475727228`, `durationSec` 46.5, `startDate` 2019-04-02T16:38:33Z). **Stated in words: the linked activityId `3475727228` is a different string from the exclusion target `4556693525`.** All 10 rendered 400m rows resolve to unique ids `[3475727228, 3475715178, 3475732221, 3475735603, 3475711469, 3475711630, 5059204779, 14122328106, 5588316886, 3475714424]` — `4556693525` absent. Detail-panel badge after Recompute still reads `Excluded — ROUND2-2026-09-01 edited`. |
+| R18 | **PASS** | The pinned week (2020-12-28) spans a month boundary, rendered as two partial cells: December view final row `46.6 km, 4h 33m, ×4`; January view first row `42.3 km, 4h 10m, ×3`. **Sum: 46.6 + 42.3 = 88.9 km; 4 + 3 = 7 runs** — matches pinned 88.864 km / 7 runs (1dp). Monthly, January 2021 header: **`362.2 km` across **`29 runs``** — matches pinned 362.2411 km / 29 runs. Independently re-read from disk with the exclusion still active: weekly `{"weekStartISO":"2020-12-28T00:00:00.000Z","totalKm":88.864,"runCount":7}`; monthly `{"periodLabel":"Jan 2021","totalKm":362.2411,"runCount":29}` — unchanged by the exclusion. |
+| R19 | **PASS** (human hand) | Confirm dialog text, quoted verbatim by the developer: **"Removing this exclusion deletes it and changes PR history. Continue?"** — names the consequence (D-08). Source-confirmed at `scripts/curate-overlay/exclusion-panel.ts:143-145` (identical string on `removeButton` at `:167`). **Cancel first:** entry still on disk (`{"activityId":"4556693525","distances":null,"reason":"ROUND2-2026-09-01 edited"}`, `exclusions.length` still 3), checkbox returned to ticked (`checked === true`), badge still rendered. Unticked again, pressed OK. **No Recompute pressed before the badge absence was observed.** (a) Flags cell empty string `""` on all five rows; `/Excluded/.test(section.textContent) === false` and `/Excluded/.test(document.body.textContent) === false` — the reason-less `Excluded from records` fallback Round 1 observed at R11 did **not** appear. (b) Cache trap excluded: navType `"reload"`; refetched twice after reload (startTime 178ms and 215ms, transferSize 974 each, down from 1104 — consistent with removal); cache-busted vs. plain — **identical**, both `exclusions.length: 2`, busted body does not contain `4556693525`. (c) On disk: no entry with `activityId 4556693525` (remaining: `3475726256`, `3475725513`); `grep -c '"distances": \[\]' data/best-effort-exclusions.json` = **0**; `exclusions.length === 2` — Task 1's recorded length. (d) `git rev-parse HEAD` = `cc695a53...` = BASELINE_HEAD. **Extent evidence (independently derived, not the UI agreeing with itself):** at the moment the empty flags cell was observed, `compute-best-efforts` had NOT been rerun since R17's Recompute (which ran WITH the exclusion active) — the precomputed `data/stats/best-efforts.json` still carried `excludedFromRecords === true` for all five distances of `4556693525` (`[{"d":"400m","x":true},{"d":"1k","x":true},{"d":"1mi","x":true},{"d":"5k","x":true},{"d":"10k","x":true}]`). A badge gated on the precomputed flag would have rendered the reason-less `Excluded from records` fallback; it rendered **nothing**. The flag can only have come from the live document — the mirror-image proof of R15, closing R11's staleness in the opposite direction. |
+| R20 | **PASS** | Pressed "Recompute records" again. `data/stats/best-efforts.json` `400m` rank 1 is `4556693525` at `durationSec 45.2` (rank 2 back to `3475727228` at 46.5); `excludedFromRecords` returned to `false` for all five distances. Rendered Records 400m rank 1: href `#/activity/4556693525`, time `0:45`, date `Jan 2, 2021`. Word "Excluded" appears **nowhere**: `/Excluded/.test(document.body.textContent) === false`. `git status --porcelain data/best-effort-exclusions.json` — **no output**; `cmp` against a pre-R15 snapshot confirms the archive is **byte-identical** to its pre-checkpoint state. |
+| R21 | **PASS** | Curate stopped (port 4173 dead, `curl` exit `000`). `dist/widgets` served by a plain Node static server under `/strava-widgets` on port 4199 — a **different** port, no curate. (a) `button,input,textarea` inside the panel enumerated to `[]` — `controlsCount === 0`; `sectionFound === true` (real absence, not a missing panel). (b) `document.documentElement.outerHTML.includes('__curate') === false`; served `index.html` contains `0` occurrences of `__curate`; only script src is `./assets/index-UHckEgvm.js`, no overlay injection. (c) Four status codes: `GET /strava-widgets/ -> 200` (control), `GET /strava-widgets/__curate/health -> 404`, `GET /strava-widgets/__curate/overlay.js -> 404`, `GET /strava-widgets/__curate/exclusions/4556693525 -> 404`. (d) In-console `PUT /strava-widgets/__curate/exclusions/4556693525 -> 404 "Not Found"` and `PUT /__curate/exclusions/4556693525 -> 404 "Not Found"`; `git status --porcelain data/best-effort-exclusions.json` empty afterwards, `cmp` confirms byte-identical. |
+| R22 | **PASS** | Planted `dist/widgets/__curate/overlay.js` containing the literal `__curate`. `npm run build-widgets` **exit 1** with: `✗ Curation-artifact guard failed: /Users/pedf/workspace/strava-widgets/dist/widgets/__curate — a directory named "__curate" must never exist under the published bundle` and `✗ Curation-artifact guard failed: /Users/pedf/workspace/strava-widgets/dist/widgets/__curate/overlay.js — file contents contain the literal "__curate" marker — the curation write path must be structurally absent from the published bundle`. After `rm -rf dist/widgets/__curate` (existence check: NO) and a re-run: **exit 0** with `✓ Curation-artifact scan: dist/widgets tree scanned, no curation-mode artifacts found.` The clean rebuild **reproduces Task 1's recorded asset hashes** — `index.html` still references `assets/index-UHckEgvm.js` and `assets/index-B573RjUr.css` — so R21 is known to have run against the pinned build identity. |
+| R23 | **PASS** | Curate restarted. `PUT http://127.0.0.1:4173/__curate/exclusions/4556693525` with `Origin: http://evil.example` → **`HTTP/1.1 403 Forbidden`**. Same URL with `Host: evil.example` → **`HTTP/1.1 403 Forbidden`**. `git status --porcelain data/best-effort-exclusions.json` afterwards: **no output** (empty); `cmp` confirms byte-identical. |
+
+### Final state check
+
+| Assertion | Observed |
+|---|---|
+| `git status --porcelain data/best-effort-exclusions.json` empty | **empty**, and byte-identical to a pre-R15 snapshot by `cmp` |
+| `git rev-parse HEAD` equals BASELINE_HEAD | `cc695a537a16ea557bf1b7427b2dd8823d4e34fb` = BASELINE_HEAD — no docs-only commit landed mid-session; all nine rows ran against this single baseline |
+| `dist/widgets/__curate` absent | **absent** (existence check: NO) |
+| Working tree otherwise clean | only the pre-existing, unrelated `D dist/widgets/test.html` (last touched by commit `de603b0`, `feat(12-01)`; present before Task 1, not caused by this checkpoint — see Round 1's "Observations" for its original disclosure) |
+
+### Round 2 Observations (not defects, not blocking; recorded verbatim per house rule since 16-09)
+
+- **Agent-input-fidelity hazard in the curation reason textarea, not a curate-overlay defect.**
+  When driving the textarea through Claude-in-Chrome, the first character of a typed string was
+  silently swallowed twice when typing over a full selection — `ROUND2-2026-09-01 edited` landed
+  as `OUND2-2026-09-01 edited`, and a repair attempt using cmd+Left then `R` produced
+  `OUND2-2026-09-01 Redited` (cmd+Left moved to a word boundary, not the line start). The
+  workaround was to clear the field to empty (verified `value.length === 0`) and type the full
+  string into the empty field, which produced the exact value. Every saved reason in this round
+  was verified by reading back `textarea.value` and comparing for exact string equality BEFORE
+  pressing Save, so no row was recorded against a mistyped value. This is an agent-input-fidelity
+  hazard for future agent-driven rounds, not a defect in the curate overlay: the field accepts
+  human typing normally (as R19's human-hand row confirms), and the overlay's own read-back and
+  persistence were correct at every step observed. Not opened as a gap — it does not name a
+  product defect and no checkpoint row's acceptance criteria depend on it.
+
+### Round 2 disposition
+
+All nine rows (R15-R23) are **PASS**. GAP-24-01 is resolved — see the dated resolution appended
+to the Gap-Closure Record below. `nyquist_compliant` is set `true` in this file's frontmatter
+(see "Round 2 sign-off" note): every one of R15-R23 is PASS, and every Per-Task Verification Map
+coverage row (above, under "Per-Task Verification Map") was already green going into this round
+and is unaffected by it — no row there covers browser rendering, which is exactly the gap this
+checkpoint closes. `status: complete`.

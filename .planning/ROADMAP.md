@@ -462,7 +462,7 @@ Plans:
 
 **Wave 6** *(blocked on 24-09)*
 
-- [ ] 24-10-PLAN.md — BLOCKING Round 2 browser checkpoint (R15-R23) re-running R5 in its original sequencing plus its mirror direction, and re-asserting edit-in-place, the Recompute extent row, totals, untick/restore and the three production-absence rows; then the CUR-01 disposition
+- [x] 24-10-PLAN.md — BLOCKING Round 2 browser checkpoint (R15-R23) re-running R5 in its original sequencing plus its mirror direction, and re-asserting edit-in-place, the Recompute extent row, totals, untick/restore and the three production-absence rows; then the CUR-01 disposition
 
 **UI hint**: yes
 
