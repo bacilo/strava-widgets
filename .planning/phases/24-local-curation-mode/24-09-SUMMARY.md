@@ -161,3 +161,12 @@ CUR-01 stays open in `REQUIREMENTS.md` pending that browser verification — `re
 ---
 *Phase: 24-local-curation-mode*
 *Completed: 2026-09-01*
+
+## Self-Check: PASSED
+
+- FOUND: `.planning/phases/24-local-curation-mode/24-09-SUMMARY.md`
+- FOUND: `src/dashboard/views/detail-best-efforts-logic.ts`
+- FOUND: `src/dashboard/views/detail.ts`
+- FOUND commit: `7b678ea` (Task 1)
+- FOUND commit: `17b161f` (Task 2)
+- FOUND commit: `8b231f3` (this SUMMARY)
