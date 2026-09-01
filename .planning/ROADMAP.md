@@ -458,7 +458,7 @@ Plans:
 
 **Wave 5** *(gap closure — blocked on 24-08; closes GAP-24-01 from `24-VALIDATION.md` Round 1 R5)*
 
-- [ ] 24-09-PLAN.md — derive the `Excluded — {reason}` badge's on/off state from the LIVE `data/best-effort-exclusions.json` at render time instead of the precomputed `excludedFromRecords` flag, so the badge is correct immediately after Save and immediately after an untick with no Recompute and no rebuild; both new guards observed red against a planted regression (D-11)
+- [x] 24-09-PLAN.md — derive the `Excluded — {reason}` badge's on/off state from the LIVE `data/best-effort-exclusions.json` at render time instead of the precomputed `excludedFromRecords` flag, so the badge is correct immediately after Save and immediately after an untick with no Recompute and no rebuild; both new guards observed red against a planted regression (D-11)
 
 **Wave 6** *(blocked on 24-09)*
 
@@ -513,7 +513,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 21. Overview Rebuild | v2.1 | 8/8 | Complete    | 2026-08-18 |
 | 22. Calendar Week-Start & Totals | v2.1 | 16/16 | Complete   | 2026-08-19 |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 13/13 | Complete    | 2026-08-27 |
-| 24. Local Curation Mode | v2.1 | 8/8 | Gaps Found | 2026-08-27 |
+| 24. Local Curation Mode | v2.1 | 9/10 | In Progress|  |
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 0/TBD | Not started | - |
 
 ---
