@@ -1114,5 +1114,14 @@
     "avgPaceMinPerKm": 5.834770252315279,
     "elevationGain": 467.7205914,
     "totalMovingTimeMin": 1415.8
+  },
+  {
+    "periodStart": "2026-09-01T00:00:00.000Z",
+    "periodLabel": "Sep 2026",
+    "totalKm": 11.009409999999999,
+    "runCount": 1,
+    "avgPaceMinPerKm": 5.913123409883,
+    "elevationGain": 11.50962,
+    "totalMovingTimeMin": 65.1
   }
 ]

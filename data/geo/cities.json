@@ -28,18 +28,18 @@
     "totalDistanceKm": 1274.8
   },
   {
+    "cityName": "Herlev",
+    "countryName": "Denmark",
+    "countryIso2": "DK",
+    "activityCount": 94,
+    "totalDistanceKm": 1118.3
+  },
+  {
     "cityName": "Olivais",
     "countryName": "Portugal",
     "countryIso2": "PT",
     "activityCount": 92,
     "totalDistanceKm": 1116.3
-  },
-  {
-    "cityName": "Herlev",
-    "countryName": "Denmark",
-    "countryIso2": "DK",
-    "activityCount": 93,
-    "totalDistanceKm": 1107.3
   },
   {
     "cityName": "Bergshamra",
