@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
 status: executing
-stopped_at: Phase 24 context gathered
-last_updated: "2026-09-01T09:27:51.860Z"
-last_activity: 2026-09-01 -- Phase 24 execution started
+stopped_at: Completed 24-10-PLAN.md — GAP-24-01 closed, CUR-01 complete, Phase 24 requirement gate closed
+last_updated: "2026-09-01T20:27:28.819Z"
+last_activity: 2026-09-01
 progress:
   total_phases: 7
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 84
-  completed_plans: 82
-  percent: 71
+  completed_plans: 84
+  percent: 86
 ---
 
 # Project State
@@ -21,37 +21,34 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 24 — local-curation-mode
+**Current focus:** Phase 24 complete (requirement gate closed); Phase 25 — CI Hardening & Light-Theme Verification not yet started
 
 ## Current Position
 
-Phase: 24 (local-curation-mode) — EXECUTING
-Plan: 1 of 10
-Status: Executing Phase 24
-        Plan 23-13's Round 3 gap-closure checkpoint (R43-R54) closed 2026-08-27 against a fresh
-        build (`assets/index-BQy-1dz6.js` / `assets/index-B573RjUr.css`, both differing from
-        Round 2's): **12 PASS / 0 FAIL / 0 BLOCKED / 0 NOT EXERCISABLE — a clean sweep.**
-        Plan 23-12's `.trends-tablist-scroll` wrapper (the fourth instance of the shipped
-        `.splits-scroll`/`.year-heatmap-scroll` overflow-x:auto pattern, containing the five-tab
-        Trends navigation strip's 412px min-content floor) closed R35's non-waivable
-        no-horizontal-overflow clause for the first time across three rounds: R46(b) measured
-        `documentElement.scrollWidth` EQUAL to `clientWidth` at all four required phone widths
-        (390/393/412/430), where Round 1 measured a pinned 682 and Round 2 measured a narrowed
-        but still-unequal 460. TRN-03 ticks for the first time; TRN-01, TRN-02 and TRN-04 were
-        each confirmed unregressed by their own Round 3 rows (R47/R48, R49/R50, R51/R52/R53
-        respectively) rather than assumed — 23-12 changed the DOM immediately above the tab
-        strip, so this was regression confirmation, not a rubber stamp. No new finding was
-        raised (the overflow-driver enumeration in R46(b) returned empty at every width);
-        Finding 12 (Training Load tooltip epoch) remains DEFERRED per its dated disposition in
-        `deferred-items.md`, out of this round's scope by design. `23-VALIDATION.md` frontmatter:
-        `status: complete`, `nyquist_compliant: true`. **All four Phase 23 requirements
-        (TRN-01..04) now tick Complete in `REQUIREMENTS.md` — Phase 23's requirement gate is
-        fully closed**, and `completed_phases` in this file's frontmatter now correctly reflects
-        that (5, not 4).
-        Next: Phase 23 is done. Phases 24-25 remain in the v2.1 Interface Polish milestone
-        (local curation mode, CI hardening). Run `/gsd-plan-phase 24` or `/gsd-transition` to
-        move on.
-Last activity: 2026-09-01 -- Phase 24 execution started
+Phase: 24 (local-curation-mode) — COMPLETE
+Plan: 10 of 10
+Status: Phase 24 requirement gate closed
+        Plan 24-10's Round 2 browser checkpoint (R15-R23, closed 2026-09-01) recorded a clean
+        sweep — all nine rows PASS. R15 closed GAP-24-01's forward direction (the
+        `Excluded — {reason}` badge renders at Save, before any Recompute, cache trap excluded
+        first) and R19 closed the mirror direction (a human-hand row — a native
+        `window.confirm()` blocks browser automation — proving the badge absence at untick
+        against an independently-derived value: the precomputed `excludedFromRecords` flag was
+        still stale `true` at that moment, so a badge gated on it would have shown the
+        reason-less fallback; it showed nothing). R16-R18/R20-R23 re-confirmed edit-in-place,
+        the Recompute extent row, totals, reversibility and the three production-absence/
+        cross-origin rows unregressed by plan 24-09's live-derivation fix, against a fresh build
+        (`index-UHckEgvm.js`, confirmed to differ from Round 1's `index-xwaleiOf.js`).
+        `24-VALIDATION.md` frontmatter: `status: complete`, `nyquist_compliant: true`. **CUR-01
+        ticks Complete in `REQUIREMENTS.md` — Phase 24's sole requirement, and its requirement
+        gate is fully closed**, per the Phase 19 UI-02 / plan 19-15 precedent (earned on rendered
+        evidence, not a mechanical match). The origin todo
+        (`2026-08-12-exclusion-tickbox-local-curation-mode.md`) moved to `completed/` with a
+        dated closing note.
+        Next: Phase 24 is done. Phase 25 (CI Hardening & Light-Theme Verification) remains in
+        the v2.1 Interface Polish milestone, with no dependency on Phase 24. Run
+        `/gsd-plan-phase 25` or `/gsd-transition` to move on.
+Last activity: 2026-09-01
 
 Progress: [██████████] 100%
 
@@ -85,6 +82,7 @@ Progress: [██████████] 100%
 | Phase 22 P16 | ~35min | 3 tasks | 2 files |
 | Phase 23 P11 | 30min | 2 tasks | 2 files |
 | Phase 23 P13 | 55min | 2 tasks | 2 files |
+| Phase 24 P10 | ~40min (spanning checkpoint pause) | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -121,6 +119,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 22]: 22-16 Round 4 checkpoint recorded 3 PASS / 2 BLOCKED (R24/R25/R28 PASS, R26/R27 BLOCKED). R25 PASS closed the 381-530px overflow sub-band for the first time in the phase at a genuinely stated 393px; R26 was BLOCKED because the evidence given was at R25's own width, not R26's own required ~600px band; R27 was BLOCKED because only a summary 'dark reached' claim was given, not the three aria-label values disposition (a) requires. Both BLOCKED verdicts were held against three rounds of orchestrator-relayed pressure to record PASS on incomplete evidence, per the plan's non-waivable house rule 14. Gap 1 and Gap 2 both remain STILL OPEN; WR-01 CLOSED on automated evidence. CAL-01 reverted Complete->Pending (R27 BLOCKED); CAL-02 stays Pending (R26 BLOCKED); CAL-03 untouched.
 - [Phase 23]: 23-11 Round 2 checkpoint recorded 21 PASS / 1 FAIL (R35) / 0 BLOCKED against a fresh build (assets/index-D01ardNQ.js). 23-08's settle-nesting/step-magnitude fixes and 23-09's year-heatmap wrapper closed Round 1's R8/R11/R16, ticking TRN-01/TRN-02/TRN-04. TRN-03 stays Pending: R35 narrowed the phone-width overflow from 682px to 460px but did not close it -- the root cause relocated to the unwrapped five-tab div.segmented strip (Finding 11). Finding 12 (pre-existing Training Load tooltip epoch, re-observed) recorded unpatched.
 - [Phase 23]: 23-13 Round 3 checkpoint closed a clean sweep (12 PASS / 0 FAIL / 0 BLOCKED across R43-R54): documentElement.scrollWidth equals clientWidth at all four phone widths (390/393/412/430), closing R35's overflow clause via plan 23-12's .trends-tablist-scroll wrapper. TRN-03 ticks for the first time; TRN-01/02/04 confirmed unregressed by their own Round 3 rows. Phase 23's requirement gate is fully closed.
+- [Phase 24]: [Phase 24] 24-10 Round 2 checkpoint recorded a clean sweep — all nine rows (R15-R23) PASS, closing GAP-24-01 in both directions (R15 forward, R19 mirror, judged against an independently-derived stale-precomputed-flag value rather than UI self-agreement). CUR-01 ticked Complete on rendered evidence per the Phase 19 UI-02 / plan 19-15 precedent, closing Phase 24's requirement gate. Origin todo moved to completed/.
 
 ### Key Findings
 
@@ -188,9 +187,9 @@ Items acknowledged and deferred at the v2.0 milestone close on 2026-08-12.
 
 ## Session Continuity
 
-Last session: 2026-08-27T08:01:37.837Z
-Stopped at: Phase 24 context gathered
-Resume file: .planning/phases/24-local-curation-mode/24-CONTEXT.md
+Last session: 2026-09-01T20:27:28.811Z
+Stopped at: Completed 24-10-PLAN.md — GAP-24-01 closed, CUR-01 complete, Phase 24 requirement gate closed
+Resume file: None
 
 ---
 *Last updated: 2026-08-11 — Phase 17 (activity-browser-detail-views) all 15 planned plans executed and summarized; human checkpoint on plan 17-15 came back PARTIAL — 8/10 Manual-Only Verifications rows confirmed clean, GAP 1 (DETAIL-02, route-map basemap tiles absent) and GAP 2 (DETAIL-03/04, chart band x-axis misalignment) have open gaps pending gap-closure planning (`/gsd-plan-phase 17 --gaps`) before the phase gate closes*
