@@ -86581,6 +86581,56 @@
       "cityName": "Meri-Rastila",
       "countryName": "Finland",
       "countryIso2": "FI"
+    },
+    "55.7196,12.4508": {
+      "cityName": "Herlev",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.7184,12.4651": {
+      "cityName": "Herlev",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.7185,12.4749": {
+      "cityName": "Herlev",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.7155,12.4874": {
+      "cityName": "Herlev",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.72,12.4994": {
+      "cityName": "Buddinge",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.7177,12.5123": {
+      "cityName": "Buddinge",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.7134,12.5016": {
+      "cityName": "Vanløse",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.7091,12.4856": {
+      "cityName": "Vanløse",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.712,12.4715": {
+      "cityName": "Herlev",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.7129,12.46": {
+      "cityName": "Herlev",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
     }
   }
 }
