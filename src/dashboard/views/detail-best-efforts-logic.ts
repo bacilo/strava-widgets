@@ -8,6 +8,8 @@
 import type { ActivityBestEfforts, TargetDistanceKey } from '../../analytics/best-effort.types.js';
 import { TARGET_ORDER } from '../../analytics/best-effort.types.js';
 import type { AgeGradingDocument } from '../../analytics/age-grading.types.js';
+import type { ExclusionIndex } from '../../analytics/best-effort-exclusions.js';
+import { isExcluded } from '../../analytics/best-effort-exclusions.js';
 
 /** Display name per target distance, matching 18-UI-SPEC.md's naming exactly. */
 export const DISTANCE_DISPLAY_NAMES: Record<TargetDistanceKey, string> = {
@@ -67,10 +69,32 @@ export interface BestEffortPanelRow {
  * whether a grade was actually found. Returns `[]` when the activity
  * produced no efforts at all — the caller renders the named empty state
  * rather than omitting the section.
+ *
+ * `BestEffortPanelRow.excluded` is a BADGE-STATE claim about the
+ * developer's live curation intent for the activity being viewed, read from
+ * `data/best-effort-exclusions.json` (GAP-24-01): when `liveExclusions` is
+ * not `null`, each row's `excluded` is `isExcluded(liveExclusions,
+ * entry.activityId, distance)`, so a `distances`-scoped entry badges only
+ * the distances it names (D-05's read tolerance). `liveExclusions === null`
+ * means UNKNOWN — the document could not be fetched or did not parse — and
+ * falls back to the precomputed `effort.excludedFromRecords`; it must never
+ * be treated as NOT-EXCLUDED, which would silently clear a real badge.
+ *
+ * The precomputed `excludedFromRecords` field remains the ONLY source of
+ * truth for COMPUTED STATS — Records-screen rankings, promoted next-best
+ * efforts, `compute-dashboard-index`'s counts and the Activities-list badge
+ * at `list.ts:266`. Nothing here recomputes a ranking in the browser.
+ * Between a curate Save and the next `compute-best-efforts` run, the live
+ * file and `best-efforts.json` can genuinely disagree: the panel row renders
+ * `Excluded — {reason}` (this document) while the Records screen still
+ * lists the effort at its old rank (the precomputed document), until
+ * "Recompute records" closes the gap. That disagreement window is the
+ * honest reading of two documents that have not yet converged, not a bug.
  */
 export function buildBestEffortsPanelRows(
   entry: ActivityBestEfforts | null,
-  ageGrading: AgeGradingDocument | null
+  ageGrading: AgeGradingDocument | null,
+  liveExclusions: ExclusionIndex | null
 ): BestEffortPanelRow[] {
   if (entry === null || entry.efforts.length === 0) return [];
 
@@ -92,7 +116,10 @@ export function buildBestEffortsPanelRows(
       paceSecPerKm: effort.paceSecPerKm,
       isPr: effort.wasPRAtTheTime,
       lowConfidence: effort.lowConfidence,
-      excluded: effort.excludedFromRecords,
+      excluded:
+        liveExclusions !== null
+          ? isExcluded(liveExclusions, entry.activityId, distance)
+          : effort.excludedFromRecords,
       agePercent: ageGradeEntry ? ageGradeEntry.agePercent : null,
       ageDerived: distance === '1k',
     });

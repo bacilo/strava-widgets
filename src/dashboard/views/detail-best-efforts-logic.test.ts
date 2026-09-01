@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { ActivityBestEfforts, BestEffort } from '../../analytics/best-effort.types.js';
 import type { AgeGradingDocument } from '../../analytics/age-grading.types.js';
+import type { ExclusionIndex } from '../../analytics/best-effort-exclusions.js';
 import { buildBestEffortsPanelRows, buildPrBadgeLabels } from './detail-best-efforts-logic.js';
 
 function effort(overrides: Partial<BestEffort> & Pick<BestEffort, 'distance'>): BestEffort {
@@ -81,11 +82,11 @@ describe('buildPrBadgeLabels', () => {
 
 describe('buildBestEffortsPanelRows', () => {
   it('returns [] for a null entry', () => {
-    expect(buildBestEffortsPanelRows(null, null)).toEqual([]);
+    expect(buildBestEffortsPanelRows(null, null, null)).toEqual([]);
   });
 
   it('returns [] for an activity with zero efforts', () => {
-    expect(buildBestEffortsPanelRows(activity({ efforts: [] }), null)).toEqual([]);
+    expect(buildBestEffortsPanelRows(activity({ efforts: [] }), null, null)).toEqual([]);
   });
 
   it('five efforts of which two are PRs yield five rows with isPr true on exactly two', () => {
@@ -98,7 +99,7 @@ describe('buildBestEffortsPanelRows', () => {
         effort({ distance: '10k', wasPRAtTheTime: false }),
       ],
     });
-    const rows = buildBestEffortsPanelRows(entry, null);
+    const rows = buildBestEffortsPanelRows(entry, null, null);
     expect(rows.length).toBe(5);
     expect(rows.filter((r) => r.isPr).length).toBe(2);
   });
@@ -111,7 +112,7 @@ describe('buildBestEffortsPanelRows', () => {
         effort({ distance: '5k' }),
       ],
     });
-    const rows = buildBestEffortsPanelRows(entry, null);
+    const rows = buildBestEffortsPanelRows(entry, null, null);
     expect(rows.map((r) => r.distance)).toEqual(['400m', '5k', '10k']);
   });
 
@@ -132,7 +133,7 @@ describe('buildBestEffortsPanelRows', () => {
         a1: { '5k': { agePercent: 62.3, derived: false } },
       },
     };
-    const rows = buildBestEffortsPanelRows(entry, ageGrading);
+    const rows = buildBestEffortsPanelRows(entry, ageGrading, null);
     const fiveK = rows.find((r) => r.distance === '5k');
     const tenK = rows.find((r) => r.distance === '10k');
     expect(fiveK?.agePercent).toBe(62.3);
@@ -154,13 +155,13 @@ describe('buildBestEffortsPanelRows', () => {
       rankings: {},
       activities: { a1: { '5k': { agePercent: 99, derived: false } } },
     };
-    const rows = buildBestEffortsPanelRows(entry, disabledDoc);
+    const rows = buildBestEffortsPanelRows(entry, disabledDoc, null);
     expect(rows[0].agePercent).toBeNull();
   });
 
   it('a null age-grading document produces null on every row', () => {
     const entry = activity({ efforts: [effort({ distance: '5k' })] });
-    const rows = buildBestEffortsPanelRows(entry, null);
+    const rows = buildBestEffortsPanelRows(entry, null, null);
     expect(rows[0].agePercent).toBeNull();
   });
 
@@ -168,7 +169,7 @@ describe('buildBestEffortsPanelRows', () => {
     const entry = activity({
       efforts: [effort({ distance: '1k' }), effort({ distance: '5k' })],
     });
-    const rows = buildBestEffortsPanelRows(entry, null);
+    const rows = buildBestEffortsPanelRows(entry, null, null);
     expect(rows.find((r) => r.distance === '1k')?.ageDerived).toBe(true);
     expect(rows.find((r) => r.distance === '5k')?.ageDerived).toBe(false);
   });
@@ -180,12 +181,89 @@ describe('buildBestEffortsPanelRows', () => {
         effort({ distance: '10k', lowConfidence: false, excludedFromRecords: false }),
       ],
     });
-    const rows = buildBestEffortsPanelRows(entry, null);
+    const rows = buildBestEffortsPanelRows(entry, null, null);
     const fiveK = rows.find((r) => r.distance === '5k');
     const tenK = rows.find((r) => r.distance === '10k');
     expect(fiveK?.lowConfidence).toBe(true);
     expect(fiveK?.excluded).toBe(true);
     expect(tenK?.lowConfidence).toBe(false);
     expect(tenK?.excluded).toBe(false);
+  });
+});
+
+describe('GAP-24-01 — panel row exclusion derives from the live exclusions file', () => {
+  it('a live index that marks the activity excluded wins over a false precomputed flag (post-Save, pre-Recompute window)', () => {
+    const entry = activity({
+      activityId: 'a1',
+      efforts: [
+        effort({ distance: '5k', excludedFromRecords: false }),
+        effort({ distance: '10k', excludedFromRecords: false }),
+      ],
+    });
+    const liveExclusions: ExclusionIndex = new Map([['a1', 'all']]);
+    const rows = buildBestEffortsPanelRows(entry, null, liveExclusions);
+    expect(rows.every((r) => r.excluded === true)).toBe(true);
+  });
+
+  it('a live index that is loaded and empty overrides a stale true precomputed flag (R11 mirror-image staleness — entry untied from disk, stats not yet recomputed)', () => {
+    const entry = activity({
+      activityId: 'a1',
+      efforts: [
+        effort({ distance: '5k', excludedFromRecords: true }),
+        effort({ distance: '10k', excludedFromRecords: true }),
+      ],
+    });
+    const liveExclusions: ExclusionIndex = new Map();
+    const rows = buildBestEffortsPanelRows(entry, null, liveExclusions);
+    expect(rows.every((r) => r.excluded === false)).toBe(true);
+  });
+
+  it('a null live index (document unreachable or unparseable) falls back to the precomputed excludedFromRecords flag per effort', () => {
+    const entry = activity({
+      activityId: 'a1',
+      efforts: [
+        effort({ distance: '5k', excludedFromRecords: true }),
+        effort({ distance: '10k', excludedFromRecords: false }),
+      ],
+    });
+    const rows = buildBestEffortsPanelRows(entry, null, null);
+    const fiveK = rows.find((r) => r.distance === '5k');
+    const tenK = rows.find((r) => r.distance === '10k');
+    expect(fiveK?.excluded).toBe(true);
+    expect(tenK?.excluded).toBe(false);
+  });
+
+  it('a distance-scoped live entry badges only the distances it names, even when excludedFromRecords is false on disk (D-05 read tolerance)', () => {
+    const entry = activity({
+      activityId: 'a1',
+      efforts: [
+        effort({ distance: '5k', excludedFromRecords: false }),
+        effort({ distance: '10k', excludedFromRecords: false }),
+      ],
+    });
+    const liveExclusions: ExclusionIndex = new Map([['a1', new Set(['5k'])]]);
+    const rows = buildBestEffortsPanelRows(entry, null, liveExclusions);
+    const fiveK = rows.find((r) => r.distance === '5k');
+    const tenK = rows.find((r) => r.distance === '10k');
+    expect(fiveK?.excluded).toBe(true);
+    expect(tenK?.excluded).toBe(false);
+  });
+
+  it('the live index is keyed on entry.activityId, not hardcoded — an index keyed to a different activity id leaves every row unexcluded', () => {
+    const entry = activity({
+      activityId: 'a1',
+      efforts: [effort({ distance: '5k', excludedFromRecords: false })],
+    });
+    const liveExclusions: ExclusionIndex = new Map([['a2', 'all']]);
+    const rows = buildBestEffortsPanelRows(entry, null, liveExclusions);
+    expect(rows.every((r) => r.excluded === false)).toBe(true);
+  });
+
+  it('non-regression: buildPrBadgeLabels still takes exactly one argument and still gates on effort.excludedFromRecords only, with no live state available at all', () => {
+    const entry = activity({
+      activityId: 'a1',
+      efforts: [effort({ distance: '5k', wasPRAtTheTime: true, excludedFromRecords: false })],
+    });
+    expect(buildPrBadgeLabels(entry)).toEqual(['PR — 5K']);
   });
 });

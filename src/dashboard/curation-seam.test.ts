@@ -29,10 +29,12 @@ function readSource(relativePath: string): string {
 const detailSectionsSource = readSource('detail-sections.ts');
 const detailSource = readSource('detail.ts');
 const recordsLogicSource = readSource('records-logic.ts');
+const detailBestEffortsLogicSource = readSource('detail-best-efforts-logic.ts');
 
 const detailSectionsStripped = stripComments(detailSectionsSource);
 const detailStripped = stripComments(detailSource);
 const recordsLogicStripped = stripComments(recordsLogicSource);
+const detailBestEffortsLogicStripped = stripComments(detailBestEffortsLogicSource);
 
 function countOccurrences(haystack: string, needle: string): number {
   return haystack.split(needle).length - 1;
@@ -113,5 +115,36 @@ describe('D-06 — buildExclusionReasonIndex and the Excluded badge stay unchang
 
   it("detail-sections.ts still contains the 'Excluded — ' badge string, made reachable by this phase, not rebuilt", () => {
     expect(detailSectionsStripped).toContain('Excluded — ');
+  });
+});
+
+describe('GAP-24-01 — the detail view derives exclusion badge state from the live exclusions file', () => {
+  it('detail.ts imports buildExclusionIndex from ../../analytics/best-effort-exclusions.js', () => {
+    expect(detailStripped).toContain('buildExclusionIndex');
+    expect(detailStripped).toContain('../../analytics/best-effort-exclusions.js');
+  });
+
+  it('detail.ts contains exactly one buildBestEffortsPanelRows( call site, in three-argument form', () => {
+    expect(countOccurrences(detailStripped, 'buildBestEffortsPanelRows(')).toBe(1);
+    expect(detailStripped).toMatch(/buildBestEffortsPanelRows\([^)]*,[^)]*,[^)]*\)/);
+  });
+
+  it('detail-best-efforts-logic.ts contains liveExclusions and isExcluded(, and zero occurrences of the pre-fix unconditional read', () => {
+    expect(detailBestEffortsLogicStripped).toContain('liveExclusions');
+    expect(detailBestEffortsLogicStripped).toContain('isExcluded(');
+    expect(countOccurrences(detailBestEffortsLogicStripped, 'excluded: effort.excludedFromRecords')).toBe(0);
+  });
+
+  it("detail.ts contains exactly one fetch('data/best-effort-exclusions.json') — one fetch serves both the reason and the index", () => {
+    expect(countOccurrences(detailStripped, "fetch('data/best-effort-exclusions.json')")).toBe(1);
+  });
+
+  it('non-regression: the mount event, the buildBestEffortsSection literal, and the no-write-path claims all still hold', () => {
+    expect(countOccurrences(detailStripped, 'dashboard:best-efforts-mounted')).toBe(1);
+    expect(detailStripped).toContain('buildBestEffortsSection(rows, exclusionReason, detail.id)');
+    expect(countOccurrences(detailStripped, '__curate')).toBe(0);
+    for (const method of ["method: 'PUT'", "method: 'DELETE'", "method: 'POST'"]) {
+      expect(countOccurrences(detailStripped, method)).toBe(0);
+    }
   });
 });

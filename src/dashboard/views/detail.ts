@@ -43,6 +43,13 @@ import { buildPrBadgeLabels, buildBestEffortsPanelRows } from './detail-best-eff
 // exclusion-reason parser (18-09) — reused here rather than duplicated, the
 // same single-source discipline as the badge/formatter imports above.
 import { buildExclusionReasonIndex } from './records-logic.js';
+// buildExclusionIndex is the per-distance-scoped counterpart to
+// buildExclusionReasonIndex (GAP-24-01): buildExclusionReasonIndex is keyed
+// activity-wide, whereas buildExclusionIndex preserves the `distances`
+// per-effort form D-05 keeps on the read path. Both parse the SAME fetched
+// body — one fetch, two derived views of it.
+import type { ExclusionIndex } from '../../analytics/best-effort-exclusions.js';
+import { buildExclusionIndex } from '../../analytics/best-effort-exclusions.js';
 import type { CanonicalStream } from '../../streams/stream.types.js';
 import type { StravaActivity } from '../../types/strava.types.js';
 // @mapbox/polyline is a small, DOM-free decode library — not part of the
@@ -453,22 +460,41 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
   }
 
   /**
-   * Looks up this one activity's exclusion reason (18-UI-SPEC § 6's
-   * `Excluded — {reason}` badge) from the small, already-published
-   * `data/best-effort-exclusions.json` (2 entries in the live archive) —
-   * never rejects, resolves `null` on any fetch/parse failure so a missing
-   * or unreachable document degrades to the generic "Excluded from records"
-   * fallback the panel already supports.
+   * Loads this one activity's live curation state (18-UI-SPEC § 6's
+   * `Excluded — {reason}` badge, GAP-24-01's badge-state flag) from the
+   * small, already-published `data/best-effort-exclusions.json` (2 entries
+   * in the live archive) with a SINGLE fetch that serves both halves:
+   * `buildExclusionReasonIndex` is keyed activity-wide for the reason
+   * string, while `buildExclusionIndex` preserves the per-distance
+   * `distances` form D-05 keeps on the read path, for the badge flag
+   * itself. Never rejects. Returns `{ reason: null, index: null }` when the
+   * fetch rejects, `response.ok` is false, `response.json()` throws, the
+   * parsed body is not a non-null object, or `body.exclusions` is not an
+   * array — `index: null` means UNKNOWN, and the caller falls back to the
+   * precomputed `excludedFromRecords` flag rather than treating it as
+   * NOT-EXCLUDED. Only when `body.exclusions` IS an array does it return
+   * both derived views of the same document; a legitimately EMPTY
+   * `exclusions` array therefore yields an EMPTY (not `null`) index, which
+   * is what lets an untick clear the badge immediately.
    */
-  async function loadExclusionReason(activityId: string): Promise<string | null> {
+  async function loadLiveExclusionState(
+    activityId: string
+  ): Promise<{ reason: string | null; index: ExclusionIndex | null }> {
     try {
       const response = await fetch('data/best-effort-exclusions.json');
-      if (!response.ok) return null;
-      const body = await response.json();
-      return buildExclusionReasonIndex(body).get(activityId) ?? null;
+      if (!response.ok) return { reason: null, index: null };
+      const body: unknown = await response.json();
+      if (typeof body !== 'object' || body === null) return { reason: null, index: null };
+      if (!Array.isArray((body as { exclusions?: unknown }).exclusions)) {
+        return { reason: null, index: null };
+      }
+      return {
+        reason: buildExclusionReasonIndex(body).get(activityId) ?? null,
+        index: buildExclusionIndex((body as { exclusions: unknown }).exclusions),
+      };
     } catch (error) {
       console.error(error);
-      return null;
+      return { reason: null, index: null };
     }
   }
 
@@ -504,21 +530,24 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
     detail: ActivityDetail,
     myToken: number
   ): Promise<void> {
-    const [bestEffortsEntry, ageGrading, exclusionReason] = await Promise.all([
+    const [bestEffortsEntry, ageGrading, liveExclusionState] = await Promise.all([
       bestEffortsClient.load(detail.id),
       ageGradingClient.load(),
-      loadExclusionReason(detail.id),
+      loadLiveExclusionState(detail.id),
     ]);
 
     if (myToken !== requestToken || mountedContainer !== container) {
       return;
     }
 
+    const exclusionReason = liveExclusionState.reason;
+    const liveExclusions = liveExclusionState.index;
+
     for (const label of buildPrBadgeLabels(bestEffortsEntry)) {
       appendBadge(badgesContainer, label);
     }
 
-    const rows = buildBestEffortsPanelRows(bestEffortsEntry, ageGrading);
+    const rows = buildBestEffortsPanelRows(bestEffortsEntry, ageGrading, liveExclusions);
     panelContainer.replaceChildren(buildBestEffortsSection(rows, exclusionReason, detail.id));
     container.dispatchEvent(
       new CustomEvent('dashboard:best-efforts-mounted', {
