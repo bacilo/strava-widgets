@@ -14,7 +14,8 @@
  */
 
 import fs from 'node:fs/promises';
-import { existsSync, readFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -34,6 +35,16 @@ describe('findCurationArtifacts', () => {
   });
 
   afterEach(async () => {
+    // WR-14 case (c) plants a mode-000 fixture. Recursive removal can itself
+    // fail on some platforms unless the mode is restored first.
+    const mode000Path = path.join(tmpDir, 'wr14-secret.js');
+    if (existsSync(mode000Path)) {
+      try {
+        chmodSync(mode000Path, 0o600);
+      } catch {
+        // best-effort; fall through to rm below regardless
+      }
+    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   });
 
@@ -164,6 +175,102 @@ describe('findCurationArtifacts', () => {
     expect(UNSCANNED_EXTENSIONS).not.toContain('.html');
     expect(UNSCANNED_EXTENSIONS).not.toContain('.css');
     expect(UNSCANNED_EXTENSIONS).not.toContain('.map');
+  });
+});
+
+describe('WR-14 — non-regular and unreadable entries are reported, never thrown', () => {
+  let tmpDir;
+
+  beforeEach(async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'curation-guard-wr14-'));
+  });
+
+  afterEach(async () => {
+    const mode000Path = path.join(tmpDir, 'wr14-secret.js');
+    if (existsSync(mode000Path)) {
+      try {
+        chmodSync(mode000Path, 0o600);
+      } catch {
+        // best-effort; fall through to rm below regardless
+      }
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  async function writeFile(relativePath, contents) {
+    const fullPath = path.join(tmpDir, relativePath);
+    await fs.mkdir(path.dirname(fullPath), { recursive: true });
+    await fs.writeFile(fullPath, contents, 'utf8');
+  }
+
+  it('(a) dangling symlink: reported "not a regular file", never thrown (WR-14, D-10)', () => {
+    const target = path.join(tmpDir, 'wr14-dangling.js');
+    symlinkSync('./definitely-not-here.js', target);
+
+    const violations = findCurationArtifacts(tmpDir);
+    expect(violations.some((v) => v.path === target && v.reason.includes('not a regular file'))).toBe(true);
+  });
+
+  it('(b) symlink to a directory: reported, and the walk never descends through the link — the real directory is still traversed exactly once (WR-14, D-10)', async () => {
+    const realDir = path.join(tmpDir, 'realdir');
+    mkdirSync(realDir);
+    await writeFile('realdir/inner.js', `marker ${CURATE_MARKER}`);
+    const linkPath = path.join(tmpDir, 'wr14-dirlink.js');
+    symlinkSync(realDir, linkPath);
+
+    const violations = findCurationArtifacts(tmpDir);
+    expect(violations.some((v) => v.path === linkPath && v.reason.includes('not a regular file'))).toBe(true);
+    const innerHits = violations.filter((v) => v.path === path.join(realDir, 'inner.js'));
+    expect(innerHits.length).toBe(1);
+  });
+
+  it('(c) mode-000 regular file: reported via the read try/catch, citing EACCES (WR-14) — exercises the catch, not the isFile gate', () => {
+    if (process.getuid?.() === 0 || process.platform === 'win32') {
+      // root defeats mode bits; win32 has no POSIX chmod semantics — skip.
+      return;
+    }
+    const target = path.join(tmpDir, 'wr14-secret.js');
+    writeFileSync(target, 'x');
+    chmodSync(target, 0o000);
+
+    const violations = findCurationArtifacts(tmpDir);
+    expect(
+      violations.some(
+        (v) => v.path === target && v.reason.includes('could not be read for scanning') && v.reason.includes('EACCES')
+      )
+    ).toBe(true);
+  });
+
+  it('(d) .json-named dangling symlink: the isFile gate runs BEFORE the UNSCANNED_EXTENSIONS skip, so the .json exemption cannot smuggle a symlink past the scan (WR-14, D-10)', () => {
+    const target = path.join(tmpDir, 'wr14-dangling.json');
+    symlinkSync('./nowhere.json', target);
+
+    const violations = findCurationArtifacts(tmpDir);
+    expect(violations.some((v) => v.path === target && v.reason.includes('not a regular file'))).toBe(true);
+  });
+
+  it('(e) FIFO: reported within a bounded timeout, never blocks the build (WR-14, D-10) — POST-FIX ONLY, no pre-fix RED run was taken (see SUMMARY: a pre-fix readFileSync on a FIFO blocks forever, which is the defect itself)', () => {
+    if (process.platform === 'win32') return;
+    const target = path.join(tmpDir, 'wr14-fifo.js');
+    try {
+      execFileSync('mkfifo', [target]);
+    } catch {
+      // mkfifo unavailable in this environment — skip.
+      return;
+    }
+
+    const violations = findCurationArtifacts(tmpDir);
+    expect(violations.some((v) => v.path === target && v.reason.includes('not a regular file'))).toBe(true);
+  }, 5000);
+
+  it('(g) the .json content exemption still applies to a genuine, readable .json file (WR-14 non-regression)', async () => {
+    await writeFile(
+      'data/best-effort-exclusions.json',
+      JSON.stringify({ schemaVersion: 1, exclusions: [{ activityId: 'a1', distances: null, reason: `written via ${CURATE_MARKER} overlay` }] })
+    );
+
+    const violations = findCurationArtifacts(tmpDir);
+    expect(violations).toEqual([]);
   });
 });
 
