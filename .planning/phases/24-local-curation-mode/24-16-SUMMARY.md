@@ -186,3 +186,10 @@ None - no external service configuration required.
 ---
 *Phase: 24-local-curation-mode*
 *Completed: 2026-09-02*
+
+## Self-Check: PASSED
+
+- FOUND: `.planning/phases/24-local-curation-mode/24-16-SUMMARY.md`
+- FOUND: commit `945ec20` (Task 1)
+- FOUND: commit `06440ec` (Task 2)
+- FOUND: commit `cc08072` (this SUMMARY, verified post-hoc by re-checking `git log` after amendment below)
