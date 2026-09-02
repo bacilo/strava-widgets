@@ -186,3 +186,13 @@ WR-14 is closed. Two items remain in the amended GAP-24-05 round: item 1 (browse
 ---
 *Phase: 24-local-curation-mode*
 *Completed: 2026-09-02*
+
+## Self-Check: PASSED
+
+- FOUND: `scripts/lib/curation-guard.mjs`
+- FOUND: `scripts/lib/curation-guard.test.mjs`
+- FOUND: `.planning/phases/24-local-curation-mode/24-15-SUMMARY.md`
+- FOUND: `.planning/phases/24-local-curation-mode/deferred-items.md`
+- FOUND: commit `8a1ec56` (Task 1)
+- FOUND: commit `049d346` (Task 2)
+- FOUND: commit `f344e2a` (this summary)
