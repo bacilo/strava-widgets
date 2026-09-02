@@ -432,7 +432,7 @@ Plans:
   3. `verify-dashboard-publish.mjs` gains a new assertion, following the `assertNoPrivateArtifacts` precedent, that the curation write path (server code, curate UI bundle, write endpoints) is absent from the published GitHub Pages bundle — and that assertion demonstrably fails against a build that regresses this.
   4. **Human checkpoint**: run `npm run curate` locally, toggle a whole-activity exclusion end-to-end with a reason, confirm it lands in `data/best-effort-exclusions.json` and renders in the detail view; separately, load the production build served under `/strava-widgets` in a real browser and confirm no curation write endpoint is present or reachable. (**amended 2026-08-27 per D-04**)
 
-**Plans**: 10 plans in 6 waves
+**Plans**: 14 plans in 8 waves
 
 Plans:
 
@@ -463,6 +463,16 @@ Plans:
 **Wave 6** *(blocked on 24-09)*
 
 - [x] 24-10-PLAN.md — BLOCKING Round 2 browser checkpoint (R15-R23) re-running R5 in its original sequencing plus its mirror direction, and re-asserting edit-in-place, the Recompute extent row, totals, untick/restore and the three production-absence rows; then the CUR-01 disposition
+
+**Wave 7** *(gap closure — blocked on 24-10; closes the three gaps in `24-VERIFICATION.md` (`gaps_found`, 2/5 must-haves); three parallel plans, disjoint files)*
+
+- [ ] 24-11-PLAN.md — GAP-1 / CR-02: invert `curation-guard.mjs`'s `SCANNED_EXTENSIONS` allowlist to a one-entry, justified skip-list (`UNSCANNED_EXTENSIONS = ['.json']`) so `.ts`/`.d.ts`, `.mjs` and extensionless files under `dist/widgets` fail CLOSED, with planted fixtures for all three classes observed red then green (D-11)
+- [ ] 24-12-PLAN.md — GAP-2 / CR-01: stop a malformed percent-escape (`GET /%`) from killing the curate server — try/catch in `safeResolve`, a try/catch around the `createServer` listener body via an extracted `respond500`, and D-12's `isTrustedOrigin` gate extended to the static route it never covered, all observed red first
+- [ ] 24-13-PLAN.md — GAP-3 / WR-05: give `buildPrBadgeLabels` a REQUIRED `liveExclusions` parameter and suppress `BestEffortPanelRow.isPr` for live-excluded rows, so the header PR badges and the Best Efforts flags cells can no longer render `PRExcluded — {reason}` in one paint
+
+**Wave 8** *(blocked on 24-11, 24-12 and 24-13)*
+
+- [ ] 24-14-PLAN.md — BLOCKING Round 3 checkpoint (R24-R31): the Save/Recompute/untick flow with header-vs-panel compared in one paint against a pre-write pinned PR set, the guard observed red on three previously-unscanned extension classes in the real `dist/widgets`, the curate server's `200 / 4xx / 200` liveness triple and four `403`s; then the CUR-01 and phase-gate disposition, earned only on those verdicts
 
 **UI hint**: yes
 
