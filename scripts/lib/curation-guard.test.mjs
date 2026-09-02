@@ -14,13 +14,17 @@
  */
 
 import fs from 'node:fs/promises';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { CURATE_DIR_NAME, CURATE_MARKER, UNSCANNED_EXTENSIONS, findCurationArtifacts } from './curation-guard.mjs';
+
+const REPO_ROOT = path.resolve(new URL('../..', import.meta.url).pathname);
+const DIST_WIDGETS = path.resolve(REPO_ROOT, 'dist/widgets');
+const DIST_WIDGETS_INDEX_HTML = path.resolve(DIST_WIDGETS, 'index.html');
 
 describe('findCurationArtifacts', () => {
   let tmpDir;
@@ -191,5 +195,18 @@ describe('build-widgets.mjs source-structure: OD-2 call-site ordering', () => {
     const funcEnd = source.indexOf('\n}\n', funcStart);
     const funcBody = source.slice(funcStart, funcEnd);
     expect(funcBody).not.toContain('assertNoCurationArtifacts()');
+  });
+});
+
+// Guard-rail against a future exemption removal turning a legitimately
+// published artifact class (e.g. the 22 .d.ts files dist/widgets publishes
+// today) into a build-breaking false positive. Skipped cleanly on a fresh
+// checkout that has never run `npm run build-widgets`, mirroring the
+// skipIf convention verify-dashboard-publish-guard.test.mjs uses for the
+// same reason.
+describe.skipIf(!existsSync(DIST_WIDGETS_INDEX_HTML))('findCurationArtifacts: whole-tree regression against the real publish directory', () => {
+  it('returns [] against the real dist/widgets tree, including its published .d.ts/.js/.map/.html/.css files', () => {
+    const violations = findCurationArtifacts(DIST_WIDGETS);
+    expect(violations).toEqual([]);
   });
 });
