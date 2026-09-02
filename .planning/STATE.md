@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
 status: executing
-stopped_at: Completed 24-10-PLAN.md — GAP-24-01 closed, CUR-01 complete, Phase 24 requirement gate closed
-last_updated: "2026-09-01T20:27:28.819Z"
-last_activity: 2026-09-01
+stopped_at: Phase 24 verification returned gaps_found (2/5 must-haves) — gate REOPENED 2026-09-02, CUR-01 back to Pending
+last_updated: "2026-09-02T00:00:00.000Z"
+last_activity: 2026-09-02
 progress:
   total_phases: 7
   completed_phases: 6
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 24 complete (requirement gate closed); Phase 25 — CI Hardening & Light-Theme Verification not yet started
+**Current focus:** Phase 24 gap-closure — all 10 plans executed, but `24-VERIFICATION.md` scores 2/5 must-haves (`gaps_found`): criterion 3 fails (curation-guard allowlist omits `.ts`/`.d.ts`) and criterion 2 is partial (`buildPrBadgeLabels` still reads the precomputed flag). CUR-01 back to Pending. Next: `/gsd-plan-phase 24 --gaps`
 
 ## Current Position
 
-Phase: 24 (local-curation-mode) — COMPLETE
+Phase: 24 (local-curation-mode) — GAPS FOUND (all 10 plans executed; gate reopened)
 Plan: 10 of 10
-Status: Phase 24 requirement gate closed
+Status: Phase 24 requirement gate REOPENED — 2/5 must-haves, criteria 2 and 3 not discharged
         Plan 24-10's Round 2 browser checkpoint (R15-R23, closed 2026-09-01) recorded a clean
         sweep — all nine rows PASS. R15 closed GAP-24-01's forward direction (the
         `Excluded — {reason}` badge renders at Save, before any Recompute, cache trap excluded
