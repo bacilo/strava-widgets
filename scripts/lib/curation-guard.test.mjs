@@ -20,7 +20,7 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { CURATE_DIR_NAME, CURATE_MARKER, SCANNED_EXTENSIONS, findCurationArtifacts } from './curation-guard.mjs';
+import { CURATE_DIR_NAME, CURATE_MARKER, UNSCANNED_EXTENSIONS, findCurationArtifacts } from './curation-guard.mjs';
 
 describe('findCurationArtifacts', () => {
   let tmpDir;
@@ -135,10 +135,11 @@ describe('findCurationArtifacts', () => {
   });
 
   it('never catches the published exclusions data file, which must keep returning 200', async () => {
-    // .json is not in SCANNED_EXTENSIONS — a reason string that literally
-    // contains the marker must still yield [], because this file is
-    // PUBLIC, already published, and already asserted 200-and-parses at
-    // verify-dashboard-publish.mjs. Only the WRITE path is private.
+    // .json IS in UNSCANNED_EXTENSIONS (the sole, load-bearing skip) — a
+    // reason string that literally contains the marker must still yield
+    // [], because this file is PUBLIC, already published, and already
+    // asserted 200-and-parses at verify-dashboard-publish.mjs. Only the
+    // WRITE path is private.
     await writeFile(
       'data/best-effort-exclusions.json',
       JSON.stringify({
@@ -151,8 +152,14 @@ describe('findCurationArtifacts', () => {
     expect(violations).toEqual([]);
   });
 
-  it('SCANNED_EXTENSIONS does not include .json', () => {
-    expect(SCANNED_EXTENSIONS).not.toContain('.json');
+  it('UNSCANNED_EXTENSIONS contains only .json — every other extension fails CLOSED', () => {
+    expect(UNSCANNED_EXTENSIONS).toContain('.json');
+    expect(UNSCANNED_EXTENSIONS).not.toContain('.ts');
+    expect(UNSCANNED_EXTENSIONS).not.toContain('.mjs');
+    expect(UNSCANNED_EXTENSIONS).not.toContain('.js');
+    expect(UNSCANNED_EXTENSIONS).not.toContain('.html');
+    expect(UNSCANNED_EXTENSIONS).not.toContain('.css');
+    expect(UNSCANNED_EXTENSIONS).not.toContain('.map');
   });
 });
 
