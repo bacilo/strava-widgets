@@ -189,3 +189,14 @@ GAP-3/WR-05 closed. `buildPrBadgeLabels` and `BestEffortPanelRow.isPr` now deriv
 ---
 *Phase: 24-local-curation-mode*
 *Completed: 2026-09-02*
+
+## Self-Check: PASSED
+
+- FOUND: src/dashboard/views/detail-best-efforts-logic.ts
+- FOUND: src/dashboard/views/detail-best-efforts-logic.test.ts
+- FOUND: src/dashboard/views/detail.ts
+- FOUND: .planning/phases/24-local-curation-mode/24-13-SUMMARY.md
+- FOUND: commit 4d57de9 (test(24-13))
+- FOUND: commit 1fa2a76 (feat(24-13))
+- FOUND: commit a291814 (fix(24-13))
+- FOUND: commit aaeb59b (docs(24-13): summary)
