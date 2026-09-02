@@ -17,16 +17,23 @@
  *      input, or a stray copy of the overlay bundle), which only exists
  *      after buildPages()/buildDashboard() run (OD-2's amendment to
  *      D-10(a)'s literal call-site wording).
- *   3. Content scanning is restricted to files whose extension is in
- *      SCANNED_EXTENSIONS. This restriction is load-bearing: it is what
- *      guarantees this guard can never catch
+ *   3. Content scanning applies to EVERY file unless its extension appears
+ *      in UNSCANNED_EXTENSIONS — an unanticipated extension therefore
+ *      fails CLOSED, rather than being silently skipped. `.json` is the
+ *      single exemption, and it is load-bearing: it is what guarantees
+ *      this guard can never catch
  *      dist/widgets/data/best-effort-exclusions.json, which is PUBLIC,
  *      already published (build-widgets.mjs's dataFiles list), already
  *      asserted 200-and-parses at verify-dashboard-publish.mjs's
  *      exclusions check, and fetched at runtime by detail.ts and
- *      records.ts. Only the WRITE path curate introduces is private; the
- *      exclusions DATA is not, and must keep returning 200. SCANNED_EXTENSIONS
- *      deliberately excludes '.json' for exactly this reason.
+ *      records.ts — a developer-written reason string in it may
+ *      legitimately contain the marker text. The previous allowlist form
+ *      (`SCANNED_EXTENSIONS = ['.js', '.html', '.css', '.map']`) silently
+ *      exempted every other extension, including `.ts`/`.d.ts`/`.mjs` and
+ *      extensionless files, while dist/widgets publishes 22 `.d.ts` files
+ *      today — the CR-02 regression this inverted shape prevents. The file
+ *      is read as `latin1` (see the read site below) so that scanning
+ *      arbitrary bytes can never throw.
  */
 
 import { existsSync, readdirSync, readFileSync } from 'fs';
@@ -34,7 +41,12 @@ import { resolve } from 'path';
 
 export const CURATE_DIR_NAME = '__curate';
 export const CURATE_MARKER = '__curate';
-export const SCANNED_EXTENSIONS = ['.js', '.html', '.css', '.map'];
+// `.json` is the ONLY load-bearing exemption — see the docblock above.
+// Every other extension is content-scanned; an unanticipated extension
+// fails CLOSED. No speculative image/font exemptions are added: the
+// published tree contains none today, and an exemption with no
+// load-bearing reason is exactly the collateral hole CR-02 raised.
+export const UNSCANNED_EXTENSIONS = ['.json'];
 
 /**
  * Scans `publishDir` (e.g. 'dist/widgets') for evidence that curate's
@@ -86,10 +98,30 @@ export function findCurationArtifacts(publishDir) {
         });
       }
 
-      const ext = scanExtension(entry.name);
-      if (ext === null || !SCANNED_EXTENSIONS.includes(ext)) continue;
+      if (entry.name === '.curate-dist') {
+        // A FILE (not directory) literally named ".curate-dist" is the
+        // curate overlay's esbuild output. It carries no marker text in
+        // its own body, so no content scan can catch it — this name check
+        // is the only mechanism that flags it. Deliberately NOT extended
+        // to name-match other curate-ish substrings (e.g. "curate-overlay"):
+        // the inverted content scan below now covers those, and matching
+        // arbitrary substrings in filenames would risk false positives on
+        // legitimate published files.
+        violations.push({
+          path: entryPath,
+          reason: 'a file named ".curate-dist" (the curate overlay\'s esbuild output) must never exist under the published bundle',
+        });
+      }
 
-      const content = readFileSync(entryPath, 'utf8');
+      const ext = scanExtension(entry.name);
+      if (ext !== null && UNSCANNED_EXTENSIONS.includes(ext)) continue;
+
+      // Read as latin1, not utf8: content scanning now reaches arbitrary
+      // byte content (.DS_Store, and any future binary), and latin1
+      // decodes every byte sequence without throwing or lossily
+      // replacing, while the marker is pure ASCII so substring matching
+      // is unaffected.
+      const content = readFileSync(entryPath, 'latin1');
       if (content.includes(CURATE_MARKER)) {
         violations.push({
           path: entryPath,

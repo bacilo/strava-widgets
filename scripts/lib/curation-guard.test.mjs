@@ -14,13 +14,17 @@
  */
 
 import fs from 'node:fs/promises';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { CURATE_DIR_NAME, CURATE_MARKER, SCANNED_EXTENSIONS, findCurationArtifacts } from './curation-guard.mjs';
+import { CURATE_DIR_NAME, CURATE_MARKER, UNSCANNED_EXTENSIONS, findCurationArtifacts } from './curation-guard.mjs';
+
+const REPO_ROOT = path.resolve(new URL('../..', import.meta.url).pathname);
+const DIST_WIDGETS = path.resolve(REPO_ROOT, 'dist/widgets');
+const DIST_WIDGETS_INDEX_HTML = path.resolve(DIST_WIDGETS, 'index.html');
 
 describe('findCurationArtifacts', () => {
   let tmpDir;
@@ -92,11 +96,54 @@ describe('findCurationArtifacts', () => {
     expect(violations.some((v) => v.path.includes('.curate-dist'))).toBe(true);
   });
 
+  it('dist/widgets publishes 22 .d.ts files today: a planted marker in a .d.ts file is flagged (D-11)', async () => {
+    await writeFile('index.html', '<!doctype html>');
+    await writeFile(
+      'shared/curate-overlay.d.ts',
+      `export declare const CURATE_PREFIX: "/${CURATE_MARKER}";\nexport declare function mountOverlay(): void;\n`
+    );
+
+    const violations = findCurationArtifacts(tmpDir);
+    expect(violations.length).toBeGreaterThan(0);
+    expect(violations.some((v) => v.path.endsWith('curate-overlay.d.ts'))).toBe(true);
+  });
+
+  it('a stray copy of scripts/curate-server.mjs, carrying every route literal, is flagged (D-11)', async () => {
+    await writeFile('index.html', '<!doctype html>');
+    await writeFile(
+      'assets/curate-server.mjs',
+      `import http from 'node:http';\nconst PREFIX = '/${CURATE_MARKER}';\nhttp.createServer((req, res) => { res.end(PREFIX); }).listen(0);\n`
+    );
+
+    const violations = findCurationArtifacts(tmpDir);
+    expect(violations.length).toBeGreaterThan(0);
+    expect(violations.some((v) => v.path.endsWith('curate-server.mjs'))).toBe(true);
+  });
+
+  it('an extensionless file (scanExtension returns null, the fail-open class) is flagged (D-11)', async () => {
+    await writeFile('index.html', '<!doctype html>');
+    await writeFile('assets/overlay', `esbuild output marker: ${CURATE_MARKER}`);
+
+    const violations = findCurationArtifacts(tmpDir);
+    expect(violations.length).toBeGreaterThan(0);
+    expect(violations.some((v) => v.path.endsWith('assets/overlay'))).toBe(true);
+  });
+
+  it('a marker-free file literally named .curate-dist (the curate overlay\'s esbuild output) is flagged by name, not content (D-11)', async () => {
+    await writeFile('index.html', '<!doctype html>');
+    await writeFile('.curate-dist', 'console.log("esbuild output, no marker text in this body");');
+
+    const violations = findCurationArtifacts(tmpDir);
+    expect(violations.length).toBeGreaterThan(0);
+    expect(violations.some((v) => v.reason.includes('.curate-dist'))).toBe(true);
+  });
+
   it('never catches the published exclusions data file, which must keep returning 200', async () => {
-    // .json is not in SCANNED_EXTENSIONS — a reason string that literally
-    // contains the marker must still yield [], because this file is
-    // PUBLIC, already published, and already asserted 200-and-parses at
-    // verify-dashboard-publish.mjs. Only the WRITE path is private.
+    // .json IS in UNSCANNED_EXTENSIONS (the sole, load-bearing skip) — a
+    // reason string that literally contains the marker must still yield
+    // [], because this file is PUBLIC, already published, and already
+    // asserted 200-and-parses at verify-dashboard-publish.mjs. Only the
+    // WRITE path is private.
     await writeFile(
       'data/best-effort-exclusions.json',
       JSON.stringify({
@@ -109,8 +156,14 @@ describe('findCurationArtifacts', () => {
     expect(violations).toEqual([]);
   });
 
-  it('SCANNED_EXTENSIONS does not include .json', () => {
-    expect(SCANNED_EXTENSIONS).not.toContain('.json');
+  it('UNSCANNED_EXTENSIONS contains only .json — every other extension fails CLOSED', () => {
+    expect(UNSCANNED_EXTENSIONS).toContain('.json');
+    expect(UNSCANNED_EXTENSIONS).not.toContain('.ts');
+    expect(UNSCANNED_EXTENSIONS).not.toContain('.mjs');
+    expect(UNSCANNED_EXTENSIONS).not.toContain('.js');
+    expect(UNSCANNED_EXTENSIONS).not.toContain('.html');
+    expect(UNSCANNED_EXTENSIONS).not.toContain('.css');
+    expect(UNSCANNED_EXTENSIONS).not.toContain('.map');
   });
 });
 
@@ -142,5 +195,18 @@ describe('build-widgets.mjs source-structure: OD-2 call-site ordering', () => {
     const funcEnd = source.indexOf('\n}\n', funcStart);
     const funcBody = source.slice(funcStart, funcEnd);
     expect(funcBody).not.toContain('assertNoCurationArtifacts()');
+  });
+});
+
+// Guard-rail against a future exemption removal turning a legitimately
+// published artifact class (e.g. the 22 .d.ts files dist/widgets publishes
+// today) into a build-breaking false positive. Skipped cleanly on a fresh
+// checkout that has never run `npm run build-widgets`, mirroring the
+// skipIf convention verify-dashboard-publish-guard.test.mjs uses for the
+// same reason.
+describe.skipIf(!existsSync(DIST_WIDGETS_INDEX_HTML))('findCurationArtifacts: whole-tree regression against the real publish directory', () => {
+  it('returns [] against the real dist/widgets tree, including its published .d.ts/.js/.map/.html/.css files', () => {
+    const violations = findCurationArtifacts(DIST_WIDGETS);
+    expect(violations).toEqual([]);
   });
 });
