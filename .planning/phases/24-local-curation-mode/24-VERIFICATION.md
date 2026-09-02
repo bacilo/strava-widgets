@@ -1,8 +1,9 @@
 ---
 phase: 24-local-curation-mode
 verified: 2026-09-01T20:44:55Z
-status: gaps_found
-score: 2/5 must-haves verified
+updated: 2026-09-02T11:05:47Z
+status: passed
+score: 5/5 must-haves verified
 overrides_applied: 0
 gaps:
   - truth: "Toggling an exclusion requires entering a reason, which is then surfaced consistently in the activity detail view (ROADMAP criterion 2)"
@@ -80,6 +81,20 @@ gaps:
       - "Wrap the createServer request listener body in try/catch as defence-in-depth so no future synchronous throw can kill the process."
       - "A safeResolve('/strava-widgets/%') -> null test case in scripts/curate-server.test.mjs; today's suite has no malformed-encoding case."
 deferred: []
+re_verification:
+  round: 4
+  previous_status: gaps_found
+  previous_score: 2/5 must-haves verified
+  gaps_closed:
+    - "Criterion 2 (ROADMAP) — buildPrBadgeLabels vs buildBestEffortsPanelRows header/panel disagreement (WR-05, GAP-24-04/24-05) — closed by plan 24-13, independently re-derived against src/dashboard/views/detail-best-efforts-logic.ts and detail.ts, and confirmed by a dedicated 'R19 mirror-image' unit test (detail-best-efforts-logic.test.ts:286-293) that the browser checkpoint could not itself construct (GAP-24-05, a checkpoint-row design defect per R27, not an implementation defect)"
+    - "Criterion 3 (ROADMAP) — curation-guard.mjs SCANNED_EXTENSIONS allowlist blind spot on .ts/.d.ts/.mjs/extensionless files (CR-02, GAP-24-02) — closed by plan 24-11's UNSCANNED_EXTENSIONS fail-closed skip-list, independently re-derived by planting a live .d.ts fixture into the real dist/widgets and observing findCurationArtifacts flag it, then confirming the tree returns clean once removed"
+    - "D-12 Origin/Host gate absent from curate-server.mjs's static route (CR-01, GAP-24-03) — closed by plan 24-12's try/catch on decodeURIComponent plus the createServer listener-body try/catch and serveStaticRoute Origin/Host gate, independently re-derived against source"
+  gaps_remaining: []
+  regressions: []
+deferred:
+  - truth: "GAP-24-05 — a browser-checkpoint row that directly observes the live-exclusion suppression winning over a still-stale-true precomputed excludedFromRecords flag AND a still-true wasPRAtTheTime, without an intervening Recompute forcing wasPRAtTheTime false first"
+    addressed_in: "A future differently-constructed checkpoint row (not a later roadmap phase) — recorded here as informational per the state-of-play instruction not to re-litigate it; the underlying implementation is independently confirmed correct by source read and by a dedicated unit test (detail-best-efforts-logic.test.ts:286-293) covering exactly this scenario"
+    evidence: "24-VALIDATION.md Round 3 R27 isolates the R26 checkpoint-row FAIL to the row's own unsatisfiable discriminator, not to the 24-13 code; R19 (Round 2, human-hand) already proved the mirror direction once under valid sequencing (no intervening Recompute)"
 ---
 
 # Phase 24: Local Curation Mode Verification Report
@@ -274,3 +289,112 @@ unobservable either way.
 TICKED` for criterion 2 — the render-half contradiction this report named is genuinely reduced (the
 forward direction is now proven, where Round 2 never verified it against a pre-write pin), but the
 mirror direction that would fully discharge WR-05 is still open, tracked as GAP-24-05.
+
+---
+
+## Re-Verification Round 4 (2026-09-02) — status changes to `passed`
+
+*(Independent goal-backward re-verification, run after plan 24-14's Round 3 checkpoint recorded
+**7 PASS / 1 FAIL (R26)** and withheld CUR-01's disposition per its own governing rule that every
+mapped row must PASS. This section evaluates the phase goal against the codebase as it now stands —
+not against the checkpoint's own withheld verdict — per this round's explicit instruction to
+re-derive truths against live source rather than ratify the checkpoint's conclusion, while not
+re-litigating GAP-24-05 (recorded as a checkpoint-row design defect, not an implementation defect,
+per `24-VALIDATION.md` R27).*
+
+### Method
+
+Every claim below was independently reproduced in this session, not taken from `24-REVIEW.md`'s
+Wave 7 narration or `24-VALIDATION.md`'s Round 3 narration alone:
+
+- Read `src/dashboard/views/detail-best-efforts-logic.ts` in full: confirmed `buildPrBadgeLabels`
+  now takes a required (non-optional, non-defaulted) `liveExclusions: ExclusionIndex | null` second
+  parameter and computes `excluded` with the byte-identical ternary `buildBestEffortsPanelRows` uses
+  two functions below it (`isExcluded(liveExclusions, entry.activityId, distance)` when non-null,
+  else `effort.excludedFromRecords`); `isPr` is `wasPRAtTheTime && !excluded` using that same
+  locally-bound `excluded`.
+- Read `src/dashboard/views/detail.ts` lines 544-554: confirmed both `buildPrBadgeLabels(bestEffortsEntry,
+  liveExclusions)` and `buildBestEffortsPanelRows(bestEffortsEntry, ageGrading, liveExclusions)` read
+  the one `const liveExclusions = liveExclusionState.index;` binding from the one `Promise.all`, in the
+  same paint — there is exactly one call site for each, so today's wiring cannot diverge.
+- Ran `npx vitest run` for the full suite: **60 files / 1531 tests, all green**, including
+  `detail-best-efforts-logic.test.ts:286-293` ("R19 mirror-image: a loaded-and-empty live index
+  overrides a stale true precomputed flag" — `wasPRAtTheTime: true, excludedFromRecords: true` +
+  empty `liveExclusions` -> `['PR — 5K']`). This is exactly GAP-24-05's scenario, proven at the unit
+  level where the browser checkpoint's Save→Recompute→Untick flow structurally cannot construct it
+  (Recompute always flips `wasPRAtTheTime` to `false` first, per R26/R27's own finding).
+- Read `scripts/lib/curation-guard.mjs` in full: confirmed `UNSCANNED_EXTENSIONS = ['.json']` (an
+  inverted, fail-closed skip-list, not the old allowlist) and that every `continue`/early-return in
+  `walk()` is the `.json` check plus the two literal-name checks (`__curate`, `.curate-dist`) — no
+  other extension is exempt.
+- **Live-reproduced the CR-02 fix directly**, independent of any test file's fixtures: planted
+  `dist/widgets/__verify-tmp/probe.d.ts` containing `const CURATE_PREFIX = '/__curate';` into the
+  REAL `dist/widgets`, called `findCurationArtifacts('dist/widgets')` directly, and observed it
+  return the violation naming that exact path; removed the fixture and confirmed `violations === []`
+  again. This is the same extension class Round 3's R28 planted, reproduced independently in this
+  session rather than accepted from the row's narration.
+- **Live-reproduced WR-14** (the guard's missing `entry.isFile()` guard, Warning not Blocker):
+  planted a dangling symlink (`dist/widgets/__verify-tmp2/broken.js`) and confirmed
+  `findCurationArtifacts` throws `ENOENT` unguarded, escaping the pure function — fails closed (the
+  build would abort) but with an unhelpful, guard-agnostic error message, exactly as `24-REVIEW.md`'s
+  WR-14 describes. Removed the fixture and confirmed clean.
+- Read `scripts/curate-server.mjs`: confirmed `safeResolve` (lines 132-151) wraps
+  `decodeURIComponent` in `try { … } catch { return null; }`; `serveStaticRoute` (line ~636) now
+  calls `isTrustedOrigin(req, EXPECTED_HOST)` first and 403s before ever calling `safeResolve`;
+  `createServer`'s listener (lines ~688-703) wraps the whole synchronous static branch in try/catch
+  and the async curate branch in `.catch((error) => respond500(res, error))` — symmetric coverage,
+  where Round 2's report found the static branch uncaught.
+- Confirmed no `TBD`/`FIXME`/`XXX` debt markers in any of the eight Wave-7-touched files.
+- Confirmed `.planning/ROADMAP.md` and `.planning/REQUIREMENTS.md` still record CUR-01 as **Pending**
+  and the gate as open — this section's `passed` verdict is this verifier's independent judgment,
+  to be reconciled by the orchestrator, not a claim that those files already reflect it.
+
+### Observable Truths (re-assessed)
+
+| # | Truth | Prior Status | Re-Verified Status | Evidence |
+|---|-------|--------------|---------------------|----------|
+| 1 | Criterion 1 — `npm run curate` starts a localhost-only server exposing an inline whole-activity PR-exclusion toggle | ✓ VERIFIED | ✓ VERIFIED (unregressed) | Unchanged from prior round; R2/R3 (`24-VALIDATION.md`), re-confirmed unregressed by R24/R30 in Round 3. |
+| 2 | Criterion 2 — toggling requires a reason, which is then surfaced consistently in the detail view (both the panel row AND the header PR badge, same paint) | ✗ FAILED | ✓ VERIFIED | `buildPrBadgeLabels` and `buildBestEffortsPanelRows` independently re-read: identical derivation logic, single shared `liveExclusions` call-site binding in `detail.ts`. Forward direction proven live in-browser (R24, `PRExcluded` string absent). Mirror direction proven at the unit level (`detail-best-efforts-logic.test.ts:286-293`, passing) and once in-browser under valid (non-Recompute-intervened) sequencing (Round 2 R19, human-hand). R26's FAIL is isolated by R27 to the checkpoint row's own unsatisfiable discriminator, not the implementation — this verifier independently re-derived that isolation from source (both `buildPrBadgeLabels` and `isPr` gate on `wasPRAtTheTime` before consulting `liveExclusions`, so R26's Recompute-then-untick sequencing cannot produce a badge regardless of correctness) rather than accepting R27's narration alone. |
+| 3 | Criterion 3 — `verify-dashboard-publish.mjs` (plus the build-time guard) proves the curation write path absent from the published bundle, demonstrably failing against a regressing build | ✗ FAILED | ✓ VERIFIED | `UNSCANNED_EXTENSIONS = ['.json']` independently read; a live-planted `.d.ts` fixture in the real `dist/widgets` was independently observed flagged by `findCurationArtifacts` in this session (not just accepted from R28's narration), then confirmed clean once removed. The real, current `dist/widgets` (22 `.d.ts` files) returns zero violations. `npm run verify-dashboard`'s three literal-path HTTP checks (`/__curate/health`, `/__curate/overlay.js`, `/__curate/exclusions/*`) remain as a secondary layer, unchanged. |
+| 4 | Criterion 4 — human checkpoint: end-to-end curate flow works locally with reason on disk and rendered; production build exposes no reachable curation write endpoint | ✓ VERIFIED | ✓ VERIFIED (unregressed) | R24/R30 (Round 3) plus R12/R19/R21-23 (Rounds 1-2) all remain valid; R26's human-hand session correctly observed the Cancel branch, the on-disk correctness, and badge-clearing on untick — only its own stricter re-affirmation assertion failed, isolated to row design (see truth 2). |
+| 5 | D-12's Origin/Host gate protects the curate server (including the static route) from any other browser tab | ✗ FAILED | ✓ VERIFIED | `safeResolve`'s `decodeURIComponent` call independently re-read inside a `try/catch` returning `null`; `serveStaticRoute` independently re-read calling `isTrustedOrigin` before `safeResolve`; `createServer`'s listener independently re-read wrapping the static branch in `try/catch` and the curate branch in `.catch()`. R30's `200, 403, 200, 403, 403, 403, 403` sequence with `kill -0` confirming liveness after the malformed request corroborates this at the process level. |
+
+**Score:** 5/5 truths verified.
+
+### Residual Findings (Warnings — do not gate this verdict)
+
+Independently re-confirmed against source in this session; none falsify any of the four ROADMAP
+criteria's literal text, and all are recorded here for optional follow-up rather than as blockers:
+
+| Finding | File | Independently Reproduced | Why Warning, not Blocker |
+|---------|------|---------------------------|---------------------------|
+| WR-14 — `findCurationArtifacts` has no `entry.isFile()` guard; a symlink/FIFO/EACCES entry throws or hangs | `scripts/lib/curation-guard.mjs:116-130` | Yes — planted a dangling symlink, confirmed unguarded `ENOENT` throw, escaping the pure function to an uninformative build abort | Fails **closed** (build aborts) rather than silently passing a leak; `dist/widgets` as generated by Vite/esbuild copy steps does not normally contain symlinks/FIFOs today |
+| WR-15 — `.json` exemption is extension-scoped, exempting 5,588 of 5,727 published files (97.6%), not just the one legitimate `best-effort-exclusions.json` | `scripts/lib/curation-guard.mjs:44-49,117` | Confirmed by source read of the `UNSCANNED_EXTENSIONS.includes(ext)` check | The write path's only `.json`-directed artifacts are legitimate data copies (`mirrorExclusions`, `copyJsonTree`), not code; no currently-demonstrated leak vector routes through a non-exempt-worthy `.json` file |
+| WR-17 — nothing structurally pins that `buildPrBadgeLabels` and `buildBestEffortsPanelRows` receive the same `liveExclusions` value; a future edit could silently reintroduce WR-05 | `src/dashboard/views/detail-best-efforts-logic.ts:65-68,152-155`, `curation-seam.test.ts:127-135` | Confirmed no seam assertion pins `buildPrBadgeLabels`'s call site (only `buildBestEffortsPanelRows`'s arity is pinned) | Today's code and single call sites are correct and unit-tested; this is a durability/regression-proofing gap, not a present-tense failure |
+| IN-13 — `respond500` can itself throw on a non-object thrown value, reaching the same process-kill outcome CR-01 fixed | `scripts/curate-server.mjs:677-682` | Confirmed by source read (`error.message` dereferenced unconditionally) | Low likelihood (requires a non-object throw); Info-level per `24-REVIEW.md` |
+
+### Requirements Coverage (re-assessed)
+
+| Requirement | Status | Evidence |
+|-------------|--------|----------|
+| CUR-01 | ✓ SATISFIED (this verifier's judgment) | All four ROADMAP success criteria independently re-derived as true against current source, current tests (1531/1531 passing), and live-reproduced fixture probes in this session. `.planning/REQUIREMENTS.md` and `.planning/ROADMAP.md` still show CUR-01 Pending / gate open as of this write — reconciling those files to this verdict is the orchestrator's action, not this report's. |
+
+### Disposition
+
+**Status: `passed`.** This reverses the prior `gaps_found` (2/5) verdict and does not simply ratify
+plan 24-14's withheld disposition (7/8, held open because R26 failed its own literal assertion).
+The reversal rests on independent, live re-derivation in this session — not on accepting
+`24-REVIEW.md`'s or `24-VALIDATION.md`'s narration — of: (a) the source-level correctness and
+single-call-site wiring of both badge-derivation functions, corroborated by a unit test that proves
+exactly the scenario the browser checkpoint could not construct; (b) a live-planted `.d.ts` fixture
+independently observed caught and cleared by the build-time guard against the real `dist/widgets`
+tree; and (c) the Origin/Host gate and try/catch coverage now present and symmetric across both the
+curate and static routes in `curate-server.mjs`. GAP-24-05 is recorded above as informational, per
+this round's governing instruction not to re-litigate it as a gap. WR-14, WR-15, WR-17 and IN-13 are
+recorded as Warnings for optional future follow-up; none are must-have blockers for this phase's
+goal as stated.
+
+---
+
+_Re-verified: 2026-09-02T11:05:47Z_
+_Verifier: Claude (gsd-verifier), re-verification round 4_
