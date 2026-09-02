@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
 status: executing
-stopped_at: Executing Phase 24 gap closure — wave 7 (24-11/12/13) then 24-14; gate REOPENED, CUR-01 Pending
+stopped_at: Wave 7 complete (24-11/12/13 merged, suite green); 24-14 Round 3 checkpoint is next — gate REOPENED, CUR-01 Pending
 last_updated: "2026-09-02T09:16:56.056Z"
 last_activity: 2026-09-02 -- Phase 24 execution started
 progress:
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 24 (local-curation-mode) — EXECUTING GAP CLOSURE (gate reopened)
-Plan: 11 of 14 — 24-01..24-10 complete; 24-11..24-14 in flight
-Status: Executing Phase 24 gap-closure round
+Plan: 13 of 14 — 24-11/12/13 merged to master; 24-14 (BLOCKING checkpoint) remains
+Status: Wave 7 done — awaiting 24-14 Round 3 checkpoint
         `24-VERIFICATION.md` returned `status: gaps_found`, 2/5 must-haves. ROADMAP criteria 2
         and 3 are NOT discharged and CUR-01 is back to Pending in `REQUIREMENTS.md`. Round 2's
         "clean sweep" (R15-R23, 9/9 PASS) and the CUR-01 tick that followed it are not
@@ -206,3 +206,32 @@ Resume file: None
 
 ---
 *Last updated: 2026-08-11 — Phase 17 (activity-browser-detail-views) all 15 planned plans executed and summarized; human checkpoint on plan 17-15 came back PARTIAL — 8/10 Manual-Only Verifications rows confirmed clean, GAP 1 (DETAIL-02, route-map basemap tiles absent) and GAP 2 (DETAIL-03/04, chart band x-axis misalignment) have open gaps pending gap-closure planning (`/gsd-plan-phase 17 --gaps`) before the phase gate closes*
+
+## Wave 7 result (2026-09-02)
+
+All three gap-closure plans merged to master and verified on the integrated tree:
+
+- 24-11 (GAP-24-02, criterion 3): `curation-guard.mjs` now uses the inverted
+  `UNSCANNED_EXTENSIONS = ['.json']` skip-list, so `.ts`/`.d.ts`/`.mjs`/extensionless files
+  fail CLOSED. Four planted fixtures observed RED before the fix. The whole-tree run over the
+  real `dist/widgets` scans all 22 `.d.ts` files and returns zero violations.
+- 24-12 (GAP-24-03, D-12): `safeResolve` rejects malformed percent-escapes, the `createServer`
+  listener body is try/catch-wrapped symmetrically with the curate branch, and the static route
+  is now `isTrustedOrigin`-gated. Nine-step live smoke against a real `npm run curate` returned
+  `200/403/200/403/403/403/403/empty/stopped`.
+- 24-13 (GAP-24-04, WR-05): `buildPrBadgeLabels(entry, liveExclusions)` takes a REQUIRED second
+  parameter and `BestEffortPanelRow.isPr` is `wasPRAtTheTime && !excluded`, both fed from
+  `detail.ts`'s single `Promise.all`. Closes the `PRExcluded — {reason}` string R15 quoted.
+
+Post-merge gate: `tsc --noEmit`, `npm run build`, `npm run build-widgets` all exit 0.
+
+One cross-plan defect the gate caught, which neither plan could see alone: 24-11's whole-tree
+case READS the real `dist/widgets` while 24-05's `verify-dashboard-publish-guard.test.mjs`
+PLANTS and removes `dist/widgets/__curate` inside that same real tree by design. Under vitest's
+default file parallelism the reader intermittently saw the planted fixture — 1 failure in 4
+full-suite runs. Fixed at the user's direction with `fileParallelism: false` in
+`vitest.config.ts` (commit `e01ea8c`), ~1.2s → ~6.6s for the whole suite. Verified 60/60 green
+across 4 consecutive runs. 24-14's Round 3 evidence is therefore gathered against a
+deterministically green suite.
+
+CUR-01 remains Pending. It re-ticks only on evidence 24-14 produces.

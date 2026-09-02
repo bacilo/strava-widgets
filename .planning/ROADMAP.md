@@ -466,9 +466,9 @@ Plans:
 
 **Wave 7** *(gap closure — blocked on 24-10; closes the three gaps in `24-VERIFICATION.md` (`gaps_found`, 2/5 must-haves); three parallel plans, disjoint files)*
 
-- [ ] 24-11-PLAN.md — GAP-1 / CR-02: invert `curation-guard.mjs`'s `SCANNED_EXTENSIONS` allowlist to a one-entry, justified skip-list (`UNSCANNED_EXTENSIONS = ['.json']`) so `.ts`/`.d.ts`, `.mjs` and extensionless files under `dist/widgets` fail CLOSED, with planted fixtures for all three classes observed red then green (D-11)
-- [ ] 24-12-PLAN.md — GAP-2 / CR-01: stop a malformed percent-escape (`GET /%`) from killing the curate server — try/catch in `safeResolve`, a try/catch around the `createServer` listener body via an extracted `respond500`, and D-12's `isTrustedOrigin` gate extended to the static route it never covered, all observed red first
-- [ ] 24-13-PLAN.md — GAP-3 / WR-05: give `buildPrBadgeLabels` a REQUIRED `liveExclusions` parameter and suppress `BestEffortPanelRow.isPr` for live-excluded rows, so the header PR badges and the Best Efforts flags cells can no longer render `PRExcluded — {reason}` in one paint
+- [x] 24-11-PLAN.md — GAP-1 / CR-02: invert `curation-guard.mjs`'s `SCANNED_EXTENSIONS` allowlist to a one-entry, justified skip-list (`UNSCANNED_EXTENSIONS = ['.json']`) so `.ts`/`.d.ts`, `.mjs` and extensionless files under `dist/widgets` fail CLOSED, with planted fixtures for all three classes observed red then green (D-11)
+- [x] 24-12-PLAN.md — GAP-2 / CR-01: stop a malformed percent-escape (`GET /%`) from killing the curate server — try/catch in `safeResolve`, a try/catch around the `createServer` listener body via an extracted `respond500`, and D-12's `isTrustedOrigin` gate extended to the static route it never covered, all observed red first
+- [x] 24-13-PLAN.md — GAP-3 / WR-05: give `buildPrBadgeLabels` a REQUIRED `liveExclusions` parameter and suppress `BestEffortPanelRow.isPr` for live-excluded rows, so the header PR badges and the Best Efforts flags cells can no longer render `PRExcluded — {reason}` in one paint
 
 **Wave 8** *(blocked on 24-11, 24-12 and 24-13)*
 
@@ -523,7 +523,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 21. Overview Rebuild | v2.1 | 8/8 | Complete    | 2026-08-18 |
 | 22. Calendar Week-Start & Totals | v2.1 | 16/16 | Complete   | 2026-08-19 |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 13/13 | Complete    | 2026-08-27 |
-| 24. Local Curation Mode | v2.1 | 10/10 | Complete   | 2026-09-01 |
+| 24. Local Curation Mode | v2.1 | 13/14 | In Progress|  |
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 0/TBD | Not started | - |
 
 ---
