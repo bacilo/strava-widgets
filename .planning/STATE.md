@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
 status: executing
-stopped_at: Wave 7 complete (24-11/12/13 merged, suite green); 24-14 Round 3 checkpoint is next — gate REOPENED, CUR-01 Pending
-last_updated: "2026-09-02T09:16:56.056Z"
-last_activity: 2026-09-02 -- Phase 24 execution started
+stopped_at: Completed 24-14-PLAN.md — Round 3 checkpoint 7/8 PASS (R26 FAIL); GAP-24-02/GAP-24-03 closed, GAP-24-05 opened; CUR-01 stays Pending, Phase 24 gate stays open
+last_updated: "2026-09-02T10:41:18.635Z"
+last_activity: 2026-09-02
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 88
-  completed_plans: 84
-  percent: 71
+  completed_plans: 88
+  percent: 100
 ---
 
 # Project State
@@ -21,14 +21,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 24 gap-closure execution — 24-11..24-14 close the three `24-VERIFICATION.md` gaps (curation-guard extension allowlist, curate-server static-route hardening, `buildPrBadgeLabels` live exclusions). CUR-01 stays Pending until 24-14's Round 3 checkpoint produces the evidence.
+**Current focus:** Phase 24 gap-closure round 3 complete (plans 24-11..24-14). Two of the three `24-VERIFICATION.md` gaps are closed (curation-guard extension allowlist, curate-server static-route hardening); the third (`buildPrBadgeLabels` live exclusions) is only partially closed — its mirror direction failed the Round 3 checkpoint on a checkpoint-design defect, tracked as GAP-24-05. CUR-01 and the Phase 24 gate stay open pending a further gap-closure round.
 
 ## Current Position
 
-Phase: 24 (local-curation-mode) — EXECUTING GAP CLOSURE (gate reopened)
-Plan: 13 of 14 — 24-11/12/13 merged to master; 24-14 (BLOCKING checkpoint) remains
-Status: Wave 7 done — awaiting 24-14 Round 3 checkpoint
-        `24-VERIFICATION.md` returned `status: gaps_found`, 2/5 must-haves. ROADMAP criteria 2
+Phase: 24 (local-curation-mode) — GAP CLOSURE ROUND 3 COMPLETE, GATE STILL OPEN
+Plan: 14 of 14 — 24-11/12/13/14 all executed; 24-14's Round 3 checkpoint (R24-R31) scored 7/8
+      PASS (R26 FAIL); GAP-24-02 and GAP-24-03 closed, GAP-24-04 partially closed, GAP-24-05
+      opened. CUR-01 stays Pending; a further gap-closure round is needed for GAP-24-05.
+Status: Awaiting a future `/gsd-plan-phase 24 --gaps` pass to design a checkpoint row that can
+        actually discriminate WR-05's live-document mirror direction (see GAP-24-05 in
+        24-VALIDATION.md for the required construction — editing best-efforts.json directly to
+        hold wasPRAtTheTime true and excludedFromRecords true simultaneously, without a
+        Recompute, since the curate UI's own Save->Recompute->Untick sequence cannot produce
+        that state).
+        `24-VERIFICATION.md` returned `status: gaps_found`, 2/5 must-haves (original scoring,
+        not yet re-verified after Round 3). ROADMAP criteria 2
         and 3 are NOT discharged and CUR-01 is back to Pending in `REQUIREMENTS.md`. Round 2's
         "clean sweep" (R15-R23, 9/9 PASS) and the CUR-01 tick that followed it are not
         defensible: the code review ran AFTER the tick and found 2 Critical / 13 Warning, three
@@ -58,12 +66,15 @@ Status: Wave 7 done — awaiting 24-14 Round 3 checkpoint
         `127.0.0.1:4173` passes), and 24-13 also suppresses `BestEffortPanelRow.isPr`, because
         the string R15 actually quoted comes from `buildPrFlagsCell` — a header-only fix would
         have left that exact contradiction on screen.
-        Next: /gsd-execute-phase 24 — wave 7's three plans in parallel, then 24-14 at the
-        keyboard. Phase 25 (CI Hardening & Light-Theme Verification) has no dependency on
-        Phase 24 and remains available.
-Last activity: 2026-09-02 -- Phase 24 execution started
+        **Superseded 2026-09-02 (plan 24-14 executed):** waves 7 and 8 are both done. GAP-24-02
+        and GAP-24-03 above are CLOSED (R28/R29, R30); GAP-24-04 is only partially closed — see
+        GAP-24-05, opened in `24-VALIDATION.md`, for the still-unproven WR-05 mirror direction.
+        Next: a further `/gsd-plan-phase 24 --gaps` round targeting GAP-24-05, OR proceed to
+        Phase 25 (CI Hardening & Light-Theme Verification), which has no dependency on Phase 24
+        and remains available while Phase 24's gate stays open.
+Last activity: 2026-09-02
 
-Progress: [███████---] 71% (10 of 14 plans executed)
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -96,6 +107,7 @@ Progress: [███████---] 71% (10 of 14 plans executed)
 | Phase 23 P11 | 30min | 2 tasks | 2 files |
 | Phase 23 P13 | 55min | 2 tasks | 2 files |
 | Phase 24 P10 | ~40min (spanning checkpoint pause) | 3 tasks | 4 files |
+| Phase 24 P14 | 63min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -133,6 +145,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 23]: 23-11 Round 2 checkpoint recorded 21 PASS / 1 FAIL (R35) / 0 BLOCKED against a fresh build (assets/index-D01ardNQ.js). 23-08's settle-nesting/step-magnitude fixes and 23-09's year-heatmap wrapper closed Round 1's R8/R11/R16, ticking TRN-01/TRN-02/TRN-04. TRN-03 stays Pending: R35 narrowed the phone-width overflow from 682px to 460px but did not close it -- the root cause relocated to the unwrapped five-tab div.segmented strip (Finding 11). Finding 12 (pre-existing Training Load tooltip epoch, re-observed) recorded unpatched.
 - [Phase 23]: 23-13 Round 3 checkpoint closed a clean sweep (12 PASS / 0 FAIL / 0 BLOCKED across R43-R54): documentElement.scrollWidth equals clientWidth at all four phone widths (390/393/412/430), closing R35's overflow clause via plan 23-12's .trends-tablist-scroll wrapper. TRN-03 ticks for the first time; TRN-01/02/04 confirmed unregressed by their own Round 3 rows. Phase 23's requirement gate is fully closed.
 - [Phase 24]: [Phase 24] 24-10 Round 2 checkpoint recorded a clean sweep — all nine rows (R15-R23) PASS, closing GAP-24-01 in both directions (R15 forward, R19 mirror, judged against an independently-derived stale-precomputed-flag value rather than UI self-agreement). CUR-01 ticked Complete on rendered evidence per the Phase 19 UI-02 / plan 19-15 precedent, closing Phase 24's requirement gate. Origin todo moved to completed/.
+- [Phase 24]: Round 3 checkpoint (R24-R31, 24-14): 7/8 PASS. R26 recorded FAIL on its literal assertion — its own discriminator goes vacuous once R25's mandatory Recompute clears wasPRAtTheTime, so it cannot distinguish correct wiring from broken (R27 shows the 24-13 code is correct). GAP-24-02 and GAP-24-03 closed (R28/R29, R30); GAP-24-05 opened for the still-unproven WR-05 mirror direction. CUR-01 and the ROADMAP gate stay open per the plan's own all-rows-PASS rule.
 
 ### Key Findings
 
@@ -200,8 +213,8 @@ Items acknowledged and deferred at the v2.0 milestone close on 2026-08-12.
 
 ## Session Continuity
 
-Last session: 2026-09-01T20:27:28.811Z
-Stopped at: Completed 24-10-PLAN.md — GAP-24-01 closed, CUR-01 complete, Phase 24 requirement gate closed
+Last session: 2026-09-02T10:41:18.627Z
+Stopped at: Completed 24-14-PLAN.md — Round 3 checkpoint 7/8 PASS (R26 FAIL); GAP-24-02/GAP-24-03 closed, GAP-24-05 opened; CUR-01 stays Pending, Phase 24 gate stays open
 Resume file: None
 
 ---
@@ -215,10 +228,12 @@ All three gap-closure plans merged to master and verified on the integrated tree
   `UNSCANNED_EXTENSIONS = ['.json']` skip-list, so `.ts`/`.d.ts`/`.mjs`/extensionless files
   fail CLOSED. Four planted fixtures observed RED before the fix. The whole-tree run over the
   real `dist/widgets` scans all 22 `.d.ts` files and returns zero violations.
+
 - 24-12 (GAP-24-03, D-12): `safeResolve` rejects malformed percent-escapes, the `createServer`
   listener body is try/catch-wrapped symmetrically with the curate branch, and the static route
   is now `isTrustedOrigin`-gated. Nine-step live smoke against a real `npm run curate` returned
   `200/403/200/403/403/403/403/empty/stopped`.
+
 - 24-13 (GAP-24-04, WR-05): `buildPrBadgeLabels(entry, liveExclusions)` takes a REQUIRED second
   parameter and `BestEffortPanelRow.isPr` is `wasPRAtTheTime && !excluded`, both fed from
   `detail.ts`'s single `Promise.all`. Closes the `PRExcluded — {reason}` string R15 quoted.
@@ -235,3 +250,30 @@ across 4 consecutive runs. 24-14's Round 3 evidence is therefore gathered agains
 deterministically green suite.
 
 CUR-01 remains Pending. It re-ticks only on evidence 24-14 produces.
+
+## Round 3 result (2026-09-02, plan 24-14)
+
+R24-R31 scored **7 PASS / 1 FAIL**. GAP-24-02 and GAP-24-03 are CLOSED (R28/R29, R30). GAP-24-04
+(WR-05) is only PARTIALLY closed: R24 proves the forward direction (header badge vs. panel flags
+cells compared explicitly in one paint, `PRExcluded` string absent), but R26 (human-hand: untick,
+confirm dialog, Cancel, OK) is **FAIL** — its own discriminator (the precomputed document still
+saying `excludedFromRecords: true`) is vacuous, because R25's mandatory Recompute also clears
+`wasPRAtTheTime` to `false` for every distance, and both render paths gate on that flag before
+ever consulting the live document. So the row cannot distinguish correct wiring from broken
+wiring. R27's supporting evidence shows the 24-13 code is in fact correct — this is a
+checkpoint-design defect, not an implementation defect.
+
+**GAP-24-05 opened** (`24-VALIDATION.md` § "Round 3 Checkpoint (R24-R31)"): the live-document
+mirror direction of WR-05 remains unproven by any round to date (Round 2's R19 and this round's
+R26 both failed for the same structural reason). A future row needs to hold `wasPRAtTheTime: true`
+and precomputed `excludedFromRecords: true` simultaneously — not reachable via the curate UI's own
+Save→Recompute→Untick sequence — e.g. by editing `data/stats/best-efforts.json` directly.
+
+Per the plan's own rule (CUR-01 and the gate tick ONLY if every mapped row is PASS), the
+disposition was withheld: CUR-01 stays Pending in `REQUIREMENTS.md`, the ROADMAP Phase 24 gate
+stays open, and the origin todo stays in `pending/`. `24-VERIFICATION.md` gained an appended
+Gap-Closure Record (frontmatter untouched); `24-REVIEW.md` gained dated CLOSED/PARTIALLY CLOSED
+notes on CR-01, CR-02 and WR-05.
+
+Next: a further gap-closure round targeting GAP-24-05 (`/gsd-plan-phase 24 --gaps`), or proceed to
+Phase 25, which has no dependency on Phase 24.

@@ -472,7 +472,7 @@ Plans:
 
 **Wave 8** *(blocked on 24-11, 24-12 and 24-13)*
 
-- [ ] 24-14-PLAN.md — BLOCKING Round 3 checkpoint (R24-R31): the Save/Recompute/untick flow with header-vs-panel compared in one paint against a pre-write pinned PR set, the guard observed red on three previously-unscanned extension classes in the real `dist/widgets`, the curate server's `200 / 4xx / 200` liveness triple and four `403`s; then the CUR-01 and phase-gate disposition, earned only on those verdicts
+- [x] 24-14-PLAN.md (executed; disposition withheld — 7/8 rows PASS, R26 FAIL, GAP-24-05 opened) — BLOCKING Round 3 checkpoint (R24-R31): the Save/Recompute/untick flow with header-vs-panel compared in one paint against a pre-write pinned PR set, the guard observed red on three previously-unscanned extension classes in the real `dist/widgets`, the curate server's `200 / 4xx / 200` liveness triple and four `403`s; then the CUR-01 and phase-gate disposition, earned only on those verdicts
 
 **UI hint**: yes
 
@@ -523,7 +523,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 21. Overview Rebuild | v2.1 | 8/8 | Complete    | 2026-08-18 |
 | 22. Calendar Week-Start & Totals | v2.1 | 16/16 | Complete   | 2026-08-19 |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 13/13 | Complete    | 2026-08-27 |
-| 24. Local Curation Mode | v2.1 | 13/14 | In Progress|  |
+| 24. Local Curation Mode | v2.1 | 14/14 | In Progress| - |
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 0/TBD | Not started | - |
 
 ---
