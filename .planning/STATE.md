@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
 status: executing
-stopped_at: Phase 24 verification returned gaps_found (2/5 must-haves) — gate REOPENED 2026-09-02, CUR-01 back to Pending
-last_updated: "2026-09-02T00:00:00.000Z"
-last_activity: 2026-09-02
+stopped_at: Phase 24 gap closure planned — 24-11..24-14 in waves 7-8; gate REOPENED, CUR-01 back to Pending
+last_updated: "2026-09-02T09:02:09.366Z"
+last_activity: 2026-09-02 -- Phase 24 planning complete
 progress:
   total_phases: 7
-  completed_phases: 6
-  total_plans: 84
+  completed_phases: 5
+  total_plans: 88
   completed_plans: 84
-  percent: 86
+  percent: 71
 ---
 
 # Project State
@@ -25,32 +25,42 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 
 ## Current Position
 
-Phase: 24 (local-curation-mode) — GAPS FOUND (all 10 plans executed; gate reopened)
-Plan: 10 of 10
-Status: Phase 24 requirement gate REOPENED — 2/5 must-haves, criteria 2 and 3 not discharged
-        Plan 24-10's Round 2 browser checkpoint (R15-R23, closed 2026-09-01) recorded a clean
-        sweep — all nine rows PASS. R15 closed GAP-24-01's forward direction (the
-        `Excluded — {reason}` badge renders at Save, before any Recompute, cache trap excluded
-        first) and R19 closed the mirror direction (a human-hand row — a native
-        `window.confirm()` blocks browser automation — proving the badge absence at untick
-        against an independently-derived value: the precomputed `excludedFromRecords` flag was
-        still stale `true` at that moment, so a badge gated on it would have shown the
-        reason-less fallback; it showed nothing). R16-R18/R20-R23 re-confirmed edit-in-place,
-        the Recompute extent row, totals, reversibility and the three production-absence/
-        cross-origin rows unregressed by plan 24-09's live-derivation fix, against a fresh build
-        (`index-UHckEgvm.js`, confirmed to differ from Round 1's `index-xwaleiOf.js`).
-        `24-VALIDATION.md` frontmatter: `status: complete`, `nyquist_compliant: true`. **CUR-01
-        ticks Complete in `REQUIREMENTS.md` — Phase 24's sole requirement, and its requirement
-        gate is fully closed**, per the Phase 19 UI-02 / plan 19-15 precedent (earned on rendered
-        evidence, not a mechanical match). The origin todo
-        (`2026-08-12-exclusion-tickbox-local-curation-mode.md`) moved to `completed/` with a
-        dated closing note.
-        Next: Phase 24 is done. Phase 25 (CI Hardening & Light-Theme Verification) remains in
-        the v2.1 Interface Polish milestone, with no dependency on Phase 24. Run
-        `/gsd-plan-phase 25` or `/gsd-transition` to move on.
-Last activity: 2026-09-01
+Phase: 24 (local-curation-mode) — GAP CLOSURE PLANNED (gate reopened)
+Plan: 10 of 14 executed — 24-11..24-14 planned, not yet executed
+Status: Ready to execute — Phase 24 gap-closure round
+        `24-VERIFICATION.md` returned `status: gaps_found`, 2/5 must-haves. ROADMAP criteria 2
+        and 3 are NOT discharged and CUR-01 is back to Pending in `REQUIREMENTS.md`. Round 2's
+        "clean sweep" (R15-R23, 9/9 PASS) and the CUR-01 tick that followed it are not
+        defensible: the code review ran AFTER the tick and found 2 Critical / 13 Warning, three
+        of which were independently re-derived against live source during verification.
+        Three gaps, all confirmed reproducible:
+        - GAP-24-02 (CR-02, criterion 3): `curation-guard.mjs:37`'s `SCANNED_EXTENSIONS`
+          allowlist omits `.ts`/`.d.ts`/`.mjs`/extensionless while `dist/widgets` publishes 22
+          `.d.ts` files today, so the requirement's own word "provably" is false. D-11's
+          planted-fixture proof only ever exercised `.js` — the one class that IS scanned.
+        - GAP-24-03 (CR-01, D-12): `safeResolve`'s unguarded `decodeURIComponent` plus no
+          `.catch()` on the static branch (asymmetric with the wrapped curate branch) means
+          `GET /%` from any browser tab kills the curate server; the static route carries no
+          Origin/Host gate at all.
+        - GAP-24-04 (WR-05, criterion 2): `buildPrBadgeLabels` never received `liveExclusions`
+          while `buildBestEffortsPanelRows` was fixed by 24-09. R15's own evidence quotes the
+          resulting `PRExcluded — {reason}` contradiction and recorded it PASS unflagged.
+        Plans 24-11..24-14 planned 2026-09-02, VERIFICATION PASSED at plan-checker iteration 2.
+        24-11/12/13 are wave 7 and parallel-safe (disjoint `files_modified`); 24-14 is wave 8,
+        BLOCKING and `autonomous: false` — a Round 3 browser checkpoint (R24-R31, appended to
+        `24-VALIDATION.md` without renumbering Rounds 1-2) plus the CUR-01 disposition, which
+        re-ticks only on evidence this round produces.
+        Two judgement calls verified against live source rather than accepted: 24-12 extends
+        D-12's Origin/Host gate to the static route (so `localhost:4173` now 403s where
+        `127.0.0.1:4173` passes), and 24-13 also suppresses `BestEffortPanelRow.isPr`, because
+        the string R15 actually quoted comes from `buildPrFlagsCell` — a header-only fix would
+        have left that exact contradiction on screen.
+        Next: /gsd-execute-phase 24 — wave 7's three plans in parallel, then 24-14 at the
+        keyboard. Phase 25 (CI Hardening & Light-Theme Verification) has no dependency on
+        Phase 24 and remains available.
+Last activity: 2026-09-02 -- Phase 24 gap closure planned
 
-Progress: [██████████] 100%
+Progress: [███████---] 71% (10 of 14 plans executed)
 
 ## Performance Metrics
 
