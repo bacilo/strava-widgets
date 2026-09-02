@@ -690,3 +690,114 @@ originally and Round 2's operational-instruction fix (above, "Fresh Gate Run (pl
 regardless of how many docs-only commits land between this task and the checkpoint. (For reference
 only, not as a baseline: HEAD at the start of this task was
 `d440458567cb7ba953478fca040c2436426668f1`; this task's own commit will advance past it.)
+
+---
+
+## Round 3 Checkpoint (R24-R31)
+
+*(plan 24-14, Task 2, 2026-09-02)*
+
+**BASELINE_HEAD recorded at session start:** `7e5678924764d8811c5c89ed52a392eba3e5e935`.
+
+**HEAD at end of session:** `7e5678924764d8811c5c89ed52a392eba3e5e935` — EQUAL. Confirmed both at
+the start of the browser session and again at the Final state check below; no commit landed
+mid-session.
+
+**Build identity verified before ROW R24:** `dist/widgets/assets/index-B1uN9-48.js` +
+`dist/widgets/assets/index-B573RjUr.css` — exactly the hashes Task 1 recorded. The JS hash DIFFERS
+from Round 2's `index-UHckEgvm.js`, so this round is valid against bytes that include plan 24-13's
+fix. Origin for R24-R27 and R30: `http://127.0.0.1:4173` (curate). R31: `http://127.0.0.1:4180`
+(a purpose-written plain static Node server, no curate routes of any kind).
+
+### Evidence provenance (non-waivable disclosure)
+
+| Evidence class | How it was produced | Counts as |
+|---|---|---|
+| R24 (clicks, typing, reloads, DOM/disk reads), R25 (Recompute press, Records-screen and Calendar/Trends reads, disk readback) | Agent/orchestrator-driven through real Chrome, plus orchestrator shell reads of `data/stats/best-efforts.json` | Real browser and shell, orchestrator-injected — NOT a human hand. Same class as Round 1's and Round 2's non-R10/R19 rows. |
+| R26: the untick, the confirm-dialog reading, the Cancel press, the re-untick, and the OK press | **The developer personally**, at the keyboard | Human-only — a native `window.confirm()` blocks the browser-automation extension outright, exactly as Round 1's R10 and Round 2's R19 |
+| R26: the state readbacks around those gestures (header/flags-cell `textContent`, `checkboxChecked`, the on-disk `excludedFromRecords`/`wasPRAtTheTime` discriminator, the cache-trap checks, the final on-disk assertions) | Orchestrator — browser DOM reads and shell disk reads | Not human-performed. Disclosed separately from the gesture provenance above, per the developer's explicit instruction: gestures are [human], readbacks around them are [browser]/[shell]. |
+| R27 (Recompute press, disk/render readback, the supporting same-state-different-flag observation) | Orchestrator, browser + shell | Not a human-hand row |
+| R28, R29, R30 (fixture planting/removal, `npm run build-widgets`, `npm run verify-dashboard`, `curl` status-code sequences, `kill -0` liveness check, `git status`) | Executor/orchestrator shell | Exit codes, planted-file paths and status codes are the executor's |
+| R31 (static-server start/stop, page load, DOM/HTML reads, `curl` status codes) | Orchestrator, browser + shell | Not a human-hand row |
+| R25 streamed progress sub-check (`<p>`/`<pre>` overlay text during Recompute) | Not captured before the recompute completed and the page reloaded | Recorded **NOT OBSERVED** for that sub-check only — R8/R17 precedent, does not demote the row |
+
+No row below was passed on a synthesised event, a headless probe, a `window.confirm` override, or a
+human gesture attributed to the agent (or vice versa).
+
+### Row verdicts
+
+| Row | Verdict | Quoted evidence |
+|-----|---------|------------------|
+| R24 | **PASS** | (a) `document.querySelectorAll('section[data-activity-id="4556693525"]').length === 1`; curation controls render below the panel (`LABEL "Exclude this run from PRs"`, `INPUT[checkbox]`, `TEXTAREA` hidden until ticked, `BUTTON Save`, `BUTTON Remove exclusion`, `BUTTON Recompute records`). (b) **Pre-write control**, read BEFORE any write: header badge container `textContent` = **`PR — 400m`**, matching PINNED_PR_SET `{400m}` exactly; Best Efforts flags cells (`PR?` column) read `["PR", "", "", "", ""]` — `PR` on `400m` only. (c) Ticked, typed `ROUND3-2026-09-02 GPS device unreliable`, pressed Save; readback before Save confirmed `{"checkboxChecked":true,"textareaValue":"ROUND3-2026-09-02 GPS device unreliable"}`; **no Recompute pressed in this row**. (d) Cache trap excluded before any render verdict: `performance.getEntriesByType('navigation')[0].type === "reload"` (`responseEnd` 94ms); `best-effort-exclusions.json` refetched at 20886ms and 20901ms, both after `responseEnd`; cache-busted body identical to the plain body (`plainEqualsBusted: true`), both containing the typed reason (`plainHasReason: true`, `bustedHasReason: true`). (e) Rendered badge, quoted verbatim: **`Excluded — ROUND3-2026-09-02 GPS device unreliable`**, present on all five distance rows (400m, 1K, 1 Mile, 5K, 10K); `usesEmDash: true`; `isReasonlessFallback: false` — NOT the reason-less `Excluded from records` fallback. (f) **The WR-05 row proper**, same paint, no reload between (e) and (f): header badge container `textContent` = `""` (`headerStillHasPR400m: false`, `children.length === 0`); every one of the five flags cells reads exactly `Excluded — ROUND3-2026-09-02 GPS device unreliable` (`cellsWithBothPRandExcluded: 0`); `document.body.textContent.includes('PRExcluded') === false`. **(f) vs (b), compared explicitly:** at (b), before any write, the header carried `PR — 400m` and the 400m flags cell read `PR`. At (f), in the paint produced by the same Save with no reload in between, the header carries nothing at all and every flags cell carries only the exclusion badge — the `PR — 400m` present at (b) is absent at (f), and the `PRExcluded` contradiction Round 2's R15 quoted verbatim and recorded PASS without comparing does not occur. (g) On disk, quoted: `{"activityId":"4556693525","distances":null,"reason":"ROUND3-2026-09-02 GPS device unreliable"}`; `exclusions.length === 3`; `git rev-parse HEAD` = BASELINE_HEAD. |
+| R25 | **PASS**, streaming sub-check **NOT OBSERVED** | Streamed progress text: **NOT OBSERVED** — the recompute completed before the overlay's status `<p>` and progress `<pre>` could be read (both empty at read time); per the R8/R17 precedent this sub-check alone does not demote the row. Rendered Records `400m` rank 1 (after hard reload): cells `["#1", "0:47", "1:56/km", "95.1%", "Apr 2, 2019", ""]`, `href = #/activity/3475727228` — the linked activityId **equals PROMOTION_TARGET** and is a **different** string from TARGET_ACTIVITY `4556693525`; `4556693525` appears nowhere in the `400m` table (`table400mHasTarget: false` across all 10 rendered rows, `wholePageHasTarget: false` for the whole Records page). Totals sub-check: Calendar (Monday week start, `aria-pressed="true"`) never renders the cross-month week of 2020-12-28 as one cell — it renders two partial cells, `"Partial week, 4 days shown, week of December 28-31, 2020, 46.6 km, 4h 33m, 4 runs"` and `"Partial week, 3 days shown, week of January 1-3, 2021, 42.3 km, 4h 10m, 3 runs"`, summing to **88.9 km / 7 runs**, matching PINNED_WEEK (88.864 km / 7 runs) to the displayed precision. Trends -> Volume -> Monthly, panned left one page, tooltip on the Jan 2021 bar reads verbatim **`362.2 km, 29 runs`**, matching PINNED_MONTH (362.2411 km / 29 runs); cross-checked from the rendered daily table with Year=2021, exactly `29` rows dated `2021-01-*` (including `2021-01-02 10.1 km`, the excluded activity still contributing its distance), summing to `362.1 km` from already-rounded rows — within cumulative rounding of the pin. R26 set-up, quoted from disk immediately after this row: `excludedFromRecords: true` for `4556693525`; per-distance `wasPRAtTheTime`: `[["400m",false],["1k",false],["1mi",false],["5k",false],["10k",false]]`; `generatedAt: 2026-09-02T09:41:59.740Z`; `400m` rank 1 = `3475727228`. |
+| R26 | **FAIL** | Gesture provenance: the untick, the dialog quote, the Cancel press and the OK press were all performed **[human]** at the keyboard; the state readbacks below are **[browser]/[shell]**. Confirm dialog text, quoted by the developer verbatim: **`Removing this exclusion deletes it and changes PR history. Continue?`** Cancel branch — PASS component: after Cancel, `exclusions.length` still `3`, the entry `{"activityId":"4556693525","distances":null,"reason":"ROUND3-2026-09-02 GPS device unreliable"}` still on disk, checkbox restored to `checked: true`, textarea still carrying the reason, `git rev-parse HEAD` = BASELINE_HEAD — nothing was sent. Discriminator pinned from disk immediately before the OK press: `excludedFromRecords: true`; `wasPRAtTheTime` false for all five distances; `generatedAt: 2026-09-02T09:41:59.740Z`; `400m` rank 1 still `3475727228`. (a) Cache trap excluded — PASS: `location.reload()` fires on every successful write (`scripts/curate-overlay/index.ts:98,113,141`), so the post-removal paint is a fresh load — `navType: "reload"`, `responseEnd` 46ms, exclusion refetches at 219ms and 257ms (after `responseEnd`), `plainEqualsBusted: true`, neither body contains `4556693525` any more. (b) **FAIL — the row's stated assertion is false.** Required: the header "must now read exactly `PR — 400m` again" and flags cells "show `PR` on `400m` only". Observed: header badge container `textContent` = `""`; `headerIsExactlyPR400m: false`; `document.querySelectorAll('span.badge')` -> `[]` (zero badges anywhere); all five flags cells `""` (400m, 1K, 1 Mile, 5K, 10K all empty); `checkboxChecked: false`. The half of (b) that DID hold: `/Excluded/.test(document.body.textContent) === false` and `bodyHasPRExcluded === false` — the exclusion badges are correctly gone. (c) **The discriminator is vacuous — this is why (b) failed.** At R26 time the precomputed document does still carry `excludedFromRecords: true` for `4556693525`, exactly as the plan assumed. But the same R25 Recompute that set it also set `wasPRAtTheTime: false` for all five distances, and BOTH render paths gate on that flag BEFORE they ever consult the live document: `buildPrBadgeLabels`, `src/dashboard/views/detail-best-efforts-logic.ts:64` — `if (!effort.wasPRAtTheTime) continue;` runs before the live-exclusions check at lines 65-70; `BestEffortPanelRow.isPr`, same file line 162 — `isPr: effort.wasPRAtTheTime && !excluded`. So at R26 time no PR badge can render whatever the live document says. The plan's inference ("a badge matching `PR — 400m` can only have come from the live document") is true but has an empty antecedent: the row cannot distinguish a correctly-wired implementation from a broken one. R26 as written is unsatisfiable given its own mandated R25->R26 ordering. (d) On disk — PASS: no entry with `4556693525` remains; `exclusions.length` back to `2` (ids `3475726256,3475725513`); `grep -c '"distances": []' data/best-effort-exclusions.json` = `0`; `git rev-parse HEAD` = BASELINE_HEAD. **Verdict rationale.** The row is recorded FAIL because its literal, load-bearing assertion — header reads exactly `PR — 400m` again — was observed false. R27 below shows the IMPLEMENTATION is not at fault: the defect is in the row's design. Per house rule 6, nothing was fixed. |
+| R27 | **PASS** | Pressed Recompute records again. On disk after restore: `generatedAt: 2026-09-02T10:26:20.996Z`; `400m` rank 1 = `{"activityId":"4556693525","startDate":"2021-01-02T08:00:54Z","durationSec":45.2,"paceSecPerKm":112.9,"lowConfidence":false,"rank":1}`; `excludedFromRecords: false`; per-distance `[dist, wasPRAtTheTime, excludedFromRecords]`: `[["400m",true,false],["1k",false,false],["1mi",false,false],["5k",false,false],["10k",false,false]]` — back to PINNED_PRECOMPUTED_EXCLUSION (all-false) and PINNED_PR_SET `{400m}`. Rendered Records `400m` rank 1: cells `["#1", "0:45", "1:53/km", "99.1%", "Jan 2, 2021", ""]`, `href = #/activity/4556693525` — restored. `git status --porcelain data/best-effort-exclusions.json` -> no output; `cmp` against the Task 1 snapshot -> byte-identical. **Supporting evidence isolating R26's failure to the row, not the code:** on this same restored state, with `wasPRAtTheTime: true` and the live document carrying no entry for this activity, the activity view renders header `textContent = "PR — 400m"` (`headerIsExactlyPR400m: true`), flags cells `[{400m: "PR"}, {1K: ""}, {1 Mile: ""}, {5K: ""}, {10K: ""}]`, `bodyHasExcluded: false`, `bodyHasPRExcluded: false` — exactly the state R26(b) demanded. It appears as soon as `wasPRAtTheTime` is true again, confirming the 24-13 wiring is correct and that R26's ordering, not the implementation, produced the FAIL. |
+| R28 | **PASS** | Curate stopped first (port 4173 free). Each fixture planted one at a time into the REAL `dist/widgets`, each containing the literal `const CURATE_PREFIX = "/__curate";`, `npm run build-widgets` run after each, removed in a shell `trap` on EXIT/INT/TERM. (1) `dist/widgets/shared/curate-overlay.d.ts` -> **exit 1**: `✗ Curation-artifact guard failed: /Users/pedf/workspace/strava-widgets/dist/widgets/shared/curate-overlay.d.ts — file contents contain the literal "__curate" marker — the curation write path must be structurally absent from the published bundle`. (2) `dist/widgets/assets/curate-server.mjs` -> **exit 1**: `✗ Curation-artifact guard failed: /Users/pedf/workspace/strava-widgets/dist/widgets/assets/curate-server.mjs — file contents contain the literal "__curate" marker — the curation write path must be structurally absent from the published bundle`. (3) `dist/widgets/assets/overlay` (EXTENSIONLESS) -> **exit 1**: `✗ Curation-artifact guard failed: /Users/pedf/workspace/strava-widgets/dist/widgets/assets/overlay — file contents contain the literal "__curate" marker — the curation write path must be structurally absent from the published bundle`. All three are precisely the classes the pre-24-11 `SCANNED_EXTENSIONS = ['.js','.html','.css','.map']` allowlist silently exempted. All three removed; absence confirmed per path. Clean re-run: `npm run build-widgets` -> **exit 0**, with `✓ Curation-artifact scan: dist/widgets tree scanned, no curation-mode artifacts found.` Asset hashes reproduced from `dist/widgets/index.html`: `assets/index-B1uN9-48.js` and `assets/index-B573RjUr.css` — identical to Task 1's recorded build identity. |
+| R29 | **PASS** | `npm run verify-dashboard` -> **exit 0**, `40 check(s) passed, 0 failure(s).` Named check lines, verbatim: `✓ GET /data/best-effort-exclusions.json -> 200`; `✓ /data/best-effort-exclusions.json parses with an "exclusions" array`; `✓ GET /__curate/health -> 404 (expected, the curate health probe must never be published)`; `✓ GET /__curate/overlay.js -> 404 (expected, the curate overlay bundle must never be published)`; `✓ GET /__curate/exclusions/3475726256 -> 404 (expected, the curate write endpoint must never be published)`. `find dist/widgets -name "*.ts" | wc -l` -> **22**, equal to PINNED_DTS_COUNT, and the build exited 0 with those files present (R28's clean re-run above) — the stricter guard did not start failing on the tree's own legitimately-published `.d.ts` class. |
+| R30 | **PASS** | Curate restarted. Commands and status codes in order: (a) `GET http://127.0.0.1:4173/strava-widgets/` -> **200** (control). (b) `GET --path-as-is 'http://127.0.0.1:4173/%'` -> **403** (a 4xx). (c) repeat (a) -> **200** again; `kill -0 <curate pid>` -> process still running — pre-24-12 the unguarded `decodeURIComponent` in `safeResolve` made this a fatal uncaught exception. (d) `-H 'Origin: http://evil.example'` on `/strava-widgets/` -> **403**. (e) `-H 'Host: evil.example'` on `/strava-widgets/` -> **403**. (f) `PUT /__curate/exclusions/4556693525` with `Origin: http://evil.example` -> **403**, and with `Host: evil.example` -> **403** (R23 re-run). (g) `git status --porcelain data/best-effort-exclusions.json` -> no output. Observed sequence `200, 403, 200, 403, 403, 403, 403` matches the expected `200, 4xx, 200, 403, 403, 403, 403`; curate confirmed still alive at end of row. Note, recorded not as a defect for this row: (b) returns `403` rather than `400` — the static route's new Origin/Host gate and the null return from `safeResolve` both land on the same forbidden response; the row asserts "a 4xx", which is satisfied. |
+| R31 | **PASS** | Curate stopped; port 4173 confirmed free. `dist/widgets` served under `/strava-widgets` on port **4180** by a purpose-written plain static Node server with no curate routes of any kind (`scratchpad/plain-static.mjs`), loaded in a real Chrome tab, hard-reloaded (`navType: "reload"`, `location.origin = http://127.0.0.1:4180`). (a) `panel.querySelectorAll('button,input,textarea')` inside the Best Efforts panel -> `[]` (`controlsCount: 0`), while the panel section itself IS found — heading `"Best Efforts This Run"` with 5 rendered rows (real absence, not a missing panel); D-03's inert seam still present in production (`section[data-activity-id="4556693525"]` found). (b) `document.documentElement.outerHTML.includes('__curate') === false`; served `index.html`: `grep -c '__curate'` -> `0`; script tags: one inline `<script>` with no `src`, and exactly one sourced tag `<script type="module" crossorigin src="./assets/index-B1uN9-48.js">` — no overlay tag (for contrast, under curate on 4173 the same page loads an additional `/__curate/overlay.js`). (c) `GET /strava-widgets/` -> **200** (control); `GET /__curate/health` -> **404**; `GET /__curate/overlay.js` -> **404**; `GET /__curate/exclusions/4556693525` -> **404**. |
+
+### Final state check
+
+| Assertion | Observed |
+|---|---|
+| `git status --porcelain data/best-effort-exclusions.json` empty | **empty** |
+| `cmp data/best-effort-exclusions.json` against the Task 1 snapshot | **byte-identical** |
+| No residue: `dist/widgets/__curate`, `dist/widgets/shared/curate-overlay.d.ts`, `dist/widgets/assets/curate-server.mjs`, `dist/widgets/assets/overlay` | **all absent** |
+| `git rev-parse HEAD` equals BASELINE_HEAD | `7e5678924764d8811c5c89ed52a392eba3e5e935` = BASELINE_HEAD — **MATCH** |
+| Ports 4173 and 4180 free | **both free** (curate stopped; R31's server stopped) |
+| Working tree otherwise clean | only the pre-existing, unrelated `D dist/widgets/test.html` (present before this phase's execution began; recorded and deliberately left alone, per the do-not-fix instruction for this plan) |
+
+### Round 3 Observations (recorded, not fixed, per house rule since 16-09)
+
+- **Raw-epoch tooltip title, recorded not fixed.** The Trends -> Volume -> Monthly tooltip title
+  renders a raw epoch `1,609,459,200,000` instead of a formatted `Jan 2021`
+  (`1609459200000` ms = `2021-01-01T00:00:00.000Z`). Observed again in R25's totals sub-check.
+  Already on record as a shared formatter defect (`23-07-SUMMARY.md` finding 6, `23-10-PLAN.md`
+  scoped it out of Phase 23); nothing about CUR-01 depends on it.
+- **Cross-month week rendered only as two partial cells, recorded not fixed.** The Calendar never
+  renders a cross-month week (here, the week of 2020-12-28) as one cell — it renders two partial
+  cells (December's final row and January's first row), which R25's totals sub-check had to sum by
+  hand to compare against PINNED_WEEK. No single view shows the full week-of-2020-12-28 total.
+- **R30(b) returns `403`, not `400`, recorded not a defect for that row.** The static route's new
+  Origin/Host gate and the `null` return from `safeResolve` both land on the same forbidden
+  `403` response for a malformed URL; R30's own assertion only requires "a 4xx", which `403`
+  satisfies.
+
+### Round 3 disposition
+
+**7 PASS / 1 FAIL (R26).** Not every mapped row is PASS. Per this plan's own governing truth —
+"CUR-01 and the ROADMAP phase gate are re-ticked ONLY if every mapped row is PASS; otherwise both
+stay open and the next GAP-24-NN is opened verbatim" — the disposition is **withheld**: CUR-01
+stays `Pending` in `REQUIREMENTS.md`, the ROADMAP Phase 24 gate stays open, and **GAP-24-05** is
+opened below, verbatim, per house rule 6 (nothing found this round was fixed).
+
+#### GAP-24-05 (opened verbatim)
+
+**GAP-24-05 — R26 is an unsatisfiable checkpoint row; the mirror direction of WR-05 remains
+unproven.**
+
+R26 requires that, after unticking a live exclusion and WITHOUT pressing Recompute, the header
+reads exactly `PR — 400m` again — and argues this is discriminating because the precomputed
+document still carries `excludedFromRecords: true` at that moment. The argument is vacuous. The
+same R25 Recompute that sets `excludedFromRecords: true` also sets `wasPRAtTheTime: false` for all
+five distances in the same write, and both render paths gate on that flag BEFORE consulting the
+live document (`detail-best-efforts-logic.ts:64` in `buildPrBadgeLabels`, and `:162` for
+`BestEffortPanelRow.isPr`). With `wasPRAtTheTime: false` no PR badge can render regardless of the
+live document, so the row cannot distinguish a correctly-wired implementation from a broken one.
+
+Observed: header `""`, zero `span.badge` elements, all five flags cells `""`. R27 then showed the
+demanded `PR — 400m` / `400m: "PR"` state appearing as soon as Recompute restored
+`wasPRAtTheTime: true`, with the live document still carrying no entry — so the 24-13 wiring is
+correct and this is a checkpoint-design defect, not an implementation defect.
+
+Consequence: the LIVE-document mirror direction of WR-05 (badge returns from live state alone,
+precomputed flag still stale-excluded) is still **unproven**. Round 2's R19 and this round's R26
+have both now failed to prove it, for the same structural reason.
+
+A future row that WOULD discriminate must create a state where `wasPRAtTheTime` is `true` while
+the precomputed `excludedFromRecords` is also `true` — for example by editing
+`data/stats/best-efforts.json` directly to set both true for the target activity (no Recompute),
+then observing that a live exclusion suppresses the badge and removing it restores the badge. That
+state is not reachable through the curate UI's own Save->Recompute->Untick sequence, which is
+precisely why R19 and R26 could not reach it.
