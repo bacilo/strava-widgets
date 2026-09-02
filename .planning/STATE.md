@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
-status: executing
-stopped_at: Completed 24-17-PLAN.md — Round 4 checkpoint R32-R35 all PASS; GAP-24-05 fully closed (item 1 by R32/R34, item 2 by 24-15, item 3 by 24-16); CUR-01 ticked Complete, Phase 24 ROADMAP gate CLOSED
-last_updated: "2026-09-02T22:15:00.000Z"
+status: ready_to_plan
+stopped_at: Phase 24 complete (17/17) — ready to discuss Phase 25
+last_updated: 2026-09-02T20:24:58.220Z
 last_activity: 2026-09-02 -- Phase 24 gap-closure round 4 complete, gate closed
 progress:
   total_phases: 7
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 24 (Local Curation Mode) is COMPLETE — all 17 plans across 10 waves executed, CUR-01 ticked Complete, ROADMAP gate closed on Round 4's R32-R35 (all PASS). Only Phase 25 (CI Hardening & Light-Theme Verification, plans TBD) remains unplanned in milestone v2.1.
+**Current focus:** Phase 25 (CI Hardening & Light-Theme Verification) — the last phase in milestone v2.1, not yet planned. Phase 24 closed 2026-09-02: CUR-01 ticked and the ROADMAP gate closed on Round 4's R32-R35 (all PASS), after four browser-checkpoint rounds. One non-blocking Warning (WR-19, curation-guard directory EACCES) is captured in .planning/todos/pending/.
 
 ## Current Position
 
-Phase: 24 (local-curation-mode) — COMPLETE, GATE CLOSED
-Plan: 17 of 17 — all plans (24-01..24-17) executed. Waves 9 (24-15, 24-16) and 10 (24-17,
+Phase: 25
+Plan: Not started
       BLOCKING Round 4 checkpoint) both complete; disposition set in plan 24-17's Task 3.
-Status: Phase complete. Next: plan Phase 25 (`/gsd-plan-phase 25`) — the only remaining phase in
+Status: Ready to plan Phase 25 (`/gsd-discuss-phase 25` or `/gsd-plan-phase 25`)
         milestone v2.1, currently "Plans: TBD" in ROADMAP.md.
 
         **Round 4 closure (2026-09-02, plan 24-17).** R32-R35 all PASS — see `24-VALIDATION.md`
@@ -93,7 +93,7 @@ Status: Phase complete. Next: plan Phase 25 (`/gsd-plan-phase 25`) — the only 
           R32 avoids this by editing ONLY `excludedFromRecords` on the shard, leaving the
           discriminator live.
 
-Last activity: 2026-09-02 -- Phase 24 gap-closure round 4 complete, gate closed
+Last activity: 2026-09-02
 
 Progress: [██████████] 100%
 

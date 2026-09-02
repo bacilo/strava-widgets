@@ -532,7 +532,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 21. Overview Rebuild | v2.1 | 8/8 | Complete    | 2026-08-18 |
 | 22. Calendar Week-Start & Totals | v2.1 | 16/16 | Complete   | 2026-08-19 |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 13/13 | Complete    | 2026-08-27 |
-| 24. Local Curation Mode | v2.1 | 17/17 | Complete   | 2026-09-02 |
+| 24. Local Curation Mode | v2.1 | 17/17 | Complete    | 2026-09-02 |
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 0/TBD | Not started | - |
 
 ---
