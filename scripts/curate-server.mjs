@@ -121,11 +121,21 @@ function assertBuilt() {
  * final check is the traversal rejection (T-16-VF-01 / T-24-VF-01) and must
  * not be weakened.
  *
+ * GAP-24-03 / CR-01: a malformed percent-escape (e.g. `/%`, `/%zz`,
+ * `/%e0%a4%a`) is rejected identically to a traversal, because
+ * `decodeURIComponent` throws `URIError` on those inputs, and an unguarded
+ * throw here reaches the http request listener as an uncaught exception.
+ *
  * @param {string} urlPath
  * @returns {string | null} the resolved filesystem path, or null to reject
  */
 export function safeResolve(urlPath) {
-  const decoded = decodeURIComponent(urlPath.split('?')[0]);
+  let decoded;
+  try {
+    decoded = decodeURIComponent(urlPath.split('?')[0]);
+  } catch {
+    return null;
+  }
   if (decoded !== MOUNT_PREFIX && !decoded.startsWith(MOUNT_PREFIX + '/')) {
     return null;
   }
@@ -607,7 +617,31 @@ async function serveCurateRoute(req, res) {
   res.end('Not Found');
 }
 
+/**
+ * GAP-24-03 / D-12: the static route now carries the same Origin/Host gate
+ * as the two write routes. DNS rebinding is a Host-header attack and is
+ * route-agnostic — a rebound hostname reaches the static route exactly as
+ * easily as a write route, and `24-VERIFICATION.md` recorded this key link
+ * as NOT GATED. A normal browser navigation sends a matching `Host` and no
+ * `Origin`, so `isTrustedOrigin` returns true and the tool keeps working
+ * (D-02/OD-4). A developer reaching the server via `localhost:4173` instead
+ * of the banner's `127.0.0.1:4173` gets 403 on every asset by design; the
+ * response body names the correct origin so that mistake is self-explaining
+ * rather than mysterious. `/__curate/health` and `/__curate/overlay.js`
+ * deliberately remain ungated GETs — local-only, non-secret, no write, and
+ * not in `24-VERIFICATION.md`'s `missing` list (see 24-12-PLAN.md's
+ * <position_on_scope>).
+ */
 function serveStaticRoute(req, res) {
+  if (!isTrustedOrigin(req, EXPECTED_HOST)) {
+    res.writeHead(403, { 'Content-Type': 'text/plain' });
+    res.end(
+      `Forbidden: curate serves only http://${CURATE_HOST}:${CURATE_PORT} — ` +
+        'cross-origin and mismatched-Host requests are rejected.'
+    );
+    return;
+  }
+
   const filePath = safeResolve(req.url ?? '/');
   if (filePath === null) {
     res.writeHead(403);
@@ -632,18 +666,41 @@ function serveStaticRoute(req, res) {
   res.end(readFileSync(filePath));
 }
 
-function createServer() {
+/**
+ * GAP-24-03 / CR-01: extracted verbatim from the curate branch's inline
+ * `.catch()` handler so both branches of createServer's listener share one
+ * 500 responder.
+ *
+ * @param {import('node:http').ServerResponse} res
+ * @param {Error} error
+ */
+function respond500(res, error) {
+  if (!res.headersSent) {
+    res.writeHead(500, { 'Content-Type': 'text/plain' });
+  }
+  res.end(`Internal Server Error: ${error.message}`);
+}
+
+// Exported so the real-socket liveness suite (scripts/curate-server.test.mjs)
+// can exercise the shipped listener over an ephemeral port instead of
+// asserting about its source text. main() remains the only production
+// caller.
+export function createServer() {
   return http.createServer((req, res) => {
-    if (isCurateRoute(req.url ?? '/')) {
-      serveCurateRoute(req, res).catch((error) => {
-        if (!res.headersSent) {
-          res.writeHead(500, { 'Content-Type': 'text/plain' });
-        }
-        res.end(`Internal Server Error: ${error.message}`);
-      });
-      return;
+    // GAP-24-03 / CR-01: defence-in-depth — no future synchronous throw
+    // anywhere in the static path (or the curate path) can terminate a
+    // process the developer has work in flight against. The curate branch
+    // was already wrapped via its own .catch(); this try/catch makes the
+    // static branch symmetric with it.
+    try {
+      if (isCurateRoute(req.url ?? '/')) {
+        serveCurateRoute(req, res).catch((error) => respond500(res, error));
+        return;
+      }
+      serveStaticRoute(req, res);
+    } catch (error) {
+      respond500(res, error);
     }
-    serveStaticRoute(req, res);
   });
 }
 

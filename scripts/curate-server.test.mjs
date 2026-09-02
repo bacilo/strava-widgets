@@ -5,15 +5,19 @@
  * worked around here.
  */
 
-import { readFileSync } from 'node:fs';
+import http from 'node:http';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
   CURATE_HOST,
   CURATE_PORT,
+  MOUNT_PREFIX,
   applyRemove,
   applyUpsert,
+  createServer,
   injectOverlayTag,
   isCurateRoute,
   isTrustedOrigin,
@@ -23,6 +27,10 @@ import {
 } from './curate-server.mjs';
 
 const SOURCE = readFileSync(new URL('./curate-server.mjs', import.meta.url), 'utf8');
+
+// Mirrors curate-server.mjs's own ROOT/INDEX_HTML computation — the liveness
+// suite below only runs when the real build artifact it serves exists.
+const INDEX_HTML = resolve(process.cwd(), 'dist/widgets/index.html');
 
 // D-05: a literal in-test fixture mirroring the live data/best-effort-exclusions.json
 // shape (schemaVersion: 1, a note string, two real entries with distances: null).
@@ -119,6 +127,24 @@ describe('safeResolve', () => {
     expect(withoutSlash).not.toBeNull();
     expect(withSlash.endsWith('dist/widgets/index.html')).toBe(true);
     expect(withoutSlash.endsWith('dist/widgets/index.html')).toBe(true);
+  });
+
+  // GAP-24-03 / CR-01: a malformed percent-escape must be REJECTED exactly
+  // like a traversal (returning null), not thrown out of the function.
+  // decodeURIComponent throws URIError: URI malformed on each of these three
+  // shapes; unguarded, that throw reaches the http request listener as an
+  // uncaught exception and kills the whole curate process (D-11 — this case
+  // is observed RED against the unfixed source before the fix lands).
+  it('rejects /strava-widgets/% (a malformed percent-escape), exactly like a traversal', () => {
+    expect(safeResolve('/strava-widgets/%')).toBeNull();
+  });
+
+  it('rejects /strava-widgets/%zz (a malformed percent-escape), exactly like a traversal', () => {
+    expect(safeResolve('/strava-widgets/%zz')).toBeNull();
+  });
+
+  it('rejects /strava-widgets/%e0%a4%a (a malformed percent-escape), exactly like a traversal', () => {
+    expect(safeResolve('/strava-widgets/%e0%a4%a')).toBeNull();
   });
 });
 
@@ -293,6 +319,97 @@ describe('isTrustedOrigin (D-12)', () => {
   });
 });
 
+// GAP-24-03 / CR-01 / D-11: real-socket liveness and gate suite, exercising
+// the SHIPPED createServer() over an ephemeral port rather than asserting
+// about source text. Depends on dist/widgets/index.html existing (a real
+// `npm run build-widgets` output), so it is skipped on a checkout with no
+// build — recorded in the plan SUMMARY whether it ran or skipped.
+//
+// Before the fix lands, `GET /%` throws URIError out of safeResolve with no
+// try/catch anywhere between it and the http request listener. That is an
+// UNCAUGHT EXCEPTION inside a live http server's request handler, which Node
+// treats as fatal to the whole process — not a rejected promise, not an
+// assertion failure. Depending on timing this suite either fails cases 1/3/4
+// outright or aborts the entire vitest worker process with an uncaught
+// URIError before those assertions ever run. Both shapes count as RED
+// evidence for D-11; see the plan SUMMARY for which one was observed.
+describe.skipIf(!existsSync(INDEX_HTML))(
+  'static route liveness & Origin/Host gate (D-11, D-12, GAP-24-03)',
+  () => {
+    let server;
+    let port;
+
+    beforeAll(() => {
+      return new Promise((settle) => {
+        server = createServer();
+        server.listen(0, '127.0.0.1', () => {
+          port = server.address().port;
+          settle();
+        });
+      });
+    });
+
+    afterAll(() => {
+      return new Promise((settle) => {
+        server.close(() => settle());
+      });
+    });
+
+    // EXPECTED_HOST is module-local (never exported) and resolves to the
+    // literal '127.0.0.1:4173' — the gate compares req.headers.host against
+    // that literal, not against the ephemeral test port, so every request
+    // below must send it explicitly via a default header.
+    function request(path, headers = {}) {
+      return new Promise((settle, reject) => {
+        const req = http.request(
+          {
+            host: '127.0.0.1',
+            port,
+            path,
+            headers: { Host: '127.0.0.1:4173', ...headers },
+          },
+          (res) => {
+            const chunks = [];
+            res.on('data', (chunk) => chunks.push(chunk));
+            res.on('end', () => {
+              settle({ status: res.statusCode, body: Buffer.concat(chunks).toString('utf8') });
+            });
+          }
+        );
+        req.on('error', reject);
+        req.end();
+      });
+    }
+
+    it('case 1: GET /% with a matching Host responds 4xx and does not kill the process', async () => {
+      const { status } = await request('/%');
+      expect(status).toBeGreaterThanOrEqual(400);
+      expect(status).toBeLessThan(500);
+    });
+
+    it('case 2: immediately after, GET /strava-widgets/ still responds 200 with the overlay tag — the liveness proof', async () => {
+      const { status, body } = await request(`${MOUNT_PREFIX}/`);
+      expect(status).toBe(200);
+      expect(body).toContain('<script src="/__curate/overlay.js"></script>');
+    });
+
+    it('case 3: GET /strava-widgets/ with a cross-origin Origin responds 403', async () => {
+      const { status } = await request(`${MOUNT_PREFIX}/`, { Origin: 'http://evil.example' });
+      expect(status).toBe(403);
+    });
+
+    it('case 4: GET /strava-widgets/ with a mismatched Host responds 403', async () => {
+      const { status } = await request(`${MOUNT_PREFIX}/`, { Host: 'evil.example' });
+      expect(status).toBe(403);
+    });
+
+    it('case 5 (control): GET /strava-widgets/ with a matching Host and no Origin responds 200 — an ordinary navigation is not broken by the new gate (D-02/OD-4)', async () => {
+      const { status } = await request(`${MOUNT_PREFIX}/`);
+      expect(status).toBe(200);
+    });
+  }
+);
+
 describe('source discipline (D-09)', () => {
   const nonCommentLines = SOURCE.split('\n').filter(
     (line) => !/^\s*\*/.test(line) && !/^\s*\/\//.test(line)
@@ -304,5 +421,27 @@ describe('source discipline (D-09)', () => {
 
   it('scripts/curate-server.mjs contains no all-interfaces wildcard bind', () => {
     expect(SOURCE.includes('0.0.0.0')).toBe(false);
+  });
+});
+
+// GAP-24-03 / CR-01 / D-11: pins the fix's defence-in-depth shape so a future
+// refactor cannot silently re-introduce the asymmetry between createServer's
+// two branches — the curate branch was always wrapped with a .catch(), the
+// static branch was not. This case reads source text deliberately (not
+// in-process behaviour) so it runs even on a checkout with no build, unlike
+// the describe.skipIf liveness suite above. Written and observed RED here in
+// Task 1, against the unfixed source: respond500 does not exist anywhere in
+// the file yet (the 500 logic is inline at the bottom of createServer today)
+// and the listener body has no try. Re-run and recorded GREEN in Task 3
+// after Task 2's fix lands.
+describe('listener symmetry (D-11, GAP-24-03)', () => {
+  it("createServer's listener body wraps both branches identically — it contains both 'try' and 'respond500'", () => {
+    const start = SOURCE.indexOf('function createServer');
+    expect(start).toBeGreaterThan(-1);
+    const rest = SOURCE.slice(start);
+    const bodyEnd = rest.indexOf('\n}');
+    const body = bodyEnd === -1 ? rest : rest.slice(0, bodyEnd);
+    expect(body).toContain('try');
+    expect(body).toContain('respond500');
   });
 });

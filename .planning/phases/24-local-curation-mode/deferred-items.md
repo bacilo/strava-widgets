@@ -64,3 +64,33 @@ mode (missing gitignored artifact) is identical with or without this plan's chan
 inside the worktree, which is outside this plan's file scope). Left for the orchestrator's
 merge-back into the main checkout, where both artifacts already exist and `npm test` is expected
 to run fully green.
+
+## 24-12: `npm test` full-suite failures are the same recurring worktree environment gap
+
+**Logged:** 2026-09-02, plan 24-12, Task 2
+
+`npm test` reports 7 failed test files / 1373 passed / 4 assertion failures when run inside this
+plan's git worktree (`.claude/worktrees/agent-adc353115e8f3e511`), even after running
+`npm run build-widgets` locally to produce `dist/widgets/index.html` (needed for this plan's own
+liveness suite, T1c). Two failure classes, both pre-existing and unrelated to
+`scripts/curate-server.mjs`/`scripts/curate-server.test.mjs`:
+
+- `src/dashboard/views/records-logic.test.ts` and four `trends-*-logic.test.ts` siblings —
+  `ENOENT` on `data/stats/*.json` (gitignored generated build output, never produced in this
+  worktree; same root cause as the 24-01/24-02 entries above).
+- `scripts/verify-dashboard-publish-guard.test.mjs` (4 assertion failures) — its own
+  `describe.skipIf(!existsSync(INDEX_HTML))` guard let the suite run once `build-widgets` produced
+  `dist/widgets/index.html`, but the suite's own `main()` invocation (via its `run()` helper
+  spawning the real CLI) then FATALs on the separate, still-missing
+  `dist/widgets/data/dashboard/index.json` (`compute-dashboard-index` output, which needs
+  `dist/index.js` from `npm run build` plus real archive data — out of this plan's scope and not
+  run here).
+
+**Verified in-scope tests are clean:** `npx vitest run scripts/curate-server.test.mjs` —
+45/45 pass, including the new malformed-encoding, real-socket liveness/gate, and
+listener-symmetry cases added by this plan. `git diff --name-only` for this plan's Task 2 commit
+lists only `scripts/curate-server.mjs`.
+
+**Disposition:** Not fixed, same reasoning as the 24-01/24-02 entries — requires either a full
+`compute-*` pipeline run (real archive data, out of scope) or committing gitignored artifacts.
+Left for the orchestrator's merge-back into the main checkout.
