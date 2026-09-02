@@ -632,7 +632,11 @@ function serveStaticRoute(req, res) {
   res.end(readFileSync(filePath));
 }
 
-function createServer() {
+// Exported so the real-socket liveness suite (scripts/curate-server.test.mjs)
+// can exercise the shipped listener over an ephemeral port instead of
+// asserting about its source text. main() remains the only production
+// caller.
+export function createServer() {
   return http.createServer((req, res) => {
     if (isCurateRoute(req.url ?? '/')) {
       serveCurateRoute(req, res).catch((error) => {
