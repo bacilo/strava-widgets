@@ -155,6 +155,8 @@ Add a `safeResolve('/strava-widgets/%')` -> `null` case to
 `scripts/curate-server.test.mjs`'s `safeResolve` describe block; today that
 suite has four rejection cases and none of them is malformed encoding.
 
+**CLOSED 2026-09-02 by plan 24-12 — see 24-VALIDATION.md row R30.**
+
 ---
 
 ### CR-02: The D-10 absence guard does not scan `.ts`/`.d.ts`/`.mjs`/extensionless files, and `dist/widgets` already publishes 22 of them
@@ -226,6 +228,8 @@ before the fix and passing after: `assets/curate-overlay.d.ts` containing the
 marker, `assets/curate-server.mjs` containing the marker, and an extensionless
 `assets/overlay` containing the marker. The existing suite plants only `.js`,
 `.html` and directory-name shapes, which is why this hole survived.
+
+**CLOSED 2026-09-02 by plan 24-11 — see 24-VALIDATION.md row R28.**
 
 ---
 
@@ -476,6 +480,10 @@ export function buildPrBadgeLabels(
 Making the parameter required (no default) applies the same forgotten-call-site
 discipline 24-09 chose for `buildBestEffortsPanelRows`. Row-level `isPr` needs
 the same treatment or an explicit note.
+
+**PARTIALLY CLOSED 2026-09-02 by plan 24-13 — see 24-VALIDATION.md row R24 (forward direction,
+PASS). The mirror/untick direction (row R26) FAILS on a vacuous discriminator, not on the
+implementation (R27 isolates it) — remains open as GAP-24-05.**
 
 ---
 

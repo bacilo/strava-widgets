@@ -208,3 +208,69 @@ reopened for a gap-closure round before Phase 24 is considered done.
 
 _Verified: 2026-09-01T20:44:55Z_
 _Verifier: Claude (gsd-verifier)_
+
+---
+
+## Gap-Closure Record (Round 3, 2026-09-02)
+
+*(Appended by plan 24-14, Task 3. This section records what Round 3's checkpoint observed against
+each of the three gaps above — it does not edit the frontmatter `status:`/`score:` fields or any
+existing prose in this document, both of which remain this verifier's record of what was true on
+2026-09-01. A future re-verification pass, not this appendix, owns changing them.)*
+
+### Gap 1 (criterion 3 / GAP-24-02) — the curation-guard `SCANNED_EXTENSIONS` allowlist
+
+**Closed by plan 24-11, observed by `24-VALIDATION.md` Round 3 R28 and R29.**
+
+R28 planted a `.d.ts`, a `.mjs` and an extensionless file — each containing the `__curate` marker —
+one at a time into the real `dist/widgets`, and observed `npm run build-widgets` exit **1** on each,
+naming the planted path in the `✗ Curation-artifact guard failed: …` line, then exit **0** with
+`✓ Curation-artifact scan: dist/widgets tree scanned, no curation-mode artifacts found.` once all
+three were removed and the clean rebuild reproduced the pinned asset hashes. These are exactly the
+three extension classes this report's gap 1 named as unobserved by the pre-24-11 guard. R29 then
+confirmed no regression: `verify-dashboard` exit 0 (40/40), the public
+`data/best-effort-exclusions.json` still 200-and-parsing, and `find dist/widgets -name "*.ts" | wc -l`
+still 22 with the build still exiting 0 — the stricter (now skip-list-shaped) guard does not start
+failing on the tree's own legitimately-published `.d.ts` class.
+
+### Gap 3 (D-12's Origin/Host gate on the static route / GAP-24-03) — the curate server crash on `/%`
+
+**Closed by plan 24-12, observed by `24-VALIDATION.md` Round 3 R30.**
+
+R30 recorded the status-code sequence `200, 403, 200, 403, 403, 403, 403` against
+`GET /strava-widgets/`, `GET /%` (malformed percent-escape), a repeat of the control request, and
+four cross-origin/mismatched-Host requests against both the static route and the write route.
+Critically, `kill -0 <curate pid>` confirmed the process was **still running** after the malformed
+request — pre-24-12 this same request was a fatal uncaught `URIError` that terminated the process,
+exactly the failure this report's gap 3 reproduced independently via `node -e`.
+
+### Gap 2 (criterion 2 / GAP-24-04, WR-05) — `buildPrBadgeLabels` not live-exclusion-aware
+
+**PARTIALLY closed by plan 24-13, observed by `24-VALIDATION.md` Round 3 R24 (forward direction,
+PASS) and R26 (mirror direction, FAIL). See GAP-24-05, opened in `24-VALIDATION.md`.**
+
+R24 proved the forward direction cleanly: reading the header badge container and every Best Efforts
+flags cell in the same paint immediately after Save, with no Recompute pressed, the header went from
+`PR — 400m` (pre-write) to empty, and no flags cell shows both `PR` and `Excluded` — the
+`document.body.textContent.includes('PRExcluded')` check this report's own gap 2 named is `false`.
+This is a genuine improvement over the pre-24-13 state this report reproduced.
+
+R26 attempted to close the mirror (untick) direction against an independently-derived discriminator
+— the precomputed document still saying `excludedFromRecords: true` at that moment — but the
+discriminator turned out vacuous: the same R25 Recompute that sets `excludedFromRecords: true` also
+sets `wasPRAtTheTime: false` for every distance, and both `buildPrBadgeLabels`
+(`detail-best-efforts-logic.ts:64`) and `BestEffortPanelRow.isPr` (`:162`) gate on `wasPRAtTheTime`
+before ever consulting the live document. So no PR badge could render at R26 time regardless of
+whether the live-exclusion suppression is correctly wired, and the row FAILED on its literal
+assertion (header did not read `PR — 400m` again). R27's supporting evidence — the same restored
+state, with `wasPRAtTheTime: true` and the live document empty, correctly renders `PR — 400m` — shows
+this is a checkpoint-design defect, not an implementation defect: the 24-13 code appears correct, but
+no checkpoint row constructed to date (R19 in Round 2, R26 here) has actually been able to prove the
+live-suppression half of WR-05's mirror direction, because both rows' required sequencing (Recompute
+before the untick observation) puts `wasPRAtTheTime` in a state where the live document's effect is
+unobservable either way.
+
+**Consequence for this report's Requirements Coverage row:** CUR-01 remains `NOT DEFENSIBLE AS
+TICKED` for criterion 2 — the render-half contradiction this report named is genuinely reduced (the
+forward direction is now proven, where Round 2 never verified it against a pre-write pin), but the
+mirror direction that would fully discharge WR-05 is still open, tracked as GAP-24-05.
