@@ -1,6 +1,7 @@
 ---
 phase: 24-local-curation-mode
 reviewed: 2026-09-01T20:37:28Z
+updated: 2026-09-02T10:57:43Z
 depth: standard
 diff_base: 38a3c1b
 files_reviewed: 20
@@ -27,9 +28,9 @@ files_reviewed_list:
   - tsconfig.json (read as context for CR-02/WR-10, not changed by the phase)
 findings:
   critical: 2
-  warning: 13
-  info: 12
-  total: 27
+  warning: 18
+  info: 16
+  total: 36
 status: issues_found
 ---
 
@@ -952,5 +953,434 @@ Recorded so a later round does not re-litigate ground already covered:
 ---
 
 _Reviewed: 2026-09-01T20:37:28Z_
+_Reviewer: Claude (gsd-code-reviewer)_
+_Depth: standard_
+
+---
+
+## Wave 7 Review (2026-09-02, plans 24-11/24-12/24-13)
+
+**Reviewed:** 2026-09-02T10:57:43Z
+**Depth:** standard
+**Scope:** the eight files changed after the Wave 1-6 review above —
+`scripts/lib/curation-guard.mjs`, `scripts/lib/curation-guard.test.mjs`,
+`scripts/curate-server.mjs`, `scripts/curate-server.test.mjs`,
+`src/dashboard/views/detail-best-efforts-logic.ts`,
+`src/dashboard/views/detail-best-efforts-logic.test.ts`,
+`src/dashboard/views/detail.ts`, `vitest.config.ts`.
+**Evidence:** full suite re-run green (60 files / 1531 tests / 6.53s on Node
+v25.2.1), plus five direct probes of `findCurationArtifacts` against planted
+symlink/permission/`.json` fixtures and three `http` probes of the response
+lifecycle. Findings continue the existing ID sequence (CR-03+, WR-14+, IN-13+).
+
+### Status of the three targeted findings
+
+**CR-01 — CLOSED.** `safeResolve` (`scripts/curate-server.mjs:132-151`) wraps
+`decodeURIComponent` in try/catch and returns `null` on `URIError`, so a
+malformed escape is rejected on the identical code path as a traversal. Both
+`decodeURIComponent` call sites in the file are now guarded (lines 135 and 448
+— no third site exists). The `createServer` listener (688-705) wraps the
+synchronous static branch in try/catch and the async curate branch in
+`.catch(respond500)`; because `serveCurateRoute` is an `async function`, a
+*synchronous* throw inside it also becomes a rejection and is caught, so the
+async coverage the fix claims is real rather than nominal. The real-socket
+suite proves the liveness property in-process (`GET /%` → 4xx, then
+`GET /strava-widgets/` → 200 with the overlay tag) rather than asserting about
+source text. Residual: see IN-13.
+
+**CR-02 — CLOSED as scoped.** The named regression is genuinely fixed:
+`.ts`/`.d.ts`/`.mjs` and extensionless files are now content-scanned, proven by
+three planted fixtures (`curation-guard.test.mjs:99`, `:111`, `:123`) and
+re-confirmed by direct probe. The inversion is total — I traced every
+`continue`/early-return in `walk()` and the only content-scan skip left is
+`UNSCANNED_EXTENSIONS.includes(ext)`; directories are skipped for content but
+still descended, and both name checks fire before the extension test. Two
+adjacent defects the inversion did **not** address are raised below as WR-14
+(unreadable/non-regular entries) and WR-15 (the `.json` exemption's breadth).
+
+**WR-05 — CLOSED.** `buildPrBadgeLabels` now takes a required, non-defaulted
+`liveExclusions` and computes `excluded` with the byte-identical ternary
+`buildBestEffortsPanelRows` uses; `BestEffortPanelRow.isPr` is
+`wasPRAtTheTime && !excluded` using the same locally-bound `excluded` the row
+publishes. `detail.ts` has exactly one call site for each, both reading the one
+`liveExclusions` binding from the one `Promise.all`, both after the
+`requestToken`/`mountedContainer` guard, both in the same paint — so the two
+derivations cannot disagree today. The `liveExclusions === null` fallback to
+`effort.excludedFromRecords` is correct, not a re-introduction of the old bug:
+`null` is reached only on fetch rejection, `!response.ok`, a non-object body, or
+a non-array `exclusions`, and it fails toward *keeping* a badge suppressed
+rather than clearing one. A loaded-but-empty index is a non-null `Map`, so an
+untick still clears immediately. Also verified: `badgesContainer` is created
+fresh per `renderSuccess`, so the additive `appendBadge` loop cannot duplicate
+badges on re-navigation; and the dashboard is hash-routed, so the relative
+`fetch('data/best-effort-exclusions.json')` resolves under
+`/strava-widgets/` from every detail URL. What is *not* closed is the
+durability of the fix — see WR-17.
+
+### Warnings
+
+#### WR-14: `findCurationArtifacts` throws on any non-regular or unreadable entry — the fail-closed inversion traded a blind spot for a build-abort class
+
+**File:** `scripts/lib/curation-guard.mjs:116-130`
+
+**Issue:** the walk has no `entry.isFile()` test. `readdirSync(…, {withFileTypes:true})`
+uses `lstat` semantics, so `entry.isDirectory()` is **false** for a symlink that
+points at a directory, and every non-directory entry — symlink, FIFO, socket,
+device node, mode-000 file — falls through to an unguarded
+`readFileSync(entryPath, 'latin1')`. I probed all four classes directly against
+the shipped module:
+
+```
+A dangling symlink   -> THREW ENOENT: no such file or directory, open '.../broken.js'
+B symlink to a dir   -> THREW EISDIR: illegal operation on a directory, read
+C mode-000 file      -> THREW EACCES: permission denied, open '.../secret.js'
+```
+
+(a FIFO is worse than a throw: `readFileSync` on one blocks until a writer
+appears, hanging the build with no output.) The throw escapes
+`findCurationArtifacts`, escapes `assertNoCurationArtifacts()` — which has no
+try/catch — and lands in `build-widgets.mjs:340`'s
+`buildAllWidgets().catch(...)`, which prints `Widget build failed: EISDIR:
+illegal operation on a directory, read` and exits 1. That fails *closed*, which
+is why this is a Warning and not a Critical, but the operator-facing message
+names neither the curation guard nor the offending path, so the developer is
+handed the least actionable possible form of a build failure. The docblock's
+claim that latin1 means "scanning arbitrary bytes can never throw" is true of
+the *decode* and false of the *read*, which is the step that actually throws.
+
+**Fix:**
+
+```js
+if (!entry.isFile()) {
+  // Symlinks, FIFOs, sockets and device nodes are never legitimate publish
+  // artifacts; report rather than read (readFileSync on a dir-symlink throws
+  // EISDIR, on a FIFO it blocks forever).
+  violations.push({ path: entryPath, reason: 'not a regular file — the published bundle must contain only regular files and directories' });
+  continue;
+}
+
+let content;
+try {
+  content = readFileSync(entryPath, 'latin1');
+} catch (error) {
+  violations.push({ path: entryPath, reason: `could not be read for scanning (${error.code ?? error.message}) — an unscannable file cannot be certified free of the "${CURATE_MARKER}" marker` });
+  continue;
+}
+```
+
+#### WR-15: the `.json` exemption is extension-scoped, not path-scoped — it exempts 5,588 of the 5,727 published files, including the only directory curate actually writes into
+
+**File:** `scripts/lib/curation-guard.mjs:44-49, 117`
+
+**Issue:** the docblock justifies the exemption with exactly one file
+(`dist/widgets/data/best-effort-exclusions.json`) but implements it as an
+extension match. Measured against the real publish tree:
+
+```
+5588 .json      64 .js      44 .map      22 .ts      5 .html      2 .css      2 .DS_Store
+total files: 5727
+```
+
+So the guard content-scans 139 files and skips 5,588 — **97.6% of the published
+tree is exempt**, on the strength of a one-file rationale. The CR-02 inversion
+moved scanned coverage from 115 files to 139; the dominant blind spot is
+unchanged and is now explicitly blessed by a comment that reads as though the
+guard is thorough. Verified by probe: a marker planted in `index.json` returns
+`[]`.
+
+```
+E marker in index.json -> []
+```
+
+This matters concretely rather than theoretically, because
+`dist/widgets/data/**` is the *only* part of the published tree curate itself
+writes into — `mirrorExclusions()` (`curate-server.mjs:308-316`) and the
+`copyJsonTree(dir.src, dir.dest)` loop in `handleRecompute` (569-571) both land
+inside the exempt region. The one code path that could plausibly leak curate
+state into `dist/widgets` is the one path the guard cannot see.
+
+**Fix:** exempt the single known-public path instead of the extension, so any
+*other* `.json` is scanned:
+
+```js
+// The ONE published file whose contents may legitimately carry the marker
+// (a developer-written reason string). Everything else, including every
+// other .json, is content-scanned.
+export const UNSCANNED_RELATIVE_PATHS = ['data/best-effort-exclusions.json'];
+// …in walk():
+const rel = relative(publishDir, entryPath);
+if (UNSCANNED_RELATIVE_PATHS.includes(rel)) continue;
+```
+
+#### WR-16: the new whole-tree regression suite repeats WR-11's `URL.pathname` bug and can silently skip itself
+
+**File:** `scripts/lib/curation-guard.test.mjs:25-27, 207`
+
+**Issue:** WR-11 above flagged `new URL(...).pathname` as a repo-root
+derivation that can silently skip an entire D-11 proof. The new whole-tree
+block added in this wave uses the identical construction:
+
+```js
+const REPO_ROOT = path.resolve(new URL('../..', import.meta.url).pathname);
+const DIST_WIDGETS_INDEX_HTML = path.resolve(DIST_WIDGETS, 'index.html');
+…
+describe.skipIf(!existsSync(DIST_WIDGETS_INDEX_HTML))(…)
+```
+
+`URL.pathname` is percent-**encoded**: a checkout under a path containing a
+space or any non-ASCII character yields `/Users/…/my%20repo/…`, `existsSync`
+returns false, and `describe.skipIf` skips the suite reporting success. This is
+the only assertion in the repo that would catch the new fail-closed scan
+producing a false positive against real published artifacts, so its silent
+disappearance is exactly the never-red-guard failure mode the file's own header
+comment cites Phase 19 R3-CR-01 and Phase 23 WR-06 against. Note also that the
+three script test files now derive the repo root three different ways —
+`process.cwd()` (`curate-server.test.mjs:33`), `new URL('..').pathname`
+(`verify-dashboard-publish-guard.test.mjs:30`) and `new URL('../..').pathname`
+(here).
+
+**Fix:**
+
+```js
+import { fileURLToPath } from 'node:url';
+const REPO_ROOT = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
+```
+
+and apply the same change at `verify-dashboard-publish-guard.test.mjs:30` so
+all three files agree.
+
+#### WR-17: the WR-05 mirror is enforced by a duplicated ternary and a comment — nothing structural or test-level stops the two derivations diverging again
+
+**File:** `src/dashboard/views/detail-best-efforts-logic.ts:65-68` and `152-155`;
+`src/dashboard/curation-seam.test.ts:127-135`
+
+**Issue:** the fix is correct today but its correctness rests on two verbatim
+copies of the same four lines staying verbatim:
+
+```ts
+const excluded =
+  liveExclusions !== null
+    ? isExcluded(liveExclusions, entry.activityId, distance)
+    : effort.excludedFromRecords;
+```
+
+The docblock asserts the two "cannot diverge" *because* the shape is the same —
+but copy-paste is the mechanism by which they diverge, and the original WR-05
+defect was precisely one of these two sites reading a different source. The
+test layer does not close the gap either. `curation-seam.test.ts` pins only
+`buildBestEffortsPanelRows`'s arity, with a regex that accepts literally any
+three arguments:
+
+```js
+expect(detailStripped).toMatch(/buildBestEffortsPanelRows\([^)]*,[^)]*,[^)]*\)/);
+```
+
+There is no equivalent pin for `buildPrBadgeLabels`'s call site, and nothing at
+all asserts that the *same* value is handed to both. `tsc` cannot help: a future
+`buildPrBadgeLabels(bestEffortsEntry, null)` alongside
+`buildBestEffortsPanelRows(bestEffortsEntry, ageGrading, liveExclusions)` type-checks
+cleanly and silently reinstates the exact header-vs-panel contradiction. Since
+GAP-24-05 already records that no checkpoint row can observe this mirror
+direction, the code and its unit tests are the *only* available evidence — and
+they cover the fixed behaviour without covering the divergence mode.
+
+**Fix:** make divergence structurally impossible rather than conventionally
+discouraged — one exported helper both functions call:
+
+```ts
+/** The single definition of "is this effort excluded right now". */
+export function resolveExcluded(
+  liveExclusions: ExclusionIndex | null,
+  activityId: string,
+  distance: TargetDistanceKey,
+  effort: { excludedFromRecords: boolean }
+): boolean {
+  return liveExclusions !== null
+    ? isExcluded(liveExclusions, activityId, distance)
+    : effort.excludedFromRecords;
+}
+```
+
+and add one seam assertion pinning that `detail.ts` passes the same identifier
+to both call sites, e.g.
+`expect(detailStripped).toContain('buildPrBadgeLabels(bestEffortsEntry, liveExclusions)')`.
+
+#### WR-18: `fileParallelism: false` is the right call, but it is guarded by nothing except a comment
+
+**File:** `vitest.config.ts:9-15`
+
+**Issue:** the diagnosis is correct and the mechanism is sufficient — vitest
+runs test files one at a time, so `curation-guard.test.mjs`'s whole-tree read
+can no longer overlap `verify-dashboard-publish-guard.test.mjs`'s plant/remove
+window on the real `dist/widgets`. I confirmed the stated cost: the full suite
+is 6.53s wall for 60 files / 1531 tests, matching the comment's "~6.6s". I also
+checked the remaining shared-real-tree mutations and found only the one file
+(`verify-dashboard-publish-guard.test.mjs`, which cleans up in both a `finally`
+and an `afterEach`); serialization strictly *shrinks* the residue window that
+WR-12 describes, rather than widening it. So the trade is defensible and I am
+not asking for it to be reverted.
+
+What is defective is its durability. The invariant lives entirely in a comment:
+delete the line and every test still passes, on most runs, forever — until a
+CI run interleaves the two files and produces an unreproducible failure whose
+cause is a config line nobody deleted on purpose. This phase repeatedly pins
+structural facts with tests instead (the "listener symmetry" suite at
+`curate-server.test.mjs:437` and the "OD-2 call-site ordering" suite at
+`curation-guard.test.mjs:170` both exist for exactly this reason); the config
+change is the one structural fact in the wave left unpinned. Note too that the
+underlying coupling is untouched: two test files still share one mutable real
+directory, and serialization only makes the sharing safe by accident of
+scheduling.
+
+**Fix:** either pin it —
+
+```js
+// scripts/lib/curation-guard.test.mjs
+it('vitest runs test files serially — this suite reads the real dist/widgets that verify-dashboard-publish-guard.test.mjs plants into', async () => {
+  const config = readFileSync(new URL('../../vitest.config.ts', import.meta.url), 'utf8');
+  expect(config).toMatch(/fileParallelism:\s*false/);
+});
+```
+
+— or remove the coupling by moving the whole-tree regression `it(...)` into
+`verify-dashboard-publish-guard.test.mjs`, where sequential execution within a
+single file is guaranteed by vitest's own semantics and the config change
+becomes unnecessary.
+
+### Info
+
+#### IN-13: `respond500` — the crash safety net can itself throw, and it echoes internal error text to the client
+
+**File:** `scripts/curate-server.mjs:677-682`
+
+**Issue:** `res.end(\`Internal Server Error: ${error.message}\`)` dereferences
+`error` unconditionally. A rejection or throw carrying `null`/`undefined` makes
+the handler throw a `TypeError`; from the synchronous branch that escapes the
+listener as an uncaught exception, and from the `.catch(...)` branch it becomes
+an unhandled rejection, fatal by default on Node 25 — i.e. the same process-kill
+outcome CR-01 existed to prevent, reached through the fix itself. Likelihood is
+low (it needs a non-object thrown value) which is why this is Info, not a
+Warning. Separately, interpolating `error.message` puts filesystem paths and
+internal failure text into the response body; for a localhost-only tool that is
+acceptable, but the console is the better destination.
+
+**Fix:**
+
+```js
+function respond500(res, error) {
+  console.error('curate: request failed —', error);
+  if (!res.headersSent) res.writeHead(500, { 'Content-Type': 'text/plain' });
+  res.end(`Internal Server Error: ${error?.message ?? String(error)}`);
+}
+```
+
+#### IN-14: the `UNSCANNED_EXTENSIONS` test passes for an empty list and for an expanded one
+
+**File:** `scripts/lib/curation-guard.test.mjs:159-167`
+
+**Issue:** the assertions are one `toContain('.json')` plus six `not.toContain`
+checks for extensions nobody would add. They pass unchanged if a future edit
+appends `.png`, `.svg`, `.woff2` or `.wasm` — which is precisely the collateral
+widening the module's own docblock argues against, and the erosion path back
+toward CR-02.
+
+**Fix:** `expect(UNSCANNED_EXTENSIONS).toEqual(['.json']);` — one assertion that
+pins both membership and length.
+
+#### IN-15: `scanExtension`'s parameter is named for a path but is called with a bare name, and a file literally named `.json` is exempt
+
+**File:** `scripts/lib/curation-guard.mjs:65-69, 116`
+
+**Issue:** the helper declares `function scanExtension(entryPath)` and is called
+`scanExtension(entry.name)`. The call is the correct one — passing the full path
+would let a dotted *directory* name in the ancestry (`/tmp/build.v2/overlay`)
+produce a bogus extension — but the parameter name documents the dangerous form
+as the intended one. Related dotfile edge, confirmed by probe: a file named
+exactly `.json` has `lastIndexOf('.') === 0`, yielding ext `.json`, so it is
+skipped entirely.
+
+```
+D dotfile named ".json" containing the marker -> []
+```
+
+**Fix:** rename the parameter to `entryName`, and derive the extension only from
+a name with a non-zero dot index (`const lastDot = name.lastIndexOf('.'); if (lastDot <= 0) return null;`).
+WR-15's path-scoped exemption removes this edge entirely.
+
+#### IN-16: the D-09 "never invoke git" test matches only a single-quoted literal
+
+**File:** `scripts/curate-server.test.mjs:418-420`
+
+**Issue:** `nonCommentLines.some((line) => line.includes("'git'"))` fails open
+for `spawn("git", …)`, for a backtick literal, and for any computed argument.
+D-09 (no code path may invoke `git`, because a commit reaching origin triggers
+a full rebuild and deploy) is one of the phase's load-bearing constraints, and
+its only automated guard is a single-quote string match. The comment-stripping
+filter is also line-start-anchored, so a trailing `// 'git'` comment would
+false-positive — the harmless direction, but it shows the matcher is textual
+rather than structural.
+
+**Fix:** assert on the spawn arguments instead of the quoting style, e.g.
+`expect(nonCommentLines.some((l) => /spawn\(\s*['"\`]git/.test(l))).toBe(false)`
+plus `expect(SOURCE).not.toMatch(/child_process[\s\S]{0,200}git/)`.
+
+### Previously-raised findings still present in these files (no new IDs)
+
+Re-confirmed as unfixed while reading the current source; listed so the wave-7
+counts are not mistaken for a clean bill on the whole file:
+
+- **WR-02** — `readJsonBody` still calls `req.destroy()` before the caller can
+  write the 413 (`curate-server.mjs:409-413` → `464-466`).
+- **WR-08** — `/__curate/recompute` still has no concurrency guard, no
+  `req.on('close')` abort handling and no `child.kill()`; two presses still
+  spawn two concurrent `compute-best-efforts` writers over the same outputs.
+- **WR-12** — `fileParallelism: false` narrows but does not remove the
+  shared-real-`dist/widgets` coupling; an interrupted run still leaves
+  `dist/widgets/__curate` planted.
+- **IN-02** (unreachable 405), **IN-11** (DELETE body never drained),
+  **IN-12** (`.DS_Store` in the published tree — still 2 of them).
+
+### Verified-Correct in Wave 7 (checked adversarially, no finding)
+
+- **No bypass of the new static gate.** Every write route (`PUT`/`DELETE`
+  exclusions, `POST` recompute) and now the static route call
+  `isTrustedOrigin(req, EXPECTED_HOST)` first; the only ungated handlers are the
+  two documented GETs (`/__curate/health`, `/__curate/overlay.js`), neither of
+  which reads or writes state. `isCurateRoute` does *not* decode while
+  `safeResolve` does, and I checked both directions: an encoded
+  `/%5F%5Fcurate/...` misses the curate branch and is then rejected by
+  `safeResolve` as outside the mount, and no `/strava-widgets/...` path can
+  reach the curate branch.
+- **Legitimate loads are not broken.** A normal navigation sends a matching
+  `Host` and no `Origin` → allowed; a same-origin non-safe fetch sends
+  `Origin: http://127.0.0.1:4173` → allowed; `Origin: null` and a malformed
+  Origin both fail closed. Confirmed live by the suite's case 5 control (200)
+  against cases 3 and 4 (403).
+- **The exclusions read-modify-write cannot interleave.**
+  `persistExclusions(applyUpsert(readExclusionsFile(), …))` is a single
+  synchronous block placed after the handler's only `await`, so two concurrent
+  PUTs cannot lose an update on Node's single-threaded loop — the atomic
+  `renameSync` is belt to that braces.
+- **Response-lifecycle robustness probed, not assumed.** On Node v25.2.1 a
+  `res.write()` after a client abort and a `res.write()`/`res.end(chunk)` after
+  the response has finished all return without crashing the process; I probed
+  all three rather than inferring, and dropped a suspected crash class as a
+  result.
+- **latin1 is the right read encoding.** The real tree contains two `.DS_Store`
+  binaries which the inverted scan now reads; they decode without throwing and
+  the ASCII marker match is unaffected.
+- **Symlink cycles cannot make `walk()` recurse forever** — `Dirent.isDirectory()`
+  is false for symlinks, so the walker never follows one (it reads it instead;
+  see WR-14).
+- **`.curate-dist/` is gitignored**, so the overlay bundle cannot be committed to
+  the public repo; the guard's file-name check for a stray copy inside
+  `dist/widgets` is complementary, not redundant.
+- **WR-05's fix has real test coverage of both directions** — including the R19
+  mirror image (a loaded-and-empty index overriding a stale `true` precomputed
+  flag) and an explicit over-suppression control, not just the happy path.
+
+---
+
+_Wave 7 reviewed: 2026-09-02T10:57:43Z_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
