@@ -94,3 +94,13 @@ lists only `scripts/curate-server.mjs`.
 **Disposition:** Not fixed, same reasoning as the 24-01/24-02 entries — requires either a full
 `compute-*` pipeline run (real archive data, out of scope) or committing gitignored artifacts.
 Left for the orchestrator's merge-back into the main checkout.
+---
+
+**24-13 confirmation:** Same 6-file ENOENT pattern reproduced verbatim in this plan's worktree
+(`.claude/worktrees/agent-a4e81cd0a136ff64d`) — `data/stats/*.json` and
+`node_modules/chartjs-plugin-zoom/...` still absent, none of the 6 failing files
+(`trends-*-logic.test.ts`, `trends-zoom-logic.test.ts`) touched by this plan's 3 files
+(`detail-best-efforts-logic.ts`, `detail-best-efforts-logic.test.ts`, `detail.ts`).
+`npx vitest run src/dashboard/views/detail-best-efforts-logic.test.ts` — 26/26 pass.
+`npm test`'s own tally: 0 assertion failures, 1369/1369 executed tests pass; only the 6
+pre-existing file-level ENOENT failures. Not fixed, same disposition as 24-02's entry above.

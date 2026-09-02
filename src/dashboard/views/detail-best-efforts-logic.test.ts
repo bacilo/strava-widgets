@@ -31,12 +31,12 @@ function activity(overrides: Partial<ActivityBestEfforts> = {}): ActivityBestEff
 
 describe('buildPrBadgeLabels', () => {
   it('returns [] for a null entry', () => {
-    expect(buildPrBadgeLabels(null)).toEqual([]);
+    expect(buildPrBadgeLabels(null, null)).toEqual([]);
   });
 
   it('returns [] for an entry with no PR-setting efforts', () => {
     const entry = activity({ efforts: [effort({ distance: '5k', wasPRAtTheTime: false })] });
-    expect(buildPrBadgeLabels(entry)).toEqual([]);
+    expect(buildPrBadgeLabels(entry, null)).toEqual([]);
   });
 
   it('two PR distances yield exactly two labels, in TARGET_ORDER, with the exact "PR — 5K" formatting', () => {
@@ -47,7 +47,7 @@ describe('buildPrBadgeLabels', () => {
         effort({ distance: '1mi', wasPRAtTheTime: false }),
       ],
     });
-    expect(buildPrBadgeLabels(entry)).toEqual(['PR — 5K', 'PR — 10K']);
+    expect(buildPrBadgeLabels(entry, null)).toEqual(['PR — 5K', 'PR — 10K']);
   });
 
   it('an excluded PR-setting effort yields no badge for it', () => {
@@ -57,7 +57,7 @@ describe('buildPrBadgeLabels', () => {
         effort({ distance: '10k', wasPRAtTheTime: true, excludedFromRecords: false }),
       ],
     });
-    expect(buildPrBadgeLabels(entry)).toEqual(['PR — 10K']);
+    expect(buildPrBadgeLabels(entry, null)).toEqual(['PR — 10K']);
   });
 
   it('formats every distance display name correctly', () => {
@@ -70,7 +70,7 @@ describe('buildPrBadgeLabels', () => {
         effort({ distance: 'marathon', wasPRAtTheTime: true }),
       ],
     });
-    expect(buildPrBadgeLabels(entry)).toEqual([
+    expect(buildPrBadgeLabels(entry, null)).toEqual([
       'PR — 400m',
       'PR — 1K',
       'PR — 1 Mile',
@@ -259,11 +259,85 @@ describe('GAP-24-01 — panel row exclusion derives from the live exclusions fil
     expect(rows.every((r) => r.excluded === false)).toBe(true);
   });
 
-  it('non-regression: buildPrBadgeLabels still takes exactly one argument and still gates on effort.excludedFromRecords only, with no live state available at all', () => {
+});
+
+describe('WR-05 — the header PR badges and the panel rows never disagree in one paint', () => {
+  it('post-Save, pre-Recompute: a live index marking the whole activity excluded suppresses every header badge', () => {
     const entry = activity({
       activityId: 'a1',
       efforts: [effort({ distance: '5k', wasPRAtTheTime: true, excludedFromRecords: false })],
     });
-    expect(buildPrBadgeLabels(entry)).toEqual(['PR — 5K']);
+    const liveExclusions: ExclusionIndex = new Map([['a1', 'all']]);
+    expect(buildPrBadgeLabels(entry, liveExclusions)).toEqual([]);
+  });
+
+  it('a distance-scoped live entry suppresses only the distances it names (D-05 read tolerance)', () => {
+    const entry = activity({
+      activityId: 'a1',
+      efforts: [
+        effort({ distance: '5k', wasPRAtTheTime: true, excludedFromRecords: false }),
+        effort({ distance: '10k', wasPRAtTheTime: true, excludedFromRecords: false }),
+      ],
+    });
+    const liveExclusions: ExclusionIndex = new Map([['a1', new Set(['5k'])]]);
+    expect(buildPrBadgeLabels(entry, liveExclusions)).toEqual(['PR — 10K']);
+  });
+
+  it('R19 mirror-image: a loaded-and-empty live index overrides a stale true precomputed flag', () => {
+    const entry = activity({
+      activityId: 'a1',
+      efforts: [effort({ distance: '5k', wasPRAtTheTime: true, excludedFromRecords: true })],
+    });
+    const liveExclusions: ExclusionIndex = new Map();
+    expect(buildPrBadgeLabels(entry, liveExclusions)).toEqual(['PR — 5K']);
+  });
+
+  it('a null live index means UNKNOWN and falls back to the precomputed flag, never to NOT-EXCLUDED', () => {
+    const entry = activity({
+      activityId: 'a1',
+      efforts: [
+        effort({ distance: '5k', wasPRAtTheTime: true, excludedFromRecords: true }),
+        effort({ distance: '10k', wasPRAtTheTime: true, excludedFromRecords: false }),
+      ],
+    });
+    expect(buildPrBadgeLabels(entry, null)).toEqual(['PR — 10K']);
+  });
+
+  it('PRExcluded: the R15 contradiction reproduced as one assertion over both derivations from the same index', () => {
+    const entry = activity({
+      activityId: 'a1',
+      efforts: [
+        effort({ distance: '400m', wasPRAtTheTime: true, excludedFromRecords: false }),
+        effort({ distance: '5k', wasPRAtTheTime: false, excludedFromRecords: false }),
+      ],
+    });
+    const liveExclusions: ExclusionIndex = new Map([['a1', 'all']]);
+
+    const labels = buildPrBadgeLabels(entry, liveExclusions);
+    const rows = buildBestEffortsPanelRows(entry, null, liveExclusions);
+
+    expect(labels).toEqual([]);
+    expect(rows.some((r) => r.isPr === true && r.excluded === true)).toBe(false);
+    expect(rows.every((r) => r.excluded === true)).toBe(true);
+  });
+
+  it('isPr is suppressed for a live-excluded row even when wasPRAtTheTime is true — buildPrFlagsCell renders isPr and excluded into the same <td>', () => {
+    const entry = activity({
+      activityId: 'a1',
+      efforts: [effort({ distance: '5k', wasPRAtTheTime: true, excludedFromRecords: false })],
+    });
+    const liveExclusions: ExclusionIndex = new Map([['a1', 'all']]);
+    const rows = buildBestEffortsPanelRows(entry, null, liveExclusions);
+    expect(rows.every((r) => r.isPr === false)).toBe(true);
+  });
+
+  it('isPr is NOT suppressed when the live index is loaded and does not name the activity — stops the fix over-suppressing', () => {
+    const entry = activity({
+      activityId: 'a1',
+      efforts: [effort({ distance: '5k', wasPRAtTheTime: true, excludedFromRecords: true })],
+    });
+    const liveExclusions: ExclusionIndex = new Map();
+    const rows = buildBestEffortsPanelRows(entry, null, liveExclusions);
+    expect(rows.find((r) => r.distance === '5k')?.isPr).toBe(true);
   });
 });
