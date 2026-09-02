@@ -104,3 +104,37 @@ Left for the orchestrator's merge-back into the main checkout.
 `npx vitest run src/dashboard/views/detail-best-efforts-logic.test.ts` — 26/26 pass.
 `npm test`'s own tally: 0 assertion failures, 1369/1369 executed tests pass; only the 6
 pre-existing file-level ENOENT failures. Not fixed, same disposition as 24-02's entry above.
+
+## 24-15: same recurring worktree environment gap, plus the same `verify-dashboard-publish-guard.test.mjs` FATAL as 24-12's entry once a real build exists
+
+**Logged:** 2026-09-02, plan 24-15, Task 2
+
+Before Task 2's build-level proof, `npm test` in this worktree
+(`.claude/worktrees/agent-a54c473f3ab653895`) reported the familiar 6-file ENOENT pattern with
+**0 assertion failures** (`data/stats/*.json` and `node_modules/chartjs-plugin-zoom/...` absent;
+`verify-dashboard-publish-guard.test.mjs`'s 5 tests self-skipped via its own
+`describe.skipIf(!existsSync(INDEX_HTML))` guard, since `dist/widgets/index.html` did not yet
+exist — only the gitignore-tracked `dist/widgets/test.html`).
+
+Task 2's own action REQUIRES a real `npm run build-widgets` against the real `dist/widgets` tree
+(the plan's stated deliverable is the operator-facing build message, not a unit assertion), so
+Task 1's `dist/widgets/index.html` came into existence as a side effect of doing the task
+correctly. That un-skips `verify-dashboard-publish-guard.test.mjs`'s suite, which then FATALs
+identically to 24-12's entry above: its `main()` invocation needs
+`dist/widgets/data/dashboard/index.json` (`compute-dashboard-index` output, itself needing
+`dist/index.js` from `npm run build` plus real archive data — out of this plan's scope, never
+produced in this worktree). Post-Task-2 `npm test`: 7 failed files, 4 assertion failures inside
+`verify-dashboard-publish-guard.test.mjs`, 1390/1394 tests pass — the same two pre-existing
+classes as 24-12, not caused by `scripts/lib/curation-guard.mjs`.
+
+**Verified in-scope tests are clean:** `npx vitest run scripts/lib/curation-guard.test.mjs` —
+21/22 pass, 1 skipped (the real-tree `describe.skipIf` regression case, which also self-skips
+until a build exists; run separately against the Task-2 build and confirmed `[]`). `npx tsc
+--noEmit` exits 0. `git status --porcelain` after Task 2 completes lists no tracked-file changes
+(the build output is gitignored) — `git diff --name-only` for this plan's two commits lists only
+`scripts/lib/curation-guard.mjs` and `scripts/lib/curation-guard.test.mjs`.
+
+**Disposition:** Not fixed, same reasoning as every prior entry in this file — requires either a
+full `compute-*` pipeline run (real archive data, out of scope) or committing gitignored
+artifacts. Left for the orchestrator's merge-back into the main checkout, where
+`data/stats/`/`data/dashboard/` already exist and `npm test` is expected to run fully green.

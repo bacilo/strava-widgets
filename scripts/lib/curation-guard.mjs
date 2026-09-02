@@ -34,8 +34,8 @@
  *      today — the CR-02 regression this inverted shape prevents. The file
  *      is read as `latin1` (see the read site below), which makes the
  *      DECODE total — every byte sequence decodes without throwing or
- *      lossily replacing. That is NOT true of the READ itself: an
- *      `entry.isFile()` gate now precedes the read (WR-14), because
+ *      lossily replacing. That is NOT true of the READ itself: a
+ *      "must be a regular file" gate now precedes the read (WR-14), because
  *      `readdirSync`'s `withFileTypes` uses `lstat` semantics, so a
  *      symlink — dangling, to a directory, or to anything else — a FIFO,
  *      a socket, or a device node all have `isDirectory() === false` and
