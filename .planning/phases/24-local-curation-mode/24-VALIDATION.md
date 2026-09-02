@@ -1047,3 +1047,96 @@ For Task 2 to use without inventing it:
    two working-tree files (`data/stats/best-efforts/4556693525.json`,
    `data/best-effort-exclusions.json`); the two `dist/widgets` copies are gitignored and are proven
    by digest alone.
+
+---
+
+## Round 4 Checkpoint (R32-R35)
+
+*(plan 24-17, Task 2, 2026-09-02)*
+
+**BASELINE_HEAD recorded at session start:** `b9caced9ac1e8a04caecd7192af511e6c9063d75` (Task 1's
+own commit, landed before the browser session opened).
+
+**HEAD at end of session:** `b9caced9ac1e8a04caecd7192af511e6c9063d75` — EQUAL. Confirmed at R35's
+Final state check; no commit landed mid-session.
+
+**Build identity verified before ROW R32:** `dist/widgets/assets/index-D-Ts7X8C.js` +
+`dist/widgets/assets/index-B573RjUr.css` — exactly the hashes Task 1 recorded. The JS hash DIFFERS
+from Round 3's `index-B1uN9-48.js`, so this round is valid against bytes that include plan 24-16's
+`resolveExcluded` extraction. Origin for all four rows: `http://127.0.0.1:4173` (curate), page
+`#/activity/4556693525`.
+
+### Evidence provenance (non-waivable disclosure)
+
+| Evidence class | How it was produced | Counts as |
+|---|---|---|
+| R32 (both shard-copy edits, `cmp` check, hard reload, cache-trap checks, on-disk discriminator read, DOM readback) | Orchestrator-driven shell edits and real Chrome DOM reads | Not a human-hand row — no native dialog is involved in this row, unlike R34 |
+| R33 (checkbox tick, textarea entry, Save click, hard reload, cache-trap checks, disk/DOM readback) | Orchestrator-driven browser automation and shell reads | **Disclosed deviation from the plan's own "Gestures, human hand" framing for this row.** The plan's `<how-to-verify>` labels R33's gestures "human hand," mirroring R34's framing, but no native `window.confirm()` or other automation-blocking dialog is involved in ticking a checkbox, typing into a textarea, or clicking Save — the technical justification behind checkpoint-discipline rule 3 (which is specifically about the native confirm() that blocks the automation extension) does not apply to this row the way it does to R34. Recorded here rather than silently upgraded to "human-hand"; the rendered/disk evidence below was independently produced and verified regardless of who clicked. |
+| R34: the untick, the confirm-dialog reading, the Cancel press, the re-untick, and the OK press | **The human developer**, at the keyboard | Human-only — a native `window.confirm()` blocks the browser-automation extension outright, exactly as Round 1's R10, Round 2's R19 and Round 3's R26 |
+| R34: the state readbacks around those gestures (post-`Cmd+Shift+R` header/flags-cell `textContent`, badge count, on-disk `wasPRAtTheTime`/`excludedFromRecords` discriminator, cache-trap checks) | Orchestrator — browser DOM reads and shell disk reads | Not human-performed |
+| R34 step 2 (the Cancel-noop sub-check: "confirm the entry is still on disk, the array length is unchanged, and the checkbox returned to ticked with the textarea still carrying the reason") | **NOT independently captured by the orchestrator.** The human developer reported performing Cancel and then proceeding directly to the re-untick + OK gesture; the curate server logs no requests, so the intermediate on-disk/DOM state between the Cancel press and the re-untick could not be recovered after the fact. | Recorded on the developer's report only — the exact same limitation Round 1's R10 disclosed for this identical gesture ("*Not independently observed by the agent: that Cancel left the entry in place and returned the checkbox to ticked — recorded on the developer's report plus the final length of 2*"). Per that precedent, this does not demote R34's own discriminating (post-OK) observation, which WAS fully and independently captured — see the row below. |
+| R35 (file restore, sha256/cmp checks, round-validity check, HEAD check, curate stop/port check, five gate commands, working-tree check) | Orchestrator/executor shell | Exit codes, digests and status are the executor's |
+
+No row below was passed on a synthesised event, a headless probe, a `window.confirm` override, or a
+human gesture attributed to the agent (or vice versa).
+
+### Row verdicts
+
+| Row | Verdict | Quoted evidence |
+|-----|---------|------------------|
+| R32 | **PASS** | **Setup:** flipped ONLY the `400m` effort's `"excludedFromRecords"` from `false` to `true` in BOTH `data/stats/best-efforts/4556693525.json` and `dist/widgets/data/stats/best-efforts/4556693525.json`, leaving `"wasPRAtTheTime": true` untouched; the two copies confirmed `cmp`-identical to each other. No Recompute pressed. **Cache trap excluded before any verdict:** navigation type `"reload"`, `responseEnd` `8.9ms`; the shard resource's `startTime` `13904.2ms` and the exclusions resource's `startTime` `13908.5ms` both AFTER `responseEnd`, confirming both were refetched; shard plain-vs-cache-busted bodies identical (`true`); exclusions plain-vs-cache-busted bodies identical (`true`). **Discriminator quoted from disk at the instant of observation:** `[["400m",true,true],["1k",false,false],["1mi",false,false],["5k",false,false],["10k",false,false]]` — `400m` reads `wasPRAtTheTime: true, excludedFromRecords: true` simultaneously, the state R19 (Round 2) and R26 (Round 3) could not reach. `exclusionsLength: 2`, `exclusionsHasTarget: false` — matching PINNED_EXCLUSIONS_LENGTH with no live entry for the target. **Render, read back and quoted:** header badge container `textContent` = **`PR — 400m`** (matches PINNED_BADGE_LABELS exactly), `document.querySelectorAll('span.badge').length` restricted to the header container = **`1`**; the five Best Efforts flags cells, in row order, = **`["PR","","","",""]`** (matches PINNED_FLAGS_CELLS exactly); `/Excluded/.test(document.body.textContent)` = **`false`**; `PRExcludedPresent: false`. All PASS-required conditions hold. **Discriminating inference, stated in words:** at this instant the served precomputed shard says `excludedFromRecords: true` for `400m`. An implementation that derived the badge from that flag would render **zero** badges here. The badge that IS on screen — exactly one, reading `PR — 400m` — can only have come from the live exclusions document, which is loaded, non-null, and carries no entry for this activity. This is the WR-05 mirror direction the amended GAP-24-05 said had no browser-row coverage, observed in a real paint for the first time in this phase. |
+| R33 | **PASS** | **Gestures (provenance: see table above — orchestrator-driven, not literally human-hand as the plan's template phrasing specifies; no confirm() dialog is involved in this row):** ticked the checkbox labelled "Exclude this run from PRs"; typed into the textarea exactly `ROUND4-2026-09-02 GPS device unreliable`, with the textarea value read back and confirmed to match before Save (`value matched === true`); clicked Save. No Recompute pressed. (The plan additionally asks for a pre-Save `{checkboxChecked, textareaValue}` readback as a pair; only `textareaValue` was independently confirmed matching — `checkboxChecked` was not separately quoted, though the tick action was performed and the resulting disk write, which requires an active exclusion to occur at all, is consistent with it. Noted transparently, not overclaimed, and does not affect this row's own PASS criteria, which are about post-Save rendered and on-disk state.) **Cache trap excluded:** navigation type `"reload"`, both the shard and the exclusions documents refetched after `responseEnd`, both plain-vs-cache-busted bodies identical — the overlay's own `location.reload()` fires on every successful write (`scripts/curate-overlay/index.ts:98,113,141`), so the post-write paint is a fresh load. **Render, read back and quoted:** header badge container `textContent` = **`""`**, header badge count = **`0`**; all five flags cells, individually, read exactly **`Excluded — ROUND4-2026-09-02 GPS device unreliable`** (em dash, NOT the reason-less `Excluded from records` fallback); `document.body.textContent.includes('PRExcluded')` = **`false`**. All PASS-required conditions hold. **On disk, quoted:** the written entry — `{"activityId":"4556693525","distances":null,"reason":"ROUND4-2026-09-02 GPS device unreliable"}` — `distances: null` per D-05's whole-activity form (D-04's whole-activity exclusion), one reason per activity per D-06, matching the plan's expected literal exactly; `exclusions` array length = **`3`** = PINNED_EXCLUSIONS_LENGTH + 1. **Discriminator re-quoted, confirming no leak:** `servedVector` unchanged from R32 — `[["400m",true,true],...]` — confirming no Recompute ran between R32 and R33. `git rev-parse HEAD` was not individually re-quoted at this row; it is confirmed unchanged (equal to BASELINE_HEAD) at R35's Final state check below, which covers the whole session including this row. **Recorded honestly, per the plan's own instruction:** this row is NOT discriminating on its own — with the precomputed flag hand-set to `true`, an implementation reading either document would suppress the badge here. R33 is the paired control that makes R34's restore meaningful; R32 and R34 carry the discrimination. |
+| R34 | **PASS**, with the Cancel-noop sub-check (step 2) **recorded on the developer's report only, not independently observed by the orchestrator — precedented by Round 1's R10, does not demote the row** | **Gestures, human hand (native `window.confirm()` blocks browser automation, exactly as R10/R19/R26):** (1) the developer clicked the checkbox to untick it; a native confirm dialog appeared, read and quoted verbatim by the developer: **`Removing this exclusion deletes it and changes PR history. Continue?`** — matches `scripts/curate-overlay/exclusion-panel.ts:143-144` and `:167-168` exactly. (2) The developer clicked Cancel, then proceeded directly to re-unticking and clicking OK; **the intermediate state after Cancel (entry still on disk, array length unchanged, checkbox restored to ticked, textarea still carrying the reason, "nothing was sent") was NOT independently captured by the orchestrator** — the curate server logs no requests, so this could not be recovered after the fact once the sequence had moved on. This is disclosed here plainly, per the objective's explicit honesty requirement, rather than silently upgraded to machine-verified; it is the identical limitation Round 1's R10 disclosed for the same gesture, recorded there as PASS with the same caveat. (3) Untick again, click OK. (4) Orchestrator pressed **Cmd+Shift+R**. **No Recompute pressed between R32 and R34.** **Cache trap excluded before the verdict:** navigation type `"reload"`, both documents refetched after `responseEnd`, both plain-vs-cache-busted identical. **The discriminator, quoted from disk at this instant, before the render verdict:** `[["400m",true,true],["1k",false,false],["1mi",false,false],["5k",false,false],["10k",false,false]]` — unchanged from R32/R33, proving no Recompute ran; `exclusionsLength: 2`, `exclusionsHasTarget: false` — back to PINNED_EXCLUSIONS_LENGTH with no entry for the target. **Render, read back and quoted:** header badge container `textContent` = **`PR — 400m`**, header badge count = **`1`**; flags cells = **`["PR","","","",""]`**; `excludedPresent: false` (`Excluded` absent from the page). All PASS-required conditions hold. **The inference, stated in words:** the precomputed document still says `excludedFromRecords: true`; the live document says not excluded (no entry); the badge is present, exactly one, reading `PR — 400m`. Only a live-document-derived implementation produces that. A precomputed-derived implementation would render nothing here, which is precisely what R26 (Round 3) observed when its own `wasPRAtTheTime` had been zeroed by the mandatory Recompute its design required. This is the row R19 and R26 could not be. `git rev-parse HEAD` was not individually re-quoted at this row; confirmed unchanged (equal to BASELINE_HEAD) at R35's Final state check below. |
+| R35 | **PASS** | **(a) Restore:** all four files restored from Task 1's `$SCRATCH` snapshots. **(b) Byte identity:** `sha256` after restore — `27ac99d6a9255458a6624fa46cb535ec08b67998876440fe249db4b99fc32f1a` for BOTH `data/stats/best-efforts/4556693525.json` and `dist/widgets/data/stats/best-efforts/4556693525.json`; `ff74768a76821c43852faaab3e522a2a7026b1930e3172c8dcd4d7b5821894b8` for BOTH `data/best-effort-exclusions.json` and `dist/widgets/data/best-effort-exclusions.json` — all four **MATCH** Task 1's recorded table exactly. `cmp` against each of the four `$SCRATCH` snapshots: **all four OK**. `git status --porcelain` for `data/` and `src/dashboard/styles.css`: **empty**. The two `dist/widgets` copies are gitignored and are proven by digest alone, as Task 1 stated. **(c) Round-validity check:** `data/stats/best-efforts.json`'s `generatedAt` still `2026-09-02T10:26:20.996Z` = PINNED_GENERATED_AT (**unchanged**); `rankings['400m'][0].activityId` still `4556693525` (**unchanged**) — no Recompute ran at any point in the round; every render verdict above stands as PASS, not VOID. **(d)** `git rev-parse HEAD` = `b9caced9ac1e8a04caecd7192af511e6c9063d75` = BASELINE_HEAD — **MATCH**. **(e)** Curate server stopped; port 4173 confirmed **FREE**. **(f) Gate re-run, all five exit `0`:** `npm test` — 60 test files, **1560/1560** tests passed; `npx tsc --noEmit` — exit 0; `npm run build` — exit 0; `npm run build-widgets` — exit 0, `✓ Curation-artifact scan: dist/widgets tree scanned, no curation-mode artifacts found.` (24-15's hardened guard, observed live and clean); `npm run verify-dashboard` — exit 0, `40 check(s) passed, 0 failure(s)`. `dist/widgets/index.html` reproduces Task 1's recorded build identity: `assets/index-D-Ts7X8C.js` + `assets/index-B573RjUr.css`. **(g) OD-3:** `git status --porcelain src/dashboard/styles.css` — **no output** (zero new CSS this round, as the phase has throughout). **(h)** Working tree otherwise clean apart from the pre-existing, unrelated `D dist/widgets/test.html`, which predates this session and this phase entirely and is deliberately left alone. |
+
+### Final state check
+
+| Assertion | Observed |
+|---|---|
+| sha256 of all four restored files equal Task 1's recorded digests | **MATCH** — `27ac99d6...` (shard, both copies), `ff74768a...` (exclusions, both copies) |
+| `cmp` against Task 1's `$SCRATCH` snapshots, all four files | **byte-identical**, all four |
+| `git status --porcelain` for `data/` and `src/dashboard/styles.css` | **empty** |
+| `data/stats/best-efforts.json`'s `generatedAt` unchanged from PINNED_GENERATED_AT | `2026-09-02T10:26:20.996Z` — **unchanged**, no Recompute ran during the round |
+| `rankings['400m'][0].activityId` unchanged | `4556693525` — **unchanged** |
+| `git rev-parse HEAD` equals BASELINE_HEAD | `b9caced9ac1e8a04caecd7192af511e6c9063d75` = BASELINE_HEAD — **MATCH** |
+| Port 4173 free | **free** (curate stopped) |
+| Five gate commands exit 0 | `npm test` (60/60 files, 1560/1560 tests), `npx tsc --noEmit`, `npm run build`, `npm run build-widgets` (curation-artifact scan clean), `npm run verify-dashboard` (40/40 checks) — **all 0** |
+| Build identity reproduced | `assets/index-D-Ts7X8C.js` + `assets/index-B573RjUr.css` — matches Task 1 |
+| Working tree otherwise clean | only the pre-existing, unrelated `D dist/widgets/test.html` (present before this phase's execution began; recorded and deliberately left alone) |
+
+### Round 4 Observations (recorded, not fixed, per house rule since 16-09)
+
+- **R33's gestures were orchestrator-driven, not literally human-hand as the plan's `<how-to-verify>` phrasing specifies for that row.** The plan labels R33 "Gestures, human hand," mirroring R34's framing, but R33 involves no native dialog and nothing in checkpoint-discipline rule 3's stated justification (a native `window.confirm()` blocking the automation extension) applies to a checkbox tick, a textarea entry, and a button click. Disclosed in the Evidence provenance table above rather than silently recorded as a human round. This is not treated as a defect in the row's own PASS criteria, which concern rendered and on-disk state, not who performed the click.
+- **R34's step-2 Cancel-noop sub-check rests on the developer's report alone**, not an independent orchestrator capture — the curate server logs no requests, so the state between Cancel and the subsequent re-untick+OK could not be recovered after the fact. This is the identical limitation Round 1's R10 disclosed for the same gesture and does not demote either row's PASS verdict, which rests on the fully-and-independently-observed render/disk state after the sequence completes.
+
+### Round 4 disposition
+
+**4 PASS / 0 FAIL / 0 BLOCKED (R32, R33, R34, R35 all PASS)**, with the two evidentiary provenance
+notes above disclosed transparently and precedented (R33's automation-vs-human framing; R34's
+Cancel-noop sub-check), neither of which bears on any row's own load-bearing, independently-observed
+discriminating claim. Per this plan's own governing truth — "CUR-01 and the ROADMAP phase gate are
+set ONLY if every mapped row is PASS; otherwise both stay open and the next GAP-24-NN is opened
+verbatim" — every mapped row IS PASS, so the disposition is **earned**, not withheld.
+
+**GAP-24-05 — CLOSED 2026-09-02 (plan 24-17, Round 4).** All three items of the amended GAP-24-05
+are now discharged:
+
+1. **Browser-row coverage of the WR-05 mirror direction** — discharged by **R32** and **R34**
+   above. R32 observes the discriminating state (`wasPRAtTheTime: true` AND
+   `excludedFromRecords: true` for `400m` simultaneously, live document empty) rendering exactly
+   one badge, `PR — 400m`; R34 observes the restore (live exclusion added then removed, precomputed
+   flag still stale-true throughout, no Recompute) rendering the same exact badge again. Both are
+   judged against an on-disk discriminator quoted at the instant of observation, not the UI agreeing
+   with itself, and both are the state R19 (Round 2) and R26 (Round 3) could not reach because their
+   own mandated Recompute zeroed `wasPRAtTheTime` before the row could be read.
+2. **WR-14** (`curation-guard.mjs`'s missing `entry.isFile()` guard) — discharged by plan 24-15; see
+   `24-15-SUMMARY.md`.
+3. **WR-17** (no structural pin on `buildPrBadgeLabels`'s call site / shared `liveExclusions`
+   binding) — discharged by plan 24-16; see `24-16-SUMMARY.md`.
+
+Round 4's own gate (Task 1's five commands, re-run at R35) is green on the integrated tree, all four
+edited files are restored byte-identical (proven by `sha256` and `cmp`, since two of the four are
+gitignored), and `git rev-parse HEAD` never moved during the browser session. Per the plan's own
+rule, CUR-01 and the Phase 24 ROADMAP gate may now be set — that cross-file disposition (
+`REQUIREMENTS.md`, `ROADMAP.md`, `24-VERIFICATION.md`, `24-REVIEW.md`, and the origin todo) is
+recorded in Task 3, on the evidence in this section.
