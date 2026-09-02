@@ -543,7 +543,11 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
     const exclusionReason = liveExclusionState.reason;
     const liveExclusions = liveExclusionState.index;
 
-    for (const label of buildPrBadgeLabels(bestEffortsEntry)) {
+    // WR-05 (GAP-24-04): both derivations below receive the SAME
+    // liveExclusions value from the same Promise.all — a forgotten or
+    // differently-sourced value here is exactly the defect that let the
+    // header PR badges and the Best Efforts panel disagree in one paint.
+    for (const label of buildPrBadgeLabels(bestEffortsEntry, liveExclusions)) {
       appendBadge(badgesContainer, label);
     }
 
