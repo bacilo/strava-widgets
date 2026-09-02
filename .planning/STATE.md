@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
 status: executing
-stopped_at: Phase 24 gap closure planned — 24-11..24-14 in waves 7-8; gate REOPENED, CUR-01 back to Pending
-last_updated: "2026-09-02T09:02:09.366Z"
-last_activity: 2026-09-02 -- Phase 24 planning complete
+stopped_at: Executing Phase 24 gap closure — wave 7 (24-11/12/13) then 24-14; gate REOPENED, CUR-01 Pending
+last_updated: "2026-09-02T09:16:56.056Z"
+last_activity: 2026-09-02 -- Phase 24 execution started
 progress:
   total_phases: 7
   completed_phases: 5
@@ -21,27 +21,30 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 24 gap-closure — all 10 plans executed, but `24-VERIFICATION.md` scores 2/5 must-haves (`gaps_found`): criterion 3 fails (curation-guard allowlist omits `.ts`/`.d.ts`) and criterion 2 is partial (`buildPrBadgeLabels` still reads the precomputed flag). CUR-01 back to Pending. Next: `/gsd-plan-phase 24 --gaps`
+**Current focus:** Phase 24 gap-closure execution — 24-11..24-14 close the three `24-VERIFICATION.md` gaps (curation-guard extension allowlist, curate-server static-route hardening, `buildPrBadgeLabels` live exclusions). CUR-01 stays Pending until 24-14's Round 3 checkpoint produces the evidence.
 
 ## Current Position
 
-Phase: 24 (local-curation-mode) — GAP CLOSURE PLANNED (gate reopened)
-Plan: 10 of 14 executed — 24-11..24-14 planned, not yet executed
-Status: Ready to execute — Phase 24 gap-closure round
+Phase: 24 (local-curation-mode) — EXECUTING GAP CLOSURE (gate reopened)
+Plan: 11 of 14 — 24-01..24-10 complete; 24-11..24-14 in flight
+Status: Executing Phase 24 gap-closure round
         `24-VERIFICATION.md` returned `status: gaps_found`, 2/5 must-haves. ROADMAP criteria 2
         and 3 are NOT discharged and CUR-01 is back to Pending in `REQUIREMENTS.md`. Round 2's
         "clean sweep" (R15-R23, 9/9 PASS) and the CUR-01 tick that followed it are not
         defensible: the code review ran AFTER the tick and found 2 Critical / 13 Warning, three
         of which were independently re-derived against live source during verification.
         Three gaps, all confirmed reproducible:
+
         - GAP-24-02 (CR-02, criterion 3): `curation-guard.mjs:37`'s `SCANNED_EXTENSIONS`
           allowlist omits `.ts`/`.d.ts`/`.mjs`/extensionless while `dist/widgets` publishes 22
           `.d.ts` files today, so the requirement's own word "provably" is false. D-11's
           planted-fixture proof only ever exercised `.js` — the one class that IS scanned.
+
         - GAP-24-03 (CR-01, D-12): `safeResolve`'s unguarded `decodeURIComponent` plus no
           `.catch()` on the static branch (asymmetric with the wrapped curate branch) means
           `GET /%` from any browser tab kills the curate server; the static route carries no
           Origin/Host gate at all.
+
         - GAP-24-04 (WR-05, criterion 2): `buildPrBadgeLabels` never received `liveExclusions`
           while `buildBestEffortsPanelRows` was fixed by 24-09. R15's own evidence quotes the
           resulting `PRExcluded — {reason}` contradiction and recorded it PASS unflagged.
@@ -58,7 +61,7 @@ Status: Ready to execute — Phase 24 gap-closure round
         Next: /gsd-execute-phase 24 — wave 7's three plans in parallel, then 24-14 at the
         keyboard. Phase 25 (CI Hardening & Light-Theme Verification) has no dependency on
         Phase 24 and remains available.
-Last activity: 2026-09-02 -- Phase 24 gap closure planned
+Last activity: 2026-09-02 -- Phase 24 execution started
 
 Progress: [███████---] 71% (10 of 14 plans executed)
 
