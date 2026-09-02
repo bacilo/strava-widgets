@@ -24,12 +24,35 @@ export const DISTANCE_DISPLAY_NAMES: Record<TargetDistanceKey, string> = {
 
 /**
  * Builds one `PR — {Display}` label per distance this activity set a PR at,
- * in `TARGET_ORDER`. An effort with `excludedFromRecords === true` never
- * produces a badge, even if `wasPRAtTheTime` is also true — an excluded
- * effort did not set a record (T-18-HONEST-06). Returns `[]` for a `null`
- * entry or one with no PR-setting, non-excluded efforts.
+ * in `TARGET_ORDER`. An effort excluded from records never produces a
+ * badge, even if `wasPRAtTheTime` is also true — an excluded effort did not
+ * set a record (T-18-HONEST-06). Returns `[]` for a `null` entry or one
+ * with no PR-setting, non-excluded efforts.
+ *
+ * `liveExclusions` is a REQUIRED second parameter (WR-05, GAP-24-04) — no
+ * default, no optional marker. This is the same forgotten-call-site
+ * discipline plan 24-09 chose for `buildBestEffortsPanelRows`: a default
+ * would have let a future call site silently reopen the staleness window
+ * this parameter closes. When `liveExclusions` is not `null`, each
+ * distance's excluded status is `isExcluded(liveExclusions,
+ * entry.activityId, distance)` — the exact same ternary shape
+ * `buildBestEffortsPanelRows` uses for its `excluded` field, so the two
+ * derivations cannot diverge. `liveExclusions === null` means UNKNOWN — the
+ * document could not be fetched or did not parse — and falls back to the
+ * precomputed `effort.excludedFromRecords`; it must never be treated as
+ * NOT-EXCLUDED, which would silently clear a real badge.
+ *
+ * This function is called from the same `Promise.all` and the same paint
+ * as `buildBestEffortsPanelRows` (`detail.ts`'s `mountBestEffortsAndBadges`)
+ * — the two must never be given different exclusion state, or the header
+ * badges and the Best Efforts panel can disagree about whether a run holds
+ * a PR (Round 2's R15 evidence, reproduced by this module's WR-05 test
+ * cases).
  */
-export function buildPrBadgeLabels(entry: ActivityBestEfforts | null): string[] {
+export function buildPrBadgeLabels(
+  entry: ActivityBestEfforts | null,
+  liveExclusions: ExclusionIndex | null
+): string[] {
   if (entry === null) return [];
 
   const byDistance = new Map(entry.efforts.map((effort) => [effort.distance, effort]));
@@ -39,7 +62,11 @@ export function buildPrBadgeLabels(entry: ActivityBestEfforts | null): string[] 
     const effort = byDistance.get(distance);
     if (!effort) continue;
     if (!effort.wasPRAtTheTime) continue;
-    if (effort.excludedFromRecords) continue;
+    const excluded =
+      liveExclusions !== null
+        ? isExcluded(liveExclusions, entry.activityId, distance)
+        : effort.excludedFromRecords;
+    if (excluded) continue;
     labels.push(`PR — ${DISTANCE_DISPLAY_NAMES[distance]}`);
   }
   return labels;
@@ -89,7 +116,20 @@ export interface BestEffortPanelRow {
  * `Excluded — {reason}` (this document) while the Records screen still
  * lists the effort at its old rank (the precomputed document), until
  * "Recompute records" closes the gap. That disagreement window is the
- * honest reading of two documents that have not yet converged, not a bug.
+ * honest reading of two documents that have not yet converged, not a bug —
+ * it concerns the Records screen, a genuinely separate document, not the
+ * header badges rendered in the same paint (see below).
+ *
+ * `isPr` (WR-05, GAP-24-04) is suppressed for a live-excluded row —
+ * computed as `wasPRAtTheTime && !excluded`, using the SAME locally-bound
+ * `excluded` value the row pushes — because `buildPrFlagsCell`
+ * (`detail-sections.ts:339-353`) renders `isPr` and `excluded` into the
+ * same `<td>`, and Round 2's R15 recorded that cell rendering literally
+ * `PRExcluded — {reason}`. This suppression is a BADGE-STATE claim only:
+ * `wasPRAtTheTime` and `excludedFromRecords` remain the sole source of
+ * truth for Records-screen rankings, promoted next-best efforts,
+ * `compute-dashboard-index`'s counts and the Activities-list badge at
+ * `list.ts:266`, none of which this module feeds.
  */
 export function buildBestEffortsPanelRows(
   entry: ActivityBestEfforts | null,
@@ -109,17 +149,19 @@ export function buildBestEffortsPanelRows(
 
     const ageGradeEntry = ageGradeForActivity?.[distance];
 
+    const excluded =
+      liveExclusions !== null
+        ? isExcluded(liveExclusions, entry.activityId, distance)
+        : effort.excludedFromRecords;
+
     rows.push({
       distance,
       display: DISTANCE_DISPLAY_NAMES[distance],
       durationSec: effort.durationSec,
       paceSecPerKm: effort.paceSecPerKm,
-      isPr: effort.wasPRAtTheTime,
+      isPr: effort.wasPRAtTheTime && !excluded,
       lowConfidence: effort.lowConfidence,
-      excluded:
-        liveExclusions !== null
-          ? isExcluded(liveExclusions, entry.activityId, distance)
-          : effort.excludedFromRecords,
+      excluded,
       agePercent: ageGradeEntry ? ageGradeEntry.agePercent : null,
       ageDerived: distance === '1k',
     });
