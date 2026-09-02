@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
 status: executing
-stopped_at: Phase 24 all 14 plans executed + all gates run. Round-4 verifier returned passed 5/5; developer held the gate OPEN 2026-09-02. GAP-24-05 amended to 3 concrete items. Next: /gsd-plan-phase 24 --gaps
-last_updated: "2026-09-02T10:41:18.635Z"
-last_activity: 2026-09-02
+stopped_at: Phase 24 gap-closure round 4 PLANNED under --force (closed-phase gate is a false positive; 24-VERIFICATION.md frontmatter still says status:passed while the developer holds the gate open). Plans 24-15/16/17 written, plan-checker PASSED 0 blockers. Scope = amended GAP-24-05's three items. CUR-01 still Pending. Next: /gsd-execute-phase 24
+last_updated: "2026-09-02T13:29:43.580Z"
+last_activity: 2026-09-02 -- Phase 24 planning complete
 progress:
   total_phases: 7
   completed_phases: 5
-  total_plans: 88
+  total_plans: 91
   completed_plans: 88
-  percent: 100
+  percent: 71
 ---
 
 # Project State
@@ -25,56 +25,68 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 
 ## Current Position
 
-Phase: 24 (local-curation-mode) — GAP CLOSURE ROUND 3 COMPLETE, GATE STILL OPEN
-Plan: 14 of 14 — 24-11/12/13/14 all executed; 24-14's Round 3 checkpoint (R24-R31) scored 7/8
-      PASS (R26 FAIL); GAP-24-02 and GAP-24-03 closed, GAP-24-04 partially closed, GAP-24-05
-      opened. CUR-01 stays Pending; a further gap-closure round is needed for GAP-24-05.
-Status: Awaiting a future `/gsd-plan-phase 24 --gaps` pass to design a checkpoint row that can
-        actually discriminate WR-05's live-document mirror direction (see GAP-24-05 in
-        24-VALIDATION.md for the required construction — editing best-efforts.json directly to
-        hold wasPRAtTheTime true and excludedFromRecords true simultaneously, without a
-        Recompute, since the curate UI's own Save->Recompute->Untick sequence cannot produce
-        that state).
-        `24-VERIFICATION.md` returned `status: gaps_found`, 2/5 must-haves (original scoring,
-        not yet re-verified after Round 3). ROADMAP criteria 2
-        and 3 are NOT discharged and CUR-01 is back to Pending in `REQUIREMENTS.md`. Round 2's
-        "clean sweep" (R15-R23, 9/9 PASS) and the CUR-01 tick that followed it are not
-        defensible: the code review ran AFTER the tick and found 2 Critical / 13 Warning, three
-        of which were independently re-derived against live source during verification.
-        Three gaps, all confirmed reproducible:
+Phase: 24 (local-curation-mode) — GAP CLOSURE ROUND 4 PLANNED, GATE STILL OPEN
+Plan: 14 of 17 executed — 24-01..24-14 done; 24-15/24-16/24-17 planned 2026-09-02 and not yet
+      executed. Waves 9 (24-15, 24-16 — disjoint files, parallel-safe) and 10 (24-17 — BLOCKING,
+      autonomous: false).
+Status: Ready to execute — run /gsd-execute-phase 24
+        Scope of this round is the AMENDED GAP-24-05 in 24-VALIDATION.md (three items):
+        (1) browser-row coverage for the WR-05 live-document mirror direction, (2) WR-14
+        (curation-guard.mjs missing entry.isFile() guard), (3) WR-17 (nothing pins
+        buildPrBadgeLabels's call site to the same liveExclusions binding as the panel).
+        WR-15 and IN-13 are deliberately OUT of scope — recorded in round 4 as optional
+        Warnings, not part of GAP-24-05's closing list.
+
+        **Gate status.** Re-verification round 4 (2026-09-02) returned `status: passed`, 5/5
+        must-haves, and closed GAP-24-02/03/04 with independent live re-derivation. The
+        developer read that result and held the Phase 24 gate OPEN anyway, because criterion 4
+        is by its own wording a human checkpoint and plan 24-14's governing rule ("CUR-01 and
+        the ROADMAP gate tick ONLY if every mapped row is PASS") was written in a phase where
+        CUR-01 had already been ticked prematurely once, after Round 2's clean sweep, and had
+        to be reopened when the code review landed afterwards. CUR-01 stays Pending in
+        REQUIREMENTS.md; the ROADMAP Phase 24 gate stays open. 24-17 owns the disposition and
+        ticks only if every mapped row (R32-R35) passes.
+
+        **Known artifact inconsistency.** `24-VERIFICATION.md`'s frontmatter still reads
+        `status: passed`, so `gsd-sdk query init.plan-phase 24` computes `phase_status:
+        Complete` and the plan-phase closed-phase gate (workflow §1.5) blocks `--gaps`. This
+        round was planned under `--force` with the developer's explicit authorization. That
+        frontmatter also carries a STALE `gaps:` array of round-1 vintage describing three
+        gaps that rounds 3-4 already closed; the live scope is the amended GAP-24-05 in
+        24-VALIDATION.md, NOT that array. Any future --gaps round on Phase 24 hits the same
+        collision.
+
+        **Two grounding corrections encoded in 24-17**, both independently confirmed against
+        live source: (a) GAP-24-05 item 1 names `data/stats/best-efforts.json`, but the detail
+        view fetches the per-activity shard `data/stats/best-efforts/{id}.json`
+        (best-efforts-client.ts:116) and the browser reads the copy under `dist/widgets/` —
+        following the gap text literally would have produced a third non-observing row; (b)
+        `dist/widgets/*` is gitignored (.gitignore:4), so byte-identity for the served copies
+        is proven by sha256 against snapshots taken outside the repo, not by `git status`.
+
+        **Historical gap record (all CLOSED — retained for audit trail):**
 
         - GAP-24-02 (CR-02, criterion 3): `curation-guard.mjs:37`'s `SCANNED_EXTENSIONS`
-          allowlist omits `.ts`/`.d.ts`/`.mjs`/extensionless while `dist/widgets` publishes 22
-          `.d.ts` files today, so the requirement's own word "provably" is false. D-11's
-          planted-fixture proof only ever exercised `.js` — the one class that IS scanned.
+          allowlist omitted `.ts`/`.d.ts`/`.mjs`/extensionless while `dist/widgets` publishes
+          22 `.d.ts` files. CLOSED by 24-11's fail-closed UNSCANNED_EXTENSIONS skip-list.
 
         - GAP-24-03 (CR-01, D-12): `safeResolve`'s unguarded `decodeURIComponent` plus no
-          `.catch()` on the static branch (asymmetric with the wrapped curate branch) means
-          `GET /%` from any browser tab kills the curate server; the static route carries no
-          Origin/Host gate at all.
+          `.catch()` on the static branch meant `GET /%` from any browser tab killed the
+          curate server. CLOSED by 24-12 (try/catch + static-route Origin/Host gate).
 
         - GAP-24-04 (WR-05, criterion 2): `buildPrBadgeLabels` never received `liveExclusions`
-          while `buildBestEffortsPanelRows` was fixed by 24-09. R15's own evidence quotes the
-          resulting `PRExcluded — {reason}` contradiction and recorded it PASS unflagged.
-        Plans 24-11..24-14 planned 2026-09-02, VERIFICATION PASSED at plan-checker iteration 2.
-        24-11/12/13 are wave 7 and parallel-safe (disjoint `files_modified`); 24-14 is wave 8,
-        BLOCKING and `autonomous: false` — a Round 3 browser checkpoint (R24-R31, appended to
-        `24-VALIDATION.md` without renumbering Rounds 1-2) plus the CUR-01 disposition, which
-        re-ticks only on evidence this round produces.
-        Two judgement calls verified against live source rather than accepted: 24-12 extends
-        D-12's Origin/Host gate to the static route (so `localhost:4173` now 403s where
-        `127.0.0.1:4173` passes), and 24-13 also suppresses `BestEffortPanelRow.isPr`, because
-        the string R15 actually quoted comes from `buildPrFlagsCell` — a header-only fix would
-        have left that exact contradiction on screen.
-        **Superseded 2026-09-02 (plan 24-14 executed):** waves 7 and 8 are both done. GAP-24-02
-        and GAP-24-03 above are CLOSED (R28/R29, R30); GAP-24-04 is only partially closed — see
-        GAP-24-05, opened in `24-VALIDATION.md`, for the still-unproven WR-05 mirror direction.
-        Next: a further `/gsd-plan-phase 24 --gaps` round targeting GAP-24-05, OR proceed to
-        Phase 25 (CI Hardening & Light-Theme Verification), which has no dependency on Phase 24
-        and remains available while Phase 24's gate stays open.
-Last activity: 2026-09-02
+          while `buildBestEffortsPanelRows` was fixed by 24-09. CLOSED by 24-13; the mirror
+          direction is proven at unit level (detail-best-efforts-logic.test.ts:286-293). Only
+          browser-row COVERAGE of it remains, which is GAP-24-05 item 1 above.
 
-Progress: [██████████] 100%
+        - GAP-24-05 (R26 unsatisfiable row): Round 3's R26 could not discriminate because its
+          own mandated Save->Recompute->Untick setup zeroed `wasPRAtTheTime` for all distances,
+          and both render paths gate on that flag before consulting the live document. 24-17's
+          R32 avoids this by editing ONLY `excludedFromRecords` on the shard, leaving the
+          discriminator live.
+Last activity: 2026-09-02 -- Phase 24 planning complete
+
+Progress: [█████████░] 97% (88/91 plans; 24-15/16/17 pending)
 
 ## Performance Metrics
 
@@ -278,7 +290,6 @@ notes on CR-01, CR-02 and WR-05.
 Next: a further gap-closure round targeting GAP-24-05 (`/gsd-plan-phase 24 --gaps`), or proceed to
 Phase 25, which has no dependency on Phase 24.
 
-
 ## Round 4 re-verification and the gate decision (2026-09-02)
 
 All 14 plans are executed and every execute-phase gate has run.
@@ -303,10 +314,13 @@ after Round 2 and had to be reopened when the code review landed afterwards. CUR
 **Pending**; Phase 24 stays **In Progress**; the origin todo stays in `pending/`.
 
 Three concrete items remain for a closing round (see AMENDED GAP-24-05 in `24-VALIDATION.md`):
+
 1. A browser row that reaches the discriminating state by editing `data/stats/best-efforts.json`
    directly (no Recompute), then observing suppress-and-restore.
+
 2. **WR-14** — `curation-guard.mjs:116-130` has no `entry.isFile()` guard; symlinks/EISDIR/EACCES
    throw out of the guard and a FIFO blocks forever. Reproduced independently twice.
+
 3. **WR-17** — nothing structurally pins `buildPrBadgeLabels`'s call site or that it shares the
    panel's `liveExclusions` binding; `buildPrBadgeLabels(entry, null)` would type-check and
    silently reinstate WR-05.
