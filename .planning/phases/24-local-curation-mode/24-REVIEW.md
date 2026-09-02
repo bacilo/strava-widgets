@@ -1017,6 +1017,8 @@ badges on re-navigation; and the dashboard is hash-routed, so the relative
 `/strava-widgets/` from every detail URL. What is *not* closed is the
 durability of the fix — see WR-17.
 
+**Browser-row coverage added 2026-09-02 by plan 24-17 — see 24-VALIDATION.md rows R32 and R34.**
+
 ### Warnings
 
 #### WR-14: `findCurationArtifacts` throws on any non-regular or unreadable entry — the fail-closed inversion traded a blind spot for a build-abort class
@@ -1067,6 +1069,8 @@ try {
   continue;
 }
 ```
+
+**CLOSED 2026-09-02 by plan 24-15 — see 24-15-SUMMARY.md.**
 
 #### WR-15: the `.json` exemption is extension-scoped, not path-scoped — it exempts 5,588 of the 5,727 published files, including the only directory curate actually writes into
 
@@ -1204,6 +1208,8 @@ export function resolveExcluded(
 and add one seam assertion pinning that `detail.ts` passes the same identifier
 to both call sites, e.g.
 `expect(detailStripped).toContain('buildPrBadgeLabels(bestEffortsEntry, liveExclusions)')`.
+
+**CLOSED 2026-09-02 by plan 24-16 — see 24-16-SUMMARY.md.**
 
 #### WR-18: `fileParallelism: false` is the right call, but it is guarded by nothing except a comment
 

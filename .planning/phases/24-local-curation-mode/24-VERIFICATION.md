@@ -398,3 +398,57 @@ goal as stated.
 
 _Re-verified: 2026-09-02T11:05:47Z_
 _Verifier: Claude (gsd-verifier), re-verification round 4_
+
+---
+
+## Gap-Closure Record (Round 4, 2026-09-02)
+
+This section is appended by plan 24-17, Task 3, after the Round 4 BLOCKING browser checkpoint
+(R32-R35, all PASS — see `24-VALIDATION.md` § "Round 4 Checkpoint (R32-R35)"). It records, per
+item, how the amended GAP-24-05 (the three concrete items this re-verification pass's `passed`
+verdict left open pending a human checkpoint) was closed. It is additive only: no existing prose
+in this document is rewritten, and the frontmatter `status:`, `score:` and `gaps:` fields below are
+left exactly as this re-verification pass wrote them — only a future re-verification pass owns
+changing them.
+
+**Item 1 — browser-row coverage of the WR-05 mirror direction.** Closed by **R32** and **R34** in
+`24-VALIDATION.md` § "Round 4 Checkpoint (R32-R35)". R32 hand-edits the served per-activity
+best-efforts shard (both the working-tree and `dist/widgets` copies, kept byte-identical to each
+other) so `wasPRAtTheTime: true` AND `excludedFromRecords: true` hold simultaneously for `400m`,
+with no Recompute — the discriminating state R19 (Round 2) and R26 (Round 3) could never reach
+because their own mandated Save→Recompute→Untick sequence always zeroed `wasPRAtTheTime` before the
+row could be read. Against that on-disk discriminator, the header renders exactly one badge, `PR —
+400m`. R34 then observes the restore: a human-performed untick/confirm/re-untick/OK sequence (the
+native `window.confirm()` blocks browser automation, exactly as R10/R19/R26) with the precomputed
+flag still stale-true throughout, rendering the identical badge again. This is the row this
+verification report's own re-derivation predicted would exist — `detail-best-efforts-logic.test.ts:286`'s
+"R19 mirror-image" unit test already proved the BEHAVIOUR; R32/R34 are its first browser-row
+observation.
+
+**Item 2 — WR-14 (`curation-guard.mjs`'s missing `entry.isFile()` guard).** Closed by **plan
+24-15** — see `24-15-SUMMARY.md`. The guard's file walk now gates on `entry.isFile()` ordered
+before the `UNSCANNED_EXTENSIONS` skip, with a `readFileSync` try/catch. Four of five failure
+classes (dangling symlink `ENOENT`, directory symlink `EISDIR`, mode-000 `EACCES`, a `.json`-named
+symlink bypassing the extension skip) were observed RED before the fix and GREEN after, per D-11's
+evidentiary standard; the fifth (FIFO) is documented as the one class a pre-fix read cannot even
+observe without hanging the build.
+
+**Item 3 — WR-17 (no structural pin on `buildPrBadgeLabels`'s call site).** Closed by **plan
+24-16** — see `24-16-SUMMARY.md`. A single exported `resolveExcluded` now backs both
+`buildPrBadgeLabels` and `buildBestEffortsPanelRows`, and `curation-seam.test.ts` gained a
+12-combination header-vs-panel non-divergence table plus a source-structure pin on
+`buildPrBadgeLabels`'s call site and its shared `liveExclusions` binding. Substituting
+`buildPrBadgeLabels(bestEffortsEntry, null)` was observed to fail two seam assertions while still
+passing `tsc --noEmit` clean — the exact silent-regression class WR-17 flagged as unguarded.
+
+**A note on this file's frontmatter, for future readers.** The `gaps:` array in this document's
+frontmatter is **round-1 vintage and superseded**. Its three entries — `buildPrBadgeLabels` never
+receiving `liveExclusions` (criterion 2), the `curation-guard.mjs` `SCANNED_EXTENSIONS` allowlist
+blind spot (criterion 3), and the `curate-server.mjs` Origin/Host gate plus unguarded
+`decodeURIComponent` (D-12 truth) — were closed in code by plans 24-11, 24-12 and 24-13
+respectively, and independently re-derived as closed by this document's own re-verification round
+4 pass (`status: passed`, `re_verification.gaps_remaining: []`, immediately above this section).
+The live scope this round actually closed is the amended GAP-24-05 recorded in
+`24-VALIDATION.md`, not the stale array. This note does not edit that array, nor the `status:`,
+`score:` fields above it — those remain the verifier's record, changed only by a future
+re-verification pass.

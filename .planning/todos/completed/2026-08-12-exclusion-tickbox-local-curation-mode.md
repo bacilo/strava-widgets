@@ -104,3 +104,33 @@ Approach B (local curation mode) is still what shipped and is still the right ap
 and C remain rejected for the reasons above, and step 2 remains superseded by D-04. Nothing here
 reopens the design — only the gate. Close this todo when a gap-closure round discharges criteria 2
 and 3. Next: `/gsd-plan-phase 24 --gaps`.
+
+---
+
+## CLOSED 2026-09-02 (plans 24-15..24-17, Round 4 checkpoint, R32-R35 all PASS) — moved to `completed/`
+
+Both remaining criteria are now discharged. Criterion 3 (curation-guard extension coverage) closed
+in wave 7 (plan 24-11's `UNSCANNED_EXTENSIONS` inversion, re-confirmed by Round 3's R28/R29) and
+its adjacent WR-14 defect (missing `entry.isFile()` guard) closed by plan 24-15. Criterion 2
+(header PR badge vs. panel-row disagreement, WR-05) closed in wave 7 (plan 24-13's required
+`liveExclusions` parameter) with its durability gap WR-17 closed by plan 24-16, and its
+browser-row coverage — the mirror direction R19 (Round 2) and R26 (Round 3) could not reach —
+finally observed by R32 and R34 in plan 24-17's Round 4 checkpoint. See
+`.planning/phases/24-local-curation-mode/24-VALIDATION.md` § "Round 4 Checkpoint (R32-R35)" and
+`.planning/REQUIREMENTS.md`'s CUR-01 entry for the full evidence.
+
+**Approach B (local curation mode) is what shipped, confirmed final:** `npm run curate` serves the
+built `dist/widgets` under `/strava-widgets` on a fixed `127.0.0.1:4173`, with a localhost-only,
+Origin/Host-gated write path (D-12), a tickbox with a required reason (D-08), instant local
+persistence to `data/best-effort-exclusions.json` with an optional streamed Recompute (D-07), and
+the write path provably absent from the published bundle (build-time guard plus publish-time HTTP
+guard, both observed failing against planted artifacts and passing clean). Options A and C remain
+rejected for the reasons recorded above.
+
+**This todo's solution-sketch step 2 ("Per-distance checkboxes matter as much as whole-run") stays
+superseded by D-04:** exclusion shipped whole-activity, not per-distance, because
+`compute-best-efforts.ts:215-219` drops an excluded effort from `byDistance` entirely, so there is
+never a same-activity runner-up a coarser exclusion could wrongly suppress. Per-distance
+selectability remains a Deferred Idea in `24-CONTEXT.md` and stays supported on read by
+`buildExclusionIndex` (D-05), so a future phase could surface it without a schema migration — but
+nothing in this phase's shipped scope requires it.
