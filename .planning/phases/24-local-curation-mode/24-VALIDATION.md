@@ -862,3 +862,188 @@ be reopened when the code review landed afterwards.
 
 CUR-01 stays **Pending**. The Phase 24 gate stays **open**. Decided by the developer 2026-09-02
 with the round-4 result in hand.
+
+---
+
+## Fresh Gate Run (plan 24-17, Round 4)
+
+*(plan 24-17, Task 1, 2026-09-02, run from the main checkout
+`/Users/pedf/workspace/strava-widgets` — not a parallel-execution worktree, so none of the
+gitignored-artifact ENOENT gaps logged in `deferred-items.md` apply here; every command below ran
+against the full local `data/` and `node_modules/` trees. Runs on top of plans 24-15 and 24-16
+(wave 9), merged at `2911058` per `STATE.md`.)*
+
+Pre-run: `git status --short` showed only the pre-existing, unrelated `D dist/widgets/test.html`
+(present before this phase's execution began; not caused by any plan in this phase — see Round 1's
+"Observations" for its original disclosure). `git rev-parse HEAD` at the start of this task (for
+reference only, not a baseline — see "D-09 baseline" below): `291105828b3d479a5845fea87e1857a737b001ae`.
+
+### (a) Gate
+
+| # | Command | Exit code | Notable output |
+|---|---------|-----------|-----------------|
+| 1 | `npm test` | 0 | `Test Files 60 passed (60)` / `Tests 1560 passed (1560)` |
+| 2 | `npx tsc --noEmit` | 0 | (no output — clean) |
+| 3 | `npm run build` | 0 | `tsc` clean, produces `dist/index.js` |
+| 4 | `npm run build-widgets` | 0 | `✓ Curation-artifact scan: dist/widgets tree scanned, no curation-mode artifacts found.`, `✓ Private-artifact scan: 5588 published JSON files scanned, none contain identity/health fields.` |
+| 5 | `npm run verify-dashboard` | 0 | `40 check(s) passed, 0 failure(s).`, including `✓ GET /data/best-effort-exclusions.json -> 200`, `✓ /data/best-effort-exclusions.json parses with an "exclusions" array`, `✓ GET /__curate/health -> 404`, `✓ GET /__curate/overlay.js -> 404`, `✓ GET /__curate/exclusions/3475726256 -> 404` |
+
+All five exit `0`. `npm test`'s 60 files / 1560 tests re-exercises plan 24-15's guard tests
+(`scripts/lib/curation-guard.test.mjs`) and plan 24-16's `curation-seam.test.ts` WR-17 pins on the
+now-integrated tree — the count (1560) is 29 tests higher than Round 3's 1531, consistent with the
+two waves' new test cases landing since Round 3.
+
+`git status --porcelain data/best-effort-exclusions.json` after this run: **empty** (nothing
+written by the gate commands).
+
+### (b) Build identity
+
+`grep -o 'assets/index-[A-Za-z0-9_-]*\.\(js\|css\)' dist/widgets/index.html`:
+
+- **JS:** `assets/index-D-Ts7X8C.js`
+- **CSS:** `assets/index-B573RjUr.css`
+
+**Comparison against Round 3's `index-B1uN9-48.js`: the JS hash DIFFERS**
+(`index-D-Ts7X8C.js` ≠ `index-B1uN9-48.js`). This is expected and required — plan 24-16 changed
+`detail-best-efforts-logic.ts` (extracting `resolveExcluded` and pinning `buildPrBadgeLabels`'s
+call site), which is in the dashboard entry graph, so the checkpoint that follows runs against
+bytes that include this round's fix. The hash is NOT identical to Round 3's, so per the plan's own
+instruction this task does not halt on that ground. (The CSS hash `index-B573RjUr.css` is unchanged
+across all four rounds — consistent with every plan in this phase shipping zero CSS changes, OD-3.)
+
+These are the ONLY hashes Task 2's rows are valid against. If the developer's browser reports
+different hashes, hard-reload; if they still differ, the round is invalid per house rule 4.
+
+### (c) Snapshots, outside the repository
+
+Copied to `$SCRATCH` (session scratchpad, not under the repo:
+`/private/tmp/claude-501/-Users-pedf-workspace-strava-widgets/6d4bb1f4-e06e-4c3b-ae12-274e6721f06a/scratchpad/`),
+with recorded `sha256`:
+
+| File | Snapshot name | sha256 |
+|---|---|---|
+| `data/stats/best-efforts/4556693525.json` | `best-efforts-4556693525.REPO.PRE-ROUND4.json` | `27ac99d6a9255458a6624fa46cb535ec08b67998876440fe249db4b99fc32f1a` |
+| `dist/widgets/data/stats/best-efforts/4556693525.json` | `best-efforts-4556693525.DIST.PRE-ROUND4.json` | `27ac99d6a9255458a6624fa46cb535ec08b67998876440fe249db4b99fc32f1a` |
+| `data/best-effort-exclusions.json` | `best-effort-exclusions.REPO.PRE-ROUND4.json` | `ff74768a76821c43852faaab3e522a2a7026b1930e3172c8dcd4d7b5821894b8` |
+| `dist/widgets/data/best-effort-exclusions.json` | `best-effort-exclusions.DIST.PRE-ROUND4.json` | `ff74768a76821c43852faaab3e522a2a7026b1930e3172c8dcd4d7b5821894b8` |
+
+`cmp` confirms the two shard copies are byte-identical to each other at this moment (repo vs. dist
+`sha256` digests are identical, `27ac99d6...` = `27ac99d6...`), and likewise the two exclusions
+copies (`ff74768a...` = `ff74768a...`). **The two `dist/widgets` paths are gitignored
+(`.gitignore:4`)** — `git status --porcelain` will never report a change to them. `git status`
+proves nothing for those two files; only the recorded `sha256` values above, re-checked at R35, can
+prove their restoration.
+
+### (d) Pinned expected values, derived from disk BEFORE any edit
+
+- `TARGET_ACTIVITY` = `4556693525`; `TARGET_DISTANCE` = `400m`.
+- Served shard's full `[distance, wasPRAtTheTime, excludedFromRecords]` vector (all five
+  distances), from `dist/widgets/data/stats/best-efforts/4556693525.json`:
+  `[["400m",true,false],["1k",false,false],["1mi",false,false],["5k",false,false],["10k",false,false]]`
+  — **matches the plan's expectation exactly.** Top-level `excludedFromRecords: false`.
+- `PINNED_PR_SET` = `{"400m"}` — cardinality **1**. Matches expectation.
+- `PINNED_BADGE_LABELS` = `["PR — 400m"]` (em dash U+2014), via
+  `DISTANCE_DISPLAY_NAMES['400m'] === '400m'` and `buildPrBadgeLabels`'s
+  `` `PR — ${DISTANCE_DISPLAY_NAMES[distance]}` `` template
+  (`src/dashboard/views/detail-best-efforts-logic.ts:93`).
+- `PINNED_FLAGS_CELLS` = `["PR", "", "", "", ""]` in `TARGET_ORDER` (400m, 1K, 1 Mile, 5K, 10K).
+- **Independent cross-check, from `data/stats/best-efforts.json`, a document this round never
+  edits:** `rankings['400m'][0]` = `{"activityId":"4556693525","startDate":"2021-01-02T08:00:54Z","durationSec":45.2,"paceSecPerKm":112.9,"lowConfidence":false,"rank":1}`;
+  `rankings['400m'][1]` = `{"activityId":"3475727228","startDate":"2019-04-02T16:38:33Z","durationSec":46.5,"paceSecPerKm":116.2,"lowConfidence":false,"rank":2}`.
+  `4556693525` at rank 1 and `3475727228` at rank 2 — **matches the plan's expectation exactly.**
+  Two documents (the served shard and the archive-wide rankings) now agree that `400m` is this
+  activity's only PR-setting distance; the expected extent is not the UI's own opinion.
+- `PINNED_GENERATED_AT` = `2026-09-02T10:26:20.996Z` — this is the SAME value R27 (Round 3, plan
+  24-14) recorded as the post-restore `generatedAt` after its final Recompute. Its being unchanged
+  since Round 3 is itself confirmation that no Recompute, `build-widgets`, or
+  `compute-best-efforts` has touched `data/stats/best-efforts.json` since Round 3 ended — the
+  archive has been at rest through plans 24-15 and 24-16 (both code/test-only) and this task's own
+  gate run (which does not call `compute-best-efforts`). Any change to this value during Round 4
+  means a Recompute ran and the round is VOID (house rule 5).
+- `PINNED_EXCLUSIONS_LENGTH` = **2**, ids `3475726256` and `3475725513` — **matches the plan's
+  expectation exactly.** No entry for `TARGET_ACTIVITY`.
+
+No observed value differed from the plan's expectations; nothing needed re-derivation.
+
+### (e) The written reachability proof
+
+1. **The served shard currently holds `wasPRAtTheTime: true` for `400m`.** Quoted directly from
+   `dist/widgets/data/stats/best-efforts/4556693525.json`'s `efforts` array, the `400m` entry:
+   `{"distance":"400m", ..., "wasPRAtTheTime":true, "excludedFromRecords":false, ...}` (full vector
+   quoted in (d) above).
+2. **The row's edit changes ONLY `excludedFromRecords` from `false` to `true` on that same `400m`
+   effort. It does not touch `wasPRAtTheTime`.** This is the edit Task 2's R32 will perform on both
+   the repo and dist copies of this one file.
+3. **Therefore at observation time the `wasPRAtTheTime` gate is NOT taken for `400m`, and control
+   reaches the live-exclusions branch.** In the CURRENT source (post-24-16 refactor, so the line
+   numbers differ from the plan's `:64`/`:162` citations, which predate plan 24-16's
+   `resolveExcluded` extraction — noted explicitly, not silently):
+   - `buildPrBadgeLabels`, `src/dashboard/views/detail-best-efforts-logic.ts:90`:
+     `if (!effort.wasPRAtTheTime) continue;` — with `wasPRAtTheTime === true` for `400m`, this
+     `continue` is NOT taken; control reaches line 91's `resolveExcluded(...)` call and line 92's
+     `if (excluded) continue;`, i.e. the LIVE document, not the precomputed flag, decides the badge.
+   - `BestEffortPanelRow.isPr`, same file line 182: `isPr: effort.wasPRAtTheTime && !excluded` —
+     with `wasPRAtTheTime === true`, `isPr` reduces to `!excluded`, again decided by the live
+     document via `resolveExcluded` (line 175).
+   The discriminator is live, not vacuous.
+4. **The only three operations that can flip `wasPRAtTheTime` back to `false` are the overlay's
+   "Recompute records" button, `npm run build-widgets`, and `compute-best-efforts`.** None is
+   performed between R32 and R34 — house rule 5, restated in Task 2's non-waivable setup note.
+   `npm run build-widgets` WAS run in this task's own gate step (a), but that ran BEFORE R32's edit
+   and does not touch `data/stats/best-efforts.json` (`build-widgets.mjs` only copies data trees
+   and builds the bundle — confirmed by the gate's own output above, `✓ Copied data/stats/*.json →
+   dist/widgets/data/stats/ (0 copied, 1857 skipped)`, meaning the copy step found the dist shard
+   already byte-identical to the repo shard and copied nothing).
+5. **Contrast this explicitly with R26 (Round 3).** R26's mandated setup was R25's "Recompute
+   records" press, which — in the SAME write — set `excludedFromRecords: true` for `400m` (the
+   condition R26 needed) AND set `wasPRAtTheTime: false` for all five distances (which R26 did not
+   want and did not notice would matter). Because both `buildPrBadgeLabels` and `isPr` gate on
+   `wasPRAtTheTime` BEFORE consulting the live document, R26's own setup emptied its own
+   discriminator: no PR badge could render whatever the live document said, so the row could not
+   distinguish correct wiring from broken. This round's edit — a direct shard edit, no Recompute —
+   changes ONLY `excludedFromRecords`, leaving `wasPRAtTheTime: true` intact, which is precisely
+   the difference that makes this row satisfiable where R26 was not.
+
+**(e)(1) HOLDS: the served shard's `400m` effort has `wasPRAtTheTime === true` right now.** The
+automated `node -e` check below confirms this programmatically. The plan does NOT halt; Task 2 may
+be presented.
+
+Automated check (run in this task, exit code recorded):
+
+```
+node -e "const s=require('./dist/widgets/data/stats/best-efforts/4556693525.json'); const e=s.efforts.find(x=>x.distance==='400m'); if(!e||e.wasPRAtTheTime!==true){console.error('REACHABILITY FAILED',JSON.stringify(e));process.exit(1);} console.log('reachable', JSON.stringify(e));"
+```
+
+Output: `reachable {"distance":"400m","wasPRAtTheTime":true,"excludedFromRecords":false,...}` —
+**exit code 0.**
+
+### (f) D-09 baseline
+
+Recorded operationally, not as a literal, per the note at line 680 (Round 3's Fresh Gate Run
+section): the developer records `git rev-parse HEAD` at browser-session start (before Task 2's R32)
+and the round asserts equality against that recorded value at session end (R35). A literal HEAD
+hash cannot serve as the baseline here because this task's own docs-only commit of this section
+advances HEAD past whatever value would be written into it. (For reference only, not a baseline:
+HEAD at the start of this task was `291105828b3d479a5845fea87e1857a737b001ae`.)
+
+### (g) The four-file edit protocol
+
+For Task 2 to use without inventing it:
+
+1. Edit **both** shard copies with the **same** transformation — changing ONLY the `400m` effort's
+   `excludedFromRecords` from `false` to `true`, leaving `wasPRAtTheTime: true` and every other
+   field untouched:
+   - `data/stats/best-efforts/4556693525.json`
+   - `dist/widgets/data/stats/best-efforts/4556693525.json`
+2. After each edit, confirm with `cmp` that the two shard copies remain byte-identical to each
+   other (not to the pre-edit snapshot — they are expected to differ from the snapshot now, and
+   from each other never).
+3. **Never edit** the archive-wide `data/stats/best-efforts.json` — it stays clean throughout as
+   the independent cross-check document, and its `generatedAt` doubles as the round's tamper
+   detector (R35(c)).
+4. At R35, restore all four files (both shard copies, both exclusions copies) from this task's
+   `$SCRATCH` snapshots, and prove restoration by `sha256` equality (all four files, matching the
+   table in (c) above) plus `cmp` against the snapshots — `git status --porcelain` only covers the
+   two working-tree files (`data/stats/best-efforts/4556693525.json`,
+   `data/best-effort-exclusions.json`); the two `dist/widgets` copies are gitignored and are proven
+   by digest alone.
