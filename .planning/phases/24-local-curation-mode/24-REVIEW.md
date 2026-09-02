@@ -1,7 +1,7 @@
 ---
 phase: 24-local-curation-mode
 reviewed: 2026-09-01T20:37:28Z
-updated: 2026-09-02T10:57:43Z
+updated: 2026-09-02T14:30:00Z
 depth: standard
 diff_base: 38a3c1b
 files_reviewed: 20
@@ -1388,5 +1388,208 @@ counts are not mistaken for a clean bill on the whole file:
 ---
 
 _Wave 7 reviewed: 2026-09-02T10:57:43Z_
+_Reviewer: Claude (gsd-code-reviewer)_
+_Depth: standard_
+
+## Wave 9 Review (2026-09-02, plans 24-15/24-16)
+
+**Reviewed:** 2026-09-02T14:30:00Z
+**Depth:** standard
+**Scope:** the five files changed by the wave-9 gap-closure round —
+`scripts/lib/curation-guard.mjs`, `scripts/lib/curation-guard.test.mjs`,
+`src/dashboard/views/detail-best-efforts-logic.ts`,
+`src/dashboard/views/detail-best-efforts-logic.test.ts`,
+`src/dashboard/curation-seam.test.ts`. Base `33f2be2`..`f6faeea`.
+**Evidence:** `npx vitest run` on the three test files (150/150 pass), a clean
+`npx tsc --noEmit`, and two direct probes against the real `findCurationArtifacts`
+export using planted fixtures not present in the shipped test suite.
+
+### Status of the two targeted findings
+
+**WR-14 — CLOSED as scoped.** Traced every path through `walk()`: the
+`entry.isFile()` gate (`curation-guard.mjs:135-141`) is genuinely ordered
+before the `UNSCANNED_EXTENSIONS` skip (`:143-144`), confirmed both by source
+order and by test (d)'s planted `.json`-named dangling symlink, which is
+reported rather than silently exempted. The `readFileSync` try/catch
+(`:156-165`) converts a mode-000 `EACCES` into an attributed violation. All
+five named classes (dangling symlink, dir-symlink, mode-000, `.json`-named
+symlink, FIFO) are covered by planted-fixture tests that pass. A FIFO no
+longer blocks: `entry.isFile()` is `false` for a FIFO dirent, so it is
+reported and `continue`d before any `readFileSync` is attempted — I confirmed
+this is unconditional (no code path reads a FIFO). One adjacent, untested
+throw class survives the fix — see WR-19 below, which is new in this wave,
+not a reopening of WR-14 itself.
+
+**WR-17 — CLOSED.** `resolveExcluded` (`detail-best-efforts-logic.ts:40-49`)
+is genuinely the sole definition — confirmed by direct grep against the real
+file: `resolveExcluded(` occurs exactly 3 times (the declaration plus the two
+call sites at `:91` and `:175`), `isExcluded(` occurs exactly once (inside
+`resolveExcluded`'s own body). Both `buildPrBadgeLabels` and
+`buildBestEffortsPanelRows` call it with the same four-argument shape and no
+local re-derivation. `detail.ts:550` and `:554` both read the one
+`liveExclusions` binding from `mountBestEffortsAndBadges`'s parameter list —
+confirmed directly against the current file, not just the seam-test's
+regex capture. `curation-seam.test.ts`'s new `WR-17` block
+(`:151-219`) pins the literal call-site text, an identifier-equality regex
+across both call sites, and a required-non-optional-parameter check; all 5
+tests pass and I confirmed by hand that the regex correctly targets
+`mountBestEffortsAndBadges`'s body (searches from the function's start to EOF,
+which is safe here because there is exactly one call site of each function in
+the whole file). The 12-combination non-divergence table in
+`detail-best-efforts-logic.test.ts` correctly enumerates
+`wasPRAtTheTime × excludedFromRecords × liveExclusions{null, loaded-empty,
+loaded-'all'}` and asserts the header-derived PR-distance set equals the
+panel's `isPr`-derived set in every cell; I additionally spot-checked the
+"stale-TRUE precomputed flag, loaded-but-empty live index" cell by hand
+against `resolveExcluded`'s body and confirmed it resolves to
+NOT-excluded — the exact mirror-direction invariant this gap-closure round
+exists to protect.
+
+### Warnings
+
+#### WR-19: An unreadable (mode-000) directory still throws an uncaught `EACCES` out of `findCurationArtifacts` — the sibling of WR-14 for directories was left unfixed and untested
+
+**File:** `scripts/lib/curation-guard.mjs:82-83` (`walk`'s `readdirSync` call, both the initial call and the recursive one at line 101)
+
+**Issue:** WR-14's fix added an `entry.isFile()` gate and a `readFileSync`
+try/catch, closing five throw/hang classes for individual *entries* inside a
+directory. It did not add any guard around the `readdirSync(dir, {
+withFileTypes: true })` call that begins each level of `walk()`. If any
+directory under `publishDir` — not a file, the directory itself — cannot be
+listed (mode `000`, or any other `EACCES`/`EPERM` on the directory's own read
+bit), `readdirSync` throws synchronously, and nothing in `walk()` or
+`findCurationArtifacts` catches it. The throw escapes the "pure function that
+never throws" contract the module's own docblock and the 24-15 plan/summary
+both claim ("converting four throw classes ... and one hang class ... into
+reported violations" — a locked directory is a sixth, unaddressed class in
+the same family) and lands, uncaught, in `assertNoCurationArtifacts()`
+(`build-widgets.mjs`, which per the existing Wave-7 WR-14 finding has no
+try/catch either), producing exactly the unattributed
+`Widget build failed: EACCES: permission denied, scandir '...'` message that
+24-15's whole purpose was to replace with an attributed
+`✗ Curation-artifact guard failed: <path> — ...` line.
+
+I reproduced this directly against the shipped module (not a hypothetical):
+
+```
+$ node probe.mjs   # dir 'locked' chmod 0o000, containing inner.js
+THREW: EACCES: permission denied, scandir '/.../locked'
+```
+
+This fails **closed** (the build still aborts), so it is not the dangerous
+"silently passes something it should flag" direction this review was asked to
+watch for — but it reintroduces the identical operator-facing regression
+class (an unattributed raw Node error instead of a guard-attributed message)
+that plan 24-15 exists to close, on an input shape (an unreadable directory,
+not just an unreadable file) that is neither tested in
+`curation-guard.test.mjs`'s `WR-14` describe block nor mentioned in 24-15's
+SUMMARY as a considered case.
+
+**Fix:** wrap the `readdirSync` call itself and report the directory as a
+violation rather than descending into it:
+
+```js
+function walk(dir) {
+  let entries;
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch (error) {
+    violations.push({
+      path: dir,
+      reason: `directory could not be listed for scanning (${error.code ?? error.message}) — an unlistable directory cannot be certified free of the "${CURATE_MARKER}" marker`,
+    });
+    return;
+  }
+  for (const entry of entries) {
+    ...
+```
+
+Add a planted-fixture test alongside the existing WR-14 block (mode-000 on a
+*directory*, not a file) so this class is proven closed the same way the
+other five were, per D-11.
+
+### Info
+
+#### IN-17: A non-regular entry whose name also matches `CURATE_DIR_NAME`/`.curate-dist` is reported twice for the same path, with two different reasons
+
+**File:** `scripts/lib/curation-guard.mjs:105-125` (name checks) vs `135-141`
+(the new `isFile()` gate)
+
+**Issue:** the name checks for a *file* named `__curate` or `.curate-dist`
+(`:105-110`, `:112-125`) run before the new `entry.isFile()` gate (`:135`).
+For an entry that is both non-regular (a symlink, FIFO, etc.) **and** matches
+one of those names, both checks fire and push two violation objects for the
+identical `path`, with unrelated `reason` strings. Confirmed by direct probe:
+a symlink literally named `__curate` pointing at an unrelated, harmless file
+produces two entries in the returned array — `"a file named \"__curate\" must
+never exist..."` and `"not a regular file..."`. This is cosmetic (the guard
+already fails on any non-empty violations array, so the outcome is identical
+either way) but it makes the operator-facing violation count and listing
+slightly misleading for this one overlap case, which did not exist before
+24-15 introduced the `isFile()` gate at this position in the checks.
+
+**Fix:** either `continue` immediately after a name-match violation is
+pushed (matching the pattern already used for the `CURATE_DIR_NAME`
+directory case's "still descend" comment, but for the no-double-report case),
+or accept it as intentional and note in the docblock that a single path may
+legitimately appear more than once in the returned array when multiple
+independent problems apply to it.
+
+#### IN-18: `curation-seam.test.ts`'s new WR-17 pins depend on `detail.ts`'s exact single-line call-site formatting, with no formatter in this repo to make that assumption durable
+
+**File:** `src/dashboard/curation-seam.test.ts:152-155` (literal-string pin),
+`:158-178` (identifier-equality regex)
+
+**Issue:** the literal-string assertion
+`expect(detailStripped).toContain('buildPrBadgeLabels(bestEffortsEntry, liveExclusions)')`
+requires both call arguments to appear on one line with exactly one space
+after the comma. The regex-based identifier-equality check
+(`:161-178`) is more tolerant — `\s*` matches across newlines — so a
+reformatted, semantically-identical multi-line call would still pass the
+structural-equality pin but would fail the literal-string pin. This repo has
+no `prettier`/lint/format script and no pre-commit hook (checked: no
+`.prettierrc*`, no `format`/`lint` npm script, no `.husky` directory), so the
+risk of an *automated* reformat tripping this is low today — but a human
+editor reflowing a slightly-too-long line (the call site plus a future
+inline comment, or a variable rename that pushes it past a wrap point) would
+produce a false failure on an otherwise-correct, non-divergent change. This
+is a narrower version of the brittleness this wave's own pins are designed to
+tolerate for meaning (the regex layer) but not for formatting (the literal
+layer).
+
+**Fix:** either drop the literal-string assertion in favor of the
+already-present, formatting-tolerant regex checks (which fully subsume its
+intent — same identifiers, same call), or normalize whitespace before the
+`toContain` comparison (`detailStripped.replace(/\s+/g, ' ')`) so reflowing
+across lines cannot fail the pin for a reason unrelated to WR-17's actual
+concern.
+
+### Verified-Correct in Wave 9 (checked adversarially, no finding)
+
+- **No fail-open path introduced by the `isFile()` gate or the read
+  try/catch.** Every new branch in `walk()` either `continue`s after pushing
+  a violation or falls through to the content scan; none of them can cause a
+  marker-bearing file to be silently skipped. The ordering guarantee
+  (`isFile()` before the `.json` exemption) holds by direct source read, not
+  just by the pinned test.
+- **The mirror-direction invariant holds in `resolveExcluded`.** A loaded
+  (non-`null`) `liveExclusions` index — even an empty `Map` — always wins
+  over `effort.excludedFromRecords`; the stale-`true`-precomputed-flag,
+  no-live-entry cell renders as NOT-excluded, matching the browser-verified
+  R32/R34 behavior. `liveExclusions === null` (fetch failure/parse failure)
+  is the only path that reads the precomputed flag, and it fails toward
+  keeping a badge suppressed, never toward clearing one.
+- **`buildPrBadgeLabels` and `buildBestEffortsPanelRows` cannot receive
+  different `liveExclusions` values today** — both `detail.ts` call sites
+  read the identical `liveExclusions` parameter of the same
+  `mountBestEffortsAndBadges` invocation; there is no branch, no
+  reassignment, and no second call site for either function anywhere in the
+  file.
+- **`npx tsc --noEmit` is clean** against the full wave-9 diff; no `any`,
+  no unchecked-index, no loosened type introduced.
+
+---
+
+_Wave 9 reviewed: 2026-09-02T14:30:00Z_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
