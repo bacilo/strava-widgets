@@ -801,3 +801,64 @@ the precomputed `excludedFromRecords` is also `true` — for example by editing
 then observing that a live exclusion suppresses the badge and removing it restores the badge. That
 state is not reachable through the curate UI's own Save->Recompute->Untick sequence, which is
 precisely why R19 and R26 could not reach it.
+
+#### GAP-24-05 — AMENDED 2026-09-02 (re-verification round 4)
+
+The statement above is **narrowed**. Its claim that the live-document mirror direction is
+"still unproven" was too strong, and is corrected here rather than rewritten, per this phase's
+additions-only discipline.
+
+**What was missed.** `src/dashboard/views/detail-best-efforts-logic.test.ts:286-293` already
+contains a unit test that constructs precisely the state R19 and R26 could not reach:
+
+```
+it('R19 mirror-image: a loaded-and-empty live index overrides a stale true precomputed flag', () => {
+  const entry = activity({
+    activityId: 'a1',
+    efforts: [effort({ distance: '5k', wasPRAtTheTime: true, excludedFromRecords: true })],
+  });
+  const liveExclusions: ExclusionIndex = new Map();
+  expect(buildPrBadgeLabels(entry, liveExclusions)).toEqual(['PR — 5K']);
+});
+```
+
+`wasPRAtTheTime: true` AND `excludedFromRecords: true` simultaneously, with an empty live index,
+asserting the badge renders. Confirmed green on 2026-09-02 by
+`npx vitest run src/dashboard/views/detail-best-efforts-logic.test.ts -t "R19 mirror-image"`.
+
+**Corrected consequence.** The mirror BEHAVIOUR is proven — at the unit level. What remains
+unproven is browser-row COVERAGE of it: no checkpoint row has observed the mirror direction in a
+real paint, and by the analysis above no row driven purely through the curate UI's own
+Save→Recompute→Untick sequence ever can. GAP-24-05 is therefore a **checkpoint-coverage gap, not
+an unverified behaviour**.
+
+**What a closing round must actually do** (three concrete items, all small):
+
+1. **Browser-row coverage.** Add a row that reaches the discriminating state by editing
+   `data/stats/best-efforts.json` directly — setting `wasPRAtTheTime: true` and
+   `excludedFromRecords: true` for the target activity, with NO Recompute — then observing that a
+   live exclusion suppresses the badge and removing it restores the badge. Restore the file
+   afterwards and prove byte-identity, as every round has.
+2. **WR-14** (`24-REVIEW.md` § Wave 7 Review) — `curation-guard.mjs:116-130` has no
+   `entry.isFile()` guard. `Dirent.isDirectory()` is false for symlinks, so a dangling symlink
+   throws `ENOENT`, a symlink to a directory throws `EISDIR`, a mode-000 file throws `EACCES`, and
+   a FIFO blocks forever — all escaping to `build-widgets.mjs:340` as an unattributed
+   `Widget build failed: …`. Independently reproduced by both the reviewer and the round-4
+   verifier. This is in the guard criterion 3 depends on.
+3. **WR-17** (`24-REVIEW.md` § Wave 7 Review) — nothing structurally pins `buildPrBadgeLabels`'s
+   call site, nor that it receives the same `liveExclusions` binding as the panel.
+   `curation-seam.test.ts:129` pins only `buildBestEffortsPanelRows`'s arity, via a regex that
+   accepts any three arguments. `buildPrBadgeLabels(entry, null)` would type-check and silently
+   reinstate WR-05 — and per item 1 above, no current checkpoint row would observe it.
+
+**Disposition unchanged.** Re-verification round 4 returned `passed` (5/5) having independently
+re-derived each prior gap against live source — it live-planted its own `.d.ts` fixture rather
+than trusting R28's narration, and it is the round that surfaced the R19 unit test above. That
+verdict is recorded in `24-VERIFICATION.md` and is not retracted. But it does not discharge
+criterion 4, which is by its own wording a **human checkpoint**, and plan 24-14's governing rule
+("CUR-01 and the ROADMAP gate tick ONLY if every mapped row is PASS") was written deliberately in
+a phase where CUR-01 was already ticked prematurely once, after Round 2's clean sweep, and had to
+be reopened when the code review landed afterwards.
+
+CUR-01 stays **Pending**. The Phase 24 gate stays **open**. Decided by the developer 2026-09-02
+with the round-4 result in hand.

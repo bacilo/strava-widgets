@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
 status: executing
-stopped_at: Completed 24-14-PLAN.md — Round 3 checkpoint 7/8 PASS (R26 FAIL); GAP-24-02/GAP-24-03 closed, GAP-24-05 opened; CUR-01 stays Pending, Phase 24 gate stays open
+stopped_at: Phase 24 all 14 plans executed + all gates run. Round-4 verifier returned passed 5/5; developer held the gate OPEN 2026-09-02. GAP-24-05 amended to 3 concrete items. Next: /gsd-plan-phase 24 --gaps
 last_updated: "2026-09-02T10:41:18.635Z"
 last_activity: 2026-09-02
 progress:
@@ -277,3 +277,38 @@ notes on CR-01, CR-02 and WR-05.
 
 Next: a further gap-closure round targeting GAP-24-05 (`/gsd-plan-phase 24 --gaps`), or proceed to
 Phase 25, which has no dependency on Phase 24.
+
+
+## Round 4 re-verification and the gate decision (2026-09-02)
+
+All 14 plans are executed and every execute-phase gate has run.
+
+Gates: post-merge build/test green (60/60 files, 1531 tests, `tsc` 0, `build-widgets` 0);
+regression gate green; code review appended a Wave 7 section to `24-REVIEW.md` tracing CR-01,
+CR-02 and WR-05 as CLOSED in code and raising 5 new Warnings; re-verification round 4 returned
+**`passed`, 5/5**, reversing the earlier `gaps_found` (2/5).
+
+The verifier did not merely ratify the checkpoint — it re-derived each prior gap against live
+source, live-planted its own `.d.ts` fixture rather than trusting R28's narration, and surfaced
+`src/dashboard/views/detail-best-efforts-logic.test.ts:286` ("R19 mirror-image"), an existing unit
+test that constructs the `wasPRAtTheTime: true` + `excludedFromRecords: true` + empty-live-index
+state R19 and R26 could not reach and asserts the badge renders. Confirmed green independently.
+
+**That correction narrows GAP-24-05** from "the mirror direction is unproven" to "the mirror
+BEHAVIOUR is proven at the unit level; browser-row COVERAGE of it is missing."
+
+**The gate was nonetheless held OPEN by developer decision**, because criterion 4 is by its own
+wording a human checkpoint and R26 FAILED, and because CUR-01 was already ticked prematurely once
+after Round 2 and had to be reopened when the code review landed afterwards. CUR-01 stays
+**Pending**; Phase 24 stays **In Progress**; the origin todo stays in `pending/`.
+
+Three concrete items remain for a closing round (see AMENDED GAP-24-05 in `24-VALIDATION.md`):
+1. A browser row that reaches the discriminating state by editing `data/stats/best-efforts.json`
+   directly (no Recompute), then observing suppress-and-restore.
+2. **WR-14** — `curation-guard.mjs:116-130` has no `entry.isFile()` guard; symlinks/EISDIR/EACCES
+   throw out of the guard and a FIFO blocks forever. Reproduced independently twice.
+3. **WR-17** — nothing structurally pins `buildPrBadgeLabels`'s call site or that it shares the
+   panel's `liveExclusions` binding; `buildPrBadgeLabels(entry, null)` would type-check and
+   silently reinstate WR-05.
+
+Phase 25 (CI Hardening & Light-Theme Verification) has no dependency on Phase 24 and is available.
