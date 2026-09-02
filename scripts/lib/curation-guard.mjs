@@ -32,8 +32,19 @@
  *      exempted every other extension, including `.ts`/`.d.ts`/`.mjs` and
  *      extensionless files, while dist/widgets publishes 22 `.d.ts` files
  *      today — the CR-02 regression this inverted shape prevents. The file
- *      is read as `latin1` (see the read site below) so that scanning
- *      arbitrary bytes can never throw.
+ *      is read as `latin1` (see the read site below), which makes the
+ *      DECODE total — every byte sequence decodes without throwing or
+ *      lossily replacing. That is NOT true of the READ itself: a
+ *      "must be a regular file" gate now precedes the read (WR-14), because
+ *      `readdirSync`'s `withFileTypes` uses `lstat` semantics, so a
+ *      symlink — dangling, to a directory, or to anything else — a FIFO,
+ *      a socket, or a device node all have `isDirectory() === false` and
+ *      would otherwise reach an unguarded `readFileSync`. Non-regular
+ *      entries are now REPORTED as violations rather than read. A
+ *      regular file that still fails to open (e.g. mode-000, `EACCES`)
+ *      is caught by a `try`/`catch` around the read and reported the
+ *      same way, rather than letting the throw escape this pure
+ *      function.
  */
 
 import { existsSync, readdirSync, readFileSync } from 'fs';
@@ -113,6 +124,22 @@ export function findCurationArtifacts(publishDir) {
         });
       }
 
+      // WR-14: readdirSync's withFileTypes uses lstat semantics, so a
+      // symlink — dangling, to a directory, or to anything else — has
+      // isDirectory() === false and falls through to here. A FIFO,
+      // socket or device node does too. None of these are legitimate
+      // publish artifacts; report rather than read. This gate must run
+      // BEFORE the UNSCANNED_EXTENSIONS skip below (case (d) pins the
+      // ordering) so a .json-named symlink cannot use the load-bearing
+      // .json exemption to smuggle a non-regular entry past the scan.
+      if (!entry.isFile()) {
+        violations.push({
+          path: entryPath,
+          reason: 'not a regular file — the published bundle must contain only regular files and directories',
+        });
+        continue;
+      }
+
       const ext = scanExtension(entry.name);
       if (ext !== null && UNSCANNED_EXTENSIONS.includes(ext)) continue;
 
@@ -121,7 +148,21 @@ export function findCurationArtifacts(publishDir) {
       // decodes every byte sequence without throwing or lossily
       // replacing, while the marker is pure ASCII so substring matching
       // is unaffected.
-      const content = readFileSync(entryPath, 'latin1');
+      //
+      // WR-14: the isFile() gate above rules out symlinks/FIFOs/sockets/
+      // device nodes, but a REGULAR file can still fail to open (e.g. a
+      // mode-000 file, EACCES). Report that as a violation too, rather
+      // than letting the throw escape this pure function.
+      let content;
+      try {
+        content = readFileSync(entryPath, 'latin1');
+      } catch (error) {
+        violations.push({
+          path: entryPath,
+          reason: `could not be read for scanning (${error.code ?? error.message}) — an unscannable file cannot be certified free of the "${CURATE_MARKER}" marker`,
+        });
+        continue;
+      }
       if (content.includes(CURATE_MARKER)) {
         violations.push({
           path: entryPath,
