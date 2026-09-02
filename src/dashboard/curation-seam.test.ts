@@ -148,3 +148,72 @@ describe('GAP-24-01 — the detail view derives exclusion badge state from the l
     }
   });
 });
+
+describe('WR-17 — both derivations are pinned to the same liveExclusions binding', () => {
+  it('detail.ts contains exactly one buildPrBadgeLabels( call site, in the literal two-argument form', () => {
+    expect(countOccurrences(detailStripped, 'buildPrBadgeLabels(')).toBe(1);
+    expect(detailStripped).toContain('buildPrBadgeLabels(bestEffortsEntry, liveExclusions)');
+  });
+
+  it('detail.ts pins buildBestEffortsPanelRows to the literal three-argument form, not merely to three arguments', () => {
+    expect(detailStripped).toContain('buildBestEffortsPanelRows(bestEffortsEntry, ageGrading, liveExclusions)');
+  });
+
+  it('both call sites inside mountBestEffortsAndBadges receive the SAME final-argument identifier', () => {
+    const fnStart = detailStripped.indexOf('async function mountBestEffortsAndBadges');
+    expect(fnStart, 'expected to find mountBestEffortsAndBadges').toBeGreaterThanOrEqual(0);
+    const fnBody = detailStripped.slice(fnStart);
+
+    const badgeMatch = fnBody.match(
+      /buildPrBadgeLabels\(\s*([A-Za-z_$][\w$]*)\s*,\s*([A-Za-z_$][\w$]*)\s*\)/
+    );
+    const panelMatch = fnBody.match(
+      /buildBestEffortsPanelRows\(\s*([A-Za-z_$][\w$]*)\s*,\s*([A-Za-z_$][\w$]*)\s*,\s*([A-Za-z_$][\w$]*)\s*\)/
+    );
+
+    expect(badgeMatch, 'expected an identifier-form buildPrBadgeLabels( call').not.toBeNull();
+    expect(panelMatch, 'expected an identifier-form buildBestEffortsPanelRows( call').not.toBeNull();
+
+    const badgeFinalArg = badgeMatch?.[2];
+    const panelFinalArg = panelMatch?.[3];
+    expect(
+      badgeFinalArg,
+      `buildPrBadgeLabels's final argument ('${badgeFinalArg}') must equal buildBestEffortsPanelRows's final argument ('${panelFinalArg}')`
+    ).toBe(panelFinalArg);
+
+    const badgeFirstArg = badgeMatch?.[1];
+    const panelFirstArg = panelMatch?.[1];
+    expect(
+      badgeFirstArg,
+      `buildPrBadgeLabels's first argument ('${badgeFirstArg}') must equal buildBestEffortsPanelRows's first argument ('${panelFirstArg}')`
+    ).toBe(panelFirstArg);
+  });
+
+  it('detail-best-efforts-logic.ts has one definition of exclusion state, called from both derivations', () => {
+    // WR-17: pins the single-definition property the two docblocks now claim
+    // — both buildPrBadgeLabels and buildBestEffortsPanelRows call the same
+    // exported resolveExcluded helper rather than repeating the ternary.
+    expect(countOccurrences(detailBestEffortsLogicStripped, 'resolveExcluded(')).toBe(3);
+    expect(countOccurrences(detailBestEffortsLogicStripped, 'isExcluded(')).toBe(1);
+    expect(countOccurrences(detailBestEffortsLogicStripped, 'liveExclusions !== null')).toBe(1);
+
+    const prFnStart = detailBestEffortsLogicStripped.indexOf('export function buildPrBadgeLabels');
+    const rowInterfaceStart = detailBestEffortsLogicStripped.indexOf('export interface BestEffortPanelRow');
+    expect(prFnStart, 'expected buildPrBadgeLabels').toBeGreaterThanOrEqual(0);
+    expect(rowInterfaceStart, 'expected BestEffortPanelRow').toBeGreaterThan(prFnStart);
+    const prFnSlice = detailBestEffortsLogicStripped.slice(prFnStart, rowInterfaceStart);
+    expect(prFnSlice).toContain('resolveExcluded(');
+
+    const panelFnStart = detailBestEffortsLogicStripped.indexOf('export function buildBestEffortsPanelRows');
+    expect(panelFnStart, 'expected buildBestEffortsPanelRows').toBeGreaterThan(rowInterfaceStart);
+    const panelFnSlice = detailBestEffortsLogicStripped.slice(panelFnStart);
+    expect(panelFnSlice).toContain('resolveExcluded(');
+  });
+
+  it('neither function makes liveExclusions optional or defaulted', () => {
+    expect(countOccurrences(detailBestEffortsLogicStripped, 'liveExclusions?:')).toBe(0);
+    expect(
+      countOccurrences(detailBestEffortsLogicStripped, 'liveExclusions: ExclusionIndex | null =')
+    ).toBe(0);
+  });
+});

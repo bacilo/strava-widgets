@@ -23,6 +23,32 @@ export const DISTANCE_DISPLAY_NAMES: Record<TargetDistanceKey, string> = {
 };
 
 /**
+ * THE single definition of "is this effort excluded right now" (WR-17,
+ * GAP-24-05 item 3). Both `buildPrBadgeLabels` and
+ * `buildBestEffortsPanelRows` call this rather than repeating the ternary
+ * verbatim — WR-17 found two copies of the same four-line ternary whose
+ * sameness was asserted only by comment, and copy-paste is exactly the
+ * mechanism by which they diverge (the original WR-05 defect was one of
+ * these two sites reading a different source).
+ *
+ * `liveExclusions === null` means UNKNOWN — the live document could not be
+ * fetched or did not parse — and falls back to `effort.excludedFromRecords`;
+ * it must never be treated as NOT-EXCLUDED, which would silently clear a
+ * real badge (D-07's Save-vs-Recompute staleness window). Otherwise, the
+ * answer is delegated to `isExcluded`, keyed on `activityId` and `distance`.
+ */
+export function resolveExcluded(
+  liveExclusions: ExclusionIndex | null,
+  activityId: string,
+  distance: TargetDistanceKey,
+  effort: { excludedFromRecords: boolean }
+): boolean {
+  return liveExclusions !== null
+    ? isExcluded(liveExclusions, activityId, distance)
+    : effort.excludedFromRecords;
+}
+
+/**
  * Builds one `PR — {Display}` label per distance this activity set a PR at,
  * in `TARGET_ORDER`. An effort excluded from records never produces a
  * badge, even if `wasPRAtTheTime` is also true — an excluded effort did not
@@ -33,11 +59,11 @@ export const DISTANCE_DISPLAY_NAMES: Record<TargetDistanceKey, string> = {
  * default, no optional marker. This is the same forgotten-call-site
  * discipline plan 24-09 chose for `buildBestEffortsPanelRows`: a default
  * would have let a future call site silently reopen the staleness window
- * this parameter closes. When `liveExclusions` is not `null`, each
- * distance's excluded status is `isExcluded(liveExclusions,
- * entry.activityId, distance)` — the exact same ternary shape
- * `buildBestEffortsPanelRows` uses for its `excluded` field, so the two
- * derivations cannot diverge. `liveExclusions === null` means UNKNOWN — the
+ * this parameter closes. Each distance's excluded status is derived via
+ * `resolveExcluded`, the single shared helper `buildBestEffortsPanelRows`
+ * also calls, so there is one definition rather than two copies. `curation-seam.test.ts`'s WR-17
+ * pins assert that `detail.ts` hands both functions the same
+ * `liveExclusions` binding. `liveExclusions === null` means UNKNOWN — the
  * document could not be fetched or did not parse — and falls back to the
  * precomputed `effort.excludedFromRecords`; it must never be treated as
  * NOT-EXCLUDED, which would silently clear a real badge.
@@ -62,10 +88,7 @@ export function buildPrBadgeLabels(
     const effort = byDistance.get(distance);
     if (!effort) continue;
     if (!effort.wasPRAtTheTime) continue;
-    const excluded =
-      liveExclusions !== null
-        ? isExcluded(liveExclusions, entry.activityId, distance)
-        : effort.excludedFromRecords;
+    const excluded = resolveExcluded(liveExclusions, entry.activityId, distance, effort);
     if (excluded) continue;
     labels.push(`PR — ${DISTANCE_DISPLAY_NAMES[distance]}`);
   }
@@ -99,10 +122,10 @@ export interface BestEffortPanelRow {
  *
  * `BestEffortPanelRow.excluded` is a BADGE-STATE claim about the
  * developer's live curation intent for the activity being viewed, read from
- * `data/best-effort-exclusions.json` (GAP-24-01): when `liveExclusions` is
- * not `null`, each row's `excluded` is `isExcluded(liveExclusions,
- * entry.activityId, distance)`, so a `distances`-scoped entry badges only
- * the distances it names (D-05's read tolerance). `liveExclusions === null`
+ * `data/best-effort-exclusions.json` (GAP-24-01): each row's `excluded` is
+ * derived via `resolveExcluded`, the single shared helper `buildPrBadgeLabels`
+ * also calls, so a `distances`-scoped entry badges only the distances it
+ * names (D-05's read tolerance). `liveExclusions === null`
  * means UNKNOWN — the document could not be fetched or did not parse — and
  * falls back to the precomputed `effort.excludedFromRecords`; it must never
  * be treated as NOT-EXCLUDED, which would silently clear a real badge.
@@ -149,10 +172,7 @@ export function buildBestEffortsPanelRows(
 
     const ageGradeEntry = ageGradeForActivity?.[distance];
 
-    const excluded =
-      liveExclusions !== null
-        ? isExcluded(liveExclusions, entry.activityId, distance)
-        : effort.excludedFromRecords;
+    const excluded = resolveExcluded(liveExclusions, entry.activityId, distance, effort);
 
     rows.push({
       distance,
