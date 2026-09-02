@@ -532,7 +532,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 21. Overview Rebuild | v2.1 | 8/8 | Complete    | 2026-08-18 |
 | 22. Calendar Week-Start & Totals | v2.1 | 16/16 | Complete   | 2026-08-19 |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 13/13 | Complete    | 2026-08-27 |
-| 24. Local Curation Mode | v2.1 | 16/17 | In Progress| - |  <!-- round-4 verifier returned passed 5/5; gate held OPEN by developer decision 2026-09-02 — criterion 4 is a human checkpoint and R26 FAILED. See AMENDED GAP-24-05 in 24-VALIDATION.md. Round-4 fix plans 24-15 (WR-14) + 24-16 (WR-17) merged; 24-17 Round-4 BLOCKING browser checkpoint still outstanding. -->
+| 24. Local Curation Mode | v2.1 | 17/17 | Complete   | 2026-09-02 |
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 0/TBD | Not started | - |
 
 ---
