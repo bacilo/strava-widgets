@@ -74,3 +74,33 @@ per-distance, because `compute-best-efforts.ts:215-219` drops an excluded effort
 wrongly suppress. Per-distance selectability is recorded as a Deferred Idea in `24-CONTEXT.md`
 and remains supported by `buildExclusionIndex` on read (D-05), so a future phase could surface it
 without a schema migration.
+
+---
+
+## REOPENED 2026-09-02 — moved back to `pending/`
+
+This todo was moved to `completed/` by plan 24-10 on 2026-09-01 on the strength of its Round 2
+checkpoint (R15-R23, 9/9 PASS). The phase code review ran **after** that write and
+`24-VERIFICATION.md` then scored the phase **2/5 must-haves (`gaps_found`)**, so the closure was
+premature and is reverted here. The closing note above is retained as the accurate record of what
+Round 2 established — it is not retracted, it is simply not sufficient on its own.
+
+Two of the four ROADMAP criteria are not discharged:
+
+- **Criterion 3 fails on CUR-01's own word "provably absent."** `scripts/lib/curation-guard.mjs:37`
+  scans an allowlist (`SCANNED_EXTENSIONS = ['.js', '.html', '.css', '.map']`) and line 90 skips
+  every other extension, while `dist/widgets` publishes 22 `.d.ts` files and
+  `scripts/curate-overlay/index.ts` contains the literal `const CURATE_PREFIX = '/__curate'`. A
+  leak of that shape yields `violations === []` under a green `✓ Curation-artifact scan`. Both
+  R13 and R22 planted a `.js` — the one class the allowlist covers — so this has never been
+  observed failing. The allowlist is deliberate (load-bearing so the guard cannot catch the
+  legitimately-public `best-effort-exclusions.json`), so closing this needs a denylist rethink.
+- **Criterion 2 is partial.** Plan 24-09 fixed `buildBestEffortsPanelRows` but not
+  `buildPrBadgeLabels` (`detail-best-efforts-logic.ts:32-46`), called from the same `Promise.all`
+  in the same paint (`detail.ts:546` vs `550`). R15's own recorded evidence contains the
+  contradiction unflagged: `PRExcluded — ROUND2-2026-09-01 GPS device unreliable`.
+
+Approach B (local curation mode) is still what shipped and is still the right approach; options A
+and C remain rejected for the reasons above, and step 2 remains superseded by D-04. Nothing here
+reopens the design — only the gate. Close this todo when a gap-closure round discharges criteria 2
+and 3. Next: `/gsd-plan-phase 24 --gaps`.
