@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ActivityBestEfforts, BestEffort } from '../../analytics/best-effort.types.js';
+import type { ActivityBestEfforts, BestEffort, TargetDistanceKey } from '../../analytics/best-effort.types.js';
 import type { AgeGradingDocument } from '../../analytics/age-grading.types.js';
 import type { ExclusionIndex } from '../../analytics/best-effort-exclusions.js';
-import { buildBestEffortsPanelRows, buildPrBadgeLabels } from './detail-best-efforts-logic.js';
+import {
+  buildBestEffortsPanelRows,
+  buildPrBadgeLabels,
+  DISTANCE_DISPLAY_NAMES,
+  resolveExcluded,
+} from './detail-best-efforts-logic.js';
 
 function effort(overrides: Partial<BestEffort> & Pick<BestEffort, 'distance'>): BestEffort {
   return {
@@ -339,5 +344,84 @@ describe('WR-05 — the header PR badges and the panel rows never disagree in on
     const liveExclusions: ExclusionIndex = new Map();
     const rows = buildBestEffortsPanelRows(entry, null, liveExclusions);
     expect(rows.find((r) => r.distance === '5k')?.isPr).toBe(true);
+  });
+});
+
+describe('WR-17 — one definition of excluded, and the two derivations cannot diverge', () => {
+  describe('resolveExcluded', () => {
+    it('a null live index falls back to a true precomputed flag (UNKNOWN -> excluded)', () => {
+      expect(resolveExcluded(null, 'a1', '5k', { excludedFromRecords: true })).toBe(true);
+    });
+
+    it('a null live index falls back to a false precomputed flag (UNKNOWN -> not excluded)', () => {
+      expect(resolveExcluded(null, 'a1', '5k', { excludedFromRecords: false })).toBe(false);
+    });
+
+    it('a loaded-and-empty live index overrides a stale-true precomputed flag (R19/R26 mirror direction, at the helper level)', () => {
+      expect(resolveExcluded(new Map(), 'a1', '5k', { excludedFromRecords: true })).toBe(false);
+    });
+
+    it("an 'all' live entry excludes regardless of a false precomputed flag", () => {
+      const liveExclusions: ExclusionIndex = new Map([['a1', 'all']]);
+      expect(resolveExcluded(liveExclusions, 'a1', '5k', { excludedFromRecords: false })).toBe(true);
+    });
+
+    it('a distance-scoped live entry does not exclude a distance it does not name (D-05 per-distance read tolerance)', () => {
+      const liveExclusions: ExclusionIndex = new Map([['a1', new Set(['5k'])]]);
+      expect(resolveExcluded(liveExclusions, 'a1', '10k', { excludedFromRecords: false })).toBe(false);
+    });
+
+    it('the index is keyed on the passed activityId, not hardcoded', () => {
+      const liveExclusions: ExclusionIndex = new Map([['a2', 'all']]);
+      expect(resolveExcluded(liveExclusions, 'a1', '5k', { excludedFromRecords: false })).toBe(false);
+    });
+  });
+
+  describe('the header PR set and the panel isPr set agree across all 12 reachable combinations', () => {
+    const liveExclusionStates: Array<{ name: string; value: ExclusionIndex | null }> = [
+      { name: 'null (UNKNOWN, falls back to precomputed flag)', value: null },
+      { name: 'loaded-and-empty', value: new Map() },
+      { name: "loaded, a1 -> 'all'", value: new Map([['a1', 'all']]) },
+    ];
+
+    function distancesFromLabels(labels: string[]): Set<TargetDistanceKey> {
+      const entries = Object.entries(DISTANCE_DISPLAY_NAMES) as Array<[TargetDistanceKey, string]>;
+      return new Set(
+        labels.map((label) => {
+          const found = entries.find(([, display]) => label === `PR — ${display}`);
+          if (!found) throw new Error(`unparseable PR label: ${label}`);
+          return found[0];
+        })
+      );
+    }
+
+    for (const wasPRAtTheTime of [true, false]) {
+      for (const excludedFromRecords of [true, false]) {
+        for (const liveState of liveExclusionStates) {
+          const combo = `wasPRAtTheTime=${wasPRAtTheTime}, excludedFromRecords=${excludedFromRecords}, liveExclusions=${liveState.name}`;
+
+          it(`agree when ${combo}`, () => {
+            const effortInput = { excludedFromRecords };
+            const entry = activity({
+              activityId: 'a1',
+              efforts: [effort({ distance: '5k', wasPRAtTheTime, excludedFromRecords })],
+            });
+
+            const labels = buildPrBadgeLabels(entry, liveState.value);
+            const prDistances = distancesFromLabels(labels);
+
+            const rows = buildBestEffortsPanelRows(entry, null, liveState.value);
+            const isPrDistances = new Set(rows.filter((row) => row.isPr).map((row) => row.distance));
+
+            expect(prDistances, `[${combo}] header PR set vs. panel isPr set`).toEqual(isPrDistances);
+
+            expect(
+              rows[0].excluded,
+              `[${combo}] row.excluded should equal resolveExcluded's own answer, not a re-derivation`
+            ).toBe(resolveExcluded(liveState.value, 'a1', '5k', effortInput));
+          });
+        }
+      }
+    }
   });
 });

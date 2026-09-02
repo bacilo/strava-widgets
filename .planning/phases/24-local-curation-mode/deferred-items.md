@@ -104,3 +104,14 @@ Left for the orchestrator's merge-back into the main checkout.
 `npx vitest run src/dashboard/views/detail-best-efforts-logic.test.ts` — 26/26 pass.
 `npm test`'s own tally: 0 assertion failures, 1369/1369 executed tests pass; only the 6
 pre-existing file-level ENOENT failures. Not fixed, same disposition as 24-02's entry above.
+
+**24-16 confirmation (Task 1):** Identical 6-file ENOENT pattern reproduced verbatim in this
+plan's worktree (`.claude/worktrees/agent-ad4055f04919a3029`) — `data/stats/*.json`
+(`records-logic`, `trends-cadence-hr-logic`, `trends-gear-logic`, `trends-training-load-logic`,
+`trends-yoy-logic`) and `node_modules/chartjs-plugin-zoom/...` (`trends-zoom-logic`) still absent,
+none of the 6 failing files touched by this plan's 3 files (`detail-best-efforts-logic.ts`,
+`detail-best-efforts-logic.test.ts`, `curation-seam.test.ts`).
+`npx vitest run src/dashboard/views/detail-best-efforts-logic.test.ts` — 44/44 pass (18 new: 6
+`resolveExcluded` unit cases + 12-combination table). `npx tsc --noEmit` — exits 0. `npm test`'s
+own tally: 0 assertion failures, 1395/1395 executed tests pass; only the 6 pre-existing
+file-level ENOENT failures. Not fixed, same disposition as 24-02's entry above.
