@@ -553,3 +553,140 @@ to the Gap-Closure Record below. `nyquist_compliant` is set `true` in this file'
 coverage row (above, under "Per-Task Verification Map") was already green going into this round
 and is unaffected by it — no row there covers browser rendering, which is exactly the gap this
 checkpoint closes. `status: complete`.
+
+---
+
+## Fresh Gate Run (plan 24-14, Round 3)
+
+*(plan 24-14, Task 1, 2026-09-02, run from the main checkout
+`/Users/pedf/workspace/strava-widgets` — not a parallel-execution worktree, so none of the
+gitignored-artifact ENOENT gaps logged in `deferred-items.md` for plans 24-01/24-02/24-09/24-12/24-13
+apply here; every command below ran against the full local `data/` and `node_modules/` trees.)*
+
+Pre-run: `git status --short` showed only the pre-existing, unrelated `D dist/widgets/test.html`
+(present before this phase's execution began; not caused by any plan in this phase — see Round 1's
+"Observations" for its original disclosure). `git rev-parse HEAD` at the start of this task (for
+reference only, not a baseline — see "D-09 baseline" below): `d440458567cb7ba953478fca040c2436426668f1`.
+
+| # | Command | Exit code | Notable output |
+|---|---------|-----------|-----------------|
+| 1 | `npm test` | 0 | `Test Files 60 passed (60)` / `Tests 1531 passed (1531)` |
+| 2 | `npx tsc --noEmit` | 0 | (no output — clean) |
+| 3 | `npm run build` | 0 | `tsc` clean, produces `dist/index.js` |
+| 4 | `npm run build-widgets` | 0 | `✓ Curation-artifact scan: dist/widgets tree scanned, no curation-mode artifacts found.`, `✓ Private-artifact scan: 5588 published JSON files scanned, none contain identity/health fields.` |
+| 5 | `npm run verify-dashboard` | 0 | `40 check(s) passed, 0 failure(s).`, including `✓ GET /data/best-effort-exclusions.json -> 200`, `✓ /data/best-effort-exclusions.json parses with an "exclusions" array`, `✓ GET /__curate/health -> 404`, `✓ GET /__curate/overlay.js -> 404`, `✓ GET /__curate/exclusions/3475726256 -> 404` |
+
+`git status --porcelain data/best-effort-exclusions.json` after this run: **empty** (nothing
+written by the gate commands).
+
+### Build identity (this gate run)
+
+`dist/widgets/assets/` contains stale files left over from earlier sessions
+(`index-BQy-1dz6.js`, `index-wqbxjbsD.js`, `index-xwaleiOf.js`, `index-UHckEgvm.js` — none
+referenced by the freshly-built `index.html`), because `build-widgets` does not delete
+unreferenced prior hashes from the assets directory. The build identity that matters is what
+`dist/widgets/index.html` actually references, confirmed via `grep -o
+'assets/index-[A-Za-z0-9_-]*\.\(js\|css\)' dist/widgets/index.html`:
+
+- **JS:** `assets/index-B1uN9-48.js`
+- **CSS:** `assets/index-B573RjUr.css`
+
+**Comparison against Round 2's `index-UHckEgvm.js`: the JS hash DIFFERS**
+(`index-B1uN9-48.js` ≠ `index-UHckEgvm.js`). This is expected and required — plan 24-13 changed
+`detail-best-efforts-logic.ts` (`buildPrBadgeLabels`'s new required `liveExclusions` parameter and
+`BestEffortPanelRow.isPr`'s suppression) and `detail.ts`, both in the dashboard entry graph, so the
+checkpoint below is running against bytes that include the fix. This hash also matches
+`24-13-SUMMARY.md`'s own independently-recorded post-fix bundle hash (`index-B1uN9-48.js`) exactly —
+re-derived here from a fresh build in this session, not copied forward from that summary. (The CSS
+hash `index-B573RjUr.css` is unchanged from Round 2, consistent with plans 24-11/24-12/24-13 shipping
+zero CSS changes — all three touch only `.mjs`/`.ts` server and build-tooling files.)
+
+These are the ONLY hashes Task 2's rows are valid against. If the developer's browser reports
+different hashes, hard-reload; if they still differ, the round is invalid per T-24-CACHE
+(T-24-14-05).
+
+### Expected values re-derived LIVE from disk (2026-09-02, BEFORE any write this round)
+
+> Re-derived independently in this session from the files below — not copied forward from Round
+> 1's or Round 2's literals. Every value below happens to match both prior rounds' pinned literals
+> exactly, which is itself confirmation `data/stats/*.json` has not been regenerated (e.g. by a
+> nightly CI run, or by any write from plans 24-11/24-12/24-13, all of which are code/test-only)
+> since Round 2's own final Recompute (R20) last touched it.
+
+**TARGET_ACTIVITY**, from `data/stats/best-efforts.json`'s `rankings` object (command:
+`node -e '... require("data/stats/best-efforts.json").rankings["400m"][0] ...'`):
+- `activityId`: **4556693525** — Round 1's and Round 2's target still holds rank 1 in `400m`,
+  confirmed live; it is reused rather than substituted.
+- `startDate`: **2021-01-02T08:00:54Z**
+- Appears in three distances' rankings (`data.rankings[dist]`, searched by `activityId`): `400m`
+  (rank **1**, `durationSec` **45.2**), `1k` (rank **8**, `durationSec` **207.4**), `1mi` (rank
+  **9**, `durationSec` **393.8**) — it holds **rank 1 only in `400m`**.
+
+**PINNED_PR_SET**, from `data.activities["4556693525"].efforts` (command: `node -e '...
+require("data/stats/best-efforts.json").activities["4556693525"].efforts ...'`) — the exact set of
+`TargetDistanceKey` values with `wasPRAtTheTime === true`:
+- Only **`400m`** (`wasPRAtTheTime: true`); all other four efforts (`1k`, `1mi`, `5k`, `10k`) read
+  `wasPRAtTheTime: false`.
+- Via `DISTANCE_DISPLAY_NAMES` (`src/dashboard/views/detail-best-efforts-logic.ts:15-22`) and
+  `buildPrBadgeLabels`'s `PR — ${DISTANCE_DISPLAY_NAMES[distance]}` template
+  (`detail-best-efforts-logic.ts:70`): **`PR — 400m`** — one label, non-empty. This is the exact
+  discriminator R24 and R26 assert against.
+
+**PINNED_PRECOMPUTED_EXCLUSION**, from the same `efforts` array's `excludedFromRecords` field, plus
+the entry's own top-level `excludedFromRecords`:
+- `400m: false`, `1k: false`, `1mi: false`, `5k: false`, `10k: false`; top-level
+  `excludedFromRecords: false`.
+- **Currently all-false** — TARGET_ACTIVITY is not excluded at session start.
+
+**PROMOTION_TARGET** (for `400m`, the one distance TARGET_ACTIVITY holds rank 1 in), read from
+`rankings["400m"][1]` (the entry immediately after rank 1):
+- `activityId`: **3475727228**
+- `durationSec`: **46.5**
+- `startDate`: **2019-04-02T16:38:33Z**
+- **`3475727228` is a DIFFERENT string from TARGET_ACTIVITY's `4556693525`** — confirmed by direct
+  string comparison (`String(entries[0].activityId) !== String(entries[1].activityId)` → `true`).
+
+**PINNED_WEEK** (the value R25's totals sub-check is judged against), from
+`data/stats/weekly-distance.json`, the entry whose `weekStartISO`..`+7d` window covers
+TARGET_ACTIVITY's `startDate` (`2021-01-02T08:00:54Z`), found via `w.find(e => target >=
+new Date(e.weekStartISO).getTime() && target < new Date(e.weekStartISO).getTime() +
+7*24*3600*1000)`:
+- `weekStartISO`: **2020-12-28T00:00:00.000Z**
+- `totalKm`: **88.864**
+- `runCount`: **7**
+
+**PINNED_MONTH** (the second value R25's totals sub-check is judged against), from
+`data/stats/monthly-stats.json`, the entry for TARGET_ACTIVITY's month (`periodLabel === "Jan
+2021"`):
+- `periodLabel`: **Jan 2021**
+- `totalKm`: **362.2411**
+- `runCount`: **29**
+
+**PINNED_EXCLUSIONS_LENGTH**, from `data/best-effort-exclusions.json`'s `exclusions` array
+(command: `node -e '... require("data/best-effort-exclusions.json").exclusions.length ...'`):
+- `exclusions` array length: **2** (the two Phase-15/16 GPS-device exclusions `3475726256` /
+  `3475725513`, unrelated to this round's target).
+- A byte snapshot was copied outside the repo for the end-of-round `cmp`:
+  `/private/tmp/claude-501/-Users-pedf-workspace-strava-widgets/c1bfdcf8-24ca-4aa2-967a-32503ab2c74b/scratchpad/best-effort-exclusions.PRE-ROUND3.json`
+  (sha256/md5 recorded at copy time: MD5 `42022fc2e18b214d2c9d84052ad69496`).
+- `git status --porcelain data/best-effort-exclusions.json` after this Task's gate run: **empty**
+  — nothing has been written yet.
+
+**PINNED_DTS_COUNT** (for R29), command: `find dist/widgets -name "*.ts" | wc -l`:
+- **22** — matches `24-VERIFICATION.md`'s independently-recorded count exactly (GAP-1's own
+  reproduction command), confirming the fresh build did not change which `.ts` files are
+  published, only the guard's ability to see them (24-11).
+
+### D-09 baseline — recorded operationally, not as a literal
+
+Before ROW R24, the developer runs `git rev-parse HEAD` and writes the value down; that recorded
+value is `BASELINE_HEAD`. ROW R24(g), R26(d), R27, R30(g) and the Final State Check in Task 2 pass
+only if `git rev-parse HEAD` still equals `BASELINE_HEAD` at the time each is checked.
+
+Why a literal cannot be pinned here instead: this file's own Task-1 commit advances HEAD past
+whatever value is written into it — exactly the failure mode Round 1's `cf18820` pin exhibited
+originally and Round 2's operational-instruction fix (above, "Fresh Gate Run (plan 24-10, Round
+2)") already corrected. Recording the instruction rather than a value keeps the baseline valid
+regardless of how many docs-only commits land between this task and the checkpoint. (For reference
+only, not as a baseline: HEAD at the start of this task was
+`d440458567cb7ba953478fca040c2436426668f1`; this task's own commit will advance past it.)
