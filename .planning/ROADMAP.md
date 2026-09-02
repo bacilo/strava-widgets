@@ -476,8 +476,8 @@ Plans:
 
 **Wave 9** *(gap closure round 4 — closes items 2 and 3 of the AMENDED GAP-24-05 in `24-VALIDATION.md`; two parallel plans, disjoint files)*
 
-- [ ] 24-15-PLAN.md — WR-14: give `curation-guard.mjs`'s walk an `entry.isFile()` gate and a `readFileSync` try/catch, so a dangling symlink, a directory symlink, a mode-000 file and a FIFO are REPORTED as violations instead of throwing `ENOENT`/`EISDIR`/`EACCES` out of the guard or hanging the build — four of five classes observed red first (D-11), and the build-level message contrasted from an unattributed `Widget build failed: ENOENT` to an attributed `✗ Curation-artifact guard failed: <path>` in the real `dist/widgets`
-- [ ] 24-16-PLAN.md — WR-17: replace the two verbatim copies of the exclusion ternary with one exported `resolveExcluded` both derivations call, add a 12-combination header-vs-panel non-divergence table, and pin `detail.ts`'s `buildPrBadgeLabels(bestEffortsEntry, liveExclusions)` call site and its shared binding in `curation-seam.test.ts` — with `buildPrBadgeLabels(bestEffortsEntry, null)` observed to fail the suite while still passing `tsc --noEmit`
+- [x] 24-15-PLAN.md — WR-14: give `curation-guard.mjs`'s walk an `entry.isFile()` gate and a `readFileSync` try/catch, so a dangling symlink, a directory symlink, a mode-000 file and a FIFO are REPORTED as violations instead of throwing `ENOENT`/`EISDIR`/`EACCES` out of the guard or hanging the build — four of five classes observed red first (D-11), and the build-level message contrasted from an unattributed `Widget build failed: ENOENT` to an attributed `✗ Curation-artifact guard failed: <path>` in the real `dist/widgets`
+- [x] 24-16-PLAN.md — WR-17: replace the two verbatim copies of the exclusion ternary with one exported `resolveExcluded` both derivations call, add a 12-combination header-vs-panel non-divergence table, and pin `detail.ts`'s `buildPrBadgeLabels(bestEffortsEntry, liveExclusions)` call site and its shared binding in `curation-seam.test.ts` — with `buildPrBadgeLabels(bestEffortsEntry, null)` observed to fail the suite while still passing `tsc --noEmit`
 
 **Wave 10** *(blocked on 24-15 and 24-16)*
 
@@ -532,7 +532,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 21. Overview Rebuild | v2.1 | 8/8 | Complete    | 2026-08-18 |
 | 22. Calendar Week-Start & Totals | v2.1 | 16/16 | Complete   | 2026-08-19 |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 13/13 | Complete    | 2026-08-27 |
-| 24. Local Curation Mode | v2.1 | 14/14 | In Progress| - |  <!-- round-4 verifier returned passed 5/5; gate held OPEN by developer decision 2026-09-02 — criterion 4 is a human checkpoint and R26 FAILED. See AMENDED GAP-24-05 in 24-VALIDATION.md -->
+| 24. Local Curation Mode | v2.1 | 16/17 | In Progress| - |  <!-- round-4 verifier returned passed 5/5; gate held OPEN by developer decision 2026-09-02 — criterion 4 is a human checkpoint and R26 FAILED. See AMENDED GAP-24-05 in 24-VALIDATION.md. Round-4 fix plans 24-15 (WR-14) + 24-16 (WR-17) merged; 24-17 Round-4 BLOCKING browser checkpoint still outstanding. -->
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 0/TBD | Not started | - |
 
 ---

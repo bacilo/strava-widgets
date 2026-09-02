@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
 status: executing
-stopped_at: Phase 24 gap-closure round 4 PLANNED under --force (closed-phase gate is a false positive; 24-VERIFICATION.md frontmatter still says status:passed while the developer holds the gate open). Plans 24-15/16/17 written, plan-checker PASSED 0 blockers. Scope = amended GAP-24-05's three items. CUR-01 still Pending. Next: /gsd-execute-phase 24
-last_updated: "2026-09-02T13:29:43.580Z"
-last_activity: 2026-09-02 -- Phase 24 planning complete
+stopped_at: Phase 24 gap-closure round 4 EXECUTING — plans 24-15/24-16 (wave 9) and 24-17 (wave 10, BLOCKING browser checkpoint) remain. Scope = amended GAP-24-05. CUR-01 still Pending, Phase 24 gate held open.
+last_updated: "2026-09-02T13:36:03.950Z"
+last_activity: 2026-09-02 -- Phase 24 execution started
 progress:
   total_phases: 7
   completed_phases: 5
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 24 gap-closure round 3 complete (plans 24-11..24-14). Two of the three `24-VERIFICATION.md` gaps are closed (curation-guard extension allowlist, curate-server static-route hardening); the third (`buildPrBadgeLabels` live exclusions) is only partially closed — its mirror direction failed the Round 3 checkpoint on a checkpoint-design defect, tracked as GAP-24-05. CUR-01 and the Phase 24 gate stay open pending a further gap-closure round.
+**Current focus:** Phase 24 gap-closure round 4 (plans 24-15..24-17) — closing the amended GAP-24-05 items: WR-14 (curation-guard) and WR-17 (`buildPrBadgeLabels` mirror direction), then the Round 4 BLOCKING browser checkpoint. CUR-01 and the Phase 24 gate stay open until that checkpoint passes.
 
 ## Current Position
 
-Phase: 24 (local-curation-mode) — GAP CLOSURE ROUND 4 PLANNED, GATE STILL OPEN
-Plan: 14 of 17 executed — 24-01..24-14 done; 24-15/24-16/24-17 planned 2026-09-02 and not yet
+Phase: 24 (local-curation-mode) — EXECUTING GAP-CLOSURE ROUND 4, GATE STILL OPEN
+Plan: 15 of 17 — 24-01..24-14 done; executing 24-15/24-16 (wave 9), then 24-17 (wave 10 checkpoint)
       executed. Waves 9 (24-15, 24-16 — disjoint files, parallel-safe) and 10 (24-17 — BLOCKING,
       autonomous: false).
-Status: Ready to execute — run /gsd-execute-phase 24
+Status: Executing Phase 24
         Scope of this round is the AMENDED GAP-24-05 in 24-VALIDATION.md (three items):
         (1) browser-row coverage for the WR-05 live-document mirror direction, (2) WR-14
         (curation-guard.mjs missing entry.isFile() guard), (3) WR-17 (nothing pins
@@ -84,7 +84,7 @@ Status: Ready to execute — run /gsd-execute-phase 24
           and both render paths gate on that flag before consulting the live document. 24-17's
           R32 avoids this by editing ONLY `excludedFromRecords` on the shard, leaving the
           discriminator live.
-Last activity: 2026-09-02 -- Phase 24 planning complete
+Last activity: 2026-09-02 -- Phase 24 execution started
 
 Progress: [█████████░] 97% (88/91 plans; 24-15/16/17 pending)
 
