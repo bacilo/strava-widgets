@@ -432,7 +432,7 @@ Plans:
   3. `verify-dashboard-publish.mjs` gains a new assertion, following the `assertNoPrivateArtifacts` precedent, that the curation write path (server code, curate UI bundle, write endpoints) is absent from the published GitHub Pages bundle — and that assertion demonstrably fails against a build that regresses this.
   4. **Human checkpoint**: run `npm run curate` locally, toggle a whole-activity exclusion end-to-end with a reason, confirm it lands in `data/best-effort-exclusions.json` and renders in the detail view; separately, load the production build served under `/strava-widgets` in a real browser and confirm no curation write endpoint is present or reachable. (**amended 2026-08-27 per D-04**)
 
-**Plans**: 14 plans in 8 waves
+**Plans**: 17 plans in 10 waves
 
 Plans:
 
@@ -473,6 +473,15 @@ Plans:
 **Wave 8** *(blocked on 24-11, 24-12 and 24-13)*
 
 - [x] 24-14-PLAN.md (executed; disposition withheld — 7/8 rows PASS, R26 FAIL, GAP-24-05 opened) — BLOCKING Round 3 checkpoint (R24-R31): the Save/Recompute/untick flow with header-vs-panel compared in one paint against a pre-write pinned PR set, the guard observed red on three previously-unscanned extension classes in the real `dist/widgets`, the curate server's `200 / 4xx / 200` liveness triple and four `403`s; then the CUR-01 and phase-gate disposition, earned only on those verdicts
+
+**Wave 9** *(gap closure round 4 — closes items 2 and 3 of the AMENDED GAP-24-05 in `24-VALIDATION.md`; two parallel plans, disjoint files)*
+
+- [ ] 24-15-PLAN.md — WR-14: give `curation-guard.mjs`'s walk an `entry.isFile()` gate and a `readFileSync` try/catch, so a dangling symlink, a directory symlink, a mode-000 file and a FIFO are REPORTED as violations instead of throwing `ENOENT`/`EISDIR`/`EACCES` out of the guard or hanging the build — four of five classes observed red first (D-11), and the build-level message contrasted from an unattributed `Widget build failed: ENOENT` to an attributed `✗ Curation-artifact guard failed: <path>` in the real `dist/widgets`
+- [ ] 24-16-PLAN.md — WR-17: replace the two verbatim copies of the exclusion ternary with one exported `resolveExcluded` both derivations call, add a 12-combination header-vs-panel non-divergence table, and pin `detail.ts`'s `buildPrBadgeLabels(bestEffortsEntry, liveExclusions)` call site and its shared binding in `curation-seam.test.ts` — with `buildPrBadgeLabels(bestEffortsEntry, null)` observed to fail the suite while still passing `tsc --noEmit`
+
+**Wave 10** *(blocked on 24-15 and 24-16)*
+
+- [ ] 24-17-PLAN.md — BLOCKING Round 4 checkpoint (R32-R35) closing item 1 of the amended GAP-24-05: browser-row coverage of the WR-05 mirror direction, reached by hand-editing the per-activity best-efforts shard (both the working-tree and the served `dist/widgets` copy) so `wasPRAtTheTime` stays `true` while `excludedFromRecords` is `true` with NO Recompute — the state R19 and R26 could not reach — with reachability asserted from disk before the row is presented, an exact badge count judged against two documents the round never edits, byte-identity restore proven by digest, and then the CUR-01 and phase-gate disposition
 
 **UI hint**: yes
 
