@@ -1,0 +1,25 @@
+{
+  "id": "i180086552",
+  "name": "Copenhagen Running",
+  "type": "Run",
+  "start_date": "2026-08-26T15:37:16Z",
+  "start_date_local": "2026-08-26T17:37:16",
+  "distance": 596.14,
+  "moving_time": 193,
+  "elapsed_time": 195,
+  "total_elevation_gain": 6.4044876,
+  "average_speed": 3.054,
+  "max_speed": 3.387,
+  "average_heartrate": 131,
+  "max_heartrate": 153,
+  "start_latlng": [
+    55.69911,
+    12.568106
+  ],
+  "map": {
+    "summary_polyline": "mv}rIuuukAAFANGd@KXIJCDEFSVEHIHKBOLGLIJQX_@h@CDMPGDM@C@]NKICCGGSYE?K?KGOQe@YWNAF?BAL?F?F?F@h@C`AIZIHUROBYEQEC@ABQf@Av@Gd@EB[XULSn@GZELKp@A|@@H??Rj@BB?LAHE\\AH?B"
+  },
+  "source_provider": "intervals",
+  "source_raw_id": "i180086552",
+  "strava_id": null
+}

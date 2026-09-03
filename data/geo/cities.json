@@ -17,8 +17,8 @@
     "cityName": "Christianshavn",
     "countryName": "Denmark",
     "countryIso2": "DK",
-    "activityCount": 159,
-    "totalDistanceKm": 1770.3
+    "activityCount": 160,
+    "totalDistanceKm": 1783
   },
   {
     "cityName": "Alvalade",
@@ -28,18 +28,18 @@
     "totalDistanceKm": 1274.8
   },
   {
+    "cityName": "Herlev",
+    "countryName": "Denmark",
+    "countryIso2": "DK",
+    "activityCount": 95,
+    "totalDistanceKm": 1131.3
+  },
+  {
     "cityName": "Olivais",
     "countryName": "Portugal",
     "countryIso2": "PT",
     "activityCount": 92,
     "totalDistanceKm": 1116.3
-  },
-  {
-    "cityName": "Herlev",
-    "countryName": "Denmark",
-    "countryIso2": "DK",
-    "activityCount": 86,
-    "totalDistanceKm": 1018.3
   },
   {
     "cityName": "Bergshamra",
@@ -59,8 +59,8 @@
     "cityName": "Indre By",
     "countryName": "Denmark",
     "countryIso2": "DK",
-    "activityCount": 8,
-    "totalDistanceKm": 74.9
+    "activityCount": 11,
+    "totalDistanceKm": 83.8
   },
   {
     "cityName": "Buddinge",
@@ -257,6 +257,13 @@
     "countryIso2": "DE",
     "activityCount": 1,
     "totalDistanceKm": 21.8
+  },
+  {
+    "cityName": "Meri-Rastila",
+    "countryName": "Finland",
+    "countryIso2": "FI",
+    "activityCount": 2,
+    "totalDistanceKm": 21.5
   },
   {
     "cityName": "Pragal",

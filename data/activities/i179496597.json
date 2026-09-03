@@ -1,0 +1,25 @@
+{
+  "id": "i179496597",
+  "name": "Herlev Running",
+  "type": "Run",
+  "start_date": "2026-08-25T05:50:17Z",
+  "start_date_local": "2026-08-25T07:50:17",
+  "distance": 5430.64,
+  "moving_time": 1767,
+  "elapsed_time": 2850,
+  "total_elevation_gain": 11.299282,
+  "average_speed": 3.062,
+  "max_speed": 4.731,
+  "average_heartrate": 136,
+  "max_heartrate": 157,
+  "start_latlng": [
+    55.716213,
+    12.444425
+  ],
+  "map": {
+    "summary_polyline": "iaasIup}jAE?O@WCEAK?MBO@E@U?W@E?g@BE@a@CSC_@@UGQBE\\AH?RAx@?~@Ap@Cv@]v@C?Q@UFO@IBI?I?EAY_@ICA@C@iN{OACA?ECGCGAGUAGCDADAFCDADADADADCLADAFIVIZAFGTIf@GLCRCTI\\CLS|@Sb@G^CFEDKV@TDNBDJVATA@Q@C@gBJCAILCFCDCBO?e@QKGOASGe@MUGIC[Ee@Nc@DCAe@FQ@e@CEAIAQCIIAIGc@AGCEGGEC[OGCCOG]EEIAMCICe@Ea@Ke@AG?QIUKQMAI?_ADo@@YF}@CcA?Y?[DgA?Q@}@Fq@BgA@E@W?]DYPe@Ts@DWBQHQNs@Ry@BMT}@DYDOHSHGRGb@OBCXAV@VBb@IJ@PDJ?D?b@AZA^DD@H?R@d@?J@T@Z?X@X@TFf@Df@BB@d@?B?LBJ?d@BJBd@DN@f@Dd@BN?XBZ?\\Bb@BH?d@EDINq@N}@Xq@BGRa@BGLe@DMZs@Vw@BGF[@CXo@Pu@BGRs@FMT{@@G@GTw@@GRu@HWT{@DKZm@@GRi@pAsECEHk@Tu@HWJ_@Ry@FOLo@Rm@J[BWLaABIPg@@GN{@DQLs@Lm@BMtDyH@C?CPq@BQDQBQBQB[HODMFQFUHYJa@Ha@DODOH_@@GH_@HU@GJk@H]Py@?GHc@L]R{@Fm@@KFSJ_@Nk@DUV}@DWRq@LUFULe@DMBGHQF?VT@DTz@@FFRJZTr@BH@F@FLf@HZBBDHNTRNX^T`@`@j@BBXd@b@NJB\\LH?NFNBH@@D\\p@JPFHT^Nf@FNVn@BDXn@BDPf@@f@?FH\\JTDPDj@?Jj@lKCLCp@?LBl@@FBTBTFXB`@@\\Db@@TD|@@bA@J@N@JB`@BhA?z@B^FdA@HDfA?F?H@F?H@h@G|@CF[j@WTSDc@T[\\E@IDUJIDUDS@[B_@Be@@MBi@FM?O?QK[g@EK[}@We@Qc@KOEEY]Yq@CGOk@Si@Kk@COCIKq@E}@My@Ka@EOSc@KIE?C@SVUTAFBd@?j@AFELCHGTGNUZGHCDQXMr@K~@EVDt@?ZAl@CdAAFe@pDGPa@X_@@OHSFMb@CR@PB`A@P@XBd@?RDv@@bA?RCfA@d@BZD`A@`A?H?j@?NBfA?F?dA?J?z@?FAhAALAt@?FA|@Jv@Fr@?FBVHt@BNBPJj@BXHz@"
+  },
+  "source_provider": "intervals",
+  "source_raw_id": "i179496597",
+  "strava_id": null
+}

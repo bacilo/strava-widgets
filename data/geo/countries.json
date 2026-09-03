@@ -2,8 +2,8 @@
   {
     "countryName": "Denmark",
     "countryIso2": "DK",
-    "activityCount": 1376,
-    "totalDistanceKm": 16805.6,
+    "activityCount": 1389,
+    "totalDistanceKm": 16940.3,
     "cities": [
       "Billund",
       "Buddinge",
@@ -78,12 +78,13 @@
   {
     "countryName": "Finland",
     "countryIso2": "FI",
-    "activityCount": 9,
-    "totalDistanceKm": 120.7,
+    "activityCount": 11,
+    "totalDistanceKm": 142.2,
     "cities": [
       "Herttoniemi",
       "Kumpula",
       "Länsi-Herttoniemi",
+      "Meri-Rastila",
       "Porvoo"
     ]
   },
