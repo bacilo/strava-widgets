@@ -311,13 +311,23 @@ async function computeAllStatsCommand() {
 
     const degraded = await runComputeAllStatsSteps(announcedSteps, { continueOnError });
 
-    console.log('\nAll statistics generated successfully!');
+    // The headline must not claim success on a degraded run. It used to be
+    // unconditional, so a nightly where three tolerated steps failed printed
+    // an unqualified "All statistics generated successfully!" and then
+    // immediately contradicted itself — anyone grepping the collapsed Actions
+    // log for "successfully", or reading only the last screenful, got the
+    // wrong answer. That directly undercuts D-03's stated purpose.
+    if (degraded.length === 0) {
+      console.log('\nAll statistics generated successfully!');
+    } else {
+      console.log(`\nStatistics generated with ${degraded.length} degraded step(s).`);
+    }
 
     if (degraded.length > 0) {
       // D-03: an end-of-run failure summary names every degraded step, so a
-      // nightly that quietly degraded three steps is visible at a glance
-      // rather than buried mid-log. Printed AFTER the success line above,
-      // not interleaved with per-step output.
+      // nightly that quietly degraded a step is visible at a glance rather
+      // than buried mid-log. Printed AFTER the headline above, not
+      // interleaved with per-step output.
       console.log(`\n${'='.repeat(70)}`);
       console.log(`DEGRADED STEPS (${degraded.length}) — tolerated failures during this run:`);
       for (const step of degraded) {
