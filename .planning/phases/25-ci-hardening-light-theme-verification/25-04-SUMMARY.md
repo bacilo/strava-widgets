@@ -64,7 +64,7 @@ Each task was committed atomically:
 
 1. **Task 1: Add the mode-000-directory fixture and observe it RED** - `56e31c19` (test)
 2. **Task 2: Wrap walk()'s readdirSync in the sibling try/catch** - `b20af51a` (feat)
-3. **Task 3: Close the WR-19 todo** - `ea6ee8d8` (docs)
+3. **Task 3: Close the WR-19 todo** - `ea6ee8d8` (docs), corrected by `92ce3de3` (fix) — see Deviations
 
 _No TDD REFACTOR commit was needed — the GREEN implementation matched the sibling pattern with no follow-up cleanup._
 
@@ -134,10 +134,18 @@ None - followed the plan's interfaces block exactly (the fix is a direct structu
 - **Verification:** `npm run build-widgets` still exits 0 with the green `✓ Curation-artifact scan` line, proving the restructure did not change whole-tree behavior for whatever file set the tree actually contains.
 - **Files modified:** None.
 
+**2. [Rule 1 - Bug] Task 3's commit `ea6ee8d8` did not contain the file content it was staged from**
+- **Found during:** Post-plan self-verification pass, after all three task commits and the SUMMARY commit
+- **Issue:** `git mv` staged the WR-19 todo's rename, and the two `Edit` calls that (a) appended the dated resolution section and (b) reworded the IN-17/IN-18 trailer to remove the literal strings both reported success and were confirmed on disk via `grep -c` immediately afterward. `git status --short` was clean after the `ea6ee8d8` commit. However, a later `git status --short` (after the SUMMARY commits) unexpectedly showed the completed todo file as modified again, and `git show ea6ee8d8:<path>` proved the committed blob still carried the PRE-edit trailer (including the literal `IN-17`/`IN-18` strings the acceptance criterion required to be absent) — the resolution section was entirely missing from that commit's tree, despite being present and correctly edited on disk both before and after.
+- **Fix:** Re-staged and committed the correct on-disk content in a new commit (`92ce3de3`), which `git show HEAD:<path>` confirms now matches the intended resolution section, with zero `IN-17`/`IN-18` string matches.
+- **Files modified:** `.planning/todos/completed/2026-09-02-wr19-curation-guard-directory-eacces.md`
+- **Verification:** `grep -c "IN-17\|IN-18" .planning/todos/completed/2026-09-02-wr19-curation-guard-directory-eacces.md` → 0; `git show HEAD:<path> | grep -c "Closed 2026-09-04"` → 1; `git status --short` clean; `git log --follow --oneline -1 -- <path>` still resolves to the corrected commit, confirming rename history survived the correction.
+- **Committed in:** `92ce3de3`
+
 ---
 
-**Total deviations:** 0 auto-fixed; 1 documentation-only observation (no code or scope impact).
-**Impact on plan:** None — the `.d.ts` count discrepancy does not affect WR-19's fix, its fixture, or its fail-closed proof, all three of which are verified above against whatever the real tree currently contains.
+**Total deviations:** 1 auto-fixed (Rule 1 — a commit whose tree silently diverged from its intended content); 1 documentation-only observation (no code or scope impact).
+**Impact on plan:** The Rule 1 fix was necessary to satisfy Task 3's own acceptance criterion (zero `IN-17`/`IN-18` matches in the completed file) and to keep the completed todo consistent with this SUMMARY's account. No scope creep — same file, same intended content, just re-committed correctly. The `.d.ts` count discrepancy does not affect WR-19's fix, its fixture, or its fail-closed proof, all three of which are verified above against whatever the real tree currently contains.
 
 ## Issues Encountered
 
@@ -169,3 +177,5 @@ None - no external service configuration required.
 - FOUND commit `b20af51a` (Task 2) in `git log`
 - FOUND commit `ea6ee8d8` (Task 3) in `git log`
 - FOUND commit `e53675f4` (SUMMARY.md) in `git log`
+- FOUND commit `92ce3de3` (Rule 1 fix, restoring the WR-19 resolution section) in `git log`
+- RE-VERIFIED: `git show HEAD:.planning/todos/completed/2026-09-02-wr19-curation-guard-directory-eacces.md` contains the resolution section and zero `IN-17`/`IN-18` matches; `git status --short` is clean
