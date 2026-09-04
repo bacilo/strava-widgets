@@ -128,10 +128,21 @@ jobs:
       # make `git add` fail on an ignored path and skip the deploy below.
       # data/streams/ is safe to list: it's a committed data family, not
       # gitignored (confirmed against .gitignore), unlike data/stats/.
+      #
+      # Third-party actions are pinned to immutable commit SHAs, not moving
+      # tags. This job grants `contents: write` and `pages: write`, checks the
+      # repo out with a usable token, and then hands control to these two
+      # actions on a nightly schedule — whoever controls a mutable tag could
+      # repoint it at arbitrary code running with that token. The trailing
+      # comment records the human-readable version each SHA was at when
+      # pinned; both SHAs are what `@v7` / `@v4` already resolved to, so this
+      # pin changed nothing about what runs today. Re-pin deliberately when
+      # upgrading. (actions/checkout and actions/setup-node above are
+      # first-party and lower risk, but the same argument applies to them.)
       - name: Commit updated data and stats
         id: commit
         continue-on-error: true  # Bookkeeping failure must not block the deploy
-        uses: stefanzweifel/git-auto-commit-action@v7
+        uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d  # v7.2.0
         with:
           commit_message: 'chore: update activities and stats [skip ci]'
           file_pattern: 'data/activities/*.json data/sync-state.json data/geo/*.json data/streams/*.json'
@@ -145,7 +156,7 @@ jobs:
       # No `if: always()` here on purpose — dist/ is gitignored, so deploying after a
       # failed widget build would publish an empty dist over a working site.
       - name: Deploy widgets to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
+        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453  # v4.1.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist/widgets
