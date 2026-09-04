@@ -426,6 +426,181 @@ async function main() {
       }
     }
 
+    // --- 4c. CI-02: every published stats document, by name ----------------
+    //
+    // The whole-directory `data/stats` copy (build-widgets.mjs's `dataDirs`
+    // entry `{ src: 'data/stats', dest: 'dist/widgets/data/stats' }`) has
+    // been trusted implicitly to carry these six documents. A dropped or
+    // renamed compute step would 404 silently in production while every
+    // local check stayed green — the same "verifier lies" failure class this
+    // repo's Verification Note already records three times over. Each check
+    // below is 200 + JSON.parse + one structural invariant that a truncated
+    // or empty document would fail (D-09) — a bare `expect200` accepts an
+    // empty `[]` or `{}` body just fine.
+
+    const weeklyDistanceBody = await expect200(baseUrl, '/data/stats/weekly-distance.json');
+    if (weeklyDistanceBody) {
+      const parsedWeeklyDistance = JSON.parse(weeklyDistanceBody);
+      if (!Array.isArray(parsedWeeklyDistance) || parsedWeeklyDistance.length === 0) {
+        fail(
+          `/data/stats/weekly-distance.json expected a non-empty array, got ${
+            Array.isArray(parsedWeeklyDistance) ? `an array of length ${parsedWeeklyDistance.length}` : typeof parsedWeeklyDistance
+          }`
+        );
+      } else if (typeof parsedWeeklyDistance[0].weekStartISO !== 'string' || parsedWeeklyDistance[0].weekStartISO.length === 0) {
+        fail(
+          `/data/stats/weekly-distance.json entry 0 "weekStartISO" expected a non-empty string, got ${JSON.stringify(
+            parsedWeeklyDistance[0].weekStartISO
+          )}`
+        );
+      } else if (!Number.isFinite(parsedWeeklyDistance[0].totalKm)) {
+        fail(`/data/stats/weekly-distance.json entry 0 "totalKm" expected a finite number, got ${JSON.stringify(parsedWeeklyDistance[0].totalKm)}`);
+      } else {
+        ok('/data/stats/weekly-distance.json parses with a non-empty array, entry 0 has a non-empty weekStartISO and a finite totalKm');
+      }
+    }
+
+    const monthlyStatsBody = await expect200(baseUrl, '/data/stats/monthly-stats.json');
+    if (monthlyStatsBody) {
+      const parsedMonthlyStats = JSON.parse(monthlyStatsBody);
+      if (!Array.isArray(parsedMonthlyStats) || parsedMonthlyStats.length === 0) {
+        fail(
+          `/data/stats/monthly-stats.json expected a non-empty array, got ${
+            Array.isArray(parsedMonthlyStats) ? `an array of length ${parsedMonthlyStats.length}` : typeof parsedMonthlyStats
+          }`
+        );
+      } else if (typeof parsedMonthlyStats[0].periodLabel !== 'string' || parsedMonthlyStats[0].periodLabel.length === 0) {
+        fail(
+          `/data/stats/monthly-stats.json entry 0 "periodLabel" expected a non-empty string, got ${JSON.stringify(
+            parsedMonthlyStats[0].periodLabel
+          )}`
+        );
+      } else if (!Number.isFinite(parsedMonthlyStats[0].totalKm)) {
+        fail(`/data/stats/monthly-stats.json entry 0 "totalKm" expected a finite number, got ${JSON.stringify(parsedMonthlyStats[0].totalKm)}`);
+      } else {
+        ok('/data/stats/monthly-stats.json parses with a non-empty array, entry 0 has a non-empty periodLabel and a finite totalKm');
+      }
+    }
+
+    const yearlyStatsBody = await expect200(baseUrl, '/data/stats/yearly-stats.json');
+    if (yearlyStatsBody) {
+      const parsedYearlyStats = JSON.parse(yearlyStatsBody);
+      if (!Array.isArray(parsedYearlyStats) || parsedYearlyStats.length === 0) {
+        fail(
+          `/data/stats/yearly-stats.json expected a non-empty array, got ${
+            Array.isArray(parsedYearlyStats) ? `an array of length ${parsedYearlyStats.length}` : typeof parsedYearlyStats
+          }`
+        );
+      } else if (typeof parsedYearlyStats[0].periodStart !== 'string' || parsedYearlyStats[0].periodStart.length === 0) {
+        fail(
+          `/data/stats/yearly-stats.json entry 0 "periodStart" expected a non-empty string, got ${JSON.stringify(
+            parsedYearlyStats[0].periodStart
+          )}`
+        );
+      } else if (!Number.isFinite(parsedYearlyStats[0].totalKm)) {
+        fail(`/data/stats/yearly-stats.json entry 0 "totalKm" expected a finite number, got ${JSON.stringify(parsedYearlyStats[0].totalKm)}`);
+      } else {
+        ok('/data/stats/yearly-stats.json parses with a non-empty array, entry 0 has a non-empty periodStart and a finite totalKm');
+      }
+    }
+
+    const yearOverYearBody = await expect200(baseUrl, '/data/stats/year-over-year.json');
+    if (yearOverYearBody) {
+      const parsedYearOverYear = JSON.parse(yearOverYearBody);
+      // Fixed length is a strong truncation detector here, deliberately NOT
+      // relaxed to `> 0`: the document is always pre-filled with one entry
+      // per calendar month (compute-advanced-stats.ts:104), so `length ===
+      // 12` catches a truncated file that `length > 0` would have accepted.
+      const isExactlyTwelveMonths = Array.isArray(parsedYearOverYear) && parsedYearOverYear.length === 12;
+      if (!isExactlyTwelveMonths) {
+        fail(
+          `/data/stats/year-over-year.json expected an array of exactly 12 entries (one per calendar month, ` +
+            `per compute-advanced-stats.ts:104), got ${
+              Array.isArray(parsedYearOverYear) ? `an array of length ${parsedYearOverYear.length}` : typeof parsedYearOverYear
+            }`
+        );
+      } else if (parsedYearOverYear[0].years === null || typeof parsedYearOverYear[0].years !== 'object') {
+        fail(`/data/stats/year-over-year.json entry 0 "years" expected a non-null object, got ${JSON.stringify(parsedYearOverYear[0].years)}`);
+      } else {
+        ok('/data/stats/year-over-year.json parses with exactly 12 entries and entry 0 has a non-null "years" object');
+      }
+    }
+
+    const bestEffortsBody = await expect200(baseUrl, '/data/stats/best-efforts.json');
+    if (bestEffortsBody) {
+      const parsedBestEfforts = JSON.parse(bestEffortsBody);
+      if (parsedBestEfforts.schemaVersion !== 1) {
+        fail(`/data/stats/best-efforts.json schemaVersion expected 1, got ${parsedBestEfforts.schemaVersion}`);
+      } else if (
+        parsedBestEfforts.activities === null ||
+        typeof parsedBestEfforts.activities !== 'object' ||
+        Object.keys(parsedBestEfforts.activities).length === 0
+      ) {
+        fail(
+          `/data/stats/best-efforts.json "activities" expected a non-null object with at least one key, got ${
+            parsedBestEfforts.activities === null || typeof parsedBestEfforts.activities !== 'object'
+              ? JSON.stringify(parsedBestEfforts.activities)
+              : `an object with ${Object.keys(parsedBestEfforts.activities).length} keys`
+          }`
+        );
+      } else if (
+        parsedBestEfforts.rankings === null ||
+        typeof parsedBestEfforts.rankings !== 'object' ||
+        Object.keys(parsedBestEfforts.rankings).length === 0
+      ) {
+        fail(
+          `/data/stats/best-efforts.json "rankings" expected a non-null object with at least one key, got ${
+            parsedBestEfforts.rankings === null || typeof parsedBestEfforts.rankings !== 'object'
+              ? JSON.stringify(parsedBestEfforts.rankings)
+              : `an object with ${Object.keys(parsedBestEfforts.rankings).length} keys`
+          }`
+        );
+      } else {
+        ok(
+          '/data/stats/best-efforts.json parses with schemaVersion 1, a non-empty "activities" object, and a non-empty "rankings" object'
+        );
+      }
+    }
+
+    // Per-activity shard sample, ids derived AT RUNTIME from indexDoc.activities
+    // — never pinned literals (D-10). The filter below is load-bearing, not
+    // cosmetic: the 25 index rows with no shard on disk are exactly the 25
+    // rows with streams.available === false (set equality verified 2026-09-03),
+    // so sampling from the unfiltered pool could pick an id with no shard file.
+    const shardCandidates = indexDoc.activities.filter((row) => row.streams?.available === true);
+    if (shardCandidates.length === 0) {
+      fail('/data/stats/best-efforts/{id}.json sample: no activity with streams.available === true found in the index — cannot sample a shard id');
+    } else {
+      // Three ids spanning the archive (first, middle, last), de-duplicated so
+      // a tiny archive does not double-check the same id — a partial or
+      // truncated directory copy is the failure this catches, which a
+      // newest-only sample would miss.
+      const shardSampleIds = [
+        ...new Set([
+          shardCandidates[0].id,
+          shardCandidates[Math.floor(shardCandidates.length / 2)].id,
+          shardCandidates[shardCandidates.length - 1].id,
+        ]),
+      ];
+      for (const shardId of shardSampleIds) {
+        const shardBody = await expect200(baseUrl, `/data/stats/best-efforts/${shardId}.json`);
+        if (shardBody) {
+          const parsedShard = JSON.parse(shardBody);
+          if (String(parsedShard.activityId) !== String(shardId)) {
+            fail(
+              `/data/stats/best-efforts/${shardId}.json "activityId" expected "${shardId}", got ${JSON.stringify(
+                parsedShard.activityId
+              )} — the index and the shard directory disagree about what exists`
+            );
+          } else if (!Array.isArray(parsedShard.efforts) || parsedShard.efforts.length === 0) {
+            fail(`/data/stats/best-efforts/${shardId}.json "efforts" expected a non-empty array, got ${JSON.stringify(parsedShard.efforts)}`);
+          } else {
+            ok(`/data/stats/best-efforts/${shardId}.json parses with activityId "${shardId}" and a non-empty "efforts" array`);
+          }
+        }
+      }
+    }
+
     if (newestRow) {
       const activityBody = await expect200(baseUrl, `/data/activities/${newestRow.id}.json`);
       if (activityBody) {
