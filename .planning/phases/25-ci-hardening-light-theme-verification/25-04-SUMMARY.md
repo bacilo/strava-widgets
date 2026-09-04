@@ -157,3 +157,15 @@ None - no external service configuration required.
 ---
 *Phase: 25-ci-hardening-light-theme-verification*
 *Completed: 2026-09-04*
+
+## Self-Check: PASSED
+
+- FOUND: `scripts/lib/curation-guard.mjs`
+- FOUND: `scripts/lib/curation-guard.test.mjs`
+- FOUND: `.planning/todos/completed/2026-09-02-wr19-curation-guard-directory-eacces.md`
+- FOUND: `.planning/todos/pending/2026-09-02-in17-in18-curation-guard-cosmetics.md`
+- CONFIRMED: WR-19 no longer present in `.planning/todos/pending/`
+- FOUND commit `56e31c19` (Task 1) in `git log`
+- FOUND commit `b20af51a` (Task 2) in `git log`
+- FOUND commit `ea6ee8d8` (Task 3) in `git log`
+- FOUND commit `e53675f4` (SUMMARY.md) in `git log`
