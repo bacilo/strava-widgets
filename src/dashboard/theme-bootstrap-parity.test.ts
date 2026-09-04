@@ -162,6 +162,20 @@ describe('inline theme bootstrap — allow-list and robustness (T-16-TH-01)', ()
     expect(bootstrapScript).toContain(`'${THEME_STORAGE_KEY}'`);
   });
 
+  it("the allow-list literally checks all three of 'light', 'dark' and 'auto' — not two plus a coincidental default", () => {
+    // Behavioural-only coverage has a blind spot here: `mode` is
+    // initialised to 'auto' before the allow-list check runs, so dropping
+    // `raw === 'auto'` from the condition produces IDENTICAL observable
+    // behaviour (mode still ends up 'auto' via the default, not the check).
+    // A structural assertion on the extracted source is required to make
+    // that specific regression fail loudly, per RESEARCH.md Pattern 6
+    // Option B's recommendation to keep a text-based check alongside the
+    // behavioural one for exactly this kind of coincidental-default gap.
+    expect(bootstrapScript).toMatch(/raw === 'light'/);
+    expect(bootstrapScript).toMatch(/raw === 'dark'/);
+    expect(bootstrapScript).toMatch(/raw === 'auto'/);
+  });
+
   it("passes exactly '(prefers-color-scheme: dark)' to matchMedia when resolving mode 'auto'", () => {
     runBootstrap({ storedValue: 'auto', prefersDark: true });
     expect(lastMediaQuery).toBe('(prefers-color-scheme: dark)');
