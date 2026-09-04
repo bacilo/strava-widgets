@@ -1,8 +1,8 @@
 ---
 phase: 25
 slug: ci-hardening-light-theme-verification
-status: gaps_found
-nyquist_compliant: false
+status: passed
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-09-03
 ---
@@ -50,14 +50,14 @@ Task ID / Plan / Wave filled 2026-09-03 by `/gsd-plan-phase 25` against the seve
 | 25-01-T1 | 25-01 | 1 | FIX-02 (D-13) | V5 Input Validation | `gearName` optional on the row type; every consumer making the presence assumption is enumerated by the compiler and either fixed or recorded as a todo | type-check | `npx tsc --noEmit` | N/A — compiler check | ✅ green |
 | 25-02-T2 | 25-02 | 1 | CI-01 (D-01) | — | The eight compute steps' order and mandatory/tolerated disposition are declared once, in an importable data structure, and asserted by test | unit | `npx vitest run src/compute-all-stats-steps.test.ts` | ✅ existing (landed Wave 0/1) | ✅ green |
 | 25-02-T2 | 25-02 | 1 | CI-01 (D-02) | — | The CI flag flips tolerated-step disposition to warn-and-continue and leaves mandatory steps fail-fast | unit | same new file | ✅ existing (landed Wave 0/1) | ✅ green |
-| 25-02-T3 / 25-06-T2 | 25-02, 25-06 | 1, 3 | CI-01 (D-03) | — | End-of-run failure summary names every degraded step; `::warning::` annotations still surface in the Actions run summary | unit + manual (workflow run) | same new file; evidence from `gh workflow run` | ✅ existing (landed Wave 0/1) | ⚠️ split: unit half ✅ green (25-02-T2's own tests, part of the 62/1596 tally above); live-workflow-run half ⬜ BLOCKED — see § "CI-01 live run evidence — blocked" below |
+| 25-02-T3 / 25-06-T2 | 25-02, 25-06 | 1, 3 | CI-01 (D-03) | — | End-of-run failure summary names every degraded step; `::warning::` annotations still surface in the Actions run summary | unit + manual (workflow run) | same new file; evidence from `gh workflow run` | ✅ existing (landed Wave 0/1) | ✅ green — live-workflow-run half CLOSED 2026-09-04 by R6c (Round 2, plan 25-11/25-12): dispatched run `33903407761` concluded `success` with no degraded-steps summary; unit half unchanged green |
 | 25-03-T1 | 25-03 | 1 | CI-02 (D-09) | — | Each of the six documents returns 200, parses as JSON, and satisfies one structural invariant a truncated/empty file would fail | integration (HTTP smoke) | `npm run verify-dashboard` | ✅ existing, extended | ✅ green |
 | 25-03-T1 | 25-03 | 1 | CI-02 (D-10) | — | The per-activity best-effort shard sample is derived at runtime (no pinned ids), following `verify-dashboard-publish.mjs:430-455` | integration | `npm run verify-dashboard` | ✅ existing, extended | ✅ green |
 | 25-03-T2 | 25-03 | 1 | CI-02 (D-11) | Tampering — "the verifier lies" | Each of the six new assertions observed RED once, naming its own document | scripted one-off (validation-round activity, not a committed test) | delete/truncate target in a scratch `dist/widgets` → `npm run verify-dashboard` exits non-zero **naming that document** → restore → green | N/A — round activity | ✅ green (see § "D-11 RED evidence log" below) |
 | 25-04-T2 | 25-04 | 2 | WR-19 (folded todo) | V1 Architecture — fail-closed | A mode-000 directory under `dist/widgets` is reported as a violation, not thrown as an uncaught `EACCES`; the guard stays fail-**closed** | unit | `npx vitest run scripts/lib/curation-guard.test.mjs` | ✅ existing — add mode-000-**directory** fixture | ✅ green |
 | 25-04-T1 | 25-04 | 2 | WR-19 (D-11 precedent) | — | The new directory fixture observed RED before the guard fix lands | scripted one-off | run the new fixture against unfixed `curation-guard.mjs`, confirm failure | N/A — round activity | ✅ green (see § "D-11 RED evidence log" below) |
 | 25-05-T1 / 25-05-T2 | 25-05 | 1 | VER-01 (D-06) | — | Inline bootstrap in `index.html` resolves the same `(mode, prefersDark) → effective theme` as `theme.ts` across all combinations; `'light' \| 'dark' \| 'auto'` allow-list intact (T-16-TH-01); script still ordered before the stylesheet link | unit (behavioural, `node:vm` sandbox) | `npx vitest run src/dashboard/theme-bootstrap-parity.test.ts` | ✅ existing (landed Wave 0/1) | ✅ green |
-| 25-07-T2 | 25-07 | 4 | VER-01 (D-04/D-05/D-07/D-08) | — | Legibility, first-paint, and live OS-follow confirmed from a genuine light-OS environment against the production build | **manual — human checkpoint** | N/A (see § Manual-Only Verifications) | N/A | ❌ RUN 2026-09-04 — R1/R3/R4/R5 PASS, **R2 and R6 BLOCKED**; see § "Round 1 Checkpoint (R1-R6)" and GAP-25-01/GAP-25-02 |
+| 25-07-T2 | 25-07 | 4 | VER-01 (D-04/D-05/D-07/D-08) | — | Legibility, first-paint, and live OS-follow confirmed from a genuine light-OS environment against the production build | **manual — human checkpoint** | N/A (see § Manual-Only Verifications) | N/A | ✅ green — RUN 2026-09-04: Round 1 R1/R3/R4/R5 PASS; Round 2 R7 (plan 25-10/25-12) CLOSED the R2 BLOCKED gap (GAP-25-01) — see § "Round 2 outcome" |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -1775,6 +1775,77 @@ residue, and the dispatch was authorised and executed exactly as GAP-25-02 claus
 
 ---
 
+### Round 2 outcome
+
+**Scored 2026-09-04, plan 25-12.** All four Round 2 rows PASSED: R7 (VER-01), R6a (FIX-02), R6b
+(CI-02), R6c (CI-01). Nothing is withheld this round — under the one-row-per-requirement map every
+requirement's own mapped row cleared the bar, and, for VER-01, Round 1's R1/R3/R4/R5 stand
+unedited and unrevisited (confirmed above, § "What Round 1 already settled and is not re-run").
+
+**Verdict table:**
+
+| Row | Requirement | Verdict | Decisive evidence |
+|---|---|---|---|
+| R6a | FIX-02 | PASS | All eight named regression cases (`buildGearAggregate`/`buildGearCoverage` × absent/`undefined`/empty-string/non-string `gearName`) individually confirmed passing on the pushed merge commit `70e00840`, plus all five gate commands exit `0` with zero test-count delta from the Wave 1 baseline (62 files / 1596 tests). |
+| R6b | CI-02 | PASS | `npm run verify-dashboard` on the same pushed tree: `56 check(s) passed, 0 failure(s).`, with all six by-name documents (`weekly-distance.json`, `monthly-stats.json`, `yearly-stats.json`, `year-over-year.json`, `best-efforts.json`, plus a runtime-derived per-activity shard sample) individually present among the passing checks. |
+| R6c | CI-01 | PASS | Dispatched run `33903407761` (event `workflow_dispatch`, distinct from the push-triggered `33903395875`) concluded `success`; its own "Compute all statistics" step's log carries a `"> NAME"` line for all eight `COMPUTE_ALL_STATS_STEPS` names in declared order, followed by `"All statistics generated successfully!"`, from ONE invocation where the workflow previously ran eight hand-maintained steps. |
+| R7 | VER-01 | PASS | `frame-001.png`, captured against production, timestamped `4024.100830078125 ms` since navigation — `11.899169921875 ms` **before** that same navigation's own `first-paint.startTime` of `4036 ms` — sampling the dark theme background colour (`rgb(26, 26, 45)`, corroborated by a direct `getComputedStyle` read of `rgb(26, 26, 46)`), on a genuinely dark OS, corroborated by the developer's own verbatim judgment of the frame as "empty, one flat colour, the dark theme background colour, nothing legible." |
+
+**What each verdict withholds or releases, per requirement, naming the rule:** the governing
+all-rows-PASS rule (Phase 24 plan 24-14/24-17 precedent, non-waivable) ties each requirement's
+tick to its own single mapped Round 2 row.
+- **FIX-02** releases on R6a PASS alone — no other row is mapped to it.
+- **CI-02** releases on R6b PASS alone — no other row is mapped to it.
+- **CI-01** releases on R6c PASS alone — no other row is mapped to it.
+- **VER-01** releases on R7 PASS **while** Round 1's R1 (light-OS legibility), R3 and R4
+  (live-follow both directions) and R5 (cache-trap exclusion / asset identity) continue to stand —
+  all four do, unedited, per the "What Round 1 already settled and is not re-run" section above.
+
+**Contrast with Round 1, stated explicitly:** Round 1 drafted and ran R6 as a single row covering
+three requirements (FIX-02, CI-01, CI-02); when that one row came back BLOCKED (CI-01's live-run
+evidence did not exist), its BLOCKED verdict withheld all three, even though FIX-02's and CI-02's
+own evidence was already green at the time. GAP-25-02's split — drafted in plan 25-09 before any
+row ran, per Checkpoint Row Discipline rule 3 — means that this round a single missing item can no
+longer withhold two unrelated requirements. Each of R6a/R6b/R6c stands or falls purely on its own
+requirement's evidence, and all three happened to PASS, but the split's value is structural, not
+contingent on that outcome.
+
+**Gap disposition, consolidated:**
+- **GAP-25-01 — CLOSED, 2026-09-04 (plan 25-10, Task 3; reconfirmed here).** R7 PASS. See the
+  verdict table above and R7's full scoring for the six-item evidence walkthrough. All four of
+  GAP-25-01's numbered clauses (dark-OS appearance; `dashboard-theme` in the `null`/`'auto'`
+  class; a captured frame provably at or before first paint, tied to its own navigation's
+  `timeOrigin` rather than wall-clock proximity; a top-level navigation to production) are
+  satisfied simultaneously by `frame-001.png`.
+- **GAP-25-02 — CLOSED, 2026-09-04 (plan 25-11, Task 3; reconfirmed here).** R6a, R6b and R6c all
+  PASS. See the verdict table above and R6c's full evidence walkthrough for GAP-25-02's four
+  numbered clauses (pushed copy carries the collapsed step; a dispatched run id and `success`
+  conclusion; the collapsed step's log carrying all eight step names; the dispatch performed from
+  a normal single-context execution with explicit developer authorisation).
+- **No successor gap.** Plan 25-10's own instructions would have opened `GAP-25-03` only if R7
+  had returned FAIL or BLOCKED; R7 PASSED, so no `GAP-25-03` block exists anywhere in this file or
+  in `25-10-SUMMARY.md`. There is no open gap for this phase as of this disposition.
+
+**Disclosure audit:**
+- **D-04's amendment disclosure** — present, § "D-04 amendment disclosure" (Round 1 section,
+  confirmed already by the Validation Sign-Off checklist below).
+- **D-05's dark-OS deviation disclosure** — present, in R2's drafted row text (Round 1 section),
+  cross-referenced by name throughout the Round 2 rows.
+- **R7's slowed-load disclosure** — present. Plan 25-08 selected the throttled mechanism
+  (Candidate C, `latency: 1000ms, downloadThroughput: 6400 B/s, uploadThroughput: 6400 B/s`); R7's
+  own evidence quotes `report.json.emulation` confirming it was "applied exactly as drafted," and
+  states explicitly that the emulation touches only network timing, never
+  `Emulation.setEmulatedMedia`, `data-theme`, or any other rendering override.
+None of the three disclosure obligations is absent; the round carries no disclosure defect.
+
+**Verification-artefact note:** `/gsd-verify-work` has never run for Phase 25 — there is no
+`25-VERIFICATION.md` in this directory. This file, `25-VALIDATION.md`, is the authoritative record
+of the round's outcome. Because every Round 2 row PASSED and Round 1's R1/R3/R4/R5 stand, the
+recommendation is that `/gsd-verify-work 25` run before the v2.1 milestone is considered closed —
+this file's own disposition has not itself been independently re-verified by that tool.
+
+---
+
 ## Validation Sign-Off
 
 - [x] All tasks have `<automated>` verify or a Wave 0 dependency — confirmed by plan 25-06 Task 1's Per-Task Verification Map pass
@@ -1785,16 +1856,24 @@ residue, and the dispatch was authorised and executed exactly as GAP-25-02 claus
 - [x] All six CI-02 assertions + WR-19's fixture observed RED and recorded — transcribed verbatim in the RED-evidence section above
 - [x] D-05's deviation from criterion 4's literal wording disclosed in the write-up — **confirmed present** in R2's drafted row text (the dark-OS framing is stated as a deliberate deviation with its reasoning, not quietly substituted). Confirmed by plan 25-07 Task 3 on 2026-09-04.
 - [x] D-04's amendment disclosed in the write-up — **confirmed present** as the § "D-04 amendment disclosure" paragraph (original literal-`null` wording, why it was unreachable per `main.ts:29` and `persist` defaulting to `true` at `theme.ts:118`, and why `null`-or-`'auto'` preserves the intent). Confirmed by plan 25-07 Task 3 on 2026-09-04. Both disclosures are present, so neither constitutes a defect in the round.
-- [ ] `nyquist_compliant: true` set in frontmatter — **NOT set.** Round 1 returned two BLOCKED rows (R2, R6); see GAP-25-01 and GAP-25-02.
+- [x] `nyquist_compliant: true` set in frontmatter — **SET, 2026-09-04 (Round 2).** All four Round 2 rows (R7, R6a, R6b, R6c) PASSED and Round 1's R1/R3/R4/R5 stand; GAP-25-01 and GAP-25-02 are both CLOSED. See § "Round 2 outcome" above.
 
-**Approval:** **WITHHELD — 2026-09-04.** Round 1 ran in full and returned R1/R3/R4/R5 PASS, R2
-BLOCKED (capture fidelity) and R6 BLOCKED (CI-01 live-run evidence absent). Under the governing
-all-rows-PASS rule, no requirement ticks: VER-01 is withheld by R2, and CI-01/CI-02/FIX-02 are
-withheld by R6. Two gaps are open. Next step: `/gsd-plan-phase 25 --gaps`.
+**Approval:** **WITHHELD — 2026-09-04 (Round 1).** Round 1 ran in full and returned R1/R3/R4/R5
+PASS, R2 BLOCKED (capture fidelity) and R6 BLOCKED (CI-01 live-run evidence absent). Under the
+governing all-rows-PASS rule, no requirement ticks: VER-01 is withheld by R2, and
+CI-01/CI-02/FIX-02 are withheld by R6. Two gaps are open. Next step: `/gsd-plan-phase 25 --gaps`.
+Retained below as the audit trail rather than overwritten.
 
-Both disclosure obligations were met — the D-05 deviation disclosure and the D-04 amendment
-disclosure are each present in the Round 1 section — so the round carries no disclosure defect
-independent of its row verdicts.
+**Approval:** **GRANTED — 2026-09-04 (Round 2, plan 25-12).** GAP-25-01's and GAP-25-02's
+recommended split, drafted in plan 25-09 before either row ran, produced a clean sweep: R7
+(VER-01), R6a (FIX-02), R6b (CI-02) and R6c (CI-01) all PASSED, and Round 1's R1/R3/R4/R5 continue
+to stand unedited. Every requirement's own single mapped row cleared the governing all-rows-PASS
+rule; FIX-02, VER-01, CI-01 and CI-02 all tick. See § "Round 2 outcome" above for the full verdict
+table, gap dispositions and disclosure audit. Both disclosure obligations (D-04's amendment, D-05's
+dark-OS deviation) plus R7's own slowed-load disclosure were confirmed present, so the round
+carries no disclosure defect independent of its row verdicts. `/gsd-verify-work` has never run for
+this phase — there is no `25-VERIFICATION.md` — so this file is the authoritative record; the
+recommended next step is `/gsd-verify-work 25` before the v2.1 milestone is considered closed.
 
 ---
 
