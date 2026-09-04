@@ -124,3 +124,34 @@ caused by the current task's changes) and consistent with the identical disposit
 across Phase 21/22/24's `deferred-items.md` entries for the same recurring worktree-environment
 gap. Left for the orchestrator's merge-back into the main checkout, where `node_modules` is fully
 installed and `npx vitest run src/dashboard` is expected to run fully green.
+
+---
+
+## Theme toggle iconography — state convention vs. action convention (plan 25-07, Round 1, R1)
+
+**Raised by:** the developer, during plan 25-07's Round 1 human checkpoint (2026-09-04), while
+giving the R1 legibility judgment.
+
+**Verbatim:** "Toggle is 'sun' when light and 'moon' when dark. Indicating the current state. This
+is totally fine with my but wondering whether common practice would be the opposite (indicating
+'touch here to go dark/light'). Or pehraps the light is the 'moon' mode so we can have brightness
+when dark. I'm totally fine with this maybe more asking a question."
+
+**Nature:** a question about UI convention, explicitly framed by the developer as not a fault.
+Both conventions are in common use: showing **current state** (what this dashboard does — sun while
+in light mode) matches macOS/iOS-style system chrome, while showing the **target action** (sun
+meaning "click for light") is also widespread. Neither is canonical. The state convention tends to
+read better when the control sits among other status-ish chrome, the action convention when the
+control is isolated and reads as a button.
+
+**Disposition:** Not changed. Two independent reasons:
+1. It is not a defect, so it does not affect R1's verdict (PASS) or any requirement's disposition.
+2. The house rule since plan 16-09 forbids patching anything surfaced during a checkpoint round —
+   no fix under checkpoint pressure, even a trivial or cosmetic one.
+
+**If it is ever picked up:** it is a `src/dashboard` presentation change only, touching the toggle's
+glyph selection; it does not touch `theme.ts`'s mode resolution, the `cycleThemeMode` sequence
+(`light -> dark -> auto`), or the inline pre-paint bootstrap, so it is independent of VER-01's
+verification surface and of plan 25-05's `node:vm` parity pin. Worth pairing with a decision about
+whether the `'auto'` mode needs its own distinct glyph, which the current two-glyph scheme does not
+express.

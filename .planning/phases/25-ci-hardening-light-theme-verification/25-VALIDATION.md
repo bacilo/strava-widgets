@@ -1,7 +1,7 @@
 ---
 phase: 25
 slug: ci-hardening-light-theme-verification
-status: draft
+status: gaps_found
 nyquist_compliant: false
 wave_0_complete: false
 created: 2026-09-03
@@ -57,7 +57,7 @@ Task ID / Plan / Wave filled 2026-09-03 by `/gsd-plan-phase 25` against the seve
 | 25-04-T2 | 25-04 | 2 | WR-19 (folded todo) | V1 Architecture — fail-closed | A mode-000 directory under `dist/widgets` is reported as a violation, not thrown as an uncaught `EACCES`; the guard stays fail-**closed** | unit | `npx vitest run scripts/lib/curation-guard.test.mjs` | ✅ existing — add mode-000-**directory** fixture | ✅ green |
 | 25-04-T1 | 25-04 | 2 | WR-19 (D-11 precedent) | — | The new directory fixture observed RED before the guard fix lands | scripted one-off | run the new fixture against unfixed `curation-guard.mjs`, confirm failure | N/A — round activity | ✅ green (see § "D-11 RED evidence log" below) |
 | 25-05-T1 / 25-05-T2 | 25-05 | 1 | VER-01 (D-06) | — | Inline bootstrap in `index.html` resolves the same `(mode, prefersDark) → effective theme` as `theme.ts` across all combinations; `'light' \| 'dark' \| 'auto'` allow-list intact (T-16-TH-01); script still ordered before the stylesheet link | unit (behavioural, `node:vm` sandbox) | `npx vitest run src/dashboard/theme-bootstrap-parity.test.ts` | ✅ existing (landed Wave 0/1) | ✅ green |
-| 25-07-T2 | 25-07 | 4 | VER-01 (D-04/D-05/D-07/D-08) | — | Legibility, first-paint, and live OS-follow confirmed from a genuine light-OS environment against the production build | **manual — human checkpoint** | N/A (see § Manual-Only Verifications) | N/A | ⬜ pending — plan 25-07 owns this row |
+| 25-07-T2 | 25-07 | 4 | VER-01 (D-04/D-05/D-07/D-08) | — | Legibility, first-paint, and live OS-follow confirmed from a genuine light-OS environment against the production build | **manual — human checkpoint** | N/A (see § Manual-Only Verifications) | N/A | ❌ RUN 2026-09-04 — R1/R3/R4/R5 PASS, **R2 and R6 BLOCKED**; see § "Round 1 Checkpoint (R1-R6)" and GAP-25-01/GAP-25-02 |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -852,6 +852,94 @@ the *default* condition for this class of row in this project. Any future live-f
 arrange for the tab to remain visible across the flip (second display or side-by-side windows)
 rather than re-discovering this.
 
+## Gaps opened by Round 1 (2026-09-04)
+
+Two numbered gaps. Both follow the Phase 24 GAP-24-05 shape: each states the state a future row
+must hold **simultaneously** in order to discriminate, rather than merely restating what failed.
+Next step for both: `/gsd-plan-phase 25 --gaps`.
+
+### GAP-25-01 — VER-01's first-paint row has no capture mechanism that beats first paint
+
+**What withheld the tick:** R2, BLOCKED. Every instrumented value the row asked for was obtained
+and was correct (`dashboard-theme` `'auto'`, `prefers_dark` `true`, `data-theme` `'dark'`,
+`body` background `rgb(26,26,46)`). What could not be obtained was the *frame*: navigation started
+at `timeOrigin` `1788520780021.8`, `first-paint` landed `612 ms` later, and the two captured frames
+were saved ~`243 ms` after that. A post-paint frame cannot discriminate a first-paint flash from
+its absence, because a flash would already have ended.
+
+**The state a future row must hold simultaneously to discriminate:**
+1. OS in DARK appearance (so that white is an unambiguous failure and `#1a1a2e` an unambiguous
+   pass — D-05's reasoning, unchanged); AND
+2. `dashboard-theme` quoted in the `null`/`'auto'` class at the instant of observation (D-04 as
+   amended); AND
+3. a captured raster frame whose timestamp is provably **at or before** the load's own
+   `first-paint` entry — the timestamp must be tied to the *same* navigation (compare against that
+   document's `performance.timeOrigin` + `first-paint.startTime`), not to wall-clock proximity; AND
+4. the frame must come from a top-level navigation to the production URL, not a proxy context.
+
+**Why this is not closeable by the current tooling, stated so a future round does not retry it
+blindly:** the browser-extension screenshot round-trip is the binding constraint — measured floor
+~`855 ms` from navigation start on this hardware, against a `612 ms` first paint. Batching the
+reload and the capture into a single round trip was already tried; it produced the `~243 ms`-late
+frames recorded in R2. A future round needs a *different mechanism*, not a faster retry.
+Candidate mechanisms, none yet validated and none endorsed here: a CDP-level screencast
+(`Page.startScreencast`) which timestamps frames against the navigation; a video capture of the
+display with a frame-accurate clock; or a deliberately slowed load (network throttling) that widens
+the window between navigation start and first paint far enough for the existing capture floor to
+land inside it. Each needs its own reachability proof **before** the row is presented.
+
+**Explicitly rejected as a closure route:** the ordering argument (inline `<head>` script complete
+by `domInteractive` `287.9 ms`, `324 ms` before `first-paint` `612 ms`, plus plan 25-05's `node:vm`
+parity pin). It is sound as inference and it is recorded in R2, but criterion 4 asks for observed
+browser behaviour and this round already declined to convert that inference into a PASS. A future
+round that closes GAP-25-01 by restating the same inference has not closed it.
+
+### GAP-25-02 — CI-01's live-run evidence still does not exist, and R6 is unsplittable while it doesn't
+
+**What withheld the tick:** R6, BLOCKED — and because R6 is the only row mapped to CI-01, CI-02 and
+FIX-02, its BLOCKED verdict withholds all three, including two whose underlying work is fully green.
+
+**The specific absence:** no `gh workflow run "Daily Widget Refresh"` dispatch has ever been
+performed for this phase, so there is no run id and no conclusion to cite. § "CI-01 live run
+evidence — blocked" records why plan 25-06 could not do it: it executed inside an isolated
+`worktree-agent-*` worktree, and `daily-refresh.yml`'s `Deploy widgets to GitHub Pages` and
+`Commit updated data and stats` steps carry **no branch guard**, so a dispatch against any ref
+deploys to the live Pages site and commits data back to `origin`.
+
+**The state a future row must hold simultaneously to discriminate:**
+1. `origin/master` confirmed to carry `compute-all-stats --ci` — i.e. this phase's work is merged
+   and pushed, verified by reading the *pushed* copy of `daily-refresh.yml`, not the local one; AND
+2. a dispatched run id and its conclusion, quoted from `gh run view`; AND
+3. the collapsed compute step's own log excerpt from that run, showing one invocation where the
+   workflow previously had eight hand-maintained steps (which is what CI-01 actually claims); AND
+4. the dispatch performed from a normal single-context execution with the developer's explicit
+   authorisation, **not** from a parallel worktree and **not** opportunistically during a
+   checkpoint — the production side effects in (2) above make this a deliberate, separately
+   authorised action.
+
+**Recommended row shape for the next round — draft it before running it, not after.** R6 should be
+replaced by three separate rows, one per requirement, so that a missing item withholds only its own
+requirement:
+- R6a → FIX-02: the green five-command gate (evidence already exists and is green today).
+- R6b → CI-02: `verify-dashboard`'s `56 check(s) passed, 0 failure(s).` (evidence already exists and
+  is green today).
+- R6c → CI-01: the dispatched run id, conclusion and collapsed-step log (does not exist yet).
+This is recorded as a *planning* correction for a future round. It was deliberately **not** applied
+retroactively to this round — see R6's verdict for why splitting a row mid-round to obtain a tick is
+the exact failure mode Checkpoint Row Discipline rule 3 forbids.
+
+**Note on scope:** GAP-25-02 is a structural/process gap, not a code defect. Nothing in
+`compute-all-stats-steps.ts`, `daily-refresh.yml` or `verify-dashboard-publish.mjs` is known to be
+wrong; the unit-level halves of CI-01 and CI-02 are green and independently verified.
+
+### Deferred, non-blocking observation (not a gap)
+
+The developer raised a UI question during R1 about the theme toggle's iconography — it indicates
+**current state** (sun when light, moon when dark) rather than the target action ("click for
+dark"). Both conventions are in common use and the developer explicitly framed this as a question,
+not a fault ("This is totally fine with my but wondering whether common practice would be the
+opposite"). Recorded in `deferred-items.md`. It affects no row's verdict and no requirement.
+
 ---
 
 ## Validation Sign-Off
@@ -862,7 +950,15 @@ rather than re-discovering this.
 - [x] No watch-mode flags (`vitest run`, never bare `vitest`) — `npm test` invokes `vitest run` per `package.json`; confirmed by the three quoted runs above, none of which hung waiting on watch mode
 - [x] Feedback latency < 7s — all three `npm test` runs quoted above completed in 6.65s-6.89s
 - [x] All six CI-02 assertions + WR-19's fixture observed RED and recorded — transcribed verbatim in the RED-evidence section above
-- [ ] D-05's deviation from criterion 4's literal wording disclosed in the write-up — plan 25-07 owns this (human checkpoint write-up)
-- [ ] `nyquist_compliant: true` set in frontmatter — plan 25-07 owns this (gated on the human checkpoint)
+- [x] D-05's deviation from criterion 4's literal wording disclosed in the write-up — **confirmed present** in R2's drafted row text (the dark-OS framing is stated as a deliberate deviation with its reasoning, not quietly substituted). Confirmed by plan 25-07 Task 3 on 2026-09-04.
+- [x] D-04's amendment disclosed in the write-up — **confirmed present** as the § "D-04 amendment disclosure" paragraph (original literal-`null` wording, why it was unreachable per `main.ts:29` and `persist` defaulting to `true` at `theme.ts:118`, and why `null`-or-`'auto'` preserves the intent). Confirmed by plan 25-07 Task 3 on 2026-09-04. Both disclosures are present, so neither constitutes a defect in the round.
+- [ ] `nyquist_compliant: true` set in frontmatter — **NOT set.** Round 1 returned two BLOCKED rows (R2, R6); see GAP-25-01 and GAP-25-02.
 
-**Approval:** pending — automated half (this plan, 25-06) complete; plan 25-07's human checkpoint (VER-01 row) still required before sign-off can close.
+**Approval:** **WITHHELD — 2026-09-04.** Round 1 ran in full and returned R1/R3/R4/R5 PASS, R2
+BLOCKED (capture fidelity) and R6 BLOCKED (CI-01 live-run evidence absent). Under the governing
+all-rows-PASS rule, no requirement ticks: VER-01 is withheld by R2, and CI-01/CI-02/FIX-02 are
+withheld by R6. Two gaps are open. Next step: `/gsd-plan-phase 25 --gaps`.
+
+Both disclosure obligations were met — the D-05 deviation disclosure and the D-04 amendment
+disclosure are each present in the Round 1 section — so the round carries no disclosure defect
+independent of its row verdicts.

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
 status: executing
-stopped_at: Phase 25 context gathered
-last_updated: "2026-09-04T05:52:10.414Z"
-last_activity: 2026-09-04 -- Phase 25 execution started
+stopped_at: Phase 25 executed; VER-01 Round 1 run, gate held open (R2/R6 BLOCKED)
+last_updated: "2026-09-04T11:50:00.000Z"
+last_activity: 2026-09-04 -- Phase 25 plan 25-07 executed; Round 1 checkpoint run, 2 rows BLOCKED, gaps opened
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 98
-  completed_plans: 91
+  completed_plans: 92
   percent: 86
 ---
 
@@ -27,10 +27,54 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 
 ## Current Position
 
-Phase: 25 (ci-hardening-light-theme-verification) — EXECUTING
-Plan: 1 of 7
+Phase: 25 (ci-hardening-light-theme-verification) — ALL 7 PLANS EXECUTED, PHASE GATE WITHHELD
+Plan: 7 of 7 executed
       BLOCKING Round 4 checkpoint) both complete; disposition set in plan 24-17's Task 3.
-Status: Executing Phase 25
+Status: Phase 25 gate HELD OPEN — Round 1 returned two BLOCKED rows; next step /gsd-plan-phase 25 --gaps
+
+        **Phase 25 Round 1 outcome (2026-09-04, plan 25-07).** All seven plans executed and the
+        closing VER-01 human checkpoint ran in full against the live production URL, with the
+        developer performing every macOS appearance change by hand (D-07; no osascript for any
+        recorded row, and only two flips were needed because the rows were re-sequenced at the
+        developer's request so each flip served two rows — an ordering change only, disclosed in
+        25-VALIDATION.md, with no discriminator or evidence requirement relaxed).
+
+        Verdicts: R1 PASS, R2 BLOCKED, R3 PASS, R4 PASS, R5 PASS, R6 BLOCKED. Under the
+        all-rows-PASS rule NOTHING ticks. FIX-02, CI-01 and CI-02 had been ticked by plans
+        25-01/25-02/25-03 before the checkpoint ran and are now REOPENED in REQUIREMENTS.md;
+        VER-01 was already open. All four carry dated withhold paragraphs naming the row that
+        withheld them.
+
+        The light-theme behaviour itself did verify: R1 confirmed light-OS legibility from the
+        developer's own inspection ("looked at all 4. Legible. Toggle is visible."), and R3/R4
+        confirmed live OS-follow in BOTH directions inside a single document with no reload
+        (timeOrigin identical, nav_entries_count 1). What is missing is evidence quality on two
+        rows, not working behaviour:
+          - GAP-25-01 (withholds VER-01, via R2): no capture mechanism on this hardware beats
+            first paint. Navigation started at timeOrigin 1788520780021.8, first-paint landed at
+            +612ms, both captured frames were saved ~243ms later. A post-paint frame cannot
+            discriminate a first-paint white flash from its absence. The ordering argument
+            (inline head script complete by domInteractive 287.9ms; 25-05's node:vm parity pin)
+            is inference, was recorded, and was explicitly REJECTED as a basis for PASS by the
+            developer, who chose BLOCKED knowing it withholds every requirement.
+          - GAP-25-02 (withholds CI-01, CI-02, FIX-02, via R6): CI-01's live-run evidence still
+            does not exist — no `gh workflow run` dispatch has ever been performed for this
+            phase. R6's clauses 1 and 2 (green five-command gate; "56 check(s) passed, 0
+            failure(s).") ARE present and green, so CI-02 and FIX-02 are withheld only by R6's
+            unsplittability, not by their own evidence. R6 was deliberately NOT split mid-round
+            to obtain those two ticks — that is the exact failure mode Checkpoint Row Discipline
+            rule 3 forbids. GAP-25-02 records the R6a/R6b/R6c split as the recommended shape for
+            a future round, to be drafted BEFORE it is run.
+
+        NOTE for whoever closes GAP-25-02: the dispatch has production side effects.
+        daily-refresh.yml's deploy and auto-commit steps carry no branch guard, so a
+        workflow_dispatch against ANY ref deploys to the live Pages site and commits data back to
+        origin. It needs explicit developer authorisation and a normal single-context execution —
+        not a parallel worktree, and not opportunistically during a checkpoint.
+
+        Also note: local master is AHEAD of origin/master (Phase 25's commits are unpushed).
+        Production is built from origin/master HEAD 623046363. The four theme-governing source
+        files are byte-identical across that gap, which is why R1-R4 remained valid; see R5.
         milestone v2.1, currently "Plans: TBD" in ROADMAP.md.
 
         **Round 4 closure (2026-09-02, plan 24-17).** R32-R35 all PASS — see `24-VALIDATION.md`
