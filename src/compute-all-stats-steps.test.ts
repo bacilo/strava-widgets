@@ -24,15 +24,24 @@ const EXPECTED_ORDER = [
   'compute-training-load',
 ];
 
-const EXPECTED_MANDATORY = new Set(['compute-stats', 'compute-advanced-stats']);
+// WR-01: every step whose output `scripts/verify-dashboard-publish.mjs`
+// hard-requires is mandatory. `data/stats/` and `data/dashboard/` are
+// gitignored, so a failed step in CI leaves its document missing and the
+// blocking verify gate fails several steps later — tolerating them bought a
+// later, less legible failure, never a deploy. `compute-geo-stats` writes
+// committed `data/geo/`, so it has a real degrade path and stays tolerated.
+const EXPECTED_MANDATORY = new Set([
+  'compute-stats',
+  'compute-advanced-stats',
+  'compute-best-efforts',
+  'compute-age-grading',
+  'compute-dashboard-index',
+  'compute-gear-aggregate',
+  'compute-training-load',
+]);
 
 const EXPECTED_TOLERATED_WARNINGS: Record<string, string> = {
   'compute-geo-stats': 'Geocoding failed, widgets will use cached geo data',
-  'compute-best-efforts': 'Best-effort computation failed, records data will be stale',
-  'compute-dashboard-index': 'Dashboard index computation failed, the dashboard will serve a stale index',
-  'compute-age-grading': 'Age-grading computation failed, age-grade data will be stale',
-  'compute-gear-aggregate': 'Gear aggregate computation failed, gear data will be stale',
-  'compute-training-load': 'Training load computation failed, training load data will be stale',
 };
 
 describe('COMPUTE_ALL_STATS_STEPS', () => {
@@ -45,13 +54,13 @@ describe('COMPUTE_ALL_STATS_STEPS', () => {
     expect(new Set(names).size).toBe(names.length);
   });
 
-  it("D-03's split: exactly compute-stats and compute-advanced-stats are mandatory", () => {
+  it("D-03's split (WR-01): every step the blocking verify gate depends on is mandatory; only compute-geo-stats is tolerated", () => {
     for (const step of COMPUTE_ALL_STATS_STEPS) {
       expect(step.mandatory).toBe(EXPECTED_MANDATORY.has(step.name));
     }
   });
 
-  it('every tolerated step has a non-empty warning string; both mandatory steps have warning === null', () => {
+  it('every tolerated step has a non-empty warning string; every mandatory step has warning === null', () => {
     for (const step of COMPUTE_ALL_STATS_STEPS) {
       if (step.mandatory) {
         expect(step.warning).toBeNull();
@@ -68,7 +77,7 @@ describe('COMPUTE_ALL_STATS_STEPS', () => {
     }
   });
 
-  it('the six tolerated warning strings match the verbatim messages the deleted daily-refresh.yml "Warn on X failure" steps carried', () => {
+  it('the tolerated warning string matches the verbatim message the deleted daily-refresh.yml "Warn on geo-stats failure" step carried', () => {
     for (const step of COMPUTE_ALL_STATS_STEPS) {
       const expected = EXPECTED_TOLERATED_WARNINGS[step.name];
       if (expected) {

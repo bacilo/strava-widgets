@@ -91,8 +91,15 @@ jobs:
       # The chain's order and each step's mandatory/tolerated disposition are
       # declared exactly once, in src/compute-all-stats-steps.ts (CI-01, D-01)
       # — no ordering of the chain is re-expressed here. --ci selects
-      # warn-and-continue for the six tolerated steps; compute-stats and
-      # compute-advanced-stats stay fail-fast regardless (D-02).
+      # warn-and-continue, but only compute-geo-stats is tolerated: it writes
+      # committed data/geo/, so a failure leaves real data in place and the
+      # site still publishes. Every other step's output is hard-required by
+      # the blocking `Verify dashboard publish contract` step below, and
+      # data/stats/ + data/dashboard/ are gitignored (so a failed step means
+      # a MISSING document on a fresh runner, not a stale one). Those steps
+      # are mandatory so the run dies at the step that broke rather than at a
+      # 404 several steps later — the outcome was already "no deploy" either
+      # way (WR-01).
       - name: Compute all statistics
         run: node dist/index.js compute-all-stats --ci
 

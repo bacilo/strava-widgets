@@ -38,6 +38,42 @@
  * on every run, so they are deliberately absent from the nightly workflow's
  * data-commit step's `file_pattern`.
  *
+ * Why only `compute-geo-stats` is tolerated (WR-01):
+ * `mandatory` only has an effect under `--ci`; without it every step already
+ * rethrows and halts the walk (`continueOnError: false`, D-02). So the only
+ * question this flag answers is "under `--ci`, can the pipeline still ship a
+ * correct site if this step failed?".
+ *
+ * For every step except `compute-geo-stats` the answer is no, and it is not
+ * a judgement call: `data/stats/` and `data/dashboard/` are gitignored, so a
+ * CI runner starts with them empty and a failed step leaves its document
+ * *missing*, not stale. `scripts/verify-dashboard-publish.mjs` — a blocking
+ * gate in the same job, with no escape hatch by design — then hard-requires
+ * every one of those documents over HTTP:
+ *   compute-stats            -> all-time-totals, streaks, weekly-distance,
+ *                               monthly-stats, yearly-stats
+ *   compute-advanced-stats   -> year-over-year.json
+ *   compute-best-efforts     -> best-efforts.json + the shard sample
+ *   compute-age-grading      -> age-grading.json (written even on the
+ *                               disabled path, so CI's expected
+ *                               `enabled: false` is not a failure)
+ *   compute-dashboard-index  -> data/dashboard/index.json
+ *   compute-gear-aggregate   -> gear-aggregate.json
+ *   compute-training-load    -> training-load.json
+ * Tolerating those steps therefore bought nothing: the run ended in a red
+ * verify step and no deploy either way — and, because `Deploy widgets` and
+ * `Commit updated data` both sit after the gate with no `if: always()`, not
+ * even the freshly fetched activities were persisted. The only thing
+ * tolerance changed was *where* the failure was reported: at a generic HTTP
+ * 404 several steps later instead of at the step that actually broke.
+ * Promoting them is outcome-neutral and strictly more legible.
+ *
+ * `compute-geo-stats` is genuinely different and stays tolerated: it writes
+ * `data/geo/`, which IS committed, so a failure leaves the previous run's
+ * real data in place, the verifier requires nothing fresh from it, and the
+ * site publishes correctly with slightly stale geocoding. That is a real
+ * degrade path, which is why it keeps its warning string.
+ *
  * `compute-age-grading` reports `enabled: false` in CI by design, because
  * `data/private/athlete-private.json` must not exist there (it holds
  * birthDate/sex, gitignored on purpose). That is the expected and correct
@@ -56,8 +92,8 @@ export interface ComputeStep {
   mandatory: boolean;
   /**
    * The `::warning::` message body emitted when this step is tolerated
-   * (`--ci`) and fails. `null` for the two mandatory steps — they abort,
-   * so they never warn.
+   * (`--ci`) and fails. `null` for mandatory steps — they abort, so they
+   * never warn.
    */
   warning: string | null;
   /** The step's work. Always a dynamic import so importing this module
@@ -104,8 +140,8 @@ export const COMPUTE_ALL_STATS_STEPS: readonly ComputeStep[] = [
   },
   {
     name: 'compute-best-efforts',
-    mandatory: false,
-    warning: 'Best-effort computation failed, records data will be stale',
+    mandatory: true,
+    warning: null,
     run: async () => {
       const { computeBestEfforts } = await import('./analytics/compute-best-efforts.js');
       await computeBestEfforts({
@@ -118,8 +154,8 @@ export const COMPUTE_ALL_STATS_STEPS: readonly ComputeStep[] = [
   },
   {
     name: 'compute-age-grading',
-    mandatory: false,
-    warning: 'Age-grading computation failed, age-grade data will be stale',
+    mandatory: true,
+    warning: null,
     run: async () => {
       const { computeAgeGrading } = await import('./analytics/compute-age-grading.js');
       await computeAgeGrading({
@@ -130,8 +166,8 @@ export const COMPUTE_ALL_STATS_STEPS: readonly ComputeStep[] = [
   },
   {
     name: 'compute-dashboard-index',
-    mandatory: false,
-    warning: 'Dashboard index computation failed, the dashboard will serve a stale index',
+    mandatory: true,
+    warning: null,
     run: async () => {
       const { computeDashboardIndex } = await import('./analytics/compute-dashboard-index.js');
       await computeDashboardIndex({
@@ -145,8 +181,8 @@ export const COMPUTE_ALL_STATS_STEPS: readonly ComputeStep[] = [
   },
   {
     name: 'compute-gear-aggregate',
-    mandatory: false,
-    warning: 'Gear aggregate computation failed, gear data will be stale',
+    mandatory: true,
+    warning: null,
     run: async () => {
       const { computeGearAggregate } = await import('./analytics/compute-gear-aggregate.js');
       await computeGearAggregate({
@@ -157,8 +193,8 @@ export const COMPUTE_ALL_STATS_STEPS: readonly ComputeStep[] = [
   },
   {
     name: 'compute-training-load',
-    mandatory: false,
-    warning: 'Training load computation failed, training load data will be stale',
+    mandatory: true,
+    warning: null,
     run: async () => {
       const { computeTrainingLoad } = await import('./analytics/compute-training-load.js');
       await computeTrainingLoad({
