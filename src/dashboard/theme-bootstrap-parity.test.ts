@@ -46,7 +46,11 @@ function extractInlineBootstrap(source: string): string {
 // this file loudly, rather than one test silently short-circuiting.
 const bootstrapScript = extractInlineBootstrap(html);
 
-/** The most recent media-query string passed to the sandboxed matchMedia. */
+/**
+ * The most recent media-query string passed to the sandboxed matchMedia, or
+ * `null` when the run under test never called it. Reset by `runBootstrap` on
+ * every invocation — see the comment there (WR-09).
+ */
 let lastMediaQuery: string | null = null;
 
 interface RunBootstrapOptions {
@@ -65,6 +69,16 @@ function runBootstrap({
   prefersDark,
   throwOnGet = false,
 }: RunBootstrapOptions): string | null {
+  // Never assert against a previous test's value. This observable is
+  // module-scoped and was only ever WRITTEN by the stub, so by the time the
+  // matchMedia assertion ran, ten earlier tests had already set it to exactly
+  // the expected string — a bootstrap mutated to stop calling matchMedia in
+  // the 'auto' path (e.g. hard-coding `effective = 'dark'`) would still have
+  // passed. Resetting here is what makes that assertion non-vacuous, in a
+  // file whose docblock claims "a source-text-only pin would still pass an
+  // inverted branch ... this pin cannot".
+  lastMediaQuery = null;
+
   let appliedTheme: string | null = null;
   const sandbox = {
     localStorage: {
@@ -179,6 +193,28 @@ describe('inline theme bootstrap — allow-list and robustness (T-16-TH-01)', ()
   it("passes exactly '(prefers-color-scheme: dark)' to matchMedia when resolving mode 'auto'", () => {
     runBootstrap({ storedValue: 'auto', prefersDark: true });
     expect(lastMediaQuery).toBe('(prefers-color-scheme: dark)');
+  });
+
+  // The other half of the parity contract: theme.ts consults the system
+  // preference ONLY for 'auto'. Without these, a bootstrap that queried
+  // matchMedia unconditionally would still satisfy every assertion above,
+  // since the applied theme would be unchanged for an explicit mode.
+  it.each([
+    ['light', false],
+    ['light', true],
+    ['dark', false],
+    ['dark', true],
+  ])("does not consult matchMedia at all for the explicit mode '%s' (prefersDark: %s)", (storedValue, prefersDark) => {
+    runBootstrap({ storedValue: storedValue as string, prefersDark: prefersDark as boolean });
+    expect(lastMediaQuery).toBeNull();
+  });
+
+  it('leaves lastMediaQuery null when an explicit run follows an auto run — the reset is real, not the absence of a prior test', () => {
+    runBootstrap({ storedValue: 'auto', prefersDark: true });
+    expect(lastMediaQuery).toBe('(prefers-color-scheme: dark)');
+
+    runBootstrap({ storedValue: 'dark', prefersDark: true });
+    expect(lastMediaQuery).toBeNull();
   });
 });
 
