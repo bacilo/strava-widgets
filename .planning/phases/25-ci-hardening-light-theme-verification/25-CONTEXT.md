@@ -114,7 +114,7 @@ Plus one folded todo (WR-19) and one pin added during discussion (the inline the
 
 ### Established Patterns
 - **Guards are observed RED before they count** (Phase 24 D-11). Applies to CI-02's six assertions and to WR-19's new fixture.
-- **Checkpoint rows assert reachable extent against an independently-derived value**, never internal agreement (Phase 23 CR-01, Phase 24 R32). D-04's quoted `null` storage read and D-05's dark-OS framing both exist to give VER-01's rows a real discriminator.
+- **Checkpoint rows assert reachable extent against an independently-derived value**, never internal agreement (Phase 23 CR-01, Phase 24 R32). D-04's quoted storage read (`null` or `'auto'`, never `'light'`/`'dark'` — as amended 2026-09-03) and D-05's dark-OS framing both exist to give VER-01's rows a real discriminator.
 - **Duplicated derivations defeat checkpoints** (Phase 24 WR-17). The inline bootstrap is the live instance of this pattern in the theme layer; D-06 pins it because it cannot be deduplicated.
 - **Load-bearing behaviour is documented inline in the file that owns it** — both `daily-refresh.yml` and `computeAllStatsCommand` carry long explanatory comments. D-01's collapsed step must carry that reasoning forward rather than dropping it.
 
