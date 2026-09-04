@@ -504,7 +504,7 @@ Plans:
   4. On a genuinely light-OS machine (light appearance set at the OS level, not toggled via the in-page control), the dashboard is legible, shows no first-paint white flash, and live-follows an OS-level appearance change from light to dark and back — discharging the three Phase 16 UAT items that phases 17 and 18's checkpoints, both apparently run from a dark-OS machine, never actually tested.
   5. **Human checkpoint**: item 4 is run from an actual light-OS environment against the `/strava-widgets`-served production build (this cannot be satisfied by an in-page theme toggle); items 1-3 are confirmed by a green `verify-dashboard-publish.mjs` run and a real (or dry-run) nightly workflow execution.
 
-**Plans**: 7 plans
+**Plans**: 12 plans
 
 Plans:
 **Wave 1**
@@ -525,6 +525,28 @@ Plans:
 **Wave 4** *(blocked on Wave 3 completion)*
 
 - [ ] 25-07-PLAN.md — VER-01 human checkpoint (R1-R6) on a genuinely light-OS machine against production (D-04/D-05/D-07/D-08), then disposition for FIX-02, VER-01, CI-01 and CI-02 under the all-rows-PASS rule
+
+*Round 1 returned R2 and R6 BLOCKED, withholding all four requirements. Plans 25-08 through 25-12 are the gap-closure round for GAP-25-01 (no capture mechanism beats first paint) and GAP-25-02 (CI-01's live-run evidence does not exist, and R6 is unsplittable while it doesn't).*
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 25-08-PLAN.md — GAP-25-01: build a zero-dependency CDP capture harness, measure three candidate mechanisms against the real 612 ms first paint, and prove the failure direction with a stripped-bootstrap control — mechanism chosen before any row is drafted
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 25-09-PLAN.md — Draft every Round 2 row before it is run (Checkpoint Row Discipline rule 3): R7 for VER-01, plus GAP-25-02's R6a/R6b/R6c split, one requirement each, every row with a bidirectional reachability proof
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 25-10-PLAN.md — Run R7: the observed first-paint row on a genuinely dark OS against production (D-04/D-05/D-07/D-08), with the frame tied to its own navigation by arithmetic
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
+- [ ] 25-11-PLAN.md — GAP-25-02: merge and gate the tree to be pushed, obtain explicit authorisation for the production-affecting push and `gh workflow run` dispatch, then score R6a/R6b/R6c independently
+
+**Wave 9** *(blocked on Wave 8 completion)*
+
+- [ ] 25-12-PLAN.md — Round 2 disposition under the all-rows-PASS rule, applied one row per requirement, across `25-VALIDATION.md`, `REQUIREMENTS.md`, `ROADMAP.md` and `STATE.md`
 
 ## Progress
 
