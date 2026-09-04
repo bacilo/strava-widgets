@@ -1167,6 +1167,35 @@ pressure: the ordering argument — inline `<head>` script complete by `domInter
 that closes GAP-25-01 by restating the same inference has not closed it." It may be restated as
 context in R7's write-up; it may not decide the verdict.
 
+**Pre-flight (Task 1):**
+
+- **Row-baseline check.** `ROW_BASELINE_SHA` (from `25-09-SUMMARY.md`'s `## Row baseline commit`):
+  `bf9d1a139fae3563e431981709f3fb0883a9d7ee`. `git diff bf9d1a139fae3563e431981709f3fb0883a9d7ee --
+  .planning/phases/25-ci-hardening-light-theme-verification/25-VALIDATION.md` at plan 25-10's Task 1
+  execution time returned **0 lines** — HEAD (`7ce32457`) is byte-identical to the baseline commit
+  for this file, so no `-`/`+` line exists anywhere in the file, let alone inside R7's block. R7's
+  discriminator, MECHANISM, six-item evidence requirement and both reachability paragraphs are
+  confirmed unmodified.
+- **Cache-trap comparison value, derived BEFORE the run (independent of the page under test):**
+  `git fetch origin gh-pages` succeeded. `git ls-tree -r --name-only origin/gh-pages | grep
+  "assets/index-"` returns `assets/index-B573RjUr.css` and `assets/index-D-Ts7X8C.js`.
+  `git rev-parse --short origin/gh-pages` = `b2b05a40`. `git log -1 --format="%cI %H"
+  origin/gh-pages` = `2026-09-04T09:10:40+00:00 b2b05a4054e4f12c7a1fe29448779f11f74dd973`. This is
+  **unchanged** from R5's recorded value (`assets/index-D-Ts7X8C.js` at `origin/gh-pages` `b2b05a4`,
+  deployed 2026-09-04 09:10:40 +0000, built from source commit `623046363`) — production has not
+  been redeployed since Round 1. `assets/index-D-Ts7X8C.js` is the value R7's own hashed
+  module-script quote will be checked against.
+- **Exact harness invocation to be run, per plan 25-08's selected Candidate C:**
+  `node scripts/first-paint-capture.mjs --mechanism throttled --throttle-ms 1000 --url
+  https://bacilo.github.io/strava-widgets/ --out
+  .planning/phases/25-ci-hardening-light-theme-verification/capture/r7-production-run`. Emulation
+  parameters this invocation applies (from `scripts/first-paint-capture.mjs`'s `runThrottled`):
+  `offline: false, latency: 1000ms, downloadThroughput: 6400 B/s (50*1024/8), uploadThroughput:
+  6400 B/s`. This is the row's stated method; the run must not quietly differ from it.
+- **Pre-run appearance reading:** `defaults read -g AppleInterfaceStyle` = `Dark`, read at plan
+  25-10 Task 1 execution time, before Task 2's checkpoint. No developer action has been taken yet on
+  this reading — Task 2 re-confirms it and discloses whether a flip was needed.
+
 **R6a — FIX-02's evidence, on the tree that is actually pushed.** **Verdict: pending.**
 
 DISCRIMINATOR: all five gate commands exit 0 on the exact commit plan 25-11 pushes to
