@@ -194,6 +194,17 @@ describe('WR-14 — non-regular and unreadable entries are reported, never throw
         // best-effort; fall through to rm below regardless
       }
     }
+    // WR-19 case (f) plants a mode-000 DIRECTORY. Recursive removal can itself
+    // fail unless the mode is restored first — 0o700, not 0o600, because a
+    // directory needs the execute bit to be listable/removable.
+    const mode000DirPath = path.join(tmpDir, 'wr19-locked-dir');
+    if (existsSync(mode000DirPath)) {
+      try {
+        chmodSync(mode000DirPath, 0o700);
+      } catch {
+        // best-effort; fall through to rm below regardless
+      }
+    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   });
 
@@ -262,6 +273,26 @@ describe('WR-14 — non-regular and unreadable entries are reported, never throw
     const violations = findCurationArtifacts(tmpDir);
     expect(violations.some((v) => v.path === target && v.reason.includes('not a regular file'))).toBe(true);
   }, 5000);
+
+  it('(f) mode-000 directory: reported via the readdir try/catch, citing EACCES (WR-19) — the directory-shaped sibling of case (c)', async () => {
+    if (process.getuid?.() === 0 || process.platform === 'win32') {
+      // root defeats mode bits; win32 has no POSIX chmod semantics — skip.
+      return;
+    }
+    const target = path.join(tmpDir, 'wr19-locked-dir');
+    mkdirSync(target);
+    // Plant an ordinary file inside BEFORE the chmod, so the EACCES
+    // demonstrably fires on listing the directory, not on reading content.
+    await writeFile('wr19-locked-dir/inner.js', 'x');
+    chmodSync(target, 0o000);
+
+    const violations = findCurationArtifacts(tmpDir);
+    expect(
+      violations.some(
+        (v) => v.path === target && v.reason.includes('could not be listed') && v.reason.includes('EACCES')
+      )
+    ).toBe(true);
+  });
 
   it('(g) the .json content exemption still applies to a genuine, readable .json file (WR-14 non-regression)', async () => {
     await writeFile(
