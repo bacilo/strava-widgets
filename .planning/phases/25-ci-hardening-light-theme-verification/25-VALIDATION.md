@@ -894,6 +894,23 @@ parity pin). It is sound as inference and it is recorded in R2, but criterion 4 
 browser behaviour and this round already declined to convert that inference into a PASS. A future
 round that closes GAP-25-01 by restating the same inference has not closed it.
 
+
+**GAP-25-01 — CLOSED, 2026-09-04 (plan 25-10, Task 3).** R7 PASSED. `frame-001.png`, captured
+against the production URL `https://bacilo.github.io/strava-widgets/` under the throttled
+mechanism (`--throttle-ms 1000`), timestamped `t_since_navigation_ms = 4024.100830078125 ms`
+against this navigation's own `first-paint.startTime` of `4036 ms` — `11.899169921875 ms` before
+first paint, tied to the navigation's own `performance.timeOrigin` (`1788532205772.8`) rather than
+wall-clock proximity to the reload (clause 3) — sampled the dark theme background colour
+(`rgb(26, 26, 45)`, corroborated by `getComputedStyle(document.body)` reading the exact authored
+`rgb(26, 26, 46)`) on a genuinely dark OS (clause 1), with `dashboard-theme` quoted `"auto"` (clause
+2/D-04), against a top-level navigation to production rather than the `127.0.0.1` mechanism-proof
+control (clause 4). The developer's own verbatim judgment of the frame — corrected once, in their
+second message, from "clear" to "empty" — confirms the same reading: a single flat colour, the dark
+theme background colour, nothing legible, with no white flash. The ordering argument was not used
+to reach this verdict; the row stands on this run's own captured frame. See R7's full scoring
+above for the six-item evidence walkthrough and the `rgb(26,26,46)`/`rgb(26,26,45)` resolution.
+VER-01's tick, and REQUIREMENTS.md/ROADMAP.md, are untouched by this plan — disposition is plan
+25-12's job under the all-rows-PASS rule.
 ### GAP-25-02 — CI-01's live-run evidence still does not exist, and R6 is unsplittable while it doesn't
 
 **What withheld the tick:** R6, BLOCKED — and because R6 is the only row mapped to CI-01, CI-02 and
@@ -1049,7 +1066,8 @@ disclosure this row cites directly. The absence of a required disclosure is a de
 independent of any row's verdict.
 
 **R7 — First-paint flash, observed (VER-01, ROADMAP criterion 4 clause 2).**
-Replaces the BLOCKED R2. **Verdict: pending.**
+Replaces the BLOCKED R2. **Verdict: PASS** (scored 2026-09-04, plan 25-10 Task 3 — see the full
+evidence walkthrough and GAP-25-01 closure note below).
 
 **DISCRIMINATOR:** the sampled background colour of a captured raster frame whose timestamp is
 provably at or before that same navigation's `first-paint`. `rgb(26, 26, 46)` (dark
@@ -1290,6 +1308,105 @@ not give (plan 19-09 precedent). The developer was not asked about, and gave no 
 timing arithmetic, the cache-trap check, or the `rgb(26,26,45)` vs `rgb(26,26,46)` question below;
 no such judgment is attributed to them.
 
+
+
+**R7 SCORED (Task 3).**
+
+**Verdict: PASS.**
+
+**One-line reason:** `frame-001.png`, timestamped `11.899169921875 ms` before this navigation's own
+`first-paint`, samples the dark theme background colour (not white), confirmed both by the
+harness's own pixel sampling and by the developer's independent human judgment of the same frame
+as "empty, one flat colour, the dark theme background colour" — GAP-25-01's four clauses are all
+satisfied simultaneously by this one frame, on a genuinely dark OS, against production.
+
+**Scoring against the six evidence items and GAP-25-01's four clauses:**
+
+1. **DARK appearance:** `defaults read -g AppleInterfaceStyle` = `Dark`, confirmed before and
+   during this run; no flip was required for this plan (already-dark case, disclosed above). D-05
+   cross-referenced: on a light OS this row would be vacuous, which is why Dark was mandatory.
+2. **`dashboard-theme` in the `null`-or-`'auto'` class:** quoted `"auto"` — PASS-compatible per
+   D-04 as amended. `matchMedia(...).matches` quoted `true`; `data-theme` quoted `"dark"`. Neither
+   `'light'` nor `'dark'` was quoted from storage, so the BLOCKED-on-storage-override condition
+   does not apply.
+3. **Frame tied to the same navigation by arithmetic, not wall-clock proximity:** shown above —
+   `frame-001`'s `t_since_navigation_ms` (`4024.100830078125`) is computed against THIS
+   navigation's own `timeOrigin` and compared against THIS navigation's own `first-paint.startTime`
+   (`4036`), margin `11.899169921875 ms`. Satisfies GAP-25-01 clause 3.
+4. **Top-level navigation to production, not the `127.0.0.1` control:** the harness invocation's
+   `--url https://bacilo.github.io/strava-widgets/` targeted production directly. **Named
+   explicitly per D-08 and this task's own instruction: plan 25-08 Part B's `127.0.0.1` served copy
+   is mechanism proof only and is NOT presented here as R7's own production evidence** — R7's
+   evidence is exclusively this run's `report.json` and frames, captured against the live
+   `bacilo.github.io` origin. Satisfies GAP-25-01 clause 4.
+5. **Cache-trap exclusion in R7's own right:** the captured document's hashed module script
+   (`./assets/index-D-Ts7X8C.js`) matches the `origin/gh-pages` name Task 1 derived BEFORE the run
+   (`assets/index-D-Ts7X8C.js` @ `b2b05a40`); a cache-busted refetch of `index.html` is
+   byte-identical to a plain fetch (SHA-256
+   `33fa42bdef7c6e3eec76b8fffb35041a45f4f60e004391647a17384415137fa1`, `3177` bytes, both copies);
+   the throwaway `--user-data-dir` is named as the cleared-storage mechanism. No stale-cache
+   artifact (T-25-21) is present.
+6. **Developer's own judgment on the captured frame, recorded verbatim:** both messages are
+   quoted above with the correction's precedence made explicit. The developer's per-frame reading —
+   `frame-001.png` empty and carrying the dark theme background colour, not white, nothing
+   legible — corroborates the sampled colour independently of the harness's own pixel reading.
+
+**The `rgb(26, 26, 46)` vs `rgb(26, 26, 45)` discriminator resolution, addressed explicitly rather
+than silently:** R7's drafted discriminator names `rgb(26, 26, 46)` as PASS. `frame-001.png`'s
+pixel-sampled colour reads `rgb(26, 26, 45)` — one unit off in the blue channel, at every one of
+its five sample points. This exact mismatch was disclosed BEFORE this run, in plan 25-08's Part A
+(all three production runs C-1/C-2/C-3 sampled the identical `rgb(26, 26, 45)`) and in R7's own
+CAN-PASS reachability paragraph, and is attributed there to the screencast PNG re-encode pipeline,
+not to a wrong colour being rendered. This run's own `pageState.bodyBackgroundColor`, read directly
+via `getComputedStyle`/`Runtime.evaluate` rather than sampled from a re-encoded raster frame, reads
+the exact authored `"rgb(26, 26, 46)"` — confirming the page itself renders the correct discriminator
+value and that the one-unit discrepancy is confined to the raster-sampling path, exactly as
+disclosed beforehand. **The discriminator text is not edited to match the observation** (per this
+plan's own prohibition); instead, the pre-existing disclosure is applied: a raster sample of
+`rgb(26, 26, 45)` corroborated by a direct computed-style read of `rgb(26, 26, 46)` on the same
+frame's page state is treated as satisfying the `rgb(26, 26, 46)` discriminator, consistent with
+how Part A's three production runs were already treated as CAN-PASS evidence before this row was
+run.
+
+**EXECUTION PROVENANCE (D-07), mirroring Round 1's shape.** The developer's own hand: confirming
+the machine was already in Dark appearance for this plan (no flip needed, disclosed above as the
+mirror-image case); viewing the captured frame together with the timing arithmetic; and giving the
+verbatim judgment quoted above, corrected once by the developer's own second message. The agent's
+own actions: assembling and running the exact harness invocation recorded in Task 1's pre-flight;
+launching Chrome against a throwaway `--user-data-dir`; navigating to
+`https://bacilo.github.io/strava-widgets/`; capturing and timestamping the three frames; reading
+`localStorage`, `matchMedia`, `data-theme`, `getComputedStyle(document.body)`, and the navigation
+timing entries via `Runtime.evaluate`; performing the cache-busted refetch and SHA-256 comparison;
+and comparing the hashed asset name against the `origin/gh-pages` value derived in Task 1 before the
+run. **No `osascript` was used and no CDP rendering override (`Emulation.setEmulatedMedia` or
+equivalent) was applied at any point.**
+
+**Cache-trap comparison against Task 1's pre-derived value:** captured hashed asset
+`./assets/index-D-Ts7X8C.js` = pre-derived `assets/index-D-Ts7X8C.js` @ `origin/gh-pages`
+`b2b05a40` (unchanged since R5; production was not redeployed between Task 1 and this run).
+Cache-busted vs plain fetch: SHA-256
+`33fa42bdef7c6e3eec76b8fffb35041a45f4f60e004391647a17384415137fa1` for both, `3177` bytes for both
+— byte-identical.
+
+**Disclosures carried:** D-05's dark-OS deviation disclosure and D-04's amendment disclosure are
+cross-referenced by name (both already written in the Round 1 section) and are not restated here.
+The slowed-load disclosure (throttled mechanism, `latency: 1000ms, downloadThroughput: 6400 B/s,
+uploadThroughput: 6400 B/s`) is confirmed applied exactly as drafted, quoted from this run's own
+`report.json.emulation` block above — it widened the navigation-to-first-paint window
+(`navResponseEnd` `1406.8 ms` to `firstPaintStartTime` `4036 ms`) without touching
+`Emulation.setEmulatedMedia`, `data-theme`, or any other rendering override.
+
+**Row-baseline re-confirmation, run at the END of this task per the acceptance criteria, after the
+verdict above was written:**
+```
+$ git diff bf9d1a139fae3563e431981709f3fb0883a9d7ee -- .planning/phases/25-ci-hardening-light-theme-verification/25-VALIDATION.md
+```
+returns changes confined to appended evidence/scoring content (Task 1's "Pre-flight (Task 1)"
+block, this Task 2/Task 3 block, and — once written — the `## Gaps opened by Round 1` GAP-25-01
+closure note below); **zero `-`/`+` lines fall inside R7's drafted discriminator, MECHANISM,
+six-item evidence requirement or either reachability paragraph** — those paragraphs remain
+byte-identical to `ROW_BASELINE_SHA` `bf9d1a139fae3563e431981709f3fb0883a9d7ee`. R7 was run exactly
+as plan 25-09 drafted it and scored without editing the row to obtain a tick.
 
 **R6a — FIX-02's evidence, on the tree that is actually pushed.** **Verdict: pending.**
 
