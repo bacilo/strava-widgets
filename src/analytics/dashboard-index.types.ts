@@ -68,8 +68,8 @@ export interface DashboardIndexRow {
   excludedFromRecords: boolean;
   /** Count of that activity's efforts with `wasPRAtTheTime === true`; 0 when unknown. */
   prCount: number;
-  /** Resolved human gear label from data/config/gear.json, or the deterministic "Shoe N" ordinal, or null when the activity has no gear. NEVER the raw gear id (17-D32/D33, D-17). */
-  gearName: string | null;
+  /** Resolved human gear label from data/config/gear.json, or the deterministic "Shoe N" ordinal, or null when the activity has no gear. NEVER the raw gear id (17-D32/D33, D-17). Optional because rows are re-parsed from data/dashboard/index.json at runtime, where the producer's (compute-dashboard-index.ts) required-key guarantee does not survive serialization + re-parse; making the key optional lets the compiler enumerate every consumer that assumed it was always present (D-13). */
+  gearName?: string | null;
 }
 
 /** Aggregate counts written alongside the row array, mirroring `best-effort.types.ts`'s `totals` convention. */

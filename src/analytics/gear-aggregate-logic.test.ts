@@ -28,6 +28,19 @@ function makeRow(overrides: Partial<DashboardIndexRow> & { id: string }): Dashbo
   };
 }
 
+/**
+ * Builds a row with the `gearName` key entirely absent — the shape a row
+ * parsed from `data/dashboard/index.json` can produce once `gearName` is
+ * optional on `DashboardIndexRow` (D-13). `makeRow`'s spread contract can
+ * only ever *set* `gearName` to a valid value or `undefined`, never omit
+ * the key, so this helper destructure-omits it after construction.
+ */
+function makeRowWithoutGearName(overrides: Omit<Partial<DashboardIndexRow>, 'gearName'> & { id: string }): DashboardIndexRow {
+  const row = makeRow(overrides);
+  const { gearName: _omitted, ...rowWithoutGearName } = row;
+  return rowWithoutGearName as DashboardIndexRow;
+}
+
 describe('buildGearAggregate', () => {
   it('produces correct per-shoe sums for a mixed set', () => {
     const rows = [
@@ -122,6 +135,42 @@ describe('buildGearAggregate', () => {
       expect(/^g\d+$/.test(shoe.key)).toBe(false);
     }
   });
+
+  it('absent gearName key lands in the Unknown bucket instead of crashing slugify (FIX-02, D-12)', () => {
+    const rows = [makeRowWithoutGearName({ id: 'a' })];
+    const shoes = buildGearAggregate(rows);
+    const unknown = shoes.find((s) => s.isUnknown);
+    expect(unknown?.label).toBe(UNKNOWN_GEAR_LABEL);
+    expect(unknown?.key).toBe('unknown');
+    expect(unknown?.runs).toBe(1);
+  });
+
+  it('gearName: undefined lands in the Unknown bucket instead of crashing slugify (FIX-02, D-12)', () => {
+    const rows = [makeRow({ id: 'a', gearName: undefined })];
+    const shoes = buildGearAggregate(rows);
+    const unknown = shoes.find((s) => s.isUnknown);
+    expect(unknown?.label).toBe(UNKNOWN_GEAR_LABEL);
+    expect(unknown?.key).toBe('unknown');
+    expect(unknown?.runs).toBe(1);
+  });
+
+  it('gearName: empty string lands in the Unknown bucket rather than the shoe fallback key (FIX-02, D-12)', () => {
+    const rows = [makeRow({ id: 'a', gearName: '' })];
+    const shoes = buildGearAggregate(rows);
+    const unknown = shoes.find((s) => s.isUnknown);
+    expect(unknown?.label).toBe(UNKNOWN_GEAR_LABEL);
+    expect(unknown?.key).toBe('unknown');
+    expect(unknown?.runs).toBe(1);
+  });
+
+  it('non-string gearName lands in the Unknown bucket instead of crashing slugify (FIX-02, D-12)', () => {
+    const rows = [makeRow({ id: 'a', gearName: 123 as unknown as string })];
+    const shoes = buildGearAggregate(rows);
+    const unknown = shoes.find((s) => s.isUnknown);
+    expect(unknown?.label).toBe(UNKNOWN_GEAR_LABEL);
+    expect(unknown?.key).toBe('unknown');
+    expect(unknown?.runs).toBe(1);
+  });
 });
 
 describe('buildGearCoverage', () => {
@@ -168,5 +217,33 @@ describe('buildGearCoverage', () => {
     expect(totals.runsWithoutGear).toBe(2);
     expect(totals.percentWithGear).toBeCloseTo(33.3, 1);
     expect(totals.distinctShoes).toBe(1);
+  });
+
+  it('absent gearName key is not counted in runsWithGear (FIX-02, D-12)', () => {
+    const rows = [makeRowWithoutGearName({ id: 'a' })];
+    const { totals } = buildGearCoverage(rows);
+    expect(totals.runsWithGear).toBe(0);
+    expect(totals.distinctShoes).toBe(0);
+  });
+
+  it('gearName: undefined is not counted in runsWithGear (FIX-02, D-12)', () => {
+    const rows = [makeRow({ id: 'a', gearName: undefined })];
+    const { totals } = buildGearCoverage(rows);
+    expect(totals.runsWithGear).toBe(0);
+    expect(totals.distinctShoes).toBe(0);
+  });
+
+  it('gearName: empty string is not counted in runsWithGear (FIX-02, D-12)', () => {
+    const rows = [makeRow({ id: 'a', gearName: '' })];
+    const { totals } = buildGearCoverage(rows);
+    expect(totals.runsWithGear).toBe(0);
+    expect(totals.distinctShoes).toBe(0);
+  });
+
+  it('non-string gearName is not counted in runsWithGear (FIX-02, D-12)', () => {
+    const rows = [makeRow({ id: 'a', gearName: 123 as unknown as string })];
+    const { totals } = buildGearCoverage(rows);
+    expect(totals.runsWithGear).toBe(0);
+    expect(totals.distinctShoes).toBe(0);
   });
 });
