@@ -179,7 +179,15 @@ export function buildGearAggregate(rows: readonly DashboardIndexRow[]): GearShoe
     a.label < b.label ? -1 : a.label > b.label ? 1 : 0
   );
 
-  const usedSlugs = new Set<string>();
+  // 'unknown' is reserved before the named loop runs. The Unknown bucket is
+  // assigned that key unconditionally below, without consulting usedSlugs, so
+  // a real shoe named 'Unknown' / 'unknown' / 'UNKNOWN' in the hand-maintained
+  // data/config/gear.json slugifies to the same string and would publish two
+  // aggregates sharing key 'unknown' AND label 'Unknown' — distinguishable
+  // only by isUnknown, breaking the documented stable-key contract and
+  // showing two identically-labelled rows in the trends table. Reserving it
+  // here routes the real shoe through the existing -2/-3 suffixing.
+  const usedSlugs = new Set<string>(['unknown']);
   for (const bucket of namedBuckets) {
     const base = slugify(bucket.label);
     let candidate = base;

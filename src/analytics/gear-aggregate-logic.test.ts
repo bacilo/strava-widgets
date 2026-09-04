@@ -171,6 +171,49 @@ describe('buildGearAggregate', () => {
     expect(unknown?.key).toBe('unknown');
     expect(unknown?.runs).toBe(1);
   });
+
+  // WR-07. data/config/gear.json is hand-maintained, so a shoe literally
+  // named 'Unknown' is a reachable input. It slugifies to 'unknown', which is
+  // also the key the Unknown residual bucket takes unconditionally — so
+  // without reserving that slug the published array carried two entries with
+  // the SAME key and the SAME label, distinguishable only by isUnknown.
+  it('a real shoe named "Unknown" does not collide with the Unknown residual bucket key (WR-07)', () => {
+    const rows = [
+      makeRow({ id: 'a', gearName: 'Unknown', distanceM: 12000 }),
+      makeRow({ id: 'b', gearName: null, distanceM: 4000 }),
+    ];
+
+    const shoes = buildGearAggregate(rows);
+    expect(shoes).toHaveLength(2);
+
+    const residual = shoes.find((s) => s.isUnknown);
+    const realShoe = shoes.find((s) => !s.isUnknown);
+
+    expect(residual?.key).toBe('unknown');
+    expect(realShoe?.label).toBe('Unknown');
+    expect(realShoe?.key).not.toBe('unknown');
+    expect(new Set(shoes.map((s) => s.key)).size).toBe(shoes.length);
+
+    // The two buckets stayed separate — the named shoe's run did not get
+    // folded into the residual.
+    expect(realShoe?.runs).toBe(1);
+    expect(realShoe?.distanceM).toBe(12000);
+    expect(residual?.runs).toBe(1);
+    expect(residual?.distanceM).toBe(4000);
+  });
+
+  it('case variants of "unknown" as real gear labels each get a distinct key (WR-07)', () => {
+    const rows = [
+      makeRow({ id: 'a', gearName: 'Unknown' }),
+      makeRow({ id: 'b', gearName: 'UNKNOWN' }),
+      makeRow({ id: 'c', gearName: 'unknown' }),
+      makeRow({ id: 'd', gearName: null }),
+    ];
+
+    const shoes = buildGearAggregate(rows);
+    expect(new Set(shoes.map((s) => s.key)).size).toBe(shoes.length);
+    expect(shoes.find((s) => s.isUnknown)?.key).toBe('unknown');
+  });
 });
 
 describe('buildGearCoverage', () => {
