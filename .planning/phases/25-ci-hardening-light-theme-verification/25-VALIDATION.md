@@ -3,8 +3,10 @@ phase: 25
 slug: ci-hardening-light-theme-verification
 status: passed
 nyquist_compliant: true
-wave_0_complete: false
+wave_0_complete: true
 created: 2026-09-03
+last_audit: 2026-09-04
+audit_rounds: 3
 ---
 
 # Phase 25 — Validation Strategy
@@ -36,6 +38,9 @@ created: 2026-09-03
 - **After every plan wave:** `npm test` + `npm run build` + `npm run build-widgets` + `npm run verify-dashboard`.
 - **Before `/gsd-verify-work`:** Full suite must be green, and every D-11 RED observation must be recorded.
 - **Max feedback latency:** 7 seconds (full suite). No task in this phase needs a slower signal.
+  **REVISED to 9 seconds on 2026-09-04** by `/gsd-validate-phase 25` — the suite now measures 7.82s
+  after GAP-A's subprocess guard landed. See § "Validation Audit 2026-09-04" § "Sampling-rate
+  consequence" for the measurement and the reasoning.
 
 ---
 
@@ -58,6 +63,9 @@ Task ID / Plan / Wave filled 2026-09-03 by `/gsd-plan-phase 25` against the seve
 | 25-04-T1 | 25-04 | 2 | WR-19 (D-11 precedent) | — | The new directory fixture observed RED before the guard fix lands | scripted one-off | run the new fixture against unfixed `curation-guard.mjs`, confirm failure | N/A — round activity | ✅ green (see § "D-11 RED evidence log" below) |
 | 25-05-T1 / 25-05-T2 | 25-05 | 1 | VER-01 (D-06) | — | Inline bootstrap in `index.html` resolves the same `(mode, prefersDark) → effective theme` as `theme.ts` across all combinations; `'light' \| 'dark' \| 'auto'` allow-list intact (T-16-TH-01); script still ordered before the stylesheet link | unit (behavioural, `node:vm` sandbox) | `npx vitest run src/dashboard/theme-bootstrap-parity.test.ts` | ✅ existing (landed Wave 0/1) | ✅ green |
 | 25-07-T2 | 25-07 | 4 | VER-01 (D-04/D-05/D-07/D-08) | — | Legibility, first-paint, and live OS-follow confirmed from a genuine light-OS environment against the production build | **manual — human checkpoint** | N/A (see § Manual-Only Verifications) | N/A | ✅ green — RUN 2026-09-04: Round 1 R1/R3/R4/R5 PASS; Round 2 R7 (plan 25-10/25-12) CLOSED the R2 BLOCKED gap (GAP-25-01) — see § "Round 2 outcome" |
+| 25-03-T1 / 25-03-T2 | 25-03 | 1 | CI-02 (D-09, D-10, D-11) | Tampering — "the verifier lies" | Each of the six by-name assertion blocks is a **committed** regression guard: breaking one document at a time in a symlinked shadow tree makes the real, shipped verifier exit non-zero **naming that document**, and the clean control run emits all six `ok()` lines | integration (subprocess, planted shadow-tree fixture) | `npx vitest run scripts/verify-dashboard-publish-stats.test.mjs` | ✅ **added 2026-09-04 by `/gsd-validate-phase 25`** | ✅ green (8 tests) |
+| 25-08-T* | 25-08 | 5 | VER-01 (GAP-25-01 capture mechanism) | — | `scripts/first-paint-capture.mjs` — the one-off Chrome/CDP harness that produced R7's `frame-001.png`. Instrumentation, never imported by shipped code, never run in CI | **manual — instrumentation, exempt** | N/A (see § Manual-Only Verifications) | N/A | ⚠️ **no automated coverage; 25-REVIEW.md CR-01/WR-01/WR-02 open** |
+| 25-09-T*, 25-10-T*, 25-11-T*, 25-12-T* | 25-09 … 25-12 | 6-9 | VER-01, FIX-02, CI-01, CI-02 | — | Round 2 drafting (25-09), scoring (25-10 R7, 25-11 R6a/R6b/R6c) and disposition (25-12). These plans produce **evidence and adjudication**, not code — their outputs are the Round 2 rows recorded in this file | documentation / round activity | N/A — the requirements they score are covered by the automated rows above | N/A | ✅ green (all rows PASSED — see § "Round 2 outcome") |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -83,6 +91,7 @@ All four confirmed present and green by plan 25-06 Task 1 (see § Wave 1 Integra
 | Live-follows an OS appearance change light → dark → back | VER-01 / criterion 4 | The gesture the requirement calls human stays human | **D-07 hybrid execution**, mirroring Phase 24's R34: the developer personally changes appearance in System Settings; the agent handles the surrounding instrumentation (cleared-storage assertion, frame capture, `matchMedia` reads before and after). `osascript`-driven switching was considered and **rejected** for the recorded rows. |
 | A real (or dry-run) nightly workflow execution | CI-01 / criterion 5 | Exercises the actual Actions runner | `daily-refresh.yml` already has `workflow_dispatch` (confirmed present). Trigger with `gh workflow run "Daily Widget Refresh"`, then capture the run's step output — specifically that the single collapsed compute step's log carries the per-step names and the end-of-run failure summary that the eight separate green/red boxes used to provide (D-01's accepted cost). |
 | Green `verify-dashboard-publish.mjs` run | CI-02 / criterion 5 | Runs against a served build | `npm run verify-dashboard` exits 0 and reports the six new checks among its "N check(s) passed" total. |
+| `scripts/first-paint-capture.mjs` behaves correctly on its **error** paths | VER-01 (GAP-25-01 instrumentation) | One-off developer instrumentation, not shipped product code: it drives a real Chrome via CDP with a throwaway `--user-data-dir`, is never imported by `src/`, never invoked by `npm test`, `npm run build*` or any workflow, and produced its evidence (`frame-001.png`) in a single supervised run. Its failure paths need a live Chrome plus a deliberately-severed CDP session to reach, which is not reproducible in this repo's Node-environment vitest setup. | **Open defects, escalated — do NOT re-run this harness before they are fixed.** `25-REVIEW.md` **CR-01** (Critical): `CdpClient._onMessage` dispatches event listeners as `for (const fn of listeners) fn(msg.params)` with no `await` and no `.catch()` (confirmed still unfixed at `scripts/first-paint-capture.mjs:215` on 2026-09-04); the `async` `Page.screencastFrame` listener's `Page.screencastFrameAck` rejects when the socket is closed, and the resulting unhandled rejection terminates Node outside `main()`'s `try/finally` — leaking the live Chrome process and the mkdtemp'd profile dir. **WR-01**: `CdpClient.send` has no timeout and the WebSocket has no `error`/`close` listener, so a dead socket hangs forever. **WR-02**: see `25-REVIEW.md` § Warnings. None of these affected the R7 run that already produced this phase's evidence (that run completed and cleaned up — see § "GAP-25-01 capture-mechanism reachability proof" § Cleanup); they are risks to any FUTURE run. Remediation belongs to the code-review fix track (`/gsd-code-review 25 --fix`), not to this validation audit, which is barred from modifying implementation files. |
 
 ---
 
@@ -1838,11 +1847,25 @@ contingent on that outcome.
   `Emulation.setEmulatedMedia`, `data-theme`, or any other rendering override.
 None of the three disclosure obligations is absent; the round carries no disclosure defect.
 
-**Verification-artefact note:** `/gsd-verify-work` has never run for Phase 25 — there is no
-`25-VERIFICATION.md` in this directory. This file, `25-VALIDATION.md`, is the authoritative record
-of the round's outcome. Because every Round 2 row PASSED and Round 1's R1/R3/R4/R5 stand, the
-recommendation is that `/gsd-verify-work 25` run before the v2.1 milestone is considered closed —
-this file's own disposition has not itself been independently re-verified by that tool.
+**Verification-artefact note (as written by plan 25-12, 2026-09-04, retained verbatim):**
+`/gsd-verify-work` has never run for Phase 25 — there is no `25-VERIFICATION.md` in this directory.
+This file, `25-VALIDATION.md`, is the authoritative record of the round's outcome. Because every
+Round 2 row PASSED and Round 1's R1/R3/R4/R5 stand, the recommendation is that `/gsd-verify-work 25`
+run before the v2.1 milestone is considered closed — this file's own disposition has not itself been
+independently re-verified by that tool.
+
+**Verification-artefact note (SUPERSEDED — see § "Validation Audit 2026-09-04" at the end of this
+file).** As written on 2026-09-04 at the time plan 25-12 scored the round, this paragraph stated that
+`/gsd-verify-work` had never run for Phase 25 and that no `25-VERIFICATION.md` existed. That was true
+when written and is **no longer true**: `/gsd-verify-work` ran later the same day and wrote
+`25-VERIFICATION.md` (`status: passed`, 4/4 must-have truths verified, `verified: 2026-09-04T20:40:00Z`,
+`overrides_applied: 0`), independently re-running this phase's gates rather than restating this file.
+`25-REVIEW.md` and `25-SECURITY.md` were also written after this paragraph. The original wording is
+retained verbatim immediately above rather than rewritten, per this file's audit-trail convention; the
+recommendation it made ("run `/gsd-verify-work 25` before the v2.1 milestone is considered closed")
+has since been carried out. The same stale claim also appears in the Round 2 **Approval** paragraph of
+§ Validation Sign-Off below; that paragraph is a scored sign-off record and is deliberately left
+unedited — read it together with this correction.
 
 ---
 
@@ -2077,3 +2100,121 @@ processes). `git status --porcelain dist data` is empty. `capture/`'s per-run PN
 excluded from git via `.gitignore` (same convention as `dist`/`data` build scratch) rather than
 committed, to avoid bloating history with screencast frame binaries; every path cited above is
 reproducible by re-running the exact command shown for that row.
+
+---
+
+## Validation Audit 2026-09-04
+
+Run by `/gsd-validate-phase 25` (State A — audit an existing VALIDATION.md), after Round 2 was
+scored, after `/gsd-verify-work`, `/gsd-code-review` and `/gsd-secure-phase` had all run. This is an
+audit of *coverage*, not a re-scoring of any checkpoint row: no Round 1 or Round 2 row is edited,
+re-run or re-adjudicated here, and no requirement's tick is changed.
+
+| Metric | Count |
+|--------|-------|
+| Gaps found | 3 |
+| Resolved (automated test added) | 1 |
+| Escalated (recorded manual-only + referred to the fix track) | 1 |
+| Corrected (stale metadata) | 1 |
+
+### Baseline reproduced independently before auditing
+
+`npm test` → `Test Files 62 passed (62)` / `Tests 1596 passed (1596)` / `Duration 6.77s`.
+`npx tsc --noEmit` → exit 0. Every test file the Per-Task Verification Map claims exists was
+confirmed present and green by name, including `curation-guard.test.mjs` case **(f)** (the WR-19
+mode-000 **directory** fixture) and `theme-bootstrap-parity.test.ts`.
+
+### GAP-A — CI-02's six by-name assertions had no committed regression guard — RESOLVED
+
+**Found:** the six by-name publish assertions (D-09/D-10) rested entirely on a live
+`npm run verify-dashboard` run plus the **uncommitted, one-off** D-11 RED activity transcribed in
+§ "D-11 RED Observation Log". Nothing in the committed suite referenced `weekly-distance`,
+`yearly-stats`, `year-over-year` or the shard sample: deleting an assertion block from
+`scripts/verify-dashboard-publish.mjs` would have left `npm test` green. That is the precise failure
+mode `scripts/verify-dashboard-publish-guard.test.mjs`'s own header warns about (Phase 19 R3-CR-01,
+Phase 23 WR-06: "a guard that has never been observed failing is not evidence in this repo").
+
+**Filled:** `scripts/verify-dashboard-publish-stats.test.mjs` — 8 cases, `npx vitest run
+scripts/verify-dashboard-publish-stats.test.mjs` → **8 passed**, full suite → **63 files / 1604
+tests**, green (delta is exactly +1 file / +8 tests; no pre-existing test changed status).
+
+**Design.** The verifier roots at `resolve(process.cwd(), 'dist/widgets')`, so each case runs the
+**real, shipped script byte-for-byte** via `execFileSync` with `cwd` pointed at a throwaway
+`mkdtemp` **shadow tree**: every entry of the real 185 MB `dist/widgets` symlinked in, except the
+one document under test, which is written broken (or omitted, for the 404 shard case). The real
+publish tree is never written, renamed, chmod'd or unlinked — not even transiently with a
+finally-restore — and the test's 8th case asserts exactly that. `describe.skipIf` on the real
+`index.html` keeps a never-built fresh checkout from breaking `npm test`, matching the sibling
+guard test's convention. The shard id is derived at runtime from the real index
+(`streams?.available === true`), never pinned, per D-10 — the sampled id has already drifted from
+the scratch run's (`i182749188` vs the log's `i182358139`) because the archive grew, which is the
+behaviour D-10 asked for.
+
+**Both directions proven per document**, which is what makes the guard non-vacuous: each BROKEN case
+asserts the failure line **naming its own document** (not merely a non-zero exit, which cannot
+discriminate which assertion fired), and the CONTROL case asserts all six `ok()` lines plus a
+check-count cross-reference against a real-tree run, proving the shadow tree omits nothing. RED
+evidence, verbatim:
+
+```
+✗ /data/stats/weekly-distance.json expected a non-empty array, got an array of length 0
+✗ GET /data/stats/monthly-stats.json returned 200 but an empty body
+✗ /data/stats/yearly-stats.json expected a non-empty array, got an array of length 0
+✗ /data/stats/year-over-year.json expected an array of exactly 12 entries (one per calendar month, per compute-advanced-stats.ts:104), got an array of length 11
+✗ /data/stats/best-efforts.json "activities" expected a non-null object with at least one key, got an object with 0 keys
+✗ GET /data/stats/best-efforts/i182749188.json expected 200, got 404
+```
+
+Non-mutation confirmed after the run: `git status --porcelain` shows only the new test file,
+`dist/widgets/data/stats/best-efforts` still holds 1861 shards, `weekly-distance.json` is
+byte-identical, and a fresh `npm run verify-dashboard` still reports `56 check(s) passed, 0
+failure(s).`
+
+### GAP-B — `scripts/first-paint-capture.mjs` is an untested blind spot with open defects — ESCALATED
+
+The ~600-line Chrome/CDP harness plan 25-08 landed for GAP-25-01 appeared in **no row** of the
+Per-Task Verification Map and is referenced by **no test**. `25-REVIEW.md`'s **CR-01** (Critical) is
+still unfixed — verified during this audit that `scripts/first-paint-capture.mjs:215` is still
+`for (const fn of listeners) fn(msg.params)`, with no `await` and no `.catch()` — as are WR-01 and
+WR-02. A faithful test of CR-01 would be RED against current code, and this audit is barred from
+modifying implementation files, so **no test was generated**. Instead the harness now has an explicit
+row in § Manual-Only Verifications classifying it as one-off instrumentation (never imported by
+`src/`, never invoked by `npm test`/`npm run build*`/any workflow) and recording the three open
+findings as risks to any **future** run — the R7 run that produced this phase's evidence completed
+and cleaned up. Remediation belongs to the code-review fix track, not here.
+
+### GAP-C — stale metadata — CORRECTED
+
+- `wave_0_complete: false` in the frontmatter contradicted § "Wave 0 Requirements", where all four
+  items are ticked as landed. Set to `true`.
+- The "Verification-artefact note" and the Round 2 **Approval** paragraph both assert that
+  `/gsd-verify-work` has never run and that no `25-VERIFICATION.md` exists. Both were true when
+  written and are now false. The note carries a correction directly beneath its retained original
+  wording; the Approval paragraph is a scored sign-off record and is deliberately left unedited.
+- Plans 25-08 through 25-12 had no rows in the Per-Task Verification Map. Rows added, distinguishing
+  the code-bearing plan (25-08, instrumentation) from the evidence-and-adjudication plans (25-09 …
+  25-12), so the map now accounts for all twelve plans.
+
+### Sampling-rate consequence, disclosed rather than absorbed
+
+Adding GAP-A's guard moves the full suite from **6.77s to 7.82s** (measured back to back on the same
+machine, this audit). That breaches § "Sampling Rate"'s stated budget — *"Max feedback latency: 7
+seconds (full suite)"* — by 0.82s, and the breach is structural, not noise: the 8 cases each spawn
+the real verifier as a child process, and 6 of them additionally stand up its ephemeral HTTP server,
+which is ~1s of subprocess time no amount of tuning removes without weakening the guard (an in-process
+harness would stop exercising the shipped script byte-for-byte, which is the whole point).
+
+**Budget revised to 9s for the full suite, effective this audit.** The Nyquist argument for the
+original 7s is unchanged in substance — the number was chosen as "fast enough that no task in this
+phase needs a slower signal", not as a hard performance requirement, and 7.82s clears that bar
+identically. The per-file quick-run figure that actually governs task-level sampling is unaffected:
+`npx vitest run scripts/verify-dashboard-publish-stats.test.mjs` completes in **1.10s**, and every
+other single-file run is still <1s. Recorded here rather than silently retconning the 7s line above.
+
+### Disposition
+
+**Nyquist-compliant: yes, with one recorded instrumentation exemption.** All four requirements
+(FIX-02, CI-01, CI-02, VER-01) keep automated verification, and CI-02's is now a committed
+regression guard rather than a one-off observation. The single exemption — `first-paint-capture.mjs`
+— is instrumentation that produced evidence already banked, carries no shipped-code exposure, and is
+tracked as open review findings rather than as missing test coverage.
