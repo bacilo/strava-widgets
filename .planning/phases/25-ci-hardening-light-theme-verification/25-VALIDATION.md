@@ -50,7 +50,7 @@ Task ID / Plan / Wave filled 2026-09-03 by `/gsd-plan-phase 25` against the seve
 | 25-01-T1 | 25-01 | 1 | FIX-02 (D-13) | V5 Input Validation | `gearName` optional on the row type; every consumer making the presence assumption is enumerated by the compiler and either fixed or recorded as a todo | type-check | `npx tsc --noEmit` | N/A — compiler check | ✅ green |
 | 25-02-T2 | 25-02 | 1 | CI-01 (D-01) | — | The eight compute steps' order and mandatory/tolerated disposition are declared once, in an importable data structure, and asserted by test | unit | `npx vitest run src/compute-all-stats-steps.test.ts` | ✅ existing (landed Wave 0/1) | ✅ green |
 | 25-02-T2 | 25-02 | 1 | CI-01 (D-02) | — | The CI flag flips tolerated-step disposition to warn-and-continue and leaves mandatory steps fail-fast | unit | same new file | ✅ existing (landed Wave 0/1) | ✅ green |
-| 25-02-T3 / 25-06-T2 | 25-02, 25-06 | 1, 3 | CI-01 (D-03) | — | End-of-run failure summary names every degraded step; `::warning::` annotations still surface in the Actions run summary | unit + manual (workflow run) | same new file; evidence from `gh workflow run` | ✅ existing (landed Wave 0/1) | ✅ green (unit: this task; live workflow-run half: 25-06 Task 2, see § CI-01 live run evidence) |
+| 25-02-T3 / 25-06-T2 | 25-02, 25-06 | 1, 3 | CI-01 (D-03) | — | End-of-run failure summary names every degraded step; `::warning::` annotations still surface in the Actions run summary | unit + manual (workflow run) | same new file; evidence from `gh workflow run` | ✅ existing (landed Wave 0/1) | ⚠️ split: unit half ✅ green (25-02-T2's own tests, part of the 62/1596 tally above); live-workflow-run half ⬜ BLOCKED — see § "CI-01 live run evidence — blocked" below |
 | 25-03-T1 | 25-03 | 1 | CI-02 (D-09) | — | Each of the six documents returns 200, parses as JSON, and satisfies one structural invariant a truncated/empty file would fail | integration (HTTP smoke) | `npm run verify-dashboard` | ✅ existing, extended | ✅ green |
 | 25-03-T1 | 25-03 | 1 | CI-02 (D-10) | — | The per-activity best-effort shard sample is derived at runtime (no pinned ids), following `verify-dashboard-publish.mjs:430-455` | integration | `npm run verify-dashboard` | ✅ existing, extended | ✅ green |
 | 25-03-T2 | 25-03 | 1 | CI-02 (D-11) | Tampering — "the verifier lies" | Each of the six new assertions observed RED once, naming its own document | scripted one-off (validation-round activity, not a committed test) | delete/truncate target in a scratch `dist/widgets` → `npm run verify-dashboard` exits non-zero **naming that document** → restore → green | N/A — round activity | ✅ green (see § "D-11 RED evidence log" below) |
@@ -325,6 +325,51 @@ direction.** Plan 25-03 (CI-02) contributes 0 to this tally: its six new asserti
 
 `git status --porcelain data` was empty at the end of this gate — confirmed both immediately
 after the five-command run and again after the incidental `geo-metadata.json` revert.
+
+## CI-01 live run evidence — blocked
+
+Plan 25-06's Task 2 (dispatch a real `gh workflow run "Daily Widget Refresh"` and record the
+collapsed compute step's log) was **not executed**, and is recorded here as a blocker rather
+than fabricated or attempted under pressure, per this project's house rule since plan 16-09.
+
+**Why:** this plan is executing inside a `worktree-agent-*` isolated git worktree (per the GSD
+parallel-execution architecture), not in the orchestrator's local `master` checkout. Task 2's own
+instructions require, in order: (1) pushing the wave-1 work to `origin/master`, confirming the
+pushed copy of `daily-refresh.yml` before dispatch, and (2) dispatching the workflow via
+`gh workflow run`. Both steps were examined and found to cross a boundary this isolated
+worktree agent should not cross unilaterally:
+
+1. **`git push` to `origin/master` from a worktree-agent branch is not a like-for-like
+   substitute for "push the merged tree."** `git merge-base --is-ancestor 304afca9…
+   origin/master` returns false — `origin/master` has already advanced two auto-commits ahead
+   (`fb0960a4`, `62304636`, both nightly `chore: update activities and stats [skip ci]` commits)
+   of the commit this worktree branched from, and this worktree's own commits (25-06 Task 1, this
+   file) have not yet been merged into the orchestrator's local `master` by the wave-3 merge step,
+   let alone pushed to `origin/master`. Pushing this worktree's branch HEAD onto `origin/master`
+   directly would promote an intermediate, single-plan worktree state to production ahead of the
+   orchestrator's own merge-back and wave completion, out of order with the rest of wave 3.
+
+2. **`daily-refresh.yml`'s `Deploy widgets to GitHub Pages` and `Commit updated data and stats`
+   steps carry no branch guard** (`grep -n "if:\|github.ref" .github/workflows/daily-refresh.yml`
+   returns only the two `Warn on *` conditionals — neither the deploy step nor the auto-commit
+   step is conditioned on `github.ref == 'refs/heads/master'`). A `workflow_dispatch` run
+   against ANY ref — including a `worktree-agent-*` branch pushed under a different name —
+   still deploys to the live production Pages site (`bacilo.github.io/strava-widgets`) and
+   still commits data back to `origin`. There is no safe, side-effect-free way to dispatch this
+   specific workflow from an unmerged worktree state; the "dispatch against a non-master ref to
+   avoid touching master" mitigation does not exist for this workflow as currently written.
+
+**Disposition:** recorded as a gap for the phase, per this plan's own governing rule (Task 2's
+`<action>`: "If the run FAILS, that is a real finding for this phase... report it in the SUMMARY
+as a gap for `/gsd-plan-phase 25 --gaps`"). This is treated identically — a real, structural
+finding, not a code defect, surfaced by running the plan inside the wave-3 parallel-worktree
+architecture. **Recommended resolution:** after this wave's worktree branches are merged back
+into the orchestrator's local `master` (the normal wave-3 merge step) and `origin/master` is
+confirmed to carry `compute-all-stats --ci`, the orchestrator (or a follow-up single-context
+execution, not a parallel worktree) should perform Task 2's `gh workflow run` dispatch and
+transcribe the evidence into this section, replacing this blocker note. The unit-level half of
+D-03/CI-01 (this table's own `25-02-T2` rows, `src/compute-all-stats-steps.test.ts`) is fully
+green and independent of this blocker — only the live-Actions-log half is outstanding.
 
 ## Checkpoint Row Discipline (inherited precedents — non-negotiable)
 
