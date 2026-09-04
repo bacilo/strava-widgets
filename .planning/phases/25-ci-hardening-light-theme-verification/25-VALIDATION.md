@@ -1048,6 +1048,125 @@ mechanism (Candidate C) — per the § "GAP-25-01 capture-mechanism reachability
 disclosure this row cites directly. The absence of a required disclosure is a defect in the round
 independent of any row's verdict.
 
+**R7 — First-paint flash, observed (VER-01, ROADMAP criterion 4 clause 2).**
+Replaces the BLOCKED R2. **Verdict: pending.**
+
+**DISCRIMINATOR:** the sampled background colour of a captured raster frame whose timestamp is
+provably at or before that same navigation's `first-paint`. `rgb(26, 26, 46)` (dark
+`--bg: #1a1a2e`, `styles.css:105`) is PASS. `rgb(255, 255, 255)` (light `--bg: #ffffff`,
+`styles.css:18`) is FAIL. A frame that cannot be shown to be at or before first paint is BLOCKED,
+not PASS — repeating R2's outcome is not a closure of GAP-25-01.
+
+**MECHANISM:** `scripts/first-paint-capture.mjs --mechanism throttled --throttle-ms 1000` against
+`https://bacilo.github.io/strava-widgets/`, per plan 25-08's selected Candidate C (emulation:
+`offline: false, latency: 1000ms, downloadThroughput: 6400 B/s, uploadThroughput: 6400 B/s`). A
+frame only counts as page-content evidence if its timestamp is at or after that navigation's own
+`navResponseEnd` — the universal Chrome UA-default artifact frame (`rgb(18, 18, 18)`, from
+`<meta name="color-scheme" content="light dark">`) discovered in all 9 of plan 25-08's runs
+arrives before `navResponseEnd` in every case and carries no discriminating evidence; it MUST be
+excluded from R7's own evidence by this same rule, or R7 would be scorable against a frame that
+carries no discriminating information.
+
+**EVIDENCE REQUIREMENT** — carrying GAP-25-01's four numbered clauses into R7 verbatim in
+substance:
+
+1. **macOS Appearance in DARK**, quoted from `defaults read -g AppleInterfaceStyle` returning
+   `Dark`, set by the developer's own hand (D-07) or disclosed as already-dark. D-05's reasoning
+   is cross-referenced: on a light OS, `--bg: #ffffff` (`styles.css:18`) makes white the correct
+   final state, so the row would be vacuous.
+2. `localStorage.getItem('dashboard-theme')` quoted at the instant of observation, in the
+   `null`-or-`'auto'` class per D-04 as amended. A quoted `'light'` or `'dark'` records the row
+   BLOCKED, because the in-page control would be overriding the OS setting under test. Also quote
+   `matchMedia('(prefers-color-scheme: dark)').matches` (must be `true`) and
+   `document.documentElement.getAttribute('data-theme')` (must be `'dark'`).
+3. The captured frame's timestamp, the navigation's `performance.timeOrigin`, and that
+   navigation's `first-paint` `startTime`, all three quoted, with the arithmetic shown:
+   `frame_timestamp - timeOrigin` must be at or below the `first-paint` startTime. Comparing the
+   frame to wall-clock proximity to the reload is explicitly NOT acceptable — that attribution is
+   what GAP-25-01 clause 3 forbids, and it is a different mistake than the one that sank R2 (R2's
+   frames landed ~243 ms after first paint on an honestly-computed arithmetic basis, not on a
+   wall-clock-proximity shortcut).
+4. A top-level navigation to `https://bacilo.github.io/strava-widgets/` (D-08). The local
+   `127.0.0.1` control served in plan 25-08 Part B does NOT satisfy this clause — it is mechanism
+   proof only (proving the harness can discriminate at all), and R7's write-up must say so
+   explicitly, so a future reader cannot mistake plan 25-08's control run for R7's own production
+   evidence.
+5. **Cache-trap exclusion in R7's own right** (D-08, T-25-21), not inherited from R5: quote the
+   captured document's `script[type=module][src]` hashed asset filename, a cache-busted refetch of
+   `index.html` shown byte-identical to the document the browser used (SHA-256 and byte length for
+   both), and the matching asset name in the `origin/gh-pages` tree at the commit deployed at that
+   moment — the independently-derived value, per Checkpoint Row Discipline rule 2. Also name the
+   throwaway `--user-data-dir` as the cleared-storage mechanism used for this row.
+6. The developer's own judgment of the captured frame, recorded verbatim (D-07 keeps the human
+   judgment human). State the granularity actually given; do not expand a blanket approval into
+   per-clause detail it did not contain (plan 19-09 precedent).
+
+**REACHABILITY PROOF, both directions, established before this row is run:**
+
+- **CAN FAIL (not vacuous):** plan 25-08 Part B's negative control, cited by frame path and
+  sampled colour — the stripped-bootstrap copy of the same build (inline pre-paint bootstrap
+  deleted from `src/dashboard/index.html:36-54`) sampled `rgb(255, 255, 255)` at `8247.048 ms`
+  against a first-paint `startTime` of `8256 ms` (`beats_first_paint: true`), served locally under
+  the identical `throttled --throttle-ms 1000` mechanism and the same dark OS, frame retained at
+  `.planning/phases/25-ci-hardening-light-theme-verification/capture/control-stripped-throttled-1/frames/frame-001.png`.
+  A broken pre-paint bootstrap is therefore demonstrably detectable by this row's own instrument,
+  under this row's own mechanism — the row is not vacuous (T-25-28 mitigated).
+- **CAN PASS (not unpassable):** plan 25-08 Part A's production runs, cited by run id — C-1
+  (`+10.3 ms` margin), C-2 (`+8.3 ms` margin), C-3 (`+5.2 ms` margin), all three
+  `beats_first_paint: true` against production's own real `first-paint` (`4512 ms`/`4040 ms`/
+  `4280 ms` respectively, under the throttled mechanism), all three sampling the correct
+  non-artifact colour `rgb(26, 26, 45)`, plus Part B's intact copy also sampling `rgb(26, 26, 45)`
+  on the identical local mechanism. This is the clause R2 could not satisfy — R2's frames landed
+  ~243 ms after first paint on every run it tried — so R7 is a genuinely different row, grounded
+  in a measured, working mechanism, rather than a retry of R2's same capture attempt (T-25-29
+  mitigated; if plan 25-08 had HALTED with no working mechanism, R7 would not be drafted at all,
+  per this plan's own Task 1 instruction).
+- **Residual risk, stated honestly:** if, on the day R7 is actually run, no frame beats first
+  paint, the row is BLOCKED and a new numbered gap is opened. It is not re-scored against a later
+  frame, and it is not retried in a loop until one succeeds — that would be exactly the
+  row-redesign-after-seeing-the-outcome failure mode rule 1 forbids.
+
+**One further residual weakness, disclosed rather than inherited as an unearned assumption:** in
+plan 25-08's own negative control, the *intact* copy's earliest non-artifact frame landed at
+`8504.021 ms` against a first paint of `8496 ms` — i.e. **8 ms AFTER first paint**,
+`beats_first_paint: false`. The white-on-broken direction (stripped copy) was demonstrated
+strictly BEFORE first paint; the dark-on-working direction (intact copy) was demonstrated 8 ms
+AFTER it, under the identical mechanism and network emulation. Production's own three runs
+(C-1/C-2/C-3, cited above) all beat first paint with margins of 5–10 ms, so this reads as a
+control-run-specific artifact — the locally-served intact copy's own pre-paint/first-paint gap, or
+plain millisecond-scale frame-delivery jitter — rather than evidence the mechanism cannot pass
+under real conditions. **R7 is reachable in the PASS direction on the strength of the three
+production runs, not the negative control's intact-copy number** — the negative control's job is
+only to prove the FAIL direction is detectable, which it does unambiguously (white, strictly
+before first paint). If R7's own live production capture also lands within a few milliseconds of
+first paint (the same knife-edge margin the intact control showed), that thin margin is itself the
+residual risk this paragraph names, and a BLOCKED verdict on that specific failure mode should be
+read as "the mechanism's margin is thin on the day," not "the theme code regressed."
+
+**DISCLOSURES R7 must carry:**
+
+- Cross-reference D-05's dark-OS deviation disclosure and D-04's amendment disclosure by section
+  name (both already written in the Round 1 section — R2's drafted row text and § "D-04 amendment
+  disclosure").
+- **Slowed-load disclosure (R7-specific, same weight as D-04/D-05):** R7's capture mechanism
+  requires `Network.emulateNetworkConditions` with `offline: false, latency: 1000ms,
+  downloadThroughput: 6400 B/s (~50 kbps), uploadThroughput: 6400 B/s` (plan 25-08 Part C). This is
+  a deliberate deviation from the row's natural load conditions, disclosed here rather than
+  silently applied. It does not weaken the row: a widened navigation-to-first-paint window can
+  only make a real flash MORE visible by giving more wall-clock time for an intermediate
+  mis-themed frame to render and be captured — it cannot manufacture a pass, because the emulation
+  touches only network timing, never `Emulation.setEmulatedMedia`, `data-theme`, or any other
+  rendering override (T-25-23 untouched). Plan 25-08's negative control is the direct proof of
+  this in the other direction: the identical throttle, applied to a build with the pre-paint
+  bootstrap deleted, correctly produced white rather than hiding the defect.
+
+**EXPLICITLY NOT ACCEPTABLE EVIDENCE**, named so the running agent cannot drift into it under
+pressure: the ordering argument — inline `<head>` script complete by `domInteractive` `287.9 ms`,
+`324 ms` before `first-paint` `612 ms` (Round 1's own production measurement), plus plan 25-05's
+`node:vm` parity pin (D-06). GAP-25-01 rejects this by name as a closure route: "A future round
+that closes GAP-25-01 by restating the same inference has not closed it." It may be restated as
+context in R7's write-up; it may not decide the verdict.
+
 ---
 
 ## Validation Sign-Off
