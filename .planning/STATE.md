@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
-status: executing
-stopped_at: Completed 25-12-PLAN.md — Round 2 disposition set, all four requirements tick (FIX-02, VER-01, CI-01, CI-02); phase-gate closure left to the orchestrator
-last_updated: "2026-09-04T18:19:30.000Z"
+status: milestone_complete
+stopped_at: Milestone complete (Phase 25 was final phase)
+last_updated: 2026-09-04T18:39:52.608Z
 last_activity: 2026-09-04
 progress:
   total_phases: 7
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 103
   completed_plans: 103
   percent: 86
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 25 — ci-hardening-light-theme-verification
+**Current focus:** Milestone complete
 
 **Planning note:** discuss-phase decision **D-04 was amended** during plan-check (developer-approved, disclosed in `25-CONTEXT.md`). Its original mandate to quote `localStorage.getItem('dashboard-theme')` returning literal `null` is unreachable — `main.ts:29` persists `'auto'` on every load — and would have scored a working implementation BLOCKED. The discriminator is now `null` **or** `'auto'`, never `'light'`/`'dark'`. The amendment must be disclosed in the Round 1 write-up, same as D-05's deviation.
 
 ## Current Position
 
-Phase: 25 (ci-hardening-light-theme-verification) — EXECUTING
-Plan: 12 of 12 executed (25-12 done: Round 2 disposition set under the all-rows-PASS rule, applied
+Phase: 25
+Plan: Not started
       one row per requirement. All four rows PASSED — R7 (VER-01), R6a (FIX-02), R6b (CI-02), R6c
       (CI-01) — with Round 1's R1/R3/R4/R5 standing unedited for VER-01. GAP-25-01 and GAP-25-02
       both CLOSED. FIX-02, VER-01, CI-01 and CI-02 all ticked [x] in REQUIREMENTS.md with dated
@@ -41,7 +41,7 @@ Plan: 12 of 12 executed (25-12 done: Round 2 disposition set under the all-rows-
       DELIBERATELY left unset — that marking and running phase verification are reserved for the
       orchestrator, not this plan. `completed_plans` was hand-verified to 103 (all 103 v2.1
       milestone plans now executed); `completed_phases` stays at 6 pending that orchestrator step.
-Status: Awaiting orchestrator phase-gate decision (requirements ticked; `/gsd-verify-work 25` not
+Status: Milestone complete
       yet run)
 
         **Phase 25 Round 1 outcome (2026-09-04, plan 25-07).** All seven plans executed and the
