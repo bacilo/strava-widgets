@@ -186,3 +186,13 @@ None - no external service configuration required. Task 2's only human action (s
 ---
 *Phase: 25-ci-hardening-light-theme-verification*
 *Completed: 2026-09-04*
+
+## Self-Check: PASSED
+
+- FOUND: `scripts/first-paint-capture.mjs`
+- FOUND: `.planning/phases/25-ci-hardening-light-theme-verification/25-VALIDATION.md`
+- FOUND: `.planning/phases/25-ci-hardening-light-theme-verification/25-08-SUMMARY.md`
+- FOUND commit `5a19967b` (Task 1)
+- FOUND commit `e040f24c` (Task 2)
+- FOUND commit `a50074ff` (Task 3)
+- FOUND commit `abdc9df5` (this summary)
