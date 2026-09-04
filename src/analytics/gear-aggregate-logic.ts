@@ -85,14 +85,36 @@ function newBucket(label: string, isUnknown: boolean): MutableBucket {
   };
 }
 
+/**
+ * FIX-02 / D-12 applies to every field this function reads, not just
+ * `gearName` (WR-08). Rows are parsed from index.json at runtime, where the
+ * producer's required-key guarantee does not survive serialization and
+ * re-parse, so each numeric field gets the same type-and-finiteness test the
+ * gearName guard established. Without it:
+ *   - `row.avgHr !== null` is an IDENTITY check, so `undefined` passes it and
+ *     `hrWeightedSum += undefined * movingTimeSec` yields NaN while
+ *     `runsWithHr` is still incremented, so finalizeBucket returns
+ *     `avgHr: NaN` and JSON.stringify writes `null`.
+ *   - a missing `distanceM` makes `bucket.distanceM` NaN, which poisons the
+ *     descending distanceM sort (the comparator returns NaN and ordering
+ *     becomes implementation-defined) and also serialises as `null`.
+ * Either way the consumer (trends-gear-logic.ts validates each field)
+ * rejects the malformed shoe outright, so it silently disappears from the
+ * trends table rather than failing loudly. Coercing to 0 keeps the run
+ * counted and the bucket well-formed.
+ */
 function applyRow(bucket: MutableBucket, row: DashboardIndexRow): void {
-  bucket.runs += 1;
-  bucket.distanceM += row.distanceM;
-  bucket.movingTimeSec += row.movingTimeSec;
+  const distanceM = typeof row.distanceM === 'number' && Number.isFinite(row.distanceM) ? row.distanceM : 0;
+  const movingTimeSec =
+    typeof row.movingTimeSec === 'number' && Number.isFinite(row.movingTimeSec) ? row.movingTimeSec : 0;
 
-  if (row.avgHr !== null && row.movingTimeSec > 0) {
-    bucket.hrWeightedSum += row.avgHr * row.movingTimeSec;
-    bucket.hrWeightTotal += row.movingTimeSec;
+  bucket.runs += 1;
+  bucket.distanceM += distanceM;
+  bucket.movingTimeSec += movingTimeSec;
+
+  if (typeof row.avgHr === 'number' && Number.isFinite(row.avgHr) && movingTimeSec > 0) {
+    bucket.hrWeightedSum += row.avgHr * movingTimeSec;
+    bucket.hrWeightTotal += movingTimeSec;
     bucket.runsWithHr += 1;
   }
 

@@ -202,6 +202,48 @@ describe('buildGearAggregate', () => {
     expect(residual?.distanceM).toBe(4000);
   });
 
+  // WR-08. The D-12 runtime-parse hardening was applied to gearName only,
+  // while distanceM / movingTimeSec / avgHr on the same row were still
+  // trusted. `row.avgHr !== null` is an identity check, so an absent key
+  // (undefined) passed it and poisoned the weighted average with NaN; a
+  // missing distanceM produced a NaN sum that also corrupted the descending
+  // distanceM sort. Both serialise as `null`, and the consumer then rejects
+  // the shoe outright — it vanishes from the trends table instead of failing
+  // loudly.
+  it('a row with distanceM/movingTimeSec/avgHr keys absent produces finite numbers, not NaN (WR-08)', () => {
+    const complete = makeRow({ id: 'a', gearName: 'Pegasus 40', distanceM: 10000, movingTimeSec: 3000, avgHr: 150 });
+    const partial = makeRow({ id: 'b', gearName: 'Pegasus 40' });
+    delete (partial as Partial<DashboardIndexRow>).distanceM;
+    delete (partial as Partial<DashboardIndexRow>).movingTimeSec;
+    delete (partial as Partial<DashboardIndexRow>).avgHr;
+
+    const shoes = buildGearAggregate([complete, partial]);
+    const pegasus = shoes.find((s) => s.label === 'Pegasus 40');
+
+    expect(pegasus?.runs).toBe(2);
+    expect(pegasus?.distanceM).toBe(10000);
+    expect(pegasus?.movingTimeSec).toBe(3000);
+    expect(Number.isFinite(pegasus?.distanceM)).toBe(true);
+    expect(Number.isFinite(pegasus?.movingTimeSec)).toBe(true);
+
+    // The undefined avgHr must not be counted as an HR sample at all.
+    expect(pegasus?.runsWithHr).toBe(1);
+    expect(pegasus?.avgHr).toBe(150);
+    expect(Number.isFinite(pegasus?.avgHr)).toBe(true);
+    expect(Number.isFinite(pegasus?.avgPaceSecPerKm)).toBe(true);
+  });
+
+  it('a NaN or non-numeric distanceM does not corrupt the descending distanceM ordering (WR-08)', () => {
+    const bad = makeRow({ id: 'a', gearName: 'Broken', distanceM: NaN });
+    const small = makeRow({ id: 'b', gearName: 'Small', distanceM: 1000 });
+    const big = makeRow({ id: 'c', gearName: 'Big', distanceM: 50000 });
+
+    const shoes = buildGearAggregate([bad, small, big]);
+
+    expect(shoes.every((s) => Number.isFinite(s.distanceM))).toBe(true);
+    expect(shoes.map((s) => s.label)).toEqual(['Big', 'Small', 'Broken']);
+  });
+
   it('case variants of "unknown" as real gear labels each get a distinct key (WR-07)', () => {
     const rows = [
       makeRow({ id: 'a', gearName: 'Unknown' }),
