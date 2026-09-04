@@ -164,3 +164,10 @@ None - no external service configuration required.
 ---
 *Phase: 25-ci-hardening-light-theme-verification*
 *Completed: 2026-09-04*
+
+## Self-Check: PASSED
+
+- FOUND: scripts/verify-dashboard-publish.mjs
+- FOUND: .planning/phases/25-ci-hardening-light-theme-verification/25-03-SUMMARY.md
+- FOUND commit: 5341815 (Task 1)
+- FOUND commit: 83db2bcc (SUMMARY.md)
