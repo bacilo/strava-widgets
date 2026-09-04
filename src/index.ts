@@ -74,6 +74,11 @@ async function syncCommand() {
     console.log(`Total activities fetched: ${result.totalFetched}`);
     console.log(`Pages processed: ${result.pagesProcessed}`);
 
+    // Deliberately still a hard exit, unlike the compute-* commands (WR-04):
+    // this command holds HTTP keep-alive sockets and rate-limiter timers, and
+    // returning here would risk the process lingering (or hanging a CI job)
+    // waiting for the event loop to drain. Truncated trailing output is the
+    // lesser cost for a command whose summary is three short lines.
     process.exit(0);
   } catch (error: any) {
     console.error('Sync error:', error.message);
@@ -136,13 +141,15 @@ async function computeStatsCommand() {
       statsDir: 'data/stats',
     });
     console.log('\nStatistics generated successfully!');
-    process.exit(0);
+    process.exitCode = 0;
+    return;
   } catch (error: any) {
     console.error('Compute stats error:', error.message);
     if (error.code === 'ENOENT' && error.message.includes('activities')) {
       console.error('\nActivities directory not found. Please run: npm run sync');
     }
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 }
 
@@ -154,13 +161,15 @@ async function computeAdvancedStatsCommand() {
       statsDir: 'data/stats',
     });
     console.log('\nAdvanced statistics generated successfully!');
-    process.exit(0);
+    process.exitCode = 0;
+    return;
   } catch (error: any) {
     console.error('Compute advanced stats error:', error.message);
     if (error.code === 'ENOENT' && error.message.includes('activities')) {
       console.error('\nActivities directory not found. Please run: npm run sync');
     }
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 }
 
@@ -173,13 +182,15 @@ async function computeGeoStatsCommand() {
       geoDir: 'data/geo',
     });
     console.log('\nGeographic statistics generated successfully!');
-    process.exit(0);
+    process.exitCode = 0;
+    return;
   } catch (error: any) {
     console.error('Compute geo stats error:', error.message);
     if (error.code === 'ENOENT' && error.message.includes('activities')) {
       console.error('\nActivities directory not found. Please run: npm run sync');
     }
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 }
 
@@ -194,13 +205,15 @@ async function computeBestEffortsCommand() {
       statsDir: 'data/stats',
     });
     console.log('\nBest efforts generated successfully!');
-    process.exit(0);
+    process.exitCode = 0;
+    return;
   } catch (error: any) {
     console.error('Compute best efforts error:', error.message);
     if (error.code === 'ENOENT' && error.message.includes('streams')) {
       console.error('\nStreams directory not found. Please run: npm run backfill-streams');
     }
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 }
 
@@ -216,13 +229,15 @@ async function computeDashboardIndexCommand() {
       outDir: 'data/dashboard',
     });
     console.log('\nDashboard index generated successfully!');
-    process.exit(0);
+    process.exitCode = 0;
+    return;
   } catch (error: any) {
     console.error('Compute dashboard index error:', error.message);
     if (error.code === 'ENOENT' || String(error.message).includes('manifest')) {
       console.error('\nStream manifest not found. Please run: npm run backfill-streams');
     }
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 }
 
@@ -237,13 +252,15 @@ async function computeTrainingLoadCommand() {
       statsDir: 'data/stats',
     });
     console.log('\nTraining load generated successfully!');
-    process.exit(0);
+    process.exitCode = 0;
+    return;
   } catch (error: any) {
     console.error('Compute training load error:', error.message);
     if (error.code === 'ENOENT' && error.message.includes('streams')) {
       console.error('\nStreams directory not found. Please run: npm run backfill-streams');
     }
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 }
 
@@ -256,7 +273,8 @@ async function computeAgeGradingCommand() {
       wmaDir: 'data/wma',
     });
     console.log('\nAge-grading generated successfully!');
-    process.exit(0);
+    process.exitCode = 0;
+    return;
   } catch (error: any) {
     console.error('Compute age grading error:', error.message);
     if (error.message.includes('best-efforts')) {
@@ -264,7 +282,8 @@ async function computeAgeGradingCommand() {
     } else if (error.message.includes('wma')) {
       console.error('\nWMA factor tables not found. Please run: node scripts/convert-wma-tables.mjs');
     }
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 }
 
@@ -277,13 +296,15 @@ async function computeGearAggregateCommand() {
       outDir: 'data/stats',
     });
     console.log('\nGear aggregate generated successfully!');
-    process.exit(0);
+    process.exitCode = 0;
+    return;
   } catch (error: any) {
     console.error('Compute gear aggregate error:', error.message);
     if (error.message.includes('index')) {
       console.error('\nDashboard index not found. Please run: npm run compute-dashboard-index');
     }
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 }
 
@@ -336,13 +357,25 @@ async function computeAllStatsCommand() {
       console.log('='.repeat(70));
     }
 
-    process.exit(0);
+    // Set the code and return rather than process.exit(). In GitHub Actions
+    // process.stdout is a PIPE, and pipe writes in Node are asynchronous;
+    // process.exit() forces the process down even with queued stdout writes
+    // still pending. This command emits a large volume of per-step output
+    // ahead of the summary, so the DEGRADED STEPS block D-03 added for
+    // visibility was the output most likely to be dropped — intermittently
+    // and as a function of log size, which makes it harder to diagnose, not
+    // easier. Returning lets main() resolve and the runtime exit naturally
+    // once stdout has drained. Safe here because the compute chain is pure
+    // filesystem work with no sockets or timers to hold the event loop open.
+    process.exitCode = 0;
+    return;
   } catch (error: any) {
     console.error('Compute all stats error:', error.message);
     if (error.code === 'ENOENT' && error.message.includes('activities')) {
       console.error('\nActivities directory not found. Please run: npm run sync');
     }
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 }
 
@@ -382,6 +415,11 @@ async function syncIntervalsCommand() {
     console.log(`Total activities fetched: ${result.totalFetched}`);
     console.log(`Skipped (duplicates/non-runs): ${result.skipped}`);
 
+    // Same reasoning as syncCommand (WR-04): still a hard exit because this
+    // command holds keep-alive sockets and retry timers. The nightly runs it
+    // under `continue-on-error: true`, so a lingering process here would burn
+    // the job's 30-minute timeout — a worse failure than a truncated
+    // three-line summary.
     process.exit(0);
   } catch (error: any) {
     console.error('Sync error:', error.message);
