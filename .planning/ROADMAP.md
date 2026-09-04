@@ -503,10 +503,10 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 25-01-PLAN.md — FIX-02: widen the Unknown-bucket predicate at both `gear-aggregate-logic.ts` call sites (D-12) and make `gearName` optional on the row type with a bounded `tsc` triage (D-13)
-- [ ] 25-02-PLAN.md — CI-01: extract `COMPUTE_ALL_STATS_STEPS` plus a pure walker into `src/compute-all-stats-steps.ts` (D-01/D-03), add the `--ci` flag (D-02), unit-test both, and collapse the workflow's twelve compute/warn steps into one invocation
-- [ ] 25-03-PLAN.md — CI-02: six by-name assertions with per-document structural invariants (D-09) and a runtime-derived shard sample (D-10), each observed RED naming its own document (D-11)
-- [ ] 25-05-PLAN.md — VER-01/D-06: `node:vm` behavioural parity pin on `index.html`'s inline theme bootstrap, proven load-bearing by three deliberate mutations
+- [x] 25-01-PLAN.md — FIX-02: widen the Unknown-bucket predicate at both `gear-aggregate-logic.ts` call sites (D-12) and make `gearName` optional on the row type with a bounded `tsc` triage (D-13)
+- [x] 25-02-PLAN.md — CI-01: extract `COMPUTE_ALL_STATS_STEPS` plus a pure walker into `src/compute-all-stats-steps.ts` (D-01/D-03), add the `--ci` flag (D-02), unit-test both, and collapse the workflow's twelve compute/warn steps into one invocation
+- [x] 25-03-PLAN.md — CI-02: six by-name assertions with per-document structural invariants (D-09) and a runtime-derived shard sample (D-10), each observed RED naming its own document (D-11)
+- [x] 25-05-PLAN.md — VER-01/D-06: `node:vm` behavioural parity pin on `index.html`'s inline theme bootstrap, proven load-bearing by three deliberate mutations
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -553,7 +553,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 22. Calendar Week-Start & Totals | v2.1 | 16/16 | Complete   | 2026-08-19 |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 13/13 | Complete    | 2026-08-27 |
 | 24. Local Curation Mode | v2.1 | 17/17 | Complete    | 2026-09-02 |
-| 25. CI Hardening & Light-Theme Verification | v2.1 | 0/7 | Planned | - |
+| 25. CI Hardening & Light-Theme Verification | v2.1 | 4/7 | In Progress|  |
 
 ---
 *Last updated: 2026-08-12 — v2.1 Interface Polish roadmap created (phases 19-25, 25 requirements mapped). v1.0-v2.0 preserved above; v2.0 archived to `milestones/v2.0-ROADMAP.md`.*
