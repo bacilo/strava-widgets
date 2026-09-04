@@ -155,3 +155,10 @@ All four Phase 25 requirements (FIX-02, VER-01, CI-01, CI-02) are ticked complet
 ---
 *Phase: 25-ci-hardening-light-theme-verification*
 *Completed: 2026-09-04*
+
+## Self-Check: PASSED
+
+All five files claimed as modified/created are present on disk (`25-VALIDATION.md`,
+`REQUIREMENTS.md`, `ROADMAP.md`, `STATE.md`, this `25-12-SUMMARY.md`). All three commit hashes
+claimed above (`5a4e990e`, `d1ed128a`, `a2a01f7d`) are present in `git log --oneline --all`.
+Working tree is clean (`git status --short` returns nothing) after this file's own commit.
