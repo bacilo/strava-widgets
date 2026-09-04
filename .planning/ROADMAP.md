@@ -524,13 +524,13 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 25-07-PLAN.md — VER-01 human checkpoint (R1-R6) on a genuinely light-OS machine against production (D-04/D-05/D-07/D-08), then disposition for FIX-02, VER-01, CI-01 and CI-02 under the all-rows-PASS rule
+- [x] 25-07-PLAN.md — VER-01 human checkpoint (R1-R6) on a genuinely light-OS machine against production (D-04/D-05/D-07/D-08), then disposition for FIX-02, VER-01, CI-01 and CI-02 under the all-rows-PASS rule
 
 *Round 1 returned R2 and R6 BLOCKED, withholding all four requirements. Plans 25-08 through 25-12 are the gap-closure round for GAP-25-01 (no capture mechanism beats first paint) and GAP-25-02 (CI-01's live-run evidence does not exist, and R6 is unsplittable while it doesn't).*
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 25-08-PLAN.md — GAP-25-01: build a zero-dependency CDP capture harness, measure three candidate mechanisms against the real 612 ms first paint, and prove the failure direction with a stripped-bootstrap control — mechanism chosen before any row is drafted
+- [x] 25-08-PLAN.md — GAP-25-01: build a zero-dependency CDP capture harness, measure three candidate mechanisms against the real 612 ms first paint, and prove the failure direction with a stripped-bootstrap control — mechanism chosen before any row is drafted
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
@@ -581,7 +581,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 22. Calendar Week-Start & Totals | v2.1 | 16/16 | Complete   | 2026-08-19 |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 13/13 | Complete    | 2026-08-27 |
 | 24. Local Curation Mode | v2.1 | 17/17 | Complete    | 2026-09-02 |
-| 25. CI Hardening & Light-Theme Verification | v2.1 | 7/7 | Gate Withheld (2 BLOCKED rows) | 2026-09-04 |
+| 25. CI Hardening & Light-Theme Verification | v2.1 | 8/12 | In Progress|  |
 
 ---
 *Last updated: 2026-08-12 — v2.1 Interface Polish roadmap created (phases 19-25, 25 requirements mapped). v1.0-v2.0 preserved above; v2.0 archived to `milestones/v2.0-ROADMAP.md`.*

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
 status: executing
-stopped_at: Phase 25 gap-closure round planned (25-08..25-12); gate still held open (R2/R6 BLOCKED)
-last_updated: "2026-09-04T13:16:56.878Z"
-last_activity: 2026-09-04 -- Phase 25 gap-closure round planned (25-08..25-12, waves 5-9)
+stopped_at: Phase 25 plan 25-08 executed (GAP-25-01 mechanism reachability proof measured; Candidate C selected)
+last_updated: "2026-09-04T14:11:21.182Z"
+last_activity: 2026-09-04
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 103
-  completed_plans: 92
+  completed_plans: 99
   percent: 86
 ---
 
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 
 ## Current Position
 
-Phase: 25 (ci-hardening-light-theme-verification) — 7 OF 12 PLANS EXECUTED, PHASE GATE WITHHELD
-Plan: 7 of 12 executed (25-08..25-12 are the Round 2 gap-closure plans, not yet run)
+Phase: 25 (ci-hardening-light-theme-verification) — EXECUTING
+Plan: 8 of 12 executed (25-08 done; 25-09..25-12 remain in the Round 2 gap-closure sequence)
       BLOCKING Round 4 checkpoint) both complete; disposition set in plan 24-17's Task 3.
-Status: Ready to execute — Round 2 gap-closure plans 25-08..25-12 written; PHASE 25 GATE STILL HELD OPEN until they run (R2/R6 BLOCKED, GAP-25-01 and GAP-25-02 open)
+Status: Executing Phase 25 — plan 25-08 complete (GAP-25-01 mechanism half closed with measured evidence: Candidate C, throttled-network screencast, selected after Candidate A and B were disqualified by direct testing). GAP-25-02 still open pending 25-09..25-12.
 
         **Phase 25 Round 1 outcome (2026-09-04, plan 25-07).** All seven plans executed and the
         closing VER-01 human checkpoint ran in full against the live production URL, with the
@@ -141,9 +141,9 @@ Status: Ready to execute — Round 2 gap-closure plans 25-08..25-12 written; PHA
           R32 avoids this by editing ONLY `excludedFromRecords` on the shard, leaving the
           discriminator live.
 
-Last activity: 2026-09-04 -- Phase 25 gap-closure round planned (25-08..25-12, waves 5-9)
+Last activity: 2026-09-04
 
-Progress: [██████████] 100%
+Progress: [██████████] 96%
 
 ## Performance Metrics
 
@@ -178,6 +178,7 @@ Progress: [██████████] 100%
 | Phase 24 P10 | ~40min (spanning checkpoint pause) | 3 tasks | 4 files |
 | Phase 24 P14 | 63min | 3 tasks | 5 files |
 | Phase 24 P17 | ~35min (continuation, Tasks 2-3) | 3 tasks | 6 files |
+| Phase 25 P08 | 37min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -217,6 +218,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 24]: [Phase 24] 24-10 Round 2 checkpoint recorded a clean sweep — all nine rows (R15-R23) PASS, closing GAP-24-01 in both directions (R15 forward, R19 mirror, judged against an independently-derived stale-precomputed-flag value rather than UI self-agreement). CUR-01 ticked Complete on rendered evidence per the Phase 19 UI-02 / plan 19-15 precedent, closing Phase 24's requirement gate. Origin todo moved to completed/.
 - [Phase 24]: Round 3 checkpoint (R24-R31, 24-14): 7/8 PASS. R26 recorded FAIL on its literal assertion — its own discriminator goes vacuous once R25's mandatory Recompute clears wasPRAtTheTime, so it cannot distinguish correct wiring from broken (R27 shows the 24-13 code is correct). GAP-24-02 and GAP-24-03 closed (R28/R29, R30); GAP-24-05 opened for the still-unproven WR-05 mirror direction. CUR-01 and the ROADMAP gate stay open per the plan's own all-rows-PASS rule.
 - [Phase 24]: All four Round 4 checkpoint rows (R32-R35) recorded PASS; CUR-01 and the Phase 24 ROADMAP gate disposition set per the plan's own governing rule that every mapped row must PASS
+- [Phase 25]: Selected throttled-network screencast (Candidate C: 1000ms latency, ~50kbps) as the GAP-25-01 capture mechanism — Candidate A (screencast, no deviation) lost 1/3 production runs after excluding a universal Chrome UA-default artifact frame and failed the local negative control entirely; Candidate B (screenshot-burst) never attached to production across 3 runs; Candidate C won 3/3 production runs and passed the negative control bidirectionally
 
 ### Key Findings
 
@@ -284,9 +286,9 @@ Items acknowledged and deferred at the v2.0 milestone close on 2026-08-12.
 
 ## Session Continuity
 
-Last session: 2026-09-03T08:58:45.077Z
-Stopped at: Phase 25 context gathered
-Resume file: .planning/phases/25-ci-hardening-light-theme-verification/25-CONTEXT.md
+Last session: 2026-09-04T14:11:21.166Z
+Stopped at: Phase 25 plan 25-08 executed (GAP-25-01 mechanism reachability proof measured; Candidate C selected)
+Resume file: None
 
 ---
 *Last updated: 2026-08-11 — Phase 17 (activity-browser-detail-views) all 15 planned plans executed and summarized; human checkpoint on plan 17-15 came back PARTIAL — 8/10 Manual-Only Verifications rows confirmed clean, GAP 1 (DETAIL-02, route-map basemap tiles absent) and GAP 2 (DETAIL-03/04, chart band x-axis misalignment) have open gaps pending gap-closure planning (`/gsd-plan-phase 17 --gaps`) before the phase gate closes*
