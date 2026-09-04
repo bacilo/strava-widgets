@@ -510,7 +510,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 25-04-PLAN.md — WR-19 (folded todo): wrap `curation-guard.mjs`'s `readdirSync` in the sibling try/catch so an unreadable directory is a reported violation, with a mode-000-directory fixture observed RED first; close the todo
+- [x] 25-04-PLAN.md — WR-19 (folded todo): wrap `curation-guard.mjs`'s `readdirSync` in the sibling try/catch so an unreadable directory is a reported violation, with a mode-000-directory fixture observed RED first; close the todo
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -553,7 +553,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 22. Calendar Week-Start & Totals | v2.1 | 16/16 | Complete   | 2026-08-19 |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 13/13 | Complete    | 2026-08-27 |
 | 24. Local Curation Mode | v2.1 | 17/17 | Complete    | 2026-09-02 |
-| 25. CI Hardening & Light-Theme Verification | v2.1 | 4/7 | In Progress|  |
+| 25. CI Hardening & Light-Theme Verification | v2.1 | 5/7 | In Progress|  |
 
 ---
 *Last updated: 2026-08-12 — v2.1 Interface Polish roadmap created (phases 19-25, 25 requirements mapped). v1.0-v2.0 preserved above; v2.0 archived to `milestones/v2.0-ROADMAP.md`.*
