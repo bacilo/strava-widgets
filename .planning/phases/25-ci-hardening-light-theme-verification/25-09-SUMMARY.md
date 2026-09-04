@@ -143,3 +143,12 @@ None. This plan is documentation-only; no external service configuration require
 ---
 *Phase: 25-ci-hardening-light-theme-verification*
 *Completed: 2026-09-04*
+
+## Self-Check: PASSED
+
+- FOUND: `.planning/phases/25-ci-hardening-light-theme-verification/25-VALIDATION.md`
+- FOUND: `.planning/phases/25-ci-hardening-light-theme-verification/25-09-SUMMARY.md`
+- FOUND commit `d56a7406` (Task 1: Round 2 preamble)
+- FOUND commit `39ed787e` (Task 2: draft R7)
+- FOUND commit `bf9d1a13` (Task 3: draft R6a/R6b/R6c)
+- FOUND commit `5c46565a` (this summary)
