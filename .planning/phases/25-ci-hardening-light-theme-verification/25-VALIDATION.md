@@ -949,6 +949,26 @@ the exact failure mode Checkpoint Row Discipline rule 3 forbids.
 `compute-all-stats-steps.ts`, `daily-refresh.yml` or `verify-dashboard-publish.mjs` is known to be
 wrong; the unit-level halves of CI-01 and CI-02 are green and independently verified.
 
+**GAP-25-02 — CLOSED, 2026-09-04 (plan 25-11, Task 3).** R6a, R6b and R6c all PASSED. The
+recommended split was drafted in plan 25-09 before any row ran, and this plan ran it: R6a (FIX-02)
+and R6b (CI-02) reconfirmed their already-green evidence fresh on the merged-and-pushed commit
+(`70e00840`/`67ed20f1`), and R6c (CI-01) produced the live-run evidence that never existed before —
+dispatched run `33903407761` (event `workflow_dispatch`, distinct from the push-triggered
+`33903395875`) concluded `success`, and its own "Compute all statistics" step's log carries a
+`"> NAME"` line for each of `compute-stats`, `compute-advanced-stats`, `compute-geo-stats`,
+`compute-best-efforts`, `compute-age-grading`, `compute-dashboard-index`, `compute-gear-aggregate`,
+`compute-training-load` — all eight names from `COMPUTE_ALL_STATS_STEPS`, in that declared order,
+from one invocation — plus `"All statistics generated successfully!"`. The dispatch was performed
+from the main checkout (`/Users/pedf/workspace/strava-widgets`) with the developer's explicit,
+verbatim-recorded authorisation, not from a worktree and not opportunistically. All four of
+GAP-25-02's numbered clauses are satisfied; see R6c's own "EVIDENCE" block above for the full
+walkthrough. One non-blocking observation was recorded during the run (the dispatched run's own
+data-commit step lost a git race against the push-triggered run's auto-commit and logged a
+tolerated `::warning::`, absorbed by the workflow's own design) — it does not touch any of the four
+clauses and is not patched, per house rule. VER-01's, FIX-02's, CI-01's and CI-02's tick
+disposition is plan 25-12's job under the all-rows-PASS rule; `REQUIREMENTS.md` and `ROADMAP.md`
+are untouched by this plan.
+
 ### Deferred, non-blocking observation (not a gap)
 
 The developer raised a UI question during R1 about the theme toggle's iconography — it indicates
@@ -1408,7 +1428,10 @@ six-item evidence requirement or either reachability paragraph** — those parag
 byte-identical to `ROW_BASELINE_SHA` `bf9d1a139fae3563e431981709f3fb0883a9d7ee`. R7 was run exactly
 as plan 25-09 drafted it and scored without editing the row to obtain a tick.
 
-**R6a — FIX-02's evidence, on the tree that is actually pushed.** **Verdict: pending.**
+**R6a — FIX-02's evidence, on the tree that is actually pushed.** **Verdict: PASS** (scored
+2026-09-04, plan 25-11 Task 3 — all five gate commands exit 0 on merge commit `70e00840`, pushed at
+`67ed20f1`; all eight FIX-02 regression cases confirmed passing individually above; 62 files/1596
+tests, zero delta from the Wave 1 baseline).
 
 DISCRIMINATOR: all five gate commands exit 0 on the exact commit plan 25-11 pushes to
 `origin/master` — `npm test`, `npx tsc --noEmit`, `npm run build`, `npm run build-widgets`,
@@ -1517,7 +1540,9 @@ with `gearName` optional on `DashboardIndexRow` (already covered by gate command
 `git status --porcelain data dist` returned 0 lines, checked twice — immediately after the
 five-command gate, and again after the `geo-metadata.json` revert.
 
-**R6b — CI-02's evidence, on the same tree.** **Verdict: pending.**
+**R6b — CI-02's evidence, on the same tree.** **Verdict: PASS** (scored 2026-09-04, plan 25-11
+Task 3 — `56 check(s) passed, 0 failure(s).` on the pushed commit; all six named documents plus the
+three runtime-sampled shards confirmed among the passing checks above).
 
 DISCRIMINATOR: `npm run verify-dashboard` exits 0, its final line reads `56 check(s) passed, 0
 failure(s).` (or a higher passed count with `0 failure(s).`, if the shard sample count differs on
@@ -1583,7 +1608,8 @@ confirming the sample is genuinely runtime-derived and not stale), `6255623192` 
 ✓ /data/stats/best-efforts/3475743849.json parses with activityId "3475743849" and a non-empty "efforts" array
 ```
 
-**R6c — CI-01's evidence, which does not exist yet.** **Verdict: pending.**
+**R6c — CI-01's evidence, which does not exist yet.** **Verdict: PASS** (scored 2026-09-04, plan
+25-11 Task 3 — see the full four-clause evidence walkthrough and GAP-25-02 closure note below).
 
 **AUTHORISATION (plan 25-11, Task 2, clause 4 evidence — 2026-09-04T17:57:56Z):**
 
@@ -1667,6 +1693,85 @@ trigger `paths` (`src/**`, `scripts/**`, `.github/workflows/**` among others,
 branch guard (confirmed: `grep -n "if:\|github.ref" .github/workflows/daily-refresh.yml` returns
 only the two `Warn on *` conditionals), so any run — dispatched or push-triggered — deploys to the
 live Pages site and commits data back to `origin`.
+
+**EVIDENCE (plan 25-11, Task 3, run 2026-09-04):**
+
+**Clause 1 — pushed copy verified.** `git push origin master` succeeded as a plain fast-forward
+(`b155fe82..67ed20f1  master -> master`, no rejection). `git fetch origin` then `git show
+origin/master:.github/workflows/daily-refresh.yml | grep -c "compute-all-stats --ci"` returned
+`1` (was `0` before the push). `git rev-parse --short origin/master` → `67ed20f1` at the moment of
+verification.
+
+**Push-triggered run (context, not clause 2's evidence):** `gh run list --workflow "Daily Widget
+Refresh" --limit 5` showed a `push`-event run queued immediately after the push: id `33903395875`,
+event `push`, later `completed`/`success` (`startedAt 2026-09-04T17:58:33Z`, finished
+`~2026-09-04T18:01:07Z`).
+
+**Clause 2 — dispatched run id and conclusion.** `gh workflow run "Daily Widget Refresh"` was
+issued; because `concurrency: group: widget-refresh, cancel-in-progress: false` serialises runs,
+the dispatched run queued (`pending`) behind the push-triggered run and did not start its job until
+the push-triggered run finished, exactly as the row's own carried-forward hazard note predicted.
+Identified by event `workflow_dispatch`: run id **`33903407761`**. Polled to completion; `gh run
+view 33903407761` reports:
+```
+✓ master Daily Widget Refresh · 33903407761
+Triggered via workflow_dispatch about 5 minutes ago
+JOBS
+✓ refresh-and-deploy in 2m25s (ID 101123282000)
+```
+`gh run view 33903407761 --json status,conclusion` → `status: completed`, **`conclusion: success`**.
+
+**Clause 3 — collapsed step log excerpt, matched against `src/compute-all-stats-steps.ts:68-166`
+(read from source, not from the log).** From `gh run view 33903407761 --log`, the "Compute all
+statistics" step's own output:
+```
+2026-09-04T18:02:46.7512079Z Computing all statistics from synced activities...
+2026-09-04T18:02:46.7516206Z > compute-stats
+2026-09-04T18:02:47.0934269Z > compute-advanced-stats
+2026-09-04T18:02:47.4180062Z > compute-geo-stats
+2026-09-04T18:02:47.8421196Z > compute-best-efforts
+2026-09-04T18:02:49.6108789Z > compute-age-grading
+2026-09-04T18:02:49.6255939Z > compute-dashboard-index
+2026-09-04T18:02:49.9455852Z > compute-gear-aggregate
+2026-09-04T18:02:49.9604786Z > compute-training-load
+2026-09-04T18:02:51.0484198Z All statistics generated successfully!
+```
+All eight names from `COMPUTE_ALL_STATS_STEPS` (enumerated from `src/compute-all-stats-steps.ts`
+lines 68-166, in the order declared there: `compute-stats`, `compute-advanced-stats`,
+`compute-geo-stats`, `compute-best-efforts`, `compute-age-grading`, `compute-dashboard-index`,
+`compute-gear-aggregate`, `compute-training-load`) appear as their own `"> NAME"` line, in that
+exact order, from ONE invocation — where `daily-refresh.yml` previously ran eight hand-maintained
+steps — followed by the `"All statistics generated successfully!"` line. **No `"DEGRADED STEPS"`
+summary appeared** in this run's log (confirmed by grep across the full step output); its absence
+is not treated as a failure, per D-03 and the row's own conditional-presence clause.
+
+**Clause 4 — authorisation and execution context.** Recorded verbatim above under
+"AUTHORISATION". `git rev-parse --show-toplevel` confirmed `/Users/pedf/workspace/strava-widgets`
+— the main checkout, not a `.claude/worktrees/` path — and the dispatch was issued from this same
+single-context execution immediately after the developer's recorded authorisation, not
+opportunistically during an unrelated checkpoint.
+
+**Observation, recorded but not patched (house rule since plan 16-09), not part of any clause and
+not affecting this row's verdict:** the dispatched run's own `Commit updated data and stats` step
+failed non-fast-forward (`git-auto-commit-action` checked out the SHA resolved for the
+`workflow_dispatch` event at trigger time, `67ed20f1`, but by the time its commit step ran
+~2m30s later `origin/master` had already advanced to `7916affb` via the push-triggered run's own
+data auto-commit, landed at `18:00:53Z`; `concurrency: group: widget-refresh` serialises the two
+*runs'* job execution, `refresh-and-deploy in 2m25s` starting only after the push run finished at
+`18:01:07Z`, but does not re-resolve the dispatched run's checked-out ref against that intervening
+commit). The workflow's own tolerant design absorbed it: `echo "::warning::Data commit failed,
+deploying anyway — sync state not persisted"` fired and the `Deploy widgets to GitHub Pages` step
+still ran and the run's overall conclusion is still `success` — this is exactly what clause 2
+requires and got. Not a defect in `compute-all-stats-steps.ts`, `daily-refresh.yml`'s collapsed
+step, or any code this phase touched; it is a pre-existing two-runs interaction the row's own
+carried-forward hazard note already flagged ("expect two runs and expect to wait") without fully
+anticipating this specific ref-resolution timing. Left unpatched, disposition is the user's call.
+
+**Verdict: PASS.** All four clauses hold together on this run: the pushed copy carries the
+collapsed step, the dispatched run (`33903407761`, distinct from the push-triggered
+`33903395875`) concluded `success`, its own collapsed step's log carries all eight
+`COMPUTE_ALL_STATS_STEPS` names in declared order plus the success line with no degraded-steps
+residue, and the dispatch was authorised and executed exactly as GAP-25-02 clause 4 requires.
 
 ---
 
