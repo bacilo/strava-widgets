@@ -1585,6 +1585,36 @@ confirming the sample is genuinely runtime-derived and not stale), `6255623192` 
 
 **R6c — CI-01's evidence, which does not exist yet.** **Verdict: pending.**
 
+**AUTHORISATION (plan 25-11, Task 2, clause 4 evidence — 2026-09-04T17:57:56Z):**
+
+Not-a-parallel-worktree evidence (GAP-25-02 clause 4): `git rev-parse --show-toplevel` printed
+`/Users/pedf/workspace/strava-widgets` — the main checkout, not a path under `.claude/worktrees/`.
+This is a normal single-context execution, matching R6c's own clause 4 requirement.
+
+The orchestrator presented the decision to the developer with both production side effects stated
+up front, exactly as follows:
+
+> Wave 8 (plan 25-11) requires pushing to origin/master, which starts a live production run that
+> deploys to your GitHub Pages site and commits data back to origin. Authorize?
+>
+> - The push includes src/**, scripts/** and .github/workflows/**, which match the workflow's own
+>   push trigger paths. Pushing alone starts a production run — before any dispatch.
+> - The commit-and-deploy steps carry no github.ref guard (grep -n "if:|github.ref" returns only
+>   the two "Warn on ..." conditionals). So any run — push-triggered or dispatched — deploys to the
+>   live GitHub Pages site and commits data back to origin.
+
+The developer selected, from a three-option choice ("hold — stop the phase here", "merge
+origin/master only, then stop", and this option), the following option verbatim:
+
+> **Authorize the push and dispatch**
+> 25-11 merges origin/master (merge, not rebase), pushes, dispatches the workflow, and gathers
+> R6c's live-run evidence. This deploys to the live Pages site and writes data commits back to
+> origin. It is the only route that closes GAP-25-02 and lets 25-12 set the Round 2 disposition.
+
+Granularity: the developer selected this option by its label from the three-option choice and gave
+no further wording beyond that selection. This authorises the push and the dispatch only — it is
+not expanded into approval of anything beyond those two actions (plan 19-09 precedent).
+
 DISCRIMINATOR, all four clauses required together (GAP-25-02's numbered contract):
 
 1. `origin/master` confirmed to carry the collapsed step, verified by reading the PUSHED copy:
