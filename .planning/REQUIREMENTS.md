@@ -53,7 +53,7 @@ Each maps to roadmap phases.
 - [ ] **FIX-02**: `gear-aggregate-logic.ts` degrades rather than crashing when an index row lacks a `gearName` key — the Unknown-bucket test is a strict `label === null`, so an absent key reaches `slugify(undefined)` (code review WR-02)
 - [ ] **VER-01**: Phase 16's three unverified theme items are confirmed in a real browser: legibility on a light-OS machine, absence of a first-paint white flash, and live following of an OS appearance change. These were never discharged by the Phase 17/18 checkpoints, which evidence suggests both ran from a dark-OS machine.
 - [ ] **CI-01**: The nightly workflow and `compute-all-stats` no longer maintain two independent orderings of the compute chain with no shared source of truth
-- [ ] **CI-02**: `verify-dashboard-publish.mjs` asserts reachability for every published stats document it currently relies on a whole-directory copy to carry (`weekly-distance`, `monthly-stats`, `yearly-stats`, `year-over-year`, `best-efforts.json` and the per-activity shards)
+- [x] **CI-02**: `verify-dashboard-publish.mjs` asserts reachability for every published stats document it currently relies on a whole-directory copy to carry (`weekly-distance`, `monthly-stats`, `yearly-stats`, `year-over-year`, `best-efforts.json` and the per-activity shards)
 
 ## Out of Scope
 
@@ -96,7 +96,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FIX-02 | Phase 25 | Pending |
 | VER-01 | Phase 25 | Pending |
 | CI-01 | Phase 25 | Pending |
-| CI-02 | Phase 25 | Pending |
+| CI-02 | Phase 25 | Complete |
 
 **Coverage:**
 - v2.1 requirements: 25 total (corrected from the 24 recorded when this section was drafted — a recount of the requirement list above found 25 distinct IDs: 3 Design System + 3 Interaction Consistency + 4 Overview + 3 Calendar + 4 Trends + 2 Records & Activities + 6 Carried Forward)
