@@ -526,6 +526,12 @@ async function main() {
       }
     }
 
+    // Populated from best-efforts.json below and used as the shard sample
+    // population (see the shard block). Declared out here so the shard sample
+    // can be derived from the producer's own record of which activities it
+    // sharded, rather than from an index field that only mirrors the manifest.
+    let bestEffortsActivityIds = null;
+
     const bestEffortsBody = await expect200(baseUrl, '/data/stats/best-efforts.json');
     if (bestEffortsBody) {
       const parsedBestEfforts = JSON.parse(bestEffortsBody);
@@ -556,20 +562,37 @@ async function main() {
           }`
         );
       } else {
+        bestEffortsActivityIds = Object.keys(parsedBestEfforts.activities);
         ok(
           '/data/stats/best-efforts.json parses with schemaVersion 1, a non-empty "activities" object, and a non-empty "rankings" object'
         );
       }
     }
 
-    // Per-activity shard sample, ids derived AT RUNTIME from indexDoc.activities
-    // — never pinned literals (D-10). The filter below is load-bearing, not
-    // cosmetic: the 25 index rows with no shard on disk are exactly the 25
-    // rows with streams.available === false (set equality verified 2026-09-03),
-    // so sampling from the unfiltered pool could pick an id with no shard file.
-    const shardCandidates = indexDoc.activities.filter((row) => row.streams?.available === true);
-    if (shardCandidates.length === 0) {
-      fail('/data/stats/best-efforts/{id}.json sample: no activity with streams.available === true found in the index — cannot sample a shard id');
+    // Per-activity shard sample, ids derived AT RUNTIME — never pinned
+    // literals (D-10).
+    //
+    // The sample population is `best-efforts.json`'s own `activities` keys,
+    // NOT `indexDoc.activities.filter(streams.available)`. Those two sets
+    // happen to coincide on a healthy day, but only the first is a producer
+    // guarantee: shards and the aggregate's `activities` map are written from
+    // the same `activities[id]` map (compute-best-efforts.ts), whereas the
+    // index's `streams.available` mirrors the *manifest*
+    // (compute-dashboard-index.ts), not shard existence. An activity whose
+    // stream is truncated/unreadable is deliberately tolerated by
+    // compute-best-efforts (threat T-15-02, `skippedUnreadable`) and produces
+    // no shard and no aggregate entry — sampling off `streams.available`
+    // would turn that tolerated data defect into a 404 and a hard deploy
+    // block. Sampling off the aggregate still catches the failure this check
+    // exists for: a shard the producer *did* write that the directory copy
+    // dropped is listed in the aggregate and 404s here.
+    if (bestEffortsActivityIds === null) {
+      // best-efforts.json already failed above; nothing to sample from, and
+      // re-failing here would double-count the same defect. Deliberately not
+      // ok() — nothing was checked, so nothing should be tallied as passing.
+      console.log('– /data/stats/best-efforts/{id}.json sample skipped — best-efforts.json did not pass its own checks (already reported above)');
+    } else if (bestEffortsActivityIds.length === 0) {
+      fail('/data/stats/best-efforts/{id}.json sample: best-efforts.json lists no sharded activities — cannot sample a shard id');
     } else {
       // Three ids spanning the archive (first, middle, last), de-duplicated so
       // a tiny archive does not double-check the same id — a partial or
@@ -577,25 +600,37 @@ async function main() {
       // newest-only sample would miss.
       const shardSampleIds = [
         ...new Set([
-          shardCandidates[0].id,
-          shardCandidates[Math.floor(shardCandidates.length / 2)].id,
-          shardCandidates[shardCandidates.length - 1].id,
+          bestEffortsActivityIds[0],
+          bestEffortsActivityIds[Math.floor(bestEffortsActivityIds.length / 2)],
+          bestEffortsActivityIds[bestEffortsActivityIds.length - 1],
         ]),
       ];
       for (const shardId of shardSampleIds) {
         const shardBody = await expect200(baseUrl, `/data/stats/best-efforts/${shardId}.json`);
         if (shardBody) {
           const parsedShard = JSON.parse(shardBody);
-          if (String(parsedShard.activityId) !== String(shardId)) {
+          if (parsedShard === null || typeof parsedShard !== 'object') {
+            fail(`/data/stats/best-efforts/${shardId}.json did not parse to an object, got ${JSON.stringify(parsedShard)}`);
+          } else if (String(parsedShard.activityId) !== String(shardId)) {
             fail(
               `/data/stats/best-efforts/${shardId}.json "activityId" expected "${shardId}", got ${JSON.stringify(
                 parsedShard.activityId
-              )} — the index and the shard directory disagree about what exists`
+              )} — best-efforts.json and the shard directory disagree about what exists`
             );
-          } else if (!Array.isArray(parsedShard.efforts) || parsedShard.efforts.length === 0) {
-            fail(`/data/stats/best-efforts/${shardId}.json "efforts" expected a non-empty array, got ${JSON.stringify(parsedShard.efforts)}`);
+          } else if (!Array.isArray(parsedShard.efforts)) {
+            // Shape, not census. An EMPTY `efforts` array is a legitimate
+            // producer output — the activity is shorter than the 400 m
+            // shortest target (best-effort.types.ts), or every candidate was
+            // rejected by the plausibility filter (best-effort-utils.ts);
+            // compute-best-efforts counts `activitiesWithEfforts` separately
+            // precisely because empty ones are normal. The committed archive
+            // already contains one (11865310195, distanceM 0). Only a
+            // missing or non-array field is a defect.
+            fail(`/data/stats/best-efforts/${shardId}.json "efforts" expected an array, got ${JSON.stringify(parsedShard.efforts)}`);
           } else {
-            ok(`/data/stats/best-efforts/${shardId}.json parses with activityId "${shardId}" and a non-empty "efforts" array`);
+            ok(
+              `/data/stats/best-efforts/${shardId}.json parses with activityId "${shardId}" and an "efforts" array (${parsedShard.efforts.length} entries)`
+            );
           }
         }
       }

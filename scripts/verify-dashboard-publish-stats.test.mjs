@@ -64,7 +64,6 @@ const REAL_INDEX_HTML = path.resolve(REAL_WIDGETS, 'index.html');
 const REAL_DATA = path.resolve(REAL_WIDGETS, 'data');
 const REAL_STATS = path.resolve(REAL_DATA, 'stats');
 const REAL_BEST_EFFORTS_DIR = path.resolve(REAL_STATS, 'best-efforts');
-const REAL_INDEX_JSON = path.resolve(REAL_DATA, 'dashboard/index.json');
 
 function runVerifier(cwd) {
   try {
@@ -94,9 +93,13 @@ function symlinkEntry(realPath, shadowPath) {
  * - `omitShardId` shadows `data/stats/best-efforts/` entry-by-entry, leaving
  *   out `<omitShardId>.json` entirely, producing a genuine 404 (the shard
  *   case).
- * At most one of the two is set per call.
+ * - `replaceShard: { id, content }` shadows `data/stats/best-efforts/`
+ *   entry-by-entry, writing a REAL file with `content` in place of
+ *   `<id>.json` (the empty-`efforts` case — a legitimate producer output
+ *   that must NOT fail the gate).
+ * At most one of the three is set per call.
  */
-function buildShadowTree({ brokenStatsFile = null, omitShardId = null } = {}) {
+function buildShadowTree({ brokenStatsFile = null, omitShardId = null, replaceShard = null } = {}) {
   const tmpRoot = mkdtempSync(path.join(os.tmpdir(), 'verify-dashboard-stats-'));
   const shadowWidgets = path.join(tmpRoot, 'dist', 'widgets');
   mkdirSync(shadowWidgets, { recursive: true });
@@ -118,10 +121,14 @@ function buildShadowTree({ brokenStatsFile = null, omitShardId = null } = {}) {
   for (const entry of readdirSync(REAL_STATS)) {
     if (entry === 'best-efforts') {
       const shadowBestEfforts = path.join(shadowStats, 'best-efforts');
-      if (omitShardId) {
+      if (omitShardId || replaceShard) {
         mkdirSync(shadowBestEfforts);
         for (const shardFile of readdirSync(REAL_BEST_EFFORTS_DIR)) {
-          if (shardFile === `${omitShardId}.json`) continue; // omitted -> 404
+          if (omitShardId && shardFile === `${omitShardId}.json`) continue; // omitted -> 404
+          if (replaceShard && shardFile === `${replaceShard.id}.json`) {
+            writeFileSync(path.join(shadowBestEfforts, shardFile), replaceShard.content, 'utf8');
+            continue;
+          }
           symlinkEntry(path.join(REAL_BEST_EFFORTS_DIR, shardFile), path.join(shadowBestEfforts, shardFile));
         }
       } else {
@@ -152,16 +159,19 @@ function withShadowTree(options, fn) {
 }
 
 // D-10: the shard sample is derived AT RUNTIME the same way
-// verify-dashboard-publish.mjs itself derives it (lines ~555-565) — no
-// pinned id anywhere in this test file.
+// verify-dashboard-publish.mjs itself derives it — no pinned id anywhere in
+// this test file. The population is best-efforts.json's own `activities`
+// keys, matching the verifier: `streams.available` in the index mirrors the
+// manifest, not shard existence, so an activity whose stream compute-best-
+// efforts tolerated as unreadable has no shard and must not be sampled.
 function deriveShardCandidateIds() {
-  const indexDoc = JSON.parse(readFileSync(REAL_INDEX_JSON, 'utf8'));
-  const shardCandidates = indexDoc.activities.filter((row) => row.streams?.available === true);
+  const bestEfforts = JSON.parse(readFileSync(path.join(REAL_STATS, 'best-efforts.json'), 'utf8'));
+  const shardCandidates = Object.keys(bestEfforts.activities);
   return [
     ...new Set([
-      shardCandidates[0].id,
-      shardCandidates[Math.floor(shardCandidates.length / 2)].id,
-      shardCandidates[shardCandidates.length - 1].id,
+      shardCandidates[0],
+      shardCandidates[Math.floor(shardCandidates.length / 2)],
+      shardCandidates[shardCandidates.length - 1],
     ]),
   ];
 }
@@ -235,7 +245,10 @@ describe.skipIf(!existsSync(REAL_INDEX_HTML))(
     for (const testCase of cases) {
       it(`BROKEN — ${testCase.label}: verifier exits non-zero and names the document`, () => {
         withShadowTree(
-          { brokenStatsFile: testCase.brokenStatsFile ?? null, omitShardId: testCase.omitShardId ?? null },
+          {
+            brokenStatsFile: testCase.brokenStatsFile ?? null,
+            omitShardId: testCase.omitShardId ?? null,
+          },
           (tmpRoot) => {
             const result = runVerifier(tmpRoot);
             expect(result.status).not.toBe(0);
@@ -244,6 +257,30 @@ describe.skipIf(!existsSync(REAL_INDEX_HTML))(
         );
       });
     }
+
+    // CR-01 regression. An empty `efforts` array is a legitimate producer
+    // output (activity shorter than the 400 m shortest target, or every
+    // candidate rejected by the plausibility filter) — the committed archive
+    // already contains one such shard. The original assertion required
+    // `efforts.length > 0`, which would have failed this blocking gate and
+    // stopped the nightly deploy the first time such an activity landed in
+    // the sample. This test fails against that assertion and passes against
+    // the shape-only one.
+    it('LEGITIMATE — a sampled shard with an empty "efforts" array passes the gate rather than blocking the deploy (CR-01)', () => {
+      const emptyEffortsShard = JSON.stringify({
+        ...JSON.parse(readFileSync(path.join(REAL_BEST_EFFORTS_DIR, `${shardIdToBreak}.json`), 'utf8')),
+        efforts: [],
+      });
+
+      withShadowTree({ replaceShard: { id: shardIdToBreak, content: emptyEffortsShard } }, (tmpRoot) => {
+        const result = runVerifier(tmpRoot);
+        expect(result.output).toContain(
+          `✓ /data/stats/best-efforts/${shardIdToBreak}.json parses with activityId "${shardIdToBreak}" and an "efforts" array (0 entries)`
+        );
+        expect(result.output).not.toContain(`✗ /data/stats/best-efforts/${shardIdToBreak}.json`);
+        expect(result.status).toBe(0);
+      });
+    });
 
     it('CONTROL — the same shadow tree with nothing broken produces every document\'s own ok() line and no failure naming any of them', () => {
       withShadowTree({}, (tmpRoot) => {
