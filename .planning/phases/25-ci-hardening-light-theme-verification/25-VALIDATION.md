@@ -1196,6 +1196,101 @@ context in R7's write-up; it may not decide the verdict.
   25-10 Task 1 execution time, before Task 2's checkpoint. No developer action has been taken yet on
   this reading — Task 2 re-confirms it and discloses whether a flip was needed.
 
+
+**R7 RUN (Task 2) — collected evidence, developer checkpoint.**
+
+**Harness invocation actually run** (identical to Task 1's pre-flight command, confirmed
+not to have quietly differed):
+```
+node scripts/first-paint-capture.mjs --mechanism throttled --throttle-ms 1000 \
+  --url https://bacilo.github.io/strava-widgets/ \
+  --out .planning/phases/25-ci-hardening-light-theme-verification/capture/r7-production-run
+```
+Output directory: `.planning/phases/25-ci-hardening-light-theme-verification/capture/r7-production-run/`
+(`report.json` plus `frames/frame-000.png`, `frame-001.png`, `frame-002.png`, retained for audit).
+
+**Appearance provenance for THIS run (D-07), stated so it is not confused with the
+GAP-25-01-proof flip quoted in § "Appearance provenance (D-07)" above.** `defaults read -g
+AppleInterfaceStyle` read `Dark` at plan 25-10's Task 1 pre-flight, before this checkpoint ran, and
+still read `Dark` when Task 2 re-confirmed it. **No developer-performed flip was required for this
+plan** — the machine was already in Dark appearance, set by the developer's own hand earlier in
+this session (the same flip whose provenance is recorded above), and this is disclosed as the
+already-dark case, the mirror image of R1's disclosure, exactly as Task 2's instructions require.
+No `osascript` was used and no CDP rendering override (`Emulation.setEmulatedMedia` or equivalent)
+was applied at any point in this run.
+
+**`performance.timeOrigin`:** `1788532205772.8`. **`firstPaintStartTime`:** `4036` ms.
+**`firstContentfulPaintStartTime`:** `8704` ms. **`navResponseEnd`:** `1406.800000000745` ms.
+
+**Frame table, quoted from `report.json`:**
+
+| Frame | `t_since_navigation_ms` | vs `navResponseEnd` (1406.8 ms) | vs `first-paint` (4036 ms) | Sampled colour (5 points) | Status |
+|---|---|---|---|---|---|
+| `frame-000.png` | `19.140869140625` | BEFORE — landed before the response even completed | n/a | `rgb(18, 18, 18)` uniform | **EXCLUDED** — the universal Chrome UA-default artifact frame named in R7's own MECHANISM clause (`<meta name="color-scheme" content="light dark">`); carries no discriminating information |
+| `frame-001.png` | `4024.100830078125` | AFTER (`4024.1 > 1406.8`) — real page content | AT-OR-BEFORE (`4024.100830078125 <= 4036`) | `rgb(26, 26, 45)` uniform | **R7's evidence frame** — beats first paint by `4036 − 4024.100830078125 = 11.899169921875 ms` |
+| `frame-002.png` | `8692.7060546875` | AFTER | AFTER (`beats_first_paint: false`) | corners `rgb(36, 36, 66)`, centre `rgb(26, 26, 45)` | Context only, not primary evidence — post-first-paint, closer to `firstContentfulPaintStartTime` (8704 ms) |
+
+**Arithmetic, shown explicitly per evidence item 3** (frame timestamp is already expressed as
+`t_since_navigation_ms`, i.e. `frame.timestampMs − timeOrigin`, which is the same quantity
+`first-paint.startTime` is measured against): `frame-001`'s `4024.100830078125 ms` is **at or
+before** `firstPaintStartTime`'s `4036 ms`, margin `11.899169921875 ms`. This is tied to THIS
+navigation's own `timeOrigin` (`1788532205772.8`), not to wall-clock proximity to the reload —
+satisfying GAP-25-01 clause 3 and the evidence requirement's item 3.
+
+**`localStorage.getItem('dashboard-theme')`:** `"auto"` — the `null`-or-`'auto'` class, D-04 as
+amended. **`matchMedia('(prefers-color-scheme: dark)').matches`:** `true`. **`data-theme`:**
+`"dark"`. **`document.body`'s computed background** (`getComputedStyle`, read directly via
+`Runtime.evaluate`, not sampled from a re-encoded frame): `"rgb(26, 26, 46)"` — the exact authored
+`--bg: #1a1a2e` value from `styles.css:105`.
+
+**Navigation entry:** `navType: "navigate"`, `navResponseEnd: 1406.800000000745`,
+`navDomInteractive: 1414.0999999996275`, `navLoadEventEnd: 8673.800000000745`.
+
+**Hashed module script:** `moduleScriptSrc: "./assets/index-D-Ts7X8C.js"` — matches Task 1's
+pre-derived `origin/gh-pages` value (`assets/index-D-Ts7X8C.js` @ `b2b05a40`, unchanged since R5;
+production was not redeployed between Task 1's pre-flight and this run).
+
+**Cache-busted refetch of `index.html`, performed after the capture:** plain fetch and a
+cache-busted fetch (`?_=<random>` query string) of `https://bacilo.github.io/strava-widgets/` are
+byte-identical — SHA-256 `33fa42bdef7c6e3eec76b8fffb35041a45f4f60e004391647a17384415137fa1` for
+both, `3177` bytes for both. No stale-cache artifact (T-25-21) is present.
+
+**Cleared-storage mechanism named (evidence item 5's closing clause):** `scripts/first-paint-capture.mjs`
+launches Chrome against a throwaway `--user-data-dir` created fresh via `mkdtempSync(tmpdir(),
+'fpc-profile-')` (`scripts/first-paint-capture.mjs:444`) and removes it after capture
+(`scripts/first-paint-capture.mjs:582-584`) — an empty profile and empty HTTP cache by
+construction for this run, stronger than a hard reload of an existing profile.
+
+**Slowed-load disclosure, confirmed applied exactly as drafted:** `report.json`'s own `emulation`
+block reads `offline: false, latencyMs: 1000, downloadThroughputBytesPerSec: 6400,
+uploadThroughputBytesPerSec: 6400` — the Candidate C throttle plan 25-08 selected, `--throttle-ms
+1000`, unchanged from the pre-flight-recorded invocation.
+
+**The developer's judgment on the three captured frames, recorded verbatim, both messages, in the
+order given — the second CORRECTS the first and governs the reading:**
+
+> Message 1: "frame-001.png is "white" in the sense of being clear. It actually has the color of
+> the dark theme background. 000.png is black and 002.png has the dark background (like 001) and
+> the top navigation bar"
+
+> Message 2 (correction — supersedes message 1's wording): "Sorry when i said "clear" I meant
+> empty. Just one color (the dark theme bacgkround color) not "legible" there is nothing to read in
+> 001.png or 000.png. In 002.png there is the top navigation bar to read"
+
+**Disambiguation, stated immediately adjacent to the quote so a future skim of the word "white"
+cannot invert this row's verdict:** the developer's word "white" in message 1 is NOT a colour
+claim. Message 2 makes explicit that "clear" meant EMPTY — a single flat colour with nothing
+rendered on it — and that the one colour `frame-001.png` shows is the dark theme background
+colour, not the literal colour white. Read together, the developer's per-frame judgment is:
+`frame-000.png` — empty/black; `frame-001.png` — empty, one flat colour, the dark theme background
+colour, nothing legible; `frame-002.png` — the dark background plus the top navigation bar, the
+first frame with anything to read. This is the granularity actually given — a per-frame reading of
+all three frames — and it is not expanded here into per-evidence-clause approval the developer did
+not give (plan 19-09 precedent). The developer was not asked about, and gave no judgment on, the
+timing arithmetic, the cache-trap check, or the `rgb(26,26,45)` vs `rgb(26,26,46)` question below;
+no such judgment is attributed to them.
+
+
 **R6a — FIX-02's evidence, on the tree that is actually pushed.** **Verdict: pending.**
 
 DISCRIMINATOR: all five gate commands exit 0 on the exact commit plan 25-11 pushes to
