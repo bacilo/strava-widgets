@@ -29,3 +29,9 @@ scripts/wma-source/
 # input to vite.config.pages.ts or build-widgets.mjs — keeping it out of git
 # is half of D-01's structural-absence guarantee for the write path.
 .curate-dist/
+# scripts/first-paint-capture.mjs's raw PNG frames and per-run report.json
+# (GAP-25-01, Phase 25 plan 25-08). Instrumentation evidence referenced by
+# path from 25-VALIDATION.md, not committed — same convention as dist/data
+# build scratch, kept out of git to avoid bloating history with screencast
+# frame binaries. Re-runnable via `node scripts/first-paint-capture.mjs`.
+.planning/phases/25-ci-hardening-light-theme-verification/capture/

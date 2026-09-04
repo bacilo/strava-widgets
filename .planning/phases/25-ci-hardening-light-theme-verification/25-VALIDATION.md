@@ -997,3 +997,171 @@ instance rather than being simulated.
 
 Measurement results (Part A candidate sweep, Part B negative control, and mechanism selection) are
 recorded in a separate subsection below, written after this provenance was captured.
+
+### Part A — candidate sweep against production
+
+Target: `https://bacilo.github.io/strava-widgets/` (D-08). All runs below used
+`scripts/first-paint-capture.mjs` with the machine in Dark appearance (provenance above), a fresh
+throwaway `--user-data-dir` per run, and no `Emulation.setEmulatedMedia` override at any point.
+`prefers-color-scheme: dark` `.matches` read `true` in every single run below — no run is void.
+
+**A methodology finding that applies to every run in this section, discovered during Part B and
+applied retroactively here because it changes which frame is the real evidence:** the very first
+screencast frame of every run in this entire plan — production or local, intact or stripped copy,
+`screencast` or `throttled` mechanism, 9 runs in total — is `rgb(18, 18, 18)` at all five sample
+points (four corners plus centre), with **zero variance across all 9 runs**. `rgb(18, 18, 18)`
+(`#121212`) appears nowhere in `styles.css`; the page's two authored backgrounds are `#ffffff`
+(light) and `#1a1a2e` (dark, = `rgb(26, 26, 46)`). In every run this frame's timestamp arrives
+*before* that navigation's own `navResponseEnd` (e.g. production run A-1: frame at `18.4ms` vs
+`navResponseEnd` `430.3ms`; throttled run C-1: frame at `9.9ms` vs `navResponseEnd` `1406.4ms`) —
+i.e. it is captured before a single byte of the document could have been received. It is Chrome's
+own `<meta name="color-scheme" content="light dark">`-driven default canvas fill for an
+as-yet-unstyled document in a dark-OS session (a real, documented Chromium anti-flash behaviour,
+unrelated to this page's own CSS or `data-theme` logic). Because it is identical regardless of
+which build is loaded, it carries **no discriminating evidence** and is excluded from every
+"earliest frame beating first paint" determination below. The rule applied: a frame only counts as
+page-content evidence if its timestamp is at or after that navigation's own `navResponseEnd`. This
+is disclosed here, not silently applied, because using this frame uncorrected would have let
+Candidate A appear to win Part A by a wide margin it does not actually have — exactly the
+"verifier lies" class T-25-24 exists to catch.
+
+**Candidate A — `--mechanism screencast` (no throttle):**
+
+| Run | timeOrigin | first-paint startTime | earliest non-artifact frame `t_since_navigation_ms` | beats_first_paint | margin (ms) | sampled colour (centre) |
+|---|---|---|---|---|---|---|
+| A-1 | 1788530286669.1 | 728 ms | 710.997 ms | true | +17.0 | rgb(26, 26, 45) |
+| A-2 | 1788530298666.2 | 112 ms | 114.140 ms | **false** | −2.1 | rgb(26, 26, 45) |
+| A-3 | 1788530309809.5 | 304 ms | 295.918 ms | true | +8.1 | rgb(26, 26, 45) |
+
+Candidate A beats first paint in 2 of 3 runs once the artifact frame is excluded, with margins as
+thin as 8 ms and one outright loss (A-2, missed by 2.1 ms). An earlier exploratory run (kept as
+supporting data, not counted toward the "at least three" requirement above since it predates the
+artifact-exclusion methodology being fixed) showed the same pattern: `timeOrigin`
+`1788529808426.1`, first-paint `1024 ms`, artifact frame at `29.7 ms` excluded, next frame at
+`1005.1 ms` (margin `+18.9 ms`, colour `rgb(36, 36, 66)`/`rgb(26, 26, 45)` split across corners).
+Candidate A is inconsistent and does not clear the bar reliably.
+
+**Candidate B — `--mechanism screenshot-burst` (no throttle):**
+
+| Run | timeOrigin | first-paint startTime | frames captured | beats_first_paint | result |
+|---|---|---|---|---|---|
+| B-1 | 1788530339085.8 | null | 0 | — | `Page.captureScreenshot` failed: `{"code":-32000,"message":"Not attached to an active page"}` on the first shot |
+| B-2 | 1788530349756 | null | 0 | — | same error |
+| B-3 | 1788530360407.8 | null | 0 | — | same error |
+
+Candidate B fails structurally on every run: the cross-origin navigation from `about:blank` to
+`https://bacilo.github.io/...` triggers a Chrome renderer-process swap (site isolation) that
+detaches the CDP session before the first screenshot in the burst loop completes — the exact
+limitation the harness's own header comment anticipated. `first-paint startTime` reads `null` in
+all three because `Runtime.evaluate` also runs against the detached session. Candidate B loses
+0-for-3, unable to capture even one frame against production. Recorded per the plan's instruction
+to record the losing candidate's floor even though it loses — here the floor is "never attaches."
+
+**Candidate C — `--mechanism throttled --throttle-ms 1000`** (emulation:
+`offline: false, latency: 1000ms, downloadThroughput: 6400 B/s, uploadThroughput: 6400 B/s` —
+recorded exactly, this is the disclosed deviation carried into Part C):
+
+| Run | timeOrigin | navResponseEnd | first-paint startTime | earliest non-artifact frame `t_since_navigation_ms` | beats_first_paint | margin (ms) | sampled colour (centre) |
+|---|---|---|---|---|---|---|---|
+| C-1 | 1788530384796.4 | 1406.4 ms | 4512 ms | 4501.741 ms | true | +10.3 | rgb(26, 26, 45) |
+| C-2 | 1788530403417.2 | 1406.4 ms | 4040 ms | 4031.747 ms | true | +8.3 | rgb(26, 26, 45) |
+| C-3 | 1788530415188.8 | 1402.9 ms | 4280 ms | 4274.849 ms | true | +5.2 | rgb(26, 26, 45) |
+
+Candidate C beats first paint in all 3 runs with a genuine, non-artifact frame every time. All three
+runs' final `pageState` read `dashboardTheme: "auto"`, `dataTheme: "dark"`,
+`bodyBackgroundColor: "rgb(26, 26, 46)"`, `prefersDark: true` — confirming the real OS setting
+reached the launched Chrome and the production page resolved to the correct theme. The sampled
+`rgb(26, 26, 45)` (one unit off the CSS-authoritative `rgb(26, 26, 46)` in the blue channel) is
+consistent across every dark-theme frame captured anywhere in this plan and is attributed to the
+screencast PNG re-encode pipeline, not to a colour defect — `getComputedStyle(document.body)`, read
+directly via `Runtime.evaluate` rather than sampled from a re-encoded frame, returned the exact
+authored value in every run.
+
+### Part B — negative control (failure direction, using Candidate C, the Part A winner)
+
+Build: `npm run build-widgets` (ran clean; output the current `dist/widgets`, including
+`assets/index-D-Ts7X8C.js` and `assets/index-B573RjUr.css`). Copied to two scratch directories
+OUTSIDE the repo tree (under the session scratchpad, not `.planning/` or `dist/`): `control-intact`
+(byte-identical copy) and `control-stripped` (same copy, with the entire inline pre-paint bootstrap
+`<script>...</script>` block from `src/dashboard/index.html:36-54` — the one reading
+`localStorage.getItem('dashboard-theme')` — deleted; the `<script type="module" ...>` tag and
+everything else left untouched). Both served over `node:http` on `127.0.0.1` (ports 8901 intact,
+8902 stripped), matching `scripts/verify-dashboard-publish.mjs`'s static-serving shape. Both runs
+used the SAME mechanism and emulation parameters that won Part A: `--mechanism throttled
+--throttle-ms 1000`.
+
+**Investigation note (the "does NOT sample white" contingency, triggered and resolved):** the
+naive earliest frame in both the stripped and the intact run is the same `rgb(18, 18, 18)` artifact
+described above (arriving at `18.2`/`18.4 ms`, versus `navResponseEnd` of `1407.2`/`1631.6 ms` in
+these two runs specifically) — so by the letter of "does the stripped copy's first frame sample
+white," it does not, and this is the trigger to stop and investigate rather than write a selection.
+The investigation is the artifact-exclusion finding above, established from all 9 runs' evidence,
+not invented to explain away this one result. Applying the same `navResponseEnd` filter here:
+
+| Copy | URL | earliest non-artifact frame `t_since_navigation_ms` | first-paint startTime | beats_first_paint | sampled colour | frame path |
+|---|---|---|---|---|---|---|
+| Stripped (bootstrap removed) | `http://127.0.0.1:8902/` | 8247.048 ms | 8256 ms | true | **rgb(255, 255, 255)** | `.planning/phases/25-ci-hardening-light-theme-verification/capture/control-stripped-throttled-1/frames/frame-001.png` |
+| Intact (unmodified build) | `http://127.0.0.1:8901/` | 8504.021 ms | 8496 ms | false (8 ms after) | **rgb(26, 26, 45)** | `.planning/phases/25-ci-hardening-light-theme-verification/capture/control-intact-throttled-1/frames/frame-001.png` |
+
+This is the bidirectional proof: identical mechanism, identical emulated network conditions,
+identical build except for one deleted script block, and the harness reports **white** on the
+broken copy and **dark** on the working copy, at the same instant relative to each page's own
+first paint. The stripped copy's final `pageState` (`dashboardTheme: null`, `dataTheme: null`,
+`bodyBackgroundColor: "rgb(255, 255, 255)"`) confirms `data-theme` was never set at evaluate time —
+the module script had not finished executing under the throttle, exactly the race the removed
+inline script exists to win. The intact copy's final `pageState` shows `dataTheme: "dark"` already
+set (by the surviving synchronous inline script) even though `dashboardTheme` (the `localStorage`
+read that only `main.ts` performs) was ALSO still `null` at evaluate time under the same throttle —
+proving the synchronous inline bootstrap, not the module script, is what prevents the flash. The
+mechanism is proven in both directions and is not vacuous (T-25-24 mitigated).
+
+### Part C — selection
+
+Candidate A (screencast, no deviation) is disqualified: after excluding the universal artifact
+frame, it beats first paint in only 2 of 3 production runs (margins as thin as 8 ms, one outright
+2.1 ms loss), and a direct investigative run against the stripped local control could not produce a
+white frame at all under natural/unthrottled local load — the module script finishes and
+re-applies the theme faster than the mechanism's frame-delivery cadence can sample the gap, so the
+mechanism cannot prove the failure direction under natural conditions. Candidate B
+(screenshot-burst) is disqualified outright: it never once attached to the page target across 3
+production runs, capturing zero frames every time. Neither clears the bar.
+
+**SELECTED MECHANISM: Candidate C — `--mechanism throttled --throttle-ms 1000`.** It beat first
+paint in all 3 production runs (margins +10.3 ms, +8.3 ms, +5.2 ms against the real, non-artifact
+frame) and is the only candidate proven bidirectionally: white on the stripped-bootstrap control,
+dark on the intact control, under the identical emulated network conditions.
+
+**Disclosure paragraph (D-04/D-05 weight, per this plan's Part C requirement).** The selected
+mechanism required `Network.emulateNetworkConditions` with `offline: false`, `latency: 1000ms`,
+`downloadThroughput: 6400 B/s` (~50 kbps), `uploadThroughput: 6400 B/s` — a deliberately slowed load,
+which is a disclosed deviation from the row's natural load conditions, exactly as D-05 discloses
+the dark-OS requirement and D-04 discloses the amended discriminator wording. This does not weaken
+the row: a widened navigation-to-first-paint window can only make a REAL flash more visible by
+giving more wall-clock time for an intermediate mis-themed frame to be rendered and captured — it
+cannot manufacture a pass on a page that has no flash, because the emulation touches only network
+timing, never `Emulation.setEmulatedMedia`, `data-theme`, or any rendering override (T-25-23 is
+untouched). The negative control above is the direct proof of this: the SAME throttle, applied to
+the SAME kind of build, correctly produced white on the broken copy and dark on the working one —
+throttling revealed the defect it was pointed at rather than hiding or inventing one. Candidate A's
+disqualification is further evidence for this argument in the other direction: at natural
+(unthrottled) speed, the local build's white-flash window is real but too narrow for ANY of these
+three candidate mechanisms' frame-delivery cadence to sample reliably — widening it with Candidate
+C's emulation is what makes the window observable at all, on this hardware, with zero-dependency
+tooling.
+
+**No verdict is scored in this plan.** Part A's production frames are timing evidence — proof that
+a capture mechanism exists on this hardware that can obtain a raster frame at or before production's
+own `first-paint`, and that the frame it obtains shows the correct theme with no artifact-masked
+flash — not a first-paint colour verdict for a checkpoint row. R7 (the row that will actually use
+this mechanism to observe production and score PASS/BLOCKED) is drafted in plan 25-09 and run in
+plan 25-10.
+
+**Cleanup:** both local HTTP servers were stopped, the scratch `control-intact`/`control-stripped`
+directories (outside the repo tree) were used read-only by the harness and are not part of this
+repo's working tree, and the harness's own throwaway `--user-data-dir` and Chrome child process
+were torn down after every run (`ps aux` confirms no lingering `--remote-debugging-port` Chrome
+processes). `git status --porcelain dist data` is empty. `capture/`'s per-run PNG frames and
+`report.json` files referenced by path above are retained locally as supporting evidence and are
+excluded from git via `.gitignore` (same convention as `dist`/`data` build scratch) rather than
+committed, to avoid bloating history with screencast frame binaries; every path cited above is
+reproducible by re-running the exact command shown for that row.
