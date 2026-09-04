@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
 status: executing
-stopped_at: Phase 25 plan 25-09 executed (Round 2 checkpoint rows R6a/R6b/R6c/R7 drafted, all verdicts pending)
-last_updated: "2026-09-04T14:25:57.800Z"
+stopped_at: Completed 25-10-PLAN.md — R7 PASS, GAP-25-01 CLOSED
+last_updated: "2026-09-04T14:58:32.992Z"
 last_activity: 2026-09-04
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 103
-  completed_plans: 100
+  completed_plans: 101
   percent: 86
 ---
 
@@ -28,8 +28,11 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 25 (ci-hardening-light-theme-verification) — EXECUTING
-Plan: 9 of 12 executed (25-09 done: Round 2 checkpoint rows R6a/R6b/R6c/R7 drafted, all verdicts
-      pending, ROW_BASELINE_SHA bf9d1a13; 25-10..25-12 remain in the Round 2 gap-closure sequence)
+Plan: 10 of 12 executed (25-10 done: R7 RUN and SCORED — PASS. frame-001.png beat production's
+      own first-paint by 11.899169921875 ms on a genuinely dark OS, sampling the dark theme
+      background colour, corroborated by both a direct getComputedStyle read and the developer's
+      own verbatim judgment. GAP-25-01 CLOSED. R6a/R6b/R6c remain pending (25-11's scope); VER-01's
+      tick disposition is 25-12's job under the all-rows-PASS rule)
 Status: Ready to execute
 
         **Phase 25 Round 1 outcome (2026-09-04, plan 25-07).** All seven plans executed and the
@@ -143,7 +146,7 @@ Status: Ready to execute
 
 Last activity: 2026-09-04
 
-Progress: [██████████] 97%
+Progress: [██████████] 98%
 
 ## Performance Metrics
 
@@ -180,6 +183,7 @@ Progress: [██████████] 97%
 | Phase 24 P17 | ~35min (continuation, Tasks 2-3) | 3 tasks | 6 files |
 | Phase 25 P08 | 37min | 3 tasks | 3 files |
 | Phase 25 P09 | 35min | 3 tasks | 1 files |
+| Phase 25 P10 | 23min | 3 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -221,6 +225,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 24]: All four Round 4 checkpoint rows (R32-R35) recorded PASS; CUR-01 and the Phase 24 ROADMAP gate disposition set per the plan's own governing rule that every mapped row must PASS
 - [Phase 25]: Selected throttled-network screencast (Candidate C: 1000ms latency, ~50kbps) as the GAP-25-01 capture mechanism — Candidate A (screencast, no deviation) lost 1/3 production runs after excluding a universal Chrome UA-default artifact frame and failed the local negative control entirely; Candidate B (screenshot-burst) never attached to production across 3 runs; Candidate C won 3/3 production runs and passed the negative control bidirectionally
 - [Phase 25]: Drafted Round 2 checkpoint rows (R6a/R6b/R6c/R7) before any is run, per GAP-25-02's recommended split and GAP-25-01's measured Candidate C mechanism from plan 25-08 — every row carries a bidirectional CAN FAIL/CAN PASS reachability proof and all verdicts read pending
+- [Phase 25]: R7 (VER-01 first-paint row) PASS: frame-001.png captured 11.9ms before production's first-paint on a genuinely dark OS, sampling the dark theme background colour, corroborated by getComputedStyle; GAP-25-01 CLOSED
 
 ### Key Findings
 
@@ -288,8 +293,8 @@ Items acknowledged and deferred at the v2.0 milestone close on 2026-08-12.
 
 ## Session Continuity
 
-Last session: 2026-09-04T14:25:57.788Z
-Stopped at: Phase 25 plan 25-09 executed (Round 2 checkpoint rows R6a/R6b/R6c/R7 drafted, all verdicts pending)
+Last session: 2026-09-04T14:58:32.984Z
+Stopped at: Completed 25-10-PLAN.md — R7 PASS, GAP-25-01 CLOSED
 Resume file: None
 
 ---

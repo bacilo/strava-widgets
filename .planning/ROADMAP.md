@@ -538,7 +538,7 @@ Plans:
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
-- [ ] 25-10-PLAN.md — Run R7: the observed first-paint row on a genuinely dark OS against production (D-04/D-05/D-07/D-08), with the frame tied to its own navigation by arithmetic
+- [x] 25-10-PLAN.md — Run R7: the observed first-paint row on a genuinely dark OS against production (D-04/D-05/D-07/D-08), with the frame tied to its own navigation by arithmetic
 
 **Wave 8** *(blocked on Wave 7 completion)*
 
@@ -581,7 +581,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 22. Calendar Week-Start & Totals | v2.1 | 16/16 | Complete   | 2026-08-19 |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 13/13 | Complete    | 2026-08-27 |
 | 24. Local Curation Mode | v2.1 | 17/17 | Complete    | 2026-09-02 |
-| 25. CI Hardening & Light-Theme Verification | v2.1 | 9/12 | In Progress|  |
+| 25. CI Hardening & Light-Theme Verification | v2.1 | 10/12 | In Progress|  |
 
 ---
 *Last updated: 2026-08-12 — v2.1 Interface Polish roadmap created (phases 19-25, 25 requirements mapped). v1.0-v2.0 preserved above; v2.0 archived to `milestones/v2.0-ROADMAP.md`.*
