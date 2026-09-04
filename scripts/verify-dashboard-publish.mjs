@@ -32,6 +32,50 @@ function ok(message) {
   console.log(`✓ ${message}`);
 }
 
+/**
+ * Parse a fetched body, REPORTING rather than throwing on malformed input.
+ *
+ * This file is an accumulate-and-report checker: it counts failures and
+ * prints a `N check(s) passed, M failure(s).` summary at the end. A bare
+ * `JSON.parse(body)` breaks that contract — a truncated document throws a
+ * SyntaxError that unwinds out of main(), exits 1 with a raw stack trace,
+ * and skips every later check, so one broken file masks all remaining
+ * diagnostics. Those truncated/corrupt shapes are exactly what these checks
+ * were added to detect, so they must produce a `✗ ...` line, not a crash.
+ *
+ * Returns `null` on any failure; callers must treat `null` as "already
+ * reported, skip the structural assertions".
+ */
+function parseJsonOrFail(path, body) {
+  let value;
+  try {
+    value = JSON.parse(body);
+  } catch (error) {
+    fail(`${path} returned 200 but did not parse as JSON (${error.message})`);
+    return null;
+  }
+  if (value === null || typeof value !== 'object') {
+    fail(`${path} parsed to ${JSON.stringify(value)}, expected an object or array`);
+    return null;
+  }
+  return value;
+}
+
+/**
+ * Guard an array's entry 0 before dereferencing it. `parsed[0].field` throws
+ * a TypeError for a body of `[null]` or `[3]` — again a stack trace instead
+ * of the intended failure line. Returns `null` (already reported) or the
+ * entry.
+ */
+function entryZeroOrFail(path, parsed) {
+  const first = parsed[0];
+  if (first === null || typeof first !== 'object') {
+    fail(`${path} entry 0 is not an object, got ${JSON.stringify(first)}`);
+    return null;
+  }
+  return first;
+}
+
 // --- 1. Fail fast if the publish directory isn't built yet -----------------
 
 if (!existsSync(INDEX_HTML) || !existsSync(INDEX_JSON)) {
@@ -440,89 +484,105 @@ async function main() {
 
     const weeklyDistanceBody = await expect200(baseUrl, '/data/stats/weekly-distance.json');
     if (weeklyDistanceBody) {
-      const parsedWeeklyDistance = JSON.parse(weeklyDistanceBody);
-      if (!Array.isArray(parsedWeeklyDistance) || parsedWeeklyDistance.length === 0) {
+      const parsedWeeklyDistance = parseJsonOrFail('/data/stats/weekly-distance.json', weeklyDistanceBody);
+      if (parsedWeeklyDistance === null) {
+        // already reported
+      } else if (!Array.isArray(parsedWeeklyDistance) || parsedWeeklyDistance.length === 0) {
         fail(
           `/data/stats/weekly-distance.json expected a non-empty array, got ${
             Array.isArray(parsedWeeklyDistance) ? `an array of length ${parsedWeeklyDistance.length}` : typeof parsedWeeklyDistance
           }`
         );
-      } else if (typeof parsedWeeklyDistance[0].weekStartISO !== 'string' || parsedWeeklyDistance[0].weekStartISO.length === 0) {
-        fail(
-          `/data/stats/weekly-distance.json entry 0 "weekStartISO" expected a non-empty string, got ${JSON.stringify(
-            parsedWeeklyDistance[0].weekStartISO
-          )}`
-        );
-      } else if (!Number.isFinite(parsedWeeklyDistance[0].totalKm)) {
-        fail(`/data/stats/weekly-distance.json entry 0 "totalKm" expected a finite number, got ${JSON.stringify(parsedWeeklyDistance[0].totalKm)}`);
       } else {
-        ok('/data/stats/weekly-distance.json parses with a non-empty array, entry 0 has a non-empty weekStartISO and a finite totalKm');
+        const entry = entryZeroOrFail('/data/stats/weekly-distance.json', parsedWeeklyDistance);
+        if (entry === null) {
+          // already reported
+        } else if (typeof entry.weekStartISO !== 'string' || entry.weekStartISO.length === 0) {
+          fail(`/data/stats/weekly-distance.json entry 0 "weekStartISO" expected a non-empty string, got ${JSON.stringify(entry.weekStartISO)}`);
+        } else if (!Number.isFinite(entry.totalKm)) {
+          fail(`/data/stats/weekly-distance.json entry 0 "totalKm" expected a finite number, got ${JSON.stringify(entry.totalKm)}`);
+        } else {
+          ok('/data/stats/weekly-distance.json parses with a non-empty array, entry 0 has a non-empty weekStartISO and a finite totalKm');
+        }
       }
     }
 
     const monthlyStatsBody = await expect200(baseUrl, '/data/stats/monthly-stats.json');
     if (monthlyStatsBody) {
-      const parsedMonthlyStats = JSON.parse(monthlyStatsBody);
-      if (!Array.isArray(parsedMonthlyStats) || parsedMonthlyStats.length === 0) {
+      const parsedMonthlyStats = parseJsonOrFail('/data/stats/monthly-stats.json', monthlyStatsBody);
+      if (parsedMonthlyStats === null) {
+        // already reported
+      } else if (!Array.isArray(parsedMonthlyStats) || parsedMonthlyStats.length === 0) {
         fail(
           `/data/stats/monthly-stats.json expected a non-empty array, got ${
             Array.isArray(parsedMonthlyStats) ? `an array of length ${parsedMonthlyStats.length}` : typeof parsedMonthlyStats
           }`
         );
-      } else if (typeof parsedMonthlyStats[0].periodLabel !== 'string' || parsedMonthlyStats[0].periodLabel.length === 0) {
-        fail(
-          `/data/stats/monthly-stats.json entry 0 "periodLabel" expected a non-empty string, got ${JSON.stringify(
-            parsedMonthlyStats[0].periodLabel
-          )}`
-        );
-      } else if (!Number.isFinite(parsedMonthlyStats[0].totalKm)) {
-        fail(`/data/stats/monthly-stats.json entry 0 "totalKm" expected a finite number, got ${JSON.stringify(parsedMonthlyStats[0].totalKm)}`);
       } else {
-        ok('/data/stats/monthly-stats.json parses with a non-empty array, entry 0 has a non-empty periodLabel and a finite totalKm');
+        const entry = entryZeroOrFail('/data/stats/monthly-stats.json', parsedMonthlyStats);
+        if (entry === null) {
+          // already reported
+        } else if (typeof entry.periodLabel !== 'string' || entry.periodLabel.length === 0) {
+          fail(`/data/stats/monthly-stats.json entry 0 "periodLabel" expected a non-empty string, got ${JSON.stringify(entry.periodLabel)}`);
+        } else if (!Number.isFinite(entry.totalKm)) {
+          fail(`/data/stats/monthly-stats.json entry 0 "totalKm" expected a finite number, got ${JSON.stringify(entry.totalKm)}`);
+        } else {
+          ok('/data/stats/monthly-stats.json parses with a non-empty array, entry 0 has a non-empty periodLabel and a finite totalKm');
+        }
       }
     }
 
     const yearlyStatsBody = await expect200(baseUrl, '/data/stats/yearly-stats.json');
     if (yearlyStatsBody) {
-      const parsedYearlyStats = JSON.parse(yearlyStatsBody);
-      if (!Array.isArray(parsedYearlyStats) || parsedYearlyStats.length === 0) {
+      const parsedYearlyStats = parseJsonOrFail('/data/stats/yearly-stats.json', yearlyStatsBody);
+      if (parsedYearlyStats === null) {
+        // already reported
+      } else if (!Array.isArray(parsedYearlyStats) || parsedYearlyStats.length === 0) {
         fail(
           `/data/stats/yearly-stats.json expected a non-empty array, got ${
             Array.isArray(parsedYearlyStats) ? `an array of length ${parsedYearlyStats.length}` : typeof parsedYearlyStats
           }`
         );
-      } else if (typeof parsedYearlyStats[0].periodStart !== 'string' || parsedYearlyStats[0].periodStart.length === 0) {
-        fail(
-          `/data/stats/yearly-stats.json entry 0 "periodStart" expected a non-empty string, got ${JSON.stringify(
-            parsedYearlyStats[0].periodStart
-          )}`
-        );
-      } else if (!Number.isFinite(parsedYearlyStats[0].totalKm)) {
-        fail(`/data/stats/yearly-stats.json entry 0 "totalKm" expected a finite number, got ${JSON.stringify(parsedYearlyStats[0].totalKm)}`);
       } else {
-        ok('/data/stats/yearly-stats.json parses with a non-empty array, entry 0 has a non-empty periodStart and a finite totalKm');
+        const entry = entryZeroOrFail('/data/stats/yearly-stats.json', parsedYearlyStats);
+        if (entry === null) {
+          // already reported
+        } else if (typeof entry.periodStart !== 'string' || entry.periodStart.length === 0) {
+          fail(`/data/stats/yearly-stats.json entry 0 "periodStart" expected a non-empty string, got ${JSON.stringify(entry.periodStart)}`);
+        } else if (!Number.isFinite(entry.totalKm)) {
+          fail(`/data/stats/yearly-stats.json entry 0 "totalKm" expected a finite number, got ${JSON.stringify(entry.totalKm)}`);
+        } else {
+          ok('/data/stats/yearly-stats.json parses with a non-empty array, entry 0 has a non-empty periodStart and a finite totalKm');
+        }
       }
     }
 
     const yearOverYearBody = await expect200(baseUrl, '/data/stats/year-over-year.json');
     if (yearOverYearBody) {
-      const parsedYearOverYear = JSON.parse(yearOverYearBody);
+      const parsedYearOverYear = parseJsonOrFail('/data/stats/year-over-year.json', yearOverYearBody);
       // Fixed length is a strong truncation detector here, deliberately NOT
       // relaxed to `> 0`: the document is always pre-filled with one entry
       // per calendar month (compute-advanced-stats.ts:104), so `length ===
       // 12` catches a truncated file that `length > 0` would have accepted.
       const isExactlyTwelveMonths = Array.isArray(parsedYearOverYear) && parsedYearOverYear.length === 12;
-      if (!isExactlyTwelveMonths) {
+      if (parsedYearOverYear === null) {
+        // already reported
+      } else if (!isExactlyTwelveMonths) {
         fail(
           `/data/stats/year-over-year.json expected an array of exactly 12 entries (one per calendar month, ` +
             `per compute-advanced-stats.ts:104), got ${
               Array.isArray(parsedYearOverYear) ? `an array of length ${parsedYearOverYear.length}` : typeof parsedYearOverYear
             }`
         );
-      } else if (parsedYearOverYear[0].years === null || typeof parsedYearOverYear[0].years !== 'object') {
-        fail(`/data/stats/year-over-year.json entry 0 "years" expected a non-null object, got ${JSON.stringify(parsedYearOverYear[0].years)}`);
       } else {
-        ok('/data/stats/year-over-year.json parses with exactly 12 entries and entry 0 has a non-null "years" object');
+        const entry = entryZeroOrFail('/data/stats/year-over-year.json', parsedYearOverYear);
+        if (entry === null) {
+          // already reported
+        } else if (entry.years === null || typeof entry.years !== 'object') {
+          fail(`/data/stats/year-over-year.json entry 0 "years" expected a non-null object, got ${JSON.stringify(entry.years)}`);
+        } else {
+          ok('/data/stats/year-over-year.json parses with exactly 12 entries and entry 0 has a non-null "years" object');
+        }
       }
     }
 
@@ -534,8 +594,10 @@ async function main() {
 
     const bestEffortsBody = await expect200(baseUrl, '/data/stats/best-efforts.json');
     if (bestEffortsBody) {
-      const parsedBestEfforts = JSON.parse(bestEffortsBody);
-      if (parsedBestEfforts.schemaVersion !== 1) {
+      const parsedBestEfforts = parseJsonOrFail('/data/stats/best-efforts.json', bestEffortsBody);
+      if (parsedBestEfforts === null) {
+        // already reported
+      } else if (parsedBestEfforts.schemaVersion !== 1) {
         fail(`/data/stats/best-efforts.json schemaVersion expected 1, got ${parsedBestEfforts.schemaVersion}`);
       } else if (
         parsedBestEfforts.activities === null ||
@@ -608,9 +670,9 @@ async function main() {
       for (const shardId of shardSampleIds) {
         const shardBody = await expect200(baseUrl, `/data/stats/best-efforts/${shardId}.json`);
         if (shardBody) {
-          const parsedShard = JSON.parse(shardBody);
-          if (parsedShard === null || typeof parsedShard !== 'object') {
-            fail(`/data/stats/best-efforts/${shardId}.json did not parse to an object, got ${JSON.stringify(parsedShard)}`);
+          const parsedShard = parseJsonOrFail(`/data/stats/best-efforts/${shardId}.json`, shardBody);
+          if (parsedShard === null) {
+            // already reported
           } else if (String(parsedShard.activityId) !== String(shardId)) {
             fail(
               `/data/stats/best-efforts/${shardId}.json "activityId" expected "${shardId}", got ${JSON.stringify(

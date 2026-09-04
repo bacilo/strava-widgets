@@ -282,6 +282,53 @@ describe.skipIf(!existsSync(REAL_INDEX_HTML))(
       });
     });
 
+    // WR-02 regression. An unguarded JSON.parse / entry-0 dereference throws
+    // out of main(), so the verifier exits with a raw stack trace: the
+    // `N check(s) passed, M failure(s).` summary never prints and every later
+    // check (shards, activities, streams, pages, asset resolution) is skipped,
+    // meaning one broken document masks all remaining diagnostics. These are
+    // exactly the corrupt shapes the CI-02 block was added to detect, so they
+    // must produce a `✗ ...` line inside the normal accumulate-and-report run.
+    const malformedCases = [
+      {
+        label: 'truncated JSON',
+        content: '[{"weekStartISO":"2026-01-05","totalK',
+        expectedFailureFragment: '✗ /data/stats/weekly-distance.json returned 200 but did not parse as JSON',
+      },
+      {
+        label: 'literal null body',
+        content: 'null',
+        expectedFailureFragment: '✗ /data/stats/weekly-distance.json parsed to null, expected an object or array',
+      },
+      {
+        label: 'array whose entry 0 is null',
+        content: '[null]',
+        expectedFailureFragment: '✗ /data/stats/weekly-distance.json entry 0 is not an object, got null',
+      },
+    ];
+
+    for (const malformed of malformedCases) {
+      it(`MALFORMED — weekly-distance.json ${malformed.label}: reported as a failure, not thrown (WR-02)`, () => {
+        withShadowTree(
+          { brokenStatsFile: { name: 'weekly-distance.json', content: malformed.content } },
+          (tmpRoot) => {
+            const result = runVerifier(tmpRoot);
+            expect(result.status).not.toBe(0);
+            expect(result.output).toContain(malformed.expectedFailureFragment);
+
+            // The run continued: the summary printed, and checks after the
+            // broken document still ran. Both are false if the parse threw.
+            const tally = parseTally(result.output);
+            expect(tally).not.toBeNull();
+            expect(tally.failures).toBeGreaterThan(0);
+            expect(result.output).toContain('/data/stats/best-efforts.json parses with schemaVersion 1');
+            expect(result.output).not.toContain('SyntaxError');
+            expect(result.output).not.toContain('TypeError');
+          }
+        );
+      });
+    }
+
     it('CONTROL — the same shadow tree with nothing broken produces every document\'s own ok() line and no failure naming any of them', () => {
       withShadowTree({}, (tmpRoot) => {
         const result = runVerifier(tmpRoot);
