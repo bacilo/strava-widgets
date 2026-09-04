@@ -552,22 +552,27 @@ Note the existing test file's `afterEach` already contains a `chmodSync(mode000P
 
 **Note on provenance:** every other claim in this document was verified directly by reading this repository's own source files (`.github/workflows/daily-refresh.yml`, `src/index.ts`, `scripts/verify-dashboard-publish.mjs`, `scripts/build-widgets.mjs`, `src/analytics/gear-aggregate-logic.ts` and its test, `src/analytics/gear-naming.ts`, `src/analytics/dashboard-index.types.ts`, `src/dashboard/theme.ts`, `src/dashboard/index.html`, `src/dashboard/theme.test.ts`, `src/dashboard/styles.css`, `src/dashboard/styles.test.ts`, `scripts/lib/curation-guard.mjs` and its test, `package.json`, `vitest.config.ts`, and the generated `data/stats/*.json` files on disk) or by running local commands (`npm view`-equivalent checks were not needed since no packages are installed; `ls`/`python3 -c` shape inspection of the real generated JSON; `command -v gh`/`act` availability checks). These are tagged `[VERIFIED: local source read]` implicitly throughout — no `[CITED]` or `[ASSUMED]` tags were needed beyond the three items in this table, since this phase's research surface is entirely first-party code, not third-party documentation.
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+All three resolved by the plans written 2026-09-03 (`15dbfb16`). Retained with resolutions for traceability.
 
 1. **Exact wording of the `--ci`/`--continue-on-error` flag (D-02)**
    - What we know: D-02 explicitly delegates the exact spelling to the planner; the codebase has no existing flag-naming convention to follow (zero prior `--flag`-style arguments anywhere in `src/index.ts`).
    - What's unclear: Whether the planner should also update `printHelp()`'s `compute-all-stats` help line to document the new flag (recommended, for consistency with how every other command is documented there).
    - Recommendation: Pick a short, self-explanatory name (`--ci` is fine) and add one line to `printHelp()`'s existing compute-all-stats help text and examples block (lines ~603, ~621) — this is a one-line addition, not a design decision.
+   - **RESOLVED** by `25-02-PLAN.md` (D-02): flag spelling is `--ci`, read as `process.argv.includes('--ci')` to match the file's existing positional-argv style, with `printHelp()` updated at both sites.
 
 2. **Whether to also fix `buildGearCoverage`'s parallel `!== null` check (`gear-aggregate-logic.ts:207`)**
    - What we know: ROADMAP criterion 1 only names the crash (`slugify(undefined)`), which comes from the `buildGearAggregate` function; `buildGearCoverage`'s separate `hasGear = row.gearName !== null` check has the identical presence-assumption bug but does not crash — it just silently mis-counts an absent-key row as "has gear" in the coverage totals.
    - What's unclear: Whether this is in-scope for FIX-02 or should be filed as a separate follow-up, given D-13's explicit "bounded" instruction not to let the phase grow.
    - Recommendation: Fix it in the same task as the crash fix — it is the exact same one-line predicate change (`typeof label !== 'string' || label === ''` reused), in the same file, requiring no additional investigation; deferring it would leave a known-identical bug pattern unfixed for no savings in scope. If the planner disagrees, record it as a todo rather than silently leaving it.
+   - **RESOLVED** by `25-01-PLAN.md` Task 3 (D-12): `buildGearCoverage` (`:207`) is fixed in the same task as the crash site (`:147`), sharing the one widened predicate.
 
 3. **Whether CI-01's step-table refactor (Pattern 1) is in scope, or whether the planner should make a smaller, non-refactored change**
    - What we know: D-01 requires `computeAllStatsCommand` to become "the sole declaration of both the order and each step's failure disposition," and the function currently has zero test coverage, making an untested inline change hard to verify per this project's own Nyquist-validation discipline.
    - What's unclear: Whether the planner judges the step-table extraction (Pattern 1) worth the extra surface area, versus a minimal inline change with only integration-level (not unit-level) verification.
    - Recommendation: Extract the table — it is a small, low-risk refactor that directly enables the unit test D-01's own intent implies ("single source of truth" should be checkable by a test, not just readable by a human), and this research found no test currently covering `computeAllStatsCommand` at all, which is itself worth closing.
+   - **RESOLVED** by `25-02-PLAN.md` Task 1 (D-01): the table is extracted to a new `src/compute-all-stats-steps.ts` — not `src/index.ts`, which calls `main()`/`process.exit` at module load, so a test importing it would run the CLI — with `src/compute-all-stats-steps.test.ts` as the first unit test of any command in this codebase.
 
 ## Environment Availability
 
