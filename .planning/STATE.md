@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
 status: executing
-stopped_at: Completed 25-11-PLAN.md — GAP-25-02 CLOSED, R6a/R6b/R6c PASS
-last_updated: "2026-09-04T18:13:39.427Z"
+stopped_at: Completed 25-12-PLAN.md — Round 2 disposition set, all four requirements tick (FIX-02, VER-01, CI-01, CI-02); phase-gate closure left to the orchestrator
+last_updated: "2026-09-04T18:19:30.000Z"
 last_activity: 2026-09-04
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 103
-  completed_plans: 102
+  completed_plans: 103
   percent: 86
 ---
 
@@ -28,12 +28,21 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 25 (ci-hardening-light-theme-verification) — EXECUTING
-Plan: 11 of 12 executed (25-10 done: R7 RUN and SCORED — PASS. frame-001.png beat production's
-      own first-paint by 11.899169921875 ms on a genuinely dark OS, sampling the dark theme
-      background colour, corroborated by both a direct getComputedStyle read and the developer's
-      own verbatim judgment. GAP-25-01 CLOSED. R6a/R6b/R6c remain pending (25-11's scope); VER-01's
-      tick disposition is 25-12's job under the all-rows-PASS rule)
-Status: Ready to execute
+Plan: 12 of 12 executed (25-12 done: Round 2 disposition set under the all-rows-PASS rule, applied
+      one row per requirement. All four rows PASSED — R7 (VER-01), R6a (FIX-02), R6b (CI-02), R6c
+      (CI-01) — with Round 1's R1/R3/R4/R5 standing unedited for VER-01. GAP-25-01 and GAP-25-02
+      both CLOSED. FIX-02, VER-01, CI-01 and CI-02 all ticked [x] in REQUIREMENTS.md with dated
+      Round 2 paragraphs naming their deciding row. 25-VALIDATION.md frontmatter set to
+      `status: passed` / `nyquist_compliant: true`. `/gsd-verify-work` has NEVER run for Phase 25 —
+      no `25-VERIFICATION.md` exists — so 25-VALIDATION.md is the authoritative record; the
+      recommended next step is `/gsd-verify-work 25` before the v2.1 milestone is considered
+      closed. Per this plan's own orchestrator-level instructions, the phase-gate itself (the
+      ROADMAP.md milestone-checklist tick and STATE.md's `completed_phases` counter) is
+      DELIBERATELY left unset — that marking and running phase verification are reserved for the
+      orchestrator, not this plan. `completed_plans` was hand-verified to 103 (all 103 v2.1
+      milestone plans now executed); `completed_phases` stays at 6 pending that orchestrator step.
+Status: Awaiting orchestrator phase-gate decision (requirements ticked; `/gsd-verify-work 25` not
+      yet run)
 
         **Phase 25 Round 1 outcome (2026-09-04, plan 25-07).** All seven plans executed and the
         closing VER-01 human checkpoint ran in full against the live production URL, with the
@@ -228,6 +237,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 25]: Drafted Round 2 checkpoint rows (R6a/R6b/R6c/R7) before any is run, per GAP-25-02's recommended split and GAP-25-01's measured Candidate C mechanism from plan 25-08 — every row carries a bidirectional CAN FAIL/CAN PASS reachability proof and all verdicts read pending
 - [Phase 25]: R7 (VER-01 first-paint row) PASS: frame-001.png captured 11.9ms before production's first-paint on a genuinely dark OS, sampling the dark theme background colour, corroborated by getComputedStyle; GAP-25-01 CLOSED
 - [Phase 25]: [Phase 25] 25-11 GAP-25-02 CLOSED: merged and pushed Phase 25 to origin/master, dispatched Daily Widget Refresh for the first time this phase (run 33903407761, conclusion success, all eight COMPUTE_ALL_STATS_STEPS names present in the collapsed step's log). R6a/R6b/R6c all PASS. VER-01/FIX-02/CI-01/CI-02 tick disposition remains plan 25-12's job under the all-rows-PASS rule.
+- [Phase 25]: 25-12 Round 2 disposition set under the all-rows-PASS rule, one row per requirement: FIX-02 (R6a PASS), VER-01 (R7 PASS, Round 1 R1/R3/R4/R5 stand), CI-01 (R6c PASS), CI-02 (R6b PASS) all ticked [x] in REQUIREMENTS.md. GAP-25-01 and GAP-25-02 both CLOSED; no successor gap opened. 25-VALIDATION.md frontmatter set to status: passed / nyquist_compliant: true. Phase-gate closure (ROADMAP.md milestone checkbox, STATE.md completed_phases) deliberately left to the orchestrator, which has not yet run /gsd-verify-work 25 (no 25-VERIFICATION.md exists).
 
 ### Key Findings
 
@@ -295,8 +305,8 @@ Items acknowledged and deferred at the v2.0 milestone close on 2026-08-12.
 
 ## Session Continuity
 
-Last session: 2026-09-04T18:13:39.419Z
-Stopped at: Completed 25-11-PLAN.md — GAP-25-02 CLOSED, R6a/R6b/R6c PASS
+Last session: 2026-09-04T18:19:30.000Z
+Stopped at: Completed 25-12-PLAN.md — Round 2 disposition set, all four requirements tick (FIX-02, VER-01, CI-01, CI-02); phase-gate closure left to the orchestrator
 Resume file: None
 
 ---
