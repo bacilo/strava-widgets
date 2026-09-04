@@ -1455,6 +1455,68 @@ file's § "Wave 1 Integration Gate", three consecutive identical `npm test` tall
 NOTE the row must state when it is run: this is a FRESH run on the pushed commit, not a citation
 of the wave-1 numbers, because the tree changes when `origin/master` is merged in.
 
+**EVIDENCE (plan 25-11, Task 1, run 2026-09-04, FRESH on the commit that is pushed):**
+
+Merge: divergence before `git merge origin/master` was 69 ahead / 3 behind (matching this plan's
+own briefing); `git merge origin/master` (no `--rebase`) completed with the `'ort'` strategy and
+zero conflicts — all eleven changed files were auto-generated data
+(`data/activities/i182570742.json`, `data/activities/i182749188.json`,
+`data/geo/activity-cities.json`, `data/geo/cities.json`, `data/geo/countries.json`,
+`data/geo/geo-metadata.json`, `data/geo/location-cache.json`,
+`data/streams/i182570742.json`, `data/streams/i182749188.json`, `data/streams/manifest.json`,
+`data/sync-state.json`). Resulting merge commit `70e00840` (confirmed by `git log --oneline -1
+--merges`); divergence after: 70 ahead / 0 behind. This is the commit Task 3 pushes.
+
+`npm run build` + `node dist/index.js compute-all-stats` regenerated the gitignored `data/stats`
+and `data/dashboard` trees (precedent: 25-06-SUMMARY.md's "Local data regeneration"); the one
+incidental `data/geo/geo-metadata.json` `generatedAt` churn (`2026-09-04T09:09:54.842Z` →
+`2026-09-04T17:55:12.094Z`) was reverted with `git checkout --` before the gate ran.
+
+Five-command gate, all exit 0:
+
+| # | Command | Exit code |
+|---|---------|-----------|
+| 1 | `npm test` | 0 |
+| 2 | `npx tsc --noEmit` | 0 |
+| 3 | `npm run build` | 0 |
+| 4 | `npm run build-widgets` | 0 |
+| 5 | `npm run verify-dashboard` | 0 |
+
+Three consecutive `npm test` tallies:
+
+| Run | Test Files | Tests | Duration |
+|-----|-----------|-------|----------|
+| A | 62 passed (62) | 1596 passed (1596) | 6.73s |
+| B | 62 passed (62) | 1596 passed (1596) | 6.51s |
+| C | 62 passed (62) | 1596 passed (1596) | 7.01s |
+
+**Tally reconciliation:** 62 files / 1596 tests — a delta of exactly **0** from the Wave 1
+Integration Gate baseline (62 files / 1596 tests). The merge brought in only nightly CI data
+auto-commits (`data/activities/*`, `data/geo/*`, `data/streams/*`, `data/sync-state.json`) and no
+source or test files, so no delta was expected and none was observed. No unexplained residue in
+either direction.
+
+**Eight FIX-02 regression cases, enumerated by name and confirmed individually passing**
+(`npx vitest run src/analytics/gear-aggregate-logic.test.ts --reporter=verbose`, 19 tests total in
+the file, all green):
+
+```
+✓ buildGearAggregate > absent gearName key lands in the Unknown bucket instead of crashing slugify (FIX-02, D-12)
+✓ buildGearAggregate > gearName: undefined lands in the Unknown bucket instead of crashing slugify (FIX-02, D-12)
+✓ buildGearAggregate > gearName: empty string lands in the Unknown bucket rather than the shoe fallback key (FIX-02, D-12)
+✓ buildGearAggregate > non-string gearName lands in the Unknown bucket instead of crashing slugify (FIX-02, D-12)
+✓ buildGearCoverage > absent gearName key is not counted in runsWithGear (FIX-02, D-12)
+✓ buildGearCoverage > gearName: undefined is not counted in runsWithGear (FIX-02, D-12)
+✓ buildGearCoverage > gearName: empty string is not counted in runsWithGear (FIX-02, D-12)
+✓ buildGearCoverage > non-string gearName is not counted in runsWithGear (FIX-02, D-12)
+```
+
+All eight match the row's own table (cases 1-8) verbatim. D-13's half: `npx tsc --noEmit` exits 0
+with `gearName` optional on `DashboardIndexRow` (already covered by gate command #2 above).
+
+`git status --porcelain data dist` returned 0 lines, checked twice — immediately after the
+five-command gate, and again after the `geo-metadata.json` revert.
+
 **R6b — CI-02's evidence, on the same tree.** **Verdict: pending.**
 
 DISCRIMINATOR: `npm run verify-dashboard` exits 0, its final line reads `56 check(s) passed, 0
@@ -1484,6 +1546,42 @@ satisfying D-11's "a guard only counts once observed RED" rule.
 
 CAN PASS: the same command already returned `56 check(s) passed, 0 failure(s).` on the merged
 tree (§ "Wave 1 Integration Gate").
+
+**EVIDENCE (plan 25-11, Task 1, run 2026-09-04, FRESH on the commit that is pushed — same
+`npm run verify-dashboard` invocation as R6a's gate command #5 above):**
+
+Final line: `56 check(s) passed, 0 failure(s).` — identical count to the Wave 1 Integration Gate
+baseline (also 56/0), so no delta to reconcile.
+
+Six named documents confirmed individually among the passing checks:
+
+```
+✓ GET /data/stats/weekly-distance.json -> 200
+✓ /data/stats/weekly-distance.json parses with a non-empty array, entry 0 has a non-empty weekStartISO and a finite totalKm
+✓ GET /data/stats/monthly-stats.json -> 200
+✓ /data/stats/monthly-stats.json parses with a non-empty array, entry 0 has a non-empty periodLabel and a finite totalKm
+✓ GET /data/stats/yearly-stats.json -> 200
+✓ /data/stats/yearly-stats.json parses with a non-empty array, entry 0 has a non-empty periodStart and a finite totalKm
+✓ GET /data/stats/year-over-year.json -> 200
+✓ /data/stats/year-over-year.json parses with exactly 12 entries and entry 0 has a non-null "years" object
+✓ GET /data/stats/best-efforts.json -> 200
+✓ /data/stats/best-efforts.json parses with schemaVersion 1, a non-empty "activities" object, and a non-empty "rankings" object
+```
+
+Runtime-derived per-activity shard sample (D-10, `verify-dashboard-publish.mjs:578-582` — first,
+middle and last id of `shardCandidates`, no pinned ids): the sample this run drew was
+`i182749188` (first — notably one of the two activities the origin/master merge just introduced,
+confirming the sample is genuinely runtime-derived and not stale), `6255623192` (middle), and
+`3475743849` (last), all three 200 + parsed + non-empty `efforts`:
+
+```
+✓ GET /data/stats/best-efforts/i182749188.json -> 200
+✓ /data/stats/best-efforts/i182749188.json parses with activityId "i182749188" and a non-empty "efforts" array
+✓ GET /data/stats/best-efforts/6255623192.json -> 200
+✓ /data/stats/best-efforts/6255623192.json parses with activityId "6255623192" and a non-empty "efforts" array
+✓ GET /data/stats/best-efforts/3475743849.json -> 200
+✓ /data/stats/best-efforts/3475743849.json parses with activityId "3475743849" and a non-empty "efforts" array
+```
 
 **R6c — CI-01's evidence, which does not exist yet.** **Verdict: pending.**
 
