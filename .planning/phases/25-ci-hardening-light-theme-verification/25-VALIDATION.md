@@ -942,6 +942,114 @@ opposite"). Recorded in `deferred-items.md`. It affects no row's verdict and no 
 
 ---
 
+## Round 2 Checkpoint (R6a, R6b, R6c, R7)
+
+*(plan 25-09 — drafted 2026-09-04. All rows below are drafted only; none has been run. Every
+Verdict cell reads `pending`. Plan 25-10 runs R7; plan 25-11 runs R6a/R6b/R6c. Checkpoint Row
+Discipline rule 3 requires this drafting to complete, and commit, strictly before either of those
+plans runs any row named here.)*
+
+### Why this round exists
+
+Round 1 (plan 25-07) returned R2 BLOCKED — no capture mechanism on the available hardware could
+produce a frame provably at or before production's own first paint — and R6 BLOCKED — CI-01's
+live-run dispatch evidence did not exist. Because R6 was drafted and run as one row covering three
+requirements, its BLOCKED verdict withheld FIX-02 and CI-02 as well as CI-01, even though FIX-02's
+and CI-02's own evidence (the green five-command gate and `56 check(s) passed, 0 failure(s).`) was
+already green at the time R6 was scored. GAP-25-01 (the capture-mechanism gap) and GAP-25-02 (the
+R6 split) are this round's entire scope; nothing else opened by Round 1 is revisited here.
+
+### Row-to-requirement map
+
+One row per requirement, per GAP-25-02's recommended split:
+
+| Requirement | Row |
+|---|---|
+| VER-01 | R7 |
+| FIX-02 | R6a |
+| CI-02 | R6b |
+| CI-01 | R6c |
+
+This is GAP-25-02's recommended shape, drafted here — before any of the four rows is run —
+precisely because Round 1 declined to apply the split mid-round. R6's own verdict text records
+why: "Redesigning a row mid-round so that it yields a tick is precisely the failure mode
+Checkpoint Row Discipline rule 3 and the Phase 24 R19/R26 precedent exist to prevent. The row was
+drafted as one row before the outcome was known, and it is scored as one row now that the outcome
+is known. A future round may legitimately draft three separate rows — before running them — and
+GAP-25-02 records that as the recommended shape." This plan is that legitimate future round: the
+split is drafted before anything runs.
+
+### What Round 1 already settled and is not re-run
+
+R1 (light-OS legibility), R3 and R4 (live-follow in both directions), and R5 (cache-trap exclusion
+/ asset identity) all PASSED in Round 1 and are not re-run here. VER-01's Round 2 tick depends on
+R7 PASSING while those four Round 1 PASSes stand — R7 does not re-derive legibility or live-follow,
+only the first-paint clause criterion 4 clause 2 asks for.
+
+**One caveat, stated honestly rather than left implicit:** R5's asset-identity evidence was taken
+against `origin/gh-pages` @ `b2b05a4054e4f12c7a1fe29448779f11f74dd973` (built from source commit
+`623046363f7c86812e3d2aaa907bbf67e7d74f02`, which was `origin/master`'s HEAD at the time R5 ran).
+Plan 25-11 will push this phase's work to `origin/master` and dispatch a workflow (for R6c) that
+redeploys the Pages site. After that redeploy, R5's specific hashed asset
+(`assets/index-D-Ts7X8C.js`) may no longer be what production serves. That is why R7 carries its
+own asset-identity clause (clause 5, below) rather than leaning on R5's now-potentially-stale
+evidence.
+
+### The governing rule (unchanged, non-waivable)
+
+A requirement ticks ONLY if every row mapped to it is PASS. Under the split, this now means one
+row per requirement rather than one row covering three — a missing or BLOCKED item withholds only
+its own requirement, not two others whose evidence is unrelated to it.
+
+### Checkpoint Row Discipline, restated as binding for this round
+
+1. **A row is drafted, complete with its reachability proof, before it is run.** This plan
+   (25-09) is the drafting; plans 25-10 (R7) and 25-11 (R6a/R6b/R6c) are the running.
+2. **Reachability is proved in BOTH directions for every row** — this phase has already been
+   bitten in both directions: D-05 caught a row that would have been vacuous (first-paint
+   observed on a light OS, where white is the correct final state), and D-04's original wording
+   caught a row that would have been unpassable (a literal `null` no working page can ever
+   produce, per `main.ts:29`'s unconditional persist-on-load).
+3. **Rows assert reachable extent against an independently-derived value, never internal
+   agreement** (Phase 23 CR-01, Phase 24 R32).
+
+**Pledge:** if a row turns out unsatisfiable while it is being run, it is HALTED and a new
+numbered gap is opened. It is NOT edited to yield a tick.
+
+### Verdict vocabulary
+
+PASS / FAIL / BLOCKED / NOT EXERCISABLE (established Phase 20, used since). **BLOCKED** means the
+evidence offered was not the evidence the row required — it is not a softer PASS.
+
+**House rule since plan 16-09:** nothing is patched during a round. A defect observed while
+running a row is recorded, not fixed.
+
+### Execution split and environmental hazards carried forward
+
+- **D-07 hybrid execution:** the developer performs every macOS Appearance change by hand;
+  `osascript` is rejected for any recorded row in this round, same as Round 1.
+- **D-08 target:** `https://bacilo.github.io/strava-widgets/`, hard-reload after every change
+  (T-25-21's stale-cache history).
+- **R7's cleared-storage mechanism:** the harness's throwaway `--user-data-dir`
+  (`scripts/first-paint-capture.mjs`) — an empty profile and an empty HTTP cache by construction,
+  which is stronger than a hard reload of an existing profile. This must be NAMED in R7's own
+  evidence when it is run, not assumed here.
+- **Frontmost-window requirement:** Round 1's R3/R4 caveat showed a backgrounded Chrome tab lags
+  DOM updates behind `matchMedia` reads by whole seconds. Any row in this round that depends on
+  live browser state must keep the relevant window frontmost during capture/observation.
+
+### Disclosure obligations carried into this round
+
+D-04's amendment disclosure and D-05's dark-OS deviation disclosure both already exist in the
+Round 1 section (§ "D-04 amendment disclosure" and R2's drafted row text) and are cross-referenced
+here by name, not restated. R7 (drafted in plan 25-09's next task) additionally carries its own
+slowed-load disclosure, of the same weight as D-04/D-05, because plan 25-08 selected the throttled
+mechanism (Candidate C) — per the § "GAP-25-01 capture-mechanism reachability proof" Part C
+disclosure this row cites directly. The absence of a required disclosure is a defect in the round
+independent of any row's verdict.
+
+---
+
 ## Validation Sign-Off
 
 - [x] All tasks have `<automated>` verify or a Wave 0 dependency — confirmed by plan 25-06 Task 1's Per-Task Verification Map pass
