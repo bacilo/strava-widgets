@@ -88,83 +88,13 @@ jobs:
       - name: Compile TypeScript
         run: npm run build
 
-      - name: Process statistics
-        run: node dist/index.js compute-stats && node dist/index.js compute-advanced-stats
-
-      - name: Compute geographic statistics
-        id: geocode
-        continue-on-error: true
-        run: node dist/index.js compute-geo-stats
-
-      - name: Warn on geocoding failure
-        if: steps.geocode.outcome == 'failure'
-        run: echo "::warning::Geocoding failed, widgets will use cached geo data"
-
-      # compute-best-efforts output lands in gitignored data/stats/ (recomputed
-      # every run), so it is deliberately absent from the commit step's
-      # file_pattern below.
-      - name: Compute best efforts
-        id: best-efforts
-        continue-on-error: true
-        run: node dist/index.js compute-best-efforts
-
-      - name: Warn on best-effort failure
-        if: steps.best-efforts.outcome == 'failure'
-        run: echo "::warning::Best-effort computation failed, records data will be stale"
-
-      # data/dashboard/ is gitignored (regenerated every run), like data/stats/ —
-      # deliberately absent from the commit step's file_pattern below.
-      - name: Compute dashboard index
-        id: dashboard-index
-        continue-on-error: true
-        run: node dist/index.js compute-dashboard-index
-
-      - name: Warn on dashboard-index failure
-        if: steps.dashboard-index.outcome == 'failure'
-        run: echo "::warning::Dashboard index computation failed, the dashboard will serve a stale index"
-
-      # compute-age-grading output lands in gitignored data/stats/ (recomputed
-      # every run), so it is deliberately absent from the commit step's
-      # file_pattern below, same as compute-best-efforts.
-      #
-      # This step reports `enabled: false` in CI, because
-      # data/private/athlete-private.json does not and must not exist here
-      # (it holds birthDate/sex, gitignored on purpose). That is the expected
-      # and correct CI state, not a failure — do not "fix" it by committing
-      # the private file. The step still exits 0: plan 18-08's contract
-      # guarantees the disabled path returns successfully.
-      - name: Compute age grading
-        id: age-grading
-        continue-on-error: true
-        run: node dist/index.js compute-age-grading
-
-      - name: Warn on age-grading failure
-        if: steps.age-grading.outcome == 'failure'
-        run: echo "::warning::Age-grading computation failed, age-grade data will be stale"
-
-      # compute-gear-aggregate output lands in gitignored data/stats/
-      # (recomputed every run), so it is deliberately absent from the commit
-      # step's file_pattern below, same as compute-best-efforts.
-      - name: Compute gear aggregate
-        id: gear-aggregate
-        continue-on-error: true
-        run: node dist/index.js compute-gear-aggregate
-
-      - name: Warn on gear-aggregate failure
-        if: steps.gear-aggregate.outcome == 'failure'
-        run: echo "::warning::Gear aggregate computation failed, gear data will be stale"
-
-      # compute-training-load output lands in gitignored data/stats/
-      # (recomputed every run), so it is deliberately absent from the commit
-      # step's file_pattern below, same as compute-best-efforts.
-      - name: Compute training load
-        id: training-load
-        continue-on-error: true
-        run: node dist/index.js compute-training-load
-
-      - name: Warn on training-load failure
-        if: steps.training-load.outcome == 'failure'
-        run: echo "::warning::Training load computation failed, training load data will be stale"
+      # The chain's order and each step's mandatory/tolerated disposition are
+      # declared exactly once, in src/compute-all-stats-steps.ts (CI-01, D-01)
+      # — no ordering of the chain is re-expressed here. --ci selects
+      # warn-and-continue for the six tolerated steps; compute-stats and
+      # compute-advanced-stats stay fail-fast regardless (D-02).
+      - name: Compute all statistics
+        run: node dist/index.js compute-all-stats --ci
 
       - name: Build widgets
         run: npm run build-widgets

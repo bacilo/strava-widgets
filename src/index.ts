@@ -7,6 +7,7 @@ import { ActivitySync } from './sync/activity-sync.js';
 import { config } from './config/strava.config.js';
 import { computeAllStats } from './analytics/compute-stats.js';
 import { computeAdvancedStats } from './analytics/compute-advanced-stats.js';
+import { COMPUTE_ALL_STATS_STEPS, runComputeAllStatsSteps } from './compute-all-stats-steps.js';
 import * as fs from 'fs/promises';
 
 const command = process.argv[2];
@@ -290,98 +291,41 @@ async function computeAllStatsCommand() {
   try {
     console.log('Computing all statistics from synced activities...\n');
 
-    // Run basic stats
-    await computeAllStats({
-      activitiesDir: config.activitiesDir,
-      statsDir: 'data/stats',
-    });
+    // --ci selects warn-and-continue for tolerated steps (D-02); without it
+    // the walk is fail-fast by default, matching a hand-run's expectations.
+    const continueOnError = process.argv.includes('--ci');
 
-    console.log(''); // Blank line separator
+    // The chain's order and each step's mandatory/tolerated disposition are
+    // declared exactly once, in src/compute-all-stats-steps.ts (D-01) — wrap
+    // each step's run only to announce its name before it executes, so the
+    // single collapsed Actions step's output still carries the per-step
+    // boundary the eight green/red boxes used to provide.
+    const announcedSteps = COMPUTE_ALL_STATS_STEPS.map((step) => ({
+      ...step,
+      run: async () => {
+        console.log(`> ${step.name}`);
+        await step.run();
+        console.log(''); // Blank line separator
+      },
+    }));
 
-    // Run advanced stats
-    await computeAdvancedStats({
-      activitiesDir: config.activitiesDir,
-      statsDir: 'data/stats',
-    });
-
-    console.log(''); // Blank line separator
-
-    // Run geo stats
-    const { computeGeoStats } = await import('./geo/compute-geo-stats.js');
-    await computeGeoStats({
-      activitiesDir: config.activitiesDir,
-      geoDir: 'data/geo',
-    });
-
-    console.log(''); // Blank line separator
-
-    // Run best-effort computation (depends on committed streams, not on the
-    // other stats outputs)
-    const { computeBestEfforts } = await import('./analytics/compute-best-efforts.js');
-    await computeBestEfforts({
-      activitiesDir: config.activitiesDir,
-      streamsDir: config.streamsDir,
-      streamsManifestPath: config.streamsManifestPath,
-      statsDir: 'data/stats',
-    });
-
-    console.log(''); // Blank line separator
-
-    // Chain ordering below is load-bearing — each step consumes a previous
-    // step's output, except compute-training-load which is independent of
-    // the others and runs last for the same reason compute-best-efforts used
-    // to run last (nothing downstream of it in this chain depends on it):
-    //   1-4. basic / advanced / geo / best-efforts (above, unchanged)
-    //   5. compute-age-grading   — reads best-efforts.json (step 4)
-    //   6. compute-dashboard-index — reads best-efforts.json + gear.json;
-    //      newly added to this chain (previously only a standalone CI step)
-    //      because it is the prerequisite for step 7
-    //   7. compute-gear-aggregate — reads data/dashboard/index.json (step 6)
-    //   8. compute-training-load  — reads the stream manifest; independent
-
-    // Run age-grading (depends on best-efforts.json from step 4)
-    const { computeAgeGrading } = await import('./analytics/compute-age-grading.js');
-    await computeAgeGrading({
-      statsDir: 'data/stats',
-      wmaDir: 'data/wma',
-    });
-
-    console.log(''); // Blank line separator
-
-    // Run dashboard index (depends on best-efforts.json + data/config/gear.json;
-    // prerequisite for compute-gear-aggregate)
-    const { computeDashboardIndex } = await import('./analytics/compute-dashboard-index.js');
-    await computeDashboardIndex({
-      activitiesDir: config.activitiesDir,
-      streamsManifestPath: config.streamsManifestPath,
-      statsDir: 'data/stats',
-      geoDir: 'data/geo',
-      outDir: 'data/dashboard',
-    });
-
-    console.log(''); // Blank line separator
-
-    // Run gear aggregate (depends on data/dashboard/index.json from the step above)
-    const { computeGearAggregate } = await import('./analytics/compute-gear-aggregate.js');
-    await computeGearAggregate({
-      indexPath: 'data/dashboard/index.json',
-      outDir: 'data/stats',
-    });
-
-    console.log(''); // Blank line separator
-
-    // Run training load (independent of the others; reads the stream
-    // manifest directly, so it runs last, matching how compute-best-efforts
-    // was placed last for the same reason)
-    const { computeTrainingLoad } = await import('./analytics/compute-training-load.js');
-    await computeTrainingLoad({
-      activitiesDir: config.activitiesDir,
-      streamsDir: config.streamsDir,
-      streamsManifestPath: config.streamsManifestPath,
-      statsDir: 'data/stats',
-    });
+    const degraded = await runComputeAllStatsSteps(announcedSteps, { continueOnError });
 
     console.log('\nAll statistics generated successfully!');
+
+    if (degraded.length > 0) {
+      // D-03: an end-of-run failure summary names every degraded step, so a
+      // nightly that quietly degraded three steps is visible at a glance
+      // rather than buried mid-log. Printed AFTER the success line above,
+      // not interleaved with per-step output.
+      console.log(`\n${'='.repeat(70)}`);
+      console.log(`DEGRADED STEPS (${degraded.length}) — tolerated failures during this run:`);
+      for (const step of degraded) {
+        console.log(`  - ${step.name}: ${step.message}`);
+      }
+      console.log('='.repeat(70));
+    }
+
     process.exit(0);
   } catch (error: any) {
     console.error('Compute all stats error:', error.message);
@@ -600,7 +544,7 @@ function printHelp() {
   console.log('  compute-training-load  - Compute CTL/ATL/TSB training load from committed streams');
   console.log('  compute-age-grading    - Compute age-grade percentages from best efforts and WMA tables');
   console.log('  compute-gear-aggregate - Compute the per-shoe gear aggregate from the dashboard index');
-  console.log('  compute-all-stats      - Compute all statistics (basic, advanced, geo, best efforts, age-grading, dashboard index, gear aggregate, training load)');
+  console.log('  compute-all-stats [--ci] - Compute all statistics (basic, advanced, geo, best efforts, age-grading, dashboard index, gear aggregate, training load). --ci: warn and continue on tolerated steps, print a failure summary; default is fail-fast.');
   console.log('  sync-intervals         - Sync new activities from intervals.icu (Garmin bridge)');
   console.log('  consolidate-exports    - Reconcile bulk exports under export_data/ into the archive');
   console.log('  backfill-streams       - Derive committed per-activity streams from export_data/ originals, local only');
@@ -619,6 +563,7 @@ function printHelp() {
   console.log('  npm run compute-age-grading     # Generate age-grade percentages');
   console.log('  npm run compute-gear-aggregate  # Generate the per-shoe gear aggregate');
   console.log('  npm run compute-all-stats      # Generate all stats');
+  console.log('  node dist/index.js compute-all-stats --ci   # CI mode: tolerate optional steps');
 }
 
 async function main() {
