@@ -1167,6 +1167,138 @@ pressure: the ordering argument — inline `<head>` script complete by `domInter
 that closes GAP-25-01 by restating the same inference has not closed it." It may be restated as
 context in R7's write-up; it may not decide the verdict.
 
+**R6a — FIX-02's evidence, on the tree that is actually pushed.** **Verdict: pending.**
+
+DISCRIMINATOR: all five gate commands exit 0 on the exact commit plan 25-11 pushes to
+`origin/master` — `npm test`, `npx tsc --noEmit`, `npm run build`, `npm run build-widgets`,
+`npm run verify-dashboard` — AND all eight FIX-02 regression cases are present and passing in
+`src/analytics/gear-aggregate-logic.test.ts`, enumerated by name.
+
+INDEPENDENTLY-DERIVED EXTENT (rule 2): the eight cases are D-12's four shapes — absent `gearName`
+key, `undefined`, empty string, non-string — times two functions, `buildGearAggregate` and
+`buildGearCoverage`:
+
+| # | Function | Case name |
+|---|---|---|
+| 1 | `buildGearAggregate` | `absent gearName key lands in the Unknown bucket instead of crashing slugify (FIX-02, D-12)` |
+| 2 | `buildGearAggregate` | `gearName: undefined lands in the Unknown bucket instead of crashing slugify (FIX-02, D-12)` |
+| 3 | `buildGearAggregate` | `gearName: empty string lands in the Unknown bucket rather than the shoe fallback key (FIX-02, D-12)` |
+| 4 | `buildGearAggregate` | `non-string gearName lands in the Unknown bucket instead of crashing slugify (FIX-02, D-12)` |
+| 5 | `buildGearCoverage` | `absent gearName key is not counted in runsWithGear (FIX-02, D-12)` |
+| 6 | `buildGearCoverage` | `gearName: undefined is not counted in runsWithGear (FIX-02, D-12)` |
+| 7 | `buildGearCoverage` | `gearName: empty string is not counted in runsWithGear (FIX-02, D-12)` |
+| 8 | `buildGearCoverage` | `non-string gearName is not counted in runsWithGear (FIX-02, D-12)` |
+
+The row asserts these eight named cases individually present and passing, not "the suite is
+green." It also reconciles the `npm test` tally against 62 files / 1596 tests (the Wave 1
+Integration Gate baseline above); if merging `origin/master` changes the tally, every unit of
+delta must be attributed by name, with no unexplained residue, in the same form the Wave 1
+Integration Gate table used.
+
+D-13's half: `npx tsc --noEmit` exits 0 with `gearName` optional on the row type
+(`DashboardIndexRow`).
+
+CAN FAIL: this file's own § "D-11 RED Observation Log" quotes, verbatim, the eight failures
+observed against the unwidened predicate — three `TypeError: Cannot read properties of undefined
+(reading 'toLowerCase')` at `gear-aggregate-logic.ts:43:6` plus one `label.toLowerCase is not a
+function` (the non-string case), and four `expected 1 to be +0` `buildGearCoverage` assertions.
+The row also fails if any of the five commands exits non-zero, or if the tally carries an
+unexplained delta.
+
+CAN PASS: the identical five-command gate already ran green on the wave-1/2 merged tree (this
+file's § "Wave 1 Integration Gate", three consecutive identical `npm test` tallies of 62 files /
+1596 tests). Nothing about merging `origin/master`'s nightly data auto-commits (which touch only
+`data/activities`, `data/sync-state.json`, `data/geo/*`, `data/streams/*` — none of which
+`gear-aggregate-logic.test.ts` reads) is expected to change it.
+
+NOTE the row must state when it is run: this is a FRESH run on the pushed commit, not a citation
+of the wave-1 numbers, because the tree changes when `origin/master` is merged in.
+
+**R6b — CI-02's evidence, on the same tree.** **Verdict: pending.**
+
+DISCRIMINATOR: `npm run verify-dashboard` exits 0, its final line reads `56 check(s) passed, 0
+failure(s).` (or a higher passed count with `0 failure(s).`, if the shard sample count differs on
+the day), AND each of the six by-name documents below appears among the passing checks.
+
+INDEPENDENTLY-DERIVED EXTENT (rule 2): the six names come from D-09's list, plus D-10's
+runtime-sampled shard:
+
+1. `weekly-distance.json`
+2. `monthly-stats.json`
+3. `yearly-stats.json`
+4. `year-over-year.json`
+5. `best-efforts.json`
+6. one runtime-derived per-activity best-effort shard (D-10; no pinned ids, sampled per
+   `verify-dashboard-publish.mjs:430-455`)
+
+— and from the 40/40 total at the end of Phase 24 versus 56 now, i.e. 16 net-new checks. The row
+asserts the six names are individually present among the passing checks; a bare total is not
+sufficient, because a total can rise for reasons unrelated to these six documents.
+
+CAN FAIL: this file's own § "D-11 RED Observation Log" quotes, verbatim, the six break/restore
+cycles, each naming its own document — for example `✗ /data/stats/weekly-distance.json expected a
+non-empty array, got an array of length 0` and `✗ GET /data/stats/best-efforts/i182358139.json
+expected 200, got 404`. Each of the six assertions has been observed RED naming its own document,
+satisfying D-11's "a guard only counts once observed RED" rule.
+
+CAN PASS: the same command already returned `56 check(s) passed, 0 failure(s).` on the merged
+tree (§ "Wave 1 Integration Gate").
+
+**R6c — CI-01's evidence, which does not exist yet.** **Verdict: pending.**
+
+DISCRIMINATOR, all four clauses required together (GAP-25-02's numbered contract):
+
+1. `origin/master` confirmed to carry the collapsed step, verified by reading the PUSHED copy:
+   `git show origin/master:.github/workflows/daily-refresh.yml | grep -c "compute-all-stats
+   --ci"` returns `1`. At planning time (2026-09-04, re-confirmed at this plan's execution time
+   against `origin/master` @ `b155fe82bb0e75be599c09dbb783cdea0fb43b71`) it returned `0`, while
+   local `master`'s copy (`.github/workflows/daily-refresh.yml:96-97`) returns `1`.
+2. A dispatched run id and its conclusion, quoted from `gh run view`. The conclusion must be
+   `success`.
+3. The collapsed "Compute all statistics" step's own log excerpt from that run, carrying a
+   "> NAME" line (`src/index.ts:306`) for each of the eight steps in `COMPUTE_ALL_STATS_STEPS`
+   order — read from `src/compute-all-stats-steps.ts:68-166`, NOT read off the log, per rule 2:
+   `compute-stats`, `compute-advanced-stats`, `compute-geo-stats`, `compute-best-efforts`,
+   `compute-age-grading`, `compute-dashboard-index`, `compute-gear-aggregate`,
+   `compute-training-load` — from ONE invocation where the workflow previously had eight
+   hand-maintained steps, plus the "All statistics generated successfully!" line
+   (`src/index.ts:314`). State explicitly that the conditional "DEGRADED STEPS (N)" summary
+   (`src/index.ts:322`, printed only when `degraded.length > 0`) is NOT part of the pass
+   condition — it prints only when a tolerated step failed (D-03) — but that if it does appear,
+   it must name every degraded step and the row records that fact rather than treating its
+   presence as a failure.
+4. The dispatch performed from a normal single-context execution with the developer's explicit
+   authorisation, NOT from a parallel worktree and NOT opportunistically during a checkpoint.
+   Evidence: the authorisation exchange quoted verbatim, and `git rev-parse --show-toplevel`
+   shown to be the main checkout (`/Users/pedf/workspace/strava-widgets`, confirmed at this
+   plan's execution time to be a real directory, not a path under `.claude/worktrees/`).
+
+CAN FAIL, and concretely so today: `git show origin/master:.github/workflows/daily-refresh.yml |
+grep -c "compute-all-stats --ci"` returns `0` right now (re-confirmed at this plan's own
+execution time, `origin/master` @ `b155fe82bb0e75be599c09dbb783cdea0fb43b71`), so a dispatch
+performed right now would run the OLD eight-hand-maintained-step workflow and its log would show
+no single collapsed invocation carrying all eight names. Clause 1 would fail and clause 3 would
+fail with it. The row also fails if the run's conclusion is not `success`, or if any one of the
+eight names is missing from the collapsed step's log. This is a currently-true failing state, not
+a hypothetical one — which is what makes the row non-vacuous (T-25-28 mitigated).
+
+CAN PASS: local `master`'s `daily-refresh.yml:96-97` already carries the collapsed step
+(`node dist/index.js compute-all-stats --ci`), `src/compute-all-stats-steps.ts` is unit-tested by
+10 cases in `src/compute-all-stats-steps.test.ts` (part of the Wave 0/1 Per-Task Verification Map
+above), `gh` `2.86.0` is installed and authenticated (`gh auth status` confirms `Logged in to
+github.com account bacilo`, `Token: gho_...`) with sufficient scopes, and `workflow_dispatch` is
+already configured on the workflow (`daily-refresh.yml:37-43`, confirmed present). Once the push
+lands, the dispatch is expected to produce exactly this log.
+
+THE ROW MUST ALSO STATE, up front, that gathering its evidence has production side effects, so the
+running plan gates on an authorisation checkpoint: the push itself matches the workflow's own push
+trigger `paths` (`src/**`, `scripts/**`, `.github/workflows/**` among others,
+`daily-refresh.yml:15-29`), so pushing alone starts a production run; and `daily-refresh.yml`'s
+`Commit updated data and stats` and `Deploy widgets to GitHub Pages` steps carry no `github.ref`
+branch guard (confirmed: `grep -n "if:\|github.ref" .github/workflows/daily-refresh.yml` returns
+only the two `Warn on *` conditionals), so any run — dispatched or push-triggered — deploys to the
+live Pages site and commits data back to `origin`.
+
 ---
 
 ## Validation Sign-Off
