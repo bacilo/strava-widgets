@@ -27,22 +27,33 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 
 ## Current Position
 
-Phase: 25
-Plan: Not started
-      one row per requirement. All four rows PASSED — R7 (VER-01), R6a (FIX-02), R6b (CI-02), R6c
+Phase: 25 (ci-hardening-light-theme-verification) — COMPLETE
+Plan: 12 of 12 executed. Round 2 disposition set under the all-rows-PASS rule, applied one row
+      per requirement. All four rows PASSED — R7 (VER-01), R6a (FIX-02), R6b (CI-02), R6c
       (CI-01) — with Round 1's R1/R3/R4/R5 standing unedited for VER-01. GAP-25-01 and GAP-25-02
       both CLOSED. FIX-02, VER-01, CI-01 and CI-02 all ticked [x] in REQUIREMENTS.md with dated
       Round 2 paragraphs naming their deciding row. 25-VALIDATION.md frontmatter set to
-      `status: passed` / `nyquist_compliant: true`. `/gsd-verify-work` has NEVER run for Phase 25 —
-      no `25-VERIFICATION.md` exists — so 25-VALIDATION.md is the authoritative record; the
-      recommended next step is `/gsd-verify-work 25` before the v2.1 milestone is considered
-      closed. Per this plan's own orchestrator-level instructions, the phase-gate itself (the
-      ROADMAP.md milestone-checklist tick and STATE.md's `completed_phases` counter) is
-      DELIBERATELY left unset — that marking and running phase verification are reserved for the
-      orchestrator, not this plan. `completed_plans` was hand-verified to 103 (all 103 v2.1
-      milestone plans now executed); `completed_phases` stays at 6 pending that orchestrator step.
-Status: Milestone complete
-      yet run)
+      `status: passed` / `nyquist_compliant: true`. `/gsd-verify-work 25` has since run —
+      `25-VERIFICATION.md` exists (verified 2026-09-04T20:40:00Z, `status: passed`, 4/4
+      must-haves) — and the orchestrator phase-gate then closed: ROADMAP.md milestone-checklist
+      ticked and `completed_phases` advanced 6 → 7. `completed_plans` was hand-verified to 103
+      (all 103 v2.1 milestone plans executed).
+Status: Milestone complete — v2.1 (Interface Polish) closed; Phase 25 was the final phase.
+      Phase 25 security audit completed 2026-09-04 (`/gsd-secure-phase 25`): 45 plan-time
+      threats registered, 45 closed, 0 open. See `25-SECURITY.md`.
+
+      **Repair disclosure (2026-09-04, `/gsd-secure-phase 25`, threat T-25-43).** This
+      `## Current Position` block was corrupted by commit `00d65e0f` ("docs(phase-25): complete
+      phase execution"), which replaced only the FIRST line of `Plan:` and of `Status:` and left
+      both continuation blocks orphaned — `Plan: Not started` sat above a paragraph describing
+      twelve executed plans, and `Status: Milestone complete` was followed by the dangling
+      fragment `yet run)`. That is exactly the `phase.complete` / `state.planned-phase`
+      truncation hazard threat T-25-43 names, and plan 25-12's required by-hand repair never
+      happened because the corruption landed ~20 minutes AFTER 25-12 finished. The block above
+      was rewritten by hand to restore a coherent `Plan:`/`Status:` pair and to correct two
+      claims the corrupted text had frozen as stale: that `/gsd-verify-work` had never run for
+      Phase 25 (it has), and that `completed_phases` was still 6 pending the orchestrator step
+      (the frontmatter reads 7). No frontmatter counter was modified by this repair.
 
         **Phase 25 Round 1 outcome (2026-09-04, plan 25-07).** All seven plans executed and the
         closing VER-01 human checkpoint ran in full against the live production URL, with the
