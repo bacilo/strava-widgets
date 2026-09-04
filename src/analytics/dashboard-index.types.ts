@@ -68,9 +68,38 @@ export interface DashboardIndexRow {
   excludedFromRecords: boolean;
   /** Count of that activity's efforts with `wasPRAtTheTime === true`; 0 when unknown. */
   prCount: number;
-  /** Resolved human gear label from data/config/gear.json, or the deterministic "Shoe N" ordinal, or null when the activity has no gear. NEVER the raw gear id (17-D32/D33, D-17). Optional because rows are re-parsed from data/dashboard/index.json at runtime, where the producer's (compute-dashboard-index.ts) required-key guarantee does not survive serialization + re-parse; making the key optional lets the compiler enumerate every consumer that assumed it was always present (D-13). */
-  gearName?: string | null;
+  /**
+   * Resolved human gear label from data/config/gear.json, or the
+   * deterministic "Shoe N" ordinal, or null when the activity has no gear.
+   * NEVER the raw gear id (17-D32/D33, D-17).
+   *
+   * REQUIRED, deliberately (WR-06). This interface is the type the *writer*
+   * (compute-dashboard-index.ts) builds against as well as the type the
+   * runtime re-parse used to be asserted as. Making the key optional to model
+   * "re-parsed JSON may lack it" also meant compute-dashboard-index could
+   * silently stop emitting the field with no compile error — discarding the
+   * exact guarantee (D-17: gearName always present in the published index)
+   * that verify-dashboard-publish.mjs exists to protect. Use
+   * `ParsedDashboardIndexRow` below for the re-parse side instead.
+   */
+  gearName: string | null;
 }
+
+/**
+ * A row as it comes back from `JSON.parse`-ing data/dashboard/index.json at
+ * runtime (D-12/D-13, WR-06).
+ *
+ * Serialization plus re-parse does not carry the producer's required-key
+ * guarantee, so no key can be assumed present here — which is what lets the
+ * compiler enumerate every consumer that assumed otherwise. `id` stays
+ * required because it is the map/route key every consumer indexes by and a
+ * row without one is not addressable at all.
+ *
+ * Splitting the two roles is what keeps the D-12 hardening self-documenting:
+ * the producer type states the contract, this one states what a reader may
+ * actually rely on.
+ */
+export type ParsedDashboardIndexRow = Partial<DashboardIndexRow> & { id: string };
 
 /** Aggregate counts written alongside the row array, mirroring `best-effort.types.ts`'s `totals` convention. */
 export interface DashboardIndexTotals {
@@ -93,4 +122,13 @@ export interface DashboardIndexDocument {
   totals: DashboardIndexTotals;
   /** Ordered newest-first by `startDateLocal`. */
   activities: DashboardIndexRow[];
+}
+
+/**
+ * The same document as read back from disk (WR-06). Only the row type
+ * differs: every reader of index.json is re-parsing untyped JSON, so its rows
+ * are `ParsedDashboardIndexRow`.
+ */
+export interface ParsedDashboardIndexDocument extends Omit<DashboardIndexDocument, 'activities'> {
+  activities: ParsedDashboardIndexRow[];
 }

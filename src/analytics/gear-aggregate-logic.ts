@@ -3,10 +3,12 @@
  *
  * No I/O — the compute step (`compute-gear-aggregate.ts`) owns reading the
  * index and writing the document; this module only transforms
- * `DashboardIndexRow[]` into the two published shapes.
+ * `ParsedDashboardIndexRow[]` into the two published shapes. The rows come
+ * from JSON.parse-ing data/dashboard/index.json at runtime, so the parsed
+ * variant is the honest input type here (WR-06).
  */
 
-import type { DashboardIndexRow } from './dashboard-index.types.js';
+import type { ParsedDashboardIndexRow } from './dashboard-index.types.js';
 import type { GearAggregateDocument, GearShoeAggregate, GearYearCoverage } from './gear-aggregate.types.js';
 import { UNKNOWN_GEAR_LABEL } from './gear-naming.js';
 
@@ -18,7 +20,7 @@ import { UNKNOWN_GEAR_LABEL } from './gear-naming.js';
  * archive shapes (Strava-era Z-suffixed, intervals.icu-era no-Z) yield
  * wall-clock-correct days regardless of the build machine's timezone.
  */
-function localDayKey(startDateLocal: string): string | null {
+function localDayKey(startDateLocal: string | undefined): string | null {
   if (typeof startDateLocal !== 'string') return null;
   const normalized = startDateLocal.endsWith('Z') ? startDateLocal : `${startDateLocal}Z`;
   const d = new Date(normalized);
@@ -31,7 +33,7 @@ function localDayKey(startDateLocal: string): string | null {
 }
 
 /** Returns the local calendar year for a `startDateLocal` value, or null when unparseable. */
-function localYear(startDateLocal: string): number | null {
+function localYear(startDateLocal: string | undefined): number | null {
   const dayKey = localDayKey(startDateLocal);
   if (dayKey === null) return null;
   return Number(dayKey.slice(0, 4));
@@ -103,7 +105,7 @@ function newBucket(label: string, isUnknown: boolean): MutableBucket {
  * trends table rather than failing loudly. Coercing to 0 keeps the run
  * counted and the bucket well-formed.
  */
-function applyRow(bucket: MutableBucket, row: DashboardIndexRow): void {
+function applyRow(bucket: MutableBucket, row: ParsedDashboardIndexRow): void {
   const distanceM = typeof row.distanceM === 'number' && Number.isFinite(row.distanceM) ? row.distanceM : 0;
   const movingTimeSec =
     typeof row.movingTimeSec === 'number' && Number.isFinite(row.movingTimeSec) ? row.movingTimeSec : 0;
@@ -160,7 +162,7 @@ function finalizeBucket(bucket: MutableBucket): GearShoeAggregate {
  * Unknown bucket always last regardless of its size, so it reads as a
  * residual rather than competing as a shoe.
  */
-export function buildGearAggregate(rows: readonly DashboardIndexRow[]): GearShoeAggregate[] {
+export function buildGearAggregate(rows: readonly ParsedDashboardIndexRow[]): GearShoeAggregate[] {
   // Named labels only. The Unknown bucket is held in its own variable rather
   // than under a sentinel key in this map. The previous sentinel was
   // '\u0000unknown' written with a LITERAL NUL byte in the source, which made
@@ -243,7 +245,7 @@ export function buildGearAggregate(rows: readonly DashboardIndexRow[]): GearShoe
  * 2026 pipeline-gap erosion visible.
  */
 export function buildGearCoverage(
-  rows: readonly DashboardIndexRow[]
+  rows: readonly ParsedDashboardIndexRow[]
 ): { totals: GearAggregateDocument['totals']; byYear: GearYearCoverage[] } {
   let runsWithGear = 0;
   const distinctLabels = new Set<string>();

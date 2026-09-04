@@ -9,7 +9,7 @@
 
 import * as path from 'path';
 
-import type { DashboardIndexDocument } from './dashboard-index.types.js';
+import type { ParsedDashboardIndexDocument } from './dashboard-index.types.js';
 import type { GearAggregateDocument } from './gear-aggregate.types.js';
 import { GEAR_AGGREGATE_SCHEMA_VERSION } from './gear-aggregate.types.js';
 import { buildGearAggregate, buildGearCoverage } from './gear-aggregate-logic.js';
@@ -39,9 +39,13 @@ export async function computeGearAggregate(
 
   console.log(`Computing gear aggregate from index: ${indexPath}`);
 
-  let index: DashboardIndexDocument;
+  // Parsed variant, not DashboardIndexDocument (WR-06): readJson is an
+  // unchecked assertion over JSON.parse output, so the producer's required-key
+  // guarantee does not hold here and the two grouping functions below are
+  // written to tolerate that.
+  let index: ParsedDashboardIndexDocument;
   try {
-    index = await fileStore.readJson<DashboardIndexDocument>(indexPath);
+    index = await fileStore.readJson<ParsedDashboardIndexDocument>(indexPath);
   } catch (error) {
     throw new Error(
       `Could not read dashboard index at ${indexPath} (${(error as Error).message}); ` +

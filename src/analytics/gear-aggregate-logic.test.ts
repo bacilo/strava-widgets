@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { DashboardIndexRow } from './dashboard-index.types.js';
+import type { DashboardIndexRow, ParsedDashboardIndexRow } from './dashboard-index.types.js';
 import { buildGearAggregate, buildGearCoverage } from './gear-aggregate-logic.js';
 import { UNKNOWN_GEAR_LABEL } from './gear-naming.js';
 
@@ -30,15 +30,23 @@ function makeRow(overrides: Partial<DashboardIndexRow> & { id: string }): Dashbo
 
 /**
  * Builds a row with the `gearName` key entirely absent — the shape a row
- * parsed from `data/dashboard/index.json` can produce once `gearName` is
- * optional on `DashboardIndexRow` (D-13). `makeRow`'s spread contract can
- * only ever *set* `gearName` to a valid value or `undefined`, never omit
- * the key, so this helper destructure-omits it after construction.
+ * parsed from `data/dashboard/index.json` can produce, since serialization
+ * plus re-parse does not carry the producer's required-key guarantee
+ * (D-13, WR-06). `makeRow`'s spread contract can only ever *set* `gearName`
+ * to a valid value or `undefined`, never omit the key, so this helper
+ * destructure-omits it after construction.
+ *
+ * Returns the PARSED row type: `DashboardIndexRow` requires `gearName`
+ * (that is the producer's contract, which verify-dashboard-publish.mjs
+ * enforces over HTTP), so a row missing it is by definition a parsed row and
+ * no longer needs a cast to pretend otherwise.
  */
-function makeRowWithoutGearName(overrides: Omit<Partial<DashboardIndexRow>, 'gearName'> & { id: string }): DashboardIndexRow {
+function makeRowWithoutGearName(
+  overrides: Omit<Partial<DashboardIndexRow>, 'gearName'> & { id: string }
+): ParsedDashboardIndexRow {
   const row = makeRow(overrides);
   const { gearName: _omitted, ...rowWithoutGearName } = row;
-  return rowWithoutGearName as DashboardIndexRow;
+  return rowWithoutGearName;
 }
 
 describe('buildGearAggregate', () => {
