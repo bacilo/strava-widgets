@@ -514,7 +514,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 25-06-PLAN.md — Wave-2 integration gate: the five-command gate on the merged tree, plus a real `gh workflow run` nightly execution proving the collapsed step's log carries all eight step names (criterion 5, items 1-3)
+- [x] 25-06-PLAN.md — Wave-2 integration gate: the five-command gate on the merged tree, plus a real `gh workflow run` nightly execution proving the collapsed step's log carries all eight step names (criterion 5, items 1-3)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -553,7 +553,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 22. Calendar Week-Start & Totals | v2.1 | 16/16 | Complete   | 2026-08-19 |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 13/13 | Complete    | 2026-08-27 |
 | 24. Local Curation Mode | v2.1 | 17/17 | Complete    | 2026-09-02 |
-| 25. CI Hardening & Light-Theme Verification | v2.1 | 5/7 | In Progress|  |
+| 25. CI Hardening & Light-Theme Verification | v2.1 | 6/7 | In Progress|  |
 
 ---
 *Last updated: 2026-08-12 — v2.1 Interface Polish roadmap created (phases 19-25, 25 requirements mapped). v1.0-v2.0 preserved above; v2.0 archived to `milestones/v2.0-ROADMAP.md`.*
