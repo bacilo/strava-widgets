@@ -118,3 +118,11 @@ None from this plan directly. The blocked Task 2 will require a `gh workflow run
 ---
 *Phase: 25-ci-hardening-light-theme-verification*
 *Completed: 2026-09-04*
+
+## Self-Check: PASSED
+
+- FOUND: .planning/phases/25-ci-hardening-light-theme-verification/25-06-SUMMARY.md
+- FOUND: .planning/phases/25-ci-hardening-light-theme-verification/25-VALIDATION.md
+- FOUND commit: cf9beed5 (Task 1)
+- FOUND commit: 2e23720b (Task 2 — blocked/documented, not a code change)
+- FOUND commit: 56b54d9b (SUMMARY.md)
