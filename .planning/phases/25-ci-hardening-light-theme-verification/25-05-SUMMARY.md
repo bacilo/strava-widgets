@@ -212,3 +212,12 @@ None - no external service configuration required.
 ---
 *Phase: 25-ci-hardening-light-theme-verification*
 *Completed: 2026-09-04*
+
+## Self-Check: PASSED
+
+- FOUND: src/dashboard/theme-bootstrap-parity.test.ts
+- FOUND: .planning/phases/25-ci-hardening-light-theme-verification/deferred-items.md
+- FOUND: .planning/phases/25-ci-hardening-light-theme-verification/25-05-SUMMARY.md
+- FOUND: commit 7480363 (Task 1)
+- FOUND: commit 5578cf4 (Task 2)
+- FOUND: commit eaccef27 (SUMMARY.md commit)
