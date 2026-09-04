@@ -383,7 +383,14 @@ This phase's checkpoint rows have a documented failure history in this repo. Thr
 
 ## Round 1 Checkpoint (R1-R6)
 
-*(plan 25-07, Task 1, drafted 2026-09-04 — not yet run; every Verdict cell below reads `pending`)*
+*(plan 25-07 — rows drafted by Task 1 on 2026-09-04; RUN by Task 2 on 2026-09-04, 11:05–11:47 UTC.
+Every Verdict cell below is now scored. Outcome: R1, R3, R4, R5 PASS; R2 and R6 BLOCKED.)*
+
+**Round outcome in one line:** four of six rows PASS; **R2 is BLOCKED on capture fidelity** (a
+frame strictly earlier than first paint could not be obtained on this hardware/tooling) and **R6
+is BLOCKED on missing evidence** (CI-01's live-run dispatch was never performed). Under the
+governing all-rows-PASS rule this withholds **all four** requirements — see Task 3's disposition
+and GAP-25-01 / GAP-25-02 below.
 
 **Target:** `https://bacilo.github.io/strava-widgets/` (D-08). Hard reload after every change; this
 repo has a documented history of a stale cached `index.html` producing false evidence (T-25-21).
@@ -482,14 +489,14 @@ rows are presented below.
 
 ### Round 1 rows
 
-| Row | Verdict | Discriminator | Evidence (to be filled in Task 2) |
-|-----|---------|----------------|-----------------------------------|
-| R1 | pending | | |
-| R2 | pending | | |
-| R3 | pending | | |
-| R4 | pending | | |
-| R5 | pending | | |
-| R6 | pending | | |
+| Row | Verdict | Discriminator | Decisive evidence |
+|-----|---------|----------------|-------------------|
+| R1 | **PASS** | `data-theme === 'light'` while `dashboard-theme` is `null`/`'auto'`, on a light OS | `'auto'` / `false` / `'light'` quoted at `11:05:52.180Z`, re-quoted unchanged at `11:06:51.925Z`; developer: *"looked at all 4. Legible. Toggle is visible."* |
+| R2 | **BLOCKED** | Captured first frame's background: `#1a1a2e` = PASS, white = FAIL | Instrumentation clean (`'auto'` / `true` / `'dark'`, `body_bg rgb(26,26,46)`), but **both captured frames landed ~243 ms AFTER `first-paint`** (nav start `1788520780021.8`; first-paint `+612 ms`; frames saved `1788520781489`/`1788520781492`). Not the evidence the row required. |
+| R3 | **PASS** | Both `matchMedia(...).matches` and `data-theme` flip while `dashboard-theme` stays `null`/`'auto'`, no reload | `false`→`true`, `'light'`→`'dark'`, `rgb(255,255,255)`→`rgb(26,26,46)`; `timeOrigin` identical `1788520516982.4`, `nav_entries_count: 1`. Hidden-tab lag disclosed below. |
+| R4 | **PASS** | Same three quotes flip back, no reload | `true`→`false`, `'dark'`→`'light'`, `rgb(26,26,46)`→`rgb(255,255,255)`; `timeOrigin` identical `1788520780021.8`, `nav_entries_count: 1`. Same hidden-tab lag disclosed below. |
+| R5 | **PASS** | Hashed asset matches deployment; cache-busted refetch byte-identical | `index-D-Ts7X8C.js` in live DOM, served HTML, and cache-busted refetch; SHA-256 `33fa42bd…37fa1` both, 3169 bytes both; matches `origin/gh-pages` @ `b2b05a4`. |
+| R6 | **BLOCKED** | Restates 25-06's three recorded evidence items | Clauses 1–2 present and green (five commands exit 0; `56 check(s) passed, 0 failure(s).`); **clause 3 absent** — no `gh workflow run` dispatch was ever performed (§ "CI-01 live run evidence — blocked"). |
 
 **R1 — Light-OS legibility (VER-01, criterion 4, clause 1).**
 Setup: developer sets macOS Appearance to LIGHT. Clear site data for
@@ -502,7 +509,47 @@ BLOCKED, not PASS). Both values are quoted at the same instant of observation. A
 Developer judgment required: legibility (readable text/background contrast) on Overview,
 Activities, Records and Trends, no white-on-white or dark-on-dark region, and the theme toggle
 control itself visible (the Phase 16 GAP 2 / plan 16-11 defect class).
-Verdict: **pending**.
+Verdict: **PASS**.
+
+*Cleared-site-data procedure actually used (named at run time, as the section's procedure note
+requires):* the scripted equivalent of DevTools → Application → Clear site data, executed against
+the production origin — `localStorage.clear()`, `sessionStorage.clear()`, every `CacheStorage` key
+deleted, every cookie expired. Confirmed cleared before the reload:
+`localStorage.getItem('dashboard-theme')` → `null`, `localStorage.length` → `0`,
+`cache_keys_remaining` → `0`, `document.cookie` → `""`. Then a genuine hard reload (⌘⇧R).
+
+*Agent instrumentation, all four values quoted at one instant (`2026-09-04T11:05:52.180Z`) and
+re-quoted unchanged after the four-section walk (`11:06:51.925Z`):*
+
+| Read | Value |
+|------|-------|
+| `localStorage.getItem('dashboard-theme')` | `'auto'` — PASS-compatible class per D-04 as amended |
+| `matchMedia('(prefers-color-scheme: dark)').matches` | `false` |
+| `document.documentElement.getAttribute('data-theme')` | `'light'` |
+| `performance.getEntriesByType('navigation')[0].type` | `'reload'` |
+| computed `body` background / colour | `rgb(255, 255, 255)` / `rgb(51, 51, 51)` |
+
+Full `localStorage` dump at the instant of observation: `{"dashboard-theme":"auto"}` — the theme
+toggle was never clicked, so no explicit `'light'`/`'dark'` could have been left behind.
+
+*Developer judgment, recorded VERBATIM:* "looked at all 4. Legible. Toggle is visible."
+The granularity given is exactly that: the developer confirms having looked at all four sections
+(Overview, Activities, Records, Trends) and reports legibility and toggle visibility. No per-section
+detail beyond that was given, and none is invented here (plan 19-09 precedent).
+Screenshots: `screenshot-1788519961899-0.jpg` (Overview), `-1.jpg` (Activities), `-2.jpg` (Records),
+`-3.jpg` (Trends).
+
+*Observation raised by the developer, recorded as a question and NOT as a defect:* "Toggle is
+'sun' when light and 'moon' when dark. Indicating the current state. This is totally fine with my
+but wondering whether common practice would be the opposite (indicating 'touch here to go
+dark/light')." The developer explicitly framed this as a question, not a fault. Both conventions
+are in common use; nothing was changed in response (house rule since plan 16-09 — no fix under
+checkpoint pressure). Logged as a deferred item, not a row failure, and it does not affect this
+row's PASS.
+
+*Appearance-change provenance for this row:* NONE was required. The machine was already in LIGHT
+appearance when the round began (`defaults read -g AppleInterfaceStyle` → key absent, i.e. Light).
+This is disclosed rather than presented as a developer-performed flip.
 
 **R2 — First-paint flash (VER-01, criterion 4, clause 2).**
 **Disclosure — deliberate deviation from criterion 4's literal wording (D-05), stated here in the
@@ -520,7 +567,60 @@ touch the theme toggle.
 Discriminator: the captured first frame's background colour — `#1a1a2e` is PASS, white is FAIL —
 plus the same `dashboard-theme` (`null`/`'auto'`, D-04 as amended) and `data-theme` (`'dark'`)
 quotes as R1.
-Verdict: **pending**.
+Verdict: **BLOCKED**.
+
+BLOCKED is used here in its strict sense per this section's vocabulary — *evidence that was not
+the evidence the row required*. It is **not** a softer PASS, and nothing below should be read as
+one.
+
+*Setup as performed:* the developer set macOS Appearance to DARK by their own hand (D-07).
+Storage cleared by the same scripted procedure as R1 (`dashboard-theme` → `null`,
+`localStorage.length` → `0`, all `CacheStorage` keys deleted, `prefers_dark` → `true` confirmed
+pre-reload). Hard reload (⌘⇧R) issued with screenshot capture batched immediately behind it.
+
+*Instrumentation — all clean, and none of it is the problem:*
+
+| Read | Value |
+|------|-------|
+| new document confirmed (prior `window` state wiped) | `true` |
+| `performance.timeOrigin` | `1788520780021.8` |
+| `localStorage.getItem('dashboard-theme')` | `'auto'` |
+| `matchMedia('(prefers-color-scheme: dark)').matches` | `true` |
+| `document.documentElement.getAttribute('data-theme')` | `'dark'` |
+| `performance.getEntriesByType('navigation')[0].type` | `'reload'` |
+| computed `body` background | `rgb(26, 26, 46)` = `#1a1a2e` |
+| `first-paint` / `first-contentful-paint` | both `612` ms |
+| `responseEnd` / `domInteractive` / `loadEventEnd` | `239.6` / `287.9` / `510` ms |
+
+*Why the row is BLOCKED — the capture-fidelity arithmetic, stated explicitly:* navigation started
+at `timeOrigin` `1788520780021.8`; first paint occurred `612 ms` later, at wall-clock
+`1788520780633.8`. The two frames actually captured were saved at `1788520781489` and
+`1788520781492` — roughly `855`/`858 ms` after navigation start, i.e. **~243 ms AFTER first
+paint had already happened**. Both frames show the dark `#1a1a2e` background, which is
+*consistent with* no flash but **cannot discriminate one**, because any first-paint flash would
+have ended before the shutter opened. The browser-extension screenshot round-trip is the floor on
+this hardware and tooling, and it could not be beaten; this is exactly the limitation the Task 1
+reachability proof anticipated and pre-authorised disclosing ("If the capture tooling cannot
+produce a frame earlier than first paint on this hardware, that limitation will be disclosed in
+the row's own write-up rather than presented as a clean capture").
+Frames, retained for audit: `screenshot-1788520781489-5.jpg`, `screenshot-1788520781492-6.jpg`.
+
+*What was offered as an alternative and deliberately NOT accepted as a substitute:* an ordering
+argument — the inline pre-paint bootstrap is a synchronous `<head>` script and therefore completed
+by `domInteractive` = `287.9 ms`, `324 ms` before `first-paint` = `612 ms`, and plan 25-05's
+`node:vm` behavioural parity pin independently proves that script's logic. That is *inference from
+timing and from a unit-level pin*, not the *observation* criterion 4 asks for. It is recorded here
+for completeness and explicitly rejected as a basis for PASS.
+
+*Disposition provenance:* the three available dispositions (BLOCKED; PASS-with-disclosed-
+limitation on the strength of the ordering argument; or attempt an iframe-proxy capture first)
+were put to the developer explicitly, together with the consequence that BLOCKED withholds every
+requirement and shuts the phase gate. The developer chose **BLOCKED**. The verdict is the
+developer's, not the agent's.
+
+*D-05 disclosure:* present in this row's drafted text above (the dark-OS framing is disclosed as a
+deliberate deviation from criterion 4's literal wording, not quietly substituted). Its presence is
+confirmed by Task 3.
 
 **R3 — Live-follow light -> dark (VER-01, criterion 4, clause 3).**
 Setup: developer sets macOS Appearance to LIGHT, clears site data, hard-reloads one final time.
@@ -538,7 +638,54 @@ recorded — because the listener in `watchSystemTheme` (`theme.ts:167-183`) gat
 `readStoredMode(storage) === 'auto'` (`theme.ts:171`), which holds identically for `null` and
 `'auto'`; a quoted `'light'`/`'dark'` at either instant makes the row vacuous and BLOCKED, per the
 D-04 amendment.
-Verdict: **pending**.
+Verdict: **PASS** — with an observation caveat disclosed below, not smoothed over.
+
+*BEFORE* (`2026-09-04T11:15:26.832Z`) — light OS, storage cleared (`null` confirmed pre-reload),
+hard-reloaded, toggle untouched:
+`dashboard-theme` = `'auto'`, `matchMedia('(prefers-color-scheme: dark)').matches` = `false`,
+`data-theme` = `'light'`, `nav.type` = `'reload'`, `timeOrigin` = `1788520516982.4`,
+computed `body` background = `rgb(255, 255, 255)`, full `localStorage` dump
+`{"dashboard-theme":"auto"}`.
+
+*The developer then set macOS Appearance to DARK in System Settings by their own hand* (D-07), with
+the page still open, not reloaded and the toggle untouched. No `osascript` was used.
+
+*AFTER, reading 2* (`11:19:06.411Z`) — same document:
+`dashboard-theme` = `'auto'`, `matchMedia(...).matches` = `true`, `data-theme` = `'dark'`,
+`nav.type` = `'reload'`, `timeOrigin` = `1788520516982.4`, computed `body` background =
+`rgb(26, 26, 46)` = `#1a1a2e`, full `localStorage` dump `{"dashboard-theme":"auto"}`.
+Screenshot: `screenshot-1788520733645-4.jpg` (dark chrome; toggle glyph now a moon).
+
+*No-reload proof:* `timeOrigin` is byte-identical (`1788520516982.4`) across the BEFORE reading and
+every AFTER reading; `performance.getEntriesByType('navigation').length` = `1`; the same document
+had been alive for `229433.7 ms` at the final reading. A reload would have produced a new
+`timeOrigin` and wiped the `window.__R3_BEFORE__` handle used to carry the BEFORE values — neither
+happened. The discriminator held in both required respects: both `matchMedia(...).matches` and
+`data-theme` flipped, and `dashboard-theme` remained in the `null`/`'auto'` class at both instants,
+so `watchSystemTheme`'s `readStoredMode(storage) === 'auto'` gate (`theme.ts:171`) was live
+throughout and the row is not vacuous.
+
+*CAVEAT — recorded as observed, not smoothed over.* Two intermediate readings were taken while the
+Chrome tab was backgrounded (`document.visibilityState` = `"hidden"`, `document.hasFocus()` =
+`false`), because the developer was in System Settings performing the flip:
+
+| Instant | `prefers_dark` | `data-theme` | `body` background | tab state |
+|---------|----------------|--------------|-------------------|-----------|
+| `11:18:13.265Z` (+~166 s) | `true` | `'light'` | `rgb(255,255,255)` | `hidden` |
+| `11:18:36.979Z` (+~190 s) | `true` | `'light'` | `rgb(255,255,255)` | `hidden` |
+| `11:19:06.411Z` (+~219 s) | `true` | `'dark'` | `rgb(26,26,46)` | foregrounded |
+
+So for a period after the OS flip, `matchMedia(...).matches` already read `true` (it evaluates
+freshly on each read) while `data-theme` still read `'light'` and the computed background was still
+white; the DOM caught up once the tab was brought to the foreground. The most likely mechanism is
+Chrome deferring style recalculation and media-query change dispatch for hidden tabs — a browser
+scheduling behaviour, not an application defect, and not something this round attempted to fix
+(house rule since plan 16-09). It is recorded because a future round should not be surprised by it.
+**A future round wanting to eliminate this confound entirely should keep the tab foregrounded
+across the OS flip** (second display, or a side-by-side window arrangement), so that the
+before/after readings are both taken from a visible document. This caveat does not change the
+verdict: the transition demonstrably completed within the same document with no reload, which is
+what criterion 4 clause 3 asks for.
 
 **R4 — Live-follow dark -> light (the "and back" half of criterion 4).**
 Same shape as R3, page still open from R3, NOT reloaded, theme toggle NOT clicked at any point.
@@ -547,7 +694,35 @@ Discriminator: same three quotes as R3, expected to flip back (`true`->`false`, 
 `'light'`), `dashboard-theme` still `null`/`'auto'` throughout. Kept as a separate row from R3
 rather than folded in, because "and back" is a distinct transition and the listener could
 plausibly fire in one direction only.
-Verdict: **pending**.
+Verdict: **PASS** — with the same disclosed caveat as R3.
+
+*BEFORE* (`2026-09-04T11:20:26.374Z`) — dark OS, page as left by R2's cleared-storage hard reload,
+toggle untouched:
+`dashboard-theme` = `'auto'`, `matchMedia(...).matches` = `true`, `data-theme` = `'dark'`,
+`nav.type` = `'reload'`, `timeOrigin` = `1788520780021.8`, computed `body` background =
+`rgb(26, 26, 46)`, full `localStorage` dump `{"dashboard-theme":"auto"}`.
+
+*The developer then set macOS Appearance back to LIGHT in System Settings by their own hand*
+(D-07), page still open, not reloaded, toggle untouched. No `osascript` was used.
+
+*AFTER, reading 2* (`11:46:44.187Z`) — same document:
+`dashboard-theme` = `'auto'`, `matchMedia(...).matches` = `false`, `data-theme` = `'light'`,
+`nav.type` = `'reload'`, `timeOrigin` = `1788520780021.8`, computed `body` background =
+`rgb(255, 255, 255)`, full `localStorage` dump `{"dashboard-theme":"auto"}`.
+Screenshot: `screenshot-1788522394407-7.jpg` (light chrome; toggle glyph back to a sun).
+
+*No-reload proof:* `timeOrigin` byte-identical (`1788520780021.8`) across BEFORE and both AFTER
+readings; `performance.getEntriesByType('navigation').length` = `1`; same document alive for
+`1624161.0 ms` at the final reading.
+
+*Same caveat as R3:* the first AFTER reading (`11:46:26.468Z`, `visibilityState` = `"hidden"`,
+`hasFocus` = `false`) showed `prefers_dark` already `false` while `data-theme` still read `'dark'`
+and the background was still `rgb(26,26,46)`; the DOM caught up on foregrounding. Same mechanism,
+same disposition — recorded, not patched.
+
+Kept as a separate row from R3 rather than folded in, as drafted: the reverse transition fired
+independently, so the listener is demonstrated to work in **both** directions, which a single
+folded row could not have established.
 
 **R5 — Cache-trap exclusion (D-08).**
 Setup: no further OS or storage change; runs against the same loaded page state as R4 (or a fresh
@@ -557,7 +732,38 @@ the asset in the latest deployed build; `performance.getEntriesByType('navigatio
 'reload'`; and a cache-busted refetch of `index.html` (e.g. `fetch('./index.html?cachebust=' +
 Date.now())`) shown byte-identical to the document the browser actually used. This repo has a
 documented history of a stale cached `index.html` producing false evidence (T-25-21).
-Verdict: **pending**.
+Verdict: **PASS**.
+
+*Asset identity, all three sources agreeing:*
+
+| Source | Hashed module script |
+|--------|----------------------|
+| Live DOM (`script[type=module][src]`) | `./assets/index-D-Ts7X8C.js` |
+| Served `index.html` the browser actually used | `./assets/index-D-Ts7X8C.js` |
+| Cache-busted refetch (`?cachebust=<Date.now()>`, `cache: 'reload'`) | `./assets/index-D-Ts7X8C.js` |
+
+*Byte-identity of the document itself:* SHA-256 of the served `index.html` =
+`33fa42bdef7c6e3eec76b8fffb35041a45f4f60e004391647a17384415137fa1`; SHA-256 of the cache-busted
+refetch = the same value; `3169` bytes each; equality asserted programmatically
+(`byte_identical: true`). `performance.getEntriesByType('navigation')[0].type` = `'reload'`.
+
+*Independently-derived value the row is checked against* (not internal agreement — Checkpoint Row
+Discipline rule 2): the latest deployed build on `origin/gh-pages` @
+`b2b05a4054e4f12c7a1fe29448779f11f74dd973`, deployed `2026-09-04 09:10:40 +0000`, contains
+`assets/index-D-Ts7X8C.js` per `git ls-tree -r --name-only origin/gh-pages`. The browser's asset
+and the deployed tree's asset are the same file. The documented stale-cache trap (T-25-21) is
+excluded.
+
+*DISCLOSURE — production is not built from local `master`, and this is stated rather than buried.*
+That deployment was built from source commit `623046363f7c86812e3d2aaa907bbf67e7d74f02`, which is
+`origin/master`'s HEAD. Local `master` is **ahead** of it: Phase 25's commits are not pushed, so
+the production site does **not** contain Phase 25's work. This does not weaken R1–R4, because
+`git diff 623046363f7c86812e3d2aaa907bbf67e7d74f02..master -- src/dashboard/theme.ts
+src/dashboard/index.html src/dashboard/styles.css src/dashboard/main.ts` is **empty** — every file
+governing the behaviour under test is identical between the deployed build and the working tree.
+Phase 25 touched analytics, the CI workflow, scripts and tests, not the theme path. The rows
+therefore observed the same theme code that the working tree contains. This is disclosed so that a
+future reader does not mistake "verified against production" for "verified against local master".
 
 **R6 — Automated-half confirmation (criterion 5, items 1-3).**
 Not a re-run. This row restates plan 25-06's already-recorded evidence — the green five-command
@@ -571,8 +777,80 @@ was not executed because this repo's Phase-25 wave-3 work ran inside an isolated
 workflow with production side effects ahead of the orchestrator's own merge-back. That gap is
 recorded, not closed, and is carried into this row's verdict rather than silently treated as
 resolved.
-Verdict: **pending** — pending Task 3's read of whether the CI-01 live-run gap affects this row's
-disposition (see Task 3's row-to-requirement mapping and the governing all-rows-PASS rule).
+Verdict: **BLOCKED**.
+
+The row as specified restates **three** recorded evidence items. Two are present and green; the
+third does not exist.
+
+| Clause | Required evidence | Status |
+|--------|-------------------|--------|
+| 1 | Green five-command gate | **PRESENT** — `npm test`, `npx tsc --noEmit`, `npm run build`, `npm run build-widgets`, `npm run verify-dashboard`, all exit `0` (§ "Wave 1 Integration Gate") |
+| 2 | `verify-dashboard` check count | **PRESENT** — `56 check(s) passed, 0 failure(s).`, up from 40/40 at the end of Phase 24 (16 net-new checks from plan 25-03's CI-02 work) |
+| 3 | Dispatched workflow run id + conclusion | **ABSENT** — no `gh workflow run` dispatch was ever performed; § "CI-01 live run evidence — blocked" records why |
+
+A row cannot be PASS while one of its own three mandated evidence items does not exist, so this row
+is **BLOCKED**.
+
+*Explicitly NOT done, and recorded so the choice is auditable:* R6 was **not** split into R6a/R6b/
+R6c to let clauses 1 and 2 tick FIX-02 and CI-02 independently of clause 3's absence. Redesigning a
+row mid-round so that it yields a tick is precisely the failure mode Checkpoint Row Discipline
+rule 3 and the Phase 24 R19/R26 precedent exist to prevent. The row was drafted as one row before
+the outcome was known, and it is scored as one row now that the outcome is known. A future round
+may legitimately draft three separate rows — **before** running them — and GAP-25-02 records that
+as the recommended shape.
+
+*Also not done:* the agent did **not** push local `master` to `origin/master` and dispatch the
+workflow itself to manufacture clause 3's evidence during the checkpoint. That would have been a
+production-affecting action (§ "CI-01 live run evidence — blocked" documents that
+`daily-refresh.yml`'s deploy and auto-commit steps carry no branch guard, so any dispatch deploys
+to the live Pages site and commits data back to `origin`) taken under checkpoint pressure, against
+the house rule since plan 16-09. It is left for a deliberate, separately-authorised step — see
+GAP-25-02.
+
+### Execution provenance (D-07) — who did what, disclosed rather than presented as one round
+
+Following the Phase 24 R34 / plan 24-08 provenance-disclosure precedent, the round is not presented
+as one undifferentiated block of work.
+
+**Performed by the developer's own hand:**
+- Set macOS Appearance to **DARK** in System Settings (between R3's BEFORE and AFTER readings).
+- Set macOS Appearance back to **LIGHT** in System Settings (between R4's BEFORE and AFTER readings).
+- The R1 legibility and toggle-visibility judgment, recorded verbatim.
+- The R2 disposition decision (BLOCKED), chosen from three explicitly-stated options with the
+  consequence — that BLOCKED withholds all four requirements — stated before the choice was made.
+
+**Performed by the agent (instrumentation only):**
+- All site-data clearing and all hard reloads (⌘⇧R).
+- Every quoted read: `localStorage.getItem('dashboard-theme')`, `matchMedia('(prefers-color-scheme:
+  dark)').matches`, `document.documentElement.getAttribute('data-theme')`,
+  `performance.getEntriesByType('navigation')[0].type`, `performance.timeOrigin`, computed
+  background/colour, paint timings.
+- All frame captures and section screenshots.
+- R5's hashed-asset, cache-busted-refetch and deployed-tree checks.
+- R6's citation of plan 25-06's recorded evidence.
+
+**`osascript` was NOT used to change appearance for any recorded row** (D-07), and no appearance
+change was simulated, emulated, or performed via DevTools rendering overrides.
+
+**Disclosed deviation from the drafted row sequence — flip count.** Task 1 drafted R1–R4 as though
+each row carried its own appearance change (four flips). The round as run used **two** flips,
+because the developer asked that their involvement be reduced to the essential minimum and the rows
+were re-sequenced so each flip served two purposes: the Light→Dark flip supplied R3's live-follow
+transition *and* established R2's dark-OS state, and the Dark→Light flip supplied R4's transition.
+This changed the *ordering* of the rows, not any row's discriminator, setup requirement, or
+evidence: every row still ran from its own cleared-storage hard reload where it required one
+(R1, R2, R3), the toggle was never clicked at any point in the round, and `dashboard-theme` was
+quoted in the `null`/`'auto'` class at every instant of observation. **R1 additionally required no
+flip at all** — the machine was already in Light appearance when the round began
+(`defaults read -g AppleInterfaceStyle` → key absent). This is disclosed rather than presented as a
+developer-performed appearance change.
+
+**Environment note carried forward for future rounds.** Both live-follow rows (R3, R4) showed a lag
+between the OS flip and the DOM update while the Chrome tab was backgrounded — see R3's caveat
+table. Because the developer must leave the browser to reach System Settings, a backgrounded tab is
+the *default* condition for this class of row in this project. Any future live-follow round should
+arrange for the tab to remain visible across the flip (second display or side-by-side windows)
+rather than re-discovering this.
 
 ---
 
