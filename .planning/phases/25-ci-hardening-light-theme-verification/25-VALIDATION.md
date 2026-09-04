@@ -962,3 +962,38 @@ withheld by R6. Two gaps are open. Next step: `/gsd-plan-phase 25 --gaps`.
 Both disclosure obligations were met — the D-05 deviation disclosure and the D-04 amendment
 disclosure are each present in the Round 1 section — so the round carries no disclosure defect
 independent of its row verdicts.
+
+---
+
+## GAP-25-01 capture-mechanism reachability proof
+
+### Appearance provenance (D-07)
+
+**Pre-check**, run before any developer action, 2026-09-04:
+```
+$ defaults read -g AppleInterfaceStyle
+The domain/default pair of (kCFPreferencesAnyApplication, AppleInterfaceStyle) does not exist
+```
+This is the Light signature (key absent) — the machine was in Light appearance, matching the state
+recorded at planning time.
+
+**A developer-performed flip WAS required.** This is not the no-flip-required case: the pre-check
+above shows Light, so the developer was asked to set System Settings → Appearance → Dark by their
+own hand, and did so. The orchestrator confirmed the developer's action before this task resumed.
+
+**Post-check**, run after the developer confirmed the change, 2026-09-04T13:49:18Z:
+```
+$ defaults read -g AppleInterfaceStyle
+Dark
+```
+
+**Timestamp:** post-check performed at 2026-09-04T13:49:18Z (UTC).
+
+**`osascript` was NOT used** to perform this appearance change (D-07), and **no DevTools rendering
+override** (`Emulation.setEmulatedMedia` or any other CDP colour-scheme override) was applied at any
+point. The machine's real OS Appearance setting was changed by the developer's own hand in System
+Settings, exactly as D-07 requires, so that the setting can genuinely reach a launched Chrome
+instance rather than being simulated.
+
+Measurement results (Part A candidate sweep, Part B negative control, and mechanism selection) are
+recorded in a separate subsection below, written after this provenance was captured.
