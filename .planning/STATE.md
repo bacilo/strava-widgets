@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
 status: executing
-stopped_at: Phase 25 executed; VER-01 Round 1 run, gate held open (R2/R6 BLOCKED)
-last_updated: "2026-09-04T11:50:00.000Z"
-last_activity: 2026-09-04 -- Phase 25 plan 25-07 executed; Round 1 checkpoint run, 2 rows BLOCKED, gaps opened
+stopped_at: Phase 25 gap-closure round planned (25-08..25-12); gate still held open (R2/R6 BLOCKED)
+last_updated: "2026-09-04T13:16:56.878Z"
+last_activity: 2026-09-04 -- Phase 25 gap-closure round planned (25-08..25-12, waves 5-9)
 progress:
   total_phases: 7
   completed_phases: 6
-  total_plans: 98
+  total_plans: 103
   completed_plans: 92
   percent: 86
 ---
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 
 ## Current Position
 
-Phase: 25 (ci-hardening-light-theme-verification) — ALL 7 PLANS EXECUTED, PHASE GATE WITHHELD
-Plan: 7 of 7 executed
+Phase: 25 (ci-hardening-light-theme-verification) — 7 OF 12 PLANS EXECUTED, PHASE GATE WITHHELD
+Plan: 7 of 12 executed (25-08..25-12 are the Round 2 gap-closure plans, not yet run)
       BLOCKING Round 4 checkpoint) both complete; disposition set in plan 24-17's Task 3.
-Status: Phase 25 gate HELD OPEN — Round 1 returned two BLOCKED rows; next step /gsd-plan-phase 25 --gaps
+Status: Ready to execute — Round 2 gap-closure plans 25-08..25-12 written; PHASE 25 GATE STILL HELD OPEN until they run (R2/R6 BLOCKED, GAP-25-01 and GAP-25-02 open)
 
         **Phase 25 Round 1 outcome (2026-09-04, plan 25-07).** All seven plans executed and the
         closing VER-01 human checkpoint ran in full against the live production URL, with the
@@ -50,6 +50,7 @@ Status: Phase 25 gate HELD OPEN — Round 1 returned two BLOCKED rows; next step
         confirmed live OS-follow in BOTH directions inside a single document with no reload
         (timeOrigin identical, nav_entries_count 1). What is missing is evidence quality on two
         rows, not working behaviour:
+
           - GAP-25-01 (withholds VER-01, via R2): no capture mechanism on this hardware beats
             first paint. Navigation started at timeOrigin 1788520780021.8, first-paint landed at
             +612ms, both captured frames were saved ~243ms later. A post-paint frame cannot
@@ -57,6 +58,7 @@ Status: Phase 25 gate HELD OPEN — Round 1 returned two BLOCKED rows; next step
             (inline head script complete by domInteractive 287.9ms; 25-05's node:vm parity pin)
             is inference, was recorded, and was explicitly REJECTED as a basis for PASS by the
             developer, who chose BLOCKED knowing it withholds every requirement.
+
           - GAP-25-02 (withholds CI-01, CI-02, FIX-02, via R6): CI-01's live-run evidence still
             does not exist — no `gh workflow run` dispatch has ever been performed for this
             phase. R6's clauses 1 and 2 (green five-command gate; "56 check(s) passed, 0
@@ -139,7 +141,7 @@ Status: Phase 25 gate HELD OPEN — Round 1 returned two BLOCKED rows; next step
           R32 avoids this by editing ONLY `excludedFromRecords` on the shard, leaving the
           discriminator live.
 
-Last activity: 2026-09-04 -- Phase 25 execution started
+Last activity: 2026-09-04 -- Phase 25 gap-closure round planned (25-08..25-12, waves 5-9)
 
 Progress: [██████████] 100%
 
