@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
 status: executing
-stopped_at: Phase 25 plan 25-08 executed (GAP-25-01 mechanism reachability proof measured; Candidate C selected)
-last_updated: "2026-09-04T14:11:21.182Z"
+stopped_at: Phase 25 plan 25-09 executed (Round 2 checkpoint rows R6a/R6b/R6c/R7 drafted, all verdicts pending)
+last_updated: "2026-09-04T14:25:57.800Z"
 last_activity: 2026-09-04
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 103
-  completed_plans: 99
+  completed_plans: 100
   percent: 86
 ---
 
@@ -28,9 +28,9 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 25 (ci-hardening-light-theme-verification) — EXECUTING
-Plan: 8 of 12 executed (25-08 done; 25-09..25-12 remain in the Round 2 gap-closure sequence)
-      BLOCKING Round 4 checkpoint) both complete; disposition set in plan 24-17's Task 3.
-Status: Executing Phase 25 — plan 25-08 complete (GAP-25-01 mechanism half closed with measured evidence: Candidate C, throttled-network screencast, selected after Candidate A and B were disqualified by direct testing). GAP-25-02 still open pending 25-09..25-12.
+Plan: 9 of 12 executed (25-09 done: Round 2 checkpoint rows R6a/R6b/R6c/R7 drafted, all verdicts
+      pending, ROW_BASELINE_SHA bf9d1a13; 25-10..25-12 remain in the Round 2 gap-closure sequence)
+Status: Ready to execute
 
         **Phase 25 Round 1 outcome (2026-09-04, plan 25-07).** All seven plans executed and the
         closing VER-01 human checkpoint ran in full against the live production URL, with the
@@ -143,7 +143,7 @@ Status: Executing Phase 25 — plan 25-08 complete (GAP-25-01 mechanism half clo
 
 Last activity: 2026-09-04
 
-Progress: [██████████] 96%
+Progress: [██████████] 97%
 
 ## Performance Metrics
 
@@ -179,6 +179,7 @@ Progress: [██████████] 96%
 | Phase 24 P14 | 63min | 3 tasks | 5 files |
 | Phase 24 P17 | ~35min (continuation, Tasks 2-3) | 3 tasks | 6 files |
 | Phase 25 P08 | 37min | 3 tasks | 3 files |
+| Phase 25 P09 | 35min | 3 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -219,6 +220,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 24]: Round 3 checkpoint (R24-R31, 24-14): 7/8 PASS. R26 recorded FAIL on its literal assertion — its own discriminator goes vacuous once R25's mandatory Recompute clears wasPRAtTheTime, so it cannot distinguish correct wiring from broken (R27 shows the 24-13 code is correct). GAP-24-02 and GAP-24-03 closed (R28/R29, R30); GAP-24-05 opened for the still-unproven WR-05 mirror direction. CUR-01 and the ROADMAP gate stay open per the plan's own all-rows-PASS rule.
 - [Phase 24]: All four Round 4 checkpoint rows (R32-R35) recorded PASS; CUR-01 and the Phase 24 ROADMAP gate disposition set per the plan's own governing rule that every mapped row must PASS
 - [Phase 25]: Selected throttled-network screencast (Candidate C: 1000ms latency, ~50kbps) as the GAP-25-01 capture mechanism — Candidate A (screencast, no deviation) lost 1/3 production runs after excluding a universal Chrome UA-default artifact frame and failed the local negative control entirely; Candidate B (screenshot-burst) never attached to production across 3 runs; Candidate C won 3/3 production runs and passed the negative control bidirectionally
+- [Phase 25]: Drafted Round 2 checkpoint rows (R6a/R6b/R6c/R7) before any is run, per GAP-25-02's recommended split and GAP-25-01's measured Candidate C mechanism from plan 25-08 — every row carries a bidirectional CAN FAIL/CAN PASS reachability proof and all verdicts read pending
 
 ### Key Findings
 
@@ -286,8 +288,8 @@ Items acknowledged and deferred at the v2.0 milestone close on 2026-08-12.
 
 ## Session Continuity
 
-Last session: 2026-09-04T14:11:21.166Z
-Stopped at: Phase 25 plan 25-08 executed (GAP-25-01 mechanism reachability proof measured; Candidate C selected)
+Last session: 2026-09-04T14:25:57.788Z
+Stopped at: Phase 25 plan 25-09 executed (Round 2 checkpoint rows R6a/R6b/R6c/R7 drafted, all verdicts pending)
 Resume file: None
 
 ---

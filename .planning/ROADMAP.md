@@ -534,7 +534,7 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 25-09-PLAN.md — Draft every Round 2 row before it is run (Checkpoint Row Discipline rule 3): R7 for VER-01, plus GAP-25-02's R6a/R6b/R6c split, one requirement each, every row with a bidirectional reachability proof
+- [x] 25-09-PLAN.md — Draft every Round 2 row before it is run (Checkpoint Row Discipline rule 3): R7 for VER-01, plus GAP-25-02's R6a/R6b/R6c split, one requirement each, every row with a bidirectional reachability proof
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
@@ -581,7 +581,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 22. Calendar Week-Start & Totals | v2.1 | 16/16 | Complete   | 2026-08-19 |
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 13/13 | Complete    | 2026-08-27 |
 | 24. Local Curation Mode | v2.1 | 17/17 | Complete    | 2026-09-02 |
-| 25. CI Hardening & Light-Theme Verification | v2.1 | 8/12 | In Progress|  |
+| 25. CI Hardening & Light-Theme Verification | v2.1 | 9/12 | In Progress|  |
 
 ---
 *Last updated: 2026-08-12 — v2.1 Interface Polish roadmap created (phases 19-25, 25 requirements mapped). v1.0-v2.0 preserved above; v2.0 archived to `milestones/v2.0-ROADMAP.md`.*
