@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
-status: planning
-stopped_at: Phase 25 context gathered
-last_updated: "2026-09-03T08:58:45.090Z"
-last_activity: 2026-09-02
+status: executing
+stopped_at: Phase 25 planned (7 plans, 4 waves) -- ready to execute
+last_updated: "2026-09-04T04:47:35.957Z"
+last_activity: 2026-09-04 -- Phase 25 planning complete
 progress:
   total_phases: 7
   completed_phases: 6
-  total_plans: 91
+  total_plans: 98
   completed_plans: 91
   percent: 86
 ---
@@ -21,14 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 25 (CI Hardening & Light-Theme Verification) — the last phase in milestone v2.1, not yet planned. Phase 24 closed 2026-09-02: CUR-01 ticked and the ROADMAP gate closed on Round 4's R32-R35 (all PASS), after four browser-checkpoint rounds. One non-blocking Warning (WR-19, curation-guard directory EACCES) is captured in .planning/todos/pending/.
+**Current focus:** Phase 25 (CI Hardening & Light-Theme Verification) — the last phase in milestone v2.1, **planned 2026-09-04**: 7 plans across 4 waves, plan-checker passed on iteration 2. Wave 1 runs FIX-02, CI-01, CI-02 and the D-06 theme-bootstrap pin in parallel; wave 4 is a blocking human browser checkpoint (VER-01) that closes the milestone. WR-19 (curation-guard directory EACCES) is folded into plan 25-04 rather than left pending. Phase 24 closed 2026-09-02: CUR-01 ticked and the ROADMAP gate closed on Round 4's R32-R35 (all PASS), after four browser-checkpoint rounds.
+
+**Planning note:** discuss-phase decision **D-04 was amended** during plan-check (developer-approved, disclosed in `25-CONTEXT.md`). Its original mandate to quote `localStorage.getItem('dashboard-theme')` returning literal `null` is unreachable — `main.ts:29` persists `'auto'` on every load — and would have scored a working implementation BLOCKED. The discriminator is now `null` **or** `'auto'`, never `'light'`/`'dark'`. The amendment must be disclosed in the Round 1 write-up, same as D-05's deviation.
 
 ## Current Position
 
 Phase: 25
 Plan: Not started
       BLOCKING Round 4 checkpoint) both complete; disposition set in plan 24-17's Task 3.
-Status: Ready to plan Phase 25 (`/gsd-discuss-phase 25` or `/gsd-plan-phase 25`)
+Status: Ready to execute
         milestone v2.1, currently "Plans: TBD" in ROADMAP.md.
 
         **Round 4 closure (2026-09-02, plan 24-17).** R32-R35 all PASS — see `24-VALIDATION.md`
@@ -93,7 +95,7 @@ Status: Ready to plan Phase 25 (`/gsd-discuss-phase 25` or `/gsd-plan-phase 25`)
           R32 avoids this by editing ONLY `excludedFromRecords` on the shard, leaving the
           discriminator live.
 
-Last activity: 2026-09-02
+Last activity: 2026-09-04 -- Phase 25 planning complete
 
 Progress: [██████████] 100%
 

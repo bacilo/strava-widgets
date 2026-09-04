@@ -501,12 +501,23 @@ Plans:
 **Plans**: 7 plans
 
 Plans:
+**Wave 1**
+
 - [ ] 25-01-PLAN.md — FIX-02: widen the Unknown-bucket predicate at both `gear-aggregate-logic.ts` call sites (D-12) and make `gearName` optional on the row type with a bounded `tsc` triage (D-13)
 - [ ] 25-02-PLAN.md — CI-01: extract `COMPUTE_ALL_STATS_STEPS` plus a pure walker into `src/compute-all-stats-steps.ts` (D-01/D-03), add the `--ci` flag (D-02), unit-test both, and collapse the workflow's twelve compute/warn steps into one invocation
 - [ ] 25-03-PLAN.md — CI-02: six by-name assertions with per-document structural invariants (D-09) and a runtime-derived shard sample (D-10), each observed RED naming its own document (D-11)
-- [ ] 25-04-PLAN.md — WR-19 (folded todo): wrap `curation-guard.mjs`'s `readdirSync` in the sibling try/catch so an unreadable directory is a reported violation, with a mode-000-directory fixture observed RED first; close the todo
 - [ ] 25-05-PLAN.md — VER-01/D-06: `node:vm` behavioural parity pin on `index.html`'s inline theme bootstrap, proven load-bearing by three deliberate mutations
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 25-04-PLAN.md — WR-19 (folded todo): wrap `curation-guard.mjs`'s `readdirSync` in the sibling try/catch so an unreadable directory is a reported violation, with a mode-000-directory fixture observed RED first; close the todo
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 25-06-PLAN.md — Wave-2 integration gate: the five-command gate on the merged tree, plus a real `gh workflow run` nightly execution proving the collapsed step's log carries all eight step names (criterion 5, items 1-3)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 25-07-PLAN.md — VER-01 human checkpoint (R1-R6) on a genuinely light-OS machine against production (D-04/D-05/D-07/D-08), then disposition for FIX-02, VER-01, CI-01 and CI-02 under the all-rows-PASS rule
 
 ## Progress
