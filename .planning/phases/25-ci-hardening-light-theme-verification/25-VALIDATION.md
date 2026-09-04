@@ -381,6 +381,201 @@ This phase's checkpoint rows have a documented failure history in this repo. Thr
 
 ---
 
+## Round 1 Checkpoint (R1-R6)
+
+*(plan 25-07, Task 1, drafted 2026-09-04 — not yet run; every Verdict cell below reads `pending`)*
+
+**Target:** `https://bacilo.github.io/strava-widgets/` (D-08). Hard reload after every change; this
+repo has a documented history of a stale cached `index.html` producing false evidence (T-25-21).
+
+**Cleared-site-data procedure (concrete, to be used for every row that requires it):** Chrome
+DevTools → Application panel → Storage section → the "Clear site data" button, invoked while the
+production origin `https://bacilo.github.io` is the active tab, which clears localStorage,
+sessionStorage, cookies and cache-storage for that origin in one action. Confirmed cleared by
+reading `localStorage.getItem('dashboard-theme')` immediately afterward and observing `null`
+(pre-load) before the subsequent hard reload writes `'auto'` (see the D-04 amendment disclosure
+below). A fresh browser profile is the accepted alternative where "Clear site data" is unavailable
+(e.g. a sandboxed devtools context); whichever is used is named in the row's own evidence at the
+time it is run, not assumed here.
+
+**Execution split (D-07, hybrid):** the developer performs every System Settings appearance
+change and every legibility/first-frame human judgment; the agent performs every instrumentation
+read (`localStorage.getItem`, `matchMedia(...).matches`, `data-theme`, the navigation-timing
+check, the hashed-asset check) and the first-frame capture. `osascript`-driven appearance
+switching is rejected for any recorded row.
+
+### D-04 amendment disclosure (required, non-optional — same weight as R2's D-05 disclosure)
+
+- **D-04's ORIGINAL wording** (`25-CONTEXT.md`, pre-amendment): every row must quote
+  `localStorage.getItem('dashboard-theme')` at the instant of observation and the quoted value
+  must be a literal `null`.
+- **Why that was unreachable:** `src/dashboard/main.ts:29` runs
+  `applyThemeMode(readStoredMode(resolveStorage()))` at module scope, unconditionally, with no
+  options, on every load — including the first load of a freshly-cleared profile. `applyThemeMode`
+  (`theme.ts:113-133`) defaults `persist` to `true` (`theme.ts:118`) and, when persisting, calls
+  `storage.setItem(THEME_STORAGE_KEY, mode)` (`theme.ts:126`). Because `readStoredMode(null-ish
+  storage or an empty key)` returns `'auto'` (`theme.ts:72-79`, via `parseThemeMode`'s fallback at
+  `theme.ts:41`), the value module-scope `applyThemeMode` writes back is `'auto'` — before any
+  DevTools read is possible. `src/dashboard/index.html:36-54`'s inline bootstrap only calls
+  `localStorage.getItem` (line 41); it never calls `setItem` and is therefore not the writer. A
+  literal `null` is consequently unobtainable on a correctly-functioning page, and the original
+  wording would have scored a working implementation BLOCKED.
+- **Why `null`-or-`'auto'` preserves the intent exactly, rather than weakening it:**
+  `parseThemeMode(null)` returns `'auto'` (`theme.ts:41`), and the live-follow listener in
+  `watchSystemTheme` gates its callback on `readStoredMode(storage) === 'auto'` (`theme.ts:171`),
+  which holds identically whether the stored raw value is absent (`null`) or literally `'auto'`.
+  What D-04 actually needs to establish is that the in-page toggle control has not overridden the
+  OS setting — and that is a statement about `'light'`/`'dark'` (the two values `cycleThemeMode`,
+  `theme.ts:55`, can leave behind), not about `null`. The amended discriminator therefore still
+  catches exactly the failure mode D-04 exists to catch, while accepting the value a working page
+  actually produces.
+- **Disclosure statement:** this amendment was approved by the developer during plan-check
+  (`25-CONTEXT.md` § D-04, "AMENDED 2026-09-03") and is applied here, in the open, not quietly
+  substituted. Every row below that quotes `dashboard-theme` treats `null` and `'auto'` as the
+  single PASS-compatible class and `'light'`/`'dark'` as BLOCKED.
+
+### Sequencing constraint (non-negotiable for the whole round)
+
+**The in-page theme toggle control must never be clicked during Round 1.** This is NOT because
+touching it writes to `dashboard-theme` — the page writes `'auto'` there itself on every load
+regardless (`main.ts:29`, see the D-04 disclosure above). It is because `cycleThemeMode`
+(`theme.ts:55`) cycles `light -> dark -> auto`, and a toggle click that lands the control on an
+explicit `'light'` or `'dark'` mode is exactly the state that makes `readStoredMode` short-circuit
+the OS consultation R1-R4 all exist to observe. (A toggle clicked an exact multiple of three times
+would land back on `'auto'` and be invisible to this constraint by coincidence — the check the
+rows actually make is on the observed VALUE at read time, not on a "never touched" pledge alone.)
+
+### Reachability proof (required before presenting any row, per Checkpoint Row Discipline rule 3)
+
+- **R1/R2 — already established at plan-check time; not re-derived here.** As shown in the D-04
+  disclosure above, `main.ts:29`'s unconditional, options-free `applyThemeMode(readStoredMode(...))`
+  call persists `'auto'` on every load, including the very first load of a freshly-cleared
+  profile, before any DevTools read can happen. A literal `null` is therefore never observable on
+  a working page — which is exactly why D-04 was amended to accept `null` OR `'auto'`. The
+  discriminator these two rows read (`dashboard-theme` quoted as `null`/`'auto'` vs `'light'`/
+  `'dark'`) is reached by simply loading the cleared-storage page; it is not emptied by either
+  row's own setup. A quoted `'light'` or `'dark'` is the failure signal, not evidence the row is
+  unreachable.
+- **R3/R4 — is the effective mode still `'auto'` at the moment of the OS change?** Yes: the page's
+  own module-scope load writing `'auto'` (per the D-04 mechanism above) is fine and expected — it
+  is exactly the state R3/R4 need. What WOULD empty this discriminator is an explicit `'light'`/
+  `'dark'` left behind by a toggle click. The Sequencing constraint above removes that risk by
+  construction: the rows are ordered R1 (light OS, load, read, DO NOT touch toggle) -> R2 (dark OS,
+  fresh clear, load, read, DO NOT touch toggle) -> R3 (light OS, fresh clear, load, read, then OS
+  change to dark with page untouched and unreloaded) -> R4 (OS change back to light, page still
+  untouched and unreloaded) -> R5/R6 (no further OS or storage interaction). No row's setup
+  requires touching the toggle, so the discriminator stays live for all four rows.
+- **R2 — is a first frame actually capturable on this hardware, and can it be attributed to
+  pre-paint rather than post-load?** Capture method: the agent will use a screen/window capture
+  triggered immediately before the hard-reload keystroke/action and sampled at the earliest
+  available frame after navigation start, cross-checked against
+  `performance.getEntriesByType('paint')` (specifically `first-paint`/`first-contentful-paint`
+  timing) read back from the same page load, so the captured frame can be tied to a timestamp
+  before or at first paint rather than an arbitrary later frame. If the capture tooling cannot
+  produce a frame earlier than first paint on this hardware, that limitation will be disclosed in
+  the row's own write-up rather than presented as a clean capture — the row is reachable in
+  principle (dark OS + cleared storage does not empty the discriminator), but the CAPTURE
+  mechanism's fidelity is a separate, disclosed concern.
+
+None of R1-R5's discriminators is emptied by its own mandated setup. No HALT is required; all six
+rows are presented below.
+
+### Round 1 rows
+
+| Row | Verdict | Discriminator | Evidence (to be filled in Task 2) |
+|-----|---------|----------------|-----------------------------------|
+| R1 | pending | | |
+| R2 | pending | | |
+| R3 | pending | | |
+| R4 | pending | | |
+| R5 | pending | | |
+| R6 | pending | | |
+
+**R1 — Light-OS legibility (VER-01, criterion 4, clause 1).**
+Setup: developer sets macOS Appearance to LIGHT. Clear site data for
+`https://bacilo.github.io` (or use a fresh profile). Hard reload. Do NOT touch the theme toggle.
+Discriminator: `document.documentElement.getAttribute('data-theme') === 'light'` WHILE
+`localStorage.getItem('dashboard-theme')` is `null` OR `'auto'` (D-04 as amended — a quoted
+`'light'` or `'dark'` means the in-page control is overriding the OS, and the row is recorded
+BLOCKED, not PASS). Both values are quoted at the same instant of observation. Also quote
+`matchMedia('(prefers-color-scheme: dark)').matches` (expected `false`).
+Developer judgment required: legibility (readable text/background contrast) on Overview,
+Activities, Records and Trends, no white-on-white or dark-on-dark region, and the theme toggle
+control itself visible (the Phase 16 GAP 2 / plan 16-11 defect class).
+Verdict: **pending**.
+
+**R2 — First-paint flash (VER-01, criterion 4, clause 2).**
+**Disclosure — deliberate deviation from criterion 4's literal wording (D-05), stated here in the
+open rather than substituted quietly:** criterion 4's literal wording asks that "on a genuinely
+light-OS machine ... [the dashboard] shows no first-paint white flash." As worded, this row would
+be vacuous on a light OS: `src/dashboard/styles.css:18` sets light `--bg: #ffffff`, so on a light
+OS a white first paint IS the correct final state, and the row could not distinguish a working
+pre-paint theme from a broken one (the same defect class as Phase 24's R19/R26 — the row's own
+mandated precondition would render identically to its own failure state). D-05 therefore observes
+this row with the OS in DARK appearance instead: `styles.css:105` sets dark `--bg: #1a1a2e`, so on
+a dark OS a white first frame is an unambiguous failure and `#1a1a2e` is an unambiguous pass.
+Setup: developer sets macOS Appearance to DARK. Clear site data. Hard reload while the agent
+captures the first painted frame (see Reachability proof above for the capture method). Do NOT
+touch the theme toggle.
+Discriminator: the captured first frame's background colour — `#1a1a2e` is PASS, white is FAIL —
+plus the same `dashboard-theme` (`null`/`'auto'`, D-04 as amended) and `data-theme` (`'dark'`)
+quotes as R1.
+Verdict: **pending**.
+
+**R3 — Live-follow light -> dark (VER-01, criterion 4, clause 3).**
+Setup: developer sets macOS Appearance to LIGHT, clears site data, hard-reloads one final time.
+With the page loaded and untouched (theme toggle NOT clicked), the agent quotes
+`matchMedia('(prefers-color-scheme: dark)').matches` (expect `false`), `data-theme` (expect
+`'light'`) and `dashboard-theme` (expect `null`/`'auto'` — D-04 as amended; a quoted `'light'`/
+`'dark'` here means the toggle was touched or storage was not actually cleared, and BLOCKS the
+row). The developer then changes Appearance to DARK in System Settings with the page still open
+and NOT reloaded. The agent re-quotes all three values (`true`, `'dark'`, `null`/`'auto'`) plus
+`performance.getEntriesByType('navigation')[0].type` at both instants, to prove no reload happened
+between the two readings.
+Discriminator: `matchMedia(...).matches` and `data-theme` both flip (`false`->`true`,
+`'light'`->`'dark'`) with `dashboard-theme` remaining `null`/`'auto'` throughout and no reload
+recorded — because the listener in `watchSystemTheme` (`theme.ts:167-183`) gates on
+`readStoredMode(storage) === 'auto'` (`theme.ts:171`), which holds identically for `null` and
+`'auto'`; a quoted `'light'`/`'dark'` at either instant makes the row vacuous and BLOCKED, per the
+D-04 amendment.
+Verdict: **pending**.
+
+**R4 — Live-follow dark -> light (the "and back" half of criterion 4).**
+Same shape as R3, page still open from R3, NOT reloaded, theme toggle NOT clicked at any point.
+Setup: developer changes Appearance back to LIGHT in System Settings.
+Discriminator: same three quotes as R3, expected to flip back (`true`->`false`, `'dark'`->
+`'light'`), `dashboard-theme` still `null`/`'auto'` throughout. Kept as a separate row from R3
+rather than folded in, because "and back" is a distinct transition and the listener could
+plausibly fire in one direction only.
+Verdict: **pending**.
+
+**R5 — Cache-trap exclusion (D-08).**
+Setup: no further OS or storage change; runs against the same loaded page state as R4 (or a fresh
+hard reload if needed to re-establish a clean read).
+Discriminator: the served `index.html`'s hashed module-script filename, quoted and shown to match
+the asset in the latest deployed build; `performance.getEntriesByType('navigation')[0].type ===
+'reload'`; and a cache-busted refetch of `index.html` (e.g. `fetch('./index.html?cachebust=' +
+Date.now())`) shown byte-identical to the document the browser actually used. This repo has a
+documented history of a stale cached `index.html` producing false evidence (T-25-21).
+Verdict: **pending**.
+
+**R6 — Automated-half confirmation (criterion 5, items 1-3).**
+Not a re-run. This row restates plan 25-06's already-recorded evidence — the green five-command
+gate (`npm test`, `npx tsc --noEmit`, `npm run build`, `npm run build-widgets`, `npm run
+verify-dashboard`, all exit 0 on the merged tree per `25-VALIDATION.md` § "Wave 1 Integration
+Gate"), the `verify-dashboard` check count (`56 check(s) passed, 0 failure(s).`), and CI-01's
+disposition. **CI-01's live-run half is NOT included** — `25-06-SUMMARY.md` and this file's own §
+"CI-01 live run evidence — blocked" record that plan 25-06's Task 2 (`gh workflow run` dispatch)
+was not executed because this repo's Phase-25 wave-3 work ran inside an isolated
+`worktree-agent-*` worktree that could not safely push to `origin/master` or dispatch a
+workflow with production side effects ahead of the orchestrator's own merge-back. That gap is
+recorded, not closed, and is carried into this row's verdict rather than silently treated as
+resolved.
+Verdict: **pending** — pending Task 3's read of whether the CI-01 live-run gap affects this row's
+disposition (see Task 3's row-to-requirement mapping and the governing all-rows-PASS rule).
+
+---
+
 ## Validation Sign-Off
 
 - [x] All tasks have `<automated>` verify or a Wave 0 dependency — confirmed by plan 25-06 Task 1's Per-Task Verification Map pass
