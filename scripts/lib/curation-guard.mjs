@@ -44,7 +44,11 @@
  *      regular file that still fails to open (e.g. mode-000, `EACCES`)
  *      is caught by a `try`/`catch` around the read and reported the
  *      same way, rather than letting the throw escape this pure
- *      function.
+ *      function. The same applies one level up: an unreadable
+ *      DIRECTORY (mode-000, `EACCES` on `readdirSync` itself) is also
+ *      caught and REPORTED rather than read, instead of throwing out of
+ *      this pure function (WR-19, the directory-shaped sibling of the
+ *      file case above).
  */
 
 import { existsSync, readdirSync, readFileSync } from 'fs';
@@ -80,7 +84,22 @@ export function findCurationArtifacts(publishDir) {
   }
 
   function walk(dir) {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    // WR-19: readdirSync itself can throw (e.g. a mode-000 directory,
+    // EACCES) before any entry is ever produced. Mirror the read site's
+    // shape below — report a violation naming the directory and stop
+    // descending, rather than letting the throw escape this pure function.
+    let entries;
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch (error) {
+      violations.push({
+        path: dir,
+        reason: `could not be listed (${error.code ?? error.message}) — an unreadable directory cannot be certified free of the "${CURATE_MARKER}" marker`,
+      });
+      return;
+    }
+
+    for (const entry of entries) {
       const entryPath = resolve(dir, entry.name);
 
       if (entry.isDirectory()) {
