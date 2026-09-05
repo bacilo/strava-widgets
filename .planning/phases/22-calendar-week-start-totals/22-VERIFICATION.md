@@ -1,68 +1,103 @@
 ---
 phase: 22-calendar-week-start-totals
-verified: 2026-08-19T09:30:00Z
-status: gaps_found
-score: 5/8 must-haves verified
+verified: 2026-09-05T05:59:04Z
+status: passed
+score: 8/8 must-haves verified
 overrides_applied: 0
 re_verification:
   previous_status: gaps_found
-  previous_score: 4/7
+  previous_score: 5/8
+  previous_verified: 2026-08-19T09:30:00Z
+  note: >-
+    The 2026-08-19T09:30:00Z report is SUPERSEDED by this one. That report is
+    what triggered Round 4 (plans 22-13..22-16). Round 4 then ran later the same
+    day and was never re-verified, so the prior file described a pre-Round-4
+    world for two and a half weeks. Every claim below was re-derived from the
+    CURRENT source; no Round 4 SUMMARY claim was accepted at face value, and
+    three of the closures were additionally falsified by deliberate source
+    mutation (see Mutation Falsification).
   gaps_closed:
-    - "Narrow, calendar-scoped throwing-localStorage crash (T-22-WK-02) — unchanged from Round 2's close, reconfirmed: resolveWeekStartStorage now delegates to storage.ts's shared resolveStorage(), same guarantee."
-    - "The literal Round 2 Gap 2 (app-level module-scope crash under blocked site data, main.ts:19 unguarded) — CLOSED. main.ts:19 now reads `applyThemeMode(readStoredMode(resolveStorage()))`; confirmed by direct source read. R22 (Safari, Block all cookies, full reload) observed the app boot, nav render, grid render, Monday default, no console errors — the first real-browser exercise of this exact path in the phase."
-  gaps_remaining:
-    - "The ~380px-and-below day-cell/week-total overflow (CAL-02) is fixed ONLY inside `@media (max-width: 380px)`. This was never actually a full close of SC3 ('legible at every viewport the app is expected to render at') — R19 observed exactly one width (375px). Confirmed by direct read of styles.css: `.calendar-day { min-width: 32px }`, `.calendar-grid { grid-template-columns: repeat(7, 1fr) auto }` and `.calendar-week-total { white-space: nowrap }` all apply UNCONDITIONALLY outside the 380px block, with no other @media rule in the file touching `.view`, `.calendar-grid`, `.calendar-day`, or `.calendar-week-total` between 381px and 1000px. This reproduces the same defect class (a nowrap content floor on the Total track, plus a fixed per-day min-width) at common phone widths (390px iPhone 12-15, 393px iPhone 15/16 Pro, 412px Pixel) that R19/R11/R13 never tested."
-  regressions:
-    - "CR-01 (new this round, code-review-discovered, confirmed by direct source read): the header theme toggle (nav.ts:210-215, handleThemeToggleClick) re-derives the current mode from storage on every click instead of holding in-memory state. readStoredMode(null) always returns 'auto', and cycleThemeMode('auto') always returns 'light' — so whenever the storage handle is null or unusable (the EXACT blocked-site-data configuration this round's own BL-03 fix targeted, plus Safari private mode), the toggle is permanently stuck on light and dark/auto are unreachable. This bug is NEWLY REACHABLE because of this phase's own fix: before Round 3, the same blocked-storage configuration crashed the whole bootstrap blank (main.ts:19), so the toggle could never be clicked in that state; after Round 3's app-wide resolveStorage() wiring (plan 22-11), the page now renders and the broken toggle becomes exercisable. R22 did not click the theme toggle under blocked storage — it only checked that nav/grid rendered — so the checkpoint did not catch this."
-  new_findings_this_round:
-    - "WR-01 (code review) confirmed: theme.ts:108/145 do `resolveStorage(options.storage ?? undefined)`. Passing `storage: null` therefore becomes `undefined`, which falls through resolveStorage's `if (override)` check to `globalThis.localStorage`, NOT to the null-handle path the JSDoc claims ('unless ... no storage handle could be resolved'). The three theme.test.ts BL-03 cases that pass `storage: null` (lines ~199, ~206, ~267) pass only because vitest.config.ts sets `environment: 'node'` repo-wide and there is no globalThis.localStorage in that environment, so the fallthrough happens to land on `null` anyway — confirmed by reading vitest.config.ts and grep for any setupFile assigning globalThis.localStorage (none exists). Under jsdom or a real browser these same tests would silently read/write the REAL localStorage instead of honoring the null override. This is a genuine test-quality gap, not merely a code-review nitpick — it is exactly the kind of vacuous-pass the phase's own history (Rounds 1-2) was penalized for."
-gaps:
-  - truth: "SC3/CAL-02 — each week row's total and day-cell values render legibly, with no overflow, at every viewport the app is expected to render at"
-    status: partial
-    reason: "Round 3's R19 PASS only proves the claim at a single stated width (375px, inside the ≤380px block). The fix (plan 22-09) is deliberately and explicitly scoped to `@media (max-width: 380px)` only (22-09-PLAN.md's own must-have: 'D-10's eight-column contract survives as the DEFAULT-breakpoint shape ... Only the track SIZING FUNCTIONS change at 380px'). Confirmed by direct read of the current styles.css: outside that block, `.calendar-day` keeps an unconditional `min-width: 32px`, `.calendar-grid` keeps `grid-template-columns: repeat(7, 1fr) auto`, and `.calendar-week-total` keeps `white-space: nowrap` with no `min-width`/`white-space` override — the exact BL-01 defect shape, just one pixel above where it was fixed. No other @media rule between the file's 465px, 544px, 640px, 720px, and 1000px breakpoints touches `.view`'s padding or any of these three selectors. This reproduces the overflow class at ordinary phone widths (390px, 393px, 412px) that were never exercised by any Round 1/2/3 checkpoint row — R19 explicitly names 375px, and no row above 380px and below desktop width exists anywhere in 22-VALIDATION.md."
-    artifacts:
-      - path: "src/dashboard/styles.css"
-        issue: "The BL-01/BL-02/GC-4 overflow fix (lines 926-960) is gated at `@media (max-width: 380px)`. The pre-existing, unconditional rules at lines 743 (`grid-template-columns: repeat(7, 1fr) auto`), 766-769 (`.calendar-day { min-width: 32px }`), and 825-833 (`.calendar-week-total { white-space: nowrap }`, no min-width override) apply at every width from 381px to at least 1000px (the next `min-width` breakpoint the file defines), and were not touched by Round 3."
-    missing:
-      - "Either widen the fix's breakpoint (22-REVIEW.md's own suggested fix: raise to `max-width: 640px` or split into a floor-removal block at 640px plus the font-size compaction retained at 380px) or add an explicit, developer-observed checkpoint row at a realistic phone width above 380px (e.g. 390px or 412px) before re-closing this gap. A single 375px observation is not evidence for the 381px+ band; the two bands are governed by disjoint CSS rule sets."
-  - truth: "No new Critical defect is introduced by this phase's own gap-closure work (an implicit but load-bearing condition of 'phase goal achieved' — a phase that fixes one crash by introducing a different, newly-reachable broken control has not cleanly closed its own gap)"
-    status: failed
-    reason: "Confirmed by direct source read: nav.ts:210-215's handleThemeToggleClick calls `readStoredMode(resolveStorage())` fresh on every click rather than holding in-memory theme state (contrast calendar.ts:443's `let weekStart`, reassigned by setWeekStart, which is why the week-start toggle does NOT have this bug). Under any configuration where resolveStorage() returns null or getItem is unusable — which, after this round's own BL-03 fix, includes the exact blocked-site-data browser configuration R22 exercised, plus the pre-existing Safari-private-mode case — readStoredMode(null) unconditionally returns 'auto', and cycleThemeMode('auto') unconditionally returns 'light'. Every click therefore reapplies 'light'; dark and auto are permanently unreachable. This is NEWLY REACHABLE as a symptom because of this phase's own Round 3 fix: pre-fix, the identical browser configuration crashed the whole module graph (main.ts:19 unguarded) and rendered a blank page before the toggle button existed to click; post-fix (plan 22-11), the page renders correctly and the broken toggle becomes clickable. R22's checkpoint row only confirmed nav/grid render and no console error — it never clicked the theme toggle under the blocked-storage condition it was otherwise thoroughly exercising, so this regression escaped the checkpoint entirely."
-    artifacts:
-      - path: "src/dashboard/nav.ts"
-        issue: "Lines 210-215: handleThemeToggleClick derives `current` from a fresh resolveStorage()+readStoredMode() call on every invocation instead of an in-memory mode variable seeded once at mount and reassigned on each toggle."
-    missing:
-      - "Make the in-session mode the source of truth in nav.ts, seeded once from storage at mount and reassigned by the click handler (mirroring calendar.ts's `let weekStart` pattern) — 22-REVIEW.md CR-01 provides a concrete fix sketch."
-      - "A checkpoint row that clicks the theme toggle at least twice while storage is unusable (blocked site data or a throwing getItem), confirming the mode actually advances past 'light'."
-human_verification:
-  - test: "Narrow the viewport to a realistic phone width strictly ABOVE 380px and AT OR BELOW ~530px (e.g. 390px or 412px via device emulation, matching a real iPhone/Pixel CSS width) on the October 2025 calendar month. Read back at least three day-cell distance values and one week-total cell."
-    expected: "If CR-02's arithmetic is correct, values will overflow their cells or the grid will overflow the viewport at this width, because the 380px-scoped fix does not apply here. If they render cleanly, CR-02's estimated ~381-530px overflow band is not real (or is narrower than estimated) and this gap can be closed with a source note rather than a CSS change."
-    why_human: "This is the exact class of visual/rendering judgement that required the developer's own eyes across R11, R13, and R19 — grep/source-read can confirm which CSS rules apply at this width but not what actually renders."
-  - test: "With site-data blocking active in a real browser (the same Safari 'Block all cookies' configuration R22 used), click the header theme toggle two or three times and observe whether the icon/aria-label ever reaches dark or auto, or whether it stays on light every time."
-    expected: "Per CR-01, the toggle should be observed stuck on light across every click in this configuration."
-    why_human: "Interactive control behavior under a real degraded-storage browser configuration; the same category R22 already required the developer's own eyes for, just testing a different control this round's fix newly exposed to that configuration."
+    - >-
+      GAP 1 (SC3 / CAL-02, the 381px+ coverage band) — CLOSED ON GENUINE
+      EVIDENCE. Direct read of src/dashboard/styles.css:904 confirms the
+      calendar compaction block is now `@media (max-width: 640px)`, not
+      `@media (max-width: 380px)`. The three rules the prior report named as
+      unconditional at 381px+ are all overridden inside that block:
+      `.calendar-day { min-width: 0 }` (styles.css:915), `.calendar-grid
+      { grid-template-columns: repeat(7, minmax(0, 1fr)) minmax(0, max-content) }`
+      (:911), `.calendar-week-total { min-width: 0; white-space: normal;
+      overflow-wrap: anywhere }` (:934-937). 390/393/412px now sit INSIDE the
+      relaxed band. Corroborated by R25 (fully observed, non-waivable, 393px,
+      both matchMedia discriminators confirmed) and by a mutation check:
+      reverting :904 to 380px turns styles.test.ts red (6 failures).
+    - >-
+      GAP 2 (CR-01, theme toggle stranded on light under blocked storage) —
+      CLOSED ON GENUINE EVIDENCE. src/dashboard/nav-theme.ts holds the mode in
+      a closure variable (`let currentMode`, :30) reassigned by `toggle()`
+      (:41); nav.ts:193-198 seeds it ONCE from
+      `readStoredMode(resolveStorage())` and nav.ts:217-219's
+      handleThemeToggleClick calls only `themeController.toggle()` — no
+      per-click storage read remains. Proven hermetically by
+      nav-theme.test.ts (11 tests): GC-8d deletes globalThis.localStorage,
+      asserts `'localStorage' in globalThis === false`, and asserts three
+      toggles apply exactly ['light','dark','auto'], NOT ['light','light',
+      'light']. Mutation check: removing the controller's memory turns 5 of
+      those 11 red.
+    - >-
+      WR-01 (theme.ts's `storage: null` override silently upgraded to the real
+      global) — CLOSED ON GENUINE EVIDENCE. storage.ts:61-62 now reads
+      `if (override !== undefined) return override;` — presence, not
+      truthiness. theme.ts:115 and :168 pass `options.storage` UNTOUCHED; the
+      `?? undefined` coercion the prior report named is gone from both sites.
+    - >-
+      The vacuous-null-override TEST defect (prior truth 8) — CLOSED ON GENUINE
+      EVIDENCE. theme.test.ts now installs a recording `sentinelStorage` as
+      globalThis.localStorage before each null-override case (GC-9b, GC-9c) and
+      carries a GC-9d CONTROL that omits `storage` entirely and asserts the
+      sentinel IS written — so the null cases discriminate rather than pass
+      vacuously. Mutation check: reverting storage.ts to `if (override)` turns
+      3 tests red across theme.test.ts + storage.test.ts. vitest.config.ts is
+      still `environment: 'node'` with no setupFile, but that no longer matters
+      — these tests supply their own global.
+  gaps_remaining: []
+  regressions: []
+  developer_authority_residue:
+    - >-
+      R26 (~600px sub-band of the widened compaction) is recorded PASS on the
+      developer's explicit authority. The reading at ~600px was NEVER captured;
+      the developer's "Compaction Intentional" judgement was given at 393px
+      (R25's width). This shortfall is retained verbatim in 22-VALIDATION.md's
+      R26 Observation cell and is NOT withdrawn here. It is not load-bearing
+      for truth 3 — see "Developer-Authority Residue" below for why.
+    - >-
+      R27 (three theme-toggle clicks under real blocked site data) is recorded
+      PASS on the developer's explicit authority. The three individual
+      `aria-label` values in click order, the specific browser/setting, and the
+      per-click colour-change statement were NEVER supplied; only "Theme dark
+      is reached". Retained verbatim in 22-VALIDATION.md's R27 Observation cell
+      and NOT withdrawn here. It is not load-bearing for truth 7 — see below.
+warnings:
+  - >-
+    REQUIREMENTS.md is internally inconsistent about Phase 22. Lines 33-34
+    record CAL-01 and CAL-02 as "Re-ticked 2026-08-19 (Round 4 final
+    disposition, plan 22-16)" with `- [x]` checkboxes, but the phase map rows at
+    lines 88-89 still read "Pending". The map rows are stale relative to the
+    re-tick narrative in the same file. Documentation defect only — no code
+    impact — but it should be reconciled before milestone audit.
 ---
 
-# Phase 22: Calendar Week-Start & Totals Verification Report
+# Phase 22: Calendar Week-Start & Totals — Verification Report
 
 **Phase Goal:** User can choose whether the training-log week starts Sunday or Monday; the choice persists and correctly drives which days each week-total sums, on calendar controls styled to match the rest of the dashboard.
-**Verified:** 2026-08-19T09:30:00Z
-**Status:** gaps_found
-**Re-verification:** Yes — after Round 3 gap-closure (plans 22-09..22-12), superseding the prior verification dated 2026-08-18T21:40:00Z (score 4/7, gaps_found).
+**Verified:** 2026-09-05T05:59:04Z
+**Status:** passed
+**Re-verification:** Yes — supersedes the report dated 2026-08-19T09:30:00Z (`gaps_found`, 5/8), which described the phase as it stood BEFORE Round 4 (plans 22-13..22-16) ran.
 
-## Reconciliation Summary
+## Why this re-verification exists
 
-Round 3 genuinely closed two of the three items the prior verification flagged as open, and this verification independently confirms both by direct source read:
+The prior report is the document that OPENED Round 4. Round 4 executed later the same day, recorded both gaps closed, and verification was never re-run. The stale file therefore held open two gaps that the current source demonstrably closes. This report re-derives all eight must-haves from the CURRENT source, ignores Round 4's SUMMARY narrative entirely, and additionally attacks three of the four closures with deliberate source mutations to prove the guarding tests are not vacuous.
 
-- **The literal main.ts:19 module-scope crash (prior Gap 2) — CLOSED.** `main.ts:19` now reads `applyThemeMode(readStoredMode(resolveStorage()))`; all six previously-unguarded storage-global dereference sites (`main.ts:19`, `nav.ts:186`, `nav.ts:206`, `theme.ts:93`, `theme.ts:130`, `detail-charts.ts:218`) now resolve through a single shared `storage.ts`, proven by a repo-wide comment-stripped source guard. R22's real-browser observation (Safari, "Block all cookies", full reload: nav rendered, grid rendered, Monday default, no console errors) is the first actual exercise of this path in the phase and it PASSED.
-- **The narrow calendar-scoped throwing-getter crash (T-22-WK-02) — remains closed**, unchanged in substance from Round 2, now delegated through the same shared resolver.
-
-But this verification does **not** accept two of Round 3's other "CLOSED" dispositions at face value, and re-derives both from source:
-
-1. **CAL-02/SC3 ("legible at every viewport the app is expected to render at") is NOT actually closed.** Round 3's own plan (22-09-PLAN.md) explicitly scoped the fix to `@media (max-width: 380px)` only, by design. Direct read of the current `styles.css` confirms the pre-existing, unconditional rules (`.calendar-day { min-width: 32px }`, `.calendar-grid { grid-template-columns: repeat(7, 1fr) auto }`, `.calendar-week-total { white-space: nowrap }`) still govern every width from 381px up to at least 1000px — the identical defect class R11/R13 failed on, one pixel above where it was fixed. R19, the row that closed this gap in `22-VALIDATION.md`, observed exactly one width: 375px. No checkpoint row in any of the three rounds tests a width between 381px and desktop, and that band includes the three most common real phone CSS widths (390px, 393px, 412px). `22-REVIEW.md`'s CR-02 makes this argument from CSS-arithmetic; this verification confirms every structural premise of that argument by independently reading the same source. **This gap is reopened.**
-2. **A new Critical regression, confirmed by source read, that Round 3's own checkpoint did not catch.** `nav.ts`'s theme toggle (`handleThemeToggleClick`) re-derives its current mode from storage on every click rather than holding in-memory state. Under a null/unusable storage handle it is permanently stuck on "light." This bug pre-dates the exact code shape in some sense, but it is **newly reachable** specifically because Round 3's own BL-03 fix stopped the blocked-storage page from crashing blank — trading one failure (blank page) for a different, subtler one (a broken control on a page that now renders). R22's checkpoint row exercised page rendering under blocked storage but never clicked the toggle, so it did not observe this. `22-REVIEW.md`'s CR-01 identifies this independently; confirmed here.
-
-Net: **two prior gaps close, one prior gap reopens on closer inspection, one new regression is discovered.** Status stays `gaps_found`.
+Two Round 4 checkpoint rows (R26, R27) were recorded PASS on the developer's explicit authority with named evidentiary shortfalls. Those shortfalls are restated here verbatim and are **not laundered into observed evidence**. They are also not load-bearing: every truth below is closed on source, unit-test, mutation, or fully-observed-checkpoint evidence that stands independently of those two rows. That distinction is spelled out in "Developer-Authority Residue".
 
 ## Goal Achievement
 
@@ -70,103 +105,138 @@ Net: **two prior gaps close, one prior gap reopens on closer inspection, one new
 
 | # | Truth | Status | Evidence |
 |---|-------|--------|----------|
-| 1 | SC1 — User can toggle Sunday/Monday via a control and the choice persists across a real reload | ✓ VERIFIED (evidence-quality caveat) | Round 1 R2/R5/R7/R8 PASS (pre-Round-3 build). Round 3 R20 regression-checks the read path end-to-end (all five Monday-start totals match, Mon-first headings confirm Monday-start) against the post-refactor build. Source confirms `calendar.ts:443`'s `let weekStart = readStoredWeekStart(storage)` and `calendar-preferences.ts`'s read/write functions are untouched in substance by 22-10/22-11 (only the storage-handle resolution was refactored to delegate through the new shared `resolveStorage()`). R23's week-start half (select Sunday, hard-reload, confirm `Sun` first) was answered only by a stale pre-R22 "confirm" and not re-stated with detail post-restore — a real evidence-quality gap, but the underlying code path is unchanged from Round 1's fully-observed R7 and is independently regression-checked by R20. Judged sufficient on the strength of source-code continuity plus R20, not on R23 alone. |
-| 2 | SC2 — `buildMonthGrid`'s hard-coded Sunday-first math is generalized to a required `weekStart` parameter and covered by unit tests for both week-start values | ✓ VERIFIED | Unchanged since Round 2's close, reconfirmed: `buildMonthGrid(rows, month, weekStart: WeekStart)` still required at `calendar-logic.ts:214-217`, `weekStartOffset()` is total (`calendar-logic.ts:182`). `npx tsc --noEmit` exits 0; `npx vitest run src/dashboard` (30 files) is 896/896 passing (a subset run; full-suite `data/stats/`-dependent failures are pre-existing and environmental, documented in `deferred-items.md`, unrelated to this phase). |
-| 3 | SC3 — Each week row shows a computed total, correct for the selected week start, legible at every viewport the app is expected to render at | ✗ FAILED | R19 (Round 3) confirmed legibility at exactly 375px only. Direct read of `styles.css` confirms the fix is gated at `@media (max-width: 380px)` and the identical pre-existing overflow-causing rules (unconditional 32px day-cell min-width, `nowrap` Total-track floor, `repeat(7,1fr) auto` grid) govern 381px through at least 1000px with no override in between. No checkpoint row in any round tests this band, which includes the three most common real phone widths (390/393/412px). See Gaps. |
-| 4 | SC4 — The week-start control and other Calendar inputs use Phase 19's shared styling | ✓ VERIFIED (minor cosmetic caveat, unchanged from Round 2) | R9/R10 (Round 1), R17 (Round 2 confirm-unregressed), R21 (Round 3 confirm-unregressed, thin/waived but non-gating) all PASS. WR-05's 8px header/value cosmetic offset remains open and non-blocking, as previously noted. |
-| 5 | SC5 — The mandatory human browser checkpoint confirms the grid re-flows and week totals recompute correctly across all rounds | ✗ FAILED | 23 rows total across three rounds with genuine per-row, quoted evidence. But the checkpoint's own coverage has a structural hole: R19 (the decisive narrow-viewport row, non-waivable) tested exactly one width, 375px, never the 381-530px band the current CSS structurally still exposes; and R22 (the decisive blocked-storage row, non-waivable) tested page rendering but never the theme-toggle interaction that this round's own fix newly exposed to the same configuration. The checkpoint genuinely closed what it asked; it did not ask the full set of questions the shipped CSS/JS changes required. |
-| 6 | T-22-WK-02 (narrow) — a throwing/inaccessible `localStorage` GETTER does not crash the Calendar mount | ✓ VERIFIED | Unchanged in substance from Round 2's close; `resolveWeekStartStorage()` now delegates to `storage.ts`'s shared `resolveStorage()`, same guarantee, confirmed by source read. |
-| 7 | BL-03 / GC-5 — the app-level blocked-site-data threat is closed end to end, and the fix's own documentation accurately describes what is covered, with no regression introduced elsewhere | ✗ FAILED | The module-scope crash IS closed: `main.ts:19` guarded, confirmed by source read and by R22's real-browser PASS (Safari, "Block all cookies," full reload: nav+grid render, Monday default, no console errors). But the SAME fix that closed this made a different, Critical defect newly reachable: `nav.ts`'s theme toggle is permanently stuck on "light" under the identical blocked-storage configuration (CR-01, confirmed by direct source read of `nav.ts:210-215`). R22 never exercised the toggle, so this was not caught. "End to end, no regression" is not true as shipped. |
-| 8 | (New, this round) `theme.test.ts`'s three BL-03 null-storage-handle test cases are real proofs of the `storage: null` code path, not vacuous passes of a different path | ✗ FAILED | Confirmed by direct source read: `theme.ts:108`/`:145` compute `resolveStorage(options.storage ?? undefined)`. `null ?? undefined` evaluates to `undefined`, which `resolveStorage` treats as "no override supplied" and falls through to `globalThis.localStorage` — NOT to an honored `null`. The three tests pass only because `vitest.config.ts` sets `environment: 'node'` project-wide (confirmed by reading the config; no setup file assigns `globalThis.localStorage`), so the fallthrough happens to land on `null` anyway in this specific test environment. Under jsdom or a real browser, the same test bodies would read/write the REAL global instead of honoring the null override — this is exactly the vacuous-pass pattern the phase's own history was already penalized for in Rounds 1-2 (22-REVIEW.md WR-01). |
+| 1 | SC1 — User can switch the calendar's week start between Sunday and Monday via a control, and the choice persists across reloads | VERIFIED | Source unchanged in substance by Round 4: `calendar.ts:443` `let weekStart = readStoredWeekStart(storage)`; `setWeekStart` (:551-570) writes via `writeWeekStart(storage, next)` (:561) then rebuilds `buildMonthGrid(...)` (:569); both segmented options are wired (:573-574). `calendar-preferences.ts:69-70` delegates the handle to `storage.ts`'s `resolveStorage`. 31 unit tests in `calendar-preferences.test.ts` pass. Checkpoint: R7 (Round 1, fully observed — Sunday selection survived a real hard reload); R28(ii) (Round 4, fully observed — weekday headings read back `Mon Tue Wed Thu Fri Sat Sun` on the Round 4 build). R28(i)/(iii) are thin/developer-waived (R28 is a waivable row); the tick does not rest on them. |
+| 2 | SC2 — `buildMonthGrid`'s hard-coded Sunday-first math is generalized to a required `weekStart` parameter and covered by unit tests for both week-start values | VERIFIED | `calendar-logic.ts:214-217` — `buildMonthGrid(rows, month, weekStart: WeekStart)`, parameter required. `WEEK_START_OFFSET` is a total `Record<WeekStart, number>` (:106) consumed by `weekStartOffset` (:182) and `leadingPaddingFor` (:191-192). `calendar-logic.test.ts` 58/58 pass. `npx tsc --noEmit` exit 0. |
+| 3 | SC3 / CAL-02 — Each week row shows a computed total, correct for the selected week start, legible with no overflow at every viewport the app is expected to render at | VERIFIED (with a named, non-load-bearing residue at ~600px) | **The prior report's structural premise is now false.** `styles.css:904` is `@media (max-width: 640px)`, not 380px. Inside it: `.calendar-day { min-width: 0 }` (:915) and a single-column stack (:916-921), `.calendar-grid { repeat(7, minmax(0, 1fr)) minmax(0, max-content) }` (:911), `.calendar-week-total { min-width: 0; white-space: normal; overflow-wrap: anywhere }` (:934-937), plus 14px/12px type steps. Every one of the three "unconditional at 381px+" rules the prior report named is overridden across the whole 0-640px band, so 390/393/412px are covered. Above 640px the default eight-track shape returns, whose content-derived floor is ~530px (styles.css:855-861 arithmetic) — i.e. ~110px of headroom at 640px, and that band is what every desktop-width row (R20, R28(ii)) has repeatedly observed clean. Checkpoint: **R25 is fully observed and non-waivable** — a stated 393px via Chrome DevTools emulation with BOTH discriminators confirmed (`matchMedia('(max-width: 640px)').matches === true` AND `matchMedia('(max-width: 380px)').matches === false`, the second proving it is not a repeat of R19's 375px), the full rendered table quoted (31 day cells, 5 week-total cells), explicit "Overflow: no. Light and dark". Guarded by 152 passing assertions in `styles.test.ts`, including an inverted-on-purpose case asserting the `.calendar-grid` track list IS overridden at ≤640px. Mutation check: reverting :904 to 380px turns 6 of those red. |
+| 4 | SC4 / CAL-03 — The week-start control and other Calendar inputs use Phase 19's shared styling | VERIFIED | Unchanged since Round 2; R9/R10 (Round 1, fully observed, both themes, focus ring and WCAG AA contrast), R17 (Round 2 confirm-unregressed), R21 (Round 3 confirm-unregressed). No Round 4 change touched the control styling. WR-05's 8px header/value cosmetic offset remains open and non-blocking, unchanged. |
+| 5 | SC5 — The mandatory human browser checkpoint confirms the grid re-flows and week totals recompute correctly | VERIFIED | 28 rows across four rounds with per-row quoted evidence. SC5's own literal content was discharged in Round 1 (R2-R8, boundary-straddling weeks under both week starts) and regression-confirmed in Round 3 (R20) and Round 4 (R28(ii), an exact five-triple match to the preamble Monday-start table on a build proven fresh by R24's dual asset-filename discriminator `index-BWkFUnJ1.js` / `index-BnKFUiAg.css`, none of the three prior rounds' builds). **The two structural holes the prior report named are both now addressed**: no row above 380px (closed by R24/R25) and no toggle click under blocked storage (attempted by R27). Round 4's house rule 14 machinery held — R26 and R27 were recorded BLOCKED by the executor against orchestrator pressure before the developer's final explicit disposition, and the shortfalls survive verbatim in the file. That is the checkpoint behaving correctly, not failing. |
+| 6 | T-22-WK-02 — a throwing/inaccessible `localStorage` GETTER does not crash the Calendar mount | VERIFIED | `storage.ts:61-67` wraps the property access in try/catch and returns `null` from the catch; `calendar-preferences.ts:69-70` delegates to it. `storage.test.ts` 12/12 pass, including throwing-getter sentinel installs. R15 (Round 2, live throwing getter) and R22 (Round 3, Safari "Block all cookies", full reload — nav rendered, grid rendered, Monday default, no console errors) both fully observed. |
+| 7 | BL-03 / GC-5 / CR-01 — the app-level blocked-site-data threat is closed end to end AND this phase's own fix introduced no newly-reachable Critical | VERIFIED (with a named, non-load-bearing residue on R27's detail) | The module-scope half was already closed (`main.ts:19` `applyThemeMode(readStoredMode(resolveStorage()))`, R22 PASS). **The regression half — CR-01 — is now genuinely fixed in source.** `nav-theme.ts` is a real in-memory controller: `let currentMode = deps.initialMode` (:30), `toggle()` reassigns `currentMode = cycleThemeMode(currentMode)` (:41) and never touches storage. `nav.ts:193-198` seeds it exactly once; `nav.ts:217-219` handleThemeToggleClick calls only `themeController.toggle()`. The system-theme watcher no longer re-derives auto-ness from storage either — `watchSystemTheme(..., { isAuto: () => themeController.isAuto() })` (nav.ts:222-227) against theme.ts's new `isAuto` seam (:169-175), which is the second half of the same defect. `nav-theme.test.ts` proves the behaviour hermetically with NO storage handle at all and again under a THROWING globalThis.localStorage sentinel, plus five source guards on nav.ts forbidding reintroduction of a per-click read. |
+| 8 | `theme.ts`'s `storage: null` opt-out is genuinely honoured, and its tests are real proofs of that path rather than vacuous passes of the absent-global path | VERIFIED | `storage.ts:61` discriminates on presence (`override !== undefined`), not truthiness; the WR-01 rationale is documented at :54-59. `theme.ts:115` and `:168` pass `options.storage` untouched — the `?? undefined` coercion is gone from both. `theme.test.ts` installs a recording sentinel as the real global for GC-9b/GC-9c and carries a GC-9d CONTROL (same sentinel, `storage` omitted) asserting the write DOES happen — so the null cases discriminate. Mutation-falsified below. |
 
-**Score:** 5/8 truths verified (3 FAILED — see Gaps)
+**Score:** 8/8 truths verified
+
+### Mutation Falsification
+
+Every closure that rests on a passing test was attacked by deliberately reintroducing the defect the test claims to guard, then restoring the file. A test that stays green under its own defect is worthless; all three went red.
+
+| Mutation applied | File | Suite run | Result |
+|---|---|---|---|
+| `if (override !== undefined) return override;` → `if (override) return override;` (reintroduces WR-01's truthiness check) | `src/dashboard/storage.ts:62` | `theme.test.ts` + `storage.test.ts` | **3 failed / 44 passed** — guard is real |
+| `currentMode = cycleThemeMode(currentMode)` → `cycleThemeMode(deps.initialMode)` (removes the controller's memory, reintroducing CR-01's constant-cycle shape) | `src/dashboard/nav-theme.ts:41` | `nav-theme.test.ts` | **5 failed / 6 passed** — guard is real |
+| `@media (max-width: 640px)` → `@media (max-width: 380px)` (reverts the compaction breakpoint to the Round 3 value the prior report failed) | `src/dashboard/styles.css:904` | `styles.test.ts` | **6 failed / 146 passed** — guard is real |
+
+Working tree confirmed clean (`git status --porcelain` empty) after all three restores.
 
 ### Required Artifacts
 
 | Artifact | Expected | Status | Details |
 |----------|----------|--------|---------|
-| `src/dashboard/views/calendar-logic.ts` | `WeekStart` union, required `weekStart` param, total `weekStartOffset`, `WeekTotal`, `weekTotals` | ✓ VERIFIED | Unchanged since Round 2; reconfirmed by source read. |
-| `src/dashboard/storage.ts` | Shared `resolveStorage(override?)` handle resolver, sole storage-global dereference site in `src/dashboard/` | ✓ VERIFIED | Confirmed by source read (`storage.ts:46-53`); narrow, no `getItem`/`setItem`/key logic, matches D-06 fence. |
-| `src/dashboard/views/calendar-preferences.ts` | `resolveWeekStartStorage` delegates to shared resolver | ✓ VERIFIED | One-line delegation confirmed. |
-| `src/dashboard/main.ts` | Module-scope theme read guarded via `resolveStorage()` | ✓ VERIFIED | `main.ts:19` confirmed guarded, closing Round 2's Gap 2. |
-| `src/dashboard/nav.ts` | Six-site guard wiring; theme toggle behaves correctly under a null/unusable storage handle | ⚠️ PARTIAL | Storage-handle resolution is correctly wired (guard closed), but the toggle's OWN state-management logic (unrelated to the guard itself) is broken under exactly the configuration the guard now makes reachable — see Gaps, CR-01. |
-| `src/dashboard/theme.ts` | Null-tolerant `readStoredMode`/`applyThemeMode`/`watchSystemTheme`; explicit `null` override honored | ⚠️ PARTIAL | Null-tolerance for an ABSENT global is correct. An explicit `storage: null` override is silently upgraded to the real global via `?? undefined` — see Gaps/WR-01. |
-| `src/dashboard/styles.css` | 380px compaction fix for CAL-02 overflow, `.calendar-weekday--total` alignment | ⚠️ INSUFFICIENT (breakpoint-scoped only) | BL-01/BL-02 rules present and correctly close the ≤380px case (confirmed by source read of the 380px block). Does not extend to 381px+, where the pre-existing overflow-causing rules are unconditional. See Gaps, CR-02. |
-| `.planning/phases/22-calendar-week-start-totals/22-VALIDATION.md` | Round 1 (11 rows) + Round 2 (6 rows) + Round 3 (6 rows) sections, append-only | ✓ VERIFIED | All three rounds present; Round 3 records 6/6 PASS with three disclosed thin/waived rows (R18, R21, R23) and two fully-observed non-waivable rows (R19, R22). |
-| `.planning/REQUIREMENTS.md` | CAL-01/02/03 ticked matching row map | ⚠️ OVERSTATED | CAL-02 is ticked "Complete" citing R18/R19/R20; this verification finds R19's single-width evidence insufficient to support the requirement's own "every viewport" language. CAL-01/CAL-03 ticks are supportable on the evidence available. |
-| `.planning/phases/22-calendar-week-start-totals/22-REVIEW.md` | Fresh code review post-Round-3 | ✓ VERIFIED | 2 critical / 6 warning / 6 info findings; CR-01 and CR-02 independently reproduced against current source in this verification; WR-01's vacuous-test claim independently reproduced. |
+| `src/dashboard/styles.css` | Calendar compaction covering the real phone-width band, not gated at 380px | VERIFIED | `:904` is `@media (max-width: 640px)`. The `.calendar-` compaction block is the only 640px block that mentions a calendar selector (the other, `:465`, is the nav collapse). Exactly two `@media (max-width: 380px)` blocks remain and neither is calendar-related (`.chart-band__canvas-wrap`, `.pr-evolution-card__canvas-wrap`) — asserted structurally by `styles.test.ts`'s IN-06/GC-7 case, which brace-walks each block body and rejects any `.calendar-` inside. |
+| `src/dashboard/nav-theme.ts` | In-memory theme-mode controller (CR-01 fix) | VERIFIED | 53 lines, real closure state, `mode()`/`isAuto()`/`toggle()`/`syncSystemTheme()`. Not a stub; no storage access at all (by design — seeding is the caller's job, enforced by GC-8i). |
+| `src/dashboard/nav.ts` | Controller wired; no per-click storage read | VERIFIED | Seeded once at `:194`; `handleThemeToggleClick` (:217-219) is a one-line delegation; `readStoredMode(` appears exactly once in comment-stripped source and `cycleThemeMode` zero times, both asserted by GC-8j. |
+| `src/dashboard/theme.ts` | Explicit `storage: null` honoured; `isAuto` seam for the in-memory caller | VERIFIED | `:115`, `:168` pass `options.storage` untouched. `isAuto` seam at `:169-175` with the omit-preserves-old-behaviour contract documented at `:150-156`. |
+| `src/dashboard/storage.ts` | Presence-discriminating three-way resolver, sole storage-global dereference site | VERIFIED | `:61-67`. 68 lines, narrow, no `getItem`/`setItem`/key logic — D-06 fence intact. |
+| `src/dashboard/views/calendar-logic.ts` | Required `weekStart`, total offset lookup, week totals | VERIFIED | Unchanged; reconfirmed by source read. |
+| `src/dashboard/views/calendar-preferences.ts` | Delegates handle to shared resolver | VERIFIED | One-line delegation at `:69-70`. |
+| `src/dashboard/main.ts` | Module-scope theme read guarded | VERIFIED | Guarded via `resolveStorage()`; rationale comment retained. |
+| `src/dashboard/nav-theme.test.ts` | Proves three clicks reach dark and auto with no storage handle | VERIFIED | 11 tests. GC-8d is hermetic (deletes the global, asserts absence, asserts `['light','dark','auto']` and explicitly `not.toEqual(['light','light','light'])`). GC-8i repeats it under a THROWING global. Five source guards on nav.ts. Mutation-falsified above. |
+| `src/dashboard/theme.test.ts` | Non-vacuous `storage: null` cases | VERIFIED | Sentinel install + GC-9d discriminating control. Mutation-falsified above. |
+| `22-VALIDATION.md` | Four rounds, append-only, shortfalls retained | VERIFIED | 28 rows. R26/R27's evidentiary shortfalls are retained verbatim in their Observation cells alongside the developer-authority PASS verdicts — the file does not pretend the readings were taken. |
+| `.planning/REQUIREMENTS.md` | CAL-01/02/03 ticks matching the row map | PARTIAL (documentation only) | Lines 33-34 record the Round 4 re-tick honestly, including the named shortfalls. Lines 88-89's map rows still read "Pending" and were not updated with the re-tick. See `warnings` in frontmatter. |
 
 ### Key Link Verification
 
 | From | To | Via | Status | Details |
 |------|-----|-----|--------|---------|
-| `main.ts`'s module-scope theme read | app bootstrap survives blocked storage | `resolveStorage()` | ✓ WIRED | Confirmed by source read and R22 PASS. |
-| a click on the header theme toggle, under a null/unusable storage handle | a mode change reaching dark or auto | in-memory mode state | ✗ NOT_WIRED | No in-memory mode exists in `nav.ts`; every click re-derives `'auto'` from a null handle and applies `'light'`. CR-01. |
-| `.calendar-day` (7 tracks) + `.calendar-week-total` (8th track) | a squeezed, non-overflowing grid | width-relaxing rules | ⚠️ PARTIAL — WIRED at ≤380px only | The `minmax(0, ...)`/`min-width: 0`/`white-space: normal` relaxations exist only inside `@media (max-width: 380px)`; at 381px+ the tracks keep their unconditional content-based floors. CR-02. |
-| `theme.ts`'s `ApplyThemeOptions.storage: null` | an honored "do not persist" instruction | `resolveStorage(options.storage ?? undefined)` | ✗ NOT_WIRED | `null ?? undefined` discards the explicit `null`; falls through to the real global instead of honoring the override. WR-01. |
-| a click on either segmented Sunday/Monday option | repainted `.calendar-grid` | `setWeekStart` → `writeWeekStart` + `buildMonthGrid` + `renderGrid` | ✓ WIRED | Unchanged since Round 2; confirmed by source read and R20's regression check. |
+| a click on the header theme toggle, under a null/unusable storage handle | a mode change reaching dark and auto | `nav-theme.ts`'s in-memory `currentMode` | **WIRED** (was NOT_WIRED) | `nav.ts:194` seeds → `:218` toggles → `nav-theme.ts:41` reassigns → `deps.apply`/`deps.render`. Proven with the global deleted and with it throwing. |
+| a system colour-scheme change, under a null handle, while the user picked an explicit mode | suppressed (not overridden) | `watchSystemTheme({ isAuto })` | **WIRED** | `nav.ts:226` supplies `isAuto`; `theme.ts:172` prefers it over `readStoredMode(storage) === 'auto'`. This closes the second half of CR-01 the prior report did not separately name. |
+| `theme.ts`'s `ApplyThemeOptions.storage: null` | an honoured "do not persist" instruction | `resolveStorage(options.storage)` | **WIRED** (was NOT_WIRED) | Presence check at `storage.ts:62`; no coercion at either call site. |
+| `.calendar-day` (7 tracks) + `.calendar-week-total` (8th track) | a squeezed, non-overflowing grid at 390/393/412px | ≤640px relaxation rules | **WIRED** (was PARTIAL — ≤380px only) | `minmax(0, ...)` tracks + `min-width: 0` + `white-space: normal` + `overflow-wrap: anywhere` now govern the whole 0-640px band. |
+| a click on either segmented Sunday/Monday option | repainted `.calendar-grid` | `setWeekStart` → `writeWeekStart` + `buildMonthGrid` + `renderGrid` | WIRED | Unchanged; `calendar.ts:551-574`. |
+| `main.ts`'s module-scope theme read | app bootstrap survives blocked storage | `resolveStorage()` | WIRED | Unchanged; R22 PASS. |
 
 ### Data-Flow Trace (Level 4)
 
 | Artifact | Data Variable | Source | Produces Real Data | Status |
 |----------|---------------|--------|---------------------|--------|
-| `calendar.ts`'s week-total cells | `grid.weekTotals[i]` | `buildMonthGrid` → `weekTotals` from in-month cells | Yes — R20 read back all five Monday-start triples matching the independently-recomputed archive table | ✓ FLOWING |
-| `nav.ts`'s theme toggle state | `readStoredMode(resolveStorage())`, re-derived every click | storage (no in-memory fallback) | No — when storage is null/unusable, the derivation is a CONSTANT ('auto' → 'light'), not a state machine | ✗ HOLLOW (interaction, not render, but same failure class — the click handler has no memory) |
+| `calendar.ts`'s week-total cells | `grid.weekTotals[i]` | `buildMonthGrid` → `weekTotals` over in-month cells | Yes — R28(ii) read back all five Monday-start triples (59.1 km/5h 42m/×5, 80.0 km/7h 53m/×6, 80.0 km/7h 58m/×5, 80.0 km/7h 42m/×6, 58.1 km/5h 32m/×5), an exact match to the independently-derived preamble table, on the Round 4 build | FLOWING |
+| `nav.ts`'s theme toggle state | `themeController.mode()` | in-memory closure, seeded once from storage | Yes — the click handler now has memory; the derivation is a state machine, not the constant `'auto' → 'light'` it was | FLOWING (was HOLLOW) |
+| `calendar.ts`'s grid shape | `weekStart` | `readStoredWeekStart(storage)`, reassigned by `setWeekStart` | Yes — R28(ii) headings, R7 persistence | FLOWING |
 
 ### Behavioral Spot-Checks
 
 | Behavior | Command | Result | Status |
 |----------|---------|--------|--------|
-| Type-check clean | `npx tsc --noEmit -p tsconfig.json` | exit 0 | ✓ PASS |
-| Dashboard test suite green | `npx vitest run src/dashboard` | 30 files, 896/896 passed | ✓ PASS |
-| `nav.ts`'s theme toggle holds no in-memory mode (CR-01) | direct read of `nav.ts:210-215` | `readStoredMode(resolveStorage())` called fresh inside the handler, no module/closure-level mode variable | ✗ CONFIRMS GAP |
-| `.calendar-grid`/`.calendar-day`/`.calendar-week-total` unconditional rules outside 380px (CR-02) | direct read of `styles.css:743`, `:766-769`, `:825-833`; grep for all `@media` blocks in the file | `repeat(7, 1fr) auto`, `min-width: 32px`, `white-space: nowrap` all unconditional; no other block overrides them between 381px and 1000px | ✗ CONFIRMS GAP |
-| `theme.ts`'s `storage: null` override is honored, not discarded (WR-01) | direct read of `theme.ts:108`, `:145`; `vitest.config.ts` | `resolveStorage(options.storage ?? undefined)` discards an explicit `null`; `environment: 'node'` (no setup file sets `globalThis.localStorage`) is why the tests pass anyway | ✗ CONFIRMS GAP |
-| No debt markers in phase-touched files | `grep -nE "TBD\|FIXME\|XXX\|TODO\|HACK\|PLACEHOLDER"` across styles.css, nav.ts, theme.ts, storage.ts, main.ts, calendar.ts, calendar-preferences.ts | no matches | ✓ PASS |
+| Type-check clean | `npx tsc --noEmit` | exit 0, no output | PASS |
+| Compile build | `npm run build` (tsc) | exit 0 | PASS |
+| Full artefact build incl. dashboard SPA | `npm run build-widgets` | exit 0 — widgets, standalone pages, dashboard SPA built; private-artifact scan clean (5639 files); curation-artifact scan clean | PASS |
+| Full test suite | `npx vitest run` | exit 0 — **63 files, 1617/1617 tests passed**, 8.30s | PASS |
+| Phase-22 test surface | `npx vitest run` on `nav-theme` + `theme` + `storage` + `styles` + `calendar-logic` + `calendar-preferences` | exit 0 — **6 files, 299/299 passed** (styles 152, calendar-logic 58, calendar-preferences 31, theme 35, storage 12, nav-theme 11) | PASS |
+| Compaction breakpoint is genuinely 640px | direct read `styles.css:904` + brace-walked block body | `@media (max-width: 640px)`; block contains `.calendar-day { min-width: 0 }`, `repeat(7, minmax(0,1fr)) minmax(0,max-content)`, `white-space: normal`, `overflow-wrap: anywhere` | CONFIRMS CLOSURE |
+| No calendar rule survives in a 380px block | `grep -c '@media (max-width: 380px)'` + body inspection | exactly 2 blocks, both canvas-wrap, neither `.calendar-` | CONFIRMS CLOSURE |
+| `storage: null` reaches the null path | direct read `storage.ts:62`, `theme.ts:115`, `theme.ts:168` | `override !== undefined`; no `?? undefined` at either call site | CONFIRMS CLOSURE |
+| Theme toggle holds in-memory state | direct read `nav-theme.ts:30/41`, `nav.ts:194/217-219` | closure variable, seeded once, reassigned per toggle | CONFIRMS CLOSURE |
+| vitest environment still `node` with no setupFile | direct read `vitest.config.ts` | `environment: 'node'`, `globals: true`, `fileParallelism: false`, no `setupFiles` key | CONFIRMED — but no longer a vacuity risk; the null-override tests now install their own sentinel global and are mutation-proven discriminating |
+| No debt markers in phase-touched files | `grep -nE 'TBD\|FIXME\|XXX\|HACK\|PLACEHOLDER\|TODO'` across styles.css, nav.ts, nav-theme.ts, theme.ts, storage.ts, main.ts, calendar.ts, calendar-logic.ts, calendar-preferences.ts | no matches | PASS |
+
+### Probe Execution
+
+| Probe | Command | Result | Status |
+|-------|---------|--------|--------|
+| — | `find scripts -path '*/tests/probe-*.sh'` | no matches; no PLAN or SUMMARY in this phase declares a probe path | SKIPPED (no probes defined for this phase) |
 
 ### Requirements Coverage
 
-| Requirement | Source Plan(s) | Description | Status | Evidence |
+| Requirement | Source Plans | Description | Status | Evidence |
 |---|---|---|---|---|
-| CAL-01 | 22-01..22-05, 22-07, 22-08, 22-10, 22-11, 22-12 | User can choose Sunday/Monday week start; choice persists | ✓ SATISFIED (with disclosed evidence-quality caveat on R23) | Week-start read/write path unchanged in substance by the Round 3 storage refactor, confirmed by source read; R7 (Round 1, fully observed), R20 (Round 3 regression check, fully observed) both support it. R23's week-start half is thin. Judged sufficient on the totality of evidence, not on R23 alone. |
-| CAL-02 | 22-01, 22-02, 22-03, 22-05, 22-06, 22-08, 22-09, 22-12 | Week totals computed and shown, respecting selected week start, legible at every viewport | ✗ BLOCKED (reopened) | REQUIREMENTS.md's Round 3 tick relies on R19's single-width (375px) observation and the plan's own deliberate 380px-only fix scope. The requirement's "every viewport" language and the roadmap's SC3 wording are not satisfied above 380px — confirmed by source read that the identical defect-causing CSS rules remain unconditional at 381px+. This verification reopens the requirement. |
-| CAL-03 | 22-02, 22-04, 22-05, 22-06 | Calendar controls use shared Phase 19 styling | ✓ SATISFIED | Unchanged since prior verification; R21 (Round 3, confirm-unregressed, non-gating) adds no new information but no regression either. |
+| CAL-01 | 22-01..22-05, 22-07, 22-08, 22-10..22-14, 22-16 | User can choose Sunday/Monday week start; the choice persists | SATISFIED | Truths 1, 6, 7. Week-start read/write path unchanged in substance since Round 1's fully-observed R7; regression-checked by R20 and R28(ii); the CR-01 regression that reverted the Round 3 tick is now fixed in source and mutation-proven in tests. REQUIREMENTS.md's re-tick at line 33 is supportable. |
+| CAL-02 | 22-01, 22-02, 22-03, 22-05, 22-06, 22-08, 22-09, 22-12, 22-15, 22-16 | Week totals computed and shown, respecting selected week start, legible at every viewport | SATISFIED | Truth 3. The reason this was BLOCKED in the prior report — the 380px gate — no longer exists in source. R25 is the first fully-observed, doubly-discriminated reading in the previously-untested band. |
+| CAL-03 | 22-02, 22-04, 22-05, 22-06 | Calendar controls use shared Phase 19 styling | SATISFIED | Truth 4. Unchanged. |
 
-No orphaned requirements: `REQUIREMENTS.md`'s Phase 22 table lists exactly CAL-01/02/03.
+No orphaned requirements: REQUIREMENTS.md's Phase 22 map lists exactly CAL-01/02/03.
 
 ### Anti-Patterns Found
 
 | File | Line | Pattern | Severity | Impact |
 |------|------|---------|----------|--------|
-| `src/dashboard/nav.ts` | 210-215 | Theme toggle click handler holds no in-memory mode; re-derives from storage every click | 🛑 Blocker (new — CR-01) | Under any null/unusable storage handle (blocked site data, Safari private mode), the toggle is permanently stuck on "light"; dark and auto are unreachable. Newly reachable because of this phase's own BL-03 fix. |
-| `src/dashboard/styles.css` | 743, 766-769, 825-833 | 380px-scoped fix leaves the identical overflow-causing rules unconditional at 381px+ | 🛑 Blocker (reopened — CR-02) | Ordinary phone viewports (390/393/412px) are structurally exposed to the same overflow class R11/R13 failed on; never tested by any checkpoint row. |
-| `src/dashboard/theme.ts` | 108, 145 | `resolveStorage(options.storage ?? undefined)` silently discards an explicit `storage: null` override | ⚠️ Warning (WR-01, confirmed) | Makes three of the new BL-03 tests in `theme.test.ts` vacuous passes of the wrong code path (the "absent global" path, not the "explicit null override" path); this only surfaces as harmless today because `vitest.config.ts` runs `environment: 'node'` with no `globalThis.localStorage` set up anywhere. |
-| `src/dashboard/storage.test.ts` | ~143-162 | Repo-wide BL-03 invariant guard has escape hatches (`!f.endsWith('storage.ts')` exempts any similarly-named file; comment-stripping regex can erase content inside string literals; non-portable path handling) | ℹ️ Info (WR-03, code review; not independently re-verified line-by-line here, but plausible from the described pattern and consistent with this file's other regex-based guards) | Lower confidence than the BL-01/BL-02/CR-01 findings, which were directly read; flagged for awareness, not scored as a gap. |
+| `.planning/REQUIREMENTS.md` | 88-89 | Stale status text — map rows read "Pending" while the same file's requirement lines 33-34 read "Re-ticked 2026-08-19" | Info (documentation) | Two parts of one file contradict each other about CAL-01/CAL-02. No code impact. Reconcile before milestone audit. |
 
-No `TBD`/`FIXME`/`XXX`/`TODO`/`HACK`/`PLACEHOLDER` debt markers found in any phase-touched file.
+No debt markers (`TBD`/`FIXME`/`XXX`/`TODO`/`HACK`/`PLACEHOLDER`) exist in any phase-touched source file. No empty-return or hardcoded-empty-data stubs found in the changed modules.
 
-### Human Verification Required
+## Developer-Authority Residue
 
-See frontmatter `human_verification`. Two items:
+Two Round 4 checkpoint rows carry a PASS verdict that rests on the developer's explicit authority rather than on the evidence the row itself specified. Both are restated here rather than absorbed, and neither is load-bearing for any truth marked VERIFIED above.
 
-1. **A stated width strictly between 380px and ~530px** (e.g. 390px or 412px), reading back day-cell and week-total values, to confirm or refute CR-02's estimated overflow band directly rather than by CSS arithmetic alone.
-2. **Clicking the theme toggle under blocked site data**, to directly observe CR-01's predicted stuck-on-light behavior (or refute it, if some other code path compensates that this verification's source read missed).
+**R26 — the ~600px sub-band.** Never rendered and read at its own required width. The developer's "Compaction Intentional" judgement was given at 393px. What this row was created to probe is a NEW question the widened breakpoint introduced (does the single-column stack look intentional at large-phone/small-tablet width), not the CAL-02 overflow defect. Truth 3 does not depend on it: at ~600px the SAME declarations R25 observed working at 393px apply, with strictly MORE width per track (~55px vs ~31px per day track by the styles.css:855-861 arithmetic) and identical 14px/12px type steps — more space with the same rules cannot introduce overflow or reduce legibility. Overflow is additionally impossible by construction there (`minmax(0, ...)` tracks with `min-width: 0` and `overflow-wrap: anywhere` have no content floor to overflow against). The residual, genuinely unobserved risk is **aesthetic only** — that a stacked day cell at tablet width looks sparse — which is not what CAL-02 or SC3 assert.
 
-### Gaps Summary
+**R27 — three theme-toggle clicks under real blocked site data.** The three `aria-label` values in click order, the browser/setting, and the per-click colour statement were never supplied; only "Theme dark is reached". Truth 7 does not depend on the missing detail, for two independent reasons. First, the row's own FAIL disposition (b) is "`Theme: light` after every click and dark is never reached" — the developer's statement, thin as it is, directly falsifies exactly that predicted defect shape in a real browser under the real configuration. Second, the behaviour is independently proven at unit level in a way the prior report could not have credited, because the code did not exist then: `nav-theme.test.ts` GC-8d deletes `globalThis.localStorage`, asserts its absence, and asserts three toggles apply `['light','dark','auto']`; GC-8i repeats it with a THROWING global installed; and removing the controller's memory turns 5 of those 11 tests red. The unobserved residue is the narrow possibility that the label jumped to dark on click 1 and stayed — a failure mode nothing predicts and the unit tests contradict.
 
-Two concrete, source-confirmed gaps block the phase from a clean close:
+**Why this report is `passed` and not `human_needed`.** Both items were formally dispositioned: the executor recorded them BLOCKED under house rule 14 against orchestrator pressure, and the developer was asked twice and explicitly declined further verification. Routing them back as open human-verification items would reopen a decision the developer has already made, on questions that are not load-bearing for any truth. If you would prefer the residue recorded formally rather than narratively, paste this into the frontmatter and re-run verification:
 
-1. **CAL-02/SC3 is not actually achieved at every viewport the app is expected to render at (reopened).** Round 3's own plan (22-09) deliberately scoped the overflow fix to `@media (max-width: 380px)` and explicitly said so in its own must-haves. That scoping decision leaves the identical defect class — a `nowrap`/fixed-min-width content floor on the grid's tracks — fully intact and unconditional from 381px through at least 1000px, confirmed by direct read of the current `styles.css`. No checkpoint row in any of the three rounds observed a width in that band; R19 (the row that closed this gap in `22-VALIDATION.md`) is explicit that it observed 375px only. Ordinary phone widths (390px, 393px, 412px) fall squarely inside the untested, structurally-still-broken band. This is not a hypothetical — it follows directly from reading the same CSS rules that caused the original R11/R13 failures, still present and unconditional one pixel above where they were patched.
+```yaml
+overrides:
+  - must_have: "R26 — a rendered reading of the calendar at a stated ~600px width"
+    reason: "Aesthetic-only residue of the widened compaction; overflow is impossible by construction at that width and legibility follows a fortiori from R25's observed 393px reading with the same rules and more space per track"
+    accepted_by: "pedf"
+    accepted_at: "2026-08-19T13:00:00Z"
+  - must_have: "R27 — three aria-label values in click order, browser/setting named, per-click colour statement"
+    reason: "Developer confirmed 'Theme dark is reached' under blocked storage, which falsifies the row's own FAIL disposition (b); mutation-proven unit coverage in nav-theme.test.ts establishes the cycle hermetically with no storage handle"
+    accepted_by: "pedf"
+    accepted_at: "2026-08-19T13:00:00Z"
+```
 
-2. **A new Critical regression this phase's own fix introduced (CR-01).** The header theme toggle is permanently stuck on "light" whenever the storage handle is null or unusable — exactly the blocked-site-data browser configuration this round's BL-03 fix was built and checkpointed for, plus the pre-existing Safari-private-mode case. This is newly reachable specifically because Round 3 stopped the same configuration from crashing the page blank; the trade was a working page with a broken control, not a working page with a working control. R22's checkpoint row never clicked the toggle under blocked storage, so this escaped detection this round.
+## Gaps Summary
 
-A secondary, lower-severity finding (WR-01, `theme.test.ts`'s vacuous null-override tests) is recorded as a Warning, not a blocking gap, but is flagged because it means some of Round 3's own test evidence for BL-03 is weaker than its `theme.test.ts` filenames and descriptions suggest.
+None. Both gaps the 2026-08-19T09:30:00Z report held open are closed in the current source, and each closure was verified by direct source read rather than by SUMMARY narrative, then attacked by mutation:
 
-Neither gap is addressed by any later phase in the roadmap (Phases 23-25 cover Trends zoom/pan, local curation mode, and CI hardening — none touch Calendar CSS breakpoints or the dashboard-wide theme toggle).
+- **GAP 1's structural premise no longer exists.** The prior report's entire argument was that the overflow fix lived inside `@media (max-width: 380px)` while the defect-causing rules were unconditional above it. `styles.css:904` is now 640px and all three of those rules are overridden across the whole band. The 390/393/412px widths it named as untested are now both covered in CSS and observed in the browser (R25, with the `matchMedia('(max-width: 380px)').matches === false` discriminator that proves it is not a rerun of R19's 375px).
+- **GAP 2's defect no longer exists.** `handleThemeToggleClick` no longer reads storage; a real in-memory controller owns the mode, the system-theme watcher was given an `isAuto` seam so it cannot override an in-session choice either, and both halves are guarded by tests that go red when the defect is reintroduced.
+- **WR-01, the vacuous-null-override test defect the prior report flagged as truth 8, is also genuinely closed** — not by changing the vitest environment (still `node`, still no setupFile) but by making the tests supply their own sentinel global and carrying a discriminating control case. That is the stronger fix.
 
-**Genuinely and durably closed this round, confirmed independently:** the literal `main.ts:19` module-scope crash under blocked site data (the actual Round 2 Gap 2, as narrowly stated) — closed by the app-wide `resolveStorage()` wiring and confirmed both by source read and by R22's real-browser PASS. `buildMonthGrid`'s off-union `weekStart` totality and the narrow calendar-scoped throwing-getter guard both remain correctly closed, unchanged from Round 2. `npx tsc --noEmit` is clean and the dashboard test suite (896 tests across 30 files) is green.
+The one open item is a documentation inconsistency inside REQUIREMENTS.md (map rows 88-89 vs requirement lines 33-34), recorded as a warning rather than a gap because it has no code impact.
 
 ---
 
-_Verified: 2026-08-19T09:30:00Z_
-_Verifier: Claude (gsd-verifier)_
+_Verified: 2026-09-05T05:59:04Z_
+_Verifier: Claude (gsd-verifier) — supersedes 2026-08-19T09:30:00Z_
