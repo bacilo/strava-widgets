@@ -2,171 +2,58 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Interface Polish
-status: milestone_complete
-stopped_at: Milestone complete (Phase 25 was final phase)
-last_updated: 2026-09-04T18:39:52.608Z
-last_activity: 2026-09-04
+status: Awaiting next milestone
+stopped_at: Milestone v2.1 Interface Polish archived; awaiting /gsd-new-milestone
+last_updated: "2026-09-05T06:03:18.844Z"
+last_activity: 2026-09-05 — Milestone v2.1 completed and archived
 progress:
   total_phases: 7
   completed_phases: 7
   total_plans: 103
   completed_plans: 103
-  percent: 86
+  percent: 100
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-08-10)
+See: .planning/PROJECT.md (updated 2026-09-05)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Milestone complete
+**Current focus:** No active milestone — v2.1 shipped 2026-09-05. Run `/gsd-new-milestone` to define the next one.
 
-**Planning note:** discuss-phase decision **D-04 was amended** during plan-check (developer-approved, disclosed in `25-CONTEXT.md`). Its original mandate to quote `localStorage.getItem('dashboard-theme')` returning literal `null` is unreachable — `main.ts:29` persists `'auto'` on every load — and would have scored a working implementation BLOCKED. The discriminator is now `null` **or** `'auto'`, never `'light'`/`'dark'`. The amendment must be disclosed in the Round 1 write-up, same as D-05's deviation.
+**Carried into the next milestone:**
+
+- `STREAM-04` (Garmin export adapter) — externally blocked on the export arriving.
+- `IN-17` / `IN-18` — `curation-guard.mjs` cosmetics from the Phase 24 wave-9 review.
+- Open code-review findings, none of them shipped-behaviour blockers: Phase 23's 7 Warning + 5 Info,
+  Phase 24's WR-19 (`EACCES` out of `findCurationArtifacts`; fails closed), Phase 25's CR-01 (an
+  unawaited CDP listener rejection leaks a Chrome child process out of `first-paint-capture.mjs`)
+  plus WR-01..WR-04.
+- Two process fixes the v2.1 retrospective identifies as worth acting on rather than just recording:
+  re-run verification after the gap-closure round it triggered (a stale `22-VERIFICATION.md` blocked
+  this close for exactly that reason), and tick requirements after verification rather than before
+  (three requirements were ticked, reverted and re-ticked during v2.1).
 
 ## Current Position
 
-Phase: 25 (ci-hardening-light-theme-verification) — COMPLETE
-Plan: 12 of 12 executed. Round 2 disposition set under the all-rows-PASS rule, applied one row
-      per requirement. All four rows PASSED — R7 (VER-01), R6a (FIX-02), R6b (CI-02), R6c
-      (CI-01) — with Round 1's R1/R3/R4/R5 standing unedited for VER-01. GAP-25-01 and GAP-25-02
-      both CLOSED. FIX-02, VER-01, CI-01 and CI-02 all ticked [x] in REQUIREMENTS.md with dated
-      Round 2 paragraphs naming their deciding row. 25-VALIDATION.md frontmatter set to
-      `status: passed` / `nyquist_compliant: true`. `/gsd-verify-work 25` has since run —
-      `25-VERIFICATION.md` exists (verified 2026-09-04T20:40:00Z, `status: passed`, 4/4
-      must-haves) — and the orchestrator phase-gate then closed: ROADMAP.md milestone-checklist
-      ticked and `completed_phases` advanced 6 → 7. `completed_plans` was hand-verified to 103
-      (all 103 v2.1 milestone plans executed).
-Status: Milestone complete — v2.1 (Interface Polish) closed; Phase 25 was the final phase.
-      Phase 25 security audit completed 2026-09-04 (`/gsd-secure-phase 25`): 45 plan-time
-      threats registered, 45 closed, 0 open. See `25-SECURITY.md`.
+Phase: Milestone v2.1 Interface Polish — COMPLETE and archived
+Plan: — (103 of 103 executed across phases 19-25)
+Status: Awaiting next milestone
 
-      **Repair disclosure (2026-09-04, `/gsd-secure-phase 25`, threat T-25-43).** This
-      `## Current Position` block was corrupted by commit `00d65e0f` ("docs(phase-25): complete
-      phase execution"), which replaced only the FIRST line of `Plan:` and of `Status:` and left
-      both continuation blocks orphaned — `Plan: Not started` sat above a paragraph describing
-      twelve executed plans, and `Status: Milestone complete` was followed by the dangling
-      fragment `yet run)`. That is exactly the `phase.complete` / `state.planned-phase`
-      truncation hazard threat T-25-43 names, and plan 25-12's required by-hand repair never
-      happened because the corruption landed ~20 minutes AFTER 25-12 finished. The block above
-      was rewritten by hand to restore a coherent `Plan:`/`Status:` pair and to correct two
-      claims the corrupted text had frozen as stale: that `/gsd-verify-work` had never run for
-      Phase 25 (it has), and that `completed_phases` was still 6 pending the orchestrator step
-      (the frontmatter reads 7). No frontmatter counter was modified by this repair.
+Closed 2026-09-05. All seven phases at `status: passed`, 25/25 requirements satisfied. Two artifacts
+were repaired during the close rather than archived wrong: `22-VERIFICATION.md` was stale
+(`gaps_found` 5/8, dated before the very Round 4 gap-closure it triggered) and was re-verified to
+`passed` 8/8 with each closure re-derived from source and mutation-tested; and `REQUIREMENTS.md`
+contradicted itself, recording CAL-01/CAL-02 as re-ticked while the phase-map rows still read
+"Pending".
 
-        **Phase 25 Round 1 outcome (2026-09-04, plan 25-07).** All seven plans executed and the
-        closing VER-01 human checkpoint ran in full against the live production URL, with the
-        developer performing every macOS appearance change by hand (D-07; no osascript for any
-        recorded row, and only two flips were needed because the rows were re-sequenced at the
-        developer's request so each flip served two rows — an ordering change only, disclosed in
-        25-VALIDATION.md, with no discriminator or evidence requirement relaxed).
+Archived to `milestones/v2.1-ROADMAP.md` and `milestones/v2.1-REQUIREMENTS.md`. `REQUIREMENTS.md`
+removed — `/gsd-new-milestone` creates a fresh one. No milestone audit was run for v2.1; the close
+rests on phase-level evidence. Retrospective started at `.planning/RETROSPECTIVE.md`.
 
-        Verdicts: R1 PASS, R2 BLOCKED, R3 PASS, R4 PASS, R5 PASS, R6 BLOCKED. Under the
-        all-rows-PASS rule NOTHING ticks. FIX-02, CI-01 and CI-02 had been ticked by plans
-        25-01/25-02/25-03 before the checkpoint ran and are now REOPENED in REQUIREMENTS.md;
-        VER-01 was already open. All four carry dated withhold paragraphs naming the row that
-        withheld them.
-
-        The light-theme behaviour itself did verify: R1 confirmed light-OS legibility from the
-        developer's own inspection ("looked at all 4. Legible. Toggle is visible."), and R3/R4
-        confirmed live OS-follow in BOTH directions inside a single document with no reload
-        (timeOrigin identical, nav_entries_count 1). What is missing is evidence quality on two
-        rows, not working behaviour:
-
-          - GAP-25-01 (withholds VER-01, via R2): no capture mechanism on this hardware beats
-            first paint. Navigation started at timeOrigin 1788520780021.8, first-paint landed at
-            +612ms, both captured frames were saved ~243ms later. A post-paint frame cannot
-            discriminate a first-paint white flash from its absence. The ordering argument
-            (inline head script complete by domInteractive 287.9ms; 25-05's node:vm parity pin)
-            is inference, was recorded, and was explicitly REJECTED as a basis for PASS by the
-            developer, who chose BLOCKED knowing it withholds every requirement.
-
-          - GAP-25-02 (withholds CI-01, CI-02, FIX-02, via R6): CI-01's live-run evidence still
-            does not exist — no `gh workflow run` dispatch has ever been performed for this
-            phase. R6's clauses 1 and 2 (green five-command gate; "56 check(s) passed, 0
-            failure(s).") ARE present and green, so CI-02 and FIX-02 are withheld only by R6's
-            unsplittability, not by their own evidence. R6 was deliberately NOT split mid-round
-            to obtain those two ticks — that is the exact failure mode Checkpoint Row Discipline
-            rule 3 forbids. GAP-25-02 records the R6a/R6b/R6c split as the recommended shape for
-            a future round, to be drafted BEFORE it is run.
-
-        NOTE for whoever closes GAP-25-02: the dispatch has production side effects.
-        daily-refresh.yml's deploy and auto-commit steps carry no branch guard, so a
-        workflow_dispatch against ANY ref deploys to the live Pages site and commits data back to
-        origin. It needs explicit developer authorisation and a normal single-context execution —
-        not a parallel worktree, and not opportunistically during a checkpoint.
-
-        Also note: local master is AHEAD of origin/master (Phase 25's commits are unpushed).
-        Production is built from origin/master HEAD 623046363. The four theme-governing source
-        files are byte-identical across that gap, which is why R1-R4 remained valid; see R5.
-        milestone v2.1, currently "Plans: TBD" in ROADMAP.md.
-
-        **Round 4 closure (2026-09-02, plan 24-17).** R32-R35 all PASS — see `24-VALIDATION.md`
-        § "Round 4 Checkpoint (R32-R35)" and `24-17-SUMMARY.md`. R32 observed the discriminating
-        mirror state (`wasPRAtTheTime: true` AND `excludedFromRecords: true` simultaneously for
-        `400m`, no Recompute) rendering exactly one badge `PR — 400m`; R34 (human-hand, native
-        `window.confirm()`) observed the restore against the same still-stale-true precomputed
-        flag. GAP-24-05's remaining items 2 and 3 (WR-14, WR-17) were closed by plans 24-15 and
-        24-16 respectively. CUR-01 is `[x]` in `REQUIREMENTS.md`; the Phase 24 milestone-checklist
-        entry in `ROADMAP.md` is `[x]` with a dated "PHASE GATE CLOSED" paragraph. The origin
-        todo moved to `.planning/todos/completed/`.
-
-        Prior-round scope (all now closed, retained for audit trail):
-        Scope of this round is the AMENDED GAP-24-05 in 24-VALIDATION.md (three items):
-        (1) browser-row coverage for the WR-05 live-document mirror direction, (2) WR-14
-        (curation-guard.mjs missing entry.isFile() guard), (3) WR-17 (nothing pins
-        buildPrBadgeLabels's call site to the same liveExclusions binding as the panel).
-        WR-15 and IN-13 are deliberately OUT of scope — recorded in round 4 as optional
-        Warnings, not part of GAP-24-05's closing list.
-
-        **Gate status (superseded — see the Round 4 closure note above).** Re-verification round
-        4 (2026-09-02) returned `status: passed`, 5/5 must-haves, and closed GAP-24-02/03/04 with
-        independent live re-derivation. The developer read that result and held the Phase 24 gate
-        OPEN pending a browser-verified human checkpoint, per plan 24-14's governing rule ("CUR-01
-        and the ROADMAP gate tick ONLY if every mapped row is PASS"). Plan 24-17's Round 4
-        checkpoint (R32-R35, all PASS) has now discharged that condition — see the closure note
-        above.
-
-        **Known artifact inconsistency (now moot).** `24-VERIFICATION.md`'s frontmatter reads
-        `status: passed` and always did — `gsd-sdk query init.plan-phase 24` computing
-        `phase_status: Complete` from it is no longer a mismatch now that the gate is actually
-        closed. Its frontmatter `gaps:` array remains round-1 vintage and superseded (noted in
-        `24-VERIFICATION.md`'s own appended Gap-Closure Record); the live scope was the amended
-        GAP-24-05 in `24-VALIDATION.md`, not that array, and is now fully closed.
-
-        **Two grounding corrections encoded in 24-17**, both independently confirmed against
-        live source: (a) GAP-24-05 item 1 names `data/stats/best-efforts.json`, but the detail
-        view fetches the per-activity shard `data/stats/best-efforts/{id}.json`
-        (best-efforts-client.ts:116) and the browser reads the copy under `dist/widgets/` —
-        following the gap text literally would have produced a third non-observing row; (b)
-        `dist/widgets/*` is gitignored (.gitignore:4), so byte-identity for the served copies
-        is proven by sha256 against snapshots taken outside the repo, not by `git status`.
-
-        **Historical gap record (all CLOSED — retained for audit trail):**
-
-        - GAP-24-02 (CR-02, criterion 3): `curation-guard.mjs:37`'s `SCANNED_EXTENSIONS`
-          allowlist omitted `.ts`/`.d.ts`/`.mjs`/extensionless while `dist/widgets` publishes
-          22 `.d.ts` files. CLOSED by 24-11's fail-closed UNSCANNED_EXTENSIONS skip-list.
-
-        - GAP-24-03 (CR-01, D-12): `safeResolve`'s unguarded `decodeURIComponent` plus no
-          `.catch()` on the static branch meant `GET /%` from any browser tab killed the
-          curate server. CLOSED by 24-12 (try/catch + static-route Origin/Host gate).
-
-        - GAP-24-04 (WR-05, criterion 2): `buildPrBadgeLabels` never received `liveExclusions`
-          while `buildBestEffortsPanelRows` was fixed by 24-09. CLOSED by 24-13; the mirror
-          direction is proven at unit level (detail-best-efforts-logic.test.ts:286-293). Only
-          browser-row COVERAGE of it remains, which is GAP-24-05 item 1 above.
-
-        - GAP-24-05 (R26 unsatisfiable row): Round 3's R26 could not discriminate because its
-          own mandated Save->Recompute->Untick setup zeroed `wasPRAtTheTime` for all distances,
-          and both render paths gate on that flag before consulting the live document. 24-17's
-          R32 avoids this by editing ONLY `excludedFromRecords` on the shard, leaving the
-          discriminator live.
-
-Last activity: 2026-09-04
-
-Progress: [██████████] 99%
+Last activity: 2026-09-05 — Milestone v2.1 completed and archived
 
 ## Performance Metrics
 
@@ -314,6 +201,30 @@ Items acknowledged and deferred at the v2.0 milestone close on 2026-08-12.
 | todo | Garmin export adapter (STREAM-04) — blocked on the export arriving | deferred |
 | ~~todo~~ | ~~Manual exclusion of activities from best efforts~~ — **CORRECTION 2026-08-12: not deferred. Shipped in Phase 16 plan 16-01 (`b9d10cd`); the todo file was simply never closed, so `audit-open` miscounted it and the v2.0 audit repeated the error.** | resolved |
 
+### v2.1 close (2026-09-05)
+
+Items acknowledged and deferred at the v2.1 Interface Polish milestone close. Each was triaged
+rather than passed through from `audit-open` verbatim; the triage verdict is recorded so a later
+reader is not re-litigating it from counts alone.
+
+| Category | Item | Status | Triage |
+|----------|------|--------|--------|
+| uat_gap | Phase 16 — `16-HUMAN-UAT.md`, 4 pending scenarios | partial | Inherited from v2.0, not v2.1's to close. Three of the underlying theme/first-paint items WERE discharged against production by Phase 25 (VER-01); the UAT file itself was never re-marked. |
+| verification_gap | Phase 16 — `16-VERIFICATION.md` | human_needed | Same inheritance. v2.0 shipped 2026-08-12 with this already recorded as deferred. |
+| quick_task | `1-fix-daily-widget-refresh-github-actions-` | missing | **False positive.** `1-SUMMARY.md` exists and records `requirements-completed: [FIX-CI-01]`; the summary frontmatter simply has no `status:` field for `audit-open` to read. Carried over unexamined from the v2.0 close, where it was miscounted the same way. |
+| todo | `2026-08-10-garmin-export-adapter-when-export-arrives.md` (STREAM-04) | pending | Genuine deferral, externally blocked — waiting on the Garmin export to arrive. Unchanged since v2.0. |
+| todo | `2026-09-02-in17-in18-curation-guard-cosmetics.md` | pending | Genuine deferral, cosmetic. IN-17/IN-18 from the Phase 24 wave-9 review. |
+
+Open code-review findings from v2.1 phases are NOT listed here — they are recorded in full in
+PROJECT.md's Current State and Evolution entries, per phase: Phase 23's 7 Warning + 5 Info
+(`23-REVIEW.md`), Phase 24's WR-19 (`EACCES` out of `findCurationArtifacts`; fails closed, so
+publish-safety is intact), and Phase 25's CR-01 / WR-01..WR-04 (`25-REVIEW.md`).
+
+The one inherited defect that IS closed: the raw NUL byte in `src/analytics/gear-aggregate-logic.ts`,
+present since `feat(18-05)` on 2026-08-11 and making that one file binary to git (undiffable,
+unblameable), was removed 2026-09-04 by `ea51679b` (Phase 25, WR-05). Verified absent at this close.
+It is named here because PROJECT.md's Evolution entry still describes it as open.
+
 ## Session Continuity
 
 Last session: 2026-09-04T18:19:30.000Z
@@ -417,3 +328,7 @@ Three concrete items remain for a closing round (see AMENDED GAP-24-05 in `24-VA
    silently reinstate WR-05.
 
 Phase 25 (CI Hardening & Light-Theme Verification) has no dependency on Phase 24 and is available.
+
+## Operator Next Steps
+
+- Start the next milestone with /gsd-new-milestone
