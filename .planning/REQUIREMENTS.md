@@ -7,6 +7,8 @@
 
 **Scoped from measurement, not preference.** Every requirement below traces to a number measured against the live 1,864-activity archive during scoping, or to a finding in `.planning/research/`. The numbers are recorded inline so a future reader can tell whether a requirement still applies.
 
+**Named activities are exemplars, never the scope.** Activity `4556693525` recurs below because it was the run investigated in depth during scoping, and it is useful precisely because it is legible. It is not a target. Every requirement that names an activity means *the class of defect that activity exemplifies*, sized by its own measured cohort, and is satisfied only when the mechanism is addressed archive-wide. A fix that resolves a named activity while leaving its cohort untouched fails the requirement. Where a specific activity is genuinely the deliverable — a pinned regression fixture — that is stated explicitly.
+
 ---
 
 ## v2.2 Requirements
@@ -16,7 +18,7 @@
 - [ ] **PACE-01**: All stream-derived pace in the dashboard comes from one shared module in `src/analytics/`, imported by both `detail-charts-logic.ts` and `detail-zones.ts` — no call site computes `dt / (dd / 1000)` independently.
 - [ ] **PACE-02**: A pace-averaging window never bridges a recording or pause gap; it clips at the gap boundary instead, so no pace value is manufactured across a period with no samples.
 - [ ] **PACE-03**: The smoothing window length is justified from this archive's own evidence and the justification is recorded, because no industry standard exists to adopt (FEATURES.md: only Strava and Garmin publish anything, both vague; Garmin Connect's web chart has no smoothing at all).
-- [ ] **PACE-04**: The pace-distribution histogram routes through the shared derivation, eliminating the phantom fast mode — activity 4556693525's raw 2:30–3:30 cluster, 8:15–8:30 and 11:00 buckets all resolve to one distribution centred 5:00–6:15.
+- [ ] **PACE-04**: The pace-distribution histogram routes through the shared derivation, eliminating the phantom fast mode across the archive — not on one activity. The mechanism is decimation aliasing, whose measured cohort is **995 of 1,864 activities (53%)** degraded, of which **154 are severe** (>15% zero-distance samples). Verified on a device-era-stratified sample, with activity 4556693525 as one pinned exemplar (its raw 2:30–3:30 cluster, 8:15–8:30 and 11:00 buckets resolving to one distribution centred 5:00–6:15), never as the sole evidence.
 - [ ] **PACE-05**: Per-km splits mark any split whose window contains a recording or pause gap, so a slow split reads as "paused mid-km" rather than as a bad kilometre. Splits' own arithmetic is already correct and is not changed.
 
 ### Honest coverage (COV)
@@ -38,7 +40,7 @@
 - [ ] **PR-02**: A personal plausibility ceiling is derived per target distance from the population *already* filtered by the existing absolute guard and exclusion list, never from the raw archive. Computing it over unfiltered data reproduces the exact circularity that lets today's guard admit a 44.0s 400m.
 - [ ] **PR-03**: An effort exceeding the ceiling is flagged and demoted from ranking — never deleted, never silently removed from the archive, and always visible with the reason it was demoted.
 - [ ] **PR-04**: An archive-wide before/after PR diff is produced and reviewed by a human before ship, showing every record that changes hands. A PR moving without the owner seeing it is a milestone failure.
-- [ ] **PR-05**: Activity 4556693525's 400m effort (44.0s, 9.09 m/s, under the 9.30 m/s world-record ceiling) is pinned as a permanent regression fixture — the guard must be demonstrated rejecting it, and must fail if the ceiling regresses.
+- [ ] **PR-05**: The sharpened guard is validated against the whole archive, not one case. The population needing it is the **662 activities (36%) carrying at least one sample faster than the 100m world record**, spread across every device and every year. Activity 4556693525's 400m effort (44.0s, 9.09 m/s, passing under the 9.30 m/s ceiling) is pinned as a permanent regression fixture — here the specific activity *is* the deliverable, since a fixture's job is to be specific — and the guard must be demonstrated rejecting it and must fail if the ceiling regresses. Passing that fixture alone does not satisfy this requirement.
 
 ### Curation review queue (CUR)
 
@@ -48,7 +50,11 @@
 
 ### Elevation quality signal (ELEV)
 
-- [ ] **ELEV-01**: Physically implausible altitude is detected and flagged with the same machinery as pace anomalies — the worked case is a Lisbon sea-level run reporting 104 m → −282 m → 99 m, which passes today because `derive-stream.ts` sets `ALT_MIN = -500`. Flag only: no DEM lookup, no correction, no grade-adjusted pace.
+- [ ] **ELEV-01**: Implausible altitude is detected and flagged archive-wide by *mechanism*, not by a single bound. Measured cohort: **71 activities (3.8%)** carry at least one anomaly, spanning all device families (Suunto 9 50, Garmin fēnix 6 Pro 12, no device name 8, vívoactive 4 1) — this is not one device's quirk. At least these three modes are detected, because they catch largely different activities:
+  - **Sub-ground-level readings** — 11 activities below −50 m, worst being a sea-level Lisbon run at −282 m. Passes today because `derive-stream.ts` sets `ALT_MIN = -500`.
+  - **Barometric closure drift** — 34 activities whose start and end altitudes differ by >60 m despite returning to the same place, worst at 198 m. This is the largest cohort and a simple floor bound cannot catch any of it.
+  - **Implausible vertical rate** — 39 activities with >5 m/s of climb or descent between samples.
+- [ ] **ELEV-02**: Altitude flagging is validated against the whole archive, and the per-mode flag rates are reported. A detector that fires only on the scoping exemplar has not been validated. Flag only: no DEM lookup, no correction, no grade-adjusted pace.
 
 ### Cross-era consistency (ERA)
 
@@ -122,6 +128,7 @@ Filled during roadmap creation.
 | CUR-02 | — | Pending |
 | CUR-03 | — | Pending |
 | ELEV-01 | — | Pending |
+| ELEV-02 | — | Pending |
 | ERA-01 | — | Pending |
 | ERA-02 | — | Pending |
 | ERA-03 | — | Pending |
