@@ -100,7 +100,19 @@ times before this milestone, and there is no jsdom or headless browser in the re
   7. A metadata-vs-stream pace cross-check flags material disagreement rather than displaying metadata as fact: activity 5059204779 (`moving_time: 1216`, `distance: 10804` → metadata `paceSecPerKm: 112.6`, i.e. 1:53/km, against the stream-derived 5:51/km) is flagged by the check, read directly from the dashboard/index output rather than inferred — demonstrated failing when the cross-check is removed, at which point the dashboard reverts to displaying 1:53/km as fact. The check's archive-wide flag count at the stated threshold (metadata implying a sustained pace faster than 3:20/km) is reported and is exactly 1 of 1,890 activities, showing the check does not over-fire across the rest of the archive.
 
   *Seven criteria, two over the 2-5 guideline. Criteria 2 and 3 could look mergeable (both gap-related) but are kept separate because they fail independently on inspection: gap-boundary clipping (2) can be correct while the coverage sum or its on-screen display (3) has its own, unrelated bug, and vice versa — merging would let one criterion's pass mask the other's failure. Criterion 7 (PACE-07's metadata cross-check) is a materially different failure mode from every other criterion here — metadata-vs-stream disagreement, not an internal derivation defect — and is kept separate rather than folded into Criterion 1 so its own singleton-flag-count evidence is not buried inside PACE-04/06's reduction narrative.*
-**Plans**: TBD
+**Plans**: 10 plans in 6 waves
+
+Plans:
+- [ ] 26-01-PLAN.md — Shared module: segment-priority gap classification and exact coverage accounting (COV-01, PACE-02)
+- [ ] 26-02-PLAN.md — Adaptive window, gap-clipped pace series, and the single pace+coverage entry point (PACE-02, PACE-03)
+- [ ] 26-03-PLAN.md — ERA-03 stratified fixture library, verified present by name (ERA-03)
+- [ ] 26-04-PLAN.md — Collapse the chart and the histogram onto the shared derivation (PACE-01, PACE-04)
+- [ ] 26-05-PLAN.md — Single-source audit as a vitest test, demonstrated catching a planted second implementation (PACE-01)
+- [ ] 26-06-PLAN.md — Always-on coverage caption and split gap marker plus legend (COV-02, PACE-05)
+- [ ] 26-07-PLAN.md — Metadata-vs-stream cross-check as an additive index flag (PACE-07)
+- [ ] 26-08-PLAN.md — Pace disputed badges on every surface, rebased splits baseline, no suppression (PACE-07)
+- [ ] 26-09-PLAN.md — Archive-wide residual report, its regenerating script, and two ROADMAP criterion corrections (PACE-04, PACE-06)
+- [ ] 26-10-PLAN.md — Human browser checkpoint against a production-shaped build (COV-02, PACE-05, PACE-07)
 **UI hint**: yes
 
 #### Phase 27: Per-Activity Quality Signals
@@ -190,7 +202,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 13/13 | Complete    | 2026-08-27 |
 | 24. Local Curation Mode | v2.1 | 17/17 | Complete    | 2026-09-02 |
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 12/12 | Complete    | 2026-09-04 |
-| 26. Shared Gap-Aware Pace Derivation & Honest Coverage | v2.2 | 0/TBD | Not started | - |
+| 26. Shared Gap-Aware Pace Derivation & Honest Coverage | v2.2 | 0/10 | Planned | - |
 | 27. Per-Activity Quality Signals | v2.2 | 0/TBD | Not started | - |
 | 28. PR Plausibility Ceiling | v2.2 | 0/TBD | Not started | - |
 | 29. Curation Review Queue | v2.2 | 0/TBD | Not started | - |
