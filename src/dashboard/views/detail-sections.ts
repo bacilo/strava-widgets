@@ -248,11 +248,25 @@ function buildPaceBarCell(split: Split, activityAvgPaceSecPerKm: number | null):
  * one split is flagged. This adds no eighth column and does not touch any
  * split's own pace arithmetic — the marking is purely additive over
  * `computeSplits`'s existing output (PACE-05's binding constraint).
+ *
+ * `isRebasedAverage` (D-13, PACE-07) is optional and defaults to `false` —
+ * this function does not itself decide when a rebase applies; the caller
+ * (`detail.ts`) sets it `true` only on the branch where it already passed
+ * the stream-derived pace as `activityAvgPaceSecPerKm` in place of the
+ * disputed metadata average (D-13 is a call-site change, not a change to
+ * `buildPaceBarCell`, which keeps diffing against whatever baseline it is
+ * handed). When `true`, a `<p class="text-label">` stating the D-13
+ * disclosure sentence verbatim — built here from the SAME
+ * `activityAvgPaceSecPerKm` value already in scope, not a re-derived one —
+ * is appended below `.splits-scroll`, adjacent to the D-09 gap legend, so a
+ * reader who remembers the old metadata pace understands why every split's
+ * `vs. Avg` reading changed.
  */
 export function buildSplitsSection(
   splits: readonly Split[],
   activityAvgPaceSecPerKm: number | null,
-  gapAnnotations: readonly SplitGapAnnotation[] = []
+  gapAnnotations: readonly SplitGapAnnotation[] = [],
+  isRebasedAverage: boolean = false
 ): HTMLElement {
   const section = document.createElement('section');
   section.className = 'card detail-section';
@@ -335,6 +349,13 @@ export function buildSplitsSection(
       legend.appendChild(item);
     }
     section.appendChild(legend);
+  }
+
+  if (isRebasedAverage && activityAvgPaceSecPerKm !== null) {
+    const note = document.createElement('p');
+    note.className = 'text-label';
+    note.textContent = `Splits above are compared against the stream-derived average (${formatPace(activityAvgPaceSecPerKm)}), not the disputed metadata average.`;
+    section.appendChild(note);
   }
 
   return section;

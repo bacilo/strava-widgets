@@ -34,7 +34,7 @@
 
   *Correction, recorded so the reasoning is not repeated:* an earlier draft claimed three of these were catastrophically broken (94.8%, 59.8%, 42.6% fast mass) and beyond derived-layer repair. That was an artifact of the measurement, not the data — a fixed 20s window applied to watches emitting distance every 60–99s. Under a window scaled to the observed interval those three read 1.22%, 0.00% and 0.00%, with coverage rising from 30/40/45% to 97/100/100%. Their streams were always sound: 5059204779 derives 5:51/km with splits of 7:05, 5:00, 6:00, 6:00, 6:00, 7:00, 5:00, 6:00, 6:00, 6:00. This is direct evidence for PACE-03's adaptive requirement, and a caution that a derivation artifact can masquerade as a data defect.
 
-- [ ] **PACE-07**: Where an activity's metadata-derived pace and its stream-derived pace disagree materially, the disagreement is detected and surfaced rather than displayed as fact. **This is a live, visible defect:** activity 5059204779 carries `moving_time: 1216` against `distance: 10804`, so `data/dashboard/index.json` holds `paceSecPerKm: 112.6` and the dashboard currently shows **1:53/km** for a run whose own stream derives **5:51/km**. Archive-wide this is a singleton (1 of 1,890 activities implies a sustained pace faster than 3:20/km from its metadata), which is precisely why a cheap cross-check is worth having: nothing else in the system would ever have caught it.
+- [x] **PACE-07**: Where an activity's metadata-derived pace and its stream-derived pace disagree materially, the disagreement is detected and surfaced rather than displayed as fact. **This is a live, visible defect:** activity 5059204779 carries `moving_time: 1216` against `distance: 10804`, so `data/dashboard/index.json` holds `paceSecPerKm: 112.6` and the dashboard currently shows **1:53/km** for a run whose own stream derives **5:51/km**. Archive-wide this is a singleton (1 of 1,890 activities implies a sustained pace faster than 3:20/km from its metadata), which is precisely why a cheap cross-check is worth having: nothing else in the system would ever have caught it.
 
 ### Honest coverage (COV)
 
@@ -128,7 +128,7 @@ Filled during roadmap creation.
 | PACE-04 | Phase 26 | Complete |
 | PACE-05 | Phase 26 | Pending |
 | PACE-06 | Phase 26 | Pending |
-| PACE-07 | Phase 26 | Pending |
+| PACE-07 | Phase 26 | Complete |
 | COV-01 | Phase 26 | Pending |
 | COV-02 | Phase 26 | Pending |
 | QUAL-01 | Phase 27 | Pending |

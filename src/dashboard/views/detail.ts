@@ -34,7 +34,16 @@ import { createBestEffortsClient } from '../data/best-efforts-client.js';
 // precedent already set for formatPace and formatActivityDate. The private
 // formatDurationHms this file used to keep is deleted; this is the only
 // copy in the dashboard now.
-import { formatActivityDate, formatPace, formatDurationHms, noteViewedActivity, appendBadge } from './list.js';
+import {
+  formatActivityDate,
+  formatPace,
+  formatDurationHms,
+  noteViewedActivity,
+  appendBadge,
+  appendAccessibleBadge,
+  paceDisputedDescriptionId,
+  paceDisputedExplanation,
+} from './list.js';
 import { computeSplits } from './detail-splits.js';
 import { computePaceDistribution, computeHrZoneTimes } from './detail-zones.js';
 import { derivePaceWithCoverage } from '../../analytics/pace-derivation.js';
@@ -613,9 +622,33 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
         ? movingTimeSec / (distanceM / 1000)
         : null;
 
+    // D-10/PACE-07 (26-08): the metadata-vs-stream disagreement flag, read
+    // via the same optional-chained `indexClient.getRow(...)?.` accessor the
+    // stream-absent branch below already uses (T-26-01: a re-parsed row
+    // missing the key renders with no badge rather than throwing). Reading
+    // this does NOT change `paceSecPerKm` above in any way — the stat
+    // card's big value keeps rendering the metadata pace unchanged.
+    const disagreement = indexClient.getRow(detail.id)?.paceDisagreement ?? null;
+
     statGrid.appendChild(buildStatCard(formatOrDash(distanceM, (v) => `${(v / 1000).toFixed(1)} km`), 'Distance'));
     statGrid.appendChild(buildStatCard(formatOrDash(movingTimeSec, formatDurationHms), 'Moving Time'));
-    statGrid.appendChild(buildStatCard(formatPace(paceSecPerKm), 'Pace'));
+    const paceStatCard = buildStatCard(formatPace(paceSecPerKm), 'Pace');
+    if (disagreement !== null) {
+      // Third child of the Pace tile (26-UI-SPEC.md D-11): the big
+      // `.text-display` value above is untouched (still the metadata pace,
+      // D-10) — this badge only ADDS the disclosure below the `.text-label`
+      // "Pace" caption. Reuses the shared appendAccessibleBadge block from
+      // list.ts (not appendPaceDisputedBadge) because this badge's visible
+      // text carries the stream-derived figure, which the row badge's
+      // fixed "Pace disputed" text does not.
+      appendAccessibleBadge(
+        paceStatCard,
+        `Pace disputed — stream-derived ${formatPace(disagreement.streamPaceSecPerKm)}`,
+        paceDisputedExplanation(disagreement),
+        paceDisputedDescriptionId('detail-pace-stat')
+      );
+    }
+    statGrid.appendChild(paceStatCard);
     statGrid.appendChild(
       buildStatCard(formatOrDash(numOrNull(activity.total_elevation_gain), (v) => `${Math.round(v)} m`), 'Elevation Gain')
     );
@@ -683,8 +716,22 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
       // forbids the smoothed series feeding splits.
       const derived = derivePaceWithCoverage(detail.stream);
 
+      // D-13 (26-08): for a flagged activity ONLY, the vs. Avg baseline is
+      // rebased to the stream-derived average — the untouched metadata
+      // `paceSecPerKm` above is never mutated, only the argument handed to
+      // buildSplitsSection here differs. `isRebasedAverage` tells the section
+      // to render its own D-13 disclosure note from that same average value
+      // (built there, not re-derived here); buildPaceBarCell itself does
+      // not change (D-13 is a call-site change).
+      const rebasedAveragePaceSecPerKm = disagreement !== null ? disagreement.streamPaceSecPerKm : paceSecPerKm;
+
       view.appendChild(
-        buildSplitsSection(splits, paceSecPerKm, splitGapAnnotations(splits, derived.coverage.gapIntervals))
+        buildSplitsSection(
+          splits,
+          rebasedAveragePaceSecPerKm,
+          splitGapAnnotations(splits, derived.coverage.gapIntervals),
+          disagreement !== null
+        )
       );
 
       const buckets = computePaceDistribution(derived, detail.stream.t);

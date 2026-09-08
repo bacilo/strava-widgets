@@ -21,7 +21,7 @@
 import type { DashboardView, ViewMountContext } from '../view.types.js';
 import { ROUTES } from '../view.types.js';
 import type { IndexClient } from '../data/index-client.js';
-import type { DashboardIndexRow } from '../../analytics/dashboard-index.types.js';
+import type { DashboardIndexRow, PaceDisagreement } from '../../analytics/dashboard-index.types.js';
 import { navigateTo } from '../router.js';
 import { attachRowNavigation, activityDetailHref } from '../row-navigation.js';
 import type { SortKey, SortDir, ListState, DatePresetId } from './list-logic.js';
@@ -208,28 +208,31 @@ export function lowConfidenceDescriptionId(idPrefix: string): string {
 }
 
 /**
- * Appends a "Low confidence" badge whose explanation is reachable WITHOUT
- * hovering (D-07, 18-UI-SPEC § 6) — closing a real gap in the badge that
- * already ships on list/overview, which today carries no explanation at
- * all. Renders the visible `.badge` with a `title` attribute (for pointer
- * users) plus a sibling visually-hidden `.sr-only` span carrying the SAME
- * text with a unique id, wired via `aria-describedby` on the badge so
+ * The single DOM-building block behind every accessible `.badge` in this
+ * dashboard (D-07/D-11): a visible `.badge` span carrying `visibleText` and
+ * a `title` of `explanation` (for pointer users), plus a sibling
+ * visually-hidden `.sr-only` span carrying the SAME `explanation` text under
+ * `descriptionId`, wired via `aria-describedby` on the badge so
  * keyboard/assistive-tech users can reach the explanation too. Both spans
  * use `textContent` only (T-18-XSS-01).
  *
- * Signature and DOM output are unchanged by plan 20-07 (CR-02) —
- * `records.ts:412` and `detail-sections.ts:346` call this and are out of
- * that plan's scope. What changed is that `idPrefix` now flows through
- * `lowConfidenceDescriptionId`, the same helper `renderActivityRow` calls to
- * point its row-level `aria-describedby` at this badge's description span.
+ * Exported (26-08, D-11) so `detail.ts`'s Pace stat-card badge — whose
+ * visible text differs per activity (`Pace disputed — stream-derived …`) and
+ * so cannot reuse `appendPaceDisputedBadge`'s fixed-text signature below —
+ * builds its badge from this SAME block rather than a fourth hand-rolled
+ * badge builder. `appendLowConfidenceBadge` and `appendPaceDisputedBadge`
+ * both call this too, so there is exactly one place in the dashboard that
+ * constructs an accessible badge+description pair.
  */
-export function appendLowConfidenceBadge(container: HTMLElement, idPrefix: string): void {
-  const explanation = 'GPS-reconstructed distance; treat this time with caution';
-  const descriptionId = lowConfidenceDescriptionId(idPrefix);
-
+export function appendAccessibleBadge(
+  container: HTMLElement,
+  visibleText: string,
+  explanation: string,
+  descriptionId: string
+): void {
   const badge = document.createElement('span');
   badge.className = 'badge';
-  badge.textContent = LOW_CONFIDENCE_BADGE_TEXT;
+  badge.textContent = visibleText;
   badge.title = explanation;
   badge.setAttribute('aria-describedby', descriptionId);
   container.appendChild(badge);
@@ -239,6 +242,78 @@ export function appendLowConfidenceBadge(container: HTMLElement, idPrefix: strin
   description.id = descriptionId;
   description.textContent = explanation;
   container.appendChild(description);
+}
+
+/**
+ * Appends a "Low confidence" badge whose explanation is reachable WITHOUT
+ * hovering (D-07, 18-UI-SPEC § 6) — closing a real gap in the badge that
+ * already ships on list/overview, which today carries no explanation at
+ * all.
+ *
+ * Signature and DOM output are unchanged by plan 20-07 (CR-02) —
+ * `records.ts:412` and `detail-sections.ts:346` call this and are out of
+ * that plan's scope. What changed is that `idPrefix` now flows through
+ * `lowConfidenceDescriptionId`, the same helper `renderActivityRow` calls to
+ * point its row-level `aria-describedby` at this badge's description span.
+ * The DOM-building itself (26-08) now lives in the shared
+ * `appendAccessibleBadge` above, so `appendPaceDisputedBadge` below does not
+ * duplicate it.
+ */
+export function appendLowConfidenceBadge(container: HTMLElement, idPrefix: string): void {
+  const explanation = 'GPS-reconstructed distance; treat this time with caution';
+  appendAccessibleBadge(container, LOW_CONFIDENCE_BADGE_TEXT, explanation, lowConfidenceDescriptionId(idPrefix));
+}
+
+/**
+ * The visible text of the pace-disputed badge (D-11, PACE-07) — the single
+ * definition `statusBadgeTexts`, `appendStatusBadges` and
+ * `appendPaceDisputedBadge` all read from, mirroring `LOW_CONFIDENCE_BADGE_TEXT`'s
+ * role for the low-confidence badge so the two cannot drift apart.
+ */
+export const PACE_DISPUTED_BADGE_TEXT = 'Pace disputed';
+
+/**
+ * The `id` a pace-disputed badge's `.sr-only` explanation span is given,
+ * derived from `idPrefix` exactly like `lowConfidenceDescriptionId` — a
+ * distinct suffix (`-pace-disputed-desc`) so the two descriptions can never
+ * collide on the same row (D-11: a row can be BOTH low-confidence AND
+ * pace-disputed at once).
+ */
+export function paceDisputedDescriptionId(idPrefix: string): string {
+  return `${idPrefix}-pace-disputed-desc`;
+}
+
+/**
+ * The full disclosure sentence behind the pace-disputed badge's `title` and
+ * `.sr-only` description (26-UI-SPEC.md's Copywriting Contract, D-11) — the
+ * single definition both the row badge (`appendPaceDisputedBadge`) and the
+ * detail Pace stat-card badge (`detail.ts`) read from, so the explanation
+ * text cannot drift between the two surfaces.
+ */
+export function paceDisputedExplanation(disagreement: PaceDisagreement): string {
+  return `Metadata pace disagrees with the stream-derived pace: ${formatPace(disagreement.streamPaceSecPerKm)} measured vs. ${formatPace(disagreement.metadataPaceSecPerKm)} shown`;
+}
+
+/**
+ * Appends the row-surface "Pace disputed" badge (D-11, PACE-07) — reached by
+ * all four `RowSurface` values (`activity-card`, `activity-table`,
+ * `overview-prs`, `overview-activities`) through `appendStatusBadges`'s
+ * single dispatch below, not a per-surface duplicate. Mirrors
+ * `appendLowConfidenceBadge`'s accessible shape exactly (visible text, a
+ * `title`, an `aria-describedby`-wired `.sr-only` sibling) via the shared
+ * `appendAccessibleBadge` block above.
+ */
+export function appendPaceDisputedBadge(
+  container: HTMLElement,
+  idPrefix: string,
+  disagreement: PaceDisagreement
+): void {
+  appendAccessibleBadge(
+    container,
+    PACE_DISPUTED_BADGE_TEXT,
+    paceDisputedExplanation(disagreement),
+    paceDisputedDescriptionId(idPrefix)
+  );
 }
 
 /**
@@ -263,6 +338,10 @@ export function statusBadgeTexts(row: DashboardIndexRow): string[] {
     texts.push(LOW_CONFIDENCE_BADGE_TEXT);
   }
 
+  if (row.paceDisagreement !== null) {
+    texts.push(PACE_DISPUTED_BADGE_TEXT);
+  }
+
   if (row.excludedFromRecords) {
     texts.push('Excluded from records');
   }
@@ -285,11 +364,21 @@ export function statusBadgeTexts(row: DashboardIndexRow): string[] {
  * `aria-describedby` could resolve to the wrong copy. `rowIdPrefix` is the
  * single source of that prefix now — see its JSDoc for the full surface
  * list and the Overview collision (D-05) it exists to prevent.
+ *
+ * D-11 (26-08): this is the ONLY badge-append call site both `renderActivityRow`
+ * and the desktop `buildTableRow` invoke, and `RowSurface` enumerates all
+ * four surfaces this reaches — `activity-card`, `activity-table`,
+ * `overview-prs`, `overview-activities`. Adding the pace-disputed dispatch
+ * branch here (rather than a second badge-append path per surface) is what
+ * makes the "Pace disputed" badge reach all four surfaces from one change.
+ * A future badge must be added HERE, not as a new per-surface call.
  */
 function appendStatusBadges(container: HTMLElement, row: DashboardIndexRow, idPrefix: string): void {
   for (const text of statusBadgeTexts(row)) {
     if (text === LOW_CONFIDENCE_BADGE_TEXT) {
       appendLowConfidenceBadge(container, idPrefix);
+    } else if (text === PACE_DISPUTED_BADGE_TEXT && row.paceDisagreement !== null) {
+      appendPaceDisputedBadge(container, idPrefix, row.paceDisagreement);
     } else {
       appendBadge(container, text);
     }

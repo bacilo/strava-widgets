@@ -9,6 +9,7 @@ import {
   activityRowAriaLabel,
   composeRowAriaLabel,
   lowConfidenceDescriptionId,
+  paceDisputedDescriptionId,
   noteViewedActivity,
   takeNotedActivityId,
   applyReturnHighlight,
@@ -435,16 +436,32 @@ describe('statusBadgeTexts — CR-02 single source of truth for badge text', () 
     expect(statusBadgeTexts(baseRow({ prCount: 3 }))).toEqual(['3 PR']);
   });
 
-  it('returns every applicable flag in the exact render order for a row carrying several at once', () => {
+  // D-11/PACE-07 (26-08): the pace-disputed badge, the single-source-pipeline
+  // half of D-11 — statusBadgeTexts is the one place `row.paceDisagreement`
+  // is read to decide whether "Pace disputed" is pushed.
+  it('returns "Pace disputed" for a row whose paceDisagreement is populated', () => {
+    const row = baseRow({
+      paceDisagreement: { streamPaceSecPerKm: 350.6, metadataPaceSecPerKm: 112.6, ratio: 3.11 },
+    });
+    expect(statusBadgeTexts(row)).toEqual(['Pace disputed']);
+  });
+
+  it('omits "Pace disputed" for a row whose paceDisagreement is null', () => {
+    expect(statusBadgeTexts(baseRow({ paceDisagreement: null }))).toEqual([]);
+  });
+
+  it('returns every applicable flag in the exact render order for a row carrying several at once, with Pace disputed adjacent to Low confidence', () => {
     const row = baseRow({
       streams: { available: false, reason: 'treadmill', hr: false, cadence: false, elevation: false },
       lowConfidence: true,
+      paceDisagreement: { streamPaceSecPerKm: 350.6, metadataPaceSecPerKm: 112.6, ratio: 3.11 },
       excludedFromRecords: true,
       prCount: 2,
     });
     expect(statusBadgeTexts(row)).toEqual([
       'No streams (treadmill)',
       'Low confidence',
+      'Pace disputed',
       'Excluded from records',
       '2 PR',
     ]);
@@ -503,6 +520,24 @@ describe('lowConfidenceDescriptionId — CR-02 duplicate-element-id fix', () => 
     expect(cardId).not.toBe(tableId);
     expect(cardId).toBe('activity-card-123-low-confidence-desc');
     expect(tableId).toBe('activity-table-123-low-confidence-desc');
+  });
+});
+
+// D-11 (26-08): paceDisputedDescriptionId mirrors lowConfidenceDescriptionId's
+// naming scheme, with a distinct suffix so the two descriptions never collide
+// on a row that is BOTH low-confidence AND pace-disputed at once.
+describe('paceDisputedDescriptionId — D-11 distinct-suffix id, mirroring lowConfidenceDescriptionId', () => {
+  it('produces two different ids for the card prefix and the table prefix of the same activity', () => {
+    const cardId = paceDisputedDescriptionId('activity-card-123');
+    const tableId = paceDisputedDescriptionId('activity-table-123');
+    expect(cardId).not.toBe(tableId);
+    expect(cardId).toBe('activity-card-123-pace-disputed-desc');
+    expect(tableId).toBe('activity-table-123-pace-disputed-desc');
+  });
+
+  it('produces a distinct id from lowConfidenceDescriptionId for the same idPrefix', () => {
+    const idPrefix = 'activity-card-456';
+    expect(paceDisputedDescriptionId(idPrefix)).not.toBe(lowConfidenceDescriptionId(idPrefix));
   });
 });
 
