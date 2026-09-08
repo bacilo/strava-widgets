@@ -3,6 +3,7 @@ created: 2026-09-02
 source: 24-REVIEW.md § Wave 9 Review
 severity: info
 area: scripts/lib/curation-guard.mjs
+resolves_phase: 29
 ---
 
 # IN-17 / IN-18: curation-guard cosmetics from the wave-9 review

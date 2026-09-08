@@ -41,7 +41,7 @@ See: .planning/PROJECT.md (updated 2026-09-08)
 Phase: 26 of 30 (Shared Gap-Aware Pace Derivation & Honest Coverage) — first phase of v2.2
 Plan: — (not yet planned)
 Status: Ready to plan
-Last activity: 2026-09-08 — ROADMAP.md created for v2.2: 5 phases (26-30), 25/25 requirements mapped, REQUIREMENTS.md traceability filled
+Last activity: 2026-09-08 — ROADMAP.md created for v2.2: 5 phases (26-30), 27/27 requirements mapped, REQUIREMENTS.md traceability filled
 
 Progress: [░░░░░░░░░░] 0%
 
