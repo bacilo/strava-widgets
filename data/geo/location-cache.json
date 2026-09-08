@@ -86896,6 +86896,41 @@
       "cityName": "Christianshavn",
       "countryName": "Denmark",
       "countryIso2": "DK"
+    },
+    "55.6606,12.5717": {
+      "cityName": "Copenhagen",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.6654,12.5578": {
+      "cityName": "Copenhagen",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.6683,12.5414": {
+      "cityName": "Frederiksberg",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.6723,12.5058": {
+      "cityName": "Valby",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.6905,12.4814": {
+      "cityName": "Vanløse",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.6995,12.4702": {
+      "cityName": "Vanløse",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.7111,12.4629": {
+      "cityName": "Herlev",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
     }
   }
 }
