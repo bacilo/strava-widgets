@@ -242,9 +242,15 @@ describe('source wiring — detail-sections.ts / detail.ts (text-structure guard
   });
 
   it('detail.ts calls splitGapAnnotations and passes the result directly into buildSplitsSection, consuming the same derived.coverage.gapIntervals the histogram is built from', () => {
-    expect(detailStripped).toContain(
-      'buildSplitsSection(splits, paceSecPerKm, splitGapAnnotations(splits, derived.coverage.gapIntervals))'
-    );
+    // 26-08 (D-13) reformatted this call across multiple lines to add the
+    // rebased-average and isRebasedAverage arguments, so this is a
+    // proximity check (all four pieces present, in order, within one call
+    // site) rather than a single-line literal match.
+    const callSiteIndex = detailStripped.indexOf('buildSplitsSection(');
+    expect(callSiteIndex).toBeGreaterThanOrEqual(0);
+    const callSite = detailStripped.slice(callSiteIndex, callSiteIndex + 300);
+    expect(callSite).toContain('splits,');
+    expect(callSite).toContain('splitGapAnnotations(splits, derived.coverage.gapIntervals)');
   });
 
   it('detail.ts passes derived.coverage (not a second, independently-derived value) to buildBreakdownSection', () => {
