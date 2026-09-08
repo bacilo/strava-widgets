@@ -33,7 +33,18 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { classifyGaps } from './pace-derivation.js';
+import {
+  classifyGaps,
+  derivePaceWithCoverage,
+  derivePaceSeriesGapAware,
+  adaptiveWindowSec,
+  paceHistogramSamples,
+} from './pace-derivation.js';
+import {
+  syntheticRecordingGapStream,
+  syntheticIntervalSessionStream,
+  syntheticStandstillStream,
+} from './pace-fixtures.js';
 import type { CanonicalStream } from '../streams/stream.types.js';
 
 /** Reads a committed stream file from `data/streams/` — never the derived stats output. */
@@ -202,5 +213,211 @@ describe('classifyGaps — coverage sums exactly and pins the two negative cases
       expect(coverage.spanSec).toBe(0);
       expect(coverage.gapIntervals).toEqual([]);
     });
+  });
+});
+
+/**
+ * The adaptive window, gap-clipping, and D-16 single-entry-point half of
+ * this module (PACE-02, PACE-03, D-01, D-02, D-16). Every fast-mass/coverage
+ * figure below was measured against the committed archive on 2026-09-08
+ * (re-verify, do not trust blindly — the archive grows nightly) via this
+ * suite's own `fastMassAndCoverage` helper, which is deliberately the SAME
+ * weighting `computePaceDistribution` uses (`detail-zones.ts`'s
+ * `bucketTimeSec.set(index, existing + dt)`), reproduced here through
+ * `paceHistogramSamples`.
+ *
+ * "Coverage" in this suite means the fraction of the stream's own span that
+ * a WINDOWED pace estimate actually resolved to a non-null value — this is
+ * distinct from `PaceCoverage.coveredSec / spanSec` (which is independent
+ * of `windowSec` entirely, since `classifyGaps` never sees the averaging
+ * window). PACE-03's central finding is that a narrow fixed window starves
+ * itself of enough distance-advance to resolve most indices at all — the
+ * fixed-20s "coverage" figures below measure exactly that starvation.
+ *
+ * Order of work matters (demonstrated-failing, not write-tests-after): the
+ * fixed-20s case on real 5059204779 was run and observed failing (fast mass
+ * > 90%, coverage < 35%) BEFORE the adaptive recovery assertion was written
+ * or trusted.
+ */
+describe('derivePaceWithCoverage — adaptive window, gap clipping, D-16 entry point', () => {
+  /**
+   * Δt-weighted fast mass (faster than 180 sec/km) and covered fraction
+   * (fraction of the stream's own span that resolved to a non-null pace),
+   * both derived from `paceHistogramSamples` so one weighting definition
+   * governs every profile assertion below.
+   */
+  function fastMassAndCoverage(
+    result: ReturnType<typeof derivePaceWithCoverage>,
+    t: readonly number[]
+  ): { fastMass: number; coveredFraction: number } {
+    const samples = paceHistogramSamples(t, result.paceSeries);
+    let totalT = 0;
+    let fastT = 0;
+    for (const s of samples) {
+      totalT += s.timeSec;
+      if (s.paceSecPerKm < 180) fastT += s.timeSec;
+    }
+    const fastMass = totalT > 0 ? fastT / totalT : 0;
+    const coveredFraction = totalT / result.coverage.spanSec;
+    return { fastMass, coveredFraction };
+  }
+
+  function readArchiveStream(activityId: string): CanonicalStream {
+    return JSON.parse(
+      fs.readFileSync(path.join('data/streams', `${activityId}.json`), 'utf-8')
+    ) as CanonicalStream;
+  }
+
+  it('negative case 1: a fixed 20s window on real 5059204779 manufactures a data defect (fast mass > 90%, coverage < 35%)', () => {
+    const stream = readArchiveStream('5059204779');
+    const result = derivePaceWithCoverage(stream, { windowSec: 20 });
+    const { fastMass, coveredFraction } = fastMassAndCoverage(result, stream.t);
+    // Two-sided band (measured 94.80% / 30.4%) — must be able to fail in
+    // both directions, not just cross a one-sided threshold.
+    expect(fastMass).toBeGreaterThan(0.9);
+    expect(coveredFraction).toBeLessThan(0.35);
+  });
+
+  it('positive: the default adaptive window recovers real 5059204779 (fast mass < 3%, coverage > 95%)', () => {
+    const stream = readArchiveStream('5059204779');
+    const result = derivePaceWithCoverage(stream);
+    const { fastMass, coveredFraction } = fastMassAndCoverage(result, stream.t);
+    // Measured 1.17% / 97.1%.
+    expect(fastMass).toBeLessThan(0.03);
+    expect(coveredFraction).toBeGreaterThan(0.95);
+  });
+
+  describe('adaptive window ("adaptive window" — all four measured interval profiles)', () => {
+    it('5059204779: within ±8s of 150s (p90 advance interval 60s, floor not engaged)', () => {
+      const stream = readArchiveStream('5059204779');
+      const w = adaptiveWindowSec(stream.t, stream.d);
+      expect(w).toBeGreaterThan(142);
+      expect(w).toBeLessThan(158);
+    });
+
+    it('3647739864: within [200s, 240s] (p90 advance interval ~88.4s) — 26-RESEARCH.md Open Question 1 records ~4% methodology variance against the roadmap-cited ~230s as expected, not a defect', () => {
+      const stream = readArchiveStream('3647739864');
+      const w = adaptiveWindowSec(stream.t, stream.d);
+      expect(w).toBeGreaterThanOrEqual(200);
+      expect(w).toBeLessThanOrEqual(240);
+    });
+
+    it('4598855187: within ±12s of 247.5s (p90 advance interval 99s)', () => {
+      const stream = readArchiveStream('4598855187');
+      const w = adaptiveWindowSec(stream.t, stream.d);
+      expect(w).toBeGreaterThan(235.5);
+      expect(w).toBeLessThan(259.5);
+    });
+
+    it('4556693525: exactly 20s — the floor is load-bearing (D-03), asserted with toBe, not a band', () => {
+      const stream = readArchiveStream('4556693525');
+      const w = adaptiveWindowSec(stream.t, stream.d);
+      expect(w).toBe(20);
+    });
+  });
+
+  it('3647739864 recovers to fast mass < 2% and coverage > 98% under the adaptive window', () => {
+    const stream = readArchiveStream('3647739864');
+    const result = derivePaceWithCoverage(stream);
+    const { fastMass, coveredFraction } = fastMassAndCoverage(result, stream.t);
+    // Measured 0.62% / 100.0%.
+    expect(fastMass).toBeLessThan(0.02);
+    expect(coveredFraction).toBeGreaterThan(0.98);
+  });
+
+  it('4598855187 recovers to fast mass < 2% and coverage > 98% under the adaptive window', () => {
+    const stream = readArchiveStream('4598855187');
+    const result = derivePaceWithCoverage(stream);
+    const { fastMass, coveredFraction } = fastMassAndCoverage(result, stream.t);
+    // Measured 0.00% / 100.0%.
+    expect(fastMass).toBeLessThan(0.02);
+    expect(coveredFraction).toBeGreaterThan(0.98);
+  });
+
+  describe('gap boundary — negative case 3: an unclipped window bridges a recording gap', () => {
+    it('with clipAtGaps: false, the sample immediately before the 300s gap yields a non-null pace whose window demonstrably spans the gap', () => {
+      const stream = syntheticRecordingGapStream();
+      const coverage = classifyGaps(stream.t, stream.d);
+      expect(coverage.gapIntervals).toEqual([{ startSec: 200, endSec: 500, kind: 'recording-gap' }]);
+
+      const preGapIndex = stream.t.indexOf(200);
+      expect(preGapIndex).toBeGreaterThan(-1);
+
+      const unclipped = derivePaceSeriesGapAware(stream.t, stream.d, {
+        windowSec: 40,
+        gapIntervals: coverage.gapIntervals,
+        clipAtGaps: false,
+      });
+      // Unclipped: the window [180, 220] crosses 20s into the recording
+      // gap; interpolating distance across the flat gap boundary dilutes
+      // the pace to 666.67 sec/km (measured) — a fictional value, since no
+      // sample exists between t=200 and t=500 to justify it.
+      expect(unclipped[preGapIndex]).not.toBeNull();
+      expect(unclipped[preGapIndex]).toBeGreaterThan(500);
+    });
+
+    it('with clipAtGaps true (the default), the window clips at the gap boundary and matches the pre-gap segment computed alone within 1 sec/km', () => {
+      const stream = syntheticRecordingGapStream();
+      const coverage = classifyGaps(stream.t, stream.d);
+      const preGapIndex = stream.t.indexOf(200);
+
+      const clipped = derivePaceSeriesGapAware(stream.t, stream.d, {
+        windowSec: 40,
+        gapIntervals: coverage.gapIntervals,
+        clipAtGaps: true,
+      });
+
+      const preGapT = stream.t.slice(0, preGapIndex + 1);
+      const preGapD = stream.d.slice(0, preGapIndex + 1);
+      const preGapAlone = derivePaceSeriesGapAware(preGapT, preGapD, {
+        windowSec: 40,
+        gapIntervals: [],
+        clipAtGaps: true,
+      });
+
+      const clippedPace = clipped[preGapIndex];
+      const aloneP = preGapAlone[preGapAlone.length - 1];
+      expect(clippedPace).not.toBeNull();
+      expect(aloneP).not.toBeNull();
+      expect(Math.abs((clippedPace as number) - (aloneP as number))).toBeLessThan(1);
+
+      // No sample in this fixture falls strictly inside the recording gap
+      // (200, 500) — a recording gap is, by definition, a span with no
+      // samples recorded across it — so there is no index to assert `null`
+      // against here; the "samples inside a gap are null" contract is
+      // exercised by the interior-sampled `pause` case in
+      // `derivePaceSeriesGapAware`'s own doc comment and by
+      // `syntheticMultiHourPauseStream`-shaped fixtures used elsewhere.
+      const interiorIndices = stream.t.filter((time) => time > 200 && time < 500);
+      expect(interiorIndices).toEqual([]);
+    });
+  });
+
+  it("criterion 5: the adaptive smoothed series resolves the interval session's own fast/slow segment paces within ±20 sec/km", () => {
+    const stream = syntheticIntervalSessionStream();
+    const result = derivePaceWithCoverage(stream);
+
+    // Index 20 (t=40s) sits well inside the first fast rep (t 0..84s,
+    // 210 sec/km); index 60 (t=120s) sits well inside the first slow rep
+    // (t 86..164s, 390 sec/km) — see the fixture's own doc comment.
+    const fastPace = result.paceSeries[20];
+    const slowPace = result.paceSeries[60];
+
+    expect(fastPace).not.toBeNull();
+    expect(slowPace).not.toBeNull();
+    expect(Math.abs((fastPace as number) - 210)).toBeLessThan(20);
+    expect(Math.abs((slowPace as number) - 390)).toBeLessThan(20);
+  });
+
+  it('null, never 0: a standstill stream produces an all-null series and never a 0 or Infinity entry', () => {
+    const stream = syntheticStandstillStream();
+    const result = derivePaceWithCoverage(stream);
+
+    expect(result.paceSeries.length).toBeGreaterThan(0);
+    for (const pace of result.paceSeries) {
+      expect(pace).toBeNull();
+    }
+    expect(result.paceSeries.some((p) => p === 0)).toBe(false);
+    expect(result.paceSeries.some((p) => p === Infinity)).toBe(false);
   });
 });
