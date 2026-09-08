@@ -281,7 +281,7 @@ describe('derivePaceWithCoverage — adaptive window, gap clipping, D-16 entry p
     result: ReturnType<typeof derivePaceWithCoverage>,
     t: readonly number[]
   ): { fastMass: number; coveredFraction: number } {
-    const samples = paceHistogramSamples(t, result.paceSeries);
+    const samples = paceHistogramSamples(t, result.paceSeries, result.coverage.gapIntervals);
     let totalT = 0;
     let fastT = 0;
     for (const s of samples) {
@@ -450,5 +450,62 @@ describe('derivePaceWithCoverage — adaptive window, gap clipping, D-16 entry p
     }
     expect(result.paceSeries.some((p) => p === 0)).toBe(false);
     expect(result.paceSeries.some((p) => p === Infinity)).toBe(false);
+  });
+});
+
+/**
+ * Cross-plan integration repair (2026-09-08): `paceHistogramSamples` pins
+ * the exact-coverage invariant itself, rather than leaving it to a
+ * per-caller local mask. Plan 26-04 discovered this defect and worked
+ * around it locally inside `detail-zones.ts` because `pace-derivation.ts`
+ * was owned by a concurrently-executing sibling plan at the time; this
+ * suite is what proves the shared module now owns the rule directly.
+ *
+ * `syntheticRecordingGapStream()` (t 0..200s dense, 300s recording gap,
+ * t 500..700s dense — see `pace-fixtures.ts`) is exact enough to hand-derive
+ * the answer: `spanSec` is 700, the gap is exactly 300s, so `coveredSec` is
+ * exactly 400s. Before this fix, `paceHistogramSamples(t, paceSeries)`
+ * (2-arg) summed to 700 — the FULL SPAN — because the pre-gap sample's own
+ * forward segment `[200, 500]` (the gap itself) was included: its pace
+ * value is non-null (window-clipped but valid), so the old `dt <= 0 ||
+ * pace === null` skip never caught it.
+ *
+ * Mutation check performed while writing this test (not committed as
+ * source, recorded here per the plan's instruction): temporarily reverted
+ * `paceHistogramSamples` to the old 2-arg body (drop the `gapIntervals`
+ * parameter and the `inGap` exclusion) and ran this test — it failed with
+ * `expected 700 to be 400` (received `700`, the un-clipped full span),
+ * confirming the test actually exercises the defect rather than passing
+ * vacuously. Reverted back to the fixed 3-arg body immediately after,
+ * confirmed the suite passes again.
+ */
+describe('paceHistogramSamples — exact coverage invariant (cross-plan integration repair, 2026-09-08)', () => {
+  it('summed timeSec equals coverage.coveredSec exactly, never spanSec, across a fixture with a known-duration gap', () => {
+    const stream = syntheticRecordingGapStream();
+    const result = derivePaceWithCoverage(stream);
+
+    expect(result.coverage.spanSec).toBe(700);
+    expect(result.coverage.recordingGapSec).toBe(300);
+    expect(result.coverage.coveredSec).toBe(400);
+
+    const samples = paceHistogramSamples(stream.t, result.paceSeries, result.coverage.gapIntervals);
+    const totalWeightedSec = samples.reduce((sum, s) => sum + s.timeSec, 0);
+
+    expect(totalWeightedSec).toBe(result.coverage.coveredSec);
+    expect(totalWeightedSec).not.toBe(result.coverage.spanSec);
+  });
+
+  it('excludes the pre-gap sample\'s own forward segment specifically (the defect\'s exact mechanism)', () => {
+    const stream = syntheticRecordingGapStream();
+    const result = derivePaceWithCoverage(stream);
+    const preGapIndex = stream.t.indexOf(200);
+
+    expect(preGapIndex).toBeGreaterThan(-1);
+    expect(result.paceSeries[preGapIndex]).not.toBeNull();
+
+    const samples = paceHistogramSamples(stream.t, result.paceSeries, result.coverage.gapIntervals);
+    const gapTimeIncluded = samples.some((s) => s.timeSec === 300);
+
+    expect(gapTimeIncluded).toBe(false);
   });
 });

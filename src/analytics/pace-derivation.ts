@@ -470,25 +470,41 @@ export function derivePaceWithCoverage(
  * Builds the Δt-weighted `{ paceSecPerKm, timeSec }` samples a histogram
  * consumes, from a pace series produced by `derivePaceSeriesGapAware` /
  * `derivePaceWithCoverage`. Reproduces `computePaceDistribution`'s existing
- * Δt weighting exactly (`detail-zones.ts`'s `bucketTimeSec.set(index,
- * existing + dt)`) so plan 26-04's histogram stays weight-identical to
- * today's, and is the shared primitive plan 26-09's residual-fast-mass
- * script measures against.
+ * Δt weighting (`detail-zones.ts`'s `bucketTimeSec.set(index, existing +
+ * dt)`) and is the shared primitive plan 26-09's residual-fast-mass script
+ * measures against.
  *
- * For `i` in `[0, t.length - 2]`: skips when `dt <= 0` or `paceSeries[i] ===
- * null` — a null index is already accounted as excluded by `classifyGaps`
- * (recording-gap, pause, or a gap-clipped zero-elapsed window), not a silent
- * drop introduced here.
+ * INVARIANT (fixed 2026-09-08, cross-plan integration repair): the sum of
+ * every returned `timeSec` equals `coverage.coveredSec` EXACTLY — never
+ * `spanSec`, never `coveredSec` plus any gap/pause time. This requires
+ * `gapIntervals` as a REQUIRED third argument, not an optional flag that
+ * defaults to the leaky behaviour: `derivePaceSeriesGapAware`'s window
+ * clipping deliberately leaves the LAST sample before a gap non-null (a
+ * shrunk-but-valid trailing window, so the chart line stays continuous up
+ * to the gap edge). That sample's own FORWARD segment `[t[i], t[i+1]]` *is*
+ * the gap (`classifyGaps` classifies it `recording-gap` or `pause`, never
+ * `covered`). Skipping only `paceSeries[i] === null` is NOT sufficient to
+ * exclude that segment, because the pre-gap sample's pace is non-null —
+ * only checking whether the segment's OWN START falls inside a
+ * `gapIntervals` entry catches it. For `i` in `[0, t.length - 2]`, a
+ * segment is excluded when `dt <= 0`, `paceSeries[i]` is null/undefined, OR
+ * `t[i]` falls within `[g.startSec, g.endSec)` for any gap interval `g`.
  */
 export function paceHistogramSamples(
   t: readonly number[],
-  paceSeries: readonly (number | null)[]
+  paceSeries: readonly (number | null)[],
+  gapIntervals: readonly GapInterval[]
 ): Array<{ paceSecPerKm: number; timeSec: number }> {
   const result: Array<{ paceSecPerKm: number; timeSec: number }> = [];
   for (let i = 0; i < t.length - 1; i++) {
     const dt = t[i + 1] - t[i];
     const pace = paceSeries[i];
     if (dt <= 0 || pace === null || pace === undefined) continue;
+
+    const segStart = t[i];
+    const inGap = gapIntervals.some((g) => segStart >= g.startSec && segStart < g.endSec);
+    if (inGap) continue;
+
     result.push({ paceSecPerKm: pace, timeSec: dt });
   }
   return result;
