@@ -433,19 +433,28 @@ Exact match to D-06's cited "3,394 (stream) vs 3,393 (metadata)".
 
 **If this table is empty:** N/A — see rows above.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Does the production TypeScript quantile implementation need to match this session's Node script exactly to reproduce the roadmap's exact cited windows (150s/230s/248s)?**
+> All three were resolved during planning (2026-09-08). Each carries an inline
+> **RESOLVED** line naming the plan that operationalises it.
+
+1. **RESOLVED — see plan 26-02.** Plan 26-02 Task 2 asserts the shipped window as a band rather than an exact value and carries an explicit stop-and-record instruction (per D-03) if the measured window falls outside it, so a residual discrepancy is surfaced rather than absorbed.
+
+   **Does the production TypeScript quantile implementation need to match this session's Node script exactly to reproduce the roadmap's exact cited windows (150s/230s/248s)?**
    - What we know: Two of three profiles matched the cited target windows almost exactly (150.0s, 247.5s); the third (`3647739864`) measured 221.0s against a cited ~230s, a ~4% difference.
    - What's unclear: Whether this is floating-point/interpolation-method noise (this session used R-7 linear interpolation) or a genuinely different "advance interval" definition used when CONTEXT.md's figures were originally produced (CONTEXT.md itself labels its own numbers "re-derivable; not yet a committed artifact").
    - Recommendation: When `pace-derivation.ts` is implemented, re-run the exact measurement against the shipped TypeScript (not this session's throwaway `.mjs` scripts) and treat any residual discrepancy under ~5% as expected variance rather than a defect — but if the real implementation's `3647739864` window comes out meaningfully different from ~221-230s, re-derive PACE-03/06's cited figures for that activity specifically, per D-03's requirement.
 
-2. **Should `4556693525`'s own PACE-06 residual (2.42%, measured this session) be listed alongside its role as the PACE-04 worked example?**
+2. **RESOLVED — see plan 26-09.** Plan 26-09 Task 2 requires `26-RESIDUAL.md` to state explicitly that `4556693525` legitimately holds both roles, so a future reader does not mistake it for a measurement error.
+
+   **Should `4556693525`'s own PACE-06 residual (2.42%, measured this session) be listed alongside its role as the PACE-04 worked example?**
    - What we know: This session's residual measurement includes `4556693525` at 2.42% — the single highest residual in the 13-activity list, essentially matching PACE-06's stated ceiling (0.5-2.4%) almost exactly at its top end. `4556693525` is ALSO the pinned PACE-04 exemplar for the phantom-fast-mode fix (its shipped histogram bug, now fixed) and separately provides the PR-plausibility fixture for a future phase (400m effort at 44.0s).
    - What's unclear: Whether `4556693525` appearing in BOTH the "fixed" (PACE-04) and "still has a marginal residual" (PACE-06) roles is intentional in the original scoping, or whether the roadmap's authors expected the 13-activity residual to be a disjoint set from the worked example.
    - Recommendation: This is not a contradiction — a residual of 2.42% is consistent with "the fix works, and there is still a small genuine-device-over-measurement tail," which is exactly what PACE-06 describes. Note it explicitly in `26-RESIDUAL.md` so a future reader doesn't mistake it for a measurement error.
 
-3. **Is `3475742397`'s "strictly lower" tie (Pitfall 2) the only such case, or could new activities added to the archive between this research session and implementation introduce more?**
+3. **RESOLVED — see plan 26-09.** Plan 26-09 re-derives the 154-cohort and residual against the archive at execution time rather than this session's frozen list, and checks the "strictly lower, or both zero" wording per activity, so additional tie cases introduced by archive growth are caught.
+
+   **Is `3475742397`'s "strictly lower" tie (Pitfall 2) the only such case, or could new activities added to the archive between this research session and implementation introduce more?**
    - What we know: Exactly 1 of the measured 154 has baseline fast-mass already at 0.00%.
    - What's unclear: The archive grows continuously (this session found 1,890 activities vs. PROJECT.md's cited 1,864-1,868 figures from the scoping session, and 741 vs. 716 no-device-name activities — the archive has grown by roughly two dozen activities since the milestone was scoped).
    - Recommendation: Re-run the 154-cohort identification and residual measurement against the archive at implementation time, not against this session's frozen list — treat this session's exact IDs/percentages as a strong prior, not a guarantee, and re-verify the "strictly lower, or both zero" wording still covers whatever the re-measurement finds.

@@ -87,10 +87,12 @@ times before this milestone, and there is no jsdom or headless browser in the re
 - [ ] **Phase 30: Elevation Quality Signal** - Implausible altitude flagged archive-wide by three independent mechanisms, flag-only
 
 #### Phase 26: Shared Gap-Aware Pace Derivation & Honest Coverage
+
 **Goal**: Every consumer of derived pace (chart, histogram, splits) reads from one gap-aware module in `src/analytics/`, coverage is exact and visibly reported, a stratified fixture library exists for every later phase to reuse, the residue adaptive windowing does not fix (genuine device over-measurement, not data corruption — an earlier draft wrongly called three activities "beyond repair"; adaptivity recovers all three) is identified and quantified rather than smoothed into plausibility, and a metadata-vs-stream pace cross-check catches the one activity whose metadata alone would otherwise display a physically implausible pace as fact.
 **Depends on**: Nothing (first phase of this milestone; builds the foundation and fixture library every later phase composes)
 **Requirements**: PACE-01, PACE-02, PACE-03, PACE-04, PACE-05, PACE-06, PACE-07, COV-01, COV-02, ERA-03
 **Success Criteria** (what must be TRUE):
+
   1. Archive-wide phantom-fast-mode reduction, measured per-activity against that activity's own baseline rather than a uniform absolute floor — a uniform floor across the 154-activity severe stair-step cohort is unsatisfiable under a fixed window, but a fixed-window measurement can itself manufacture the appearance of a data defect, which is the trap this criterion exists to avoid re-entering: an earlier draft applied a fixed 20s window to three activities emitting distance every 60-99s (5059204779, 3647739864, 4598855187), read them as 94.81%/59.77%/42.57% fast mass, and wrongly called them broken beyond derived-layer repair; under a window scaled to each activity's own observed advance interval, all three resolve to 1.22%/0.00%/0.00% with coverage rising from 30/40/45% to 97/100/100% — their streams were always sound (5059204779 derives 5:51/km against splits of 7:05, 5:00, 6:00×6, 7:00, 5:00, 6:00×2; the round numbers are 60s emission landing on minute multiples, not corruption). Instead: for each of the 154, restricting the Δt-weighted histogram to covered (non-gap-excluded) time per criteria 2/3's accounting and using the adaptive window Criterion 5 requires, the fraction of mass faster than 3:00/km is measured against both the current unfixed per-sample `dt/dd` path (baseline) and the shared derivation (after) — the after-value is strictly lower than that same activity's own baseline for all 154, demonstrated failing by re-running the comparison against the unfixed path. Separately, as PACE-06's own required deliverable: under the adaptive derivation, the residual — every activity whose after-value still exceeds 0.5% of covered-time mass — is **13 of the 154, all marginal (0.5-2.4%)**, genuine device over-measurement rather than a data defect, enumerated by ID and percentage in a report; that exact residual list is the artifact Phase 27 consumes as pre-flagged input, cross-checked at that phase's boundary rather than merely asserted here.
   2. Gaps clip rather than manufacture pace, and affected splits disclose it: a constructed fixture with a known-duration gap shows the pace window stopping exactly at the gap boundary, and any per-km split whose window crosses a gap is marked as such — both checks demonstrated failing when gap-boundary clipping/marking is removed.
   3. Coverage sums exactly and is visibly reported: for the real 35-hour-gap activity and a synthetic multi-category fixture, covered-time + excluded-time (by named category) equals the stream's own `elapsed_time` field exactly, not approximately; and the pinned exemplar's detail view displays a coverage percentage that, read in the browser at the moment of observation, equals the value independently summed straight from that activity's committed stream file.
@@ -103,65 +105,95 @@ times before this milestone, and there is no jsdom or headless browser in the re
 **Plans**: 10 plans in 6 waves
 
 Plans:
+**Wave 1**
+
 - [ ] 26-01-PLAN.md — Shared module: segment-priority gap classification and exact coverage accounting (COV-01, PACE-02)
-- [ ] 26-02-PLAN.md — Adaptive window, gap-clipped pace series, and the single pace+coverage entry point (PACE-02, PACE-03)
 - [ ] 26-03-PLAN.md — ERA-03 stratified fixture library, verified present by name (ERA-03)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 26-02-PLAN.md — Adaptive window, gap-clipped pace series, and the single pace+coverage entry point (PACE-02, PACE-03)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 26-04-PLAN.md — Collapse the chart and the histogram onto the shared derivation (PACE-01, PACE-04)
-- [ ] 26-05-PLAN.md — Single-source audit as a vitest test, demonstrated catching a planted second implementation (PACE-01)
-- [ ] 26-06-PLAN.md — Always-on coverage caption and split gap marker plus legend (COV-02, PACE-05)
 - [ ] 26-07-PLAN.md — Metadata-vs-stream cross-check as an additive index flag (PACE-07)
-- [ ] 26-08-PLAN.md — Pace disputed badges on every surface, rebased splits baseline, no suppression (PACE-07)
 - [ ] 26-09-PLAN.md — Archive-wide residual report, its regenerating script, and two ROADMAP criterion corrections (PACE-04, PACE-06)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 26-06-PLAN.md — Always-on coverage caption and split gap marker plus legend (COV-02, PACE-05)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 26-05-PLAN.md — Single-source audit as a vitest test, demonstrated catching a planted second implementation (PACE-01)
+- [ ] 26-08-PLAN.md — Pace disputed badges on every surface, rebased splits baseline, no suppression (PACE-07)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
 - [ ] 26-10-PLAN.md — Human browser checkpoint against a production-shaped build (COV-02, PACE-05, PACE-07)
+
 **UI hint**: yes
 
 #### Phase 27: Per-Activity Quality Signals
+
 **Goal**: Every activity carries computed, individually-disclosed quality signals (decimation ratio, impossible-sample count, gap profile, elapsed-vs-moving divergence, device era) — precomputed in CI, badged on the activity list and detail view, severity-calibrated against a measured archive-wide rate.
 **Depends on**: Phase 26 (reuses its gap classifier for the gap-profile signal and its fixture library for device-era stratification)
 **Requirements**: QUAL-01, QUAL-02, QUAL-03, QUAL-04, QUAL-05, ERA-01, ERA-02
 **Success Criteria** (what must be TRUE):
+
   1. Signals are computed in CI and disclosed individually: each activity's index row and per-activity shard carry the five named signals as separate fields (device era and decimation severity stay distinct even though they correlate), verified by inspecting `data/dashboard/index.json` and `data/stats/pace-quality/{id}.json` directly.
   2. Index stays additive, shard stays lazy: `DASHBOARD_INDEX_SCHEMA_VERSION` is unchanged before/after the addition, and the per-activity shard is fetched only when a detail view opens — verified by the network panel showing zero shard fetches on the activity-list view and exactly one fetch on open, mirroring the existing `best-efforts/{id}.json` pattern.
   3. Badges explain, not just mark: opening a real flagged activity's detail view in the browser shows a badge whose text names the detected condition and its measured value (e.g. "12% of elapsed time in recording gaps"), read directly off the rendered page.
   4. Severity is calibrated against a measured, independently re-derived archive-wide rate: a dry-run report against the full 1,864-activity archive states the actual top-tier flag count and it is under ~5% (≈90 activities); a standalone script counting top-tier flags from the shipped index reproduces the same count, and the criterion is demonstrated failing by moving a threshold and observing the measured rate move accordingly.
   5. Device-family, not file-format, drives branching, and no-device-name is its own category: a fēnix 6 Pro FIT activity (0% `speed` field) and a Suunto 9 FIT activity (99.8% `speed` field) — same file format, different device family — get correctly differentiated device-era signals; sampled index rows from the 716-activity no-device-name cohort report their own explicit category, never a fabricated device name, demonstrated failing if that branch is deleted and a default silently takes over.
+
 **Plans**: TBD
 **UI hint**: yes
 
 #### Phase 28: PR Plausibility Ceiling
+
 **Goal**: A personal plausibility ceiling, derived non-circularly from each athlete's own already-filtered effort history, demotes-and-flags implausible efforts from PR ranking — never deletes them — with an archive-wide before/after diff reviewed by a human before ship.
 **Depends on**: Phase 27 (no functional coupling to the quality-signal fields themselves; sequenced after so the eventual review queue has quality context, per research's own ordering rationale — not a hard blocker)
 **Requirements**: PR-01, PR-02, PR-03, PR-04, PR-05
 **Success Criteria** (what must be TRUE):
+
   1. The three-pass structure is deterministic: running `compute-best-efforts.ts` twice against unchanged input produces byte-identical ceiling values and flags, verified by diffing two consecutive CI runs — demonstrated failing if Pass 2 is changed to iterate to convergence instead of running once.
   2. The ceiling is computed non-circularly: traced by test to read only from Pass 1's already-filtered array (post `isPlausible` + exclusion list), never the raw archive — a fixture where the unfiltered-population computation and the filtered-population computation diverge shows the shipped code producing the filtered result.
   3. The pinned regression case is rejected and the fix is validated archive-wide: activity 4556693525's 400m effort (44.0s, 9.09 m/s) is demonstrated rejected as a permanent regression fixture (test fails if the ceiling regresses to admit it), and the guard's effect is additionally reported across the full 662-activity impossible-sample cohort via a dry-run count — not the pinned fixture alone.
   4. Rejected efforts are demoted, never deleted: for every ceiling-rejected effort, the effort remains visible in that activity's own detail view (read directly in the browser, not merely present in JSON) with a stated demotion reason, absent only from the ranked PR list; a code audit confirms no path removes a flagged effort from `activities[id].efforts`, demonstrated failing if the filter is mutated to delete instead of flag.
   5. The archive-wide diff is a reviewed phase deliverable: a before/after PR diff (every record that changes hands) is generated from the real full archive and reviewed and signed off by the developer before the phase closes; its record count reconciles with the independently-derived ceiling-rejected count from criterion 3's dry run.
+
 **Plans**: TBD
 **UI hint**: yes
 **Browser checkpoint**: warranted — PR-03/PR-04 require a demoted effort to remain visibly present with its reason on the Records/detail screens rather than silently vanishing; this is exactly the class of defect (a check that only agrees with itself) the project's Phase 23 CR-01 lesson exists to guard against.
 
 #### Phase 29: Curation Review Queue
+
 **Goal**: Local curation mode surfaces ceiling-flagged efforts in a reviewable queue and lets the developer exclude them via the existing whole-activity write path — no new write surface, both publish guards still prove it absent from the published bundle.
 **Depends on**: Phase 28 (hard dependency — nothing to review without ceiling-rejected efforts existing)
 **Requirements**: CUR-01, CUR-02, CUR-03
 **Success Criteria** (what must be TRUE):
+
   1. The queue surfaces flagged activities without hunting: in `npm run curate`, a queue view lists activities carrying a real ceiling-flagged effort from Phase 28's actual archive output, reachable via one navigation action; the listed set matches Phase 28's independently-derived flagged set exactly, not merely "some rows appear."
   2. Exclusion reuses the existing write path: exercising the queue's exclude action writes to `best-effort-exclusions.json` via `curate-server.mjs`'s existing trusted-origin check, atomic write, and activity-id validation; a request from an untrusted origin is rejected, demonstrated failing if a parallel write surface is substituted instead.
   3. Both publish guards discriminate in both directions on the new routes: `curation-guard.mjs`'s build-time scan and `verify-dashboard-publish.mjs`'s HTTP-layer assertion are both demonstrated failing (red) when the new review-queue route/content is deliberately leaked into `dist/widgets`, and both demonstrated passing (green) against a correct build.
+
 **Plans**: TBD
 **UI hint**: yes
 **Browser checkpoint**: warranted — directly extends the Phase 24 local curation UI, which this project's own convention ends on a human browser checkpoint every time.
 
 #### Phase 30: Elevation Quality Signal
+
 **Goal**: Implausible altitude is flagged archive-wide by three independent mechanisms (sub-ground-level, barometric closure drift, implausible vertical rate) spanning all device families — flag only, no correction.
 **Depends on**: Phase 26 (reuses its fixture-library and archive-wide dry-run validation conventions; otherwise functionally independent of Phases 27-29 and could execute in parallel with Phase 27 if desired)
 **Requirements**: ELEV-01, ELEV-02
 **Success Criteria** (what must be TRUE):
+
   1. All three modes are detected archive-wide: a dry-run report over the full committed archive independently reproduces at least the 11 sub-ground-level activities (worst: −282 m, Lisbon), at least the 34 barometric-closure-drift activities (start/end differing >60 m, worst 198 m), and at least the 39 implausible-vertical-rate activities — each count read from the report, not inferred from the detector's own self-description.
   2. Mode-independence is demonstrated, not assumed: the barometric-closure-drift and sub-ground-level flagged-ID lists from criterion 1 are shown substantially non-overlapping — proving a floor-bound check alone could not have caught the drift cohort — and each detector is demonstrated failing (flags nothing) when its own mode's injected fixture is removed.
   3. Flag rate reconciles archive-wide and nothing is corrected: the report's total flagged count reconciles with the measured 71-activity (3.8%) cohort, sampled across all four named device families (Suunto 9, Garmin fēnix 6 Pro, no device name, vívoactive 4); a code/behavior audit confirms `data/streams/` files are byte-unchanged after running the detector — flag only, no DEM lookup, no correction, no grade-adjusted pace.
+
 **Plans**: TBD
 **UI hint**: yes
 **Browser checkpoint**: not strictly warranted on its own — this phase is a compute-layer detector with no new interactive surface; if its badge rendering reuses Phase 27's already-checkpointed badge component, a lightweight visual spot-check folded into Phase 27's or Phase 29's checkpoint session is sufficient rather than a dedicated round.
