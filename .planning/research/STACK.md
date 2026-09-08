@@ -1,149 +1,163 @@
-# Stack Research
+# Stack Research: Pace Data-Quality Algorithms (v2.2)
 
-**Domain:** Training-analytics dashboard (static SPA) added to an existing TypeScript/Node.js Strava-widgets platform
-**Researched:** 2026-08-10
-**Confidence:** HIGH (verified against the actual repo, actual export files, and live package registry — not just training data)
+**Domain:** Statistical/signal-processing techniques for gap-aware pace derivation, outlier detection, personal-percentile plausibility ceilings, and data-quality scoring — applied to already-committed, irregularly-sampled `(t, d)` running streams (≤3,000 samples/activity, 1,864 activities).
+**Researched:** 2026-09-08
+**Confidence:** HIGH — every recommendation below is grounded in the existing codebase's own patterns (`best-effort-utils.ts`, `detail-charts-logic.ts`, `detail-zones.ts`) plus verified npm registry/bundlephobia data for the two libraries seriously considered and rejected.
 
-## Headline Finding
+## Verdict, up front
 
-**This milestone needs zero new production npm dependencies.** Every "new" capability — FIT stream parsing, GPX stream parsing, SPA routing, activity-list filter/sort, time-series charts — is either already solved by a dependency this repo already ships (`@garmin/fitsdk`, `chart.js`) or is better served by extending patterns the codebase has already proven at scale (regex GPX reader, hand-rolled `TableSorter`/`TablePaginator`, Custom Elements, native `fetch`/`Date`). This is a direct continuation of the project's validated "zero dependencies where practical" decisions (native Custom Elements, native `fetch`, offline geocoding) — not a new philosophy being introduced for v2.0.
-
-I verified this by decoding real files from `export_data/` and reading the existing pipeline code, not just by inspecting package listings:
-- Decoded live `.fit.gz` and `.gpx` samples from the archive with the SDK/parser already in the repo — confirmed `heartRate`, `cadence`, `distance`, `speed`/`enhancedSpeed`, `altitude`/`enhancedAltitude` are all present directly on `recordMesgs` from `@garmin/fitsdk`, no extra parsing library needed.
-- Timed a 100-file batch decode: 7.2ms/file → ~13s to decode all 1,835 `.fit.gz` files in CI. Fast enough for a build-time pipeline step, no worker-thread/streaming complexity warranted.
-- Grepped 36 sampled `.gpx` files (of 306) for `gpxtpx`/`extensions`/`<hr>` — zero matches. Strava's exported phone-recorded GPX in this archive carries only `lat`/`lon`/`ele`/`time`, never heart rate or cadence extensions. This is a data fact, not a parsing limitation — confirms a regex-based reader is sufficient (there's no rich extension schema to navigate).
+**No new dependency is warranted for any of (a)–(d).** Every technique this milestone needs is a 15–40 line pure function over an array of at most a few thousand floats, run either once per activity (Node, CI time) or once per chart render (browser, ≤3,000 points). This is squarely inside the size/complexity envelope the project has hand-rolled repeatedly (`findBestEffort`'s two-pointer sweep, `derivePaceSeries`'s Δt-weighted window, `computePaceDistribution`'s segment walk, `parseAthleteConfig`'s total-validation gate). Two libraries were seriously evaluated and rejected — see "What NOT to Use" for the specific reasoning per library, not a blanket "prefer fewer deps."
 
 ## Recommended Stack
 
-### Core Technologies (unchanged — confirmed still correct for v2.0)
+### Core Technologies
 
 | Technology | Version | Purpose | Why Recommended |
 |------------|---------|---------|-----------------|
-| TypeScript | 5.9.3 (installed) | Whole pipeline + SPA | Already the project's only language; no reason to introduce anything else for a personal, single-maintainer dashboard |
-| Node.js | 22 | Build-time pipeline (stream parsing, best-effort computation, JSON generation) | Already the CI runtime; native `fetch`, native `zlib`, no new runtime needed |
-| Vite | 7.3.1 (installed) | Bundling for both widgets and the new dashboard SPA | `vite.config.pages.ts` already implements the exact multi-page pattern the dashboard needs (see Integration Points) |
-| Chart.js | 4.5.1 (installed, latest) | Per-activity detail charts (pace/HR/cadence vs. distance) | Already bundled and tree-shaken in 2 widgets; reusing avoids paying for a second charting library (see rationale below) |
+| Plain TypeScript, no runtime dep | current (5.9.3, already installed) | All four algorithm categories | Every technique needed (gap-aware weighted averaging, rolling-window median/MAD, linear-interpolation quantile, weighted composite scoring) is textbook, well-documented, and small enough that hand-rolling costs less than researching/vetting/pinning a dependency, matches the codebase's existing module style (pure, DOM-free, exhaustively unit-tested), and keeps the IIFE widget bundles and the CI compute step at their current zero-runtime-dependency footprint for this concern. |
 
-### New Code, Not New Dependencies
+### Supporting Libraries
 
-| Capability | What to Add | Why Not a Library |
-|------------|-------------|--------------------|
-| FIT stream parsing (HR, cadence, pace, elevation) | Extend `src/exports/geometry-readers.ts` `readFit()` to also pull `heartRate`, `cadence`, `distance`, `enhancedSpeed`/`speed`, `enhancedAltitude` off each `recordMesg` (currently only `positionLat`/`positionLong` are read) | `@garmin/fitsdk` (already a dependency, `^21.212.0`, verified latest) already returns every one of these fields per record — verified by decoding a real 2025 recording from the archive. No FIT parsing gap exists. |
-| GPX stream parsing (elevation, per-point time for pace) | Extend `readGpx()` to capture `lat`, `lon`, `ele`, `time` from each `<trkpt>` block in one regex pass instead of the current two-pass approach (all coords via one regex, only the *first* point's time via a second regex) | The archive's GPX files have a small, fixed, well-known schema (Strava's `StravaGPX` export) with no HR/cadence extensions present anywhere sampled. A full XML parser (fast-xml-parser, xml2js) would be solving a problem that doesn't exist here — the current regex-only approach was a deliberate, already-validated choice per the code comment in `geometry-readers.ts` ("targeted matching beats a full XML dependency") |
-| Best-effort computation (fastest 400m/1k/1mi/5k/10k/HM/marathon) | Plain TS: sliding-window scan over the distance/time stream per activity | Pure numeric algorithm over an array — no npm package adds value here |
-| Stream downsampling for published JSON | Hand-rolled fixed-stride or LTTB-style downsample function (~30 LOC) run in the Node pipeline before writing per-activity stream JSON | Keeps repo/JSON payload size bounded (see Charting section) without adding a downsampling package; full-resolution data stays available *within* the pipeline for best-effort math, only the *published* stream is capped |
-| SPA routing | Hand-rolled hash router (`hashchange` listener + view-dispatch table, ~40 LOC) | See Alternatives — deliberately not adding a router package |
-| Activity list filter/sort (~1,867 rows) | Reuse/extend `TableSorter` (locale-aware `Intl.Collator`, sort-a-copy pattern) and `TablePaginator` from `src/widgets/geo-table-widget/` | These utilities already exist, are already tested, and the scale difference (2,000 rows vs. the geo table's smaller row counts) doesn't change the approach — `Array.sort`/`Array.filter` over 2,000 items is sub-5ms |
-| Per-activity route map on detail view | Reuse existing Leaflet 1.9.4 + single-run-map widget pattern | Already validated infrastructure (CDN-externalized, Shadow DOM CSS injection) |
+**None.** See per-question breakdown below for the algorithm sketch that replaces each library that might otherwise be reached for.
 
-### Supporting Libraries (none required, but here's what was evaluated and rejected)
+### Development Tools
 
-| Library | Purpose it would serve | Verdict |
-|---------|------------------------|---------|
-| `fit-file-parser` | Alternative FIT decoder | Rejected — `@garmin/fitsdk` is already integrated, official (Garmin-maintained), and proven against real files. Switching decoders for no functional gain is pure risk. |
-| `fit-decoder` | Alternative FIT decoder | Rejected — same reasoning; less actively maintained than the official SDK already in use. |
-| `fast-xml-parser` / `xml2js` | GPX parsing | Rejected — regex approach already validated in production for 306 files with a fixed, simple schema; would add ~30-50KB and a new dependency for zero new capability. |
-| `preact` (10.29.8) + `preact-router` (4.1.2) | SPA component model + routing | Rejected for v2.0, but the one framework worth reconsidering if reactive UI complexity grows (see Alternatives Considered below). |
-| `svelte` + `vite-plugin-svelte` | SPA component model | Rejected — introduces a compiler step into a build pipeline that is currently pure TypeScript+Vite; inconsistent with a single-maintainer project that already has zero build "magic." |
-| `vue` / `react` | SPA framework | Rejected — heaviest options (30-45KB+ runtime), directly contradicts the project's explicitly validated "small bundles, zero frameworks" decision (see PROJECT.md Key Decisions: "Native Custom Elements API — Zero dependencies, full attribute lifecycle control — ✓ Good"). |
-| `uplot` (1.6.32) | High-performance time-series charting | Rejected — see Charting rationale below. |
-| `fuse.js` (7.5.0) | Fuzzy search over activity list | Rejected — personal single-user dashboard; substring match (`.toLowerCase().includes()`) on activity titles is sufficient, fuzzy matching solves a UX problem this project doesn't have. |
-| `navigo` (8.11.1) or similar router | SPA routing | Rejected — only ~4-5 view types (activity list, activity detail, records, trends); a 40-line hand-rolled hash dispatcher covers this with no dependency and no risk of pulling in History-API assumptions that don't work on GitHub Pages (see rationale below). |
-| `date-fns` / `luxon` / `dayjs` | Date math for weekly/monthly/yearly aggregation | Rejected — project already has a validated "UTC everywhere, native `Date`" decision from v1.0; the records/trends aggregation is the same class of problem already solved without a date library. |
+No new dev tooling needed — `vitest` (already installed, `^4.0.18`) is sufficient for the property-style tests these functions need (e.g. "known outlier gets flagged", "quantile of a sorted array of 100 known values returns the textbook expected value", "MAD of a constant array is 0 and the filter doesn't divide by zero").
 
 ## Installation
 
-No new packages required. If any of the above are later warranted, this is the reference invocation for the one path worth revisiting first:
-
 ```bash
-# ONLY if reactive filter/sort UI complexity outgrows vanilla DOM updates
-npm install preact @preact/signals
+# No installation required for this milestone's algorithmic core.
 ```
 
-Everything else in this milestone ships with the existing `package.json`.
+---
 
-## Alternatives Considered
+## (a) Robust smoothing/derivation of pace from a noisy, irregularly-sampled cumulative-distance series
 
-### (c) SPA framework: vanilla Custom Elements + hand-rolled hash router — chosen over Preact/Svelte/Vue/React
+**Verdict: hand-roll, and mostly already exists.** `derivePaceSeries` in `src/dashboard/views/detail-charts-logic.ts:97` already does the right thing for a *smoothed display* series: for each sample it takes the real elapsed-time window (`±windowSec/2`, clamped to stream extent), sums real distance and real elapsed time inside that window via `interpValueAtTime`'s binary-search interpolation, and divides — never assuming a fixed sample rate. This is a Δt-weighted moving average over an irregular grid, which is the correct primitive here (a plain windowed average over *sample index* rather than *elapsed time*, which is what naive rolling-average libraries assume, would silently misweight time exactly the way `RESEARCH.md Pitfall 1` warns about).
 
-| Recommended | Alternative | When to Use Alternative |
-|-------------|-------------|--------------------------|
-| Vanilla TS + native Custom Elements + hand-rolled hash router | Preact 10.29.8 + `preact-router` 4.1.2 (~5KB combined gzip) | If the activity list grows multiple *linked* filters with derived/computed state (e.g., filter-by-city updates available-year options which update available-distance-buckets), manual DOM sync becomes error-prone faster than a small VDOM diff would. Preact is deliberately compatible with rendering into a Custom Element's Shadow DOM, so it could be introduced incrementally (one view at a time) without a rewrite. Revisit if plan work reveals >2-3 interdependent filter dimensions. |
-| Vanilla TS + native Custom Elements + hand-rolled hash router | Svelte + `vite-plugin-svelte` | Only if the project ever gains a second contributor or grows well beyond a personal dashboard — Svelte's compile-time approach pays off at team/growth scale, but adds a new toolchain (`.svelte` files, compiler plugin) this single-maintainer, already-lean Vite setup doesn't need today. |
-| Vanilla TS + native Custom Elements + hand-rolled hash router | Vue / React | Not recommended at any point for this project's stated constraints (small bundles, zero frameworks explicitly validated as "Good" in PROJECT.md). Only reconsider if this dashboard is ever spun out into a separate, larger product with its own team. |
+What v2.2 actually adds to this primitive is **gap-awareness**, not a new smoothing algorithm:
+- A recording gap (>10s, per the milestone's own finding of 1,233 affected activities) or a pause gap (≥30s, 321 activities with >5min cumulative) inside a smoothing window should not be silently bridged — the window should stop at the gap boundary rather than averaging across it and manufacturing a pace value that spans a period with no real samples.
+- Concretely: before computing `elapsed`/`metres` in the existing window-sum, walk the segments inside `[windowStart, windowEnd]` and check whether any consecutive-sample `Δt` exceeds the gap threshold; if so, clip the window to the gap boundary (or return `null` for that sample if the gap consumes the whole window). This is an `if` statement added to an existing loop, not a new mathematical technique.
 
-**Why vanilla wins here, concretely:**
-- The codebase already proves the pattern works at real complexity: `geo-table-widget/index.ts` is 698 LOC of hand-rolled sortable/paginated table logic with zero framework, shipped and working.
-- GitHub Pages has no server-side rewrite rules for a static SPA. History-API (`pushState`) routing needs either a `404.html` redirect hack or a Pages-specific workaround to make deep links survive a hard refresh; **hash-based routing** (`#/activities/12345`) sidesteps this entirely with zero server configuration, and a hash router is trivial to hand-roll (listen for `hashchange`, parse the fragment, dispatch to a render function). This is the more consequential decision here — pick hash routing regardless of whether vanilla or Preact is used for rendering.
-- Introducing a framework would be the *one* inconsistent piece in an otherwise deliberately dependency-light codebase, for a UI surface (list + detail + two aggregate views) that isn't complex enough to need it.
+`computePaceDistribution` in `src/dashboard/views/detail-zones.ts:61` is the one that needs to change algorithmically, not just gap-awarely: today it computes raw per-*segment* `dt / (dd/1000)` at native sample spacing (no windowing at all), which is exactly what produces the aliased phantom-fast-mode buckets the milestone's own investigation documents. The fix is to route the histogram through the *same* gap-aware, Δt-weighted derivation `detail-charts-logic.ts` already uses (or a shared extraction of it), rather than maintaining two divergent pace formulas — this is the milestone's stated FR-01.
 
-### (d) Charting: Chart.js (existing) — chosen over uPlot
+No smoothing library (no exponential moving average package, no `ml-*` filtering library) is warranted: the window-sum-of-real-Δt/real-Δd approach already correctly handles irregular sampling, and it is 25 lines that are already written, tested, and battle-tested against this exact archive.
 
-| Recommended | Alternative | When to Use Alternative |
-|-------------|-------------|--------------------------|
-| Chart.js 4.5.1 (already a dependency) with tree-shaken registration (`LineController`, `LineElement`, `PointElement`, `LinearScale`, `Decimation`, `Tooltip`, `Legend`) + built-in `Decimation` plugin (no separate package — bundled in Chart.js core since v3) | `uPlot` 1.6.32 (~45KB, much faster for very large series) | If per-activity streams grow to tens of thousands of points per chart *and* multiple series must render simultaneously without any server-side downsampling. Not the case here: real decoded activities in this archive run ~1,300-2,500 records; Chart.js's own docs cite decimation bringing 5,000-10,000-point render times down to ~100ms, comfortably covering this project's per-activity scale. |
+## (b) Outlier/spike detection on the time-series
 
-**Why Chart.js wins here, concretely:**
-- Chart.js is *already* a paid-for cost in this codebase — `comparison-chart.iife.js` and `streak-widget.iife.js` are both ~180KB minified already. Adding uPlot as a second charting library would mean shipping two charting engines in one SPA bundle for no capability gain, directly working against the "small bundles" value driving the framework decision above.
-- Combine Chart.js's built-in `Decimation` plugin (`algorithm: 'min-max'` to preserve pace/HR spikes, or `'lttb'` for smoother trend lines) with a small server-side downsample step in the Node pipeline that caps published per-activity stream JSON at a fixed point budget (e.g., 500-800 points). The downsample step is about *payload size* (1,867 activities × full-resolution multi-series streams would bloat the statically-hosted, git-tracked JSON significantly), not runtime chart performance — Chart.js alone already handles the runtime case fine at this data scale.
-- Full-resolution streams should stay available transiently within the Node pipeline (not published) so best-effort computation (fastest-1k, etc.) is never computed from decimated data — decimation is a presentation-layer concern only.
+**Verdict: Hampel filter (rolling median + MAD) is the right tool for the *impossible-sample* / stair-step-ratio signals — and it is a ~30-line hand-roll, not a library.** Savitzky-Golay and Kalman filtering are both overkill and, in one case, actively wrong for this data shape.
 
-### (e) Activity list filter/sort — vanilla, extending existing utilities
+**Warranted — rolling median + MAD (Hampel-style), hand-rolled:**
+The Hampel identifier is the standard robust-statistics technique for exactly this problem: flag a sample as an outlier when it deviates from its local **median** by more than `k × MAD` (median absolute deviation), where MAD is scaled by `1.4826` to be comparable to a standard deviation under normality. Using the median rather than the mean, and MAD rather than variance, is what makes the test robust — a single 17 m/s device glitch (the milestone's Suunto example) does not itself corrupt the threshold that would flag it, unlike a mean/stdev-based z-score. At `MAX_SAMPLES = 3000` per activity and a small window (a handful of samples wide, since these are per-activity impossible-*sample* checks, not multi-day series), a naive `O(n · w log w)` implementation (sort each window, take the middle element) runs in microseconds — no need for the `O(n log w)` sliding-window-median data structures (e.g. two-heap or order-statistics tree) that only matter at signal-processing scale (millions of samples, real-time constraints), neither of which applies here.
 
-| Recommended | Alternative | When to Use Alternative |
-|-------------|-------------|--------------------------|
-| Reuse/extend `TableSorter` + `TablePaginator` from `geo-table-widget`; plain `Array.filter` predicates for date-range/distance-range/text | TanStack Table, AG Grid, or similar headless table libraries | Only if the dashboard needs virtualized infinite-scroll over unpaginated data, column resizing/reordering, or multi-column complex query building. At ~1,867 rows with pagination (same UX pattern as the existing geo table), plain array operations complete in single-digit milliseconds — no library clears that bar in usefulness. |
-| Substring match (`.toLowerCase().includes()`) for text search | `fuse.js` 7.5.0 (fuzzy search) | Only if search needs to tolerate typos/partial word order across a large, unstructured corpus. This is a personal archive with a known, small vocabulary of activity titles — exact substring matching is sufficient and predictable. |
+```typescript
+// Sketch — ~30 lines, no imports beyond stream types.
+function rollingMedian(values: number[], i: number, halfWindow: number): number {
+  const lo = Math.max(0, i - halfWindow);
+  const hi = Math.min(values.length, i + halfWindow + 1);
+  const window = values.slice(lo, hi).sort((a, b) => a - b);
+  const mid = Math.floor(window.length / 2);
+  return window.length % 2 === 0 ? (window[mid - 1] + window[mid]) / 2 : window[mid];
+}
+
+const MAD_SCALE = 1.4826; // scales MAD to be comparable to stdev under normality
+
+function hampelFlags(values: number[], halfWindow = 3, k = 3): boolean[] {
+  return values.map((v, i) => {
+    const med = rollingMedian(values, i, halfWindow);
+    const deviations = values
+      .slice(Math.max(0, i - halfWindow), Math.min(values.length, i + halfWindow + 1))
+      .map((x) => Math.abs(x - med));
+    const mad = rollingMedian(deviations, Math.floor(deviations.length / 2), deviations.length) * MAD_SCALE;
+    return mad > 0 && Math.abs(v - med) > k * mad;
+  });
+}
+```
+
+This slots naturally alongside the existing `isPlausible` pattern in `best-effort-utils.ts` (which already does threshold-based implausibility checking against `activityMaxSpeedMps` and `WORLD_RECORD_SPEED_MPS`) — Hampel is a *local*, per-sample-neighborhood check, complementary to those two *global* per-activity/per-world ceilings, not a replacement for either.
+
+**Not warranted — Savitzky-Golay:** S-G fits a local polynomial by least squares across a *fixed-width, evenly-spaced* window and is designed to smooth (and optionally differentiate) signals sampled on a uniform grid. This project's streams are explicitly, repeatedly, and by design **not** uniformly sampled (`detail-charts-logic.ts`'s own file header: "Committed streams are NOT uniformly sampled... pace smoothing and hover-time-to-distance conversion always weight by real Δt... never assume a fixed sample rate"). Using S-G here means either (1) resampling to a uniform grid first — itself a lossy, error-introducing step that undermines the very Δt-weighting discipline the codebase has built around, or (2) using an irregular-grid S-G variant, which is a research-paper technique, not a shelf-stable library, and is disproportionate machinery for detecting a few hundred impossible samples. Skip it.
+
+**Not warranted — Kalman filtering:** Kalman filters solve *state estimation under a process model plus measurement noise* — they're built for real-time sensor fusion (e.g., GPS + accelerometer position tracking) where you need a running best-estimate of a hidden state as data streams in. This milestone has neither a state to estimate (pace isn't a hidden variable with dynamics; it's `Δd/Δt`, directly computable) nor a streaming/real-time constraint (all data is already committed and batch-processed). Standing up a Kalman filter means choosing a process-noise model, a measurement-noise model, and tuning both — genuine complexity with no corresponding benefit over "compute the Δt-weighted window average and flag deviations with Hampel," which needs no tuning beyond a window width and a `k`-sigma multiplier. Explicitly out.
+
+## (c) Percentile/quantile estimation over a personal history for a "personal plausibility ceiling"
+
+**Verdict: hand-roll a linear-interpolation quantile function (~15–20 lines), same method as `numpy`'s default, Excel's `PERCENTILE.INC`, and D3's `quantile` (all "R-7" in Hyndman & Fan's taxonomy).** This directly parallels `WORLD_RECORD_SPEED_MPS` in `best-effort-utils.ts`: instead of (or in addition to) a fixed world-record ceiling per `TargetDistanceKey`, compute e.g. the 99th percentile of that athlete's own historical best-effort speeds for the same distance, and use it as a tighter, personal, demonstrated-ability-based ceiling — exactly the milestone's stated goal ("a ceiling derived from demonstrated personal ability rather than the world record").
+
+```typescript
+// Sketch — ~15 lines. Same "R-7" method as numpy/Excel/D3's quantile().
+function quantile(sortedValues: number[], p: number): number {
+  if (sortedValues.length === 0) return NaN;
+  if (sortedValues.length === 1) return sortedValues[0];
+  const rank = p * (sortedValues.length - 1);
+  const lo = Math.floor(rank);
+  const hi = Math.ceil(rank);
+  if (lo === hi) return sortedValues[lo];
+  const frac = rank - lo;
+  return sortedValues[lo] + frac * (sortedValues[hi] - sortedValues[lo]);
+}
+```
+
+Fed by sorting each `TargetDistanceKey`'s array of historical implied speeds once (a one-time CI-time computation over ≤1,864 activities × 7 distances — trivially fast, no streaming/incremental structure needed), this composes cleanly with the existing `rankTopN`/`markPRs` chronological-sort patterns already in `best-effort-utils.ts`. The interpolation-method choice (R-7 linear vs. the seven other Hyndman–Fan variants) is a one-line decision the project should own and unit-test directly (e.g. "quantile of `[1,2,3,4,5]` at p=0.5 is 3, at p=0.9 is 4.6") rather than delegate to a dependency, exactly as it already owns `MAX_SPEED_MARGIN = 1.02` and the `WORLD_RECORD_SPEED_MPS` table's editorial choices (ratified-vs-pending marathon record, etc.) as commented, reviewable constants.
+
+## (d) Data-quality scoring composition
+
+**Verdict: hand-roll, and there is no meaningful library for this regardless of project constraints.** Composing per-activity signals (gap coverage %, stair-step/decimation ratio, impossible-sample count from (b), elapsed-vs-moving divergence, device era) into a quality badge is domain-specific weighted-scoring business logic, not a generic algorithm with an ecosystem around it — nobody ships an npm package for "how should *this* app's pace-quality badge be computed," because the weighting and thresholds are inherently product decisions (same category as `MAX_SPEED_MARGIN` or the 15/30-second gap thresholds this milestone itself defines).
+
+Follow the codebase's existing convention of returning a **typed, multi-field result** rather than a single opaque number — the same shape as `PlausibilityResult` (`{ok, reason}`), `ZoneTime` (`{zone, timeSec, percent, ...}`), and `PaceBucket` (`{minSecPerKm, maxSecPerKm, label, timeSec}`). A quality result should expose the individual signals (`gapCoveragePercent`, `stairStepRatio`, `impossibleSampleCount`, `elapsedMovingDivergenceSec`, `deviceEra`) alongside any composite badge/tier, so the UI (and future debugging) can show *why* an activity was flagged rather than a single unexplained score — consistent with `isPlausible`'s pattern of returning a human-readable `reason` string, not just `false`.
+
+```typescript
+// Sketch — shape, not implementation. Each field computed by its own small,
+// independently-testable function (gap coverage from the same gap-threshold
+// walk as (a); stair-step ratio by counting repeated Δd values typical of
+// MAX_SAMPLES decimation; impossible-sample count from (b)'s hampelFlags
+// combined with the existing isPlausible ceiling).
+interface StreamQualitySignals {
+  gapCoveragePercent: number;
+  stairStepRatio: number;
+  impossibleSampleCount: number;
+  elapsedMovingDivergenceSec: number;
+  deviceEra: 'modern' | 'legacy' | 'unknown';
+}
+```
+
+No dependency choice applies here at all — this is pure composition of the outputs of (a)–(c).
+
+---
+
+## Integration Points
+
+| File | Change this milestone needs | Why here |
+|------|------------------------------|----------|
+| `src/dashboard/views/detail-charts-logic.ts` | Extend `derivePaceSeries` with gap-boundary clipping (recording-gap/pause-gap thresholds from FR context) inside its existing windowed-sum loop; no new exported shape, `PACE_SMOOTHING_WINDOW_SEC` stays. | Already has the correct Δt-weighted primitive (`interpValueAtTime` + real-window-sum); only needs to stop bridging gaps. |
+| `src/dashboard/views/detail-zones.ts` | Replace `computePaceDistribution`'s raw per-segment `dt/(dd/1000)` with the same gap-aware, windowed derivation as `detail-charts-logic.ts` — likely via a shared extraction into one module both import, so the "two divergent formulas" the milestone opens against cannot recur. | This is the file whose current per-sample math the milestone's own worked example (activity 4556693525) shows manufacturing phantom 2:45/8:15/72:00 buckets. |
+| `src/analytics/best-effort-utils.ts` | Add a personal-ceiling quantile function and a Hampel-based per-sample plausibility check, composed alongside (not replacing) `isPlausible`'s existing `activityMaxSpeedMps`/`WORLD_RECORD_SPEED_MPS` two-tier guard. Keep the "pure, no I/O" module contract stated in the file header — the quantile input (sorted historical speeds) is computed and passed in by the CI caller, not fetched here. | File already owns exactly this class of plausibility logic and its own reviewable constants; a personal ceiling is a third, tighter tier on the same guard, not a new module. |
+| `src/streams/stream.types.ts` | **No change.** Quality signals are derived output, not stream input — they belong in a new computed artifact (e.g. `data/stats/stream-quality.json`), generated at CI time the same way `data/stats/best-efforts.json` already is, and never touch `data/streams/`. | Matches the milestone's explicit non-goal: `data/streams/` stays byte-identical; `STREAM_SCHEMA_VERSION` is locked and any change means re-deriving ~1,850 committed files. |
 
 ## What NOT to Use
 
 | Avoid | Why | Use Instead |
 |-------|-----|--------------|
-| A second FIT decoder (`fit-file-parser`, `fit-decoder`) | `@garmin/fitsdk` is already integrated, official, and verified against real archive files with all needed fields present | Extend the existing `readFit()` in `geometry-readers.ts` |
-| A GPX/XML parsing library | Regex extraction already proven for this exact export schema; no HR/cadence extensions exist in the archive to justify richer XML handling | Extend the existing `readGpx()` regex approach to capture `ele` and per-point `time` |
-| Any SPA framework (Preact/Svelte/Vue/React) for the initial dashboard shell | Contradicts the project's validated small-bundle, zero-framework stance; scope (4-5 views) doesn't need it | Native Custom Elements + hand-rolled hash router |
-| History-API (`pushState`) routing | GitHub Pages has no rewrite rules; hard refresh on a deep link 404s without extra `404.html` redirect tooling | Hash-based routing (`#/activities/:id`) |
-| A second charting library (uPlot, D3, ECharts) alongside Chart.js | Chart.js is already a ~180KB sunk cost in the bundle and covers this project's per-activity data scale (1,300-2,500 points/activity, well within documented decimation-plugin comfort zone) | Chart.js `Decimation` plugin (built-in) + a small server-side stream-downsample step in the Node pipeline |
-| A table/grid library (TanStack Table, AG Grid) | ~1,867 rows with pagination doesn't need virtualization or a headless table engine; existing hand-rolled `TableSorter`/`TablePaginator` already solves this class of problem | Extend `TableSorter`/`TablePaginator` from `geo-table-widget` |
-| A fuzzy-search library (Fuse.js) | Personal, small-vocabulary corpus; predictable substring matching is preferable UX for this use case anyway | `.toLowerCase().includes()` |
-| A date library (date-fns/luxon/dayjs) | Project already has a validated native-`Date`, UTC-everywhere pattern from v1.0 records/trends work | Native `Date` with UTC methods |
-
-## Stack Patterns by Variant
-
-**If reactive filter-state complexity grows beyond simple predicates during implementation:**
-- Introduce `preact` + `@preact/signals` incrementally, scoped to just the activity-list view (rendered inside its own Custom Element's shadow root)
-- Because it's the smallest possible step up in capability, keeps the rest of the app (detail view, records, trends) untouched, and doesn't force a wholesale framework migration
-
-**If the 2 outlier `.gpx.gz` files in `export_data/` need handling:**
-- Reuse the `gunzipSync` import already present in `geometry-readers.ts` (used for `.fit.gz`) as a pre-step before the GPX regex pass, replacing the current `throw new Error('gzipped gpx not implemented')` branch
-- Because it's a one-line addition to already-imported `node:zlib`, not a new dependency
+| `simple-statistics` (npm, current `7.12.0`, ~27KB min / ~10.2KB gzip as a whole package per Bundlephobia) | Ships as one bundled `dist/simple-statistics.mjs` file rather than per-function ESM modules, so pulling in `median`/`medianAbsoluteDeviation`/`quantile` doesn't tree-shake as cleanly as the raw numbers suggest, and it brings ~100 statistical functions this project needs none of. The 3–4 functions actually needed here are each under 20 lines, already match this codebase's typed/documented/unit-tested house style, and the interpolation-method and MAD-scaling choices are exactly the kind of reviewable constant this project already owns directly (`MAX_SPEED_MARGIN`, `WORLD_RECORD_SPEED_MPS`). | Hand-rolled `quantile()` and `hampelFlags()` per the sketches above. |
+| `d3-array` (npm, current `3.2.4`, whole-package ~17KB min / ~5.9KB gzip per Bundlephobia; genuinely per-function ESM and properly tree-shakeable — importing only `quantile`/`quantileSorted` would pull well under 1KB in practice) | Technically the best-behaved candidate of the two (real per-file ESM, so it *would* tree-shake in Vite's IIFE build) — rejected anyway because `quantile`/`quantileSorted` is a 10-line function this project would still need to wrap, test, and document to its own conventions, and adding a runtime dependency for a function shorter than the wrapper around it doesn't pay for itself. Revisit only if this milestone's scope grows to need many more D3-array-style array primitives (e.g. `bisector`, `group`, `rollup`) across several modules — a single quantile call doesn't clear that bar. | Hand-rolled `quantile()` per the sketch above. |
+| Any Kalman-filter package (e.g. `kalman-filter`, `ml-*` state-space libraries) | Solves a different problem (streaming state estimation under a process/measurement noise model) than this milestone has (batch outlier flagging on already-committed arrays). Requires modeling decisions (process noise, measurement noise) with no benefit over Hampel here. | Hampel filter (rolling median + MAD), hand-rolled. |
+| Any Savitzky-Golay package (e.g. `ml-savitzky-golay`) | Assumes a uniform sampling grid; this project's streams are explicitly irregular by design and the whole codebase is built around Δt-weighting to avoid exactly the aliasing S-G would need a resample step to avoid re-introducing. | The existing Δt-weighted windowed-average primitive in `derivePaceSeries`. |
+| `ml-matrix` or any linear-algebra library | Only relevant as a Kalman-filter dependency; not needed once Kalman is out of scope. | N/A |
+| Any sliding-window-median data structure package (two-heap/order-statistics-tree implementations, e.g. for O(n log w) rolling median at scale) | Built for millions-of-samples/real-time constraints. This project's ceiling is 3,000 samples/activity, batch-processed; a naive sort-per-window is microseconds. | Naive `slice().sort()` per window, per the `rollingMedian` sketch above. |
 
 ## Version Compatibility
 
-| Package A | Compatible With | Notes |
-|-----------|------------------|-------|
-| `@garmin/fitsdk@21.212.0` | Node.js 22 (installed runtime) | Verified working against real archive files (2017-2025 vintage devices) in this session; decodes gzipped buffers fine when pre-decompressed via `node:zlib.gunzipSync` (no native gzip support in the SDK itself — the existing code already handles this correctly) |
-| `chart.js@4.5.1` | Vite 7.3.1 tree-shaken build | Already proven — `Decimation` plugin ships in core since Chart.js v3, needs explicit `Chart.register(Decimation)` alongside the other tree-shaken components per the existing `chart-config.ts` pattern |
-| `vite.config.pages.ts` multi-page build | New dashboard entry point | Add a `dashboard.html` (or similarly named) entry to the existing `rollupOptions.input` map alongside `heatmap`, `pinmap`, `routes` — this is the exact mechanism already used for standalone full-page views; `emptyDir: false` must be preserved so widget bundles aren't wiped |
-| Custom Elements | GitHub Pages hash routing | No compatibility concern — both are pure client-side, no server dependency |
-
-## Integration Points (specific to this repo)
-
-1. **`src/exports/geometry-readers.ts`** — extend `readFit()` to read `heartRate`, `cadence`, `distance`, `enhancedSpeed`/`speed`, `altitude`/`enhancedAltitude` off each `recordMesg` (fields confirmed present via live decode); extend `readGpx()` to capture `ele` and per-point `time` in a single regex pass over each `<trkpt>...</trkpt>` block.
-2. **`src/types/garmin-fitsdk.d.ts`** — currently a minimal 24-line ambient declaration with a `[key: string]: unknown` catch-all on `recordMesgs`. Functionally sufficient (fields are already accessible, just typed `unknown`), but worth widening with explicit optional fields (`heartRate?: number`, `cadence?: number`, `distance?: number`, `enhancedSpeed?: number`, `enhancedAltitude?: number`) for type safety in the new stream-extraction code.
-3. **`data/provenance.json`** — already maps canonical activity IDs to their original `export_data/` FIT/GPX file, exactly the linkage the stream-ingestion pipeline needs; no schema change required, just a new consumer.
-4. **`vite.config.pages.ts`** — add the dashboard SPA as a new entry in the existing multi-page `rollupOptions.input`, following the same pattern as `heatmap.html`/`pinmap.html`/`routes.html`.
-5. **`src/widgets/geo-table-widget/table-sorter.ts` and `table-paginator.ts`** — either import directly (if made shareable) or duplicate-and-adapt for the activity list; both are already generic (`<T>`) and dependency-free.
-6. **Chart.js registration** — follow the existing tree-shaken pattern from `src/widget/chart-config.ts` / `src/widgets/comparison-chart/chart-config.ts` (`Chart.register(...)` with only the components actually used) rather than importing `chart.js/auto`.
+Not applicable — no new package versions are being introduced. The existing toolchain (`typescript@^5.9.3`, `vitest@^4.0.18`, Node 22, Vite `^7.3.1` for the IIFE/browser build) already supports everything above with zero configuration changes: these are plain functions over `number[]`, importable identically from a CI-time Node script and from a browser IIFE bundle.
 
 ## Sources
 
-- Live repo inspection: `package.json`, `vite.config.ts`, `vite.config.pages.ts`, `scripts/build-widgets.mjs`, `src/exports/geometry-readers.ts`, `src/types/garmin-fitsdk.d.ts`, `src/widgets/geo-table-widget/*.ts` — HIGH confidence, verified directly.
-- Live decode of real archive files (`export_data/strava/activities/*.fit.gz`, `*.gpx`) using the already-installed `@garmin/fitsdk` — HIGH confidence, empirically verified in this session (field presence, decode performance, GPX extension absence).
-- npm registry (`npm view <pkg> version`), checked live: `@garmin/fitsdk@21.212.0` (installed = latest), `chart.js@4.5.1` (installed = latest), `preact@10.29.8`, `preact-router@4.1.2`, `uplot@1.6.32`, `fuse.js@7.5.0`, `navigo@8.11.1` — HIGH confidence, current as of 2026-08-10.
-- Chart.js official docs (decimation plugin, min-max/LTTB algorithms, built-in since v3, ~100ms render for 5-10k points post-decimation) via WebSearch — MEDIUM confidence, corroborated by the plugin file (`node_modules/chart.js/dist/plugins/plugin.decimation.d.ts`) actually present in the installed package. [Data Decimation | Chart.js](https://www.chartjs.org/docs/latest/configuration/decimation.html), [Performance | Chart.js](https://www.chartjs.org/docs/latest/general/performance.html)
-- `.planning/PROJECT.md` — Key Decisions table confirming "Native Custom Elements API — Zero dependencies... ✓ Good" and "Vite multi-page build for standalone... ✓ Good" as already-validated project values this research extends rather than contradicts.
+- `src/analytics/best-effort-utils.ts`, `src/dashboard/views/detail-charts-logic.ts`, `src/dashboard/views/detail-zones.ts`, `src/streams/stream.types.ts` — read directly; existing patterns for plausibility guards, Δt-weighted derivation, and pure-typed-result modules drove every recommendation above. HIGH confidence (primary source).
+- `.planning/PROJECT.md` — milestone goal, non-goals, and the "zero dependencies" decision history (Native fetch, Native Custom Elements, offline geocoding, Leaflet externalized to keep bundles <50KB) that this research follows. HIGH confidence (primary source).
+- npm registry (`npm view <pkg> version`, checked live) — confirmed current versions: `simple-statistics@7.12.0`, `d3-array@3.2.4`, `ml-matrix@6.15.0`; confirmed no npm package named `hampel` exists (registry lookup returned nothing), i.e. Hampel filtering has no shelf-stable JS library at all, reinforcing the hand-roll verdict. HIGH confidence.
+- Bundlephobia (`bundlephobia.com/api/size`, fetched live) — `d3-array@3.2.4`: 16,992B min / 5,923B gzip (whole package; tree-shaken single-function import is smaller in a real bundler). `simple-statistics@7.12.0`: 27,264B min / 10,174B gzip. MEDIUM confidence (third-party size-analysis service, not an official source, but numbers are directly measured rather than estimated).
+- WebSearch — Hampel filter / rolling-median-MAD algorithm description (SAS blog, Towards Data Science, Medium) cross-checked against each other and against the standard statistics literature description (median + `1.4826 × MAD`, k-sigma threshold); the algorithm itself is textbook and multiply-sourced. MEDIUM confidence on exposition sources, but the underlying technique is standard enough to treat as HIGH confidence on the math.
 
 ---
-*Stack research for: training-analytics dashboard SPA (v2.0 milestone), strava-widgets repo*
-*Researched: 2026-08-10*
+*Stack research for: pace data-quality algorithms, v2.2 Pace Data Quality milestone*
+*Researched: 2026-09-08*

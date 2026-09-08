@@ -1,197 +1,203 @@
-# Architecture Research
+# Architecture Research: Pace Data-Quality Integration
 
-**Domain:** Training-analytics dashboard (static SPA) integrating into an existing TypeScript/Node CLI pipeline + Vite widget build, deployed to GitHub Pages
-**Researched:** 2026-08-10
-**Confidence:** MEDIUM-HIGH (grounded in direct inspection of this repo's code/config; a few numeric estimates and one GH-Pages behavior are marked separately)
+**Domain:** Static analytics-pipeline SPA — nightly precompute + lazy-fetch dashboard, GitHub Pages hosting
+**Researched:** 2026-09-08
+**Confidence:** HIGH (all claims traced to real file paths/functions read in this repo; no external ecosystem uncertainty — this is an internal-integration question, not a "what does the ecosystem look like" question)
 
-## Summary / Recommendation
+This is a subsequent-milestone integration study, not a greenfield design. Every recommendation below cites the real precedent in this codebase it extends, and the HARD CONSTRAINT (committed `data/streams/` stays byte-identical) is treated as load-bearing throughout.
 
-Treat the new components as **two new pipeline stages plus one new build target**, not a parallel system:
-
-1. **Stream derivation** — a new committed data family, `data/streams/<id>.json`, populated once via a local backfill command (from `export_data/` FIT/GPX) and incrementally via the existing intervals.icu sync. It is **committed to git**, like `data/activities/`, not gitignored like `data/stats/` — because its sources (local export, intervals.icu's ~1yr window) are not permanently available to regenerate from.
-2. **Best-efforts + records/trends** — pure derived aggregates computed from `data/activities/` + `data/streams/`, following the existing `data/stats/` convention: **gitignored, recomputed every CI run**, shipped only into the deploy output.
-3. **Dashboard SPA** — a new Vite multi-page entry point built the same way `heatmap.html`/`pinmap.html`/`routes.html` already are (standalone page, not an IIFE widget library), consuming a new lightweight index manifest plus lazily-fetched per-activity stream files.
-
-This mirrors patterns already proven in this codebase (route/heatmap pre-computation, `data/stats/` gitignore-and-regenerate, `copyDataFiles()` deploy staging) rather than introducing new architectural concepts.
-
-## Existing System (what this integrates with)
+## System Overview (as it exists today, annotated with v2.2 insertion points)
 
 ```
-export_data/ (LOCAL ONLY, gitignored)          intervals.icu API (daily CI)
-   strava/*.fit.gz, *.gpx                              │
-        │                                              │
-        ▼                                              ▼
- consolidate-exports (local CLI)            IntervalsSync.syncNewActivities()
-        │  writes data/provenance.json               │  writes data/activities/<id>.json
-        │  imports missing activities                │  (geometry via streams, dedupe by
-        │  into data/activities/                      │   start_date epoch)
-        ▼                                              ▼
-              data/activities/*.json  (COMMITTED — 1,867 files, 7.5MB, the durable archive)
-                              │
-        ┌─────────────────────┼─────────────────────────┐
-        ▼                     ▼                          ▼
- compute-stats/          compute-geo-stats          compute-route-data /
- compute-advanced-stats  → data/geo/*.json           compute-heatmap-data
- → data/stats/*.json     (COMMITTED)                 → data/routes, data/heatmap
- (GITIGNORED, cheap                                   (COMMITTED — derived from
-  to regenerate)                                       activities' polylines only)
-        │                     │                          │
-        └─────────────────────┴─────────────┬────────────┘
-                                              ▼
-                              build-widgets.mjs (Vite, per-widget IIFE
-                              loop + copyDataFiles() + buildPages())
-                                              ▼
-                                     dist/widgets/  (gitignored, built
-                                     fresh every CI run)
-                                              ▼
-                          peaceiris/actions-gh-pages@v4 → gh-pages branch
+┌──────────────────────────── CI: nightly (COMPUTE_ALL_STATS_STEPS) ───────────────────────────┐
+│  compute-stats → compute-advanced-stats → compute-geo-stats → compute-best-efforts            │
+│                                                    │ (reads data/streams/*.json)                │
+│                                            [NEW quality signals — insertion point #2/#3]        │
+│                                                    ▼                                            │
+│                                      compute-age-grading → compute-dashboard-index              │
+│                                                                    │ (reads best-efforts.json)  │
+│                                                            [NEW index fields — insertion #2]     │
+│                                                                    ▼                             │
+│                                      compute-gear-aggregate → compute-training-load             │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘
+                          writes → data/stats/*.json, data/stats/best-efforts/{id}.json (shard),
+                                   data/dashboard/index.json   [+ NEW data/stats/pace-quality/{id}.json]
+                                                    │
+                                                    ▼ (gitignored, regenerated; committed inputs unchanged)
+┌───────────────────────────── Static SPA (src/dashboard/) — GitHub Pages ─────────────────────┐
+│  index-client.ts: fetch-once data/dashboard/index.json (compact manifest, list/filter/badges) │
+│         │                                                                                       │
+│         ▼ on activity open                                                                     │
+│  detail-client.ts: lazy fetch data/activities/{id}.json + data/streams/{id}.json               │
+│  best-efforts-client.ts: lazy fetch data/stats/best-efforts/{id}.json                          │
+│  [NEW] pace-quality-client.ts: lazy fetch data/stats/pace-quality/{id}.json                    │
+│         │                                                                                       │
+│         ▼                                                                                       │
+│  detail-charts-logic.ts (derivePaceSeries, 20s window) ─┐                                       │
+│  detail-zones.ts (computePaceDistribution, raw dt/dd)   ├─→ [UNIFY onto src/analytics/ shared]  │
+│  detail-splits.ts (computeSplits, Δt-weighted, correct) ┘   (already correct — leave alone)     │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘
+                                                    │
+┌───────────────────────── Local-only: npm run curate (scripts/curate-server.mjs) ──────────────┐
+│  Serves built dist/widgets from 127.0.0.1:4173, injects overlay script tag (response-patch      │
+│  only). PUT/DELETE /__curate/exclusions/:id → data/best-effort-exclusions.json (atomic write,   │
+│  mirrored into dist/widgets/data/). POST /__curate/recompute → spawns                           │
+│  dist/index.js compute-best-efforts, compute-dashboard-index.                                   │
+│  [NEW] review-queue routes reuse this exact namespace/guard/mirror machinery — see Q4.          │
+│  Guarded by: curation-guard.mjs (build-time content/name scan) +                                │
+│              verify-dashboard-publish.mjs (HTTP-layer 404 assertion) — both structural,         │
+│              not enumerated-route-based, so new /__curate/* routes are covered for free.        │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘
+
+export_data/ (gitignored, local-only originals) ── read ONLY by src/streams/backfill-streams.ts,
+the sole precedent for a local-only compute step. Not in COMPUTE_ALL_STATS_STEPS, not reachable
+from CI. v2.2's target features are all computable from the COMMITTED stream (t/d/alt) alone, so
+this milestone should NOT need a new local-only step — see Q5.
 ```
 
-Key existing conventions this milestone should follow:
-- **Committed vs regenerated split**: anything cheaply recomputable from already-committed inputs is gitignored (`data/stats/`) and rebuilt every CI run; anything whose *source* isn't reliably available later (activities themselves, route polylines derived from FIT/GPX) is committed directly.
-- **Derive-small, discard-raw**: `data/activities/<id>.json` never stores the full GPS track — only an encoded `summary_polyline` (already lossy/simplified) and `start_latlng`. Full-resolution streams are fetched, used, and thrown away (`IntervalsProvider.fetchGeometry`, `geometry-readers.ts`). The stream-storage design below extends this same instinct.
-- **Lazy per-item JSON, small index JSON**: `data/routes/route-list.json` (full list, all fields needed for a table/overlay) + `data/routes/latest-runs.json` (top-20 slice) is exactly the index/detail split the dashboard needs, just applied to per-activity time-series instead of polylines.
-- **Non-blocking optional steps**: geocoding and intervals fetch both use `continue-on-error: true` in CI so a transient failure degrades to cached data rather than blocking deploy. The new compute steps should follow the same pattern.
+## Q1 — Where the shared pace derivation lives
 
-## New Components
+**Answer: `src/analytics/`, not `src/dashboard/`.**
 
-### 1. Stream ingestion (NEW code, NEW data family)
+The precedent is already established and load-bearing: `src/analytics/best-effort-utils.ts` is pure, DOM-free, I/O-free logic, and it is *already imported directly by three dashboard view modules* today:
 
-**What's new:**
-- Extend `src/exports/geometry-readers.ts` (`readFit`/`readGpx`) to pull heart rate, cadence, altitude, distance, and per-record timestamp — not just `positionLat/positionLong`. FIT `recordMesgs` already carries `heartRate`, `cadence`, `altitude`, `distance`, `timestamp` fields alongside position; GPX needs `<extensions>`/`<gpxtpx:hr>` parsing added to the existing regex-based reader (or a minimal fallback when absent — Strava's own GPX export often omits HR/cadence extensions, unlike FIT).
-- New module, e.g. `src/streams/derive-stream.ts`: turns a raw record sequence (from FIT/GPX **or** from `IntervalsProvider.getAllStreams`) into one **canonical stream shape** used everywhere downstream — this is the seam that makes backfill and incremental ingestion produce identical output regardless of source.
-- New CLI command, e.g. `backfill-streams` (or fold into `consolidate-exports`, which already walks `export_data/` and knows the id↔file mapping via `data/provenance.json`): reads originals, derives streams, writes `data/streams/<id>.json`. Idempotent — skips ids that already have a stream file unless `--force`, matching `consolidate-exports`'s re-runnable design (needed anyway for when the pending Garmin export adapter lands).
-- Extend `IntervalsSync.syncNewActivities()` (or `IntervalsProvider.fetchGeometry`) to derive and persist a stream file for each newly-synced activity, reusing the **same streams response already being fetched** for polyline reconstruction — avoid a second network call per activity.
+- `src/dashboard/views/detail-charts-logic.ts:19` — `import { validateStreamSeries } from '../../analytics/best-effort-utils.js'`
+- `src/dashboard/views/detail-zones.ts:24` — same import
+- `src/dashboard/views/detail-splits.ts:19` — same import
 
-**Storage strategy — decided:**
+Because this project is a static SPA with no server, "shared between CI and browser" is not a network/API-boundary problem here — it is just "two different JS runtimes (Node CLI, browser via Vite bundle) import the same ES module." `src/analytics/` is the established convergence point for exactly that: `compute-best-efforts.ts` (a CI compute step, invoked from `src/compute-all-stats-steps.ts`) and the three dashboard view modules above both call into `best-effort-utils.ts`'s `validateStreamSeries`. There is no precedent anywhere in this repo for `src/dashboard/` code being imported back into `src/analytics/` or into a CI compute step — the dependency arrow only ever runs `analytics/ → dashboard/`, never the reverse. That is the boundary rule to preserve.
 
-| Question | Decision | Why |
+**Concretely:** add a new module, e.g. `src/analytics/pace-derivation.ts`, that owns:
+- Gap classification over a validated `(t, d)` series — the concept neither existing implementation has today. `validateStreamSeries` only checks length/finiteness/monotonicity; it says nothing about *recording gaps* (`dt` > ~10s) or *pause gaps* (near-zero `dd` sustained across `dt` ≥ 30s), which is exactly the distinction PROJECT.md's "Honest coverage" goal requires (1,233 activities have a >10s recording gap; 321 have >5min of pause-gap time).
+- A gap-aware `derivePaceSeries` — presentation series for the chart band, adapted from the existing `detail-charts-logic.ts:97` implementation (which already uses real-Δt-weighted windows and `interpValueAtTime`; it is the *better* of the two today), but modified to stop silently smoothing straight across a classified gap.
+- A gap-aware `computePaceDistribution` — adapted from `detail-zones.ts:61`'s per-segment `dt / (dd / 1000)` walk (which is honest about weighting by real `Δt` per segment already, but has no gap awareness at all — it is what manufactures the phantom fast-mode cluster PROJECT.md's worked example describes), modified to *exclude* gap-spanning segments from a bucket rather than let them alias into it.
+
+Both current call sites (`buildChannelSeries('pace', …)` in `detail-charts-logic.ts`, `computePaceDistribution` in `detail-zones.ts`) become thin wrappers that call into the new shared module, rather than the split logic that exists today. `detail-splits.ts`'s `computeSplits`/`accumulateWeighted` is a *third*, structurally different computation (per-km-boundary Δt-weighted averages, already correct per its own docblock) — it is not one of the "two divergent" implementations PROJECT.md names, and nothing in the target features list calls for changing it; leave it alone unless a later gap-flagging need on splits emerges (flag as an open question, not a requirement).
+
+**Test precedent:** `best-effort-utils.test.ts` sits beside the module it tests; `detail-charts-logic.test.ts` and `detail-zones.test.ts` already unit-test their respective pace math in isolation. A new `pace-derivation.test.ts` in `src/analytics/` should absorb the pace-specific cases those two files currently carry, once the view modules become thin wrappers.
+
+## Q2 — Precompute vs derive-on-read
+
+**Precompute the signals that need to be a `DashboardIndexRow` field (list badges/filtering); precompute-but-shard everything else; do not derive quality signals in the browser at all.**
+
+This project already has a firm, load-bearing lazy-data contract, stated directly in `index-client.ts`'s docblock: *"The manifest is ~300-500KB, so it MUST be fetched at most once per page session no matter how many views... ask for it during bootstrap."* `DashboardIndexRow` (`dashboard-index.types.ts`) is deliberately "browse-complete... anything a ... sort or filter needs is a row field, because a field absent from the index cannot be sorted or filtered without fetching all 1,867 detail files" — and it already carries exactly this shape of signal: `lowConfidence: boolean`, `excludedFromRecords: boolean`, `prCount: number`, `streams: DashboardIndexStreams` (itself `{available, hr, cadence, elevation, distanceSource}` — small booleans/enums, not raw arrays).
+
+That is the template to follow for quality signals:
+
+**Belongs in the index (compact scalars/booleans, drives list-level badges/filtering):**
+- A small quality summary object mirroring `DashboardIndexStreams`'s shape, e.g. `quality: { hasRecordingGap: boolean, hasPauseGap: boolean, gapSec: number, stairStepRatio: number, impossibleSampleCount: number, elapsedVsMovingDivergenceSec: number, deviceEra: string | null }`. Every one of these is a single number/boolean per activity, computed once from the committed stream's `t`/`d`/`alt` arrays plus `activity.elapsed_time`/`activity.moving_time` (both already read into `compute-dashboard-index.ts`'s per-row loop) and the stream manifest's existing `source: StreamSource` field (`'fit'|'gpx'|'intervals'`, already present in `StreamManifestEntryAvailable` but not yet threaded into `DashboardIndexStreams` — a purely additive addition, same shape as the `gearName` addition dashboard-index.types.ts's own docblock documents: *"`DASHBOARD_INDEX_SCHEMA_VERSION` stays at `1` for the `gearName` addition below — it is a purely additive field."* The quality summary should land the same way: additive fields, schema version unchanged, `verify-dashboard-publish.mjs` unaffected).
+- `deviceEra` is derivable cheaply from `source` + `activity.start_date` (a coarse bucket, e.g. "FIT (2018-2021)" vs "intervals.icu (2026-)") — no need to read anything beyond what's already resident in the compute-dashboard-index loop.
+
+**Belongs in a per-activity shard, fetched lazily on open (detailed, larger, only needed once a detail view is open):**
+- The full gap profile (list of individual gap segments with offsets/durations, not just a boolean+total), a stair-step sample-by-sample trace if the badge wants a mini-visualization, and the impossible-sample list (which samples, why). This is exactly the shape `compute-best-efforts.ts` already established for `best-efforts.json`: it writes both an archive-wide document AND, explicitly to avoid "fetch[ing] this whole archive-wide document in a browser (it is multiple MB for the live archive)," a per-activity shard at `data/stats/best-efforts/{id}.json` (see `compute-best-efforts.ts:313-322`), fetched by `best-efforts-client.ts`. The identical pattern applies here: a new `data/stats/pace-quality/{id}.json` shard, written by the same nightly step that produces the index summary, fetched by a new `pace-quality-client.ts` that mirrors `detail-client.ts`'s `loadDetail`/`InvalidActivityIdError`/in-flight-Map-memoization shape exactly.
+
+**Nothing should be derived in the browser for quality signals.** The one thing that legitimately *stays* browser-computed is the full-resolution pace *series* for the chart (`derivePaceSeries`'s per-sample output) — that is inherently too large and too view-specific (window size, x-axis mode, zoom) to precompute variably, and it already is browser-computed today via `buildChannelSeries`. Quality *signals*, by contrast, are fixed scalar summaries with no rendering-time variability, so precomputing them in CI is strictly better: it matches every other precomputed document in this pipeline (`best-efforts.json`, `training-load.json`, `age-grading.json`), it keeps the browser bundle free of the gap-classification logic duplicated a second time, and — critically — it lets it use the SAME shared `src/analytics/pace-derivation.ts` gap-classifier from Q1 in exactly one runtime (Node, at CI time) rather than needing it to also run acceptably fast in-browser over a cold-fetch stream.
+
+## Q3 — Where sharpened PR rejection belongs, and the ceiling/history ordering problem
+
+**It belongs inside `compute-best-efforts.ts`/`best-effort-utils.ts`, as an additional pass appended AFTER the existing archive-wide accumulation and BEFORE `markPRs`/`rankTopN` — never as a per-activity, single-pass check like the existing `isPlausible`.**
+
+Today's pipeline, read directly from `compute-best-efforts.ts`, is single-pass per activity:
+
+```
+for each activity (manifest order):
+  computeActivityEfforts()          // pure, best-effort-utils.ts
+    → findBestEffort()              // two-pointer sweep, per activity, no archive context
+    → isPlausible()                 // activity's own max_speed + FIXED WORLD_RECORD_SPEED_MPS ceiling
+  isExcluded()                      // exclusion list — externally authored, no circularity
+  byDistance.get(key).push(entry)   // accumulate into a Map<distance, entries[]>, ARCHIVE-WIDE
+
+// only after the full loop above completes:
+for each distance:
+  markPRs(byDistance.get(key))      // sorts CHRONOLOGICALLY, stamps wasPRAtTheTime
+  rankTopN(byDistance.get(key))     // sorts FASTEST-FIRST, truncates to top 10
+```
+
+`isPlausible` (`best-effort-utils.ts:140`) is deliberately activity-local — it only ever sees one activity's `max_speed` and a *global*, hand-maintained `WORLD_RECORD_SPEED_MPS` table (`best-effort-utils.ts:34`, "admits a 44.0s 400m" per PROJECT.md). A **personal** plausibility ceiling is fundamentally different: it needs the athlete's *own* demonstrated range across the whole archive for a given distance, which does not exist until the archive-wide `byDistance` accumulation above has already run. That is the ordering problem stated in the question — the ceiling needs the history, but "the history" as currently defined is "whatever `isPlausible`+exclusions already let through," which is precisely the set the ceiling is meant to further filter.
+
+**The resolution is a strict three-pass structure with no fixed-point iteration** (a converging/iterative ceiling — "recompute the ceiling, re-filter, recompute again" — is exactly the thing to avoid: it is non-deterministic in the general case and unnecessary here):
+
+1. **Pass 1 (existing, unchanged):** run `computeActivityEfforts` + `isExcluded` exactly as today, per activity, accumulating into `byDistance: Map<TargetDistanceKey, PRAccumulatorEntry[]>`. This pass has no personal-ceiling dependency — it only uses the activity-local `max_speed` guard and the fixed world-record ceiling, both already independent of any archive-wide computation. No circularity here; this is the "history" the ceiling will be built from.
+
+2. **Pass 2 (new):** for each distance, compute one ceiling value from the *complete* `byDistance.get(key)` array Pass 1 already materialized — e.g. a percentile or "best-so-far plus a fixed margin" statistic over `PRAccumulatorEntry.paceSecPerKm`. This must be a pure aggregate function (order-independent — sort internally by `durationSec` or percentile-rank, never rely on `Map`/array insertion order) living beside `isPlausible`, `markPRs`, `rankTopN` in `best-effort-utils.ts` (e.g. `personalPlausibilityCeiling(entries: PRAccumulatorEntry[]): number`). Because it runs over the array Pass 1 already produced in full, it needs no second read of streams/activities and no iteration over the manifest again — it is O(n log n) over an already-in-memory array per distance (7 distances, ~10-1800 entries each).
+
+3. **Pass 3 (new):** re-filter each distance's `byDistance.get(key)` array against the Pass-2 ceiling, moving any entry that exceeds it into a rejected/flagged bucket — structurally identical to how `isExcluded` already removes entries from `byDistance` before `markPRs` runs, except this filter runs *after* accumulation instead of during it, and it must **flag rather than delete** per the milestone's explicit constraint ("rejected efforts stay visible, flagged and overridable, never deleted" — PROJECT.md, and "PRs move by demotion, never recalculation"). Concretely this likely means: keep the entry in `activities[id].efforts` (so the detail view still shows it), add a new boolean like `flaggedImplausible: boolean` alongside the existing `wasPRAtTheTime`/`excludedFromRecords` fields on `BestEffort` (`best-effort.types.ts:88`), and exclude flagged-but-not-excluded entries from `byDistance` before `markPRs`/`rankTopN` run — mirroring the existing `effortsExcluded` counter/mechanism (`compute-best-efforts.ts:215-219`) but keyed on ceiling-rejection instead of the hand-maintained exclusion list.
+
+**Determinism in CI is preserved** because Pass 2's ceiling is a pure aggregate over Pass 1's fully-materialized, already-deterministic array — it does not depend on manifest iteration order (which is JS's numeric-key reordering of `Object.entries`, already order-insensitive downstream because `markPRs` re-sorts chronologically and `rankTopN` re-sorts by duration) and does not iterate to convergence. Re-running `compute-best-efforts` twice against unchanged inputs produces an identical ceiling and identical flags, same as every other document this pipeline writes.
+
+**Two integration points worth flagging explicitly for roadmap/requirements, not resolved here:**
+- **Override asymmetry.** The existing exclusion mechanism (`best-effort-exclusions.json`, `isExcluded`) only ever *removes* an effort from contention — there is no existing schema for "force this effort back IN despite a rejection." If the milestone's review queue (Q4) needs to let the athlete override a ceiling-rejection (accept it as a real PR anyway), that is a new, differently-shaped write than today's exclusion tickbox — either a new field on the exclusion schema (e.g. `overrideCeiling: true`) or a new sibling file. This should be settled in REQUIREMENTS/ROADMAP, not assumed.
+- **Where the ceiling touches the exclusion list.** Exclusion-list filtering (Pass 1, `isExcluded`) and ceiling filtering (Pass 3) are two independent gates over the same `byDistance` accumulation — an activity can be excluded, ceiling-flagged, both, or neither. `compute-best-efforts.ts`'s totals block (`doc.totals`) already tracks `effortsExcluded` as a distinct counter from `effortsRejected`; a third counter (e.g. `effortsFlaggedImplausible`) should follow the same convention rather than overloading either existing one.
+
+## Q4 — Curation-mode review queue, reusing the local-only write path without weakening the publish guards
+
+**Reuse the `/__curate/*` namespace and its existing machinery wholesale; do not invent a parallel write surface.**
+
+The two publish guards are both *structural*, not enumerated-route-based, which is exactly what makes them safe to extend without weakening:
+
+- `scripts/lib/curation-guard.mjs`'s `findCurationArtifacts` scans the **whole** `dist/widgets` tree for the literal string `__curate` in any non-`.json` file, plus name-matches on a `__curate` directory/file or a `.curate-dist` file/directory. It has no route list to update — any new file the review-queue overlay adds under `scripts/curate-overlay/` (which is already structurally excluded from `tsconfig.json`'s `include`, both Vite configs, and `build-widgets.mjs`'s copy lists, per that module's own D-01 docblock) is covered automatically as long as its *build output* is never copied into `dist/widgets` by anything other than the existing response-body-patch (`injectOverlayTag`).
+- `scripts/verify-dashboard-publish.mjs` asserts the `/__curate/*` HTTP surface 404s against the **live served bundle** — again prefix-based, not per-route, so new routes added inside `serveCurateRoute`'s dispatch in `curate-server.mjs` inherit the assertion for free (the guard is checking that the prefix is entirely absent from what GitHub Pages serves, and GitHub Pages never runs `curate-server.mjs` at all — it only serves the static `dist/widgets` output `build-widgets.mjs` produces).
+
+**Concrete integration, following the exact shape `curate-server.mjs` already uses for exclusions:**
+- The review-queue's *read* side needs no new mechanism at all — the ceiling-flagged efforts are already public data once Q3 ships (they live in `best-efforts.json`/its per-activity shard, already fetched today), so the overlay panel just reads what's already served, exactly as the existing exclusion tickbox already reads `best-efforts.json` per Phase 24's precedent.
+- The review-queue's *write* side (accept/reject a flagged effort) should be new routes under the same `/__curate/` prefix, e.g. `PUT /__curate/pr-overrides/:id` mirroring `PUT /__curate/exclusions/:id` almost line for line: same `isTrustedOrigin` gate, same `MAX_BODY_BYTES`/`readJsonBody` cap, same `isValidCurateActivityId` id validation, same `writeAtomic` (temp-file + `renameSync`) write discipline, same `mirrorExclusions()`-shaped "copy working-tree file into `dist/widgets/data/`" step so the change is visible in the same curate session without a rebuild, and the same D-09 rule that **no code path here may invoke `git`** — the developer reviews and commits by hand, exactly as the docblock at the top of `curate-server.mjs` states for exclusions.
+- Whatever file the override write targets (either an extended `best-effort-exclusions.json` schema or a new `data/pr-overrides.json`) must be added to the nightly workflow's data-commit `file_pattern`/push-paths filter — `data/best-effort-exclusions.json` is already there (`curate-server.mjs`'s docblock: *"sits in the nightly workflow's push-paths filter (added 2026-08-12), so a commit reaching origin triggers a full rebuild and deploy"*); a new committed file needs the same wiring or it will silently never propagate past the developer's own machine.
+- `POST /__curate/recompute` already re-runs `compute-best-efforts` then `compute-dashboard-index` and re-mirrors `RECOMPUTE_DATA_DIRS` — since Q3's ceiling pass lives inside `compute-best-efforts`, an override write followed by the existing Recompute button already produces correct end-to-end behavior with **no change to the recompute route itself**, as long as the override file is read by `compute-best-efforts.ts` the same way `loadExclusions` reads the exclusion file today (tolerant, never-throwing, per `best-effort-exclusions.ts`'s own contract).
+- New coverage to add, following this project's own stated convention ("an assertion which cannot be watched failing is not evidence" — CLAUDE.md's project memory / PROJECT.md's Key Decisions table): extend `curation-guard.test.ts` and the `verify-dashboard-publish` test suites with a case for the new route(s), and mutation-prove them the same way Phase 24's WR-05/WR-17 divergence tests did for `resolveExcluded`.
+
+## Q5 — `export_data/` is local-only and gitignored: implication for feature placement
+
+**None of v2.2's target features need it, and none should be architected to need it.**
+
+The one and only precedent for a local-only compute step in this codebase is `src/streams/backfill-streams.ts`, whose own docblock states it plainly: *"Local backfill over `export_data/` originals, driven by `data/provenance.json`. `export_data/` is gitignored and structurally absent from CI, so this is..."* — it reads `export_data/<source>/<relative-path>` via a `resolveOriginalPath`-style join (`backfill-streams.ts:72`) driven by `data/provenance.json`, and it is confirmed absent from `COMPUTE_ALL_STATS_STEPS` (`src/compute-all-stats-steps.ts`'s eight-step array has no backfill entry) and absent from `curate-server.mjs`'s recompute route (which only runs `compute-best-efforts`/`compute-dashboard-index`). It exists purely as a standalone, hand-run CLI step for onboarding new original recordings into the committed stream store — never part of the automated nightly chain, never reachable from the dashboard.
+
+PROJECT.md is explicit that v2.2 deliberately stays off this path: *"`data/streams/` stays byte-identical. No re-derivation this milestone despite 1 Hz originals being available locally for 94.5% of the archive... Deferred... the direction of that movement — higher resolution makes efforts faster, so re-derivation must follow rejection, never precede it."* Every one of the milestone's named quality signals — stair-step ratio, impossible-sample count, gap profile, elapsed-vs-moving divergence, altitude sanity — is computable purely from the committed `CanonicalStream`'s `t`/`d`/`alt` arrays (available in CI, in `data/streams/*.json`) plus the committed activity JSON's `elapsed_time`/`moving_time` fields. None require the original FIT/GPX bytes or the device's unused `speed` channel PROJECT.md names as a non-goal for this milestone.
+
+**Practical implication for the roadmap:** do not introduce a new local-only compute step this milestone. Keep the entire quality-signal and ceiling pipeline inside `COMPUTE_ALL_STATS_STEPS` (CI-reproducible, deterministic, testable against fixtures the way `compute-best-efforts.test.ts` and `best-effort-fixtures.test.ts` already do). If a *future* milestone revisits stream re-derivation (explicitly flagged in PROJECT.md as "Revisit next milestone once quality signals exist to measure whether it helped"), that work — and only that work — should follow the `backfill-streams.ts` precedent: a standalone script, invoked by hand, reading `export_data/` via `data/provenance.json`, kept out of `COMPUTE_ALL_STATS_STEPS` and out of `curate-server.mjs`'s recompute route, exactly as `backfill-streams.ts` is today. One-off investigative measurement against `export_data/` (of the kind that already produced this milestone's own scoping numbers, e.g. "measured movement of only −1.6s to +5.0s on the tested activity") is legitimate throwaway tooling but must never become a dependency of a CI-required output.
+
+## New vs Modified Components
+
+| Component | New/Modified | Notes |
 |---|---|---|
-| Commit raw streams? | **No.** Never persist full raw FIT/GPX record dumps or full-resolution lat/lng arrays. | Lat/lng is already covered by the existing `summary_polyline` on the activity record and by `data/routes`/`data/heatmap`; duplicating it roughly doubles per-activity payload for zero new capability. |
-| Commit *derived* per-activity series? | **Yes — `data/streams/<id>.json`, committed to git**, not gitignored. | Sources vanish: `export_data/` is local-only (gitignored, never in CI), and intervals.icu retains only ~1 year of Garmin backfill (per memory: "intervals.icu holds only ~1 year of Garmin backfill"). CI cannot regenerate this the way it regenerates `data/stats/`. Same reasoning that already makes `data/activities/` committed instead of gitignored. |
-| Format | Compact object with **parallel arrays**, not array-of-objects: `{ id, sampleCount, t: [...], d: [...], hr: [...], cadence: [...], alt: [...] }` (seconds-since-start, cumulative meters, bpm, spm, meters). Round HR/cadence to integers, altitude to 0.1m, drop nulls-run-length where cheap. | Parallel-array + short keys is standard JSON-size hygiene; avoids the ~2x bloat of `[{t,d,hr,...}, ...]` repeated-key objects at this file count. |
-| Downsample? | **No aggressive fixed-point downsampling.** Keep native sampling density (FIT devices/intervals.icu are already ~1–5s smart-recording, not 1kHz). Only drop lat/lng (see above) and round numeric precision. | Repo-size math below shows this comfortably fits GitHub's limits without lossy downsampling, and best-effort computation (fastest-1k-within-a-run, etc.) is more accurate against native density than an artificially decimated series. Decimating now would need re-deriving from FIT later if best-effort logic turns out to need finer resolution — better to keep the one durable derived artifact reasonably rich since backfill sources disappear once consolidated. |
-| Compression | Plain `.json`, **not pre-gzipped**. | GitHub Pages is fronted by Fastly and applies on-the-fly gzip to compressible responses for clients that send `Accept-Encoding: gzip` (MEDIUM confidence, GitHub Pages docs/community discussion — see Sources). Pre-gzipping (`.json.gz` + client-side `DecompressionStream`) adds real complexity (build step, fetch-and-inflate on every widget/SPA read) for a transfer-size win the CDN already gives for free. Revisit only if actual measured payload sizes are a problem. |
+| `src/analytics/pace-derivation.ts` | **NEW** | Gap classification + shared gap-aware `derivePaceSeries`/`computePaceDistribution`. Lives in `src/analytics/`, matching the existing `best-effort-utils.ts` precedent of pure logic imported by both CI and dashboard views. |
+| `src/dashboard/views/detail-charts-logic.ts` | MODIFIED | `derivePaceSeries`/`buildChannelSeries('pace', …)` become thin wrappers over the new shared module. |
+| `src/dashboard/views/detail-zones.ts` | MODIFIED | `computePaceDistribution` becomes a thin wrapper over the new shared module. |
+| `src/dashboard/views/detail-splits.ts` | UNCHANGED (flag only) | Already correct Δt-weighted per-split logic; not one of the two divergent implementations named in scope. Gap-flagging on splits is an open question, not a requirement. |
+| `src/analytics/compute-dashboard-index.ts` | MODIFIED | New per-row quality-summary fields (scalars/booleans), threading the manifest's existing `source` field through, plus writing the new per-activity shard (or a sibling new compute file does the shard write — see below). |
+| `src/analytics/dashboard-index.types.ts` | MODIFIED | New `quality: {...}` field on `DashboardIndexRow`, additive only — `DASHBOARD_INDEX_SCHEMA_VERSION` stays at `1`, same precedent as the existing `gearName` addition. |
+| `data/stats/pace-quality/{id}.json` | **NEW data artifact** | Per-activity quality shard, gitignored/regenerated, mirrors `data/stats/best-efforts/{id}.json`'s sharding precedent exactly. |
+| `src/dashboard/data/pace-quality-client.ts` | **NEW** | Lazy per-activity fetch client, mirrors `detail-client.ts`/`best-efforts-client.ts` shape (in-flight Map memoization, id validation, never fetched until an activity opens). |
+| `src/analytics/best-effort-utils.ts` | MODIFIED | New `personalPlausibilityCeiling(entries): number` (or similarly named) pure aggregate, beside `isPlausible`/`markPRs`/`rankTopN`. |
+| `src/analytics/best-effort.types.ts` | MODIFIED | New `flaggedImplausible: boolean` (or similar) on `BestEffort`; a new totals counter (e.g. `effortsFlaggedImplausible`) on `BestEffortsDocument.totals`. |
+| `src/analytics/compute-best-efforts.ts` | MODIFIED | Restructured into the three-pass shape (accumulate → derive ceiling → filter-and-flag) between the existing accumulation loop and `markPRs`/`rankTopN`. |
+| `data/best-effort-exclusions.json` schema, OR a new `data/pr-overrides.json` | **NEW or MODIFIED schema** | Unresolved by this research — needs a REQUIREMENTS/ROADMAP decision on override shape (see Q3). Whichever is chosen needs a corresponding loader (extend `best-effort-exclusions.ts`, or a new sibling `pr-overrides.ts` following its exact tolerant-parse contract). |
+| `scripts/curate-server.mjs` | MODIFIED | New `/__curate/pr-overrides/:id` (or equivalent) routes, reusing `isTrustedOrigin`/`writeAtomic`/`readJsonBody`/`isValidCurateActivityId` verbatim. |
+| `scripts/curate-overlay/` | MODIFIED | New review-queue panel/component, esbuild-bundled the same way, loaded only via the existing `injectOverlayTag` response-patch. |
+| `.github/workflows/daily-refresh.yml` | MODIFIED | Add any new committed override file to the push-paths filter, same as `best-effort-exclusions.json` already is. |
+| `scripts/lib/curation-guard.mjs`, `scripts/verify-dashboard-publish.mjs` | UNCHANGED (add tests only) | Structurally generic already; extend their test suites for the new route(s), do not need source changes. |
+| `src/streams/backfill-streams.ts` / `export_data/` | UNCHANGED / not touched | No v2.2 feature should read from here — see Q5. |
 
-**Size estimate (MEDIUM confidence, not directly measured):** stripping lat/lng and using parallel arrays, a ~45min run stores ~500–900 samples × 4 numeric series ≈ 8–20KB uncompressed JSON. Across 1,867 activities: **~15–35MB total**, growing by a few tens of KB/day going forward. Current committed `data/` is 38MB; this roughly doubles it — well inside GitHub's "keep it under 1GB, definitely under 5GB" guidance and nowhere near the 100MB single-file block (each file is one activity, KB-sized). No per-file or repo-size blocker.
+## Suggested Build Order
 
-**One real risk worth flagging (MEDIUM confidence):** `peaceiris/actions-gh-pages@v4` without `force_orphan: true` appends a new commit to the `gh-pages` branch on every deploy rather than resetting it, so that branch's own history (separate from `main`) grows unboundedly over the life of the project regardless of how compact `main` stays. This isn't new to this milestone, but adding a genuinely larger data family increases the stakes of that pre-existing choice — worth a `force_orphan: true` follow-up if `gh-pages` branch size ever becomes a concern (out of scope to change here since it's not caused by this milestone).
-
-### 2. Backfill — local-only, one-time-ish command (NOT CI)
-
-`export_data/` is gitignored and never checked out by GitHub Actions, so **stream backfill for the 1,867 pre-existing activities structurally cannot run in CI** — it must run on the developer's machine, the same constraint `consolidate-exports` already documents and obeys. Concretely:
-
-- Add to the same family as `consolidate-exports` (either a new command or a `--streams` flag on it) so it reuses `data/provenance.json`'s id→original-file mapping instead of re-deriving it.
-- Run locally: `node dist/index.js backfill-streams` (or equivalent), then `git add data/streams && git commit`.
-- Re-runnable/idempotent by design (skip activities with an existing stream file) because: (a) the pending Garmin bulk export (`export_data/garmin/`, adapter not yet written per project memory) will need the same command run again once it lands, and (b) `consolidate-exports` can import *new* activities from an export at any time, which then also need streams derived.
-- Activities with no original recording (`provenance.json`'s `archive_without_original` — 24 currently) simply get no stream file; downstream code (index manifest, detail view) must treat `hasStreams: false` as a normal, expected state, not an error.
-
-### 3. Incremental flow for new activities (intervals.icu, daily CI) — MODIFIED existing code
-
-No new CI infrastructure needed — this extends `IntervalsSync`/`IntervalsProvider`, which already fetches a streams response per new activity for polyline reconstruction:
-
-- `IntervalsProvider.fetchGeometry` (or a sibling method) derives the compact stream artifact from the **same** `getStreams`/`getAllStreams` response it already fetches, rather than issuing a second request.
-- Writes `data/streams/<id>.json` for that one new activity as part of `IntervalsSync.syncNewActivities()`'s per-activity loop — incremental by construction, no full-archive reprocessing.
-- `.github/workflows/daily-refresh.yml`: extend the `git-auto-commit-action` step's `file_pattern` to include `data/streams/*.json` (it already lists `data/activities/*.json data/sync-state.json data/geo/*.json`). This is a one-line addition to an existing workflow step, not a new job.
-- Follow the existing non-blocking pattern: a streams-derivation failure for one activity should warn and continue (activity still gets saved without a stream file, same as it already does without a route on geometry failure), not abort the whole sync.
-
-### 4. Best-effort computation (NEW code, follows `data/stats/` convention)
-
-- New module, e.g. `src/analytics/compute-best-efforts.ts`, alongside the existing `compute-stats.ts`/`compute-advanced-stats.ts`. Pure function: reads `data/activities/*.json` + `data/streams/*.json`, for each activity slides a distance window over the `d`/`t` arrays to find fastest 400m/1k/1mi/5k/10k/HM/marathon splits, and aggregates into a PR list per distance across the archive.
-- Output: `data/stats/best-efforts.json` (or a new `data/dashboard/` dir if you want dashboard-only aggregates namespaced separately from the widget-facing `data/stats/` — either works; reusing `data/stats/` is less new surface area).
-- **Gitignored, regenerated every CI run** — this is the cheap-to-recompute tier, unlike streams. It reads only already-committed JSON, same cost class as `compute-stats`/`compute-advanced-stats` today (1,867 small files, no network, no FIT parsing).
-- Wire into the existing `compute-all-stats` command chain (`src/index.ts`) and the `npm run compute-all-stats` step already present in `daily-refresh.yml`, rather than inventing a separate pipeline stage.
-
-### 5. Records/trends aggregates (NEW code, extends existing pattern directly)
-
-- Weekly/monthly/yearly/all-time records (fastest pace ever in a week, longest streak, etc.) are a natural extension of the *existing* `compute-advanced-stats.ts` (which already produces `weekly-distance.json`, `monthly-stats.json`, `yearly-stats.json`, `year-over-year.json`, `streaks.json`). Add new output files there rather than a new module family, unless the logic diverges significantly.
-- Same gitignore/regenerate treatment as `data/stats/` today.
-- Can be built in parallel with best-efforts (Component 4) — they share no code dependency, both depend only on `data/activities/` (records/trends) or `data/activities/` + `data/streams/` (best-efforts).
-
-### 6. Dashboard data contract (NEW, the pipeline↔SPA seam)
-
-Two new file families, deployed via an extended `copyDataFiles()` in `build-widgets.mjs`:
-
-- **Index/manifest** — `data/dashboard/activities-index.json` (gitignored, regenerated, small): one array entry per activity with everything the activity-browser list/filter/sort view needs and nothing more — id, date, distance, moving time, avg pace, avg HR, avg cadence, elevation gain, city/country (joined from `data/geo/activity-cities.json`), gear (from `data/provenance.json`), and a `hasStreams: boolean` flag. Sorted newest-first, same shape-role as `data/routes/route-list.json`. At ~150–250 bytes/entry this stays under ~500KB even at several years of growth — safe to fetch whole, no pagination needed for the foreseeable future.
-- **Per-activity detail** — the SPA fetches `data/streams/<id>.json` **lazily, on route change**, exactly like `single-run-map` already fetches one route's polyline on demand rather than bundling all routes into the widget. Never loaded in bulk by the list view.
-- **Aggregates** — `data/stats/best-efforts.json`, plus whatever new keys land in the existing `data/stats/*.json` files for records/trends — fetched by the relevant dashboard views directly, same as widgets already do today.
-- Recommend a `schemaVersion` field on the index manifest and on the per-activity stream file, given the project's explicit "flexible foundation... many more functions can plug into over time" goal — cheap insurance against silent breakage as the shape evolves across future milestones.
-
-### 7. Dashboard SPA build integration (NEW entry point, follows existing standalone-page pattern)
-
-- Structurally the dashboard is much closer to `src/pages/heatmap.html` / `pinmap.html` / `routes.html` (a standalone page, ES modules, client routing) than to a Custom-Element widget (IIFE, embeddable, no router). **Do not** add it to the per-widget IIFE loop in `build-widgets.mjs` (the `widgets` array) — that format (global-name IIFE, IE-style single bundle) is for embeddable widgets, not a multi-view app.
-- Add a new entry to the `buildPages()` step (and mirror it in `vite.config.pages.ts`'s `rollupOptions.input`): `dashboard: resolve(__dirname, 'src/pages/dashboard.html')`, output alongside the other standalone pages in `dist/widgets/` (or rename that output dir if the "widgets" name now feels wrong — optional, not required this milestone).
-- **Routing constraint:** GitHub Pages serves static files with no server-side rewrite rule, and this repo's deploy config sets no custom 404 fallback. A dashboard with per-activity deep links (`/dashboard/activity/123`) using the History API would 404 on refresh or direct link. Use **hash-based routing** (`#/activity/123`) to sidestep this entirely, or add a `404.html` that's a copy of `dashboard/index.html` (the standard GH Pages SPA workaround) if path-based routing is preferred later.
-- Extend `copyDataFiles()` in `build-widgets.mjs` with the new `data/streams` and `data/dashboard` directories (same copy-all-json-files pattern already used for `data/stats`, `data/geo`, `data/routes`, `data/heatmap`).
-- `.github/workflows/daily-refresh.yml`: insert the new compute steps (best-efforts, records/trends, index manifest) after the existing `compute-all-stats`/`compute-geo-stats` steps and before `npm run build-widgets` — no new job, no change to the deploy step (it already publishes the whole output directory).
-
-## Build Order
-
-Dependencies flow: **raw source access → derived streams → best-efforts/aggregates → data contract → SPA views**. Recommended sequence:
-
-1. **Extend FIT/GPX readers** (`geometry-readers.ts`) to pull HR/cadence/altitude/distance/timestamp, not just position. Foundational — every later step needs this.
-2. **Canonical stream-derivation module** (`src/streams/derive-stream.ts` or similar) — shared by both backfill and incremental sync, so they can never drift into two different stream shapes.
-3. **Local backfill command** — produces `data/streams/<id>.json` for the ~1,835 export-covered historical activities; run and commit locally. Do this early because everything else (best-efforts especially) is much easier to build and test against real data than against fixtures.
-4. **Incremental intervals.icu stream persistence** — extend `IntervalsSync`, wire into the daily workflow's commit step. Can happen in parallel with step 3 since it touches different code paths, but should land before step 6/7 rely on "streams exist for new activities too."
-5. **Best-effort computation** — depends on step 2's shape and benefits from step 3's real data existing to validate against. Build and test against the backfilled archive.
-6. **Records/trends aggregates** — depends only on `data/activities/`; can be built in parallel with step 5.
-7. **Dashboard data contract** (index manifest generator) — depends on steps 3–6 having real output to join against (geo, provenance, best-efforts, streams-availability all feed into it).
-8. **Dashboard SPA** — depends on step 7's contract being stable. Within the SPA itself, sequence views by their own data dependency: **list view (needs only the index manifest) → detail view with charts (needs per-activity streams) → best-efforts view (needs the best-efforts aggregate) → records/trends view (needs the records aggregate).** Vite/build/workflow wiring (component 7 above) can be scaffolded early in parallel (an empty page that proves the build pipeline works) but final `copyDataFiles()`/`file_pattern` wiring should follow the contract, not precede it, to avoid churn.
-
-## Anti-Patterns to Avoid
-
-### Anti-Pattern 1: Recomputing streams/best-efforts from FIT in CI
-**What people do:** Treat backfill like `compute-stats` — "just regenerate it in the daily workflow."
-**Why it's wrong:** `export_data/` is gitignored and never present on the GitHub Actions runner. This would silently produce nothing (or error) in CI, unlike every other `compute-*` step which works because its inputs are already committed.
-**Instead:** Backfill is a one-time (re-runnable) **local** command whose output (`data/streams/`) is committed. CI only ever adds streams for *new* activities via the intervals.icu API path, which it does have access to.
-
-### Anti-Pattern 2: Duplicating full-resolution lat/lng in the new stream files
-**What people do:** Store every stream field the API/FIT file offers, including position, "to be safe."
-**Why it's wrong:** Route geometry is already committed (as a simplified polyline) in `data/activities/<id>.json` and pre-decoded further in `data/routes`/`data/heatmap`. Re-storing full-precision GPS in a second file roughly doubles per-activity payload for a capability (higher-precision map rendering) this milestone doesn't need.
-**Instead:** New stream files carry only the channels not already covered: time, cumulative distance, pace/speed, HR, cadence, elevation.
-
-### Anti-Pattern 3: Bulk-loading all per-activity streams for the list/browser view
-**What people do:** Fetch every `data/streams/*.json` up front so filtering/sorting "just works" client-side against full data.
-**Why it's wrong:** At ~15–35MB total and growing, that's a multi-megabyte load for a page that only needs to show a table.
-**Instead:** The list view reads only the small index manifest (`activities-index.json`); per-activity streams are fetched lazily on navigating into a detail view — same lazy-load discipline `single-run-map` already applies to routes.
-
-### Anti-Pattern 4: Path-based SPA routing with no 404 fallback
-**What people do:** Use the History API (`/dashboard/activity/123`) because it looks nicer than hash routes.
-**Why it's wrong:** GitHub Pages has no server-side rewrite; a direct link or refresh on a sub-path 404s. The current deploy config sets no 404-to-index fallback.
-**Instead:** Hash-based routing (`#/activity/123`), or add a `404.html` = copy of the dashboard's `index.html` if path routing is wanted later.
-
-### Anti-Pattern 5: Building the dashboard through the widget IIFE loop
-**What people do:** Add `dashboard` as another entry in `build-widgets.mjs`'s `widgets` array since "that's how we build things here."
-**Why it's wrong:** That pipeline targets single-global-name IIFE bundles for embeddable Custom Elements — wrong format for a multi-view, routed application.
-**Instead:** Treat it like the existing standalone pages (`buildPages()` / `vite.config.pages.ts`), which already build ES-module, multi-file, non-IIFE output for `heatmap.html`/`pinmap.html`/`routes.html`.
-
-## Integration Points
-
-### Internal Boundaries
-
-| Boundary | Communication | Notes |
-|----------|---------------|-------|
-| Backfill CLI ↔ `export_data/` | Local filesystem read, `data/provenance.json` as index | Local-only; never runs in CI. Re-run when Garmin export lands. |
-| Backfill CLI / IntervalsSync ↔ `data/streams/` | Committed JSON files, one per activity id | Shared derivation module (`derive-stream.ts`) keeps both producers' output identical in shape. |
-| `compute-best-efforts` / records ↔ `data/activities/` + `data/streams/` | Read committed JSON, pure computation | Gitignored output, regenerated every CI run — same tier as `compute-stats` today. |
-| Dashboard SPA ↔ pipeline outputs | Static JSON over HTTP (GitHub Pages), fetched at runtime | Index manifest fetched once per session; per-activity streams and aggregates fetched on demand. No build-time coupling between SPA code and pipeline code beyond the JSON shape (schemaVersion recommended). |
-| `daily-refresh.yml` ↔ new compute steps | Sequential job steps, `continue-on-error` for optional stages | Insert after existing `compute-all-stats`/`compute-geo-stats`, before `build-widgets`; extend `git-auto-commit-action`'s `file_pattern` for `data/streams/*.json` only (not gitignored aggregates). |
-
-### External Services
-
-| Service | Integration Pattern | Notes |
-|---------|---------------------|-------|
-| GitHub Pages (Fastly CDN) | Static hosting, automatic gzip on the fly | MEDIUM confidence — no server config needed; pre-gzipping the new JSON is unnecessary complexity given this. |
-| intervals.icu API | Already-integrated `IntervalsClient`/`IntervalsProvider`, extend to persist streams from the response already fetched for geometry | No new client code needed, just broaden what's extracted from the existing `getAllStreams`/`getStreams` call. |
+1. **Shared pace derivation (`src/analytics/pace-derivation.ts`)** — no dependencies on anything else in this list; unblocks honest chart/histogram rendering immediately (the milestone's "Honest coverage" goal) and gives Q2/Q3's later work a single gap-classification primitive to reuse rather than re-deriving gap semantics twice more.
+2. **Per-activity quality signals (index fields + `pace-quality/{id}.json` shard + `pace-quality-client.ts`)** — depends on (1)'s gap classifier for the gap-profile signal; otherwise independent of the PR-ceiling work. Ships the visible badges/filtering goal and gives the review queue (step 4) something to explain *why* an activity is flagged.
+3. **Sharpened PR rejection (ceiling pass in `compute-best-efforts.ts`/`best-effort-utils.ts`)** — functionally independent of (1)/(2), but should follow them so the eventual review-queue UI can show quality context alongside a ceiling rejection. This is the step with the ordering/circularity risk (Q3) and needs its own fixture-based test coverage before anything downstream depends on its output shape.
+4. **Curation review queue (`curate-server.mjs` + `curate-overlay/` + override schema decision)** — strictly depends on (3) existing (nothing to review without ceiling-rejected efforts) and benefits from (2) (contextual quality signals in the queue UI). Requires the REQUIREMENTS/ROADMAP decision on override schema (Q3's flagged open question) before implementation starts, and requires the workflow push-paths update alongside it.
+5. **(Out of critical path, likely deferred to a future milestone)** any `export_data/`-driven work — do not schedule inside v2.2 per Q5; only revisit if quality signals from (2)/(3) demonstrate a need, per PROJECT.md's own "Revisit next milestone" framing.
 
 ## Sources
 
-- Direct inspection: `.planning/PROJECT.md`, `src/exports/geometry-readers.ts`, `src/exports/consolidate.ts`, `src/api/intervals-client.ts`, `src/api/intervals-provider.ts`, `src/sync/intervals-sync.ts`, `src/index.ts`, `scripts/build-widgets.mjs`, `scripts/compute-route-data.mjs`, `vite.config.ts`, `vite.config.pages.ts`, `.github/workflows/daily-refresh.yml`, `.gitignore`, `data/provenance.json`, repo file-size measurements (`du`, `git count-objects`). HIGH confidence — this is the actual current system, not inferred.
-- Project memory: `intervals-icu-migration.md` (data2 stream quirk, ~1yr intervals.icu retention window, provenance/backfill status, pending Garmin adapter). HIGH confidence — established through prior direct verification per the memory file itself.
-- [GitHub Docs — Repository limits](https://docs.github.com/en/repositories/creating-and-managing-repositories/repository-limits) — file size (100MB block, 50MB warning) and repo size guidance (<1GB ideal, <5GB strongly recommended). HIGH confidence, official docs.
-- [GitHub community discussion #146740 — size limits](https://github.com/orgs/community/discussions/146740) — corroborates the above. MEDIUM confidence, community source, consistent with official docs.
-- GitHub Pages / Fastly on-the-fly gzip compression for compressible static content — MEDIUM confidence, based on community discussion and Fastly's documented automatic-compression feature; not verified against this repo's actual response headers.
+All findings sourced directly from this repository (HIGH confidence, no external ecosystem claims):
+- `.planning/PROJECT.md` — milestone goal, non-goals, and the exact investigation numbers cited throughout
+- `src/compute-all-stats-steps.ts` — CI compute-step chain and ordering contract
+- `src/streams/stream.types.ts`, `src/streams/derive-stream.ts` — committed stream schema and the `MAX_SAMPLES=3000`/decimation mechanism PROJECT.md's investigation implicates
+- `src/analytics/compute-best-efforts.ts`, `src/analytics/best-effort-utils.ts`, `src/analytics/best-effort.types.ts`, `src/analytics/best-effort-exclusions.ts` — existing PR pipeline, exclusion mechanism, and per-activity sharding precedent
+- `src/analytics/compute-dashboard-index.ts`, `src/analytics/dashboard-index.types.ts` — index-manifest contract and its additive-field precedent (`gearName`)
+- `src/dashboard/views/detail-charts-logic.ts`, `detail-zones.ts`, `detail-splits.ts` — the two divergent pace implementations plus the one correct adjacent implementation
+- `src/dashboard/data/index-client.ts`, `detail-client.ts` — lazy-fetch/fetch-once client patterns to mirror for the new quality-shard client
+- `scripts/curate-server.mjs`, `scripts/exclusion-cli.mjs`, `scripts/lib/curation-guard.mjs` — local-only write path, exclusion-list mutation contract, and the two structural publish guards
+- `src/streams/backfill-streams.ts` — sole precedent for a local-only, `export_data/`-reading compute step
 
 ---
-*Architecture research for: training-analytics dashboard integration, strava-widgets v2.0*
-*Researched: 2026-08-10*
+*Architecture research for: pace data-quality integration into an existing static analytics pipeline (v2.2 Pace Data Quality)*
+*Researched: 2026-09-08*
