@@ -17,9 +17,24 @@
 
 - [ ] **PACE-01**: All stream-derived pace in the dashboard comes from one shared module in `src/analytics/`, imported by both `detail-charts-logic.ts` and `detail-zones.ts` — no call site computes `dt / (dd / 1000)` independently.
 - [ ] **PACE-02**: A pace-averaging window never bridges a recording or pause gap; it clips at the gap boundary instead, so no pace value is manufactured across a period with no samples.
-- [ ] **PACE-03**: The smoothing window length is justified from this archive's own evidence and the justification is recorded, because no industry standard exists to adopt (FEATURES.md: only Strava and Garmin publish anything, both vague; Garmin Connect's web chart has no smoothing at all).
+- [ ] **PACE-03**: The smoothing window is justified from this archive's own evidence and the justification is recorded, because no industry standard exists to adopt (FEATURES.md: only Strava and Garmin publish anything, both vague; Garmin Connect's web chart has no smoothing at all). **A single fixed window is already disproven by measurement and must not be assumed:** each activity's distance-advance interval — the gap between successive increases in `d`, which is what the window must average over — varies by a factor of ~30 across the archive:
+
+  | activity | median | p90 | p99 | max | advances |
+  |---|---|---|---|---|---|
+  | 4556693525 | 2s | 4s | 6s | 18s | 1,198 |
+  | 3647739864 | 16s | 92s | 185s | 212s | 146 |
+  | 4598855187 | 24s | 99s | 168s | 195s | 182 |
+  | 5059204779 | 60s | 60s | 120s | 120s | 58 |
+
+  A 20s window averages the first activity's stair-step out cleanly and fails badly on the last, where the device emitted distance once per minute — a 20s window there either sees zero distance or a full minute's worth compressed into 20s, reading ~3× too fast. The window must therefore adapt to each activity's own observed emission interval, or the derivation must integrate across emission boundaries rather than a fixed time span. Which of those it is, is a Phase 26 design decision; that a bare constant is insufficient is settled.
+
 - [ ] **PACE-04**: The pace-distribution histogram routes through the shared derivation, eliminating the phantom fast mode across the archive — not on one activity. The mechanism is decimation aliasing, whose measured cohort is **995 of 1,864 activities (53%)** degraded, of which **154 are severe** (>15% zero-distance samples). Verified on a device-era-stratified sample, with activity 4556693525 as one pinned exemplar (its raw 2:30–3:30 cluster, 8:15–8:30 and 11:00 buckets resolving to one distribution centred 5:00–6:15), never as the sole evidence.
 - [ ] **PACE-05**: Per-km splits mark any split whose window contains a recording or pause gap, so a slow split reads as "paused mid-km" rather than as a bad kilometre. Splits' own arithmetic is already correct and is not changed.
+- [ ] **PACE-06**: The residue that adaptive windowing does *not* fix is quantified and handed to flagging, never smoothed into plausibility. Measured with a window scaled to each activity's own advance interval, **13 of the 154** severe stair-step activities retain ≥0.5% of covered time below 3:00/km, all marginal (0.5–2.4%) — these are genuine device over-measurement, the category that must be flagged rather than corrected. The residual set is enumerated by ID and percentage as a deliverable.
+
+  *Correction, recorded so the reasoning is not repeated:* an earlier draft claimed three of these were catastrophically broken (94.8%, 59.8%, 42.6% fast mass) and beyond derived-layer repair. That was an artifact of the measurement, not the data — a fixed 20s window applied to watches emitting distance every 60–99s. Under a window scaled to the observed interval those three read 1.22%, 0.00% and 0.00%, with coverage rising from 30/40/45% to 97/100/100%. Their streams were always sound: 5059204779 derives 5:51/km with splits of 7:05, 5:00, 6:00, 6:00, 6:00, 7:00, 5:00, 6:00, 6:00, 6:00. This is direct evidence for PACE-03's adaptive requirement, and a caution that a derivation artifact can masquerade as a data defect.
+
+- [ ] **PACE-07**: Where an activity's metadata-derived pace and its stream-derived pace disagree materially, the disagreement is detected and surfaced rather than displayed as fact. **This is a live, visible defect:** activity 5059204779 carries `moving_time: 1216` against `distance: 10804`, so `data/dashboard/index.json` holds `paceSecPerKm: 112.6` and the dashboard currently shows **1:53/km** for a run whose own stream derives **5:51/km**. Archive-wide this is a singleton (1 of 1,890 activities implies a sustained pace faster than 3:20/km from its metadata), which is precisely why a cheap cross-check is worth having: nothing else in the system would ever have caught it.
 
 ### Honest coverage (COV)
 
@@ -107,28 +122,30 @@ Filled during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PACE-01 | — | Pending |
-| PACE-02 | — | Pending |
-| PACE-03 | — | Pending |
-| PACE-04 | — | Pending |
-| PACE-05 | — | Pending |
-| COV-01 | — | Pending |
-| COV-02 | — | Pending |
-| QUAL-01 | — | Pending |
-| QUAL-02 | — | Pending |
-| QUAL-03 | — | Pending |
-| QUAL-04 | — | Pending |
-| QUAL-05 | — | Pending |
-| PR-01 | — | Pending |
-| PR-02 | — | Pending |
-| PR-03 | — | Pending |
-| PR-04 | — | Pending |
-| PR-05 | — | Pending |
-| CUR-01 | — | Pending |
-| CUR-02 | — | Pending |
-| CUR-03 | — | Pending |
-| ELEV-01 | — | Pending |
-| ELEV-02 | — | Pending |
-| ERA-01 | — | Pending |
-| ERA-02 | — | Pending |
-| ERA-03 | — | Pending |
+| PACE-01 | Phase 26 | Pending |
+| PACE-02 | Phase 26 | Pending |
+| PACE-03 | Phase 26 | Pending |
+| PACE-04 | Phase 26 | Pending |
+| PACE-05 | Phase 26 | Pending |
+| PACE-06 | Phase 26 | Pending |
+| PACE-07 | Phase 26 | Pending |
+| COV-01 | Phase 26 | Pending |
+| COV-02 | Phase 26 | Pending |
+| QUAL-01 | Phase 27 | Pending |
+| QUAL-02 | Phase 27 | Pending |
+| QUAL-03 | Phase 27 | Pending |
+| QUAL-04 | Phase 27 | Pending |
+| QUAL-05 | Phase 27 | Pending |
+| PR-01 | Phase 28 | Pending |
+| PR-02 | Phase 28 | Pending |
+| PR-03 | Phase 28 | Pending |
+| PR-04 | Phase 28 | Pending |
+| PR-05 | Phase 28 | Pending |
+| CUR-01 | Phase 29 | Pending |
+| CUR-02 | Phase 29 | Pending |
+| CUR-03 | Phase 29 | Pending |
+| ELEV-01 | Phase 30 | Pending |
+| ELEV-02 | Phase 30 | Pending |
+| ERA-01 | Phase 27 | Pending |
+| ERA-02 | Phase 27 | Pending |
+| ERA-03 | Phase 26 | Pending |
