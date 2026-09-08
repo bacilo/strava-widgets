@@ -112,3 +112,14 @@ None — no external service configuration required.
 ---
 *Phase: 26-shared-gap-aware-pace-derivation-honest-coverage*
 *Completed: 2026-09-08*
+
+## Self-Check: PASSED
+
+- FOUND: src/dashboard/views/detail-sections.ts
+- FOUND: src/dashboard/views/detail.ts
+- FOUND: src/dashboard/views/detail-sections.test.ts
+- FOUND: .planning/phases/26-shared-gap-aware-pace-derivation-honest-coverage/26-VALIDATION.md
+- FOUND: .planning/phases/26-shared-gap-aware-pace-derivation-honest-coverage/26-06-SUMMARY.md
+- FOUND commit: 97e01155 (Task 1)
+- FOUND commit: ec01c2ca (Task 2)
+- FOUND commit: 518910ec (SUMMARY)
