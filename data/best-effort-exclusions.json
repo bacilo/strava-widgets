@@ -11,6 +11,26 @@
       "activityId": "3475725513",
       "distances": null,
       "reason": "Recorded with the same inaccurate GPS device class; its 1k time is not trusted as a genuine personal record."
+    },
+    {
+      "activityId": "4556693525",
+      "distances": null,
+      "reason": "bad measurement"
+    },
+    {
+      "activityId": "3475727228",
+      "distances": null,
+      "reason": "bad measurement"
+    },
+    {
+      "activityId": "3475715178",
+      "distances": null,
+      "reason": "bad measurement"
+    },
+    {
+      "activityId": "3475732221",
+      "distances": null,
+      "reason": "bad measurement"
     }
   ]
 }
