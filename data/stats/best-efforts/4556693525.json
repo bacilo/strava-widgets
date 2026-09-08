@@ -10,8 +10,8 @@
       "startOffsetSec": 249,
       "endOffsetSec": 294.2,
       "lowConfidence": false,
-      "wasPRAtTheTime": true,
-      "excludedFromRecords": false
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": true
     },
     {
       "distance": "1k",
@@ -21,7 +21,7 @@
       "endOffsetSec": 328.4,
       "lowConfidence": false,
       "wasPRAtTheTime": false,
-      "excludedFromRecords": false
+      "excludedFromRecords": true
     },
     {
       "distance": "1mi",
@@ -31,7 +31,7 @@
       "endOffsetSec": 508.8,
       "lowConfidence": false,
       "wasPRAtTheTime": false,
-      "excludedFromRecords": false
+      "excludedFromRecords": true
     },
     {
       "distance": "5k",
@@ -41,7 +41,7 @@
       "endOffsetSec": 1683.6,
       "lowConfidence": false,
       "wasPRAtTheTime": false,
-      "excludedFromRecords": false
+      "excludedFromRecords": true
     },
     {
       "distance": "10k",
@@ -51,8 +51,8 @@
       "endOffsetSec": 3315,
       "lowConfidence": false,
       "wasPRAtTheTime": false,
-      "excludedFromRecords": false
+      "excludedFromRecords": true
     }
   ],
-  "excludedFromRecords": false
+  "excludedFromRecords": true
 }
