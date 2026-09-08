@@ -66,44 +66,37 @@ function formatPaceBound(secPerKm: number): string {
  * shared `PaceDerivationResult` (PACE-01, PACE-04) rather than re-deriving
  * pace from raw per-segment `dt/dd` — that recomputation was the shipped
  * bug that let the histogram disagree with the chart. Delegates to
- * `paceHistogramSamples(t, derived.paceSeries)` for the Δt-weighted samples
- * and buckets each sample at `floor(paceSecPerKm / bucketWidthSec)`, summing
- * real `Δt` per bucket so bucket totals sum to `derived.coverage.coveredSec`,
- * never to a sample count. Total function: never throws.
+ * `paceHistogramSamples(t, derived.paceSeries, derived.coverage.gapIntervals)`
+ * for the Δt-weighted samples and buckets each sample at
+ * `floor(paceSecPerKm / bucketWidthSec)`, summing real `Δt` per bucket so
+ * bucket totals sum to `derived.coverage.coveredSec`, never to a sample
+ * count. Total function: never throws.
  *
- * Gap-segment masking (found while pinning the exact bucket-sum-equals-
- * coveredSec identity, T-26-07): `derivePaceSeriesGapAware`'s window
- * clipping deliberately leaves the LAST sample before a gap non-null — a
- * shrunk-but-valid trailing window, so the CHART shows a continuous line
- * right up to the gap edge rather than a dropout. But that sample's own
- * FORWARD segment `[t[i], t[i+1]]` *is* the gap itself (`classifyGaps`
- * classifies it `recording-gap` or `pause`, not `covered`). Passing
- * `derived.paceSeries` to `paceHistogramSamples` unmodified therefore
- * attributes the gap's own `Δt` to a covered-looking bucket — a silent
- * re-inclusion of excluded time that breaks the `coveredSec` identity.
- * This function masks any index whose forward segment starts inside a
- * `derived.coverage.gapIntervals` entry to `null` before delegating to
- * `paceHistogramSamples`, so only genuinely `covered` segments are counted
- * — `paceHistogramSamples`'s own Δt-weighting logic is untouched and still
- * the single shared primitive.
+ * Gap-awareness lives ONLY in `paceHistogramSamples` itself (cross-plan
+ * integration repair, 2026-09-08): this module previously carried a LOCAL
+ * mask here — found while pinning the exact bucket-sum-equals-coveredSec
+ * identity (T-26-07), because `derivePaceSeriesGapAware`'s window clipping
+ * deliberately leaves the LAST sample before a gap non-null (a
+ * shrunk-but-valid trailing window, so the chart line stays continuous to
+ * the gap edge) even though that sample's own FORWARD segment `[t[i],
+ * t[i+1]]` *is* the gap. At the time, `pace-derivation.ts` was owned by a
+ * concurrently-executing sibling plan, so the fix was applied locally
+ * instead of at the shared primitive — duplicating the rule in two places,
+ * exactly what PACE-01 ("one derivation, provably") exists to prevent.
+ * `paceHistogramSamples` now takes `gapIntervals` as a required argument and
+ * performs this exclusion itself, so this module passes
+ * `derived.coverage.gapIntervals` straight through with no local masking
+ * step. The `derived.coverage.coveredSec` sum identity this module's own
+ * tests pin is unchanged by that move — see `pace-derivation.ts`'s doc
+ * comment on `paceHistogramSamples` for the invariant's authoritative
+ * statement.
  */
 export function computePaceDistribution(
   derived: PaceDerivationResult,
   t: readonly number[],
   bucketWidthSec: number = PACE_BUCKET_WIDTH_SEC
 ): PaceBucket[] {
-  const { gapIntervals } = derived.coverage;
-  const maskedPaceSeries =
-    gapIntervals.length === 0
-      ? derived.paceSeries
-      : derived.paceSeries.map((pace, i) => {
-          if (pace === null) return null;
-          const segStart = t[i];
-          const inGap = gapIntervals.some((g) => segStart >= g.startSec && segStart < g.endSec);
-          return inGap ? null : pace;
-        });
-
-  const samples = paceHistogramSamples(t, maskedPaceSeries);
+  const samples = paceHistogramSamples(t, derived.paceSeries, derived.coverage.gapIntervals);
 
   const bucketTimeSec = new Map<number, number>();
 

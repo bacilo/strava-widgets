@@ -122,12 +122,18 @@ export function baselineFastMass(t, d) {
  * Criterion 1's "restricting the histogram to covered time" requirement.
  * Derives the pace series via `derivePaceWithCoverage` (which resolves the
  * adaptive window internally), builds the Δt-weighted histogram samples via
- * `paceHistogramSamples` (already excludes gap/pause/null indices), and
- * returns both the fast-mass fraction and the resolved window width together.
+ * `paceHistogramSamples(t, paceSeries, gapIntervals)` — `gapIntervals` is a
+ * required argument (cross-plan integration repair, 2026-09-08) because a
+ * null-index skip alone is NOT sufficient to exclude gap time: the sample
+ * immediately before a gap is deliberately left non-null by
+ * `derivePaceSeriesGapAware`, so its own forward segment (which IS the gap)
+ * must be excluded by checking `gapIntervals` directly, which
+ * `paceHistogramSamples` now does internally — and returns both the
+ * fast-mass fraction and the resolved window width together.
  */
 export function adaptiveFastMass(stream) {
   const result = derivePaceWithCoverage(stream);
-  const samples = paceHistogramSamples(stream.t, result.paceSeries);
+  const samples = paceHistogramSamples(stream.t, result.paceSeries, result.coverage.gapIntervals);
 
   let fastWeightedSec = 0;
   let totalWeightedSec = 0;
