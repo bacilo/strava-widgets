@@ -397,7 +397,8 @@ export const PINNED_FIXTURES: readonly PinnedFixture[] = [
     deviceFamily: 'unknown-device',
     streamSource: 'fit',
     why: "the archive's longest real densely-sampled pause, 10.4 min; also Criterion 1's tie-at-zero case",
-    expected: { longestPauseSec: 624 },
+    // 625s = 10.42 min, which the plan's table rounds to "10.4 min".
+    expected: { longestPauseSec: 625 },
   },
   {
     name: 'worked-example',
