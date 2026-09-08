@@ -22,11 +22,118 @@ import type { PaceBucket, ZoneTime } from './detail-zones.js';
 // precedent detail.ts already set for formatPace.
 import { formatPace, formatDurationHms, formatEffortDuration, appendBadge, appendLowConfidenceBadge } from './list.js';
 import type { BestEffortPanelRow } from './detail-best-efforts-logic.js';
+import type { PaceCoverage, GapInterval } from '../../analytics/pace-derivation.js';
 
 // Same em dash as `DASH` in detail.ts. Defined locally rather than imported:
 // detail.ts imports THIS module, so importing back would create a cycle.
 // Both copies must stay identical — see detail.ts's own `DASH` constant.
 const DASH = '—';
+
+/**
+ * Coverage caption text for the `Pace Distribution` heading (D-08, COV-02).
+ * Reads directly from the same `PaceCoverage` the histogram beside it is
+ * built from — never recomputed independently — so the two cannot drift
+ * apart (D-16's structural guarantee made visible on screen).
+ *
+ * Returns `null` when `spanSec` is not positive (no stream, or a
+ * zero-length span); the caller then appends nothing. Otherwise always
+ * renders all three named segments — covered, recording gaps, paused —
+ * even at 0%, so a clean run states its own health rather than the reader
+ * inferring it from an absent line (D-08's always-on requirement).
+ *
+ * Each percentage is `Math.round`ed INDEPENDENTLY from `coverage.coveredSec
+ * / coverage.spanSec`, etc. The three rounded integers may not sum to
+ * exactly 100 (a cosmetic display artifact of independent rounding) — this
+ * is deliberate and must never be "corrected" by forcing a 100% total,
+ * which would falsify one of the individual category values against
+ * COV-01's exact-second sum (asserted on the unrounded seconds elsewhere).
+ */
+export function coverageCaptionText(coverage: PaceCoverage): string | null {
+  if (coverage.spanSec <= 0) return null;
+
+  const coveredPercent = Math.round((coverage.coveredSec / coverage.spanSec) * 100);
+  const recordingGapPercent = Math.round((coverage.recordingGapSec / coverage.spanSec) * 100);
+  const pausePercent = Math.round((coverage.pauseSec / coverage.spanSec) * 100);
+
+  return `${coveredPercent}% of elapsed time covered · ${recordingGapPercent}% recording gaps · ${pausePercent}% paused`;
+}
+
+/**
+ * One split's accumulated overlap with the stream's gap intervals (D-09,
+ * PACE-05). `recordingGapSec` and `pauseSec` are accumulated separately
+ * since a split's window can cross more than one gap, of mixed kinds;
+ * `totalSec` is their sum, the exact quantity the marker/legend states.
+ */
+export interface SplitGapAnnotation {
+  km: number;
+  recordingGapSec: number;
+  pauseSec: number;
+  totalSec: number;
+}
+
+/**
+ * For each split, intersects its `[startTimeSec, endTimeSec]` window with
+ * every entry in `gapIntervals`, accumulating overlapping seconds per
+ * `kind`. Emits an entry only when the split's total overlap is positive —
+ * a split with no gap overlap produces no marker, no legend line, and no
+ * entry here at all.
+ *
+ * Total: an empty `gapIntervals` array (or a `splits` list with no
+ * overlapping window) yields an empty result — exactly the "marking
+ * removed" state negative case 4 pins in-suite.
+ *
+ * Consumes `PaceCoverage.gapIntervals` from the shared
+ * `derivePaceWithCoverage` result; this function does not itself decide
+ * what counts as a gap — that classification lives entirely in
+ * `pace-derivation.ts` (PACE-01's single-derivation guarantee).
+ *
+ * Returned in `km` ascending order, matching the order `splits` is already
+ * iterated in.
+ */
+export function splitGapAnnotations(
+  splits: readonly Split[],
+  gapIntervals: readonly GapInterval[]
+): SplitGapAnnotation[] {
+  const result: SplitGapAnnotation[] = [];
+
+  for (const split of splits) {
+    let recordingGapSec = 0;
+    let pauseSec = 0;
+
+    for (const gap of gapIntervals) {
+      const overlapStart = Math.max(split.startTimeSec, gap.startSec);
+      const overlapEnd = Math.min(split.endTimeSec, gap.endSec);
+      const overlapSec = overlapEnd - overlapStart;
+      if (overlapSec > 0) {
+        if (gap.kind === 'recording-gap') {
+          recordingGapSec += overlapSec;
+        } else {
+          pauseSec += overlapSec;
+        }
+      }
+    }
+
+    const totalSec = recordingGapSec + pauseSec;
+    if (totalSec > 0) {
+      result.push({ km: split.km, recordingGapSec, pauseSec, totalSec });
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Picks the single named category ("recording gap" or "pause") a mixed
+ * split annotation is described by, for the marker `aria-label` and the
+ * legend line (both carry exactly one category name per the UI-SPEC's
+ * `{recording gap|pause}` copy contract). The larger accumulated duration
+ * wins; a tie (including the common case of one category being exactly 0)
+ * favours `recording-gap`, since a stopped recording is the more
+ * significant disclosure of the two categories.
+ */
+function dominantGapKindLabel(annotation: SplitGapAnnotation): 'recording gap' | 'pause' {
+  return annotation.recordingGapSec >= annotation.pauseSec ? 'recording gap' : 'pause';
+}
 
 /** Builds a `<td>` with plain text content — the default cell shape for every non-bar column. */
 function buildTextCell(text: string, className?: string): HTMLTableCellElement {
@@ -132,10 +239,20 @@ function buildPaceBarCell(split: Split, activityAvgPaceSecPerKm: number | null):
  *
  * When `splits` is empty (no stream, or a sub-2-sample stream), returns a
  * named empty state rather than an empty table.
+ *
+ * `gapAnnotations` (D-09, PACE-05) is optional and defaults to empty — when
+ * a split's `km` matches an annotation, the Pace cell gains an inline
+ * `⚠` marker (aria-hidden, paired with an `aria-label` stating the amount
+ * and category) and the split's own km/duration/category is named in a
+ * legend `<ul>` appended after `.splits-scroll`, present only when at least
+ * one split is flagged. This adds no eighth column and does not touch any
+ * split's own pace arithmetic — the marking is purely additive over
+ * `computeSplits`'s existing output (PACE-05's binding constraint).
  */
 export function buildSplitsSection(
   splits: readonly Split[],
-  activityAvgPaceSecPerKm: number | null
+  activityAvgPaceSecPerKm: number | null,
+  gapAnnotations: readonly SplitGapAnnotation[] = []
 ): HTMLElement {
   const section = document.createElement('section');
   section.className = 'card detail-section';
@@ -171,11 +288,32 @@ export function buildSplitsSection(
   thead.appendChild(headRow);
   table.appendChild(thead);
 
+  const annotationByKm = new Map(gapAnnotations.map((annotation) => [annotation.km, annotation]));
+  const legendLines: string[] = [];
+
   const tbody = document.createElement('tbody');
   for (const split of splits) {
     const row = document.createElement('tr');
     row.appendChild(buildKmCell(split));
-    row.appendChild(buildTextCell(formatPace(split.paceSecPerKm)));
+
+    const paceCell = buildTextCell(formatPace(split.paceSecPerKm));
+    const annotation = annotationByKm.get(split.km);
+    if (annotation) {
+      const kindLabel = dominantGapKindLabel(annotation);
+      const durationText = formatEffortDuration(annotation.totalSec);
+
+      const marker = document.createElement('span');
+      marker.className = 'split-gap-marker';
+      marker.setAttribute('aria-hidden', 'true');
+      marker.textContent = ' ⚠';
+      paceCell.appendChild(marker);
+
+      paceCell.setAttribute('aria-label', `${formatPace(split.paceSecPerKm)} — includes ${durationText} of ${kindLabel}`);
+
+      legendLines.push(`Km ${split.km}: includes ${durationText} of ${kindLabel}`);
+    }
+    row.appendChild(paceCell);
+
     row.appendChild(buildTextCell(formatDurationHms(split.endTimeSec)));
     row.appendChild(buildTextCell(split.avgHr === null ? DASH : String(Math.round(split.avgHr))));
     row.appendChild(buildTextCell(split.avgCadence === null ? DASH : String(Math.round(split.avgCadence))));
@@ -187,6 +325,18 @@ export function buildSplitsSection(
 
   scroll.appendChild(table);
   section.appendChild(scroll);
+
+  if (legendLines.length > 0) {
+    const legend = document.createElement('ul');
+    legend.className = 'text-label';
+    for (const line of legendLines) {
+      const item = document.createElement('li');
+      item.textContent = line;
+      legend.appendChild(item);
+    }
+    section.appendChild(legend);
+  }
+
   return section;
 }
 
@@ -289,6 +439,10 @@ function buildHrZoneRows(zoneTimes: readonly ZoneTime[]): HTMLElement {
  *   caller appends nothing, so an activity with no stream at all produces no
  *   breakdown section rather than an empty card.
  * - Otherwise returns a `<section class="card detail-section">` containing:
+ *   - The always-on coverage caption (D-08, COV-02), immediately after the
+ *     `Pace Distribution` heading and before the histogram bars, built from
+ *     the SAME `coverage` the caller derived the histogram's `buckets`
+ *     from — never a second, independently-computed value (D-16).
  *   - The pace histogram (D-29, always renders when there are buckets — it
  *     needs no configuration).
  *   - The HR-zone panel, ADDITIONALLY and ONLY when `zoneTimes` is
@@ -300,6 +454,7 @@ function buildHrZoneRows(zoneTimes: readonly ZoneTime[]): HTMLElement {
  */
 export function buildBreakdownSection(
   buckets: readonly PaceBucket[],
+  coverage: PaceCoverage | null,
   zoneTimes: readonly ZoneTime[] | null
 ): HTMLElement | null {
   if (buckets.length === 0 && zoneTimes === null) return null;
@@ -312,6 +467,15 @@ export function buildBreakdownSection(
     heading.className = 'text-heading';
     heading.textContent = 'Pace Distribution';
     section.appendChild(heading);
+
+    const captionText = coverage !== null ? coverageCaptionText(coverage) : null;
+    if (captionText !== null) {
+      const caption = document.createElement('p');
+      caption.className = 'text-label';
+      caption.textContent = captionText;
+      section.appendChild(caption);
+    }
+
     section.appendChild(buildPaceDistributionRows(buckets));
   }
 
