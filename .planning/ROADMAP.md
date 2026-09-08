@@ -107,8 +107,8 @@ times before this milestone, and there is no jsdom or headless browser in the re
 Plans:
 **Wave 1**
 
-- [ ] 26-01-PLAN.md — Shared module: segment-priority gap classification and exact coverage accounting (COV-01, PACE-02)
-- [ ] 26-03-PLAN.md — ERA-03 stratified fixture library, verified present by name (ERA-03)
+- [x] 26-01-PLAN.md — Shared module: segment-priority gap classification and exact coverage accounting (COV-01, PACE-02)
+- [x] 26-03-PLAN.md — ERA-03 stratified fixture library, verified present by name (ERA-03)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -234,7 +234,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 13/13 | Complete    | 2026-08-27 |
 | 24. Local Curation Mode | v2.1 | 17/17 | Complete    | 2026-09-02 |
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 12/12 | Complete    | 2026-09-04 |
-| 26. Shared Gap-Aware Pace Derivation & Honest Coverage | v2.2 | 0/10 | Planned | - |
+| 26. Shared Gap-Aware Pace Derivation & Honest Coverage | v2.2 | 2/10 | In Progress|  |
 | 27. Per-Activity Quality Signals | v2.2 | 0/TBD | Not started | - |
 | 28. PR Plausibility Ceiling | v2.2 | 0/TBD | Not started | - |
 | 29. Curation Review Queue | v2.2 | 0/TBD | Not started | - |
