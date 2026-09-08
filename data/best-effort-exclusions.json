@@ -31,6 +31,36 @@
       "activityId": "3475732221",
       "distances": null,
       "reason": "bad measurement"
+    },
+    {
+      "activityId": "3475735603",
+      "distances": null,
+      "reason": "bad measurement"
+    },
+    {
+      "activityId": "3475711469",
+      "distances": null,
+      "reason": "bad measurement"
+    },
+    {
+      "activityId": "3475711630",
+      "distances": null,
+      "reason": "bad measurement"
+    },
+    {
+      "activityId": "5059204779",
+      "distances": null,
+      "reason": "bad measurement"
+    },
+    {
+      "activityId": "14122328106",
+      "distances": null,
+      "reason": "bad measurement"
+    },
+    {
+      "activityId": "5588316886",
+      "distances": null,
+      "reason": "bad measurement"
     }
   ]
 }
