@@ -67,18 +67,43 @@ function formatPaceBound(secPerKm: number): string {
  * pace from raw per-segment `dt/dd` — that recomputation was the shipped
  * bug that let the histogram disagree with the chart. Delegates to
  * `paceHistogramSamples(t, derived.paceSeries)` for the Δt-weighted samples
- * (skipping `null` entries — already accounted as excluded by
- * `classifyGaps`, not silently dropped here) and buckets each sample at
- * `floor(paceSecPerKm / bucketWidthSec)`, summing real `Δt` per bucket so
- * bucket totals sum to `derived.coverage.coveredSec`, never to a sample
- * count. Total function: never throws.
+ * and buckets each sample at `floor(paceSecPerKm / bucketWidthSec)`, summing
+ * real `Δt` per bucket so bucket totals sum to `derived.coverage.coveredSec`,
+ * never to a sample count. Total function: never throws.
+ *
+ * Gap-segment masking (found while pinning the exact bucket-sum-equals-
+ * coveredSec identity, T-26-07): `derivePaceSeriesGapAware`'s window
+ * clipping deliberately leaves the LAST sample before a gap non-null — a
+ * shrunk-but-valid trailing window, so the CHART shows a continuous line
+ * right up to the gap edge rather than a dropout. But that sample's own
+ * FORWARD segment `[t[i], t[i+1]]` *is* the gap itself (`classifyGaps`
+ * classifies it `recording-gap` or `pause`, not `covered`). Passing
+ * `derived.paceSeries` to `paceHistogramSamples` unmodified therefore
+ * attributes the gap's own `Δt` to a covered-looking bucket — a silent
+ * re-inclusion of excluded time that breaks the `coveredSec` identity.
+ * This function masks any index whose forward segment starts inside a
+ * `derived.coverage.gapIntervals` entry to `null` before delegating to
+ * `paceHistogramSamples`, so only genuinely `covered` segments are counted
+ * — `paceHistogramSamples`'s own Δt-weighting logic is untouched and still
+ * the single shared primitive.
  */
 export function computePaceDistribution(
   derived: PaceDerivationResult,
   t: readonly number[],
   bucketWidthSec: number = PACE_BUCKET_WIDTH_SEC
 ): PaceBucket[] {
-  const samples = paceHistogramSamples(t, derived.paceSeries);
+  const { gapIntervals } = derived.coverage;
+  const maskedPaceSeries =
+    gapIntervals.length === 0
+      ? derived.paceSeries
+      : derived.paceSeries.map((pace, i) => {
+          if (pace === null) return null;
+          const segStart = t[i];
+          const inGap = gapIntervals.some((g) => segStart >= g.startSec && segStart < g.endSec);
+          return inGap ? null : pace;
+        });
+
+  const samples = paceHistogramSamples(t, maskedPaceSeries);
 
   const bucketTimeSec = new Map<number, number>();
 
