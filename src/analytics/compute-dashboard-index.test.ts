@@ -5,9 +5,11 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { FileStore } from '../storage/file-store.js';
-import type { StreamManifest } from '../streams/stream.types.js';
+import type { CanonicalStream, StreamManifest } from '../streams/stream.types.js';
+import type { StravaActivity } from '../types/strava.types.js';
 import type { BestEffortsDocument } from './best-effort.types.js';
 import { computeDashboardIndex } from './compute-dashboard-index.js';
+import { detectPaceDisagreement } from './pace-derivation.js';
 
 /** The exact declared member list of `DashboardIndexRow`, sorted — used to assert no leaked fields. */
 const EXPECTED_ROW_KEYS = [
@@ -23,6 +25,7 @@ const EXPECTED_ROW_KEYS = [
   'maxHr',
   'movingTimeSec',
   'name',
+  'paceDisagreement',
   'paceSecPerKm',
   'prCount',
   'sportType',
@@ -874,5 +877,107 @@ describe('computeDashboardIndex — archive orchestration', () => {
       await fs.readFile(path.join(tmpDir, 'dashboard', 'index.json'), 'utf-8')
     );
     expect(written.activities).toHaveLength(1);
+  });
+});
+
+/**
+ * PACE-07/D-14: the metadata-vs-stream pace disagreement cross-check,
+ * measured against the REAL committed archive (`data/activities/*.json` +
+ * `data/streams/{id}.json`), not the tmpDir fixtures above — this is the
+ * same archive-wide sweep discipline `pace-derivation.test.ts` uses for
+ * `classifyGaps`. Re-verify at execution time (the archive grows nightly);
+ * do not trust these numbers blindly.
+ *
+ * Disposition rule: a newly flagged activity beyond the ones named here is
+ * a genuine finding to record and, if real, to regenerate the PACE-06/
+ * PACE-07 reporting for — it is never a reason to loosen this assertion.
+ */
+describe('pace disagreement', () => {
+  const ACTIVITIES_DIR = 'data/activities';
+  const STREAMS_DIR = 'data/streams';
+
+  function metadataPaceSecPerKm(activity: StravaActivity): number | null {
+    const distanceM = activity.distance;
+    const movingTimeSec = activity.moving_time;
+    return distanceM > 0 && movingTimeSec > 0 ? movingTimeSec / (distanceM / 1000) : null;
+  }
+
+  it('flags exactly a handful of activities archive-wide, including 5059204779, at or under the 0.5% over-fire ceiling', async () => {
+    // Scans every committed activity record, matching the writer's own
+    // per-activity loop (compute-dashboard-index.ts) — the denominator is
+    // the archive's full activity count (~1,890), not the smaller subset
+    // that happens to have a matching stream file (~1,865). A missing
+    // stream degrades to "not flagged" here too, exactly as the real writer
+    // degrades on a stream read failure (T-26-01).
+    const activityFiles = (await fs.readdir(ACTIVITIES_DIR)).filter((f) => f.endsWith('.json'));
+
+    let scanned = 0;
+    const flagged: string[] = [];
+
+    for (const file of activityFiles) {
+      const id = file.replace(/\.json$/, '');
+
+      const activity = JSON.parse(
+        await fs.readFile(path.join(ACTIVITIES_DIR, file), 'utf-8')
+      ) as StravaActivity;
+
+      scanned++;
+
+      let stream: CanonicalStream | null = null;
+      try {
+        stream = JSON.parse(
+          await fs.readFile(path.join(STREAMS_DIR, `${id}.json`), 'utf-8')
+        ) as CanonicalStream;
+      } catch {
+        stream = null; // No matching stream file — cannot be flagged, same as the writer.
+      }
+
+      const result =
+        stream !== null ? detectPaceDisagreement(metadataPaceSecPerKm(activity), stream) : null;
+      if (result !== null) flagged.push(id);
+    }
+
+    console.log(
+      `pace disagreement sweep: scanned ${scanned} activities, flagged ${flagged.length} (${flagged.join(', ')})`
+    );
+
+    expect(scanned).toBeGreaterThanOrEqual(1890);
+    expect(flagged).toContain('5059204779');
+    expect(flagged.length).toBeLessThanOrEqual(3);
+    expect(flagged.length / scanned).toBeLessThanOrEqual(0.005);
+  });
+
+  it("5059204779's flagged values round to streamPaceSecPerKm 350.6 (5:51/km) and metadataPaceSecPerKm 112.6 — the exact string UI-SPEC's browser checkpoint row 3 reads back on screen", async () => {
+    const activity = JSON.parse(
+      await fs.readFile(path.join(ACTIVITIES_DIR, '5059204779.json'), 'utf-8')
+    ) as StravaActivity;
+    const stream = JSON.parse(
+      await fs.readFile(path.join(STREAMS_DIR, '5059204779.json'), 'utf-8')
+    ) as CanonicalStream;
+
+    const result = detectPaceDisagreement(metadataPaceSecPerKm(activity), stream);
+
+    expect(result).not.toBeNull();
+    expect(result?.streamPaceSecPerKm).toBe(350.6);
+    expect(result?.metadataPaceSecPerKm).toBe(112.6);
+  });
+
+  it('negative case 7 (permanent): disabling the cross-check via metadataThresholdSecPerKm: 0 returns null for 5059204779, proving the cross-check itself produces the flag — with it disabled the row carries nothing and 112.6 sec/km stands unqualified, which is today\'s shipped behaviour', async () => {
+    const activity = JSON.parse(
+      await fs.readFile(path.join(ACTIVITIES_DIR, '5059204779.json'), 'utf-8')
+    ) as StravaActivity;
+    const stream = JSON.parse(
+      await fs.readFile(path.join(STREAMS_DIR, '5059204779.json'), 'utf-8')
+    ) as CanonicalStream;
+    const pace = metadataPaceSecPerKm(activity);
+
+    const disabled = detectPaceDisagreement(pace, stream, { metadataThresholdSecPerKm: 0 });
+    expect(disabled).toBeNull();
+
+    // Fails-in-both-directions check: the same call with the default
+    // threshold must return non-null on this same stream, or this negative
+    // case would be vacuous (unfailable in the other direction).
+    const enabled = detectPaceDisagreement(pace, stream);
+    expect(enabled).not.toBeNull();
   });
 });
