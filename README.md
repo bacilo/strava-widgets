@@ -269,7 +269,63 @@ The project includes a command-line interface for managing Strava data synchroni
 | `npm run compute-geo-stats` | Compute geographic statistics from GPS data |
 | `npm run compute-all-stats` | Compute all statistics (basic + advanced + geo) |
 | `npm run build-widgets` | Build all widget IIFE bundles for embedding |
+| `npm run exclude` | Exclude an activity from personal-record marking (see below) |
+| `npm run curate` | Local curation UI — browse the dashboard and tick runs out of PRs |
 | `npm test` | Run test suite |
+
+## Excluding a Run from Personal Records
+
+Some runs shouldn't count as PRs — a treadmill session, a bike ride logged as a
+run, or a track recorded by a device whose GPS you don't trust. Excluding one
+keeps its efforts computed and visible on the activity itself, but withholds it
+from PR marking and record ranking, and shows an `Excluded — {reason}` badge in
+its place.
+
+The source of truth is `data/best-effort-exclusions.json`. There are three ways
+to edit it, and **all three do the same thing** — pick whichever is in reach.
+
+### From GitHub, with no checkout (easiest)
+
+Works from a phone. Nothing to install, nothing to run locally.
+
+1. Open the run on the dashboard and copy its id from the URL —
+   `…/#/activity/i184264408` → `i184264408`.
+2. Go to **Actions → Daily Widget Refresh → Run workflow**.
+3. Paste the id into **Exclude from PRs: activity id**, write a reason, and run it.
+   Tick **exclude_remove** instead to undo an exclusion.
+
+The workflow validates the id against the activity archive, edits the JSON,
+commits it, recomputes the records and deploys — one run, no follow-up needed.
+A typo'd id fails the run with a clear message rather than silently writing an
+entry that matches nothing.
+
+### From a terminal, one command
+
+```bash
+npm run exclude -- --id i184264408 --reason "Treadmill run; GPS distance unreliable."
+npm run exclude -- --id i184264408 --remove
+```
+
+This writes the working tree only. Commit and push the file to publish —
+`data/best-effort-exclusions.json` is in the deploy workflow's path filter, so
+pushing it triggers a rebuild and deploy on its own.
+
+### From the local curation UI
+
+When you'd rather see the runs than look up ids:
+
+```bash
+npm run build-widgets   # curate serves the built dashboard, so build first
+npm run curate          # → http://127.0.0.1:4173/strava-widgets/
+```
+
+Open an activity and tick **Exclude this run from PRs**. The server binds
+`127.0.0.1` only and never touches git — it is a local editing tool, so **the
+live site does not change until you commit and push the file yourself**. The
+curation UI is deliberately absent from the published bundle: its write path
+must not be reachable by anyone who loads the public URL, which is enforced by
+a build-time content scan (`scripts/lib/curation-guard.mjs`) and an HTTP-layer
+assertion (`scripts/verify-dashboard-publish.mjs`).
 
 ## Setup
 

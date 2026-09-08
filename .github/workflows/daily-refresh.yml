@@ -26,10 +26,14 @@ on:
       - 'vite.config*.ts'
       - 'data/config/**'
       - 'data/wma/**'
-      # Hand-edited by the developer to withhold specific activities from PR
-      # marking (see data/best-effort-exclusions.json). Editing it changes the
-      # published records, so it must rebuild. CI never writes this file, so
-      # it cannot self-trigger.
+      # Withholds specific activities from PR marking. Editing it changes the
+      # published records, so it must rebuild.
+      #
+      # SELF-TRIGGER WARNING: as of the exclude_activity_id dispatch inputs
+      # below, CI CAN write this file — so unlike every other data path here,
+      # loop-safety guard 2 does NOT cover it and '[skip ci]' on the
+      # `Commit exclusion change` step is the ONLY thing standing between a
+      # dispatched exclusion and an endless rebuild chain. Do not remove it.
       - 'data/best-effort-exclusions.json'
   schedule:
     # Run daily at 5 AM UTC (morning in Europe, after overnight Strava uploads)
@@ -38,6 +42,26 @@ on:
     inputs:
       force_rebuild:
         description: 'Force rebuild all widgets'
+        required: false
+        type: boolean
+        default: false
+      # Exclude a run from personal-record marking without a local checkout —
+      # the whole point is that this works from the Actions tab on a phone.
+      # Leave blank for an ordinary rebuild; the exclusion steps below are
+      # skipped entirely when it is empty, so scheduled and push runs are
+      # unaffected.
+      exclude_activity_id:
+        description: 'Exclude from PRs: activity id, as in the dashboard URL #/activity/<id> (leave blank for a normal run)'
+        required: false
+        type: string
+        default: ''
+      exclude_reason:
+        description: 'Exclude from PRs: why this run is not a trusted PR (required unless removing)'
+        required: false
+        type: string
+        default: ''
+      exclude_remove:
+        description: 'Exclude from PRs: tick to REMOVE the exclusion instead of adding it'
         required: false
         type: boolean
         default: false
@@ -84,6 +108,60 @@ jobs:
       - name: Warn on fetch failure
         if: steps.fetch.outcome == 'failure'
         run: echo "::warning::intervals.icu fetch failed, rebuilding with existing data"
+
+      # --- Dispatched exclusion (workflow_dispatch only) ---------------------
+      #
+      # Placed AFTER the fetch so a run uploaded this morning is already in
+      # data/activities/ when exclusion-cli.mjs checks that the id exists, and
+      # BEFORE compute-all-stats so `compute-best-efforts` reads the edited
+      # file in this same run rather than one deploy later.
+      #
+      # The inputs reach the script through `env:`, never through `${{ }}`
+      # interpolated into the run body — exclude_reason is free text, and
+      # interpolating it would splice developer-supplied characters straight
+      # into the shell command.
+      - name: Apply dispatched exclusion
+        id: exclusion
+        # The event_name clause is belt-and-braces: `inputs` is only populated
+        # for workflow_dispatch, and an unset input already compares equal to
+        # '' under GitHub's numeric coercion, so the id test alone would do.
+        # Stating the trigger anyway makes it impossible to misread this as
+        # something a scheduled or push run could ever enter.
+        if: github.event_name == 'workflow_dispatch' && inputs.exclude_activity_id != ''
+        env:
+          EXCLUDE_ID: ${{ inputs.exclude_activity_id }}
+          EXCLUDE_REASON: ${{ inputs.exclude_reason }}
+          EXCLUDE_REMOVE: ${{ inputs.exclude_remove }}
+        run: |
+          if [ "$EXCLUDE_REMOVE" = "true" ]; then
+            node scripts/exclusion-cli.mjs --id "$EXCLUDE_ID" --remove
+          else
+            node scripts/exclusion-cli.mjs --id "$EXCLUDE_ID" --reason "$EXCLUDE_REASON"
+          fi
+
+      # Committed here, before the long compute/verify stretch, so the
+      # developer's stated intent survives a later build failure. The cost of
+      # that ordering is a window where master says "excluded" and the live
+      # site does not yet — which the next scheduled run closes on its own,
+      # since it recomputes and deploys from committed data.
+      #
+      # '[skip ci]' is load-bearing, not decorative: data/best-effort-exclusions.json
+      # IS in this workflow's push-paths filter (see the warning at the top of
+      # this file), so without it this commit would trigger another full run.
+      - name: Commit exclusion change
+        if: steps.exclusion.outcome == 'success'
+        env:
+          SUMMARY: ${{ steps.exclusion.outputs.summary }}
+        run: |
+          if git diff --quiet -- data/best-effort-exclusions.json; then
+            echo "::notice::Exclusions file already matched the requested state — nothing to commit."
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add data/best-effort-exclusions.json
+          git commit -m "chore(records): ${SUMMARY} [skip ci]"
+          git push origin HEAD:master
 
       - name: Compile TypeScript
         run: npm run build
