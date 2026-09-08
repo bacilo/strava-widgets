@@ -29,6 +29,7 @@
  */
 
 import { validateStreamSeries } from './best-effort-utils.js';
+import type { CanonicalStream } from '../streams/stream.types.js';
 
 /**
  * Absolute-time threshold above which a `[t[i], t[i+1]]` segment is a
@@ -259,4 +260,236 @@ export function classifyGaps(
   }
 
   return { spanSec, coveredSec, recordingGapSec, pauseSec, gapIntervals };
+}
+
+// ---------------------------------------------------------------------------
+// Pace series (adaptive, gap-clipped windowed averaging) — PACE-02, PACE-03
+// ---------------------------------------------------------------------------
+
+/**
+ * Multiplier applied to an activity's own p90 distance-advance interval to
+ * derive its averaging window width (D-01, D-02). 26-RESEARCH.md's
+ * measurement: the roadmap's own cited windows (150s / ~230s / ~248s for the
+ * three "recovered" activities) divide by their measured p90 advance
+ * intervals (60s / 88.4s / 99s) to 2.5 in every case, almost exactly — the
+ * multiplier is not a guess, it falls directly out of the roadmap's own
+ * numbers once divided, and this session's re-measurement against the
+ * committed streams confirmed the ratio holds within methodology noise.
+ */
+export const PACE_WINDOW_P90_MULTIPLIER = 2.5;
+
+/**
+ * Floor on the resolved averaging window width, in seconds (D-02, D-03).
+ * This is the pre-existing `PACE_SMOOTHING_WINDOW_SEC` value carried over
+ * from `detail-charts-logic.ts`, now a FLOOR rather than the only value. Kept
+ * at 20 rather than letting the formula run unfloored: an unfloored formula
+ * would give activity 4556693525 (p90 advance interval 4s) a 10s window,
+ * which would still avoid stair-step noise, but it is NOT the configuration
+ * PACE-03/PACE-06's cited figures were measured under, and diverging from
+ * those figures without re-deriving them violates D-03.
+ */
+export const PACE_WINDOW_FLOOR_SEC = 20;
+
+/**
+ * Linearly interpolates `values` at an arbitrary `time`, clamping to the
+ * series' first/last sample when `time` falls outside its range. Assumes `t`
+ * is non-decreasing. Moved here verbatim from
+ * `detail-charts-logic.ts:68-86` (D-15) — plan 26-04 makes that module
+ * re-export this copy rather than keep a second implementation.
+ */
+export function interpValueAtTime(
+  t: readonly number[],
+  values: readonly number[],
+  time: number
+): number {
+  const n = t.length;
+  if (n === 0) return NaN;
+  if (n === 1 || time <= t[0]) return values[0];
+  if (time >= t[n - 1]) return values[n - 1];
+
+  let lo = 0;
+  let hi = n - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (t[mid] <= time) lo = mid;
+    else hi = mid - 1;
+  }
+  const i = lo;
+  const j = Math.min(i + 1, n - 1);
+  if (t[j] === t[i]) return values[i];
+  const frac = (time - t[i]) / (t[j] - t[i]);
+  return values[i] + frac * (values[j] - values[i]);
+}
+
+/**
+ * Resolves the averaging window width for one stream: `max(FLOOR, MULTIPLIER
+ * x p90 of that stream's own distance-advance intervals)` (D-01, D-02).
+ * Computed per activity from that activity's own distance-advance-interval
+ * distribution, never a single constant across every activity — the
+ * fixed-20s window is the roadmap's demonstrated-failing case (PACE-03),
+ * not the shipped mechanism.
+ *
+ * When `advanceIntervals` is empty (the stream never advances distance),
+ * returns the floor rather than `NaN` (T-26-01) — "no advance interval
+ * exists" has no basis to judge a window width against, so the floor is the
+ * only well-defined answer.
+ */
+export function adaptiveWindowSec(t: readonly number[], d: readonly number[]): number {
+  const intervals = advanceIntervals(t, d);
+  if (intervals.length === 0) return PACE_WINDOW_FLOOR_SEC;
+  return Math.max(PACE_WINDOW_FLOOR_SEC, PACE_WINDOW_P90_MULTIPLIER * quantile(intervals, 0.9));
+}
+
+/**
+ * For each sample index, takes the centred window of REAL elapsed time
+ * `±windowSec/2` (clamped to the stream's extent), sums the actual distance
+ * and actual elapsed time across that window using the real `t`/`d` values
+ * (never a fixed sample count), and returns `elapsed / (metres / 1000)`.
+ * Returns `null` for any window where metres or elapsed is 0 — a standstill
+ * never yields an Infinity pace (this is `derivePaceSeries`'s body,
+ * unchanged, per D-01 — see `detail-charts-logic.ts:88-127`).
+ *
+ * With `clipAtGaps` (default `true`, PACE-02): the centred window is
+ * additionally clamped so it cannot cross a `gapIntervals` boundary — the
+ * window's start clamps forward to the end of the latest gap that ends at or
+ * before `t[i]`, and its end clamps backward to the start of the earliest
+ * gap that starts at or after `t[i]`. If `t[i]` itself falls strictly inside
+ * a gap interval, the result at that index is `null` — no pace is invented
+ * for a period with no samples. `clipAtGaps: false` skips this clamping
+ * entirely; it exists solely so the demonstrated-failing gap-bridging case
+ * can be a permanent in-suite test (T-26-06) — no production call site may
+ * ever pass it.
+ */
+export function derivePaceSeriesGapAware(
+  t: readonly number[],
+  d: readonly number[],
+  options: { windowSec: number; gapIntervals: readonly GapInterval[]; clipAtGaps?: boolean }
+): (number | null)[] {
+  const { windowSec, gapIntervals } = options;
+  const clipAtGaps = options.clipAtGaps ?? true;
+
+  const n = t.length;
+  const result: (number | null)[] = new Array(n);
+  if (n === 0) return result;
+
+  const half = windowSec / 2;
+  const tStart = t[0];
+  const tEnd = t[n - 1];
+
+  for (let i = 0; i < n; i++) {
+    const time = t[i];
+
+    if (clipAtGaps) {
+      const insideGap = gapIntervals.some((g) => g.startSec < time && time < g.endSec);
+      if (insideGap) {
+        result[i] = null;
+        continue;
+      }
+    }
+
+    let windowStart = Math.max(tStart, time - half);
+    let windowEnd = Math.min(tEnd, time + half);
+
+    if (clipAtGaps) {
+      for (const g of gapIntervals) {
+        if (g.endSec <= time && g.endSec > windowStart) windowStart = g.endSec;
+        if (g.startSec >= time && g.startSec < windowEnd) windowEnd = g.startSec;
+      }
+    }
+
+    const elapsed = windowEnd - windowStart;
+    if (!(elapsed > 0)) {
+      result[i] = null;
+      continue;
+    }
+
+    const dStart = interpValueAtTime(t, d, windowStart);
+    const dEnd = interpValueAtTime(t, d, windowEnd);
+    const metres = dEnd - dStart;
+    if (!(metres > 0)) {
+      result[i] = null;
+      continue;
+    }
+
+    result[i] = elapsed / (metres / 1000);
+  }
+
+  return result;
+}
+
+/** The pace series, the coverage it was derived under, and the resolved window width, together. */
+export interface PaceDerivationResult {
+  paceSeries: (number | null)[];
+  coverage: PaceCoverage;
+  windowSec: number;
+}
+
+/**
+ * The single entry point (D-16): the ONE way any caller may obtain a
+ * derived pace series is by also receiving the coverage accounting it was
+ * derived under, in the same return value — no caller can hold pace without
+ * coverage, so no caption can drift from the histogram beside it.
+ *
+ * D-17: the returned `paceSeries` is a PRESENTATION series only. It is
+ * never written, never persisted, and nothing here feeds `computeSplits` or
+ * becomes a stats value — this module produces chart/histogram input, not
+ * derived data.
+ *
+ * Calls `classifyGaps` exactly once, resolves `windowSec` to
+ * `options.windowSec ?? adaptiveWindowSec(stream.t, stream.d)` (D-01, D-02),
+ * and clips every averaging window at the resolved gap boundaries by default
+ * (PACE-02). `options.windowSec` and `options.clipAtGaps` exist only for
+ * this module's own demonstrated-failing tests (T-26-06); no production call
+ * site may pass them.
+ *
+ * On an invalid stream (T-26-01) this never throws — it returns an empty
+ * series with the zeroed `PaceCoverage` and the floor window width.
+ */
+export function derivePaceWithCoverage(
+  stream: CanonicalStream,
+  options?: { windowSec?: number; pauseRule?: PauseRule; clipAtGaps?: boolean }
+): PaceDerivationResult {
+  const { t, d } = stream;
+
+  if (!validateStreamSeries(t, d).ok) {
+    return { paceSeries: [], coverage: zeroCoverage(), windowSec: PACE_WINDOW_FLOOR_SEC };
+  }
+
+  const coverage = classifyGaps(t, d, { pauseRule: options?.pauseRule });
+  const windowSec = options?.windowSec ?? adaptiveWindowSec(t, d);
+  const paceSeries = derivePaceSeriesGapAware(t, d, {
+    windowSec,
+    gapIntervals: coverage.gapIntervals,
+    clipAtGaps: options?.clipAtGaps,
+  });
+
+  return { paceSeries, coverage, windowSec };
+}
+
+/**
+ * Builds the Δt-weighted `{ paceSecPerKm, timeSec }` samples a histogram
+ * consumes, from a pace series produced by `derivePaceSeriesGapAware` /
+ * `derivePaceWithCoverage`. Reproduces `computePaceDistribution`'s existing
+ * Δt weighting exactly (`detail-zones.ts`'s `bucketTimeSec.set(index,
+ * existing + dt)`) so plan 26-04's histogram stays weight-identical to
+ * today's, and is the shared primitive plan 26-09's residual-fast-mass
+ * script measures against.
+ *
+ * For `i` in `[0, t.length - 2]`: skips when `dt <= 0` or `paceSeries[i] ===
+ * null` — a null index is already accounted as excluded by `classifyGaps`
+ * (recording-gap, pause, or a gap-clipped zero-elapsed window), not a silent
+ * drop introduced here.
+ */
+export function paceHistogramSamples(
+  t: readonly number[],
+  paceSeries: readonly (number | null)[]
+): Array<{ paceSecPerKm: number; timeSec: number }> {
+  const result: Array<{ paceSecPerKm: number; timeSec: number }> = [];
+  for (let i = 0; i < t.length - 1; i++) {
+    const dt = t[i + 1] - t[i];
+    const pace = paceSeries[i];
+    if (dt <= 0 || pace === null || pace === undefined) continue;
+    result.push({ paceSecPerKm: pace, timeSec: dt });
+  }
+  return result;
 }
