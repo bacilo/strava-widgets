@@ -10,7 +10,7 @@
       "startOffsetSec": 4062,
       "endOffsetSec": 4128.3,
       "lowConfidence": false,
-      "wasPRAtTheTime": false,
+      "wasPRAtTheTime": true,
       "excludedFromRecords": false
     },
     {
