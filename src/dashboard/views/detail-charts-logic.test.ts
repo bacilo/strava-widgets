@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import fs from 'node:fs';
 import {
   CHANNEL_KEYS,
   PACE_SMOOTHING_WINDOW_SEC,
@@ -16,6 +17,20 @@ import {
 } from './detail-charts-logic.js';
 import type { CanonicalStream } from '../../streams/stream.types.js';
 import type { WebStorage } from '../storage.js';
+import { derivePaceWithCoverage, PACE_WINDOW_FLOOR_SEC } from '../../analytics/pace-derivation.js';
+
+/**
+ * Reads the pinned worked-example stream (activity 4556693525) directly via
+ * `node:fs` rather than importing `../../analytics/pace-fixtures.ts` — that
+ * module is test-layer only and its own import-boundary guard (D-20,
+ * `pace-fixtures.test.ts`) asserts NO file under `src/dashboard/` ever
+ * imports it, including test files. See `detail-zones.test.ts`'s identical
+ * helper for the full rationale.
+ */
+function loadWorkedExampleStream(): CanonicalStream {
+  const raw = fs.readFileSync('data/streams/4556693525.json', 'utf-8');
+  return JSON.parse(raw) as CanonicalStream;
+}
 
 function makeStream(partial: Partial<CanonicalStream> & { t: number[]; d: number[] }): CanonicalStream {
   return {
@@ -123,6 +138,19 @@ describe('derivePaceSeries', () => {
         expect(Number.isFinite(p)).toBe(true);
       }
     }
+  });
+
+  it('is one derivation under two names (PACE-01, D-15): re-exported derivePaceSeries matches derivePaceWithCoverage(...).paceSeries exactly on the pinned worked-example stream', () => {
+    // 4556693525's adaptiveWindowSec resolves to exactly PACE_WINDOW_FLOOR_SEC
+    // (20s, floor engaged — measured in 26-02's SUMMARY), so calling the
+    // thin wrapper with the same floor window reproduces the shared
+    // derivation's own adaptively-resolved series exactly, index for index.
+    const stream = loadWorkedExampleStream();
+    const derived = derivePaceWithCoverage(stream);
+    expect(derived.windowSec).toBe(PACE_WINDOW_FLOOR_SEC);
+
+    const wrapped = derivePaceSeries(stream.t, stream.d, PACE_WINDOW_FLOOR_SEC);
+    expect(wrapped).toEqual(derived.paceSeries);
   });
 });
 

@@ -15,7 +15,7 @@
 
 ### Pace derivation (PACE)
 
-- [ ] **PACE-01**: All stream-derived pace in the dashboard comes from one shared module in `src/analytics/`, imported by both `detail-charts-logic.ts` and `detail-zones.ts` — no call site computes `dt / (dd / 1000)` independently.
+- [x] **PACE-01**: All stream-derived pace in the dashboard comes from one shared module in `src/analytics/`, imported by both `detail-charts-logic.ts` and `detail-zones.ts` — no call site computes `dt / (dd / 1000)` independently.
 - [x] **PACE-02**: A pace-averaging window never bridges a recording or pause gap; it clips at the gap boundary instead, so no pace value is manufactured across a period with no samples.
 - [x] **PACE-03**: The smoothing window is justified from this archive's own evidence and the justification is recorded, because no industry standard exists to adopt (FEATURES.md: only Strava and Garmin publish anything, both vague; Garmin Connect's web chart has no smoothing at all). **A single fixed window is already disproven by measurement and must not be assumed:** each activity's distance-advance interval — the gap between successive increases in `d`, which is what the window must average over — varies by a factor of ~30 across the archive:
 
@@ -28,7 +28,7 @@
 
   A 20s window averages the first activity's stair-step out cleanly and fails badly on the last, where the device emitted distance once per minute — a 20s window there either sees zero distance or a full minute's worth compressed into 20s, reading ~3× too fast. The window must therefore adapt to each activity's own observed emission interval, or the derivation must integrate across emission boundaries rather than a fixed time span. Which of those it is, is a Phase 26 design decision; that a bare constant is insufficient is settled.
 
-- [ ] **PACE-04**: The pace-distribution histogram routes through the shared derivation, eliminating the phantom fast mode across the archive — not on one activity. The mechanism is decimation aliasing, whose measured cohort is **995 of 1,864 activities (53%)** degraded, of which **154 are severe** (>15% zero-distance samples). Verified on a device-era-stratified sample, with activity 4556693525 as one pinned exemplar (its raw 2:30–3:30 cluster, 8:15–8:30 and 11:00 buckets resolving to one distribution centred 5:00–6:15), never as the sole evidence.
+- [x] **PACE-04**: The pace-distribution histogram routes through the shared derivation, eliminating the phantom fast mode across the archive — not on one activity. The mechanism is decimation aliasing, whose measured cohort is **995 of 1,864 activities (53%)** degraded, of which **154 are severe** (>15% zero-distance samples). Verified on a device-era-stratified sample, with activity 4556693525 as one pinned exemplar (its raw 2:30–3:30 cluster, 8:15–8:30 and 11:00 buckets resolving to one distribution centred 5:00–6:15), never as the sole evidence.
 - [ ] **PACE-05**: Per-km splits mark any split whose window contains a recording or pause gap, so a slow split reads as "paused mid-km" rather than as a bad kilometre. Splits' own arithmetic is already correct and is not changed.
 - [ ] **PACE-06**: The residue that adaptive windowing does *not* fix is quantified and handed to flagging, never smoothed into plausibility. Measured with a window scaled to each activity's own advance interval, **13 of the 154** severe stair-step activities retain ≥0.5% of covered time below 3:00/km, all marginal (0.5–2.4%) — these are genuine device over-measurement, the category that must be flagged rather than corrected. The residual set is enumerated by ID and percentage as a deliverable.
 
@@ -122,10 +122,10 @@ Filled during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PACE-01 | Phase 26 | Pending |
+| PACE-01 | Phase 26 | Complete |
 | PACE-02 | Phase 26 | Complete |
 | PACE-03 | Phase 26 | Complete |
-| PACE-04 | Phase 26 | Pending |
+| PACE-04 | Phase 26 | Complete |
 | PACE-05 | Phase 26 | Pending |
 | PACE-06 | Phase 26 | Pending |
 | PACE-07 | Phase 26 | Pending |
