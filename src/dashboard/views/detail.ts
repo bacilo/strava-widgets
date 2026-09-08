@@ -38,7 +38,7 @@ import { formatActivityDate, formatPace, formatDurationHms, noteViewedActivity, 
 import { computeSplits } from './detail-splits.js';
 import { computePaceDistribution, computeHrZoneTimes } from './detail-zones.js';
 import { derivePaceWithCoverage } from '../../analytics/pace-derivation.js';
-import { buildSplitsSection, buildBreakdownSection, buildBestEffortsSection } from './detail-sections.js';
+import { buildSplitsSection, buildBreakdownSection, buildBestEffortsSection, splitGapAnnotations } from './detail-sections.js';
 import { buildPrBadgeLabels, buildBestEffortsPanelRows } from './detail-best-efforts-logic.js';
 // buildExclusionReasonIndex is records-logic.ts's pure, __proto__-safe
 // exclusion-reason parser (18-09) — reused here rather than duplicated, the
@@ -675,13 +675,18 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
 
     if (detail.stream !== null) {
       const splits = computeSplits(detail.stream);
-      view.appendChild(buildSplitsSection(splits, paceSecPerKm));
 
       // Single D-16 call per render (PACE-01): the shared gap-aware
-      // derivation feeds both the histogram and the coverage caption below,
-      // so the two cannot disagree. `computeSplits` above and its call site
-      // are untouched — D-17 forbids the smoothed series feeding splits.
+      // derivation feeds the histogram, the coverage caption, and the
+      // splits gap annotations below, so none of the three can disagree.
+      // `computeSplits` above and its call site are untouched — D-17
+      // forbids the smoothed series feeding splits.
       const derived = derivePaceWithCoverage(detail.stream);
+
+      view.appendChild(
+        buildSplitsSection(splits, paceSecPerKm, splitGapAnnotations(splits, derived.coverage.gapIntervals))
+      );
+
       const buckets = computePaceDistribution(derived, detail.stream.t);
 
       // A second config-load await point in the render path — guarded
@@ -692,7 +697,7 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
       }
 
       const zoneTimes = computeHrZoneTimes(detail.stream, config);
-      const breakdownSection = buildBreakdownSection(buckets, zoneTimes);
+      const breakdownSection = buildBreakdownSection(buckets, derived.coverage, zoneTimes);
       if (breakdownSection) view.appendChild(breakdownSection);
     } else {
       const reason = indexClient.getRow(detail.id)?.streams.reason;
