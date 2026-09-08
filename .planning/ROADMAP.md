@@ -116,9 +116,9 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 26-04-PLAN.md — Collapse the chart and the histogram onto the shared derivation (PACE-01, PACE-04)
-- [ ] 26-07-PLAN.md — Metadata-vs-stream cross-check as an additive index flag (PACE-07)
-- [ ] 26-09-PLAN.md — Archive-wide residual report, its regenerating script, and two ROADMAP criterion corrections (PACE-04, PACE-06)
+- [x] 26-04-PLAN.md — Collapse the chart and the histogram onto the shared derivation (PACE-01, PACE-04)
+- [x] 26-07-PLAN.md — Metadata-vs-stream cross-check as an additive index flag (PACE-07)
+- [x] 26-09-PLAN.md — Archive-wide residual report, its regenerating script, and two ROADMAP criterion corrections (PACE-04, PACE-06)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -234,7 +234,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 13/13 | Complete    | 2026-08-27 |
 | 24. Local Curation Mode | v2.1 | 17/17 | Complete    | 2026-09-02 |
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 12/12 | Complete    | 2026-09-04 |
-| 26. Shared Gap-Aware Pace Derivation & Honest Coverage | v2.2 | 3/10 | In Progress|  |
+| 26. Shared Gap-Aware Pace Derivation & Honest Coverage | v2.2 | 6/10 | In Progress|  |
 | 27. Per-Activity Quality Signals | v2.2 | 0/TBD | Not started | - |
 | 28. PR Plausibility Ceiling | v2.2 | 0/TBD | Not started | - |
 | 29. Curation Review Queue | v2.2 | 0/TBD | Not started | - |
