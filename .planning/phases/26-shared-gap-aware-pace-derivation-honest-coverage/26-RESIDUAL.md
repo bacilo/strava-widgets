@@ -2,7 +2,7 @@
 
 The residue the adaptive gap-aware derivation (`src/analytics/pace-derivation.ts`) does not fix, quantified rather than smoothed into plausibility (PACE-06, D-19). This is the committed, regenerable deliverable Phase 27 consumes as pre-flagged input and re-derives at its own boundary — see `npm run compute-pace-residual` below.
 
-**Generated:** 2026-09-08T20:30:06.401Z
+**Generated:** 2026-09-08T20:50:09.093Z
 
 ## Cohort Definition
 
@@ -16,26 +16,27 @@ Every "after" figure below is measured under the adaptive averaging window `max(
 
 - Archive size scanned: 1866
 - Severe stair-step cohort size: 154
-- Residual count (after fast mass > 0.5% of covered time): 13
-- Max residual: 2.42%
+- Residual count (after fast mass > 0.5% of covered time): 14
+- Max residual: 2.44%
 
 ## Residual Activities
 
 | Activity ID | After % (covered time) | Baseline % (unfixed per-sample) | Window (s) | Note |
 |---|---|---|---|---|
-| 4556693525 | 2.42% | 22.39% | 20.00 | Also the PACE-04 worked example |
+| 4556693525 | 2.44% | 22.39% | 20.00 | Also the PACE-04 worked example |
 | 5059204779 | 1.17% | 100.00% | 150.00 | — |
+| 3925007542 | 0.63% | 19.96% | 20.00 | — |
 | 3647739864 | 0.62% | 61.36% | 221.00 | — |
 | 4548213751 | 0.59% | 17.40% | 20.00 | — |
+| 5520899318 | 0.57% | 15.85% | 20.00 | — |
+| 5566805363 | 0.57% | 12.48% | 20.00 | — |
+| 4531479183 | 0.57% | 15.14% | 20.00 | — |
 | 5465833080 | 0.57% | 16.97% | 20.00 | — |
-| 5520899318 | 0.56% | 15.85% | 20.00 | — |
-| 4531479183 | 0.56% | 15.14% | 20.00 | — |
-| 5566805363 | 0.56% | 12.48% | 20.00 | — |
-| 3925007542 | 0.56% | 19.96% | 20.00 | — |
-| 4569639779 | 0.54% | 11.90% | 20.00 | — |
-| 4667351283 | 0.53% | 21.74% | 20.00 | — |
+| 5246078056 | 0.56% | 10.18% | 20.00 | — |
+| 4569639779 | 0.55% | 11.90% | 20.00 | — |
+| 4667351283 | 0.54% | 21.74% | 20.00 | — |
 | 3789623232 | 0.51% | 9.42% | 20.00 | — |
-| 4332544744 | 0.50% | 28.43% | 20.00 | — |
+| 4332544744 | 0.51% | 28.43% | 20.00 | — |
 
 ## Criterion 1 Reconciliation
 
