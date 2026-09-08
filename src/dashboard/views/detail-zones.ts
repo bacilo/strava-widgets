@@ -5,8 +5,8 @@
  * module only validates and computes over data it is handed.
  *
  * Two independently-gated halves (CONTEXT.md D-29):
- * - `computePaceDistribution` always works for any valid stream — no
- *   configuration required.
+ * - `computePaceDistribution` always works for any already-derived pace
+ *   result — no configuration required.
  * - `parseAthleteConfig` + `computeHrZoneTimes` are conditional: a valid
  *   committed `data/config/athlete.json` body AND an HR stream must both be
  *   present, or the caller gets `null` and omits the panel entirely (D-31).
@@ -14,14 +14,25 @@
  *   plan 17-07's browser client imports it from here rather than
  *   re-validating.
  *
- * Both computations walk CONSECUTIVE SEGMENTS (not samples) and weight by
- * each segment's real `Δt`, never by sample count — `CanonicalStream.t` is
- * irregularly spaced (17-RESEARCH.md Pitfall 1), so naive per-sample
- * counting silently misweights time.
+ * PACE-01/PACE-04: `computePaceDistribution` no longer re-derives pace from
+ * raw per-segment `dt/dd` — that was the shipped bug producing a phantom
+ * fast cluster the smoothed chart never showed. It is now a thin consumer
+ * of `../../analytics/pace-derivation.js`'s `paceHistogramSamples`, bucketing
+ * the SAME gap-aware, windowed `paceSeries` the chart reads. Bucket
+ * `timeSec` now sums to `derived.coverage.coveredSec` (not the full span);
+ * the excluded remainder (`recordingGapSec` + `pauseSec`) is itemised in the
+ * `PaceCoverage` returned alongside `derived` by the caller, not dropped
+ * silently.
+ *
+ * `computeHrZoneTimes` is unaffected by this change: it still walks
+ * CONSECUTIVE SEGMENTS directly and weights by each segment's real `Δt`,
+ * never by sample count — `CanonicalStream.t` is irregularly spaced
+ * (17-RESEARCH.md Pitfall 1), so naive per-sample counting silently
+ * misweights time.
  */
 
 import type { CanonicalStream } from '../../streams/stream.types.js';
-import { validateStreamSeries } from '../../analytics/best-effort-utils.js';
+import { paceHistogramSamples, type PaceDerivationResult } from '../../analytics/pace-derivation.js';
 
 /** 17-UI-SPEC § 4e pins 15-second-per-km-wide pace buckets. */
 export const PACE_BUCKET_WIDTH_SEC = 15;
@@ -51,31 +62,29 @@ function formatPaceBound(secPerKm: number): string {
 }
 
 /**
- * Δt-weighted pace-distribution histogram. Iterates consecutive segments
- * `[t[i], t[i+1]]`; each segment's full `Δt` is added to the bucket its pace
- * falls into, so the bucket totals sum to the stream's elapsed time rather
- * than to a sample count. Segments with zero or negative `Δd` (a standstill
- * or duplicate timestamp) or non-positive `Δt` are skipped so no Infinity or
- * non-finite pace is ever bucketed. Total function: never throws.
+ * Δt-weighted pace-distribution histogram, built from an already-derived
+ * shared `PaceDerivationResult` (PACE-01, PACE-04) rather than re-deriving
+ * pace from raw per-segment `dt/dd` — that recomputation was the shipped
+ * bug that let the histogram disagree with the chart. Delegates to
+ * `paceHistogramSamples(t, derived.paceSeries)` for the Δt-weighted samples
+ * (skipping `null` entries — already accounted as excluded by
+ * `classifyGaps`, not silently dropped here) and buckets each sample at
+ * `floor(paceSecPerKm / bucketWidthSec)`, summing real `Δt` per bucket so
+ * bucket totals sum to `derived.coverage.coveredSec`, never to a sample
+ * count. Total function: never throws.
  */
 export function computePaceDistribution(
-  stream: CanonicalStream,
+  derived: PaceDerivationResult,
+  t: readonly number[],
   bucketWidthSec: number = PACE_BUCKET_WIDTH_SEC
 ): PaceBucket[] {
-  const { t, d } = stream;
-
-  if (!validateStreamSeries(t, d).ok) return [];
+  const samples = paceHistogramSamples(t, derived.paceSeries);
 
   const bucketTimeSec = new Map<number, number>();
 
-  for (let i = 0; i < t.length - 1; i++) {
-    const dt = t[i + 1] - t[i];
-    const dd = d[i + 1] - d[i];
-    if (dt <= 0 || dd <= 0) continue;
-
-    const paceSecPerKm = dt / (dd / 1000);
+  for (const { paceSecPerKm, timeSec } of samples) {
     const index = Math.floor(paceSecPerKm / bucketWidthSec);
-    bucketTimeSec.set(index, (bucketTimeSec.get(index) ?? 0) + dt);
+    bucketTimeSec.set(index, (bucketTimeSec.get(index) ?? 0) + timeSec);
   }
 
   const sortedIndices = [...bucketTimeSec.keys()].sort((a, b) => a - b);

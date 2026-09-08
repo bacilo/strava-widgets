@@ -1,7 +1,12 @@
 /**
- * Chart-series derivation, Δt-weighted pace smoothing, hover geometry, and
- * tamper-safe overlay-config persistence for the detail page's stacked chart
- * bands (DETAIL-03).
+ * Chart-series derivation, hover geometry, and tamper-safe overlay-config
+ * persistence for the detail page's stacked chart bands (DETAIL-03).
+ *
+ * PACE-01: this module owns NO pace arithmetic of its own any more.
+ * `derivePaceSeries` and `interpValueAtTime` are thin re-exports/wrappers
+ * over the single shared derivation in `../../analytics/pace-derivation.js`
+ * (D-15) — the chart and `detail-zones.ts`'s histogram both read the same
+ * gap-aware series so the two surfaces cannot disagree.
  *
  * Pure, DOM-free module — never imports `chart.js` or `leaflet`, and never
  * touches the browser's persisted key-value storage global directly. Any
@@ -18,6 +23,14 @@
 import type { CanonicalStream } from '../../streams/stream.types.js';
 import { validateStreamSeries } from '../../analytics/best-effort-utils.js';
 import type { WebStorage } from '../storage.js';
+import {
+  PACE_WINDOW_FLOOR_SEC,
+  classifyGaps,
+  derivePaceSeriesGapAware,
+  interpValueAtTime,
+} from '../../analytics/pace-derivation.js';
+
+export { interpValueAtTime } from '../../analytics/pace-derivation.js';
 
 // ---------------------------------------------------------------------------
 // Channels and series
@@ -57,77 +70,32 @@ export function availableChannels(stream: CanonicalStream): ChannelKey[] {
   return result;
 }
 
-/** 17-UI-SPEC pins 20s, inside D-22's 15-30s range. */
-export const PACE_SMOOTHING_WINDOW_SEC = 20;
-
 /**
- * Linearly interpolates `values` at an arbitrary `time`, clamping to the
- * series' first/last sample when `time` falls outside its range. Assumes `t`
- * is non-decreasing (validated by callers via `validateStreamSeries`).
+ * 17-UI-SPEC pins 20s, inside D-22's 15-30s range. This is
+ * `pace-derivation.ts`'s `PACE_WINDOW_FLOOR_SEC` re-exported under its
+ * pre-existing name for this file's callers (PACE-01) — the floor is still
+ * 20s, but `derivePaceWithCoverage`'s adaptive resolution may use a wider
+ * window per activity; this constant is now a floor, not the only value.
  */
-function interpValueAtTime(t: number[], values: number[], time: number): number {
-  const n = t.length;
-  if (n === 0) return NaN;
-  if (n === 1 || time <= t[0]) return values[0];
-  if (time >= t[n - 1]) return values[n - 1];
-
-  let lo = 0;
-  let hi = n - 1;
-  while (lo < hi) {
-    const mid = (lo + hi + 1) >> 1;
-    if (t[mid] <= time) lo = mid;
-    else hi = mid - 1;
-  }
-  const i = lo;
-  const j = Math.min(i + 1, n - 1);
-  if (t[j] === t[i]) return values[i];
-  const frac = (time - t[i]) / (t[j] - t[i]);
-  return values[i] + frac * (values[j] - values[i]);
-}
+export const PACE_SMOOTHING_WINDOW_SEC = PACE_WINDOW_FLOOR_SEC;
 
 /**
- * For each sample index, takes the centred window of REAL elapsed time
- * `±windowSec/2` (clamped to the stream's extent), sums the actual distance
- * and actual elapsed time across that window using the real `t`/`d` values
- * (never a fixed sample count), and returns `elapsed / (metres / 1000)`.
- * Returns `null` for any window where metres or elapsed is 0 — a standstill
- * never yields an Infinity pace. Presentation-only (D-22): never persisted,
- * never feeds `computeSplits` or a stats value.
+ * Thin wrapper (PACE-01, D-15): derives gap classification from `t`/`d` via
+ * `classifyGaps`, then calls the shared `derivePaceSeriesGapAware` with the
+ * resolved gap intervals and the given `windowSec` (gap-clipped by default,
+ * exactly as `derivePaceWithCoverage` clips). No pace arithmetic lives in
+ * this file any more — this is a call-shape adapter only, kept so existing
+ * `(t, d, windowSec)` callers do not need to construct a `CanonicalStream`.
+ * Presentation-only (D-22): never persisted, never feeds `computeSplits` or
+ * a stats value.
  */
 export function derivePaceSeries(
   t: number[],
   d: number[],
   windowSec: number = PACE_SMOOTHING_WINDOW_SEC
 ): (number | null)[] {
-  const n = t.length;
-  const result: (number | null)[] = new Array(n);
-  if (n === 0) return result;
-
-  const half = windowSec / 2;
-  const tStart = t[0];
-  const tEnd = t[n - 1];
-
-  for (let i = 0; i < n; i++) {
-    const windowStart = Math.max(tStart, t[i] - half);
-    const windowEnd = Math.min(tEnd, t[i] + half);
-    const elapsed = windowEnd - windowStart;
-    if (!(elapsed > 0)) {
-      result[i] = null;
-      continue;
-    }
-
-    const dStart = interpValueAtTime(t, d, windowStart);
-    const dEnd = interpValueAtTime(t, d, windowEnd);
-    const metres = dEnd - dStart;
-    if (!(metres > 0)) {
-      result[i] = null;
-      continue;
-    }
-
-    result[i] = elapsed / (metres / 1000);
-  }
-
-  return result;
+  const { gapIntervals } = classifyGaps(t, d);
+  return derivePaceSeriesGapAware(t, d, { windowSec, gapIntervals });
 }
 
 /**

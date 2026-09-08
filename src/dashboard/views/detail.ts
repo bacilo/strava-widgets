@@ -37,6 +37,7 @@ import { createBestEffortsClient } from '../data/best-efforts-client.js';
 import { formatActivityDate, formatPace, formatDurationHms, noteViewedActivity, appendBadge } from './list.js';
 import { computeSplits } from './detail-splits.js';
 import { computePaceDistribution, computeHrZoneTimes } from './detail-zones.js';
+import { derivePaceWithCoverage } from '../../analytics/pace-derivation.js';
 import { buildSplitsSection, buildBreakdownSection, buildBestEffortsSection } from './detail-sections.js';
 import { buildPrBadgeLabels, buildBestEffortsPanelRows } from './detail-best-efforts-logic.js';
 // buildExclusionReasonIndex is records-logic.ts's pure, __proto__-safe
@@ -676,7 +677,12 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
       const splits = computeSplits(detail.stream);
       view.appendChild(buildSplitsSection(splits, paceSecPerKm));
 
-      const buckets = computePaceDistribution(detail.stream);
+      // Single D-16 call per render (PACE-01): the shared gap-aware
+      // derivation feeds both the histogram and the coverage caption below,
+      // so the two cannot disagree. `computeSplits` above and its call site
+      // are untouched — D-17 forbids the smoothed series feeding splits.
+      const derived = derivePaceWithCoverage(detail.stream);
+      const buckets = computePaceDistribution(derived, detail.stream.t);
 
       // A second config-load await point in the render path — guarded
       // exactly like the detail fetch and the gear load above.
