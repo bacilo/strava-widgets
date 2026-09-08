@@ -257,6 +257,40 @@ describe('source wiring — detail-sections.ts / detail.ts (text-structure guard
     expect(detailStripped).toContain('buildBreakdownSection(buckets, derived.coverage, zoneTimes)');
   });
 
+  // ---------------------------------------------------------------------
+  // D-13 (26-08, PACE-07) — the rebased vs. Avg baseline for a flagged
+  // activity. The DOM builder cannot be invoked in this node-environment
+  // suite, so the wiring is pinned as a comment-stripped source scan
+  // instead — the same idiom this file already uses above.
+  // ---------------------------------------------------------------------
+
+  it('D-13 wiring: detail.ts derives the buildSplitsSection average from the disagreement branch — the stream-derived pace when flagged, the metadata pace otherwise', () => {
+    expect(detailStripped).toContain(
+      'const rebasedAveragePaceSecPerKm = disagreement !== null ? disagreement.streamPaceSecPerKm : paceSecPerKm;'
+    );
+  });
+
+  it('D-13 wiring: detail.ts passes both rebasedAveragePaceSecPerKm and the disagreement!==null flag into the SAME buildSplitsSection call already asserted above', () => {
+    const callSiteIndex = detailStripped.indexOf('buildSplitsSection(');
+    expect(callSiteIndex).toBeGreaterThanOrEqual(0);
+    const callSite = detailStripped.slice(callSiteIndex, callSiteIndex + 300);
+    expect(callSite).toContain('rebasedAveragePaceSecPerKm');
+    expect(callSite).toContain('disagreement !== null');
+  });
+
+  it('D-13 wiring: buildSplitsSection accepts the isRebasedAverage flag and builds its caption note from the SAME activityAvgPaceSecPerKm argument already in scope, not a re-derived value', () => {
+    expect(detailSectionsStripped).toContain('isRebasedAverage: boolean = false');
+    expect(detailSectionsStripped).toContain('isRebasedAverage && activityAvgPaceSecPerKm !== null');
+    expect(detailSectionsStripped).toContain('formatPace(activityAvgPaceSecPerKm)');
+  });
+
+  it('D-13 caption-note copy string is present verbatim in detail-sections.ts', () => {
+    expect(detailSectionsStripped).toContain(
+      'Splits above are compared against the stream-derived average'
+    );
+    expect(detailSectionsStripped).toContain('not the disputed metadata average.');
+  });
+
   it('negative case 4 (marking removed) is pinned permanently in this suite, not just described', () => {
     // Self-referential guard: confirms the empty-gapIntervals direction of
     // negative case 4 actually lives in this file's own source, so a future

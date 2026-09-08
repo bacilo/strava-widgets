@@ -2364,3 +2364,23 @@ describe('Phase 23 (TRN-03, gap closure round 2) — .trends-tablist-scroll cont
     expect(trendsSource).not.toMatch(/tablistScroll\s*\.\s*tabIndex/);
   });
 });
+
+describe('styles.css — Phase 26 plan 08 (D-11): pace-disputed badge spacing, checked in both directions', () => {
+  // The rule the plan DID add: a .badge inside a stat tile gets margin-top:
+  // var(--space-xs), per 26-UI-SPEC.md's Spacing Scale note (no new token).
+  it('.stat-grid > div > .badge declares margin-top: var(--space-xs)', () => {
+    expect(bodyForSelectorListToken('.stat-grid > div > .badge')).toContain(
+      'margin-top: var(--space-xs)',
+    );
+    assertNoAtRuleOverride('.stat-grid > div > .badge', 'margin-top');
+  });
+
+  // The anti-pattern UI-SPEC names: neither a new colour-scoped class was
+  // introduced. Checked in the SAME direction as the rule-exists assertion
+  // above (both against `cssNoComments`), so this cannot pass merely because
+  // the class names happen not to appear in an unrelated comment.
+  it('the stylesheet contains no .pace-warning or .gap-badge rule', () => {
+    expect(cssNoComments).not.toMatch(/\.pace-warning\b/);
+    expect(cssNoComments).not.toMatch(/\.gap-badge\b/);
+  });
+});

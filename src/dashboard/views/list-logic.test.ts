@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 
 import type { DashboardIndexRow } from '../../analytics/dashboard-index.types.js';
 import {
@@ -345,6 +346,69 @@ describe('filterRows — AND semantics (D-11)', () => {
     ];
     const result = filterRows(rows, { ...EMPTY_FILTERS, from: '2024-01-01', to: '2024-12-31' });
     expect(result.map((r) => r.id)).toEqual(['late-evening']);
+  });
+});
+
+/**
+ * D-12 (26-08, PACE-07): "disclosure, not suppression" — a flagged activity
+ * must remain fully present in pace sort and filter results. Every
+ * assertion here is written against the RETURNED VALUES of `sortRows`/
+ * `compareRows`/`filterRows` for a flagged row, not merely against the
+ * absence of a string in the source — the critical property is that this
+ * describe block must FAIL if anyone later adds a `row.paceDisagreement`
+ * gate to either site. The source-scan assertion at the end is a second,
+ * corroborating check, not the primary one.
+ */
+describe('D-12 (26-08): a pace disputed activity is not suppressed from pace sort or filter results', () => {
+  const disagreement = { streamPaceSecPerKm: 350.6, metadataPaceSecPerKm: 112.6, ratio: 3.11 };
+
+  it('compareRows(flaggedRow, identicalUnflaggedRow, "pace", dir) is a tie (0) in both directions — the flag has zero effect on the sort VALUE', () => {
+    const flagged = makeRow({ id: 'flagged', paceSecPerKm: 112.6, paceDisagreement: disagreement });
+    const unflagged = makeRow({ id: 'unflagged', paceSecPerKm: 112.6, paceDisagreement: null });
+    // toBeCloseTo, not toBe: `dir === 'desc'` negates the tie (`av - bv`,
+    // both 112.6), which JS evaluates to -0 — a genuine tie, but `toBe`'s
+    // `Object.is` semantics would otherwise distinguish -0 from 0 and fail
+    // this assertion for a reason that has nothing to do with D-12.
+    expect(compareRows(flagged, unflagged, 'pace', 'asc')).toBeCloseTo(0);
+    expect(compareRows(flagged, unflagged, 'pace', 'desc')).toBeCloseTo(0);
+  });
+
+  it('a flagged row still ranks by its own unaltered paceSecPerKm — sortRows does not exclude, demote, or silently re-sort it onto the stream-derived figure', () => {
+    // Mirrors this plan's own objective: activity 5059204779 (paceSecPerKm
+    // 112.6, flagged) currently ranks fastest in a pace-ascending sort of
+    // the real archive. This fixture reproduces that shape with a
+    // genuinely-faster row present too, so the assertion is not vacuous —
+    // if a suppression gate excluded the flagged row, it would silently
+    // vanish from `sorted` instead of failing loudly at position 0.
+    const rows = [
+      makeRow({ id: 'flagged-fastest', paceSecPerKm: 112.6, paceDisagreement: disagreement }),
+      makeRow({ id: 'genuinely-fast', paceSecPerKm: 200 }),
+      makeRow({ id: 'slow', paceSecPerKm: 400 }),
+    ];
+    const sorted = sortRows(rows, 'pace', 'asc');
+    expect(sorted.map((r) => r.id)).toEqual(['flagged-fastest', 'genuinely-fast', 'slow']);
+  });
+
+  it('a flagged row inside an active pace range passes filterRows, and an out-of-range row still fails it — bidirectional, so the assertion cannot pass vacuously', () => {
+    const rows = [
+      makeRow({ id: 'flagged-in-range', paceSecPerKm: 300, paceDisagreement: disagreement }),
+      makeRow({ id: 'unflagged-out-of-range', paceSecPerKm: 500, paceDisagreement: null }),
+    ];
+    const result = filterRows(rows, { ...EMPTY_FILTERS, pMinSec: 200, pMaxSec: 400 });
+    expect(result.map((r) => r.id)).toEqual(['flagged-in-range']);
+  });
+
+  it('a flagged row and an identical unflagged row produce the SAME filterRows verdict — the flag has zero effect on inclusion', () => {
+    const filters = { ...EMPTY_FILTERS, pMinSec: 200, pMaxSec: 400 };
+    const flagged = makeRow({ id: 'flagged', paceSecPerKm: 300, paceDisagreement: disagreement });
+    const unflagged = makeRow({ id: 'unflagged', paceSecPerKm: 300, paceDisagreement: null });
+    expect(filterRows([flagged], filters).map((r) => r.id)).toEqual(['flagged']);
+    expect(filterRows([unflagged], filters).map((r) => r.id)).toEqual(['unflagged']);
+  });
+
+  it('source wiring: list-logic.ts contains zero references to paceDisagreement — corroborates that no suppression gate was ever added to the pace sort case or the pace filter block', () => {
+    const source = readFileSync(new URL('./list-logic.ts', import.meta.url), 'utf8');
+    expect(source).not.toContain('paceDisagreement');
   });
 });
 
