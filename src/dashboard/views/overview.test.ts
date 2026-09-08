@@ -57,6 +57,7 @@ function baseRow(overrides: Partial<DashboardIndexRow> = {}): DashboardIndexRow 
     excludedFromRecords: false,
     prCount: 1,
     gearName: null,
+    paceDisagreement: null,
     ...overrides,
   };
 }

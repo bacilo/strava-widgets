@@ -49,6 +49,7 @@ function makeRow(overrides: Partial<DashboardIndexRow> = {}): DashboardIndexRow 
     excludedFromRecords: false,
     prCount: 0,
     gearName: null,
+    paceDisagreement: null,
     ...overrides,
   };
 }

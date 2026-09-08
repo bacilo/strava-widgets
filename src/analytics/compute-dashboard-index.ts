@@ -16,14 +16,19 @@ import type {
   DashboardIndexRow,
   DashboardIndexStreams,
   DashboardIndexTotals,
+  PaceDisagreement,
 } from './dashboard-index.types.js';
 import { DASHBOARD_INDEX_SCHEMA_VERSION } from './dashboard-index.types.js';
 import type { ActivityBestEfforts, BestEffortsDocument } from './best-effort.types.js';
-import type { StreamManifest } from '../streams/stream.types.js';
+import type { CanonicalStream, StreamManifest } from '../streams/stream.types.js';
 import type { StravaActivity } from '../types/strava.types.js';
 import { FileStore } from '../storage/file-store.js';
 import { buildGearLabelMap, type GearUsage } from './gear-naming.js';
 import { parseGearDocument } from '../dashboard/data/gear-client.js';
+import {
+  detectPaceDisagreement,
+  PACE_DISAGREEMENT_METADATA_THRESHOLD_SEC_PER_KM,
+} from './pace-derivation.js';
 
 /** Rounds to at most one decimal place. */
 function round1(value: number): number {
@@ -64,6 +69,7 @@ export interface ComputeDashboardIndexOptions {
   geoDir?: string;
   outDir?: string;
   gearConfigPath?: string;
+  streamsDir?: string;
 }
 
 /**
@@ -81,6 +87,7 @@ export async function computeDashboardIndex(
   const geoDir = options.geoDir || 'data/geo';
   const outDir = options.outDir || 'data/dashboard';
   const gearConfigPath = options.gearConfigPath || 'data/config/gear.json';
+  const streamsDir = options.streamsDir || 'data/streams';
 
   const fileStore = new FileStore('.');
 
@@ -141,6 +148,7 @@ export async function computeDashboardIndex(
   let excludedFromRecordsCount = 0;
   let skippedUnreadable = 0;
   let withGear = 0;
+  let paceDisagreementCount = 0;
 
   // First pass: build every row EXCEPT gearName, and collect gear usage
   // ({ gearId, startDate }) for every activity that has a non-empty string
@@ -202,6 +210,31 @@ export async function computeDashboardIndex(
       const paceSecPerKm =
         distanceM > 0 && movingTimeSec > 0 ? round1(movingTimeSec / (distanceM / 1000)) : null;
 
+      // PACE-07/D-14: gated on the threshold so the archive sweep stays
+      // cheap — only when the metadata pace is implausibly fast do we read
+      // the activity's stream file at all (T-26-09). Degrades to `null` on
+      // any stream read/parse failure (T-26-01), following the existing
+      // OPTIONAL-read pattern this file already uses for best-efforts,
+      // cities and gear.
+      let paceDisagreement: PaceDisagreement | null = null;
+      if (
+        paceSecPerKm !== null &&
+        paceSecPerKm < PACE_DISAGREEMENT_METADATA_THRESHOLD_SEC_PER_KM
+      ) {
+        try {
+          const stream = await fileStore.readJson<CanonicalStream>(
+            path.join(streamsDir, `${id}.json`)
+          );
+          paceDisagreement = detectPaceDisagreement(paceSecPerKm, stream);
+        } catch (error) {
+          console.warn(
+            `  ${id}: could not read stream for pace disagreement check (${(error as Error).message}); paceDisagreement will be null`
+          );
+          paceDisagreement = null;
+        }
+        if (paceDisagreement !== null) paceDisagreementCount++;
+      }
+
       // Raw gear id, used only as a map key/sort input for the label map
       // below — never assigned directly to any row field (17-D32/D33).
       const rawGearId = (activity as unknown as { gear_id?: unknown }).gear_id;
@@ -232,6 +265,7 @@ export async function computeDashboardIndex(
         lowConfidence,
         excludedFromRecords,
         prCount,
+        paceDisagreement,
       };
 
       pendingRows.push({ row, gearId });
@@ -293,6 +327,7 @@ export async function computeDashboardIndex(
   console.log(`- Excluded from records: ${totals.excludedFromRecords}`);
   console.log(`- Skipped (unreadable): ${totals.skippedUnreadable}`);
   console.log(`- With gear: ${totals.withGear}`);
+  console.log(`- Pace disagreements flagged: ${paceDisagreementCount}`);
   console.log(`\nOutput written to: ${path.join(outDir, 'index.json')}`);
 
   return doc;

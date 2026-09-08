@@ -39,11 +39,13 @@ import {
   derivePaceSeriesGapAware,
   adaptiveWindowSec,
   paceHistogramSamples,
+  detectPaceDisagreement,
 } from './pace-derivation.js';
 import {
   syntheticRecordingGapStream,
   syntheticIntervalSessionStream,
   syntheticStandstillStream,
+  makeStream,
 } from './pace-fixtures.js';
 import type { CanonicalStream } from '../streams/stream.types.js';
 
@@ -213,6 +215,35 @@ describe('classifyGaps — coverage sums exactly and pins the two negative cases
       expect(coverage.spanSec).toBe(0);
       expect(coverage.gapIntervals).toEqual([]);
     });
+  });
+});
+
+/**
+ * `detectPaceDisagreement`'s totality guarantee (PACE-07, T-26-01), pinned
+ * alongside `classifyGaps`' own totality block above so every never-throwing
+ * guarantee for this module lives together. Positive/negative-case coverage
+ * of the actual disagreement (activity 5059204779, negative case 7 with the
+ * threshold disabled) lives in `compute-dashboard-index.test.ts`'s
+ * `describe('pace disagreement', ...)` block, alongside the archive-wide
+ * over-fire sweep it shares fixtures with.
+ */
+describe('detectPaceDisagreement — totality, never throws, always null on malformed input', () => {
+  it('returns null on a malformed stream (t/d length mismatch)', () => {
+    const badStream = makeStream({ t: [0, 10, 20], d: [0, 100] });
+    expect(() => detectPaceDisagreement(100, badStream)).not.toThrow();
+    expect(detectPaceDisagreement(100, badStream)).toBeNull();
+  });
+
+  it('returns null when metadataPaceSecPerKm is null', () => {
+    const stream = makeStream({ t: [0, 10, 20], d: [0, 50, 100] });
+    expect(() => detectPaceDisagreement(null, stream)).not.toThrow();
+    expect(detectPaceDisagreement(null, stream)).toBeNull();
+  });
+
+  it('returns null on a zero-distance stream (d never advances)', () => {
+    const stream = makeStream({ t: [0, 10, 20], d: [0, 0, 0] });
+    expect(() => detectPaceDisagreement(100, stream)).not.toThrow();
+    expect(detectPaceDisagreement(100, stream)).toBeNull();
   });
 });
 

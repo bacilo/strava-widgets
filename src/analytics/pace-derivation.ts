@@ -493,3 +493,97 @@ export function paceHistogramSamples(
   }
   return result;
 }
+
+// ---------------------------------------------------------------------------
+// Metadata-vs-stream pace disagreement (PACE-07, D-10, D-14)
+// ---------------------------------------------------------------------------
+
+/**
+ * Metadata pace threshold, in sec/km, below which a disagreement check is
+ * even attempted (PACE-07). The roadmap states the threshold as "metadata
+ * implying a sustained pace faster than 3:20/km" — 200 sec/km is exactly
+ * 3:20/km. 26-RESEARCH.md measured exactly one archive-wide flag at this
+ * threshold (activity 5059204779, metadata 112.6 sec/km).
+ */
+export const PACE_DISAGREEMENT_METADATA_THRESHOLD_SEC_PER_KM = 200;
+
+/**
+ * Minimum ratio of stream-derived pace to metadata pace for a disagreement
+ * to count as material (PACE-07). Activity 5059204779's measured ratio is
+ * 350.6 / 112.6 = 3.11, well above this floor.
+ */
+export const PACE_DISAGREEMENT_RATIO = 2;
+
+/**
+ * Span-based stream pace: `(t[n-1] - t[0]) / ((d[n-1] - d[0]) / 1000)`, or
+ * `null` when the stream is invalid (via `validateStreamSeries`), the time
+ * span is not positive, or the distance span is not positive.
+ *
+ * Deliberately SPAN-based, not covered-time-based (unlike
+ * `derivePaceWithCoverage`'s windowed series) — this reproduces the
+ * roadmap's and UI-SPEC's cited 5:51/km for 5059204779 exactly (3788s /
+ * 10.804km = 350.6 sec/km), which is the figure the browser checkpoint
+ * reads back verbatim. A gap-aware windowed average would answer a
+ * different question ("how fast when moving") than this check needs
+ * ("what pace does the whole recorded stream actually imply").
+ */
+export function streamPaceSecPerKm(stream: CanonicalStream): number | null {
+  const { t, d } = stream;
+  if (!validateStreamSeries(t, d).ok) return null;
+
+  const n = t.length;
+  const spanSec = t[n - 1] - t[0];
+  const spanM = d[n - 1] - d[0];
+  if (!(spanSec > 0) || !(spanM > 0)) return null;
+
+  return spanSec / (spanM / 1000);
+}
+
+/** The result of a material metadata-vs-stream pace disagreement (PACE-07, D-10). */
+export interface PaceDisagreementResult {
+  streamPaceSecPerKm: number;
+  metadataPaceSecPerKm: number;
+  ratio: number;
+}
+
+/**
+ * Detects a material disagreement between an activity's metadata-derived
+ * pace (`movingTimeSec / (distanceM / 1000)`, computed by the caller) and
+ * its own stream-derived pace (PACE-07). Returns `null` — never a
+ * partially-filled object and never a zero — unless ALL of:
+ *   - `metadataPaceSecPerKm` is not `null` and is `> 0`
+ *   - `metadataPaceSecPerKm < threshold` (gate: only implausibly fast
+ *     metadata paces are even checked, so a slow-but-real activity like
+ *     11544429866's 402.4 sec/km is never considered)
+ *   - `streamPaceSecPerKm(stream)` is not `null`
+ *   - the stream pace is at least `ratio` times the metadata pace
+ *
+ * Nothing about `paceSecPerKm` is recomputed or substituted here (D-10) —
+ * this function only DETECTS and reports the disagreement; the caller
+ * decides what to do with it. Never throws on any array-shaped stream
+ * (T-26-01). Both returned paces are rounded to one decimal, matching
+ * `compute-dashboard-index.ts`'s existing `round1` convention.
+ */
+export function detectPaceDisagreement(
+  metadataPaceSecPerKm: number | null,
+  stream: CanonicalStream,
+  options?: { metadataThresholdSecPerKm?: number; ratio?: number }
+): PaceDisagreementResult | null {
+  const threshold =
+    options?.metadataThresholdSecPerKm ?? PACE_DISAGREEMENT_METADATA_THRESHOLD_SEC_PER_KM;
+  const ratioFloor = options?.ratio ?? PACE_DISAGREEMENT_RATIO;
+
+  if (metadataPaceSecPerKm === null || !(metadataPaceSecPerKm > 0)) return null;
+  if (!(metadataPaceSecPerKm < threshold)) return null;
+
+  const streamPace = streamPaceSecPerKm(stream);
+  if (streamPace === null) return null;
+
+  if (!(streamPace / metadataPaceSecPerKm >= ratioFloor)) return null;
+
+  return {
+    streamPaceSecPerKm: Math.round(streamPace * 10) / 10,
+    metadataPaceSecPerKm: Math.round(metadataPaceSecPerKm * 10) / 10,
+    ratio: Math.round((streamPace / metadataPaceSecPerKm) * 100) / 100,
+  };
+}

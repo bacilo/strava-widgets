@@ -75,6 +75,7 @@ function makeDocument(overrides: Partial<DashboardIndexDocument> = {}): Dashboar
         excludedFromRecords: false,
         prCount: 0,
         gearName: null,
+        paceDisagreement: null,
       },
       {
         id: '1234',
@@ -95,6 +96,7 @@ function makeDocument(overrides: Partial<DashboardIndexDocument> = {}): Dashboar
         excludedFromRecords: false,
         prCount: 1,
         gearName: null,
+        paceDisagreement: null,
       },
     ],
     ...overrides,

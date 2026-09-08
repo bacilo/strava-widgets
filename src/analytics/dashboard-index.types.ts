@@ -16,7 +16,10 @@
  *
  * `DASHBOARD_INDEX_SCHEMA_VERSION` stays at `1` for the `gearName` addition
  * below — it is a purely additive field, and `scripts/verify-dashboard-publish.mjs`
- * asserts `schemaVersion === 1`.
+ * asserts `schemaVersion === 1`. The `paceDisagreement` field (PACE-07,
+ * D-14) added below follows the exact same additive-field discipline: the
+ * schema version does not move for it either. Phase 27 asserts index
+ * additivity for its own signals against this same precedent.
  */
 
 import type { DistanceSource, StreamUnavailableReason } from '../streams/stream.types.js';
@@ -83,6 +86,31 @@ export interface DashboardIndexRow {
    * `ParsedDashboardIndexRow` below for the re-parse side instead.
    */
   gearName: string | null;
+  /**
+   * Metadata-vs-stream pace cross-check result (PACE-07, D-10, D-14), or
+   * `null` when checked and not flagged. `null` NEVER means "not checked" —
+   * the writer always evaluates the check and assigns a value here.
+   *
+   * REQUIRED, deliberately, following the `gearName` precedent above
+   * (WR-06): making this key optional would let compute-dashboard-index.ts
+   * silently stop emitting it with no compile error. This is PACE-07/D-10's
+   * disclosure field — `paceSecPerKm` above is never recomputed or
+   * substituted because of it; the flag only ADDS the stream-derived figure
+   * alongside the untouched metadata one. `DASHBOARD_INDEX_SCHEMA_VERSION`
+   * stays at `1` because this field is purely additive.
+   */
+  paceDisagreement: PaceDisagreement | null;
+}
+
+/**
+ * A material metadata-vs-stream pace disagreement (PACE-07, D-10). Produced
+ * by `detectPaceDisagreement` in `pace-derivation.ts`; both paces are
+ * rounded to one decimal.
+ */
+export interface PaceDisagreement {
+  streamPaceSecPerKm: number;
+  metadataPaceSecPerKm: number;
+  ratio: number;
 }
 
 /**
