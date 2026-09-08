@@ -1,0 +1,95 @@
+{
+  "mechanism": "screencast",
+  "url": "https://bacilo.github.io/strava-widgets/",
+  "emulation": null,
+  "timeOrigin": 1788530298666.2,
+  "firstPaintStartTime": 112,
+  "pageState": {
+    "timeOrigin": 1788530298666.2,
+    "firstPaintStartTime": 112,
+    "firstContentfulPaintStartTime": 112,
+    "navResponseEnd": 40,
+    "navDomInteractive": 48.5,
+    "navLoadEventEnd": 69.40000000037253,
+    "navType": "navigate",
+    "dashboardTheme": "auto",
+    "prefersDark": true,
+    "dataTheme": "dark",
+    "bodyBackgroundColor": "rgb(26, 26, 46)",
+    "moduleScriptSrc": "./assets/index-D-Ts7X8C.js",
+    "title": "Overview — Strava Analytics"
+  },
+  "frames": [
+    {
+      "seq": 0,
+      "framePath": ".planning/phases/25-ci-hardening-light-theme-verification/capture/prod-A-2/frames/frame-000.png",
+      "timestampMs": 1788530298676.5051,
+      "t_since_navigation_ms": 10.30517578125,
+      "beats_first_paint": true,
+      "colors": {
+        "topLeft": "rgb(18, 18, 18)",
+        "topRight": "rgb(18, 18, 18)",
+        "bottomLeft": "rgb(18, 18, 18)",
+        "bottomRight": "rgb(18, 18, 18)",
+        "center": "rgb(18, 18, 18)"
+      }
+    },
+    {
+      "seq": 1,
+      "framePath": ".planning/phases/25-ci-hardening-light-theme-verification/capture/prod-A-2/frames/frame-001.png",
+      "timestampMs": 1788530298780.3398,
+      "t_since_navigation_ms": 114.139892578125,
+      "beats_first_paint": false,
+      "colors": {
+        "topLeft": "rgb(36, 36, 66)",
+        "topRight": "rgb(36, 36, 66)",
+        "bottomLeft": "rgb(26, 26, 45)",
+        "bottomRight": "rgb(26, 26, 45)",
+        "center": "rgb(26, 26, 45)"
+      }
+    },
+    {
+      "seq": 2,
+      "framePath": ".planning/phases/25-ci-hardening-light-theme-verification/capture/prod-A-2/frames/frame-002.png",
+      "timestampMs": 1788530298807.189,
+      "t_since_navigation_ms": 140.989013671875,
+      "beats_first_paint": false,
+      "colors": {
+        "topLeft": "rgb(36, 36, 66)",
+        "topRight": "rgb(36, 36, 66)",
+        "bottomLeft": "rgb(26, 26, 45)",
+        "bottomRight": "rgb(26, 26, 45)",
+        "center": "rgb(36, 36, 66)"
+      }
+    },
+    {
+      "seq": 3,
+      "framePath": ".planning/phases/25-ci-hardening-light-theme-verification/capture/prod-A-2/frames/frame-003.png",
+      "timestampMs": 1788530298817.564,
+      "t_since_navigation_ms": 151.364013671875,
+      "beats_first_paint": false,
+      "colors": {
+        "topLeft": "rgb(36, 36, 66)",
+        "topRight": "rgb(36, 36, 66)",
+        "bottomLeft": "rgb(26, 26, 45)",
+        "bottomRight": "rgb(26, 26, 45)",
+        "center": "rgb(51, 51, 79)"
+      }
+    },
+    {
+      "seq": 4,
+      "framePath": ".planning/phases/25-ci-hardening-light-theme-verification/capture/prod-A-2/frames/frame-004.png",
+      "timestampMs": 1788530299760.3372,
+      "t_since_navigation_ms": 1094.13720703125,
+      "beats_first_paint": false,
+      "colors": {
+        "topLeft": "rgb(36, 36, 66)",
+        "topRight": "rgb(36, 36, 66)",
+        "bottomLeft": "rgb(26, 26, 45)",
+        "bottomRight": "rgb(26, 26, 45)",
+        "center": "rgb(36, 36, 66)"
+      }
+    }
+  ],
+  "captureErrors": []
+}

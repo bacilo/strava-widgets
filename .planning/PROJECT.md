@@ -36,9 +36,29 @@ Milestone audit: `tech_debt` — 29/29 requirements satisfied, 0 blockers, 41/43
 
 </details>
 
-## Current Milestone
+## Current Milestone: v2.2 Pace Data Quality
 
-None — v2.1 shipped 2026-09-05. Run `/gsd-new-milestone` to define the next one.
+**Goal:** Make every pace figure the dashboard derives honest — one gap-aware derivation, plausibility guards that actually bind, and per-activity quality signals you can see — without rewriting a single committed stream.
+
+**Target features:**
+- One gap-aware pace derivation replacing the two divergent ones today (`derivePaceSeries`'s 20s window in `detail-charts-logic.ts:97` vs the raw per-sample `dt / (dd / 1000)` in `detail-zones.ts:76`)
+- Honest coverage — recording gaps (1,233 activities have one >10s) and pause gaps (321 have >5 min of ≥30s gaps) stop manufacturing pace values and stop being silently dropped
+- PR plausibility that binds — a ceiling derived from demonstrated personal ability rather than the world record; rejected efforts stay visible, flagged and overridable, never deleted
+- Per-activity quality signals and badges — device era, stair-step ratio, impossible-sample count, gap profile, elapsed-vs-moving divergence
+- A review queue in local curation mode feeding the existing manual PR-exclusion list
+- Elevation as a quality signal — the impossible-altitude case, flagged the same way; no grade-adjusted pace
+- Cross-era consistency across 4 watches, Runkeeper, the Strava app and intervals.icu (1,802 FIT / 38 GPX / 24 intervals streams; 716 activities record no device at all)
+
+**Key context:** Scoped from a live archive investigation, not a feature wish-list. The defining finding is that a large share of the visible pace error is self-inflicted rather than device error: `derive-stream.ts:26` caps streams at `MAX_SAMPLES = 3000` and decimates by index selection to a 2-3s floor above it, which hits 995 of 1,864 activities (53%) and 151 of the 154 worst stair-step activities. Because it decimates by *selection* on a signal whose distance updates every ~2s, it aliases — manufacturing the alternating full/zero distance pattern that produces the phantom fast mode in the pace histogram. Activity 4556693525 is the worked example: the shipped histogram covers 72% of elapsed time and shows a fake 2:45 cluster plus 8:15 and 72:00 buckets, all of which vanish under the 20s window the chart beside it already uses, leaving one clean distribution centred where the per-km splits (4:35, 4:18, 5:17, 5:22, 5:44, 5:24, 5:22, 6:12, 6:08, 6:53; overall 5:35) say the run actually was.
+
+**Explicit non-goals, each with a reason:**
+- **`data/streams/` stays byte-identical.** No re-derivation this milestone despite 1 Hz originals being available locally for 94.5% of the archive (named by `upload_id` under `export_data/`, gitignored) and carrying an unused device `speed` channel present in 99.8% of records. Deferred on three grounds: ~200 MB of permanent git cost (streams are 143 MB, `.git` is 172 MB, and 1 Hz roughly doubles 2.7M samples to 5.3M); measured movement of only −1.6s to +5.0s on the tested activity; and the direction of that movement — higher resolution makes efforts *faster*, so re-derivation must follow rejection, never precede it. Revisit next milestone once quality signals exist to measure whether it helped.
+- **Genuine device over-measurement is flagged, never corrected** — the Suunto reports 17 m/s over a single second on a descent where GPS geometry says 0 m, and position exists in only 51.3% of that file's records, so geometry cannot arbitrate. Removing that distance would change the activity total and every split.
+- **Device `moving_time` stays the shipped aggregate.** Elapsed-vs-moving becomes a visible signal, not an authoritative recomputation.
+- **PRs move by demotion, never recalculation.** `findBestEffort` integrates distance at interpolated crossings, so pace smoothing is invisible to it; the only defensible movement is rejecting efforts that should never have ranked.
+- **Stopped-watch correction is out.** Nothing in the stored data distinguishes a deliberate rest from a forgotten stop — both are a pause with +0 m.
+- **Transport gaps need no work** — stopping the watch records no distance; only 9 activities advance >100 m across a ≥30s gap, all at ≤14 km/h.
+
 
 <details>
 <summary>v2.1 milestone goal and target features (archived)</summary>
@@ -106,7 +126,7 @@ None — v2.1 shipped 2026-09-05. Run `/gsd-new-milestone` to define the next on
 
 ### Active
 
-No active milestone. v2.1 shipped 2026-09-05 with 25/25 requirements satisfied; run `/gsd-new-milestone` to define the next one.
+v2.2 Pace Data Quality — requirements defined in `.planning/REQUIREMENTS.md`, phases in `.planning/ROADMAP.md`.
 
 Carried forward, unscheduled:
 
@@ -212,7 +232,9 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-05 after the **v2.1 Interface Polish** milestone close — 7 phases (19-25), 103 plans, 250 tasks, 25/25 requirements, 24 days. ~15,900 lines across src/scripts/CI; 1,617 tests across 63 files, up from 884 at the v2.0 close with almost no new product surface, the growth being guard layers.*
+*Last updated: 2026-09-08 — **v2.2 Pace Data Quality** milestone opened. Scoped from a live investigation of all 1,864 committed streams rather than a feature wish-list: the pace histogram differentiates at the native sample interval while the chart beside it uses a 20s window; `derive-stream.ts`'s `MAX_SAMPLES = 3000` decimation aliases 53% of the archive; 662 activities carry at least one physically impossible sample, and the existing `WORLD_RECORD_SPEED_MPS` guard admits a 44.0s 400m. Committed streams are explicitly out of scope for modification.*
+
+*Previously: 2026-09-05 after the **v2.1 Interface Polish** milestone close — 7 phases (19-25), 103 plans, 250 tasks, 25/25 requirements, 24 days. ~15,900 lines across src/scripts/CI; 1,617 tests across 63 files, up from 884 at the v2.0 close with almost no new product surface, the growth being guard layers.*
 
 *Two corrections were made during the close rather than carried into the archive. `22-VERIFICATION.md` was stale — dated 2026-08-19T09:30:00Z at `gaps_found` 5/8, it was the report that triggered Phase 22's own Round 4 gap-closure work and was never re-run afterward; re-verified 2026-09-05 to `passed` 8/8, each closure re-derived from source and mutation-tested rather than accepted from the Round 4 summaries, and the prior report's central premise (a 380px-scoped overflow fix) proved factually false, the breakpoint being 640px with all three rules it named as unconditional overridden inside it. And `REQUIREMENTS.md` contradicted itself, recording CAL-01/CAL-02 as re-ticked `[x]` at lines 33-34 while the phase-map rows at 88-89 still read "Pending" — left alone, the archive would have frozen both as Pending permanently.*
 

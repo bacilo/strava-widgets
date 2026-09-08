@@ -1,0 +1,137 @@
+{
+  "mechanism": "screenshot-burst",
+  "url": "http://127.0.0.1:8902/",
+  "emulation": null,
+  "timeOrigin": 1788530034884.6,
+  "firstPaintStartTime": 112,
+  "pageState": {
+    "timeOrigin": 1788530034884.6,
+    "firstPaintStartTime": 112,
+    "firstContentfulPaintStartTime": 112,
+    "navResponseEnd": 24.59999999962747,
+    "navDomInteractive": 40.399999998509884,
+    "navLoadEventEnd": 75.39999999850988,
+    "navType": "navigate",
+    "dashboardTheme": "auto",
+    "prefersDark": true,
+    "dataTheme": "dark",
+    "bodyBackgroundColor": "rgb(26, 26, 46)",
+    "moduleScriptSrc": "./assets/index-D-Ts7X8C.js",
+    "title": "Overview — Strava Analytics"
+  },
+  "frames": [
+    {
+      "seq": 0,
+      "framePath": ".planning/phases/25-ci-hardening-light-theme-verification/capture/control-stripped-burst-1/frames/frame-000.png",
+      "timestampMs": 1788530035133,
+      "t_since_navigation_ms": 248.39990234375,
+      "beats_first_paint": false,
+      "colors": {
+        "topLeft": "rgb(36, 36, 66)",
+        "topRight": "rgb(36, 36, 66)",
+        "bottomLeft": "rgb(26, 26, 45)",
+        "bottomRight": "rgb(26, 26, 45)",
+        "center": "rgb(26, 26, 45)"
+      }
+    },
+    {
+      "seq": 1,
+      "framePath": ".planning/phases/25-ci-hardening-light-theme-verification/capture/control-stripped-burst-1/frames/frame-001.png",
+      "timestampMs": 1788530035543,
+      "t_since_navigation_ms": 658.39990234375,
+      "beats_first_paint": false,
+      "colors": {
+        "topLeft": "rgb(36, 36, 66)",
+        "topRight": "rgb(36, 36, 66)",
+        "bottomLeft": "rgb(26, 26, 45)",
+        "bottomRight": "rgb(26, 26, 45)",
+        "center": "rgb(51, 51, 79)"
+      }
+    },
+    {
+      "seq": 2,
+      "framePath": ".planning/phases/25-ci-hardening-light-theme-verification/capture/control-stripped-burst-1/frames/frame-002.png",
+      "timestampMs": 1788530035605,
+      "t_since_navigation_ms": 720.39990234375,
+      "beats_first_paint": false,
+      "colors": {
+        "topLeft": "rgb(36, 36, 66)",
+        "topRight": "rgb(36, 36, 66)",
+        "bottomLeft": "rgb(26, 26, 45)",
+        "bottomRight": "rgb(26, 26, 45)",
+        "center": "rgb(51, 51, 79)"
+      }
+    },
+    {
+      "seq": 3,
+      "framePath": ".planning/phases/25-ci-hardening-light-theme-verification/capture/control-stripped-burst-1/frames/frame-003.png",
+      "timestampMs": 1788530035669,
+      "t_since_navigation_ms": 784.39990234375,
+      "beats_first_paint": false,
+      "colors": {
+        "topLeft": "rgb(36, 36, 66)",
+        "topRight": "rgb(36, 36, 66)",
+        "bottomLeft": "rgb(26, 26, 45)",
+        "bottomRight": "rgb(26, 26, 45)",
+        "center": "rgb(51, 51, 79)"
+      }
+    },
+    {
+      "seq": 4,
+      "framePath": ".planning/phases/25-ci-hardening-light-theme-verification/capture/control-stripped-burst-1/frames/frame-004.png",
+      "timestampMs": 1788530035731,
+      "t_since_navigation_ms": 846.39990234375,
+      "beats_first_paint": false,
+      "colors": {
+        "topLeft": "rgb(36, 36, 66)",
+        "topRight": "rgb(36, 36, 66)",
+        "bottomLeft": "rgb(26, 26, 45)",
+        "bottomRight": "rgb(26, 26, 45)",
+        "center": "rgb(51, 51, 79)"
+      }
+    },
+    {
+      "seq": 5,
+      "framePath": ".planning/phases/25-ci-hardening-light-theme-verification/capture/control-stripped-burst-1/frames/frame-005.png",
+      "timestampMs": 1788530035798,
+      "t_since_navigation_ms": 913.39990234375,
+      "beats_first_paint": false,
+      "colors": {
+        "topLeft": "rgb(36, 36, 66)",
+        "topRight": "rgb(36, 36, 66)",
+        "bottomLeft": "rgb(26, 26, 45)",
+        "bottomRight": "rgb(26, 26, 45)",
+        "center": "rgb(51, 51, 79)"
+      }
+    },
+    {
+      "seq": 6,
+      "framePath": ".planning/phases/25-ci-hardening-light-theme-verification/capture/control-stripped-burst-1/frames/frame-006.png",
+      "timestampMs": 1788530035856,
+      "t_since_navigation_ms": 971.39990234375,
+      "beats_first_paint": false,
+      "colors": {
+        "topLeft": "rgb(36, 36, 66)",
+        "topRight": "rgb(36, 36, 66)",
+        "bottomLeft": "rgb(26, 26, 45)",
+        "bottomRight": "rgb(26, 26, 45)",
+        "center": "rgb(51, 51, 79)"
+      }
+    },
+    {
+      "seq": 7,
+      "framePath": ".planning/phases/25-ci-hardening-light-theme-verification/capture/control-stripped-burst-1/frames/frame-007.png",
+      "timestampMs": 1788530035913,
+      "t_since_navigation_ms": 1028.39990234375,
+      "beats_first_paint": false,
+      "colors": {
+        "topLeft": "rgb(36, 36, 66)",
+        "topRight": "rgb(36, 36, 66)",
+        "bottomLeft": "rgb(26, 26, 45)",
+        "bottomRight": "rgb(26, 26, 45)",
+        "center": "rgb(51, 51, 79)"
+      }
+    }
+  ],
+  "captureErrors": []
+}

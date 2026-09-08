@@ -1,0 +1,30 @@
+{
+  "mechanism": "screenshot-burst",
+  "url": "https://bacilo.github.io/strava-widgets/",
+  "emulation": null,
+  "timeOrigin": 1788530349756,
+  "firstPaintStartTime": null,
+  "pageState": {
+    "timeOrigin": 1788530349756,
+    "firstPaintStartTime": null,
+    "firstContentfulPaintStartTime": null,
+    "navResponseEnd": 35.79999999888241,
+    "navDomInteractive": 41.59999999962747,
+    "navLoadEventEnd": 60.09999999962747,
+    "navType": "navigate",
+    "dashboardTheme": "auto",
+    "prefersDark": true,
+    "dataTheme": "dark",
+    "bodyBackgroundColor": "rgb(26, 26, 46)",
+    "moduleScriptSrc": "./assets/index-D-Ts7X8C.js",
+    "title": "Overview — Strava Analytics"
+  },
+  "frames": [],
+  "captureErrors": [
+    {
+      "seq": 0,
+      "requestMs": 1788530349792,
+      "error": "{\"code\":-32000,\"message\":\"Not attached to an active page\"}"
+    }
+  ]
+}

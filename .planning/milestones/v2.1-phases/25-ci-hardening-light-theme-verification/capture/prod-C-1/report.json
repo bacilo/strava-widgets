@@ -1,0 +1,73 @@
+{
+  "mechanism": "throttled",
+  "url": "https://bacilo.github.io/strava-widgets/",
+  "throttleMs": 1000,
+  "emulation": {
+    "offline": false,
+    "latencyMs": 1000,
+    "downloadThroughputBytesPerSec": 6400,
+    "uploadThroughputBytesPerSec": 6400
+  },
+  "timeOrigin": 1788530384796.4,
+  "firstPaintStartTime": 4512,
+  "pageState": {
+    "timeOrigin": 1788530384796.4,
+    "firstPaintStartTime": 4512,
+    "firstContentfulPaintStartTime": 9300,
+    "navResponseEnd": 1406.4000000003725,
+    "navDomInteractive": 1410.5999999996275,
+    "navLoadEventEnd": 9156.900000000373,
+    "navType": "navigate",
+    "dashboardTheme": "auto",
+    "prefersDark": true,
+    "dataTheme": "dark",
+    "bodyBackgroundColor": "rgb(26, 26, 46)",
+    "moduleScriptSrc": "./assets/index-D-Ts7X8C.js",
+    "title": "Overview — Strava Analytics"
+  },
+  "frames": [
+    {
+      "seq": 0,
+      "framePath": ".planning/phases/25-ci-hardening-light-theme-verification/capture/prod-C-1/frames/frame-000.png",
+      "timestampMs": 1788530384806.2651,
+      "t_since_navigation_ms": 9.865234375,
+      "beats_first_paint": true,
+      "colors": {
+        "topLeft": "rgb(18, 18, 18)",
+        "topRight": "rgb(18, 18, 18)",
+        "bottomLeft": "rgb(18, 18, 18)",
+        "bottomRight": "rgb(18, 18, 18)",
+        "center": "rgb(18, 18, 18)"
+      }
+    },
+    {
+      "seq": 1,
+      "framePath": ".planning/phases/25-ci-hardening-light-theme-verification/capture/prod-C-1/frames/frame-001.png",
+      "timestampMs": 1788530389298.141,
+      "t_since_navigation_ms": 4501.7412109375,
+      "beats_first_paint": true,
+      "colors": {
+        "topLeft": "rgb(26, 26, 45)",
+        "topRight": "rgb(26, 26, 45)",
+        "bottomLeft": "rgb(26, 26, 45)",
+        "bottomRight": "rgb(26, 26, 45)",
+        "center": "rgb(26, 26, 45)"
+      }
+    },
+    {
+      "seq": 2,
+      "framePath": ".planning/phases/25-ci-hardening-light-theme-verification/capture/prod-C-1/frames/frame-002.png",
+      "timestampMs": 1788530394084.5999,
+      "t_since_navigation_ms": 9288.199951171875,
+      "beats_first_paint": false,
+      "colors": {
+        "topLeft": "rgb(36, 36, 66)",
+        "topRight": "rgb(36, 36, 66)",
+        "bottomLeft": "rgb(26, 26, 45)",
+        "bottomRight": "rgb(26, 26, 45)",
+        "center": "rgb(26, 26, 45)"
+      }
+    }
+  ],
+  "captureErrors": []
+}

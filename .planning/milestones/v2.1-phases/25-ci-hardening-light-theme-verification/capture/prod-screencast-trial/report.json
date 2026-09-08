@@ -1,0 +1,53 @@
+{
+  "mechanism": "screencast",
+  "url": "https://bacilo.github.io/strava-widgets/",
+  "emulation": null,
+  "timeOrigin": 1788529808426.1,
+  "firstPaintStartTime": 1024,
+  "pageState": {
+    "timeOrigin": 1788529808426.1,
+    "firstPaintStartTime": 1024,
+    "firstContentfulPaintStartTime": 1024,
+    "navResponseEnd": 231.90000000037253,
+    "navDomInteractive": 238,
+    "navLoadEventEnd": 441,
+    "navType": "navigate",
+    "dashboardTheme": "auto",
+    "prefersDark": true,
+    "dataTheme": "dark",
+    "bodyBackgroundColor": "rgb(26, 26, 46)",
+    "moduleScriptSrc": "./assets/index-D-Ts7X8C.js",
+    "title": "Overview — Strava Analytics"
+  },
+  "frames": [
+    {
+      "seq": 0,
+      "framePath": ".planning/phases/25-ci-hardening-light-theme-verification/capture/prod-screencast-trial/frames/frame-000.png",
+      "timestampMs": 1788529808455.792,
+      "t_since_navigation_ms": 29.69189453125,
+      "beats_first_paint": true,
+      "colors": {
+        "topLeft": "rgb(18, 18, 18)",
+        "topRight": "rgb(18, 18, 18)",
+        "bottomLeft": "rgb(18, 18, 18)",
+        "bottomRight": "rgb(18, 18, 18)",
+        "center": "rgb(18, 18, 18)"
+      }
+    },
+    {
+      "seq": 1,
+      "framePath": ".planning/phases/25-ci-hardening-light-theme-verification/capture/prod-screencast-trial/frames/frame-001.png",
+      "timestampMs": 1788529809431.24,
+      "t_since_navigation_ms": 1005.139892578125,
+      "beats_first_paint": true,
+      "colors": {
+        "topLeft": "rgb(36, 36, 66)",
+        "topRight": "rgb(36, 36, 66)",
+        "bottomLeft": "rgb(26, 26, 45)",
+        "bottomRight": "rgb(26, 26, 45)",
+        "center": "rgb(36, 36, 66)"
+      }
+    }
+  ],
+  "captureErrors": []
+}

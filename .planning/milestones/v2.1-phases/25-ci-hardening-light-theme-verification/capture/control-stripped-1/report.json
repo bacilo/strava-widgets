@@ -1,0 +1,67 @@
+{
+  "mechanism": "screencast",
+  "url": "http://127.0.0.1:8902/",
+  "emulation": null,
+  "timeOrigin": 1788529923624.9,
+  "firstPaintStartTime": 348,
+  "pageState": {
+    "timeOrigin": 1788529923624.9,
+    "firstPaintStartTime": 348,
+    "firstContentfulPaintStartTime": 348,
+    "navResponseEnd": 11.900000000372529,
+    "navDomInteractive": 18.100000001490116,
+    "navLoadEventEnd": 37.5,
+    "navType": "navigate",
+    "dashboardTheme": "auto",
+    "prefersDark": true,
+    "dataTheme": "dark",
+    "bodyBackgroundColor": "rgb(26, 26, 46)",
+    "moduleScriptSrc": "./assets/index-D-Ts7X8C.js",
+    "title": "Overview — Strava Analytics"
+  },
+  "frames": [
+    {
+      "seq": 0,
+      "framePath": ".planning/phases/25-ci-hardening-light-theme-verification/capture/control-stripped-1/frames/frame-000.png",
+      "timestampMs": 1788529923650.711,
+      "t_since_navigation_ms": 25.81103515625,
+      "beats_first_paint": true,
+      "colors": {
+        "topLeft": "rgb(18, 18, 18)",
+        "topRight": "rgb(18, 18, 18)",
+        "bottomLeft": "rgb(18, 18, 18)",
+        "bottomRight": "rgb(18, 18, 18)",
+        "center": "rgb(18, 18, 18)"
+      }
+    },
+    {
+      "seq": 1,
+      "framePath": ".planning/phases/25-ci-hardening-light-theme-verification/capture/control-stripped-1/frames/frame-001.png",
+      "timestampMs": 1788529923960.9438,
+      "t_since_navigation_ms": 336.0439453125,
+      "beats_first_paint": true,
+      "colors": {
+        "topLeft": "rgb(36, 36, 66)",
+        "topRight": "rgb(36, 36, 66)",
+        "bottomLeft": "rgb(26, 26, 45)",
+        "bottomRight": "rgb(26, 26, 45)",
+        "center": "rgb(26, 26, 45)"
+      }
+    },
+    {
+      "seq": 2,
+      "framePath": ".planning/phases/25-ci-hardening-light-theme-verification/capture/control-stripped-1/frames/frame-002.png",
+      "timestampMs": 1788529923987.99,
+      "t_since_navigation_ms": 363.090087890625,
+      "beats_first_paint": false,
+      "colors": {
+        "topLeft": "rgb(36, 36, 66)",
+        "topRight": "rgb(36, 36, 66)",
+        "bottomLeft": "rgb(26, 26, 45)",
+        "bottomRight": "rgb(26, 26, 45)",
+        "center": "rgb(36, 36, 66)"
+      }
+    }
+  ],
+  "captureErrors": []
+}

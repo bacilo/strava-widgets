@@ -1,0 +1,73 @@
+{
+  "mechanism": "throttled",
+  "url": "https://bacilo.github.io/strava-widgets/",
+  "throttleMs": 1000,
+  "emulation": {
+    "offline": false,
+    "latencyMs": 1000,
+    "downloadThroughputBytesPerSec": 6400,
+    "uploadThroughputBytesPerSec": 6400
+  },
+  "timeOrigin": 1788530415188.8,
+  "firstPaintStartTime": 4280,
+  "pageState": {
+    "timeOrigin": 1788530415188.8,
+    "firstPaintStartTime": 4280,
+    "firstContentfulPaintStartTime": 8800,
+    "navResponseEnd": 1402.9000000003725,
+    "navDomInteractive": 1413.4000000003725,
+    "navLoadEventEnd": 8683,
+    "navType": "navigate",
+    "dashboardTheme": "auto",
+    "prefersDark": true,
+    "dataTheme": "dark",
+    "bodyBackgroundColor": "rgb(26, 26, 46)",
+    "moduleScriptSrc": "./assets/index-D-Ts7X8C.js",
+    "title": "Overview — Strava Analytics"
+  },
+  "frames": [
+    {
+      "seq": 0,
+      "framePath": ".planning/phases/25-ci-hardening-light-theme-verification/capture/prod-C-3/frames/frame-000.png",
+      "timestampMs": 1788530415205.941,
+      "t_since_navigation_ms": 17.140869140625,
+      "beats_first_paint": true,
+      "colors": {
+        "topLeft": "rgb(18, 18, 18)",
+        "topRight": "rgb(18, 18, 18)",
+        "bottomLeft": "rgb(18, 18, 18)",
+        "bottomRight": "rgb(18, 18, 18)",
+        "center": "rgb(18, 18, 18)"
+      }
+    },
+    {
+      "seq": 1,
+      "framePath": ".planning/phases/25-ci-hardening-light-theme-verification/capture/prod-C-3/frames/frame-001.png",
+      "timestampMs": 1788530419463.649,
+      "t_since_navigation_ms": 4274.848876953125,
+      "beats_first_paint": true,
+      "colors": {
+        "topLeft": "rgb(26, 26, 45)",
+        "topRight": "rgb(26, 26, 45)",
+        "bottomLeft": "rgb(26, 26, 45)",
+        "bottomRight": "rgb(26, 26, 45)",
+        "center": "rgb(26, 26, 45)"
+      }
+    },
+    {
+      "seq": 2,
+      "framePath": ".planning/phases/25-ci-hardening-light-theme-verification/capture/prod-C-3/frames/frame-002.png",
+      "timestampMs": 1788530423979.676,
+      "t_since_navigation_ms": 8790.8759765625,
+      "beats_first_paint": false,
+      "colors": {
+        "topLeft": "rgb(36, 36, 66)",
+        "topRight": "rgb(36, 36, 66)",
+        "bottomLeft": "rgb(26, 26, 45)",
+        "bottomRight": "rgb(26, 26, 45)",
+        "center": "rgb(26, 26, 45)"
+      }
+    }
+  ],
+  "captureErrors": []
+}

@@ -1,0 +1,59 @@
+{
+  "mechanism": "throttled",
+  "url": "http://127.0.0.1:8902/",
+  "throttleMs": 1000,
+  "emulation": {
+    "offline": false,
+    "latencyMs": 1000,
+    "downloadThroughputBytesPerSec": 6400,
+    "uploadThroughputBytesPerSec": 6400
+  },
+  "timeOrigin": 1788530053099.7,
+  "firstPaintStartTime": 8256,
+  "pageState": {
+    "timeOrigin": 1788530053099.7,
+    "firstPaintStartTime": 8256,
+    "firstContentfulPaintStartTime": null,
+    "navResponseEnd": 1407.2000000011176,
+    "navDomInteractive": 1422.800000000745,
+    "navLoadEventEnd": 0,
+    "navType": "navigate",
+    "dashboardTheme": null,
+    "prefersDark": true,
+    "dataTheme": null,
+    "bodyBackgroundColor": "rgb(255, 255, 255)",
+    "moduleScriptSrc": "./assets/index-D-Ts7X8C.js",
+    "title": "Training Dashboard — Strava Analytics"
+  },
+  "frames": [
+    {
+      "seq": 0,
+      "framePath": ".planning/phases/25-ci-hardening-light-theme-verification/capture/control-stripped-throttled-1/frames/frame-000.png",
+      "timestampMs": 1788530053117.947,
+      "t_since_navigation_ms": 18.2470703125,
+      "beats_first_paint": true,
+      "colors": {
+        "topLeft": "rgb(18, 18, 18)",
+        "topRight": "rgb(18, 18, 18)",
+        "bottomLeft": "rgb(18, 18, 18)",
+        "bottomRight": "rgb(18, 18, 18)",
+        "center": "rgb(18, 18, 18)"
+      }
+    },
+    {
+      "seq": 1,
+      "framePath": ".planning/phases/25-ci-hardening-light-theme-verification/capture/control-stripped-throttled-1/frames/frame-001.png",
+      "timestampMs": 1788530061346.748,
+      "t_since_navigation_ms": 8247.048095703125,
+      "beats_first_paint": true,
+      "colors": {
+        "topLeft": "rgb(255, 255, 255)",
+        "topRight": "rgb(255, 255, 255)",
+        "bottomLeft": "rgb(255, 255, 255)",
+        "bottomRight": "rgb(255, 255, 255)",
+        "center": "rgb(255, 255, 255)"
+      }
+    }
+  ],
+  "captureErrors": []
+}

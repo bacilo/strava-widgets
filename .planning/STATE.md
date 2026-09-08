@@ -1,27 +1,26 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.1
-milestone_name: Interface Polish
-status: Awaiting next milestone
-stopped_at: Milestone v2.1 Interface Polish archived; awaiting /gsd-new-milestone
-last_updated: "2026-09-05T06:03:18.844Z"
-last_activity: 2026-09-05 — Milestone v2.1 completed and archived
+milestone: v2.2
+milestone_name: Pace Data Quality
+status: planning
+last_updated: "2026-09-08T16:57:22.920Z"
+last_activity: 2026-09-08
 progress:
-  total_phases: 7
-  completed_phases: 7
-  total_plans: 103
-  completed_plans: 103
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-09-05)
+See: .planning/PROJECT.md (updated 2026-09-08)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** No active milestone — v2.1 shipped 2026-09-05. Run `/gsd-new-milestone` to define the next one.
+**Current focus:** v2.2 Pace Data Quality — make every derived pace figure honest (one gap-aware derivation, PR guards that actually bind, per-activity quality signals) without modifying a single committed stream.
 
 **Carried into the next milestone:**
 
@@ -31,6 +30,7 @@ See: .planning/PROJECT.md (updated 2026-09-05)
   Phase 24's WR-19 (`EACCES` out of `findCurationArtifacts`; fails closed), Phase 25's CR-01 (an
   unawaited CDP listener rejection leaks a Chrome child process out of `first-paint-capture.mjs`)
   plus WR-01..WR-04.
+
 - Two process fixes the v2.1 retrospective identifies as worth acting on rather than just recording:
   re-run verification after the gap-closure round it triggered (a stale `22-VERIFICATION.md` blocked
   this close for exactly that reason), and tick requirements after verification rather than before
@@ -38,22 +38,10 @@ See: .planning/PROJECT.md (updated 2026-09-05)
 
 ## Current Position
 
-Phase: Milestone v2.1 Interface Polish — COMPLETE and archived
-Plan: — (103 of 103 executed across phases 19-25)
-Status: Awaiting next milestone
-
-Closed 2026-09-05. All seven phases at `status: passed`, 25/25 requirements satisfied. Two artifacts
-were repaired during the close rather than archived wrong: `22-VERIFICATION.md` was stale
-(`gaps_found` 5/8, dated before the very Round 4 gap-closure it triggered) and was re-verified to
-`passed` 8/8 with each closure re-derived from source and mutation-tested; and `REQUIREMENTS.md`
-contradicted itself, recording CAL-01/CAL-02 as re-ticked while the phase-map rows still read
-"Pending".
-
-Archived to `milestones/v2.1-ROADMAP.md` and `milestones/v2.1-REQUIREMENTS.md`. `REQUIREMENTS.md`
-removed — `/gsd-new-milestone` creates a fresh one. No milestone audit was run for v2.1; the close
-rests on phase-level evidence. Retrospective started at `.planning/RETROSPECTIVE.md`.
-
-Last activity: 2026-09-05 — Milestone v2.1 completed and archived
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-09-08 — Milestone v2.2 started
 
 ## Performance Metrics
 
