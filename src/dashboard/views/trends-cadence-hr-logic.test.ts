@@ -36,6 +36,7 @@ function fixtureRow(
     excludedFromRecords: false,
     prCount: 0,
     gearName: null,
+    paceDisagreement: null,
     ...overrides,
   };
 }

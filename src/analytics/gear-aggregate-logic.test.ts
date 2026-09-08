@@ -24,6 +24,7 @@ function makeRow(overrides: Partial<DashboardIndexRow> & { id: string }): Dashbo
     excludedFromRecords: false,
     prCount: 0,
     gearName: null,
+    paceDisagreement: null,
     ...overrides,
   };
 }
