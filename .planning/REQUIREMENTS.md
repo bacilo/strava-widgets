@@ -38,8 +38,8 @@
 
 ### Honest coverage (COV)
 
-- [ ] **COV-01**: For any derived pace series, covered time plus excluded time — itemised by named exclusion category — sums exactly to the stream's elapsed time. Asserted by test, watched failing against the real defect before being trusted.
-- [ ] **COV-02**: Coverage is visible to the reader wherever a derived distribution is shown, not merely correct internally. The shipped histogram today claims its buckets sum to elapsed time while covering 72% of it on the worked example.
+- [x] **COV-01**: For any derived pace series, covered time plus excluded time — itemised by named exclusion category — sums exactly to the stream's elapsed time. Asserted by test, watched failing against the real defect before being trusted.
+- [x] **COV-02**: Coverage is visible to the reader wherever a derived distribution is shown, not merely correct internally. The shipped histogram today claims its buckets sum to elapsed time while covering 72% of it on the worked example.
 
 ### Per-activity quality signals (QUAL)
 
@@ -129,8 +129,8 @@ Filled during roadmap creation.
 | PACE-05 | Phase 26 | Complete |
 | PACE-06 | Phase 26 | Complete |
 | PACE-07 | Phase 26 | Complete |
-| COV-01 | Phase 26 | Pending (exactness verified; held open pending WR-01 adjudication, see 26-REVIEW.md) |
-| COV-02 | Phase 26 | Pending (gaps_found — caption gated behind buckets.length, see 26-VERIFICATION.md) |
+| COV-01 | Phase 26 | Complete (WR-01 adjudicated REACHABLE; invariant restated as the itemised identity `coveredSec === bucketedSec + unbucketedCoveredSec`, verified across the whole committed archive — 1,865 streams, zero identity violations, see 26-11-SUMMARY.md) |
+| COV-02 | Phase 26 | Complete (caption decoupled from `buckets.length`, regression-tested, and confirmed on screen for activity 11865310195 in Round 2 row R2-1, see 26-VALIDATION.md) |
 | QUAL-01 | Phase 27 | Pending |
 | QUAL-02 | Phase 27 | Pending |
 | QUAL-03 | Phase 27 | Pending |
