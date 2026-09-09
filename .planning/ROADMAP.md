@@ -147,7 +147,7 @@ Plans:
 
 **Wave 10** *(gap closure — 26-VERIFICATION.md re-verification `gaps_found`, CR-03, 2026-09-09)*
 
-- [ ] 26-14-PLAN.md — Collapse the pace chart band onto the shared adaptive derivation; delete the coverage-less wrapper and its two false contract comments; extend the single-source audit to the object-shorthand override and demonstrate it failing (PACE-01, PACE-03, PACE-04)
+- [x] 26-14-PLAN.md — Collapse the pace chart band onto the shared adaptive derivation; delete the coverage-less wrapper and its two false contract comments; extend the single-source audit to the object-shorthand override and demonstrate it failing (PACE-01, PACE-03, PACE-04)
 
 **Wave 11** *(blocked on Wave 10 completion)*
 
@@ -258,7 +258,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 13/13 | Complete    | 2026-08-27 |
 | 24. Local Curation Mode | v2.1 | 17/17 | Complete    | 2026-09-02 |
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 12/12 | Complete    | 2026-09-04 |
-| 26. Shared Gap-Aware Pace Derivation & Honest Coverage | v2.2 | 13/13 | Complete   | 2026-09-09 |
+| 26. Shared Gap-Aware Pace Derivation & Honest Coverage | v2.2 | 14/16 | In Progress|  |
 | 27. Per-Activity Quality Signals | v2.2 | 0/TBD | Not started | - |
 | 28. PR Plausibility Ceiling | v2.2 | 0/TBD | Not started | - |
 | 29. Curation Review Queue | v2.2 | 0/TBD | Not started | - |
