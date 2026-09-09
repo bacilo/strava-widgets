@@ -1,12 +1,13 @@
 ---
 phase: 26
 status: issues_found
-critical: 0
+critical: 1
 warning: 1
-info: 1
+info: 0
 reviewed: 2026-09-09
 verified_by_orchestrator: 2026-09-09
-critical_downgraded: [CR-01]
+critical_downgraded: []
+correction: "CR-01 downgrade RETRACTED 2026-09-09 — see Correction section"
 depth: standard
 ---
 
@@ -227,3 +228,48 @@ an advisory gate. Carried forward as open review debt rather than closed on asse
 
 The reviewer was instructed that the `Moving Time` disclosure gap was already logged by the Round 1
 browser checkpoint and did not duplicate it. It remains open in `26-VALIDATION.md`.
+
+
+---
+
+# CORRECTION — CR-01 downgrade retracted (2026-09-09)
+
+**The Info downgrade above is wrong and is retracted. CR-01 stands as Critical.**
+
+The reachability argument rested on a factual error. I probed reachability with the phase's
+`syntheticStandstillStream()` fixture, measured it at 100% covered, and then carried that
+"benign, nothing to disclose" character over to the real archive activity the scan found. Those are
+not the same stream, and the real one is not benign.
+
+`11865310195` has `t = [0, 1, 2, 14, 17, 18]`. The `2 -> 14` segment is a 12-second recording gap
+in an 18-second span:
+
+| Quantity | Value |
+|----------|-------|
+| spanSec | 18 |
+| coveredSec | 6 (**33%**) |
+| recordingGapSec | 12 (**67%**) |
+
+So this is not "an activity with no distance and no pace" whose absent card is the honest outcome.
+It is the archive's most gap-dominated stream by proportion, and `buildBreakdownSection` returns
+`null` for it — no heading, no caption, no disclosure of the 67% recording gap the code has already
+correctly computed. D-08's stated purpose is that an activity visibly states its own health rather
+than the reader inferring it from silence; this activity's health is exactly what the silence hides.
+
+**What survives from the retracted analysis, and what does not.**
+
+Still correct: the inverse direction (a distribution rendered *with* buckets but *without* a
+caption) is genuinely unreachable, because `derivePaceWithCoverage` never returns a null coverage
+and `detail.ts:747` is the sole call site. The `coverage !== null` ternary is dead code there.
+
+No longer load-bearing: that observation only rules out one of two failure directions. I treated it
+as though it disposed of the finding. It does not — the other direction is the one that fires, and
+it fires on real committed data today.
+
+Also wrong in the retracted section: leaning on `26-RESIDUAL.md`'s 50-sample floor as evidence the
+activity is negligible. That floor scopes which activities enter the *fast-mass residual cohort*; it
+says nothing about whether the detail view owes a reader disclosure, and I used it as if it did.
+
+**Disposition:** CR-01 is confirmed Critical and is the blocking gap in `26-VERIFICATION.md`
+(`status: gaps_found`). The fix and the missing regression test are specified in that report's
+`gaps:` array.
