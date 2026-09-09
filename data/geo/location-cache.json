@@ -86931,6 +86931,46 @@
       "cityName": "Herlev",
       "countryName": "Denmark",
       "countryIso2": "DK"
+    },
+    "55.7133,12.4596": {
+      "cityName": "Herlev",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.705,12.468": {
+      "cityName": "Vanløse",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.693,12.4999": {
+      "cityName": "Vanløse",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.6904,12.5166": {
+      "cityName": "Frederiksberg",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.6863,12.5353": {
+      "cityName": "Frederiksberg",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.6817,12.5546": {
+      "cityName": "Copenhagen",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.6748,12.5697": {
+      "cityName": "Copenhagen",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.6605,12.5909": {
+      "cityName": "Christianshavn",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
     }
   }
 }
