@@ -14,9 +14,10 @@ import {
   takeNotedActivityId,
   applyReturnHighlight,
   rowIdPrefix,
+  PACE_DISPUTED_BADGE_TEXT,
 } from './list.js';
 import type { RowSurface } from './list.js';
-import type { DashboardIndexRow } from '../../analytics/dashboard-index.types.js';
+import type { DashboardIndexRow, ParsedDashboardIndexRow } from '../../analytics/dashboard-index.types.js';
 
 /**
  * Minimal stub shape for the parts of `HTMLElement` `highlightAndFocus`
@@ -494,6 +495,68 @@ describe('activityRowAriaLabel — CR-02 badge text folded into the row anchor l
   it('always still starts with the activity name, so the fold cannot displace the curated base', () => {
     const row = baseRow({ lowConfidence: true, excludedFromRecords: true, prCount: 4, name: 'Evening Long Run' });
     expect(activityRowAriaLabel(row).startsWith('Evening Long Run,')).toBe(true);
+  });
+});
+
+/**
+ * A row shaped like a pre-Phase-26 (or partially-regenerated) parsed
+ * `index.json` entry: `paceDisagreement` genuinely ABSENT as a key, not set
+ * to an explicit `null`. Built by destructuring the key off a `baseRow()`
+ * result and typing the remainder through `ParsedDashboardIndexRow` — the
+ * type `dashboard-index.types.ts` ships for exactly this hazard — then
+ * asserted to `DashboardIndexRow` at the call boundary, mirroring what a
+ * real `index-client.ts` cast actually hands a consumer (CR-02). Passing
+ * `{ paceDisagreement: undefined }` as a `baseRow` override would NOT be a
+ * faithful reproduction — that is present-and-undefined, a different object
+ * shape from a parsed row that never carried the key at all. Every other
+ * fixture in this file sets the key to an explicit `null`, which is exactly
+ * why no test previously exercised the missing-key path.
+ */
+function rowMissingPaceDisagreement(): DashboardIndexRow {
+  const full: ParsedDashboardIndexRow = baseRow();
+  const { paceDisagreement, ...withoutKey } = full;
+  void paceDisagreement;
+  return withoutKey as DashboardIndexRow;
+}
+
+describe('CR-02 — a row whose index predates the paceDisagreement field produces no badge and no crash', () => {
+  it("the fixture helper's own row genuinely lacks the key (not present-and-undefined)", () => {
+    const row = rowMissingPaceDisagreement();
+    expect('paceDisagreement' in row).toBe(false);
+  });
+
+  it('statusBadgeTexts returns [] for the missing-key row, matching a clean explicit-null row', () => {
+    const row = rowMissingPaceDisagreement();
+    expect(statusBadgeTexts(row)).toEqual([]);
+    expect(statusBadgeTexts(row)).toEqual(statusBadgeTexts(baseRow()));
+  });
+
+  it('statusBadgeTexts does not contain PACE_DISPUTED_BADGE_TEXT for the missing-key row', () => {
+    const row = rowMissingPaceDisagreement();
+    expect(statusBadgeTexts(row)).not.toContain(PACE_DISPUTED_BADGE_TEXT);
+  });
+
+  it('activityRowAriaLabel contains no "Pace disputed" fragment for the missing-key row', () => {
+    const row = rowMissingPaceDisagreement();
+    expect(activityRowAriaLabel(row)).not.toContain('Pace disputed');
+  });
+
+  it('positive control: a row with a real PaceDisagreement still produces the badge and the aria-label fragment', () => {
+    const row = baseRow({
+      paceDisagreement: { streamPaceSecPerKm: 350.6, metadataPaceSecPerKm: 112.6, ratio: 3.11 },
+    });
+    expect(statusBadgeTexts(row)).toContain(PACE_DISPUTED_BADGE_TEXT);
+    expect(activityRowAriaLabel(row)).toContain('Pace disputed');
+  });
+
+  it('the strict `row.paceDisagreement !== null` form is absent from list.ts (comment-stripped)', () => {
+    const listSource = readFileSync(new URL('./list.ts', import.meta.url), 'utf8');
+    const stripped = stripComments(listSource);
+    const matches = stripped.match(/row\.paceDisagreement\s*!==\s*null/g) || [];
+    expect(
+      matches.length,
+      'row.paceDisagreement !== null must not appear in list.ts — undefined !== null is true, which is the CR-02 defect this block exists to close'
+    ).toBe(0);
   });
 });
 

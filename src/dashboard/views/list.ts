@@ -317,6 +317,24 @@ export function appendPaceDisputedBadge(
 }
 
 /**
+ * Resolves a row's `paceDisagreement` to `PaceDisagreement | null`, treating
+ * an absent key the same as an explicit `null` (CR-02). `data/dashboard/index.json`
+ * is a gitignored, separately-cached artifact — `ParsedDashboardIndexRow`'s
+ * own doc comment states that serialization plus re-parse does not carry
+ * the producer's required-key guarantee, so no key can be assumed present
+ * on the read side. `undefined !== null` is `true`, which is the exact
+ * defect this function exists to make unrepeatable: both the badge-TEXT
+ * decision (`statusBadgeTexts`) and the badge-APPEND decision
+ * (`appendStatusBadges`) must read through this one function so they cannot
+ * drift the way `list.ts:341` and `:380` did. Takes a `Pick<>` rather than
+ * the full row so this cannot quietly grow into a second row-interpretation
+ * site.
+ */
+export function rowPaceDisagreement(row: Pick<DashboardIndexRow, 'paceDisagreement'>): PaceDisagreement | null {
+  return row.paceDisagreement ?? null;
+}
+
+/**
  * The status-badge strings for one row, in render order — the single source
  * of truth `appendStatusBadges` iterates to build the visible `.badge`
  * spans and `activityRowAriaLabel` folds into the row anchor's `aria-label`
@@ -338,7 +356,7 @@ export function statusBadgeTexts(row: DashboardIndexRow): string[] {
     texts.push(LOW_CONFIDENCE_BADGE_TEXT);
   }
 
-  if (row.paceDisagreement !== null) {
+  if (rowPaceDisagreement(row) !== null) {
     texts.push(PACE_DISPUTED_BADGE_TEXT);
   }
 
@@ -374,11 +392,12 @@ export function statusBadgeTexts(row: DashboardIndexRow): string[] {
  * A future badge must be added HERE, not as a new per-surface call.
  */
 function appendStatusBadges(container: HTMLElement, row: DashboardIndexRow, idPrefix: string): void {
+  const disagreement = rowPaceDisagreement(row);
   for (const text of statusBadgeTexts(row)) {
     if (text === LOW_CONFIDENCE_BADGE_TEXT) {
       appendLowConfidenceBadge(container, idPrefix);
-    } else if (text === PACE_DISPUTED_BADGE_TEXT && row.paceDisagreement !== null) {
-      appendPaceDisputedBadge(container, idPrefix, row.paceDisagreement);
+    } else if (text === PACE_DISPUTED_BADGE_TEXT && disagreement !== null) {
+      appendPaceDisputedBadge(container, idPrefix, disagreement);
     } else {
       appendBadge(container, text);
     }
