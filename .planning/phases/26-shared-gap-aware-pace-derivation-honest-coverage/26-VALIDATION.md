@@ -1,8 +1,8 @@
 ---
 phase: 26
 slug: shared-gap-aware-pace-derivation-honest-coverage
-status: draft
-nyquist_compliant: false
+status: complete
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-09-08
 ---
@@ -265,27 +265,111 @@ is gitignored per `.gitignore:14`, so its regeneration produces no working-tree 
   would reproduce the ~4-minute-wide deltas PACE-07's problem statement describes (observable FAIL);
   a correct rebase produces small deltas and the disclosure note, both independently readable.
 
-### Verdict table (filled in during Task 2 — do not pre-fill)
+### Verdict table — Round 1, recorded 2026-09-09
+
+Session conducted against the re-verified served build (full gate re-run green on 2026-09-09; see
+"Pre-session automated gate" above, all six commands re-executed at HEAD `5743bbfd`). Every
+quotation below was supplied by the developer from the browser; none was inferred from an
+automated check, per Criterion 3.
 
 | Row | Requirement | Verdict | Verbatim quotation |
 |-----|-------------|---------|---------------------|
-| R1  | D-08/COV-02 | _(pending)_ | _(pending)_ |
-| R2  | D-09/PACE-05 | _(pending)_ | _(pending)_ |
-| R3  | D-11/PACE-07 | _(pending)_ | _(pending)_ |
-| R4  | D-11/PACE-07/D-12 | _(pending)_ | _(pending)_ |
-| R5  | D-11/PACE-07 | NOT EXERCISABLE (pre-recorded, see Row 5 above) | _(developer to confirm reasoning still holds, see instruction above)_ |
-| R6  | D-13/PACE-07 | _(pending)_ | _(pending)_ |
+| R1  | D-08/COV-02 | **PASS** | `99% of elapsed time covered · 1% recording gaps · 0% paused` |
+| R2  | D-09/PACE-05 | **PASS** | Pace cell: `18:38/km ⚠` · Legend: `Km 11: includes 11:29 of recording gap` |
+| R3  | D-11/PACE-07 | **PASS** | Badge: `Pace disputed — stream-derived 5:51/km` (big value attested unchanged against the pre-stated `1:53/km`) |
+| R4  | D-11/PACE-07/D-12 | **PASS** | `pace disputed` under Status; **position: 1** in the pace-sorted list |
+| R5  | D-11/PACE-07 | **NOT EXERCISABLE** (justified) | Reasoning re-confirmed against the served build — see below |
+| R6  | D-13/PACE-07 | **PASS** | `Splits above are compared against the stream-derived average (5:51/km), not the disputed metadata average.` |
+
+**R1 — Criterion 3 satisfaction.** The caption was read in the browser at the moment of
+observation and reconciled against an independent hand sum. The hand derivation was re-run
+fresh on 2026-09-09 from `data/streams/4556693525.json` by a throwaway script that does **not**
+import `src/analytics/pace-derivation.ts`: n=1682, `spanSec = t[1681] - t[0] = 3394`,
+`coveredSec=3363`, `recordingGapSec=31`, `pauseSec=0`, sum identity exact
+(3363+31+0 = 3394) → **99% / 1% / 0%**. The quoted caption equals the hand-derived values with
+zero rounding divergence.
+
+**R2 — PACE-05's "arithmetic is not changed" clause.** The flagged split's own pace reads
+`18:38/km`, identical to the pre-phase value recorded in Round 1's expected column. The marker
+adds a glyph; it did not alter the number.
+
+**R4 — D-12 non-suppression.** The row is present in the pace-sorted list at rank 1, matching the
+independently computed expectation (sorting the served index's 1889 numerically-paced activities
+ascending places `5059204779` at 112.6 s/km first; next fastest `7827165619` at 247.2). Position
+stated, not merely presence asserted.
+
+**R5 — NOT EXERCISABLE, re-confirmed 2026-09-09 against the served build** by reproducing
+`overview.ts`'s own selection logic rather than by eye (the browser extension was unavailable to
+the orchestrator; this row carries no read-in-the-browser clause, unlike R1):
+- `Recent PRs` = `rows.filter(r => r.prCount > 0).slice(0, 5)` → `7827165619, 6709874572,
+  5059213289, 4598855187, 4556693525`. `5059204779` carries `prCount: 0` — excluded by construction.
+- `Recent Activities` = `rows.slice(0, 10)` → ten `i18…` ids, all 2026. `5059204779`'s
+  `startDate` `2021-03-25T17:03:15Z` sits at date-descending position **1091 of 1890**.
+Both exclusions are structural and independent. Recorded as NOT EXERCISABLE with confirmation,
+never as a silent skip.
+
+---
+
+## Findings raised during Round 1 (not patched — gap-closure work, per the plan's own rule)
+
+No row failed. Both items below were surfaced by the developer during the session and are logged
+verbatim rather than fixed under checkpoint pressure, per this project's 16-09 / 17-15 / 19-05
+precedents.
+
+### F-26-01 — `Moving Time` renders the same corrupted metadata that `Pace disputed` discloses, without disclosure (candidate gap closure)
+
+Raised by the developer on R3: "The 'elapsed' time on splits ends at 1:03:08 (km 11) which seems
+about right. Why is the total then listed at 20:16?"
+
+The two figures reconcile exactly, and the reconciliation exposes an incomplete disclosure:
+
+| Figure | Value | Source |
+|--------|-------|--------|
+| Splits elapsed end (km 11) | 1:03:08 = **3788 s** | stream, `t[last] - t[0]` |
+| `Moving Time` stat card | 20:16 = **1216 s** | metadata `moving_time` |
+
+`3788 / 1216 = 3.115` — precisely the `paceDisagreement.ratio: 3.11` the badge reports. Distance
+(10804 m) is agreed by both sources, so `10804/1216 = 112.6` s/km (1:53/km, metadata) and
+`10804/3788 = 350.6` s/km (5:51/km, stream).
+
+`moving_time` is therefore the **root** corrupted quantity and pace is its derived symptom.
+`src/dashboard/views/detail.ts:634` renders the `Moving Time` tile via
+`formatDurationHms(movingTimeSec)` with no disclosure badge, immediately beside the `Pace` tile
+that does carry one. PACE-07's requirement text names `moving_time: 1216` explicitly as the
+defect's origin, so whether this falls inside PACE-07 or opens a successor requirement is a
+scoping decision for the next phase — it is **not** settled here.
+
+Evidence that this is a live reader-facing problem rather than a theoretical one: it confused the
+developer mid-checkpoint, on the very activity the phase built its disclosure around.
+
+Row R3 still passes on its own terms — the row asserted the big value stayed `1:53/km` and the
+badge rendered, and both held. This is a scope gap the row did not assert, not a row failure.
+
+### F-26-02 — thin outlier buckets at both tails of the pace histogram (deferred, non-blocking)
+
+Raised by the developer on R1, explicitly flagged "not a priority". On `4556693525` the
+distribution carries many 0.0-0.1 min buckets at both extremes — `1:30-1:45/km` through
+`3:00-3:15/km` at the fast tail, and `8:15-8:30/km` through `18:30-18:45/km` at the slow tail.
+These are genuine measured samples (that activity is 99% covered), not artefacts of a gap, so
+suppressing them is a display decision — trimming, merging tail buckets, or a percentile clamp —
+with its own honesty trade-off against COV-02's "coverage is visible to the reader" principle.
+Deferred; see `deferred-items.md`.
 
 ---
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 30s
-- [ ] All 8 demonstrated-failing cases staged and observed failing before their positive assertion
-- [ ] `nyquist_compliant: true` set in frontmatter
+Ticked by plan 26-10 Task 2 on 2026-09-09. Items marked `—` are plan-time validation-design
+properties owned by earlier plans in this phase; 26-10 does not tick what it did not verify.
 
-**Approval:** pending
+- [ ] — All tasks have `<automated>` verify or Wave 0 dependencies *(plan-time design; not re-audited by 26-10)*
+- [ ] — Sampling continuity: no 3 consecutive tasks without automated verify *(plan-time design; not re-audited by 26-10)*
+- [ ] — Wave 0 covers all MISSING references *(plan-time design; not re-audited by 26-10)*
+- [x] No watch-mode flags — verified 2026-09-09: `package.json` `test` is `vitest run`; the only watch entry is the separate opt-in `test:watch`, and `vitest.config.ts` sets no watch flag.
+- [x] Feedback latency < 30s — verified 2026-09-09: full suite `npm run test` completed in **12.03s** (1883 tests / 69 files).
+- [ ] — All 8 demonstrated-failing cases staged and observed failing before their positive assertion *(owned by plans 26-01…26-09; not re-audited by 26-10)*
+- [x] `nyquist_compliant: true` set in frontmatter — set, on the basis that all six Round 1 rows are PASS or a justified NOT EXERCISABLE, with no FAIL and no BLOCKED.
+
+**Approval:** Round 1 recorded and approved 2026-09-09 — five PASS, one justified NOT EXERCISABLE,
+zero FAIL, zero BLOCKED. Two findings (F-26-01, F-26-02) logged as gap-closure/deferred work
+rather than patched during the session.
