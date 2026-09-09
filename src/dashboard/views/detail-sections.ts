@@ -23,6 +23,7 @@ import type { PaceBucket, ZoneTime } from './detail-zones.js';
 import { formatPace, formatDurationHms, formatEffortDuration, appendBadge, appendLowConfidenceBadge } from './list.js';
 import type { BestEffortPanelRow } from './detail-best-efforts-logic.js';
 import type { PaceCoverage, GapInterval } from '../../analytics/pace-derivation.js';
+import { unbucketedCoveredSec } from '../../analytics/pace-derivation.js';
 
 // Same em dash as `DASH` in detail.ts. Defined locally rather than imported:
 // detail.ts imports THIS module, so importing back would create a cycle.
@@ -453,59 +454,150 @@ function buildHrZoneRows(zoneTimes: readonly ZoneTime[]): HTMLElement {
 }
 
 /**
+ * The pure render decision `buildBreakdownSection` renders (CR-01, D-08,
+ * COV-02). Extracted so the decision is behaviourally testable in this
+ * repository's node-environment vitest suite — there is no DOM-simulation
+ * dependency anywhere in the tree, so the DOM builder itself cannot be
+ * invoked in tests (see the header comment on `detail-sections.test.ts`).
+ * The same `*-logic` split this codebase already uses in
+ * `detail-charts-logic.ts`, `detail-best-efforts-logic.ts`, `list-logic.ts`,
+ * `calendar-logic.ts` and the `trends-*-logic.ts` modules.
+ */
+export interface BreakdownSectionPlan {
+  showPaceHeading: boolean;
+  captionText: string | null;
+  showBars: boolean;
+  noteText: string | null;
+  showHrZones: boolean;
+}
+
+/**
+ * Decides what `buildBreakdownSection` renders, given the same three inputs.
+ * Returns `null` when there is nothing to show at all — no coverage worth
+ * captioning, no buckets, no HR zones — so the caller appends nothing.
+ *
+ * The pace heading and its coverage caption (D-08, COV-02) are gated on
+ * `coverage` alone — NEVER on `buckets.length` — because `PaceCoverage` is
+ * computed independently by `classifyGaps` and can be well-defined and
+ * non-trivial when the histogram is empty. Real archive activity
+ * `11865310195` (CR-01) hits exactly this: `spanSec` 18, `coveredSec` 6
+ * (33%), yet `paceHistogramSamples` returns zero samples. Only the bars are
+ * gated on `buckets.length`. When covered time exists but produced fewer (or
+ * zero) bucketable seconds than `coverage.coveredSec` accounts for, `noteText`
+ * names the itemised shortfall via `unbucketedCoveredSec` (WR-01, plan
+ * 26-11) — never a re-derived or estimated figure — so the caption's
+ * percentage is never left silently overstating what the bars below it sum
+ * to. An archive-wide sweep (plan 26-11) found this is not a rare edge case:
+ * 44 of 1,865 activities carry `unbucketedCoveredSec > 0`, and 43 of those
+ * still render bars (`buckets.length > 0`) — only one (`11865310195`) has an
+ * entirely empty histogram. The note therefore renders in BOTH shapes: in
+ * place of the bars when there are none, and alongside the bars when there
+ * are some but they omit covered time.
+ */
+export function breakdownSectionPlan(
+  buckets: readonly PaceBucket[],
+  coverage: PaceCoverage | null,
+  zoneTimes: readonly ZoneTime[] | null
+): BreakdownSectionPlan | null {
+  const captionText = coverage !== null ? coverageCaptionText(coverage) : null;
+  const hasCoverage = captionText !== null;
+
+  if (!hasCoverage && buckets.length === 0 && zoneTimes === null) return null;
+
+  const unbucketedSec = coverage !== null ? unbucketedCoveredSec(coverage, buckets.map((b) => b.timeSec)) : 0;
+
+  let noteText: string | null = null;
+  if (hasCoverage && buckets.length === 0) {
+    noteText = `No pace buckets — ${formatEffortDuration(unbucketedSec)} of covered time produced no derivable pace.`;
+  } else if (hasCoverage && buckets.length > 0 && unbucketedSec > 0) {
+    noteText = `Bars below omit ${formatEffortDuration(unbucketedSec)} of covered time that produced no derivable pace.`;
+  }
+
+  return {
+    showPaceHeading: hasCoverage || buckets.length > 0,
+    captionText,
+    showBars: buckets.length > 0,
+    noteText,
+    showHrZones: zoneTimes !== null,
+  };
+}
+
+/**
  * Builds the pace-distribution / HR-zone breakdown section.
  *
  * Return contract:
- * - When `buckets` is empty AND `zoneTimes` is `null`, returns `null` — the
- *   caller appends nothing, so an activity with no stream at all produces no
- *   breakdown section rather than an empty card.
+ * - Returns `null` when `breakdownSectionPlan` returns `null` — a three-way
+ *   condition (CR-01 fix): there is no coverage worth captioning, no
+ *   buckets, AND no HR zones. An activity with no stream at all still
+ *   produces no breakdown section, but an activity with real, non-trivial
+ *   coverage and an empty histogram (e.g. `11865310195`) no longer
+ *   disappears the way it did before CR-01 was fixed.
  * - Otherwise returns a `<section class="card detail-section">` containing:
- *   - The always-on coverage caption (D-08, COV-02), immediately after the
- *     `Pace Distribution` heading and before the histogram bars, built from
- *     the SAME `coverage` the caller derived the histogram's `buckets`
- *     from — never a second, independently-computed value (D-16).
- *   - The pace histogram (D-29, always renders when there are buckets — it
- *     needs no configuration).
+ *   - The `Pace Distribution` heading and its coverage caption (D-08,
+ *     COV-02), which render whenever coverage is captionable —
+ *     INDEPENDENTLY of bucket presence — built from the SAME `coverage` the
+ *     caller derived the histogram's `buckets` from, never a second,
+ *     independently-computed value (D-16).
+ *   - An honest note, when covered time produced no bars, or produced fewer
+ *     bucketed seconds than `coverage.coveredSec` accounts for (WR-01):
+ *     naming the itemised shortfall via `unbucketedCoveredSec` rather than
+ *     showing a heading over emptiness or a caption that silently
+ *     overstates what the bars below it sum to.
+ *   - The histogram bars, gated ONLY on `buckets.length` — this is the one
+ *     piece of the pace half that bucket presence still controls.
  *   - The HR-zone panel, ADDITIONALLY and ONLY when `zoneTimes` is
  *     non-null. When `zoneTimes` is `null`, this half renders NOTHING — no
  *     heading, no empty box, no placeholder, no explanatory copy. Absence is
  *     the correct, spec-compliant outcome (D-31): the missing-HR situation
  *     is already communicated by the omitted HR chart band and the
- *     em-dashed stats tiles, so no "no HR data" message belongs here.
+ *     em-dashed stats tiles, so no "no HR data" message belongs here. This
+ *     half gains nothing from the CR-01/WR-01 fix above.
+ *
+ * Every render decision lives in `breakdownSectionPlan` — this function is a
+ * pure emitter over the plan it returns.
  */
 export function buildBreakdownSection(
   buckets: readonly PaceBucket[],
   coverage: PaceCoverage | null,
   zoneTimes: readonly ZoneTime[] | null
 ): HTMLElement | null {
-  if (buckets.length === 0 && zoneTimes === null) return null;
+  const plan = breakdownSectionPlan(buckets, coverage, zoneTimes);
+  if (plan === null) return null;
 
   const section = document.createElement('section');
   section.className = 'card detail-section';
 
-  if (buckets.length > 0) {
+  if (plan.showPaceHeading) {
     const heading = document.createElement('h2');
     heading.className = 'text-heading';
     heading.textContent = 'Pace Distribution';
     section.appendChild(heading);
 
-    const captionText = coverage !== null ? coverageCaptionText(coverage) : null;
-    if (captionText !== null) {
+    if (plan.captionText !== null) {
       const caption = document.createElement('p');
       caption.className = 'text-label';
-      caption.textContent = captionText;
+      caption.textContent = plan.captionText;
       section.appendChild(caption);
     }
 
-    section.appendChild(buildPaceDistributionRows(buckets));
+    if (plan.noteText !== null) {
+      const note = document.createElement('p');
+      note.className = 'text-label';
+      note.textContent = plan.noteText;
+      section.appendChild(note);
+    }
+
+    if (plan.showBars) {
+      section.appendChild(buildPaceDistributionRows(buckets));
+    }
   }
 
-  if (zoneTimes !== null) {
+  if (plan.showHrZones) {
     const heading = document.createElement('h2');
     heading.className = 'text-heading';
     heading.textContent = 'Heart Rate Zones';
     section.appendChild(heading);
-    section.appendChild(buildHrZoneRows(zoneTimes));
+    section.appendChild(buildHrZoneRows(zoneTimes as readonly ZoneTime[]));
   }
 
   return section;
