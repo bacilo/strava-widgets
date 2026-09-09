@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Pace Data Quality
 status: executing
-stopped_at: Phase 26 plan 13 complete — Round 2 checkpoint recorded, COV-01/COV-02 closed; phase execution-complete, awaiting re-verification
+stopped_at: Phase 26 re-verification returned gaps_found — CR-03: pace chart band still uses the fixed 20s window while histogram/caption use the adaptive one; phase REOPENED, needs gap closure
 last_updated: "2026-09-09T18:43:01.567Z"
 last_activity: 2026-09-09
 progress:
@@ -41,7 +41,7 @@ See: .planning/PROJECT.md (updated 2026-09-08)
 
 Phase: 26 (shared-gap-aware-pace-derivation-honest-coverage) — EXECUTION COMPLETE
 Plan: 13 of 13
-Status: All 13 plans executed and summarized; Round 2 human checkpoint recorded all four rows PASS, COV-01/COV-02 closed. Awaiting re-verification (`/gsd-verify-work 26`) per the verification-never-rerun-after-its-own-closure-round lesson before the phase gate closes.
+Status: All 13 plans executed and summarized; Round 2 human checkpoint recorded all four rows PASS, COV-01/COV-02 closed and CONFIRMED closed by re-verification. Re-verification (2026-09-09T19:00Z) then found a NEW gap and returned gaps_found — phase reopened in ROADMAP.md. Gap CR-03: `buildChannelSeries` (detail-charts-logic.ts:120) derives the pace chart band with the fixed 20s `PACE_SMOOTHING_WINDOW_SEC` while the histogram, caption and splits use `adaptiveWindowSec`; on exemplar 5059204779 the chart reads 94.81% fast-mass against the histogram's 1.22% in the same paint, re-entering the exact trap Criterion 1 exists to avoid. Two doc comments assert the two surfaces "cannot disagree" (false), and `pace-single-source.test.ts`'s OVERRIDE_LITERALS misses the ES2015 shorthand `{ windowSec, gapIntervals }` so the audit passes clean over a live override. Next: `/gsd-plan-phase 26 --gaps`.
 Last activity: 2026-09-09
 
 Progress: [██████████] 100%
@@ -221,7 +221,7 @@ It is named here because PROJECT.md's Evolution entry still describes it as open
 ## Session Continuity
 
 Last session: 2026-09-09T18:43:01.556Z
-Stopped at: Phase 26 plan 13 complete — Round 2 checkpoint recorded, COV-01/COV-02 closed; phase execution-complete, awaiting re-verification
+Stopped at: Phase 26 re-verification returned gaps_found — CR-03 chart-window override; phase REOPENED, needs gap closure via /gsd-plan-phase 26 --gaps
 Resume file: None
 
 ---

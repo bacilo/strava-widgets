@@ -80,7 +80,7 @@ times before this milestone, and there is no jsdom or headless browser in the re
 
 **Phase Numbering:** Continues from v2.1 (which ended at Phase 25). This milestone is Phases 26-30.
 
-- [x] **Phase 26: Shared Gap-Aware Pace Derivation & Honest Coverage** - One shared module replaces the two divergent pace formulas; coverage is exact and visible (execution complete 2026-09-09; verification's gaps_found — Criterion 3 / D-08 / COV-02 — closed by plan 26-13's Round 2 human checkpoint, all four rows PASS, see 26-VALIDATION.md) (completed 2026-09-09)
+- [ ] **Phase 26: Shared Gap-Aware Pace Derivation & Honest Coverage** - One shared module replaces the two divergent pace formulas; coverage is exact and visible (13/13 plans executed 2026-09-09; the Criterion 3 / D-08 / COV-02 gap IS closed by plan 26-13's Round 2 human checkpoint, all four rows PASS, see 26-VALIDATION.md; REOPENED 2026-09-09 by re-verification — new gap CR-03: the pace chart band still derives with the fixed 20s window while the histogram/caption use the adaptive one, defeating Criteria 1/4/5 on the phase's own exemplar 5059204779, see 26-VERIFICATION.md)
 - [ ] **Phase 27: Per-Activity Quality Signals** - Device-era-aware, severity-tiered quality signals computed in CI, disclosed individually as badges
 - [ ] **Phase 28: PR Plausibility Ceiling** - Three-pass restructure of `compute-best-efforts.ts` derives a personal ceiling and demotes-never-deletes implausible efforts
 - [ ] **Phase 29: Curation Review Queue** - Local curation mode gains a queue for ceiling-flagged efforts, reusing the existing exclusion write path
