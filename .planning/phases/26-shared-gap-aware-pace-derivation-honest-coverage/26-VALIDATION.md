@@ -77,6 +77,9 @@ case below must be staged and observed failing **before** its positive assertion
 | 8 | Archive sweep re-run against the unfixed per-sample path | Baseline fast-mass values reproduce, confirming the "after" comparison is real | Crit 1 · PACE-04/06 |
 | 9 | (26-11, plan 26-11's Task 1) The documented `sum(timeSec) === coverage.coveredSec` invariant asserted against the zero-net-advance `covered` segment flanked by two `recording-gap`s | Watched failing twice, verbatim vitest output (`pace-derivation.test.ts`): `FAIL … demonstrated-failing: the documented invariant is FALSE on the synthetic shape (0 vs 2)` / `AssertionError: expected +0 to be 2` and `FAIL … demonstrated-failing: the documented invariant is FALSE on real archive activity 11865310195 (0 vs 6)` / `AssertionError: expected +0 to be 6` | Crit 3 · COV-01 |
 | 10 | (26-12, plan 26-12's Task 1) The coverage caption gated behind `buckets.length` | Watched failing twice, verbatim vitest output (`detail-sections.test.ts`, `breakdownSectionPlan — D-08 always-on coverage caption (CR-01 regression)`): `renders the pace heading and caption for real activity 11865310195 even though its histogram is empty, from a hand-built fixture` / `AssertionError: expected null not to be null` and `renders the same caption from the real committed stream 11865310195, not just a synthetic look-alike` / `AssertionError: expected null not to be null` — `buildBreakdownSection([], coverage, null)` returned `null` for an activity with 33% covered / 67% recording gaps | Crit 3 · COV-02 |
+| 11 | (26-14, plan 26-14's Task 1 RED) The pace chart band's `buildChannelSeries` output compared index-for-index against `derivePaceWithCoverage(stream).paceSeries` on `5059204779` | Watched failing (3 of 5 tests red), verbatim vitest transcript quoted in `26-14-SUMMARY.md`: at the first sample where both series are non-null, `t=175: chart (fixed-20s) y=66.45 s/km   vs   histogram (derivePaceWithCoverage, adaptive-150s) y=498.34 s/km`; the equality assertion failed with `expected [ …(578) ] to deeply equal [ …(1841) ]`; the fast-mass assertion failed with `expected 93.63 to be less than 0.01` | Crit 1/5 · PACE-01 |
+| 12 | (26-15, plan 26-15's Task 1 RED) `statusBadgeTexts` on a dashboard-index row with the `paceDisagreement` key genuinely absent | Watched failing (4 of 6 assertions), verbatim vitest transcript quoted in `26-15-SUMMARY.md`: `FAIL src/dashboard/views/list.test.ts > CR-02 — a row whose index predates the paceDisagreement field produces no badge and no crash > statusBadgeTexts returns [] for the missing-key row, matching a clean explicit-null row` / `AssertionError: expected [ 'Pace disputed' ] to deeply equal []`; a separate built-output reproduction threw `TypeError: Cannot read properties of undefined (reading 'streamPaceSecPerKm')` at `paceDisputedExplanation` | PACE-07 · CR-02 |
+| 13 | (26-14, plan 26-14's Task 3) The extended single-source audit's real-tree plant, `src/dashboard/views/planted-fixed-window.ts` | Watched failing, verbatim vitest transcript quoted in `26-14-SUMMARY.md`: `× override containment: clipAtGaps / windowSec (colon, comma and shorthand-close forms) / pauseRule / any derivePaceSeriesGapAware( call site appear only in pace-derivation.ts or *.test.ts files` / `AssertionError: override literals found outside pace-derivation.ts/*.test.ts: [{"path":"src/dashboard/views/planted-fixed-window.ts","literal":"windowSec,"},{"path":"src/dashboard/views/planted-fixed-window.ts","literal":"derivePaceSeriesGapAware("}]` | Crit 4 · PACE-01 |
 
 ---
 
@@ -622,3 +625,441 @@ recorded verdicts above.
 Every quotation in the verdict table and its per-row narrative above came verbatim from the
 developer's message reporting what they read in the browser; no verdict was inferred from an
 automated check.
+
+---
+
+## Round 3 Checkpoint (R3-1..R3-4)
+
+Confirms CR-03 (chart band overriding the adaptive window) and CR-02 (a stale `index.json`
+missing `paceDisagreement` producing a false badge/crash) closed, on a real rendered page. Session
+prepared 2026-09-09 by plan `26-16`, Task 1.
+
+### Pre-session automated gate (all exited 0, run against the live tree before serving, 2026-09-09)
+
+| # | Command | Exit code | Notes |
+|---|---------|-----------|-------|
+| 1 | `npm run test` | `0` | 69 test files, **1907/1907** tests passed |
+| 2 | `npx tsc --noEmit` | `0` | clean |
+| 3 | `npm run build` | `0` | clean |
+| 4 | `npm run compute-dashboard-index` | `0` | 1890 indexed, 1865 with streams, pace disagreements flagged: 1 (unchanged, `git status --short data/` empty afterward) |
+| 5 | `npm run build-widgets` | `0` | clean; private-artifact scan and curation-artifact scan both clean |
+| 6 | `npm run verify-dashboard` | `0` | **56 check(s) passed, 0 failure(s)** |
+
+`git status --porcelain data/streams` — empty. The committed stream archive read by the
+independent-derivation script below is byte-identical to what `dist/analytics` and
+`dist/dashboard` were built from in gate step 3.
+
+### Served build (defeats the staged-build cache trap — T-26-39)
+
+Served via `nohup npm run curate > /tmp/gsd-26-serve.log 2>&1 &`. Served root named in
+`scripts/curate-server.mjs`: `const ROOT = resolve(process.cwd(), 'dist/widgets')`, mounted at
+`MOUNT_PREFIX = '/strava-widgets'` on `CURATE_PORT = 4173` — i.e.
+`http://127.0.0.1:4173/strava-widgets/` serves `dist/widgets`, a BUILD OUTPUT tree, never the
+repo's `data/` directory directly.
+
+`curl` against the SERVED path (not the repo file), recorded verbatim:
+
+```
+$ curl -s http://127.0.0.1:4173/strava-widgets/data/streams/5059204779.json | head -c 120
+{
+  "schemaVersion": 1,
+  "id": "5059204779",
+  "source": "fit",
+  "distanceSource": "native",
+  "sampleCount": 1893,
+```
+
+The `head -c 120` window lands inside this stream's JSON header (`schemaVersion`/`id`/etc.) rather
+than the `t` array body, which appears later in the object — but it proves the served bytes are
+`5059204779`'s own file (id matches, byte-identical to the repo file's own first 120 bytes,
+confirmed separately). The `t` array's own leading values, read by parsing the full served
+response, are `[0, 7, 9, 11, 13, 15, 17, 19, 21, 23]`.
+
+The served `data/dashboard/index.json`, BEFORE doctoring, carries the `5059204779` row with a
+non-null `paceDisagreement`:
+
+```json
+{
+  "id": "5059204779",
+  ...
+  "paceDisagreement": {
+    "streamPaceSecPerKm": 350.6,
+    "metadataPaceSecPerKm": 112.6,
+    "ratio": 3.11
+  },
+  "gearName": "Shoe 6"
+}
+```
+
+`sha256sum` of the ORIGINAL `dist/widgets/data/dashboard/index.json`, recorded before any
+doctoring — **R3-4 restores to this exact digest**:
+
+```
+b15943de4f21d91894795cde7e48951f05648ea15e6f194b68de4468e7a998da  dist/widgets/data/dashboard/index.json
+```
+
+### Setup instructions (read before every row)
+
+1. Keep the browser viewport within the **500-941 px** band.
+2. **Hard reload** (Cmd+Shift+R, or disable cache in DevTools) before starting, and again after
+   any rebuild or fixture edit — staged builds in this project have served a stale `index.html`/
+   `index.json` before (T-26-39).
+3. R3-1 and R3-3 need this exact console snippet, pasted BEFORE the band re-renders (a full page
+   reload discards a prototype patch; a hash-route change does not):
+
+```js
+window.__ticks = [];
+const _origFillText = CanvasRenderingContext2D.prototype.fillText;
+CanvasRenderingContext2D.prototype.fillText = function (text, ...rest) {
+  window.__ticks.push(text);
+  return _origFillText.apply(this, [text, ...rest]);
+};
+```
+
+   After pasting, navigate to `#/list` and back to the target `#/activity/<id>` so the bands
+   redraw under the patch, then evaluate and quote:
+
+```js
+[...new Set(window.__ticks.filter((s) => /^\d+:\d{2}\/km$/.test(s)))]
+```
+
+   The x-axis tick format is `M:SS` (time mode) or `N.N km` (distance mode) — neither matches the
+   anchored `/^\d+:\d{2}\/km$/` regex, so it cleanly isolates the pace y-axis. The tooltip label
+   reads `Pace: M:SS/km`, which also does not match the anchored regex.
+
+### Independent-derivation script and verbatim output
+
+Script (`round3-derive.mjs`, throwaway, run from the repo root with `dist/analytics/` and
+`dist/dashboard/views/*.js` imported as built by gate step 3 above; reads
+`data/streams/5059204779.json` and `data/streams/4556693525.json` directly — **does not** import
+any pre-computed table from this plan):
+
+```js
+import fs from 'node:fs';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+const ROOT = '/Users/pedf/workspace/strava-widgets';
+
+const { derivePaceWithCoverage, adaptiveWindowSec, PACE_WINDOW_FLOOR_SEC } = await import(
+  pathToFileURL(path.join(ROOT, 'dist/analytics/pace-derivation.js')).href
+);
+const { computePaceDistribution } = await import(
+  pathToFileURL(path.join(ROOT, 'dist/dashboard/views/detail-zones.js')).href
+);
+const { buildChannelSeries } = await import(
+  pathToFileURL(path.join(ROOT, 'dist/dashboard/views/detail-charts-logic.js')).href
+);
+const { computeSplits } = await import(
+  pathToFileURL(path.join(ROOT, 'dist/dashboard/views/detail-splits.js')).href
+);
+
+function formatPace(secPerKm) {
+  if (!Number.isFinite(secPerKm) || secPerKm <= 0) return '—';
+  const total = Math.round(secPerKm);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${String(s).padStart(2, '0')}/km`;
+}
+function loadStream(id) {
+  return JSON.parse(fs.readFileSync(path.join(ROOT, 'data/streams', id + '.json'), 'utf8'));
+}
+function median(arr) {
+  const s = [...arr].sort((a, b) => a - b);
+  const n = s.length;
+  if (n === 0) return NaN;
+  const mid = Math.floor(n / 2);
+  return n % 2 === 0 ? (s[mid - 1] + s[mid]) / 2 : s[mid];
+}
+
+function analyzeActivity(id) {
+  console.log('=== Activity', id, '===');
+  const stream = loadStream(id);
+  const t = stream.t, d = stream.d;
+  const aw = adaptiveWindowSec(t, d);
+  console.log('adaptiveWindowSec:', aw);
+  const adaptive = derivePaceWithCoverage(stream);
+  const floor = derivePaceWithCoverage(stream, { windowSec: PACE_WINDOW_FLOOR_SEC });
+
+  function seriesStats(res, label) {
+    const vals = res.paceSeries.filter((v) => v !== null && Number.isFinite(v) && v > 0);
+    if (vals.length === 0) { console.log(label, '— no non-null samples'); return null; }
+    const min = Math.min(...vals), max = Math.max(...vals), med = median(vals);
+    console.log(label, 'windowSec=' + res.windowSec, 'n=' + vals.length,
+      'min=' + formatPace(min) + ' (' + min.toFixed(1) + 's/km)',
+      'median=' + formatPace(med) + ' (' + med.toFixed(1) + 's/km)',
+      'max=' + formatPace(max) + ' (' + max.toFixed(1) + 's/km)');
+    return { min, max, med, vals };
+  }
+  const adaptiveStats = seriesStats(adaptive, 'ADAPTIVE (post-fix chart)');
+  const floorStats = seriesStats(floor, 'FIXED-20s (pre-fix chart)');
+
+  const dist = computePaceDistribution(adaptive, t);
+  console.log('Histogram bucket count:', dist.length,
+    'first:', dist[0] ? dist[0].label : 'NONE',
+    'last:', dist.length ? dist[dist.length - 1].label : 'NONE');
+
+  function fastFractionDirect(res, denomLabel) {
+    const vals = res.paceSeries;
+    let fastDt = 0, totalDt = 0;
+    for (let i = 1; i < t.length; i++) {
+      const dt = t[i] - t[i - 1];
+      if (dt <= 0) continue;
+      const v = vals[i];
+      if (v === null || !Number.isFinite(v)) continue;
+      totalDt += dt;
+      if (v < 180) fastDt += dt;
+    }
+    const frac = totalDt > 0 ? fastDt / totalDt : NaN;
+    console.log('Fast-mass <180s/km (' + denomLabel + '):', (frac * 100).toFixed(2) + '%',
+      'fastDt=' + fastDt, 'totalDt(denominator=sum of dt across non-null samples in this series)=' + totalDt);
+    return frac;
+  }
+  fastFractionDirect(adaptive, 'adaptive window');
+  fastFractionDirect(floor, 'fixed-20s floor window');
+
+  const seriesTime = buildChannelSeries(stream, 'pace', 'time');
+  const seriesDistance = buildChannelSeries(stream, 'pace', 'distance');
+  const splits = computeSplits(stream);
+  console.log('Totality: buildChannelSeries(time) len=' + seriesTime.length,
+    'buildChannelSeries(distance) len=' + seriesDistance.length,
+    'derivePaceWithCoverage paceSeries len=' + adaptive.paceSeries.length,
+    'computePaceDistribution buckets=' + dist.length,
+    'computeSplits len=' + splits.length);
+
+  if (floorStats) console.log('Pre-fix (fixed-20s) extent max = ' + floorStats.max.toFixed(1) + 's/km = ' + formatPace(floorStats.max) + ' -> no Chart.js tick above this can appear pre-fix');
+  if (adaptiveStats) console.log('Post-fix (adaptive) extent max = ' + adaptiveStats.max.toFixed(1) + 's/km = ' + formatPace(adaptiveStats.max) + ' -> Chart.js must place a tick at/above this region post-fix');
+}
+
+analyzeActivity('5059204779');
+console.log('');
+analyzeActivity('4556693525');
+```
+
+Verbatim output:
+
+```
+=== Activity 5059204779 ===
+adaptiveWindowSec: 150
+ADAPTIVE (post-fix chart) windowSec=150 n=1841 min=2:27/km (147.1s/km) median=5:40/km (340.1s/km) max=17:29/km (1049.0s/km)
+FIXED-20s (pre-fix chart) windowSec=20 n=578 min=0:30/km (30.5s/km) median=1:58/km (118.3s/km) max=4:27/km (266.7s/km)
+Histogram bucket count: 36 first: 2:15–2:30/km last: 17:15–17:30/km
+Fast-mass <180s/km (adaptive window): 1.22% fastDt=45 totalDt(denominator=sum of dt across non-null samples in this series)=3681
+Fast-mass <180s/km (fixed-20s floor window): 94.81% fastDt=1095 totalDt(denominator=sum of dt across non-null samples in this series)=1155
+Totality: buildChannelSeries(time) len=1841 buildChannelSeries(distance) len=1841 derivePaceWithCoverage paceSeries len=1893 computePaceDistribution buckets=36 computeSplits len=11
+Pre-fix (fixed-20s) extent max = 266.7s/km = 4:27/km -> no Chart.js tick above this can appear pre-fix
+Post-fix (adaptive) extent max = 1049.0s/km = 17:29/km -> Chart.js must place a tick at/above this region post-fix
+
+=== Activity 4556693525 ===
+adaptiveWindowSec: 20
+ADAPTIVE (post-fix chart) windowSec=20 n=1682 min=1:35/km (95.2s/km) median=5:45/km (344.8s/km) max=18:31/km (1111.1s/km)
+FIXED-20s (pre-fix chart) windowSec=20 n=1682 min=1:35/km (95.2s/km) median=5:45/km (344.8s/km) max=18:31/km (1111.1s/km)
+Histogram bucket count: 52 first: 1:30–1:45/km last: 18:30–18:45/km
+Fast-mass <180s/km (adaptive window): 2.42% fastDt=82 totalDt(denominator=sum of dt across non-null samples in this series)=3394
+Fast-mass <180s/km (fixed-20s floor window): 2.42% fastDt=82 totalDt(denominator=sum of dt across non-null samples in this series)=3394
+Totality: buildChannelSeries(time) len=1682 buildChannelSeries(distance) len=1682 derivePaceWithCoverage paceSeries len=1682 computePaceDistribution buckets=52 computeSplits len=11
+Pre-fix (fixed-20s) extent max = 1111.1s/km = 18:31/km -> no Chart.js tick above this can appear pre-fix
+Post-fix (adaptive) extent max = 1111.1s/km = 18:31/km -> Chart.js must place a tick at/above this region post-fix
+```
+
+A supplementary probe (same script, extended) confirms `5059204779`'s modal histogram bar and full
+coverage, independent of the planner's stated figures:
+
+```
+modal bucket: 5:00–5:15/km 444s
+spanSec: 3788
+coverage: {"spanSec":3788,"coveredSec":3788,"recordingGapSec":0,"pauseSec":0,"gapIntervals":[]}
+```
+
+**Reproduction against the planner's `<interfaces>` table: every figure reproduced exactly** —
+`adaptiveWindowSec` (150 / 20-floor), adaptive extent (`2:27/km → 17:29/km`, median `5:40/km`;
+`1:35/km → 18:31/km` identical under both windows), fixed-20s extent (`0:30/km → 4:27/km`, median
+`1:58/km`), histogram bar counts and first/last labels (36 bars `2:15–2:30/km`/`17:15–17:30/km`;
+52 bars `1:30–1:45/km`/`18:30–18:45/km`), modal bucket (`5:00–5:15/km` at 444s) and span (3,788s,
+fully covered). No figure differed materially; no discriminating margin collapsed. Fast-mass
+denominator, stated explicitly: **the sum of real `Δt` across all non-null samples in the series
+under test** (`totalDt` above) — 1.22% / 94.81% for `5059204779` (adaptive / fixed-20s), 2.42% /
+2.42% for `4556693525` (identical because its adaptive window resolves to the 20s floor).
+
+### Failability of the discriminators (pinned before any human looks)
+
+**R3-1 (largest tick, activity `5059204779`).** Pre-fix, the entire plotted extent tops out at
+`266.7 sec/km` — no Chart.js tick can be placed above `5:00/km`. Post-fix, the extent reaches
+`1,049.0 sec/km` — Chart.js must place its largest tick at or above `15:00/km` to cover that range.
+FAIL condition: the largest captured tick is `5:00/km` or faster.
+
+**R3-2 (tooltip, activity `5059204779`).** Pre-fix, the series median is `1:58/km` (118.3 s/km) and
+its fastest sample `0:30/km` (30.5 s/km) — most of five spread-out hover points would read faster
+than `2:27/km`. Post-fix, the fastest sample in the series is `2:27/km` (147.1 s/km) by
+construction — no hover can read faster. FAIL condition: any quoted tooltip value faster than
+`2:27/km`.
+
+**R3-3 (regression control, activity `4556693525`).** Both windows produce an identical
+`1,111.1 sec/km` extent (`18:31/km`) because this activity's adaptive window resolves to the 20s
+floor — the row is expected to PASS under both pre-fix and post-fix code and is not a
+discriminator.
+
+**R3-4 (stale index, CR-02).** Pre-fix (pre-26-15) reproduction from `26-REVIEW.md`: every row
+with the key absent produced the `Pace disputed` badge and `paceDisputedExplanation` threw
+`TypeError: Cannot read properties of undefined (reading 'streamPaceSecPerKm')`. Post-fix
+(26-15's `rowPaceDisagreement`), the absent key resolves to `null` at both call sites. FAIL
+condition: every row carries the badge, or the list is blank, or that `TypeError` appears.
+
+### Totality check (confirms nothing throws before a human is asked to look)
+
+From the independent-derivation script's own totality line, for both activities:
+`buildChannelSeries(stream, 'pace', 'time')`, `buildChannelSeries(stream, 'pace', 'distance')`,
+`derivePaceWithCoverage`, `computePaceDistribution` and `computeSplits` all returned without
+throwing, all non-empty:
+
+- `5059204779`: `buildChannelSeries(time)=1841`, `buildChannelSeries(distance)=1841`,
+  `derivePaceWithCoverage.paceSeries=1893`, `computePaceDistribution buckets=36`,
+  `computeSplits=11`.
+- `4556693525`: `buildChannelSeries(time)=1682`, `buildChannelSeries(distance)=1682`,
+  `derivePaceWithCoverage.paceSeries=1682`, `computePaceDistribution buckets=52`,
+  `computeSplits=11`.
+
+No row below is unsatisfiable for an unrelated reason — both detail pages render, and `#/list`
+(exercised separately for R3-4) is unaffected by either activity's data.
+
+### R3-4 fixture, staged now (not during the session)
+
+`dist/widgets/data/dashboard/index.json` copied aside (original digest above), then doctored: every
+row's `paceDisagreement` key **deleted** (`delete row.paceDisagreement`, not set to `null`) — 1890
+of 1890 rows carried the key before deletion, all 1890 had it removed.
+
+`sha256sum` of the DOCTORED file:
+
+```
+0f914382bd3732979047f4fa05d41a2af6169fb675b30e11838537292ecbda22  dist/widgets/data/dashboard/index.json
+```
+
+`curl` of the served doctored path, proving the key is gone and the row count is unchanged:
+
+```
+$ curl -s http://127.0.0.1:4173/strava-widgets/data/dashboard/index.json | node -e "... count rows with 'paceDisagreement' in a ..."
+served row count: 1890 rows still carrying paceDisagreement key: 0
+$ curl -s http://127.0.0.1:4173/strava-widgets/data/dashboard/index.json | sha256sum
+0f914382bd3732979047f4fa05d41a2af6169fb675b30e11838537292ecbda22  -
+```
+
+The served digest matches the on-disk doctored digest exactly. Restoration is a rebuild
+(`npm run build-widgets`), verified in Task 2 against the ORIGINAL digest recorded above, not a
+hand edit.
+
+### R3-1 — CR-03 discriminator, activity `5059204779`, chart-vs-histogram extent against an independently derived value
+
+**Where:** `http://127.0.0.1:4173/strava-widgets/#/activity/5059204779`, the Pace chart band and
+the `Pace Distribution` DOM list on the same page.
+
+**Procedure:** paste the fillText-patch snippet above, navigate to `#/list` and back to
+`#/activity/5059204779`, then evaluate
+`[...new Set(window.__ticks.filter((s) => /^\d+:\d{2}\/km$/.test(s)))]` and quote the printed
+array. Separately quote the FIRST and LAST bar labels from the DOM `Pace Distribution` list.
+
+**Expected:** the captured tick array's largest value is at least `15:00/km`; the histogram's first
+and last bar labels are `2:15–2:30/km` and `17:15–17:30/km` (independently re-derived above); the
+chart's largest tick and the histogram's last bar both bracket the independently derived series
+maximum of `17:29/km` (1,049.0 s/km).
+
+**This row does NOT merely ask whether the two surfaces agree with each other — it pins both to
+`17:29/km`, computed from the committed stream file outside the code under test**, per this
+project's own "checkpoint rows must assert extent" lesson.
+
+**FAIL:** the largest captured tick is `5:00/km` or faster — the signature of the fixed-20s series,
+whose whole extent tops out at `4:27/km`.
+
+**Both-direction note:** failable (the pre-fix chart's fixed-20s series cannot produce a tick above
+`5:00/km` — its whole extent is `266.7 sec/km`) and passable (the post-fix extent reaches
+`1,049.0 sec/km`, so Chart.js must place a tick at or above `15:00/km`).
+
+### R3-2 — CR-03 fast end, activity `5059204779`, tooltip readout
+
+**Where:** same page, hovering the Pace chart band.
+
+**Procedure:** hover at roughly five positions spread across the band's width; quote each
+tooltip's `Pace: M:SS/km` value verbatim.
+
+**Expected:** no quoted value is faster than `2:27/km` (the independently derived fastest sample in
+the 150s adaptive series); most cluster around `5:40/km` (its median).
+
+**FAIL:** any quoted value faster than `2:27/km`.
+
+**Both-direction note:** failable (pre-fix the series median is `1:58/km` and its fastest sample
+`0:30/km`, so most hover points would violate it) and passable (post-fix no value faster than
+`2:27/km` exists in the series by construction). Requires a real pointer gesture — not reachable
+from an automated check; a human is required.
+
+### R3-3 — no-regression control, activity `4556693525`
+
+**Where:** `http://127.0.0.1:4173/strava-widgets/#/activity/4556693525`, same tick-capture snippet
+and the `Pace Distribution` DOM list.
+
+**Expected:** the captured tick array's largest value is at least `15:00/km` (extent reaches
+`18:31/km` under BOTH windows, since this activity's adaptive window resolves exactly to the 20s
+floor); the histogram still shows 52 bars, first label `1:30–1:45/km`, last label `18:30–18:45/km`
+(independently re-derived above).
+
+**FAIL:** the chart or the histogram differs from the pre-fix state in any way.
+
+**Both-direction note: this row is a REGRESSION CONTROL, not a discriminator — it passes both
+before and after the fix, by design.** Its job is to catch the opposite failure: a fix that
+widened the window for every activity instead of resolving it per activity. A PASS here is not, by
+itself, evidence that CR-03 closed.
+
+### R3-4 — CR-02, Activities list against a stale index
+
+**Where:** `http://127.0.0.1:4173/strava-widgets/#/list`, sorted by pace, against the DOCTORED
+`index.json` staged above.
+
+**Procedure:** hard reload, sort by pace, report: whether the list renders at all, whether ANY row
+shows a `Pace disputed` badge, and whether the browser console shows a `TypeError`.
+
+**Expected:** the list renders normally, zero `Pace disputed` badges appear anywhere, console is
+free of `TypeError`.
+
+**FAIL:** every row carries the badge, or the list is blank, or
+`TypeError: Cannot read properties of undefined (reading 'streamPaceSecPerKm')` appears.
+
+**Both-direction note:** failable (this is the exact reproduction from `26-REVIEW.md`'s CR-02,
+which threw against the shipped build before plan 26-15) and passable (26-15's
+`rowPaceDisagreement` resolves the absent key to `null` at both call sites).
+
+**Restore procedure (after the developer reports, regardless of verdict):** run
+`npm run build-widgets` and confirm `sha256sum dist/widgets/data/dashboard/index.json` matches the
+ORIGINAL digest `b15943de4f21d91894795cde7e48951f05648ea15e6f194b68de4468e7a998da` recorded above.
+
+### Staged-failing observation of Task 2's own automated check (T-26-40 mitigation)
+
+Ran Task 2's `<automated>` command verbatim (its exact source lives in the Task 2 block of
+`26-16-PLAN.md` — not re-quoted here, since its regex pattern literal itself contains the very
+token this task is forbidden from writing), against the exact state this task leaves behind: four
+rows exist above, four `FAIL:` condition sentences are on the page, and Task 2's real transcription
+heading and its four per-row lines have not been written by this task (a grep for the real heading
+anchored at line-start, `^## Round 3 Verdicts`, outputs `0` at this point — see the
+acceptance-criteria greps recorded earlier in this section).
+
+Recorded exit code and stderr, run from the repo root:
+
+```
+$ node -e "<Task 2's <automated> command, run verbatim>"
+expected four distinct transcribed verdict lines R3-1..R3-4, found 0 []
+$ echo $?
+1
+```
+
+Exit code **1** (non-zero) — the check refuses to pass even though the page carries four staged
+`FAIL:` condition sentences and no human has said anything. Note on the check's own mechanics,
+recorded for transparency: the check's `indexOf` lookup for its trigger heading is an unanchored
+substring search, so on this exact run it matched this very section's own earlier prose (which
+names that heading string in backticks while explaining the check), before it would have matched
+a real `^##`-anchored heading further down — landing its search cursor inside this explanatory
+paragraph rather than short-circuiting immediately with a "no heading found" message. This does
+not weaken the check: it still requires four distinct per-row transcription lines somewhere after
+that cursor, and this task has written none, so it still failed closed, exiting non-zero with the
+message quoted above. When Task 2 appends its real heading and four transcription lines later in
+the file, they fall after this same early substring match and are still found by the scan — so
+the check's pass path is unaffected by this document naming its own trigger string. This
+demonstrates the check is scoped to four per-row transcription lines, not to the word `FAIL`
+occurring anywhere on the page — it cannot be satisfied by this task's own staged negative-case
+prose.
