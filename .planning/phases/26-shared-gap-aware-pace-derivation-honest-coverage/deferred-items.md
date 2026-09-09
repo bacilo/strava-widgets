@@ -47,3 +47,38 @@ an honesty note; not attempted here.
 
 Not fixed (out of scope): raised during a blocking human-verify checkpoint, where the plan's own
 rule is to log rather than patch. No row failed on account of it.
+
+---
+
+# Deferred Items — Phase 26 Plan 15 (CR-02 closure, 2026-09-09)
+
+## `index-client.ts` retyping to `ParsedDashboardIndexRow`
+
+`26-REVIEW.md`'s CR-02 finding additionally recommended retyping `src/dashboard/data/index-client.ts`'s
+rows as `ParsedDashboardIndexRow` (the `Partial<DashboardIndexRow> & { id: string }` type
+`dashboard-index.types.ts` ships for exactly this hazard) instead of casting the raw parsed JSON to
+the producer type `DashboardIndexDocument`/`DashboardIndexRow`. This plan deliberately did **not**
+act on that recommendation.
+
+**Reasoning:**
+
+- It is a phase-sized type refactor, not a two-line robustness fix. `index-client.ts`'s rows feed
+  every consumer of `getRows()`/`getRow()` across the dashboard (list, detail, overview, records,
+  trends, calendar). Retyping the read side to `Partial<DashboardIndexRow>` would make every key on
+  every row newly optional at the type level, and each consumer would need to grow (or already have)
+  its own null/undefined-narrowing to keep compiling — a blast radius this plan's `<files>` scope
+  (`list.ts`, `list.test.ts`) does not cover.
+- `26-VERIFICATION.md`'s `deferred:` entry for CR-02 records the recommended closure as the
+  concrete `list.ts:341`/`:380` fix, not the `index-client.ts` retype — this plan's scope tracks
+  that entry, not the broader review recommendation.
+- The concrete hazard the retype would guard against — the `paceDisagreement` missing-key path
+  crashing the render — is now closed at the point of use via `rowPaceDisagreement`, which resolves
+  an absent key the same as an explicit `null` regardless of what static type `index-client.ts`
+  hands callers.
+
+**Why it should still happen eventually:** the same class of hazard (a required producer-side field
+that a re-parsed, separately-cached JSON artifact does not actually guarantee) recurs for the NEXT
+additive index field, not just this one. Point-fixing each call site as it's discovered, rather than
+narrowing the read-side type once, means this exact investigation repeats per field. This item should
+be carried into the v2.2 milestone's open-items list rather than dropped, not treated as closed by
+this plan.
