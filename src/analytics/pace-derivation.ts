@@ -474,21 +474,32 @@ export function derivePaceWithCoverage(
  * dt)`) and is the shared primitive plan 26-09's residual-fast-mass script
  * measures against.
  *
- * INVARIANT (fixed 2026-09-08, cross-plan integration repair): the sum of
- * every returned `timeSec` equals `coverage.coveredSec` EXACTLY — never
- * `spanSec`, never `coveredSec` plus any gap/pause time. This requires
- * `gapIntervals` as a REQUIRED third argument, not an optional flag that
- * defaults to the leaky behaviour: `derivePaceSeriesGapAware`'s window
- * clipping deliberately leaves the LAST sample before a gap non-null (a
- * shrunk-but-valid trailing window, so the chart line stays continuous up
- * to the gap edge). That sample's own FORWARD segment `[t[i], t[i+1]]` *is*
- * the gap (`classifyGaps` classifies it `recording-gap` or `pause`, never
- * `covered`). Skipping only `paceSeries[i] === null` is NOT sufficient to
- * exclude that segment, because the pre-gap sample's pace is non-null —
- * only checking whether the segment's OWN START falls inside a
- * `gapIntervals` entry catches it. For `i` in `[0, t.length - 2]`, a
- * segment is excluded when `dt <= 0`, `paceSeries[i]` is null/undefined, OR
- * `t[i]` falls within `[g.startSec, g.endSec)` for any gap interval `g`.
+ * WR-01 (26-REVIEW.md, adjudicated in plan 26-11): the sum of every
+ * returned `timeSec` is NOT guaranteed to equal `coverage.coveredSec`. It
+ * equals `coveredSec` MINUS the covered time whose own averaging window
+ * resolved to a null pace — an isolated zero-net-advance `covered` segment
+ * flanked by two `recording-gap`s reproduces this exactly (synthetic shape
+ * `t = [0, 12, 14, 26], d = [0, 30, 30, 60]`: the middle `[12, 14]` segment
+ * classifies `covered`, but its window clamps to exactly `[12, 14]` with
+ * `metres = 0`, so its pace is `null` and this function drops it — 0
+ * bucketed seconds against `coveredSec = 2`). The exact, unconditional
+ * identity `coveredSec === bucketedSec + unbucketedCoveredSec` now lives in
+ * `paceHistogramAccounting`, not here.
+ *
+ * This function's exclusion mechanism itself is unchanged and still
+ * correct: `gapIntervals` is a REQUIRED third argument, not an optional
+ * flag that defaults to the leaky behaviour `derivePaceSeriesGapAware`'s
+ * window clipping deliberately leaves the LAST sample before a gap
+ * non-null (a shrunk-but-valid trailing window, so the chart line stays
+ * continuous up to the gap edge). That sample's own FORWARD segment
+ * `[t[i], t[i+1]]` *is* the gap (`classifyGaps` classifies it
+ * `recording-gap` or `pause`, never `covered`). Skipping only
+ * `paceSeries[i] === null` is NOT sufficient to exclude that segment,
+ * because the pre-gap sample's pace is non-null — only checking whether
+ * the segment's OWN START falls inside a `gapIntervals` entry catches it.
+ * For `i` in `[0, t.length - 2]`, a segment is excluded when `dt <= 0`,
+ * `paceSeries[i]` is null/undefined, OR `t[i]` falls within
+ * `[g.startSec, g.endSec)` for any gap interval `g`.
  */
 export function paceHistogramSamples(
   t: readonly number[],
@@ -508,6 +519,54 @@ export function paceHistogramSamples(
     result.push({ paceSecPerKm: pace, timeSec: dt });
   }
   return result;
+}
+
+/**
+ * The covered time that `paceHistogramSamples` dropped because its own
+ * averaging window resolved to a null pace (WR-01, plan 26-11) — the
+ * itemised complement of `bucketedSec` inside `coverage.coveredSec`.
+ *
+ * `coverage.coveredSec - sum(bucketedTimesSec)`. Deliberately NOT clamped
+ * at zero: a negative result would mean bucketed time exceeded covered
+ * time, which is a different and worse defect (bucketed time counted from
+ * outside `covered` territory) than the shortfall this function measures,
+ * and clamping would silently hide it rather than surface it.
+ */
+export function unbucketedCoveredSec(
+  coverage: PaceCoverage,
+  bucketedTimesSec: readonly number[]
+): number {
+  const bucketedSec = bucketedTimesSec.reduce((sum, s) => sum + s, 0);
+  return coverage.coveredSec - bucketedSec;
+}
+
+/**
+ * The itemised covered-time accounting companion to `paceHistogramSamples`
+ * (WR-01, D-07 applied one layer down, plan 26-11). Takes the WHOLE
+ * `PaceCoverage` (not a bare `gapIntervals` array) so the itemisation
+ * cannot be computed against a different coverage object than the samples
+ * were derived under — the same D-16 structural argument that makes
+ * `derivePaceWithCoverage` return both halves together.
+ *
+ * Guarantees, unconditionally and by construction:
+ * `coverage.coveredSec === bucketedSec + unbucketedCoveredSec`.
+ */
+export function paceHistogramAccounting(
+  t: readonly number[],
+  paceSeries: readonly (number | null)[],
+  coverage: PaceCoverage
+): {
+  samples: Array<{ paceSecPerKm: number; timeSec: number }>;
+  bucketedSec: number;
+  unbucketedCoveredSec: number;
+} {
+  const samples = paceHistogramSamples(t, paceSeries, coverage.gapIntervals);
+  const bucketedSec = samples.reduce((sum, s) => sum + s.timeSec, 0);
+  const unbucketed = unbucketedCoveredSec(
+    coverage,
+    samples.map((s) => s.timeSec)
+  );
+  return { samples, bucketedSec, unbucketedCoveredSec: unbucketed };
 }
 
 // ---------------------------------------------------------------------------

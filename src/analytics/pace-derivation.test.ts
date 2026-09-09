@@ -39,6 +39,7 @@ import {
   derivePaceSeriesGapAware,
   adaptiveWindowSec,
   paceHistogramSamples,
+  paceHistogramAccounting,
   detectPaceDisagreement,
 } from './pace-derivation.js';
 import {
@@ -478,6 +479,13 @@ describe('derivePaceWithCoverage — adaptive window, gap clipping, D-16 entry p
  * confirming the test actually exercises the defect rather than passing
  * vacuously. Reverted back to the fixed 3-arg body immediately after,
  * confirmed the suite passes again.
+ *
+ * NARROWED (WR-01, plan 26-11): the exact-sum claim below holds for THIS
+ * fixture's two shapes, not universally — an isolated zero-net-advance
+ * `covered` segment flanked by two `recording-gap`s breaks it (see the
+ * `WR-01 —` describe block after this one). The unconditional, general-case
+ * identity is `coveredSec === bucketedSec + unbucketedCoveredSec`, asserted
+ * via `paceHistogramAccounting`, not this function's bare sum.
  */
 describe('paceHistogramSamples — exact coverage invariant (cross-plan integration repair, 2026-09-08)', () => {
   it('summed timeSec equals coverage.coveredSec exactly, never spanSec, across a fixture with a known-duration gap', () => {
@@ -507,5 +515,127 @@ describe('paceHistogramSamples — exact coverage invariant (cross-plan integrat
     const gapTimeIncluded = samples.some((s) => s.timeSec === 300);
 
     expect(gapTimeIncluded).toBe(false);
+  });
+});
+
+/**
+ * WR-01 (26-REVIEW.md): `paceHistogramSamples`'s documented "sum of every
+ * returned timeSec equals coverage.coveredSec EXACTLY" invariant can be
+ * silently violated by an isolated zero-net-advance `covered` segment
+ * flanked by two `recording-gap`s. The verifier tried to construct this
+ * shape and could not (their flat run classified `pause`, not `covered`) —
+ * 26-VERIFICATION.md carried it forward as unsettled in both directions.
+ * This block settles it: reachable, proven with an assertion rather than a
+ * comment, the old invariant was observed failing against it twice — once
+ * synthetically, once on real committed archive data
+ * (`data/streams/11865310195.json`) — and the replacement identity
+ * (`paceHistogramAccounting`, `coveredSec === bucketedSec +
+ * unbucketedCoveredSec`) is asserted exact, unconditionally, on both
+ * shapes.
+ */
+describe('WR-01 — zero-net-advance covered segment flanked by recording gaps', () => {
+  it('reachability: classifyGaps classifies the middle [12, 14] segment as covered, not pause', () => {
+    // advanceIntervals(t, d) here is [12, 14] (the two segments that DO
+    // advance distance) — its p90 quantile is small, so the scale-relative
+    // pause threshold (5 * p90) is far above this segment's 2-second flat
+    // run. The flat run therefore does NOT exceed the pause threshold, and
+    // strict-priority classification falls through to `covered`. A future
+    // reader who changes PAUSE_GAP_P90_MULTIPLIER should re-check this.
+    const stream = makeStream({ t: [0, 12, 14, 26], d: [0, 30, 30, 60] });
+    const coverage = classifyGaps(stream.t, stream.d);
+
+    expect(coverage.spanSec).toBe(26);
+    expect(coverage.coveredSec).toBe(2);
+    expect(coverage.recordingGapSec).toBe(24);
+    expect(coverage.pauseSec).toBe(0);
+    expect(coverage.gapIntervals).toHaveLength(2);
+    expect(coverage.gapIntervals[0]).toStrictEqual({ startSec: 0, endSec: 12, kind: 'recording-gap' });
+    expect(coverage.gapIntervals[1]).toStrictEqual({ startSec: 14, endSec: 26, kind: 'recording-gap' });
+  });
+
+  it('itemised identity: on the synthetic shape, bucketedSec is 0, unbucketedCoveredSec is 2, and the sum equals coveredSec', () => {
+    const stream = makeStream({ t: [0, 12, 14, 26], d: [0, 30, 30, 60] });
+    const result = derivePaceWithCoverage(stream);
+    const accounting = paceHistogramAccounting(stream.t, result.paceSeries, result.coverage);
+
+    // The OLD claim was wrong: Σ samples.timeSec does NOT equal
+    // coverage.coveredSec on this shape (the sample index whose window
+    // clamps to exactly [12, 14] has metres = 0, so its pace is null and
+    // paceHistogramSamples drops it entirely). Pinned so a future edit
+    // cannot silently restore the old, false invariant.
+    expect(accounting.bucketedSec).not.toBe(result.coverage.coveredSec);
+
+    expect(accounting.bucketedSec).toBe(0);
+    expect(accounting.unbucketedCoveredSec).toBe(2);
+    expect(result.coverage.coveredSec).toBe(accounting.bucketedSec + accounting.unbucketedCoveredSec);
+  });
+
+  it('itemised identity: on real archive activity 11865310195, bucketedSec is 0, unbucketedCoveredSec is 6, and the sum equals coveredSec', () => {
+    const stream = readStream('11865310195');
+    const coverage = classifyGaps(stream.t, stream.d);
+
+    expect(coverage.spanSec).toBe(18);
+    expect(coverage.coveredSec).toBe(6);
+    expect(coverage.recordingGapSec).toBe(12);
+
+    const result = derivePaceWithCoverage(stream);
+    const accounting = paceHistogramAccounting(stream.t, result.paceSeries, result.coverage);
+
+    expect(accounting.bucketedSec).not.toBe(result.coverage.coveredSec);
+
+    expect(accounting.bucketedSec).toBe(0);
+    expect(accounting.unbucketedCoveredSec).toBe(6);
+    expect(result.coverage.coveredSec).toBe(accounting.bucketedSec + accounting.unbucketedCoveredSec);
+  });
+
+  /**
+   * Archive-wide sweep (plan 26-11 Task 3, throwaway script, 2026-09-09, 1865
+   * streams): the identity holds on every scanned stream (0 violations); 44
+   * activities have unbucketedCoveredSec > 0, and 11865310195 is the maximum
+   * ratio case (1.0 — 100% of its covered time is unbucketed, the pathological
+   * shape). Pinned here for two named real activities per the file's
+   * established discipline — a small sample, not the whole sweep, but a
+   * permanent regression guard on both the pathological case and a clean one.
+   */
+  it('itemised identity holds for a named sample of real archive activities, including the pathological and a clean case', () => {
+    const pathological = readStream('11865310195');
+    const pathologicalCoverage = classifyGaps(pathological.t, pathological.d);
+    const pathologicalResult = derivePaceWithCoverage(pathological);
+    const pathologicalAccounting = paceHistogramAccounting(
+      pathological.t,
+      pathologicalResult.paceSeries,
+      pathologicalResult.coverage
+    );
+    expect(pathologicalAccounting.unbucketedCoveredSec).toBe(6);
+    expect(pathologicalCoverage.coveredSec).toBe(
+      pathologicalAccounting.bucketedSec + pathologicalAccounting.unbucketedCoveredSec
+    );
+
+    // 4556693525 — the pinned worked exemplar (26-CONTEXT.md). The sweep
+    // measured unbucketedCoveredSec === 0 for it exactly (every covered
+    // second the derivation classifies is also bucketed into a histogram
+    // sample) — asserting the measured value, not a rounder assumption.
+    const clean = readStream('4556693525');
+    const cleanCoverage = classifyGaps(clean.t, clean.d);
+    const cleanResult = derivePaceWithCoverage(clean);
+    const cleanAccounting = paceHistogramAccounting(clean.t, cleanResult.paceSeries, cleanResult.coverage);
+    expect(cleanAccounting.unbucketedCoveredSec).toBe(0);
+    expect(cleanCoverage.coveredSec).toBe(cleanAccounting.bucketedSec + cleanAccounting.unbucketedCoveredSec);
+  });
+
+  it('unbucketedCoveredSec is never negative for either fixture (the deliberate no-clamp decision, pinned as a checked property)', () => {
+    const synthetic = makeStream({ t: [0, 12, 14, 26], d: [0, 30, 30, 60] });
+    const syntheticResult = derivePaceWithCoverage(synthetic);
+    const syntheticAccounting = paceHistogramAccounting(
+      synthetic.t,
+      syntheticResult.paceSeries,
+      syntheticResult.coverage
+    );
+    expect(syntheticAccounting.unbucketedCoveredSec).toBeGreaterThanOrEqual(0);
+
+    const archive = readStream('11865310195');
+    const archiveResult = derivePaceWithCoverage(archive);
+    const archiveAccounting = paceHistogramAccounting(archive.t, archiveResult.paceSeries, archiveResult.coverage);
+    expect(archiveAccounting.unbucketedCoveredSec).toBeGreaterThanOrEqual(0);
   });
 });
