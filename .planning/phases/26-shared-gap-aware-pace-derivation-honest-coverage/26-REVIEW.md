@@ -1,15 +1,569 @@
 ---
 phase: 26
 status: issues_found
-critical: 1
-warning: 1
-info: 0
-reviewed: 2026-09-09
-verified_by_orchestrator: 2026-09-09
-critical_downgraded: []
-correction: "CR-01 downgrade RETRACTED 2026-09-09 — see Correction section"
 depth: standard
+reviewed: 2026-09-09
+review_round: 2
+files_reviewed: 29
+findings:
+  critical: 2
+  warning: 4
+  info: 3
+  total: 9
+critical: 2
+warning: 4
+info: 3
+prior_round_dispositions:
+  CR-01: resolved
+  WR-01: resolved
+correction: "CR-01 downgrade RETRACTED 2026-09-09 — see Correction section in the Round 1 archive below (preserved verbatim)"
+files_reviewed_list:
+  - scripts/compute-pace-residual.mjs
+  - scripts/compute-pace-residual.test.mjs
+  - src/analytics/compute-dashboard-index.test.ts
+  - src/analytics/compute-dashboard-index.ts
+  - src/analytics/dashboard-index.types.ts
+  - src/analytics/gear-aggregate-logic.test.ts
+  - src/analytics/pace-derivation.test.ts
+  - src/analytics/pace-derivation.ts
+  - src/analytics/pace-fixtures.test.ts
+  - src/analytics/pace-fixtures.ts
+  - src/analytics/pace-single-source.test.ts
+  - src/dashboard/data/index-client.test.ts
+  - src/dashboard/styles.css
+  - src/dashboard/styles.test.ts
+  - src/dashboard/views/calendar-logic.test.ts
+  - src/dashboard/views/detail-charts-logic.test.ts
+  - src/dashboard/views/detail-charts-logic.ts
+  - src/dashboard/views/detail-sections.test.ts
+  - src/dashboard/views/detail-sections.ts
+  - src/dashboard/views/detail-zones.test.ts
+  - src/dashboard/views/detail-zones.ts
+  - src/dashboard/views/detail.ts
+  - src/dashboard/views/list-logic.test.ts
+  - src/dashboard/views/list.test.ts
+  - src/dashboard/views/list.ts
+  - src/dashboard/views/overview.test.ts
+  - src/dashboard/views/trends-cadence-hr-logic.test.ts
+  - src/dashboard/views/trends-logic.test.ts
+  - src/dashboard/views/trends-volume-logic.test.ts
 ---
+
+# Phase 26 Code Review — Round 2 (post gap-closure 26-11 / 26-12 / 26-13)
+
+**Reviewed:** 2026-09-09
+**Depth:** standard
+**Files Reviewed:** 29
+**Status:** issues_found
+
+> **Document layout.** This round's findings come first. The complete Round 1 report — including
+> the orchestrator's CR-01 downgrade and the CORRECTION that retracted it — is preserved verbatim
+> at the bottom under "Round 1 archive". Nothing from Round 1 has been edited or deleted.
+
+## Narrative Findings (AI reviewer)
+
+No `<structural_findings>` substrate was supplied for this round, so every finding below is
+narrative, derived from reading the files and from executable probes against the committed archive
+(`dist/` build + `data/streams/`). Probe commands and their raw output are quoted inline so a later
+reader can re-run them rather than take the numbers on trust.
+
+### Verification of the two prior findings
+
+Both were re-tested against the live tree by executing the code, not by reading the summaries.
+
+| ID | What it was | Verified disposition |
+|---|---|---|
+| **CR-01** | `buildBreakdownSection` gated the `Pace Distribution` heading *and* the D-08/COV-02 coverage caption behind `buckets.length > 0`, so real archive activity `11865310195` (33% covered / 67% recording gaps) rendered no section at all. | **RESOLVED.** Verified by probe, not by description. |
+| **WR-01** | `paceHistogramSamples` documented an "INVARIANT: sum of every returned `timeSec` equals `coverage.coveredSec` EXACTLY" that an isolated zero-net-advance `covered` segment flanked by two recording gaps violates. | **RESOLVED.** Verified by probe. |
+
+**CR-01 — evidence.** `breakdownSectionPlan` (`detail-sections.ts:497-523`) now computes
+`captionText` from `coverage` alone and gates only `showBars` on `buckets.length`;
+`buildBreakdownSection` (`:559-604`) is a pure emitter over that plan with no residual decision
+logic (the only conditionals it contains are `plan.showPaceHeading`, `plan.captionText !== null`,
+`plan.noteText !== null`, `plan.showBars`, `plan.showHrZones` — all plan fields, none re-derived).
+Running the real production path against the real stream:
+
+```
+$ node probe.mjs   # derivePaceWithCoverage + computePaceDistribution + breakdownSectionPlan, dist/ build
+coverage { spanSec: 18, coveredSec: 6, recordingGapSec: 12, pauseSec: 0,
+           gapIntervals: [ { startSec: 2, endSec: 14, kind: 'recording-gap' } ] }
+buckets  []
+plan     { showPaceHeading: true,
+           captionText: '33% of elapsed time covered · 67% recording gaps · 0% paused',
+           showBars: false,
+           noteText: 'No pace buckets — 0:06 of covered time produced no derivable pace.',
+           showHrZones: false }
+```
+
+The activity that previously disappeared now renders a heading, the honest 33%/67% caption, and an
+itemised note. The fix holds and introduced no new decision-in-the-emitter defect.
+
+**WR-01 — evidence.** The false invariant is gone from the `paceHistogramSamples` doc comment
+(`pace-derivation.ts:469-503`), replaced with an explicit statement that the bare sum is *not*
+guaranteed, plus the itemised identity in `paceHistogramAccounting` (`:554-570`). The shape the
+Round 1 finding predicted is now a permanent, reachable, non-vacuous test
+(`pace-derivation.test.ts:521-560`). Re-derived independently:
+
+```
+$ node probe.mjs   # t = [0,12,14,26], d = [0,30,30,60]
+WR01 cov  { spanSec: 26, coveredSec: 2, recordingGapSec: 24, pauseSec: 0, gapIntervals: [2] }
+WR01 acct { samples: [], bucketedSec: 0, unbucketedCoveredSec: 2 }
+```
+
+`coveredSec (2) === bucketedSec (0) + unbucketedCoveredSec (2)`. An archive-wide re-run of the
+identity across all 1,865 committed streams found **0 violations, 44 activities with
+`unbucketedCoveredSec > 0`, 0 negative values** — matching plan 26-11's stated sweep. The
+consumer (`breakdownSectionPlan:507`) **imports** `unbucketedCoveredSec` rather than re-deriving
+the subtraction inline, satisfying PACE-01's single-derivation constraint at that seam.
+
+Neither fix is carried forward as open. The findings below are **new**.
+
+---
+
+## Critical Issues
+
+### CR-02: A pre-Phase-26 `index.json` makes every activity row render a false "Pace disputed" badge, then crashes the list and overview renders with a TypeError
+
+**File:** `src/dashboard/views/list.ts:341` and `:380-381` (with `src/dashboard/data/index-client.ts:59`)
+
+**Issue:** `paceDisagreement` is the new additive index field this phase introduces. `index.json`
+is a *gitignored, CI-regenerated, separately-cached* artifact — `dashboard-index.types.ts:106-124`
+says so explicitly and even ships a dedicated `ParsedDashboardIndexRow` type for exactly this
+reason ("Serialization plus re-parse does not carry the producer's required-key guarantee, so no
+key can be assumed present here"). `index-client.ts` ignores that type entirely and does an
+unvalidated `(await response.json()) as DashboardIndexDocument` cast, so at runtime `getRows()`
+hands out rows that may legitimately lack the key.
+
+`statusBadgeTexts` then tests it with a strict `!== null`:
+
+```ts
+if (row.paceDisagreement !== null) {     // list.ts:341 — undefined !== null is TRUE
+  texts.push(PACE_DISPUTED_BADGE_TEXT);
+}
+```
+
+`undefined !== null` is `true`, so **every** row of an index that predates this field is labelled
+"Pace disputed". `appendStatusBadges` then repeats the same wrong test and passes `undefined` into
+a function that dereferences it:
+
+```ts
+} else if (text === PACE_DISPUTED_BADGE_TEXT && row.paceDisagreement !== null) {  // :380
+  appendPaceDisputedBadge(container, idPrefix, row.paceDisagreement);             // :381 — undefined
+```
+
+`appendPaceDisputedBadge` → `paceDisputedExplanation(disagreement)` → `disagreement.streamPaceSecPerKm`
+→ **TypeError**, thrown inside `renderActivityRow`/`buildTableRow`, i.e. inside the synchronous
+list and overview render paths. Reproduced against the shipped build:
+
+```
+$ node -e "import {statusBadgeTexts, paceDisputedExplanation} from './dist/dashboard/views/list.js' ..."
+badges for a pre-Phase-26 index row: [ 'Pace disputed' ]
+paceDisputedExplanation(undefined) -> TypeError: Cannot read properties of undefined (reading 'streamPaceSecPerKm')
+```
+
+Reachability is not theoretical. This project has a recorded lesson about exactly this shape
+("Staged-build browser cache trap — stale `index.html`/`index.json` in checkpoints"): a browser
+holding a cached `index.json` while loading a newly deployed bundle hits it, as does any staged
+build, any local run against a `data/dashboard/index.json` generated before this phase, and any
+partial deploy. The same crash reaches four surfaces (`activity-card`, `activity-table`,
+`overview-prs`, `overview-activities`) through the single `appendStatusBadges` dispatch.
+
+Note that `detail.ts:631` reads the same field **correctly** — `getRow(detail.id)?.paceDisagreement ?? null`
+— which shows the undefined case was considered at one call site and missed at the other. Every
+test fixture (`list.test.ts:402`, `list-logic.test.ts:53`, `calendar-logic.test.ts`,
+`overview.test.ts`, `trends-*.test.ts`, `gear-aggregate-logic.test.ts`) sets `paceDisagreement: null`
+explicitly, so no test exercises the missing-key path at all.
+
+**Fix:** Use a nullish test at both sites (and prefer a narrowing local so the second test cannot
+drift from the first):
+
+```ts
+// list.ts:341
+const disagreement = row.paceDisagreement ?? null;
+if (disagreement !== null) {
+  texts.push(PACE_DISPUTED_BADGE_TEXT);
+}
+
+// list.ts:376-384
+function appendStatusBadges(container: HTMLElement, row: DashboardIndexRow, idPrefix: string): void {
+  const disagreement = row.paceDisagreement ?? null;
+  for (const text of statusBadgeTexts(row)) {
+    if (text === LOW_CONFIDENCE_BADGE_TEXT) {
+      appendLowConfidenceBadge(container, idPrefix);
+    } else if (text === PACE_DISPUTED_BADGE_TEXT && disagreement !== null) {
+      appendPaceDisputedBadge(container, idPrefix, disagreement);
+    } else {
+      appendBadge(container, text);
+    }
+  }
+}
+```
+
+Add a permanent regression test that builds a row object **without** the `paceDisagreement` key
+(cast through `ParsedDashboardIndexRow`, not `Partial<DashboardIndexRow>` with an explicit `null`)
+and asserts `statusBadgeTexts(row)` returns `[]`. Separately, `index-client.ts` should type its
+rows as `ParsedDashboardIndexRow` — the type the codebase already wrote for this exact hazard —
+rather than casting raw JSON to the producer type.
+
+---
+
+### CR-03: The pace chart band and the pace histogram on the same detail page derive pace under **different** window widths and visibly disagree — while `detail-charts-logic.ts`'s own header states they cannot
+
+**File:** `src/dashboard/views/detail-charts-logic.ts:80`, `:92-99`, `:120` (contract claim at `:5-9`)
+
+**Issue:** `derivePaceWithCoverage` resolves the averaging window per activity via
+`adaptiveWindowSec` = `max(20, 2.5 × p90(advance intervals))` (D-01/D-02). `detail.ts:717` uses it,
+so the histogram, the coverage caption and the split gap markers all read the adaptive series.
+The **chart band** does not. `buildChannelSeries` hard-codes the floor as the window:
+
+```ts
+const paceValues = derivePaceSeries(stream.t, stream.d, PACE_SMOOTHING_WINDOW_SEC); // :120, = 20
+```
+
+`PACE_SMOOTHING_WINDOW_SEC` is `PACE_WINDOW_FLOOR_SEC` (20s) — and `PACE_WINDOW_FLOOR_SEC`'s own
+doc comment in `pace-derivation.ts:281-291` names the fixed-20s configuration as
+"**the roadmap's demonstrated-failing case (PACE-03)**". The chart therefore still ships the
+configuration this phase exists to replace.
+
+This is not cosmetic. Measured across the committed archive:
+
+```
+$ node probe2.mjs
+streams 1865, with adaptive window != the chart's 20s: 11
+widest: 4598855187 -> 247.5s, 3647739864 -> 221.0s, 5059204779 -> 150.0s
+activity 4598855187: max |chart - histogram| = 29656.7 sec/km at i=1389
+                     (chart says 30000.0 sec/km, histogram says 343.3 sec/km)
+
+$ node probe3.mjs   # Δt-weighted fraction of covered time faster than 3:00/km
+4598855187  chart(20s) 42.72%   adaptive 0.00%
+3647739864  chart(20s) 59.65%   adaptive  0.62%
+5059204779  chart(20s) 94.80%   adaptive  1.17%
+4556693525  chart(20s)  2.44%   adaptive  2.44%   <- unaffected (p90 small, window resolves to 20)
+```
+
+Those three activities are precisely the ones `PACE_WINDOW_P90_MULTIPLIER`'s doc comment cites as
+"the roadmap's own cited windows (150s / ~230s / ~248s for the three 'recovered' activities)". They
+are **not recovered on the chart**. On `5059204779` — the exemplar the phase's own browser
+checkpoint reads back, and the one activity carrying the new "Pace disputed" badge — the Pace &
+Effort chart band still shows 94.8% of covered time faster than 3:00/km while the Pace Distribution
+histogram directly below it, on the same page, in the same paint, shows 1.17%. That is the
+two-surfaces-disagreeing defect PACE-01 exists to eliminate, still shipping.
+
+Two contract comments assert the opposite of what the code does — the exact COV-01 failure mode
+this phase forbids:
+
+- `detail-charts-logic.ts:5-9`: "*the chart and `detail-zones.ts`'s histogram both read the same
+  gap-aware series so the two surfaces cannot disagree*" — false, demonstrated above.
+- `detail-charts-logic.ts:76-80`: "*this constant is now a floor, not the only value*" — but it is
+  the only value at the module's sole internal call site, `:120`.
+
+`derivePaceSeries` also re-runs `classifyGaps` independently (`:97`) and returns a pace series with
+**no** coverage attached — the precise thing D-16's single-entry-point contract
+(`pace-derivation.ts:427-431`, "no caller can hold pace without coverage, so no caption can drift
+from the histogram beside it") says must not be possible.
+
+**Why nothing caught it:** `pace-single-source.test.ts`'s `OVERRIDE_LITERALS` scan looks for the
+literal `windowSec:`. The bypass is written as ES2015 shorthand — `derivePaceSeriesGapAware(t, d, { windowSec, gapIntervals })`
+at `:98` — and the fixed value arrives through a *named constant*, so the audit that exists to stop
+exactly this passes it clean. The audit's own docblock even explicitly excuses this file
+("would false-positive on `detail-charts-logic.ts`'s `derivePaceSeries` wrapper … and is not an
+override of `derivePaceWithCoverage`'s adaptive resolution"), which is the reasoning error: passing
+a fixed 20s in place of the adaptive resolution *is* the override.
+
+**Fix:** Make the chart read the same resolved window as everything else, and delete the two false
+contract claims:
+
+```ts
+// detail-charts-logic.ts — buildChannelSeries
+import { adaptiveWindowSec } from '../../analytics/pace-derivation.js';
+
+if (channel === 'pace') {
+  const paceValues = derivePaceSeries(stream.t, stream.d, adaptiveWindowSec(stream.t, stream.d));
+  ...
+}
+```
+
+Better still, have `buildChannelSeries` call `derivePaceWithCoverage(stream)` directly so the chart
+obtains pace *and* coverage together (honouring D-16) and `derivePaceSeries`'s coverage-less escape
+hatch can be deleted. Then extend the single-source audit to catch the shorthand form — add
+`windowSec,` and `windowSec }` to `OVERRIDE_LITERALS`, or scan for `derivePaceSeriesGapAware(`
+call sites outside `pace-derivation.ts` — and add a test asserting that, for activity
+`5059204779`, the chart series and the histogram series are the *same* array of values.
+
+---
+
+## Warnings
+
+### WR-02: `paceDisagreement`'s contract says `null` NEVER means "not checked", but a stream read failure writes exactly that `null`
+
+**File:** `src/analytics/dashboard-index.types.ts:88-102`, violated by `src/analytics/compute-dashboard-index.ts:219-236`
+
+**Issue:** The field's doc comment states, absolutely: "*`null` NEVER means 'not checked' — the
+writer always evaluates the check and assigns a value here.*" The writer does not. It reads the
+stream inside a `try`, and on any read/parse failure logs a warning and assigns `paceDisagreement = null`
+(`:229-234`) — the identical value it assigns for "checked, and the paces agree". A reader of the
+published index cannot distinguish "this activity's metadata pace was cross-checked and is fine"
+from "we could not read the stream, so we do not know". For a phase whose whole point is that
+absence must never be readable as good news (D-08's "a healthy run visibly says so instead of the
+reader having to read silence as good news"), collapsing unknown into clean is the wrong default —
+and stating an invariant the code does not hold is the exact WR-01 shape COV-01 forbids.
+
+Note also that this is not the same as the threshold gate: when `paceSecPerKm >= threshold` the
+check is genuinely equivalent to `detectPaceDisagreement` returning `null`, so that branch is fine.
+Only the catch branch is dishonest.
+
+**Fix:** Either correct the comment to state the two things `null` actually means, or (preferred,
+and consistent with the phase's own itemise-don't-hide discipline) model the unknown case
+explicitly:
+
+```ts
+// dashboard-index.types.ts
+export interface DashboardIndexRow {
+  /** `null` = checked and not flagged. `'unchecked'` = the stream could not be read. */
+  paceDisagreement: PaceDisagreement | null | 'unchecked';
+}
+
+// compute-dashboard-index.ts:229-234
+} catch (error) {
+  console.warn(`  ${id}: could not read stream for pace disagreement check (${(error as Error).message})`);
+  paceDisagreement = 'unchecked';
+}
+```
+
+If the field shape must stay binary, at minimum add a `paceDisagreementUnchecked` count to
+`DashboardIndexTotals` alongside `skippedUnreadable`, so the failure is visible in the published
+totals rather than only in a build log.
+
+---
+
+### WR-03: The archive-wide pace-disagreement sweep is a ~3,750-file sequential read running under vitest's 5,000 ms default timeout — a latent CI flake
+
+**File:** `src/analytics/compute-dashboard-index.test.ts:905-947`
+
+**Issue:** The `it(...)` at `:905` awaits `fs.readdir('data/activities')` and then, for each of
+~1,890 activities, sequentially `await`s a `readFile` + `JSON.parse` of the activity JSON **and**
+a second `readFile` + `JSON.parse` of the matching stream JSON (streams are hundreds of KB each),
+then runs `detectPaceDisagreement` over both. That is roughly 3,750 sequential file reads and
+parses inside a single test with no `timeout` option, so it inherits vitest's 5,000 ms default. It
+has already been observed timing out at 5,007 ms under full-suite parallel load and passing at
+4.13 s in isolation — a ~20% margin that shrinks every night as the archive grows (the file's own
+header says "the archive grows nightly"). This is a flake that will fail CI on unrelated PRs and
+train reviewers to re-run red builds.
+
+The two adjacent tests (`:950`, `:965`) read only two files each and are not at risk.
+
+**Fix:** Give the sweep an explicit timeout — the same disclosure discipline the rest of the phase
+applies, made explicit rather than inherited — and stop re-parsing streams for activities whose
+metadata pace cannot clear the gate:
+
+```ts
+it('flags exactly a handful of activities archive-wide, including 5059204779, at or under the 0.5% over-fire ceiling', async () => {
+  ...
+  const metadataPace = metadataPaceSecPerKm(activity);
+  // The writer itself only reads the stream when the metadata pace clears the
+  // threshold (compute-dashboard-index.ts:220) — mirror that here so the sweep
+  // reads ~3 streams instead of ~1,865.
+  if (metadataPace === null || metadataPace >= PACE_DISAGREEMENT_METADATA_THRESHOLD_SEC_PER_KM) continue;
+  ...
+}, 60_000);
+```
+
+Note the gate mirrors the production writer exactly, so the assertion's meaning is unchanged;
+`scanned` must then be incremented before the `continue` (as it already is at `:915`).
+
+---
+
+### WR-04: `computePaceDistribution` emits an unbounded number of buckets — 343 histogram rows, up to a `2499:45–2500:00/km` label, on a real archive activity
+
+**File:** `src/dashboard/views/detail-zones.ts:94-120`, rendered by `src/dashboard/views/detail-sections.ts:404-424`
+
+**Issue:** The bucket index is `Math.floor(paceSecPerKm / bucketWidthSec)` with no upper bound, and
+`buildPaceDistributionRows` emits one `.distribution__row` per occupied bucket. Since Phase 26 the
+histogram consumes the *smoothed windowed* series, which — unlike the old per-segment `dt/dd` path
+that skipped every `dd <= 0` segment — produces enormous but finite paces wherever a near-standstill
+window resolves to a tiny positive `metres`. Measured on the committed archive:
+
+```
+$ node probe4.mjs
+max bucket rows 343 on activity 3475740798
+
+$ node -e "... 3475740798 ..."
+rows 343, first '4:30–4:45/km', last '2499:45–2500:00/km'
+coveredSec 10490, bucketed 10490, top3 [ ['6:45–7:00/km',399], ['5:15–5:30/km',294], ['6:00–6:15/km',285] ]
+rows above 20:00/km: 280, carrying 2454 sec
+
+# same activity, the pre-Phase-26 per-segment path, for comparison:
+legacy rows 80, range 225 .. 30015 sec/km
+```
+
+343 rows against a legacy 80 is a 4× regression in the rendered card, on this phase's own headline
+surface (D-29's "always-on pace-distribution histogram"). 280 of the 343 rows are slower than
+20:00/km, each rendered as a bar sized relative to a 399 s maximum, i.e. a wall of ~200 visually
+indistinguishable sub-1%-wide rows below the three that carry the signal. The bucket *sum* is
+still exactly correct (`bucketed 10490 === coveredSec 10490`), so this is a presentation defect,
+not an accounting one — but "2499:45–2500:00/km" (41 hours per kilometre) is not a pace a reader
+can act on, and burying the real distribution under it defeats the section's purpose.
+
+**Fix:** Clamp the slow tail into a single terminal bucket rather than dropping it (dropping would
+break the `coveredSec === bucketedSec + unbucketedCoveredSec` identity WR-01 just established):
+
+```ts
+// detail-zones.ts
+/** Slowest bucket floor. Everything at or beyond this collapses into one open-ended bucket. */
+export const PACE_BUCKET_MAX_SEC_PER_KM = 1200; // 20:00/km
+
+const maxIndex = Math.floor(PACE_BUCKET_MAX_SEC_PER_KM / bucketWidthSec);
+const index = Math.min(maxIndex, Math.floor(paceSecPerKm / bucketWidthSec));
+```
+
+and have the terminal bucket's `label` read `${formatPaceBound(minSecPerKm)}+/km` with `maxSecPerKm: null`
+(or `Infinity`), so the collapse is disclosed rather than silently truncating the range. Add a test
+pinning `computePaceDistribution(...).length` for `3475740798` and asserting the bucket sum still
+equals `coverage.coveredSec` after the clamp.
+
+---
+
+### WR-05: `compute-pace-residual.mjs` writes to a hard-coded phase directory with no `mkdir`, so the D-19 regeneration Phase 27 depends on breaks the moment phase 26 is archived
+
+**File:** `scripts/compute-pace-residual.mjs:35-38` and `:369` (`writeFileSync(OUTPUT_PATH, ...)`)
+
+**Issue:** `OUTPUT_PATH` is pinned to
+`.planning/phases/26-shared-gap-aware-pace-derivation-honest-coverage/26-RESIDUAL.md` and written
+with a bare `writeFileSync`, which throws `ENOENT` when the parent directory does not exist. The
+module docblock makes a load-bearing forward promise on top of that path: "*Phase 27 consumes
+`26-RESIDUAL.md`'s residual list as pre-flagged input and re-derives it at its own boundary by
+running `npm run compute-pace-residual` again, rather than trusting a transcribed table.*" This
+project's milestone-close step moves phase directories under `.planning/milestones/vX.Y-phases/`
+(a recorded lesson), at which point the script fails outright with an unhandled `ENOENT` and
+Phase 27's re-derivation is silently unavailable — the failure mode being "the regenerable
+deliverable turns out not to be regenerable", which is exactly the class of thing D-19 exists to
+prevent.
+
+Secondarily, `main()`'s `writeFileSync` is the one unguarded I/O call in a script whose stated
+design (`:11-13`) is that "one unreadable stream cannot abort the sweep" — the whole sweep's work
+is discarded on a write failure with a raw stack trace.
+
+**Fix:**
+
+```js
+import { mkdirSync, writeFileSync } from 'fs';
+...
+try {
+  mkdirSync(dirname(OUTPUT_PATH), { recursive: true });
+  writeFileSync(OUTPUT_PATH, markdown, 'utf8');
+} catch (error) {
+  console.error(`Failed to write ${OUTPUT_PATH}: ${error.message}`);
+  process.exitCode = 1;
+  return;
+}
+```
+
+and accept an override so the path is not welded to one phase directory:
+`const OUTPUT_PATH = process.env.PACE_RESIDUAL_OUT ?? join(__dirname, '../.planning/...')`.
+
+---
+
+## Info
+
+### IN-01: The authoritative statement of `paceHistogramSamples`'s exclusion rule is a garbled, merged sentence
+
+**File:** `src/analytics/pace-derivation.ts:490-496`
+
+**Issue:** The doc comment reads: "*`gapIntervals` is a REQUIRED third argument, not an optional
+flag that defaults to the leaky behaviour `derivePaceSeriesGapAware`'s window clipping deliberately
+leaves the LAST sample before a gap non-null …*" — two sentences have been spliced together during
+the WR-01 rewrite, dropping the clause that connected them. `detail-zones.ts:88-92` points readers
+here for "the invariant's authoritative statement", so the one place that is supposed to explain a
+genuinely subtle rule is unreadable at its key sentence.
+
+**Fix:** Restore the break, e.g. "*… not an optional flag that defaults to the leaky behaviour.
+The reason it must be required: `derivePaceSeriesGapAware`'s window clipping deliberately leaves
+the LAST sample before a gap non-null …*"
+
+### IN-02: The PACE-07 threshold gate is duplicated at the call site
+
+**File:** `src/analytics/compute-dashboard-index.ts:220-223`
+
+**Issue:** `paceSecPerKm < PACE_DISAGREEMENT_METADATA_THRESHOLD_SEC_PER_KM` re-implements the gate
+`detectPaceDisagreement` already applies internally (`pace-derivation.ts:652`). The duplication is
+deliberate and documented (it avoids reading the stream file at all), and today the two are
+behaviourally identical — but they are two independent copies of one rule, and the second copy will
+not follow the first if the gate ever grows a condition (e.g. a minimum distance).
+
+**Fix:** Export the gate as a predicate from `pace-derivation.ts`
+(`export function isPaceDisagreementCandidate(metadataPaceSecPerKm: number | null, options?): boolean`)
+and have both `detectPaceDisagreement` and the writer call it, so the cheap pre-gate cannot drift
+from the real one.
+
+### IN-03: The zero-covered-time note reads "0:00 of covered time produced no derivable pace"
+
+**File:** `src/dashboard/views/detail-sections.ts:510-511` (pinned by `detail-sections.test.ts:256-263`)
+
+**Issue:** When an activity is 100% recording gap (`coveredSec === 0`), the note renders
+"No pace buckets — 0:00 of covered time produced no derivable pace." The caption above it already
+says "0% of elapsed time covered", so the note adds a sentence that is literally true but reads as
+a rounding artifact rather than as information. The exact-zero comparison `unbucketedSec > 0` at
+`:512` is also unguarded against float noise — not reachable today (an archive sweep found 0 of
+1,865 activities with `0 < unbucketedCoveredSec < 0.5 s`, because `t` is integer-valued
+throughout), but it is one non-integer `t` away from rendering "Bars below omit 0:00 of covered
+time".
+
+**Fix:** Branch the zero case explicitly and use a small epsilon on the positive one:
+
+```ts
+const UNBUCKETED_EPSILON_SEC = 0.5; // below display resolution
+if (hasCoverage && buckets.length === 0) {
+  noteText = coverage!.coveredSec <= 0
+    ? 'No covered time in this recording — nothing to distribute.'
+    : `No pace buckets — ${formatEffortDuration(unbucketedSec)} of covered time produced no derivable pace.`;
+} else if (hasCoverage && buckets.length > 0 && unbucketedSec > UNBUCKETED_EPSILON_SEC) {
+  ...
+}
+```
+
+---
+
+## What I checked and found clean
+
+Recorded so a later reader knows what was covered rather than skipped:
+
+- `classifyGaps` strict-priority classification, gap-run merging boundaries, `advanceIntervals`
+  seeding, `computeFlatRunDurations` maximal-run walk, and the `Infinity` pause threshold on a
+  never-advancing stream — all correct; the `coveredSec + recordingGapSec + pauseSec === spanSec`
+  identity holds by construction.
+- `derivePaceSeriesGapAware` window clamping picks the max gap-end at or before `t[i]` and the min
+  gap-start at or after `t[i]` correctly, and boundary samples (exactly at a gap edge) are correctly
+  not treated as inside the gap.
+- Every exported function in `pace-derivation.ts` is total on array-shaped input (T-26-01): probed
+  with mismatched lengths, empty arrays, and non-finite values; none throws.
+- `parseAthleteConfig` is `__proto__`-safe (own-property reads only) and all-or-nothing.
+- `appendAccessibleBadge` uses `textContent` on both spans (no XSS surface), and
+  `paceDisputedDescriptionId`'s distinct suffix genuinely prevents collision with
+  `lowConfidenceDescriptionId` on a row carrying both badges.
+- `detail.ts` calls `derivePaceWithCoverage` exactly once per render and feeds the histogram, the
+  caption and the split annotations from that single result; all four `await` points are re-guarded
+  by the `requestToken`/`mountedContainer` stale-render check.
+- `compute-pace-residual.mjs`'s self-execution guard works (importing it in the test does not run
+  the sweep or write the report), and the Criterion 1 classification matches its stated amended rule.
+- No hardcoded secrets, no `eval`, no `innerHTML`, no shell interpolation, and no path traversal
+  anywhere in the reviewed set. `loadPinnedStream`/`loadPinnedActivity` build paths from a
+  closed literal fixture table, not from caller input.
+
+---
+
+_Reviewed: 2026-09-09 (Round 2)_
+_Reviewer: Claude (gsd-code-reviewer)_
+_Depth: standard_
+
+---
+---
+
+# Round 1 archive (2026-09-09) — preserved verbatim, do not edit
+
+Everything below this line is the Round 1 report exactly as written, including the orchestrator's
+CR-01 downgrade and the CORRECTION that retracted it. It is retained because this project has a
+recorded lesson about a downgraded finding turning out to be real; the audit trail is the point.
+
 
 # Phase 26 Code Review — Shared Gap-Aware Pace Derivation & Honest Coverage
 
