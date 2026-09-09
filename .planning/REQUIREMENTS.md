@@ -15,7 +15,7 @@
 
 ### Pace derivation (PACE)
 
-- [x] **PACE-01**: All stream-derived pace in the dashboard comes from one shared module in `src/analytics/`, imported by both `detail-charts-logic.ts` and `detail-zones.ts` — no call site computes `dt / (dd / 1000)` independently.
+- [ ] **PACE-01**: All stream-derived pace in the dashboard comes from one shared module in `src/analytics/`, imported by both `detail-charts-logic.ts` and `detail-zones.ts` — no call site computes `dt / (dd / 1000)` independently.
 - [x] **PACE-02**: A pace-averaging window never bridges a recording or pause gap; it clips at the gap boundary instead, so no pace value is manufactured across a period with no samples.
 - [x] **PACE-03**: The smoothing window is justified from this archive's own evidence and the justification is recorded, because no industry standard exists to adopt (FEATURES.md: only Strava and Garmin publish anything, both vague; Garmin Connect's web chart has no smoothing at all). **A single fixed window is already disproven by measurement and must not be assumed:** each activity's distance-advance interval — the gap between successive increases in `d`, which is what the window must average over — varies by a factor of ~30 across the archive:
 
@@ -122,7 +122,7 @@ Filled during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PACE-01 | Phase 26 | Complete |
+| PACE-01 | Phase 26 | Pending (reopened 2026-09-09 — CR-03: the chart band overrode the adaptive window resolution; literal single-source text satisfied, the "two surfaces cannot disagree" contract defeated. See 26-VERIFICATION.md) |
 | PACE-02 | Phase 26 | Complete |
 | PACE-03 | Phase 26 | Complete |
 | PACE-04 | Phase 26 | Complete |

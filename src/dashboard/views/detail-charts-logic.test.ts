@@ -17,7 +17,12 @@ import {
 } from './detail-charts-logic.js';
 import type { CanonicalStream } from '../../streams/stream.types.js';
 import type { WebStorage } from '../storage.js';
-import { derivePaceWithCoverage, PACE_WINDOW_FLOOR_SEC } from '../../analytics/pace-derivation.js';
+import {
+  derivePaceWithCoverage,
+  derivePaceSeriesGapAware,
+  paceHistogramSamples,
+  PACE_WINDOW_FLOOR_SEC,
+} from '../../analytics/pace-derivation.js';
 
 /**
  * Reads the pinned worked-example stream (activity 4556693525) directly via
@@ -29,6 +34,19 @@ import { derivePaceWithCoverage, PACE_WINDOW_FLOOR_SEC } from '../../analytics/p
  */
 function loadWorkedExampleStream(): CanonicalStream {
   const raw = fs.readFileSync('data/streams/4556693525.json', 'utf-8');
+  return JSON.parse(raw) as CanonicalStream;
+}
+
+/**
+ * Reads the phase's pinned CR-03 exemplar (activity 5059204779) directly via
+ * `node:fs`, for the same reason `loadWorkedExampleStream` above does — see
+ * that helper's doc comment for the full import-boundary rationale (D-20).
+ * This activity's adaptive window resolves to 150s (measured 2026-09-09,
+ * exceeding the 20s floor), which is what makes it the discriminator for
+ * CR-03.
+ */
+function loadPinnedExemplarStream(): CanonicalStream {
+  const raw = fs.readFileSync('data/streams/5059204779.json', 'utf-8');
   return JSON.parse(raw) as CanonicalStream;
 }
 
@@ -175,6 +193,111 @@ describe('buildChannelSeries', () => {
   it('returns null when the stream has no cadence array (band omitted, not empty — D-17)', () => {
     const stream = makeUniformStream(5, 50);
     expect(buildChannelSeries(stream, 'cadence', 'distance')).toBeNull();
+  });
+});
+
+describe('CR-03 — the chart band and the histogram read one derivation (Criterion 1/4/5, PACE-01)', () => {
+  it('non-vacuity guard: the exemplar (5059204779) adaptive window exceeds the floor and is 150s; the control (4556693525) resolves to exactly the floor', () => {
+    const exemplar = loadPinnedExemplarStream();
+    const control = loadWorkedExampleStream();
+
+    const exemplarWindow = derivePaceWithCoverage(exemplar).windowSec;
+    expect(exemplarWindow).toBeGreaterThan(PACE_WINDOW_FLOOR_SEC);
+    expect(exemplarWindow).toBeCloseTo(150, 3);
+
+    const controlWindow = derivePaceWithCoverage(control).windowSec;
+    expect(controlWindow).toBe(PACE_WINDOW_FLOOR_SEC);
+
+    // If the exemplar's window ever collapsed to the floor, every assertion
+    // below in this block would pass trivially (the chart and histogram
+    // would already agree on the fixed-20s series) — this guard is what
+    // stops the block rotting into a tautology.
+  });
+
+  it('the chart series equals the histogram series, index for index, on the exemplar (time axis)', () => {
+    const exemplar = loadPinnedExemplarStream();
+    const derived = derivePaceWithCoverage(exemplar);
+
+    const expected: { x: number; y: number }[] = [];
+    for (let i = 0; i < exemplar.t.length; i++) {
+      const y = derived.paceSeries[i];
+      if (y === null) continue;
+      expected.push({ x: exemplar.t[i], y });
+    }
+
+    expect(buildChannelSeries(exemplar, 'pace', 'time')).toEqual(expected);
+  });
+
+  it('the chart series equals the histogram series, index for index, on the exemplar (distance axis)', () => {
+    const exemplar = loadPinnedExemplarStream();
+    const derived = derivePaceWithCoverage(exemplar);
+
+    const expected: { x: number; y: number }[] = [];
+    for (let i = 0; i < exemplar.t.length; i++) {
+      const y = derived.paceSeries[i];
+      if (y === null) continue;
+      expected.push({ x: exemplar.d[i] / 1000, y });
+    }
+
+    expect(buildChannelSeries(exemplar, 'pace', 'distance')).toEqual(expected);
+  });
+
+  it('the fast-mass statistic agrees between the chart and the shared derivation, denominator stated (measured 2026-09-09: adaptive ≈1.17% of 3,679s bucketed-time; fixed-20s ≈94.80% of 1,153s bucketed-time)', () => {
+    const exemplar = loadPinnedExemplarStream();
+    const derived = derivePaceWithCoverage(exemplar);
+
+    // Chart's own output, re-joined to stream.t by array position (buildChannelSeries
+    // skips null entries, so points are not guaranteed index-aligned with stream.t —
+    // re-derive the same non-null series shape from the chart's x values instead).
+    const chartPoints = buildChannelSeries(exemplar, 'pace', 'time')!;
+    const chartPaceSeries: (number | null)[] = new Array(exemplar.t.length).fill(null);
+    const timeToIndex = new Map(exemplar.t.map((t, i) => [t, i]));
+    for (const p of chartPoints) {
+      const idx = timeToIndex.get(p.x);
+      if (idx !== undefined) chartPaceSeries[idx] = p.y;
+    }
+
+    function fastMassPercent(paceSeries: (number | null)[]): { pct: number; denominator: number } {
+      // Denominator = sum of every returned timeSec from paceHistogramSamples
+      // (bucketed time), NOT coverage.coveredSec — the three published figures
+      // in this phase's artifacts (1.22%, 1.17%, 1.1688%) differ only in this
+      // denominator choice; this test uses the bucketed-time one.
+      const samples = paceHistogramSamples(exemplar.t, paceSeries, derived.coverage.gapIntervals);
+      const denominator = samples.reduce((sum, s) => sum + s.timeSec, 0);
+      const fastTime = samples
+        .filter((s) => s.paceSecPerKm < 180)
+        .reduce((sum, s) => sum + s.timeSec, 0);
+      return { pct: (fastTime / denominator) * 100, denominator };
+    }
+
+    const fromChart = fastMassPercent(chartPaceSeries);
+    const fromDerivation = fastMassPercent(derived.paceSeries);
+
+    expect(Math.abs(fromChart.pct - fromDerivation.pct)).toBeLessThan(0.01);
+    expect(fromDerivation.pct).toBeLessThan(2);
+
+    // The fixed-20s value is derived here via an explicit windowSec — legal
+    // in a *.test.ts file, which the single-source audit exempts by design.
+    const fixedSeries = derivePaceSeriesGapAware(exemplar.t, exemplar.d, {
+      windowSec: PACE_WINDOW_FLOOR_SEC,
+      gapIntervals: derived.coverage.gapIntervals,
+    });
+    const fromFixed = fastMassPercent(fixedSeries);
+    expect(fromFixed.pct).toBeGreaterThan(90);
+  });
+
+  it('the control (4556693525, floor window either way): chart series equals the shared derivation — no-regression control, NOT a discriminator (passes both before and after the fix)', () => {
+    const control = loadWorkedExampleStream();
+    const derived = derivePaceWithCoverage(control);
+
+    const expected: { x: number; y: number }[] = [];
+    for (let i = 0; i < control.t.length; i++) {
+      const y = derived.paceSeries[i];
+      if (y === null) continue;
+      expected.push({ x: control.t[i], y });
+    }
+
+    expect(buildChannelSeries(control, 'pace', 'time')).toEqual(expected);
   });
 });
 
