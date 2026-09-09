@@ -588,6 +588,41 @@ describe('WR-01 — zero-net-advance covered segment flanked by recording gaps',
     expect(result.coverage.coveredSec).toBe(accounting.bucketedSec + accounting.unbucketedCoveredSec);
   });
 
+  /**
+   * Archive-wide sweep (plan 26-11 Task 3, throwaway script, 2026-09-09, 1865
+   * streams): the identity holds on every scanned stream (0 violations); 44
+   * activities have unbucketedCoveredSec > 0, and 11865310195 is the maximum
+   * ratio case (1.0 — 100% of its covered time is unbucketed, the pathological
+   * shape). Pinned here for two named real activities per the file's
+   * established discipline — a small sample, not the whole sweep, but a
+   * permanent regression guard on both the pathological case and a clean one.
+   */
+  it('itemised identity holds for a named sample of real archive activities, including the pathological and a clean case', () => {
+    const pathological = readStream('11865310195');
+    const pathologicalCoverage = classifyGaps(pathological.t, pathological.d);
+    const pathologicalResult = derivePaceWithCoverage(pathological);
+    const pathologicalAccounting = paceHistogramAccounting(
+      pathological.t,
+      pathologicalResult.paceSeries,
+      pathologicalResult.coverage
+    );
+    expect(pathologicalAccounting.unbucketedCoveredSec).toBe(6);
+    expect(pathologicalCoverage.coveredSec).toBe(
+      pathologicalAccounting.bucketedSec + pathologicalAccounting.unbucketedCoveredSec
+    );
+
+    // 4556693525 — the pinned worked exemplar (26-CONTEXT.md). The sweep
+    // measured unbucketedCoveredSec === 0 for it exactly (every covered
+    // second the derivation classifies is also bucketed into a histogram
+    // sample) — asserting the measured value, not a rounder assumption.
+    const clean = readStream('4556693525');
+    const cleanCoverage = classifyGaps(clean.t, clean.d);
+    const cleanResult = derivePaceWithCoverage(clean);
+    const cleanAccounting = paceHistogramAccounting(clean.t, cleanResult.paceSeries, cleanResult.coverage);
+    expect(cleanAccounting.unbucketedCoveredSec).toBe(0);
+    expect(cleanCoverage.coveredSec).toBe(cleanAccounting.bucketedSec + cleanAccounting.unbucketedCoveredSec);
+  });
+
   it('unbucketedCoveredSec is never negative for either fixture (the deliberate no-clamp decision, pinned as a checked property)', () => {
     const synthetic = makeStream({ t: [0, 12, 14, 26], d: [0, 30, 30, 60] });
     const syntheticResult = derivePaceWithCoverage(synthetic);
