@@ -75,6 +75,8 @@ case below must be staged and observed failing **before** its positive assertion
 | 6 | A second per-sample pace implementation deliberately reintroduced | `pace-single-source.test.ts` fails, naming the offending file | Crit 4 · PACE-01 |
 | 7 | Metadata-vs-stream cross-check removed | Dashboard reverts to displaying `5059204779` as 1:53/km as fact | Crit 7 · PACE-07 |
 | 8 | Archive sweep re-run against the unfixed per-sample path | Baseline fast-mass values reproduce, confirming the "after" comparison is real | Crit 1 · PACE-04/06 |
+| 9 | (26-11, plan 26-11's Task 1) The documented `sum(timeSec) === coverage.coveredSec` invariant asserted against the zero-net-advance `covered` segment flanked by two `recording-gap`s | Watched failing twice, verbatim vitest output (`pace-derivation.test.ts`): `FAIL … demonstrated-failing: the documented invariant is FALSE on the synthetic shape (0 vs 2)` / `AssertionError: expected +0 to be 2` and `FAIL … demonstrated-failing: the documented invariant is FALSE on real archive activity 11865310195 (0 vs 6)` / `AssertionError: expected +0 to be 6` | Crit 3 · COV-01 |
+| 10 | (26-12, plan 26-12's Task 1) The coverage caption gated behind `buckets.length` | Watched failing twice, verbatim vitest output (`detail-sections.test.ts`, `breakdownSectionPlan — D-08 always-on coverage caption (CR-01 regression)`): `renders the pace heading and caption for real activity 11865310195 even though its histogram is empty, from a hand-built fixture` / `AssertionError: expected null not to be null` and `renders the same caption from the real committed stream 11865310195, not just a synthetic look-alike` / `AssertionError: expected null not to be null` — `buildBreakdownSection([], coverage, null)` returned `null` for an activity with 33% covered / 67% recording gaps | Crit 3 · COV-02 |
 
 ---
 
@@ -373,3 +375,187 @@ properties owned by earlier plans in this phase; 26-10 does not tick what it did
 **Approval:** Round 1 recorded and approved 2026-09-09 — five PASS, one justified NOT EXERCISABLE,
 zero FAIL, zero BLOCKED. Two findings (F-26-01, F-26-02) logged as gap-closure/deferred work
 rather than patched during the session.
+
+---
+
+## Round 2 Checkpoint (R2-1..R2-4)
+
+Prepared by plan 26-13 Task 1, 2026-09-09. Confirms the CR-01 fix (plan 26-12) on screen — the
+gap `26-VERIFICATION.md` found by code-path tracing and a live archive scan, never by browser
+observation, because `11865310195` was never a Round 1 row. Every row below carries a pre-stated
+expected value, derived **before** observation and **without** importing
+`src/analytics/pace-derivation.ts` or anything under `dist/analytics/`, plus an explicit
+FAIL condition and a both-direction satisfiability note, per this project's
+`checkpoint-rows-must-assert-extent` and `checkpoint-rows-can-be-unsatisfiable` lessons.
+
+### Pre-session automated gate (all exited 0, run against the live tree before serving, 2026-09-09)
+
+| # | Command | Exit code |
+|---|---------|-----------|
+| 1 | `npm run test` | 0 (1895 passed / 0 failed, 69 files) |
+| 2 | `npx tsc --noEmit` | 0 |
+| 3 | `npm run build` | 0 |
+| 4 | `npm run compute-dashboard-index` | 0 (1890 indexed, Pace disagreements flagged: 1) |
+| 5 | `npm run build-widgets` | 0 (dashboard SPA + all 11 widgets built; `data/dashboard/*.json` — 1 copied) |
+| 6 | `npm run verify-dashboard` | 0 (56 checks passed, 0 failures) |
+
+`git status --porcelain data/streams` — no output (archive byte-identical to what the hand
+derivation below reads).
+
+### Served build
+
+- **URL (mounted, production-shaped — matches the GitHub Pages project-page mount D-02 uses):**
+  `http://127.0.0.1:4173/strava-widgets/`
+- **Server:** `npm run curate` (`scripts/curate-server.mjs`), restarted fresh for this round (a
+  stale instance from an earlier session was killed first, so the served bytes are guaranteed to
+  come from the rebuild above, not a 2h17m-old process):
+  `nohup npm run curate > /tmp/gsd-26-serve.log 2>&1 & disown`
+- **Restart command if the process is gone:** from the repo root,
+  `nohup npm run curate > /tmp/gsd-26-serve.log 2>&1 & disown` (binds `127.0.0.1:4173` only; if you
+  see `FATAL: port 4173 is already in use`, a prior instance is still running — that is fine, just
+  reload the browser).
+- **Staged-build guard (T-26-26), confirmed by fetch against the SERVED URL, not the repo file:**
+  - `curl -s http://127.0.0.1:4173/strava-widgets/data/streams/11865310195.json` →
+    `"t":[0,1,2,14,17,18]`, `"d":[0,0,0,0,0,0]` — matches the committed repo file exactly, no stale
+    staged copy.
+  - `curl -s http://127.0.0.1:4173/strava-widgets/data/dashboard/index.json` → activity
+    `11865310195`'s row carries `"streams":{"available":true,"hr":false,"cadence":true,"elevation":true,"distanceSource":"native"}`.
+  - `GET /strava-widgets/` → `200`.
+
+### Setup instructions (read before every row)
+
+1. **Hard reload** the page before starting (Cmd+Shift+R / disable cache in DevTools). Staged builds
+   in this project have served a stale `index.html`/`index.json` before — pointing at `127.0.0.1`
+   alone is not sufficient.
+2. Keep the browser viewport within the **500-941 px** band for every row.
+3. Routes (hash router): Detail `#/activity/{id}`.
+
+### Independent derivation method (does NOT import `src/analytics/pace-derivation.ts` or `dist/analytics/`)
+
+A standalone throwaway Node script (`hand-derive-round2.mjs`, session scratch dir, not committed)
+read `data/streams/{id}.json`'s `t`/`d` arrays directly and reimplemented the classification rule
+from its documented spec in `pace-derivation.ts`'s own **comments** (read, not imported): segment
+`[t[i],t[i+1]]` is `recording-gap` if `dt > 10s` (`RECORDING_GAP_ABS_THRESHOLD_SEC`); else `pause`
+if it belongs to a maximal distance-flat run (`d[i+1]-d[i] <= 0`) whose duration exceeds
+`5 * p90(advanceIntervals)` (`PAUSE_GAP_P90_MULTIPLIER`, R-7 linear-interpolation quantile); else
+`covered`.
+
+**Activity `11865310195`** (`t = [0, 1, 2, 14, 17, 18]`, `d = [0, 0, 0, 0, 0, 0]`): `n=6`. `d`
+never advances, so `advanceIntervals = []` and the pause threshold resolves to `Infinity` — nothing
+is a pause. Per-segment classification: `[0,1]` dt=1 covered, `[1,2]` dt=1 covered, `[2,14]` dt=12
+> 10 **recording-gap**, `[14,17]` dt=3 covered, `[17,18]` dt=1 covered. `spanSec = t[5] - t[0] =
+18`. `coveredSec = 1+1+3+1 = 6`. `recordingGapSec = 12`. `pauseSec = 0`. Sum identity:
+`6 + 12 + 0 = 18 = spanSec` exactly. Rounded: **33% / 67% / 0%**. Since the histogram is empty
+(0 buckets), all 6 covered seconds are unbucketed → `formatEffortDuration(6)` → `"0:06"`.
+
+**Activity `4556693525`** (pinned exemplar, re-derived fresh): `n=1682`, `spanSec = t[1681] - t[0]
+= 3394`, `coveredSec=3363`, `recordingGapSec=31`, `pauseSec=0`, sum identity exact
+(`3363+31+0 = 3394`). Rounded: **99% / 1% / 0%** — matches Round 1's Row 1 hand derivation exactly
+(re-run independently, not re-read from that row).
+
+**Pre-fix reachability, so R2-1/R2-2 are provably failable, not vacuous:** at HEAD before plan
+26-12 (`8026cb4b`), `buildBreakdownSection([], coverage, null)` returned `null` for `11865310195`
+— no section, no heading, no caption at all. Verbatim watched-failing transcript is table row (10)
+above, from `26-12-SUMMARY.md`. Post-fix, the same inputs at HEAD now produce a non-null plan (see
+totality check below) — both directions are demonstrated, not assumed.
+
+### Totality check (T-26-29 mitigation — confirms the page can render before a human is asked to look)
+
+Ran a scratch vitest file (session scratch dir, added to `src/analytics/`, run, then deleted —
+never committed; `git status --porcelain src/analytics` confirmed empty afterward) asserting each
+call in the real render chain (`detail.ts`'s own sequence: `computeSplits` →
+`derivePaceWithCoverage` → `computePaceDistribution` → `computeHrZoneTimes` →
+`breakdownSectionPlan`) does not throw for `11865310195`'s committed stream:
+
+```
+splits.length 0
+buckets.length 0
+coverage {"spanSec":18,"coveredSec":6,"recordingGapSec":12,"pauseSec":0,"gapIntervals":[{"startSec":2,"endSec":14,"kind":"recording-gap"}]}
+zoneTimesNullConfig null
+plan {"showPaceHeading":true,"captionText":"33% of elapsed time covered · 67% recording gaps · 0% paused","showBars":false,"noteText":"No pace buckets — 0:06 of covered time produced no derivable pace.","showHrZones":false}
+
+✓ src/analytics/__round2-totality-scratch.test.ts (1 test) 3ms
+```
+
+None of the five calls throws; `breakdownSectionPlan` returns non-null with `captionText` and
+`noteText` matching the hand derivation above exactly, and `showHrZones: false`. No row below is
+unsatisfiable for an unrelated reason — the detail page for `11865310195` does render.
+
+### R2-1 — D-08 / COV-02 / CR-01 — the caption that previously did not render at all, activity `11865310195`
+
+- **Where:** `http://127.0.0.1:4173/strava-widgets/#/activity/11865310195`, the `Pace Distribution`
+  section.
+- **What to read back:** does the `Pace Distribution` section exist at all? Then the `.text-label`
+  caption line directly under the heading.
+- **Pre-stated expected caption (verbatim):** `"33% of elapsed time covered · 67% recording gaps ·
+  0% paused"`, reconciled against the hand sum above (span 18, covered 6, recording gap 12,
+  `6 + 12 + 0 = 18`).
+- **PASS if:** the section and its caption are present and the three percentages equal the
+  hand-derived 33/67/0 (or disagree by no more than one point of rounding).
+- **FAIL if:** no `Pace Distribution` section renders, the caption is absent, a named category is
+  missing, or a percentage disagrees by more than one rounding point.
+- **Both-direction check:** fails against pre-fix code — `buildBreakdownSection` returned `null`
+  for this activity at HEAD before 26-12 (table row (10) above), so the row's failing observation
+  is demonstrated, not hypothetical; it passes only if the fix works.
+
+### R2-2 — the honest note and the absence of bars, same activity
+
+- **Where:** same page, the `Pace Distribution` section, the `.text-label` line where the histogram
+  bars would be.
+- **What to read back:** the note line verbatim, and whether any histogram bar row is present.
+- **Pre-stated expected verbatim:** `"No pace buckets — 0:06 of covered time produced no derivable
+  pace."` (matches the shipped copy confirmed by direct source read of
+  `src/dashboard/views/detail-sections.ts:511` and the totality check's own `plan.noteText` above —
+  26-12's SUMMARY did not report a different shipped string, so this is quoted, not re-stated). The
+  `0:06` is independently derived (18 second span minus the 12 second recording gap = 6 seconds of
+  covered time), not read off the code.
+- **PASS if:** the note reads exactly as pre-stated **and** zero histogram bar rows are present.
+- **FAIL if:** the note is absent, its duration is anything other than `0:06`, or any bar row
+  renders.
+- **Both-direction check:** a fix that fell back to the stream span rather than the covered seconds
+  would render `0:18` — an observably different, distinguishable failure, so the number tests
+  reachable extent against an independent value rather than internal agreement.
+
+### R2-3 — no-regression: the pinned exemplar `4556693525` still renders BOTH caption and bars
+
+- **Where:** `http://127.0.0.1:4173/strava-widgets/#/activity/4556693525`, the `Pace Distribution`
+  section.
+- **Independent derivation (re-run fresh, not re-read from Round 1's Row 1):** `n=1682, spanSec =
+  t[1681] - t[0] = 3394`, covered 3363, recording gap 31, pause 0.
+- **Pre-stated expected caption (verbatim):** `"99% of elapsed time covered · 1% recording gaps ·
+  0% paused"`, **and** at least one histogram bar row visible, whose label the human quotes (a
+  `m:ss–m:ss/km` bucket label with its minutes/percentage value).
+- **PASS if:** caption matches the hand sum and at least one bar row is quoted.
+- **FAIL if:** the caption is absent or disagrees by more than one rounding point, **or** no bar
+  rows render.
+- **Both-direction check:** this is the inversion guard — a fix that made the caption
+  unconditional but dropped the bars would pass R2-1 and R2-2 and fail here, which is the only row
+  that can catch that specific regression.
+
+### R2-4 — D-31 preserved now that the section renders where it did not before, activity `11865310195`
+
+- **Where:** same page as R2-1/R2-2, anywhere on the detail page.
+- **Independent input:** the SERVED index row's `"hr": false`, confirmed by the curl above; also
+  confirmed structurally by the totality check's `zoneTimesNullConfig: null` (the function returns
+  `null` because the stream carries no `hr` channel at all — the same absence would hold under the
+  app's real, non-null athlete config, since `computeHrZoneTimes` checks `stream.hr` presence
+  independently of `config`).
+- **What to read back:** does a `Heart Rate Zones` heading, an empty zone panel, or any "no HR
+  data"-style copy appear anywhere on the page?
+- **Pre-stated expected:** **no** `Heart Rate Zones` heading anywhere on that detail page, no empty
+  panel shell, and no "no HR data"-style copy.
+- **PASS if:** the breakdown card contains the pace heading, caption and note only.
+- **FAIL if:** a `Heart Rate Zones` heading, an empty zone panel, or any placeholder copy appears.
+- **Both-direction check:** passable (D-31's behaviour at HEAD, confirmed unregressed by R2-4) and
+  newly failable (the card itself did not render for this activity before 26-12, so an empty HR
+  shell becomes reachable here for the first time — a regression that added a placeholder alongside
+  the newly-rendering pace half would be caught here and nowhere else in this round).
+
+### Verdict table — Round 2 (filled in by Task 2)
+
+| Row | Requirement | Verdict | Verbatim quotation |
+|-----|-------------|---------|---------------------|
+| R2-1 | D-08/COV-02/CR-01 | | |
+| R2-2 | CR-01 | | |
+| R2-3 | D-08/COV-02 no-regression | | |
+| R2-4 | D-31 | | |
