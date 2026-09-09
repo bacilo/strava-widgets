@@ -945,7 +945,11 @@ describe('pace disagreement', () => {
     expect(flagged).toContain('5059204779');
     expect(flagged.length).toBeLessThanOrEqual(3);
     expect(flagged.length / scanned).toBeLessThanOrEqual(0.005);
-  });
+    // Reads and derives pace over the whole ~1,890-activity archive, which lands
+    // just under vitest's 5s default and fails intermittently on a busy machine.
+    // The budget is generous on purpose — this guards the assertions above, not
+    // the sweep's runtime.
+  }, 60_000);
 
   it("5059204779's flagged values round to streamPaceSecPerKm 350.6 (5:51/km) and metadataPaceSecPerKm 112.6 — the exact string UI-SPEC's browser checkpoint row 3 reads back on screen", async () => {
     const activity = JSON.parse(
