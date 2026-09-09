@@ -121,6 +121,12 @@ None - no external service configuration required.
 - PACE-07 is satisfied by this plan's closure; PACE-01 remains deliberately `Pending` per plan 26-14's reopening and is not touched here — plan 26-16 re-closes it after the Round 3 browser checkpoint.
 - No blockers for 26-16. `list.ts` and `list.test.ts` are both green and untouched beyond this plan's scope.
 
+## Self-Check: PASSED
+
+All files (`src/dashboard/views/list.ts`, `src/dashboard/views/list.test.ts`, `deferred-items.md`,
+this summary) exist on disk; all three commits (`48b8189b`, `0b1cfa1c`, `a544448c`) are present in
+`git log --oneline --all`.
+
 ---
 *Phase: 26-shared-gap-aware-pace-derivation-honest-coverage*
 *Completed: 2026-09-09*
