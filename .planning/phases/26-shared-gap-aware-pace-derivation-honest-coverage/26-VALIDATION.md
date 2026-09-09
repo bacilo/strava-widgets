@@ -551,11 +551,74 @@ unsatisfiable for an unrelated reason — the detail page for `11865310195` does
   shell becomes reachable here for the first time — a regression that added a placeholder alongside
   the newly-rendering pace half would be caught here and nowhere else in this round).
 
-### Verdict table — Round 2 (filled in by Task 2)
+### Verdict table — Round 2, recorded 2026-09-09
+
+Session conducted against the served build described above (all six pre-session gate commands
+green, served-path curls verified fresh). Every quotation below was supplied by the developer
+from the browser at the moment of observation; none was inferred from an automated check, per
+Criterion 3.
 
 | Row | Requirement | Verdict | Verbatim quotation |
 |-----|-------------|---------|---------------------|
-| R2-1 | D-08/COV-02/CR-01 | | |
-| R2-2 | CR-01 | | |
-| R2-3 | D-08/COV-02 no-regression | | |
-| R2-4 | D-31 | | |
+| R2-1 | D-08/COV-02/CR-01 | **PASS** | `33% of elapsed time covered · 67% recording gaps · 0% paused` |
+| R2-2 | CR-01 | **PASS** | `No pace buckets — 0:06 of covered time produced no derivable pace.` |
+| R2-3 | D-08/COV-02 no-regression | **PASS** | `99% of elapsed time covered · 1% recording gaps · 0% paused` · bar rows quoted: `1:30–1:45/km` `0.2 min`; `5:30–5:45/km` `8.2 min`; `6:00–6:15/km` `5.5 min` |
+| R2-4 | D-31 | **PASS** | "don't see any heart rate section" |
+
+**R2-1 — PASS.** The developer pasted the full section content read on screen:
+
+```
+Pace Distribution
+33% of elapsed time covered · 67% recording gaps · 0% paused
+
+No pace buckets — 0:06 of covered time produced no derivable pace.
+```
+
+The section exists — the developer confirmed this explicitly before quoting anything, satisfying
+the row's "does the section exist at all?" clause. The caption line reads exactly `33% of
+elapsed time covered · 67% recording gaps · 0% paused`, matching the pre-stated expectation
+verbatim and **reconciled against the hand-derived 33/67/0** (span 18, covered 6, recording gap
+12, `6 + 12 + 0 = 18`, as derived independently in the section above without importing
+`pace-derivation.ts`). The developer additionally noted "section exists but no histogram" — this
+is the expected R2-2 condition, not an R2-1 defect, and is not recorded as a finding against this
+row.
+
+**R2-2 — PASS.** The note line reads exactly `No pace buckets — 0:06 of covered time produced no
+derivable pace.`, matching the pre-stated verbatim string exactly. Zero histogram bar rows are
+present — the developer's paste shows the caption and note only, with no bar rows between them
+and the end of the section. The `0:06` discriminator held: a span-based fallback would have
+rendered `0:18` instead, and did not.
+
+**R2-4 — PASS.** The developer reported: "don't see any heart rate section." No `Heart Rate
+Zones` heading, no empty zone panel, and no "no HR data"-style copy were observed anywhere on the
+page. D-31 is preserved now that the pace half of the card renders where it previously did not.
+
+**R2-3 — PASS.** Caption read verbatim: `99% of elapsed time covered · 1% recording gaps · 0%
+paused`, matching the fresh hand derivation (n=1682, spanSec 3394, covered 3363, recording gap
+31, pause 0) with zero rounding divergence. Bars render — the developer pasted roughly 57 bar
+rows; sample bar rows quoted verbatim from their paste: `1:30–1:45/km` `0.2 min`; `5:30–5:45/km`
+`8.2 min`; `6:00–6:15/km` `5.5 min`. The inversion guard is satisfied: caption AND bars both
+render, so a fix that made the caption unconditional but silently dropped the bars is ruled out.
+
+**Note on the R2-3 paste:** the developer's quotation ends at a final `18:30–18:45/km` label with
+its value cut off mid-paste. This is a paste truncation in the developer's message, not a missing
+value on screen, and is not recorded as a finding or a partial failure.
+
+**Orchestrator cross-check (supplementary evidence, orchestrator-computed — NOT one of the four
+human verdicts above, and not itself a checkpoint row).** Plan 26-12 shipped a second note branch
+("Bars below omit N of covered time…") that renders alongside the histogram whenever
+`unbucketedCoveredSec > 0`. The developer's R2-3 paste shows bars with no such note present,
+which would indicate residue if `4556693525` carried any unbucketed covered time. Computed via
+the D-16 entry point `derivePaceWithCoverage` for both activities:
+- `4556693525`: `coveredSec 3363`, `bucketedSec 3363`, **`unbucketedSec 0`**, 1679 samples.
+- `11865310195`: `coveredSec 6`, `bucketedSec 0`, **`unbucketedSec 6`**, 0 samples.
+
+`4556693525` has zero unbucketed covered seconds, so the absence of the second note branch on
+that activity is **correct behaviour**, not a missing branch — this cross-check corroborates
+R2-3's PASS rather than contradicting it. This paragraph is orchestrator-computed supplementary
+evidence, not a fifth human-observed row, and does not substitute for or alter any of the four
+recorded verdicts above.
+
+Every quotation in the verdict table and its per-row narrative above came verbatim from the
+developer's message reporting what they read in the browser; no verdict was inferred from an
+automated check.
