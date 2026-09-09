@@ -102,7 +102,7 @@ times before this milestone, and there is no jsdom or headless browser in the re
   7. A metadata-vs-stream pace cross-check flags material disagreement rather than displaying metadata as fact: activity 5059204779 (`moving_time: 1216`, `distance: 10804` → metadata `paceSecPerKm: 112.6`, i.e. 1:53/km, against the stream-derived 5:51/km) is flagged by the check, read directly from the dashboard/index output rather than inferred — demonstrated failing when the cross-check is removed, at which point the dashboard reverts to displaying 1:53/km as fact. The check's archive-wide flag count at the stated threshold (metadata implying a sustained pace faster than 3:20/km) is reported and is exactly 1 of 1,890 activities, showing the check does not over-fire across the rest of the archive.
 
   *Seven criteria, two over the 2-5 guideline. Criteria 2 and 3 could look mergeable (both gap-related) but are kept separate because they fail independently on inspection: gap-boundary clipping (2) can be correct while the coverage sum or its on-screen display (3) has its own, unrelated bug, and vice versa — merging would let one criterion's pass mask the other's failure. Criterion 7 (PACE-07's metadata cross-check) is a materially different failure mode from every other criterion here — metadata-vs-stream disagreement, not an internal derivation defect — and is kept separate rather than folded into Criterion 1 so its own singleton-flag-count evidence is not buried inside PACE-04/06's reduction narrative.*
-**Plans**: 10 plans in 6 waves
+**Plans**: 13 plans in 9 waves
 
 Plans:
 **Wave 1**
@@ -132,6 +132,18 @@ Plans:
 **Wave 6** *(blocked on Wave 5 completion)*
 
 - [x] 26-10-PLAN.md — Human browser checkpoint against a production-shaped build (COV-02, PACE-05, PACE-07)
+
+**Wave 7** *(gap closure — 26-VERIFICATION.md `gaps_found`, 2026-09-09)*
+
+- [ ] 26-11-PLAN.md — Adjudicate WR-01 and itemise unbucketed covered time into an exact identity (COV-01)
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
+- [ ] 26-12-PLAN.md — Decouple the always-on coverage caption from histogram bucket presence (COV-02)
+
+**Wave 9** *(blocked on Wave 8 completion)*
+
+- [ ] 26-13-PLAN.md — Round 2 browser checkpoint on activity 11865310195 and COV-01/COV-02 closure (COV-01, COV-02)
 
 **UI hint**: yes
 
