@@ -15,8 +15,8 @@
  * even at identical duration and intensity. Warning sign: TRIMP that does
  * not scale sensibly with activity duration, or that differs wildly between
  * two runs of similar length/intensity but different decimation density.
- * The fix, mirrored from `detail-charts-logic.ts`'s `derivePaceSeries` and
- * `detail-zones.ts`'s `computeHrZoneTimes`: integrate by the REAL `Δt`
+ * The fix, mirrored from `pace-derivation.ts`'s `derivePaceSeriesGapAware`
+ * and `detail-zones.ts`'s `computeHrZoneTimes`: integrate by the REAL `Δt`
  * between consecutive samples (`t[i + 1] - t[i]`), never by sample count.
  */
 

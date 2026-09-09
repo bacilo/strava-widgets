@@ -2,12 +2,10 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import {
   CHANNEL_KEYS,
-  PACE_SMOOTHING_WINDOW_SEC,
   DEFAULT_OVERLAY_CONFIG,
   MAX_OVERLAYS_PER_BAND,
   OVERLAY_STORAGE_KEY,
   availableChannels,
-  derivePaceSeries,
   buildChannelSeries,
   distanceFractionAtX,
   pointAtDistanceFraction,
@@ -18,6 +16,7 @@ import {
 import type { CanonicalStream } from '../../streams/stream.types.js';
 import type { WebStorage } from '../storage.js';
 import {
+  classifyGaps,
   derivePaceWithCoverage,
   derivePaceSeriesGapAware,
   paceHistogramSamples,
@@ -99,10 +98,20 @@ describe('availableChannels', () => {
   });
 });
 
-describe('derivePaceSeries', () => {
+/**
+ * PACE-01 / CR-03: `detail-charts-logic.ts` no longer holds its own
+ * `derivePaceSeries` wrapper — the pace band calls the shared
+ * `derivePaceWithCoverage` directly (see that describe block below and the
+ * module's header comment). These five behaviours moved with it: they now
+ * exercise `derivePaceSeriesGapAware` (the primitive the deleted wrapper
+ * called), imported directly from `pace-derivation.ts` — legal in a
+ * `*.test.ts` file, which the single-source audit exempts by design.
+ */
+describe('derivePaceSeriesGapAware (via pace-derivation.ts, the primitive the deleted detail-charts-logic.ts wrapper called)', () => {
   it('returns ≈200 s/km for every entry on a constant 5 m/s stream with a 20s window', () => {
     const stream = makeUniformStream(5, 200);
-    const pace = derivePaceSeries(stream.t, stream.d, PACE_SMOOTHING_WINDOW_SEC);
+    const { gapIntervals } = classifyGaps(stream.t, stream.d);
+    const pace = derivePaceSeriesGapAware(stream.t, stream.d, { windowSec: PACE_WINDOW_FLOOR_SEC, gapIntervals });
     for (const p of pace) {
       expect(p).not.toBeNull();
       expect(p as number).toBeCloseTo(200, 0);
@@ -127,8 +136,11 @@ describe('derivePaceSeries', () => {
     const shortBurst = buildWithBurst(100, 1);
     const longBurst = buildWithBurst(100, 60);
 
-    const paceShort = derivePaceSeries(shortBurst.t, shortBurst.d, 20);
-    const paceLong = derivePaceSeries(longBurst.t, longBurst.d, 20);
+    const shortGapIntervals = classifyGaps(shortBurst.t, shortBurst.d).gapIntervals;
+    const longGapIntervals = classifyGaps(longBurst.t, longBurst.d).gapIntervals;
+
+    const paceShort = derivePaceSeriesGapAware(shortBurst.t, shortBurst.d, { windowSec: 20, gapIntervals: shortGapIntervals });
+    const paceLong = derivePaceSeriesGapAware(longBurst.t, longBurst.d, { windowSec: 20, gapIntervals: longGapIntervals });
 
     const baselinePace = 1000 / 3; // s/km at 3 m/s
 
@@ -141,7 +153,8 @@ describe('derivePaceSeries', () => {
   it('returns null (not NaN, not Infinity) for a standstill window (zero distance)', () => {
     const t = [0, 5, 10, 15, 20];
     const d = [0, 0, 0, 0, 0]; // standstill
-    const pace = derivePaceSeries(t, d, 20);
+    const { gapIntervals } = classifyGaps(t, d);
+    const pace = derivePaceSeriesGapAware(t, d, { windowSec: 20, gapIntervals });
     for (const p of pace) {
       expect(p).toBeNull();
     }
@@ -150,7 +163,8 @@ describe('derivePaceSeries', () => {
   it('never returns NaN or Infinity for any window', () => {
     const t = [0, 5, 10, 15, 20];
     const d = [0, 0, 0, 0, 0];
-    const pace = derivePaceSeries(t, d, 20);
+    const { gapIntervals } = classifyGaps(t, d);
+    const pace = derivePaceSeriesGapAware(t, d, { windowSec: 20, gapIntervals });
     for (const p of pace) {
       if (p !== null) {
         expect(Number.isFinite(p)).toBe(true);
@@ -158,17 +172,23 @@ describe('derivePaceSeries', () => {
     }
   });
 
-  it('is one derivation under two names (PACE-01, D-15): re-exported derivePaceSeries matches derivePaceWithCoverage(...).paceSeries exactly on the pinned worked-example stream', () => {
+  it('is one derivation under one name now (PACE-01, CR-03): buildChannelSeries\'s pace output matches derivePaceWithCoverage(...).paceSeries exactly on the pinned worked-example stream', () => {
     // 4556693525's adaptiveWindowSec resolves to exactly PACE_WINDOW_FLOOR_SEC
-    // (20s, floor engaged — measured in 26-02's SUMMARY), so calling the
-    // thin wrapper with the same floor window reproduces the shared
-    // derivation's own adaptively-resolved series exactly, index for index.
+    // (20s, floor engaged — measured in 26-02's SUMMARY), so this is the same
+    // claim the former wrapper-vs-shared-derivation test made, through the
+    // surface that still exists after the wrapper was deleted.
     const stream = loadWorkedExampleStream();
     const derived = derivePaceWithCoverage(stream);
     expect(derived.windowSec).toBe(PACE_WINDOW_FLOOR_SEC);
 
-    const wrapped = derivePaceSeries(stream.t, stream.d, PACE_WINDOW_FLOOR_SEC);
-    expect(wrapped).toEqual(derived.paceSeries);
+    const chartPoints = buildChannelSeries(stream, 'pace', 'time')!;
+    const expected: { x: number; y: number }[] = [];
+    for (let i = 0; i < stream.t.length; i++) {
+      const y = derived.paceSeries[i];
+      if (y === null) continue;
+      expected.push({ x: stream.t[i], y });
+    }
+    expect(chartPoints).toEqual(expected);
   });
 });
 
