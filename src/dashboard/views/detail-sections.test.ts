@@ -1,8 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 
-import { coverageCaptionText, splitGapAnnotations, type SplitGapAnnotation } from './detail-sections.js';
+import {
+  coverageCaptionText,
+  splitGapAnnotations,
+  breakdownSectionPlan,
+  type SplitGapAnnotation,
+} from './detail-sections.js';
 import type { Split } from './detail-splits.js';
+import type { PaceBucket } from './detail-zones.js';
 import type { PaceCoverage, GapInterval } from '../../analytics/pace-derivation.js';
 import { derivePaceWithCoverage } from '../../analytics/pace-derivation.js';
 import { computeSplits } from './detail-splits.js';
@@ -53,6 +59,10 @@ function makeSplit(km: number, startTimeSec: number, endTimeSec: number): Split 
 
 function makeGap(startSec: number, endSec: number, kind: GapInterval['kind']): GapInterval {
   return { startSec, endSec, kind };
+}
+
+function makeBucket(overrides: Partial<PaceBucket>): PaceBucket {
+  return { minSecPerKm: 0, maxSecPerKm: 0, label: '', timeSec: 0, ...overrides };
 }
 
 function loadStream(activityId: string): CanonicalStream {
@@ -199,6 +209,87 @@ describe('splitGapAnnotations — real activity 10198771331 (gap-crossing split,
 });
 
 // ---------------------------------------------------------------------------
+// breakdownSectionPlan — D-08 always-on coverage caption (CR-01 regression)
+// ---------------------------------------------------------------------------
+
+describe('breakdownSectionPlan — D-08 always-on coverage caption (CR-01 regression)', () => {
+  it('renders the pace heading and caption for real activity 11865310195 even though its histogram is empty, from a hand-built fixture', () => {
+    const coverage = makeCoverage({
+      spanSec: 18,
+      coveredSec: 6,
+      recordingGapSec: 12,
+      pauseSec: 0,
+      gapIntervals: [makeGap(2, 14, 'recording-gap')],
+    });
+
+    const plan = breakdownSectionPlan([], coverage, null);
+
+    expect(plan).not.toBeNull();
+    expect(plan!.captionText).toBe('33% of elapsed time covered · 67% recording gaps · 0% paused');
+    expect(plan!.showPaceHeading).toBe(true);
+    expect(plan!.showBars).toBe(false);
+    expect(plan!.showHrZones).toBe(false);
+  });
+
+  it('renders the same caption from the real committed stream 11865310195, not just a synthetic look-alike', () => {
+    const stream = loadStream('11865310195');
+    const derived = derivePaceWithCoverage(stream);
+
+    expect(derived.coverage.spanSec).toBe(18);
+    expect(derived.coverage.coveredSec).toBe(6);
+    expect(derived.coverage.recordingGapSec).toBe(12);
+
+    const plan = breakdownSectionPlan([], derived.coverage, null);
+    expect(plan).not.toBeNull();
+    expect(plan!.captionText).toBe('33% of elapsed time covered · 67% recording gaps · 0% paused');
+  });
+
+  it('returns null when there is no coverage, no buckets, and no zone times — nothing to show, nothing rendered', () => {
+    expect(breakdownSectionPlan([], null, null)).toBeNull();
+  });
+
+  it('returns null on a zero-span coverage (cannot fail guard): a zero span is not captionable, so this must not become a heading over an empty card', () => {
+    const coverage = makeCoverage({ spanSec: 0 });
+    expect(breakdownSectionPlan([], coverage, null)).toBeNull();
+  });
+
+  it('renders the all-gap edge case with a deliberate 0% caption and a 0:00 note', () => {
+    const coverage = makeCoverage({ spanSec: 100, coveredSec: 0, recordingGapSec: 100, pauseSec: 0 });
+    const plan = breakdownSectionPlan([], coverage, null);
+
+    expect(plan).not.toBeNull();
+    expect(plan!.captionText).toBe('0% of elapsed time covered · 100% recording gaps · 0% paused');
+    expect(plan!.noteText).toContain('0:00');
+  });
+
+  it('does not invert into "caption always, bars never": buckets whose timeSec sums to coveredSec show bars, a caption, and no note', () => {
+    const coverage = makeCoverage({ spanSec: 100, coveredSec: 100, recordingGapSec: 0, pauseSec: 0 });
+    const buckets = [makeBucket({ timeSec: 60 }), makeBucket({ timeSec: 40 })];
+    const plan = breakdownSectionPlan(buckets, coverage, null);
+
+    expect(plan).not.toBeNull();
+    expect(plan!.showBars).toBe(true);
+    expect(plan!.captionText).not.toBeNull();
+    expect(plan!.noteText).toBeNull();
+  });
+
+  it('D-31 re-pinned at the fix site: the plan for real activity 11865310195 carries showHrZones false and no HR-related copy', () => {
+    const coverage11865310195 = makeCoverage({
+      spanSec: 18,
+      coveredSec: 6,
+      recordingGapSec: 12,
+      pauseSec: 0,
+      gapIntervals: [makeGap(2, 14, 'recording-gap')],
+    });
+    const plan = breakdownSectionPlan([], coverage11865310195, null);
+
+    expect(plan!.showHrZones).toBe(false);
+    expect(plan!.noteText).not.toMatch(/HR|heart rate/i);
+    expect(plan!.captionText).not.toMatch(/HR|heart rate/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Source wiring — text-scan guards, no DOM builder invoked (node environment)
 // ---------------------------------------------------------------------------
 
@@ -221,15 +312,15 @@ describe('source wiring — detail-sections.ts / detail.ts (text-structure guard
     expect(countOccurrences(detailSectionsStripped, 'export function splitGapAnnotations')).toBe(1);
   });
 
-  it('detail-sections.ts calls coverageCaptionText exactly once, from within buildBreakdownSection', () => {
+  it('detail-sections.ts calls coverageCaptionText exactly once, from within breakdownSectionPlan', () => {
     // The definition line reads `coverageCaptionText(coverage: PaceCoverage)`
     // — the ":" makes it distinct from an actual call site `coverageCaptionText(coverage)`.
     expect(countOccurrences(detailSectionsStripped, 'coverageCaptionText(coverage)')).toBe(1);
 
-    const buildBreakdownStart = detailSectionsStripped.indexOf('export function buildBreakdownSection');
+    const breakdownPlanStart = detailSectionsStripped.indexOf('export function breakdownSectionPlan');
     const callOffset = detailSectionsStripped.indexOf('coverageCaptionText(coverage)');
-    expect(buildBreakdownStart).toBeGreaterThanOrEqual(0);
-    expect(callOffset).toBeGreaterThan(buildBreakdownStart);
+    expect(breakdownPlanStart).toBeGreaterThanOrEqual(0);
+    expect(callOffset).toBeGreaterThan(breakdownPlanStart);
   });
 
   it('buildSplitsSection accepts a gapAnnotations parameter (D-09 wiring point)', () => {
