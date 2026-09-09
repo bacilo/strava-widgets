@@ -2,11 +2,20 @@
  * Chart-series derivation, hover geometry, and tamper-safe overlay-config
  * persistence for the detail page's stacked chart bands (DETAIL-03).
  *
- * PACE-01: this module owns NO pace arithmetic of its own any more.
- * `derivePaceSeries` and `interpValueAtTime` are thin re-exports/wrappers
- * over the single shared derivation in `../../analytics/pace-derivation.js`
- * (D-15) — the chart and `detail-zones.ts`'s histogram both read the same
- * gap-aware series so the two surfaces cannot disagree.
+ * PACE-01 / CR-03 (corrected 2026-09-09): this module owns NO pace
+ * arithmetic and NO window resolution of its own. The pace band's series
+ * comes directly from `derivePaceWithCoverage(stream)` — the same single
+ * D-16 entry point `detail.ts` calls for the histogram, coverage caption
+ * and split markers — so both surfaces resolve the same adaptively-chosen
+ * window from the same stream. Previously this file held a thin
+ * `derivePaceSeries` wrapper that took an explicit window width, and
+ * `buildChannelSeries` called it with the fixed 20s floor rather than the
+ * adaptive resolution; that wrapper is deleted, not re-argumented (CR-03,
+ * `26-VERIFICATION.md`). `detail-charts-logic.test.ts`'s CR-03 block
+ * asserts the chart's own `buildChannelSeries` output equals
+ * `derivePaceWithCoverage(...).paceSeries` index-for-index on activity
+ * `5059204779`, whose adaptive window is 150s, not the 20s floor — that is
+ * the fact that makes this claim checkable rather than aspirational.
  *
  * Pure, DOM-free module — never imports `chart.js` or `leaflet`, and never
  * touches the browser's persisted key-value storage global directly. Any
@@ -23,12 +32,7 @@
 import type { CanonicalStream } from '../../streams/stream.types.js';
 import { validateStreamSeries } from '../../analytics/best-effort-utils.js';
 import type { WebStorage } from '../storage.js';
-import {
-  PACE_WINDOW_FLOOR_SEC,
-  classifyGaps,
-  derivePaceSeriesGapAware,
-  interpValueAtTime,
-} from '../../analytics/pace-derivation.js';
+import { derivePaceWithCoverage, interpValueAtTime } from '../../analytics/pace-derivation.js';
 
 export { interpValueAtTime } from '../../analytics/pace-derivation.js';
 
@@ -71,39 +75,16 @@ export function availableChannels(stream: CanonicalStream): ChannelKey[] {
 }
 
 /**
- * 17-UI-SPEC pins 20s, inside D-22's 15-30s range. This is
- * `pace-derivation.ts`'s `PACE_WINDOW_FLOOR_SEC` re-exported under its
- * pre-existing name for this file's callers (PACE-01) — the floor is still
- * 20s, but `derivePaceWithCoverage`'s adaptive resolution may use a wider
- * window per activity; this constant is now a floor, not the only value.
- */
-export const PACE_SMOOTHING_WINDOW_SEC = PACE_WINDOW_FLOOR_SEC;
-
-/**
- * Thin wrapper (PACE-01, D-15): derives gap classification from `t`/`d` via
- * `classifyGaps`, then calls the shared `derivePaceSeriesGapAware` with the
- * resolved gap intervals and the given `windowSec` (gap-clipped by default,
- * exactly as `derivePaceWithCoverage` clips). No pace arithmetic lives in
- * this file any more — this is a call-shape adapter only, kept so existing
- * `(t, d, windowSec)` callers do not need to construct a `CanonicalStream`.
- * Presentation-only (D-22): never persisted, never feeds `computeSplits` or
- * a stats value.
- */
-export function derivePaceSeries(
-  t: number[],
-  d: number[],
-  windowSec: number = PACE_SMOOTHING_WINDOW_SEC
-): (number | null)[] {
-  const { gapIntervals } = classifyGaps(t, d);
-  return derivePaceSeriesGapAware(t, d, { windowSec, gapIntervals });
-}
-
-/**
  * `x` is `stream.d[i] / 1000` for `'distance'` and `stream.t[i]` for
  * `'time'`; `y` is the smoothed pace for `'pace'` (skipping null entries)
  * and the raw channel array value otherwise. Returns `null` when the
  * channel is unavailable. Points are pre-shaped as `{x, y}` so Chart.js can
  * run with `parsing: false`.
+ *
+ * The pace branch calls `derivePaceWithCoverage(stream)` directly — the same
+ * D-16 entry point the histogram, coverage caption and split markers use —
+ * so this band's series is never resolved from a window this module chooses
+ * on its own (CR-03).
  */
 export function buildChannelSeries(
   stream: CanonicalStream,
@@ -117,7 +98,7 @@ export function buildChannelSeries(
   const xs = xAxis === 'distance' ? stream.d.map((v) => v / 1000) : stream.t;
 
   if (channel === 'pace') {
-    const paceValues = derivePaceSeries(stream.t, stream.d, PACE_SMOOTHING_WINDOW_SEC);
+    const paceValues = derivePaceWithCoverage(stream).paceSeries;
     const points: SeriesPoint[] = [];
     for (let i = 0; i < n; i++) {
       const y = paceValues[i];

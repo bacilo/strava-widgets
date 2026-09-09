@@ -49,19 +49,37 @@
  * failure output captured, then the probe was deleted and `git status
  * --porcelain src` was confirmed clean.
  *
- * KNOWN, DOCUMENTED BLIND SPOT AND ITS TARGETED CLOSURE: this phase's real
- * cross-plan violation (`26-INTEGRATION-FIX.md`, commit `f32dddd8`) was NOT
- * a `dt/dd`-shaped division at all — `detail-zones.ts`'s `maskedPaceSeries`
- * reconstructed `paceHistogramSamples`'s own gap-interval MEMBERSHIP TEST
+ * KNOWN, DOCUMENTED BLIND SPOTS AND THEIR TARGETED CLOSURE — this audit has
+ * now had TWO historically-real blind spots found and closed against it,
+ * neither hypothetical:
+ *
+ * (1) This phase's cross-plan violation (`26-INTEGRATION-FIX.md`, commit
+ * `f32dddd8`) was NOT a `dt/dd`-shaped division at all — `detail-zones.ts`'s
+ * `maskedPaceSeries` reconstructed `paceHistogramSamples`'s own gap-interval
+ * MEMBERSHIP TEST
  * (`gapIntervals.some((g) => segStart >= g.startSec && segStart < g.endSec)`)
  * with no arithmetic in sight, so the two `BANNED_LITERALS` above would have
  * passed it clean. `GAP_MEMBERSHIP_LITERALS` below closes that specific,
  * historically-real blind spot by confining `gapIntervals.some(` /
  * `gapIntervals.find(` call sites the same way `OVERRIDE_LITERALS` are
- * confined. This closes the ONE blind spot this plan has direct evidence
- * of; it is not a claim that every conceivable second-locus SHAPE (e.g. a
- * hand-rolled loop with no method call at all) is caught — see this plan's
- * SUMMARY.md for the honest scope statement.
+ * confined.
+ *
+ * (2) CR-03 (`26-VERIFICATION.md`, 2026-09-09, closed by plan 26-14): the
+ * `OVERRIDE_LITERALS` scan's `windowSec:` literal missed the ES2015
+ * object-shorthand form (`{ windowSec, gapIntervals }`) that
+ * `detail-charts-logic.ts`'s deleted `derivePaceSeries` wrapper actually
+ * used, AND this docblock previously excused that exact file/shape by name
+ * — reasoning that is what let the defect through review. The excused
+ * wrapper was DELETED in plan 26-14 rather than re-excused; the scan is
+ * extended below (three new `OVERRIDE_LITERALS` entries) to catch the shape
+ * structurally, regardless of which file it might reappear in.
+ *
+ * An audit whose header claims completeness it has not demonstrated is the
+ * same false-invariant failure class this phase keeps re-encountering — this
+ * closes the TWO blind spots this plan has direct evidence of; it is not a
+ * claim that every conceivable second-locus SHAPE (e.g. a hand-rolled loop
+ * with no method call at all) is caught — see this plan's SUMMARY.md for the
+ * honest scope statement.
  */
 
 import { readdirSync, readFileSync } from 'node:fs';
@@ -187,21 +205,46 @@ export function readSourceTree(rootUrl: URL): {
 }
 
 /**
- * The derivation's test-only override surface: `clipAtGaps`, and
- * `windowSec:` / `pauseRule:` used as call-site arguments. `windowSec:` and
- * `pauseRule:` are also valid TypeScript TYPE-annotation syntax (e.g. a
- * function parameter `windowSec: number = ...` or an interface member
- * `windowSec: number;`) — textually indistinguishable from an object
- * literal's property key by plain substring search. A bare literal-string
- * scan would false-positive on `detail-charts-logic.ts`'s `derivePaceSeries`
- * wrapper (plan 26-04), which re-exposes the shared module's pre-existing
- * `(t, d, windowSec)` call SHAPE (a parameter declaration) and is not an
- * override of `derivePaceWithCoverage`'s adaptive resolution. `number` /
+ * The derivation's test-only override surface: `clipAtGaps`, an explicit
+ * window-width argument (colon, comma or shorthand-close form), `pauseRule:`,
+ * and any direct call to the gap-aware primitive itself.
+ *
+ * `windowSec:` and `pauseRule:` are also valid TypeScript TYPE-annotation
+ * syntax (e.g. a function parameter `windowSec: number = ...` or an
+ * interface member `windowSec: number;`) — textually indistinguishable from
+ * an object literal's property key by plain substring search. `number` /
  * `string` / `boolean` immediately after the colon is TypeScript's own type
  * grammar, never a legitimate call-site value in this codebase — that is
- * the sole, narrow exclusion applied below.
+ * the sole, narrow exclusion applied below, via `isTypeAnnotationSuffix`.
+ *
+ * CORRECTED 2026-09-09 (CR-03, `26-VERIFICATION.md`, closed by plan 26-14):
+ * this docblock previously reasoned that a bare literal scan "would
+ * false-positive on `detail-charts-logic.ts`'s `derivePaceSeries` wrapper …
+ * and is not an override of `derivePaceWithCoverage`'s adaptive resolution."
+ * That reasoning was wrong — passing a fixed window in place of the adaptive
+ * resolution IS the override, and it is exactly what that wrapper did,
+ * called with the fixed 20s floor from `buildChannelSeries`. The wrapper is
+ * DELETED in plan 26-14 rather than re-excused. Three literals were added to
+ * close the gap:
+ *   - `'windowSec,'` and `'windowSec }'` catch the ES2015 object-shorthand
+ *     form (`{ windowSec, gapIntervals }` / `{ windowSec }`) that
+ *     `'windowSec:'` cannot see — the exact shape the deleted wrapper used.
+ *     They are formatting-sensitive heuristics (a call written `{windowSec}`
+ *     with no spaces would slip past `'windowSec }'`) — belt-and-braces, not
+ *     load-bearing on their own.
+ *   - `'derivePaceSeriesGapAware('` is the load-bearing check: it catches
+ *     ANY direct call to the gap-aware primitive outside `pace-derivation.ts`
+ *     regardless of how the options object is written — a structural
+ *     property, not a formatting one.
  */
-const OVERRIDE_LITERALS = ['clipAtGaps', 'windowSec:', 'pauseRule:'] as const;
+const OVERRIDE_LITERALS = [
+  'clipAtGaps',
+  'windowSec:',
+  'windowSec,',
+  'windowSec }',
+  'pauseRule:',
+  'derivePaceSeriesGapAware(',
+] as const;
 
 /**
  * The gap-interval MEMBERSHIP-TEST call sites — `gapIntervals.some(` /
@@ -290,7 +333,7 @@ describe('PACE-01 Criterion 4 / D-18 — single-source stream-pace audit', () =>
     }
   });
 
-  it('override containment: clipAtGaps / windowSec: / pauseRule: call-site arguments appear only in pace-derivation.ts or *.test.ts files', () => {
+  it('override containment: clipAtGaps / windowSec (colon, comma and shorthand-close forms) / pauseRule / any derivePaceSeriesGapAware( call site appear only in pace-derivation.ts or *.test.ts files', () => {
     const matches = findConfinedCallSites(files, OVERRIDE_LITERALS);
     // Non-vacuous: the scan must actually have found the real, legitimate
     // usages inside pace-derivation.ts / pace-derivation.test.ts.
@@ -367,5 +410,43 @@ describe('PACE-01 Criterion 4 — the audit is demonstrated catching a reintrodu
 
     const violations = findStreamPaceViolations(cleanedFiles);
     expect(violations).toEqual([]);
+  });
+
+  it('CR-03 shape (permanent, planted): a synthetic file carrying the exact defect shape (a named window-width constant plus an object-shorthand derivePaceSeriesGapAware( call) is flagged for BOTH windowSec, and derivePaceSeriesGapAware(; the derivePaceWithCoverage-based rewrite of the same file is flagged for neither', () => {
+    const plantedFixedWindowFile: SourceFile = {
+      path: 'src/dashboard/views/planted-fixed-window.ts',
+      source: [
+        "import { derivePaceSeriesGapAware } from '../../analytics/pace-derivation.js';",
+        '',
+        'const PLANTED_WINDOW_SEC = 20;',
+        '',
+        'export function plantedDerivePace(t: number[], d: number[], gapIntervals: unknown[]) {',
+        '  const windowSec = PLANTED_WINDOW_SEC;',
+        '  return derivePaceSeriesGapAware(t, d, { windowSec, gapIntervals } as never);',
+        '}',
+      ].join('\n'),
+    };
+
+    const matches = findConfinedCallSites([plantedFixedWindowFile], OVERRIDE_LITERALS);
+    const literalsMatched = new Set(matches.map((m) => m.literal));
+    expect(literalsMatched.has('windowSec,')).toBe(true);
+    expect(literalsMatched.has('derivePaceSeriesGapAware(')).toBe(true);
+    expect(matches.every((m) => m.path === plantedFixedWindowFile.path)).toBe(true);
+
+    // Negative direction: the same file, rewritten to call the coverage-aware
+    // entry point instead, produces zero matches for either literal.
+    const rewrittenFile: SourceFile = {
+      path: 'src/dashboard/views/planted-fixed-window.ts',
+      source: [
+        "import { derivePaceWithCoverage } from '../../analytics/pace-derivation.js';",
+        "import type { CanonicalStream } from '../../streams/stream.types.js';",
+        '',
+        'export function plantedDerivePace(stream: CanonicalStream) {',
+        '  return derivePaceWithCoverage(stream).paceSeries;',
+        '}',
+      ].join('\n'),
+    };
+    const cleanMatches = findConfinedCallSites([rewrittenFile], OVERRIDE_LITERALS);
+    expect(cleanMatches).toEqual([]);
   });
 });
