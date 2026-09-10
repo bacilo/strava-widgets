@@ -21,6 +21,7 @@
     "compute-route-data": "node scripts/compute-route-data.mjs",
     "compute-pace-residual": "npm run build && node scripts/compute-pace-residual.mjs",
     "compute-pace-quality-calibration": "npm run build && node scripts/compute-pace-quality-calibration.mjs",
+    "compute-pr-ceiling-calibration": "npm run build && node scripts/compute-pr-ceiling-calibration.mjs",
     "compute-pace-quality-recount": "node scripts/compute-pace-quality-recount.mjs",
     "compute-heatmap-data": "node scripts/compute-heatmap-data.mjs",
     "build-widget": "vite build",
