@@ -1,11 +1,21 @@
 ---
 phase: 27
 slug: per-activity-quality-signals
-status: draft
-nyquist_compliant: false
+status: partial
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-09-10
 ---
+
+> **Round 1 Checkpoint outcome (2026-09-10):** all eight rows (R1-R8) recorded **PASS**, via
+> agent-performed browser automation countersigned by the developer (see § Round 1 Checkpoint
+> below for the provenance line and per-row quoted evidence). `nyquist_compliant: true` reflects
+> that every checkpoint row is proven reachable both ways and every row PASSED. `status: partial`
+> (not `passed`) because two gaps remain OPEN after the checkpoint — see `## Gap-Closure Record`:
+> G-01 (the calibration report generator is not self-regenerable at its own corrected denominator
+> values) and G-02 (a stale no-device-name cohort figure cited in ROADMAP/REQUIREMENTS). Neither
+> gap reverses any row's PASS verdict; both are tracked for a follow-on gap-closure plan /
+> documentation reconciliation rather than patched here.
 
 # Phase 27 — Validation Strategy
 
@@ -203,7 +213,9 @@ CAN PASS: the Network panel's loaded asset filename is `assets/index-BHpzXFXA.js
 CAN FAIL: a stale bundle serves a different asset filename (e.g. a cached
 `index-QusZKQ85.js` or any name other than the one recorded above).
 
-**Verdict:** pending
+**Verdict:** PASS
+**Provenance:** agent-performed browser automation (Claude in Chrome), countersigned by developer 2026-09-10.
+**Observed (quoted verbatim):** "Network panel showed the loaded asset as `assets/index-BHpzXFXA.js`. Full initial load was exactly 5 requests: `index.html` 200, `assets/index-BHpzXFXA.js` 200, `assets/index-C8KqIdDR.css` 200, `data/dashboard/index.json` 200, `favicon.ico` 404." Served from `dist/widgets` via `python3 -m http.server 8917`, Chrome, viewport 900x900 (inside the 500..941 clamp), hard-reloaded (cmd+shift+r) before the run. Served bundle sha256 `2d48f635ce83dd8b9ce0c71d6831117d8d95e4ee97cfa6b3065f9e6b1f39e8f4`, computed from FETCHED bytes via `curl … | shasum -a 256`, matching the local build byte-for-byte.
 
 ### R2 — Criterion 2, zero fetches on the list
 
@@ -216,7 +228,9 @@ CAN PASS: the filtered Network panel shows 0 requests after hard-reload and scro
 CAN FAIL: any request matching `pace-quality` appears — a list-side code path would exist
 despite the grep gate in plan 27-09.
 
-**Verdict:** pending
+**Verdict:** PASS
+**Provenance:** agent-performed browser automation (Claude in Chrome), countersigned by developer 2026-09-10.
+**Observed (quoted verbatim):** "After hard-reload of `#/list` and scrolling to the bottom of the first page, requests matching `pace-quality`: 0."
 
 ### R3 — Criterion 2, exactly one fetch on open
 
@@ -232,7 +246,9 @@ activity) in that sequence.
 CAN FAIL: zero requests on first open (mount never fires), two requests on first open
 (duplicate fetch), or a fresh request on re-opening the same activity (memoization broken).
 
-**Verdict:** pending
+**Verdict:** PASS
+**Provenance:** agent-performed browser automation (Claude in Chrome), countersigned by developer 2026-09-10.
+**Observed (quoted verbatim):** "Sequence observed as exactly 1 / 1 / 2: opening `#/activity/i183546832` → exactly one request, `http://127.0.0.1:8917/data/stats/pace-quality/i183546832.json`, HTTP 200; returning to `#/list` and re-opening the SAME activity → still 1 total (no new request; memoized); opening a DIFFERENT activity `#/activity/i183856843` → 2 total, second request `…/pace-quality/i183856843.json` HTTP 200."
 
 ### R4 — Criterion 3, badge read-back on a severe activity
 
@@ -257,7 +273,9 @@ CAN PASS: the quoted badge text states `27%` (or an equivalent explicit percenta
 CAN FAIL: the badge names the condition without a number, or the quoted number disagrees with
 27% / the 11-interval / 16:43 figures above.
 
-**Verdict:** pending
+**Verdict:** PASS
+**Provenance:** agent-performed browser automation (Claude in Chrome), countersigned by developer 2026-09-10.
+**Observed (quoted verbatim):** Severe activity `i183546832`. Rendered badge text, verbatim: "27% of recorded time in gaps or pauses". Rendered evidence line, verbatim: "11 gap intervals; longest 16:43". Also rendered: "Longest zero-advance run: 2 samples (1003.0s); adaptive window 20.0s" and "1.37× elapsed vs. moving time". Independently derived expected values, read from the committed `data/stats/pace-quality/i183546832.json` by the orchestrator BEFORE the row ran: `gapProfile.gapFraction = 0.26551897461673785` → 27%; `gapIntervals.length = 11`; longest interval = 1003 s = 16:43; `elapsedVsMoving.ratio = 1.37`. Rendered values match the shard on every figure.
 
 ### R5 — D-08, healthy disclosure
 
@@ -278,7 +296,9 @@ decimation detected", "No recording gaps", "No impossible samples"), the device 
 CAN FAIL: fewer than five rows, any blank/undefined/null/NaN value, or the page showing nothing
 at all for this healthy activity (the silence-as-good-news failure D-08 exists to prevent).
 
-**Verdict:** pending
+**Verdict:** PASS
+**Provenance:** agent-performed browser automation (Claude in Chrome), countersigned by developer 2026-09-10.
+**Observed (quoted verbatim):** Healthy activity `i183856843`. All five rows rendered, none blank, none `undefined`/`null`/`NaN`, verbatim: Decimation → "No decimation detected"; Recording gaps → "No recording gaps"; Impossible samples → "No impossible samples"; Device / recording source → "intervals.icu (migrated)"; Elapsed vs. moving → "1.01× elapsed vs. moving time". Independently derived from the committed shard: all three tiering signals `tier: "none"`, `impossibleSamples.count: 0`, `deviceEra.family: "intervals-icu"`, `elapsedVsMoving.ratio: 1.01`. Matches.
 
 ### R6 — Criterion 4, the filtered cohort against two independent figures
 
@@ -302,7 +322,11 @@ agree exactly here, ANY delta is a real disagreement, not archive drift — ther
 run-to-run drift window to hide behind in this session), or unticking the filter does not
 restore the full 1890 count.
 
-**Verdict:** pending
+**Verdict:** PASS
+**Provenance:** agent-performed browser automation (Claude in Chrome), countersigned by developer 2026-09-10.
+**Observed (quoted verbatim):** "`#/list?severe=1` rendered `299 activities` with `Filters (1 active)` and chip `severe signals only`. Unticking via the chip's × control returned `1890 activities`, hash reverted to `#/list`, checkbox `false`, `Filters` no longer showing an active count." Independent figures compared against, neither produced by the browser: `27-CALIBRATION.md` §4 composite = 299, and `node scripts/compute-pace-quality-recount.mjs` stdout = 299. Zero delta; no archive drift between runs.
+
+Additional Criterion 3 corroboration (not a drafted row, recorded as supporting evidence): the `?severe=1` filtered list rendered a DIFFERENT measured value per row — 27%, 55%, 42%, 38%, 22%, 31%, 23%, 26%, 31%, 62%, 61%, 71% — confirming badge text varies per row rather than being a fixed label.
 
 ### R7 — Criterion 4, threshold moved (document read, not a rendered check)
 
@@ -329,7 +353,9 @@ CAN FAIL: no row moves in one of the two directions, or a re-run of
 `npm run compute-pace-quality-calibration -- --sweep` produces a table where every
 DID-NOT-MOVE row lacks a stated reason.
 
-**Verdict:** pending
+**Verdict:** PASS, with evidence STRONGER than the drafted document-read.
+**Provenance:** agent-performed browser automation (Claude in Chrome) plus an independent script re-run, countersigned by developer 2026-09-10.
+**Observed (quoted verbatim):** "The Threshold Sensitivity table was re-derived by an independent re-run of `npm run compute-pace-quality-calibration -- --sweep`, and all six rows reproduced identically: gap-profile looser 0.2→0.15 = 366 (+67); gap-profile stricter 0.2→0.25 = 261 (−38); impossible-sample looser 10→5 = 332 (+33); impossible-sample stricter 10→20 = 279 (−20); decimation looser 0.15→0.1 = 334 (+35, demonstration only per D-04); decimation stricter 0.15→0.2 = 255 (−44, demonstration only per D-04). At least one strict increase and one strict decrease: both CONFIRMED." This same re-run is what exposed Gap G-01 (see `## Gap-Closure Record` below): the six sensitivity-table figures reproduced identically, but the re-run also silently rewrote `27-CALIBRATION.md`'s stream-file/stream-less denominators (1865/25 → the generator's stale 1866/24), which the orchestrator restored via `git checkout --` before this file was drafted. That rewrite does not change this row's verdict — the sensitivity table itself, which is what R7 asks about, reproduced exactly — but it is recorded as the discovery event for G-01.
 
 ### R8 — Criterion 5, device family and the no-device-name category
 
@@ -358,7 +384,11 @@ CAN PASS: the fēnix and Suunto activities render two visibly different device-e
 CAN FAIL: both FIT activities show the same family string, or `18702664326` shows any device
 name string at all instead of an explicit no-device-name statement.
 
-**Verdict:** pending
+**Verdict:** PASS
+**Provenance:** agent-performed browser automation (Claude in Chrome), countersigned by developer 2026-09-10.
+**Observed (quoted verbatim):** Device rows rendered verbatim: `10041312551` (fēnix 6 Pro FIT) → "Garmin fēnix 6 Pro"; `3480808722` (Suunto 9 FIT) → "Suunto 9"; `18702664326` (no-device-name) → "No device name recorded". Two different family strings for two files of the SAME format. The no-device-name activity renders an explicit category and no device string at all.
+
+Note: the verbatim results record the no-device-name activity opened as `18702664326`, matching the id stated in the drafted row's precondition. No substitution occurred.
 
 ### Reachability Audit
 
@@ -375,4 +405,79 @@ name string at all instead of an explicit no-device-name statement.
 
 All eight rows carry both lines; none struck.
 
-**All eight verdicts: pending. No browser row has been performed by an agent.**
+**All eight verdicts: PASS.** Recorded via agent-performed browser automation (Claude in
+Chrome), countersigned by the developer 2026-09-10 — per the developer's provenance decision
+("Agent-performed, you countersign"), no row is recorded as developer-observed. No verdict was
+pre-filled before the checkpoint ran; every row above carries the observed evidence quoted
+verbatim from the countersigned report, and no observation was invented beyond what that report
+stated.
+
+## Gap-Closure Record
+
+Neither gap below was patched in this plan. Both are recorded verbatim, unpatched, per the
+house rule since 16-09 (a failing/open item is logged, not fixed under checkpoint pressure).
+
+### G-01 — the calibration artifact of record is not regenerable at its own stated values (open, gap-closure plan authorized)
+
+`scripts/compute-pace-quality-calibration.mjs` line 425 counts stream files as
+`readdirSync(STREAMS_DIR).filter((f) => f.endsWith('.json'))`, which includes the non-activity
+`data/streams/manifest.json` stream-availability index. It therefore emits stream-file count
+**1866** / stream-less **24**. Plan 27-03's continuation corrected these figures to **1865 / 25**
+in the PROSE of `27-CALIBRATION.md` but did not fix the GENERATOR. Consequence: running
+`npm run compute-pace-quality-calibration` rewrites `27-CALIBRATION.md` and silently REVERTS the
+documented correction — observed directly during R7's re-run, which reverted 42 lines including
+the live-denominator correction note and the three-way corroboration of 299; the orchestrator
+restored the file via `git checkout --`. The report's own header claims "Every figure below is
+computed by THIS run", which is currently FALSE for the denominators. This also touches ROADMAP
+Criterion 4a, whose GATE clause requires the rate be "measured against a live denominator
+(recomputed at run time, never a hardcoded archive size)" — the denominator is recomputed at run
+time but computed WRONG. The activity count (1890) and the composite (299) are unaffected.
+
+**Developer disposition:** close with a gap-closure plan inside phase 27 — fix the glob to
+exclude `manifest.json`, add a regression test asserting a regenerated report reproduces
+1865/25, then regenerate and commit.
+
+**Status: OPEN.** Not fixed by this plan. `27-CALIBRATION.md` is left byte-identical to its
+committed (corrected) state — this plan did not run the calibration script.
+
+### G-02 — Criterion 5 / ERA-02 cite a stale no-device-name cohort size (open, documentation-only)
+
+ROADMAP Phase 27 Criterion 5 and REQUIREMENTS ERA-02 both cite a **716**-activity no-device-name
+cohort ("716 of 1,864 activities (38%)"). The live shipped index carries **663**. Full measured
+device-family census across all 1,890 rows: `garmin-fenix-6-pro` 908, `no-device-name` 663,
+`suunto-9` 205, `intervals-icu` 78, `strava-app-gpx` 35, `garmin-vivoactive-4` 1. The shortfall
+is consistent with improved classification rather than a defect — activities that previously had
+no recognisable device name now resolve to real named categories (`intervals-icu`,
+`strava-app-gpx`, `garmin-vivoactive-4`), and plan 27-01 deliberately removed the colliding
+`unknown-device` taxonomy value. ERA-02's actual requirement — that the category is explicit and
+never a fabricated device name — HOLDS, evidenced by R8. Only the cited figure is stale. Note
+that `27-CONTEXT.md` had flagged this cohort's size as needing to stay verifiable.
+
+**Developer disposition:** no code change implied; this is a documentation reconciliation for
+verification to disposition.
+
+**Status: OPEN.** Not fixed by this plan. ERA-02's requirement is ticked below on R8's PASS —
+the tick is NOT contingent on this gap, since the gap concerns only a cited figure, not the
+behavior R8 verified.
+
+## Requirement -> Row Disposition
+
+Applying the plan's own requirement->row map (27-10-PLAN.md checkpoint task acceptance
+criteria) against the eight PASS verdicts above:
+
+| Requirement | Mapped rows | All mapped rows PASS? | Tick? | Gap contingency |
+|---|---|---|---|---|
+| QUAL-03 | R2, R3, R6 | Yes (PASS/PASS/PASS) | **Ticked** | None — unaffected by G-01/G-02. |
+| QUAL-04 | R4, R5 | Yes (PASS/PASS) | **Ticked** | None — unaffected by G-01/G-02. |
+| QUAL-05 | R6, R7 | Yes (PASS/PASS) | **Ticked, with a stated caveat** | Ticked on R6/R7's PASS verdicts (the measured composite 299 and the six-row Threshold Sensitivity table both reproduced independently and are unaffected by G-01). **Caveat, stated explicitly rather than ticked silently:** G-01 means the calibration artifact's own denominator figures (1865/25) are not currently regenerable by its generator script — the tick reflects the measured composite/sensitivity behavior, not a claim that `27-CALIBRATION.md` can be freshly regenerated byte-identical today. QUAL-05's own recorded tension with the ~5% target (see REQUIREMENTS.md) remains open by design (27-03's disposition), separately from G-01. |
+| ERA-01 | R8 | Yes (PASS) | **Ticked** | None — unaffected by G-01/G-02. |
+| ERA-02 | R8 | Yes (PASS) | **Ticked** | **Not contingent on G-02.** G-02 explicitly states ERA-02's behavioral requirement (explicit category, never a fabricated device name) HOLDS per R8; only the cited cohort SIZE (716 vs. the live 663) is stale, which is a documentation reconciliation, not a behavioral gap. |
+
+QUAL-01 and QUAL-02 are discharged by automated artifact inspection in plans 27-02 and 27-04
+(not by a browser row) and are ticked on that evidence: QUAL-01 by `27-04-SUMMARY.md`
+(`requirements-completed: [QUAL-01, QUAL-03]`, `data/dashboard/index.json` + per-activity
+`data/stats/pace-quality/{id}.json` shard fields, `npx vitest run src/analytics/pace-quality.test.ts`)
+and QUAL-02 by `27-02-SUMMARY.md` (`requirements-completed: [QUAL-01, QUAL-02, QUAL-05]`,
+`npx vitest run src/analytics/pace-quality.test.ts src/analytics/best-effort-utils.test.ts`,
+97/97 passed, device era and decimation severity asserted as independently-present separate
+fields).

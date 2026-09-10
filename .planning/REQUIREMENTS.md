@@ -43,11 +43,11 @@
 
 ### Per-activity quality signals (QUAL)
 
-- [ ] **QUAL-01**: Each activity carries computed quality signals — decimation/stair-step ratio, physically-impossible-sample count, gap profile, elapsed-vs-moving divergence, device era — produced by a CI compute step, never derived in the browser.
-- [ ] **QUAL-02**: Signals are disclosed individually rather than collapsed into one opaque score. Device era and decimation severity in particular stay separate signals: they correlate (all 154 severe stair-step activities are 2020–2021 Suunto 9) but decimation, not the device, is the mechanism.
-- [ ] **QUAL-03**: Compact quality scalars are added additively to the dashboard index row so the activity list can badge, sort and filter by them; detailed per-sample findings live in a lazily-fetched per-activity shard, mirroring the existing `best-efforts/{id}.json` pattern.
-- [ ] **QUAL-04**: Quality badges appear on the activity detail view, explaining rather than merely marking — a badge says what was detected and why it matters.
-- [ ] **QUAL-05**: Severity tiers are calibrated against an archive-wide dry run before ship, targeting a top tier under ~5% of activities (≈90 of 1,864). The measured flag rate per tier is reported and justified; a top tier materially above that target is a calibration failure, not an acceptable outcome.
+- [x] **QUAL-01**: Each activity carries computed quality signals — decimation/stair-step ratio, physically-impossible-sample count, gap profile, elapsed-vs-moving divergence, device era — produced by a CI compute step, never derived in the browser. *Discharged by automated artifact inspection, ticked 2026-09-10: `27-04-SUMMARY.md` (`data/dashboard/index.json` + per-activity `data/stats/pace-quality/{id}.json` shard fields) and `npx vitest run src/analytics/pace-quality.test.ts`.*
+- [x] **QUAL-02**: Signals are disclosed individually rather than collapsed into one opaque score. Device era and decimation severity in particular stay separate signals: they correlate (all 154 severe stair-step activities are 2020–2021 Suunto 9) but decimation, not the device, is the mechanism. *Discharged by automated artifact inspection, ticked 2026-09-10: `27-02-SUMMARY.md`, `npx vitest run src/analytics/pace-quality.test.ts src/analytics/best-effort-utils.test.ts` (97/97 passed), device era and decimation severity asserted as independently-present separate fields.*
+- [x] **QUAL-03**: Compact quality scalars are added additively to the dashboard index row so the activity list can badge, sort and filter by them; detailed per-sample findings live in a lazily-fetched per-activity shard, mirroring the existing `best-efforts/{id}.json` pattern. *Ticked 2026-09-10 on plan 27-10's Round 1 Checkpoint R2/R3/R6, all PASS — see `27-VALIDATION.md` § Round 1 Checkpoint.*
+- [x] **QUAL-04**: Quality badges appear on the activity detail view, explaining rather than merely marking — a badge says what was detected and why it matters. *Ticked 2026-09-10 on plan 27-10's Round 1 Checkpoint R4/R5, both PASS — see `27-VALIDATION.md` § Round 1 Checkpoint.*
+- [x] **QUAL-05**: Severity tiers are calibrated against an archive-wide dry run before ship, targeting a top tier under ~5% of activities (≈90 of 1,864). The measured flag rate per tier is reported and justified; a top tier materially above that target is a calibration failure, not an acceptable outcome. *Ticked 2026-09-10 on plan 27-10's Round 1 Checkpoint R6/R7, both PASS, with a stated caveat — see `27-VALIDATION.md` § Round 1 Checkpoint / Gap-Closure Record G-01. The tick reflects the measured composite (299) and the bidirectional threshold-sensitivity table, both reproduced independently; it does NOT claim `27-CALIBRATION.md` is currently regenerable byte-identical (G-01, open). QUAL-05's own recorded tension with the ~5% target, below, remains open by design per 27-03's `split-the-criterion` disposition.*
 
   *Restated against the live archive, 2026-09-10 (plan 27-03's calibration run, `27-CALIBRATION.md`), per D-02 — a reported finding, not a retune:* the "≈90 of 1,864" figure is stale; the live archive is 1,890 activities (1,865 with a computable stream), and ~5% of 1,890 is ≈95 activities, not ≈90. The measured composite top-tier rate is **299 activities — 15.8% of 1,890, 16.0% of 1,865 streamed** — reproduced three independent ways (this plan's classifier sweep, plan 27-04's classifier-independent recount of the shipped index, and the orchestrator's post-merge `compute-dashboard-index` run; see `27-03-SUMMARY.md`). D-04 locks Phase 26's severe-decimation cohort verbatim at 154 activities (8.15% of 1,890), which alone already exceeds the ~95-activity target before the other two tiering signals contribute anything, and D-02 forbids retuning any threshold backward from the target to close that gap. **This requirement's own language — "a top tier materially above that target is a calibration failure" — therefore stands in direct, recorded tension with the measured 15.8%/16.0% rate.** That tension is not dissolved here by moving the ~5% figure or by narrowing D-04's decimation rule: QUAL-05's concern is preserved as a live finding about this archive (see ROADMAP Phase 27 Criterion 4b), and Criterion 4's pass/fail gate (4a) is scoped to what is independently verifiable — the live denominator, the classifier-independent recount, and the threshold's proven bidirectional responsiveness — rather than to the rate's absolute value.
 
@@ -75,8 +75,8 @@
 
 ### Cross-era consistency (ERA)
 
-- [ ] **ERA-01**: Any logic branching on data provenance keys on **device family**, never on file format — a Garmin fēnix 6 Pro FIT file carries 0.0% `speed` and 0.0% `altitude` (it uses `enhancedSpeed`/`enhancedAltitude`) while a Suunto 9 FIT file carries 99.8% of both. Format is not a proxy for signal shape.
-- [ ] **ERA-02**: "No device name" is handled as its own explicit category, never as a default branch — it is 716 of 1,864 activities (38%), the second-largest cohort in the archive.
+- [x] **ERA-01**: Any logic branching on data provenance keys on **device family**, never on file format — a Garmin fēnix 6 Pro FIT file carries 0.0% `speed` and 0.0% `altitude` (it uses `enhancedSpeed`/`enhancedAltitude`) while a Suunto 9 FIT file carries 99.8% of both. Format is not a proxy for signal shape. *Ticked 2026-09-10 on plan 27-10's Round 1 Checkpoint R8, PASS — see `27-VALIDATION.md` § Round 1 Checkpoint.*
+- [x] **ERA-02**: "No device name" is handled as its own explicit category, never as a default branch — it is 716 of 1,864 activities (38%), the second-largest cohort in the archive. *Ticked 2026-09-10 on plan 27-10's Round 1 Checkpoint R8, PASS (explicit category confirmed, never a fabricated device name) — see `27-VALIDATION.md` § Round 1 Checkpoint. **Caveat, not fixed here:** the "716 of 1,864 (38%)" figure is stale — the live shipped index carries 663 of 1,890 no-device-name activities; see Gap-Closure Record G-02 in `27-VALIDATION.md`. The tick is not contingent on this figure, since G-02 confirms the behavioral requirement holds and only the cited cohort size needs reconciling.*
 - [x] **ERA-03**: Test fixtures are stratified by device era and include the known-bad cases by construction: a decimation-aliased stream, a recording gap, a multi-hour pause, an impossible-speed sample, and the pinned worked example. Ground truth does not exist for real GPS data, so fixtures must be synthetic where the expected answer must be known.
 
 ---
@@ -133,11 +133,11 @@ Filled during roadmap creation.
 | PACE-07 | Phase 26 | Complete |
 | COV-01 | Phase 26 | Complete (WR-01 adjudicated REACHABLE; invariant restated as the itemised identity `coveredSec === bucketedSec + unbucketedCoveredSec`, verified across the whole committed archive — 1,865 streams, zero identity violations, see 26-11-SUMMARY.md) |
 | COV-02 | Phase 26 | Complete (caption decoupled from `buckets.length`, regression-tested, and confirmed on screen for activity 11865310195 in Round 2 row R2-1, see 26-VALIDATION.md) |
-| QUAL-01 | Phase 27 | Pending |
-| QUAL-02 | Phase 27 | Pending |
-| QUAL-03 | Phase 27 | Pending |
-| QUAL-04 | Phase 27 | Pending |
-| QUAL-05 | Phase 27 | Pending |
+| QUAL-01 | Phase 27 | Complete |
+| QUAL-02 | Phase 27 | Complete |
+| QUAL-03 | Phase 27 | Complete |
+| QUAL-04 | Phase 27 | Complete |
+| QUAL-05 | Phase 27 | Complete |
 | PR-01 | Phase 28 | Pending |
 | PR-02 | Phase 28 | Pending |
 | PR-03 | Phase 28 | Pending |
@@ -148,6 +148,6 @@ Filled during roadmap creation.
 | CUR-03 | Phase 29 | Pending |
 | ELEV-01 | Phase 30 | Pending |
 | ELEV-02 | Phase 30 | Pending |
-| ERA-01 | Phase 27 | Pending |
-| ERA-02 | Phase 27 | Pending |
+| ERA-01 | Phase 27 | Complete |
+| ERA-02 | Phase 27 | Complete |
 | ERA-03 | Phase 26 | Complete |
