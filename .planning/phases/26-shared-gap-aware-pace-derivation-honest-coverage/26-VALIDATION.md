@@ -1063,3 +1063,131 @@ the check's pass path is unaffected by this document naming its own trigger stri
 demonstrates the check is scoped to four per-row transcription lines, not to the word `FAIL`
 occurring anywhere on the page — it cannot be satisfied by this task's own staged negative-case
 prose.
+
+---
+
+## Round 3 Verdicts
+
+R3-1 Verdict: PASS
+R3-2 Verdict: PASS
+R3-3 Verdict: PASS
+R3-4 Verdict: PASS
+
+Session conducted 2026-09-10 by the developer against the served build described in the Round 3
+setup above (all six pre-session gate commands green, served-path curls verified fresh, viewport
+held in the 500-941 px band, hard reload performed before each row). Every quotation below is
+verbatim from the developer's reply; none is inferred from an automated check — the transcription
+check above proves only that this heading and these four lines exist, not that any verdict is
+true.
+
+| Row | Requirement | Verdict | Verbatim quotation |
+|-----|-------------|---------|---------------------|
+| R3-1 | D-01/D-16/PACE-01/CR-03 | **PASS** | Tick array: `(6) ['3:20/km', '6:40/km', '10:00/km', '13:20/km', '16:40/km', '20:00/km']`; histogram bars `"2:15–2:30/km"` / `"17:15–17:30/km"` |
+| R3-2 | PACE-01/CR-03 | **PASS** | "fasest i can see is 2:27. I would say most of them are around 5:00 rather than 5:40 though." |
+| R3-3 | PACE-01 no-regression control | **PASS** ("PASS I GUESS") | 52 bars, first `"1:30–1:45/km"`, last `"18:30–18:45/km"` |
+| R3-4 | PACE-07/CR-02 | **PASS** | "renders normally, clean console except for: GET http://127.0.0.1:4173/favicon.ico 403 (Forbidden) and [Facebook Extractor] Starting extraction... content.js:1 [Facebook Extractor] No video data found in page (maybe from a plugin or something)? and no badges shown." |
+
+**R3-1 — PASS.** The developer patched `CanvasRenderingContext2D.prototype.fillText`, navigated
+`#/list` → `#/activity/5059204779` to force a redraw under the patch, and quoted the captured tick
+array verbatim:
+
+```
+(6) ['3:20/km', '6:40/km', '10:00/km', '13:20/km', '16:40/km', '20:00/km']
+```
+
+The largest captured tick is `20:00/km`, which is at or above the pre-stated `15:00/km` FAIL
+threshold and brackets the independently derived series maximum of `17:29/km` (1,049 s/km)
+against the axis's own `20:00/km` (1,200 s/km) top tick. This value is unreachable under the
+fixed-20s window, whose entire plotted extent topped out at `4:27/km` (266.7 s/km) — so this row
+is the discriminator working as designed, not two surfaces merely agreeing with each other.
+
+The developer separately quoted the histogram's first and last bar labels verbatim: `"2:15–2:30/km"`
+and `"17:15–17:30/km"` — matching the independently re-derived values from Task 1 exactly.
+
+**R3-2 — PASS, with a recorded observation, not smoothed into the verdict.** The developer's
+reply, verbatim: "PAS: fasest i can see is 2:27. I would say most of them are around 5:00 rather
+than 5:40 though."
+
+The fastest hovered value, `2:27/km`, satisfies the row's FAIL condition — nothing was quoted
+faster than `2:27/km`, the independently derived fastest sample in the 150s adaptive series. The
+row is a PASS on its stated expectation.
+
+**Deviation, recorded as its own finding per this row's instruction (not forced into the
+verdict):** the developer's hovered values clustered nearer `5:00/km` than the pre-stated median
+of `5:40/km`. The sample was roughly five hover points, so this is plausibly sampling scatter
+against a Δt-weighted median rather than a defect — a small, non-uniform sample of pointer
+positions is not expected to reproduce a time-weighted statistic exactly. This is a departure from
+a pre-stated expectation and is recorded honestly rather than rounded away; it does not change the
+PASS verdict, which rests solely on the fast-end FAIL condition (`2:27/km`), not on the median
+clustering.
+
+**R3-3 — PASS (control row), with caveats recorded honestly.** The developer quoted the
+histogram's bar labels in full; the orchestrator counted 52 bars, first `"1:30–1:45/km"`, last
+`"18:30–18:45/km"` — all three match the pre-stated expectation from the independent derivation.
+
+Caveats, stated plainly rather than omitted:
+- The tick-capture snippet's output array was **not** captured for this row — only the histogram
+  labels were quoted by the developer.
+- The developer expressed their own uncertainty in the reply, verbatim: "PASS I GUESS".
+- **This row is a control, not a discriminator, and its PASS carries no evidentiary weight toward
+  closing CR-03.** Activity `4556693525`'s adaptive window resolves exactly to the 20s floor, so
+  its chart and histogram render identically whether or not CR-03 is fixed. Its job is only to
+  rule out a fix that widened the averaging window for every activity instead of resolving it
+  per-activity — which it does, since nothing here regressed. The discriminating weight for CR-03
+  closure rests on R3-1 and R3-2 alone.
+
+**R3-4 — PASS.** The developer's reply, verbatim: "renders normally, clean console except for: GET
+http://127.0.0.1:4173/favicon.ico 403 (Forbidden) and [Facebook Extractor] Starting extraction...
+content.js:1 [Facebook Extractor] No video data found in page (maybe from a plugin or something)?
+and no badges shown."
+
+The list rendered, zero `Pace disputed` badges appeared anywhere, and no
+`TypeError: Cannot read properties of undefined (reading 'streamPaceSecPerKm')` occurred — the row
+passes both stated conditions. The `favicon.ico 403` is the static file server (`curate-server.mjs`)
+declining a request for an icon that does not exist in `dist/widgets`, not application code. The
+"Facebook Extractor" lines originate from a browser extension's injected `content.js`, not from
+this application's bundle. Neither line is treated as a `TypeError` or as evidence against the
+row; the console is clean for the purposes of this row's FAIL condition.
+
+**Provenance check (orchestrator-confirmed before the human looked, T-26-42 mitigation).** The
+canonical `data/dashboard/index.json` carries `paceDisagreement` on all 1890 rows; the served
+`dist/widgets/data/dashboard/index.json` at the time of this row carried it on 0 rows (confirmed
+by `curl` above, § "R3-4 fixture"). The discriminator was genuine, not vacuous.
+
+Every quotation in the verdict table and its per-row narrative above came verbatim from the
+developer's message reporting what they read in the browser; no verdict was inferred from an
+automated check.
+
+**Restore, performed after all four rows were recorded, regardless of verdict (T-26-42
+mitigation).** First attempt was `npm run build-widgets` alone; its `data/dashboard` copy step
+reported `(0 copied, 1 skipped)` and the doctored digest was unchanged afterward — `copyJsonTree`
+(`scripts/lib/copy-data-tree.mjs`) contains an mtime-based efficiency guard ("skip the copy when
+the destination is already up to date") that compares `destMtime >= srcMtime`; because the
+doctoring in Task 1 touched the dest file's mtime AFTER the untouched repo source's mtime, the
+guard concluded the doctored copy was already current and skipped recopying it. This is a Rule 1
+bug found during restoration, not a defect in the fixture or the verdicts above — it is fixed by
+forcing the copy directly from the known-good repo source rather than relying on the mtime guard:
+
+```
+$ npm run build-widgets
+... (0 copied, 1 skipped for data/dashboard — mtime guard skipped the doctored file, see above)
+$ sha256sum dist/widgets/data/dashboard/index.json
+0f914382bd3732979047f4fa05d41a2af6169fb675b30e11838537292ecbda22  dist/widgets/data/dashboard/index.json   # still doctored — digest mismatch caught here
+$ sha256sum data/dashboard/index.json
+b15943de4f21d91894795cde7e48951f05648ea15e6f194b68de4468e7a998da  data/dashboard/index.json   # repo source confirmed matches the ORIGINAL digest exactly
+$ cp data/dashboard/index.json dist/widgets/data/dashboard/index.json
+$ npm run build-widgets   # re-run to confirm idempotent/clean after the forced copy
+... (clean; private-artifact scan: 5647 published JSON files scanned, none contain identity/health fields; curation-artifact scan clean)
+$ sha256sum dist/widgets/data/dashboard/index.json
+b15943de4f21d91894795cde7e48951f05648ea15e6f194b68de4468e7a998da  dist/widgets/data/dashboard/index.json
+$ curl -s http://127.0.0.1:4173/strava-widgets/data/dashboard/index.json | grep -c paceDisagreement
+1890
+$ curl -s http://127.0.0.1:4173/strava-widgets/data/dashboard/index.json | sha256sum
+b15943de4f21d91894795cde7e48951f05648ea15e6f194b68de4468e7a998da  -
+```
+
+The restored digest matches the ORIGINAL digest recorded in Task 1
+(`b15943de4f21d91894795cde7e48951f05648ea15e6f194b68de4468e7a998da`) both on disk and on the
+SERVED path (verified by `curl` against `127.0.0.1:4173`, not just the repo file), and the served
+path shows `paceDisagreement` present on all 1890 rows again — the fixture is restored on the
+SERVED path, not merely in the repo tree.
