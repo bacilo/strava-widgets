@@ -585,7 +585,8 @@ describe('CR-02 — a row whose index predates the paceDisagreement field produc
  * Builds a row whose `quality` object is `CLEAN_QUALITY` with the given
  * per-signal overrides merged in — every other row field comes from
  * `baseRow()` unchanged, since `qualityBadgeSpecs` only reads `row.quality`
- * (its `Pick<DashboardIndexRow, 'quality'>` signature).
+ * (its `Pick<ParsedDashboardIndexRow, 'quality'>` signature, widened by
+ * G-04 to accept an absent key too — see the describe block below).
  */
 function qualityRow(overrides: Partial<ActivityQualitySignals>): DashboardIndexRow {
   return baseRow({ quality: { ...CLEAN_QUALITY, ...overrides } });
@@ -759,6 +760,67 @@ describe('existing badges unregressed (Task 2, T-27-23) — the two pre-existing
     // it twice with the identical row produces the identical result,
     // because there is no surface-specific input to vary.
     expect(qualityBadgeSpecs(row)).toEqual(qualityBadgeSpecs(row));
+  });
+});
+
+/**
+ * A row shaped like a pre-Phase-27 (or partially-regenerated) parsed
+ * `index.json` entry: `quality` genuinely ABSENT as a key, not set to an
+ * explicit value — mirrors `rowMissingPaceDisagreement` above verbatim for
+ * the G-04 hazard on this newer, REQUIRED field (27-REVIEW.md CR-01).
+ * `quality` has no `| null` variant on `DashboardIndexRow` the way
+ * `paceDisagreement` does, so there is no explicit-null fixture to
+ * contrast against here — a browser tab left open across a deploy, or a
+ * CDN edge still serving a cached pre-Phase-27 `index.json` during its
+ * cache TTL, produces exactly this shape (schemaVersion does not bump for
+ * a purely additive field per `dashboard-index.types.ts`).
+ */
+function rowMissingQuality(): DashboardIndexRow {
+  const full: ParsedDashboardIndexRow = baseRow();
+  const { quality, ...withoutKey } = full;
+  void quality;
+  return withoutKey as DashboardIndexRow;
+}
+
+describe('G-04 (27-REVIEW.md CR-01) — a row missing quality does not crash qualityBadgeSpecs or the render loop', () => {
+  it("the fixture helper's own row genuinely lacks the key (not present-and-undefined)", () => {
+    const row = rowMissingQuality();
+    expect('quality' in row).toBe(false);
+  });
+
+  it('qualityBadgeSpecs returns [] for the missing-key row, rather than throwing (function level)', () => {
+    const row = rowMissingQuality();
+    expect(() => qualityBadgeSpecs(row)).not.toThrow();
+    expect(qualityBadgeSpecs(row)).toEqual([]);
+  });
+
+  it('activityRowAriaLabel does not throw for the missing-key row and still folds the curated base label', () => {
+    const row = rowMissingQuality();
+    expect(() => activityRowAriaLabel(row)).not.toThrow();
+    expect(activityRowAriaLabel(row)).toBe('Morning Run, Aug 6, 2026, 5.0 km');
+  });
+
+  it('a for-of loop mirroring buildMobileCardList/buildDesktopTable\'s own `for (const row of pageItems)` shape completes over every row, including the missing-quality one, without throwing (render-loop level — activityRowAriaLabel is the exact call every renderActivityRow/buildTableRow iteration makes unconditionally; the DOM-construction half of that loop cannot be exercised in this node-environment suite, see file header)', () => {
+    const pageItems: DashboardIndexRow[] = [
+      baseRow({ id: '1', name: 'First' }),
+      rowMissingQuality(),
+      baseRow({ id: '3', name: 'Third' }),
+    ];
+    const labels: string[] = [];
+    expect(() => {
+      for (const row of pageItems) {
+        labels.push(activityRowAriaLabel(row));
+      }
+    }).not.toThrow();
+    expect(labels).toHaveLength(3);
+    expect(labels[1]).toBe('Morning Run, Aug 6, 2026, 5.0 km');
+  });
+
+  it('positive control: a row with a real severe quality signal still produces a badge through qualityBadgeSpecs — the guard does not swallow real signals', () => {
+    const row = qualityRow({
+      gapProfile: { tier: 'severe', gapFraction: 0.5, recordingGapSec: 10, pauseSec: 10, spanSec: 20 },
+    });
+    expect(qualityBadgeSpecs(row)).toHaveLength(1);
   });
 });
 

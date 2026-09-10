@@ -21,7 +21,11 @@
 import type { DashboardView, ViewMountContext } from '../view.types.js';
 import { ROUTES } from '../view.types.js';
 import type { IndexClient } from '../data/index-client.js';
-import type { DashboardIndexRow, PaceDisagreement } from '../../analytics/dashboard-index.types.js';
+import type {
+  DashboardIndexRow,
+  ParsedDashboardIndexRow,
+  PaceDisagreement,
+} from '../../analytics/dashboard-index.types.js';
 import { navigateTo } from '../router.js';
 import { attachRowNavigation, activityDetailHref } from '../row-navigation.js';
 import type { SortKey, SortDir, ListState, DatePresetId } from './list-logic.js';
@@ -396,10 +400,25 @@ export function qualityBadgeDescriptionId(idPrefix: string, suffix: string): str
  * D-14: elapsedVsMoving is likewise an untiered fact (no defensible severe
  * threshold separates "deliberate rest" from "forgotten stop") and is
  * likewise never badged on a list row, for the same reason.
+ *
+ * G-04 (27-REVIEW.md CR-01): takes the PARSED shape
+ * (`Pick<ParsedDashboardIndexRow, 'quality'>`, `quality` possibly absent)
+ * rather than `Pick<DashboardIndexRow, 'quality'>` — `quality` is REQUIRED
+ * on the producer type, but `index-client.ts`'s `fetchDocument()` does a
+ * blind cast on the network response with no field-level validation, so a
+ * browser tab left open across a deploy, or a CDN edge still serving a
+ * cached pre-Phase-27 `index.json` during its cache TTL, hands this
+ * function a row with no `quality` key at all. Absence is treated
+ * identically to the three sibling call sites this phase already defends
+ * this way (`rowIsAnySevere`, `detail.ts`'s `?? null`, this file's own
+ * `rowPaceDisagreement`): no spec for any signal, never a fabricated
+ * badge, never a crash that takes the whole render loop down with it.
  */
-export function qualityBadgeSpecs(row: Pick<DashboardIndexRow, 'quality'>): QualityBadgeSpec[] {
+export function qualityBadgeSpecs(row: Pick<ParsedDashboardIndexRow, 'quality'>): QualityBadgeSpec[] {
   const specs: QualityBadgeSpec[] = [];
-  const { decimation, gapProfile, impossibleSamples } = row.quality;
+  const quality = row.quality;
+  if (!quality) return specs;
+  const { decimation, gapProfile, impossibleSamples } = quality;
 
   if (decimation.tier === 'severe' && decimation.zeroAdvanceFraction !== null) {
     const pct = Math.round(decimation.zeroAdvanceFraction * 100);
