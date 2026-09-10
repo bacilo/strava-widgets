@@ -16,9 +16,12 @@ import {
   buildExclusionReasonIndex,
   buildPrTableRows,
   buildProgressionRows,
+  countDemotedAtDistance,
   evolutionCardSummary,
   filterRankingsToYear,
   isEmptyRanking,
+  resolvePrTableDemotionNote,
+  resolvePrTableEmptyState,
   selectSuperlatives,
   type EvolutionPoint,
 } from './records-logic.js';
@@ -62,6 +65,7 @@ function fixtureEffort(overrides: Partial<BestEffort> & { distance: TargetDistan
     lowConfidence: false,
     wasPRAtTheTime: false,
     excludedFromRecords: false,
+    demotion: null,
     ...overrides,
   };
 }
@@ -484,5 +488,109 @@ describe('filterRankingsToYear — OVR-03 year scope (D-01/D-02)', () => {
     expect(() => filterRankingsToYear(withBadDate, 2025)).not.toThrow();
     const result = filterRankingsToYear(withBadDate, 2025);
     expect(result.some((e) => e.activityId === 'bad-date')).toBe(false);
+  });
+});
+
+describe('countDemotedAtDistance — Phase 28 D-08/D-10', () => {
+  it('returns 0 for an empty activities record', () => {
+    expect(countDemotedAtDistance({}, '400m')).toBe(0);
+  });
+
+  it('counts only the matching distance, ignoring a demotion at a different distance', () => {
+    const activities: BestEffortsDocument['activities'] = {
+      a1: fixtureActivity({
+        activityId: 'a1',
+        startDate: '2024-01-01T00:00:00Z',
+        efforts: [
+          fixtureEffort({ distance: '400m', durationSec: 45, demotion: { guard: 'ceiling', reason: 'x' } }),
+          fixtureEffort({ distance: '5k', durationSec: 1200, demotion: { guard: 'ceiling', reason: 'y' } }),
+        ],
+      }),
+    };
+    expect(countDemotedAtDistance(activities, '400m')).toBe(1);
+  });
+
+  it('counts two demoted efforts in two different activities as 2', () => {
+    const activities: BestEffortsDocument['activities'] = {
+      a1: fixtureActivity({
+        activityId: 'a1',
+        startDate: '2024-01-01T00:00:00Z',
+        efforts: [fixtureEffort({ distance: '400m', durationSec: 45, demotion: { guard: 'ceiling', reason: 'x' } })],
+      }),
+      a2: fixtureActivity({
+        activityId: 'a2',
+        startDate: '2024-01-02T00:00:00Z',
+        efforts: [fixtureEffort({ distance: '400m', durationSec: 46, demotion: { guard: 'world-record', reason: 'y' } })],
+      }),
+    };
+    expect(countDemotedAtDistance(activities, '400m')).toBe(2);
+  });
+
+  it('does not treat excludedFromRecords as a demotion — an effort with excludedFromRecords: true and demotion: null counts 0 (D-10)', () => {
+    const activities: BestEffortsDocument['activities'] = {
+      a1: fixtureActivity({
+        activityId: 'a1',
+        startDate: '2024-01-01T00:00:00Z',
+        efforts: [fixtureEffort({ distance: '400m', durationSec: 45, excludedFromRecords: true, demotion: null })],
+      }),
+    };
+    expect(countDemotedAtDistance(activities, '400m')).toBe(0);
+  });
+
+  it('T-28-02-A: a stale effort with no demotion key at all counts as 0 rather than throwing', () => {
+    const staleEffort = fixtureEffort({ distance: '400m', durationSec: 45 }) as Partial<BestEffort>;
+    delete staleEffort.demotion;
+    const activities: BestEffortsDocument['activities'] = {
+      a1: fixtureActivity({ activityId: 'a1', startDate: '2024-01-01T00:00:00Z', efforts: [staleEffort as BestEffort] }),
+    };
+    expect(() => countDemotedAtDistance(activities, '400m')).not.toThrow();
+    expect(countDemotedAtDistance(activities, '400m')).toBe(0);
+  });
+});
+
+describe('resolvePrTableEmptyState — D-03/D-09 three-branch copy', () => {
+  it('this-year branch reproduces the existing copy verbatim, ignoring demotedCount', () => {
+    const result = resolvePrTableEmptyState('5k', 'this-year', 2026, 5);
+    expect(result.heading).toBe('No 5K efforts in 2026');
+    expect(result.body).toBe(
+      'The archive has no 5K effort recorded in 2026. Switch to All time to see every ranked effort.'
+    );
+  });
+
+  it('all-time with demotedCount 0 reproduces the existing copy verbatim', () => {
+    const result = resolvePrTableEmptyState('5k', 'all-time', 2026, 0);
+    expect(result.heading).toBe('No 5K efforts yet');
+    expect(result.body).toBe('The archive has no completed 5K effort. Once one is recorded, its rank will appear here.');
+  });
+
+  it('all-time with demotedCount > 0 returns the ceiling wording naming the count', () => {
+    const result = resolvePrTableEmptyState('400m', 'all-time', 2026, 15);
+    expect(result.heading).toBe('No 400m efforts passed the plausibility ceiling');
+    expect(result.body).toContain('15');
+    expect(result.heading).toContain('plausibility ceiling');
+  });
+
+  it('all-time with demotedCount === 1 uses singular agreement', () => {
+    const result = resolvePrTableEmptyState('400m', 'all-time', 2026, 1);
+    expect(result.body).toContain('1 400m effort was demoted');
+    expect(result.body).not.toContain('efforts were');
+  });
+});
+
+describe('resolvePrTableDemotionNote — D-03 short-table note', () => {
+  it('returns null when demotedCount is 0', () => {
+    expect(resolvePrTableDemotionNote('5k', 0)).toBeNull();
+  });
+
+  it('returns a string containing the count at 1', () => {
+    const note = resolvePrTableDemotionNote('5k', 1);
+    expect(note).not.toBeNull();
+    expect(note).toContain('1');
+  });
+
+  it('returns a string containing the count at 15', () => {
+    const note = resolvePrTableDemotionNote('5k', 15);
+    expect(note).not.toBeNull();
+    expect(note).toContain('15');
   });
 });
