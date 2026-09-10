@@ -25,6 +25,18 @@ function makeRow(overrides: Partial<DashboardIndexRow> & { id: string }): Dashbo
     prCount: 0,
     gearName: null,
     paceDisagreement: null,
+    // Phase 27 (QUAL-01/QUAL-03): a required field this suite does not
+    // exercise — a clean/not-flagged default, following the `gearName` /
+    // `paceDisagreement` fixture precedent above.
+    quality: {
+      decimation: { tier: 'none', zeroAdvanceFraction: 0, sampleCount: 100 },
+      gapProfile: { tier: 'none', gapFraction: 0, recordingGapSec: 0, pauseSec: 0, spanSec: 3000 },
+      impossibleSamples: { tier: 'none', count: 0, maxImpliedSpeedMps: 0, countInsideZeroAdvanceRun: 0 },
+      deviceEra: { family: 'no-device-name', rawDeviceName: null },
+      elapsedVsMoving: { ratio: 1, elapsedSec: 3000, movingSec: 3000 },
+      anySevere: false,
+      notComputableReason: null,
+    },
     ...overrides,
   };
 }
