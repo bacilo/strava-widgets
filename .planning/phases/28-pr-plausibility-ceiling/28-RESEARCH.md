@@ -1,0 +1,529 @@
+# Phase 28: PR Plausibility Ceiling - Research
+
+**Researched:** 2026-09-10
+**Domain:** Statistical outlier rejection over an already-filtered personal dataset; TypeScript batch-compute restructuring; demote-not-delete data modeling; regenerable audit-artifact generation. Codebase-heavy phase — almost no external dependency.
+**Confidence:** HIGH (architecture, data flow, pitfalls — all read directly from the live repo) / MEDIUM (the ceiling statistic's exact numeric form — bounded by measurement, but the final constant is a planning choice)
+
+<user_constraints>
+## User Constraints (from CONTEXT.md)
+
+### Locked Decisions
+
+- **D-01 (ceiling statistic):** Delegated to research/planning, bound by two hard constraints: PR-02's non-circularity rule, and a *second*, measured circularity — a plain percentile of the filtered population is self-defeating (p99.5 demotes 9/10 genuine 5k records, 8/10 genuine 10k records, purely by sitting at "the 9th-fastest effort by construction"). The statistic must be set by the *bulk* of the distribution — something a dozen rejected artifacts structurally cannot move — not by the tail being judged. Candidates offered as evidence, not a shortlist: ratio-to-bulk (K × p90), cross-distance projection via `riegel.ts`, or a hybrid where the second only further-demotes.
+- **D-02 (thin population):** Below a stated minimum population, derive no personal ceiling for that distance — keep world-record + max_speed only, and record that fact in the output. Marathon has 0 efforts, half has 105 (vs ~1,500-1,850 at short distances). Minimum threshold itself is left to research/planning, "derived from mechanism and then measured."
+- **D-03 (400m emptying):** Accepted outcome under any bulk-derived ceiling — the whole 400m top-10 goes. The Records-screen empty-state copy for this case is a real deliverable, not an afterthought. `TARGET_ORDER` is NOT touched.
+- **D-04 (regression fixture value):** Pin the LIVE value — **45.2s / 8.85 m/s** for activity `4556693525`'s 400m — not the 44.0s/9.09 m/s written in PR-05/ROADMAP Criterion 3. Both are physically impossible and both pass today's guard; the drift is recorded as a resolved note, not investigated.
+- **D-05 (time scope):** One all-time ceiling per distance over the whole filtered archive. No trailing window, no per-era segmentation. Settled by measurement: 400m p90 moves only ±8% over 15 years while max swings 160%.
+- **D-06 (re-derivation):** The ceiling is re-derived on every CI run, persisted into the output, and any movement is reported (never silently re-derived, never a hand-pinned snapshot).
+- **D-07 (state persistence):** The previous run's ceiling state lives in a small **committed, machine-written file** (`data/stats/` is gitignored and starts empty in CI, so nowhere else is durable). CI regenerates, diffs against the committed version, reports movement, commits the update via the existing nightly data-commit path. **Two hazards the planner must design around:** the CI auto-commit races `origin/master` (expect non-fast-forward — merge, don't rebase), and quoting a skip-CI token anywhere in a commit message silently suppresses the whole daily-refresh run.
+- **D-08 (one shared demotion path):** Every rejection — ceiling, world-record, AND max_speed alike — becomes a flagged, demoted, visible effort carrying its reason, through ONE shared code path. Today 34 efforts across 28 activities are deleted (never enter `activities[id].efforts`); nothing in the dashboard reads the `rejected` array. This is the behaviour D-08 reverses.
+- **D-09 (visibility surfaces):** Visible on the activity detail view's Best Efforts panel, plus a note on the Records screen naming why a table is short/empty. **Known rendering hazard to FIX, not extend:** `detail-sections.ts`'s `buildPrFlagsCell` renders `isPr` and `excluded` into the same `<td>` and has previously produced the literal string `PRExcluded — {reason}` (Phase 24 Round 2 R15). A third state added without fixing this reproduces the defect.
+- **D-10 (separate field):** A demotion is a SEPARATE field from `excludedFromRecords`, carrying which guard fired and why. `excludedFromRecords` means "the owner decided"; a demotion means "the machine judged." Phase 29's review queue needs this distinction.
+- **D-11 (no override this phase):** No override/re-admit write path ships in Phase 28 — it lands with Phase 29's curation review queue. This phase adds zero new write surfaces.
+- **D-12 ("changing hands" definition):** Every top-10 ranking row that moves AND every `wasPRAtTheTime` flip, in BOTH directions — demotions and the retroactive promotions they cause (since `markPRs` is chronological and re-entrant). Measured under an illustrative K=1.35: 20 demoted, 10 flag flips; the 1mi row demoted one effort, flipped two flags, net count unchanged — a rankings-only diff would report "nothing happened."
+- **D-13 (diff artifact form):** A regenerable committed markdown artifact, generated by a dry-run command, following the `26-RESIDUAL.md` / `27-CALIBRATION.md` precedent. **Trap to design around explicitly: idempotence must be a TEST, not an assumption** — proved by running the generator twice and diffing (Phase 27's G-01 stayed open specifically because this wasn't done).
+- **D-14 (sign-off location):** Sign-off lives OUTSIDE the generated artifact, in the phase's validation record, naming the diff's content hash or `generatedAt` stamp — never a hand-edited block inside the generated file, never a bare git commit.
+- **D-15 (independent reconciliation):** Criterion 5's reconciling count is derived by reading the SHIPPED `best-efforts.json` and counting demoted efforts directly, WITHOUT importing the ceiling logic — mirroring Phase 27's D-03 `compute-pace-quality-recount.mjs` discipline exactly.
+
+### Claude's Discretion
+
+- **The ceiling statistic itself (D-01)** — bounded by the structural non-circularity property, not a specific formula.
+- **The minimum population threshold (D-02)** — derive from mechanism, then measure and report per-distance coverage.
+- **The three-pass restructuring's own mechanics and module layout** — whether ceiling derivation becomes a new pure module in `src/analytics/`.
+- **How Criterion 1's determinism-failure is demonstrated** ("if Pass 2 is changed to iterate to convergence").
+- **How the 662-activity impossible-sample cohort dry-run count is reported**, and where it sits relative to the D-13 diff artifact.
+- **The demotion reason's wording register** — house style already set: a named condition with its measured value, never an adjective (`implied 14.75 m/s exceeds world-record pace 9.30 m/s`).
+- **Tier/badge styling** for a demoted row against Phase 19's design system, and where the Records screen's D-03 note sits.
+
+### Deferred Ideas (OUT OF SCOPE)
+
+- The override/re-admit action → Phase 29's curation review queue (D-11).
+- A demoted-cohort filter on the Activities list → Phase 29 (would let a checkpoint assert reachable extent per Phase 23 CR-01, but no such filter ships this phase per D-09).
+- Investigating the 44.0s → 45.2s fixture drift → recorded as a todo, not pursued.
+- Extending the diff to derived downstream documents (age-grading, Riegel, `prCount`) → considered and rejected under D-12; mechanically implied, not built.
+- Dropping 400m from `TARGET_ORDER` → considered and rejected under D-03.
+</user_constraints>
+
+<phase_requirements>
+## Phase Requirements
+
+| ID | Description | Research Support |
+|----|-------------|------------------|
+| PR-01 | `compute-best-efforts.ts` runs a strict three-pass shape (accumulate → derive ceiling → filter-and-flag), no iteration to convergence, deterministic output | See "Architecture Patterns — The Three-Pass Restructuring" below: exact current single-pass structure read from `compute-best-efforts.ts`, with the precise seam where the new middle pass inserts. |
+| PR-02 | Ceiling derived per target distance from the population already filtered by the absolute guard + exclusion list, never the raw archive | See "Non-circularity: the exact seam" — `byDistance` (post `isPlausible` + `isExcluded`) is the correct input array; `computeActivityEfforts`'s raw sweep output is the wrong one. |
+| PR-03 | Ceiling-exceeding effort flagged and demoted, never deleted, always visible with its reason | See "Demote, Never Delete" — the exact `continue`-deletes-today code path (`compute-best-efforts.ts:94-97`), the `BestEffort`/`RejectedEffort` type split, and the `buildPrFlagsCell` rendering hazard that must be fixed. |
+| PR-04 | Archive-wide before/after PR diff produced and reviewed by a human before ship | See "The Before/After Diff" — why the diff must compute OLD and NEW semantics within one script run over the SAME live archive (not a historical git diff, since `data/stats/` is gitignored), and the `26-RESIDUAL.md`/`27-CALIBRATION.md` precedent for the artifact shape. |
+| PR-05 | Guard validated against the whole 662-activity impossible-sample cohort, not just the pinned fixture; pinned regression case rejected | See "Ground Truth: the 662-cohort and the pinned fixture" — the cohort is Phase 27's already-shipped `impossibleSamples.count >= 1` field, readable from `data/dashboard/index.json` with zero new per-sample computation. |
+</phase_requirements>
+
+## Summary
+
+This phase is a restructuring of one already-well-tested pure function (`computeBestEfforts` / `computeActivityEfforts` in `src/analytics/compute-best-efforts.ts`), plus a data-model change (add a demotion field instead of deleting), plus two new small regenerable-artifact scripts. There is no new runtime dependency to evaluate — `STACK.md` already vetted and rejected `simple-statistics`/`d3-array` for this milestone, and every candidate ceiling statistic is a 15-40 line pure function matching what the file already hand-rolls (`isPlausible`, `markPRs`, `rankTopN`).
+
+The single most load-bearing fact for planning is architectural: **today's rejection is a delete, not a flag.** `computeActivityEfforts` (`compute-best-efforts.ts:94-97`) does `rejected.push(...); continue` — the effort never enters `efforts[]`, so it never reaches `activities[id].efforts`, the detail view, or the Records screen. D-08's "one shared path" requirement means this project's `isPlausible` guard (world-record + max_speed) and the new ceiling guard must converge on ONE new behaviour: push a demoted-but-visible effort with a reason, never `continue`-and-lose it. This is a bigger change than "add a ceiling" — it also fixes a real, measured, currently-shipping defect (34 efforts silently vanish today).
+
+The second load-bearing fact is about the diff (PR-04). `data/stats/` is gitignored and starts empty on every CI runner — there is no historical committed `best-efforts.json` to `git diff` against. The only correct way to produce a "before/after" comparison is to compute BOTH the old (delete-on-reject) and new (ceiling-based demote) semantics from the SAME live stream archive inside one script run, then diff the two in-memory documents. This mirrors exactly how this session's own CONTEXT.md measurements were produced (a "simulated diff blast radius" run), and exactly how `compute-pace-residual.mjs` computes `baselineFastMass` and `adaptiveFastMass` side-by-side rather than comparing across time.
+
+The third load-bearing fact is that the 662-activity cohort PR-05 asks for is **already computed and shipped** — Phase 27's `impossibleSamples.count` field (`>= 1` per-sample check against the 10.44 m/s 100m-world-record floor, `pace-quality.ts`) is the exact same mechanism, confirmed in Phase 27's own research to be 662/1,865 (35.5%). The dry-run count for Criterion 3 can read `data/dashboard/index.json`'s per-row `quality.impossibleSamples.count` field rather than re-deriving anything.
+
+**Primary recommendation:** Restructure `computeBestEfforts` into three literal, sequential passes inside the existing function (no new orchestration layer needed); derive the ceiling as `K × p90(filteredPerDistanceDurations)` per distance (or `min(K×p90, RiegelGate)` as an optional further-demoting cross-check) in a new pure, file-I/O-free function colocated with `best-effort-utils.ts`; convert the existing `isPlausible` rejection path to push a demoted effort instead of `continue`; add a `demotion: { guard, reason } | null` field to `BestEffort`; fix `buildPrFlagsCell`'s `<td>` collision as part of adding the third state; and build the before/after diff as a new `scripts/compute-pr-ceiling-diff.mjs` that computes both semantics live and is proven idempotent by a second run.
+
+## Architectural Responsibility Map
+
+| Capability | Primary Tier | Secondary Tier | Rationale |
+|------------|-------------|----------------|-----------|
+| Ceiling derivation (per-distance statistic) | Backend/CI compute (`src/analytics/`, Node) | — | Pure arithmetic over the archive; must run in CI, never in the browser (parity with every existing `compute-*.ts` step). |
+| Three-pass restructuring | Backend/CI compute | — | `compute-best-efforts.ts` is a Node CLI-invoked batch step (`COMPUTE_ALL_STATS_STEPS`), not client code. |
+| Demotion flag + reason (data model) | Backend/CI compute (writer) | Browser (reader, DOM-free logic module) | Written once by `computeBestEfforts`, read twice: by `detail-best-efforts-logic.ts` (pure, DOM-free) and by `detail-sections.ts`/`records.ts` (DOM assembly). Matches the existing `excludedFromRecords` split exactly. |
+| Best Efforts panel rendering (demoted row visible) | Browser (DOM) | Browser (pure logic) | `detail-sections.ts` renders; `detail-best-efforts-logic.ts` computes row shape — same split as every existing panel row. |
+| Records-screen empty/short-table note | Browser (DOM) | — | `records.ts`'s `buildPrTableEmptyState`, currently unaware of "demoted vs never-existed." |
+| Before/after diff artifact | Local dev script (Node, `scripts/`) | — | Not part of the CI-mandatory chain — a one-time-per-change, human-reviewed deliverable, following `compute-pace-residual.mjs`'s shape (`npm run <script>`, not a `COMPUTE_ALL_STATS_STEPS` entry). |
+| Committed ceiling-state drift file | Backend/CI compute (writer + committer) | — | Diffed and committed by the SAME nightly `git-auto-commit-action` step that already commits `data/streams/*.json` etc. — extend `file_pattern`, do not add a second commit step. |
+| 662-cohort dry-run count | Local dev script or CI-reported total | — | Data already exists in `data/dashboard/index.json`; no new tier of computation needed. |
+
+## Standard Stack
+
+### Core
+
+No new runtime dependency. Every algorithm needed (percentile/p90, K-multiplier ceiling, optional Riegel cross-check) is arithmetic already at hand in this repo:
+
+| Module | Purpose | Why standard here |
+|--------|---------|--------------------|
+| `src/analytics/best-effort-utils.ts` | Home of `isPlausible`, `markPRs`, `rankTopN`, `WORLD_RECORD_SPEED_MPS`, `WORLD_RECORD_100M_SPEED_MPS`, `MAX_SPEED_MARGIN` | The ceiling guard is a sibling of the existing guards; same file, same purity contract (no `fs`, no I/O). |
+| `src/analytics/riegel.ts` | `riegelPredict`, `fitRiegelExponent`, `selectFitPoints`, `RIEGEL_STANDARD_B` | Already shipped, tested, pure. Available at zero marginal cost if the cross-distance-projection candidate (or hybrid gate) is chosen for D-01. Cannot speak to 400m (outside its calibrated range) — noted explicitly in CONTEXT.md. |
+| `vitest` (`^4.0.18`, already a devDependency) | Test runner | Existing convention; every analytics module is co-located with a `*.test.ts`. |
+| `typescript` (`^5.9.3`) | Compiler / type-check gate | `npx tsc --noEmit` is the existing gate command. |
+
+### Alternatives Considered
+
+| Instead of | Could Use | Tradeoff |
+|------------|-----------|----------|
+| Hand-rolled percentile (a `sort` + index) | `simple-statistics` / `d3-array` | **Explicitly rejected in STACK.md** (REQUIREMENTS.md "Out of Scope: New runtime dependencies") — both were vetted against live registry data and rejected; every needed algorithm is 15-40 lines. Do not reopen this. |
+| K × p90 ratio-to-bulk | Median + k×MAD (classic robust-statistics fence) | Not measured this session, but structurally equivalent in spirit to Tukey's IQR fence — see "State of the Art" below. K × p90 was the one actually measured against this archive; MAD is an unmeasured alternative, not a recommendation. |
+
+**Installation:** None — no `npm install` needed for this phase.
+
+**Version verification:** `typescript@5.9.3` and `vitest@4.0.18` are already pinned in `package.json` (read directly, not re-verified against the registry — unchanged existing devDependencies, not a new install).
+
+## Package Legitimacy Audit
+
+**Not applicable — this phase installs zero external packages.** REQUIREMENTS.md's "Out of Scope" table records that `simple-statistics@7.12.0` and `d3-array@3.2.4` were vetted and rejected during milestone scoping (STACK.md); every algorithm this phase needs is a small hand-rolled pure function, matching the file's existing style (`isPlausible`, `markPRs`, `rankTopN` are all 10-30 lines with zero dependencies). No `slopcheck`/registry step is required.
+
+## Architecture Patterns
+
+### The Three-Pass Restructuring (PR-01)
+
+**Current structure, read directly from `compute-best-efforts.ts`** (single pass, today):
+
+```
+computeBestEfforts()
+  for each activity (manifest order):
+    computeActivityEfforts(...)          # sweeps t/d for all 7 distances
+      for each eligible distance:
+        findBestEffort → raw duration
+        isPlausible(impliedSpeed, maxSpeed, worldRecordSpeed)
+          NOT ok → rejected.push(...); continue   # <-- DELETED, never in efforts[]
+          ok     → efforts.push(...)
+    for each effort NOT excluded:
+      byDistance.get(distance).push({ activityId, startDate, durationSec, ... })
+    activities[id] = { efforts: [...with excludedFromRecords...], ... }
+  for each distance in TARGET_ORDER:               # <-- second pass, but only ranking
+    markPRs(byDistance.get(distance))               # chronological wasPRAtTheTime
+    rankTopN(entries)                                # top-10 table
+  write best-efforts.json
+```
+
+There is already a de facto two-pass shape (per-activity accumulate, then per-distance rank), but the ceiling has nowhere to live in it — `isPlausible` runs INSIDE the per-activity loop, before the archive-wide population is known. PR-01's three-pass shape inserts the ceiling derivation strictly BETWEEN accumulation and final filtering:
+
+```
+PASS 1 — accumulate (mostly unchanged):
+  for each activity:
+    computeActivityEfforts(...) but WITHOUT the isPlausible cutoff deciding final inclusion —
+    world-record/max_speed-implausible efforts are now ALSO retained (flagged), not `continue`d.
+    Every retained effort (guard-passed OR guard-flagged) still needs to reach byDistance
+    for ceiling derivation ONLY IF it passed the absolute guard (PR-02's non-circularity rule) —
+    i.e., byDistance accumulates the SAME already-filtered population it does today
+    (post isPlausible absolute guard + isExcluded), unchanged in principle.
+
+PASS 2 — derive ceiling (NEW):
+  for each distance in TARGET_ORDER:
+    population = byDistance.get(distance)      # already-filtered, from Pass 1 — PR-02's seam
+    ceiling[distance] = deriveCeiling(population)   # returns null below D-02's minimum-population floor
+    # RUNS EXACTLY ONCE. No loop that re-derives after demoting (PR-01's own
+    # "no iteration to convergence" clause) — this is what Criterion 1's
+    # determinism-failure test mutates to prove the guard matters.
+
+PASS 3 — filter-and-flag (restructures existing per-activity loop's tail):
+  for each activity's each effort:
+    if world-record/max_speed guard fails → demote (guard: 'world-record'|'max-speed', reason)
+    else if ceiling[distance] !== null && durationSec implies speed > ceiling → demote (guard: 'ceiling', reason)
+    else → not demoted
+    ALWAYS retained in activities[id].efforts (D-08) — demotion never removes from the array.
+    Only NON-demoted, NON-excluded efforts enter byDistance-for-ranking / markPRs / rankTopN.
+  markPRs + rankTopN as today, but over the ceiling-and-guard-surviving population.
+```
+
+**Key structural point for the planner:** Pass 2's input population (byDistance, built in Pass 1) must be constructed from efforts that already passed the ABSOLUTE guard (world-record/max_speed) and the exclusion list — but must NOT itself already be ceiling-filtered (the ceiling doesn't exist yet when Pass 1 runs). This is exactly PR-02's non-circularity rule, and it falls out naturally from a genuine 3-pass sequence: Pass 2 cannot read Pass 3's output because Pass 3 hasn't run yet.
+
+### Non-circularity: the exact seam (PR-02)
+
+The two candidate input populations, and which one is right:
+
+- **WRONG (circular):** `computeActivityEfforts`'s raw per-target sweep output before ANY filtering — includes efforts already known-impossible (53-88 km/h implied speeds). Deriving p90/percentile from this population lets the artifacts influence their own rejection threshold.
+- **RIGHT (PR-02's seam):** `byDistance` as built today at `compute-best-efforts.ts:221-227` — i.e., efforts that already passed `isPlausible` (world-record + max_speed) AND `isExcluded` is false. This is "Pass 1's already-filtered array" the roadmap's Criterion 2 names explicitly.
+
+**Test shape for Criterion 2** ("a fixture where the unfiltered-population computation and the filtered-population computation diverge shows the shipped code producing the filtered result"): construct a fixture archive where a handful of `isPlausible`-failing efforts (e.g., 60 km/h 400m splits) are present alongside a clean bulk population. Compute the ceiling statistic twice — once by mistake over the raw sweep output, once correctly over `byDistance` — and assert they diverge, then assert the shipped `computeBestEfforts` output matches the SECOND (filtered) value, not the first. This directly matches the existing `computeBestEfforts — archive orchestration` test suite's temp-dir/`FileStore`/`writeActivity`/`writeStream`/`writeManifest` fixture pattern (`compute-best-efforts.test.ts:203-260`) — reuse it rather than building a new harness.
+
+### Demote, Never Delete (PR-03, D-08, D-10)
+
+**The exact deletion to reverse**, `compute-best-efforts.ts:94-97`:
+
+```typescript
+const plausibility = isPlausible(impliedSpeedMps, maxSpeedMps, WORLD_RECORD_SPEED_MPS[key]);
+if (!plausibility.ok) {
+  rejected.push({ activityId, distance: key, reason: plausibility.reason });
+  continue;   // <-- effort never reaches `efforts[]`, never reaches activities[id].efforts
+}
+```
+
+**Type change (D-10 — additive, matching the project's existing pattern for `excludedFromRecords`):**
+
+```typescript
+// best-effort.types.ts — additive field on BestEffort
+export interface BestEffort extends ComputedEffort {
+  wasPRAtTheTime: boolean;
+  excludedFromRecords: boolean;
+  /** NEW (D-10): a separate machine judgment, never collapsed into excludedFromRecords. */
+  demotion: { guard: 'world-record' | 'max-speed' | 'ceiling'; reason: string } | null;
+}
+```
+
+**The rendering hazard to fix, not extend** (`detail-sections.ts:639-653`, `buildPrFlagsCell`):
+
+```typescript
+function buildPrFlagsCell(row: BestEffortPanelRow, exclusionReason: string | null): HTMLTableCellElement {
+  const cell = document.createElement('td');
+  if (row.isPr) appendBadge(cell, 'PR');
+  if (row.lowConfidence) appendLowConfidenceBadge(cell, `best-efforts-${row.distance}`);
+  if (row.excluded) appendBadge(cell, exclusionReason ? `Excluded — ${exclusionReason}` : 'Excluded from records');
+  return cell;   // <-- adding `if (row.demoted) appendBadge(cell, ...)` here reproduces
+                 //     Phase 24 Round 2 R15's "PRExcluded — {reason}" concatenation defect
+                 //     if two badges render adjacent with no separation/labeling.
+}
+```
+
+Phase 27 already shipped a precedent for a THIRD badge class in the same row family — `qualityBadgeSpecs` / `.badge--severe` (`list.ts`) — proving the existing `.badge` CSS class can carry more than the two states this cell was written for. The fix is structural (each badge is its own distinguishable `<span class="badge">` — already true per-badge; the R15 defect was about the *visible string* reading ambiguously when two conditions summed to one string, not about DOM structure) — the planner should verify the exact repro condition (grep `PRExcluded` in Phase 24 Round 2 records) before assuming the current `appendBadge` calls (which are already separate DOM nodes) still reproduce it, since Phase 24's fix may already have addressed the DOM half of the issue and left only a documentation/vigilance note. **This needs a fixture-driven regression test as part of the plan**, not just code reading — render a row with `isPr: true` and `demotion` both set, and assert the two badges are visually/DOM-distinguishable.
+
+**`prCount` / `wasPRAtTheTime` interaction (verified, no change needed):** `compute-dashboard-index.ts:216` computes `prCount` as `efforts.filter(e => e.wasPRAtTheTime === true).length`. Since demoted efforts never enter `byDistance` (Pass 3), they never get `wasPRAtTheTime: true` — this falls out for free, exactly as it already does for `excludedFromRecords` today. No change needed to `compute-dashboard-index.ts`, `compute-age-grading.ts`, or `overview.ts`'s `prCount` consumers.
+
+**Records-screen empty-state copy (D-03, D-09):** Today's `buildPrTableEmptyState` (`records.ts:338-357`) has exactly one message: "No {label} efforts yet" / "The archive has no completed {label} effort." This must be extended to a THIRD state — efforts exist but ALL were ceiling-demoted (400m's expected outcome) — distinguishable from "genuinely zero attempts ever" (marathon today). The function will need either a new boolean/enum parameter (`hasOnlyDemotedEfforts` or similar) threaded from `records.ts`'s render loop, sourced from `activities[id].efforts.filter(e => e.distance === X)` counts vs `rankings[X].length === 0`.
+
+### The Before/After Diff (PR-04, D-12, D-13)
+
+**Why this cannot be a `git diff` against a historical file:** `data/stats/` is gitignored (`.gitignore:11`) and starts EMPTY on every CI runner — confirmed no committed historical `best-efforts.json` exists anywhere in git history to diff against. The only correct construction is: **compute OLD semantics and NEW semantics from the SAME live archive, in the SAME script run**, then diff the two resulting in-memory `BestEffortsDocument`s. This is the same technique `compute-pace-residual.mjs` already uses (computing `baselineFastMass` and `adaptiveFastMass` side-by-side per activity, not by comparing across time) — follow that precedent, not a git-history approach.
+
+**Recommended shape**, following the `26-RESIDUAL.md`/`27-CALIBRATION.md`/`compute-pace-residual.mjs` precedent exactly:
+
+```
+scripts/compute-pr-ceiling-diff.mjs
+  - imports the NEW computeBestEfforts (post-restructuring) and runs it against the
+    live archive → "after" document.
+  - either (a) re-implements the OLD isPlausible-only, delete-on-reject semantics locally
+    (small, since isPlausible/markPRs/rankTopN are already pure exports), or
+    (b) reads a pinned pre-change snapshot captured once during this phase's own
+    implementation and committed as a phase-scoped fixture (NOT the live gitignored file).
+    (a) is safer against future drift; (b) is simpler but risks going stale if best-effort-utils.ts
+    changes again before the diff is regenerated. RECOMMEND (a).
+  - diffs "before" vs "after" per D-12's definition: every top-10 rankings[distance] row that
+    moved (added/removed/reordered) AND every activities[*].efforts[*].wasPRAtTheTime that flipped,
+    in both directions.
+  - self-execution guard (matches curate-server.mjs / exclusion-cli.mjs / compute-pace-residual.mjs):
+    `if (import.meta.url === pathToFileURL(process.argv[1]).href) { main(); }` — so a companion
+    `.test.mjs` can import pure functions without triggering the real archive sweep.
+  - writes `.planning/phases/28-pr-plausibility-ceiling/28-DIFF.md` (or similar name following
+    the `28-RESIDUAL.md`/`28-CALIBRATION.md` naming convention this project's phases use).
+  - registered as an npm script: "compute-pr-ceiling-diff": "npm run build && node scripts/compute-pr-ceiling-diff.mjs"
+```
+
+**Idempotence test (D-13's explicit trap, learned from Phase 27's G-01):** run the generator twice in a row against unchanged input; diff the two markdown outputs EXCLUDING the `**Generated:**` timestamp line; assert zero remaining diff lines. Phase 27's G-01 closure precedent (`27-11-SUMMARY.md`) used exactly this check ("0 non-timestamp diff lines on a second run") to prove `27-CALIBRATION.md` regenerates to its own stated values — copy this pattern verbatim rather than re-inventing it.
+
+**Sign-off (D-14):** record the diff's content hash (`sha256sum` of the generated file, or its `generatedAt` stamp) in the phase's `VALIDATION.md`, NOT inside the generated markdown itself — matching `27-VALIDATION.md`'s existing convention of quoting generated-artifact figures into the validation record rather than writing into the artifact.
+
+**The separate, ongoing ceiling-state file (D-05/D-06/D-07 — distinct from the above one-time diff):** a small committed file (e.g. `data/best-effort-ceiling.json`, sibling to the already-committed, non-gitignored `data/best-effort-exclusions.json`) holding the derived per-distance ceiling values + demoted-effort-id set. `computeBestEfforts` diffs its freshly-derived ceiling against this committed file every run, logs any movement, and the file itself gets added to `.github/workflows/daily-refresh.yml`'s existing `file_pattern` (currently `'data/activities/*.json data/sync-state.json data/geo/*.json data/streams/*.json'`) on the EXISTING `git-auto-commit-action` step (`daily-refresh.yml:220-226`) — do not add a second custom commit step; the existing action already handles the commit/push, and adding a second hand-rolled `git push` step is exactly the pattern that produces the CI auto-commit push-race hazard this project's history warns about (unlike the manual `git add`/`commit`/`push` used for the dispatched-exclusion step, which is a DIFFERENT, deliberately manual path for a rare workflow_dispatch input).
+
+### Ground Truth: the 662-cohort and the pinned fixture (PR-05)
+
+**The pinned fixture — verified live, 2026-09-10:**
+
+```
+data/stats/best-efforts.json → activities["4556693525"].efforts[0] (400m):
+  durationSec: 45.2, paceSecPerKm: 112.9, wasPRAtTheTime: true, excludedFromRecords: false
+  implied speed: 400 / 45.2 = 8.85 m/s
+  WORLD_RECORD_SPEED_MPS['400m'] = 9.296 m/s → 8.85 < 9.296, guard does NOT fire today.
+```
+
+This confirms D-04's live-value pin exactly (45.2s / 8.85 m/s), matching CONTEXT.md's recorded measurement byte-for-byte.
+
+**The 662-activity cohort — already computed, zero new mechanism needed.** Phase 27 (complete, QUAL-01) already ships `pace-quality.ts`'s `impossibleSamples.count` field: a per-activity raw count of consecutive-sample-pairs whose implied speed exceeds `WORLD_RECORD_100M_SPEED_MPS` (10.44 m/s), computed via `countImpossibleSamples` and written into both `data/dashboard/index.json`'s per-row `quality.impossibleSamples` object and the per-activity shard `data/stats/pace-quality/{id}.json`. Phase 27's own research (`27-RESEARCH.md:369-371`) independently confirmed this is the SAME 662/1,865 (35.5%) figure PR-05 cites — "confirming this is the SAME mechanism Phase 28's PR-plausibility work targets, not a new one."
+
+**Dry-run count for Criterion 3** can therefore be produced by a small standalone script (or extending the D-13 diff script) that reads `data/dashboard/index.json` and counts:
+```javascript
+const cohort = indexDoc.activities.filter(row => row.quality.impossibleSamples.count >= 1);
+// cohort.length should be ~662 (drifts with archive growth — do not hardcode 662 as an assertion)
+```
+then cross-references how many of THAT cohort now have at least one demoted effort in the new `best-efforts.json`, reporting the guard's bite rate across the full cohort — not just the one pinned activity. This reuses Phase 27's shipped signal; it does not require any new per-sample stream sweep.
+
+**Caution — do not conflate two different "662" populations:** PR-05's cohort is "activities with >=1 impossible SAMPLE anywhere in their stream" (a stream-level, per-sample-pair check against the 100m floor). This is NOT the same population as "activities with a ceiling-DEMOTED EFFORT" (an effort-level check, against the per-distance ceiling, only at the 7 target distances). A sample can be impossible mid-run (e.g., a GPS glitch during a walk break) without ever landing inside one of the 7 swept target-distance windows. The dry-run report should state both numbers and their overlap, not treat them as interchangeable.
+
+## Don't Hand-Roll
+
+| Problem | Don't Build | Use Instead | Why |
+|---------|-------------|-------------|-----|
+| Percentile/quantile computation | A new sorting+percentile utility from scratch, reinventing edge cases (empty array, single element, non-integer index) | A small (~10 line) function co-located in `best-effort-utils.ts`, following the exact style of `rankTopN`'s sort-then-slice | Already the codebase's own convention; no percentile edge case here is exotic enough to justify a dependency, and none was approved (STACK.md). |
+| Markdown diff-artifact generation | A templating library | Plain string-array `.push()` + `.join('\n')`, exactly as `compute-pace-residual.mjs`'s `renderResidualMarkdown` and `compute-pace-quality-calibration.mjs` already do | Established, tested, zero-dependency pattern already proven twice in this repo. |
+| Archive-wide fixture construction for tests | A new test-data generator | `compute-best-efforts.test.ts`'s existing `writeActivity`/`writeStream`/`writeManifest`/temp-dir `FileStore` helpers (`compute-best-efforts.test.ts:203-260`) | Purpose-built for exactly this shape of test; reuse rather than duplicate. |
+| Cross-distance race-time projection | A new prediction formula | `riegel.ts`'s `riegelPredict`/`fitRiegelExponent` if the hybrid/cross-distance candidate is chosen for D-01 | Already shipped, tested, pure, explicitly available "at zero cost" per CONTEXT.md. |
+
+**Key insight:** every piece of machinery this phase needs already exists in this repository in a sibling form — a guard function (`isPlausible`), a ranking function (`rankTopN`/`markPRs`), a markdown-report generator (`compute-pace-residual.mjs`), and an independent-recount script (`compute-pace-quality-recount.mjs`). The work is composition and careful sequencing (the three-pass boundary), not new machinery.
+
+## Runtime State Inventory
+
+Not applicable — this is not a rename/refactor/migration phase. No renamed identifiers, no data migration of existing records' meaning (the new `demotion` field is purely additive per D-10), no OS-registered state, no secrets.
+
+## Common Pitfalls
+
+### Pitfall 1: Deriving the ceiling from the wrong population (the exact circularity PR-02 names)
+
+**What goes wrong:** Computing p90/percentile/any statistic over the raw per-target sweep output (before `isPlausible` runs) lets the same 53-88 km/h artifacts that need rejecting also set the threshold that rejects them.
+**Why it happens:** The natural place to compute a "population statistic" feels like "all efforts found," not "all efforts found AND already passed the absolute guard."
+**How to avoid:** Anchor Pass 2 explicitly on `byDistance` as built in the current codebase (`compute-best-efforts.ts:221-227`), which is already `isPlausible`-and-`isExcluded`-filtered. Write the fixture test (Criterion 2's own language) FIRST, showing the two populations diverge and the shipped code uses the filtered one.
+
+### Pitfall 2: A percentile-of-the-tail is a second, unnamed circularity
+
+**What goes wrong:** A plain high percentile (p99, p99.5) of even the FILTERED population is still set by a handful of the fastest surviving efforts — at n≈1,800, p99.5 is literally "the 9th-fastest effort." Since the ceiling determines what counts as "fastest," and the tail sets the ceiling, contamination inside the top ~0.5% can still poison its own threshold even after the absolute guard has run.
+**Why it happens:** "Percentile of the already-filtered data" sounds sufficient to satisfy PR-02's literal text, but PR-02's literal text doesn't name this second failure mode — it was found only by measuring (CONTEXT.md D-01).
+**How to avoid:** Use a statistic set by the BULK (p90 or lower, or a robust measure like median/MAD) — verified externally: robust-statistics literature calls this the estimator's *breakdown point* — the fraction of contamination an estimator can absorb before it moves. A percentile like p90 has roughly a 10%-of-population breakdown margin above it (points beyond the 90th percentile boundary cannot move where that boundary falls); p99.5 has only a 0.5% margin, which this archive's own contamination rate (up to ~1.9% deleted efforts, likely higher raw contamination pre-filter) can exceed. Tukey's classic IQR fence (`Q3 + k×IQR`) is the textbook analog: it is set entirely by the middle 50% of data, structurally immune to the exact tail points being judged. [MEDIUM confidence — general robust-statistics literature, not project-specific; see Sources.]
+
+### Pitfall 3: Treating `data/stats/best-efforts.json` as a historical baseline for the diff
+
+**What goes wrong:** Attempting to `git diff` or otherwise compare today's on-disk `best-efforts.json` (gitignored, currently dated 2026-09-04 on this checkout) against a post-change regeneration. The file is regenerated nightly and NOT tracked in git — comparing across two different `generatedAt` runs conflates archive growth (new activities synced since) with the logic change being measured.
+**Why it happens:** "Before/after" naturally suggests "old file vs new file," and an old file happens to be sitting on disk.
+**How to avoid:** Compute both OLD and NEW semantics from the identical, single live archive snapshot within one script execution (see "The Before/After Diff" above). This is a controlled comparison, not a time-series diff.
+
+### Pitfall 4: Reproducing the `buildPrFlagsCell` "PRExcluded — {reason}" defect with a third badge
+
+**What goes wrong:** `buildPrFlagsCell` (`detail-sections.ts:639-653`) already renders up to three conditions (`isPr`, `lowConfidence`, `excluded`) into one `<td>`. Phase 24's Round 2 R15 recorded a case where two of these concatenated into a single hard-to-parse string. Adding a fourth (`demoted`) without an explicit regression test risks reproducing the same defect in a new pairing (e.g., `PR` + `Demoted — {reason}` rendering ambiguously, or a demoted+excluded double-badge).
+**Why it happens:** Each `appendBadge` call is independently correct; the defect is about READER comprehension of multiple adjacent badges, which unit tests checking DOM structure alone will not catch.
+**How to avoid:** Write a fixture-driven test asserting the exact rendered badge texts/count for a row with BOTH `isPr: true` and `demotion` set (this combination cannot naturally occur post-fix, since a demoted effort is excluded from `wasPRAtTheTime`/ranking by construction — but a row with `demotion` set alongside `lowConfidence` or `excludedFromRecords` legitimately can). Confirm the browser checkpoint (per ROADMAP's own Phase 23 CR-01 citation) actually reads the rendered text, not just DOM node count.
+
+### Pitfall 5: The minimum-population threshold as an unjustified magic number (Phase 27 D-02's anti-quota rule, inherited)
+
+**What goes wrong:** Picking a population-floor number (e.g., "30" or "50") because it "feels standard," without a mechanism argument — this is the exact "threshold tuned to a target count is a quota, not a claim" failure Phase 27's D-02 named and this phase's CONTEXT.md explicitly imports.
+**Why it happens:** Statistics teaching often cites n≥30 as a rule of thumb for CLT-style approximations, which doesn't actually justify a *quantile*-stability floor.
+**How to avoid:** Derive from mechanism: a p90 needs enough points ABOVE the 90th-percentile boundary for that boundary to be a genuine bulk descriptor rather than an interpolation between the top 2-3 points (which reintroduces Pitfall 2's tail-circularity at small n). With n points, p90 sits between the ⌊0.9n⌋-th and ⌈0.9n⌋-th order statistics; at n=105 (half's live population) that is order statistics ~94-95, i.e., ~10-11 points above — a genuine bulk measurement, not a tail interpolation. At n=6 (2013's yearly count, cited in D-05's per-year stability measurement) it is order statistic ~5, i.e., only 1 point above — clearly too thin. State the chosen floor's mechanism this way, then report actual per-distance coverage (which distances get a ceiling vs fall back to the absolute guard) as a measured finding, not a target.
+
+## Code Examples
+
+### Existing pattern: pure, file-I/O-free guard function (the shape the ceiling function should match)
+
+```typescript
+// Source: src/analytics/best-effort-utils.ts:162-186 (isPlausible), read directly from repo
+export function isPlausible(
+  impliedSpeedMps: number,
+  activityMaxSpeedMps: number | undefined,
+  worldRecordSpeedMps: number
+): PlausibilityResult {
+  if (
+    activityMaxSpeedMps &&
+    Number.isFinite(activityMaxSpeedMps) &&
+    impliedSpeedMps > activityMaxSpeedMps * MAX_SPEED_MARGIN
+  ) {
+    return {
+      ok: false,
+      reason: `implied ${impliedSpeedMps.toFixed(2)} m/s exceeds activity max_speed ${activityMaxSpeedMps.toFixed(2)} m/s`,
+    };
+  }
+  if (impliedSpeedMps > worldRecordSpeedMps) {
+    return {
+      ok: false,
+      reason: `implied ${impliedSpeedMps.toFixed(2)} m/s exceeds world-record pace ${worldRecordSpeedMps.toFixed(2)} m/s`,
+    };
+  }
+  return { ok: true };
+}
+```
+The demotion-reason wording register to match (a named condition + measured value, never an adjective — the house style CONTEXT.md's specifics section names explicitly): `implied {X} m/s exceeds personal ceiling {Y} m/s (K={K} × p90 {p90})` or similar — never "implausibly fast" or "suspicious."
+
+### Existing pattern: chronological re-entrant marking (why D-12's retroactive promotions happen)
+
+```typescript
+// Source: src/analytics/best-effort-utils.ts:193-206 (markPRs), read directly from repo
+export function markPRs<T extends { startDate: string; durationSec: number }>(
+  effortsForDistance: T[]
+): (T & { wasPRAtTheTime: boolean })[] {
+  const chronological = [...effortsForDistance].sort(
+    (a, b) => Date.parse(a.startDate) - Date.parse(b.startDate)
+  );
+  let bestSoFar = Infinity;
+  return chronological.map((effort) => {
+    const wasPRAtTheTime = effort.durationSec < bestSoFar;
+    if (wasPRAtTheTime) bestSoFar = effort.durationSec;
+    return { ...effort, wasPRAtTheTime };
+  });
+}
+```
+Removing one entry from `effortsForDistance` (a ceiling demotion) re-runs this ENTIRE chain for every later entry — this is the mechanism behind every retroactive promotion D-12's diff must capture. No change to `markPRs` itself is needed; the planner only needs to ensure demoted efforts are excluded from its INPUT (not filtered after).
+
+### Existing pattern: idempotence-proof via second-run diff (D-13's required test shape)
+
+```
+# From 27-VALIDATION.md's G-01 closure record (27-11-SUMMARY.md), the exact verification shape:
+# "regeneration was verified idempotent (0 non-timestamp diff lines on a second run)"
+#
+# Equivalent script-level check for the new PR-04 diff artifact:
+npm run compute-pr-ceiling-diff   # first run
+cp .planning/phases/28-pr-plausibility-ceiling/28-DIFF.md /tmp/run1.md
+npm run compute-pr-ceiling-diff   # second run, unchanged input
+diff <(grep -v '^\*\*Generated:\*\*' /tmp/run1.md) \
+     <(grep -v '^\*\*Generated:\*\*' .planning/phases/28-pr-plausibility-ceiling/28-DIFF.md)
+# assert: empty diff output
+```
+
+## State of the Art
+
+| Old Approach (this repo, today) | New Approach (this phase) | When Changed | Impact |
+|--------------|------------------|--------------|--------|
+| Absolute guard only (world-record + max_speed), implausible efforts DELETED via `continue` | Absolute guard + personal ceiling, ALL rejections DEMOTED and visible | This phase | 34 currently-invisible deleted efforts become visible with reasons; 400m table likely empties entirely (D-03 accepted outcome). |
+| No personal-history-derived threshold exists anywhere in this codebase | K×p90-style (or equivalent bulk-anchored) per-distance ceiling, all-time, no time window | This phase | New statistical surface; must be re-derived every CI run per D-06, not a one-time calibration. |
+
+**Deprecated/outdated:** The top-level `rejected: RejectedEffort[]` array in `BestEffortsDocument` currently serves no consumer (verified by grep — nothing in `src/dashboard/` reads `doc.rejected`) and its role is superseded by the new per-effort `demotion` field once D-08 ships. **Open design question for the planner** (not resolved by CONTEXT.md): whether to retain `rejected[]` as a summary/audit log (e.g., useful input to the diff script) or retire it now that every rejection is individually visible on its own effort. Recommend retaining it as a lightweight archive-wide summary (activityId/distance/reason), since it costs nothing and the diff script can use it as a cross-check, but this is a genuinely open call, not a locked decision.
+
+## Assumptions Log
+
+| # | Claim | Section | Risk if Wrong |
+|---|-------|---------|---------------|
+| A1 | K×p90 (or a closely related bulk-anchored statistic) is the right SHAPE for the ceiling; the exact multiplier K is NOT determined by this research | Architecture Patterns / Summary | If planning picks a K that empties/keeps tables differently than CONTEXT.md's illustrative K=1.35/1.50 measurements, the diff blast-radius numbers in D-12 (20 demoted, 10 flag flips) will not reproduce exactly — they were measured under an "illustrative" K, not a locked one. The planner must re-measure once K is chosen, not assume CONTEXT.md's numbers carry over unchanged. |
+| A2 | Tukey's IQR-fence / robust-statistics breakdown-point framing (Pitfall 2) is a valid EXTERNAL justification for why a bulk-anchored statistic resists contamination — general statistical literature, not verified against THIS archive's specific distribution shape | Common Pitfalls #2 | Low risk — used only as supporting rationale for a decision CONTEXT.md already locked in principle (D-01's structural property); does not change any concrete number in this document. |
+| A3 | The `buildPrFlagsCell` R15 defect ("PRExcluded — {reason}") may or may not still be reproducible in the CURRENT code — this research read the current file and found each badge is already a separate DOM node (`appendBadge` calls are sequential, not concatenated), which suggests the DOM-structure half of the defect may already be fixed, leaving only a vigilance note | Architecture Patterns — Demote, Never Delete | If the planner assumes the hazard is still live without checking, they may over-engineer a fix for an already-resolved issue, OR under-test a genuinely still-fragile rendering path. Recommend the planner write the regression test regardless, since CONTEXT.md's D-09 explicitly names this as a hazard "the planner must fix rather than extend." |
+| A4 | Retaining the top-level `rejected[]` array (State of the Art section) as a useful audit input to the diff script, rather than retiring it | State of the Art | Low risk — purely a code-organization choice with no requirement dependency; either choice satisfies PR-03/PR-04. |
+
+**If this table is empty:** N/A — see entries above.
+
+## Open Questions
+
+1. **What exact value of K (or equivalent constant) should the ceiling statistic use?**
+   - What we know: CONTEXT.md measured K=1.35 (demotes 0/10 at 5k/10k/half, 1/10 at 1mi, 4/10 at 1k, 10/10 at 400m) and K=1.50 (still 10/10 at 400m) as ILLUSTRATIVE points, not locked choices. D-01 delegates the final constant to planning.
+   - What's unclear: Whether K should be a single archive-wide constant or vary by distance (the measured max/p90 ratios vary 1.18-2.21 across distances, suggesting a single K may be too loose for clean distances or too tight for contaminated ones — though D-03 already accepts 400m emptying regardless).
+   - Recommendation: The planner should treat K-selection as a measurement task within plan execution (dry-run against the live archive, report the resulting per-distance coverage), not a value baked into this research — this document intentionally does not lock K, per Phase 27 D-02's anti-quota discipline (picking K to hit a target demotion count would itself be a quota).
+
+2. **Exact minimum-population floor for D-02.**
+   - What we know: marathon=0, half=105, all others ~1,464-1,849 (see CONTEXT.md's measured table). The floor must sit strictly between 0 and 105 to keep half eligible while excluding marathon, per D-02's own worked rejection of "fail closed."
+   - What's unclear: The precise mechanism-derived number (Pitfall 5 sketches an order-statistic argument but does not commit to a final value).
+   - Recommendation: Plan should state the mechanism (order-statistic stability, à la Pitfall 5) and report the resulting per-distance coverage table as a measured finding, following the exact discipline Phase 27's QUAL-05/D-02 established for threshold selection.
+
+3. **Does the hybrid Riegel cross-distance gate get built, or does the ceiling ship as ratio-to-bulk alone?**
+   - What we know: CONTEXT.md offers three candidate shapes (ratio-to-bulk, cross-distance projection, hybrid-as-further-demoting-gate) as evidence, not a shortlist requiring all three.
+   - What's unclear: Whether the added complexity of a second gate is justified given ratio-to-bulk alone was measured to "preserve every genuine 5k/10k/half record while cutting hard at 400m/1k" — i.e., it may already be sufficient without the hybrid.
+   - Recommendation: Ship ratio-to-bulk alone first (simplest structure matching D-01's non-circularity property cleanly, easiest to make deterministic per PR-01); treat the Riegel hybrid as a stretch addition only if ratio-to-bulk's measured behaviour (once K is chosen) proves insufficient at some distance.
+
+## Environment Availability
+
+Skipped — this phase has no external dependencies beyond the existing Node/TypeScript/vitest toolchain already installed and pinned in `package.json`. No new service, API, or CLI tool is introduced.
+
+## Validation Architecture
+
+### Test Framework
+
+| Property | Value |
+|----------|-------|
+| Framework | vitest `^4.0.18` |
+| Config file | none detected as a separate `vitest.config.*` — vitest runs against the default TS/ESM setup already used by every `*.test.ts` in `src/` |
+| Quick run command | `npx vitest run src/analytics/compute-best-efforts.test.ts src/analytics/best-effort-utils.test.ts` |
+| Full suite command | `npm test` (`vitest run`, currently exercising 60+ test files / 1500+ tests per prior phases' verification records) |
+
+### Phase Requirements → Test Map
+
+| Req ID | Behavior | Test Type | Automated Command | File Exists? |
+|--------|----------|-----------|-------------------|-------------|
+| PR-01 | Running `compute-best-efforts.ts` twice against unchanged input produces byte-identical ceiling values/flags | unit (archive-orchestration, temp-dir) | `npx vitest run src/analytics/compute-best-efforts.test.ts -t "deterministic"` | ❌ Wave 0 — new describe block needed in existing file |
+| PR-01 | Demonstrated FAILING if Pass 2 iterates to convergence instead of running once | unit (mutation-style regression) | `npx vitest run src/analytics/compute-best-efforts.test.ts -t "no iteration to convergence"` | ❌ Wave 0 |
+| PR-02 | Ceiling reads only Pass 1's filtered array, never raw archive | unit (fixture where filtered/unfiltered diverge) | `npx vitest run src/analytics/compute-best-efforts.test.ts -t "non-circular"` | ❌ Wave 0 |
+| PR-03 | Pinned 4556693525/400m (45.2s, 8.85 m/s) rejected as a permanent regression fixture | unit (archive-orchestration, real-data-shaped fixture) | `npx vitest run src/analytics/compute-best-efforts.test.ts -t "4556693525"` | ❌ Wave 0 |
+| PR-03 | No path removes a flagged effort from `activities[id].efforts` (code audit + test) | unit + manual code-audit | `npx vitest run src/analytics/compute-best-efforts.test.ts -t "demoted efforts remain in efforts array"` | ❌ Wave 0 |
+| PR-03 | Demoted effort visible in detail view with reason (browser) | manual (browser checkpoint) | N/A — see Browser Checkpoint below | N/A |
+| PR-04 | Diff artifact regenerates byte-identical (excluding timestamp) on a second run | integration (script-level, `.mjs`) | `node scripts/compute-pr-ceiling-diff.mjs && node scripts/compute-pr-ceiling-diff.mjs && diff --ignore-matching-lines='Generated:' run1.md run2.md` | ❌ Wave 0 — new script |
+| PR-04 | Diff reconciles with the independently-derived Criterion 3 count | integration (script-level, classifier-independent) | new recount script, mirroring `scripts/compute-pace-quality-recount.mjs`'s zero-import discipline | ❌ Wave 0 |
+| PR-05 | 662-activity impossible-sample cohort dry-run count reported | integration/script | reads `data/dashboard/index.json`, no new stream sweep | ❌ Wave 0 — small addition to diff script or standalone |
+
+### Sampling Rate
+- **Per task commit:** `npx vitest run src/analytics/compute-best-efforts.test.ts src/analytics/best-effort-utils.test.ts src/dashboard/views/detail-best-efforts-logic.test.ts src/dashboard/views/records-logic.test.ts` (targeted, fast)
+- **Per wave merge:** `npm test` (full suite) + `npx tsc --noEmit`
+- **Phase gate:** Full suite green, `npm run build`, `npm run build-widgets`, `npm run verify-dashboard` all exit 0, before `/gsd-verify-work` — matches the exact gate sequence recorded in every prior phase's `*-VALIDATION.md`.
+
+### Wave 0 Gaps
+- [ ] New `describe` blocks in `src/analytics/compute-best-efforts.test.ts` for: determinism (two-run byte-identity), non-circularity (filtered-vs-unfiltered divergence fixture), the pinned 4556693525 regression case, and "no path deletes a flagged effort."
+- [ ] New pure ceiling-derivation function + its own `*.test.ts` (location per the module-layout discretion item — likely `src/analytics/best-effort-ceiling.ts` or added to `best-effort-utils.ts`).
+- [ ] `scripts/compute-pr-ceiling-diff.mjs` + `scripts/compute-pr-ceiling-diff.test.mjs` (mirroring `compute-pace-residual.mjs`'s guard-test shape).
+- [ ] A classifier-independent recount script for Criterion 5, mirroring `scripts/compute-pace-quality-recount.mjs`'s zero-classifier-import discipline exactly (D-15).
+- [ ] `detail-sections.test.ts` (or wherever `buildPrFlagsCell` is currently tested, if at all — verify) regression case for a demoted+PR or demoted+excluded row rendering distinguishably.
+- [ ] `records-logic.test.ts` / `records.test.ts` case for the new "demoted, not never-attempted" empty-state branch.
+
+## Security Domain
+
+`security_enforcement` is not explicitly set in `.planning/config.json` — treated as enabled per the default rule, but this phase's actual surface area is minimal: a batch compute step (no new network input), a data-model addition (no new user input), and two local dev scripts (no new write path — D-11 explicitly forbids a write surface this phase). No authentication, session, or access-control concept applies to this static, locally-generated dashboard.
+
+### Applicable ASVS Categories
+
+| ASVS Category | Applies | Standard Control |
+|---------------|---------|-----------------|
+| V2 Authentication | No | No auth surface exists or is touched. |
+| V3 Session Management | No | N/A — static site, no sessions. |
+| V4 Access Control | No | N/A — no new write path (D-11). |
+| V5 Input Validation | Yes (narrow) | The new committed ceiling-state file (D-07) is read back by `computeBestEfforts` every run — parse it the same defensive way `loadExclusions` already does (`best-effort-exclusions.ts:87-102`: never throws, degrades to a safe default with a `console.warn` on any malformed/missing file), so a hand-edited or corrupted ceiling file cannot abort the nightly archive-wide run. |
+| V6 Cryptography | No | The D-14 "content hash" for sign-off binding is an integrity check (e.g. `sha256sum`), not a security cryptographic control — Node's built-in `crypto.createHash('sha256')` is sufficient, no new dependency. |
+
+### Known Threat Patterns for this stack
+
+| Pattern | STRIDE | Standard Mitigation |
+|---------|--------|---------------------|
+| A malformed/hand-edited `data/best-effort-ceiling.json` aborting the nightly CI run | Denial of Service (of the pipeline, not a network service) | Total, never-throwing parse with a safe fallback, exactly mirroring `loadExclusions`'s existing T-16-EX-01 discipline — degrade to "no prior ceiling state" (treat every run as if it's the first) rather than crash. |
+| A future write path (Phase 29) accidentally reachable in the published bundle | Elevation of Privilege / Information Disclosure | NOT this phase's concern per D-11 (zero new write surface ships here) — but the EXISTING publish-guard convention (`scripts/verify-dashboard-publish.mjs` + the build-time content scan Phase 24/29 CONTEXT.md references) is the established mitigation the planner should be aware exists for when Phase 29 lands the override path. |
+
+## Sources
+
+### Primary (HIGH confidence — read directly from this repository, 2026-09-10)
+- `src/analytics/compute-best-efforts.ts` — current single-pass structure, the exact `continue`-deletes-today code path, `byDistance` accumulator, `markPRs`/`rankTopN` call sites.
+- `src/analytics/best-effort-utils.ts` — `isPlausible`, `markPRs`, `rankTopN`, `findBestEffort`, `WORLD_RECORD_SPEED_MPS`, `WORLD_RECORD_100M_SPEED_MPS`, `MAX_SPEED_MARGIN`.
+- `src/analytics/best-effort.types.ts` — `BestEffort`, `ActivityBestEfforts`, `RejectedEffort`, `TARGET_ORDER`/`TARGET_METERS`, `BEST_EFFORTS_SCHEMA_VERSION`.
+- `src/analytics/best-effort-exclusions.ts` — `isExcluded`/`loadExclusions`, the never-throws defensive-parse convention reused for D-07's new ceiling-state file.
+- `src/analytics/riegel.ts` — `riegelPredict`, `fitRiegelExponent`, `selectFitPoints`, calibration-range caveat.
+- `src/dashboard/views/detail-best-efforts-logic.ts` — `resolveExcluded`, `buildPrBadgeLabels`, `buildBestEffortsPanelRows`.
+- `src/dashboard/views/detail-sections.ts:339-353,630-745` — `buildPrFlagsCell`, `buildBestEffortsSection`, the R15 rendering hazard.
+- `src/dashboard/views/records-logic.ts`, `src/dashboard/views/records.ts:338-357,556-588,659-666,912-918` — `buildPrTableEmptyState`, `buildPrTableSection`, `buildEvolutionSeries` (wasPRAtTheTime-driven), `isEmptyRanking`.
+- `src/analytics/compute-dashboard-index.ts:200-225` — `prCount` derivation, confirmed unaffected by the demotion change.
+- `src/analytics/pace-quality.ts:100-160,780-820` — `ImpossibleSampleSignal`, `impossibleSampleSignal`, `WORLD_RECORD_100M_SPEED_MPS` reuse, confirming the 662-cohort mechanism.
+- `src/compute-all-stats-steps.ts` — `COMPUTE_ALL_STATS_STEPS` chain declaration, step 4 = `compute-best-efforts`.
+- `.github/workflows/daily-refresh.yml` — the existing `git-auto-commit-action` step and its `file_pattern`, the skip-CI-token hazard, the manual-vs-automatic commit-path distinction.
+- `.gitignore` — confirms `data/stats/` and `data/dashboard/` are gitignored; `data/best-effort-exclusions.json` is not.
+- `scripts/compute-pace-residual.mjs`, `scripts/compute-pace-quality-calibration.mjs`, `scripts/compute-pace-quality-recount.mjs` — the three established precedents this phase's new scripts should follow (self-execution guard, pure-function exports, zero-classifier-import discipline).
+- `src/analytics/compute-best-efforts.test.ts:203-260` — the existing temp-dir archive-orchestration fixture harness to reuse.
+- `data/stats/best-efforts.json` (live, on-disk, 2026-09-04 generation) — read directly to confirm activity `4556693525`'s current 400m value (45.2s, 8.85 m/s, `wasPRAtTheTime: true`) and `doc.totals`/`doc.rejected.length` (34), matching CONTEXT.md's cited measurements exactly.
+- `.planning/phases/26-.../26-RESIDUAL.md`, `.planning/phases/27-.../27-CALIBRATION.md`, `.planning/phases/27-.../27-VALIDATION.md` (G-01 closure record) — the regenerable-markdown-artifact precedent and its idempotence-proof shape.
+- `.planning/REQUIREMENTS.md`, `.planning/ROADMAP.md` (Phase 28 section), `.planning/STATE.md`, `28-CONTEXT.md`, `28-DISCUSSION-LOG.md`.
+
+### Secondary (MEDIUM confidence)
+- General robust-statistics literature on breakdown points and Tukey's IQR fences (see below) — used only as external corroboration for a structural property CONTEXT.md's D-01 already locked from internal measurement, not as a source of any new numeric constant.
+
+### Tertiary (LOW confidence)
+- None used as load-bearing claims in this document.
+
+## Metadata
+
+**Confidence breakdown:**
+- Standard stack: HIGH — no new dependency, every referenced module read directly from the repo.
+- Architecture: HIGH — three-pass restructuring, non-circularity seam, demotion data model, and diff-artifact design all traced directly through live source files, not inferred.
+- Pitfalls: HIGH for the four codebase-specific pitfalls (all reproduced from direct code reading); MEDIUM for the general robust-statistics framing in Pitfall 2 (external, supporting rationale only).
+- Ceiling statistic exact form (K value, minimum-population floor): MEDIUM — the SHAPE is well-grounded (measured, bounded by D-01's structural property), but the final numeric constants are explicitly left to planning/execution-time measurement per CONTEXT.md's own discretion grant, not something this research can responsibly lock.
+
+**Research date:** 2026-09-10
+**Valid until:** ~2026-09-24 (14 days) — the live archive grows nightly via CI sync (confirmed drifting within single milestones in prior phases' own research), so any cited population counts (105 half-marathon efforts, 662-activity cohort, 34 currently-deleted efforts) should be re-verified against the live archive at plan-execution time rather than treated as frozen.
