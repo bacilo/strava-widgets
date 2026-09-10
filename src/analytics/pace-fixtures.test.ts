@@ -103,15 +103,37 @@ describe('PINNED_FIXTURES — stratification guards', () => {
     expect(families.size).toBeGreaterThanOrEqual(4);
   });
 
-  it('"no-device-name"\'s deviceFamily is its own explicit category string, never fabricated and never a fallthrough', () => {
+  it('"no-device-name"\'s deviceFamily is its own explicit category string, never fabricated', () => {
     const fixture = PINNED_FIXTURES.find((f) => f.name === 'no-device-name');
     expect(fixture).toBeDefined();
     expect(fixture!.deviceFamily).toBe('no-device-name');
     // Not a fabricated real-looking device name.
     expect(fixture!.deviceFamily.toLowerCase()).not.toMatch(/garmin|suunto|fenix|forerunner|coros|polar/);
-    // Not shared with any other fixture's deviceFamily (i.e. not a generic default).
-    const others = PINNED_FIXTURES.filter((f) => f.name !== 'no-device-name');
-    expect(others.some((f) => f.deviceFamily === fixture!.deviceFamily)).toBe(false);
+  });
+
+  // `real-pause` also declares `deviceFamily: 'no-device-name'` (it has no
+  // device_name and no source_provider), sharing a family with the
+  // `no-device-name` fixture by design — see pace-quality.ts's
+  // `resolveDeviceFamily` and this file's `real-pause` entry comment. This
+  // is a fact the resolver reproduces, not a collision, so it is no longer
+  // asserted as "never shared".
+
+  it('every PINNED_FIXTURES entry\'s deviceFamily is a member of the DeviceFamilyKind union the resolver can produce', () => {
+    const validFamilies = new Set([
+      'garmin-fenix-6-pro',
+      'suunto-9',
+      'garmin-vivoactive-4',
+      'strava-app-gpx',
+      'intervals-icu',
+      'no-device-name',
+      'unrecognized-device',
+    ]);
+    for (const fixture of PINNED_FIXTURES) {
+      expect(
+        validFamilies.has(fixture.deviceFamily),
+        `fixture "${fixture.name}" has deviceFamily "${fixture.deviceFamily}", which the resolver can never produce`
+      ).toBe(true);
+    }
   });
 });
 

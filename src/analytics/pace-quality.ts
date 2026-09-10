@@ -48,7 +48,7 @@ export type QualityTier = 'none' | 'minor' | 'severe' | 'not-computable';
  * former is a non-blank `device_name` absent from the lookup table (keeps
  * the raw string); the latter is the genuine no-device-name cohort
  * (ERA-02). There is exactly one taxonomy name for the unrecognized-device
- * concept across `src/` — the stale `'unknown-device'` annotation
+ * concept across `src/` — the stale pre-taxonomy "unknown device" annotation
  * previously pinned in `pace-fixtures.ts` was a mislabelled slot for
  * `'no-device-name'`, not a second concept (see `resolveDeviceFamily`'s
  * step-3 comment and Task 2 of this plan).
@@ -181,3 +181,77 @@ export const NOT_COMPUTABLE_NO_STREAM = 'no stream committed for this activity';
 
 /** A stream file exists but failed `validateStreamSeries` (malformed/unusable). */
 export const NOT_COMPUTABLE_UNUSABLE_STREAM = 'stream failed validateStreamSeries';
+
+// ---------------------------------------------------------------------------
+// Device family resolution (ERA-01, ERA-02, D-12)
+// ---------------------------------------------------------------------------
+
+/**
+ * Exact `device_name` strings this archive carries, mapped to their family.
+ * Keys carry the archive's exact Unicode (`fēnix` with U+0113, `vívoactive`
+ * with U+00ED) and are matched against the TRIMMED raw string exactly —
+ * never case-folded, never normalized — so a genuinely different string is
+ * surfaced as `'unrecognized-device'` rather than silently absorbed into a
+ * near-miss known family.
+ */
+export const KNOWN_DEVICE_FAMILIES: Readonly<Record<string, DeviceFamilyKind>> = {
+  'Garmin fēnix 6 Pro': 'garmin-fenix-6-pro',
+  'Suunto 9': 'suunto-9',
+  'Garmin vívoactive 4': 'garmin-vivoactive-4',
+  'Strava App': 'strava-app-gpx',
+};
+
+/**
+ * Resolves an activity's device family from its `device_name` and
+ * `source_provider` metadata (ERA-01, ERA-02, D-12). Total: any shape of
+ * input returns a valid `DeviceEraSignal`, never throws.
+ *
+ * Three-outcome ladder (D-12), evaluated in order:
+ *   1. `deviceName` is a string whose `.trim()` is non-empty — look it up
+ *      in `KNOWN_DEVICE_FAMILIES`. A hit returns that family with
+ *      `rawDeviceName: null`. A miss returns `'unrecognized-device'` with
+ *      the trimmed raw string preserved verbatim — a growing count of
+ *      `'unrecognized-device'` rows is itself a visible signal that the
+ *      lookup table needs a new entry, not a defect to hide.
+ *   2. else `sourceProvider === 'intervals'` — `'intervals-icu'`. THIS STEP
+ *      IS LOAD-BEARING and is the whole reason this function takes two
+ *      fields: `device_name` alone cannot separate the intervals.icu-
+ *      migrated activities from the genuine no-device-name cohort, because
+ *      BOTH have a blank `device_name`. The distinction is visible only in
+ *      `source_provider`.
+ *   3. else — `'no-device-name'`. `sourceProvider === 'strava-export'`
+ *      DELIBERATELY falls through to this branch rather than getting a
+ *      fourth family: those are genuinely Strava-recorded, device-less
+ *      activities recovered through a different channel, and ERA-02 never
+ *      names them as a separate population. Do not "fix" this by adding a
+ *      `strava-export` family — it was considered and rejected.
+ *
+ * The old, hyphenated "unknown device" string is NOT a member of
+ * `DeviceFamilyKind` and must never be reintroduced: it was a stale,
+ * pre-taxonomy annotation for exactly this `'no-device-name'` slot (see
+ * `pace-fixtures.ts`'s `real-pause` entry).
+ */
+export function resolveDeviceFamily(
+  metadata: Pick<ActivityQualityMetadata, 'deviceName' | 'sourceProvider'>
+): DeviceEraSignal {
+  const { deviceName, sourceProvider } = metadata;
+
+  if (typeof deviceName === 'string') {
+    const trimmed = deviceName.trim();
+    if (trimmed.length > 0) {
+      const known = KNOWN_DEVICE_FAMILIES[trimmed];
+      if (known !== undefined) {
+        return { family: known, rawDeviceName: null };
+      }
+      return { family: 'unrecognized-device', rawDeviceName: trimmed };
+    }
+  }
+
+  if (sourceProvider === 'intervals') {
+    return { family: 'intervals-icu', rawDeviceName: null };
+  }
+
+  // sourceProvider === 'strava-export' deliberately falls through to here —
+  // see step 3 of this function's JSDoc.
+  return { family: 'no-device-name', rawDeviceName: null };
+}
