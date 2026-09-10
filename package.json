@@ -20,6 +20,7 @@
     "compute-all-stats": "node dist/index.js compute-all-stats",
     "compute-route-data": "node scripts/compute-route-data.mjs",
     "compute-pace-residual": "npm run build && node scripts/compute-pace-residual.mjs",
+    "compute-pace-quality-calibration": "npm run build && node scripts/compute-pace-quality-calibration.mjs",
     "compute-heatmap-data": "node scripts/compute-heatmap-data.mjs",
     "build-widget": "vite build",
     "build-widgets": "node scripts/build-widgets.mjs",
