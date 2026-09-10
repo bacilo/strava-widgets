@@ -42,6 +42,28 @@ export const WORLD_RECORD_SPEED_MPS: Record<TargetDistanceKey, number> = {
 };
 
 /**
+ * 100 m world-record speed ceiling: Usain Bolt, 9.58s (2009) — 100 / 9.58 =
+ * 10.44 m/s (rounded to 2 d.p., matching this file's other entries' style).
+ *
+ * `WORLD_RECORD_SPEED_MPS`'s shortest entry is `'400m'` at 9.296 m/s, NOT a
+ * 100 m value — that map is indexed by best-effort TARGET distance
+ * (`TargetDistanceKey`), and this repository has no 100m best-effort target,
+ * so adding a `'100m'` key would change what `compute-best-efforts` iterates
+ * over. This constant is exported here, standalone, for a different
+ * consumer: `pace-quality.ts`'s per-SAMPLE impossible-speed detector, which
+ * needs a physical speed floor, not a best-effort target.
+ *
+ * Exported (not inlined) because 10.44 already circulates in this repository
+ * as an undocumented literal — in `pace-fixtures.ts`'s comments describing
+ * `syntheticImpossibleSpeedStream`, and in `REQUIREMENTS.md` PR-05's cited
+ * 662-activity cohort ("faster than the 100m world record"). A third,
+ * private copy declared inside `pace-quality.ts` would be a second
+ * undocumented literal masquerading as a third; this is the one place it is
+ * declared and named.
+ */
+export const WORLD_RECORD_100M_SPEED_MPS = 10.44;
+
+/**
  * Validates a `(t, d)` series before it reaches the sweep. Runs, in order:
  * equal-length check, minimum-sample-count check, finiteness check, and
  * non-decreasing checks on both arrays. Equal consecutive values are valid

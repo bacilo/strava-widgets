@@ -16,10 +16,13 @@ import {
   DECIMATION_SEVERE_MIN_SAMPLES,
   DECIMATION_SEVERE_ZERO_ADVANCE_FRACTION,
   GAP_PROFILE_SEVERE_FRACTION,
+  IMPOSSIBLE_SAMPLE_SEVERE_COUNT,
   NOT_COMPUTABLE_NO_STREAM,
+  countImpossibleSamples,
   decimationSignal,
   elapsedVsMovingSignal,
   gapProfileSignal,
+  impossibleSampleSignal,
   notComputableSignals,
   resolveDeviceFamily,
   type ActivityQualityMetadata,
@@ -31,6 +34,7 @@ import {
   loadPinnedStream,
   makeStream,
   syntheticDecimationAliasedStream,
+  syntheticImpossibleSpeedStream,
   syntheticMultiHourPauseStream,
   syntheticRecordingGapStream,
 } from './pace-fixtures.js';
@@ -347,5 +351,104 @@ describe('gap profile signal', () => {
       expect(result.pauseSec).toBeNull();
       expect(result.spanSec).toBeNull();
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// impossible samples (Task 2)
+// ---------------------------------------------------------------------------
+
+describe('impossible samples detector', () => {
+  it('syntheticImpossibleSpeedStream reports count > 0 with maxImpliedSpeedMps above the floor', () => {
+    const stream = syntheticImpossibleSpeedStream();
+    const result = countImpossibleSamples(stream.t, stream.d);
+    expect(result.count).toBeGreaterThan(0);
+    expect(result.maxImpliedSpeedMps).not.toBeNull();
+    expect(result.maxImpliedSpeedMps!).toBeGreaterThan(10.44);
+  });
+
+  it('the pinned impossible-speed-sample fixture (10232917652) reproduces the recorded offending index and speed', () => {
+    const fixture = PINNED_FIXTURES.find((f) => f.name === 'impossible-speed-sample')!;
+    const stream = loadPinnedStream('impossible-speed-sample');
+    const result = countImpossibleSamples(stream.t, stream.d);
+
+    const entry = result.samples.find((s) => s.index === (fixture.expected.offendingIndex as number));
+    expect(entry).toBeDefined();
+    expect(Math.round(entry!.impliedSpeedMps * 100) / 100).toBeCloseTo(
+      fixture.expected.offendingSpeedMps as number,
+      1
+    );
+  });
+
+  it('a clean stream reports count 0, maxImpliedSpeedMps null (never 0), tier none', () => {
+    const t = Array.from({ length: 30 }, (_, i) => i * 2);
+    const d = Array.from({ length: 30 }, (_, i) => i * 6); // 3 m/s, well under the floor
+    const stream = makeStream({ id: 'clean-impossible-check', t, d });
+
+    const raw = countImpossibleSamples(stream.t, stream.d);
+    expect(raw.count).toBe(0);
+    expect(raw.maxImpliedSpeedMps).toBeNull();
+
+    const signal = impossibleSampleSignal(stream.t, stream.d);
+    expect(signal.tier).toBe('none');
+  });
+
+  it('loadPinnedStream("decimation-aliased") carries BOTH severe decimation AND a non-zero impossible count with the coupling disclosed', () => {
+    const stream = loadPinnedStream('decimation-aliased');
+    const decimation = decimationSignal(stream.t, stream.d);
+    const impossible = countImpossibleSamples(stream.t, stream.d);
+
+    expect(decimation.tier).toBe('severe');
+    expect(impossible.count).toBeGreaterThan(0);
+    expect(impossible.countInsideZeroAdvanceRun).toBeGreaterThan(0);
+  });
+
+  it('impossibleFloorMps override is connected in both directions', () => {
+    const firingStream = syntheticImpossibleSpeedStream();
+    const highOverride = impossibleSampleSignal(firingStream.t, firingStream.d, {
+      impossibleFloorMps: 1000,
+    });
+    expect(highOverride.count).toBe(0);
+
+    const t = Array.from({ length: 30 }, (_, i) => i * 2);
+    const d = Array.from({ length: 30 }, (_, i) => i * 6); // 3 m/s clean stream
+    const cleanStream = makeStream({ id: 'clean-override-check', t, d });
+    const lowOverride = impossibleSampleSignal(cleanStream.t, cleanStream.d, {
+      impossibleFloorMps: 0.1,
+    });
+    expect(lowOverride.count!).toBeGreaterThan(0);
+  });
+
+  it('samples is capped at 100 while count exceeds 100', () => {
+    const n = 150;
+    const t = Array.from({ length: n }, (_, i) => i); // 1s apart
+    const d = Array.from({ length: n }, (_, i) => i * 20); // 20 m/s, well over the floor, every pair offends
+    const stream = makeStream({ id: 'many-impossible', t, d });
+
+    const result = countImpossibleSamples(stream.t, stream.d);
+    expect(result.count).toBeGreaterThan(100);
+    expect(result.samples.length).toBe(100);
+  });
+
+  it('totality: malformed/adversarial input returns the zeroed shape without throwing and without Infinity', () => {
+    const cases: Array<[number[], number[]]> = [
+      [[], []],
+      [[0, 1, 2], [0, 1]], // mismatched lengths
+      [[0, 0], [0, 0]], // dt === 0
+      [[0, 1], [NaN, 1]],
+    ];
+    for (const [t, d] of cases) {
+      expect(() => countImpossibleSamples(t, d)).not.toThrow();
+      const result = countImpossibleSamples(t, d);
+      expect(result.count).toBe(0);
+      expect(result.maxImpliedSpeedMps).not.toBe(Infinity);
+      expect(Number.isFinite(result.maxImpliedSpeedMps ?? 0)).toBe(true);
+      expect(result.samples).toEqual([]);
+    }
+  });
+
+  it('IMPOSSIBLE_SAMPLE_SEVERE_COUNT is a positive integer cut, not a fraction', () => {
+    expect(Number.isInteger(IMPOSSIBLE_SAMPLE_SEVERE_COUNT)).toBe(true);
+    expect(IMPOSSIBLE_SAMPLE_SEVERE_COUNT).toBeGreaterThan(0);
   });
 });

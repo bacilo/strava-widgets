@@ -21,7 +21,7 @@
  */
 
 import { classifyGaps } from './pace-derivation.js';
-import { validateStreamSeries } from './best-effort-utils.js';
+import { WORLD_RECORD_100M_SPEED_MPS, validateStreamSeries } from './best-effort-utils.js';
 
 // ---------------------------------------------------------------------------
 // Quality tier
@@ -567,4 +567,226 @@ export function gapProfileSignal(
     pauseSec: coverage.pauseSec,
     spanSec: coverage.spanSec,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Impossible-sample detector — raw, unsmoothed, per-consecutive-pair (D-02)
+// ---------------------------------------------------------------------------
+
+/**
+ * Raw, per-consecutive-sample-pair implausible-speed detector (locked
+ * mechanism, this task's own action text): for each pair with `dt > 0`,
+ * computes `(d[i+1] - d[i]) / (t[i+1] - t[i])` and counts it when it
+ * exceeds the resolved floor (`options?.floorMps ?? WORLD_RECORD_100M_SPEED_MPS`).
+ *
+ * RAW consecutive samples only. Deliberately NOT smoothed, NOT windowed, and
+ * does NOT exclude pause-classified or zero-advance-run segments —
+ * `27-RESEARCH.md`'s Common Pitfall 3 measured exclusion-by-classification
+ * as ineffective: the coarse-emission-interval activities' flat runs mostly
+ * classify as `covered` (not `pause`) under the scale-relative gap
+ * classification (by design), so excluding `pause`-classified segments
+ * leaves the aliasing jumps untouched. Windowing is explicitly out of scope
+ * for this phase. A future reader must not "improve" this by adding either.
+ *
+ * Guard: `validateStreamSeries` first (T-26-01) — a non-`ok` input returns
+ * the zeroed shape below; this function never invents a tier, only the
+ * caller (`impossibleSampleSignal`) converts that into `'not-computable'`.
+ *
+ * `samples` records `{ index, impliedSpeedMps, dtSec, ddM }` per offending
+ * pair, ordered by index, capped at 100 entries. `index` is the ARRIVAL
+ * sample (`i + 1` for the offending pair `[i, i+1]`) — the sample the jump
+ * lands on — matching `pace-fixtures.ts`'s own convention for naming an
+ * offending pair by a single index. `count` is always the FULL count, never
+ * the capped `samples.length` — the caller sets `impossibleSamplesTruncated`
+ * when `count` exceeds `samples.length`.
+ *
+ * `countInsideZeroAdvanceRun` counts how many offending pairs are
+ * immediately preceded by a run of two or more zero-advance pairs — the
+ * per-activity disclosure of the measured decimation/impossible-sample
+ * coupling (archive-wide: 139 of the 154 severe-decimation activities, 90%,
+ * also carry >=1 raw impossible sample — `27-RESEARCH.md` Common Pitfall 3,
+ * re-confirmed against the live archive by this module's own measurement).
+ * It is reported, NEVER subtracted from `count` — the phase's locked
+ * disposition (option 1, "accept the overlap") is to disclose the
+ * correlation on the row, in the same spirit QUAL-02 already applies to
+ * device era and decimation, not to engineer it away.
+ */
+export function countImpossibleSamples(
+  t: readonly number[],
+  d: readonly number[],
+  options?: { floorMps?: number }
+): {
+  count: number;
+  maxImpliedSpeedMps: number | null;
+  countInsideZeroAdvanceRun: number;
+  samples: { index: number; impliedSpeedMps: number; dtSec: number; ddM: number }[];
+} {
+  if (!validateStreamSeries(t as number[], d as number[]).ok) {
+    return { count: 0, maxImpliedSpeedMps: null, countInsideZeroAdvanceRun: 0, samples: [] };
+  }
+
+  const floor = options?.floorMps ?? WORLD_RECORD_100M_SPEED_MPS;
+  const n = Math.min(t.length, d.length);
+
+  // Precompute, per pair index k (1..n-1), the length of the run of
+  // consecutive zero-advance pairs ENDING at k — a single linear pass,
+  // mirroring `pace-derivation.ts`'s `computeFlatRunDurations` shape.
+  const zeroRunEndingAt: number[] = new Array(n).fill(0);
+  for (let k = 1; k < n; k++) {
+    zeroRunEndingAt[k] = d[k] <= d[k - 1] ? zeroRunEndingAt[k - 1] + 1 : 0;
+  }
+
+  let count = 0;
+  let maxImpliedSpeedMps: number | null = null;
+  let countInsideZeroAdvanceRun = 0;
+  const samples: { index: number; impliedSpeedMps: number; dtSec: number; ddM: number }[] = [];
+
+  for (let i = 0; i < n - 1; i++) {
+    const dtSec = t[i + 1] - t[i];
+    if (!(dtSec > 0)) continue;
+
+    const ddM = d[i + 1] - d[i];
+    const impliedSpeedMps = ddM / dtSec;
+    if (!(impliedSpeedMps > floor)) continue;
+
+    count++;
+    if (maxImpliedSpeedMps === null || impliedSpeedMps > maxImpliedSpeedMps) {
+      maxImpliedSpeedMps = impliedSpeedMps;
+    }
+    // Run ending at i is the run of zero-advance pairs immediately
+    // preceding this offending pair (which starts at sample index i).
+    if (zeroRunEndingAt[i] >= 2) countInsideZeroAdvanceRun++;
+
+    if (samples.length < 100) {
+      // `index` is the ARRIVAL sample (i + 1) — the sample the impossible
+      // jump lands on — matching `pace-fixtures.ts`'s own convention
+      // (`syntheticImpossibleSpeedStream`'s `idx`, the pinned
+      // `impossible-speed-sample` fixture's `offendingIndex: 303`).
+      samples.push({ index: i + 1, impliedSpeedMps, dtSec, ddM });
+    }
+  }
+
+  return { count, maxImpliedSpeedMps, countInsideZeroAdvanceRun, samples };
+}
+
+/**
+ * Lower cut above which an activity with SOME raw impossible samples
+ * reports `'minor'` rather than `'none'`. Unlike decimation's or
+ * gap-profile's "a small amount is a normal artifact" framing, an implied
+ * speed exceeding the physical floor is never genuinely benign — even a
+ * single occurrence is an anomaly worth naming. `'minor'` names that
+ * anomaly without contributing to `anySevere`; `IMPOSSIBLE_SAMPLE_SEVERE_COUNT`
+ * below is what distinguishes an isolated glitch from a chronic problem.
+ */
+export const IMPOSSIBLE_SAMPLE_MINOR_COUNT = 1;
+
+/**
+ * Severe-tier raw-count threshold for the impossible-sample signal (D-02).
+ * Choosing and justifying this value is a deliverable of this task, in this
+ * order:
+ *
+ * (1) THE PHYSICAL FLOOR AND ITS SOURCE: `WORLD_RECORD_100M_SPEED_MPS`
+ * (`best-effort-utils.ts` — Usain Bolt's 100m world record, 9.58s, 2009). No
+ * human being has ever sustained this speed for even a single 100m effort
+ * under any recorded conditions,
+ * let alone as an instantaneous implied speed inside a longer training run.
+ * Exceeding it once is therefore a fact ABOUT THE RECORDING — a GPS jump, a
+ * decimation-collapsed distance tick read as one short interval, or another
+ * derivation artifact — never a fact about the runner.
+ *
+ * (2) FORM: RAW COUNT, not a fraction of the stream's samples. A fraction
+ * treats a single catastrophic glitch inside a long, otherwise-clean
+ * 2,500-sample stream as negligible (1/2500 = 0.04%), diluting exactly the
+ * event this signal exists to surface. A raw count treats a 900-sample and
+ * a 2,500-sample stream differently ON PURPOSE: an impossible sample is a
+ * discrete EVENT (something specific happened at that one consecutive
+ * pair), not a proportional descriptor of the whole stream's quality — a
+ * raw count directly answers "how many distinct impossible events
+ * occurred", which is exactly what element (3)'s discriminator needs.
+ *
+ * (3) THE MECHANISM ARGUMENT FOR THE SPECIFIC CUT: a single impossible
+ * sample (count 1) is unremarkable — GPS multipath, a momentary satellite
+ * dropout, or one decimation-collapsed tick can each produce exactly one
+ * anomalous reading in an otherwise-healthy stream, and "every device
+ * produces one of these occasionally" is a credible innocent explanation at
+ * count 1. As the count climbs, that explanation stops being credible: TEN
+ * independent impossible readings inside one activity is not what an
+ * occasionally-noisy but otherwise-functioning distance channel produces —
+ * it is the signature of a stream whose distance channel is not
+ * trustworthy for that activity as a whole, whether from chronic GPS
+ * multipath, a chronically degraded fix, or (per the measured coupling in
+ * (5)) severe decimation aliasing. `>= 10` is the point at which "isolated,
+ * forgivable glitch" stops being the more likely explanation than "this
+ * channel is broken."
+ *
+ * (4) MEASURED COHORT AT THE CHOSEN CUT AND ITS TWO NEIGHBOURS (live
+ * archive, re-measured against the actual implemented detector over the
+ * committed `data/streams/` archive, 2026-09-10):
+ *   - >=5  impossible samples:  71 activities (3.8%)
+ *   - >=10 impossible samples:  31 activities (1.7%)  <- CHOSEN CUT
+ *   - >=20 impossible samples:  10 activities (0.5%)
+ *
+ * (5) MEASURED OVERLAP WITH THE SEVERE-DECIMATION COHORT AT THE CHOSEN CUT
+ * (re-measured against this file's own `decimationSignal` rule over the
+ * live 1,865-stream archive, 2026-09-10): of the 31 activities at `>= 10`,
+ * 4 (12.9%) are ALSO in the 154-activity severe-decimation cohort — a much
+ * smaller overlap than the raw `>= 1` population's 139/154 (90%,
+ * `27-RESEARCH.md` Common Pitfall 3), because the `>= 10` cut already
+ * excludes the large population of single-glitch activities that drove
+ * most of that 90% figure. The remaining overlap is ACCEPTED AND DISCLOSED
+ * (`countInsideZeroAdvanceRun`, per-activity), never engineered away — the
+ * phase's locked disposition (option 1 of `27-RESEARCH.md` Common Pitfall
+ * 3) is that a severely decimated stream that ALSO trips this detector is
+ * arguably a genuinely worse activity, and two badges naming two
+ * distinct-but-correlated mechanisms is still informative, matching the
+ * precedent QUAL-02 already accepts for device-era/decimation.
+ *
+ * (6) NOT CHOSEN TO LAND THE COMPOSITE UNDER 5% (D-02): `>= 10` was picked
+ * because ten independent occurrences is the mechanism point in (3), not
+ * because 1.7% keeps this signal's own marginal contribution small — `>= 5`
+ * (3.8%) would still individually clear ~5% on its own and was NOT chosen
+ * for producing a smaller number. 27-03's calibration document reports the
+ * actual composite rate honestly, including if the union with decimation's
+ * locked 8.3% floor lands materially above ~5%.
+ */
+export const IMPOSSIBLE_SAMPLE_SEVERE_COUNT = 10;
+
+/**
+ * Per-sample-pair implausible-speed tiering signal (D-02). Maps
+ * `countImpossibleSamples`'s raw count to a tier: `'severe'` at or above the
+ * resolved severe cut (`options?.impossibleSevereCount ?? IMPOSSIBLE_SAMPLE_SEVERE_COUNT`),
+ * `'minor'` at or above `IMPOSSIBLE_SAMPLE_MINOR_COUNT` but below severe,
+ * `'none'` at exactly zero, `'not-computable'` when `validateStreamSeries`
+ * fails (T-26-01).
+ */
+export function impossibleSampleSignal(
+  t: readonly number[],
+  d: readonly number[],
+  options?: QualityThresholdOverrides
+): ImpossibleSampleSignal {
+  if (!validateStreamSeries(t as number[], d as number[]).ok) {
+    return {
+      tier: 'not-computable',
+      count: null,
+      maxImpliedSpeedMps: null,
+      countInsideZeroAdvanceRun: null,
+    };
+  }
+
+  const { count, maxImpliedSpeedMps, countInsideZeroAdvanceRun } = countImpossibleSamples(t, d, {
+    floorMps: options?.impossibleFloorMps,
+  });
+
+  const severeCut = options?.impossibleSevereCount ?? IMPOSSIBLE_SAMPLE_SEVERE_COUNT;
+
+  let tier: QualityTier;
+  if (count >= severeCut) {
+    tier = 'severe';
+  } else if (count >= IMPOSSIBLE_SAMPLE_MINOR_COUNT) {
+    tier = 'minor';
+  } else {
+    tier = 'none';
+  }
+
+  return { tier, count, maxImpliedSpeedMps, countInsideZeroAdvanceRun };
 }
