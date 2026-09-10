@@ -6,13 +6,28 @@ The measured composite severe rate — the true union across all three per-activ
 
 ## 1. Denominators (computed live)
 
+**Live-denominator correction (2026-09-10, post-merge, one-activity correction — composite unchanged):**
+This report originally computed the stream-file count with a naive
+`readdirSync('data/streams').filter(f => f.endsWith('.json'))`, which counts EVERY `.json` file in
+`data/streams/`, including `data/streams/manifest.json` — the stream-availability index file
+written by backfill-streams and the daily intervals.icu sync, not a per-activity stream. That
+inflated the stream-file count by exactly one file and understated the stream-less count by one.
+Original (stale) values: stream-file count **1866**, stream-less count **24**. Corrected
+(live, activity-keyed) values below: stream-file count **1865**, stream-less count **25**. The
+**activity count (1890)** and the **composite (299)** are UNCHANGED by this correction — this is a
+denominator correction, not a change in the measured composite, exactly as `26-RESIDUAL.md`
+records its own measurement corrections (see e.g. its "corrected 2026-09-08" note) rather than
+silently overwriting prior figures.
+
 - Activity count: **1890** — `readdirSync('data/activities').filter(f => f.endsWith('.json'))` entries that read and JSON-parsed successfully.
-- Stream-file count: **1866** — `readdirSync('data/streams').filter(f => f.endsWith('.json'))` entries.
-- Stream-less count: **24** — `1890 - 1866 = 24` (arithmetic difference).
+- Stream-file count: **1865** (corrected from 1866) — per-activity files in `data/streams/`,
+  excluding the non-activity `manifest.json` stream-availability index that the original naive
+  glob mistakenly counted.
+- Stream-less count: **25** (corrected from 24) — `1890 - 1865 = 25` (arithmetic difference).
 
-Every per-signal and composite rate below is reported against BOTH denominators: the **activity-count denominator** (1890, all activities including the 24 stream-less ones, which report `notComputableReason` and are never counted in the severe numerator) and the **stream-count denominator** (1866, only activities with a computable stream).
+Every per-signal and composite rate below is reported against BOTH denominators: the **activity-count denominator** (1890, all activities including the 25 stream-less ones, which report `notComputableReason` and are never counted in the severe numerator) and the **stream-count denominator** (1865, only activities with a computable stream).
 
-This run supersedes ROADMAP Criterion 4's cited "1,864-activity archive" / "≈90 activities" and CONTEXT D-06's cited "1,890/1,866" — this run measured 1890 activity files and 1866 stream files live; do not treat 1,864, 1,866 or 1,890 as expected values anywhere else in this report.
+This run supersedes ROADMAP Criterion 4's cited "1,864-activity archive" / "≈90 activities" and CONTEXT D-06's cited "1,890/1,866" — this run measured 1890 activity files and 1865 per-activity stream files live (corrected from an initially-reported 1866 that mistakenly counted `manifest.json`); do not treat 1,864, 1,866 or 1,890 as expected values anywhere else in this report.
 
 ## 2. Thresholds in Force
 
@@ -34,6 +49,10 @@ Quoted verbatim from `27-02-SUMMARY.md`'s "Decisions Made" section. No override 
 | Decimation (D-04) | 154 | 8.1% | 8.3% | 56 |
 | Gap profile | 127 | 6.7% | 6.8% | 337 |
 | Impossible samples | 31 | 1.6% | 1.7% | 631 |
+
+*"% of stream count" uses the corrected 1865 stream-file denominator (see the Section 1
+live-denominator correction); at this rounding precision every value above is identical to the
+same computation against the stale 1866 figure.*
 
 Device era and elapsed-vs-moving are untiered facts (D-13/D-14) and contribute NOTHING to the composite below — reported here only as distributions for context.
 
@@ -57,7 +76,7 @@ Device era and elapsed-vs-moving are untiered facts (D-13/D-14) and contribute N
 **299** activities carry `anySevere === true` — computed as the size of the `Set` of activity ids for which `hasAnySevereSignal` is `true` (see `reduceCompositeUnion` in this script), NOT the sum of the three marginals above (154 + 127 + 31 = 312) and NOT an inclusion-exclusion estimate.
 
 - Against the activity-count denominator: 15.8% (299 of 1890).
-- Against the stream-count denominator: 16.0% (299 of 1866).
+- Against the stream-count denominator: 16.0% (299 of 1865, corrected from the 1866-denominator figure of 16.0% — the composite count of 299 and the rounded percentage are both unchanged by the denominator correction).
 
 **Three-way overlap breakdown:**
 
@@ -66,9 +85,25 @@ Device era and elapsed-vs-moving are untiered facts (D-13/D-14) and contribute N
 
 **Sanity gate:** max(marginals) = 154 <= composite = 299 <= sum(marginals) = 312 -> **PASS**
 
+**Three-way independent corroboration of 299 (post-merge, per D-03's independent-recount spirit):**
+The composite figure of 299 has now been reproduced by three separate, independently-executed
+paths, none of which shares code with either of the others:
+
+1. This plan's own classifier sweep over the live archive (this script, this section).
+2. Plan 27-04, in a separate worktree via a separate code path, independently recomputed
+   `totals.qualityAnySevere` directly from the WRITTEN `data/dashboard/index.json` without
+   importing this script — `27-04-SUMMARY.md`'s "Live Archive Verification": "recomputed
+   anySevere: 299   totals.qualityAnySevere: 299   match: true".
+3. The orchestrator's post-merge `npm run compute-dashboard-index` run against the MAIN checkout
+   (after both plans' work landed): "Quality: any severe signal: 299", "Quality: not
+   computable: 25".
+
+All three agree exactly on 299. None of the three imports the classifier from either of the
+other two.
+
 ## 5. The D-02 Disposition Paragraph
 
-**FINDING, not a defect.** The measured composite severe rate is 299 of 1890 activities (15.8% of the activity-count denominator, 16.0% of the 1866-stream denominator) — materially above ROADMAP Criterion 4's "~5%" ceiling. D-04's locked severe-decimation cohort alone is 154 activities (8.1% of the activity-count denominator), already above ~5% before the other two signals contribute anything, and accounts for the bulk of the composite. D-02 forbids retuning any threshold backward from the ~5% target, and D-04 forbids narrowing the decimation rule below Phase 26's cohort definition. No threshold was moved in this run to change this number. The disposition on what Criterion 4 should mean given this measured rate is the developer's, recorded at this plan's checkpoint (Task 3).
+**FINDING, not a defect.** The measured composite severe rate is 299 of 1890 activities (15.8% of the activity-count denominator, 16.0% of the 1865-stream denominator, corrected from an initially-reported 1866) — materially above ROADMAP Criterion 4's "~5%" ceiling. D-04's locked severe-decimation cohort alone is 154 activities (8.1% of the activity-count denominator), already above ~5% before the other two signals contribute anything, and accounts for the bulk of the composite. D-02 forbids retuning any threshold backward from the ~5% target, and D-04 forbids narrowing the decimation rule below Phase 26's cohort definition. No threshold was moved in this run to change this number. The disposition on what Criterion 4 should mean given this measured rate is the developer's, recorded at this plan's checkpoint (Task 3).
 
 ## 6. The D-04 Boundary Cross-Check
 
