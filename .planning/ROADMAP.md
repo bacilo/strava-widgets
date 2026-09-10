@@ -230,8 +230,8 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 28-03-PLAN.md — The pure ceiling module, its fail-open branch, and the guard discriminator on isPlausible (PR-02, PR-03)
-- [ ] 28-04-PLAN.md — Render the demotion: spec-driven PR-flags cell, three-state Records empty copy, demoted badge style (PR-03)
+- [x] 28-03-PLAN.md — The pure ceiling module, its fail-open branch, and the guard discriminator on isPlausible (PR-02, PR-03)
+- [x] 28-04-PLAN.md — Render the demotion: spec-driven PR-flags cell, three-state Records empty copy, demoted badge style (PR-03)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -321,7 +321,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 12/12 | Complete    | 2026-09-04 |
 | 26. Shared Gap-Aware Pace Derivation & Honest Coverage | v2.2 | 16/16 | Complete    | 2026-09-10 |
 | 27. Per-Activity Quality Signals | v2.2 | 12/12 | Complete    | 2026-09-10 |
-| 28. PR Plausibility Ceiling | v2.2 | 2/9 | In Progress|  |
+| 28. PR Plausibility Ceiling | v2.2 | 4/9 | In Progress|  |
 | 29. Curation Review Queue | v2.2 | 0/TBD | Not started | - |
 | 30. Elevation Quality Signal | v2.2 | 0/TBD | Not started | - |
 
