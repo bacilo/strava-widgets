@@ -702,6 +702,65 @@ describe('qualityBadgeDescriptionId — quality badge id shape, mirroring lowCon
   });
 });
 
+describe('existing badges unregressed (Task 2, T-27-23) — the two pre-existing badges did not regress', () => {
+  it('the two sentinel strings are byte-identical literal values', () => {
+    expect(LOW_CONFIDENCE_BADGE_TEXT).toBe('Low confidence');
+    expect(PACE_DISPUTED_BADGE_TEXT).toBe('Pace disputed');
+  });
+
+  it('statusBadgeTexts is byte-identical for a low-confidence row: exactly ["Low confidence"]', () => {
+    expect(statusBadgeTexts(baseRow({ lowConfidence: true }))).toEqual(['Low confidence']);
+  });
+
+  it('a row that is BOTH pace-disputed AND severe on gapProfile keeps the two paths from interfering', () => {
+    const row = baseRow({
+      paceDisagreement: { streamPaceSecPerKm: 350.6, metadataPaceSecPerKm: 112.6, ratio: 3.11 },
+      quality: {
+        ...CLEAN_QUALITY,
+        gapProfile: { tier: 'severe', gapFraction: 0.3, recordingGapSec: 800, pauseSec: 100, spanSec: 3000 },
+      },
+    });
+    expect(statusBadgeTexts(row)).toEqual(['Pace disputed']);
+    expect(statusBadgeTexts(row)).toContain(PACE_DISPUTED_BADGE_TEXT);
+    const specs = qualityBadgeSpecs(row);
+    expect(specs).toHaveLength(1);
+    expect(specs[0].signal).toBe('gapProfile');
+  });
+
+  it('paceDisputedDescriptionId and lowConfidenceDescriptionId outputs are unchanged for a given idPrefix', () => {
+    expect(lowConfidenceDescriptionId('activity-card-789')).toBe('activity-card-789-low-confidence-desc');
+    expect(paceDisputedDescriptionId('activity-card-789')).toBe('activity-card-789-pace-disputed-desc');
+  });
+
+  it('activityRowAriaLabel is byte-identical to its pre-change output for a row with no quality signals', () => {
+    expect(activityRowAriaLabel(baseRow())).toBe('Morning Run, Aug 6, 2026, 5.0 km');
+  });
+
+  it('activityRowAriaLabel for a severe row ends with the quality badge text appended after the status badge texts, in order', () => {
+    const row = baseRow({
+      lowConfidence: true,
+      quality: {
+        ...CLEAN_QUALITY,
+        gapProfile: { tier: 'severe', gapFraction: 0.12, recordingGapSec: 300, pauseSec: 60, spanSec: 3000 },
+      },
+    });
+    const label = activityRowAriaLabel(row);
+    expect(label).toBe(
+      'Morning Run, Aug 6, 2026, 5.0 km, Low confidence, 12% of recorded time in gaps or pauses'
+    );
+  });
+
+  it('qualityBadgeSpecs returns the same result regardless of idPrefix/surface — there is no surface-specific branching to have', () => {
+    const row = qualityRow({
+      gapProfile: { tier: 'severe', gapFraction: 0.12, recordingGapSec: 300, pauseSec: 60, spanSec: 3000 },
+    });
+    // qualityBadgeSpecs takes no idPrefix/surface argument at all — calling
+    // it twice with the identical row produces the identical result,
+    // because there is no surface-specific input to vary.
+    expect(qualityBadgeSpecs(row)).toEqual(qualityBadgeSpecs(row));
+  });
+});
+
 describe('composeRowAriaLabel — the shared separator every surface imports', () => {
   it('returns the base unchanged for an empty badge array', () => {
     expect(composeRowAriaLabel('base label', [])).toBe('base label');

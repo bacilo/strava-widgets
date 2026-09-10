@@ -503,6 +503,36 @@ function appendStatusBadges(container: HTMLElement, row: DashboardIndexRow, idPr
       appendBadge(container, text);
     }
   }
+  appendQualityBadges(container, row, idPrefix);
+}
+
+/**
+ * Appends every fired quality badge (D-07, D-09) — a deliberately SEPARATE
+ * dispatch path sitting alongside, not replacing, the string-equality chain
+ * above. That chain works only because the two pre-existing badges have
+ * FIXED visible text (`text === LOW_CONFIDENCE_BADGE_TEXT`); a quality
+ * badge's visible text carries a per-row measured value, so there is no
+ * fixed string to equality-match against. This function reads
+ * `qualityBadgeSpecs(row)` — the row's own severity fields, decided once,
+ * in `list.ts` module scope — directly, rather than round-tripping through
+ * a `string[]` that would then have to be re-matched by content; that round
+ * trip is exactly what cannot carry per-row dynamic text.
+ *
+ * Called from `appendStatusBadges` (immediately after its existing loop),
+ * so both call sites (`renderActivityRow`'s card badges wrapper and
+ * `buildTableRow`'s desktop Status cell) and therefore all four
+ * `RowSurface` values reach it through that ONE dispatch — no per-surface
+ * conditional (D-10).
+ */
+function appendQualityBadges(container: HTMLElement, row: DashboardIndexRow, idPrefix: string): void {
+  for (const spec of qualityBadgeSpecs(row)) {
+    appendAccessibleBadge(
+      container,
+      spec.visibleText,
+      spec.explanation,
+      qualityBadgeDescriptionId(idPrefix, spec.descriptionIdSuffix)
+    );
+  }
 }
 
 /**
@@ -535,11 +565,24 @@ export function composeRowAriaLabel(base: string, badgeTexts: readonly string[])
  * on both of those surfaces the badges live in a sibling `<td>` in the same
  * row and are already announced by table navigation, so folding them in
  * here too would double-announce them.
+ *
+ * Phase 27 (D-07, D-09): `qualityBadgeSpecs(row)`'s visible texts are folded
+ * on top of `statusBadgeTexts`, in the same render order the DOM uses
+ * (quality badges render after the existing status badges inside
+ * `appendStatusBadges`) — appended to the SAME array passed to the single
+ * `composeRowAriaLabel` call below, rather than a second call, so a
+ * pre-existing cross-file invariant (`composeRowAriaLabel(` appears exactly
+ * twice in this module: its definition and its one call site) stays true.
+ * The card surface traps its badges inside the anchor — the CR-02 reason
+ * `composeRowAriaLabel` exists at all — so a quality badge silently absent
+ * from this accessible name would reproduce that same bug for the new
+ * badges.
  */
 export function activityRowAriaLabel(row: DashboardIndexRow): string {
   const distanceKm = (row.distanceM / 1000).toFixed(1);
   const base = `${row.name}, ${formatActivityDate(row.startDateLocal)}, ${distanceKm} km`;
-  return composeRowAriaLabel(base, statusBadgeTexts(row));
+  const badgeTexts = [...statusBadgeTexts(row), ...qualityBadgeSpecs(row).map((spec) => spec.visibleText)];
+  return composeRowAriaLabel(base, badgeTexts);
 }
 
 /**
