@@ -6,10 +6,24 @@ import {
   markPRs,
   rankTopN,
   validateStreamSeries,
+  WORLD_RECORD_100M_SPEED_MPS,
   WORLD_RECORD_SPEED_MPS,
 } from './best-effort-utils.js';
 import { TARGET_ORDER } from './best-effort.types.js';
 import type { PRRankingEntry } from './best-effort.types.js';
+
+describe('WORLD_RECORD_100M_SPEED_MPS', () => {
+  it('is the 100m world-record floor, 10.44 m/s, declared standalone from WORLD_RECORD_SPEED_MPS', () => {
+    expect(WORLD_RECORD_100M_SPEED_MPS).toBe(10.44);
+  });
+
+  it('adding WORLD_RECORD_100M_SPEED_MPS does not change WORLD_RECORD_SPEED_MPS\'s own key set', () => {
+    expect(Object.keys(WORLD_RECORD_SPEED_MPS).sort()).toEqual(
+      [...TARGET_ORDER].sort()
+    );
+    expect(Object.keys(WORLD_RECORD_SPEED_MPS)).not.toContain('100m');
+  });
+});
 
 describe('findBestEffort — two-pointer sweep', () => {
   it('finds the minimum-duration window covering the target distance', () => {

@@ -13,19 +13,52 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  DECIMATION_SEVERE_MIN_SAMPLES,
+  DECIMATION_SEVERE_ZERO_ADVANCE_FRACTION,
+  GAP_PROFILE_SEVERE_FRACTION,
+  IMPOSSIBLE_SAMPLE_SEVERE_COUNT,
   NOT_COMPUTABLE_NO_STREAM,
+  buildPaceQualityShard,
+  computePaceQualitySignals,
+  countImpossibleSamples,
+  decimationSignal,
   elapsedVsMovingSignal,
+  gapProfileSignal,
+  hasAnySevereSignal,
+  impossibleSampleSignal,
   notComputableSignals,
   resolveDeviceFamily,
   type ActivityQualityMetadata,
+  type ActivityQualitySignals,
   type DeviceEraSignal,
 } from './pace-quality.js';
-import { PINNED_FIXTURES, loadPinnedActivity, loadPinnedStream } from './pace-fixtures.js';
+import {
+  PINNED_FIXTURES,
+  loadPinnedActivity,
+  loadPinnedStream,
+  makeStream,
+  syntheticDecimationAliasedStream,
+  syntheticImpossibleSpeedStream,
+  syntheticMultiHourPauseStream,
+  syntheticRecordingGapStream,
+} from './pace-fixtures.js';
+import { adaptiveWindowSec as recomputeAdaptiveWindowSec } from './pace-derivation.js';
 
 /** Builds the two-field metadata slice `resolveDeviceFamily` consumes from a raw activity record. */
 function metadataOf(activity: unknown): Pick<ActivityQualityMetadata, 'deviceName' | 'sourceProvider'> {
   const record = activity as Record<string, unknown>;
   return { deviceName: record.device_name, sourceProvider: record.source_provider };
+}
+
+/** Builds the full four-field metadata `computePaceQualitySignals`/`buildPaceQualityShard` consume. */
+function fullMetadataOf(activity: unknown): ActivityQualityMetadata {
+  const record = activity as Record<string, unknown>;
+  return {
+    deviceName: record.device_name,
+    sourceProvider: record.source_provider,
+    elapsedTimeSec: record.elapsed_time,
+    movingTimeSec: record.moving_time,
+  };
 }
 
 describe('resolveDeviceFamily — device family (ERA-01)', () => {
@@ -189,5 +222,422 @@ describe('elapsedVsMovingSignal and notComputableSignals — not computable', ()
     // Mutating the first must not affect the second.
     first.decimation.sampleCount = 999;
     expect(second.decimation.sampleCount).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// decimation signal (D-04) and gap profile (Task 1)
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds a stream of `sampleCount` samples where the first `zeroCount` steps
+ * are zero-advance (`d[i] === d[i-1]`) and every remaining step advances by
+ * 1m — gives an exact, hand-controlled `zeroAdvanceFraction` of
+ * `zeroCount / (sampleCount - 1)` for boundary testing.
+ */
+function buildDecimationBoundaryStream(sampleCount: number, zeroCount: number) {
+  const t: number[] = [0];
+  const d: number[] = [0];
+  for (let i = 1; i < sampleCount; i++) {
+    t.push(i);
+    d.push(i <= zeroCount ? d[i - 1] : d[i - 1] + 1);
+  }
+  return makeStream({ id: `boundary-${sampleCount}-${zeroCount}`, t, d });
+}
+
+describe('decimation signal (D-04)', () => {
+  it('syntheticDecimationAliasedStream reports severe, above the constant, above the sample floor', () => {
+    const stream = syntheticDecimationAliasedStream();
+    const result = decimationSignal(stream.t, stream.d);
+    expect(result.tier).toBe('severe');
+    expect(result.zeroAdvanceFraction).not.toBeNull();
+    expect(result.zeroAdvanceFraction!).toBeGreaterThan(DECIMATION_SEVERE_ZERO_ADVANCE_FRACTION);
+    expect(result.sampleCount).not.toBeNull();
+    expect(result.sampleCount!).toBeGreaterThanOrEqual(DECIMATION_SEVERE_MIN_SAMPLES);
+  });
+
+  it('the pinned decimation-aliased fixture (5059204779) agrees with compute-pace-residual.mjs\'s own rule', () => {
+    const fixture = PINNED_FIXTURES.find((f) => f.name === 'decimation-aliased')!;
+    const stream = loadPinnedStream('decimation-aliased');
+    const result = decimationSignal(stream.t, stream.d);
+
+    expect(result.tier).toBe('severe');
+    expect(result.zeroAdvanceFraction).not.toBeNull();
+    expect(
+      Math.abs(result.zeroAdvanceFraction! - (fixture.expected.zeroAdvanceFraction as number))
+    ).toBeLessThanOrEqual(0.005);
+  });
+
+  it('a clean, strictly-increasing stream reports none with a genuine zero fraction, not a fabricated one', () => {
+    const t = Array.from({ length: 60 }, (_, i) => i);
+    const d = Array.from({ length: 60 }, (_, i) => i);
+    const stream = makeStream({ id: 'clean-increasing', t, d });
+
+    const result = decimationSignal(stream.t, stream.d);
+    expect(result.tier).toBe('none');
+    expect(result.zeroAdvanceFraction).toBe(0);
+  });
+
+  it('boundary: exactly 15.0% zero-advance is NOT severe (strict >, not >=)', () => {
+    const stream = buildDecimationBoundaryStream(101, 15); // 15/100 = 0.15 exactly
+    const result = decimationSignal(stream.t, stream.d);
+    expect(result.zeroAdvanceFraction).toBe(0.15);
+    expect(result.tier).not.toBe('severe');
+  });
+
+  it('boundary: above 15% zero-advance but only 49 samples is NOT severe (floor unmet)', () => {
+    const stream = buildDecimationBoundaryStream(49, 10); // 10/48 = 0.2083, sampleCount 49 < 50
+    const result = decimationSignal(stream.t, stream.d);
+    expect(result.zeroAdvanceFraction!).toBeGreaterThan(0.15);
+    expect(result.sampleCount).toBe(49);
+    expect(result.tier).not.toBe('severe');
+  });
+
+  it('totality: malformed/adversarial input reports not-computable rather than throwing', () => {
+    const cases: Array<[number[], number[]]> = [
+      [[], []],
+      [[0, 1, 2], [0, 1]], // mismatched lengths
+      [[0, 1], [NaN, 1]],
+      [[2, 1], [0, 1]], // decreasing t
+    ];
+    for (const [t, d] of cases) {
+      expect(() => decimationSignal(t, d)).not.toThrow();
+      const result = decimationSignal(t, d);
+      expect(result.tier).toBe('not-computable');
+      expect(result.zeroAdvanceFraction).toBeNull();
+      expect(result.sampleCount).toBeNull();
+    }
+  });
+});
+
+describe('gap profile signal', () => {
+  it('syntheticRecordingGapStream fires with recordingGapSec populated, pauseSec at zero', () => {
+    const stream = syntheticRecordingGapStream();
+    const result = gapProfileSignal(stream.t, stream.d);
+    expect(result.tier).toBe('severe');
+    expect(result.recordingGapSec).toBe(300);
+    expect(result.pauseSec).toBe(0);
+  });
+
+  it('syntheticMultiHourPauseStream fires with pauseSec populated, recordingGapSec at zero', () => {
+    const stream = syntheticMultiHourPauseStream();
+    const result = gapProfileSignal(stream.t, stream.d);
+    expect(result.tier).toBe('severe');
+    expect(result.pauseSec).toBe(10800);
+    expect(result.recordingGapSec).toBe(0);
+  });
+
+  it('gapFraction always equals (recordingGapSec + pauseSec) / spanSec, recomputed independently', () => {
+    for (const stream of [syntheticRecordingGapStream(), syntheticMultiHourPauseStream()]) {
+      const result = gapProfileSignal(stream.t, stream.d);
+      const recomputed =
+        (result.recordingGapSec! + result.pauseSec!) / result.spanSec!;
+      expect(result.gapFraction).toBeCloseTo(recomputed, 10);
+    }
+  });
+
+  it('threshold override is connected in both directions', () => {
+    const stream = syntheticRecordingGapStream(); // gapFraction ~= 0.4286 by construction
+
+    const low = gapProfileSignal(stream.t, stream.d, { gapProfileSevereFraction: 0.01 });
+    expect(low.tier).toBe('severe');
+
+    const high = gapProfileSignal(stream.t, stream.d, { gapProfileSevereFraction: 0.9 });
+    expect(high.tier).not.toBe('severe');
+  });
+
+  it('the shipped scale-relative gap classification is never overridden by this signal', () => {
+    expect(GAP_PROFILE_SEVERE_FRACTION).toBeGreaterThan(0);
+    expect(GAP_PROFILE_SEVERE_FRACTION).toBeLessThan(1);
+  });
+
+  it('totality: malformed/adversarial input reports not-computable rather than throwing, never gapFraction 0', () => {
+    const cases: Array<[number[], number[]]> = [
+      [[], []],
+      [[0, 1, 2], [0, 1]],
+      [[0, 1], [NaN, 1]],
+      [[2, 1], [0, 1]],
+    ];
+    for (const [t, d] of cases) {
+      expect(() => gapProfileSignal(t, d)).not.toThrow();
+      const result = gapProfileSignal(t, d);
+      expect(result.tier).toBe('not-computable');
+      expect(result.gapFraction).toBeNull();
+      expect(result.recordingGapSec).toBeNull();
+      expect(result.pauseSec).toBeNull();
+      expect(result.spanSec).toBeNull();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// impossible samples (Task 2)
+// ---------------------------------------------------------------------------
+
+describe('impossible samples detector', () => {
+  it('syntheticImpossibleSpeedStream reports count > 0 with maxImpliedSpeedMps above the floor', () => {
+    const stream = syntheticImpossibleSpeedStream();
+    const result = countImpossibleSamples(stream.t, stream.d);
+    expect(result.count).toBeGreaterThan(0);
+    expect(result.maxImpliedSpeedMps).not.toBeNull();
+    expect(result.maxImpliedSpeedMps!).toBeGreaterThan(10.44);
+  });
+
+  it('the pinned impossible-speed-sample fixture (10232917652) reproduces the recorded offending index and speed', () => {
+    const fixture = PINNED_FIXTURES.find((f) => f.name === 'impossible-speed-sample')!;
+    const stream = loadPinnedStream('impossible-speed-sample');
+    const result = countImpossibleSamples(stream.t, stream.d);
+
+    const entry = result.samples.find((s) => s.index === (fixture.expected.offendingIndex as number));
+    expect(entry).toBeDefined();
+    expect(Math.round(entry!.impliedSpeedMps * 100) / 100).toBeCloseTo(
+      fixture.expected.offendingSpeedMps as number,
+      1
+    );
+  });
+
+  it('a clean stream reports count 0, maxImpliedSpeedMps null (never 0), tier none', () => {
+    const t = Array.from({ length: 30 }, (_, i) => i * 2);
+    const d = Array.from({ length: 30 }, (_, i) => i * 6); // 3 m/s, well under the floor
+    const stream = makeStream({ id: 'clean-impossible-check', t, d });
+
+    const raw = countImpossibleSamples(stream.t, stream.d);
+    expect(raw.count).toBe(0);
+    expect(raw.maxImpliedSpeedMps).toBeNull();
+
+    const signal = impossibleSampleSignal(stream.t, stream.d);
+    expect(signal.tier).toBe('none');
+  });
+
+  it('loadPinnedStream("decimation-aliased") carries BOTH severe decimation AND a non-zero impossible count with the coupling disclosed', () => {
+    const stream = loadPinnedStream('decimation-aliased');
+    const decimation = decimationSignal(stream.t, stream.d);
+    const impossible = countImpossibleSamples(stream.t, stream.d);
+
+    expect(decimation.tier).toBe('severe');
+    expect(impossible.count).toBeGreaterThan(0);
+    expect(impossible.countInsideZeroAdvanceRun).toBeGreaterThan(0);
+  });
+
+  it('impossibleFloorMps override is connected in both directions', () => {
+    const firingStream = syntheticImpossibleSpeedStream();
+    const highOverride = impossibleSampleSignal(firingStream.t, firingStream.d, {
+      impossibleFloorMps: 1000,
+    });
+    expect(highOverride.count).toBe(0);
+
+    const t = Array.from({ length: 30 }, (_, i) => i * 2);
+    const d = Array.from({ length: 30 }, (_, i) => i * 6); // 3 m/s clean stream
+    const cleanStream = makeStream({ id: 'clean-override-check', t, d });
+    const lowOverride = impossibleSampleSignal(cleanStream.t, cleanStream.d, {
+      impossibleFloorMps: 0.1,
+    });
+    expect(lowOverride.count!).toBeGreaterThan(0);
+  });
+
+  it('samples is capped at 100 while count exceeds 100', () => {
+    const n = 150;
+    const t = Array.from({ length: n }, (_, i) => i); // 1s apart
+    const d = Array.from({ length: n }, (_, i) => i * 20); // 20 m/s, well over the floor, every pair offends
+    const stream = makeStream({ id: 'many-impossible', t, d });
+
+    const result = countImpossibleSamples(stream.t, stream.d);
+    expect(result.count).toBeGreaterThan(100);
+    expect(result.samples.length).toBe(100);
+  });
+
+  it('totality: malformed/adversarial input returns the zeroed shape without throwing and without Infinity', () => {
+    const cases: Array<[number[], number[]]> = [
+      [[], []],
+      [[0, 1, 2], [0, 1]], // mismatched lengths
+      [[0, 0], [0, 0]], // dt === 0
+      [[0, 1], [NaN, 1]],
+    ];
+    for (const [t, d] of cases) {
+      expect(() => countImpossibleSamples(t, d)).not.toThrow();
+      const result = countImpossibleSamples(t, d);
+      expect(result.count).toBe(0);
+      expect(result.maxImpliedSpeedMps).not.toBe(Infinity);
+      expect(Number.isFinite(result.maxImpliedSpeedMps ?? 0)).toBe(true);
+      expect(result.samples).toEqual([]);
+    }
+  });
+
+  it('IMPOSSIBLE_SAMPLE_SEVERE_COUNT is a positive integer cut, not a fraction', () => {
+    expect(Number.isInteger(IMPOSSIBLE_SAMPLE_SEVERE_COUNT)).toBe(true);
+    expect(IMPOSSIBLE_SAMPLE_SEVERE_COUNT).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// independent signals (QUAL-02) and shard (Task 3)
+// ---------------------------------------------------------------------------
+
+describe('independent signals (QUAL-02)', () => {
+  it('deviceEra and decimation are two separately readable fields that cannot be collapsed', () => {
+    const activity = loadPinnedActivity('decimation-aliased');
+    const stream = loadPinnedStream('decimation-aliased');
+    const metadata = fullMetadataOf(activity);
+
+    const result = computePaceQualitySignals(stream, metadata);
+
+    expect(result.deviceEra.family).toBe('suunto-9');
+    expect(result.decimation.tier).toBe('severe');
+    expect(result.deviceEra).not.toHaveProperty('tier');
+
+    // Mutating decimation.tier must not affect deviceEra.
+    result.decimation.tier = 'none';
+    expect(result.deviceEra.family).toBe('suunto-9');
+  });
+
+  it('impossibleSamples and decimation are separately readable and the coupling is disclosed, not resolved by dropping one', () => {
+    const activity = loadPinnedActivity('decimation-aliased');
+    const stream = loadPinnedStream('decimation-aliased');
+    const metadata = fullMetadataOf(activity);
+
+    const result = computePaceQualitySignals(stream, metadata);
+
+    expect(result.decimation.tier).toBe('severe');
+    expect(result.impossibleSamples.tier).not.toBeNull();
+    expect(result.impossibleSamples.countInsideZeroAdvanceRun).not.toBeNull();
+    expect(result.impossibleSamples.countInsideZeroAdvanceRun!).toBeGreaterThan(0);
+  });
+
+  it('computePaceQualitySignals(null, metadata) reports all three tiering signals not-computable, anySevere false, deviceEra still resolved', () => {
+    const metadata: ActivityQualityMetadata = {
+      deviceName: 'Suunto 9',
+      sourceProvider: undefined,
+      elapsedTimeSec: 3600,
+      movingTimeSec: 3000,
+    };
+
+    const result = computePaceQualitySignals(null, metadata);
+
+    expect(result.decimation.tier).toBe('not-computable');
+    expect(result.gapProfile.tier).toBe('not-computable');
+    expect(result.impossibleSamples.tier).toBe('not-computable');
+    expect(result.notComputableReason).toBe(NOT_COMPUTABLE_NO_STREAM);
+    expect(result.anySevere).toBe(false);
+    expect(result.deviceEra.family).toBe('suunto-9');
+  });
+
+  it('hasAnySevereSignal truth table', () => {
+    const none: ActivityQualitySignals['decimation'] = { tier: 'none', zeroAdvanceFraction: 0, sampleCount: 10 };
+    const minor: ActivityQualitySignals['decimation'] = { tier: 'minor', zeroAdvanceFraction: 0.1, sampleCount: 10 };
+    const severe: ActivityQualitySignals['decimation'] = { tier: 'severe', zeroAdvanceFraction: 0.5, sampleCount: 10 };
+    const notComputable: ActivityQualitySignals['decimation'] = {
+      tier: 'not-computable',
+      zeroAdvanceFraction: null,
+      sampleCount: null,
+    };
+
+    const gapNone: ActivityQualitySignals['gapProfile'] = {
+      tier: 'none',
+      gapFraction: 0,
+      recordingGapSec: 0,
+      pauseSec: 0,
+      spanSec: 100,
+    };
+    const impossibleNone: ActivityQualitySignals['impossibleSamples'] = {
+      tier: 'none',
+      count: 0,
+      maxImpliedSpeedMps: null,
+      countInsideZeroAdvanceRun: 0,
+    };
+
+    // Severe in each of the three slots individually -> true.
+    expect(
+      hasAnySevereSignal({ decimation: severe, gapProfile: gapNone, impossibleSamples: impossibleNone })
+    ).toBe(true);
+    expect(
+      hasAnySevereSignal({
+        decimation: none,
+        gapProfile: { ...gapNone, tier: 'severe' },
+        impossibleSamples: impossibleNone,
+      })
+    ).toBe(true);
+    expect(
+      hasAnySevereSignal({
+        decimation: none,
+        gapProfile: gapNone,
+        impossibleSamples: { ...impossibleNone, tier: 'severe' },
+      })
+    ).toBe(true);
+
+    // All minor -> false.
+    expect(
+      hasAnySevereSignal({
+        decimation: minor,
+        gapProfile: { ...gapNone, tier: 'minor' },
+        impossibleSamples: { ...impossibleNone, tier: 'minor' },
+      })
+    ).toBe(false);
+
+    // All not-computable -> false.
+    expect(
+      hasAnySevereSignal({
+        decimation: notComputable,
+        gapProfile: { ...gapNone, tier: 'not-computable' },
+        impossibleSamples: { ...impossibleNone, tier: 'not-computable' },
+      })
+    ).toBe(false);
+
+    // Mixed not-computable/severe -> true.
+    expect(
+      hasAnySevereSignal({
+        decimation: notComputable,
+        gapProfile: { ...gapNone, tier: 'severe' },
+        impossibleSamples: impossibleNone,
+      })
+    ).toBe(true);
+  });
+});
+
+describe('D-17 evidence shard', () => {
+  it('buildPaceQualityShard on a clean synthetic stream: intervals, non-null run profile, matching adaptiveWindowSec, under 20 KB', () => {
+    const stream = syntheticMultiHourPauseStream();
+    const metadata: ActivityQualityMetadata = {
+      deviceName: 'Suunto 9',
+      sourceProvider: undefined,
+      elapsedTimeSec: 12000,
+      movingTimeSec: 12000,
+    };
+
+    const shard = buildPaceQualityShard('synthetic-clean', stream, metadata);
+
+    expect(Array.isArray(shard.gapIntervals)).toBe(true);
+    expect(shard.zeroAdvanceRunProfile).not.toBeNull();
+    expect(shard.adaptiveWindowSec).toBe(recomputeAdaptiveWindowSec(stream.t, stream.d));
+    expect(JSON.stringify(shard).length).toBeLessThan(20_000);
+  });
+
+  it('buildPaceQualityShard on the decimation-aliased fixture (worst case for run count) stays under 20 KB serialized', () => {
+    const activity = loadPinnedActivity('decimation-aliased');
+    const stream = loadPinnedStream('decimation-aliased');
+    const metadata = fullMetadataOf(activity);
+
+    const shard = buildPaceQualityShard('5059204779', stream, metadata);
+
+    expect(JSON.stringify(shard).length).toBeLessThan(20_000);
+  });
+
+  it('buildPaceQualityShard(id, null, metadata) returns a shard with activityId set, empty evidence, and NOT_COMPUTABLE_NO_STREAM', () => {
+    const metadata: ActivityQualityMetadata = {
+      deviceName: 'Suunto 9',
+      sourceProvider: undefined,
+      elapsedTimeSec: 3600,
+      movingTimeSec: 3000,
+    };
+
+    const shard = buildPaceQualityShard('no-stream-activity', null, metadata);
+
+    expect(shard.activityId).toBe('no-stream-activity');
+    expect(shard.gapIntervals).toEqual([]);
+    expect(shard.impossibleSamples).toEqual([]);
+    expect(shard.impossibleSamplesTruncated).toBe(false);
+    expect(shard.zeroAdvanceRunProfile).toBeNull();
+    expect(shard.adaptiveWindowSec).toBeNull();
+    expect(shard.notComputableReason).toBe(NOT_COMPUTABLE_NO_STREAM);
+    expect(shard.signals.notComputableReason).toBe(NOT_COMPUTABLE_NO_STREAM);
   });
 });
