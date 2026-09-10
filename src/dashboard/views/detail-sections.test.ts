@@ -6,6 +6,7 @@ import {
   splitGapAnnotations,
   breakdownSectionPlan,
   qualitySignalsSectionPlan,
+  EXPLANATION_PROBE_QUALITY,
   type SplitGapAnnotation,
 } from './detail-sections.js';
 import type { Split } from './detail-splits.js';
@@ -559,23 +560,28 @@ describe('qualitySignalsSectionPlan — quality signals section (D-08, D-09, D-1
   });
 
   it('the three tiering explanation strings are identical to the ones list.ts exports via qualityBadgeSpecs — a drift between the two surfaces fails this test', () => {
-    const severeQuality: ActivityQualitySignals = {
-      decimation: { tier: 'severe', zeroAdvanceFraction: 0.5, sampleCount: 100 },
-      gapProfile: { tier: 'severe', gapFraction: 0.5, recordingGapSec: 10, pauseSec: 10, spanSec: 20 },
-      impossibleSamples: { tier: 'severe', count: 10, maxImpliedSpeedMps: 20, countInsideZeroAdvanceRun: 1 },
-      deviceEra: { family: 'no-device-name', rawDeviceName: null },
-      elapsedVsMoving: { ratio: null, elapsedSec: null, movingSec: null },
-      anySevere: true,
-      notComputableReason: null,
-    };
-
-    const listSpecs = qualityBadgeSpecs({ quality: severeQuality });
-    const sectionRows = qualitySignalsSectionPlan(severeQuality, null).rows;
+    // Imports EXPLANATION_PROBE_QUALITY from detail-sections.ts itself
+    // (G-05, 27-REVIEW.md WR-01) rather than hand-typing a second copy of
+    // the same literal here — this test now exercises the SAME object
+    // production's EXPLANATION_PROBE_SPECS is built from, so the two
+    // sides cannot silently diverge from each other.
+    const listSpecs = qualityBadgeSpecs({ quality: EXPLANATION_PROBE_QUALITY });
+    const sectionRows = qualitySignalsSectionPlan(EXPLANATION_PROBE_QUALITY, null).rows;
 
     const bySignal = new Map(listSpecs.map((spec) => [spec.signal, spec.explanation]));
     expect(sectionRows[0].explanation).toBe(bySignal.get('decimation'));
     expect(sectionRows[1].explanation).toBe(bySignal.get('gapProfile'));
     expect(sectionRows[2].explanation).toBe(bySignal.get('impossibleSamples'));
+  });
+
+  it('G-05: the three tiering explanation strings are directly asserted non-empty, not only compared for equality against list.ts (the equality check above would pass even if BOTH sides were "")', () => {
+    const sectionRows = qualitySignalsSectionPlan(EXPLANATION_PROBE_QUALITY, null).rows;
+    expect(sectionRows[0].explanation.length, 'decimation row explanation must not be empty').toBeGreaterThan(0);
+    expect(sectionRows[1].explanation.length, 'gapProfile row explanation must not be empty').toBeGreaterThan(0);
+    expect(
+      sectionRows[2].explanation.length,
+      'impossibleSamples row explanation must not be empty'
+    ).toBeGreaterThan(0);
   });
 
   it('the impossible-samples row names the fastest implied speed from shard.impossibleSamples and the zero-advance-run overlap, absent when shard is null', () => {

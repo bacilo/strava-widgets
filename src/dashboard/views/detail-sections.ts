@@ -754,33 +754,70 @@ export function buildBestEffortsSection(
 // ---------------------------------------------------------------------------
 
 /**
- * A synthetic, always-severe probe row fed through `list.ts`'s
- * `qualityBadgeSpecs` ONCE at module load, purely so this module can read
- * the three tiering signals' explanation strings (`decimation`,
- * `gapProfile`, `impossibleSamples`) from their single source of truth
- * rather than retyping them here — the plan's explicit instruction that the
- * two surfaces (the severe-tier list badge and this always-on section)
- * cannot drift apart. `qualityBadgeSpecs` only returns a spec for a
- * severe-tier signal with a non-null evidence field (D-07), so every field
- * here is set to a value that satisfies that gate; the actual numbers are
- * irrelevant — only `.explanation` is read from the result, never
- * `.visibleText`. `deviceEra`/`elapsedVsMoving` have no `qualityBadgeSpecs`
- * equivalent (D-13/D-14 exclude them from any list badge), so this section
- * defines its own explanation strings for those two rows below.
+ * The synthetic, always-severe probe row `EXPLANATION_PROBE_SPECS` below is
+ * fed through — EXPORTED (G-05, 27-REVIEW.md WR-01) so
+ * `detail-sections.test.ts`'s drift test imports and exercises this EXACT
+ * object rather than a hand-typed duplicate literal that could silently
+ * diverge from this one; a drift test whose two sides are separately
+ * maintained can pass while the thing it guards has drifted. `deviceEra`/
+ * `elapsedVsMoving` are included (required by `ActivityQualitySignals`)
+ * but have no `qualityBadgeSpecs` equivalent (D-13/D-14 exclude them from
+ * any list badge) — this section defines its own explanation strings for
+ * those two rows below, independent of this probe. `qualityBadgeSpecs`
+ * only returns a spec for a severe-tier signal with a non-null evidence
+ * field (D-07), so every field here is set to a value that satisfies that
+ * gate; the actual numbers are irrelevant — only `.explanation` is ever
+ * read from the result, never `.visibleText`.
  */
-const EXPLANATION_PROBE_SPECS = qualityBadgeSpecs({
-  quality: {
-    decimation: { tier: 'severe', zeroAdvanceFraction: 0.5, sampleCount: 100 },
-    gapProfile: { tier: 'severe', gapFraction: 0.5, recordingGapSec: 10, pauseSec: 10, spanSec: 20 },
-    impossibleSamples: { tier: 'severe', count: 10, maxImpliedSpeedMps: 20, countInsideZeroAdvanceRun: 1 },
-    deviceEra: { family: 'no-device-name', rawDeviceName: null },
-    elapsedVsMoving: { ratio: null, elapsedSec: null, movingSec: null },
-    anySevere: true,
-    notComputableReason: null,
-  },
-});
+export const EXPLANATION_PROBE_QUALITY: ActivityQualitySignals = {
+  decimation: { tier: 'severe', zeroAdvanceFraction: 0.5, sampleCount: 100 },
+  gapProfile: { tier: 'severe', gapFraction: 0.5, recordingGapSec: 10, pauseSec: 10, spanSec: 20 },
+  impossibleSamples: { tier: 'severe', count: 10, maxImpliedSpeedMps: 20, countInsideZeroAdvanceRun: 1 },
+  deviceEra: { family: 'no-device-name', rawDeviceName: null },
+  elapsedVsMoving: { ratio: null, elapsedSec: null, movingSec: null },
+  anySevere: true,
+  notComputableReason: null,
+};
 
-/** Reads one tiering signal's explanation from `EXPLANATION_PROBE_SPECS` — see that constant's own doc comment. */
+/**
+ * `EXPLANATION_PROBE_QUALITY` fed through `list.ts`'s `qualityBadgeSpecs`
+ * ONCE at module load, purely so this module can read the three tiering
+ * signals' explanation strings (`decimation`, `gapProfile`,
+ * `impossibleSamples`) from their single source of truth rather than
+ * retyping them here — the plan's explicit instruction that the two
+ * surfaces (the severe-tier list badge and this always-on section) cannot
+ * drift apart.
+ */
+const EXPLANATION_PROBE_SPECS = qualityBadgeSpecs({ quality: EXPLANATION_PROBE_QUALITY });
+
+/**
+ * G-05 (27-REVIEW.md WR-01): fails loudly at true module load — before any
+ * render can occur — rather than letting a regressed probe silently reach
+ * `tieringExplanation`'s `?? ''` fallback later, at render time. An empty
+ * explanation string is never a valid rendering outcome for this always-on
+ * section (D-08), so a missing spec here is treated as a hard defect, not
+ * a value to paper over. This throws once, at import, and ONLY when
+ * `EXPLANATION_PROBE_QUALITY` (or `qualityBadgeSpecs` itself) has
+ * regressed to no longer satisfy D-07's severe-tier-with-non-null-evidence
+ * gate on all three tiering signals — every present-day import of this
+ * module is unaffected, because the invariant holds.
+ */
+for (const signal of ['decimation', 'gapProfile', 'impossibleSamples'] as const) {
+  const explanation = EXPLANATION_PROBE_SPECS.find((spec) => spec.signal === signal)?.explanation;
+  if (!explanation) {
+    throw new Error(
+      `detail-sections.ts: EXPLANATION_PROBE_QUALITY produced no explanation for signal "${signal}" — qualityBadgeSpecs or the probe fixture has regressed, and an empty tiering explanation is never a valid rendering outcome (D-08)`
+    );
+  }
+}
+
+/**
+ * Reads one tiering signal's explanation from `EXPLANATION_PROBE_SPECS`.
+ * The module-load assertion above guarantees every signal here already has
+ * a non-empty explanation, so the `?? ''` below is unreachable
+ * defense-in-depth — the throw above is the actual safety net, not this
+ * fallback.
+ */
 function tieringExplanation(signal: 'decimation' | 'gapProfile' | 'impossibleSamples'): string {
   return EXPLANATION_PROBE_SPECS.find((spec) => spec.signal === signal)?.explanation ?? '';
 }
