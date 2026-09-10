@@ -182,3 +182,6 @@ None — no external service configuration required.
 ---
 *Phase: 28-pr-plausibility-ceiling*
 *Completed: 2026-09-11*
+## Self-Check: PASSED
+
+All created/modified files verified present on disk (compute-best-efforts.ts, compute-best-efforts.test.ts, this summary). All four commits (18e4ab0a, bc0589fa, dbb4b2e4, 0d88a9ea) confirmed present in `git log --oneline --all`. No missing items.
