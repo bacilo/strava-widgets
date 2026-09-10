@@ -409,22 +409,35 @@ Overlap: 139 of the 154 severe-decimation activities ALSO have >=1 impossible sa
 
 **If this table is empty:** N/A — see rows above.
 
-## Open Questions
+## Open Questions (RESOLVED — see resolutions below)
+
+> All three questions were dispositioned during `/gsd-plan-phase 27` (2026-09-10) before the
+> planner ran. Resolutions are recorded inline under each question. Nothing here is still open.
+
 
 1. **Should Criterion 4's ~5% target be renegotiated with the user given D-04's locked 154/1,866 (8.3%) floor?**
    - What we know: decimation alone, at its locked verbatim threshold, exceeds the ~5% target before any other signal contributes.
    - What's unclear: whether the roadmap author intended the ~5% target to survive Phase 26 fixing the cohort at exactly 154, or whether that number simply wasn't cross-checked against Phase 27's own criterion at roadmap-authoring time (2026-09-08, before Phase 26 executed).
    - Recommendation: the plan should compute and report the actual composite rate as its FIRST calibration step (a Wave 0-adjacent task), and treat "the rate is materially above 5%" as an expected, reportable outcome per D-02 — surfacing it to the user for a disposition decision (accept the honest rate, or revisit D-04's severe-decimation definition with the user's explicit sign-off) rather than silently engineering around it.
 
+   - **RESOLVED (user, 2026-09-10): "measure, then checkpoint."** The ~5% ceiling is deliberately NOT asserted as a `must_have`. Plan `27-03` computes the true composite union over the live archive, reports it with a full per-signal breakdown, and blocks on a human disposition (`accept-and-amend` / `revisit-d04` / `split-the-criterion`). The satisfiable half of Criterion 4 — rate measured, independently re-derived per D-03, reported, and demonstrated responsive to a threshold move in both directions — IS asserted in `27-03`'s `must_haves.truths`.
+
+
 2. **Which of Pitfall 3's three options (accept overlap / exclude-by-classification (shown ineffective) / windowed smoothing) should the impossible-sample detector use?**
    - What we know: option 2 is measured ineffective; options 1 and 3 are both viable but have different implementation costs and different "independence" guarantees.
    - What's unclear: whether QUAL-02's "stay individually meaningful" bar is satisfied by option 1's honest-correlation framing (same treatment as device-era/decimation) or requires option 3's extra engineering.
    - Recommendation: default to option 1 (simplest, consistent with an existing precedent) unless the discuss-phase / planner decides QUAL-02's spirit requires the extra decoupling work.
 
+   - **RESOLVED (user, 2026-09-10): option 1, accept the overlap.** Raw consecutive-sample implied speed against a physical floor; no windowed smoothing, no pause-segment exclusion. Implemented in `27-02` Task 2, with `countInsideZeroAdvanceRun` disclosed separately and never subtracted, the overlap reported in `27-03`'s calibration document, and a QUAL-02 "independent signals" test in `27-02` Task 3.
+
+
 3. **Does `appendStatusBadges`'s restructuring (Pitfall 1) risk regressing the existing "Low confidence"/"Pace disputed" badges?**
    - What we know: those two badges' current fixed-text-plus-dynamic-explanation shape does not need to change; only NEW badges need dynamic visible text.
    - What's unclear: whether the cleanest restructuring keeps the existing two badges on the string-equality path (untouched) while adding a parallel, row-field-driven path for the three new severe-tier signals, or whether a full rewrite of the dispatch function is cleaner.
    - Recommendation: keep the existing two untouched (lowest regression risk) and add a second, explicit dispatch step for the new signals reading directly off `row.<signal>Severity`/`row.<signal>Evidence` fields rather than round-tripping through `statusBadgeTexts`'s string array.
+
+   - **RESOLVED (orchestrator, 2026-09-10): keep the existing two badges untouched; add a parallel row-field-driven path.** Implemented as its own task in `27-07` Task 2, gated by a `git diff` scope check proving zero changed lines inside `statusBadgeTexts` / `appendLowConfidenceBadge` / `appendPaceDisputedBadge`, plus an "existing badges unregressed" test group pinning both sentinel strings byte-for-byte.
+
 
 ## Environment Availability
 
