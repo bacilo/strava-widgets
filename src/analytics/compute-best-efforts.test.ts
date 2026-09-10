@@ -313,6 +313,7 @@ describe('computeBestEfforts — archive orchestration', () => {
       streamsDir: path.join(tmpDir, 'streams'),
       streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
       statsDir: path.join(tmpDir, 'stats'),
+      ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
     });
 
     expect(doc.totals.skippedNoStream).toBe(2);
@@ -354,6 +355,7 @@ describe('computeBestEfforts — archive orchestration', () => {
       streamsDir: path.join(tmpDir, 'streams'),
       streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
       statsDir: path.join(tmpDir, 'stats'),
+      ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
     });
 
     expect(doc.totals.skippedUnreadable).toBe(1);
@@ -380,6 +382,7 @@ describe('computeBestEfforts — archive orchestration', () => {
       streamsDir: path.join(tmpDir, 'streams'),
       streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
       statsDir: path.join(tmpDir, 'stats'),
+      ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
     });
 
     expect(doc.totals.skippedUnreadable).toBe(1);
@@ -413,6 +416,7 @@ describe('computeBestEfforts — archive orchestration', () => {
       streamsDir: path.join(tmpDir, 'streams'),
       streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
       statsDir: path.join(tmpDir, 'stats'),
+      ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
     });
 
     for (const key of ['400m', '1k', '1mi', '5k', '10k', 'half', 'marathon']) {
@@ -465,6 +469,7 @@ describe('computeBestEfforts — archive orchestration', () => {
       streamsDir: path.join(tmpDir, 'streams'),
       streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
       statsDir: path.join(tmpDir, 'stats'),
+      ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
     });
 
     const firstEffort = doc.activities['first'].efforts.find((e) => e.distance === '1k');
@@ -494,6 +499,7 @@ describe('computeBestEfforts — archive orchestration', () => {
       streamsDir: path.join(tmpDir, 'streams'),
       streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
       statsDir: path.join(tmpDir, 'stats'),
+      ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
     });
 
     expect(doc.rankings['1k'].length).toBe(1);
@@ -532,6 +538,7 @@ describe('computeBestEfforts — archive orchestration', () => {
       streamsDir: path.join(tmpDir, 'streams'),
       streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
       statsDir: path.join(tmpDir, 'stats'),
+      ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
     });
 
     // The `rejected` row still exists — it is the archive-wide report of
@@ -589,6 +596,7 @@ describe('computeBestEfforts — archive orchestration', () => {
       streamsDir: path.join(tmpDir, 'streams'),
       streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
       statsDir: path.join(tmpDir, 'stats'),
+      ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
     });
 
     const demoted400m = doc.activities['maxspeed-implausible'].efforts.find(
@@ -655,6 +663,7 @@ describe('computeBestEfforts — archive orchestration', () => {
         streamsDir: path.join(tmpDir, 'streams'),
         streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
         statsDir: path.join(tmpDir, 'stats'),
+        ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
       });
 
       // Direction 1: the audit passes against the correct, freshly computed document.
@@ -752,6 +761,7 @@ describe('computeBestEfforts — archive orchestration', () => {
         streamsDir: path.join(tmpDir, 'streams'),
         streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
         statsDir: path.join(tmpDir, 'stats'),
+        ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
         // Explicit non-existent path (deliberately NOT the default
         // relative 'data/best-effort-exclusions.json'): the real committed
         // exclusions file already excludes this exact activity id for an
@@ -808,6 +818,7 @@ describe('computeBestEfforts — archive orchestration', () => {
       streamsDir: path.join(tmpDir, 'streams'),
       streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
       statsDir: path.join(tmpDir, 'stats'),
+      ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
     });
 
     const sumEfforts = Object.values(doc.activities).reduce((sum, a) => sum + a.efforts.length, 0);
@@ -829,6 +840,7 @@ describe('computeBestEfforts — archive orchestration', () => {
       streamsDir: path.join(tmpDir, 'streams'),
       streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
       statsDir,
+      ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
     });
 
     const written = await fs.readFile(path.join(statsDir, 'best-efforts.json'), 'utf-8');
@@ -848,6 +860,7 @@ describe('computeBestEfforts — archive orchestration', () => {
       streamsDir: path.join(tmpDir, 'streams'),
       streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
       statsDir: path.join(tmpDir, 'stats'),
+      ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
     });
 
     expect(doc.totals.activitiesConsidered).toBe(0);
@@ -901,6 +914,7 @@ describe('computeBestEfforts — archive orchestration', () => {
         streamsDir: path.join(tmpDir, 'streams'),
         streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
         statsDir: path.join(tmpDir, 'stats'),
+        ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
         exclusionsPath,
       });
 
@@ -929,6 +943,7 @@ describe('computeBestEfforts — archive orchestration', () => {
         streamsDir: path.join(tmpDir, 'streams'),
         streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
         statsDir: path.join(tmpDir, 'stats'),
+        ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
         exclusionsPath,
       });
 
@@ -973,6 +988,7 @@ describe('computeBestEfforts — archive orchestration', () => {
         streamsDir: path.join(tmpDir, 'streams'),
         streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
         statsDir: path.join(tmpDir, 'stats'),
+        ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
         exclusionsPath,
       });
 
@@ -1026,6 +1042,7 @@ describe('computeBestEfforts — archive orchestration', () => {
         streamsDir: path.join(tmpDir, 'streams'),
         streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
         statsDir: path.join(tmpDir, 'stats'),
+        ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
         exclusionsPath,
       });
 
@@ -1110,6 +1127,7 @@ describe('computeBestEfforts — archive orchestration', () => {
         streamsDir: path.join(tmpDir, 'streams'),
         streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
         exclusionsPath: path.join(tmpDir, 'no-such-exclusions.json'),
+        ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
       };
 
       const doc1 = await computeBestEfforts({ ...common, statsDir: path.join(tmpDir, 'stats1') });
@@ -1131,6 +1149,7 @@ describe('computeBestEfforts — archive orchestration', () => {
         streamsDir: path.join(tmpDir, 'streams'),
         streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
         statsDir: path.join(tmpDir, 'stats-forward'),
+        ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
         exclusionsPath: path.join(tmpDir, 'no-such-exclusions.json'),
       });
 
@@ -1140,6 +1159,7 @@ describe('computeBestEfforts — archive orchestration', () => {
         streamsDir: path.join(tmpDir, 'streams'),
         streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
         statsDir: path.join(tmpDir, 'stats-reversed'),
+        ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
         exclusionsPath: path.join(tmpDir, 'no-such-exclusions.json'),
       });
 
@@ -1248,6 +1268,7 @@ describe('computeBestEfforts — archive orchestration', () => {
         streamsDir: path.join(tmpDir, 'streams'),
         streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
         statsDir: path.join(tmpDir, 'stats'),
+        ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
         exclusionsPath: path.join(tmpDir, 'no-such-exclusions.json'),
       });
 
@@ -1360,6 +1381,7 @@ describe('computeBestEfforts — archive orchestration', () => {
         streamsDir: path.join(tmpDir, 'streams'),
         streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
         statsDir: path.join(tmpDir, 'stats'),
+        ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
         exclusionsPath,
       });
 
@@ -1406,6 +1428,7 @@ describe('computeBestEfforts — archive orchestration', () => {
       streamsDir: path.join(tmpDir, 'streams'),
       streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
       statsDir: path.join(tmpDir, 'stats'),
+      ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
       exclusionsPath: path.join(tmpDir, 'no-such-exclusions.json'),
     });
 
@@ -1415,5 +1438,130 @@ describe('computeBestEfforts — archive orchestration', () => {
     for (const id of ids) {
       expect(doc.activities[id].efforts.find((e) => e.distance === 'half')?.demotion).toBeNull();
     }
+  });
+
+  describe('committed ceiling state (Phase 28 D-06/D-07)', () => {
+    it('the first run (no previous state file) writes a ceiling-state file with schemaVersion, note, generatedAt and all seven TARGET_ORDER-keyed ceilings', async () => {
+      const manifest = emptyManifestDoc();
+      await writeManifest(manifest);
+      const ceilingStatePath = path.join(tmpDir, 'ceiling-state.json');
+
+      await computeBestEfforts({
+        activitiesDir: path.join(tmpDir, 'activities'),
+        streamsDir: path.join(tmpDir, 'streams'),
+        streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+        statsDir: path.join(tmpDir, 'stats'),
+        exclusionsPath: path.join(tmpDir, 'no-such-exclusions.json'),
+        ceilingStatePath,
+      });
+
+      const written = JSON.parse(await fs.readFile(ceilingStatePath, 'utf-8'));
+      expect(written.schemaVersion).toBe(1);
+      expect(typeof written.note).toBe('string');
+      expect(written.note.length).toBeGreaterThan(0);
+      expect(typeof written.generatedAt).toBe('string');
+      expect(Object.keys(written.ceilings)).toEqual([
+        '400m',
+        '1k',
+        '1mi',
+        '5k',
+        '10k',
+        'half',
+        'marathon',
+      ]);
+    });
+
+    it('a second run over unchanged input reports no movement and leaves the committed ceiling-state file byte-unmodified (writeJson is gated on a non-empty diff)', async () => {
+      const manifest = emptyManifestDoc();
+      const ids = ['cs-1', 'cs-2', 'cs-3'];
+      for (const id of ids) {
+        manifest.activities[id] = {
+          available: true,
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: 2,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+        };
+      }
+      await writeManifest(manifest);
+      for (let i = 0; i < ids.length; i++) {
+        await writeActivity(ids[i], `2026-0${i + 1}-01T00:00:00Z`);
+        await writeStream(ids[i], 300 + i);
+      }
+
+      const ceilingStatePath = path.join(tmpDir, 'ceiling-state.json');
+      const common = {
+        activitiesDir: path.join(tmpDir, 'activities'),
+        streamsDir: path.join(tmpDir, 'streams'),
+        streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+        exclusionsPath: path.join(tmpDir, 'no-such-exclusions.json'),
+        ceilingStatePath,
+      };
+
+      // First run: no previous state exists, so exactly one first-run
+      // movement row is reported and the file IS written.
+      await computeBestEfforts({ ...common, statsDir: path.join(tmpDir, 'stats-run1') });
+      const firstWrite = await fs.readFile(ceilingStatePath, 'utf-8');
+      const firstParsed = JSON.parse(firstWrite);
+      expect(firstParsed.schemaVersion).toBe(1);
+
+      // Second run: identical input, so the freshly re-derived ceilings must
+      // match the just-committed previous state exactly (D-06's own
+      // guarantee) — the diff is empty and the file is left untouched.
+      await computeBestEfforts({ ...common, statsDir: path.join(tmpDir, 'stats-run2') });
+      const secondWrite = await fs.readFile(ceilingStatePath, 'utf-8');
+      const secondParsed = JSON.parse(secondWrite);
+
+      expect(secondParsed.generatedAt).toBe(firstParsed.generatedAt);
+      expect(secondWrite).toBe(firstWrite);
+    });
+
+    it('a genuine population change between runs produces an updated, non-byte-identical ceiling-state file', async () => {
+      const manifest = emptyManifestDoc();
+      manifest.activities['cs-a'] = {
+        available: true,
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 2,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+      };
+      await writeManifest(manifest);
+      await writeActivity('cs-a', '2026-01-01T00:00:00Z');
+      await writeStream('cs-a', 300);
+
+      const ceilingStatePath = path.join(tmpDir, 'ceiling-state.json');
+      const common = {
+        activitiesDir: path.join(tmpDir, 'activities'),
+        streamsDir: path.join(tmpDir, 'streams'),
+        streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+        exclusionsPath: path.join(tmpDir, 'no-such-exclusions.json'),
+        ceilingStatePath,
+      };
+
+      await computeBestEfforts({ ...common, statsDir: path.join(tmpDir, 'stats-run1') });
+      const firstWrite = await fs.readFile(ceilingStatePath, 'utf-8');
+
+      // Add a second activity — the 1k population grows from 1 to 2, so
+      // `populationN` differs even though both stay far below
+      // CEILING_MIN_POPULATION (both fail-open) — a genuine, reportable
+      // movement distinct from "unchanged."
+      await writeActivity('cs-b', '2026-01-02T00:00:00Z');
+      await writeStream('cs-b', 310);
+      manifest.activities['cs-b'] = {
+        available: true,
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 2,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+      };
+      await writeManifest(manifest);
+
+      await computeBestEfforts({ ...common, statsDir: path.join(tmpDir, 'stats-run2') });
+      const secondWrite = await fs.readFile(ceilingStatePath, 'utf-8');
+
+      expect(secondWrite).not.toBe(firstWrite);
+      const secondParsed = JSON.parse(secondWrite);
+      expect(secondParsed.ceilings['1k'].populationN).toBe(2);
+    });
   });
 });

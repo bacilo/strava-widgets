@@ -34,6 +34,12 @@ import {
 // no-iteration clause) — see the "no iteration to convergence" suite in
 // compute-best-efforts.test.ts.
 import { ceilingDemotion, deriveCeilings } from './best-effort-ceiling.js';
+import {
+  buildCeilingStateFile,
+  diffCeilingState,
+  formatCeilingMovement,
+  loadCeilingState,
+} from './best-effort-ceiling-state.js';
 import { isExcluded, loadExclusions } from './best-effort-exclusions.js';
 import { loadManifest } from '../streams/stream-manifest.js';
 import type { CanonicalStream, DistanceSource } from '../streams/stream.types.js';
@@ -172,6 +178,7 @@ export interface ComputeBestEffortsOptions {
   streamsManifestPath?: string;
   statsDir?: string;
   exclusionsPath?: string;
+  ceilingStatePath?: string;
 }
 
 interface PRAccumulatorEntry {
@@ -200,6 +207,7 @@ export async function computeBestEfforts(
   const streamsManifestPath = options.streamsManifestPath || 'data/streams/manifest.json';
   const statsDir = options.statsDir || 'data/stats';
   const exclusionsPath = options.exclusionsPath || 'data/best-effort-exclusions.json';
+  const ceilingStatePath = options.ceilingStatePath || 'data/best-effort-ceiling.json';
 
   const fileStore = new FileStore('.');
 
@@ -207,6 +215,14 @@ export async function computeBestEfforts(
 
   const manifest = await loadManifest(fileStore, streamsManifestPath);
   const exclusions = await loadExclusions(fileStore, exclusionsPath);
+  // D-06/D-07: the previous run's committed ceiling state, loaded ONCE here.
+  // This is READ-ONLY input to REPORTING below — Pass 2's `deriveCeilings`
+  // call must never consult it, fall back to it, or blend with it. A future
+  // reader will be tempted to use the previous value as a stabiliser; D-06
+  // rejected exactly that (a hand-maintained/pinned number on the critical
+  // path goes stale silently) in favour of re-deriving fresh every run and
+  // only comparing against the previous value for the human-facing report.
+  const previousState = await loadCeilingState(fileStore, ceilingStatePath);
 
   let skippedNoStream = 0;
   let skippedUnreadable = 0;
@@ -438,6 +454,13 @@ export async function computeBestEfforts(
     ceilings,
   };
 
+  // D-06/D-07: compare this run's fresh derivation against the committed
+  // previous state (loaded, read-only, before Pass 2 above) and report the
+  // movement. `previousState` never reaches `deriveCeilings` — it is
+  // consulted ONLY here, after Pass 3, purely for the human-facing diff.
+  const ceilingMovement = diffCeilingState(previousState, doc.ceilings);
+  const ceilingMovementLines = formatCeilingMovement(ceilingMovement);
+
   await fileStore.writeJson(path.join(statsDir, 'best-efforts.json'), doc);
 
   // Per-activity shard files (18-13/T-18-AVAIL-04): the detail view's
@@ -475,6 +498,34 @@ export async function computeBestEfforts(
     }
   }
   console.log(`\nOutput written to: ${path.join(statsDir, 'best-efforts.json')}`);
+
+  // D-06: the ceiling's movement against the committed previous run is
+  // always reported in words with numbers — never silent, whether it moved
+  // or not. `ceilingMovementRows` (used just below to gate the conditional
+  // write) is empty exactly when this run agrees with the previous one,
+  // which is the observation this line makes explicit.
+  console.log(`\nCeiling movement vs. previous committed run:`);
+  if (ceilingMovement.length === 0) {
+    console.log(`  unchanged at every distance`);
+  } else {
+    for (const line of ceilingMovementLines) {
+      console.log(`  ${line}`);
+    }
+  }
+
+  // Write the committed ceiling-state file CONDITIONALLY: only when the
+  // ceiling actually moved (`ceilingMovement.length > 0`). The file carries
+  // a `generatedAt` stamp, so an unconditional write would produce a commit
+  // on every nightly run — and a nightly commit against a repository whose
+  // CI already races `origin/master` (T-28-06-C) is how an occasional
+  // non-fast-forward becomes a routine one. When nothing moved, the file is
+  // left byte-untouched so git sees no diff and the auto-commit step below
+  // (daily-refresh.yml) has nothing to stage for this path.
+  if (ceilingMovement.length > 0) {
+    const stateFile = buildCeilingStateFile(doc.ceilings, doc.generatedAt);
+    await fileStore.writeJson(ceilingStatePath, stateFile);
+    console.log(`  Committed ceiling state updated: ${ceilingStatePath}`);
+  }
 
   if (rejected.length > 0) {
     console.log(`\nRejected efforts (dropped, not fatal):`);
