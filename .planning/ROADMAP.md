@@ -187,7 +187,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 27-03-PLAN.md — archive-wide calibration dry run, threshold-sensitivity sweep, and the blocking checkpoint on the measured composite rate
+- [x] 27-03-PLAN.md — archive-wide calibration dry run, threshold-sensitivity sweep, and the blocking checkpoint on the measured composite rate
 - [x] 27-04-PLAN.md — required `quality` index field (schema version unchanged), per-activity shard writer, publish-time spot-checks
 
 **Wave 4** *(blocked on Wave 3 completion)*
@@ -291,7 +291,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 24. Local Curation Mode | v2.1 | 17/17 | Complete    | 2026-09-02 |
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 12/12 | Complete    | 2026-09-04 |
 | 26. Shared Gap-Aware Pace Derivation & Honest Coverage | v2.2 | 16/16 | Complete    | 2026-09-10 |
-| 27. Per-Activity Quality Signals | v2.2 | 3/10 | In Progress|  |
+| 27. Per-Activity Quality Signals | v2.2 | 4/10 | In Progress|  |
 | 28. PR Plausibility Ceiling | v2.2 | 0/TBD | Not started | - |
 | 29. Curation Review Queue | v2.2 | 0/TBD | Not started | - |
 | 30. Elevation Quality Signal | v2.2 | 0/TBD | Not started | - |
