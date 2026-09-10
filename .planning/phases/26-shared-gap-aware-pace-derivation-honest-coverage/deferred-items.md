@@ -82,3 +82,29 @@ additive index field, not just this one. Point-fixing each call site as it's dis
 narrowing the read-side type once, means this exact investigation repeats per field. This item should
 be carried into the v2.2 milestone's open-items list rather than dropped, not treated as closed by
 this plan.
+
+---
+
+## `copyJsonTree`'s mtime guard makes a doctored `dist/` artifact permanently sticky
+
+**Found by:** plan 26-16, Task 2 fixture restore (Round 3 checkpoint).
+
+`scripts/lib/copy-data-tree.mjs:41-48` skips a copy whenever `destMtime >= srcMtime`, as an
+efficiency guard so local rebuilds do not recopy ~150MB. The consequence is that **any local edit to
+a file under `dist/widgets/data/` makes it newer than its source, and `npm run build-widgets` then
+silently refuses to overwrite it — permanently**, until someone touches the source file. The build
+log reports success either way.
+
+This is the mechanism behind this project's recorded staged-build cache trap. Round 3 hit it
+directly: the first `build-widgets` restore of the doctored `index.json` reported success and left
+the doctored file in place. It was caught only because the plan verified the **served-path digest**
+rather than trusting the build log, and was fixed with a direct `cp` from the known-good repo source.
+
+**Why it was not fixed here:** `scripts/` is outside plan 26-16's `files_modified` scope, and the
+plan's own deliverable (a restored, digest-verified fixture) was achieved without touching it.
+
+**Why it should still happen:** every future browser checkpoint that stages a doctored artifact
+inherits this trap, and the failure is silent-and-passing — the worst shape. Two candidate fixes:
+compare content digests instead of mtimes, or give `build-widgets` a `--force` path that checkpoint
+staging always uses. Until then, **no checkpoint may treat a `build-widgets` restore as done without
+verifying the served-path digest against the repo source.**
