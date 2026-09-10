@@ -239,8 +239,8 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 28-06-PLAN.md — Committed ceiling state, drift reporting, and one added glob on the existing CI commit step (PR-01, PR-04)
-- [ ] 28-07-PLAN.md — Archive-wide before/after PR diff computed from one snapshot, proven idempotent by a second run (PR-04)
+- [x] 28-06-PLAN.md — Committed ceiling state, drift reporting, and one added glob on the existing CI commit step (PR-01, PR-04)
+- [x] 28-07-PLAN.md — Archive-wide before/after PR diff computed from one snapshot, proven idempotent by a second run (PR-04)
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
@@ -321,7 +321,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 12/12 | Complete    | 2026-09-04 |
 | 26. Shared Gap-Aware Pace Derivation & Honest Coverage | v2.2 | 16/16 | Complete    | 2026-09-10 |
 | 27. Per-Activity Quality Signals | v2.2 | 12/12 | Complete    | 2026-09-10 |
-| 28. PR Plausibility Ceiling | v2.2 | 5/9 | In Progress|  |
+| 28. PR Plausibility Ceiling | v2.2 | 7/9 | In Progress|  |
 | 29. Curation Review Queue | v2.2 | 0/TBD | Not started | - |
 | 30. Elevation Quality Signal | v2.2 | 0/TBD | Not started | - |
 
