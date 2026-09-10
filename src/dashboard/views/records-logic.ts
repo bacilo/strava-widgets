@@ -17,6 +17,7 @@ import type {
   TargetDistanceKey,
 } from '../../analytics/best-effort.types.js';
 import type { AgeGradeEntry, AgeGradingDocument } from '../../analytics/age-grading.types.js';
+import { DISTANCE_DISPLAY_NAMES } from './detail-best-efforts-logic.js';
 
 /** Own-property read only — no prototype key is ever reachable through a parsed payload. */
 function hasOwn(obj: object, key: string): boolean {
@@ -142,6 +143,95 @@ export function buildPrTableRows(
  */
 export function isEmptyRanking(entries: readonly PRRankingEntry[] | undefined): boolean {
   return !entries || entries.length === 0;
+}
+
+/**
+ * Counts demoted EFFORTS at `distance` across every activity in
+ * `activities` — NOT activities. The Records note this feeds reports
+ * demoted EFFORTS while PR-05's cohort is counted in ACTIVITIES elsewhere;
+ * the two must never be conflated. Walks `Object.keys` with the same
+ * `hasOwn` guard `buildEvolutionSeries` uses. Reads `effort.demotion` only
+ * through `!= null` (T-28-02-A), so a stale shard shipped without the
+ * field degrades to "not demoted" rather than a TypeError. `demotion` and
+ * `excludedFromRecords` are never conflated (D-10): an owner-excluded,
+ * non-demoted effort does not count here.
+ */
+export function countDemotedAtDistance(
+  activities: BestEffortsDocument['activities'],
+  distance: TargetDistanceKey
+): number {
+  let count = 0;
+
+  for (const activityId of Object.keys(activities)) {
+    if (!hasOwn(activities, activityId)) continue;
+    const activity = activities[activityId];
+    if (!activity) continue;
+
+    for (const effort of activity.efforts) {
+      if (effort.distance !== distance) continue;
+      if (effort.demotion == null) continue;
+      count++;
+    }
+  }
+
+  return count;
+}
+
+/**
+ * The three-branch copy for the Records screen's per-distance empty state
+ * (D-03, D-09). The `this-year` branch and the all-time-with-nothing-demoted
+ * branch reproduce `records.ts`'s pre-existing `buildPrTableEmptyState`
+ * copy VERBATIM — this function exists to be the pinned, testable source
+ * those two branches move to, not a rewrite. `demotedCount` is ignored for
+ * `scope === 'this-year'`: the year filter's own absence is the dominant
+ * explanation there, and the ceiling language belongs on the permanent,
+ * all-time emptying D-03 accepts, not a temporary date-filtered one.
+ */
+export function resolvePrTableEmptyState(
+  distance: TargetDistanceKey,
+  scope: RecordScope,
+  year: number,
+  demotedCount: number
+): { heading: string; body: string } {
+  const label = DISTANCE_DISPLAY_NAMES[distance];
+
+  if (scope === 'this-year') {
+    return {
+      heading: `No ${label} efforts in ${year}`,
+      body: `The archive has no ${label} effort recorded in ${year}. Switch to All time to see every ranked effort.`,
+    };
+  }
+
+  if (demotedCount === 0) {
+    return {
+      heading: `No ${label} efforts yet`,
+      body: `The archive has no completed ${label} effort. Once one is recorded, its rank will appear here.`,
+    };
+  }
+
+  const effortWord = demotedCount === 1 ? 'effort' : 'efforts';
+  const verb = demotedCount === 1 ? 'was' : 'were';
+  return {
+    heading: `No ${label} efforts passed the plausibility ceiling`,
+    body: `${demotedCount} ${label} ${effortWord} ${verb} demoted by the plausibility ceiling. See each activity's detail view for the reason.`,
+  };
+}
+
+/**
+ * The SHORT-table half of D-03: a table that still ranks efforts after some
+ * were demoted must say so, or the absence is invisible. Returns `null`
+ * when `demotedCount` is 0 — no note when nothing was demoted.
+ */
+export function resolvePrTableDemotionNote(
+  distance: TargetDistanceKey,
+  demotedCount: number
+): string | null {
+  if (demotedCount === 0) return null;
+
+  const label = DISTANCE_DISPLAY_NAMES[distance];
+  const effortWord = demotedCount === 1 ? 'effort' : 'efforts';
+  const verb = demotedCount === 1 ? 'was' : 'were';
+  return `${demotedCount} ${label} ${effortWord} ${verb} demoted by the plausibility ceiling. See the activity detail view for the reason.`;
 }
 
 /** The two scopes OVR-03 names. Nothing persists this value — D-04. */

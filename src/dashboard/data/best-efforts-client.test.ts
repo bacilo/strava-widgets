@@ -51,6 +51,7 @@ const validShard = {
       lowConfidence: false,
       wasPRAtTheTime: true,
       excludedFromRecords: false,
+      demotion: null,
     },
   ],
   excludedFromRecords: false,
@@ -81,6 +82,36 @@ describe('parseActivityBestEfforts', () => {
     };
     const result = parseActivityBestEfforts(doc);
     expect(result?.efforts.length).toBe(1);
+  });
+
+  it('T-28-02-A: a stale shard written before demotion existed (no key at all) degrades to demotion: null rather than throwing or dropping the effort', () => {
+    const staleEffort: Record<string, unknown> = { ...validShard.efforts[0] };
+    delete staleEffort.demotion;
+    const doc = { ...validShard, efforts: [staleEffort] };
+    const result = parseActivityBestEfforts(doc);
+    expect(result?.efforts.length).toBe(1);
+    expect(result?.efforts[0].demotion).toBeNull();
+  });
+
+  it('a malformed demotion value (unknown guard) degrades the effort to demotion: null rather than propagating garbage', () => {
+    const doc = {
+      ...validShard,
+      efforts: [{ ...validShard.efforts[0], demotion: { guard: 'not-a-real-guard', reason: 'x' } }],
+    };
+    const result = parseActivityBestEfforts(doc);
+    expect(result?.efforts[0].demotion).toBeNull();
+  });
+
+  it('a well-formed demotion value parses through intact', () => {
+    const doc = {
+      ...validShard,
+      efforts: [{ ...validShard.efforts[0], demotion: { guard: 'ceiling', reason: 'implied 6.5 m/s exceeds derived ceiling 5.8 m/s' } }],
+    };
+    const result = parseActivityBestEfforts(doc);
+    expect(result?.efforts[0].demotion).toEqual({
+      guard: 'ceiling',
+      reason: 'implied 6.5 m/s exceeds derived ceiling 5.8 m/s',
+    });
   });
 });
 

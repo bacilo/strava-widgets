@@ -105,6 +105,7 @@ export function computeActivityEfforts(input: ActivityEffortInput): ActivityEffo
         startOffsetSec: Math.round(raw.startOffsetSec),
         endOffsetSec: round1(raw.endOffsetSec),
         lowConfidence: distanceSource === 'geo',
+        demotion: null, // No ceiling yet; plan 28-05 replaces this push branch.
       });
     } catch (error) {
       // One target throwing must never lose the activity's other six (Pitfall 6).
@@ -302,10 +303,12 @@ export async function computeBestEfforts(
       lowConfidenceEfforts,
       skippedNoStream,
       skippedUnreadable,
+      effortsDemoted: 0, // Plan 28-05 starts computing this.
     },
     rankings,
     rejected,
     activities: sortedActivities,
+    ceilings: {} as BestEffortsDocument['ceilings'], // Plan 28-05 starts deriving these.
   };
 
   await fileStore.writeJson(path.join(statsDir, 'best-efforts.json'), doc);

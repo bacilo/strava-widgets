@@ -65,6 +65,22 @@ export interface RawEffort {
  */
 export type PlausibilityResult = { ok: true } | { ok: false; reason: string };
 
+/** Which plausibility guard produced a demotion (Phase 28 D-08). `'ceiling'` is the new
+ * personal-plausibility-ceiling guard; `'world-record'` and `'max-speed'` are the
+ * pre-existing absolute guards, now routed through demotion instead of deletion. */
+export type EffortDemotionGuard = 'world-record' | 'max-speed' | 'ceiling';
+
+/**
+ * One demoted effort's machine judgment (Phase 28 D-08/D-10): which guard
+ * rejected it and why. `reason` follows the house register `isPlausible`
+ * already established — a named condition with its measured numbers, never
+ * an adjective (Phase 27 D-09).
+ */
+export interface EffortDemotion {
+  guard: EffortDemotionGuard;
+  reason: string;
+}
+
 /**
  * One plausible effort for one activity, before the archive-wide PR pass
  * has run.
@@ -80,6 +96,20 @@ export interface ComputedEffort {
   endOffsetSec: number;
   /** True exactly when the source stream's `distanceSource` is `'geo'` (D-03). */
   lowConfidence: boolean;
+  /**
+   * The MACHINE's judgment that this effort should not rank — distinct from
+   * `BestEffort.excludedFromRecords`, the OWNER's stated intent (Phase 28
+   * D-10). The two are never collapsed into one field: Phase 29's review
+   * queue must be able to tell "you excluded this" from "a guard rejected
+   * this", and collapsing them would leave `resolveExcluded`'s
+   * live-vs-precomputed contract (Phase 24 WR-05/WR-17) with a second,
+   * conflicting meaning. `null` is the correct PERMANENT value for an
+   * effort no guard rejected — it is not an unset placeholder waiting to be
+   * filled in later. Declared here, on the base type, rather than invented
+   * later by a `.map()` onto `BestEffort`, so the field is set exactly once
+   * at the point of computation.
+   */
+  demotion: EffortDemotion | null;
 }
 
 /**
@@ -140,6 +170,23 @@ export interface RejectedEffort {
   reason: string;
 }
 
+/**
+ * One target distance's derived personal plausibility ceiling (Phase 28
+ * PR-02, D-01, D-02). `ceilingMps: null` paired with a non-null
+ * `failOpenReason` is D-02's auditable "no personal ceiling was derivable
+ * at this distance" state — below the stated minimum population, no
+ * personal ceiling is derived and the distance keeps only the pre-existing
+ * world-record and max_speed guards.
+ */
+export interface CeilingDerivation {
+  distance: TargetDistanceKey;
+  populationN: number;
+  p90Mps: number | null;
+  multiplier: number;
+  ceilingMps: number | null;
+  failOpenReason: string | null;
+}
+
 /** The full output document written to `data/stats/best-efforts.json`. */
 export interface BestEffortsDocument {
   schemaVersion: 1;
@@ -155,8 +202,42 @@ export interface BestEffortsDocument {
     lowConfidenceEfforts: number;
     skippedNoStream: number;
     skippedUnreadable: number;
+    /**
+     * Efforts demoted by any guard (world-record, max-speed or ceiling —
+     * Phase 28 D-08), across every distance. Purely additive: does not
+     * require a `BEST_EFFORTS_SCHEMA_VERSION` bump per that constant's own
+     * comment, matching Phase 26 D-14's precedent for additive fields. Set
+     * to 0 by this plan; plan 28-05's three-pass restructuring is what
+     * starts computing it.
+     */
+    effortsDemoted: number;
   };
   rankings: Record<TargetDistanceKey, PRRankingEntry[]>;
   rejected: RejectedEffort[];
   activities: Record<string, ActivityBestEfforts>;
+  /**
+   * Per-distance ceiling derivation, persisted for audit (Phase 28 D-06):
+   * "the ceiling is re-derived on every run, persisted into the output, and
+   * any movement is reported." Purely additive, same schema-version
+   * reasoning as `totals.effortsDemoted` above.
+   */
+  ceilings: Record<TargetDistanceKey, CeilingDerivation>;
+}
+
+/**
+ * The full contract of the committed `data/best-effort-ceiling-state.json`
+ * (Phase 28 D-07): the previous run's derived ceilings, committed so CI has
+ * something durable to diff the next run's re-derivation against —
+ * `data/stats/` is gitignored and starts empty on every CI run, so there is
+ * nowhere else durable to compare against. Mirrors
+ * `BestEffortExclusionsFile`'s `schemaVersion` + `note` pair.
+ */
+export interface BestEffortCeilingStateFile {
+  schemaVersion: 1;
+  note: string;
+  generatedAt: string;
+  ceilings: Record<
+    TargetDistanceKey,
+    { ceilingMps: number | null; p90Mps: number | null; populationN: number }
+  >;
 }

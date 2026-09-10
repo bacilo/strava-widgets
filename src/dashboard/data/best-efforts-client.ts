@@ -14,7 +14,13 @@
  */
 
 import type { FetchLike } from './index-client.js';
-import type { ActivityBestEfforts, BestEffort, TargetDistanceKey } from '../../analytics/best-effort.types.js';
+import type {
+  ActivityBestEfforts,
+  BestEffort,
+  EffortDemotion,
+  EffortDemotionGuard,
+  TargetDistanceKey,
+} from '../../analytics/best-effort.types.js';
 
 /** Own-property read only — no prototype key is ever reachable through the parsed document. */
 function hasOwn(obj: object, key: string): boolean {
@@ -35,10 +41,33 @@ const VALID_DISTANCES: ReadonlySet<string> = new Set<TargetDistanceKey>([
   'marathon',
 ]);
 
+const VALID_DEMOTION_GUARDS: ReadonlySet<string> = new Set<EffortDemotionGuard>([
+  'world-record',
+  'max-speed',
+  'ceiling',
+]);
+
+/**
+ * Total, never-throwing parse of one effort's `demotion` field (Phase 28
+ * T-28-02-A): a stale shard written before this field existed carries no
+ * `demotion` key at all, and a hand-edited one could carry a malformed
+ * value. Both degrade to `null` — "not demoted" — rather than a fabricated
+ * demotion or a thrown error; `parseEffort` below never treats an absent
+ * key as anything other than this same total-parse path.
+ */
+function parseDemotion(raw: unknown): EffortDemotion | null {
+  if (raw === null || raw === undefined) return null;
+  if (!isPlainObject(raw)) return null;
+  const { guard, reason } = raw;
+  if (typeof guard !== 'string' || !VALID_DEMOTION_GUARDS.has(guard)) return null;
+  if (typeof reason !== 'string') return null;
+  return { guard: guard as EffortDemotionGuard, reason };
+}
+
 /** Total, never-throwing parse of one effort entry. Returns null on any structural failure. */
 function parseEffort(raw: unknown): BestEffort | null {
   if (!isPlainObject(raw)) return null;
-  const { distance, durationSec, paceSecPerKm, startOffsetSec, endOffsetSec, lowConfidence, wasPRAtTheTime, excludedFromRecords } = raw;
+  const { distance, durationSec, paceSecPerKm, startOffsetSec, endOffsetSec, lowConfidence, wasPRAtTheTime, excludedFromRecords, demotion } = raw;
   if (typeof distance !== 'string' || !VALID_DISTANCES.has(distance)) return null;
   if (typeof durationSec !== 'number' || typeof paceSecPerKm !== 'number') return null;
   if (typeof startOffsetSec !== 'number' || typeof endOffsetSec !== 'number') return null;
@@ -54,6 +83,7 @@ function parseEffort(raw: unknown): BestEffort | null {
     lowConfidence,
     wasPRAtTheTime,
     excludedFromRecords,
+    demotion: parseDemotion(demotion),
   };
 }
 
