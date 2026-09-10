@@ -507,6 +507,50 @@ which is the failure mode D-02 and D-04 exist to prevent. Recorded for verificat
 the natural fix mirrors G-01's (`isStreamFile()` exclusion plus a regression test), and G-01's
 now-committed helper in `scripts/compute-pace-quality-calibration.mjs` is the reference implementation.
 
+### G-04 — `qualityBadgeSpecs` crashed the whole Activities list on a row with no `quality` (CLOSED by plan 27-12, 2026-09-10)
+
+Raised as **Critical** by `27-REVIEW.md`. `src/dashboard/views/list.ts`'s `qualityBadgeSpecs`
+destructured `const { decimation, gapProfile, impossibleSamples } = row.quality;` with no guard,
+and was reached unconditionally from `activityRowAriaLabel` and `appendQualityBadges` — both called
+from `buildTableRow` and `renderActivityRow`, whose render loops carry no per-row try/catch. One row
+lacking `quality` therefore blanked the ENTIRE Activities list, and `overview.ts` reuses the helper.
+
+The compiler could not see it: the function was typed `Pick<DashboardIndexRow, 'quality'>` where
+`quality` is required, while runtime values are `ParsedDashboardIndexRow`, whose own doc comment
+states "no key can be assumed present here — which is what lets the compiler enumerate every
+consumer that assumed otherwise." Three siblings touched by this same phase already guarded
+correctly (`rowIsAnySevere`, `detail.ts`'s `getRow(id)?.quality ?? null`, `rowPaceDisagreement`);
+`qualityBadgeSpecs` alone did not.
+
+**Orchestrator reproduction, before the fix**, against the built bundle:
+`TypeError: Cannot destructure property 'decimation' of 'row.quality' as it is undefined.`
+
+**Closed by plan 27-12:** parameter widened to `Pick<ParsedDashboardIndexRow, 'quality'>` — the fix
+the type contract was written to enable, not a cast — and absence now returns `[]`. Every other
+`.quality` reader in the render path audited: `list-logic.ts` and `detail.ts` already guarded;
+`overview.ts`, `records.ts`, `calendar.ts` never read `.quality` directly and are fixed
+transitively. 5 new tests, 3 demonstrated failing with the verbatim TypeError first.
+
+**Orchestrator re-verification after the fix:** `qualityBadgeSpecs` returns `[]` for all three
+shapes — no `quality` key, `quality: null`, `quality: undefined` — none throwing.
+
+### G-05 — Criterion 3's explanation strings were defended only by an accidental asymmetry (CLOSED by plan 27-12, 2026-09-10)
+
+Raised as WR-01 by `27-REVIEW.md`, after the orchestrator flagged the same `?? ''` fallback at
+wave 5. `detail-sections.ts` sourced its three tiering explanations from `list.ts`'s
+`qualityBadgeSpecs` via a module-load probe row and read them through a helper ending `?? ''`. The
+existing drift test caught total failure only through an accidental `''`-vs-`undefined` mismatch,
+and the probe object was hand-duplicated between production and test source.
+
+**Closed by plan 27-12:** `EXPLANATION_PROBE_QUALITY` is now exported as the single origin shared by
+production and test, and all three explanations are asserted non-empty eagerly at module load,
+throwing rather than rendering blank. The `?? ''` fallback is now unreachable defense-in-depth.
+
+**The confirming evidence:** the new direct assertion FAILED (`expected 0 to be greater than 0`)
+against a deliberately-emptied explanation while the pre-existing equality drift test stayed GREEN
+on that same broken state — demonstrating the old safety net was accidental, exactly as the review
+claimed.
+
 ## Requirement -> Row Disposition
 
 Applying the plan's own requirement->row map (27-10-PLAN.md checkpoint task acceptance
