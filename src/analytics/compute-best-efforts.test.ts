@@ -672,6 +672,112 @@ describe('computeBestEfforts — archive orchestration', () => {
     });
   });
 
+  describe('4556693525', () => {
+    it('a personal-ceiling-exceeding 400m effort is demoted (guard: "ceiling"), pinned at durationSec 45.2 — not deleted', async () => {
+      // D-04: the live pipeline computes 45.2s / 8.85 m/s for activity
+      // 4556693525's 400m effort. PR-05 and the original ROADMAP Criterion 3
+      // both state 44.0s / 9.09 m/s — that figure matches no record in the
+      // live archive and was corrected to 45.2s / 8.85 m/s on 2026-09-10 per
+      // D-04; pinning the wrong (44.0/9.09) value would produce a test that
+      // fails on day one for the wrong reason. Note: this test is deferred
+      // from Task 1 (which introduced this describe block's original slot)
+      // into Task 2's commit, since it requires the ceiling mechanism Task 2
+      // wires in — see this plan's SUMMARY.md Deviations section.
+      const manifest = emptyManifestDoc();
+
+      const BULK_COUNT = 150;
+      const bulkIds: string[] = [];
+      for (let i = 0; i < BULK_COUNT; i++) {
+        const id = `bulk-${i}`;
+        bulkIds.push(id);
+        manifest.activities[id] = {
+          available: true,
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: 2,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+        };
+      }
+      manifest.activities['4556693525'] = {
+        available: true,
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 3,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+      };
+      await writeManifest(manifest);
+
+      // Bulk 400m population: 150 ordinary efforts, speeds spanning
+      // 3.00-4.11 m/s so the nearest-rank p90 lands near the live
+      // calibration's 400m figure (~4.00 m/s, ceiling ~5.11 m/s — see
+      // 28-CEILING-CALIBRATION.md "Resulting coverage and demotions"),
+      // clearing CEILING_MIN_POPULATION (100).
+      for (let i = 0; i < BULK_COUNT; i++) {
+        const speed = 3.0 + (i / (BULK_COUNT - 1)) * 1.112;
+        const durationSec = round1(400 / speed);
+        await writeActivity(bulkIds[i], '2020-01-01T00:00:00Z', 400);
+        await fileStore.writeJson(path.join('streams', `${bulkIds[i]}.json`), {
+          schemaVersion: 1,
+          id: bulkIds[i],
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: 2,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+          t: [0, durationSec],
+          d: [0, 400],
+        });
+      }
+
+      // The pinned activity: 400m in 45.2s (8.85 m/s implied) plus an
+      // ordinary 1k effort. max_speed 16.4 means the max-speed guard does
+      // NOT fire (16.4 * 1.02 clears 8.85 easily) — only the personal
+      // ceiling demotes this effort.
+      await writeActivity('4556693525', '2026-01-01T00:00:00Z', 1000, 16.4);
+      await fileStore.writeJson(path.join('streams', '4556693525.json'), {
+        schemaVersion: 1,
+        id: '4556693525',
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 3,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+        t: [0, 45.2, 225.4],
+        d: [0, 400, 1000],
+      });
+
+      const doc = await computeBestEfforts({
+        activitiesDir: path.join(tmpDir, 'activities'),
+        streamsDir: path.join(tmpDir, 'streams'),
+        streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+        statsDir: path.join(tmpDir, 'stats'),
+        // Explicit non-existent path (deliberately NOT the default
+        // relative 'data/best-effort-exclusions.json'): the real committed
+        // exclusions file already excludes this exact activity id for an
+        // unrelated reason ("bad measurement"), which would silently
+        // remove it from `byDistance` before the ceiling ever saw it — a
+        // reachability trap this test must not fall into. `loadExclusions`
+        // degrades a missing file to an empty index (T-16-EX-01).
+        exclusionsPath: path.join(tmpDir, 'no-such-exclusions.json'),
+      });
+
+      // Sanity: the personal ceiling was actually derived (not fail-open)
+      // at 400m, confirming the bulk population cleared
+      // CEILING_MIN_POPULATION, and it sits well below 8.85 m/s.
+      expect(doc.ceilings['400m'].ceilingMps).not.toBeNull();
+      expect(doc.ceilings['400m'].ceilingMps!).toBeLessThan(8.85);
+
+      const effort400m = doc.activities['4556693525'].efforts.find((e) => e.distance === '400m');
+      expect(effort400m).toBeDefined();
+      expect(effort400m!.durationSec).toBe(45.2);
+      expect(effort400m!.demotion).not.toBeNull();
+      expect(effort400m!.demotion!.guard).toBe('ceiling');
+
+      // The ordinary 1k effort is untouched.
+      const effort1k = doc.activities['4556693525'].efforts.find((e) => e.distance === '1k');
+      expect(effort1k).toBeDefined();
+      expect(effort1k!.demotion).toBeNull();
+    });
+  });
+
   it('totals are internally consistent: effortsComputed and lowConfidenceEfforts match the activities data', async () => {
     const manifest = emptyManifestDoc();
     manifest.activities['x1'] = {

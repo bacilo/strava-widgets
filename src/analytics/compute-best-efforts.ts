@@ -29,6 +29,10 @@ import {
   validateStreamSeries,
   WORLD_RECORD_SPEED_MPS,
 } from './best-effort-utils.js';
+// `deriveCeilings(...)` is imported here and called exactly once below, in
+// PASS 2 (PR-01's no-iteration clause) — see the "no iteration to
+// convergence" suite in compute-best-efforts.test.ts.
+import { ceilingDemotion, deriveCeilings } from './best-effort-ceiling.js';
 import { isExcluded, loadExclusions } from './best-effort-exclusions.js';
 import { loadManifest } from '../streams/stream-manifest.js';
 import type { CanonicalStream, DistanceSource } from '../streams/stream.types.js';
@@ -211,8 +215,15 @@ export async function computeBestEfforts(
   const activities: Record<string, ActivityBestEfforts> = {};
   const rejected: RejectedEffort[] = [];
 
-  // Map<distance, entries> — accumulated across the whole archive, then
-  // sorted/marked/ranked once per distance after the per-activity loop.
+  // PASS 1 — ACCUMULATE. May read each activity's own stream/canonical
+  // record; must not read anything derived from the archive as a whole (no
+  // ceiling exists yet). `byDistance` accumulates exactly the population an
+  // effort enters only when it PASSED the absolute guard (its `demotion` is
+  // null after the per-target loop below) and `isExcluded` is false — this
+  // is PR-02's seam: the ceiling's input (Pass 2) is already filtered by the
+  // absolute guard and the exclusion list, and it is NOT ceiling-filtered
+  // because the ceiling does not exist yet. A demoted effort is retained in
+  // `activities[id].efforts` (D-08) but never enters `byDistance`.
   const byDistance = new Map<TargetDistanceKey, PRAccumulatorEntry[]>();
   for (const key of TARGET_ORDER) byDistance.set(key, []);
 
@@ -298,14 +309,57 @@ export async function computeBestEfforts(
     }
   }
 
+  // PASS 2 — DERIVE. May read only `byDistance` (Pass 1's already-filtered
+  // output); must not read `activities`, `rejected`, or any ranking output.
+  // `deriveCeilings` runs EXACTLY ONCE here, per process — PR-01's
+  // no-iteration clause: this call is never re-run after Pass 3 demotes
+  // anything below. Re-deriving after demotion is the mutation ROADMAP
+  // criterion 1 demonstrates failing (see the "no iteration to convergence"
+  // suite in compute-best-efforts.test.ts).
+  const impliedSpeedsByDistance = new Map<TargetDistanceKey, number[]>();
+  for (const key of TARGET_ORDER) {
+    const speeds = byDistance
+      .get(key)!
+      .map((entry) => TARGET_METERS[key] / entry.durationSec);
+    impliedSpeedsByDistance.set(key, speeds);
+  }
+  const ceilings = deriveCeilings(impliedSpeedsByDistance);
+
   const rankings: Record<TargetDistanceKey, PRRankingEntry[]> = {} as Record<
     TargetDistanceKey,
     PRRankingEntry[]
   >;
+  // Per-distance count of ceiling demotions, for the console tail below.
+  const ceilingDemotedCounts = new Map<TargetDistanceKey, number>();
 
+  // PASS 3 — FILTER AND FLAG. May read `byDistance` and `ceilings` (Pass
+  // 2's output); must never remove an entry from `activities[id].efforts` —
+  // that array is append-only from Pass 1 onward. Each distance's
+  // population is partitioned into survivors and ceiling-demoted; a
+  // ceiling-demoted entry's matching effort gains a `demotion` (mirroring
+  // Task 1's absolute-guard path) and a matching `rejected` row, but is
+  // never spliced out of `activities[id].efforts`. Only survivors reach
+  // `markPRs`/`rankTopN`.
   for (const key of TARGET_ORDER) {
     const entries = byDistance.get(key)!;
-    const withPR = markPRs(entries);
+    const derivation = ceilings[key];
+
+    const survivors: PRAccumulatorEntry[] = [];
+    for (const entry of entries) {
+      const impliedSpeedMps = TARGET_METERS[key] / entry.durationSec;
+      const demotion = ceilingDemotion(impliedSpeedMps, derivation);
+      if (demotion) {
+        const activityEfforts = activities[entry.activityId]?.efforts;
+        const effort = activityEfforts?.find((e) => e.distance === key);
+        if (effort) effort.demotion = demotion;
+        rejected.push({ activityId: entry.activityId, distance: key, reason: demotion.reason });
+      } else {
+        survivors.push(entry);
+      }
+    }
+    ceilingDemotedCounts.set(key, entries.length - survivors.length);
+
+    const withPR = markPRs(survivors);
 
     // Write wasPRAtTheTime back onto the matching effort inside the
     // per-activity results. Each activity has at most one effort per
@@ -317,7 +371,7 @@ export async function computeBestEfforts(
       if (effort) effort.wasPRAtTheTime = marked.wasPRAtTheTime;
     }
 
-    rankings[key] = rankTopN(entries);
+    rankings[key] = rankTopN(survivors);
   }
 
   // Diff-stable output — sorted activity ids, mirroring saveManifest's convention.
@@ -336,11 +390,16 @@ export async function computeBestEfforts(
   // Derived by walking the shipped data rather than an incrementing
   // counter, so it cannot drift from what a consumer would actually see —
   // counts every effort (any guard: world-record, max-speed, ceiling) whose
-  // `demotion` is non-null across the whole built document.
-  const effortsDemoted = Object.values(sortedActivities).reduce(
-    (sum, a) => sum + a.efforts.filter((e) => e.demotion !== null).length,
-    0
-  );
+  // `demotion` is non-null across the whole built document. A plain `for`
+  // loop (not `.filter`) is used deliberately so this read-only count is
+  // never mistaken, by source-text audit, for a mutation of
+  // `activities[id].efforts` — that array is append-only from Pass 1 onward.
+  let effortsDemoted = 0;
+  for (const activity of Object.values(sortedActivities)) {
+    for (const effort of activity.efforts) {
+      if (effort.demotion !== null) effortsDemoted++;
+    }
+  }
 
   const doc: BestEffortsDocument = {
     schemaVersion: BEST_EFFORTS_SCHEMA_VERSION,
@@ -369,7 +428,9 @@ export async function computeBestEfforts(
     rankings,
     rejected,
     activities: sortedActivities,
-    ceilings: {} as BestEffortsDocument['ceilings'], // Plan 28-05 starts deriving these.
+    // D-06: every run records the per-distance ceiling, its p90, its
+    // population size, and any failOpenReason — persisted for audit.
+    ceilings,
   };
 
   await fileStore.writeJson(path.join(statsDir, 'best-efforts.json'), doc);
@@ -395,6 +456,18 @@ export async function computeBestEfforts(
   console.log(`- Skipped (unreadable): ${doc.totals.skippedUnreadable}`);
   for (const key of TARGET_ORDER) {
     console.log(`  ${key}: ${rankings[key].length} ranked`);
+  }
+  console.log(`\nCeilings (Phase 28 PR-01/PR-02):`);
+  for (const key of TARGET_ORDER) {
+    const derivation = ceilings[key];
+    if (derivation.ceilingMps === null) {
+      console.log(`  ${key}: fail-open — ${derivation.failOpenReason}`);
+    } else {
+      const demotedCount = ceilingDemotedCounts.get(key) ?? 0;
+      console.log(
+        `  ${key}: ceiling ${derivation.ceilingMps.toFixed(4)} m/s (p90 ${derivation.p90Mps!.toFixed(4)} m/s over ${derivation.populationN}), ${demotedCount} demoted`
+      );
+    }
   }
   console.log(`\nOutput written to: ${path.join(statsDir, 'best-efforts.json')}`);
 
