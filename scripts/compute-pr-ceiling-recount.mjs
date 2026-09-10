@@ -1,7 +1,8 @@
 /**
  * D-15's classifier-independent recount — the standalone verifier ROADMAP Criterion 5 requires:
- * it opens the SHIPPED `data/stats/best-efforts.json` off disk with `readFileSync` + `JSON.parse`
- * and counts demoted efforts with its OWN arithmetic.
+ * it opens the SHIPPED `data/stats/best-efforts.json` and `data/dashboard/index.json` off disk
+ * with `readFileSync` + `JSON.parse` and counts demoted efforts, and the PR-05 impossible-sample
+ * cohort, with its OWN arithmetic.
  *
  * FORBIDDEN, DELIBERATELY: this file has zero `import`/`require`/dynamic-`import()` statements
  * naming the ceiling module (`dist/analytics/best-effort-ceiling.js` or its `src/` equivalent),
@@ -18,15 +19,28 @@
  * belongs to `compute-pr-ceiling-calibration.mjs` and `28-DIFF.md`, which DO import the ceiling
  * logic because that is their job.
  *
- * Distance keys come from the document itself (`Object.keys(doc.rankings).sort()`), never from
- * `best-effort.types.js`, so this recount shares no vocabulary module with the code it checks.
+ * Distance keys come from the documents themselves (`Object.keys(doc.rankings).sort()`), never
+ * from `best-effort.types.js`, so this recount shares no vocabulary module with the code it
+ * checks.
+ *
+ * Two populations that must never be conflated (see 28-RESEARCH.md "Ground Truth: the 662-cohort
+ * and the pinned fixture"): PR-05's cohort is "activities carrying at least one impossible
+ * SAMPLE anywhere in their stream" — a stream-level, per-sample-pair check against the 100m
+ * world-record floor. The demoted population is "efforts at one of the seven target distances
+ * rejected by a guard" — an effort-level check. A sample can be impossible mid-run without ever
+ * landing inside a swept target window. This script reports both numbers and their overlap in
+ * both directions; it never treats them as interchangeable. The historically cited 662-of-1,865
+ * figure is a 2026-09-10 measurement that drifts as the archive grows via nightly CI sync — it
+ * must never become a hardcoded assertion in this file; the cohort count below is always
+ * recomputed from the live `data/dashboard/index.json` denominator.
  *
  * Shape follows `scripts/compute-pace-quality-recount.mjs` (Phase 27, D-03): pure exported
  * functions, a guarded `main()` behind the self-execution check, so
  * `compute-pr-ceiling-recount.test.mjs` can import the counting functions without triggering a
  * real file read as an import-time side effect.
  *
- * Only read target in this task: `data/stats/best-efforts.json`. Writes nothing, ever.
+ * Only read targets: `data/stats/best-efforts.json` and `data/dashboard/index.json`. Writes
+ * nothing, ever.
  */
 
 import { readFileSync } from 'fs';
@@ -35,6 +49,7 @@ import { fileURLToPath, pathToFileURL } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const BEST_EFFORTS_PATH = join(__dirname, '../data/stats/best-efforts.json');
+const DASHBOARD_INDEX_PATH = join(__dirname, '../data/dashboard/index.json');
 
 /** The closed set of guard values the shared demotion path is known to emit. */
 const KNOWN_GUARDS = new Set(['world-record', 'max-speed', 'ceiling']);
@@ -43,6 +58,18 @@ const KNOWN_GUARDS = new Set(['world-record', 'max-speed', 'ceiling']);
 const PINNED_ACTIVITY_ID = '4556693525';
 const PINNED_DISTANCE = '400m';
 const PINNED_DURATION_SEC = 45.2;
+
+/**
+ * The two-sentence do-not-conflate caution, printed in `main()`'s output — not only stated in a
+ * source comment — naming both PR-05 populations and stating they are different measurements
+ * with an overlap, not two views of one number.
+ */
+const COHORT_VS_DEMOTED_CAUTION =
+  'CAUTION: the impossible-sample cohort (activities carrying at least one physically impossible ' +
+  'SAMPLE anywhere in their stream) and the demoted-effort population (efforts at one of the seven ' +
+  'target distances rejected by a guard) are two different measurements, not two views of one ' +
+  'number. A sample can be impossible mid-run without ever landing inside a swept target window, ' +
+  'and a demoted effort can occur in an activity whose other samples never crossed the per-sample floor.';
 
 /**
  * Reads and parses a shipped JSON document off disk. Never throws an unhandled error — returns
@@ -186,12 +213,92 @@ export function recountDemoted(bestEffortsDoc) {
 }
 
 /**
- * Assembles the full pass/fail verdict for the combined report, plus an optional
- * `--expect-demoted` pin. Pure — no `process.exit`, no console — so tests can assert on the
+ * PR-05's cohort, reported archive-wide against a live denominator recomputed from
+ * `data/dashboard/index.json`'s own row count — never a literal. A row with no `quality` object
+ * is counted separately (`rowsMissingQuality`) rather than silently treated as clean, because
+ * Phase 27's own G-02 showed a cohort figure drifting once and being carried forward unexamined.
+ */
+export function recountImpossibleSampleCohort(indexDoc) {
+  const activities = Array.isArray(indexDoc.activities) ? indexDoc.activities : [];
+  const archiveDenominator = activities.length;
+
+  let rowsWithQuality = 0;
+  let rowsMissingQuality = 0;
+  const cohortIds = [];
+
+  for (const row of activities) {
+    if (!row || !row.quality || typeof row.quality !== 'object') {
+      rowsMissingQuality += 1;
+      continue;
+    }
+    rowsWithQuality += 1;
+
+    const impossibleSamples = row.quality.impossibleSamples;
+    const count = impossibleSamples ? impossibleSamples.count : undefined;
+    if (Number.isInteger(count) && count >= 1) {
+      cohortIds.push(String(row.id));
+    }
+  }
+
+  cohortIds.sort();
+  const cohortCount = cohortIds.length;
+  const cohortPct = archiveDenominator > 0 ? Number(((cohortCount / archiveDenominator) * 100).toFixed(1)) : 0;
+
+  return { archiveDenominator, rowsWithQuality, rowsMissingQuality, cohortCount, cohortPct, cohortIds };
+}
+
+/**
+ * The overlap between PR-05's cohort and the demoted-effort population, reported in both
+ * directions per the do-not-conflate caution: an activity can carry an impossible sample without
+ * ever landing inside a swept target window (`cohortWithoutDemotedEffort`), and the ceiling can
+ * demote an effort in an activity whose other samples never crossed the per-sample floor
+ * (`demotedNotInCohort`).
+ */
+export function computeCohortOverlap(cohortIds, bestEffortsDoc) {
+  const activities =
+    bestEffortsDoc && bestEffortsDoc.activities && typeof bestEffortsDoc.activities === 'object'
+      ? bestEffortsDoc.activities
+      : {};
+
+  const cohortSet = new Set(cohortIds);
+  const demotedActivityIds = new Set();
+  for (const activityId of Object.keys(activities)) {
+    const efforts = Array.isArray(activities[activityId].efforts) ? activities[activityId].efforts : [];
+    if (efforts.some((e) => e.demotion && typeof e.demotion === 'object')) {
+      demotedActivityIds.add(activityId);
+    }
+  }
+
+  let cohortWithDemotedEffort = 0;
+  let cohortWithoutDemotedEffort = 0;
+  for (const id of cohortIds) {
+    if (demotedActivityIds.has(id)) cohortWithDemotedEffort += 1;
+    else cohortWithoutDemotedEffort += 1;
+  }
+
+  let demotedNotInCohort = 0;
+  for (const id of demotedActivityIds) {
+    if (!cohortSet.has(id)) demotedNotInCohort += 1;
+  }
+
+  const biteRatePct =
+    cohortIds.length > 0 ? Number(((cohortWithDemotedEffort / cohortIds.length) * 100).toFixed(1)) : 0;
+
+  return {
+    cohortWithDemotedEffort,
+    cohortWithoutDemotedEffort,
+    demotedNotInCohort,
+    biteRatePct,
+  };
+}
+
+/**
+ * Assembles the full pass/fail verdict for the combined report, plus optional `--expect-demoted`
+ * / `--expect-cohort` pins. Pure — no `process.exit`, no console — so tests can assert on the
  * verdict shape directly. `readErrors` (any unreadable/unparseable input) are always reported as
  * problems regardless of what else could be computed.
  */
-export function evaluateReport(report, expectedDemoted) {
+export function evaluateReport(report, expectedDemoted, expectedCohort) {
   const problems = [];
 
   for (const err of report.readErrors || []) {
@@ -232,13 +339,20 @@ export function evaluateReport(report, expectedDemoted) {
     }
   }
 
+  const cohort = report.cohort;
+  if (cohort && expectedCohort !== undefined && cohort.cohortCount !== expectedCohort) {
+    problems.push(
+      `recomputed cohortCount (${cohort.cohortCount}) does not equal --expect-cohort ${expectedCohort}`
+    );
+  }
+
   return { pass: problems.length === 0, problems };
 }
 
 /**
- * Parses `--expect-demoted <n>`, optional, an integer, returning `undefined` when absent so
- * nothing is hardcoded. Throws on a malformed (non-integer) value, mirroring the analog's
- * `parseExpectFlag`.
+ * Parses `--expect-demoted <n>` and `--expect-cohort <n>`, both optional, both integers,
+ * returning `undefined` for whichever is absent so nothing is hardcoded. Throws on a malformed
+ * (non-integer) value, mirroring the analog's `parseExpectFlag`.
  */
 export function parseExpectFlags(argv) {
   function parseOne(flagName) {
@@ -254,17 +368,19 @@ export function parseExpectFlags(argv) {
 
   return {
     expectDemoted: parseOne('--expect-demoted'),
+    expectCohort: parseOne('--expect-cohort'),
   };
 }
 
 function main() {
   console.log(
-    'D-15 independent recount: reading data/stats/best-efforts.json off disk (no ceiling/compute/utils/types import)...\n'
+    'D-15 independent recount: reading data/stats/best-efforts.json and data/dashboard/index.json off disk (no ceiling/compute/utils/types import)...\n'
   );
 
   let expectDemoted;
+  let expectCohort;
   try {
-    ({ expectDemoted } = parseExpectFlags(process.argv.slice(2)));
+    ({ expectDemoted, expectCohort } = parseExpectFlags(process.argv.slice(2)));
   } catch (err) {
     console.error(err.message);
     process.exitCode = 1;
@@ -276,10 +392,18 @@ function main() {
   const bestEffortsRead = readShippedJson(BEST_EFFORTS_PATH);
   if (!bestEffortsRead.ok) readErrors.push(bestEffortsRead.reason);
 
-  const demoted = bestEffortsRead.ok ? recountDemoted(bestEffortsRead.doc) : null;
+  const indexRead = readShippedJson(DASHBOARD_INDEX_PATH);
+  if (!indexRead.ok) readErrors.push(indexRead.reason);
 
-  const report = { readErrors, demoted };
-  const verdict = evaluateReport(report, expectDemoted);
+  const demoted = bestEffortsRead.ok ? recountDemoted(bestEffortsRead.doc) : null;
+  const cohort = indexRead.ok ? recountImpossibleSampleCohort(indexRead.doc) : null;
+  const overlap =
+    demoted && cohort && bestEffortsRead.ok
+      ? computeCohortOverlap(cohort.cohortIds, bestEffortsRead.doc)
+      : null;
+
+  const report = { readErrors, demoted, cohort, overlap };
+  const verdict = evaluateReport(report, expectDemoted, expectCohort);
 
   if (readErrors.length > 0) {
     console.error('FAILED to read one or more shipped documents:');
@@ -314,6 +438,26 @@ function main() {
     }
     if (expectDemoted !== undefined) {
       console.log(`  --expect-demoted ${expectDemoted}: ${demoted.ownDemotedTotal === expectDemoted ? 'MATCH' : 'MISMATCH'}`);
+    }
+  }
+
+  if (cohort) {
+    console.log('\nPR-05 impossible-sample cohort (own arithmetic, live denominator):');
+    console.log(`  archiveDenominator: ${cohort.archiveDenominator}`);
+    console.log(`  rowsWithQuality:    ${cohort.rowsWithQuality}`);
+    console.log(`  rowsMissingQuality: ${cohort.rowsMissingQuality}`);
+    console.log(`  cohortCount:        ${cohort.cohortCount}`);
+    console.log(`  cohortPct:          ${cohort.cohortPct}%`);
+    if (expectCohort !== undefined) {
+      console.log(`  --expect-cohort ${expectCohort}: ${cohort.cohortCount === expectCohort ? 'MATCH' : 'MISMATCH'}`);
+    }
+    console.log(`\n  ${COHORT_VS_DEMOTED_CAUTION}`);
+    if (overlap) {
+      console.log('  Overlap with the demoted-effort population:');
+      console.log(`    cohortWithDemotedEffort:    ${overlap.cohortWithDemotedEffort}`);
+      console.log(`    cohortWithoutDemotedEffort: ${overlap.cohortWithoutDemotedEffort}`);
+      console.log(`    demotedNotInCohort:         ${overlap.demotedNotInCohort}`);
+      console.log(`    biteRatePct (finding, not a threshold): ${overlap.biteRatePct}%`);
     }
   }
 
