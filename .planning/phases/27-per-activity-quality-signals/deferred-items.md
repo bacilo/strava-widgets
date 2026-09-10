@@ -1,5 +1,22 @@
 # Deferred Items
 
+> **RESOLVED / NOT PROJECT DEBT — orchestrator verification, 2026-09-10.**
+> Every item below is a *worktree-provisioning* artifact, not a defect and not deferred work.
+> Executor agents run in isolated `git worktree`s that lack the gitignored `data/`, `dist/`, and
+> a populated `node_modules/`, so tests reading those trees fail there and only there.
+>
+> Verified on the main checkout after Wave 4 merged, with `data/` regenerated
+> (`compute-dashboard-index`) and staged (`build-widgets`):
+>
+> ```
+> npm run build   # exit 0
+> npm test        # Test Files  73 passed (73)
+> ```
+>
+> Nothing here is outstanding. Retained as the record of why worktree-local suite runs
+> disagree with main-checkout runs, so a future phase does not re-diagnose it from scratch.
+
+
 ## Plan 27-01: pre-existing `npm run test` failures, out of scope
 
 Observed when running the full suite (`npm run test`) after completing plan 27-01's Task 3.
