@@ -5,6 +5,7 @@ import {
   coverageCaptionText,
   splitGapAnnotations,
   breakdownSectionPlan,
+  qualitySignalsSectionPlan,
   type SplitGapAnnotation,
 } from './detail-sections.js';
 import type { Split } from './detail-splits.js';
@@ -14,6 +15,8 @@ import { derivePaceWithCoverage } from '../../analytics/pace-derivation.js';
 import { computeSplits } from './detail-splits.js';
 import type { CanonicalStream } from '../../streams/stream.types.js';
 import { stripComments } from '../row-semantics.test.js';
+import { qualityBadgeSpecs } from './list.js';
+import type { ActivityQualitySignals, DeviceFamilyKind, PaceQualityShard } from '../../analytics/pace-quality.js';
 
 /*
  * Unit tests for the pure D-08/D-09 helpers (`coverageCaptionText`,
@@ -388,5 +391,263 @@ describe('source wiring — detail-sections.ts / detail.ts (text-structure guard
     // edit cannot silently delete it without this assertion catching it.
     const thisFileSource = stripComments(readSource('detail-sections.test.ts'));
     expect(thisFileSource).toContain('splitGapAnnotations(splits, [])');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// qualitySignalsSectionPlan — quality signals section (Phase 27, plan 27-09:
+// QUAL-01, QUAL-04, ERA-02). Only the pure plan is tested — there is no
+// DOM-simulation dependency anywhere in this tree, so `buildQualitySignalsSection`
+// (the emitter) cannot itself be invoked here; that mirrors this file's own
+// existing header comment about `buildBreakdownSection`/`buildSplitsSection`.
+// ---------------------------------------------------------------------------
+
+const HEALTHY_QUALITY: ActivityQualitySignals = {
+  decimation: { tier: 'none', zeroAdvanceFraction: 0.01, sampleCount: 500 },
+  gapProfile: { tier: 'none', gapFraction: 0, recordingGapSec: 0, pauseSec: 0, spanSec: 1000 },
+  impossibleSamples: { tier: 'none', count: 0, maxImpliedSpeedMps: null, countInsideZeroAdvanceRun: 0 },
+  deviceEra: { family: 'garmin-fenix-6-pro', rawDeviceName: null },
+  elapsedVsMoving: { ratio: 1.01, elapsedSec: 1010, movingSec: 1000 },
+  anySevere: false,
+  notComputableReason: null,
+};
+
+const NOT_COMPUTABLE_QUALITY: ActivityQualitySignals = {
+  decimation: { tier: 'not-computable', zeroAdvanceFraction: null, sampleCount: null },
+  gapProfile: { tier: 'not-computable', gapFraction: null, recordingGapSec: null, pauseSec: null, spanSec: null },
+  impossibleSamples: { tier: 'not-computable', count: null, maxImpliedSpeedMps: null, countInsideZeroAdvanceRun: null },
+  deviceEra: { family: 'no-device-name', rawDeviceName: null },
+  elapsedVsMoving: { ratio: null, elapsedSec: null, movingSec: null },
+  anySevere: false,
+  notComputableReason: 'no stream committed for this activity',
+};
+
+function makeShard(overrides: Partial<PaceQualityShard>): PaceQualityShard {
+  return {
+    activityId: 'test-activity',
+    signals: HEALTHY_QUALITY,
+    gapIntervals: [],
+    impossibleSamples: [],
+    impossibleSamplesTruncated: false,
+    zeroAdvanceRunProfile: null,
+    adaptiveWindowSec: null,
+    notComputableReason: null,
+    ...overrides,
+  };
+}
+
+describe('qualitySignalsSectionPlan — quality signals section (D-08, D-09, D-12, D-17)', () => {
+  it('a fully healthy row produces five rows, all three tiering rows carrying an explicit healthy statement, none blank/undefined/null/NaN', () => {
+    const plan = qualitySignalsSectionPlan(HEALTHY_QUALITY, null);
+    expect(plan.rows).toHaveLength(5);
+
+    for (const row of plan.rows) {
+      expect(row.valueText.length).toBeGreaterThan(0);
+      expect(row.valueText).not.toContain('undefined');
+      expect(row.valueText).not.toContain('null');
+      expect(row.valueText).not.toContain('NaN');
+    }
+
+    const [decimation, gapProfile, impossibleSamples] = plan.rows;
+    expect(decimation.valueText).toBe('No decimation detected');
+    expect(decimation.tier).toBe('none');
+    expect(gapProfile.valueText).toBe('No recording gaps');
+    expect(gapProfile.tier).toBe('none');
+    expect(impossibleSamples.valueText).toBe('No impossible samples');
+    expect(impossibleSamples.tier).toBe('none');
+  });
+
+  it('a row severe on gapProfile with a shard: the gap row names the percentage and its evidenceText carries a figure from shard.gapIntervals; evidenceText is absent when shard is null', () => {
+    const quality: ActivityQualitySignals = {
+      ...HEALTHY_QUALITY,
+      gapProfile: { tier: 'severe', gapFraction: 0.2655, recordingGapSec: 2112, pauseSec: 1, spanSec: 7958 },
+      anySevere: true,
+    };
+
+    const withoutShard = qualitySignalsSectionPlan(quality, null);
+    const gapRowNoShard = withoutShard.rows[1];
+    expect(gapRowNoShard.valueText).toBe('27% of recorded time in gaps or pauses');
+    expect(gapRowNoShard.tier).toBe('severe');
+    expect(gapRowNoShard.evidenceText).toBeNull();
+
+    const shard = makeShard({
+      signals: quality,
+      gapIntervals: [
+        { startSec: 78, endSec: 127, kind: 'recording-gap' },
+        { startSec: 4766, endSec: 5769, kind: 'recording-gap' },
+      ],
+    });
+    const withShard = qualitySignalsSectionPlan(quality, shard);
+    const gapRowWithShard = withShard.rows[1];
+    expect(gapRowWithShard.valueText).toBe('27% of recorded time in gaps or pauses');
+    expect(gapRowWithShard.evidenceText).not.toBeNull();
+    expect(gapRowWithShard.evidenceText).toContain('2 gap intervals');
+    expect(gapRowWithShard.evidenceText).toContain('16:43'); // longest interval, 1003s
+  });
+
+  it('a not-computable row: all three tiering rows read "Not computable — {reason}" with tier not-computable, and NO row reads 0% or a healthy statement', () => {
+    const plan = qualitySignalsSectionPlan(NOT_COMPUTABLE_QUALITY, null);
+    const [decimation, gapProfile, impossibleSamples] = plan.rows;
+
+    for (const row of [decimation, gapProfile, impossibleSamples]) {
+      expect(row.valueText).toBe('Not computable — no stream committed for this activity');
+      expect(row.tier).toBe('not-computable');
+      expect(row.valueText).not.toContain('0%');
+      expect(row.valueText).not.toBe('No decimation detected');
+      expect(row.valueText).not.toBe('No recording gaps');
+      expect(row.valueText).not.toBe('No impossible samples');
+    }
+  });
+
+  it('quality === null: the section plan is still produced (never null/undefined) and says so', () => {
+    const plan = qualitySignalsSectionPlan(null, null);
+    expect(plan).not.toBeNull();
+    expect(plan.rows).toHaveLength(5);
+    for (const row of plan.rows) {
+      expect(row.valueText).toBe('Quality data not available for this activity');
+    }
+  });
+
+  const DEVICE_FAMILY_EXPECTATIONS: [DeviceFamilyKind, string][] = [
+    ['garmin-fenix-6-pro', 'Garmin fēnix 6 Pro'],
+    ['suunto-9', 'Suunto 9'],
+    ['garmin-vivoactive-4', 'Garmin vívoactive 4'],
+    ['strava-app-gpx', 'Strava App'],
+    ['intervals-icu', 'intervals.icu (migrated)'],
+    ['no-device-name', 'No device name recorded'],
+  ];
+
+  it.each(DEVICE_FAMILY_EXPECTATIONS)('device family %s maps to a distinct display string: %s', (family, expected) => {
+    const quality: ActivityQualitySignals = {
+      ...HEALTHY_QUALITY,
+      deviceEra: { family, rawDeviceName: null },
+    };
+    const plan = qualitySignalsSectionPlan(quality, null);
+    const deviceRow = plan.rows[3];
+    expect(deviceRow.valueText).toBe(expected);
+  });
+
+  it('unrecognized-device includes the raw string verbatim, and an XSS-shaped payload survives into valueText unescaped', () => {
+    const payload = '<img src=x onerror=alert(1)>';
+    const quality: ActivityQualitySignals = {
+      ...HEALTHY_QUALITY,
+      deviceEra: { family: 'unrecognized-device', rawDeviceName: payload },
+    };
+    const plan = qualitySignalsSectionPlan(quality, null);
+    const deviceRow = plan.rows[3];
+    expect(deviceRow.valueText).toBe(`Unrecognized device: ${payload}`);
+  });
+
+  it('all seven DeviceFamilyKind values map to distinct display strings (including unrecognized-device)', () => {
+    const allFamilies: DeviceFamilyKind[] = [
+      'garmin-fenix-6-pro',
+      'suunto-9',
+      'garmin-vivoactive-4',
+      'strava-app-gpx',
+      'intervals-icu',
+      'no-device-name',
+      'unrecognized-device',
+    ];
+    const displayNames = allFamilies.map((family) => {
+      const quality: ActivityQualitySignals = {
+        ...HEALTHY_QUALITY,
+        deviceEra: { family, rawDeviceName: family === 'unrecognized-device' ? 'Some Watch X1' : null },
+      };
+      return qualitySignalsSectionPlan(quality, null).rows[3].valueText;
+    });
+    expect(new Set(displayNames).size).toBe(allFamilies.length);
+  });
+
+  it('the three tiering explanation strings are identical to the ones list.ts exports via qualityBadgeSpecs — a drift between the two surfaces fails this test', () => {
+    const severeQuality: ActivityQualitySignals = {
+      decimation: { tier: 'severe', zeroAdvanceFraction: 0.5, sampleCount: 100 },
+      gapProfile: { tier: 'severe', gapFraction: 0.5, recordingGapSec: 10, pauseSec: 10, spanSec: 20 },
+      impossibleSamples: { tier: 'severe', count: 10, maxImpliedSpeedMps: 20, countInsideZeroAdvanceRun: 1 },
+      deviceEra: { family: 'no-device-name', rawDeviceName: null },
+      elapsedVsMoving: { ratio: null, elapsedSec: null, movingSec: null },
+      anySevere: true,
+      notComputableReason: null,
+    };
+
+    const listSpecs = qualityBadgeSpecs({ quality: severeQuality });
+    const sectionRows = qualitySignalsSectionPlan(severeQuality, null).rows;
+
+    const bySignal = new Map(listSpecs.map((spec) => [spec.signal, spec.explanation]));
+    expect(sectionRows[0].explanation).toBe(bySignal.get('decimation'));
+    expect(sectionRows[1].explanation).toBe(bySignal.get('gapProfile'));
+    expect(sectionRows[2].explanation).toBe(bySignal.get('impossibleSamples'));
+  });
+
+  it('the impossible-samples row names the fastest implied speed from shard.impossibleSamples and the zero-advance-run overlap, absent when shard is null', () => {
+    const quality: ActivityQualitySignals = {
+      ...HEALTHY_QUALITY,
+      impossibleSamples: { tier: 'severe', count: 11, maxImpliedSpeedMps: 15.2, countInsideZeroAdvanceRun: 3 },
+      anySevere: true,
+    };
+
+    const withoutShard = qualitySignalsSectionPlan(quality, null);
+    expect(withoutShard.rows[2].evidenceText).toBeNull();
+
+    const shard = makeShard({
+      signals: quality,
+      impossibleSamples: [
+        { index: 10, impliedSpeedMps: 12.1, dtSec: 1, ddM: 12.1 },
+        { index: 20, impliedSpeedMps: 15.2, dtSec: 1, ddM: 15.2 },
+      ],
+    });
+    const withShard = qualitySignalsSectionPlan(quality, shard);
+    expect(withShard.rows[2].evidenceText).toContain('15.2 m/s');
+    expect(withShard.rows[2].evidenceText).toContain('3 of these fall inside a zero-advance run');
+  });
+
+  it('the decimation row names the longest zero-advance run and the resolved adaptive window from the shard, absent when shard is null', () => {
+    const quality: ActivityQualitySignals = {
+      ...HEALTHY_QUALITY,
+      decimation: { tier: 'severe', zeroAdvanceFraction: 0.2033, sampleCount: 200 },
+      anySevere: true,
+    };
+
+    const withoutShard = qualitySignalsSectionPlan(quality, null);
+    expect(withoutShard.rows[0].evidenceText).toBeNull();
+
+    const shard = makeShard({
+      signals: quality,
+      zeroAdvanceRunProfile: { runCount: 4, longestRunSamples: 12, longestRunSec: 48, medianRunSamples: 3, p90RunSec: 30 },
+      adaptiveWindowSec: 20,
+    });
+    const withShard = qualitySignalsSectionPlan(quality, shard);
+    expect(withShard.rows[0].evidenceText).toContain('12 samples');
+    expect(withShard.rows[0].evidenceText).toContain('48.0s');
+    expect(withShard.rows[0].evidenceText).toContain('adaptive window 20.0s');
+  });
+
+  it('elapsedVsMoving reports an explicit unavailable statement rather than a fabricated ratio when null', () => {
+    const quality: ActivityQualitySignals = {
+      ...HEALTHY_QUALITY,
+      elapsedVsMoving: { ratio: null, elapsedSec: null, movingSec: null },
+    };
+    const plan = qualitySignalsSectionPlan(quality, null);
+    expect(plan.rows[4].valueText).toBe('Elapsed/moving ratio not available');
+    expect(plan.rows[4].tier).toBe('untiered');
+  });
+
+  it('deviceEra and elapsedVsMoving carry the untiered tier value, never one of the four QualityTier members', () => {
+    const plan = qualitySignalsSectionPlan(HEALTHY_QUALITY, null);
+    expect(plan.rows[3].tier).toBe('untiered');
+    expect(plan.rows[4].tier).toBe('untiered');
+  });
+});
+
+describe('deviceFamilyDisplayName exhaustive switch (ERA-02, Criterion 5) — no default branch', () => {
+  it('the switch(family) mapping in detail-sections.ts has zero default branches', () => {
+    const source = readSource('detail-sections.ts');
+    const switchIndex = source.indexOf('switch (family)');
+    expect(switchIndex).toBeGreaterThanOrEqual(0);
+    const switchBlock = source.slice(switchIndex, switchIndex + 1500);
+    // Bounded to the switch statement itself (up to the next top-level
+    // closing brace at the same indent), not the whole file.
+    const closeIndex = switchBlock.indexOf('\n}');
+    const bounded = closeIndex >= 0 ? switchBlock.slice(0, closeIndex) : switchBlock;
+    expect(bounded).not.toContain('default:');
   });
 });

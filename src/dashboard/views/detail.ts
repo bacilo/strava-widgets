@@ -28,6 +28,15 @@ import type { AgeGradingClient } from '../data/age-grading-client.js';
 import { createAgeGradingClient } from '../data/age-grading-client.js';
 import type { BestEffortsClient } from '../data/best-efforts-client.js';
 import { createBestEffortsClient } from '../data/best-efforts-client.js';
+// paceQualityClient (Phase 27, plan 27-09) — the D-17 evidence shard for the
+// always-on Quality Signals section, mirroring bestEffortsClient/
+// ageGradingClient's own optional-injected-dependency shape exactly. Loaded
+// as the FOURTH member of mountBestEffortsAndBadges's single await batch —
+// never a second such batch, never a second fetch, and never called from
+// list.ts/overview.ts/records.ts (Criterion 2's "zero fetches on the list
+// view" is true by construction, not merely by observation).
+import type { PaceQualityClient } from '../data/pace-quality-client.js';
+import { createPaceQualityClient } from '../data/pace-quality-client.js';
 // formatPace/formatActivityDate/formatDurationHms/noteViewedActivity/
 // appendBadge are the dashboard's single formatter/list-highlight/badge
 // sources (list.ts) — imported rather than duplicated, matching the
@@ -47,7 +56,14 @@ import {
 import { computeSplits } from './detail-splits.js';
 import { computePaceDistribution, computeHrZoneTimes } from './detail-zones.js';
 import { derivePaceWithCoverage } from '../../analytics/pace-derivation.js';
-import { buildSplitsSection, buildBreakdownSection, buildBestEffortsSection, splitGapAnnotations } from './detail-sections.js';
+import {
+  buildSplitsSection,
+  buildBreakdownSection,
+  buildBestEffortsSection,
+  buildQualitySignalsSection,
+  qualitySignalsSectionPlan,
+  splitGapAnnotations,
+} from './detail-sections.js';
 import { buildPrBadgeLabels, buildBestEffortsPanelRows } from './detail-best-efforts-logic.js';
 // buildExclusionReasonIndex is records-logic.ts's pure, __proto__-safe
 // exclusion-reason parser (18-09) — reused here rather than duplicated, the
@@ -286,12 +302,14 @@ export interface DetailViewDeps {
   // change to the shared registry's construction call.
   ageGradingClient?: AgeGradingClient;
   bestEffortsClient?: BestEffortsClient;
+  paceQualityClient?: PaceQualityClient;
 }
 
 export function createDetailView(deps: DetailViewDeps): DashboardView {
   const { detailClient, indexClient, gearClient, athleteConfigClient } = deps;
   const ageGradingClient = deps.ageGradingClient ?? createAgeGradingClient();
   const bestEffortsClient = deps.bestEffortsClient ?? createBestEffortsClient();
+  const paceQualityClient = deps.paceQualityClient ?? createPaceQualityClient();
   let mountedContainer: HTMLElement | null = null;
   let requestToken = 0;
   // Module-scoped (relative to this view instance) handles for the two
@@ -521,6 +539,18 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
    * `Promise.all` below is this function's only await point, guarded once
    * immediately after it settles.
    *
+   * Phase 27 (plan 27-09, D-17, D-18): the pace-quality client's fourth
+   * member below joins the same await batch above — never a second await
+   * point, never a second batch — and the resolved
+   * `paceQualityShard` fills `qualitySignalsContainer` (the always-on
+   * Quality Signals section's placeholder, appended synchronously by
+   * `renderSuccess` beside Pace Distribution or the no-stream section)
+   * exactly like `panelContainer` above. `qualitySignalsSectionPlan` reads
+   * `row.quality` (the index row's own scalars — its `valueText`s render
+   * even when the shard fetch failed) alongside `paceQualityShard` (evidence
+   * only — every `evidenceText` degrades to `null` when the shard is
+   * `null`, T-27-31).
+   *
    * Phase 24's D-03(b): the very last statement of this function dispatches
    * one bubbling mount CustomEvent (see the literal event-name string at its
    * single dispatch call site below) carrying `{ activityId }`. Position is
@@ -537,13 +567,15 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
     container: HTMLElement,
     badgesContainer: HTMLElement,
     panelContainer: HTMLElement,
+    qualitySignalsContainer: HTMLElement,
     detail: ActivityDetail,
     myToken: number
   ): Promise<void> {
-    const [bestEffortsEntry, ageGrading, liveExclusionState] = await Promise.all([
+    const [bestEffortsEntry, ageGrading, liveExclusionState, paceQualityShard] = await Promise.all([
       bestEffortsClient.load(detail.id),
       ageGradingClient.load(),
       loadLiveExclusionState(detail.id),
+      paceQualityClient.load(detail.id),
     ]);
 
     if (myToken !== requestToken || mountedContainer !== container) {
@@ -563,6 +595,12 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
 
     const rows = buildBestEffortsPanelRows(bestEffortsEntry, ageGrading, liveExclusions);
     panelContainer.replaceChildren(buildBestEffortsSection(rows, exclusionReason, detail.id));
+
+    const quality = indexClient.getRow(detail.id)?.quality ?? null;
+    qualitySignalsContainer.replaceChildren(
+      buildQualitySignalsSection(qualitySignalsSectionPlan(quality, paceQualityShard))
+    );
+
     container.dispatchEvent(
       new CustomEvent('dashboard:best-efforts-mounted', {
         detail: { activityId: detail.id },
@@ -706,6 +744,14 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
 
     // -- Splits / breakdown, or the named stream-absent state -----------------
 
+    // Quality Signals placeholder (Phase 27, plan 27-09, D-08) — created once
+    // here and appended exactly once below, in EITHER branch of the
+    // `detail.stream` conditional, at the position beside whichever section
+    // that branch renders. `mountBestEffortsAndBadges` fills it via
+    // `replaceChildren` once the evidence shard resolves, exactly like
+    // `bestEffortsContainer` below — never blocking this synchronous render.
+    const qualitySignalsContainer = document.createElement('div');
+
     if (detail.stream !== null) {
       const splits = computeSplits(detail.stream);
 
@@ -746,9 +792,13 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
       const zoneTimes = computeHrZoneTimes(detail.stream, config);
       const breakdownSection = buildBreakdownSection(buckets, derived.coverage, zoneTimes);
       if (breakdownSection) view.appendChild(breakdownSection);
+
+      view.appendChild(qualitySignalsContainer);
     } else {
       const reason = indexClient.getRow(detail.id)?.streams.reason;
       view.appendChild(buildNoStreamSection(reason));
+
+      view.appendChild(qualitySignalsContainer);
     }
 
     // Best-efforts panel placeholder (18-UI-SPEC § 5, D-08) — supplementary
@@ -780,7 +830,14 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
     // PR badges + best-efforts panel (18-UI-SPEC § 5, D-08) — also fired
     // without awaiting, so this supplementary content never delays the
     // synchronous render above.
-    void mountBestEffortsAndBadges(container, badgesContainer, bestEffortsContainer, detail, myToken);
+    void mountBestEffortsAndBadges(
+      container,
+      badgesContainer,
+      bestEffortsContainer,
+      qualitySignalsContainer,
+      detail,
+      myToken
+    );
   }
 
   async function loadAndRender(container: HTMLElement, id: string): Promise<void> {

@@ -16,14 +16,37 @@
 
 import type { Split } from './detail-splits.js';
 import type { PaceBucket, ZoneTime } from './detail-zones.js';
-// formatPace, formatDurationHms, formatEffortDuration, appendBadge, and
-// appendLowConfidenceBadge are the dashboard's only pace/duration/badge
-// builders (list.ts) — imported rather than duplicated, matching the
-// precedent detail.ts already set for formatPace.
-import { formatPace, formatDurationHms, formatEffortDuration, appendBadge, appendLowConfidenceBadge } from './list.js';
+// formatPace, formatDurationHms, formatEffortDuration, appendBadge,
+// appendLowConfidenceBadge, appendAccessibleBadge, and qualityBadgeSpecs are
+// the dashboard's only pace/duration/badge builders (list.ts) — imported
+// rather than duplicated, matching the precedent detail.ts already set for
+// formatPace. `qualityBadgeSpecs` is imported ONLY to source the three
+// tiering signals' explanation strings at module load (see
+// `EXPLANATION_PROBE_SPECS` below) — never called per-render — so the
+// always-on Quality Signals section cannot drift from the severe-tier list
+// badges' own explanation text (Phase 27, plan 27-09's interface contract).
+import {
+  formatPace,
+  formatDurationHms,
+  formatEffortDuration,
+  appendBadge,
+  appendLowConfidenceBadge,
+  appendAccessibleBadge,
+  qualityBadgeSpecs,
+} from './list.js';
 import type { BestEffortPanelRow } from './detail-best-efforts-logic.js';
 import type { PaceCoverage, GapInterval } from '../../analytics/pace-derivation.js';
 import { unbucketedCoveredSec } from '../../analytics/pace-derivation.js';
+import type {
+  ActivityQualitySignals,
+  DecimationSignal,
+  DeviceEraSignal,
+  ElapsedVsMovingSignal,
+  GapProfileSignal,
+  ImpossibleSampleSignal,
+  PaceQualityShard,
+  QualityTier,
+} from '../../analytics/pace-quality.js';
 
 // Same em dash as `DASH` in detail.ts. Defined locally rather than imported:
 // detail.ts imports THIS module, so importing back would create a cycle.
@@ -719,6 +742,436 @@ export function buildBestEffortsSection(
     footnote.textContent =
       '* Interpolated between 800m and mile factors — no official WMA standard exists for 1k.';
     section.appendChild(footnote);
+  }
+
+  return section;
+}
+
+// ---------------------------------------------------------------------------
+// Quality Signals section (Phase 27, plan 27-09: QUAL-01, QUAL-04, ERA-02) —
+// the always-on detail-view disclosure of all five per-activity quality
+// signals, healthy and stream-less activities included (D-08).
+// ---------------------------------------------------------------------------
+
+/**
+ * A synthetic, always-severe probe row fed through `list.ts`'s
+ * `qualityBadgeSpecs` ONCE at module load, purely so this module can read
+ * the three tiering signals' explanation strings (`decimation`,
+ * `gapProfile`, `impossibleSamples`) from their single source of truth
+ * rather than retyping them here — the plan's explicit instruction that the
+ * two surfaces (the severe-tier list badge and this always-on section)
+ * cannot drift apart. `qualityBadgeSpecs` only returns a spec for a
+ * severe-tier signal with a non-null evidence field (D-07), so every field
+ * here is set to a value that satisfies that gate; the actual numbers are
+ * irrelevant — only `.explanation` is read from the result, never
+ * `.visibleText`. `deviceEra`/`elapsedVsMoving` have no `qualityBadgeSpecs`
+ * equivalent (D-13/D-14 exclude them from any list badge), so this section
+ * defines its own explanation strings for those two rows below.
+ */
+const EXPLANATION_PROBE_SPECS = qualityBadgeSpecs({
+  quality: {
+    decimation: { tier: 'severe', zeroAdvanceFraction: 0.5, sampleCount: 100 },
+    gapProfile: { tier: 'severe', gapFraction: 0.5, recordingGapSec: 10, pauseSec: 10, spanSec: 20 },
+    impossibleSamples: { tier: 'severe', count: 10, maxImpliedSpeedMps: 20, countInsideZeroAdvanceRun: 1 },
+    deviceEra: { family: 'no-device-name', rawDeviceName: null },
+    elapsedVsMoving: { ratio: null, elapsedSec: null, movingSec: null },
+    anySevere: true,
+    notComputableReason: null,
+  },
+});
+
+/** Reads one tiering signal's explanation from `EXPLANATION_PROBE_SPECS` — see that constant's own doc comment. */
+function tieringExplanation(signal: 'decimation' | 'gapProfile' | 'impossibleSamples'): string {
+  return EXPLANATION_PROBE_SPECS.find((spec) => spec.signal === signal)?.explanation ?? '';
+}
+
+/** `deviceEra` has no `qualityBadgeSpecs` equivalent (D-13) — this section's own explanation text. */
+const DEVICE_ERA_EXPLANATION =
+  'the recording device or migration source can explain artifacts specific to that device’s firmware or export pipeline, independent of the three tiering signals above';
+
+/** `elapsedVsMoving` has no `qualityBadgeSpecs` equivalent (D-14) — this section's own explanation text. */
+const ELAPSED_VS_MOVING_EXPLANATION =
+  'elapsed time includes any stopped-watch time not captured as a moving pause; a high ratio does not by itself distinguish deliberate rest from a forgotten stop';
+
+/** Shown for all five rows when `quality` itself is `null` (D-08: absence must say so, never vanish). */
+const QUALITY_DATA_NOT_AVAILABLE = 'Quality data not available for this activity';
+
+/**
+ * One row of the always-on Quality Signals section (D-08, D-09, D-12, D-17,
+ * D-18). `tier` is the shared four-member `QualityTier` for the three
+ * TIERING signals, or the literal `'untiered'` for `deviceEra`/
+ * `elapsedVsMoving` (D-13/D-14) — kept as a distinct value rather than
+ * `QualityTier | null` for the exact T-26-02 reason `QualityTier` itself
+ * documents: a nullable tier invites `tier ?? 'none'`, which would style an
+ * untiered fact as a clean tiering result.
+ */
+export interface QualitySignalRow {
+  label: string;
+  valueText: string;
+  tier: QualityTier | 'untiered';
+  explanation: string;
+  evidenceText: string | null;
+}
+
+/** The full always-on Quality Signals section decision — always exactly five rows, in fixed order (D-08). */
+export interface QualitySignalsSectionPlan {
+  rows: QualitySignalRow[];
+}
+
+/**
+ * Maps a resolved `DeviceEraSignal` to its display string (ERA-02, D-12).
+ * Exhaustive `switch (family)` with NO `default` branch — an eighth
+ * `DeviceFamilyKind` member added in a later phase without a matching case
+ * here fails `npx tsc --noEmit` (TS2366: not every code path returns a
+ * value), rather than silently falling through to a fabricated device name.
+ * This is Criterion 5's "demonstrated failing if that branch is deleted and
+ * a default silently takes over" concern, prevented structurally rather than
+ * by convention.
+ *
+ * `'unrecognized-device'` includes `rawDeviceName` VERBATIM — untrusted
+ * athlete/device free text reaching this string unescaped on purpose;
+ * `buildQualitySignalsSection` below reaches the DOM through `textContent`
+ * only, so escaping here would double-escape on screen (`pace-quality.ts`'s
+ * own `DeviceEraSignal` doc comment states the same rule).
+ */
+function deviceFamilyDisplayName(era: DeviceEraSignal): string {
+  const { family } = era;
+  switch (family) {
+    case 'garmin-fenix-6-pro':
+      return 'Garmin fēnix 6 Pro';
+    case 'suunto-9':
+      return 'Suunto 9';
+    case 'garmin-vivoactive-4':
+      return 'Garmin vívoactive 4';
+    case 'strava-app-gpx':
+      return 'Strava App';
+    case 'intervals-icu':
+      return 'intervals.icu (migrated)';
+    case 'no-device-name':
+      return 'No device name recorded';
+    case 'unrecognized-device':
+      return `Unrecognized device: ${era.rawDeviceName ?? ''}`;
+  }
+}
+
+/**
+ * Decimation row (D-08, D-17). `notComputableReason` non-null (D-06) always
+ * wins, reading `Not computable — {reason}` with `tier: 'not-computable'` —
+ * never a healthy statement, never `0%` (T-26-02). Otherwise `'none'` tier
+ * reads the explicit healthy statement; `'minor'`/`'severe'` name the
+ * measured `zeroAdvanceFraction` percentage, matching `qualityBadgeSpecs`'s
+ * own severe-tier phrasing in `list.ts` (not imported verbatim there, since
+ * that function only ever computes a severe-tier percentage — this row
+ * computes the same percentage at any tier).
+ *
+ * `evidenceText` is drawn from `shard.zeroAdvanceRunProfile` and
+ * `shard.adaptiveWindowSec` — evidence the index row's own scalars do not
+ * carry (D-17) — and is `null` whenever either is unavailable, including
+ * when `shard` itself is `null`.
+ */
+function decimationRow(
+  signal: DecimationSignal,
+  notComputableReason: string | null,
+  shard: PaceQualityShard | null
+): QualitySignalRow {
+  const explanation = tieringExplanation('decimation');
+
+  if (notComputableReason !== null) {
+    return {
+      label: 'Decimation',
+      valueText: `Not computable — ${notComputableReason}`,
+      tier: 'not-computable',
+      explanation,
+      evidenceText: null,
+    };
+  }
+
+  let valueText: string;
+  if (signal.tier === 'none') {
+    valueText = 'No decimation detected';
+  } else if (signal.zeroAdvanceFraction !== null) {
+    valueText = `${Math.round(signal.zeroAdvanceFraction * 100)}% of samples with no distance advance`;
+  } else {
+    valueText = 'Decimation data unavailable';
+  }
+
+  const profile = shard?.zeroAdvanceRunProfile ?? null;
+  const windowSec = shard?.adaptiveWindowSec ?? null;
+  const evidenceText =
+    profile !== null && windowSec !== null
+      ? `Longest zero-advance run: ${profile.longestRunSamples} samples (${profile.longestRunSec.toFixed(1)}s); adaptive window ${windowSec.toFixed(1)}s`
+      : null;
+
+  return { label: 'Decimation', valueText, tier: signal.tier, explanation, evidenceText };
+}
+
+/**
+ * Gap-profile row (D-08, D-17) — same not-computable/healthy/tiered shape as
+ * `decimationRow`. `evidenceText` names the count and longest interval from
+ * `shard.gapIntervals`, the classified list the index row's own scalars
+ * (`recordingGapSec`, `pauseSec`, `spanSec`) do not carry (D-17).
+ */
+function gapProfileRow(
+  signal: GapProfileSignal,
+  notComputableReason: string | null,
+  shard: PaceQualityShard | null
+): QualitySignalRow {
+  const explanation = tieringExplanation('gapProfile');
+
+  if (notComputableReason !== null) {
+    return {
+      label: 'Recording gaps',
+      valueText: `Not computable — ${notComputableReason}`,
+      tier: 'not-computable',
+      explanation,
+      evidenceText: null,
+    };
+  }
+
+  let valueText: string;
+  if (signal.tier === 'none') {
+    valueText = 'No recording gaps';
+  } else if (signal.gapFraction !== null) {
+    valueText = `${Math.round(signal.gapFraction * 100)}% of recorded time in gaps or pauses`;
+  } else {
+    valueText = 'Gap profile data unavailable';
+  }
+
+  const intervals = shard?.gapIntervals ?? [];
+  let evidenceText: string | null = null;
+  if (intervals.length > 0) {
+    const longestSec = intervals.reduce((max, gap) => Math.max(max, gap.endSec - gap.startSec), 0);
+    const noun = intervals.length === 1 ? 'interval' : 'intervals';
+    evidenceText = `${intervals.length} gap ${noun}; longest ${formatEffortDuration(longestSec)}`;
+  }
+
+  return { label: 'Recording gaps', valueText, tier: signal.tier, explanation, evidenceText };
+}
+
+/**
+ * Impossible-samples row (D-08, D-17) — same not-computable/healthy/tiered
+ * shape as `decimationRow`. `evidenceText` names the fastest implied speed
+ * drawn from `shard.impossibleSamples`' own per-pair list (never the index
+ * row's `maxImpliedSpeedMps` scalar, even though the values agree, so this
+ * row's evidence genuinely depends on the fetched shard) plus
+ * `shard.signals.impossibleSamples.countInsideZeroAdvanceRun` — the
+ * per-activity face of the measured decimation/impossible-sample
+ * correlation, disclosed here rather than only in the calibration report.
+ */
+function impossibleSamplesRow(
+  signal: ImpossibleSampleSignal,
+  notComputableReason: string | null,
+  shard: PaceQualityShard | null
+): QualitySignalRow {
+  const explanation = tieringExplanation('impossibleSamples');
+
+  if (notComputableReason !== null) {
+    return {
+      label: 'Impossible samples',
+      valueText: `Not computable — ${notComputableReason}`,
+      tier: 'not-computable',
+      explanation,
+      evidenceText: null,
+    };
+  }
+
+  let valueText: string;
+  if (signal.tier === 'none') {
+    valueText = 'No impossible samples';
+  } else if (signal.count !== null) {
+    const noun = signal.count === 1 ? 'sample' : 'samples';
+    valueText = `${signal.count} ${noun} faster than the 100 m world record`;
+  } else {
+    valueText = 'Impossible-sample data unavailable';
+  }
+
+  const samples = shard?.impossibleSamples ?? [];
+  let evidenceText: string | null = null;
+  if (samples.length > 0) {
+    const worst = samples.reduce((max, s) => (s.impliedSpeedMps > max.impliedSpeedMps ? s : max), samples[0]);
+    const insideRun = shard?.signals.impossibleSamples.countInsideZeroAdvanceRun ?? null;
+    evidenceText =
+      `Fastest implied speed ${worst.impliedSpeedMps.toFixed(1)} m/s (+${worst.ddM.toFixed(1)} m in ${worst.dtSec.toFixed(1)}s)` +
+      (insideRun !== null ? `; ${insideRun} of these fall inside a zero-advance run` : '');
+  }
+
+  return { label: 'Impossible samples', valueText, tier: signal.tier, explanation, evidenceText };
+}
+
+/**
+ * Device-era row (D-08, D-12, D-13, ERA-02) — untiered, always renders
+ * `deviceFamilyDisplayName`'s result regardless of the stream's
+ * computability (D-06: `deviceEra` passes through unchanged even on a
+ * not-computable activity, since it is resolved from metadata alone).
+ */
+function deviceEraRow(era: DeviceEraSignal): QualitySignalRow {
+  return {
+    label: 'Device / recording source',
+    valueText: deviceFamilyDisplayName(era),
+    tier: 'untiered',
+    explanation: DEVICE_ERA_EXPLANATION,
+    evidenceText: null,
+  };
+}
+
+/**
+ * Elapsed-vs-moving row (D-08, D-14) — untiered. `ratio === null` (absent or
+ * non-finite metadata, or `movingSec <= 0`) reads an explicit unavailable
+ * statement, never a fabricated `1.00×`.
+ */
+function elapsedVsMovingRow(signal: ElapsedVsMovingSignal): QualitySignalRow {
+  const valueText =
+    signal.ratio !== null ? `${signal.ratio.toFixed(2)}× elapsed vs. moving time` : 'Elapsed/moving ratio not available';
+  return {
+    label: 'Elapsed vs. moving',
+    valueText,
+    tier: 'untiered',
+    explanation: ELAPSED_VS_MOVING_EXPLANATION,
+    evidenceText: null,
+  };
+}
+
+/** The five-row fallback for a `quality === null` row (D-08: absence says so, never vanishes). */
+function notAvailableRows(): QualitySignalRow[] {
+  return [
+    {
+      label: 'Decimation',
+      valueText: QUALITY_DATA_NOT_AVAILABLE,
+      tier: 'not-computable',
+      explanation: tieringExplanation('decimation'),
+      evidenceText: null,
+    },
+    {
+      label: 'Recording gaps',
+      valueText: QUALITY_DATA_NOT_AVAILABLE,
+      tier: 'not-computable',
+      explanation: tieringExplanation('gapProfile'),
+      evidenceText: null,
+    },
+    {
+      label: 'Impossible samples',
+      valueText: QUALITY_DATA_NOT_AVAILABLE,
+      tier: 'not-computable',
+      explanation: tieringExplanation('impossibleSamples'),
+      evidenceText: null,
+    },
+    {
+      label: 'Device / recording source',
+      valueText: QUALITY_DATA_NOT_AVAILABLE,
+      tier: 'untiered',
+      explanation: DEVICE_ERA_EXPLANATION,
+      evidenceText: null,
+    },
+    {
+      label: 'Elapsed vs. moving',
+      valueText: QUALITY_DATA_NOT_AVAILABLE,
+      tier: 'untiered',
+      explanation: ELAPSED_VS_MOVING_EXPLANATION,
+      evidenceText: null,
+    },
+  ];
+}
+
+/**
+ * Decides the always-on Quality Signals section (D-08, D-09, D-12, D-17,
+ * D-18) — pure, no DOM, same `*-logic`/plan split `breakdownSectionPlan`
+ * uses and for the same reason (there is no DOM-simulation dependency
+ * anywhere in this tree). Unlike `breakdownSectionPlan`, this NEVER returns
+ * `null` (D-08): even a `quality === null` row (an index row predating the
+ * field, or a re-parsed row missing it — `ParsedDashboardIndexRow` is a
+ * `Partial<>`) still produces five rows, each saying explicitly that
+ * quality data is not available, rather than vanishing.
+ *
+ * `shard` supplies ONLY the `evidenceText` fields — every `valueText` comes
+ * from `quality` (the index row's own scalars) alone, so the section still
+ * renders its five value rows even when `shard` is `null` (fetch failed, or
+ * still in flight, T-27-31).
+ */
+export function qualitySignalsSectionPlan(
+  quality: ActivityQualitySignals | null,
+  shard: PaceQualityShard | null
+): QualitySignalsSectionPlan {
+  if (quality === null) {
+    return { rows: notAvailableRows() };
+  }
+
+  const reason = quality.notComputableReason;
+
+  return {
+    rows: [
+      decimationRow(quality.decimation, reason, shard),
+      gapProfileRow(quality.gapProfile, reason, shard),
+      impossibleSamplesRow(quality.impossibleSamples, reason, shard),
+      deviceEraRow(quality.deviceEra),
+      elapsedVsMovingRow(quality.elapsedVsMoving),
+    ],
+  };
+}
+
+/** The `id` a Quality Signals row's `.sr-only` explanation span is given — one per fixed row label, unique within the detail view (only one instance mounts at a time). */
+function qualitySignalDescriptionId(label: string): string {
+  const slug = label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+  return `quality-signal-${slug}-desc`;
+}
+
+/**
+ * Builds the always-on Quality Signals section (D-08, D-09, D-12, D-17,
+ * D-18, T-27-29). Return type is `HTMLElement`, never `HTMLElement | null` —
+ * unlike `buildBreakdownSection`'s analogous emitter, this one never omits
+ * itself.
+ *
+ * Every row's `valueText` and `explanation` reach the DOM through
+ * `appendAccessibleBadge` (which itself uses `textContent` on both spans,
+ * T-18-XSS-01) — no raw-markup DOM assignment of any kind, never
+ * string-concatenated markup. This is the surface `deviceEra.rawDeviceName`
+ * (untrusted athlete/device free text) first reaches the DOM (T-27-29);
+ * `appendAccessibleBadge`'s `textContent`-only construction is the first
+ * line of defence, plan 27-04's publish-time scan the second.
+ *
+ * Only a `'severe'` tier gets the existing `.badge--severe` modifier
+ * (reused unchanged from plan 27-07, D-09) — `'minor'`, `'none'`,
+ * `'not-computable'`, and `'untiered'` all render the plain `.badge`.
+ * Tier is never the ONLY carrier of meaning regardless: every row's visible
+ * `valueText` already names the condition and its measured value in text,
+ * so the section remains fully legible with colour perception removed.
+ */
+export function buildQualitySignalsSection(plan: QualitySignalsSectionPlan): HTMLElement {
+  const section = document.createElement('section');
+  section.className = 'card detail-section';
+
+  const heading = document.createElement('h2');
+  heading.className = 'text-heading';
+  heading.textContent = 'Quality Signals';
+  section.appendChild(heading);
+
+  for (const row of plan.rows) {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'quality-signal-row';
+
+    const labelEl = document.createElement('div');
+    labelEl.className = 'text-label';
+    labelEl.textContent = row.label;
+    rowEl.appendChild(labelEl);
+
+    appendAccessibleBadge(
+      rowEl,
+      row.valueText,
+      row.explanation,
+      qualitySignalDescriptionId(row.label),
+      row.tier === 'severe' ? 'badge--severe' : undefined
+    );
+
+    if (row.evidenceText !== null) {
+      const evidence = document.createElement('p');
+      evidence.className = 'text-label';
+      evidence.textContent = row.evidenceText;
+      rowEl.appendChild(evidence);
+    }
+
+    section.appendChild(rowEl);
   }
 
   return section;
