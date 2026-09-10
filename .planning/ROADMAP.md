@@ -177,7 +177,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 27-01-PLAN.md — pace-quality.ts type contract, device-era taxonomy (ERA-01/ERA-02), untiered facts, `unknown-device` collision resolved
+- [x] 27-01-PLAN.md — pace-quality.ts type contract, device-era taxonomy (ERA-01/ERA-02), untiered facts, `unknown-device` collision resolved
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -289,7 +289,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 24. Local Curation Mode | v2.1 | 17/17 | Complete    | 2026-09-02 |
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 12/12 | Complete    | 2026-09-04 |
 | 26. Shared Gap-Aware Pace Derivation & Honest Coverage | v2.2 | 16/16 | Complete    | 2026-09-10 |
-| 27. Per-Activity Quality Signals | v2.2 | 0/TBD | Not started | - |
+| 27. Per-Activity Quality Signals | v2.2 | 1/10 | In Progress|  |
 | 28. PR Plausibility Ceiling | v2.2 | 0/TBD | Not started | - |
 | 29. Curation Review Queue | v2.2 | 0/TBD | Not started | - |
 | 30. Elevation Quality Signal | v2.2 | 0/TBD | Not started | - |
