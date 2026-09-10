@@ -8,8 +8,11 @@ import { FileStore } from '../storage/file-store.js';
 import type { CanonicalStream, StreamManifest } from '../streams/stream.types.js';
 import type { StravaActivity } from '../types/strava.types.js';
 import type { BestEffortsDocument } from './best-effort.types.js';
+import { DASHBOARD_INDEX_SCHEMA_VERSION } from './dashboard-index.types.js';
 import { computeDashboardIndex } from './compute-dashboard-index.js';
 import { detectPaceDisagreement } from './pace-derivation.js';
+import { NOT_COMPUTABLE_NO_STREAM } from './pace-quality.js';
+import { makeStream, syntheticDecimationAliasedStream } from './pace-fixtures.js';
 
 /** The exact declared member list of `DashboardIndexRow`, sorted — used to assert no leaked fields. */
 const EXPECTED_ROW_KEYS = [
@@ -28,6 +31,7 @@ const EXPECTED_ROW_KEYS = [
   'paceDisagreement',
   'paceSecPerKm',
   'prCount',
+  'quality',
   'sportType',
   'startDate',
   'startDateLocal',
@@ -109,6 +113,10 @@ describe('computeDashboardIndex — archive orchestration', () => {
     await fileStore.writeJson(path.join('geo', 'activity-cities.json'), map);
   }
 
+  async function writeStream(id: string, stream: CanonicalStream): Promise<void> {
+    await fileStore.writeJson(path.join('streams', `${id}.json`), stream);
+  }
+
   async function writeGearConfig(gear: Record<string, string>): Promise<void> {
     await fileStore.writeJson(path.join('config', 'gear.json'), {
       schemaVersion: 1,
@@ -124,6 +132,12 @@ describe('computeDashboardIndex — archive orchestration', () => {
     geoDir: path.join(tmpDir, 'geo'),
     outDir: path.join(tmpDir, 'dashboard'),
     gearConfigPath: path.join(tmpDir, 'config', 'gear.json'),
+    // Phase 27's quality-signal read is unconditional for every available
+    // manifest entry (unlike paceDisagreement's threshold-gated read), so
+    // every test with an `available: true` entry now needs this sandboxed
+    // — otherwise it would probe the real repo's `data/streams/` by
+    // relative path.
+    streamsDir: path.join(tmpDir, 'streams'),
   });
 
   it('an available manifest entry with a readable activity produces a row with fields straight from the activity record', async () => {
@@ -877,6 +891,167 @@ describe('computeDashboardIndex — archive orchestration', () => {
       await fs.readFile(path.join(tmpDir, 'dashboard', 'index.json'), 'utf-8')
     );
     expect(written.activities).toHaveLength(1);
+  });
+
+  describe('quality signals (QUAL-01, QUAL-03, D-17)', () => {
+    it('a streamed activity produces a row whose quality carries all five named sub-objects and notComputableReason: null', async () => {
+      const manifest = emptyManifestDoc();
+      manifest.activities['streamed1'] = {
+        available: true,
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 11,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+      };
+      await writeManifest(manifest);
+      await writeActivity('streamed1', { device_name: 'Garmin fēnix 6 Pro' });
+      await writeStream(
+        'streamed1',
+        makeStream({
+          id: 'streamed1',
+          t: [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+          d: [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300],
+        })
+      );
+
+      const doc = await computeDashboardIndex(baseOptions());
+      const row = doc.activities[0];
+      expect(row.quality.notComputableReason).toBeNull();
+      expect(row.quality.decimation).toBeDefined();
+      expect(row.quality.gapProfile).toBeDefined();
+      expect(row.quality.impossibleSamples).toBeDefined();
+      expect(row.quality.deviceEra).toBeDefined();
+      expect(row.quality.elapsedVsMoving).toBeDefined();
+      expect(row.quality.decimation.tier).toBe('none');
+      expect(row.quality.gapProfile.tier).toBe('none');
+      expect(row.quality.impossibleSamples.tier).toBe('none');
+      expect(row.quality.deviceEra.family).toBe('garmin-fenix-6-pro');
+      expect(row.quality.anySevere).toBe(false);
+    });
+
+    it('a stream-less activity reports notComputableReason === NOT_COMPUTABLE_NO_STREAM, all three tiering tiers not-computable, anySevere false, and a resolved deviceEra.family never "none"', async () => {
+      const manifest = emptyManifestDoc();
+      manifest.activities['nostream1'] = { available: false, reason: 'manual' };
+      await writeManifest(manifest);
+      await writeActivity('nostream1', { device_name: null, source_provider: null });
+
+      const doc = await computeDashboardIndex(baseOptions());
+      const row = doc.activities[0];
+      expect(row.quality.notComputableReason).toBe(NOT_COMPUTABLE_NO_STREAM);
+      expect(row.quality.decimation.tier).toBe('not-computable');
+      expect(row.quality.gapProfile.tier).toBe('not-computable');
+      expect(row.quality.impossibleSamples.tier).toBe('not-computable');
+      expect(row.quality.anySevere).toBe(false);
+      expect(row.quality.deviceEra.family).not.toBe('none');
+      expect(row.quality.deviceEra.family).toBe('no-device-name');
+    });
+
+    it('doc.schemaVersion equals DASHBOARD_INDEX_SCHEMA_VERSION, which is still 1', async () => {
+      const manifest = emptyManifestDoc();
+      manifest.activities['a1'] = { available: false, reason: 'manual' };
+      await writeManifest(manifest);
+      await writeActivity('a1');
+
+      const doc = await computeDashboardIndex(baseOptions());
+      expect(doc.schemaVersion).toBe(DASHBOARD_INDEX_SCHEMA_VERSION);
+      expect(DASHBOARD_INDEX_SCHEMA_VERSION).toBe(1);
+    });
+
+    it('totals.qualityAnySevere equals the count of rows whose quality.anySevere is true, recomputed independently from doc.activities', async () => {
+      const manifest = emptyManifestDoc();
+      manifest.activities['severe1'] = {
+        available: true,
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 101,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+      };
+      manifest.activities['clean1'] = {
+        available: true,
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 11,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+      };
+      await writeManifest(manifest);
+      await writeActivity('severe1');
+      await writeActivity('clean1');
+      // syntheticDecimationAliasedStream: 101 samples, 50% zero-advance —
+      // well past DECIMATION_SEVERE_ZERO_ADVANCE_FRACTION (0.15) and
+      // DECIMATION_SEVERE_MIN_SAMPLES (50), so this activity's decimation
+      // tier is 'severe' and anySevere is true.
+      await writeStream('severe1', { ...syntheticDecimationAliasedStream(), id: 'severe1' });
+      await writeStream(
+        'clean1',
+        makeStream({
+          id: 'clean1',
+          t: [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+          d: [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300],
+        })
+      );
+
+      const doc = await computeDashboardIndex(baseOptions());
+      const recount = doc.activities.filter((row) => row.quality.anySevere).length;
+      expect(recount).toBeGreaterThan(0);
+      expect(doc.totals.qualityAnySevere).toBe(recount);
+    });
+
+    it('a shard file is written for every row, its activityId matches the row id, and its signals deep-equals the row quality', async () => {
+      const manifest = emptyManifestDoc();
+      manifest.activities['streamed1'] = {
+        available: true,
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 11,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+      };
+      manifest.activities['nostream1'] = { available: false, reason: 'manual' };
+      await writeManifest(manifest);
+      await writeActivity('streamed1');
+      await writeActivity('nostream1');
+      await writeStream(
+        'streamed1',
+        makeStream({
+          id: 'streamed1',
+          t: [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+          d: [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300],
+        })
+      );
+
+      const doc = await computeDashboardIndex(baseOptions());
+      for (const row of doc.activities) {
+        const shardBody = JSON.parse(
+          await fs.readFile(path.join(tmpDir, 'stats', 'pace-quality', `${row.id}.json`), 'utf-8')
+        );
+        expect(shardBody.activityId).toBe(row.id);
+        expect(shardBody.signals).toEqual(row.quality);
+      }
+    });
+
+    it('a stream file present but containing malformed JSON yields notComputableReason set and does not throw or skip the activity', async () => {
+      const manifest = emptyManifestDoc();
+      manifest.activities['corruptstream1'] = {
+        available: true,
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 11,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+      };
+      await writeManifest(manifest);
+      await writeActivity('corruptstream1');
+      await fs.mkdir(path.join(tmpDir, 'streams'), { recursive: true });
+      await fs.writeFile(
+        path.join(tmpDir, 'streams', 'corruptstream1.json'),
+        '{ not valid json',
+        'utf-8'
+      );
+
+      const doc = await computeDashboardIndex(baseOptions());
+      expect(doc.activities).toHaveLength(1);
+      const row = doc.activities[0];
+      expect(row.quality.notComputableReason).toBe(NOT_COMPUTABLE_NO_STREAM);
+      expect(row.quality.decimation.tier).toBe('not-computable');
+    });
   });
 });
 

@@ -29,6 +29,8 @@ import {
   detectPaceDisagreement,
   PACE_DISAGREEMENT_METADATA_THRESHOLD_SEC_PER_KM,
 } from './pace-derivation.js';
+import { computePaceQualitySignals, buildPaceQualityShard } from './pace-quality.js';
+import type { ActivityQualityMetadata, ActivityQualitySignals, PaceQualityShard } from './pace-quality.js';
 
 /** Rounds to at most one decimal place. */
 function round1(value: number): number {
@@ -149,14 +151,30 @@ export async function computeDashboardIndex(
   let skippedUnreadable = 0;
   let withGear = 0;
   let paceDisagreementCount = 0;
+  let qualityAnySevereCount = 0;
+  let qualityNotComputableCount = 0;
+  // Added cost of computing the Phase 27 quality signals and building the
+  // D-17 evidence shard — a full stream read over the archive added to a
+  // step that previously read streams only conditionally (PACE-07's
+  // threshold-gated read). Tracked separately from the pre-existing loop
+  // work so a future regression in this specific cost is visible.
+  let qualityComputeMs = 0;
 
   // First pass: build every row EXCEPT gearName, and collect gear usage
   // ({ gearId, startDate }) for every activity that has a non-empty string
   // gear_id. The label map needs every activity's usage before any label
   // can be assigned, so gearName is deliberately left for the second pass
   // below — the activity file is read exactly once here, never twice.
-  const pendingRows: Array<{ row: Omit<DashboardIndexRow, 'gearName'>; gearId: string | null }> =
-    [];
+  //
+  // `shard` is carried alongside `row` (built in this SAME pass, from the
+  // SAME stream read the row's `quality` field itself used) rather than
+  // re-read from disk in the shard-write loop below — one stream read per
+  // activity per run, never two, matching PACE-07's own reuse discipline.
+  const pendingRows: Array<{
+    row: Omit<DashboardIndexRow, 'gearName'>;
+    gearId: string | null;
+    shard: PaceQualityShard;
+  }> = [];
   const gearUsages: GearUsage[] = [];
 
   for (const [id, entry] of Object.entries(manifest.activities)) {
@@ -216,24 +234,79 @@ export async function computeDashboardIndex(
       // any stream read/parse failure (T-26-01), following the existing
       // OPTIONAL-read pattern this file already uses for best-efforts,
       // cities and gear.
+      //
+      // `streamForActivity`/`streamReadAttempted` carry this read forward
+      // to the QUAL-01/QUAL-03 block below so an activity whose pace also
+      // triggered this check is never read from `streamsDir` twice.
       let paceDisagreement: PaceDisagreement | null = null;
+      let streamForActivity: CanonicalStream | null = null;
+      let streamReadAttempted = false;
       if (
         paceSecPerKm !== null &&
         paceSecPerKm < PACE_DISAGREEMENT_METADATA_THRESHOLD_SEC_PER_KM
       ) {
+        streamReadAttempted = true;
         try {
-          const stream = await fileStore.readJson<CanonicalStream>(
+          streamForActivity = await fileStore.readJson<CanonicalStream>(
             path.join(streamsDir, `${id}.json`)
           );
-          paceDisagreement = detectPaceDisagreement(paceSecPerKm, stream);
+          paceDisagreement = detectPaceDisagreement(paceSecPerKm, streamForActivity);
         } catch (error) {
           console.warn(
             `  ${id}: could not read stream for pace disagreement check (${(error as Error).message}); paceDisagreement will be null`
           );
           paceDisagreement = null;
+          streamForActivity = null;
         }
         if (paceDisagreement !== null) paceDisagreementCount++;
       }
+
+      // QUAL-01/QUAL-03: UNLIKE paceDisagreement's gated read above, the
+      // three stream-derived quality signals need every activity's stream
+      // unconditionally — reuse the read above when it already happened for
+      // this activity, otherwise read once here when the manifest says a
+      // stream exists. Where the manifest says no stream is available, pass
+      // `null` directly without attempting a read — `computePaceQualitySignals`
+      // turns that into an explicit `notComputableReason`, never a zeroed
+      // `'none'` tier (D-06). A read/parse failure degrades the same way,
+      // following the same try/catch-and-warn shape as the block above.
+      const qualityStart = Date.now();
+      let streamForQuality: CanonicalStream | null = streamForActivity;
+      if (!streamReadAttempted) {
+        if (entry.available) {
+          try {
+            streamForQuality = await fileStore.readJson<CanonicalStream>(
+              path.join(streamsDir, `${id}.json`)
+            );
+          } catch (error) {
+            console.warn(
+              `  ${id}: could not read stream for quality signals (${(error as Error).message}); quality will be not-computable`
+            );
+            streamForQuality = null;
+          }
+        } else {
+          streamForQuality = null;
+        }
+      }
+
+      const qualityMetadata: ActivityQualityMetadata = {
+        deviceName: activity.device_name,
+        sourceProvider: activity.source_provider,
+        elapsedTimeSec: activity.elapsed_time,
+        movingTimeSec: activity.moving_time,
+      };
+      const quality: ActivityQualitySignals = computePaceQualitySignals(
+        streamForQuality,
+        qualityMetadata
+      );
+      const shard: PaceQualityShard = buildPaceQualityShard(
+        String(id),
+        streamForQuality,
+        qualityMetadata
+      );
+      qualityComputeMs += Date.now() - qualityStart;
+      if (quality.anySevere) qualityAnySevereCount++;
+      if (quality.notComputableReason !== null) qualityNotComputableCount++;
 
       // Raw gear id, used only as a map key/sort input for the label map
       // below — never assigned directly to any row field (17-D32/D33).
@@ -266,9 +339,10 @@ export async function computeDashboardIndex(
         excludedFromRecords,
         prCount,
         paceDisagreement,
+        quality,
       };
 
-      pendingRows.push({ row, gearId });
+      pendingRows.push({ row, gearId, shard });
     } catch (error) {
       console.warn(`  ${id}: ${(error as Error).message}; skipping`);
       skippedUnreadable++;
@@ -284,6 +358,14 @@ export async function computeDashboardIndex(
   // silently invent gear coverage the archive does not have (D-18's
   // "absence made up" failure).
   const gearLabelMap = buildGearLabelMap(gearUsages, gearMap);
+
+  // Carried alongside `pendingRows` (built from the SAME stream read as each
+  // row's own `quality` field, never a second one) — keyed by id so the
+  // shard-write loop below can look each one up by the FINAL, sorted row
+  // order without re-reading any stream from disk.
+  const shardsById = new Map<string, PaceQualityShard>(
+    pendingRows.map(({ row, shard }) => [row.id, shard])
+  );
 
   const rows: DashboardIndexRow[] = pendingRows.map(({ row, gearId }) => {
     const gearName = gearId !== null ? (gearLabelMap.get(gearId) ?? null) : null;
@@ -303,6 +385,8 @@ export async function computeDashboardIndex(
     excludedFromRecords: excludedFromRecordsCount,
     skippedUnreadable,
     withGear,
+    qualityAnySevere: qualityAnySevereCount,
+    qualityNotComputable: qualityNotComputableCount,
   };
 
   const doc: DashboardIndexDocument = {
@@ -317,6 +401,23 @@ export async function computeDashboardIndex(
 
   await fileStore.writeJson(path.join(outDir, 'index.json'), doc);
 
+  // D-17 evidence shard — one file per row, including stream-less
+  // activities, so the detail view always has an honest artifact to fetch
+  // rather than a 404 it must interpret. Mirrors `compute-best-efforts.ts`'s
+  // own per-id shard-write loop shape (main doc write immediately followed
+  // by a per-id loop). Runs over the FINAL, sorted `rows` so every row that
+  // made it into the published index gets exactly one shard; the shard
+  // object itself was already built above from the same stream read the
+  // row's own `quality` field used, never re-read here.
+  const shardWriteStart = Date.now();
+  for (const row of rows) {
+    const shard = shardsById.get(row.id);
+    if (shard) {
+      await fileStore.writeJson(path.join(statsDir, 'pace-quality', `${row.id}.json`), shard);
+    }
+  }
+  const shardWriteMs = Date.now() - shardWriteStart;
+
   console.log(`\nGenerated dashboard index:`);
   console.log(`- Activities indexed: ${totals.activities}`);
   console.log(`- With streams: ${totals.withStreams}`);
@@ -328,6 +429,12 @@ export async function computeDashboardIndex(
   console.log(`- Skipped (unreadable): ${totals.skippedUnreadable}`);
   console.log(`- With gear: ${totals.withGear}`);
   console.log(`- Pace disagreements flagged: ${paceDisagreementCount}`);
+  console.log(`- Quality: any severe signal: ${totals.qualityAnySevere}`);
+  console.log(`- Quality: not computable: ${totals.qualityNotComputable}`);
+  console.log(
+    `- Quality pass wall time: ${qualityComputeMs + shardWriteMs}ms ` +
+      `(signal compute + shard build ${qualityComputeMs}ms, shard write ${shardWriteMs}ms)`
+  );
   console.log(`\nOutput written to: ${path.join(outDir, 'index.json')}`);
 
   return doc;
