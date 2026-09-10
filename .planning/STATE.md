@@ -4,8 +4,8 @@ milestone: v2.2
 milestone_name: Pace Data Quality
 status: executing
 stopped_at: Phase 27 context gathered
-last_updated: "2026-09-10T13:01:42.992Z"
-last_activity: 2026-09-10 -- Phase 27 planning complete
+last_updated: "2026-09-10T13:14:01.171Z"
+last_activity: 2026-09-10 -- Phase 27 execution started
 progress:
   total_phases: 5
   completed_phases: 1
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-08)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 27 — per activity quality signals
+**Current focus:** Phase 27 — per-activity-quality-signals
 
 **Carried into the next milestone:**
 
@@ -39,10 +39,10 @@ See: .planning/PROJECT.md (updated 2026-09-08)
 
 ## Current Position
 
-Phase: 27
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-09-10 -- Phase 27 planning complete
+Phase: 27 (per-activity-quality-signals) — EXECUTING
+Plan: 1 of 10
+Status: Executing Phase 27
+Last activity: 2026-09-10 -- Phase 27 execution started
 
 Progress: [██████████] 100%
 

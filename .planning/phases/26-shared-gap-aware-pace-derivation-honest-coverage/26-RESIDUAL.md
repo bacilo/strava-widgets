@@ -2,7 +2,7 @@
 
 The residue the adaptive gap-aware derivation (`src/analytics/pace-derivation.ts`) does not fix, quantified rather than smoothed into plausibility (PACE-06, D-19). This is the committed, regenerable deliverable Phase 27 consumes as pre-flagged input and re-derives at its own boundary — see `npm run compute-pace-residual` below.
 
-**Generated:** 2026-09-08T20:50:09.093Z
+**Generated:** 2026-09-09T09:08:40.106Z
 
 ## Cohort Definition
 
