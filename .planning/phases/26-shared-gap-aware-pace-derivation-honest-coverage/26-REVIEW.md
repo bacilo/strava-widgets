@@ -2,52 +2,253 @@
 phase: 26
 status: issues_found
 depth: standard
-reviewed: 2026-09-09
-review_round: 2
-files_reviewed: 29
+reviewed: 2026-09-10
+review_round: 3
+files_reviewed: 7
 findings:
-  critical: 2
-  warning: 4
-  info: 3
-  total: 9
-critical: 2
-warning: 4
-info: 3
+  critical: 0
+  warning: 2
+  info: 0
+  total: 2
+critical: 0
+warning: 2
 prior_round_dispositions:
   CR-01: resolved
   WR-01: resolved
-correction: "CR-01 downgrade RETRACTED 2026-09-09 — see Correction section in the Round 1 archive below (preserved verbatim)"
+  CR-02: resolved
+  CR-03: resolved
 files_reviewed_list:
-  - scripts/compute-pace-residual.mjs
-  - scripts/compute-pace-residual.test.mjs
-  - src/analytics/compute-dashboard-index.test.ts
-  - src/analytics/compute-dashboard-index.ts
-  - src/analytics/dashboard-index.types.ts
-  - src/analytics/gear-aggregate-logic.test.ts
-  - src/analytics/pace-derivation.test.ts
-  - src/analytics/pace-derivation.ts
-  - src/analytics/pace-fixtures.test.ts
-  - src/analytics/pace-fixtures.ts
-  - src/analytics/pace-single-source.test.ts
-  - src/dashboard/data/index-client.test.ts
-  - src/dashboard/styles.css
-  - src/dashboard/styles.test.ts
-  - src/dashboard/views/calendar-logic.test.ts
-  - src/dashboard/views/detail-charts-logic.test.ts
   - src/dashboard/views/detail-charts-logic.ts
-  - src/dashboard/views/detail-sections.test.ts
-  - src/dashboard/views/detail-sections.ts
-  - src/dashboard/views/detail-zones.test.ts
-  - src/dashboard/views/detail-zones.ts
-  - src/dashboard/views/detail.ts
-  - src/dashboard/views/list-logic.test.ts
-  - src/dashboard/views/list.test.ts
+  - src/dashboard/views/detail-charts-logic.test.ts
+  - src/analytics/pace-single-source.test.ts
+  - src/analytics/trimp.ts
   - src/dashboard/views/list.ts
-  - src/dashboard/views/overview.test.ts
-  - src/dashboard/views/trends-cadence-hr-logic.test.ts
-  - src/dashboard/views/trends-logic.test.ts
-  - src/dashboard/views/trends-volume-logic.test.ts
+  - src/dashboard/views/list.test.ts
+  - src/analytics/compute-dashboard-index.test.ts
 ---
+
+# Phase 26 Code Review — Round 3 (gap-closure 26-14 / 26-15 / 26-16)
+
+**Reviewed:** 2026-09-10
+**Depth:** standard
+**Files Reviewed:** 7
+**Status:** issues_found
+
+> **Document layout.** This round's findings come first. Round 2 (including its own preserved Round 1
+> archive, the orchestrator's CR-01 downgrade, and the CORRECTION that retracted it) is preserved
+> verbatim below under "Round 2 archive". Nothing from either prior round has been edited or deleted.
+
+## Structural Findings (fallow)
+
+No `<structural_findings>` substrate was supplied for this round.
+
+## Narrative Findings (AI reviewer)
+
+Scope: the three files plan 26-14 changed in production code and tests (`detail-charts-logic.ts`,
+`detail-charts-logic.test.ts`, `pace-single-source.test.ts`, `trimp.ts`), the two files plan 26-15
+changed (`list.ts`, `list.test.ts`), and the one file the orchestrator's timeout fix touched
+(`compute-dashboard-index.test.ts`). 26-16 made no source changes (checkpoint/documentation only,
+confirmed by `git diff f1c9feaa..HEAD --stat`).
+
+Both open Criticals were re-verified by executing the code against the real committed archive and the
+real built output — not by reading the plan summaries' claims — per this round's mandate.
+
+### CR-03 — CONFIRMED RESOLVED
+
+`buildChannelSeries`'s pace branch (`detail-charts-logic.ts:101`) now calls
+`derivePaceWithCoverage(stream).paceSeries` directly, the identical call `detail.ts:717` makes for the
+histogram/caption/splits, over the identical `detail.stream` object. `derivePaceWithCoverage` is pure
+and deterministic (`pace-derivation.ts:448-467`: `classifyGaps` → `adaptiveWindowSec` →
+`derivePaceSeriesGapAware`, no hidden state), so two calls on the same stream cannot diverge. The
+fixed-20s `derivePaceSeries` wrapper and `PACE_SMOOTHING_WINDOW_SEC` are gone —
+`grep -rn "derivePaceSeries\b|PACE_SMOOTHING_WINDOW_SEC" src/` returns nothing. Re-ran Round 2's own
+divergence probe against the current `dist/` build on all three previously-diverging activities plus
+the control:
+
+```
+5059204779  windowSec=150                 chart===histogram-derived series: true  (1841 pts)
+4598855187  windowSec=247.5               chart===histogram-derived series: true  (2344 pts)
+3647739864  windowSec=221.00000000000009  chart===histogram-derived series: true  (2406 pts)
+4556693525  windowSec=20 (floor, control) chart===histogram-derived series: true  (1682 pts)
+```
+
+Every activity Round 2 cited as disagreeing now agrees exactly, index-for-index, between the chart
+band and the histogram/caption derivation. `detail-charts-logic.ts:5-16`'s header comment states this
+claim accurately and the permanent `CR-03` describe block in `detail-charts-logic.test.ts` pins it
+with `5059204779` as the non-vacuous discriminator (`windowSec` measured 150s, exceeding the floor) —
+a real regression test, not a tautology, confirmed by reading the RED transcript in `26-14-SUMMARY.md`
+(3/5 CR-03 tests failed before the fix, with the exact `t=175: 66.45 s/km vs 498.34 s/km` divergence
+quoted) and by independently re-running `npx vitest run detail-charts-logic.test.ts` (39/39 green) and
+`npx tsc --noEmit` (clean) myself. **CR-03 is closed.**
+
+### CR-02 — CONFIRMED RESOLVED
+
+Both `statusBadgeTexts` (`list.ts:356`) and `appendStatusBadges` (`list.ts:392-401`) now read
+`paceDisagreement` exclusively through the exported `rowPaceDisagreement(row)` helper
+(`list.ts:333-335`, `return row.paceDisagreement ?? null`), and `appendStatusBadges` hoists the
+narrowed value to a single local (`const disagreement = rowPaceDisagreement(row)`) used for both the
+dispatch condition and the value passed to `appendPaceDisputedBadge` — so the two decisions cannot
+independently re-read `row.paceDisagreement` and drift the way `:341`/`:380` did pre-fix. Confirmed
+`grep -c "row.paceDisagreement !== null" list.ts` is `0` and `grep -c "rowPaceDisagreement(row)"` is
+`2`. Reproduced the fix at runtime against the actual built output with a row object that genuinely
+lacks the key (not `paceDisagreement: undefined`, which is a different object shape):
+
+```
+badges for missing-key row: [ 'No HR' ]        // no "Pace disputed", no crash
+rowPaceDisagreement(missing-key row): null
+```
+
+`detail.ts:631` already used the same `?? null` pattern before this round and is unchanged. Grepping
+every production consumer of `paceDisagreement` (`grep -rln "paceDisagreement" src/` minus `.test.ts`
+files) turns up exactly two: `list.ts` (fixed) and `detail.ts` (already safe). `overview.ts`'s
+`buildRecentPrsCard`/`buildRecentActivitiesCard` render through the same shared `renderActivityRow`/
+`buildTableRow` → `appendStatusBadges` path (`overview.ts` itself contains no independent badge or
+`paceDisagreement` logic — grepped and confirmed), so all four surfaces (`activity-card`,
+`activity-table`, `overview-prs`, `overview-activities`) inherit the fix from the single dispatch
+point, as `list.ts`'s own D-11 comment claims. `calendar-logic.ts`, `trends-*.ts` and
+`records-logic.ts` never read `paceDisagreement` at all. No third call site with the same
+undefined-vs-null hazard was found. **CR-02 is closed.**
+
+## Warnings
+
+### WR-06: `pace-single-source.test.ts`'s new "load-bearing" claim for `derivePaceSeriesGapAware(` is falsifiable — a two-part evasion (aliased import + a non-literal window-key) produces zero matches
+
+**File:** `src/analytics/pace-single-source.test.ts:235-238` (claim), `:240-247` (`OVERRIDE_LITERALS`),
+`:271-292` (`findConfinedCallSites`)
+
+**Issue:** The corrected docblock states, as an unconditional claim: *"`derivePaceSeriesGapAware(` is
+the load-bearing check: it catches ANY direct call to the gap-aware primitive outside
+`pace-derivation.ts` regardless of how the options object is written."* `findConfinedCallSites` is a
+raw whole-file substring scan (`stripped.indexOf(literal, ...)`), not an AST-aware call-target
+resolver — it has no concept of "this identifier resolves to the primitive" versus "this identifier is
+an unrelated local variable with the same text." Reproduced against the exact audit logic
+(`OVERRIDE_LITERALS` copied verbatim from the file, `findConfinedCallSites`'s algorithm re-implemented
+line for line) with a planted file that aliases the import and builds the window key dynamically:
+
+```ts
+import { derivePaceSeriesGapAware as gapAwarePace } from '../../analytics/pace-derivation.js';
+const FIXED_WIN = 20;
+export function sneaky(t, d, gapIntervals) {
+  const opts = {};
+  opts['window' + 'Sec'] = FIXED_WIN;
+  opts.gapIntervals = gapIntervals;
+  return gapAwarePace(t, d, opts);
+}
+```
+
+```
+matches: []
+```
+
+Zero of the six `OVERRIDE_LITERALS` fire: the call site text is `gapAwarePace(`, not
+`derivePaceSeriesGapAware(`, and no literal `windowSec:` / `windowSec,` / `windowSec }` substring
+exists anywhere in the file. The claim that the primitive-name literal catches "ANY direct call …
+regardless of how the options object is written" is therefore false — it is falsified by the
+combination of an aliased import (which the "ANY direct call" half of the claim does not survive)
+and a non-literal key (which the "regardless of how the options object is written" half does not
+survive). Note the two conditions are independently necessary: aliasing alone does not evade the scan
+(a second probe using the same alias but the literal `{ windowSec: 20, gapIntervals }` form is still
+caught by the `windowSec:` literal, confirmed: `alias-only (windowSec: literal present) matches:
+[ 'windowSec:' ]`), so this is a real but narrow hole, not a wide-open one — it requires a
+deliberately obfuscated evasion, not an organically-written one. This is exactly the "audit whose
+header claims completeness it has not demonstrated" failure class the same docblock (two paragraphs
+earlier) says this phase keeps re-encountering, reproduced a third time in the same file that named
+the first two instances.
+
+**Fix:** Either soften the claim to name its actual scope (a heuristic textual scan over the literal
+call and key names, not a semantic one — same honesty standard `pace-single-source.test.ts`'s own
+opening docblock already applies to its known gaps), or close the gap for real with an AST-based check
+(e.g. a TypeScript `ts.SourceFile` walk resolving import specifiers to their original binding before
+matching call expressions, so aliasing cannot evade it) — a change proportionate to the file's own
+stated ambition ("structural, not formatting"), not to the literal-scan's actual power today.
+
+---
+
+### WR-07: `rowPaceDisagreement`'s parameter type claims the key is always present — the exact fact its own docblock says cannot be assumed
+
+**File:** `src/dashboard/views/list.ts:333` (signature), contradicted by `:319-331` (its own docblock)
+and `src/analytics/dashboard-index.types.ts:130` (`ParsedDashboardIndexRow`)
+
+**Issue:** `rowPaceDisagreement`'s docblock states plainly: *"no key can be assumed present on the read
+side"* — the entire reason the function exists. Its actual signature does the opposite:
+
+```ts
+export function rowPaceDisagreement(row: Pick<DashboardIndexRow, 'paceDisagreement'>): PaceDisagreement | null {
+  return row.paceDisagreement ?? null;
+}
+```
+
+`Pick<DashboardIndexRow, 'paceDisagreement'>` is `{ paceDisagreement: PaceDisagreement | null }` — a
+**required** key, per `DashboardIndexRow`'s own doc comment two lines above it in
+`dashboard-index.types.ts` ("REQUIRED, deliberately … making this key optional would let
+compute-dashboard-index.ts silently stop emitting it with no compile error"). That requiredness is
+correct for the *writer* side, but every real call site here is on the *read* side: `statusBadgeTexts`
+and `appendStatusBadges` both take `row: DashboardIndexRow`, and `index-client.ts`'s `getRows()`/
+`getRow()` — the actual source of every row these functions ever see — hand out values typed
+`DashboardIndexRow` after an unvalidated `(await response.json()) as DashboardIndexDocument` cast
+(unchanged by this round; logged as a deliberate deferral in `deferred-items.md`). So the whole call
+chain is statically typed as though the key can never be missing, while `rowPaceDisagreement`'s own
+prose — and the CR-02 defect it exists to close — says the opposite is true at runtime. The `?? null`
+guard is correct and does its job regardless of what TypeScript believes, but nothing in the type
+system reflects why the guard is there; a future refactor that "notices" the type says the key is
+always present and inlines `row.paceDisagreement` directly (exactly the change CR-02 fixed) would
+compile cleanly and reintroduce the defect with zero compiler signal. The codebase already has the
+correctly-shaped type for this exact hazard — `ParsedDashboardIndexRow = Partial<DashboardIndexRow> &
+{ id: string }` — one line away in the same file, built for exactly this purpose, and unused here.
+
+**Fix:**
+
+```ts
+export function rowPaceDisagreement(
+  row: Pick<ParsedDashboardIndexRow, 'paceDisagreement'>
+): PaceDisagreement | null {
+  return row.paceDisagreement ?? null;
+}
+```
+
+This is the narrowest possible change (one type parameter) and makes the signature assert exactly what
+the docblock already claims — a genuinely-optional key — so a future caller passing a
+`DashboardIndexRow` still type-checks (required is assignable to optional), but the function's own
+contract stops silently overstating what it can rely on.
+
+---
+
+## Info
+
+None this round.
+
+## What I checked and found clean (Round 3 scope)
+
+- `26-16` made no production or test source changes — confirmed via `git diff f1c9feaa..HEAD --stat`
+  (only `.planning/` docs and `26-16-SUMMARY.md`/`26-VALIDATION.md`/`deferred-items.md`), so no
+  additional source files were in scope beyond the seven reviewed here.
+- `compute-dashboard-index.test.ts`'s archive-wide pace-disagreement sweep (Round 2 WR-03) now carries
+  an explicit `60_000` timeout (`}, 60_000);` at the `it(...)` call), closing that finding as a
+  byproduct of this round's file set — not re-flagged.
+- `trimp.ts`'s only change is a rotted citation correction (pointed at `derivePaceSeriesGapAware`
+  instead of the now-deleted `derivePaceSeries`); accurate, no behavioural change.
+- `npx tsc --noEmit` is clean and `npx vitest run detail-charts-logic.test.ts pace-single-source.test.ts
+  list.test.ts` passes 183/183 on the current tree.
+- No hardcoded secrets, `eval`, `innerHTML`, or shell interpolation introduced by this round's diff.
+- The `CR-03` and `CR-02` regression tests are both genuinely non-vacuous: `26-14-SUMMARY.md`'s RED
+  transcript shows 3/5 CR-03 tests failing pre-fix with the real divergent values quoted, and
+  `26-15-SUMMARY.md`'s RED transcript shows 4/6 CR-02 tests failing pre-fix with `expected [ 'Pace
+  disputed' ] to deeply equal []`. Neither is a test that would pass regardless of the fix.
+
+---
+
+_Reviewed: 2026-09-10 (Round 3)_
+_Reviewer: Claude (gsd-code-reviewer)_
+_Depth: standard_
+
+---
+---
+
+# Round 2 archive (2026-09-09) — preserved verbatim, do not edit
+
+Everything below this line is the Round 2 report exactly as written, including its own preserved
+Round 1 archive, the orchestrator's CR-01 downgrade, and the CORRECTION that retracted it.
+
 
 # Phase 26 Code Review — Round 2 (post gap-closure 26-11 / 26-12 / 26-13)
 

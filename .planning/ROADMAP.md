@@ -80,7 +80,7 @@ times before this milestone, and there is no jsdom or headless browser in the re
 
 **Phase Numbering:** Continues from v2.1 (which ended at Phase 25). This milestone is Phases 26-30.
 
-- [x] **Phase 26: Shared Gap-Aware Pace Derivation & Honest Coverage** - One shared module replaces the two divergent pace formulas; coverage is exact and visible (13/13 plans executed 2026-09-09; the Criterion 3 / D-08 / COV-02 gap IS closed by plan 26-13's Round 2 human checkpoint, all four rows PASS, see 26-VALIDATION.md; REOPENED 2026-09-09 by re-verification — new gap CR-03: the pace chart band still derives with the fixed 20s window while the histogram/caption use the adaptive one, defeating Criteria 1/4/5 on the phase's own exemplar 5059204779, see 26-VERIFICATION.md) (completed 2026-09-10)
+- [x] **Phase 26: Shared Gap-Aware Pace Derivation & Honest Coverage** - One shared module replaces the two divergent pace formulas; coverage is exact and visible (16/16 plans executed; verified 7/7 success criteria 2026-09-10, see 26-VERIFICATION.md. Took three verification rounds: the Criterion 3 / D-08 / COV-02 gap was closed by 26-13's Round 2 human checkpoint; re-verification then found CR-03 — the pace chart band still derived with the fixed 20s window while the histogram/caption used the adaptive one, defeating Criteria 1/4/5 on the phase's own exemplar 5059204779 — closed by 26-14, alongside CR-02 by 26-15 and a Round 3 human checkpoint by 26-16, all four rows PASS, see 26-VALIDATION.md) (completed 2026-09-10)
 - [ ] **Phase 27: Per-Activity Quality Signals** - Device-era-aware, severity-tiered quality signals computed in CI, disclosed individually as badges
 - [ ] **Phase 28: PR Plausibility Ceiling** - Three-pass restructure of `compute-best-efforts.ts` derives a personal ceiling and demotes-never-deletes implausible efforts
 - [ ] **Phase 29: Curation Review Queue** - Local curation mode gains a queue for ceiling-flagged efforts, reusing the existing exclusion write path
@@ -258,7 +258,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 23. Trends Zoom, Pan & Taller Bands | v2.1 | 13/13 | Complete    | 2026-08-27 |
 | 24. Local Curation Mode | v2.1 | 17/17 | Complete    | 2026-09-02 |
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 12/12 | Complete    | 2026-09-04 |
-| 26. Shared Gap-Aware Pace Derivation & Honest Coverage | v2.2 | 16/16 | Complete   | 2026-09-10 |
+| 26. Shared Gap-Aware Pace Derivation & Honest Coverage | v2.2 | 16/16 | Complete    | 2026-09-10 |
 | 27. Per-Activity Quality Signals | v2.2 | 0/TBD | Not started | - |
 | 28. PR Plausibility Ceiling | v2.2 | 0/TBD | Not started | - |
 | 29. Curation Review Queue | v2.2 | 0/TBD | Not started | - |

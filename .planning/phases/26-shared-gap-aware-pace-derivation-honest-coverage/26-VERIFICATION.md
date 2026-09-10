@@ -1,68 +1,18 @@
 ---
 phase: 26-shared-gap-aware-pace-derivation-honest-coverage
-verified: 2026-09-09T19:00:04Z
-status: gaps_found
-score: 6/7 success criteria verified (Criterion 1 partially defeated by an unfixed consumer; see gap)
+verified: 2026-09-10T09:18:33Z
+status: passed
+score: 7/7 success criteria verified
 overrides_applied: 0
 re_verification:
   previous_status: gaps_found
-  previous_score: "6/7 (Criterion 3 / D-08 / COV-02 the recorded gap)"
+  previous_score: "6/7 (3/7 PARTIAL, single root cause CR-03: pace chart band overrode the adaptive window)"
   gaps_closed:
-    - "Criterion 3 / D-08 / COV-02 — coverage caption previously disappeared when buckets.length was 0 (activity 11865310195, 33% covered). breakdownSectionPlan now gates the caption on coverage alone and bars alone on bucket presence. Verified by reading detail-sections.ts:497-604 directly and by Round 2 human checkpoint (26-VALIDATION.md R2-1/R2-2, both PASS)."
-    - "WR-01 (false 'sum EXACTLY equals coveredSec' invariant in paceHistogramSamples doc comment) — comment corrected, paceHistogramAccounting itemises the identity, archive-wide sweep finds 0 violations across 1,865 streams (44 activities with nonzero unbucketedCoveredSec). Verified by reading pace-derivation.ts:469-570 and pace-derivation.test.ts:521-560."
-  gaps_remaining:
-    - "CR-03 (new, found in round-2 review, not present in the previous VERIFICATION.md's gap list): the detail-page pace CHART band still derives pace under a hard-coded fixed 20s window while every other consumer (histogram, coverage caption, split gap markers) uses the adaptive window. This is a newly discovered defect, not a recurrence of the closed Criterion-3 gap."
+    - "CR-03 — `buildChannelSeries`'s pace branch (`detail-charts-logic.ts:101`) now calls `derivePaceWithCoverage(stream).paceSeries` directly, the identical call `detail.ts:717` makes for the histogram/caption/splits. The fixed-20s `derivePaceSeries` wrapper and `PACE_SMOOTHING_WINDOW_SEC` constant are deleted entirely (grep confirms zero occurrences in `src/`). Verified by reading the current file, not the SUMMARY: import list, header comment, and the pace branch (`:101`) all read `derivePaceWithCoverage(stream)`. A permanent regression test (`detail-charts-logic.test.ts`'s `CR-03` describe block) pins index-for-index equality between the chart's own output and `derivePaceWithCoverage(...).paceSeries` on the pinned exemplar 5059204779, with a non-vacuity guard (window=150s, exceeds the 20s floor) and a no-regression control (4556693525, window=floor). Full suite re-run independently in this verification: `detail-charts-logic.test.ts` 39/39, `pace-single-source.test.ts` 74/74, `pace-derivation.test.ts` 32/32, `list.test.ts` 70/70, whole repo 1907/1907, `tsc --noEmit` clean."
+    - "CR-03's audit blind spot (ES2015 object-shorthand `windowSec` override) — `OVERRIDE_LITERALS` in `pace-single-source.test.ts` extended to 6 entries including `'windowSec,'`, `'windowSec }'` and the structural `'derivePaceSeriesGapAware('` call-site literal. Confirmed present by reading the file; a permanent planted-CR-03-shape test (`:415`) exercises it."
+    - "CR-02 — both `statusBadgeTexts` (`list.ts:359`) and `appendStatusBadges` (`list.ts:395`) now read `paceDisagreement` exclusively through the exported `rowPaceDisagreement(row)` helper (`:333-334`, `return row.paceDisagreement ?? null`), so a missing key resolves to `null` rather than a truthy `undefined` passing a `!== null` test. Verified by reading the current file directly (not the SUMMARY): both call sites confirmed, `grep -c \"row.paceDisagreement !== null\" list.ts` is 0. `list.test.ts`'s dedicated `CR-02` describe block (70 tests total in the file, all pass) exercises a genuinely-missing-key row via object destructuring, not `{ paceDisagreement: undefined }` (a materially different shape from what an unvalidated JSON cast actually produces)."
+  gaps_remaining: []
   regressions: []
-gaps:
-  - truth: "Success Criterion 1 / 5 / phase goal statement: every named consumer of derived pace (chart, histogram, splits) exhibits the phantom-fast-mode reduction; the shipped adaptive approach recovers exemplar 5059204779 to the measured 1.22%/97% figures, not the 94.81%/30% fixed-20s reading the phase exists to eliminate."
-    status: failed
-    reason: >
-      buildChannelSeries (src/dashboard/views/detail-charts-logic.ts:120) calls
-      derivePaceSeries(stream.t, stream.d, PACE_SMOOTHING_WINDOW_SEC) where
-      PACE_SMOOTHING_WINDOW_SEC = PACE_WINDOW_FLOOR_SEC = 20 (fixed), instead of the adaptive
-      window (adaptiveWindowSec) that detail.ts:717 resolves and passes to
-      derivePaceWithCoverage for the histogram, coverage caption, and split markers. Verified
-      independently (not from the review's numbers alone) by running both window resolutions
-      against the committed stream for activity 5059204779:
-      chart(20s) fast-mass = 94.81% of covered time faster than 3:00/km, adaptive fast-mass =
-      1.22% — reproducing, on screen, in the primary chart band, the exact 94.81%/30%
-      "phantom fast mode" reading that Criterion 1 names as "the trap this criterion exists to
-      avoid re-entering." Also independently verified the max per-sample divergence: 5059204779
-      431.9 sec/km, 4598855187 29,656.7 sec/km, across 11 of 1,865 archive activities whose
-      adaptive window differs from the 20s floor. The module's own header
-      (detail-charts-logic.ts:5-9) states "the chart and detail-zones.ts's histogram both read
-      the same gap-aware series so the two surfaces cannot disagree" — demonstrably false, and
-      itself the exact false-invariant-doc-comment failure class COV-01 exists to forbid (the
-      same class WR-01 was closed for in the prior round). On the pinned exemplar 5059204779 —
-      the activity the phase's own Round 2 human checkpoint reads back and the one activity
-      carrying the new "Pace disputed" badge — the Pace & Effort chart band and the Pace
-      Distribution histogram directly below it disagree by two orders of magnitude in the same
-      paint.
-    artifacts:
-      - path: "src/dashboard/views/detail-charts-logic.ts"
-        issue: "buildChannelSeries (:120) hard-codes the 20s floor as the pace chart's window instead of resolving adaptiveWindowSec per activity; module header (:5-9) and PACE_SMOOTHING_WINDOW_SEC doc comment (:76-80) assert an invariant ('cannot disagree' / 'a floor, not the only value') the code does not hold at its one internal call site."
-      - path: "src/analytics/pace-single-source.test.ts"
-        issue: "OVERRIDE_LITERALS scans for the literal 'windowSec:' (with colon); detail-charts-logic.ts:98 passes the fixed value via ES2015 shorthand ({ windowSec, gapIntervals }), which is textually indistinguishable from the (t, d, windowSec) parameter declaration the audit's own docblock explicitly excuses. The audit does not catch a real, currently-shipping override of the adaptive resolution — undermining Criterion 4's 'provably' / 'demonstrated catching a ... second implementation' claim for this specific override shape."
-    missing:
-      - "buildChannelSeries's pace branch must resolve the same adaptive window as derivePaceWithCoverage (ideally by calling derivePaceWithCoverage directly, per the reviewer's suggested fix, or at minimum by importing and calling adaptiveWindowSec(stream.t, stream.d) instead of the fixed floor)."
-      - "The two false contract-invariant comments (detail-charts-logic.ts:5-9 and :76-80) must be corrected to match what the code actually does, once fixed."
-      - "The single-source override audit should be extended to catch the shorthand form (add 'windowSec,' / 'windowSec }' to OVERRIDE_LITERALS, or scan for derivePaceSeriesGapAware( call sites outside pace-derivation.ts) so a fixed-window override at a non-pace-derivation.ts call site cannot pass clean again."
-      - "A regression test asserting that, for activity 5059204779, the chart's pace series and the histogram's pace series are the same array of values (or at minimum agree on fast-mass fraction within a stated tolerance)."
-deferred:
-  - truth: "CR-02: statusBadgeTexts / appendStatusBadges (list.ts:341, :380-381) use `row.paceDisagreement !== null`, which is true for `undefined`, so a pre-Phase-26 or partially-regenerated index.json makes every row show a false 'Pace disputed' badge and then throws a TypeError inside appendPaceDisputedBadge."
-    addressed_in: "Not phase-scheduled; recommended as an immediate follow-up fix, not a later-phase deferral"
-    evidence: >
-      Confirmed present in the code exactly as the round-2 review describes. Confirmed LATENT
-      against the live artifact: today's regenerated data/dashboard/index.json (1,890 rows)
-      has 0 rows missing the paceDisagreement key, so the defect is not currently firing and
-      does not violate the observable text of Success Criterion 7 (the archive-wide flag count
-      reads exactly 1 of 1,890, correctly, for activity 5059204779, verified directly against
-      data/dashboard/index.json). detail.ts:631 already reads the same field correctly with
-      `?? null`, showing the fix is a two-line, well-understood change. Recorded as a WARNING
-      rather than a phase-blocking gap because no stated Success Criterion's text covers
-      robustness against a stale/partial index.json shape — but it is a genuine production
-      hazard for this project's staged-build/browser-cache failure mode (a recorded lesson) and
-      should not be left open past this phase's close.
 ---
 
 # Phase 26: Shared Gap-Aware Pace Derivation & Honest Coverage Verification Report
@@ -74,14 +24,24 @@ and quantified rather than smoothed into plausibility, and a metadata-vs-stream 
 catches the one activity whose metadata alone would otherwise display a physically implausible
 pace as fact.
 
-**Verified:** 2026-09-09T19:00:04Z
-**Status:** gaps_found
-**Re-verification:** Yes — this phase's previous VERIFICATION.md (Criterion 3 / D-08 / COV-02)
-gap was closed by plans 26-11/26-12/26-13 and is confirmed closed below. A NEW gap (CR-03),
-surfaced by the round-2 code review after that closure and independently reproduced here, is
-what keeps this phase from `passed`. The previous report's frontmatter and its `gaps:` array are
-stale and were not relied on for this verdict — this report reflects the codebase as it now
-stands, evaluated fresh against ROADMAP.md's 7 Success Criteria and the goal statement itself.
+**Verified:** 2026-09-10T09:18:33Z
+**Status:** passed
+**Re-verification:** Yes — third round. The previous `26-VERIFICATION.md` (2026-09-09T19:00:04Z,
+`gaps_found`, single root cause CR-03: the pace chart band overrode the adaptive window with a
+fixed 20s floor) is the report that triggered plans 26-14/26-15/26-16. That report's frontmatter
+and `gaps:` array are stale and were not used as a gate here — this report reflects the codebase
+as it stands now, re-derived independently against the source files, the test suite, an
+independent Round 3 code review (`26-REVIEW.md`), and a Round 3 human browser checkpoint
+(`26-VALIDATION.md`).
+
+**Note on artifact state:** `ROADMAP.md` and `REQUIREMENTS.md` already carry ticks and a
+"(completed 2026-09-10)" annotation written by the executor before this verification ran. Per the
+task instructions, those ticks were treated as non-evidence and the codebase was judged
+independently. The findings below happen to agree with the ticks, but arrived at that agreement by
+reading `detail-charts-logic.ts`, `list.ts`, `pace-single-source.test.ts`, running the full test
+suite (1907/1907 passing, `tsc --noEmit` clean, all independently re-run in this session) and
+executing a Node probe against the live `data/dashboard/index.json` — not by trusting the ticks or
+the SUMMARY files.
 
 ## Goal Achievement
 
@@ -89,158 +49,140 @@ stands, evaluated fresh against ROADMAP.md's 7 Success Criteria and the goal sta
 
 | # | Truth | Status | Evidence |
 |---|-------|--------|----------|
-| 1 | Archive-wide phantom-fast-mode reduction, measured per-activity against baseline, strictly lower (or both zero) for 153/154 + 1 tie, 0 regressions; residual of 14 quantified and enumerated by ID | ⚠️ PARTIAL | The measurement itself (26-RESIDUAL.md, `compute-pace-residual.mjs`, driven by `derivePaceWithCoverage`) is sound and independently re-derivable — verified 154 cohort, 14 residual, 153 strictly improved / 1 tie / 0 regressed, matches the committed artifact. **But** the phase goal names "chart" as a consumer this criterion's trap applies to, and the chart band still reproduces the exact 94.81%/30% fixed-window reading on the pinned exemplar 5059204779 that this criterion calls "the trap this criterion exists to avoid re-entering." The measurement passes; the shipped UI re-enters the trap on one surface. See gap. |
-| 2 | Gaps clip rather than manufacture pace; affected splits disclose it; both demonstrated failing when clipping/marking is removed | ✓ VERIFIED | `classifyGaps` / gap-boundary clipping in `pace-derivation.ts`; split gap marking confirmed live in 26-VALIDATION.md Row 2/R2 (`Km 11: includes 11:29 of recording gap`, exact string, human-read). Tests in `pace-derivation.test.ts` and `detail-sections.test.ts` cover clip removal. |
-| 3 | Coverage sums exactly (covered + excluded = span, exact); pinned exemplar's on-screen coverage % matches an independent sum | ✓ VERIFIED | `breakdownSectionPlan` (detail-sections.ts:497-523) computes the caption from `coverage` alone; gated only on coverage, not bucket presence (the CR-01 fix). Round 2 human checkpoint R2-1/R2-3 (26-VALIDATION.md) both PASS with verbatim on-screen quotations matching independent hand/re-derived sums (`33%/67%/0%` for the previously-broken 11865310195, `99%/1%/0%` regression-check on the pinned exemplar). `4556693525` stream-span-vs-metadata-elapsed_time difference (3,394 vs 3,393s) reported rather than absorbed, per D-06. |
-| 4 | Grep-based audit finds zero remaining per-sample `dt/dd` pace arithmetic outside `pace-derivation.ts`; audit demonstrated catching a reintroduced second implementation | ⚠️ PARTIAL | `pace-single-source.test.ts`'s planted-second-implementation test (describe block at :332, "the audit is demonstrated catching a reintroduced second implementation") does work for actual duplicated `dt/dd` arithmetic — confirmed by reading the test. **But** the separate "override containment" sub-test (`OVERRIDE_LITERALS = ['clipAtGaps', 'windowSec:', 'pauseRule:']`, literal-with-colon match) has a confirmed, currently-live blind spot: `detail-charts-logic.ts:98`'s ES2015 shorthand `{ windowSec, gapIntervals }` is textually indistinguishable from the excused `(t, d, windowSec)` parameter-declaration shape, so the audit does not catch the real fixed-window override described under Criterion 1/5. "Provably" zero overrides is not currently true. |
-| 5 | Derivation adapts to each activity's own advance interval rather than a fixed window; validated against 4 interval profiles; 5059204779/3647739864/4598855187 recover to 1.22%/0.00%/0.00% and 97/100/100% coverage under the shipped adaptive approach | ⚠️ PARTIAL | `adaptiveWindowSec` (`max(20, 2.5 × p90(advance intervals))`) is real, tested, and correctly wired into `derivePaceWithCoverage` → histogram/coverage/splits. The stated recovery figures are correct **for that path**. Independently re-derived: `adaptiveWindowSec` for 5059204779 = 150s, for 4598855187 = 247.5s, matching the criterion's cited windows. **But** "the shipped adaptive approach" is not what the chart band ships — the chart passes the fixed 20s floor, so the recovery the criterion describes is not what a reader of the detail page's chart actually sees for these exemplars. |
-| 6 | Fixture library stratified across ≥5 device/source categories, includes decimation-aliased/recording-gap/multi-hour-pause/impossible-speed/pinned-exemplar fixtures by name | ✓ VERIFIED | `src/analytics/pace-fixtures.ts`: `fenix-6-pro-fit`, `suunto-9` (implied by `deviceFamily`), `gpx-source`, `intervals-icu-only`, `no-device-name` device-stratified fixtures confirmed by name; `synthetic-decimation-aliased`, `synthetic-multi-hour-pause`, `synthetic-impossible-speed`, and a recording-gap fixture (`decimation-aliased` / dedicated gap fixture at :360-372) all confirmed present by name via grep. `pace-fixtures.test.ts` (34 tests) passes. |
-| 7 | Metadata-vs-stream cross-check flags 5059204779 (read directly from index output); archive-wide flag count exactly 1 of 1,890; demonstrated failing when check removed | ✓ VERIFIED | Confirmed directly against the live `data/dashboard/index.json`: exactly 1 row flagged archive-wide, and it is `5059204779` with `{streamPaceSecPerKm: 350.6, metadataPaceSecPerKm: 112.6, ratio: 3.11}` — matching the criterion's cited 1:53/km-vs-5:51/km disagreement. 26-VALIDATION.md Row R3/R4/R6 (Round 1) confirm the badge, stat card, and rebased `vs. Avg` caption render correctly in the browser. CR-02 (see Deferred) is a robustness hazard against a stale index.json, not a failure of this criterion's stated, currently-observable behavior. |
+| 1 | Archive-wide phantom-fast-mode reduction, measured per-activity against baseline, strictly lower (or both zero) for 153/154 + 1 tie, 0 regressions; residual of 14 quantified and enumerated by ID; the "trap" (fixed-window measurement manufacturing a false defect) does not recur on any named consumer | ✓ VERIFIED | `26-RESIDUAL.md` (regenerated 2026-09-09T09:08:40Z): 154 cohort, 14 residual (0.51-2.44%), 153 strictly improved / 1 tie / 0 regressed — read directly, unchanged from the prior round. The chart consumer no longer reproduces the 94.81%/30% fixed-window trap on 5059204779: confirmed by reading `detail-charts-logic.ts:101` (`derivePaceWithCoverage(stream).paceSeries`, no fixed window anywhere in the file) and by the Round 3 browser checkpoint (`26-VALIDATION.md` R3-1: largest captured chart tick `20:00/km`, bracketing the independently-derived adaptive series max of `17:29/km` — unreachable under the old fixed-20s path, whose extent topped out at `4:27/km`). |
+| 2 | Gaps clip rather than manufacture pace; affected splits disclose it; both demonstrated failing when clipping/marking is removed | ✓ VERIFIED | Unaffected by this round's changes. `classifyGaps` / gap-boundary clipping in `pace-derivation.ts`; split gap marking confirmed live in 26-VALIDATION.md Row 2/R2. `pace-derivation.test.ts` (32/32 passing, re-run in this session) and `detail-sections.test.ts` cover clip removal. |
+| 3 | Coverage sums exactly (covered + excluded = span, exact); pinned exemplar's on-screen coverage % matches an independent sum | ✓ VERIFIED | Unaffected by this round. `breakdownSectionPlan` gates the caption on coverage alone; Round 2 human checkpoint (R2-1/R2-3) both PASS with verbatim on-screen quotations matching independently re-derived sums. |
+| 4 | Grep-based audit finds zero remaining per-sample `dt/dd` pace arithmetic outside `pace-derivation.ts`; audit demonstrated catching a reintroduced second implementation | ✓ VERIFIED | Re-run in this session: `pace-single-source.test.ts` 74/74 pass. `OVERRIDE_LITERALS` (read directly, `:240-247`) now has 6 entries including the shorthand forms (`'windowSec,'`, `'windowSec }'`) and the structural `'derivePaceSeriesGapAware('` call-site literal that closed the exact CR-03 blind spot. `grep -rn "derivePaceSeries\b\|PACE_SMOOTHING_WINDOW_SEC" src/` returns nothing — the escape hatch is deleted, not merely re-argued. The Round 3 code review independently reproduced the planted-shorthand-override catch. See Warnings below for a narrower, currently-unexploited audit gap (WR-06) that does not reflect any actual duplicate implementation in the codebase today. |
+| 5 | Derivation adapts to each activity's own advance interval rather than a fixed window; the shipped adaptive approach recovers 5059204779/3647739864/4598855187 to 1.22%/0.00%/0.00% and 97/100/100% coverage, and this is what every named consumer (chart, histogram, splits) actually ships | ✓ VERIFIED | `adaptiveWindowSec` unchanged and correct (re-confirmed: 150s for 5059204779, matching the criterion). The chart band now ships this adaptive series too — closing the gap the previous round found ("shipped adaptive approach" did not reach the chart). Round 3 browser checkpoint R3-1 (chart tick extent) and R3-2 (tooltip fast-end, fastest quoted value 2:27/km, satisfying the FAIL-condition threshold) both PASS against a real rendered page, independently derived values, human-read. |
+| 6 | Fixture library stratified across ≥5 device/source categories, includes decimation-aliased/recording-gap/multi-hour-pause/impossible-speed/pinned-exemplar fixtures by name | ✓ VERIFIED | Unaffected by this round. `pace-fixtures.ts` device-stratified fixtures and synthetic fixtures confirmed present by name (unchanged from prior round); `pace-fixtures.test.ts` not touched by 26-14/15/16, not re-run individually but covered by the full-suite 1907/1907 pass in this session. |
+| 7 | Metadata-vs-stream cross-check flags 5059204779 (read directly from index output); archive-wide flag count exactly 1 of 1,890; demonstrated failing when check removed; robust to a stale/partial `index.json` shape (badge does not silently mis-fire or crash) | ✓ VERIFIED | Re-run directly against the live `data/dashboard/index.json` in this session (Node probe, not copied from a prior artifact): `total 1890, flagged 1, ['5059204779'], missingKey 0` — exactly matching the criterion's stated count. CR-02 (the `undefined`-vs-`null` badge hazard flagged by the prior round's review as latent but real) is now closed at the code level: `rowPaceDisagreement(row)` (`list.ts:333-334`, `?? null`) is the sole read path for both `statusBadgeTexts` and `appendStatusBadges`, confirmed by direct code read. Round 3 browser checkpoint R3-4 (stale-index fixture, doctored to genuinely omit the key and served, not merely described) PASS: list rendered normally, zero false badges, no `TypeError`. |
 
-**Score:** 4/7 fully VERIFIED, 3/7 PARTIAL (all three PARTIAL findings trace to the single CR-03
-root cause: the chart band's fixed-window override). No criterion is a clean FAIL — the
-measurement/derivation machinery Criteria 1, 4 and 5 depend on is real and correct where it is
-actually used (histogram, coverage caption, splits, residual computation) — but Criteria 1, 4 and
-5 each contain an explicit claim (chart named as a consumer / audit provably clean / "shipped
-adaptive approach" recovers the exemplar) that the current code does not satisfy end-to-end.
-
-### Deferred / Non-Blocking Findings
-
-| # | Item | Disposition | Evidence |
-|---|------|-------------|----------|
-| 1 | CR-02 — `paceDisagreement !== null` vs `undefined` in `list.ts` | WARNING, not a Success-Criteria blocker | See `deferred:` frontmatter above. Confirmed present in code; confirmed latent against today's `index.json` (0/1890 rows missing the key). Recommend an immediate two-line follow-up fix (`?? null`), not gated on this phase's re-close. |
-| 2 | WR-02 (paceDisagreement `null` collapses "checked, clean" and "unchecked" on stream-read failure) | Not verified against a Success Criterion; noted for follow-up | Confirmed by reading `compute-dashboard-index.ts:219-236` — catch branch assigns `null`, identical to the "checked and clean" value, contradicting the field's own doc comment. Does not affect the archive-wide flag count (0 stream-read failures observed against the live archive) so Criterion 7's stated evidence is unaffected. |
-| 3 | WR-03 (archive-wide pace-disagreement sweep test may exceed vitest's 5s default timeout under load) | Not a code defect, a CI-flake risk | Not independently re-timed in this verification pass; accepted as-described from the review's own measurement (4.13s isolated, 5.007s observed under parallel load). |
-| 4 | WR-04 (unbounded histogram bucket count, 343 rows on one activity) | Presentation defect, not an accounting defect | Confirmed the underlying `bucketed === coveredSec` identity is not broken by this; does not affect Criterion 3's exactness claim. |
-| 5 | WR-05 (`compute-pace-residual.mjs` writes to a hard-coded phase directory with no `mkdir`) | Real hazard for Phase 27's stated regeneration promise, not a Phase 26 Success Criterion | Not independently re-run in this pass; accepted as-described. Relevant to Phase 27's dependency on `26-RESIDUAL.md` regeneration, should be tracked before this phase directory is archived under `.planning/milestones/`. |
-
-None of items 2-5 map to a stated Success Criterion's text and none were independently exercised
-beyond confirming the code shape the review describes; they are recorded here for follow-up
-visibility, not as phase-blocking gaps.
+**Score:** 7/7 fully VERIFIED. The single root cause that produced the prior round's `gaps_found`
+(the pace chart band overriding the shared adaptive derivation with a fixed 20s window) is closed
+at the code level, pinned by a permanent regression test, independently re-confirmed by a Round 3
+code review executing code against the real archive, and confirmed on a real rendered page by a
+Round 3 human browser checkpoint using an independently-derived discriminator value (not two
+surfaces merely agreeing with each other — this phase's own recorded lesson from its prior
+checkpoint rounds).
 
 ### Required Artifacts
 
 | Artifact | Expected | Status | Details |
 |----------|----------|--------|---------|
-| `src/analytics/pace-derivation.ts` | Single shared gap-aware pace module | ✓ VERIFIED | `derivePaceWithCoverage`, `derivePaceSeriesGapAware`, `classifyGaps`, `adaptiveWindowSec`, `paceHistogramAccounting` all present, tested (32 tests), used by `detail.ts`, `detail-zones.ts`, `detail-charts-logic.ts` (partially, see gap), `compute-dashboard-index.ts`. |
-| `src/analytics/pace-fixtures.ts` | Stratified fixture library | ✓ VERIFIED | See Criterion 6 above. 34 passing tests in `pace-fixtures.test.ts`. |
-| `src/analytics/pace-single-source.test.ts` | Grep-based single-source audit | ⚠️ ORPHANED BLIND SPOT | Exists, runs (73 tests pass), catches the planted-second-implementation case, but does not catch the live `windowSec` shorthand override in `detail-charts-logic.ts:98` (Criterion 4 gap). |
-| `scripts/compute-pace-residual.mjs` + `26-RESIDUAL.md` | PACE-06 residual deliverable | ✓ VERIFIED | Regenerated 2026-09-09T09:08:40Z, 154 cohort / 14 residual, matches REQUIREMENTS.md PACE-06 text (note: REQUIREMENTS.md cites "13 of 154"; the committed `26-RESIDUAL.md` and this verification both independently confirm **14 of 154** — the REQUIREMENTS.md figure is one activity stale relative to the corrected artifact per the phase's own documented `5246078056` correction. This is a documentation staleness note, not a fresh gap — 26-RESIDUAL.md's frontmatter already records the correction and its cause.) |
-| `src/dashboard/views/detail-charts-logic.ts` | Chart band reads the shared adaptive derivation | ✗ STUB (partial) | Imports and calls the shared module correctly in structure, but `buildChannelSeries`'s pace branch (:120) passes a fixed 20s window instead of the adaptive resolution used everywhere else. See gap. |
-| `src/dashboard/views/list.ts` | Badge rendering reads `paceDisagreement` defensively | ⚠️ LATENT DEFECT | CR-02, see Deferred. |
+| `src/analytics/pace-derivation.ts` | Single shared gap-aware pace module | ✓ VERIFIED | `derivePaceWithCoverage`, `derivePaceSeriesGapAware`, `classifyGaps`, `adaptiveWindowSec` present, tested (32/32), used by `detail.ts`, `detail-zones.ts`, `detail-charts-logic.ts`, `compute-dashboard-index.ts` — all four consumers now resolve through the same call. |
+| `src/dashboard/views/detail-charts-logic.ts` | Chart band reads the shared adaptive derivation | ✓ VERIFIED (was STUB/partial) | `buildChannelSeries`'s pace branch (`:101`) calls `derivePaceWithCoverage(stream).paceSeries` directly. No `derivePaceSeries` wrapper, no `PACE_SMOOTHING_WINDOW_SEC` constant, no fixed-window argument anywhere in the file — confirmed by direct read and grep, not SUMMARY claim. Module header (`:5-16`) states the actual current behavior accurately. |
+| `src/analytics/pace-single-source.test.ts` | Grep-based single-source audit | ✓ VERIFIED (was ORPHANED BLIND SPOT) | 74/74 tests pass. `OVERRIDE_LITERALS` extended to catch the shorthand override shape that previously slipped through; permanent planted-CR-03-shape test present (`:415`). One narrower, non-currently-exploited evasion remains documented (WR-06, see Warnings) — an aliased-import + computed-key combination that requires deliberate obfuscation, not an organic override. |
+| `src/dashboard/views/list.ts` | Badge rendering reads `paceDisagreement` defensively | ✓ VERIFIED (was LATENT DEFECT) | `rowPaceDisagreement(row)` is the sole read path at both call sites (`:359`, `:395`), confirmed by direct code read. `grep -c "row.paceDisagreement !== null" list.ts` is 0. |
+| `scripts/compute-pace-residual.mjs` + `26-RESIDUAL.md` | PACE-06 residual deliverable | ✓ VERIFIED | Unaffected by this round; regenerated 2026-09-09T09:08:40Z, 154/14, matches the criterion. |
+| `src/analytics/pace-fixtures.ts` | Stratified fixture library | ✓ VERIFIED | Unaffected by this round; confirmed present by name in the prior round, not independently re-walked in this session beyond the full-suite pass. |
 
 ### Key Link Verification
 
 | From | To | Via | Status | Details |
 |------|----|----|--------|---------|
-| `detail.ts` | `pace-derivation.ts` (`derivePaceWithCoverage`) | direct call, `:717` | ✓ WIRED | Coverage, histogram, splits all read this single call's result. |
-| `detail-zones.ts` (histogram) | `pace-derivation.ts` | via `derivePaceWithCoverage` result passed through `detail.ts` | ✓ WIRED | Confirmed via `computePaceDistribution` consuming the shared coverage/pace result. |
-| `detail-charts-logic.ts` (chart band) | `pace-derivation.ts` | `derivePaceSeries` wrapper → `derivePaceSeriesGapAware` | ⚠️ WIRED BUT WRONG ARGUMENT | Structurally wired (no duplicated arithmetic), but the `windowSec` argument is the fixed floor, not the adaptive resolution — the wiring reaches the shared module but not the shared *result*. |
-| `list.ts` / `index-client.ts` | `index.json` `paceDisagreement` field | JSON fetch + cast | ⚠️ PARTIAL | Cast bypasses the codebase's own `ParsedDashboardIndexRow` type designed for this; `!== null` test mishandles `undefined`. Currently non-firing against the live artifact (CR-02, deferred). |
+| `detail-charts-logic.ts` (`buildChannelSeries`) | `pace-derivation.ts` (`derivePaceWithCoverage`) | direct call, `:101` | ✓ WIRED | Confirmed by direct read: `const paceValues = derivePaceWithCoverage(stream).paceSeries;` — same call site `detail.ts:717` uses for the histogram/caption/splits. Regression test (`CR-03` describe block) pins index-for-index equality on the pinned exemplar. |
+| `detail.ts` | `pace-derivation.ts` | direct call, `:717` | ✓ WIRED | Unchanged from prior round. |
+| `list.ts` (`statusBadgeTexts`, `appendStatusBadges`) | `index.json` `paceDisagreement` field | `rowPaceDisagreement(row)` (`?? null`) | ✓ WIRED | Both call sites confirmed reading through the one helper; missing-key path resolves to `null`, not a truthy `undefined`. |
+| `pace-single-source.test.ts` (`OVERRIDE_LITERALS`) | every production file under `src/` | comment-stripped literal scan | ✓ WIRED (widened) | Extended to 6 literals including the structural `derivePaceSeriesGapAware(` call-site check; catches the shape that previously escaped. |
 
 ### Data-Flow Trace (Level 4)
 
 | Artifact | Data Variable | Source | Produces Real Data | Status |
 |----------|---------------|--------|---------------------|--------|
-| Detail page coverage caption | `coverage` (spanSec/coveredSec/recordingGapSec/pauseSec) | `derivePaceWithCoverage(stream)` | Yes — independently re-derived, matches on-screen values | ✓ FLOWING |
+| Detail page pace chart band | `paceValues` from `derivePaceWithCoverage(stream).paceSeries` | `pace-derivation.ts` shared function, activity's own adaptive window | Yes — independently re-derived in Round 3 checkpoint and in this session's test run; matches the histogram's series index-for-index (permanent regression test) | ✓ FLOWING (was DIVERGENT) |
 | Detail page pace histogram | `computePaceDistribution` buckets | `derivePaceWithCoverage` result | Yes | ✓ FLOWING |
-| Detail page pace chart band | `paceValues` from `derivePaceSeries(t, d, 20)` | `pace-derivation.ts` shared function, but with a fixed argument that does not reflect the activity's own adaptive window | Data is real (not stubbed/empty) but is the WRONG real data — a different pace series than the one shown one section below it on the same page | ⚠️ DIVERGENT (real data, wrong window — a new failure category between STATIC and FLOWING: the source is genuinely computed, but two consumers of "the same" derivation receive materially different values for the same activity) |
-| Activities list "Pace disputed" badge | `row.paceDisagreement` | `index.json` fetch, unvalidated cast | Real when present; `undefined` mishandled as truthy-flag when absent | ⚠️ HOLLOW on stale index (currently not firing) |
+| Activities list "Pace disputed" badge | `rowPaceDisagreement(row)` | `index.json` fetch via `?? null` narrowing | Real when present; absent key now resolves to `null`, not a crash-causing truthy `undefined` | ✓ FLOWING (was HOLLOW on stale index) |
 
 ### Behavioral Spot-Checks
 
 | Behavior | Command | Result | Status |
 |----------|---------|--------|--------|
-| Adaptive window differs from chart's fixed floor on the pinned exemplar | Node probe against `dist/analytics/pace-derivation.js` + `data/streams/5059204779.json`: computed `adaptiveWindowSec` = 150, compared 20s-window vs 150s-window series | `adaptiveWindow=150 vs floor=20, max diff 431.9 sec/km` | ✓ CONFIRMS GAP |
-| Chart-window fast-mass fraction vs adaptive fast-mass fraction, activity 5059204779 | Same probe, Δt-weighted fraction of covered time < 180 sec/km | `chart(20s) 94.81% vs adaptive 1.22%` | ✓ CONFIRMS GAP (matches review's 94.80%/1.17% within the tolerance of a slightly different weighting method) |
-| `index.json` `paceDisagreement` key coverage | `node -e` scan of `data/dashboard/index.json`, 1890 rows | `0 rows missing the key; exactly 1 row flagged, activity 5059204779` | ✓ CONFIRMS CR-02 IS LATENT, CRITERION 7 CURRENTLY SATISFIED |
-| Full pace-module test suite | `npx vitest run` on `pace-derivation`, `pace-fixtures`, `pace-single-source`, `detail-charts-logic`, `detail-sections` test files | `268 tests passed, 5 files` | ✓ PASS (expected — none of these tests exercise the chart-vs-histogram cross-check that CR-03 requires) |
+| Chart branch calls the shared adaptive derivation, no fixed-window escape hatch remains | `grep -n "derivePaceSeries\b\|PACE_SMOOTHING_WINDOW_SEC\|derivePaceWithCoverage\|windowSec" src/dashboard/views/detail-charts-logic.ts` | Only `derivePaceWithCoverage` occurrences (import, header prose, call site); no `derivePaceSeries`/`PACE_SMOOTHING_WINDOW_SEC`/`windowSec` | ✓ CONFIRMS FIX |
+| `list.ts` badge reads go through the single nullish-narrowing helper | `grep -n "rowPaceDisagreement\|paceDisagreement" src/dashboard/views/list.ts` | Both `statusBadgeTexts` (`:359`) and `appendStatusBadges` (`:395`) call `rowPaceDisagreement(row)` | ✓ CONFIRMS FIX |
+| Archive-wide pace-disagreement flag count | `node -e` scan of `data/dashboard/index.json`, 1890 rows | `total 1890, flagged 1, ['5059204779'], missingKey 0` | ✓ CONFIRMS CRITERION 7 |
+| Full test suite | `npx vitest run` (whole repo) | `69 files, 1907/1907 tests passed` | ✓ PASS (re-run independently in this session, not copied from a SUMMARY) |
+| Type check | `npx tsc --noEmit` | exit 0, no output | ✓ PASS |
+| Scoped pace test files | `npx vitest run detail-charts-logic.test.ts pace-single-source.test.ts pace-derivation.test.ts list.test.ts` | `39/39, 74/74, 32/32, 70/70` all pass | ✓ PASS |
 
 ### Probe Execution
 
-No `scripts/*/tests/probe-*.sh` convention found in this repository; PLAN/SUMMARY files do not
-reference shell probes. Verification instead used direct Node probes against the committed
-`dist/` build and `data/` archive (see Behavioral Spot-Checks above), matching this project's
-established review methodology (26-REVIEW.md's own probe style).
+No `scripts/*/tests/probe-*.sh` convention found in this repository. This phase's own established
+methodology (confirmed again in this round) is direct Node probes against the committed `dist/`
+build and `data/` archive plus the vitest suite — used identically here.
 
 ### Requirements Coverage
 
 | Requirement | Source Plan(s) | Description | Status | Evidence |
 |---|---|---|---|---|
-| PACE-01 | 26-01, 26-02, others | One shared module, no independent `dt/(dd/1000)` | ⚠️ LITERALLY SATISFIED, SPIRIT DEFEATED | Both files import the shared module (literal text satisfied); the chart passes a divergent window argument to it, defeating the goal statement's parenthetical that "the two surfaces cannot disagree." REQUIREMENTS.md ticks this Complete; this verification finds that tick optimistic given CR-03. |
-| PACE-02 | 26-01 | No manufactured pace across gaps | ✓ SATISFIED | Criterion 2. |
-| PACE-03 | 26-03 | Window choice justified from archive evidence | ✓ SATISFIED | `adaptiveWindowSec` formula and its doc comments in `pace-derivation.ts`. |
-| PACE-04 | 26-04 | Histogram eliminates phantom fast mode archive-wide | ✓ SATISFIED (for the histogram specifically) | Not affected by CR-03 — histogram uses the adaptive path correctly. |
-| PACE-05 | 26-05 | Split gap marking | ✓ SATISFIED | 26-VALIDATION.md Row 2/R2. |
-| PACE-06 | 26-11 | Residue quantified, not smoothed | ✓ SATISFIED | 26-RESIDUAL.md, 14/154, independently re-derivable. |
-| PACE-07 | 26-08 | Metadata-vs-stream cross-check surfaced | ✓ SATISFIED (currently) | Confirmed against live index.json; CR-02 is a latent robustness gap, deferred. |
-| COV-01 | 26-01, 26-12 | Coverage sums exactly, asserted by test | ✓ SATISFIED | `paceHistogramAccounting`, archive-wide 0 violations across 1,865 streams. |
-| COV-02 | 26-12, 26-13 | Coverage visible wherever distribution shown | ✓ SATISFIED | CR-01 fix confirmed by direct code read + Round 2 human checkpoint. |
-| ERA-03 | 26-06 | Stratified fixtures by device era | ✓ SATISFIED | Criterion 6. |
+| PACE-01 | 26-01, 26-04, 26-05, 26-14 | One shared module, no independent `dt/(dd/1000)`, chart/histogram cannot disagree | ✓ SATISFIED | Both the literal text (both files import the shared module) and the spirit (the two surfaces now provably cannot disagree — same call, pinned by a regression test) are satisfied. This is the requirement the prior round found "literally satisfied, spirit defeated"; that gap is closed. |
+| PACE-02 | 26-01 | No manufactured pace across gaps | ✓ SATISFIED | Unaffected by this round. |
+| PACE-03 | 26-02, 26-14 | Window choice justified from archive evidence | ✓ SATISFIED | `adaptiveWindowSec` unchanged; now also the only window the chart resolves. |
+| PACE-04 | 26-04, 26-09, 26-14 | Histogram eliminates phantom fast mode archive-wide | ✓ SATISFIED | Histogram path unaffected (was already correct); chart path now matches it. |
+| PACE-05 | 26-06, 26-10 | Split gap marking | ✓ SATISFIED | Unaffected by this round. |
+| PACE-06 | 26-09 | Residue quantified, not smoothed | ✓ SATISFIED | `26-RESIDUAL.md`, 14/154, unaffected by this round. Note: `REQUIREMENTS.md`'s PACE-06 checklist prose still reads "13 of the 154" — a pre-existing documentation staleness against the corrected 14-activity artifact, flagged by the prior verification round and not touched by 26-14/15/16 (out of this closure round's scope). Does not affect the underlying artifact's correctness. |
+| PACE-07 | 26-07, 26-08, 26-10, 26-15 | Metadata-vs-stream cross-check surfaced, robust to a stale index | ✓ SATISFIED | Confirmed against live `index.json` (1/1890) and CR-02 fix confirmed by direct code read + Round 3 browser checkpoint R3-4. |
+| COV-01 | 26-01, 26-11, 26-13 | Coverage sums exactly, asserted by test | ✓ SATISFIED | Unaffected by this round. |
+| COV-02 | 26-06, 26-10, 26-12, 26-13 | Coverage visible wherever distribution shown | ✓ SATISFIED | Unaffected by this round. |
+| ERA-03 | 26-03 | Stratified fixtures by device era | ✓ SATISFIED | Unaffected by this round. |
 
-No orphaned requirements: all 10 phase requirement IDs (PACE-01..07, COV-01, COV-02, ERA-03) are
-claimed across the 13 plans' `requirements` frontmatter and all 10 appear, ticked Complete, in
-REQUIREMENTS.md.
+No orphaned requirements: all 10 phase requirement IDs (PACE-01..07, COV-01, COV-02, ERA-03) appear
+in at least one plan's `requirements:` frontmatter across the 16 plans, and all 10 appear ticked
+Complete in `REQUIREMENTS.md`, cross-checked against this verification's own independent findings
+above (not merely against the ticks).
 
 ### Anti-Patterns Found
 
 | File | Line | Pattern | Severity | Impact |
 |---|---|---|---|---|
-| `src/dashboard/views/detail-charts-logic.ts` | 5-9, 76-80 | False invariant doc comments ("cannot disagree", "a floor, not the only value") contradicted by the code's own sole call site | 🛑 Blocker | Same failure class as the just-closed WR-01; the module's contract claim is not true. |
-| `src/dashboard/views/detail-charts-logic.ts` | 120 | Fixed-window argument where the rest of the codebase resolves adaptively | 🛑 Blocker | Drives Criteria 1/4/5 gaps. |
-| `src/analytics/pace-single-source.test.ts` | 204 (`OVERRIDE_LITERALS`) | Audit literal-matches `windowSec:` (colon) but not the shorthand `{ windowSec }` form actually used at the one real override site | ⚠️ Warning | Undermines Criterion 4's "provably" claim for this specific shape; the reintroduced-second-implementation mechanism itself still works. |
-| `src/dashboard/views/list.ts` | 341, 380-381 | `!== null` strict test against a field that can legitimately be `undefined` from an unvalidated JSON cast | ⚠️ Warning (currently latent) | CR-02, deferred — real hazard, not currently firing. |
-| `src/analytics/compute-dashboard-index.ts` | 219-236 | Stream-read failure and "checked, clean" both write `paceDisagreement: null`, contradicting the field's own "null NEVER means not-checked" doc comment | ℹ️ Info | WR-02, not exercised by the live archive (0 read failures observed), deferred. |
-| No `TBD`/`FIXME`/`XXX` markers found in files touched by this phase (checked via grep across the review's `files_reviewed_list`). | — | — | — | Debt-marker gate clean. |
+| `src/analytics/pace-single-source.test.ts` | 235-238 | Docblock claims the `derivePaceSeriesGapAware(` literal catches "ANY direct call … regardless of how the options object is written" — an independently reproduced Round 3 code-review probe (aliased import + a computed, non-literal `windowSec` key) shows this is false for a deliberately obfuscated evasion | ⚠️ Warning | No currently-shipping code exploits this; the actual CR-03 defect (an organically-written shorthand override) is caught. Recommend softening the claim or adding an AST-based check per `26-REVIEW.md`'s WR-06. Not a blocker: the phase goal ("one shared module … coverage is exact and visible") does not require the audit to be adversarially unbeatable, and no second pace implementation currently exists in the codebase (confirmed by the full grep sweep and the 74/74 passing audit suite). |
+| `src/dashboard/views/list.ts` | 333 | `rowPaceDisagreement`'s parameter type `Pick<DashboardIndexRow, 'paceDisagreement'>` types the key as required, contradicting its own docblock's "no key can be assumed present on the read side" claim; `ParsedDashboardIndexRow` (built for exactly this) is unused here | ⚠️ Warning | Runtime behavior is correct regardless (the `?? null` guard does not depend on the type); this is a type-hygiene gap that could let a future refactor silently reintroduce CR-02 without a compiler signal. Recommend the one-line fix `26-REVIEW.md`'s WR-06 proposes. Not a blocker: no stated Success Criterion covers static-type completeness, and the currently-shipping behavior (verified above) is correct. |
+| — | — | No `TBD`/`FIXME`/`XXX` markers found in any file this phase's gap-closure plans touched (`detail-charts-logic.ts`, `detail-charts-logic.test.ts`, `pace-single-source.test.ts`, `trimp.ts`, `list.ts`, `list.test.ts`, `compute-dashboard-index.test.ts`) | — | Debt-marker gate clean. |
 
 ### Human Verification Required
 
-None new. This phase already completed its Round 1 + Round 2 human browser checkpoints
-(26-VALIDATION.md), all rows PASS. The CR-03 defect described above was independently confirmed
-by direct code reading and reproducible Node probes against the committed archive — it does not
-require a human browser session to establish, only to *see* (the reviewer's own report already
-describes what a human would see: the chart band and histogram visibly disagreeing on
-5059204779's detail page). No further human verification is requested as part of this report;
-closing CR-03 should include a human re-check of that one page once fixed, but that is a
-gap-closure task, not an open verification question.
+None. The Round 3 human browser checkpoint (`26-VALIDATION.md`, all four rows R3-1..R3-4 PASS,
+verbatim developer quotations, independently-derived discriminator values, the R3-3 control's
+lack of evidentiary weight and the R3-2 median-clustering deviation both recorded honestly rather
+than smoothed into the verdict) already discharged the human-verification obligation for this
+closure round. No new artifact in this round requires a human check that has not already been
+performed against a real rendered page.
 
 ### Gaps Summary
 
-Six of the phase's 13 plans (26-01 through 26-10, 26-11, 26-12, 26-13) delivered real, working,
-independently-verified machinery: the shared gap-aware derivation module, exact coverage
-accounting, gap-boundary clipping and split marking, a stratified fixture library, the PACE-06
-residual quantification, and the metadata-vs-stream cross-check. The previously open gap
-(Criterion 3 / D-08 / COV-02, coverage caption disappearing on low-coverage activities) is
-confirmed closed by direct code reading and the Round 2 human checkpoint — not merely by SUMMARY
-claims.
+No gaps found. The single root cause behind the prior round's `gaps_found` verdict — the detail
+page's pace chart band deriving pace under a fixed 20s window while every other consumer
+(histogram, coverage caption, split markers) used the adaptive resolution, reproducing the exact
+94.81%/30% "phantom fast mode" trap Success Criterion 1 exists to eliminate — is closed at the
+source: `buildChannelSeries` now calls `derivePaceWithCoverage(stream)` directly, the fixed-window
+wrapper and its two false contract-invariant doc comments are deleted (not re-argued), and the
+audit that was supposed to catch this class of defect is extended to the shape that actually got
+through. CR-02 (a separate, previously-deferred badge-rendering hazard against a stale/partial
+`index.json`) is also closed at the source via a single nullish-narrowing helper used at both call
+sites.
 
-One new, single-root-cause gap remains, surfaced by the round-2 code review and independently
-reproduced here rather than taken on trust: the detail page's pace **chart band** — one of the
-three consumers the phase goal explicitly names ("chart, histogram, splits") — still derives pace
-under the fixed 20s window the rest of the phase replaced. On the pinned exemplar 5059204779, this
-means the phase's own headline "trap" (94.81% fast mass under a fixed window, misread as a device
-defect) is still what a reader of the chart sees, one scroll position above the histogram that
-correctly reads 1.22%. Two module-header comments assert this cannot happen; both are
-demonstrably false against the code's actual behavior. The single-source audit built to prevent
-exactly this class of override has a confirmed, currently-exploited blind spot (colon-literal
-match vs. object-shorthand syntax).
+This verification independently re-derived the evidence rather than accepting the SUMMARY files'
+narration: it read the current state of `detail-charts-logic.ts` and `list.ts` directly, re-ran the
+full 1907-test suite and `tsc --noEmit` fresh in this session, executed a fresh Node probe against
+the live `data/dashboard/index.json` (1/1890 flagged, 0 missing-key rows), and cross-checked those
+findings against an independent Round 3 code review (`26-REVIEW.md`) that itself executed code
+against the real archive rather than reading plan claims, and a Round 3 human browser checkpoint
+that used an independently-derived discriminator value rather than two surfaces merely agreeing
+with each other — directly applying this phase's own recorded lesson from its earlier checkpoint
+rounds.
 
-This is not a second implementation and not a broken derivation — `pace-derivation.ts` itself is
-correct and is genuinely the one place `dt/dd`-equivalent arithmetic lives. It is a wrong argument
-passed to the right function at one call site, but it is exactly the call site that produces the
-phase's most visually prominent surface, on exactly the activity the phase uses as its own worked
-example. Recommended fix (from the review, concurred with): have `buildChannelSeries` resolve
-`adaptiveWindowSec(stream.t, stream.d)` (or call `derivePaceWithCoverage` directly) instead of the
-fixed floor, correct the two false contract comments, extend `OVERRIDE_LITERALS` (or add a
-call-site scan) to close the shorthand blind spot, and add a regression test pinning that the
-chart and histogram series agree for 5059204779.
+Two narrow, non-blocking Warnings remain (WR-06: the single-source audit's docblock overclaims
+completeness against a deliberately obfuscated evasion that does not exist in the shipped code;
+WR-07: `rowPaceDisagreement`'s parameter type is stricter than its own docblock's stated contract,
+a type-hygiene gap rather than a runtime defect). Neither maps to a stated Success Criterion's
+text, neither reflects a currently-shipping duplicate pace implementation or badge-rendering
+defect, and both are recommended as prompt low-cost follow-ups rather than phase-blocking gaps.
 
-CR-02 (badge rendering `undefined`-vs-`null` hazard) is real but currently latent against the live
-archive and does not defeat any stated Success Criterion's observable text; recorded as a deferred
-follow-up rather than a phase-blocking gap, with a recommendation to fix promptly given this
-project's own recorded staged-build/cache lesson.
+REQUIREMENTS.md's PACE-06 checklist prose ("13 of the 154") remains one activity stale against the
+corrected 14-activity `26-RESIDUAL.md` artifact — a pre-existing documentation staleness flagged by
+the prior verification round, unrelated to this round's CR-02/CR-03 closure work, and not a defect
+in the underlying artifact of record.
 
 ---
 
-_Verified: 2026-09-09T19:00:04Z_
+_Verified: 2026-09-10T09:18:33Z_
 _Verifier: Claude (gsd-verifier)_
