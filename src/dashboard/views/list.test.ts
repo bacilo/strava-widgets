@@ -10,10 +10,13 @@ import {
   composeRowAriaLabel,
   lowConfidenceDescriptionId,
   paceDisputedDescriptionId,
+  qualityBadgeDescriptionId,
+  qualityBadgeSpecs,
   noteViewedActivity,
   takeNotedActivityId,
   applyReturnHighlight,
   rowIdPrefix,
+  LOW_CONFIDENCE_BADGE_TEXT,
   PACE_DISPUTED_BADGE_TEXT,
 } from './list.js';
 import type { RowSurface } from './list.js';
@@ -574,6 +577,128 @@ describe('CR-02 — a row whose index predates the paceDisagreement field produc
       matches.length,
       'row.paceDisagreement !== null must not appear in list.ts — undefined !== null is true, which is the CR-02 defect this block exists to close'
     ).toBe(0);
+  });
+});
+
+/**
+ * Builds a row whose `quality` object is `CLEAN_QUALITY` with the given
+ * per-signal overrides merged in — every other row field comes from
+ * `baseRow()` unchanged, since `qualityBadgeSpecs` only reads `row.quality`
+ * (its `Pick<DashboardIndexRow, 'quality'>` signature).
+ */
+function qualityRow(overrides: Partial<ActivityQualitySignals>): DashboardIndexRow {
+  return baseRow({ quality: { ...CLEAN_QUALITY, ...overrides } });
+}
+
+describe('quality badge text (QUAL-04, D-07, D-09)', () => {
+  it('a row severe on gapProfile with gapFraction 0.12 returns exactly one spec with the exact expected text', () => {
+    const row = qualityRow({
+      gapProfile: { tier: 'severe', gapFraction: 0.12, recordingGapSec: 300, pauseSec: 60, spanSec: 3000 },
+    });
+    const specs = qualityBadgeSpecs(row);
+    expect(specs).toHaveLength(1);
+    expect(specs[0].visibleText).toBe('12% of recorded time in gaps or pauses');
+  });
+
+  it('a row severe on all three signals returns three specs in the fixed render order, each with a distinct descriptionIdSuffix', () => {
+    const row = qualityRow({
+      decimation: { tier: 'severe', zeroAdvanceFraction: 0.2, sampleCount: 500 },
+      gapProfile: { tier: 'severe', gapFraction: 0.25, recordingGapSec: 700, pauseSec: 50, spanSec: 3000 },
+      impossibleSamples: { tier: 'severe', count: 12, maxImpliedSpeedMps: 15, countInsideZeroAdvanceRun: 2 },
+    });
+    const specs = qualityBadgeSpecs(row);
+    expect(specs.map((s) => s.signal)).toEqual(['decimation', 'gapProfile', 'impossibleSamples']);
+    const suffixes = new Set(specs.map((s) => s.descriptionIdSuffix));
+    expect(suffixes.size).toBe(3);
+  });
+
+  it('a row at minor tier on all three signals returns zero specs', () => {
+    const row = qualityRow({
+      decimation: { tier: 'minor', zeroAdvanceFraction: 0.1, sampleCount: 500 },
+      gapProfile: { tier: 'minor', gapFraction: 0.1, recordingGapSec: 200, pauseSec: 50, spanSec: 3000 },
+      impossibleSamples: { tier: 'minor', count: 3, maxImpliedSpeedMps: 12, countInsideZeroAdvanceRun: 0 },
+    });
+    expect(qualityBadgeSpecs(row)).toEqual([]);
+  });
+
+  it('a row at not-computable tier on all three signals returns zero specs', () => {
+    const row = qualityRow({
+      decimation: { tier: 'not-computable', zeroAdvanceFraction: null, sampleCount: null },
+      gapProfile: { tier: 'not-computable', gapFraction: null, recordingGapSec: null, pauseSec: null, spanSec: null },
+      impossibleSamples: { tier: 'not-computable', count: null, maxImpliedSpeedMps: null, countInsideZeroAdvanceRun: null },
+    });
+    expect(qualityBadgeSpecs(row)).toEqual([]);
+  });
+
+  it('a row severe on decimation whose zeroAdvanceFraction is null returns zero specs for that signal, with no null/NaN anywhere in any returned string', () => {
+    const row = qualityRow({
+      decimation: { tier: 'severe', zeroAdvanceFraction: null, sampleCount: 500 },
+    });
+    const specs = qualityBadgeSpecs(row);
+    expect(specs).toEqual([]);
+    for (const spec of specs) {
+      expect(spec.visibleText).not.toMatch(/null|NaN/);
+    }
+  });
+
+  it('uses the singular form for count === 1', () => {
+    const row = qualityRow({
+      impossibleSamples: { tier: 'severe', count: 1, maxImpliedSpeedMps: 11, countInsideZeroAdvanceRun: 0 },
+    });
+    const specs = qualityBadgeSpecs(row);
+    expect(specs).toHaveLength(1);
+    expect(specs[0].visibleText).toBe('1 sample faster than the 100 m world record');
+  });
+
+  it('uses the plural form for count === 7', () => {
+    const row = qualityRow({
+      impossibleSamples: { tier: 'severe', count: 7, maxImpliedSpeedMps: 11, countInsideZeroAdvanceRun: 0 },
+    });
+    const specs = qualityBadgeSpecs(row);
+    expect(specs).toHaveLength(1);
+    expect(specs[0].visibleText).toBe('7 samples faster than the 100 m world record');
+  });
+
+  it('never produces a spec for deviceEra or elapsedVsMoving — every returned signal is a member of the closed three-member set', () => {
+    const row = qualityRow({
+      decimation: { tier: 'severe', zeroAdvanceFraction: 0.2, sampleCount: 500 },
+      gapProfile: { tier: 'severe', gapFraction: 0.25, recordingGapSec: 700, pauseSec: 50, spanSec: 3000 },
+      impossibleSamples: { tier: 'severe', count: 12, maxImpliedSpeedMps: 15, countInsideZeroAdvanceRun: 2 },
+    });
+    const specs = qualityBadgeSpecs(row);
+    const allowedSignals = new Set(['decimation', 'gapProfile', 'impossibleSamples']);
+    for (const spec of specs) {
+      expect(allowedSignals.has(spec.signal)).toBe(true);
+    }
+  });
+
+  it('every returned descriptionIdSuffix differs from low-confidence and pace-disputed', () => {
+    const row = qualityRow({
+      decimation: { tier: 'severe', zeroAdvanceFraction: 0.2, sampleCount: 500 },
+      gapProfile: { tier: 'severe', gapFraction: 0.25, recordingGapSec: 700, pauseSec: 50, spanSec: 3000 },
+      impossibleSamples: { tier: 'severe', count: 12, maxImpliedSpeedMps: 15, countInsideZeroAdvanceRun: 2 },
+    });
+    const specs = qualityBadgeSpecs(row);
+    for (const spec of specs) {
+      expect(spec.descriptionIdSuffix).not.toBe('low-confidence');
+      expect(spec.descriptionIdSuffix).not.toBe('pace-disputed');
+    }
+  });
+});
+
+describe('qualityBadgeDescriptionId — quality badge id shape, mirroring lowConfidenceDescriptionId/paceDisputedDescriptionId', () => {
+  it('produces two different ids for the card prefix and the table prefix of the same activity', () => {
+    const cardId = qualityBadgeDescriptionId('activity-card-123', 'gap-profile');
+    const tableId = qualityBadgeDescriptionId('activity-table-123', 'gap-profile');
+    expect(cardId).not.toBe(tableId);
+    expect(cardId).toBe('activity-card-123-quality-gap-profile-desc');
+    expect(tableId).toBe('activity-table-123-quality-gap-profile-desc');
+  });
+
+  it('produces a distinct id from lowConfidenceDescriptionId and paceDisputedDescriptionId for the same idPrefix', () => {
+    const idPrefix = 'activity-card-456';
+    expect(qualityBadgeDescriptionId(idPrefix, 'decimation')).not.toBe(lowConfidenceDescriptionId(idPrefix));
+    expect(qualityBadgeDescriptionId(idPrefix, 'decimation')).not.toBe(paceDisputedDescriptionId(idPrefix));
   });
 });
 

@@ -335,6 +335,107 @@ export function rowPaceDisagreement(row: Pick<DashboardIndexRow, 'paceDisagreeme
 }
 
 /**
+ * One severe-tier quality badge (D-07, D-09) — `signal` names which of the
+ * three TIERING signals fired, `visibleText` carries the condition AND its
+ * measured value read off this row's own evidence fields (never
+ * recomputed), and `explanation` carries WHY it matters, feeding the same
+ * `title`/`aria-describedby` slots `appendAccessibleBadge` already exposes.
+ */
+export interface QualityBadgeSpec {
+  signal: 'decimation' | 'gapProfile' | 'impossibleSamples';
+  visibleText: string;
+  explanation: string;
+  descriptionIdSuffix: string;
+}
+
+/**
+ * The `id` a quality badge's `.sr-only` explanation span is given, following
+ * `lowConfidenceDescriptionId`/`paceDisputedDescriptionId`'s shape with a
+ * `-quality-` segment plus a per-signal `suffix` so a row carrying both a
+ * status badge and two-or-three quality badges never collides on element
+ * ids (`lowConfidenceDescriptionId`'s own JSDoc explains why `idPrefix`
+ * alone is not unique per surface).
+ */
+export function qualityBadgeDescriptionId(idPrefix: string, suffix: string): string {
+  return `${idPrefix}-quality-${suffix}-desc`;
+}
+
+/**
+ * The pure, per-row quality-badge DECISION (D-07, D-09) — no DOM, so this is
+ * fully unit-testable under vitest's node environment (there is no jsdom in
+ * this repository). Returns one spec per TIERING signal at `'severe'` tier,
+ * in the fixed render order decimation, gapProfile, impossibleSamples, and
+ * an EMPTY array for a row that is minor-tier, none-tier or not-computable
+ * on that signal. D-07: only severe reaches a list row, so a quality badge
+ * stays a genuine signal on a row that already carries low-confidence,
+ * pace-disputed, exclusion, PR and gear badges rather than becoming
+ * wallpaper.
+ *
+ * A severe tier whose own evidence field is `null` is a contradiction the
+ * classifier cannot produce (every severe result carries its measured
+ * value) — this function returns no spec for that signal rather than
+ * printing a fabricated `null%`/`NaN`, defending against a future
+ * classifier regression rather than assuming today's invariant holds
+ * forever.
+ *
+ * D-13: device era carries NO severity tier and is never badged on a list
+ * row — it is a labelled fact, always disclosed only on the detail view, so
+ * the composite "any severe" rate this dashboard reports elsewhere stays a
+ * measure of data defects rather than of which watch the athlete owned. No
+ * spec is ever produced for it, and this is a deliberate exclusion, not an
+ * oversight.
+ *
+ * D-14: elapsedVsMoving is likewise an untiered fact (no defensible severe
+ * threshold separates "deliberate rest" from "forgotten stop") and is
+ * likewise never badged on a list row, for the same reason.
+ */
+export function qualityBadgeSpecs(row: Pick<DashboardIndexRow, 'quality'>): QualityBadgeSpec[] {
+  const specs: QualityBadgeSpec[] = [];
+  const { decimation, gapProfile, impossibleSamples } = row.quality;
+
+  if (decimation.tier === 'severe' && decimation.zeroAdvanceFraction !== null) {
+    const pct = Math.round(decimation.zeroAdvanceFraction * 100);
+    specs.push({
+      signal: 'decimation',
+      visibleText: `${pct}% of samples with no distance advance`,
+      explanation:
+        'this device recorded distance in coarse steps, so instantaneous pace from this stream reflects the recording interval rather than running speed',
+      descriptionIdSuffix: 'decimation',
+    });
+  }
+
+  if (gapProfile.tier === 'severe' && gapProfile.gapFraction !== null) {
+    const pct = Math.round(gapProfile.gapFraction * 100);
+    specs.push({
+      signal: 'gapProfile',
+      // Names BOTH recording gaps and pauses, and calls the denominator
+      // "recorded time" rather than "elapsed time": gapFraction is
+      // (recordingGapSec + pauseSec) / spanSec straight from classifyGaps —
+      // spanSec is the STREAM'S OWN recorded span, not the metadata
+      // elapsed_time. Naming only one category, or calling the span
+      // "elapsed time", would misdescribe the number this badge shows.
+      visibleText: `${pct}% of recorded time in gaps or pauses`,
+      explanation: 'pace during a gap is interpolated, not measured',
+      descriptionIdSuffix: 'gap-profile',
+    });
+  }
+
+  if (impossibleSamples.tier === 'severe' && impossibleSamples.count !== null) {
+    const n = impossibleSamples.count;
+    const noun = n === 1 ? 'sample' : 'samples';
+    specs.push({
+      signal: 'impossibleSamples',
+      visibleText: `${n} ${noun} faster than the 100 m world record`,
+      explanation:
+        'these samples imply a speed no human sustains, so any effort drawn across them is not a measured time',
+      descriptionIdSuffix: 'impossible-samples',
+    });
+  }
+
+  return specs;
+}
+
+/**
  * The status-badge strings for one row, in render order — the single source
  * of truth `appendStatusBadges` iterates to build the visible `.badge`
  * spans and `activityRowAriaLabel` folds into the row anchor's `aria-label`
