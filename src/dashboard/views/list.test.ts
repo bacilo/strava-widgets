@@ -22,6 +22,7 @@ import {
 import type { RowSurface } from './list.js';
 import type { DashboardIndexRow, ParsedDashboardIndexRow } from '../../analytics/dashboard-index.types.js';
 import type { ActivityQualitySignals } from '../../analytics/pace-quality.js';
+import { buildFilterChips, removeChip, activeFilterCount, EMPTY_FILTERS } from './list-logic.js';
 
 /**
  * Phase 27 (QUAL-01/QUAL-03): a required row field this suite does not
@@ -983,5 +984,63 @@ describe('list.ts wiring - CR-01 the consume is unconditional by construction', 
     `;
     const syntheticStripped = stripComments(preFixSynthetic);
     expect(consumePrecedesLoad(syntheticStripped)).toBe(false);
+  });
+});
+
+describe('severe filter wiring (27-08, D-16)', () => {
+  const listSource = readFileSync(new URL('./list.ts', import.meta.url), 'utf8');
+  const listStripped = stripComments(listSource);
+
+  // No jsdom in this repo (17-RESEARCH.md Pitfall 4) — buildQualityField,
+  // buildFilterPanel and the checkbox's DOM wiring cannot be exercised
+  // directly. What IS assertable without a DOM: the pure chip/count/clear
+  // machinery (imported from list-logic.js, already covered end to end in
+  // list-logic.test.ts's "severe filter" describe block) plus a source-text
+  // check that list.ts's own wiring actually calls the new field builder
+  // with the change event, following this file's own readFileSync-over-
+  // its-own-source precedent (CR-01's wiring tests above).
+
+  it('buildFilterChips/removeChip/activeFilterCount produce the expected results for an anySevere: true state', () => {
+    const filters = { ...EMPTY_FILTERS, anySevere: true };
+    expect(buildFilterChips(filters)).toEqual([{ key: 'quality', label: 'severe signals only' }]);
+    expect(activeFilterCount(filters)).toBe(1);
+    expect(removeChip(filters, 'quality')).toEqual(EMPTY_FILTERS);
+  });
+
+  it('buildFilterPanel calls buildQualityField, appended after buildDurationField', () => {
+    const panelStart = listStripped.indexOf('function buildFilterPanel(');
+    const panelEnd = listStripped.indexOf('\n}', panelStart);
+    expect(panelStart).toBeGreaterThanOrEqual(0);
+    expect(panelEnd).toBeGreaterThan(panelStart);
+    const panelBody = listStripped.slice(panelStart, panelEnd);
+
+    expect(panelBody).toContain('buildQualityField(');
+
+    const durationCallIdx = panelBody.indexOf('buildDurationField(');
+    const qualityCallIdx = panelBody.indexOf('buildQualityField(');
+    expect(durationCallIdx).toBeGreaterThanOrEqual(0);
+    expect(qualityCallIdx).toBeGreaterThan(durationCallIdx);
+  });
+
+  it('buildQualityField wires the checkbox to "change", not "input"', () => {
+    const fnStart = listStripped.indexOf('function buildQualityField(');
+    const fnEnd = listStripped.indexOf('\n}', fnStart);
+    expect(fnStart).toBeGreaterThanOrEqual(0);
+    expect(fnEnd).toBeGreaterThan(fnStart);
+    const fnBody = listStripped.slice(fnStart, fnEnd);
+
+    expect(fnBody).toContain("addEventListener('change'");
+    expect(fnBody).not.toContain("addEventListener('input'");
+    expect(fnBody).not.toContain("addEventListener('keydown'");
+  });
+
+  it('buildQualityField( occurs exactly twice — one definition, one buildFilterPanel call site', () => {
+    const matches = listStripped.match(/buildQualityField\(/g) || [];
+    expect(matches.length).toBe(2);
+  });
+
+  it('composeRowAriaLabel( still occurs exactly twice in the stripped source — this plan does not touch the aria-label fold', () => {
+    const matches = listStripped.match(/composeRowAriaLabel\(/g) || [];
+    expect(matches.length).toBe(2);
   });
 });
