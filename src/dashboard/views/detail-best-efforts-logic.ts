@@ -10,6 +10,7 @@ import { TARGET_ORDER } from '../../analytics/best-effort.types.js';
 import type { AgeGradingDocument } from '../../analytics/age-grading.types.js';
 import type { ExclusionIndex } from '../../analytics/best-effort-exclusions.js';
 import { isExcluded } from '../../analytics/best-effort-exclusions.js';
+import { LOW_CONFIDENCE_BADGE_TEXT } from './list.js';
 
 /** Display name per target distance, matching 18-UI-SPEC.md's naming exactly. */
 export const DISTANCE_DISPLAY_NAMES: Record<TargetDistanceKey, string> = {
@@ -106,6 +107,18 @@ export interface BestEffortPanelRow {
   excluded: boolean;
   agePercent: number | null;
   ageDerived: boolean;
+  /**
+   * True when a plausibility guard (world-record, max-speed or ceiling —
+   * Phase 28 D-08) demoted this effort — a MACHINE judgment, entirely
+   * separate from `excluded` (the owner's stated intent, D-10). Never
+   * routed through `resolveExcluded`: D-11 ships no write surface, so there
+   * is no live-vs-precomputed demotion state to resolve. Read via `!= null`
+   * (T-28-02-A), so a stale shard shipped before this field existed
+   * degrades to `false` rather than throwing.
+   */
+  demoted: boolean;
+  /** The demoting guard's reason string, or `null` when `demoted` is false or the reason itself is absent. */
+  demotionReason: string | null;
 }
 
 /**
@@ -184,7 +197,94 @@ export function buildBestEffortsPanelRows(
       excluded,
       agePercent: ageGradeEntry ? ageGradeEntry.agePercent : null,
       ageDerived: distance === '1k',
+      demoted: effort.demotion != null,
+      demotionReason: effort.demotion?.reason ?? null,
     });
   }
   return rows;
+}
+
+/**
+ * One flag badge the Best Efforts panel's PR-flags cell renders (D-09).
+ * Pure data: plan 28-04 renders each spec through `list.ts`'s
+ * `appendAccessibleBadge`, one badge per spec, each with its own
+ * `aria-describedby` derived from `descriptionIdSuffix` — mirroring
+ * `list.ts`'s `QualityBadgeSpec` shape (`{ signal, visibleText, explanation,
+ * descriptionIdSuffix }`) under a differently-named discriminant (`kind`)
+ * since this cell's specs are keyed by flag kind, not quality signal.
+ */
+export interface PrFlagBadgeSpec {
+  kind: 'pr' | 'demoted' | 'low-confidence' | 'excluded';
+  visibleText: string;
+  explanation: string;
+  descriptionIdSuffix: string;
+}
+
+/**
+ * Decides every PR-flags-cell badge's visible text as a pure, DOM-free
+ * function (D-09) — closing the hazard `detail-sections.ts:339-353`'s
+ * `buildPrFlagsCell` named: that function used to build a bare
+ * `<span class="badge">` per condition INSIDE a DOM builder, and Phase 24
+ * Round 2's R15 recorded two adjacent conditions rendering as one run-on
+ * claim, `PRExcluded — {reason}`, to both flowed text and a screen reader.
+ * Moving the strings here makes them assertable in this repo's
+ * `node`-environment vitest (no DOM library exists to read a rendered
+ * span), and giving every spec its own `explanation` plus a distinct
+ * `descriptionIdSuffix` is what lets plan 28-04 render each through
+ * `appendAccessibleBadge` with its own `aria-describedby`, so the two
+ * claims stay separable by assistive technology, not only by pixels.
+ *
+ * Emission order: `pr`, `demoted`, `low-confidence`, `excluded` — a row can
+ * carry more than one flag at once (e.g. demoted AND excluded), and each
+ * becomes its own spec rather than concatenating strings into one cell.
+ *
+ * `exclusionReason` is a REQUIRED second parameter with no default
+ * (WR-05's discipline, matching `buildPrBadgeLabels`) — a forgotten call
+ * site must fail to compile, not silently render `Excluded from records`
+ * for every excluded row regardless of its actual reason.
+ */
+export function prFlagBadgeSpecs(
+  row: BestEffortPanelRow,
+  exclusionReason: string | null
+): PrFlagBadgeSpec[] {
+  const specs: PrFlagBadgeSpec[] = [];
+
+  if (row.isPr) {
+    specs.push({
+      kind: 'pr',
+      visibleText: 'PR',
+      explanation: 'this run set a personal record at this distance at the time it was run',
+      descriptionIdSuffix: 'pr',
+    });
+  }
+
+  if (row.demoted) {
+    specs.push({
+      kind: 'demoted',
+      visibleText: row.demotionReason ? `Demoted — ${row.demotionReason}` : 'Demoted from ranking',
+      explanation:
+        'this effort is excluded from the ranked PR list because a plausibility guard rejected it; it stays visible here with its reason',
+      descriptionIdSuffix: 'demoted',
+    });
+  }
+
+  if (row.lowConfidence) {
+    specs.push({
+      kind: 'low-confidence',
+      visibleText: LOW_CONFIDENCE_BADGE_TEXT,
+      explanation: 'GPS-reconstructed distance; treat this time with caution',
+      descriptionIdSuffix: 'low-confidence',
+    });
+  }
+
+  if (row.excluded) {
+    specs.push({
+      kind: 'excluded',
+      visibleText: exclusionReason ? `Excluded — ${exclusionReason}` : 'Excluded from records',
+      explanation: 'the owner excluded this effort from records; this is a stated intent, not a machine judgment',
+      descriptionIdSuffix: 'excluded',
+    });
+  }
+
+  return specs;
 }
