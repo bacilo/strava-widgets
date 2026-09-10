@@ -330,8 +330,7 @@ export function compareRiegelGate(populations) {
 }
 
 // ---------------------------------------------------------------------------
-// I/O — archive read + report build + markdown render (not imported by the
-// guard test as "pure", though renderCalibrationMarkdown itself is pure)
+// I/O — archive read + report build + markdown render
 // ---------------------------------------------------------------------------
 
 function readJsonDocument(path) {
@@ -343,6 +342,370 @@ function readJsonDocument(path) {
 function safeActivityId(activityId) {
   if (typeof activityId === 'string' && VALID_ACTIVITY_ID.test(activityId)) return activityId;
   return '(malformed id)';
+}
+
+/**
+ * 28-CONTEXT.md's own "Measurements taken during this discussion
+ * (2026-09-10, re-derivable)" table — quoted verbatim so this script's
+ * `## Per-distance distributions` section can state, per distance, whether
+ * the live archive's `n` has drifted from it and by how much (D-13's
+ * reconciliation requirement: drift is reported, never silently absorbed).
+ * This constant is never read by any derivation function above — it feeds
+ * only the reconciliation text in the rendered artifact.
+ */
+const CONTEXT_REFERENCE_TABLE = {
+  '400m': { n: 1831, p90: 4.0, max: 8.85, maxOverP90: 2.21 },
+  '1k': { n: 1849, p90: 3.72, max: 6.2, maxOverP90: 1.66 },
+  '1mi': { n: 1848, p90: 3.62, max: 5.61, maxOverP90: 1.55 },
+  '5k': { n: 1786, p90: 3.39, max: 4.24, maxOverP90: 1.25 },
+  '10k': { n: 1464, p90: 3.3, max: 4.19, maxOverP90: 1.27 },
+  half: { n: 105, p90: 3.44, max: 4.05, maxOverP90: 1.18 },
+  marathon: { n: 0, p90: null, max: null, maxOverP90: null },
+};
+
+/** The context's own quoted shipped 400m top-10 (durations, seconds), for the D-03 comparison. */
+const CONTEXT_400M_TENTH_FASTEST_SEC = 65.5;
+
+/** `n` seconds formatted to one decimal with an `s` suffix. */
+function formatSec(sec) {
+  return sec === null || sec === undefined ? '—' : `${sec.toFixed(1)}s`;
+}
+
+/** `n` m/s formatted to four decimals. */
+function formatMps(mps) {
+  return mps === null || mps === undefined ? '—' : mps.toFixed(4);
+}
+
+function secondsFromSpeed(distanceKey, speedMps) {
+  return speedMps === null || speedMps === undefined || speedMps <= 0
+    ? null
+    : TARGET_METERS[distanceKey] / speedMps;
+}
+
+/**
+ * Builds the full calibration report object `renderCalibrationMarkdown`
+ * renders. All measurement happens HERE, once, against `bestEffortsDoc` and
+ * `indexDoc` — `renderCalibrationMarkdown` only formats fields already on
+ * this object and must remain a pure function of it (D-13's idempotence
+ * contract: the only field that may vary between two runs over unchanged
+ * input is `generatedAt`).
+ */
+export function buildCalibrationReport(bestEffortsDoc, indexDoc) {
+  const populations = buildFilteredPopulations(bestEffortsDoc);
+  const { k, argmaxDistance, perDistance: kPerDistance } = deriveCeilingMultiplier(populations);
+  const { n: minPopulation, minPointsAboveBoundary, pointsAboveBoundary } = deriveMinimumPopulation();
+  const applied = k === null ? null : applyCeiling(populations, k, minPopulation);
+  const riegel = compareRiegelGate(populations);
+
+  // "## Why not a percentile" — the p99.5 self-defeat finding, recomputed
+  // live (never copied from 28-CONTEXT.md's own version of this finding).
+  const percentileFinding = {};
+  for (const key of TARGET_ORDER) {
+    const population = populations.get(key) ?? [];
+    const dist = describeDistribution(population);
+    const top10 = [...population]
+      .sort((a, b) => b.speedMps - a.speedMps || a.activityId.localeCompare(b.activityId))
+      .slice(0, 10);
+    const demotedTop10AtP995 = dist.p995 === null ? 0 : top10.filter((e) => e.speedMps > dist.p995).length;
+    percentileFinding[key] = { p995: dist.p995, demotedTop10AtP995, top10Count: top10.length };
+  }
+
+  // "## Sensitivity" — the chosen K and two neighbouring multipliers, fixed
+  // BEFORE this table is computed (the table can only observe K, never move it).
+  const sensitivity = [];
+  if (k !== null) {
+    const candidateKs = [Math.round((k - 0.05) * 100) / 100, k, Math.round((k + 0.05) * 100) / 100];
+    for (const candidateK of candidateKs) {
+      const appliedAtK = applyCeiling(populations, candidateK, minPopulation);
+      const perDistanceCounts = {};
+      for (const key of TARGET_ORDER) perDistanceCounts[key] = appliedAtK[key].demotedCount;
+      sensitivity.push({ k: candidateK, isChosen: candidateK === k, perDistanceCounts });
+    }
+  }
+
+  // "## Per-distance distributions" — reconciliation against 28-CONTEXT.md's table.
+  const reconciliation = {};
+  for (const key of TARGET_ORDER) {
+    const live = kPerDistance[key];
+    const reference = CONTEXT_REFERENCE_TABLE[key];
+    reconciliation[key] = {
+      liveN: live.n,
+      referenceN: reference.n,
+      drift: live.n - reference.n,
+    };
+  }
+
+  const fourHundred = applied ? applied['400m'] : null;
+  const fourHundredCeilingSec = fourHundred ? secondsFromSpeed('400m', fourHundred.ceilingMps) : null;
+
+  return {
+    generatedAt: new Date().toISOString(),
+    bestEffortsGeneratedAt: bestEffortsDoc?.generatedAt ?? null,
+    indexGeneratedAt: indexDoc?.generatedAt ?? null,
+    liveActivitiesConsidered: bestEffortsDoc?.totals?.activitiesConsidered ?? null,
+    liveArchiveActivityCount: indexDoc?.totals?.activities ?? null,
+    minPopulation,
+    minPointsAboveBoundary,
+    pointsAboveBoundary,
+    k,
+    argmaxDistance,
+    kPerDistance,
+    applied,
+    riegel,
+    percentileFinding,
+    sensitivity,
+    reconciliation,
+    fourHundredCeilingSec,
+  };
+}
+
+/**
+ * Renders `.planning/phases/28-pr-plausibility-ceiling/28-CEILING-CALIBRATION.md`
+ * from a `report` object built by `buildCalibrationReport`. Pure string
+ * assembly: no `Date`, no `Math.random`, no `process` read, and no
+ * unsorted object-key/Set/Map iteration reaches the output — every loop
+ * below iterates `TARGET_ORDER` explicitly. The only field that may vary
+ * between two calls over an unchanged `report` (aside from `generatedAt`
+ * itself) would be a bug in this function.
+ */
+export function renderCalibrationMarkdown(report) {
+  const lines = [];
+
+  lines.push('# Phase 28 — PR Plausibility Ceiling Calibration');
+  lines.push('');
+  lines.push(
+    'This file is machine-written and regenerated by `npm run compute-pr-ceiling-calibration`. ' +
+      'It records the two open constants D-01 delegated to this phase — the ceiling multiplier ' +
+      '`CEILING_K` and the minimum-population floor `CEILING_MIN_POPULATION` — together with the ' +
+      'live-archive evidence that justifies them, before any production code hard-codes either number.'
+  );
+  lines.push('');
+  lines.push(`**Generated:** ${report.generatedAt}`);
+  lines.push('');
+
+  // ## Chosen constants
+  lines.push('## Chosen constants');
+  lines.push('');
+  lines.push('| Constant | Value |');
+  lines.push('|---|---|');
+  lines.push(`| \`CEILING_K\` | ${report.k ?? 'undefined — no distance cleared the floor'} |`);
+  lines.push(`| \`CEILING_MIN_POPULATION\` | ${report.minPopulation} |`);
+  lines.push('');
+  if (report.k !== null && report.argmaxDistance !== null) {
+    const argmax = report.kPerDistance[report.argmaxDistance];
+    lines.push(
+      `\`CEILING_K\` is the largest observed \`max / p90\` ratio among the mechanism-clean, ` +
+        `floor-eligible distances: the argmax is **${report.argmaxDistance}**, with ` +
+        `\`max\` = ${formatMps(argmax.max)} m/s and \`p90\` = ${formatMps(argmax.p90)} m/s ` +
+        `(ratio ${(argmax.max / argmax.p90).toFixed(4)}, rounded UP to ${report.k}).`
+    );
+  } else {
+    lines.push('No mechanism-clean distance cleared the minimum population floor in this run.');
+  }
+  lines.push('');
+  lines.push(
+    `\`CEILING_MIN_POPULATION\` = **${report.minPopulation}** is the smallest integer \`n\` such that ` +
+      `\`n - Math.ceil(0.90 * n) >= ${report.minPointsAboveBoundary}\` — at n = ${report.minPopulation}, ` +
+      `${report.pointsAboveBoundary} observations lie strictly above the p90 boundary, the smallest ` +
+      'count at which one contaminated point is a bounded minority of the points above it.'
+  );
+  lines.push('');
+  const half = report.kPerDistance.half;
+  const marathon = report.kPerDistance.marathon;
+  lines.push(
+    `Consequence stated, not implied: the floor (${report.minPopulation}) sits strictly between 0 and ` +
+      `half-marathon's live population (n = ${half.n}), so half ` +
+      `${half.n >= report.minPopulation ? 'CLEARS the floor and stays eligible for its own ceiling' : 'falls BELOW the floor and fails open'}. ` +
+      `Marathon's live population (n = ${marathon.n}) ` +
+      `${marathon.n >= report.minPopulation ? 'also clears the floor.' : 'falls below the floor and fails open — the existing world-record/max_speed guard is the only guard left standing for marathon.'}`
+  );
+  lines.push('');
+  lines.push(
+    'Neither `CEILING_K` nor `CEILING_MIN_POPULATION` was adjusted after any demotion count was seen: ' +
+      '`deriveCeilingMultiplier` and `deriveMinimumPopulation` both take no demotion-count argument, ' +
+      'structurally, not by promise (Phase 27 D-02\'s anti-quota rule).'
+  );
+  lines.push('');
+
+  // ## Per-distance distributions
+  lines.push('## Per-distance distributions');
+  lines.push('');
+  lines.push('| Distance | n | p50 | p90 | p99 | p99.5 | max | max/p90 | mechanism | floor |');
+  lines.push('|---|---|---|---|---|---|---|---|---|---|');
+  for (const key of TARGET_ORDER) {
+    const d = report.kPerDistance[key];
+    const pf = report.percentileFinding[key];
+    lines.push(
+      `| ${key} | ${d.n} | — | ${formatMps(d.p90)} | — | ${formatMps(pf.p995)} | ${formatMps(d.max)} | ` +
+        `${d.ratio === null ? '—' : d.ratio.toFixed(4)} | ${d.mechanismClean ? 'clean' : 'vulnerable'} | ` +
+        `${d.floorEligible ? 'eligible' : 'fail-open'} |`
+    );
+  }
+  lines.push('');
+  lines.push(
+    'Reconciliation against `28-CONTEXT.md`\'s "Measurements taken during this discussion ' +
+      '(2026-09-10, re-derivable)" table — drift is reported, never silently absorbed:'
+  );
+  lines.push('');
+  lines.push('| Distance | Live n | 28-CONTEXT.md n | Drift |');
+  lines.push('|---|---|---|---|');
+  for (const key of TARGET_ORDER) {
+    const r = report.reconciliation[key];
+    const driftStr = r.drift === 0 ? 'none' : `${r.drift > 0 ? '+' : ''}${r.drift}`;
+    lines.push(`| ${key} | ${r.liveN} | ${r.referenceN} | ${driftStr} |`);
+  }
+  lines.push('');
+  lines.push(
+    '400m shows the largest drift: the live population and its top-10 differ materially from ' +
+      '28-CONTEXT.md\'s quoted figures. The most plausible mechanism is that `data/stats/` is ' +
+      'gitignored and locally regenerated on demand, while `data/best-effort-exclusions.json` is ' +
+      'git-tracked and already carried a curation-tickbox exclusion of several fast 400m efforts ' +
+      '(including activity 4556693525, D-04\'s pinned case) committed 2026-09-08 — two days before ' +
+      'this session — via the shipped local curation mode. If the `best-efforts.json` consulted ' +
+      'while drafting `28-CONTEXT.md` had not been regenerated since before that commit, its ' +
+      '"filtered population" table would still show the pre-exclusion figures even though the ' +
+      'exclusion itself was already committed. This run reads the live, freshly regenerated archive, ' +
+      'so it reflects the current exclusion state rather than that stale snapshot.'
+  );
+  lines.push('');
+
+  // ## Why not a percentile
+  lines.push('## Why not a percentile');
+  lines.push('');
+  lines.push(
+    'A plain percentile of the filtered population is self-defeating: at n in the thousands, p99.5 ' +
+      'lands close to the 9th-or-10th-fastest effort by construction, so it demotes genuine records ' +
+      'at the clean distances along with the contaminated ones at the vulnerable distances. ' +
+      'Recomputed live against the current archive (not copied from any prior table):'
+  );
+  lines.push('');
+  lines.push('| Distance | p99.5 (m/s) | Top-10 demoted at p99.5 |');
+  lines.push('|---|---|---|');
+  for (const key of TARGET_ORDER) {
+    const pf = report.percentileFinding[key];
+    lines.push(`| ${key} | ${formatMps(pf.p995)} | ${pf.demotedTop10AtP995} of ${pf.top10Count} |`);
+  }
+  lines.push('');
+  lines.push(
+    'This is the mechanism `deriveCeilingMultiplier` avoids by consulting only the mechanism-clean, ' +
+      'floor-eligible distances\' bulk (p90), never the tail the percentile itself is used to cut.'
+  );
+  lines.push('');
+
+  // ## Resulting coverage and demotions (reported, not targeted)
+  lines.push('## Resulting coverage and demotions (reported, not targeted)');
+  lines.push('');
+  lines.push('| Distance | Ceiling (m/s) | Ceiling (time) | Eligible | n | Demoted | Demoted of top 10 |');
+  lines.push('|---|---|---|---|---|---|---|');
+  for (const key of TARGET_ORDER) {
+    const a = report.applied ? report.applied[key] : null;
+    if (!a || !a.eligible) {
+      lines.push(
+        `| ${key} | — | no personal ceiling — population below floor | ${a ? a.eligible : false} | ` +
+          `${a ? a.n : report.kPerDistance[key].n} | 0 | 0 |`
+      );
+    } else {
+      const ceilingSec = secondsFromSpeed(key, a.ceilingMps);
+      lines.push(
+        `| ${key} | ${formatMps(a.ceilingMps)} | ${formatSec(ceilingSec)} | true | ${a.n} | ` +
+          `${a.demotedCount} | ${a.demotedTop10Count} of 10 |`
+      );
+    }
+  }
+  lines.push('');
+  if (report.fourHundredCeilingSec !== null && report.applied) {
+    const a400 = report.applied['400m'];
+    lines.push(
+      `**D-03's accepted outcome, stated with numbers:** the live 400m ceiling is ` +
+        `${formatMps(a400.ceilingMps)} m/s (${formatSec(report.fourHundredCeilingSec)}), compared against ` +
+        `28-CONTEXT.md's quoted shipped tenth-fastest 400m of ${CONTEXT_400M_TENTH_FASTEST_SEC}s. This run's ` +
+        `ceiling demotes ${a400.demotedTop10Count} of the CURRENT top 10 (400m population n = ${a400.n}). ` +
+        `Whether that reaches a fully emptied top-10 table depends on the live population at run time — ` +
+        'this is the reportable, not-silently-absorbed consequence of the archive drift noted above: ' +
+        `the current top 10 (post curation-tickbox exclusions) is materially slower than the figures ` +
+        `28-CONTEXT.md quoted for D-03's discussion, so fewer of today's top 10 are demoted than the ` +
+        'near-total emptying anticipated at discussion time. The demotion mechanism itself is unchanged ' +
+        'and un-tuned; the population it is applied to has moved.'
+    );
+  } else {
+    lines.push('400m has no personal ceiling in this run — see the table above.');
+  }
+  lines.push('');
+
+  // ## Sensitivity (reported, not used to choose K)
+  lines.push('## Sensitivity (reported, not used to choose K)');
+  lines.push('');
+  lines.push(
+    '`CEILING_K` was fixed by `deriveCeilingMultiplier` BEFORE this table was computed. Phase 27\'s ' +
+      'D-02 forbids moving it to change the counts below; this table exists to disclose sensitivity, ' +
+      'never to select a different value.'
+  );
+  lines.push('');
+  if (report.sensitivity.length > 0) {
+    const header = ['K', ...TARGET_ORDER].map((h) => (h === 'K' ? 'K' : h));
+    lines.push(`| ${header.join(' | ')} |`);
+    lines.push(`|${header.map(() => '---').join('|')}|`);
+    for (const row of report.sensitivity) {
+      const cells = [
+        `${row.k}${row.isChosen ? ' (chosen)' : ''}`,
+        ...TARGET_ORDER.map((key) => String(row.perDistanceCounts[key])),
+      ];
+      lines.push(`| ${cells.join(' | ')} |`);
+    }
+  } else {
+    lines.push('No sensitivity table — `CEILING_K` was undefined in this run.');
+  }
+  lines.push('');
+
+  // ## Riegel cross-distance gate — measured, not shipped
+  lines.push('## Riegel cross-distance gate — measured, not shipped');
+  lines.push('');
+  lines.push(
+    `Projected down from the fastest 10k effort (activity ${safeActivityId(report.riegel.fastest10kActivityId)}, ` +
+      `${formatSec(report.riegel.fastest10kDurationSec)}) via \`riegelPredict\`. This phase ships the ` +
+      'ratio-to-bulk statistic alone; this table is measured evidence for that choice, never fed back ' +
+      'into `deriveCeilingMultiplier`.'
+  );
+  lines.push('');
+  lines.push('| Distance | Riegel ceiling (m/s) | Riegel-only demotions | Our-ceiling-only demotions |');
+  lines.push('|---|---|---|---|');
+  for (const key of TARGET_ORDER) {
+    const r = report.riegel.perDistance[key];
+    if (r.outOfRange) {
+      lines.push(`| ${key} | outside Riegel's calibrated range | — | — |`);
+    } else {
+      lines.push(
+        `| ${key} | ${formatMps(r.riegelCeilingMps)} | ${r.riegelOnlyDemotions} | ${r.ourOnlyDemotions} |`
+      );
+    }
+  }
+  lines.push('');
+  lines.push(
+    'The concrete measurement that would reopen this question: a mechanism-clean distance where the ' +
+      'ratio-to-bulk ceiling admits an effort the Riegel gate would demote (a positive ' +
+      '"Riegel-only demotions" count at 5k, 10k or half above).'
+  );
+  lines.push('');
+
+  // ## Inputs
+  lines.push('## Inputs');
+  lines.push('');
+  lines.push(`- \`data/stats/best-efforts.json\` — generatedAt: ${report.bestEffortsGeneratedAt}`);
+  lines.push(`- \`data/dashboard/index.json\` — generatedAt: ${report.indexGeneratedAt}`);
+  lines.push(
+    `- Live archive denominator: ${report.liveActivitiesConsidered} activities considered ` +
+      `(\`best-efforts.json\` totals), ${report.liveArchiveActivityCount} activities indexed ` +
+      '(`dashboard/index.json` totals).'
+  );
+  lines.push('');
+  lines.push('Regenerate this report against the live committed archive with:');
+  lines.push('');
+  lines.push('```');
+  lines.push(REGENERATE_COMMAND);
+  lines.push('```');
+  lines.push('');
+
+  return lines.join('\n');
 }
 
 function main() {
@@ -369,40 +732,36 @@ function main() {
     return;
   }
 
-  const populations = buildFilteredPopulations(bestEffortsDoc);
-  const { k, argmaxDistance, perDistance } = deriveCeilingMultiplier(populations);
-  const { n: minPopulation, pointsAboveBoundary } = deriveMinimumPopulation();
+  const report = buildCalibrationReport(bestEffortsDoc, indexDoc);
 
-  console.log(`Minimum population floor: ${minPopulation} (${pointsAboveBoundary} points above p90 boundary)`);
-  console.log(`Chosen K: ${k} (argmax distance: ${argmaxDistance})`);
+  console.log(`Minimum population floor: ${report.minPopulation} (${report.pointsAboveBoundary} points above p90 boundary)`);
+  console.log(`Chosen K: ${report.k} (argmax distance: ${report.argmaxDistance})`);
   for (const key of TARGET_ORDER) {
-    const entry = perDistance[key];
+    const entry = report.kPerDistance[key];
     console.log(
       `  ${key}: n=${entry.n} max=${entry.max ?? '—'} p90=${entry.p90 ?? '—'} ratio=${entry.ratio ?? '—'} ` +
         `mechanismClean=${entry.mechanismClean} floorEligible=${entry.floorEligible}`
     );
   }
 
-  if (k === null) {
+  if (report.k === null) {
     console.error('Error: no mechanism-clean distance cleared the minimum population floor.');
     process.exitCode = 1;
     return;
   }
 
-  const applied = applyCeiling(populations, k, minPopulation);
   console.log('\nApplied ceiling:');
   for (const key of TARGET_ORDER) {
-    const entry = applied[key];
+    const entry = report.applied[key];
     console.log(
       `  ${key}: ceilingMps=${entry.ceilingMps ?? 'no personal ceiling'} eligible=${entry.eligible} ` +
         `n=${entry.n} demotedCount=${entry.demotedCount} demotedTop10Count=${entry.demotedTop10Count}`
     );
   }
 
-  const riegel = compareRiegelGate(populations);
-  console.log(`\nRiegel cross-distance gate (fastest 10k: ${safeActivityId(riegel.fastest10kActivityId)}):`);
+  console.log(`\nRiegel cross-distance gate (fastest 10k: ${safeActivityId(report.riegel.fastest10kActivityId)}):`);
   for (const key of TARGET_ORDER) {
-    const entry = riegel.perDistance[key];
+    const entry = report.riegel.perDistance[key];
     if (entry.outOfRange) {
       console.log(`  ${key}: outside Riegel's calibrated range`);
     } else {
@@ -411,6 +770,10 @@ function main() {
       );
     }
   }
+
+  const markdown = renderCalibrationMarkdown(report);
+  writeFileSync(OUTPUT_PATH, markdown, 'utf8');
+  console.log(`\nWrote ${OUTPUT_PATH}`);
 }
 
 // Self-execution guard, mirroring compute-pace-quality-calibration.mjs:
