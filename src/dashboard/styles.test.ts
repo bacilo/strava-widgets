@@ -2384,3 +2384,17 @@ describe('styles.css — Phase 26 plan 08 (D-11): pace-disputed badge spacing, c
     expect(cssNoComments).not.toMatch(/\.gap-badge\b/);
   });
 });
+
+describe('styles.css — Phase 28 plan 28-04 (D-09): .badge--demoted modifier, distinct from .badge--severe', () => {
+  it('.badge--demoted exists and declares at least one property', () => {
+    const body = declarationsFor('.badge--demoted');
+    expect(body.trim().length).toBeGreaterThan(0);
+    expect(body).toContain(':');
+  });
+
+  it(".badge--demoted's declaration block is not byte-identical to .badge--severe's", () => {
+    const demotedBody = declarationsFor('.badge--demoted');
+    const severeBody = declarationsFor('.badge--severe');
+    expect(demotedBody).not.toBe(severeBody);
+  });
+});

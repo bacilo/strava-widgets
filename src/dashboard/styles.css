@@ -375,6 +375,18 @@ body {
   border-color: var(--destructive);
 }
 
+/* Phase 28 (D-09, plan 28-04): a demoted-effort badge, distinct from
+   .badge--severe above. A demotion is a plausibility guard rejecting one
+   effort from the ranked PR list, not the archive-wide severity tier
+   Phase 27 shipped, and painting the two identically would tell the
+   reader those are the same kind of judgment. Reuses the existing
+   accent-strong token (already the active-state fill elsewhere in this
+   file) rather than introducing a new custom property or raw hex value. */
+.badge--demoted {
+  color: var(--accent-strong);
+  border-color: var(--accent-strong);
+}
+
 /* 26-08 (D-11): the pace-disputed badge is appended as a third child inside
    a .stat-grid tile, directly under its .text-label caption line — this one
    rule gives it separation from that line above, per 26-UI-SPEC.md's Spacing

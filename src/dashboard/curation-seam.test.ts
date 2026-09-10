@@ -113,8 +113,8 @@ describe('D-06 — buildExclusionReasonIndex and the Excluded badge stay unchang
     );
   });
 
-  it("detail-sections.ts still contains the 'Excluded — ' badge string, made reachable by this phase, not rebuilt", () => {
-    expect(detailSectionsStripped).toContain('Excluded — ');
+  it("the 'Excluded — ' badge string still exists, made reachable by this phase, not rebuilt — relocated by plan 28-04 (D-09) from detail-sections.ts's buildPrFlagsCell into the pure prFlagBadgeSpecs in detail-best-efforts-logic.ts, so it is asserted there now", () => {
+    expect(detailBestEffortsLogicStripped).toContain('Excluded — ');
   });
 });
 
