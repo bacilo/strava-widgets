@@ -121,3 +121,10 @@ Plan 27-03 can now measure the true composite `anySevere` union over the live ar
 ---
 *Phase: 27-per-activity-quality-signals*
 *Completed: 2026-09-10*
+
+## Self-Check: PASSED
+
+All modified files confirmed present on disk (`src/analytics/pace-quality.ts`,
+`pace-quality.test.ts`, `best-effort-utils.ts`, `best-effort-utils.test.ts`); all 4
+task/summary commits (`f5571bc3`, `cfd215b7`, `7b6d9372`, `20f6bf85`) confirmed present
+in `git log`.
