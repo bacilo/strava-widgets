@@ -13,14 +13,27 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  DECIMATION_SEVERE_MIN_SAMPLES,
+  DECIMATION_SEVERE_ZERO_ADVANCE_FRACTION,
+  GAP_PROFILE_SEVERE_FRACTION,
   NOT_COMPUTABLE_NO_STREAM,
+  decimationSignal,
   elapsedVsMovingSignal,
+  gapProfileSignal,
   notComputableSignals,
   resolveDeviceFamily,
   type ActivityQualityMetadata,
   type DeviceEraSignal,
 } from './pace-quality.js';
-import { PINNED_FIXTURES, loadPinnedActivity, loadPinnedStream } from './pace-fixtures.js';
+import {
+  PINNED_FIXTURES,
+  loadPinnedActivity,
+  loadPinnedStream,
+  makeStream,
+  syntheticDecimationAliasedStream,
+  syntheticMultiHourPauseStream,
+  syntheticRecordingGapStream,
+} from './pace-fixtures.js';
 
 /** Builds the two-field metadata slice `resolveDeviceFamily` consumes from a raw activity record. */
 function metadataOf(activity: unknown): Pick<ActivityQualityMetadata, 'deviceName' | 'sourceProvider'> {
@@ -189,5 +202,150 @@ describe('elapsedVsMovingSignal and notComputableSignals — not computable', ()
     // Mutating the first must not affect the second.
     first.decimation.sampleCount = 999;
     expect(second.decimation.sampleCount).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// decimation signal (D-04) and gap profile (Task 1)
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds a stream of `sampleCount` samples where the first `zeroCount` steps
+ * are zero-advance (`d[i] === d[i-1]`) and every remaining step advances by
+ * 1m — gives an exact, hand-controlled `zeroAdvanceFraction` of
+ * `zeroCount / (sampleCount - 1)` for boundary testing.
+ */
+function buildDecimationBoundaryStream(sampleCount: number, zeroCount: number) {
+  const t: number[] = [0];
+  const d: number[] = [0];
+  for (let i = 1; i < sampleCount; i++) {
+    t.push(i);
+    d.push(i <= zeroCount ? d[i - 1] : d[i - 1] + 1);
+  }
+  return makeStream({ id: `boundary-${sampleCount}-${zeroCount}`, t, d });
+}
+
+describe('decimation signal (D-04)', () => {
+  it('syntheticDecimationAliasedStream reports severe, above the constant, above the sample floor', () => {
+    const stream = syntheticDecimationAliasedStream();
+    const result = decimationSignal(stream.t, stream.d);
+    expect(result.tier).toBe('severe');
+    expect(result.zeroAdvanceFraction).not.toBeNull();
+    expect(result.zeroAdvanceFraction!).toBeGreaterThan(DECIMATION_SEVERE_ZERO_ADVANCE_FRACTION);
+    expect(result.sampleCount).not.toBeNull();
+    expect(result.sampleCount!).toBeGreaterThanOrEqual(DECIMATION_SEVERE_MIN_SAMPLES);
+  });
+
+  it('the pinned decimation-aliased fixture (5059204779) agrees with compute-pace-residual.mjs\'s own rule', () => {
+    const fixture = PINNED_FIXTURES.find((f) => f.name === 'decimation-aliased')!;
+    const stream = loadPinnedStream('decimation-aliased');
+    const result = decimationSignal(stream.t, stream.d);
+
+    expect(result.tier).toBe('severe');
+    expect(result.zeroAdvanceFraction).not.toBeNull();
+    expect(
+      Math.abs(result.zeroAdvanceFraction! - (fixture.expected.zeroAdvanceFraction as number))
+    ).toBeLessThanOrEqual(0.005);
+  });
+
+  it('a clean, strictly-increasing stream reports none with a genuine zero fraction, not a fabricated one', () => {
+    const t = Array.from({ length: 60 }, (_, i) => i);
+    const d = Array.from({ length: 60 }, (_, i) => i);
+    const stream = makeStream({ id: 'clean-increasing', t, d });
+
+    const result = decimationSignal(stream.t, stream.d);
+    expect(result.tier).toBe('none');
+    expect(result.zeroAdvanceFraction).toBe(0);
+  });
+
+  it('boundary: exactly 15.0% zero-advance is NOT severe (strict >, not >=)', () => {
+    const stream = buildDecimationBoundaryStream(101, 15); // 15/100 = 0.15 exactly
+    const result = decimationSignal(stream.t, stream.d);
+    expect(result.zeroAdvanceFraction).toBe(0.15);
+    expect(result.tier).not.toBe('severe');
+  });
+
+  it('boundary: above 15% zero-advance but only 49 samples is NOT severe (floor unmet)', () => {
+    const stream = buildDecimationBoundaryStream(49, 10); // 10/48 = 0.2083, sampleCount 49 < 50
+    const result = decimationSignal(stream.t, stream.d);
+    expect(result.zeroAdvanceFraction!).toBeGreaterThan(0.15);
+    expect(result.sampleCount).toBe(49);
+    expect(result.tier).not.toBe('severe');
+  });
+
+  it('totality: malformed/adversarial input reports not-computable rather than throwing', () => {
+    const cases: Array<[number[], number[]]> = [
+      [[], []],
+      [[0, 1, 2], [0, 1]], // mismatched lengths
+      [[0, 1], [NaN, 1]],
+      [[2, 1], [0, 1]], // decreasing t
+    ];
+    for (const [t, d] of cases) {
+      expect(() => decimationSignal(t, d)).not.toThrow();
+      const result = decimationSignal(t, d);
+      expect(result.tier).toBe('not-computable');
+      expect(result.zeroAdvanceFraction).toBeNull();
+      expect(result.sampleCount).toBeNull();
+    }
+  });
+});
+
+describe('gap profile signal', () => {
+  it('syntheticRecordingGapStream fires with recordingGapSec populated, pauseSec at zero', () => {
+    const stream = syntheticRecordingGapStream();
+    const result = gapProfileSignal(stream.t, stream.d);
+    expect(result.tier).toBe('severe');
+    expect(result.recordingGapSec).toBe(300);
+    expect(result.pauseSec).toBe(0);
+  });
+
+  it('syntheticMultiHourPauseStream fires with pauseSec populated, recordingGapSec at zero', () => {
+    const stream = syntheticMultiHourPauseStream();
+    const result = gapProfileSignal(stream.t, stream.d);
+    expect(result.tier).toBe('severe');
+    expect(result.pauseSec).toBe(10800);
+    expect(result.recordingGapSec).toBe(0);
+  });
+
+  it('gapFraction always equals (recordingGapSec + pauseSec) / spanSec, recomputed independently', () => {
+    for (const stream of [syntheticRecordingGapStream(), syntheticMultiHourPauseStream()]) {
+      const result = gapProfileSignal(stream.t, stream.d);
+      const recomputed =
+        (result.recordingGapSec! + result.pauseSec!) / result.spanSec!;
+      expect(result.gapFraction).toBeCloseTo(recomputed, 10);
+    }
+  });
+
+  it('threshold override is connected in both directions', () => {
+    const stream = syntheticRecordingGapStream(); // gapFraction ~= 0.4286 by construction
+
+    const low = gapProfileSignal(stream.t, stream.d, { gapProfileSevereFraction: 0.01 });
+    expect(low.tier).toBe('severe');
+
+    const high = gapProfileSignal(stream.t, stream.d, { gapProfileSevereFraction: 0.9 });
+    expect(high.tier).not.toBe('severe');
+  });
+
+  it('the shipped scale-relative gap classification is never overridden by this signal', () => {
+    expect(GAP_PROFILE_SEVERE_FRACTION).toBeGreaterThan(0);
+    expect(GAP_PROFILE_SEVERE_FRACTION).toBeLessThan(1);
+  });
+
+  it('totality: malformed/adversarial input reports not-computable rather than throwing, never gapFraction 0', () => {
+    const cases: Array<[number[], number[]]> = [
+      [[], []],
+      [[0, 1, 2], [0, 1]],
+      [[0, 1], [NaN, 1]],
+      [[2, 1], [0, 1]],
+    ];
+    for (const [t, d] of cases) {
+      expect(() => gapProfileSignal(t, d)).not.toThrow();
+      const result = gapProfileSignal(t, d);
+      expect(result.tier).toBe('not-computable');
+      expect(result.gapFraction).toBeNull();
+      expect(result.recordingGapSec).toBeNull();
+      expect(result.pauseSec).toBeNull();
+      expect(result.spanSec).toBeNull();
+    }
   });
 });

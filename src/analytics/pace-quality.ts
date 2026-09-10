@@ -20,6 +20,9 @@
  * single constructor for that state — see its own doc comment.
  */
 
+import { classifyGaps } from './pace-derivation.js';
+import { validateStreamSeries } from './best-effort-utils.js';
+
 // ---------------------------------------------------------------------------
 // Quality tier
 // ---------------------------------------------------------------------------
@@ -348,5 +351,220 @@ export function notComputableSignals(
     elapsedVsMoving,
     anySevere: false,
     notComputableReason: reason,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Threshold overrides (Criterion 4's knob — plan 27-03 turns it)
+// ---------------------------------------------------------------------------
+
+/**
+ * Threshold overrides — the SAME shape `classifyGaps`'s own pause-threshold
+ * option already uses for its own demonstrable knob. Production callers pass
+ * nothing; only the calibration script (27-03) passes overrides, so
+ * Criterion 4's "move a threshold, watch the rate move" needs no source
+ * edit and no test-only export.
+ */
+export interface QualityThresholdOverrides {
+  decimationZeroAdvanceFraction?: number;
+  decimationMinSamples?: number;
+  gapProfileSevereFraction?: number;
+  impossibleSevereCount?: number;
+  impossibleFloorMps?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Decimation signal (D-04) — Phase 26's cohort rule, reused verbatim
+// ---------------------------------------------------------------------------
+
+/**
+ * Severe-tier threshold for the decimation signal (D-04): reused VERBATIM
+ * from Phase 26's cohort rule. The exact same 0.15/50 pair lives in
+ * `26-RESIDUAL.md` § Cohort Definition (the committed deliverable) and in
+ * `scripts/compute-pace-residual.mjs`'s `SEVERE_STAIR_STEP_ZERO_ADVANCE_FRACTION`
+ * / `isSevereStairStep` — this is the third place, not a second line: all
+ * three must agree on the exact same 154-activity cohort by construction.
+ * These are NOT this phase's to retune — D-04 locks them, and the
+ * 154-activity cohort they select IS the severe-decimation set by
+ * definition, full stop. The 50-sample floor below exists ONLY to exclude
+ * one degenerate near-empty manual-entry stream (`11865310195`,
+ * `26-RESIDUAL.md`'s own note); it is not a general quality bar on sample
+ * density.
+ */
+export const DECIMATION_SEVERE_ZERO_ADVANCE_FRACTION = 0.15;
+
+/** See `DECIMATION_SEVERE_ZERO_ADVANCE_FRACTION`'s doc comment — same D-04 lock, same three-place agreement. */
+export const DECIMATION_SEVERE_MIN_SAMPLES = 50;
+
+/**
+ * Lower cut below which a decimated-but-not-severe stream reports `'minor'`
+ * rather than `'none'` (yours-to-choose, per the action text, but carrying
+ * the same mechanism-first reasoning the severe cut does): a stream whose
+ * zero-advance fraction exceeds this floor still has an instantaneous pace
+ * that is partly an artifact of its own emission interval — the same
+ * mechanism the severe tier names — just not enough of the stream to
+ * dominate its distribution the way the severe cohort's activities do.
+ * `'minor'` NEVER affects `anySevere` (D-07 badges only `'severe'`); a
+ * reader who conflates this cut with the severe one has mis-read the tier,
+ * not the constant.
+ */
+export const DECIMATION_MINOR_ZERO_ADVANCE_FRACTION = 0.05;
+
+/**
+ * Decimation/aliasing tiering signal (D-04). Total: guarded by
+ * `validateStreamSeries` first — a non-`ok` input returns
+ * `{ tier: 'not-computable', zeroAdvanceFraction: null, sampleCount: null }`
+ * rather than throwing (T-26-01).
+ *
+ * `zeroAdvanceFraction` is computed over the SAME denominator
+ * `compute-pace-residual.mjs`'s `zeroAdvanceFraction` uses — the fraction of
+ * consecutive pairs `[i-1, i]` with `d[i] <= d[i-1]`, over `n - 1` where `n`
+ * is the shared sample count. A different denominator here would silently
+ * fork D-04's cohort from the committed `26-RESIDUAL.md` deliverable, so
+ * this must match that function exactly, not merely approximately.
+ *
+ * Tier `'severe'` when `zeroAdvanceFraction > DECIMATION_SEVERE_ZERO_ADVANCE_FRACTION`
+ * AND `sampleCount >= DECIMATION_SEVERE_MIN_SAMPLES` (both resolved via
+ * `options?.x ?? THE_CONSTANT`, mirroring `classifyGaps`'s own resolution of
+ * its pause-threshold option); `'minor'` when the fraction exceeds
+ * `DECIMATION_MINOR_ZERO_ADVANCE_FRACTION` but the severe rule does not
+ * hold; `'none'` otherwise.
+ */
+export function decimationSignal(
+  t: readonly number[],
+  d: readonly number[],
+  options?: QualityThresholdOverrides
+): DecimationSignal {
+  if (!validateStreamSeries(t as number[], d as number[]).ok) {
+    return { tier: 'not-computable', zeroAdvanceFraction: null, sampleCount: null };
+  }
+
+  const n = Math.min(t.length, d.length);
+  let zeroCount = 0;
+  for (let i = 1; i < n; i++) {
+    if (d[i] <= d[i - 1]) zeroCount++;
+  }
+  const zeroAdvanceFraction = zeroCount / (n - 1);
+  const sampleCount = n;
+
+  const severeFraction =
+    options?.decimationZeroAdvanceFraction ?? DECIMATION_SEVERE_ZERO_ADVANCE_FRACTION;
+  const minSamples = options?.decimationMinSamples ?? DECIMATION_SEVERE_MIN_SAMPLES;
+
+  let tier: QualityTier;
+  if (zeroAdvanceFraction > severeFraction && sampleCount >= minSamples) {
+    tier = 'severe';
+  } else if (zeroAdvanceFraction > DECIMATION_MINOR_ZERO_ADVANCE_FRACTION) {
+    tier = 'minor';
+  } else {
+    tier = 'none';
+  }
+
+  return { tier, zeroAdvanceFraction, sampleCount };
+}
+
+// ---------------------------------------------------------------------------
+// Gap-profile signal — non-covered time over the stream's own span
+// ---------------------------------------------------------------------------
+
+/**
+ * Severe-tier threshold for the gap-profile signal (D-02). Choosing this
+ * value is a deliverable in its own right, not a constant dropped in from
+ * elsewhere.
+ *
+ * (1) WHAT IT MEASURES: `(recordingGapSec + pauseSec) / spanSec`, straight
+ * from `classifyGaps` — the fraction of a stream's own recorded span in
+ * which no pace was actually measured (either the device stopped recording
+ * entirely, or the athlete's distance genuinely froze for longer than that
+ * activity's own advance-interval distribution justifies as a pause).
+ *
+ * (2) MECHANISM ARGUMENT: a pace distribution, a splits table, or a
+ * headline "average pace" figure all implicitly claim to describe the whole
+ * run. Once a FIFTH or more of the stream's own recorded span carries no
+ * measured pace at all, that claim stops being true of the activity as a
+ * whole — the reported numbers increasingly describe only the covered
+ * remainder, not the run the athlete actually did. This argument does not
+ * depend on archive size: it is a statement about what fraction of a SINGLE
+ * activity's own timeline a viewer can trust the displayed pace figures to
+ * represent, and it would read the same if the archive were twice as large.
+ *
+ * (3) MEASURED COHORT AT THE CHOSEN CUT AND ITS TWO NEIGHBOURS (live
+ * archive, `27-RESEARCH.md`'s sweep table, re-measured at each execution):
+ *   - >15% of span in gap: 197 activities (10.6%)
+ *   - >20% of span in gap: 127 activities (6.8%)  <- CHOSEN CUT
+ *   - >25% of span in gap:  88 activities (4.7%)
+ *
+ * (4) NOT CHOSEN TO LAND UNDER 5% (D-02): 20% was picked because "a fifth
+ * of the recorded span" is the mechanism argument in (2) above, not because
+ * 6.8% is closer to a target than 4.7% is — 25% would in fact clear ~5% on
+ * this signal alone and was NOT chosen for that reason. The composite rate
+ * this signal contributes to is reported honestly in 27-03's calibration
+ * document, including if it lands above ~5% once unioned with the other two
+ * tiering signals.
+ */
+export const GAP_PROFILE_SEVERE_FRACTION = 0.2;
+
+/**
+ * Lower cut below which a stream with SOME non-covered time reports
+ * `'minor'` rather than `'none'` — the same "not enough of the span to
+ * threaten the claim the displayed numbers make" reasoning as
+ * `DECIMATION_MINOR_ZERO_ADVANCE_FRACTION`, scaled to this signal's own
+ * fraction.
+ */
+export const GAP_PROFILE_MINOR_FRACTION = 0.05;
+
+/**
+ * Non-covered-time tiering signal (D-04/D-07's gap-profile half). Calls
+ * `classifyGaps(t, d)` with NO options — the shipped, scale-relative gap
+ * classification Phase 26 ships, unmodified. This signal never substitutes
+ * a second gap classifier and never overrides the classifier's own shipped
+ * segmentation rule.
+ *
+ * Guard: a zeroed coverage result (`spanSec === 0`, `classifyGaps`'s own
+ * totality guard on invalid input, or a degenerate single-timestamp stream)
+ * returns `tier: 'not-computable'` with every numeric field `null` — never
+ * `gapFraction: 0`, which would read as a genuinely clean stream (T-26-02).
+ *
+ * Otherwise `gapFraction = (recordingGapSec + pauseSec) / spanSec`; tier
+ * `'severe'` above the resolved severe cut, `'minor'` above
+ * `GAP_PROFILE_MINOR_FRACTION`, `'none'` otherwise. `recordingGapSec` and
+ * `pauseSec` are echoed separately (never only their sum) so the badge and
+ * the shard can name the two categories independently.
+ */
+export function gapProfileSignal(
+  t: readonly number[],
+  d: readonly number[],
+  options?: QualityThresholdOverrides
+): GapProfileSignal {
+  const coverage = classifyGaps(t as number[], d as number[]);
+
+  if (coverage.spanSec === 0) {
+    return {
+      tier: 'not-computable',
+      gapFraction: null,
+      recordingGapSec: null,
+      pauseSec: null,
+      spanSec: null,
+    };
+  }
+
+  const gapFraction = (coverage.recordingGapSec + coverage.pauseSec) / coverage.spanSec;
+  const severeFraction = options?.gapProfileSevereFraction ?? GAP_PROFILE_SEVERE_FRACTION;
+
+  let tier: QualityTier;
+  if (gapFraction > severeFraction) {
+    tier = 'severe';
+  } else if (gapFraction > GAP_PROFILE_MINOR_FRACTION) {
+    tier = 'minor';
+  } else {
+    tier = 'none';
+  }
+
+  return {
+    tier,
+    gapFraction,
+    recordingGapSec: coverage.recordingGapSec,
+    pauseSec: coverage.pauseSec,
+    spanSec: coverage.spanSec,
   };
 }
