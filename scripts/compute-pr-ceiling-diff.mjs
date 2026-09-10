@@ -385,7 +385,7 @@ export function renderDiffMarkdown(report) {
       'document was reconstructed from that SAME document by dropping the efforts the absolute ' +
       'guard used to delete (`demotion.guard` of `world-record` or `max-speed`) and retaining ' +
       'ceiling demotions, then re-running `markPRs` and `rankTopN` over the retained population. ' +
-      'This is NOT a git-history comparison: `data/stats/` is gitignored, so no committed historical ' +
+      'This is not a git-history comparison: `data/stats/` is gitignored, so no committed historical ' +
       'baseline exists, and comparing two dated regenerations would conflate archive growth with the ' +
       'logic change being measured.'
   );
