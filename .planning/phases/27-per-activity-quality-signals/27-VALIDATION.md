@@ -481,6 +481,32 @@ verification to disposition.
 the tick is NOT contingent on this gap, since the gap concerns only a cited figure, not the
 behavior R8 verified.
 
+### G-03 — the same manifest.json miscount exists in Phase 26's residual script (open, out of Phase 27 scope)
+
+Discovered by Phase 27's regression gate, 2026-09-10. `scripts/compute-pace-residual.mjs` line 277
+counts stream files with the identical naive glob G-01 fixed in the calibration script:
+`readdirSync(STREAMS_DIR).filter((f) => f.endsWith('.json'))`, with zero references to `manifest`
+anywhere in the file. It therefore reports "Archive size scanned: **1866**", inflated by one by the
+non-activity `data/streams/manifest.json` availability index — the live per-activity stream count is
+**1865**.
+
+ROADMAP Phase 26 Criterion 1 cites that figure directly ("re-derived against the live committed
+archive on 2026-09-08 (1,866 streams scanned)"), so the criterion's stated denominator carries the
+same off-by-one.
+
+**Materiality: low, and bounded.** Re-running `npm run compute-pace-residual` during Phase 27's
+regression gate reproduced the severe stair-step cohort at **154**, the residual list at **14**, max
+residual **2.44%**, and "153 strictly improved, 1 tied at zero, 0 regressed" — byte-identical apart
+from the generated timestamp. `manifest.json` fails to parse as a stream and is excluded from the
+cohort, so only the reported *scanned* count is affected, not any derived result. D-04's boundary
+cross-check between `26-RESIDUAL.md` and this phase's decimation cohort is therefore unaffected.
+
+**Not fixed here.** `compute-pace-residual.mjs` and `26-RESIDUAL.md` are Phase 26 artifacts; editing
+them from a Phase 27 gap-closure plan would fork a prior phase's artifact of record after the fact,
+which is the failure mode D-02 and D-04 exist to prevent. Recorded for verification to disposition —
+the natural fix mirrors G-01's (`isStreamFile()` exclusion plus a regression test), and G-01's
+now-committed helper in `scripts/compute-pace-quality-calibration.mjs` is the reference implementation.
+
 ## Requirement -> Row Disposition
 
 Applying the plan's own requirement->row map (27-10-PLAN.md checkpoint task acceptance
