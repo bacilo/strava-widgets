@@ -223,15 +223,23 @@ export function lowConfidenceDescriptionId(idPrefix: string): string {
  * badge builder. `appendLowConfidenceBadge` and `appendPaceDisputedBadge`
  * both call this too, so there is exactly one place in the dashboard that
  * constructs an accessible badge+description pair.
+ *
+ * `extraClassName` (Phase 27, Task 3) is OPTIONAL and defaults to
+ * producing the exact prior output — a plain `.badge` — when omitted. It
+ * exists so `appendQualityBadges` below can apply `.badge--severe` without
+ * a fourth hand-rolled badge builder; `appendLowConfidenceBadge`,
+ * `appendPaceDisputedBadge` and `detail.ts`'s stat-card badge call site all
+ * keep their current output unchanged, since none of them pass it.
  */
 export function appendAccessibleBadge(
   container: HTMLElement,
   visibleText: string,
   explanation: string,
-  descriptionId: string
+  descriptionId: string,
+  extraClassName?: string
 ): void {
   const badge = document.createElement('span');
-  badge.className = 'badge';
+  badge.className = extraClassName ? `badge ${extraClassName}` : 'badge';
   badge.textContent = visibleText;
   badge.title = explanation;
   badge.setAttribute('aria-describedby', descriptionId);
@@ -335,6 +343,107 @@ export function rowPaceDisagreement(row: Pick<DashboardIndexRow, 'paceDisagreeme
 }
 
 /**
+ * One severe-tier quality badge (D-07, D-09) — `signal` names which of the
+ * three TIERING signals fired, `visibleText` carries the condition AND its
+ * measured value read off this row's own evidence fields (never
+ * recomputed), and `explanation` carries WHY it matters, feeding the same
+ * `title`/`aria-describedby` slots `appendAccessibleBadge` already exposes.
+ */
+export interface QualityBadgeSpec {
+  signal: 'decimation' | 'gapProfile' | 'impossibleSamples';
+  visibleText: string;
+  explanation: string;
+  descriptionIdSuffix: string;
+}
+
+/**
+ * The `id` a quality badge's `.sr-only` explanation span is given, following
+ * `lowConfidenceDescriptionId`/`paceDisputedDescriptionId`'s shape with a
+ * `-quality-` segment plus a per-signal `suffix` so a row carrying both a
+ * status badge and two-or-three quality badges never collides on element
+ * ids (`lowConfidenceDescriptionId`'s own JSDoc explains why `idPrefix`
+ * alone is not unique per surface).
+ */
+export function qualityBadgeDescriptionId(idPrefix: string, suffix: string): string {
+  return `${idPrefix}-quality-${suffix}-desc`;
+}
+
+/**
+ * The pure, per-row quality-badge DECISION (D-07, D-09) — no DOM, so this is
+ * fully unit-testable under vitest's node environment (there is no jsdom in
+ * this repository). Returns one spec per TIERING signal at `'severe'` tier,
+ * in the fixed render order decimation, gapProfile, impossibleSamples, and
+ * an EMPTY array for a row that is minor-tier, none-tier or not-computable
+ * on that signal. D-07: only severe reaches a list row, so a quality badge
+ * stays a genuine signal on a row that already carries low-confidence,
+ * pace-disputed, exclusion, PR and gear badges rather than becoming
+ * wallpaper.
+ *
+ * A severe tier whose own evidence field is `null` is a contradiction the
+ * classifier cannot produce (every severe result carries its measured
+ * value) — this function returns no spec for that signal rather than
+ * printing a fabricated `null%`/`NaN`, defending against a future
+ * classifier regression rather than assuming today's invariant holds
+ * forever.
+ *
+ * D-13: device era carries NO severity tier and is never badged on a list
+ * row — it is a labelled fact, always disclosed only on the detail view, so
+ * the composite "any severe" rate this dashboard reports elsewhere stays a
+ * measure of data defects rather than of which watch the athlete owned. No
+ * spec is ever produced for it, and this is a deliberate exclusion, not an
+ * oversight.
+ *
+ * D-14: elapsedVsMoving is likewise an untiered fact (no defensible severe
+ * threshold separates "deliberate rest" from "forgotten stop") and is
+ * likewise never badged on a list row, for the same reason.
+ */
+export function qualityBadgeSpecs(row: Pick<DashboardIndexRow, 'quality'>): QualityBadgeSpec[] {
+  const specs: QualityBadgeSpec[] = [];
+  const { decimation, gapProfile, impossibleSamples } = row.quality;
+
+  if (decimation.tier === 'severe' && decimation.zeroAdvanceFraction !== null) {
+    const pct = Math.round(decimation.zeroAdvanceFraction * 100);
+    specs.push({
+      signal: 'decimation',
+      visibleText: `${pct}% of samples with no distance advance`,
+      explanation:
+        'this device recorded distance in coarse steps, so instantaneous pace from this stream reflects the recording interval rather than running speed',
+      descriptionIdSuffix: 'decimation',
+    });
+  }
+
+  if (gapProfile.tier === 'severe' && gapProfile.gapFraction !== null) {
+    const pct = Math.round(gapProfile.gapFraction * 100);
+    specs.push({
+      signal: 'gapProfile',
+      // Names BOTH recording gaps and pauses, and calls the denominator
+      // "recorded time" rather than "elapsed time": gapFraction is
+      // (recordingGapSec + pauseSec) / spanSec straight from classifyGaps —
+      // spanSec is the STREAM'S OWN recorded span, not the metadata
+      // elapsed_time. Naming only one category, or calling the span
+      // "elapsed time", would misdescribe the number this badge shows.
+      visibleText: `${pct}% of recorded time in gaps or pauses`,
+      explanation: 'pace during a gap is interpolated, not measured',
+      descriptionIdSuffix: 'gap-profile',
+    });
+  }
+
+  if (impossibleSamples.tier === 'severe' && impossibleSamples.count !== null) {
+    const n = impossibleSamples.count;
+    const noun = n === 1 ? 'sample' : 'samples';
+    specs.push({
+      signal: 'impossibleSamples',
+      visibleText: `${n} ${noun} faster than the 100 m world record`,
+      explanation:
+        'these samples imply a speed no human sustains, so any effort drawn across them is not a measured time',
+      descriptionIdSuffix: 'impossible-samples',
+    });
+  }
+
+  return specs;
+}
+
+/**
  * The status-badge strings for one row, in render order — the single source
  * of truth `appendStatusBadges` iterates to build the visible `.badge`
  * spans and `activityRowAriaLabel` folds into the row anchor's `aria-label`
@@ -402,6 +511,40 @@ function appendStatusBadges(container: HTMLElement, row: DashboardIndexRow, idPr
       appendBadge(container, text);
     }
   }
+  appendQualityBadges(container, row, idPrefix);
+}
+
+/**
+ * Appends every fired quality badge (D-07, D-09) — a deliberately SEPARATE
+ * dispatch path sitting alongside, not replacing, the string-equality chain
+ * above. That chain works only because the two pre-existing badges have
+ * FIXED visible text (`text === LOW_CONFIDENCE_BADGE_TEXT`); a quality
+ * badge's visible text carries a per-row measured value, so there is no
+ * fixed string to equality-match against. This function reads
+ * `qualityBadgeSpecs(row)` — the row's own severity fields, decided once,
+ * in `list.ts` module scope — directly, rather than round-tripping through
+ * a `string[]` that would then have to be re-matched by content; that round
+ * trip is exactly what cannot carry per-row dynamic text.
+ *
+ * Called from `appendStatusBadges` (immediately after its existing loop),
+ * so both call sites (`renderActivityRow`'s card badges wrapper and
+ * `buildTableRow`'s desktop Status cell) and therefore all four
+ * `RowSurface` values reach it through that ONE dispatch — no per-surface
+ * conditional (D-10).
+ */
+function appendQualityBadges(container: HTMLElement, row: DashboardIndexRow, idPrefix: string): void {
+  for (const spec of qualityBadgeSpecs(row)) {
+    // Every spec qualityBadgeSpecs returns is severe-tier by construction
+    // (D-07), so `badge--severe` applies unconditionally here — there is no
+    // minor-tier quality badge to distinguish it from on this surface.
+    appendAccessibleBadge(
+      container,
+      spec.visibleText,
+      spec.explanation,
+      qualityBadgeDescriptionId(idPrefix, spec.descriptionIdSuffix),
+      'badge--severe'
+    );
+  }
 }
 
 /**
@@ -434,11 +577,24 @@ export function composeRowAriaLabel(base: string, badgeTexts: readonly string[])
  * on both of those surfaces the badges live in a sibling `<td>` in the same
  * row and are already announced by table navigation, so folding them in
  * here too would double-announce them.
+ *
+ * Phase 27 (D-07, D-09): `qualityBadgeSpecs(row)`'s visible texts are folded
+ * on top of `statusBadgeTexts`, in the same render order the DOM uses
+ * (quality badges render after the existing status badges inside
+ * `appendStatusBadges`) — appended to the SAME array passed to the single
+ * `composeRowAriaLabel` call below, rather than a second call, so a
+ * pre-existing cross-file invariant (`composeRowAriaLabel(` appears exactly
+ * twice in this module: its definition and its one call site) stays true.
+ * The card surface traps its badges inside the anchor — the CR-02 reason
+ * `composeRowAriaLabel` exists at all — so a quality badge silently absent
+ * from this accessible name would reproduce that same bug for the new
+ * badges.
  */
 export function activityRowAriaLabel(row: DashboardIndexRow): string {
   const distanceKm = (row.distanceM / 1000).toFixed(1);
   const base = `${row.name}, ${formatActivityDate(row.startDateLocal)}, ${distanceKm} km`;
-  return composeRowAriaLabel(base, statusBadgeTexts(row));
+  const badgeTexts = [...statusBadgeTexts(row), ...qualityBadgeSpecs(row).map((spec) => spec.visibleText)];
+  return composeRowAriaLabel(base, badgeTexts);
 }
 
 /**

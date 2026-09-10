@@ -365,6 +365,16 @@ body {
   color: var(--text-secondary);
 }
 
+/* Phase 27 (D-07, D-09): severe-tier quality badge modifier, reusing the
+   existing theme-aware destructive token (declared once per data-theme
+   attribute value near the top of this file) rather than a new hardcoded
+   color, so the visual distinction inherits both themes automatically.
+   No new custom property is introduced. */
+.badge--severe {
+  color: var(--destructive);
+  border-color: var(--destructive);
+}
+
 /* 26-08 (D-11): the pace-disputed badge is appended as a third child inside
    a .stat-grid tile, directly under its .text-label caption line — this one
    rule gives it separation from that line above, per 26-UI-SPEC.md's Spacing
