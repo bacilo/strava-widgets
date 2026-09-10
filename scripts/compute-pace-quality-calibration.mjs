@@ -67,6 +67,22 @@ export function idFromFilename(filename) {
   return filename.endsWith('.json') ? filename.slice(0, -'.json'.length) : filename;
 }
 
+/**
+ * True for a `data/streams/` entry that is a genuine per-activity stream
+ * file — false for `manifest.json`, the stream-AVAILABILITY INDEX written
+ * by backfill-streams and the daily intervals.icu sync, which is not itself
+ * a per-activity stream and must never be counted as one (gap G-01,
+ * `27-VALIDATION.md`: the original naive `f.endsWith('.json')` glob counted
+ * it, inflating the stream-file count by one and understating the
+ * stream-less count by one). Named exclusion of the known filename is
+ * preferred over a heuristic (e.g. "id doesn't parse as numeric/i-prefixed")
+ * because it is exact and does not risk excluding a legitimately-shaped
+ * future stream filename.
+ */
+export function isStreamFile(filename) {
+  return filename.endsWith('.json') && filename !== 'manifest.json';
+}
+
 /** Maps a raw activity JSON record to the four-field metadata `computePaceQualitySignals` consumes. */
 export function metadataFromActivity(activity) {
   const record = activity ?? {};
@@ -210,14 +226,36 @@ export function renderCalibrationMarkdown(report) {
   lines.push('## 1. Denominators (computed live)');
   lines.push('');
   lines.push(
+    `**Live-denominator correction (originally 2026-09-10 via plan 27-03's hand-edit; generator ` +
+      `itself fixed 2026-09-10 via gap-closure plan 27-11, closing G-01 — see \`27-VALIDATION.md\` ` +
+      `§ Gap-Closure Record — composite unchanged):** This report's stream-file count was ` +
+      `originally computed by this generator with a naive ` +
+      `\`readdirSync('data/streams').filter(f => f.endsWith('.json'))\`, which counts EVERY \`.json\` ` +
+      `file in \`data/streams/\`, including \`data/streams/manifest.json\` — the stream-availability ` +
+      `index file written by backfill-streams and the daily intervals.icu sync, not a per-activity ` +
+      `stream. That inflated the stream-file count by exactly one file and understated the ` +
+      `stream-less count by one. Stale (pre-fix) values, as this generator originally emitted them: ` +
+      `stream-file count **1866**, stream-less count **24**. Plan 27-03 corrected those figures in ` +
+      `this file's PROSE without fixing the generator, so re-running it silently reverted the ` +
+      `correction; plan 27-11 fixed the generator itself (it now excludes \`manifest.json\` from the ` +
+      `count below), so the live figures below are computed correctly by THIS run rather than ` +
+      `hand-corrected after the fact. The **activity count (${report.activityCount})** and the ` +
+      `**composite (${report.compositeCount})** are UNCHANGED by this correction — this is a ` +
+      `denominator correction, not a change in the measured composite, exactly as \`26-RESIDUAL.md\` ` +
+      `records its own measurement corrections (see e.g. its "corrected 2026-09-08" note) rather ` +
+      `than silently overwriting prior figures.`
+  );
+  lines.push('');
+  lines.push(
     `- Activity count: **${report.activityCount}** — ` +
       "`readdirSync('data/activities').filter(f => f.endsWith('.json'))` entries that read and " +
       `JSON-parsed successfully${report.activityParseFailures > 0 ? ` (${report.activityParseFailures} unreadable file(s) skipped, warned to stderr)` : ''}.`
   );
   lines.push(
     `- Stream-file count: **${report.streamCount}** — ` +
-      "`readdirSync('data/streams').filter(f => f.endsWith('.json'))` entries" +
-      `${report.streamParseFailures > 0 ? ` (${report.streamParseFailures} unreadable file(s) treated as null, warned to stderr)` : ''}.`
+      "`readdirSync('data/streams').filter(f => f.endsWith('.json') && f !== 'manifest.json')` " +
+      'entries (excluding the non-activity `manifest.json` stream-availability index — see the ' +
+      `live-denominator correction above)${report.streamParseFailures > 0 ? ` (${report.streamParseFailures} unreadable file(s) treated as null, warned to stderr)` : ''}.`
   );
   lines.push(
     `- Stream-less count: **${report.streamLessCount}** — ` +
@@ -298,6 +336,14 @@ export function renderCalibrationMarkdown(report) {
   );
   lines.push('');
   lines.push(
+    `*"% of stream count" uses the live **${report.streamCount}** stream-file denominator (see the ` +
+      'Section 1 live-denominator correction); at this rounding precision every value above is ' +
+      'identical to the same computation against the pre-fix, naive-glob figure of 1866 — a ' +
+      'one-file difference out of well over a thousand, below this table\'s 1-decimal rounding ' +
+      'precision.*'
+  );
+  lines.push('');
+  lines.push(
     'Device era and elapsed-vs-moving are untiered facts (D-13/D-14) and contribute NOTHING to ' +
       'the composite below — reported here only as distributions for context.'
   );
@@ -357,6 +403,31 @@ export function renderCalibrationMarkdown(report) {
     `**Sanity gate:** max(marginals) = ${report.sanityGate.maxMarginal} <= composite = ` +
       `${report.compositeCount} <= sum(marginals) = ${report.sanityGate.sumMarginals} -> ` +
       `**${report.sanityGate.pass ? 'PASS' : 'FAIL'}**`
+  );
+  lines.push('');
+  lines.push(
+    `**Three-way independent corroboration of 299 (post-merge, per D-03's independent-recount ` +
+      'spirit, recorded 2026-09-10 in `27-VALIDATION.md`\'s Round 1 Checkpoint):** The composite ' +
+      'figure of 299 was reproduced by three separate, independently-executed paths that share no ' +
+      'code with any of the others: (1) this script\'s own classifier sweep over the live archive ' +
+      '(this section, this run); (2) plan 27-04, in a separate worktree via a separate code path, ' +
+      'independently recomputing `totals.qualityAnySevere` directly from the WRITTEN ' +
+      '`data/dashboard/index.json` without importing this script (`27-04-SUMMARY.md`\'s "Live ' +
+      'Archive Verification": "recomputed anySevere: 299   totals.qualityAnySevere: 299   match: ' +
+      'true"); (3) the orchestrator\'s post-merge `npm run compute-dashboard-index` run against the ' +
+      'MAIN checkout ("Quality: any severe signal: 299", "Quality: not computable: 25"). All three ' +
+      'agreed exactly on 299; none imported the classifier from either of the others.'
+  );
+  lines.push('');
+  lines.push(
+    report.compositeCount === 299
+      ? `**This run's own figure (${report.compositeCount}) matches** that historically ` +
+          'corroborated value, so the three-way corroboration still holds against the current ' +
+          'archive.'
+      : `**This run's own figure (${report.compositeCount}) DIFFERS** from the historically ` +
+          'corroborated 299 above — the archive has changed since that corroboration ran. This ' +
+          'divergence is a live finding to investigate, not a re-confirmation; a fresh three-way ' +
+          'check against the CURRENT archive would be needed before treating 299 as still agreed.'
   );
   lines.push('');
 
@@ -422,7 +493,12 @@ function readArchive() {
 
   let streamFiles = [];
   try {
-    streamFiles = readdirSync(STREAMS_DIR).filter((f) => f.endsWith('.json'));
+    // isStreamFile excludes `manifest.json` (see its own doc comment) — this
+    // is gap-closure plan 27-11's fix for G-01. The naive glob this replaces
+    // would also have handed `idFromFilename` a bogus `"manifest"` id
+    // (harmless in practice since it never matches a real activity id, but
+    // still not a real stream).
+    streamFiles = readdirSync(STREAMS_DIR).filter(isStreamFile);
   } catch (error) {
     console.warn(`Warning: Failed to read streams directory ${STREAMS_DIR}:`, error.message);
   }

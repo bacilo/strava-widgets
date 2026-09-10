@@ -149,6 +149,37 @@ describe('computeOverlapBreakdown', () => {
   });
 });
 
+describe('isStreamFile — the manifest.json exclusion (regression for gap G-01)', () => {
+  it('excludes manifest.json even though it ends with .json', () => {
+    expect(mod.isStreamFile('manifest.json')).toBe(false);
+  });
+
+  it('includes ordinary numeric and intervals.icu "i"-prefixed stream filenames', () => {
+    expect(mod.isStreamFile('12345.json')).toBe(true);
+    expect(mod.isStreamFile('i182749188.json')).toBe(true);
+  });
+
+  it('excludes non-.json entries the same as the old glob did', () => {
+    expect(mod.isStreamFile('manifest.txt')).toBe(false);
+    expect(mod.isStreamFile('README')).toBe(false);
+  });
+
+  it('pins the count of a hand-built directory listing that includes manifest.json', () => {
+    // Regression for gap G-01 (27-VALIDATION.md): the original naive
+    // `f.endsWith('.json')` glob counted `manifest.json` as a stream file,
+    // inflating a 3-real-stream directory listing to a count of 4 instead
+    // of 3. This is the exact defect: demonstrated failing below against
+    // the OLD glob before trusting `isStreamFile` against it.
+    const listing = ['1.json', '2.json', '3.json', 'manifest.json'];
+
+    const oldNaiveGlobCount = listing.filter((f) => f.endsWith('.json')).length;
+    const fixedCount = listing.filter(mod.isStreamFile).length;
+
+    expect(oldNaiveGlobCount).toBe(4); // the bug: manifest.json counted as a stream
+    expect(fixedCount).toBe(3); // the fix: manifest.json excluded
+  });
+});
+
 describe('idFromFilename', () => {
   it('strips the trailing .json extension, including intervals.icu "i"-prefixed ids', () => {
     expect(mod.idFromFilename('12345.json')).toBe('12345');
