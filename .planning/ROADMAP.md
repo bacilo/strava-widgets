@@ -172,7 +172,20 @@ Plans:
   4. Severity is calibrated against a measured, independently re-derived archive-wide rate: a dry-run report against the full 1,864-activity archive states the actual top-tier flag count and it is under ~5% (≈90 activities); a standalone script counting top-tier flags from the shipped index reproduces the same count, and the criterion is demonstrated failing by moving a threshold and observing the measured rate move accordingly.
   5. Device-family, not file-format, drives branching, and no-device-name is its own category: a fēnix 6 Pro FIT activity (0% `speed` field) and a Suunto 9 FIT activity (99.8% `speed` field) — same file format, different device family — get correctly differentiated device-era signals; sampled index rows from the 716-activity no-device-name cohort report their own explicit category, never a fabricated device name, demonstrated failing if that branch is deleted and a default silently takes over.
 
-**Plans**: TBD
+**Plans**: 10 plans in 6 waves
+
+Plans:
+- [ ] 27-01-PLAN.md — pace-quality.ts type contract, device-era taxonomy (ERA-01/ERA-02), untiered facts, `unknown-device` collision resolved
+- [ ] 27-02-PLAN.md — the three tiering signals, their mechanism-first thresholds, the composite predicate and the D-17 evidence shard
+- [ ] 27-03-PLAN.md — archive-wide calibration dry run, threshold-sensitivity sweep, and the blocking checkpoint on the measured composite rate
+- [ ] 27-04-PLAN.md — required `quality` index field (schema version unchanged), per-activity shard writer, publish-time spot-checks
+- [ ] 27-05-PLAN.md — D-03's independent recount reading only the shipped index, demonstrated failing on three mutations
+- [ ] 27-06-PLAN.md — lazy `pace-quality/{id}.json` shard client with D-18's instrumented fetch counter
+- [ ] 27-07-PLAN.md — `list.ts` badge-dispatch contract change plus the three severe-tier badges, existing badges pinned unregressed
+- [ ] 27-08-PLAN.md — D-16's single "has any severe signal" filter, one URL param, no new sort key
+- [ ] 27-09-PLAN.md — always-on five-signal detail section and the one shard fetch in the existing mount point
+- [ ] 27-10-PLAN.md — Round 1 human browser checkpoint (R1-R8) against a digest-verified build
+
 **UI hint**: yes
 
 #### Phase 28: PR Plausibility Ceiling
