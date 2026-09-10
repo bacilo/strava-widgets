@@ -158,6 +158,14 @@ export function findBestEffort(
  * runs only when `activityMaxSpeedMps` is truthy and finite; when it is
  * absent or zero the function falls through to the world-record ceiling
  * alone rather than rejecting everything (RESEARCH.md Pitfall 5).
+ *
+ * The failing variant carries a `guard` discriminator (`'max-speed'` or
+ * `'world-record'`) naming which check fired, in addition to `reason`.
+ * Phase 28 D-08 routes every rejection — this pair plus the new personal
+ * ceiling guard in `best-effort-ceiling.ts` — through one shared
+ * `EffortDemotion` shape, and that shared path must be able to record WHICH
+ * guard rejected an effort without re-matching on `reason`'s prose, which
+ * would couple the data model to wording that is free to change.
  */
 export function isPlausible(
   impliedSpeedMps: number,
@@ -171,6 +179,7 @@ export function isPlausible(
   ) {
     return {
       ok: false,
+      guard: 'max-speed',
       reason: `implied ${impliedSpeedMps.toFixed(2)} m/s exceeds activity max_speed ${activityMaxSpeedMps.toFixed(2)} m/s`,
     };
   }
@@ -178,6 +187,7 @@ export function isPlausible(
   if (impliedSpeedMps > worldRecordSpeedMps) {
     return {
       ok: false,
+      guard: 'world-record',
       reason: `implied ${impliedSpeedMps.toFixed(2)} m/s exceeds world-record pace ${worldRecordSpeedMps.toFixed(2)} m/s`,
     };
   }

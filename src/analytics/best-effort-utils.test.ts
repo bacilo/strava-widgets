@@ -201,6 +201,45 @@ describe('isPlausible — world-record ceiling', () => {
   });
 });
 
+describe('isPlausible — guard discriminator', () => {
+  it('sets guard to max-speed on a max-speed rejection, reason unchanged', () => {
+    const result = isPlausible(6.0, 5.0, 100);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.guard).toBe('max-speed');
+      expect(result.reason).toBe(
+        'implied 6.00 m/s exceeds activity max_speed 5.00 m/s'
+      );
+    }
+  });
+
+  it('sets guard to world-record on a world-record rejection, reason unchanged', () => {
+    const result = isPlausible(8.0, 20, 6.62);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.guard).toBe('world-record');
+      expect(result.reason).toBe(
+        'implied 8.00 m/s exceeds world-record pace 6.62 m/s'
+      );
+    }
+  });
+
+  it('pins precedence: when both conditions would fire, guard is max-speed because that check runs first', () => {
+    // Both max_speed*margin (5.10) and world-record (4.0) are exceeded by 8.0.
+    const result = isPlausible(8.0, 5.0, 4.0);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.guard).toBe('max-speed');
+    }
+  });
+
+  it('the passing variant carries no guard property', () => {
+    const result = isPlausible(4.0, 5.5, 6.6);
+    expect(result.ok).toBe(true);
+    expect('guard' in result).toBe(false);
+  });
+});
+
 describe('WORLD_RECORD_SPEED_MPS', () => {
   it('is strictly decreasing across TARGET_ORDER and every entry is finite and positive', () => {
     for (let i = 0; i < TARGET_ORDER.length; i++) {

@@ -61,9 +61,20 @@ export interface RawEffort {
 /**
  * The result of an implausibility check. The `reason` string is user-facing
  * console output and is copied verbatim into the rejection report, so it
- * must name the offending numbers.
+ * must name the offending numbers. The failing variant also names WHICH
+ * absolute guard fired (Phase 28 D-08) via `guard`, so a single shared
+ * demotion path can record the guard without re-matching on `reason`'s
+ * prose — coupling the data model to a string would break the moment the
+ * wording changed. `guard` is optional on the failing variant rather than
+ * required because `validateStreamSeries` also returns this type for
+ * malformed-series failures that correspond to no absolute guard at all;
+ * `isPlausible`'s two rejection branches always set it. The passing variant
+ * deliberately carries no `guard` field; TypeScript narrows the union on
+ * `ok`.
  */
-export type PlausibilityResult = { ok: true } | { ok: false; reason: string };
+export type PlausibilityResult =
+  | { ok: true }
+  | { ok: false; reason: string; guard?: 'max-speed' | 'world-record' };
 
 /** Which plausibility guard produced a demotion (Phase 28 D-08). `'ceiling'` is the new
  * personal-plausibility-ceiling guard; `'world-record'` and `'max-speed'` are the
