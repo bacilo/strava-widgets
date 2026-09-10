@@ -220,7 +220,36 @@ Plans:
   4. Rejected efforts are demoted, never deleted: for every ceiling-rejected effort, the effort remains visible in that activity's own detail view (read directly in the browser, not merely present in JSON) with a stated demotion reason, absent only from the ranked PR list; a code audit confirms no path removes a flagged effort from `activities[id].efforts`, demonstrated failing if the filter is mutated to delete instead of flag.
   5. The archive-wide diff is a reviewed phase deliverable: a before/after PR diff (every record that changes hands) is generated from the real full archive and reviewed and signed off by the developer before the phase closes; its record count reconciles with the independently-derived ceiling-rejected count from criterion 3's dry run.
 
-**Plans**: TBD
+**Plans**: 9 plans in 6 waves
+
+Plans:
+**Wave 1**
+
+- [ ] 28-01-PLAN.md — Measure the archive and choose the ceiling multiplier and minimum-population floor, recorded with justifying evidence in a regenerable calibration artifact (PR-02, PR-05)
+- [ ] 28-02-PLAN.md — The demotion data model plus the pure, DOM-free dashboard logic that reads it (PR-03)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 28-03-PLAN.md — The pure ceiling module, its fail-open branch, and the guard discriminator on isPlausible (PR-02, PR-03)
+- [ ] 28-04-PLAN.md — Render the demotion: spec-driven PR-flags cell, three-state Records empty copy, demoted badge style (PR-03)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 28-05-PLAN.md — Three-pass restructure of compute-best-efforts.ts, one shared demotion path, and the four demonstrated-failing regression suites (PR-01, PR-02, PR-03, PR-05)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 28-06-PLAN.md — Committed ceiling state, drift reporting, and one added glob on the existing CI commit step (PR-01, PR-04)
+- [ ] 28-07-PLAN.md — Archive-wide before/after PR diff computed from one snapshot, proven idempotent by a second run (PR-04)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 28-08-PLAN.md — Classifier-independent recount, the impossible-sample cohort dry-run, and the criterion 5 reconciliation (PR-04, PR-05)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 28-09-PLAN.md — Human browser checkpoint on rendered demotion evidence, and the PR-04 sign-off bound to the diff's content hash (PR-03, PR-04, PR-05)
+
 **UI hint**: yes
 **Browser checkpoint**: warranted — PR-03/PR-04 require a demoted effort to remain visibly present with its reason on the Records/detail screens rather than silently vanishing; this is exactly the class of defect (a check that only agrees with itself) the project's Phase 23 CR-01 lesson exists to guard against.
 
