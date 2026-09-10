@@ -461,6 +461,7 @@ describe('computeDashboardIndex — archive orchestration', () => {
               lowConfidence: false,
               wasPRAtTheTime: true,
               excludedFromRecords: false,
+              demotion: null,
             },
             {
               distance: '1k',
@@ -471,6 +472,7 @@ describe('computeDashboardIndex — archive orchestration', () => {
               lowConfidence: false,
               wasPRAtTheTime: true,
               excludedFromRecords: false,
+              demotion: null,
             },
             {
               distance: '5k',
@@ -481,6 +483,7 @@ describe('computeDashboardIndex — archive orchestration', () => {
               lowConfidence: false,
               wasPRAtTheTime: false,
               excludedFromRecords: false,
+              demotion: null,
             },
           ],
         },
