@@ -198,8 +198,8 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 27-08-PLAN.md — D-16's single "has any severe signal" filter, one URL param, no new sort key
-- [ ] 27-09-PLAN.md — always-on five-signal detail section and the one shard fetch in the existing mount point
+- [x] 27-08-PLAN.md — D-16's single "has any severe signal" filter, one URL param, no new sort key
+- [x] 27-09-PLAN.md — always-on five-signal detail section and the one shard fetch in the existing mount point
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
@@ -291,7 +291,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 24. Local Curation Mode | v2.1 | 17/17 | Complete    | 2026-09-02 |
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 12/12 | Complete    | 2026-09-04 |
 | 26. Shared Gap-Aware Pace Derivation & Honest Coverage | v2.2 | 16/16 | Complete    | 2026-09-10 |
-| 27. Per-Activity Quality Signals | v2.2 | 7/10 | In Progress|  |
+| 27. Per-Activity Quality Signals | v2.2 | 9/10 | In Progress|  |
 | 28. PR Plausibility Ceiling | v2.2 | 0/TBD | Not started | - |
 | 29. Curation Review Queue | v2.2 | 0/TBD | Not started | - |
 | 30. Elevation Quality Signal | v2.2 | 0/TBD | Not started | - |
