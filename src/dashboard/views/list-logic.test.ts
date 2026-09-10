@@ -36,6 +36,7 @@ import {
   removeChip,
   serializeListQuery,
   sortRows,
+  SORT_KEYS,
   type FilterState,
   type ListState,
   type SortDir,
@@ -550,6 +551,139 @@ describe('removeChip', () => {
     const filters: FilterState = { ...EMPTY_FILTERS, tMinMin: 30, tMaxMin: 90 };
     const result = removeChip(filters, 'duration');
     expect(result).toEqual({ ...filters, tMinMin: null, tMaxMin: null });
+  });
+});
+
+describe('severe filter (D-16) — FilterState.anySevere', () => {
+  function severeRow(overrides: Partial<DashboardIndexRow> = {}): DashboardIndexRow {
+    return makeRow({
+      quality: { ...CLEAN_QUALITY, anySevere: true },
+      ...overrides,
+    });
+  }
+
+  it('round trip: anySevere true survives serialize -> parse', () => {
+    const state: ListState = {
+      ...DEFAULT_LIST_STATE,
+      filters: { ...EMPTY_FILTERS, anySevere: true },
+    };
+    const reparsed = parseListQuery(serializeListQuery(state));
+    expect(reparsed.filters.anySevere).toBe(true);
+  });
+
+  it('round trip: anySevere false survives serialize -> parse AND the serialized params carry no "severe" key at all', () => {
+    const state: ListState = {
+      ...DEFAULT_LIST_STATE,
+      filters: { ...EMPTY_FILTERS, anySevere: false },
+    };
+    const params = serializeListQuery(state);
+    expect(params.has('severe')).toBe(false);
+    const reparsed = parseListQuery(params);
+    expect(reparsed.filters.anySevere).toBe(false);
+  });
+
+  it('?severe=1 parses to true', () => {
+    expect(parseListQuery(new URLSearchParams('severe=1')).filters.anySevere).toBe(true);
+  });
+
+  it('?severe=0 parses to false', () => {
+    expect(parseListQuery(new URLSearchParams('severe=0')).filters.anySevere).toBe(false);
+  });
+
+  it('?severe (no value) parses to false', () => {
+    expect(parseListQuery(new URLSearchParams('severe')).filters.anySevere).toBe(false);
+  });
+
+  it('?severe=true parses to false — only the literal "1" turns the toggle on', () => {
+    expect(parseListQuery(new URLSearchParams('severe=true')).filters.anySevere).toBe(false);
+  });
+
+  it('filterRows with anySevere: true keeps only rows whose quality.anySevere is true, dropping false and absent alike', () => {
+    const rows = [
+      severeRow({ id: 'severe-a' }),
+      makeRow({ id: 'clean', quality: { ...CLEAN_QUALITY, anySevere: false } }),
+      severeRow({ id: 'severe-b' }),
+      // Absent `quality` entirely — the shape a re-parsed
+      // `ParsedDashboardIndexRow` can actually have (T-27-28).
+      makeRow({ id: 'absent-quality', quality: undefined as unknown as ActivityQualitySignals }),
+    ];
+
+    // Independently-derived expectation: counted directly from the fixture
+    // rows' own `quality.anySevere` flag, NOT from calling filterRows again
+    // — a test that compares the filter to itself cannot fail.
+    const expectedIds = rows.filter((r) => r.quality?.anySevere === true).map((r) => r.id);
+    expect(expectedIds).toEqual(['severe-a', 'severe-b']);
+
+    const result = filterRows(rows, { ...EMPTY_FILTERS, anySevere: true });
+    expect(result.map((r) => r.id)).toEqual(expectedIds);
+  });
+
+  it('filterRows with anySevere: false returns every row — the toggle off is not a filter', () => {
+    const rows = [
+      severeRow({ id: 'severe' }),
+      makeRow({ id: 'clean', quality: { ...CLEAN_QUALITY, anySevere: false } }),
+      makeRow({ id: 'absent-quality', quality: undefined as unknown as ActivityQualitySignals }),
+    ];
+    const result = filterRows(rows, { ...EMPTY_FILTERS, anySevere: false });
+    expect(result.map((r) => r.id)).toEqual(rows.map((r) => r.id));
+  });
+
+  it('filterRows composes anySevere with another active filter as AND, not OR', () => {
+    const rows = [
+      // Severe but OUTSIDE the active distance range — must be excluded.
+      severeRow({ id: 'severe-but-too-short', distanceM: 1000 }),
+      // Severe AND inside the active distance range — must be kept.
+      severeRow({ id: 'severe-and-in-range', distanceM: 10000 }),
+      // Clean and inside the range — excluded by the severe toggle.
+      makeRow({ id: 'clean-in-range', distanceM: 10000, quality: { ...CLEAN_QUALITY, anySevere: false } }),
+    ];
+    const result = filterRows(rows, { ...EMPTY_FILTERS, anySevere: true, dMinKm: 5, dMaxKm: 15 });
+    expect(result.map((r) => r.id)).toEqual(['severe-and-in-range']);
+  });
+
+  it('buildFilterChips yields the quality chip when anySevere is on, and not when off', () => {
+    expect(buildFilterChips({ ...EMPTY_FILTERS, anySevere: true })).toEqual([
+      { key: 'quality', label: 'severe signals only' },
+    ]);
+    expect(buildFilterChips({ ...EMPTY_FILTERS, anySevere: false })).toEqual([]);
+  });
+
+  it('removeChip(filters, "quality") clears only anySevere and leaves every other field untouched', () => {
+    const filters: FilterState = {
+      ...EMPTY_FILTERS,
+      q: 'hills',
+      dMinKm: 10,
+      dMaxKm: 25,
+      from: '2024-01-01',
+      to: '2024-12-31',
+      pMinSec: 240,
+      pMaxSec: 330,
+      tMinMin: 20,
+      tMaxMin: 90,
+      anySevere: true,
+    };
+    const result = removeChip(filters, 'quality');
+    expect(result.anySevere).toBe(false);
+    expect(result.q).toBe(filters.q);
+    expect(result.from).toBe(filters.from);
+    expect(result.to).toBe(filters.to);
+    expect(result.dMinKm).toBe(filters.dMinKm);
+    expect(result.dMaxKm).toBe(filters.dMaxKm);
+    expect(result.pMinSec).toBe(filters.pMinSec);
+    expect(result.pMaxSec).toBe(filters.pMaxSec);
+    expect(result.tMinMin).toBe(filters.tMinMin);
+    expect(result.tMaxMin).toBe(filters.tMaxMin);
+  });
+
+  it('SORT_KEYS and DEFAULT_DIR are unchanged — D-15 forbids a new sort key', () => {
+    expect(SORT_KEYS).toEqual(['date', 'distance', 'movingTime', 'pace', 'avgHr']);
+    expect(DEFAULT_DIR).toEqual({
+      date: 'desc',
+      distance: 'desc',
+      movingTime: 'desc',
+      avgHr: 'desc',
+      pace: 'asc',
+    });
   });
 });
 

@@ -1349,6 +1349,51 @@ function buildDurationField(
   return field;
 }
 
+/**
+ * D-16's single "has any severe signal" toggle. A checkbox, not a
+ * debounced text input, so only `change` is wired (`applyImmediate`) —
+ * there is no debounce case for a discrete on/off control, and the browser
+ * already toggles a focused checkbox on Space with no extra `keydown`
+ * handler needed.
+ */
+function buildQualityField(
+  state: ListState,
+  applyImmediate: (next: ListState) => void,
+  _applyDebounced: (next: ListState) => void
+): HTMLDivElement {
+  const field = document.createElement('div');
+  field.className = 'filter-field';
+
+  const legend = document.createElement('span');
+  legend.className = 'text-label';
+  legend.textContent = 'Quality';
+  field.appendChild(legend);
+
+  const label = document.createElement('label');
+
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.checked = state.filters.anySevere;
+  checkbox.setAttribute('aria-label', 'Only activities with a severe quality signal');
+
+  const labelText = document.createElement('span');
+  labelText.textContent = 'Only activities with a severe quality signal';
+
+  label.appendChild(checkbox);
+  label.appendChild(labelText);
+
+  checkbox.addEventListener('change', () => {
+    applyImmediate({
+      ...state,
+      page: 1,
+      filters: { ...state.filters, anySevere: checkbox.checked },
+    });
+  });
+
+  field.appendChild(label);
+  return field;
+}
+
 function buildFilterPanel(
   state: ListState,
   panelOpen: boolean,
@@ -1363,6 +1408,7 @@ function buildFilterPanel(
   panel.appendChild(buildDistanceField(state, applyImmediate, applyDebounced));
   panel.appendChild(buildPaceField(state, applyImmediate, applyDebounced));
   panel.appendChild(buildDurationField(state, applyImmediate, applyDebounced));
+  panel.appendChild(buildQualityField(state, applyImmediate, applyDebounced));
 
   return panel;
 }
