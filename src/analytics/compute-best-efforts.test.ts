@@ -6,6 +6,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { FileStore } from '../storage/file-store.js';
 import type { StreamManifest } from '../streams/stream.types.js';
+import { ceilingDemotion, deriveCeilings } from './best-effort-ceiling.js';
+import { TARGET_ORDER } from './best-effort.types.js';
+import type { CeilingDerivation, TargetDistanceKey } from './best-effort.types.js';
 import {
   computeActivityEfforts,
   computeBestEfforts,
@@ -1029,5 +1032,388 @@ describe('computeBestEfforts — archive orchestration', () => {
       expect(doc.rankings['1k'].some((r) => r.activityId === 'partial-excluded')).toBe(false);
       expect(doc.rankings['5k'].some((r) => r.activityId === 'partial-excluded')).toBe(true);
     });
+  });
+
+  describe('deterministic across two runs', () => {
+    /** Writes 120 clean 400m efforts plus one world-record-demoted 400m effort (and its ordinary 1k sibling), returning the activity ids in write order. */
+    async function writeFixtureFiles(): Promise<string[]> {
+      const bulkCount = 120;
+      const ids: string[] = [];
+      for (let i = 0; i < bulkCount; i++) {
+        const id = `bulk-${i}`;
+        ids.push(id);
+        const speed = 3.0 + (i / (bulkCount - 1)) * 1.0; // 3.0-4.0 m/s
+        const durationSec = round1(400 / speed);
+        await writeActivity(id, '2020-01-01T00:00:00Z', 400);
+        await fileStore.writeJson(path.join('streams', `${id}.json`), {
+          schemaVersion: 1,
+          id,
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: 2,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+          t: [0, durationSec],
+          d: [0, 400],
+        });
+      }
+      ids.push('implausible-det');
+      await writeActivity('implausible-det', '2026-01-01T00:00:00Z', 1000);
+      await fileStore.writeJson(path.join('streams', 'implausible-det.json'), {
+        schemaVersion: 1,
+        id: 'implausible-det',
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 3,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+        t: [0, 5, 300],
+        d: [0, 400, 1000],
+      });
+      return ids;
+    }
+
+    async function writeManifestWithOrder(ids: string[]): Promise<void> {
+      const manifest = emptyManifestDoc();
+      for (const id of ids) {
+        manifest.activities[id] = {
+          available: true,
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: id === 'implausible-det' ? 3 : 2,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+        };
+      }
+      await writeManifest(manifest);
+    }
+
+    /** The full `(activityId, distance) -> {demotion, wasPRAtTheTime}` projection of a document. */
+    function projection(
+      doc: Awaited<ReturnType<typeof computeBestEfforts>>
+    ): Record<string, { demotion: unknown; wasPRAtTheTime: boolean }> {
+      const result: Record<string, { demotion: unknown; wasPRAtTheTime: boolean }> = {};
+      for (const [id, activity] of Object.entries(doc.activities)) {
+        for (const effort of activity.efforts) {
+          result[`${id}:${effort.distance}`] = {
+            demotion: effort.demotion,
+            wasPRAtTheTime: effort.wasPRAtTheTime,
+          };
+        }
+      }
+      return result;
+    }
+
+    it('running twice against unchanged input produces identical ceilings and an identical (activityId, distance) -> {demotion, wasPRAtTheTime} projection', async () => {
+      const ids = await writeFixtureFiles();
+      await writeManifestWithOrder(ids);
+
+      const common = {
+        activitiesDir: path.join(tmpDir, 'activities'),
+        streamsDir: path.join(tmpDir, 'streams'),
+        streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+        exclusionsPath: path.join(tmpDir, 'no-such-exclusions.json'),
+      };
+
+      const doc1 = await computeBestEfforts({ ...common, statsDir: path.join(tmpDir, 'stats1') });
+      const doc2 = await computeBestEfforts({ ...common, statsDir: path.join(tmpDir, 'stats2') });
+
+      // `generatedAt` is excluded from the comparison — it is a wall-clock
+      // stamp, and criterion 1 asks for byte-identical CEILING VALUES AND
+      // FLAGS, not a byte-identical file.
+      expect(JSON.stringify(doc1.ceilings)).toBe(JSON.stringify(doc2.ceilings));
+      expect(projection(doc1)).toEqual(projection(doc2));
+    });
+
+    it('order-independence at the orchestration level: reversed manifest entry order produces identical ceilings', async () => {
+      const ids = await writeFixtureFiles();
+
+      await writeManifestWithOrder(ids);
+      const docForward = await computeBestEfforts({
+        activitiesDir: path.join(tmpDir, 'activities'),
+        streamsDir: path.join(tmpDir, 'streams'),
+        streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+        statsDir: path.join(tmpDir, 'stats-forward'),
+        exclusionsPath: path.join(tmpDir, 'no-such-exclusions.json'),
+      });
+
+      await writeManifestWithOrder([...ids].reverse());
+      const docReversed = await computeBestEfforts({
+        activitiesDir: path.join(tmpDir, 'activities'),
+        streamsDir: path.join(tmpDir, 'streams'),
+        streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+        statsDir: path.join(tmpDir, 'stats-reversed'),
+        exclusionsPath: path.join(tmpDir, 'no-such-exclusions.json'),
+      });
+
+      expect(JSON.stringify(docForward.ceilings)).toBe(JSON.stringify(docReversed.ceilings));
+    });
+  });
+
+  describe('no iteration to convergence', () => {
+    /**
+     * The WRONG variant PR-01 forbids, implemented here in the test file
+     * only: calls `deriveCeilings`, removes every entry the resulting
+     * ceilings demote, re-derives from the survivors, and repeats until the
+     * ceilings stop moving or a fixed iteration cap is reached.
+     */
+    function iterateToConvergence(
+      populationsByDistance: ReadonlyMap<TargetDistanceKey, readonly number[]>,
+      maxIterations = 25
+    ): Record<TargetDistanceKey, CeilingDerivation> {
+      let current = new Map<TargetDistanceKey, readonly number[]>(populationsByDistance);
+      let ceilings = deriveCeilings(current);
+      for (let iteration = 0; iteration < maxIterations; iteration++) {
+        let anyRemoved = false;
+        const next = new Map<TargetDistanceKey, readonly number[]>();
+        for (const key of TARGET_ORDER) {
+          const derivation = ceilings[key];
+          const population = current.get(key) ?? [];
+          const survivors = population.filter((speed) => ceilingDemotion(speed, derivation) === null);
+          if (survivors.length !== population.length) anyRemoved = true;
+          next.set(key, survivors);
+        }
+        if (!anyRemoved) break;
+        current = next;
+        ceilings = deriveCeilings(current);
+      }
+      return ceilings;
+    }
+
+    /** Clean bulk (100 @ 3.5 m/s) plus an 18-entry contaminated tail (5.0-9.0 m/s, all under the 400m world-record ceiling ~9.296 m/s) — a fixture whose 400m population carries a contaminated tail. */
+    function contaminatedPopulation(): Map<TargetDistanceKey, number[]> {
+      const clean = Array.from({ length: 100 }, () => 3.5);
+      const contaminated = Array.from({ length: 18 }, (_, i) => 5.0 + (i / 17) * 4.0);
+      const populations = new Map<TargetDistanceKey, number[]>();
+      for (const key of TARGET_ORDER) {
+        populations.set(key, key === '400m' ? [...clean, ...contaminated] : []);
+      }
+      return populations;
+    }
+
+    it('the iterated result strictly diverges from the single-pass result (lower ceiling, strictly larger demoted set at 400m), and the shipped document matches the single-pass value', async () => {
+      const populations = contaminatedPopulation();
+
+      // Divergence must be proven BEFORE anything else — if the two methods
+      // ever coincide on this fixture, the fixture is too weak and must be
+      // strengthened until they diverge.
+      const singlePass = deriveCeilings(populations);
+      const iterated = iterateToConvergence(populations);
+
+      const singlePassCeiling = singlePass['400m'].ceilingMps;
+      const iteratedCeiling = iterated['400m'].ceilingMps;
+      expect(singlePassCeiling).not.toBeNull();
+      expect(iteratedCeiling).not.toBeNull();
+      expect(iteratedCeiling!).toBeLessThan(singlePassCeiling!);
+
+      const population400m = populations.get('400m')!;
+      const singlePassDemoted = population400m.filter(
+        (speed) => ceilingDemotion(speed, singlePass['400m']) !== null
+      ).length;
+      const iteratedDemoted = population400m.filter(
+        (speed) => ceilingDemotion(speed, iterated['400m']) !== null
+      ).length;
+      expect(iteratedDemoted).toBeGreaterThan(singlePassDemoted);
+
+      // Now run the SAME population through the real archive orchestration
+      // (each population entry becomes its own single-effort activity) and
+      // confirm the shipped document matches the single-pass value, never
+      // the iterated one.
+      const manifest = emptyManifestDoc();
+      const ids = population400m.map((_, i) => `pop-${i}`);
+      for (const id of ids) {
+        manifest.activities[id] = {
+          available: true,
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: 2,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+        };
+      }
+      await writeManifest(manifest);
+      for (let i = 0; i < population400m.length; i++) {
+        const durationSec = round1(400 / population400m[i]);
+        await writeActivity(ids[i], '2020-01-01T00:00:00Z', 400);
+        await fileStore.writeJson(path.join('streams', `${ids[i]}.json`), {
+          schemaVersion: 1,
+          id: ids[i],
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: 2,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+          t: [0, durationSec],
+          d: [0, 400],
+        });
+      }
+
+      const doc = await computeBestEfforts({
+        activitiesDir: path.join(tmpDir, 'activities'),
+        streamsDir: path.join(tmpDir, 'streams'),
+        streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+        statsDir: path.join(tmpDir, 'stats'),
+        exclusionsPath: path.join(tmpDir, 'no-such-exclusions.json'),
+      });
+
+      // The recomputed implied speed inside compute-best-efforts.ts derives
+      // from a ROUNDED durationSec (round1), so a small tolerance is used
+      // rather than bit-exact equality against our own unrounded design
+      // values.
+      expect(doc.ceilings['400m'].ceilingMps).not.toBeNull();
+      expect(doc.ceilings['400m'].ceilingMps!).toBeCloseTo(singlePassCeiling!, 1);
+      expect(
+        Math.abs(doc.ceilings['400m'].ceilingMps! - iteratedCeiling!)
+      ).toBeGreaterThan(0.5);
+    });
+
+    it("the production file's single deriveCeilings call site sits between the derive pass's own marker and the next pass's marker, with no enclosing loop", async () => {
+      const source = await fs.readFile(
+        new URL('./compute-best-efforts.ts', import.meta.url),
+        'utf-8'
+      );
+      const pass2Index = source.indexOf('PASS 2');
+      const pass3Index = source.indexOf('PASS 3');
+      expect(pass2Index).toBeGreaterThan(-1);
+      expect(pass3Index).toBeGreaterThan(pass2Index);
+
+      const rawSlice = source.slice(pass2Index, pass3Index);
+      const strippedSlice = rawSlice
+        .split('\n')
+        .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
+        .join('\n');
+      expect(strippedSlice).toContain('deriveCeilings(');
+      expect(strippedSlice).not.toMatch(/\bfor\s*\(/);
+      expect(strippedSlice).not.toMatch(/\bwhile\s*\(/);
+    });
+  });
+
+  describe('ceiling is non-circular', () => {
+    it('the shipped ceiling matches the population filtered by the absolute guard + exclusion list, not the unfiltered raw sweep — divergence, then equality-with-filtered, then populationN equality, in that order', async () => {
+      // Independent, in-test candidates over two populations that MUST
+      // diverge for this fixture to mean anything:
+      const CLEAN_COUNT = 100; // exactly CEILING_MIN_POPULATION once filtered
+      const cleanSpeeds = Array.from({ length: CLEAN_COUNT }, () => 3.5);
+      const excludedSpeed = 3.6; // ordinary pace, but excluded by activity id
+      const guardFailingSpeeds = Array.from({ length: 15 }, (_, i) => 15 + (i / 14) * 9); // 15-24 m/s
+
+      const filteredCandidate = new Map<TargetDistanceKey, number[]>();
+      const unfilteredCandidate = new Map<TargetDistanceKey, number[]>();
+      for (const key of TARGET_ORDER) {
+        filteredCandidate.set(key, key === '400m' ? [...cleanSpeeds] : []);
+        unfilteredCandidate.set(
+          key,
+          key === '400m' ? [...cleanSpeeds, excludedSpeed, ...guardFailingSpeeds] : []
+        );
+      }
+
+      const filteredResult = deriveCeilings(filteredCandidate);
+      const unfilteredResult = deriveCeilings(unfilteredCandidate);
+
+      // 1. Divergence — the fixture actually discriminates.
+      expect(filteredResult['400m'].ceilingMps).not.toBeNull();
+      expect(unfilteredResult['400m'].ceilingMps).not.toBeNull();
+      expect(filteredResult['400m'].ceilingMps).not.toBe(unfilteredResult['400m'].ceilingMps);
+
+      // Build the matching real archive fixture: 100 clean 400m efforts, 15
+      // guard-failing 400m efforts (world-record guard fires at 15-24 m/s,
+      // well past the 400m ceiling of ~9.296 m/s), and 1 excluded 400m
+      // effort at an otherwise-ordinary pace.
+      const manifest = emptyManifestDoc();
+      const cleanIds = cleanSpeeds.map((_, i) => `nc-clean-${i}`);
+      const guardIds = guardFailingSpeeds.map((_, i) => `nc-guard-${i}`);
+      const excludedId = 'nc-excluded';
+      for (const id of [...cleanIds, ...guardIds, excludedId]) {
+        manifest.activities[id] = {
+          available: true,
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: 2,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+        };
+      }
+      await writeManifest(manifest);
+
+      async function writeSingle400m(id: string, speed: number): Promise<void> {
+        const durationSec = round1(400 / speed);
+        await writeActivity(id, '2020-01-01T00:00:00Z', 400);
+        await fileStore.writeJson(path.join('streams', `${id}.json`), {
+          schemaVersion: 1,
+          id,
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: 2,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+          t: [0, durationSec],
+          d: [0, 400],
+        });
+      }
+
+      for (let i = 0; i < cleanIds.length; i++) await writeSingle400m(cleanIds[i], cleanSpeeds[i]);
+      for (let i = 0; i < guardIds.length; i++) await writeSingle400m(guardIds[i], guardFailingSpeeds[i]);
+      await writeSingle400m(excludedId, excludedSpeed);
+
+      await fileStore.writeJson('nc-exclusions.json', {
+        schemaVersion: 1,
+        note: 'test',
+        exclusions: [{ activityId: excludedId, distances: null, reason: 'non-circularity fixture' }],
+      });
+      const exclusionsPath = path.join(tmpDir, 'nc-exclusions.json');
+
+      const doc = await computeBestEfforts({
+        activitiesDir: path.join(tmpDir, 'activities'),
+        streamsDir: path.join(tmpDir, 'streams'),
+        streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+        statsDir: path.join(tmpDir, 'stats'),
+        exclusionsPath,
+      });
+
+      // 2. Equality with the FILTERED candidate, not the unfiltered one.
+      expect(doc.ceilings['400m'].ceilingMps).toBeCloseTo(filteredResult['400m'].ceilingMps!, 2);
+      expect(doc.ceilings['400m'].ceilingMps).not.toBeCloseTo(unfilteredResult['400m'].ceilingMps!, 0);
+
+      // 3. `populationN` itself testifies to which population was used.
+      expect(doc.ceilings['400m'].populationN).toBe(CLEAN_COUNT);
+    });
+  });
+
+  it('D-02 fails open below CEILING_MIN_POPULATION: ceilings.half.ceilingMps is null with a non-null failOpenReason, and every half effort in the fixture is still ranked', async () => {
+    const manifest = emptyManifestDoc();
+    const ids = ['half-1', 'half-2', 'half-3'];
+    for (const id of ids) {
+      manifest.activities[id] = {
+        available: true,
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 2,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+      };
+    }
+    await writeManifest(manifest);
+
+    const halfDurations = [5000, 5100, 5200]; // ordinary half-marathon paces, well under the world record
+    for (let i = 0; i < ids.length; i++) {
+      await writeActivity(ids[i], `2026-0${i + 1}-01T00:00:00Z`, 21200);
+      await fileStore.writeJson(path.join('streams', `${ids[i]}.json`), {
+        schemaVersion: 1,
+        id: ids[i],
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 2,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+        t: [0, halfDurations[i]],
+        d: [0, 21200],
+      });
+    }
+
+    const doc = await computeBestEfforts({
+      activitiesDir: path.join(tmpDir, 'activities'),
+      streamsDir: path.join(tmpDir, 'streams'),
+      streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+      statsDir: path.join(tmpDir, 'stats'),
+      exclusionsPath: path.join(tmpDir, 'no-such-exclusions.json'),
+    });
+
+    expect(doc.ceilings.half.ceilingMps).toBeNull();
+    expect(doc.ceilings.half.failOpenReason).not.toBeNull();
+    expect(doc.rankings.half.length).toBe(3);
+    for (const id of ids) {
+      expect(doc.activities[id].efforts.find((e) => e.distance === 'half')?.demotion).toBeNull();
+    }
   });
 });

@@ -30,8 +30,9 @@ import {
   WORLD_RECORD_SPEED_MPS,
 } from './best-effort-utils.js';
 // `deriveCeilings(...)` is imported here and called exactly once below, in
-// PASS 2 (PR-01's no-iteration clause) — see the "no iteration to
-// convergence" suite in compute-best-efforts.test.ts.
+// the derivation pass between accumulation and filtering (PR-01's
+// no-iteration clause) — see the "no iteration to convergence" suite in
+// compute-best-efforts.test.ts.
 import { ceilingDemotion, deriveCeilings } from './best-effort-ceiling.js';
 import { isExcluded, loadExclusions } from './best-effort-exclusions.js';
 import { loadManifest } from '../streams/stream-manifest.js';
@@ -316,13 +317,17 @@ export async function computeBestEfforts(
   // anything below. Re-deriving after demotion is the mutation ROADMAP
   // criterion 1 demonstrates failing (see the "no iteration to convergence"
   // suite in compute-best-efforts.test.ts).
-  const impliedSpeedsByDistance = new Map<TargetDistanceKey, number[]>();
-  for (const key of TARGET_ORDER) {
-    const speeds = byDistance
-      .get(key)!
-      .map((entry) => TARGET_METERS[key] / entry.durationSec);
-    impliedSpeedsByDistance.set(key, speeds);
-  }
+  // Built via `.map()` rather than a `for` loop — deliberately, so a
+  // source-text audit of this pass (compute-best-efforts.test.ts's "no
+  // iteration to convergence" suite) can assert the single `deriveCeilings`
+  // call site below sits inside no loop of any kind, between this pass's
+  // own marker and the next pass's.
+  const impliedSpeedsByDistance = new Map<TargetDistanceKey, number[]>(
+    TARGET_ORDER.map((key) => [
+      key,
+      byDistance.get(key)!.map((entry) => TARGET_METERS[key] / entry.durationSec),
+    ])
+  );
   const ceilings = deriveCeilings(impliedSpeedsByDistance);
 
   const rankings: Record<TargetDistanceKey, PRRankingEntry[]> = {} as Record<
