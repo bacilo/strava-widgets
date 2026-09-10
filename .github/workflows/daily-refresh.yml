@@ -217,13 +217,24 @@ jobs:
       # pin changed nothing about what runs today. Re-pin deliberately when
       # upgrading. (actions/checkout and actions/setup-node above are
       # first-party and lower risk, but the same argument applies to them.)
+      # The committed personal-plausibility ceiling state (Phase 28 D-06/D-07,
+      # new glob below) rides THIS step rather than a second hand-rolled
+      # commit/push: it is the only durable record of the previous run's
+      # derived ceiling, since data/stats/ (where compute-best-efforts.ts
+      # also writes best-efforts.json) is gitignored and starts empty on
+      # every runner. A second push step is exactly how this repository's
+      # occasional non-fast-forward races against origin/master became
+      # routine before (see the 2026-08-11 STATE.md blocker entry) —
+      # compute-best-efforts.ts only rewrites that file when a ceiling
+      # actually moves, so an unchanged nightly run adds nothing here to
+      # commit.
       - name: Commit updated data and stats
         id: commit
         continue-on-error: true  # Bookkeeping failure must not block the deploy
         uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d  # v7.2.0
         with:
           commit_message: 'chore: update activities and stats [skip ci]'
-          file_pattern: 'data/activities/*.json data/sync-state.json data/geo/*.json data/streams/*.json'
+          file_pattern: 'data/activities/*.json data/sync-state.json data/geo/*.json data/streams/*.json data/best-effort-ceiling.json'
           commit_user_name: 'github-actions[bot]'
           commit_user_email: 'github-actions[bot]@users.noreply.github.com'
 
