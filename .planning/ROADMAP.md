@@ -225,8 +225,8 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 28-01-PLAN.md — Measure the archive and choose the ceiling multiplier and minimum-population floor, recorded with justifying evidence in a regenerable calibration artifact (PR-02, PR-05)
-- [ ] 28-02-PLAN.md — The demotion data model plus the pure, DOM-free dashboard logic that reads it (PR-03)
+- [x] 28-01-PLAN.md — Measure the archive and choose the ceiling multiplier and minimum-population floor, recorded with justifying evidence in a regenerable calibration artifact (PR-02, PR-05)
+- [x] 28-02-PLAN.md — The demotion data model plus the pure, DOM-free dashboard logic that reads it (PR-03)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -321,7 +321,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 12/12 | Complete    | 2026-09-04 |
 | 26. Shared Gap-Aware Pace Derivation & Honest Coverage | v2.2 | 16/16 | Complete    | 2026-09-10 |
 | 27. Per-Activity Quality Signals | v2.2 | 12/12 | Complete    | 2026-09-10 |
-| 28. PR Plausibility Ceiling | v2.2 | 0/TBD | Not started | - |
+| 28. PR Plausibility Ceiling | v2.2 | 2/9 | In Progress|  |
 | 29. Curation Review Queue | v2.2 | 0/TBD | Not started | - |
 | 30. Elevation Quality Signal | v2.2 | 0/TBD | Not started | - |
 
