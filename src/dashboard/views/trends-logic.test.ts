@@ -1,6 +1,22 @@
 import { describe, expect, it } from 'vitest';
 
 import type { DashboardIndexRow } from '../../analytics/dashboard-index.types.js';
+import type { ActivityQualitySignals } from '../../analytics/pace-quality.js';
+
+/**
+ * Phase 27 (QUAL-01/QUAL-03): a required row field this suite does not
+ * exercise — a clean/not-flagged default, following the `gearName` /
+ * `paceDisagreement` fixture precedent already used below.
+ */
+const CLEAN_QUALITY: ActivityQualitySignals = {
+  decimation: { tier: 'none', zeroAdvanceFraction: 0, sampleCount: 100 },
+  gapProfile: { tier: 'none', gapFraction: 0, recordingGapSec: 0, pauseSec: 0, spanSec: 3000 },
+  impossibleSamples: { tier: 'none', count: 0, maxImpliedSpeedMps: 0, countInsideZeroAdvanceRun: 0 },
+  deviceEra: { family: 'no-device-name', rawDeviceName: null },
+  elapsedVsMoving: { ratio: 1, elapsedSec: 3000, movingSec: 3000 },
+  anySevere: false,
+  notComputableReason: null,
+};
 import {
   computeRollingTotals,
   DEFAULT_TREND_TAB,
@@ -29,6 +45,7 @@ function fixtureRow(overrides: Partial<DashboardIndexRow> & { id: string; startD
     prCount: 0,
     gearName: null,
     paceDisagreement: null,
+    quality: CLEAN_QUALITY,
     ...overrides,
   };
 }

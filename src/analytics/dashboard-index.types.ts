@@ -23,6 +23,7 @@
  */
 
 import type { DistanceSource, StreamUnavailableReason } from '../streams/stream.types.js';
+import type { ActivityQualitySignals } from './pace-quality.js';
 
 /** Bump only via an explicit, coordinated regeneration of `data/dashboard/index.json`. */
 export const DASHBOARD_INDEX_SCHEMA_VERSION = 1;
@@ -100,6 +101,35 @@ export interface DashboardIndexRow {
    * stays at `1` because this field is purely additive.
    */
   paceDisagreement: PaceDisagreement | null;
+  /**
+   * Phase 27's five per-activity quality signals (QUAL-01, QUAL-03), one
+   * nested key rather than five top-level ones, following `paceDisagreement`'s
+   * own shape. The five named signals ARE separately readable underneath it:
+   * `quality.decimation`, `quality.gapProfile`, `quality.impossibleSamples`,
+   * `quality.deviceEra`, `quality.elapsedVsMoving`. `quality.anySevere` is a
+   * derived convenience the list filter reads — it is NOT a sixth signal.
+   *
+   * REQUIRED, deliberately, following the `gearName` / `paceDisagreement`
+   * WR-06 precedent above verbatim: an optional key would let
+   * compute-dashboard-index.ts silently stop emitting it with no compile
+   * error, which is exactly the CR-02 defect Phase 26 shipped once already.
+   *
+   * Deviation from the `PaceDisagreement` precedent, documented rather than
+   * silent: `PaceDisagreement` is redeclared structurally in this file
+   * instead of imported from `pace-derivation.ts`, but `ActivityQualitySignals`
+   * is a six-interface tree and duplicating it here would create exactly the
+   * drift risk that duplication already carries for a three-field object.
+   * `pace-quality.ts` is pure and client-safe (no `fs`, no `fetch`, no DOM),
+   * so importing its types here costs this contract nothing — this is a
+   * type-only import, erased at compile time.
+   *
+   * `DASHBOARD_INDEX_SCHEMA_VERSION` stays `1` because this is purely
+   * additive; `scripts/verify-dashboard-publish.mjs` asserts both the
+   * version and this field's presence on every row.
+   * `ParsedDashboardIndexRow`'s `Partial<>` covers the re-parse side with no
+   * change needed there.
+   */
+  quality: ActivityQualitySignals;
 }
 
 /**
@@ -140,6 +170,10 @@ export interface DashboardIndexTotals {
   excludedFromRecords: number;
   skippedUnreadable: number;
   withGear: number;
+  /** Count of rows whose `quality.anySevere` is true (Phase 27, QUAL-01). */
+  qualityAnySevere: number;
+  /** Count of rows whose `quality.notComputableReason` is non-null (Phase 27, D-06). */
+  qualityNotComputable: number;
 }
 
 /** The full document written to `data/dashboard/index.json`. */

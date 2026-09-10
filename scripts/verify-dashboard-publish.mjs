@@ -19,6 +19,9 @@ const ROOT = resolve(process.cwd(), 'dist/widgets');
 const INDEX_HTML = join(ROOT, 'index.html');
 const INDEX_JSON = join(ROOT, 'data/dashboard/index.json');
 
+/** The five named quality sub-keys (Phase 27, QUAL-01) — shared between the index-row check and the shard-sample check below. */
+const QUALITY_SUB_KEYS = ['decimation', 'gapProfile', 'impossibleSamples', 'deviceEra', 'elapsedVsMoving'];
+
 let failures = 0;
 let checks = 0;
 
@@ -288,6 +291,59 @@ async function main() {
           fail(`/data/dashboard/index.json activity ${leakedRow.id} leaks a raw gear id in "gearName" (T-18-GEAR-01)`);
         } else {
           ok('/data/dashboard/index.json at least one row has "gearName" and no row leaks a raw gear id');
+        }
+
+        // quality (Phase 27, QUAL-01/QUAL-03, T-27-14) must survive
+        // publication on EVERY row, not just one — a partial rollout (some
+        // rows carrying the field, some not) is the exact silent-omission
+        // failure WR-06's required-field rule exists to prevent, and a
+        // presence-on-at-least-one check alone (mirroring the gearName
+        // shape above) would pass it. Every check added here is
+        // demonstrated failing per STATE.md's 2026-08-11 lesson: this
+        // verifier once reported all-green against a broken build because
+        // its own checks normalized the defect away.
+        const hasAnyQuality = parsed.activities.some(
+          (row) => row.quality !== null && row.quality !== undefined
+        );
+        const missingQualityRow = parsed.activities.find(
+          (row) =>
+            row.quality === null ||
+            row.quality === undefined ||
+            QUALITY_SUB_KEYS.some((key) => !(key in row.quality))
+        );
+        if (!hasAnyQuality) {
+          fail(
+            '/data/dashboard/index.json no row has a non-null "quality" — Phase 27 signal computation may not have survived publication'
+          );
+        } else if (missingQualityRow) {
+          fail(
+            `/data/dashboard/index.json activity ${missingQualityRow.id} is missing "quality" or one of its five named sub-keys — a partial rollout, not a total one (T-27-14)`
+          );
+        } else {
+          ok(
+            `/data/dashboard/index.json every row (${parsed.activities.length}) has a "quality" object with all five named sub-keys`
+          );
+        }
+
+        // device_name (D-12) reaches this public artifact for the first
+        // time via quality.deviceEra.rawDeviceName — a defence-in-depth
+        // spot-check over EVERY row (not a sample), mirroring the gear-id
+        // leak check above (T-27-13). The REAL XSS guard is
+        // textContent-only rendering at the DOM layer (plans 27-07/27-09);
+        // this is a second line, not the first.
+        const unsafeCharPattern = /[<>"]/;
+        const unsafeDeviceNameRow = parsed.activities.find((row) => {
+          const raw = row.quality?.deviceEra?.rawDeviceName;
+          return typeof raw === 'string' && unsafeCharPattern.test(raw);
+        });
+        if (unsafeDeviceNameRow) {
+          fail(
+            `/data/dashboard/index.json activity ${unsafeDeviceNameRow.id} has a "<", ">" or '"' character in quality.deviceEra.rawDeviceName (T-27-13) — defence-in-depth scan; the real guard is textContent-only rendering at the DOM layer`
+          );
+        } else {
+          ok(
+            `/data/dashboard/index.json no row's quality.deviceEra.rawDeviceName contains "<", ">" or '"' (scanned all ${parsed.activities.length} rows)`
+          );
         }
       }
     }
@@ -692,6 +748,60 @@ async function main() {
           } else {
             ok(
               `/data/stats/best-efforts/${shardId}.json parses with activityId "${shardId}" and an "efforts" array (${parsedShard.efforts.length} entries)`
+            );
+          }
+        }
+      }
+    }
+
+    // Per-activity shard sample for pace-quality (Phase 27, D-17), ids
+    // derived AT RUNTIME from the already-parsed index document — never
+    // pinned literals (D-10), following the best-efforts shard sample's
+    // shape immediately above.
+    //
+    // UNLIKE best-efforts (which shards only activities with an efforts
+    // entry), compute-dashboard-index.ts writes a pace-quality shard for
+    // EVERY row, including stream-less ones (D-06) — so the sample
+    // population is `indexDoc.activities` itself. Deliberately samples
+    // DIFFERENT offsets than the best-efforts block above (second row /
+    // one-third point / second-to-last) so the two checks do not both pass
+    // or both fail on one activity's idiosyncrasy.
+    const qualityIds = indexDoc.activities.map((row) => row.id);
+    if (qualityIds.length === 0) {
+      fail(
+        '/data/stats/pace-quality/{id}.json sample: data/dashboard/index.json lists no activities — cannot sample a shard id'
+      );
+    } else {
+      const qualitySampleIds = [
+        ...new Set([
+          qualityIds[Math.min(1, qualityIds.length - 1)],
+          qualityIds[Math.floor(qualityIds.length / 3)],
+          qualityIds[Math.max(0, qualityIds.length - 2)],
+        ]),
+      ];
+      for (const shardId of qualitySampleIds) {
+        const shardBody = await expect200(baseUrl, `/data/stats/pace-quality/${shardId}.json`);
+        if (shardBody) {
+          const parsedShard = parseJsonOrFail(`/data/stats/pace-quality/${shardId}.json`, shardBody);
+          if (parsedShard === null) {
+            // already reported
+          } else if (String(parsedShard.activityId) !== String(shardId)) {
+            fail(
+              `/data/stats/pace-quality/${shardId}.json "activityId" expected "${shardId}", got ${JSON.stringify(
+                parsedShard.activityId
+              )} — the index and the shard directory disagree about what exists`
+            );
+          } else if (
+            parsedShard.signals === null ||
+            typeof parsedShard.signals !== 'object' ||
+            QUALITY_SUB_KEYS.some((key) => !(key in parsedShard.signals))
+          ) {
+            fail(
+              `/data/stats/pace-quality/${shardId}.json "signals" is missing or missing one of the five named sub-keys, got ${JSON.stringify(parsedShard.signals)}`
+            );
+          } else {
+            ok(
+              `/data/stats/pace-quality/${shardId}.json parses with activityId "${shardId}" and a "signals" object carrying all five named sub-keys`
             );
           }
         }
