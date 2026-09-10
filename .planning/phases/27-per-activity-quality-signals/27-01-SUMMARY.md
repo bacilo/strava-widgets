@@ -155,3 +155,8 @@ aware this is a pre-existing worktree-provisioning gap, not something introduced
 ---
 *Phase: 27-per-activity-quality-signals*
 *Completed: 2026-09-10*
+
+## Self-Check: PASSED
+
+All created/modified files confirmed present on disk; all 4 task/summary commits
+(`412a2069`, `39470d92`, `84bb4031`, `bd236e4c`) confirmed present in `git log`.
