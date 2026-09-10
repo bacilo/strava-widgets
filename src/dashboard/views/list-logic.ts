@@ -41,6 +41,20 @@ export interface FilterState {
   pMaxSec: number | null;
   tMinMin: number | null;
   tMaxMin: number | null;
+  /**
+   * D-16: the single "has any severe signal" toggle — true restricts the
+   * result to activities carrying at least one SEVERE-tier quality signal
+   * (decimation, gapProfile, or impossibleSamples), the same composite
+   * `27-CALIBRATION.md` measures and `compute-pace-quality-recount.mjs`
+   * recounts. `not-computable` (a stream-less activity) is NOT `severe`, so
+   * toggling this on filters those activities OUT along with every clean
+   * one. This is this file's FIRST boolean `FilterState` field — every
+   * other field is `string | number | null` — so there is no existing
+   * boolean parse/serialize idiom to copy; the encoding chosen below
+   * (presence-with-value-`'1'`, see `parseListQuery`) is the one a future
+   * boolean field should follow.
+   */
+  anySevere: boolean;
 }
 
 export const EMPTY_FILTERS: FilterState = {
@@ -53,6 +67,7 @@ export const EMPTY_FILTERS: FilterState = {
   pMaxSec: null,
   tMinMin: null,
   tMaxMin: null,
+  anySevere: false,
 };
 
 export interface ListState {
@@ -127,6 +142,9 @@ export function parseListQuery(query: URLSearchParams): ListState {
     pMaxSec: parseNonNegativeNumber(query.get('pmax')),
     tMinMin: parseNonNegativeNumber(query.get('tmin')),
     tMaxMin: parseNonNegativeNumber(query.get('tmax')),
+    // D-16: presence-with-value-'1', not mere presence — a stray `?severe`
+    // or `?severe=0`/`?severe=true` reads as off rather than on (T-27-26).
+    anySevere: query.get('severe') === '1',
   };
 
   return { sort, dir, page, filters };
@@ -163,6 +181,7 @@ export function serializeListQuery(state: ListState): URLSearchParams {
   if (filters.pMaxSec !== null) params.set('pmax', String(filters.pMaxSec));
   if (filters.tMinMin !== null) params.set('tmin', String(filters.tMinMin));
   if (filters.tMaxMin !== null) params.set('tmax', String(filters.tMaxMin));
+  if (filters.anySevere) params.set('severe', '1');
 
   return params;
 }
@@ -318,7 +337,22 @@ function matchesDateRange(row: DashboardIndexRow, from: string | null, to: strin
 }
 
 /**
- * AND semantics across all nine `FilterState` fields (D-11). Never mutates
+ * Reads the row's shipped, CI-classified flag rather than re-deriving it
+ * from the row's own tiers (`hasAnySevereSignal`) — the filter and
+ * `compute-pace-quality-recount.mjs` must look at the SAME datum (T-27-27).
+ * Optional chaining plus an explicit `=== true` because the list view
+ * consumes `ParsedDashboardIndexRow`-shaped data where no key is
+ * guaranteed present (T-27-28) — the same `undefined !== null` defect
+ * class `rowPaceDisagreement`'s JSDoc documents from Phase 26's CR-02, so
+ * a row with `quality` absent entirely is excluded rather than crashing or
+ * being treated as a match.
+ */
+function rowIsAnySevere(row: DashboardIndexRow): boolean {
+  return row.quality?.anySevere === true;
+}
+
+/**
+ * AND semantics across all ten `FilterState` fields (D-11). Never mutates
  * `rows`. A row whose `paceSecPerKm` is null is excluded whenever a pace
  * bound is active (a missing pace can never satisfy a pace range).
  */
@@ -338,6 +372,8 @@ export function filterRows(
 
     if (!matchesRange(row.movingTimeSec / 60, filters.tMinMin, filters.tMaxMin)) return false;
 
+    if (filters.anySevere && !rowIsAnySevere(row)) return false;
+
     return true;
   });
 }
@@ -346,7 +382,7 @@ export function filterRows(
 // Filter chips (D-12 — one removable chip per active filter group)
 // ---------------------------------------------------------------------------
 
-export type FilterChipKey = 'q' | 'date' | 'distance' | 'pace' | 'duration';
+export type FilterChipKey = 'q' | 'date' | 'distance' | 'pace' | 'duration' | 'quality';
 
 export interface FilterChip {
   key: FilterChipKey;
@@ -414,6 +450,10 @@ export function buildFilterChips(filters: FilterState): FilterChip[] {
     chips.push({ key: 'duration', label: buildDurationChipLabel(filters.tMinMin, filters.tMaxMin) });
   }
 
+  if (filters.anySevere) {
+    chips.push({ key: 'quality', label: 'severe signals only' });
+  }
+
   return chips;
 }
 
@@ -430,6 +470,8 @@ export function removeChip(filters: FilterState, key: FilterChipKey): FilterStat
       return { ...filters, pMinSec: EMPTY_FILTERS.pMinSec, pMaxSec: EMPTY_FILTERS.pMaxSec };
     case 'duration':
       return { ...filters, tMinMin: EMPTY_FILTERS.tMinMin, tMaxMin: EMPTY_FILTERS.tMaxMin };
+    case 'quality':
+      return { ...filters, anySevere: EMPTY_FILTERS.anySevere };
   }
 }
 
