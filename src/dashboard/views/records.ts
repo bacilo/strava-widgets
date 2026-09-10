@@ -28,6 +28,9 @@ import {
   buildPrTableRows,
   filterRankingsToYear,
   isEmptyRanking,
+  countDemotedAtDistance,
+  resolvePrTableEmptyState,
+  resolvePrTableDemotionNote,
   buildEvolutionSeries,
   buildProgressionRows,
   selectSuperlatives,
@@ -334,23 +337,31 @@ function buildConfigNotice(ageGrading: AgeGradingDocument | null): HTMLElement |
  * table captioned as a marathon table. Two copy variants exist because "no
  * efforts yet" and "no efforts in 2026" are different statements a reader
  * must be able to tell apart.
+ *
+ * `demotedCount` (Phase 28, D-03) feeds `resolvePrTableEmptyState`'s third,
+ * all-time-ceiling-emptied branch: heading and body text both come from
+ * that pure function now, not from an inline ternary — the copy itself is
+ * unchanged for the two pre-existing branches (pinned verbatim by plan
+ * 28-02's own tests), only its decision point moved to a testable place.
  */
-function buildPrTableEmptyState(distance: TargetDistanceKey, scope: RecordScope, year: number): HTMLElement {
-  const label = DISTANCE_LABELS[distance];
+function buildPrTableEmptyState(
+  distance: TargetDistanceKey,
+  scope: RecordScope,
+  year: number,
+  demotedCount: number
+): HTMLElement {
+  const { heading: headingText, body: bodyText } = resolvePrTableEmptyState(distance, scope, year, demotedCount);
   const empty = document.createElement('div');
   empty.className = 'empty-state';
 
   const heading = document.createElement('h3');
   heading.className = 'text-heading';
-  heading.textContent = scope === 'this-year' ? `No ${label} efforts in ${year}` : `No ${label} efforts yet`;
+  heading.textContent = headingText;
   empty.appendChild(heading);
 
   const body = document.createElement('p');
   body.className = 'text-body';
-  body.textContent =
-    scope === 'this-year'
-      ? `The archive has no ${label} effort recorded in ${year}. Switch to All time to see every ranked effort.`
-      : `The archive has no completed ${label} effort. Once one is recorded, its rank will appear here.`;
+  body.textContent = bodyText;
   empty.appendChild(body);
 
   return empty;
@@ -558,7 +569,8 @@ function buildPrTableSection(
   rows: readonly PrTableRow[],
   empty: boolean,
   scope: RecordScope,
-  year: number
+  year: number,
+  demotedCount: number
 ): HTMLElement {
   const section = document.createElement('section');
   section.className = 'card detail-section';
@@ -570,11 +582,19 @@ function buildPrTableSection(
   section.appendChild(heading);
 
   if (empty) {
-    section.appendChild(buildPrTableEmptyState(distance, scope, year));
+    section.appendChild(buildPrTableEmptyState(distance, scope, year, demotedCount));
     return section;
   }
 
   section.appendChild(buildPrTable(distance, rows));
+
+  const demotionNoteText = resolvePrTableDemotionNote(distance, demotedCount);
+  if (demotionNoteText !== null) {
+    const demotionNote = document.createElement('p');
+    demotionNote.className = 'text-label';
+    demotionNote.textContent = demotionNoteText;
+    section.appendChild(demotionNote);
+  }
 
   if (distance === '1k') {
     const footnote = document.createElement('p');
@@ -660,8 +680,9 @@ function buildPrTablesSection(
       const allTimeEntries = bestEfforts.rankings[distance];
       const entries = currentScope === 'this-year' ? filterRankingsToYear(allTimeEntries, year) : allTimeEntries;
       const empty = isEmptyRanking(entries);
+      const demotedCount = countDemotedAtDistance(bestEfforts.activities, distance);
       const rows = buildPrTableRows(entries, ageGrading, distance, exclusionReasons);
-      tables.push(buildPrTableSection(distance, rows, empty, currentScope, year));
+      tables.push(buildPrTableSection(distance, rows, empty, currentScope, year, demotedCount));
     }
     tablesContainer.replaceChildren(...tables);
   }
