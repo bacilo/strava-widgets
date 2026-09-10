@@ -396,6 +396,55 @@ describe('source wiring — detail-sections.ts / detail.ts (text-structure guard
 });
 
 // ---------------------------------------------------------------------------
+// buildPrFlagsCell wiring (source guard) — Phase 28, plan 28-04, D-09.
+// `buildPrFlagsCell` cannot itself be invoked in this node-environment
+// suite (no DOM-simulation library exists anywhere in this tree), so its
+// wiring is pinned by isolating the function's own body from a
+// comment-stripped source read and asserting on that slice directly. This
+// mirrors the `source wiring` describe block above.
+// ---------------------------------------------------------------------------
+
+function isolateFunctionBody(source: string, declarationNeedle: string): string {
+  const start = source.indexOf(declarationNeedle);
+  if (start < 0) {
+    throw new Error(`isolateFunctionBody: declaration not found: ${declarationNeedle}`);
+  }
+  const nextTopLevelFunction = /\n(export )?function /g;
+  nextTopLevelFunction.lastIndex = start + declarationNeedle.length;
+  const nextMatch = nextTopLevelFunction.exec(source);
+  const end = nextMatch ? nextMatch.index : source.length;
+  return source.slice(start, end);
+}
+
+describe('buildPrFlagsCell wiring (source guard)', () => {
+  const buildPrFlagsCellBody = isolateFunctionBody(detailSectionsStripped, 'function buildPrFlagsCell(');
+
+  it('the body contains exactly one prFlagBadgeSpecs( call', () => {
+    expect(countOccurrences(buildPrFlagsCellBody, 'prFlagBadgeSpecs(')).toBe(1);
+  });
+
+  it('the body contains exactly one appendAccessibleBadge( call and zero appendBadge( calls', () => {
+    expect(countOccurrences(buildPrFlagsCellBody, 'appendAccessibleBadge(')).toBe(1);
+    expect(countOccurrences(buildPrFlagsCellBody, 'appendBadge(')).toBe(0);
+  });
+
+  it('the body contains zero occurrences of the literal badge-text strings — every string now lives in prFlagBadgeSpecs', () => {
+    expect(buildPrFlagsCellBody).not.toContain('Excluded');
+    expect(buildPrFlagsCellBody).not.toContain("PR'");
+    expect(buildPrFlagsCellBody).not.toContain('Demoted');
+    expect(buildPrFlagsCellBody).not.toContain('Low confidence');
+  });
+
+  it('the body contains zero if ( statements — it decides nothing, it only renders', () => {
+    expect(countOccurrences(buildPrFlagsCellBody, 'if (')).toBe(0);
+  });
+
+  it('the description id passed to appendAccessibleBadge is built from both row.distance and spec.descriptionIdSuffix, so two badges in one cell cannot collide on one id', () => {
+    expect(buildPrFlagsCellBody).toContain('${row.distance}-${spec.descriptionIdSuffix}');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // qualitySignalsSectionPlan — quality signals section (Phase 27, plan 27-09:
 // QUAL-01, QUAL-04, ERA-02). Only the pure plan is tested — there is no
 // DOM-simulation dependency anywhere in this tree, so `buildQualitySignalsSection`

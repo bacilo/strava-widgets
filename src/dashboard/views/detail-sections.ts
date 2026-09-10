@@ -16,25 +16,25 @@
 
 import type { Split } from './detail-splits.js';
 import type { PaceBucket, ZoneTime } from './detail-zones.js';
-// formatPace, formatDurationHms, formatEffortDuration, appendBadge,
-// appendLowConfidenceBadge, appendAccessibleBadge, and qualityBadgeSpecs are
-// the dashboard's only pace/duration/badge builders (list.ts) — imported
-// rather than duplicated, matching the precedent detail.ts already set for
-// formatPace. `qualityBadgeSpecs` is imported ONLY to source the three
-// tiering signals' explanation strings at module load (see
-// `EXPLANATION_PROBE_SPECS` below) — never called per-render — so the
-// always-on Quality Signals section cannot drift from the severe-tier list
-// badges' own explanation text (Phase 27, plan 27-09's interface contract).
+// formatPace, formatDurationHms, formatEffortDuration, appendAccessibleBadge,
+// and qualityBadgeSpecs are the dashboard's only pace/duration/badge
+// builders (list.ts) — imported rather than duplicated, matching the
+// precedent detail.ts already set for formatPace. `qualityBadgeSpecs` is
+// imported ONLY to source the three tiering signals' explanation strings at
+// module load (see `EXPLANATION_PROBE_SPECS` below) — never called
+// per-render — so the always-on Quality Signals section cannot drift from
+// the severe-tier list badges' own explanation text (Phase 27, plan 27-09's
+// interface contract). `appendBadge`/`appendLowConfidenceBadge` are no
+// longer imported here — plan 28-04 moved `buildPrFlagsCell` onto
+// `prFlagBadgeSpecs` + `appendAccessibleBadge` exclusively (D-09).
 import {
   formatPace,
   formatDurationHms,
   formatEffortDuration,
-  appendBadge,
-  appendLowConfidenceBadge,
   appendAccessibleBadge,
   qualityBadgeSpecs,
 } from './list.js';
-import type { BestEffortPanelRow } from './detail-best-efforts-logic.js';
+import { prFlagBadgeSpecs, type BestEffortPanelRow } from './detail-best-efforts-logic.js';
 import type { PaceCoverage, GapInterval } from '../../analytics/pace-derivation.js';
 import { unbucketedCoveredSec } from '../../analytics/pace-derivation.js';
 import type {
@@ -635,18 +635,30 @@ function buildAgeGradeCell(row: BestEffortPanelRow): HTMLTableCellElement {
   return buildTextCell(`${row.agePercent.toFixed(1)}%${suffix}`, 'pr-table__numeric');
 }
 
-/** Builds the PR? cell: a plain `PR` badge when `isPr`, plus the low-confidence and excluded badges when applicable. */
+/**
+ * Builds the PR? cell. This function DECIDES NOTHING ITSELF — it renders
+ * whatever `prFlagBadgeSpecs` returns, one `appendAccessibleBadge` call per
+ * spec, and nothing else. Every badge therefore carries its own
+ * `aria-describedby` pointing at a `.sr-only` explanation span, which is
+ * what keeps two adjacent badges separable when a screen reader flows the
+ * cell's text — Phase 24 Round 2's R15 recorded two bare, unexplained
+ * badges concatenating into one run-on claim, `PRExcluded — {reason}`. The
+ * badge strings themselves live in `prFlagBadgeSpecs`, a pure module,
+ * precisely because this repository's vitest runs with
+ * `environment: 'node'` and cannot invoke a DOM builder — a string decided
+ * here would be a string no test could ever read.
+ */
 function buildPrFlagsCell(row: BestEffortPanelRow, exclusionReason: string | null): HTMLTableCellElement {
   const cell = document.createElement('td');
 
-  if (row.isPr) {
-    appendBadge(cell, 'PR');
-  }
-  if (row.lowConfidence) {
-    appendLowConfidenceBadge(cell, `best-efforts-${row.distance}`);
-  }
-  if (row.excluded) {
-    appendBadge(cell, exclusionReason ? `Excluded — ${exclusionReason}` : 'Excluded from records');
+  for (const spec of prFlagBadgeSpecs(row, exclusionReason)) {
+    appendAccessibleBadge(
+      cell,
+      spec.visibleText,
+      spec.explanation,
+      `best-efforts-${row.distance}-${spec.descriptionIdSuffix}`,
+      spec.kind === 'demoted' ? 'badge--demoted' : undefined
+    );
   }
 
   return cell;
