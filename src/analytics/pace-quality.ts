@@ -255,3 +255,98 @@ export function resolveDeviceFamily(
   // see step 3 of this function's JSDoc.
   return { family: 'no-device-name', rawDeviceName: null };
 }
+
+// ---------------------------------------------------------------------------
+// Elapsed-vs-moving (untiered, D-14)
+// ---------------------------------------------------------------------------
+
+/**
+ * Computes the untiered elapsed-vs-moving ratio (D-14). Total: any shape of
+ * input, including non-finite or missing values, returns a valid
+ * `ElapsedVsMovingSignal`, never throws.
+ *
+ * Deliberately carries NO tier. PROJECT.md's non-goals put stopped-watch
+ * correction out of scope because nothing in the stored data distinguishes
+ * a deliberate rest from a forgotten stop — a signal whose high values
+ * cannot be separated into benign and broken has no defensible severe
+ * threshold. A future reader adding a tier here must overturn that
+ * non-goal first, not just add a threshold constant.
+ *
+ * `ratio` is `elapsedSec / movingSec`, rounded to two decimals, and is
+ * `null` — NEVER `1`, NEVER `0` — whenever either value is absent,
+ * non-finite, or `movingSec <= 0` (T-26-02: insufficient data is never a
+ * plausible-looking computed zero or unity).
+ */
+export function elapsedVsMovingSignal(
+  metadata: Pick<ActivityQualityMetadata, 'elapsedTimeSec' | 'movingTimeSec'>
+): ElapsedVsMovingSignal {
+  const { elapsedTimeSec, movingTimeSec } = metadata;
+
+  const elapsedSec =
+    typeof elapsedTimeSec === 'number' && Number.isFinite(elapsedTimeSec) ? elapsedTimeSec : null;
+  const movingSec =
+    typeof movingTimeSec === 'number' && Number.isFinite(movingTimeSec) ? movingTimeSec : null;
+
+  const ratio =
+    elapsedSec !== null && movingSec !== null && movingSec > 0
+      ? Math.round((elapsedSec / movingSec) * 100) / 100
+      : null;
+
+  return { ratio, elapsedSec, movingSec };
+}
+
+// ---------------------------------------------------------------------------
+// Explicit not-computable state (D-06)
+// ---------------------------------------------------------------------------
+
+/**
+ * Constructs the explicit not-computable `ActivityQualitySignals` for an
+ * activity whose three stream-derived signals could not be computed (D-06)
+ * — e.g. no stream committed, or the stream failed `validateStreamSeries`.
+ * This is the sibling of `compute-dashboard-index.ts`'s existing
+ * `streams.available` / `streams.reason` stream-less state, applied to the
+ * quality-signal tree.
+ *
+ * Returns a FRESH object on every call (never a shared mutable
+ * module-level constant), mirroring `pace-derivation.ts`'s `zeroCoverage()`
+ * pattern — a caller mutating one returned object must never affect
+ * another.
+ *
+ * All three tiering signals carry `tier: 'not-computable'` and every
+ * numeric evidence field is `null`. `anySevere` is `false` here, but that
+ * means "not KNOWN to be severe", NOT "known to be clean" — every consumer
+ * distinguishes the two by reading `notComputableReason`, which is
+ * non-null exactly in this state.
+ *
+ * The two untiered facts (`deviceEra`, `elapsedVsMoving`) pass through
+ * UNCHANGED from the caller's arguments: a stream-less activity still has
+ * a device family and still has an elapsed/moving ratio (computed from
+ * metadata alone, independent of the stream), and hiding them would be its
+ * own fabrication.
+ */
+export function notComputableSignals(
+  deviceEra: DeviceEraSignal,
+  elapsedVsMoving: ElapsedVsMovingSignal,
+  reason: string
+): ActivityQualitySignals {
+  return {
+    decimation: { tier: 'not-computable', zeroAdvanceFraction: null, sampleCount: null },
+    gapProfile: {
+      tier: 'not-computable',
+      gapFraction: null,
+      recordingGapSec: null,
+      pauseSec: null,
+      spanSec: null,
+    },
+    impossibleSamples: {
+      tier: 'not-computable',
+      count: null,
+      maxImpliedSpeedMps: null,
+      countInsideZeroAdvanceRun: null,
+    },
+    deviceEra,
+    elapsedVsMoving,
+    anySevere: false,
+    notComputableReason: reason,
+  };
+}

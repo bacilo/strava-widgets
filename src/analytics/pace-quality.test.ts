@@ -14,6 +14,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   NOT_COMPUTABLE_NO_STREAM,
+  elapsedVsMovingSignal,
+  notComputableSignals,
   resolveDeviceFamily,
   type ActivityQualityMetadata,
   type DeviceEraSignal,
@@ -112,5 +114,80 @@ describe('resolveDeviceFamily — NOT_COMPUTABLE constant sanity', () => {
   it('NOT_COMPUTABLE_NO_STREAM is a non-empty, stable string', () => {
     expect(typeof NOT_COMPUTABLE_NO_STREAM).toBe('string');
     expect(NOT_COMPUTABLE_NO_STREAM.length).toBeGreaterThan(0);
+  });
+});
+
+describe('elapsedVsMovingSignal and notComputableSignals — not computable', () => {
+  it('computes a rounded ratio from finite elapsed/moving seconds', () => {
+    const result = elapsedVsMovingSignal({ elapsedTimeSec: 3600, movingTimeSec: 3000 });
+    expect(result.ratio).toBe(1.2);
+    expect(result.elapsedSec).toBe(3600);
+    expect(result.movingSec).toBe(3000);
+  });
+
+  it('movingTimeSec 0 yields ratio null, never 0 and never 1', () => {
+    const result = elapsedVsMovingSignal({ elapsedTimeSec: 100, movingTimeSec: 0 });
+    expect(result.ratio).toBeNull();
+    expect(result.ratio).not.toBe(0);
+    expect(result.ratio).not.toBe(1);
+    expect(result.movingSec).toBe(0);
+  });
+
+  it('undefined elapsedTimeSec yields ratio null and elapsedSec null without throwing', () => {
+    expect(() =>
+      elapsedVsMovingSignal({ elapsedTimeSec: undefined, movingTimeSec: 3000 })
+    ).not.toThrow();
+    const result = elapsedVsMovingSignal({ elapsedTimeSec: undefined, movingTimeSec: 3000 });
+    expect(result.ratio).toBeNull();
+    expect(result.elapsedSec).toBeNull();
+  });
+
+  it('notComputableSignals returns all three tiering signals as not-computable with null evidence, anySevere false, and the passed reason', () => {
+    const deviceEra: DeviceEraSignal = { family: 'no-device-name', rawDeviceName: null };
+    const elapsedVsMoving = elapsedVsMovingSignal({ elapsedTimeSec: 100, movingTimeSec: 90 });
+    const result = notComputableSignals(deviceEra, elapsedVsMoving, NOT_COMPUTABLE_NO_STREAM);
+
+    expect(result.decimation.tier).toBe('not-computable');
+    expect(result.decimation.zeroAdvanceFraction).toBeNull();
+    expect(result.decimation.sampleCount).toBeNull();
+
+    expect(result.gapProfile.tier).toBe('not-computable');
+    expect(result.gapProfile.gapFraction).toBeNull();
+    expect(result.gapProfile.recordingGapSec).toBeNull();
+    expect(result.gapProfile.pauseSec).toBeNull();
+    expect(result.gapProfile.spanSec).toBeNull();
+
+    expect(result.impossibleSamples.tier).toBe('not-computable');
+    expect(result.impossibleSamples.count).toBeNull();
+    expect(result.impossibleSamples.maxImpliedSpeedMps).toBeNull();
+    expect(result.impossibleSamples.countInsideZeroAdvanceRun).toBeNull();
+
+    expect(result.anySevere).toBe(false);
+    expect(result.notComputableReason).toBe(NOT_COMPUTABLE_NO_STREAM);
+
+    // Untiered facts pass through unchanged.
+    expect(result.deviceEra).toEqual(deviceEra);
+    expect(result.elapsedVsMoving).toEqual(elapsedVsMoving);
+  });
+
+  it('two successive notComputableSignals calls return distinct, unmutated objects', () => {
+    const deviceEra: DeviceEraSignal = { family: 'no-device-name', rawDeviceName: null };
+    const elapsedVsMoving: ReturnType<typeof elapsedVsMovingSignal> = {
+      ratio: null,
+      elapsedSec: null,
+      movingSec: null,
+    };
+
+    const first = notComputableSignals(deviceEra, elapsedVsMoving, NOT_COMPUTABLE_NO_STREAM);
+    const second = notComputableSignals(deviceEra, elapsedVsMoving, NOT_COMPUTABLE_NO_STREAM);
+
+    expect(first).not.toBe(second);
+    expect(first.decimation).not.toBe(second.decimation);
+    expect(first.gapProfile).not.toBe(second.gapProfile);
+    expect(first.impossibleSamples).not.toBe(second.impossibleSamples);
+
+    // Mutating the first must not affect the second.
+    first.decimation.sampleCount = 999;
+    expect(second.decimation.sampleCount).toBeNull();
   });
 });
