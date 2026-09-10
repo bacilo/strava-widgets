@@ -33,7 +33,13 @@ import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { execSync } from 'child_process';
 
-import { computePaceQualitySignals, hasAnySevereSignal } from '../dist/analytics/pace-quality.js';
+import {
+  computePaceQualitySignals,
+  hasAnySevereSignal,
+  DECIMATION_SEVERE_ZERO_ADVANCE_FRACTION,
+  GAP_PROFILE_SEVERE_FRACTION,
+  IMPOSSIBLE_SAMPLE_SEVERE_COUNT,
+} from '../dist/analytics/pace-quality.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = join(__dirname, '..');
@@ -709,13 +715,149 @@ function main() {
 }
 
 /**
- * Placeholder for Task 2's `--sweep` implementation. Overwritten by Task 2's
- * commit; kept here so Task 1's baseline run (no `--sweep` flag) never calls
- * it and Task 1's acceptance criteria (which do not exercise `--sweep`) are
- * unaffected by its absence.
+ * Threshold Sensitivity — Criterion 4's "demonstrated failing by moving a
+ * threshold" discriminator, proven in BOTH directions for all three
+ * `QualityThresholdOverrides` fields this phase's tiering signals expose
+ * (six rows: two directions × three thresholds). No source constant in
+ * `src/analytics/pace-quality.ts` is edited — every override goes through
+ * the `options` parameter `computePaceQualitySignals` already accepts, the
+ * same shape `classifyGaps(t, d, { pauseRule })` uses for its own knob.
+ *
+ * `rawEntries` is the SAME already-read archive Task 1's baseline run used
+ * (no re-reading `data/`) — only the in-memory recomputation under each
+ * override is repeated per row, via `computeSignalsForEntries`.
+ *
+ * The two `decimationZeroAdvanceFraction` rows are labelled DEMONSTRATION
+ * ONLY: D-04 locks `DECIMATION_SEVERE_ZERO_ADVANCE_FRACTION` at its shipped
+ * 0.15/50 pair verbatim from Phase 26's cohort rule, so these two rows exist
+ * solely to prove the same knob also reaches this signal — never to propose
+ * a replacement value.
  */
-function buildThresholdSensitivitySection() {
-  throw new Error('--sweep mode is implemented by Task 2 of plan 27-03; not yet available.');
+function buildThresholdSensitivitySection(rawEntries, report) {
+  const shippedComposite = report.compositeCount;
+  const decimationFloor = report._metrics.decimationSevereIds.size;
+  const otherTwoFloor = new Set([
+    ...report._metrics.gapProfileSevereIds,
+    ...report._metrics.impossibleSevereIds,
+  ]).size;
+
+  const rowSpecs = [
+    {
+      label: 'Gap profile severe fraction — LOOSER (more inclusive)',
+      param: 'gapProfileSevereFraction',
+      shipped: GAP_PROFILE_SEVERE_FRACTION,
+      override: 0.15,
+      direction: 'increase',
+      floorNote: `decimation's locked severe cohort (${decimationFloor})`,
+      demoOnly: false,
+    },
+    {
+      label: 'Gap profile severe fraction — STRICTER (less inclusive)',
+      param: 'gapProfileSevereFraction',
+      shipped: GAP_PROFILE_SEVERE_FRACTION,
+      override: 0.25,
+      direction: 'decrease',
+      floorNote: `decimation's locked severe cohort (${decimationFloor})`,
+      demoOnly: false,
+    },
+    {
+      label: 'Impossible-sample severe count — LOOSER (more inclusive)',
+      param: 'impossibleSevereCount',
+      shipped: IMPOSSIBLE_SAMPLE_SEVERE_COUNT,
+      override: 5,
+      direction: 'increase',
+      floorNote: `decimation's locked severe cohort (${decimationFloor})`,
+      demoOnly: false,
+    },
+    {
+      label: 'Impossible-sample severe count — STRICTER (less inclusive)',
+      param: 'impossibleSevereCount',
+      shipped: IMPOSSIBLE_SAMPLE_SEVERE_COUNT,
+      override: 20,
+      direction: 'decrease',
+      floorNote: `decimation's locked severe cohort (${decimationFloor})`,
+      demoOnly: false,
+    },
+    {
+      label: 'Decimation zero-advance fraction — LOOSER (more inclusive)',
+      param: 'decimationZeroAdvanceFraction',
+      shipped: DECIMATION_SEVERE_ZERO_ADVANCE_FRACTION,
+      override: 0.1,
+      direction: 'increase',
+      floorNote: `the union of gapProfile ∪ impossibleSamples severe cohorts (${otherTwoFloor})`,
+      demoOnly: true,
+    },
+    {
+      label: 'Decimation zero-advance fraction — STRICTER (less inclusive)',
+      param: 'decimationZeroAdvanceFraction',
+      shipped: DECIMATION_SEVERE_ZERO_ADVANCE_FRACTION,
+      override: 0.2,
+      direction: 'decrease',
+      floorNote: `the union of gapProfile ∪ impossibleSamples severe cohorts (${otherTwoFloor})`,
+      demoOnly: true,
+    },
+  ];
+
+  const rows = rowSpecs.map((spec) => {
+    const overrides = { [spec.param]: spec.override };
+    const metrics = computeSignalsForEntries(rawEntries, overrides);
+    const compositeCount = metrics.compositeIds.size;
+    const delta = compositeCount - shippedComposite;
+
+    let verdict;
+    let reason = '';
+    if (delta !== 0) {
+      verdict = `MOVED (${delta > 0 ? '+' : ''}${delta})`;
+    } else {
+      verdict = 'DID-NOT-MOVE';
+      reason = `floor dominated by ${spec.floorNote}`;
+    }
+
+    return { ...spec, compositeCount, delta, verdict, reason };
+  });
+
+  const anyIncreased = rows.some((r) => r.delta > 0);
+  const anyDecreased = rows.some((r) => r.delta < 0);
+
+  const lines = [];
+  lines.push('## Threshold Sensitivity');
+  lines.push('');
+  lines.push(
+    `Shipped (no-override) composite: **${shippedComposite}**. Each row below recomputes the ` +
+      'composite under ONE overridden `QualityThresholdOverrides` field via the `options` ' +
+      'parameter `computePaceQualitySignals` already accepts — no source constant in ' +
+      '`src/analytics/pace-quality.ts` is edited to produce any row.'
+  );
+  lines.push('');
+  lines.push('| Threshold | Shipped value | Override | Expected direction | Composite | Delta | Verdict |');
+  lines.push('|---|---|---|---|---|---|---|');
+  for (const row of rows) {
+    const label = row.demoOnly
+      ? `${row.label} (DEMONSTRATION ONLY — D-04 locks the shipped value; not a proposal)`
+      : row.label;
+    lines.push(
+      `| ${label} | ${row.shipped} | ${row.override} | ${row.direction} | ${row.compositeCount} | ` +
+        `${row.delta > 0 ? '+' : ''}${row.delta} | ${row.verdict}${row.reason ? ` — ${row.reason}` : ''} |`
+    );
+  }
+  lines.push('');
+  lines.push(
+    `At least one row shows the composite strictly INCREASING relative to the shipped run: ` +
+      `**${anyIncreased ? 'CONFIRMED' : 'NOT CONFIRMED — see rows above, this is itself a finding'}**. ` +
+      `At least one row shows the composite strictly DECREASING: ` +
+      `**${anyDecreased ? 'CONFIRMED' : 'NOT CONFIRMED — see rows above, this is itself a finding'}**. ` +
+      'The discriminator is proven to move the composite in both directions without editing a shipped constant.'
+  );
+  lines.push('');
+  lines.push(
+    'The two decimation rows above are DEMONSTRATION ONLY: `DECIMATION_SEVERE_ZERO_ADVANCE_FRACTION` ' +
+      "stays locked at its shipped 0.15/50 pair verbatim from Phase 26's cohort rule (D-04). These " +
+      'rows exist solely to prove the same `options` knob also reaches this signal — never to ' +
+      'propose a replacement value, and no row here is read as a recommendation.'
+  );
+  lines.push('');
+
+  return lines.join('\n');
 }
 
 // Self-execution guard, mirroring compute-pace-residual.mjs: main() runs

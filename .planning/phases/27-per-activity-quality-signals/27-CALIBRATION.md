@@ -2,7 +2,7 @@
 
 The measured composite severe rate — the true union across all three per-activity quality tiering signals (`decimation`, `gapProfile`, `impossibleSamples`) — over the full live committed archive, produced entirely by `npm run compute-pace-quality-calibration`. Every figure below is computed by THIS run; nothing is transcribed from `27-RESEARCH.md`, `27-CONTEXT.md` or `26-RESIDUAL.md` except the threshold justifications in section 2, which are quoted and attributed.
 
-**Generated:** 2026-09-10T13:56:52.553Z
+**Generated:** 2026-09-10T14:00:07.235Z
 
 ## 1. Denominators (computed live)
 
@@ -92,3 +92,20 @@ Regenerate with the Threshold Sensitivity section appended:
 ```
 npm run compute-pace-quality-calibration -- --sweep
 ```
+
+## Threshold Sensitivity
+
+Shipped (no-override) composite: **299**. Each row below recomputes the composite under ONE overridden `QualityThresholdOverrides` field via the `options` parameter `computePaceQualitySignals` already accepts — no source constant in `src/analytics/pace-quality.ts` is edited to produce any row.
+
+| Threshold | Shipped value | Override | Expected direction | Composite | Delta | Verdict |
+|---|---|---|---|---|---|---|
+| Gap profile severe fraction — LOOSER (more inclusive) | 0.2 | 0.15 | increase | 366 | +67 | MOVED (+67) |
+| Gap profile severe fraction — STRICTER (less inclusive) | 0.2 | 0.25 | decrease | 261 | -38 | MOVED (-38) |
+| Impossible-sample severe count — LOOSER (more inclusive) | 10 | 5 | increase | 332 | +33 | MOVED (+33) |
+| Impossible-sample severe count — STRICTER (less inclusive) | 10 | 20 | decrease | 279 | -20 | MOVED (-20) |
+| Decimation zero-advance fraction — LOOSER (more inclusive) (DEMONSTRATION ONLY — D-04 locks the shipped value; not a proposal) | 0.15 | 0.1 | increase | 334 | +35 | MOVED (+35) |
+| Decimation zero-advance fraction — STRICTER (less inclusive) (DEMONSTRATION ONLY — D-04 locks the shipped value; not a proposal) | 0.15 | 0.2 | decrease | 255 | -44 | MOVED (-44) |
+
+At least one row shows the composite strictly INCREASING relative to the shipped run: **CONFIRMED**. At least one row shows the composite strictly DECREASING: **CONFIRMED**. The discriminator is proven to move the composite in both directions without editing a shipped constant.
+
+The two decimation rows above are DEMONSTRATION ONLY: `DECIMATION_SEVERE_ZERO_ADVANCE_FRACTION` stays locked at its shipped 0.15/50 pair verbatim from Phase 26's cohort rule (D-04). These rows exist solely to prove the same `options` knob also reaches this signal — never to propose a replacement value, and no row here is read as a recommendation.
