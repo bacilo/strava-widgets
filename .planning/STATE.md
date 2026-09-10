@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Pace Data Quality
-status: ready_to_plan
-stopped_at: Phase 26 complete (16/16) — ready to discuss Phase 27
-last_updated: 2026-09-10T09:20:22.534Z
+status: planning
+stopped_at: Phase 27 context gathered
+last_updated: "2026-09-10T11:50:34.230Z"
 last_activity: 2026-09-10
 progress:
   total_phases: 5
@@ -222,9 +222,9 @@ It is named here because PROJECT.md's Evolution entry still describes it as open
 
 ## Session Continuity
 
-Last session: 2026-09-10T09:07:28.234Z
-Stopped at: Completed 26-16-PLAN.md — Round 3 browser checkpoint all PASS, PACE-01 re-closed, Phase 26 requirement gate fully closed
-Resume file: None
+Last session: 2026-09-10T11:50:34.215Z
+Stopped at: Phase 27 context gathered
+Resume file: .planning/phases/27-per-activity-quality-signals/27-CONTEXT.md
 
 ---
 *Last updated: 2026-08-11 — Phase 17 (activity-browser-detail-views) all 15 planned plans executed and summarized; human checkpoint on plan 17-15 came back PARTIAL — 8/10 Manual-Only Verifications rows confirmed clean, GAP 1 (DETAIL-02, route-map basemap tiles absent) and GAP 2 (DETAIL-03/04, chart band x-axis misalignment) have open gaps pending gap-closure planning (`/gsd-plan-phase 17 --gaps`) before the phase gate closes*
