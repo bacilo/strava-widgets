@@ -15,6 +15,7 @@ import type {
   ActivityBestEfforts,
   BestEffortsDocument,
   ComputedEffort,
+  EffortDemotion,
   PRRankingEntry,
   RejectedEffort,
   TargetDistanceKey,
@@ -37,6 +38,39 @@ import { FileStore } from '../storage/file-store.js';
 /** Rounds to at most one decimal place. */
 function round1(value: number): number {
   return Math.round(value * 10) / 10;
+}
+
+/**
+ * Builds the demotion that D-08's shared path records for an absolute-guard
+ * rejection. This is the ONLY site in this file that constructs a
+ * `demotion` value from `isPlausible`'s failing variant — the ceiling's own
+ * rejection (Task 2 below) constructs its `EffortDemotion` via
+ * `ceilingDemotion` instead, but nothing else in this file may assign to an
+ * effort's `demotion` field, so one guard cannot silently diverge from
+ * another (Phase 24's `resolveExcluded` lesson: duplicated derivations
+ * defeat checkpoints).
+ *
+ * `guard` is optional on `PlausibilityResult`'s failing variant only because
+ * `validateStreamSeries` shares that type for series-shape failures that
+ * carry no absolute guard at all (plan 28-03's decision) — but
+ * `validateStreamSeries`'s result is handled earlier, before the per-target
+ * loop even starts, and never reaches this function. `isPlausible`'s own two
+ * rejection branches always set `guard`, so the throw below is a defensive
+ * assertion, not an expected path: it fails loudly (caught by this
+ * function's caller's `try`/`catch`, landing as an `unexpected error:` row)
+ * rather than silently mis-recording which guard fired.
+ */
+function demotionFromPlausibility(result: {
+  ok: false;
+  reason: string;
+  guard?: 'max-speed' | 'world-record';
+}): EffortDemotion {
+  if (!result.guard) {
+    throw new Error(
+      `demotionFromPlausibility: isPlausible's failing result carried no guard (reason: ${result.reason})`
+    );
+  }
+  return { guard: result.guard, reason: result.reason };
 }
 
 /** Input to `computeActivityEfforts` — one activity's canonical record plus its stream series. */
@@ -90,13 +124,15 @@ export function computeActivityEfforts(input: ActivityEffortInput): ActivityEffo
 
       const impliedSpeedMps = TARGET_METERS[key] / raw.durationSec;
       const plausibility = isPlausible(impliedSpeedMps, maxSpeedMps, WORLD_RECORD_SPEED_MPS[key]);
+      const paceSecPerKm = raw.durationSec / (TARGET_METERS[key] / 1000);
 
+      // D-08: an absolute-guard rejection no longer deletes the effort. It
+      // still gets a `rejected` row (the archive-wide report), but the
+      // effort itself is retained in `efforts[]` below, carrying its
+      // demotion — the single shared path `demotionFromPlausibility` builds.
       if (!plausibility.ok) {
         rejected.push({ activityId, distance: key, reason: plausibility.reason });
-        continue;
       }
-
-      const paceSecPerKm = raw.durationSec / (TARGET_METERS[key] / 1000);
 
       efforts.push({
         distance: key,
@@ -105,10 +141,14 @@ export function computeActivityEfforts(input: ActivityEffortInput): ActivityEffo
         startOffsetSec: Math.round(raw.startOffsetSec),
         endOffsetSec: round1(raw.endOffsetSec),
         lowConfidence: distanceSource === 'geo',
-        demotion: null, // No ceiling yet; plan 28-05 replaces this push branch.
+        demotion: plausibility.ok ? null : demotionFromPlausibility(plausibility),
       });
     } catch (error) {
-      // One target throwing must never lose the activity's other six (Pitfall 6).
+      // NOT a demotion of a computed effort (D-08 is about retained-but-
+      // flagged efforts) — the computation itself threw, so there is no
+      // effort object to retain. This is the one remaining `rejected`-only
+      // path; one target throwing must never lose the activity's other six
+      // (Pitfall 6).
       rejected.push({
         activityId,
         distance: key,
@@ -165,7 +205,6 @@ export async function computeBestEfforts(
 
   let skippedNoStream = 0;
   let skippedUnreadable = 0;
-  let effortsRejected = 0;
   let effortsExcluded = 0;
   let lowConfidenceEfforts = 0;
 
@@ -205,9 +244,12 @@ export async function computeBestEfforts(
         continue;
       }
 
+      // `rejected` now widens to one row per DEMOTED effort across all three
+      // guards (world-record, max-speed, ceiling) plus unexpected-error
+      // rows — not a "deleted effort" report any more, since D-08 means
+      // nothing is deleted. `totals.effortsRejected` below is `rejected.length`.
       for (const rejection of result.rejected) {
         rejected.push(rejection);
-        effortsRejected++;
       }
 
       for (const effort of result.efforts) {
@@ -218,6 +260,14 @@ export async function computeBestEfforts(
           effortsExcluded++;
           continue;
         }
+
+        // D-08/PR-02: a demoted effort is retained in `activities[id].efforts`
+        // (below) but must never feed the ranking/ceiling population — only
+        // guard-passed, non-excluded efforts reach `byDistance`. Only
+        // absolute-guard demotions exist at this point in the file; the
+        // ceiling guard (plan 28-05 Task 2) demotes further, downstream of
+        // this population, and never re-admits anything filtered out here.
+        if (effort.demotion !== null) continue;
 
         byDistance.get(effort.distance)!.push({
           activityId: id,
@@ -283,6 +333,14 @@ export async function computeBestEfforts(
     (sum, a) => sum + a.efforts.length,
     0
   );
+  // Derived by walking the shipped data rather than an incrementing
+  // counter, so it cannot drift from what a consumer would actually see —
+  // counts every effort (any guard: world-record, max-speed, ceiling) whose
+  // `demotion` is non-null across the whole built document.
+  const effortsDemoted = Object.values(sortedActivities).reduce(
+    (sum, a) => sum + a.efforts.filter((e) => e.demotion !== null).length,
+    0
+  );
 
   const doc: BestEffortsDocument = {
     schemaVersion: BEST_EFFORTS_SCHEMA_VERSION,
@@ -298,12 +356,15 @@ export async function computeBestEfforts(
       activitiesConsidered: Object.keys(manifest.activities).length - skippedNoStream,
       activitiesWithEfforts,
       effortsComputed,
-      effortsRejected,
+      // Widened meaning (D-08): one row per demoted effort (any guard) plus
+      // unexpected-error rows — no longer a "deleted effort" count, since
+      // nothing is deleted any more.
+      effortsRejected: rejected.length,
       effortsExcluded,
       lowConfidenceEfforts,
       skippedNoStream,
       skippedUnreadable,
-      effortsDemoted: 0, // Plan 28-05 starts computing this.
+      effortsDemoted,
     },
     rankings,
     rejected,

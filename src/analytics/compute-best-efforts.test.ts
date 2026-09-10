@@ -498,7 +498,7 @@ describe('computeBestEfforts — archive orchestration', () => {
     expect(doc.rankings['1k'][0].lowConfidence).toBe(true);
   });
 
-  it('rejected contains one row per dropped effort with activityId, distance and reason', async () => {
+  it('a world-record-guard rejection is retained and flagged, not deleted: rejected row AND a demoted effort with guard/reason set', async () => {
     const manifest = emptyManifestDoc();
     manifest.activities['implausible'] = {
       available: true,
@@ -531,10 +531,145 @@ describe('computeBestEfforts — archive orchestration', () => {
       statsDir: path.join(tmpDir, 'stats'),
     });
 
+    // The `rejected` row still exists — it is the archive-wide report of
+    // which guard fired, not evidence the effort was deleted.
     expect(doc.rejected.length).toBe(1);
     expect(doc.rejected[0]).toMatchObject({ activityId: 'implausible', distance: '400m' });
     expect(doc.rejected[0].reason).toMatch(/exceeds world-record pace/);
-    expect(doc.activities['implausible'].efforts.some((e) => e.distance === '1k')).toBe(true);
+
+    // D-08: the effort is RETAINED in activities[id].efforts, not removed —
+    // this is the assertion the old test inverted (it used to assert the
+    // 400m effort was ABSENT).
+    const demoted400m = doc.activities['implausible'].efforts.find((e) => e.distance === '400m');
+    expect(demoted400m).toBeDefined();
+    expect(demoted400m!.demotion).not.toBeNull();
+    expect(demoted400m!.demotion!.guard).toBe('world-record');
+    expect(demoted400m!.demotion!.reason).toMatch(/exceeds world-record pace/);
+
+    // The plausible 1k effort survives untouched.
+    const oneK = doc.activities['implausible'].efforts.find((e) => e.distance === '1k');
+    expect(oneK).toBeDefined();
+    expect(oneK!.demotion).toBeNull();
+  });
+
+  it('a max-speed-guard rejection is also retained and flagged with guard "max-speed"', async () => {
+    const manifest = emptyManifestDoc();
+    manifest.activities['maxspeed-implausible'] = {
+      available: true,
+      source: 'fit',
+      distanceSource: 'native',
+      sampleCount: 2,
+      channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+    };
+    await writeManifest(manifest);
+    // max_speed 3 m/s means the max-speed guard (3 * 1.02 = 3.06 m/s) fires
+    // well before the 400m world-record ceiling (~9.30 m/s) would — this
+    // isolates the max-speed branch specifically.
+    await writeActivity('maxspeed-implausible', '2026-01-01T00:00:00Z', 1000, 3);
+    await fileStore.writeJson(path.join('streams', 'maxspeed-implausible.json'), {
+      schemaVersion: 1,
+      id: 'maxspeed-implausible',
+      source: 'fit',
+      distanceSource: 'native',
+      sampleCount: 3,
+      channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+      // First 400m in 80s implies 5 m/s — exceeds max_speed*1.02 (3.06 m/s)
+      // but not the 400m world-record ceiling. Remaining 600m over 220s
+      // (~2.7 m/s) keeps the whole-series 1k window under the max_speed
+      // margin too.
+      t: [0, 80, 300],
+      d: [0, 400, 1000],
+    });
+
+    const doc = await computeBestEfforts({
+      activitiesDir: path.join(tmpDir, 'activities'),
+      streamsDir: path.join(tmpDir, 'streams'),
+      streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+      statsDir: path.join(tmpDir, 'stats'),
+    });
+
+    const demoted400m = doc.activities['maxspeed-implausible'].efforts.find(
+      (e) => e.distance === '400m'
+    );
+    expect(demoted400m).toBeDefined();
+    expect(demoted400m!.demotion).not.toBeNull();
+    expect(demoted400m!.demotion!.guard).toBe('max-speed');
+    expect(demoted400m!.demotion!.reason).toMatch(/exceeds activity max_speed/);
+  });
+
+  describe('demoted efforts remain in the efforts array', () => {
+    /**
+     * Walks `doc.rejected`, and for every row whose reason is not an
+     * `unexpected error:` row (those have no corresponding effort — the
+     * computation itself threw), asserts a matching `(activityId, distance)`
+     * effort exists in `doc.activities[activityId].efforts` with a non-null
+     * `demotion`. Returns the list of violations rather than asserting
+     * directly, so the SAME helper can be run against both a correct
+     * document (expecting zero violations) and a deliberately-mutated one
+     * (expecting a violation per demoted effort removed) — a one-directional
+     * audit is not evidence.
+     */
+    function auditNoDemotedEffortRemoved(doc: {
+      rejected: { activityId: string; distance: string; reason: string }[];
+      activities: Record<string, { efforts: { distance: string; demotion: unknown }[] }>;
+    }): string[] {
+      const violations: string[] = [];
+      for (const row of doc.rejected) {
+        if (row.reason.startsWith('unexpected error:')) continue;
+        const activity = doc.activities[row.activityId];
+        const effort = activity?.efforts.find((e) => e.distance === row.distance);
+        if (!effort || effort.demotion == null) {
+          violations.push(`${row.activityId} ${row.distance}: no retained, flagged effort found`);
+        }
+      }
+      return violations;
+    }
+
+    it('returns zero violations against the freshly computed document, and at least one violation against a delete-mutated copy', async () => {
+      const manifest = emptyManifestDoc();
+      manifest.activities['implausible'] = {
+        available: true,
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 2,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+      };
+      await writeManifest(manifest);
+      await writeActivity('implausible', '2026-01-01T00:00:00Z', 1000);
+      await fileStore.writeJson(path.join('streams', 'implausible.json'), {
+        schemaVersion: 1,
+        id: 'implausible',
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 3,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+        t: [0, 5, 300],
+        d: [0, 400, 1000],
+      });
+
+      const doc = await computeBestEfforts({
+        activitiesDir: path.join(tmpDir, 'activities'),
+        streamsDir: path.join(tmpDir, 'streams'),
+        streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+        statsDir: path.join(tmpDir, 'stats'),
+      });
+
+      // Direction 1: the audit passes against the correct, freshly computed document.
+      expect(auditNoDemotedEffortRemoved(doc)).toEqual([]);
+
+      // Direction 2: demonstrate the audit failing. Build a mutated copy of
+      // the same document with every demoted effort spliced OUT of its
+      // efforts array — the literal "mutated to delete instead of flag"
+      // state ROADMAP criterion 4 names — and assert the audit returns a
+      // violation for each.
+      const mutated = structuredClone(doc);
+      for (const activity of Object.values(mutated.activities)) {
+        activity.efforts = activity.efforts.filter((e) => e.demotion == null);
+      }
+      const violations = auditNoDemotedEffortRemoved(mutated);
+      expect(violations.length).toBeGreaterThan(0);
+      expect(violations.length).toBe(mutated.rejected.filter((r) => !r.reason.startsWith('unexpected error:')).length);
+    });
   });
 
   it('totals are internally consistent: effortsComputed and lowConfidenceEfforts match the activities data', async () => {
