@@ -223,15 +223,23 @@ export function lowConfidenceDescriptionId(idPrefix: string): string {
  * badge builder. `appendLowConfidenceBadge` and `appendPaceDisputedBadge`
  * both call this too, so there is exactly one place in the dashboard that
  * constructs an accessible badge+description pair.
+ *
+ * `extraClassName` (Phase 27, Task 3) is OPTIONAL and defaults to
+ * producing the exact prior output — a plain `.badge` — when omitted. It
+ * exists so `appendQualityBadges` below can apply `.badge--severe` without
+ * a fourth hand-rolled badge builder; `appendLowConfidenceBadge`,
+ * `appendPaceDisputedBadge` and `detail.ts`'s stat-card badge call site all
+ * keep their current output unchanged, since none of them pass it.
  */
 export function appendAccessibleBadge(
   container: HTMLElement,
   visibleText: string,
   explanation: string,
-  descriptionId: string
+  descriptionId: string,
+  extraClassName?: string
 ): void {
   const badge = document.createElement('span');
-  badge.className = 'badge';
+  badge.className = extraClassName ? `badge ${extraClassName}` : 'badge';
   badge.textContent = visibleText;
   badge.title = explanation;
   badge.setAttribute('aria-describedby', descriptionId);
@@ -526,11 +534,15 @@ function appendStatusBadges(container: HTMLElement, row: DashboardIndexRow, idPr
  */
 function appendQualityBadges(container: HTMLElement, row: DashboardIndexRow, idPrefix: string): void {
   for (const spec of qualityBadgeSpecs(row)) {
+    // Every spec qualityBadgeSpecs returns is severe-tier by construction
+    // (D-07), so `badge--severe` applies unconditionally here — there is no
+    // minor-tier quality badge to distinguish it from on this surface.
     appendAccessibleBadge(
       container,
       spec.visibleText,
       spec.explanation,
-      qualityBadgeDescriptionId(idPrefix, spec.descriptionIdSuffix)
+      qualityBadgeDescriptionId(idPrefix, spec.descriptionIdSuffix),
+      'badge--severe'
     );
   }
 }
