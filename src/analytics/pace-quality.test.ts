@@ -18,14 +18,18 @@ import {
   GAP_PROFILE_SEVERE_FRACTION,
   IMPOSSIBLE_SAMPLE_SEVERE_COUNT,
   NOT_COMPUTABLE_NO_STREAM,
+  buildPaceQualityShard,
+  computePaceQualitySignals,
   countImpossibleSamples,
   decimationSignal,
   elapsedVsMovingSignal,
   gapProfileSignal,
+  hasAnySevereSignal,
   impossibleSampleSignal,
   notComputableSignals,
   resolveDeviceFamily,
   type ActivityQualityMetadata,
+  type ActivityQualitySignals,
   type DeviceEraSignal,
 } from './pace-quality.js';
 import {
@@ -38,11 +42,23 @@ import {
   syntheticMultiHourPauseStream,
   syntheticRecordingGapStream,
 } from './pace-fixtures.js';
+import { adaptiveWindowSec as recomputeAdaptiveWindowSec } from './pace-derivation.js';
 
 /** Builds the two-field metadata slice `resolveDeviceFamily` consumes from a raw activity record. */
 function metadataOf(activity: unknown): Pick<ActivityQualityMetadata, 'deviceName' | 'sourceProvider'> {
   const record = activity as Record<string, unknown>;
   return { deviceName: record.device_name, sourceProvider: record.source_provider };
+}
+
+/** Builds the full four-field metadata `computePaceQualitySignals`/`buildPaceQualityShard` consume. */
+function fullMetadataOf(activity: unknown): ActivityQualityMetadata {
+  const record = activity as Record<string, unknown>;
+  return {
+    deviceName: record.device_name,
+    sourceProvider: record.source_provider,
+    elapsedTimeSec: record.elapsed_time,
+    movingTimeSec: record.moving_time,
+  };
 }
 
 describe('resolveDeviceFamily — device family (ERA-01)', () => {
@@ -450,5 +466,178 @@ describe('impossible samples detector', () => {
   it('IMPOSSIBLE_SAMPLE_SEVERE_COUNT is a positive integer cut, not a fraction', () => {
     expect(Number.isInteger(IMPOSSIBLE_SAMPLE_SEVERE_COUNT)).toBe(true);
     expect(IMPOSSIBLE_SAMPLE_SEVERE_COUNT).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// independent signals (QUAL-02) and shard (Task 3)
+// ---------------------------------------------------------------------------
+
+describe('independent signals (QUAL-02)', () => {
+  it('deviceEra and decimation are two separately readable fields that cannot be collapsed', () => {
+    const activity = loadPinnedActivity('decimation-aliased');
+    const stream = loadPinnedStream('decimation-aliased');
+    const metadata = fullMetadataOf(activity);
+
+    const result = computePaceQualitySignals(stream, metadata);
+
+    expect(result.deviceEra.family).toBe('suunto-9');
+    expect(result.decimation.tier).toBe('severe');
+    expect(result.deviceEra).not.toHaveProperty('tier');
+
+    // Mutating decimation.tier must not affect deviceEra.
+    result.decimation.tier = 'none';
+    expect(result.deviceEra.family).toBe('suunto-9');
+  });
+
+  it('impossibleSamples and decimation are separately readable and the coupling is disclosed, not resolved by dropping one', () => {
+    const activity = loadPinnedActivity('decimation-aliased');
+    const stream = loadPinnedStream('decimation-aliased');
+    const metadata = fullMetadataOf(activity);
+
+    const result = computePaceQualitySignals(stream, metadata);
+
+    expect(result.decimation.tier).toBe('severe');
+    expect(result.impossibleSamples.tier).not.toBeNull();
+    expect(result.impossibleSamples.countInsideZeroAdvanceRun).not.toBeNull();
+    expect(result.impossibleSamples.countInsideZeroAdvanceRun!).toBeGreaterThan(0);
+  });
+
+  it('computePaceQualitySignals(null, metadata) reports all three tiering signals not-computable, anySevere false, deviceEra still resolved', () => {
+    const metadata: ActivityQualityMetadata = {
+      deviceName: 'Suunto 9',
+      sourceProvider: undefined,
+      elapsedTimeSec: 3600,
+      movingTimeSec: 3000,
+    };
+
+    const result = computePaceQualitySignals(null, metadata);
+
+    expect(result.decimation.tier).toBe('not-computable');
+    expect(result.gapProfile.tier).toBe('not-computable');
+    expect(result.impossibleSamples.tier).toBe('not-computable');
+    expect(result.notComputableReason).toBe(NOT_COMPUTABLE_NO_STREAM);
+    expect(result.anySevere).toBe(false);
+    expect(result.deviceEra.family).toBe('suunto-9');
+  });
+
+  it('hasAnySevereSignal truth table', () => {
+    const none: ActivityQualitySignals['decimation'] = { tier: 'none', zeroAdvanceFraction: 0, sampleCount: 10 };
+    const minor: ActivityQualitySignals['decimation'] = { tier: 'minor', zeroAdvanceFraction: 0.1, sampleCount: 10 };
+    const severe: ActivityQualitySignals['decimation'] = { tier: 'severe', zeroAdvanceFraction: 0.5, sampleCount: 10 };
+    const notComputable: ActivityQualitySignals['decimation'] = {
+      tier: 'not-computable',
+      zeroAdvanceFraction: null,
+      sampleCount: null,
+    };
+
+    const gapNone: ActivityQualitySignals['gapProfile'] = {
+      tier: 'none',
+      gapFraction: 0,
+      recordingGapSec: 0,
+      pauseSec: 0,
+      spanSec: 100,
+    };
+    const impossibleNone: ActivityQualitySignals['impossibleSamples'] = {
+      tier: 'none',
+      count: 0,
+      maxImpliedSpeedMps: null,
+      countInsideZeroAdvanceRun: 0,
+    };
+
+    // Severe in each of the three slots individually -> true.
+    expect(
+      hasAnySevereSignal({ decimation: severe, gapProfile: gapNone, impossibleSamples: impossibleNone })
+    ).toBe(true);
+    expect(
+      hasAnySevereSignal({
+        decimation: none,
+        gapProfile: { ...gapNone, tier: 'severe' },
+        impossibleSamples: impossibleNone,
+      })
+    ).toBe(true);
+    expect(
+      hasAnySevereSignal({
+        decimation: none,
+        gapProfile: gapNone,
+        impossibleSamples: { ...impossibleNone, tier: 'severe' },
+      })
+    ).toBe(true);
+
+    // All minor -> false.
+    expect(
+      hasAnySevereSignal({
+        decimation: minor,
+        gapProfile: { ...gapNone, tier: 'minor' },
+        impossibleSamples: { ...impossibleNone, tier: 'minor' },
+      })
+    ).toBe(false);
+
+    // All not-computable -> false.
+    expect(
+      hasAnySevereSignal({
+        decimation: notComputable,
+        gapProfile: { ...gapNone, tier: 'not-computable' },
+        impossibleSamples: { ...impossibleNone, tier: 'not-computable' },
+      })
+    ).toBe(false);
+
+    // Mixed not-computable/severe -> true.
+    expect(
+      hasAnySevereSignal({
+        decimation: notComputable,
+        gapProfile: { ...gapNone, tier: 'severe' },
+        impossibleSamples: impossibleNone,
+      })
+    ).toBe(true);
+  });
+});
+
+describe('D-17 evidence shard', () => {
+  it('buildPaceQualityShard on a clean synthetic stream: intervals, non-null run profile, matching adaptiveWindowSec, under 20 KB', () => {
+    const stream = syntheticMultiHourPauseStream();
+    const metadata: ActivityQualityMetadata = {
+      deviceName: 'Suunto 9',
+      sourceProvider: undefined,
+      elapsedTimeSec: 12000,
+      movingTimeSec: 12000,
+    };
+
+    const shard = buildPaceQualityShard('synthetic-clean', stream, metadata);
+
+    expect(Array.isArray(shard.gapIntervals)).toBe(true);
+    expect(shard.zeroAdvanceRunProfile).not.toBeNull();
+    expect(shard.adaptiveWindowSec).toBe(recomputeAdaptiveWindowSec(stream.t, stream.d));
+    expect(JSON.stringify(shard).length).toBeLessThan(20_000);
+  });
+
+  it('buildPaceQualityShard on the decimation-aliased fixture (worst case for run count) stays under 20 KB serialized', () => {
+    const activity = loadPinnedActivity('decimation-aliased');
+    const stream = loadPinnedStream('decimation-aliased');
+    const metadata = fullMetadataOf(activity);
+
+    const shard = buildPaceQualityShard('5059204779', stream, metadata);
+
+    expect(JSON.stringify(shard).length).toBeLessThan(20_000);
+  });
+
+  it('buildPaceQualityShard(id, null, metadata) returns a shard with activityId set, empty evidence, and NOT_COMPUTABLE_NO_STREAM', () => {
+    const metadata: ActivityQualityMetadata = {
+      deviceName: 'Suunto 9',
+      sourceProvider: undefined,
+      elapsedTimeSec: 3600,
+      movingTimeSec: 3000,
+    };
+
+    const shard = buildPaceQualityShard('no-stream-activity', null, metadata);
+
+    expect(shard.activityId).toBe('no-stream-activity');
+    expect(shard.gapIntervals).toEqual([]);
+    expect(shard.impossibleSamples).toEqual([]);
+    expect(shard.impossibleSamplesTruncated).toBe(false);
+    expect(shard.zeroAdvanceRunProfile).toBeNull();
+    expect(shard.adaptiveWindowSec).toBeNull();
+    expect(shard.notComputableReason).toBe(NOT_COMPUTABLE_NO_STREAM);
+    expect(shard.signals.notComputableReason).toBe(NOT_COMPUTABLE_NO_STREAM);
   });
 });

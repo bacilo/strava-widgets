@@ -20,8 +20,10 @@
  * single constructor for that state — see its own doc comment.
  */
 
-import { classifyGaps } from './pace-derivation.js';
+import { adaptiveWindowSec, classifyGaps, quantile } from './pace-derivation.js';
 import { WORLD_RECORD_100M_SPEED_MPS, validateStreamSeries } from './best-effort-utils.js';
+import type { GapInterval } from './pace-derivation.js';
+import type { CanonicalStream } from '../streams/stream.types.js';
 
 // ---------------------------------------------------------------------------
 // Quality tier
@@ -514,15 +516,22 @@ export const GAP_PROFILE_SEVERE_FRACTION = 0.2;
 export const GAP_PROFILE_MINOR_FRACTION = 0.05;
 
 /**
- * Non-covered-time tiering signal (D-04/D-07's gap-profile half). Calls
- * `classifyGaps(t, d)` with NO options — the shipped, scale-relative gap
- * classification Phase 26 ships, unmodified. This signal never substitutes
- * a second gap classifier and never overrides the classifier's own shipped
- * segmentation rule.
- *
- * Guard: a zeroed coverage result (`spanSec === 0`, `classifyGaps`'s own
- * totality guard on invalid input, or a degenerate single-timestamp stream)
- * returns `tier: 'not-computable'` with every numeric field `null` — never
+ * The SOLE call site of the shared gap classifier in this module — the
+ * classifier is called at most once per activity and its result shared,
+ * never a second independent invocation inviting drift. Both
+ * `gapProfileSignal` and `buildPaceQualityShard` route through this one
+ * wrapper.
+ */
+function resolveCoverage(t: readonly number[], d: readonly number[]) {
+  return classifyGaps(t as number[], d as number[]);
+}
+
+/**
+ * Derives the gap-profile tier/fields from an ALREADY-COMPUTED coverage
+ * result — pure, no classification of its own. Guard: a zeroed coverage
+ * result (`spanSec === 0`, the classifier's own totality guard on invalid
+ * input, or a degenerate single-timestamp stream) returns
+ * `tier: 'not-computable'` with every numeric field `null` — never
  * `gapFraction: 0`, which would read as a genuinely clean stream (T-26-02).
  *
  * Otherwise `gapFraction = (recordingGapSec + pauseSec) / spanSec`; tier
@@ -531,13 +540,10 @@ export const GAP_PROFILE_MINOR_FRACTION = 0.05;
  * `pauseSec` are echoed separately (never only their sum) so the badge and
  * the shard can name the two categories independently.
  */
-export function gapProfileSignal(
-  t: readonly number[],
-  d: readonly number[],
+function tierGapProfileFromCoverage(
+  coverage: ReturnType<typeof resolveCoverage>,
   options?: QualityThresholdOverrides
 ): GapProfileSignal {
-  const coverage = classifyGaps(t as number[], d as number[]);
-
   if (coverage.spanSec === 0) {
     return {
       tier: 'not-computable',
@@ -567,6 +573,23 @@ export function gapProfileSignal(
     pauseSec: coverage.pauseSec,
     spanSec: coverage.spanSec,
   };
+}
+
+/**
+ * Non-covered-time tiering signal (D-04/D-07's gap-profile half). Resolves
+ * coverage with NO options — the shipped, scale-relative gap
+ * classification Phase 26 ships, unmodified. This signal never substitutes
+ * a second gap classifier and never overrides the classifier's own shipped
+ * segmentation rule. See `tierGapProfileFromCoverage` for the tiering
+ * logic itself.
+ */
+export function gapProfileSignal(
+  t: readonly number[],
+  d: readonly number[],
+  options?: QualityThresholdOverrides
+): GapProfileSignal {
+  const coverage = resolveCoverage(t, d);
+  return tierGapProfileFromCoverage(coverage, options);
 }
 
 // ---------------------------------------------------------------------------
@@ -789,4 +812,287 @@ export function impossibleSampleSignal(
   }
 
   return { tier, count, maxImpliedSpeedMps, countInsideZeroAdvanceRun };
+}
+
+// ---------------------------------------------------------------------------
+// Composite predicate (D-01) — the single "any severe" definition
+// ---------------------------------------------------------------------------
+
+/**
+ * The single definition of the "any severe" composite (D-01) — true iff at
+ * least one of the three TIERING signals (`decimation`, `gapProfile`,
+ * `impossibleSamples` — D-05 excludes `deviceEra`/`elapsedVsMoving`, both
+ * untiered facts) equals `'severe'`.
+ *
+ * FOUR consumers read this exact definition, and this JSDoc names all four
+ * so a later reader cannot claim ignorance: D-01 calls it the calibrated
+ * number; D-16's list filter toggles on it; 27-03's calibration report
+ * measures the composite rate from it; and it is the field 27-05's
+ * independent recount cross-checks against the shipped index. A second
+ * implementation of this predicate ANYWHERE ELSE in `src/` is the exact
+ * defect this function exists to prevent — with ONE deliberate, bounded
+ * exception: plan 27-05's recount script is explicitly FORBIDDEN from
+ * importing this module (D-03) and re-derives its own arithmetic reading
+ * only the shipped `data/dashboard/index.json`. That is the one intended
+ * second implementation, adversarial by design so it can catch a compute
+ * step that silently stops emitting a field — it must never be "fixed" to
+ * import this function instead, which would let it agree with itself by
+ * construction.
+ *
+ * `'not-computable'` is NOT `'severe'` (D-06): a stream-less activity is
+ * never counted toward this composite's numerator. The denominator
+ * question therefore has two valid answers (all activities, or only those
+ * with a computable stream) and every reported rate must state which one it
+ * uses.
+ */
+export function hasAnySevereSignal(
+  signals: Pick<ActivityQualitySignals, 'decimation' | 'gapProfile' | 'impossibleSamples'>
+): boolean {
+  return (
+    signals.decimation.tier === 'severe' ||
+    signals.gapProfile.tier === 'severe' ||
+    signals.impossibleSamples.tier === 'severe'
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Top-level assembly (D-01..D-06)
+// ---------------------------------------------------------------------------
+
+/**
+ * Assembles the full `ActivityQualitySignals` for one activity. Resolves
+ * the two untiered facts FIRST — `deviceEra` and `elapsedVsMoving` are both
+ * computable from metadata alone, independent of whether a stream exists.
+ *
+ * If `stream` is `null`, returns `notComputableSignals(deviceEra,
+ * elapsedVsMoving, NOT_COMPUTABLE_NO_STREAM)`. If the stream's `t`/`d` fail
+ * `validateStreamSeries`, returns `notComputableSignals(...,
+ * NOT_COMPUTABLE_UNUSABLE_STREAM)`. Otherwise assembles all five signals and
+ * sets `anySevere = hasAnySevereSignal(...)`, `notComputableReason: null`.
+ *
+ * Never partially fills: an activity is either FULLY computed (all three
+ * tiering signals real) or FULLY not-computable (all three
+ * `'not-computable'`) — never a mix.
+ */
+export function computePaceQualitySignals(
+  stream: CanonicalStream | null,
+  metadata: ActivityQualityMetadata,
+  options?: QualityThresholdOverrides
+): ActivityQualitySignals {
+  const deviceEra = resolveDeviceFamily(metadata);
+  const elapsedVsMoving = elapsedVsMovingSignal(metadata);
+
+  if (stream === null) {
+    return notComputableSignals(deviceEra, elapsedVsMoving, NOT_COMPUTABLE_NO_STREAM);
+  }
+
+  const { t, d } = stream;
+  if (!validateStreamSeries(t as number[], d as number[]).ok) {
+    return notComputableSignals(deviceEra, elapsedVsMoving, NOT_COMPUTABLE_UNUSABLE_STREAM);
+  }
+
+  const decimation = decimationSignal(t, d, options);
+  const gapProfile = gapProfileSignal(t, d, options);
+  const impossibleSamples = impossibleSampleSignal(t, d, options);
+  const anySevere = hasAnySevereSignal({ decimation, gapProfile, impossibleSamples });
+
+  return {
+    decimation,
+    gapProfile,
+    impossibleSamples,
+    deviceEra,
+    elapsedVsMoving,
+    anySevere,
+    notComputableReason: null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// D-17 evidence shard
+// ---------------------------------------------------------------------------
+
+/**
+ * Threshold overrides live on `QualityThresholdOverrides` above (Criterion
+ * 4's knob). `PaceQualityShard` is the D-17 evidence-shard shape:
+ * classified gap intervals straight from `classifyGaps`, the capped
+ * impossible-sample list, a zero-advance-run PROFILE (never the full run
+ * list — D-17 explicitly rejects full per-sample arrays for size), the
+ * resolved adaptive window width, and `notComputableReason`. On a
+ * not-computable activity every evidence field is `null`/empty and
+ * `notComputableReason` is set — the shard still exists for every activity
+ * (`activityId` is always populated), so the detail view has something
+ * honest to render even when the three tiering signals could not be
+ * computed.
+ */
+export interface PaceQualityShard {
+  activityId: string;
+  signals: ActivityQualitySignals;
+  /** Straight from `classifyGaps` — start/end/kind, real seconds, never indices. */
+  gapIntervals: GapInterval[];
+  impossibleSamples: { index: number; impliedSpeedMps: number; dtSec: number; ddM: number }[];
+  impossibleSamplesTruncated: boolean;
+  /** A PROFILE, not the run list — D-17 rejects full per-sample arrays. */
+  zeroAdvanceRunProfile: {
+    runCount: number;
+    longestRunSamples: number;
+    longestRunSec: number;
+    medianRunSamples: number;
+    p90RunSec: number;
+  } | null;
+  adaptiveWindowSec: number | null;
+  notComputableReason: string | null;
+}
+
+/**
+ * Builds the D-17 zero-advance-run PROFILE (never the full per-index run
+ * list) from raw `t`/`d` — a single linear pass finding maximal runs of
+ * consecutive zero-advance pairs (`d[i] <= d[i-1]`), summarized as run
+ * count, longest run (in samples and in seconds), median run length (in
+ * samples) and p90 run duration (in seconds). Percentiles use `quantile()`
+ * imported from `pace-derivation.ts` — never a hand-rolled percentile.
+ *
+ * Returns a non-null, all-zero profile (not `null`) for a valid stream with
+ * zero zero-advance runs — a clean stream still HAS a (empty) profile; only
+ * a genuinely not-computable activity (handled by the caller before this
+ * function is ever invoked) reports `null`.
+ */
+function computeZeroAdvanceRunProfile(
+  t: readonly number[],
+  d: readonly number[]
+): PaceQualityShard['zeroAdvanceRunProfile'] {
+  const n = Math.min(t.length, d.length);
+
+  const runsSamples: number[] = [];
+  const runsSec: number[] = [];
+
+  let i = 1;
+  while (i < n) {
+    if (d[i] <= d[i - 1]) {
+      const runStartPairIndex = i;
+      let j = i;
+      while (j < n && d[j] <= d[j - 1]) j++;
+      // Run spans pair indices [runStartPairIndex, j - 1] — samples
+      // (runStartPairIndex - 1) through (j - 1).
+      runsSamples.push(j - runStartPairIndex);
+      runsSec.push(t[j - 1] - t[runStartPairIndex - 1]);
+      i = j;
+    } else {
+      i++;
+    }
+  }
+
+  if (runsSamples.length === 0) {
+    return { runCount: 0, longestRunSamples: 0, longestRunSec: 0, medianRunSamples: 0, p90RunSec: 0 };
+  }
+
+  const sortedSamples = [...runsSamples].sort((a, b) => a - b);
+  const sortedSec = [...runsSec].sort((a, b) => a - b);
+
+  return {
+    runCount: runsSamples.length,
+    longestRunSamples: Math.max(...runsSamples),
+    longestRunSec: Math.max(...runsSec),
+    medianRunSamples: quantile(sortedSamples, 0.5),
+    p90RunSec: quantile(sortedSec, 0.9),
+  };
+}
+
+/**
+ * Builds the D-17 evidence shard for one activity. `gapIntervals` comes
+ * straight from the SAME coverage result `gapProfileSignal`'s own tiering
+ * derives from (`resolveCoverage`, the sole `classifyGaps` call site) —
+ * computed once here and shared, never a second independent call.
+ *
+ * Not-computable activities (no stream, or a stream failing
+ * `validateStreamSeries`) return a shard whose `activityId` is set, whose
+ * `signals` is the same `notComputableSignals(...)` result
+ * `computePaceQualitySignals` would produce, and whose evidence fields are
+ * all `null`/empty with `notComputableReason` set — never a throw, never a
+ * missing shard.
+ */
+export function buildPaceQualityShard(
+  activityId: string,
+  stream: CanonicalStream | null,
+  metadata: ActivityQualityMetadata,
+  options?: QualityThresholdOverrides
+): PaceQualityShard {
+  const deviceEra = resolveDeviceFamily(metadata);
+  const elapsedVsMoving = elapsedVsMovingSignal(metadata);
+
+  if (stream === null) {
+    return {
+      activityId,
+      signals: notComputableSignals(deviceEra, elapsedVsMoving, NOT_COMPUTABLE_NO_STREAM),
+      gapIntervals: [],
+      impossibleSamples: [],
+      impossibleSamplesTruncated: false,
+      zeroAdvanceRunProfile: null,
+      adaptiveWindowSec: null,
+      notComputableReason: NOT_COMPUTABLE_NO_STREAM,
+    };
+  }
+
+  const { t, d } = stream;
+  if (!validateStreamSeries(t as number[], d as number[]).ok) {
+    return {
+      activityId,
+      signals: notComputableSignals(deviceEra, elapsedVsMoving, NOT_COMPUTABLE_UNUSABLE_STREAM),
+      gapIntervals: [],
+      impossibleSamples: [],
+      impossibleSamplesTruncated: false,
+      zeroAdvanceRunProfile: null,
+      adaptiveWindowSec: null,
+      notComputableReason: NOT_COMPUTABLE_UNUSABLE_STREAM,
+    };
+  }
+
+  // The sole coverage computation for this activity — shared by the
+  // gap-profile signal below and this shard's own `gapIntervals`.
+  const coverage = resolveCoverage(t, d);
+  const gapProfile = tierGapProfileFromCoverage(coverage, options);
+  const decimation = decimationSignal(t, d, options);
+
+  const impossibleRaw = countImpossibleSamples(t, d, { floorMps: options?.impossibleFloorMps });
+  const impossibleSevereCut = options?.impossibleSevereCount ?? IMPOSSIBLE_SAMPLE_SEVERE_COUNT;
+  let impossibleTier: QualityTier;
+  if (impossibleRaw.count >= impossibleSevereCut) {
+    impossibleTier = 'severe';
+  } else if (impossibleRaw.count >= IMPOSSIBLE_SAMPLE_MINOR_COUNT) {
+    impossibleTier = 'minor';
+  } else {
+    impossibleTier = 'none';
+  }
+  const impossibleSignal: ImpossibleSampleSignal = {
+    tier: impossibleTier,
+    count: impossibleRaw.count,
+    maxImpliedSpeedMps: impossibleRaw.maxImpliedSpeedMps,
+    countInsideZeroAdvanceRun: impossibleRaw.countInsideZeroAdvanceRun,
+  };
+
+  const anySevere = hasAnySevereSignal({
+    decimation,
+    gapProfile,
+    impossibleSamples: impossibleSignal,
+  });
+
+  const signals: ActivityQualitySignals = {
+    decimation,
+    gapProfile,
+    impossibleSamples: impossibleSignal,
+    deviceEra,
+    elapsedVsMoving,
+    anySevere,
+    notComputableReason: null,
+  };
+
+  return {
+    activityId,
+    signals,
+    gapIntervals: coverage.gapIntervals,
+    impossibleSamples: impossibleRaw.samples,
+    impossibleSamplesTruncated: impossibleRaw.count > impossibleRaw.samples.length,
+    zeroAdvanceRunProfile: computeZeroAdvanceRunProfile(t, d),
+    adaptiveWindowSec: adaptiveWindowSec(t, d),
+    notComputableReason: null,
+  };
 }
