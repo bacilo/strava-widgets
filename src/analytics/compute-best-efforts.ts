@@ -15,6 +15,7 @@ import type {
   ActivityBestEfforts,
   BestEffortsDocument,
   ComputedEffort,
+  EffortDemotion,
   PRRankingEntry,
   RejectedEffort,
   TargetDistanceKey,
@@ -28,6 +29,11 @@ import {
   validateStreamSeries,
   WORLD_RECORD_SPEED_MPS,
 } from './best-effort-utils.js';
+// `deriveCeilings(...)` is imported here and called exactly once below, in
+// the derivation pass between accumulation and filtering (PR-01's
+// no-iteration clause) — see the "no iteration to convergence" suite in
+// compute-best-efforts.test.ts.
+import { ceilingDemotion, deriveCeilings } from './best-effort-ceiling.js';
 import { isExcluded, loadExclusions } from './best-effort-exclusions.js';
 import { loadManifest } from '../streams/stream-manifest.js';
 import type { CanonicalStream, DistanceSource } from '../streams/stream.types.js';
@@ -37,6 +43,39 @@ import { FileStore } from '../storage/file-store.js';
 /** Rounds to at most one decimal place. */
 function round1(value: number): number {
   return Math.round(value * 10) / 10;
+}
+
+/**
+ * Builds the demotion that D-08's shared path records for an absolute-guard
+ * rejection. This is the ONLY site in this file that constructs a
+ * `demotion` value from `isPlausible`'s failing variant — the ceiling's own
+ * rejection (Task 2 below) constructs its `EffortDemotion` via
+ * `ceilingDemotion` instead, but nothing else in this file may assign to an
+ * effort's `demotion` field, so one guard cannot silently diverge from
+ * another (Phase 24's `resolveExcluded` lesson: duplicated derivations
+ * defeat checkpoints).
+ *
+ * `guard` is optional on `PlausibilityResult`'s failing variant only because
+ * `validateStreamSeries` shares that type for series-shape failures that
+ * carry no absolute guard at all (plan 28-03's decision) — but
+ * `validateStreamSeries`'s result is handled earlier, before the per-target
+ * loop even starts, and never reaches this function. `isPlausible`'s own two
+ * rejection branches always set `guard`, so the throw below is a defensive
+ * assertion, not an expected path: it fails loudly (caught by this
+ * function's caller's `try`/`catch`, landing as an `unexpected error:` row)
+ * rather than silently mis-recording which guard fired.
+ */
+function demotionFromPlausibility(result: {
+  ok: false;
+  reason: string;
+  guard?: 'max-speed' | 'world-record';
+}): EffortDemotion {
+  if (!result.guard) {
+    throw new Error(
+      `demotionFromPlausibility: isPlausible's failing result carried no guard (reason: ${result.reason})`
+    );
+  }
+  return { guard: result.guard, reason: result.reason };
 }
 
 /** Input to `computeActivityEfforts` — one activity's canonical record plus its stream series. */
@@ -90,13 +129,15 @@ export function computeActivityEfforts(input: ActivityEffortInput): ActivityEffo
 
       const impliedSpeedMps = TARGET_METERS[key] / raw.durationSec;
       const plausibility = isPlausible(impliedSpeedMps, maxSpeedMps, WORLD_RECORD_SPEED_MPS[key]);
+      const paceSecPerKm = raw.durationSec / (TARGET_METERS[key] / 1000);
 
+      // D-08: an absolute-guard rejection no longer deletes the effort. It
+      // still gets a `rejected` row (the archive-wide report), but the
+      // effort itself is retained in `efforts[]` below, carrying its
+      // demotion — the single shared path `demotionFromPlausibility` builds.
       if (!plausibility.ok) {
         rejected.push({ activityId, distance: key, reason: plausibility.reason });
-        continue;
       }
-
-      const paceSecPerKm = raw.durationSec / (TARGET_METERS[key] / 1000);
 
       efforts.push({
         distance: key,
@@ -105,10 +146,14 @@ export function computeActivityEfforts(input: ActivityEffortInput): ActivityEffo
         startOffsetSec: Math.round(raw.startOffsetSec),
         endOffsetSec: round1(raw.endOffsetSec),
         lowConfidence: distanceSource === 'geo',
-        demotion: null, // No ceiling yet; plan 28-05 replaces this push branch.
+        demotion: plausibility.ok ? null : demotionFromPlausibility(plausibility),
       });
     } catch (error) {
-      // One target throwing must never lose the activity's other six (Pitfall 6).
+      // NOT a demotion of a computed effort (D-08 is about retained-but-
+      // flagged efforts) — the computation itself threw, so there is no
+      // effort object to retain. This is the one remaining `rejected`-only
+      // path; one target throwing must never lose the activity's other six
+      // (Pitfall 6).
       rejected.push({
         activityId,
         distance: key,
@@ -165,15 +210,21 @@ export async function computeBestEfforts(
 
   let skippedNoStream = 0;
   let skippedUnreadable = 0;
-  let effortsRejected = 0;
   let effortsExcluded = 0;
   let lowConfidenceEfforts = 0;
 
   const activities: Record<string, ActivityBestEfforts> = {};
   const rejected: RejectedEffort[] = [];
 
-  // Map<distance, entries> — accumulated across the whole archive, then
-  // sorted/marked/ranked once per distance after the per-activity loop.
+  // PASS 1 — ACCUMULATE. May read each activity's own stream/canonical
+  // record; must not read anything derived from the archive as a whole (no
+  // ceiling exists yet). `byDistance` accumulates exactly the population an
+  // effort enters only when it PASSED the absolute guard (its `demotion` is
+  // null after the per-target loop below) and `isExcluded` is false — this
+  // is PR-02's seam: the ceiling's input (Pass 2) is already filtered by the
+  // absolute guard and the exclusion list, and it is NOT ceiling-filtered
+  // because the ceiling does not exist yet. A demoted effort is retained in
+  // `activities[id].efforts` (D-08) but never enters `byDistance`.
   const byDistance = new Map<TargetDistanceKey, PRAccumulatorEntry[]>();
   for (const key of TARGET_ORDER) byDistance.set(key, []);
 
@@ -205,9 +256,12 @@ export async function computeBestEfforts(
         continue;
       }
 
+      // `rejected` now widens to one row per DEMOTED effort across all three
+      // guards (world-record, max-speed, ceiling) plus unexpected-error
+      // rows — not a "deleted effort" report any more, since D-08 means
+      // nothing is deleted. `totals.effortsRejected` below is `rejected.length`.
       for (const rejection of result.rejected) {
         rejected.push(rejection);
-        effortsRejected++;
       }
 
       for (const effort of result.efforts) {
@@ -218,6 +272,14 @@ export async function computeBestEfforts(
           effortsExcluded++;
           continue;
         }
+
+        // D-08/PR-02: a demoted effort is retained in `activities[id].efforts`
+        // (below) but must never feed the ranking/ceiling population — only
+        // guard-passed, non-excluded efforts reach `byDistance`. Only
+        // absolute-guard demotions exist at this point in the file; the
+        // ceiling guard (plan 28-05 Task 2) demotes further, downstream of
+        // this population, and never re-admits anything filtered out here.
+        if (effort.demotion !== null) continue;
 
         byDistance.get(effort.distance)!.push({
           activityId: id,
@@ -248,14 +310,61 @@ export async function computeBestEfforts(
     }
   }
 
+  // PASS 2 — DERIVE. May read only `byDistance` (Pass 1's already-filtered
+  // output); must not read `activities`, `rejected`, or any ranking output.
+  // `deriveCeilings` runs EXACTLY ONCE here, per process — PR-01's
+  // no-iteration clause: this call is never re-run after Pass 3 demotes
+  // anything below. Re-deriving after demotion is the mutation ROADMAP
+  // criterion 1 demonstrates failing (see the "no iteration to convergence"
+  // suite in compute-best-efforts.test.ts).
+  // Built via `.map()` rather than a `for` loop — deliberately, so a
+  // source-text audit of this pass (compute-best-efforts.test.ts's "no
+  // iteration to convergence" suite) can assert the single `deriveCeilings`
+  // call site below sits inside no loop of any kind, between this pass's
+  // own marker and the next pass's.
+  const impliedSpeedsByDistance = new Map<TargetDistanceKey, number[]>(
+    TARGET_ORDER.map((key) => [
+      key,
+      byDistance.get(key)!.map((entry) => TARGET_METERS[key] / entry.durationSec),
+    ])
+  );
+  const ceilings = deriveCeilings(impliedSpeedsByDistance);
+
   const rankings: Record<TargetDistanceKey, PRRankingEntry[]> = {} as Record<
     TargetDistanceKey,
     PRRankingEntry[]
   >;
+  // Per-distance count of ceiling demotions, for the console tail below.
+  const ceilingDemotedCounts = new Map<TargetDistanceKey, number>();
 
+  // PASS 3 — FILTER AND FLAG. May read `byDistance` and `ceilings` (Pass
+  // 2's output); must never remove an entry from `activities[id].efforts` —
+  // that array is append-only from Pass 1 onward. Each distance's
+  // population is partitioned into survivors and ceiling-demoted; a
+  // ceiling-demoted entry's matching effort gains a `demotion` (mirroring
+  // Task 1's absolute-guard path) and a matching `rejected` row, but is
+  // never spliced out of `activities[id].efforts`. Only survivors reach
+  // `markPRs`/`rankTopN`.
   for (const key of TARGET_ORDER) {
     const entries = byDistance.get(key)!;
-    const withPR = markPRs(entries);
+    const derivation = ceilings[key];
+
+    const survivors: PRAccumulatorEntry[] = [];
+    for (const entry of entries) {
+      const impliedSpeedMps = TARGET_METERS[key] / entry.durationSec;
+      const demotion = ceilingDemotion(impliedSpeedMps, derivation);
+      if (demotion) {
+        const activityEfforts = activities[entry.activityId]?.efforts;
+        const effort = activityEfforts?.find((e) => e.distance === key);
+        if (effort) effort.demotion = demotion;
+        rejected.push({ activityId: entry.activityId, distance: key, reason: demotion.reason });
+      } else {
+        survivors.push(entry);
+      }
+    }
+    ceilingDemotedCounts.set(key, entries.length - survivors.length);
+
+    const withPR = markPRs(survivors);
 
     // Write wasPRAtTheTime back onto the matching effort inside the
     // per-activity results. Each activity has at most one effort per
@@ -267,7 +376,7 @@ export async function computeBestEfforts(
       if (effort) effort.wasPRAtTheTime = marked.wasPRAtTheTime;
     }
 
-    rankings[key] = rankTopN(entries);
+    rankings[key] = rankTopN(survivors);
   }
 
   // Diff-stable output — sorted activity ids, mirroring saveManifest's convention.
@@ -283,6 +392,19 @@ export async function computeBestEfforts(
     (sum, a) => sum + a.efforts.length,
     0
   );
+  // Derived by walking the shipped data rather than an incrementing
+  // counter, so it cannot drift from what a consumer would actually see —
+  // counts every effort (any guard: world-record, max-speed, ceiling) whose
+  // `demotion` is non-null across the whole built document. A plain `for`
+  // loop (not `.filter`) is used deliberately so this read-only count is
+  // never mistaken, by source-text audit, for a mutation of
+  // `activities[id].efforts` — that array is append-only from Pass 1 onward.
+  let effortsDemoted = 0;
+  for (const activity of Object.values(sortedActivities)) {
+    for (const effort of activity.efforts) {
+      if (effort.demotion !== null) effortsDemoted++;
+    }
+  }
 
   const doc: BestEffortsDocument = {
     schemaVersion: BEST_EFFORTS_SCHEMA_VERSION,
@@ -298,17 +420,22 @@ export async function computeBestEfforts(
       activitiesConsidered: Object.keys(manifest.activities).length - skippedNoStream,
       activitiesWithEfforts,
       effortsComputed,
-      effortsRejected,
+      // Widened meaning (D-08): one row per demoted effort (any guard) plus
+      // unexpected-error rows — no longer a "deleted effort" count, since
+      // nothing is deleted any more.
+      effortsRejected: rejected.length,
       effortsExcluded,
       lowConfidenceEfforts,
       skippedNoStream,
       skippedUnreadable,
-      effortsDemoted: 0, // Plan 28-05 starts computing this.
+      effortsDemoted,
     },
     rankings,
     rejected,
     activities: sortedActivities,
-    ceilings: {} as BestEffortsDocument['ceilings'], // Plan 28-05 starts deriving these.
+    // D-06: every run records the per-distance ceiling, its p90, its
+    // population size, and any failOpenReason — persisted for audit.
+    ceilings,
   };
 
   await fileStore.writeJson(path.join(statsDir, 'best-efforts.json'), doc);
@@ -334,6 +461,18 @@ export async function computeBestEfforts(
   console.log(`- Skipped (unreadable): ${doc.totals.skippedUnreadable}`);
   for (const key of TARGET_ORDER) {
     console.log(`  ${key}: ${rankings[key].length} ranked`);
+  }
+  console.log(`\nCeilings (Phase 28 PR-01/PR-02):`);
+  for (const key of TARGET_ORDER) {
+    const derivation = ceilings[key];
+    if (derivation.ceilingMps === null) {
+      console.log(`  ${key}: fail-open — ${derivation.failOpenReason}`);
+    } else {
+      const demotedCount = ceilingDemotedCounts.get(key) ?? 0;
+      console.log(
+        `  ${key}: ceiling ${derivation.ceilingMps.toFixed(4)} m/s (p90 ${derivation.p90Mps!.toFixed(4)} m/s over ${derivation.populationN}), ${demotedCount} demoted`
+      );
+    }
   }
   console.log(`\nOutput written to: ${path.join(statsDir, 'best-efforts.json')}`);
 
