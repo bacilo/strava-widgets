@@ -35,6 +35,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import type { DeviceFamilyKind } from './pace-quality.js';
 import type { CanonicalStream, DistanceSource, StreamSource } from '../streams/stream.types.js';
 
 // ---------------------------------------------------------------------------
@@ -297,7 +298,7 @@ export function syntheticStandstillStream(): CanonicalStream {
 export interface PinnedFixture {
   name: string;
   activityId: string;
-  deviceFamily: string;
+  deviceFamily: DeviceFamilyKind;
   streamSource: StreamSource;
   why: string;
   /** Verified property values from the planning-time table in 26-03-PLAN.md's `<interfaces>` block. */
@@ -391,10 +392,18 @@ export const PINNED_FIXTURES: readonly PinnedFixture[] = [
   {
     name: 'real-pause',
     activityId: '3475742397',
-    // No device_name recorded for this activity, but this fixture is pinned
-    // for its pause-length property, not to represent the no-device-name
-    // category — kept as a distinct string from `no-device-name` above.
-    deviceFamily: 'unknown-device',
+    // Resolution of the taxonomy collision the pattern search flagged: this
+    // activity has no `device_name` and no `source_provider` key at all, so
+    // under D-12's three-outcome ladder its family IS `no-device-name` —
+    // `unrecognized-device` by definition requires a NON-blank `device_name`
+    // absent from the lookup table, which this activity does not have and
+    // cannot have. The prior hyphenated "unknown device" string here was not
+    // a second taxonomy concept; it was a stale, pre-taxonomy annotation for
+    // exactly this slot. This fixture remains pinned for its pause-length property,
+    // not to represent the no-device-name category — sharing a family with
+    // the `no-device-name` fixture above is now a fact `resolveDeviceFamily`
+    // reproduces, not a collision.
+    deviceFamily: 'no-device-name',
     streamSource: 'fit',
     why: "the archive's longest real densely-sampled pause, 10.4 min; also Criterion 1's tie-at-zero case",
     // 625s = 10.42 min, which the plan's table rounds to "10.4 min".
