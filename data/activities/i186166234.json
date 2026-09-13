@@ -1,0 +1,25 @@
+{
+  "id": "i186166234",
+  "name": "Herlev Running",
+  "type": "Run",
+  "start_date": "2026-09-13T07:48:52Z",
+  "start_date_local": "2026-09-13T09:48:52",
+  "distance": 19004.78,
+  "moving_time": 6191,
+  "elapsed_time": 6244,
+  "total_elevation_gain": 45.86927,
+  "average_speed": 3.068,
+  "max_speed": 3.611,
+  "average_heartrate": 143,
+  "max_heartrate": 161,
+  "start_latlng": [
+    55.71506,
+    12.444583
+  ],
+  "map": {
+    "summary_polyline": "cz`sIsq}jA?CBc@?YAQAS?I?KAUG[G[GWCIE]GYAGC[Ck@?KBQBKDERQb@YDAd@MTEb@SDAVOHCJCLCDANGf@ODCb@MD?NCb@ODAb@WBCVI\\QVKX@f@BTFJBD@b@V\\Vd@`@`@\\JDJFVTNJ`@VF@NFHBJD^LTJ`@NXJb@VXJBDDDR^LJ@RGb@CB[Pc@^IJGTENK`AIdA?FBp@@NFp@P|@@HBFDNHj@@FF^Rz@JX\\h@Vv@@HF\\Dr@N~@@FBPFb@J`ABRLz@DRJx@BRHj@Fp@JdAB\\HfA@FHbABR?PFx@Bv@JdA?HFbA@F@FF`AJ~@@PHx@FdAFfA@FFfABZBp@@`A@dA?RAZAFGdACZDv@Rt@Xj@FNVx@H^Tt@FNNz@?v@K|@AJDn@BdA@N@NYnCCTKb@U\\]l@CDUv@S`AS~@AHGZCDK^Or@KdA?HANCj@EdAAHEbAAh@@r@Br@HdAB\\J~@DRH|@AHPpEEhA?H@P@n@@Z?h@?v@@^?f@R`@^ZF@LDFZEdA?HA|@?^?JG|@Gd@GZEXO`AEd@Gp@I~@CZIz@I|@K|@I|@AFM`AK`ACZM`ACPAHI~@CZGp@I`AAFK|@CZEd@Gl@AHEn@AHGdA?\\C|@@`A?H@p@?HL`ADNTx@@FPj@Jf@@FVv@@FLp@P|@BFTt@FPN`ADRNx@BHT~@FXR|@@FTz@HVPp@Tr@JVXr@JTXt@FLRv@BHJXZr@Zv@HXTr@FNN`@Vt@BDTr@BNTp@BFZp@DLZv@BHXt@FNLZHf@BHJbA@RDdAA\\EbACPK~@AHMdACPGdAAHAHCVC@MGIA]DI?EAa@GCBKR[Fa@EYKMEUJc@ZE@c@@e@QEAUAa@Le@J_@Fe@FE@e@HKBg@JI@g@FEDUd@Gn@C~@@H?dA?T?P@`@@bA?P?H?bAIn@[\\]PSDUCa@@O@]EQFAD?HE~@?R?~@AR?HC~@CXE|@I`A?HEl@ARG~@?RIbAAPEbA?HM~@AHSz@EVQv@ENI^I`@Ol@S|@K\\CPUt@Sx@Sz@AFENQx@Qz@GVAFSx@AFCFS~@GVQx@GVMj@CFS|@Qb@KNGLOp@ADQv@AFK\\Md@Wz@I|@EZMr@Mt@Mr@Qz@ELU`ASt@CHUx@K^Qh@Wt@KTWr@CFWr@CFUj@KPCFYn@M^[l@AF]j@Uz@CFUv@Q`AO~@?HDZPx@BDVXb@T^N\\Db@J^NLh@BfARx@Np@@JBNDLBDHHFBTHLFLFJNBFBLPl@R|@N~@DHBREn@@v@?F@TDB^XJt@NVLVF`A?J?HAd@FRDB`@J^Kb@FVf@?j@IdAKz@Q~@Ut@AF]j@O~@Bd@Xt@Nz@BZ@l@FdA?H@`A@RHrDLp@HdABPDbA@HDbA@XFz@?R@n@Ov@Yv@CB_@f@g@D]We@@UCg@BI@g@AC?e@BUAi@BC?OEa@?c@CO@I?e@CE?c@BE@e@AKAa@FI?e@@IEg@CO?GA_@?a@@[?e@AE?E@]A]A_@GI?e@AE?WAe@Ba@HK@a@NE@g@RIBa@PMJOJIDWJYHc@TOF[JC?QFMLYJUFSRKPUx@AFMh@CTCh@EbAB~@AhA?d@@f@AdAAHCfAA~@ARAbAA|@CbAADDfACz@CPU`@AB[J]DC?_@C]Fe@Dg@FE?c@FE@c@?I@YDg@?e@DE?a@B[Ai@?a@?WCUAg@HI@e@HK@e@BE?e@FC?g@?e@KOEUKSIa@Ua@]OMc@c@MOc@_@SSc@c@MMIK]o@[q@KUSy@EQU{@CIEOAUc@sAWa@K_@IYOc@EOWw@CGSq@KWM]Qe@Se@Wo@Ym@_@m@CCY_@MKa@WUKOEe@Se@IKEe@KCAe@M_@Qe@OEAa@Oe@Q_@Kc@Kg@MCCc@OKEg@KOESEc@GC?i@Gc@Dg@HIBa@Le@TEBe@LODWAe@HG@e@LE@c@TEBc@Le@Fa@GKCe@KK?SGYC_@GEAw@KO?E?E@]Bg@CE?IAc@GC?c@ME?c@Gc@GMEe@GOAc@Ec@Ic@IO?c@Ka@Mc@Ue@QCAQOUMYYc@[CCe@KQOc@UOSW[UYIEU_@GM_@e@a@c@a@c@c@_@Yi@OSWg@OYe@_@UQYW]_@QUa@c@Y]c@]IGGIWm@KUO[KUKQSa@Mc@]s@Uq@Og@So@GQG[U{@CIUs@AIW}@EGCOKYUs@KYGUQi@Q_AWy@EOKm@K]Yw@Uy@GOOy@AEIi@AE?a@?QDgA@gABWB}@@W@}@@KAq@Ce@ACECIA_@@_@D_@?SAUGGGAI?S?iADW?WBc@CcAAU?G?_AAo@Du@Ze@d@IJA^GD?PCd@IFEDEVe@Ls@@KGcAGaAAI?I?cA@QHw@?G@IBQD[@ONaA@U@iAASCYGa@GOYs@[o@[q@CGS{@AG?k@DIRQ^_@LKX[b@c@BCNi@Ei@Rk@Zk@FKVk@\\s@@GFSVe@\\o@HKXi@HKZK@EXo@Li@FYN}@@GTs@Vu@Rw@Vu@DOLc@Ne@D[T_ABMR{@BGP{@@GPw@Pm@N_A@GN}@Li@L{@BQJ_AD[Fg@Jm@@IPgAR_A?INcADOLs@D[Hm@JcADg@HcABQD[H?TPb@b@DFLLRT`@`@DD^Td@HL?d@IDALKTMd@YHGf@KJAf@FD@^NB@d@Pb@VDBd@JD@d@DPAVEb@ED@h@Ld@TD@f@NHB\\@P@d@KNCNK`@Wb@QJCJCd@AB?d@?D@HBf@RJF`@TD?b@KDAX_@BGRy@?IDaA?IBgADeAD_AFg@PaAHy@@U@aA?I?KAu@Ac@Ok@AEO_@K[Oe@AMQc@[u@GOQg@IYUq@CIMw@G_A?}@?e@C]Ag@AiAAi@?}@E}@?aAAQAw@Ay@AcAAKAaA@I?cACg@AWL}@Ng@JYL{@F_A?SF}@Nk@R[Tk@V}@LQZKf@ADBd@IHCd@WBAb@OLKRY^k@BGHk@HcAFk@H_ABOHcA@QHeABQH_A@IF{@@SFy@Hu@BYF}@BYFu@Lw@D]Hk@F_ABy@Dc@@SFq@Da@BSPcA@QJ}@?ID[Ds@HaAD[L{@@KB_@LE^GXNXNL@@GJa@NcA@GLw@BI@INw@JcALaABKJ{@DQNaA@GP}@H_@N}@DQNw@LaADSJe@@EL_A@GLq@NaA@GPy@BETq@N{@NaAB]N}@@SN}@@GP{@@GBGLaANaADOJ}@BSLy@Fc@Hc@Ny@DQ@GLu@N}@@IDSF[Hq@@IHe@BOH{@BI@IP{@Lq@Hw@R}@BEH[DiA@IHe@NaAF[Fa@N}@DSBQFUBEVc@b@[^a@FMRw@N]D?D@f@DZ@NVHFD?NANC\\C`@Bb@Qd@KH@\\KBC`@_@J@PDN?^CXVXb@NLHLd@`@FJHN`@`@DFTVDFNVLFd@d@RHDWHq@FSFIR_@Ty@To@BMPi@Nm@To@Vu@@GTy@@IP{@Tu@@G@GVw@DMJ_A@MR_ABGP_AR_AVy@BOL{@@GLi@BQFYPu@Js@BEDIh@gEF_@FaABSL_A@GRw@@KNy@Ve@N[@CDK@IfAn@DA@DDCJEb@@JBLB`@@d@BNG@E@s@@{@@_A@GL{@?IFs@\\?d@?JAb@CZ?b@EH?h@AH@d@AD?^?P?\\APANAVCb@Ff@E^QBANCCa@Em@M}@AIC_@BCF?BDFl@?f@?H@NHt@If@[Te@BU?C?"
+  },
+  "source_provider": "intervals",
+  "source_raw_id": "i186166234",
+  "strava_id": null
+}
