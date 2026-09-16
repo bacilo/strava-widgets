@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -685,16 +686,13 @@ describe('computeBestEfforts — archive orchestration', () => {
   });
 
   describe('4556693525', () => {
-    it('a personal-ceiling-exceeding 400m effort is demoted (guard: "ceiling"), pinned at durationSec 45.2 — not deleted', async () => {
+    it('4556693525 WITHOUT an exclusion entry: 400m ceiling-demoted (non-excluded path)', async () => {
       // D-04: the live pipeline computes 45.2s / 8.85 m/s for activity
       // 4556693525's 400m effort. PR-05 and the original ROADMAP Criterion 3
       // both state 44.0s / 9.09 m/s — that figure matches no record in the
       // live archive and was corrected to 45.2s / 8.85 m/s on 2026-09-10 per
       // D-04; pinning the wrong (44.0/9.09) value would produce a test that
-      // fails on day one for the wrong reason. Note: this test is deferred
-      // from Task 1 (which introduced this describe block's original slot)
-      // into Task 2's commit, since it requires the ceiling mechanism Task 2
-      // wires in — see this plan's SUMMARY.md Deviations section.
+      // fails on day one for the wrong reason.
       const manifest = emptyManifestDoc();
 
       const BULK_COUNT = 150;
@@ -763,11 +761,12 @@ describe('computeBestEfforts — archive orchestration', () => {
         statsDir: path.join(tmpDir, 'stats'),
         ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
         // Explicit non-existent path (deliberately NOT the default
-        // relative 'data/best-effort-exclusions.json'): the real committed
-        // exclusions file already excludes this exact activity id for an
-        // unrelated reason ("bad measurement"), which would silently
-        // remove it from `byDistance` before the ceiling ever saw it — a
-        // reachability trap this test must not fall into. `loadExclusions`
+        // relative 'data/best-effort-exclusions.json'): this test covers
+        // the NON-EXCLUDED path only — the activity is not excluded here,
+        // so the ceiling demotes it via the ordinary (non-excluded)
+        // survivors-loop path. The next test, "4556693525 with its REAL
+        // committed exclusion entry...", covers the real production state,
+        // where this exact activity IS excluded (CR-01). `loadExclusions`
         // degrades a missing file to an empty index (T-16-EX-01).
         exclusionsPath: path.join(tmpDir, 'no-such-exclusions.json'),
       });
@@ -784,10 +783,417 @@ describe('computeBestEfforts — archive orchestration', () => {
       expect(effort400m!.demotion).not.toBeNull();
       expect(effort400m!.demotion!.guard).toBe('ceiling');
 
-      // The ordinary 1k effort is untouched.
+      // The 1k effort is untouched here — not because it is implausible,
+      // but because this fixture supplies no 1k bulk population, so the 1k
+      // ceiling fails open (D-02) and cannot demote anything. The next
+      // test supplies a 1k bulk population and pins the 1k effort's own
+      // ceiling demotion.
       const effort1k = doc.activities['4556693525'].efforts.find((e) => e.distance === '1k');
       expect(effort1k).toBeDefined();
       expect(effort1k!.demotion).toBeNull();
+    });
+
+    /** A constant-pace (t, d) archive built once per test, shared by Tests A,
+     * C and D. The negative control (3475711469) is excluded in the REAL
+     * committed exclusions file but its effort is well under the ceiling —
+     * proving the sweep does not demote every excluded effort, only the
+     * ones that actually exceed it. */
+    const BULK_400M_COUNT = 150;
+    const BULK_1K_COUNT = 150;
+    const NEGATIVE_CONTROL_SPEED_MPS = 3.5;
+
+    async function buildPinnedArchive({
+      withOneKmBulk,
+    }: {
+      withOneKmBulk: boolean;
+    }): Promise<{
+      bulk400Count: number;
+      bulk1kCount: number;
+      negativeControlDurationSec: number;
+    }> {
+      const manifest = emptyManifestDoc();
+
+      const bulkIds: string[] = [];
+      for (let i = 0; i < BULK_400M_COUNT; i++) {
+        const id = `bulk-${i}`;
+        bulkIds.push(id);
+        manifest.activities[id] = {
+          available: true,
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: 2,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+        };
+      }
+
+      const bulk1kIds: string[] = [];
+      if (withOneKmBulk) {
+        for (let i = 0; i < BULK_1K_COUNT; i++) {
+          const id = `bulk1k-${i}`;
+          bulk1kIds.push(id);
+          manifest.activities[id] = {
+            available: true,
+            source: 'fit',
+            distanceSource: 'native',
+            sampleCount: 2,
+            channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+          };
+        }
+      }
+
+      manifest.activities['4556693525'] = {
+        available: true,
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 3,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+      };
+      manifest.activities['3475711469'] = {
+        available: true,
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 2,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+      };
+
+      await writeManifest(manifest);
+
+      // 150 bulk 400m efforts, speeds spanning 3.00-4.112 m/s — matches the
+      // fixture already used by the non-excluded-path test above so the
+      // derived 400m ceiling sits well below 8.85 m/s.
+      for (let i = 0; i < BULK_400M_COUNT; i++) {
+        const speed = 3.0 + (i / (BULK_400M_COUNT - 1)) * 1.112;
+        const durationSec = round1(400 / speed);
+        await writeActivity(bulkIds[i], '2020-01-01T00:00:00Z', 400);
+        await fileStore.writeJson(path.join('streams', `${bulkIds[i]}.json`), {
+          schemaVersion: 1,
+          id: bulkIds[i],
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: 2,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+          t: [0, durationSec],
+          d: [0, 400],
+        });
+      }
+
+      if (withOneKmBulk) {
+        // 150 more bulk activities at distance 1000: each ALSO yields a
+        // 400m effort via the same constant-pace stream (interpolated
+        // crossing), widening the 400m population to 300 while supplying
+        // the 1k population needed for the pinned activity's 1k effort to
+        // be judged against a real (non-fail-open) ceiling. Speeds
+        // 2.9-3.8 m/s give a nearest-rank p90 around 3.709 m/s -> a 1k
+        // ceiling around 4.75 m/s, below the pinned effort's 4.8216 m/s
+        // (207.4s).
+        for (let i = 0; i < BULK_1K_COUNT; i++) {
+          const speed = 2.9 + (i / (BULK_1K_COUNT - 1)) * 0.9;
+          const durationSec = round1(1000 / speed);
+          await writeActivity(bulk1kIds[i], '2020-06-01T00:00:00Z', 1000);
+          await fileStore.writeJson(path.join('streams', `${bulk1kIds[i]}.json`), {
+            schemaVersion: 1,
+            id: bulk1kIds[i],
+            source: 'fit',
+            distanceSource: 'native',
+            sampleCount: 2,
+            channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+            t: [0, durationSec],
+            d: [0, 1000],
+          });
+        }
+      }
+
+      // The pinned activity: 400m in 45.2s (8.85 m/s implied), 1k in
+      // 207.4s (4.82 m/s implied). max_speed 16.4 means the max-speed
+      // guard does NOT fire at either distance (16.4 * 1.02 clears both
+      // easily) — only the personal ceiling can demote these.
+      await writeActivity('4556693525', '2026-01-01T00:00:00Z', 1000, 16.4);
+      await fileStore.writeJson(path.join('streams', '4556693525.json'), {
+        schemaVersion: 1,
+        id: '4556693525',
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 3,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+        t: [0, 45.2, 207.4],
+        d: [0, 400, 1000],
+      });
+
+      // The negative control: also present in the REAL exclusions file,
+      // but its 400m effort is well under the ceiling.
+      const negativeControlDurationSec = round1(400 / NEGATIVE_CONTROL_SPEED_MPS);
+      await writeActivity('3475711469', '2021-01-01T00:00:00Z', 400);
+      await fileStore.writeJson(path.join('streams', '3475711469.json'), {
+        schemaVersion: 1,
+        id: '3475711469',
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 2,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+        t: [0, negativeControlDurationSec],
+        d: [0, 400],
+      });
+
+      return {
+        bulk400Count: BULK_400M_COUNT,
+        bulk1kCount: withOneKmBulk ? BULK_1K_COUNT : 0,
+        negativeControlDurationSec,
+      };
+    }
+
+    it('4556693525 with its REAL committed exclusion entry is ceiling-demoted at 400m and 1k', async () => {
+      // Test premise: the real committed exclusion for this activity must
+      // actually exist and be all-distance, or this test would silently
+      // degrade into the non-excluded case the previous test already
+      // covers.
+      const realExclusionsPath = fileURLToPath(
+        new URL('../../data/best-effort-exclusions.json', import.meta.url)
+      );
+      const realExclusionsRaw = await fs.readFile(realExclusionsPath, 'utf-8');
+      const realExclusionsDoc = JSON.parse(realExclusionsRaw) as {
+        exclusions: Array<{ activityId: string; distances: string[] | null; reason: string }>;
+      };
+      const pinnedEntry = realExclusionsDoc.exclusions.find((e) => e.activityId === '4556693525');
+      const premiseOk = pinnedEntry !== undefined && pinnedEntry.distances === null;
+      expect(
+        premiseOk,
+        'test premise: the committed exclusion for 4556693525 must exist and be all-distance'
+      ).toBe(true);
+
+      const { negativeControlDurationSec } = await buildPinnedArchive({ withOneKmBulk: true });
+
+      const doc = await computeBestEfforts({
+        activitiesDir: path.join(tmpDir, 'activities'),
+        streamsDir: path.join(tmpDir, 'streams'),
+        streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+        statsDir: path.join(tmpDir, 'stats'),
+        ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
+        exclusionsPath: realExclusionsPath,
+      });
+
+      // Preconditions — the assertions below cannot pass vacuously.
+      expect(doc.ceilings['400m'].ceilingMps).not.toBeNull();
+      expect(doc.ceilings['400m'].ceilingMps!).toBeLessThan(400 / 45.2);
+      expect(doc.ceilings['1k'].ceilingMps).not.toBeNull();
+      expect(doc.ceilings['1k'].ceilingMps!).toBeLessThan(1000 / 207.4);
+      expect(400 / negativeControlDurationSec).toBeLessThan(doc.ceilings['400m'].ceilingMps!);
+
+      const effort400m = doc.activities['4556693525'].efforts.find((e) => e.distance === '400m');
+      expect(effort400m).toBeDefined();
+      expect(effort400m!.durationSec).toBe(45.2);
+      expect(effort400m!.excludedFromRecords).toBe(true);
+      expect(effort400m!.demotion).not.toBeNull();
+      expect(effort400m!.demotion!.guard).toBe('ceiling');
+      expect(effort400m!.demotion!.reason).toMatch(/exceeds personal ceiling/);
+      expect(effort400m!.wasPRAtTheTime).toBe(false);
+
+      const effort1k = doc.activities['4556693525'].efforts.find((e) => e.distance === '1k');
+      expect(effort1k).toBeDefined();
+      expect(effort1k!.excludedFromRecords).toBe(true);
+      expect(effort1k!.demotion).not.toBeNull();
+      expect(effort1k!.demotion!.guard).toBe('ceiling');
+      expect(effort1k!.demotion!.reason).toMatch(/exceeds personal ceiling/);
+      expect(effort1k!.wasPRAtTheTime).toBe(false);
+
+      expect(
+        doc.rejected.some((r) => r.activityId === '4556693525' && r.distance === '400m')
+      ).toBe(true);
+      expect(
+        doc.rejected.some((r) => r.activityId === '4556693525' && r.distance === '1k')
+      ).toBe(true);
+
+      expect(doc.rankings['400m'].some((r) => r.activityId === '4556693525')).toBe(false);
+      expect(doc.rankings['1k'].some((r) => r.activityId === '4556693525')).toBe(false);
+
+      // Negative control: excluded, under the ceiling, no ceiling demotion
+      // — the sweep does not demote every excluded effort.
+      const negEffort = doc.activities['3475711469'].efforts.find((e) => e.distance === '400m');
+      expect(negEffort).toBeDefined();
+      expect(negEffort!.excludedFromRecords).toBe(true);
+      expect(negEffort!.demotion).toBeNull();
+    });
+
+    it('an excluded activity whose effort beats the world record keeps its world-record demotion, not the ceiling', async () => {
+      const manifest = emptyManifestDoc();
+      const BULK_COUNT = 150;
+      const bulkIds: string[] = [];
+      for (let i = 0; i < BULK_COUNT; i++) {
+        const id = `bulk-${i}`;
+        bulkIds.push(id);
+        manifest.activities[id] = {
+          available: true,
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: 2,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+        };
+      }
+      manifest.activities['wr-excluded'] = {
+        available: true,
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 2,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+      };
+      await writeManifest(manifest);
+
+      for (let i = 0; i < BULK_COUNT; i++) {
+        const speed = 3.0 + (i / (BULK_COUNT - 1)) * 1.112;
+        const durationSec = round1(400 / speed);
+        await writeActivity(bulkIds[i], '2020-01-01T00:00:00Z', 400);
+        await fileStore.writeJson(path.join('streams', `${bulkIds[i]}.json`), {
+          schemaVersion: 1,
+          id: bulkIds[i],
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: 2,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+          t: [0, durationSec],
+          d: [0, 400],
+        });
+      }
+
+      // wr-excluded: 400m in 14.6s (27.4 m/s implied), well past the 400m
+      // world-record guard (9.296 m/s) — mirrors live 3475725513@400m.
+      await writeActivity('wr-excluded', '2019-01-01T00:00:00Z', 400, 30);
+      await fileStore.writeJson(path.join('streams', 'wr-excluded.json'), {
+        schemaVersion: 1,
+        id: 'wr-excluded',
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 2,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+        t: [0, 14.6],
+        d: [0, 400],
+      });
+
+      const exclusionsPath = path.join(tmpDir, 'wr-excluded-exclusions.json');
+      await fileStore.writeJson('wr-excluded-exclusions.json', {
+        schemaVersion: 1,
+        note: 'test',
+        exclusions: [
+          { activityId: 'wr-excluded', distances: null, reason: 'implausible device speed' },
+        ],
+      });
+
+      const doc = await computeBestEfforts({
+        activitiesDir: path.join(tmpDir, 'activities'),
+        streamsDir: path.join(tmpDir, 'streams'),
+        streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+        statsDir: path.join(tmpDir, 'stats'),
+        ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
+        exclusionsPath,
+      });
+
+      const effort = doc.activities['wr-excluded'].efforts.find((e) => e.distance === '400m');
+      expect(effort).toBeDefined();
+      expect(effort!.excludedFromRecords).toBe(true);
+      expect(effort!.demotion).not.toBeNull();
+      expect(effort!.demotion!.guard).toBe('world-record');
+
+      const rejectedRows = doc.rejected.filter(
+        (r) => r.activityId === 'wr-excluded' && r.distance === '400m'
+      );
+      expect(rejectedRows.length).toBe(1);
+    });
+
+    it('excluded efforts never feed the ceiling derivation, with or without the real exclusions file', async () => {
+      const { bulk400Count, bulk1kCount } = await buildPinnedArchive({ withOneKmBulk: true });
+      const base400 = bulk400Count + bulk1kCount; // bulk1k activities also yield a 400m effort
+      const base1k = bulk1kCount;
+
+      const realExclusionsPath = fileURLToPath(
+        new URL('../../data/best-effort-exclusions.json', import.meta.url)
+      );
+
+      const withRealExclusions = await computeBestEfforts({
+        activitiesDir: path.join(tmpDir, 'activities'),
+        streamsDir: path.join(tmpDir, 'streams'),
+        streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+        statsDir: path.join(tmpDir, 'stats-real'),
+        ceilingStatePath: path.join(tmpDir, 'ceiling-state-real.json'),
+        exclusionsPath: realExclusionsPath,
+      });
+
+      const withMissingExclusions = await computeBestEfforts({
+        activitiesDir: path.join(tmpDir, 'activities'),
+        streamsDir: path.join(tmpDir, 'streams'),
+        streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+        statsDir: path.join(tmpDir, 'stats-missing'),
+        ceilingStatePath: path.join(tmpDir, 'ceiling-state-missing.json'),
+        exclusionsPath: path.join(tmpDir, 'no-such-exclusions.json'),
+      });
+
+      // The real exclusions file excludes 4556693525 (400m + 1k) and
+      // 3475711469 (400m only), so the real-exclusions run's population is
+      // exactly the bulk count; the missing-exclusions run additionally
+      // admits both excluded fixture activities into byDistance.
+      expect(withRealExclusions.ceilings['400m'].populationN).toBe(base400);
+      expect(withMissingExclusions.ceilings['400m'].populationN).toBe(base400 + 2);
+      expect(withRealExclusions.ceilings['1k'].populationN).toBe(base1k);
+      expect(withMissingExclusions.ceilings['1k'].populationN).toBe(base1k + 1);
+    });
+
+    it('two runs of the real-exclusion fixture produce byte-identical documents apart from generatedAt', async () => {
+      const realExclusionsPath = fileURLToPath(
+        new URL('../../data/best-effort-exclusions.json', import.meta.url)
+      );
+      await buildPinnedArchive({ withOneKmBulk: true });
+
+      const baseOptions = {
+        activitiesDir: path.join(tmpDir, 'activities'),
+        streamsDir: path.join(tmpDir, 'streams'),
+        streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+        exclusionsPath: realExclusionsPath,
+      };
+
+      const doc1 = await computeBestEfforts({
+        ...baseOptions,
+        statsDir: path.join(tmpDir, 'stats-run1'),
+        ceilingStatePath: path.join(tmpDir, 'ceiling-state-run1.json'),
+      });
+      const doc2 = await computeBestEfforts({
+        ...baseOptions,
+        statsDir: path.join(tmpDir, 'stats-run2'),
+        ceilingStatePath: path.join(tmpDir, 'ceiling-state-run2.json'),
+      });
+
+      const strip = (doc: typeof doc1): Omit<typeof doc1, 'generatedAt'> => {
+        const { generatedAt: _generatedAt, ...rest } = structuredClone(doc);
+        return rest;
+      };
+
+      expect(JSON.stringify(strip(doc1))).toBe(JSON.stringify(strip(doc2)));
+    });
+
+    it('totals.effortsDemoted and totals.effortsRejected count the two new ceiling demotions; totals.effortsExcluded is unaffected by the fix', async () => {
+      const realExclusionsPath = fileURLToPath(
+        new URL('../../data/best-effort-exclusions.json', import.meta.url)
+      );
+      await buildPinnedArchive({ withOneKmBulk: true });
+
+      const doc = await computeBestEfforts({
+        activitiesDir: path.join(tmpDir, 'activities'),
+        streamsDir: path.join(tmpDir, 'streams'),
+        streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+        statsDir: path.join(tmpDir, 'stats'),
+        ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
+        exclusionsPath: realExclusionsPath,
+      });
+
+      // The fixture's only excluded activities are 4556693525 (400m + 1k =
+      // 2 efforts) and 3475711469 (400m only = 1 effort) — 3 excluded
+      // efforts total. This count is unaffected by CR-01's fix since
+      // exclusion is determined in Pass 1, before the new excluded-effort
+      // sweep runs.
+      expect(doc.totals.effortsExcluded).toBe(3);
+
+      // The only demotions in this fixture are the two new ceiling
+      // demotions on the excluded pinned activity's 400m and 1k efforts —
+      // no bulk activity and no other excluded activity exceeds its
+      // ceiling.
+      expect(doc.totals.effortsDemoted).toBe(2);
+      expect(doc.totals.effortsRejected).toBe(2);
     });
   });
 
