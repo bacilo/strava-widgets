@@ -491,9 +491,9 @@ describe('filterRankingsToYear — OVR-03 year scope (D-01/D-02)', () => {
   });
 });
 
-describe('countDemotedAtDistance — Phase 28 D-08/D-10', () => {
-  it('returns 0 for an empty activities record', () => {
-    expect(countDemotedAtDistance({}, '400m')).toBe(0);
+describe('countDemotedAtDistance — Phase 28 D-08/D-10, CR-02 per-guard breakdown', () => {
+  it('returns all-zero counts for an empty activities record', () => {
+    expect(countDemotedAtDistance({}, '400m')).toEqual({ total: 0, ceiling: 0, worldRecord: 0, maxSpeed: 0 });
   });
 
   it('counts only the matching distance, ignoring a demotion at a different distance', () => {
@@ -507,10 +507,10 @@ describe('countDemotedAtDistance — Phase 28 D-08/D-10', () => {
         ],
       }),
     };
-    expect(countDemotedAtDistance(activities, '400m')).toBe(1);
+    expect(countDemotedAtDistance(activities, '400m')).toEqual({ total: 1, ceiling: 1, worldRecord: 0, maxSpeed: 0 });
   });
 
-  it('counts two demoted efforts in two different activities as 2', () => {
+  it('breaks down two demoted efforts by guard across two different activities', () => {
     const activities: BestEffortsDocument['activities'] = {
       a1: fixtureActivity({
         activityId: 'a1',
@@ -523,7 +523,27 @@ describe('countDemotedAtDistance — Phase 28 D-08/D-10', () => {
         efforts: [fixtureEffort({ distance: '400m', durationSec: 46, demotion: { guard: 'world-record', reason: 'y' } })],
       }),
     };
-    expect(countDemotedAtDistance(activities, '400m')).toBe(2);
+    expect(countDemotedAtDistance(activities, '400m')).toEqual({ total: 2, ceiling: 1, worldRecord: 1, maxSpeed: 0 });
+  });
+
+  it('skips an owner-excluded effort entirely, even when it also carries a demotion (D-10, CR-01 interaction)', () => {
+    const activities: BestEffortsDocument['activities'] = {
+      a1: fixtureActivity({
+        activityId: 'a1',
+        startDate: '2024-01-01T00:00:00Z',
+        efforts: [
+          fixtureEffort({ distance: '400m', durationSec: 45, demotion: { guard: 'ceiling', reason: 'x' } }),
+          fixtureEffort({ distance: '400m', durationSec: 46, demotion: { guard: 'world-record', reason: 'y' } }),
+          fixtureEffort({
+            distance: '400m',
+            durationSec: 47,
+            excludedFromRecords: true,
+            demotion: { guard: 'ceiling', reason: 'z' },
+          }),
+        ],
+      }),
+    };
+    expect(countDemotedAtDistance(activities, '400m')).toEqual({ total: 2, ceiling: 1, worldRecord: 1, maxSpeed: 0 });
   });
 
   it('does not treat excludedFromRecords as a demotion — an effort with excludedFromRecords: true and demotion: null counts 0 (D-10)', () => {
@@ -534,7 +554,7 @@ describe('countDemotedAtDistance — Phase 28 D-08/D-10', () => {
         efforts: [fixtureEffort({ distance: '400m', durationSec: 45, excludedFromRecords: true, demotion: null })],
       }),
     };
-    expect(countDemotedAtDistance(activities, '400m')).toBe(0);
+    expect(countDemotedAtDistance(activities, '400m')).toEqual({ total: 0, ceiling: 0, worldRecord: 0, maxSpeed: 0 });
   });
 
   it('T-28-02-A: a stale effort with no demotion key at all counts as 0 rather than throwing', () => {
@@ -544,53 +564,85 @@ describe('countDemotedAtDistance — Phase 28 D-08/D-10', () => {
       a1: fixtureActivity({ activityId: 'a1', startDate: '2024-01-01T00:00:00Z', efforts: [staleEffort as BestEffort] }),
     };
     expect(() => countDemotedAtDistance(activities, '400m')).not.toThrow();
-    expect(countDemotedAtDistance(activities, '400m')).toBe(0);
+    expect(countDemotedAtDistance(activities, '400m')).toEqual({ total: 0, ceiling: 0, worldRecord: 0, maxSpeed: 0 });
   });
 });
 
-describe('resolvePrTableEmptyState — D-03/D-09 three-branch copy', () => {
-  it('this-year branch reproduces the existing copy verbatim, ignoring demotedCount', () => {
-    const result = resolvePrTableEmptyState('5k', 'this-year', 2026, 5);
+describe('resolvePrTableEmptyState — D-03/D-09/CR-02 three-branch, guard-accurate copy', () => {
+  it('this-year branch reproduces the existing copy verbatim, ignoring counts', () => {
+    const result = resolvePrTableEmptyState('5k', 'this-year', 2026, { total: 5, ceiling: 5, worldRecord: 0, maxSpeed: 0 });
     expect(result.heading).toBe('No 5K efforts in 2026');
     expect(result.body).toBe(
       'The archive has no 5K effort recorded in 2026. Switch to All time to see every ranked effort.'
     );
   });
 
-  it('all-time with demotedCount 0 reproduces the existing copy verbatim', () => {
-    const result = resolvePrTableEmptyState('5k', 'all-time', 2026, 0);
+  it('all-time with total 0 reproduces the existing copy verbatim', () => {
+    const result = resolvePrTableEmptyState('5k', 'all-time', 2026, { total: 0, ceiling: 0, worldRecord: 0, maxSpeed: 0 });
     expect(result.heading).toBe('No 5K efforts yet');
     expect(result.body).toBe('The archive has no completed 5K effort. Once one is recorded, its rank will appear here.');
   });
 
-  it('all-time with demotedCount > 0 returns the ceiling wording naming the count', () => {
-    const result = resolvePrTableEmptyState('400m', 'all-time', 2026, 15);
+  it('all-time with ceiling > 0 names "the plausibility ceiling" in the heading, and the guard-accurate body', () => {
+    const result = resolvePrTableEmptyState('400m', 'all-time', 2026, {
+      total: 35,
+      ceiling: 8,
+      worldRecord: 17,
+      maxSpeed: 10,
+    });
     expect(result.heading).toBe('No 400m efforts passed the plausibility ceiling');
-    expect(result.body).toContain('15');
-    expect(result.heading).toContain('plausibility ceiling');
+    expect(result.body).toBe(
+      '35 400m efforts were demoted by a plausibility guard (8 by the personal ceiling, 17 by the world-record pace guard, 10 by the activity max-speed guard). Efforts the owner excluded are not counted here. See the activity detail view for each reason.'
+    );
   });
 
-  it('all-time with demotedCount === 1 uses singular agreement', () => {
-    const result = resolvePrTableEmptyState('400m', 'all-time', 2026, 1);
+  it('all-time with ceiling === 0 (latent marathon case) names "the plausibility guards" generically in the heading', () => {
+    const result = resolvePrTableEmptyState('marathon', 'all-time', 2026, {
+      total: 3,
+      ceiling: 0,
+      worldRecord: 3,
+      maxSpeed: 0,
+    });
+    expect(result.heading).toBe('No Marathon efforts passed the plausibility guards');
+    expect(result.heading).not.toContain('plausibility ceiling');
+  });
+
+  it('all-time with total === 1 uses singular agreement in the body', () => {
+    const result = resolvePrTableEmptyState('400m', 'all-time', 2026, { total: 1, ceiling: 1, worldRecord: 0, maxSpeed: 0 });
     expect(result.body).toContain('1 400m effort was demoted');
     expect(result.body).not.toContain('efforts were');
   });
 });
 
-describe('resolvePrTableDemotionNote — D-03 short-table note', () => {
-  it('returns null when demotedCount is 0', () => {
-    expect(resolvePrTableDemotionNote('5k', 0)).toBeNull();
+describe('resolvePrTableDemotionNote — D-03/CR-02/WR-01 guard-accurate short-table note', () => {
+  it('returns null when total is 0', () => {
+    expect(resolvePrTableDemotionNote('5k', 'all-time', { total: 0, ceiling: 0, worldRecord: 0, maxSpeed: 0 })).toBeNull();
   });
 
-  it('returns a string containing the count at 1', () => {
-    const note = resolvePrTableDemotionNote('5k', 1);
-    expect(note).not.toBeNull();
-    expect(note).toContain('1');
+  it('returns null under the this-year scope, whatever the counts (WR-01)', () => {
+    expect(
+      resolvePrTableDemotionNote('5k', 'this-year', { total: 15, ceiling: 15, worldRecord: 0, maxSpeed: 0 })
+    ).toBeNull();
   });
 
-  it('returns a string containing the count at 15', () => {
-    const note = resolvePrTableDemotionNote('5k', 15);
-    expect(note).not.toBeNull();
-    expect(note).toContain('15');
+  it('returns the exact 400m guard-accurate string from the shipped-archive fixture', () => {
+    const note = resolvePrTableDemotionNote('400m', 'all-time', { total: 35, ceiling: 8, worldRecord: 17, maxSpeed: 10 });
+    expect(note).toBe(
+      '35 400m efforts were demoted by a plausibility guard (8 by the personal ceiling, 17 by the world-record pace guard, 10 by the activity max-speed guard). Efforts the owner excluded are not counted here. See the activity detail view for each reason.'
+    );
+  });
+
+  it('returns the exact 1mi guard-accurate string, omitting the zero-count world-record part', () => {
+    const note = resolvePrTableDemotionNote('1mi', 'all-time', { total: 5, ceiling: 3, worldRecord: 0, maxSpeed: 2 });
+    expect(note).toBe(
+      '5 1 Mile efforts were demoted by a plausibility guard (3 by the personal ceiling, 2 by the activity max-speed guard). Efforts the owner excluded are not counted here. See the activity detail view for each reason.'
+    );
+  });
+
+  it('uses singular agreement when total is 1', () => {
+    const note = resolvePrTableDemotionNote('1k', 'all-time', { total: 1, ceiling: 0, worldRecord: 1, maxSpeed: 0 });
+    expect(note).toBe(
+      '1 1K effort was demoted by a plausibility guard (1 by the world-record pace guard). Efforts the owner excluded are not counted here. See the activity detail view for each reason.'
+    );
   });
 });
