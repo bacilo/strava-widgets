@@ -486,3 +486,173 @@ row silently dropped.
 - [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** REOPENED 2026-09-16 after verification gaps_found (see AMENDED section); originally approved 2026-09-16 — developer, verbatim: "approved" (Round 1, blanket; R4 NOT EXERCISABLE)
+
+---
+
+## Round 2 Evidence (gap closure 28-10..28-14)
+
+Produced by plan 28-14, run in the primary working tree (`/Users/pedf/workspace/strava-widgets`,
+not a worktree — `data/stats/`, `data/dashboard/` and the pre-fix snapshot are gitignored and
+exist only here). Every number below was predicted BEFORE regeneration (in `28-14-PLAN.md`'s
+`<interfaces>` block, written before any file in this section was touched) and is now matched
+against what regeneration actually produced.
+
+### Snapshot pins
+
+Archive snapshot, confirmed unchanged from the plan's pinned values before regenerating:
+
+- `git rev-parse HEAD:data/streams/manifest.json` = `b8ac1a5494ae1384f9c5b67ce42752335fcbb532`
+- `git rev-parse HEAD:data/best-effort-exclusions.json` = `8e942ff6711861a85d62c2e4ed71726968dd0cd0`
+- `git rev-parse HEAD:data/best-effort-ceiling.json` = `f6b4f15d52672a915912b056758cc0a3dc51bc37`
+- `git rev-parse --show-toplevel` = `/Users/pedf/workspace/strava-widgets`; `git rev-parse --git-dir` = `.git` (not a worktree)
+- `git status --porcelain data/` was empty before regeneration
+- Pre-fix `data/stats/best-efforts.json` `generatedAt`: `2026-09-10T23:08:32.377Z` (confirmed before touching anything)
+- Plans 28-10, 28-11 and 28-12 all have SUMMARY files (confirmed present)
+- Snapshot copies: `data/stats/best-efforts.json` → sha256 `f38e042e2754e9290a77b7940b97657137eae01646d4ddbd4e687bed36348d08`; `data/dashboard/index.json` → sha256 `fa8c6576254816e0e0791513f9648be77b79f276539bf65b0e67cf19bdfdd175`, both copied to a scratch directory before any regeneration touched the working tree.
+
+### Pre-fix recount, re-run on the snapshot (prediction: 18 + 13 = 31)
+
+`node scripts/compute-pr-ceiling-recount.mjs --best-efforts <snap>/best-efforts.json --index <snap>/index.json` — exit 1:
+
+```
+Recomputed demoted total (own arithmetic, activities[*].efforts[*].demotion): 52
+  Per-guard breakdown (own arithmetic):
+    world-record: 19
+    max-speed:    15
+    ceiling:      18
+    unrecognised guards: 0
+  Pinned fixture 4556693525@400m: durationSec=45.2 guard=null durationMatches45_2=true guardIsCeiling=false
+
+Ceiling sweep (own arithmetic, doc.ceilings vs TARGET/durationSec):
+  independentCeilingCount: 31
+  overCeilingWithoutDemotion (13): 14122328106@400m, 3475711469@400m, 3475711630@400m, 3475715178@400m, 3475725513@1k, 3475726256@400m, 3475727228@400m, 3475732221@400m, 3475735603@400m, 4556693525@400m, 4556693525@1k, 5059204779@400m, 5588316886@400m
+  Per-distance overCeilingWithoutDemotion counts:
+    1k: 2
+    400m: 11
+  ceilingDemotedButNotOverCeiling (0): (none)
+  failOpenDistances: marathon
+  unevaluable (0): (none)
+  ceilingsMissing: false
+
+FAIL:
+  - pinned fixture 4556693525@400m guard is null, not "ceiling" (guardIsCeiling=false)
+  - 13 over-ceiling effort(s) carry no demotion (CR-01 shape): 14122328106@400m, 3475711469@400m, 3475711630@400m, 3475715178@400m, 3475725513@1k, 3475726256@400m, 3475727228@400m, 3475732221@400m, 3475735603@400m, 4556693525@400m, 4556693525@1k, 5059204779@400m, 5588316886@400m
+  - independent ceiling count (31) disagrees with byGuard.ceiling (18)
+```
+
+**Prediction confirmed:** byGuard.ceiling 18 + the sweep's 13 missing labels = 31, and the sweep's own `independentCeilingCount` independently reads 31 — two routes, same number, neither reading `effort.demotion` as ground truth.
+
+### Regeneration
+
+`npm run build && npm run compute-all-stats` — completed clean. Console tail: `Loaded previous ceiling state (7/7 distances) from data/best-effort-ceiling.json`, `Ceiling movement vs. previous committed run: unchanged at every distance`. `git status --porcelain data/best-effort-ceiling.json` — empty (file not rewritten; population did not change). Post-fix `data/stats/best-efforts.json` `generatedAt`: `2026-09-16T12:01:32.452Z`. Post-fix totals: `{"activitiesConsidered":1865,"activitiesWithEfforts":1864,"effortsComputed":8946,"effortsRejected":65,"effortsExcluded":61,"lowConfidenceEfforts":181,"skippedNoStream":25,"skippedUnreadable":0,"effortsDemoted":65}` — `effortsDemoted`/`effortsRejected` moved 52 → 65 exactly as predicted; `effortsExcluded` unchanged at 61.
+
+### Pre/post structural comparison (throwaway script, never committed)
+
+22 assertions, all PASS, verbatim output:
+
+```
+PASS: rankings deep-equal (string compare)
+PASS: post rankings sha256 === cb2a498a...
+  post rankings sha256: cb2a498a416b29eb7c8ca3826841b3e768d66c7ca0993d135d2782a9369ec9fb
+PASS: ceilings deep-equal
+PASS: activity key sets equal
+PASS: every effort: non-demotion fields identical (wasPRAtTheTime, excludedFromRecords, durationSec, etc.)
+PASS: demotion-diff count === 13 (observed 13)
+PASS: demotion-diff label set === predicted 13
+PASS: every demotion diff goes null -> guard "ceiling"
+  Observed demotion-diff labels: ["14122328106@400m","3475711469@400m","3475711630@400m","3475715178@400m","3475725513@1k","3475726256@400m","3475727228@400m","3475732221@400m","3475735603@400m","4556693525@1k","4556693525@400m","5059204779@400m","5588316886@400m"]
+PASS: post rejected length === pre rejected length + 13 (pre=52, post=65)
+PASS: post rejected = pre rejected + 13 new rows matching predicted labels
+  New rejected-row keys: ["14122328106@400m","3475711469@400m","3475711630@400m","3475715178@400m","3475725513@1k","3475726256@400m","3475727228@400m","3475732221@400m","3475735603@400m","4556693525@1k","4556693525@400m","5059204779@400m","5588316886@400m"]
+PASS: totals differ only in effortsDemoted/effortsRejected
+PASS: totals.effortsDemoted 52 -> 65 (pre=52, post=65)
+PASS: totals.effortsRejected 52 -> 65 (pre=52, post=65)
+  Shard file count (post-fix, current dir): 1865
+PASS: shard file count equals activity key set count
+  4556693525@400m demotion: {"guard":"ceiling","reason":"implied 8.85 m/s exceeds personal ceiling 5.11 m/s (1.28 x p90 3.99 m/s over 1825 filtered 400m efforts)"}
+  4556693525@1k demotion: {"guard":"ceiling","reason":"implied 4.82 m/s exceeds personal ceiling 4.75 m/s (1.28 x p90 3.71 m/s over 1843 filtered 1k efforts)"}
+PASS: 4556693525@400m guard === ceiling
+PASS: 4556693525@400m reason matches predicted EXACTLY
+PASS: 4556693525@1k guard === ceiling
+PASS: 4556693525@1k reason matches predicted EXACTLY
+  3475725513@400m demotion: {"guard":"world-record","reason":"implied 27.32 m/s exceeds world-record pace 9.30 m/s"}
+  3475725513@1k demotion: {"guard":"ceiling","reason":"implied 6.72 m/s exceeds personal ceiling 4.75 m/s (1.28 x p90 3.71 m/s over 1843 filtered 1k efforts)"}
+PASS: 3475725513@400m guard === world-record
+PASS: 3475725513@400m reason matches predicted EXACTLY
+PASS: 3475725513@1k guard === ceiling
+PASS: 3475725513@1k reason matches predicted EXACTLY
+
+SUMMARY: 22 PASS / 0 FAIL
+```
+
+The change between pre-fix and post-fix documents is exactly: the 13 named efforts' `demotion` field (null → guard `ceiling`), 13 appended `rejected` rows matching those same 13 `(activityId, distance)` pairs, and `totals.effortsDemoted`/`totals.effortsRejected` (52 → 65). Rankings (string-identical, sha256-pinned), `doc.ceilings`, every `wasPRAtTheTime` flag, and every other `totals` field are unchanged.
+
+### Post-fix recount (prediction: exit 0, PASS, ceiling 31, independentCeilingCount 31, guardIsCeiling=true)
+
+`node scripts/compute-pr-ceiling-recount.mjs --expect-demoted 65` — exit 0, verbatim:
+
+```
+Recomputed demoted total (own arithmetic, activities[*].efforts[*].demotion): 65
+  Per-guard breakdown (own arithmetic):
+    world-record: 19
+    max-speed:    15
+    ceiling:      31
+    unrecognised guards: 0
+  Per-distance breakdown (own arithmetic):
+    10k: 0
+    1k: 13
+    1mi: 5
+    400m: 47
+    5k: 0
+    half: 0
+    marathon: 0
+  Cross-check vs. doc.totals.effortsDemoted: own=65 totals=65 disagrees=false
+  Cross-check ownRejectedNonErrorRows vs. ownDemotedTotal: rejected=65 demoted=65 disagrees=false
+  rankedButDemotedIds (0): (none)
+  demotedWithoutReason (0): (none)
+  Pinned fixture 4556693525@400m: durationSec=45.2 guard="ceiling" durationMatches45_2=true guardIsCeiling=true
+  --expect-demoted 65: MATCH
+
+Ceiling sweep (own arithmetic, doc.ceilings vs TARGET/durationSec):
+  independentCeilingCount: 31
+  overCeilingWithoutDemotion (0): (none)
+  ceilingDemotedButNotOverCeiling (0): (none)
+  failOpenDistances: marathon
+  unevaluable (0): (none)
+  ceilingsMissing: false
+
+PR-05 impossible-sample cohort (own arithmetic, live denominator):
+  archiveDenominator: 1890
+  rowsWithQuality:    1890
+  rowsMissingQuality: 0
+  cohortCount:        662
+  cohortPct:          35%
+
+  Overlap with the demoted-effort population:
+    cohortWithDemotedEffort:    46
+    cohortWithoutDemotedEffort: 616
+    demotedNotInCohort:         1
+    biteRatePct (finding, not a threshold): 6.9%
+
+PASS: recount agrees with the shipped totals; no disagreements found.
+```
+
+The cohort denominator (662 of 1,890, 35%) is unchanged from plan 28-08's recorded figure — no drift.
+
+### Predicted vs. observed
+
+| Figure | Predicted before regeneration | Observed | Source |
+|---|---|---|---|
+| Ceiling-only total | 31 (18 + 13, and independently 31 from the sweep on the pre-fix document) | 31 | `byGuard.ceiling` in the post-fix recount |
+| World-record | 19 (unchanged; absolute guard runs before exclusion, unaffected by CR-01) | 19 | post-fix recount |
+| Max-speed | 15 (unchanged, same reason) | 15 | post-fix recount |
+| Total demoted (`effortsDemoted`) | 65 (52 + 13) | 65 | post-fix `data/stats/best-efforts.json` totals + post-fix recount cross-check |
+| `independentCeilingCount` | 31 (classifier-independent sweep, never reads `effort.demotion`) | 31 | post-fix recount's own sweep block |
+| Over-ceiling without demotion | 0 (the CR-01 shape should no longer exist) | 0 | post-fix recount's `overCeilingWithoutDemotion` |
+| Pinned fixture 4556693525@400m | guard `ceiling`, durationSec 45.2, `guardIsCeiling=true` | guard `"ceiling"`, durationSec 45.2, `durationMatches45_2=true`, `guardIsCeiling=true` | post-fix recount's pinned-fixture line |
+
+No row differs. All seven figures were predicted before any regeneration ran (in `28-14-PLAN.md`'s `<interfaces>` block, itself derived from plan 28-10's pre-fix sweep — a different program reading a different, not-yet-regenerated document) and were matched exactly by the post-fix recount and the regenerated document.
+
+### D-04 observation (not a finding — not investigated further, per D-04)
+
+`3475726256@400m`'s shard shows `durationSec: 44, demotion: {"guard":"ceiling","reason":"implied 9.09 m/s exceeds personal ceiling 5.11 m/s (...)"}`  — i.e. exactly 44.0s / 9.0909 m/s, the stale PR-05/ROADMAP figure D-04 recorded as unexplained. Carried to the plan 28-15 checkpoint as an observation only: the likely explanation is that the requirement quoted this activity's value against the wrong id. D-04's pinned fixture (activity `4556693525`, 45.2s) stays as locked and is unaffected — its own demotion (verified above) is guard `ceiling` as predicted.
