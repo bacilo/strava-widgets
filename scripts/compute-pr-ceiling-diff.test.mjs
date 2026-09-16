@@ -14,6 +14,7 @@ import { TARGET_ORDER } from '../dist/analytics/best-effort.types.js';
 import { markPRs, rankTopN } from '../dist/analytics/best-effort-utils.js';
 
 import {
+  buildDiffReport,
   diffPrState,
   extractNewState,
   reconstructOldDocument,
@@ -56,6 +57,7 @@ function emptyPerDistance() {
       flagsAfter: 0,
       flagsFlipped: 0,
       demotedCount: 0,
+      demotedExcludedCount: 0,
       netZeroButMoved: false,
     };
   }
@@ -129,6 +131,34 @@ describe('reconstructOldDocument', () => {
     expect(prFlags['wr1|400m']).toBeUndefined();
     expect(prFlags['ms1|400m']).toBeUndefined();
     expect(prFlags['exclEffort1|400m']).toBeUndefined();
+  });
+
+  it('WR-04: a distance-scoped exclusion drops only the excluded distance, retaining a non-excluded effort of the same activity', () => {
+    // The owner excluded only this activity's 400m effort; the pipeline sets
+    // effort.excludedFromRecords per distance while activity.excludedFromRecords
+    // is true for the whole activity (compute-best-efforts.ts:317). The OLD
+    // reconstruction must key off the per-effort flag only, never the
+    // activity-level one, or it drops the whole activity and loses the 5k effort.
+    const newDoc = {
+      totals: { activitiesConsidered: 1, effortsDemoted: 0 },
+      ceilings: {},
+      rankings: { '400m': [], '5k': [] },
+      activities: {
+        partial: makeActivity({
+          activityId: 'partial',
+          startDate: '2020-01-01T00:00:00Z',
+          excludedFromRecords: true,
+          efforts: [
+            makeEffort({ distance: '400m', durationSec: 60, excludedFromRecords: true }),
+            makeEffort({ distance: '5k', durationSec: 1200, excludedFromRecords: false }),
+          ],
+        }),
+      },
+    };
+
+    const { rankings } = reconstructOldDocument(newDoc);
+    expect(rankings['400m'].map((r) => r.activityId)).not.toContain('partial');
+    expect(rankings['5k'].map((r) => r.activityId)).toContain('partial');
   });
 });
 
@@ -344,7 +374,151 @@ describe('diffPrState — no-change control', () => {
       totalFlagFlips: 0,
       totalRetroactivePromotions: 0,
       totalRankingRowsMoved: 0,
+      totalDemotedExcluded: 0,
     });
+  });
+});
+
+describe('diffPrState — demotedExcludedCount / totalDemotedExcluded', () => {
+  it('counts a ceiling-demoted, owner-excluded NEW effort separately from the plain demotedCount', () => {
+    const newDoc = {
+      totals: { activitiesConsidered: 2, effortsDemoted: 1 },
+      ceilings: {},
+      rankings: { '400m': [] },
+      activities: {
+        demotedExcluded: makeActivity({
+          activityId: 'demotedExcluded',
+          startDate: '2020-01-01T00:00:00Z',
+          excludedFromRecords: true,
+          efforts: [
+            makeEffort({
+              distance: '400m',
+              durationSec: 45,
+              demotion: { guard: 'ceiling', reason: 'r' },
+              excludedFromRecords: true,
+            }),
+          ],
+        }),
+        demotedNotExcluded: makeActivity({
+          activityId: 'demotedNotExcluded',
+          startDate: '2020-01-02T00:00:00Z',
+          efforts: [
+            makeEffort({
+              distance: '400m',
+              durationSec: 46,
+              demotion: { guard: 'ceiling', reason: 'r' },
+            }),
+          ],
+        }),
+      },
+    };
+
+    const oldState = reconstructOldDocument(newDoc);
+    const newState = extractNewState(newDoc);
+    const { perDistance, totals } = diffPrState(oldState, newState);
+
+    expect(perDistance['400m'].demotedCount).toBe(2);
+    expect(perDistance['400m'].demotedExcludedCount).toBe(1);
+    expect(totals.totalDemotedExcluded).toBe(1);
+  });
+});
+
+describe('buildDiffReport — ceilingDemotedExcluded', () => {
+  function makeCeilingExcludedDoc() {
+    return {
+      totals: { activitiesConsidered: 3, effortsDemoted: 2 },
+      ceilings: {
+        '400m': { distance: '400m', populationN: 1800, p90Mps: 4.0, multiplier: 1.28, ceilingMps: 5.1098, failOpenReason: null },
+        '1k': { distance: '1k', populationN: 1800, p90Mps: 3.7, multiplier: 1.28, ceilingMps: 4.7513, failOpenReason: null },
+      },
+      rankings: { '400m': [], '1k': [] },
+      activities: {
+        // 400m owner-excluded ceiling demotion, real activity id
+        4556693525: makeActivity({
+          activityId: '4556693525',
+          startDate: '2020-01-01T00:00:00Z',
+          excludedFromRecords: true,
+          efforts: [
+            makeEffort({
+              distance: '400m',
+              durationSec: 45.2,
+              demotion: { guard: 'ceiling', reason: 'r' },
+              excludedFromRecords: true,
+            }),
+          ],
+        }),
+        // 1k owner-excluded ceiling demotion, earlier in TARGET_ORDER's own
+        // distance position but a "later" activityId, to prove the sort is
+        // TARGET_ORDER index first, then activityId.
+        1000000001: makeActivity({
+          activityId: '1000000001',
+          startDate: '2020-01-02T00:00:00Z',
+          excludedFromRecords: true,
+          efforts: [
+            makeEffort({
+              distance: '1k',
+              durationSec: 200,
+              demotion: { guard: 'ceiling', reason: 'r' },
+              excludedFromRecords: true,
+            }),
+          ],
+        }),
+        // A ceiling demotion that is NOT excluded — must not appear.
+        clean1: makeActivity({
+          activityId: 'clean1',
+          startDate: '2020-01-03T00:00:00Z',
+          efforts: [
+            makeEffort({
+              distance: '400m',
+              durationSec: 47,
+              demotion: { guard: 'ceiling', reason: 'r' },
+            }),
+          ],
+        }),
+      },
+    };
+  }
+
+  it('lists one row per ceiling-demoted, owner-excluded NEW effort, sorted by TARGET_ORDER then activityId', () => {
+    const report = buildDiffReport(makeCeilingExcludedDoc());
+    expect(report.ceilingDemotedExcluded).toHaveLength(2);
+    // 400m precedes 1k in TARGET_ORDER
+    expect(report.ceilingDemotedExcluded[0]).toMatchObject({
+      activityId: '4556693525',
+      distance: '400m',
+      durationSec: 45.2,
+      ceilingMps: 5.1098,
+    });
+    expect(report.ceilingDemotedExcluded[0].impliedSpeedMps).toBeCloseTo(400 / 45.2, 6);
+    expect(report.ceilingDemotedExcluded[1]).toMatchObject({
+      activityId: '1000000001',
+      distance: '1k',
+      durationSec: 200,
+      ceilingMps: 4.7513,
+    });
+    expect(report.ceilingDemotedExcluded[1].impliedSpeedMps).toBeCloseTo(1000 / 200, 6);
+  });
+
+  it('excludes a ceiling-demoted effort that is not owner-excluded', () => {
+    const report = buildDiffReport(makeCeilingExcludedDoc());
+    expect(report.ceilingDemotedExcluded.some((row) => row.activityId === 'clean1')).toBe(false);
+  });
+
+  it('returns an empty array when no ceiling demotion is owner-excluded', () => {
+    const newDoc = {
+      totals: { activitiesConsidered: 1, effortsDemoted: 0 },
+      ceilings: {},
+      rankings: { '400m': [] },
+      activities: {
+        clean1: makeActivity({
+          activityId: 'clean1',
+          startDate: '2020-01-01T00:00:00Z',
+          efforts: [makeEffort({ distance: '400m', durationSec: 60 })],
+        }),
+      },
+    };
+    const report = buildDiffReport(newDoc);
+    expect(report.ceilingDemotedExcluded).toEqual([]);
   });
 });
 
@@ -390,9 +564,16 @@ describe('renderDiffMarkdown', () => {
       documentDemotedTotal: 52,
       ceilings: emptyCeilings(),
       perDistance: emptyPerDistance(),
-      totals: { totalDemoted: 0, totalFlagFlips: 0, totalRetroactivePromotions: 0, totalRankingRowsMoved: 0 },
+      totals: {
+        totalDemoted: 0,
+        totalFlagFlips: 0,
+        totalRetroactivePromotions: 0,
+        totalRankingRowsMoved: 0,
+        totalDemotedExcluded: 0,
+      },
       ceilingK: 1.28,
       ceilingMinPopulation: 100,
+      ceilingDemotedExcluded: [],
       ...overrides,
     };
   }
@@ -431,11 +612,18 @@ describe('renderDiffMarkdown', () => {
       flagsAfter: 2,
       flagsFlipped: 1,
       demotedCount: 1,
+      demotedExcludedCount: 0,
       netZeroButMoved: true,
     };
     const report = baseReport({
       perDistance,
-      totals: { totalDemoted: 1, totalFlagFlips: 1, totalRetroactivePromotions: 1, totalRankingRowsMoved: 0 },
+      totals: {
+        totalDemoted: 1,
+        totalFlagFlips: 1,
+        totalRetroactivePromotions: 1,
+        totalRankingRowsMoved: 0,
+        totalDemotedExcluded: 0,
+      },
     });
 
     const markdown = renderDiffMarkdown(report);
@@ -446,5 +634,69 @@ describe('renderDiffMarkdown', () => {
   it('writes no sign-off text', () => {
     const markdown = renderDiffMarkdown(baseReport());
     expect(markdown).not.toMatch(/signed off|approved by|reviewer:/i);
+  });
+
+  it('emits the owner-excluded Summary bullet, the new table column, and the new section with "None in this run." when ceilingDemotedExcluded is empty', () => {
+    const report = baseReport({ ceilingDemotedExcluded: [] });
+    const markdown = renderDiffMarkdown(report);
+
+    expect(markdown).toContain('Of those, also owner-excluded (no ranking effect): 0');
+    expect(markdown).toContain(
+      '| Distance | Ceiling (m/s) | Demoted (ceiling) | Of which owner-excluded | Flags before | Flags after | Flags flipped |'
+    );
+    expect(markdown).toContain('## Ceiling demotions on owner-excluded efforts');
+
+    const sectionStart = markdown.indexOf('## Ceiling demotions on owner-excluded efforts');
+    const nextSectionStart = markdown.indexOf('## Reconciliation');
+    const section = markdown.slice(sectionStart, nextSectionStart);
+    expect(section).toMatch(/None in this run\./);
+
+    // placed immediately after Retroactive promotions and before Reconciliation
+    const retroIndex = markdown.indexOf('## Retroactive promotions');
+    expect(retroIndex).toBeLessThan(sectionStart);
+    expect(sectionStart).toBeLessThan(nextSectionStart);
+  });
+
+  it('renders one row per ceilingDemotedExcluded entry with speeds to 4 decimals and duration to 1 decimal, and (malformed id) for an invalid activity id', () => {
+    const report = baseReport({
+      ceilingDemotedExcluded: [
+        {
+          activityId: '4556693525',
+          distance: '400m',
+          durationSec: 45.2,
+          impliedSpeedMps: 400 / 45.2,
+          ceilingMps: 5.1098,
+        },
+        {
+          activityId: 'not-a-valid-id!',
+          distance: '1k',
+          durationSec: 200,
+          impliedSpeedMps: 5,
+          ceilingMps: 4.7513,
+        },
+      ],
+    });
+    const markdown = renderDiffMarkdown(report);
+    const sectionStart = markdown.indexOf('## Ceiling demotions on owner-excluded efforts');
+    const nextSectionStart = markdown.indexOf('## Reconciliation');
+    const section = markdown.slice(sectionStart, nextSectionStart);
+
+    expect(section).toContain('4556693525');
+    expect(section).toContain((400 / 45.2).toFixed(4));
+    expect(section).toContain('45.2');
+    expect(section).toContain('5.1098');
+    expect(section).toContain('(malformed id)');
+    expect(section).not.toContain('not-a-valid-id!');
+  });
+
+  it('Reconciliation names byGuard.ceiling and independentCeilingCount from the recount script, and carries no sign-off text', () => {
+    const markdown = renderDiffMarkdown(baseReport());
+    const sectionStart = markdown.indexOf('## Reconciliation');
+    const nextSectionStart = markdown.indexOf('## Inputs');
+    const section = markdown.slice(sectionStart, nextSectionStart);
+
+    expect(section).toContain('byGuard.ceiling');
+    expect(section).toContain('independentCeilingCount');
+    expect(section).not.toMatch(/signed off|approved by|reviewer:/i);
   });
 });
