@@ -54,16 +54,34 @@ const DEFAULT_MIN_POINTS_ABOVE_BOUNDARY = 10;
  * activityId, startDate, durationSec, speedMps }>>` built from
  * `bestEffortsDoc.activities` only.
  *
- * Membership rule (stated here, not derived from any other document):
- * include `activities[id].efforts[j]` only when BOTH
- * `activities[id].excludedFromRecords` is false AND
- * `efforts[j].excludedFromRecords` is false. The shipped `efforts` array is
- * already post-`isPlausible` (the absolute world-record/max_speed guard has
- * already run), so this population is exactly "already filtered by the
- * absolute guard and the exclusion list" — PR-02's required starting point.
+ * Membership rule (stated here, not derived from any other document): this
+ * mirrors `compute-best-efforts.ts` Pass 1's `byDistance` population EXACTLY —
+ * per-effort exclusion only, absolute-guard demotions dropped, ceiling
+ * demotions and missing-or-null demotions kept.
+ *
+ * - include `activities[id].efforts[j]` only when
+ *   `efforts[j].excludedFromRecords` is false. The activity-level flag is
+ *   NOT consulted: it is true for the whole activity once any exclusion
+ *   entry names it, even one scoped to a single distance, while the
+ *   pipeline's own exclusion is distance-scoped (WR-04) — an activity
+ *   partially excluded still contributes its other, non-excluded efforts.
+ * - additionally drop an effort whose `demotion?.guard` is `'world-record'`
+ *   or `'max-speed'`: these are the absolute-guard rejections Pass 1 never
+ *   sees, because they are decided by the SAME guard that ran before Pass 1
+ *   accumulated.
+ * - keep an effort whose `demotion?.guard` is `'ceiling'`, or whose
+ *   `demotion` is `null`/absent: the ceiling did not exist yet when Pass 1
+ *   accumulated its population, so a ceiling demotion cannot have removed it.
+ *
+ * Since D-08 the shipped `efforts` array no longer reflects `isPlausible`'s
+ * verdict by omission — it retains every demotion (world-record, max-speed
+ * AND ceiling) so the demoted-but-visible invariant holds. Only
+ * world-record/max-speed were ever excluded from Pass 1's accumulation;
+ * ceiling demotions are decided AFTER Pass 1, from Pass 1's own output.
+ *
  * `rankings` (top-10 only, would silently truncate the population) and
- * `rejected` (already-deleted efforts, the opposite of this population) are
- * never read for membership.
+ * `rejected` (now always empty — nothing is deleted post-D-08) are never
+ * read for membership.
  */
 export function buildFilteredPopulations(bestEffortsDoc) {
   const populations = new Map();
@@ -72,11 +90,14 @@ export function buildFilteredPopulations(bestEffortsDoc) {
   const activities = bestEffortsDoc?.activities ?? {};
   for (const activityId of Object.keys(activities)) {
     const activity = activities[activityId];
-    if (!activity || activity.excludedFromRecords) continue;
+    if (!activity) continue;
 
     const efforts = activity.efforts ?? [];
     for (const effort of efforts) {
       if (!effort || effort.excludedFromRecords) continue;
+
+      const guard = effort.demotion?.guard;
+      if (guard === 'world-record' || guard === 'max-speed') continue;
 
       const meters = TARGET_METERS[effort.distance];
       if (!meters || !(effort.durationSec > 0)) continue;
