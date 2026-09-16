@@ -68,22 +68,30 @@ describe('buildFilteredPopulations', () => {
     generatedAt: '2026-01-01T00:00:00Z',
     note: 'fixture',
     totals: {},
-    // Deliberately lists the excluded activity's effort in rankings, to
-    // prove membership is never read from here.
+    // Deliberately lists the effort-excluded activity's effort in rankings
+    // (rank 1), to prove membership is never read from here. This activity
+    // really is excluded (effort.excludedFromRecords), unlike
+    // act-activity-excluded below, which is only excluded at the
+    // activity level and is therefore INCLUDED under WR-04.
     rankings: {
       '400m': [
         {
           rank: 1,
-          activityId: 'act-activity-excluded',
-          startDate: '2020-01-01T00:00:00Z',
-          durationSec: 50,
-          paceSecPerKm: 125,
+          activityId: 'act-effort-excluded',
+          startDate: '2020-01-02T00:00:00Z',
+          durationSec: 60,
+          paceSecPerKm: 150,
           lowConfidence: false,
         },
       ],
     },
     rejected: [],
     activities: {
+      // Distance-scoped owner exclusion: the activity carries
+      // excludedFromRecords: true (set whenever ANY exclusion entry names
+      // the activity, even a distance-scoped one — compute-best-efforts.ts),
+      // but THIS effort is not itself excluded. The pipeline includes it
+      // (WR-04): only effort.excludedFromRecords governs membership.
       'act-activity-excluded': {
         activityId: 'act-activity-excluded',
         startDate: '2020-01-01T00:00:00Z',
@@ -91,6 +99,7 @@ describe('buildFilteredPopulations', () => {
         excludedFromRecords: true,
         efforts: [makeEffort({ durationSec: 50, excludedFromRecords: false })],
       },
+      // Really excluded at the effort level — dropped.
       'act-effort-excluded': {
         activityId: 'act-effort-excluded',
         startDate: '2020-01-02T00:00:00Z',
@@ -98,6 +107,7 @@ describe('buildFilteredPopulations', () => {
         excludedFromRecords: false,
         efforts: [makeEffort({ durationSec: 60, excludedFromRecords: true })],
       },
+      // Clean, unflagged effort — included.
       'act-clean': {
         activityId: 'act-clean',
         startDate: '2020-01-03T00:00:00Z',
@@ -105,21 +115,68 @@ describe('buildFilteredPopulations', () => {
         excludedFromRecords: false,
         efforts: [makeEffort({ durationSec: 70, excludedFromRecords: false })],
       },
+      // Absolute-guard demoted (world-record) — dropped, even at an absurd
+      // implied speed (400m / 0.4s = 1000 m/s).
+      'act-world-record': {
+        activityId: 'act-world-record',
+        startDate: '2020-01-04T00:00:00Z',
+        distanceSource: 'native',
+        excludedFromRecords: false,
+        efforts: [
+          makeEffort({
+            durationSec: 0.4,
+            excludedFromRecords: false,
+            demotion: { guard: 'world-record', reason: 'r' },
+          }),
+        ],
+      },
+      // Absolute-guard demoted (max-speed) — dropped.
+      'act-max-speed': {
+        activityId: 'act-max-speed',
+        startDate: '2020-01-05T00:00:00Z',
+        distanceSource: 'native',
+        excludedFromRecords: false,
+        efforts: [
+          makeEffort({
+            durationSec: 45,
+            excludedFromRecords: false,
+            demotion: { guard: 'max-speed', reason: 'r' },
+          }),
+        ],
+      },
+      // Ceiling-demoted — the ceiling did not exist when Pass 1
+      // accumulated, so this is INCLUDED.
+      'act-ceiling': {
+        activityId: 'act-ceiling',
+        startDate: '2020-01-06T00:00:00Z',
+        distanceSource: 'native',
+        excludedFromRecords: false,
+        efforts: [
+          makeEffort({
+            durationSec: 48,
+            excludedFromRecords: false,
+            demotion: { guard: 'ceiling', reason: 'r' },
+          }),
+        ],
+      },
     },
   };
 
-  it('includes only the clean effort — excludes activity-level and effort-level exclusions', () => {
+  it('mirrors Pass 1: per-effort exclusion only, absolute-guard demotions dropped, ceiling demotions kept', () => {
     const populations = buildFilteredPopulations(fixtureDoc);
     const pop400 = populations.get('400m');
-    expect(pop400).toHaveLength(1);
-    expect(pop400[0].activityId).toBe('act-clean');
-    expect(pop400[0].durationSec).toBe(70);
+    const includedIds = pop400.map((e) => e.activityId).sort();
+
+    expect(includedIds).toEqual(['act-activity-excluded', 'act-ceiling', 'act-clean']);
+    expect(pop400.some((e) => e.activityId === 'act-effort-excluded')).toBe(false);
+    expect(pop400.some((e) => e.activityId === 'act-world-record')).toBe(false);
+    expect(pop400.some((e) => e.activityId === 'act-max-speed')).toBe(false);
   });
 
   it('never reads rankings for membership: the excluded activity does not appear despite ranking rank 1', () => {
     const populations = buildFilteredPopulations(fixtureDoc);
     const pop400 = populations.get('400m');
-    expect(pop400.some((e) => e.activityId === 'act-activity-excluded')).toBe(false);
+    expect(pop400.some((e) => e.activityId === 'act-effort-excluded')).toBe(false);
   });
 });
 

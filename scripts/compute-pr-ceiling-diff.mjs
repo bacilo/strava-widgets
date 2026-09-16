@@ -15,11 +15,9 @@
  * temp directory via `os.tmpdir()`), so generating this diff can never
  * overwrite `data/stats/best-efforts.json` or rewrite the committed ceiling
  * state (T-28-07-A) — a diff tool that mutates the thing it is describing is
- * not a dry run. `ceilingStatePath` is passed forward-compatibly: at this
- * plan's base, `ComputeBestEffortsOptions` does not yet declare the field
- * (plan 28-06, running concurrently, adds it), so today it is silently
- * ignored by `computeBestEfforts`, and once 28-06 lands the same call
- * becomes load-bearing with no edit required here.
+ * not a dry run. `ceilingStatePath` is a throwaway temp path: it is passed so
+ * the committed ceiling state at `data/best-effort-ceiling.json` is never
+ * touched by this script, no matter what `computeBestEfforts` does with it.
  *
  * OLD-semantics reconstruction rule (stated once here, exactly, because a
  * reader must be able to audit it): before this phase, `computeActivityEfforts`
@@ -54,13 +52,13 @@
  * — nothing under `data/` is ever written by this script.
  */
 
-import { mkdtempSync, writeFileSync } from 'fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 
 import { computeBestEfforts } from '../dist/analytics/compute-best-efforts.js';
-import { TARGET_ORDER } from '../dist/analytics/best-effort.types.js';
+import { TARGET_METERS, TARGET_ORDER } from '../dist/analytics/best-effort.types.js';
 import { markPRs, rankTopN, TOP_N } from '../dist/analytics/best-effort-utils.js';
 import { CEILING_K, CEILING_MIN_POPULATION } from '../dist/analytics/best-effort-ceiling.js';
 
@@ -102,8 +100,13 @@ const flagKey = (activityId, distance) => `${activityId}|${distance}`;
  * boolean cannot supply the duration/demotion-guard fields
  * `diffPrState`'s `flagFlips` rows are required to carry.
  *
- * Membership rule per distance, applied per activity/effort:
- * - drop the whole activity if `activity.excludedFromRecords`
+ * Membership rule per distance, applied PER EFFORT (never per activity — the
+ * pipeline's owner-exclusion is distance-scoped: the activity-level flag is
+ * true for the whole activity once ANY exclusion entry names it, even one
+ * scoped to a single distance, while `effort.excludedFromRecords` is the
+ * per-distance truth `compute-best-efforts.ts` actually applies. Keying off
+ * the activity-level flag would drop a non-excluded effort of a
+ * partially-excluded activity, which the shipped pipeline retains — WR-04):
  * - drop the effort if `effort.excludedFromRecords`
  * - drop the effort if `effort.demotion?.guard` is `'world-record'` or `'max-speed'`
  * - RETAIN the effort if `effort.demotion` is `null` or `effort.demotion.guard === 'ceiling'`
@@ -124,7 +127,7 @@ export function reconstructOldDocument(newDoc) {
 
     for (const activityId of Object.keys(activities)) {
       const activity = activities[activityId];
-      if (!activity || activity.excludedFromRecords) continue;
+      if (!activity) continue;
 
       for (const effort of activity.efforts ?? []) {
         if (effort.distance !== key) continue;
@@ -185,6 +188,7 @@ export function extractNewState(newDoc) {
         durationSec: effort.durationSec,
         startDate: activity.startDate,
         demotionGuard: effort.demotion ? effort.demotion.guard : null,
+        excludedFromRecords: effort.excludedFromRecords === true,
       };
     }
   }
@@ -211,6 +215,7 @@ export function extractNewState(newDoc) {
 export function diffPrState(oldState, newState) {
   const perDistance = {};
   let totalDemoted = 0;
+  let totalDemotedExcluded = 0;
   let totalFlagFlips = 0;
   let totalRetroactivePromotions = 0;
   let totalRankingRowsMoved = 0;
@@ -273,6 +278,7 @@ export function diffPrState(oldState, newState) {
     let flagsBefore = 0;
     let flagsAfter = 0;
     let demotedCount = 0;
+    let demotedExcludedCount = 0;
     const flagFlips = [];
 
     for (const k of sortedFlagKeys) {
@@ -283,7 +289,10 @@ export function diffPrState(oldState, newState) {
 
       if (oldFlag) flagsBefore++;
       if (newFlag) flagsAfter++;
-      if (newInfo && newInfo.demotionGuard === 'ceiling') demotedCount++;
+      if (newInfo && newInfo.demotionGuard === 'ceiling') {
+        demotedCount++;
+        if (newInfo.excludedFromRecords) demotedExcludedCount++;
+      }
 
       if (oldFlag === newFlag) continue;
 
@@ -310,10 +319,12 @@ export function diffPrState(oldState, newState) {
       flagsAfter,
       flagsFlipped,
       demotedCount,
+      demotedExcludedCount,
       netZeroButMoved,
     };
 
     totalDemoted += demotedCount;
+    totalDemotedExcluded += demotedExcludedCount;
     totalFlagFlips += flagsFlipped;
     totalRetroactivePromotions += flagFlips.filter((f) => f.direction === 'gained').length;
     totalRankingRowsMoved += rankingRows.length;
@@ -321,8 +332,57 @@ export function diffPrState(oldState, newState) {
 
   return {
     perDistance,
-    totals: { totalDemoted, totalFlagFlips, totalRetroactivePromotions, totalRankingRowsMoved },
+    totals: {
+      totalDemoted,
+      totalFlagFlips,
+      totalRetroactivePromotions,
+      totalRankingRowsMoved,
+      totalDemotedExcluded,
+    },
   };
+}
+
+/**
+ * Builds the `ceilingDemotedExcluded` listing: one row per NEW effort with
+ * `demotion.guard === 'ceiling'` AND `excludedFromRecords === true`. These
+ * efforts are already absent from every ranking and flag chain because the
+ * owner excluded them; the listing is how a reviewer confirms the
+ * ceiling-only total's increase is fully explained by owner-excluded
+ * efforts, not by some other change. Sorted by `TARGET_ORDER` index, then
+ * `activityId` (localeCompare) — deterministic across runs.
+ */
+function buildCeilingDemotedExcluded(newDoc) {
+  const activities = newDoc?.activities ?? {};
+  const ceilings = newDoc?.ceilings ?? {};
+  const rows = [];
+
+  for (const activityId of Object.keys(activities)) {
+    const activity = activities[activityId];
+    if (!activity) continue;
+
+    for (const effort of activity.efforts ?? []) {
+      if (effort.demotion?.guard !== 'ceiling') continue;
+      if (effort.excludedFromRecords !== true) continue;
+
+      const meters = TARGET_METERS[effort.distance];
+      rows.push({
+        activityId,
+        distance: effort.distance,
+        durationSec: effort.durationSec,
+        impliedSpeedMps: meters && effort.durationSec > 0 ? meters / effort.durationSec : null,
+        ceilingMps: ceilings[effort.distance]?.ceilingMps ?? null,
+      });
+    }
+  }
+
+  rows.sort((a, b) => {
+    const ai = TARGET_ORDER.indexOf(a.distance);
+    const bi = TARGET_ORDER.indexOf(b.distance);
+    if (ai !== bi) return ai - bi;
+    return a.activityId.localeCompare(b.activityId);
+  });
+
+  return rows;
 }
 
 /**
@@ -344,6 +404,7 @@ export function buildDiffReport(newDoc) {
     ceilings: newDoc?.ceilings ?? {},
     perDistance: diff.perDistance,
     totals: diff.totals,
+    ceilingDemotedExcluded: buildCeilingDemotedExcluded(newDoc),
     ceilingK: CEILING_K,
     ceilingMinPopulation: CEILING_MIN_POPULATION,
   };
@@ -385,9 +446,12 @@ export function renderDiffMarkdown(report) {
       'document was reconstructed from that SAME document by dropping the efforts the absolute ' +
       'guard used to delete (`demotion.guard` of `world-record` or `max-speed`) and retaining ' +
       'ceiling demotions, then re-running `markPRs` and `rankTopN` over the retained population. ' +
-      'This is not a git-history comparison: `data/stats/` is gitignored, so no committed historical ' +
-      'baseline exists, and comparing two dated regenerations would conflate archive growth with the ' +
-      'logic change being measured.'
+      'Exclusion is applied PER EFFORT, never per activity: the pipeline\'s owner-exclusion is ' +
+      'distance-scoped, so an activity with one excluded distance still contributes its other, ' +
+      'non-excluded efforts to both the OLD and NEW populations. This is not a git-history ' +
+      'comparison: `data/stats/` is gitignored, so no committed historical baseline exists, and ' +
+      'comparing two dated regenerations would conflate archive growth with the logic change being ' +
+      'measured.'
   );
   lines.push('');
 
@@ -396,18 +460,24 @@ export function renderDiffMarkdown(report) {
   lines.push('');
   lines.push(`- Archive size (activities considered): ${report.archiveSize}`);
   lines.push(`- Total efforts demoted (this report's own count, ceiling-only): ${report.totals.totalDemoted}`);
+  lines.push(
+    `- Of those, also owner-excluded (no ranking effect): ${report.totals.totalDemotedExcluded}`
+  );
   lines.push(`- Total \`wasPRAtTheTime\` flag flips: ${report.totals.totalFlagFlips}`);
   lines.push(`- Total retroactive promotions (flips gained): ${report.totals.totalRetroactivePromotions}`);
   lines.push(`- Total ranking rows moved: ${report.totals.totalRankingRowsMoved}`);
   lines.push('');
-  lines.push('| Distance | Ceiling (m/s) | Demoted | Flags before | Flags after | Flags flipped |');
-  lines.push('|---|---|---|---|---|---|');
+  lines.push(
+    '| Distance | Ceiling (m/s) | Demoted (ceiling) | Of which owner-excluded | Flags before | Flags after | Flags flipped |'
+  );
+  lines.push('|---|---|---|---|---|---|---|');
   for (const key of TARGET_ORDER) {
     const c = report.ceilings[key];
     const d = report.perDistance[key];
     const ceilingText = c && c.ceilingMps !== null ? formatMps(c.ceilingMps) : (c?.failOpenReason ?? 'fail-open');
     lines.push(
-      `| ${key} | ${ceilingText} | ${d.demotedCount} | ${d.flagsBefore} | ${d.flagsAfter} | ${d.flagsFlipped} |`
+      `| ${key} | ${ceilingText} | ${d.demotedCount} | ${d.demotedExcludedCount} | ${d.flagsBefore} | ` +
+        `${d.flagsAfter} | ${d.flagsFlipped} |`
     );
   }
   lines.push('');
@@ -513,15 +583,47 @@ export function renderDiffMarkdown(report) {
     lines.push('');
   }
 
+  // ## Ceiling demotions on owner-excluded efforts
+  lines.push('## Ceiling demotions on owner-excluded efforts');
+  lines.push('');
+  lines.push(
+    'Every effort listed below was already absent from every ranking and flag chain above, because ' +
+      'the owner excluded it. Since the CR-01 fix these efforts also carry a ceiling demotion, ' +
+      'because D-10 records the owner\'s stated intent (`excludedFromRecords`) and the machine\'s ' +
+      'plausibility judgment (`demotion`) as separate claims — so no ranking row or flag flip ' +
+      'anywhere above is caused by them. This listing is how a reviewer confirms the ceiling-only ' +
+      'total\'s increase is fully explained by owner-excluded efforts.'
+  );
+  lines.push('');
+  if (report.ceilingDemotedExcluded.length === 0) {
+    lines.push('None in this run.');
+    lines.push('');
+  } else {
+    lines.push('| Activity ID | Distance | Duration (s) | Implied speed (m/s) | Ceiling (m/s) |');
+    lines.push('|---|---|---|---|---|');
+    for (const row of report.ceilingDemotedExcluded) {
+      lines.push(
+        `| ${safeActivityId(row.activityId)} | ${row.distance} | ${row.durationSec.toFixed(1)} | ` +
+          `${formatMps(row.impliedSpeedMps)} | ${formatMps(row.ceilingMps)} |`
+      );
+    }
+    lines.push('');
+  }
+
   // ## Reconciliation
   lines.push('## Reconciliation');
   lines.push('');
   lines.push(
     `This report counts **${report.totals.totalDemoted}** total ceiling-demoted efforts across all ` +
-      `distances (the document's own \`totals.effortsDemoted\` — world-record, max-speed and ceiling ` +
-      `combined — is ${report.documentDemotedTotal}). This is the figure plan 28-08's ` +
-      `classifier-independent recount (\`${RECOUNT_SCRIPT}\`) must reproduce. This report cannot check ` +
-      'itself; agreement is asserted only once that independent tool runs.'
+      `distances (of which ${report.totals.totalDemotedExcluded} are also owner-excluded, listed ` +
+      `above), and the document's own \`totals.effortsDemoted\` — world-record, max-speed and ceiling ` +
+      `combined — is ${report.documentDemotedTotal}. The ceiling-only total must equal two ` +
+      `independently derived figures: \`${RECOUNT_SCRIPT}\`'s own \`byGuard.ceiling\` count, and that ` +
+      'same script\'s independent sweep total, `independentCeilingCount`, which recomputes every ' +
+      'effort\'s implied speed against its distance\'s ceiling without importing this document\'s own ' +
+      'classifier. This report cannot check itself; agreement is asserted only once that independent ' +
+      'tool runs. No sign-off, approval or reviewer text is recorded here — D-14 keeps that in ' +
+      '`28-VALIDATION.md`, bound to this file\'s content hash.'
   );
   lines.push('');
 
@@ -552,44 +654,50 @@ async function main() {
 
   // T-28-07-A: both statsDir and ceilingStatePath are throwaway temp paths
   // under os.tmpdir() — this run never writes data/stats/best-efforts.json
-  // and never rewrites the committed ceiling state. `ceilingStatePath` is
-  // forward-compatible: harmless today (plan 28-06, running concurrently,
-  // is what adds the option to ComputeBestEffortsOptions), load-bearing once
-  // it lands.
+  // and never rewrites the committed ceiling state. IN-04: the temp
+  // directory receives a full per-activity shard tree (about 1,860 files)
+  // and is removed in `finally` whether computeBestEfforts succeeds or
+  // throws.
   const tempDir = mkdtempSync(join(tmpdir(), 'pr-ceiling-diff-'));
   const throwawayStatsDir = join(tempDir, 'stats');
   const throwawayCeilingStatePath = join(tempDir, 'ceiling-state.json');
 
-  let newDoc;
   try {
-    newDoc = await computeBestEfforts({
-      statsDir: throwawayStatsDir,
-      ceilingStatePath: throwawayCeilingStatePath,
-    });
-  } catch (error) {
-    console.error(`Error: computeBestEfforts failed: ${error.message}`);
-    process.exitCode = 1;
-    return;
+    let newDoc;
+    try {
+      newDoc = await computeBestEfforts({
+        statsDir: throwawayStatsDir,
+        ceilingStatePath: throwawayCeilingStatePath,
+      });
+    } catch (error) {
+      console.error(`Error: computeBestEfforts failed: ${error.message}`);
+      process.exitCode = 1;
+      return;
+    }
+
+    const report = buildDiffReport(newDoc);
+
+    console.log(`Archive size: ${report.archiveSize}`);
+    console.log(`Total demoted (ceiling-only, this report): ${report.totals.totalDemoted}`);
+    console.log(`Of which owner-excluded: ${report.totals.totalDemotedExcluded}`);
+    console.log(`Total flag flips: ${report.totals.totalFlagFlips}`);
+    console.log(`Total retroactive promotions: ${report.totals.totalRetroactivePromotions}`);
+    console.log(`Total ranking rows moved: ${report.totals.totalRankingRowsMoved}`);
+    for (const key of TARGET_ORDER) {
+      const d = report.perDistance[key];
+      console.log(
+        `  ${key}: demoted=${d.demotedCount} demotedExcluded=${d.demotedExcludedCount} ` +
+          `flagsBefore=${d.flagsBefore} flagsAfter=${d.flagsAfter} flagsFlipped=${d.flagsFlipped} ` +
+          `netZeroButMoved=${d.netZeroButMoved}`
+      );
+    }
+
+    const markdown = renderDiffMarkdown(report);
+    writeFileSync(OUTPUT_PATH, markdown, 'utf8');
+    console.log(`\nWrote ${OUTPUT_PATH}`);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
   }
-
-  const report = buildDiffReport(newDoc);
-
-  console.log(`Archive size: ${report.archiveSize}`);
-  console.log(`Total demoted (ceiling-only, this report): ${report.totals.totalDemoted}`);
-  console.log(`Total flag flips: ${report.totals.totalFlagFlips}`);
-  console.log(`Total retroactive promotions: ${report.totals.totalRetroactivePromotions}`);
-  console.log(`Total ranking rows moved: ${report.totals.totalRankingRowsMoved}`);
-  for (const key of TARGET_ORDER) {
-    const d = report.perDistance[key];
-    console.log(
-      `  ${key}: demoted=${d.demotedCount} flagsBefore=${d.flagsBefore} flagsAfter=${d.flagsAfter} ` +
-        `flagsFlipped=${d.flagsFlipped} netZeroButMoved=${d.netZeroButMoved}`
-    );
-  }
-
-  const markdown = renderDiffMarkdown(report);
-  writeFileSync(OUTPUT_PATH, markdown, 'utf8');
-  console.log(`\nWrote ${OUTPUT_PATH}`);
 }
 
 // Self-execution guard, mirroring compute-pace-residual.mjs /
