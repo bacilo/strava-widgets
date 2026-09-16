@@ -252,10 +252,10 @@ Plans:
 
 **Gap closure: Wave 1** *(28-VERIFICATION.md gaps_found 2/5: CR-01, CR-02, WR-05)*
 
-- [ ] 28-10-PLAN.md — Recount checks every effort against the ceiling and fails on the pinned fixture; shown failing on the pre-fix archive (13 missing, 31 vs 18) (PR-04, PR-05)
-- [ ] 28-11-PLAN.md — CR-01 fix: the ceiling is applied to owner-excluded efforts; real-exclusion 4556693525 regression written first and seen failing (PR-01, PR-02, PR-03, PR-05)
-- [ ] 28-12-PLAN.md — Generator fixes: per-effort exclusion (WR-04), calibration population follows Pass 1 (WR-03), diff lists owner-excluded ceiling demotions (PR-02, PR-04)
-- [ ] 28-13-PLAN.md — Records copy names the guard responsible for each demotion (CR-02), This-year note (WR-01), dark badge contrast (WR-02), badge wording (IN-02) (PR-03)
+- [x] 28-10-PLAN.md — Recount checks every effort against the ceiling and fails on the pinned fixture; shown failing on the pre-fix archive (13 missing, 31 vs 18) (PR-04, PR-05)
+- [x] 28-11-PLAN.md — CR-01 fix: the ceiling is applied to owner-excluded efforts; real-exclusion 4556693525 regression written first and seen failing (PR-01, PR-02, PR-03, PR-05)
+- [x] 28-12-PLAN.md — Generator fixes: per-effort exclusion (WR-04), calibration population follows Pass 1 (WR-03), diff lists owner-excluded ceiling demotions (PR-02, PR-04)
+- [x] 28-13-PLAN.md — Records copy names the guard responsible for each demotion (CR-02), This-year note (WR-01), dark badge contrast (WR-02), badge wording (IN-02) (PR-03)
 
 **Gap closure: Wave 2** *(blocked on Wave 1)*
 
@@ -336,7 +336,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 12/12 | Complete    | 2026-09-04 |
 | 26. Shared Gap-Aware Pace Derivation & Honest Coverage | v2.2 | 16/16 | Complete    | 2026-09-10 |
 | 27. Per-Activity Quality Signals | v2.2 | 12/12 | Complete    | 2026-09-10 |
-| 28. PR Plausibility Ceiling | v2.2 | 9/9 | In Progress|  |
+| 28. PR Plausibility Ceiling | v2.2 | 13/15 | In Progress|  |
 | 29. Curation Review Queue | v2.2 | 0/TBD | Not started | - |
 | 30. Elevation Quality Signal | v2.2 | 0/TBD | Not started | - |
 

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Pace Data Quality
 status: executing
-stopped_at: Phase 28 gap-closure execution started (28-10..28-15, wave 1 of 3); PR-03/04/05 still reopened
+stopped_at: Phase 28 gap-closure wave 1 merged (28-10..28-13, 2330 tests green); next wave 2 plan 28-14 regeneration; PR-03/04/05 still reopened
 last_updated: "2026-09-16T11:43:33.635Z"
-last_activity: 2026-09-16 -- Phase 28 gap-closure execution started (wave 1: 28-10..28-13)
+last_activity: 2026-09-16 -- Phase 28 gap-closure wave 1 complete (28-10..28-13)
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 43
-  completed_plans: 37
+  completed_plans: 41
   percent: 40
 ---
 
@@ -40,11 +40,11 @@ See: .planning/PROJECT.md (updated 2026-09-08)
 ## Current Position
 
 Phase: 28 (pr-plausibility-ceiling) — EXECUTING
-Plan: 9 of 15 executed (28-01..28-09 done; gap-closure wave 1 28-10..28-13 running)
+Plan: 13 of 15 executed (28-01..28-13 done; wave 2 28-14 next, then blocking checkpoint 28-15)
 Status: Executing Phase 28 gap closure — 6 plans in 3 waves, 28-15 is a blocking Round 2 checkpoint
-Last activity: 2026-09-16 -- Phase 28 gap-closure execution started (wave 1: 28-10..28-13)
+Last activity: 2026-09-16 -- Phase 28 gap-closure wave 1 complete (28-10..28-13 merged, build + 2330 tests green)
 
-Progress: [██████░░░░] 60% (9/15 plans)
+Progress: [█████████░] 87% (13/15 plans)
 
 ## Performance Metrics
 
