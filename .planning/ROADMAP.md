@@ -248,7 +248,7 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 28-09-PLAN.md — Human browser checkpoint on rendered demotion evidence, and the PR-04 sign-off bound to the diff's content hash (PR-03, PR-04, PR-05)
+- [x] 28-09-PLAN.md — Human browser checkpoint on rendered demotion evidence, and the PR-04 sign-off bound to the diff's content hash (PR-03, PR-04, PR-05)
 
 **UI hint**: yes
 **Browser checkpoint**: warranted — PR-03/PR-04 require a demoted effort to remain visibly present with its reason on the Records/detail screens rather than silently vanishing; this is exactly the class of defect (a check that only agrees with itself) the project's Phase 23 CR-01 lesson exists to guard against.
@@ -321,7 +321,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 25. CI Hardening & Light-Theme Verification | v2.1 | 12/12 | Complete    | 2026-09-04 |
 | 26. Shared Gap-Aware Pace Derivation & Honest Coverage | v2.2 | 16/16 | Complete    | 2026-09-10 |
 | 27. Per-Activity Quality Signals | v2.2 | 12/12 | Complete    | 2026-09-10 |
-| 28. PR Plausibility Ceiling | v2.2 | 8/9 | In Progress|  |
+| 28. PR Plausibility Ceiling | v2.2 | 9/9 | In Progress|  |
 | 29. Curation Review Queue | v2.2 | 0/TBD | Not started | - |
 | 30. Elevation Quality Signal | v2.2 | 0/TBD | Not started | - |
 
