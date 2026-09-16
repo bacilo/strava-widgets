@@ -322,6 +322,35 @@ describe('prFlagBadgeSpecs', () => {
       expect(spec.visibleText).toBe(spec.visibleText.trim());
     }
   });
+
+  it('WR-02/IN-02: a demoted-and-excluded, non-PR row renders exactly two specs, Demoted then Excluded, with distinct description ids and no "excluded" in the demoted explanation', () => {
+    const specs = prFlagBadgeSpecs(
+      panelRow({
+        isPr: false,
+        demoted: true,
+        demotionReason:
+          'implied 8.85 m/s exceeds personal ceiling 5.11 m/s (1.28 x p90 3.99 m/s over 1825 filtered 400m efforts)',
+        excluded: true,
+      }),
+      'bad measurement'
+    );
+    expect(specs.length).toBe(2);
+
+    expect(specs[0].kind).toBe('demoted');
+    expect(specs[0].visibleText).toBe(
+      'Demoted — implied 8.85 m/s exceeds personal ceiling 5.11 m/s (1.28 x p90 3.99 m/s over 1825 filtered 400m efforts)'
+    );
+
+    expect(specs[1].kind).toBe('excluded');
+    expect(specs[1].visibleText).toBe('Excluded — bad measurement');
+
+    expect(specs[0].descriptionIdSuffix).not.toBe(specs[1].descriptionIdSuffix);
+
+    expect(specs[0].explanation).toBe(
+      'this effort is left out of the ranked PR list because a plausibility guard rejected it; it stays visible here with its reason'
+    );
+    expect(specs[0].explanation).not.toContain('excluded');
+  });
 });
 
 describe('GAP-24-01 — panel row exclusion derives from the live exclusions file', () => {

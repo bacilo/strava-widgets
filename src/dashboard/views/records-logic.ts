@@ -146,21 +146,43 @@ export function isEmptyRanking(entries: readonly PRRankingEntry[] | undefined): 
 }
 
 /**
+ * Per-guard breakdown of demoted EFFORTS at one distance (CR-02). `total`
+ * is the sum of `ceiling` + `worldRecord` + `maxSpeed` PLUS any demotion
+ * whose `guard` value this module does not recognize — a defensive-only
+ * case, since `EffortDemotionGuard` is a closed union today. Never confuse
+ * this with PR-05's cohort, which is counted in ACTIVITIES elsewhere.
+ */
+export interface DemotionCounts {
+  total: number;
+  ceiling: number;
+  worldRecord: number;
+  maxSpeed: number;
+}
+
+/**
  * Counts demoted EFFORTS at `distance` across every activity in
- * `activities` — NOT activities. The Records note this feeds reports
- * demoted EFFORTS while PR-05's cohort is counted in ACTIVITIES elsewhere;
- * the two must never be conflated. Walks `Object.keys` with the same
- * `hasOwn` guard `buildEvolutionSeries` uses. Reads `effort.demotion` only
- * through `!= null` (T-28-02-A), so a stale shard shipped without the
- * field degrades to "not demoted" rather than a TypeError. `demotion` and
- * `excludedFromRecords` are never conflated (D-10): an owner-excluded,
- * non-demoted effort does not count here.
+ * `activities` — NOT activities, and broken down per guard (CR-02) so the
+ * Records note and empty-state copy can attribute each demotion to the
+ * mechanism that actually produced it rather than blaming every rejection
+ * on "the plausibility ceiling". PR-05's cohort is counted in ACTIVITIES
+ * elsewhere; the two must never be conflated. Walks `Object.keys` with the
+ * same `hasOwn` guard `buildEvolutionSeries` uses. Reads `effort.demotion`
+ * only through `!= null` (T-28-02-A), so a stale shard shipped without the
+ * field degrades to "not demoted" rather than a TypeError.
+ *
+ * An owner-excluded effort is skipped ENTIRELY here, even if it also
+ * carries a `demotion` (D-10): `excludedFromRecords` is the owner's stated
+ * intent and a demotion is the machine's judgment, and this count must not
+ * let the machine's judgment leak into a sentence about what the owner
+ * chose. This is what keeps CR-01's fix (which lets an excluded effort
+ * carry a ceiling demotion) from inflating the Records-screen count with
+ * efforts the owner already removed on their own authority.
  */
 export function countDemotedAtDistance(
   activities: BestEffortsDocument['activities'],
   distance: TargetDistanceKey
-): number {
-  let count = 0;
+): DemotionCounts {
+  const counts: DemotionCounts = { total: 0, ceiling: 0, worldRecord: 0, maxSpeed: 0 };
 
   for (const activityId of Object.keys(activities)) {
     if (!hasOwn(activities, activityId)) continue;
@@ -169,29 +191,75 @@ export function countDemotedAtDistance(
 
     for (const effort of activity.efforts) {
       if (effort.distance !== distance) continue;
+      if (effort.excludedFromRecords === true) continue;
       if (effort.demotion == null) continue;
-      count++;
+
+      counts.total++;
+      switch (effort.demotion.guard) {
+        case 'ceiling':
+          counts.ceiling++;
+          break;
+        case 'world-record':
+          counts.worldRecord++;
+          break;
+        case 'max-speed':
+          counts.maxSpeed++;
+          break;
+        default:
+          // Unrecognized guard value — still counts toward total, matching
+          // the module's existing degrade-rather-than-throw discipline.
+          break;
+      }
     }
   }
 
-  return count;
+  return counts;
+}
+
+/**
+ * Builds the shared, guard-accurate sentence both `resolvePrTableDemotionNote`
+ * and `resolvePrTableEmptyState`'s all-time-with-demotions branch use, so the
+ * two copy surfaces cannot drift apart (CR-02). Zero-count parts are omitted;
+ * the fixed order is ceiling, world-record, max-speed. Register: named
+ * condition plus measured value (Phase 27 D-09) — a guard's name plus its
+ * count, never an adjective.
+ */
+function describeDemotionCounts(label: string, counts: DemotionCounts): string {
+  const effortWord = counts.total === 1 ? 'effort' : 'efforts';
+  const verb = counts.total === 1 ? 'was' : 'were';
+
+  const parts: string[] = [];
+  if (counts.ceiling > 0) parts.push(`${counts.ceiling} by the personal ceiling`);
+  if (counts.worldRecord > 0) parts.push(`${counts.worldRecord} by the world-record pace guard`);
+  if (counts.maxSpeed > 0) parts.push(`${counts.maxSpeed} by the activity max-speed guard`);
+  const breakdown = parts.length > 0 ? ` (${parts.join(', ')})` : '';
+
+  return `${counts.total} ${label} ${effortWord} ${verb} demoted by a plausibility guard${breakdown}. Efforts the owner excluded are not counted here. See the activity detail view for each reason.`;
 }
 
 /**
  * The three-branch copy for the Records screen's per-distance empty state
- * (D-03, D-09). The `this-year` branch and the all-time-with-nothing-demoted
- * branch reproduce `records.ts`'s pre-existing `buildPrTableEmptyState`
+ * (D-03, D-09, CR-02). The `this-year` branch and the all-time-with-nothing-
+ * demoted branch reproduce `records.ts`'s pre-existing `buildPrTableEmptyState`
  * copy VERBATIM — this function exists to be the pinned, testable source
- * those two branches move to, not a rewrite. `demotedCount` is ignored for
+ * those two branches move to, not a rewrite. `counts` is ignored for
  * `scope === 'this-year'`: the year filter's own absence is the dominant
- * explanation there, and the ceiling language belongs on the permanent,
+ * explanation there, and the guard language belongs on the permanent,
  * all-time emptying D-03 accepts, not a temporary date-filtered one.
+ *
+ * The third branch's heading names "the plausibility ceiling" only when
+ * `counts.ceiling > 0` — otherwise it names "the plausibility guards"
+ * generically, since a distance that empties purely on world-record/max-
+ * speed demotions (the latent marathon case CR-02 flagged) never had a
+ * ceiling to pass or fail. The body is `describeDemotionCounts`'s shared,
+ * guard-accurate sentence in both cases, so the note and the empty state
+ * can never state a different count for the same underlying breakdown.
  */
 export function resolvePrTableEmptyState(
   distance: TargetDistanceKey,
   scope: RecordScope,
   year: number,
-  demotedCount: number
+  counts: DemotionCounts
 ): { heading: string; body: string } {
   const label = DISTANCE_DISPLAY_NAMES[distance];
 
@@ -202,36 +270,42 @@ export function resolvePrTableEmptyState(
     };
   }
 
-  if (demotedCount === 0) {
+  if (counts.total === 0) {
     return {
       heading: `No ${label} efforts yet`,
       body: `The archive has no completed ${label} effort. Once one is recorded, its rank will appear here.`,
     };
   }
 
-  const effortWord = demotedCount === 1 ? 'effort' : 'efforts';
-  const verb = demotedCount === 1 ? 'was' : 'were';
   return {
-    heading: `No ${label} efforts passed the plausibility ceiling`,
-    body: `${demotedCount} ${label} ${effortWord} ${verb} demoted by the plausibility ceiling. See each activity's detail view for the reason.`,
+    heading:
+      counts.ceiling > 0
+        ? `No ${label} efforts passed the plausibility ceiling`
+        : `No ${label} efforts passed the plausibility guards`,
+    body: describeDemotionCounts(label, counts),
   };
 }
 
 /**
- * The SHORT-table half of D-03: a table that still ranks efforts after some
- * were demoted must say so, or the absence is invisible. Returns `null`
- * when `demotedCount` is 0 — no note when nothing was demoted.
+ * The SHORT-table half of D-03/CR-02: a table that still ranks efforts
+ * after some were demoted must say so, attributing each demotion to the
+ * guard that actually made it rather than blaming every rejection on "the
+ * plausibility ceiling". Returns `null` when `counts.total` is 0 — no note
+ * when nothing was demoted — and also returns `null` for `scope ===
+ * 'this-year'` (WR-01): the count is archive-wide and would otherwise sit
+ * under a year-filtered table, misleadingly implying those demotions
+ * happened within the filtered year.
  */
 export function resolvePrTableDemotionNote(
   distance: TargetDistanceKey,
-  demotedCount: number
+  scope: RecordScope,
+  counts: DemotionCounts
 ): string | null {
-  if (demotedCount === 0) return null;
+  if (scope === 'this-year') return null;
+  if (counts.total === 0) return null;
 
   const label = DISTANCE_DISPLAY_NAMES[distance];
-  const effortWord = demotedCount === 1 ? 'effort' : 'efforts';
-  const verb = demotedCount === 1 ? 'was' : 'were';
-  return `${demotedCount} ${label} ${effortWord} ${verb} demoted by the plausibility ceiling. See the activity detail view for the reason.`;
+  return describeDemotionCounts(label, counts);
 }
 
 /** The two scopes OVR-03 names. Nothing persists this value — D-04. */

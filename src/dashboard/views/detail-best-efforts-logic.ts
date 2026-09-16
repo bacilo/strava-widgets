@@ -263,7 +263,7 @@ export function prFlagBadgeSpecs(
       kind: 'demoted',
       visibleText: row.demotionReason ? `Demoted — ${row.demotionReason}` : 'Demoted from ranking',
       explanation:
-        'this effort is excluded from the ranked PR list because a plausibility guard rejected it; it stays visible here with its reason',
+        'this effort is left out of the ranked PR list because a plausibility guard rejected it; it stays visible here with its reason',
       descriptionIdSuffix: 'demoted',
     });
   }

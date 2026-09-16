@@ -35,6 +35,7 @@ import {
   buildProgressionRows,
   selectSuperlatives,
   evolutionCardSummary,
+  type DemotionCounts,
   type PrTableRow,
   type EvolutionPoint,
   type RecordScope,
@@ -338,9 +339,9 @@ function buildConfigNotice(ageGrading: AgeGradingDocument | null): HTMLElement |
  * efforts yet" and "no efforts in 2026" are different statements a reader
  * must be able to tell apart.
  *
- * `demotedCount` (Phase 28, D-03) feeds `resolvePrTableEmptyState`'s third,
- * all-time-ceiling-emptied branch: heading and body text both come from
- * that pure function now, not from an inline ternary — the copy itself is
+ * `counts` (Phase 28, D-03, CR-02) feeds `resolvePrTableEmptyState`'s third,
+ * all-time-guard-emptied branch: heading and body text both come from that
+ * pure function now, not from an inline ternary — the copy itself is
  * unchanged for the two pre-existing branches (pinned verbatim by plan
  * 28-02's own tests), only its decision point moved to a testable place.
  */
@@ -348,9 +349,9 @@ function buildPrTableEmptyState(
   distance: TargetDistanceKey,
   scope: RecordScope,
   year: number,
-  demotedCount: number
+  counts: DemotionCounts
 ): HTMLElement {
-  const { heading: headingText, body: bodyText } = resolvePrTableEmptyState(distance, scope, year, demotedCount);
+  const { heading: headingText, body: bodyText } = resolvePrTableEmptyState(distance, scope, year, counts);
   const empty = document.createElement('div');
   empty.className = 'empty-state';
 
@@ -570,7 +571,7 @@ function buildPrTableSection(
   empty: boolean,
   scope: RecordScope,
   year: number,
-  demotedCount: number
+  counts: DemotionCounts
 ): HTMLElement {
   const section = document.createElement('section');
   section.className = 'card detail-section';
@@ -582,13 +583,13 @@ function buildPrTableSection(
   section.appendChild(heading);
 
   if (empty) {
-    section.appendChild(buildPrTableEmptyState(distance, scope, year, demotedCount));
+    section.appendChild(buildPrTableEmptyState(distance, scope, year, counts));
     return section;
   }
 
   section.appendChild(buildPrTable(distance, rows));
 
-  const demotionNoteText = resolvePrTableDemotionNote(distance, demotedCount);
+  const demotionNoteText = resolvePrTableDemotionNote(distance, scope, counts);
   if (demotionNoteText !== null) {
     const demotionNote = document.createElement('p');
     demotionNote.className = 'text-label';
@@ -680,9 +681,9 @@ function buildPrTablesSection(
       const allTimeEntries = bestEfforts.rankings[distance];
       const entries = currentScope === 'this-year' ? filterRankingsToYear(allTimeEntries, year) : allTimeEntries;
       const empty = isEmptyRanking(entries);
-      const demotedCount = countDemotedAtDistance(bestEfforts.activities, distance);
+      const demotionCounts = countDemotedAtDistance(bestEfforts.activities, distance);
       const rows = buildPrTableRows(entries, ageGrading, distance, exclusionReasons);
-      tables.push(buildPrTableSection(distance, rows, empty, currentScope, year, demotedCount));
+      tables.push(buildPrTableSection(distance, rows, empty, currentScope, year, demotionCounts));
     }
     tablesContainer.replaceChildren(...tables);
   }
