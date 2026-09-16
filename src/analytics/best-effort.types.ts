@@ -118,7 +118,12 @@ export interface ComputedEffort {
    * effort no guard rejected — it is not an unset placeholder waiting to be
    * filled in later. Declared here, on the base type, rather than invented
    * later by a `.map()` onto `BestEffort`, so the field is set exactly once
-   * at the point of computation.
+   * at the point of computation. A demotion can coexist with
+   * `excludedFromRecords: true` on `BestEffort` below — the two claims are
+   * recorded independently (D-10), neither overwrites the other, and an
+   * absolute-guard demotion (world-record/max-speed) always takes
+   * precedence over the ceiling: once `demotion` is non-null, no later pass
+   * re-evaluates it.
    */
   demotion: EffortDemotion | null;
 }
@@ -140,7 +145,11 @@ export interface ActivityBestEfforts {
   /** The activity record's ISO `start_date`. */
   startDate: string;
   distanceSource: DistanceSource;
-  /** Only computed-and-plausible distances, ordered by `TARGET_ORDER`. */
+  /**
+   * Every computed distance the stream covered, ordered by `TARGET_ORDER` —
+   * including demoted efforts (D-08). A demoted effort is retained here,
+   * flagged via `demotion`, never removed.
+   */
   efforts: BestEffort[];
   /** True when this activity matched at least one entry in the exclusion list. */
   excludedFromRecords: boolean;
@@ -215,11 +224,12 @@ export interface BestEffortsDocument {
     skippedUnreadable: number;
     /**
      * Efforts demoted by any guard (world-record, max-speed or ceiling —
-     * Phase 28 D-08), across every distance. Purely additive: does not
-     * require a `BEST_EFFORTS_SCHEMA_VERSION` bump per that constant's own
-     * comment, matching Phase 26 D-14's precedent for additive fields. Set
-     * to 0 by this plan; plan 28-05's three-pass restructuring is what
-     * starts computing it.
+     * Phase 28 D-08), across every distance and regardless of
+     * `excludedFromRecords` — an owner-excluded effort that also exceeds
+     * its ceiling is counted here too (Phase 28 CR-01). Purely additive:
+     * does not require a `BEST_EFFORTS_SCHEMA_VERSION` bump per that
+     * constant's own comment, matching Phase 26 D-14's precedent for
+     * additive fields.
      */
     effortsDemoted: number;
   };
@@ -236,7 +246,7 @@ export interface BestEffortsDocument {
 }
 
 /**
- * The full contract of the committed `data/best-effort-ceiling-state.json`
+ * The full contract of the committed `data/best-effort-ceiling.json`
  * (Phase 28 D-07): the previous run's derived ceilings, committed so CI has
  * something durable to diff the next run's re-derivation against —
  * `data/stats/` is gitignored and starts empty on every CI run, so there is

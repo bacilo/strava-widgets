@@ -240,7 +240,12 @@ export async function computeBestEfforts(
   // is PR-02's seam: the ceiling's input (Pass 2) is already filtered by the
   // absolute guard and the exclusion list, and it is NOT ceiling-filtered
   // because the ceiling does not exist yet. A demoted effort is retained in
-  // `activities[id].efforts` (D-08) but never enters `byDistance`.
+  // `activities[id].efforts` (D-08) but never enters `byDistance`. Owner-
+  // excluded efforts likewise skip `byDistance` so they never feed the
+  // ceiling's population — but they are NOT exempt from the ceiling CHECK
+  // itself: Pass 3's excluded-effort sweep (CR-01) compares every excluded,
+  // not-yet-demoted effort's own implied speed against the derived ceiling,
+  // after that ceiling exists.
   const byDistance = new Map<TargetDistanceKey, PRAccumulatorEntry[]>();
   for (const key of TARGET_ORDER) byDistance.set(key, []);
 
@@ -293,8 +298,9 @@ export async function computeBestEfforts(
         // (below) but must never feed the ranking/ceiling population — only
         // guard-passed, non-excluded efforts reach `byDistance`. Only
         // absolute-guard demotions exist at this point in the file; the
-        // ceiling guard (plan 28-05 Task 2) demotes further, downstream of
-        // this population, and never re-admits anything filtered out here.
+        // ceiling guard demotes further, downstream of this population (both
+        // the survivors loop AND Pass 3's excluded-effort sweep below, CR-01),
+        // and never re-admits anything filtered out here.
         if (effort.demotion !== null) continue;
 
         byDistance.get(effort.distance)!.push({
@@ -352,6 +358,10 @@ export async function computeBestEfforts(
   >;
   // Per-distance count of ceiling demotions, for the console tail below.
   const ceilingDemotedCounts = new Map<TargetDistanceKey, number>();
+  // Per-distance count of ceiling demotions among OWNER-EXCLUDED efforts —
+  // the CR-01 sweep below — reported separately from `ceilingDemotedCounts`
+  // so the console tail can show both the total and the excluded share.
+  const excludedCeilingDemotedCounts = new Map<TargetDistanceKey, number>();
 
   // PASS 3 — FILTER AND FLAG. May read `byDistance` and `ceilings` (Pass
   // 2's output); must never remove an entry from `activities[id].efforts` —
@@ -360,7 +370,15 @@ export async function computeBestEfforts(
   // ceiling-demoted entry's matching effort gains a `demotion` (mirroring
   // Task 1's absolute-guard path) and a matching `rejected` row, but is
   // never spliced out of `activities[id].efforts`. Only survivors reach
-  // `markPRs`/`rankTopN`.
+  // `markPRs`/`rankTopN`. Both the survivors loop AND the excluded-effort
+  // sweep just below it call `ceilingDemotion` — the same constructor,
+  // D-08's single shared path — so a demotion can never diverge between the
+  // two populations it is applied to. Absolute-guard demotions (set earlier,
+  // in `computeActivityEfforts`) always take precedence: neither loop here
+  // ever overwrites a non-null `effort.demotion`. An excluded, over-ceiling
+  // effort therefore ends up carrying BOTH `excludedFromRecords: true` (the
+  // owner's intent) and `demotion: { guard: 'ceiling', ... }` (the machine's
+  // judgment) — D-10's two separate, independently-kept claims.
   for (const key of TARGET_ORDER) {
     const entries = byDistance.get(key)!;
     const derivation = ceilings[key];
@@ -379,6 +397,27 @@ export async function computeBestEfforts(
       }
     }
     ceilingDemotedCounts.set(key, entries.length - survivors.length);
+
+    // CR-01: owner-excluded efforts never enter `byDistance` (Pass 1), so
+    // the loop above never sees them — but skipping the population is
+    // correct (PR-02) while skipping the CHECK is not. This sweep applies
+    // the exact same ceiling to every excluded effort at this distance that
+    // no absolute guard has already demoted, without ever touching
+    // `byDistance`, `survivors` or `deriveCeilings`. Activity ids are
+    // walked in explicit sorted order (never object insertion order) so
+    // `rejected`'s ordering stays deterministic (PR-01) within this
+    // distance's group of rows.
+    for (const id of Object.keys(activities).sort((a, b) => a.localeCompare(b))) {
+      const effort = activities[id].efforts.find((e) => e.distance === key);
+      if (!effort || !effort.excludedFromRecords || effort.demotion !== null) continue;
+      const impliedSpeedMps = TARGET_METERS[key] / effort.durationSec;
+      const demotion = ceilingDemotion(impliedSpeedMps, derivation);
+      if (demotion) {
+        effort.demotion = demotion;
+        rejected.push({ activityId: id, distance: key, reason: demotion.reason });
+        excludedCeilingDemotedCounts.set(key, (excludedCeilingDemotedCounts.get(key) ?? 0) + 1);
+      }
+    }
 
     const withPR = markPRs(survivors);
 
@@ -491,9 +530,10 @@ export async function computeBestEfforts(
     if (derivation.ceilingMps === null) {
       console.log(`  ${key}: fail-open — ${derivation.failOpenReason}`);
     } else {
-      const demotedCount = ceilingDemotedCounts.get(key) ?? 0;
+      const excludedCount = excludedCeilingDemotedCounts.get(key) ?? 0;
+      const demotedCount = (ceilingDemotedCounts.get(key) ?? 0) + excludedCount;
       console.log(
-        `  ${key}: ceiling ${derivation.ceilingMps.toFixed(4)} m/s (p90 ${derivation.p90Mps!.toFixed(4)} m/s over ${derivation.populationN}), ${demotedCount} demoted`
+        `  ${key}: ceiling ${derivation.ceilingMps.toFixed(4)} m/s (p90 ${derivation.p90Mps!.toFixed(4)} m/s over ${derivation.populationN}), ${demotedCount} demoted (${excludedCount} of them owner-excluded)`
       );
     }
   }
@@ -501,7 +541,7 @@ export async function computeBestEfforts(
 
   // D-06: the ceiling's movement against the committed previous run is
   // always reported in words with numbers — never silent, whether it moved
-  // or not. `ceilingMovementRows` (used just below to gate the conditional
+  // or not. `ceilingMovement` (used just below to gate the conditional
   // write) is empty exactly when this run agrees with the previous one,
   // which is the observation this line makes explicit.
   console.log(`\nCeiling movement vs. previous committed run:`);
@@ -518,8 +558,13 @@ export async function computeBestEfforts(
   // a `generatedAt` stamp, so an unconditional write would produce a commit
   // on every nightly run — and a nightly commit against a repository whose
   // CI already races `origin/master` (T-28-06-C) is how an occasional
-  // non-fast-forward becomes a routine one. When nothing moved, the file is
-  // left byte-untouched so git sees no diff and the auto-commit step below
+  // non-fast-forward becomes a routine one. In practice this file is
+  // rewritten whenever population, p90 or ceiling changes at any distance —
+  // p90 moves with most new runs, since it is an observed data point, not
+  // only when a ceiling literally crosses a threshold. That includes local
+  // runs, which then dirty this CI-committed file with a locally-derived
+  // baseline CI never produced. When nothing moved, the file is left
+  // byte-untouched so git sees no diff and the auto-commit step below
   // (daily-refresh.yml) has nothing to stage for this path.
   if (ceilingMovement.length > 0) {
     const stateFile = buildCeilingStateFile(doc.ceilings, doc.generatedAt);
@@ -528,7 +573,7 @@ export async function computeBestEfforts(
   }
 
   if (rejected.length > 0) {
-    console.log(`\nRejected efforts (dropped, not fatal):`);
+    console.log(`\nDemoted efforts and unexpected errors (retained, not fatal):`);
     for (const r of rejected.slice(0, REJECTED_CONSOLE_CAP)) {
       console.log(`  ${r.activityId} ${r.distance}: ${r.reason}`);
     }
