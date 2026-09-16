@@ -22,7 +22,9 @@ import {
   computeCohortOverlap,
   evaluateReport,
   parseExpectFlags,
+  parseInputPaths,
   readShippedJson,
+  recountCeilingSweep,
   recountDemoted,
   recountImpossibleSampleCohort,
 } from './compute-pr-ceiling-recount.mjs';
@@ -249,12 +251,38 @@ describe('evaluateReport', () => {
         rejectedMismatch: false,
         ownRejectedNonErrorRows: 2,
       },
-      pinnedFixture: { present: false, note: 'absent' },
+      pinnedFixture: {
+        present: true,
+        durationSec: 45.2,
+        guard: 'ceiling',
+        durationMatches45_2: true,
+        guardIsCeiling: true,
+      },
+    };
+  }
+
+  /**
+   * A clean sweep matching cleanDemotedReport()'s byGuard.ceiling of 1: exactly one
+   * independently-derived over-ceiling effort, no problems in either direction.
+   */
+  function cleanSweep() {
+    return {
+      overCeilingWithoutDemotion: [],
+      ceilingDemotedButNotOverCeiling: [],
+      independentCeilingCount: 1,
+      unevaluable: [],
+      failOpenDistances: [],
+      ceilingsMissing: false,
     };
   }
 
   it('passes on a clean report', () => {
-    const verdict = evaluateReport({ readErrors: [], demoted: cleanDemotedReport(), cohort: null });
+    const verdict = evaluateReport({
+      readErrors: [],
+      demoted: cleanDemotedReport(),
+      cohort: null,
+      sweep: cleanSweep(),
+    });
     expect(verdict.pass).toBe(true);
     expect(verdict.problems).toEqual([]);
   });
@@ -268,7 +296,7 @@ describe('evaluateReport', () => {
   it('fails naming the problem when rankedButDemotedIds is non-empty', () => {
     const demoted = cleanDemotedReport();
     demoted.rankedButDemotedIds = ['a1@400m'];
-    const verdict = evaluateReport({ readErrors: [], demoted, cohort: null });
+    const verdict = evaluateReport({ readErrors: [], demoted, cohort: null, sweep: cleanSweep() });
     expect(verdict.pass).toBe(false);
     expect(verdict.problems.some((p) => p.includes('a1@400m'))).toBe(true);
   });
@@ -276,7 +304,7 @@ describe('evaluateReport', () => {
   it('fails naming the problem when demotedWithoutReason is non-empty', () => {
     const demoted = cleanDemotedReport();
     demoted.demotedWithoutReason = ['a1@1k'];
-    const verdict = evaluateReport({ readErrors: [], demoted, cohort: null });
+    const verdict = evaluateReport({ readErrors: [], demoted, cohort: null, sweep: cleanSweep() });
     expect(verdict.pass).toBe(false);
     expect(verdict.problems.some((p) => p.includes('a1@1k'))).toBe(true);
   });
@@ -285,7 +313,7 @@ describe('evaluateReport', () => {
     const demoted = cleanDemotedReport();
     demoted.disagreesWithTotals.effortsDemotedMismatch = true;
     demoted.disagreesWithTotals.totalsEffortsDemoted = 999;
-    const verdict = evaluateReport({ readErrors: [], demoted, cohort: null });
+    const verdict = evaluateReport({ readErrors: [], demoted, cohort: null, sweep: cleanSweep() });
     expect(verdict.pass).toBe(false);
     expect(verdict.problems.some((p) => p.includes('disagrees with doc.totals.effortsDemoted'))).toBe(true);
   });
@@ -293,16 +321,111 @@ describe('evaluateReport', () => {
   it('fails naming the problem when unrecognisedGuards is non-empty', () => {
     const demoted = cleanDemotedReport();
     demoted.byGuard.unrecognisedGuards = ['a1@5k (guard="mystery")'];
-    const verdict = evaluateReport({ readErrors: [], demoted, cohort: null });
+    const verdict = evaluateReport({ readErrors: [], demoted, cohort: null, sweep: cleanSweep() });
     expect(verdict.pass).toBe(false);
     expect(verdict.problems.some((p) => p.includes('unrecognised guard'))).toBe(true);
   });
 
   it('fails when expectedDemoted differs from ownDemotedTotal, quoting both numbers', () => {
     const demoted = cleanDemotedReport();
-    const verdict = evaluateReport({ readErrors: [], demoted, cohort: null }, 999);
+    const verdict = evaluateReport({ readErrors: [], demoted, cohort: null, sweep: cleanSweep() }, 999);
     expect(verdict.pass).toBe(false);
     expect(verdict.problems.some((p) => p.includes('2') && p.includes('999'))).toBe(true);
+  });
+
+  it('fails naming "ceiling sweep was not run" when sweep is absent but demoted is present', () => {
+    const demoted = cleanDemotedReport();
+    const verdict = evaluateReport({ readErrors: [], demoted, cohort: null });
+    expect(verdict.pass).toBe(false);
+    expect(verdict.problems.some((p) => p.includes('ceiling sweep was not run'))).toBe(true);
+  });
+
+  describe('sweep problems', () => {
+    it('fails naming every label when sweep.overCeilingWithoutDemotion is non-empty', () => {
+      const demoted = cleanDemotedReport();
+      const sweep = cleanSweep();
+      sweep.overCeilingWithoutDemotion = ['a1@400m', 'a2@1k'];
+      const verdict = evaluateReport({ readErrors: [], demoted, cohort: null, sweep });
+      expect(verdict.pass).toBe(false);
+      expect(verdict.problems.some((p) => p.includes('a1@400m') && p.includes('a2@1k'))).toBe(true);
+    });
+
+    it('fails naming the problem when sweep.ceilingDemotedButNotOverCeiling is non-empty', () => {
+      const demoted = cleanDemotedReport();
+      const sweep = cleanSweep();
+      sweep.ceilingDemotedButNotOverCeiling = ['a3@5k'];
+      const verdict = evaluateReport({ readErrors: [], demoted, cohort: null, sweep });
+      expect(verdict.pass).toBe(false);
+      expect(verdict.problems.some((p) => p.includes('a3@5k'))).toBe(true);
+    });
+
+    it('fails naming both numbers when independentCeilingCount disagrees with byGuard.ceiling', () => {
+      const demoted = cleanDemotedReport(); // byGuard.ceiling = 1
+      const sweep = cleanSweep();
+      sweep.independentCeilingCount = 5;
+      const verdict = evaluateReport({ readErrors: [], demoted, cohort: null, sweep });
+      expect(verdict.pass).toBe(false);
+      expect(verdict.problems.some((p) => p.includes('5') && p.includes('1'))).toBe(true);
+    });
+
+    it('fails naming the problem when sweep.unevaluable is non-empty', () => {
+      const demoted = cleanDemotedReport();
+      const sweep = cleanSweep();
+      sweep.unevaluable = ['a4@unknown'];
+      const verdict = evaluateReport({ readErrors: [], demoted, cohort: null, sweep });
+      expect(verdict.pass).toBe(false);
+      expect(verdict.problems.some((p) => p.includes('a4@unknown'))).toBe(true);
+    });
+
+    it('fails naming the problem when sweep.ceilingsMissing is true', () => {
+      const demoted = cleanDemotedReport();
+      const sweep = cleanSweep();
+      sweep.ceilingsMissing = true;
+      const verdict = evaluateReport({ readErrors: [], demoted, cohort: null, sweep });
+      expect(verdict.pass).toBe(false);
+      expect(verdict.problems.some((p) => p.toLowerCase().includes('ceilings'))).toBe(true);
+    });
+  });
+
+  describe('pinned-fixture problems', () => {
+    it('fails naming the problem when the pinned fixture guard is not "ceiling"', () => {
+      const demoted = cleanDemotedReport();
+      demoted.pinnedFixture = {
+        present: true,
+        durationSec: 45.2,
+        guard: 'world-record',
+        durationMatches45_2: true,
+        guardIsCeiling: false,
+      };
+      const verdict = evaluateReport({ readErrors: [], demoted, cohort: null, sweep: cleanSweep() });
+      expect(verdict.pass).toBe(false);
+      expect(verdict.problems.some((p) => p.includes('guardIsCeiling'))).toBe(true);
+    });
+
+    it('fails naming the problem when pinnedFixture durationSec does not match 45.2', () => {
+      const demoted = cleanDemotedReport();
+      demoted.pinnedFixture = {
+        present: true,
+        durationSec: 50,
+        guard: 'ceiling',
+        durationMatches45_2: false,
+        guardIsCeiling: true,
+      };
+      const verdict = evaluateReport({ readErrors: [], demoted, cohort: null, sweep: cleanSweep() });
+      expect(verdict.pass).toBe(false);
+      expect(verdict.problems.some((p) => p.includes('45.2'))).toBe(true);
+    });
+
+    it('fails naming the problem when the pinned fixture is absent (PR-05 check would be vacuous)', () => {
+      const demoted = cleanDemotedReport();
+      demoted.pinnedFixture = {
+        present: false,
+        note: 'activity 4556693525 is absent from the shipped document',
+      };
+      const verdict = evaluateReport({ readErrors: [], demoted, cohort: null, sweep: cleanSweep() });
+      expect(verdict.pass).toBe(false);
+      expect(verdict.problems.some((p) => p.includes('vacuous'))).toBe(true);
+    });
   });
 
   it('fails when expectedCohort differs from cohortCount', () => {
@@ -313,6 +436,142 @@ describe('evaluateReport', () => {
     );
     expect(verdict.pass).toBe(false);
     expect(verdict.problems.some((p) => p.includes('5') && p.includes('6'))).toBe(true);
+  });
+});
+
+/**
+ * D-15's classifier-independent ceiling sweep (WR-05, IN-03). Distance meters are declared
+ * locally in the fixtures below, mirroring the script's own local `TARGET_METERS_LOCAL` — no
+ * import of best-effort.types or any other classifier module.
+ */
+describe('recountCeilingSweep', () => {
+  function sweepDoc({ ceilings = {}, activities = {} } = {}) {
+    return { ceilings, activities };
+  }
+
+  it('returns overCeilingWithoutDemotion and independentCeilingCount 1 for one excluded 400m effort over the ceiling with demotion null', () => {
+    const doc = sweepDoc({
+      ceilings: { '400m': { ceilingMps: 5.1098, p90Mps: 3.992, populationN: 1825 } },
+      activities: { X: { efforts: [effort('400m', 45.2, null)] } },
+    });
+    const sweep = recountCeilingSweep(doc);
+    expect(sweep.overCeilingWithoutDemotion).toEqual(['X@400m']);
+    expect(sweep.independentCeilingCount).toBe(1);
+  });
+
+  it('does not flag an effort at exactly ceiling speed (strict >)', () => {
+    // 400m / 80s = 5 m/s, exactly at the ceiling.
+    const doc = sweepDoc({
+      ceilings: { '400m': { ceilingMps: 5 } },
+      activities: { X: { efforts: [effort('400m', 80, null)] } },
+    });
+    const sweep = recountCeilingSweep(doc);
+    expect(sweep.overCeilingWithoutDemotion).toEqual([]);
+    expect(sweep.independentCeilingCount).toBe(0);
+  });
+
+  it('lists an effort with guard "ceiling" whose implied speed is not over the ceiling in ceilingDemotedButNotOverCeiling', () => {
+    const doc = sweepDoc({
+      ceilings: { '400m': { ceilingMps: 10 } },
+      activities: { X: { efforts: [effort('400m', 90, { guard: 'ceiling', reason: 'x' })] } },
+    });
+    const sweep = recountCeilingSweep(doc);
+    expect(sweep.ceilingDemotedButNotOverCeiling).toEqual(['X@400m']);
+  });
+
+  it('does not count or list an over-ceiling effort already demoted by world-record or max-speed', () => {
+    const doc = sweepDoc({
+      ceilings: { '400m': { ceilingMps: 5.1098 } },
+      activities: {
+        X: { efforts: [effort('400m', 45.2, { guard: 'world-record', reason: 'wr' })] },
+        Y: { efforts: [effort('400m', 46, { guard: 'max-speed', reason: 'ms' })] },
+      },
+    });
+    const sweep = recountCeilingSweep(doc);
+    expect(sweep.overCeilingWithoutDemotion).toEqual([]);
+    expect(sweep.ceilingDemotedButNotOverCeiling).toEqual([]);
+    expect(sweep.independentCeilingCount).toBe(0);
+  });
+
+  it('contributes nothing for a fail-open distance (ceilingMps null) and lists it in failOpenDistances', () => {
+    const doc = sweepDoc({
+      ceilings: { marathon: { ceilingMps: null } },
+      activities: { X: { efforts: [effort('marathon', 8000, null)] } },
+    });
+    const sweep = recountCeilingSweep(doc);
+    expect(sweep.overCeilingWithoutDemotion).toEqual([]);
+    expect(sweep.independentCeilingCount).toBe(0);
+    expect(sweep.failOpenDistances).toEqual(['marathon']);
+  });
+
+  it('lists an effort whose distance has no local meters entry in unevaluable, never silently skipping it', () => {
+    const doc = sweepDoc({
+      ceilings: { '400m': { ceilingMps: 5.1098 } },
+      activities: { X: { efforts: [effort('7k', 2000, null)] } },
+    });
+    const sweep = recountCeilingSweep(doc);
+    expect(sweep.unevaluable).toEqual(['X@7k']);
+  });
+
+  it('returns ceilingsMissing true when the document has no ceilings object', () => {
+    const sweep = recountCeilingSweep({ activities: {} });
+    expect(sweep.ceilingsMissing).toBe(true);
+  });
+
+  it('does not throw for null or empty input, returning ceilingsMissing true', () => {
+    expect(() => recountCeilingSweep(null)).not.toThrow();
+    expect(recountCeilingSweep(null).ceilingsMissing).toBe(true);
+    expect(() => recountCeilingSweep({})).not.toThrow();
+    expect(recountCeilingSweep({}).ceilingsMissing).toBe(true);
+  });
+});
+
+describe('recountDemoted null-safety (IN-03)', () => {
+  it('does not throw for recountDemoted(null) or recountDemoted({})', () => {
+    expect(() => recountDemoted(null)).not.toThrow();
+    expect(() => recountDemoted({})).not.toThrow();
+  });
+});
+
+describe('CR-01 regression shape (D-04, D-15)', () => {
+  it('fails on the CR-01 shape: an owner-excluded over-ceiling effort with demotion null', () => {
+    const doc = {
+      ceilings: { '400m': { ceilingMps: 5.1098, p90Mps: 3.992, populationN: 1825 } },
+      activities: {
+        '4556693525': { efforts: [effort('400m', 45.2, null)] },
+        ok: { efforts: [effort('400m', 90, null)] },
+      },
+      rankings: { '400m': [] },
+    };
+
+    const demoted = recountDemoted(doc);
+    const sweep = recountCeilingSweep(doc);
+    const verdict = evaluateReport({ readErrors: [], demoted, cohort: null, sweep });
+
+    expect(verdict.pass).toBe(false);
+    expect(verdict.problems.some((p) => p.includes('4556693525@400m'))).toBe(true);
+    expect(verdict.problems.some((p) => p.includes('guardIsCeiling'))).toBe(true);
+  });
+});
+
+describe('parseInputPaths', () => {
+  it('returns the two default paths when no flags are present', () => {
+    const result = parseInputPaths([]);
+    expect(result.bestEffortsPath).toContain('best-efforts.json');
+    expect(result.indexPath).toContain('index.json');
+  });
+
+  it('returns the given paths when both flags are present', () => {
+    const result = parseInputPaths(['--best-efforts', '/a.json', '--index', '/b.json']);
+    expect(result).toEqual({ bestEffortsPath: '/a.json', indexPath: '/b.json' });
+  });
+
+  it('throws naming the flag when --best-efforts has no value', () => {
+    expect(() => parseInputPaths(['--best-efforts'])).toThrow(/--best-efforts/);
+  });
+
+  it('throws naming the flag when --index has no value', () => {
+    expect(() => parseInputPaths(['--index'])).toThrow(/--index/);
   });
 });
 
