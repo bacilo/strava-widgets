@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Pace Data Quality
 status: executing
-stopped_at: Phase 28 gap-closure wave 1 merged (28-10..28-13, 2330 tests green); next wave 2 plan 28-14 regeneration; PR-03/04/05 still reopened
-last_updated: "2026-09-16T11:43:33.635Z"
-last_activity: 2026-09-16 -- Phase 28 gap-closure wave 1 complete (28-10..28-13)
+stopped_at: "Phase 28 plan 14 complete (28-14 regenerated and reconciled data/stats/best-efforts.json, 28-DIFF.md, 28-CEILING-CALIBRATION.md against the CR-01 fix, 31/31/31 reconciliation); next: plan 28-15 (blocking Round 2 human checkpoint)"
+last_updated: "2026-09-16T12:15:17.011Z"
+last_activity: 2026-09-16 -- Phase 28 plan 14 complete (regeneration + reconciliation, 79 files / 2330 tests green)
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 43
-  completed_plans: 41
+  completed_plans: 42
   percent: 40
 ---
 
@@ -40,11 +40,11 @@ See: .planning/PROJECT.md (updated 2026-09-08)
 ## Current Position
 
 Phase: 28 (pr-plausibility-ceiling) — EXECUTING
-Plan: 13 of 15 executed (28-01..28-13 done; wave 2 28-14 next, then blocking checkpoint 28-15)
-Status: Executing Phase 28 gap closure — 6 plans in 3 waves, 28-15 is a blocking Round 2 checkpoint
-Last activity: 2026-09-16 -- Phase 28 gap-closure wave 1 complete (28-10..28-13 merged, build + 2330 tests green)
+Plan: 14 of 15 executed (28-01..28-14 done; wave 3 plan 28-15 next — blocking Round 2 human checkpoint)
+Status: Executing Phase 28 gap closure — plan 14 regenerated and reconciled data/stats/best-efforts.json, 28-DIFF.md and 28-CEILING-CALIBRATION.md against the CR-01 fix (31/31/31 reconciliation, 22/22 structural assertions PASS); PR-03/PR-04/PR-05 still reopened pending 28-15
+Last activity: 2026-09-16 -- Phase 28 plan 14 complete (regeneration + reconciliation, 79 files / 2330 tests green)
 
-Progress: [█████████░] 87% (13/15 plans)
+Progress: [█████████░] 93% (14/15 phase-28 plans; repo-wide milestone bar below is separately tracked)
 
 ## Performance Metrics
 
@@ -85,6 +85,7 @@ Progress: [█████████░] 87% (13/15 plans)
 | Phase 25 P11 | 20min | 3 tasks | 1 files |
 | Phase 26 P13 | 7h35m | 3 tasks | 2 files |
 | Phase 26 P16 | ~35min | 2 tasks | 2 files |
+| Phase 28 PP14 | ~50min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -131,6 +132,8 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 25]: 25-12 Round 2 disposition set under the all-rows-PASS rule, one row per requirement: FIX-02 (R6a PASS), VER-01 (R7 PASS, Round 1 R1/R3/R4/R5 stand), CI-01 (R6c PASS), CI-02 (R6b PASS) all ticked [x] in REQUIREMENTS.md. GAP-25-01 and GAP-25-02 both CLOSED; no successor gap opened. 25-VALIDATION.md frontmatter set to status: passed / nyquist_compliant: true. Phase-gate closure (ROADMAP.md milestone checkbox, STATE.md completed_phases) deliberately left to the orchestrator, which has not yet run /gsd-verify-work 25 (no 25-VERIFICATION.md exists).
 - [Phase 26]: Round 2 human checkpoint recorded all four verdicts as verbatim PASS quotations, reconciled R2-1's caption against a hand-derived 33/67/0 sum, and closed COV-01/COV-02 only after every row passed
 - [Phase 26]: 26-16 Round 3 human checkpoint recorded all four verdicts PASS (verbatim developer quotations transcribed) — R3-1's captured tick array reaches 20:00/km bracketing the independently-derived 17:29/km series maximum; R3-2's fastest hovered tooltip (2:27/km) satisfies the fast-end threshold, with the median-clustering departure recorded as its own finding rather than smoothed into the verdict; R3-3 (control) carries no evidentiary weight; R3-4 shows zero false badges and no TypeError. PACE-01 re-closed only after transcription, per the verification-after-requirement-tick lesson.
+- [Phase 28-14]: Regenerated data/stats/best-efforts.json, 28-DIFF.md and 28-CEILING-CALIBRATION.md against the CR-01 fix; every predicted number (31 ceiling-only, 19 world-record, 15 max-speed, 65 total demoted, independentCeilingCount 31, overCeilingWithoutDemotion 0) matched the observed regeneration exactly, and a 22-assertion structural comparison proved only the 13 predicted efforts' demotion field and two totals fields changed
+- [Phase 28-14]: data/geo/geo-metadata.json's timestamp-only diff (a compute-all-stats side effect) was reverted with git checkout, not committed -- outside this plan's declared file scope. Two pre-existing pr-ceiling-diff-* temp directories under os.tmpdir() were confirmed by mtime to predate this plan's own runs, which cleaned up correctly via finally
 
 ### Key Findings
 
@@ -222,9 +225,9 @@ It is named here because PROJECT.md's Evolution entry still describes it as open
 
 ## Session Continuity
 
-Last session: 2026-09-10T19:18:13.670Z
-Stopped at: Phase 28 context gathered
-Resume file: .planning/phases/28-pr-plausibility-ceiling/28-CONTEXT.md
+Last session: 2026-09-16T12:15:08.641Z
+Stopped at: Phase 28 plan 14 complete (28-14 regenerated and reconciled data/stats/best-efforts.json, 28-DIFF.md, 28-CEILING-CALIBRATION.md against the CR-01 fix, 31/31/31 reconciliation); next: plan 28-15 (blocking Round 2 human checkpoint)
+Resume file: .planning/phases/28-pr-plausibility-ceiling/28-15-PLAN.md
 
 ---
 *Last updated: 2026-08-11 — Phase 17 (activity-browser-detail-views) all 15 planned plans executed and summarized; human checkpoint on plan 17-15 came back PARTIAL — 8/10 Manual-Only Verifications rows confirmed clean, GAP 1 (DETAIL-02, route-map basemap tiles absent) and GAP 2 (DETAIL-03/04, chart band x-axis misalignment) have open gaps pending gap-closure planning (`/gsd-plan-phase 17 --gaps`) before the phase gate closes*
