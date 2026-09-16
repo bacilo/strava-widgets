@@ -716,3 +716,287 @@ All three agree. **13-label set equality:** the diff's 13 owner-excluded `(activ
 | 10k | 4.2236 | 4.2236 | PASS |
 | half | 4.4017 | 4.4017 | PASS |
 | marathon | `—` (no-ceiling text) | `null` (no ceiling derived, population 0 below minimum 100) | PASS |
+
+---
+
+## Round 2 Checkpoint (R2-1..R2-6)
+
+**Drafted:** 2026-09-16, plan 28-15 Task 1. No row below has been run. No verdict is pre-filled.
+Every verdict reads `pending` until the developer answers in Task 2.
+
+### Snapshot pins re-confirmed before this build
+
+- `git rev-parse HEAD` = `468106988d6e2be9cba81e235362e0d0b76cc0b2`, `git status --porcelain` empty
+  before this task started.
+- `git rev-parse HEAD:data/streams/manifest.json` = `b8ac1a5494ae1384f9c5b67ce42752335fcbb532` —
+  matches the plan's pinned value.
+- `data/stats/best-efforts.json` `totals.effortsDemoted` = **65** — matches plan 28-14's
+  regenerated document; `compute-all-stats` was NOT re-run by this task.
+
+### Build and served-digest evidence (step 1)
+
+- `npm run build && npm run build-widgets` — ran clean. `build-widgets`'s own copy step reported
+  `Copied data/stats/*.json → dist/widgets/data/stats/ (3768 copied, 0 skipped)` — zero skips, so
+  no `cp` fallback was needed anywhere; confirmed independently anyway (below).
+- **Source-vs-dist digest check** (`shasum -a 256` on the source file vs. its `dist/widgets/...`
+  copy), all four MATCH with no `cp` fallback required:
+  - `data/stats/best-efforts.json` → `e4f206e1806ff748e4e896eea90809f4f380acaa2bb365d625fccd1ce93f1b18`
+  - `data/stats/best-efforts/4556693525.json` → `9c038b30a0018fb0fe9134b650077869e7fb82192031a2c02c2b9e080062c678`
+  - `data/stats/best-efforts/3475725513.json` → `8c2c397d4129eaa2a199aeb35bffdd67d79eb5700c4458b7bed76f263f601406`
+  - `data/dashboard/index.json` → `74cbb3e535cd6200f1444dc9de64261cd4236517ca9e94c2a88a03c31f46b7ee`
+  (These differ from plan 28-14's recorded PRE-regeneration snapshot-copy hashes
+  `f38e042e...`/`fa8c6576...` by design — those were the snapshot taken BEFORE regeneration;
+  these are the POST-regeneration document's hashes.)
+- A pre-existing `http-server` process (pid 49752, started 11:45:58 this session, cwd
+  `/Users/pedf/workspace/strava-widgets`) was already listening on port 8917 and was reused per
+  the plan's "reuse the port if one is already serving that directory" instruction, rather than
+  starting a second process. `-c-1` (no caching) was confirmed by the digest match below — a
+  stale cache would not have picked up this session's rebuilt bytes.
+  - **Serve command (for the record, in case the process needs restarting):**
+    `npx http-server dist/widgets -p 8917 -c-1`
+- Emitted dashboard SPA JS asset (read from `dist/widgets/index.html`'s `<script src="./assets/...">`):
+  **`assets/index-BZIqZhAY.js`**.
+- **SERVED digest, computed from FETCHED bytes** (`curl -s http://127.0.0.1:8917/assets/index-BZIqZhAY.js | shasum -a 256`):
+  `aac17952fc99dac43900fd19fe26656df35e4b1e040c5c71c1b0d0cd6c8430c1` — identical to
+  `shasum -a 256 dist/widgets/assets/index-BZIqZhAY.js` on the local file.
+- **Fetched-vs-local digests for the four JSON files** (all MATCH, confirming the server is not
+  serving stale staged data alongside the fresh bundle):
+
+  | File | Local (`dist/widgets/...`) sha256 | Fetched sha256 | Match |
+  |---|---|---|---|
+  | `assets/index-BZIqZhAY.js` | `aac17952...430c1` | `aac17952...430c1` | MATCH |
+  | `data/stats/best-efforts.json` | `e4f206e1...93f1b18` | `e4f206e1...93f1b18` | MATCH |
+  | `data/stats/best-efforts/4556693525.json` | `9c038b30...062c678` | `9c038b30...062c678` | MATCH |
+  | `data/stats/best-efforts/3475725513.json` | `8c2c397d...601406` | `8c2c397d...601406` | MATCH |
+  | `data/dashboard/index.json` | `74cbb3e5...f46b7ee` | `74cbb3e5...f46b7ee` | MATCH |
+
+- **Round 1 pre-fix digest assertion:** the fetched `4556693525.json` digest
+  `9c038b30a0018fb0fe9134b650077869e7fb82192031a2c02c2b9e080062c678` is **NOT**
+  `82c467ac8de0344a7c9ad810c225a285bda429f2306fee71dbced0b8c96d1b39` (Round 1's pre-fix digest) —
+  **PASS**, the served build reflects the CR-01 fix.
+
+### Step 2 — independent re-derivation (throwaway node script, not committed, not `records-logic.ts`)
+
+Script written to the session scratchpad (outside the repo) and run against
+`data/stats/best-efforts.json`, the two committed shards, and `src/dashboard/styles.css` read as
+text. Full output, zero mismatches:
+
+```
+=== Per-guard, non-excluded counts per distance ===
+400m: total=35 ceiling=8 worldRecord=17 maxSpeed=10
+1k: total=11 ceiling=7 worldRecord=1 maxSpeed=3
+1mi: total=5 ceiling=3 worldRecord=0 maxSpeed=2
+5k: total=0 ceiling=0 worldRecord=0 maxSpeed=0
+10k: total=0 ceiling=0 worldRecord=0 maxSpeed=0
+half: total=0 ceiling=0 worldRecord=0 maxSpeed=0
+marathon: total=0 ceiling=0 worldRecord=0 maxSpeed=0
+
+4556693525@400m reason: implied 8.85 m/s exceeds personal ceiling 5.11 m/s (1.28 x p90 3.99 m/s over 1825 filtered 400m efforts) -- MATCHES INTERFACES BLOCK
+4556693525@1k reason:   implied 4.82 m/s exceeds personal ceiling 4.75 m/s (1.28 x p90 3.71 m/s over 1843 filtered 1k efforts) -- MATCHES INTERFACES BLOCK
+4556693525@1mi/5k/10k demotion: null (confirmed)
+4556693525@1mi implied speed: 4.0867 (ceiling 4.6323) -- MATCHES INTERFACES BLOCK
+4556693525@5k implied speed: 3.3364 (ceiling 4.3458) -- MATCHES INTERFACES BLOCK
+4556693525@10k implied speed: 3.0230 (ceiling 4.2236) -- MATCHES INTERFACES BLOCK
+
+3475725513@400m reason: implied 27.32 m/s exceeds world-record pace 9.30 m/s -- MATCHES INTERFACES BLOCK
+3475725513@1k reason:   implied 6.72 m/s exceeds personal ceiling 4.75 m/s (1.28 x p90 3.71 m/s over 1843 filtered 1k efforts) -- MATCHES INTERFACES BLOCK
+
+dark --demoted-text: #fb923c -> rgb(251, 146, 60) -- MATCHES INTERFACES BLOCK
+light --demoted-text: #b3390a -> rgb(179, 57, 10) -- MATCHES INTERFACES BLOCK
+
+0 mismatches. ALL RE-DERIVED VALUES MATCH THE INTERFACES BLOCK.
+```
+
+**One discovered precision caveat, disclosed rather than absorbed (not a mismatch against the
+interfaces block, and not archive drift or a defect):** naively recomputing
+`3475725513@400m`'s reason string from the shard's own DISPLAY-rounded `durationSec` field
+(`14.6`, which is `round1(rawDurationSec)` per `compute-best-efforts.ts:150`) and
+`TARGET_METERS['400m'] / 14.6` yields `27.40`, not the shard's actual `27.32`. Root cause traced
+to source: `compute-best-efforts.ts` computes `impliedSpeedMps` from the UNROUNDED
+`raw.durationSec` (line 136) BEFORE rounding it to one decimal for the stored `durationSec`
+display field (line 150) — so a naive re-derivation from the rounded display value cannot
+reproduce a fast/short effort's reason string bit-for-bit purely by arithmetic. This did not
+occur for either `4556693525` reason string (the rounding delta was too small there to shift the
+second decimal) or for `3475725513@1k` (same reason). The load-bearing comparison — the shard's
+ACTUAL `demotion.reason` field character-for-character against the interfaces block's stated
+string — passed for all four reason strings with zero mismatches; this caveat concerns only a
+disclosed limitation of reconstructing an unrounded number from an intentionally-rounded display
+field, not the document's correctness.
+
+Per-guard, non-excluded count breakdowns (400m 35 = 8+17+10, 1k 11 = 7+1+3, 1mi 5 = 3+0+2) all
+match the interfaces block exactly; 5k/10k/half/marathon all show 0. The recount script's own
+per-distance breakdown (400m: 47, 1k: 13, 1mi: 5 — all-guard, no exclusion filter) is a
+DIFFERENT, all-guard measurement by design (see the distinguishing-values paragraph in the
+interfaces block); it is not compared directly against this script's excluded-filtered 35/11/5
+totals, since the two intentionally measure different populations.
+
+### Gate results (Task 1)
+
+- `npm test` — 79 files / 2330 tests / 0 failures. Exit 0.
+- `npx tsc --noEmit` — clean. Exit 0.
+- `npm run verify-dashboard` — 64/64 checks passed, 0 failures. Exit 0.
+- `node scripts/compute-pr-ceiling-recount.mjs --expect-demoted 65` — exit 0, `PASS: recount
+  agrees with the shipped totals; no disagreements found.` `byGuard.ceiling` 31,
+  `independentCeilingCount` 31, `overCeilingWithoutDemotion` 0, pinned fixture
+  `4556693525@400m` `guard="ceiling"` `guardIsCeiling=true`.
+
+### The rows
+
+- **R2-1 served build.**
+  Ask: the developer opens `http://127.0.0.1:8917/?r2=<epoch>`, hard-reloads, and reads the JS
+  asset filename in the Network panel.
+  Independently derived, stated before the row runs: the asset filename recorded in step 1,
+  **`assets/index-BZIqZhAY.js`**, and its served digest
+  `aac17952fc99dac43900fd19fe26656df35e4b1e040c5c71c1b0d0cd6c8430c1`.
+  CAN PASS: the filename equals `index-BZIqZhAY.js`.
+  CAN FAIL: any other filename (a stale bundle).
+  Reachability: a stale cache fails it (an older `dist/widgets/assets/index-*.js`, of which three
+  other stale copies remain on disk — `index-BHpzXFXA.js`, `index-CLYvAIDH.js`,
+  `index-vmd1d_n_.js` — none of which `index.html` currently references), and the fresh build
+  passes it.
+  **Verdict: pending**
+
+- **R2-2 (R3 re-run): the pinned activity carries both claims, on exactly two of five rows.**
+  Ask: open `4556693525`'s detail view, hard-reload, and quote every badge on all five Best
+  Efforts rows, in order. Then open the Records screen (All time) and confirm the activity is
+  absent from the 400m and 1K ranked tables.
+  Independently derived, stated before the row runs (from the committed shard, re-derived and
+  confirmed above):
+  - 400m (45.2s): `Demoted — implied 8.85 m/s exceeds personal ceiling 5.11 m/s (1.28 x p90 3.99 m/s over 1825 filtered 400m efforts)`, then `Excluded — bad measurement`
+  - 1K (207.4s): `Demoted — implied 4.82 m/s exceeds personal ceiling 4.75 m/s (1.28 x p90 3.71 m/s over 1843 filtered 1k efforts)`, then `Excluded — bad measurement`
+  - 1 Mile (393.8s), 5K (1498.6s), 10K (3308s): `Excluded — bad measurement` only
+  CAN PASS:
+  - the 400m and 1K rows each show the expected Demoted text followed by `Excluded — bad measurement`
+  - the 1 Mile, 5K and 10K rows show only `Excluded — bad measurement`
+  - the activity is absent from both ranked tables
+  CAN FAIL:
+  - the 400m row shows only `Excluded — bad measurement` (the Round 1 PASS state, which is CR-01's own output)
+  - a Demoted badge appears on 1 Mile, 5K or 10K
+  - the reason numbers differ from the expected text
+  - the two claims render as one run-on string
+  - the activity appears in a ranked table
+  Reachability: the pre-fix build fails it on the first CAN FAIL condition (confirmed — Round 1's
+  R3 recorded `demotion: null` for this exact effort, i.e. the CAN FAIL state, and was scored PASS
+  there only because R3 as drafted could not detect the missing demotion), and this build's
+  regenerated document (confirmed above: `demotion.guard: "ceiling"` on both 400m and 1k) makes
+  the CAN PASS state reachable for the first time this phase.
+  **Verdict: pending**
+
+- **R2-3 precedence: an absolute-guard demotion is not overwritten.**
+  Ask: open `3475725513`'s detail view and quote the 400m and 1K rows' badges.
+  Independently derived, stated before the row runs:
+  - 400m (14.6s): `Demoted — implied 27.32 m/s exceeds world-record pace 9.30 m/s`, then `Excluded — Recorded with the same inaccurate GPS device class; its 1k time is not trusted as a genuine personal record.`
+  - 1K (148.9s): `Demoted — implied 6.72 m/s exceeds personal ceiling 4.75 m/s (1.28 x p90 3.71 m/s over 1843 filtered 1k efforts)`, then the same Excluded text
+  CAN PASS: 400m shows the world-record Demoted text and 1K shows the ceiling Demoted text, each
+  followed by the Excluded text.
+  CAN FAIL:
+  - 400m names the personal ceiling (the absolute guard was overwritten)
+  - 1K shows only Excluded (the pre-fix state — confirmed pre-fix: this shard's 1k `demotion`
+    was `null` before regeneration per plan 28-14's structural comparison)
+  - either row lacks the Excluded badge
+  Reachability: the pre-fix build fails it on the 1K row (confirmed by plan 28-14's 22-assertion
+  structural comparison: `3475725513@1k demotion diff null -> guard "ceiling"`), and this
+  regenerated build (confirmed above) passes it.
+  **Verdict: pending**
+
+- **R2-4 (R6 re-run): guard-accurate Records notes.**
+  Ask: on Records (All time), quote the note under the 400m, 1K and 1 Mile tables verbatim, and
+  confirm there is no note under 5K, 10K or Half Marathon.
+  Independently derived, stated before the row runs (counts re-derived above, without the
+  browser and without `records-logic.ts`; sentence template pinned by plan 28-13's own test
+  fixture, `records-logic.test.ts`):
+  - 400m: `35 400m efforts were demoted by a plausibility guard (8 by the personal ceiling, 17 by the world-record pace guard, 10 by the activity max-speed guard). Efforts the owner excluded are not counted here. See the activity detail view for each reason.`
+  - 1K: `11 1K efforts were demoted by a plausibility guard (7 by the personal ceiling, 1 by the world-record pace guard, 3 by the activity max-speed guard). Efforts the owner excluded are not counted here. See the activity detail view for each reason.`
+  - 1 Mile: `5 1 Mile efforts were demoted by a plausibility guard (3 by the personal ceiling, 2 by the activity max-speed guard). Efforts the owner excluded are not counted here. See the activity detail view for each reason.`
+  - 5K, 10K, Half Marathon: no note.
+  CAN PASS: all three strings equal the expected text exactly, the three counts are 35, 11 and 5,
+  and there is no note at 5K, 10K or Half Marathon.
+  CAN FAIL:
+  - any note says `demoted by the plausibility ceiling` for the whole count (the pre-CR-02 wording)
+  - the 400m count is **36** (Round 1's pre-fix reading) or **47** (the all-guard count with no
+    owner-exclusion filter — confirmed above as the recount script's own different, all-guard
+    measurement), or anything other than 35
+  - the 1K count is **13** (a build missing the exclusion filter — confirmed above as the
+    recount's own all-guard 1k figure)
+  - the breakdown is not 8/17/10
+  - a note appears at 5K, 10K or Half Marathon
+  Reachability: pre-fix reads 36 (Round 1's own recorded reading, wording "by the plausibility
+  ceiling") and fails; this build (regenerated document, guard-accurate copy landed in plan 28-13)
+  reads 35 and passes.
+  **Verdict: pending**
+
+- **R2-5 dark-theme demoted-badge contrast (WR-02).**
+  Ask: with the theme set to dark, open `4556693525`'s detail view, and in DevTools read
+  `getComputedStyle` `color` of the first `.badge--demoted` element. Then switch to light and read
+  it again.
+  Independently derived, stated before the row runs (from `src/dashboard/styles.css` read as
+  text, converted hex → rgb above): dark `--demoted-text` is `#fb923c` = `rgb(251, 146, 60)`;
+  light `--demoted-text` is `#b3390a` = `rgb(179, 57, 10)`.
+  CAN PASS: dark reads `rgb(251, 146, 60)` and light reads `rgb(179, 57, 10)`.
+  CAN FAIL: dark reads `rgb(194, 65, 12)` (the pre-fix `--accent-strong` token), or any other value.
+  Reachability: this row is only reachable once R2-2 shows a demoted badge exists on that page.
+  This build's regenerated document (confirmed above) carries a `ceiling` demotion on
+  `4556693525`'s 400m and 1k rows, so a `.badge--demoted` element is expected to exist on that
+  page under this build — if R2-2 is FAIL or BLOCKED, this row falls back to activity
+  `3475712118`'s 400m row (demoted before the fix too, per Round 1's R2 substitution), which must
+  be substituted explicitly rather than silently if used.
+  **Verdict: pending**
+
+- **R2-6 fresh PR-04 sign-off (a document read, not a browser action).**
+  Ask: the developer reads the regenerated `28-DIFF.md` in full — the Summary table, the new
+  `## Ceiling demotions on owner-excluded efforts` section (13 rows), and the Reconciliation.
+  Independently derived, stated before the row runs (from plan 28-14's Round 2 Evidence, all
+  re-confirmed above): current `28-DIFF.md` sha256
+  (`shasum -a 256 .planning/phases/28-pr-plausibility-ceiling/28-DIFF.md`) =
+  **`64c90981e1ed3db643af77ee7e4953f912fb2817f84dafd10b2d112090565cd2`** (confirmed unchanged from
+  plan 28-14's recorded value, re-hashed just now); ceiling-only 31 = recount `byGuard.ceiling` 31
+  (confirmed above, this task's own recount run) = recount `independentCeilingCount` 31 (same
+  run); the 13 labels match plan 28-10's pre-fix sweep (plan 28-14's own set-equality check); the
+  D-04 observation: `3475726256@400m` is exactly the stale 44.0s / 9.09 m/s figure (plan 28-14's
+  Round 2 Evidence, D-04 observation paragraph).
+  CAN PASS:
+  - the developer confirms the three-way 31 reconciliation
+  - the developer recognises all 13 owner-excluded rows as their own exclusions and finds none
+    wrongly ceiling-demoted
+  - the developer accepts that no ranking or flag changed relative to the Round 1 sign-off
+  CAN FAIL:
+  - any of the three figures differ
+  - a listed row is not an activity the developer excluded
+  - a change appears outside the predicted sections
+  - the developer rejects a demotion
+  Reachability: the pre-fix diff states 18 and has no owner-excluded listing, so it fails; this
+  regenerated diff (31, with the listing, confirmed above) passes.
+  **Verdict: pending**
+
+### R4 and WR-01 (recorded once more, no verdict requested)
+
+- **R4 — D-03, the empty table explains itself — still NOT EXERCISABLE.** Unchanged reason from
+  Round 1: no distance in the live archive has a ranked table that renders as fully empty (0 rows)
+  with a positive demoted count. The regeneration (plan 28-14) changed which efforts carry a
+  `demotion`, not which distances rank empty — every ceiling-affected distance still backfills to
+  a full ranked table from its own filtered population. This state remains unreachable in the
+  current archive.
+- **WR-01 — the This-year scope note path — NOT EXERCISABLE.** No 2026 effort is in any top-10, so
+  every This-year table renders its empty state rather than the demotion note; the scope-aware
+  `null` branch (`resolvePrTableDemotionNote` under `'this-year'`) is unit-tested directly but has
+  no live end-to-end reachable state in the browser today.
+
+### Round 2 Reachability Audit
+
+All twelve CAN PASS / CAN FAIL lines from R2-1..R2-6, repeated together:
+
+1. R2-1 CAN PASS: the filename equals `index-BZIqZhAY.js`.
+2. R2-1 CAN FAIL: any other filename (a stale bundle).
+3. R2-2 CAN PASS: 400m and 1K rows each show the expected Demoted text followed by `Excluded — bad measurement`; 1 Mile/5K/10K show only `Excluded — bad measurement`; the activity is absent from both ranked tables.
+4. R2-2 CAN FAIL: the 400m row shows only `Excluded — bad measurement` (Round 1's PASS state); a Demoted badge appears on 1 Mile/5K/10K; the reason numbers differ; the two claims render as one run-on string; the activity appears in a ranked table.
+5. R2-3 CAN PASS: 400m shows the world-record Demoted text and 1K shows the ceiling Demoted text, each followed by the Excluded text.
+6. R2-3 CAN FAIL: 400m names the personal ceiling instead of the world-record pace; 1K shows only Excluded; either row lacks the Excluded badge.
+7. R2-4 CAN PASS: all three notes equal the expected text exactly (counts 35, 11, 5), and no note appears at 5K/10K/Half Marathon.
+8. R2-4 CAN FAIL: a note says "by the plausibility ceiling" for the whole count; the 400m count is 36 or 47; the 1K count is 13; the breakdown is not 8/17/10; a note appears where none should.
+9. R2-5 CAN PASS: dark reads `rgb(251, 146, 60)` and light reads `rgb(179, 57, 10)`.
+10. R2-5 CAN FAIL: dark reads `rgb(194, 65, 12)` (the pre-fix token), or any other value.
+11. R2-6 CAN PASS: the developer confirms the 31/31/31 reconciliation, recognises all 13 rows as their own exclusions with none wrongly demoted, and accepts no ranking/flag changed.
+12. R2-6 CAN FAIL: any of the three figures differ; a listed row is not the developer's own exclusion; a change appears outside the predicted sections; the developer rejects a demotion.
+
+All six rows carry a complete CAN PASS/CAN FAIL pair. R4 and WR-01 remain NOT EXERCISABLE with
+their unreachability stated rather than a row silently dropped, per Round 1's precedent.
