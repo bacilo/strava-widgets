@@ -40,7 +40,7 @@ key-decisions:
   - "Local master was 9 nightly data commits behind origin/master and was NOT pulled, so the checkpoint ran against the archive its figures were derived from."
   - "PR-01 and PR-02 were not ticked here — not in this plan's requirement set; left to phase verification."
 
-requirements-completed: [PR-03, PR-04, PR-05]
+requirements-completed: []  # PR-03/PR-04/PR-05 ticked at checkpoint, reopened same day after verification gaps_found
 
 # Metrics
 duration: ~1 day elapsed (Task 1 2026-09-11, checkpoint 2026-09-16)
@@ -105,3 +105,11 @@ None opened. No row was FAIL or BLOCKED.
 - `28-DIFF.md` is byte-unchanged.
 - `git status --porcelain src scripts` is empty.
 - `grep -c '45.2' .planning/REQUIREMENTS.md` returns 2, and both the PR-02 and PR-05 lines still contain `44.0`.
+
+## AMENDED 2026-09-16: requirement ticks reopened
+
+After this summary was written, the phase code review (`28-REVIEW.md`, CR-01) and verification
+(`28-VERIFICATION.md`, `gaps_found`, 2/5) showed the ceiling check never runs on owner-excluded
+efforts. At the developer's direction, PR-03, PR-04 and PR-05 were reopened. The verdicts above are
+retained as recorded; they were earned but are no longer sufficient. Open observation 3 above is
+CR-01.

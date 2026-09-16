@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Pace Data Quality
 status: executing
-stopped_at: Phase 28 all 9 plans complete; awaiting phase verification
+stopped_at: Phase 28 verification gaps_found (2/5) — CR-01; PR-03/04/05 reopened; next /gsd-plan-phase 28 --gaps
 last_updated: "2026-09-16T09:53:49.542Z"
-last_activity: 2026-09-16 -- Phase 28 plan 28-09 checkpoint approved; phase verification pending
+last_activity: 2026-09-16 -- Phase 28 verification gaps_found; PR-03/PR-04/PR-05 reopened
 progress:
   total_phases: 5
   completed_phases: 2
@@ -41,7 +41,7 @@ See: .planning/PROJECT.md (updated 2026-09-08)
 
 Phase: 28 (pr-plausibility-ceiling) — EXECUTING
 Plan: 9 of 9
-Status: All plans complete — phase verification pending
+Status: Verification gaps_found (2/5) — gap closure needed: /gsd-plan-phase 28 --gaps
 Last activity: 2026-09-16 -- 28-09 Round 1 checkpoint approved (blanket), PR-04 signed off
 
 Progress: [██████████] 100% (9/9 plans)

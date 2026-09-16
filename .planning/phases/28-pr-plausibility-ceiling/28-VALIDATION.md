@@ -1,8 +1,8 @@
 ---
 phase: 28
 slug: pr-plausibility-ceiling
-status: approved
-nyquist_compliant: true
+status: gaps_found
+nyquist_compliant: false
 wave_0_complete: true
 created: 2026-09-10
 ---
@@ -433,6 +433,22 @@ demonstrated by the synthetic unit fixture `src/analytics/compute-best-efforts.t
 - **Date:** 2026-09-16
 - Nothing was written into `28-DIFF.md`; it remains purely generated.
 
+### AMENDED 2026-09-16 — Round 1 outcome no longer sufficient
+
+Added after the checkpoint; the Round 1 Outcome and PR-04 Sign-off above are retained verbatim.
+The same-day code review (`28-REVIEW.md`, CR-01/CR-02) and phase verification
+(`28-VERIFICATION.md`, `gaps_found`, 2/5) found that the ceiling check never runs on owner-excluded
+efforts: 13 shipped efforts exceed their distance's `ceilingMps` yet carry `demotion: null`
+(11 at 400m, 2 at 1k, all `excludedFromRecords: true`, including `4556693525` at both). No Round 1
+row could detect this: R3 asserted the page shows `Excluded — bad measurement` and not a demoted
+badge, which is exactly what the defect produces; R7's 18 = 18 reconciliation compared two
+artifacts sharing the blind spot. Open observation (a) is CR-02; observation (c) is CR-01.
+
+Consequences, at the developer's direction: PR-03, PR-04 and PR-05 reopened in `REQUIREMENTS.md`;
+the PR-04 sign-off above certifies sha256 `08e93d5a…77c6` only and must be renewed against the
+regenerated diff; `nyquist_compliant` returned to false, since the recount script cannot fail on
+the pinned-fixture check (WR-05). Next: `/gsd-plan-phase 28 --gaps`.
+
 ### Reachability Audit
 
 All fourteen CAN PASS / CAN FAIL lines, repeated together per the plan's requirement (R4 is
@@ -469,4 +485,4 @@ row silently dropped.
 - [x] Feedback latency < 20s (quick command measured at 3s, 178 tests, 2026-09-16)
 - [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** approved 2026-09-16 — developer, verbatim: "approved" (Round 1, blanket; R4 NOT EXERCISABLE)
+**Approval:** REOPENED 2026-09-16 after verification gaps_found (see AMENDED section); originally approved 2026-09-16 — developer, verbatim: "approved" (Round 1, blanket; R4 NOT EXERCISABLE)
