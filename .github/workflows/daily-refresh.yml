@@ -225,9 +225,10 @@ jobs:
       # every runner. A second push step is exactly how this repository's
       # occasional non-fast-forward races against origin/master became
       # routine before (see the 2026-08-11 STATE.md blocker entry) —
-      # compute-best-efforts.ts only rewrites that file when a ceiling
-      # actually moves, so an unchanged nightly run adds nothing here to
-      # commit.
+      # compute-best-efforts.ts rewrites that file whenever population, p90
+      # or ceiling changes at any distance, so an unchanged nightly run adds
+      # nothing here to commit. That includes local runs, which then dirty
+      # this CI-committed file too.
       - name: Commit updated data and stats
         id: commit
         continue-on-error: true  # Bookkeeping failure must not block the deploy
