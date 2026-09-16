@@ -656,3 +656,50 @@ No row differs. All seven figures were predicted before any regeneration ran (in
 ### D-04 observation (not a finding — not investigated further, per D-04)
 
 `3475726256@400m`'s shard shows `durationSec: 44, demotion: {"guard":"ceiling","reason":"implied 9.09 m/s exceeds personal ceiling 5.11 m/s (...)"}`  — i.e. exactly 44.0s / 9.0909 m/s, the stale PR-05/ROADMAP figure D-04 recorded as unexplained. Carried to the plan 28-15 checkpoint as an observation only: the likely explanation is that the requirement quoted this activity's value against the wrong id. D-04's pinned fixture (activity `4556693525`, 45.2s) stays as locked and is unaffected — its own demotion (verified above) is guard `ceiling` as predicted.
+
+### 28-DIFF.md and 28-CEILING-CALIBRATION.md, regenerated twice each and reconciled (Task 2)
+
+**Diff idempotence.** Before regenerating, `shasum -a 256 28-DIFF.md` printed `08e93d5adec6ee3de886ab8b47ac0d4a48e001847e331c18830a812f546f77c6` — matching the signed-off hash, confirming the file was untouched by Task 1. `npm run compute-pr-ceiling-diff` was run twice; `diff <(grep -v '^\*\*Generated:\*\*' run1) <(grep -v '^\*\*Generated:\*\*' run2)` printed nothing — **PASS, idempotent**. Two `pr-ceiling-diff-*` directories remain under `os.tmpdir()` (`/var/folders/.../T/pr-ceiling-diff-8q4rpb`, `pr-ceiling-diff-esmapa`), but both carry an mtime of 2026-09-16 09:57–09:58 UTC (11:57–11:58 CEST) — well before this plan's own first action this session (STATE.md's `last_updated` for the prior wave was already 11:43 UTC) and before either of this task's two `compute-pr-ceiling-diff` runs. Neither run created a new temp directory (both cleaned up via `finally`, confirmed by re-checking the directory listing immediately after each run) — **IN-04 holds for this plan's own runs**; the two pre-existing directories are unrelated debris from an earlier session, not touched or added to by this plan.
+
+**Calibration idempotence.** `npm run compute-pr-ceiling-calibration` run twice; the two output files differ only on the `**Generated:**` line (`2026-09-16T12:06:51.453Z` vs `2026-09-16T12:06:54.656Z`) — **PASS, idempotent**.
+
+**Predicted content (28-DIFF.md), checked line by line against `28-14-PLAN.md`'s `<interfaces>` block:**
+- Summary bullets: `Archive size (activities considered): 1865`; `Total efforts demoted (...ceiling-only): 31`; `Of those, also owner-excluded (no ranking effect): 13`; `Total wasPRAtTheTime flag flips: 14`; `Total retroactive promotions (flips gained): 3`; `Total ranking rows moved: 48` — all match.
+- Summary table, all seven rows match exactly: `400m | 5.1098 | 19 | 11 | 11 | 6 | 5`, `1k | 4.7513 | 9 | 2 | 11 | 9 | 6`, `1mi | 4.6323 | 3 | 0 | 14 | 13 | 3`, `5k | 4.3458 | 0 | 0 | 21 | 21 | 0`, `10k | 4.2236 | 0 | 0 | 16 | 16 | 0`, `half | 4.4017 | 0 | 0 | 6 | 6 | 0`, `marathon (fail-open text) | 0 | 0 | 0 | 0 | 0`.
+- `## Ceiling demotions on owner-excluded efforts` — exactly the 13 predicted rows, in the predicted order (`14122328106`, `3475711469`, `3475711630`, `3475715178`, `3475726256`, `3475727228`, `3475732221`, `3475735603`, `4556693525`@400m, `5059204779`, `5588316886`, `3475725513`@1k, `4556693525`@1k), with the predicted duration/implied-speed values byte-for-byte.
+- Reconciliation paragraph: "counts **31** total ceiling-demoted efforts... document's own `totals.effortsDemoted`... is 65" — matches.
+
+**Unchanged sections (byte equality against `$SNAP/28-DIFF.signed.md`, extracted heading-to-next-heading):**
+
+```
+=== ## Records that changed hands === PASS: byte-identical
+=== ## PR-at-the-time flag flips === PASS: byte-identical
+=== ## Retroactive promotions === PASS: byte-identical
+=== ## Inputs === PASS: byte-identical
+```
+
+**Three-way reconciliation (31 / 31 / 31):**
+
+```
+Total efforts demoted (this report's own count, ceiling-only): 31   [28-DIFF.md]
+    ceiling:      31                                                 [recount byGuard.ceiling]
+  independentCeilingCount: 31                                        [recount sweep]
+```
+
+All three agree. **13-label set equality:** the diff's 13 owner-excluded `(activityId, distance)` pairs, compared as a set against the 13 labels plan 28-10's pre-fix sweep reported (a different program — `compute-pr-ceiling-recount.mjs`'s `recountCeilingSweep` — reading a different, not-yet-regenerated document): identical sets, confirmed by direct comparison.
+
+**New 28-DIFF.md sha256:** `64c90981e1ed3db643af77ee7e4953f912fb2817f84dafd10b2d112090565cd2` — this is the hash plan 28-15's fresh sign-off binds to. It differs from the pre-fix signed-off hash `08e93d5adec6ee3de886ab8b47ac0d4a48e001847e331c18830a812f546f77c6`, as expected (the content genuinely changed: 18 → 31 ceiling-only, plus the new owner-excluded section).
+
+**Calibration verdict.** `git diff -U0 HEAD -- 28-CEILING-CALIBRATION.md | grep -E '^[+-][^+-]' | grep -vE 'Generated:|generatedAt:'` printed nothing — the WR-03 prediction held; the file was **not** restored via `git checkout`, the regenerated version was kept. The only three changed lines across the whole file are `**Generated:**` (`2026-09-10T21:38:40.714Z` → `2026-09-16T12:06:54.656Z`) and the two `## Inputs` `generatedAt:` lines (`data/stats/best-efforts.json`: `2026-09-10T21:28:24.587Z` → `2026-09-16T12:01:32.452Z`; `data/dashboard/index.json`: `2026-09-10T21:28:34.541Z` → `2026-09-16T12:01:42.425Z`).
+
+**Seven-row ceiling cross-check** (`28-CEILING-CALIBRATION.md`'s "Resulting coverage and demotions" `Ceiling (m/s)` cell vs. the regenerated `data/stats/best-efforts.json`'s `doc.ceilings[d].ceilingMps.toFixed(4)`):
+
+| Distance | Calibration table | `doc.ceilings[d].ceilingMps.toFixed(4)` | Match |
+|---|---|---|---|
+| 400m | 5.1098 | 5.1098 | PASS |
+| 1k | 4.7513 | 4.7513 | PASS |
+| 1mi | 4.6323 | 4.6323 | PASS |
+| 5k | 4.3458 | 4.3458 | PASS |
+| 10k | 4.2236 | 4.2236 | PASS |
+| half | 4.4017 | 4.4017 | PASS |
+| marathon | `—` (no-ceiling text) | `null` (no ceiling derived, population 0 below minimum 100) | PASS |
