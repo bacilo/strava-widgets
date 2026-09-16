@@ -220,7 +220,7 @@ Plans:
   4. Rejected efforts are demoted, never deleted: for every ceiling-rejected effort, the effort remains visible in that activity's own detail view (read directly in the browser, not merely present in JSON) with a stated demotion reason, absent only from the ranked PR list; a code audit confirms no path removes a flagged effort from `activities[id].efforts`, demonstrated failing if the filter is mutated to delete instead of flag.
   5. The archive-wide diff is a reviewed phase deliverable: a before/after PR diff (every record that changes hands) is generated from the real full archive and reviewed and signed off by the developer before the phase closes; its record count reconciles with the independently-derived ceiling-rejected count from criterion 3's dry run.
 
-**Plans**: 9 plans in 6 waves
+**Plans**: 15 plans (9 executed in 6 waves, plus 6 gap-closure plans in 3 waves)
 
 Plans:
 **Wave 1**
@@ -249,6 +249,21 @@ Plans:
 **Wave 6** *(blocked on Wave 5 completion)*
 
 - [x] 28-09-PLAN.md — Human browser checkpoint on rendered demotion evidence, and the PR-04 sign-off bound to the diff's content hash (PR-03, PR-04, PR-05)
+
+**Gap closure: Wave 1** *(28-VERIFICATION.md gaps_found 2/5: CR-01, CR-02, WR-05)*
+
+- [ ] 28-10-PLAN.md — Recount checks every effort against the ceiling and fails on the pinned fixture; shown failing on the pre-fix archive (13 missing, 31 vs 18) (PR-04, PR-05)
+- [ ] 28-11-PLAN.md — CR-01 fix: the ceiling is applied to owner-excluded efforts; real-exclusion 4556693525 regression written first and seen failing (PR-01, PR-02, PR-03, PR-05)
+- [ ] 28-12-PLAN.md — Generator fixes: per-effort exclusion (WR-04), calibration population follows Pass 1 (WR-03), diff lists owner-excluded ceiling demotions (PR-02, PR-04)
+- [ ] 28-13-PLAN.md — Records copy names the guard responsible for each demotion (CR-02), This-year note (WR-01), dark badge contrast (WR-02), badge wording (IN-02) (PR-03)
+
+**Gap closure: Wave 2** *(blocked on Wave 1)*
+
+- [ ] 28-14-PLAN.md — Regenerate best-efforts, 28-DIFF.md and calibration against the pinned snapshot; pre/post comparison and 31/31/31 reconciliation (PR-03, PR-04, PR-05)
+
+**Gap closure: Wave 3** *(blocked on Wave 2)*
+
+- [ ] 28-15-PLAN.md — Round 2 human checkpoint (R3/R6 re-runs, precedence, contrast) and fresh PR-04 sign-off on the regenerated diff (PR-03, PR-04, PR-05)
 
 **UI hint**: yes
 **Browser checkpoint**: warranted — PR-03/PR-04 require a demoted effort to remain visibly present with its reason on the Records/detail screens rather than silently vanishing; this is exactly the class of defect (a check that only agrees with itself) the project's Phase 23 CR-01 lesson exists to guard against.

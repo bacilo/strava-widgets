@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Pace Data Quality
 status: executing
-stopped_at: Phase 28 verification gaps_found (2/5) — CR-01; PR-03/04/05 reopened; next /gsd-plan-phase 28 --gaps
-last_updated: "2026-09-16T09:53:49.542Z"
-last_activity: 2026-09-16 -- Phase 28 verification gaps_found; PR-03/PR-04/PR-05 reopened
+stopped_at: Phase 28 gap-closure plans 28-10..28-15 created (verification gaps_found 2/5, CR-01); PR-03/04/05 still reopened; next /gsd-execute-phase 28 --gaps-only
+last_updated: "2026-09-16T10:54:19.238Z"
+last_activity: 2026-09-16 -- Phase 28 gap-closure planning complete (28-10..28-15)
 progress:
   total_phases: 5
   completed_phases: 2
-  total_plans: 37
+  total_plans: 43
   completed_plans: 37
   percent: 40
 ---
@@ -40,11 +40,11 @@ See: .planning/PROJECT.md (updated 2026-09-08)
 ## Current Position
 
 Phase: 28 (pr-plausibility-ceiling) — EXECUTING
-Plan: 9 of 9
-Status: Verification gaps_found (2/5) — gap closure needed: /gsd-plan-phase 28 --gaps
-Last activity: 2026-09-16 -- 28-09 Round 1 checkpoint approved (blanket), PR-04 signed off
+Plan: 9 of 15 executed (28-01..28-09 done; gap-closure plans 28-10..28-15 not started)
+Status: Ready to execute gap closure — 28-VERIFICATION.md gaps_found (2/5, CR-01); 6 plans in 3 waves, 28-15 is a blocking Round 2 checkpoint (R3/R6 re-run + fresh PR-04 sign-off)
+Last activity: 2026-09-16 -- Phase 28 gap-closure planning complete (28-10..28-15, plan-checker passed)
 
-Progress: [██████████] 100% (9/9 plans)
+Progress: [██████░░░░] 60% (9/15 plans)
 
 ## Performance Metrics
 
