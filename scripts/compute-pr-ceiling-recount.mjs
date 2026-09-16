@@ -39,8 +39,20 @@
  * `compute-pr-ceiling-recount.test.mjs` can import the counting functions without triggering a
  * real file read as an import-time side effect.
  *
- * Only read targets: `data/stats/best-efforts.json` and `data/dashboard/index.json`. Writes
- * nothing, ever.
+ * Default read targets are `data/stats/best-efforts.json` and `data/dashboard/index.json`,
+ * overridable via the `--best-efforts <path>` and `--index <path>` CLI flags (`parseInputPaths`)
+ * so the same script can be pointed at an archive copy or a worktree where `data/` is absent.
+ * Writes nothing, ever.
+ *
+ * THE CEILING SWEEP (`recountCeilingSweep`, D-15, WR-05, closing 28-VERIFICATION.md gaps 1/3):
+ * `recountDemoted` above only reads `effort.demotion` as written by the classifier under test —
+ * it agrees with itself by construction if the classifier silently skips an effort. The sweep is
+ * the classifier-independent check that catches exactly that shape (CR-01): it walks every effort
+ * in the shipped document, recomputes `TARGET_METERS_LOCAL[distance] / durationSec` itself, and
+ * compares that against `doc.ceilings[distance].ceilingMps` — never reading `effort.demotion` as
+ * the answer to "is this effort over the ceiling", only as the answer to "did something demote
+ * it". A pinned fixture whose own `guardIsCeiling` is false is exactly the shape this sweep and
+ * `evaluateReport`'s pinned-fixture checks now turn into a verdict failure, not just a printed line.
  */
 
 import { readFileSync } from 'fs';
@@ -58,6 +70,22 @@ const KNOWN_GUARDS = new Set(['world-record', 'max-speed', 'ceiling']);
 const PINNED_ACTIVITY_ID = '4556693525';
 const PINNED_DISTANCE = '400m';
 const PINNED_DURATION_SEC = 45.2;
+
+/**
+ * Distance meters, declared LOCALLY on purpose (D-15): this file must not import
+ * `best-effort.types.js`/`.ts` or any other classifier module for these numbers, even though
+ * that module defines the same mapping. Duplicating this tiny constant table is the price of
+ * staying a genuinely independent recount rather than sharing vocabulary with the code it checks.
+ */
+const TARGET_METERS_LOCAL = {
+  '400m': 400,
+  '1k': 1000,
+  '1mi': 1609.344,
+  '5k': 5000,
+  '10k': 10000,
+  half: 21097.5,
+  marathon: 42195,
+};
 
 /**
  * The two-sentence do-not-conflate caution, printed in `main()`'s output — not only stated in a
@@ -140,7 +168,7 @@ export function recountDemoted(bestEffortsDoc) {
     }
   }
 
-  const rejected = Array.isArray(bestEffortsDoc.rejected) ? bestEffortsDoc.rejected : [];
+  const rejected = Array.isArray(bestEffortsDoc?.rejected) ? bestEffortsDoc.rejected : [];
   const ownRejectedNonErrorRows = rejected.filter(
     (r) => typeof r.reason === 'string' && !r.reason.startsWith('unexpected error:')
   ).length;
@@ -162,7 +190,7 @@ export function recountDemoted(bestEffortsDoc) {
     }
   }
 
-  const totalsEffortsDemoted = bestEffortsDoc.totals ? bestEffortsDoc.totals.effortsDemoted : undefined;
+  const totalsEffortsDemoted = bestEffortsDoc?.totals ? bestEffortsDoc.totals.effortsDemoted : undefined;
   const disagreesWithTotals = {
     effortsDemotedMismatch: totalsEffortsDemoted !== ownDemotedTotal,
     ownDemotedTotal,
@@ -209,6 +237,101 @@ export function recountDemoted(bestEffortsDoc) {
     demotedWithoutReason,
     disagreesWithTotals,
     pinnedFixture,
+  };
+}
+
+/**
+ * D-15's classifier-independent ceiling sweep (WR-05, IN-03, closing 28-VERIFICATION.md gaps
+ * 1/3). Walks EVERY effort in the shipped document and compares its OWN arithmetic
+ * (`TARGET_METERS_LOCAL[distance] / durationSec`) against `doc.ceilings[distance].ceilingMps` —
+ * it never reads `effort.demotion` as the answer to "is this effort over the ceiling", only as
+ * the answer to "did something already demote it". This is what catches CR-01's shape: an
+ * owner-excluded, over-ceiling effort whose `demotion` was never set because Pass 3 only walked
+ * non-excluded survivors.
+ *
+ * Null-safe in the same style as `recountDemoted` (IN-03): never throws on `null`, `{}`, or a
+ * document missing `ceilings`/`activities`.
+ */
+export function recountCeilingSweep(bestEffortsDoc) {
+  const ceilings =
+    bestEffortsDoc && bestEffortsDoc.ceilings && typeof bestEffortsDoc.ceilings === 'object'
+      ? bestEffortsDoc.ceilings
+      : null;
+
+  if (!ceilings) {
+    return {
+      overCeilingWithoutDemotion: [],
+      ceilingDemotedButNotOverCeiling: [],
+      independentCeilingCount: 0,
+      unevaluable: [],
+      failOpenDistances: [],
+      ceilingsMissing: true,
+      perDistanceOverCeilingWithoutDemotion: {},
+    };
+  }
+
+  const activities =
+    bestEffortsDoc && bestEffortsDoc.activities && typeof bestEffortsDoc.activities === 'object'
+      ? bestEffortsDoc.activities
+      : {};
+
+  const overCeilingWithoutDemotion = [];
+  const ceilingDemotedButNotOverCeiling = [];
+  const unevaluable = [];
+  const perDistanceOverCeilingWithoutDemotion = {};
+  let independentCeilingCount = 0;
+
+  for (const activityId of Object.keys(activities).sort()) {
+    const activity = activities[activityId];
+    const efforts = activity && Array.isArray(activity.efforts) ? activity.efforts : [];
+    for (const effort of efforts) {
+      const label = `${activityId}@${effort.distance}`;
+      const meters = TARGET_METERS_LOCAL[effort.distance];
+      const durationSec = effort.durationSec;
+      const durationIsPositiveFinite =
+        typeof durationSec === 'number' && Number.isFinite(durationSec) && durationSec > 0;
+
+      if (meters === undefined || !durationIsPositiveFinite) {
+        unevaluable.push(label);
+        continue;
+      }
+
+      const ceiling = ceilings[effort.distance] ? ceilings[effort.distance].ceilingMps : undefined;
+      if (ceiling === null || ceiling === undefined || !Number.isFinite(ceiling)) {
+        // Fail-open distance (or a distance with no ceiling entry at all): contributes nothing.
+        continue;
+      }
+
+      const implied = meters / durationSec;
+      const over = implied > ceiling;
+      const guard = effort.demotion && typeof effort.demotion === 'object' ? effort.demotion.guard : null;
+
+      if (over && guard === null) {
+        overCeilingWithoutDemotion.push(label);
+        perDistanceOverCeilingWithoutDemotion[effort.distance] =
+          (perDistanceOverCeilingWithoutDemotion[effort.distance] || 0) + 1;
+      }
+      if (guard === 'ceiling' && !over) {
+        ceilingDemotedButNotOverCeiling.push(label);
+      }
+      if (over && guard !== 'world-record' && guard !== 'max-speed') {
+        independentCeilingCount += 1;
+      }
+    }
+  }
+
+  const failOpenDistances = Object.keys(ceilings)
+    .sort()
+    .filter((d) => ceilings[d] && (ceilings[d].ceilingMps === null || ceilings[d].ceilingMps === undefined));
+
+  return {
+    overCeilingWithoutDemotion,
+    ceilingDemotedButNotOverCeiling,
+    independentCeilingCount,
+    unevaluable,
+    failOpenDistances,
+    ceilingsMissing: false,
+    perDistanceOverCeilingWithoutDemotion,
   };
 }
 
@@ -337,6 +460,62 @@ export function evaluateReport(report, expectedDemoted, expectedCohort) {
         `recomputed ownDemotedTotal (${demoted.ownDemotedTotal}) does not equal --expect-demoted ${expectedDemoted}`
       );
     }
+
+    // Pinned-fixture problems (D-04, WR-05): a missing, guard-mismatched, or duration-mismatched
+    // pinned fixture makes PR-05's regression check vacuous or wrong — this must fail the verdict,
+    // not just print a line, which is exactly what 28-VERIFICATION.md gap 1 found missing.
+    const pf = demoted.pinnedFixture;
+    if (pf) {
+      if (!pf.present) {
+        problems.push(
+          `pinned fixture ${PINNED_ACTIVITY_ID}@${PINNED_DISTANCE} is absent from the shipped document (PR-05 check is vacuous)`
+        );
+      } else {
+        if (!pf.guardIsCeiling) {
+          problems.push(
+            `pinned fixture ${PINNED_ACTIVITY_ID}@${PINNED_DISTANCE} guard is ${JSON.stringify(pf.guard)}, not "ceiling" (guardIsCeiling=false)`
+          );
+        }
+        if (!pf.durationMatches45_2) {
+          problems.push(
+            `pinned fixture ${PINNED_ACTIVITY_ID}@${PINNED_DISTANCE} durationSec is ${pf.durationSec}, not ${PINNED_DURATION_SEC} (D-04)`
+          );
+        }
+      }
+    }
+
+    // The sweep can never be silently skipped: if a demoted report was computed but no sweep
+    // accompanies it, that is itself a problem (T-28-10-B).
+    if (!report.sweep) {
+      problems.push('ceiling sweep was not run');
+    }
+  }
+
+  const sweep = report.sweep;
+  if (sweep) {
+    if (sweep.overCeilingWithoutDemotion.length > 0) {
+      problems.push(
+        `${sweep.overCeilingWithoutDemotion.length} over-ceiling effort(s) carry no demotion (CR-01 shape): ${sweep.overCeilingWithoutDemotion.join(', ')}`
+      );
+    }
+    if (sweep.ceilingDemotedButNotOverCeiling.length > 0) {
+      problems.push(
+        `${sweep.ceilingDemotedButNotOverCeiling.length} ceiling-guard demotion(s) whose implied speed is not over the ceiling: ${sweep.ceilingDemotedButNotOverCeiling.join(', ')}`
+      );
+    }
+    if (demoted && sweep.independentCeilingCount !== demoted.byGuard.ceiling) {
+      problems.push(
+        `independent ceiling count (${sweep.independentCeilingCount}) disagrees with byGuard.ceiling (${demoted.byGuard.ceiling})`
+      );
+    }
+    if (sweep.unevaluable.length > 0) {
+      problems.push(
+        `${sweep.unevaluable.length} effort(s) could not be evaluated by the sweep (no local meters entry or invalid durationSec): ${sweep.unevaluable.join(', ')}`
+      );
+    }
+    if (sweep.ceilingsMissing) {
+      problems.push('the shipped document has no ceilings object; the sweep could not run');
+    }
   }
 
   const cohort = report.cohort;
@@ -372,9 +551,43 @@ export function parseExpectFlags(argv) {
   };
 }
 
+/**
+ * Parses `--best-efforts <path>` and `--index <path>`, both optional, defaulting to
+ * `BEST_EFFORTS_PATH` and `DASHBOARD_INDEX_PATH`. Lets the recount be pointed at an absolute
+ * primary-tree path when run from a worktree where `data/` is gitignored and absent, and lets an
+ * operator point it at an archive copy. `parseExpectFlags` ignores these flag names — it only
+ * looks up its own `--expect-demoted`/`--expect-cohort` names, so the two parsers never collide.
+ */
+export function parseInputPaths(argv) {
+  function parseOne(flagName, fallback) {
+    const idx = argv.indexOf(flagName);
+    if (idx === -1) return fallback;
+    const value = argv[idx + 1];
+    if (value === undefined) {
+      throw new Error(`${flagName} requires a path argument`);
+    }
+    return value;
+  }
+
+  return {
+    bestEffortsPath: parseOne('--best-efforts', BEST_EFFORTS_PATH),
+    indexPath: parseOne('--index', DASHBOARD_INDEX_PATH),
+  };
+}
+
 function main() {
+  let bestEffortsPath;
+  let indexPath;
+  try {
+    ({ bestEffortsPath, indexPath } = parseInputPaths(process.argv.slice(2)));
+  } catch (err) {
+    console.error(err.message);
+    process.exitCode = 1;
+    return;
+  }
+
   console.log(
-    'D-15 independent recount: reading data/stats/best-efforts.json and data/dashboard/index.json off disk (no ceiling/compute/utils/types import)...\n'
+    `D-15 independent recount: reading ${bestEffortsPath} and ${indexPath} off disk (no ceiling/compute/utils/types import)...\n`
   );
 
   let expectDemoted;
@@ -389,20 +602,21 @@ function main() {
 
   const readErrors = [];
 
-  const bestEffortsRead = readShippedJson(BEST_EFFORTS_PATH);
+  const bestEffortsRead = readShippedJson(bestEffortsPath);
   if (!bestEffortsRead.ok) readErrors.push(bestEffortsRead.reason);
 
-  const indexRead = readShippedJson(DASHBOARD_INDEX_PATH);
+  const indexRead = readShippedJson(indexPath);
   if (!indexRead.ok) readErrors.push(indexRead.reason);
 
   const demoted = bestEffortsRead.ok ? recountDemoted(bestEffortsRead.doc) : null;
+  const sweep = bestEffortsRead.ok ? recountCeilingSweep(bestEffortsRead.doc) : null;
   const cohort = indexRead.ok ? recountImpossibleSampleCohort(indexRead.doc) : null;
   const overlap =
     demoted && cohort && bestEffortsRead.ok
       ? computeCohortOverlap(cohort.cohortIds, bestEffortsRead.doc)
       : null;
 
-  const report = { readErrors, demoted, cohort, overlap };
+  const report = { readErrors, demoted, cohort, overlap, sweep };
   const verdict = evaluateReport(report, expectDemoted, expectCohort);
 
   if (readErrors.length > 0) {
@@ -439,6 +653,24 @@ function main() {
     if (expectDemoted !== undefined) {
       console.log(`  --expect-demoted ${expectDemoted}: ${demoted.ownDemotedTotal === expectDemoted ? 'MATCH' : 'MISMATCH'}`);
     }
+  }
+
+  if (sweep) {
+    console.log('\nCeiling sweep (own arithmetic, doc.ceilings vs TARGET/durationSec):');
+    console.log(`  independentCeilingCount: ${sweep.independentCeilingCount}`);
+    console.log(
+      `  overCeilingWithoutDemotion (${sweep.overCeilingWithoutDemotion.length}): ${sweep.overCeilingWithoutDemotion.join(', ') || '(none)'}`
+    );
+    console.log('  Per-distance overCeilingWithoutDemotion counts:');
+    for (const distance of Object.keys(sweep.perDistanceOverCeilingWithoutDemotion).sort()) {
+      console.log(`    ${distance}: ${sweep.perDistanceOverCeilingWithoutDemotion[distance]}`);
+    }
+    console.log(
+      `  ceilingDemotedButNotOverCeiling (${sweep.ceilingDemotedButNotOverCeiling.length}): ${sweep.ceilingDemotedButNotOverCeiling.join(', ') || '(none)'}`
+    );
+    console.log(`  failOpenDistances: ${sweep.failOpenDistances.join(', ') || '(none)'}`);
+    console.log(`  unevaluable (${sweep.unevaluable.length}): ${sweep.unevaluable.join(', ') || '(none)'}`);
+    console.log(`  ceilingsMissing: ${sweep.ceilingsMissing}`);
   }
 
   if (cohort) {
