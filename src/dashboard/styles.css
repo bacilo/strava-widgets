@@ -27,6 +27,14 @@
      control only, never used elsewhere — see 17-UI-SPEC § Color). */
   --accent-strong: #b3390a;
 
+  /* Phase 28 (WR-02): dedicated demoted-badge text/border token, distinct
+     from --accent-strong above — that token's own contract reserves it for
+     fills and fails WCAG AA as dark-theme text (2.87:1 / 3.29:1, below the
+     4.5:1 normal-text minimum). Measured contrast for THIS token, against
+     both --bg and --surface, W3C relative luminance: light 5.99:1 / 5.50:1,
+     dark 7.54:1 / 6.58:1 — both pass in both themes. */
+  --demoted-text: #b3390a;
+
   /* Phase 17 — chart channel palette. --chart-pace is a literal alias of
      --accent per theme (not var(--accent)) so getComputedStyle returns a
      concrete hex for the charting layer. */
@@ -94,6 +102,8 @@
   --border: #e5e5e5;
   --destructive: #dc2626;
   --accent-strong: #b3390a;
+  /* Phase 28 (WR-02): 5.99:1 on --bg, 5.50:1 on --surface — passes AA. */
+  --demoted-text: #b3390a;
   --chart-pace: #fc4c02;
   --chart-hr: #e11d48;
   --chart-cadence: #0891b2;
@@ -110,6 +120,10 @@
   --border: #33334d;
   --destructive: #f87171;
   --accent-strong: #c2410c;
+  /* Phase 28 (WR-02): 7.54:1 on --bg, 6.58:1 on --surface — passes AA.
+     --accent-strong (#c2410c) fails here (2.87:1 / 3.29:1), which is why
+     .badge--demoted uses this dedicated token instead. */
+  --demoted-text: #fb923c;
   --chart-pace: #ff6b35;
   --chart-hr: #fb7185;
   --chart-cadence: #22d3ee;
@@ -375,16 +389,20 @@ body {
   border-color: var(--destructive);
 }
 
-/* Phase 28 (D-09, plan 28-04): a demoted-effort badge, distinct from
-   .badge--severe above. A demotion is a plausibility guard rejecting one
-   effort from the ranked PR list, not the archive-wide severity tier
-   Phase 27 shipped, and painting the two identically would tell the
-   reader those are the same kind of judgment. Reuses the existing
-   accent-strong token (already the active-state fill elsewhere in this
-   file) rather than introducing a new custom property or raw hex value. */
+/* Phase 28 (D-09, plan 28-04; WR-02 dedicated token, plan 28-13): a
+   demoted-effort badge, distinct from .badge--severe above. A demotion is a
+   plausibility guard rejecting one effort from the ranked PR list, not the
+   archive-wide severity tier Phase 27 shipped, and painting the two
+   identically would tell the reader those are the same kind of judgment.
+   Uses --demoted-text, a token dedicated to this badge, rather than
+   --accent-strong: --accent-strong's own contract reserves it for
+   pagination + segmented-control fills, never text, and its dark-theme
+   value fails WCAG AA as text (2.87:1 / 3.29:1 against --surface/--bg,
+   below the 4.5:1 minimum) — see --demoted-text's declaration comment for
+   the measured ratios that pass in both themes. */
 .badge--demoted {
-  color: var(--accent-strong);
-  border-color: var(--accent-strong);
+  color: var(--demoted-text);
+  border-color: var(--demoted-text);
 }
 
 /* 26-08 (D-11): the pace-disputed badge is appended as a third child inside

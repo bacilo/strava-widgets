@@ -2398,3 +2398,71 @@ describe('styles.css — Phase 28 plan 28-04 (D-09): .badge--demoted modifier, d
     expect(demotedBody).not.toBe(severeBody);
   });
 });
+
+/**
+ * WR-02 (28-REVIEW.md): the previous check only asserted `.badge--demoted`
+ * differs from `.badge--severe`, which cannot fail on a colour that is
+ * merely different-but-still-inaccessible — it passed against the shipped
+ * dark-theme defect (`--accent-strong` at 2.87:1 / 3.29:1, below the 4.5:1
+ * WCAG AA floor for normal text). This suite computes the real W3C relative-
+ * luminance contrast ratio from the token values READ FROM THE REAL
+ * STYLESHEET (`cssNoComments`, via `declarationsFor`) rather than hardcoded
+ * hex literals, so the test fails if someone edits a token to a failing
+ * colour — hardcoding the hex values here would defeat that purpose.
+ */
+function hexToSrgbChannel(hex: string): number {
+  const c = parseInt(hex, 16) / 255;
+  return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+}
+
+function relativeLuminance(hexColor: string): number {
+  const hex = hexColor.replace('#', '');
+  const r = hexToSrgbChannel(hex.slice(0, 2));
+  const g = hexToSrgbChannel(hex.slice(2, 4));
+  const b = hexToSrgbChannel(hex.slice(4, 6));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrastRatio(hexA: string, hexB: string): number {
+  const lA = relativeLuminance(hexA);
+  const lB = relativeLuminance(hexB);
+  const lighter = Math.max(lA, lB);
+  const darker = Math.min(lA, lB);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+/** Reads a `--token: #rrggbb;` declaration's hex value out of one rule's body. */
+function extractHexToken(selector: string, token: string): string {
+  const body = declarationsFor(selector);
+  const escapedToken = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = body.match(new RegExp(`${escapedToken}:\\s*(#[0-9a-fA-F]{6})`));
+  if (!match) {
+    throw new Error(`Token ${token} not found (as a hex literal) in selector ${selector}`);
+  }
+  return match[1];
+}
+
+describe('styles.css — WR-02 (plan 28-13): --demoted-text meets WCAG AA (>= 4.5:1) against --bg and --surface in both themes', () => {
+  it('light theme: --demoted-text vs --bg and vs --surface both pass 4.5:1', () => {
+    const demotedText = extractHexToken(':root[data-theme="light"]', '--demoted-text');
+    const bg = extractHexToken(':root[data-theme="light"]', '--bg');
+    const surface = extractHexToken(':root[data-theme="light"]', '--surface');
+    expect(contrastRatio(demotedText, bg)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(demotedText, surface)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('dark theme: --demoted-text vs --bg and vs --surface both pass 4.5:1', () => {
+    const demotedText = extractHexToken(':root[data-theme="dark"]', '--demoted-text');
+    const bg = extractHexToken(':root[data-theme="dark"]', '--bg');
+    const surface = extractHexToken(':root[data-theme="dark"]', '--surface');
+    expect(contrastRatio(demotedText, bg)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(demotedText, surface)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('.badge--demoted uses var(--demoted-text) for both color and border-color, and never --accent-strong', () => {
+    const body = declarationsFor('.badge--demoted');
+    expect(body).toContain('color: var(--demoted-text)');
+    expect(body).toContain('border-color: var(--demoted-text)');
+    expect(body).not.toContain('--accent-strong');
+  });
+});
