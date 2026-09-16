@@ -1,8 +1,8 @@
 ---
 phase: 28
 slug: pr-plausibility-ceiling
-status: draft
-nyquist_compliant: false
+status: approved
+nyquist_compliant: true
 wave_0_complete: true
 created: 2026-09-10
 ---
@@ -256,6 +256,35 @@ Both are stated here, before the row is run, so R5 compares the developer's on-s
 against a value derived from the shard and the exclusions file, never against the page's own
 other number.
 
+### Pre-run re-verification (2026-09-16, Task 2, before any row was presented)
+
+The rows were drafted on 2026-09-11; the evidence was re-gathered before presenting them:
+
+- Gates: `npm test` (79 files, 2286 tests) exit 0; `npx tsc --noEmit` exit 0; `npm run build`
+  exit 0; `npm run build-widgets` exit 0; `npm run verify-dashboard` 64 checks, 0 failures;
+  `node scripts/compute-pr-ceiling-recount.mjs` exit 0 with figures unchanged from the stdout
+  recorded above (52 total; 19/15/18 by guard; 400m 36, 1k 11, 1mi 5).
+- The rebuild emitted the same content-hashed bundle. `dist/widgets/index.html` references
+  `assets/index-vmd1d_n_.js` (two older `index-*.js` files remain in `dist/widgets/assets/`
+  but are not referenced). Served from `http://127.0.0.1:8917`, FETCHED digest
+  `affdf2f9e9aa7261368a4981323376cb159a3b30e1e881c107605329627b810a` — identical to the digest
+  recorded on 2026-09-11.
+- Served vs local, byte-identical (sha256 prefix): `dashboard/index.json` `fa8c6576254816e0`,
+  `stats/best-efforts.json` `f38e042e2754e929`, shards `4556693525` `82c467ac8de0344a`,
+  `3475712118` `072aa1b94c6fb394`, `3475725513` `217cf6a6c578cad5`.
+- Local `master` is 9 nightly data commits behind `origin/master`; NOT pulled, so the checkpoint
+  runs against the archive the figures above were derived from.
+- **Expected-value corrections (rendering format, not criteria):** R2's detail-view duration is
+  rendered by `formatEffortDuration` (`src/dashboard/views/list.ts:128`) as `m:ss`, so the
+  on-screen value for `durationSec: 71` is **`1:11`**, not the literal `71.0s` — without this
+  correction R2 would be unpassable. R3's expected badge for `4556693525`, from
+  `data/best-effort-exclusions.json` (`distances: null`, reason `"bad measurement"`) through
+  `prFlagBadgeSpecs`, is exactly **`Excluded — bad measurement`**.
+- R6's wording sub-finding is confirmed in the source before the row runs:
+  `resolvePrTableDemotionNote` (`src/dashboard/views/records-logic.ts:225-235`) renders
+  `${count} ${label} efforts were demoted by the plausibility ceiling.` with the all-guard
+  `countDemotedAtDistance` count.
+
 ### The rows
 
 - **R1 — served digest.**
@@ -266,7 +295,7 @@ other number.
   CAN PASS: the Network panel shows exactly `index-vmd1d_n_.js` as the loaded JS asset.
   CAN FAIL: a stale bundle serves a different asset filename (e.g. an older hashed name from a
   previous build still cached by the browser or a stale `dist/` copy).
-  **Verdict: pending**
+  **Verdict: PASS (blanket)** — developer, 2026-09-16, verbatim: "approved". Recorded as a blanket verdict covering this row; no per-row observation was supplied, and none is invented here.
 
 - **R2 — criterion 4, the demoted effort is visible with its reason (activity substituted —
   see Step 6 above; original pinned activity `4556693525` carries `demotion: null` and is
@@ -282,7 +311,7 @@ other number.
   CAN FAIL: the 400m row is absent entirely (the delete-not-demote regression), the badge
   names a condition without its measured numbers, or the quoted reason disagrees with the
   shard.
-  **Verdict: pending**
+  **Verdict: PASS (blanket)** — developer, 2026-09-16, verbatim: "approved". Recorded as a blanket verdict covering this row; no per-row observation was supplied, and none is invented here.
 
 - **R3 — criterion 4, absent only from the ranked list (mechanism note added: this activity is
   kept off rankings by manual exclusion, not by the ceiling guard — see Step 6).**
@@ -298,7 +327,7 @@ other number.
   reproducing the delete-not-flag defect for the exclusion path); or the detail view shows a
   "demoted" badge (which would mean the page is fabricating a ceiling reason this effort does
   not actually carry).
-  **Verdict: pending**
+  **Verdict: PASS (blanket)** — developer, 2026-09-16, verbatim: "approved". Recorded as a blanket verdict covering this row; no per-row observation was supplied, and none is invented here.
 
 - **R4 — D-03, the empty table explains itself — NOT EXERCISABLE (see Step 7 above).**
   No distance in the live archive currently has a ranked table that renders as fully empty
@@ -312,7 +341,7 @@ other number.
   renders the OTHER empty-state branch ("No marathon efforts yet"), not the ceiling one.
   CAN PASS: N/A — this state does not exist in the current archive.
   CAN FAIL: N/A — this state does not exist in the current archive.
-  **Verdict: NOT EXERCISABLE — no live distance has both zero ranked rows and a positive demoted count; the branch is unit-tested but not end-to-end reachable in the browser today.**
+  **Verdict: NOT EXERCISABLE — no live distance has both zero ranked rows and a positive demoted count; the branch is unit-tested but not end-to-end reachable in the browser today.** The developer's blanket "approved" (2026-09-16) does not convert this to PASS: a state that does not exist cannot be observed.
 
 - **R5 — D-09, two adjacent badges are separable (activity identified in Step 8:
   `3475725513`, a demoted-and-excluded 400m effort).**
@@ -328,7 +357,7 @@ other number.
   each has its own accessible name/description (distinct `aria-describedby` targets).
   CAN FAIL: the quoted texts read as one concatenated claim (the Phase 24 R15 `PRExcluded —
   {reason}` shape), or the two badges share one `aria-describedby` target.
-  **Verdict: pending**
+  **Verdict: PASS (blanket)** — developer, 2026-09-16, verbatim: "approved". Recorded as a blanket verdict covering this row; no per-row observation was supplied, and none is invented here.
 
 - **R6 — D-03, a short table says so (distance identified in Step 7: 400m).**
   At 400m, confirm the ranked table renders its rows (10 entries) AND carries the demotion
@@ -349,7 +378,8 @@ other number.
   not folded silently into a pass — the note's wording claims all 36 were demoted "by the
   plausibility ceiling" when the independently-derived per-guard breakdown above shows only 8
   of the 36 actually were.
-  **Verdict: pending**
+  **Verdict: PASS (blanket)** — developer, 2026-09-16, verbatim: "approved". Recorded as a blanket verdict covering this row; no per-row observation was supplied, and none is invented here.
+  **Sub-finding carried forward, not resolved by this verdict:** the blanket "approved" does not individually address the wording caveat stated above (the note attributes all 36 400m demotions to "the plausibility ceiling" while the independent recount shows 8 ceiling, 18 world-record, 10 max-speed). It is recorded here as an open observation for a later round, not as a gap and not as a pass of that specific claim.
 
 - **R7 — criterion 5, the diff is reviewed and signed off.**
   The developer reads `28-DIFF.md` in full — every record that changes hands, in both
@@ -367,7 +397,41 @@ other number.
   CAN FAIL: the two ceiling-only totals disagree (18 vs. the recount's own `byGuard.ceiling`
   value, if it were ever to differ), or a record the developer recognises as wrongly demoted
   appears in the list, or a promotion the developer cannot account for appears.
-  **Verdict: pending**
+  **Verdict: PASS (blanket)** — developer, 2026-09-16, verbatim: "approved". Recorded as a blanket verdict covering this row; no per-row observation was supplied, and none is invented here.
+
+### Round 1 Outcome (2026-09-16)
+
+Developer response, verbatim, to the seven rows as presented (resume signal: `"approved"` = blanket
+PASS across all rows): **"approved"**.
+
+| Row | Verdict |
+|-----|---------|
+| R1 served digest | PASS (blanket) |
+| R2 demoted effort visible with reason (`3475712118`) | PASS (blanket) |
+| R3 absent from ranking, excluded badge on detail (`4556693525`) | PASS (blanket) |
+| R4 empty 400m table explains itself | NOT EXERCISABLE |
+| R5 two separable badges (`3475725513`) | PASS (blanket) |
+| R6 non-empty 400m table carries its demotion note | PASS (blanket), wording sub-finding carried forward |
+| R7 diff reviewed and reconciled (18 = 18) | PASS (blanket) |
+
+No row FAILED or was BLOCKED; no Gap-Closure Record is opened. Open observations carried forward
+(not gaps, not fixed here): (a) R6's note wording over-attributes non-ceiling demotions to the
+ceiling; (b) R4's ceiling-emptied branch has no live end-to-end reachable state; (c) the real
+activity `4556693525` is kept off the rankings by manual exclusion (`demotion: null`,
+recount: `guard=null ... guardIsCeiling=false`) — PR-05's guard rejection of that fixture is
+demonstrated by the synthetic unit fixture `src/analytics/compute-best-efforts.test.ts:687`
+(green on 2026-09-16), not by the shipped document.
+
+`git status --porcelain src scripts` was empty after the checkpoint.
+
+### PR-04 Sign-off (D-14)
+
+- **Artifact reviewed:** `.planning/phases/28-pr-plausibility-ceiling/28-DIFF.md`
+- **sha256:** `08e93d5adec6ee3de886ab8b47ac0d4a48e001847e331c18830a812f546f77c6` (recorded in Task 1;
+  re-hashed after the checkpoint on 2026-09-16 — identical, the artifact is byte-unchanged)
+- **Developer's words, verbatim:** "approved"
+- **Date:** 2026-09-16
+- Nothing was written into `28-DIFF.md`; it remains purely generated.
 
 ### Reachability Audit
 
@@ -398,11 +462,11 @@ row silently dropped.
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 20s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 20s (quick command measured at 3s, 178 tests, 2026-09-16)
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved 2026-09-16 — developer, verbatim: "approved" (Round 1, blanket; R4 NOT EXERCISABLE)
