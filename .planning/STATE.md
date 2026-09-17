@@ -44,7 +44,7 @@ Plan: Not started
 Status: Ready to plan
 Last activity: 2026-09-17 -- Phase 28 complete (re-verification passed 5/5; code re-review 0 critical / 3 warning / 3 info, advisory)
 
-Progress: [██████████] 100% (15/15 phase-28 plans; phase not yet re-verified)
+Progress: [██████░░░░] 60% (3/5 v2.2 phases; Phase 28 complete and re-verified)
 
 ## Performance Metrics
 
