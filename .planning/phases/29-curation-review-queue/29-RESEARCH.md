@@ -432,7 +432,13 @@ Not applicable in the ecosystem-research sense — this phase extends internal p
 
 **If this table is empty:** N/A — see rows above. Everything else in this document (file contents, line numbers, function signatures, the 47/65/12 measured counts, the stylesheet-hash fact, the vitest include-glob fact, the script-execution-order fact) was read directly from source files or produced by running scripts in this repository during this session, and is tagged `[VERIFIED: <mechanism>]` inline or stated as a direct reading of source without a training-data claim involved.
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> **RESOLVED during planning (2026-09-17).** Q1 → `PD-01` in `29-04-PLAN.md`: the name is joined
+> client-side from `data/dashboard/index.json` (no new server route; rows degrade to `Activity <id>`
+> if the fetch fails), and is put to the developer for an explicit approve/reject at checkpoint row
+> R11 in `29-08-PLAN.md`. Q2 → `PD-02` in `29-06-PLAN.md`: pure `renderQueuePage(stylesheetHref)` +
+> `extractStylesheetHref(html)` resolved per request, no template file.
 
 1. **Where does the queue get each row's activity *name* (D-12), given `best-efforts.json` has no `name` field?**
    - What we know: `ActivityBestEfforts` (verified from `src/analytics/best-effort.types.ts`) carries `activityId`, `startDate`, `distanceSource`, `efforts`, `excludedFromRecords` — no name. `data/dashboard/index.json`'s `activities[]` rows (verified by reading a live sample) do carry `name`, and this file is already public, already mirrored by `RECOMPUTE_DATA_DIRS`, and already fetched by the existing dashboard.

@@ -282,13 +282,27 @@ Plans:
 **Plans**: 8 plans in 5 waves
 
 Plans:
+**Wave 1**
+
 - [ ] 29-01-PLAN.md — Build-time guard: IN-17 one-path-one-violation fix + planted queue-leak fixtures (D-18/D-19)
 - [ ] 29-02-PLAN.md — HTTP guard: two literal 404 assertions for the new routes, planted-leak Cases E/F, IN-18 (D-17/D-19)
 - [ ] 29-03-PLAN.md — Independent recount gains an all-guards activity count and its --expect pin (D-16)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 29-04-PLAN.md — Pure flagged-set derivation (D-01..D-05, D-11, D-12) cross-checked against the recount
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 29-05-PLAN.md — Queue page client: rows, header counts, inline exclude control, Recompute (D-08..D-15)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 29-06-PLAN.md — curate-server: gated /__curate/queue and /__curate/queue.js routes, bundle step, startup log (D-06/D-07/D-09)
 - [ ] 29-07-PLAN.md — Overlay nav-link entry point + queue client source-structure guard (D-07/D-10)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
 - [ ] 29-08-PLAN.md — Human browser checkpoint: rendered extent vs independent count, write path, origin rejection
 
 **UI hint**: yes
