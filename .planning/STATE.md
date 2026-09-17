@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Pace Data Quality
-status: executing
-stopped_at: "Phase 28 gap closure executed (28-10..28-15 all complete; Round 2 checkpoint all six rows PASS, PR-04 re-signed on 28-DIFF.md 64c90981); PR-03/04/05 re-ticked pending re-verification; next: code review, regression gate, phase re-verification"
-last_updated: "2026-09-16T12:15:17.011Z"
-last_activity: 2026-09-17 -- Phase 28 plan 15 complete (Round 2 checkpoint PASS 6/6); re-verification pending
+status: ready_to_plan
+stopped_at: Phase 28 complete (15/15, re-verified 5/5 after gap closure) — ready to discuss Phase 29
+last_updated: 2026-09-17T07:45:22.983Z
+last_activity: 2026-09-17 -- Phase 28 complete (re-verification passed 5/5 after gap closure 28-10..28-15)
 progress:
   total_phases: 5
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 43
   completed_plans: 43
-  percent: 40
+  percent: 60
 ---
 
 # Project State
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-08)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 28 — pr-plausibility-ceiling
+**Current focus:** Phase 29 — curation review queue
 
 **Carried into the next milestone:**
 
@@ -39,10 +39,10 @@ See: .planning/PROJECT.md (updated 2026-09-08)
 
 ## Current Position
 
-Phase: 28 (pr-plausibility-ceiling) — EXECUTING
-Plan: 15 of 15 executed (28-01..28-15 done)
-Status: Phase 28 gap closure executed — Round 2 checkpoint 6/6 PASS; awaiting code review and phase re-verification (not complete until verifier passes)
-Last activity: 2026-09-17 -- Phase 28 plan 15 complete (Round 2 checkpoint PASS 6/6, PR-04 re-signed)
+Phase: 29
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-09-17 -- Phase 28 complete (re-verification passed 5/5; code re-review 0 critical / 3 warning / 3 info, advisory)
 
 Progress: [██████████] 100% (15/15 phase-28 plans; phase not yet re-verified)
 
