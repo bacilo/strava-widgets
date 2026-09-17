@@ -87206,6 +87206,61 @@
       "cityName": "Christianshavn",
       "countryName": "Denmark",
       "countryIso2": "DK"
+    },
+    "55.6608,12.5744": {
+      "cityName": "Copenhagen",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.6652,12.5584": {
+      "cityName": "Copenhagen",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.6678,12.5434": {
+      "cityName": "Frederiksberg",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.6712,12.5269": {
+      "cityName": "Valby",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.6723,12.5061": {
+      "cityName": "Valby",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.6728,12.4825": {
+      "cityName": "Vigerslev",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.6817,12.4691": {
+      "cityName": "Rødovre",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.6935,12.4615": {
+      "cityName": "Rødovre",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.7056,12.4534": {
+      "cityName": "Herlev",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.7152,12.4467": {
+      "cityName": "Herlev",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.7152,12.4461": {
+      "cityName": "Herlev",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
     }
   }
 }
