@@ -1,8 +1,8 @@
 ---
 phase: 28
 slug: pr-plausibility-ceiling
-status: gaps_found
-nyquist_compliant: false
+status: approved
+nyquist_compliant: true
 wave_0_complete: true
 created: 2026-09-10
 ---
@@ -489,6 +489,164 @@ row silently dropped.
 
 ---
 
+### Round 2 Outcome (2026-09-17)
+
+All six rows, verdicted 2026-09-17. Pre-checkpoint gates re-run by the orchestrator immediately
+before presenting: `npm test` exit 0 (2330 tests), `npx tsc --noEmit` exit 0, `npm run
+verify-dashboard` exit 0 (64/64), `node scripts/compute-pr-ceiling-recount.mjs --expect-demoted 65`
+exit 0 (`independentCeilingCount` 31); served digests re-fetched and all 5 MATCH (asset
+`aac17952…`, `best-efforts.json` `e4f206e1…`, `4556693525.json` `9c038b30…`, `3475725513.json`
+`8c2c397d…`, `index.json` `74cbb3e5…`); `28-DIFF.md` sha256
+`64c90981e1ed3db643af77ee7e4953f912fb2817f84dafd10b2d112090565cd2`.
+
+| Row | Verdict | Developer's verbatim words | Observation / readback | Disclosure |
+|-----|---------|------------------------------|-------------------------|------------|
+| R2-1 served build | PASS | "PASS" | Not a string/count row per plan; no quoted observation required. Filename not separately quoted. | Developer only |
+| R2-2 pinned activity, both claims, two of five rows | PASS | "PASS (both parts)" | Full paste of all five Best Efforts rows (below) | Developer pasted |
+| R2-3 precedence (3475725513) | PASS | "PASS" | Full paste of the 400m and 1K rows (below) | Developer pasted |
+| R2-4 guard-accurate Records notes | PASS | "PASS: All three notes check (feel free to use readback but no point pasting the 3 of them). no notes on 5k, 10k and half, and marathon inndeed says no efforts yet" | Agent readback quoting all three notes verbatim, confirmed by the developer's verdict (below) | Disclosed agent readback (Claude-in-Chrome `javascript_tool`), developer-confirmed |
+| R2-5 dark-theme badge contrast (WR-02) | PASS | "pass" (see note below on the combined R2-5/R2-6 prompt) | Agent readback: dark `rgb(251, 146, 60)`, light `rgb(179, 57, 10)` | Disclosed agent readback, developer-confirmed |
+| R2-6 fresh PR-04 sign-off | PASS | "pass" (see note below on the combined R2-5/R2-6 prompt) | Material presented before the verdict; see § PR-04 Sign-off (Round 2, D-14) | Developer, on presented material |
+
+**Note on the combined R2-5/R2-6 prompt:** the developer's reply of the single word `"pass"` was
+given verbatim in answer to a prompt that asked for "your R2-5 verdict and your R2-6 verdict, in
+your own words." That single word is recorded here as the developer's verdict for BOTH rows —
+one word answering a two-part question, not two separate words. This interpretation is stated
+explicitly per the plan's transcription instruction, rather than left implicit.
+
+**R2-1 — no further detail beyond the table** (not a string/count row; filename not separately
+quoted by the developer).
+
+**R2-2 — developer's pasted observation, verbatim:**
+
+> 400m 0:45 1:53/km 99.1% Demoted — implied 8.85 m/s exceeds personal ceiling 5.11 m/s (1.28 x p90
+> 3.99 m/s over 1825 filtered 400m efforts)this effort is left out of the ranked PR list because a
+> plausibility guard rejected it; it stays visible here with its reasonExcluded — bad measurementthe
+> owner excluded this effort from records; this is a stated intent, not a machine judgment
+> 1K 3:27 3:27/km 69.5%\* Demoted — implied 4.82 m/s exceeds personal ceiling 4.75 m/s (1.28 x p90
+> 3.71 m/s over 1843 filtered 1k efforts)this effort is left out of the ranked PR list because a
+> plausibility guard rejected it; it stays visible here with its reasonExcluded — bad measurementthe
+> owner excluded this effort from records; this is a stated intent, not a machine judgment
+> 1 Mile 6:34 4:05/km 58.7% Excluded — bad measurementthe owner excluded this effort from records;
+> this is a stated intent, not a machine judgment
+> 5K 24:59 5:00/km 53.4% Excluded — bad measurementthe owner excluded this effort from records; this
+> is a stated intent, not a machine judgment
+> 10K 55:08 5:31/km 49.0% Excluded — bad measurement
+
+Both Demoted strings match the pre-stated text character for character; Demoted precedes Excluded
+on 400m and 1K; 1 Mile/5K/10K carry Excluded only (2 of 5 rows demoted). The run-on text after each
+badge is that badge's own `.sr-only` `aria-describedby` explanation (`detail-sections.ts`
+`buildPrFlagsCell` → `appendAccessibleBadge`), which the developer's copy includes verbatim — it is
+the designed accessible separator between the two claims, not a visible run-on string. The 10K
+paste ends at the badge (its explanation was not included in the selection). Ranked-table absence
+was confirmed by the developer's "both parts" statement; no table text was separately quoted
+(an absence observation).
+
+**R2-3 — developer's pasted observation, verbatim:**
+
+> 400m 0:15 0:37/km 303.0% Demoted — implied 27.32 m/s exceeds world-record pace 9.30 m/sthis
+> effort is left out of the ranked PR list because a plausibility guard rejected it; it stays
+> visible here with its reasonExcluded — Recorded with the same inaccurate GPS device class; its
+> 1k time is not trusted as a genuine personal record.the owner excluded this effort from records;
+> this is a stated intent, not a machine judgment
+> 1K 2:29 2:29/km 95.4%\* Demoted — implied 6.72 m/s exceeds personal ceiling 4.75 m/s (1.28 x p90
+> 3.71 m/s over 1843 filtered 1k efforts)this effort is left out of the ranked PR list because a
+> plausibility guard rejected it; it stays visible here with its reasonExcluded — Recorded with the
+> same inaccurate GPS device class; its 1k time is not trusted as a genuine personal record.
+
+400m names world-record pace (27.32 / 9.30), 1K names personal ceiling (6.72 / 4.75, p90 3.71,
+1843) — both character-identical to the pre-stated strings; each followed by the Excluded badge
+with the exact owner reason. The precedence rule was observed directly. Trailing text is the same
+`.sr-only` explanation pattern as R2-2.
+
+**R2-4 — disclosed agent readback, verbatim** (Claude-in-Chrome `javascript_tool` on a fresh tab,
+URL `http://127.0.0.1:8917/?r2=1758030004#/records`, loaded script asset `index-BZIqZhAY.js`,
+scope button "All time" `aria-pressed=true`):
+
+- 400m `p.text-label`: "35 400m efforts were demoted by a plausibility guard (8 by the personal
+  ceiling, 17 by the world-record pace guard, 10 by the activity max-speed guard). Efforts the
+  owner excluded are not counted here. See the activity detail view for each reason."
+- 1K `p.text-label`: "11 1K efforts were demoted by a plausibility guard (7 by the personal
+  ceiling, 1 by the world-record pace guard, 3 by the activity max-speed guard). Efforts the owner
+  excluded are not counted here. See the activity detail view for each reason."
+- 1 Mile `p.text-label`: "5 1 Mile efforts were demoted by a plausibility guard (3 by the personal
+  ceiling, 2 by the activity max-speed guard). Efforts the owner excluded are not counted here. See
+  the activity detail view for each reason."
+- Programmatic string equality against the pre-stated expected text: 400m EXACT MATCH, 1K EXACT
+  MATCH, 1 Mile EXACT MATCH; 5K/10K/Half Marathon/Marathon: no demotion note. Marathon heading "No
+  Marathon efforts yet" present. (The 1K block also carries the pre-existing WMA footnote "\*
+  Interpolated between 800m and mile factors — no official WMA standard exists for 1k." — not a
+  demotion note.)
+
+The developer's verdict ("PASS: All three notes check...") explicitly declines to paste the three
+notes itself and directs the agent readback to stand in, confirming it rather than independently
+re-quoting it.
+
+**R2-5 — disclosed agent readback, verbatim** (Claude-in-Chrome `javascript_tool`, own tab, script
+asset `index-BZIqZhAY.js`, 2 `.badge--demoted` elements on the page; first = 400m "Demoted —
+implied 8.85 m/s exceeds personal ceiling 5.11 m/s (...)"):
+
+- DARK: URL `?r2=1758030005#/activity/4556693525`; stored `dashboard-theme` "auto",
+  `prefers-color-scheme` dark → `html data-theme="dark"`; `--demoted-text` `#fb923c`;
+  `getComputedStyle(first .badge--demoted).color` = `"rgb(251, 146, 60)"`.
+- LIGHT: developer switched the theme to light by hand (stored `dashboard-theme` "light", button
+  "Theme: light"); agent reloaded its tab at `?r2=1758030006#/activity/4556693525` →
+  `html data-theme="light"`; `--demoted-text` `#b3390a`; computed color = `"rgb(179, 57, 10)"`.
+
+Condition note: the dark reading was taken under `"auto"` resolving to dark (system dark), which
+is the page's actual dark rendering (`data-theme="dark"` stamped). The developer's "pass" is
+recorded as confirmation of this disclosed readback.
+
+**R2-6 — see § PR-04 Sign-off (Round 2, D-14) below** for the material presented and the
+developer's "pass" recorded as the sign-off.
+
+No row FAILED or was BLOCKED; no Round 2 Gap-Closure Record is opened. R4 and WR-01 remain NOT
+EXERCISABLE per § R4 and WR-01 above; no verdict was requested for either.
+
+`git status --porcelain src scripts` was empty after the checkpoint.
+
+### PR-04 Sign-off (Round 2, D-14)
+
+- **Artifact reviewed:** `.planning/phases/28-pr-plausibility-ceiling/28-DIFF.md`, regenerated by
+  plan 28-14.
+- **sha256:** `64c90981e1ed3db643af77ee7e4953f912fb2817f84dafd10b2d112090565cd2` (recorded by plan
+  28-14 Task 2; re-hashed by this plan's Task 1 and again immediately after the checkpoint — both
+  times identical; the artifact is byte-unchanged across the checkpoint).
+- **Prior Round 1 signed version:** sha256 `08e93d5adec6ee3de886ab8b47ac0d4a48e001847e331c18830a812f546f77c6`
+  at commit `3a71eaeb`, superseded by this sign-off.
+- **Material presented before the verdict (2026-09-17):**
+  - A machine diff against the Round 1 signed version (commit `3a71eaeb`): the "Records that
+    changed hands", "PR-at-the-time flag flips" and "Retroactive promotions" sections are
+    byte-identical (both sides sha256 `2ed8bd042f2b861d6c4f37ec368ebeba411f605cda9aa79fbeff25a70bb6e92b`).
+  - What changed: the Generated timestamp; the WR-04 per-effort-exclusion sentence; the Summary
+    row moving 18 → 31, plus a new "Of those, also owner-excluded: 13" line and a new column (the
+    non-excluded 8/7/3 breakdown unchanged); a new "## Ceiling demotions on owner-excluded
+    efforts" section (13 rows, listed in full to the developer); the Reconciliation figure moving
+    to 31 / 65.
+  - The three-way figure: ceiling-only 31 = recount `byGuard.ceiling` 31 = recount
+    `independentCeilingCount` 31 (recount exit 0, `ceilingDemotedButNotOverCeiling` 0, run
+    2026-09-17 by the orchestrator immediately before presenting).
+  - Unchanged relative to the Round 1 sign-off: 48 ranking rows moved, 14 flag flips, 3 retroactive
+    promotions.
+  - The D-04 observation, surfaced explicitly: `3475726256@400m` is exactly the stale 44.0s /
+    9.09 m/s figure.
+- **Developer's words, verbatim:** "pass" — given in answer to a prompt requesting both the R2-5
+  and R2-6 verdicts together ("your R2-5 verdict and your R2-6 verdict, in your own words"). This
+  single word is recorded here as the developer's PR-04 sign-off, per the interpretation stated
+  in § Round 2 Outcome above: one word answering a two-part question, not a separate reply for
+  each row.
+- **Date:** 2026-09-17.
+- Nothing was written into `28-DIFF.md`; it remains purely generated. Re-hashed after this record
+  was written (see § Post-checkpoint re-hash below) — unchanged.
+
+#### Post-checkpoint re-hash
+
+`shasum -a 256 .planning/phases/28-pr-plausibility-ceiling/28-DIFF.md` after all Task 2 edits to
+this file: `64c90981e1ed3db643af77ee7e4953f912fb2817f84dafd10b2d112090565cd2` — matches the sign-off
+above; `28-DIFF.md` itself was not touched.
+
+---
+
 ## Validation Sign-Off
 
 - [x] All tasks have `<automated>` verify or Wave 0 dependencies
@@ -498,7 +656,7 @@ row silently dropped.
 - [x] Feedback latency < 20s (quick command measured at 3s, 178 tests, 2026-09-16)
 - [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** REOPENED 2026-09-16 after verification gaps_found (see AMENDED section); originally approved 2026-09-16 — developer, verbatim: "approved" (Round 1, blanket; R4 NOT EXERCISABLE)
+**Approval:** REOPENED 2026-09-16 after verification gaps_found (see AMENDED section); originally approved 2026-09-16 — developer, verbatim: "approved" (Round 1, blanket; R4 NOT EXERCISABLE). Re-approved 2026-09-17 on Round 2 (28-15): all six rows R2-1..R2-6 PASS, per-row quoted observations or disclosed agent readback confirmed by the developer — see § Round 2 Outcome and § PR-04 Sign-off (Round 2, D-14). R4 and WR-01 remain NOT EXERCISABLE.
 
 ---
 
@@ -854,7 +1012,7 @@ totals, since the two intentionally measure different populations.
   other stale copies remain on disk — `index-BHpzXFXA.js`, `index-CLYvAIDH.js`,
   `index-vmd1d_n_.js` — none of which `index.html` currently references), and the fresh build
   passes it.
-  **Verdict: pending**
+  **Verdict: PASS** — see § Round 2 Outcome (row R2-1).
 
 - **R2-2 (R3 re-run): the pinned activity carries both claims, on exactly two of five rows.**
   Ask: open `4556693525`'s detail view, hard-reload, and quote every badge on all five Best
@@ -880,7 +1038,7 @@ totals, since the two intentionally measure different populations.
   there only because R3 as drafted could not detect the missing demotion), and this build's
   regenerated document (confirmed above: `demotion.guard: "ceiling"` on both 400m and 1k) makes
   the CAN PASS state reachable for the first time this phase.
-  **Verdict: pending**
+  **Verdict: PASS** — see § Round 2 Outcome (row R2-2).
 
 - **R2-3 precedence: an absolute-guard demotion is not overwritten.**
   Ask: open `3475725513`'s detail view and quote the 400m and 1K rows' badges.
@@ -897,7 +1055,7 @@ totals, since the two intentionally measure different populations.
   Reachability: the pre-fix build fails it on the 1K row (confirmed by plan 28-14's 22-assertion
   structural comparison: `3475725513@1k demotion diff null -> guard "ceiling"`), and this
   regenerated build (confirmed above) passes it.
-  **Verdict: pending**
+  **Verdict: PASS** — see § Round 2 Outcome (row R2-3).
 
 - **R2-4 (R6 re-run): guard-accurate Records notes.**
   Ask: on Records (All time), quote the note under the 400m, 1K and 1 Mile tables verbatim, and
@@ -923,7 +1081,7 @@ totals, since the two intentionally measure different populations.
   Reachability: pre-fix reads 36 (Round 1's own recorded reading, wording "by the plausibility
   ceiling") and fails; this build (regenerated document, guard-accurate copy landed in plan 28-13)
   reads 35 and passes.
-  **Verdict: pending**
+  **Verdict: PASS** — see § Round 2 Outcome (row R2-4).
 
 - **R2-5 dark-theme demoted-badge contrast (WR-02).**
   Ask: with the theme set to dark, open `4556693525`'s detail view, and in DevTools read
@@ -940,7 +1098,7 @@ totals, since the two intentionally measure different populations.
   page under this build — if R2-2 is FAIL or BLOCKED, this row falls back to activity
   `3475712118`'s 400m row (demoted before the fix too, per Round 1's R2 substitution), which must
   be substituted explicitly rather than silently if used.
-  **Verdict: pending**
+  **Verdict: PASS** — see § Round 2 Outcome (row R2-5).
 
 - **R2-6 fresh PR-04 sign-off (a document read, not a browser action).**
   Ask: the developer reads the regenerated `28-DIFF.md` in full — the Summary table, the new
@@ -966,7 +1124,7 @@ totals, since the two intentionally measure different populations.
   - the developer rejects a demotion
   Reachability: the pre-fix diff states 18 and has no owner-excluded listing, so it fails; this
   regenerated diff (31, with the listing, confirmed above) passes.
-  **Verdict: pending**
+  **Verdict: PASS** — see § Round 2 Outcome (row R2-6) and § PR-04 Sign-off (Round 2, D-14).
 
 ### R4 and WR-01 (recorded once more, no verdict requested)
 
