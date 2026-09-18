@@ -106,3 +106,11 @@ None - no external service configuration required.
 ---
 *Phase: 29-curation-review-queue*
 *Completed: 2026-09-18*
+## Self-Check: PASSED
+
+- FOUND: .planning/phases/29-curation-review-queue/29-02-SUMMARY.md
+- FOUND: d18ce4ca (test)
+- FOUND: cb21d3ef (feat)
+- FOUND: 571bf446 (fix)
+- FOUND: f352d75a (docs)
+
