@@ -23,14 +23,19 @@ import type { FetchLike } from './index-client.js';
 import { LOOP_RADIUS_M } from '../../analytics/pace-quality.js';
 import type {
   ActivityQualitySignals,
+  ClosureDriftSignal,
   DecimationSignal,
   DeviceEraSignal,
   DeviceFamilyKind,
   ElapsedVsMovingSignal,
+  ElevationSignal,
+  ElevationTier,
   GapProfileSignal,
   ImpossibleSampleSignal,
   PaceQualityShard,
   QualityTier,
+  SubGroundSignal,
+  VerticalRateSignal,
 } from '../../analytics/pace-quality.js';
 import type { GapInterval, GapKind } from '../../analytics/pace-derivation.js';
 
@@ -44,6 +49,20 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 const VALID_TIERS: ReadonlySet<string> = new Set<QualityTier>(['none', 'minor', 'severe', 'not-computable']);
+
+/**
+ * Phase 30 (ELEV-01, D-07/T-30-10): a DELIBERATELY SEPARATE set from
+ * `VALID_TIERS` — elevation has no `'minor'` band (D-07), and reusing the
+ * four-member set would let a `'minor'` value survive the parse into a
+ * three-member `ElevationTier` union that has no such member.
+ */
+const VALID_ELEVATION_TIERS: ReadonlySet<string> = new Set<ElevationTier>(['severe', 'none', 'not-computable']);
+
+const VALID_CLOSURE_DRIFT_STATES: ReadonlySet<string> = new Set<ClosureDriftSignal['state']>([
+  'flagged',
+  'clear',
+  'not-computable',
+]);
 
 const VALID_DEVICE_FAMILIES: ReadonlySet<string> = new Set<DeviceFamilyKind>([
   'garmin-fenix-6-pro',
@@ -63,6 +82,15 @@ function parseTier(raw: unknown): QualityTier | null {
 
 function nullableNumber(raw: unknown): number | null {
   return typeof raw === 'number' ? raw : null;
+}
+
+/**
+ * Phase 30 (ELEV-01, T-26-02): stricter than `nullableNumber` — rejects
+ * `NaN` and `Infinity` in addition to non-numbers, never coercing any of
+ * them to `0`. Used for every elevation numeric field (D-07's action text).
+ */
+function finiteNumberOrNull(raw: unknown): number | null {
+  return typeof raw === 'number' && Number.isFinite(raw) ? raw : null;
 }
 
 /** Total, never-throwing parse of one tiering signal's shared numeric fields. Returns null on structural failure. */
@@ -100,6 +128,63 @@ function parseImpossibleSampleSignal(raw: unknown): ImpossibleSampleSignal | nul
     maxImpliedSpeedMps: nullableNumber(raw.maxImpliedSpeedMps),
     countInsideZeroAdvanceRun: nullableNumber(raw.countInsideZeroAdvanceRun),
   };
+}
+
+function parseElevationTier(raw: unknown): ElevationTier | null {
+  return typeof raw === 'string' && VALID_ELEVATION_TIERS.has(raw) ? (raw as ElevationTier) : null;
+}
+
+function parseSubGroundSignal(raw: unknown): SubGroundSignal | null {
+  if (!isPlainObject(raw)) return null;
+  if (typeof raw.flagged !== 'boolean') return null;
+  return { flagged: raw.flagged, minAltM: finiteNumberOrNull(raw.minAltM) };
+}
+
+function parseClosureDriftSignal(raw: unknown): ClosureDriftSignal | null {
+  if (!isPlainObject(raw)) return null;
+  const state = typeof raw.state === 'string' && VALID_CLOSURE_DRIFT_STATES.has(raw.state) ? raw.state : null;
+  if (state === null) return null;
+  return {
+    state: state as ClosureDriftSignal['state'],
+    deltaM: finiteNumberOrNull(raw.deltaM),
+    startEndDistM: finiteNumberOrNull(raw.startEndDistM),
+  };
+}
+
+function parseVerticalRateSignal(raw: unknown): VerticalRateSignal | null {
+  if (!isPlainObject(raw)) return null;
+  if (typeof raw.flagged !== 'boolean') return null;
+  return {
+    flagged: raw.flagged,
+    worstRateMps: finiteNumberOrNull(raw.worstRateMps),
+    violatingSamples: finiteNumberOrNull(raw.violatingSamples),
+  };
+}
+
+/**
+ * Total, never-throwing parse of the sixth signal (Phase 30, ELEV-01,
+ * D-07/T-30-09/T-30-10). Mirrors `parseDecimationSignal`'s all-or-nothing
+ * shape one level up — `tier` and every one of the three nested sub-objects
+ * must each independently validate, or the whole signal returns `null` so
+ * the caller's `??` fallback (the whole-signal not-computable literal)
+ * applies. Never falls back to a partially-parsed shape: a malformed
+ * `closureDrift.state`, for example, invalidates the WHOLE elevation
+ * signal, not just that one nested field — this is what makes "a shard
+ * with `tier: 'minor'`" or "a shard with a bad `closureDrift.state`" both
+ * degrade to the same explicit not-computable reading rather than a
+ * partially-trusted shape.
+ */
+function parseElevationSignal(raw: unknown): ElevationSignal | null {
+  if (!isPlainObject(raw)) return null;
+  const tier = parseElevationTier(raw.tier);
+  if (tier === null) return null;
+  const subGround = parseSubGroundSignal(raw.subGround);
+  if (subGround === null) return null;
+  const closureDrift = parseClosureDriftSignal(raw.closureDrift);
+  if (closureDrift === null) return null;
+  const verticalRate = parseVerticalRateSignal(raw.verticalRate);
+  if (verticalRate === null) return null;
+  return { tier, subGround, closureDrift, verticalRate };
 }
 
 /**
@@ -156,11 +241,12 @@ function parseActivityQualitySignals(raw: unknown): ActivityQualitySignals | nul
       maxImpliedSpeedMps: null,
       countInsideZeroAdvanceRun: null,
     },
-    // Phase 30 (ELEV-01): minimal not-computable fallback so the tree
-    // compiles against the new required key. The real tolerant
-    // `parseElevationSignal` — reading `raw.elevation` — is plan 30-03's
-    // Task 2 and must not be pre-empted here beyond what `tsc` requires.
-    elevation: {
+    // Phase 30 (ELEV-01, T-30-09): a shard/row written before this phase
+    // (or carrying a malformed elevation object) has no usable `elevation`
+    // key at all and must degrade to this explicit not-computable literal
+    // rather than throwing — the same stale-artifact failure mode Phase
+    // 26's CR-02 fixed for `paceDisagreement`.
+    elevation: parseElevationSignal(raw.elevation) ?? {
       tier: 'not-computable',
       subGround: { flagged: false, minAltM: null },
       closureDrift: { state: 'not-computable', deltaM: null, startEndDistM: null },
@@ -184,6 +270,17 @@ function parseGapInterval(raw: unknown): GapInterval | null {
   if (typeof startSec !== 'number' || typeof endSec !== 'number') return null;
   if (typeof kind !== 'string' || !VALID_GAP_KINDS.has(kind)) return null;
   return { startSec, endSec, kind: kind as GapKind };
+}
+
+/** Total, never-throwing parse of one `elevationVerticalRateSamples` entry. Returns null on any structural failure. */
+function parseElevationVerticalRateSampleEntry(
+  raw: unknown
+): { index: number; rateMps: number; dtSec: number; dAltM: number } | null {
+  if (!isPlainObject(raw)) return null;
+  const { index, rateMps, dtSec, dAltM } = raw;
+  if (typeof index !== 'number' || typeof rateMps !== 'number') return null;
+  if (typeof dtSec !== 'number' || typeof dAltM !== 'number') return null;
+  return { index, rateMps, dtSec, dAltM };
 }
 
 /** Total, never-throwing parse of one `impossibleSamples` entry. Returns null on any structural failure. */
@@ -241,6 +338,19 @@ export function parsePaceQualityShard(raw: unknown): PaceQualityShard | null {
     }
   }
 
+  // Phase 30 (ELEV-01): same tolerance and cap discipline as the
+  // `impossibleSamples` block above — individually malformed entries are
+  // dropped, never invalidating the whole shard; the truncation flag and
+  // the loop radius/start-end distance degrade to safe defaults rather
+  // than throwing.
+  const elevationVerticalRateSamples: { index: number; rateMps: number; dtSec: number; dAltM: number }[] = [];
+  if (Array.isArray(raw.elevationVerticalRateSamples)) {
+    for (const item of raw.elevationVerticalRateSamples) {
+      const parsed = parseElevationVerticalRateSampleEntry(item);
+      if (parsed) elevationVerticalRateSamples.push(parsed);
+    }
+  }
+
   return {
     activityId: raw.activityId,
     signals,
@@ -250,13 +360,11 @@ export function parsePaceQualityShard(raw: unknown): PaceQualityShard | null {
     zeroAdvanceRunProfile: parseZeroAdvanceRunProfile(raw.zeroAdvanceRunProfile ?? null),
     adaptiveWindowSec: nullableNumber(raw.adaptiveWindowSec),
     notComputableReason: typeof raw.notComputableReason === 'string' ? raw.notComputableReason : null,
-    // Phase 30 (ELEV-01): minimal defaults so the tree compiles against the
-    // new required shard fields. Real parsing of the shard's own elevation
-    // evidence is plan 30-03's Task 2.
-    elevationVerticalRateSamples: [],
-    elevationVerticalRateSamplesTruncated: false,
-    elevationLoopRadiusM: LOOP_RADIUS_M,
-    elevationStartEndDistM: null,
+    elevationVerticalRateSamples,
+    elevationVerticalRateSamplesTruncated:
+      typeof raw.elevationVerticalRateSamplesTruncated === 'boolean' ? raw.elevationVerticalRateSamplesTruncated : false,
+    elevationLoopRadiusM: finiteNumberOrNull(raw.elevationLoopRadiusM) ?? LOOP_RADIUS_M,
+    elevationStartEndDistM: finiteNumberOrNull(raw.elevationStartEndDistM),
   };
 }
 

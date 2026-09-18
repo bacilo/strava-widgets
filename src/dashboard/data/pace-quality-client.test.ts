@@ -43,16 +43,15 @@ const validShard = {
     decimation: { tier: 'none', zeroAdvanceFraction: 0.01, sampleCount: 900 },
     gapProfile: { tier: 'none', gapFraction: 0.02, recordingGapSec: 10, pauseSec: 0, spanSec: 500 },
     impossibleSamples: { tier: 'none', count: 0, maxImpliedSpeedMps: null, countInsideZeroAdvanceRun: 0 },
-    // Phase 30 (ELEV-01): `parseActivityQualitySignals` always emits this
-    // minimal not-computable fallback today — the real tolerant parse of
-    // `raw.elevation` is plan 30-03's Task 2 — so this fixture's round-trip
-    // must match that fallback exactly, regardless of what (if anything)
-    // is fed in on the raw side.
+    // Phase 30 (ELEV-01): a well-formed elevation object — every field
+    // populated so the round-trip test below proves every field survives
+    // the real `parseElevationSignal`, not just the not-computable
+    // fallback shape.
     elevation: {
-      tier: 'not-computable',
-      subGround: { flagged: false, minAltM: null },
-      closureDrift: { state: 'not-computable', deltaM: null, startEndDistM: null },
-      verticalRate: { flagged: false, worstRateMps: null, violatingSamples: null },
+      tier: 'severe',
+      subGround: { flagged: true, minAltM: -282 },
+      closureDrift: { state: 'flagged', deltaM: -197.6, startEndDistM: 12.5 },
+      verticalRate: { flagged: true, worstRateMps: 80.4, violatingSamples: 3 },
     },
     deviceEra: { family: 'garmin-fenix-6-pro', rawDeviceName: null },
     elapsedVsMoving: { ratio: 1.02, elapsedSec: 510, movingSec: 500 },
@@ -65,13 +64,12 @@ const validShard = {
   zeroAdvanceRunProfile: { runCount: 0, longestRunSamples: 0, longestRunSec: 0, medianRunSamples: 0, p90RunSec: 0 },
   adaptiveWindowSec: 20,
   notComputableReason: null,
-  // Phase 30 (ELEV-01): `parsePaceQualityShard` always emits these minimal
-  // defaults today, matching `parseActivityQualitySignals`'s own not-yet-
-  // wired-to-raw-input fallback above.
-  elevationVerticalRateSamples: [],
+  // Phase 30 (ELEV-01): a well-formed evidence payload alongside the
+  // well-formed `signals.elevation` above.
+  elevationVerticalRateSamples: [{ index: 22, rateMps: 80.4, dtSec: 2, dAltM: -160.8 }],
   elevationVerticalRateSamplesTruncated: false,
   elevationLoopRadiusM: 100,
-  elevationStartEndDistM: null,
+  elevationStartEndDistM: 12.5,
 };
 
 describe('parsePaceQualityShard', () => {
@@ -136,6 +134,98 @@ describe('parsePaceQualityShard', () => {
     expect(result).not.toBeNull();
     expect(result?.signals.decimation).toEqual({ tier: 'not-computable', zeroAdvanceFraction: null, sampleCount: null });
     expect(result?.signals.gapProfile).toEqual(validShard.signals.gapProfile);
+  });
+
+  it('a well-formed elevation object round-trips every field', () => {
+    const result = parsePaceQualityShard(validShard);
+    expect(result?.signals.elevation).toEqual(validShard.signals.elevation);
+    expect(result?.elevationVerticalRateSamples).toEqual(validShard.elevationVerticalRateSamples);
+    expect(result?.elevationVerticalRateSamplesTruncated).toBe(false);
+    expect(result?.elevationLoopRadiusM).toBe(100);
+    expect(result?.elevationStartEndDistM).toBe(12.5);
+  });
+
+  it('elevation absent entirely (the stale-artifact case) parses to not-computable with no throw', () => {
+    const doc = { ...validShard, signals: { ...validShard.signals, elevation: undefined } };
+    expect(() => parsePaceQualityShard(doc)).not.toThrow();
+    const result = parsePaceQualityShard(doc);
+    expect(result).not.toBeNull();
+    expect(result?.signals.elevation).toEqual({
+      tier: 'not-computable',
+      subGround: { flagged: false, minAltM: null },
+      closureDrift: { state: 'not-computable', deltaM: null, startEndDistM: null },
+      verticalRate: { flagged: false, worstRateMps: null, violatingSamples: null },
+    });
+  });
+
+  it('elevation present but with tier: "minor" is rejected to the not-computable fallback', () => {
+    const doc = {
+      ...validShard,
+      signals: {
+        ...validShard.signals,
+        elevation: { ...validShard.signals.elevation, tier: 'minor' },
+      },
+    };
+    const result = parsePaceQualityShard(doc);
+    expect(result?.signals.elevation.tier).toBe('not-computable');
+  });
+
+  it.each(['minAltM', 'deltaM', 'startEndDistM', 'worstRateMps', 'violatingSamples'] as const)(
+    'elevation numeric field %s supplied as a string, NaN or Infinity becomes null, never 0',
+    (field) => {
+      for (const badValue of ['not-a-number', NaN, Infinity, -Infinity]) {
+        let elevation = validShard.signals.elevation;
+        if (field === 'minAltM') {
+          elevation = { ...elevation, subGround: { ...elevation.subGround, minAltM: badValue as unknown as number } };
+        } else if (field === 'deltaM' || field === 'startEndDistM') {
+          elevation = { ...elevation, closureDrift: { ...elevation.closureDrift, [field]: badValue } };
+        } else {
+          elevation = { ...elevation, verticalRate: { ...elevation.verticalRate, [field]: badValue } };
+        }
+        const doc = { ...validShard, signals: { ...validShard.signals, elevation } };
+        const result = parsePaceQualityShard(doc);
+        expect(result).not.toBeNull();
+        if (field === 'minAltM') {
+          expect(result?.signals.elevation.subGround.minAltM).toBeNull();
+        } else if (field === 'deltaM' || field === 'startEndDistM') {
+          expect(result?.signals.elevation.closureDrift[field]).toBeNull();
+        } else {
+          expect(result?.signals.elevation.verticalRate[field]).toBeNull();
+        }
+      }
+    }
+  );
+
+  it('a malformed closureDrift.state is rejected to the whole-signal not-computable fallback', () => {
+    const doc = {
+      ...validShard,
+      signals: {
+        ...validShard.signals,
+        elevation: {
+          ...validShard.signals.elevation,
+          closureDrift: { ...validShard.signals.elevation.closureDrift, state: 'bogus' },
+        },
+      },
+    };
+    const result = parsePaceQualityShard(doc);
+    expect(result?.signals.elevation).toEqual({
+      tier: 'not-computable',
+      subGround: { flagged: false, minAltM: null },
+      closureDrift: { state: 'not-computable', deltaM: null, startEndDistM: null },
+      verticalRate: { flagged: false, worstRateMps: null, violatingSamples: null },
+    });
+  });
+
+  it('an elevationVerticalRateSamples entry with a non-numeric field is dropped, keeping well-formed entries', () => {
+    const doc = {
+      ...validShard,
+      elevationVerticalRateSamples: [
+        { index: 1, rateMps: 6, dtSec: 1, dAltM: 6 },
+        { index: 'nope', rateMps: 6, dtSec: 1, dAltM: 6 },
+      ],
+    };
+    const result = parsePaceQualityShard(doc);
+    expect(result?.elevationVerticalRateSamples).toEqual([{ index: 1, rateMps: 6, dtSec: 1, dAltM: 6 }]);
   });
 
   it('rawDeviceName containing markup survives the parse byte-for-byte unescaped', () => {
