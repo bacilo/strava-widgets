@@ -84,7 +84,7 @@ times before this milestone, and there is no jsdom or headless browser in the re
 - [x] **Phase 27: Per-Activity Quality Signals** - Device-era-aware, severity-tiered quality signals computed in CI, disclosed individually as badges (completed 2026-09-10)
 - [x] **Phase 28: PR Plausibility Ceiling** - Three-pass restructure of `compute-best-efforts.ts` derives a personal ceiling and demotes-never-deletes implausible efforts (completed 2026-09-17)
 - [x] **Phase 29: Curation Review Queue** - Local curation mode gains a queue for ceiling-flagged efforts, reusing the existing exclusion write path (completed 2026-09-18)
-- [ ] **Phase 30: Elevation Quality Signal** - Implausible altitude flagged archive-wide by three independent mechanisms, flag-only
+- [x] **Phase 30: Elevation Quality Signal** - Implausible altitude flagged archive-wide by three independent mechanisms, flag-only (completed 2026-09-18)
 
 #### Phase 26: Shared Gap-Aware Pace Derivation & Honest Coverage
 
@@ -340,7 +340,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 30-08-PLAN.md — Human browser checkpoint against a digest-verified build, including elevation's visible absence from the severe filter (ELEV-01, ELEV-02)
+- [x] 30-08-PLAN.md — Human browser checkpoint against a digest-verified build, including elevation's visible absence from the severe filter (ELEV-01, ELEV-02)
 
 **UI hint**: yes
 **Browser checkpoint**: not strictly warranted on its own — this phase is a compute-layer detector with no new interactive surface; if its badge rendering reuses Phase 27's already-checkpointed badge component, a lightweight visual spot-check folded into Phase 27's or Phase 29's checkpoint session is sufficient rather than a dedicated round.
@@ -385,7 +385,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 27. Per-Activity Quality Signals | v2.2 | 12/12 | Complete    | 2026-09-10 |
 | 28. PR Plausibility Ceiling | v2.2 | 15/15 | Complete    | 2026-09-17 |
 | 29. Curation Review Queue | v2.2 | 8/8 | Complete    | 2026-09-18 |
-| 30. Elevation Quality Signal | v2.2 | 7/8 | In Progress|  |
+| 30. Elevation Quality Signal | v2.2 | 8/8 | In Progress|  |
 
 ---
 *Last updated: 2026-09-08 — **v2.2 Pace Data Quality** roadmap created: 5 phases (26-30), 27/27 requirements mapped. PACE-06 and PACE-07 were added after the initial draft, both folded into Phase 26 alongside the rest of PACE: PACE-06 quantifies the residue adaptive windowing does not fix (13/154, all marginal 0.5-2.4%, genuine device over-measurement — an earlier measurement wrongly called three of those activities "beyond repair" using a fixed-window artifact; corrected once adaptivity was applied), and PACE-07 catches a live singleton defect where activity 5059204779's metadata (`moving_time`/`distance`) implies 1:53/km while its own stream derives 5:51/km. Phase order follows the research-converged sequence (shared derivation → quality signals → PR ceiling → review queue → elevation), with two hard constraints carried from PROJECT.md: the PR ceiling (Phase 28) demotes-and-flags only, never deletes, and its archive-wide before/after diff is a required reviewed deliverable, not optional polish. ERA-03 (stratified fixture library) is folded into Phase 26 rather than a standalone phase, and ERA-01/ERA-02 (device-family branching) are folded into Phase 27 — both per research/SUMMARY.md's explicit recommendation that cross-era discipline is a standing convention every threshold-introducing phase reuses, not a phase of its own.*
