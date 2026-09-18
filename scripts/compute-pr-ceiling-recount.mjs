@@ -17,7 +17,9 @@
  * document's own totals claim — nothing more. It does NOT and CANNOT arbitrate whether the
  * ceiling multiplier or the world-record/max-speed guards themselves are right; that question
  * belongs to `compute-pr-ceiling-calibration.mjs` and `28-DIFF.md`, which DO import the ceiling
- * logic because that is their job.
+ * logic because that is their job. `recountDemotedActivities`'s flagged-activity count (D-16) is
+ * a live measurement that grows with the nightly sync, so no caller may hardcode today's value
+ * into shipped source — it must always be re-derived at the moment it is needed.
  *
  * Distance keys come from the documents themselves (`Object.keys(doc.rankings).sort()`), never
  * from `best-effort.types.js`, so this recount shares no vocabulary module with the code it
@@ -62,6 +64,7 @@ import { fileURLToPath, pathToFileURL } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const BEST_EFFORTS_PATH = join(__dirname, '../data/stats/best-efforts.json');
 const DASHBOARD_INDEX_PATH = join(__dirname, '../data/dashboard/index.json');
+const EXCLUSIONS_PATH = join(__dirname, '../data/best-effort-exclusions.json');
 
 /** The closed set of guard values the shared demotion path is known to emit. */
 const KNOWN_GUARDS = new Set(['world-record', 'max-speed', 'ceiling']);
@@ -470,7 +473,7 @@ export function computeCohortOverlap(cohortIds, bestEffortsDoc) {
  * verdict shape directly. `readErrors` (any unreadable/unparseable input) are always reported as
  * problems regardless of what else could be computed.
  */
-export function evaluateReport(report, expectedDemoted, expectedCohort) {
+export function evaluateReport(report, expectedDemoted, expectedCohort, expectedFlaggedActivities) {
   const problems = [];
 
   for (const err of report.readErrors || []) {
@@ -574,13 +577,24 @@ export function evaluateReport(report, expectedDemoted, expectedCohort) {
     );
   }
 
+  const flaggedActivities = report.flaggedActivities;
+  if (
+    flaggedActivities &&
+    expectedFlaggedActivities !== undefined &&
+    flaggedActivities.flaggedActivityCount !== expectedFlaggedActivities
+  ) {
+    problems.push(
+      `recomputed flaggedActivityCount (${flaggedActivities.flaggedActivityCount}) does not equal --expect-flagged-activities ${expectedFlaggedActivities}`
+    );
+  }
+
   return { pass: problems.length === 0, problems };
 }
 
 /**
- * Parses `--expect-demoted <n>` and `--expect-cohort <n>`, both optional, both integers,
- * returning `undefined` for whichever is absent so nothing is hardcoded. Throws on a malformed
- * (non-integer) value, mirroring the analog's `parseExpectFlag`.
+ * Parses `--expect-demoted <n>`, `--expect-cohort <n>` and `--expect-flagged-activities <n>`, all
+ * optional, all integers, returning `undefined` for whichever is absent so nothing is hardcoded.
+ * Throws on a malformed (non-integer) value, mirroring the analog's `parseExpectFlag`.
  */
 export function parseExpectFlags(argv) {
   function parseOne(flagName) {
@@ -597,15 +611,17 @@ export function parseExpectFlags(argv) {
   return {
     expectDemoted: parseOne('--expect-demoted'),
     expectCohort: parseOne('--expect-cohort'),
+    expectFlaggedActivities: parseOne('--expect-flagged-activities'),
   };
 }
 
 /**
- * Parses `--best-efforts <path>` and `--index <path>`, both optional, defaulting to
- * `BEST_EFFORTS_PATH` and `DASHBOARD_INDEX_PATH`. Lets the recount be pointed at an absolute
- * primary-tree path when run from a worktree where `data/` is gitignored and absent, and lets an
- * operator point it at an archive copy. `parseExpectFlags` ignores these flag names — it only
- * looks up its own `--expect-demoted`/`--expect-cohort` names, so the two parsers never collide.
+ * Parses `--best-efforts <path>`, `--index <path>` and `--exclusions <path>`, all optional,
+ * defaulting to `BEST_EFFORTS_PATH`, `DASHBOARD_INDEX_PATH` and `EXCLUSIONS_PATH`. Lets the
+ * recount be pointed at an absolute primary-tree path when run from a worktree where `data/` is
+ * gitignored and absent, and lets an operator point it at an archive copy. `parseExpectFlags`
+ * ignores these flag names — it only looks up its own `--expect-*` names, so the two parsers
+ * never collide.
  */
 export function parseInputPaths(argv) {
   function parseOne(flagName, fallback) {
@@ -621,14 +637,16 @@ export function parseInputPaths(argv) {
   return {
     bestEffortsPath: parseOne('--best-efforts', BEST_EFFORTS_PATH),
     indexPath: parseOne('--index', DASHBOARD_INDEX_PATH),
+    exclusionsPath: parseOne('--exclusions', EXCLUSIONS_PATH),
   };
 }
 
 function main() {
   let bestEffortsPath;
   let indexPath;
+  let exclusionsPath;
   try {
-    ({ bestEffortsPath, indexPath } = parseInputPaths(process.argv.slice(2)));
+    ({ bestEffortsPath, indexPath, exclusionsPath } = parseInputPaths(process.argv.slice(2)));
   } catch (err) {
     console.error(err.message);
     process.exitCode = 1;
@@ -636,13 +654,16 @@ function main() {
   }
 
   console.log(
-    `D-15 independent recount: reading ${bestEffortsPath} and ${indexPath} off disk (no ceiling/compute/utils/types import)...\n`
+    `D-15 independent recount: reading ${bestEffortsPath}, ${indexPath} and ${exclusionsPath} off disk (no ceiling/compute/utils/types import)...\n`
   );
 
   let expectDemoted;
   let expectCohort;
+  let expectFlaggedActivities;
   try {
-    ({ expectDemoted, expectCohort } = parseExpectFlags(process.argv.slice(2)));
+    ({ expectDemoted, expectCohort, expectFlaggedActivities } = parseExpectFlags(
+      process.argv.slice(2)
+    ));
   } catch (err) {
     console.error(err.message);
     process.exitCode = 1;
@@ -654,6 +675,9 @@ function main() {
   const bestEffortsRead = readShippedJson(bestEffortsPath);
   if (!bestEffortsRead.ok) readErrors.push(bestEffortsRead.reason);
 
+  const exclusionsRead = readShippedJson(exclusionsPath);
+  if (!exclusionsRead.ok) readErrors.push(exclusionsRead.reason);
+
   const indexRead = readShippedJson(indexPath);
   if (!indexRead.ok) readErrors.push(indexRead.reason);
 
@@ -664,9 +688,12 @@ function main() {
     demoted && cohort && bestEffortsRead.ok
       ? computeCohortOverlap(cohort.cohortIds, bestEffortsRead.doc)
       : null;
+  const flaggedActivities = bestEffortsRead.ok
+    ? recountDemotedActivities(bestEffortsRead.doc, exclusionsRead.ok ? exclusionsRead.doc : undefined)
+    : null;
 
-  const report = { readErrors, demoted, cohort, overlap, sweep };
-  const verdict = evaluateReport(report, expectDemoted, expectCohort);
+  const report = { readErrors, demoted, cohort, overlap, sweep, flaggedActivities };
+  const verdict = evaluateReport(report, expectDemoted, expectCohort, expectFlaggedActivities);
 
   if (readErrors.length > 0) {
     console.error('FAILED to read one or more shipped documents:');
@@ -701,6 +728,27 @@ function main() {
     }
     if (expectDemoted !== undefined) {
       console.log(`  --expect-demoted ${expectDemoted}: ${demoted.ownDemotedTotal === expectDemoted ? 'MATCH' : 'MISMATCH'}`);
+    }
+  }
+
+  if (flaggedActivities) {
+    console.log(
+      `  Flagged ACTIVITIES (own arithmetic, >=1 non-null demotion, all guards): ${flaggedActivities.flaggedActivityCount}`
+    );
+    if (flaggedActivities.excludedWithinFlaggedCount === null) {
+      console.log('    of which already excluded (data/best-effort-exclusions.json): unavailable (exclusions document unreadable)');
+    } else {
+      console.log(
+        `    of which already excluded (data/best-effort-exclusions.json): ${flaggedActivities.excludedWithinFlaggedCount} of ${flaggedActivities.exclusionsTotal} total exclusions`
+      );
+    }
+    console.log(
+      '    CAUTION: this activity count is a superset of the ceiling-only cohort and is the population the Phase 29 review queue lists (D-01).'
+    );
+    if (expectFlaggedActivities !== undefined) {
+      console.log(
+        `  --expect-flagged-activities ${expectFlaggedActivities}: ${flaggedActivities.flaggedActivityCount === expectFlaggedActivities ? 'MATCH' : 'MISMATCH'}`
+      );
     }
   }
 

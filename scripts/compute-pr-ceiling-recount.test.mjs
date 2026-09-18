@@ -456,6 +456,41 @@ describe('evaluateReport', () => {
     expect(verdict.problems.some((p) => p.includes('2') && p.includes('999'))).toBe(true);
   });
 
+  it('fails when expectedFlaggedActivities differs from flaggedActivityCount, quoting both numbers', () => {
+    const demoted = cleanDemotedReport();
+    const flaggedActivities = {
+      flaggedActivityCount: 47,
+      flaggedActivityIds: [],
+      excludedWithinFlaggedCount: 12,
+      exclusionsTotal: 12,
+    };
+    const verdict = evaluateReport(
+      { readErrors: [], demoted, cohort: null, sweep: cleanSweep(), flaggedActivities },
+      undefined,
+      undefined,
+      35
+    );
+    expect(verdict.pass).toBe(false);
+    expect(verdict.problems.some((p) => p.includes('47') && p.includes('35'))).toBe(true);
+  });
+
+  it('passes when expectedFlaggedActivities matches flaggedActivityCount exactly', () => {
+    const demoted = cleanDemotedReport();
+    const flaggedActivities = {
+      flaggedActivityCount: 47,
+      flaggedActivityIds: [],
+      excludedWithinFlaggedCount: 12,
+      exclusionsTotal: 12,
+    };
+    const verdict = evaluateReport(
+      { readErrors: [], demoted, cohort: null, sweep: cleanSweep(), flaggedActivities },
+      undefined,
+      undefined,
+      47
+    );
+    expect(verdict.pass).toBe(true);
+  });
+
   it('fails naming "ceiling sweep was not run" when sweep is absent but demoted is present', () => {
     const demoted = cleanDemotedReport();
     const verdict = evaluateReport({ readErrors: [], demoted, cohort: null });
@@ -678,15 +713,30 @@ describe('CR-01 regression shape (D-04, D-15)', () => {
 });
 
 describe('parseInputPaths', () => {
-  it('returns the two default paths when no flags are present', () => {
+  it('returns the three default paths when no flags are present', () => {
     const result = parseInputPaths([]);
     expect(result.bestEffortsPath).toContain('best-efforts.json');
     expect(result.indexPath).toContain('index.json');
+    expect(result.exclusionsPath).toContain('best-effort-exclusions.json');
   });
 
-  it('returns the given paths when both flags are present', () => {
+  it('returns the given paths when all three flags are present', () => {
+    const result = parseInputPaths([
+      '--best-efforts',
+      '/a.json',
+      '--index',
+      '/b.json',
+      '--exclusions',
+      '/c.json',
+    ]);
+    expect(result).toEqual({ bestEffortsPath: '/a.json', indexPath: '/b.json', exclusionsPath: '/c.json' });
+  });
+
+  it('defaults --exclusions when only --best-efforts and --index are given', () => {
     const result = parseInputPaths(['--best-efforts', '/a.json', '--index', '/b.json']);
-    expect(result).toEqual({ bestEffortsPath: '/a.json', indexPath: '/b.json' });
+    expect(result.bestEffortsPath).toBe('/a.json');
+    expect(result.indexPath).toBe('/b.json');
+    expect(result.exclusionsPath).toContain('best-effort-exclusions.json');
   });
 
   it('throws naming the flag when --best-efforts has no value', () => {
@@ -696,22 +746,44 @@ describe('parseInputPaths', () => {
   it('throws naming the flag when --index has no value', () => {
     expect(() => parseInputPaths(['--index'])).toThrow(/--index/);
   });
+
+  it('throws naming the flag when --exclusions has no value', () => {
+    expect(() => parseInputPaths(['--exclusions'])).toThrow(/--exclusions/);
+  });
 });
 
 describe('parseExpectFlags', () => {
-  it('returns undefined for both flags when neither is present', () => {
-    expect(parseExpectFlags([])).toEqual({ expectDemoted: undefined, expectCohort: undefined });
+  it('returns undefined for all three flags when none is present', () => {
+    expect(parseExpectFlags([])).toEqual({
+      expectDemoted: undefined,
+      expectCohort: undefined,
+      expectFlaggedActivities: undefined,
+    });
   });
 
-  it('parses both flags independently when both are present', () => {
-    expect(parseExpectFlags(['--expect-demoted', '18', '--expect-cohort', '662'])).toEqual({
+  it('parses all three flags independently when all are present', () => {
+    expect(
+      parseExpectFlags([
+        '--expect-demoted',
+        '18',
+        '--expect-cohort',
+        '662',
+        '--expect-flagged-activities',
+        '47',
+      ])
+    ).toEqual({
       expectDemoted: 18,
       expectCohort: 662,
+      expectFlaggedActivities: 47,
     });
   });
 
   it('throws on a non-integer value', () => {
     expect(() => parseExpectFlags(['--expect-demoted', 'abc'])).toThrow(/integer/);
+  });
+
+  it('throws on a non-integer --expect-flagged-activities value', () => {
+    expect(() => parseExpectFlags(['--expect-flagged-activities', 'abc'])).toThrow(/integer/);
   });
 });
 
