@@ -121,11 +121,17 @@ export function findCurationArtifacts(publishDir) {
         continue;
       }
 
+      // IN-17: a name match is already a complete violation for that path,
+      // so the content scan below adds no information and the path must
+      // not be reported twice. Each name-match branch pushes its violation
+      // and `continue`s to the next entry rather than falling through to
+      // the `!entry.isFile()` gate and the content scan.
       if (entry.name === CURATE_DIR_NAME) {
         violations.push({
           path: entryPath,
           reason: `a file named "${CURATE_DIR_NAME}" must never exist under the published bundle`,
         });
+        continue;
       }
 
       if (entry.name === '.curate-dist') {
@@ -141,6 +147,7 @@ export function findCurationArtifacts(publishDir) {
           path: entryPath,
           reason: 'a file named ".curate-dist" (the curate overlay\'s esbuild output) must never exist under the published bundle',
         });
+        continue;
       }
 
       // WR-14: readdirSync's withFileTypes uses lstat semantics, so a
