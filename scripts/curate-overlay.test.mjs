@@ -54,9 +54,20 @@ describe('D-03 — attaches via the documented seam only', () => {
     expect(INDEX_SOURCE.includes('section[data-activity-id=')).toBe(true);
   });
 
-  it('index.ts registers exactly one addEventListener(', () => {
+  it('index.ts registers exactly two module-scope listeners: the panel mount seam and the nav-link injection', () => {
     const matches = INDEX_SOURCE.match(/addEventListener\(/g) || [];
-    expect(matches.length).toBe(1);
+    expect(matches.length).toBe(2);
+    expect(INDEX_SOURCE.includes("addEventListener('dashboard:best-efforts-mounted'")).toBe(true);
+    expect(INDEX_SOURCE.includes("addEventListener('DOMContentLoaded'")).toBe(true);
+  });
+});
+
+describe('D-07 — the review queue is reachable from the dashboard nav', () => {
+  it('index.ts references the queue route, the link text, and the nav selector, and never watches the DOM for it', () => {
+    expect(INDEX_SOURCE.includes("'/__curate/queue'")).toBe(true);
+    expect(INDEX_SOURCE.includes('Review queue')).toBe(true);
+    expect(INDEX_SOURCE.includes('#app-nav-root .app-nav__links')).toBe(true);
+    expect(INDEX_SOURCE.includes('MutationObserver')).toBe(false);
   });
 });
 
