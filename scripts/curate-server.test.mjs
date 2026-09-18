@@ -18,11 +18,13 @@ import {
   applyRemove,
   applyUpsert,
   createServer,
+  extractStylesheetHref,
   injectOverlayTag,
   isCurateRoute,
   isTrustedOrigin,
   isValidCurateActivityId,
   normalizeReason,
+  renderQueuePage,
   safeResolve,
 } from './curate-server.mjs';
 
@@ -100,6 +102,89 @@ describe('injectOverlayTag', () => {
     expect(scriptIndex + '<script src="/__curate/overlay.js"></script>'.length).toBe(lastBodyIndex);
     // And the earlier, in-string "</body>" text must be untouched.
     expect(result).toContain('const s = "</body>";');
+  });
+});
+
+// Plan 29-06 Task 1: extractStylesheetHref resolves the queue page's
+// stylesheet href from dist/widgets/index.html's real, content-hashed
+// <link> tag at request time (PD-02). Never throws — a malformed built
+// index.html must degrade the queue to an unstyled page, not a 500.
+describe('extractStylesheetHref', () => {
+  it('resolves a mount-prefixed href from a stylesheet link with crossorigin before href', () => {
+    const html = '<link rel="stylesheet" crossorigin href="./assets/index-ABC.css">';
+    expect(extractStylesheetHref(html)).toBe('/strava-widgets/assets/index-ABC.css');
+  });
+
+  it('attribute order is irrelevant — href before rel resolves identically', () => {
+    const html = '<link href="./assets/index-ABC.css" crossorigin rel="stylesheet">';
+    expect(extractStylesheetHref(html)).toBe('/strava-widgets/assets/index-ABC.css');
+  });
+
+  it('single-quoted attributes resolve identically', () => {
+    const html = "<link rel='stylesheet' href='./assets/index-ABC.css'>";
+    expect(extractStylesheetHref(html)).toBe('/strava-widgets/assets/index-ABC.css');
+  });
+
+  it('an already root-absolute href is returned unchanged, not double-prefixed', () => {
+    const html = '<link rel="stylesheet" href="/strava-widgets/assets/x.css">';
+    expect(extractStylesheetHref(html)).toBe('/strava-widgets/assets/x.css');
+  });
+
+  it('returns null, never throws, when there is no stylesheet link', () => {
+    expect(extractStylesheetHref('<html><head></head><body></body></html>')).toBeNull();
+  });
+
+  it('returns null for an empty string', () => {
+    expect(extractStylesheetHref('')).toBeNull();
+  });
+
+  it('returns null, never throws, for malformed HTML', () => {
+    expect(extractStylesheetHref('<link rel="stylesheet" href=')).toBeNull();
+  });
+
+  it('a non-stylesheet link (rel="icon") is not mistaken for the stylesheet', () => {
+    const html = '<link rel="icon" href="./favicon.ico">';
+    expect(extractStylesheetHref(html)).toBeNull();
+  });
+
+  it('picks the stylesheet link out of a real head containing a module script tag first', () => {
+    const html =
+      '<script type="module" crossorigin src="./assets/index-BZIqZhAY.js"></script>' +
+      '<link rel="stylesheet" crossorigin href="./assets/index-CQkdBpPg.css">';
+    expect(extractStylesheetHref(html)).toBe('/strava-widgets/assets/index-CQkdBpPg.css');
+  });
+});
+
+// Plan 29-06 Task 1 / PD-02: renderQueuePage is a pure, exported, never-throw
+// shell string function beside injectOverlayTag — the same shape precedent.
+// No inline script, no inline style (CSP forbids both).
+describe('renderQueuePage', () => {
+  it('returns a full document with doctype, charset meta, CSP meta, linked stylesheet, title and bundle script', () => {
+    const html = renderQueuePage('/strava-widgets/assets/index-ABC.css');
+    expect(html).toContain('<!doctype html>');
+    expect(html).toContain('<meta charset="utf-8">');
+    expect(html).toContain("script-src 'self'");
+    expect(html).toContain('<link rel="stylesheet" href="/strava-widgets/assets/index-ABC.css">');
+    expect(html).toMatch(/<title>[^<]*[Rr]eview [Qq]ueue[^<]*<\/title>/);
+    expect(html).toContain('<script src="/__curate/queue.js"></script>');
+  });
+
+  it('with a null href, omits the stylesheet link entirely rather than emitting a literal "null" href', () => {
+    const html = renderQueuePage(null);
+    expect(html).not.toContain('<link rel="stylesheet"');
+    expect(html).not.toContain('href="null"');
+    expect(html).toContain('<script src="/__curate/queue.js"></script>');
+  });
+
+  it('contains no inline <script> body — the CSP forbids it', () => {
+    const html = renderQueuePage(null);
+    // Only the one bundle-loading <script src="..."> tag; no <script> with a body.
+    expect(html).not.toMatch(/<script(?![^>]*src=)[^>]*>[^<]+<\/script>/);
+  });
+
+  it('contains no inline <style> block — the CSP forbids it', () => {
+    const html = renderQueuePage(null);
+    expect(html).not.toContain('<style');
   });
 });
 
