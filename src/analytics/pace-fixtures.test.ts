@@ -34,6 +34,7 @@ import {
   syntheticStandstillStream,
   type PinnedFixture,
 } from './pace-fixtures.js';
+import { closureDriftSignal, subGroundSignal, verticalRateSignal } from './pace-quality.js';
 import type { CanonicalStream } from '../streams/stream.types.js';
 
 // ---------------------------------------------------------------------------
@@ -246,6 +247,38 @@ function assertExpectedProperties(fixture: PinnedFixture, stream: CanonicalStrea
           activity.elapsed_time,
           `${label}, execution-time ${activity.elapsed_time}`
         ).toBe(expectedValue);
+        break;
+      }
+      case 'minAltM': {
+        const { minAltM } = subGroundSignal(stream.alt);
+        expect(minAltM, `${label}, execution-time ${minAltM}`).not.toBeNull();
+        expect(minAltM as number, `${label}, execution-time ${minAltM}`).toBeCloseTo(expectedValue as number, 1);
+        break;
+      }
+      case 'driftDeltaM': {
+        const activity = loadPinnedActivity(fixture.name) as { start_latlng?: unknown; end_latlng?: unknown };
+        const { deltaM } = closureDriftSignal(stream.alt, activity.start_latlng, activity.end_latlng);
+        expect(deltaM, `${label}, execution-time ${deltaM}`).not.toBeNull();
+        expect(deltaM as number, `${label}, execution-time ${deltaM}`).toBeCloseTo(expectedValue as number, 1);
+        break;
+      }
+      case 'startEndDistM': {
+        const activity = loadPinnedActivity(fixture.name) as { start_latlng?: unknown; end_latlng?: unknown };
+        const { startEndDistM } = closureDriftSignal(stream.alt, activity.start_latlng, activity.end_latlng);
+        expect(startEndDistM, `${label}, execution-time ${startEndDistM}`).not.toBeNull();
+        expect(startEndDistM as number, `${label}, execution-time ${startEndDistM}`).toBeCloseTo(
+          expectedValue as number,
+          1
+        );
+        break;
+      }
+      case 'worstRateMps': {
+        const { worstRateMps } = verticalRateSignal(stream.t, stream.alt);
+        expect(worstRateMps, `${label}, execution-time ${worstRateMps}`).not.toBeNull();
+        expect(worstRateMps as number, `${label}, execution-time ${worstRateMps}`).toBeCloseTo(
+          expectedValue as number,
+          1
+        );
         break;
       }
       default:
