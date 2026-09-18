@@ -39,6 +39,7 @@ import type { PaceCoverage, GapInterval } from '../../analytics/pace-derivation.
 import { unbucketedCoveredSec } from '../../analytics/pace-derivation.js';
 import type {
   ActivityQualitySignals,
+  ClosureDriftSignal,
   DecimationSignal,
   DeviceEraSignal,
   ElapsedVsMovingSignal,
@@ -46,6 +47,8 @@ import type {
   ImpossibleSampleSignal,
   PaceQualityShard,
   QualityTier,
+  SubGroundSignal,
+  VerticalRateSignal,
 } from '../../analytics/pace-quality.js';
 
 // Same em dash as `DASH` in detail.ts. Defined locally rather than imported:
@@ -856,7 +859,29 @@ const DEVICE_ERA_EXPLANATION =
 const ELAPSED_VS_MOVING_EXPLANATION =
   'elapsed time includes any stopped-watch time not captured as a moving pause; a high ratio does not by itself distinguish deliberate rest from a forgotten stop';
 
-/** Shown for all five rows when `quality` itself is `null` (D-08: absence must say so, never vanish). */
+/**
+ * Elevation's three per-mode explanations (Phase 30, D-11). Deliberately NOT
+ * routed through `tieringExplanation`/`EXPLANATION_PROBE_SPECS`: D-10 ships
+ * ONE rolled-up list badge across all three elevation modes, so no 1:1
+ * `qualityBadgeSpecs` probe entry exists for `subGround`/`closureDrift`/
+ * `verticalRate` individually — forcing one through the existing probe
+ * mechanism would mean either adding a fourth, elevation-specific probe spec
+ * (a badge/section coupling this section does not otherwise have) or letting
+ * a lookup miss fall through to an empty string, which D-08's always-on rule
+ * forbids. These follow `DEVICE_ERA_EXPLANATION`/`ELAPSED_VS_MOVING_EXPLANATION`'s
+ * own precedent instead: a standalone, module-level explanation constant for
+ * a row with no list-badge counterpart.
+ */
+const SUB_GROUND_EXPLANATION =
+  'an altitude below plausible ground level means the barometric or GPS altitude baseline for this activity is wrong, not that the terrain was';
+
+const CLOSURE_DRIFT_EXPLANATION =
+  'a loop that returns to its start should return to its start altitude, so a large difference is sensor drift over the activity rather than terrain';
+
+const VERTICAL_RATE_EXPLANATION =
+  'a per-sample climb or descent rate no runner achieves means the altitude channel moved without the athlete doing so';
+
+/** Shown for all eight rows when `quality` itself is `null` (D-08: absence must say so, never vanish). */
 const QUALITY_DATA_NOT_AVAILABLE = 'Quality data not available for this activity';
 
 /**
@@ -876,7 +901,11 @@ export interface QualitySignalRow {
   evidenceText: string | null;
 }
 
-/** The full always-on Quality Signals section decision — always exactly five rows, in fixed order (D-08). */
+/**
+ * The full always-on Quality Signals section decision — always exactly eight
+ * rows, in fixed order (D-08; Phase 30 D-11 extends the original five with
+ * three always-on elevation rows).
+ */
 export interface QualitySignalsSectionPlan {
   rows: QualitySignalRow[];
 }
@@ -1062,6 +1091,166 @@ function impossibleSamplesRow(
 }
 
 /**
+ * Sub-ground-level row (D-11, D-17, Phase 30). Unlike the three tiering rows
+ * above, `notComputableReason` here is the WHOLE-SIGNAL reason
+ * (`quality.notComputableReason`) — the same one `decimationRow`/
+ * `gapProfileRow`/`impossibleSamplesRow` take — never a per-mode reason,
+ * since sub-ground has no not-computable state of its own beyond the
+ * stream-less/unusable-stream cohort (D-07). A `minAltM` of `null` on an
+ * otherwise-computable activity (a stream without an elevation channel)
+ * reads as data-unavailable, never a fabricated `0 m` (T-26-02).
+ * `evidenceText` is always `null` — the shard carries no sub-ground-specific
+ * evidence field beyond the `minAltM` this row's `valueText` already states.
+ */
+function subGroundRow(
+  signal: SubGroundSignal,
+  notComputableReason: string | null,
+  _shard: PaceQualityShard | null
+): QualitySignalRow {
+  if (notComputableReason !== null) {
+    return {
+      label: 'Lowest altitude',
+      valueText: `Not computable — ${notComputableReason}`,
+      tier: 'not-computable',
+      explanation: SUB_GROUND_EXPLANATION,
+      evidenceText: null,
+    };
+  }
+
+  let valueText: string;
+  if (signal.minAltM === null) {
+    valueText = 'Lowest-altitude data unavailable';
+  } else if (signal.flagged) {
+    valueText = `lowest altitude ${Math.round(signal.minAltM)} m — below plausible ground level`;
+  } else {
+    valueText = `lowest altitude ${Math.round(signal.minAltM)} m`;
+  }
+
+  return {
+    label: 'Lowest altitude',
+    valueText,
+    tier: signal.flagged ? 'severe' : 'none',
+    explanation: SUB_GROUND_EXPLANATION,
+    evidenceText: null,
+  };
+}
+
+/**
+ * Closure-drift row (D-02, D-11, D-17, Phase 30). FOUR distinct,
+ * distinguishable phrasings, all reading in words rather than a boolean —
+ * `signal.state` is authoritative here, never gated on the whole-signal
+ * `notComputableReason` (unlike `subGroundRow`/`verticalRateRow`): an
+ * activity with a usable stream but no start/end position renders a healthy
+ * sub-ground line and a healthy vertical-rate line beside a
+ * position-unknown drift line, which is the entire point of D-02.
+ *
+ *   1. `state === 'not-computable'` (no usable start/end position): reads
+ *      "start/end position unknown — drift not checked", no number invented.
+ *   2. `state === 'clear'` with `deltaM === null` (endpoints farther apart
+ *      than the loop radius — excluded BY DESIGN, D-01): names the measured
+ *      distance and says drift was not checked because this was not a loop.
+ *   3. `state === 'clear'` with a real `deltaM` (a genuine loop, under
+ *      threshold): D-11's own example phrasing, both numbers present.
+ *   4. `state === 'flagged'` (a genuine loop, over threshold): the measured
+ *      absolute delta plus the measured endpoint distance.
+ *
+ * `deltaM` is signed on the underlying signal; this row always shows its
+ * absolute value (D-14's Claude's Discretion recommendation). `evidenceText`
+ * names the resolved loop radius the detector used, present whenever a shard
+ * is available regardless of which of the four states applies — the radius
+ * is a property of the detection method, not of the outcome.
+ */
+function closureDriftRow(signal: ClosureDriftSignal, shard: PaceQualityShard | null): QualitySignalRow {
+  let valueText: string;
+  let tier: QualityTier | 'untiered';
+
+  if (signal.state === 'not-computable') {
+    valueText = 'start/end position unknown — drift not checked';
+    tier = 'not-computable';
+  } else if (signal.state === 'clear' && signal.deltaM === null) {
+    const dist = signal.startEndDistM !== null ? Math.round(signal.startEndDistM) : null;
+    valueText =
+      dist !== null
+        ? `start/end position measured ${dist} m apart — not a loop, so drift was not checked`
+        : 'start/end position not a loop — drift was not checked';
+    tier = 'none';
+  } else if (signal.state === 'flagged') {
+    const absDelta = signal.deltaM !== null ? Math.round(Math.abs(signal.deltaM)) : null;
+    const dist = signal.startEndDistM !== null ? Math.round(signal.startEndDistM) : null;
+    valueText =
+      absDelta !== null && dist !== null
+        ? `start and end altitudes differ by ${absDelta} m on a loop whose endpoints are ${dist} m apart`
+        : 'start/end altitude drift data unavailable';
+    tier = 'severe';
+  } else {
+    // state === 'clear' && deltaM !== null — a genuine loop, under threshold.
+    const absDelta = signal.deltaM !== null ? Math.round(Math.abs(signal.deltaM)) : null;
+    const dist = signal.startEndDistM !== null ? Math.round(signal.startEndDistM) : null;
+    valueText =
+      absDelta !== null && dist !== null
+        ? `start/end altitude differ by ${absDelta} m (loop, ${dist} m apart)`
+        : 'start/end altitude drift data unavailable';
+    tier = 'none';
+  }
+
+  const evidenceText = shard !== null ? `Loop radius ${shard.elevationLoopRadiusM} m` : null;
+
+  return { label: 'Start/end altitude', valueText, tier, explanation: CLOSURE_DRIFT_EXPLANATION, evidenceText };
+}
+
+/**
+ * Max-vertical-rate row (D-08, D-11, D-17, Phase 30) — same
+ * whole-signal-`notComputableReason`/healthy/tiered shape as `subGroundRow`.
+ * A `worstRateMps` of `null` on an otherwise-computable activity reads as
+ * data-unavailable, never a fabricated `0 m/s` (T-26-02). `evidenceText`
+ * names the offending sample's index and its Δt/Δalt from
+ * `shard.elevationVerticalRateSamples` — the same raw scan
+ * `elevationSignal`'s own `verticalRateSignal` call performs, never a second
+ * independent detector run (mirrors `impossibleSamplesRow`'s exact
+ * precedent, one channel over).
+ */
+function verticalRateRow(
+  signal: VerticalRateSignal,
+  notComputableReason: string | null,
+  shard: PaceQualityShard | null
+): QualitySignalRow {
+  if (notComputableReason !== null) {
+    return {
+      label: 'Max vertical rate',
+      valueText: `Not computable — ${notComputableReason}`,
+      tier: 'not-computable',
+      explanation: VERTICAL_RATE_EXPLANATION,
+      evidenceText: null,
+    };
+  }
+
+  let valueText: string;
+  if (signal.worstRateMps === null) {
+    valueText = 'Vertical-rate data unavailable';
+  } else if (signal.flagged) {
+    const noun = signal.violatingSamples === 1 ? 'pair' : 'pairs';
+    valueText = `max vertical rate ${signal.worstRateMps.toFixed(1)} m/s across ${signal.violatingSamples ?? 0} violating sample ${noun}`;
+  } else {
+    valueText = `max vertical rate ${signal.worstRateMps.toFixed(1)} m/s`;
+  }
+
+  const samples = shard?.elevationVerticalRateSamples ?? [];
+  let evidenceText: string | null = null;
+  if (samples.length > 0) {
+    const worst = samples.reduce((max, s) => (s.rateMps > max.rateMps ? s : max), samples[0]);
+    evidenceText = `Sample ${worst.index}: ${worst.rateMps.toFixed(1)} m/s (Δalt ${worst.dAltM.toFixed(1)} m in ${worst.dtSec.toFixed(1)}s)`;
+  }
+
+  return {
+    label: 'Max vertical rate',
+    valueText,
+    tier: signal.flagged ? 'severe' : 'none',
+    explanation: VERTICAL_RATE_EXPLANATION,
+    evidenceText,
+  };
+}
+
+/**
  * Device-era row (D-08, D-12, D-13, ERA-02) — untiered, always renders
  * `deviceFamilyDisplayName`'s result regardless of the stream's
  * computability (D-06: `deviceEra` passes through unchanged even on a
@@ -1094,7 +1283,11 @@ function elapsedVsMovingRow(signal: ElapsedVsMovingSignal): QualitySignalRow {
   };
 }
 
-/** The five-row fallback for a `quality === null` row (D-08: absence says so, never vanishes). */
+/**
+ * The eight-row fallback for a `quality === null` row (D-08: absence says
+ * so, never vanishes; Phase 30 D-11 extends the original five with three
+ * always-on elevation entries, same literal shape as the other five).
+ */
 function notAvailableRows(): QualitySignalRow[] {
   return [
     {
@@ -1116,6 +1309,27 @@ function notAvailableRows(): QualitySignalRow[] {
       valueText: QUALITY_DATA_NOT_AVAILABLE,
       tier: 'not-computable',
       explanation: tieringExplanation('impossibleSamples'),
+      evidenceText: null,
+    },
+    {
+      label: 'Lowest altitude',
+      valueText: QUALITY_DATA_NOT_AVAILABLE,
+      tier: 'not-computable',
+      explanation: SUB_GROUND_EXPLANATION,
+      evidenceText: null,
+    },
+    {
+      label: 'Start/end altitude',
+      valueText: QUALITY_DATA_NOT_AVAILABLE,
+      tier: 'not-computable',
+      explanation: CLOSURE_DRIFT_EXPLANATION,
+      evidenceText: null,
+    },
+    {
+      label: 'Max vertical rate',
+      valueText: QUALITY_DATA_NOT_AVAILABLE,
+      tier: 'not-computable',
+      explanation: VERTICAL_RATE_EXPLANATION,
       evidenceText: null,
     },
     {
@@ -1142,12 +1356,12 @@ function notAvailableRows(): QualitySignalRow[] {
  * anywhere in this tree). Unlike `breakdownSectionPlan`, this NEVER returns
  * `null` (D-08): even a `quality === null` row (an index row predating the
  * field, or a re-parsed row missing it — `ParsedDashboardIndexRow` is a
- * `Partial<>`) still produces five rows, each saying explicitly that
+ * `Partial<>`) still produces eight rows, each saying explicitly that
  * quality data is not available, rather than vanishing.
  *
  * `shard` supplies ONLY the `evidenceText` fields — every `valueText` comes
  * from `quality` (the index row's own scalars) alone, so the section still
- * renders its five value rows even when `shard` is `null` (fetch failed, or
+ * renders its eight value rows even when `shard` is `null` (fetch failed, or
  * still in flight, T-27-31).
  */
 export function qualitySignalsSectionPlan(
@@ -1165,6 +1379,9 @@ export function qualitySignalsSectionPlan(
       decimationRow(quality.decimation, reason, shard),
       gapProfileRow(quality.gapProfile, reason, shard),
       impossibleSamplesRow(quality.impossibleSamples, reason, shard),
+      subGroundRow(quality.elevation.subGround, reason, shard),
+      closureDriftRow(quality.elevation.closureDrift, shard),
+      verticalRateRow(quality.elevation.verticalRate, reason, shard),
       deviceEraRow(quality.deviceEra),
       elapsedVsMovingRow(quality.elapsedVsMoving),
     ],
