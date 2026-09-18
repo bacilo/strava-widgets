@@ -305,6 +305,53 @@ describe('WR-14 — non-regular and unreadable entries are reported, never throw
   });
 });
 
+describe('IN-17 — one path produces exactly one violation', () => {
+  let tmpDir;
+
+  beforeEach(async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'curation-guard-in17-'));
+  });
+
+  afterEach(async () => {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  async function writeFile(relativePath, contents) {
+    const fullPath = path.join(tmpDir, relativePath);
+    await fs.mkdir(path.dirname(fullPath), { recursive: true });
+    await fs.writeFile(fullPath, contents, 'utf8');
+  }
+
+  it('(a) a file named .curate-dist whose contents also carry the marker produces exactly one violation for that path', async () => {
+    await writeFile('index.html', '<!doctype html>');
+    await writeFile('.curate-dist', `esbuild output containing ${CURATE_MARKER}`);
+
+    const violations = findCurationArtifacts(tmpDir);
+    const forPath = violations.filter((v) => v.path.endsWith('.curate-dist'));
+    expect(forPath.length).toBe(1);
+  });
+
+  it(`(b) a file named ${CURATE_DIR_NAME} whose contents also carry the marker produces exactly one violation for that path`, async () => {
+    await writeFile('index.html', '<!doctype html>');
+    await writeFile(CURATE_DIR_NAME, `esbuild output containing ${CURATE_MARKER}`);
+
+    const violations = findCurationArtifacts(tmpDir);
+    const forPath = violations.filter((v) => v.path.endsWith(CURATE_DIR_NAME));
+    expect(forPath.length).toBe(1);
+  });
+
+  it('(c) no path is reported twice across a mixed tree carrying (a), (b), a clean index.html, a marker-carrying assets/x.js, and a nested __curate/overlay.js', async () => {
+    await writeFile('index.html', '<!doctype html>');
+    await writeFile('.curate-dist', `esbuild output containing ${CURATE_MARKER}`);
+    await writeFile(CURATE_DIR_NAME, `esbuild output containing ${CURATE_MARKER}`);
+    await writeFile('assets/x.js', `console.log("app"); /* ${CURATE_MARKER} */`);
+    await writeFile(`nested/${CURATE_DIR_NAME}/overlay.js`, `console.log("overlay ${CURATE_MARKER}");`);
+
+    const violations = findCurationArtifacts(tmpDir);
+    expect(new Set(violations.map((v) => v.path)).size).toBe(violations.length);
+  });
+});
+
 describe('build-widgets.mjs source-structure: OD-2 call-site ordering', () => {
   const source = readFileSync(new URL('../build-widgets.mjs', import.meta.url), 'utf8');
 
