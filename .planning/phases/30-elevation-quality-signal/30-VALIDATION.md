@@ -1,9 +1,9 @@
 ---
 phase: 30
 slug: elevation-quality-signal
-status: planned
-nyquist_compliant: false
-wave_0_complete: false
+status: passed
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-09-18
 updated: 2026-09-18
 ---
@@ -62,8 +62,8 @@ Every requirement below must be claimed by at least one task row before
 | 30-06-T2 | 30-06 | 3 | ELEV-01 | T-30-25, T-30-26, T-30-27 | All four drift phrasings render and the excluded and position-unknown states are provably different strings; a stream-less activity shows no `0 m`/`0 m/s`; a null shard nulls only `evidenceText` | unit | `npx vitest run src/dashboard/views/detail-sections.test.ts -t "elevation rows"` | ❌ W0 (new describe) | ⬜ pending |
 | 30-07-T1 | 30-07 | 3 | ELEV-02 | T-30-29, T-30-30, T-30-31, T-30-32 | The recount reproduces the elevation cohorts from the shipped index alone, importing no classifier and never touching `anySevere`; malformed rows degrade rather than throw; no `fs` write target under `data/` | integration (script) + unit (source scan) | `node scripts/compute-elevation-recount.mjs && npx vitest run scripts/compute-elevation-recount.test.mjs` | ❌ W0 | ⬜ pending |
 | 30-07-T2 | 30-07 | 3 | ELEV-02 | T-30-33 | Three independently produced figures for one cohort reconcile with every delta quantified and caused; Phase 27's composite stays byte-stable under an unmodified script | regression | `node scripts/compute-pace-quality-recount.mjs --expect 299` | ✅ (re-run, not extended) | ⬜ pending |
-| 30-08-T1 | 30-08 | 4 | ELEV-01, ELEV-02 | T-30-34, T-30-36, T-30-37 | Eight rows drafted with CAN PASS / CAN FAIL in both directions, each stating an expected value from a committed shard, the calibration report or a script's stdout; the served digest is computed from fetched bytes | integration (build + serve + digest) | `node scripts/compute-elevation-recount.mjs && node scripts/compute-pace-quality-recount.mjs --expect 299 && npm run verify-dashboard` | ❌ W0 | ⬜ pending |
-| 30-08-T2 | 30-08 | 4 | ELEV-01, ELEV-02 | T-30-35, T-30-38, T-30-39 | Badge, three detail lines, Elevation Gain caveat, position-unknown wording and elevation's absence from the severe filter read off a rendered page; verdicts verbatim; requirements ticked only after every mapped row passes | manual (browser checkpoint) | human-check — see § Round 1 Checkpoint | n/a (manual) | ⬜ pending |
+| 30-08-T1 | 30-08 | 4 | ELEV-01, ELEV-02 | T-30-34, T-30-36, T-30-37 | Eight rows drafted with CAN PASS / CAN FAIL in both directions, each stating an expected value from a committed shard, the calibration report or a script's stdout; the served digest is computed from fetched bytes | integration (build + serve + digest) | `node scripts/compute-elevation-recount.mjs && node scripts/compute-pace-quality-recount.mjs --expect 299 && npm run verify-dashboard` | ✅ W0 | ✅ green |
+| 30-08-T2 | 30-08 | 4 | ELEV-01, ELEV-02 | T-30-35, T-30-38, T-30-39 | Badge, three detail lines, Elevation Gain caveat, position-unknown wording and elevation's absence from the severe filter read off a rendered page; verdicts verbatim; requirements ticked only after every mapped row passes | manual (browser checkpoint) | human-check — see § Round 1 Checkpoint | n/a (manual) | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -101,14 +101,14 @@ Every requirement below must be claimed by at least one task row before
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 20s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 20s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved (blanket sign-off, developer, 2026-09-18 — see § Round 1 Checkpoint provenance)
 
 ---
 
@@ -284,6 +284,20 @@ PASS: recount agrees with the shipped totals; no disagreements found.
 
 ## Round 1 Checkpoint (R1-R8)
 
+### Provenance (Round 1 Outcome)
+
+Every browser row below was performed by the orchestrating agent in the developer's own Chrome
+session (Claude-in-Chrome), at the developer's explicit direction ("could you handle as many of
+these as you can and leave only the essentials for me to deal with"), against the served build at
+`http://127.0.0.1:8899/` (bundle `assets/index-Ct-mwNp6.js`, sha256
+`0d126085d9c5b128638f4e251180e88017ed0a6277c083e5614324161a61431f`, confirmed from fetched bytes by
+curl before the round). Hard-reload was performed; viewport 900 px. Evidence is quoted from the
+rendered DOM / network log. The developer reviewed the verdict table and replied "approved"
+(blanket sign-off) on 2026-09-18. **Each verdict below is recorded as agent-performed with
+developer sign-off — NOT as the developer's own observation.** No per-row detail beyond the
+blanket approval was supplied by the developer; the quoted evidence is the agent's own transcript
+of what it observed, presented to the developer for the blanket sign-off.
+
 **Serve command:** `cd dist/widgets && nohup python3 -m http.server 8899 --bind 127.0.0.1 &` (already running,
 PID `27820`, started by the executor — the developer does not need to start it again). **Base URL:**
 `http://127.0.0.1:8899/`. **Served asset digest** (`assets/index-Ct-mwNp6.js`, sha256):
@@ -302,7 +316,10 @@ Expected: `assets/index-Ct-mwNp6.js`, matching the digest `0d126085…61431f` co
 Task 1 § Build and Serve. Source: this plan's own `curl` + `shasum` run, not the build log.
 CAN PASS: DevTools shows `assets/index-Ct-mwNp6.js` loaded (200).
 CAN FAIL: a stale bundle serves a different asset filename.
-**Verdict:** pending
+**Verdict:** PASS (agent-performed, developer sign-off) — "Tab network log: `GET
+http://127.0.0.1:8899/assets/index-Ct-mwNp6.js` statusCode 200. Served
+`/data/dashboard/index.json`: 1890 rows, 1890 with `quality.elevation`, `totals.qualityAnySevere`
+299."
 
 **R2 — the row badge on the Activities-list surface (Overview portion NOT EXERCISABLE — see Task 1 finding
 above).** On `#/list`, isolate `4556693525` (date filter `2021-01-02` to `2021-01-02`, or paginate/sort —
@@ -314,9 +331,13 @@ CAN PASS: the quoted text reads exactly `altitude -282 m below ground` on the Ac
 identical across any layouts reached.
 CAN FAIL: no badge on the Activities-list surface, a badge naming a condition with no number, or a number
 disagreeing with the shard (`-282`).
-**Verdict:** pending
-*(Overview `#/` Recent Activities / Recent PRs: NOT EXERCISABLE — 0 of the current top-10-recent / top-5-PR'd
-activities carry `elevation.tier === 'severe'`, per the Task 1 finding. Not scored PASS or FAIL.)*
+**Verdict:** PASS (Activities list, agent-performed, developer sign-off) — "`#/list?from=2021-01-02&to=2021-01-02`
+→ \"1 activities\"; row href `#/activity/4556693525`, Status badges: \"Excluded from records\", \"29% of
+samples with no distance advance\", \"altitude -282 m below ground\"."
+*(Overview `#/` Recent Activities / Recent PRs: NOT EXERCISABLE (agent-performed, developer sign-off) —
+"Overview `#/`: 15 activity links, all with `quality.elevation.tier === \"none\"` in the served index; zero
+elevation badges rendered, none expected." 0 of the current top-10-recent / top-5-PR'd activities carry
+`elevation.tier === 'severe'`, per the Task 1 finding. Not scored PASS or FAIL.)*
 
 **R3 — the three detail lines on the flagged activity.** Open `#/activity/4556693525` and quote all three
 elevation lines verbatim. Expected: `lowest altitude -282 m — below plausible ground level` / `start/end
@@ -325,7 +346,9 @@ applied to `data/stats/pace-quality/4556693525.json`, recorded verbatim in `30-0
 CAN PASS: all three lines match the expected strings exactly.
 CAN FAIL: fewer than three lines, a blank value, `undefined`/`null`/`NaN` on screen, or a number disagreeing
 with the shard file.
-**Verdict:** pending
+**Verdict:** PASS (agent-performed, developer sign-off) — "`#/activity/4556693525` Quality Signals: \"lowest
+altitude -282 m — below plausible ground level\" / \"start/end altitude differ by 6 m (loop, 0 m apart)\" /
+\"max vertical rate 3.3 m/s\"."
 
 **R4 — the three detail lines on the HEALTHY activity, and no caveat.** Open `#/activity/17257505831` (date
 filter `2026-02-02` if browsing `#/list` first) and quote its three elevation lines. Expected: `lowest
@@ -336,7 +359,9 @@ CAN PASS: all three lines match the expected strings exactly, AND the Elevation 
 badge.
 CAN FAIL: a healthy activity showing no elevation lines at all (silence as good news), or a caveat on a card
 the page does not flag.
-**Verdict:** pending
+**Verdict:** PASS (agent-performed, developer sign-off) — "`#/activity/17257505831`: \"lowest altitude 8 m\" /
+\"start/end altitude differ by 2 m (loop, 0 m apart)\" / \"max vertical rate 1.4 m/s\"; `.stat-grid .badge`
+count 0 across all 8 stat cards (Distance, Moving Time, Pace, Elevation Gain, Avg HR, Max HR, Cadence, Gear)."
 
 **R5 — the Elevation Gain caveat on the flagged activity.** On `#/activity/4556693525`, confirm the
 Elevation Gain stat card carries a caveat and quote it; confirm no other stat card, split column or aggregate
@@ -348,7 +373,10 @@ CAN PASS: the Elevation Gain stat card's badge reads `altitude -282 m below grou
 split column / aggregate on the page carries a badge.
 CAN FAIL: no caveat on the flagged card, or a caveat appearing on a second surface D-12 excludes (a split
 column, an aggregate, or any other stat card).
-**Verdict:** pending
+**Verdict:** PASS (agent-performed, developer sign-off) — "`#/activity/4556693525`: `span.badge` \"altitude
+-282 m below ground\" is a descendant of the Elevation Gain stat card (\"363 m | Elevation Gain\"); it is the
+ONLY `.badge` inside `.stat-grid`; the other seven cards carry none. Screenshot taken showing the caveat
+rendered beneath \"363 m Elevation Gain\"."
 
 **R6 — the drift line's position-unknown wording.** Open `#/activity/i184264408` (date filter `2026-09-07` if
 browsing `#/list` first) and quote its closure-drift line. Expected: `start/end position unknown — drift not
@@ -360,7 +388,9 @@ mutation test.
 CAN PASS: the line reads exactly `start/end position unknown — drift not checked`.
 CAN FAIL: the line shows a number, reads as healthy, reads identically to the not-a-loop exclusion, or is
 absent.
-**Verdict:** pending
+**Verdict:** PASS (agent-performed, developer sign-off) — "`#/activity/i184264408` (Sep 7, 2026): \"lowest
+altitude -1 m\" / \"start/end position unknown — drift not checked\" / \"max vertical rate 1.2 m/s\"; no
+stat-card badge."
 
 **R7 — D-06 on the shipped surface.** On `#/list`, enable the "Only activities with a severe quality signal"
 checkbox (the Quality filter field) and confirm `16028352681` is ABSENT from the filtered list (date filter
@@ -376,7 +406,13 @@ drift.
 CAN FAIL: the elevation-only activity appears under the filter, or the filtered count differs from the
 recount's composite (299) by more than the archive drift between the two runs, which must be stated as a
 number.
-**Verdict:** pending
+**Verdict:** PASS (agent-performed, developer sign-off) — "`#/list?from=2025-10-04&to=2025-10-04`, checkbox
+unchecked: \"2 activities\", row `#/activity/16028352681` badges [\"spike 9 m/s\"] (other row `16031289959`
+\"No streams (manual)\"). Checkbox \"Only activities with a severe quality signal\" clicked (real click, URL
+gained `&severe=1`): \"0 activities\", \"No activities match your filters\", `16028352681` absent.
+`#/list?severe=1` with no date filter: \"299 activities\", \"Page 1 of 6\", 50 rows on page 1;
+`#/list?page=6&severe=1`: \"Page 6 of 6\", 49 rows." Filtered total 299 matches the recount composite with
+zero stated drift.
 
 **R8 — the corrected criteria and the report.** A document read, not rendered evidence: confirm
 `.planning/ROADMAP.md` Phase 30 Criterion 1 and Criterion 3 and `.planning/REQUIREMENTS.md` § ELEV-01 state
@@ -392,7 +428,16 @@ measurement, `30-CALIBRATION.md` lists all 13 exclusions by id with a derived ra
 (60) matches the recount's union (60) exactly.
 CAN FAIL: a document still stating the raw figure, an exclusion list absent, or the two union figures
 disagreeing without a stated cause.
-**Verdict:** pending
+**Verdict:** PASS (agent-performed, developer sign-off) — "ROADMAP § Phase 30 Criterion 1: \"at least the 21
+loop-gated barometric-closure-drift activities\" with the 34 recorded as a raw-difference measurement;
+Criterion 3: \"measured 60-activity (3.2%) LOOP-GATED cohort\" and \"raw-definition 71-activity (3.8%)
+union\". REQUIREMENTS ELEV-01: \"60 activities (3.2%)\" loop-gated, \"Barometric closure drift (loop-gated) —
+21 activities\", raw-difference noted; ELEV-01/ELEV-02 checkboxes unticked and coverage table Pending at time
+of reading. 30-CALIBRATION.md: \"`LOOP_RADIUS_M = 100`\" derived; § Loop-gate exclusions lists 12
+point-to-point ids + 1 no-position id (`4598855187`) = 13, \"21 + 12 + 1 = 34 — reconciles exactly\"; \"Union
+(the actual flagged cohort, loop-gated): 60 of 1865 (3.2%)\". `node scripts/compute-elevation-recount.mjs`:
+\"Recounted union … 60\", \"PASS: recount agrees with the shipped elevation tiers; no disagreements found.\"
+Report union 60 = recount union 60 — MATCH."
 
 ---
 
@@ -431,4 +476,20 @@ disclosed and carved out above rather than silently asserted or silently dropped
 
 ### Gap-Closure Record
 
-*(empty — populated only if a FAIL is recorded during Task 2)*
+No gaps. All eight rows returned PASS (R2's Overview sub-claim returned NOT EXERCISABLE, disclosed above,
+not a FAIL — see Task 1's reachability finding). No FAIL was recorded during Task 2, so this section stays
+empty by the plan's own instruction.
+
+### Requirement → Row Map, as Applied
+
+- **ELEV-01** ← R2 (PASS, Activities-list surface), R3 (PASS), R4 (PASS), R5 (PASS), R6 (PASS), R7 (PASS).
+  Every mapped row PASSED → ticked in `REQUIREMENTS.md`.
+- **ELEV-02** ← R7 (PASS), R8 (PASS), plus the automated archive-wide evidence recorded in Task 1: the
+  calibration report (`30-CALIBRATION.md`, loop-gated union 60 of 1865, 3.2%), the independent recount
+  (`node scripts/compute-elevation-recount.mjs`: "Recounted union … 60", "PASS: recount agrees with the
+  shipped elevation tiers; no disagreements found."), `npm run verify-dashboard` (66/66 checks passed), and
+  `node scripts/compute-pace-quality-recount.mjs --expect 299` (PASS, composite 299 unmoved). Every mapped
+  row PASSED and every cited automated gate is green → ticked in `REQUIREMENTS.md`.
+
+No BLOCKED row exists, so no requirement is withheld. Ticks applied only after this transcription, per the
+project's standing rule (requirements ticked after verification, never before).

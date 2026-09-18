@@ -67,11 +67,26 @@
 
 ### Elevation quality signal (ELEV)
 
-- [ ] **ELEV-01**: Implausible altitude is detected and flagged archive-wide by *mechanism*, not by a single bound. Measured cohort (loop-gated, as the shipped detector actually flags): **60 activities (3.2%)** carry at least one anomaly, spanning all device families (Suunto 9 46, Garmin fēnix 6 Pro 11, no device name 2, vívoactive 4 1) — this is not one device's quirk. At least these three modes are detected, because they catch largely different activities:
+- [x] **ELEV-01**: Implausible altitude is detected and flagged archive-wide by *mechanism*, not by a single bound. Measured cohort (loop-gated, as the shipped detector actually flags): **60 activities (3.2%)** carry at least one anomaly, spanning all device families (Suunto 9 46, Garmin fēnix 6 Pro 11, no device name 2, vívoactive 4 1) — this is not one device's quirk. At least these three modes are detected, because they catch largely different activities:
   - **Sub-ground-level readings** — 11 activities below −50 m, worst being a sea-level Lisbon run at −282 m. Passes today because `derive-stream.ts` sets `ALT_MIN = -500`.
   - **Barometric closure drift (loop-gated)** — 21 activities whose start and end altitudes differ by >60 m despite returning to the same place (start/end within the derived 100 m loop radius, tested via activity metadata `start_latlng`/`end_latlng`), worst at 198 m. This is the largest single-mode cohort and a simple floor bound cannot catch any of it. *(D-04 correction, `30-CALIBRATION.md`: the original figure of 34 was a raw-difference measurement (start and end altitudes differing by >60 m, no loop condition applied) taken WITHOUT the loop condition — it decomposes into 21 loop-gated + 12 point-to-point (626 m–9,584 m apart, excluded by design) + 1 no-position. The un-loop-gated raw union across all three modes is 71 (3.8%), matching this requirement's original cited figure; see `30-CALIBRATION.md` § Correction of the raw-difference count (D-04).)*
   - **Implausible vertical rate** — 39 activities with >5 m/s of climb or descent between samples.
-- [ ] **ELEV-02**: Altitude flagging is validated against the whole archive, and the per-mode flag rates are reported. A detector that fires only on the scoping exemplar has not been validated. Flag only: no DEM lookup, no correction, no grade-adjusted pace.
+  *Ticked 2026-09-18 on plan 30-08's Round 1 Checkpoint R2 (Activities-list surface), R3, R4, R5, R6, R7, all
+  PASS — the browser round was performed by the orchestrating agent in the developer's own Chrome session at
+  the developer's explicit direction, and the developer signed off with a blanket "approved"; each verdict is
+  recorded as agent-performed with developer sign-off, not as the developer's own observation. See
+  `30-VALIDATION.md` § Round 1 Checkpoint and § Requirement → Row Map, as Applied. R2's Overview sub-claim
+  (Recent Activities / Recent PRs) returned NOT EXERCISABLE — 0 of the current top-10-recent / top-5-PR'd
+  activities carry `elevation.tier === 'severe'` in this archive; a disclosed dataset-coverage gap, not a
+  defect, and not scored against the tick.*
+- [x] **ELEV-02**: Altitude flagging is validated against the whole archive, and the per-mode flag rates are reported. A detector that fires only on the scoping exemplar has not been validated. Flag only: no DEM lookup, no correction, no grade-adjusted pace.
+  *Ticked 2026-09-18 on plan 30-08's Round 1 Checkpoint R7 and R8, both PASS (same provenance as ELEV-01
+  above), plus the automated archive-wide evidence recorded in `30-VALIDATION.md` Task 1: `30-CALIBRATION.md`
+  (loop-gated union 60 of 1865, 3.2%, per-mode cohorts and device-family breakdown), the independent recount
+  (`node scripts/compute-elevation-recount.mjs`: "Recounted union … 60", "PASS: recount agrees with the
+  shipped elevation tiers; no disagreements found."), `npm run verify-dashboard` (66/66 checks passed), and
+  `node scripts/compute-pace-quality-recount.mjs --expect 299` (PASS, Phase 27 composite unmoved). See
+  `30-VALIDATION.md` § Round 1 Checkpoint and § Requirement → Row Map, as Applied.*
 
 ### Cross-era consistency (ERA)
 
@@ -146,8 +161,8 @@ Filled during roadmap creation.
 | CUR-01 | Phase 29 | Complete (ticked 2026-09-18 on plan 29-08's Task 2 checkpoint — see `29-08-SUMMARY.md` § Checkpoint Verdicts) |
 | CUR-02 | Phase 29 | Complete (ticked 2026-09-18 on plan 29-08's Task 2 checkpoint — see `29-08-SUMMARY.md` § Checkpoint Verdicts) |
 | CUR-03 | Phase 29 | Complete (ticked 2026-09-18 on plan 29-08's Task 2 checkpoint — see `29-08-SUMMARY.md` § Checkpoint Verdicts) |
-| ELEV-01 | Phase 30 | Pending |
-| ELEV-02 | Phase 30 | Pending |
+| ELEV-01 | Phase 30 | Complete (ticked 2026-09-18 on plan 30-08's Round 1 Checkpoint, R2/R3/R4/R5/R6/R7 all PASS, blanket developer sign-off — see `30-VALIDATION.md` § Round 1 Checkpoint) |
+| ELEV-02 | Phase 30 | Complete (ticked 2026-09-18 on plan 30-08's Round 1 Checkpoint R7/R8 PASS plus automated archive-wide evidence — see `30-VALIDATION.md` § Round 1 Checkpoint) |
 | ERA-01 | Phase 27 | Complete |
 | ERA-02 | Phase 27 | Complete |
 | ERA-03 | Phase 26 | Complete |
