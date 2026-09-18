@@ -274,6 +274,18 @@ export function recountElevation(doc) {
 export function evaluateReport(report, expected) {
   const problems = [...report.schemaFindings];
 
+  // CR-02 (30-REVIEW.md): a total drop of the sixth signal — every row's
+  // `quality` object carries no `elevation` key at all — is the most direct
+  // instance of "a compute step that silently stops emitting a field", the
+  // exact failure this recount exists to catch (see header doc block). Fail
+  // closed on it, mirroring the Phase 27 sibling's own "N row(s) missing
+  // quality or one of its five named sub-objects" problem.
+  if (report.missingElevationIds.length > 0) {
+    problems.push(
+      `${report.missingElevationIds.length} row(s) have no "quality.elevation" object: ${report.missingElevationIds.join(', ')}`
+    );
+  }
+
   if (report.invalidTierIds.length > 0) {
     problems.push(
       `${report.invalidTierIds.length} row(s) have an elevation.tier outside the closed set (severe/none/not-computable): ${report.invalidTierIds.join(', ')}`
@@ -354,6 +366,7 @@ function main() {
   console.log(
     `Rows carrying "quality.elevation": ${formatPct(report.rowsWithElevation, report.totalRows)}`
   );
+  console.log(`Rows missing "quality.elevation": ${report.missingElevationIds.length}`);
   console.log('');
   console.log("Per-mode flagged counts (own arithmetic, read from each row's per-mode fields):");
   console.log(`  subGround.flagged:              ${formatPct(report.subGroundCount, report.rowsWithElevation)}`);

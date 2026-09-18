@@ -159,6 +159,23 @@ describe('malformed and absent rows degrade rather than throw', () => {
   });
 });
 
+describe('CR-02 (30-REVIEW.md) — the recount fails closed on an index with no quality.elevation at all', () => {
+  it('evaluateReport(recountElevation(docWithNoElevation)).pass is false, naming every offending row', () => {
+    const d = doc([
+      { id: 'no-elevation-1', quality: { deviceEra: { family: 'suunto-9', rawDeviceName: null } } },
+      { id: 'no-elevation-2', quality: { deviceEra: { family: 'suunto-9', rawDeviceName: null } } },
+    ]);
+    const report = recountElevation(d);
+    expect(report.missingElevationIds).toEqual(['no-elevation-1', 'no-elevation-2']);
+
+    const verdict = evaluateReport(report);
+    expect(verdict.pass).toBe(false);
+    expect(verdict.problems.some((p) => p.includes('no-elevation-1') && p.includes('no-elevation-2'))).toBe(
+      true
+    );
+  });
+});
+
 describe('mutation cases — the demonstrated-failing half of D-15/T-30-30', () => {
   it('flips one row severe->clear on all three modes while the shipped tier stays "severe": clean passes, mutated fails naming the row id', () => {
     const cleanDoc = doc([
