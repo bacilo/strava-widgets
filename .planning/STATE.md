@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Pace Data Quality
 status: executing
-stopped_at: Phase 30 wave 3 complete, 30-08 human browser checkpoint next
+stopped_at: Phase 30 plan 30-08 Task 2 — awaiting human browser checkpoint Round 1 (R1-R8), served at http://127.0.0.1:8899/
 last_updated: "2026-09-18T14:02:20.814Z"
 last_activity: 2026-09-18
 progress:
@@ -41,7 +41,7 @@ See: .planning/PROJECT.md (updated 2026-09-08)
 
 Phase: 30 (elevation-quality-signal) — EXECUTING
 Plan: 7 of 8 complete (wave 3 merged; 30-08 checkpoint next)
-Status: Ready to execute
+Status: Awaiting human checkpoint (30-08 Round 1)
 Last activity: 2026-09-18 -- Phase 30 wave 3 complete (30-05, 30-06, 30-07 merged; suite green, recount PASS)
 
 Progress: [█████████░] 88%
