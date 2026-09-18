@@ -1,0 +1,263 @@
+---
+phase: 30-elevation-quality-signal
+reviewed: 2026-09-18T18:16:01Z
+depth: standard
+files_reviewed: 25
+files_reviewed_list:
+  - scripts/compute-elevation-calibration.mjs
+  - scripts/compute-elevation-calibration.test.mjs
+  - scripts/compute-elevation-recount.mjs
+  - scripts/compute-elevation-recount.test.mjs
+  - scripts/verify-dashboard-publish.mjs
+  - src/analytics/compute-dashboard-index.ts
+  - src/analytics/gear-aggregate-logic.test.ts
+  - src/analytics/pace-fixtures.test.ts
+  - src/analytics/pace-fixtures.ts
+  - src/analytics/pace-quality.test.ts
+  - src/analytics/pace-quality.ts
+  - src/dashboard/data/index-client.test.ts
+  - src/dashboard/data/pace-quality-client.test.ts
+  - src/dashboard/data/pace-quality-client.ts
+  - src/dashboard/views/calendar-logic.test.ts
+  - src/dashboard/views/detail-sections.test.ts
+  - src/dashboard/views/detail-sections.ts
+  - src/dashboard/views/detail.ts
+  - src/dashboard/views/list-logic.test.ts
+  - src/dashboard/views/list.test.ts
+  - src/dashboard/views/list.ts
+  - src/dashboard/views/overview.test.ts
+  - src/dashboard/views/trends-cadence-hr-logic.test.ts
+  - src/dashboard/views/trends-logic.test.ts
+  - src/dashboard/views/trends-volume-logic.test.ts
+findings:
+  critical: 2
+  warning: 4
+  info: 7
+  total: 13
+status: issues_found
+---
+
+# Phase 30: Code Review Report
+
+**Reviewed:** 2026-09-18T18:16:01Z
+**Depth:** standard
+**Files Reviewed:** 25
+**Status:** issues_found
+
+## Summary
+
+Reviewed the Phase 30 elevation-signal diff (`58becd3e^..HEAD`): the three altitude detectors and `elevationSignal` assembly in `pace-quality.ts`, the shard/client parse extension, the list badge and detail stat-card caveat, the three always-on detail rows, the calibration sweep script, the independent recount script, and the publish-gate key extension. Ten of the `*.test.ts` view files were touched only to add the now-required `elevation` key to fixtures; those edits are as described and carry no findings.
+
+The detectors themselves are sound: threshold comparisons are strict and match their doc comments, every detector is total on malformed input, `hasAnySevereSignal`'s `Pick<>` is not widened (D-06 holds), and `notComputableSignals` is the sole source of the whole-signal `'not-computable'` tier. `tsc --noEmit` is clean and the six phase test files pass (399 tests).
+
+Two Critical findings, both proven by repro rather than inferred:
+
+1. Every new consumer of `quality.elevation` on the **index-row** path (`list.ts`, `detail.ts`, `detail-sections.ts`) reads it unguarded. The index client does not parse rows — it casts — so a Phase-27-era `index.json` (the shape of every published index until this phase's CI run, and the shape a browser cache or a stale staged build serves against the new bundle) throws `TypeError` inside the list render loop and the detail render. The same file's own doc comment (lines 421-425) promises the opposite, and Phase 26 CR-02 / Phase 27's `if (!quality)` established this exact stale-artifact class as a blocking defect in this project.
+2. The D-15 recount, whose documented purpose is to catch "a compute step that silently stops emitting a field", **PASSes** an index where no row carries `quality.elevation` at all. `missingElevationIds` is collected and then never evaluated or printed. The Phase 27 sibling it claims to mirror fails closed on the equivalent condition.
+
+Four Warnings cover a hardcoded "12 / 1" figure inside the "nothing here is transcribed" calibration report, a double-negative badge string (`altitude -282 m below ground`), a drift row that tells the 25 stream-less activities their start/end position is unknown, and a `?? 0` on a flagged row that the project's T-26-02 rule forbids. Two of those are pinned by tests that bless the defect.
+
+## Critical Issues
+
+### CR-01: Unguarded `quality.elevation` reads crash list and detail rendering on a pre-Phase-30 index row
+
+**File:** `src/dashboard/views/list.ts:431,481`; `src/dashboard/views/detail.ts:706`; `src/dashboard/views/detail-sections.ts:1382-1384`
+
+**Issue:** `createIndexClient` (`src/dashboard/data/index-client.ts:59`) casts the fetched document (`as DashboardIndexDocument`) — there is no per-row parse and no fallback for a missing sub-key. `ParsedDashboardIndexRow` is `Partial<DashboardIndexRow>` precisely to model this. The existing Phase 27 code defends against `quality` itself being absent (`if (!quality) return specs;`, `?? null`), but every Phase 30 addition then dereferences `quality.elevation` without a guard:
+
+- `list.ts:431` destructures `elevation` from `quality`, `list.ts:481` reads `elevation.tier` — called per row from `appendQualityBadges` (line 622) and from the row `aria-label` builder (line 682).
+- `detail.ts:706` reads `quality?.elevation.tier` — the optional chain stops at `quality`, not `elevation`.
+- `detail-sections.ts:1382-1384` read `quality.elevation.subGround/closureDrift/verticalRate`.
+
+Reproduced against the current `dist/` build with a Phase-27-shaped row (all five original sub-keys, no `elevation`):
+
+```
+qualityBadgeSpecs THROWS: Cannot read properties of undefined (reading 'tier')
+qualitySignalsSectionPlan THROWS: Cannot read properties of undefined (reading 'subGround')
+```
+
+This is reachable in production: a browser holding the previous `index.json` in cache while fetching the new bundle (GitHub Pages serves both from the same origin with ordinary cache headers; the project's own memory records stale `index.json` in staged builds as a recurring trap), or any staged build where `dist/widgets/data/dashboard/index.json` lags the bundle. The list view throws on the first row and renders nothing; the detail view throws before the stat grid is appended. `list.ts:421-425` explicitly promises "never a crash that takes the whole render loop down with it" — the new code breaks that stated contract. `pace-quality-client.ts:244-254` already defines the correct not-computable fallback literal for the shard path; the index-row path needs the same.
+
+**Fix:**
+
+```ts
+// list.ts — qualityBadgeSpecs
+const { decimation, gapProfile, impossibleSamples, elevation } = quality;
+// ...
+if (elevation !== undefined && elevation.tier === 'severe') {
+  const content = elevationBadgeContent(elevation);
+  // ...
+}
+
+// detail.ts:706
+if (quality?.elevation?.tier === 'severe') {
+
+// detail-sections.ts — qualitySignalsSectionPlan
+const NOT_COMPUTABLE_ELEVATION: ElevationSignal = {
+  tier: 'not-computable',
+  subGround: { flagged: false, minAltM: null },
+  closureDrift: { state: 'not-computable', deltaM: null, startEndDistM: null },
+  verticalRate: { flagged: false, worstRateMps: null, violatingSamples: null },
+};
+const elevation = quality.elevation ?? NOT_COMPUTABLE_ELEVATION;
+// ... subGroundRow(elevation.subGround, reason, shard), etc.
+```
+
+Type the parameter as `Pick<ParsedDashboardIndexRow, 'quality'>` consumers already do; if `ActivityQualitySignals.elevation` is to remain required on the write side, widen only at these three read sites (e.g. `quality: ActivityQualitySignals | (Omit<ActivityQualitySignals, 'elevation'> & { elevation?: ElevationSignal })`) rather than making the key optional in `pace-quality.ts`. Add a regression test in `list.test.ts` and `detail-sections.test.ts` with a row whose `quality` lacks `elevation`, asserting no throw and the not-computable phrasing — the same test shape Phase 26 CR-02 added for `paceDisagreement`.
+
+### CR-02: The D-15 recount PASSes an index that carries no `quality.elevation` on any row
+
+**File:** `scripts/compute-elevation-recount.mjs:144,173,246,274-301,326-410`
+
+**Issue:** `recountElevation` collects `missingElevationIds` (line 173) and returns it (line 246), but `evaluateReport` never turns a non-empty list into a problem, and `main()` never prints it. Run against a five-row index whose `quality` objects have no `elevation` key at all:
+
+```
+Rows carrying "quality.elevation": 0 of 5 (0.0%)
+...
+PASS: recount agrees with the shipped elevation tiers; no disagreements found.
+exit=0
+```
+
+The header (lines 22-32) and `pace-quality.ts:1197-1204` state that this adversarial recount exists "so it can catch a compute step that silently stops emitting a field". A total drop of the sixth signal is the most direct instance of that failure, and it passes. The Phase 27 sibling this file says it mirrors (`compute-pace-quality-recount.mjs:187-190`) pushes `"N row(s) missing "quality" or one of its five named sub-objects"` and exits non-zero on the equivalent condition. `compute-elevation-recount.test.mjs:126-138` asserts the ids land in `missingElevationIds` but nothing asserts the verdict fails, so the suite cannot see this. The publish gate (`verify-dashboard-publish.mjs`) does catch a partial rollout independently, but that does not make the recount's own PASS truthful: `npm run compute-elevation-recount` is the D-15 artifact the phase cites as verification.
+
+**Fix:**
+
+```js
+// evaluateReport
+if (report.missingElevationIds.length > 0) {
+  problems.push(
+    `${report.missingElevationIds.length} row(s) have no "quality.elevation" object: ${report.missingElevationIds.join(', ')}`
+  );
+}
+```
+
+and in `main()` print `Rows missing "quality.elevation": N` before the verdict. Add a test asserting `evaluateReport(recountElevation(docWithNoElevation)).pass === false` alongside the existing `missingElevationIds` assertions.
+
+## Warnings
+
+### WR-01: Calibration report hardcodes "12 point-to-point and 1 no-position" inside a section that claims every figure is computed live
+
+**File:** `scripts/compute-elevation-calibration.mjs:565`
+
+**Issue:** The rendered sentence reads `before the 12 point-to-point and 1 no-position exclusions apply`, with `12` and `1` as string literals, while `report.rawDrift.pointToPointCount` and `report.rawDrift.noPositionCount` are already computed two sections earlier. The report's own preamble (line 336-339) says "Nothing here is transcribed ... this run independently re-derives". The renderer test (`compute-elevation-calibration.test.mjs:327-385`) feeds `pointToPointCount: 1, noPositionCount: 1` and still passes because it only checks headings, so the discrepancy is invisible to the suite. The next archive growth that changes either count leaves `30-CALIBRATION.md` internally contradictory (the § Correction table would say one thing, § Mode independence another).
+
+**Fix:**
+
+```js
+`(${rawM.bCount} vs. ${m.bCount}) before the ${report.rawDrift.pointToPointCount} point-to-point and ` +
+`${report.rawDrift.noPositionCount} no-position exclusions apply (§ Correction of the raw-difference count).`
+```
+
+Add a renderer assertion that the Mode-independence paragraph contains the report object's own counts.
+
+### WR-02: Sub-ground badge text is a double negative — "altitude -282 m below ground"
+
+**File:** `src/dashboard/views/list.ts:516`; blessed by `src/dashboard/views/list.test.ts:712`
+
+**Issue:** `minAltM` is by definition negative whenever `subGround.flagged` is true (threshold `< -50`), so the clause always renders as `altitude -282 m below ground`. "Minus 282 m below ground" reads as 282 m *above* ground to a careful reader and as noise to everyone else. This string is the visible list badge and, via `elevationBadgeContent` reuse, the Elevation Gain stat-card badge on the detail view. The test at line 712 pins the defective string verbatim (checkpoint-row-can-bless-the-defect). The sibling detail row (`detail-sections.ts:1123`) avoids the problem with `lowest altitude -282 m — below plausible ground level`, which reads correctly because it states the reading rather than a depth.
+
+**Fix:** Either quote the reading (`lowest altitude -282 m`) or the depth (`altitude 282 m below ground` via `Math.abs`), never both:
+
+```ts
+clauses.push(`lowest altitude ${Math.round(elevation.subGround.minAltM)} m`);
+```
+
+and update `list.test.ts:712` to the corrected string.
+
+### WR-03: Drift row tells stream-less activities their "start/end position [is] unknown"
+
+**File:** `src/dashboard/views/detail-sections.ts:1160-1169`; pinned by `detail-sections.test.ts:865-880`
+
+**Issue:** `closureDriftRow` deliberately ignores the whole-signal `notComputableReason` (its doc comment says `signal.state` is authoritative). But `notComputableSignals` (`pace-quality.ts:713`) constructs `closureDrift: { state: 'not-computable', startEndDistM: null }` for the stream-less / unusable-stream cohort regardless of whether the activity has a position. For those 25 activities (1890 activities, 1865 streams per `30-CALIBRATION.md`) the row asserts "start/end position unknown — drift not checked" when the position is very likely known and the actual reason is "no stream committed for this activity" — the reason the two sibling rows on the same screen state correctly. The same phrasing also covers `closureDriftSignal`'s second `'not-computable'` branch (position known, `alt` absent or shorter than 2 — `pace-quality.ts:332-345`, `startEndDistM` retained), which is likewise not a position problem. The test at lines 865-880 pins the misattribution ("same position-unknown phrasing").
+
+**Fix:** Order the checks the way `subGroundRow`/`verticalRateRow` do, and distinguish the two not-computable sub-cases by the retained distance:
+
+```ts
+if (notComputableReason !== null) {
+  valueText = `Not computable — ${notComputableReason}`;
+  tier = 'not-computable';
+} else if (signal.state === 'not-computable') {
+  valueText =
+    signal.startEndDistM === null
+      ? 'start/end position unknown — drift not checked'
+      : 'altitude channel too short to compare start and end — drift not checked';
+  tier = 'not-computable';
+} else if ...
+```
+
+Pass `reason` into `closureDriftRow` at line 1383 and update the test at 865-880 to expect the whole-signal reason.
+
+### WR-04: `violatingSamples ?? 0` fabricates a zero on a flagged row (T-26-02)
+
+**File:** `src/dashboard/views/detail-sections.ts:1232`
+
+**Issue:** `max vertical rate 80.4 m/s across ${signal.violatingSamples ?? 0} violating sample pairs` coerces a `null` count to `0` while the row is `severe`. `pace-quality.ts:13-15` states the project rule: insufficient data is "never a plausible-looking computed zero". The state is reachable: `parseVerticalRateSignal` (`pace-quality-client.ts:154-162`) accepts `flagged: true` with `violatingSamples: null` (any non-finite value degrades to `null`), and the index-row path has no parse at all. The result is the self-contradictory "flagged ... across 0 violating sample pairs". `noun` at line 1231 is also derived from the raw value, so the same row would say "0 violating sample pairs".
+
+**Fix:**
+
+```ts
+} else if (signal.flagged) {
+  const rate = `max vertical rate ${signal.worstRateMps.toFixed(1)} m/s`;
+  valueText =
+    signal.violatingSamples === null
+      ? `${rate} — violating sample count unavailable`
+      : `${rate} across ${signal.violatingSamples} violating sample ${signal.violatingSamples === 1 ? 'pair' : 'pairs'}`;
+}
+```
+
+## Info
+
+### IN-01: Unused `_shard` parameter on `subGroundRow`
+
+**File:** `src/dashboard/views/detail-sections.ts:1105-1108`
+
+**Issue:** `subGroundRow` accepts `_shard: PaceQualityShard | null` and never reads it; the call site at line 1382 passes `shard` for symmetry only.
+**Fix:** Drop the parameter and the argument, or use it (the shard carries nothing sub-ground-specific, so dropping is correct).
+
+### IN-02: Client fabricates a loop radius for shards that never carried one
+
+**File:** `src/dashboard/data/pace-quality-client.ts:366`; consumer `src/dashboard/views/detail-sections.ts:1197`
+
+**Issue:** `elevationLoopRadiusM: finiteNumberOrNull(raw.elevationLoopRadiusM) ?? LOOP_RADIUS_M` substitutes the current constant for a pre-Phase-30 or malformed shard, and `closureDriftRow` then renders `Loop radius 100 m` as evidence on a row whose drift was never computed with any radius (its `elevation` degrades to not-computable in the same parse). It is a method parameter, so the harm is small, but it is the same "invent a plausible number" pattern the module otherwise avoids.
+**Fix:** Type `elevationLoopRadiusM` as `number | null` on the parsed shard, keep `LOOP_RADIUS_M` on the write side, and render evidence only when non-null.
+
+### IN-03: Stale doc comments left behind by the phase
+
+**File:** `src/analytics/pace-quality.ts:1234`; `src/analytics/pace-fixtures.ts:568`; `src/dashboard/views/detail-sections.ts:785-794`
+
+**Issue:** `computePaceQualitySignals` says "assembles all five signals" (now six); `PACE_FIXTURE_NAMES` says "the eleven pinned names" (now thirteen after `closure-drift-exemplar` and `vertical-rate-exemplar`); the `EXPLANATION_PROBE_QUALITY` comment says `qualityBadgeSpecs` "doesn't yet have an elevation spec (that lands in plan 30-05)" — 30-05 landed in this same diff and it does.
+**Fix:** Update the three comments; the third should state the present-tense reason elevation stays `'none'` on the probe (an elevation spec would add a fourth entry to `EXPLANATION_PROBE_SPECS` and change what the module-load loop asserts).
+
+### IN-04: Calibration "device family" table is raw `device_name`, not the D-11 taxonomy, and is interpolated unescaped into Markdown
+
+**File:** `scripts/compute-elevation-calibration.mjs:166-175,491-493`
+
+**Issue:** `deviceFamilyBreakdown` buckets on trimmed raw `device_name`, so it cannot separate intervals.icu rows from the genuine no-device-name cohort (the distinction `resolveDeviceFamily` exists for), and its table is not comparable with the recount's `deviceEra.family` breakdown despite both being titled by device family. The raw string is also written straight into a `| name | count |` table row; a `device_name` containing `|` or a newline would corrupt the table.
+**Fix:** Bucket on `resolveDeviceFamily({ deviceName, sourceProvider }).family` (already importable from the same `dist/` module) and escape `|` in the one cell that carries free text.
+
+### IN-05: `driftNotComputable` is defined by `startEndDistM === null`, not by `state === 'not-computable'`
+
+**File:** `scripts/compute-elevation-calibration.mjs:733,818`
+
+**Issue:** `closureDriftSignal` returns `state: 'not-computable'` with a **retained** `startEndDistM` when `alt` has fewer than two entries (`pace-quality.ts:332-345`). Such a stream would be counted as drift-computable here and in `computablePopulation`. Unreachable on the current archive (every one of the 1865 streams carries `alt`), but the definition has drifted from the shipped enum the report claims to read.
+**Fix:** `altCarryingEntries.filter((e) => e.signal.closureDrift.state === 'not-computable')`.
+
+### IN-06: Recount device-family breakdown is a plain object keyed by an untrusted string
+
+**File:** `scripts/compute-elevation-recount.mjs:161,225`
+
+**Issue:** `deviceFamilyBreakdown[family] = (deviceFamilyBreakdown[family] ?? 0) + 1` with `family` read from the shipped JSON. A row carrying `family: "constructor"` produces a string-concatenated value; `"__proto__"` is silently dropped. Only a malformed index reaches this, and the script's stated contract is to degrade rather than crash, which it does — but the counts would be wrong rather than flagged.
+**Fix:** Use a `Map` (as the calibration script's `deviceFamilyBreakdown` already does) or `Object.create(null)`.
+
+### IN-07: Diagnostic scan's sample index convention differs from the shipped detector's
+
+**File:** `scripts/compute-elevation-calibration.mjs:257` vs `src/analytics/pace-quality.ts:406`
+
+**Issue:** `scanVerticalRatePairs` records `index: i` (departure sample) where `countVerticalRateSamples` records `index: i + 1` (arrival sample, matching the `impossibleSamples` convention the shard and the detail row use). The trace window in `buildReport` is internally consistent, and no index is printed in `30-CALIBRATION.md` today, so nothing is currently wrong — but a reader cross-referencing a future report index against `elevationVerticalRateSamples[].index` in a shard would be off by one.
+**Fix:** Record `index: i + 1` and adjust `startIdx`/`jumpIdx` in `buildReport` accordingly, with a comment naming the arrival-sample convention.
+
+---
+
+_Reviewed: 2026-09-18T18:16:01Z_
+_Reviewer: Claude (gsd-code-reviewer)_
+_Depth: standard_
