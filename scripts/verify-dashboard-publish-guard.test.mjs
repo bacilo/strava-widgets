@@ -58,12 +58,15 @@ describe.skipIf(!existsSync(INDEX_HTML))('verify-dashboard-publish.mjs: D-10(b)/
     cleanupCurateDir();
   });
 
-  it('Case A (clean): asserts the three /__curate/... -> 404 lines AND the public exclusions parses line in the same run', () => {
+  it('Case A (clean): asserts the five /__curate/... -> 404 lines AND the public exclusions parses line in the same run', () => {
     const { output } = runVerifier();
 
     expect(output).toContain('✓ GET /__curate/health -> 404');
     expect(output).toContain('✓ GET /__curate/overlay.js -> 404');
     expect(output).toContain('✓ GET /__curate/exclusions/3475726256 -> 404');
+    // Phase 29, D-17: the curation review queue's page and bundle routes.
+    expect(output).toContain('✓ GET /__curate/queue -> 404');
+    expect(output).toContain('✓ GET /__curate/queue.js -> 404');
     // Non-regression row (T-24-NONREG-01): the public exclusions data file
     // must still 200-and-parse in the exact same clean run.
     expect(output).toContain('✓ /data/best-effort-exclusions.json parses with an "exclusions" array');
@@ -112,6 +115,40 @@ describe.skipIf(!existsSync(INDEX_HTML))('verify-dashboard-publish.mjs: D-10(b)/
 
     expect(result.status).not.toBe(0);
     expect(result.output).toContain('GET /__curate/exclusions/3475726256 expected 404');
+  });
+
+  it('Case E (planted queue page): the real, shipped verifier exits non-zero and names the queue page path', () => {
+    mkdirSync(CURATE_DIR, { recursive: true });
+    writeFileSync(
+      resolve(CURATE_DIR, 'queue'),
+      '<!doctype html><script src="/__curate/queue.js"></script>',
+      'utf8'
+    );
+
+    let result;
+    try {
+      result = runVerifier();
+    } finally {
+      cleanupCurateDir();
+    }
+
+    expect(result.status).not.toBe(0);
+    expect(result.output).toContain('GET /__curate/queue expected 404');
+  });
+
+  it('Case F (planted queue bundle): the real, shipped verifier exits non-zero and names the queue bundle path', () => {
+    mkdirSync(CURATE_DIR, { recursive: true });
+    writeFileSync(resolve(CURATE_DIR, 'queue.js'), 'console.log("__curate queue leaked");', 'utf8');
+
+    let result;
+    try {
+      result = runVerifier();
+    } finally {
+      cleanupCurateDir();
+    }
+
+    expect(result.status).not.toBe(0);
+    expect(result.output).toContain('GET /__curate/queue.js expected 404');
   });
 
   it('post-suite: no planted fixture survives (dist/widgets/__curate does not exist)', () => {
