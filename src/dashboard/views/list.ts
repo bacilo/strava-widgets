@@ -26,6 +26,7 @@ import type {
   ParsedDashboardIndexRow,
   PaceDisagreement,
 } from '../../analytics/dashboard-index.types.js';
+import type { ElevationSignal } from '../../analytics/pace-quality.js';
 import { navigateTo } from '../router.js';
 import { attachRowNavigation, activityDetailHref } from '../row-navigation.js';
 import type { SortKey, SortDir, ListState, DatePresetId } from './list-logic.js';
@@ -472,35 +473,60 @@ export function qualityBadgeSpecs(row: Pick<ParsedDashboardIndexRow, 'quality'>)
   // NOT one of the three tiering signals above — it never feeds
   // hasAnySevereSignal's composite. Only the 'severe' tier badges a row
   // ('none' and 'not-computable' both stay silent here; not-computable is
-  // disclosed on the detail view instead, D-11). One badge names every mode
-  // that actually fired (never one badge per mode, D-10), and each mode
-  // clause requires its own non-null measured value — a severe tier whose
-  // values are all null contributes no clause, and a spec with no clause is
-  // never pushed, matching the impossibleSamples/decimation/gapProfile
-  // guard above rather than printing a numberless badge.
+  // disclosed on the detail view instead, D-11). `elevationBadgeContent`
+  // below is the single source of the visible text and explanation, reused
+  // unchanged by `detail.ts`'s Elevation Gain stat-card badge (D-12) so the
+  // two surfaces cannot drift apart the way `EXPLANATION_PROBE_QUALITY`
+  // exists to prevent elsewhere in this tree.
   if (elevation.tier === 'severe') {
-    const clauses: string[] = [];
-    if (elevation.subGround.flagged && elevation.subGround.minAltM !== null) {
-      clauses.push(`altitude ${Math.round(elevation.subGround.minAltM)} m below ground`);
-    }
-    if (elevation.closureDrift.state === 'flagged' && elevation.closureDrift.deltaM !== null) {
-      clauses.push(`altitude drift ${Math.round(Math.abs(elevation.closureDrift.deltaM))} m`);
-    }
-    if (elevation.verticalRate.flagged && elevation.verticalRate.worstRateMps !== null) {
-      clauses.push(`spike ${Math.round(elevation.verticalRate.worstRateMps)} m/s`);
-    }
-    if (clauses.length > 0) {
+    const content = elevationBadgeContent(elevation);
+    if (content !== null) {
       specs.push({
         signal: 'elevation',
-        visibleText: clauses.join(' · '),
-        explanation:
-          'barometric and GPS altitude errors of this size mean the elevation figures for this activity are not measured ground truth; this project flags rather than corrects them, so no DEM lookup or grade-adjusted pace is applied',
+        visibleText: content.visibleText,
+        explanation: content.explanation,
         descriptionIdSuffix: 'elevation',
       });
     }
   }
 
   return specs;
+}
+
+/**
+ * Builds the elevation badge's visible text and explanation from a
+ * `'severe'`-tier `ElevationSignal` (D-10), or `null` when the severe tier
+ * has no non-null evidence field to quote (a contradiction the classifier
+ * cannot produce, defended the same way the three tiering-signal blocks
+ * above defend their own null-evidence case — never a numberless badge).
+ * Names every mode that actually fired, joined into ONE badge rather than
+ * one badge per mode (12 activities in the archive fire two or more).
+ *
+ * Exported so `detail.ts`'s Elevation Gain stat-card badge (D-12) reuses
+ * this SAME text rather than retyping it — two surfaces with separately
+ * maintained wording is exactly the drift this project's badge/explanation
+ * helpers (`paceDisputedExplanation`, `EXPLANATION_PROBE_QUALITY`) exist to
+ * prevent.
+ */
+export function elevationBadgeContent(
+  elevation: Pick<ElevationSignal, 'subGround' | 'closureDrift' | 'verticalRate'>
+): { visibleText: string; explanation: string } | null {
+  const clauses: string[] = [];
+  if (elevation.subGround.flagged && elevation.subGround.minAltM !== null) {
+    clauses.push(`altitude ${Math.round(elevation.subGround.minAltM)} m below ground`);
+  }
+  if (elevation.closureDrift.state === 'flagged' && elevation.closureDrift.deltaM !== null) {
+    clauses.push(`altitude drift ${Math.round(Math.abs(elevation.closureDrift.deltaM))} m`);
+  }
+  if (elevation.verticalRate.flagged && elevation.verticalRate.worstRateMps !== null) {
+    clauses.push(`spike ${Math.round(elevation.verticalRate.worstRateMps)} m/s`);
+  }
+  if (clauses.length === 0) return null;
+  return {
+    visibleText: clauses.join(' · '),
+    explanation:
+      'barometric and GPS altitude errors of this size mean the elevation figures for this activity are not measured ground truth; this project flags rather than corrects them, so no DEM lookup or grade-adjusted pace is applied',
+  };
 }
 
 /**

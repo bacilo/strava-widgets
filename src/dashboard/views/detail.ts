@@ -52,6 +52,8 @@ import {
   appendAccessibleBadge,
   paceDisputedDescriptionId,
   paceDisputedExplanation,
+  elevationBadgeContent,
+  qualityBadgeDescriptionId,
 } from './list.js';
 import { computeSplits } from './detail-splits.js';
 import { computePaceDistribution, computeHrZoneTimes } from './detail-zones.js';
@@ -687,9 +689,29 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
       );
     }
     statGrid.appendChild(paceStatCard);
-    statGrid.appendChild(
-      buildStatCard(formatOrDash(numOrNull(activity.total_elevation_gain), (v) => `${Math.round(v)} m`), 'Elevation Gain')
+
+    // D-12: the one stat card whose number this same page flags as
+    // implausible carries a caveat — nothing else (no split column, no
+    // aggregate) is touched. `quality` is read from the row the render path
+    // already has (`indexClient.getRow`, the same optional-chain shape the
+    // `disagreement` read above uses) — no new client, no new Promise.all
+    // member, no second fetch (D-05). `elevationBadgeContent` is the SAME
+    // text builder the row badge (`list.ts`'s `qualityBadgeSpecs`) uses, so
+    // the two surfaces cannot drift apart.
+    const elevationStatCard = buildStatCard(
+      formatOrDash(numOrNull(activity.total_elevation_gain), (v) => `${Math.round(v)} m`),
+      'Elevation Gain'
     );
+    const quality = indexClient.getRow(detail.id)?.quality ?? null;
+    if (quality?.elevation.tier === 'severe') {
+      const content = elevationBadgeContent(quality.elevation);
+      if (content !== null) {
+        appendAccessibleBadge(elevationStatCard, content.visibleText, content.explanation,
+          qualityBadgeDescriptionId('detail-elevation-stat', 'elevation')
+        );
+      }
+    }
+    statGrid.appendChild(elevationStatCard);
     statGrid.appendChild(
       buildStatCard(formatOrDash(numOrNull(activity.average_heartrate), (v) => String(Math.round(v))), 'Avg HR')
     );
