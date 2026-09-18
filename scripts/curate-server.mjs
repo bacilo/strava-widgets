@@ -192,6 +192,98 @@ export function injectOverlayTag(html) {
   return html.slice(0, lastBodyClose) + scriptTag + html.slice(lastBodyClose);
 }
 
+// --- Queue page shell & stylesheet resolution (D-06, D-09, PD-02) -----------
+//
+// Response-body constructions only — nothing here is ever written back to
+// dist/widgets. dist/widgets/index.html is the real publish artifact and is
+// read, never patched on disk (mirrors injectOverlayTag's own response-patch
+// discipline above).
+
+/**
+ * Extracts the mount-prefixed href of dist/widgets/index.html's own
+ * stylesheet <link> tag, so the queue page can inherit the dashboard's real,
+ * content-hashed theme across builds (D-09) without a second filesystem read
+ * path or template file (PD-02).
+ *
+ * Two-step so attribute order cannot break it: first find every `<link ...>`
+ * tag and keep the first whose attributes include `rel="stylesheet"`
+ * (single or double quotes tolerated), then pull `href` out of that same
+ * tag with a separate, quote-tolerant match. A leading `./` is stripped and
+ * MOUNT_PREFIX is prefixed unless the value is already root-absolute.
+ *
+ * Never throws — a malformed dist/widgets/index.html must degrade the queue
+ * page to unstyled-but-functional, not a 500. Returns null for anything
+ * unmatched (no stylesheet link, empty string, malformed HTML, or a
+ * non-stylesheet <link> such as rel="icon").
+ *
+ * @param {string} html
+ * @returns {string | null}
+ */
+export function extractStylesheetHref(html) {
+  if (typeof html !== 'string' || html.length === 0) {
+    return null;
+  }
+  const linkTagPattern = /<link\b[^>]*>/gi;
+  const tags = html.match(linkTagPattern);
+  if (tags === null) {
+    return null;
+  }
+  const relPattern = /\brel\s*=\s*(?:"stylesheet"|'stylesheet')/i;
+  const stylesheetTag = tags.find((tag) => relPattern.test(tag));
+  if (stylesheetTag === undefined) {
+    return null;
+  }
+  const hrefMatch = stylesheetTag.match(/\bhref\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
+  if (hrefMatch === null) {
+    return null;
+  }
+  const raw = hrefMatch[1] ?? hrefMatch[2] ?? '';
+  if (raw.length === 0) {
+    return null;
+  }
+  const stripped = raw.startsWith('./') ? raw.slice(2) : raw;
+  return stripped.startsWith('/') ? stripped : `${MOUNT_PREFIX}/${stripped}`;
+}
+
+/**
+ * Pure, exported, idempotent, never-throw string function — the same shape
+ * precedent as injectOverlayTag above (PD-02). Returns the queue page's
+ * complete HTML shell: a strict CSP forbidding inline script/style (the
+ * queue renders JSON-sourced text via textContent only, plan 29-05), the
+ * real dashboard stylesheet link when `stylesheetHref` is non-null, an
+ * empty <body> for the client to mount into, and the bundle's <script> tag.
+ *
+ * When `stylesheetHref` is null (e.g. extractStylesheetHref could not
+ * resolve one), the stylesheet <link> is omitted entirely — never a literal
+ * "null" written into an href — leaving an unstyled but functional page.
+ *
+ * This is a response-body construction only — nothing here is ever written
+ * back to dist/widgets.
+ *
+ * @param {string | null} stylesheetHref
+ * @returns {string}
+ */
+export function renderQueuePage(stylesheetHref) {
+  const stylesheetTag =
+    typeof stylesheetHref === 'string' && stylesheetHref.length > 0
+      ? `<link rel="stylesheet" href="${stylesheetHref}">`
+      : '';
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'">
+  <title>Review Queue — Strava Analytics</title>
+  ${stylesheetTag}
+</head>
+<body>
+<script src="${CURATE_PREFIX}/queue.js"></script>
+</body>
+</html>
+`;
+}
+
 // --- Overlay bundling (D-01) -------------------------------------------------
 
 /**
