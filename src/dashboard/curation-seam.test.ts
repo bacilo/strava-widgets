@@ -150,13 +150,35 @@ describe('GAP-24-01 — the detail view derives exclusion badge state from the l
 });
 
 describe('WR-17 — both derivations are pinned to the same liveExclusions binding', () => {
-  it('detail.ts contains exactly one buildPrBadgeLabels( call site, in the literal two-argument form', () => {
+  it('detail.ts contains exactly one buildPrBadgeLabels( call site, in the bestEffortsEntry/liveExclusions argument-shape', () => {
     expect(countOccurrences(detailStripped, 'buildPrBadgeLabels(')).toBe(1);
-    expect(detailStripped).toContain('buildPrBadgeLabels(bestEffortsEntry, liveExclusions)');
+    // IN-18: converted from a literal toContain (fails on reflow alone) to
+    // the regex-shape pin already used by the identifier-comparison test
+    // below — whitespace- and newline-tolerant, argument identifiers still
+    // pinned by name and order.
+    const badgePinPattern = /buildPrBadgeLabels\(\s*bestEffortsEntry\s*,\s*liveExclusions\s*\)/;
+    expect(detailStripped).toMatch(badgePinPattern);
+
+    // Prove the pin discriminates in both directions, without touching
+    // detail.ts: a reflowed multi-line call with the same identifiers must
+    // still match...
+    const reflowedSample = 'buildPrBadgeLabels(\n  bestEffortsEntry,\n  liveExclusions\n)';
+    expect(reflowedSample).toMatch(badgePinPattern);
+    // ...and a call with a wrong second identifier must NOT match.
+    const wrongIdentifierSample = 'buildPrBadgeLabels(bestEffortsEntry, staleExclusions)';
+    expect(wrongIdentifierSample).not.toMatch(badgePinPattern);
   });
 
-  it('detail.ts pins buildBestEffortsPanelRows to the literal three-argument form, not merely to three arguments', () => {
-    expect(detailStripped).toContain('buildBestEffortsPanelRows(bestEffortsEntry, ageGrading, liveExclusions)');
+  it('detail.ts pins buildBestEffortsPanelRows to the bestEffortsEntry/ageGrading/liveExclusions argument-shape, not merely to three arguments', () => {
+    const panelPinPattern =
+      /buildBestEffortsPanelRows\(\s*bestEffortsEntry\s*,\s*ageGrading\s*,\s*liveExclusions\s*\)/;
+    expect(detailStripped).toMatch(panelPinPattern);
+
+    const reflowedSample =
+      'buildBestEffortsPanelRows(\n  bestEffortsEntry,\n  ageGrading,\n  liveExclusions\n)';
+    expect(reflowedSample).toMatch(panelPinPattern);
+    const wrongIdentifierSample = 'buildBestEffortsPanelRows(bestEffortsEntry, ageGrading, staleExclusions)';
+    expect(wrongIdentifierSample).not.toMatch(panelPinPattern);
   });
 
   it('both call sites inside mountBestEffortsAndBadges receive the SAME final-argument identifier', () => {
