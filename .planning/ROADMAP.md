@@ -303,7 +303,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 29-08-PLAN.md — Human browser checkpoint: rendered extent vs independent count, write path, origin rejection
+- [x] 29-08-PLAN.md — Human browser checkpoint: rendered extent vs independent count, write path, origin rejection
 
 **UI hint**: yes
 **Browser checkpoint**: warranted — directly extends the Phase 24 local curation UI, which this project's own convention ends on a human browser checkpoint every time.
@@ -362,7 +362,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 26. Shared Gap-Aware Pace Derivation & Honest Coverage | v2.2 | 16/16 | Complete    | 2026-09-10 |
 | 27. Per-Activity Quality Signals | v2.2 | 12/12 | Complete    | 2026-09-10 |
 | 28. PR Plausibility Ceiling | v2.2 | 15/15 | Complete    | 2026-09-17 |
-| 29. Curation Review Queue | v2.2 | 7/8 | In Progress|  |
+| 29. Curation Review Queue | v2.2 | 8/8 | In Progress|  |
 | 30. Elevation Quality Signal | v2.2 | 0/TBD | Not started | - |
 
 ---
