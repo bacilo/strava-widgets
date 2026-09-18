@@ -136,6 +136,306 @@ export interface ElapsedVsMovingSignal {
 }
 
 // ---------------------------------------------------------------------------
+// Elevation signal (Phase 30, ELEV-01) — three independent altitude
+// detectors: sub-ground-level readings, loop-gated barometric closure
+// drift, and implausible vertical rate. See D-05..D-09 in
+// 30-elevation-quality-signal/30-CONTEXT.md.
+// ---------------------------------------------------------------------------
+
+/**
+ * Elevation's own three-member tier union (D-07) — deliberately NOT a reuse
+ * of `QualityTier` (a four-member union that includes `'minor'`). D-07
+ * rejects a minor band: each of the three thresholds below (-50 m, 60 m,
+ * 5 m/s) is already the mechanism's own floor, so a minor band would be
+ * three new knobs the requirement never names. Reusing `QualityTier` here
+ * would let a future call site assign `'minor'` to `elevation.tier`,
+ * silently reintroducing a band this phase explicitly rejected.
+ */
+export type ElevationTier = 'severe' | 'none' | 'not-computable';
+
+/** Sub-ground-level-reading sub-signal (D-09). */
+export interface SubGroundSignal {
+  flagged: boolean;
+  minAltM: number | null;
+}
+
+/**
+ * Loop-gated barometric closure-drift sub-signal (D-01/D-02/D-03). Three
+ * distinct, DISTINGUISHABLE outcomes — never collapsed into a bare
+ * boolean:
+ *   - `'not-computable'`: no usable start/end position (D-02) — sub-ground
+ *     and vertical-rate still run; this state never falls back to the raw
+ *     altitude difference.
+ *   - `'clear'` with `deltaM: null`: the endpoints are farther apart than
+ *     `loopRadiusM` — excluded BY DESIGN (D-01), not unknown. The measured
+ *     `startEndDistM` is retained so the detail line and the calibration
+ *     report can quote it.
+ *   - `'flagged'` / `'clear'` with a real `deltaM`: a genuine loop whose
+ *     signed altitude delta is over/under the threshold.
+ */
+export interface ClosureDriftSignal {
+  state: 'flagged' | 'clear' | 'not-computable';
+  /** Signed: alt[end] - alt[start]. The badge shows the absolute value. */
+  deltaM: number | null;
+  /** Retained on BOTH the loop and the excluded-by-design branches. */
+  startEndDistM: number | null;
+}
+
+/** Implausible per-sample vertical-rate sub-signal (D-08). */
+export interface VerticalRateSignal {
+  flagged: boolean;
+  worstRateMps: number | null;
+  violatingSamples: number | null;
+}
+
+/**
+ * Full elevation signal (D-07). `tier` is `'severe'` iff ANY of the three
+ * sub-signals fires; `'not-computable'` ONLY for the whole-signal
+ * stream-less/unusable-stream cohort (the same closed reason set
+ * `notComputableSignals` uses) — a drift-only `'not-computable'` does NOT
+ * make the rolled-up tier not-computable, since the other two modes still
+ * ran (D-02).
+ *
+ * Deliberately excluded from `hasAnySevereSignal`'s `Pick<>` (D-06) — see
+ * that function's own doc comment.
+ */
+export interface ElevationSignal {
+  tier: ElevationTier;
+  subGround: SubGroundSignal;
+  closureDrift: ClosureDriftSignal;
+  verticalRate: VerticalRateSignal;
+}
+
+/** Sub-ground threshold (D-09): the requirement's own figure. */
+export const SUB_GROUND_MIN_ALT_M = -50;
+
+/** Closure-drift severe threshold (D-09), applied to the ABSOLUTE signed delta. */
+export const CLOSURE_DRIFT_SEVERE_DELTA_M = 60;
+
+/** Vertical-rate severe threshold (D-09): the requirement's own figure. */
+export const VERTICAL_RATE_SEVERE_MPS = 5;
+
+/**
+ * D-03's derived loop radius. The archive's start/end haversine-distance
+ * distribution over the 1,658 positioned activities is bimodal with a
+ * literal zero-width dead zone: every value sits at exactly 0 m or at
+ * >= 552.44 m — nothing falls in (0, 552.4). Any radius in that gap
+ * produces an IDENTICAL loop/non-loop partition on this archive; 100 m is
+ * chosen for headroom against future archive growth, not because this
+ * archive's own boundary is sensitive to the exact value (30-RESEARCH.md
+ * § D-03).
+ */
+export const LOOP_RADIUS_M = 100;
+
+/**
+ * Earth radius (metres) and haversine great-circle distance — copied
+ * VERBATIM from `src/streams/derive-stream.ts:30,42-50` (kept private
+ * there). Importing that module instead of copying would pull
+ * `IntervalsProvider`'s Node-only network client into this module's graph,
+ * breaking this file's own client-safe contract (see the module header
+ * above). A second implementation with a different Earth-radius constant
+ * would silently move the loop-radius boundary 30-RESEARCH.md measured —
+ * do not reimplement, and do not modify this constant independently of
+ * `derive-stream.ts`'s copy.
+ */
+const EARTH_RADIUS_M = 6371000;
+
+function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(a));
+}
+
+/**
+ * Normalizes a loosely-typed lat/lng pair (D-01/D-02, Pitfall 4). Strava's
+ * own "no GPS" convention is an empty array, not a missing key — `[]` is
+ * truthy, so a shallow presence check silently produces NaN through the
+ * haversine formula. Returns `null` for anything that is not a finite
+ * two-element array, matching `geocoder.ts`'s own
+ * `!x || x.length !== 2`-style guard, extended with a finiteness check
+ * since this module's inputs are `unknown`, not already-typed
+ * `number[] | undefined`.
+ */
+function normalizeLatLng(value: unknown): [number, number] | null {
+  if (
+    Array.isArray(value) &&
+    value.length === 2 &&
+    Number.isFinite(value[0]) &&
+    Number.isFinite(value[1])
+  ) {
+    return [value[0] as number, value[1] as number];
+  }
+  return null;
+}
+
+/**
+ * Sub-ground-level-reading detector (D-09, T-26-01/T-26-02 total). Absent,
+ * non-array, or empty `alt` returns `{ flagged: false, minAltM: null }` —
+ * never a fabricated `0` — driving a not-computable elevation tier at the
+ * assembly level (Task 2). Non-finite entries are ignored rather than
+ * poisoning the minimum.
+ */
+export function subGroundSignal(alt: readonly unknown[] | undefined): SubGroundSignal {
+  if (!Array.isArray(alt) || alt.length === 0) {
+    return { flagged: false, minAltM: null };
+  }
+
+  let minAltM: number | null = null;
+  for (const value of alt) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      if (minAltM === null || value < minAltM) minAltM = value;
+    }
+  }
+
+  if (minAltM === null) {
+    return { flagged: false, minAltM: null };
+  }
+
+  return { flagged: minAltM < SUB_GROUND_MIN_ALT_M, minAltM };
+}
+
+/**
+ * Loop-gated barometric closure-drift detector (D-01/D-02/D-03, T-26-01/
+ * T-26-02 total). See `ClosureDriftSignal`'s own doc comment for the
+ * three-outcome ladder this function implements, in order:
+ *   1. Either position unnormalizable -> `'not-computable'`.
+ *   2. Distance > `loopRadiusM` -> `'clear'`, excluded by design, distance
+ *      retained, `deltaM` never computed (D-02 forbids the raw-difference
+ *      fallback here).
+ *   3. Otherwise a real loop: `deltaM` is the SIGNED `alt[last] - alt[0]`;
+ *      flagged when its absolute value exceeds `CLOSURE_DRIFT_SEVERE_DELTA_M`.
+ *      An `alt` array too short or absent returns `'not-computable'` with
+ *      the distance retained.
+ */
+export function closureDriftSignal(
+  alt: readonly unknown[] | undefined,
+  startLatlng: unknown,
+  endLatlng: unknown,
+  loopRadiusM: number = LOOP_RADIUS_M
+): ClosureDriftSignal {
+  const start = normalizeLatLng(startLatlng);
+  const end = normalizeLatLng(endLatlng);
+  if (start === null || end === null) {
+    return { state: 'not-computable', deltaM: null, startEndDistM: null };
+  }
+
+  const startEndDistM = haversineMeters(start[0], start[1], end[0], end[1]);
+
+  if (startEndDistM > loopRadiusM) {
+    return { state: 'clear', deltaM: null, startEndDistM };
+  }
+
+  if (!Array.isArray(alt) || alt.length < 2) {
+    return { state: 'not-computable', deltaM: null, startEndDistM };
+  }
+
+  const first = alt[0];
+  const last = alt[alt.length - 1];
+  if (
+    typeof first !== 'number' ||
+    typeof last !== 'number' ||
+    !Number.isFinite(first) ||
+    !Number.isFinite(last)
+  ) {
+    return { state: 'not-computable', deltaM: null, startEndDistM };
+  }
+
+  const deltaM = last - first;
+  return {
+    state: Math.abs(deltaM) > CLOSURE_DRIFT_SEVERE_DELTA_M ? 'flagged' : 'clear',
+    deltaM,
+    startEndDistM,
+  };
+}
+
+/**
+ * Raw per-sample-pair vertical-rate scanner (D-08) — mirrors
+ * `countImpossibleSamples`'s exact shape below: the guard, the linear
+ * scan, the `if (!(dtSec > 0)) continue` skip, the capped 100-entry
+ * evidence list, and the "count is always full, never the capped list's
+ * length" discipline. `d` is replaced by `alt`, and implied speed is
+ * replaced by `|alt[i+1] - alt[i]| / (t[i+1] - t[i])`. Does NOT exclude
+ * pairs inside a classified gap and does NOT window the rate — D-08/D-09
+ * lock the raw per-sample mechanism.
+ */
+function countVerticalRateSamples(
+  t: readonly unknown[],
+  alt: readonly unknown[]
+): {
+  violatingSamples: number;
+  worstRateMps: number | null;
+  samples: { index: number; rateMps: number; dtSec: number; dAltM: number }[];
+} {
+  const n = Math.min(t.length, alt.length);
+  let violatingSamples = 0;
+  let worstRateMps: number | null = null;
+  const samples: { index: number; rateMps: number; dtSec: number; dAltM: number }[] = [];
+
+  for (let i = 0; i < n - 1; i++) {
+    const t1 = t[i];
+    const t2 = t[i + 1];
+    const a1 = alt[i];
+    const a2 = alt[i + 1];
+    if (
+      typeof t1 !== 'number' ||
+      typeof t2 !== 'number' ||
+      typeof a1 !== 'number' ||
+      typeof a2 !== 'number' ||
+      !Number.isFinite(t1) ||
+      !Number.isFinite(t2) ||
+      !Number.isFinite(a1) ||
+      !Number.isFinite(a2)
+    ) {
+      continue;
+    }
+
+    const dtSec = t2 - t1;
+    if (!(dtSec > 0)) continue;
+
+    const dAltM = a2 - a1;
+    const rateMps = Math.abs(dAltM) / dtSec;
+    if (worstRateMps === null || rateMps > worstRateMps) worstRateMps = rateMps;
+
+    if (rateMps > VERTICAL_RATE_SEVERE_MPS) {
+      violatingSamples++;
+      if (samples.length < 100) {
+        samples.push({ index: i + 1, rateMps, dtSec, dAltM });
+      }
+    }
+  }
+
+  return { violatingSamples, worstRateMps, samples };
+}
+
+/**
+ * Implausible-vertical-rate tiering signal (D-08/D-09, T-26-01/T-26-02
+ * total). Absent/short/non-array `alt` or `t` returns
+ * `{ flagged: false, worstRateMps: null, violatingSamples: null }`.
+ * `worstRateMps` reports the maximum observed rate even when NOTHING is
+ * flagged, so a healthy activity's always-on detail line (D-11) can still
+ * print a real number (e.g. "max vertical rate 1.2 m/s").
+ */
+export function verticalRateSignal(
+  t: readonly unknown[] | undefined,
+  alt: readonly unknown[] | undefined
+): VerticalRateSignal {
+  if (!Array.isArray(t) || !Array.isArray(alt) || t.length < 2 || alt.length < 2) {
+    return { flagged: false, worstRateMps: null, violatingSamples: null };
+  }
+
+  const { violatingSamples, worstRateMps } = countVerticalRateSamples(t, alt);
+  if (worstRateMps === null) {
+    return { flagged: false, worstRateMps: null, violatingSamples: null };
+  }
+
+  return { flagged: violatingSamples > 0, worstRateMps, violatingSamples };
+}
+
+// ---------------------------------------------------------------------------
 // Composite
 // ---------------------------------------------------------------------------
 

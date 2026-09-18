@@ -13,12 +13,17 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CLOSURE_DRIFT_SEVERE_DELTA_M,
   DECIMATION_SEVERE_MIN_SAMPLES,
   DECIMATION_SEVERE_ZERO_ADVANCE_FRACTION,
   GAP_PROFILE_SEVERE_FRACTION,
   IMPOSSIBLE_SAMPLE_SEVERE_COUNT,
+  LOOP_RADIUS_M,
   NOT_COMPUTABLE_NO_STREAM,
+  SUB_GROUND_MIN_ALT_M,
+  VERTICAL_RATE_SEVERE_MPS,
   buildPaceQualityShard,
+  closureDriftSignal,
   computePaceQualitySignals,
   countImpossibleSamples,
   decimationSignal,
@@ -28,6 +33,8 @@ import {
   impossibleSampleSignal,
   notComputableSignals,
   resolveDeviceFamily,
+  subGroundSignal,
+  verticalRateSignal,
   type ActivityQualityMetadata,
   type ActivityQualitySignals,
   type DeviceEraSignal,
@@ -639,5 +646,180 @@ describe('D-17 evidence shard', () => {
     expect(shard.adaptiveWindowSec).toBeNull();
     expect(shard.notComputableReason).toBe(NOT_COMPUTABLE_NO_STREAM);
     expect(shard.signals.notComputableReason).toBe(NOT_COMPUTABLE_NO_STREAM);
+  });
+});
+
+describe('elevation detectors (D-07..D-09, ELEV-01)', () => {
+  describe('subGroundSignal — threshold boundary', () => {
+    it('flags when the minimum altitude is just below -50 m', () => {
+      const belowThreshold = SUB_GROUND_MIN_ALT_M - 0.1;
+      const result = subGroundSignal([10, belowThreshold, 5]);
+      expect(result.flagged).toBe(true);
+      expect(result.minAltM).toBe(belowThreshold);
+    });
+
+    it('does not flag at exactly the threshold (strict inequality)', () => {
+      const result = subGroundSignal([10, SUB_GROUND_MIN_ALT_M, 5]);
+      expect(result.flagged).toBe(false);
+      expect(result.minAltM).toBe(SUB_GROUND_MIN_ALT_M);
+    });
+
+    it('does not flag just above the threshold', () => {
+      const aboveThreshold = SUB_GROUND_MIN_ALT_M + 0.1;
+      const result = subGroundSignal([10, aboveThreshold, 5]);
+      expect(result.flagged).toBe(false);
+      expect(result.minAltM).toBe(aboveThreshold);
+    });
+  });
+
+  describe('closureDriftSignal — threshold boundary (in-loop pair, distance 0)', () => {
+    const inLoopStart = [46.5, 7.3];
+    const inLoopEnd = [46.5, 7.3];
+
+    it('flags when |deltaM| is just above the threshold', () => {
+      const overThreshold = CLOSURE_DRIFT_SEVERE_DELTA_M + 0.1;
+      const result = closureDriftSignal([0, overThreshold], inLoopStart, inLoopEnd);
+      expect(result.state).toBe('flagged');
+      expect(result.deltaM).toBe(overThreshold);
+      expect(result.startEndDistM).toBe(0);
+    });
+
+    it('does not flag at exactly the threshold (strict inequality)', () => {
+      const result = closureDriftSignal([0, CLOSURE_DRIFT_SEVERE_DELTA_M], inLoopStart, inLoopEnd);
+      expect(result.state).toBe('clear');
+      expect(result.deltaM).toBe(CLOSURE_DRIFT_SEVERE_DELTA_M);
+    });
+
+    it('does not flag just below the threshold', () => {
+      const underThreshold = CLOSURE_DRIFT_SEVERE_DELTA_M - 0.1;
+      const result = closureDriftSignal([0, underThreshold], inLoopStart, inLoopEnd);
+      expect(result.state).toBe('clear');
+      expect(result.deltaM).toBe(underThreshold);
+    });
+  });
+
+  describe('verticalRateSignal — threshold boundary', () => {
+    it('flags when the rate is just above the threshold', () => {
+      const result = verticalRateSignal([0, 2], [0, VERTICAL_RATE_SEVERE_MPS * 2 + 0.2]);
+      expect(result.flagged).toBe(true);
+      expect(result.worstRateMps).toBeCloseTo(VERTICAL_RATE_SEVERE_MPS + 0.1, 5);
+      expect(result.violatingSamples).toBe(1);
+    });
+
+    it('does not flag at exactly the threshold (strict inequality), but still reports the worst rate', () => {
+      const result = verticalRateSignal([0, 2], [0, VERTICAL_RATE_SEVERE_MPS * 2]);
+      expect(result.flagged).toBe(false);
+      expect(result.worstRateMps).toBe(VERTICAL_RATE_SEVERE_MPS);
+      expect(result.violatingSamples).toBe(0);
+    });
+
+    it('does not flag just below the threshold', () => {
+      const result = verticalRateSignal([0, 2], [0, VERTICAL_RATE_SEVERE_MPS * 2 - 0.2]);
+      expect(result.flagged).toBe(false);
+      expect(result.worstRateMps).toBeCloseTo(VERTICAL_RATE_SEVERE_MPS - 0.1, 5);
+      expect(result.violatingSamples).toBe(0);
+    });
+  });
+
+  describe('closureDriftSignal — position outcomes (D-01/D-02, Pitfall 4)', () => {
+    it('reports not-computable when both positions are absent', () => {
+      const result = closureDriftSignal([0, 10], undefined, undefined);
+      expect(result).toEqual({ state: 'not-computable', deltaM: null, startEndDistM: null });
+    });
+
+    it("reports not-computable for Strava's own empty-array no-GPS convention", () => {
+      const result = closureDriftSignal([0, 10], [], [46.5, 7.3]);
+      expect(result.state).toBe('not-computable');
+      expect(result.deltaM).toBeNull();
+      expect(result.startEndDistM).toBeNull();
+    });
+
+    it('reports not-computable for a one-element position array', () => {
+      const result = closureDriftSignal([0, 10], [46.5], [46.5, 7.3]);
+      expect(result.state).toBe('not-computable');
+      expect(result.startEndDistM).toBeNull();
+    });
+
+    it('reports not-computable for a non-finite coordinate', () => {
+      const result = closureDriftSignal([0, 10], [NaN, 7.3], [46.5, 7.3]);
+      expect(result.state).toBe('not-computable');
+      expect(result.startEndDistM).toBeNull();
+    });
+
+    it('reports clear (excluded by design) for a point-to-point pair ~1 km apart, distance retained and distinguishable from not-computable', () => {
+      // ~1 km of latitude at this longitude: 1 degree latitude ~= 111.2 km.
+      const start = [46.5, 7.3];
+      const end = [46.509, 7.3];
+      // A delta that WOULD flag if the loop gate did not exclude this pair first.
+      const result = closureDriftSignal([0, 90], start, end);
+      expect(result.state).toBe('clear');
+      expect(result.deltaM).toBeNull();
+      expect(result.startEndDistM).not.toBeNull();
+      expect(result.startEndDistM!).toBeGreaterThan(LOOP_RADIUS_M);
+    });
+  });
+
+  describe('totality (T-26-01/T-26-02) — malformed input never throws, never coerces to a plausible zero', () => {
+    it('subGroundSignal(undefined) is not-computable-shaped, never a fabricated 0', () => {
+      expect(() => subGroundSignal(undefined)).not.toThrow();
+      expect(subGroundSignal(undefined)).toEqual({ flagged: false, minAltM: null });
+    });
+
+    it('subGroundSignal([]) is not-computable-shaped', () => {
+      expect(subGroundSignal([])).toEqual({ flagged: false, minAltM: null });
+    });
+
+    it('subGroundSignal([NaN, NaN]) ignores non-finite entries rather than poisoning the minimum', () => {
+      expect(() => subGroundSignal([NaN, NaN])).not.toThrow();
+      expect(subGroundSignal([NaN, NaN])).toEqual({ flagged: false, minAltM: null });
+    });
+
+    it('closureDriftSignal never throws on undefined/empty/non-finite input', () => {
+      expect(() => closureDriftSignal(undefined, undefined, undefined)).not.toThrow();
+      expect(() => closureDriftSignal([], [], [])).not.toThrow();
+      expect(() => closureDriftSignal([NaN, NaN], [NaN, NaN], [NaN, NaN])).not.toThrow();
+      // A valid in-radius position pair with a too-short alt array is
+      // not-computable but the measured distance (0) is still retained.
+      expect(closureDriftSignal([], [46.5, 7.3], [46.5, 7.3])).toEqual({
+        state: 'not-computable',
+        deltaM: null,
+        startEndDistM: 0,
+      });
+    });
+
+    it('verticalRateSignal(undefined, undefined) is not-computable-shaped, never a fabricated 0', () => {
+      expect(() => verticalRateSignal(undefined, undefined)).not.toThrow();
+      expect(verticalRateSignal(undefined, undefined)).toEqual({
+        flagged: false,
+        worstRateMps: null,
+        violatingSamples: null,
+      });
+    });
+
+    it('verticalRateSignal([], []) is not-computable-shaped', () => {
+      expect(verticalRateSignal([], [])).toEqual({
+        flagged: false,
+        worstRateMps: null,
+        violatingSamples: null,
+      });
+    });
+
+    it('verticalRateSignal([NaN, NaN], [NaN, NaN]) never throws and never coerces to 0', () => {
+      expect(() => verticalRateSignal([NaN, NaN], [NaN, NaN])).not.toThrow();
+      expect(verticalRateSignal([NaN, NaN], [NaN, NaN])).toEqual({
+        flagged: false,
+        worstRateMps: null,
+        violatingSamples: null,
+      });
+    });
+
+    it('verticalRateSignal handles a mismatched-length t/alt pair without throwing', () => {
+      const t = [0, 2, 4, 6, 8];
+      const alt = [0, 5, 10]; // shorter than t
+      expect(() => verticalRateSignal(t, alt)).not.toThrow();
+      const result = verticalRateSignal(t, alt);
+      expect(result.worstRateMps).not.toBeNull();
+      expect(result.flagged).toBe(false);
+    });
   });
 });

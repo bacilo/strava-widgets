@@ -292,6 +292,78 @@ export function syntheticStandstillStream(): CanonicalStream {
 }
 
 // ---------------------------------------------------------------------------
+// Elevation synthetic fixtures (Phase 30, D-14) — each fires exactly one of
+// the three altitude detectors, so removing its own fixture is what makes
+// "that mode alone stops firing" a real test (Criterion 2). All three reuse
+// the same 101-sample, 2s-dense pace baseline via `steadySegment` — only
+// `alt` differs — and none needs a new builder API: `makeStream` already
+// accepts `alt` (lines 45-83 above).
+// ---------------------------------------------------------------------------
+
+/**
+ * Fires `subGroundSignal` ONLY. A smooth V-shaped altitude profile dips
+ * from 10 m to -120 m and back to 10 m over the whole 200s fixture (~1.3
+ * m/s per 2s step) — comfortably below `SUB_GROUND_MIN_ALT_M` (-50 m) at
+ * its minimum, while every adjacent pair stays well under
+ * `VERTICAL_RATE_SEVERE_MPS` (5 m/s) and the start/end altitude (10 m,
+ * 10 m) never drifts.
+ */
+export function syntheticSubGroundStream(): CanonicalStream {
+  const base = steadySegment(0, 200, 2, 0, 3);
+  const n = base.t.length;
+  const mid = Math.floor(n / 2);
+  const alt: number[] = [];
+  for (let i = 0; i < n; i++) {
+    if (i <= mid) {
+      const frac = i / mid;
+      alt.push(Math.round((10 - frac * 130) * 10) / 10); // 10 m -> -120 m
+    } else {
+      const frac = (i - mid) / (n - 1 - mid);
+      alt.push(Math.round((-120 + frac * 130) * 10) / 10); // -120 m -> 10 m
+    }
+  }
+  return makeStream({ id: 'synthetic-sub-ground', t: base.t, d: base.d, alt });
+}
+
+/**
+ * Fires `closureDriftSignal` ONLY (when paired with an in-radius start/end
+ * position — the fixture itself carries no position, matching D-01's own
+ * loop test living on activity metadata, not the stream). A smooth
+ * monotonic climb from 0 m to 90 m over the whole 200s fixture (~0.45 m/s
+ * per 2s step) — well over `CLOSURE_DRIFT_SEVERE_DELTA_M` (60 m) between
+ * first and last sample, while the minimum altitude (0 m) stays
+ * comfortably above `SUB_GROUND_MIN_ALT_M` (-50 m) and every adjacent pair
+ * stays well under `VERTICAL_RATE_SEVERE_MPS` (5 m/s).
+ */
+export function syntheticClosureDriftStream(): CanonicalStream {
+  const base = steadySegment(0, 200, 2, 0, 3);
+  const n = base.t.length;
+  const alt: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const frac = i / (n - 1);
+    alt.push(Math.round(frac * 90 * 10) / 10); // 0 m -> 90 m
+  }
+  return makeStream({ id: 'synthetic-closure-drift', t: base.t, d: base.d, alt });
+}
+
+/**
+ * Fires `verticalRateSignal` ONLY. A flat 10 m baseline with a single
+ * sample spiking to 50 m (a 40 m rise over one 2s pair, ~20 m/s — well
+ * over `VERTICAL_RATE_SEVERE_MPS`) before the very next sample returns to
+ * the 10 m baseline. Start and end altitude are both 10 m (delta 0, well
+ * under `CLOSURE_DRIFT_SEVERE_DELTA_M`), and the minimum altitude (10 m)
+ * never dips near `SUB_GROUND_MIN_ALT_M` (-50 m).
+ */
+export function syntheticVerticalRateSpikeStream(): CanonicalStream {
+  const base = steadySegment(0, 200, 2, 0, 3);
+  const n = base.t.length;
+  const alt: number[] = new Array(n).fill(10);
+  const spikeIdx = Math.floor(n / 2);
+  alt[spikeIdx] = 50;
+  return makeStream({ id: 'synthetic-vertical-rate-spike', t: base.t, d: base.d, alt });
+}
+
+// ---------------------------------------------------------------------------
 // Pinned real-archive fixtures
 // ---------------------------------------------------------------------------
 
