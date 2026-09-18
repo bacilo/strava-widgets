@@ -725,6 +725,54 @@ describe('qualitySignalsSectionPlan — quality signals section (D-08, D-09, D-1
   });
 });
 
+/**
+ * A `quality` object shaped like a pre-Phase-30 parsed `index.json` entry
+ * (30-REVIEW.md CR-01): every original sub-key present, `elevation`
+ * genuinely ABSENT as a key — the exact shape a browser cache or a staged
+ * build lagging the bundle serves. `ActivityQualitySignals.elevation` is
+ * required on the write side, so this cast mirrors the same
+ * `as DashboardIndexRow`/`as ActivityQualitySignals` boundary
+ * `index-client.ts`'s blind cast produces at runtime.
+ */
+function qualityMissingElevation(): ActivityQualitySignals {
+  const full: ActivityQualitySignals = { ...HEALTHY_QUALITY, notComputableReason: null };
+  const { elevation, ...withoutElevation } = full;
+  void elevation;
+  return withoutElevation as ActivityQualitySignals;
+}
+
+describe('CR-01 (30-REVIEW.md) — quality missing the elevation key does not crash qualitySignalsSectionPlan', () => {
+  it("the fixture helper's own quality object genuinely lacks the key (not present-and-undefined)", () => {
+    const quality = qualityMissingElevation();
+    expect('elevation' in quality).toBe(false);
+  });
+
+  it('does not throw and still returns eight rows', () => {
+    const quality = qualityMissingElevation();
+    expect(() => qualitySignalsSectionPlan(quality, null)).not.toThrow();
+    expect(qualitySignalsSectionPlan(quality, null).rows).toHaveLength(8);
+  });
+
+  it('renders the three elevation rows in the not-computable fallback phrasing, with no null/undefined/NaN anywhere', () => {
+    const quality = qualityMissingElevation();
+    const plan = qualitySignalsSectionPlan(quality, null);
+    const [subGround, closureDrift, verticalRate] = plan.rows.slice(3, 6);
+
+    expect(subGround.valueText).toBe('Lowest-altitude data unavailable');
+    expect(subGround.tier).toBe('none');
+
+    expect(closureDrift.valueText).toBe('start/end position unknown — drift not checked');
+    expect(closureDrift.tier).toBe('not-computable');
+
+    expect(verticalRate.valueText).toBe('Vertical-rate data unavailable');
+    expect(verticalRate.tier).toBe('none');
+
+    for (const row of [subGround, closureDrift, verticalRate]) {
+      expect(row.valueText).not.toMatch(/null|undefined|NaN/);
+    }
+  });
+});
+
 // ---------------------------------------------------------------------------
 // elevation rows (D-02, D-11, D-17, Phase 30 ELEV-01) — subGroundRow,
 // closureDriftRow, verticalRateRow. Every branch the three builders can

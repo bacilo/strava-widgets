@@ -428,7 +428,15 @@ export function qualityBadgeSpecs(row: Pick<ParsedDashboardIndexRow, 'quality'>)
   const specs: QualityBadgeSpec[] = [];
   const quality = row.quality;
   if (!quality) return specs;
-  const { decimation, gapProfile, impossibleSamples, elevation } = quality;
+  const { decimation, gapProfile, impossibleSamples } = quality;
+  // CR-01 (30-REVIEW.md): `elevation` is REQUIRED by `ActivityQualitySignals`
+  // on the write side, but `index-client.ts`'s `fetchDocument()` casts the
+  // network response with no field-level validation, so a pre-Phase-30
+  // `index.json` (stale browser cache or a lagging staged build) hands this
+  // function a `quality` object carrying the five original sub-keys and no
+  // `elevation` key at all. Widened only at this read site — the write-side
+  // type in `pace-quality.ts` stays required.
+  const elevation: ElevationSignal | undefined = quality.elevation;
 
   if (decimation.tier === 'severe' && decimation.zeroAdvanceFraction !== null) {
     const pct = Math.round(decimation.zeroAdvanceFraction * 100);
@@ -478,7 +486,7 @@ export function qualityBadgeSpecs(row: Pick<ParsedDashboardIndexRow, 'quality'>)
   // unchanged by `detail.ts`'s Elevation Gain stat-card badge (D-12) so the
   // two surfaces cannot drift apart the way `EXPLANATION_PROBE_QUALITY`
   // exists to prevent elsewhere in this tree.
-  if (elevation.tier === 'severe') {
+  if (elevation !== undefined && elevation.tier === 'severe') {
     const content = elevationBadgeContent(elevation);
     if (content !== null) {
       specs.push({

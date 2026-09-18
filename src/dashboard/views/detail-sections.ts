@@ -43,6 +43,7 @@ import type {
   DecimationSignal,
   DeviceEraSignal,
   ElapsedVsMovingSignal,
+  ElevationSignal,
   GapProfileSignal,
   ImpossibleSampleSignal,
   PaceQualityShard,
@@ -1350,6 +1351,23 @@ function notAvailableRows(): QualitySignalRow[] {
 }
 
 /**
+ * CR-01 (30-REVIEW.md) fallback for a `quality` object that has every
+ * pre-Phase-30 sub-key but no `elevation` at all (a stale `index.json`
+ * served past its cache TTL, or a staged build lagging the bundle —
+ * `ActivityQualitySignals.elevation` is required on the write side, but
+ * `index-client.ts` does a blind cast with no field-level validation on the
+ * read side). Renders the same not-computable phrasing
+ * `notComputableSignals` (`pace-quality.ts`) produces for the whole-signal
+ * stream-less cohort.
+ */
+const NOT_COMPUTABLE_ELEVATION: ElevationSignal = {
+  tier: 'not-computable',
+  subGround: { flagged: false, minAltM: null },
+  closureDrift: { state: 'not-computable', deltaM: null, startEndDistM: null },
+  verticalRate: { flagged: false, worstRateMps: null, violatingSamples: null },
+};
+
+/**
  * Decides the always-on Quality Signals section (D-08, D-09, D-12, D-17,
  * D-18) — pure, no DOM, same `*-logic`/plan split `breakdownSectionPlan`
  * uses and for the same reason (there is no DOM-simulation dependency
@@ -1373,15 +1391,23 @@ export function qualitySignalsSectionPlan(
   }
 
   const reason = quality.notComputableReason;
+  // CR-01 (30-REVIEW.md): `elevation` is REQUIRED by `ActivityQualitySignals`
+  // on the write side, but `index-client.ts`'s `fetchDocument()` casts the
+  // network response with no field-level validation, so a pre-Phase-30
+  // `index.json` (stale browser cache or a lagging staged build) hands this
+  // function a `quality` object with the five original sub-keys and no
+  // `elevation` key at all. Fall back to the not-computable shape rather
+  // than dereferencing `undefined` three lines below.
+  const elevation: ElevationSignal = quality.elevation ?? NOT_COMPUTABLE_ELEVATION;
 
   return {
     rows: [
       decimationRow(quality.decimation, reason, shard),
       gapProfileRow(quality.gapProfile, reason, shard),
       impossibleSamplesRow(quality.impossibleSamples, reason, shard),
-      subGroundRow(quality.elevation.subGround, reason, shard),
-      closureDriftRow(quality.elevation.closureDrift, shard),
-      verticalRateRow(quality.elevation.verticalRate, reason, shard),
+      subGroundRow(elevation.subGround, reason, shard),
+      closureDriftRow(elevation.closureDrift, shard),
+      verticalRateRow(elevation.verticalRate, reason, shard),
       deviceEraRow(quality.deviceEra),
       elapsedVsMovingRow(quality.elapsedVsMoving),
     ],

@@ -802,6 +802,28 @@ describe('elevation quality badge text (ELEV-01, D-06, D-10)', () => {
   });
 });
 
+describe('CR-01 (30-REVIEW.md) — a row whose quality object lacks elevation does not crash qualityBadgeSpecs', () => {
+  it("the fixture helper's own row genuinely lacks the key (not present-and-undefined)", () => {
+    const row = rowMissingElevation();
+    expect('elevation' in row.quality).toBe(false);
+  });
+
+  it('qualityBadgeSpecs returns the other badges and does not throw for a Phase-27-shaped row with no elevation key', () => {
+    const row = rowMissingElevation();
+    expect(() => qualityBadgeSpecs(row)).not.toThrow();
+    expect(qualityBadgeSpecs(row)).toEqual([]);
+  });
+
+  it('qualityBadgeSpecs still returns the other three signals\' badges for a row missing elevation but severe elsewhere', () => {
+    const row = rowMissingElevation({
+      gapProfile: { tier: 'severe', gapFraction: 0.12, recordingGapSec: 300, pauseSec: 60, spanSec: 3000 },
+    });
+    const specs = qualityBadgeSpecs(row);
+    expect(specs).toHaveLength(1);
+    expect(specs[0].signal).toBe('gapProfile');
+  });
+});
+
 describe('qualityBadgeDescriptionId — quality badge id shape, mirroring lowConfidenceDescriptionId/paceDisputedDescriptionId', () => {
   it('produces two different ids for the card prefix and the table prefix of the same activity', () => {
     const cardId = qualityBadgeDescriptionId('activity-card-123', 'gap-profile');
@@ -894,6 +916,21 @@ function rowMissingQuality(): DashboardIndexRow {
   const { quality, ...withoutKey } = full;
   void quality;
   return withoutKey as DashboardIndexRow;
+}
+
+/**
+ * A row shaped like a pre-Phase-30 parsed `index.json` entry: `quality` is
+ * present with all five original sub-keys, but `elevation` is genuinely
+ * ABSENT as a key (30-REVIEW.md CR-01) — the exact shape a browser cache
+ * or a staged build lagging the bundle serves. Mirrors `rowMissingQuality`
+ * and `rowMissingPaceDisagreement` above, one level deeper: the top-level
+ * `quality` key survives the cast, only its newest sub-key does not.
+ */
+function rowMissingElevation(overrides: Partial<ActivityQualitySignals> = {}): DashboardIndexRow {
+  const fullQuality: ActivityQualitySignals = { ...CLEAN_QUALITY, ...overrides };
+  const { elevation, ...qualityWithoutElevation } = fullQuality;
+  void elevation;
+  return baseRow({ quality: qualityWithoutElevation as ActivityQualitySignals });
 }
 
 describe('G-04 (27-REVIEW.md CR-01) — a row missing quality does not crash qualityBadgeSpecs or the render loop', () => {

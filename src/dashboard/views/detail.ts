@@ -703,7 +703,7 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
       'Elevation Gain'
     );
     const quality = indexClient.getRow(detail.id)?.quality ?? null;
-    if (quality?.elevation.tier === 'severe') {
+    if (quality?.elevation?.tier === 'severe') {
       const content = elevationBadgeContent(quality.elevation);
       if (content !== null) {
         appendAccessibleBadge(elevationStatCard, content.visibleText, content.explanation,
