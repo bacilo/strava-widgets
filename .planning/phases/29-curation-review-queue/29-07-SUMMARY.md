@@ -120,3 +120,18 @@ None — no external service configuration required.
 ---
 *Phase: 29-curation-review-queue*
 *Completed: 2026-09-18*
+
+## Self-Check: PASSED
+
+- `scripts/curate-overlay/index.ts` — FOUND
+- `scripts/curate-overlay.test.mjs` — FOUND
+- `scripts/curate-queue.test.mjs` — FOUND
+- `.planning/phases/29-curation-review-queue/29-07-SUMMARY.md` — FOUND
+- Task 1 commit `83eefdb8` — FOUND
+- Task 2 commit `8caee917` — FOUND
+- Task 3 commit `51836be8` — FOUND
+- SUMMARY commit `f9f21928` — FOUND
+- `npx vitest run scripts/curate-overlay.test.mjs` → 14/14 passed
+- `npx vitest run scripts/curate-queue.test.mjs` → 12/12 passed, `Test Files 1 passed`
+- `npm test` → 2206 passed, 0 new failures (10 pre-existing fresh-worktree ENOENT failures, unrelated to this plan)
+- `git diff --stat src/` → empty (D-06 held)
