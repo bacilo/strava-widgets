@@ -22,7 +22,8 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -30,6 +31,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 const REPO_ROOT = resolve(new URL('..', import.meta.url).pathname);
 const DIST_WIDGETS = resolve(REPO_ROOT, 'dist/widgets');
 const INDEX_HTML = resolve(DIST_WIDGETS, 'index.html');
+const INDEX_JSON = resolve(DIST_WIDGETS, 'data/dashboard/index.json');
 const CURATE_DIR = resolve(DIST_WIDGETS, '__curate');
 const VERIFIER = resolve(REPO_ROOT, 'scripts/verify-dashboard-publish.mjs');
 
@@ -153,5 +155,51 @@ describe.skipIf(!existsSync(INDEX_HTML))('verify-dashboard-publish.mjs: D-10(b)/
 
   it('post-suite: no planted fixture survives (dist/widgets/__curate does not exist)', () => {
     expect(existsSync(CURATE_DIR)).toBe(false);
+  });
+});
+
+/**
+ * T-30-11 / ELEV-02 / 30-03-T3: the publish gate's QUALITY_SUB_KEYS check must
+ * fail a partial elevation rollout (one row missing quality.elevation), not
+ * just pass a total one. The 30-03-SUMMARY.md record of this failing is a
+ * one-off manual run; this is its automated, planted-fixture proof, mirroring
+ * the Case B-F pattern above but mutating the real served index.json (the
+ * same file both the script's local readFileSync and its HTTP-served fetch
+ * resolve to, since the server root is dist/widgets) instead of __curate.
+ *
+ * The mutated copy is written and restored byte-for-byte in a finally, with
+ * a sha256 digest asserted equal before/after so an aborted run can never
+ * leave dist/widgets/data/dashboard/index.json corrupted for the next build.
+ */
+describe.skipIf(!existsSync(INDEX_HTML))('verify-dashboard-publish.mjs: T-30-11/ELEV-02 partial elevation rollout (30-03-T3)', () => {
+  it('Case G (clean): a full elevation rollout on every row exits 0', () => {
+    const result = runVerifier();
+
+    expect(result.status).toBe(0);
+  });
+
+  it('Case G (planted partial rollout): deleting quality.elevation from exactly one row exits non-zero and names that row', () => {
+    const originalBytes = readFileSync(INDEX_JSON, 'utf8');
+    const originalDigest = createHash('sha256').update(originalBytes).digest('hex');
+
+    const doc = JSON.parse(originalBytes);
+    const targetRow = doc.activities[0];
+    delete targetRow.quality.elevation;
+
+    let result;
+    try {
+      writeFileSync(INDEX_JSON, JSON.stringify(doc), 'utf8');
+      result = runVerifier();
+    } finally {
+      writeFileSync(INDEX_JSON, originalBytes, 'utf8');
+    }
+
+    const restoredDigest = createHash('sha256').update(readFileSync(INDEX_JSON, 'utf8')).digest('hex');
+    expect(restoredDigest).toBe(originalDigest);
+
+    expect(result.status).not.toBe(0);
+    expect(result.output).toContain(
+      `✗ /data/dashboard/index.json activity ${targetRow.id} is missing "quality" or one of its six named sub-keys — a partial rollout, not a total one (T-27-14)`
+    );
   });
 });
