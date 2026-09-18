@@ -14,15 +14,19 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   CURATE_HOST,
   CURATE_PORT,
+  CURATE_PREFIX,
   MOUNT_PREFIX,
   applyRemove,
   applyUpsert,
+  buildQueueBundle,
   createServer,
+  extractStylesheetHref,
   injectOverlayTag,
   isCurateRoute,
   isTrustedOrigin,
   isValidCurateActivityId,
   normalizeReason,
+  renderQueuePage,
   safeResolve,
 } from './curate-server.mjs';
 
@@ -100,6 +104,89 @@ describe('injectOverlayTag', () => {
     expect(scriptIndex + '<script src="/__curate/overlay.js"></script>'.length).toBe(lastBodyIndex);
     // And the earlier, in-string "</body>" text must be untouched.
     expect(result).toContain('const s = "</body>";');
+  });
+});
+
+// Plan 29-06 Task 1: extractStylesheetHref resolves the queue page's
+// stylesheet href from dist/widgets/index.html's real, content-hashed
+// <link> tag at request time (PD-02). Never throws — a malformed built
+// index.html must degrade the queue to an unstyled page, not a 500.
+describe('extractStylesheetHref', () => {
+  it('resolves a mount-prefixed href from a stylesheet link with crossorigin before href', () => {
+    const html = '<link rel="stylesheet" crossorigin href="./assets/index-ABC.css">';
+    expect(extractStylesheetHref(html)).toBe('/strava-widgets/assets/index-ABC.css');
+  });
+
+  it('attribute order is irrelevant — href before rel resolves identically', () => {
+    const html = '<link href="./assets/index-ABC.css" crossorigin rel="stylesheet">';
+    expect(extractStylesheetHref(html)).toBe('/strava-widgets/assets/index-ABC.css');
+  });
+
+  it('single-quoted attributes resolve identically', () => {
+    const html = "<link rel='stylesheet' href='./assets/index-ABC.css'>";
+    expect(extractStylesheetHref(html)).toBe('/strava-widgets/assets/index-ABC.css');
+  });
+
+  it('an already root-absolute href is returned unchanged, not double-prefixed', () => {
+    const html = '<link rel="stylesheet" href="/strava-widgets/assets/x.css">';
+    expect(extractStylesheetHref(html)).toBe('/strava-widgets/assets/x.css');
+  });
+
+  it('returns null, never throws, when there is no stylesheet link', () => {
+    expect(extractStylesheetHref('<html><head></head><body></body></html>')).toBeNull();
+  });
+
+  it('returns null for an empty string', () => {
+    expect(extractStylesheetHref('')).toBeNull();
+  });
+
+  it('returns null, never throws, for malformed HTML', () => {
+    expect(extractStylesheetHref('<link rel="stylesheet" href=')).toBeNull();
+  });
+
+  it('a non-stylesheet link (rel="icon") is not mistaken for the stylesheet', () => {
+    const html = '<link rel="icon" href="./favicon.ico">';
+    expect(extractStylesheetHref(html)).toBeNull();
+  });
+
+  it('picks the stylesheet link out of a real head containing a module script tag first', () => {
+    const html =
+      '<script type="module" crossorigin src="./assets/index-BZIqZhAY.js"></script>' +
+      '<link rel="stylesheet" crossorigin href="./assets/index-CQkdBpPg.css">';
+    expect(extractStylesheetHref(html)).toBe('/strava-widgets/assets/index-CQkdBpPg.css');
+  });
+});
+
+// Plan 29-06 Task 1 / PD-02: renderQueuePage is a pure, exported, never-throw
+// shell string function beside injectOverlayTag — the same shape precedent.
+// No inline script, no inline style (CSP forbids both).
+describe('renderQueuePage', () => {
+  it('returns a full document with doctype, charset meta, CSP meta, linked stylesheet, title and bundle script', () => {
+    const html = renderQueuePage('/strava-widgets/assets/index-ABC.css');
+    expect(html).toContain('<!doctype html>');
+    expect(html).toContain('<meta charset="utf-8">');
+    expect(html).toContain("script-src 'self'");
+    expect(html).toContain('<link rel="stylesheet" href="/strava-widgets/assets/index-ABC.css">');
+    expect(html).toMatch(/<title>[^<]*[Rr]eview [Qq]ueue[^<]*<\/title>/);
+    expect(html).toContain('<script src="/__curate/queue.js"></script>');
+  });
+
+  it('with a null href, omits the stylesheet link entirely rather than emitting a literal "null" href', () => {
+    const html = renderQueuePage(null);
+    expect(html).not.toContain('<link rel="stylesheet"');
+    expect(html).not.toContain('href="null"');
+    expect(html).toContain('<script src="/__curate/queue.js"></script>');
+  });
+
+  it('contains no inline <script> body — the CSP forbids it', () => {
+    const html = renderQueuePage(null);
+    // Only the one bundle-loading <script src="..."> tag; no <script> with a body.
+    expect(html).not.toMatch(/<script(?![^>]*src=)[^>]*>[^<]+<\/script>/);
+  });
+
+  it('contains no inline <style> block — the CSP forbids it', () => {
+    const html = renderQueuePage(null);
+    expect(html).not.toContain('<style');
   });
 });
 
@@ -339,7 +426,10 @@ describe.skipIf(!existsSync(INDEX_HTML))(
     let server;
     let port;
 
-    beforeAll(() => {
+    beforeAll(async () => {
+      // Plan 29-06 Task 3: build the queue bundle once so the
+      // /__curate/queue.js route below has something real to serve.
+      await buildQueueBundle();
       return new Promise((settle) => {
         server = createServer();
         server.listen(0, '127.0.0.1', () => {
@@ -406,6 +496,69 @@ describe.skipIf(!existsSync(INDEX_HTML))(
     it('case 5 (control): GET /strava-widgets/ with a matching Host and no Origin responds 200 — an ordinary navigation is not broken by the new gate (D-02/OD-4)', async () => {
       const { status } = await request(`${MOUNT_PREFIX}/`);
       expect(status).toBe(200);
+    });
+
+    // Plan 29-06 Task 3: the two queue routes, live over the same socket,
+    // including the origin gate in both directions (T-29-01).
+    it('case 6: GET /__curate/queue with a matching Host and no Origin responds 200 carrying the bundle script tag and the live-resolved stylesheet href', async () => {
+      const { status, body } = await request(`${CURATE_PREFIX}/queue`);
+      expect(status).toBe(200);
+      expect(body).toContain('<script src="/__curate/queue.js"></script>');
+      const expectedHref = extractStylesheetHref(readFileSync(INDEX_HTML, 'utf8'));
+      expect(expectedHref).not.toBeNull();
+      expect(body).toContain(`href="${expectedHref}"`);
+    });
+
+    it('case 7: GET /__curate/queue with a cross-origin Origin responds 403', async () => {
+      const { status } = await request(`${CURATE_PREFIX}/queue`, { Origin: 'http://evil.example' });
+      expect(status).toBe(403);
+    });
+
+    it('case 8: GET /__curate/queue with a mismatched Host responds 403', async () => {
+      const { status } = await request(`${CURATE_PREFIX}/queue`, { Host: 'evil.example' });
+      expect(status).toBe(403);
+    });
+
+    // T-29-16 / D-06 corroboration: the queue bundle really carries the
+    // imported saveExclusion/removeExclusion/runRecompute transport, not a
+    // stub. esbuild does not fold the CURATE_PREFIX const into the
+    // surrounding template-literal text it appears in (confirmed
+    // independently in 29-05-SUMMARY.md's Deviations, reproduced here), so
+    // the literal substring '/__curate/exclusions/' never appears in either
+    // a minified or unminified bundle — the check below is the corrected
+    // equivalent proving the same guarantee: the CURATE_PREFIX constant is
+    // present, its template-literal boundary with the route suffixes is
+    // intact, and location.reload (the transport's own post-write refresh)
+    // is present.
+    it('case 9: GET /__curate/queue.js with a matching Host responds 200 carrying the real imported transport, not a stub', async () => {
+      const { status, body } = await request(`${CURATE_PREFIX}/queue.js`);
+      expect(status).toBe(200);
+      expect(body).toContain('CURATE_PREFIX = "/__curate"');
+      expect(body).toMatch(/CURATE_PREFIX\}\/exclusions\//);
+      expect(body).toMatch(/CURATE_PREFIX\}\/recompute/);
+      expect(body).toContain('location.reload');
+    });
+
+    it('case 10: GET /__curate/queue.js with a cross-origin Origin responds 403', async () => {
+      const { status } = await request(`${CURATE_PREFIX}/queue.js`, {
+        Origin: 'http://evil.example',
+      });
+      expect(status).toBe(403);
+    });
+
+    it('case 11 (control): GET /strava-widgets/ still responds 200 with the overlay tag — the new queue branches did not disturb existing dispatch', async () => {
+      const { status, body } = await request(`${MOUNT_PREFIX}/`);
+      expect(status).toBe(200);
+      expect(body).toContain('<script src="/__curate/overlay.js"></script>');
+    });
+
+    // T-29-05: both queue branches are exact string comparisons with no
+    // filesystem-path derivation, so a traversal attempt under the queue
+    // path never reaches a resolver to protect — it simply fails to match
+    // either exact route and falls through to the generic 404.
+    it('case 12: GET /__curate/queue/../../etc/passwd responds 404 — the exact-match branches never reach a filesystem resolution', async () => {
+      const { status } = await request(`${CURATE_PREFIX}/queue/../../etc/passwd`);
+      expect(status).toBe(404);
     });
   }
 );

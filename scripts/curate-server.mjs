@@ -62,6 +62,13 @@ export const CURATE_PREFIX = '/__curate';
 export const OVERLAY_ENTRY = 'scripts/curate-overlay/index.ts';
 export const OVERLAY_OUTFILE = '.curate-dist/overlay.js';
 
+// D-06: the review queue's browser entry point and its bundle output,
+// mirroring OVERLAY_ENTRY/OVERLAY_OUTFILE exactly. Two explicit
+// entry/outfile pairs (never a shared, parameterized one) keep the D-01
+// structural-absence story greppable per entry point.
+export const QUEUE_ENTRY = 'scripts/curate-queue/index.ts';
+export const QUEUE_OUTFILE = '.curate-dist/queue.js';
+
 // D-05/D-07: the two files joined only by build-widgets.mjs's copy step.
 // EXCLUSIONS_PATH is the working-tree source of truth the developer reviews
 // and commits by hand; PUBLISH_EXCLUSIONS_PATH is the served copy inside the
@@ -192,6 +199,98 @@ export function injectOverlayTag(html) {
   return html.slice(0, lastBodyClose) + scriptTag + html.slice(lastBodyClose);
 }
 
+// --- Queue page shell & stylesheet resolution (D-06, D-09, PD-02) -----------
+//
+// Response-body constructions only — nothing here is ever written back to
+// dist/widgets. dist/widgets/index.html is the real publish artifact and is
+// read, never patched on disk (mirrors injectOverlayTag's own response-patch
+// discipline above).
+
+/**
+ * Extracts the mount-prefixed href of dist/widgets/index.html's own
+ * stylesheet <link> tag, so the queue page can inherit the dashboard's real,
+ * content-hashed theme across builds (D-09) without a second filesystem read
+ * path or template file (PD-02).
+ *
+ * Two-step so attribute order cannot break it: first find every `<link ...>`
+ * tag and keep the first whose attributes include `rel="stylesheet"`
+ * (single or double quotes tolerated), then pull `href` out of that same
+ * tag with a separate, quote-tolerant match. A leading `./` is stripped and
+ * MOUNT_PREFIX is prefixed unless the value is already root-absolute.
+ *
+ * Never throws — a malformed dist/widgets/index.html must degrade the queue
+ * page to unstyled-but-functional, not a 500. Returns null for anything
+ * unmatched (no stylesheet link, empty string, malformed HTML, or a
+ * non-stylesheet <link> such as rel="icon").
+ *
+ * @param {string} html
+ * @returns {string | null}
+ */
+export function extractStylesheetHref(html) {
+  if (typeof html !== 'string' || html.length === 0) {
+    return null;
+  }
+  const linkTagPattern = /<link\b[^>]*>/gi;
+  const tags = html.match(linkTagPattern);
+  if (tags === null) {
+    return null;
+  }
+  const relPattern = /\brel\s*=\s*(?:"stylesheet"|'stylesheet')/i;
+  const stylesheetTag = tags.find((tag) => relPattern.test(tag));
+  if (stylesheetTag === undefined) {
+    return null;
+  }
+  const hrefMatch = stylesheetTag.match(/\bhref\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
+  if (hrefMatch === null) {
+    return null;
+  }
+  const raw = hrefMatch[1] ?? hrefMatch[2] ?? '';
+  if (raw.length === 0) {
+    return null;
+  }
+  const stripped = raw.startsWith('./') ? raw.slice(2) : raw;
+  return stripped.startsWith('/') ? stripped : `${MOUNT_PREFIX}/${stripped}`;
+}
+
+/**
+ * Pure, exported, idempotent, never-throw string function — the same shape
+ * precedent as injectOverlayTag above (PD-02). Returns the queue page's
+ * complete HTML shell: a strict CSP forbidding inline script/style (the
+ * queue renders JSON-sourced text via textContent only, plan 29-05), the
+ * real dashboard stylesheet link when `stylesheetHref` is non-null, an
+ * empty <body> for the client to mount into, and the bundle's <script> tag.
+ *
+ * When `stylesheetHref` is null (e.g. extractStylesheetHref could not
+ * resolve one), the stylesheet <link> is omitted entirely — never a literal
+ * "null" written into an href — leaving an unstyled but functional page.
+ *
+ * This is a response-body construction only — nothing here is ever written
+ * back to dist/widgets.
+ *
+ * @param {string | null} stylesheetHref
+ * @returns {string}
+ */
+export function renderQueuePage(stylesheetHref) {
+  const stylesheetTag =
+    typeof stylesheetHref === 'string' && stylesheetHref.length > 0
+      ? `<link rel="stylesheet" href="${stylesheetHref}">`
+      : '';
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'">
+  <title>Review Queue — Strava Analytics</title>
+  ${stylesheetTag}
+</head>
+<body>
+<script src="${CURATE_PREFIX}/queue.js"></script>
+</body>
+</html>
+`;
+}
+
 // --- Overlay bundling (D-01) -------------------------------------------------
 
 /**
@@ -211,6 +310,28 @@ export async function buildOverlay() {
     format: 'iife',
     target: 'es2020',
     outfile: OVERLAY_OUTFILE,
+    logLevel: 'info',
+  });
+}
+
+/**
+ * D-06: the ONLY thing that ever builds the review queue's browser client.
+ * Mirrors buildOverlay() exactly — same esbuild shape, a separate explicit
+ * call site (never a shared helper parameterized over entry/outfile) so a
+ * grep for either entry point stays a direct, single-hit answer. Like the
+ * overlay, scripts/curate-queue/ is outside tsconfig.json's `include`, not
+ * an input to either Vite config, and not in build-widgets.mjs's copy
+ * lists — this bundle is never a publish artifact.
+ *
+ * @returns {Promise<void>}
+ */
+export async function buildQueueBundle() {
+  await esbuild.build({
+    entryPoints: [QUEUE_ENTRY],
+    bundle: true,
+    format: 'iife',
+    target: 'es2020',
+    outfile: QUEUE_OUTFILE,
     logLevel: 'info',
   });
 }
@@ -600,6 +721,57 @@ async function serveCurateRoute(req, res) {
     return;
   }
 
+  // T-29-01: unlike /__curate/health and /__curate/overlay.js above (which
+  // stay deliberately ungated — local-only, non-secret, no write), the two
+  // queue routes below ARE origin-gated. The queue is a tool surface whose
+  // whole purpose is driving writes (via the imported exclusion/recompute
+  // transport it mounts), the gate costs an ordinary navigation nothing
+  // (matching Host, no Origin header — see isTrustedOrigin), and DNS
+  // rebinding is route-agnostic: a rebound hostname reaches these routes
+  // exactly as easily as the write routes below. Do not remove this gate
+  // from either branch and do not widen it to the two branches above.
+  if (req.method === 'GET' && urlPath === `${CURATE_PREFIX}/queue`) {
+    if (!isTrustedOrigin(req, EXPECTED_HOST)) {
+      res.writeHead(403, { 'Content-Type': 'text/plain' });
+      res.end(
+        `Forbidden: curate serves only http://${CURATE_HOST}:${CURATE_PORT} — ` +
+          'cross-origin and mismatched-Host requests are rejected.'
+      );
+      return;
+    }
+    if (!existsSync(INDEX_HTML)) {
+      res.writeHead(412, { 'Content-Type': 'text/plain' });
+      res.end(
+        `Precondition Failed: ${INDEX_HTML} is missing.\n` +
+          'Run `npm run build` and `npm run build-widgets` first, then retry.'
+      );
+      return;
+    }
+    const stylesheetHref = extractStylesheetHref(readFileSync(INDEX_HTML, 'utf8'));
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(renderQueuePage(stylesheetHref));
+    return;
+  }
+
+  if (req.method === 'GET' && urlPath === `${CURATE_PREFIX}/queue.js`) {
+    if (!isTrustedOrigin(req, EXPECTED_HOST)) {
+      res.writeHead(403, { 'Content-Type': 'text/plain' });
+      res.end(
+        `Forbidden: curate serves only http://${CURATE_HOST}:${CURATE_PORT} — ` +
+          'cross-origin and mismatched-Host requests are rejected.'
+      );
+      return;
+    }
+    if (!existsSync(QUEUE_OUTFILE)) {
+      res.writeHead(404);
+      res.end('Not Found');
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/javascript' });
+    res.end(readFileSync(QUEUE_OUTFILE));
+    return;
+  }
+
   if (
     (req.method === 'PUT' || req.method === 'DELETE') &&
     urlPath.startsWith(EXCLUSIONS_ROUTE_PREFIX)
@@ -709,6 +881,7 @@ export function createServer() {
 export async function main() {
   assertBuilt();
   await buildOverlay();
+  await buildQueueBundle();
 
   const server = createServer();
 
@@ -728,6 +901,9 @@ export async function main() {
 
   server.listen(CURATE_PORT, CURATE_HOST, () => {
     console.log(`curate server running at http://${CURATE_HOST}:${CURATE_PORT}${MOUNT_PREFIX}/`);
+    console.log(
+      `Review queue running at http://${CURATE_HOST}:${CURATE_PORT}${CURATE_PREFIX}/queue`
+    );
     console.log('Save writes the working tree only — curate never touches git (D-09).');
   });
 }
