@@ -347,14 +347,19 @@ export function rowPaceDisagreement(row: Pick<DashboardIndexRow, 'paceDisagreeme
 }
 
 /**
- * One severe-tier quality badge (D-07, D-09) — `signal` names which of the
- * three TIERING signals fired, `visibleText` carries the condition AND its
- * measured value read off this row's own evidence fields (never
+ * One severe-tier quality badge (D-07, D-09) — `signal` names which severe
+ * signal fired: `'decimation' | 'gapProfile' | 'impossibleSamples'` are the
+ * three TIERING signals that also feed `hasAnySevereSignal`'s composite;
+ * `'elevation'` (Phase 30, D-06) is deliberately NOT a tiering signal — it is
+ * tiered on its own but structurally excluded from that composite, so its
+ * presence here names a fourth, independent badge source rather than a
+ * fourth member of the tiering set. `visibleText` carries the condition AND
+ * its measured value read off this row's own evidence fields (never
  * recomputed), and `explanation` carries WHY it matters, feeding the same
  * `title`/`aria-describedby` slots `appendAccessibleBadge` already exposes.
  */
 export interface QualityBadgeSpec {
-  signal: 'decimation' | 'gapProfile' | 'impossibleSamples';
+  signal: 'decimation' | 'gapProfile' | 'impossibleSamples' | 'elevation';
   visibleText: string;
   explanation: string;
   descriptionIdSuffix: string;
@@ -376,12 +381,16 @@ export function qualityBadgeDescriptionId(idPrefix: string, suffix: string): str
  * The pure, per-row quality-badge DECISION (D-07, D-09) — no DOM, so this is
  * fully unit-testable under vitest's node environment (there is no jsdom in
  * this repository). Returns one spec per TIERING signal at `'severe'` tier,
- * in the fixed render order decimation, gapProfile, impossibleSamples, and
- * an EMPTY array for a row that is minor-tier, none-tier or not-computable
- * on that signal. D-07: only severe reaches a list row, so a quality badge
- * stays a genuine signal on a row that already carries low-confidence,
- * pace-disputed, exclusion, PR and gear badges rather than becoming
- * wallpaper.
+ * in the fixed render order decimation, gapProfile, impossibleSamples, plus
+ * (Phase 30, D-06/D-10) one spec for elevation at `'severe'` tier — a fourth
+ * badge source that is deliberately NOT one of the three TIERING signals
+ * (elevation never feeds `hasAnySevereSignal`'s composite), rendered last.
+ * Returns an EMPTY array for a row that is minor-tier, none-tier or
+ * not-computable on that signal (elevation has no minor tier — only
+ * `'severe'` badges a row, D-07). D-07: only severe reaches a list row, so a
+ * quality badge stays a genuine signal on a row that already carries
+ * low-confidence, pace-disputed, exclusion, PR and gear badges rather than
+ * becoming wallpaper.
  *
  * A severe tier whose own evidence field is `null` is a contradiction the
  * classifier cannot produce (every severe result carries its measured
@@ -418,7 +427,7 @@ export function qualityBadgeSpecs(row: Pick<ParsedDashboardIndexRow, 'quality'>)
   const specs: QualityBadgeSpec[] = [];
   const quality = row.quality;
   if (!quality) return specs;
-  const { decimation, gapProfile, impossibleSamples } = quality;
+  const { decimation, gapProfile, impossibleSamples, elevation } = quality;
 
   if (decimation.tier === 'severe' && decimation.zeroAdvanceFraction !== null) {
     const pct = Math.round(decimation.zeroAdvanceFraction * 100);
@@ -457,6 +466,38 @@ export function qualityBadgeSpecs(row: Pick<ParsedDashboardIndexRow, 'quality'>)
         'these samples imply a speed no human sustains, so any effort drawn across them is not a measured time',
       descriptionIdSuffix: 'impossible-samples',
     });
+  }
+
+  // Phase 30 (D-06, D-10): elevation is a FOURTH badge source, deliberately
+  // NOT one of the three tiering signals above — it never feeds
+  // hasAnySevereSignal's composite. Only the 'severe' tier badges a row
+  // ('none' and 'not-computable' both stay silent here; not-computable is
+  // disclosed on the detail view instead, D-11). One badge names every mode
+  // that actually fired (never one badge per mode, D-10), and each mode
+  // clause requires its own non-null measured value — a severe tier whose
+  // values are all null contributes no clause, and a spec with no clause is
+  // never pushed, matching the impossibleSamples/decimation/gapProfile
+  // guard above rather than printing a numberless badge.
+  if (elevation.tier === 'severe') {
+    const clauses: string[] = [];
+    if (elevation.subGround.flagged && elevation.subGround.minAltM !== null) {
+      clauses.push(`altitude ${Math.round(elevation.subGround.minAltM)} m below ground`);
+    }
+    if (elevation.closureDrift.state === 'flagged' && elevation.closureDrift.deltaM !== null) {
+      clauses.push(`altitude drift ${Math.round(Math.abs(elevation.closureDrift.deltaM))} m`);
+    }
+    if (elevation.verticalRate.flagged && elevation.verticalRate.worstRateMps !== null) {
+      clauses.push(`spike ${Math.round(elevation.verticalRate.worstRateMps)} m/s`);
+    }
+    if (clauses.length > 0) {
+      specs.push({
+        signal: 'elevation',
+        visibleText: clauses.join(' · '),
+        explanation:
+          'barometric and GPS altitude errors of this size mean the elevation figures for this activity are not measured ground truth; this project flags rather than corrects them, so no DEM lookup or grade-adjusted pace is applied',
+        descriptionIdSuffix: 'elevation',
+      });
+    }
   }
 
   return specs;

@@ -696,6 +696,112 @@ describe('quality badge text (QUAL-04, D-07, D-09)', () => {
   });
 });
 
+describe('elevation quality badge text (ELEV-01, D-06, D-10)', () => {
+  it('a sub-ground-only severe row returns exactly one spec whose visibleText contains the measured minimum', () => {
+    const row = qualityRow({
+      elevation: {
+        tier: 'severe',
+        subGround: { flagged: true, minAltM: -282 },
+        closureDrift: { state: 'clear', deltaM: null, startEndDistM: 0 },
+        verticalRate: { flagged: false, worstRateMps: 3.3, violatingSamples: 0 },
+      },
+    });
+    const specs = qualityBadgeSpecs(row);
+    expect(specs).toHaveLength(1);
+    expect(specs[0].signal).toBe('elevation');
+    expect(specs[0].visibleText).toBe('altitude -282 m below ground');
+    expect(specs[0].descriptionIdSuffix).toBe('elevation');
+  });
+
+  it('a drift-only severe row returns text showing the ABSOLUTE drift, not the signed value', () => {
+    const row = qualityRow({
+      elevation: {
+        tier: 'severe',
+        subGround: { flagged: false, minAltM: 4.2 },
+        closureDrift: { state: 'flagged', deltaM: -197.6, startEndDistM: 0 },
+        verticalRate: { flagged: false, worstRateMps: 2.3, violatingSamples: 0 },
+      },
+    });
+    const specs = qualityBadgeSpecs(row);
+    expect(specs).toHaveLength(1);
+    expect(specs[0].visibleText).toBe('altitude drift 198 m');
+    expect(specs[0].visibleText).not.toContain('-198');
+  });
+
+  it('a vertical-rate-only severe row returns text naming the worst rate', () => {
+    const row = qualityRow({
+      elevation: {
+        tier: 'severe',
+        subGround: { flagged: false, minAltM: 19.8 },
+        closureDrift: { state: 'clear', deltaM: null, startEndDistM: 0 },
+        verticalRate: { flagged: true, worstRateMps: 80.4, violatingSamples: 3 },
+      },
+    });
+    const specs = qualityBadgeSpecs(row);
+    expect(specs).toHaveLength(1);
+    expect(specs[0].visibleText).toBe('spike 80 m/s');
+  });
+
+  it('a row firing all three modes produces exactly ONE elevation spec whose single visibleText contains all three numbers', () => {
+    const row = qualityRow({
+      elevation: {
+        tier: 'severe',
+        subGround: { flagged: true, minAltM: -125.4 },
+        closureDrift: { state: 'flagged', deltaM: 164.2, startEndDistM: 0 },
+        verticalRate: { flagged: true, worstRateMps: 12.7, violatingSamples: 1 },
+      },
+    });
+    const specs = qualityBadgeSpecs(row);
+    expect(specs.filter((s) => s.signal === 'elevation')).toHaveLength(1);
+    const { visibleText } = specs.filter((s) => s.signal === 'elevation')[0];
+    expect(visibleText).toContain('-125');
+    expect(visibleText).toContain('164');
+    expect(visibleText).toContain('13');
+  });
+
+  it("a tier: 'none' row produces no elevation spec", () => {
+    const row = qualityRow({
+      elevation: {
+        tier: 'none',
+        subGround: { flagged: false, minAltM: 12 },
+        closureDrift: { state: 'clear', deltaM: 4, startEndDistM: 38 },
+        verticalRate: { flagged: false, worstRateMps: 1.2, violatingSamples: 0 },
+      },
+    });
+    expect(qualityBadgeSpecs(row)).toEqual([]);
+  });
+
+  it("a tier: 'not-computable' row produces no elevation spec", () => {
+    const row = qualityRow({
+      elevation: {
+        tier: 'not-computable',
+        subGround: { flagged: false, minAltM: null },
+        closureDrift: { state: 'not-computable', deltaM: null, startEndDistM: null },
+        verticalRate: { flagged: false, worstRateMps: null, violatingSamples: null },
+      },
+    });
+    expect(qualityBadgeSpecs(row)).toEqual([]);
+  });
+
+  it('a severe row whose measured values are all null produces no elevation spec rather than a numberless badge', () => {
+    const row = qualityRow({
+      elevation: {
+        tier: 'severe',
+        subGround: { flagged: true, minAltM: null },
+        closureDrift: { state: 'flagged', deltaM: null, startEndDistM: 0 },
+        verticalRate: { flagged: true, worstRateMps: null, violatingSamples: null },
+      },
+    });
+    expect(qualityBadgeSpecs(row)).toEqual([]);
+  });
+
+  it('a row whose quality is undefined (the stale-index G-04 case) still returns an empty array with no TypeError, including for elevation', () => {
+    const row = rowMissingQuality();
+    expect(() => qualityBadgeSpecs(row)).not.toThrow();
+    expect(qualityBadgeSpecs(row)).toEqual([]);
+  });
+});
+
 describe('qualityBadgeDescriptionId — quality badge id shape, mirroring lowConfidenceDescriptionId/paceDisputedDescriptionId', () => {
   it('produces two different ids for the card prefix and the table prefix of the same activity', () => {
     const cardId = qualityBadgeDescriptionId('activity-card-123', 'gap-profile');
