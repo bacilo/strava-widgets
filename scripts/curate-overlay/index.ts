@@ -27,6 +27,14 @@
  * hash route survives the reload, so detail.ts's own render re-runs and
  * repaints the real Excluded — {reason} badge from code this phase never
  * touches for rendering.
+ *
+ * A second module-scope listener (D-07) injects a "Review queue" link into
+ * the live nav DOM on every curate-served page, rather than adding it to
+ * `src/dashboard/nav.ts` — so no published view file changes (D-06). The
+ * choice to rely on a plain DOMContentLoaded listener rather than a DOM
+ * watcher of any kind rests on a verified script-ordering guarantee (this
+ * classic script runs before the deferred module script's `createNav(...)`
+ * call, and `DOMContentLoaded` fires after both), not on luck.
  */
 
 import { mountCurationControls } from './exclusion-panel.js';
@@ -58,6 +66,30 @@ document.addEventListener('dashboard:best-efforts-mounted', (event) => {
   }
 
   mountCurationControls(section, activityId);
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  const navLinks = document.querySelector<HTMLElement>('#app-nav-root .app-nav__links');
+  // Never-throw, mirroring loadExclusionState's discipline: a missing nav
+  // (a future markup change, or a main.ts module-graph failure) must
+  // degrade to "no link", not an error thrown into the dashboard's own
+  // event loop.
+  if (!navLinks) {
+    return;
+  }
+
+  // A double-mount must never render two links.
+  if (navLinks.querySelector('a[href="/__curate/queue"]')) {
+    return;
+  }
+
+  const item = document.createElement('li');
+  const link = document.createElement('a');
+  link.className = 'app-nav__link';
+  link.href = '/__curate/queue';
+  link.textContent = 'Review queue';
+  item.appendChild(link);
+  navLinks.appendChild(item);
 });
 
 /** Maps a non-ok curate response to a short, human sentence for the status line. */
