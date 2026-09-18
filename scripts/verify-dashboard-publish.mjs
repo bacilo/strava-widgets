@@ -19,8 +19,8 @@ const ROOT = resolve(process.cwd(), 'dist/widgets');
 const INDEX_HTML = join(ROOT, 'index.html');
 const INDEX_JSON = join(ROOT, 'data/dashboard/index.json');
 
-/** The five named quality sub-keys (Phase 27, QUAL-01) — shared between the index-row check and the shard-sample check below. */
-const QUALITY_SUB_KEYS = ['decimation', 'gapProfile', 'impossibleSamples', 'deviceEra', 'elapsedVsMoving'];
+/** The six named quality sub-keys (Phase 27, QUAL-01; Phase 30 ELEV-01 T-30-11 added 'elevation') — shared between the index-row check and the shard-sample check below. */
+const QUALITY_SUB_KEYS = ['decimation', 'gapProfile', 'impossibleSamples', 'deviceEra', 'elapsedVsMoving', 'elevation'];
 
 let failures = 0;
 let checks = 0;
@@ -317,11 +317,11 @@ async function main() {
           );
         } else if (missingQualityRow) {
           fail(
-            `/data/dashboard/index.json activity ${missingQualityRow.id} is missing "quality" or one of its five named sub-keys — a partial rollout, not a total one (T-27-14)`
+            `/data/dashboard/index.json activity ${missingQualityRow.id} is missing "quality" or one of its six named sub-keys — a partial rollout, not a total one (T-27-14)`
           );
         } else {
           ok(
-            `/data/dashboard/index.json every row (${parsed.activities.length}) has a "quality" object with all five named sub-keys`
+            `/data/dashboard/index.json every row (${parsed.activities.length}) has a "quality" object with all six named sub-keys`
           );
         }
 
@@ -801,11 +801,11 @@ async function main() {
             QUALITY_SUB_KEYS.some((key) => !(key in parsedShard.signals))
           ) {
             fail(
-              `/data/stats/pace-quality/${shardId}.json "signals" is missing or missing one of the five named sub-keys, got ${JSON.stringify(parsedShard.signals)}`
+              `/data/stats/pace-quality/${shardId}.json "signals" is missing or missing one of the six named sub-keys, got ${JSON.stringify(parsedShard.signals)}`
             );
           } else {
             ok(
-              `/data/stats/pace-quality/${shardId}.json parses with activityId "${shardId}" and a "signals" object carrying all five named sub-keys`
+              `/data/stats/pace-quality/${shardId}.json parses with activityId "${shardId}" and a "signals" object carrying all six named sub-keys`
             );
           }
         }
