@@ -46,22 +46,22 @@ Every requirement below must be claimed by at least one task row before
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 30-01-T1 | 30-01 | 1 | ELEV-01 | T-30-01, T-30-02, T-30-04 | Three total detectors at −50 m / 60 m / 5 m/s with `LOOP_RADIUS_M = 100`; malformed, `[]`, wrong-length, non-finite or absent input returns not-computable, never throws, never a coerced zero; the haversine constant is the one `derive-stream.ts` uses | unit | `npx vitest run src/analytics/pace-quality.test.ts -t "elevation"` | ❌ W0 (extend existing) | ⬜ pending |
-| 30-01-T2 | 30-01 | 1 | ELEV-01 | T-30-03 | `elevation` is the sixth signal and rides the existing shard; `hasAnySevereSignal`'s `Pick<>` key set is unchanged, demonstrated failing when widened | unit (key-set assertion) + unit (mode independence) | `npx vitest run src/analytics/pace-quality.test.ts -t "anySevere excludes elevation"` and `-t "mode independence"` | ❌ W0 | ⬜ pending |
-| 30-01-T3 | 30-01 | 1 | ELEV-01 | T-30-05 | The required key lands tree-wide with no existing assertion altered; `ALT_MIN` untouched | regression (full suite + typecheck) | `npx tsc --noEmit && npm test` | ✅ existing suite | ⬜ pending |
-| 30-02-T1 | 30-02 | 2 | ELEV-02 | T-30-06, T-30-07, T-30-08 | Pinned real exemplars (4556693525 min −282 m; 4745489664 drift −197.6 m at 0 m; 3149636661 worst 80.4 m/s and also drifting) re-verify against the live archive; an unhandled `expected` key still throws | unit | `npx vitest run src/analytics/pace-fixtures.test.ts` | ✅ extend (`assertExpectedProperties` switch) | ⬜ pending |
-| 30-03-T1 | 30-03 | 2 | ELEV-01 | T-30-12, T-30-13 | `start_latlng`/`end_latlng` reach the detector through the existing metadata slice with zero new file reads; the Phase 27 composite is unmoved by the regeneration | integration (real archive) | `npm run build && npm run compute-dashboard-index && node scripts/compute-pace-quality-recount.mjs --expect 299` | ✅ (re-run, not extended) | ⬜ pending |
-| 30-03-T2 | 30-03 | 2 | ELEV-01 | T-30-09, T-30-10 | A stale row with no `elevation` key, a `'minor'` tier, or a `NaN`/string numeric parses to an explicit not-computable — never a throw, never `0` | unit | `npx vitest run src/dashboard/data/pace-quality-client.test.ts` | ✅ extend | ⬜ pending |
-| 30-03-T3 | 30-03 | 2 | ELEV-02 | T-30-11 | A partial rollout (one published row missing `quality.elevation`) fails the publish gate, demonstrated failing | integration (publish gate) | `npm run build-widgets && npm run verify-dashboard` | ✅ extend (`QUALITY_SUB_KEYS`) | ⬜ pending |
-| 30-04-T1 | 30-04 | 2 | ELEV-02 | T-30-14, T-30-16, T-30-17 | `data/streams/` byte-unchanged proved by a sha256 digest before/after with a non-zero exit on mismatch; no `fs` write target under `data/` in the script or the analytics module; importing the module sweeps nothing | integration (digest) + unit (source scan) | `npx vitest run scripts/compute-elevation-calibration.test.mjs` | ❌ W0 | ⬜ pending |
-| 30-04-T2 | 30-04 | 2 | ELEV-02 | T-30-15, T-30-16 | `30-CALIBRATION.md` reports per-mode cohorts, the derived loop radius with its justification, the loop-gated overlap matrix and union, the device breakdown, the 207-style drift not-computable cohort with its denominator, the loop-gate exclusions by id, and the D-08 carry-forward finding — and regenerates byte-identically | integration (script, real archive) + idempotence diff | `npm run compute-elevation-calibration` | ❌ W0 | ⬜ pending |
-| 30-04-T3 | 30-04 | 2 | ELEV-01 | T-30-18 | ROADMAP Criteria 1 and 3 and REQUIREMENTS ELEV-01 state the loop-gated counts and record the original as a raw-difference measurement; both checkboxes remain unticked pending verification | doc assertion (grep) | `grep -c "34 barometric-closure-drift" .planning/ROADMAP.md` returns 0 and `grep -c "raw-difference" .planning/ROADMAP.md .planning/REQUIREMENTS.md` returns ≥1 each | n/a (docs) | ⬜ pending |
-| 30-05-T1 | 30-05 | 3 | ELEV-01 | T-30-19, T-30-20, T-30-22, T-30-23 | Exactly one severe-only elevation badge per row on all three surfaces, carrying the fired modes' measured values; no badge for `none`/`not-computable`; no badge when every value is null; no TypeError on a row with no `quality`; no filter or URL parameter added | unit | `npx vitest run src/dashboard/views/list.test.ts -t "elevation"` | ✅ extend | ⬜ pending |
-| 30-05-T2 | 30-05 | 3 | ELEV-01 | T-30-21 | The Elevation Gain stat card is badged when flagged and nothing else is caveated; no new fetch or `Promise.all` member | typecheck + regression suite | `npx tsc --noEmit && npm test` | ✅ existing suite | ⬜ pending |
-| 30-06-T1 | 30-06 | 3 | ELEV-01 | T-30-24, T-30-28 | Three always-on elevation rows on every activity; the section and the not-available fallback both return eight rows; the render loop and the three existing rows are untouched | unit | `npx tsc --noEmit && npx vitest run src/dashboard/views/detail-sections.test.ts` | ✅ extend | ⬜ pending |
-| 30-06-T2 | 30-06 | 3 | ELEV-01 | T-30-25, T-30-26, T-30-27 | All four drift phrasings render and the excluded and position-unknown states are provably different strings; a stream-less activity shows no `0 m`/`0 m/s`; a null shard nulls only `evidenceText` | unit | `npx vitest run src/dashboard/views/detail-sections.test.ts -t "elevation rows"` | ❌ W0 (new describe) | ⬜ pending |
-| 30-07-T1 | 30-07 | 3 | ELEV-02 | T-30-29, T-30-30, T-30-31, T-30-32 | The recount reproduces the elevation cohorts from the shipped index alone, importing no classifier and never touching `anySevere`; malformed rows degrade rather than throw; no `fs` write target under `data/` | integration (script) + unit (source scan) | `node scripts/compute-elevation-recount.mjs && npx vitest run scripts/compute-elevation-recount.test.mjs` | ❌ W0 | ⬜ pending |
-| 30-07-T2 | 30-07 | 3 | ELEV-02 | T-30-33 | Three independently produced figures for one cohort reconcile with every delta quantified and caused; Phase 27's composite stays byte-stable under an unmodified script | regression | `node scripts/compute-pace-quality-recount.mjs --expect 299` | ✅ (re-run, not extended) | ⬜ pending |
+| 30-01-T1 | 30-01 | 1 | ELEV-01 | T-30-01, T-30-02, T-30-04 | Three total detectors at −50 m / 60 m / 5 m/s with `LOOP_RADIUS_M = 100`; malformed, `[]`, wrong-length, non-finite or absent input returns not-computable, never throws, never a coerced zero; the haversine constant is the one `derive-stream.ts` uses | unit | `npx vitest run src/analytics/pace-quality.test.ts -t "elevation"` | ❌ W0 (extend existing) | ✅ green |
+| 30-01-T2 | 30-01 | 1 | ELEV-01 | T-30-03 | `elevation` is the sixth signal and rides the existing shard; `hasAnySevereSignal`'s `Pick<>` key set is unchanged, demonstrated failing when widened | unit (key-set assertion) + unit (mode independence) | `npx vitest run src/analytics/pace-quality.test.ts -t "anySevere excludes elevation"` and `-t "mode independence"` | ❌ W0 | ✅ green |
+| 30-01-T3 | 30-01 | 1 | ELEV-01 | T-30-05 | The required key lands tree-wide with no existing assertion altered; `ALT_MIN` untouched | regression (full suite + typecheck) | `npx tsc --noEmit && npm test` | ✅ existing suite | ✅ green |
+| 30-02-T1 | 30-02 | 2 | ELEV-02 | T-30-06, T-30-07, T-30-08 | Pinned real exemplars (4556693525 min −282 m; 4745489664 drift −197.6 m at 0 m; 3149636661 worst 80.4 m/s and also drifting) re-verify against the live archive; an unhandled `expected` key still throws | unit | `npx vitest run src/analytics/pace-fixtures.test.ts` | ✅ extend (`assertExpectedProperties` switch) | ✅ green |
+| 30-03-T1 | 30-03 | 2 | ELEV-01 | T-30-12, T-30-13 | `start_latlng`/`end_latlng` reach the detector through the existing metadata slice with zero new file reads; the Phase 27 composite is unmoved by the regeneration | integration (real archive) | `npm run build && npm run compute-dashboard-index && node scripts/compute-pace-quality-recount.mjs --expect 299` | ✅ (re-run, not extended) | ✅ green |
+| 30-03-T2 | 30-03 | 2 | ELEV-01 | T-30-09, T-30-10 | A stale row with no `elevation` key, a `'minor'` tier, or a `NaN`/string numeric parses to an explicit not-computable — never a throw, never `0` | unit | `npx vitest run src/dashboard/data/pace-quality-client.test.ts` | ✅ extend | ✅ green |
+| 30-03-T3 | 30-03 | 2 | ELEV-02 | T-30-11 | A partial rollout (one published row missing `quality.elevation`) fails the publish gate, demonstrated failing | integration (publish gate) + planted-fixture subprocess test | `npm run build-widgets && npm run verify-dashboard && npx vitest run scripts/verify-dashboard-publish-guard.test.mjs -t "Case G"` | ✅ extend (`QUALITY_SUB_KEYS`) + Case G in `verify-dashboard-publish-guard.test.mjs` | ✅ green |
+| 30-04-T1 | 30-04 | 2 | ELEV-02 | T-30-14, T-30-16, T-30-17 | `data/streams/` byte-unchanged proved by a sha256 digest before/after with a non-zero exit on mismatch; no `fs` write target under `data/` in the script or the analytics module; importing the module sweeps nothing | integration (digest) + unit (source scan) | `npx vitest run scripts/compute-elevation-calibration.test.mjs` | ❌ W0 | ✅ green |
+| 30-04-T2 | 30-04 | 2 | ELEV-02 | T-30-15, T-30-16 | `30-CALIBRATION.md` reports per-mode cohorts, the derived loop radius with its justification, the loop-gated overlap matrix and union, the device breakdown, the 207-style drift not-computable cohort with its denominator, the loop-gate exclusions by id, and the D-08 carry-forward finding — and regenerates byte-identically | integration (script, real archive) + idempotence diff | `npm run compute-elevation-calibration` | ❌ W0 | ✅ green |
+| 30-04-T3 | 30-04 | 2 | ELEV-01 | T-30-18 | ROADMAP Criteria 1 and 3 and REQUIREMENTS ELEV-01 state the loop-gated counts and record the original as a raw-difference measurement; both checkboxes remain unticked pending verification | doc assertion (grep) | `grep -c "34 barometric-closure-drift" .planning/ROADMAP.md` returns 0 and `grep -c "raw-difference" .planning/ROADMAP.md .planning/REQUIREMENTS.md` returns ≥1 each | n/a (docs) | ✅ green |
+| 30-05-T1 | 30-05 | 3 | ELEV-01 | T-30-19, T-30-20, T-30-22, T-30-23 | Exactly one severe-only elevation badge per row on all three surfaces, carrying the fired modes' measured values; no badge for `none`/`not-computable`; no badge when every value is null; no TypeError on a row with no `quality`; no filter or URL parameter added | unit | `npx vitest run src/dashboard/views/list.test.ts -t "elevation"` | ✅ extend | ✅ green |
+| 30-05-T2 | 30-05 | 3 | ELEV-01 | T-30-21 | The Elevation Gain stat card is badged when flagged and nothing else is caveated; no new fetch or `Promise.all` member | typecheck + regression suite | `npx tsc --noEmit && npm test` | ✅ existing suite | ✅ green |
+| 30-06-T1 | 30-06 | 3 | ELEV-01 | T-30-24, T-30-28 | Three always-on elevation rows on every activity; the section and the not-available fallback both return eight rows; the render loop and the three existing rows are untouched | unit | `npx tsc --noEmit && npx vitest run src/dashboard/views/detail-sections.test.ts` | ✅ extend | ✅ green |
+| 30-06-T2 | 30-06 | 3 | ELEV-01 | T-30-25, T-30-26, T-30-27 | All four drift phrasings render and the excluded and position-unknown states are provably different strings; a stream-less activity shows no `0 m`/`0 m/s`; a null shard nulls only `evidenceText` | unit | `npx vitest run src/dashboard/views/detail-sections.test.ts -t "elevation rows"` | ❌ W0 (new describe) | ✅ green |
+| 30-07-T1 | 30-07 | 3 | ELEV-02 | T-30-29, T-30-30, T-30-31, T-30-32 | The recount reproduces the elevation cohorts from the shipped index alone, importing no classifier and never touching `anySevere`; malformed rows degrade rather than throw; no `fs` write target under `data/` | integration (script) + unit (source scan) | `node scripts/compute-elevation-recount.mjs && npx vitest run scripts/compute-elevation-recount.test.mjs` | ❌ W0 | ✅ green |
+| 30-07-T2 | 30-07 | 3 | ELEV-02 | T-30-33 | Three independently produced figures for one cohort reconcile with every delta quantified and caused; Phase 27's composite stays byte-stable under an unmodified script | regression | `node scripts/compute-pace-quality-recount.mjs --expect 299` | ✅ (re-run, not extended) | ✅ green |
 | 30-08-T1 | 30-08 | 4 | ELEV-01, ELEV-02 | T-30-34, T-30-36, T-30-37 | Eight rows drafted with CAN PASS / CAN FAIL in both directions, each stating an expected value from a committed shard, the calibration report or a script's stdout; the served digest is computed from fetched bytes | integration (build + serve + digest) | `node scripts/compute-elevation-recount.mjs && node scripts/compute-pace-quality-recount.mjs --expect 299 && npm run verify-dashboard` | ✅ W0 | ✅ green |
 | 30-08-T2 | 30-08 | 4 | ELEV-01, ELEV-02 | T-30-35, T-30-38, T-30-39 | Badge, three detail lines, Elevation Gain caveat, position-unknown wording and elevation's absence from the severe filter read off a rendered page; verdicts verbatim; requirements ticked only after every mapped row passes | manual (browser checkpoint) | human-check — see § Round 1 Checkpoint | n/a (manual) | ✅ green |
 
@@ -493,3 +493,42 @@ empty by the plan's own instruction.
 
 No BLOCKED row exists, so no requirement is withheld. Ticks applied only after this transcription, per the
 project's standing rule (requirements ticked after verification, never before).
+
+---
+
+## Validation Audit 2026-09-18
+
+Retroactive Nyquist audit (`/gsd-validate-phase 30`). Every mapped automated command was re-run
+on the primary checkout and every `-t` filter confirmed to select a non-empty test set
+(26 / 1 / 2 / 11 / 16) — no vacuously-green rows. Full suite 84 files / 2,548 tests green;
+`npx tsc --noEmit` clean; `node scripts/compute-elevation-recount.mjs` PASS (union 60);
+`node scripts/compute-pace-quality-recount.mjs --expect 299` MATCH; `npm run verify-dashboard`
+66/0; `npm run compute-elevation-calibration` regenerated `30-CALIBRATION.md` byte-identically
+modulo the `Generated:` timestamp (reverted); `git status --porcelain data/` empty throughout.
+
+| Metric | Count |
+|--------|-------|
+| Gaps found | 1 |
+| Resolved | 1 |
+| Escalated | 0 |
+
+**Gap 1 — 30-03-T3 (ELEV-02, T-30-11), PARTIAL → COVERED.** The publish gate's green direction
+was automated but its failing direction (a published row missing `quality.elevation` → non-zero
+exit) existed only as a one-off manual run recorded in `30-03-SUMMARY.md`; neither
+`verify-dashboard-publish-*.test.mjs` file mentioned `elevation`, so dropping `'elevation'` from
+`QUALITY_SUB_KEYS` would have passed every automated check silently. Resolved by a new
+`describe` block in `scripts/verify-dashboard-publish-guard.test.mjs` —
+`verify-dashboard-publish.mjs: T-30-11/ELEV-02 partial elevation rollout (30-03-T3)` — with two
+cases that are CAN PASS / CAN FAIL in both directions: **Case G (clean)** asserts the real
+verifier exits 0 on the unmutated build; **Case G (planted partial rollout)** backs up
+`dist/widgets/data/dashboard/index.json`, deletes `quality.elevation` from exactly one row,
+runs the real shipped script via `execFileSync`, asserts a non-zero exit and the verbatim
+line `✗ /data/dashboard/index.json activity {id} is missing "quality" or one of its six named
+sub-keys — a partial rollout, not a total one (T-27-14)`, restores the original bytes in a
+`finally`, and asserts the restored sha256 equals the pre-mutation digest. Nothing under
+`data/` is written (D-16). 9/9 green in the file; the served index digest was confirmed
+unchanged and `verify-dashboard` re-run 66/0 afterwards.
+
+Status rows 30-01-T1 … 30-07-T2 were `⬜ pending` although their commands had been run green
+during execution (the executors never ticked the map); all 15 are now `✅ green` from this
+audit's re-runs, not from the SUMMARY claims.
