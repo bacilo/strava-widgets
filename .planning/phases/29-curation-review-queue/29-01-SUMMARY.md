@@ -131,3 +131,12 @@ None - no external service configuration required.
 - The build-time half of CUR-03 (D-18/D-19) is closed by this plan: the existing `__curate` content scan is now proven, not merely asserted, to catch a queue-page-shaped and a queue-bundle-shaped leak, and IN-17's double-violation defect (which would otherwise have inflated the count when the real queue page/bundle ship in later Phase 29 plans) is fixed first.
 - `findCurationArtifacts` is otherwise unchanged in every other respect the plan required: `UNSCANNED_EXTENSIONS`, `CURATE_MARKER`, the directory-branch descend-and-report behavior, and all pre-existing WR-14/WR-19 non-regular-entry cases.
 - No blockers for the plans that build the actual `/__curate/queue` page/route/bundle (D-06/D-07/D-08 etc.) — this plan only closed the guard-correctness prerequisite (IN-17) and its proof (D-19), per the plan's own scope boundary. The HTTP half of CUR-03 (D-17, `verify-dashboard-publish.mjs`'s new `expect404` lines) is explicitly out of this plan's scope and remains for a later plan in this phase.
+
+## Self-Check: PASSED
+
+- FOUND: `scripts/lib/curation-guard.mjs`
+- FOUND: `scripts/lib/curation-guard.test.mjs`
+- FOUND: `.planning/phases/29-curation-review-queue/29-01-SUMMARY.md`
+- FOUND commit: `ce656477` (Task 1)
+- FOUND commit: `ca05b905` (Task 2)
+- FOUND commit: `bac5f71f` (Task 3)
