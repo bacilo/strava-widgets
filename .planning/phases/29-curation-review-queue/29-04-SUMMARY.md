@@ -109,3 +109,14 @@ None - no external service configuration required.
 ---
 *Phase: 29-curation-review-queue*
 *Completed: 2026-09-18*
+
+## Self-Check: PASSED
+
+- `scripts/curate-queue/derive-flagged.mjs` — FOUND
+- `scripts/curate-queue/derive-flagged.test.mjs` — FOUND
+- `.planning/phases/29-curation-review-queue/29-04-SUMMARY.md` — FOUND
+- Task 1 commit `358eb27a` — FOUND
+- Task 2 RED commit `f8167a08` — FOUND
+- Task 2 GREEN commit `c294f26f` — FOUND
+- Task 3 commit `9c14e4a8` — FOUND
+- `npx vitest run scripts/curate-queue/derive-flagged.test.mjs` → 25/25 passed
