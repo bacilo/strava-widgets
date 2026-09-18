@@ -284,9 +284,9 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 29-01-PLAN.md — Build-time guard: IN-17 one-path-one-violation fix + planted queue-leak fixtures (D-18/D-19)
-- [ ] 29-02-PLAN.md — HTTP guard: two literal 404 assertions for the new routes, planted-leak Cases E/F, IN-18 (D-17/D-19)
-- [ ] 29-03-PLAN.md — Independent recount gains an all-guards activity count and its --expect pin (D-16)
+- [x] 29-01-PLAN.md — Build-time guard: IN-17 one-path-one-violation fix + planted queue-leak fixtures (D-18/D-19)
+- [x] 29-02-PLAN.md — HTTP guard: two literal 404 assertions for the new routes, planted-leak Cases E/F, IN-18 (D-17/D-19)
+- [x] 29-03-PLAN.md — Independent recount gains an all-guards activity count and its --expect pin (D-16)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -362,7 +362,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 26. Shared Gap-Aware Pace Derivation & Honest Coverage | v2.2 | 16/16 | Complete    | 2026-09-10 |
 | 27. Per-Activity Quality Signals | v2.2 | 12/12 | Complete    | 2026-09-10 |
 | 28. PR Plausibility Ceiling | v2.2 | 15/15 | Complete    | 2026-09-17 |
-| 29. Curation Review Queue | v2.2 | 0/TBD | Not started | - |
+| 29. Curation Review Queue | v2.2 | 3/8 | In Progress|  |
 | 30. Elevation Quality Signal | v2.2 | 0/TBD | Not started | - |
 
 ---
