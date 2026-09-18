@@ -910,6 +910,29 @@ describe('elevation rows — subGroundRow / closureDriftRow / verticalRateRow (D
     expect(verticalRate.tier).toBe('severe');
   });
 
+  // WR-04 (30-REVIEW.md, T-26-02): `violatingSamples` can be `null` on a
+  // flagged row (any non-finite raw value degrades to `null` in
+  // `pace-quality-client.ts`'s parse, and the index-row path has no parse
+  // at all) -- the row must never fabricate a plausible-looking "0
+  // violating sample pairs" via `?? 0`.
+  it('vertical rate flagged with violatingSamples null: the row states the count is unavailable rather than fabricating a zero', () => {
+    const quality: ActivityQualitySignals = {
+      ...HEALTHY_QUALITY,
+      elevation: {
+        ...HEALTHY_QUALITY.elevation,
+        tier: 'severe',
+        verticalRate: { flagged: true, worstRateMps: 80.4, violatingSamples: null },
+      },
+    };
+    const plan = qualitySignalsSectionPlan(quality, null);
+    const verticalRate = plan.rows[5];
+
+    expect(verticalRate.valueText).toBe('max vertical rate 80.4 m/s — violating sample count unavailable');
+    expect(verticalRate.tier).toBe('severe');
+    expect(verticalRate.valueText).not.toContain('0 violating');
+    expect(verticalRate.valueText).not.toMatch(/null|undefined|NaN/);
+  });
+
   it('whole-signal not-computable (stream-less): the sub-ground and vertical-rate rows read "Not computable — {reason}" with tier not-computable, and NO elevation row reads 0 m, 0 m/s or any healthy statement (T-30-26, T-26-02)', () => {
     const plan = qualitySignalsSectionPlan(NOT_COMPUTABLE_QUALITY, null);
     const [subGround, closureDrift, verticalRate] = plan.rows.slice(3, 6);

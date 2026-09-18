@@ -1229,8 +1229,17 @@ function verticalRateRow(
   if (signal.worstRateMps === null) {
     valueText = 'Vertical-rate data unavailable';
   } else if (signal.flagged) {
-    const noun = signal.violatingSamples === 1 ? 'pair' : 'pairs';
-    valueText = `max vertical rate ${signal.worstRateMps.toFixed(1)} m/s across ${signal.violatingSamples ?? 0} violating sample ${noun}`;
+    // WR-04 (30-REVIEW.md, T-26-02): `violatingSamples` can be `null` on a
+    // flagged row (any non-finite raw value degrades to `null` in
+    // `pace-quality-client.ts`'s parse, and the index-row path has no parse
+    // at all) — `?? 0` would fabricate a plausible-looking computed zero on
+    // a row that is, by definition, severe. State unavailability explicitly
+    // instead of coercing it to a count.
+    const rate = `max vertical rate ${signal.worstRateMps.toFixed(1)} m/s`;
+    valueText =
+      signal.violatingSamples === null
+        ? `${rate} — violating sample count unavailable`
+        : `${rate} across ${signal.violatingSamples} violating sample ${signal.violatingSamples === 1 ? 'pair' : 'pairs'}`;
   } else {
     valueText = `max vertical rate ${signal.worstRateMps.toFixed(1)} m/s`;
   }
