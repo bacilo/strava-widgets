@@ -74,6 +74,18 @@ function loadStream(activityId: string): CanonicalStream {
   return JSON.parse(raw) as CanonicalStream;
 }
 
+/**
+ * Loads a committed elevation-quality shard verbatim (Phase 30, plan 30-06
+ * Task 2) — the shard JSON on disk already has exactly `PaceQualityShard`'s
+ * shape, so this is a straight parse, matching `loadStream`'s own precedent
+ * one file over. Used only by the three pinned-real-activity tests below;
+ * every other test in this file uses hand-built fixtures.
+ */
+function loadShard(activityId: string): PaceQualityShard {
+  const raw = fs.readFileSync(`data/stats/pace-quality/${activityId}.json`, 'utf-8');
+  return JSON.parse(raw) as PaceQualityShard;
+}
+
 // ---------------------------------------------------------------------------
 // coverageCaptionText
 // ---------------------------------------------------------------------------
@@ -710,6 +722,239 @@ describe('qualitySignalsSectionPlan — quality signals section (D-08, D-09, D-1
     const plan = qualitySignalsSectionPlan(HEALTHY_QUALITY, null);
     expect(plan.rows[6].tier).toBe('untiered');
     expect(plan.rows[7].tier).toBe('untiered');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// elevation rows (D-02, D-11, D-17, Phase 30 ELEV-01) — subGroundRow,
+// closureDriftRow, verticalRateRow. Every branch the three builders can
+// take is exercised here: an untested branch is a branch the human
+// checkpoint (plan 30-08) may be the first to reach (T-30-24, T-30-25,
+// T-30-26 in the plan's own threat register).
+// ---------------------------------------------------------------------------
+
+describe('elevation rows — subGroundRow / closureDriftRow / verticalRateRow (D-02, D-11)', () => {
+  it('healthy activity: all three elevation rows present, each carrying a number, none blank/undefined/null/NaN, tier none on each', () => {
+    const plan = qualitySignalsSectionPlan(HEALTHY_QUALITY, null);
+    const [subGround, closureDrift, verticalRate] = plan.rows.slice(3, 6);
+
+    for (const row of [subGround, closureDrift, verticalRate]) {
+      expect(row.valueText.length).toBeGreaterThan(0);
+      expect(row.valueText).not.toContain('undefined');
+      expect(row.valueText).not.toContain('null');
+      expect(row.valueText).not.toContain('NaN');
+      expect(row.tier).toBe('none');
+    }
+
+    expect(subGround.label).toBe('Lowest altitude');
+    expect(subGround.valueText).toBe('lowest altitude 12 m');
+    expect(closureDrift.label).toBe('Start/end altitude');
+    expect(closureDrift.valueText).toBe('start/end altitude differ by 4 m (loop, 38 m apart)');
+    expect(verticalRate.label).toBe('Max vertical rate');
+    expect(verticalRate.valueText).toBe('max vertical rate 1.2 m/s');
+  });
+
+  it('sub-ground flagged: the row names the measured minimum and carries tier severe; the other two elevation rows still read healthy with their own numbers', () => {
+    const quality: ActivityQualitySignals = {
+      ...HEALTHY_QUALITY,
+      elevation: {
+        ...HEALTHY_QUALITY.elevation,
+        tier: 'severe',
+        subGround: { flagged: true, minAltM: -282 },
+      },
+    };
+    const plan = qualitySignalsSectionPlan(quality, null);
+    const [subGround, closureDrift, verticalRate] = plan.rows.slice(3, 6);
+
+    expect(subGround.valueText).toBe('lowest altitude -282 m — below plausible ground level');
+    expect(subGround.tier).toBe('severe');
+    expect(closureDrift.valueText).toBe('start/end altitude differ by 4 m (loop, 38 m apart)');
+    expect(closureDrift.tier).toBe('none');
+    expect(verticalRate.valueText).toBe('max vertical rate 1.2 m/s');
+    expect(verticalRate.tier).toBe('none');
+  });
+
+  it('drift flagged on a loop: the row names both the absolute delta and the endpoint distance', () => {
+    const quality: ActivityQualitySignals = {
+      ...HEALTHY_QUALITY,
+      elevation: {
+        ...HEALTHY_QUALITY.elevation,
+        tier: 'severe',
+        closureDrift: { state: 'flagged', deltaM: -198, startEndDistM: 0 },
+      },
+    };
+    const plan = qualitySignalsSectionPlan(quality, null);
+    const closureDrift = plan.rows[4];
+
+    expect(closureDrift.valueText).toBe(
+      'start and end altitudes differ by 198 m on a loop whose endpoints are 0 m apart'
+    );
+    expect(closureDrift.tier).toBe('severe');
+  });
+
+  it("drift clear on a loop: D-11's own phrasing shape, with both numbers present", () => {
+    const plan = qualitySignalsSectionPlan(HEALTHY_QUALITY, null);
+    const closureDrift = plan.rows[4];
+
+    expect(closureDrift.valueText).toBe('start/end altitude differ by 4 m (loop, 38 m apart)');
+    expect(closureDrift.tier).toBe('none');
+  });
+
+  it('drift excluded, endpoints far apart: the row says drift was not checked and names the measured distance, and contains no delta figure', () => {
+    const quality: ActivityQualitySignals = {
+      ...HEALTHY_QUALITY,
+      elevation: {
+        ...HEALTHY_QUALITY.elevation,
+        closureDrift: { state: 'clear', deltaM: null, startEndDistM: 9600 },
+      },
+    };
+    const plan = qualitySignalsSectionPlan(quality, null);
+    const closureDrift = plan.rows[4];
+
+    expect(closureDrift.valueText).toBe('start/end position measured 9600 m apart — not a loop, so drift was not checked');
+    expect(closureDrift.tier).toBe('none');
+    expect(closureDrift.valueText).not.toMatch(/differ by/);
+  });
+
+  it('drift position unknown: the row says position is unknown in words, contains no distance and no delta, and is distinguishable from the excluded case by its text', () => {
+    const quality: ActivityQualitySignals = {
+      ...HEALTHY_QUALITY,
+      elevation: {
+        ...HEALTHY_QUALITY.elevation,
+        closureDrift: { state: 'not-computable', deltaM: null, startEndDistM: null },
+      },
+    };
+    const plan = qualitySignalsSectionPlan(quality, null);
+    const closureDrift = plan.rows[4];
+
+    expect(closureDrift.valueText).toBe('start/end position unknown — drift not checked');
+    expect(closureDrift.tier).toBe('not-computable');
+    expect(closureDrift.valueText).not.toMatch(/\d/); // no distance, no delta -- no digit at all
+
+    // T-30-25: the excluded (not-a-loop) and position-unknown states must
+    // never collapse into the same string — a mutation demonstration of
+    // this exact assertion failing is recorded verbatim in 30-06-SUMMARY.md.
+    const excludedQuality: ActivityQualitySignals = {
+      ...HEALTHY_QUALITY,
+      elevation: {
+        ...HEALTHY_QUALITY.elevation,
+        closureDrift: { state: 'clear', deltaM: null, startEndDistM: 9600 },
+      },
+    };
+    const excludedRow = qualitySignalsSectionPlan(excludedQuality, null).rows[4];
+    expect(closureDrift.valueText).not.toBe(excludedRow.valueText);
+  });
+
+  it('vertical rate flagged: the row names the worst rate and the violating-pair count', () => {
+    const quality: ActivityQualitySignals = {
+      ...HEALTHY_QUALITY,
+      elevation: {
+        ...HEALTHY_QUALITY.elevation,
+        tier: 'severe',
+        verticalRate: { flagged: true, worstRateMps: 80.4, violatingSamples: 3 },
+      },
+    };
+    const plan = qualitySignalsSectionPlan(quality, null);
+    const verticalRate = plan.rows[5];
+
+    expect(verticalRate.valueText).toContain('80.4 m/s');
+    expect(verticalRate.valueText).toContain('3');
+    expect(verticalRate.tier).toBe('severe');
+  });
+
+  it('whole-signal not-computable (stream-less): the sub-ground and vertical-rate rows read "Not computable — {reason}" with tier not-computable, and NO elevation row reads 0 m, 0 m/s or any healthy statement (T-30-26, T-26-02)', () => {
+    const plan = qualitySignalsSectionPlan(NOT_COMPUTABLE_QUALITY, null);
+    const [subGround, closureDrift, verticalRate] = plan.rows.slice(3, 6);
+
+    expect(subGround.valueText).toBe('Not computable — no stream committed for this activity');
+    expect(subGround.tier).toBe('not-computable');
+    expect(verticalRate.valueText).toBe('Not computable — no stream committed for this activity');
+    expect(verticalRate.tier).toBe('not-computable');
+    // The whole-signal not-computable cohort's own closureDrift.state is
+    // 'not-computable' too (D-07) -- same position-unknown phrasing.
+    expect(closureDrift.valueText).toBe('start/end position unknown — drift not checked');
+    expect(closureDrift.tier).toBe('not-computable');
+
+    for (const row of [subGround, closureDrift, verticalRate]) {
+      expect(row.valueText).not.toContain('0 m/s');
+      expect(row.valueText).not.toBe('lowest altitude 0 m');
+      expect(row.valueText).not.toContain('max vertical rate 0');
+    }
+  });
+
+  it('quality === null: notAvailableRows() supplies eight rows including the three elevation ones, so the section still says something rather than vanishing', () => {
+    const plan = qualitySignalsSectionPlan(null, null);
+    expect(plan.rows).toHaveLength(8);
+
+    const [subGround, closureDrift, verticalRate] = plan.rows.slice(3, 6);
+    expect(subGround.label).toBe('Lowest altitude');
+    expect(closureDrift.label).toBe('Start/end altitude');
+    expect(verticalRate.label).toBe('Max vertical rate');
+    for (const row of [subGround, closureDrift, verticalRate]) {
+      expect(row.valueText).toBe('Quality data not available for this activity');
+      expect(row.tier).toBe('not-computable');
+    }
+  });
+
+  it("shard null: every elevation row's evidenceText is null while its valueText is unchanged, so a failed shard fetch degrades the evidence line only (T-30-27)", () => {
+    const withoutShard = qualitySignalsSectionPlan(HEALTHY_QUALITY, null);
+    const [subGroundNoShard, closureDriftNoShard, verticalRateNoShard] = withoutShard.rows.slice(3, 6);
+    expect(subGroundNoShard.evidenceText).toBeNull();
+    expect(closureDriftNoShard.evidenceText).toBeNull();
+    expect(verticalRateNoShard.evidenceText).toBeNull();
+
+    const shard = makeShard({
+      signals: HEALTHY_QUALITY,
+      elevationLoopRadiusM: 100,
+      elevationStartEndDistM: 38,
+      elevationVerticalRateSamples: [{ index: 42, rateMps: 1.2, dtSec: 1, dAltM: 1.2 }],
+    });
+    const withShard = qualitySignalsSectionPlan(HEALTHY_QUALITY, shard);
+    const [subGroundShard, closureDriftShard, verticalRateShard] = withShard.rows.slice(3, 6);
+
+    // valueText comes from `quality` alone -- unchanged by the shard's presence.
+    expect(subGroundShard.valueText).toBe(subGroundNoShard.valueText);
+    expect(closureDriftShard.valueText).toBe(closureDriftNoShard.valueText);
+    expect(verticalRateShard.valueText).toBe(verticalRateNoShard.valueText);
+
+    // evidence degrades independently per row: subGround has no shard
+    // evidence field at all (always null); closureDrift and verticalRate
+    // both gain one once a shard is available.
+    expect(subGroundShard.evidenceText).toBeNull();
+    expect(closureDriftShard.evidenceText).not.toBeNull();
+    expect(verticalRateShard.evidenceText).not.toBeNull();
+  });
+
+  describe('pinned real activities (30-03-SUMMARY.md) — rendered valueText read back against the committed shard', () => {
+    it('4556693525 (severe, sub-ground exemplar) — data/stats/pace-quality/4556693525.json', () => {
+      const shard = loadShard('4556693525');
+      const plan = qualitySignalsSectionPlan(shard.signals, shard);
+      const [subGround, closureDrift, verticalRate] = plan.rows.slice(3, 6);
+
+      expect(subGround.valueText).toBe('lowest altitude -282 m — below plausible ground level');
+      expect(closureDrift.valueText).toBe('start/end altitude differ by 6 m (loop, 0 m apart)');
+      expect(verticalRate.valueText).toBe('max vertical rate 3.3 m/s');
+    });
+
+    it('17257505831 (healthy exemplar) — data/stats/pace-quality/17257505831.json', () => {
+      const shard = loadShard('17257505831');
+      const plan = qualitySignalsSectionPlan(shard.signals, shard);
+      const [subGround, closureDrift, verticalRate] = plan.rows.slice(3, 6);
+
+      expect(subGround.valueText).toBe('lowest altitude 8 m');
+      expect(closureDrift.valueText).toBe('start/end altitude differ by 2 m (loop, 0 m apart)');
+      expect(verticalRate.valueText).toBe('max vertical rate 1.4 m/s');
+    });
+
+    it('i184264408 (drift not-computable, position unknown exemplar) — data/stats/pace-quality/i184264408.json', () => {
+      const shard = loadShard('i184264408');
+      const plan = qualitySignalsSectionPlan(shard.signals, shard);
+      const [subGround, closureDrift, verticalRate] = plan.rows.slice(3, 6);
+
+      expect(subGround.valueText).toBe('lowest altitude -1 m');
+      expect(closureDrift.valueText).toBe('start/end position unknown — drift not checked');
+      expect(verticalRate.valueText).toBe('max vertical rate 1.2 m/s');
+    });
   });
 });
 
