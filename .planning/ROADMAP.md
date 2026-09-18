@@ -319,7 +319,29 @@ Plans:
   2. Mode-independence is demonstrated, not assumed: the barometric-closure-drift and sub-ground-level flagged-ID lists from criterion 1 are shown substantially non-overlapping — proving a floor-bound check alone could not have caught the drift cohort — and each detector is demonstrated failing (flags nothing) when its own mode's injected fixture is removed.
   3. Flag rate reconciles archive-wide and nothing is corrected: the report's total flagged count reconciles with the measured 71-activity (3.8%) cohort, sampled across all four named device families (Suunto 9, Garmin fēnix 6 Pro, no device name, vívoactive 4); a code/behavior audit confirms `data/streams/` files are byte-unchanged after running the detector — flag only, no DEM lookup, no correction, no grade-adjusted pace.
 
-**Plans**: TBD
+**Plans**: 8 plans in 4 waves
+
+Plans:
+**Wave 1**
+
+- [ ] 30-01-PLAN.md — Elevation detector core: three total detectors, the derived loop radius, three single-mode synthetic fixtures, and elevation as the sixth signal with `anySevere` provably unchanged (ELEV-01)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 30-02-PLAN.md — Pinned real exemplars (4556693525, 4745489664, 3149636661) re-verified against the live archive through the total `expected`-key switch (ELEV-02)
+- [ ] 30-03-PLAN.md — Index wiring, tolerant client parse, and a publish gate that fails on a partial elevation rollout (ELEV-01, ELEV-02)
+- [ ] 30-04-PLAN.md — Archive-wide calibration report with the derived loop radius, the stream digest, and the D-04 correction of ROADMAP Criteria 1/3 and ELEV-01 (ELEV-01, ELEV-02)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 30-05-PLAN.md — One severe-only elevation badge per row on all three surfaces, plus the Elevation Gain stat-card caveat (ELEV-01)
+- [ ] 30-06-PLAN.md — Three always-on elevation lines on the detail view, with the drift line's four phrasings (ELEV-01)
+- [ ] 30-07-PLAN.md — Independent elevation recount from the shipped index, and the Phase 27 composite proved byte-stable (ELEV-02)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 30-08-PLAN.md — Human browser checkpoint against a digest-verified build, including elevation's visible absence from the severe filter (ELEV-01, ELEV-02)
+
 **UI hint**: yes
 **Browser checkpoint**: not strictly warranted on its own — this phase is a compute-layer detector with no new interactive surface; if its badge rendering reuses Phase 27's already-checkpointed badge component, a lightweight visual spot-check folded into Phase 27's or Phase 29's checkpoint session is sufficient rather than a dedicated round.
 
