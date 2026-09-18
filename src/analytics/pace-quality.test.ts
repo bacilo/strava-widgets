@@ -28,6 +28,7 @@ import {
   countImpossibleSamples,
   decimationSignal,
   elapsedVsMovingSignal,
+  elevationSignal,
   gapProfileSignal,
   hasAnySevereSignal,
   impossibleSampleSignal,
@@ -44,10 +45,13 @@ import {
   loadPinnedActivity,
   loadPinnedStream,
   makeStream,
+  syntheticClosureDriftStream,
   syntheticDecimationAliasedStream,
   syntheticImpossibleSpeedStream,
   syntheticMultiHourPauseStream,
   syntheticRecordingGapStream,
+  syntheticSubGroundStream,
+  syntheticVerticalRateSpikeStream,
 } from './pace-fixtures.js';
 import { adaptiveWindowSec as recomputeAdaptiveWindowSec } from './pace-derivation.js';
 
@@ -57,7 +61,7 @@ function metadataOf(activity: unknown): Pick<ActivityQualityMetadata, 'deviceNam
   return { deviceName: record.device_name, sourceProvider: record.source_provider };
 }
 
-/** Builds the full four-field metadata `computePaceQualitySignals`/`buildPaceQualityShard` consume. */
+/** Builds the full six-field metadata `computePaceQualitySignals`/`buildPaceQualityShard` consume. */
 function fullMetadataOf(activity: unknown): ActivityQualityMetadata {
   const record = activity as Record<string, unknown>;
   return {
@@ -65,6 +69,8 @@ function fullMetadataOf(activity: unknown): ActivityQualityMetadata {
     sourceProvider: record.source_provider,
     elapsedTimeSec: record.elapsed_time,
     movingTimeSec: record.moving_time,
+    startLatlng: record.start_latlng,
+    endLatlng: record.end_latlng,
   };
 }
 
@@ -516,6 +522,8 @@ describe('independent signals (QUAL-02)', () => {
       sourceProvider: undefined,
       elapsedTimeSec: 3600,
       movingTimeSec: 3000,
+      startLatlng: undefined,
+      endLatlng: undefined,
     };
 
     const result = computePaceQualitySignals(null, metadata);
@@ -608,6 +616,8 @@ describe('D-17 evidence shard', () => {
       sourceProvider: undefined,
       elapsedTimeSec: 12000,
       movingTimeSec: 12000,
+      startLatlng: undefined,
+      endLatlng: undefined,
     };
 
     const shard = buildPaceQualityShard('synthetic-clean', stream, metadata);
@@ -634,6 +644,8 @@ describe('D-17 evidence shard', () => {
       sourceProvider: undefined,
       elapsedTimeSec: 3600,
       movingTimeSec: 3000,
+      startLatlng: undefined,
+      endLatlng: undefined,
     };
 
     const shard = buildPaceQualityShard('no-stream-activity', null, metadata);
@@ -821,5 +833,125 @@ describe('elevation detectors (D-07..D-09, ELEV-01)', () => {
       expect(result.worstRateMps).not.toBeNull();
       expect(result.flagged).toBe(false);
     });
+  });
+});
+
+describe('elevation assembly, anySevere exclusion, and not-computable rollup (D-05..D-07, Phase 30 D-06)', () => {
+  it("anySevere excludes elevation: a severe elevation tier never flips hasAnySevereSignal (Phase 30's own most-consequential-mistake guard)", () => {
+    const tieringNone: Pick<ActivityQualitySignals, 'decimation' | 'gapProfile' | 'impossibleSamples'> = {
+      decimation: { tier: 'none', zeroAdvanceFraction: 0, sampleCount: 10 },
+      gapProfile: { tier: 'none', gapFraction: 0, recordingGapSec: 0, pauseSec: 0, spanSec: 100 },
+      impossibleSamples: { tier: 'none', count: 0, maxImpliedSpeedMps: null, countInsideZeroAdvanceRun: 0 },
+    };
+    const severeElevation: ActivityQualitySignals['elevation'] = {
+      tier: 'severe',
+      subGround: { flagged: true, minAltM: -282 },
+      closureDrift: { state: 'clear', deltaM: null, startEndDistM: 500 },
+      verticalRate: { flagged: false, worstRateMps: 1.2, violatingSamples: 0 },
+    };
+    const full = { ...tieringNone, elevation: severeElevation };
+
+    // Primary assertion: all three TIERING signals are 'none', elevation is
+    // 'severe' — hasAnySevereSignal must still read false. A future
+    // widening of the Pick<> to fold elevation into this composite (the
+    // single most consequential mistake this phase could make, D-06) would
+    // flip this to true.
+    expect(hasAnySevereSignal(full)).toBe(false);
+
+    // Structural guard: severe-ifying each of the three TIERING keys DOES
+    // flip the result (proving they ARE read)...
+    expect(hasAnySevereSignal({ ...full, decimation: { ...full.decimation, tier: 'severe' } })).toBe(true);
+    expect(hasAnySevereSignal({ ...full, gapProfile: { ...full.gapProfile, tier: 'severe' } })).toBe(true);
+    expect(
+      hasAnySevereSignal({ ...full, impossibleSamples: { ...full.impossibleSamples, tier: 'severe' } })
+    ).toBe(true);
+
+    // ...while deleting 'elevation' entirely must NOT throw and must NOT
+    // change the (false) result — proving the function never dereferences
+    // `signals.elevation` at all. A future accidental
+    // `signals.elevation.tier === 'severe'` read inside this function
+    // would throw here rather than pass silently.
+    const withoutElevation: Record<string, unknown> = { ...full };
+    delete withoutElevation.elevation;
+    const asTiering = withoutElevation as Pick<
+      ActivityQualitySignals,
+      'decimation' | 'gapProfile' | 'impossibleSamples'
+    >;
+    expect(() => hasAnySevereSignal(asTiering)).not.toThrow();
+    expect(hasAnySevereSignal(asTiering)).toBe(false);
+  });
+
+  describe('mode independence (Criterion 2, D-14)', () => {
+    const inRadiusStart = [46.5, 7.3];
+    const inRadiusEnd = [46.5, 7.3]; // distance 0, inside LOOP_RADIUS_M
+
+    function metadataWithPosition(): Pick<ActivityQualityMetadata, 'startLatlng' | 'endLatlng'> {
+      return { startLatlng: inRadiusStart, endLatlng: inRadiusEnd };
+    }
+
+    it('mode independence: each synthetic fixture fires exactly its own mode, the other two report clear/unflagged', () => {
+      const subGroundOnly = elevationSignal(syntheticSubGroundStream(), metadataWithPosition());
+      expect(subGroundOnly.subGround.flagged).toBe(true);
+      expect(subGroundOnly.closureDrift.state).not.toBe('flagged');
+      expect(subGroundOnly.verticalRate.flagged).toBe(false);
+      expect(subGroundOnly.tier).toBe('severe');
+
+      const driftOnly = elevationSignal(syntheticClosureDriftStream(), metadataWithPosition());
+      expect(driftOnly.closureDrift.state).toBe('flagged');
+      expect(driftOnly.subGround.flagged).toBe(false);
+      expect(driftOnly.verticalRate.flagged).toBe(false);
+      expect(driftOnly.tier).toBe('severe');
+
+      const rateOnly = elevationSignal(syntheticVerticalRateSpikeStream(), metadataWithPosition());
+      expect(rateOnly.verticalRate.flagged).toBe(true);
+      expect(rateOnly.subGround.flagged).toBe(false);
+      expect(rateOnly.closureDrift.state).not.toBe('flagged');
+      expect(rateOnly.tier).toBe('severe');
+    });
+
+    it('mode independence (converse): replacing a fixture with the clean baseline stops that mode alone, the other two unchanged', () => {
+      const subGroundStream = syntheticSubGroundStream();
+      const cleanStream = makeStream({
+        id: 'clean-baseline',
+        t: subGroundStream.t,
+        d: subGroundStream.d,
+        alt: new Array(subGroundStream.t.length).fill(10),
+      });
+      const clean = elevationSignal(cleanStream, metadataWithPosition());
+      expect(clean.tier).toBe('none');
+      expect(clean.subGround.flagged).toBe(false);
+      expect(clean.closureDrift.state).not.toBe('flagged');
+      expect(clean.verticalRate.flagged).toBe(false);
+
+      // Sub-ground-only fixture vs the clean baseline: only subGround differs.
+      const subGroundOnly = elevationSignal(subGroundStream, metadataWithPosition());
+      expect(subGroundOnly.subGround.flagged).toBe(true);
+      expect(subGroundOnly.closureDrift.state).toBe(clean.closureDrift.state);
+      expect(subGroundOnly.verticalRate.flagged).toBe(clean.verticalRate.flagged);
+
+      // Drift-only fixture vs clean: only closureDrift differs.
+      const driftOnly = elevationSignal(syntheticClosureDriftStream(), metadataWithPosition());
+      expect(driftOnly.closureDrift.state).toBe('flagged');
+      expect(driftOnly.subGround.flagged).toBe(clean.subGround.flagged);
+      expect(driftOnly.verticalRate.flagged).toBe(clean.verticalRate.flagged);
+
+      // Rate-only fixture vs clean: only verticalRate differs.
+      const rateOnly = elevationSignal(syntheticVerticalRateSpikeStream(), metadataWithPosition());
+      expect(rateOnly.verticalRate.flagged).toBe(true);
+      expect(rateOnly.subGround.flagged).toBe(clean.subGround.flagged);
+      expect(rateOnly.closureDrift.state).toBe(clean.closureDrift.state);
+    });
+  });
+
+  it('notComputableSignals sets elevation.tier to not-computable with no field reading a coerced 0 (T-26-02)', () => {
+    const deviceEra: DeviceEraSignal = { family: 'no-device-name', rawDeviceName: null };
+    const elapsedVsMoving = { ratio: null, elapsedSec: null, movingSec: null };
+
+    const result = notComputableSignals(deviceEra, elapsedVsMoving, NOT_COMPUTABLE_NO_STREAM);
+
+    expect(result.elevation.tier).toBe('not-computable');
+    expect(result.elevation.subGround).toEqual({ flagged: false, minAltM: null });
+    expect(result.elevation.closureDrift).toEqual({ state: 'not-computable', deltaM: null, startEndDistM: null });
+    expect(result.elevation.verticalRate).toEqual({ flagged: false, worstRateMps: null, violatingSamples: null });
   });
 });

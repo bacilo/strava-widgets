@@ -435,6 +435,38 @@ export function verticalRateSignal(
   return { flagged: violatingSamples > 0, worstRateMps, violatingSamples };
 }
 
+/**
+ * Assembles the full `ElevationSignal` for one activity (D-05/D-07) by
+ * calling the three independent detectors above against the SAME `stream`
+ * and `metadata` `computePaceQualitySignals`/`buildPaceQualityShard`
+ * already receive — no new parameter, no new read (D-05). `tier` is
+ * `'severe'` iff ANY of the three sub-signals fires, `'none'` otherwise.
+ *
+ * This function is never called for the whole-signal not-computable
+ * cohort (no stream / unusable stream) — `notComputableSignals` below
+ * constructs that state directly. Per D-02/D-07, a drift-only
+ * `'not-computable'` (e.g. no start/end position) does NOT roll up to a
+ * not-computable TIER here — the other two modes still ran, and the
+ * drift sub-object alone carries its own `'not-computable'` state.
+ */
+export function elevationSignal(
+  stream: Pick<CanonicalStream, 't' | 'alt'>,
+  metadata: Pick<ActivityQualityMetadata, 'startLatlng' | 'endLatlng'>
+): ElevationSignal {
+  const subGround = subGroundSignal(stream.alt);
+  const closureDrift = closureDriftSignal(stream.alt, metadata.startLatlng, metadata.endLatlng);
+  const verticalRate = verticalRateSignal(stream.t, stream.alt);
+
+  const severe = subGround.flagged || closureDrift.state === 'flagged' || verticalRate.flagged;
+
+  return {
+    tier: severe ? 'severe' : 'none',
+    subGround,
+    closureDrift,
+    verticalRate,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Composite
 // ---------------------------------------------------------------------------
@@ -444,15 +476,28 @@ export interface ActivityQualitySignals {
   decimation: DecimationSignal;
   gapProfile: GapProfileSignal;
   impossibleSamples: ImpossibleSampleSignal;
+  /**
+   * Sixth signal (D-05, Phase 30 ELEV-01): altitude-implausibility
+   * detection across three independent modes (sub-ground readings,
+   * loop-gated closure drift, implausible vertical rate). Tiered (D-07),
+   * but DELIBERATELY EXCLUDED from `anySevere` below (D-06) — bad
+   * altitude says nothing about pace trust, since no grade-adjusted pace
+   * ships this milestone. `hasAnySevereSignal`'s `Pick<>` is NEVER widened
+   * to include this key; see that function's own doc comment and the
+   * `anySevere excludes elevation` test in `pace-quality.test.ts`.
+   */
+  elevation: ElevationSignal;
   deviceEra: DeviceEraSignal;
   elapsedVsMoving: ElapsedVsMovingSignal;
   /**
    * True iff ANY of the three TIERING signals (decimation, gapProfile,
-   * impossibleSamples — D-01/D-05/D-16) is `'severe'`. `deviceEra` and
-   * `elapsedVsMoving` are untiered facts (D-13/D-14) and contribute
-   * NOTHING to this field. This is the SAME composite the calibration
-   * report (27-03), the recount script (27-05) and the list filter (27-08)
-   * all measure — one definition, three readers.
+   * impossibleSamples — D-01/D-05/D-16) is `'severe'`. `deviceEra`,
+   * `elapsedVsMoving` and `elevation` are all excluded from this field —
+   * the first two as untiered facts (D-13/D-14), `elevation` as a
+   * DELIBERATE exclusion of a tiered signal (Phase 30 D-06). This is the
+   * SAME composite the calibration report (27-03), the recount script
+   * (27-05) and the list filter (27-08) all measure — one definition,
+   * three readers.
    */
   anySevere: boolean;
   /**
@@ -475,6 +520,15 @@ export interface ActivityQualityMetadata {
   sourceProvider: unknown;
   elapsedTimeSec: unknown;
   movingTimeSec: unknown;
+  /**
+   * `activity.start_latlng` / `activity.end_latlng` (Phase 30 D-01) —
+   * `unknown`, narrowed inside `closureDriftSignal`'s own
+   * `normalizeLatLng` guard, matching this interface's existing
+   * loosely-typed-slice convention. Strava's own "no GPS" convention is
+   * an empty array, not a missing key (Pitfall 4).
+   */
+  startLatlng: unknown;
+  endLatlng: unknown;
 }
 
 // ---------------------------------------------------------------------------
@@ -648,6 +702,16 @@ export function notComputableSignals(
       count: null,
       maxImpliedSpeedMps: null,
       countInsideZeroAdvanceRun: null,
+    },
+    // Whole-signal not-computable (Phase 30 D-07): this is the ONLY branch
+    // where the rolled-up elevation tier is 'not-computable' — a
+    // drift-only not-computable (D-02) is a property of closureDriftSignal
+    // alone and never reaches this constructor.
+    elevation: {
+      tier: 'not-computable',
+      subGround: { flagged: false, minAltM: null },
+      closureDrift: { state: 'not-computable', deltaM: null, startEndDistM: null },
+      verticalRate: { flagged: false, worstRateMps: null, violatingSamples: null },
     },
     deviceEra,
     elapsedVsMoving,
@@ -1194,12 +1258,14 @@ export function computePaceQualitySignals(
   const decimation = decimationSignal(t, d, options);
   const gapProfile = gapProfileSignal(t, d, options);
   const impossibleSamples = impossibleSampleSignal(t, d, options);
+  const elevation = elevationSignal(stream, metadata);
   const anySevere = hasAnySevereSignal({ decimation, gapProfile, impossibleSamples });
 
   return {
     decimation,
     gapProfile,
     impossibleSamples,
+    elevation,
     deviceEra,
     elapsedVsMoving,
     anySevere,
@@ -1241,6 +1307,21 @@ export interface PaceQualityShard {
   } | null;
   adaptiveWindowSec: number | null;
   notComputableReason: string | null;
+  /**
+   * Elevation evidence (Phase 30 D-17): the capped vertical-rate violating
+   * sample list — same 100-entry cap and `{ index, rateMps, dtSec, dAltM }`
+   * shape convention as `impossibleSamples` above, from the SAME raw scan
+   * `elevationSignal`'s `verticalRateSignal` call performs internally
+   * (never a second independent detector run). `elevationLoopRadiusM` is
+   * the resolved `LOOP_RADIUS_M` this shard's closure-drift measurement
+   * used; `elevationStartEndDistM` echoes
+   * `signals.elevation.closureDrift.startEndDistM` directly so the detail
+   * view and calibration report have it without reaching into `signals`.
+   */
+  elevationVerticalRateSamples: { index: number; rateMps: number; dtSec: number; dAltM: number }[];
+  elevationVerticalRateSamplesTruncated: boolean;
+  elevationLoopRadiusM: number;
+  elevationStartEndDistM: number | null;
 }
 
 /**
@@ -1329,6 +1410,10 @@ export function buildPaceQualityShard(
       zeroAdvanceRunProfile: null,
       adaptiveWindowSec: null,
       notComputableReason: NOT_COMPUTABLE_NO_STREAM,
+      elevationVerticalRateSamples: [],
+      elevationVerticalRateSamplesTruncated: false,
+      elevationLoopRadiusM: LOOP_RADIUS_M,
+      elevationStartEndDistM: null,
     };
   }
 
@@ -1343,6 +1428,10 @@ export function buildPaceQualityShard(
       zeroAdvanceRunProfile: null,
       adaptiveWindowSec: null,
       notComputableReason: NOT_COMPUTABLE_UNUSABLE_STREAM,
+      elevationVerticalRateSamples: [],
+      elevationVerticalRateSamplesTruncated: false,
+      elevationLoopRadiusM: LOOP_RADIUS_M,
+      elevationStartEndDistM: null,
     };
   }
 
@@ -1375,10 +1464,18 @@ export function buildPaceQualityShard(
     impossibleSamples: impossibleSignal,
   });
 
+  const elevation = elevationSignal(stream, metadata);
+  // Same raw scan `elevationSignal`'s own `verticalRateSignal` call performs
+  // internally — recomputed here (never a second detector, only a second
+  // read of the same evidence) purely to recover the capped sample list for
+  // the shard, matching `impossibleRaw` above's exact precedent.
+  const elevationRaw = countVerticalRateSamples(t, stream.alt ?? []);
+
   const signals: ActivityQualitySignals = {
     decimation,
     gapProfile,
     impossibleSamples: impossibleSignal,
+    elevation,
     deviceEra,
     elapsedVsMoving,
     anySevere,
@@ -1394,5 +1491,9 @@ export function buildPaceQualityShard(
     zeroAdvanceRunProfile: computeZeroAdvanceRunProfile(t, d),
     adaptiveWindowSec: adaptiveWindowSec(t, d),
     notComputableReason: null,
+    elevationVerticalRateSamples: elevationRaw.samples,
+    elevationVerticalRateSamplesTruncated: elevationRaw.violatingSamples > elevationRaw.samples.length,
+    elevationLoopRadiusM: LOOP_RADIUS_M,
+    elevationStartEndDistM: elevation.closureDrift.startEndDistM,
   };
 }
