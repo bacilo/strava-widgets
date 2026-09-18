@@ -26,6 +26,7 @@ import {
   readShippedJson,
   recountCeilingSweep,
   recountDemoted,
+  recountDemotedActivities,
   recountImpossibleSampleCohort,
 } from './compute-pr-ceiling-recount.mjs';
 
@@ -191,6 +192,128 @@ describe('recountDemoted', () => {
     const report = recountDemoted(doc);
     expect(report.pinnedFixture.present).toBe(false);
     expect(report.pinnedFixture.note).toContain('4556693525');
+  });
+});
+
+describe('recountDemotedActivities', () => {
+  it('counts an activity with 3 demoted efforts once (dedupe by activity, not effort)', () => {
+    const doc = bestEffortsDoc({
+      activities: {
+        a1: {
+          efforts: [
+            effort('400m', 60, { guard: 'ceiling', reason: 'r1' }),
+            effort('1k', 200, { guard: 'ceiling', reason: 'r2' }),
+            effort('1mi', 300, { guard: 'world-record', reason: 'r3' }),
+          ],
+        },
+      },
+      rankings: { '400m': [], '1k': [], '1mi': [] },
+    });
+
+    const result = recountDemotedActivities(doc);
+    expect(result.flaggedActivityCount).toBe(1);
+    expect(result.flaggedActivityIds).toEqual(['a1']);
+  });
+
+  it('counts two activities flagged by different single guards (all guards, not ceiling-only)', () => {
+    const doc = bestEffortsDoc({
+      activities: {
+        wr: { efforts: [effort('400m', 45, { guard: 'world-record', reason: 'wr' })] },
+        ms: { efforts: [effort('1k', 100, { guard: 'max-speed', reason: 'ms' })] },
+      },
+      rankings: { '400m': [], '1k': [] },
+    });
+
+    const result = recountDemotedActivities(doc);
+    expect(result.flaggedActivityCount).toBe(2);
+    expect(result.flaggedActivityIds).toEqual(['ms', 'wr']);
+  });
+
+  it('does not count an activity whose every effort has demotion: null', () => {
+    const doc = bestEffortsDoc({
+      activities: {
+        clean: { efforts: [effort('400m', 60, null), effort('1k', 200, null)] },
+      },
+      rankings: { '400m': [], '1k': [] },
+    });
+
+    const result = recountDemotedActivities(doc);
+    expect(result.flaggedActivityCount).toBe(0);
+    expect(result.flaggedActivityIds).toEqual([]);
+  });
+
+  it('never throws and returns flaggedActivityCount 0 for null, {}, and malformed shapes', () => {
+    expect(() => recountDemotedActivities(null)).not.toThrow();
+    expect(recountDemotedActivities(null).flaggedActivityCount).toBe(0);
+
+    expect(() => recountDemotedActivities({})).not.toThrow();
+    expect(recountDemotedActivities({}).flaggedActivityCount).toBe(0);
+
+    expect(() => recountDemotedActivities({ activities: null })).not.toThrow();
+    expect(recountDemotedActivities({ activities: null }).flaggedActivityCount).toBe(0);
+
+    const effortsNotArray = { activities: { a1: { efforts: 'not-an-array' } } };
+    expect(() => recountDemotedActivities(effortsNotArray)).not.toThrow();
+    expect(recountDemotedActivities(effortsNotArray).flaggedActivityCount).toBe(0);
+
+    const demotionIsString = { activities: { a1: { efforts: [{ distance: '400m', demotion: 'ceiling' }] } } };
+    expect(() => recountDemotedActivities(demotionIsString)).not.toThrow();
+    expect(recountDemotedActivities(demotionIsString).flaggedActivityCount).toBe(0);
+
+    const demotionIsNumber = { activities: { a1: { efforts: [{ distance: '400m', demotion: 42 }] } } };
+    expect(() => recountDemotedActivities(demotionIsNumber)).not.toThrow();
+    expect(recountDemotedActivities(demotionIsNumber).flaggedActivityCount).toBe(0);
+  });
+
+  it('does not require typeof demotion.guard === "string" — a malformed guard still qualifies the activity (D-01)', () => {
+    const doc = {
+      activities: {
+        a1: { efforts: [{ distance: '400m', demotion: { guard: 12345, reason: 'x' } }] },
+      },
+    };
+    const result = recountDemotedActivities(doc);
+    expect(result.flaggedActivityCount).toBe(1);
+    expect(result.flaggedActivityIds).toEqual(['a1']);
+  });
+
+  it('counts excludedWithinFlaggedCount for an exclusion inside the flagged set, and exclusionsTotal separately for one outside it', () => {
+    const doc = bestEffortsDoc({
+      activities: {
+        flagged: { efforts: [effort('400m', 60, { guard: 'ceiling', reason: 'r1' })] },
+        clean: { efforts: [effort('1k', 200, null)] },
+      },
+      rankings: { '400m': [], '1k': [] },
+    });
+    const exclusionsDoc = {
+      exclusions: [
+        { activityId: 'flagged', distances: null, reason: 'inside flagged set' },
+        { activityId: 'clean', distances: null, reason: 'outside flagged set' },
+      ],
+    };
+
+    const result = recountDemotedActivities(doc, exclusionsDoc);
+    expect(result.flaggedActivityCount).toBe(1);
+    expect(result.excludedWithinFlaggedCount).toBe(1);
+    expect(result.exclusionsTotal).toBe(2);
+  });
+
+  it('reports excludedWithinFlaggedCount and exclusionsTotal as null when exclusionsDoc is undefined/null, while flaggedActivityCount stays correct', () => {
+    const doc = bestEffortsDoc({
+      activities: {
+        flagged: { efforts: [effort('400m', 60, { guard: 'ceiling', reason: 'r1' })] },
+      },
+      rankings: { '400m': [] },
+    });
+
+    const resultUndefined = recountDemotedActivities(doc, undefined);
+    expect(resultUndefined.flaggedActivityCount).toBe(1);
+    expect(resultUndefined.excludedWithinFlaggedCount).toBeNull();
+    expect(resultUndefined.exclusionsTotal).toBeNull();
+
+    const resultNull = recountDemotedActivities(doc, null);
+    expect(resultNull.flaggedActivityCount).toBe(1);
+    expect(resultNull.excludedWithinFlaggedCount).toBeNull();
+    expect(resultNull.exclusionsTotal).toBeNull();
   });
 });
 

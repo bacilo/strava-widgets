@@ -241,6 +241,55 @@ export function recountDemoted(bestEffortsDoc) {
 }
 
 /**
+ * D-16's activity-level flagged count: deliberately derived by this script's own arithmetic, and
+ * the value the Phase 29 review queue header is checked against. Counts an ACTIVITY once when at
+ * least one of its efforts carries a non-null object `demotion` — all three guards
+ * (world-record/max-speed/ceiling), never a ceiling-only subset (D-01). Does not require
+ * `typeof demotion.guard === 'string'`: a malformed guard still qualifies the activity, since
+ * `recountDemoted` already reports malformed guards separately via `unrecognisedGuards` and D-01's
+ * population is "any non-null demotion", not "any demotion with a recognised guard string". Adds
+ * no new `import` (D-15's zero-import guard stays green).
+ */
+export function recountDemotedActivities(bestEffortsDoc, exclusionsDoc) {
+  const activities =
+    bestEffortsDoc && bestEffortsDoc.activities && typeof bestEffortsDoc.activities === 'object'
+      ? bestEffortsDoc.activities
+      : {};
+
+  const flaggedActivityIds = [];
+  for (const activityId of Object.keys(activities)) {
+    const activity = activities[activityId];
+    const efforts = activity && Array.isArray(activity.efforts) ? activity.efforts : [];
+    const isFlagged = efforts.some(
+      (effort) => effort && effort.demotion !== null && typeof effort.demotion === 'object'
+    );
+    if (isFlagged) flaggedActivityIds.push(activityId);
+  }
+  flaggedActivityIds.sort();
+
+  let excludedWithinFlaggedCount = null;
+  let exclusionsTotal = null;
+  if (exclusionsDoc !== null && exclusionsDoc !== undefined) {
+    const flaggedSet = new Set(flaggedActivityIds);
+    const exclusions = Array.isArray(exclusionsDoc.exclusions) ? exclusionsDoc.exclusions : [];
+    exclusionsTotal = 0;
+    excludedWithinFlaggedCount = 0;
+    for (const entry of exclusions) {
+      if (!entry || typeof entry.activityId !== 'string') continue;
+      exclusionsTotal += 1;
+      if (flaggedSet.has(entry.activityId)) excludedWithinFlaggedCount += 1;
+    }
+  }
+
+  return {
+    flaggedActivityCount: flaggedActivityIds.length,
+    flaggedActivityIds,
+    excludedWithinFlaggedCount,
+    exclusionsTotal,
+  };
+}
+
+/**
  * D-15's classifier-independent ceiling sweep (WR-05, IN-03, closing 28-VERIFICATION.md gaps
  * 1/3). Walks EVERY effort in the shipped document and compares its OWN arithmetic
  * (`TARGET_METERS_LOCAL[distance] / durationSec`) against `doc.ceilings[distance].ceilingMps` —
