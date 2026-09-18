@@ -84,7 +84,7 @@ times before this milestone, and there is no jsdom or headless browser in the re
 - [x] **Phase 27: Per-Activity Quality Signals** - Device-era-aware, severity-tiered quality signals computed in CI, disclosed individually as badges (completed 2026-09-10)
 - [x] **Phase 28: PR Plausibility Ceiling** - Three-pass restructure of `compute-best-efforts.ts` derives a personal ceiling and demotes-never-deletes implausible efforts (completed 2026-09-17)
 - [x] **Phase 29: Curation Review Queue** - Local curation mode gains a queue for ceiling-flagged efforts, reusing the existing exclusion write path (completed 2026-09-18)
-- [ ] **Phase 30: Elevation Quality Signal** - Implausible altitude flagged archive-wide by three independent mechanisms, flag-only (completed 2026-09-18)
+- [ ] **Phase 30: Elevation Quality Signal** - Implausible altitude flagged archive-wide by three independent mechanisms, flag-only
 
 #### Phase 26: Shared Gap-Aware Pace Derivation & Honest Coverage
 
