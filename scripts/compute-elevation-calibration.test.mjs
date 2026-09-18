@@ -382,4 +382,46 @@ describe('renderCalibrationMarkdown — the report renderer', () => {
     expect(markdown).toContain('equivalent');
     expect(markdown).toContain('excluded by design');
   });
+
+  // WR-01 (30-REVIEW.md): the Mode-independence paragraph previously hardcoded
+  // "12 point-to-point and 1 no-position" as string literals rather than
+  // reading report.rawDrift's own computed counts. Use distinct, non-"1"
+  // values here so a reintroduced hardcoded literal would fail this
+  // assertion rather than coincidentally matching.
+  it('the Mode-independence paragraph quotes report.rawDrift.pointToPointCount and noPositionCount live, not a hardcoded literal', () => {
+    const unionIds = new Set(['a', 'b', 'c']);
+    const report = {
+      generatedAt: '2026-01-01T00:00:00.000Z',
+      activityCount: 100,
+      activityParseFailures: 0,
+      streamFileCount: 98,
+      streamParseFailures: 0,
+      altCarryingCount: 95,
+      positionedActivityCount: 90,
+      distanceDistribution: { total: 90, atZero: 60, belowRadius: 0, atOrAboveRadius: 30, minNonZeroDistance: 600 },
+      loopRadiusM: 100,
+      thresholds: { subGroundMinAltM: -50, closureDriftSevereDeltaM: 60, verticalRateSevereMps: 5 },
+      subGround: { count: 2, worst: [{ id: 'a', minAltM: -100 }] },
+      closureDrift: { count: 1, computablePopulation: 80, worst: [{ id: 'b', deltaM: -70, startEndDistM: 0 }] },
+      verticalRate: { count: 1, worst: [{ id: 'c', worstRateMps: 12.3 }] },
+      overlapLoopGated: { aCount: 2, bCount: 1, cCount: 1, ab: 1, ac: 1, bc: 1, allThree: 1, unionSize: 3, unionIds },
+      overlapRaw: { aCount: 2, bCount: 2, cCount: 1, ab: 1, ac: 1, bc: 1, allThree: 1, unionSize: 3, unionIds },
+      inclusionExclusion: { pass: true, computed: 3, unionSize: 3 },
+      unionDeviceFamily: [['Suunto 9', 2], ['(no device name)', 1]],
+      driftNotComputable: { count: 5 },
+      loopGateExclusions: { pointToPoint: [{ id: 'p2p-1', startEndDistM: 1000 }], noPosition: ['np-1'] },
+      rawDrift: { count: 3, loopGatedCount: 1, pointToPointCount: 7, noPositionCount: 4 },
+      modeIndependence: { driftOnlyCount: 1 },
+      carryForward: {
+        totalViolatingPairs: 4,
+        correlatedPairs: 1,
+        worstTrace: { id: 'c', rateMps: 12.3, window: [{ t: 1, alt: 10, marker: '' }, { t: 2, alt: 20, marker: '<- the violating jump (12.3 m/s)' }] },
+      },
+      streamIntegrity: { beforeDigest: 'abc123', afterDigest: 'abc123', beforeFileCount: 98, afterFileCount: 98 },
+    };
+
+    const markdown = mod.renderCalibrationMarkdown(report);
+    expect(markdown).toContain('the 7 point-to-point and 4 no-position exclusions');
+    expect(markdown).not.toContain('the 12 point-to-point and 1 no-position exclusions');
+  });
 });

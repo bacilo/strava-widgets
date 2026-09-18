@@ -562,8 +562,8 @@ export function renderCalibrationMarkdown(report) {
       `${rawM.unionSize}** — this is the requirement's originally-measured "71-activity" cohort, ` +
       `re-derived live rather than copied. It is LARGER than the loop-gated union ` +
       `(${m.unionSize}, § Overlap matrix above) because the raw drift cohort itself is larger ` +
-      `(${rawM.bCount} vs. ${m.bCount}) before the 12 point-to-point and 1 no-position exclusions ` +
-      'apply (§ Correction of the raw-difference count).'
+      `(${rawM.bCount} vs. ${m.bCount}) before the ${report.rawDrift.pointToPointCount} point-to-point and ` +
+      `${report.rawDrift.noPositionCount} no-position exclusions apply (§ Correction of the raw-difference count).`
   );
   lines.push('');
   lines.push(
