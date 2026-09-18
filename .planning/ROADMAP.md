@@ -294,7 +294,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 29-05-PLAN.md — Queue page client: rows, header counts, inline exclude control, Recompute (D-08..D-15)
+- [x] 29-05-PLAN.md — Queue page client: rows, header counts, inline exclude control, Recompute (D-08..D-15)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -362,7 +362,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 26. Shared Gap-Aware Pace Derivation & Honest Coverage | v2.2 | 16/16 | Complete    | 2026-09-10 |
 | 27. Per-Activity Quality Signals | v2.2 | 12/12 | Complete    | 2026-09-10 |
 | 28. PR Plausibility Ceiling | v2.2 | 15/15 | Complete    | 2026-09-17 |
-| 29. Curation Review Queue | v2.2 | 4/8 | In Progress|  |
+| 29. Curation Review Queue | v2.2 | 5/8 | In Progress|  |
 | 30. Elevation Quality Signal | v2.2 | 0/TBD | Not started | - |
 
 ---
