@@ -20,13 +20,14 @@
  * inline style attribute, and no stylesheet reference anywhere in this file.
  */
 
-import { deriveFlaggedActivities, summarizeQueue } from './derive-flagged.mjs';
+import { buildPrefillReason, deriveFlaggedActivities, summarizeQueue } from './derive-flagged.mjs';
 import {
   activityDetailUrl,
   formatActivityDate,
   formatEffortDuration,
   formatPace,
 } from './format.mjs';
+import { removeExclusion, runRecompute, saveExclusion } from '../curate-overlay/index.js';
 
 /**
  * Never-throw fetch of the best-efforts document, mirroring `exclusion-panel.ts`'s
@@ -79,6 +80,14 @@ async function loadIndexDoc(): Promise<unknown> {
 }
 
 /**
+ * True while a page-level Recompute run is in flight (D-13). A plain module-scope boolean, not a
+ * `disabled` attribute on the button — matches `mountCurationControls`'s own rejection of that
+ * shape (Phase 19's CR-03: an unexplained disabled control). A click while a run is active is
+ * simply ignored rather than queued or double-issued.
+ */
+let recomputeInFlight = false;
+
+/**
  * Creates the page's single wrapping element. This is the ONLY element in this file that ever
  * receives a class name (D-09) — both the normal render path and the error-fallback path route
  * through this one function so that invariant holds structurally, not by convention.
@@ -102,6 +111,125 @@ function appendEmptyState(main: HTMLElement, bestEffortsDoc: unknown): void {
       'dist/widgets is likely not built, or data/stats/best-efforts.json is missing. ' +
       'Run `npm run build && npm run build-widgets`, then reload this page.';
     main.appendChild(reason);
+  }
+}
+
+/**
+ * Mounts the exclude/edit/remove control for one row (D-10/D-11/D-15), copying
+ * `exclusion-panel.ts`'s `mountCurationControls` two-step-commit structure — tick reveals a
+ * required, editable reason textarea and a Save button; unticking an already-excluded row or
+ * pressing "Remove exclusion" confirms first. Every write crosses through the imported
+ * `saveExclusion`/`removeExclusion` transport only — this function issues no fetch of its own and
+ * calls no reload of its own (both live in the imported module, which is exactly what CUR-02
+ * requires).
+ *
+ * Differences from the overlay's panel (queue-specific): the row's data is already loaded
+ * synchronously (no `loadExclusionState` fetch needed) and the reason textarea's initial value is
+ * the stored reason when already excluded, otherwise `buildPrefillReason`'s join of this row's
+ * flagged-effort demotion reasons (D-11) rather than starting empty.
+ */
+function mountRowControls(
+  container: HTMLElement,
+  row: ReturnType<typeof deriveFlaggedActivities>[number]
+): void {
+  const checkboxLabel = document.createElement('label');
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkboxLabel.appendChild(checkbox);
+  checkboxLabel.appendChild(document.createTextNode('Exclude this activity from PRs'));
+  container.appendChild(checkboxLabel);
+
+  const reasonLabel = document.createElement('span');
+  reasonLabel.textContent = 'Reason (required)';
+  container.appendChild(reasonLabel);
+
+  const textarea = document.createElement('textarea');
+  textarea.placeholder = 'Why is this activity untrustworthy for PRs?';
+  container.appendChild(textarea);
+
+  const saveButton = document.createElement('button');
+  saveButton.textContent = 'Save';
+  container.appendChild(saveButton);
+
+  const removeButton = document.createElement('button');
+  removeButton.textContent = 'Remove exclusion';
+  container.appendChild(removeButton);
+
+  const status = document.createElement('p');
+  status.setAttribute('data-queue-status', '');
+  container.appendChild(status);
+
+  // NOT EXCLUDED shape: textarea, its label and Save hidden; Remove absent. Ticking the box
+  // reveals the textarea and Save — mirrors mountCurationControls's applyVisibility exactly.
+  function applyVisibility(excluded: boolean): void {
+    reasonLabel.hidden = !excluded;
+    textarea.hidden = !excluded;
+    saveButton.hidden = !excluded;
+    removeButton.hidden = !excluded;
+  }
+
+  let currentlyExcluded = row.excluded;
+  checkbox.checked = row.excluded;
+  textarea.value = row.excluded
+    ? (row.exclusionReason ?? '')
+    : buildPrefillReason(row.flaggedEfforts);
+  applyVisibility(row.excluded);
+
+  // Ticking merely reveals the form — nothing is written until Save. Unticking an
+  // ALREADY-EXCLUDED row is destructive (it deletes the stored entry) and earns a confirm()
+  // before any request is issued; on cancel the checkbox is restored to checked (D-15).
+  checkbox.addEventListener('change', () => {
+    if (!checkbox.checked && currentlyExcluded) {
+      const confirmed = window.confirm(
+        'Removing this exclusion deletes it and changes PR history. Continue?'
+      );
+      if (!confirmed) {
+        checkbox.checked = true;
+        return;
+      }
+      void doRemove();
+      return;
+    }
+    applyVisibility(checkbox.checked);
+  });
+
+  saveButton.addEventListener('click', () => {
+    const reason = textarea.value.trim();
+    if (reason.length === 0) {
+      status.textContent = 'A reason is required before saving.';
+      textarea.focus();
+      return;
+    }
+    void doSave(reason);
+  });
+
+  removeButton.addEventListener('click', () => {
+    const confirmed = window.confirm(
+      'Removing this exclusion deletes it and changes PR history. Continue?'
+    );
+    if (!confirmed) {
+      return;
+    }
+    void doRemove();
+  });
+
+  // Neither Save nor Remove is ever disabled while a request is in flight, matching
+  // mountCurationControls's own rejection of that shape — the status line is the only feedback.
+  async function doSave(reason: string): Promise<void> {
+    try {
+      await saveExclusion(row.activityId, reason);
+    } catch (error) {
+      status.textContent = error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  async function doRemove(): Promise<void> {
+    try {
+      await removeExclusion(row.activityId);
+    } catch (error) {
+      status.textContent = error instanceof Error ? error.message : String(error);
+      checkbox.checked = currentlyExcluded;
+    }
   }
 }
 
@@ -140,7 +268,7 @@ function buildRowElement(row: ReturnType<typeof deriveFlaggedActivities>[number]
   const controls = document.createElement('div');
   controls.setAttribute('data-queue-controls', '');
   item.appendChild(controls);
-  // mountRowControls(controls, row) is wired in Task 3.
+  mountRowControls(controls, row);
 
   return item;
 }
@@ -182,11 +310,31 @@ async function renderQueue(): Promise<void> {
   recomputeButton.setAttribute('data-queue-recompute', '');
   recomputeButton.textContent = 'Recompute records';
   main.appendChild(recomputeButton);
-  // Click handler wired in Task 3, via the imported runRecompute transport.
 
   const recomputeOutput = document.createElement('pre');
   recomputeOutput.setAttribute('data-queue-recompute-output', '');
   main.appendChild(recomputeOutput);
+
+  // D-13: one Recompute control, reusing the existing recompute POST route and its streamed
+  // output via the imported transport; runRecompute's own reload fires at the completion marker,
+  // so this handler never calls reload itself. D-07's separation is inherited — Recompute is
+  // never invoked from a Save path.
+  recomputeButton.addEventListener('click', () => {
+    if (recomputeInFlight) {
+      return;
+    }
+    recomputeInFlight = true;
+    recomputeOutput.textContent = '';
+    runRecompute((chunk) => {
+      recomputeOutput.textContent += chunk;
+    })
+      .catch((error) => {
+        recomputeOutput.textContent += error instanceof Error ? error.message : String(error);
+      })
+      .finally(() => {
+        recomputeInFlight = false;
+      });
+  });
 
   if (rows.length === 0) {
     appendEmptyState(main, bestEffortsDoc);
