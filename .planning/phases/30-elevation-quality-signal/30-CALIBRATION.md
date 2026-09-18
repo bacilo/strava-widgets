@@ -2,7 +2,7 @@
 
 The archive-wide dry run ELEV-02 requires — every figure below is computed live by `npm run compute-elevation-calibration` against the full committed archive. Nothing here is transcribed from `30-CONTEXT.md` or `30-RESEARCH.md`; both are prior scouting measurements this run independently re-derives.
 
-**Generated:** 2026-09-18T14:18:03.161Z
+**Generated:** 2026-09-18T14:19:30.081Z
 
 ## Live denominators
 
@@ -127,6 +127,8 @@ The raw, un-loop-gated closure-drift cohort (`|alt[end]-alt[start]| > 60` m, no 
 21 + 12 + 1 = 34 — reconciles exactly with the raw count above.
 
 ## Mode independence (Criterion 2)
+
+**Raw-definition union (sub-ground ∪ raw drift ∪ vertical rate, no loop gate on drift): 71** — this is the requirement's originally-measured "71-activity" cohort, re-derived live rather than copied. It is LARGER than the loop-gated union (60, § Overlap matrix above) because the raw drift cohort itself is larger (34 vs. 21) before the 12 point-to-point and 1 no-position exclusions apply (§ Correction of the raw-difference count).
 
 Loop-gating changes which activities overlap, not just how many drift: sub-ground ∩ drift is 6 loop-gated vs. 7 raw; sub-ground ∩ rate is 3 (drift loop-gating does not touch this pair, since it involves neither mode's drift definition directly — raw comparison: 3); drift ∩ rate is 3 loop-gated vs. 5 raw.
 

@@ -558,6 +558,15 @@ export function renderCalibrationMarkdown(report) {
   lines.push('');
   const rawM = report.overlapRaw;
   lines.push(
+    `**Raw-definition union (sub-ground ∪ raw drift ∪ vertical rate, no loop gate on drift): ` +
+      `${rawM.unionSize}** — this is the requirement's originally-measured "71-activity" cohort, ` +
+      `re-derived live rather than copied. It is LARGER than the loop-gated union ` +
+      `(${m.unionSize}, § Overlap matrix above) because the raw drift cohort itself is larger ` +
+      `(${rawM.bCount} vs. ${m.bCount}) before the 12 point-to-point and 1 no-position exclusions ` +
+      'apply (§ Correction of the raw-difference count).'
+  );
+  lines.push('');
+  lines.push(
     `Loop-gating changes which activities overlap, not just how many drift: sub-ground ∩ drift is ` +
       `${m.ab} loop-gated vs. ${rawM.ab} raw; sub-ground ∩ rate is ${m.ac} (drift loop-gating does not ` +
       `touch this pair, since it involves neither mode's drift definition directly — raw comparison: ` +
