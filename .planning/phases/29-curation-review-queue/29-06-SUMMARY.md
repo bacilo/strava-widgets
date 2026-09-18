@@ -132,3 +132,16 @@ None - no external service configuration required.
 ---
 *Phase: 29-curation-review-queue*
 *Completed: 2026-09-18*
+
+## Self-Check: PASSED
+
+- `scripts/curate-server.mjs` — FOUND
+- `scripts/curate-server.test.mjs` — FOUND
+- `.planning/phases/29-curation-review-queue/29-06-SUMMARY.md` — FOUND
+- Task 1 RED commit `468be471` — FOUND
+- Task 1 GREEN commit `da6c92e2` — FOUND
+- Task 2 commit `7277a795` — FOUND
+- Task 3 commit `e888eb90` — FOUND
+- `npx vitest run scripts/curate-server.test.mjs` → 65/65 passed
+- `npm test` → 81/81 files, 2409/2409 tests passed
+- `npx tsc --noEmit` → exits 0
