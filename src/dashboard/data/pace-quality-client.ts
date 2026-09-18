@@ -20,6 +20,7 @@
  */
 
 import type { FetchLike } from './index-client.js';
+import { LOOP_RADIUS_M } from '../../analytics/pace-quality.js';
 import type {
   ActivityQualitySignals,
   DecimationSignal,
@@ -155,6 +156,16 @@ function parseActivityQualitySignals(raw: unknown): ActivityQualitySignals | nul
       maxImpliedSpeedMps: null,
       countInsideZeroAdvanceRun: null,
     },
+    // Phase 30 (ELEV-01): minimal not-computable fallback so the tree
+    // compiles against the new required key. The real tolerant
+    // `parseElevationSignal` — reading `raw.elevation` — is plan 30-03's
+    // Task 2 and must not be pre-empted here beyond what `tsc` requires.
+    elevation: {
+      tier: 'not-computable',
+      subGround: { flagged: false, minAltM: null },
+      closureDrift: { state: 'not-computable', deltaM: null, startEndDistM: null },
+      verticalRate: { flagged: false, worstRateMps: null, violatingSamples: null },
+    },
     deviceEra: parseDeviceEraSignal(raw.deviceEra) ?? { family: 'no-device-name', rawDeviceName: null },
     elapsedVsMoving: parseElapsedVsMovingSignal(raw.elapsedVsMoving) ?? {
       ratio: null,
@@ -239,6 +250,13 @@ export function parsePaceQualityShard(raw: unknown): PaceQualityShard | null {
     zeroAdvanceRunProfile: parseZeroAdvanceRunProfile(raw.zeroAdvanceRunProfile ?? null),
     adaptiveWindowSec: nullableNumber(raw.adaptiveWindowSec),
     notComputableReason: typeof raw.notComputableReason === 'string' ? raw.notComputableReason : null,
+    // Phase 30 (ELEV-01): minimal defaults so the tree compiles against the
+    // new required shard fields. Real parsing of the shard's own elevation
+    // evidence is plan 30-03's Task 2.
+    elevationVerticalRateSamples: [],
+    elevationVerticalRateSamplesTruncated: false,
+    elevationLoopRadiusM: LOOP_RADIUS_M,
+    elevationStartEndDistM: null,
   };
 }
 

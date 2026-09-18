@@ -456,6 +456,15 @@ const HEALTHY_QUALITY: ActivityQualitySignals = {
   decimation: { tier: 'none', zeroAdvanceFraction: 0.01, sampleCount: 500 },
   gapProfile: { tier: 'none', gapFraction: 0, recordingGapSec: 0, pauseSec: 0, spanSec: 1000 },
   impossibleSamples: { tier: 'none', count: 0, maxImpliedSpeedMps: null, countInsideZeroAdvanceRun: 0 },
+  // Phase 30 (ELEV-01): a required field this suite does not exercise (the
+  // three per-mode rows are plan 30-06's job) -- a clean/not-flagged
+  // default, same precedent as the three signals above.
+  elevation: {
+    tier: 'none',
+    subGround: { flagged: false, minAltM: 12 },
+    closureDrift: { state: 'clear', deltaM: 4, startEndDistM: 38 },
+    verticalRate: { flagged: false, worstRateMps: 1.2, violatingSamples: 0 },
+  },
   deviceEra: { family: 'garmin-fenix-6-pro', rawDeviceName: null },
   elapsedVsMoving: { ratio: 1.01, elapsedSec: 1010, movingSec: 1000 },
   anySevere: false,
@@ -466,6 +475,13 @@ const NOT_COMPUTABLE_QUALITY: ActivityQualitySignals = {
   decimation: { tier: 'not-computable', zeroAdvanceFraction: null, sampleCount: null },
   gapProfile: { tier: 'not-computable', gapFraction: null, recordingGapSec: null, pauseSec: null, spanSec: null },
   impossibleSamples: { tier: 'not-computable', count: null, maxImpliedSpeedMps: null, countInsideZeroAdvanceRun: null },
+  // Whole-signal not-computable, matching notComputableSignals's own shape.
+  elevation: {
+    tier: 'not-computable',
+    subGround: { flagged: false, minAltM: null },
+    closureDrift: { state: 'not-computable', deltaM: null, startEndDistM: null },
+    verticalRate: { flagged: false, worstRateMps: null, violatingSamples: null },
+  },
   deviceEra: { family: 'no-device-name', rawDeviceName: null },
   elapsedVsMoving: { ratio: null, elapsedSec: null, movingSec: null },
   anySevere: false,
@@ -482,6 +498,10 @@ function makeShard(overrides: Partial<PaceQualityShard>): PaceQualityShard {
     zeroAdvanceRunProfile: null,
     adaptiveWindowSec: null,
     notComputableReason: null,
+    elevationVerticalRateSamples: [],
+    elevationVerticalRateSamplesTruncated: false,
+    elevationLoopRadiusM: 100,
+    elevationStartEndDistM: 38,
     ...overrides,
   };
 }

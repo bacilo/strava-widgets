@@ -779,12 +779,26 @@ export function buildBestEffortsSection(
  * only returns a spec for a severe-tier signal with a non-null evidence
  * field (D-07), so every field here is set to a value that satisfies that
  * gate; the actual numbers are irrelevant — only `.explanation` is ever
- * read from the result, never `.visibleText`.
+ * read from the result, never `.visibleText`. `elevation` (Phase 30) is
+ * DELIBERATELY kept clean (tier `'none'`) here: `qualityBadgeSpecs`
+ * doesn't yet have an elevation spec (that lands in plan 30-05), but once
+ * it does, a severe elevation on this probe would add a fourth spec to
+ * `EXPLANATION_PROBE_SPECS` and change what the module-load assertion
+ * loop below is asserting — elevation deliberately does not participate
+ * in that loop's three-signal list (plan 30-06 defines its own per-mode
+ * explanations, since D-10's single rolled-up badge does not map 1:1
+ * onto D-11's three per-mode rows).
  */
 export const EXPLANATION_PROBE_QUALITY: ActivityQualitySignals = {
   decimation: { tier: 'severe', zeroAdvanceFraction: 0.5, sampleCount: 100 },
   gapProfile: { tier: 'severe', gapFraction: 0.5, recordingGapSec: 10, pauseSec: 10, spanSec: 20 },
   impossibleSamples: { tier: 'severe', count: 10, maxImpliedSpeedMps: 20, countInsideZeroAdvanceRun: 1 },
+  elevation: {
+    tier: 'none',
+    subGround: { flagged: false, minAltM: 12 },
+    closureDrift: { state: 'clear', deltaM: 4, startEndDistM: 38 },
+    verticalRate: { flagged: false, worstRateMps: 1.2, violatingSamples: 0 },
+  },
   deviceEra: { family: 'no-device-name', rawDeviceName: null },
   elapsedVsMoving: { ratio: null, elapsedSec: null, movingSec: null },
   anySevere: true,

@@ -43,6 +43,17 @@ const validShard = {
     decimation: { tier: 'none', zeroAdvanceFraction: 0.01, sampleCount: 900 },
     gapProfile: { tier: 'none', gapFraction: 0.02, recordingGapSec: 10, pauseSec: 0, spanSec: 500 },
     impossibleSamples: { tier: 'none', count: 0, maxImpliedSpeedMps: null, countInsideZeroAdvanceRun: 0 },
+    // Phase 30 (ELEV-01): `parseActivityQualitySignals` always emits this
+    // minimal not-computable fallback today — the real tolerant parse of
+    // `raw.elevation` is plan 30-03's Task 2 — so this fixture's round-trip
+    // must match that fallback exactly, regardless of what (if anything)
+    // is fed in on the raw side.
+    elevation: {
+      tier: 'not-computable',
+      subGround: { flagged: false, minAltM: null },
+      closureDrift: { state: 'not-computable', deltaM: null, startEndDistM: null },
+      verticalRate: { flagged: false, worstRateMps: null, violatingSamples: null },
+    },
     deviceEra: { family: 'garmin-fenix-6-pro', rawDeviceName: null },
     elapsedVsMoving: { ratio: 1.02, elapsedSec: 510, movingSec: 500 },
     anySevere: false,
@@ -54,6 +65,13 @@ const validShard = {
   zeroAdvanceRunProfile: { runCount: 0, longestRunSamples: 0, longestRunSec: 0, medianRunSamples: 0, p90RunSec: 0 },
   adaptiveWindowSec: 20,
   notComputableReason: null,
+  // Phase 30 (ELEV-01): `parsePaceQualityShard` always emits these minimal
+  // defaults today, matching `parseActivityQualitySignals`'s own not-yet-
+  // wired-to-raw-input fallback above.
+  elevationVerticalRateSamples: [],
+  elevationVerticalRateSamplesTruncated: false,
+  elevationLoopRadiusM: 100,
+  elevationStartEndDistM: null,
 };
 
 describe('parsePaceQualityShard', () => {

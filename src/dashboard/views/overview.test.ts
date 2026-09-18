@@ -18,6 +18,14 @@ const CLEAN_QUALITY: ActivityQualitySignals = {
   decimation: { tier: 'none', zeroAdvanceFraction: 0, sampleCount: 100 },
   gapProfile: { tier: 'none', gapFraction: 0, recordingGapSec: 0, pauseSec: 0, spanSec: 3000 },
   impossibleSamples: { tier: 'none', count: 0, maxImpliedSpeedMps: 0, countInsideZeroAdvanceRun: 0 },
+  // Phase 30 (ELEV-01): a required field this suite does not exercise --
+  // a clean/not-flagged default, same precedent as the three signals above.
+  elevation: {
+    tier: 'none',
+    subGround: { flagged: false, minAltM: 12 },
+    closureDrift: { state: 'clear', deltaM: 4, startEndDistM: 38 },
+    verticalRate: { flagged: false, worstRateMps: 1.2, violatingSamples: 0 },
+  },
   deviceEra: { family: 'no-device-name', rawDeviceName: null },
   elapsedVsMoving: { ratio: 1, elapsedSec: 3000, movingSec: 3000 },
   anySevere: false,

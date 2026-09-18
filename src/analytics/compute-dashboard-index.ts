@@ -294,6 +294,10 @@ export async function computeDashboardIndex(
         sourceProvider: activity.source_provider,
         elapsedTimeSec: activity.elapsed_time,
         movingTimeSec: activity.moving_time,
+        // Phase 30 D-01: zero new file reads — StravaActivity already
+        // types both fields; closureDriftSignal narrows them itself.
+        startLatlng: activity.start_latlng,
+        endLatlng: activity.end_latlng,
       };
       const quality: ActivityQualitySignals = computePaceQualitySignals(
         streamForQuality,
