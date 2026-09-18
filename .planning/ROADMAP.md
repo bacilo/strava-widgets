@@ -328,9 +328,9 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 30-02-PLAN.md — Pinned real exemplars (4556693525, 4745489664, 3149636661) re-verified against the live archive through the total `expected`-key switch (ELEV-02)
-- [ ] 30-03-PLAN.md — Index wiring, tolerant client parse, and a publish gate that fails on a partial elevation rollout (ELEV-01, ELEV-02)
-- [ ] 30-04-PLAN.md — Archive-wide calibration report with the derived loop radius, the stream digest, and the D-04 correction of ROADMAP Criteria 1/3 and ELEV-01 (ELEV-01, ELEV-02)
+- [x] 30-02-PLAN.md — Pinned real exemplars (4556693525, 4745489664, 3149636661) re-verified against the live archive through the total `expected`-key switch (ELEV-02)
+- [x] 30-03-PLAN.md — Index wiring, tolerant client parse, and a publish gate that fails on a partial elevation rollout (ELEV-01, ELEV-02)
+- [x] 30-04-PLAN.md — Archive-wide calibration report with the derived loop radius, the stream digest, and the D-04 correction of ROADMAP Criteria 1/3 and ELEV-01 (ELEV-01, ELEV-02)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -385,7 +385,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 27. Per-Activity Quality Signals | v2.2 | 12/12 | Complete    | 2026-09-10 |
 | 28. PR Plausibility Ceiling | v2.2 | 15/15 | Complete    | 2026-09-17 |
 | 29. Curation Review Queue | v2.2 | 8/8 | Complete    | 2026-09-18 |
-| 30. Elevation Quality Signal | v2.2 | 1/8 | In Progress|  |
+| 30. Elevation Quality Signal | v2.2 | 4/8 | In Progress|  |
 
 ---
 *Last updated: 2026-09-08 — **v2.2 Pace Data Quality** roadmap created: 5 phases (26-30), 27/27 requirements mapped. PACE-06 and PACE-07 were added after the initial draft, both folded into Phase 26 alongside the rest of PACE: PACE-06 quantifies the residue adaptive windowing does not fix (13/154, all marginal 0.5-2.4%, genuine device over-measurement — an earlier measurement wrongly called three of those activities "beyond repair" using a fixed-window artifact; corrected once adaptivity was applied), and PACE-07 catches a live singleton defect where activity 5059204779's metadata (`moving_time`/`distance`) implies 1:53/km while its own stream derives 5:51/km. Phase order follows the research-converged sequence (shared derivation → quality signals → PR ceiling → review queue → elevation), with two hard constraints carried from PROJECT.md: the PR ceiling (Phase 28) demotes-and-flags only, never deletes, and its archive-wide before/after diff is a required reviewed deliverable, not optional polish. ERA-03 (stratified fixture library) is folded into Phase 26 rather than a standalone phase, and ERA-01/ERA-02 (device-family branching) are folded into Phase 27 — both per research/SUMMARY.md's explicit recommendation that cross-era discipline is a standing convention every threshold-introducing phase reuses, not a phase of its own.*
