@@ -61,9 +61,9 @@
 
 ### Curation review queue (CUR)
 
-- [ ] **CUR-01**: Local curation mode presents a queue of flagged activities, reachable without hunting through the archive, with one action: exclude the activity from PRs via the existing whole-activity `best-effort-exclusions.json` path. *Known limitation, accepted deliberately: with no dismiss action the queue is not drainable — an activity reviewed and judged fine remains listed. A dismiss/acknowledge action is the natural follow-up if this becomes annoying in use.*
-- [ ] **CUR-02**: The queue reuses the existing `curate-server.mjs` write machinery (trusted-origin check, atomic write, activity-id validation) rather than introducing a parallel write surface.
-- [ ] **CUR-03**: Both publish guards continue to prove the curation write path absent from the published bundle, with the new routes covered — verified by the build-time content scan and the HTTP-layer assertion, each demonstrated failing if the path leaks.
+- [x] **CUR-01**: Local curation mode presents a queue of flagged activities, reachable without hunting through the archive, with one action: exclude the activity from PRs via the existing whole-activity `best-effort-exclusions.json` path. *Known limitation, accepted deliberately: with no dismiss action the queue is not drainable — an activity reviewed and judged fine remains listed. A dismiss/acknowledge action is the natural follow-up if this becomes annoying in use.* *Ticked 2026-09-18 on plan 29-08's Task 2 checkpoint, blanket PASS (R1-R5 all PASS, developer approved) — see `29-08-SUMMARY.md` § Checkpoint Verdicts.*
+- [x] **CUR-02**: The queue reuses the existing `curate-server.mjs` write machinery (trusted-origin check, atomic write, activity-id validation) rather than introducing a parallel write surface. *Ticked 2026-09-18 on plan 29-08's Task 2 checkpoint, R7/R8 both PASS (write-through-existing-path and cross-origin rejection confirmed live) — see `29-08-SUMMARY.md` § Checkpoint Verdicts.*
+- [x] **CUR-03**: Both publish guards continue to prove the curation write path absent from the published bundle, with the new routes covered — verified by the build-time content scan and the HTTP-layer assertion, each demonstrated failing if the path leaks. *Ticked 2026-09-18 on plan 29-08's Task 2 checkpoint, R10 PASS (digests matched, `findCurationArtifacts` empty, `npm test`/`build-widgets`/`verify-dashboard` green on the served build) — see `29-08-SUMMARY.md` § Checkpoint Verdicts.*
 
 ### Elevation quality signal (ELEV)
 
@@ -143,9 +143,9 @@ Filled during roadmap creation.
 | PR-03 | Phase 28 | Complete (re-ticked 2026-09-17 on Round 2, 28-15 — see 28-VALIDATION.md § Round 2 Outcome; pending phase re-verification) |
 | PR-04 | Phase 28 | Complete (re-ticked 2026-09-17 on Round 2, 28-15 — see 28-VALIDATION.md § Round 2 Outcome and § PR-04 Sign-off (Round 2, D-14); pending phase re-verification) |
 | PR-05 | Phase 28 | Complete (re-ticked 2026-09-17 on Round 2, 28-15 — see 28-VALIDATION.md § Round 2 Outcome; pending phase re-verification) |
-| CUR-01 | Phase 29 | Pending |
-| CUR-02 | Phase 29 | Pending |
-| CUR-03 | Phase 29 | Pending |
+| CUR-01 | Phase 29 | Complete (ticked 2026-09-18 on plan 29-08's Task 2 checkpoint — see `29-08-SUMMARY.md` § Checkpoint Verdicts) |
+| CUR-02 | Phase 29 | Complete (ticked 2026-09-18 on plan 29-08's Task 2 checkpoint — see `29-08-SUMMARY.md` § Checkpoint Verdicts) |
+| CUR-03 | Phase 29 | Complete (ticked 2026-09-18 on plan 29-08's Task 2 checkpoint — see `29-08-SUMMARY.md` § Checkpoint Verdicts) |
 | ELEV-01 | Phase 30 | Pending |
 | ELEV-02 | Phase 30 | Pending |
 | ERA-01 | Phase 27 | Complete |
