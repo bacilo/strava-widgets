@@ -305,6 +305,120 @@ describe('WR-14 — non-regular and unreadable entries are reported, never throw
   });
 });
 
+describe('IN-17 — one path produces exactly one violation', () => {
+  let tmpDir;
+
+  beforeEach(async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'curation-guard-in17-'));
+  });
+
+  afterEach(async () => {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  async function writeFile(relativePath, contents) {
+    const fullPath = path.join(tmpDir, relativePath);
+    await fs.mkdir(path.dirname(fullPath), { recursive: true });
+    await fs.writeFile(fullPath, contents, 'utf8');
+  }
+
+  it('(a) a file named .curate-dist whose contents also carry the marker produces exactly one violation for that path', async () => {
+    await writeFile('index.html', '<!doctype html>');
+    await writeFile('.curate-dist', `esbuild output containing ${CURATE_MARKER}`);
+
+    const violations = findCurationArtifacts(tmpDir);
+    const forPath = violations.filter((v) => v.path.endsWith('.curate-dist'));
+    expect(forPath.length).toBe(1);
+  });
+
+  it(`(b) a file named ${CURATE_DIR_NAME} whose contents also carry the marker produces exactly one violation for that path`, async () => {
+    await writeFile('index.html', '<!doctype html>');
+    await writeFile(CURATE_DIR_NAME, `esbuild output containing ${CURATE_MARKER}`);
+
+    const violations = findCurationArtifacts(tmpDir);
+    const forPath = violations.filter((v) => v.path.endsWith(CURATE_DIR_NAME));
+    expect(forPath.length).toBe(1);
+  });
+
+  it('(c) no path is reported twice across a mixed tree carrying (a), (b), a clean index.html, a marker-carrying assets/x.js, and a nested __curate/overlay.js', async () => {
+    await writeFile('index.html', '<!doctype html>');
+    await writeFile('.curate-dist', `esbuild output containing ${CURATE_MARKER}`);
+    await writeFile(CURATE_DIR_NAME, `esbuild output containing ${CURATE_MARKER}`);
+    await writeFile('assets/x.js', `console.log("app"); /* ${CURATE_MARKER} */`);
+    await writeFile(`nested/${CURATE_DIR_NAME}/overlay.js`, `console.log("overlay ${CURATE_MARKER}");`);
+
+    const violations = findCurationArtifacts(tmpDir);
+    expect(new Set(violations.map((v) => v.path)).size).toBe(violations.length);
+  });
+});
+
+describe('D-19 — the review queue leaks are caught by the existing scan (no new marker)', () => {
+  let tmpDir;
+
+  beforeEach(async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'curation-guard-d19-'));
+  });
+
+  afterEach(async () => {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  async function writeFile(relativePath, contents) {
+    const fullPath = path.join(tmpDir, relativePath);
+    await fs.mkdir(path.dirname(fullPath), { recursive: true });
+    await fs.writeFile(fullPath, contents, 'utf8');
+  }
+
+  it('(a) a planted queue page (queue.html, shaped like real build output) is caught, exactly once', async () => {
+    await writeFile(
+      'queue.html',
+      `<!doctype html><html><head><link rel="stylesheet" href="./assets/index-abc.css"></head><body><script src="/${CURATE_MARKER}/queue.js"></script></body></html>`
+    );
+
+    const violations = findCurationArtifacts(tmpDir);
+    const forPath = violations.filter((v) => v.path.endsWith('queue.html'));
+    expect(forPath.length).toBe(1);
+  });
+
+  it('(b) a planted queue bundle (assets/queue.js, esbuild-IIFE-shaped, importing the overlay transport) is caught, exactly once', async () => {
+    await writeFile(
+      'assets/queue.js',
+      `(function () {\n  'use strict';\n  const EXCLUSIONS_PATH = "/${CURATE_MARKER}/exclusions/";\n  async function saveExclusion(id) { return fetch(EXCLUSIONS_PATH + id, { method: 'PUT' }); }\n})();`
+    );
+
+    const violations = findCurationArtifacts(tmpDir);
+    const forPath = violations.filter((v) => v.path.endsWith('queue.js'));
+    expect(forPath.length).toBe(1);
+  });
+
+  it(`(c) a planted queue bundle under a ${CURATE_DIR_NAME} directory: the directory and the file are each reported once, at two distinct paths (IN-17's continue did not suppress a nested finding)`, async () => {
+    await writeFile(
+      `${CURATE_DIR_NAME}/queue.js`,
+      `(function () {\n  'use strict';\n  const EXCLUSIONS_PATH = "/${CURATE_MARKER}/exclusions/";\n})();`
+    );
+
+    const violations = findCurationArtifacts(tmpDir);
+    const dirHits = violations.filter((v) => v.path.endsWith(CURATE_DIR_NAME));
+    const fileHits = violations.filter((v) => v.path.endsWith(`${CURATE_DIR_NAME}/queue.js`));
+    expect(dirHits.length).toBe(1);
+    expect(fileHits.length).toBe(1);
+    expect(new Set(violations.map((v) => v.path)).size).toBe(violations.length);
+  });
+
+  it('(d) the same tree without the queue page/bundle (clean control) returns exactly []', async () => {
+    await writeFile('index.html', '<!doctype html><html><body><h1>App</h1></body></html>');
+    await writeFile('assets/index-abc.js', 'console.log("app");');
+    await writeFile('assets/index-abc.css', 'body { color: black; }');
+    await writeFile(
+      'data/best-effort-exclusions.json',
+      JSON.stringify({ schemaVersion: 1, exclusions: [{ activityId: 'a1', distances: null, reason: 'bad device' }] })
+    );
+
+    const violations = findCurationArtifacts(tmpDir);
+    expect(violations).toEqual([]);
+  });
+});
+
 describe('build-widgets.mjs source-structure: OD-2 call-site ordering', () => {
   const source = readFileSync(new URL('../build-widgets.mjs', import.meta.url), 'utf8');
 
