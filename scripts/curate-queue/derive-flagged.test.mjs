@@ -10,9 +10,18 @@
  * assertion was written.
  */
 
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import { buildPrefillReason, deriveFlaggedActivities, summarizeQueue } from './derive-flagged.mjs';
+import { recountDemotedActivities } from '../compute-pr-ceiling-recount.mjs';
+
+// REPO_ROOT resolution idiom mirrors scripts/lib/curation-guard.test.mjs.
+const REPO_ROOT = path.resolve(new URL('../..', import.meta.url).pathname);
+const BEST_EFFORTS_PATH = path.resolve(REPO_ROOT, 'data/stats/best-efforts.json');
+const EXCLUSIONS_PATH = path.resolve(REPO_ROOT, 'data/best-effort-exclusions.json');
 
 describe('collection canary', () => {
   it('the three exports are functions', () => {
@@ -315,5 +324,26 @@ describe('summarizeQueue', () => {
 
   it('an empty row set summarizes to zero/zero', () => {
     expect(summarizeQueue([])).toEqual({ flaggedCount: 0, excludedCount: 0 });
+  });
+});
+
+// D-16 / Task 3: ties this derivation to scripts/compute-pr-ceiling-recount.mjs's own arithmetic,
+// which imports none of the ceiling/compute/util/types modules. Two independent implementations
+// agreeing is the assertion — no count is ever hardcoded here, since the archive grows nightly
+// via CI sync (T-29-14). Skipped when the shipped data is absent (e.g. a fresh worktree where
+// data/stats/ and data/dashboard/ are gitignored).
+describe.skipIf(!existsSync(BEST_EFFORTS_PATH))('live archive cross-check', () => {
+  it('deriveFlaggedActivities agrees with recountDemotedActivities on the live archive', () => {
+    const bestEfforts = JSON.parse(readFileSync(BEST_EFFORTS_PATH, 'utf8'));
+    const exclusions = existsSync(EXCLUSIONS_PATH)
+      ? JSON.parse(readFileSync(EXCLUSIONS_PATH, 'utf8'))
+      : undefined;
+
+    const rows = deriveFlaggedActivities(bestEfforts, exclusions);
+    const recount = recountDemotedActivities(bestEfforts, exclusions);
+
+    expect(rows.length).toBe(recount.flaggedActivityCount);
+    expect(summarizeQueue(rows).excludedCount).toBe(recount.excludedWithinFlaggedCount);
+    expect(rows.map((r) => r.activityId).sort()).toEqual(recount.flaggedActivityIds);
   });
 });
