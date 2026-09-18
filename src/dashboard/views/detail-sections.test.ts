@@ -507,9 +507,9 @@ function makeShard(overrides: Partial<PaceQualityShard>): PaceQualityShard {
 }
 
 describe('qualitySignalsSectionPlan — quality signals section (D-08, D-09, D-12, D-17)', () => {
-  it('a fully healthy row produces five rows, all three tiering rows carrying an explicit healthy statement, none blank/undefined/null/NaN', () => {
+  it('a fully healthy row produces eight rows (Phase 30: three elevation rows extend the original five), all three tiering rows carrying an explicit healthy statement, none blank/undefined/null/NaN', () => {
     const plan = qualitySignalsSectionPlan(HEALTHY_QUALITY, null);
-    expect(plan.rows).toHaveLength(5);
+    expect(plan.rows).toHaveLength(8);
 
     for (const row of plan.rows) {
       expect(row.valueText.length).toBeGreaterThan(0);
@@ -572,7 +572,7 @@ describe('qualitySignalsSectionPlan — quality signals section (D-08, D-09, D-1
   it('quality === null: the section plan is still produced (never null/undefined) and says so', () => {
     const plan = qualitySignalsSectionPlan(null, null);
     expect(plan).not.toBeNull();
-    expect(plan.rows).toHaveLength(5);
+    expect(plan.rows).toHaveLength(8);
     for (const row of plan.rows) {
       expect(row.valueText).toBe('Quality data not available for this activity');
     }
@@ -593,7 +593,7 @@ describe('qualitySignalsSectionPlan — quality signals section (D-08, D-09, D-1
       deviceEra: { family, rawDeviceName: null },
     };
     const plan = qualitySignalsSectionPlan(quality, null);
-    const deviceRow = plan.rows[3];
+    const deviceRow = plan.rows[6];
     expect(deviceRow.valueText).toBe(expected);
   });
 
@@ -604,7 +604,7 @@ describe('qualitySignalsSectionPlan — quality signals section (D-08, D-09, D-1
       deviceEra: { family: 'unrecognized-device', rawDeviceName: payload },
     };
     const plan = qualitySignalsSectionPlan(quality, null);
-    const deviceRow = plan.rows[3];
+    const deviceRow = plan.rows[6];
     expect(deviceRow.valueText).toBe(`Unrecognized device: ${payload}`);
   });
 
@@ -623,7 +623,7 @@ describe('qualitySignalsSectionPlan — quality signals section (D-08, D-09, D-1
         ...HEALTHY_QUALITY,
         deviceEra: { family, rawDeviceName: family === 'unrecognized-device' ? 'Some Watch X1' : null },
       };
-      return qualitySignalsSectionPlan(quality, null).rows[3].valueText;
+      return qualitySignalsSectionPlan(quality, null).rows[6].valueText;
     });
     expect(new Set(displayNames).size).toBe(allFamilies.length);
   });
@@ -702,14 +702,14 @@ describe('qualitySignalsSectionPlan — quality signals section (D-08, D-09, D-1
       elapsedVsMoving: { ratio: null, elapsedSec: null, movingSec: null },
     };
     const plan = qualitySignalsSectionPlan(quality, null);
-    expect(plan.rows[4].valueText).toBe('Elapsed/moving ratio not available');
-    expect(plan.rows[4].tier).toBe('untiered');
+    expect(plan.rows[7].valueText).toBe('Elapsed/moving ratio not available');
+    expect(plan.rows[7].tier).toBe('untiered');
   });
 
   it('deviceEra and elapsedVsMoving carry the untiered tier value, never one of the four QualityTier members', () => {
     const plan = qualitySignalsSectionPlan(HEALTHY_QUALITY, null);
-    expect(plan.rows[3].tier).toBe('untiered');
-    expect(plan.rows[4].tier).toBe('untiered');
+    expect(plan.rows[6].tier).toBe('untiered');
+    expect(plan.rows[7].tier).toBe('untiered');
   });
 });
 
