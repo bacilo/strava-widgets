@@ -132,7 +132,7 @@ context, measured facts and decisions in `PROJECT.md` § Current Milestone; requ
 Plans:
 **Wave 1**
 
-- [ ] 32-01-PLAN.md — D-03/D-14 amendments (SEG-05 → SEG-05a/05b) + D-17 stream-immutability gate
+- [x] 32-01-PLAN.md — D-03/D-14 amendments (SEG-05 → SEG-05a/05b) + D-17 stream-immutability gate
 - [ ] 32-02-PLAN.md — Standalone detector `unreliable-segments.ts` (folded run-level scoring, touching adjacency, chaining, 3 mechanisms)
 - [ ] 32-03-PLAN.md — Independent gap-first recount script for 3475724402 (zero-import, fails closed)
 
@@ -272,7 +272,7 @@ Plans:
 | 29. Curation Review Queue | v2.2 | 8/8 | Complete    | 2026-09-18 |
 | 30. Elevation Quality Signal | v2.2 | 8/8 | Complete    | 2026-09-18 |
 | 31. Tech-Debt Closure — Silent-Failure Guards & Docs Reconciliation | v2.2 | 10/10 | Complete    | 2026-09-19 |
-| 32. Unreliable-Segment Detection & Calibration | v2.3 | 0/TBD | Not started | - |
+| 32. Unreliable-Segment Detection & Calibration | v2.3 | 1/9 | In Progress|  |
 | 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 0/TBD | Not started | - |
 | 34. Pause Classification & Forgotten-Stop | v2.3 | 0/TBD | Not started | - |
 | 35. Stream-Derived Running Pace | v2.3 | 0/TBD | Not started | - |

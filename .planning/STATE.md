@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
 status: executing
-stopped_at: Phase 32 planned (9 plans, 6 waves; plan-checker passed, 0 blockers)
-last_updated: "2026-09-19T21:42:08.688Z"
-last_activity: 2026-09-19 -- Phase 32 execution started
+stopped_at: Completed 32-01-PLAN.md
+last_updated: "2026-09-19T21:58:53.711Z"
+last_activity: 2026-09-19
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 9
-  completed_plans: 0
+  completed_plans: 1
   percent: 0
 ---
 
@@ -47,9 +47,9 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 ## Current Position
 
 Phase: 32 (unreliable-segment-detection-calibration) — EXECUTING
-Plan: 1 of 9
-Status: Executing Phase 32
-Last activity: 2026-09-19 -- Phase 32 execution started
+Plan: 2 of 9
+Status: Ready to execute
+Last activity: 2026-09-19
 
 ## Performance Metrics
 
@@ -95,6 +95,7 @@ Last activity: 2026-09-19 -- Phase 32 execution started
 | Phase 31 P08 | ~65min | 2 tasks | 8 files |
 | Phase 31 P09 | ~40min | 2 tasks | 4 files |
 | Phase 31 P10 | 10min | 2 tasks | 3 files |
+| Phase 32 P01 | ~20min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -151,6 +152,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 31]: 31-08: regenerated all five TD-05 artifacts against the merged 1,899-activity archive; fixed two real generator bugs found while regenerating (a broken re-export in compute-pace-quality-calibration.mjs, and a missing TD-04 reason-string column in compute-pr-ceiling-diff.mjs's 28-DIFF.md); three-way ceiling reconciliation holds at 32=32=32; new 28-DIFF.md sha256 97e1782c... recorded for plan 31-10's re-sign
 - [Phase 31]: 31-09 corrected all five stale hand-written figures the v2.2 audit named (PACE-06 13->14, ERA-02/ROADMAP Criterion 5 716/1,864->663/1,899 re-measured live this session, ROADMAP Phase 26 Criterion 1 1,866->1,874 streams scanned, PR-03/04/05 wording replaced with the actual 28-VERIFICATION.md passed 5/5 outcome), each with a dated provenance note; closed 27 G-01 in the audit and G-02 in 27-VALIDATION.md, flipping its status from partial to passed (D-14); ticked TD-06.
 - [Phase 31-10]: Blanket approval recorded as blanket approval; TD-05 ticked only because all three PR-04 Round 4 rows PASS — House rule T-31-33: verdicts transcribed verbatim, never expanded into invented per-row detail; tick discipline requires all mapped rows PASS before requirement ticks
+- [Phase 32]: SEG-05 split into SEG-05a/SEG-05b (D-14); SEG-04/ROADMAP criterion 4 amended (D-03) to disclose the Suunto sample by activity ID rather than a fourth mechanism label; PITFALLS.md Pitfall 2 and research/SUMMARY.md superseded (D-01, the Suunto sample is no longer a must-not-fire fixture); D-04 one-treatment note recorded on Phases 33/36; D-17 stream-immutability gate landed (scripts/compute-stream-checksums.mjs, watched failing on a real one-byte edit, then restored and green).
 
 ### Key Findings
 
@@ -259,9 +261,9 @@ It is named here because PROJECT.md's Evolution entry still describes it as open
 
 ## Session Continuity
 
-Last session: 2026-09-19T21:02:49.082Z
-Stopped at: Phase 32 planned (9 plans, 6 waves; plan-checker passed, 0 blockers)
-Resume file: .planning/phases/32-unreliable-segment-detection-calibration/32-01-PLAN.md
+Last session: 2026-09-19T21:58:53.703Z
+Stopped at: Completed 32-01-PLAN.md
+Resume file: None
 
 ---
 *Last updated: 2026-08-11 — Phase 17 (activity-browser-detail-views) all 15 planned plans executed and summarized; human checkpoint on plan 17-15 came back PARTIAL — 8/10 Manual-Only Verifications rows confirmed clean, GAP 1 (DETAIL-02, route-map basemap tiles absent) and GAP 2 (DETAIL-03/04, chart band x-axis misalignment) have open gaps pending gap-closure planning (`/gsd-plan-phase 17 --gaps`) before the phase gate closes*
