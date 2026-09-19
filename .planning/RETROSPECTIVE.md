@@ -123,6 +123,139 @@
 
 ---
 
+## Milestone: v2.2 — Pace Data Quality
+
+**Shipped:** 2026-09-19
+**Phases:** 6 (26-31) | **Plans:** 69 | **Tasks:** 168 | **Duration:** 11 days (2026-09-08 → 2026-09-19)
+
+### What Was Built
+
+- **One gap-aware pace derivation** (Phase 26) — `derivePaceWithCoverage` with an adaptive window
+  (`max(20, 2.5 × p90(advance interval))`) that clips at recording and pause gaps; chart band,
+  histogram, caption and splits all read it; a single-source audit test proves nothing else computes
+  pace and was shown catching a planted second implementation. Coverage sums to an exact identity
+  verified across all 1,865 streams and is always on screen. A metadata-vs-stream cross-check flags
+  the one archive activity whose metadata implies 1:53/km against a stream-derived 5:51/km.
+- **Per-activity quality signals** (Phase 27) — five signals computed in CI onto every index row
+  (schema version unchanged) plus a lazy evidence shard, badged with condition and measured value,
+  one "any severe" filter. Composite severe rate measured at 299 of 1,890 (15.8%) and reported as a
+  finding after the criterion's "under ~5%" proved jointly unsatisfiable with a locked cohort.
+- **PR plausibility ceiling** (Phase 28) — strict three-pass `compute-best-efforts.ts`, per-distance
+  ceiling `1.28 × p90` (min population 100) derived non-circularly, demote-and-flag never delete;
+  32 ceiling demotions on the merged archive reconciled three ways; `28-DIFF.md` signed four times
+  against its sha256 as it regenerated.
+- **Curation review queue** (Phase 29) — `/__curate/queue` lists every demoted activity (47, equal
+  to the independent recount) with the existing exclude control per row; every write imported from
+  the Phase 24 transport; both publish guards shown red under a planted leak.
+- **Elevation quality signal** (Phase 30) — three total altitude detectors (sub-ground 11, loop-gated
+  closure drift 21, vertical rate 39) as a sixth signal structurally outside the severe composite;
+  flag only, `data/streams/` byte-unchanged.
+- **Tech-debt closure at the source** (Phase 31) — inserted from the close-out audit: deploy gate
+  decoupled from the live exclusions file, `copyJsonTree` on content digest not mtime, recount and
+  queue agree-or-fail-loudly on malformed exclusions, 3-dp demotion margin, five artifacts regenerated
+  twice and proven idempotent, five stale figures corrected with provenance.
+
+### What Worked
+
+- **A classifier-independent recount per phase.** Phases 27, 28, 29 and 30 each shipped a standalone
+  script that recomputes the phase's headline number from the *shipped* JSON with zero imports of
+  the classifier. This is what caught Phase 28's CR-01 — the recount was made to sweep every effort
+  itself and was shown FAILING on the pre-fix archive (31 vs 18) before the fix landed — and what let
+  Phase 29's checkpoint compare a rendered extent (47) against three named decoys the header had to
+  reject.
+- **Two-run idempotence for every generated artifact.** Regenerating each calibration report twice
+  and diffing is cheap, and it found real generator bugs in both Phase 27 (a prose correction that
+  silently reverted, G-01) and Phase 31 (a pure `export { x } from` re-export that left the name
+  unbound in its own module and crashed the sweep — invisible to every unit test that imported it).
+- **Surfacing an unsatisfiable criterion instead of tuning to it.** Phase 27's executor stopped when
+  Criterion 4's ~5% target collided with D-04's locked 154-activity cohort, and the developer chose
+  `split-the-criterion`. The measured 15.8% is a reported finding with the tension left visible in
+  QUAL-05 rather than a threshold nudged until the number fit.
+- **Inserting a tech-debt phase from the close-out audit.** The 2026-09-18 audit came back
+  `tech_debt` with ~30 advisories; five shared the silent-and-passing shape this project's lessons
+  single out. Phase 31 closed all five at the source in one day, each with a demonstrated-failing
+  test, and the final audit re-derived every figure at HEAD rather than trusting the tech_debt list —
+  which had already carried one closed item (27 G-01) for a day.
+- **Both v2.1 process fixes held.** Verification re-ran after every gap-closure round it triggered
+  (26 ran three verification rounds, 28 two); requirements were ticked only when every mapped
+  checkpoint row passed (PR-03/04/05 held "pending" through 28-15 until re-verification, then had
+  their wording corrected by Phase 31 rather than left as a stale claim).
+- **Gap-closure share dropped sharply.** 14 of 69 plans were gap closure (~20%) against roughly 60 of
+  103 in v2.1 — partly because compute-layer work is easier to evidence than rendering, partly
+  because the recount-per-phase habit found defects before the checkpoint rather than after.
+
+### What Was Inefficient
+
+- **The milestone ran 402 commits ahead of origin.** The nightly CI kept committing activities to
+  origin/master while v2.2 executed against a 1,890-activity snapshot. MERGE-01 merged them on the
+  morning of the close (+9 → 1,899), two calibration artifacts had to be regenerated, one record
+  changed hands (`3475730418@1mi`, a correct demotion by 0.002 m/s) and PR-04 needed a third sign-off.
+  Everything reconciled, but it was avoidable churn on the critical path of the close.
+- **Checkpoint rounds still passed on self-agreement twice.** Phase 26's CR-03 (the chart band still
+  on the fixed 20s window) survived Rounds 1 and 2 because every row asked whether two surfaces agreed,
+  not what either plotted. Phase 28's Round 1 checkpoint AND verification passed on "18 = 18" because
+  recount and classifier shared a blind spot. The v2.1 lesson ("assert reachable extent against an
+  independently-derived value") was recorded but not yet a drafting rule; both phases relearned it.
+- **Hand-written figures went stale in five places.** PACE-06's 13, ERA-02's 716/1,864, two ROADMAP
+  criteria and the PR-03/04/05 wording all drifted from what the generators produced. Phase 31 fixed
+  the generators where one existed and corrected the prose with dated notes, but a figure that lives
+  only in prose will drift again.
+- **`phase.add` filed Phase 31's detail block under `## Progress`.** Cosmetic, fixed in the archive,
+  but it is the same class of misplacement the memory notes already warn about.
+- **`audit-open` false positive, third close running.** The quick-task SUMMARY still has no
+  `status:` field. Ten minutes of tooling would end this.
+
+### Patterns Established
+
+- Every phase that produces a headline number ships a script that recomputes it from the published
+  artifact without importing the code that produced it. The recount is demonstrated failing on a
+  mutated input before it is trusted.
+- Every generated artifact of record is regenerated twice and diffed before it is committed. A
+  correction that lives only in prose is not a correction — fix the generator.
+- Corrections to requirements and criteria are made in place with a dated provenance note, never by
+  silently rewriting the figure. Both the original and the corrected number stay visible.
+- A criterion that cannot be satisfied is split into a failable gate and a reported finding; a locked
+  threshold is never retuned toward a target.
+- A checkpoint row pins its expected extent to a value derived outside the changed code — the
+  adaptive series' own maximum, the recount's activity count, the shard's `wasPRAtTheTime` — and
+  the presenter HALTs if reachability cannot be shown from disk first.
+- Sign-offs bind to a content hash. `28-DIFF.md` was signed against its sha256 each time it changed.
+- A `tech_debt` audit verdict is an input to a closure phase, not a reason to complete with the debt.
+
+### Key Lessons
+
+1. **Independent re-derivation catches what green tests cannot.** Every defect that mattered in v2.2
+   — CR-03, G-01, G-04, 28 CR-01, the unbound re-export — was found by computing a number a second
+   way, never by a test going red. The suite was green throughout. Budget for the recount, not just
+   the test.
+2. **Two artifacts can share a blind spot and agree perfectly.** "18 = 18" was two consumers of the
+   same classifier. Independence means zero imports, by any spelling, verified by a structural test.
+3. **Merge origin at least once per phase when CI writes to the same branch.** The archive is a
+   moving input; calibration artifacts bound to a snapshot go stale the moment origin moves.
+4. **A figure in prose is a liability; a figure from a generator is an asset.** Five stale numbers,
+   all in prose. Where a generator exists, the prose should be emitted by it.
+5. **Insert the tech-debt phase; do not complete with the debt.** Phase 31 cost one day and left the
+   archive matching the code. v2.0 completed `tech_debt` and v2.1 closed without an audit; items
+   from both are still being acknowledged at every close.
+6. **The v2.1 "reachable extent" lesson needed to become a drafting rule, not a memory.** It was
+   relearned twice in this milestone before Round 3 of Phase 26 and Round 2 of Phase 28 applied it.
+
+### Cost Observations
+
+- Model mix and token spend were again not instrumented; deliberately left blank rather than
+  estimated.
+- Structural proxy: 69 plans across 6 phases, of which 14 were gap closure and 10 were the inserted
+  tech-debt phase. First-pass feature work was ~45 plans — a far better ratio than v2.1's.
+- Seven parallel worktree executors ran Phase 31's wave 1; the post-merge suite went red once on
+  stale local artifacts, not a code conflict (see memory: regenerate `data/` + `build-widgets` on the
+  primary checkout before `npm test` after schema-widening waves).
+- Tests grew 1,617 → 2,192 (+36%) across 85 files on +6,255 non-test LOC in `src/` (+21%). Unlike
+  v2.1, a real share of this is product surface (six signals, a ceiling, a queue), not only guards.
+- Committed data cost: `data/stats/pace-quality/{id}.json` shards for all 1,899 activities plus
+  `data/best-effort-ceiling.json`; `data/streams/` unchanged at 143 MB.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -134,6 +267,7 @@
 | v1.2 Maps & Geo Fix | 4 | 11 | 2 days | GeoNames migration; Leaflet map widgets |
 | v2.0 Training Dashboard | 5 | 56 | 3 days | Dashboard SPA; first milestone audit; privacy guards |
 | v2.1 Interface Polish | 7 | 103 | 24 days | Human browser checkpoint per phase; mutation-proved guards; gap-closure rounds became the dominant unit of work |
+| v2.2 Pace Data Quality | 6 | 69 | 11 days | Classifier-independent recount per phase; two-run idempotence for generated artifacts; tech-debt phase inserted from the close-out audit; audit `passed` (first since v1.1) |
 
 ### Cumulative Quality
 
@@ -144,6 +278,7 @@
 | v1.2 | not recorded | 9,148 | — |
 | v2.0 | 884 | 26,430 | Two-layer publish guard introduced |
 | v2.1 | 1,617 (63 files) | 29,955 | +83% tests on +13% source — guard layers, not features |
+| v2.2 | 2,192 (85 files) | 36,210 | +36% tests on +21% source — real product surface this time; plus 7 regenerable artifacts of record |
 
 ### Top Lessons (Verified Across Milestones)
 
@@ -156,5 +291,13 @@
    Phase 25's VER-01 — after two intervening phases ran human checkpoints on the same shell without
    discharging them.
 3. **`audit-open` output needs triage, not tallying.** The same false positive was counted as open debt
-   at two consecutive milestone closes; v2.0's audit repeated an error of the same class on a todo file
+   at three consecutive (v2.0, v2.1, v2.2) milestone closes; v2.0's audit repeated an error of the same class on a todo file
    that had actually shipped in Phase 16.
+4. **Independent re-derivation is the only check that has caught every class of defect.** v2.0's black
+   page passed 15/15 checks that resolved absolute URLs at the wrong root; v2.1's CR-01 passed three
+   human rounds that asserted self-agreement; v2.2's 28 CR-01 passed a checkpoint AND a verification
+   that both consumed the classifier's own output. In each case the defect fell to a number computed
+   a second way from a different input. Every phase with a headline figure now ships that second way.
+5. **Complete with the debt and the debt outlives the milestone.** v2.0 closed `tech_debt` and v2.1
+   closed without an audit; items from both are still acknowledged at every close. v2.2 inserted a
+   closure phase instead and is the first audit to return `passed` since v1.1.

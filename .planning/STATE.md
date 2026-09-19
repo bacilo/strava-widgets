@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Pace Data Quality
-status: milestone_complete
-stopped_at: Milestone complete (Phase 31 was final phase)
-last_updated: 2026-09-19T12:53:23.702Z
-last_activity: 2026-09-19
+status: Awaiting next milestone
+stopped_at: Milestone v2.2 archived and tagged; awaiting /gsd-new-milestone
+last_updated: "2026-09-19T14:07:53.029Z"
+last_activity: 2026-09-19 — Milestone v2.2 completed and archived
 progress:
   total_phases: 6
   completed_phases: 6
@@ -18,33 +18,35 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-09-08)
+See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Milestone complete
+**Current focus:** Planning next milestone — v2.2 Pace Data Quality shipped 2026-09-19 (tag `v2.2`); start with `/gsd-new-milestone`. Next phase number is 32.
 
-**Carried into the next milestone:**
+**Carried into the next milestone** (full list with reasons in PROJECT.md § Active):
 
-- `STREAM-04` (Garmin export adapter) — externally blocked on the export arriving.
-- `IN-17` / `IN-18` — `curation-guard.mjs` cosmetics from the Phase 24 wave-9 review.
-- Open code-review findings, none of them shipped-behaviour blockers: Phase 23's 7 Warning + 5 Info,
+- Candidates v2.2 deliberately handed forward: stream re-derivation from the 1 Hz originals
+  (STREAM-05/06 — the quality signals now exist to measure whether it helps), the `index-client.ts`
+  `ParsedDashboardIndexRow` retype (phase-sized), CUR-04 queue dismiss, 28 WR-06 ceiling-file write
+  gate (developer decision), 30 WR-02/WR-03 elevation badge wording (product call).
+- `STREAM-04` (Garmin export adapter) — externally blocked on the export arriving; acknowledged at
+  the v2.0, v2.1 and v2.2 closes.
+- Open code-review findings, none shipped-behaviour blockers — v2.2: 26 WR-06/07, 27 WR-02/03,
+  28 IN-05..08, 29 WR-01/04/05/06, 30 IN-01..07, 31 IN-01..08; v2.1: Phase 23's 7 Warning + 5 Info,
   Phase 24's WR-19 (`EACCES` out of `findCurationArtifacts`; fails closed), Phase 25's CR-01 (an
   unawaited CDP listener rejection leaks a Chrome child process out of `first-paint-capture.mjs`)
   plus WR-01..WR-04.
-
-- Two process fixes the v2.1 retrospective identifies as worth acting on rather than just recording:
-  re-run verification after the gap-closure round it triggered (a stale `22-VERIFICATION.md` blocked
-  this close for exactly that reason), and tick requirements after verification rather than before
-  (three requirements were ticked, reverted and re-ticked during v2.1).
+- Process: merge origin at least once per phase during the next milestone — v2.2 ran 402 commits
+  ahead of an origin the nightly CI kept moving, and the archive shifted under two calibration
+  artifacts (MERGE-01). The two v2.1 process fixes held in v2.2 (verification re-ran after every
+  gap-closure round; requirements ticked only on all-rows-PASS) and should stay.
 
 ## Current Position
 
-Phase: 31 (tech-debt-closure-silent-failure-guards-docs-reconciliation) — COMPLETE
-Plan: 10 of 10
-Status: Milestone complete — Phase 31 verified passed 6/6 (31-VERIFICATION.md), all v2.2 phases 26-31 complete; ready for /gsd-audit-milestone re-run or /gsd-complete-milestone v2.2
-Last activity: 2026-09-19 -- Phase 31 verified (6/6) and complete; code review CR-01/WR-01..03 fixed; PR-04 Round 4 signed
-
-Progress: [██████████] 100%
+Phase: Milestone v2.2 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-09-19 — Milestone v2.2 completed and archived
 
 ## Performance Metrics
 
@@ -211,6 +213,23 @@ Items acknowledged and deferred at the v2.0 milestone close on 2026-08-12.
 | todo | Garmin export adapter (STREAM-04) — blocked on the export arriving | deferred |
 | ~~todo~~ | ~~Manual exclusion of activities from best efforts~~ — **CORRECTION 2026-08-12: not deferred. Shipped in Phase 16 plan 16-01 (`b9d10cd`); the todo file was simply never closed, so `audit-open` miscounted it and the v2.0 audit repeated the error.** | resolved |
 
+### v2.2 close (2026-09-19)
+
+Items acknowledged and deferred at the v2.2 Pace Data Quality milestone close. `audit-open`
+reported 2 open items, both inherited and both already acknowledged at the v2.0 and v2.1 closes;
+neither is v2.2's to close. The milestone audit itself was `passed` with zero pre-close obligations.
+
+| Category | Item | Status | Triage |
+|----------|------|--------|--------|
+| quick_task | `1-fix-daily-widget-refresh-github-actions-` | missing | **False positive, third close running.** `1-SUMMARY.md` exists and records `requirements-completed: [FIX-CI-01]`; the frontmatter has no `status:` field for `audit-open` to read. Fix: add the field, or teach the query to fall back to `requirements-completed`. |
+| todo | `2026-08-10-garmin-export-adapter-when-export-arrives.md` (STREAM-04) | pending | Genuine deferral, externally blocked — the Garmin export has not arrived. Unchanged since v2.0. |
+
+Not deferred debt but recorded here so the record is complete: the v2.2 out-of-scope set
+(ROADMAP § Phase 31 out-of-scope, now `milestones/v2.2-ROADMAP.md`) and the per-phase open
+code-review findings are listed in PROJECT.md § Active with reasons. Both audit sibling files
+(`v2.2-INTERIM-AUDIT.md`, `v2.2-CLOSEOUT-AUDIT-2026-09-18.md`) were moved into `milestones/`
+alongside the final audit at this close.
+
 ### v2.1 close (2026-09-05)
 
 Items acknowledged and deferred at the v2.1 Interface Polish milestone close. Each was triaged
@@ -237,8 +256,8 @@ It is named here because PROJECT.md's Evolution entry still describes it as open
 
 ## Session Continuity
 
-Last session: 2026-09-19T12:26:03.298Z
-Stopped at: Completed 31-10-PLAN.md — Phase 31 complete (10/10)
+Last session: 2026-09-19 — v2.2 milestone closed and archived (`/gsd-complete-milestone v2.2`)
+Stopped at: Milestone v2.2 archived and tagged; awaiting `/gsd-new-milestone`
 Resume file: None
 
 ---
