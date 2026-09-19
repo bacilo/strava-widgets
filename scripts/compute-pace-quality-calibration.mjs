@@ -45,7 +45,8 @@ import {
 // reopening 27 G-01 as 27 G-03 a second time; re-exported here so this
 // module's own guard test (which imports it as `mod.isStreamFile`) is
 // unaffected by the move.
-export { idFromFilename, isStreamFile } from './lib/stream-files.mjs';
+import { idFromFilename, isStreamFile } from './lib/stream-files.mjs';
+export { idFromFilename, isStreamFile };
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = join(__dirname, '..');

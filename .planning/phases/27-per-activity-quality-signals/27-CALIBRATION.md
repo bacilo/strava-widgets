@@ -2,19 +2,19 @@
 
 The measured composite severe rate — the true union across all three per-activity quality tiering signals (`decimation`, `gapProfile`, `impossibleSamples`) — over the full live committed archive, produced entirely by `npm run compute-pace-quality-calibration`. Every figure below is computed by THIS run; nothing is transcribed from `27-RESEARCH.md`, `27-CONTEXT.md` or `26-RESIDUAL.md` except the threshold justifications in section 2, which are quoted and attributed.
 
-**Generated:** 2026-09-10T17:15:24.184Z
+**Generated:** 2026-09-19T11:36:33.290Z
 
 ## 1. Denominators (computed live)
 
-**Live-denominator correction (originally 2026-09-10 via plan 27-03's hand-edit; generator itself fixed 2026-09-10 via gap-closure plan 27-11, closing G-01 — see `27-VALIDATION.md` § Gap-Closure Record — composite unchanged):** This report's stream-file count was originally computed by this generator with a naive `readdirSync('data/streams').filter(f => f.endsWith('.json'))`, which counts EVERY `.json` file in `data/streams/`, including `data/streams/manifest.json` — the stream-availability index file written by backfill-streams and the daily intervals.icu sync, not a per-activity stream. That inflated the stream-file count by exactly one file and understated the stream-less count by one. Stale (pre-fix) values, as this generator originally emitted them: stream-file count **1866**, stream-less count **24**. Plan 27-03 corrected those figures in this file's PROSE without fixing the generator, so re-running it silently reverted the correction; plan 27-11 fixed the generator itself (it now excludes `manifest.json` from the count below), so the live figures below are computed correctly by THIS run rather than hand-corrected after the fact. The **activity count (1890)** and the **composite (299)** are UNCHANGED by this correction — this is a denominator correction, not a change in the measured composite, exactly as `26-RESIDUAL.md` records its own measurement corrections (see e.g. its "corrected 2026-09-08" note) rather than silently overwriting prior figures.
+**Live-denominator correction (originally 2026-09-10 via plan 27-03's hand-edit; generator itself fixed 2026-09-10 via gap-closure plan 27-11, closing G-01 — see `27-VALIDATION.md` § Gap-Closure Record — composite unchanged):** This report's stream-file count was originally computed by this generator with a naive `readdirSync('data/streams').filter(f => f.endsWith('.json'))`, which counts EVERY `.json` file in `data/streams/`, including `data/streams/manifest.json` — the stream-availability index file written by backfill-streams and the daily intervals.icu sync, not a per-activity stream. That inflated the stream-file count by exactly one file and understated the stream-less count by one. Stale (pre-fix) values, as this generator originally emitted them: stream-file count **1866**, stream-less count **24**. Plan 27-03 corrected those figures in this file's PROSE without fixing the generator, so re-running it silently reverted the correction; plan 27-11 fixed the generator itself (it now excludes `manifest.json` from the count below), so the live figures below are computed correctly by THIS run rather than hand-corrected after the fact. The **activity count (1899)** and the **composite (299)** are UNCHANGED by this correction — this is a denominator correction, not a change in the measured composite, exactly as `26-RESIDUAL.md` records its own measurement corrections (see e.g. its "corrected 2026-09-08" note) rather than silently overwriting prior figures.
 
-- Activity count: **1890** — `readdirSync('data/activities').filter(f => f.endsWith('.json'))` entries that read and JSON-parsed successfully.
-- Stream-file count: **1865** — `readdirSync('data/streams').filter(f => f.endsWith('.json') && f !== 'manifest.json')` entries (excluding the non-activity `manifest.json` stream-availability index — see the live-denominator correction above).
-- Stream-less count: **25** — `1890 - 1865 = 25` (arithmetic difference).
+- Activity count: **1899** — `readdirSync('data/activities').filter(f => f.endsWith('.json'))` entries that read and JSON-parsed successfully.
+- Stream-file count: **1874** — `readdirSync('data/streams').filter(f => f.endsWith('.json') && f !== 'manifest.json')` entries (excluding the non-activity `manifest.json` stream-availability index — see the live-denominator correction above).
+- Stream-less count: **25** — `1899 - 1874 = 25` (arithmetic difference).
 
-Every per-signal and composite rate below is reported against BOTH denominators: the **activity-count denominator** (1890, all activities including the 25 stream-less ones, which report `notComputableReason` and are never counted in the severe numerator) and the **stream-count denominator** (1865, only activities with a computable stream).
+Every per-signal and composite rate below is reported against BOTH denominators: the **activity-count denominator** (1899, all activities including the 25 stream-less ones, which report `notComputableReason` and are never counted in the severe numerator) and the **stream-count denominator** (1874, only activities with a computable stream).
 
-This run supersedes ROADMAP Criterion 4's cited "1,864-activity archive" / "≈90 activities" and CONTEXT D-06's cited "1,890/1,866" — this run measured 1890 activity files and 1865 stream files live; do not treat 1,864, 1,866 or 1,890 as expected values anywhere else in this report.
+This run supersedes ROADMAP Criterion 4's cited "1,864-activity archive" / "≈90 activities" and CONTEXT D-06's cited "1,890/1,866" — this run measured 1899 activity files and 1874 stream files live; do not treat 1,864, 1,866 or 1,890 as expected values anywhere else in this report.
 
 ## 2. Thresholds in Force
 
@@ -33,11 +33,11 @@ Quoted verbatim from `27-02-SUMMARY.md`'s "Decisions Made" section. No override 
 
 | Signal | Severe count | % of activity count | % of stream count | Minor count |
 |---|---|---|---|---|
-| Decimation (D-04) | 154 | 8.1% | 8.3% | 56 |
-| Gap profile | 127 | 6.7% | 6.8% | 337 |
-| Impossible samples | 31 | 1.6% | 1.7% | 631 |
+| Decimation (D-04) | 154 | 8.1% | 8.2% | 56 |
+| Gap profile | 127 | 6.7% | 6.8% | 340 |
+| Impossible samples | 31 | 1.6% | 1.7% | 632 |
 
-*"% of stream count" uses the live **1865** stream-file denominator (see the Section 1 live-denominator correction); at this rounding precision every value above is identical to the same computation against the pre-fix, naive-glob figure of 1866 — a one-file difference out of well over a thousand, below this table's 1-decimal rounding precision.*
+*"% of stream count" uses the live **1874** stream-file denominator (see the Section 1 live-denominator correction); at this rounding precision every value above is identical to the same computation against the pre-fix, naive-glob figure of 1866 — a one-file difference out of well over a thousand, below this table's 1-decimal rounding precision.*
 
 Device era and elapsed-vs-moving are untiered facts (D-13/D-14) and contribute NOTHING to the composite below — reported here only as distributions for context.
 
@@ -45,23 +45,23 @@ Device era and elapsed-vs-moving are untiered facts (D-13/D-14) and contribute N
 
 | Family | Count | % of activity count |
 |---|---|---|
-| garmin-fenix-6-pro | 908 | 48.0% |
-| no-device-name | 663 | 35.1% |
+| garmin-fenix-6-pro | 908 | 47.8% |
+| no-device-name | 663 | 34.9% |
 | suunto-9 | 205 | 10.8% |
-| intervals-icu | 78 | 4.1% |
-| strava-app-gpx | 35 | 1.9% |
+| intervals-icu | 87 | 4.6% |
+| strava-app-gpx | 35 | 1.8% |
 | garmin-vivoactive-4 | 1 | 0.1% |
 
 **Elapsed-vs-moving ratio quantile summary (untiered, non-null ratios only):**
 
-- n = 1890; p10 = 1.00; p50 = 1.02; p90 = 1.18; max = 30.97
+- n = 1899; p10 = 1.00; p50 = 1.02; p90 = 1.18; max = 30.97
 
 ## 4. THE COMPOSITE — the actual union
 
 **299** activities carry `anySevere === true` — computed as the size of the `Set` of activity ids for which `hasAnySevereSignal` is `true` (see `reduceCompositeUnion` in this script), NOT the sum of the three marginals above (154 + 127 + 31 = 312) and NOT an inclusion-exclusion estimate.
 
-- Against the activity-count denominator: 15.8% (299 of 1890).
-- Against the stream-count denominator: 16.0% (299 of 1865).
+- Against the activity-count denominator: 15.7% (299 of 1899).
+- Against the stream-count denominator: 16.0% (299 of 1874).
 
 **Three-way overlap breakdown:**
 
@@ -76,7 +76,7 @@ Device era and elapsed-vs-moving are untiered facts (D-13/D-14) and contribute N
 
 ## 5. The D-02 Disposition Paragraph
 
-**FINDING, not a defect.** The measured composite severe rate is 299 of 1890 activities (15.8% of the activity-count denominator, 16.0% of the 1865-stream denominator) — materially above ROADMAP Criterion 4's "~5%" ceiling. D-04's locked severe-decimation cohort alone is 154 activities (8.1% of the activity-count denominator), already above ~5% before the other two signals contribute anything, and accounts for the bulk of the composite. D-02 forbids retuning any threshold backward from the ~5% target, and D-04 forbids narrowing the decimation rule below Phase 26's cohort definition. No threshold was moved in this run to change this number. The disposition on what Criterion 4 should mean given this measured rate is the developer's, recorded at this plan's checkpoint (Task 3).
+**FINDING, not a defect.** The measured composite severe rate is 299 of 1899 activities (15.7% of the activity-count denominator, 16.0% of the 1874-stream denominator) — materially above ROADMAP Criterion 4's "~5%" ceiling. D-04's locked severe-decimation cohort alone is 154 activities (8.1% of the activity-count denominator), already above ~5% before the other two signals contribute anything, and accounts for the bulk of the composite. D-02 forbids retuning any threshold backward from the ~5% target, and D-04 forbids narrowing the decimation rule below Phase 26's cohort definition. No threshold was moved in this run to change this number. The disposition on what Criterion 4 should mean given this measured rate is the developer's, recorded at this plan's checkpoint (Task 3).
 
 ## 6. The D-04 Boundary Cross-Check
 

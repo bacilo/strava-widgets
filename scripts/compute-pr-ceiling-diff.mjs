@@ -371,6 +371,11 @@ function buildCeilingDemotedExcluded(newDoc) {
         durationSec: effort.durationSec,
         impliedSpeedMps: meters && effort.durationSec > 0 ? meters / effort.durationSec : null,
         ceilingMps: ceilings[effort.distance]?.ceilingMps ?? null,
+        // TD-04/D-10: the machine's own margin-bearing reason string, carried
+        // verbatim so the signed diff itself states the wording a Round 4
+        // reviewer is asked to re-sign against — not just the two numbers it
+        // was derived from.
+        reason: effort.demotion?.reason ?? null,
       });
     }
   }
@@ -599,12 +604,12 @@ export function renderDiffMarkdown(report) {
     lines.push('None in this run.');
     lines.push('');
   } else {
-    lines.push('| Activity ID | Distance | Duration (s) | Implied speed (m/s) | Ceiling (m/s) |');
-    lines.push('|---|---|---|---|---|');
+    lines.push('| Activity ID | Distance | Duration (s) | Implied speed (m/s) | Ceiling (m/s) | Reason |');
+    lines.push('|---|---|---|---|---|---|');
     for (const row of report.ceilingDemotedExcluded) {
       lines.push(
         `| ${safeActivityId(row.activityId)} | ${row.distance} | ${row.durationSec.toFixed(1)} | ` +
-          `${formatMps(row.impliedSpeedMps)} | ${formatMps(row.ceilingMps)} |`
+          `${formatMps(row.impliedSpeedMps)} | ${formatMps(row.ceilingMps)} | ${safeCell(row.reason ?? '—')} |`
       );
     }
     lines.push('');

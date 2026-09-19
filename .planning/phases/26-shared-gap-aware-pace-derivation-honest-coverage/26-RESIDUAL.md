@@ -2,7 +2,7 @@
 
 The residue the adaptive gap-aware derivation (`src/analytics/pace-derivation.ts`) does not fix, quantified rather than smoothed into plausibility (PACE-06, D-19). This is the committed, regenerable deliverable Phase 27 consumes as pre-flagged input and re-derives at its own boundary — see `npm run compute-pace-residual` below.
 
-**Generated:** 2026-09-10T17:15:28.306Z
+**Generated:** 2026-09-19T11:36:41.787Z
 
 ## Cohort Definition
 
@@ -14,7 +14,7 @@ Every "after" figure below is measured under the adaptive averaging window `max(
 
 ## Summary
 
-- Archive size scanned: 1866
+- Archive size scanned: 1874
 - Severe stair-step cohort size: 154
 - Residual count (after fast mass > 0.5% of covered time): 14
 - Max residual: 2.44%

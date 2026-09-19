@@ -488,6 +488,7 @@ describe('buildDiffReport — ceilingDemotedExcluded', () => {
       distance: '400m',
       durationSec: 45.2,
       ceilingMps: 5.1098,
+      reason: 'r',
     });
     expect(report.ceilingDemotedExcluded[0].impliedSpeedMps).toBeCloseTo(400 / 45.2, 6);
     expect(report.ceilingDemotedExcluded[1]).toMatchObject({
@@ -495,6 +496,7 @@ describe('buildDiffReport — ceilingDemotedExcluded', () => {
       distance: '1k',
       durationSec: 200,
       ceilingMps: 4.7513,
+      reason: 'r',
     });
     expect(report.ceilingDemotedExcluded[1].impliedSpeedMps).toBeCloseTo(1000 / 200, 6);
   });
@@ -666,6 +668,8 @@ describe('renderDiffMarkdown', () => {
           durationSec: 45.2,
           impliedSpeedMps: 400 / 45.2,
           ceilingMps: 5.1098,
+          reason:
+            'implied 8.850 m/s exceeds personal ceiling 5.110 m/s by 3.740 m/s (1.28 x p90 3.992 m/s over 1825 filtered 400m efforts)',
         },
         {
           activityId: 'not-a-valid-id!',
@@ -673,6 +677,7 @@ describe('renderDiffMarkdown', () => {
           durationSec: 200,
           impliedSpeedMps: 5,
           ceilingMps: 4.7513,
+          reason: null,
         },
       ],
     });
@@ -681,12 +686,25 @@ describe('renderDiffMarkdown', () => {
     const nextSectionStart = markdown.indexOf('## Reconciliation');
     const section = markdown.slice(sectionStart, nextSectionStart);
 
+    expect(section).toContain(
+      '| Activity ID | Distance | Duration (s) | Implied speed (m/s) | Ceiling (m/s) | Reason |'
+    );
     expect(section).toContain('4556693525');
     expect(section).toContain((400 / 45.2).toFixed(4));
     expect(section).toContain('45.2');
     expect(section).toContain('5.1098');
     expect(section).toContain('(malformed id)');
     expect(section).not.toContain('not-a-valid-id!');
+    // TD-04/D-10: the signed diff carries the machine's own margin-bearing
+    // reason text verbatim, not just the two numbers it was derived from.
+    expect(section).toMatch(/by \d+\.\d{3} m\/s/);
+    expect(section).toContain(
+      'implied 8.850 m/s exceeds personal ceiling 5.110 m/s by 3.740 m/s'
+    );
+    // A missing reason (null) degrades to an em dash, never "null" or "undefined".
+    expect(section).toContain('| — |');
+    expect(section).not.toContain('null');
+    expect(section).not.toContain('undefined');
   });
 
   it('Reconciliation names byGuard.ceiling and independentCeilingCount from the recount script, and carries no sign-off text', () => {

@@ -2,14 +2,14 @@
 
 The archive-wide dry run ELEV-02 requires — every figure below is computed live by `npm run compute-elevation-calibration` against the full committed archive. Nothing here is transcribed from `30-CONTEXT.md` or `30-RESEARCH.md`; both are prior scouting measurements this run independently re-derives.
 
-**Generated:** 2026-09-18T14:19:30.081Z
+**Generated:** 2026-09-19T11:36:55.437Z
 
 ## Live denominators
 
-- Activities: **1890** — `readdirSync('data/activities')` entries that read and JSON-parsed successfully.
-- Streams present: **1865** — `readdirSync('data/streams')` entries excluding `manifest.json`.
-- Streams carrying `alt`: **1865** of 1865 present streams — this is the population the three elevation detectors actually run over; every per-mode rate below divides by this number unless a different denominator is named on the same line.
-- Activities with a normalizable start/end position: **1658 of 1890 (87.7%)** — computed across ALL activities, independent of stream or `alt` availability (position is activity metadata, not stream data).
+- Activities: **1899** — `readdirSync('data/activities')` entries that read and JSON-parsed successfully.
+- Streams present: **1874** — `readdirSync('data/streams')` entries excluding `manifest.json`.
+- Streams carrying `alt`: **1874** of 1874 present streams — this is the population the three elevation detectors actually run over; every per-mode rate below divides by this number unless a different denominator is named on the same line.
+- Activities with a normalizable start/end position: **1658 of 1899 (87.3%)** — computed across ALL activities, independent of stream or `alt` availability (position is activity metadata, not stream data).
 
 ## Thresholds in force
 
@@ -36,7 +36,7 @@ Every one of the 1658 positioned activities sits at either exactly 0 m or at ≥
 
 ### Sub-ground
 
-Flagged: **11 of 1865 (0.6%)**.
+Flagged: **11 of 1874 (0.6%)**.
 
 Worst three (lowest measured altitude):
 
@@ -46,7 +46,7 @@ Worst three (lowest measured altitude):
 
 ### Closure drift (loop-gated)
 
-Flagged: **21 of 1865 (1.1%)** of the alt-carrying population; **21 of 1658 (1.3%)** of the drift-COMPUTABLE population (alt-carrying streams whose activity has a normalizable start/end position — see § Drift not-computable below for the excluded remainder).
+Flagged: **21 of 1874 (1.1%)** of the alt-carrying population; **21 of 1658 (1.3%)** of the drift-COMPUTABLE population (alt-carrying streams whose activity has a normalizable start/end position — see § Drift not-computable below for the excluded remainder).
 
 Worst three (largest absolute signed delta):
 
@@ -56,7 +56,7 @@ Worst three (largest absolute signed delta):
 
 ### Vertical rate
 
-Flagged: **39 of 1865 (2.1%)**.
+Flagged: **39 of 1874 (2.1%)**.
 
 Worst three (highest measured rate):
 
@@ -73,7 +73,7 @@ Worst three (highest measured rate):
 | vertical rate | 3 | 3 | 39 |
 
 All three modes: **1**.
-Union (the actual flagged cohort, loop-gated): **60 of 1865 (3.2%)**.
+Union (the actual flagged cohort, loop-gated): **60 of 1874 (3.2%)**.
 
 **Inclusion-exclusion check:** 11 + 21 + 39 − 6 − 3 − 3 + 1 = 60 — direct union = 60 — **PASS**.
 
@@ -88,7 +88,7 @@ Union (the actual flagged cohort, loop-gated): **60 of 1865 (3.2%)**.
 
 ## Drift not-computable
 
-**207 of 1865 (11.1%)** of the alt-carrying population has no normalizable start/end position and so drift is not-computable for that activity (sub-ground and vertical rate still run — D-02). This is the archive-wide cohort, not merely the fraction of the raw-34 diagnostic cohort that happens to lack position.
+**216 of 1874 (11.5%)** of the alt-carrying population has no normalizable start/end position and so drift is not-computable for that activity (sub-ground and vertical rate still run — D-02). This is the archive-wide cohort, not merely the fraction of the raw-34 diagnostic cohort that happens to lack position.
 
 No position is UNKNOWN (drift genuinely could not be tested); point-to-point (§ Loop-gate exclusions below) is EXCLUDED BY DESIGN (the endpoints are real, just too far apart to call a loop) — the two are not the same disposition and are never merged in this report.
 
@@ -156,8 +156,8 @@ This is a reported finding, not a defect: the detector stays per-sample per D-08
 
 ## Stream integrity (D-16)
 
-- Before-sweep digest (1865 files): `0a7836d291ee953cd89365fe6669847a084d9de7775b033af3fdbec2e5f16f61`
-- After-sweep digest (1865 files): `0a7836d291ee953cd89365fe6669847a084d9de7775b033af3fdbec2e5f16f61`
+- Before-sweep digest (1874 files): `74b1230198ed82bd2a40612a9e88a7127ef3741574b71c438704ade1686a3e00`
+- After-sweep digest (1874 files): `74b1230198ed82bd2a40612a9e88a7127ef3741574b71c438704ade1686a3e00`
 - Digests **match** — `data/streams/` is byte-unchanged by this sweep.
 
 ## Regeneration
