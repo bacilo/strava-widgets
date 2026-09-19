@@ -264,5 +264,8 @@ describe('live D-17 gate (npm test)', () => {
     expect(result.mismatches).toEqual([]);
     expect(result.missing).toEqual([]);
     expect(result.ok).toBe(true);
-  });
+    // Hashing the whole archive takes ~1s unloaded but ran 5.6s under parallel
+    // executor load, blowing vitest's 5s default. The gate must fail on a digest
+    // change, never on a busy machine.
+  }, 60_000);
 });
