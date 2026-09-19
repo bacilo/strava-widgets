@@ -96,6 +96,17 @@
 
 ---
 
+## v2.2 Tech-Debt Closure (Phase 31, added 2026-09-19)
+
+Minted from `v2.2-MILESTONE-AUDIT.md` § tech_debt after option B (close the debt before completing the milestone) was chosen. Each ID is one of ROADMAP § Phase 31's six success criteria; decisions are in `31-CONTEXT.md`.
+
+- [ ] **TD-01**: `npm test` no longer depends on the live, owner-editable `data/best-effort-exclusions.json` for the four CR-01 regression tests in `src/analytics/compute-best-efforts.test.ts` (28 WR-09). Arithmetic runs against a committed fixture; exactly one test reads the real file and asserts only its premise, failing loudly with re-pin instructions when the premise changes. A curation edit cannot turn the nightly deploy gate red for an unexplained numeric mismatch; demonstrated by editing a fixture copy, never the real file.
+- [ ] **TD-02**: `scripts/lib/copy-data-tree.mjs` can no longer leave a locally-edited `dist/widgets/data/` file in place while `build-widgets` reports success. The mtime skip is replaced by size-then-digest comparison, and every same-size/different-content replacement is logged by path; demonstrated failing on a planted doctored file that is newer than its source.
+- [ ] **TD-03**: Silent folds become honest degradation or fail-closed, per role: `records-logic.ts` renders an unrecognized `demotion.guard` as "N by another guard" instead of dropping it from the breakdown; `scripts/compute-pr-ceiling-recount.mjs` exits non-zero naming each malformed exclusions entry (duplicate id, non-string/empty reason, `__proto__`, non-string id); the curation queue skips malformed entries and shows how many it ignored. Each has a negative test on a planted fixture.
+- [ ] **TD-04**: The ceiling demotion reason always states the margin at three decimals (`implied 4.630 m/s exceeds personal ceiling 4.628 m/s by 0.002 m/s …`), so implied speed and ceiling can never read as equal in a sentence that says one exceeds the other.
+- [ ] **TD-05**: Every artifact of record matches the code and the merged archive: generators fixed for 26 G-03 (residual manifest miscount), 28 WR-07 (hard-coded drift prose) and 28 WR-08 (unlabelled non-excluded "Demoted" column); `26-RESIDUAL.md`, `27-CALIBRATION.md`, `28-CEILING-CALIBRATION.md`, `28-DIFF.md`, `30-CALIBRATION.md` regenerated twice each (second run byte-identical) and committed; one fresh PR-04 sign-off recorded in `28-VALIDATION.md` bound to the new `28-DIFF.md` sha256. Hand-written stale figures (PACE-06 "13", ERA-02/ROADMAP Criterion 5 "716 of 1,864", PR-03/04/05 "pending re-verification", the audit's G-01 entry) corrected in place with dated notes naming their source record.
+- [ ] **TD-06**: No v2.2 phase carries a pre-execution validation record into the archive: `26/27/29-VALIDATION.md` backfilled via `/gsd-validate-phase` (done 2026-09-19 — 26 and 29 compliant, 27 `status: partial` pending G-02), and the plan that closes G-02 flips `27-VALIDATION.md` to `status: passed`.
+
 ## Future Requirements
 
 Deferred, tracked, not in this roadmap.
@@ -166,3 +177,9 @@ Filled during roadmap creation.
 | ERA-01 | Phase 27 | Complete |
 | ERA-02 | Phase 27 | Complete |
 | ERA-03 | Phase 26 | Complete |
+| TD-01 | Phase 31 | Pending |
+| TD-02 | Phase 31 | Pending |
+| TD-03 | Phase 31 | Pending |
+| TD-04 | Phase 31 | Pending |
+| TD-05 | Phase 31 | Pending |
+| TD-06 | Phase 31 | Pending |

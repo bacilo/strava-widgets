@@ -352,7 +352,7 @@ Plans:
 
 **Goal**: The v2.2 close-out audit (`.planning/v2.2-MILESTONE-AUDIT.md`, status `tech_debt`) found no requirement gap but ~30 advisory items, five of which share the failure shape this project's own lessons single out — silent and passing. This phase closes those five at the source, each with a demonstrated-failing test, and reconciles every stale figure the milestone left in its own artifacts, so the milestone can be completed on a record that matches the code.
 **Depends on**: Phase 30 (last v2.2 phase; runs against the merged 1,899-activity archive pushed 2026-09-19)
-**Requirements**: TBD — tech-debt phase; scope items are enumerated in `v2.2-MILESTONE-AUDIT.md` § tech_debt and below. `/gsd-discuss-phase 31` decides whether to mint TD-NN requirement IDs or track by audit item.
+**Requirements**: TD-01, TD-02, TD-03, TD-04, TD-05, TD-06 (minted 2026-09-19 in REQUIREMENTS.md § v2.2 Tech-Debt Closure; one per success criterion below)
 **Success Criteria** (what must be TRUE):
   1. `npm test` no longer depends on the live, owner-editable `data/best-effort-exclusions.json` for the four CR-01 regression tests in `compute-best-efforts.test.ts` (28 WR-09) — a curation edit cannot turn the nightly deploy gate red; demonstrated by editing a fixture copy, not the real file.
   2. `scripts/lib/copy-data-tree.mjs`'s mtime skip can no longer leave a locally-edited `dist/widgets/data/` file in place while `build-widgets` reports success (26 deferred) — either content-digest comparison or a `--force` path that checkpoint staging uses; demonstrated failing on a doctored file.
