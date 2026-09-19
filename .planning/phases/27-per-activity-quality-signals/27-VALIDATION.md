@@ -1,7 +1,7 @@
 ---
 phase: 27
 slug: per-activity-quality-signals
-status: partial
+status: passed
 nyquist_compliant: true
 wave_0_complete: true
 created: 2026-09-10
@@ -20,8 +20,12 @@ created: 2026-09-10
 > **Update 2026-09-19 (retroactive Nyquist audit):** G-01 was CLOSED by gap-closure plan 27-11
 > on 2026-09-10 (see § Gap-Closure Record) — regenerating `27-CALIBRATION.md` today differs only
 > by timestamp and archive growth. G-02 (stale 716/1,864 cohort figure in ROADMAP/REQUIREMENTS)
-> remains open and is scheduled for Phase 31 D-13. `status: partial` is kept honestly until G-02's
-> documentation correction lands; coverage itself is complete (audit trail at the end of this file).
+> remained open and was scheduled for Phase 31 D-13.
+>
+> **Update 2026-09-19 (Phase 31 plan 31-09):** G-02 is now CLOSED — see § Gap-Closure Record below
+> for the closure text. Both gaps are closed, coverage was already complete (audit trail at the
+> end of this file), and `status` is flipped from `partial` to **`passed`** in this same update,
+> per D-14.
 
 # Phase 27 — Validation Strategy
 
@@ -467,7 +471,7 @@ composite 299, cohorts 154/127/31, and all six Threshold Sensitivity rows (+67/-
 `npm test` 73/73, `verify-dashboard` exit 0, recount exit 0 reporting 299, empty diff on
 `src/analytics/pace-quality.ts`.
 
-### G-02 — Criterion 5 / ERA-02 cite a stale no-device-name cohort size (open, documentation-only)
+### G-02 — Criterion 5 / ERA-02 cite a stale no-device-name cohort size (CLOSED by Phase 31 plan 31-09, 2026-09-19)
 
 ROADMAP Phase 27 Criterion 5 and REQUIREMENTS ERA-02 both cite a **716**-activity no-device-name
 cohort ("716 of 1,864 activities (38%)"). The live shipped index carries **663**. Full measured
@@ -483,9 +487,16 @@ that `27-CONTEXT.md` had flagged this cohort's size as needing to stay verifiabl
 **Developer disposition:** no code change implied; this is a documentation reconciliation for
 verification to disposition.
 
-**Status: OPEN.** Not fixed by this plan. ERA-02's requirement is ticked below on R8's PASS —
-the tick is NOT contingent on this gap, since the gap concerns only a cited figure, not the
-behavior R8 verified.
+**Status: CLOSED by Phase 31 plan 31-09 (2026-09-19).** ERA-02's requirement was already ticked
+on R8's PASS, never contingent on this gap since the gap concerned only a cited figure rather than
+the behavior R8 verified. The figure itself is now corrected: plan 31-09 re-measured the
+no-device-name cohort live against `data/dashboard/index.json` this session
+(`quality.deviceEra.family === 'no-device-name'`) on the merged 1,899-activity archive — **663 of
+1,899 (34.9%)**, matching this record's own 2026-09-10 census exactly (663 of 1,890 at that time;
+the archive grew by 9 activities with no change to the no-device-name count). REQUIREMENTS.md
+ERA-02 and ROADMAP Phase 27 Criterion 5 were both corrected in place from "716 of 1,864 (38%)" /
+"the 716-activity … cohort" to the live figure, each with a dated italic note naming this record
+as the source. `status: passed` follows in this file's frontmatter in the same plan, per D-14.
 
 ### G-03 — the same manifest.json miscount exists in Phase 26's residual script (open, out of Phase 27 scope)
 
@@ -601,5 +612,5 @@ No coverage gaps. Every row's `-t` filter was checked for a non-zero match befor
 | ERA-01 | `pace-quality.test.ts -t "device family"` | 19 passed / 61 skipped |
 | ERA-02 | `pace-quality.test.ts -t "no-device-name category"` | 2 passed / 78 skipped |
 
-Gap records: **G-01 CLOSED** (27-11, 2026-09-10; confirmed by regeneration on 2026-09-19 — only `Generated` and the 1,890→1,899 archive figures differ). **G-02 OPEN**, documentation-only, assigned to Phase 31 D-13 (correct-in-place with dated note; re-measure the no-device-name cohort on the merged archive at that time). WR-02 from `27-REVIEW.md` (gapProfile/impossibleSamples severe+null test pair) is noted as optional hardening for Phase 31; it is not a requirement row. Manual rows (Round 1 checkpoint R1–R8) remain satisfied by their recorded developer countersign. No test files generated. `nyquist_compliant: true` stands; `wave_0_complete` flipped to true; `status: partial` retained until G-02 closes.
+Gap records: **G-01 CLOSED** (27-11, 2026-09-10; confirmed by regeneration on 2026-09-19 — only `Generated` and the 1,890→1,899 archive figures differ). **G-02 CLOSED** by Phase 31 plan 31-09 (2026-09-19): the no-device-name cohort was re-measured live against the merged archive (663 of 1,899, 34.9%, unchanged from this record's own 2026-09-10 census apart from the denominator), and REQUIREMENTS.md ERA-02 / ROADMAP Phase 27 Criterion 5 were both corrected in place with a dated note naming this record. WR-02 from `27-REVIEW.md` (gapProfile/impossibleSamples severe+null test pair) is noted as optional hardening for Phase 31; it is not a requirement row. Manual rows (Round 1 checkpoint R1–R8) remain satisfied by their recorded developer countersign. No test files generated. `nyquist_compliant: true` stands; `wave_0_complete` flipped to true; `status: passed`, flipped from `partial` in the same plan that closed G-02 (D-14).
 
