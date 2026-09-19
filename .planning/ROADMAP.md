@@ -354,16 +354,20 @@ Plans:
 **Depends on**: Phase 30 (last v2.2 phase; runs against the merged 1,899-activity archive pushed 2026-09-19)
 **Requirements**: TD-01, TD-02, TD-03, TD-04, TD-05, TD-06 (minted 2026-09-19 in REQUIREMENTS.md § v2.2 Tech-Debt Closure; one per success criterion below)
 **Success Criteria** (what must be TRUE):
+
   1. `npm test` no longer depends on the live, owner-editable `data/best-effort-exclusions.json` for the four CR-01 regression tests in `compute-best-efforts.test.ts` (28 WR-09) — a curation edit cannot turn the nightly deploy gate red; demonstrated by editing a fixture copy, not the real file.
   2. `scripts/lib/copy-data-tree.mjs`'s mtime skip can no longer leave a locally-edited `dist/widgets/data/` file in place while `build-widgets` reports success (26 deferred) — either content-digest comparison or a `--force` path that checkpoint staging uses; demonstrated failing on a doctored file.
   3. `deriveFlaggedActivities` and `recountDemotedActivities` agree, or fail loudly, on a malformed exclusions file (29 WR-02: duplicates, `reason: null`, `__proto__`); `records-logic.ts` no longer silently folds an unrecognized `demotion.guard` into the total (28 integration observation) — both with negative tests.
   4. The demotion reason string shows the margin when implied speed and ceiling round to the same 2-dp value (post-merge observation: "4.63 m/s exceeds personal ceiling 4.63 m/s").
   5. Every stale figure named by the audit is reconciled in place and its generator fixed where one exists: REQUIREMENTS.md PACE-06 "13 → 14", ERA-02 "716/1,864 → 663/1,890" (ROADMAP Criterion 5 too), PR-03/04/05 "pending phase re-verification" wording, `compute-pace-residual.mjs` manifest miscount (27 G-03), `compute-pr-ceiling-calibration.mjs` hard-coded "400m shows the largest drift" prose and unlabelled non-excluded "Demoted" column (28 WR-07/WR-08), and 27 G-01's calibration-report regenerability — proven by regenerating each artifact twice, not by a hand edit.
   6. 29-VALIDATION.md (and 26/27 where still pending) reflects execution — `/gsd-validate-phase` output or equivalent — so no v2.2 phase carries a pre-execution validation record into the archive.
+
 **Out of scope (recorded so they are not re-litigated):** 28 WR-06's opt-in ceiling-file write gate (developer decision on a D-07 mechanism), CUR-04 queue dismiss action (Future Requirements), 26 F-26-02 histogram tails (developer: not a priority), 30 WR-02/WR-03 badge wording (product decisions, checkpoint-blessed), the `index-client.ts` `ParsedDashboardIndexRow` retype (phase-sized; consider for v2.3).
 **Plans**: 10 plans in 4 waves (planned 2026-09-19)
 
 Plans:
+**Wave 1**
+
 - [ ] 31-01-PLAN.md — TD-01: decouple the four CR-01 tests from the live exclusions file onto a committed fixture, keeping one premise-only live read (wave 1)
 - [ ] 31-02-PLAN.md — TD-02: replace `copyJsonTree`'s mtime skip with size-then-digest and log stale replacements (wave 1)
 - [ ] 31-03-PLAN.md — TD-03a/b: `other` bucket in the Records sentence; recount fails closed on four malformed-exclusion classes (wave 1)
@@ -371,9 +375,19 @@ Plans:
 - [ ] 31-05-PLAN.md — TD-04: the ceiling demotion reason states its margin at three decimals (wave 1)
 - [ ] 31-06-PLAN.md — TD-05: shared `isStreamFile` in `scripts/lib/`; residual sweep stops counting `manifest.json` (27 G-03) (wave 1)
 - [ ] 31-07-PLAN.md — TD-05: data-derived largest-drift sentence (28 WR-07) and a reconciled Demoted column (28 WR-08) (wave 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 31-08-PLAN.md — TD-05: regenerate all five artifacts of record twice in dependency order, prove idempotence, commit (wave 2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 31-09-PLAN.md — TD-05/TD-06: re-measure and correct every stale figure in place with dated notes; close G-01 in the audit and flip 27-VALIDATION.md to passed (wave 3)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 31-10-PLAN.md — TD-05: blocking PR-04 Round 4 re-sign against the regenerated `28-DIFF.md` sha256 (wave 4)
+
 **UI hint**: no (compute/test/tooling/docs only; no new interactive surface)
 
 **Execution Order:**

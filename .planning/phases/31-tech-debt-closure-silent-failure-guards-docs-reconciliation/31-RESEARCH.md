@@ -475,7 +475,7 @@ alignment. The one relevant "old → new" shift is within this project's own his
 algorithm-choice preferences within an already-locked design, not open questions about WHETHER to
 do something.
 
-## Open Questions
+## Open Questions (RESOLVED — both resolutions are encoded in the plans: Q1 → 31-08 Task 2 commits `data/best-effort-ceiling.json` only if `git status --porcelain` shows it changed; Q2 → 31-04 exposes the malformed count via the sibling export `countMalformedExclusions`)
 
 1. **Does `data/best-effort-ceiling.json` need to be committed as part of this phase?**
    - What we know: this file contains only numeric ceiling/p90/populationN values per distance
