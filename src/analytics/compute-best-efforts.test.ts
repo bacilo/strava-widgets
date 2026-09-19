@@ -949,25 +949,82 @@ describe('computeBestEfforts — archive orchestration', () => {
       };
     }
 
-    it('4556693525 with its committed-fixture exclusion entry is ceiling-demoted at 400m and 1k', async () => {
-      // Test premise: the real committed exclusion for this activity must
-      // actually exist and be all-distance, or this test would silently
-      // degrade into the non-excluded case the previous test already
-      // covers.
+    /** The shape of data/best-effort-exclusions.json (and its committed
+     * fixture copy) that checkExclusionPremise reads. */
+    interface ExclusionsDocument {
+      exclusions: Array<{ activityId: string; distances: string[] | null; reason: string }>;
+    }
+
+    /**
+     * D-01/D-02: the ONE thing a curation edit to
+     * data/best-effort-exclusions.json is still allowed to break — whether
+     * 4556693525 remains excluded all-distance, the premise the four CR-01
+     * fixture-backed tests above assume. `ok: false`'s message must be
+     * actionable in one minute: it names the entry, the live file, the
+     * committed fixture to re-pin, and this test file. Deliberately no
+     * conditional bypass of any kind — a red nightly is the intended
+     * behaviour when the premise fails.
+     */
+    function checkExclusionPremise(doc: ExclusionsDocument): { ok: boolean; message: string } {
+      const entry = doc.exclusions.find((e) => e.activityId === '4556693525');
+      if (entry !== undefined && entry.distances === null) {
+        return { ok: true, message: '' };
+      }
+      return {
+        ok: false,
+        message:
+          '4556693525 is no longer excluded all-distance in data/best-effort-exclusions.json; ' +
+          'if intentional, update src/analytics/__fixtures__/best-effort-exclusions.fixture.json ' +
+          'and the premise in src/analytics/compute-best-efforts.test.ts',
+      };
+    }
+
+    it("4556693525's REAL committed exclusion entry satisfies the CR-01 premise", async () => {
+      // The ONLY test in this file that reads the live,
+      // owner-editable data/best-effort-exclusions.json — and it asserts
+      // no arithmetic (D-01). It must NOT call computeBestEfforts.
       const realExclusionsPath = fileURLToPath(
         new URL('../../data/best-effort-exclusions.json', import.meta.url)
       );
       const realExclusionsRaw = await fs.readFile(realExclusionsPath, 'utf-8');
-      const realExclusionsDoc = JSON.parse(realExclusionsRaw) as {
-        exclusions: Array<{ activityId: string; distances: string[] | null; reason: string }>;
-      };
-      const pinnedEntry = realExclusionsDoc.exclusions.find((e) => e.activityId === '4556693525');
-      const premiseOk = pinnedEntry !== undefined && pinnedEntry.distances === null;
-      expect(
-        premiseOk,
-        'test premise: the committed exclusion for 4556693525 must exist and be all-distance'
-      ).toBe(true);
+      const realExclusionsDoc = JSON.parse(realExclusionsRaw) as ExclusionsDocument;
+      const result = checkExclusionPremise(realExclusionsDoc);
+      expect(result.ok, result.message).toBe(true);
+    });
 
+    it('checkExclusionPremise message names the entry, the real file, the fixture and the test (premise message test)', () => {
+      const requiredSubstrings = [
+        '4556693525',
+        'data/best-effort-exclusions.json',
+        'best-effort-exclusions.fixture.json',
+        'compute-best-efforts.test.ts',
+      ];
+
+      const entryAbsent: ExclusionsDocument = { exclusions: [] };
+      const absentResult = checkExclusionPremise(entryAbsent);
+      expect(absentResult.ok).toBe(false);
+      for (const substring of requiredSubstrings) {
+        expect(absentResult.message).toContain(substring);
+      }
+
+      const entryWrongShape: ExclusionsDocument = {
+        exclusions: [{ activityId: '4556693525', distances: ['400m'], reason: 'test' }],
+      };
+      const wrongShapeResult = checkExclusionPremise(entryWrongShape);
+      expect(wrongShapeResult.ok).toBe(false);
+      for (const substring of requiredSubstrings) {
+        expect(wrongShapeResult.message).toContain(substring);
+      }
+    });
+
+    it('4556693525 with its committed-fixture exclusion entry is ceiling-demoted at 400m and 1k', async () => {
+      // D-01: this test's premise (the entry must exist and be
+      // all-distance) is checked by the standalone "REAL committed
+      // exclusion ... premise" test below, which is the ONLY test in this
+      // file that still reads data/best-effort-exclusions.json. All
+      // arithmetic here runs against the committed fixture, so a curation
+      // edit to unrelated entries in the live file cannot move any number
+      // this test asserts.
       const { negativeControlDurationSec } = await buildPinnedArchive({ withOneKmBulk: true });
 
       const doc = await computeBestEfforts({
