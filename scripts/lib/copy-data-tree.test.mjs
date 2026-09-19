@@ -68,8 +68,16 @@ describe('copyJsonTree', () => {
 
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     let result;
+    let loggedDestPath;
     try {
       result = copyJsonTree(srcDir, destDir);
+      // Read the spy's recorded calls BEFORE mockRestore(): in this vitest
+      // version, mockRestore() also clears .mock.calls (restore = reset +
+      // restore original implementation), so checking after restore always
+      // reads an empty array.
+      loggedDestPath = logSpy.mock.calls.some((call) =>
+        call.some((arg) => typeof arg === 'string' && arg.includes(destPath))
+      );
     } finally {
       logSpy.mockRestore();
     }
@@ -77,10 +85,6 @@ describe('copyJsonTree', () => {
     const destBytesAfter = await fs.readFile(destPath, 'utf8');
     expect(destBytesAfter).toBe(srcContent);
     expect(result.copied).toBeGreaterThanOrEqual(1);
-
-    const loggedDestPath = logSpy.mock.calls.some((call) =>
-      call.some((arg) => typeof arg === 'string' && arg.includes(destPath))
-    );
     expect(loggedDestPath, 'expected a log line naming the destination path').toBe(true);
   });
 
