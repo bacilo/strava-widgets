@@ -130,7 +130,7 @@ describe('computeActivityEfforts — per-target isolation', () => {
   it("a rejected effort's reason is the verbatim string produced by isPlausible, containing the offending numbers", () => {
     const t: number[] = [0, 20];
     const d: number[] = [0, 400];
-    // Extend so activity is at least eligible for 400m only, single window test.
+    // Extend so activity is at least eligible for the 400m distance, single window test.
     const input = baseInput({ activityDistanceM: 400, t, d });
     const result = computeActivityEfforts(input);
     expect(result.rejected.length).toBe(1);
@@ -764,10 +764,11 @@ describe('computeBestEfforts — archive orchestration', () => {
         // relative 'data/best-effort-exclusions.json'): this test covers
         // the NON-EXCLUDED path only — the activity is not excluded here,
         // so the ceiling demotes it via the ordinary (non-excluded)
-        // survivors-loop path. The next test, "4556693525 with its REAL
-        // committed exclusion entry...", covers the real production state,
-        // where this exact activity IS excluded (CR-01). `loadExclusions`
-        // degrades a missing file to an empty index (T-16-EX-01).
+        // survivors-loop path. The next test, "4556693525 with its
+        // committed-fixture exclusion entry...", covers the real production
+        // state, where this exact activity IS excluded (CR-01).
+        // `loadExclusions` degrades a missing file to an empty index
+        // (T-16-EX-01).
         exclusionsPath: path.join(tmpDir, 'no-such-exclusions.json'),
       });
 
@@ -801,6 +802,13 @@ describe('computeBestEfforts — archive orchestration', () => {
     const BULK_400M_COUNT = 150;
     const BULK_1K_COUNT = 150;
     const NEGATIVE_CONTROL_SPEED_MPS = 3.5;
+
+    // D-01: a committed fixture that copies the real file's two relevant
+    // entries verbatim, so the arithmetic assertions below never move when
+    // an owner curation edit touches data/best-effort-exclusions.json.
+    const fixtureExclusionsPath = fileURLToPath(
+      new URL('./__fixtures__/best-effort-exclusions.fixture.json', import.meta.url)
+    );
 
     async function buildPinnedArchive({
       withOneKmBulk,
@@ -941,7 +949,7 @@ describe('computeBestEfforts — archive orchestration', () => {
       };
     }
 
-    it('4556693525 with its REAL committed exclusion entry is ceiling-demoted at 400m and 1k', async () => {
+    it('4556693525 with its committed-fixture exclusion entry is ceiling-demoted at 400m and 1k', async () => {
       // Test premise: the real committed exclusion for this activity must
       // actually exist and be all-distance, or this test would silently
       // degrade into the non-excluded case the previous test already
@@ -968,7 +976,7 @@ describe('computeBestEfforts — archive orchestration', () => {
         streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
         statsDir: path.join(tmpDir, 'stats'),
         ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
-        exclusionsPath: realExclusionsPath,
+        exclusionsPath: fixtureExclusionsPath,
       });
 
       // Preconditions — the assertions below cannot pass vacuously.
@@ -1097,14 +1105,10 @@ describe('computeBestEfforts — archive orchestration', () => {
       expect(rejectedRows.length).toBe(1);
     });
 
-    it('excluded efforts never feed the ceiling derivation, with or without the real exclusions file', async () => {
+    it('excluded efforts never feed the ceiling derivation, with or without the committed exclusions fixture', async () => {
       const { bulk400Count, bulk1kCount } = await buildPinnedArchive({ withOneKmBulk: true });
       const base400 = bulk400Count + bulk1kCount; // bulk1k activities also yield a 400m effort
       const base1k = bulk1kCount;
-
-      const realExclusionsPath = fileURLToPath(
-        new URL('../../data/best-effort-exclusions.json', import.meta.url)
-      );
 
       const withRealExclusions = await computeBestEfforts({
         activitiesDir: path.join(tmpDir, 'activities'),
@@ -1112,7 +1116,7 @@ describe('computeBestEfforts — archive orchestration', () => {
         streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
         statsDir: path.join(tmpDir, 'stats-real'),
         ceilingStatePath: path.join(tmpDir, 'ceiling-state-real.json'),
-        exclusionsPath: realExclusionsPath,
+        exclusionsPath: fixtureExclusionsPath,
       });
 
       const withMissingExclusions = await computeBestEfforts({
@@ -1124,10 +1128,11 @@ describe('computeBestEfforts — archive orchestration', () => {
         exclusionsPath: path.join(tmpDir, 'no-such-exclusions.json'),
       });
 
-      // The real exclusions file excludes 4556693525 (400m + 1k) and
-      // 3475711469 (400m only), so the real-exclusions run's population is
-      // exactly the bulk count; the missing-exclusions run additionally
-      // admits both excluded fixture activities into byDistance.
+      // The fixture excludes 4556693525 (400m + 1k) and 3475711469
+      // (all-distance, but under the 400m ceiling — see the negative
+      // control above), so the with-fixture run's population is exactly
+      // the bulk count; the missing-exclusions run additionally admits
+      // both excluded fixture activities into byDistance.
       expect(withRealExclusions.ceilings['400m'].populationN).toBe(base400);
       expect(withMissingExclusions.ceilings['400m'].populationN).toBe(base400 + 2);
       expect(withRealExclusions.ceilings['1k'].populationN).toBe(base1k);
@@ -1135,16 +1140,13 @@ describe('computeBestEfforts — archive orchestration', () => {
     });
 
     it('two runs of the real-exclusion fixture produce byte-identical documents apart from generatedAt', async () => {
-      const realExclusionsPath = fileURLToPath(
-        new URL('../../data/best-effort-exclusions.json', import.meta.url)
-      );
       await buildPinnedArchive({ withOneKmBulk: true });
 
       const baseOptions = {
         activitiesDir: path.join(tmpDir, 'activities'),
         streamsDir: path.join(tmpDir, 'streams'),
         streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
-        exclusionsPath: realExclusionsPath,
+        exclusionsPath: fixtureExclusionsPath,
       };
 
       const doc1 = await computeBestEfforts({
@@ -1167,9 +1169,6 @@ describe('computeBestEfforts — archive orchestration', () => {
     });
 
     it('totals.effortsDemoted and totals.effortsRejected count the two new ceiling demotions; totals.effortsExcluded is unaffected by the fix', async () => {
-      const realExclusionsPath = fileURLToPath(
-        new URL('../../data/best-effort-exclusions.json', import.meta.url)
-      );
       await buildPinnedArchive({ withOneKmBulk: true });
 
       const doc = await computeBestEfforts({
@@ -1178,14 +1177,14 @@ describe('computeBestEfforts — archive orchestration', () => {
         streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
         statsDir: path.join(tmpDir, 'stats'),
         ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
-        exclusionsPath: realExclusionsPath,
+        exclusionsPath: fixtureExclusionsPath,
       });
 
       // The fixture's only excluded activities are 4556693525 (400m + 1k =
-      // 2 efforts) and 3475711469 (400m only = 1 effort) — 3 excluded
-      // efforts total. This count is unaffected by CR-01's fix since
-      // exclusion is determined in Pass 1, before the new excluded-effort
-      // sweep runs.
+      // 2 efforts) and 3475711469 (all-distance = 1 effort here, since this
+      // archive only builds its 400m stream) — 3 excluded efforts total.
+      // This count is unaffected by CR-01's fix since exclusion is
+      // determined in Pass 1, before the new excluded-effort sweep runs.
       expect(doc.totals.effortsExcluded).toBe(3);
 
       // The only demotions in this fixture are the two new ceiling
