@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "note": "Verbatim copy of two entries from data/best-effort-exclusions.json, taken 2026-09-19. Exists so the CR-01 regression arithmetic in compute-best-efforts.test.ts cannot be moved by a curation edit to the live file. Changing this fixture requires re-running the fixture-copy mutation test (\"fixture copy\") in compute-best-efforts.test.ts.",
+  "exclusions": [
+    {
+      "activityId": "4556693525",
+      "distances": null,
+      "reason": "bad measurement"
+    },
+    {
+      "activityId": "3475711469",
+      "distances": null,
+      "reason": "bad measurement"
+    }
+  ]
+}
