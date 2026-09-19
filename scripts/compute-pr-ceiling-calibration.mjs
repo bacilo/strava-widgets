@@ -296,6 +296,34 @@ export function applyCeiling(populations, k, minPopulation) {
 }
 
 /**
+ * WR-07's fix: selects the distance with the greatest ABSOLUTE drift from
+ * `report.reconciliation` (never a signed comparison — a drift of -7 outranks
+ * a drift of +5), breaking ties deterministically by `TARGET_ORDER` position
+ * (the first tied distance in `TARGET_ORDER` wins, so the same input always
+ * produces the same selection). Returns `null` when every distance's drift is
+ * exactly zero — the all-zero case is a distinct outcome, never a distance
+ * named "largest" by default.
+ *
+ * Never hard-codes a distance: this is the selection WR-07's fix replaces the
+ * old hard-coded "400m always shows the largest drift" opening clause with.
+ */
+export function largestAbsoluteDrift(reconciliation) {
+  let best = null;
+
+  for (const key of TARGET_ORDER) {
+    const entry = reconciliation[key];
+    if (!entry) continue;
+    const magnitude = Math.abs(entry.drift);
+    if (magnitude === 0) continue;
+    if (best === null || magnitude > best.magnitude) {
+      best = { key, drift: entry.drift, magnitude };
+    }
+  }
+
+  return best === null ? null : { key: best.key, drift: best.drift };
+}
+
+/**
  * D-01's REPORTED FINDING (never a shortlist): projects a ceiling down from
  * the fastest 10k effort via `riegelPredict`, and reports per distance how
  * many efforts a Riegel-projected gate would demote that this script's own
@@ -576,18 +604,39 @@ export function renderCalibrationMarkdown(report) {
     lines.push(`| ${key} | ${r.liveN} | ${r.referenceN} | ${driftStr} |`);
   }
   lines.push('');
-  lines.push(
-    '400m shows the largest drift: the live population and its top-10 differ materially from ' +
-      '28-CONTEXT.md\'s quoted figures. The most plausible mechanism is that `data/stats/` is ' +
-      'gitignored and locally regenerated on demand, while `data/best-effort-exclusions.json` is ' +
-      'git-tracked and already carried a curation-tickbox exclusion of several fast 400m efforts ' +
-      '(including activity 4556693525, D-04\'s pinned case) committed 2026-09-08 — two days before ' +
-      'this session — via the shipped local curation mode. If the `best-efforts.json` consulted ' +
-      'while drafting `28-CONTEXT.md` had not been regenerated since before that commit, its ' +
-      '"filtered population" table would still show the pre-exclusion figures even though the ' +
-      'exclusion itself was already committed. This run reads the live, freshly regenerated archive, ' +
-      'so it reflects the current exclusion state rather than that stale snapshot.'
-  );
+  {
+    const drift = largestAbsoluteDrift(report.reconciliation);
+    if (drift === null) {
+      lines.push(
+        'No distance drifted from `28-CONTEXT.md`\'s quoted table in this run: every live n matches ' +
+          'its reference figure exactly, so no distance is named "largest" here.'
+      );
+    } else {
+      const driftEntry = report.reconciliation[drift.key];
+      const driftStr = `${drift.drift > 0 ? '+' : ''}${drift.drift}`;
+      const mechanismSentence =
+        drift.key === '400m'
+          ? 'The most plausible mechanism is that `data/stats/` is gitignored and locally regenerated ' +
+            'on demand, while `data/best-effort-exclusions.json` is git-tracked and already carried a ' +
+            'curation-tickbox exclusion of several fast 400m efforts (including activity 4556693525, ' +
+            'D-04\'s pinned case) committed 2026-09-08 — two days before this session — via the shipped ' +
+            'local curation mode. If the `best-efforts.json` consulted while drafting `28-CONTEXT.md` ' +
+            'had not been regenerated since before that commit, its "filtered population" table would ' +
+            'still show the pre-exclusion figures even though the exclusion itself was already ' +
+            'committed. This run reads the live, freshly regenerated archive, so it reflects the ' +
+            'current exclusion state rather than that stale snapshot.'
+          : 'The curation-tickbox-exclusion mechanism recorded for 400m in an earlier run of this ' +
+            'report does not apply here: this run\'s largest drift falls at a different distance, so ' +
+            'no committed exclusion or regeneration-timing explanation is asserted for it. Continued ' +
+            'archive growth since `28-CONTEXT.md` was drafted is the more likely cause, stated as a ' +
+            'hypothesis, not a claim.';
+      lines.push(
+        `**${drift.key}** shows the largest drift (${driftStr}, live n = ${driftEntry.liveN} vs ` +
+          `28-CONTEXT.md's ${driftEntry.referenceN}): the live population and its top-10 differ from ` +
+          `28-CONTEXT.md's quoted figures. ${mechanismSentence}`
+      );
+    }
+  }
   lines.push('');
 
   // ## Why not a percentile

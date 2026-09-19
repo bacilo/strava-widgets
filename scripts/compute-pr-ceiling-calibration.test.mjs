@@ -17,6 +17,7 @@ import {
   buildFilteredPopulations,
   deriveCeilingMultiplier,
   deriveMinimumPopulation,
+  largestAbsoluteDrift,
   nearestRankPercentile,
   partitionMechanismClean,
   renderCalibrationMarkdown,
@@ -302,8 +303,94 @@ describe('applyCeiling', () => {
   });
 });
 
-describe('renderCalibrationMarkdown', () => {
-  const sampleReport = {
+describe('largestAbsoluteDrift and its rendered sentence (WR-07)', () => {
+  const ZERO_DISTANCES = ['400m', '1k', '1mi', '5k', '10k', 'half', 'marathon'];
+
+  function buildReconciliation(overrides) {
+    const reconciliation = {};
+    for (const key of ZERO_DISTANCES) {
+      reconciliation[key] = { liveN: 100, referenceN: 100, drift: 0 };
+    }
+    for (const [key, entry] of Object.entries(overrides)) {
+      reconciliation[key] = entry;
+    }
+    return reconciliation;
+  }
+
+  it('largest drift: selects 1k when 1k has the greatest absolute drift, not 400m', () => {
+    const reconciliation = buildReconciliation({
+      '400m': { liveN: 1825, referenceN: 1831, drift: -6 },
+      '1k': { liveN: 1843, referenceN: 1858, drift: -15 },
+    });
+
+    expect(largestAbsoluteDrift(reconciliation)).toEqual({ key: '1k', drift: -15 });
+  });
+
+  it('largest drift: selects 400m when 400m has the greatest absolute drift', () => {
+    const reconciliation = buildReconciliation({
+      '400m': { liveN: 1805, referenceN: 1831, drift: -26 },
+      '1k': { liveN: 1843, referenceN: 1849, drift: -6 },
+    });
+
+    expect(largestAbsoluteDrift(reconciliation)).toEqual({ key: '400m', drift: -26 });
+  });
+
+  it('largest drift: a negative drift of larger magnitude beats a smaller positive drift', () => {
+    const reconciliation = buildReconciliation({
+      '5k': { liveN: 1791, referenceN: 1786, drift: 5 },
+      '10k': { liveN: 1452, referenceN: 1464, drift: -12 },
+    });
+
+    expect(largestAbsoluteDrift(reconciliation)).toEqual({ key: '10k', drift: -12 });
+  });
+
+  it('largest drift: a tie is broken deterministically by TARGET_ORDER position (1k before 5k)', () => {
+    const reconciliation = buildReconciliation({
+      '1k': { liveN: 1839, referenceN: 1849, drift: -10 },
+      '5k': { liveN: 1776, referenceN: 1786, drift: -10 },
+    });
+
+    expect(largestAbsoluteDrift(reconciliation)).toEqual({ key: '1k', drift: -10 });
+  });
+
+  it('largest drift: an all-zero-drift reconciliation returns null, never naming a distance as largest', () => {
+    const reconciliation = buildReconciliation({});
+    expect(largestAbsoluteDrift(reconciliation)).toBeNull();
+  });
+
+  it('largest drift: the rendered sentence names 1k and its drift, and omits the old 400m literal', () => {
+    const report = {
+      ...SAMPLE_REPORT,
+      reconciliation: buildReconciliation({
+        '400m': { liveN: 1825, referenceN: 1831, drift: -6 },
+        '1k': { liveN: 1843, referenceN: 1858, drift: -15 },
+      }),
+    };
+
+    const markdown = renderCalibrationMarkdown(report);
+
+    expect(markdown).toContain('**1k** shows the largest drift');
+    expect(markdown).toContain('-15');
+    expect(markdown).not.toContain('400m shows the largest drift');
+  });
+
+  it('largest drift: an all-zero reconciliation renders a sentence stating no distance drifted', () => {
+    const report = { ...SAMPLE_REPORT, reconciliation: buildReconciliation({}) };
+
+    const markdown = renderCalibrationMarkdown(report);
+
+    expect(markdown).toContain('No distance drifted');
+    expect(markdown).not.toMatch(/shows the largest drift/);
+  });
+});
+
+/**
+ * A full, hand-built `buildCalibrationReport` shape shared by every render
+ * test in this file (largest-drift and owner-excluded reconciliation tests
+ * included) via `{ ...SAMPLE_REPORT, <field>: <override> }` — never mutated
+ * in place.
+ */
+const SAMPLE_REPORT = {
     generatedAt: '2026-01-01T00:00:00.000Z',
     bestEffortsGeneratedAt: '2026-01-01T00:00:00.000Z',
     indexGeneratedAt: '2026-01-01T00:00:00.000Z',
@@ -381,17 +468,18 @@ describe('renderCalibrationMarkdown', () => {
       marathon: { liveN: 0, referenceN: 0, drift: 0 },
     },
     fourHundredCeilingSec: 78.3,
-  };
+};
 
+describe('renderCalibrationMarkdown', () => {
   it('is a pure function of report: two calls over the same object produce identical strings', () => {
-    const first = renderCalibrationMarkdown(sampleReport);
-    const second = renderCalibrationMarkdown(sampleReport);
+    const first = renderCalibrationMarkdown(SAMPLE_REPORT);
+    const second = renderCalibrationMarkdown(SAMPLE_REPORT);
     expect(first).toBe(second);
   });
 
   it('differs only in the **Generated:** line when generatedAt differs', () => {
-    const reportA = { ...sampleReport, generatedAt: '2026-01-01T00:00:00.000Z' };
-    const reportB = { ...sampleReport, generatedAt: '2099-12-31T23:59:59.000Z' };
+    const reportA = { ...SAMPLE_REPORT, generatedAt: '2026-01-01T00:00:00.000Z' };
+    const reportB = { ...SAMPLE_REPORT, generatedAt: '2099-12-31T23:59:59.000Z' };
 
     const stripGeneratedLine = (markdown) =>
       markdown
