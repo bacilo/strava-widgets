@@ -287,7 +287,10 @@ export function recountDemotedActivities(bestEffortsDoc, exclusionsDoc) {
     const seenActivityIds = new Set();
     for (let i = 0; i < exclusions.length; i++) {
       const entry = exclusions[i];
-      if (!entry || typeof entry !== 'object') continue;
+      if (!entry || typeof entry !== 'object') {
+        malformedExclusions.push(`index ${i}: entry is not an object`);
+        continue;
+      }
 
       const hasStringId = typeof entry.activityId === 'string';
       const offender = hasStringId ? entry.activityId : `index ${i}`;

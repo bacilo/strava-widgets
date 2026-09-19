@@ -392,6 +392,26 @@ describe('countMalformedExclusions — malformed exclusion entries (D-09)', () =
   });
 });
 
+describe('countMalformedExclusions vs. recountDemotedActivities — CR-01 parity', () => {
+  const emptyBestEfforts = { activities: {} };
+
+  it('agree on a planted document with a null entry and primitive entries (CR-01 reproduction)', () => {
+    const exclusionsDoc = {
+      exclusions: [null, { activityId: 'X', reason: 'ok' }],
+    };
+    const recount = recountDemotedActivities(emptyBestEfforts, exclusionsDoc);
+    expect(countMalformedExclusions(exclusionsDoc)).toBe(recount.malformedExclusions.length);
+    expect(countMalformedExclusions(exclusionsDoc)).toBe(1);
+  });
+
+  it('agree on a planted document containing only primitive (non-object) entries', () => {
+    const exclusionsDoc = { exclusions: ['garbage', 42] };
+    const recount = recountDemotedActivities(emptyBestEfforts, exclusionsDoc);
+    expect(countMalformedExclusions(exclusionsDoc)).toBe(recount.malformedExclusions.length);
+    expect(countMalformedExclusions(exclusionsDoc)).toBe(2);
+  });
+});
+
 describe('summarizeQueue', () => {
   it('returns { flaggedCount: rows.length, excludedCount: rows.filter(excluded).length }', () => {
     const rows = [

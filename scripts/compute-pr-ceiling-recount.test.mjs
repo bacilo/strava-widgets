@@ -379,6 +379,21 @@ describe('recountDemotedActivities', () => {
     expect(result.exclusionsTotal).toBe(0);
   });
 
+  it('CR-01: a null, string, number, or boolean exclusion entry (not merely a non-object activityId) is reported as malformed, not silently dropped', () => {
+    const doc = bestEffortsDoc({ activities: {}, rankings: {} });
+    const exclusionsDoc = {
+      exclusions: [null, 'garbage', 42, false, { activityId: 'ok1', reason: 'fine' }],
+    };
+    const result = recountDemotedActivities(doc, exclusionsDoc);
+    expect(result.malformedExclusions).toHaveLength(4);
+    expect(result.malformedExclusions[0]).toContain('index 0');
+    expect(result.malformedExclusions[0]).toContain('not an object');
+    expect(result.malformedExclusions[1]).toContain('index 1');
+    expect(result.malformedExclusions[2]).toContain('index 2');
+    expect(result.malformedExclusions[3]).toContain('index 3');
+    expect(result.exclusionsTotal).toBe(1);
+  });
+
   it('D-08: a document with all four malformed exclusion shapes at once produces four distinct problems, and the well-formed entries in the same document still count normally', () => {
     const doc = bestEffortsDoc({
       activities: { flagged: { efforts: [effort('400m', 60, { guard: 'ceiling', reason: 'r1' })] } },
