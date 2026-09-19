@@ -3,8 +3,9 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
 status: planning
-last_updated: "2026-09-19T18:00:00.000Z"
-last_activity: 2026-09-19
+stopped_at: Phase 32 context gathered
+last_updated: "2026-09-19T19:54:43.643Z"
+last_activity: "2026-09-19 — v2.3 ROADMAP.md created: 6 phases (32-37), 24/24 requirements mapped"
 progress:
   total_phases: 6
   completed_phases: 0
@@ -258,9 +259,9 @@ It is named here because PROJECT.md's Evolution entry still describes it as open
 
 ## Session Continuity
 
-Last session: 2026-09-19 — v2.2 milestone closed and archived (`/gsd-complete-milestone v2.2`)
-Stopped at: Milestone v2.2 archived and tagged; awaiting `/gsd-new-milestone`
-Resume file: None
+Last session: 2026-09-19T19:54:43.634Z
+Stopped at: Phase 32 context gathered
+Resume file: .planning/phases/32-unreliable-segment-detection-calibration/32-CONTEXT.md
 
 ---
 *Last updated: 2026-08-11 — Phase 17 (activity-browser-detail-views) all 15 planned plans executed and summarized; human checkpoint on plan 17-15 came back PARTIAL — 8/10 Manual-Only Verifications rows confirmed clean, GAP 1 (DETAIL-02, route-map basemap tiles absent) and GAP 2 (DETAIL-03/04, chart band x-axis misalignment) have open gaps pending gap-closure planning (`/gsd-plan-phase 17 --gaps`) before the phase gate closes*
