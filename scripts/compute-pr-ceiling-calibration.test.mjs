@@ -12,11 +12,15 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { TARGET_METERS } from '../dist/analytics/best-effort.types.js';
+
 import {
   applyCeiling,
   buildFilteredPopulations,
+  countOwnerExcludedAboveCeiling,
   deriveCeilingMultiplier,
   deriveMinimumPopulation,
+  largestAbsoluteDrift,
   nearestRankPercentile,
   partitionMechanismClean,
   renderCalibrationMarkdown,
@@ -302,8 +306,254 @@ describe('applyCeiling', () => {
   });
 });
 
-describe('renderCalibrationMarkdown', () => {
-  const sampleReport = {
+describe('countOwnerExcludedAboveCeiling (WR-08)', () => {
+  function makeActivity(activityId, efforts) {
+    return { activityId, startDate: '2020-01-01T00:00:00Z', distanceSource: 'native', efforts };
+  }
+
+  function makeEffort(overrides) {
+    return {
+      distance: '1mi',
+      durationSec: 300,
+      excludedFromRecords: false,
+      ...overrides,
+    };
+  }
+
+  const oneMileCeiling = 4.0; // m/s
+
+  it('owner-excluded: counts an excludedFromRecords effort above the ceiling and skips one below it', () => {
+    const bestEffortsDoc = {
+      activities: {
+        // 1609.344 / 300 = 5.3645 m/s > 4.0 ceiling -> counted
+        'a-above': makeActivity('a-above', [
+          makeEffort({ durationSec: 300, excludedFromRecords: true }),
+        ]),
+        // 1609.344 / 500 = 3.2187 m/s < 4.0 ceiling -> not counted
+        'a-below': makeActivity('a-below', [
+          makeEffort({ durationSec: 500, excludedFromRecords: true }),
+        ]),
+        // Above the ceiling but NOT owner-excluded -> already in applyCeiling's own
+        // demotedCount; this helper must not double-count it.
+        'a-nonexcluded': makeActivity('a-nonexcluded', [
+          makeEffort({ durationSec: 250, excludedFromRecords: false }),
+        ]),
+        // Owner-excluded AND absolute-guard demoted -> skipped on the same terms
+        // buildFilteredPopulations skips it, never counted here either.
+        'a-world-record-excluded': makeActivity('a-world-record-excluded', [
+          makeEffort({
+            durationSec: 0.01,
+            excludedFromRecords: true,
+            demotion: { guard: 'world-record', reason: 'r' },
+          }),
+        ]),
+      },
+    };
+    const applied = { '1mi': { ceilingMps: oneMileCeiling, eligible: true, n: 10, demotedCount: 1, demotedTop10Count: 1 } };
+
+    const counts = countOwnerExcludedAboveCeiling(bestEffortsDoc, applied);
+
+    expect(counts['1mi']).toBe(1);
+  });
+
+  it('owner-excluded: a bestEffortsDoc with no efforts above the ceiling returns an explicit zero for every distance, not undefined', () => {
+    const bestEffortsDoc = {
+      activities: {
+        'a-below': makeActivity('a-below', [
+          makeEffort({ durationSec: 500, excludedFromRecords: true }),
+        ]),
+      },
+    };
+    const applied = { '1mi': { ceilingMps: oneMileCeiling, eligible: true, n: 10, demotedCount: 0, demotedTop10Count: 0 } };
+
+    const counts = countOwnerExcludedAboveCeiling(bestEffortsDoc, applied);
+
+    for (const key of ['400m', '1k', '1mi', '5k', '10k', 'half', 'marathon']) {
+      expect(counts[key]).toBe(0);
+    }
+  });
+
+  it('owner-excluded: a distance with no personal ceiling (applied entry missing or ceilingMps null) contributes zero', () => {
+    const bestEffortsDoc = {
+      activities: {
+        'a-above': makeActivity('a-above', [
+          makeEffort({ distance: 'marathon', durationSec: 1, excludedFromRecords: true }),
+        ]),
+      },
+    };
+    const applied = { marathon: { ceilingMps: null, eligible: false, n: 0, demotedCount: 0, demotedTop10Count: 0 } };
+
+    const counts = countOwnerExcludedAboveCeiling(bestEffortsDoc, applied);
+
+    expect(counts.marathon).toBe(0);
+  });
+
+  it('owner-excluded: partitions the same universe as buildFilteredPopulations — TARGET_METERS-derived speed, per distance', () => {
+    const bestEffortsDoc = {
+      activities: {
+        'a-400': makeActivity('a-400', [
+          makeEffort({ distance: '400m', durationSec: 60, excludedFromRecords: true }), // 400/60=6.67
+        ]),
+        'a-1k': makeActivity('a-1k', [
+          makeEffort({ distance: '1k', durationSec: 200, excludedFromRecords: true }), // 1000/200=5.0
+        ]),
+      },
+    };
+    const applied = {
+      '400m': { ceilingMps: 5.0, eligible: true, n: 5, demotedCount: 0, demotedTop10Count: 0 },
+      '1k': { ceilingMps: 5.0, eligible: true, n: 5, demotedCount: 0, demotedTop10Count: 0 },
+    };
+
+    const counts = countOwnerExcludedAboveCeiling(bestEffortsDoc, applied);
+
+    expect(counts['400m']).toBe(1);
+    // 1000 / 200 = 5.0 exactly -> STRICT > only, not demoted (mirrors applyCeiling's own strictness).
+    expect(counts['1k']).toBe(0);
+  });
+});
+
+describe('render: reconciled owner-excluded reconciliation (WR-08)', () => {
+  it('owner-excluded: the table carries a distinct per-distance column, and the reconciliation sentence states the sum', () => {
+    const report = {
+      ...SAMPLE_REPORT,
+      ownerExcludedAboveCeiling: { '400m': 2, '1k': 1, '1mi': 0, '5k': 0, '10k': 0, half: 0, marathon: 0 },
+    };
+
+    const markdown = renderCalibrationMarkdown(report);
+
+    expect(markdown).toContain('Owner-excluded above ceiling');
+    // SAMPLE_REPORT's applied.demotedCount sums to 8 + 7 + 3 + 0 + 0 + 0 + 0 = 18; the fixture's
+    // owner-excluded counts sum to 2 + 1 = 3; 18 + 3 = 21.
+    expect(markdown).toContain('18 + 3 = 21');
+    // The 400m row of the "Resulting coverage" table specifically (both the "Per-distance
+    // distributions" table and the "Why not a percentile" table also have a "| 400m |" row, so
+    // match on the eligible/n cells unique to this table) shows both counts adjacent, in column
+    // order (Demoted, then Owner-excluded).
+    const row400 = markdown
+      .split('\n')
+      .find((line) => line.startsWith('| 400m |') && line.includes('| true | 1000 |'));
+    expect(row400).toContain('| 8 | 2 |');
+  });
+
+  it('owner-excluded: zero owner-excluded efforts over the ceiling still renders the column and the reconciliation line, not disappearing', () => {
+    const report = {
+      ...SAMPLE_REPORT,
+      ownerExcludedAboveCeiling: { '400m': 0, '1k': 0, '1mi': 0, '5k': 0, '10k': 0, half: 0, marathon: 0 },
+    };
+
+    const markdown = renderCalibrationMarkdown(report);
+
+    expect(markdown).toContain('Owner-excluded above ceiling');
+    expect(markdown).toContain('18 + 0 = 18');
+  });
+
+  it('owner-excluded: the existing non-excluded demotedCount values are unchanged — the column is relabelled and joined, never recomputed', () => {
+    const before = renderCalibrationMarkdown(SAMPLE_REPORT);
+    const after = renderCalibrationMarkdown({
+      ...SAMPLE_REPORT,
+      ownerExcludedAboveCeiling: { '400m': 5, '1k': 0, '1mi': 0, '5k': 0, '10k': 0, half: 0, marathon: 0 },
+    });
+
+    // The "Demoted (non-excluded)" figure for 400m (8) appears unchanged in both renders. Match
+    // the "Resulting coverage" table's own 400m row specifically (see the comment above for why
+    // a plain "| 400m |" prefix match is ambiguous across this document's three 400m rows).
+    const findCoverageRow400 = (markdown) =>
+      markdown.split('\n').find((line) => line.startsWith('| 400m |') && line.includes('| true | 1000 |'));
+    const row400Before = findCoverageRow400(before);
+    const row400After = findCoverageRow400(after);
+    expect(row400Before).toContain('| 5.1100 | 78.3s | true | 1000 | 8 |');
+    expect(row400After).toContain('| 5.1100 | 78.3s | true | 1000 | 8 |');
+  });
+});
+
+describe('largestAbsoluteDrift and its rendered sentence (WR-07)', () => {
+  const ZERO_DISTANCES = ['400m', '1k', '1mi', '5k', '10k', 'half', 'marathon'];
+
+  function buildReconciliation(overrides) {
+    const reconciliation = {};
+    for (const key of ZERO_DISTANCES) {
+      reconciliation[key] = { liveN: 100, referenceN: 100, drift: 0 };
+    }
+    for (const [key, entry] of Object.entries(overrides)) {
+      reconciliation[key] = entry;
+    }
+    return reconciliation;
+  }
+
+  it('largest drift: selects 1k when 1k has the greatest absolute drift, not 400m', () => {
+    const reconciliation = buildReconciliation({
+      '400m': { liveN: 1825, referenceN: 1831, drift: -6 },
+      '1k': { liveN: 1843, referenceN: 1858, drift: -15 },
+    });
+
+    expect(largestAbsoluteDrift(reconciliation)).toEqual({ key: '1k', drift: -15 });
+  });
+
+  it('largest drift: selects 400m when 400m has the greatest absolute drift', () => {
+    const reconciliation = buildReconciliation({
+      '400m': { liveN: 1805, referenceN: 1831, drift: -26 },
+      '1k': { liveN: 1843, referenceN: 1849, drift: -6 },
+    });
+
+    expect(largestAbsoluteDrift(reconciliation)).toEqual({ key: '400m', drift: -26 });
+  });
+
+  it('largest drift: a negative drift of larger magnitude beats a smaller positive drift', () => {
+    const reconciliation = buildReconciliation({
+      '5k': { liveN: 1791, referenceN: 1786, drift: 5 },
+      '10k': { liveN: 1452, referenceN: 1464, drift: -12 },
+    });
+
+    expect(largestAbsoluteDrift(reconciliation)).toEqual({ key: '10k', drift: -12 });
+  });
+
+  it('largest drift: a tie is broken deterministically by TARGET_ORDER position (1k before 5k)', () => {
+    const reconciliation = buildReconciliation({
+      '1k': { liveN: 1839, referenceN: 1849, drift: -10 },
+      '5k': { liveN: 1776, referenceN: 1786, drift: -10 },
+    });
+
+    expect(largestAbsoluteDrift(reconciliation)).toEqual({ key: '1k', drift: -10 });
+  });
+
+  it('largest drift: an all-zero-drift reconciliation returns null, never naming a distance as largest', () => {
+    const reconciliation = buildReconciliation({});
+    expect(largestAbsoluteDrift(reconciliation)).toBeNull();
+  });
+
+  it('largest drift: the rendered sentence names 1k and its drift, and omits the old 400m literal', () => {
+    const report = {
+      ...SAMPLE_REPORT,
+      reconciliation: buildReconciliation({
+        '400m': { liveN: 1825, referenceN: 1831, drift: -6 },
+        '1k': { liveN: 1843, referenceN: 1858, drift: -15 },
+      }),
+    };
+
+    const markdown = renderCalibrationMarkdown(report);
+
+    expect(markdown).toContain('**1k** shows the largest drift');
+    expect(markdown).toContain('-15');
+    expect(markdown).not.toContain('400m shows the largest drift');
+  });
+
+  it('largest drift: an all-zero reconciliation renders a sentence stating no distance drifted', () => {
+    const report = { ...SAMPLE_REPORT, reconciliation: buildReconciliation({}) };
+
+    const markdown = renderCalibrationMarkdown(report);
+
+    expect(markdown).toContain('No distance drifted');
+    expect(markdown).not.toMatch(/shows the largest drift/);
+  });
+});
+
+/**
+ * A full, hand-built `buildCalibrationReport` shape shared by every render
+ * test in this file (largest-drift and owner-excluded reconciliation tests
+ * included) via `{ ...SAMPLE_REPORT, <field>: <override> }` — never mutated
+ * in place.
+ */
+const SAMPLE_REPORT = {
     generatedAt: '2026-01-01T00:00:00.000Z',
     bestEffortsGeneratedAt: '2026-01-01T00:00:00.000Z',
     indexGeneratedAt: '2026-01-01T00:00:00.000Z',
@@ -381,17 +631,18 @@ describe('renderCalibrationMarkdown', () => {
       marathon: { liveN: 0, referenceN: 0, drift: 0 },
     },
     fourHundredCeilingSec: 78.3,
-  };
+};
 
+describe('renderCalibrationMarkdown', () => {
   it('is a pure function of report: two calls over the same object produce identical strings', () => {
-    const first = renderCalibrationMarkdown(sampleReport);
-    const second = renderCalibrationMarkdown(sampleReport);
+    const first = renderCalibrationMarkdown(SAMPLE_REPORT);
+    const second = renderCalibrationMarkdown(SAMPLE_REPORT);
     expect(first).toBe(second);
   });
 
   it('differs only in the **Generated:** line when generatedAt differs', () => {
-    const reportA = { ...sampleReport, generatedAt: '2026-01-01T00:00:00.000Z' };
-    const reportB = { ...sampleReport, generatedAt: '2099-12-31T23:59:59.000Z' };
+    const reportA = { ...SAMPLE_REPORT, generatedAt: '2026-01-01T00:00:00.000Z' };
+    const reportB = { ...SAMPLE_REPORT, generatedAt: '2099-12-31T23:59:59.000Z' };
 
     const stripGeneratedLine = (markdown) =>
       markdown
