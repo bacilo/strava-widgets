@@ -324,12 +324,17 @@ describe('prFlagBadgeSpecs', () => {
   });
 
   it('WR-02/IN-02: a demoted-and-excluded, non-PR row renders exactly two specs, Demoted then Excluded, with distinct description ids and no "excluded" in the demoted explanation', () => {
+    // D-10: demotionReason is a pass-through input here — prFlagBadgeSpecs
+    // does not parse it, only prefixes it with "Demoted — ". The string
+    // below is updated to the new margin-bearing format (best-effort-ceiling.ts)
+    // for consistency only; a reader should not infer that this badge
+    // builder parses the reason's shape.
     const specs = prFlagBadgeSpecs(
       panelRow({
         isPr: false,
         demoted: true,
         demotionReason:
-          'implied 8.85 m/s exceeds personal ceiling 5.11 m/s (1.28 x p90 3.99 m/s over 1825 filtered 400m efforts)',
+          'implied 8.850 m/s exceeds personal ceiling 5.110 m/s by 3.740 m/s (1.28 x p90 3.992 m/s over 1825 filtered 400m efforts)',
         excluded: true,
       }),
       'bad measurement'
@@ -338,7 +343,7 @@ describe('prFlagBadgeSpecs', () => {
 
     expect(specs[0].kind).toBe('demoted');
     expect(specs[0].visibleText).toBe(
-      'Demoted — implied 8.85 m/s exceeds personal ceiling 5.11 m/s (1.28 x p90 3.99 m/s over 1825 filtered 400m efforts)'
+      'Demoted — implied 8.850 m/s exceeds personal ceiling 5.110 m/s by 3.740 m/s (1.28 x p90 3.992 m/s over 1825 filtered 400m efforts)'
     );
 
     expect(specs[1].kind).toBe('excluded');

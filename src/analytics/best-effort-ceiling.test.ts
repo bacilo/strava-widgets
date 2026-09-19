@@ -184,13 +184,48 @@ describe('ceilingDemotion', () => {
     expect(demotion?.guard).toBe('ceiling');
   });
 
-  it('the reason string matches the house register: implied speed, exceeds personal ceiling, ceiling value, and a parenthetical with multiplier/p90/population', () => {
+  it('the reason string matches the house register: implied speed, exceeds personal ceiling, ceiling value, an explicit margin clause, and a parenthetical with multiplier/p90/population (D-10)', () => {
     const derivation = deriveCeiling('10k', bigPopulation);
     const justAbove = (derivation.ceilingMps as number) + 0.0001;
     const demotion = ceilingDemotion(justAbove, derivation);
     expect(demotion?.reason).toMatch(
-      /^implied \d+\.\d{2} m\/s exceeds personal ceiling \d+\.\d{2} m\/s \(\d+\.\d{2} x p90 \d+\.\d{2} m\/s over \d+ filtered \S+ efforts\)$/
+      /^implied \d+\.\d{3} m\/s exceeds personal ceiling \d+\.\d{3} m\/s by \d+\.\d{3} m\/s \(\d+\.\d{2} x p90 \d+\.\d{3} m\/s over \d+ filtered \S+ efforts\)$/
     );
+  });
+
+  it('D-10 house register / thin margin: the live 1mi case (implied 4.630 vs ceiling 4.6281) renders distinct implied and ceiling substrings with a non-zero margin, the exact defect this margin closes', () => {
+    // Real 1mi figures from data/best-effort-ceiling.json (RESEARCH): p90Mps
+    // 3.6156908559874186, populationN 1851, ceilingMps 4.6281 (= Math.ceil(
+    // 1.28 * 3.6156908559874186 * 1e4) / 1e4). Built directly as a
+    // CeilingDerivation rather than through deriveCeiling so the test pins
+    // the exact observed numbers, not a population that happens to produce
+    // them.
+    const derivation = {
+      distance: '1mi' as const,
+      populationN: 1851,
+      p90Mps: 3.6156908559874186,
+      multiplier: CEILING_K,
+      ceilingMps: 4.6281,
+      failOpenReason: null,
+    };
+    const impliedSpeedMps = 4.63; // implied speed for 3475730418@1mi
+
+    const demotion = ceilingDemotion(impliedSpeedMps, derivation);
+    expect(demotion).not.toBeNull();
+
+    const impliedSubstring = impliedSpeedMps.toFixed(3);
+    const ceilingSubstring = derivation.ceilingMps.toFixed(3);
+    // At 2 dp both render "4.63" — the exact self-contradiction this margin
+    // closes. At 3 dp they must differ.
+    expect(impliedSubstring).not.toBe(ceilingSubstring);
+    expect(demotion?.reason).toContain(`implied ${impliedSubstring} m/s`);
+    expect(demotion?.reason).toContain(`exceeds personal ceiling ${ceilingSubstring} m/s`);
+
+    // The margin clause must be present and non-zero — asserting both
+    // directions so the test cannot pass vacuously against a 2-dp
+    // implementation, which would render the two values identical.
+    expect(demotion?.reason).toMatch(/by \d+\.\d{3} m\/s/);
+    expect(demotion?.reason).not.toMatch(/by 0\.000 m\/s/);
   });
 
   it('the reason contains no adjective from the forbidden list (implausible, suspicious, unrealistic, bogus)', () => {
@@ -218,8 +253,11 @@ describe('ceilingDemotion', () => {
     const demotion = ceilingDemotion(8.85, derivation);
     expect(demotion).not.toBeNull();
     expect(demotion?.guard).toBe('ceiling');
+    // Recomputed for D-10 (margin, three decimals): p90 3.992, ceiling
+    // 1.28 * 3.992 = 5.10976 -> ceil to 4dp 5.1098 -> toFixed(3) "5.110";
+    // margin 8.85 - 5.10976 = 3.74024 -> toFixed(3) "3.740".
     expect(demotion?.reason).toBe(
-      'implied 8.85 m/s exceeds personal ceiling 5.11 m/s (1.28 x p90 3.99 m/s over 1825 filtered 400m efforts)'
+      'implied 8.850 m/s exceeds personal ceiling 5.110 m/s by 3.740 m/s (1.28 x p90 3.992 m/s over 1825 filtered 400m efforts)'
     );
   });
 });
