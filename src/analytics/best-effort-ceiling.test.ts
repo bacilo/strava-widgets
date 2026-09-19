@@ -188,9 +188,19 @@ describe('ceilingDemotion', () => {
     const derivation = deriveCeiling('10k', bigPopulation);
     const justAbove = (derivation.ceilingMps as number) + 0.0001;
     const demotion = ceilingDemotion(justAbove, derivation);
+    // WR-01: the margin clause is either a normal 3-dp value or the
+    // sub-resolution `<0.001` marker — never a literal "0.000".
     expect(demotion?.reason).toMatch(
-      /^implied \d+\.\d{3} m\/s exceeds personal ceiling \d+\.\d{3} m\/s by \d+\.\d{3} m\/s \(\d+\.\d{2} x p90 \d+\.\d{3} m\/s over \d+ filtered \S+ efforts\)$/
+      /^implied \d+\.\d{3} m\/s exceeds personal ceiling \d+\.\d{3} m\/s by (?!0\.000 )(?:\d+\.\d{3}|<0\.001) m\/s \(\d+\.\d{2} x p90 \d+\.\d{3} m\/s over \d+ filtered \S+ efforts\)$/
     );
+  });
+
+  it('WR-01: a margin below 0.0005 m/s (implied speed one ten-thousandth above ceiling) renders "<0.001", never the self-contradictory "by 0.000 m/s"', () => {
+    const derivation = deriveCeiling('10k', bigPopulation);
+    const justAbove = (derivation.ceilingMps as number) + 0.0001;
+    const demotion = ceilingDemotion(justAbove, derivation);
+    expect(demotion?.reason).not.toMatch(/by 0\.000 m\/s/);
+    expect(demotion?.reason).toContain('by <0.001 m/s');
   });
 
   it('D-10 house register / thin margin: the live 1mi case (implied 4.630 vs ceiling 4.6281) renders distinct implied and ceiling substrings with a non-zero margin, the exact defect this margin closes', () => {

@@ -180,16 +180,28 @@ export function deriveCeilings(
  * adjective — Phase 27 D-09): the implied speed, the words `exceeds
  * personal ceiling`, the ceiling value, an explicit `by <margin> m/s`
  * clause, then a parenthetical giving the multiplier, `p90`, the p90 value
- * and the population size with the distance key. Implied speed, ceiling,
- * margin and p90 all render at three decimals; the multiplier stays at two
- * (D-10). The margin is stated explicitly because at two decimals the
- * sentence could read as self-contradictory — the live `3475730418@1mi`
- * case renders "implied 4.63 m/s exceeds personal ceiling 4.63 m/s" at 2dp,
+ * and the population size with the distance key. Implied speed, ceiling
+ * and p90 all render at three decimals; the multiplier stays at two (D-10).
+ * The margin is stated explicitly because at two decimals the sentence
+ * could read as self-contradictory — the live `3475730418@1mi` case
+ * renders "implied 4.63 m/s exceeds personal ceiling 4.63 m/s" at 2dp,
  * even though a real 0.002 m/s margin exists. For example, at the live 1mi
  * ceiling of 4.628 m/s derived from 1,851 filtered efforts with p90
  * 3.616 m/s and multiplier 1.28: `implied 4.630 m/s exceeds personal
  * ceiling 4.628 m/s by 0.002 m/s (1.28 x p90 3.616 m/s over 1851 filtered
  * 1mi efforts)`.
+ *
+ * WR-01 (Phase 31): a margin below 0.0005 m/s rounds to `0.000` at three
+ * decimals, which self-contradicts the sentence's own "exceeds" claim (and
+ * at the live archive's 0.1s duration resolution, that band is reachable
+ * with ordinary inputs). Since a margin is only ever rendered once the
+ * strict `>` guard above has already confirmed it is positive, `0.000`
+ * would always be a rounding artefact, never a true value — so the margin
+ * clause renders the sub-resolution case explicitly as `<0.001` rather
+ * than ever printing three zero digits. Today's live archive has no
+ * ceiling margin below 0.002 m/s, so this branch does not change any
+ * shipped reason string; it exists to keep a future thin-margin activity
+ * honest.
  */
 export function ceilingDemotion(
   impliedSpeedMps: number,
@@ -201,9 +213,13 @@ export function ceilingDemotion(
   // Non-null: ceilingMps is only ever set alongside p90Mps in deriveCeiling.
   const p90Mps = derivation.p90Mps!;
   const margin = impliedSpeedMps - derivation.ceilingMps;
+  // WR-01: never render a margin that rounds to "0.000" — state the
+  // sub-resolution case explicitly instead of letting toFixed(3) produce a
+  // self-contradictory sentence for a strictly-positive margin.
+  const marginText = margin < 0.0005 ? '<0.001' : margin.toFixed(3);
 
   return {
     guard: 'ceiling',
-    reason: `implied ${impliedSpeedMps.toFixed(3)} m/s exceeds personal ceiling ${derivation.ceilingMps.toFixed(3)} m/s by ${margin.toFixed(3)} m/s (${derivation.multiplier.toFixed(2)} x p90 ${p90Mps.toFixed(3)} m/s over ${derivation.populationN} filtered ${derivation.distance} efforts)`,
+    reason: `implied ${impliedSpeedMps.toFixed(3)} m/s exceeds personal ceiling ${derivation.ceilingMps.toFixed(3)} m/s by ${marginText} m/s (${derivation.multiplier.toFixed(2)} x p90 ${p90Mps.toFixed(3)} m/s over ${derivation.populationN} filtered ${derivation.distance} efforts)`,
   };
 }
