@@ -272,13 +272,45 @@ export function recountDemotedActivities(bestEffortsDoc, exclusionsDoc) {
 
   let excludedWithinFlaggedCount = null;
   let exclusionsTotal = null;
+  const malformedExclusions = [];
   if (exclusionsDoc !== null && exclusionsDoc !== undefined) {
     const flaggedSet = new Set(flaggedActivityIds);
     const exclusions = Array.isArray(exclusionsDoc.exclusions) ? exclusionsDoc.exclusions : [];
     exclusionsTotal = 0;
     excludedWithinFlaggedCount = 0;
-    for (const entry of exclusions) {
-      if (!entry || typeof entry.activityId !== 'string') continue;
+    // D-08 (Phase 31): four malformation classes, each surfaced by name rather
+    // than silently skipped — a hand-maintained JSON file crossing into the
+    // verifier that gates the phase's own numbers (T-31-02). Keyed storage
+    // stays a Set/Map, never a plain object indexed by an untrusted id, so a
+    // literal `__proto__` activityId cannot reach Object.prototype even before
+    // it is reported here.
+    const seenActivityIds = new Set();
+    for (let i = 0; i < exclusions.length; i++) {
+      const entry = exclusions[i];
+      if (!entry || typeof entry !== 'object') continue;
+
+      const hasStringId = typeof entry.activityId === 'string';
+      const offender = hasStringId ? entry.activityId : `index ${i}`;
+
+      if (!hasStringId) {
+        malformedExclusions.push(`${offender}: activityId is not a string`);
+        continue;
+      }
+      if (entry.activityId === '__proto__') {
+        malformedExclusions.push(`${offender}: activityId is the literal "__proto__"`);
+        continue;
+      }
+      if (seenActivityIds.has(entry.activityId)) {
+        malformedExclusions.push(`${offender}: duplicate activityId`);
+        continue;
+      }
+      seenActivityIds.add(entry.activityId);
+
+      if (typeof entry.reason !== 'string' || entry.reason.trim() === '') {
+        malformedExclusions.push(`${offender}: reason is missing, non-string, or empty`);
+        continue;
+      }
+
       exclusionsTotal += 1;
       if (flaggedSet.has(entry.activityId)) excludedWithinFlaggedCount += 1;
     }
@@ -289,6 +321,7 @@ export function recountDemotedActivities(bestEffortsDoc, exclusionsDoc) {
     flaggedActivityIds,
     excludedWithinFlaggedCount,
     exclusionsTotal,
+    malformedExclusions,
   };
 }
 
@@ -585,6 +618,19 @@ export function evaluateReport(report, expectedDemoted, expectedCohort, expected
   ) {
     problems.push(
       `recomputed flaggedActivityCount (${flaggedActivities.flaggedActivityCount}) does not equal --expect-flagged-activities ${expectedFlaggedActivities}`
+    );
+  }
+
+  // D-08 (Phase 31): a malformed data/best-effort-exclusions.json entry fails
+  // the verdict closed, matching this function's existing treatment of
+  // malformed demotions — the same problems[] channel, no new error path.
+  if (
+    flaggedActivities &&
+    Array.isArray(flaggedActivities.malformedExclusions) &&
+    flaggedActivities.malformedExclusions.length > 0
+  ) {
+    problems.push(
+      `${flaggedActivities.malformedExclusions.length} malformed exclusions entry/entries found: ${flaggedActivities.malformedExclusions.join(', ')}`
     );
   }
 

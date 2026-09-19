@@ -315,6 +315,93 @@ describe('recountDemotedActivities', () => {
     expect(resultNull.excludedWithinFlaggedCount).toBeNull();
     expect(resultNull.exclusionsTotal).toBeNull();
   });
+
+  it('D-08: a malformed exclusion (duplicate activityId) reports one problem naming that id, and does not double-count exclusionsTotal', () => {
+    const doc = bestEffortsDoc({ activities: {}, rankings: {} });
+    const exclusionsDoc = {
+      exclusions: [
+        { activityId: 'dup1', reason: 'first' },
+        { activityId: 'dup1', reason: 'second' },
+      ],
+    };
+    const result = recountDemotedActivities(doc, exclusionsDoc);
+    expect(result.malformedExclusions).toHaveLength(1);
+    expect(result.malformedExclusions[0]).toContain('dup1');
+    expect(result.malformedExclusions[0]).toContain('duplicate');
+    expect(result.exclusionsTotal).toBe(1);
+  });
+
+  it('D-08: a malformed exclusion (missing, non-string, or empty/whitespace-only reason) reports one problem naming the entry and the defect', () => {
+    const doc = bestEffortsDoc({ activities: {}, rankings: {} });
+    const exclusionsDoc = {
+      exclusions: [
+        { activityId: 'no-reason-key' },
+        { activityId: 'non-string-reason', reason: 42 },
+        { activityId: 'empty-reason', reason: '' },
+        { activityId: 'whitespace-reason', reason: '   ' },
+      ],
+    };
+    const result = recountDemotedActivities(doc, exclusionsDoc);
+    expect(result.malformedExclusions).toHaveLength(4);
+    for (const id of ['no-reason-key', 'non-string-reason', 'empty-reason', 'whitespace-reason']) {
+      expect(result.malformedExclusions.some((p) => p.includes(id))).toBe(true);
+    }
+    expect(result.exclusionsTotal).toBe(0);
+  });
+
+  it('D-08: a malformed exclusion (activityId literally "__proto__") reports one problem naming it, and never reaches Object.prototype via keyed storage', () => {
+    const doc = bestEffortsDoc({ activities: {}, rankings: {} });
+    const exclusionsDoc = {
+      exclusions: [{ activityId: '__proto__', reason: 'attempted prototype pollution' }],
+    };
+    const result = recountDemotedActivities(doc, exclusionsDoc);
+    expect(result.malformedExclusions).toHaveLength(1);
+    expect(result.malformedExclusions[0]).toContain('__proto__');
+    expect(result.exclusionsTotal).toBe(0);
+    // eslint-disable-next-line no-prototype-builtins
+    expect({}.polluted).toBeUndefined();
+  });
+
+  it('D-08: a malformed exclusion (non-string activityId — number, null, object) reports one problem naming its array index, since there is no safely stringifiable id', () => {
+    const doc = bestEffortsDoc({ activities: {}, rankings: {} });
+    const exclusionsDoc = {
+      exclusions: [
+        { activityId: 12345, reason: 'numeric id' },
+        { activityId: null, reason: 'null id' },
+        { activityId: { nested: true }, reason: 'object id' },
+      ],
+    };
+    const result = recountDemotedActivities(doc, exclusionsDoc);
+    expect(result.malformedExclusions).toHaveLength(3);
+    expect(result.malformedExclusions[0]).toContain('index 0');
+    expect(result.malformedExclusions[1]).toContain('index 1');
+    expect(result.malformedExclusions[2]).toContain('index 2');
+    expect(result.exclusionsTotal).toBe(0);
+  });
+
+  it('D-08: a document with all four malformed exclusion shapes at once produces four distinct problems, and the well-formed entries in the same document still count normally', () => {
+    const doc = bestEffortsDoc({
+      activities: { flagged: { efforts: [effort('400m', 60, { guard: 'ceiling', reason: 'r1' })] } },
+      rankings: { '400m': [] },
+    });
+    const exclusionsDoc = {
+      exclusions: [
+        { activityId: 'flagged', reason: 'a well-formed entry inside the flagged set' },
+        { activityId: 'dup2', reason: 'first' },
+        { activityId: 'dup2', reason: 'second' },
+        { activityId: 'bad-reason', reason: null },
+        { activityId: '__proto__', reason: 'malicious' },
+        { activityId: 999, reason: 'non-string id' },
+      ],
+    };
+    const result = recountDemotedActivities(doc, exclusionsDoc);
+    expect(result.malformedExclusions).toHaveLength(4);
+    // Well-formed entries: 'flagged' and dup2's FIRST occurrence (its reason
+    // is valid; only the second occurrence is malformed as a duplicate) — 2
+    // total, unaffected by the 4 malformed entries alongside them.
+    expect(result.exclusionsTotal).toBe(2);
+    expect(result.excludedWithinFlaggedCount).toBe(1);
+  });
 });
 
 describe('recountImpossibleSampleCohort', () => {
@@ -594,6 +681,45 @@ describe('evaluateReport', () => {
     );
     expect(verdict.pass).toBe(false);
     expect(verdict.problems.some((p) => p.includes('5') && p.includes('6'))).toBe(true);
+  });
+
+  it('D-08: flips pass to false and names each offender when a malformed exclusion is present', () => {
+    const verdict = evaluateReport({
+      readErrors: [],
+      demoted: null,
+      cohort: null,
+      sweep: null,
+      flaggedActivities: {
+        flaggedActivityCount: 0,
+        flaggedActivityIds: [],
+        excludedWithinFlaggedCount: 0,
+        exclusionsTotal: 1,
+        malformedExclusions: [
+          'dup1: duplicate activityId',
+          'index 2: activityId is not a string',
+        ],
+      },
+    });
+    expect(verdict.pass).toBe(false);
+    expect(verdict.problems.some((p) => p.includes('dup1') && p.includes('duplicate'))).toBe(true);
+    expect(verdict.problems.some((p) => p.includes('index 2'))).toBe(true);
+  });
+
+  it('D-08: passes when there is no malformed exclusion (the real, well-formed file)', () => {
+    const verdict = evaluateReport({
+      readErrors: [],
+      demoted: cleanDemotedReport(),
+      cohort: null,
+      sweep: cleanSweep(),
+      flaggedActivities: {
+        flaggedActivityCount: 1,
+        flaggedActivityIds: ['a1'],
+        excludedWithinFlaggedCount: 0,
+        exclusionsTotal: 2,
+        malformedExclusions: [],
+      },
+    });
+    expect(verdict.pass).toBe(true);
   });
 });
 
