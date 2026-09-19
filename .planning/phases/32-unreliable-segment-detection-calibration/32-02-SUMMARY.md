@@ -96,6 +96,14 @@ None - no external service configuration required.
 - `pace-derivation.ts` is confirmed byte-for-byte untouched (`git diff --stat` empty) — the phase boundary against wiring into it holds.
 - No blockers. The module is fully self-contained and requires no external service or calibration artifact to be usable in its current (required-params) form.
 
+## Self-Check: PASSED
+
+- FOUND: `src/analytics/unreliable-segments.ts`
+- FOUND: `src/analytics/unreliable-segments.test.ts`
+- FOUND: `.planning/phases/32-unreliable-segment-detection-calibration/32-02-SUMMARY.md`
+- FOUND commit: `84022d99` (Task 1)
+- FOUND commit: `5c8a4385` (Task 2)
+
 ---
 *Phase: 32-unreliable-segment-detection-calibration*
 *Completed: 2026-09-19*
