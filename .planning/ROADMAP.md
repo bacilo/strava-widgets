@@ -368,13 +368,13 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 31-01-PLAN.md — TD-01: decouple the four CR-01 tests from the live exclusions file onto a committed fixture, keeping one premise-only live read (wave 1)
-- [ ] 31-02-PLAN.md — TD-02: replace `copyJsonTree`'s mtime skip with size-then-digest and log stale replacements (wave 1)
-- [ ] 31-03-PLAN.md — TD-03a/b: `other` bucket in the Records sentence; recount fails closed on four malformed-exclusion classes (wave 1)
-- [ ] 31-04-PLAN.md — TD-03c: the curation queue counts and renders the entries it ignored (wave 1)
-- [ ] 31-05-PLAN.md — TD-04: the ceiling demotion reason states its margin at three decimals (wave 1)
-- [ ] 31-06-PLAN.md — TD-05: shared `isStreamFile` in `scripts/lib/`; residual sweep stops counting `manifest.json` (27 G-03) (wave 1)
-- [ ] 31-07-PLAN.md — TD-05: data-derived largest-drift sentence (28 WR-07) and a reconciled Demoted column (28 WR-08) (wave 1)
+- [x] 31-01-PLAN.md — TD-01: decouple the four CR-01 tests from the live exclusions file onto a committed fixture, keeping one premise-only live read (wave 1)
+- [x] 31-02-PLAN.md — TD-02: replace `copyJsonTree`'s mtime skip with size-then-digest and log stale replacements (wave 1)
+- [x] 31-03-PLAN.md — TD-03a/b: `other` bucket in the Records sentence; recount fails closed on four malformed-exclusion classes (wave 1)
+- [x] 31-04-PLAN.md — TD-03c: the curation queue counts and renders the entries it ignored (wave 1)
+- [x] 31-05-PLAN.md — TD-04: the ceiling demotion reason states its margin at three decimals (wave 1)
+- [x] 31-06-PLAN.md — TD-05: shared `isStreamFile` in `scripts/lib/`; residual sweep stops counting `manifest.json` (27 G-03) (wave 1)
+- [x] 31-07-PLAN.md — TD-05: data-derived largest-drift sentence (28 WR-07) and a reconciled Demoted column (28 WR-08) (wave 1)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -429,7 +429,7 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19 → 20 �
 | 28. PR Plausibility Ceiling | v2.2 | 15/15 | Complete    | 2026-09-17 |
 | 29. Curation Review Queue | v2.2 | 8/8 | Complete    | 2026-09-18 |
 | 30. Elevation Quality Signal | v2.2 | 8/8 | Complete    | 2026-09-18 |
-| 31. Tech-Debt Closure — Silent-Failure Guards & Docs Reconciliation | v2.2 | 0/10 | Planned | — |
+| 31. Tech-Debt Closure — Silent-Failure Guards & Docs Reconciliation | v2.2 | 7/10 | In Progress|  |
 
 *Last updated: 2026-09-08 — **v2.2 Pace Data Quality** roadmap created: 5 phases (26-30), 27/27 requirements mapped. PACE-06 and PACE-07 were added after the initial draft, both folded into Phase 26 alongside the rest of PACE: PACE-06 quantifies the residue adaptive windowing does not fix (13/154, all marginal 0.5-2.4%, genuine device over-measurement — an earlier measurement wrongly called three of those activities "beyond repair" using a fixed-window artifact; corrected once adaptivity was applied), and PACE-07 catches a live singleton defect where activity 5059204779's metadata (`moving_time`/`distance`) implies 1:53/km while its own stream derives 5:51/km. Phase order follows the research-converged sequence (shared derivation → quality signals → PR ceiling → review queue → elevation), with two hard constraints carried from PROJECT.md: the PR ceiling (Phase 28) demotes-and-flags only, never deletes, and its archive-wide before/after diff is a required reviewed deliverable, not optional polish. ERA-03 (stratified fixture library) is folded into Phase 26 rather than a standalone phase, and ERA-01/ERA-02 (device-family branching) are folded into Phase 27 — both per research/SUMMARY.md's explicit recommendation that cross-era discipline is a standing convention every threshold-introducing phase reuses, not a phase of its own.*
 
