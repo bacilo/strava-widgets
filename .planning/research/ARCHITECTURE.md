@@ -1,203 +1,328 @@
-# Architecture Research: Pace Data-Quality Integration
+# Architecture Research
 
-**Domain:** Static analytics-pipeline SPA — nightly precompute + lazy-fetch dashboard, GitHub Pages hosting
-**Researched:** 2026-09-08
-**Confidence:** HIGH (all claims traced to real file paths/functions read in this repo; no external ecosystem uncertainty — this is an internal-integration question, not a "what does the ecosystem look like" question)
+**Domain:** Codebase integration — v2.3 "Pause & Slew Integrity" onto the existing v2.2 pace/quality/best-effort subsystem
+**Researched:** 2026-09-19
+**Confidence:** HIGH (all claims verified against the current source, not training data)
 
-This is a subsequent-milestone integration study, not a greenfield design. Every recommendation below cites the real precedent in this codebase it extends, and the HARD CONSTRAINT (committed `data/streams/` stays byte-identical) is treated as load-bearing throughout.
+This is not a greenfield ecosystem survey. It answers one question: given the concrete modules that exist today (`pace-derivation.ts`, `pace-quality.ts`, `best-effort-utils.ts`, `best-effort-ceiling.ts`, `compute-best-efforts.ts`, the curation overlay/server, the dashboard index), where does each new v2.3 capability attach so the project's own load-bearing conventions — single-source-of-truth modules, additive schema, demote-never-delete, one shared demotion path, one write transport — hold rather than fork.
 
-## System Overview (as it exists today, annotated with v2.2 insertion points)
+## Standard Architecture
 
-```
-┌──────────────────────────── CI: nightly (COMPUTE_ALL_STATS_STEPS) ───────────────────────────┐
-│  compute-stats → compute-advanced-stats → compute-geo-stats → compute-best-efforts            │
-│                                                    │ (reads data/streams/*.json)                │
-│                                            [NEW quality signals — insertion point #2/#3]        │
-│                                                    ▼                                            │
-│                                      compute-age-grading → compute-dashboard-index              │
-│                                                                    │ (reads best-efforts.json)  │
-│                                                            [NEW index fields — insertion #2]     │
-│                                                                    ▼                             │
-│                                      compute-gear-aggregate → compute-training-load             │
-└──────────────────────────────────────────────────────────────────────────────────────────────┘
-                          writes → data/stats/*.json, data/stats/best-efforts/{id}.json (shard),
-                                   data/dashboard/index.json   [+ NEW data/stats/pace-quality/{id}.json]
-                                                    │
-                                                    ▼ (gitignored, regenerated; committed inputs unchanged)
-┌───────────────────────────── Static SPA (src/dashboard/) — GitHub Pages ─────────────────────┐
-│  index-client.ts: fetch-once data/dashboard/index.json (compact manifest, list/filter/badges) │
-│         │                                                                                       │
-│         ▼ on activity open                                                                     │
-│  detail-client.ts: lazy fetch data/activities/{id}.json + data/streams/{id}.json               │
-│  best-efforts-client.ts: lazy fetch data/stats/best-efforts/{id}.json                          │
-│  [NEW] pace-quality-client.ts: lazy fetch data/stats/pace-quality/{id}.json                    │
-│         │                                                                                       │
-│         ▼                                                                                       │
-│  detail-charts-logic.ts (derivePaceSeries, 20s window) ─┐                                       │
-│  detail-zones.ts (computePaceDistribution, raw dt/dd)   ├─→ [UNIFY onto src/analytics/ shared]  │
-│  detail-splits.ts (computeSplits, Δt-weighted, correct) ┘   (already correct — leave alone)     │
-└──────────────────────────────────────────────────────────────────────────────────────────────┘
-                                                    │
-┌───────────────────────── Local-only: npm run curate (scripts/curate-server.mjs) ──────────────┐
-│  Serves built dist/widgets from 127.0.0.1:4173, injects overlay script tag (response-patch      │
-│  only). PUT/DELETE /__curate/exclusions/:id → data/best-effort-exclusions.json (atomic write,   │
-│  mirrored into dist/widgets/data/). POST /__curate/recompute → spawns                           │
-│  dist/index.js compute-best-efforts, compute-dashboard-index.                                   │
-│  [NEW] review-queue routes reuse this exact namespace/guard/mirror machinery — see Q4.          │
-│  Guarded by: curation-guard.mjs (build-time content/name scan) +                                │
-│              verify-dashboard-publish.mjs (HTTP-layer 404 assertion) — both structural,         │
-│              not enumerated-route-based, so new /__curate/* routes are covered for free.        │
-└──────────────────────────────────────────────────────────────────────────────────────────────┘
-
-export_data/ (gitignored, local-only originals) ── read ONLY by src/streams/backfill-streams.ts,
-the sole precedent for a local-only compute step. Not in COMPUTE_ALL_STATS_STEPS, not reachable
-from CI. v2.2's target features are all computable from the COMMITTED stream (t/d/alt) alone, so
-this milestone should NOT need a new local-only step — see Q5.
-```
-
-## Q1 — Where the shared pace derivation lives
-
-**Answer: `src/analytics/`, not `src/dashboard/`.**
-
-The precedent is already established and load-bearing: `src/analytics/best-effort-utils.ts` is pure, DOM-free, I/O-free logic, and it is *already imported directly by three dashboard view modules* today:
-
-- `src/dashboard/views/detail-charts-logic.ts:19` — `import { validateStreamSeries } from '../../analytics/best-effort-utils.js'`
-- `src/dashboard/views/detail-zones.ts:24` — same import
-- `src/dashboard/views/detail-splits.ts:19` — same import
-
-Because this project is a static SPA with no server, "shared between CI and browser" is not a network/API-boundary problem here — it is just "two different JS runtimes (Node CLI, browser via Vite bundle) import the same ES module." `src/analytics/` is the established convergence point for exactly that: `compute-best-efforts.ts` (a CI compute step, invoked from `src/compute-all-stats-steps.ts`) and the three dashboard view modules above both call into `best-effort-utils.ts`'s `validateStreamSeries`. There is no precedent anywhere in this repo for `src/dashboard/` code being imported back into `src/analytics/` or into a CI compute step — the dependency arrow only ever runs `analytics/ → dashboard/`, never the reverse. That is the boundary rule to preserve.
-
-**Concretely:** add a new module, e.g. `src/analytics/pace-derivation.ts`, that owns:
-- Gap classification over a validated `(t, d)` series — the concept neither existing implementation has today. `validateStreamSeries` only checks length/finiteness/monotonicity; it says nothing about *recording gaps* (`dt` > ~10s) or *pause gaps* (near-zero `dd` sustained across `dt` ≥ 30s), which is exactly the distinction PROJECT.md's "Honest coverage" goal requires (1,233 activities have a >10s recording gap; 321 have >5min of pause-gap time).
-- A gap-aware `derivePaceSeries` — presentation series for the chart band, adapted from the existing `detail-charts-logic.ts:97` implementation (which already uses real-Δt-weighted windows and `interpValueAtTime`; it is the *better* of the two today), but modified to stop silently smoothing straight across a classified gap.
-- A gap-aware `computePaceDistribution` — adapted from `detail-zones.ts:61`'s per-segment `dt / (dd / 1000)` walk (which is honest about weighting by real `Δt` per segment already, but has no gap awareness at all — it is what manufactures the phantom fast-mode cluster PROJECT.md's worked example describes), modified to *exclude* gap-spanning segments from a bucket rather than let them alias into it.
-
-Both current call sites (`buildChannelSeries('pace', …)` in `detail-charts-logic.ts`, `computePaceDistribution` in `detail-zones.ts`) become thin wrappers that call into the new shared module, rather than the split logic that exists today. `detail-splits.ts`'s `computeSplits`/`accumulateWeighted` is a *third*, structurally different computation (per-km-boundary Δt-weighted averages, already correct per its own docblock) — it is not one of the "two divergent" implementations PROJECT.md names, and nothing in the target features list calls for changing it; leave it alone unless a later gap-flagging need on splits emerges (flag as an open question, not a requirement).
-
-**Test precedent:** `best-effort-utils.test.ts` sits beside the module it tests; `detail-charts-logic.test.ts` and `detail-zones.test.ts` already unit-test their respective pace math in isolation. A new `pace-derivation.test.ts` in `src/analytics/` should absorb the pace-specific cases those two files currently carry, once the view modules become thin wrappers.
-
-## Q2 — Precompute vs derive-on-read
-
-**Precompute the signals that need to be a `DashboardIndexRow` field (list badges/filtering); precompute-but-shard everything else; do not derive quality signals in the browser at all.**
-
-This project already has a firm, load-bearing lazy-data contract, stated directly in `index-client.ts`'s docblock: *"The manifest is ~300-500KB, so it MUST be fetched at most once per page session no matter how many views... ask for it during bootstrap."* `DashboardIndexRow` (`dashboard-index.types.ts`) is deliberately "browse-complete... anything a ... sort or filter needs is a row field, because a field absent from the index cannot be sorted or filtered without fetching all 1,867 detail files" — and it already carries exactly this shape of signal: `lowConfidence: boolean`, `excludedFromRecords: boolean`, `prCount: number`, `streams: DashboardIndexStreams` (itself `{available, hr, cadence, elevation, distanceSource}` — small booleans/enums, not raw arrays).
-
-That is the template to follow for quality signals:
-
-**Belongs in the index (compact scalars/booleans, drives list-level badges/filtering):**
-- A small quality summary object mirroring `DashboardIndexStreams`'s shape, e.g. `quality: { hasRecordingGap: boolean, hasPauseGap: boolean, gapSec: number, stairStepRatio: number, impossibleSampleCount: number, elapsedVsMovingDivergenceSec: number, deviceEra: string | null }`. Every one of these is a single number/boolean per activity, computed once from the committed stream's `t`/`d`/`alt` arrays plus `activity.elapsed_time`/`activity.moving_time` (both already read into `compute-dashboard-index.ts`'s per-row loop) and the stream manifest's existing `source: StreamSource` field (`'fit'|'gpx'|'intervals'`, already present in `StreamManifestEntryAvailable` but not yet threaded into `DashboardIndexStreams` — a purely additive addition, same shape as the `gearName` addition dashboard-index.types.ts's own docblock documents: *"`DASHBOARD_INDEX_SCHEMA_VERSION` stays at `1` for the `gearName` addition below — it is a purely additive field."* The quality summary should land the same way: additive fields, schema version unchanged, `verify-dashboard-publish.mjs` unaffected).
-- `deviceEra` is derivable cheaply from `source` + `activity.start_date` (a coarse bucket, e.g. "FIT (2018-2021)" vs "intervals.icu (2026-)") — no need to read anything beyond what's already resident in the compute-dashboard-index loop.
-
-**Belongs in a per-activity shard, fetched lazily on open (detailed, larger, only needed once a detail view is open):**
-- The full gap profile (list of individual gap segments with offsets/durations, not just a boolean+total), a stair-step sample-by-sample trace if the badge wants a mini-visualization, and the impossible-sample list (which samples, why). This is exactly the shape `compute-best-efforts.ts` already established for `best-efforts.json`: it writes both an archive-wide document AND, explicitly to avoid "fetch[ing] this whole archive-wide document in a browser (it is multiple MB for the live archive)," a per-activity shard at `data/stats/best-efforts/{id}.json` (see `compute-best-efforts.ts:313-322`), fetched by `best-efforts-client.ts`. The identical pattern applies here: a new `data/stats/pace-quality/{id}.json` shard, written by the same nightly step that produces the index summary, fetched by a new `pace-quality-client.ts` that mirrors `detail-client.ts`'s `loadDetail`/`InvalidActivityIdError`/in-flight-Map-memoization shape exactly.
-
-**Nothing should be derived in the browser for quality signals.** The one thing that legitimately *stays* browser-computed is the full-resolution pace *series* for the chart (`derivePaceSeries`'s per-sample output) — that is inherently too large and too view-specific (window size, x-axis mode, zoom) to precompute variably, and it already is browser-computed today via `buildChannelSeries`. Quality *signals*, by contrast, are fixed scalar summaries with no rendering-time variability, so precomputing them in CI is strictly better: it matches every other precomputed document in this pipeline (`best-efforts.json`, `training-load.json`, `age-grading.json`), it keeps the browser bundle free of the gap-classification logic duplicated a second time, and — critically — it lets it use the SAME shared `src/analytics/pace-derivation.ts` gap-classifier from Q1 in exactly one runtime (Node, at CI time) rather than needing it to also run acceptably fast in-browser over a cold-fetch stream.
-
-## Q3 — Where sharpened PR rejection belongs, and the ceiling/history ordering problem
-
-**It belongs inside `compute-best-efforts.ts`/`best-effort-utils.ts`, as an additional pass appended AFTER the existing archive-wide accumulation and BEFORE `markPRs`/`rankTopN` — never as a per-activity, single-pass check like the existing `isPlausible`.**
-
-Today's pipeline, read directly from `compute-best-efforts.ts`, is single-pass per activity:
+### System Overview (v2.3 additions in bold)
 
 ```
-for each activity (manifest order):
-  computeActivityEfforts()          // pure, best-effort-utils.ts
-    → findBestEffort()              // two-pointer sweep, per activity, no archive context
-    → isPlausible()                 // activity's own max_speed + FIXED WORLD_RECORD_SPEED_MPS ceiling
-  isExcluded()                      // exclusion list — externally authored, no circularity
-  byDistance.get(key).push(entry)   // accumulate into a Map<distance, entries[]>, ARCHIVE-WIDE
+┌───────────────────────────────────────────────────────────────────────────┐
+│  data/streams/{id}.json  — CanonicalStream { t, d, hr?, cadence?, alt? }   │
+│  byte-identical, no lat/lng, only source CI can read                       │
+└───────────────────────────────┬───────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌───────────────────────────────────────────────────────────────────────────┐
+│  src/analytics/pace-derivation.ts  (pure, client-safe, THE gap/segment     │
+│  authority)                                                                │
+│  classifyGaps(t,d) → PaceCoverage { coveredSec, recordingGapSec, pauseSec, │
+│    **unreliableSec**, gapIntervals: GapInterval[] }                       │
+│  **GapKind gains a 3rd member: 'unreliable'**                              │
+│  **detectUnreliableSegments(t,d) — NEW, sole detector, called from inside  │
+│    classifyGaps**                                                          │
+│  derivePaceWithCoverage / derivePaceSeriesGapAware / paceHistogramSamples  │
+│  clip on `gapIntervals` generically — already kind-agnostic, so unreliable │
+│  segments are clipped for free once they are gapIntervals entries          │
+│  streamPaceSecPerKm (span-based, PACE-07, UNCHANGED)                       │
+│  **streamRunningPaceSecPerKm — NEW, covered-only aggregate**               │
+└───────┬───────────────────────────────┬───────────────────────┬───────────┘
+        │ (sole classifyGaps call site) │                       │
+        ▼                               ▼                       ▼
+┌──────────────────────┐   ┌─────────────────────────┐  ┌──────────────────────┐
+│ pace-quality.ts       │   │ compute-dashboard-index │  │ best-effort-utils.ts /│
+│ gapProfileSignal,     │   │  .ts — writes index row │  │ compute-best-efforts  │
+│ **gapMovementSignal,  │   │  quality, paceDisagree- │  │  .ts — findBestEffort │
+│  forgottenStopSignal**│   │  ment, **streamRunning- │  │  gains **unreliable-  │
+│ PaceQualityShard      │   │  PaceSecPerKm**         │  │  segment avoidance**  │
+│  {id}.json            │   │                         │  │  EffortDemotionGuard  │
+│                       │   │                         │  │  gains **'unreliable- │
+│                       │   │                         │  │  segment'**           │
+└──────────────────────┘   └─────────────────────────┘  └──────────┬───────────┘
+                                                                     ▼
+                                                          ┌──────────────────────┐
+                                                          │ best-effort-ceiling.ts│
+                                                          │ deriveCeilings — reads│
+                                                          │ byDistance, which     │
+                                                          │ already only accumu-  │
+                                                          │ lates demotion:null   │
+                                                          │ efforts (Pass 1) —    │
+                                                          │ non-circularity holds │
+                                                          │ IF the clean window's │
+                                                          │ duration is what      │
+                                                          │ populates it (see     │
+                                                          │ Q3 below)             │
+                                                          └──────────────────────┘
 
-// only after the full loop above completes:
-for each distance:
-  markPRs(byDistance.get(key))      // sorts CHRONOLOGICALLY, stamps wasPRAtTheTime
-  rankTopN(byDistance.get(key))     // sorts FASTEST-FIRST, truncates to top 10
+┌───────────────────────────────────────────────────────────────────────────┐
+│ scripts/curate-server.mjs + scripts/curate-overlay/  (localhost write     │
+│ transport, D-02/D-07/D-09/D-12 security discipline)                       │
+│ PUT/DELETE /__curate/exclusions/:id  ── saveExclusion/removeExclusion      │
+│ **PUT/DELETE /__curate/reviewed/:id — NEW, structural copy of the above,  │
+│   same origin gate, same writeAtomic, same mirror-to-dist pattern,        │
+│   own file data/pace-review-state.json**                                  │
+│ scripts/curate-queue — derive-flagged.mjs reads bestEfforts+exclusions    │
+│   (+index for names); **gains reviewedDoc as a 4th input**                │
+└───────────────────────────────────────────────────────────────────────────┘
 ```
 
-`isPlausible` (`best-effort-utils.ts:140`) is deliberately activity-local — it only ever sees one activity's `max_speed` and a *global*, hand-maintained `WORLD_RECORD_SPEED_MPS` table (`best-effort-utils.ts:34`, "admits a 44.0s 400m" per PROJECT.md). A **personal** plausibility ceiling is fundamentally different: it needs the athlete's *own* demonstrated range across the whole archive for a given distance, which does not exist until the archive-wide `byDistance` accumulation above has already run. That is the ordering problem stated in the question — the ceiling needs the history, but "the history" as currently defined is "whatever `isPlausible`+exclusions already let through," which is precisely the set the ceiling is meant to further filter.
+### Component Responsibilities
 
-**The resolution is a strict three-pass structure with no fixed-point iteration** (a converging/iterative ceiling — "recompute the ceiling, re-filter, recompute again" — is exactly the thing to avoid: it is non-deterministic in the general case and unnecessary here):
+| Component | Responsibility today | v2.3 change |
+|-----------|----------------------|-------------|
+| `src/analytics/pace-derivation.ts` | Sole gap classifier + presentation pace series + span-based disagreement check (`pace-derivation.ts:1-665`) | Becomes the sole **unreliable-segment** classifier too; gains `unreliableSec`, a 3rd `GapKind`, and `streamRunningPaceSecPerKm` |
+| `src/analytics/pace-quality.ts` | Six per-activity signals + `PaceQualityShard` evidence (`pace-quality.ts:1-1500`) | Adds gap-movement classification + forgotten-stop as new signal(s), reusing `resolveCoverage`'s sole-call-site pattern (`pace-quality.ts:889-891`) |
+| `src/analytics/best-effort-utils.ts` | `findBestEffort` two-pointer sweep, `isPlausible` absolute guards (`best-effort-utils.ts:123-196`) | `findBestEffort` gains segment-avoidance; a new guard sibling to `isPlausible` |
+| `src/analytics/best-effort-ceiling.ts` | Pure, non-circular per-distance ceiling from an already-filtered population (`best-effort-ceiling.ts:1-226`) | **No code change required** if Q3's design (below) is followed — non-circularity is preserved structurally, not by a new filter |
+| `src/analytics/compute-best-efforts.ts` | 3-pass accumulate/derive/filter-and-flag over `data/streams/` (`compute-best-efforts.ts:1-587`) | Pass 1 needs per-activity unreliable intervals; Pass 3's demotion path gains a 4th guard alongside world-record/max-speed/ceiling |
+| `scripts/curate-server.mjs` + `scripts/curate-overlay/` | One write transport for exclusions (`curate-server.mjs:339-625`, `curate-overlay/index.ts:113-177`) | A second, structurally identical route/file pair for "reviewed and kept" — not a new transport mechanism |
+| `src/analytics/pace-single-source.test.ts` | Structural audit banning a second stream-pace implementation (`pace-single-source.test.ts:1-453`) | Extended with new banned literals for the segment detector's raw arithmetic and its own override surface |
 
-1. **Pass 1 (existing, unchanged):** run `computeActivityEfforts` + `isExcluded` exactly as today, per activity, accumulating into `byDistance: Map<TargetDistanceKey, PRAccumulatorEntry[]>`. This pass has no personal-ceiling dependency — it only uses the activity-local `max_speed` guard and the fixed world-record ceiling, both already independent of any archive-wide computation. No circularity here; this is the "history" the ceiling will be built from.
+## Recommended Project Structure
 
-2. **Pass 2 (new):** for each distance, compute one ceiling value from the *complete* `byDistance.get(key)` array Pass 1 already materialized — e.g. a percentile or "best-so-far plus a fixed margin" statistic over `PRAccumulatorEntry.paceSecPerKm`. This must be a pure aggregate function (order-independent — sort internally by `durationSec` or percentile-rank, never rely on `Map`/array insertion order) living beside `isPlausible`, `markPRs`, `rankTopN` in `best-effort-utils.ts` (e.g. `personalPlausibilityCeiling(entries: PRAccumulatorEntry[]): number`). Because it runs over the array Pass 1 already produced in full, it needs no second read of streams/activities and no iteration over the manifest again — it is O(n log n) over an already-in-memory array per distance (7 distances, ~10-1800 entries each).
+No new top-level directories. New files slot beside their nearest sibling:
 
-3. **Pass 3 (new):** re-filter each distance's `byDistance.get(key)` array against the Pass-2 ceiling, moving any entry that exceeds it into a rejected/flagged bucket — structurally identical to how `isExcluded` already removes entries from `byDistance` before `markPRs` runs, except this filter runs *after* accumulation instead of during it, and it must **flag rather than delete** per the milestone's explicit constraint ("rejected efforts stay visible, flagged and overridable, never deleted" — PROJECT.md, and "PRs move by demotion, never recalculation"). Concretely this likely means: keep the entry in `activities[id].efforts` (so the detail view still shows it), add a new boolean like `flaggedImplausible: boolean` alongside the existing `wasPRAtTheTime`/`excludedFromRecords` fields on `BestEffort` (`best-effort.types.ts:88`), and exclude flagged-but-not-excluded entries from `byDistance` before `markPRs`/`rankTopN` run — mirroring the existing `effortsExcluded` counter/mechanism (`compute-best-efforts.ts:215-219`) but keyed on ceiling-rejection instead of the hand-maintained exclusion list.
+```
+src/analytics/
+├── pace-derivation.ts          # MODIFIED — 3rd GapKind, unreliableSec, streamRunningPaceSecPerKm
+├── unreliable-segments.ts      # NEW — pure detector: raw per-pair speed scan + run-merge +
+│                                #   gap-adjacency merge, mirrors classifyGaps's own shape;
+│                                #   imported ONLY by pace-derivation.ts (D-18-style containment)
+├── pace-quality.ts             # MODIFIED — gapMovementSignal, forgottenStopSignal
+├── pace-single-source.test.ts  # MODIFIED — new BANNED_LITERALS / OVERRIDE_LITERALS entries
+├── best-effort-utils.ts        # MODIFIED — findBestEffort gains segment-avoidance option
+├── best-effort.types.ts        # MODIFIED — EffortDemotionGuard gains 'unreliable-segment'
+├── best-effort-ceiling.ts      # UNCHANGED (see Q3)
+├── compute-best-efforts.ts     # MODIFIED — Pass 1 reads unreliable intervals per activity
+├── compute-dashboard-index.ts  # MODIFIED — new additive index-row field(s)
+└── dashboard-index.types.ts    # MODIFIED — additive only, schemaVersion stays 1
 
-**Determinism in CI is preserved** because Pass 2's ceiling is a pure aggregate over Pass 1's fully-materialized, already-deterministic array — it does not depend on manifest iteration order (which is JS's numeric-key reordering of `Object.entries`, already order-insensitive downstream because `markPRs` re-sorts chronologically and `rankTopN` re-sorts by duration) and does not iterate to convergence. Re-running `compute-best-efforts` twice against unchanged inputs produces an identical ceiling and identical flags, same as every other document this pipeline writes.
+scripts/
+├── curate-server.mjs           # MODIFIED — new /__curate/reviewed/:id routes, own JSON file
+├── curate-overlay/index.ts     # MODIFIED — markReviewedKept/unmarkReviewedKept, same shape as saveExclusion
+├── curate-queue/derive-flagged.mjs   # MODIFIED — 4th input (reviewedDoc), gap-priority sort key
+└── compute-unreliable-segment-diff.mjs   # NEW — archive-wide before/after diff + dev sign-off,
+                                            #   structural sibling of Phase 28's 28-DIFF.md generator
 
-**Two integration points worth flagging explicitly for roadmap/requirements, not resolved here:**
-- **Override asymmetry.** The existing exclusion mechanism (`best-effort-exclusions.json`, `isExcluded`) only ever *removes* an effort from contention — there is no existing schema for "force this effort back IN despite a rejection." If the milestone's review queue (Q4) needs to let the athlete override a ceiling-rejection (accept it as a real PR anyway), that is a new, differently-shaped write than today's exclusion tickbox — either a new field on the exclusion schema (e.g. `overrideCeiling: true`) or a new sibling file. This should be settled in REQUIREMENTS/ROADMAP, not assumed.
-- **Where the ceiling touches the exclusion list.** Exclusion-list filtering (Pass 1, `isExcluded`) and ceiling filtering (Pass 3) are two independent gates over the same `byDistance` accumulation — an activity can be excluded, ceiling-flagged, both, or neither. `compute-best-efforts.ts`'s totals block (`doc.totals`) already tracks `effortsExcluded` as a distinct counter from `effortsRejected`; a third counter (e.g. `effortsFlaggedImplausible`) should follow the same convention rather than overloading either existing one.
+data/
+├── best-effort-exclusions.json     # UNCHANGED — do not fold CUR-04 into this file (see Q6)
+└── pace-review-state.json          # NEW, committed — "reviewed and kept" state, same shape family
+```
 
-## Q4 — Curation-mode review queue, reusing the local-only write path without weakening the publish guards
+### Structure Rationale
 
-**Reuse the `/__curate/*` namespace and its existing machinery wholesale; do not invent a parallel write surface.**
+- **`unreliable-segments.ts` as its own file, not inline in `pace-derivation.ts`:** the detector's own raw arithmetic (a per-pair implied-speed scan, structurally identical in shape to `countImpossibleSamples` at `pace-quality.ts:1001-1057`) needs its own home so the single-source audit can allow-list it by path the same way it allow-lists `pace-derivation.ts` itself (`pace-single-source.test.ts:101-113`). It is imported by exactly one caller — `pace-derivation.ts`'s `classifyGaps` — never by `pace-quality.ts` or `compute-best-efforts.ts` directly, so there is exactly one place the raw detector runs per activity and everything downstream reads its output through `PaceCoverage`/`GapInterval`, the same containment discipline `resolveCoverage` already gives `classifyGaps` (`pace-quality.ts:889-891`).
+- **No new top-level `src/` directory:** every new capability is a variation on a pattern already owned by an existing module (gap classification → `pace-derivation.ts`; quality signal → `pace-quality.ts`; demotion guard → `best-effort-utils.ts`/`best-effort.types.ts`; curation write → `curate-server.mjs`). Inventing a parallel directory would be exactly the "second locus" shape `pace-single-source.test.ts`'s own docblock (lines 52-82) documents as this project's two historically-real defects.
+- **`pace-review-state.json` as its own file, not a field on `best-effort-exclusions.json`:** see Q6 below — the exclusions file is load-bearing for `isExcluded`/ranking (`best-effort-exclusions.ts:27-60`, consumed at `compute-best-efforts.ts:291,322,324,412`); overloading it risks a "reviewed-kept" row being misread as a ranking exclusion by any future reader that doesn't check a new `status` field.
 
-The two publish guards are both *structural*, not enumerated-route-based, which is exactly what makes them safe to extend without weakening:
+## Architectural Patterns
 
-- `scripts/lib/curation-guard.mjs`'s `findCurationArtifacts` scans the **whole** `dist/widgets` tree for the literal string `__curate` in any non-`.json` file, plus name-matches on a `__curate` directory/file or a `.curate-dist` file/directory. It has no route list to update — any new file the review-queue overlay adds under `scripts/curate-overlay/` (which is already structurally excluded from `tsconfig.json`'s `include`, both Vite configs, and `build-widgets.mjs`'s copy lists, per that module's own D-01 docblock) is covered automatically as long as its *build output* is never copied into `dist/widgets` by anything other than the existing response-body-patch (`injectOverlayTag`).
-- `scripts/verify-dashboard-publish.mjs` asserts the `/__curate/*` HTTP surface 404s against the **live served bundle** — again prefix-based, not per-route, so new routes added inside `serveCurateRoute`'s dispatch in `curate-server.mjs` inherit the assertion for free (the guard is checking that the prefix is entirely absent from what GitHub Pages serves, and GitHub Pages never runs `curate-server.mjs` at all — it only serves the static `dist/widgets` output `build-widgets.mjs` produces).
+### Pattern 1: Third `GapKind`, not a parallel segment list
 
-**Concrete integration, following the exact shape `curate-server.mjs` already uses for exclusions:**
-- The review-queue's *read* side needs no new mechanism at all — the ceiling-flagged efforts are already public data once Q3 ships (they live in `best-efforts.json`/its per-activity shard, already fetched today), so the overlay panel just reads what's already served, exactly as the existing exclusion tickbox already reads `best-efforts.json` per Phase 24's precedent.
-- The review-queue's *write* side (accept/reject a flagged effort) should be new routes under the same `/__curate/` prefix, e.g. `PUT /__curate/pr-overrides/:id` mirroring `PUT /__curate/exclusions/:id` almost line for line: same `isTrustedOrigin` gate, same `MAX_BODY_BYTES`/`readJsonBody` cap, same `isValidCurateActivityId` id validation, same `writeAtomic` (temp-file + `renameSync`) write discipline, same `mirrorExclusions()`-shaped "copy working-tree file into `dist/widgets/data/`" step so the change is visible in the same curate session without a rebuild, and the same D-09 rule that **no code path here may invoke `git`** — the developer reviews and commits by hand, exactly as the docblock at the top of `curate-server.mjs` states for exclusions.
-- Whatever file the override write targets (either an extended `best-effort-exclusions.json` schema or a new `data/pr-overrides.json`) must be added to the nightly workflow's data-commit `file_pattern`/push-paths filter — `data/best-effort-exclusions.json` is already there (`curate-server.mjs`'s docblock: *"sits in the nightly workflow's push-paths filter (added 2026-08-12), so a commit reaching origin triggers a full rebuild and deploy"*); a new committed file needs the same wiring or it will silently never propagate past the developer's own machine.
-- `POST /__curate/recompute` already re-runs `compute-best-efforts` then `compute-dashboard-index` and re-mirrors `RECOMPUTE_DATA_DIRS` — since Q3's ceiling pass lives inside `compute-best-efforts`, an override write followed by the existing Recompute button already produces correct end-to-end behavior with **no change to the recompute route itself**, as long as the override file is read by `compute-best-efforts.ts` the same way `loadExclusions` reads the exclusion file today (tolerant, never-throwing, per `best-effort-exclusions.ts`'s own contract).
-- New coverage to add, following this project's own stated convention ("an assertion which cannot be watched failing is not evidence" — CLAUDE.md's project memory / PROJECT.md's Key Decisions table): extend `curation-guard.test.ts` and the `verify-dashboard-publish` test suites with a case for the new route(s), and mutation-prove them the same way Phase 24's WR-05/WR-17 divergence tests did for `resolveExcluded`.
+**What:** Unreliable segments are classified through `classifyGaps`'s existing per-pair strict-priority scan (`pace-derivation.ts:195-263`) as a new `GapKind` member (`'unreliable'`), merged into the *same* `gapIntervals: GapInterval[]` array that `recording-gap`/`pause` already populate.
 
-## Q5 — `export_data/` is local-only and gitignored: implication for feature placement
+**When to use:** Whenever the new segment must be excluded from a pace figure. This is the entire mechanism by which target feature #2 ("Pace chart and histogram clip unreliable segments exactly as they clip gaps today") is satisfied with **zero changes** to `derivePaceSeriesGapAware` (`pace-derivation.ts:363-418`) or `paceHistogramSamples`/`paceHistogramAccounting` (`pace-derivation.ts:504-570`) — both already clip/exclude purely by interval boundary, never by `kind`. Verify this claim before relying on it: `derivePaceSeriesGapAware`'s clamping logic (`pace-derivation.ts:393-398`) and `paceHistogramSamples`'s membership test (`pace-derivation.ts:516`) both operate on `gapIntervals` generically.
 
-**None of v2.2's target features need it, and none should be architected to need it.**
+**Trade-offs:** The exact-sum identity (`coveredSec + recordingGapSec + pauseSec === spanSec`, `pace-derivation.ts:63-73`) must widen to a 4-term identity (`+ unreliableSec`). Every existing consumer of `PaceCoverage` (`gapProfileSignal` at `pace-quality.ts:950-957`, and any future reader) must be re-audited for an assumption that only two non-covered categories exist — grep for `recordingGapSec + pauseSec` (currently exactly one hit, `pace-quality.ts:921`) before shipping.
 
-The one and only precedent for a local-only compute step in this codebase is `src/streams/backfill-streams.ts`, whose own docblock states it plainly: *"Local backfill over `export_data/` originals, driven by `data/provenance.json`. `export_data/` is gitignored and structurally absent from CI, so this is..."* — it reads `export_data/<source>/<relative-path>` via a `resolveOriginalPath`-style join (`backfill-streams.ts:72`) driven by `data/provenance.json`, and it is confirmed absent from `COMPUTE_ALL_STATS_STEPS` (`src/compute-all-stats-steps.ts`'s eight-step array has no backfill entry) and absent from `curate-server.mjs`'s recompute route (which only runs `compute-best-efforts`/`compute-dashboard-index`). It exists purely as a standalone, hand-run CLI step for onboarding new original recordings into the committed stream store — never part of the automated nightly chain, never reachable from the dashboard.
+**Design detail worth deciding explicitly in the phase, not left implicit:** the milestone's own language — "merged with any adjacent gap into one segment that conserves its real distance and real elapsed time" — means classification is two-pass, not one:
+1. **Unchanged pass:** `classifyGaps`'s existing priority scan runs exactly as today over `covered`-classified segments — this keeps the byte-identical 1,233/321-activity gap/pause cohorts from `26-RESIDUAL.md` stable.
+2. **New pass, over `covered` segments only:** a per-pair implied-speed scan (raw `dd/dt`, no smoothing — the same "raw, unsmoothed" discipline `countImpossibleSamples` locks at `pace-quality.ts:969-976`, for the same reason: a windowed/smoothed check would dilute a short burst into a long window, which is exactly the v2.2 blind spot this milestone exists to close) against a calibrated physical speed limit, merging contiguous violating pairs into runs (`computeFlatRunDurations`'s maximal-run technique, `pace-derivation.ts:151-166`, is the precedent to copy, not reinvent).
+3. **Merge pass:** any `'unreliable'`-classified run whose boundary touches a `recording-gap` or `pause` interval is unioned with it into one `GapInterval` of kind `'unreliable'` spanning both, and that interval's seconds move out of `recordingGapSec`/`pauseSec` into `unreliableSec` (never double-counted — this is what "conserves its real distance and real elapsed time" cashes out to structurally). A **standalone** unreliable run with no adjacent gap (the isolated-GPS-jump case, 3475740390's five 25-52m jumps) stays a bare `'unreliable'` interval carved directly out of `coveredSec`.
 
-PROJECT.md is explicit that v2.2 deliberately stays off this path: *"`data/streams/` stays byte-identical. No re-derivation this milestone despite 1 Hz originals being available locally for 94.5% of the archive... Deferred... the direction of that movement — higher resolution makes efforts faster, so re-derivation must follow rejection, never precede it."* Every one of the milestone's named quality signals — stair-step ratio, impossible-sample count, gap profile, elapsed-vs-moving divergence, altitude sanity — is computable purely from the committed `CanonicalStream`'s `t`/`d`/`alt` arrays (available in CI, in `data/streams/*.json`) plus the committed activity JSON's `elapsed_time`/`moving_time` fields. None require the original FIT/GPX bytes or the device's unused `speed` channel PROJECT.md names as a non-goal for this milestone.
+This two-pass-plus-merge shape is a recommendation, not a verified implementation — it is the design that keeps the exact-sum identity, reuses every existing clip mechanism, and matches the three mechanisms named in scoping (gap-adjacent slew, hidden-pause burst with no gap at all, isolated jump) without inventing three separate code paths. It needs its own calibration research (the physical speed limit, distinct from `WORLD_RECORD_100M_SPEED_MPS` — the archive's crude sweep in `PROJECT.md` used 7 m/s as a first-pass floor) before being locked, the same way `PAUSE_GAP_P90_MULTIPLIER` and `GAP_PROFILE_SEVERE_FRACTION` were each measured, not guessed (`pace-derivation.ts:43-50`, `pace-quality.ts:836-871`).
 
-**Practical implication for the roadmap:** do not introduce a new local-only compute step this milestone. Keep the entire quality-signal and ceiling pipeline inside `COMPUTE_ALL_STATS_STEPS` (CI-reproducible, deterministic, testable against fixtures the way `compute-best-efforts.test.ts` and `best-effort-fixtures.test.ts` already do). If a *future* milestone revisits stream re-derivation (explicitly flagged in PROJECT.md as "Revisit next milestone once quality signals exist to measure whether it helped"), that work — and only that work — should follow the `backfill-streams.ts` precedent: a standalone script, invoked by hand, reading `export_data/` via `data/provenance.json`, kept out of `COMPUTE_ALL_STATS_STEPS` and out of `curate-server.mjs`'s recompute route, exactly as `backfill-streams.ts` is today. One-off investigative measurement against `export_data/` (of the kind that already produced this milestone's own scoping numbers, e.g. "measured movement of only −1.6s to +5.0s on the tested activity") is legitimate throwaway tooling but must never become a dependency of a CI-required output.
+**Example (shape, not literal code):**
+```typescript
+// pace-derivation.ts — extends the existing GapKind union
+export type GapKind = 'recording-gap' | 'pause' | 'unreliable';
+export interface PaceCoverage {
+  spanSec: number;
+  coveredSec: number;
+  recordingGapSec: number;
+  pauseSec: number;
+  unreliableSec: number;       // NEW
+  gapIntervals: GapInterval[]; // unchanged shape, now carries 'unreliable' entries too
+}
+```
 
-## New vs Modified Components
+### Pattern 2: The demotion path gains a 4th guard, not a parallel effort array
 
-| Component | New/Modified | Notes |
-|---|---|---|
-| `src/analytics/pace-derivation.ts` | **NEW** | Gap classification + shared gap-aware `derivePaceSeries`/`computePaceDistribution`. Lives in `src/analytics/`, matching the existing `best-effort-utils.ts` precedent of pure logic imported by both CI and dashboard views. |
-| `src/dashboard/views/detail-charts-logic.ts` | MODIFIED | `derivePaceSeries`/`buildChannelSeries('pace', …)` become thin wrappers over the new shared module. |
-| `src/dashboard/views/detail-zones.ts` | MODIFIED | `computePaceDistribution` becomes a thin wrapper over the new shared module. |
-| `src/dashboard/views/detail-splits.ts` | UNCHANGED (flag only) | Already correct Δt-weighted per-split logic; not one of the two divergent implementations named in scope. Gap-flagging on splits is an open question, not a requirement. |
-| `src/analytics/compute-dashboard-index.ts` | MODIFIED | New per-row quality-summary fields (scalars/booleans), threading the manifest's existing `source` field through, plus writing the new per-activity shard (or a sibling new compute file does the shard write — see below). |
-| `src/analytics/dashboard-index.types.ts` | MODIFIED | New `quality: {...}` field on `DashboardIndexRow`, additive only — `DASHBOARD_INDEX_SCHEMA_VERSION` stays at `1`, same precedent as the existing `gearName` addition. |
-| `data/stats/pace-quality/{id}.json` | **NEW data artifact** | Per-activity quality shard, gitignored/regenerated, mirrors `data/stats/best-efforts/{id}.json`'s sharding precedent exactly. |
-| `src/dashboard/data/pace-quality-client.ts` | **NEW** | Lazy per-activity fetch client, mirrors `detail-client.ts`/`best-efforts-client.ts` shape (in-flight Map memoization, id validation, never fetched until an activity opens). |
-| `src/analytics/best-effort-utils.ts` | MODIFIED | New `personalPlausibilityCeiling(entries): number` (or similarly named) pure aggregate, beside `isPlausible`/`markPRs`/`rankTopN`. |
-| `src/analytics/best-effort.types.ts` | MODIFIED | New `flaggedImplausible: boolean` (or similar) on `BestEffort`; a new totals counter (e.g. `effortsFlaggedImplausible`) on `BestEffortsDocument.totals`. |
-| `src/analytics/compute-best-efforts.ts` | MODIFIED | Restructured into the three-pass shape (accumulate → derive ceiling → filter-and-flag) between the existing accumulation loop and `markPRs`/`rankTopN`. |
-| `data/best-effort-exclusions.json` schema, OR a new `data/pr-overrides.json` | **NEW or MODIFIED schema** | Unresolved by this research — needs a REQUIREMENTS/ROADMAP decision on override shape (see Q3). Whichever is chosen needs a corresponding loader (extend `best-effort-exclusions.ts`, or a new sibling `pr-overrides.ts` following its exact tolerant-parse contract). |
-| `scripts/curate-server.mjs` | MODIFIED | New `/__curate/pr-overrides/:id` (or equivalent) routes, reusing `isTrustedOrigin`/`writeAtomic`/`readJsonBody`/`isValidCurateActivityId` verbatim. |
-| `scripts/curate-overlay/` | MODIFIED | New review-queue panel/component, esbuild-bundled the same way, loaded only via the existing `injectOverlayTag` response-patch. |
-| `.github/workflows/daily-refresh.yml` | MODIFIED | Add any new committed override file to the push-paths filter, same as `best-effort-exclusions.json` already is. |
-| `scripts/lib/curation-guard.mjs`, `scripts/verify-dashboard-publish.mjs` | UNCHANGED (add tests only) | Structurally generic already; extend their test suites for the new route(s), do not need source changes. |
-| `src/streams/backfill-streams.ts` / `export_data/` | UNCHANGED / not touched | No v2.2 feature should read from here — see Q5. |
+**What:** `EffortDemotionGuard` (`best-effort.types.ts:79`) currently has three members (`'world-record' | 'max-speed' | 'ceiling'`), each constructed by exactly one function (`isPlausible` at `best-effort-utils.ts:170-196`, `ceilingDemotion` at `best-effort-ceiling.ts:206-225`) and consumed through exactly one shared field (`ComputedEffort.demotion`, `best-effort.types.ts:96-121`). The new guard (`'unreliable-segment'`) must follow the identical shape: one new constructor, one new discriminator value, the same `EffortDemotion { guard, reason }` record — never a parallel "contaminated efforts" array or a second demotion field.
+
+**When to use:** Any time `findBestEffort`'s naive two-pointer result (`best-effort-utils.ts:123-152`) spans an unreliable interval.
+
+**Trade-offs — the genuinely new problem, not solved by precedent alone:** every existing guard demotes the ONE window `findBestEffort` already found; it does not search for a second, different window. v2.3's amended rule ("demote the contaminated effort AND search for the best clean window") needs a *second* timing per (activity, distance) for the cases where they differ — something no existing guard does. Two shapes were considered:
+
+- **Rejected: two full `ComputedEffort` rows per distance.** `ActivityBestEfforts.efforts[]` is walked by `.find((e) => e.distance === key)` in at least three places in `compute-best-efforts.ts` (lines 392, 411, 430) that assume exactly one entry per distance. Two rows would silently break all three without a compile error, the same shape as the Phase 27 G-04 defect (`PROJECT.md`, "one row lacking the key blanked the ENTIRE Activities list").
+- **Recommended: one row, an optional `contaminated` field.** `ComputedEffort` gains `contaminated?: { durationSec, startOffsetSec, endOffsetSec, demotion: EffortDemotion } | null`, populated only when the raw (unconstrained) `findBestEffort` result differs from the segment-avoiding result. The top-level `durationSec`/`startOffsetSec`/`endOffsetSec`/`demotion` fields always describe the **clean** result (or `demotion` from an existing absolute/ceiling guard if the clean result itself is implausible). This mirrors the existing `SubGroundSignal`/`ClosureDriftSignal`/`VerticalRateSignal` nested-optional-evidence convention already in `pace-quality.ts:157-207`, and keeps every `.find((e) => e.distance === key)` call site correct with zero change.
+
+**Why this also solves Q3's ceiling non-circularity question, structurally:** Pass 1's population accumulator already only admits efforts whose `demotion` is `null` (`compute-best-efforts.ts:304`: `if (effort.demotion !== null) continue;`) into `byDistance`, which is the only thing `deriveCeilings` ever reads (`compute-best-efforts.ts:347-353`, `best-effort-ceiling.ts:157-168`). If the top-level `durationSec` is *always* the clean-window value (per the recommendation above), the contaminated (fast, guard-spanning) timing structurally can never reach `impliedSpeedsByDistance` — **no new filter step is needed in `best-effort-ceiling.ts`, and that file requires no code change at all.** This directly answers the milestone's own observation that "contaminated efforts currently sit IN the p90 population": today they sit there because `findBestEffort` has no segment-avoidance at all and its single result becomes the ranked timing; once the ranked timing is redefined as the clean-window result, the contamination is removed from the ceiling's input at the source, not filtered out after the fact.
+
+### Pattern 3: New quality signals reuse the shard-vs-row split, not a new file format
+
+**What:** Gap movement classification (stationary/walked/transported) is inherently per-interval and variable-length — it belongs in `PaceQualityShard` (`pace-quality.ts:1293-1325`), extending `GapInterval` (or a parallel array keyed the same way) with a `movementClass` field, following the same evidence-lives-in-the-shard discipline the capped `impossibleSamples`/`elevationVerticalRateSamples` lists already use (`pace-quality.ts:1298,1321`). A per-activity **summary** (e.g. the worst class present, needed for review-queue sorting) is small and fixed-shape, so it belongs on the index row as a new key inside `ActivityQualitySignals` (`pace-quality.ts:475-510`) — additive, following the exact precedent Phase 30's `elevation` signal set (added as a 6th top-level key with `DASHBOARD_INDEX_SCHEMA_VERSION` left at `1`, `dashboard-index.types.ts:17-22`).
+
+**When to use:** Forgotten-stop is a duration-threshold read of the *existing* `pause`-kind `gapIntervals` entries — `classifyGaps` already isolates every "distance froze for longer than this activity's own advance-interval distribution justifies" run (`pace-derivation.ts:168-194`). No new detection math is needed; a new small pure function (sibling to `elapsedVsMovingSignal`, `pace-quality.ts:639-655`) reduces the existing `pauseSec`/longest-pause-interval data into a flag, "flag only, no time removed" per the non-goal already stated in scoping.
+
+**Trade-offs:** Both new signals must be threaded through `computePaceQualitySignals`/`buildPaceQualityShard`'s existing "never partially fills" contract (`pace-quality.ts:1226-1274`, `1394-1499`) — an activity is either fully computed or fully `not-computable`, never a mix. `notComputableSignals` (`pace-quality.ts:686-721`) must grow the same two new keys with their own not-computable shape.
+
+## Data Flow
+
+### Detection → clipping → surfacing
+
+```
+data/streams/{id}.json (t,d)
+    ↓
+pace-derivation.ts: classifyGaps(t,d)
+    ↓ (internally: unreliable-segments.ts's detector, merge pass)
+PaceCoverage { ..., unreliableSec, gapIntervals[incl. 'unreliable'] }
+    ↓                                    ↓                        ↓
+derivePaceWithCoverage            pace-quality.ts:               compute-best-efforts.ts:
+(chart/histogram/caption,         resolveCoverage → gapProfile-  needs the SAME unreliable
+ clipped for free via             /gapMovement/forgottenStop     intervals, per activity, to
+ gapIntervals, no code change)    signals + shard evidence        gate findBestEffort — a NEW
+                                                                   read of the activity's
+                                                                   stream+classifyGaps result
+                                                                   inside computeActivityEfforts
+                                                                   (best-effort-utils.ts is pure
+                                                                   and must not import Node fs,
+                                                                   so this wiring happens in
+                                                                   compute-best-efforts.ts's
+                                                                   caller, mirroring how it
+                                                                   already reads t/d today at
+                                                                   compute-best-efforts.ts:270)
+```
+
+### Best-effort demotion + ceiling flow
+
+```
+computeActivityEfforts (compute-best-efforts.ts:111-172)
+    ↓ findBestEffort(t,d,target, {avoid: unreliableIntervals})
+    ↓   → clean RawEffort (or undefined if no clean window exists)
+    ↓ findBestEffort(t,d,target)  [existing, unconstrained]
+    ↓   → raw RawEffort
+    ↓ if raw window spans an unreliable interval and raw !== clean:
+    ↓   effort.contaminated = { ...raw, demotion: { guard: 'unreliable-segment', reason } }
+    ↓ effort.durationSec/.../demotion = clean result (existing isPlausible/ceiling guards
+    ↓   still apply to the CLEAN result, unchanged)
+    ↓
+Pass 1 byDistance accumulation (compute-best-efforts.ts:249-333)
+    — reads effort.durationSec/effort.demotion, UNCHANGED code, now naturally clean-only
+    ↓
+Pass 2 deriveCeilings (best-effort-ceiling.ts) — UNCHANGED, non-circular by construction
+    ↓
+Pass 3 ceilingDemotion sweep — UNCHANGED, applies to the clean result exactly as today
+```
+
+### Curation write flow (CUR-04)
+
+```
+Review queue row "Mark reviewed & kept" button
+    ↓ scripts/curate-overlay/index.ts: markReviewedKept(activityId)
+    ↓ fetch PUT /__curate/reviewed/:id   [NEW route, same isTrustedOrigin gate,
+    ↓                                     same readJsonBody/normalizeReason discipline
+    ↓                                     as handleExclusionWrite, curate-server.mjs:560-625]
+    ↓ applyUpsert-equivalent over data/pace-review-state.json (NEW file)
+    ↓ writeAtomic (curate-server.mjs:414-418, reused verbatim)
+    ↓ mirror to dist/widgets/data/pace-review-state.json (curate-server.mjs:429-437 pattern, reused)
+    ↓ location.reload()
+    ↓
+scripts/curate-queue/derive-flagged.mjs: deriveFlaggedActivities(bestEffortsDoc,
+  exclusionsDoc, indexDoc, reviewedDoc)   ← 4th param, same optional-enrichment
+  precedent PD-01 already set for indexDoc (Phase 29)
+```
+
+## Scaling Considerations
+
+Not a user-growth question — this is a single-archive, single-developer tool. The relevant "scale" axis is archive size and per-activity compute cost.
+
+| Concern | Today (~1,899 activities) | After v2.3 |
+|---------|---------------------------|------------|
+| Per-activity compute in `compute-best-efforts.ts` | One `findBestEffort` sweep per target distance (O(n) two-pointer) | Two sweeps per target distance (clean + raw) — roughly 2x the best-effort compute pass, still O(n) per activity, negligible at this archive size |
+| `compute-dashboard-index.ts` wall time | Already logs its own quality-pass cost (`qualityComputeMs`, `compute-dashboard-index.ts:161`) | Add the new signals to the same timing block rather than a silent second pass, continuing the project's own "wall time is disclosed" convention |
+| `data/streams/` | Byte-identical, no lat/lng, CI-readable | **Stays byte-identical** — the whole detector must work from `t`/`d` alone; this is the hard constraint the milestone context states explicitly ("CI has NO access to export_data/ ... detection must run on committed t/d streams") |
+| Gitignored regenerated artifacts (`data/stats/best-efforts.json`, `data/stats/pace-quality/{id}.json`) | Regenerated every run | Grows by one nested field per shard; no new per-activity file needed |
+
+## Anti-Patterns to Avoid
+
+### Anti-Pattern 1: A second gap-membership or speed-threshold implementation outside `pace-derivation.ts`
+
+**What people will be tempted to do:** compute the unreliable-segment check directly inside `compute-best-efforts.ts` or `pace-quality.ts` (both already have `t`/`d` in hand), rather than routing through `classifyGaps`.
+
+**Why it's wrong:** this is the exact historically-real defect `pace-single-source.test.ts`'s docblock names twice (lines 52-82) — a second locus with no arithmetic resembling the banned literals (the `detail-zones.ts` `maskedPaceSeries` incident) slipped past the literal-string audit entirely and needed a structural `gapIntervals.some(`/`.find(` containment check instead. A second unreliable-segment detector would recreate that exact blind spot for a brand-new mechanism.
+
+**Do this instead:** one detector, called once inside `classifyGaps`; every other module reads `PaceCoverage.gapIntervals`/`unreliableSec`. Extend `pace-single-source.test.ts`'s `OVERRIDE_LITERALS`/`GAP_MEMBERSHIP_LITERALS` pattern (`pace-single-source.test.ts:240-260`) with the new detector's own raw-arithmetic literal(s) and confine them to `unreliable-segments.ts` + `pace-derivation.ts` + `*.test.ts`, in the same PR that introduces the detector — this project's own most load-bearing convention is "a guard assertion must be watched failing before it may pass" (`PROJECT.md` Key Decisions table), so the audit extension should ship with a planted-violation test, not as an afterthought.
+
+### Anti-Pattern 2: Folding "reviewed and kept" into `best-effort-exclusions.json`
+
+**What people will be tempted to do:** add a `status: 'excluded' | 'reviewed-kept'` field to the existing exclusion entries, since the file/route/transport already exists and CUR-04 explicitly wants to reuse the write path.
+
+**Why it's wrong:** `best-effort-exclusions.ts`'s `buildExclusionIndex` (lines 27-60) and every consumer of its output (`isExcluded` at `compute-best-efforts.ts:291,322,324,412`) treat *presence in this file* as the entire signal — there is no status check anywhere in that path today. A `status`-widened entry would need every one of those call sites updated in lockstep, and a single missed one would silently exclude a "kept" activity from PR ranking — the inverse of what CUR-04 is for. This is also a live, load-bearing regression fixture area: `29-REVIEW.md` WR-02 already documents two independent flagged counts disagreeing on duplicate/`reason: null`/`__proto__` exclusion entries; widening the schema mid-stream multiplies that surface.
+
+**Do this instead:** a new, separate committed file (`data/pace-review-state.json`) and a new route pair under the same `/__curate/` prefix, reusing `writeAtomic`/`isTrustedOrigin`/the mirror-to-`dist` pattern verbatim (`curate-server.mjs:414-437,467-476`). This is not "a second write surface" in the sense CUR-04's scoping warns against — it is the same transport mechanism, security gate, and atomicity discipline, instantiated a second time for a semantically distinct piece of state, exactly the way `data/best-effort-ceiling.json` and `data/best-effort-exclusions.json` already coexist as two separate committed documents with two different meanings. It also costs nothing extra on the publish-guard side: `curation-guard.mjs`'s `findCurationArtifacts` scans generically for the literal `__curate` marker (`curation-guard.mjs:57-58,192-195`), so a new `/__curate/reviewed/...` route is covered by the existing guard with no code change — only `verify-dashboard-publish.mjs`'s explicit route-reachability assertions need a new line, mirroring Phase 29's CUR-03 ("Both publish guards cover the two new routes").
+
+### Anti-Pattern 3: Letting the raw (contaminated) window's duration reach the PR ranking population
+
+**What people will be tempted to do:** keep `ComputedEffort.durationSec` as today's single `findBestEffort` result (the fastest, possibly contaminated, window) and merely attach a `demotion` to it — the same shape every existing guard uses.
+
+**Why it's wrong:** Pass 1's population accumulator (`compute-best-efforts.ts:304`) already skips any effort with a non-null `demotion`, which means the activity would contribute **nothing** for that distance — not even its real, clean time — silently shrinking the ceiling's population and producing no ranked record at all for a run that genuinely did complete that distance cleanly. This is a real, not hypothetical, correctness gap in the naive "just add a 4th guard" approach.
+
+**Do this instead:** Pattern 2 above — the top-level fields are always the clean-window result; `contaminated` is a strictly additional, nested, optional disclosure field.
+
+## Integration Points
+
+### Internal Boundaries
+
+| Boundary | Communication | Notes |
+|----------|---------------|-------|
+| `unreliable-segments.ts` ↔ `pace-derivation.ts` | Direct import, one call site inside `classifyGaps` | New module is NOT imported by `pace-quality.ts`, `compute-best-efforts.ts`, or any dashboard view — everything downstream reads `PaceCoverage`/`GapInterval` |
+| `pace-derivation.ts` ↔ `pace-quality.ts` | `classifyGaps` via `resolveCoverage` (`pace-quality.ts:889-891`), `adaptiveWindowSec`, `quantile` | Unchanged call shape; `gapProfileSignal`'s fraction formula (`pace-quality.ts:921`) needs updating to decide whether `unreliableSec` counts toward "non-covered" for that signal, or whether a sibling signal owns it — this is a phase-level decision, not resolved by architecture alone |
+| `pace-derivation.ts` ↔ `compute-best-efforts.ts` | Currently NONE — `compute-best-efforts.ts` reads raw `t`/`d` directly (`compute-best-efforts.ts:270`) and never calls `classifyGaps` | v2.3 must add this boundary: `computeActivityEfforts`'s caller needs `classifyGaps(t,d).gapIntervals` (filtered to `'unreliable'` kind) passed into `computeActivityEfforts`/`findBestEffort`. `best-effort-utils.ts` itself stays pure (no `fs`) — the classification happens in the caller, same as today's stream read already does |
+| `compute-dashboard-index.ts` ↔ `pace-derivation.ts` | `detectPaceDisagreement`/`streamPaceSecPerKm`, one of the four allow-listed metadata/aggregate sites (`pace-single-source.test.ts:22-25,315-334`) | Add `streamRunningPaceSecPerKm` as a second call from the same allow-listed site — do not add a 5th allow-listed file |
+| `curate-overlay/index.ts` ↔ `curate-server.mjs` | Root-absolute `/__curate/...` fetch, same-origin gate | New `markReviewedKept`/`unmarkReviewedKept` functions in the same file, same `describeFailure` helper (`curate-overlay/index.ts:95-111`), same reload-on-success discipline |
+| `curate-queue` ↔ `data/pace-review-state.json` | New optional 4th parameter to `deriveFlaggedActivities` | Matches the existing PD-01 precedent of `indexDoc` as an optional read-only enrichment input (Phase 29) |
 
 ## Suggested Build Order
 
-1. **Shared pace derivation (`src/analytics/pace-derivation.ts`)** — no dependencies on anything else in this list; unblocks honest chart/histogram rendering immediately (the milestone's "Honest coverage" goal) and gives Q2/Q3's later work a single gap-classification primitive to reuse rather than re-deriving gap semantics twice more.
-2. **Per-activity quality signals (index fields + `pace-quality/{id}.json` shard + `pace-quality-client.ts`)** — depends on (1)'s gap classifier for the gap-profile signal; otherwise independent of the PR-ceiling work. Ships the visible badges/filtering goal and gives the review queue (step 4) something to explain *why* an activity is flagged.
-3. **Sharpened PR rejection (ceiling pass in `compute-best-efforts.ts`/`best-effort-utils.ts`)** — functionally independent of (1)/(2), but should follow them so the eventual review-queue UI can show quality context alongside a ceiling rejection. This is the step with the ordering/circularity risk (Q3) and needs its own fixture-based test coverage before anything downstream depends on its output shape.
-4. **Curation review queue (`curate-server.mjs` + `curate-overlay/` + override schema decision)** — strictly depends on (3) existing (nothing to review without ceiling-rejected efforts) and benefits from (2) (contextual quality signals in the queue UI). Requires the REQUIREMENTS/ROADMAP decision on override schema (Q3's flagged open question) before implementation starts, and requires the workflow push-paths update alongside it.
-5. **(Out of critical path, likely deferred to a future milestone)** any `export_data/`-driven work — do not schedule inside v2.2 per Q5; only revisit if quality signals from (2)/(3) demonstrate a need, per PROJECT.md's own "Revisit next milestone" framing.
+Dependencies point one direction — detection first, everything else reads its output. CUR-04 is fully orthogonal and can move anywhere in the sequence without risk; putting it last keeps the riskiest, most novel work (the demotion-path change in Pattern 2) isolated and reviewable on its own.
+
+1. **Unreliable-segment detector + calibration** (`unreliable-segments.ts`, archive-wide speed-limit calibration against the flagged activities and the crude 259/1,873-stream sweep). Ship the single-source audit extension (`pace-single-source.test.ts`) in the *same* phase, with a planted-violation test, per this project's own convention.
+2. **Wire the detector into `classifyGaps`** — 3rd `GapKind`, `unreliableSec`, the merge pass. This alone satisfies target feature #2 (pace chart/histogram/coverage-caption clipping) with no changes outside `pace-derivation.ts`, because the clip machinery is already kind-agnostic. Re-run the archive-wide gap/pause cohort measurements (`26-RESIDUAL.md`-style) to prove the unchanged-pass claim in Pattern 1 holds byte-for-byte.
+3. **`pace-quality.ts` signals** — gap-movement classification + forgotten-stop, in the shard/row split described in Pattern 3. Depends on (2)'s `gapIntervals` carrying real per-interval distance (add a `distanceM` field to `GapInterval` or compute it inline via `interpValueAtTime`, already imported at `pace-derivation.ts` scope).
+4. **`streamRunningPaceSecPerKm`** — new aggregate in `pace-derivation.ts`, surfaced via `compute-dashboard-index.ts` as a new additive index-row field, rendered beside metadata pace in `detail.ts`. Depends only on (2). Independent of (3) and (5) — can run in parallel.
+5. **Best-effort guard** — `findBestEffort` segment-avoidance, `EffortDemotionGuard` 4th member, `ComputedEffort.contaminated`, Pass 1 wiring in `compute-best-efforts.ts`. Depends on (2) (needs per-activity unreliable intervals). This is the highest-risk phase — it changes a ranking-critical path and the ceiling's population composition — and should end with its own archive-wide before/after diff and developer sign-off, structurally mirroring `28-DIFF.md`/PR-04's precedent (`PROJECT.md` Phase 28 history).
+6. **Gap classification as review-queue priority** — extends `curate-queue/derive-flagged.mjs` to read the new per-activity summary signal from (3) via the index doc, sorting/prioritizing rows. Small, depends on (3).
+7. **CUR-04 "reviewed and kept"** — new file, new route pair, new overlay functions, new queue button. Zero dependency on (1)-(6); can be built first, last, or in parallel. Recommended last so it closes the milestone the way Phase 29 closed v2.2's curation work — a low-risk, well-precedented feature after the higher-risk pace/segment/ranking changes have landed and been diffed.
+
+Steps (4) and (6) can be reordered or merged with adjacent steps without breaking dependencies; steps (1)→(2)→(5) are a strict chain and should not be parallelized.
 
 ## Sources
 
-All findings sourced directly from this repository (HIGH confidence, no external ecosystem claims):
-- `.planning/PROJECT.md` — milestone goal, non-goals, and the exact investigation numbers cited throughout
-- `src/compute-all-stats-steps.ts` — CI compute-step chain and ordering contract
-- `src/streams/stream.types.ts`, `src/streams/derive-stream.ts` — committed stream schema and the `MAX_SAMPLES=3000`/decimation mechanism PROJECT.md's investigation implicates
-- `src/analytics/compute-best-efforts.ts`, `src/analytics/best-effort-utils.ts`, `src/analytics/best-effort.types.ts`, `src/analytics/best-effort-exclusions.ts` — existing PR pipeline, exclusion mechanism, and per-activity sharding precedent
-- `src/analytics/compute-dashboard-index.ts`, `src/analytics/dashboard-index.types.ts` — index-manifest contract and its additive-field precedent (`gearName`)
-- `src/dashboard/views/detail-charts-logic.ts`, `detail-zones.ts`, `detail-splits.ts` — the two divergent pace implementations plus the one correct adjacent implementation
-- `src/dashboard/data/index-client.ts`, `detail-client.ts` — lazy-fetch/fetch-once client patterns to mirror for the new quality-shard client
-- `scripts/curate-server.mjs`, `scripts/exclusion-cli.mjs`, `scripts/lib/curation-guard.mjs` — local-only write path, exclusion-list mutation contract, and the two structural publish guards
-- `src/streams/backfill-streams.ts` — sole precedent for a local-only, `export_data/`-reading compute step
+- `/Users/pedf/workspace/strava-widgets/.planning/PROJECT.md` — § Current Milestone: v2.3, § Key Decisions, § Requirements (Validated) for v2.2's precedents
+- `/Users/pedf/workspace/strava-widgets/src/analytics/pace-derivation.ts` (read in full)
+- `/Users/pedf/workspace/strava-widgets/src/analytics/pace-quality.ts` (read in full)
+- `/Users/pedf/workspace/strava-widgets/src/analytics/pace-single-source.test.ts` (read in full)
+- `/Users/pedf/workspace/strava-widgets/src/analytics/best-effort-utils.ts` (read in full)
+- `/Users/pedf/workspace/strava-widgets/src/analytics/best-effort-ceiling.ts` (read in full)
+- `/Users/pedf/workspace/strava-widgets/src/analytics/best-effort.types.ts` (lines 1-140)
+- `/Users/pedf/workspace/strava-widgets/src/analytics/compute-best-efforts.ts` (read in full)
+- `/Users/pedf/workspace/strava-widgets/src/analytics/dashboard-index.types.ts` (read in full)
+- `/Users/pedf/workspace/strava-widgets/src/analytics/best-effort-exclusions.ts` (lines 1-60)
+- `/Users/pedf/workspace/strava-widgets/src/streams/stream.types.ts` (lines 1-80)
+- `/Users/pedf/workspace/strava-widgets/src/compute-all-stats-steps.ts` (read in full)
+- `/Users/pedf/workspace/strava-widgets/scripts/curate-server.mjs` (lines 1-100, 330-870)
+- `/Users/pedf/workspace/strava-widgets/scripts/curate-overlay/index.ts` (read in full)
+- `/Users/pedf/workspace/strava-widgets/scripts/curate-overlay/exclusion-panel.ts` (read in full)
+- `/Users/pedf/workspace/strava-widgets/scripts/curate-queue/derive-flagged.mjs` (read in full)
+- `/Users/pedf/workspace/strava-widgets/scripts/lib/curation-guard.mjs` (grep, lines around 57-195)
+- `/Users/pedf/workspace/strava-widgets/src/analytics/compute-dashboard-index.ts` (grep for quality/paceDisagreement call sites)
+- `/Users/pedf/workspace/strava-widgets/src/dashboard/views/detail.ts` (grep for paceDisagreement rendering, lines 671-794)
 
 ---
-*Architecture research for: pace data-quality integration into an existing static analytics pipeline (v2.2 Pace Data Quality)*
-*Researched: 2026-09-08*
+*Architecture research for: strava-widgets v2.3 "Pause & Slew Integrity" codebase integration*
+*Researched: 2026-09-19*
