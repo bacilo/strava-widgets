@@ -125,7 +125,17 @@ context, measured facts and decisions in `PROJECT.md` § Current Milestone; requ
   3. Running the detector against 3475740390 flags all five isolated jumps (25–52 m, km 6.9–7.7) under the isolated-jump mechanism, including the 52 m jump at t=2508 where the activity's current 400m best starts.
   4. A committed, regenerable calibration artifact states the calibrated speed-limit constant, a non-circularity argument (the calibration population provably excludes what the threshold detects), and the Suunto 17 m/s descent sample's disposition (flagged under its own mechanism label, never corrected) — replacing the crude 259/1,873 and 121/1,873 scoping sweep with a figure of record.
   5. The single-source audit test is extended to the detector and demonstrated catching a planted second implementation before passing against the real one.
-**Plans**: TBD
+**Plans**: 9 plans
+Plans:
+- [ ] 32-01-PLAN.md — D-03/D-14 amendments (SEG-05 → SEG-05a/05b) + D-17 stream-immutability gate
+- [ ] 32-02-PLAN.md — Standalone detector `unreliable-segments.ts` (folded run-level scoring, touching adjacency, chaining, 3 mechanisms)
+- [ ] 32-03-PLAN.md — Independent gap-first recount script for 3475724402 (zero-import, fails closed)
+- [ ] 32-04-PLAN.md — SEG-05a: single-source audit extended to the detector, planted proofs
+- [ ] 32-05-PLAN.md — D-10(d) reachability + D-05 detector-scale candidates + candidate statistics; blocking developer decision
+- [ ] 32-06-PLAN.md — Derive speed limit / excess floor / hidden-pause boundary with D-13 insensitivity; ship constants
+- [ ] 32-07-PLAN.md — Figures of record, reconciliation, D-11/D-06/D-05/Suunto sections, per-segment table; recount watched failing
+- [ ] 32-08-PLAN.md — Real-stream named-activity fixtures + npm-test detector vs recount cross-check
+- [ ] 32-09-PLAN.md — Merge origin, regenerate post-merge, D-12 local 1 Hz validation, closing gate
 
 ### Phase 33: Coverage Integration — Pace Clipping & Segment Signal
 **Goal**: The detector's output is wired into `classifyGaps` as a fourth `GapKind`, clipping pace chart, histogram, splits and coverage caption exactly as gaps are clipped today with zero code change outside `pace-derivation.ts`, the coverage identity is re-verified archive-wide across the new four-way split, and unreliable segments surface as a disclosed per-activity quality signal.
