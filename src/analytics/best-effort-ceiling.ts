@@ -178,12 +178,18 @@ export function deriveCeilings(
  * The reason string follows the house register `isPlausible` already
  * established (a named condition with its measured numbers, never an
  * adjective — Phase 27 D-09): the implied speed, the words `exceeds
- * personal ceiling`, the ceiling value, then a parenthetical giving the
- * multiplier, `p90`, the p90 value and the population size with the
- * distance key. For example, at a 400m ceiling of 5.09 m/s derived from
- * 1,831 filtered efforts with p90 4.00 m/s and multiplier 1.27: `implied
- * 8.85 m/s exceeds personal ceiling 5.09 m/s (1.27 x p90 4.00 m/s over
- * 1831 filtered 400m efforts)`.
+ * personal ceiling`, the ceiling value, an explicit `by <margin> m/s`
+ * clause, then a parenthetical giving the multiplier, `p90`, the p90 value
+ * and the population size with the distance key. Implied speed, ceiling,
+ * margin and p90 all render at three decimals; the multiplier stays at two
+ * (D-10). The margin is stated explicitly because at two decimals the
+ * sentence could read as self-contradictory — the live `3475730418@1mi`
+ * case renders "implied 4.63 m/s exceeds personal ceiling 4.63 m/s" at 2dp,
+ * even though a real 0.002 m/s margin exists. For example, at the live 1mi
+ * ceiling of 4.628 m/s derived from 1,851 filtered efforts with p90
+ * 3.616 m/s and multiplier 1.28: `implied 4.630 m/s exceeds personal
+ * ceiling 4.628 m/s by 0.002 m/s (1.28 x p90 3.616 m/s over 1851 filtered
+ * 1mi efforts)`.
  */
 export function ceilingDemotion(
   impliedSpeedMps: number,
@@ -194,9 +200,10 @@ export function ceilingDemotion(
 
   // Non-null: ceilingMps is only ever set alongside p90Mps in deriveCeiling.
   const p90Mps = derivation.p90Mps!;
+  const margin = impliedSpeedMps - derivation.ceilingMps;
 
   return {
     guard: 'ceiling',
-    reason: `implied ${impliedSpeedMps.toFixed(2)} m/s exceeds personal ceiling ${derivation.ceilingMps.toFixed(2)} m/s (${derivation.multiplier.toFixed(2)} x p90 ${p90Mps.toFixed(2)} m/s over ${derivation.populationN} filtered ${derivation.distance} efforts)`,
+    reason: `implied ${impliedSpeedMps.toFixed(3)} m/s exceeds personal ceiling ${derivation.ceilingMps.toFixed(3)} m/s by ${margin.toFixed(3)} m/s (${derivation.multiplier.toFixed(2)} x p90 ${p90Mps.toFixed(3)} m/s over ${derivation.populationN} filtered ${derivation.distance} efforts)`,
   };
 }
