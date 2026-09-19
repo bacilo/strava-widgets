@@ -1251,6 +1251,70 @@ describe('computeBestEfforts — archive orchestration', () => {
       expect(doc.totals.effortsDemoted).toBe(2);
       expect(doc.totals.effortsRejected).toBe(2);
     });
+
+    it('mutating a fixture copy (never the committed fixture itself) changes the 1k demotion — the D-03 proof the fixture is not a silent second source of truth', async () => {
+      // D-03: this test never writes to
+      // src/analytics/__fixtures__/best-effort-exclusions.fixture.json and
+      // never writes to data/best-effort-exclusions.json — both copies
+      // below live only under this test's own tmpDir, cleaned up by the
+      // existing afterEach teardown.
+      await buildPinnedArchive({ withOneKmBulk: true });
+
+      const fixtureRaw = await fs.readFile(fixtureExclusionsPath, 'utf-8');
+      const fixtureDoc = JSON.parse(fixtureRaw) as {
+        schemaVersion: number;
+        note: string;
+        exclusions: Array<{ activityId: string; distances: string[] | null; reason: string }>;
+      };
+
+      // Copy 1: byte-for-byte the same parsed document, unchanged.
+      await fileStore.writeJson('fixture-copy-unchanged.json', fixtureDoc);
+
+      // Copy 2: the SAME document with 4556693525's `distances` narrowed
+      // from `null` (all-distance) to `['400m']` — no longer excluding its
+      // 1k effort.
+      const mutatedDoc = structuredClone(fixtureDoc);
+      const mutatedEntry = mutatedDoc.exclusions.find((e) => e.activityId === '4556693525');
+      expect(mutatedEntry).toBeDefined();
+      mutatedEntry!.distances = ['400m'];
+      await fileStore.writeJson('fixture-copy-mutated.json', mutatedDoc);
+
+      const unchangedDoc = await computeBestEfforts({
+        activitiesDir: path.join(tmpDir, 'activities'),
+        streamsDir: path.join(tmpDir, 'streams'),
+        streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+        statsDir: path.join(tmpDir, 'stats-unchanged'),
+        ceilingStatePath: path.join(tmpDir, 'ceiling-state-unchanged.json'),
+        exclusionsPath: path.join(tmpDir, 'fixture-copy-unchanged.json'),
+      });
+      const mutatedResultDoc = await computeBestEfforts({
+        activitiesDir: path.join(tmpDir, 'activities'),
+        streamsDir: path.join(tmpDir, 'streams'),
+        streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+        statsDir: path.join(tmpDir, 'stats-mutated'),
+        ceilingStatePath: path.join(tmpDir, 'ceiling-state-mutated.json'),
+        exclusionsPath: path.join(tmpDir, 'fixture-copy-mutated.json'),
+      });
+
+      // The discriminating pair, asserted in BOTH directions so this test
+      // cannot pass vacuously: against the unchanged copy the 1k effort is
+      // still excluded (matches Task 1's fixture-backed assertions above);
+      // against the mutated copy — no longer excluded all-distance — the
+      // 1k effort is no longer excludedFromRecords. A silent edit to the
+      // committed fixture would therefore change this assertion rather
+      // than sliding through unnoticed.
+      const unchangedEffort1k = unchangedDoc.activities['4556693525'].efforts.find(
+        (e) => e.distance === '1k'
+      );
+      expect(unchangedEffort1k).toBeDefined();
+      expect(unchangedEffort1k!.excludedFromRecords).toBe(true);
+
+      const mutatedEffort1k = mutatedResultDoc.activities['4556693525'].efforts.find(
+        (e) => e.distance === '1k'
+      );
+      expect(mutatedEffort1k).toBeDefined();
+      expect(mutatedEffort1k!.excludedFromRecords).toBe(false);
+    });
   });
 
   it('totals are internally consistent: effortsComputed and lowConfidenceEfforts match the activities data', async () => {
