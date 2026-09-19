@@ -194,3 +194,314 @@ export function advanceSteps(
 
   return steps;
 }
+
+// ---------------------------------------------------------------------------
+// detectUnreliableSegments — bursts, excess floor, adjacency, chaining
+// (SEG-01/SEG-02/SEG-03, D-03, D-04, D-06, D-07, D-08, D-09, D-11)
+// ---------------------------------------------------------------------------
+
+/**
+ * A step is fast iff its aggregate implied speed exceeds the calibrated
+ * limit, tested by cross-multiplying rather than dividing — so there is no
+ * divide-by-zero path, matching `advanceSteps`'s own guarantee that every
+ * step it emits has a strictly positive `seconds` value. Plan 32-04's
+ * single-source audit bans this exact comparison's literal text outside
+ * this file; do not vary it (e.g. by reordering operands or introducing a
+ * helper that hides the comparison).
+ */
+function isFastStep(step: AdvanceStep, speedLimitMps: number): boolean {
+  const metres = step.metres;
+  const seconds = step.seconds;
+  return metres > speedLimitMps * seconds;
+}
+
+/**
+ * A run's (or step's) excess metres beyond what the speed limit would allow
+ * over its own elapsed seconds. Plan 32-04's single-source audit bans this
+ * literal text outside this file; do not vary it.
+ */
+function excessMetres(metres: number, seconds: number, speedLimitMps: number): number {
+  return metres - speedLimitMps * seconds;
+}
+
+/** One maximal contiguous run of fast steps (an internal grouping unit; never exported). */
+interface FastRun {
+  startIndex: number;
+  endIndex: number;
+  steps: AdvanceStep[];
+}
+
+/**
+ * Groups a step list into maximal contiguous runs of fast steps. "Maximal"
+ * means: each step's `startIndex` equals the previous step's `endIndex`
+ * (contiguous, no clean step or gap pair skipped in between) AND every step
+ * in the run is fast. A non-fast step, or a break in contiguity (a clean
+ * step or a gap sits between two fast steps), ends the run.
+ */
+function groupFastRuns(steps: readonly AdvanceStep[], speedLimitMps: number): FastRun[] {
+  const runs: FastRun[] = [];
+  let current: FastRun | null = null;
+
+  for (const step of steps) {
+    const fast = isFastStep(step, speedLimitMps);
+    if (fast && current !== null && current.endIndex === step.startIndex) {
+      current.steps.push(step);
+      current.endIndex = step.endIndex;
+    } else if (fast) {
+      current = { startIndex: step.startIndex, endIndex: step.endIndex, steps: [step] };
+      runs.push(current);
+    } else {
+      current = null;
+    }
+  }
+
+  return runs;
+}
+
+/** An internal block — either a burst (from a qualifying fast run) or a gap span mapped to sample indices. */
+interface Block {
+  kind: 'burst' | 'gap';
+  startIndex: number;
+  endIndex: number;
+  startSec: number;
+  endSec: number;
+  metres: number;
+  seconds: number;
+}
+
+/**
+ * Maps a gap span to sample indices `[gi, gj]`: `gi` is the LAST index with
+ * `t[gi] === span.startSec`, `gj` is the FIRST index with `t[gj] ===
+ * span.endSec`. Returns `null` if the span's bounds are non-finite,
+ * `endSec <= startSec`, or either bound matches no sample time (a malformed
+ * gap span) — callers fail closed on `null` rather than guessing.
+ */
+function mapGapToIndices(
+  t: readonly number[],
+  span: GapSpan
+): { startIndex: number; endIndex: number } | null {
+  if (
+    !Number.isFinite(span.startSec) ||
+    !Number.isFinite(span.endSec) ||
+    !(span.endSec > span.startSec)
+  ) {
+    return null;
+  }
+
+  let gi = -1;
+  for (let i = 0; i < t.length; i++) {
+    if (t[i] === span.startSec) gi = i;
+  }
+  if (gi === -1) return null;
+
+  let gj = -1;
+  for (let j = 0; j < t.length; j++) {
+    if (t[j] === span.endSec) {
+      gj = j;
+      break;
+    }
+  }
+  if (gj === -1) return null;
+
+  return { startIndex: gi, endIndex: gj };
+}
+
+/** True iff every finite-required field of `params` is present, finite, and within the required range. */
+function paramsAreValid(params: DetectorParams): boolean {
+  const { speedLimitMps, excessFloorMetres, hiddenPauseMinMetres } = params;
+  if (!Number.isFinite(speedLimitMps) || !(speedLimitMps > 0)) return false;
+  if (!Number.isFinite(excessFloorMetres) || excessFloorMetres < 0) return false;
+  if (!Number.isFinite(hiddenPauseMinMetres) || hiddenPauseMinMetres < 0) return false;
+  return true;
+}
+
+/**
+ * Detects unreliable segments: maximal advancing runs whose aggregate
+ * implied speed exceeds `params.speedLimitMps` and whose aggregate excess
+ * distance exceeds `params.excessFloorMetres` (a "burst", D-09), merged with
+ * any gap span it TOUCHES (D-06: `burst.endIndex === gap.startIndex` or
+ * `burst.startIndex === gap.endIndex`, no tolerance), and chained with
+ * further touching bursts/gaps into one segment (D-07). A gap block that
+ * touches no burst yields nothing — it stays a plain gap for Phase 33 to
+ * classify.
+ *
+ * Each returned segment's `mechanism` is `'gap-adjacent'` whenever it
+ * contains at least one gap; otherwise `'hidden-pause'` if its total metres
+ * is at or above `params.hiddenPauseMinMetres`, else `'isolated-jump'`
+ * (D-03, D-08). No per-mechanism behaviour beyond this label — D-04 — and no
+ * decimation or run-length exemption of any kind — D-11.
+ *
+ * Guarded on entry (T-26-01): returns a fresh `[]` and never throws when
+ * `validateStreamSeries(t, d)` is not `ok`, when `params` carries a
+ * non-finite or out-of-range value, or when any gap span is malformed (fails
+ * `mapGapToIndices`). Failing closed on a malformed gap beats emitting
+ * segments against a misread gap.
+ */
+export function detectUnreliableSegments(
+  t: readonly number[],
+  d: readonly number[],
+  gaps: readonly GapSpan[],
+  params: DetectorParams
+): UnreliableSegment[] {
+  if (!validateStreamSeries(t as number[], d as number[]).ok) return [];
+  if (!paramsAreValid(params)) return [];
+
+  const gapBlocks: Block[] = [];
+  for (const span of gaps) {
+    const mapped = mapGapToIndices(t, span);
+    if (mapped === null) return [];
+    gapBlocks.push({
+      kind: 'gap',
+      startIndex: mapped.startIndex,
+      endIndex: mapped.endIndex,
+      startSec: t[mapped.startIndex],
+      endSec: t[mapped.endIndex],
+      metres: d[mapped.endIndex] - d[mapped.startIndex],
+      seconds: t[mapped.endIndex] - t[mapped.startIndex],
+    });
+  }
+
+  const steps = advanceSteps(t, d, gaps);
+  const fastRuns = groupFastRuns(steps, params.speedLimitMps);
+
+  const burstBlocks: Block[] = [];
+  for (const run of fastRuns) {
+    const metres = d[run.endIndex] - d[run.startIndex];
+    const seconds = t[run.endIndex] - t[run.startIndex];
+    const excess = excessMetres(metres, seconds, params.speedLimitMps);
+    if (excess > params.excessFloorMetres) {
+      burstBlocks.push({
+        kind: 'burst',
+        startIndex: run.startIndex,
+        endIndex: run.endIndex,
+        startSec: t[run.startIndex],
+        endSec: t[run.endIndex],
+        metres,
+        seconds,
+      });
+    }
+  }
+
+  const blocks = [...burstBlocks, ...gapBlocks].sort((a, b) => a.startIndex - b.startIndex);
+
+  const segments: UnreliableSegment[] = [];
+  let i = 0;
+  while (i < blocks.length) {
+    let j = i;
+    while (j + 1 < blocks.length && blocks[j + 1].startIndex === blocks[j].endIndex) j++;
+
+    const chain = blocks.slice(i, j + 1);
+    const hasBurst = chain.some((b) => b.kind === 'burst');
+    const hasGap = chain.some((b) => b.kind === 'gap');
+
+    if (hasBurst && hasGap) {
+      const startIndex = chain[0].startIndex;
+      const endIndex = chain[chain.length - 1].endIndex;
+      const metres = d[endIndex] - d[startIndex];
+      const seconds = t[endIndex] - t[startIndex];
+
+      const parts: SegmentPart[] = chain.map((b) => ({
+        kind: b.kind,
+        startIndex: b.startIndex,
+        endIndex: b.endIndex,
+        startSec: b.startSec,
+        endSec: b.endSec,
+        metres: b.metres,
+        seconds: b.seconds,
+      }));
+
+      let burstMetres = 0;
+      let burstSeconds = 0;
+      let gapMetres = 0;
+      let gapSeconds = 0;
+      let burstCount = 0;
+      let gapCount = 0;
+      for (const part of parts) {
+        if (part.kind === 'burst') {
+          burstMetres += part.metres;
+          burstSeconds += part.seconds;
+          burstCount++;
+        } else {
+          gapMetres += part.metres;
+          gapSeconds += part.seconds;
+          gapCount++;
+        }
+      }
+
+      const mechanism: SegmentMechanism =
+        gapCount > 0
+          ? 'gap-adjacent'
+          : metres >= params.hiddenPauseMinMetres
+            ? 'hidden-pause'
+            : 'isolated-jump';
+
+      segments.push({
+        startIndex,
+        endIndex,
+        startSec: t[startIndex],
+        endSec: t[endIndex],
+        metres,
+        seconds,
+        mechanism,
+        burstMetres,
+        burstSeconds,
+        gapMetres,
+        gapSeconds,
+        burstCount,
+        gapCount,
+        parts,
+      });
+    } else if (hasBurst) {
+      // A burst chain touching no gap — still a segment (isolated-jump or
+      // hidden-pause per D-08), just with gapCount 0.
+      const startIndex = chain[0].startIndex;
+      const endIndex = chain[chain.length - 1].endIndex;
+      const metres = d[endIndex] - d[startIndex];
+      const seconds = t[endIndex] - t[startIndex];
+
+      const parts: SegmentPart[] = chain.map((b) => ({
+        kind: b.kind,
+        startIndex: b.startIndex,
+        endIndex: b.endIndex,
+        startSec: b.startSec,
+        endSec: b.endSec,
+        metres: b.metres,
+        seconds: b.seconds,
+      }));
+
+      let burstMetres = 0;
+      let burstSeconds = 0;
+      let burstCount = 0;
+      for (const part of parts) {
+        burstMetres += part.metres;
+        burstSeconds += part.seconds;
+        burstCount++;
+      }
+
+      const mechanism: SegmentMechanism =
+        metres >= params.hiddenPauseMinMetres ? 'hidden-pause' : 'isolated-jump';
+
+      segments.push({
+        startIndex,
+        endIndex,
+        startSec: t[startIndex],
+        endSec: t[endIndex],
+        metres,
+        seconds,
+        mechanism,
+        burstMetres,
+        burstSeconds,
+        gapMetres: 0,
+        gapSeconds: 0,
+        burstCount,
+        gapCount: 0,
+        parts,
+      });
+    }
+    // A gap-only chain (no burst) touches nothing — yields nothing.
+
+    i = j + 1;
+  }
+
+  return segments;
+}
