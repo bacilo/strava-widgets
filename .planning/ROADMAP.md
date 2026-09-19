@@ -116,83 +116,118 @@ context, measured facts and decisions in `PROJECT.md` § Current Milestone; requ
 ## Phase Details
 
 ### Phase 32: Unreliable-Segment Detection & Calibration
+
 **Goal**: A single detector identifies unreliable segments — gap-adjacent slew bursts, hidden-pause bursts with no timestamp gap, and isolated GPS jumps — from the committed `t`/`d` channels alone, calibrated against the archive with an explicit non-circularity argument, and becomes the one source every downstream consumer reads.
 **Depends on**: Nothing (first phase of v2.3; continues numbering after Phase 31)
 **Requirements**: SEG-01, SEG-02, SEG-03, SEG-04, SEG-05
 **Success Criteria** (what must be TRUE):
+
   1. Running the detector against 3475724402 leaves no burst unmerged or labelled isolated — every burst on this activity is gap-adjacent — and each merged segment's distance and elapsed time (burst + gap, both sides) match a per-segment table derived independently of the detector from the raw `t`/`d` arrays. The 2026-09-19 scoping probe's figures (30 bursts / 18 gaps / 1,694 m of burst distance in 106 s / 707 s of gap time, at an uncalibrated 7 m/s cut on the 2 s-decimated stream) are a reference to reconcile against and explain any difference from, NOT the pinned expected value.
   2. Running the detector against 3475734189 flags the 199 m burst at t=1353–1360 under the hidden-pause mechanism, despite contiguous 1 Hz sampling with no timestamp gap.
   3. Running the detector against 3475740390 flags all five isolated jumps (25–52 m, km 6.9–7.7) under the isolated-jump mechanism, including the 52 m jump at t=2508 where the activity's current 400m best starts.
   4. A committed, regenerable calibration artifact states the calibrated speed-limit constant, a non-circularity argument (the calibration population provably excludes what the threshold detects), and the Suunto 17 m/s descent sample's disposition (flagged under its own mechanism label, never corrected) — replacing the crude 259/1,873 and 121/1,873 scoping sweep with a figure of record.
   5. The single-source audit test is extended to the detector and demonstrated catching a planted second implementation before passing against the real one.
+
 **Plans**: 9 plans
 Plans:
+**Wave 1**
+
 - [ ] 32-01-PLAN.md — D-03/D-14 amendments (SEG-05 → SEG-05a/05b) + D-17 stream-immutability gate
 - [ ] 32-02-PLAN.md — Standalone detector `unreliable-segments.ts` (folded run-level scoring, touching adjacency, chaining, 3 mechanisms)
 - [ ] 32-03-PLAN.md — Independent gap-first recount script for 3475724402 (zero-import, fails closed)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 32-04-PLAN.md — SEG-05a: single-source audit extended to the detector, planted proofs
 - [ ] 32-05-PLAN.md — D-10(d) reachability + D-05 detector-scale candidates + candidate statistics; blocking developer decision
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 32-06-PLAN.md — Derive speed limit / excess floor / hidden-pause boundary with D-13 insensitivity; ship constants
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 32-07-PLAN.md — Figures of record, reconciliation, D-11/D-06/D-05/Suunto sections, per-segment table; recount watched failing
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
 - [ ] 32-08-PLAN.md — Real-stream named-activity fixtures + npm-test detector vs recount cross-check
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
 - [ ] 32-09-PLAN.md — Merge origin, regenerate post-merge, D-12 local 1 Hz validation, closing gate
 
 ### Phase 33: Coverage Integration — Pace Clipping & Segment Signal
+
 **Goal**: The detector's output is wired into `classifyGaps` as a fourth `GapKind`, clipping pace chart, histogram, splits and coverage caption exactly as gaps are clipped today with zero code change outside `pace-derivation.ts`, the coverage identity is re-verified archive-wide across the new four-way split, and unreliable segments surface as a disclosed per-activity quality signal.
 **Depends on**: Phase 32
 **Requirements**: SEG-06, PACE-08, PACE-09, COV-03
 **Success Criteria** (what must be TRUE):
+
   1. On the served build, the pace chart band and histogram for 3475724402 and 3475734189 show no 0:34/km sample and 3475740390 shows no 1:10–1:40/km sample — all clipped, none manufactured or smoothed across.
   2. The per-km split covering 3475740390's t=2508 jump carries an unreliable-segment marker, consistent with the existing gap-crossing split marker.
   3. The always-on coverage caption discloses unreliable time as its own term, and covered + recording-gap + pause + unreliable time sums to each stream's own span with zero identity violations archive-wide.
   4. Each of the three named activities' detail view discloses an unreliable-segment quality signal (count, total metres, total seconds, mechanisms) badged with its measured value like the existing six signals, and whether it joins the severe composite is stated and recorded rather than assumed. `DASHBOARD_INDEX_SCHEMA_VERSION` stays unchanged.
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 34: Pause Classification & Forgotten-Stop
+
 **Goal**: Every gap and merged unreliable segment is classified by implied speed as stationary, walked or transported, and sustained near-zero speed inside recorded (covered) time is flagged as a possible forgotten stop — both disclosed on the detail view, neither correcting moving time, pace or best efforts.
 **Depends on**: Phase 33
 **Requirements**: PAUSE-01, PAUSE-02, PAUSE-03, STOP-01, STOP-02, STOP-03
 **Success Criteria** (what must be TRUE):
+
   1. Each of 3475724402's merged segments is classified from its own merged distance and elapsed time, under speed bands calibrated in a regenerable artifact with its own non-circularity argument, and the per-segment classes on the detail view match a hand-derived table produced outside the classifier. The scoping probe's activity-level estimate (~1.9 m/s across all gaps, i.e. walking) is a reference only — individual segments may legitimately differ (the 98 s gap near t=2963 merges to roughly running speed), and the criterion is per-segment agreement with the independent table, not a single expected class.
   2. The detail view lists each pause with its class, duration and distance; the per-activity summary is an additive index key with per-interval detail in the lazy quality shard.
   3. v2.2's "9 activities advance >100 m across a ≥30s gap" figure is re-measured on merged segments rather than the gap interval alone, and the corrected figure is recorded with dated provenance in a regenerable artifact.
   4. A forgotten-stop flag (total seconds, longest stretch) is computed per activity under a near-zero threshold and minimum duration calibrated against the archive's own measured GPS-drift-while-stationary, disclosed on the detail view, structurally excluded from the severe composite, and shown NOT firing on a walking-break activity.
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 35: Stream-Derived Running Pace
+
 **Goal**: A stream-derived running pace — unreliable segments and gaps excluded from both distance and time — is computed for every activity with a computable stream through the existing single pace-derivation module, shown beside metadata pace, with the existing "Pace disputed" badge raised on material disagreement.
 **Depends on**: Phase 33
 **Requirements**: RPACE-01, RPACE-02, RPACE-03
 **Success Criteria** (what must be TRUE):
+
   1. Every activity with a computable stream carries a stream-derived running pace value computed through the existing single pace-derivation module.
   2. 3475724402's detail view shows the running pace beside the metadata pace (4:56/km) with a plain statement of the excluded metres and seconds, and the two figures visibly differ — consistent with no split on the activity being under 5:00/km.
   3. The "Pace disputed" badge is raised on 3475724402 under a threshold calibrated against the archive and recorded in a regenerable artifact, and the count of newly-disputed activities archive-wide is reported as a finding.
   4. Metadata pace and device `moving_time` remain byte-identical everywhere else — lists, stats documents and widgets are unchanged by this phase.
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 36: Best-Effort Clean-Window Search & Ceiling Recalibration
+
 **Goal**: A best-effort window may not span or interpolate a crossing across an unreliable segment; the contaminated effort is demoted-and-kept under a new guard while the search continues for the best clean sub-interval by partitioning (never splicing), exclusion runs strictly before ceiling derivation, and both a best-effort diff and a ceiling recalibration diff are signed before the phase closes.
 **Depends on**: Phase 32 (per-activity unreliable intervals); sequenced after Phase 35 to keep the milestone's two highest-risk phases (32's calibration, 36's ranking-path change) isolated and independently reviewable
 **Requirements**: PR-06, PR-07, PR-08, PR-09
 **Success Criteria** (what must be TRUE):
+
   1. 3475740390's 400m best effort (currently 3:20/km, starting exactly on the 52 m jump at t=2508) no longer spans that jump; the demoted contaminated record states the jump's measured metres/seconds, and the ranked figure is the best clean sub-interval found by partitioning the stream, not by deleting-and-restitching it.
   2. A test demonstrates that the splice approach (delete unreliable samples, re-run the sweep over the spliced array) fabricates a faster window on a named fixture, distinguishing it from the shipped partition-based search.
   3. Unreliable-segment exclusion is shown running strictly before ceiling derivation within the existing three-pass shape, and the resulting per-distance ceiling movement is measured and reported as a finding — a recalibration reporting zero movement is treated as requiring its own explanation, not accepted silently.
   4. An archive-wide before/after diff — covering every rank change, every newly demoted effort, every reinstated effort and every ceiling value — is reconciled three ways (diff, guard counts, independent sweep) and signed by the developer against its sha256, with the three scoping activities' 400m efforts (3:20, 3:21, 3:22/km today) pinned as permanent regression fixtures.
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 37: Review-Queue Priority & CUR-04
+
 **Goal**: The curation review queue is reordered by pause-classification and unreliable-segment guard priority, and a queue row can be marked "reviewed and kept" — a reversible, distinct-from-exclude terminal state persisted in its own committed file — through the existing overlay transport, with both publish guards re-verified against the new state.
 **Depends on**: Phase 36 (lists activities whose best effort the unreliable-segment guard moved), Phase 34 (lists activities with a transported-class pause)
 **Requirements**: CUR-04, CUR-06
 **Success Criteria** (what must be TRUE):
+
   1. In `npm run curate`, a queue row can be marked "reviewed and kept" with a required reason; it persists in its own committed file (not `best-effort-exclusions.json`, which stays load-bearing for ranking), leaves the default queue view, remains reachable under a "reviewed" filter, and the action is reversible.
   2. Both existing publish guards are shown red under a planted leak of the new route/file and green on the served build.
   3. The review queue also lists activities whose best effort was moved by the unreliable-segment guard and activities carrying a transported-class pause, ordered transported-first then by contaminated metres, with the count equal to an independent recount.
+
 **Plans**: TBD
 **UI hint**: yes
 
