@@ -410,6 +410,38 @@ describe('countMalformedExclusions vs. recountDemotedActivities — CR-01 parity
     expect(countMalformedExclusions(exclusionsDoc)).toBe(recount.malformedExclusions.length);
     expect(countMalformedExclusions(exclusionsDoc)).toBe(2);
   });
+
+  it('agree on a rejected entry followed by a well-formed entry sharing its activityId (WR-02)', () => {
+    const exclusionsDoc = {
+      exclusions: [
+        { activityId: 'X', reason: '' },
+        { activityId: 'X', reason: 'ok' },
+      ],
+    };
+    const recount = recountDemotedActivities(emptyBestEfforts, exclusionsDoc);
+    expect(countMalformedExclusions(exclusionsDoc)).toBe(recount.malformedExclusions.length);
+    expect(countMalformedExclusions(exclusionsDoc)).toBe(1);
+    expect(recount.exclusionsTotal).toBe(1);
+  });
+
+  it('agree on a planted document containing every malformed class at once (null entry, primitive entry, non-string id, __proto__, empty reason, duplicate, WR-02 rejected-then-repeated pair)', () => {
+    const exclusionsDoc = {
+      exclusions: [
+        null,
+        'garbage',
+        { activityId: 123, reason: 'numeric id' },
+        { activityId: '__proto__', reason: 'malicious' },
+        { activityId: 'empty-reason', reason: '' },
+        { activityId: 'dup', reason: 'first' },
+        { activityId: 'dup', reason: 'second' },
+        { activityId: 'rejected-then-repeated', reason: '' },
+        { activityId: 'rejected-then-repeated', reason: 'ok' },
+        { activityId: 'well-formed', reason: 'fine' },
+      ],
+    };
+    const recount = recountDemotedActivities(emptyBestEfforts, exclusionsDoc);
+    expect(countMalformedExclusions(exclusionsDoc)).toBe(recount.malformedExclusions.length);
+  });
 });
 
 describe('summarizeQueue', () => {

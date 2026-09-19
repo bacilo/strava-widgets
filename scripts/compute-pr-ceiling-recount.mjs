@@ -307,12 +307,19 @@ export function recountDemotedActivities(bestEffortsDoc, exclusionsDoc) {
         malformedExclusions.push(`${offender}: duplicate activityId`);
         continue;
       }
-      seenActivityIds.add(entry.activityId);
 
       if (typeof entry.reason !== 'string' || entry.reason.trim() === '') {
         malformedExclusions.push(`${offender}: reason is missing, non-string, or empty`);
         continue;
       }
+
+      // WR-02: claim the id only after acceptance — mirrors the queue's
+      // map.set() (which happens after all validity checks pass) and the
+      // pipeline's buildExclusionIndex. An entry rejected for a bad reason
+      // must not "burn" its activityId, so a later well-formed entry with
+      // the same id is still accepted rather than flagged as a duplicate
+      // of an entry that was itself thrown out.
+      seenActivityIds.add(entry.activityId);
 
       exclusionsTotal += 1;
       if (flaggedSet.has(entry.activityId)) excludedWithinFlaggedCount += 1;

@@ -379,6 +379,20 @@ describe('recountDemotedActivities', () => {
     expect(result.exclusionsTotal).toBe(0);
   });
 
+  it('WR-02: a rejected entry does not burn its activityId — a later well-formed entry with the same id is accepted, not flagged as a duplicate', () => {
+    const doc = bestEffortsDoc({ activities: {}, rankings: {} });
+    const exclusionsDoc = {
+      exclusions: [
+        { activityId: 'X', reason: '' },
+        { activityId: 'X', reason: 'ok' },
+      ],
+    };
+    const result = recountDemotedActivities(doc, exclusionsDoc);
+    expect(result.malformedExclusions).toHaveLength(1);
+    expect(result.malformedExclusions[0]).toContain('reason is missing');
+    expect(result.exclusionsTotal).toBe(1);
+  });
+
   it('CR-01: a null, string, number, or boolean exclusion entry (not merely a non-object activityId) is reported as malformed, not silently dropped', () => {
     const doc = bestEffortsDoc({ activities: {}, rankings: {} });
     const exclusionsDoc = {
