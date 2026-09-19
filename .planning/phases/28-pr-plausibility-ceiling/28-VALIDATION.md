@@ -1232,3 +1232,216 @@ population, so a fresh sign-off was required before push.
   decision).
 - Wording observation carried to the Phase 31 cleanup backlog: the demotion reason renders
   "implied 4.63 m/s exceeds personal ceiling 4.63 m/s" — 2-dp rounding hides a real 0.002 m/s margin.
+
+## PR-04 Sign-off (Round 4 — post-TD-04 regeneration, D-12)
+
+Drafted 2026-09-19 by plan 31-10, Task 1. The Round 3 sign-off above was bound to bytes that no
+longer exist: TD-04 (plan 31-05) changed the demotion-reason wording on every ceiling row, and
+31-08 regenerated all five TD-05 artifacts of record — including this one — against the merged
+1,899-activity archive. No verdict is recorded below; it is filled in verbatim by Task 2 (the
+checkpoint) once the developer replies.
+
+- **Artifact reviewed:** `.planning/phases/28-pr-plausibility-ceiling/28-DIFF.md` (current committed
+  bytes).
+- **Round 3 signed revision, recovered and hash-verified:** `git show ad59daeb:.planning/phases/28-pr-plausibility-ceiling/28-DIFF.md`
+  (the last commit that touched this path before 31-08's regeneration) → `shasum -a 256` →
+  `cdf9d65499d7ac62123ecc33d1e298ae08a0d07f6740ba7bdcc4cf5fa365b8dd` — **matches** the hash recorded
+  in the Round 3 section above exactly. The baseline is identified by content hash, not by its
+  position in history.
+- **New sha256 (current committed `28-DIFF.md`):** `97e1782c953288d8676e5a8e79f48696e0b3d4c6f4da32f314a4989f089f57d5`
+  (computed 2026-09-19, matches `31-08-SUMMARY.md`'s recorded figure and `git show HEAD:` of the
+  current file).
+- **Superseded Round 3 sha256:** `cdf9d65499d7ac62123ecc33d1e298ae08a0d07f6740ba7bdcc4cf5fa365b8dd`.
+
+### Machine diff summary (Round 3 signed bytes vs. current committed `28-DIFF.md`)
+
+Command: `git show ad59daeb:.planning/phases/28-pr-plausibility-ceiling/28-DIFF.md > /tmp/28-DIFF-round3.md && diff /tmp/28-DIFF-round3.md .planning/phases/28-pr-plausibility-ceiling/28-DIFF.md`
+
+Total diff: **36 lines** (2 hunks). In full:
+
+```diff
+5c5
+< **Generated:** 2026-09-19T07:43:38.019Z
+---
+> **Generated:** 2026-09-19T11:36:51.238Z
+143,157c143,157
+< | Activity ID | Distance | Duration (s) | Implied speed (m/s) | Ceiling (m/s) |
+< |---|---|---|---|---|
+< | 14122328106 | 400m | 62.1 | 6.4412 | 5.1098 |
+< | 3475711469 | 400m | 57.5 | 6.9565 | 5.1098 |
+< | 3475711630 | 400m | 58.2 | 6.8729 | 5.1098 |
+< | 3475715178 | 400m | 47.6 | 8.4034 | 5.1098 |
+< | 3475726256 | 400m | 44.0 | 9.0909 | 5.1098 |
+< | 3475727228 | 400m | 46.5 | 8.6022 | 5.1098 |
+< | 3475732221 | 400m | 54.6 | 7.3260 | 5.1098 |
+< | 3475735603 | 400m | 55.5 | 7.2072 | 5.1098 |
+< | 4556693525 | 400m | 45.2 | 8.8496 | 5.1098 |
+< | 5059204779 | 400m | 60.3 | 6.6335 | 5.1098 |
+< | 5588316886 | 400m | 65.5 | 6.1069 | 5.1098 |
+< | 3475725513 | 1k | 148.9 | 6.7159 | 4.7496 |
+< | 4556693525 | 1k | 207.4 | 4.8216 | 4.7496 |
+---
+> | Activity ID | Distance | Duration (s) | Implied speed (m/s) | Ceiling (m/s) | Reason |
+> |---|---|---|---|---|---|
+> | 14122328106 | 400m | 62.1 | 6.4412 | 5.1098 | implied 6.441 m/s exceeds personal ceiling 5.110 m/s by 1.331 m/s (1.28 x p90 3.992 m/s over 1834 filtered 400m efforts) |
+> | 3475711469 | 400m | 57.5 | 6.9565 | 5.1098 | implied 6.957 m/s exceeds personal ceiling 5.110 m/s by 1.847 m/s (1.28 x p90 3.992 m/s over 1834 filtered 400m efforts) |
+> | 3475711630 | 400m | 58.2 | 6.8729 | 5.1098 | implied 6.873 m/s exceeds personal ceiling 5.110 m/s by 1.763 m/s (1.28 x p90 3.992 m/s over 1834 filtered 400m efforts) |
+> | 3475715178 | 400m | 47.6 | 8.4034 | 5.1098 | implied 8.403 m/s exceeds personal ceiling 5.110 m/s by 3.294 m/s (1.28 x p90 3.992 m/s over 1834 filtered 400m efforts) |
+> | 3475726256 | 400m | 44.0 | 9.0909 | 5.1098 | implied 9.091 m/s exceeds personal ceiling 5.110 m/s by 3.981 m/s (1.28 x p90 3.992 m/s over 1834 filtered 400m efforts) |
+> | 3475727228 | 400m | 46.5 | 8.6022 | 5.1098 | implied 8.602 m/s exceeds personal ceiling 5.110 m/s by 3.492 m/s (1.28 x p90 3.992 m/s over 1834 filtered 400m efforts) |
+> | 3475732221 | 400m | 54.6 | 7.3260 | 5.1098 | implied 7.326 m/s exceeds personal ceiling 5.110 m/s by 2.216 m/s (1.28 x p90 3.992 m/s over 1834 filtered 400m efforts) |
+> | 3475735603 | 400m | 55.5 | 7.2072 | 5.1098 | implied 7.207 m/s exceeds personal ceiling 5.110 m/s by 2.097 m/s (1.28 x p90 3.992 m/s over 1834 filtered 400m efforts) |
+> | 4556693525 | 400m | 45.2 | 8.8496 | 5.1098 | implied 8.850 m/s exceeds personal ceiling 5.110 m/s by 3.740 m/s (1.28 x p90 3.992 m/s over 1834 filtered 400m efforts) |
+> | 5059204779 | 400m | 60.3 | 6.6335 | 5.1098 | implied 6.633 m/s exceeds personal ceiling 5.110 m/s by 1.524 m/s (1.28 x p90 3.992 m/s over 1834 filtered 400m efforts) |
+> | 5588316886 | 400m | 65.5 | 6.1069 | 5.1098 | implied 6.107 m/s exceeds personal ceiling 5.110 m/s by 0.997 m/s (1.28 x p90 3.992 m/s over 1834 filtered 400m efforts) |
+> | 3475725513 | 1k | 148.9 | 6.7159 | 4.7496 | implied 6.716 m/s exceeds personal ceiling 4.750 m/s by 1.966 m/s (1.28 x p90 3.711 m/s over 1852 filtered 1k efforts) |
+> | 4556693525 | 1k | 207.4 | 4.8216 | 4.7496 | implied 4.822 m/s exceeds personal ceiling 4.750 m/s by 0.072 m/s (1.28 x p90 3.711 m/s over 1852 filtered 1k efforts) |
+```
+
+(This is the complete diff — nothing was truncated for length. The second hunk covers all 13
+owner-excluded ceiling-demotion rows: 11 at 400m, 2 at 1k.)
+
+**Line-by-line classification:** of 36 changed lines, 1 is the `**Generated:**` timestamp (expected,
+every regeneration), 2 are the table header/separator picking up a new `Reason` column, and 13 are
+data rows whose five pre-existing columns (Activity ID, Distance, Duration, Implied speed, Ceiling)
+are **byte-identical** to Round 3 — the only addition per row is the new trailing `Reason` cell
+carrying TD-04's margin-bearing text. **No rank table row moved. No count changed. No activity was
+added to or removed from the owner-excluded ceiling table.** This is exactly the predicted content
+delta (TD-04's reason-string reformatting) and nothing else.
+
+### The numbers reconcile three ways (re-derived in this task, not copied from 31-08)
+
+`28-DIFF.md`'s own Summary section (current committed file):
+- "Total efforts demoted (this report's own count, ceiling-only): **32**"
+- "Of those, also owner-excluded (no ranking effect): **13**"
+- "Total `wasPRAtTheTime` flag flips: **13**"
+- "Total retroactive promotions (flips gained): **2**"
+- "Total ranking rows moved: **49**"
+- `## Reconciliation` section's own text: "This report counts **32** total ceiling-demoted efforts
+  across all distances (of which 13 are also owner-excluded)... the document's own
+  `totals.effortsDemoted`... is **66**."
+
+`node scripts/compute-pr-ceiling-recount.mjs --expect-demoted 66` (run fresh, this task, against the
+current `data/stats/best-efforts.json` / `data/dashboard/index.json` / `data/best-effort-exclusions.json` —
+imports none of the classifier/compute/utils/types code, per Phase 28 D-15):
+```
+Per-guard breakdown (own arithmetic):
+    world-record: 19
+    max-speed:    15
+    ceiling:      32
+Cross-check vs. doc.totals.effortsDemoted: own=66 totals=66 disagrees=false
+Pinned fixture 4556693525@400m: durationSec=45.2 guard="ceiling" durationMatches45_2=true guardIsCeiling=true
+--expect-demoted 66: MATCH
+Flagged ACTIVITIES (own arithmetic, >=1 non-null demotion, all guards): 47
+    of which already excluded (data/best-effort-exclusions.json): 12 of 12 total exclusions
+
+independentCeilingCount: 32
+overCeilingWithoutDemotion (0): (none)
+ceilingDemotedButNotOverCeiling (0): (none)
+
+PASS: recount agrees with the shipped totals; no disagreements found.
+```
+
+**Three-way reconciliation:** `28-DIFF.md`'s own ceiling-only total (**32**) = recount's
+`byGuard.ceiling` (**32**) = recount's `independentCeilingCount` (**32**). All three agree.
+Flagged-activity count: **47**, all 12 recorded exclusions accounted for (matches Round 3's cited
+47). `--expect-demoted 66`: **MATCH**.
+
+Also re-run fresh, this task (unmoved from Round 3/31-08, per D-16 in the elevation case and the
+composite gate in the pace-quality case):
+- `node scripts/compute-pace-quality-recount.mjs --expect 299` → composite **299**, `--expect 299:
+  MATCH`, PASS.
+- `node scripts/compute-elevation-recount.mjs` → union **60**, inclusion-exclusion
+  `11 + 21 + 39 - 6 - 3 - 3 + 1 = 60` vs. direct union 60 → MATCH, PASS.
+
+### Round 3 baseline figures tabulated (unchanged / changed-with-cause)
+
+| Figure | Round 3 baseline | This run | Status |
+|---|---|---|---|
+| Activities (indexed) | — | 1,899 | unchanged (archive stable since 31-08's merge) |
+| Activities considered (best-efforts) | 1,874 | 1,874 | unchanged |
+| Ceiling-only demoted (total) | 32 | 32 | unchanged |
+| Flag flips | 13 | 13 | unchanged |
+| Retroactive promotions | 2 | 2 | unchanged |
+| Ranking rows moved | 49 | 49 | unchanged |
+| `totals.effortsDemoted` | 66 | 66 | unchanged |
+| Flagged activities (queue population) | 47 | 47 | unchanged |
+| Three-way ceiling reconciliation | 32 = 32 = 32 | 32 = 32 = 32 | unchanged |
+| `28-DIFF.md` sha256 | `cdf9d654…` | `97e1782c…` | **changed with cause** — TD-04 reason-string reformatting (31-05/31-08), not a data change |
+| Owner-excluded ceiling table | 13 rows, 5 columns | 13 rows, 6 columns (+Reason) | **changed with cause** — new Reason column (31-08 Rule 2 fix), same 13 rows/values |
+| Rank tables (all 7 distances) | — | byte-identical to Round 3 | unchanged |
+
+No figure moved for a reason other than TD-04's reformatting or the one already-disclosed archive
+merge (which Round 3 itself already reflects — this run compares against Round 3, not against
+Round 2/pre-merge). Nothing here is a finding beyond what was predicted.
+
+### Drafted rows (verdict `pending` — not answered in this task)
+
+**R4-1 — the content delta is only what was predicted.**
+The developer reads the diff summary above and confirms the changes are the reason-string
+reformatting plus any stated archive drift, and nothing else.
+- CAN PASS: the developer reads the 36-line diff (1 timestamp line + 13 rows gaining only a
+  trailing Reason cell, 5 pre-existing columns per row byte-identical) and confirms no rank table
+  row moved and no count changed — matching this task's own line-by-line classification above.
+- CAN FAIL: a record changes hands that was not named (none observed by this task — 0 rank-table
+  changes in the diff); a rank table moves (none observed); a count moves with no stated cause
+  (none observed — every changed cell traces to the Reason-column addition).
+**Verdict: pending**
+
+**R4-2 — the numbers reconcile three ways.**
+The developer reads the three independently produced ceiling counts and confirms they agree, and
+that the flagged-activity count and the exclusions-accounted line match the recount.
+- CAN PASS: `28-DIFF.md`'s own ceiling-only total (32), the recount's `byGuard.ceiling` (32) and the
+  recount's `independentCeilingCount` (32) all equal 32; flagged-activity count 47 with 12 of 12
+  exclusions accounted for, matching Round 3's cited 47.
+- CAN FAIL: any two of the three ceiling figures disagree; the flagged count moves without a cause.
+  (Not observed this run — all three agree at 32, flagged stays 47.)
+**Verdict: pending**
+
+**R4-3 — the margin is legible on a real row.**
+The developer reads one regenerated ceiling reason and confirms the implied speed, the ceiling and
+the margin are three distinct legible numbers, closing the "4.63 exceeds 4.63" observation from
+Round 3.
+- **Reachability finding (important, read before answering):** the plan names `3475730418@1mi` as
+  the worked example. That activity/distance IS still present in `28-DIFF.md` — it appears in the
+  `## Records that changed hands` § 1mi rank-diff table (`3475730418 | 2018-12-16T10:28:01Z | 347.6
+  | 4 | — | removed`) — but **that table does not carry implied-speed/ceiling/Reason columns at
+  all**; only the separate `## Ceiling demotions on owner-excluded efforts` table gets the new
+  Reason column, and `3475730418` is not owner-excluded, so it does not appear there. The
+  three-number reason text for this exact effort exists in `data/stats/best-efforts.json` (which
+  `28-DIFF.md` is generated from) but is **not itself rendered inside `28-DIFF.md`**:
+  `"implied 4.630 m/s exceeds personal ceiling 4.628 m/s by 0.002 m/s (1.28 x p90 3.616 m/s over
+  1851 filtered 1mi efforts)"` (queried fresh this task from the committed data file).
+  A row from the table that DOES carry the Reason column inside `28-DIFF.md` itself, with a
+  comparably thin margin: `4556693525@1k` — `"implied 4.822 m/s exceeds personal ceiling 4.750 m/s
+  by 0.072 m/s (1.28 x p90 3.711 m/s over 1852 filtered 1k efforts)"`.
+- CAN PASS: the developer reads either row's reason text (from `data/stats/best-efforts.json` for
+  `3475730418@1mi`, or directly from `28-DIFF.md`'s Reason column for `4556693525@1k`) and confirms
+  implied speed, ceiling and margin are three distinct legible numbers (none reads as equal to
+  another).
+- CAN FAIL: implied and ceiling still render identically in the chosen row; the margin reads
+  `0.000`; OR the developer judges that `3475730418@1mi`'s absence from `28-DIFF.md`'s own rendered
+  Reason text (as opposed to its presence in the underlying data file) means the row is **NOT
+  EXERCISABLE as originally specified** — struck with this reason recorded, per the plan's own rule,
+  rather than silently substituted with `4556693525@1k` without disclosure.
+**Verdict: pending**
+
+### Reachability Audit (all six CAN PASS / CAN FAIL lines together)
+
+- R4-1 CAN PASS: diff shows only the Reason-column addition (1 timestamp + 13 rows, 5 pre-existing
+  columns byte-identical); no rank table row moved; no count changed with no stated cause.
+- R4-1 CAN FAIL: an unnamed record changes hands; a rank table moves; a count moves with no stated
+  cause.
+- R4-2 CAN PASS: diff ceiling-only (32) = recount `byGuard.ceiling` (32) = recount
+  `independentCeilingCount` (32); flagged-activity count (47) and exclusions-accounted (12 of 12)
+  match the recount.
+- R4-2 CAN FAIL: any two of the three ceiling figures disagree; the flagged count moves without a
+  cause.
+- R4-3 CAN PASS: the chosen row's implied speed, ceiling and margin are three distinct legible
+  numbers.
+- R4-3 CAN FAIL: implied and ceiling still render identically; the margin reads `0.000`; OR
+  `3475730418@1mi` is judged NOT EXERCISABLE against `28-DIFF.md` itself (struck, reason recorded,
+  not silently substituted).
+
+No verdict is pre-filled above. Task 2 (the checkpoint) transcribes the developer's reply verbatim
+into this section and applies the tick disposition rules in its own acceptance criteria.
