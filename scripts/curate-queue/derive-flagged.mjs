@@ -42,30 +42,64 @@
 
 /**
  * Builds a Map from activityId -> stored exclusion reason, skipping any entry whose activityId
- * is not a string, whose reason is not a string, or whose activityId is `__proto__` (T-29-12: a
- * Map key of `__proto__` is itself safe, but the entry is still meaningless and is skipped to
- * match deriveFlaggedActivities's own activities-loop discipline).
+ * is not a string, whose reason is not a string or is empty/whitespace-only, whose activityId is
+ * `__proto__` (T-29-12: a Map key of `__proto__` is itself safe, but the entry is still
+ * meaningless and is skipped to match deriveFlaggedActivities's own activities-loop discipline),
+ * or whose activityId duplicates one already added (the collision is counted once, not
+ * per-occurrence, and the map keeps only the first entry's reason).
+ *
+ * Also returns `skippedCount` — how many entries were dropped for any of the five reasons above,
+ * surfaced to callers via the sibling export `countMalformedExclusions` below (D-09: the queue
+ * keeps skipping malformed entries, but now reports how many). This validation
+ * is deliberately duplicated from `scripts/compute-pr-ceiling-recount.mjs`'s own malformed-
+ * exclusion check rather than shared, because that script is forbidden from importing anything
+ * (Phase 28 D-15 / D-08) and this file's own zero-import contract (see module docblock) forbids
+ * the reverse import too.
  *
  * @param {unknown} exclusionsDoc
- * @returns {Map<string, string>}
+ * @returns {{ map: Map<string, string>, skippedCount: number }}
  */
 function buildExclusionsMap(exclusionsDoc) {
   const map = new Map();
   const exclusions =
     exclusionsDoc && Array.isArray(exclusionsDoc.exclusions) ? exclusionsDoc.exclusions : [];
+  let skippedCount = 0;
   for (const entry of exclusions) {
     if (
       entry === null ||
       typeof entry !== 'object' ||
       typeof entry.activityId !== 'string' ||
       entry.activityId === '__proto__' ||
-      typeof entry.reason !== 'string'
+      typeof entry.reason !== 'string' ||
+      entry.reason.trim() === ''
     ) {
+      skippedCount += 1;
+      continue;
+    }
+    if (map.has(entry.activityId)) {
+      skippedCount += 1;
       continue;
     }
     map.set(entry.activityId, entry.reason);
   }
-  return map;
+  return { map, skippedCount };
+}
+
+/**
+ * Counts exclusion entries `buildExclusionsMap` drops: a non-string activityId, a
+ * `__proto__`-keyed activityId, a non-string reason, an empty or whitespace-only reason, or a
+ * duplicate activityId (the collision counted once, not per additional occurrence). A missing or
+ * null document, or one whose `exclusions` is not an array, counts 0 and never throws.
+ *
+ * Sibling export, not a change to `deriveFlaggedActivities`'s or `summarizeQueue`'s return
+ * shapes — the queue's malformed-entries line (`scripts/curate-queue/index.ts`) calls this
+ * alongside `deriveFlaggedActivities` with the same `exclusionsDoc`.
+ *
+ * @param {unknown} exclusionsDoc
+ * @returns {number}
+ */
+export function countMalformedExclusions(exclusionsDoc) {
+  return buildExclusionsMap(exclusionsDoc).skippedCount;
 }
 
 /**
@@ -107,7 +141,7 @@ export function deriveFlaggedActivities(bestEffortsDoc, exclusionsDoc, indexDoc)
       ? bestEffortsDoc.activities
       : {};
 
-  const exclusionsMap = buildExclusionsMap(exclusionsDoc);
+  const { map: exclusionsMap } = buildExclusionsMap(exclusionsDoc);
   const nameMap = buildNameMap(indexDoc);
 
   const rows = [];
