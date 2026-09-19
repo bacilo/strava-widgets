@@ -1,11 +1,12 @@
 ---
 phase: 31
 slug: tech-debt-closure-silent-failure-guards-docs-reconciliation
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: passed
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-09-19
 planned: 2026-09-19
+updated: 2026-09-19
 ---
 
 # Phase 31 — Validation Strategy
@@ -72,7 +73,7 @@ the row's Status cell and in its plan SUMMARY. A row whose observed count is 0 i
 | 31-08-T1 | 31-08 | 2 | TD-05 | T-31-26 | All five artifacts regenerate twice, byte-identical apart from `**Generated:**` | integration (real archive) | run the five generators twice in dependency order (TD-04 first; residual before pace-quality calibration, which shells out to it, then residual once more) and diff each pair with the `**Generated:**` line stripped — **five empty diffs** | ✅ scripts exist | ✅ green — observed 5/5 empty diffs (31-08-SUMMARY.md Round 2 Idempotence Proofs table, re-confirmed present in committed artifacts) |
 | 31-08-T2 | 31-08 | 2 | TD-05 | T-31-27 | The three-way ceiling count reconciles and the new `28-DIFF.md` sha256 is recorded | integration (real archive) | `node scripts/compute-pr-ceiling-recount.mjs` PASS; diff ceiling-only = `byGuard.ceiling` = `independentCeilingCount`; `shasum -a 256` of the committed `28-DIFF.md` recorded beside `cdf9d654…` | ✅ scripts exist | ✅ green — observed 32=32=32, sha256 97e1782c953288d8676e5a8e79f48696e0b3d4c6f4da32f314a4989f089f57d5 recorded (re-derived fresh by this plan, not copied from 31-08) |
 | 31-09-T1 | 31-09 | 3 | TD-05 | T-31-06 | Hand-written figures corrected in place with dated notes | doc check | Each stale string survives ONLY inside a dated correction note: `grep -n "716 of 1,864\|716-activity" .planning/REQUIREMENTS.md .planning/ROADMAP.md \| grep -vi corrected \| wc -l` → 0; same shape for `"13 of the 154"` (REQUIREMENTS.md), `"pending phase re-verification"` (REQUIREMENTS.md), `"1,866 streams scanned"` (ROADMAP.md); and `grep -c "Corrected 2026-" .planning/REQUIREMENTS.md` ≥ 1 | doc | ✅ green — observed 0/0/0/0 stale-string matches (none outside a corrected note), 5 dated correction notes |
-| 31-10-T2 | 31-10 | 4 | TD-05 | T-31-07 | Fresh PR-04 sign-off bound to the new `28-DIFF.md` sha256 | manual (irreducible) | N/A — human, blocking; see Manual-Only | N/A | ⬜ pending — awaiting Task 2 checkpoint verdict |
+| 31-10-T2 | 31-10 | 4 | TD-05 | T-31-07 | Fresh PR-04 sign-off bound to the new `28-DIFF.md` sha256 | manual (irreducible) | N/A — human, blocking; see Manual-Only | N/A | ✅ green — developer's blanket approval, all three rows PASS ("Approve — R4-1/R4-2 PASS, R4-3 PASS via 4556693525@1k"), recorded verbatim 2026-09-19 in `28-VALIDATION.md` § PR-04 Sign-off (Round 4) / Developer's Verdict (Round 4), bound to sha256 `97e1782c…` |
 | 31-09-T2 | 31-09 | 3 | TD-06 | T-31-31 | `27-VALIDATION.md` flips to `status: passed` in the plan that closes G-02 | doc check | `grep '^status:' .planning/phases/27-per-activity-quality-signals/27-VALIDATION.md` → `status: passed`; and `grep -c "remains open and is scheduled for Phase 31" .../27-VALIDATION.md` → 0 | doc | ✅ green — observed status: passed, 0 stale-open-line matches |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky · ❌ W0 = file/test does not exist yet, Wave 0 creates it*
@@ -88,12 +89,12 @@ also names the correction", expressed as `grep -n ... | grep -vi corrected | wc 
 
 ## Wave 0 Requirements
 
-- [ ] `src/analytics/__fixtures__/best-effort-exclusions.fixture.json` (name/location Claude's Discretion) — TD-01's committed fixture, copying `4556693525` and `3475711469` verbatim (both `distances: null`) — **plan 31-01, task 1**
-- [ ] `scripts/lib/copy-data-tree.test.mjs` — new file (TD-02), mkdtemp pattern from `scripts/lib/curation-guard.test.mjs` — **plan 31-02, task 1**
-- [ ] `scripts/lib/stream-files.mjs` (or equivalent) — shared `isStreamFile` lifted out of `compute-pace-quality-calibration.mjs` (TD-05) — **plan 31-06, task 1**
-- [ ] `scripts/compute-pace-residual.mjs` — export a small `isStreamFile`-filtered listing helper so the manifest exclusion has a unit-test seam (TD-05) — **plan 31-06, task 2**
-- [ ] `scripts/curate-queue/index.ts` — the "N exclusion entries ignored (malformed)" node beside `data-queue-summary` (TD-03) — **plan 31-04, task 2**
-- [ ] `scripts/compute-pr-ceiling-calibration.test.mjs` — "largest drift" and "owner-excluded" cases (TD-05) — **plan 31-07, tasks 1 and 2**
+- [x] `src/analytics/__fixtures__/best-effort-exclusions.fixture.json` (name/location Claude's Discretion) — TD-01's committed fixture, copying `4556693525` and `3475711469` verbatim (both `distances: null`) — **plan 31-01, task 1** — exists, confirmed present
+- [x] `scripts/lib/copy-data-tree.test.mjs` — new file (TD-02), mkdtemp pattern from `scripts/lib/curation-guard.test.mjs` — **plan 31-02, task 1** — exists, confirmed present
+- [x] `scripts/lib/stream-files.mjs` (or equivalent) — shared `isStreamFile` lifted out of `compute-pace-quality-calibration.mjs` (TD-05) — **plan 31-06, task 1** — exists, confirmed present
+- [x] `scripts/compute-pace-residual.mjs` — export a small `isStreamFile`-filtered listing helper so the manifest exclusion has a unit-test seam (TD-05) — **plan 31-06, task 2** — exists, confirmed present
+- [x] `scripts/curate-queue/index.ts` — the "N exclusion entries ignored (malformed)" node beside `data-queue-summary` (TD-03) — **plan 31-04, task 2** — exists, confirmed present
+- [x] `scripts/compute-pr-ceiling-calibration.test.mjs` — "largest drift" and "owner-excluded" cases (TD-05) — **plan 31-07, tasks 1 and 2** — exists, confirmed present
 
 *No framework installation gap — vitest already collects both file patterns this phase needs.*
 
@@ -113,11 +114,30 @@ also names the correction", expressed as `grep -n ... | grep -vi corrected | wc 
 - [x] All tasks have `<automated>` verify or an explicit Wave 0 dependency — every task in plans 31-01..31-09 carries an `<automated>` block; 31-10's task 2 is the single `<human-check>` and is the phase's only manual row
 - [x] Sampling continuity: no 3 consecutive tasks without automated verify
 - [x] Wave 0 covers all MISSING references — each Wave 0 item above names the plan and task that creates it
-- [ ] Every `-t` filter proven to match ≥1 test (expected counts stated above; observed counts recorded by the executor at run time)
+- [x] Every `-t` filter proven to match ≥1 test (expected counts stated above; observed counts recorded by the executor at run time — see Per-Task Verification Map, every row's Status cell states an observed count ≥ its expected minimum)
 - [x] No watch-mode flags
 - [x] Feedback latency < 20s for every targeted command
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** Task ID / Plan / Wave columns filled by the planner 2026-09-19 against the ten PLAN.md
 files. `wave_0_complete` flips once the six Wave 0 files exist and run green; `status` and
 `nyquist_compliant` are dispositioned by plan 31-10 after the Round 4 verdict.
+
+---
+
+## Validation Audit (plan 31-10, closing this record)
+
+All ten Per-Task Verification Map rows are green: 31-01 through 31-09's `-t` filters each observed
+at or above their expected minimum count (recorded in each row's Status cell above; full detail in
+each plan's own SUMMARY.md), and the phase's single manual row (31-10-T2, PR-04 Round 4) is now
+green — the developer's blanket approval, all three rows (R4-1, R4-2, R4-3) PASS, recorded verbatim
+in `28-VALIDATION.md` § PR-04 Sign-off (Round 4) / Developer's Verdict (Round 4), bound to sha256
+`97e1782c953288d8676e5a8e79f48696e0b3d4c6f4da32f314a4989f089f57d5`.
+
+All six Wave 0 files exist and are exercised by their plan's own green rows. The Validation
+Sign-Off checklist above is now fully ticked. `status: passed`, `nyquist_compliant: true` and
+`wave_0_complete: true` are set in the frontmatter per this audit.
+
+TD-05 requirement tick: applied in `.planning/REQUIREMENTS.md` by this same plan (31-10), after
+this verdict, per the tick-after-verification rule (STATE.md § Carried into the next milestone).
+No gap was found this round; nothing is deferred.
