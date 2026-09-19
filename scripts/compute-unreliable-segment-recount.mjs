@@ -42,6 +42,11 @@
  * `.planning/phases/32-unreliable-segment-detection-calibration/32-CALIBRATION.md` (the
  * committed calibration artifact, written by plan 32-07 — until that plan lands, `main()` fails
  * closed with a readable "artifact missing" message rather than throwing). Writes nothing, ever.
+ *
+ * ARTIFACT CONTRACT (shared with plans 32-06/32-07, which render it; this file parses it):
+ * a `## Chosen constants` heading with `UNRELIABLE_SPEED_LIMIT_MPS`/`UNRELIABLE_EXCESS_FLOOR_M`
+ * rows, and a `## Per-segment table — 3475724402 (detector output)` heading whose table header is
+ * exactly `CONTRACT_HEADER` below.
  */
 
 import { readFileSync } from 'fs';
