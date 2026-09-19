@@ -39,12 +39,12 @@ See: .planning/PROJECT.md (updated 2026-09-08)
 
 ## Current Position
 
-Phase: 30
-Plan: 8 of 8 complete
-Status: Milestone complete
-Last activity: 2026-09-18 -- Phase 30 verified (12/12 must-haves) and complete; v2.2 milestone complete
+Phase: 31
+Plan: 0 of 0 (not planned yet)
+Status: Audited — tech_debt; Phase 31 added, ready for /gsd-discuss-phase 31
+Last activity: 2026-09-19 -- v2.2 close-out audit (27/27 requirements, 5/5 phases, status tech_debt); MERGE-01 discharged (origin merged, +9 activities, PR-04 Round 3 sign-off, pushed ad59daeb); Phase 31 tech-debt closure added
 
-Progress: [██████████] 100% (5/5 v2.2 phases; Phase 30 complete and verified)
+Progress: [████████░░] 83% (5/6 v2.2 phases; Phase 31 not started)
 
 ## Performance Metrics
 
@@ -89,6 +89,10 @@ Progress: [██████████] 100% (5/5 v2.2 phases; Phase 30 compl
 | Phase 30 P01 | 25min | 3 tasks | 17 files |
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 31 added (2026-09-19): Tech-Debt Closure — Silent-Failure Guards & Docs Reconciliation. Source: `v2.2-MILESTONE-AUDIT.md` (option B chosen over completing with the debt). Scope seeded in ROADMAP § Phase 31; out-of-scope items recorded there so they are not re-litigated.
 
 ### Decisions
 
