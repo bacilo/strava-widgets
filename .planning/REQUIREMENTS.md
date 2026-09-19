@@ -13,7 +13,7 @@ Scoped from a live investigation on 2026-09-19 of three developer-flagged activi
 ### Unreliable-segment detection (SEG)
 
 - [ ] **SEG-01**: One detector (`src/analytics/unreliable-segments.ts`) identifies unreliable segments from the committed `t`/`d` channels alone — no lat/lng, no `export_data/` — so CI computes it. It judges maximal advancing *runs* by their aggregate implied speed, never single samples, so decimation aliasing (53% of streams alternate full/zero distance) does not fire it and a capped slew diluted across several samples does not escape it.
-- [ ] **SEG-02**: A slew burst on either or both sides of a gap is merged with that gap into a single segment that conserves its real distance and real elapsed time. On 3475724402 all 30 measured bursts merge into their 18 gaps; the merged segments' summed distance and time are asserted against values derived independently of the detector.
+- [ ] **SEG-02**: A slew burst on either or both sides of a gap is merged with that gap into a single segment that conserves its real distance and real elapsed time. On 3475724402 no burst is left unmerged or labelled isolated (the uncalibrated 2026-09-19 scoping probe found 30 bursts, all adjacent to 18 gaps — a reference to reconcile against, not a pinned value); each merged segment's distance and elapsed time are asserted against a per-segment table derived independently of the detector.
 - [ ] **SEG-03**: Bursts with no timestamp gap are detected — both the hidden-pause case (3475734189: 199 m at t=1353–1360, contiguous 1 Hz) and the isolated GPS-jump case (3475740390: five jumps of 25–52 m between km 6.9 and 7.7, distance-triggered sampling) — and each segment records which of the three mechanisms (gap-adjacent / hidden-pause / isolated-jump) produced it.
 - [ ] **SEG-04**: The speed limit and adjacency rule are calibrated against the archive in a committed, regenerable, idempotent calibration artifact, with an explicit non-circularity argument (the calibration population provably excludes what the threshold detects) and a stated disposition for genuine device over-measurement (the Suunto 17 m/s descent sample): whether it is detected, and if so that it is flagged under its own mechanism label rather than corrected. The artifact replaces the crude 259/1,873 and 121/1,873 scoping figures with figures of record.
 - [ ] **SEG-05**: The detector is the single source — pace derivation, quality signals and best efforts all consume its output, and the single-source audit test is extended to it and shown catching a planted second implementation.
@@ -84,7 +84,29 @@ Deferred, tracked, not in this roadmap.
 
 ## Traceability
 
-Filled by the roadmapper.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
+| SEG-01 | Phase 32 | Pending |
+| SEG-02 | Phase 32 | Pending |
+| SEG-03 | Phase 32 | Pending |
+| SEG-04 | Phase 32 | Pending |
+| SEG-05 | Phase 32 | Pending |
+| SEG-06 | Phase 33 | Pending |
+| PACE-08 | Phase 33 | Pending |
+| PACE-09 | Phase 33 | Pending |
+| COV-03 | Phase 33 | Pending |
+| PAUSE-01 | Phase 34 | Pending |
+| PAUSE-02 | Phase 34 | Pending |
+| PAUSE-03 | Phase 34 | Pending |
+| STOP-01 | Phase 34 | Pending |
+| STOP-02 | Phase 34 | Pending |
+| STOP-03 | Phase 34 | Pending |
+| RPACE-01 | Phase 35 | Pending |
+| RPACE-02 | Phase 35 | Pending |
+| RPACE-03 | Phase 35 | Pending |
+| PR-06 | Phase 36 | Pending |
+| PR-07 | Phase 36 | Pending |
+| PR-08 | Phase 36 | Pending |
+| PR-09 | Phase 36 | Pending |
+| CUR-04 | Phase 37 | Pending |
+| CUR-06 | Phase 37 | Pending |

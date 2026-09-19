@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
 status: planning
-last_updated: "2026-09-19T15:21:22.080Z"
+last_updated: "2026-09-19T18:00:00.000Z"
 last_activity: 2026-09-19
 progress:
-  total_phases: 0
+  total_phases: 6
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -20,7 +20,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Planning next milestone — v2.2 Pace Data Quality shipped 2026-09-19 (tag `v2.2`); start with `/gsd-new-milestone`. Next phase number is 32.
+**Current focus:** v2.3 Pause & Slew Integrity roadmap created (6 phases, 32-37, 24/24 requirements mapped 2026-09-19); ready to discuss or start with `/gsd-plan-phase 32`.
 
 **Carried into the next milestone** (full list with reasons in PROJECT.md § Active):
 
@@ -45,10 +45,10 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-09-19 — Milestone v2.3 started
+Phase: 32 of 6 (Unreliable-Segment Detection & Calibration)
+Plan: — (not yet planned)
+Status: Ready to plan — roadmap created; discuss or run `/gsd-plan-phase 32`
+Last activity: 2026-09-19 — v2.3 ROADMAP.md created: 6 phases (32-37), 24/24 requirements mapped
 
 ## Performance Metrics
 
