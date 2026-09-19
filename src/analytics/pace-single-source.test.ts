@@ -80,6 +80,37 @@
  * claim that every conceivable second-locus SHAPE (e.g. a hand-rolled loop
  * with no method call at all) is caught — see this plan's SUMMARY.md for the
  * honest scope statement.
+ *
+ * SEG-05a (Phase 32) — the unreliable-segment detector
+ *
+ * Extends this audit to `src/analytics/unreliable-segments.ts` (plan 32-02),
+ * per D-14 and SEG-05a. Confines: the two core arithmetic expressions
+ * (`isFastStep`'s `metres > speedLimitMps * seconds` and `excessMetres`'s
+ * `metres - speedLimitMps * seconds`, both sharing the substring
+ * `speedLimitMps * seconds`); the structural call site `advanceSteps(`; the
+ * three `DetectorParams` keys (`speedLimitMps`, `excessFloorMetres`,
+ * `hiddenPauseMinMetres`) in their colon, comma and object-shorthand-close
+ * forms; and any importer of the module (a static import, `export … from`,
+ * `import type`, or dynamic `import(`) whose specifier ends in
+ * `unreliable-segments.js` or `unreliable-segments'`.
+ *
+ * Maps to the audit's two historically-real blind spots (both closed for
+ * this detector from day one rather than retrofitted): blind spot (1),
+ * non-arithmetic re-implementation (`f32dddd8`), is closed here by the
+ * importer confinement and the `advanceSteps(` structural check — neither
+ * needs a division or comparison to exist to be flagged. Blind spot (2),
+ * formatting-variant misses (CR-03), is closed by the colon/comma/
+ * shorthand-close param-key forms, mirroring `OVERRIDE_LITERALS`'s own
+ * `windowSec,` / `windowSec }` closure.
+ *
+ * The audit bans a second IMPLEMENTATION of the detector's arithmetic or a
+ * second IMPORTER of its exports — it does NOT ban a second CALLER of
+ * `detectUnreliableSegments` reached through its one allowed importer.
+ * `pace-derivation.ts` is allow-listed for import because Phase 33 folds
+ * this detector into `classifyGaps` there (this module's own docblock,
+ * lines 10-16); today it imports nothing from this module. Widening this
+ * allowlist in a later phase needs its own recorded reason, the same
+ * discipline `ALLOWED_FILE_SUFFIX` already holds this file to.
  */
 
 import { readdirSync, readFileSync } from 'node:fs';
@@ -291,6 +322,103 @@ function findConfinedCallSites(
   return matches;
 }
 
+// ---------------------------------------------------------------------------
+// SEG-05a — the unreliable-segment detector containment (see this file's
+// docblock, "SEG-05a (Phase 32)" section, for the full rationale)
+// ---------------------------------------------------------------------------
+
+/** The one file allowed to contain the detector's own arithmetic/structural literals. */
+const DETECTOR_FILE_SUFFIX = 'analytics/unreliable-segments.ts';
+
+/**
+ * Both of the detector's core arithmetic expressions share this exact
+ * substring — `isFastStep`'s `metres > speedLimitMps * seconds` and
+ * `excessMetres`'s `metres - speedLimitMps * seconds` — so one needle covers
+ * both without a broader shape that would false-positive elsewhere.
+ */
+const DETECTOR_ARITHMETIC_LITERALS = ['speedLimitMps * seconds'] as const;
+
+/** The detector's structural call site — non-arithmetic, closes blind spot (1). */
+const DETECTOR_STRUCTURAL_LITERALS = ['advanceSteps('] as const;
+
+/**
+ * Any module specifier ending in `unreliable-segments.js` (explicit `.js`
+ * extension) or a bare `unreliable-segments'` (no extension) closing quote —
+ * covers a static import, `export … from`, `import type`, or a dynamic
+ * `import(` call, since all four spell the specifier text identically.
+ * Non-arithmetic, closes blind spot (1)'s importer half.
+ */
+const DETECTOR_IMPORTER_NEEDLES = ["unreliable-segments.js'", "unreliable-segments'"] as const;
+
+/**
+ * The three `DetectorParams` keys in their colon, comma and
+ * object-shorthand-close forms — closes blind spot (2) (CR-03's
+ * formatting-variant miss) for this detector from day one. Confined via
+ * `findConfinedCallSites`, which already skips a `key:` match followed by a
+ * `number`/`string`/`boolean` type annotation.
+ */
+const DETECTOR_PARAM_LITERALS = [
+  'speedLimitMps:',
+  'speedLimitMps,',
+  'speedLimitMps }',
+  'excessFloorMetres:',
+  'excessFloorMetres,',
+  'excessFloorMetres }',
+  'hiddenPauseMinMetres:',
+  'hiddenPauseMinMetres,',
+  'hiddenPauseMinMetres }',
+] as const;
+
+/** True iff `path` is the detector itself or any test file (including this audit's own file). */
+function isDetectorOrTestFile(path: string): boolean {
+  return path.endsWith(DETECTOR_FILE_SUFFIX) || path.endsWith('.test.ts');
+}
+
+/** True iff `path` is the detector, its one allowed future importer, or any test file. */
+function isDetectorOrImporterOrTestFile(path: string): boolean {
+  return (
+    path.endsWith(DETECTOR_FILE_SUFFIX) || path.endsWith(ALLOWED_FILE_SUFFIX) || path.endsWith('.test.ts')
+  );
+}
+
+/**
+ * Pure scanner (same shape as `findStreamPaceViolations`): data in,
+ * violations out, never throws, never reads the disk. Covers the detector's
+ * arithmetic literal, its structural call-site literal, and its importer
+ * confinement. Param-key confinement is asserted separately via
+ * `findConfinedCallSites(files, DETECTOR_PARAM_LITERALS)` — a different
+ * result shape (`OverrideMatch`, not `StreamPaceViolation`) — mirroring how
+ * `OVERRIDE_LITERALS`/`GAP_MEMBERSHIP_LITERALS` are asserted separately from
+ * `findStreamPaceViolations` above.
+ */
+export function findUnreliableSegmentViolations(files: readonly SourceFile[]): StreamPaceViolation[] {
+  const violations: StreamPaceViolation[] = [];
+
+  for (const file of files) {
+    const stripped = stripComments(file.source);
+
+    if (!isDetectorOrTestFile(file.path)) {
+      for (const needle of DETECTOR_ARITHMETIC_LITERALS) {
+        const count = countOccurrences(stripped, needle);
+        if (count > 0) violations.push({ path: file.path, needle, count });
+      }
+      for (const needle of DETECTOR_STRUCTURAL_LITERALS) {
+        const count = countOccurrences(stripped, needle);
+        if (count > 0) violations.push({ path: file.path, needle, count });
+      }
+    }
+
+    if (!isDetectorOrImporterOrTestFile(file.path)) {
+      for (const needle of DETECTOR_IMPORTER_NEEDLES) {
+        const count = countOccurrences(stripped, needle);
+        if (count > 0) violations.push({ path: file.path, needle, count });
+      }
+    }
+  }
+
+  return violations;
+}
+
 describe('PACE-01 Criterion 4 / D-18 — single-source stream-pace audit', () => {
   const { files, failures } = readSourceTree(SRC_ROOT);
 
@@ -448,5 +576,123 @@ describe('PACE-01 Criterion 4 — the audit is demonstrated catching a reintrodu
     };
     const cleanMatches = findConfinedCallSites([rewrittenFile], OVERRIDE_LITERALS);
     expect(cleanMatches).toEqual([]);
+  });
+});
+
+describe('SEG-05a — single-source audit extended to the unreliable-segment detector', () => {
+  const { files } = readSourceTree(SRC_ROOT);
+
+  it('non-vacuous: unreliable-segments.ts itself carries the arithmetic and structural literals, and the param-literal scan finds real matches', () => {
+    const detectorFile = files.find((f) => f.path.endsWith(DETECTOR_FILE_SUFFIX));
+    expect(detectorFile, 'expected to find unreliable-segments.ts in the scanned file list').toBeTruthy();
+    const stripped = stripComments(detectorFile!.source);
+
+    expect(countOccurrences(stripped, 'speedLimitMps * seconds')).toBeGreaterThanOrEqual(2);
+    expect(countOccurrences(stripped, 'advanceSteps(')).toBeGreaterThanOrEqual(1);
+
+    const paramMatches = findConfinedCallSites(files, DETECTOR_PARAM_LITERALS);
+    expect(
+      paramMatches.length,
+      'expected at least one real DetectorParams object literal (from unreliable-segments.test.ts) — a check that finds nothing would be unpassable, the mirror of vacuous'
+    ).toBeGreaterThan(0);
+  });
+
+  it('zero arithmetic, structural or importer violations exist outside unreliable-segments.ts, its one allowed importer, and *.test.ts files', () => {
+    const violations = findUnreliableSegmentViolations(files);
+    const message = violations.map((v) => `${v.path}: contains "${v.needle}" (${v.count}x)`).join('\n');
+    expect(violations, `violations found:\n${message}`).toEqual([]);
+  });
+
+  it('zero DetectorParams param-key (colon/comma/shorthand-close) offenders exist outside unreliable-segments.ts and *.test.ts files', () => {
+    const matches = findConfinedCallSites(files, DETECTOR_PARAM_LITERALS);
+    const offenders = matches.filter((m) => !isDetectorOrTestFile(m.path));
+    expect(
+      offenders,
+      `param-literal offenders found outside unreliable-segments.ts/*.test.ts: ${JSON.stringify(offenders)}`
+    ).toEqual([]);
+  });
+});
+
+describe('SEG-05a — the audit is demonstrated catching a reintroduced second unreliable-segment implementation (planted, permanent)', () => {
+  it('(1) an inline re-implementation of the fast-step arithmetic is flagged with the exact { path, needle }, and produces zero violations once the literal is removed', () => {
+    const plantedPath = 'src/dashboard/views/planted-second-unreliable-impl.ts';
+    const plantedFile: SourceFile = {
+      path: plantedPath,
+      source: [
+        '// A deliberately reintroduced second unreliable-segment-detector implementation.',
+        'export function leakyIsFast(metres: number, speedLimitMps: number, seconds: number): boolean {',
+        '  return metres > speedLimitMps * seconds;',
+        '}',
+      ].join('\n'),
+    };
+
+    const violations = findUnreliableSegmentViolations([plantedFile]);
+    expect(violations).toEqual([{ path: plantedPath, needle: 'speedLimitMps * seconds', count: 1 }]);
+
+    const cleanedFile: SourceFile = {
+      path: plantedPath,
+      source: 'export function safeIsFast(): boolean {\n  return false;\n}',
+    };
+    expect(findUnreliableSegmentViolations([cleanedFile])).toEqual([]);
+  });
+
+  it('(2) a non-arithmetic second importer of the detector module is flagged, and is not flagged when the same file imports a different module', () => {
+    const plantedPath = 'src/analytics/planted-second-importer.ts';
+    const plantedFile: SourceFile = {
+      path: plantedPath,
+      source: "import { detectUnreliableSegments } from './unreliable-segments.js';\n",
+    };
+
+    const violations = findUnreliableSegmentViolations([plantedFile]);
+    expect(violations).toEqual([{ path: plantedPath, needle: "unreliable-segments.js'", count: 1 }]);
+
+    const differentImportFile: SourceFile = {
+      path: plantedPath,
+      source: "import { validateStreamSeries } from './best-effort-utils.js';\n",
+    };
+    expect(findUnreliableSegmentViolations([differentImportFile])).toEqual([]);
+  });
+
+  it('(3) a formatting-variant object-shorthand call site is flagged for the comma and shorthand-close param forms, and produces zero matches once removed', () => {
+    const plantedPath = 'src/dashboard/views/planted-shorthand.ts';
+    const plantedFile: SourceFile = {
+      path: plantedPath,
+      source: [
+        'const speedLimitMps = 5;',
+        'const excessFloorMetres = 2;',
+        'const opts = { speedLimitMps, excessFloorMetres };',
+      ].join('\n'),
+    };
+
+    const matches = findConfinedCallSites([plantedFile], DETECTOR_PARAM_LITERALS);
+    const offenders = matches.filter((m) => !isDetectorOrTestFile(m.path));
+    const literalsMatched = new Set(offenders.map((m) => m.literal));
+    expect(literalsMatched.has('speedLimitMps,')).toBe(true);
+    expect(literalsMatched.has('excessFloorMetres }')).toBe(true);
+    expect(offenders.every((m) => m.path === plantedPath)).toBe(true);
+
+    const cleanedFile: SourceFile = {
+      path: plantedPath,
+      source: 'const opts = { limit: 5, floor: 2 };',
+    };
+    const cleanMatches = findConfinedCallSites([cleanedFile], DETECTOR_PARAM_LITERALS);
+    expect(cleanMatches).toEqual([]);
+  });
+
+  it('(4) a planted call to advanceSteps( outside the detector/test files is flagged, and produces zero violations once removed', () => {
+    const plantedPath = 'src/dashboard/views/planted-steps.ts';
+    const plantedFile: SourceFile = {
+      path: plantedPath,
+      source: 'export const steps = advanceSteps(t, d, gaps);\n',
+    };
+
+    const violations = findUnreliableSegmentViolations([plantedFile]);
+    expect(violations).toEqual([{ path: plantedPath, needle: 'advanceSteps(', count: 1 }]);
+
+    const cleanedFile: SourceFile = {
+      path: plantedPath,
+      source: 'export const steps = computeSteps(t, d, gaps);\n',
+    };
+    expect(findUnreliableSegmentViolations([cleanedFile])).toEqual([]);
   });
 });
