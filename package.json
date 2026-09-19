@@ -27,6 +27,7 @@
     "compute-pace-quality-recount": "node scripts/compute-pace-quality-recount.mjs",
     "compute-elevation-recount": "node scripts/compute-elevation-recount.mjs",
     "compute-pr-ceiling-recount": "node scripts/compute-pr-ceiling-recount.mjs",
+    "compute-stream-checksums": "node scripts/compute-stream-checksums.mjs",
     "compute-heatmap-data": "node scripts/compute-heatmap-data.mjs",
     "build-widget": "vite build",
     "build-widgets": "node scripts/build-widgets.mjs",
