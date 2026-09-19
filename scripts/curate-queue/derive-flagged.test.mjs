@@ -15,7 +15,12 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { buildPrefillReason, deriveFlaggedActivities, summarizeQueue } from './derive-flagged.mjs';
+import {
+  buildPrefillReason,
+  countMalformedExclusions,
+  deriveFlaggedActivities,
+  summarizeQueue,
+} from './derive-flagged.mjs';
 import { recountDemotedActivities } from '../compute-pr-ceiling-recount.mjs';
 
 // REPO_ROOT resolution idiom mirrors scripts/lib/curation-guard.test.mjs.
@@ -309,6 +314,81 @@ describe('deriveFlaggedActivities — __proto__ safety (T-29-12)', () => {
     expect(rows.length).toBe(1);
     expect(rows[0].excluded).toBe(false);
     expect(({}).__proto__.polluted).toBeUndefined();
+  });
+});
+
+describe('countMalformedExclusions — malformed exclusion entries (D-09)', () => {
+  it('a well-formed document with no malformed entries counts 0', () => {
+    const exclusionsDoc = { exclusions: [{ activityId: 'a1', reason: 'bad GPS device' }] };
+    expect(countMalformedExclusions(exclusionsDoc)).toBe(0);
+  });
+
+  it('a non-string activityId is counted as one malformed entry', () => {
+    const exclusionsDoc = { exclusions: [{ activityId: 123, reason: 'bad GPS device' }] };
+    expect(countMalformedExclusions(exclusionsDoc)).toBe(1);
+  });
+
+  it("activityId === '__proto__' is counted as one malformed entry", () => {
+    const exclusionsDoc = JSON.parse(
+      '{"exclusions": [{"activityId": "__proto__", "reason": "r"}]}'
+    );
+    expect(countMalformedExclusions(exclusionsDoc)).toBe(1);
+  });
+
+  it('a non-string reason is counted as one malformed entry', () => {
+    const exclusionsDoc = { exclusions: [{ activityId: 'a1', reason: null }] };
+    expect(countMalformedExclusions(exclusionsDoc)).toBe(1);
+  });
+
+  it('an empty or whitespace-only reason is counted as malformed, one per entry', () => {
+    const exclusionsDoc = {
+      exclusions: [
+        { activityId: 'a1', reason: '' },
+        { activityId: 'a2', reason: '   ' },
+      ],
+    };
+    expect(countMalformedExclusions(exclusionsDoc)).toBe(2);
+  });
+
+  it('two entries sharing one activityId are counted as a single malformed collision', () => {
+    const exclusionsDoc = {
+      exclusions: [
+        { activityId: 'a1', reason: 'first reason' },
+        { activityId: 'a1', reason: 'second reason' },
+      ],
+    };
+    expect(countMalformedExclusions(exclusionsDoc)).toBe(1);
+  });
+
+  it('a missing or null document counts 0 malformed entries, never throws', () => {
+    expect(() => countMalformedExclusions(null)).not.toThrow();
+    expect(countMalformedExclusions(null)).toBe(0);
+    expect(countMalformedExclusions(undefined)).toBe(0);
+  });
+
+  it('a document whose exclusions is not an array counts 0 malformed entries, never throws', () => {
+    expect(() => countMalformedExclusions({ exclusions: 'not-an-array' })).not.toThrow();
+    expect(countMalformedExclusions({ exclusions: 'not-an-array' })).toBe(0);
+  });
+
+  it('deriveFlaggedActivities returns identical rows whether malformed exclusion entries are present or removed', () => {
+    const doc = {
+      activities: {
+        a1: activity('2024-01-01T00:00:00Z', [effort('400m', 'ceiling', 'ceiling reason')]),
+      },
+    };
+    const exclusionsWithMalformed = {
+      exclusions: [
+        { activityId: 123, reason: 'bad' },
+        { activityId: '__proto__', reason: 'bad' },
+        { activityId: 'a1', reason: '' },
+      ],
+    };
+    const exclusionsWithoutMalformed = { exclusions: [] };
+    expect(countMalformedExclusions(exclusionsWithMalformed)).toBe(3);
+    const rowsWithMalformed = deriveFlaggedActivities(doc, exclusionsWithMalformed);
+    const rowsWithoutMalformed = deriveFlaggedActivities(doc, exclusionsWithoutMalformed);
+    expect(rowsWithMalformed).toEqual(rowsWithoutMalformed);
   });
 });
 

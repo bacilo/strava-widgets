@@ -20,7 +20,12 @@
  * inline style attribute, and no stylesheet reference anywhere in this file.
  */
 
-import { buildPrefillReason, deriveFlaggedActivities, summarizeQueue } from './derive-flagged.mjs';
+import {
+  buildPrefillReason,
+  countMalformedExclusions,
+  deriveFlaggedActivities,
+  summarizeQueue,
+} from './derive-flagged.mjs';
 import {
   activityDetailUrl,
   formatActivityDate,
@@ -298,6 +303,18 @@ async function renderQueue(): Promise<void> {
   summary.setAttribute('data-queue-summary', '');
   summary.textContent = `${flaggedCount} flagged · ${excludedCount} already excluded`;
   main.appendChild(summary);
+
+  // TD-03/D-09: rendered only when the count is greater than zero, so an ordinary session (the
+  // real archive today has zero malformed entries) gains no noise — its absence here is that
+  // deliberate choice, not a missing feature. countMalformedExclusions is called once, alongside
+  // deriveFlaggedActivities, with the same exclusionsDoc already loaded above.
+  const malformedCount = countMalformedExclusions(exclusionsDoc);
+  if (malformedCount > 0) {
+    const malformedNote = document.createElement('p');
+    malformedNote.setAttribute('data-queue-malformed-note', '');
+    malformedNote.textContent = `${malformedCount} exclusion entries ignored (malformed)`;
+    main.appendChild(malformedNote);
+  }
 
   const recomputeNote = document.createElement('p');
   recomputeNote.setAttribute('data-queue-recompute-note', '');
