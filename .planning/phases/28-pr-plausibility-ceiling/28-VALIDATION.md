@@ -1375,7 +1375,7 @@ No figure moved for a reason other than TD-04's reformatting or the one already-
 merge (which Round 3 itself already reflects — this run compares against Round 3, not against
 Round 2/pre-merge). Nothing here is a finding beyond what was predicted.
 
-### Drafted rows (verdict `pending` — not answered in this task)
+### Drafted rows (verdict PASS on all three — see Developer's Verdict (Round 4) below)
 
 **R4-1 — the content delta is only what was predicted.**
 The developer reads the diff summary above and confirms the changes are the reason-string
@@ -1386,7 +1386,7 @@ reformatting plus any stated archive drift, and nothing else.
 - CAN FAIL: a record changes hands that was not named (none observed by this task — 0 rank-table
   changes in the diff); a rank table moves (none observed); a count moves with no stated cause
   (none observed — every changed cell traces to the Reason-column addition).
-**Verdict: pending**
+**Verdict: PASS** — blanket approval, "R4-1/R4-2 PASS" (see Developer's Verdict (Round 4) below).
 
 **R4-2 — the numbers reconcile three ways.**
 The developer reads the three independently produced ceiling counts and confirms they agree, and
@@ -1396,7 +1396,7 @@ that the flagged-activity count and the exclusions-accounted line match the reco
   exclusions accounted for, matching Round 3's cited 47.
 - CAN FAIL: any two of the three ceiling figures disagree; the flagged count moves without a cause.
   (Not observed this run — all three agree at 32, flagged stays 47.)
-**Verdict: pending**
+**Verdict: PASS** — blanket approval, "R4-1/R4-2 PASS" (see Developer's Verdict (Round 4) below).
 
 **R4-3 — the margin is legible on a real row.**
 The developer reads one regenerated ceiling reason and confirms the implied speed, the ceiling and
@@ -1424,7 +1424,8 @@ Round 3.
   Reason text (as opposed to its presence in the underlying data file) means the row is **NOT
   EXERCISABLE as originally specified** — struck with this reason recorded, per the plan's own rule,
   rather than silently substituted with `4556693525@1k` without disclosure.
-**Verdict: pending**
+**Verdict: PASS** — "R4-3 PASS via 4556693525@1k" (see Developer's Verdict (Round 4) below); the
+developer did not select the declined "NOT EXERCISABLE" alternative.
 
 ### Reachability Audit (all six CAN PASS / CAN FAIL lines together)
 
@@ -1443,5 +1444,39 @@ Round 3.
   `3475730418@1mi` is judged NOT EXERCISABLE against `28-DIFF.md` itself (struck, reason recorded,
   not silently substituted).
 
-No verdict is pre-filled above. Task 2 (the checkpoint) transcribes the developer's reply verbatim
-into this section and applies the tick disposition rules in its own acceptance criteria.
+### Developer's Verdict (Round 4)
+
+**Developer's verdict (verbatim):** "Approve — R4-1/R4-2 PASS, R4-3 PASS via 4556693525@1k"
+
+Given 2026-09-19 in answer to a three-option prompt that named the sha256
+`97e1782c953288d8676e5a8e79f48696e0b3d4c6f4da32f314a4989f089f57d5`, the diff contents, the
+three-way ceiling figures, and the R4-3 reachability finding above. This is a **blanket approval**
+covering all three rows; no independent per-row observation was volunteered beyond what the chosen
+option's text stated. Recorded here exactly as the developer accepted it, not expanded into
+invented per-row detail:
+
+- **R4-1:** PASS — the only content change is the Reason column plus the `**Generated:**`
+  timestamp; no rank row moved.
+- **R4-2:** PASS — 32 = 32 = 32 (diff ceiling-only = recount `byGuard.ceiling` =
+  `independentCeilingCount`), total `effortsDemoted` 66, flagged 47.
+- **R4-3:** PASS — judged against the in-diff thin-margin row `4556693525@1k` ("implied
+  4.822 m/s exceeds personal ceiling 4.750 m/s by 0.072 m/s (1.28 x p90 3.711 m/s over 1852
+  filtered 1k efforts)") plus the data-file text for `3475730418@1mi` ("implied 4.630 m/s exceeds
+  personal ceiling 4.628 m/s by 0.002 m/s (1.28 x p90 3.616 m/s over 1851 filtered 1mi efforts)"),
+  explicitly acknowledging that `3475730418@1mi`'s own row in the diff's 1mi rank-diff table
+  carries no Reason column.
+
+**Alternative offered and declined:** "Approve, R4-3 NOT EXERCISABLE" — which would have withheld
+the TD-05 tick pending a Reason column being added to rank tables. The developer did not select
+this option.
+
+**Date:** 2026-09-19.
+**Bound to sha256:** `97e1782c953288d8676e5a8e79f48696e0b3d4c6f4da32f314a4989f089f57d5` (current
+committed `28-DIFF.md`), superseding Round 3's
+`cdf9d65499d7ac62123ecc33d1e298ae08a0d07f6740ba7bdcc4cf5fa365b8dd`.
+
+**Disposition (applying the plan's tick rule — TD-05 ticks only if every mapped row PASSes):**
+R4-1 PASS, R4-2 PASS, R4-3 PASS — all three rows PASS. TD-05 is eligible to tick; see
+`REQUIREMENTS.md`. Nothing was written into `28-DIFF.md` by this transcription.
+
+Nothing further is written into `28-DIFF.md`; it remains purely generated.
