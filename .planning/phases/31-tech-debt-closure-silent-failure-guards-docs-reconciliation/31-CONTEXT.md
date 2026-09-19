@@ -101,6 +101,11 @@ this phase's docs pass.
   `/gsd-validate-phase 26`, `27`, `29` are run first (each committed separately). Whatever they
   leave red or cannot fill becomes an explicit Phase 31 task; Phase 31 itself does not hand-edit
   another phase's VALIDATION.md status table.
+  **Done 2026-09-19, before planning** (commits `c5f0e1ef` 29, `faaf7c5e` 26, `4b89773f` 27):
+  all three re-ran green; the only gap was Phase 26's PACE-04 row, whose `-t "histogram"` filter
+  matched 0 tests (vacuous) — repointed to `detail-zones.test.ts -t "PACE-04"` (11 tests). Leftover
+  for this phase: none beyond G-02, already in D-13; `27-VALIDATION.md` stays `status: partial`
+  until D-13 lands, and the plan that closes G-02 must flip it to `passed`.
 
 ### Claude's Discretion
 - Fixture location and naming for D-01 (e.g. `src/analytics/__fixtures__/…` vs. an inline
