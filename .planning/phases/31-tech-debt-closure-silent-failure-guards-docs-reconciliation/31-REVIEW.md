@@ -31,7 +31,7 @@ findings:
   warning: 3
   info: 8
   total: 12
-status: issues_found
+status: fixed
 ---
 
 # Phase 31: Code Review Report
@@ -39,7 +39,7 @@ status: issues_found
 **Reviewed:** 2026-09-19T14:40:00Z
 **Depth:** standard
 **Files Reviewed:** 22
-**Status:** issues_found
+**Status:** fixed
 
 ## Summary
 
@@ -85,6 +85,8 @@ if (!entry || typeof entry !== 'object') {
 ```
 And add a parity test (in `derive-flagged.test.mjs`, which already imports both modules) over a planted document containing every class at once — `null` entry, primitive entry, non-string id, `__proto__`, empty reason, duplicate, and the WR-02 rejected-then-repeated pair — asserting `countMalformedExclusions(doc)` equals `recountDemotedActivities(emptyBestEfforts, doc).malformedExclusions.length`.
 
+**Resolved:** `75ae1ff1` — non-object exclusion entries now push a `malformedExclusions` problem instead of being silently `continue`d past; added a regression test and a cross-implementation parity test in `derive-flagged.test.mjs` against the review's reproduction documents.
+
 ## Warnings
 
 ### WR-01: Ceiling demotion reason can still render `by 0.000 m/s` — the self-contradiction D-10 set out to remove
@@ -105,6 +107,8 @@ reason: `implied ${impliedSpeedMps.toFixed(3)} m/s exceeds personal ceiling ${de
 ```
 (or render the margin at 4 dp, the ceiling's own resolution, so it is always non-zero: `Math.max(margin, 0.0001).toFixed(4)` is not honest — use the ceiling's true precision instead). Add a test with `ceilingMps + 0.0001` asserting `not.toMatch(/by 0\.000 m\/s/)`, and tighten the regex at line 187 to reject `0.000`.
 
+**Resolved:** `33763113` — a margin below 0.0005 m/s now renders `<0.001` instead of a rounded `0.000`, chosen over 4-dp rendering specifically because the live archive's smallest margin (0.002) keeps `data/stats/best-efforts.json` and the signed `28-DIFF.md` byte-unchanged. Tightened the house-register regex test and added a dedicated negative test for `ceilingMps + 0.0001`.
+
 ### WR-02: Recount and queue disagree on a valid entry that follows a rejected entry with the same id
 
 **File:** `scripts/compute-pr-ceiling-recount.mjs:303-309` and `scripts/curate-queue/derive-flagged.mjs:79-83`
@@ -120,6 +124,8 @@ Both surfaces do flag the file, so this is not silent, but the counts and the ex
 
 **Fix:** Move `seenActivityIds.add(entry.activityId)` below the reason check in the recount so only accepted entries claim an id (mirrors the queue and the pipeline's `buildExclusionIndex`), and cover it in the CR-01 parity test.
 
+**Resolved:** `fa38f913` — `seenActivityIds.add()` moved below the reason check so an id is claimed only after acceptance, matching the queue's `map.set()` ordering; added a "rejected then repeated" regression test and extended the `derive-flagged.test.mjs` parity tests with that shape plus a combined all-classes document.
+
 ### WR-03: Calibration reconciliation sentence asserts agreement with the pipeline and the recount without reading either
 
 **File:** `scripts/compute-pr-ceiling-calibration.mjs:750-760`
@@ -133,6 +139,8 @@ for (const a of Object.values(bestEffortsDoc?.activities ?? {}))
 // render: `${sum} — ${sum === shippedCeilingDemotions ? 'matches' : 'DOES NOT MATCH'} the shipped document's ${shippedCeilingDemotions} ceiling demotions`
 ```
 Add a render test for the mismatch branch.
+
+**Resolved:** `2a0a9c45` — added `countShippedCeilingDemotions(bestEffortsDoc)` and rendered the reconciliation sentence as a measured "matches" / "DOES NOT MATCH" comparison against it, with a render test for the mismatch branch. Regenerated `28-CEILING-CALIBRATION.md` twice (idempotent apart from `**Generated:**`); it now reads "19 + 13 = 32 — matches the shipped document's 32 ceiling demotions". `28-DIFF.md`'s sha256 is unchanged.
 
 ## Info
 
