@@ -296,6 +296,58 @@ export function applyCeiling(populations, k, minPopulation) {
 }
 
 /**
+ * WR-08's fix: `applyCeiling`'s `demotedCount` is a NON-EXCLUDED count only —
+ * `buildFilteredPopulations` drops every `excludedFromRecords` effort before
+ * `applyCeiling` ever sees it, so a reader comparing this report's per-run
+ * `demotedCount` against the pipeline's own ceiling-demotion total (which
+ * counts owner-excluded efforts too) sees two numbers that do not reconcile.
+ *
+ * This helper counts the complement, per distance: `excludedFromRecords`
+ * efforts whose own implied speed (`TARGET_METERS[distance] / durationSec`,
+ * the same derivation `buildFilteredPopulations` uses) exceeds that
+ * distance's already-derived `ceilingMps` (from `applied`, `applyCeiling`'s
+ * own output — an owner-excluded effort can only be evaluated against a
+ * ceiling that already exists for its distance; a distance with no personal
+ * ceiling contributes 0). World-record/max-speed-demoted efforts are skipped
+ * on the SAME terms `buildFilteredPopulations` skips them, so this count and
+ * `demotedCount` partition the same universe rather than overlapping:
+ * `applied[key].demotedCount + countOwnerExcludedAboveCeiling(...)[key]` is
+ * the figure the pipeline reports as its total ceiling demotions for that
+ * distance, and `compute-pr-ceiling-recount.mjs --expect-demoted` checks the
+ * archive-wide sum of exactly that.
+ */
+export function countOwnerExcludedAboveCeiling(bestEffortsDoc, applied) {
+  const counts = {};
+  for (const key of TARGET_ORDER) counts[key] = 0;
+
+  const activities = bestEffortsDoc?.activities ?? {};
+  for (const activityId of Object.keys(activities)) {
+    const activity = activities[activityId];
+    if (!activity) continue;
+
+    for (const effort of activity.efforts ?? []) {
+      if (!effort || !effort.excludedFromRecords) continue;
+
+      const guard = effort.demotion?.guard;
+      if (guard === 'world-record' || guard === 'max-speed') continue;
+
+      const meters = TARGET_METERS[effort.distance];
+      if (!meters || !(effort.durationSec > 0)) continue;
+
+      const ceilingEntry = applied ? applied[effort.distance] : null;
+      if (!ceilingEntry || ceilingEntry.ceilingMps === null) continue;
+
+      const speedMps = meters / effort.durationSec;
+      if (speedMps > ceilingEntry.ceilingMps) {
+        counts[effort.distance] = (counts[effort.distance] ?? 0) + 1;
+      }
+    }
+  }
+
+  return counts;
+}
+
+/**
  * WR-07's fix: selects the distance with the greatest ABSOLUTE drift from
  * `report.reconciliation` (never a signed comparison — a drift of -7 outranks
  * a drift of +5), breaking ties deterministically by `TARGET_ORDER` position
@@ -445,6 +497,7 @@ export function buildCalibrationReport(bestEffortsDoc, indexDoc) {
   const { n: minPopulation, minPointsAboveBoundary, pointsAboveBoundary } = deriveMinimumPopulation();
   const applied = k === null ? null : applyCeiling(populations, k, minPopulation);
   const riegel = compareRiegelGate(populations);
+  const ownerExcludedAboveCeiling = countOwnerExcludedAboveCeiling(bestEffortsDoc, applied);
 
   // "## Why not a percentile" — the p99.5 self-defeat finding, recomputed
   // live (never copied from 28-CONTEXT.md's own version of this finding).
@@ -500,6 +553,7 @@ export function buildCalibrationReport(bestEffortsDoc, indexDoc) {
     argmaxDistance,
     kPerDistance,
     applied,
+    ownerExcludedAboveCeiling,
     riegel,
     percentileFinding,
     sensitivity,
@@ -665,23 +719,46 @@ export function renderCalibrationMarkdown(report) {
   // ## Resulting coverage and demotions (reported, not targeted)
   lines.push('## Resulting coverage and demotions (reported, not targeted)');
   lines.push('');
-  lines.push('| Distance | Ceiling (m/s) | Ceiling (time) | Eligible | n | Demoted | Demoted of top 10 |');
-  lines.push('|---|---|---|---|---|---|---|');
+  lines.push(
+    '| Distance | Ceiling (m/s) | Ceiling (time) | Eligible | n | Demoted (non-excluded) | ' +
+      'Owner-excluded above ceiling | Demoted of top 10 |'
+  );
+  lines.push('|---|---|---|---|---|---|---|---|');
+  let totalNonExcludedDemoted = 0;
+  let totalOwnerExcludedAboveCeiling = 0;
   for (const key of TARGET_ORDER) {
     const a = report.applied ? report.applied[key] : null;
+    const ownerExcluded = report.ownerExcludedAboveCeiling ? (report.ownerExcludedAboveCeiling[key] ?? 0) : 0;
+    totalOwnerExcludedAboveCeiling += ownerExcluded;
     if (!a || !a.eligible) {
       lines.push(
         `| ${key} | — | no personal ceiling — population below floor | ${a ? a.eligible : false} | ` +
-          `${a ? a.n : report.kPerDistance[key].n} | 0 | 0 |`
+          `${a ? a.n : report.kPerDistance[key].n} | 0 | ${ownerExcluded} | 0 |`
       );
     } else {
       const ceilingSec = secondsFromSpeed(key, a.ceilingMps);
+      totalNonExcludedDemoted += a.demotedCount;
       lines.push(
         `| ${key} | ${formatMps(a.ceilingMps)} | ${formatSec(ceilingSec)} | true | ${a.n} | ` +
-          `${a.demotedCount} | ${a.demotedTop10Count} of 10 |`
+          `${a.demotedCount} | ${ownerExcluded} | ${a.demotedTop10Count} of 10 |`
       );
     }
   }
+  lines.push('');
+  const totalCeilingDemotions = totalNonExcludedDemoted + totalOwnerExcludedAboveCeiling;
+  lines.push(
+    `Reconciliation, stated once so \`${totalNonExcludedDemoted}\` (this report's own "Demoted ` +
+      '(non-excluded)" column, summed) never looks like it disagrees with the pipeline\'s own count: ' +
+      'the filtered population `deriveCeilingMultiplier`/`applyCeiling` consult deliberately excludes ' +
+      "every owner-excluded effort (the population that DERIVES the ceiling must not be shaped by the " +
+      "owner's own curation calls), so this report's demoted count alone is always narrower than the " +
+      'pipeline\'s total. Adding back the ' +
+      `${totalOwnerExcludedAboveCeiling} owner-excluded effort(s) also above the same ceiling (the ` +
+      '"Owner-excluded above ceiling" column, summed) gives ' +
+      `${totalNonExcludedDemoted} + ${totalOwnerExcludedAboveCeiling} = ${totalCeilingDemotions}, the ` +
+      "figure the pipeline reports as its total ceiling demotions and the one " +
+      '`compute-pr-ceiling-recount.mjs --expect-demoted` checks.'
+  );
   lines.push('');
   if (report.fourHundredCeilingSec !== null && report.applied) {
     const a400 = report.applied['400m'];
