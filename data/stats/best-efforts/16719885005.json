@@ -10,6 +10,7 @@
       "startOffsetSec": 3511,
       "endOffsetSec": 3646.3,
       "lowConfidence": false,
+      "demotion": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -20,6 +21,7 @@
       "startOffsetSec": 3295,
       "endOffsetSec": 3643.1,
       "lowConfidence": false,
+      "demotion": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -30,6 +32,7 @@
       "startOffsetSec": 359,
       "endOffsetSec": 935.8,
       "lowConfidence": false,
+      "demotion": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -40,6 +43,7 @@
       "startOffsetSec": 0,
       "endOffsetSec": 1816.2,
       "lowConfidence": false,
+      "demotion": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -50,6 +54,7 @@
       "startOffsetSec": 0,
       "endOffsetSec": 3674,
       "lowConfidence": false,
+      "demotion": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     }

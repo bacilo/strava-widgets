@@ -1,0 +1,123 @@
+{
+  "activityId": "14392112568",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0.01181434599156118,
+      "sampleCount": 1186
+    },
+    "gapProfile": {
+      "tier": "severe",
+      "gapFraction": 0.20143381710089175,
+      "recordingGapSec": 1141,
+      "pauseSec": 11,
+      "spanSec": 5719
+    },
+    "impossibleSamples": {
+      "tier": "none",
+      "count": 0,
+      "maxImpliedSpeedMps": null,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 3.3999999999999773
+      },
+      "closureDrift": {
+        "state": "not-computable",
+        "deltaM": null,
+        "startEndDistM": null
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 0.40000000000009095,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "garmin-fenix-6-pro",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.23,
+      "elapsedSec": 5718,
+      "movingSec": 4648
+    },
+    "anySevere": true,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 136,
+      "endSec": 171,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 241,
+      "endSec": 281,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 281,
+      "endSec": 282,
+      "kind": "pause"
+    },
+    {
+      "startSec": 412,
+      "endSec": 441,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 1123,
+      "endSec": 1138,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 1846,
+      "endSec": 2106,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 4702,
+      "endSec": 4760,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 4889,
+      "endSec": 4904,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 4935,
+      "endSec": 5547,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 5547,
+      "endSec": 5557,
+      "kind": "pause"
+    },
+    {
+      "startSec": 5557,
+      "endSec": 5634,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 10,
+    "longestRunSamples": 4,
+    "longestRunSec": 64,
+    "medianRunSamples": 1,
+    "p90RunSec": 58.599999999999994
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": null
+}

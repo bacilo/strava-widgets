@@ -1,0 +1,88 @@
+{
+  "activityId": "13252484237",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0.002109704641350211,
+      "sampleCount": 949
+    },
+    "gapProfile": {
+      "tier": "none",
+      "gapFraction": 0.016452442159383032,
+      "recordingGapSec": 64,
+      "pauseSec": 0,
+      "spanSec": 3890
+    },
+    "impossibleSamples": {
+      "tier": "none",
+      "count": 0,
+      "maxImpliedSpeedMps": null,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 7.800000000000011
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": null,
+        "startEndDistM": 867.0704911800278
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 2.3999999999999773,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "garmin-fenix-6-pro",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.01,
+      "elapsedSec": 3888,
+      "movingSec": 3836
+    },
+    "anySevere": false,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 2216,
+      "endSec": 2229,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2615,
+      "endSec": 2626,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2822,
+      "endSec": 2844,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3387,
+      "endSec": 3405,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 2,
+    "longestRunSamples": 1,
+    "longestRunSec": 18,
+    "medianRunSamples": 1,
+    "p90RunSec": 17.5
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 867.0704911800278
+}

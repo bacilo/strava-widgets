@@ -1,0 +1,83 @@
+{
+  "activityId": "5536136005",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0,
+      "sampleCount": 2373
+    },
+    "gapProfile": {
+      "tier": "none",
+      "gapFraction": 0.02266639192252215,
+      "recordingGapSec": 110,
+      "pauseSec": 0,
+      "spanSec": 4853
+    },
+    "impossibleSamples": {
+      "tier": "none",
+      "count": 0,
+      "maxImpliedSpeedMps": null,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 171.3
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": null,
+        "startEndDistM": 867.9203472448418
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 0.5,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "strava-app-gpx",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.02,
+      "elapsedSec": 4852,
+      "movingSec": 4745
+    },
+    "anySevere": false,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 299,
+      "endSec": 327,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 483,
+      "endSec": 526,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 904,
+      "endSec": 943,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 0,
+    "longestRunSamples": 0,
+    "longestRunSec": 0,
+    "medianRunSamples": 0,
+    "p90RunSec": 0
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 867.9203472448418
+}

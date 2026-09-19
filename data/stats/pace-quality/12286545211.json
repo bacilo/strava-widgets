@@ -1,0 +1,92 @@
+{
+  "activityId": "12286545211",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0,
+      "sampleCount": 2158
+    },
+    "gapProfile": {
+      "tier": "minor",
+      "gapFraction": 0.18459796149490373,
+      "recordingGapSec": 978,
+      "pauseSec": 0,
+      "spanSec": 5298
+    },
+    "impossibleSamples": {
+      "tier": "minor",
+      "count": 3,
+      "maxImpliedSpeedMps": 26.299999999999997,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 12.9
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": -0.09999999999999964,
+        "startEndDistM": 0
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 0.40000000000000036,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "strava-app-gpx",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.22,
+      "elapsedSec": 5294,
+      "movingSec": 4322
+    },
+    "anySevere": false,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 4284,
+      "endSec": 5262,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [
+    {
+      "index": 13,
+      "impliedSpeedMps": 26.299999999999997,
+      "dtSec": 2,
+      "ddM": 52.599999999999994
+    },
+    {
+      "index": 16,
+      "impliedSpeedMps": 11.75,
+      "dtSec": 2,
+      "ddM": 23.5
+    },
+    {
+      "index": 22,
+      "impliedSpeedMps": 13.949999999999989,
+      "dtSec": 2,
+      "ddM": 27.899999999999977
+    }
+  ],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 0,
+    "longestRunSamples": 0,
+    "longestRunSec": 0,
+    "medianRunSamples": 0,
+    "p90RunSec": 0
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 0
+}

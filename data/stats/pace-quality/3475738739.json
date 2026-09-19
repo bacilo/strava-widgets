@@ -1,0 +1,91 @@
+{
+  "activityId": "3475738739",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0.013872832369942197,
+      "sampleCount": 1731
+    },
+    "gapProfile": {
+      "tier": "none",
+      "gapFraction": 0.009829430471234461,
+      "recordingGapSec": 0,
+      "pauseSec": 34,
+      "spanSec": 3459
+    },
+    "impossibleSamples": {
+      "tier": "minor",
+      "count": 2,
+      "maxImpliedSpeedMps": 14.75,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": -4
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": null,
+        "startEndDistM": 4577.828617823972
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 0.5,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "no-device-name",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.04,
+      "elapsedSec": 3459,
+      "movingSec": 3324
+    },
+    "anySevere": false,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 1492,
+      "endSec": 1510,
+      "kind": "pause"
+    },
+    {
+      "startSec": 2034,
+      "endSec": 2050,
+      "kind": "pause"
+    }
+  ],
+  "impossibleSamples": [
+    {
+      "index": 1332,
+      "impliedSpeedMps": 12.300000000000182,
+      "dtSec": 2,
+      "ddM": 24.600000000000364
+    },
+    {
+      "index": 1659,
+      "impliedSpeedMps": 14.75,
+      "dtSec": 2,
+      "ddM": 29.5
+    }
+  ],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 7,
+    "longestRunSamples": 9,
+    "longestRunSec": 18,
+    "medianRunSamples": 2,
+    "p90RunSec": 16.8
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 4577.828617823972
+}

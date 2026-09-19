@@ -1,0 +1,88 @@
+{
+  "activityId": "5930499376",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0.004038772213247173,
+      "sampleCount": 1239
+    },
+    "gapProfile": {
+      "tier": "minor",
+      "gapFraction": 0.0676075971423593,
+      "recordingGapSec": 388,
+      "pauseSec": 0,
+      "spanSec": 5739
+    },
+    "impossibleSamples": {
+      "tier": "none",
+      "count": 0,
+      "maxImpliedSpeedMps": null,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 2
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": null,
+        "startEndDistM": 5825.16200116986
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 0.6000000000000227,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "garmin-fenix-6-pro",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.08,
+      "elapsedSec": 5739,
+      "movingSec": 5337
+    },
+    "anySevere": false,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 1927,
+      "endSec": 1940,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2358,
+      "endSec": 2387,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 5099,
+      "endSec": 5139,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 5347,
+      "endSec": 5653,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 5,
+    "longestRunSamples": 1,
+    "longestRunSec": 306,
+    "medianRunSamples": 1,
+    "p90RunSec": 188.80000000000004
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 5825.16200116986
+}

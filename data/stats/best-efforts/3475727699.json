@@ -4,12 +4,30 @@
   "distanceSource": "native",
   "efforts": [
     {
+      "distance": "400m",
+      "durationSec": 12.4,
+      "paceSecPerKm": 31.1,
+      "startOffsetSec": 3480,
+      "endOffsetSec": 3492.4,
+      "lowConfidence": false,
+      "demotion": {
+        "guard": "max-speed",
+        "reason": "implied 32.14 m/s exceeds activity max_speed 28.90 m/s"
+      },
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
       "distance": "1k",
       "durationSec": 193.6,
       "paceSecPerKm": 193.6,
       "startOffsetSec": 3817,
       "endOffsetSec": 4010.6,
       "lowConfidence": false,
+      "demotion": {
+        "guard": "ceiling",
+        "reason": "implied 5.17 m/s exceeds personal ceiling 4.75 m/s (1.28 x p90 3.71 m/s over 1852 filtered 1k efforts)"
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -20,6 +38,7 @@
       "startOffsetSec": 3817,
       "endOffsetSec": 4221.5,
       "lowConfidence": false,
+      "demotion": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -30,6 +49,7 @@
       "startOffsetSec": 3817,
       "endOffsetSec": 5393.5,
       "lowConfidence": false,
+      "demotion": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -40,6 +60,7 @@
       "startOffsetSec": 3817,
       "endOffsetSec": 7115.9,
       "lowConfidence": false,
+      "demotion": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -50,6 +71,7 @@
       "startOffsetSec": 3817,
       "endOffsetSec": 10982.2,
       "lowConfidence": false,
+      "demotion": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     }

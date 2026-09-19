@@ -1,0 +1,122 @@
+{
+  "activityId": "4511905200",
+  "signals": {
+    "decimation": {
+      "tier": "severe",
+      "zeroAdvanceFraction": 0.296281951975213,
+      "sampleCount": 2583
+    },
+    "gapProfile": {
+      "tier": "minor",
+      "gapFraction": 0.08780053428317008,
+      "recordingGapSec": 457,
+      "pauseSec": 36,
+      "spanSec": 5615
+    },
+    "impossibleSamples": {
+      "tier": "minor",
+      "count": 1,
+      "maxImpliedSpeedMps": 14.5,
+      "countInsideZeroAdvanceRun": 1
+    },
+    "elevation": {
+      "tier": "severe",
+      "subGround": {
+        "flagged": false,
+        "minAltM": -2.8000000000000114
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": null,
+        "startEndDistM": 867.0704911800278
+      },
+      "verticalRate": {
+        "flagged": true,
+        "worstRateMps": 6.5,
+        "violatingSamples": 1
+      }
+    },
+    "deviceEra": {
+      "family": "suunto-9",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.09,
+      "elapsedSec": 5614,
+      "movingSec": 5161
+    },
+    "anySevere": true,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 1350,
+      "endSec": 1390,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 1412,
+      "endSec": 1438,
+      "kind": "pause"
+    },
+    {
+      "startSec": 2632,
+      "endSec": 2634,
+      "kind": "pause"
+    },
+    {
+      "startSec": 2634,
+      "endSec": 2815,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2815,
+      "endSec": 2821,
+      "kind": "pause"
+    },
+    {
+      "startSec": 4560,
+      "endSec": 4562,
+      "kind": "pause"
+    },
+    {
+      "startSec": 4562,
+      "endSec": 4784,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 5408,
+      "endSec": 5422,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [
+    {
+      "index": 3,
+      "impliedSpeedMps": 14.5,
+      "dtSec": 2,
+      "ddM": 29
+    }
+  ],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 639,
+    "longestRunSamples": 13,
+    "longestRunSec": 224,
+    "medianRunSamples": 1,
+    "p90RunSec": 4
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [
+    {
+      "index": 2173,
+      "rateMps": 6.5,
+      "dtSec": 2,
+      "dAltM": 13
+    }
+  ],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 867.0704911800278
+}

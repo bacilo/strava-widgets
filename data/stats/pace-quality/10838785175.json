@@ -1,0 +1,100 @@
+{
+  "activityId": "10838785175",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0.010085728693898134,
+      "sampleCount": 1984
+    },
+    "gapProfile": {
+      "tier": "none",
+      "gapFraction": 0.038137576041179226,
+      "recordingGapSec": 161,
+      "pauseSec": 2,
+      "spanSec": 4274
+    },
+    "impossibleSamples": {
+      "tier": "minor",
+      "count": 1,
+      "maxImpliedSpeedMps": 12.849999999999454,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 12.1
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": -0.6999999999999993,
+        "startEndDistM": 0
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 0.15000000000000036,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "strava-app-gpx",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.02,
+      "elapsedSec": 4275,
+      "movingSec": 4198
+    },
+    "anySevere": false,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 218,
+      "endSec": 297,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3302,
+      "endSec": 3332,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3561,
+      "endSec": 3592,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3592,
+      "endSec": 3594,
+      "kind": "pause"
+    },
+    {
+      "startSec": 3594,
+      "endSec": 3615,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [
+    {
+      "index": 1905,
+      "impliedSpeedMps": 12.849999999999454,
+      "dtSec": 2,
+      "ddM": 25.69999999999891
+    }
+  ],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 12,
+    "longestRunSamples": 3,
+    "longestRunSec": 23,
+    "medianRunSamples": 2,
+    "p90RunSec": 7.800000000000001
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 0
+}

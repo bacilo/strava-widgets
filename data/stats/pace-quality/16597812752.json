@@ -1,0 +1,88 @@
+{
+  "activityId": "16597812752",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0.0045871559633027525,
+      "sampleCount": 1527
+    },
+    "gapProfile": {
+      "tier": "minor",
+      "gapFraction": 0.11643475977946968,
+      "recordingGapSec": 887,
+      "pauseSec": 0,
+      "spanSec": 7618
+    },
+    "impossibleSamples": {
+      "tier": "none",
+      "count": 0,
+      "maxImpliedSpeedMps": null,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 7
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": null,
+        "startEndDistM": 626.2916933306357
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 0.46666666666667805,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "garmin-fenix-6-pro",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.14,
+      "elapsedSec": 7618,
+      "movingSec": 6703
+    },
+    "anySevere": false,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 3535,
+      "endSec": 3556,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 4621,
+      "endSec": 4635,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 6558,
+      "endSec": 7385,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 7417,
+      "endSec": 7442,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 6,
+    "longestRunSamples": 2,
+    "longestRunSec": 21,
+    "medianRunSamples": 1,
+    "p90RunSec": 15.5
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 626.2916933306357
+}

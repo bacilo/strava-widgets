@@ -1,0 +1,91 @@
+{
+  "activityId": "5520899318",
+  "signals": {
+    "decimation": {
+      "tier": "severe",
+      "zeroAdvanceFraction": 0.23749281196089705,
+      "sampleCount": 1740
+    },
+    "gapProfile": {
+      "tier": "none",
+      "gapFraction": 0.021372328458942633,
+      "recordingGapSec": 76,
+      "pauseSec": 0,
+      "spanSec": 3556
+    },
+    "impossibleSamples": {
+      "tier": "minor",
+      "count": 2,
+      "maxImpliedSpeedMps": 40,
+      "countInsideZeroAdvanceRun": 1
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 9
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": null,
+        "startEndDistM": 1410.0131384876793
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 1,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "suunto-9",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.02,
+      "elapsedSec": 3556,
+      "movingSec": 3477
+    },
+    "anySevere": true,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 143,
+      "endSec": 207,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2623,
+      "endSec": 2635,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [
+    {
+      "index": 4,
+      "impliedSpeedMps": 16,
+      "dtSec": 2,
+      "ddM": 32
+    },
+    {
+      "index": 1206,
+      "impliedSpeedMps": 40,
+      "dtSec": 2,
+      "ddM": 80
+    }
+  ],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 352,
+    "longestRunSamples": 4,
+    "longestRunSec": 12,
+    "medianRunSamples": 1,
+    "p90RunSec": 4
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 1410.0131384876793
+}

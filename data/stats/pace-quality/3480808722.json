@@ -1,0 +1,95 @@
+{
+  "activityId": "3480808722",
+  "signals": {
+    "decimation": {
+      "tier": "severe",
+      "zeroAdvanceFraction": 0.20444718962322422,
+      "sampleCount": 1620
+    },
+    "gapProfile": {
+      "tier": "none",
+      "gapFraction": 0.016133942161339423,
+      "recordingGapSec": 44,
+      "pauseSec": 9,
+      "spanSec": 3285
+    },
+    "impossibleSamples": {
+      "tier": "minor",
+      "count": 1,
+      "maxImpliedSpeedMps": 14.5,
+      "countInsideZeroAdvanceRun": 1
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": -14
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": -1.2000000000000455,
+        "startEndDistM": 0
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 3.5,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "suunto-9",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.02,
+      "elapsedSec": 3285,
+      "movingSec": 3232
+    },
+    "anySevere": true,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 0,
+      "endSec": 7,
+      "kind": "pause"
+    },
+    {
+      "startSec": 7,
+      "endSec": 22,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3072,
+      "endSec": 3074,
+      "kind": "pause"
+    },
+    {
+      "startSec": 3074,
+      "endSec": 3103,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [
+    {
+      "index": 5,
+      "impliedSpeedMps": 14.5,
+      "dtSec": 2,
+      "ddM": 29
+    }
+  ],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 303,
+    "longestRunSamples": 4,
+    "longestRunSec": 31,
+    "medianRunSamples": 1,
+    "p90RunSec": 2
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 0
+}

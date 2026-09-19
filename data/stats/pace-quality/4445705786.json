@@ -1,0 +1,61 @@
+{
+  "activityId": "4445705786",
+  "signals": {
+    "decimation": {
+      "tier": "not-computable",
+      "zeroAdvanceFraction": null,
+      "sampleCount": null
+    },
+    "gapProfile": {
+      "tier": "not-computable",
+      "gapFraction": null,
+      "recordingGapSec": null,
+      "pauseSec": null,
+      "spanSec": null
+    },
+    "impossibleSamples": {
+      "tier": "not-computable",
+      "count": null,
+      "maxImpliedSpeedMps": null,
+      "countInsideZeroAdvanceRun": null
+    },
+    "elevation": {
+      "tier": "not-computable",
+      "subGround": {
+        "flagged": false,
+        "minAltM": null
+      },
+      "closureDrift": {
+        "state": "not-computable",
+        "deltaM": null,
+        "startEndDistM": null
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": null,
+        "violatingSamples": null
+      }
+    },
+    "deviceEra": {
+      "family": "no-device-name",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1,
+      "elapsedSec": 3652,
+      "movingSec": 3652
+    },
+    "anySevere": false,
+    "notComputableReason": "no stream committed for this activity"
+  },
+  "gapIntervals": [],
+  "impossibleSamples": [],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": null,
+  "adaptiveWindowSec": null,
+  "notComputableReason": "no stream committed for this activity",
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": null
+}

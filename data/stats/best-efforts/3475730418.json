@@ -4,12 +4,44 @@
   "distanceSource": "native",
   "efforts": [
     {
+      "distance": "400m",
+      "durationSec": 29.3,
+      "paceSecPerKm": 73.2,
+      "startOffsetSec": 9589,
+      "endOffsetSec": 9618.3,
+      "lowConfidence": false,
+      "demotion": {
+        "guard": "world-record",
+        "reason": "implied 13.65 m/s exceeds world-record pace 9.30 m/s"
+      },
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "1k",
+      "durationSec": 87,
+      "paceSecPerKm": 87,
+      "startOffsetSec": 9577,
+      "endOffsetSec": 9664,
+      "lowConfidence": false,
+      "demotion": {
+        "guard": "world-record",
+        "reason": "implied 11.50 m/s exceeds world-record pace 7.58 m/s"
+      },
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
       "distance": "1mi",
       "durationSec": 347.6,
       "paceSecPerKm": 216,
       "startOffsetSec": 9316,
       "endOffsetSec": 9663.6,
       "lowConfidence": false,
+      "demotion": {
+        "guard": "ceiling",
+        "reason": "implied 4.63 m/s exceeds personal ceiling 4.63 m/s (1.28 x p90 3.62 m/s over 1851 filtered 1mi efforts)"
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -20,6 +52,7 @@
       "startOffsetSec": 8053,
       "endOffsetSec": 9663.3,
       "lowConfidence": false,
+      "demotion": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -30,6 +63,7 @@
       "startOffsetSec": 6322,
       "endOffsetSec": 9663.2,
       "lowConfidence": false,
+      "demotion": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -40,6 +74,7 @@
       "startOffsetSec": 2490,
       "endOffsetSec": 9663.3,
       "lowConfidence": false,
+      "demotion": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     }

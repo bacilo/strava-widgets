@@ -1,0 +1,92 @@
+{
+  "activityId": "5274047413",
+  "signals": {
+    "decimation": {
+      "tier": "severe",
+      "zeroAdvanceFraction": 0.29748684979544127,
+      "sampleCount": 1712
+    },
+    "gapProfile": {
+      "tier": "none",
+      "gapFraction": 0.0066570188133140374,
+      "recordingGapSec": 23,
+      "pauseSec": 0,
+      "spanSec": 3455
+    },
+    "impossibleSamples": {
+      "tier": "minor",
+      "count": 3,
+      "maxImpliedSpeedMps": 25,
+      "countInsideZeroAdvanceRun": 1
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": -3.3999999999999773
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": null,
+        "startEndDistM": 3324.1534131690332
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 1,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "suunto-9",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.01,
+      "elapsedSec": 3454,
+      "movingSec": 3425
+    },
+    "anySevere": true,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 1857,
+      "endSec": 1880,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [
+    {
+      "index": 3,
+      "impliedSpeedMps": 22.5,
+      "dtSec": 2,
+      "ddM": 45
+    },
+    {
+      "index": 1055,
+      "impliedSpeedMps": 25,
+      "dtSec": 2,
+      "ddM": 50
+    },
+    {
+      "index": 1471,
+      "impliedSpeedMps": 10.5,
+      "dtSec": 2,
+      "ddM": 21
+    }
+  ],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 462,
+    "longestRunSamples": 3,
+    "longestRunSec": 23,
+    "medianRunSamples": 1,
+    "p90RunSec": 2
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 3324.1534131690332
+}

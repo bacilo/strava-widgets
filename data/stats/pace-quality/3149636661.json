@@ -1,0 +1,210 @@
+{
+  "activityId": "3149636661",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0.008264462809917356,
+      "sampleCount": 969
+    },
+    "gapProfile": {
+      "tier": "minor",
+      "gapFraction": 0.0746954723052172,
+      "recordingGapSec": 300,
+      "pauseSec": 25,
+      "spanSec": 4351
+    },
+    "impossibleSamples": {
+      "tier": "minor",
+      "count": 2,
+      "maxImpliedSpeedMps": 12.599999999999454,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "severe",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 19.8
+      },
+      "closureDrift": {
+        "state": "flagged",
+        "deltaM": -172.6,
+        "startEndDistM": 0
+      },
+      "verticalRate": {
+        "flagged": true,
+        "worstRateMps": 80.39999999999999,
+        "violatingSamples": 3
+      }
+    },
+    "deviceEra": {
+      "family": "garmin-vivoactive-4",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.04,
+      "elapsedSec": 4351,
+      "movingSec": 4185
+    },
+    "anySevere": false,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 0,
+      "endSec": 5,
+      "kind": "pause"
+    },
+    {
+      "startSec": 5,
+      "endSec": 17,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 17,
+      "endSec": 37,
+      "kind": "pause"
+    },
+    {
+      "startSec": 37,
+      "endSec": 55,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 1087,
+      "endSec": 1098,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 1372,
+      "endSec": 1383,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 1402,
+      "endSec": 1414,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 1558,
+      "endSec": 1569,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 1625,
+      "endSec": 1689,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 1819,
+      "endSec": 1831,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2010,
+      "endSec": 2021,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2124,
+      "endSec": 2136,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2142,
+      "endSec": 2154,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2218,
+      "endSec": 2230,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2374,
+      "endSec": 2385,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2548,
+      "endSec": 2570,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2607,
+      "endSec": 2618,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2698,
+      "endSec": 2709,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2868,
+      "endSec": 2882,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3776,
+      "endSec": 3787,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3956,
+      "endSec": 3967,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 4246,
+      "endSec": 4257,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [
+    {
+      "index": 670,
+      "impliedSpeedMps": 12.599999999999454,
+      "dtSec": 1,
+      "ddM": 12.599999999999454
+    },
+    {
+      "index": 673,
+      "impliedSpeedMps": 12.599999999999454,
+      "dtSec": 1,
+      "ddM": 12.599999999999454
+    }
+  ],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 2,
+    "longestRunSamples": 5,
+    "longestRunSec": 55,
+    "medianRunSamples": 4,
+    "p90RunSec": 50.300000000000004
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [
+    {
+      "index": 6,
+      "rateMps": 12,
+      "dtSec": 1,
+      "dAltM": 12
+    },
+    {
+      "index": 7,
+      "rateMps": 6,
+      "dtSec": 1,
+      "dAltM": 6
+    },
+    {
+      "index": 22,
+      "rateMps": 80.39999999999999,
+      "dtSec": 2,
+      "dAltM": -160.79999999999998
+    }
+  ],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 0
+}

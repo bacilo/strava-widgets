@@ -10,6 +10,10 @@
       "startOffsetSec": 2440,
       "endOffsetSec": 2505.5,
       "lowConfidence": true,
+      "demotion": {
+        "guard": "ceiling",
+        "reason": "implied 6.11 m/s exceeds personal ceiling 5.11 m/s (1.28 x p90 3.99 m/s over 1834 filtered 400m efforts)"
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": true
     },
@@ -20,6 +24,7 @@
       "startOffsetSec": 2400,
       "endOffsetSec": 2656.2,
       "lowConfidence": true,
+      "demotion": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": true
     },
@@ -30,6 +35,7 @@
       "startOffsetSec": 231,
       "endOffsetSec": 726.4,
       "lowConfidence": true,
+      "demotion": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": true
     },
@@ -40,6 +46,7 @@
       "startOffsetSec": 271,
       "endOffsetSec": 1922.3,
       "lowConfidence": true,
+      "demotion": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": true
     },
@@ -50,6 +57,7 @@
       "startOffsetSec": 26,
       "endOffsetSec": 3429.8,
       "lowConfidence": true,
+      "demotion": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": true
     }

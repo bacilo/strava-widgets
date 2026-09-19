@@ -1,0 +1,90 @@
+{
+  "activityId": "3523962041",
+  "signals": {
+    "decimation": {
+      "tier": "minor",
+      "zeroAdvanceFraction": 0.1386046511627907,
+      "sampleCount": 2151
+    },
+    "gapProfile": {
+      "tier": "none",
+      "gapFraction": 0.008765185299092726,
+      "recordingGapSec": 57,
+      "pauseSec": 0,
+      "spanSec": 6503
+    },
+    "impossibleSamples": {
+      "tier": "minor",
+      "count": 1,
+      "maxImpliedSpeedMps": 11.333333333333334,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": -5.800000000000011
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": 22.19999999999999,
+        "startEndDistM": 0
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 1.5999999999999848,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "suunto-9",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.01,
+      "elapsedSec": 6503,
+      "movingSec": 6440
+    },
+    "anySevere": false,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 2283,
+      "endSec": 2296,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2696,
+      "endSec": 2729,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 6311,
+      "endSec": 6322,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [
+    {
+      "index": 1385,
+      "impliedSpeedMps": 11.333333333333334,
+      "dtSec": 3,
+      "ddM": 34
+    }
+  ],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 288,
+    "longestRunSamples": 3,
+    "longestRunSec": 33,
+    "medianRunSamples": 1,
+    "p90RunSec": 3
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 0
+}

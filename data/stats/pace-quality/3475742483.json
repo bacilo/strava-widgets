@@ -1,0 +1,93 @@
+{
+  "activityId": "3475742483",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0.0010214504596527069,
+      "sampleCount": 980
+    },
+    "gapProfile": {
+      "tier": "none",
+      "gapFraction": 0.026922009436580626,
+      "recordingGapSec": 97,
+      "pauseSec": 0,
+      "spanSec": 3603
+    },
+    "impossibleSamples": {
+      "tier": "none",
+      "count": 0,
+      "maxImpliedSpeedMps": null,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 8.800000000000011
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": -1,
+        "startEndDistM": 0
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 0.3333333333333333,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "no-device-name",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.02,
+      "elapsedSec": 3603,
+      "movingSec": 3517
+    },
+    "anySevere": false,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 1796,
+      "endSec": 1830,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 1958,
+      "endSec": 1969,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2695,
+      "endSec": 2717,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2730,
+      "endSec": 2742,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3083,
+      "endSec": 3101,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 1,
+    "longestRunSamples": 1,
+    "longestRunSec": 0,
+    "medianRunSamples": 1,
+    "p90RunSec": 0
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 0
+}

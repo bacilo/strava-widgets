@@ -1,0 +1,90 @@
+{
+  "activityId": "8082770631",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0.005847953216374269,
+      "sampleCount": 856
+    },
+    "gapProfile": {
+      "tier": "minor",
+      "gapFraction": 0.14017005926307652,
+      "recordingGapSec": 543,
+      "pauseSec": 1,
+      "spanSec": 3881
+    },
+    "impossibleSamples": {
+      "tier": "minor",
+      "count": 1,
+      "maxImpliedSpeedMps": 32.75,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 9.600000000000023
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": -0.8000000000000114,
+        "startEndDistM": 0
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 0.4000000000000341,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "garmin-fenix-6-pro",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.17,
+      "elapsedSec": 3880,
+      "movingSec": 3330
+    },
+    "anySevere": false,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 474,
+      "endSec": 500,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2747,
+      "endSec": 3264,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3264,
+      "endSec": 3265,
+      "kind": "pause"
+    }
+  ],
+  "impossibleSamples": [
+    {
+      "index": 680,
+      "impliedSpeedMps": 32.75,
+      "dtSec": 2,
+      "ddM": 65.5
+    }
+  ],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 4,
+    "longestRunSamples": 2,
+    "longestRunSec": 518,
+    "medianRunSamples": 1,
+    "p90RunSec": 362.9000000000001
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 0
+}

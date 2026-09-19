@@ -1,0 +1,88 @@
+{
+  "activityId": "12252179008",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0.00792393026941363,
+      "sampleCount": 632
+    },
+    "gapProfile": {
+      "tier": "none",
+      "gapFraction": 0.02934860415175376,
+      "recordingGapSec": 81,
+      "pauseSec": 1,
+      "spanSec": 2794
+    },
+    "impossibleSamples": {
+      "tier": "none",
+      "count": 0,
+      "maxImpliedSpeedMps": null,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 4.800000000000011
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": null,
+        "startEndDistM": 5825.16200116986
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 0.20000000000004547,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "garmin-fenix-6-pro",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.03,
+      "elapsedSec": 2793,
+      "movingSec": 2706
+    },
+    "anySevere": false,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 1005,
+      "endSec": 1055,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 1055,
+      "endSec": 1056,
+      "kind": "pause"
+    },
+    {
+      "startSec": 1258,
+      "endSec": 1276,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 1661,
+      "endSec": 1674,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 3,
+    "longestRunSamples": 2,
+    "longestRunSec": 51,
+    "medianRunSamples": 2,
+    "p90RunSec": 44.400000000000006
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 5825.16200116986
+}

@@ -1,0 +1,110 @@
+{
+  "activityId": "16755573947",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0.004548900682335102,
+      "sampleCount": 1320
+    },
+    "gapProfile": {
+      "tier": "minor",
+      "gapFraction": 0.14101945650426115,
+      "recordingGapSec": 876,
+      "pauseSec": 1,
+      "spanSec": 6219
+    },
+    "impossibleSamples": {
+      "tier": "minor",
+      "count": 1,
+      "maxImpliedSpeedMps": 11.149999999999977,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 7.600000000000023
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": 0,
+        "startEndDistM": 0
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 0.6000000000000227,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "garmin-fenix-6-pro",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.16,
+      "elapsedSec": 6218,
+      "movingSec": 5342
+    },
+    "anySevere": false,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 35,
+      "endSec": 46,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 185,
+      "endSec": 263,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 338,
+      "endSec": 892,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 892,
+      "endSec": 893,
+      "kind": "pause"
+    },
+    {
+      "startSec": 966,
+      "endSec": 1043,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 1207,
+      "endSec": 1349,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2184,
+      "endSec": 2198,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [
+    {
+      "index": 68,
+      "impliedSpeedMps": 11.149999999999977,
+      "dtSec": 2,
+      "ddM": 22.299999999999955
+    }
+  ],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 5,
+    "longestRunSamples": 2,
+    "longestRunSec": 555,
+    "medianRunSamples": 1,
+    "p90RunSec": 364.20000000000005
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 0
+}

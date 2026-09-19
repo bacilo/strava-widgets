@@ -1,0 +1,118 @@
+{
+  "activityId": "i174110108",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0.006306306306306306,
+      "sampleCount": 1111
+    },
+    "gapProfile": {
+      "tier": "minor",
+      "gapFraction": 0.052210365853658534,
+      "recordingGapSec": 274,
+      "pauseSec": 0,
+      "spanSec": 5248
+    },
+    "impossibleSamples": {
+      "tier": "none",
+      "count": 0,
+      "maxImpliedSpeedMps": null,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": -2.1999999999999886
+      },
+      "closureDrift": {
+        "state": "not-computable",
+        "deltaM": null,
+        "startEndDistM": null
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 0.4000000000000341,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "intervals-icu",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.06,
+      "elapsedSec": 5248,
+      "movingSec": 4930
+    },
+    "anySevere": false,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 746,
+      "endSec": 779,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 790,
+      "endSec": 817,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 908,
+      "endSec": 939,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 1660,
+      "endSec": 1671,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 1969,
+      "endSec": 2031,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2288,
+      "endSec": 2304,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2712,
+      "endSec": 2748,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2884,
+      "endSec": 2897,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3987,
+      "endSec": 4008,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 4438,
+      "endSec": 4462,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 7,
+    "longestRunSamples": 1,
+    "longestRunSec": 62,
+    "medianRunSamples": 1,
+    "p90RunSec": 46.400000000000006
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": null
+}

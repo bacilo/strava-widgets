@@ -1,0 +1,85 @@
+{
+  "activityId": "7513569722",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0.003125,
+      "sampleCount": 961
+    },
+    "gapProfile": {
+      "tier": "minor",
+      "gapFraction": 0.11055416318574213,
+      "recordingGapSec": 397,
+      "pauseSec": 0,
+      "spanSec": 3591
+    },
+    "impossibleSamples": {
+      "tier": "minor",
+      "count": 1,
+      "maxImpliedSpeedMps": 37,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 8.800000000000011
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": null,
+        "startEndDistM": 1111.9492664461563
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 1.6000000000000227,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "garmin-fenix-6-pro",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.13,
+      "elapsedSec": 3591,
+      "movingSec": 3191
+    },
+    "anySevere": false,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 2430,
+      "endSec": 2448,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3166,
+      "endSec": 3545,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [
+    {
+      "index": 684,
+      "impliedSpeedMps": 37,
+      "dtSec": 2,
+      "ddM": 74
+    }
+  ],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 3,
+    "longestRunSamples": 1,
+    "longestRunSec": 379,
+    "medianRunSamples": 1,
+    "p90RunSec": 304
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 1111.9492664461563
+}

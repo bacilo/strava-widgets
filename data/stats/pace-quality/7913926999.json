@@ -1,0 +1,90 @@
+{
+  "activityId": "7913926999",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0,
+      "sampleCount": 992
+    },
+    "gapProfile": {
+      "tier": "none",
+      "gapFraction": 0.013989776701641109,
+      "recordingGapSec": 52,
+      "pauseSec": 0,
+      "spanSec": 3717
+    },
+    "impossibleSamples": {
+      "tier": "minor",
+      "count": 1,
+      "maxImpliedSpeedMps": 19.400000000000006,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 10.199999999999989
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": 1.6000000000000227,
+        "startEndDistM": 0
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 0.4999999999999716,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "garmin-fenix-6-pro",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.01,
+      "elapsedSec": 3717,
+      "movingSec": 3665
+    },
+    "anySevere": false,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 337,
+      "endSec": 357,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3244,
+      "endSec": 3262,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3408,
+      "endSec": 3422,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [
+    {
+      "index": 27,
+      "impliedSpeedMps": 19.400000000000006,
+      "dtSec": 1,
+      "ddM": 19.400000000000006
+    }
+  ],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 0,
+    "longestRunSamples": 0,
+    "longestRunSec": 0,
+    "medianRunSamples": 0,
+    "p90RunSec": 0
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 0
+}

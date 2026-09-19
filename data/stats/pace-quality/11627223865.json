@@ -1,0 +1,88 @@
+{
+  "activityId": "11627223865",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0.01476510067114094,
+      "sampleCount": 746
+    },
+    "gapProfile": {
+      "tier": "none",
+      "gapFraction": 0.0449438202247191,
+      "recordingGapSec": 130,
+      "pauseSec": 2,
+      "spanSec": 2937
+    },
+    "impossibleSamples": {
+      "tier": "none",
+      "count": 0,
+      "maxImpliedSpeedMps": null,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": -0.39999999999997726
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": null,
+        "startEndDistM": 5441.417047252642
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 0.46666666666665907,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "garmin-fenix-6-pro",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.04,
+      "elapsedSec": 2936,
+      "movingSec": 2816
+    },
+    "anySevere": false,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 559,
+      "endSec": 635,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 789,
+      "endSec": 832,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 832,
+      "endSec": 834,
+      "kind": "pause"
+    },
+    {
+      "startSec": 2855,
+      "endSec": 2866,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 7,
+    "longestRunSamples": 3,
+    "longestRunSec": 76,
+    "medianRunSamples": 1,
+    "p90RunSec": 57.40000000000001
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 5441.417047252642
+}

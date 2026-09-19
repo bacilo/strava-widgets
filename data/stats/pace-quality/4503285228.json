@@ -1,0 +1,102 @@
+{
+  "activityId": "4503285228",
+  "signals": {
+    "decimation": {
+      "tier": "minor",
+      "zeroAdvanceFraction": 0.13191244239631336,
+      "sampleCount": 1737
+    },
+    "gapProfile": {
+      "tier": "none",
+      "gapFraction": 0.013086770981507824,
+      "recordingGapSec": 46,
+      "pauseSec": 0,
+      "spanSec": 3515
+    },
+    "impossibleSamples": {
+      "tier": "minor",
+      "count": 3,
+      "maxImpliedSpeedMps": 43.5,
+      "countInsideZeroAdvanceRun": 1
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 3.6000000000000227
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": -45,
+        "startEndDistM": 0
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 0.8000000000000114,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "suunto-9",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.01,
+      "elapsedSec": 3515,
+      "movingSec": 3473
+    },
+    "anySevere": false,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 667,
+      "endSec": 688,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2542,
+      "endSec": 2553,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3051,
+      "endSec": 3065,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [
+    {
+      "index": 4,
+      "impliedSpeedMps": 18,
+      "dtSec": 2,
+      "ddM": 36
+    },
+    {
+      "index": 1187,
+      "impliedSpeedMps": 43.5,
+      "dtSec": 2,
+      "ddM": 87
+    },
+    {
+      "index": 1188,
+      "impliedSpeedMps": 21.5,
+      "dtSec": 2,
+      "ddM": 43
+    }
+  ],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 197,
+    "longestRunSamples": 6,
+    "longestRunSec": 12,
+    "medianRunSamples": 1,
+    "p90RunSec": 4
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 0
+}

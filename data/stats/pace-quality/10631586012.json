@@ -1,0 +1,88 @@
+{
+  "activityId": "10631586012",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0.00631578947368421,
+      "sampleCount": 951
+    },
+    "gapProfile": {
+      "tier": "minor",
+      "gapFraction": 0.13626276076342655,
+      "recordingGapSec": 613,
+      "pauseSec": 1,
+      "spanSec": 4506
+    },
+    "impossibleSamples": {
+      "tier": "none",
+      "count": 0,
+      "maxImpliedSpeedMps": null,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 7.399999999999977
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": 11.999999999999943,
+        "startEndDistM": 0
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 1.1999999999999318,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "garmin-fenix-6-pro",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.16,
+      "elapsedSec": 4506,
+      "movingSec": 3892
+    },
+    "anySevere": false,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 186,
+      "endSec": 711,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2592,
+      "endSec": 2640,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3289,
+      "endSec": 3329,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3329,
+      "endSec": 3330,
+      "kind": "pause"
+    }
+  ],
+  "impossibleSamples": [],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 5,
+    "longestRunSamples": 2,
+    "longestRunSec": 525,
+    "medianRunSamples": 1,
+    "p90RunSec": 334.20000000000005
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 0
+}

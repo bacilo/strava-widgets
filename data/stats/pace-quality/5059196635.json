@@ -1,0 +1,90 @@
+{
+  "activityId": "5059196635",
+  "signals": {
+    "decimation": {
+      "tier": "severe",
+      "zeroAdvanceFraction": 0.17971334068357223,
+      "sampleCount": 1815
+    },
+    "gapProfile": {
+      "tier": "none",
+      "gapFraction": 0.011428571428571429,
+      "recordingGapSec": 40,
+      "pauseSec": 2,
+      "spanSec": 3675
+    },
+    "impossibleSamples": {
+      "tier": "minor",
+      "count": 1,
+      "maxImpliedSpeedMps": 20,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 7.399999999999977
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": null,
+        "startEndDistM": 2310.4473200471675
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 1.099999999999966,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "suunto-9",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.01,
+      "elapsedSec": 3675,
+      "movingSec": 3631
+    },
+    "anySevere": true,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 3148,
+      "endSec": 3161,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3323,
+      "endSec": 3350,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3350,
+      "endSec": 3352,
+      "kind": "pause"
+    }
+  ],
+  "impossibleSamples": [
+    {
+      "index": 2,
+      "impliedSpeedMps": 20,
+      "dtSec": 2,
+      "ddM": 40
+    }
+  ],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 292,
+    "longestRunSamples": 3,
+    "longestRunSec": 29,
+    "medianRunSamples": 1,
+    "p90RunSec": 4
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 2310.4473200471675
+}

@@ -4,13 +4,28 @@
   "distanceSource": "native",
   "efforts": [
     {
+      "distance": "400m",
+      "durationSec": 17,
+      "paceSecPerKm": 42.4,
+      "startOffsetSec": 5982,
+      "endOffsetSec": 5999,
+      "lowConfidence": false,
+      "demotion": {
+        "guard": "world-record",
+        "reason": "implied 23.56 m/s exceeds world-record pace 9.30 m/s"
+      },
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
       "distance": "1k",
       "durationSec": 210.6,
       "paceSecPerKm": 210.6,
       "startOffsetSec": 5865,
       "endOffsetSec": 6075.6,
       "lowConfidence": false,
-      "wasPRAtTheTime": false,
+      "demotion": null,
+      "wasPRAtTheTime": true,
       "excludedFromRecords": false
     },
     {
@@ -20,6 +35,7 @@
       "startOffsetSec": 5634,
       "endOffsetSec": 6074.3,
       "lowConfidence": false,
+      "demotion": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -30,6 +46,7 @@
       "startOffsetSec": 4440,
       "endOffsetSec": 6012.1,
       "lowConfidence": false,
+      "demotion": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -40,6 +57,7 @@
       "startOffsetSec": 2607,
       "endOffsetSec": 6012.8,
       "lowConfidence": false,
+      "demotion": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     }

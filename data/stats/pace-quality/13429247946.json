@@ -1,0 +1,102 @@
+{
+  "activityId": "13429247946",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0.003045685279187817,
+      "sampleCount": 986
+    },
+    "gapProfile": {
+      "tier": "minor",
+      "gapFraction": 0.10085470085470086,
+      "recordingGapSec": 413,
+      "pauseSec": 0,
+      "spanSec": 4095
+    },
+    "impossibleSamples": {
+      "tier": "none",
+      "count": 0,
+      "maxImpliedSpeedMps": null,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "severe",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 9.199999999999989
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": 2.999999999999943,
+        "startEndDistM": 0
+      },
+      "verticalRate": {
+        "flagged": true,
+        "worstRateMps": 9.199999999999932,
+        "violatingSamples": 3
+      }
+    },
+    "deviceEra": {
+      "family": "garmin-fenix-6-pro",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.11,
+      "elapsedSec": 4093,
+      "movingSec": 3672
+    },
+    "anySevere": false,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 2,
+      "endSec": 16,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 192,
+      "endSec": 571,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 865,
+      "endSec": 885,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 2,
+    "longestRunSamples": 2,
+    "longestRunSec": 22,
+    "medianRunSamples": 1.5,
+    "p90RunSec": 20.5
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [
+    {
+      "index": 485,
+      "rateMps": 5.7999999999999545,
+      "dtSec": 1,
+      "dAltM": 5.7999999999999545
+    },
+    {
+      "index": 732,
+      "rateMps": 9.199999999999932,
+      "dtSec": 1,
+      "dAltM": 9.199999999999932
+    },
+    {
+      "index": 824,
+      "rateMps": 6.600000000000023,
+      "dtSec": 1,
+      "dAltM": 6.600000000000023
+    }
+  ],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 0
+}

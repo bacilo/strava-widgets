@@ -1,0 +1,110 @@
+{
+  "activityId": "3475724360",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0,
+      "sampleCount": 1555
+    },
+    "gapProfile": {
+      "tier": "none",
+      "gapFraction": 0,
+      "recordingGapSec": 0,
+      "pauseSec": 0,
+      "spanSec": 3107
+    },
+    "impossibleSamples": {
+      "tier": "minor",
+      "count": 7,
+      "maxImpliedSpeedMps": 29.050000000000182,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 1
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": 4.599999999999966,
+        "startEndDistM": 0
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 4,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "no-device-name",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1,
+      "elapsedSec": 3107,
+      "movingSec": 3107
+    },
+    "anySevere": false,
+    "notComputableReason": null
+  },
+  "gapIntervals": [],
+  "impossibleSamples": [
+    {
+      "index": 686,
+      "impliedSpeedMps": 14.599999999999909,
+      "dtSec": 2,
+      "ddM": 29.199999999999818
+    },
+    {
+      "index": 687,
+      "impliedSpeedMps": 26,
+      "dtSec": 2,
+      "ddM": 52
+    },
+    {
+      "index": 688,
+      "impliedSpeedMps": 25.300000000000182,
+      "dtSec": 2,
+      "ddM": 50.600000000000364
+    },
+    {
+      "index": 689,
+      "impliedSpeedMps": 27.699999999999818,
+      "dtSec": 2,
+      "ddM": 55.399999999999636
+    },
+    {
+      "index": 690,
+      "impliedSpeedMps": 29.050000000000182,
+      "dtSec": 2,
+      "ddM": 58.100000000000364
+    },
+    {
+      "index": 691,
+      "impliedSpeedMps": 28.59999999999991,
+      "dtSec": 2,
+      "ddM": 57.19999999999982
+    },
+    {
+      "index": 692,
+      "impliedSpeedMps": 11.900000000000091,
+      "dtSec": 2,
+      "ddM": 23.800000000000182
+    }
+  ],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 0,
+    "longestRunSamples": 0,
+    "longestRunSec": 0,
+    "medianRunSamples": 0,
+    "p90RunSec": 0
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 0
+}

@@ -1,0 +1,88 @@
+{
+  "activityId": "15509260963",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0.008741258741258742,
+      "sampleCount": 573
+    },
+    "gapProfile": {
+      "tier": "severe",
+      "gapFraction": 0.47894854087770106,
+      "recordingGapSec": 2150,
+      "pauseSec": 0,
+      "spanSec": 4489
+    },
+    "impossibleSamples": {
+      "tier": "none",
+      "count": 0,
+      "maxImpliedSpeedMps": null,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 10.600000000000023
+      },
+      "closureDrift": {
+        "state": "not-computable",
+        "deltaM": null,
+        "startEndDistM": null
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 0.6000000000000227,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "garmin-fenix-6-pro",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.94,
+      "elapsedSec": 4489,
+      "movingSec": 2319
+    },
+    "anySevere": true,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 48,
+      "endSec": 253,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 1573,
+      "endSec": 2825,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2919,
+      "endSec": 3594,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3832,
+      "endSec": 3850,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 5,
+    "longestRunSamples": 1,
+    "longestRunSec": 1252,
+    "medianRunSamples": 1,
+    "p90RunSec": 1021.2
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": null
+}

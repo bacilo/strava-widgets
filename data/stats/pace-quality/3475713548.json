@@ -1,0 +1,93 @@
+{
+  "activityId": "3475713548",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0,
+      "sampleCount": 878
+    },
+    "gapProfile": {
+      "tier": "minor",
+      "gapFraction": 0.11652131782945736,
+      "recordingGapSec": 481,
+      "pauseSec": 0,
+      "spanSec": 4128
+    },
+    "impossibleSamples": {
+      "tier": "none",
+      "count": 0,
+      "maxImpliedSpeedMps": null,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 7
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": 0,
+        "startEndDistM": 0
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 0.20000000000001705,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "no-device-name",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.12,
+      "elapsedSec": 4128,
+      "movingSec": 3695
+    },
+    "anySevere": false,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 1,
+      "endSec": 270,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 874,
+      "endSec": 887,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 930,
+      "endSec": 966,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 1295,
+      "endSec": 1447,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2935,
+      "endSec": 2946,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 0,
+    "longestRunSamples": 0,
+    "longestRunSec": 0,
+    "medianRunSamples": 0,
+    "p90RunSec": 0
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 0
+}

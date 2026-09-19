@@ -1,0 +1,88 @@
+{
+  "activityId": "11544429866",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0.003838771593090211,
+      "sampleCount": 1043
+    },
+    "gapProfile": {
+      "tier": "severe",
+      "gapFraction": 0.9677185126917375,
+      "recordingGapSec": 127942,
+      "pauseSec": 2,
+      "spanSec": 132212
+    },
+    "impossibleSamples": {
+      "tier": "none",
+      "count": 0,
+      "maxImpliedSpeedMps": null,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 3.6000000000000227
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": -6.199999999999989,
+        "startEndDistM": 0
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 0.39999999999997726,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "garmin-fenix-6-pro",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 30.97,
+      "elapsedSec": 132211,
+      "movingSec": 4269
+    },
+    "anySevere": true,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 4211,
+      "endSec": 4675,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 4675,
+      "endSec": 4676,
+      "kind": "pause"
+    },
+    {
+      "startSec": 4733,
+      "endSec": 132211,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 132211,
+      "endSec": 132212,
+      "kind": "pause"
+    }
+  ],
+  "impossibleSamples": [],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 2,
+    "longestRunSamples": 2,
+    "longestRunSec": 127479,
+    "medianRunSamples": 2,
+    "p90RunSec": 114777.6
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 0
+}

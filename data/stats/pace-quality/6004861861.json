@@ -1,0 +1,88 @@
+{
+  "activityId": "6004861861",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0.003965107057890563,
+      "sampleCount": 1262
+    },
+    "gapProfile": {
+      "tier": "none",
+      "gapFraction": 0.01623550401427297,
+      "recordingGapSec": 91,
+      "pauseSec": 0,
+      "spanSec": 5605
+    },
+    "impossibleSamples": {
+      "tier": "none",
+      "count": 0,
+      "maxImpliedSpeedMps": null,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 2.8000000000000114
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": null,
+        "startEndDistM": 5825.16200116986
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 0.5999999999999659,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "garmin-fenix-6-pro",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.02,
+      "elapsedSec": 5605,
+      "movingSec": 5479
+    },
+    "anySevere": false,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 489,
+      "endSec": 501,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2122,
+      "endSec": 2151,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2564,
+      "endSec": 2590,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 4753,
+      "endSec": 4777,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 5,
+    "longestRunSamples": 1,
+    "longestRunSec": 26,
+    "medianRunSamples": 1,
+    "p90RunSec": 19.200000000000003
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 5825.16200116986
+}

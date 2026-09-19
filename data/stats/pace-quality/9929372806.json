@@ -1,0 +1,98 @@
+{
+  "activityId": "9929372806",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0.005035246727089627,
+      "sampleCount": 994
+    },
+    "gapProfile": {
+      "tier": "minor",
+      "gapFraction": 0.09565217391304348,
+      "recordingGapSec": 494,
+      "pauseSec": 1,
+      "spanSec": 5175
+    },
+    "impossibleSamples": {
+      "tier": "none",
+      "count": 0,
+      "maxImpliedSpeedMps": null,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 12.399999999999977
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": null,
+        "startEndDistM": 1111.9492664453662
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 0.5,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "garmin-fenix-6-pro",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.11,
+      "elapsedSec": 5174,
+      "movingSec": 4679
+    },
+    "anySevere": false,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 1280,
+      "endSec": 1327,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3729,
+      "endSec": 3856,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3856,
+      "endSec": 3857,
+      "kind": "pause"
+    },
+    {
+      "startSec": 4175,
+      "endSec": 4211,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 4607,
+      "endSec": 4851,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 5095,
+      "endSec": 5135,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 4,
+    "longestRunSamples": 2,
+    "longestRunSec": 244,
+    "medianRunSamples": 1,
+    "p90RunSec": 209.20000000000002
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 1111.9492664453662
+}

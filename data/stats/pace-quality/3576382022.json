@@ -1,0 +1,104 @@
+{
+  "activityId": "3576382022",
+  "signals": {
+    "decimation": {
+      "tier": "severe",
+      "zeroAdvanceFraction": 0.2784857571214393,
+      "sampleCount": 2669
+    },
+    "gapProfile": {
+      "tier": "minor",
+      "gapFraction": 0.11879227850189737,
+      "recordingGapSec": 720,
+      "pauseSec": 0,
+      "spanSec": 6061
+    },
+    "impossibleSamples": {
+      "tier": "minor",
+      "count": 3,
+      "maxImpliedSpeedMps": 14,
+      "countInsideZeroAdvanceRun": 1
+    },
+    "elevation": {
+      "tier": "severe",
+      "subGround": {
+        "flagged": false,
+        "minAltM": -13.800000000000011
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": null,
+        "startEndDistM": 6098.216434537999
+      },
+      "verticalRate": {
+        "flagged": true,
+        "worstRateMps": 9.099999999999966,
+        "violatingSamples": 1
+      }
+    },
+    "deviceEra": {
+      "family": "suunto-9",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.14,
+      "elapsedSec": 6061,
+      "movingSec": 5336
+    },
+    "anySevere": true,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 4816,
+      "endSec": 5011,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 5297,
+      "endSec": 5822,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [
+    {
+      "index": 3,
+      "impliedSpeedMps": 11.5,
+      "dtSec": 2,
+      "ddM": 23
+    },
+    {
+      "index": 846,
+      "impliedSpeedMps": 13,
+      "dtSec": 2,
+      "ddM": 26
+    },
+    {
+      "index": 962,
+      "impliedSpeedMps": 14,
+      "dtSec": 2,
+      "ddM": 28
+    }
+  ],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 660,
+    "longestRunSamples": 6,
+    "longestRunSec": 525,
+    "medianRunSamples": 1,
+    "p90RunSec": 4
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [
+    {
+      "index": 2549,
+      "rateMps": 9.099999999999966,
+      "dtSec": 2,
+      "dAltM": 18.199999999999932
+    }
+  ],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 6098.216434537999
+}

@@ -1,0 +1,92 @@
+{
+  "activityId": "4518329452",
+  "signals": {
+    "decimation": {
+      "tier": "severe",
+      "zeroAdvanceFraction": 0.2702702702702703,
+      "sampleCount": 1740
+    },
+    "gapProfile": {
+      "tier": "none",
+      "gapFraction": 0.005139920045688178,
+      "recordingGapSec": 18,
+      "pauseSec": 0,
+      "spanSec": 3502
+    },
+    "impossibleSamples": {
+      "tier": "minor",
+      "count": 3,
+      "maxImpliedSpeedMps": 15.5,
+      "countInsideZeroAdvanceRun": 1
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 67.20000000000005
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": -23,
+        "startEndDistM": 0
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 1,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "suunto-9",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.01,
+      "elapsedSec": 3502,
+      "movingSec": 3478
+    },
+    "anySevere": true,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 1205,
+      "endSec": 1223,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [
+    {
+      "index": 3,
+      "impliedSpeedMps": 11,
+      "dtSec": 2,
+      "ddM": 22
+    },
+    {
+      "index": 1223,
+      "impliedSpeedMps": 15.5,
+      "dtSec": 2,
+      "ddM": 31
+    },
+    {
+      "index": 1224,
+      "impliedSpeedMps": 12,
+      "dtSec": 2,
+      "ddM": 24
+    }
+  ],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 420,
+    "longestRunSamples": 6,
+    "longestRunSec": 18,
+    "medianRunSamples": 1,
+    "p90RunSec": 2.2000000000000455
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 0
+}

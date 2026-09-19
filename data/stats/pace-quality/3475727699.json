@@ -1,0 +1,200 @@
+{
+  "activityId": "3475727699",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0,
+      "sampleCount": 3796
+    },
+    "gapProfile": {
+      "tier": "none",
+      "gapFraction": 0.04428631226454584,
+      "recordingGapSec": 529,
+      "pauseSec": 0,
+      "spanSec": 11945
+    },
+    "impossibleSamples": {
+      "tier": "severe",
+      "count": 16,
+      "maxImpliedSpeedMps": 36.00909090909094,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 7.600000000000023
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": null,
+        "startEndDistM": 15627.950864873934
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 0.6666666666666666,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "no-device-name",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.04,
+      "elapsedSec": 11945,
+      "movingSec": 11521
+    },
+    "anySevere": true,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 2744,
+      "endSec": 2792,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2950,
+      "endSec": 2962,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3006,
+      "endSec": 3052,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3176,
+      "endSec": 3192,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3270,
+      "endSec": 3346,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3480,
+      "endSec": 3491,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3494,
+      "endSec": 3814,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [
+    {
+      "index": 905,
+      "impliedSpeedMps": 21.5,
+      "dtSec": 3,
+      "ddM": 64.5
+    },
+    {
+      "index": 907,
+      "impliedSpeedMps": 17.03333333333315,
+      "dtSec": 3,
+      "ddM": 51.099999999999454
+    },
+    {
+      "index": 956,
+      "impliedSpeedMps": 12.366666666666788,
+      "dtSec": 3,
+      "ddM": 37.100000000000364
+    },
+    {
+      "index": 971,
+      "impliedSpeedMps": 24.899999999999636,
+      "dtSec": 3,
+      "ddM": 74.69999999999891
+    },
+    {
+      "index": 973,
+      "impliedSpeedMps": 14.233333333333576,
+      "dtSec": 3,
+      "ddM": 42.70000000000073
+    },
+    {
+      "index": 1035,
+      "impliedSpeedMps": 15.100000000000364,
+      "dtSec": 3,
+      "ddM": 45.30000000000109
+    },
+    {
+      "index": 1036,
+      "impliedSpeedMps": 21.333333333333332,
+      "dtSec": 3,
+      "ddM": 64
+    },
+    {
+      "index": 1038,
+      "impliedSpeedMps": 23.933333333333696,
+      "dtSec": 3,
+      "ddM": 71.80000000000109
+    },
+    {
+      "index": 1082,
+      "impliedSpeedMps": 36.00909090909094,
+      "dtSec": 11,
+      "ddM": 396.10000000000036
+    },
+    {
+      "index": 1086,
+      "impliedSpeedMps": 23.600000000000364,
+      "dtSec": 3,
+      "ddM": 70.80000000000109
+    },
+    {
+      "index": 1087,
+      "impliedSpeedMps": 29.033333333333456,
+      "dtSec": 3,
+      "ddM": 87.10000000000036
+    },
+    {
+      "index": 1088,
+      "impliedSpeedMps": 29.899999999999636,
+      "dtSec": 3,
+      "ddM": 89.69999999999891
+    },
+    {
+      "index": 1089,
+      "impliedSpeedMps": 27.900000000000244,
+      "dtSec": 3,
+      "ddM": 83.70000000000073
+    },
+    {
+      "index": 1090,
+      "impliedSpeedMps": 24.533333333333456,
+      "dtSec": 3,
+      "ddM": 73.60000000000036
+    },
+    {
+      "index": 1091,
+      "impliedSpeedMps": 20.066666666666304,
+      "dtSec": 3,
+      "ddM": 60.19999999999891
+    },
+    {
+      "index": 1092,
+      "impliedSpeedMps": 13.633333333333212,
+      "dtSec": 3,
+      "ddM": 40.899999999999636
+    }
+  ],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 0,
+    "longestRunSamples": 0,
+    "longestRunSec": 0,
+    "medianRunSamples": 0,
+    "p90RunSec": 0
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 15627.950864873934
+}

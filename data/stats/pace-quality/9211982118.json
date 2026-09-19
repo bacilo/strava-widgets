@@ -1,0 +1,88 @@
+{
+  "activityId": "9211982118",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0.003964321110009911,
+      "sampleCount": 1010
+    },
+    "gapProfile": {
+      "tier": "minor",
+      "gapFraction": 0.08934543717152413,
+      "recordingGapSec": 373,
+      "pauseSec": 1,
+      "spanSec": 4186
+    },
+    "impossibleSamples": {
+      "tier": "none",
+      "count": 0,
+      "maxImpliedSpeedMps": null,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 0.6000000000000227
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": null,
+        "startEndDistM": 867.0704911800278
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 1.6000000000000227,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "garmin-fenix-6-pro",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.1,
+      "elapsedSec": 4185,
+      "movingSec": 3811
+    },
+    "anySevere": false,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 147,
+      "endSec": 200,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2951,
+      "endSec": 2976,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3890,
+      "endSec": 4185,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 4185,
+      "endSec": 4186,
+      "kind": "pause"
+    }
+  ],
+  "impossibleSamples": [],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 3,
+    "longestRunSamples": 2,
+    "longestRunSec": 296,
+    "medianRunSamples": 1,
+    "p90RunSec": 247.4
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 867.0704911800278
+}

@@ -1,0 +1,433 @@
+{
+  "activityId": "10969136984",
+  "signals": {
+    "decimation": {
+      "tier": "minor",
+      "zeroAdvanceFraction": 0.11685012701100762,
+      "sampleCount": 1182
+    },
+    "gapProfile": {
+      "tier": "severe",
+      "gapFraction": 0.36495425756509503,
+      "recordingGapSec": 2239,
+      "pauseSec": 354,
+      "spanSec": 7105
+    },
+    "impossibleSamples": {
+      "tier": "none",
+      "count": 0,
+      "maxImpliedSpeedMps": null,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": -1.3999999999999773
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": null,
+        "startEndDistM": 626.6123761963416
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 0.5,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "garmin-fenix-6-pro",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.13,
+      "elapsedSec": 7105,
+      "movingSec": 6304
+    },
+    "anySevere": true,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 492,
+      "endSec": 520,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 1448,
+      "endSec": 1551,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 1813,
+      "endSec": 1827,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3318,
+      "endSec": 3329,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 4309,
+      "endSec": 4979,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 5151,
+      "endSec": 5162,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 5162,
+      "endSec": 5208,
+      "kind": "pause"
+    },
+    {
+      "startSec": 5208,
+      "endSec": 5222,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 5222,
+      "endSec": 5230,
+      "kind": "pause"
+    },
+    {
+      "startSec": 5230,
+      "endSec": 5249,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 5259,
+      "endSec": 5307,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 5307,
+      "endSec": 5318,
+      "kind": "pause"
+    },
+    {
+      "startSec": 5318,
+      "endSec": 5329,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 5329,
+      "endSec": 5335,
+      "kind": "pause"
+    },
+    {
+      "startSec": 5335,
+      "endSec": 5364,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 5364,
+      "endSec": 5373,
+      "kind": "pause"
+    },
+    {
+      "startSec": 5373,
+      "endSec": 5386,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 5386,
+      "endSec": 5413,
+      "kind": "pause"
+    },
+    {
+      "startSec": 5424,
+      "endSec": 5453,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 5453,
+      "endSec": 5466,
+      "kind": "pause"
+    },
+    {
+      "startSec": 5466,
+      "endSec": 5481,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 5481,
+      "endSec": 5497,
+      "kind": "pause"
+    },
+    {
+      "startSec": 5497,
+      "endSec": 5514,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 5514,
+      "endSec": 5521,
+      "kind": "pause"
+    },
+    {
+      "startSec": 5521,
+      "endSec": 5541,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 5541,
+      "endSec": 5543,
+      "kind": "pause"
+    },
+    {
+      "startSec": 5543,
+      "endSec": 5559,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 5559,
+      "endSec": 5567,
+      "kind": "pause"
+    },
+    {
+      "startSec": 5567,
+      "endSec": 5600,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 5617,
+      "endSec": 5659,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 5661,
+      "endSec": 5718,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 5725,
+      "endSec": 5790,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 5790,
+      "endSec": 5806,
+      "kind": "pause"
+    },
+    {
+      "startSec": 5806,
+      "endSec": 5828,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 5828,
+      "endSec": 5845,
+      "kind": "pause"
+    },
+    {
+      "startSec": 5845,
+      "endSec": 5865,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 5865,
+      "endSec": 5897,
+      "kind": "pause"
+    },
+    {
+      "startSec": 5897,
+      "endSec": 5917,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 5917,
+      "endSec": 5919,
+      "kind": "pause"
+    },
+    {
+      "startSec": 5919,
+      "endSec": 6059,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 6077,
+      "endSec": 6175,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 6187,
+      "endSec": 6198,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 6206,
+      "endSec": 6245,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 6275,
+      "endSec": 6320,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 6320,
+      "endSec": 6355,
+      "kind": "pause"
+    },
+    {
+      "startSec": 6355,
+      "endSec": 6367,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 6373,
+      "endSec": 6383,
+      "kind": "pause"
+    },
+    {
+      "startSec": 6383,
+      "endSec": 6416,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 6416,
+      "endSec": 6424,
+      "kind": "pause"
+    },
+    {
+      "startSec": 6424,
+      "endSec": 6438,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 6438,
+      "endSec": 6447,
+      "kind": "pause"
+    },
+    {
+      "startSec": 6447,
+      "endSec": 6496,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 6496,
+      "endSec": 6509,
+      "kind": "pause"
+    },
+    {
+      "startSec": 6509,
+      "endSec": 6535,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 6535,
+      "endSec": 6539,
+      "kind": "pause"
+    },
+    {
+      "startSec": 6539,
+      "endSec": 6563,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 6563,
+      "endSec": 6586,
+      "kind": "pause"
+    },
+    {
+      "startSec": 6586,
+      "endSec": 6612,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 6612,
+      "endSec": 6624,
+      "kind": "pause"
+    },
+    {
+      "startSec": 6624,
+      "endSec": 6733,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 6733,
+      "endSec": 6737,
+      "kind": "pause"
+    },
+    {
+      "startSec": 6737,
+      "endSec": 6753,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 6753,
+      "endSec": 6761,
+      "kind": "pause"
+    },
+    {
+      "startSec": 6761,
+      "endSec": 6774,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 6780,
+      "endSec": 6849,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 6849,
+      "endSec": 6854,
+      "kind": "pause"
+    },
+    {
+      "startSec": 6854,
+      "endSec": 6935,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 6935,
+      "endSec": 6938,
+      "kind": "pause"
+    },
+    {
+      "startSec": 6938,
+      "endSec": 6974,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 6982,
+      "endSec": 7007,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 7015,
+      "endSec": 7029,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 7043,
+      "endSec": 7063,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 7089,
+      "endSec": 7101,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 21,
+    "longestRunSamples": 23,
+    "longestRunSec": 297,
+    "medianRunSamples": 4,
+    "p90RunSec": 131
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 626.6123761963416
+}

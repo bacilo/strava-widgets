@@ -1,0 +1,88 @@
+{
+  "activityId": "7205274502",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0.0014587892049598833,
+      "sampleCount": 1372
+    },
+    "gapProfile": {
+      "tier": "none",
+      "gapFraction": 0.015748031496062992,
+      "recordingGapSec": 78,
+      "pauseSec": 0,
+      "spanSec": 4953
+    },
+    "impossibleSamples": {
+      "tier": "none",
+      "count": 0,
+      "maxImpliedSpeedMps": null,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 7.399999999999977
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": -1.2000000000000455,
+        "startEndDistM": 0
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 1.6000000000000227,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "garmin-fenix-6-pro",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.02,
+      "elapsedSec": 4953,
+      "movingSec": 4870
+    },
+    "anySevere": false,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 1193,
+      "endSec": 1215,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3101,
+      "endSec": 3112,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 4415,
+      "endSec": 4431,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 4669,
+      "endSec": 4698,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 2,
+    "longestRunSamples": 1,
+    "longestRunSec": 16,
+    "medianRunSamples": 1,
+    "p90RunSec": 15
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 0
+}

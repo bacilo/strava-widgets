@@ -1,0 +1,88 @@
+{
+  "activityId": "11941303310",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0.005529953917050691,
+      "sampleCount": 1086
+    },
+    "gapProfile": {
+      "tier": "minor",
+      "gapFraction": 0.06984055692791377,
+      "recordingGapSec": 311,
+      "pauseSec": 0,
+      "spanSec": 4453
+    },
+    "impossibleSamples": {
+      "tier": "none",
+      "count": 0,
+      "maxImpliedSpeedMps": null,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 7.800000000000011
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": null,
+        "startEndDistM": 1111.9492664453662
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 0.7999999999999545,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "garmin-fenix-6-pro",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.08,
+      "elapsedSec": 4453,
+      "movingSec": 4141
+    },
+    "anySevere": false,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 2866,
+      "endSec": 2934,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3336,
+      "endSec": 3349,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3965,
+      "endSec": 4100,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 4317,
+      "endSec": 4412,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 5,
+    "longestRunSamples": 2,
+    "longestRunSec": 68,
+    "medianRunSamples": 1,
+    "p90RunSec": 41.60000000000001
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 1111.9492664453662
+}

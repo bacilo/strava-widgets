@@ -1,0 +1,356 @@
+{
+  "activityId": "3475723743",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0,
+      "sampleCount": 2150
+    },
+    "gapProfile": {
+      "tier": "none",
+      "gapFraction": 0,
+      "recordingGapSec": 0,
+      "pauseSec": 0,
+      "spanSec": 2153
+    },
+    "impossibleSamples": {
+      "tier": "severe",
+      "count": 48,
+      "maxImpliedSpeedMps": 24.200000000000045,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 12.799999999999955
+      },
+      "closureDrift": {
+        "state": "clear",
+        "deltaM": null,
+        "startEndDistM": 4828.548135283867
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 1,
+        "violatingSamples": 0
+      }
+    },
+    "deviceEra": {
+      "family": "no-device-name",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1,
+      "elapsedSec": 2153,
+      "movingSec": 2153
+    },
+    "anySevere": true,
+    "notComputableReason": null
+  },
+  "gapIntervals": [],
+  "impossibleSamples": [
+    {
+      "index": 148,
+      "impliedSpeedMps": 16.5,
+      "dtSec": 1,
+      "ddM": 16.5
+    },
+    {
+      "index": 306,
+      "impliedSpeedMps": 11.100000000000023,
+      "dtSec": 1,
+      "ddM": 11.100000000000023
+    },
+    {
+      "index": 307,
+      "impliedSpeedMps": 24.100000000000023,
+      "dtSec": 1,
+      "ddM": 24.100000000000023
+    },
+    {
+      "index": 308,
+      "impliedSpeedMps": 18,
+      "dtSec": 1,
+      "ddM": 18
+    },
+    {
+      "index": 380,
+      "impliedSpeedMps": 22.899999999999977,
+      "dtSec": 1,
+      "ddM": 22.899999999999977
+    },
+    {
+      "index": 381,
+      "impliedSpeedMps": 24.100000000000023,
+      "dtSec": 1,
+      "ddM": 24.100000000000023
+    },
+    {
+      "index": 382,
+      "impliedSpeedMps": 12.050000000000011,
+      "dtSec": 2,
+      "ddM": 24.100000000000023
+    },
+    {
+      "index": 383,
+      "impliedSpeedMps": 23.899999999999977,
+      "dtSec": 1,
+      "ddM": 23.899999999999977
+    },
+    {
+      "index": 384,
+      "impliedSpeedMps": 24.100000000000023,
+      "dtSec": 1,
+      "ddM": 24.100000000000023
+    },
+    {
+      "index": 661,
+      "impliedSpeedMps": 24.200000000000045,
+      "dtSec": 1,
+      "ddM": 24.200000000000045
+    },
+    {
+      "index": 663,
+      "impliedSpeedMps": 20.90000000000009,
+      "dtSec": 1,
+      "ddM": 20.90000000000009
+    },
+    {
+      "index": 667,
+      "impliedSpeedMps": 23.200000000000045,
+      "dtSec": 1,
+      "ddM": 23.200000000000045
+    },
+    {
+      "index": 668,
+      "impliedSpeedMps": 13.900000000000091,
+      "dtSec": 1,
+      "ddM": 13.900000000000091
+    },
+    {
+      "index": 732,
+      "impliedSpeedMps": 12.900000000000091,
+      "dtSec": 1,
+      "ddM": 12.900000000000091
+    },
+    {
+      "index": 733,
+      "impliedSpeedMps": 18,
+      "dtSec": 1,
+      "ddM": 18
+    },
+    {
+      "index": 734,
+      "impliedSpeedMps": 13.599999999999909,
+      "dtSec": 1,
+      "ddM": 13.599999999999909
+    },
+    {
+      "index": 737,
+      "impliedSpeedMps": 14.5,
+      "dtSec": 1,
+      "ddM": 14.5
+    },
+    {
+      "index": 738,
+      "impliedSpeedMps": 24.09999999999991,
+      "dtSec": 1,
+      "ddM": 24.09999999999991
+    },
+    {
+      "index": 739,
+      "impliedSpeedMps": 24.09999999999991,
+      "dtSec": 1,
+      "ddM": 24.09999999999991
+    },
+    {
+      "index": 741,
+      "impliedSpeedMps": 10.599999999999909,
+      "dtSec": 2,
+      "ddM": 21.199999999999818
+    },
+    {
+      "index": 742,
+      "impliedSpeedMps": 24.200000000000045,
+      "dtSec": 1,
+      "ddM": 24.200000000000045
+    },
+    {
+      "index": 743,
+      "impliedSpeedMps": 24.100000000000136,
+      "dtSec": 1,
+      "ddM": 24.100000000000136
+    },
+    {
+      "index": 744,
+      "impliedSpeedMps": 24,
+      "dtSec": 1,
+      "ddM": 24
+    },
+    {
+      "index": 745,
+      "impliedSpeedMps": 24.09999999999991,
+      "dtSec": 1,
+      "ddM": 24.09999999999991
+    },
+    {
+      "index": 746,
+      "impliedSpeedMps": 17.800000000000182,
+      "dtSec": 1,
+      "ddM": 17.800000000000182
+    },
+    {
+      "index": 747,
+      "impliedSpeedMps": 11.199999999999818,
+      "dtSec": 1,
+      "ddM": 11.199999999999818
+    },
+    {
+      "index": 1221,
+      "impliedSpeedMps": 23.59999999999991,
+      "dtSec": 1,
+      "ddM": 23.59999999999991
+    },
+    {
+      "index": 1222,
+      "impliedSpeedMps": 24.09999999999991,
+      "dtSec": 1,
+      "ddM": 24.09999999999991
+    },
+    {
+      "index": 1223,
+      "impliedSpeedMps": 19.40000000000009,
+      "dtSec": 1,
+      "ddM": 19.40000000000009
+    },
+    {
+      "index": 1224,
+      "impliedSpeedMps": 12.099999999999909,
+      "dtSec": 2,
+      "ddM": 24.199999999999818
+    },
+    {
+      "index": 1225,
+      "impliedSpeedMps": 17.100000000000364,
+      "dtSec": 1,
+      "ddM": 17.100000000000364
+    },
+    {
+      "index": 1227,
+      "impliedSpeedMps": 16.100000000000364,
+      "dtSec": 1,
+      "ddM": 16.100000000000364
+    },
+    {
+      "index": 1228,
+      "impliedSpeedMps": 17.59999999999991,
+      "dtSec": 1,
+      "ddM": 17.59999999999991
+    },
+    {
+      "index": 1229,
+      "impliedSpeedMps": 13.799999999999727,
+      "dtSec": 1,
+      "ddM": 13.799999999999727
+    },
+    {
+      "index": 1711,
+      "impliedSpeedMps": 11.600000000000364,
+      "dtSec": 1,
+      "ddM": 11.600000000000364
+    },
+    {
+      "index": 1712,
+      "impliedSpeedMps": 13.199999999999818,
+      "dtSec": 1,
+      "ddM": 13.199999999999818
+    },
+    {
+      "index": 1713,
+      "impliedSpeedMps": 14.900000000000546,
+      "dtSec": 1,
+      "ddM": 14.900000000000546
+    },
+    {
+      "index": 1714,
+      "impliedSpeedMps": 17,
+      "dtSec": 1,
+      "ddM": 17
+    },
+    {
+      "index": 1715,
+      "impliedSpeedMps": 18,
+      "dtSec": 1,
+      "ddM": 18
+    },
+    {
+      "index": 1716,
+      "impliedSpeedMps": 17.399999999999636,
+      "dtSec": 1,
+      "ddM": 17.399999999999636
+    },
+    {
+      "index": 1717,
+      "impliedSpeedMps": 24.199999999999818,
+      "dtSec": 1,
+      "ddM": 24.199999999999818
+    },
+    {
+      "index": 1718,
+      "impliedSpeedMps": 23.600000000000364,
+      "dtSec": 1,
+      "ddM": 23.600000000000364
+    },
+    {
+      "index": 1720,
+      "impliedSpeedMps": 20.699999999999818,
+      "dtSec": 1,
+      "ddM": 20.699999999999818
+    },
+    {
+      "index": 1721,
+      "impliedSpeedMps": 24.100000000000364,
+      "dtSec": 1,
+      "ddM": 24.100000000000364
+    },
+    {
+      "index": 1722,
+      "impliedSpeedMps": 20.5,
+      "dtSec": 1,
+      "ddM": 20.5
+    },
+    {
+      "index": 1723,
+      "impliedSpeedMps": 16.699999999999818,
+      "dtSec": 1,
+      "ddM": 16.699999999999818
+    },
+    {
+      "index": 1724,
+      "impliedSpeedMps": 13.5,
+      "dtSec": 1,
+      "ddM": 13.5
+    },
+    {
+      "index": 1725,
+      "impliedSpeedMps": 10.600000000000364,
+      "dtSec": 1,
+      "ddM": 10.600000000000364
+    }
+  ],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 0,
+    "longestRunSamples": 0,
+    "longestRunSec": 0,
+    "medianRunSamples": 0,
+    "p90RunSec": 0
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": 4828.548135283867
+}
