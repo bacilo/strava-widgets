@@ -3,7 +3,7 @@ phase: 27
 slug: per-activity-quality-signals
 status: partial
 nyquist_compliant: true
-wave_0_complete: false
+wave_0_complete: true
 created: 2026-09-10
 ---
 
@@ -16,6 +16,12 @@ created: 2026-09-10
 > values) and G-02 (a stale no-device-name cohort figure cited in ROADMAP/REQUIREMENTS). Neither
 > gap reverses any row's PASS verdict; both are tracked for a follow-on gap-closure plan /
 > documentation reconciliation rather than patched here.
+>
+> **Update 2026-09-19 (retroactive Nyquist audit):** G-01 was CLOSED by gap-closure plan 27-11
+> on 2026-09-10 (see § Gap-Closure Record) — regenerating `27-CALIBRATION.md` today differs only
+> by timestamp and archive growth. G-02 (stale 716/1,864 cohort figure in ROADMAP/REQUIREMENTS)
+> remains open and is scheduled for Phase 31 D-13. `status: partial` is kept honestly until G-02's
+> documentation correction lands; coverage itself is complete (audit trail at the end of this file).
 
 # Phase 27 — Validation Strategy
 
@@ -52,15 +58,15 @@ created: 2026-09-10
 > Task IDs are assigned by the planner. This table is the **requirement→test contract** the
 > planner must satisfy; each row must map to at least one task's `<automated>` verify block.
 
-| Req ID | Behavior | Test Type | Automated Command | File Exists |
-|--------|----------|-----------|-------------------|-------------|
-| QUAL-01 | 5 signals computed in CI; index row **and** shard both carry them as separate fields | unit + integration (real archive) | `npx vitest run src/analytics/compute-dashboard-index.test.ts -t "quality signals"` | ❌ W0 (extend existing) |
-| QUAL-02 | Device era and decimation stay separate fields on correlated activities; impossible-sample and decimation overlap does not collapse into one field | unit, decimation-aliased fixture with both signals asserted independently present | `npx vitest run src/analytics/pace-quality.test.ts -t "independent signals"` | ❌ W0 |
-| QUAL-03 | Index additive (`DASHBOARD_INDEX_SCHEMA_VERSION` unchanged); shard mirrors `best-efforts` pattern and is fetched lazily | unit (schema) + instrumented fetch-count test (D-18) | `npx vitest run src/dashboard/data/pace-quality-client.test.ts -t "fetch count"` | ❌ W0 |
-| QUAL-04 | Badge visible text names the condition **and** its measured value | unit (text assertion, project's jsdom-free convention) | `npx vitest run src/dashboard/views/list.test.ts -t "quality badge text"` | ❌ W0 (extend existing if present) |
-| QUAL-05 | Dry-run composite rate reported; recount script reproduces it **without importing the classifier** | integration (script, real archive) | `node scripts/compute-pace-quality-recount.mjs` — diff against committed report / CI-printed count | ❌ W0 |
-| ERA-01 | fēnix 6 Pro vs Suunto 9 differentiated despite identical FIT format | unit, real pinned fixtures `10041312551` / `3480808722` | `npx vitest run src/analytics/pace-quality.test.ts -t "device family"` | ❌ W0 |
-| ERA-02 | `no-device-name` and `intervals-icu` reported as distinct categories, never a fabricated default | unit + archive-wide dry run | `npx vitest run src/analytics/pace-quality.test.ts -t "no-device-name category"` | ❌ W0 |
+| Req ID | Behavior | Test Type | Automated Command | File Exists | Status (2026-09-19 audit) |
+|--------|----------|-----------|-------------------|-------------|------|
+| QUAL-01 | 5 signals computed in CI; index row **and** shard both carry them as separate fields | unit + integration (real archive) | `npx vitest run src/analytics/compute-dashboard-index.test.ts -t "quality signals"` | ✅ | ✅ green — 6 passed / 36 skipped |
+| QUAL-02 | Device era and decimation stay separate fields on correlated activities; impossible-sample and decimation overlap does not collapse into one field | unit, decimation-aliased fixture with both signals asserted independently present | `npx vitest run src/analytics/pace-quality.test.ts -t "independent signals"` | ✅ | ✅ green — 4 passed / 76 skipped |
+| QUAL-03 | Index additive (`DASHBOARD_INDEX_SCHEMA_VERSION` unchanged); shard mirrors `best-efforts` pattern and is fetched lazily | unit (schema) + instrumented fetch-count test (D-18) | `npx vitest run src/dashboard/data/pace-quality-client.test.ts -t "fetch count"` | ✅ | ✅ green — 8 passed / 19 skipped |
+| QUAL-04 | Badge visible text names the condition **and** its measured value | unit (text assertion, project's jsdom-free convention) | `npx vitest run src/dashboard/views/list.test.ts -t "quality badge text"` | ✅ | ✅ green — 18 passed / 91 skipped |
+| QUAL-05 | Dry-run composite rate reported; recount script reproduces it **without importing the classifier** | integration (script, real archive) | `node scripts/compute-pace-quality-recount.mjs` — diff against committed report / CI-printed count | ✅ | ✅ green — PASS, composite 299 on 1,899 rows |
+| ERA-01 | fēnix 6 Pro vs Suunto 9 differentiated despite identical FIT format | unit, real pinned fixtures `10041312551` / `3480808722` | `npx vitest run src/analytics/pace-quality.test.ts -t "device family"` | ✅ | ✅ green — 19 passed / 61 skipped |
+| ERA-02 | `no-device-name` and `intervals-icu` reported as distinct categories, never a fabricated default | unit + archive-wide dry run | `npx vitest run src/analytics/pace-quality.test.ts -t "no-device-name category"` | ✅ | ✅ green — 2 passed / 78 skipped |
 
 *Status legend: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky · ❌ W0 = file does not exist yet, Wave 0 creates it*
 
@@ -70,16 +76,16 @@ created: 2026-09-10
 
 Files that must exist (created or extended) before dependent tasks can verify:
 
-- [ ] `src/analytics/pace-quality.ts` + `.test.ts` — the signal module (impossible-sample count, device-family resolution, tiering)
-- [ ] `src/dashboard/data/pace-quality-client.ts` + `.test.ts` — shard client mirroring `best-efforts-client.ts`
-- [ ] `scripts/compute-pace-quality-recount.mjs` — D-03's independent recount script (must **not** import the classifier)
-- [ ] `src/analytics/dashboard-index.types.ts` — 5 new index-row fields (additive; `DASHBOARD_INDEX_SCHEMA_VERSION` must not move)
-- [ ] `src/analytics/compute-dashboard-index.ts` — call the new module, write the 5 fields + per-activity shard
-- [ ] `src/dashboard/views/list.ts` — badge-dispatch restructure (**contract change, not additive** — see RESEARCH Pitfall 1; own task/plan step)
-- [ ] `src/dashboard/views/list-logic.ts` — one new `FilterState` field + URL param
-- [ ] `src/dashboard/views/detail.ts` — add `paceQualityClient.load` to the existing `Promise.all` mount point
-- [ ] `src/dashboard/views/detail-sections.ts` — new always-on quality section
-- [ ] `scripts/verify-dashboard-publish.mjs` — spot-check at least one of the 5 new fields, following the existing `gearName` check pattern
+- [x] `src/analytics/pace-quality.ts` + `.test.ts` — the signal module (impossible-sample count, device-family resolution, tiering)
+- [x] `src/dashboard/data/pace-quality-client.ts` + `.test.ts` — shard client mirroring `best-efforts-client.ts`
+- [x] `scripts/compute-pace-quality-recount.mjs` — D-03's independent recount script (must **not** import the classifier)
+- [x] `src/analytics/dashboard-index.types.ts` — 5 new index-row fields (additive; `DASHBOARD_INDEX_SCHEMA_VERSION` must not move)
+- [x] `src/analytics/compute-dashboard-index.ts` — call the new module, write the 5 fields + per-activity shard
+- [x] `src/dashboard/views/list.ts` — badge-dispatch restructure (**contract change, not additive** — see RESEARCH Pitfall 1; own task/plan step)
+- [x] `src/dashboard/views/list-logic.ts` — one new `FilterState` field + URL param
+- [x] `src/dashboard/views/detail.ts` — add `paceQualityClient.load` to the existing `Promise.all` mount point
+- [x] `src/dashboard/views/detail-sections.ts` — new always-on quality section
+- [x] `scripts/verify-dashboard-publish.mjs` — spot-check at least one of the 5 new fields, following the existing `gearName` check pattern
 
 ---
 
@@ -572,3 +578,28 @@ and QUAL-02 by `27-02-SUMMARY.md` (`requirements-completed: [QUAL-01, QUAL-02, Q
 `npx vitest run src/analytics/pace-quality.test.ts src/analytics/best-effort-utils.test.ts`,
 97/97 passed, device era and decimation severity asserted as independently-present separate
 fields).
+
+## Validation Audit 2026-09-19
+
+Retroactive audit (`/gsd-validate-phase 27`, from the v2.2 close-out audit's Nyquist finding: the Per-Task map carried only a "File Exists" column, every entry still `❌ W0`, and the frontmatter read `status: partial` for G-01/G-02).
+
+| Metric | Count |
+|--------|-------|
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
+
+No coverage gaps. Every row's `-t` filter was checked for a non-zero match before flipping (a filter matching zero tests exits 0 and cannot fail — the vacuous-row shape the Phase 26 audit found on the same day):
+
+| Row | Command | Matched |
+|-----|---------|---------|
+| QUAL-01 | `compute-dashboard-index.test.ts -t "quality signals"` | 6 passed / 36 skipped |
+| QUAL-02 | `pace-quality.test.ts -t "independent signals"` | 4 passed / 76 skipped |
+| QUAL-03 | `pace-quality-client.test.ts -t "fetch count"` | 8 passed / 19 skipped |
+| QUAL-04 | `list.test.ts -t "quality badge text"` | 18 passed / 91 skipped |
+| QUAL-05 | `node scripts/compute-pace-quality-recount.mjs --expect 299` | PASS — composite 299 on the merged 1,899-row index (unchanged by +9 activities) |
+| ERA-01 | `pace-quality.test.ts -t "device family"` | 19 passed / 61 skipped |
+| ERA-02 | `pace-quality.test.ts -t "no-device-name category"` | 2 passed / 78 skipped |
+
+Gap records: **G-01 CLOSED** (27-11, 2026-09-10; confirmed by regeneration on 2026-09-19 — only `Generated` and the 1,890→1,899 archive figures differ). **G-02 OPEN**, documentation-only, assigned to Phase 31 D-13 (correct-in-place with dated note; re-measure the no-device-name cohort on the merged archive at that time). WR-02 from `27-REVIEW.md` (gapProfile/impossibleSamples severe+null test pair) is noted as optional hardening for Phase 31; it is not a requirement row. Manual rows (Round 1 checkpoint R1–R8) remain satisfied by their recorded developer countersign. No test files generated. `nyquist_compliant: true` stands; `wave_0_complete` flipped to true; `status: partial` retained until G-02 closes.
+
