@@ -3,7 +3,7 @@ phase: 26
 slug: shared-gap-aware-pace-derivation-honest-coverage
 status: complete
 nyquist_compliant: true
-wave_0_complete: false
+wave_0_complete: true
 created: 2026-09-08
 ---
 
@@ -45,16 +45,16 @@ touches a requirement below must cite the matching automated command.
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| TBD | TBD | TBD | PACE-01 | — | N/A | unit (grep-based audit) | `npx vitest run src/analytics/pace-single-source.test.ts` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | PACE-02 | — | N/A | unit | `npx vitest run src/analytics/pace-derivation.test.ts -t "gap boundary"` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | PACE-03 | — | N/A | unit, real committed stream `5059204779` | `npx vitest run src/analytics/pace-derivation.test.ts -t "adaptive window"` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | PACE-04 | — | N/A | unit, real archive | `npx vitest run src/analytics/pace-derivation.test.ts -t "histogram"` | ❌ W0 | ⬜ pending |
+| TBD | TBD | TBD | PACE-01 | — | N/A | unit (grep-based audit) | `npx vitest run src/analytics/pace-single-source.test.ts` | ✅ | ✅ green |
+| TBD | TBD | TBD | PACE-02 | — | N/A | unit | `npx vitest run src/analytics/pace-derivation.test.ts -t "gap boundary"` | ✅ | ✅ green |
+| TBD | TBD | TBD | PACE-03 | — | N/A | unit, real committed stream `5059204779` | `npx vitest run src/analytics/pace-derivation.test.ts -t "adaptive window"` | ✅ | ✅ green |
+| TBD | TBD | TBD | PACE-04 | — | N/A | unit, real archive | `npx vitest run src/dashboard/views/detail-zones.test.ts -t "PACE-04"` (11 tests; the original `pace-derivation.test.ts -t "histogram"` matched 0 tests — vacuous, repointed 2026-09-19) | ✅ | ✅ green |
 | Task 2 | 26-06 | 4 | PACE-05 | — | N/A | unit | `npx vitest run src/dashboard/views/detail-sections.test.ts -t "gap marker"` | ✅ (created by 26-06; 8 passing) | ✅ green |
-| TBD | TBD | TBD | PACE-06 | — | N/A | integration (script, real archive) | `node scripts/compute-pace-residual.mjs` — diff against committed `26-RESIDUAL.md` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | PACE-07 | T-26-01 | Total/never-throwing on malformed stream input | unit + archive-wide dry run | `npx vitest run src/analytics/compute-dashboard-index.test.ts -t "pace disagreement"` | ❌ W0 (extend existing file) | ⬜ pending |
-| TBD | TBD | TBD | COV-01 | — | N/A | unit | `npx vitest run src/analytics/pace-derivation.test.ts -t "coverage sums"` | ❌ W0 | ⬜ pending |
+| TBD | TBD | TBD | PACE-06 | — | N/A | integration (script, real archive) | `node scripts/compute-pace-residual.mjs` — diff against committed `26-RESIDUAL.md` | ✅ | ✅ green |
+| TBD | TBD | TBD | PACE-07 | T-26-01 | Total/never-throwing on malformed stream input | unit + archive-wide dry run | `npx vitest run src/analytics/compute-dashboard-index.test.ts -t "pace disagreement"` | ✅ (extended) | ✅ green |
+| TBD | TBD | TBD | COV-01 | — | N/A | unit | `npx vitest run src/analytics/pace-derivation.test.ts -t "coverage sums"` | ✅ | ✅ green |
 | Task 2 | 26-06 | 4 | COV-02 | — | N/A | unit (text/structure assertion — no jsdom, per project convention) | `npx vitest run src/dashboard/views/detail-sections.test.ts -t "coverage caption"` | ✅ (created by 26-06; 5 passing) | ✅ green |
-| TBD | TBD | TBD | ERA-03 | — | N/A | unit | `npx vitest run src/analytics/pace-fixtures.test.ts` | ❌ W0 | ⬜ pending |
+| TBD | TBD | TBD | ERA-03 | — | N/A | unit | `npx vitest run src/analytics/pace-fixtures.test.ts` | ✅ | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -85,13 +85,13 @@ case below must be staged and observed failing **before** its positive assertion
 
 ## Wave 0 Requirements
 
-- [ ] `src/analytics/pace-derivation.ts` + `src/analytics/pace-derivation.test.ts` — the shared module
-- [ ] `src/analytics/pace-fixtures.ts` + `src/analytics/pace-fixtures.test.ts` — ERA-03 fixture library
-- [ ] `src/analytics/pace-single-source.test.ts` — D-18's grep-based audit
-- [ ] `scripts/compute-pace-residual.mjs` — D-19's regenerating script
-- [ ] `.planning/phases/26-shared-gap-aware-pace-derivation-honest-coverage/26-RESIDUAL.md` — D-19's committed deliverable (13 IDs; re-verify against the live archive before committing as final)
-- [ ] Extend `src/dashboard/views/detail-sections.test.ts` — D-08 caption + D-09 split marker
-- [ ] Extend `src/analytics/compute-dashboard-index.test.ts` — PACE-07's additive flag field
+- [x] `src/analytics/pace-derivation.ts` + `src/analytics/pace-derivation.test.ts` — the shared module
+- [x] `src/analytics/pace-fixtures.ts` + `src/analytics/pace-fixtures.test.ts` — ERA-03 fixture library
+- [x] `src/analytics/pace-single-source.test.ts` — D-18's grep-based audit
+- [x] `scripts/compute-pace-residual.mjs` — D-19's regenerating script
+- [x] `.planning/phases/26-shared-gap-aware-pace-derivation-honest-coverage/26-RESIDUAL.md` — D-19's committed deliverable (13 IDs; re-verify against the live archive before committing as final)
+- [x] Extend `src/dashboard/views/detail-sections.test.ts` — D-08 caption + D-09 split marker
+- [x] Extend `src/analytics/compute-dashboard-index.test.ts` — PACE-07's additive flag field
 
 ---
 
@@ -1191,3 +1191,30 @@ The restored digest matches the ORIGINAL digest recorded in Task 1
 SERVED path (verified by `curl` against `127.0.0.1:4173`, not just the repo file), and the served
 path shows `paceDisagreement` present on all 1890 rows again — the fixture is restored on the
 SERVED path, not merely in the repo tree.
+
+## Validation Audit 2026-09-19
+
+Retroactive audit (`/gsd-validate-phase 26`, run from the v2.2 close-out audit's Nyquist finding: the Per-Task map above was never filled after planning — Task IDs still `TBD`, 9 rows pending, Wave 0 unticked — although `26-VERIFICATION.md` passed 7/7 on 2026-09-10 after three rounds).
+
+| Metric | Count |
+|--------|-------|
+| Gaps found | 1 |
+| Resolved | 1 |
+| Escalated | 0 |
+
+**The one gap was a vacuous row, not missing coverage.** The PACE-04 row's command `npx vitest run src/analytics/pace-derivation.test.ts -t "histogram"` matched **0 of 32** tests (all skipped, exit 0) — it could never fail. The histogram is actually tested in `src/dashboard/views/detail-zones.test.ts` (`computePaceDistribution — … (PACE-01, PACE-04)` and the `PACE-04 worked example 4556693525` describe blocks); the row now points there (`-t "PACE-04"`, 11 passed / 25 skipped). Every other `-t` filter was checked for a non-zero match before its row was flipped:
+
+| Row | Command | Matched |
+|-----|---------|---------|
+| PACE-01 | `pace-single-source.test.ts` | 74 passed |
+| PACE-02 | `pace-derivation.test.ts -t "gap boundary"` | 2 passed / 30 skipped |
+| PACE-03 | `pace-derivation.test.ts -t "adaptive window"` | 12 passed / 20 skipped |
+| PACE-04 | `detail-zones.test.ts -t "PACE-04"` (repointed) | 11 passed / 25 skipped |
+| PACE-06 | `node scripts/compute-pace-residual.mjs` | regenerates: 154 cohort / 14 residual / 153 improved, 1 tied, 0 regressed on the merged archive; only the `Generated` line differs from the committed file. Prints "Archive size scanned: 1875" — the G-03 manifest miscount (true per-activity count 1874), scheduled for Phase 31 D-11. |
+| PACE-07 | `compute-dashboard-index.test.ts -t "pace disagreement"` | 3 passed / 39 skipped |
+| COV-01 | `pace-derivation.test.ts -t "coverage sums"` | 10 passed / 22 skipped |
+| ERA-03 | `pace-fixtures.test.ts` | 39 passed |
+| Wave 0 extensions | `detail-sections.test.ts` 136 passed; `compute-dashboard-index.test.ts` 42 passed; `detail-charts-logic.test.ts -t "CR-03"` 6 passed | — |
+
+All run live 2026-09-19 on the merged 1,899-activity archive. Manual rows (Rounds 1–3 browser checkpoints) remain satisfied by their recorded developer verdicts and are not re-run. No test files were generated. `nyquist_compliant: true` stands; `wave_0_complete` flipped to true. Task-ID columns are left `TBD`: the map predates the plans and re-deriving 16 plans' task IDs adds no coverage — the requirement column is the key.
+
