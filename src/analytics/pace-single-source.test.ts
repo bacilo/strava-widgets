@@ -111,6 +111,11 @@
  * lines 10-16); today it imports nothing from this module. Widening this
  * allowlist in a later phase needs its own recorded reason, the same
  * discipline `ALLOWED_FILE_SUFFIX` already holds this file to.
+ *
+ * The one-off planted probe against the real source tree (this docblock's
+ * own "demonstrated catching" paragraph above, applied to this detector) was
+ * run, watched failing, deleted, and confirmed leaving `src/` clean; the
+ * verbatim failing output is recorded in `32-04-SUMMARY.md`.
  */
 
 import { readdirSync, readFileSync } from 'node:fs';
