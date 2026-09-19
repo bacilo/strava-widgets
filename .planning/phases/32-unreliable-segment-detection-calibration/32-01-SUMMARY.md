@@ -116,3 +116,9 @@ None - no external service configuration required.
 ---
 *Phase: 32-unreliable-segment-detection-calibration*
 *Completed: 2026-09-19*
+
+## Self-Check: PASSED
+
+All created files confirmed present (`scripts/compute-stream-checksums.mjs`,
+`scripts/compute-stream-checksums.test.mjs`, `data/stream-checksums.json`, this SUMMARY.md);
+all three commit hashes (`f549bc1e`, `dbe6e301`, `3c943c90`) confirmed in `git log --oneline --all`.
