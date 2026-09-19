@@ -472,7 +472,9 @@ if (/* no directories under export_data/ */) {
 | A3 | The candidate speed-limit statistic (`K × p90(per-activity p95 speeds)`) is a viable SHAPE for D-10, but `K` was not derived with a measured, non-circular method this session | D-10/D-13 | MEDIUM — this is explicitly flagged as an open calibration question, not presented as settled; the planner/calibration-script author must still do the D-11/D-13 work to justify a specific `K` |
 | A4 | No clean valley exists in the no-gap-segment metres distribution (D-08) at the uncalibrated 7 m/s floor used for this probe | D-08 | LOW — this is a probe at an uncalibrated floor; a differently-calibrated floor could, in principle, produce a cleaner valley, though the smooth long-tail shape observed makes this unlikely |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+Resolved at planning (2026-09-19): Q1 is discharged in plan 32-01 Task 1 (the Suunto disposition cites the committed-stream figures and notes the prose discrepancy once). Q2 is discharged by plan 32-06 (`## Excess floor and the trivia case (D-09)`), where the generator reports whether D-09's floor binds or is defensive-only once the limit is set. Q3 is replaced: plan 32-06 derives the limit directly from a bulk statistic instead of a `K` multiplier, and the D-13 insensitivity check gates it. The planner also found a new reachability conflict (research fixtures vs the smallest named jumps), which becomes plan 32-05's blocking decision.
 
 1. **What method produced the original "17 m/s" figure?**
    - What we know: activity `4556693525` is conclusively identified; the committed-stream shows 18.0/21.0 m/s across two decimated samples; the raw 1 Hz peak nearby is 36.0 m/s; the device's own `speed` field shows values in the 14.9-18.7 m/s range across the burst.
