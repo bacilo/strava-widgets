@@ -1,0 +1,90 @@
+# Requirements: v2.3 Pause & Slew Integrity
+
+**Defined:** 2026-09-19
+**Core Value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
+**Milestone goal:** Stop distance covered off the clock from being reported as speed — pauses, hidden pauses and GPS jumps no longer leak into pace charts, overall pace or PRs — without rewriting a stream or deleting a byte of data.
+
+Scoped from a live investigation on 2026-09-19 of three developer-flagged activities (3475740390, 3475724402, 3475734189), committed streams and original FIT files both; evidence is recorded in `PROJECT.md` § Current Milestone and `research/SUMMARY.md`. REQ-IDs continue v2.2's numbering where a category already exists (PACE, COV, PR, CUR); SEG, RPACE, PAUSE and STOP are new. "PAUSE" is used for gap classification rather than "GAP", which this project already uses for grade-adjusted pace.
+
+**Standing conventions every requirement inherits** (v2.1 + v2.2, not restated per row): a guard is watched failing before it is trusted; every headline figure has a classifier-independent recount shown failing-then-passing; every generated artifact is proven idempotent by a second run; checkpoint rows and fixtures are pinned to values derived outside the changed code and traced to the three named activity IDs, not look-alikes; every phase that adds a rendered surface closes on a human browser checkpoint against a digest-verified served build; origin is merged at least once per phase.
+
+## v2.3 Requirements
+
+### Unreliable-segment detection (SEG)
+
+- [ ] **SEG-01**: One detector (`src/analytics/unreliable-segments.ts`) identifies unreliable segments from the committed `t`/`d` channels alone — no lat/lng, no `export_data/` — so CI computes it. It judges maximal advancing *runs* by their aggregate implied speed, never single samples, so decimation aliasing (53% of streams alternate full/zero distance) does not fire it and a capped slew diluted across several samples does not escape it.
+- [ ] **SEG-02**: A slew burst on either or both sides of a gap is merged with that gap into a single segment that conserves its real distance and real elapsed time. On 3475724402 all 30 measured bursts merge into their 18 gaps; the merged segments' summed distance and time are asserted against values derived independently of the detector.
+- [ ] **SEG-03**: Bursts with no timestamp gap are detected — both the hidden-pause case (3475734189: 199 m at t=1353–1360, contiguous 1 Hz) and the isolated GPS-jump case (3475740390: five jumps of 25–52 m between km 6.9 and 7.7, distance-triggered sampling) — and each segment records which of the three mechanisms (gap-adjacent / hidden-pause / isolated-jump) produced it.
+- [ ] **SEG-04**: The speed limit and adjacency rule are calibrated against the archive in a committed, regenerable, idempotent calibration artifact, with an explicit non-circularity argument (the calibration population provably excludes what the threshold detects) and a stated disposition for genuine device over-measurement (the Suunto 17 m/s descent sample): whether it is detected, and if so that it is flagged under its own mechanism label rather than corrected. The artifact replaces the crude 259/1,873 and 121/1,873 scoping figures with figures of record.
+- [ ] **SEG-05**: The detector is the single source — pace derivation, quality signals and best efforts all consume its output, and the single-source audit test is extended to it and shown catching a planted second implementation.
+- [ ] **SEG-06**: Unreliable segments surface as an individually-disclosed per-activity quality signal (count, total metres, total seconds, mechanisms), badged with its measured value like the existing six, added additively with `DASHBOARD_INDEX_SCHEMA_VERSION` unchanged. Whether it joins the severe composite is decided from the calibrated rate and recorded, not assumed.
+
+### Pace surfaces and coverage (PACE, COV)
+
+- [ ] **PACE-08**: The pace chart band, pace histogram and splits clip unreliable segments exactly as they clip recording and pause gaps — no pace value is manufactured inside one, and none is smoothed across one. The 0:34/km samples on 3475724402 and 3475734189 and the 1:10–1:40/km samples on 3475740390 are absent from chart and histogram on the served build.
+- [ ] **PACE-09**: A per-km split that contains an unreliable segment carries a marker, consistent with the existing gap-crossing split marker.
+- [ ] **COV-03**: The coverage identity stays exact with the new class — covered + recording-gap + pause + unreliable time sums to the stream's own span with zero violations across every stream in the archive — and the always-on coverage caption discloses unreliable time as its own term. How `gapProfileSignal`'s fraction treats unreliable time is decided explicitly and recorded.
+
+### Best efforts (PR)
+
+- [ ] **PR-06**: A best-effort window may not span, or interpolate a crossing across, an unreliable segment. The search partitions the stream into clean sub-intervals rather than deleting samples and re-running the sweep, and a test demonstrates that the splice approach fabricates a faster window on a named fixture.
+- [ ] **PR-07**: The contaminated effort is never deleted: it is retained on the effort as a demoted record under a new guard discriminator with a reason stating the segment and its measured metres/seconds, while the effort's ranked figure is the best clean window. An activity with no clean window at a distance has no ranked effort there and says why. This amends v2.2's "PRs move by demotion, never recalculation" for this guard only (developer decision, 2026-09-19).
+- [ ] **PR-08**: Unreliable-segment exclusion runs strictly before ceiling derivation within the existing three-pass shape, so contaminated timings never enter the ceiling's p90 population; the resulting ceiling movement per distance is measured and reported. A recalibration reporting zero movement is treated as a finding to explain, not a pass.
+- [ ] **PR-09**: An archive-wide before/after diff covering every rank change, every newly demoted effort, every reinstated effort and every ceiling value is generated, reconciled three ways (diff, guard counts, independent sweep) and signed by the developer against its sha256 before the phase closes. The three scoping activities' 400m efforts (3:20, 3:21, 3:22/km today) are pinned regression fixtures.
+
+### Overall pace (RPACE)
+
+- [ ] **RPACE-01**: A stream-derived running pace (unreliable segments and gaps excluded from both distance and time) is computed for every activity with a computable stream, through the existing single pace-derivation module.
+- [ ] **RPACE-02**: The activity detail view shows the running pace beside the metadata pace with a plain statement of what was excluded (metres and seconds). Metadata pace and device `moving_time` remain the shipped aggregate everywhere — lists, stats and widgets are unchanged.
+- [ ] **RPACE-03**: The existing "Pace disputed" badge is raised when the two figures disagree materially, under a threshold calibrated against the archive and recorded. 3475724402 (metadata 4:56/km, no split under 5:00) is badged; the count of newly-disputed activities is reported as a finding.
+
+### Pause classification (PAUSE)
+
+- [ ] **PAUSE-01**: Every gap and merged segment is classified by implied speed across the whole segment as stationary, walked or transported, with speed bands calibrated against the archive in a regenerable artifact that carries its own non-circularity argument.
+- [ ] **PAUSE-02**: The activity detail view lists each pause with its class, duration and distance; the per-activity summary is an additive index key and per-interval detail lives in the lazy quality shard.
+- [ ] **PAUSE-03**: v2.2's finding that transport gaps are "essentially absent" (9 activities advancing >100 m across a ≥30 s gap, measured on the gap interval alone) is re-measured on merged segments and the corrected figure recorded with dated provenance in place of the old one.
+
+### Forgotten stops (STOP)
+
+- [ ] **STOP-01**: Sustained near-zero speed inside recorded (covered) time is flagged per activity with its total seconds and the longest stretch. Flag only — no time is removed, and moving time, overall pace and best efforts are untouched by it.
+- [ ] **STOP-02**: The near-zero threshold and minimum duration are calibrated against the archive, and the calibration artifact measures how much GPS drift-while-stationary actually exists (phantom distance accrued during stops). The detector tolerates drift if it is measured to matter; otherwise drift is recorded as a measured non-issue. Walking breaks are shown not to be flagged as forgotten stops.
+- [ ] **STOP-03**: The flag is disclosed on the detail view and is structurally excluded from the severe composite (it describes athlete behaviour, not data quality).
+
+### Curation (CUR)
+
+- [ ] **CUR-04**: In `npm run curate`, a queue row can be marked "reviewed and kept" with a required reason, distinct from exclude. It persists in its own committed file — not in `best-effort-exclusions.json`, which is load-bearing for ranking — through the existing overlay transport only (no second write surface), the row leaves the default queue view and remains reachable under a "reviewed" filter, and the action is reversible. Both publish guards are shown red under a planted leak and green on the served build.
+- [ ] **CUR-06**: The review queue also lists activities whose best effort was moved by the unreliable-segment guard and activities with a transported-class pause, ordered by a stated priority (transported first, then by contaminated metres), with the count equal to an independent recount.
+
+## Future Requirements
+
+Deferred, tracked, not in this roadmap.
+
+- **STREAM-05 / 06 / 07 / 08**: Stream re-derivation from the 1 Hz originals, carrying the device `speed` channel. Still deferred; v2.3's calibration artifacts are the first measurement of whether higher resolution would sharpen segment detection, and that finding should inform the revisit.
+- **STREAM-04**: Garmin export adapter — still externally blocked on the export arriving.
+- **CUR-05**: Per-effort override (reject one distance, keep the activity's others). Less pressing once PR-06/07 move contaminated efforts automatically; revisit after v2.3's queue has been worked through.
+- **STOP-04**: Offering a "stopped time removed" pace for activities with forgotten stops. Out until STOP-02's calibration shows whether stops can be told from slow walking reliably enough to subtract.
+- `index-client.ts` `ParsedDashboardIndexRow` retype; 28 WR-06 ceiling-file write gate; 30 WR-02/WR-03 elevation badge wording — carried from the v2.2 hand-forward list, unscheduled.
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Rebasing gaps or bursts to GPS coordinates | Measured 2026-09-19: device distance equals the summed GPS path within 0–2% in all three investigated files (phone-app recordings, no FIT timer events). The jumps are *in* the coordinates, so geometry cannot arbitrate — and committed streams carry no lat/lng by deliberate privacy design. |
+| Modifying committed stream files | Carried from v2.2. Every fix is derived at compute time; `data/streams/` stays byte-identical. |
+| Redistributing burst distance across the gap (interpolate/smooth) | The GoldenCheetah-style fix. It manufactures pace values that were never measured — the same class of error v2.2 removed. Segments are clipped and disclosed, never filled. |
+| Removing burst distance from activity totals | The distance is real (it is the GPS path); only its timing is wrong. Totals, stats and widgets are unchanged. |
+| Replacing metadata pace or `moving_time` as the shipped aggregate | Developer decision 2026-09-19: the stream-derived figure is shown beside it, never substituted. Consistent with v2.2 and with Strava's documented policy. |
+| Correcting forgotten stops | Nothing in the data distinguishes a deliberate rest from a forgotten stop. Flag only. |
+| Correcting genuine device over-measurement | Carried from v2.2 (the Suunto 17 m/s descent). SEG-04 must state how the detector treats it; it is labelled, never corrected. |
+| Auto-excluding activities by pause class | Rule-based single-signal transport classification is unreliable at fine discrimination; it sets review-queue priority only. Exclusion stays a manual decision. |
+| New runtime dependencies | STACK.md: every algorithm needed extends an existing hand-rolled function (`quantile`, `classifyGaps`); a stats library would add a third percentile definition to reconcile. |
+| Wiring `export_data/` into CI or `npm test` | Gitignored and local-only. Local FIT-based calibration scripts are allowed under `scripts/` and must emit committed, regenerable artifacts. |
+
+**v2.2 positions this milestone deliberately reverses, with the evidence:** "Recomputing PR times" (v2.2 Out of Scope) is amended by PR-06/07 for the unreliable-segment guard only — the ceiling judges whole efforts and provably cannot see a 100–170 m burst diluted into a 400 m window. "Transport/teleport gap handling … measured as essentially absent" is reopened by PAUSE-03 because that measurement looked at the gap interval alone and missed distance dumped into adjacent bursts.
+
+## Traceability
+
+Filled by the roadmapper.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
