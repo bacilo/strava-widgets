@@ -147,16 +147,22 @@ export function isEmptyRanking(entries: readonly PRRankingEntry[] | undefined): 
 
 /**
  * Per-guard breakdown of demoted EFFORTS at one distance (CR-02). `total`
- * is the sum of `ceiling` + `worldRecord` + `maxSpeed` PLUS any demotion
- * whose `guard` value this module does not recognize — a defensive-only
- * case, since `EffortDemotionGuard` is a closed union today. Never confuse
- * this with PR-05's cohort, which is counted in ACTIVITIES elsewhere.
+ * is the sum of `ceiling` + `worldRecord` + `maxSpeed` + `other`. `other`
+ * counts any demotion whose `guard` value this module does not recognize —
+ * a defensive-only case, since `EffortDemotionGuard` is a closed union
+ * today, but one a shard written by a future or foreign guard could still
+ * produce. `other` is REQUIRED (not optional) so a future test literal
+ * cannot silently omit it and reinstate the fold this field exists to
+ * close (D-07 of Phase 31) — the compiler enforces every call site. Never
+ * confuse this with PR-05's cohort, which is counted in ACTIVITIES
+ * elsewhere.
  */
 export interface DemotionCounts {
   total: number;
   ceiling: number;
   worldRecord: number;
   maxSpeed: number;
+  other: number;
 }
 
 /**
@@ -182,7 +188,7 @@ export function countDemotedAtDistance(
   activities: BestEffortsDocument['activities'],
   distance: TargetDistanceKey
 ): DemotionCounts {
-  const counts: DemotionCounts = { total: 0, ceiling: 0, worldRecord: 0, maxSpeed: 0 };
+  const counts: DemotionCounts = { total: 0, ceiling: 0, worldRecord: 0, maxSpeed: 0, other: 0 };
 
   for (const activityId of Object.keys(activities)) {
     if (!hasOwn(activities, activityId)) continue;
@@ -206,8 +212,13 @@ export function countDemotedAtDistance(
           counts.maxSpeed++;
           break;
         default:
-          // Unrecognized guard value — still counts toward total, matching
-          // the module's existing degrade-rather-than-throw discipline.
+          // Unrecognized guard value — a closed union today, defensive
+          // against a shard written by a future guard. Still counts toward
+          // total, matching the module's existing degrade-rather-than-throw
+          // discipline, but the count is now surfaced via `other` (D-07 of
+          // Phase 31) rather than folded silently into an unexplained gap
+          // between the displayed total and the sum of its named parts.
+          counts.other++;
           break;
       }
     }
@@ -220,9 +231,11 @@ export function countDemotedAtDistance(
  * Builds the shared, guard-accurate sentence both `resolvePrTableDemotionNote`
  * and `resolvePrTableEmptyState`'s all-time-with-demotions branch use, so the
  * two copy surfaces cannot drift apart (CR-02). Zero-count parts are omitted;
- * the fixed order is ceiling, world-record, max-speed. Register: named
- * condition plus measured value (Phase 27 D-09) — a guard's name plus its
- * count, never an adjective.
+ * the fixed order is ceiling, world-record, max-speed, then `other` LAST
+ * (D-07 of Phase 31) — an unrecognized guard is always the trailing part, so
+ * the displayed total can never exceed the sum of the parts a reader sees.
+ * Register: named condition plus measured value (Phase 27 D-09) — a guard's
+ * name plus its count, never an adjective.
  */
 function describeDemotionCounts(label: string, counts: DemotionCounts): string {
   const effortWord = counts.total === 1 ? 'effort' : 'efforts';
@@ -232,6 +245,7 @@ function describeDemotionCounts(label: string, counts: DemotionCounts): string {
   if (counts.ceiling > 0) parts.push(`${counts.ceiling} by the personal ceiling`);
   if (counts.worldRecord > 0) parts.push(`${counts.worldRecord} by the world-record pace guard`);
   if (counts.maxSpeed > 0) parts.push(`${counts.maxSpeed} by the activity max-speed guard`);
+  if (counts.other > 0) parts.push(`${counts.other} by another guard`);
   const breakdown = parts.length > 0 ? ` (${parts.join(', ')})` : '';
 
   return `${counts.total} ${label} ${effortWord} ${verb} demoted by a plausibility guard${breakdown}. Efforts the owner excluded are not counted here. See the activity detail view for each reason.`;
