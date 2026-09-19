@@ -6,15 +6,53 @@
  * must be fixed rather than worked around here.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, afterEach, beforeEach } from 'vitest';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 
 import {
   adaptiveFastMass,
   baselineFastMass,
   isSevereStairStep,
+  listStreamFilenames,
   renderResidualMarkdown,
   zeroAdvanceFraction,
 } from './compute-pace-residual.mjs';
+
+describe('listStreamFilenames — the manifest.json exclusion (regression for 27 G-03)', () => {
+  let tmpDir;
+
+  beforeEach(async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'compute-pace-residual-'));
+  });
+
+  afterEach(async () => {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it('returns only the per-activity stream filenames, excluding manifest.json and non-JSON files', async () => {
+    await fs.writeFile(path.join(tmpDir, '12345.json'), '{}');
+    await fs.writeFile(path.join(tmpDir, '67890.json'), '{}');
+    await fs.writeFile(path.join(tmpDir, 'manifest.json'), '{}');
+    await fs.writeFile(path.join(tmpDir, 'README.txt'), 'not a stream');
+
+    const filtered = listStreamFilenames(tmpDir).sort();
+    expect(filtered).toEqual(['12345.json', '67890.json']);
+
+    // The explicit before/after: the old unfiltered f.endsWith('.json')
+    // glob would have returned exactly one more entry (manifest.json),
+    // demonstrating the fix's effect is load-bearing rather than assumed.
+    const unfiltered = (await fs.readdir(tmpDir)).filter((f) => f.endsWith('.json'));
+    expect(unfiltered.length).toBe(filtered.length + 1);
+  });
+
+  it('degrades to an empty list without throwing for an unreadable/absent directory', () => {
+    const absent = path.join(tmpDir, 'does-not-exist');
+    expect(() => listStreamFilenames(absent)).not.toThrow();
+    expect(listStreamFilenames(absent)).toEqual([]);
+  });
+});
 
 describe('isSevereStairStep / zeroAdvanceFraction', () => {
   it('is true for a 60-sample stream with over 15% zero-advance pairs', () => {

@@ -271,19 +271,29 @@ export function renderResidualMarkdown(report) {
   return lines.join('\n');
 }
 
+/**
+ * Lists the per-activity stream filenames in `dirPath`, excluding
+ * `manifest.json` — the stream-availability index, not a per-activity
+ * stream (27 G-03: the naive `f.endsWith('.json')` glob previously counted
+ * it, reopening 27 G-01's manifest miscount in this script independently).
+ * Extracted as its own pure, unit-testable seam so a test can reach the
+ * exclusion directly without sweeping and parsing every stream at archive
+ * scale (`sweepArchive` itself is not unit-testable that way). Degrades the
+ * same way `sweepArchive`'s own try/catch does for an unreadable directory:
+ * returns an empty list rather than throwing.
+ */
+export function listStreamFilenames(dirPath) {
+  try {
+    return readdirSync(dirPath).filter(isStreamFile);
+  } catch (error) {
+    console.warn(`Warning: Failed to read stream directory ${dirPath}:`, error.message);
+    return [];
+  }
+}
+
 function sweepArchive() {
   const streams = [];
-  let files;
-  try {
-    // isStreamFile excludes manifest.json — the stream-availability index,
-    // not a per-activity stream — from the archive-size denominator (27 G-03:
-    // the naive f.endsWith('.json') glob previously counted it, reopening
-    // 27 G-01's manifest miscount in this script independently).
-    files = readdirSync(STREAMS_DIR).filter(isStreamFile);
-  } catch (error) {
-    console.warn(`Warning: Failed to read stream directory ${STREAMS_DIR}:`, error.message);
-    return streams;
-  }
+  const files = listStreamFilenames(STREAMS_DIR);
 
   for (const file of files) {
     try {
