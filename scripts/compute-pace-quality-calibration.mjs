@@ -40,6 +40,12 @@ import {
   GAP_PROFILE_SEVERE_FRACTION,
   IMPOSSIBLE_SAMPLE_SEVERE_COUNT,
 } from '../dist/analytics/pace-quality.js';
+// isStreamFile/idFromFilename moved to the shared lib module (31-06, D-11)
+// so compute-pace-residual.mjs can import the same filter without
+// reopening 27 G-01 as 27 G-03 a second time; re-exported here so this
+// module's own guard test (which imports it as `mod.isStreamFile`) is
+// unaffected by the move.
+export { idFromFilename, isStreamFile } from './lib/stream-files.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = join(__dirname, '..');
@@ -61,27 +67,6 @@ const RESIDUAL_REGENERATE_COMMAND = 'npm run compute-pace-residual';
 // ---------------------------------------------------------------------------
 // Pure functions — importable without I/O (the guard test's contract)
 // ---------------------------------------------------------------------------
-
-/** Strips the trailing `.json` from a `data/activities|streams` filename. */
-export function idFromFilename(filename) {
-  return filename.endsWith('.json') ? filename.slice(0, -'.json'.length) : filename;
-}
-
-/**
- * True for a `data/streams/` entry that is a genuine per-activity stream
- * file — false for `manifest.json`, the stream-AVAILABILITY INDEX written
- * by backfill-streams and the daily intervals.icu sync, which is not itself
- * a per-activity stream and must never be counted as one (gap G-01,
- * `27-VALIDATION.md`: the original naive `f.endsWith('.json')` glob counted
- * it, inflating the stream-file count by one and understating the
- * stream-less count by one). Named exclusion of the known filename is
- * preferred over a heuristic (e.g. "id doesn't parse as numeric/i-prefixed")
- * because it is exact and does not risk excluding a legitimately-shaped
- * future stream filename.
- */
-export function isStreamFile(filename) {
-  return filename.endsWith('.json') && filename !== 'manifest.json';
-}
 
 /** Maps a raw activity JSON record to the four-field metadata `computePaceQualitySignals` consumes. */
 export function metadataFromActivity(activity) {
