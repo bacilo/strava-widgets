@@ -348,6 +348,30 @@ export function countOwnerExcludedAboveCeiling(bestEffortsDoc, applied) {
 }
 
 /**
+ * WR-03's fix: the reconciliation sentence below used to ASSERT (without
+ * measuring) that `totalNonExcludedDemoted + totalOwnerExcludedAboveCeiling`
+ * "is the figure the pipeline reports as its total ceiling demotions" — this
+ * script never read the shipped document's own count, so a future archive
+ * whose live `k` diverges from the pipeline's fixed `CEILING_K` (1.28) would
+ * make that sentence print a confident false identity into an artifact of
+ * record. This counts the shipped ceiling demotions directly off
+ * `bestEffortsDoc` (the document is already in hand), so the reconciliation
+ * sentence can render a MEASURED comparison instead of an assumed one.
+ */
+export function countShippedCeilingDemotions(bestEffortsDoc) {
+  let count = 0;
+  const activities = bestEffortsDoc?.activities ?? {};
+  for (const activityId of Object.keys(activities)) {
+    const activity = activities[activityId];
+    if (!activity) continue;
+    for (const effort of activity.efforts ?? []) {
+      if (effort?.demotion?.guard === 'ceiling') count += 1;
+    }
+  }
+  return count;
+}
+
+/**
  * WR-07's fix: selects the distance with the greatest ABSOLUTE drift from
  * `report.reconciliation` (never a signed comparison — a drift of -7 outranks
  * a drift of +5), breaking ties deterministically by `TARGET_ORDER` position
@@ -498,6 +522,7 @@ export function buildCalibrationReport(bestEffortsDoc, indexDoc) {
   const applied = k === null ? null : applyCeiling(populations, k, minPopulation);
   const riegel = compareRiegelGate(populations);
   const ownerExcludedAboveCeiling = countOwnerExcludedAboveCeiling(bestEffortsDoc, applied);
+  const shippedCeilingDemotions = countShippedCeilingDemotions(bestEffortsDoc);
 
   // "## Why not a percentile" — the p99.5 self-defeat finding, recomputed
   // live (never copied from 28-CONTEXT.md's own version of this finding).
@@ -554,6 +579,7 @@ export function buildCalibrationReport(bestEffortsDoc, indexDoc) {
     kPerDistance,
     applied,
     ownerExcludedAboveCeiling,
+    shippedCeilingDemotions,
     riegel,
     percentileFinding,
     sensitivity,
@@ -746,6 +772,8 @@ export function renderCalibrationMarkdown(report) {
   }
   lines.push('');
   const totalCeilingDemotions = totalNonExcludedDemoted + totalOwnerExcludedAboveCeiling;
+  const shippedCeilingDemotions = report.shippedCeilingDemotions ?? 0;
+  const ceilingDemotionsAgree = totalCeilingDemotions === shippedCeilingDemotions;
   lines.push(
     `Reconciliation, stated once so \`${totalNonExcludedDemoted}\` (this report's own "Demoted ` +
       '(non-excluded)" column, summed) never looks like it disagrees with the pipeline\'s own count: ' +
@@ -755,9 +783,11 @@ export function renderCalibrationMarkdown(report) {
       'pipeline\'s total. Adding back the ' +
       `${totalOwnerExcludedAboveCeiling} owner-excluded effort(s) also above the same ceiling (the ` +
       '"Owner-excluded above ceiling" column, summed) gives ' +
-      `${totalNonExcludedDemoted} + ${totalOwnerExcludedAboveCeiling} = ${totalCeilingDemotions}, the ` +
-      "figure the pipeline reports as its total ceiling demotions and the one " +
-      '`compute-pr-ceiling-recount.mjs --expect-demoted` checks.'
+      `${totalNonExcludedDemoted} + ${totalOwnerExcludedAboveCeiling} = ${totalCeilingDemotions} — ` +
+      `${ceilingDemotionsAgree ? 'matches' : 'DOES NOT MATCH'} the shipped document's ` +
+      `${shippedCeilingDemotions} ceiling demotions (\`activities[*].efforts[*].demotion.guard === ` +
+      "'ceiling'\`, counted directly off `data/stats/best-efforts.json` — the same figure " +
+      '`compute-pr-ceiling-recount.mjs --expect-demoted` checks).'
   );
   lines.push('');
   if (report.fourHundredCeilingSec !== null && report.applied) {

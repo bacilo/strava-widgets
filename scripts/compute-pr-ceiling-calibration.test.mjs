@@ -18,6 +18,7 @@ import {
   applyCeiling,
   buildFilteredPopulations,
   countOwnerExcludedAboveCeiling,
+  countShippedCeilingDemotions,
   deriveCeilingMultiplier,
   deriveMinimumPopulation,
   largestAbsoluteDrift,
@@ -412,6 +413,37 @@ describe('countOwnerExcludedAboveCeiling (WR-08)', () => {
   });
 });
 
+describe('countShippedCeilingDemotions (WR-03)', () => {
+  it('counts efforts whose demotion.guard is exactly "ceiling", not world-record or max-speed', () => {
+    const bestEffortsDoc = {
+      activities: {
+        a1: {
+          efforts: [
+            { distance: '400m', demotion: { guard: 'ceiling', reason: 'r' } },
+            { distance: '1k', demotion: { guard: 'world-record', reason: 'r' } },
+          ],
+        },
+        a2: {
+          efforts: [
+            { distance: '1mi', demotion: { guard: 'ceiling', reason: 'r' } },
+            { distance: '5k', demotion: { guard: 'max-speed', reason: 'r' } },
+            { distance: '10k', demotion: null },
+          ],
+        },
+      },
+    };
+    expect(countShippedCeilingDemotions(bestEffortsDoc)).toBe(2);
+  });
+
+  it('never throws on null, {}, or malformed shapes, and counts 0', () => {
+    expect(() => countShippedCeilingDemotions(null)).not.toThrow();
+    expect(countShippedCeilingDemotions(null)).toBe(0);
+    expect(countShippedCeilingDemotions({})).toBe(0);
+    expect(countShippedCeilingDemotions({ activities: { a1: { efforts: 'not-an-array' } } })).toBe(0);
+    expect(countShippedCeilingDemotions({ activities: { a1: null } })).toBe(0);
+  });
+});
+
 describe('render: reconciled owner-excluded reconciliation (WR-08)', () => {
   it('owner-excluded: the table carries a distinct per-distance column, and the reconciliation sentence states the sum', () => {
     const report = {
@@ -463,6 +495,27 @@ describe('render: reconciled owner-excluded reconciliation (WR-08)', () => {
     const row400After = findCoverageRow400(after);
     expect(row400Before).toContain('| 5.1100 | 78.3s | true | 1000 | 8 |');
     expect(row400After).toContain('| 5.1100 | 78.3s | true | 1000 | 8 |');
+  });
+});
+
+describe('render: reconciliation sentence measures agreement with the shipped document (WR-03)', () => {
+  it('renders "matches" when the computed total equals shippedCeilingDemotions', () => {
+    const markdown = renderCalibrationMarkdown(SAMPLE_REPORT);
+    expect(markdown).toContain("matches the shipped document's 18 ceiling demotions");
+    expect(markdown).not.toContain('DOES NOT MATCH');
+  });
+
+  it('renders "DOES NOT MATCH" when shippedCeilingDemotions disagrees with the computed total — the mismatch branch', () => {
+    const report = { ...SAMPLE_REPORT, shippedCeilingDemotions: 99 };
+    const markdown = renderCalibrationMarkdown(report);
+    expect(markdown).toContain("DOES NOT MATCH the shipped document's 99 ceiling demotions");
+    expect(markdown).not.toContain("matches the shipped document's 99 ceiling demotions");
+  });
+
+  it('treats a missing shippedCeilingDemotions as 0, never crashing the render', () => {
+    const { shippedCeilingDemotions, ...rest } = SAMPLE_REPORT;
+    const markdown = renderCalibrationMarkdown(rest);
+    expect(markdown).toContain("DOES NOT MATCH the shipped document's 0 ceiling demotions");
   });
 });
 
@@ -631,6 +684,11 @@ const SAMPLE_REPORT = {
       marathon: { liveN: 0, referenceN: 0, drift: 0 },
     },
     fourHundredCeilingSec: 78.3,
+    // WR-03: matches this fixture's default totalNonExcludedDemoted (18) +
+    // totalOwnerExcludedAboveCeiling (0, since ownerExcludedAboveCeiling is
+    // absent above) so the un-overridden reconciliation sentence renders
+    // "matches" by default.
+    shippedCeilingDemotions: 18,
 };
 
 describe('renderCalibrationMarkdown', () => {
