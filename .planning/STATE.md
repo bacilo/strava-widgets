@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.2
-milestone_name: Pace Data Quality
-status: Awaiting next milestone
-stopped_at: Milestone v2.2 archived and tagged; awaiting /gsd-new-milestone
-last_updated: "2026-09-19T14:07:53.029Z"
-last_activity: 2026-09-19 — Milestone v2.2 completed and archived
+milestone: v2.3
+milestone_name: Pause & Slew Integrity
+status: planning
+last_updated: "2026-09-19T15:21:22.080Z"
+last_activity: 2026-09-19
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 69
-  completed_plans: 69
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -29,13 +28,16 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
   (STREAM-05/06 — the quality signals now exist to measure whether it helps), the `index-client.ts`
   `ParsedDashboardIndexRow` retype (phase-sized), CUR-04 queue dismiss, 28 WR-06 ceiling-file write
   gate (developer decision), 30 WR-02/WR-03 elevation badge wording (product call).
+
 - `STREAM-04` (Garmin export adapter) — externally blocked on the export arriving; acknowledged at
   the v2.0, v2.1 and v2.2 closes.
+
 - Open code-review findings, none shipped-behaviour blockers — v2.2: 26 WR-06/07, 27 WR-02/03,
   28 IN-05..08, 29 WR-01/04/05/06, 30 IN-01..07, 31 IN-01..08; v2.1: Phase 23's 7 Warning + 5 Info,
   Phase 24's WR-19 (`EACCES` out of `findCurationArtifacts`; fails closed), Phase 25's CR-01 (an
   unawaited CDP listener rejection leaks a Chrome child process out of `first-paint-capture.mjs`)
   plus WR-01..WR-04.
+
 - Process: merge origin at least once per phase during the next milestone — v2.2 ran 402 commits
   ahead of an origin the nightly CI kept moving, and the archive shifted under two calibration
   artifacts (MERGE-01). The two v2.1 process fixes held in v2.2 (verification re-ran after every
@@ -43,10 +45,10 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 ## Current Position
 
-Phase: Milestone v2.2 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-09-19 — Milestone v2.2 completed and archived
+Status: Defining requirements
+Last activity: 2026-09-19 — Milestone v2.3 started
 
 ## Performance Metrics
 
