@@ -25,7 +25,7 @@ this phase's docs pass.
 
 ### WR-09 — the CR-01 regression tests' coupling to the live exclusions file
 - **D-01:** **Fixture plus exactly one live premise check.** The two exclusion entries the four
-  CR-01 tests depend on (`4556693525` all-distance, `3475711469` 400m-only) are copied into a
+  CR-01 tests depend on (`4556693525` and `3475711469`, both all-distance `distances: null` — the test comment at `compute-best-efforts.test.ts:1128` saying "400m only" is itself stale; corrected 2026-09-19 per 31-RESEARCH.md) are copied into a
   committed test fixture, and all arithmetic assertions (`populationN`, negative-control speeds,
   demotion guards) run against that fixture. Exactly ONE test keeps reading the real
   `data/best-effort-exclusions.json`, and it asserts only the premise ("4556693525 is excluded
@@ -93,7 +93,7 @@ this phase's docs pass.
 - **D-13:** **Hand-written stale figures are corrected in place with a dated italic note** (the
   Phase 30 D-04 / `26-RESIDUAL.md` house style): REQUIREMENTS.md PACE-06 "13 of the 154" → 14;
   ERA-02 and ROADMAP Phase 27 Criterion 5 "716 of 1,864 (38%)" → the live figure at regeneration
-  time (663 of 1,890 at audit; re-measure on the merged archive); PR-03/04/05 "pending phase
+  time (663 of 1,899 = 34.9% on the merged archive per 31-RESEARCH.md; re-measure before editing); PR-03/04/05 "pending phase
   re-verification" wording → replaced by the 2026-09-17 re-verification reference; the audit's
   own tech_debt list amended for G-01 (closed). Each note names the source record (e.g.
   `27-VALIDATION.md` G-02).
@@ -169,7 +169,7 @@ this phase's docs pass.
 - Degrade-rather-than-throw in dashboard view logic; fail-closed in scripts that gate CI.
 
 ### Integration Points
-- `scripts/build-widgets.mjs:233` — sole `copyJsonTree` call site; D-05's log line lands there or inside the helper.
+- `copyJsonTree` has TWO call sites — `scripts/build-widgets.mjs:233` and `scripts/curate-server.mjs:691` (post-recompute mirror) — so D-05's log line belongs inside the helper, not at a caller.
 - `src/dashboard/views/records.ts:592` — consumes `describeDemotionCounts`; no change needed if D-07 stays inside the sentence builder.
 - `scripts/curate-queue/index.ts` header-count render — D-09's malformed line sits beside the D-14 (Phase 29) counts.
 - `.github/workflows/daily-refresh.yml` — `npm test` gates deploy; D-02 deliberately lets a premise failure turn it red.
