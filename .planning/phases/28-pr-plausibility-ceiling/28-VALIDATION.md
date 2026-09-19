@@ -1190,3 +1190,45 @@ Evidence, re-run live this audit (not copied from earlier rounds):
 - **Not re-run:** 28-01-T2, 28-06-T2 and 28-07-T2. These rows regenerate committed artifacts (timestamps / data files). Their idempotence was proven in § Round 2 Evidence, and re-running them here would dirty the tree.
 
 Manual-only rows (PR-03 browser read, PR-04 sign-off) remain satisfied by Round 2. `nyquist_compliant: true` stands.
+
+## PR-04 Sign-off (Round 3 — post-merge, D-14)
+
+Recorded 2026-09-19 by the milestone close-out audit (`v2.2-MILESTONE-AUDIT.md`, MERGE-01), not by a
+Phase 28 plan. The Round 2 sign-off above was bound to the pre-merge 1,890-activity snapshot; merging
+`origin/master` (11 nightly CI commits, +9 activities, 0 conflicts) and regenerating moved the
+population, so a fresh sign-off was required before push.
+
+- **Artifact reviewed:** `.planning/phases/28-pr-plausibility-ceiling/28-DIFF.md`, regenerated
+  2026-09-19T07:43:38Z by `node scripts/compute-pr-ceiling-diff.mjs` against the merged archive
+  (1,899 activities, 1,874 considered).
+- **sha256:** `cdf9d65499d7ac62123ecc33d1e298ae08a0d07f6740ba7bdcc4cf5fa365b8dd`.
+- **Prior Round 2 signed version:** sha256 `64c90981e1ed3db643af77ee7e4953f912fb2817f84dafd10b2d112090565cd2`,
+  superseded by this sign-off.
+- **Material presented before the verdict (machine diff of the two files, shown in full):**
+  - Every per-distance ceiling moved down slightly with the larger population: 1k 4.7513 → 4.7496,
+    1mi 4.6323 → 4.6281, 5k 4.3458 → 4.3452, 10k 4.2236 → 4.2204 m/s (`populationN` +9 each).
+  - **Exactly one record changed hands.** At 1mi, activity `3475730418` (2018-12-16, "Bellahøj -
+    Vigerslev", 28.3 km, no device name; 347.6 s, implied 4.630 m/s) was the post-Phase-28 #1 and is
+    now demoted by the ceiling (`demotion.guard: "ceiling"`); every remaining 1mi row moves up one
+    and `6454505030` (401.5 s) enters at #10. Its own 400m (29.3 s, 13.65 m/s) and 1k (87 s,
+    11.50 m/s) efforts were already world-record-demoted — the same GPS-glitch activity.
+  - Summary deltas: ceiling-only demoted 31 → 32 (1mi 3 → 4); flag flips 14 → 13; retroactive
+    promotions 3 → 2 (3475730418@1mi's "gained" row removed); ranking rows moved 48 → 49;
+    `totals.effortsDemoted` 65 → 66. 400m, 1k, 5k, 10k, half, marathon rank tables unchanged.
+  - Owner-excluded ceiling-demotion section: still the same 13 rows (ceiling values updated).
+  - The three-way figure: diff ceiling-only 32 = recount `byGuard.ceiling` 32 = recount
+    `independentCeilingCount` 32 (`--expect-demoted 66` MATCH, exit 0, `ceilingDemotedButNotOverCeiling`
+    0, `rankedButDemotedIds` 0). Flagged activities still 47 (12 of 12 exclusions accounted).
+  - Gate on the merged archive: `npm test` 84 files / 2550 tests, `npx tsc --noEmit` clean,
+    `npm run verify-dashboard` 66/66, curation-artifact scan clean.
+- **Developer's verdict:** "Approve" — chosen from a three-option prompt (approve / approve and
+  exclude 3475730418 / hold) whose text named the moved record, the ceiling delta and the three-way
+  reconciliation. The developer did not elect to exclude the activity; it remains listed in the
+  Phase 29 review queue.
+- **Date:** 2026-09-19.
+- Nothing was written into `28-DIFF.md`; it remains purely generated. `data/best-effort-ceiling.json`
+  (tracked) was rewritten by the local `compute-all-stats` run and is committed alongside this record
+  so the committed ceiling state matches the signed diff (WR-06's opt-in write gate remains a deferred
+  decision).
+- Wording observation carried to the Phase 31 cleanup backlog: the demotion reason renders
+  "implied 4.63 m/s exceeds personal ceiling 4.63 m/s" — 2-dp rounding hides a real 0.002 m/s margin.
