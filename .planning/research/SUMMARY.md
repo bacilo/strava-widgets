@@ -75,7 +75,7 @@ Suggested phase structure continues numbering from Phase 32. Dependencies point 
 
 ### Phase 32: Unreliable-Segment Detection & Calibration
 **Rationale:** Everything else in this milestone depends on this existing first; it is also the single highest-risk calibration surface (Pitfalls 1-4, 10, 12).
-**Delivers:** `unreliable-segments.ts` (run-level implied-speed scan + maximal-run merge, both-sides-of-gap merging), the single-source audit extension with a planted-violation test, and a calibration artifact naming the genuine-vs-slew boundary (Suunto 17 m/s unflagged; three scoping activities' bursts flagged) plus a stated non-circularity argument for the speed-limit constant.
+**Delivers:** `unreliable-segments.ts` (run-level implied-speed scan + maximal-run merge, both-sides-of-gap merging), the single-source audit extension with a planted-violation test, and a calibration artifact naming the genuine-vs-slew boundary (Suunto 17 m/s unflagged; three scoping activities' bursts flagged) plus a stated non-circularity argument for the speed-limit constant. **Superseded 2026-09-19 (32-CONTEXT.md D-01):** ROADMAP criterion 4 and SEG-04 win; if the run-level rule fires on the Suunto sample it IS a segment; the Suunto activity (`4556693525`) must never be pinned as a must-not-fire fixture; D-05's negative control is the archive's fastest corroborated-genuine running instead.
 **Addresses:** DETECT (FEATURES.md P1).
 **Avoids:** decimation-aliasing false positives, genuine-fast misclassification, diluted multi-sample slews, leading-side burst omission, vacuous synthetic fixtures.
 **Constraint:** must ship its own `data/streams/` byte-identical CI checksum gate from this phase, not deferred to milestone close.

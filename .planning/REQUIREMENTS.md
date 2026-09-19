@@ -8,6 +8,10 @@ Scoped from a live investigation on 2026-09-19 of three developer-flagged activi
 
 **Standing conventions every requirement inherits** (v2.1 + v2.2, not restated per row): a guard is watched failing before it is trusted; every headline figure has a classifier-independent recount shown failing-then-passing; every generated artifact is proven idempotent by a second run; checkpoint rows and fixtures are pinned to values derived outside the changed code and traced to the three named activity IDs, not look-alikes; every phase that adds a rendered surface closes on a human browser checkpoint against a digest-verified served build; origin is merged at least once per phase.
 
+**Amendments:**
+- SEG-04's Suunto disposition wording — see its row (amended 2026-09-19, 32-CONTEXT.md D-03).
+- SEG-05 split into SEG-05a/SEG-05b — see their rows and the Traceability table (split 2026-09-19, 32-CONTEXT.md D-14).
+
 ## v2.3 Requirements
 
 ### Unreliable-segment detection (SEG)
@@ -15,8 +19,9 @@ Scoped from a live investigation on 2026-09-19 of three developer-flagged activi
 - [ ] **SEG-01**: One detector (`src/analytics/unreliable-segments.ts`) identifies unreliable segments from the committed `t`/`d` channels alone — no lat/lng, no `export_data/` — so CI computes it. It judges maximal advancing *runs* by their aggregate implied speed, never single samples, so decimation aliasing (53% of streams alternate full/zero distance) does not fire it and a capped slew diluted across several samples does not escape it.
 - [ ] **SEG-02**: A slew burst on either or both sides of a gap is merged with that gap into a single segment that conserves its real distance and real elapsed time. On 3475724402 no burst is left unmerged or labelled isolated (the uncalibrated 2026-09-19 scoping probe found 30 bursts, all adjacent to 18 gaps — a reference to reconcile against, not a pinned value); each merged segment's distance and elapsed time are asserted against a per-segment table derived independently of the detector.
 - [ ] **SEG-03**: Bursts with no timestamp gap are detected — both the hidden-pause case (3475734189: 199 m at t=1353–1360, contiguous 1 Hz) and the isolated GPS-jump case (3475740390: five jumps of 25–52 m between km 6.9 and 7.7, distance-triggered sampling) — and each segment records which of the three mechanisms (gap-adjacent / hidden-pause / isolated-jump) produced it.
-- [ ] **SEG-04**: The speed limit and adjacency rule are calibrated against the archive in a committed, regenerable, idempotent calibration artifact, with an explicit non-circularity argument (the calibration population provably excludes what the threshold detects) and a stated disposition for genuine device over-measurement (the Suunto 17 m/s descent sample): whether it is detected, and if so that it is flagged under its own mechanism label rather than corrected. The artifact replaces the crude 259/1,873 and 121/1,873 scoping figures with figures of record.
-- [ ] **SEG-05**: The detector is the single source — pace derivation, quality signals and best efforts all consume its output, and the single-source audit test is extended to it and shown catching a planted second implementation.
+- [ ] **SEG-04**: The speed limit and adjacency rule are calibrated against the archive in a committed, regenerable, idempotent calibration artifact, with an explicit non-circularity argument (the calibration population provably excludes what the threshold detects) and a stated disposition for genuine device over-measurement (the Suunto 17 m/s descent sample): whether it is detected, with its committed-stream numbers; if detected, it carries whichever of the three observable mechanisms the detector assigns — there is no fourth label, because from `t`/`d` alone over-measurement and an isolated GPS jump look the same; and the calibration artifact discloses it by activity ID (`4556693525`, identified 2026-09-19 in 32-RESEARCH.md § D-02) and states plainly that the detector cannot tell over-measurement from a jump — it is never corrected. The artifact replaces the crude 259/1,873 and 121/1,873 scoping figures with figures of record. **Amended 2026-09-19 (32-CONTEXT.md D-03):** the five isolated jumps on 3475740390 run slower than the Suunto sample, so no speed rule can flag them and spare it, and a fourth label would need lat/lng or device-family relabelling, both rejected.
+- [ ] **SEG-05a**: The single-source audit test is extended to the detector and shown catching a planted second implementation (a permanent in-suite planted block AND a one-off planted probe file against the real tree). This is Phase 32's half.
+- [ ] **SEG-05b**: The detector is the single source — pace derivation, quality signals and best efforts all consume its output. Stays Pending until every consuming phase (33, 34/35, 36) has shown its consumer reading the detector, and each phase records its own part. **Split 2026-09-19 (32-CONTEXT.md D-14):** Phase 32 has no consumer, and an unsplittable row is a planning defect (Phase 25's R6 lesson).
 - [ ] **SEG-06**: Unreliable segments surface as an individually-disclosed per-activity quality signal (count, total metres, total seconds, mechanisms), badged with its measured value like the existing six, added additively with `DASHBOARD_INDEX_SCHEMA_VERSION` unchanged. Whether it joins the severe composite is decided from the calibrated rate and recorded, not assumed.
 
 ### Pace surfaces and coverage (PACE, COV)
@@ -75,7 +80,7 @@ Deferred, tracked, not in this roadmap.
 | Removing burst distance from activity totals | The distance is real (it is the GPS path); only its timing is wrong. Totals, stats and widgets are unchanged. |
 | Replacing metadata pace or `moving_time` as the shipped aggregate | Developer decision 2026-09-19: the stream-derived figure is shown beside it, never substituted. Consistent with v2.2 and with Strava's documented policy. |
 | Correcting forgotten stops | Nothing in the data distinguishes a deliberate rest from a forgotten stop. Flag only. |
-| Correcting genuine device over-measurement | Carried from v2.2 (the Suunto 17 m/s descent). SEG-04 must state how the detector treats it; it is labelled, never corrected. |
+| Correcting genuine device over-measurement | Carried from v2.2 (the Suunto 17 m/s descent). SEG-04 must state how the detector treats it; it is disclosed in the calibration artifact, never corrected (amended 2026-09-19, D-03). |
 | Auto-excluding activities by pause class | Rule-based single-signal transport classification is unreliable at fine discrimination; it sets review-queue priority only. Exclusion stays a manual decision. |
 | New runtime dependencies | STACK.md: every algorithm needed extends an existing hand-rolled function (`quantile`, `classifyGaps`); a stats library would add a third percentile definition to reconcile. |
 | Wiring `export_data/` into CI or `npm test` | Gitignored and local-only. Local FIT-based calibration scripts are allowed under `scripts/` and must emit committed, regenerable artifacts. |
@@ -90,7 +95,8 @@ Deferred, tracked, not in this roadmap.
 | SEG-02 | Phase 32 | Pending |
 | SEG-03 | Phase 32 | Pending |
 | SEG-04 | Phase 32 | Pending |
-| SEG-05 | Phase 32 | Pending |
+| SEG-05a | Phase 32 | Pending |
+| SEG-05b | Phases 33, 35, 36 (per consumer) | Pending |
 | SEG-06 | Phase 33 | Pending |
 | PACE-08 | Phase 33 | Pending |
 | PACE-09 | Phase 33 | Pending |

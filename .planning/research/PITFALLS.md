@@ -42,6 +42,8 @@ A threshold set as a round number ("20 m/s") with no cited measurement. The Suun
 **Phase to address:**
 Unreliable-segment detection — the calibration must be measured against both the genuine-fast and slew populations, not just the slew population.
 
+**Superseded 2026-09-19 (32-CONTEXT.md D-01):** ROADMAP criterion 4 and SEG-04 win; if the run-level rule fires on the Suunto sample it IS a segment; the Suunto activity (`4556693525`) must never be pinned as a must-not-fire fixture; D-05's negative control is the archive's fastest corroborated-genuine running instead.
+
 ---
 
 ### Pitfall 3: Capped slews diluted below detection because they're spread over several samples

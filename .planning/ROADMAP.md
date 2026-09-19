@@ -119,14 +119,14 @@ context, measured facts and decisions in `PROJECT.md` § Current Milestone; requ
 
 **Goal**: A single detector identifies unreliable segments — gap-adjacent slew bursts, hidden-pause bursts with no timestamp gap, and isolated GPS jumps — from the committed `t`/`d` channels alone, calibrated against the archive with an explicit non-circularity argument, and becomes the one source every downstream consumer reads.
 **Depends on**: Nothing (first phase of v2.3; continues numbering after Phase 31)
-**Requirements**: SEG-01, SEG-02, SEG-03, SEG-04, SEG-05
+**Requirements**: SEG-01, SEG-02, SEG-03, SEG-04, SEG-05a (SEG-05 split 2026-09-19 per 32-CONTEXT.md D-14; SEG-05b is tracked per consuming phase)
 **Success Criteria** (what must be TRUE):
 
   1. Running the detector against 3475724402 leaves no burst unmerged or labelled isolated — every burst on this activity is gap-adjacent — and each merged segment's distance and elapsed time (burst + gap, both sides) match a per-segment table derived independently of the detector from the raw `t`/`d` arrays. The 2026-09-19 scoping probe's figures (30 bursts / 18 gaps / 1,694 m of burst distance in 106 s / 707 s of gap time, at an uncalibrated 7 m/s cut on the 2 s-decimated stream) are a reference to reconcile against and explain any difference from, NOT the pinned expected value.
   2. Running the detector against 3475734189 flags the 199 m burst at t=1353–1360 under the hidden-pause mechanism, despite contiguous 1 Hz sampling with no timestamp gap.
   3. Running the detector against 3475740390 flags all five isolated jumps (25–52 m, km 6.9–7.7) under the isolated-jump mechanism, including the 52 m jump at t=2508 where the activity's current 400m best starts.
-  4. A committed, regenerable calibration artifact states the calibrated speed-limit constant, a non-circularity argument (the calibration population provably excludes what the threshold detects), and the Suunto 17 m/s descent sample's disposition (flagged under its own mechanism label, never corrected) — replacing the crude 259/1,873 and 121/1,873 scoping sweep with a figure of record.
-  5. The single-source audit test is extended to the detector and demonstrated catching a planted second implementation before passing against the real one.
+  4. A committed, regenerable calibration artifact states the calibrated speed-limit constant, a non-circularity argument (the calibration population provably excludes what the threshold detects), and the Suunto 17 m/s descent sample's disposition — detected or not, with committed-stream numbers; if detected, no fourth mechanism label, because from `t`/`d` alone over-measurement and an isolated GPS jump look the same; disclosed by activity ID `4556693525` in the artifact and never corrected — replacing the crude 259/1,873 and 121/1,873 scoping sweep with a figure of record. **Amended 2026-09-19 (32-CONTEXT.md D-03):** the original v2.2 prose cited "17 m/s"; that figure did not reproduce exactly under this phase's own measurement (32-RESEARCH.md § A1), so the artifact reports measured committed-stream figures instead.
+  5. The single-source audit test is extended to the detector and demonstrated catching a planted second implementation before passing against the real one. (SEG-05a, amended 2026-09-19 per D-14. The Goal's "one source every downstream consumer reads" is SEG-05b, discharged by Phases 33, 35 and 36.)
 
 **Plans**: 9 plans
 Plans:
@@ -168,6 +168,8 @@ Plans:
   2. The per-km split covering 3475740390's t=2508 jump carries an unreliable-segment marker, consistent with the existing gap-crossing split marker.
   3. The always-on coverage caption discloses unreliable time as its own term, and covered + recording-gap + pause + unreliable time sums to each stream's own span with zero identity violations archive-wide.
   4. Each of the three named activities' detail view discloses an unreliable-segment quality signal (count, total metres, total seconds, mechanisms) badged with its measured value like the existing six signals, and whether it joins the severe composite is stated and recorded rather than assumed. `DASHBOARD_INDEX_SCHEMA_VERSION` stays unchanged.
+
+**Note (32-CONTEXT.md D-04, 2026-09-19):** every unreliable segment receives one downstream treatment regardless of mechanism. Clipping pace or barring a window withholds a claim; it never alters distance, totals or splits. No per-mechanism branch.
 
 **Plans**: TBD
 **UI hint**: yes
@@ -213,6 +215,8 @@ Plans:
   2. A test demonstrates that the splice approach (delete unreliable samples, re-run the sweep over the spliced array) fabricates a faster window on a named fixture, distinguishing it from the shipped partition-based search.
   3. Unreliable-segment exclusion is shown running strictly before ceiling derivation within the existing three-pass shape, and the resulting per-distance ceiling movement is measured and reported as a finding — a recalibration reporting zero movement is treated as requiring its own explanation, not accepted silently.
   4. An archive-wide before/after diff — covering every rank change, every newly demoted effort, every reinstated effort and every ceiling value — is reconciled three ways (diff, guard counts, independent sweep) and signed by the developer against its sha256, with the three scoping activities' 400m efforts (3:20, 3:21, 3:22/km today) pinned as permanent regression fixtures.
+
+**Note (32-CONTEXT.md D-04, 2026-09-19):** every unreliable segment receives one downstream treatment regardless of mechanism. Clipping pace or barring a window withholds a claim; it never alters distance, totals or splits. No per-mechanism branch.
 
 **Plans**: TBD
 **UI hint**: yes
