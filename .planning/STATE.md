@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
 status: executing
-stopped_at: Phase 32 planned (9 plans, 6 waves)
-last_updated: "2026-09-19T21:02:49.082Z"
-last_activity: 2026-09-19 -- Phase 32 planning complete
+stopped_at: Phase 32 planned (9 plans, 6 waves; plan-checker passed, 0 blockers)
+last_updated: "2026-09-19T21:42:08.688Z"
+last_activity: 2026-09-19 -- Phase 32 execution started
 progress:
   total_phases: 6
   completed_phases: 0
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** v2.3 Pause & Slew Integrity — Phase 32 planned 2026-09-19 (9 plans, 6 waves); ready to execute with `/gsd-execute-phase 32`. Plan 32-05 carries a blocking developer decision (D-10(d) reachability vs the D-05 fixtures).
+**Current focus:** Phase 32 — unreliable-segment-detection-calibration
 
 **Carried into the next milestone** (full list with reasons in PROJECT.md § Active):
 
@@ -46,10 +46,10 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 ## Current Position
 
-Phase: 32 of 6 (Unreliable-Segment Detection & Calibration)
-Plan: 0 of 9 complete (32-01..32-09 planned 2026-09-19)
-Status: Ready to execute
-Last activity: 2026-09-19 -- Phase 32 planning complete
+Phase: 32 (unreliable-segment-detection-calibration) — EXECUTING
+Plan: 1 of 9
+Status: Executing Phase 32
+Last activity: 2026-09-19 -- Phase 32 execution started
 
 ## Performance Metrics
 
