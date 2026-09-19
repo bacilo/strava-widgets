@@ -47,7 +47,7 @@
  * hand-edited archive cannot break the table or inject a link into a
  * committed artifact.
  *
- * Only write target: `.planning/phases/28-pr-plausibility-ceiling/28-DIFF.md`.
+ * Only write target: `.planning/milestones/v2.2-phases/28-pr-plausibility-ceiling/28-DIFF.md`.
  * `main()`'s own `statsDir`/`ceilingStatePath` are both throwaway temp paths
  * — nothing under `data/` is ever written by this script.
  */
@@ -65,7 +65,7 @@ import { CEILING_K, CEILING_MIN_POPULATION } from '../dist/analytics/best-effort
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUTPUT_PATH = join(
   __dirname,
-  '../.planning/phases/28-pr-plausibility-ceiling/28-DIFF.md'
+  '../.planning/milestones/v2.2-phases/28-pr-plausibility-ceiling/28-DIFF.md'
 );
 
 const REGENERATE_COMMAND = 'npm run compute-pr-ceiling-diff';
@@ -420,7 +420,7 @@ function formatMps(mps) {
 }
 
 /**
- * Renders `.planning/phases/28-pr-plausibility-ceiling/28-DIFF.md` from a
+ * Renders `.planning/milestones/v2.2-phases/28-pr-plausibility-ceiling/28-DIFF.md` from a
  * `report` object built by `buildDiffReport`. Pure string assembly: the only
  * run-varying field is `report.generatedAt`, emitted on its own
  * `**Generated:**` line. No sign-off text, approval checkbox or reviewer

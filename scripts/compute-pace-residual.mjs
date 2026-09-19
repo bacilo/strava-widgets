@@ -36,7 +36,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const STREAMS_DIR = join(__dirname, '../data/streams');
 const OUTPUT_PATH = join(
   __dirname,
-  '../.planning/phases/26-shared-gap-aware-pace-derivation-honest-coverage/26-RESIDUAL.md'
+  '../.planning/milestones/v2.2-phases/26-shared-gap-aware-pace-derivation-honest-coverage/26-RESIDUAL.md'
 );
 
 /** 3:00/km — the same "phantom fast mode" threshold PACE-04/06 are measured against. */

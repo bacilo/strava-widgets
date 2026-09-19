@@ -21,7 +21,7 @@ import { fileURLToPath } from 'url';
 import { tmpdir } from 'os';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const OUTPUT_PATH = join(__dirname, '../.planning/phases/30-elevation-quality-signal/30-CALIBRATION.md');
+const OUTPUT_PATH = join(__dirname, '../.planning/milestones/v2.2-phases/30-elevation-quality-signal/30-CALIBRATION.md');
 const CALIBRATION_SCRIPT_PATH = join(__dirname, 'compute-elevation-calibration.mjs');
 const PACE_QUALITY_SOURCE_PATH = join(__dirname, '../src/analytics/pace-quality.ts');
 

@@ -10,7 +10,7 @@
  * `compute-pr-ceiling-calibration.test.mjs` can import the pure functions
  * without triggering an archive read or a write to the artifact.
  *
- * Only write target: `.planning/phases/28-pr-plausibility-ceiling/28-CEILING-CALIBRATION.md`.
+ * Only write target: `.planning/milestones/v2.2-phases/28-pr-plausibility-ceiling/28-CEILING-CALIBRATION.md`.
  * Reads `data/stats/best-efforts.json` and `data/dashboard/index.json`
  * read-only; never writes into `data/`.
  *
@@ -33,7 +33,7 @@ const BEST_EFFORTS_PATH = join(ROOT_DIR, 'data/stats/best-efforts.json');
 const DASHBOARD_INDEX_PATH = join(ROOT_DIR, 'data/dashboard/index.json');
 const OUTPUT_PATH = join(
   ROOT_DIR,
-  '.planning/phases/28-pr-plausibility-ceiling/28-CEILING-CALIBRATION.md'
+  '.planning/milestones/v2.2-phases/28-pr-plausibility-ceiling/28-CEILING-CALIBRATION.md'
 );
 
 const REGENERATE_COMMAND = 'npm run compute-pr-ceiling-calibration';
@@ -589,7 +589,7 @@ export function buildCalibrationReport(bestEffortsDoc, indexDoc) {
 }
 
 /**
- * Renders `.planning/phases/28-pr-plausibility-ceiling/28-CEILING-CALIBRATION.md`
+ * Renders `.planning/milestones/v2.2-phases/28-pr-plausibility-ceiling/28-CEILING-CALIBRATION.md`
  * from a `report` object built by `buildCalibrationReport`. Pure string
  * assembly: no `Date`, no `Math.random`, no `process` read, and no
  * unsorted object-key/Set/Map iteration reaches the output — every loop

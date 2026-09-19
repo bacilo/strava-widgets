@@ -15,7 +15,7 @@
  * `compute-elevation-calibration.test.mjs` without running the sweep or
  * writing the report.
  *
- * Only write target: `.planning/phases/30-elevation-quality-signal/30-CALIBRATION.md`.
+ * Only write target: `.planning/milestones/v2.2-phases/30-elevation-quality-signal/30-CALIBRATION.md`.
  * Reads `data/activities/` and `data/streams/` READ-ONLY; NEVER writes into
  * `data/` (D-16). A sha256 digest of `data/streams/` is rolled before and
  * after the sweep; the script exits non-zero if they differ, before ever
@@ -49,7 +49,7 @@ const ACTIVITIES_DIR = join(ROOT_DIR, 'data/activities');
 const STREAMS_DIR = join(ROOT_DIR, 'data/streams');
 const OUTPUT_PATH = join(
   ROOT_DIR,
-  '.planning/phases/30-elevation-quality-signal/30-CALIBRATION.md'
+  '.planning/milestones/v2.2-phases/30-elevation-quality-signal/30-CALIBRATION.md'
 );
 
 const REGENERATE_COMMAND = 'npm run compute-elevation-calibration';

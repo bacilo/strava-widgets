@@ -23,7 +23,7 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUTPUT_PATH = join(
   __dirname,
-  '../.planning/phases/27-per-activity-quality-signals/27-CALIBRATION.md'
+  '../.planning/milestones/v2.2-phases/27-per-activity-quality-signals/27-CALIBRATION.md'
 );
 
 let mod;

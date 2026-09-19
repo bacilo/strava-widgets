@@ -15,7 +15,7 @@
  * `compute-pace-quality-calibration.test.mjs` without running the sweep or
  * writing the report.
  *
- * Only write target: `.planning/phases/27-per-activity-quality-signals/27-CALIBRATION.md`
+ * Only write target: `.planning/milestones/v2.2-phases/27-per-activity-quality-signals/27-CALIBRATION.md`
  * (T-27-09). Reads `data/activities/` and `data/streams/` read-only; NEVER
  * writes into `data/`. Section 6's D-04 boundary cross-check runs
  * `npm run compute-pace-residual` as a subprocess, which DOES regenerate
@@ -54,11 +54,11 @@ const ACTIVITIES_DIR = join(ROOT_DIR, 'data/activities');
 const STREAMS_DIR = join(ROOT_DIR, 'data/streams');
 const OUTPUT_PATH = join(
   ROOT_DIR,
-  '.planning/phases/27-per-activity-quality-signals/27-CALIBRATION.md'
+  '.planning/milestones/v2.2-phases/27-per-activity-quality-signals/27-CALIBRATION.md'
 );
 const RESIDUAL_PATH = join(
   ROOT_DIR,
-  '.planning/phases/26-shared-gap-aware-pace-derivation-honest-coverage/26-RESIDUAL.md'
+  '.planning/milestones/v2.2-phases/26-shared-gap-aware-pace-derivation-honest-coverage/26-RESIDUAL.md'
 );
 
 const REGENERATE_COMMAND = 'npm run compute-pace-quality-calibration';
