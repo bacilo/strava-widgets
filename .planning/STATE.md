@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Pace Data Quality
 status: executing
-stopped_at: Phase 31 context gathered
-last_updated: "2026-09-19T11:04:27.815Z"
-last_activity: 2026-09-19 -- Phase 31 execution started
+stopped_at: Completed 31-08-PLAN.md
+last_updated: "2026-09-19T11:49:24.833Z"
+last_activity: 2026-09-19
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 69
-  completed_plans: 59
+  completed_plans: 67
   percent: 83
 ---
 
@@ -40,11 +40,11 @@ See: .planning/PROJECT.md (updated 2026-09-08)
 ## Current Position
 
 Phase: 31 (tech-debt-closure-silent-failure-guards-docs-reconciliation) — EXECUTING
-Plan: 1 of 10
-Status: Executing Phase 31
-Last activity: 2026-09-19 -- Phase 31 execution started
+Plan: 2 of 10
+Status: Ready to execute
+Last activity: 2026-09-19
 
-Progress: [████████░░] 83% (5/6 v2.2 phases; Phase 31 not started)
+Progress: [██████████] 97%
 
 ## Performance Metrics
 
@@ -87,6 +87,7 @@ Progress: [████████░░] 83% (5/6 v2.2 phases; Phase 31 not st
 | Phase 26 P16 | ~35min | 2 tasks | 2 files |
 | Phase 28 PP14 | ~50min | 3 tasks | 4 files |
 | Phase 30 P01 | 25min | 3 tasks | 17 files |
+| Phase 31 P08 | ~65min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -140,6 +141,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 28-14]: Regenerated data/stats/best-efforts.json, 28-DIFF.md and 28-CEILING-CALIBRATION.md against the CR-01 fix; every predicted number (31 ceiling-only, 19 world-record, 15 max-speed, 65 total demoted, independentCeilingCount 31, overCeilingWithoutDemotion 0) matched the observed regeneration exactly, and a 22-assertion structural comparison proved only the 13 predicted efforts' demotion field and two totals fields changed
 - [Phase 28-14]: data/geo/geo-metadata.json's timestamp-only diff (a compute-all-stats side effect) was reverted with git checkout, not committed -- outside this plan's declared file scope. Two pre-existing pr-ceiling-diff-* temp directories under os.tmpdir() were confirmed by mtime to predate this plan's own runs, which cleaned up correctly via finally
 - [Phase 30]: Phase 30 plan 01: hasAnySevereSignal's Pick<> is never widened to include elevation (D-06); demonstrated failing by temporarily widening it, observing the guard test fail, then reverting
+- [Phase 31]: 31-08: regenerated all five TD-05 artifacts against the merged 1,899-activity archive; fixed two real generator bugs found while regenerating (a broken re-export in compute-pace-quality-calibration.mjs, and a missing TD-04 reason-string column in compute-pr-ceiling-diff.mjs's 28-DIFF.md); three-way ceiling reconciliation holds at 32=32=32; new 28-DIFF.md sha256 97e1782c... recorded for plan 31-10's re-sign
 
 ### Key Findings
 
@@ -231,9 +233,9 @@ It is named here because PROJECT.md's Evolution entry still describes it as open
 
 ## Session Continuity
 
-Last session: 2026-09-19T10:13:51.258Z
-Stopped at: Phase 31 context gathered
-Resume file: .planning/phases/31-tech-debt-closure-silent-failure-guards-docs-reconciliation/31-CONTEXT.md
+Last session: 2026-09-19T11:49:24.822Z
+Stopped at: Completed 31-08-PLAN.md
+Resume file: None
 
 ---
 *Last updated: 2026-08-11 — Phase 17 (activity-browser-detail-views) all 15 planned plans executed and summarized; human checkpoint on plan 17-15 came back PARTIAL — 8/10 Manual-Only Verifications rows confirmed clean, GAP 1 (DETAIL-02, route-map basemap tiles absent) and GAP 2 (DETAIL-03/04, chart band x-axis misalignment) have open gaps pending gap-closure planning (`/gsd-plan-phase 17 --gaps`) before the phase gate closes*
