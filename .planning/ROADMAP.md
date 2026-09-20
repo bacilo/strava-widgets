@@ -128,7 +128,7 @@ context, measured facts and decisions in `PROJECT.md` § Current Milestone; requ
   4. A committed, regenerable calibration artifact states the calibrated speed-limit constant, a non-circularity argument (the calibration population provably excludes what the threshold detects), and the Suunto 17 m/s descent sample's disposition — detected or not, with committed-stream numbers; if detected, no fourth mechanism label, because from `t`/`d` alone over-measurement and an isolated GPS jump look the same; disclosed by activity ID `4556693525` in the artifact and never corrected — replacing the crude 259/1,873 and 121/1,873 scoping sweep with a figure of record. **Amended 2026-09-19 (32-CONTEXT.md D-03):** the original v2.2 prose cited "17 m/s"; that figure did not reproduce exactly under this phase's own measurement (32-RESEARCH.md § A1), so the artifact reports measured committed-stream figures instead.
   5. The single-source audit test is extended to the detector and demonstrated catching a planted second implementation before passing against the real one. (SEG-05a, amended 2026-09-19 per D-14. The Goal's "one source every downstream consumer reads" is SEG-05b, discharged by Phases 33, 35 and 36.)
 
-**Plans**: 16 plans (9 executed + 7 gap-closure, 2026-09-20)
+**Plans**: 17 plans (9 executed + 7 gap-closure + 1 round-2 review closure, 2026-09-20)
 Plans:
 **Wave 1**
 
