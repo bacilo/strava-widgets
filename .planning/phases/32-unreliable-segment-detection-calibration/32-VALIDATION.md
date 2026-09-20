@@ -1,7 +1,8 @@
 ---
 phase: 32
 slug: unreliable-segment-detection-calibration
-status: in-progress
+status: complete
+closed: 2026-09-20
 nyquist_compliant: true
 wave_0_complete: true
 created: 2026-09-19
@@ -81,6 +82,9 @@ Task IDs are filled by the planner. Every `-t` row MUST record the matched test 
 | 32-14-T1/T2/T3 | 14 | 3 | SEG-04 | T-32-25 | `findValley` cannot manufacture a valley from out-of-interval mass; `parseDecisionText` refuses a non-finite span; `namedItemSegmentMetres` fails closed on ambiguous overlap | script | `npx vitest run scripts/compute-unreliable-segment-calibration.test.mjs` plus the generator run twice with `git diff --exit-code` on the artifact | ✅ | ✅ green (**7 matched, 7 passed** for `-t "findValley"`, re-run 2026-09-20; generator run twice, `git diff --exit-code` on 32-CALIBRATION.md clean — byte-identical, sha256 `f8f6d5db...`. Carry-forward: this row's own plan-verify literal `grep -c "valleyFound: false"` can never match this artifact's rendered prose (32-14-SUMMARY.md's own documented finding); re-confirmed here via the semantic equivalent `grep -c "NO clean valley found" 32-CALIBRATION.md` → `1`) |
 | 32-15-T1/T2/T3 | 15 | 3 | SEG-03, SEG-04, SEG-05a | T-32-26 | The SEG-05a importer scan catches double-quoted and backtick specifiers; the D-05 and D-09 negative controls are shown able to fire; `buildActivityFinding` returns a skipped finding instead of throwing | unit + local CLI | `-t "SEG-05a"` and `-t "negative control"`, both matched counts recorded | ✅ | ✅ green (**`-t "SEG-05a"` 9 matched, 9 passed** (≥7 baseline); **`-t "negative control"` 6 matched, 6 passed** (≥3 required), re-run 2026-09-20 on `src/analytics/pace-single-source.test.ts` and `src/analytics/unreliable-segments.test.ts` respectively. Carry-forward: 32-15's D-05/D-09 discriminator correction stands as documented — `7409028052` and the D-09 pair are protected by the 3.0 m excess floor, not the 7.35 m/s speed limit; only `3647739864` is speed-protected. CR-03 CLOSED: 32-15's bare worktree had no `export_data/` and could only prove the missing/malformed-stream directions; this checkout DOES have `export_data/strava/`, and `buildActivityFinding('3475724402', ...)` was re-run here directly against the real `.fit.gz` original (`activities/3711971403.fit.gz`) — `skipped: null`, `fitSampleCount: 3655`, 16 segments, all `gap-adjacent`, matching the recount table row-for-row. This is the "real activity, normal finding shape" demonstration 32-15 could not complete; it is closed now, not carried forward) |
 | 32-16-T1/T2 | 16 | 4 | all five | T-32-27 | The closing gate is re-run on the post-closure tree and every reopened artifact re-closed only against recorded evidence | gate | build, tsc, `npm test`, recount, `git status --porcelain data/streams` | ✅ | ✅ green (build/tsc/npm test/recount/checksums/streams all re-run 2026-09-20 on the merged tree at `080ea7da` — see Approval note below for the full recorded gate output) |
+| 32-17-T1/T2 | 17 | 5 | SEG-01, SEG-02 | T-32-24 | Two adjacent gap spans mapping to OVERLAPPING index ranges via a shared duplicate-timestamp boundary fail closed (a fresh `[]`), never double-counting distance; conservation is asserted ACROSS segments against an independently-derived total, not only within one | unit + dist | `npx vitest run src/analytics/unreliable-segments.test.ts -t "round-2 CR-01"` and `-t "boundary convention"`, matched counts recorded, watched RED before the guard lands; dist-level reproduction of the reviewer's exact input | ✅ | ✅ green (**`round-2 CR-01` 1 matched, 1 passed**; **`boundary convention` 7 matched, 7 passed** (up from 32-13's 6 — coverage only grew); RED confirmed pre-fix: 1 failed / 93 passed (94) whole-file, reviewer's exact input returned two overlapping segments summing 160 m vs actual 140 m; post-fix `dist/analytics/unreliable-segments.js` reproduction returns `[]` — `CR-01-CLOSED-FAILS-CLOSED-OK`) |
+| 32-17-T3 | 17 | 5 | SEG-04 | — | `buildActivityFinding`'s `activityDoc.start_date` dereference guarded the same way CR-03 guarded the sibling stream read — missing/null/non-object activity doc or non-string `start_date` yields a skipped finding, never a throw | local CLI | Pre-fix throw and post-fix skip both observed via direct CLI probe against `buildActivityFinding`; `3475724402` re-confirmed unchanged | ✅ | ✅ green (pre-fix: `THREW: Cannot read properties of null (reading 'start_date')`; post-fix: `{"skipped":"activity doc missing, not an object, or start_date not a string"}` for both a `null` doc and a non-string `start_date`; `3475724402` unchanged — `skipped:null`, `fitSampleCount:3655`, 16 segments, all `gap-adjacent`) |
+| 32-17-T4 | 17 | 5 | all five | T-32-27 | The closing gate is re-run on the post-CR-01/WR-01 tree; archive output, calibration sha256 and the three constants unchanged | gate | build, tsc, `npm test`, calibration regen x2, recount, checksums, archive scan | ✅ | ✅ green — see Re-Approval section below for the full recorded gate output |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -241,3 +245,124 @@ calibrated constant moved; `valleyFound` is still false. This file is re-closed
 (`status: complete`, `closed: 2026-09-20`, `reopened: 2026-09-20` retained). **The phase itself is
 NOT re-closed by this paragraph** — that is `/gsd-verify-work`'s call, which has not yet re-run
 against this tree.
+
+---
+
+## Re-Approval 2026-09-20 (plan 32-17, round-2 CR-01/WR-01 closure)
+
+`32-REVIEW.md`'s round-2 (gap-closure re-review) found one Critical the gap-closure round
+introduced into itself (CR-01: 32-13's own gap-boundary widening fix double-counts distance across
+two adjacent gap spans sharing a duplicated boundary timestamp) plus one residual Warning (WR-01:
+`buildActivityFinding` still throws on a null/malformed `activityDoc.start_date`, the same class of
+defect CR-03 fixed for the sibling stream read three lines above). This plan closes both.
+
+**Task 1 — CR-01 fail-closed, watched RED then GREEN:**
+
+Pre-fix, the reviewer's exact input (`t=[0,1,5,5,10,11]`, `d=[0,20,25,45,50,140]`,
+`gaps=[{startSec:1,endSec:5},{startSec:5,endSec:10}]`,
+`params={speedLimitMps:7.35,excessFloorMetres:3,hiddenPauseMinMetres:1e9}`) reproduced directly
+against `dist/analytics/unreliable-segments.js` returns:
+```
+seg0 startIndex 0 endIndex 3 metres 45 seconds 5
+seg1 startIndex 2 endIndex 5 metres 115 seconds 6   (overlaps seg0 at [2,3])
+sum 160 m  vs  actual d[5]-d[0] = 140 m  ->  20 m double-counted
+```
+The permanent regression fixture pinning this input was watched RED before any source change:
+`1 failed | 93 passed (94)` whole-file, `1 failed | 6 passed (7 matched)` for
+`-t "boundary convention"`.
+
+`detectUnreliableSegments` now sorts the mapped gap blocks by `startIndex` and fails closed (a
+fresh `[]`) if any two overlap — the reviewer's own suggested shape, checked ACROSS gap blocks
+rather than within one, matching the module's existing fail-closed discipline for a malformed gap
+span. Chose fail-closed over merging: merging two overlapping gap blocks still requires deciding
+which duplicate-timestamp sample "owns" the shared interval's own metres/seconds — the same
+ambiguity that produces divergent answers in the first place — so a fresh `[]` is the lower-risk
+default that can never emit a conservation-violating result.
+
+Post-fix: `dist/analytics/unreliable-segments.js` reproduction returns `[]` —
+`CR-01-CLOSED-FAILS-CLOSED-OK`. Whole-file `94 passed (94)`; `-t "round-2 CR-01"` `1 matched, 1
+passed`; `-t "boundary convention"` `7 matched, 7 passed` (up from 32-13's 6 — the new fixture
+lives in the same describe block, so coverage grew, not shifted); `-t "mechanism"` unchanged at
+`12 matched, 12 passed`. `npx tsc --noEmit` exits 0.
+
+**Task 2 — cross-segment conservation, shown able to fail:**
+
+The existing "conservation holds for every segment produced by the adjacency fixtures" sweep grew
+from 4 to 6 fixtures (added the "not swallowed" two-SEPARATE-segments case and the CR-01 overlap
+fixture itself) and gained a cross-segment assertion per fixture: no segment's `startIndex` may
+precede the previous segment's `endIndex`, and the segments' combined `metres` may never exceed an
+INDEPENDENTLY-DERIVED total (the stream's own `d[last]-d[first]`) — retained alongside, not instead
+of, the existing within-segment check, with a comment noting the within-segment check alone is
+insufficient (both of CR-01's overlapping segments individually satisfied it).
+
+Proved the new assertion can fail: temporarily disabled the Task 1 guard's `return []` (restored
+immediately after; `git diff` on the source file confirmed clean before re-committing), re-ran the
+sweep —
+```
+AssertionError: expected 2 to be greater than or equal to 3
+```
+(the CR-01 fixture's `segments[1].startIndex=2 < segments[0].endIndex=3`, exactly the overlap
+CR-01 describes). Restored the guard and re-ran GREEN: whole-file `94 passed (94)`.
+
+**Task 3 — WR-01 closed, both directions demonstrated:**
+
+Pre-fix (guard temporarily reverted, then restored — `git diff` confirmed clean before
+re-committing), a direct CLI probe against `buildActivityFinding` with a `null` activity doc:
+```
+THREW: Cannot read properties of null (reading 'start_date')
+```
+Post-fix, the same probe:
+```
+RESULT {"id":"9999999901","skipped":"activity doc missing, not an object, or start_date not a string"}
+```
+A non-string `start_date` (`12345`) on an otherwise real activity doc produces the same graceful
+skip. `3475724402` (real `export_data/strava/` on this checkout) still produces its full normal
+finding, unchanged:
+```
+NEVER-THROWS-OK {"id":"3475724402","skipped":null,"fitSampleCount":3655,"segmentCount":16,"mechanisms":["gap-adjacent"]}
+```
+
+**Task 4 — closing gate re-run on the post-CR-01/WR-01 tree:**
+
+- `npm run build` (tsc) — exit 0; `npx tsc --noEmit` — exit 0
+- `npm test` — `91 files passed (91)`, `2848 tests passed (2848)` (up from 32-16's 91/2,847 by
+  exactly +1 — this plan's own new CR-01 regression fixture; the cross-segment assertion and the
+  WR-01 fix added no new `it` blocks)
+- `node scripts/compute-unreliable-segment-calibration.mjs` run TWICE — both runs byte-identical to
+  each other and to the pre-plan artifact; sha256
+  `f8f6d5db0df01f8735b664d2712f6c87dc2516c8263439b5a9dd3132365b027e` unchanged; `git diff
+  --exit-code` on `32-CALIBRATION.md` clean after each run
+- Three shipped constants unchanged:
+  `grep -E "UNRELIABLE_SPEED_LIMIT_MPS = 7.35|UNRELIABLE_EXCESS_FLOOR_M = 3;|HIDDEN_PAUSE_MIN_METRES = 116.95" src/analytics/unreliable-segments.ts | wc -l`
+  → `3`
+- `node scripts/compute-unreliable-segment-recount.mjs` — exit 0, PASS, all 16 rows agree with
+  `32-CALIBRATION.md`'s detector table
+- `npm run compute-stream-checksums` — printed `added 0`; `git status --porcelain data/streams` —
+  empty
+- Archive scan re-run over all 1,874 committed streams through the live
+  `classifyGaps(t,d).gapIntervals` -> `detectUnreliableSegments` path: `scanned: 1874`,
+  `withAdjacentSharedBoundary: 383`, `atDuplicateTimestamp: 0`, `overlappingSegmentActivities: 0`,
+  `totalSegments: 1344` — identical shape to the orchestrator's pre-plan measurement (383/0/0);
+  `totalSegments` is unchanged from before this plan because a byte-identical calibration artifact
+  and matching recount already prove no committed stream's segment set moved (the fix can only
+  ever change output for a gap-block-overlap case, and 0 committed streams hit that case)
+
+**Carry-forward items from 32-16, reflected honestly, not silently ticked away (unchanged by this
+plan — neither is this plan's to close):**
+
+1. **32-14's Task 3 verify-literal mismatch** — `grep -c "valleyFound: false"` can never match
+   `32-CALIBRATION.md` (only ever rendered as prose: "NO clean valley found — anchor-interval
+   midpoint fallback"). Re-confirmed still `1` via `grep -c "NO clean valley found"
+   32-CALIBRATION.md`.
+2. **32-16's own `grep -c "⬜ pending"` literal** — cannot print `0` because the Per-Task table's
+   own status legend caption spells out the pending marker+word combination as part of describing
+   all four possible statuses. Confirmed still a structural property of the legend, not a
+   regression; no per-task row's own Status cell reads `⬜ pending`.
+
+**Approval:** the phase's closing gate passes on the post-CR-01/WR-01 tree. CR-01 (the round-2
+Critical) and WR-01 (the round-2 residual Warning) are both closed, each with a watched-failing
+pre-fix observation and a passing post-fix observation quoted above. No calibrated constant moved;
+the calibration artifact regenerates byte-identically twice; the archive scan is unchanged. This
+file's per-task rows for 32-17 are ✅ green. **The phase itself is NOT re-closed by this
+paragraph** — that is `/gsd-verify-work`'s call. The ROADMAP.md Phase 32 checkbox remains
+unticked, per this plan's explicit scope boundary.
