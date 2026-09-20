@@ -463,12 +463,15 @@ function paramsAreValid(params: DetectorParams): boolean {
  * or `d` is not an array, when `gaps` is not an array or contains a
  * non-object entry, when `validateStreamSeries(t, d)` is not `ok`, when
  * `params` is null/non-object or carries a non-finite or out-of-range value,
- * or when any gap span is malformed (fails `mapGapToIndices`). Failing
- * closed on a malformed gap beats emitting segments against a misread gap.
- * The shape-level cases (non-array `t`/`d`/`gaps`, a non-object `gaps`
- * entry, a null/non-object `params`) are reachable from the untyped `.mjs`
- * consumers that parse JSON off disk (32-VERIFICATION.md gap #1, gap closure
- * 32-11).
+ * when any gap span is malformed (fails `mapGapToIndices`), or when two
+ * mapped gap blocks OVERLAP — two adjacent gap spans sharing a boundary
+ * sample that is itself a duplicate timestamp in `t` (round-2 CR-01,
+ * `32-REVIEW.md`). Failing closed on a malformed or overlapping gap beats
+ * emitting segments that double-count the shared interval's real
+ * distance/time. The shape-level cases (non-array `t`/`d`/`gaps`, a non-object
+ * `gaps` entry, a null/non-object `params`) are reachable from the untyped
+ * `.mjs` consumers that parse JSON off disk (32-VERIFICATION.md gap #1, gap
+ * closure 32-11).
  */
 export function detectUnreliableSegments(
   t: readonly number[],
@@ -494,6 +497,25 @@ export function detectUnreliableSegments(
       metres: d[mapped.endIndex] - d[mapped.startIndex],
       seconds: t[mapped.endIndex] - t[mapped.startIndex],
     });
+  }
+
+  // Round-2 CR-01 (32-REVIEW.md): two ADJACENT caller-supplied gap spans that share a boundary
+  // sample which is itself a duplicate timestamp in `t` can map to OVERLAPPING index ranges —
+  // mapGapToIndices's own FIRST-at-startSec/LAST-at-endSec widening (32-13, gap #3) is correct
+  // for a single gap span in isolation, but the FIRST-at-start search for the second gap and the
+  // LAST-at-end search for the first gap can resolve to different indices when their shared
+  // boundary repeats in `t`. Left unchecked, the chain-building loop below does not merge
+  // overlapping-but-unequal ranges, so the two gaps land in separate segments that each
+  // independently span the shared interval — double-counting its real distance/time. Fail closed
+  // (a fresh []) rather than emit a result that falsifies this module's own maximal-contiguous-
+  // chain and conservation invariants; this is the same "malformed gap span" fail-closed
+  // discipline `mapGapToIndices` already applies, just checked ACROSS gap blocks rather than
+  // within one.
+  const sortedGapBlocks = [...gapBlocks].sort((a, b) => a.startIndex - b.startIndex);
+  for (let k = 1; k < sortedGapBlocks.length; k++) {
+    if (sortedGapBlocks[k].startIndex < sortedGapBlocks[k - 1].endIndex) {
+      return [];
+    }
   }
 
   const steps = advanceSteps(t, d, gaps);
