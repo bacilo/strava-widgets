@@ -147,7 +147,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 32-07-PLAN.md — Figures of record, reconciliation, D-11/D-06/D-05/Suunto sections, per-segment table; recount watched failing
+- [x] 32-07-PLAN.md — Figures of record, reconciliation, D-11/D-06/D-05/Suunto sections, per-segment table; recount watched failing
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
@@ -272,7 +272,7 @@ Plans:
 | 29. Curation Review Queue | v2.2 | 8/8 | Complete    | 2026-09-18 |
 | 30. Elevation Quality Signal | v2.2 | 8/8 | Complete    | 2026-09-18 |
 | 31. Tech-Debt Closure — Silent-Failure Guards & Docs Reconciliation | v2.2 | 10/10 | Complete    | 2026-09-19 |
-| 32. Unreliable-Segment Detection & Calibration | v2.3 | 6/9 | In Progress|  |
+| 32. Unreliable-Segment Detection & Calibration | v2.3 | 7/9 | In Progress|  |
 | 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 0/TBD | Not started | - |
 | 34. Pause Classification & Forgotten-Stop | v2.3 | 0/TBD | Not started | - |
 | 35. Stream-Derived Running Pace | v2.3 | 0/TBD | Not started | - |

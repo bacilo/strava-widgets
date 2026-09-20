@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
 status: executing
-stopped_at: Completed 32-06-PLAN.md — calibrated constants shipped (L=7.35 m/s, F=3.0 m, B=116.95 m, no clean valley), all D-13 checks passing.
-last_updated: "2026-09-20T11:38:58.278Z"
+stopped_at: Completed 32-07-PLAN.md — calibration artifact of record complete (figures of record, reconciliation, D-11/D-06/D-05/Suunto findings, D-15 per-segment table); recount PASSES.
+last_updated: "2026-09-20T12:13:39.776Z"
 last_activity: 2026-09-20
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 9
-  completed_plans: 6
+  completed_plans: 7
   percent: 0
 ---
 
@@ -47,7 +47,7 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 ## Current Position
 
 Phase: 32 (unreliable-segment-detection-calibration) — EXECUTING
-Plan: 7 of 9
+Plan: 8 of 9
 Status: Ready to execute
 Last activity: 2026-09-20
 
@@ -98,6 +98,7 @@ Last activity: 2026-09-20
 | Phase 32 P01 | ~20min | 2 tasks | 8 files |
 | Phase 32 P05 | ~10min (continuation) | 1 tasks | 1 files |
 | Phase 32 P06 | ~5h (continuation) | 2 tasks | 4 files |
+| Phase 32 P07 | ~2h | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -157,6 +158,9 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 32]: SEG-05 split into SEG-05a/SEG-05b (D-14); SEG-04/ROADMAP criterion 4 amended (D-03) to disclose the Suunto sample by activity ID rather than a fourth mechanism label; PITFALLS.md Pitfall 2 and research/SUMMARY.md superseded (D-01, the Suunto sample is no longer a must-not-fire fixture); D-04 one-treatment note recorded on Phases 33/36; D-17 stream-immutability gate landed (scripts/compute-stream-checksums.mjs, watched failing on a real one-byte edit, then restored and green).
 - [Phase 32]: Phase 32 plan 05: D-10(d) is UNREACHABLE with the three research-proposed D-05 fixtures at the detector's own judging scale (16628769295, 8869338724 each contain a folded step faster than the smallest named must-flag jump); developer chose disposition option-refixture (keep the D-09/D-10 rule shape, re-fixture instead), locking D-05 fixtures to 7409028052:586-624 (dense) and 3647739864:945-971 (decimated), and statistic S-A (4.404 m/s, n=1873, removedDelta 8.28%) over S-B for plan 32-06 to derive the calibration constants from
 - [Phase 32]: 32-06: corrected the D-10 speed-limit derivation to apply a real, D-13-verified multiplier (1.6667, candidate-selected from a fixed {0.90,0.95,0.97,0.99} outer-percentile list) rather than a bare ceil(S-A) -- L=7.35 m/s. Redesigned the excess floor's population from excess-of-fast-runs (fails D-13, nearly duplicates what removal strips) to pooled step metres (0% D-13 deltas) -- F=3.0 m. B=116.95 m, no clean valley found (D-08's own legitimate outcome), after fixing a findValley bug that manufactured a valley over an empty population.
+- [Phase 32]: 32-07: fixed a pre-existing 32-06 rendering bug (unit suffix in the Chosen-constants Value column) that made the D-15 recount fail closed
+- [Phase 32]: 32-07: measured D-11 decimation-overlap ratio 1.525 (< 2, no STOP); all 16 segments on 3475724402 are gap-adjacent (no STOP)
+- [Phase 32]: 32-07: withheld SEG-02/SEG-04 completion pending 32-08 (regression pinning) and 32-09 (post-merge re-validation)
 
 ### Key Findings
 
@@ -266,8 +270,8 @@ It is named here because PROJECT.md's Evolution entry still describes it as open
 
 ## Session Continuity
 
-Last session: 2026-09-20T11:35:30.168Z
-Stopped at: Completed 32-06-PLAN.md — calibrated constants shipped (L=7.35 m/s, F=3.0 m, B=116.95 m, no clean valley), all D-13 checks passing.
+Last session: 2026-09-20T12:13:39.768Z
+Stopped at: Completed 32-07-PLAN.md — calibration artifact of record complete (figures of record, reconciliation, D-11/D-06/D-05/Suunto findings, D-15 per-segment table); recount PASSES.
 Resume file: None
 
 ---
