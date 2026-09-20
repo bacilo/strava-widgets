@@ -206,3 +206,11 @@ None - no external service configuration required.
 ---
 *Phase: 32-unreliable-segment-detection-calibration*
 *Completed: 2026-09-20*
+
+## Self-Check: PASSED
+
+- FOUND: `src/analytics/unreliable-segments.ts`
+- FOUND: `src/analytics/unreliable-segments.test.ts`
+- FOUND: commit `8272bd8d` (test(32-13): pin gap-boundary duplicate-timestamp fixtures, watched RED)
+- FOUND: commit `5987cfb6` (feat(32-13): align mapGapToIndices with isGapPair's inclusive bounds)
+- FOUND: commit `dbbb2a15` (docs(32-13): complete gap-boundary duplicate-timestamp convention plan)
