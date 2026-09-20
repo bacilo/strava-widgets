@@ -348,12 +348,34 @@ const DETECTOR_STRUCTURAL_LITERALS = ['advanceSteps('] as const;
 
 /**
  * Any module specifier ending in `unreliable-segments.js` (explicit `.js`
- * extension) or a bare `unreliable-segments'` (no extension) closing quote —
+ * extension) or a bare `unreliable-segments` (no extension) closing quote —
  * covers a static import, `export … from`, `import type`, or a dynamic
  * `import(` call, since all four spell the specifier text identically.
  * Non-arithmetic, closes blind spot (1)'s importer half.
+ *
+ * A JavaScript module specifier can be written with any of the three quote
+ * characters (`'`, `"`, or `` ` `` for a dynamic `import(...)`), and there is
+ * no `.prettierrc`, `package.json` prettier key, `.editorconfig` or eslint
+ * `quotes` rule in this repo enforcing one — quote style here is convention,
+ * not a structural property this scan can lean on. The scan must therefore be
+ * blind to which quote character closes the specifier
+ * (32-VERIFICATION.md 2026-09-20, Anti-Patterns: "Detector-importer
+ * confinement needles are single-quote-only"). This is a third instance of
+ * blind spot (1) — the first two being the arithmetic literal and the
+ * structural call site above — after (2)'s formatting-variant miss (CR-03)
+ * for param keys below. The closing quote stays part of every needle: a bare
+ * `unreliable-segments` with no closing quote would false-positive on prose
+ * and comments naming the module, which is exactly why the quote is part of
+ * the needle rather than a separately-matched boundary.
  */
-const DETECTOR_IMPORTER_NEEDLES = ["unreliable-segments.js'", "unreliable-segments'"] as const;
+const DETECTOR_IMPORTER_NEEDLES = [
+  "unreliable-segments.js'",
+  "unreliable-segments'",
+  'unreliable-segments.js"',
+  'unreliable-segments"',
+  'unreliable-segments.js`',
+  'unreliable-segments`',
+] as const;
 
 /**
  * The three `DetectorParams` keys in their colon, comma and
@@ -656,6 +678,68 @@ describe('SEG-05a — the audit is demonstrated catching a reintroduced second u
       source: "import { validateStreamSeries } from './best-effort-utils.js';\n",
     };
     expect(findUnreliableSegmentViolations([differentImportFile])).toEqual([]);
+  });
+
+  it('(2a) quote-variant proof: a double-quoted and a backtick dynamic-import specifier are each flagged exactly like the single-quoted form — the pre-change 2-needle array (this test\'s watched-failing baseline, quoted in 32-15-SUMMARY.md) let both evade the scan', () => {
+    const doubleQuotedPath = 'src/analytics/planted-second-importer-double-quoted.ts';
+    const doubleQuotedFile: SourceFile = {
+      path: doubleQuotedPath,
+      source: 'import { detectUnreliableSegments } from "./unreliable-segments.js";\n',
+    };
+    const doubleQuotedViolations = findUnreliableSegmentViolations([doubleQuotedFile]);
+    expect(doubleQuotedViolations).toEqual([
+      { path: doubleQuotedPath, needle: 'unreliable-segments.js"', count: 1 },
+    ]);
+
+    const backtickPath = 'src/analytics/planted-second-importer-backtick.ts';
+    const backtickFile: SourceFile = {
+      path: backtickPath,
+      source: 'export async function loadDetector() {\n  return import(`./unreliable-segments.js`);\n}\n',
+    };
+    const backtickViolations = findUnreliableSegmentViolations([backtickFile]);
+    expect(backtickViolations).toEqual([{ path: backtickPath, needle: 'unreliable-segments.js`', count: 1 }]);
+
+    // Extensionless form, same two new quote styles.
+    const doubleQuotedExtensionlessFile: SourceFile = {
+      path: doubleQuotedPath,
+      source: 'import type { DetectorParams } from "./unreliable-segments";\n',
+    };
+    expect(findUnreliableSegmentViolations([doubleQuotedExtensionlessFile])).toEqual([
+      { path: doubleQuotedPath, needle: 'unreliable-segments"', count: 1 },
+    ]);
+
+    const backtickExtensionlessFile: SourceFile = {
+      path: backtickPath,
+      source: 'export async function loadDetector() {\n  return import(`./unreliable-segments`);\n}\n',
+    };
+    expect(findUnreliableSegmentViolations([backtickExtensionlessFile])).toEqual([
+      { path: backtickPath, needle: 'unreliable-segments`', count: 1 },
+    ]);
+
+    // Cleaned versions of each planted file produce zero violations (fails in both directions).
+    const differentImportFile: SourceFile = {
+      path: doubleQuotedPath,
+      source: 'import { validateStreamSeries } from "./best-effort-utils.js";\n',
+    };
+    expect(findUnreliableSegmentViolations([differentImportFile])).toEqual([]);
+  });
+
+  it('(2b) the allowance predicate is exercised for all three quote styles: a planted file at an ALLOWED path (the detector itself, its one allowed importer, or a *.test.ts file) is never reported', () => {
+    const quoteStyles = [
+      { label: 'single', source: "import { detectUnreliableSegments } from './unreliable-segments.js';\n" },
+      { label: 'double', source: 'import { detectUnreliableSegments } from "./unreliable-segments.js";\n' },
+      { label: 'backtick', source: 'const mod = await import(`./unreliable-segments.js`);\n' },
+    ] as const;
+
+    for (const { source } of quoteStyles) {
+      const atDetectorItself: SourceFile = { path: 'src/analytics/unreliable-segments.ts', source };
+      const atAllowedImporter: SourceFile = { path: 'src/analytics/pace-derivation.ts', source };
+      const atTestFile: SourceFile = { path: 'src/analytics/planted-second-importer.test.ts', source };
+
+      expect(findUnreliableSegmentViolations([atDetectorItself])).toEqual([]);
+      expect(findUnreliableSegmentViolations([atAllowedImporter])).toEqual([]);
+      expect(findUnreliableSegmentViolations([atTestFile])).toEqual([]);
+    }
   });
 
   it('(3) a formatting-variant object-shorthand call site is flagged for the comma and shorthand-close param forms, and produces zero matches once removed', () => {
