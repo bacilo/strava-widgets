@@ -743,6 +743,38 @@ describe('D-06/D-07 gap boundary convention — duplicate timestamps (gap closur
     }
     expect(reachable).toBe(true);
   });
+
+  /**
+   * Round-2 CR-01 (`32-REVIEW.md`): 32-13's own widening fix above is correct for a SINGLE gap
+   * span considered in isolation (every fixture above passes exactly one), but not for TWO
+   * adjacent externally-supplied gap spans (`gapA.endSec === gapB.startSec`) that share a
+   * boundary sample which is itself a DUPLICATE timestamp in `t`. In that combination the
+   * FIRST-at-startSec search for the second gap and the LAST-at-endSec search for the first gap
+   * resolve to DIFFERENT indices, so the two gaps' mapped index ranges OVERLAP. Pre-fix, this
+   * fixture (the reviewer's exact reproduction against the compiled `dist/` module) produced TWO
+   * segments whose index ranges overlap at `[2,3]` and whose `metres` jointly claim 160 m against
+   * the stream's own actual 140 m (`d[5]-d[0]`) — the shared interval double-counted. This is a
+   * permanent regression fixture, not a one-off probe.
+   */
+  it('two adjacent gap spans mapping to OVERLAPPING index ranges via a shared duplicate-timestamp boundary fail closed, not double-counting distance (round-2 CR-01)', () => {
+    const t = [0, 1, 5, 5, 10, 11];
+    const d = [0, 20, 25, 45, 50, 140];
+    const overlapGaps: GapSpan[] = [
+      { startSec: 1, endSec: 5 },
+      { startSec: 5, endSec: 10 },
+    ];
+    const overlapParams: DetectorParams = {
+      speedLimitMps: 7.35,
+      excessFloorMetres: 3,
+      hiddenPauseMinMetres: 1e9,
+    };
+
+    const segments = detectUnreliableSegments(t, d, overlapGaps, overlapParams);
+
+    // Fail-closed: a fresh [], never the pre-fix pair of overlapping, distance-double-counting
+    // segments (seg0 [0,3] metres 45, seg1 [2,5] metres 115, sum 160 vs actual 140).
+    expect(segments).toEqual([]);
+  });
 });
 
 /**
