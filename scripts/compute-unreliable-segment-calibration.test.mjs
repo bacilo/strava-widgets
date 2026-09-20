@@ -9,8 +9,7 @@
  * hand-built, mirroring compute-pr-ceiling-calibration.test.mjs's own "no archive reads" contract.
  */
 
-import fs from 'fs';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { UNRELIABLE_SPEED_LIMIT_MPS } from '../dist/analytics/unreliable-segments.js';
 import {
@@ -1229,19 +1228,18 @@ describe('buildFindingsResults', () => {
   });
 });
 
-describe('import-time side effects', () => {
-  it('importing this module triggers no read of the archive or a write to the calibration artifact', async () => {
-    const readSpy = vi.spyOn(fs, 'readFileSync');
-    const readdirSpy = vi.spyOn(fs, 'readdirSync');
-    const writeSpy = vi.spyOn(fs, 'writeFileSync');
-    // Cache-busting query so this assertion is not defeated by vitest's module cache having
-    // already loaded the module for the describe blocks above.
-    await import('./compute-unreliable-segment-calibration.mjs?cache-bust-guard-test');
-    expect(readSpy).not.toHaveBeenCalled();
-    expect(readdirSpy).not.toHaveBeenCalled();
-    expect(writeSpy).not.toHaveBeenCalled();
-    readSpy.mockRestore();
-    readdirSpy.mockRestore();
-    writeSpy.mockRestore();
-  });
-});
+// The import-time side-effect guard formerly here moved to
+// scripts/unreliable-segment-import-guards.test.mjs (Phase 32 plan 12, closing
+// 32-VERIFICATION.md gap #2). The old mechanism — three spy-based property replacements
+// (readFileSync/readdirSync/writeFileSync) on the default `fs` namespace object — was
+// structurally vacuous: this module consumes `fs` via
+// `import { readFileSync, readdirSync, writeFileSync } from 'fs'` (named imports), and Node
+// resolves a builtin's named exports once, at namespace creation, so property replacements made
+// on the namespace afterwards are never dereferenced by calls already bound to the original
+// named exports. The spies recorded zero calls regardless of what this module actually did at
+// import time. The replacement is a `vi.mock` of the `fs` module with two positive controls
+// proving the mechanism can observe a read through both the named-import and default-import
+// idioms, plus a mechanism-independent mtime check on 32-CALIBRATION.md, before either is
+// trusted to certify this module's absence of import-time I/O.
+//
+// Do NOT re-add a namespace-object spy on `fs` here — it cannot fail and proves nothing.
