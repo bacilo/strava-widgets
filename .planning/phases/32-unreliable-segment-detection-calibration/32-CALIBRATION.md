@@ -4,7 +4,7 @@ Machine-written by `npm run compute-unreliable-segment-calibration`; never hand-
 
 This artifact measures D-10(d) reachability, D-05 negative-control candidates at the detector's own judging scale, and candidate speed-limit statistics with their D-13 insensitivity — evidence for the blocking developer decision that follows (32-05-PLAN.md Task 2). **No chosen constants appear here** (plan 32-06's job, after the decision is recorded) and **no archive-wide flagged count appears here** (D-10(e), anti-quota — seeing that number before the constants are chosen is the exact circularity this phase exists to avoid).
 
-## Reachability of D-10(d) (pre-calibration)
+## Reachability of D-10(d) (pre-calibration evidence)
 
 ### With the research's three D-05 candidates folded into must-spare
 
@@ -42,7 +42,7 @@ Per-item excess (m) at each transition row:
 
 **D-10(d) is UNREACHABLE** under this fixture assumption across the ENTIRE scanned grid — no L in [1.1, 10] admits a non-empty excess-floor interval satisfying every must-flag item while sparing every must-spare item. This is reported plainly, not tuned or reinterpreted away (must_haves item 2 — "none" is a legitimate, reportable disposition).
 
-## Reachability of D-10(d) (pre-calibration)
+## Reachability of D-10(d) (pre-calibration evidence)
 
 ### Without the D-05 candidates (D-09's own trivial pair only)
 
@@ -122,6 +122,80 @@ No archive-wide flagged activity or segment count appears anywhere in this secti
 | strawman (circular, watched failing) | R-7 p99.9 of ALL pooled folded covered-step speeds — a tail percentile of the judged population | 7.750 m/s | 2624615 | no | yes | 17.42% | 51.61% | FAIL |
 
 The strawman (`7.750 m/s`) FAILS insensitivity as expected (watched failing first, D-13): removedDelta 17.42%, plantedDelta 51.61%, both exceeding the 1% tolerance. This confirms the harness can actually fail before the real candidates above are trusted.
+
+## Chosen constants
+
+Derived in order L, then F, then B, bound by the 32-05 Decision (disposition `option-refixture`, statistic `S-A`). No archive-wide flagged count was computed or consulted at any point in this derivation (D-10(e), anti-quota).
+
+| Constant | Value | Statistic / rule | Live-derived value | Shipped value equal |
+|---|---|---|---|---|
+| `UNRELIABLE_SPEED_LIMIT_MPS` | 7.35 m/s | ceil(multiplier x S-A x 100) / 100, multiplier = smallest of {0.90, 0.95, 0.97, 0.99} outer percentile of per-activity (p95/p50 folded-step-speed) ratio that clears D-13 | 7.35 m/s | yes |
+| `UNRELIABLE_EXCESS_FLOOR_M` | 3.0 m | R-7 p10 (the complement of D-10(a)'s own 90th-percentile order) of every folded covered step's own metres, pooled archive-wide, floor-rounded to 0.1 m | 3.0 m | yes |
+| `HIDDEN_PAUSE_MIN_METRES` | 116.95 m | valley search over the anchor interval [52.4, 181.5) m; NO clean valley found — anchor-interval midpoint fallback | 116.95 m | yes |
+
+## Non-circularity (D-13)
+
+Tolerance fixed BEFORE any check ran: **1%**. `L` is checked at the standard floor-0 probe (matching 32-05's own S-A/S-B comparison, before any excess floor exists); `F` and `B` are checked at the JOINT `(L, F)` operating point — the detector's actual shipped params.
+
+| Constant | Value | base | removed | planted | removedDelta | plantedDelta | pass |
+|---|---|---|---|---|---|---|---|
+| L (real) | 7.350 m/s | 7.350 m/s | 7.340 m/s | 7.410 m/s | 0.14% | 0.82% | true |
+| L strawman (pooled p99.9 of folded step speeds) | 7.750 m/s | 7.750 m/s | 6.400 m/s | 11.750 m/s | 17.42% | 51.61% | false |
+| F (real) | 3.000 m | 3.000 m | 3.000 m | 3.000 m | 0.00% | 0.00% | true |
+| F strawman (p99 tail of pooled step metres) | 245.046 m | 245.046 m | 2.900 m | 190.364 m | 98.82% | 22.31% | false |
+| B (real) | 116.950 m | 116.950 m | 116.950 m | 116.950 m | 0.00% | 0.00% | true |
+| B strawman (p99 tail of no-gap segment metres) | 431.592 m | 431.592 m | — m | 347.866 m | 100.00% | 19.40% | false |
+
+## Why not a tail percentile
+
+Each constant's own tail-percentile strawman is watched FAILING the same 1% insensitivity check its real derivation passes — proof the harness can fail, not just a claim it would:
+
+- **L's strawman** (`7.750 m/s`) FAILS: removedDelta 17.42%, plantedDelta 51.61%.
+- **F's strawman** (`245.046 m`) FAILS: removedDelta 98.82%, plantedDelta 22.31%.
+- **B's strawman** (`431.592 m`) FAILS: removedDelta 100.00%, plantedDelta 19.40%.
+
+## Hidden-pause vs isolated-jump boundary (D-08)
+
+Anchor interval (the largest named isolated-jump segment's own metres, the named hidden-pause segment's own metres): **[52.4, 181.5)** m.
+
+Bin width: 20 m. Histogram over this interval:
+
+| Bin lower edge (m) | Count |
+|---|---|
+| 40 | 166 |
+| 60 | 84 |
+| 80 | 30 |
+| 100 | 20 |
+| 120 | 13 |
+| 140 | 17 |
+| 160 | 8 |
+| 180 | 7 |
+
+**No clean valley exists in this interval** (D-08's own legitimate outcome — reported verbatim, not manufactured). B falls back to the anchor interval's own midpoint, 116.95 m. The `hidden-pause` label is therefore a best-effort description, not a verified cause, for any segment landing on this exact fallback value.
+
+## Excess floor and the trivia case (D-09)
+
+`UNRELIABLE_EXCESS_FLOOR_M` = 3.0 m — the R-7 10th percentile of every folded covered step's own metres, pooled archive-wide (D-09). The smallest must-flag excess at the chosen `(L, F)` is 8.05 m.
+
+The D-09 trivial pair (`3475734189` t=1581-1583, ~17.3m/2s) is excluded by **floor** at the chosen constants (excess 2.60 m, margin 0.40 m below F). The floor is the operative mechanism here, not the speed limit — stated plainly, not engineered.
+
+## D-10(d) check at the chosen constants
+
+Decision (32-05-SUMMARY.md): disposition `option-refixture`, statistic `S-A`, fixtures 7409028052:586-624, 3647739864:945-971.
+
+`checkFeasibility(archive, 7.35, 3.0, decision).pass` = **true**.
+
+| Kind | Item | Excess (m) | Admitted / Spared | Mechanism |
+|---|---|---|---|---|
+| mustFlag | 3475734189 t=1353-1360 (hidden-pause window (199m burst, HR steps 163→155 in 1s)) | 122.7 m | admitted | — |
+| mustFlag | 3475740390 t=2347-2350 (isolated jump t=2347 (30.1m/3s)) | 8.0 m | admitted | — |
+| mustFlag | 3475740390 t=2508-2513 (isolated jump t=2508 (52.4m/5s — the 400m best start)) | 15.6 m | admitted | — |
+| mustFlag | 3475740390 t=2536-2538 (isolated jump t=2536 (28.6m/2s)) | 13.9 m | admitted | — |
+| mustFlag | 3475740390 t=2580-2583 (isolated jump t=2580 (30.4m/3s)) | 8.4 m | admitted | — |
+| mustFlag | 3475740390 t=2587-2589 (isolated jump t=2587 (24.7m/2s, the smallest named jump)) | 10.0 m | admitted | — |
+| mustSpare | 3475734189 t=1581-1583 (D-09 trivial pair (~17.3m/2s, 8.65 m/s)) | 2.6 m | spared | floor |
+| mustSpare | 7409028052 t=586-624 (D-05 locked fixture (32-05 Decision, disposition: option-refixture)) | 1.5 m | spared | floor |
+| mustSpare | 3647739864 t=945-971 (D-05 locked fixture (32-05 Decision, disposition: option-refixture)) | — | spared | speed limit |
 
 ## Inputs
 

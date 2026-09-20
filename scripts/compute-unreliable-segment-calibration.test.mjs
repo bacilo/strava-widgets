@@ -233,7 +233,7 @@ describe('insensitivityCheck', () => {
 });
 
 describe('renderCalibrationMarkdown', () => {
-  it('renders the required headings and omits "## Chosen constants" (plan 32-06\'s job, not this plan\'s)', () => {
+  it('renders the required headings, including "## Chosen constants" under option-jitter\'s not-rendered note (plan 32-06)', () => {
     const fakeGrid = { grid: [], lowerBound: 3, upperBound: 3, minMedian: 3, step: 0.05, maxScanMps: 40 };
     const fakeReport = {
       grid: fakeGrid,
@@ -246,19 +246,24 @@ describe('renderCalibrationMarkdown', () => {
         strawmanCandidate: { label: 'strawman', description: 'desc', value: null, n: 0, check: null, feasibleWithD05: null, feasibleWithoutD05: null },
         tolerance: 0.01,
       },
+      decision: { disposition: 'option-jitter', statistic: 'S-A', fixtures: [] },
+      chosenConstants: null,
       streamFileCount: 0,
       notComputable: 0,
     };
 
     const markdown = renderCalibrationMarkdown(fakeReport);
 
-    expect(markdown).toContain('## Reachability of D-10(d) (pre-calibration)');
+    expect(markdown).toContain('## Reachability of D-10(d) (pre-calibration evidence)');
     expect(markdown).toContain("## Negative-control candidates at the detector's judging scale (D-05)");
     expect(markdown).toContain('## Candidate speed-limit statistics (D-10) and insensitivity (D-13)');
     expect(markdown).toContain('## Inputs');
-    expect(markdown).not.toContain('## Chosen constants');
+    // option-jitter renders the heading with a "not rendered" note rather than omitting it —
+    // 32-CALIBRATION.md's real, non-option-jitter run always carries the full contract rows.
+    expect(markdown).toContain('## Chosen constants');
+    expect(markdown).toContain('option-jitter');
     // Rendered exactly twice, per Task 1's behaviour ("with and without the research fixtures").
-    expect(markdown.split('## Reachability of D-10(d) (pre-calibration)').length - 1).toBe(2);
+    expect(markdown.split('## Reachability of D-10(d) (pre-calibration evidence)').length - 1).toBe(2);
   });
 });
 

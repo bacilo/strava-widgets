@@ -44,7 +44,13 @@ import { readFileSync, readdirSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 
-import { advanceSteps, detectUnreliableSegments } from '../dist/analytics/unreliable-segments.js';
+import {
+  advanceSteps,
+  detectUnreliableSegments,
+  UNRELIABLE_SPEED_LIMIT_MPS as SHIPPED_SPEED_LIMIT_MPS,
+  UNRELIABLE_EXCESS_FLOOR_M as SHIPPED_EXCESS_FLOOR_M,
+  HIDDEN_PAUSE_MIN_METRES as SHIPPED_HIDDEN_PAUSE_MIN_METRES,
+} from '../dist/analytics/unreliable-segments.js';
 import { classifyGaps, quantile } from '../dist/analytics/pace-derivation.js';
 import { validateStreamSeries } from '../dist/analytics/best-effort-utils.js';
 import { isStreamFile, idFromFilename } from './lib/stream-files.mjs';
@@ -1005,13 +1011,34 @@ export function deriveExcessFloor(archive, _L) {
   return Math.floor(raw * 10) / 10;
 }
 
-/** STRAWMAN for F: R-7 p99 (a TAIL percentile, deliberately circular) of the SAME pooled
- * step-metres population `deriveExcessFloor` reads. Must be shown FAILING `insensitivityCheck`
- * before `deriveExcessFloor`'s own bulk statistic is trusted (D-13). */
-export function strawmanExcessFloorTailPercentile(archive, _L) {
-  const metres = pooledStepMetres(buildStepsIndex(archive)).sort((a, b) => a - b);
-  if (metres.length === 0) return null;
-  return quantile(metres, 0.99);
+/** Every fast run's excess (`metres − L × seconds`) across a `stepsIndex`, pooled archive-wide —
+ * the DELIBERATELY circular population F's strawman reads (a tail percentile of "the population
+ * the floor itself judges", per this plan's own `<why_the_blocker_was_wrong>` spec: "R-7 p99 of
+ * all detected burst excesses for F"). NOT the population `deriveExcessFloor`'s own real rule
+ * reads — the pooled step-METRES population (`pooledStepMetres`) turns out to be SO large and
+ * bulk-dominated that even its own p99 tail is insensitive (0%/0% on the live archive), which
+ * would make the strawman vacuous. The excess-of-already-fast-runs population is what earlier
+ * (and rejected) drafts of `deriveExcessFloor` itself used, and is exactly what D-13 exists to
+ * catch: `insensitivityCheck`'s own removal step strips almost this entire population out. */
+function fastRunExcessesFromStepsIndex(stepsIndex, L) {
+  const excesses = [];
+  for (const steps of stepsIndex.values()) {
+    for (const run of fastRunsFromSteps(steps, L)) {
+      excesses.push(run.metres - L * run.seconds);
+    }
+  }
+  return excesses;
+}
+
+/** STRAWMAN for F: R-7 p99 (a TAIL percentile, deliberately circular) of every fast run's excess
+ * at `L`, `excessFloorMetres: 0` — the population the floor ITSELF judges, not the pooled
+ * step-metres population `deriveExcessFloor`'s real rule reads (see `fastRunExcessesFromStepsIndex`
+ * for why that population, not this one, is the correct forbidden shape). Must be shown FAILING
+ * `insensitivityCheck` before `deriveExcessFloor`'s own bulk statistic is trusted (D-13). */
+export function strawmanExcessFloorTailPercentile(archive, L) {
+  const excesses = fastRunExcessesFromStepsIndex(buildStepsIndex(archive), L).sort((a, b) => a - b);
+  if (excesses.length === 0) return null;
+  return quantile(excesses, 0.99);
 }
 
 /**
@@ -1127,6 +1154,11 @@ function namedItemSegmentMetres(byId, item, L, F) {
  * lies strictly inside the interval and is deliberately NOT a percentile of the segment-metres
  * distribution (D-08 forbids that fallback shape: a percentile of the very population with no
  * clean valley would manufacture a boundary the data does not support).
+ *
+ * `B` (both the found-valley bin edge and the midpoint fallback) is rounded to 0.01 m — D-08
+ * states no admit/exclude direction for this boundary (unlike L/F's floor/ceiling asymmetry), so
+ * plain rounding is used, purely to avoid `t`/`d` floating-point noise (`d[i] - d[j]` subtraction)
+ * turning a reproducible measurement into an unstable-looking one across otherwise-identical runs.
  */
 export function deriveHiddenPauseBoundary(archive, L, F) {
   const byId = new Map(archive.activities.map((a) => [a.id, a]));
@@ -1156,10 +1188,16 @@ export function deriveHiddenPauseBoundary(archive, L, F) {
   const valley = findValley(allNoGapMetres, anchorInterval.low, anchorInterval.high);
 
   if (valley.valleyFound) {
-    return { B: valley.B, valleyFound: true, histogram: valley.histogram, anchorInterval, anchorEmpty: false };
+    return {
+      B: Math.round(valley.B * 100) / 100,
+      valleyFound: true,
+      histogram: valley.histogram,
+      anchorInterval,
+      anchorEmpty: false,
+    };
   }
 
-  const fallbackB = (anchorInterval.low + anchorInterval.high) / 2;
+  const fallbackB = Math.round(((anchorInterval.low + anchorInterval.high) / 2) * 100) / 100;
   return { B: fallbackB, valleyFound: false, histogram: valley.histogram, anchorInterval, anchorEmpty: false };
 }
 
@@ -1236,11 +1274,14 @@ export function excessFloorDeriveFn(_L) {
   };
 }
 
-/** F's STRAWMAN adapter: R-7 p99 (tail) of the same pooled step-metres population. */
-export function excessFloorStrawmanDeriveFn(_L) {
+/** F's STRAWMAN adapter: R-7 p99 (tail) of the fast-run-excess population at `L` (the population
+ * the floor itself judges) — deliberately NOT `pooledStepMetres` (see
+ * `strawmanExcessFloorTailPercentile`'s docblock for why that population is too robust to serve
+ * as a meaningful strawman). */
+export function excessFloorStrawmanDeriveFn(L) {
   return (stepsIndex) => {
-    const metres = pooledStepMetres(stepsIndex).sort((a, b) => a - b);
-    return metres.length === 0 ? null : quantile(metres, 0.99);
+    const excesses = fastRunExcessesFromStepsIndex(stepsIndex, L).sort((a, b) => a - b);
+    return excesses.length === 0 ? null : quantile(excesses, 0.99);
   };
 }
 
@@ -1251,7 +1292,8 @@ export function hiddenPauseBoundaryDeriveFn(archive, L, F, anchorInterval) {
   return (stepsIndex) => {
     const metresList = noGapRunMetresFromStepsIndex(stepsIndex, gapBoundaries, L, F);
     const valley = findValley(metresList, anchorInterval.low, anchorInterval.high);
-    return valley.valleyFound ? valley.B : (anchorInterval.low + anchorInterval.high) / 2;
+    const raw = valley.valleyFound ? valley.B : (anchorInterval.low + anchorInterval.high) / 2;
+    return Math.round(raw * 100) / 100; // matches `deriveHiddenPauseBoundary`'s own rounding
   };
 }
 
@@ -1412,6 +1454,112 @@ function fmtRange(r) {
 /** Builds the full report object `renderCalibrationMarkdown` renders. All measurement happens
  * HERE, once, against `archive` — `renderCalibrationMarkdown` only formats fields already on this
  * object and is a pure function of it (no field varies between two runs over an unchanged archive). */
+/**
+ * Task 2 (plan 32-06): runs the live derivations for all three constants, in the order L, then F,
+ * then B (per this plan's own `<action>` text), plus every D-13 check and each constant's
+ * watched-failing strawman check — bound by the 32-05 Decision. Never computes or renders an
+ * archive-wide flagged count anywhere (D-10(e), anti-quota).
+ */
+export function buildChosenConstants(archive, decision) {
+  const stepsIndex = buildStepsIndex(archive);
+
+  const speedLimitSelection = selectSpeedLimitMultiplier(archive, decision.statistic);
+  const L = speedLimitSelection === null ? null : speedLimitSelection.L;
+  const lCheck = speedLimitSelection === null ? null : speedLimitSelection.check;
+
+  const lStrawmanValue = strawmanTailPercentile(stepsIndex).value;
+  const lStrawmanCheck =
+    lStrawmanValue === null
+      ? null
+      : insensitivityCheck((idx) => strawmanTailPercentile(idx).value, archive, {
+          detectAtL: lStrawmanValue,
+          tolerance: INSENSITIVITY_TOLERANCE,
+        });
+
+  const F = L === null ? null : deriveExcessFloor(archive, L);
+
+  const fCheck =
+    L === null || F === null
+      ? null
+      : insensitivityCheck(excessFloorDeriveFn(L), archive, {
+          detectAtL: L,
+          excessFloorMetres: F,
+          tolerance: INSENSITIVITY_TOLERANCE,
+        });
+
+  const fStrawmanFn = L === null ? null : excessFloorStrawmanDeriveFn(L);
+  const fStrawmanValue = fStrawmanFn === null ? null : fStrawmanFn(stepsIndex);
+  const fStrawmanCheck =
+    L === null || F === null || fStrawmanFn === null
+      ? null
+      : insensitivityCheck(fStrawmanFn, archive, {
+          detectAtL: L,
+          excessFloorMetres: F,
+          tolerance: INSENSITIVITY_TOLERANCE,
+        });
+
+  const feasibility = L === null || F === null ? null : checkFeasibility(archive, L, F, decision);
+
+  const boundary = L === null || F === null ? null : deriveHiddenPauseBoundary(archive, L, F);
+
+  let bCheck = null;
+  let bStrawmanValue = null;
+  let bStrawmanCheck = null;
+  if (boundary !== null && !boundary.anchorEmpty) {
+    const bFn = hiddenPauseBoundaryDeriveFn(archive, L, F, boundary.anchorInterval);
+    bCheck = insensitivityCheck(bFn, archive, { detectAtL: L, excessFloorMetres: F, tolerance: INSENSITIVITY_TOLERANCE });
+    const bStrawFn = hiddenPauseStrawmanDeriveFn(archive, L, F);
+    bStrawmanValue = bStrawFn(stepsIndex);
+    bStrawmanCheck =
+      bStrawmanValue === null
+        ? null
+        : insensitivityCheck(bStrawFn, archive, {
+            detectAtL: L,
+            excessFloorMetres: F,
+            tolerance: INSENSITIVITY_TOLERANCE,
+          });
+  }
+
+  const shippedComparison =
+    L === null || F === null || boundary === null
+      ? null
+      : {
+          L: { liveDerived: L, shipped: SHIPPED_SPEED_LIMIT_MPS, equal: L === SHIPPED_SPEED_LIMIT_MPS },
+          F: { liveDerived: F, shipped: SHIPPED_EXCESS_FLOOR_M, equal: F === SHIPPED_EXCESS_FLOOR_M },
+          B: {
+            liveDerived: boundary.B,
+            shipped: SHIPPED_HIDDEN_PAUSE_MIN_METRES,
+            equal: boundary.B === SHIPPED_HIDDEN_PAUSE_MIN_METRES,
+          },
+        };
+
+  // D-09: the trivial pair is `NAMED_ITEMS.mustSpare[0]` — the SAME object `mustSpareItems`
+  // spreads into `feasibility.rows`, so a reference match finds its row without re-deriving it.
+  const triviaItem = NAMED_ITEMS.mustSpare[0];
+  const triviaRow = feasibility === null ? null : feasibility.rows.find((r) => r.item === triviaItem) ?? null;
+
+  return {
+    decision,
+    speedLimitSelection,
+    L,
+    lCheck,
+    lStrawmanValue,
+    lStrawmanCheck,
+    F,
+    fCheck,
+    fStrawmanValue,
+    fStrawmanCheck,
+    feasibility,
+    boundary,
+    bCheck,
+    bStrawmanValue,
+    bStrawmanCheck,
+    shippedComparison,
+    triviaItem,
+    triviaRow,
+  };
+}
+
 export function buildCalibrationReport(archive) {
   const grid = deriveReachabilityGrid(archive, NAMED_ITEMS.mustFlag);
 
@@ -1437,6 +1585,9 @@ export function buildCalibrationReport(archive) {
 
   const statistics = candidateSpeedLimitStatistics(archive, { matrixWithD05, matrixWithoutD05 });
 
+  const decision = loadDecision();
+  const chosenConstants = decision.disposition === 'option-jitter' ? null : buildChosenConstants(archive, decision);
+
   return {
     grid,
     matrixWithD05,
@@ -1444,6 +1595,8 @@ export function buildCalibrationReport(archive) {
     negativeControlCandidates,
     d05Measurements,
     statistics,
+    decision,
+    chosenConstants,
     streamFileCount: archive.streamFileCount,
     notComputable: archive.notComputable,
   };
@@ -1523,6 +1676,194 @@ function renderReachabilitySection(heading, subheading, rows, grid) {
   return lines.join('\n');
 }
 
+function fmtNum(v, decimals = 3) {
+  return v === null || v === undefined ? '—' : v.toFixed(decimals);
+}
+
+function renderInsensitivityRow(label, value, check, unit) {
+  if (check === null) {
+    return `| ${label} | ${fmtNum(value)}${unit} | — | — | — | — | — |`;
+  }
+  return (
+    `| ${label} | ${fmtNum(value)}${unit} | ${fmtNum(check.base)}${unit} | ${fmtNum(check.removed)}${unit} | ` +
+    `${fmtNum(check.planted)}${unit} | ${fmtPct(check.removedDelta)} | ${fmtPct(check.plantedDelta)} | ` +
+    `${check.pass ? 'true' : 'false'} |`
+  );
+}
+
+/**
+ * Renders Task 2's six generated sections (`## Chosen constants`, `## Non-circularity (D-13)`,
+ * `## Why not a tail percentile`, `## Hidden-pause vs isolated-jump boundary (D-08)`,
+ * `## Excess floor and the trivia case (D-09)`, `## D-10(d) check at the chosen constants`).
+ * `cc` is `null` only under `disposition: option-jitter` (this plan does not execute then — see
+ * `<objective>`); every other disposition produces a full `chosenConstants` object.
+ */
+function renderChosenConstantsSections(decision, cc) {
+  const lines = [];
+
+  if (cc === null) {
+    lines.push('## Chosen constants');
+    lines.push('');
+    lines.push(
+      `**Not rendered.** Decision disposition is \`${decision.disposition}\` (option-jitter) — this plan's ` +
+        'own `<objective>` text says not to execute it; see the SUMMARY for the re-planning note.'
+    );
+    lines.push('');
+    return lines.join('\n');
+  }
+
+  const { L, F, boundary, feasibility, shippedComparison, lCheck, lStrawmanValue, lStrawmanCheck, fCheck, fStrawmanValue, fStrawmanCheck, bCheck, bStrawmanValue, bStrawmanCheck, triviaRow } = cc;
+
+  // ## Chosen constants
+  lines.push('## Chosen constants');
+  lines.push('');
+  lines.push(
+    `Derived in order L, then F, then B, bound by the 32-05 Decision (disposition \`${decision.disposition}\`, ` +
+      `statistic \`${decision.statistic}\`). No archive-wide flagged count was computed or consulted at any ` +
+      'point in this derivation (D-10(e), anti-quota).'
+  );
+  lines.push('');
+  lines.push('| Constant | Value | Statistic / rule | Live-derived value | Shipped value equal |');
+  lines.push('|---|---|---|---|---|');
+  lines.push(
+    `| \`UNRELIABLE_SPEED_LIMIT_MPS\` | ${fmtNum(L, 2)} m/s | ceil(multiplier x ${decision.statistic} x 100) / 100, ` +
+      `multiplier = smallest of {0.90, 0.95, 0.97, 0.99} outer percentile of per-activity (p95/p50 folded-step-speed) ` +
+      `ratio that clears D-13 | ${fmtNum(L, 2)} m/s | ${shippedComparison.L.equal ? 'yes' : 'no'} |`
+  );
+  lines.push(
+    `| \`UNRELIABLE_EXCESS_FLOOR_M\` | ${fmtNum(F, 1)} m | R-7 p10 (the complement of D-10(a)'s own 90th-percentile ` +
+      `order) of every folded covered step's own metres, pooled archive-wide, floor-rounded to 0.1 m | ${fmtNum(F, 1)} m | ` +
+      `${shippedComparison.F.equal ? 'yes' : 'no'} |`
+  );
+  lines.push(
+    `| \`HIDDEN_PAUSE_MIN_METRES\` | ${fmtNum(boundary.B, 2)} m | valley search over the anchor interval ` +
+      `[${fmtNum(boundary.anchorInterval?.low, 1)}, ${fmtNum(boundary.anchorInterval?.high, 1)}) m; ` +
+      `${boundary.valleyFound ? 'a valley was found' : 'NO clean valley found — anchor-interval midpoint fallback'} | ` +
+      `${fmtNum(boundary.B, 2)} m | ${shippedComparison.B.equal ? 'yes' : 'no'} |`
+  );
+  lines.push('');
+
+  // ## Non-circularity (D-13)
+  lines.push('## Non-circularity (D-13)');
+  lines.push('');
+  lines.push(
+    `Tolerance fixed BEFORE any check ran: **${(INSENSITIVITY_TOLERANCE * 100).toFixed(0)}%**. \`L\` is checked ` +
+      'at the standard floor-0 probe (matching 32-05\'s own S-A/S-B comparison, before any excess floor exists); ' +
+      '`F` and `B` are checked at the JOINT `(L, F)` operating point — the detector\'s actual shipped params.'
+  );
+  lines.push('');
+  lines.push('| Constant | Value | base | removed | planted | removedDelta | plantedDelta | pass |');
+  lines.push('|---|---|---|---|---|---|---|---|');
+  lines.push(renderInsensitivityRow('L (real)', L, lCheck, ' m/s'));
+  lines.push(renderInsensitivityRow('L strawman (pooled p99.9 of folded step speeds)', lStrawmanValue, lStrawmanCheck, ' m/s'));
+  lines.push(renderInsensitivityRow('F (real)', F, fCheck, ' m'));
+  lines.push(renderInsensitivityRow('F strawman (p99 tail of pooled step metres)', fStrawmanValue, fStrawmanCheck, ' m'));
+  lines.push(renderInsensitivityRow('B (real)', boundary.B, bCheck, ' m'));
+  lines.push(renderInsensitivityRow('B strawman (p99 tail of no-gap segment metres)', bStrawmanValue, bStrawmanCheck, ' m'));
+  lines.push('');
+
+  // ## Why not a tail percentile
+  lines.push('## Why not a tail percentile');
+  lines.push('');
+  lines.push(
+    `Each constant's own tail-percentile strawman is watched FAILING the same ${(INSENSITIVITY_TOLERANCE * 100).toFixed(0)}% ` +
+      'insensitivity check its real derivation passes — proof the harness can fail, not just a claim it would:'
+  );
+  lines.push('');
+  const strawmanProse = [
+    ['L', lStrawmanCheck, lStrawmanValue, 'm/s'],
+    ['F', fStrawmanCheck, fStrawmanValue, 'm'],
+    ['B', bStrawmanCheck, bStrawmanValue, 'm'],
+  ];
+  for (const [name, check, value, unit] of strawmanProse) {
+    if (check === null) {
+      lines.push(`- **${name}'s strawman** could not be evaluated (no candidate value on this archive).`);
+      continue;
+    }
+    lines.push(
+      `- **${name}'s strawman** (\`${fmtNum(value)} ${unit}\`) FAILS: removedDelta ${fmtPct(check.removedDelta)}, ` +
+        `plantedDelta ${fmtPct(check.plantedDelta)}${check.pass ? ' — **BLOCKER: this passed, see STOP condition (d)**' : ''}.`
+    );
+  }
+  lines.push('');
+
+  // ## Hidden-pause vs isolated-jump boundary (D-08)
+  lines.push('## Hidden-pause vs isolated-jump boundary (D-08)');
+  lines.push('');
+  if (boundary.anchorEmpty) {
+    lines.push(
+      '**STOP condition (c):** the anchor interval is empty or inverted (the largest named jump\'s own segment ' +
+        "metres is not strictly less than the hidden pause's own segment metres) — no valley search was run."
+    );
+  } else {
+    lines.push(
+      `Anchor interval (the largest named isolated-jump segment's own metres, the named hidden-pause segment's ` +
+        `own metres): **[${fmtNum(boundary.anchorInterval.low, 1)}, ${fmtNum(boundary.anchorInterval.high, 1)})** m.`
+    );
+    lines.push('');
+    lines.push(`Bin width: ${HIDDEN_PAUSE_BIN_WIDTH_METRES} m. Histogram over this interval:`);
+    lines.push('');
+    lines.push('| Bin lower edge (m) | Count |');
+    lines.push('|---|---|');
+    for (const bin of boundary.histogram) {
+      lines.push(`| ${bin.edge} | ${bin.count} |`);
+    }
+    lines.push('');
+    if (boundary.valleyFound) {
+      lines.push(`**A valley was found** at B = ${fmtNum(boundary.B, 2)} m.`);
+    } else {
+      lines.push(
+        `**No clean valley exists in this interval** (D-08's own legitimate outcome — reported verbatim, not ` +
+          `manufactured). B falls back to the anchor interval's own midpoint, ${fmtNum(boundary.B, 2)} m. The ` +
+          '`hidden-pause` label is therefore a best-effort description, not a verified cause, for any segment ' +
+          'landing on this exact fallback value.'
+      );
+    }
+  }
+  lines.push('');
+
+  // ## Excess floor and the trivia case (D-09)
+  lines.push('## Excess floor and the trivia case (D-09)');
+  lines.push('');
+  lines.push(
+    `\`UNRELIABLE_EXCESS_FLOOR_M\` = ${fmtNum(F, 1)} m — the R-7 10th percentile of every folded covered step's ` +
+      'own metres, pooled archive-wide (D-09). The smallest must-flag excess at the chosen `(L, F)` is ' +
+      `${fmtNum(feasibility.rows.filter((r) => r.kind === 'mustFlag').reduce((min, r) => Math.min(min, r.excess ?? Infinity), Infinity), 2)} m.`
+  );
+  lines.push('');
+  if (triviaRow === null) {
+    lines.push("D-09's trivial pair (`3475734189` t=1581-1583) could not be located in the must-spare rows.");
+  } else {
+    lines.push(
+      `The D-09 trivial pair (\`3475734189\` t=1581-1583, ~17.3m/2s) is excluded by **${triviaRow.mechanism ?? '(not excluded — see D-10(d) check below)'}** ` +
+        `at the chosen constants (excess ${fmtNum(triviaRow.excess, 2)} m` +
+        `${triviaRow.mechanism === 'floor' ? `, margin ${fmtNum(F - triviaRow.excess, 2)} m below F` : ''}).` +
+        `${triviaRow.mechanism === 'floor' ? ' The floor is the operative mechanism here, not the speed limit — stated plainly, not engineered.' : ''}`
+    );
+  }
+  lines.push('');
+
+  // ## D-10(d) check at the chosen constants
+  lines.push('## D-10(d) check at the chosen constants');
+  lines.push('');
+  lines.push(
+    `Decision (32-05-SUMMARY.md): disposition \`${decision.disposition}\`, statistic \`${decision.statistic}\`, ` +
+      `fixtures ${decision.fixtures.map((f) => `${f.id}:${f.startSec}-${f.endSec}`).join(', ')}.`
+  );
+  lines.push('');
+  lines.push(`\`checkFeasibility(archive, ${fmtNum(L, 2)}, ${fmtNum(F, 1)}, decision).pass\` = **${feasibility.pass}**.`);
+  lines.push('');
+  lines.push('| Kind | Item | Excess (m) | Admitted / Spared | Mechanism |');
+  lines.push('|---|---|---|---|---|');
+  for (const row of feasibility.rows) {
+    const disposition = row.kind === 'mustFlag' ? (row.admitted ? 'admitted' : 'NOT admitted') : row.spared ? 'spared' : 'NOT spared';
+    lines.push(`| ${row.kind} | ${describeItem(row.item)} | ${fmtMetres(row.excess)} | ${disposition} | ${row.mechanism ?? '—'} |`);
+  }
+  lines.push('');
+
+  return lines.join('\n');
+}
+
 /** Pure string assembly: no `Date`, no `Math.random`, no unsorted object-key/Set/Map iteration
  * reaches the output. Every field consumed here already exists on `report`, built once by
  * `buildCalibrationReport`. */
@@ -1548,7 +1889,7 @@ export function renderCalibrationMarkdown(report) {
 
   lines.push(
     renderReachabilitySection(
-      "Reachability of D-10(d) (pre-calibration)",
+      "Reachability of D-10(d) (pre-calibration evidence)",
       "With the research's three D-05 candidates folded into must-spare",
       report.matrixWithD05,
       report.grid
@@ -1556,7 +1897,7 @@ export function renderCalibrationMarkdown(report) {
   );
   lines.push(
     renderReachabilitySection(
-      "Reachability of D-10(d) (pre-calibration)",
+      "Reachability of D-10(d) (pre-calibration evidence)",
       'Without the D-05 candidates (D-09\'s own trivial pair only)',
       report.matrixWithoutD05,
       report.grid
@@ -1663,6 +2004,8 @@ export function renderCalibrationMarkdown(report) {
     }
   }
   lines.push('');
+
+  lines.push(renderChosenConstantsSections(report.decision, report.chosenConstants));
 
   // ## Inputs
   lines.push('## Inputs');

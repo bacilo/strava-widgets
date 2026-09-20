@@ -51,17 +51,89 @@ export interface GapSpan {
 }
 
 /**
- * Required calibration parameters (D-09, D-08, D-10). The calibrated
- * constants do not exist yet — plan 32-06 derives them from the archive and
- * only then makes this parameter optional with a measured default. This
- * plan does NOT invent interim values: any number in this module would be
- * an unmeasured literal.
+ * Required calibration parameters (D-09, D-08, D-10). `params` is optional on
+ * `detectUnreliableSegments`, defaulting to `DEFAULT_DETECTOR_PARAMS` below.
  */
 export interface DetectorParams {
   speedLimitMps: number;
   excessFloorMetres: number;
   hiddenPauseMinMetres: number;
 }
+
+/**
+ * The calibrated speed limit (D-10): `ceil(multiplier x S-A x 100) / 100`, where S-A is the
+ * 32-05 Decision's chosen statistic (R-7 p90 across activities of each activity's own R-7 p95
+ * folded covered-step speed, 4.404 m/s, n=1873) and the multiplier is measured, not chosen — see
+ * `.planning/phases/32-unreliable-segment-detection-calibration/32-CALIBRATION.md` section
+ * "Chosen constants" for the live-derived value and section "Non-circularity (D-13)" for its
+ * insensitivity check.
+ *
+ * The multiplier is the R-7 percentile (across activities) of each activity's own ratio of its
+ * R-7 95th-percentile folded-step speed to its R-7 median folded-step speed — a bulk measure of
+ * one activity's own internal pace variability, never a tail percentile of the archive-wide
+ * population this detector judges (D-10(b)). The outer cross-activity percentile order is the
+ * smallest of a fixed, round candidate list ({0.90, 0.95, 0.97, 0.99}) whose result clears D-13's
+ * insensitivity check — mirroring 32-05's own precedent of choosing between candidate statistics
+ * by measured insensitivity, never by a flagged count (D-10(e)). An earlier draft applied a bare
+ * multiplier of 1 (`ceil(S-A)` alone, 4.41 m/s) — at that limit, ordinary sustained running
+ * already carries more absolute excess-metres than the smallest named GPS jump; see this plan's
+ * SUMMARY for the full measurement.
+ *
+ * Ceil-rounded to 0.01 m/s: rounding UP can only ever flag LESS of the archive at the rounded
+ * value than the raw product would, never more (the direction-safe rounding `CEILING_K`'s own
+ * docblock precedent uses, `best-effort-ceiling.ts`).
+ *
+ * Phase 27's D-02 anti-quota rule forbids moving this value to change a flagged count —
+ * `UNRELIABLE_SPEED_LIMIT_MPS` is fixed by measurement alone and the derivation chain that
+ * produces it takes no flagged-count argument, structurally, not by promise.
+ */
+export const UNRELIABLE_SPEED_LIMIT_MPS = 7.35;
+
+/**
+ * The calibrated excess-metres significance floor (D-09): the R-7 10th percentile — the
+ * COMPLEMENT of `UNRELIABLE_SPEED_LIMIT_MPS`'s own locked 90th-percentile order (D-10(a)) — of
+ * EVERY folded covered step's own metres, pooled archive-wide (never restricted to "fast" steps).
+ * See `32-CALIBRATION.md` section "Chosen constants" for the live-derived value and section
+ * "Non-circularity (D-13)" for its insensitivity check (0% removedDelta/plantedDelta on the live
+ * archive — this population is dominated by ordinary, non-anomalous steps, so it is essentially
+ * unmoved by removing or doubling the archive's detected fast bursts).
+ *
+ * Floor-rounded to 0.1 m in the direction that keeps every must-flag item admitted: DOWN. A floor
+ * is an exclusion threshold — every must-flag item's excess must exceed it — so rounding the raw
+ * value down can only ever admit MORE of a borderline must-flag item, never less.
+ *
+ * Phase 27's D-02 anti-quota rule forbids moving this value to change a flagged count —
+ * `UNRELIABLE_EXCESS_FLOOR_M`'s derivation takes `L` and the archive alone, structurally
+ * incapable of consulting a named item or a flagged count.
+ */
+export const UNRELIABLE_EXCESS_FLOOR_M = 3;
+
+/**
+ * The calibrated hidden-pause vs isolated-jump metres boundary (D-08): searched as a valley in
+ * the archive's own distribution of no-gap segment metres, over the anchor interval `[largest
+ * named isolated jump's own segment metres, the named hidden-pause item's own segment metres)` at
+ * `(UNRELIABLE_SPEED_LIMIT_MPS, UNRELIABLE_EXCESS_FLOOR_M)`. See `32-CALIBRATION.md` section
+ * "Hidden-pause vs isolated-jump boundary (D-08)" for the histogram and section "Chosen
+ * constants" for the live-derived value.
+ *
+ * On the live archive **no clean valley exists** in that interval (`valleyFound: false`) — this
+ * is reported verbatim, not manufactured (D-08). The value below is the anchor interval's own
+ * MIDPOINT, a stated best-effort fallback that is deliberately NOT a percentile of the
+ * segment-metres distribution (that shape is this constant's own watched-failing strawman). The
+ * `hidden-pause` label this boundary drives is therefore a best-effort description, not a
+ * verified cause, whenever a segment lands on this exact fallback value.
+ *
+ * Phase 27's D-02 anti-quota rule forbids moving this value to change a flagged count.
+ */
+export const HIDDEN_PAUSE_MIN_METRES = 116.95;
+
+/** The measured default `DetectorParams`, built from the three calibrated constants above.
+ * Frozen so a caller cannot mutate the shared default in place. */
+export const DEFAULT_DETECTOR_PARAMS: DetectorParams = Object.freeze({
+  speedLimitMps: UNRELIABLE_SPEED_LIMIT_MPS,
+  excessFloorMetres: UNRELIABLE_EXCESS_FLOOR_M,
+  hiddenPauseMinMetres: HIDDEN_PAUSE_MIN_METRES,
+});
 
 /**
  * One maximal folded advance step: a run of one or more consecutive covered
@@ -331,6 +403,9 @@ function paramsAreValid(params: DetectorParams): boolean {
  * (D-03, D-08). No per-mechanism behaviour beyond this label — D-04 — and no
  * decimation or run-length exemption of any kind — D-11.
  *
+ * `params` is optional, defaulting to `DEFAULT_DETECTOR_PARAMS` (the calibrated constants above)
+ * — existing explicit-params callers are unaffected.
+ *
  * Guarded on entry (T-26-01): returns a fresh `[]` and never throws when
  * `validateStreamSeries(t, d)` is not `ok`, when `params` carries a
  * non-finite or out-of-range value, or when any gap span is malformed (fails
@@ -341,7 +416,7 @@ export function detectUnreliableSegments(
   t: readonly number[],
   d: readonly number[],
   gaps: readonly GapSpan[],
-  params: DetectorParams
+  params: DetectorParams = DEFAULT_DETECTOR_PARAMS
 ): UnreliableSegment[] {
   if (!validateStreamSeries(t as number[], d as number[]).ok) return [];
   if (!paramsAreValid(params)) return [];
