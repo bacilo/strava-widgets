@@ -143,7 +143,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 32-06-PLAN.md — Derive speed limit / excess floor / hidden-pause boundary with D-13 insensitivity; ship constants
+- [x] 32-06-PLAN.md — Derive speed limit / excess floor / hidden-pause boundary with D-13 insensitivity; ship constants
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -272,7 +272,7 @@ Plans:
 | 29. Curation Review Queue | v2.2 | 8/8 | Complete    | 2026-09-18 |
 | 30. Elevation Quality Signal | v2.2 | 8/8 | Complete    | 2026-09-18 |
 | 31. Tech-Debt Closure — Silent-Failure Guards & Docs Reconciliation | v2.2 | 10/10 | Complete    | 2026-09-19 |
-| 32. Unreliable-Segment Detection & Calibration | v2.3 | 5/9 | In Progress|  |
+| 32. Unreliable-Segment Detection & Calibration | v2.3 | 6/9 | In Progress|  |
 | 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 0/TBD | Not started | - |
 | 34. Pause Classification & Forgotten-Stop | v2.3 | 0/TBD | Not started | - |
 | 35. Stream-Derived Running Pace | v2.3 | 0/TBD | Not started | - |

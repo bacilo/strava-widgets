@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
 status: executing
-stopped_at: "BLOCKED at 32-06 Task 2: D-10(d) unreachable at the 32-05 Decision's own L (see 32-06-SUMMARY.md, STATE.md Blockers). Task 1 committed; awaiting a superseding developer decision."
-last_updated: "2026-09-20T10:39:29.430Z"
+stopped_at: Completed 32-06-PLAN.md — calibrated constants shipped (L=7.35 m/s, F=3.0 m, B=116.95 m, no clean valley), all D-13 checks passing.
+last_updated: "2026-09-20T11:38:58.278Z"
 last_activity: 2026-09-20
 progress:
   total_phases: 6
@@ -47,7 +47,7 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 ## Current Position
 
 Phase: 32 (unreliable-segment-detection-calibration) — EXECUTING
-Plan: 3 of 9
+Plan: 7 of 9
 Status: Ready to execute
 Last activity: 2026-09-20
 
@@ -97,6 +97,7 @@ Last activity: 2026-09-20
 | Phase 31 P10 | 10min | 2 tasks | 3 files |
 | Phase 32 P01 | ~20min | 2 tasks | 8 files |
 | Phase 32 P05 | ~10min (continuation) | 1 tasks | 1 files |
+| Phase 32 P06 | ~5h (continuation) | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -155,6 +156,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 31-10]: Blanket approval recorded as blanket approval; TD-05 ticked only because all three PR-04 Round 4 rows PASS — House rule T-31-33: verdicts transcribed verbatim, never expanded into invented per-row detail; tick discipline requires all mapped rows PASS before requirement ticks
 - [Phase 32]: SEG-05 split into SEG-05a/SEG-05b (D-14); SEG-04/ROADMAP criterion 4 amended (D-03) to disclose the Suunto sample by activity ID rather than a fourth mechanism label; PITFALLS.md Pitfall 2 and research/SUMMARY.md superseded (D-01, the Suunto sample is no longer a must-not-fire fixture); D-04 one-treatment note recorded on Phases 33/36; D-17 stream-immutability gate landed (scripts/compute-stream-checksums.mjs, watched failing on a real one-byte edit, then restored and green).
 - [Phase 32]: Phase 32 plan 05: D-10(d) is UNREACHABLE with the three research-proposed D-05 fixtures at the detector's own judging scale (16628769295, 8869338724 each contain a folded step faster than the smallest named must-flag jump); developer chose disposition option-refixture (keep the D-09/D-10 rule shape, re-fixture instead), locking D-05 fixtures to 7409028052:586-624 (dense) and 3647739864:945-971 (decimated), and statistic S-A (4.404 m/s, n=1873, removedDelta 8.28%) over S-B for plan 32-06 to derive the calibration constants from
+- [Phase 32]: 32-06: corrected the D-10 speed-limit derivation to apply a real, D-13-verified multiplier (1.6667, candidate-selected from a fixed {0.90,0.95,0.97,0.99} outer-percentile list) rather than a bare ceil(S-A) -- L=7.35 m/s. Redesigned the excess floor's population from excess-of-fast-runs (fails D-13, nearly duplicates what removal strips) to pooled step metres (0% D-13 deltas) -- F=3.0 m. B=116.95 m, no clean valley found (D-08's own legitimate outcome), after fixing a findValley bug that manufactured a valley over an empty population.
 
 ### Key Findings
 
@@ -191,7 +193,7 @@ Previously resolved — SQLITE_CANTOPEN CI failure resolved by quick-1-01 (lazy 
 - OPEN 2026-08-12: Phase 19 gap-closure register (19-05 checkpoint, PARTIAL) — GAP 1 (UI-01/UI-02): a stray `*/` inside a CSS comment at src/dashboard/styles.css lines 54-56 (`--space-*/--zone-*/--load-*` prose) terminates the comment early, silently discarding the `--radius-control` custom property from the parsed stylesheet in production. Browser-confirmed: `{radiusControl: "(EMPTY)", radiusPanel: "8px", sample: "button.app-nav__toggle", borderRadius: "0px"}`. Affects 4 rules (input/select/textarea baseline, button baseline, both .segmented__option end-child radii) — all render 0px corners instead of 4px. Invisible to all four automated gate commands (all text-assertion over source, which still contains the correct declaration). GAP 2 (UI-02): the focus ring on the detail view's x-axis segmented control is occluded at the bottom by the first chart and on the right by the sibling option — a distinct mechanism from the overflow:hidden clipping plan 19-04 fixed. GAP 3: the esbuild css-syntax-error warning emitted during `npm run build-widgets` (`Expected ":" [css-syntax-error]` at `<stdin>:56:59`) was misclassified as non-blocking by 19-05 Task 1 — it is the build-time signature of GAP 1. Not yet fixed. See 19-VALIDATION.md Gap-Closure Record. Three additional non-Phase-19 issues (Safari-specific JS SyntaxError on page load, dead Records "View Activity" click handler, Safari type="month" degradation) logged in the same record but confirmed out of scope for this phase (git diff 670b3ec..HEAD touches only styles.css and styles.test.ts).
 - OPEN 2026-08-13: Phase 19 gap-closure register (19-12 Round 3 checkpoint, PARTIAL) — GAP 7 (UI-02, new): the sticky top nav does not remain on screen while scrolling on Activities, confirmed by an ad-hoc probe (navH 77 = parentH 77, position: sticky computed but not holding). Blocks row 18 of 19-VALIDATION.md and UI-02. No suggested fix or root-cause theory recorded, per house rule for still-failing rows — next planning round (/gsd-plan-phase 19 --gaps) diagnoses and fixes it. GAP 6 (CR-01's z-index: 20 fix) is not marked resolved either: Probe B confirms the declaration ships in the bundle, but its rendered paint-order effect could not be observed because row 18 failed for the unrelated GAP 7 reason first. GAP 4 (CR-02) and GAP 5 (CR-03) ARE resolved this round on rendered evidence (rows 14-16 and row 17 all PASS). See 19-VALIDATION.md Gap-Closure Record and 19-12-SUMMARY.md.
 - OPEN 2026-08-13: Phase 19 GAP 8 (new, found unprompted during 19-17's Round 4 checkpoint) — Leaflet map tiles paint over the top nav on the detail-view route map. Source-derived (not measured): Leaflet's own panes (z-index 400) and controls (z-index 1000) are untouched by src/dashboard/styles.css and sit above #app-nav-root's z-index: 20. Second face: plan 19-16's sticky-layer ladder comment claims a totally-ordered four-rung ladder that does not list Leaflet's panes as a fifth, unlisted rung above it. Argued in 19-VALIDATION.md and REQUIREMENTS.md not to block UI-02 (different component, no checkpoint row named it) — UI-02 is ticked complete. Not patched per house rule since 16-09. Disposition (a small follow-up plan: z-index fix + one browser re-check + ladder-comment correction, or a deferred item) is the user's call after Phase 19 closes. See 19-VALIDATION.md GAP 8.
-- 32-06: D-10(d) unreachable at L=4.41 m/s (32-05 Decision's own S-A-derived speed limit) for ANY excess floor F -- the locked dense D-05 fixture (7409028052 t=586-624, excess 53.47m) carries more absolute excess than the smallest must-flag jump (3475740390 t=2347-2350, excess 16.87m). Task 1 committed (1945864e); Task 2 blocked. Requires a superseding developer decision (re-fixture, re-statistic, or D-09 floor-shape change / option-jitter) before 32-06 can resume. See 32-06-SUMMARY.md.
+- RESOLVED 2026-09-20: 32-06's original blocker (D-10(d) unreachable at L=4.41 m/s) traced to a wrong "multiplier of 1" reading of D-10's own derivation rule, not a genuine dead end. Fixed by deriving a real, D-13-verified multiplier (1.6667, candidate-selected from {0.90,0.95,0.97,0.99} outer percentiles of per-activity p95/p50 folded-step-speed ratio) applied to S-A before ceil-rounding, giving L=7.35 m/s; redesigning the excess floor's population (pooled step metres, not excess-of-fast-runs, which nearly duplicates whatever D-13's removal strips out) giving F=3.0 m; and fixing a findValley bug that manufactured a valley over an empty population, giving B=116.95 m (no clean valley found). All three real derivations now pass D-13 insensitivity; all three strawmen still fail; shipped constants match live-derived values; artifact regenerates byte-identically. See 32-06-SUMMARY.md.
 
 ### Quick Tasks Completed
 
@@ -264,9 +266,9 @@ It is named here because PROJECT.md's Evolution entry still describes it as open
 
 ## Session Continuity
 
-Last session: 2026-09-20T10:39:29.420Z
-Stopped at: BLOCKED at 32-06 Task 2: D-10(d) unreachable at the 32-05 Decision's own L (see 32-06-SUMMARY.md, STATE.md Blockers). Task 1 committed; awaiting a superseding developer decision.
-Resume file: .planning/phases/32-unreliable-segment-detection-calibration/32-06-SUMMARY.md
+Last session: 2026-09-20T11:35:30.168Z
+Stopped at: Completed 32-06-PLAN.md — calibrated constants shipped (L=7.35 m/s, F=3.0 m, B=116.95 m, no clean valley), all D-13 checks passing.
+Resume file: None
 
 ---
 *Last updated: 2026-08-11 — Phase 17 (activity-browser-detail-views) all 15 planned plans executed and summarized; human checkpoint on plan 17-15 came back PARTIAL — 8/10 Manual-Only Verifications rows confirmed clean, GAP 1 (DETAIL-02, route-map basemap tiles absent) and GAP 2 (DETAIL-03/04, chart band x-axis misalignment) have open gaps pending gap-closure planning (`/gsd-plan-phase 17 --gaps`) before the phase gate closes*
