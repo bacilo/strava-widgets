@@ -15,10 +15,24 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   INSENSITIVITY_SOURCE_ACTIVITY_ID,
   NAMED_ITEMS,
+  checkFeasibility,
   computeFeasibleFloor,
+  deriveExcessFloor,
+  deriveHiddenPauseBoundary,
+  deriveSpeedLimit,
+  excessFloorDeriveFn,
+  excessFloorStrawmanDeriveFn,
   findNegativeControlCandidates,
+  findValley,
+  hiddenPauseBoundaryDeriveFn,
+  hiddenPauseStrawmanDeriveFn,
   insensitivityCheck,
+  loadDecision,
+  mustFlagItems,
+  mustSpareItems,
+  parseDecisionText,
   renderCalibrationMarkdown,
+  statisticSA,
 } from './compute-unreliable-segment-calibration.mjs';
 
 describe('computeFeasibleFloor', () => {
@@ -242,6 +256,421 @@ describe('renderCalibrationMarkdown', () => {
     expect(markdown).not.toContain('## Chosen constants');
     // Rendered exactly twice, per Task 1's behaviour ("with and without the research fixtures").
     expect(markdown.split('## Reachability of D-10(d) (pre-calibration)').length - 1).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Plan 32-06: constant derivation (D-08/D-09/D-10/D-13) — hand-built fixtures only
+// ---------------------------------------------------------------------------
+
+describe('parseDecisionText', () => {
+  it('parses the three grep-able Decision lines verbatim', () => {
+    const text = [
+      'Some prose before the Decision block.',
+      '',
+      '```',
+      'disposition: option-refixture',
+      'fixtures: 7409028052:586-624, 3647739864:945-971',
+      'statistic: S-A',
+      '```',
+      '',
+      'Some prose after.',
+    ].join('\n');
+
+    const decision = parseDecisionText(text);
+
+    expect(decision.disposition).toBe('option-refixture');
+    expect(decision.statistic).toBe('S-A');
+    expect(decision.fixtures).toEqual([
+      { id: '7409028052', startSec: 586, endSec: 624 },
+      { id: '3647739864', startSec: 945, endSec: 971 },
+    ]);
+  });
+
+  it('throws when a required Decision line is missing rather than silently defaulting', () => {
+    expect(() => parseDecisionText('disposition: option-refixture\nstatistic: S-A')).toThrow();
+  });
+});
+
+describe('mustFlagItems / mustSpareItems', () => {
+  const decision = { disposition: 'option-refixture', statistic: 'S-A', fixtures: [
+    { id: '7409028052', startSec: 586, endSec: 624 },
+    { id: '3647739864', startSec: 945, endSec: 971 },
+  ] };
+
+  it('mustFlagItems returns all six named must-flag items under option-refixture', () => {
+    expect(mustFlagItems(decision)).toBe(NAMED_ITEMS.mustFlag);
+    expect(mustFlagItems(decision).length).toBe(6);
+  });
+
+  it('mustSpareItems combines the D-09 trivial pair with the Decision\'s locked fixtures, never 4556693525', () => {
+    const items = mustSpareItems(decision);
+    expect(items.length).toBe(3);
+    const ids = items.map((i) => `${i.id}@${i.window.startSec}`);
+    expect(ids).toEqual(['3475734189@1581', '7409028052@586', '3647739864@945']);
+    expect(items.map((i) => i.id)).not.toContain('4556693525');
+  });
+});
+
+describe('checkFeasibility (against NAMED_ITEMS with a synthetic decision)', () => {
+  // NAMED_ITEMS.mustFlag/mustSpare reference real archive ids; checkFeasibility calls
+  // mustFlagItems/mustSpareItems(decision), which read those real ids. This test builds synthetic
+  // ACTIVITIES under those SAME real ids (mirroring how `insensitivityCheck`'s own existing tests
+  // reuse `INSENSITIVITY_SOURCE_ACTIVITY_ID`) so the module's real named windows resolve against
+  // hand-built, controllable streams instead of the live archive.
+  const decision = {
+    disposition: 'option-refixture',
+    statistic: 'S-A',
+    fixtures: [{ id: 'FIX1', startSec: 0, endSec: 20 }],
+  };
+
+  // `advanceSteps` folds a ZERO-metres pair FORWARD into whichever pair eventually clears the
+  // bar — so a naive "jump straight to the next burst's start with distance unchanged" padding
+  // would fold the entire lead-in time into the burst's own step, diluting its speed toward zero.
+  // Padding at a small positive `padSpeed` (well below any `L` used in these tests) closes out its
+  // own step first, so each burst starts its own fresh, correctly-timed step.
+  function buildArchiveFromBursts(id, bursts, { padSpeed = 0.5 } = {}) {
+    const t = [];
+    const d = [];
+    let time = 0;
+    let dist = 0;
+    t.push(time);
+    d.push(dist);
+    const sorted = [...bursts].sort((a, b) => a.startSec - b.startSec);
+    for (const b of sorted) {
+      if (b.startSec > time) {
+        dist += (b.startSec - time) * padSpeed;
+        time = b.startSec;
+        t.push(time);
+        d.push(dist);
+      }
+      time = b.endSec;
+      dist += b.metres;
+      t.push(time);
+      d.push(dist);
+    }
+    return { id, t, d, gaps: [] };
+  }
+
+  it('names the blocking must-spare item and mechanism ("floor") when its excess exceeds the must-flag minimum', () => {
+    const L = 4;
+    // Must-flag activity 3475734189 carries the hidden-pause window (1353-1360) at excess 12
+    // (the deliberate minimum) and 3475740390 carries the five jump windows each with excess > 12.
+    const hiddenPauseActivity = buildArchiveFromBursts(
+      '3475734189',
+      [
+        { startSec: 1353, endSec: 1360, metres: 40 }, // excess = 40 - 4*7 = 12
+        { startSec: 1581, endSec: 1583, metres: 8.65 * 2 }, // D-09 trivial pair window, excess = 17.3-8=9.3
+      ],
+      L
+    );
+    const jumpsActivity = buildArchiveFromBursts(
+      '3475740390',
+      [
+        { startSec: 2347, endSec: 2350, metres: 30 }, // excess = 30-12=18
+        { startSec: 2508, endSec: 2513, metres: 40 }, // excess = 40-20=20
+        { startSec: 2536, endSec: 2538, metres: 20 }, // excess = 20-8=12 (ties the hidden-pause minimum but not below it)
+        { startSec: 2580, endSec: 2583, metres: 25 }, // excess = 25-12=13
+        { startSec: 2587, endSec: 2589, metres: 22 }, // excess = 22-8=14
+      ],
+      L
+    );
+    // The locked fixture FIX1 carries MORE excess (50) than the must-flag minimum (12) — exactly
+    // this plan's own live-archive finding, reproduced as a controllable fixture.
+    const fixtureActivity = buildArchiveFromBursts('FIX1', [{ startSec: 0, endSec: 20, metres: 4 * 20 + 50 }], L);
+
+    const archive = { activities: [hiddenPauseActivity, jumpsActivity, fixtureActivity] };
+
+    const infeasible = checkFeasibility(archive, L, 30, decision); // any F must be < 12 to admit every must-flag item
+    expect(infeasible.pass).toBe(false);
+    const blockingRow = infeasible.rows.find((r) => r.kind === 'mustSpare' && r.item.id === 'FIX1');
+    expect(blockingRow.spared).toBe(false); // excess 50 > F=30: FIX1 is NOT spared, the blocking row
+    expect(blockingRow.mechanism).toBeNull(); // not excluded by either mechanism — it IS the blocker
+  });
+
+  it('reports pass:true with every row correctly admitted/spared at a feasible F', () => {
+    const L = 4;
+    const hiddenPauseActivity = buildArchiveFromBursts(
+      '3475734189',
+      [
+        { startSec: 1353, endSec: 1360, metres: 40 }, // excess 12
+        { startSec: 1581, endSec: 1583, metres: 17.3 }, // excess = 17.3-8=9.3
+      ],
+      L
+    );
+    const jumpsActivity = buildArchiveFromBursts(
+      '3475740390',
+      [
+        { startSec: 2347, endSec: 2350, metres: 30 }, // excess 18
+        { startSec: 2508, endSec: 2513, metres: 40 }, // excess 20
+        { startSec: 2536, endSec: 2538, metres: 20 }, // excess 12
+        { startSec: 2580, endSec: 2583, metres: 25 }, // excess 13
+        { startSec: 2587, endSec: 2589, metres: 22 }, // excess 14
+      ],
+      L
+    );
+    const fixtureActivity = buildArchiveFromBursts('FIX1', [{ startSec: 0, endSec: 20, metres: 4 * 20 + 5 }], L); // excess 5
+
+    const archive = { activities: [hiddenPauseActivity, jumpsActivity, fixtureActivity] };
+
+    const F = 10; // between the trivia/fixture excess (9.3, 5) and the must-flag minimum (12)
+    const result = checkFeasibility(archive, L, F, decision);
+
+    expect(result.pass).toBe(true);
+    for (const row of result.rows) {
+      if (row.kind === 'mustFlag') expect(row.admitted).toBe(true);
+      else expect(row.spared).toBe(true);
+    }
+    const fixtureRow = result.rows.find((r) => r.item.id === 'FIX1');
+    expect(fixtureRow.mechanism).toBe('floor');
+  });
+});
+
+describe('deriveSpeedLimit', () => {
+  it('rounds the Decision\'s statistic UP to 0.01 m/s (never down)', () => {
+    // Two clean activities whose folded-step speeds put S-A's raw value strictly between two
+    // hundredths, so ceil-rounding is observable and distinguishable from round()/floor().
+    const activities = [
+      { id: 'A', t: [0, 10], d: [0, 30.05], gaps: [] }, // speed 3.005
+      { id: 'B', t: [0, 10], d: [0, 30.05], gaps: [] },
+    ];
+    const archive = { activities };
+    const stepsIndex = new Map(
+      archive.activities.map((a) => [a.id, [{ startIndex: 0, endIndex: 1, startSec: 0, endSec: 10, metres: 30.05, seconds: 10 }]])
+    );
+    const rawSA = statisticSA(stepsIndex).value;
+    expect(rawSA).toBeCloseTo(3.005, 6);
+
+    const L = deriveSpeedLimit(archive, 'S-A');
+    expect(L).toBe(Math.ceil(rawSA * 100) / 100);
+    expect(L).toBeGreaterThanOrEqual(rawSA);
+    expect(L).toBe(3.01);
+  });
+
+  it('returns null for an unknown statistic label', () => {
+    const archive = { activities: [{ id: 'A', t: [0, 10], d: [0, 30], gaps: [] }] };
+    expect(deriveSpeedLimit(archive, 'S-Z')).toBeNull();
+  });
+});
+
+describe('findValley (D-08 valley search)', () => {
+  it('finds a valley in a hand-built BIMODAL histogram (dense near each anchor, empty in the middle)', () => {
+    const values = [...Array(4).fill(32), ...Array(4).fill(97)];
+
+    const result = findValley(values, 20, 100);
+
+    expect(result.valleyFound).toBe(true);
+    expect(result.B).not.toBeNull();
+    expect(result.B).toBeGreaterThan(20);
+    expect(result.B).toBeLessThan(100);
+  });
+
+  it('reports valleyFound false on a hand-built MONOTONE-DECAY histogram (no clean dip anywhere)', () => {
+    // Every 5m bin from 20 to 95 populated with a strictly decreasing, never-near-zero count —
+    // no bin is ever <= half the smaller of its left/right maxima.
+    const values = [];
+    const counts = [20, 18, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4];
+    let edge = 25;
+    for (const count of counts) {
+      for (let i = 0; i < count; i++) values.push(edge + 0.5);
+      edge += 5;
+    }
+
+    const result = findValley(values, 20, 100);
+
+    expect(result.valleyFound).toBe(false);
+    expect(result.B).toBeNull();
+  });
+});
+
+describe('deriveExcessFloor / strawmanExcessFloorTailPercentile with D-13 insensitivity', () => {
+  const L = 6;
+
+  function bulkActivity(id) {
+    // Single clean fast run: 65m in 10s at L=6 -> excess = 65 - 60 = 5 (the "bulk" value).
+    return { id, t: [0, 10, 40], d: [0, 65, 70], gaps: [] };
+  }
+  function outlierActivity(id, excess) {
+    const metres = L * 10 + excess;
+    return { id, t: [0, 10, 40], d: [0, metres, metres + 5], gaps: [] };
+  }
+  function sourceActivity() {
+    // Bulk steps at 3 m/s (non-fast at L=6), one burst step at 15 m/s (30m/2s, excess=30-12=18).
+    const t = [0, 10, 20, 30, 32, 42, 52, 62];
+    const d = [0, 30, 60, 90, 120, 150, 180, 210];
+    return { id: INSENSITIVITY_SOURCE_ACTIVITY_ID, t, d, gaps: [] };
+  }
+
+  function buildArchive() {
+    const bulk = Array.from({ length: 1000 }, (_, i) => bulkActivity(`bulk-${i}`));
+    const outliers = [50, 55, 60, 65, 70, 75, 80, 85, 90, 95].map((excess, i) => outlierActivity(`outlier-${i}`, excess));
+    return { activities: [...bulk, ...outliers, sourceActivity()] };
+  }
+
+  it('deriveExcessFloor is the archive-wide p90 of fast-run excesses at L, rounded DOWN to 0.1 m', () => {
+    const archive = buildArchive();
+    const F = deriveExcessFloor(archive, L);
+    // The 1000-strong bulk cluster (excess exactly 5) comfortably contains the 90th percentile.
+    expect(F).toBe(5);
+  });
+
+  it('PASSES insensitivity for the real bulk (p90) derivation — a dominant bulk cluster is not moved by removing or planting a small minority', () => {
+    const archive = buildArchive();
+    const F = deriveExcessFloor(archive, L);
+
+    const result = insensitivityCheck(excessFloorDeriveFn(L), archive, {
+      detectAtL: L,
+      excessFloorMetres: F,
+      tolerance: 0.01,
+    });
+
+    expect(result.pass).toBe(true);
+    expect(result.removedDelta).toBeLessThanOrEqual(0.01);
+    expect(result.plantedDelta).toBeLessThanOrEqual(0.01);
+  });
+
+  it('FAILS insensitivity for the deliberately circular tail (p99) strawman — watched failing first (D-13)', () => {
+    const archive = buildArchive();
+    const F = deriveExcessFloor(archive, L);
+
+    const result = insensitivityCheck(excessFloorStrawmanDeriveFn(L), archive, {
+      detectAtL: L,
+      excessFloorMetres: F,
+      tolerance: 0.01,
+    });
+
+    expect(result.pass).toBe(false);
+    expect(result.removedDelta).toBeGreaterThan(0.01);
+  });
+});
+
+describe('deriveHiddenPauseBoundary (D-08) — anchor emptiness and valley integration', () => {
+  // See the identically-named helper above for why padding needs a small positive speed rather
+  // than a zero-metres jump (`advanceSteps` folds zero-metres pairs forward, diluting the burst).
+  function buildArchiveFromBursts(id, bursts, { padSpeed = 0.5 } = {}) {
+    const t = [];
+    const d = [];
+    let time = 0;
+    let dist = 0;
+    t.push(time);
+    d.push(dist);
+    const sorted = [...bursts].sort((a, b) => a.startSec - b.startSec);
+    for (const b of sorted) {
+      if (b.startSec > time) {
+        dist += (b.startSec - time) * padSpeed;
+        time = b.startSec;
+        t.push(time);
+        d.push(dist);
+      }
+      time = b.endSec;
+      dist += b.metres;
+      t.push(time);
+      d.push(dist);
+    }
+    return { id, t, d, gaps: [] };
+  }
+
+  const L = 4;
+  const F = 0;
+
+  function namedFlagActivities({ jumpMetres, hiddenPauseMetres }) {
+    // NAMED_ITEMS.mustFlag's five isolated-jump windows all belong to 3475740390; give each a
+    // small, distinct metres so `largestJumpMetres` is deterministic; the hidden-pause window
+    // belongs to 3475734189.
+    const jumps = buildArchiveFromBursts('3475740390', [
+      { startSec: 2347, endSec: 2350, metres: jumpMetres[0] },
+      { startSec: 2508, endSec: 2513, metres: jumpMetres[1] },
+      { startSec: 2536, endSec: 2538, metres: jumpMetres[2] },
+      { startSec: 2580, endSec: 2583, metres: jumpMetres[3] },
+      { startSec: 2587, endSec: 2589, metres: jumpMetres[4] },
+    ]);
+    const hiddenPause = buildArchiveFromBursts('3475734189', [
+      { startSec: 1353, endSec: 1360, metres: hiddenPauseMetres },
+    ]);
+    return [jumps, hiddenPause];
+  }
+
+  it('reports anchorEmpty (STOP condition c) when the largest jump\'s metres is not strictly less than the hidden pause\'s', () => {
+    const activities = namedFlagActivities({ jumpMetres: [20, 25, 15, 100, 18], hiddenPauseMetres: 50 });
+    const archive = { activities };
+
+    const result = deriveHiddenPauseBoundary(archive, L, F);
+
+    expect(result.anchorEmpty).toBe(true);
+    expect(result.valleyFound).toBe(false);
+    expect(result.B).toBeNull();
+  });
+
+  it('finds a real valley when a bimodal no-gap-metres population exists inside the anchor interval', () => {
+    const [jumps, hiddenPause] = namedFlagActivities({ jumpMetres: [20, 30, 15, 25, 18], hiddenPauseMetres: 100 });
+    // largestJumpMetres = 30, hiddenPauseMetres = 100 -> anchorInterval [30, 100)
+    const background = [
+      ...Array.from({ length: 4 }, (_, i) => buildArchiveFromBursts(`bg-low-${i}`, [{ startSec: 0, endSec: 5, metres: 32 }])),
+      ...Array.from({ length: 4 }, (_, i) => buildArchiveFromBursts(`bg-high-${i}`, [{ startSec: 0, endSec: 15, metres: 97 }])),
+    ];
+    const archive = { activities: [jumps, hiddenPause, ...background] };
+
+    const result = deriveHiddenPauseBoundary(archive, L, F);
+
+    expect(result.anchorEmpty).toBe(false);
+    expect(result.anchorInterval).toEqual({ low: 30, high: 100 });
+    expect(result.valleyFound).toBe(true);
+    expect(result.B).toBeGreaterThan(30);
+    expect(result.B).toBeLessThan(100);
+  });
+});
+
+describe('B (hidden-pause boundary) insensitivity (D-13)', () => {
+  const L = 6;
+  const F = 1;
+  const anchorInterval = { low: 20, high: 100 };
+
+  function lowClusterActivity(id) {
+    // metres=32, seconds=5 -> excess = 32 - 30 = 2 (qualifies at F=1, safe from a removal floor of 17)
+    return { id, t: [0, 5, 20], d: [0, 32, 34], gaps: [] };
+  }
+  function highClusterActivity(id) {
+    // metres=97, seconds=15 -> excess = 97 - 90 = 7 (qualifies at F=1, safe from a removal floor of 17)
+    return { id, t: [0, 15, 40], d: [0, 97, 100], gaps: [] };
+  }
+  function sourceActivity() {
+    // Bulk steps at 3 m/s (non-fast), one burst step at 15 m/s (30m/2s, excess=30-12=18).
+    const t = [0, 10, 20, 30, 32, 42, 52, 62];
+    const d = [0, 30, 60, 90, 120, 150, 180, 210];
+    return { id: INSENSITIVITY_SOURCE_ACTIVITY_ID, t, d, gaps: [] };
+  }
+
+  function buildArchive() {
+    const low = Array.from({ length: 4 }, (_, i) => lowClusterActivity(`low-${i}`));
+    const high = Array.from({ length: 4 }, (_, i) => highClusterActivity(`high-${i}`));
+    return { activities: [...low, ...high, sourceActivity()] };
+  }
+
+  it('PASSES insensitivity for the real valley/fallback derivation — removing/planting a minor minority does not move the found valley', () => {
+    const archive = buildArchive();
+
+    const result = insensitivityCheck(hiddenPauseBoundaryDeriveFn(archive, L, F, anchorInterval), archive, {
+      detectAtL: L,
+      excessFloorMetres: 17, // strips only the source's own burst (excess 18); both clusters (2, 7) survive
+      tolerance: 0.01,
+    });
+
+    expect(result.pass).toBe(true);
+    expect(result.removedDelta).toBeLessThanOrEqual(0.01);
+    expect(result.plantedDelta).toBeLessThanOrEqual(0.01);
+  });
+
+  it('FAILS insensitivity for the deliberately circular tail (p99) strawman — watched failing first (D-13)', () => {
+    const archive = buildArchive();
+
+    const result = insensitivityCheck(hiddenPauseStrawmanDeriveFn(archive, L, F), archive, {
+      detectAtL: L,
+      excessFloorMetres: 5, // strips the high cluster (excess 7) and the source's burst (excess 18)
+      tolerance: 0.01,
+    });
+
+    expect(result.pass).toBe(false);
+    expect(result.removedDelta).toBeGreaterThan(0.01);
   });
 });
 

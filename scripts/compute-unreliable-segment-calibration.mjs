@@ -613,13 +613,17 @@ export function strawmanTailPercentile(stepsIndex) {
  * compared against `tolerance`, fixed by the caller before this function runs. `pass` requires BOTH
  * deltas to clear it.
  */
-export function insensitivityCheck(deriveFn, archive, { detectAtL, tolerance }) {
+export function insensitivityCheck(
+  deriveFn,
+  archive,
+  { detectAtL, excessFloorMetres = PROBE_EXCESS_FLOOR_METRES, tolerance }
+) {
   const baseStepsIndex = buildStepsIndex(archive);
   const base = deriveFn(baseStepsIndex);
 
   const detectParams = {
     speedLimitMps: detectAtL,
-    excessFloorMetres: PROBE_EXCESS_FLOOR_METRES,
+    excessFloorMetres,
     hiddenPauseMinMetres: PROBE_HIDDEN_PAUSE_MIN_METRES,
   };
 
@@ -699,6 +703,455 @@ export function insensitivityCheck(deriveFn, archive, { detectAtL, tolerance }) 
     detectedSegmentCount,
     plantedCount,
     sourceBurstPartCount: sourceBurstParts.length,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Plan 32-06: constant derivation (D-08/D-09/D-10), bound by the 32-05 Decision
+// ---------------------------------------------------------------------------
+
+/** Absolute path to the 32-05 blocking decision this plan is bound by. */
+export const DECISION_SUMMARY_PATH = join(
+  ROOT_DIR,
+  '.planning/phases/32-unreliable-segment-detection-calibration/32-05-SUMMARY.md'
+);
+
+/**
+ * Parses the three grep-able machine-readable lines 32-05-SUMMARY.md's `## Decision` section
+ * records verbatim (`disposition:`, `fixtures:`, `statistic:` at line start). Pure string parsing,
+ * no I/O — `loadDecision` below does the read. Throws on a missing line rather than silently
+ * defaulting: a malformed or absent Decision block must fail loudly, not derive constants against
+ * an empty fixture set.
+ */
+export function parseDecisionText(text) {
+  const dispositionMatch = text.match(/^disposition:\s*(.+)$/m);
+  const fixturesMatch = text.match(/^fixtures:\s*(.+)$/m);
+  const statisticMatch = text.match(/^statistic:\s*(.+)$/m);
+  if (!dispositionMatch || !fixturesMatch || !statisticMatch) {
+    throw new Error(
+      '32-05-SUMMARY.md is missing one of the three machine-readable Decision lines ' +
+        '(disposition:/fixtures:/statistic:) — cannot derive any constant without it.'
+    );
+  }
+
+  const disposition = dispositionMatch[1].trim();
+  const statistic = statisticMatch[1].trim();
+  const fixtures = fixturesMatch[1]
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0)
+    .map((entry) => {
+      const [id, span] = entry.split(':').map((s) => s.trim());
+      const [startSec, endSec] = span.split('-').map((s) => Number(s.trim()));
+      return { id, startSec, endSec };
+    });
+
+  return { disposition, statistic, fixtures };
+}
+
+/** Reads and parses the 32-05 Decision from disk. The only I/O in this section of the file. */
+export function loadDecision(summaryPath = DECISION_SUMMARY_PATH) {
+  return parseDecisionText(readFileSync(summaryPath, 'utf8'));
+}
+
+/**
+ * D-09/D-10's must-flag set: the hidden-pause window plus the five named isolated jumps
+ * (`NAMED_ITEMS.mustFlag`), unconditionally under `option-refixture`/`no-conflict` (the D-09/D-10
+ * rule shape and ROADMAP criterion 3 / SEG-03 are unchanged). Only `option-amend-criterion-3` — if
+ * the Decision ever records one — narrows this to `decision.retainedJumpIds`, a field this plan's
+ * Decision does not carry (`disposition: option-refixture`), so every named jump stays mandatory.
+ */
+export function mustFlagItems(decision) {
+  if (decision.disposition === 'option-amend-criterion-3' && Array.isArray(decision.retainedJumpIds)) {
+    const retained = new Set(decision.retainedJumpIds);
+    return NAMED_ITEMS.mustFlag.filter(
+      (item) => !item.label.startsWith('isolated jump') || retained.has(`${item.id}@${item.window.startSec}`)
+    );
+  }
+  return NAMED_ITEMS.mustFlag;
+}
+
+/**
+ * D-05/D-10(d)'s must-spare set: D-09's own trivial pair (`NAMED_ITEMS.mustSpare`) plus the
+ * Decision's locked fixtures (`decision.fixtures`) — the research-proposed three-fixture set is
+ * deliberately NOT consulted here (32-05 superseded it). `4556693525` never appears in either
+ * source (D-01).
+ */
+export function mustSpareItems(decision) {
+  const fixtureItems = decision.fixtures.map((f) => ({
+    id: f.id,
+    window: { startSec: f.startSec, endSec: f.endSec },
+    label: `D-05 locked fixture (32-05 Decision, disposition: ${decision.disposition})`,
+  }));
+  return [...NAMED_ITEMS.mustSpare, ...fixtureItems];
+}
+
+/**
+ * D-10's speed limit: the Decision's named statistic (S-A or S-B, the SAME `statisticSA`/
+ * `statisticSB` functions 32-05 reported those labels from — not re-implemented), rounded UP to
+ * 0.01 m/s. Rounding up can only ever flag LESS of the archive at the rounded value than the raw
+ * statistic itself would, never more — the direction-safe rounding CEILING_K's own docblock
+ * precedent uses. Takes no flagged-count argument (D-10(e), Phase 27 D-02 anti-quota):
+ * `deriveSpeedLimit`'s signature is `(archive, statisticLabel)`, structurally incapable of
+ * consulting how many segments the result would flag.
+ */
+export function deriveSpeedLimit(archive, statisticLabel) {
+  const stepsIndex = buildStepsIndex(archive);
+  const stat =
+    statisticLabel === 'S-A' ? statisticSA(stepsIndex) : statisticLabel === 'S-B' ? statisticSB(stepsIndex) : null;
+  if (stat === null || stat.value === null) return null;
+  return Math.ceil(stat.value * 100) / 100;
+}
+
+/**
+ * D-10(d)'s feasibility check at a SPECIFIC, already-chosen `(L, F)` pair (unlike
+ * `computeFeasibleFloor`, which searches for a feasible interval across a whole grid). Every
+ * must-flag item (`mustFlagItems(decision)`) must be a candidate at `L` with excess strictly
+ * greater than `F`; every must-spare item (`mustSpareItems(decision)`) must either not be a
+ * candidate at `L` (excess `null`) or have excess at or below `F`. Each row records which
+ * mechanism excluded a must-spare item — `'speed limit'` (it was never a candidate at `L`, excess
+ * `null`) or `'floor'` (it was a candidate but its excess did not clear `F`) — or `null` when the
+ * item is NOT excluded (a failing row, surfaced by `pass: false`).
+ */
+export function checkFeasibility(archive, L, F, decision) {
+  const byId = new Map(archive.activities.map((a) => [a.id, a]));
+  let pass = true;
+  const rows = [];
+
+  for (const item of mustFlagItems(decision)) {
+    const activity = byId.get(item.id);
+    const excess = activity ? runExcessAt(activity, item.window, L) : null;
+    const admitted = excess !== null && excess > F;
+    if (!admitted) pass = false;
+    rows.push({ kind: 'mustFlag', item, excess, admitted, mechanism: null });
+  }
+
+  for (const item of mustSpareItems(decision)) {
+    const activity = byId.get(item.id);
+    const excess = activity ? runExcessAt(activity, item.window, L) : null;
+    const spared = excess === null || excess <= F;
+    const mechanism = excess === null ? 'speed limit' : excess <= F ? 'floor' : null;
+    if (!spared) pass = false;
+    rows.push({ kind: 'mustSpare', item, excess, spared, mechanism });
+  }
+
+  return { pass, rows };
+}
+
+/** Maximal contiguous (by index) runs of steps whose own speed exceeds `L` — the SAME grouping
+ * `groupFastRuns` performs inside the detector, re-implemented here (not imported — this file
+ * already re-implements `advanceSteps`-adjacent groupings, e.g. `splitIntoContiguousChains`) so it
+ * can run over a `stepsIndex`-shaped population `insensitivityCheck` builds by editing steps in
+ * place, which never touches `t`/`d`/`gaps` and therefore cannot call `detectUnreliableSegments`. */
+function fastRunsFromSteps(steps, L) {
+  const runs = [];
+  let current = null;
+  for (const step of steps) {
+    const fast = step.metres > L * step.seconds;
+    if (fast && current && current.endIndex === step.startIndex) {
+      current.endIndex = step.endIndex;
+      current.metres += step.metres;
+      current.seconds += step.seconds;
+    } else if (fast) {
+      current = { startIndex: step.startIndex, endIndex: step.endIndex, metres: step.metres, seconds: step.seconds };
+      runs.push(current);
+    } else {
+      current = null;
+    }
+  }
+  return runs;
+}
+
+/** Every fast run's excess (`metres − L × seconds`) across a `stepsIndex`, pooled archive-wide —
+ * the population `deriveExcessFloor`/`strawmanExcessFloorTailPercentile` both statistics are taken
+ * over, and the population `insensitivityCheck`'s re-derivation edits via removal/planting. */
+function fastRunExcessesFromStepsIndex(stepsIndex, L) {
+  const excesses = [];
+  for (const steps of stepsIndex.values()) {
+    for (const run of fastRunsFromSteps(steps, L)) {
+      excesses.push(run.metres - L * run.seconds);
+    }
+  }
+  return excesses;
+}
+
+/** The archive-wide population `deriveExcessFloor` and its strawman are both a percentile of:
+ * every fast run's excess metres at speed limit `L`, `excessFloorMetres: 0` (the same
+ * "candidate — not yet floored" probe convention used elsewhere in this file). Reads the real
+ * archive once via `buildStepsIndex`; both callers share this one population. */
+function burstExcessPopulationAtFloorZero(archive, L) {
+  return fastRunExcessesFromStepsIndex(buildStepsIndex(archive), L).sort((a, b) => a - b);
+}
+
+/** The order statistic `deriveExcessFloor` reads off the excess-metres population — the SAME 90th
+ * percentile D-10's own speed-limit statistic (S-A) is built from (`R-7 p90 across activities of
+ * each activity's own R-7 p95`), applied here instead to the excess-metres population. No new free
+ * parameter is introduced: the percentile order is fixed by consistency with the constant already
+ * chosen for `L`, not picked to fit this population. */
+const EXCESS_FLOOR_PERCENTILE = 0.9;
+
+/**
+ * D-09's excess-metres significance floor. Depends on `L` and the archive alone — never a named
+ * item, never a flagged count (D-10(e), Phase 27 D-02 anti-quota; `deriveExcessFloor`'s signature
+ * is `(archive, L)`, structurally incapable of taking either). A BULK statistic (the archive's own
+ * `quantile`, the R-7 implementation `pace-derivation.ts` exports, applied at the 90th percentile —
+ * `EXCESS_FLOOR_PERCENTILE`) of the excess-metres carried by every fast run detected at `L` with
+ * `excessFloorMetres: 0` — never a TAIL percentile of that population (this file's own strawman,
+ * `strawmanExcessFloorTailPercentile`, is the tail-percentile shape this rule deliberately is NOT).
+ *
+ * Non-circularity: the population this percentile is taken over is "every run whose aggregate
+ * speed exceeds `L`", not "every run this floor would itself flag" — the floor is derived from a
+ * population one step upstream of its own decision boundary, the same relationship `CEILING_K`
+ * bears to its own p90-of-clean-distances population (`best-effort-ceiling.ts`).
+ *
+ * Rounded to 0.1 m in the direction that keeps every must-flag item admitted: DOWN. A floor is an
+ * exclusion threshold — every must-flag item's excess must exceed it — so rounding the raw value
+ * down can only ever admit MORE of a borderline must-flag item, never less, mirroring
+ * `deriveSpeedLimit`'s own "can only flag less, never more" direction-safety for the opposite
+ * (inclusion) boundary.
+ */
+export function deriveExcessFloor(archive, L) {
+  const excesses = burstExcessPopulationAtFloorZero(archive, L);
+  if (excesses.length === 0) return 0;
+  const raw = quantile(excesses, EXCESS_FLOOR_PERCENTILE);
+  return Math.floor(raw * 10) / 10;
+}
+
+/** STRAWMAN for F: R-7 p99 (a TAIL percentile, deliberately circular — a percentile of the very
+ * excess-metres population the floor judges, at a tail order statistic rather than a bulk one)
+ * of the same population `deriveExcessFloor` reads. Must be shown FAILING `insensitivityCheck`
+ * before `deriveExcessFloor`'s own bulk statistic is trusted (D-13). */
+export function strawmanExcessFloorTailPercentile(archive, L) {
+  const excesses = burstExcessPopulationAtFloorZero(archive, L);
+  if (excesses.length === 0) return null;
+  return quantile(excesses, 0.99);
+}
+
+const HIDDEN_PAUSE_BIN_WIDTH_METRES = 5;
+
+/**
+ * D-08's valley search over a pre-computed population of segment metres. Bins `values` into
+ * `binWidth`-wide buckets spanning `[lowMetres, highMetres]` (the anchor interval), then walks bins
+ * strictly BETWEEN the two anchors in ascending order looking for the first whose count is at most
+ * half the smaller of the maximum count strictly to its left and the maximum count strictly to its
+ * right (both restricted to the interval). Returns `{ valleyFound: true, B }` at the LOWEST such
+ * bin's lower edge, or `{ valleyFound: false, B: null }` if none exists — "no clean valley" is
+ * reported, never manufactured (D-08). `histogram` is always returned for rendering.
+ */
+export function findValley(values, lowMetres, highMetres, binWidth = HIDDEN_PAUSE_BIN_WIDTH_METRES) {
+  if (!(lowMetres < highMetres)) {
+    return { valleyFound: false, B: null, histogram: [] };
+  }
+
+  const firstEdge = Math.floor(lowMetres / binWidth) * binWidth;
+  const lastEdge = Math.floor(highMetres / binWidth) * binWidth;
+  const edges = [];
+  for (let e = firstEdge; e <= lastEdge; e += binWidth) edges.push(Math.round(e * 1e6) / 1e6);
+
+  const counts = edges.map((edge) => values.filter((v) => v >= edge && v < edge + binWidth).length);
+  const histogram = edges.map((edge, i) => ({ edge, count: counts[i] }));
+
+  let bestIndex = -1;
+  for (let i = 0; i < edges.length; i++) {
+    const edge = edges[i];
+    if (!(edge > lowMetres && edge < highMetres)) continue;
+
+    const leftCounts = counts.slice(0, i);
+    const rightCounts = counts.slice(i + 1);
+    const maxLeft = leftCounts.length > 0 ? Math.max(...leftCounts) : 0;
+    const maxRight = rightCounts.length > 0 ? Math.max(...rightCounts) : 0;
+    const threshold = 0.5 * Math.min(maxLeft, maxRight);
+
+    if (counts[i] <= threshold) {
+      bestIndex = i;
+      break;
+    }
+  }
+
+  if (bestIndex === -1) return { valleyFound: false, B: null, histogram };
+  return { valleyFound: true, B: edges[bestIndex], histogram };
+}
+
+/** Every no-gap segment's metres at `(L, F)`: `hiddenPauseMinMetres: Number.MAX_SAFE_INTEGER` so
+ * the detector never itself distinguishes hidden-pause from isolated-jump (both land in this one
+ * population); a segment with `gapCount > 0` is gap-adjacent, never a candidate for this boundary. */
+function noGapSegmentMetres(archive, L, F) {
+  const metres = [];
+  for (const activity of archive.activities) {
+    const segments = detectUnreliableSegments(activity.t, activity.d, activity.gaps, {
+      speedLimitMps: L,
+      excessFloorMetres: F,
+      hiddenPauseMinMetres: Number.MAX_SAFE_INTEGER,
+    });
+    for (const segment of segments) {
+      if (segment.gapCount === 0) metres.push(segment.metres);
+    }
+  }
+  return metres;
+}
+
+/** The metres of the segment overlapping `item.window` at `(L, F)`, or `null` if none. */
+function namedItemSegmentMetres(byId, item, L, F) {
+  const activity = byId.get(item.id);
+  if (!activity) return null;
+  const segments = detectUnreliableSegments(activity.t, activity.d, activity.gaps, {
+    speedLimitMps: L,
+    excessFloorMetres: F,
+    hiddenPauseMinMetres: Number.MAX_SAFE_INTEGER,
+  });
+  for (const segment of segments) {
+    if (segment.startSec <= item.window.endSec && segment.endSec >= item.window.startSec) return segment.metres;
+  }
+  return null;
+}
+
+/**
+ * D-08's hidden-pause vs isolated-jump metres boundary. `anchorInterval = { low, high }` is
+ * `[largest must-flag isolated jump's OWN segment metres at (L, F), the must-flag hidden-pause
+ * item's OWN segment metres at (L, F)]` — never a synthetic pair. Empty (or inverted) when the
+ * largest jump's metres are not strictly less than the hidden pause's own metres — `anchorEmpty:
+ * true`, the caller's STOP condition (c), since `findValley` cannot search a non-interval.
+ *
+ * Otherwise, histograms EVERY no-gap segment's metres archive-wide (`noGapSegmentMetres`) and
+ * searches the anchor interval for a valley (`findValley`). If none exists, `valleyFound: false`
+ * and `B` falls back to the anchor interval's own MIDPOINT — a stated best-effort default that
+ * lies strictly inside the interval and is deliberately NOT a percentile of the segment-metres
+ * distribution (D-08 forbids that fallback shape: a percentile of the very population with no
+ * clean valley would manufacture a boundary the data does not support).
+ */
+export function deriveHiddenPauseBoundary(archive, L, F) {
+  const byId = new Map(archive.activities.map((a) => [a.id, a]));
+  const isolatedJumpItems = NAMED_ITEMS.mustFlag.filter((item) => item.label.startsWith('isolated jump'));
+  const hiddenPauseItem = NAMED_ITEMS.mustFlag.find((item) => item.label.startsWith('hidden-pause'));
+
+  const jumpMetresList = isolatedJumpItems
+    .map((item) => namedItemSegmentMetres(byId, item, L, F))
+    .filter((m) => m !== null);
+  const largestJumpMetres = jumpMetresList.length > 0 ? Math.max(...jumpMetresList) : null;
+  const hiddenPauseMetres = hiddenPauseItem ? namedItemSegmentMetres(byId, hiddenPauseItem, L, F) : null;
+
+  if (largestJumpMetres === null || hiddenPauseMetres === null || !(largestJumpMetres < hiddenPauseMetres)) {
+    return {
+      B: null,
+      valleyFound: false,
+      histogram: [],
+      anchorInterval: null,
+      anchorEmpty: true,
+      largestJumpMetres,
+      hiddenPauseMetres,
+    };
+  }
+
+  const anchorInterval = { low: largestJumpMetres, high: hiddenPauseMetres };
+  const allNoGapMetres = noGapSegmentMetres(archive, L, F);
+  const valley = findValley(allNoGapMetres, anchorInterval.low, anchorInterval.high);
+
+  if (valley.valleyFound) {
+    return { B: valley.B, valleyFound: true, histogram: valley.histogram, anchorInterval, anchorEmpty: false };
+  }
+
+  const fallbackB = (anchorInterval.low + anchorInterval.high) / 2;
+  return { B: fallbackB, valleyFound: false, histogram: valley.histogram, anchorInterval, anchorEmpty: false };
+}
+
+/** STRAWMAN for B: R-7 p99 of no-gap segment metres (a TAIL percentile of the very population
+ * `deriveHiddenPauseBoundary`'s valley search reads — deliberately circular). Must be shown
+ * FAILING `insensitivityCheck` before the valley-search/midpoint-fallback rule is trusted (D-13). */
+export function strawmanHiddenPauseTailPercentile(archive, L, F) {
+  const metres = noGapSegmentMetres(archive, L, F).slice().sort((a, b) => a - b);
+  if (metres.length === 0) return null;
+  return quantile(metres, 0.99);
+}
+
+/** Precomputes, per activity, the real gap boundary sample indices `mapGapToIndices` would derive
+ * inside the detector (a burst touches a gap iff its `endIndex` equals the gap's own mapped
+ * `startIndex`, or its `startIndex` equals the gap's own mapped `endIndex` — D-06). Computed ONCE
+ * from the archive's real, UNMODIFIED `t`/gaps — `insensitivityCheck`'s removal never changes a
+ * surviving step's own index, and planted steps carry negative sentinel indices that can never
+ * collide with a real (non-negative) boundary index, so this stays valid for both re-derivations. */
+function buildGapIndexBoundaries(archive) {
+  const boundaries = new Map();
+  for (const activity of archive.activities) {
+    const startIndices = new Set();
+    const endIndices = new Set();
+    for (const g of activity.gaps) {
+      let gi = -1;
+      for (let i = 0; i < activity.t.length; i++) if (activity.t[i] === g.startSec) gi = i;
+      let gj = -1;
+      for (let j = 0; j < activity.t.length; j++) {
+        if (activity.t[j] === g.endSec) {
+          gj = j;
+          break;
+        }
+      }
+      if (gi !== -1) endIndices.add(gi);
+      if (gj !== -1) startIndices.add(gj);
+    }
+    boundaries.set(activity.id, { startIndices, endIndices });
+  }
+  return boundaries;
+}
+
+/** No-gap fast-run metres from a `stepsIndex` (`insensitivityCheck`'s removal/planting shape),
+ * using precomputed real `gapBoundaries` (see `buildGapIndexBoundaries`) to test touching. */
+function noGapRunMetresFromStepsIndex(stepsIndex, gapBoundaries, L, F) {
+  const metresList = [];
+  for (const [id, steps] of stepsIndex) {
+    const boundary = gapBoundaries.get(id);
+    for (const run of fastRunsFromSteps(steps, L)) {
+      const excess = run.metres - L * run.seconds;
+      if (excess <= F) continue;
+      const touchesGap =
+        !!boundary && (boundary.endIndices.has(run.endIndex) || boundary.startIndices.has(run.startIndex));
+      if (touchesGap) continue;
+      metresList.push(run.metres);
+    }
+  }
+  return metresList;
+}
+
+/**
+ * `deriveFn` adapters for `insensitivityCheck` (D-13), one pair (real + strawman) per constant
+ * F/B derives — `L`'s own adapter is `statisticSA`/`statisticSB` themselves, already
+ * `(stepsIndex) => value` shaped, reused as-is.
+ */
+
+/** F's own statistic, `EXCESS_FLOOR_PERCENTILE` of fast-run excesses at `L`, computed from a
+ * `stepsIndex` (not a full archive) so it can run over `insensitivityCheck`'s removed/planted
+ * populations. */
+export function excessFloorDeriveFn(L) {
+  return (stepsIndex) => {
+    const excesses = fastRunExcessesFromStepsIndex(stepsIndex, L).sort((a, b) => a - b);
+    return excesses.length === 0 ? null : quantile(excesses, EXCESS_FLOOR_PERCENTILE);
+  };
+}
+
+/** F's STRAWMAN adapter: R-7 p99 (tail) of the same fast-run-excess population. */
+export function excessFloorStrawmanDeriveFn(L) {
+  return (stepsIndex) => {
+    const excesses = fastRunExcessesFromStepsIndex(stepsIndex, L).sort((a, b) => a - b);
+    return excesses.length === 0 ? null : quantile(excesses, 0.99);
+  };
+}
+
+/** B's own rule, re-run against the SAME `anchorInterval` over a perturbed `stepsIndex`
+ * population — mirrors `deriveHiddenPauseBoundary`'s real-valley/midpoint-fallback shape exactly. */
+export function hiddenPauseBoundaryDeriveFn(archive, L, F, anchorInterval) {
+  const gapBoundaries = buildGapIndexBoundaries(archive);
+  return (stepsIndex) => {
+    const metresList = noGapRunMetresFromStepsIndex(stepsIndex, gapBoundaries, L, F);
+    const valley = findValley(metresList, anchorInterval.low, anchorInterval.high);
+    return valley.valleyFound ? valley.B : (anchorInterval.low + anchorInterval.high) / 2;
+  };
+}
+
+/** B's STRAWMAN adapter: R-7 p99 (tail) of ALL no-gap fast-run metres, unrestricted to the anchor
+ * interval — the tail-percentile shape `deriveHiddenPauseBoundary`'s valley search is not. */
+export function hiddenPauseStrawmanDeriveFn(archive, L, F) {
+  const gapBoundaries = buildGapIndexBoundaries(archive);
+  return (stepsIndex) => {
+    const metresList = noGapRunMetresFromStepsIndex(stepsIndex, gapBoundaries, L, F).sort((a, b) => a - b);
+    return metresList.length === 0 ? null : quantile(metresList, 0.99);
   };
 }
 
