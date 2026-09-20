@@ -615,6 +615,135 @@ describe('detectUnreliableSegments — total function, shape-level malformation 
 });
 
 /**
+ * D-06/D-07 gap boundary convention regression (gap closure 32-13, 32-VERIFICATION.md gap #3).
+ *
+ * `validateStreamSeries` (`best-effort-utils.ts`) explicitly documents duplicate timestamps as
+ * VALID input, and 72 of the 1,874 committed streams already carry them. The fixtures below are
+ * the exact two activities 32-VERIFICATION.md's gap #3 reproduced against the shipped
+ * `dist/analytics/unreliable-segments.js`. The invariant under test is derived from the phase
+ * goal's own conservation requirement ("segments that conserve real distance/time") and D-07's
+ * "clean samples are never swallowed" rule — NOT from agreement between `mapGapToIndices` and
+ * `isGapPair`. Two functions agreeing with each other is not evidence that either is right; the
+ * evidence is that neither a segment's conserved metres/seconds nor its mechanism label may
+ * depend on an incidental duplicate sample sitting exactly on a gap boundary.
+ */
+describe('D-06/D-07 gap boundary convention — duplicate timestamps (gap closure 32-13)', () => {
+  const params = DEFAULT_DETECTOR_PARAMS;
+  const gaps: GapSpan[] = [{ startSec: 1, endSec: 13 }];
+
+  it("fixture A — duplicate timestamp ON the gap's start boundary", () => {
+    const t = [0, 1, 1, 13];
+    const d = [0, 20, 20, 21];
+
+    const segments = detectUnreliableSegments(t, d, gaps, params);
+
+    expect(segments).toHaveLength(1);
+    const seg = segments[0];
+    expect(seg.mechanism).toBe('gap-adjacent');
+    expect(seg.metres).toBe(21);
+    expect(seg.seconds).toBe(13);
+    expect(seg.gapCount).toBe(1);
+    expect(seg.burstCount).toBe(1);
+    expect(seg.burstMetres).toBe(20);
+    expect(seg.gapMetres).toBe(1);
+    expect(seg.burstSeconds).toBe(1);
+    expect(seg.gapSeconds).toBe(12);
+    expect(seg.startIndex).toBe(0);
+    expect(seg.endIndex).toBe(3);
+  });
+
+  it('fixture B — the same activity without the duplicate sample', () => {
+    const t = [0, 1, 13];
+    const d = [0, 20, 21];
+
+    const segments = detectUnreliableSegments(t, d, gaps, params);
+
+    expect(segments).toHaveLength(1);
+    const seg = segments[0];
+    expect(seg.mechanism).toBe('gap-adjacent');
+    expect(seg.metres).toBe(21);
+    expect(seg.seconds).toBe(13);
+    expect(seg.gapCount).toBe(1);
+    expect(seg.burstCount).toBe(1);
+    expect(seg.burstMetres).toBe(20);
+    expect(seg.gapMetres).toBe(1);
+    expect(seg.burstSeconds).toBe(1);
+    expect(seg.gapSeconds).toBe(12);
+    expect(seg.endIndex).toBe(2);
+  });
+
+  it('A and B agree on mechanism and every conserved total (indices legitimately differ)', () => {
+    const a = detectUnreliableSegments([0, 1, 1, 13], [0, 20, 20, 21], gaps, params)[0];
+    const b = detectUnreliableSegments([0, 1, 13], [0, 20, 21], gaps, params)[0];
+
+    expect(a.mechanism).toBe(b.mechanism);
+    expect(a.metres).toBe(b.metres);
+    expect(a.seconds).toBe(b.seconds);
+    expect(a.burstMetres).toBe(b.burstMetres);
+    expect(a.gapMetres).toBe(b.gapMetres);
+    expect(a.burstSeconds).toBe(b.burstSeconds);
+    expect(a.gapSeconds).toBe(b.gapSeconds);
+    expect(a.burstCount).toBe(b.burstCount);
+    expect(a.gapCount).toBe(b.gapCount);
+  });
+
+  it('the pre-fix classification is impossible', () => {
+    // The old LAST-at-startSec/FIRST-at-endSec convention produced one isolated-jump segment of
+    // 20 m / 1 s with gapCount 0 for fixture A — the gap's own 1 m / 12 s silently dropped.
+    const segments = detectUnreliableSegments([0, 1, 1, 13], [0, 20, 20, 21], gaps, params);
+
+    for (const seg of segments) {
+      expect(seg.mechanism).not.toBe('isolated-jump');
+      expect(seg.gapCount).not.toBe(0);
+    }
+  });
+
+  it("duplicate on the gap's END boundary is equally invariant", () => {
+    const withDup = detectUnreliableSegments(
+      [0, 1, 13, 13, 20],
+      [0, 20, 21, 21, 25],
+      gaps,
+      params
+    )[0];
+    const withoutDup = detectUnreliableSegments([0, 1, 13, 20], [0, 20, 21, 25], gaps, params)[0];
+
+    expect(withDup.mechanism).toBe(withoutDup.mechanism);
+    expect(withDup.metres).toBe(withoutDup.metres);
+    expect(withDup.seconds).toBe(withoutDup.seconds);
+    expect(withDup.burstMetres).toBe(withoutDup.burstMetres);
+    expect(withDup.gapMetres).toBe(withoutDup.gapMetres);
+    expect(withDup.burstSeconds).toBe(withoutDup.burstSeconds);
+    expect(withDup.gapSeconds).toBe(withoutDup.gapSeconds);
+    expect(withDup.gapCount).toBe(withoutDup.gapCount);
+  });
+
+  it('conservation holds for every fixture in this block', () => {
+    const cases: Array<[number[], number[]]> = [
+      [[0, 1, 1, 13], [0, 20, 20, 21]],
+      [[0, 1, 13], [0, 20, 21]],
+      [[0, 1, 13, 13, 20], [0, 20, 21, 21, 25]],
+      [[0, 1, 13, 20], [0, 20, 21, 25]],
+    ];
+
+    let reachable = false;
+    for (const [t, d] of cases) {
+      const segments = detectUnreliableSegments(t, d, gaps, params);
+      for (const seg of segments) {
+        reachable = true;
+        expect(Math.abs(seg.metres - (seg.burstMetres + seg.gapMetres))).toBeLessThan(1e-9);
+        expect(Math.abs(seg.seconds - (seg.burstSeconds + seg.gapSeconds))).toBeLessThan(1e-9);
+        expect(seg.metres).toBe(d[seg.endIndex] - d[seg.startIndex]);
+        expect(seg.seconds).toBe(t[seg.endIndex] - t[seg.startIndex]);
+        for (let i = 1; i < seg.parts.length; i++) {
+          expect(seg.parts[i].startIndex).toBe(seg.parts[i - 1].endIndex);
+        }
+      }
+    }
+    expect(reachable).toBe(true);
+  });
+});
+
+/**
  * Real-stream named-activity regression fixtures (Phase 32 plan 08, ROADMAP criteria 1-3).
  *
  * These tests read REAL committed streams from `data/streams/<id>.json` (byte-pinned by the
