@@ -1,11 +1,26 @@
+import fs from 'node:fs';
+import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import {
   advanceSteps,
   detectUnreliableSegments,
+  DEFAULT_DETECTOR_PARAMS,
+  HIDDEN_PAUSE_MIN_METRES,
+  UNRELIABLE_SPEED_LIMIT_MPS,
   type DetectorParams,
   type GapSpan,
+  type UnreliableSegment,
 } from './unreliable-segments.js';
+import { classifyGaps } from './pace-derivation.js';
+
+/** Reads a committed stream file from `data/streams/` — never the derived stats output. */
+function readStream(activityId: string): { t: number[]; d: number[] } {
+  return JSON.parse(
+    fs.readFileSync(path.join('data/streams', `${activityId}.json`), 'utf-8')
+  ) as { t: number[]; d: number[] };
+}
 
 describe('advanceSteps', () => {
   it('a full/zero alternation beginning with a zero pair yields exactly three folded 8m/2s steps', () => {
@@ -445,5 +460,174 @@ describe('detectUnreliableSegments — total function', () => {
       }
     }
     expect(assertedAtLeastOneSegment).toBe(true);
+  });
+});
+
+/**
+ * Real-stream named-activity regression fixtures (Phase 32 plan 08, ROADMAP criteria 1-3).
+ *
+ * These tests read REAL committed streams from `data/streams/<id>.json` (byte-pinned by the
+ * D-17 immutability gate, `scripts/compute-stream-checksums.mjs`) via a local `readStream`
+ * helper mirroring `pace-derivation.test.ts`'s own precedent — never a derived/gitignored
+ * output. Every expected extent below (which pairs are "fast", which segment covers which
+ * window) is computed IN THIS FILE from the raw `t`/`d` arrays using the shipped
+ * `UNRELIABLE_SPEED_LIMIT_MPS` constant, never hand-typed from a prior run's output or from the
+ * scoping probe's own throwaway numbers.
+ *
+ * NOT asserted anywhere below: the scoping probe's own throwaway per-sample burst/gap/metres/
+ * seconds counts on 3475724402 (32-CONTEXT.md "Mechanism boundaries") — those are references to
+ * reconcile against in `32-CALIBRATION.md`, never expected test values (D-16's reconciliation
+ * table is the right place for that comparison, not this regression suite).
+ *
+ * D-01: no test here (or anywhere in this file) pins the Suunto over-measurement sample as a
+ * must-not-fire fixture — it is disclosed in `32-CALIBRATION.md`, never asserted spared.
+ */
+describe('SEG-02 — 3475724402: every burst is gap-adjacent, both sides inspected (D-07)', () => {
+  const { t, d } = readStream('3475724402');
+  const gaps: GapSpan[] = classifyGaps(t, d).gapIntervals;
+  const segments = detectUnreliableSegments(t, d, gaps, DEFAULT_DETECTOR_PARAMS);
+
+  it('produces at least one segment (reachability) and every one is gap-adjacent', () => {
+    expect(segments.length).toBeGreaterThan(0);
+    for (const seg of segments) {
+      expect(seg.mechanism).toBe('gap-adjacent');
+    }
+  });
+
+  it('at least one segment has a burst part immediately followed by a gap part (leading side, D-07)', () => {
+    const hasLeading = segments.some((seg) =>
+      seg.parts.some((part, i) => part.kind === 'burst' && seg.parts[i + 1]?.kind === 'gap')
+    );
+    expect(hasLeading).toBe(true);
+  });
+
+  it('at least one segment has a gap part immediately followed by a burst part (trailing side, D-07)', () => {
+    const hasTrailing = segments.some((seg) =>
+      seg.parts.some((part, i) => part.kind === 'gap' && seg.parts[i + 1]?.kind === 'burst')
+    );
+    expect(hasTrailing).toBe(true);
+  });
+
+  it('conserves distance/time exactly and keeps every part chain contiguous, on every segment', () => {
+    for (const seg of segments) {
+      expect(seg.metres).toBeCloseTo(d[seg.endIndex] - d[seg.startIndex], 9);
+      expect(seg.seconds).toBeCloseTo(t[seg.endIndex] - t[seg.startIndex], 9);
+      expect(Math.abs(seg.burstMetres + seg.gapMetres - seg.metres)).toBeLessThan(1e-9);
+      expect(Math.abs(seg.burstSeconds + seg.gapSeconds - seg.seconds)).toBeLessThan(1e-9);
+      for (let i = 1; i < seg.parts.length; i++) {
+        expect(seg.parts[i].startIndex).toBe(seg.parts[i - 1].endIndex);
+      }
+    }
+  });
+});
+
+describe('SEG-03 mechanism — 3475734189 hidden pause at t=1353–1360', () => {
+  const { t, d } = readStream('3475734189');
+  const gaps: GapSpan[] = classifyGaps(t, d).gapIntervals;
+  const segments = detectUnreliableSegments(t, d, gaps, DEFAULT_DETECTOR_PARAMS);
+
+  // Computed from raw t/d, not hard-coded: every pair whose start sample time falls in
+  // [1353, 1358] AND whose implied speed exceeds the shipped speed limit.
+  const fastPairStartIndices: number[] = [];
+  for (let i = 0; i < t.length - 1; i++) {
+    if (t[i] >= 1353 && t[i] <= 1358 && d[i + 1] - d[i] > UNRELIABLE_SPEED_LIMIT_MPS * (t[i + 1] - t[i])) {
+      fastPairStartIndices.push(i);
+    }
+  }
+
+  it('reachability: the computed fast-pair set inside t=[1353,1358] is non-empty', () => {
+    expect(fastPairStartIndices.length).toBeGreaterThan(0);
+  });
+
+  it('exactly one segment covers every computed fast pair, labelled hidden-pause', () => {
+    const minIndex = Math.min(...fastPairStartIndices);
+    const maxIndex = Math.max(...fastPairStartIndices);
+
+    const covering = segments.filter(
+      (seg) => seg.startIndex <= minIndex && seg.endIndex >= maxIndex + 1
+    );
+
+    expect(covering).toHaveLength(1);
+    expect(covering[0].mechanism).toBe('hidden-pause');
+    expect(covering[0].metres).toBeGreaterThanOrEqual(HIDDEN_PAUSE_MIN_METRES);
+  });
+});
+
+describe('SEG-03 mechanism — 3475740390 isolated jumps', () => {
+  const { t, d } = readStream('3475740390');
+  const gaps: GapSpan[] = classifyGaps(t, d).gapIntervals;
+  const segments = detectUnreliableSegments(t, d, gaps, DEFAULT_DETECTOR_PARAMS);
+
+  // The five named jump start times (32-CONTEXT.md "Suunto over-measurement" measurement); the
+  // 32-05 Decision's disposition was `option-refixture`, not `option-amend-criterion-3`, so
+  // ROADMAP criterion 3 / SEG-03 is unamended and all five remain mandatory must-flag items.
+  const namedJumpStartTimes = [2347, 2508, 2536, 2580, 2587];
+
+  function segmentContainingPairStartingAt(time: number): UnreliableSegment | undefined {
+    const i = t.indexOf(time);
+    expect(i).toBeGreaterThanOrEqual(0); // reachability: the named time must exist as a sample
+    return segments.find((seg) => seg.startIndex <= i && seg.endIndex >= i + 1);
+  }
+
+  it.each(namedJumpStartTimes)('t=%d lies inside a segment labelled isolated-jump', (time) => {
+    const seg = segmentContainingPairStartingAt(time);
+    expect(seg).toBeDefined();
+    expect(seg?.mechanism).toBe('isolated-jump');
+  });
+
+  it('t=2580 and t=2587 are separate segments when a clean step (computed from raw t/d) lies between them', () => {
+    const i2580 = t.indexOf(2580);
+    const i2587 = t.indexOf(2587);
+    expect(i2580).toBeGreaterThanOrEqual(0);
+    expect(i2587).toBeGreaterThanOrEqual(0);
+
+    // Computed in-test: is there at least one pair strictly between the two jumps' own pairs
+    // whose implied speed is at or below the shipped limit (a "clean step")?
+    let hasCleanStepBetween = false;
+    for (let i = i2580 + 1; i < i2587; i++) {
+      if (d[i + 1] - d[i] <= UNRELIABLE_SPEED_LIMIT_MPS * (t[i + 1] - t[i])) {
+        hasCleanStepBetween = true;
+        break;
+      }
+    }
+    expect(hasCleanStepBetween).toBe(true);
+
+    const seg2580 = segmentContainingPairStartingAt(2580);
+    const seg2587 = segmentContainingPairStartingAt(2587);
+    expect(seg2580).toBeDefined();
+    expect(seg2587).toBeDefined();
+    expect(seg2580).not.toBe(seg2587);
+  });
+});
+
+describe('D-05 negative controls — locked fixtures never fire', () => {
+  // Locked by the developer at the 32-05 blocking checkpoint (32-05-SUMMARY.md § Decision,
+  // disposition `option-refixture`) — hand-coded here deliberately, NOT probe figures: these two
+  // fixture spans are a developer decision, not a measurement this test re-derives.
+  const lockedFixtures: Array<{ id: string; startSec: number; endSec: number }> = [
+    { id: '7409028052', startSec: 586, endSec: 624 },
+    { id: '3647739864', startSec: 945, endSec: 971 },
+  ];
+
+  it.each(lockedFixtures)('no segment overlaps the locked fixture $id t=$startSec-$endSec', ({ id, startSec, endSec }) => {
+    const { t, d } = readStream(id);
+    const gaps: GapSpan[] = classifyGaps(t, d).gapIntervals;
+    const segments = detectUnreliableSegments(t, d, gaps, DEFAULT_DETECTOR_PARAMS);
+
+    const overlapping = segments.filter(
+      (seg) => seg.startSec < endSec && seg.endSec > startSec
+    );
+    expect(overlapping).toEqual([]);
+  });
+});
+
+describe('D-09 trivia — 3475734189 t=1581–1583 never fires', () => {
+  it('no segment overlaps the D-09 trivial pair span', () => {
+    const { t, d } = readStream('3475734189');
+    const gaps: GapSpan[] = classifyGaps(t, d).gapIntervals;
+    const segments = detectUnreliableSegments(t, d, gaps, DEFAULT_DETECTOR_PARAMS);
+
+    const overlapping = segments.filter((seg) => seg.startSec < 1583 && seg.endSec > 1581);
+    expect(overlapping).toEqual([]);
   });
 });
