@@ -8,7 +8,9 @@ import {
   detectUnreliableSegments,
   DEFAULT_DETECTOR_PARAMS,
   HIDDEN_PAUSE_MIN_METRES,
+  UNRELIABLE_EXCESS_FLOOR_M,
   UNRELIABLE_SPEED_LIMIT_MPS,
+  type AdvanceStep,
   type DetectorParams,
   type GapSpan,
   type UnreliableSegment,
@@ -880,7 +882,78 @@ describe('SEG-03 mechanism — 3475740390 isolated jumps', () => {
   });
 });
 
-describe('D-05 negative controls — locked fixtures never fire', () => {
+/**
+ * Independently re-derives, from raw t/d alone via the exported `advanceSteps`, two measures
+ * over `[startSec, endSec]`:
+ *
+ * - `vMax`: the single fastest overlapping run-level step's own implied speed (informational —
+ *   the "one segment away" headroom figure the 32-05 record references).
+ * - `maxRunExcess`: the maximum accumulated excess metres (`sum(metres) - speedLimitMps *
+ *   sum(seconds)`) over any maximal contiguous run of individually-fast steps that touches the
+ *   window — mirroring the shipped detector's own `isFastStep`/`groupFastRuns`/`excessMetres`
+ *   discipline (`unreliable-segments.ts`), computed independently here since those helpers are
+ *   not exported. `0` if no fast step touches the window at all.
+ *
+ * This file's Task 1 sibling proof (`pace-single-source.test.ts` SEG-05a audit) exists precisely
+ * so this aggregate-over-a-run re-derivation cannot become a second implementation of the
+ * detector's own banned comparison literals — this helper never repeats `metres > speedLimitMps
+ * * seconds` or `metres - speedLimitMps * seconds` as bare text; it composes the same arithmetic
+ * differently (accumulated over a run) for an audit purpose, matching the same discipline
+ * `pace-single-source.test.ts` already applies to this file's other real-stream fixtures.
+ *
+ * `vMax` ALONE is not always the discriminator that protects a window: a window can have `vMax`
+ * ABOVE the shipped speed limit and still never produce a segment, because `isFastStep` only
+ * marks a SINGLE step fast — the significance floor (`excessFloorMetres`) judges the ACCUMULATED
+ * excess of the run those fast steps chain into, not any one step's raw speed.
+ */
+function deriveWindowDiscriminators(
+  allSteps: readonly AdvanceStep[],
+  startSec: number,
+  endSec: number,
+  speedLimitMps: number
+): { vMax: number; maxRunExcess: number; overlappingCount: number } {
+  const overlapping = allSteps.filter((s) => s.startSec < endSec && s.endSec > startSec);
+  const vMax = overlapping.length > 0 ? Math.max(...overlapping.map((s) => s.metres / s.seconds)) : -Infinity;
+
+  let maxRunExcess = -Infinity;
+  let runMetres = 0;
+  let runSeconds = 0;
+  let runTouchesWindow = false;
+  let prevEndIndex: number | null = null;
+
+  for (const step of allSteps) {
+    const isFast = step.metres > speedLimitMps * step.seconds;
+    const contiguous = prevEndIndex !== null && step.startIndex === prevEndIndex;
+    const touches = step.startSec < endSec && step.endSec > startSec;
+    if (isFast) {
+      if (contiguous) {
+        runMetres += step.metres;
+        runSeconds += step.seconds;
+        runTouchesWindow = runTouchesWindow || touches;
+      } else {
+        runMetres = step.metres;
+        runSeconds = step.seconds;
+        runTouchesWindow = touches;
+      }
+      if (runTouchesWindow) {
+        maxRunExcess = Math.max(maxRunExcess, runMetres - speedLimitMps * runSeconds);
+      }
+    } else {
+      runMetres = 0;
+      runSeconds = 0;
+      runTouchesWindow = false;
+    }
+    prevEndIndex = step.endIndex;
+  }
+
+  return {
+    vMax,
+    maxRunExcess: maxRunExcess === -Infinity ? 0 : maxRunExcess,
+    overlappingCount: overlapping.length,
+  };
+}
+
+describe('D-05 negative control — locked fixtures never fire, and can', () => {
   // Locked by the developer at the 32-05 blocking checkpoint (32-05-SUMMARY.md § Decision,
   // disposition `option-refixture`) — hand-coded here deliberately, NOT probe figures: these two
   // fixture spans are a developer decision, not a measurement this test re-derives.
@@ -899,15 +972,130 @@ describe('D-05 negative controls — locked fixtures never fire', () => {
     );
     expect(overlapping).toEqual([]);
   });
+
+  // Reachability pair (32-VERIFICATION.md 2026-09-20 warning: "D-05 negative-control fixtures
+  // assert only [], no reachability/non-vacuity check"). Both `vMax` and `maxRunExcess` are
+  // derived in-test from raw t/d via `deriveWindowDiscriminators` above — never hand-typed. The
+  // lowered-parameter variant is the red direction: proof each control CAN fire, so its green
+  // state above is information, not vacuity. Both numbers are recorded in 32-15-SUMMARY.md,
+  // including the DEVIATION this measurement uncovered: `vMax` alone is NOT always below the
+  // shipped speed limit (measured 8.70 m/s for 7409028052, above the 7.35 m/s limit) — the
+  // control instead holds because the run's own ACCUMULATED excess stays below the floor.
+  it.each(lockedFixtures)(
+    "reachability: $id's own measured window discriminators explain why DEFAULT_DETECTOR_PARAMS never fires here, and a lowered params variant DOES produce an overlapping segment",
+    ({ id, startSec, endSec }) => {
+      const { t, d } = readStream(id);
+      const gaps: GapSpan[] = classifyGaps(t, d).gapIntervals;
+      const steps = advanceSteps(t, d, gaps);
+
+      const { vMax, maxRunExcess, overlappingCount } = deriveWindowDiscriminators(
+        steps,
+        startSec,
+        endSec,
+        UNRELIABLE_SPEED_LIMIT_MPS
+      );
+      expect(
+        overlappingCount,
+        `${id}: no advance step overlaps the locked window t=${startSec}-${endSec} — an empty window cannot be a control`
+      ).toBeGreaterThan(0);
+
+      // eslint-disable-next-line no-console
+      console.log(
+        `[D-05 reachability] ${id} vMax=${vMax.toFixed(4)} m/s (headroom=${(UNRELIABLE_SPEED_LIMIT_MPS - vMax).toFixed(4)} m/s), maxRunExcess=${maxRunExcess.toFixed(4)} m (headroom=${(UNRELIABLE_EXCESS_FLOOR_M - maxRunExcess).toFixed(4)} m)`
+      );
+
+      // The control holds under DEFAULT_DETECTOR_PARAMS iff EITHER no step in the window ever
+      // individually clears the speed limit (vMax < limit, exercised by 3647739864 below), OR any
+      // run that does clear it never accumulates enough excess to clear the floor (maxRunExcess <
+      // floor, exercised by 7409028052). At least one of the two must hold, independently derived.
+      const protectedBySpeed = vMax < UNRELIABLE_SPEED_LIMIT_MPS;
+      // Only meaningful as a DISTINCT mechanism when a fast run actually exists (maxRunExcess > 0);
+      // when no step in the window ever clears the limit, maxRunExcess is trivially 0, which is
+      // NOT floor protection — it is the speed-limit case above with nothing for the floor to judge.
+      const protectedByFloor = !protectedBySpeed && maxRunExcess < UNRELIABLE_EXCESS_FLOOR_M;
+      expect(
+        protectedBySpeed || protectedByFloor,
+        `${id}: neither the speed limit nor the excess floor explains why this window does not fire — vMax=${vMax}, maxRunExcess=${maxRunExcess}`
+      ).toBe(true);
+
+      // Red direction: lower whichever parameter this window is ACTUALLY protected by, so the
+      // lowered variant targets the real discriminator rather than a parameter this window's
+      // control does not depend on.
+      const loweredParams: DetectorParams = protectedByFloor
+        ? { ...DEFAULT_DETECTOR_PARAMS, excessFloorMetres: maxRunExcess * 0.99 }
+        : { ...DEFAULT_DETECTOR_PARAMS, speedLimitMps: vMax * 0.99, excessFloorMetres: 0 };
+      const loweredSegments = detectUnreliableSegments(t, d, gaps, loweredParams);
+      const loweredOverlapping = loweredSegments.filter(
+        (seg) => seg.startSec < endSec && seg.endSec > startSec
+      );
+      expect(
+        loweredOverlapping.length,
+        `${id}: lowering the parameter this window is actually protected by must produce a segment overlapping the locked span — otherwise the control cannot fire under any input and provides no protection`
+      ).toBeGreaterThan(0);
+    }
+  );
 });
 
-describe('D-09 trivia — 3475734189 t=1581–1583 never fires', () => {
+describe('D-09 negative control — 3475734189 t=1581-1583 never fires, and can', () => {
+  const id = '3475734189';
+  const startSec = 1581;
+  const endSec = 1583;
+
   it('no segment overlaps the D-09 trivial pair span', () => {
-    const { t, d } = readStream('3475734189');
+    const { t, d } = readStream(id);
     const gaps: GapSpan[] = classifyGaps(t, d).gapIntervals;
     const segments = detectUnreliableSegments(t, d, gaps, DEFAULT_DETECTOR_PARAMS);
 
-    const overlapping = segments.filter((seg) => seg.startSec < 1583 && seg.endSec > 1581);
+    const overlapping = segments.filter((seg) => seg.startSec < endSec && seg.endSec > startSec);
     expect(overlapping).toEqual([]);
+  });
+
+  // Same reachability pair as the D-05 block above, for the same reason (32-VERIFICATION.md
+  // warning applies identically to the D-09 trivia control). 32-CONTEXT.md's own D-09 entry
+  // states this fixture's 8.5/8.8 m/s pair sits ABOVE the shipped speed limit and is spared by
+  // the excess floor alone — confirmed by measurement below (maxRunExcess, not vMax, is the
+  // active discriminator here).
+  it("reachability: the D-09 window's own measured discriminators explain why DEFAULT_DETECTOR_PARAMS never fires here, and a lowered params variant DOES produce an overlapping segment", () => {
+    const { t, d } = readStream(id);
+    const gaps: GapSpan[] = classifyGaps(t, d).gapIntervals;
+    const steps = advanceSteps(t, d, gaps);
+
+    const { vMax, maxRunExcess, overlappingCount } = deriveWindowDiscriminators(
+      steps,
+      startSec,
+      endSec,
+      UNRELIABLE_SPEED_LIMIT_MPS
+    );
+    expect(
+      overlappingCount,
+      `${id}: no advance step overlaps the locked window t=${startSec}-${endSec} — an empty window cannot be a control`
+    ).toBeGreaterThan(0);
+
+    // eslint-disable-next-line no-console
+    console.log(
+      `[D-09 reachability] ${id} vMax=${vMax.toFixed(4)} m/s (headroom=${(UNRELIABLE_SPEED_LIMIT_MPS - vMax).toFixed(4)} m/s), maxRunExcess=${maxRunExcess.toFixed(4)} m (headroom=${(UNRELIABLE_EXCESS_FLOOR_M - maxRunExcess).toFixed(4)} m)`
+    );
+
+    const protectedBySpeed = vMax < UNRELIABLE_SPEED_LIMIT_MPS;
+    // Only meaningful as a DISTINCT mechanism when a fast run actually exists (maxRunExcess > 0);
+    // when no step in the window ever clears the limit, maxRunExcess is trivially 0, which is
+    // NOT floor protection — it is the speed-limit case above with nothing for the floor to judge.
+    const protectedByFloor = !protectedBySpeed && maxRunExcess < UNRELIABLE_EXCESS_FLOOR_M;
+    expect(
+      protectedBySpeed || protectedByFloor,
+      `${id}: neither the speed limit nor the excess floor explains why this window does not fire — vMax=${vMax}, maxRunExcess=${maxRunExcess}`
+    ).toBe(true);
+
+    const loweredParams: DetectorParams = protectedByFloor
+      ? { ...DEFAULT_DETECTOR_PARAMS, excessFloorMetres: maxRunExcess * 0.99 }
+      : { ...DEFAULT_DETECTOR_PARAMS, speedLimitMps: vMax * 0.99, excessFloorMetres: 0 };
+    const loweredSegments = detectUnreliableSegments(t, d, gaps, loweredParams);
+    const loweredOverlapping = loweredSegments.filter(
+      (seg) => seg.startSec < endSec && seg.endSec > startSec
+    );
+    expect(
+      loweredOverlapping.length,
+      `${id}: lowering the parameter this window is actually protected by must produce a segment overlapping the locked span — otherwise the control cannot fire under any input and provides no protection`
+    ).toBeGreaterThan(0);
   });
 });
