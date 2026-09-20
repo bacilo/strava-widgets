@@ -370,6 +370,12 @@ describe('detectUnreliableSegments — run-level scoring (SEG-01 decimation alia
   });
 });
 
+/**
+ * This block covers FIELD-level malformation only — NaN/Infinity/negative values, or too-short/
+ * mismatched arrays, on an otherwise well-shaped object. SHAPE-level malformation (a non-array
+ * `t`/`d`/`gaps`, a non-object entry inside `gaps`, or a non-object `params`) lives in the
+ * dedicated "shape-level" block below (gap closure 32-11, 32-VERIFICATION.md gap #1).
+ */
 describe('detectUnreliableSegments — total function', () => {
   const validParams: DetectorParams = {
     speedLimitMps: 5,
@@ -460,6 +466,151 @@ describe('detectUnreliableSegments — total function', () => {
       }
     }
     expect(assertedAtLeastOneSegment).toBe(true);
+  });
+});
+
+/**
+ * Shape-level total-function regression (gap closure 32-11, 32-VERIFICATION.md gap #1).
+ *
+ * The `detectUnreliableSegments — total function` block above covers FIELD-level malformation on
+ * an otherwise well-shaped object only (NaN/Infinity/negative on a valid input). It does not cover
+ * SHAPE-level malformation — a non-array `t`/`d`/`gaps`, a non-object entry inside `gaps`, or a
+ * non-object `params` — which is exactly what 32-VERIFICATION.md's gap #1 reproduced directly
+ * against the shipped `dist/analytics/unreliable-segments.js`: three untyped `.mjs` consumers
+ * (`compute-unreliable-segment-calibration.mjs`, `validate-unreliable-segments-1hz.mjs`) call this
+ * module with `JSON.parse`'d, unvalidated on-disk data, so a null/non-array argument here is a
+ * reachable production input shape, not a theoretical one.
+ */
+describe('detectUnreliableSegments — total function, shape-level malformation (gap closure 32-11)', () => {
+  const t = [0, 1, 2, 3];
+  const d = [0, 10, 20, 30];
+  const validParams: DetectorParams = {
+    speedLimitMps: 5,
+    excessFloorMetres: 2,
+    hiddenPauseMinMetres: 50,
+  };
+
+  describe('detectUnreliableSegments', () => {
+    it.each([
+      ['gaps = null', null],
+      ['gaps = undefined', undefined],
+      ["gaps = 'nope'", 'nope'],
+      ['gaps = 42', 42],
+      ['gaps = {} (non-array object)', {}],
+    ])('malformed gaps (%s) returns [] and never throws', (_label, gaps) => {
+      expect(() =>
+        detectUnreliableSegments(t, d, gaps as unknown as GapSpan[], validParams)
+      ).not.toThrow();
+      expect(detectUnreliableSegments(t, d, gaps as unknown as GapSpan[], validParams)).toEqual(
+        []
+      );
+    });
+
+    it.each([
+      ['[null]', [null]],
+      ['[undefined]', [undefined]],
+      ['[42]', [42]],
+      ["['nope']", ['nope']],
+      ['well-formed entry followed by null', [{ startSec: 1, endSec: 2 }, null]],
+    ])('malformed gaps entry (%s) returns [] and never throws', (_label, gaps) => {
+      expect(() =>
+        detectUnreliableSegments(t, d, gaps as unknown as GapSpan[], validParams)
+      ).not.toThrow();
+      expect(detectUnreliableSegments(t, d, gaps as unknown as GapSpan[], validParams)).toEqual(
+        []
+      );
+    });
+
+    it.each([
+      ['params = null', null],
+      ["params = 'nope'", 'nope'],
+      ['params = 42', 42],
+    ])('malformed params (%s) returns [] and never throws', (_label, params) => {
+      expect(() =>
+        detectUnreliableSegments(t, d, [], params as unknown as DetectorParams)
+      ).not.toThrow();
+      expect(detectUnreliableSegments(t, d, [], params as unknown as DetectorParams)).toEqual([]);
+    });
+
+    it.each([
+      ['t=null, d=null', null, null],
+      ['t=null, d=valid', null, d],
+      ['t=valid, d=null', t, null],
+      ["t='x', d='y'", 'x', 'y'],
+      ['t={}, d={}', {}, {}],
+    ])('malformed t/d (%s) returns [] and never throws', (_label, tArg, dArg) => {
+      expect(() =>
+        detectUnreliableSegments(
+          tArg as unknown as number[],
+          dArg as unknown as number[],
+          [],
+          validParams
+        )
+      ).not.toThrow();
+      expect(
+        detectUnreliableSegments(
+          tArg as unknown as number[],
+          dArg as unknown as number[],
+          [],
+          validParams
+        )
+      ).toEqual([]);
+    });
+  });
+
+  describe('advanceSteps', () => {
+    it.each([
+      ['gaps = null', null],
+      ['gaps = undefined', undefined],
+      ["gaps = 'nope'", 'nope'],
+      ['gaps = 42', 42],
+      ['gaps = {} (non-array object)', {}],
+      ['gaps = [null]', [null]],
+    ])('malformed gaps (%s) returns [] and never throws', (_label, gaps) => {
+      expect(() => advanceSteps(t, d, gaps as unknown as GapSpan[])).not.toThrow();
+      expect(advanceSteps(t, d, gaps as unknown as GapSpan[])).toEqual([]);
+    });
+
+    it.each([
+      ['t=null, d=null', null, null],
+      ['t=null, d=valid', null, d],
+      ['t=valid, d=null', t, null],
+      ["t='x', d='y'", 'x', 'y'],
+      ['t={}, d={}', {}, {}],
+    ])('malformed t/d (%s) returns [] and never throws', (_label, tArg, dArg) => {
+      expect(() =>
+        advanceSteps(tArg as unknown as number[], dArg as unknown as number[], [])
+      ).not.toThrow();
+      expect(
+        advanceSteps(tArg as unknown as number[], dArg as unknown as number[], [])
+      ).toEqual([]);
+    });
+  });
+
+  it('the empty result is a fresh array on every invalid call (detectUnreliableSegments)', () => {
+    const first = detectUnreliableSegments(
+      null as unknown as number[],
+      null as unknown as number[],
+      [],
+      validParams
+    );
+    const second = detectUnreliableSegments(
+      null as unknown as number[],
+      null as unknown as number[],
+      [],
+      validParams
+    );
+    expect(first).toEqual([]);
+    expect(second).toEqual([]);
+    expect(first).not.toBe(second);
+  });
+
+  it('the empty result is a fresh array on every invalid call (advanceSteps)', () => {
+    const first = advanceSteps(t, d, null as unknown as GapSpan[]);
+    const second = advanceSteps(t, d, null as unknown as GapSpan[]);
+    expect(first).toEqual([]);
+    expect(second).toEqual([]);
+    expect(first).not.toBe(second);
   });
 });
 

@@ -19,7 +19,15 @@
  * guards its input with `validateStreamSeries` (or, for malformed
  * params/gaps, an equivalent explicit check) first and returns a FRESH empty
  * array on any non-`ok` input — never a shared/mutable module-level
- * constant, and never a thrown exception.
+ * constant, and never a thrown exception. This covers both FIELD-level
+ * malformation (NaN/Infinity/negative on an otherwise well-shaped input) and
+ * SHAPE-level malformation — a non-array `t`/`d`/`gaps`, a non-object entry
+ * inside `gaps`, or a null/non-object `params` — the latter being a
+ * reachable production input shape, not a theoretical one: the untyped
+ * `.mjs` consumers (`compute-unreliable-segment-calibration.mjs`,
+ * `validate-unreliable-segments-1hz.mjs`) call this module with
+ * `JSON.parse`'d, unvalidated on-disk data, with no TypeScript check at
+ * their call sites (32-VERIFICATION.md gap #1, gap closure 32-11).
  *
  * Phases 33 and 36 fold and partition on this module's output (fold a
  * segment's span into `classifyGaps`' strict-priority tree; partition a
@@ -227,16 +235,22 @@ function isGapPair(t: readonly number[], i: number, gaps: readonly GapSpan[]): b
  * A pending step still open when the stream ends (or when a gap begins) is
  * dropped — clean non-advancing time never becomes a step.
  *
- * Guarded by `validateStreamSeries` on entry (T-26-01): any non-`ok` input
- * returns a fresh empty array — never throws, never a shared/mutable
+ * Guarded on entry (T-26-01): a non-array `t`/`d`, a non-array `gaps`, or a
+ * non-object entry inside `gaps` returns a fresh empty array before
+ * `validateStreamSeries` is ever reached (it dereferences `t.length`, which
+ * throws on `null`); any other non-`ok` `validateStreamSeries` result
+ * returns a fresh empty array too. Never throws, never a shared/mutable
  * module-level constant (two calls on invalid input return distinct array
- * objects).
+ * objects). Reachable from the untyped `.mjs` consumers that parse JSON off
+ * disk (32-VERIFICATION.md gap #1, gap closure 32-11).
  */
 export function advanceSteps(
   t: readonly number[],
   d: readonly number[],
   gaps: readonly GapSpan[]
 ): AdvanceStep[] {
+  if (!Array.isArray(t) || !Array.isArray(d)) return [];
+  if (!gapListIsWellShaped(gaps)) return [];
   if (!validateStreamSeries(t as number[], d as number[]).ok) return [];
 
   const n = t.length;
@@ -342,16 +356,31 @@ interface Block {
 }
 
 /**
+ * True iff `gaps` is SHAPE-well-formed: an array whose every entry is a
+ * non-null object. This checks SHAPE only — field values (`NaN` bounds,
+ * `endSec <= startSec`, bounds matching no sample) stay `mapGapToIndices`'s
+ * job, so the existing field-level fail-closed behaviour is unchanged. A
+ * non-array `gaps`, or an array containing `null`/`undefined`/a primitive,
+ * fails this check and lets the caller return a fresh `[]` before any
+ * iteration or dereference (32-VERIFICATION.md gap #1, gap closure 32-11).
+ */
+function gapListIsWellShaped(gaps: unknown): gaps is readonly GapSpan[] {
+  return Array.isArray(gaps) && gaps.every((g) => g !== null && typeof g === 'object');
+}
+
+/**
  * Maps a gap span to sample indices `[gi, gj]`: `gi` is the LAST index with
  * `t[gi] === span.startSec`, `gj` is the FIRST index with `t[gj] ===
- * span.endSec`. Returns `null` if the span's bounds are non-finite,
- * `endSec <= startSec`, or either bound matches no sample time (a malformed
- * gap span) — callers fail closed on `null` rather than guessing.
+ * span.endSec`. Returns `null` if `span` is not a non-null object, its
+ * bounds are non-finite, `endSec <= startSec`, or either bound matches no
+ * sample time (a malformed gap span) — callers fail closed on `null` rather
+ * than guessing.
  */
 function mapGapToIndices(
   t: readonly number[],
   span: GapSpan
 ): { startIndex: number; endIndex: number } | null {
+  if (span === null || typeof span !== 'object') return null;
   if (
     !Number.isFinite(span.startSec) ||
     !Number.isFinite(span.endSec) ||
@@ -378,8 +407,15 @@ function mapGapToIndices(
   return { startIndex: gi, endIndex: gj };
 }
 
-/** True iff every finite-required field of `params` is present, finite, and within the required range. */
+/**
+ * True iff `params` is a non-null object whose every finite-required field
+ * is present, finite, and within the required range. A `null`/non-object
+ * `params` (e.g. a `.mjs` consumer's `JSON.parse`'d value) fails closed here
+ * rather than throwing on the destructure below (32-VERIFICATION.md gap #1,
+ * gap closure 32-11).
+ */
 function paramsAreValid(params: DetectorParams): boolean {
+  if (params === null || typeof params !== 'object') return false;
   const { speedLimitMps, excessFloorMetres, hiddenPauseMinMetres } = params;
   if (!Number.isFinite(speedLimitMps) || !(speedLimitMps > 0)) return false;
   if (!Number.isFinite(excessFloorMetres) || excessFloorMetres < 0) return false;
@@ -406,11 +442,16 @@ function paramsAreValid(params: DetectorParams): boolean {
  * `params` is optional, defaulting to `DEFAULT_DETECTOR_PARAMS` (the calibrated constants above)
  * — existing explicit-params callers are unaffected.
  *
- * Guarded on entry (T-26-01): returns a fresh `[]` and never throws when
- * `validateStreamSeries(t, d)` is not `ok`, when `params` carries a
- * non-finite or out-of-range value, or when any gap span is malformed (fails
- * `mapGapToIndices`). Failing closed on a malformed gap beats emitting
- * segments against a misread gap.
+ * Guarded on entry (T-26-01): returns a fresh `[]` and never throws when `t`
+ * or `d` is not an array, when `gaps` is not an array or contains a
+ * non-object entry, when `validateStreamSeries(t, d)` is not `ok`, when
+ * `params` is null/non-object or carries a non-finite or out-of-range value,
+ * or when any gap span is malformed (fails `mapGapToIndices`). Failing
+ * closed on a malformed gap beats emitting segments against a misread gap.
+ * The shape-level cases (non-array `t`/`d`/`gaps`, a non-object `gaps`
+ * entry, a null/non-object `params`) are reachable from the untyped `.mjs`
+ * consumers that parse JSON off disk (32-VERIFICATION.md gap #1, gap closure
+ * 32-11).
  */
 export function detectUnreliableSegments(
   t: readonly number[],
@@ -418,6 +459,8 @@ export function detectUnreliableSegments(
   gaps: readonly GapSpan[],
   params: DetectorParams = DEFAULT_DETECTOR_PARAMS
 ): UnreliableSegment[] {
+  if (!Array.isArray(t) || !Array.isArray(d)) return [];
+  if (!gapListIsWellShaped(gaps)) return [];
   if (!validateStreamSeries(t as number[], d as number[]).ok) return [];
   if (!paramsAreValid(params)) return [];
 
