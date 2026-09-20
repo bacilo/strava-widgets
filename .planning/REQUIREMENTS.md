@@ -16,9 +16,9 @@ Scoped from a live investigation on 2026-09-19 of three developer-flagged activi
 
 ### Unreliable-segment detection (SEG)
 
-- [ ] **SEG-01**: One detector (`src/analytics/unreliable-segments.ts`) identifies unreliable segments from the committed `t`/`d` channels alone — no lat/lng, no `export_data/` — so CI computes it. It judges maximal advancing *runs* by their aggregate implied speed, never single samples, so decimation aliasing (53% of streams alternate full/zero distance) does not fire it and a capped slew diluted across several samples does not escape it.
-- [ ] **SEG-02**: A slew burst on either or both sides of a gap is merged with that gap into a single segment that conserves its real distance and real elapsed time. On 3475724402 no burst is left unmerged or labelled isolated (the uncalibrated 2026-09-19 scoping probe found 30 bursts, all adjacent to 18 gaps — a reference to reconcile against, not a pinned value); each merged segment's distance and elapsed time are asserted against a per-segment table derived independently of the detector.
-- [ ] **SEG-03**: Bursts with no timestamp gap are detected — both the hidden-pause case (3475734189: 199 m at t=1353–1360, contiguous 1 Hz) and the isolated GPS-jump case (3475740390: five jumps of 25–52 m between km 6.9 and 7.7, distance-triggered sampling) — and each segment records which of the three mechanisms (gap-adjacent / hidden-pause / isolated-jump) produced it.
+- [x] **SEG-01**: One detector (`src/analytics/unreliable-segments.ts`) identifies unreliable segments from the committed `t`/`d` channels alone — no lat/lng, no `export_data/` — so CI computes it. It judges maximal advancing *runs* by their aggregate implied speed, never single samples, so decimation aliasing (53% of streams alternate full/zero distance) does not fire it and a capped slew diluted across several samples does not escape it.
+- [x] **SEG-02**: A slew burst on either or both sides of a gap is merged with that gap into a single segment that conserves its real distance and real elapsed time. On 3475724402 no burst is left unmerged or labelled isolated (the uncalibrated 2026-09-19 scoping probe found 30 bursts, all adjacent to 18 gaps — a reference to reconcile against, not a pinned value); each merged segment's distance and elapsed time are asserted against a per-segment table derived independently of the detector.
+- [x] **SEG-03**: Bursts with no timestamp gap are detected — both the hidden-pause case (3475734189: 199 m at t=1353–1360, contiguous 1 Hz) and the isolated GPS-jump case (3475740390: five jumps of 25–52 m between km 6.9 and 7.7, distance-triggered sampling) — and each segment records which of the three mechanisms (gap-adjacent / hidden-pause / isolated-jump) produced it.
 - [ ] **SEG-04**: The speed limit and adjacency rule are calibrated against the archive in a committed, regenerable, idempotent calibration artifact, with an explicit non-circularity argument (the calibration population provably excludes what the threshold detects) and a stated disposition for genuine device over-measurement (the Suunto 17 m/s descent sample): whether it is detected, with its committed-stream numbers; if detected, it carries whichever of the three observable mechanisms the detector assigns — there is no fourth label, because from `t`/`d` alone over-measurement and an isolated GPS jump look the same; and the calibration artifact discloses it by activity ID (`4556693525`, identified 2026-09-19 in 32-RESEARCH.md § D-02) and states plainly that the detector cannot tell over-measurement from a jump — it is never corrected. The artifact replaces the crude 259/1,873 and 121/1,873 scoping figures with figures of record. **Amended 2026-09-19 (32-CONTEXT.md D-03):** the five isolated jumps on 3475740390 run slower than the Suunto sample, so no speed rule can flag them and spare it, and a fourth label would need lat/lng or device-family relabelling, both rejected.
 - [ ] **SEG-05a**: The single-source audit test is extended to the detector and shown catching a planted second implementation (a permanent in-suite planted block AND a one-off planted probe file against the real tree). This is Phase 32's half.
 - [ ] **SEG-05b**: The detector is the single source — pace derivation, quality signals and best efforts all consume its output. Stays Pending until every consuming phase (33, 34/35, 36) has shown its consumer reading the detector, and each phase records its own part. **Split 2026-09-19 (32-CONTEXT.md D-14):** Phase 32 has no consumer, and an unsplittable row is a planning defect (Phase 25's R6 lesson).
@@ -91,9 +91,9 @@ Deferred, tracked, not in this roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SEG-01 | Phase 32 | Pending |
-| SEG-02 | Phase 32 | Pending |
-| SEG-03 | Phase 32 | Pending |
+| SEG-01 | Phase 32 | Complete |
+| SEG-02 | Phase 32 | Complete |
+| SEG-03 | Phase 32 | Complete |
 | SEG-04 | Phase 32 | Pending |
 | SEG-05a | Phase 32 | Pending |
 | SEG-05b | Phases 33, 35, 36 (per consumer) | Pending |

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
 status: executing
-stopped_at: Completed 32-07-PLAN.md — calibration artifact of record complete (figures of record, reconciliation, D-11/D-06/D-05/Suunto findings, D-15 per-segment table); recount PASSES.
-last_updated: "2026-09-20T12:13:39.776Z"
+stopped_at: Completed 32-08-PLAN.md — named-activity regression fixtures pinned on real streams (SEG-02/SEG-03) plus the npm-test-time detector vs recount cross-check
+last_updated: "2026-09-20T12:25:48.939Z"
 last_activity: 2026-09-20
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 9
-  completed_plans: 7
+  completed_plans: 8
   percent: 0
 ---
 
@@ -47,7 +47,7 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 ## Current Position
 
 Phase: 32 (unreliable-segment-detection-calibration) — EXECUTING
-Plan: 8 of 9
+Plan: 9 of 9
 Status: Ready to execute
 Last activity: 2026-09-20
 
@@ -99,6 +99,7 @@ Last activity: 2026-09-20
 | Phase 32 P05 | ~10min (continuation) | 1 tasks | 1 files |
 | Phase 32 P06 | ~5h (continuation) | 2 tasks | 4 files |
 | Phase 32 P07 | ~2h | 2 tasks | 3 files |
+| Phase 32 P08 | ~30min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -161,6 +162,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 32]: 32-07: fixed a pre-existing 32-06 rendering bug (unit suffix in the Chosen-constants Value column) that made the D-15 recount fail closed
 - [Phase 32]: 32-07: measured D-11 decimation-overlap ratio 1.525 (< 2, no STOP); all 16 segments on 3475724402 are gap-adjacent (no STOP)
 - [Phase 32]: 32-07: withheld SEG-02/SEG-04 completion pending 32-08 (regression pinning) and 32-09 (post-merge re-validation)
+- [Phase 32]: 32-08: pinned SEG-02/SEG-03 named behaviours as permanent regression tests on the real committed streams (3475724402, 3475734189, 3475740390), every extent computed in-test from raw t/d; added scripts/unreliable-segment-recount-crosscheck.test.mjs as the sole file crossing the D-15 zero-import boundary, run every npm test, with a watched-failing broken-row case
 
 ### Key Findings
 
@@ -270,8 +272,8 @@ It is named here because PROJECT.md's Evolution entry still describes it as open
 
 ## Session Continuity
 
-Last session: 2026-09-20T12:13:39.768Z
-Stopped at: Completed 32-07-PLAN.md — calibration artifact of record complete (figures of record, reconciliation, D-11/D-06/D-05/Suunto findings, D-15 per-segment table); recount PASSES.
+Last session: 2026-09-20T12:25:48.930Z
+Stopped at: Completed 32-08-PLAN.md — named-activity regression fixtures pinned on real streams (SEG-02/SEG-03) plus the npm-test-time detector vs recount cross-check
 Resume file: None
 
 ---
