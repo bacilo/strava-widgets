@@ -260,8 +260,13 @@ export function measureSegmentAt1Hz(relPoints, startSec, endSec, speedLimitMps) 
 // ---------------------------------------------------------------------------
 
 /** Builds the full per-activity finding: committed segments, FIT alignment, and each segment's
- * 1 Hz measurement. Returns `{ id, skipped: reason }` when the FIT original is absent/unreadable
- * or decode fails — never throws. */
+ * 1 Hz measurement. Returns `{ id, skipped: reason }` when the FIT original is absent/unreadable,
+ * decode fails, the committed stream is missing/unparseable, or the committed stream has no
+ * array `t`/`d` channels — never throws (CR-03: the committed-stream read used to be unguarded
+ * and could throw ENOENT/SyntaxError, and `validateStreamSeries` itself dereferences `t.length`,
+ * which throws on a non-array rather than returning a not-ok result — the explicit
+ * `Array.isArray` check below exists so this function never reaches that dereference on
+ * malformed on-disk JSON). */
 export async function buildActivityFinding(id, streamsDir, activitiesDir, csvMap, exportRoot) {
   const csvFile = csvMap.get(id);
   if (!csvFile) {
@@ -276,9 +281,17 @@ export async function buildActivityFinding(id, streamsDir, activitiesDir, csvMap
     return { id, skipped: `FIT original not found on disk (${csvFile})` };
   }
 
-  const stream = JSON.parse(readFileSync(join(streamsDir, `${id}.json`), 'utf8'));
-  const t = stream.t;
-  const d = stream.d;
+  let stream;
+  try {
+    stream = JSON.parse(readFileSync(join(streamsDir, `${id}.json`), 'utf8'));
+  } catch (error) {
+    return { id, skipped: `committed stream missing or unparseable: ${error.message}` };
+  }
+  const t = stream?.t;
+  const d = stream?.d;
+  if (!Array.isArray(t) || !Array.isArray(d)) {
+    return { id, skipped: 'committed stream has no array t/d channels' };
+  }
   if (!validateStreamSeries(t, d).ok) {
     return { id, skipped: 'committed stream fails validateStreamSeries' };
   }
