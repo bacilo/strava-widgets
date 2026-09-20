@@ -12,11 +12,19 @@
 import fs from 'fs';
 import { describe, expect, it, vi } from 'vitest';
 
+import { UNRELIABLE_SPEED_LIMIT_MPS } from '../dist/analytics/unreliable-segments.js';
 import {
   INSENSITIVITY_SOURCE_ACTIVITY_ID,
   NAMED_ITEMS,
+  RECOUNT_TARGET_ACTIVITY_ID,
+  SCOPING_PROBE_REFERENCE,
+  SUUNTO_ACTIVITY_ID,
+  buildFindingsResults,
+  buildHeadline,
+  buildReconciliationLadder,
   checkFeasibility,
   computeFeasibleFloor,
+  d04Statement,
   deriveExcessFloor,
   deriveHiddenPauseBoundary,
   deriveSpeedLimit,
@@ -25,17 +33,25 @@ import {
   excessFloorStrawmanDeriveFn,
   findNegativeControlCandidates,
   findValley,
+  fixtureHeadroom,
+  gapSampleIndexList,
   hiddenPauseBoundaryDeriveFn,
   hiddenPauseStrawmanDeriveFn,
   insensitivityCheck,
   loadDecision,
+  measureDecimationOverlap,
   mustFlagItems,
   mustSpareItems,
+  nearMissSweep,
   parseDecisionText,
+  perSampleFastRuns,
   renderCalibrationMarkdown,
+  renderFindingsSections,
+  renderPerSegmentTable,
   selectSpeedLimitMultiplier,
   speedLimitMultiplierAt,
   statisticSA,
+  suuntoDisclosure,
 } from './compute-unreliable-segment-calibration.mjs';
 
 describe('computeFeasibleFloor', () => {
@@ -248,6 +264,13 @@ describe('renderCalibrationMarkdown', () => {
       },
       decision: { disposition: 'option-jitter', statistic: 'S-A', fixtures: [] },
       chosenConstants: null,
+      headline: null,
+      reconciliationLadder: null,
+      decimationOverlap: null,
+      nearMiss: null,
+      headroom: null,
+      suunto: null,
+      perSegmentSegments: [],
       streamFileCount: 0,
       notComputable: 0,
     };
@@ -264,6 +287,34 @@ describe('renderCalibrationMarkdown', () => {
     expect(markdown).toContain('option-jitter');
     // Rendered exactly twice, per Task 1's behaviour ("with and without the research fixtures").
     expect(markdown.split('## Reachability of D-10(d) (pre-calibration evidence)').length - 1).toBe(2);
+  });
+});
+
+describe('renderFindingsSections — live-denominator contract (D-16, never a hard-coded 1,873/1,874)', () => {
+  it('renders every headline percentage against report.streamFileCount, not a hard-coded archive size', () => {
+    const fakeReport = {
+      decision: { disposition: 'option-refixture', statistic: 'S-A', fixtures: [] },
+      headline: buildHeadline([
+        { id: 'A', segments: [{ mechanism: 'gap-adjacent', metres: 10, seconds: 5 }] },
+      ]),
+      reconciliationLadder: null,
+      decimationOverlap: null,
+      nearMiss: null,
+      headroom: null,
+      suunto: null,
+      perSegmentSegments: [],
+      streamFileCount: 42, // deliberately NOT 1873/1874
+      notComputable: 2,
+    };
+
+    const markdown = renderFindingsSections(fakeReport);
+
+    expect(markdown).toContain('**42**');
+    expect(markdown).toContain('of 42');
+    expect(markdown).not.toContain('1873');
+    expect(markdown).not.toContain('1874');
+    // computableCount = streamFileCount - notComputable, also live, never hard-coded.
+    expect(markdown).toContain('**40**');
   });
 });
 
@@ -784,6 +835,397 @@ describe('B (hidden-pause boundary) insensitivity (D-13)', () => {
 
     expect(result.pass).toBe(false);
     expect(result.removedDelta).toBeGreaterThan(0.01);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Plan 32-07: findings (D-16 headline/reconciliation, D-11 overlap, D-06
+// near-miss, D-05 headroom, Suunto disclosure, D-04, per-segment table)
+// ---------------------------------------------------------------------------
+
+describe('gapSampleIndexList / perSampleFastRuns', () => {
+  it('gapSampleIndexList maps each gap span to its own [startIndex, endIndex] sample indices', () => {
+    const activity = { t: [0, 5, 15, 20], d: [0, 5, 5, 10], gaps: [{ startSec: 5, endSec: 15 }] };
+    expect(gapSampleIndexList(activity)).toEqual([{ startIndex: 1, endIndex: 2, startSec: 5, endSec: 15 }]);
+  });
+
+  it('perSampleFastRuns groups consecutive RAW pairs above the limit WITHOUT folding zero-advance pairs', () => {
+    // Pairs: 0-2 (8m/2s=4), 2-4 (0m/2s=0, zero-advance BREAKS the per-sample run), 4-6 (8m/2s=4).
+    const t = [0, 2, 4, 6];
+    const d = [0, 8, 8, 16];
+    const runs = perSampleFastRuns(t, d, [], 3);
+    expect(runs.length).toBe(2);
+    expect(runs[0]).toMatchObject({ startIndex: 0, endIndex: 1, metres: 8, seconds: 2 });
+    expect(runs[1]).toMatchObject({ startIndex: 2, endIndex: 3, metres: 8, seconds: 2 });
+  });
+
+  it('perSampleFastRuns never counts a pair lying entirely inside a gap span', () => {
+    const t = [0, 2, 4];
+    const d = [0, 20, 40];
+    const runs = perSampleFastRuns(t, d, [{ startSec: 0, endSec: 4 }], 3);
+    expect(runs).toEqual([]);
+  });
+});
+
+describe('buildReconciliationLadder (D-16)', () => {
+  it('R0 vs R1 isolates per-sample vs run-level grouping (a zero-advance pair dilutes the folded step differently than it fragments a per-sample run)', () => {
+    // Raw pairs: 0-2 (16m,speed8,fast@L7), 2-4 (0m, zero-advance), 4-6/6-8/8-10 (16m each,speed8,fast@L7).
+    const archive = {
+      activities: [
+        { id: INSENSITIVITY_SOURCE_ACTIVITY_ID, t: [0, 2, 4, 6, 8, 10], d: [0, 16, 16, 32, 48, 64], gaps: [] },
+      ],
+    };
+
+    const ladder = buildReconciliationLadder(archive);
+    const r0 = ladder.rows.find((r) => r.key === 'R0');
+    const r1 = ladder.rows.find((r) => r.key === 'R1');
+
+    // R0 (per-sample): run1=[pair0] (16m/2s), run2=[pair2,pair3,pair4] (48m/6s) -> excess 2+6=8.
+    expect(r0.source.bursts).toBe(2);
+    expect(r0.source.burstMetres).toBeCloseTo(64, 6);
+    expect(r0.source.burstSeconds).toBeCloseTo(8, 6);
+
+    // R1 (run-level, folded): the zero pair folds INTO the following step, diluting its speed to
+    // 16m/4s=4 (not fast at L=7) -> run1=[step0-1] (16m/2s) alone, run2=[step3-4,step4-5] (32m/4s).
+    expect(r1.source.bursts).toBe(2);
+    expect(r1.source.burstMetres).toBeCloseTo(48, 6);
+    expect(r1.source.burstSeconds).toBeCloseTo(6, 6);
+
+    expect(r0.changedFactor).toContain('archive growth');
+    expect(r1.changedFactor).toContain('per-sample grouping -> run-level grouping');
+  });
+
+  it('R1 vs R2 isolates the speed-limit change; R2 vs R3 isolates the excess floor', () => {
+    // Three sequential bursts (A: 8 m/s, B: 7.1 m/s, C: 7.45 m/s), each separated by a clean
+    // (near-zero speed) step so they never chain into one run regardless of L.
+    const t = [0, 20, 40, 60, 80, 100, 120];
+    const d = [0, 160, 161, 303, 304, 453, 454];
+    const archive = { activities: [{ id: INSENSITIVITY_SOURCE_ACTIVITY_ID, t, d, gaps: [] }] };
+
+    const ladder = buildReconciliationLadder(archive);
+    const r1 = ladder.rows.find((r) => r.key === 'R1'); // L=7, F=0
+    const r2 = ladder.rows.find((r) => r.key === 'R2'); // L=7.35 (shipped), F=0
+    const r3 = ladder.rows.find((r) => r.key === 'R3'); // L=7.35 (shipped), F=3.0 (shipped)
+
+    // At L=7 all three (8, 7.1, 7.45 m/s) clear the limit.
+    expect(r1.source.bursts).toBe(3);
+    expect(r1.source.burstMetres).toBeCloseTo(160 + 142 + 149, 6);
+
+    // At L=7.35, B (7.1 m/s) no longer clears the limit at all — removed entirely by the speed
+    // change alone (F unchanged at 0).
+    expect(r2.source.bursts).toBe(2);
+    expect(r2.source.burstMetres).toBeCloseTo(160 + 149, 6);
+
+    // At F=3.0 (still L=7.35), C's excess (149 - 7.35*20 = 2) no longer clears the floor —
+    // removed by the floor change alone (L unchanged from R2).
+    expect(r3.source.bursts).toBe(1);
+    expect(r3.source.burstMetres).toBeCloseTo(160, 6);
+
+    expect(r2.changedFactor).toContain('the calibrated speed limit');
+    expect(r3.changedFactor).toContain('the calibrated excess floor');
+  });
+
+  it('carries the scoping-probe reference figures verbatim, never asserted', () => {
+    const archive = { activities: [] };
+    const ladder = buildReconciliationLadder(archive);
+    expect(ladder.probe).toEqual(SCOPING_PROBE_REFERENCE);
+    expect(ladder.probe.streamCount).toBe(1873);
+    expect(ladder.probe.excessCount).toBe(259);
+    expect(ladder.probe.gapAdjacentCount).toBe(121);
+    expect(ladder.probe.source.id).toBe(INSENSITIVITY_SOURCE_ACTIVITY_ID);
+  });
+});
+
+describe('buildHeadline (D-16)', () => {
+  it('sums activities/segments/metres/seconds per mechanism, plus a total row deduping activities across mechanisms', () => {
+    const results = [
+      {
+        id: 'A',
+        segments: [
+          { mechanism: 'gap-adjacent', metres: 10, seconds: 5 },
+          { mechanism: 'isolated-jump', metres: 20, seconds: 8 },
+        ],
+      },
+      { id: 'B', segments: [{ mechanism: 'isolated-jump', metres: 5, seconds: 2 }] },
+      { id: 'C', segments: [] },
+    ];
+
+    const rows = buildHeadline(results);
+    const byMechanism = Object.fromEntries(rows.map((r) => [r.mechanism, r]));
+
+    expect(byMechanism['gap-adjacent']).toEqual({ mechanism: 'gap-adjacent', activities: 1, segments: 1, metres: 10, seconds: 5 });
+    expect(byMechanism['hidden-pause']).toEqual({ mechanism: 'hidden-pause', activities: 0, segments: 0, metres: 0, seconds: 0 });
+    expect(byMechanism['isolated-jump']).toEqual({ mechanism: 'isolated-jump', activities: 2, segments: 2, metres: 25, seconds: 10 });
+    // total.activities counts A and B ONCE each even though A carries two mechanisms.
+    expect(byMechanism.total).toEqual({ mechanism: 'total', activities: 2, segments: 3, metres: 35, seconds: 15 });
+  });
+});
+
+describe('measureDecimationOverlap (D-11)', () => {
+  it('computes both overlap denominators and the severe-vs-non-severe flagged-rate ratio', () => {
+    const results = [
+      { id: 'A', segments: [{}], decimationTier: 'severe' }, // flagged & severe
+      { id: 'B', segments: [], decimationTier: 'severe' }, // severe, not flagged
+      { id: 'C', segments: [{}], decimationTier: 'none' }, // flagged, not severe
+      { id: 'D', segments: [], decimationTier: 'none' }, // neither
+    ];
+
+    const result = measureDecimationOverlap(results);
+
+    expect(result.flagged).toBe(2);
+    expect(result.severe).toBe(2);
+    expect(result.intersection).toBe(1);
+    expect(result.overlapOverFlagged).toBeCloseTo(0.5, 6);
+    expect(result.overlapOverSevere).toBeCloseTo(0.5, 6);
+    expect(result.severeFlagRate).toBeCloseTo(0.5, 6);
+    expect(result.nonSevereFlagRate).toBeCloseTo(0.5, 6);
+    expect(result.ratio).toBeCloseTo(1, 6);
+  });
+
+  it('reports ratio Infinity (never a silent null) when the non-severe cohort never flags but the severe cohort does', () => {
+    const results = [
+      { id: 'A', segments: [{}], decimationTier: 'severe' },
+      { id: 'B', segments: [], decimationTier: 'none' },
+    ];
+    const result = measureDecimationOverlap(results);
+    expect(result.nonSevereFlagRate).toBe(0);
+    expect(result.ratio).toBe(Infinity);
+  });
+
+  it('flags a >=2 ratio as the plan\'s own STOP-condition statistic', () => {
+    const results = [
+      { id: 'A', segments: [{}], decimationTier: 'severe' },
+      { id: 'B', segments: [{}], decimationTier: 'severe' },
+      { id: 'C', segments: [], decimationTier: 'severe' },
+      { id: 'D', segments: [], decimationTier: 'severe' },
+      { id: 'E', segments: [{}], decimationTier: 'none' },
+      { id: 'F', segments: [], decimationTier: 'none' },
+      { id: 'G', segments: [], decimationTier: 'none' },
+      { id: 'H', segments: [], decimationTier: 'none' },
+    ];
+    // severe flagged-rate = 2/4 = 0.5; non-severe flagged-rate = 1/4 = 0.25; ratio = 2.
+    const result = measureDecimationOverlap(results);
+    expect(result.ratio).toBeCloseTo(2, 6);
+    expect(result.ratio >= 2).toBe(true);
+  });
+});
+
+describe('nearMissSweep (D-06)', () => {
+  function step(i) {
+    return { startIndex: i, endIndex: i + 1, startSec: i * 10, endSec: (i + 1) * 10, metres: 1, seconds: 10 };
+  }
+
+  it('counts a trailing near-miss at k=2 clean steps, and finds no leading near-miss when no gap follows', () => {
+    const steps = [step(0), step(1), step(2), step(3), step(4)];
+    const gapList = [{ startIndex: -2, endIndex: -1, startSec: -20, endSec: -10 }];
+    const segments = [
+      { startIndex: 2, endIndex: 3, startSec: 20, endSec: 30, gapCount: 0, metres: 50, seconds: 10, mechanism: 'isolated-jump' },
+    ];
+
+    const result = nearMissSweep([{ id: 'A', steps, gapList, segments }]);
+
+    expect(result.counts).toEqual({ 1: 0, 2: 1, 3: 0 });
+    expect(result.examples).toEqual([{ id: 'A', t: 20, side: 'trailing', k: 2 }]);
+  });
+
+  it('skips gap-adjacent segments entirely (gapCount > 0)', () => {
+    const steps = [step(0), step(1), step(2)];
+    const gapList = [{ startIndex: -2, endIndex: -1, startSec: -20, endSec: -10 }];
+    const segments = [
+      { startIndex: 1, endIndex: 2, startSec: 10, endSec: 20, gapCount: 1, metres: 50, seconds: 10, mechanism: 'gap-adjacent' },
+    ];
+
+    const result = nearMissSweep([{ id: 'A', steps, gapList, segments }]);
+
+    expect(result.counts).toEqual({ 1: 0, 2: 0, 3: 0 });
+    expect(result.examples).toEqual([]);
+  });
+
+  it('never counts a TOUCHING boundary (k=0) as a near-miss — D-06 stays touching-only', () => {
+    const steps = [step(0), step(1)];
+    const gapList = [{ startIndex: -1, endIndex: 0, startSec: -10, endSec: 0 }];
+    const segments = [
+      { startIndex: 0, endIndex: 1, startSec: 0, endSec: 10, gapCount: 0, metres: 50, seconds: 10, mechanism: 'isolated-jump' },
+    ];
+
+    const result = nearMissSweep([{ id: 'A', steps, gapList, segments }]);
+
+    expect(result.counts).toEqual({ 1: 0, 2: 0, 3: 0 });
+  });
+
+  it('does not count a gap more than 3 clean steps away', () => {
+    const steps = [step(0), step(1), step(2), step(3), step(4), step(5), step(6)];
+    const gapList = [{ startIndex: -2, endIndex: -1, startSec: -20, endSec: -10 }];
+    const segments = [
+      { startIndex: 6, endIndex: 7, startSec: 60, endSec: 70, gapCount: 0, metres: 50, seconds: 10, mechanism: 'isolated-jump' },
+    ];
+
+    const result = nearMissSweep([{ id: 'A', steps, gapList, segments }]);
+
+    expect(result.counts).toEqual({ 1: 0, 2: 0, 3: 0 });
+  });
+});
+
+describe('fixtureHeadroom (D-05)', () => {
+  const decision = {
+    disposition: 'option-refixture',
+    statistic: 'S-A',
+    fixtures: [
+      { id: 'FIX1', startSec: 0, endSec: 20 },
+      { id: 'FIX2', startSec: 100, endSec: 120 },
+    ],
+  };
+
+  function buildArchiveFromBursts(id, bursts, { padSpeed = 0.5 } = {}) {
+    const t = [];
+    const d = [];
+    let time = 0;
+    let dist = 0;
+    t.push(time);
+    d.push(dist);
+    const sorted = [...bursts].sort((a, b) => a.startSec - b.startSec);
+    for (const b of sorted) {
+      if (b.startSec > time) {
+        dist += (b.startSec - time) * padSpeed;
+        time = b.startSec;
+        t.push(time);
+        d.push(dist);
+      }
+      time = b.endSec;
+      dist += b.metres;
+      t.push(time);
+      d.push(dist);
+    }
+    return { id, t, d, gaps: [] };
+  }
+
+  it('names the slowest admitted must-flag item and reports each fixture\'s excess/headroom at the SHIPPED speed limit', () => {
+    const L = UNRELIABLE_SPEED_LIMIT_MPS;
+    const hiddenPauseActivity = buildArchiveFromBursts('3475734189', [
+      { startSec: 1353, endSec: 1360, metres: L * 7 + 50 }, // excess 50 (comfortably not the slowest)
+    ]);
+    const jumpsActivity = buildArchiveFromBursts('3475740390', [
+      { startSec: 2347, endSec: 2350, metres: L * 3 + 10 }, // excess 10
+      { startSec: 2508, endSec: 2513, metres: L * 5 + 20 }, // excess 20
+      { startSec: 2536, endSec: 2538, metres: L * 2 + 8 }, // excess 8 -- deliberately the SLOWEST
+      { startSec: 2580, endSec: 2583, metres: L * 3 + 15 }, // excess 15
+      { startSec: 2587, endSec: 2589, metres: L * 2 + 12 }, // excess 12
+    ]);
+    // FIX1: excess 1.5 (safely below the slowest must-flag item's 8, wide headroom).
+    const fix1Activity = buildArchiveFromBursts('FIX1', [{ startSec: 0, endSec: 20, metres: L * 20 + 1.5 }]);
+    // FIX2: average speed strictly BELOW L -- never a candidate at all (excess null).
+    const fix2Activity = buildArchiveFromBursts('FIX2', [{ startSec: 100, endSec: 120, metres: L * 20 - 5 }]);
+
+    const archive = { activities: [hiddenPauseActivity, jumpsActivity, fix1Activity, fix2Activity] };
+
+    const result = fixtureHeadroom(archive, decision);
+
+    expect(result.L).toBe(L);
+    expect(result.slowest.item.window).toEqual({ startSec: 2536, endSec: 2538 });
+    expect(result.slowest.excess).toBeCloseTo(8, 6);
+
+    const fix1 = result.fixtures.find((f) => f.id === 'FIX1');
+    expect(fix1.excess).toBeCloseTo(1.5, 6);
+    expect(fix1.absoluteHeadroom).toBeCloseTo(6.5, 6);
+    expect(fix1.relativeHeadroom).toBeCloseTo(6.5 / 8, 6);
+
+    const fix2 = result.fixtures.find((f) => f.id === 'FIX2');
+    expect(fix2.excess).toBeNull();
+    expect(fix2.absoluteHeadroom).toBeNull();
+    expect(fix2.relativeHeadroom).toBeNull();
+  });
+});
+
+describe('suuntoDisclosure (D-01/D-02/D-03)', () => {
+  it('discloses samples, overlapping segments, detected status and the second-span finding for a present activity', () => {
+    // 253-263 and 300-310 are both big (20 m/s) bursts; only the first overlaps the primary
+    // disclosure window [253,293], but BOTH overlap the second, wider low-HR span [239,319].
+    const t = [0, 253, 263, 293, 300, 310, 400];
+    const d = [0, 253, 453, 483, 490, 690, 780];
+    const archive = { activities: [{ id: SUUNTO_ACTIVITY_ID, t, d, gaps: [] }] };
+
+    const result = suuntoDisclosure(archive);
+
+    expect(result.found).toBe(true);
+    expect(result.samples.map((s) => s.t)).toEqual([253, 263, 293]);
+    expect(result.samples[1]).toMatchObject({ t: 263, dt: 10, dd: 200, impliedSpeed: 20 });
+    expect(result.detected).toBe(true);
+    expect(result.overlapping.length).toBe(1);
+    expect(result.overlapping[0]).toMatchObject({ startSec: 253, endSec: 263 });
+    expect(result.secondSpanSegments.length).toBe(2);
+    expect(result.sentence).toContain('cannot tell');
+    expect(result.sentence).toContain('17 m/s');
+    expect(result.sentence).toContain('DETECTED');
+    expect(result.sentence).toContain('ALSO fired');
+  });
+
+  it('fails closed with found:false when the activity is absent from the current archive', () => {
+    const result = suuntoDisclosure({ activities: [] });
+    expect(result).toEqual({ found: false });
+  });
+});
+
+describe('renderPerSegmentTable (D-15 ARTIFACT CONTRACT)', () => {
+  it('renders the exact contract header and one row per segment, matching the recount\'s own format', () => {
+    const segments = [
+      {
+        startIndex: 1,
+        endIndex: 2,
+        startSec: 10,
+        endSec: 20,
+        seconds: 10,
+        metres: 29.4,
+        gapSeconds: 8,
+        gapMetres: 5.123,
+        burstSeconds: 2,
+        burstMetres: 24.277,
+        gapCount: 1,
+        burstCount: 1,
+        mechanism: 'gap-adjacent',
+      },
+    ];
+
+    const table = renderPerSegmentTable(segments);
+    const lines = table.split('\n');
+
+    expect(lines[0]).toBe(
+      '| # | startIndex | endIndex | startSec | endSec | seconds | metres | gapSeconds | gapMetres | burstSeconds | burstMetres | gaps | bursts | mechanism |'
+    );
+    expect(lines[1]).toBe('| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |');
+    expect(lines[2].trim()).toBe(
+      '| 1 | 1 | 2 | 10 | 20 | 10 | 29.4 | 8 | 5.1 | 2 | 24.3 | 1 | 1 | gap-adjacent |'
+    );
+  });
+
+  it('renders zero rows (just header + separator) for an empty segment list', () => {
+    const table = renderPerSegmentTable([]);
+    expect(table.split('\n').length).toBe(2);
+  });
+});
+
+describe('d04Statement (D-04)', () => {
+  it('states one downstream treatment for every segment regardless of mechanism, and never alters distance/totals/splits', () => {
+    const sentence = d04Statement();
+    expect(sentence).toContain('ONE downstream treatment');
+    expect(sentence).toContain('distance');
+    expect(sentence).toContain('totals');
+    expect(sentence).toContain('splits');
+    expect(sentence).not.toContain('per-mechanism branch treatment'); // no per-mechanism dispatch endorsed
+  });
+});
+
+describe('buildFindingsResults', () => {
+  it('builds one record per activity with segments/decimationTier/steps/gapList', () => {
+    const archive = {
+      activities: [{ id: 'A', t: [0, 10, 20], d: [0, 10, 20], gaps: [] }],
+    };
+    const results = buildFindingsResults(archive);
+    expect(results.length).toBe(1);
+    expect(results[0].id).toBe('A');
+    expect(Array.isArray(results[0].segments)).toBe(true);
+    expect(typeof results[0].decimationTier).toBe('string');
+    expect(Array.isArray(results[0].steps)).toBe(true);
+    expect(Array.isArray(results[0].gapList)).toBe(true);
   });
 });
 

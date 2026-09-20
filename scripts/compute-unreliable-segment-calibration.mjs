@@ -47,12 +47,14 @@ import { fileURLToPath, pathToFileURL } from 'url';
 import {
   advanceSteps,
   detectUnreliableSegments,
+  DEFAULT_DETECTOR_PARAMS,
   UNRELIABLE_SPEED_LIMIT_MPS as SHIPPED_SPEED_LIMIT_MPS,
   UNRELIABLE_EXCESS_FLOOR_M as SHIPPED_EXCESS_FLOOR_M,
   HIDDEN_PAUSE_MIN_METRES as SHIPPED_HIDDEN_PAUSE_MIN_METRES,
 } from '../dist/analytics/unreliable-segments.js';
 import { classifyGaps, quantile } from '../dist/analytics/pace-derivation.js';
 import { validateStreamSeries } from '../dist/analytics/best-effort-utils.js';
+import { decimationSignal } from '../dist/analytics/pace-quality.js';
 import { isStreamFile, idFromFilename } from './lib/stream-files.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -1385,6 +1387,530 @@ export function candidateSpeedLimitStatistics(archive, { matrixWithD05, matrixWi
 }
 
 // ---------------------------------------------------------------------------
+// Plan 32-07: findings (D-16 headline/reconciliation, D-11 overlap, D-06
+// near-miss, D-05 headroom, Suunto disclosure, D-04, per-segment table)
+// ---------------------------------------------------------------------------
+
+/** The scoping-probe reference figures (PROJECT.md line 25/30, 32-CONTEXT.md's "Mechanism
+ * boundaries" measurement) — REFERENCES to reconcile against, never asserted (D-16). */
+export const SCOPING_PROBE_REFERENCE = {
+  streamCount: 1873,
+  excessCount: 259,
+  gapAdjacentCount: 121,
+  source: {
+    id: INSENSITIVITY_SOURCE_ACTIVITY_ID,
+    bursts: 30,
+    gaps: 18,
+    burstMetres: 1694,
+    burstSeconds: 106,
+    gapSeconds: 707,
+  },
+};
+
+/** The one activity D-01/D-02/D-03's disclosure covers (never a fixture). */
+export const SUUNTO_ACTIVITY_ID = '4556693525';
+
+/** Every gap span mapped to its OWN sample indices (unlike `buildGapIndexBoundaries`, which
+ * pools every gap's boundary indices into two flat sets, this keeps per-gap identity so the
+ * reconciliation ladder and near-miss sweep can dedupe by WHICH gap a burst touches). */
+export function gapSampleIndexList(activity) {
+  const list = [];
+  for (const g of activity.gaps) {
+    let gi = -1;
+    for (let i = 0; i < activity.t.length; i++) if (activity.t[i] === g.startSec) gi = i;
+    let gj = -1;
+    for (let j = 0; j < activity.t.length; j++) {
+      if (activity.t[j] === g.endSec) {
+        gj = j;
+        break;
+      }
+    }
+    if (gi !== -1 && gj !== -1) {
+      list.push({ startIndex: gi, endIndex: gj, startSec: g.startSec, endSec: g.endSec });
+    }
+  }
+  return list;
+}
+
+/**
+ * D-16 R0's PER-SAMPLE fast-run grouping: maximal runs of consecutive RAW pairs `[t[i], t[i+1]]`
+ * with `dd/dt > speedLimitMps`, deliberately WITHOUT `advanceSteps`' zero-advance-pair folding —
+ * this is the one factor the reconciliation ladder's R0-vs-R1 rung isolates (per-sample vs
+ * run-level grouping). A pair lying entirely inside a caller gap span never counts and always
+ * breaks a run (mirrors `isGapPair` in `unreliable-segments.ts`, re-implemented here since this
+ * file already re-implements other detector-adjacent groupings locally).
+ */
+export function perSampleFastRuns(t, d, gaps, speedLimitMps) {
+  const runs = [];
+  let current = null;
+  for (let i = 0; i < t.length - 1; i++) {
+    const dt = t[i + 1] - t[i];
+    const dd = d[i + 1] - d[i];
+    const inGap = gaps.some((g) => g.startSec <= t[i] && t[i + 1] <= g.endSec);
+    const fast = !inGap && dt > 0 && dd > speedLimitMps * dt;
+    if (fast && current && current.endIndex === i) {
+      current.endIndex = i + 1;
+      current.metres += dd;
+      current.seconds += dt;
+    } else if (fast) {
+      current = { startIndex: i, endIndex: i + 1, metres: dd, seconds: dt };
+      runs.push(current);
+    } else {
+      current = null;
+    }
+  }
+  return runs;
+}
+
+/**
+ * D-16's reconciliation ladder: four rungs, each changing exactly ONE factor from the previous.
+ * R0 recomputes the scoping probe's OWN per-sample >7 m/s rule on the CURRENT (live) archive —
+ * isolating archive growth against the probe's own 1,873-stream count. R1 switches to run-level
+ * (folded-step) grouping at the same 7 m/s, floor 0 — isolating per-sample-vs-run-level grouping.
+ * R2 raises the speed limit from 7 to the calibrated `UNRELIABLE_SPEED_LIMIT_MPS`, floor still 0 —
+ * isolating the speed-limit change. R3 adds the calibrated `UNRELIABLE_EXCESS_FLOOR_M` floor — the
+ * detector's own actual operating point — isolating the floor. Each rung reports the two
+ * scoping-probe analogues (streams with >=100m of qualifying excess; streams with a qualifying
+ * burst touching a gap) plus the SAME two figures computed only for
+ * `INSENSITIVITY_SOURCE_ACTIVITY_ID` (3475724402), alongside bursts/gaps/burst-metres/
+ * burst-seconds/gap-seconds for that one activity. Never mutates or tunes anything — a pure
+ * measurement over `archive`.
+ */
+export function buildReconciliationLadder(archive) {
+  const stepsIndex = buildStepsIndex(archive);
+  const gapListById = new Map(archive.activities.map((a) => [a.id, gapSampleIndexList(a)]));
+
+  const rungDefs = [
+    {
+      key: 'R0',
+      label: "R0: the scoping probe's own per-sample >7 m/s rule, on the CURRENT archive",
+      changedFactor: 'archive growth only (same per-sample rule, same 7 m/s, same floor 0, live stream count instead of the probe\'s 1,873)',
+      mode: 'per-sample',
+      L: 7,
+      F: 0,
+    },
+    {
+      key: 'R1',
+      label: 'R1: run-level (folded-step) grouping at 7 m/s, floor 0',
+      changedFactor: 'per-sample grouping -> run-level grouping (folded covered steps, contiguous fast runs) at the SAME 7 m/s',
+      mode: 'run-level',
+      L: 7,
+      F: 0,
+    },
+    {
+      key: 'R2',
+      label: `R2: run-level grouping at the calibrated speed limit (${SHIPPED_SPEED_LIMIT_MPS} m/s), floor 0`,
+      changedFactor: `7 m/s -> the calibrated speed limit (${SHIPPED_SPEED_LIMIT_MPS} m/s), grouping unchanged`,
+      mode: 'run-level',
+      L: SHIPPED_SPEED_LIMIT_MPS,
+      F: 0,
+    },
+    {
+      key: 'R3',
+      label: `R3: the detector itself — calibrated speed limit AND the calibrated excess floor (${SHIPPED_EXCESS_FLOOR_M} m)`,
+      changedFactor: `floor 0 -> the calibrated excess floor (${SHIPPED_EXCESS_FLOOR_M} m), speed limit unchanged`,
+      mode: 'run-level',
+      L: SHIPPED_SPEED_LIMIT_MPS,
+      F: SHIPPED_EXCESS_FLOOR_M,
+    },
+  ];
+
+  const rows = rungDefs.map(({ key, label, changedFactor, mode, L, F }) => {
+    let excessCount = 0;
+    let gapAdjacentCount = 0;
+    let source = { bursts: 0, gaps: 0, burstMetres: 0, burstSeconds: 0, gapSeconds: 0 };
+
+    for (const activity of archive.activities) {
+      const runs =
+        mode === 'per-sample'
+          ? perSampleFastRuns(activity.t, activity.d, activity.gaps, L)
+          : fastRunsFromSteps(stepsIndex.get(activity.id) ?? [], L);
+      const qualifying = runs.filter((r) => r.metres - L * r.seconds > F);
+      const excessTotal = qualifying.reduce((sum, r) => sum + (r.metres - L * r.seconds), 0);
+      if (excessTotal >= 100) excessCount++;
+
+      const gapList = gapListById.get(activity.id) ?? [];
+      const touchedGapIndices = new Set();
+      for (const r of qualifying) {
+        for (let gi = 0; gi < gapList.length; gi++) {
+          const g = gapList[gi];
+          if (r.endIndex === g.startIndex || r.startIndex === g.endIndex) touchedGapIndices.add(gi);
+        }
+      }
+      if (touchedGapIndices.size > 0) gapAdjacentCount++;
+
+      if (activity.id === INSENSITIVITY_SOURCE_ACTIVITY_ID) {
+        source = {
+          bursts: qualifying.length,
+          gaps: touchedGapIndices.size,
+          burstMetres: qualifying.reduce((sum, r) => sum + r.metres, 0),
+          burstSeconds: qualifying.reduce((sum, r) => sum + r.seconds, 0),
+          gapSeconds: [...touchedGapIndices].reduce((sum, gi) => sum + (gapList[gi].endSec - gapList[gi].startSec), 0),
+        };
+      }
+    }
+
+    return { key, label, changedFactor, mode, L, F, excessCount, gapAdjacentCount, source };
+  });
+
+  return { rows, streamFileCount: archive.streamFileCount, probe: SCOPING_PROBE_REFERENCE };
+}
+
+/**
+ * D-16's per-mechanism headline. `activities` counts DISTINCT ids carrying >=1 segment of that
+ * mechanism; `segments`/`metres`/`seconds` sum every segment of that mechanism archive-wide. The
+ * final `total` row sums across mechanisms (an activity with segments of two different mechanisms
+ * counts once in `total.activities`, not twice). Pure over `results` (`{ id, segments }[]`) — no
+ * archive read, no denominator computed here (the LIVE `streamFileCount`/`computableCount`
+ * denominators are read off `archive`/`report` by the renderer, never hard-coded).
+ */
+export function buildHeadline(results) {
+  const mechanisms = ['gap-adjacent', 'hidden-pause', 'isolated-jump'];
+  const rows = mechanisms.map((mechanism) => {
+    const activityIds = new Set();
+    let segments = 0;
+    let metres = 0;
+    let seconds = 0;
+    for (const r of results) {
+      let hasMechanism = false;
+      for (const seg of r.segments) {
+        if (seg.mechanism !== mechanism) continue;
+        segments++;
+        metres += seg.metres;
+        seconds += seg.seconds;
+        hasMechanism = true;
+      }
+      if (hasMechanism) activityIds.add(r.id);
+    }
+    return { mechanism, activities: activityIds.size, segments, metres, seconds };
+  });
+
+  const totalActivityIds = new Set();
+  let totalSegments = 0;
+  let totalMetres = 0;
+  let totalSeconds = 0;
+  for (const r of results) {
+    if (r.segments.length > 0) totalActivityIds.add(r.id);
+    for (const seg of r.segments) {
+      totalSegments++;
+      totalMetres += seg.metres;
+      totalSeconds += seg.seconds;
+    }
+  }
+  rows.push({
+    mechanism: 'total',
+    activities: totalActivityIds.size,
+    segments: totalSegments,
+    metres: totalMetres,
+    seconds: totalSeconds,
+  });
+
+  return rows;
+}
+
+/**
+ * D-11's decimation overlap. `decimationSignal` is recomputed per stream (never read from
+ * `data/dashboard/`, Phase 31 TD-01). `ratio` is the severe cohort's OWN flagged-rate divided by
+ * the non-severe cohort's flagged-rate — the plan's own STOP-condition statistic (>= 2 is a
+ * calibration failure). A non-severe flagged-rate of exactly 0 with a positive severe flagged-rate
+ * reports `ratio: Infinity` (an unambiguous failure), never `null` (which would silently hide a
+ * genuine problem behind "not computable").
+ */
+export function measureDecimationOverlap(results) {
+  let flagged = 0;
+  let severe = 0;
+  let intersection = 0;
+  let severeTotal = 0;
+  let severeFlagged = 0;
+  let nonSevereTotal = 0;
+  let nonSevereFlagged = 0;
+
+  for (const r of results) {
+    const isFlagged = r.segments.length > 0;
+    const isSevere = r.decimationTier === 'severe';
+    if (isFlagged) flagged++;
+    if (isSevere) severe++;
+    if (isFlagged && isSevere) intersection++;
+    if (isSevere) {
+      severeTotal++;
+      if (isFlagged) severeFlagged++;
+    } else {
+      nonSevereTotal++;
+      if (isFlagged) nonSevereFlagged++;
+    }
+  }
+
+  const overlapOverFlagged = flagged === 0 ? null : intersection / flagged;
+  const overlapOverSevere = severe === 0 ? null : intersection / severe;
+  const severeFlagRate = severeTotal === 0 ? null : severeFlagged / severeTotal;
+  const nonSevereFlagRate = nonSevereTotal === 0 ? null : nonSevereFlagged / nonSevereTotal;
+  let ratio = null;
+  if (severeFlagRate !== null && nonSevereFlagRate !== null) {
+    ratio = nonSevereFlagRate === 0 ? (severeFlagRate === 0 ? 1 : Infinity) : severeFlagRate / nonSevereFlagRate;
+  }
+
+  return {
+    flagged,
+    severe,
+    intersection,
+    overlapOverFlagged,
+    overlapOverSevere,
+    severeTotal,
+    severeFlagged,
+    nonSevereTotal,
+    nonSevereFlagged,
+    severeFlagRate,
+    nonSevereFlagRate,
+    ratio,
+  };
+}
+
+/** Orders one activity's folded steps and gap spans into a single timeline by `startIndex`, so
+ * the near-miss sweep can walk outward from a no-gap segment's own boundary counting intervening
+ * step entries before hitting a gap entry. */
+function buildTimeline(steps, gapList) {
+  const stepEntries = steps.map((s) => ({ type: 'step', startIndex: s.startIndex, endIndex: s.endIndex }));
+  const gapEntries = gapList.map((g) => ({ type: 'gap', startIndex: g.startIndex, endIndex: g.endIndex }));
+  return [...stepEntries, ...gapEntries].sort((a, b) => a.startIndex - b.startIndex);
+}
+
+/**
+ * D-06's near-miss sweep. For every no-gap segment (`gapCount === 0`), walks outward on BOTH
+ * sides through the activity's own timeline (folded steps interleaved with gap spans) counting
+ * intervening step entries until a gap entry is hit; a count of exactly 1, 2 or 3 is a near-miss
+ * at that k. `k` counts STEPS (a scale-relative reporting window, never a rule — D-06 stays
+ * touching-only; this only measures how close the archive comes to reopening it). Reports up to
+ * 10 named `(id, t)` examples. Pure over `results` (`{ id, segments, steps, gapList }[]`).
+ */
+export function nearMissSweep(results) {
+  const counts = { 1: 0, 2: 0, 3: 0 };
+  const examples = [];
+
+  for (const r of results) {
+    const timeline = buildTimeline(r.steps, r.gapList);
+
+    for (const seg of r.segments) {
+      if (seg.gapCount > 0) continue;
+
+      const startTimelineIdx = timeline.findIndex((e) => e.type === 'step' && e.startIndex === seg.startIndex);
+      const endTimelineIdx = timeline.findIndex((e) => e.type === 'step' && e.endIndex === seg.endIndex);
+      if (startTimelineIdx === -1 || endTimelineIdx === -1) continue;
+
+      let trailingK = 0;
+      for (let i = startTimelineIdx - 1; i >= 0 && trailingK <= 3; i--) {
+        if (timeline[i].type === 'gap') {
+          if (trailingK >= 1 && trailingK <= 3) {
+            counts[trailingK]++;
+            if (examples.length < 10) examples.push({ id: r.id, t: seg.startSec, side: 'trailing', k: trailingK });
+          }
+          break;
+        }
+        trailingK++;
+      }
+
+      let leadingK = 0;
+      for (let i = endTimelineIdx + 1; i < timeline.length && leadingK <= 3; i++) {
+        if (timeline[i].type === 'gap') {
+          if (leadingK >= 1 && leadingK <= 3) {
+            counts[leadingK]++;
+            if (examples.length < 10) examples.push({ id: r.id, t: seg.endSec, side: 'leading', k: leadingK });
+          }
+          break;
+        }
+        leadingK++;
+      }
+    }
+  }
+
+  return { counts, examples };
+}
+
+/**
+ * D-05's negative-control headroom, measured at the SHIPPED constants (never a re-derived L — the
+ * artifact's own "Chosen constants" section already carries the live-derived-vs-shipped
+ * comparison). For each locked fixture (`decision.fixtures`): its own max folded-step speed, max
+ * run aggregate speed, and excess at `SHIPPED_SPEED_LIMIT_MPS` inside its span. Compared against
+ * the SLOWEST admitted must-flag item's own excess at the same L (the tightest margin in the
+ * must-flag set) — `absoluteHeadroom`/`relativeHeadroom` are `null` when the fixture is not even a
+ * candidate at L (excess `null` — spared by the speed limit alone, an unbounded/qualitative
+ * headroom, reported as such rather than a fabricated number).
+ */
+export function fixtureHeadroom(archive, decision) {
+  const byId = new Map(archive.activities.map((a) => [a.id, a]));
+  const L = SHIPPED_SPEED_LIMIT_MPS;
+
+  let slowest = null;
+  for (const item of mustFlagItems(decision)) {
+    const activity = byId.get(item.id);
+    if (!activity) continue;
+    const excess = runExcessAt(activity, item.window, L);
+    if (excess === null) continue;
+    if (slowest === null || excess < slowest.excess) {
+      const measurement = measureNamedItemAtJudgingScale(activity, item.window);
+      slowest = {
+        item,
+        excess,
+        maxRunAggregateSpeed: measurement?.maxRunAggregateSpeed ?? null,
+        maxFoldedStepSpeed: measurement?.maxFoldedStepSpeed ?? null,
+      };
+    }
+  }
+
+  const fixtures = decision.fixtures.map((f) => {
+    const activity = byId.get(f.id);
+    const window = { startSec: f.startSec, endSec: f.endSec };
+    const measurement = activity ? measureNamedItemAtJudgingScale(activity, window) : null;
+    const excess = activity ? runExcessAt(activity, window, L) : null;
+    const absoluteHeadroom = slowest === null || excess === null ? null : slowest.excess - excess;
+    const relativeHeadroom =
+      absoluteHeadroom === null || slowest.excess === 0 ? null : absoluteHeadroom / slowest.excess;
+    return {
+      id: f.id,
+      window,
+      maxRunAggregateSpeed: measurement?.maxRunAggregateSpeed ?? null,
+      maxFoldedStepSpeed: measurement?.maxFoldedStepSpeed ?? null,
+      excess,
+      absoluteHeadroom,
+      relativeHeadroom,
+    };
+  });
+
+  return { L, slowest, fixtures };
+}
+
+/**
+ * D-01/D-02/D-03's Suunto disclosure for `SUUNTO_ACTIVITY_ID` (`4556693525`), never a fixture.
+ * Reports the committed-stream samples around the burst 32-RESEARCH.md's D-02 section measured
+ * (t in [253, 293], covering the 18.0/21.0 m/s decimated pairs at t=271-275), every detector
+ * segment overlapping that span at the SHIPPED constants, and whether research's second, separate
+ * ~80s low-HR span (t~239-319) also fired. Returns `{ found: false }` if the activity is absent
+ * from the current archive (fails closed rather than fabricating a disclosure).
+ */
+export function suuntoDisclosure(archive) {
+  const activity = archive.activities.find((a) => a.id === SUUNTO_ACTIVITY_ID);
+  if (!activity) return { found: false };
+
+  const windowStart = 253;
+  const windowEnd = 293;
+  const samples = [];
+  for (let i = 0; i < activity.t.length; i++) {
+    if (activity.t[i] < windowStart || activity.t[i] > windowEnd) continue;
+    const dt = i > 0 ? activity.t[i] - activity.t[i - 1] : null;
+    const dd = i > 0 ? activity.d[i] - activity.d[i - 1] : null;
+    const impliedSpeed = dt !== null && dt > 0 ? dd / dt : null;
+    samples.push({ index: i, t: activity.t[i], d: activity.d[i], dt, dd, impliedSpeed });
+  }
+
+  const segments = detectUnreliableSegments(activity.t, activity.d, activity.gaps, DEFAULT_DETECTOR_PARAMS);
+  const overlapping = segments.filter((seg) => seg.startSec <= windowEnd && seg.endSec >= windowStart);
+  const detected = overlapping.length > 0;
+
+  const secondSpanStart = 239;
+  const secondSpanEnd = 319;
+  const secondSpanSegments = segments.filter(
+    (seg) => seg.startSec <= secondSpanEnd && seg.endSec >= secondSpanStart
+  );
+
+  const sentence =
+    `Activity ${SUUNTO_ACTIVITY_ID} (Suunto 9 over-measurement sample, D-01/D-02): the committed ` +
+    'stream carries 18.0 m/s (36 m/2s, t=271-273) and 21.0 m/s (42 m/2s, t=273-275) across two ' +
+    `decimated pairs. At the shipped constants (${fmtSpeed(SHIPPED_SPEED_LIMIT_MPS)}, ` +
+    `${fmtMetres(SHIPPED_EXCESS_FLOOR_M)} floor) this sample is ` +
+    `${detected ? `DETECTED (mechanism: ${[...new Set(overlapping.map((s) => s.mechanism))].join(', ')})` : 'NOT detected'}. ` +
+    "The label reflects the detector's own observable mechanism (D-03) — there is no fourth " +
+    "over-measurement label, because the detector cannot tell device over-measurement from a " +
+    'genuine GPS jump from `t`/`d` alone. This sample is never corrected, only disclosed (D-01). ' +
+    'The original v2.2 prose figure ("17 m/s") did not reproduce exactly on the committed stream ' +
+    '(32-RESEARCH.md Assumption A1); the numbers stated above are what this artifact actually ' +
+    "measured. Research's second, separate ~80s low-HR span (t≈239-319, ~7.15 m/s aggregate) " +
+    `${secondSpanSegments.length > 0 ? 'ALSO fired' : 'did NOT fire'} at the shipped constants.`;
+
+  return { found: true, samples, overlapping, secondSpanSegments, detected, sentence };
+}
+
+/** D-04's fixed generated sentence: one downstream treatment for every segment, regardless of
+ * mechanism. Never varies with archive content — a stated policy, not a measurement. */
+export function d04Statement() {
+  return (
+    'Every detected segment — `gap-adjacent`, `hidden-pause` or `isolated-jump` alike — receives ' +
+    'exactly ONE downstream treatment. Phase 33 clips pace across the segment span and Phase 36 ' +
+    'bars a best-effort window that overlaps it; both WITHHOLD a claim rather than alter it — ' +
+    'neither phase changes recorded distance, activity totals or splits (the same "flagged, never ' +
+    'corrected" guarantee v2.2 established). No phase branches on `mechanism` to apply a different ' +
+    'treatment: the label is diagnostic only, never a dispatch key.'
+  );
+}
+
+/**
+ * The ARTIFACT CONTRACT (b) per-segment table for `RECOUNT_TARGET_ACTIVITY_ID`
+ * (`3475724402`), rendered from the detector's OWN segments at the shipped constants — the
+ * table `compute-unreliable-segment-recount.mjs`'s `parseCalibrationArtifact` parses and
+ * `evaluateRecount` checks against its own independently-derived rows (D-15).
+ */
+export const RECOUNT_TARGET_ACTIVITY_ID = INSENSITIVITY_SOURCE_ACTIVITY_ID;
+
+export function renderPerSegmentTable(segments) {
+  const columns = [
+    '#',
+    'startIndex',
+    'endIndex',
+    'startSec',
+    'endSec',
+    'seconds',
+    'metres',
+    'gapSeconds',
+    'gapMetres',
+    'burstSeconds',
+    'burstMetres',
+    'gaps',
+    'bursts',
+    'mechanism',
+  ];
+  const header = `| ${columns.join(' | ')} |`;
+  const separator = `| ${columns.map(() => '---').join(' | ')} |`;
+  const lines = [header, separator];
+  segments.forEach((seg, i) => {
+    lines.push(
+      [
+        '',
+        i + 1,
+        seg.startIndex,
+        seg.endIndex,
+        String(seg.startSec),
+        String(seg.endSec),
+        String(seg.seconds),
+        seg.metres.toFixed(1),
+        String(seg.gapSeconds),
+        seg.gapMetres.toFixed(1),
+        String(seg.burstSeconds),
+        seg.burstMetres.toFixed(1),
+        seg.gapCount,
+        seg.burstCount,
+        seg.mechanism,
+        '',
+      ].join(' | ')
+    );
+  });
+  return lines.join('\n');
+}
+
+/**
+ * Builds every activity's `{ id, segments, decimationTier, steps, gapList }` record at the
+ * SHIPPED constants — the shared basis `buildHeadline`/`measureDecimationOverlap`/`nearMissSweep`
+ * all consume. Computed once per `buildCalibrationReport` call. `decimationSignal` is recomputed
+ * from the committed stream (never read from `data/dashboard/`, Phase 31 TD-01).
+ */
+export function buildFindingsResults(archive) {
+  return archive.activities.map((activity) => {
+    const segments = detectUnreliableSegments(activity.t, activity.d, activity.gaps, DEFAULT_DETECTOR_PARAMS);
+    const decimation = decimationSignal(activity.t, activity.d);
+    const steps = advanceSteps(activity.t, activity.d, activity.gaps);
+    const gapList = gapSampleIndexList(activity);
+    return { id: activity.id, segments, decimationTier: decimation.tier, steps, gapList };
+  });
+}
+
+// ---------------------------------------------------------------------------
 // I/O — archive load + report build + markdown render
 // ---------------------------------------------------------------------------
 
@@ -1588,6 +2114,20 @@ export function buildCalibrationReport(archive) {
   const decision = loadDecision();
   const chosenConstants = decision.disposition === 'option-jitter' ? null : buildChosenConstants(archive, decision);
 
+  // Plan 32-07: findings, computed at the SHIPPED constants (never the just-derived live values —
+  // the artifact's own "Chosen constants" section already carries that comparison). Only
+  // meaningful once real constants exist (not under `option-jitter`).
+  const findingsResults = chosenConstants === null ? null : buildFindingsResults(archive);
+  const headline = findingsResults === null ? null : buildHeadline(findingsResults);
+  const reconciliationLadder = chosenConstants === null ? null : buildReconciliationLadder(archive);
+  const decimationOverlap = findingsResults === null ? null : measureDecimationOverlap(findingsResults);
+  const nearMiss = findingsResults === null ? null : nearMissSweep(findingsResults);
+  const headroom = chosenConstants === null ? null : fixtureHeadroom(archive, decision);
+  const suunto = chosenConstants === null ? null : suuntoDisclosure(archive);
+  const perSegmentSourceResult =
+    findingsResults === null ? null : findingsResults.find((r) => r.id === RECOUNT_TARGET_ACTIVITY_ID) ?? null;
+  const perSegmentSegments = perSegmentSourceResult === null ? [] : perSegmentSourceResult.segments;
+
   return {
     grid,
     matrixWithD05,
@@ -1597,6 +2137,13 @@ export function buildCalibrationReport(archive) {
     statistics,
     decision,
     chosenConstants,
+    headline,
+    reconciliationLadder,
+    decimationOverlap,
+    nearMiss,
+    headroom,
+    suunto,
+    perSegmentSegments,
     streamFileCount: archive.streamFileCount,
     notComputable: archive.notComputable,
   };
@@ -1723,20 +2270,25 @@ function renderChosenConstantsSections(decision, cc) {
       'point in this derivation (D-10(e), anti-quota).'
   );
   lines.push('');
+  // NOTE: the "Value" column below is deliberately a BARE number, no unit suffix —
+  // `scripts/compute-unreliable-segment-recount.mjs`'s `parseCalibrationArtifact` (D-15's own
+  // ARTIFACT CONTRACT, plan 32-03) reads exactly this cell via `Number(raw)` and fails closed on
+  // anything non-numeric. The "Live-derived value" column keeps its unit suffix for readability
+  // since nothing parses that column.
   lines.push('| Constant | Value | Statistic / rule | Live-derived value | Shipped value equal |');
   lines.push('|---|---|---|---|---|');
   lines.push(
-    `| \`UNRELIABLE_SPEED_LIMIT_MPS\` | ${fmtNum(L, 2)} m/s | ceil(multiplier x ${decision.statistic} x 100) / 100, ` +
+    `| \`UNRELIABLE_SPEED_LIMIT_MPS\` | ${fmtNum(L, 2)} | ceil(multiplier x ${decision.statistic} x 100) / 100, ` +
       `multiplier = smallest of {0.90, 0.95, 0.97, 0.99} outer percentile of per-activity (p95/p50 folded-step-speed) ` +
       `ratio that clears D-13 | ${fmtNum(L, 2)} m/s | ${shippedComparison.L.equal ? 'yes' : 'no'} |`
   );
   lines.push(
-    `| \`UNRELIABLE_EXCESS_FLOOR_M\` | ${fmtNum(F, 1)} m | R-7 p10 (the complement of D-10(a)'s own 90th-percentile ` +
+    `| \`UNRELIABLE_EXCESS_FLOOR_M\` | ${fmtNum(F, 1)} | R-7 p10 (the complement of D-10(a)'s own 90th-percentile ` +
       `order) of every folded covered step's own metres, pooled archive-wide, floor-rounded to 0.1 m | ${fmtNum(F, 1)} m | ` +
       `${shippedComparison.F.equal ? 'yes' : 'no'} |`
   );
   lines.push(
-    `| \`HIDDEN_PAUSE_MIN_METRES\` | ${fmtNum(boundary.B, 2)} m | valley search over the anchor interval ` +
+    `| \`HIDDEN_PAUSE_MIN_METRES\` | ${fmtNum(boundary.B, 2)} | valley search over the anchor interval ` +
       `[${fmtNum(boundary.anchorInterval?.low, 1)}, ${fmtNum(boundary.anchorInterval?.high, 1)}) m; ` +
       `${boundary.valleyFound ? 'a valley was found' : 'NO clean valley found — anchor-interval midpoint fallback'} | ` +
       `${fmtNum(boundary.B, 2)} m | ${shippedComparison.B.equal ? 'yes' : 'no'} |`
@@ -1862,6 +2414,299 @@ function renderChosenConstantsSections(decision, cc) {
   lines.push('');
 
   return lines.join('\n');
+}
+
+function fmtM(v) {
+  return v === null || v === undefined ? '—' : `${v.toFixed(1)} m`;
+}
+function fmtS(v) {
+  return v === null || v === undefined ? '—' : `${v.toFixed(1)} s`;
+}
+
+/**
+ * Renders Plan 32-07's eight generated sections (`## Figures of record (D-16)`,
+ * `## Reconciliation against the scoping probe (D-16)`,
+ * `## Overlap with the decimation-severe cohort (D-11)`, `## Adjacency near-miss sweep (D-06)`,
+ * `## Negative-control headroom (D-05)`,
+ * `## Suunto over-measurement disposition — 4556693525 (D-01/D-02/D-03)`,
+ * `## One downstream treatment (D-04)`, `## Per-segment table — 3475724402 (detector output)`).
+ * `report.headline`/`reconciliationLadder`/`decimationOverlap`/`nearMiss`/`headroom`/`suunto` are
+ * `null` only under `disposition: option-jitter`, mirroring `renderChosenConstantsSections`.
+ */
+export function renderFindingsSections(report) {
+  const lines = [];
+  const computableCount = report.streamFileCount - report.notComputable;
+
+  // ## Figures of record (D-16)
+  lines.push('## Figures of record (D-16)');
+  lines.push('');
+  if (report.headline === null) {
+    lines.push(
+      `**Not rendered.** Decision disposition is \`${report.decision.disposition}\` (option-jitter).`
+    );
+    lines.push('');
+  } else {
+    lines.push(
+      `Per-mechanism, over the LIVE denominators: **${report.streamFileCount}** stream files scanned ` +
+        `(\`isStreamFile\`), **${computableCount}** computable (pass \`validateStreamSeries\`). No single ` +
+        'number below is presented as "the" figure — three units (activities, segments, metres+seconds) ' +
+        'per mechanism, plus a total row.'
+    );
+    lines.push('');
+    lines.push('| Mechanism | Activities | / stream files | / computable | Segments | Metres | Seconds |');
+    lines.push('|---|---|---|---|---|---|---|');
+    for (const row of report.headline) {
+      lines.push(
+        `| ${row.mechanism} | ${row.activities} | ${formatPct(row.activities, report.streamFileCount)} | ` +
+          `${formatPct(row.activities, computableCount)} | ${row.segments} | ${fmtM(row.metres)} | ${fmtS(row.seconds)} |`
+      );
+    }
+    lines.push('');
+  }
+
+  // ## Reconciliation against the scoping probe (D-16)
+  lines.push('## Reconciliation against the scoping probe (D-16)');
+  lines.push('');
+  if (report.reconciliationLadder === null) {
+    lines.push(
+      `**Not rendered.** Decision disposition is \`${report.decision.disposition}\` (option-jitter).`
+    );
+    lines.push('');
+  } else {
+    const ladder = report.reconciliationLadder;
+    lines.push(
+      "Each rung changes exactly ONE factor from the previous. The scoping probe's own recorded " +
+        `figures (2026-09-19) are shown as a separate reference column, NEVER asserted — differences ` +
+        'are attributed to the named factor, not failed.'
+    );
+    lines.push('');
+    lines.push(
+      '| Rung | Changed factor | Streams >=100m excess (the 259 analogue) | Streams w/ burst touching a gap (the 121 analogue) |'
+    );
+    lines.push('|---|---|---|---|');
+    lines.push(
+      `| scoping probe (2026-09-19, recorded) | — (reference only) | ${ladder.probe.excessCount} of ` +
+        `${ladder.probe.streamCount} | ${ladder.probe.gapAdjacentCount} of ${ladder.probe.streamCount} |`
+    );
+    for (const row of ladder.rows) {
+      lines.push(
+        `| ${row.key}: ${row.label} | ${row.changedFactor} | ${row.excessCount} of ${ladder.streamFileCount} | ` +
+          `${row.gapAdjacentCount} of ${ladder.streamFileCount} |`
+      );
+    }
+    lines.push('');
+    lines.push(`Same ladder, restricted to \`${INSENSITIVITY_SOURCE_ACTIVITY_ID}\`:`);
+    lines.push('');
+    lines.push('| Rung | Bursts | Gaps touched | Burst metres | Burst seconds | Gap seconds |');
+    lines.push('|---|---|---|---|---|---|');
+    lines.push(
+      `| scoping probe (2026-09-19, recorded) | ${ladder.probe.source.bursts} | ${ladder.probe.source.gaps} | ` +
+        `${fmtM(ladder.probe.source.burstMetres)} | ${fmtS(ladder.probe.source.burstSeconds)} | ` +
+        `${fmtS(ladder.probe.source.gapSeconds)} |`
+    );
+    for (const row of ladder.rows) {
+      lines.push(
+        `| ${row.key} | ${row.source.bursts} | ${row.source.gaps} | ${fmtM(row.source.burstMetres)} | ` +
+          `${fmtS(row.source.burstSeconds)} | ${fmtS(row.source.gapSeconds)} |`
+      );
+    }
+    lines.push('');
+  }
+
+  // ## Overlap with the decimation-severe cohort (D-11)
+  lines.push('## Overlap with the decimation-severe cohort (D-11)');
+  lines.push('');
+  if (report.decimationOverlap === null) {
+    lines.push(
+      `**Not rendered.** Decision disposition is \`${report.decision.disposition}\` (option-jitter).`
+    );
+    lines.push('');
+  } else {
+    const ov = report.decimationOverlap;
+    lines.push(
+      "`decimationSignal(t, d)` (`src/analytics/pace-quality.ts`) recomputed per stream — never read " +
+        'from `data/dashboard/`. Both denominators are reported:'
+    );
+    lines.push('');
+    lines.push(
+      `- flagged ∩ severe: **${formatPct(ov.intersection, ov.flagged)}** of flagged, ` +
+        `**${formatPct(ov.intersection, ov.severe)}** of severe (flagged=${ov.flagged}, severe=${ov.severe}, ` +
+        `intersection=${ov.intersection})`
+    );
+    lines.push(
+      `- severe cohort's own flagged-rate: ${formatPct(ov.severeFlagged, ov.severeTotal)}; non-severe cohort's ` +
+        `own flagged-rate: ${formatPct(ov.nonSevereFlagged, ov.nonSevereTotal)}`
+    );
+    lines.push(
+      `- **ratio (severe flagged-rate / non-severe flagged-rate): ${ov.ratio === null ? '—' : ov.ratio === Infinity ? '∞' : ov.ratio.toFixed(3)}**`
+    );
+    lines.push('');
+    if (ov.ratio !== null && ov.ratio >= 2) {
+      lines.push(
+        '**STOP CONDITION (a) TRIGGERED:** the ratio is >= 2 — the flagged population tracks decimation. ' +
+          'This is a calibration failure to fix in the rule (D-11), not by exempting streams. Reported ' +
+          'plainly, not tuned or rationalised away.'
+      );
+    } else if (ov.ratio !== null && ov.ratio > 1) {
+      lines.push(
+        `The ratio is above 1 (attributed, not hidden): the severe-decimation cohort is flagged at ` +
+          `${ov.ratio.toFixed(2)}x the rate of the non-severe cohort. Below the plan's own STOP threshold ` +
+          '(>= 2), but disclosed rather than rounded away — decimation-severe streams tend to carry more ' +
+          'genuinely large per-sample jumps (fewer real samples per unit distance), which is a property of ' +
+          "the STREAM, not evidence the detector is re-deriving Phase 27's cohort."
+      );
+    } else {
+      lines.push('The flagged population does not track the decimation-severe cohort at an elevated rate.');
+    }
+    lines.push('');
+  }
+
+  // ## Adjacency near-miss sweep (D-06)
+  lines.push('## Adjacency near-miss sweep (D-06)');
+  lines.push('');
+  if (report.nearMiss === null) {
+    lines.push(
+      `**Not rendered.** Decision disposition is \`${report.decision.disposition}\` (option-jitter).`
+    );
+    lines.push('');
+  } else {
+    lines.push(
+      'D-06 stays touching-only (no tolerance constant). This sweep reports how close the live archive ' +
+        'comes to reopening that decision: no-gap segments whose nearest gap boundary sits exactly 1, 2 or ' +
+        '3 clean folded steps away (a reporting window, never a rule — `k` counts steps, which is ' +
+        'scale-relative).'
+    );
+    lines.push('');
+    lines.push('| k (steps away) | Count |');
+    lines.push('|---|---|');
+    lines.push(`| 1 | ${report.nearMiss.counts[1]} |`);
+    lines.push(`| 2 | ${report.nearMiss.counts[2]} |`);
+    lines.push(`| 3 | ${report.nearMiss.counts[3]} |`);
+    lines.push('');
+    if (report.nearMiss.examples.length === 0) {
+      lines.push('No examples (every near-miss count above is 0).');
+    } else {
+      lines.push('Up to 10 named examples:');
+      lines.push('');
+      lines.push('| Id | t | Side | k |');
+      lines.push('|---|---|---|---|');
+      for (const ex of report.nearMiss.examples) {
+        lines.push(`| ${ex.id} | ${ex.t} | ${ex.side} | ${ex.k} |`);
+      }
+    }
+    lines.push('');
+  }
+
+  // ## Negative-control headroom (D-05)
+  lines.push('## Negative-control headroom (D-05)');
+  lines.push('');
+  if (report.headroom === null) {
+    lines.push(
+      `**Not rendered.** Decision disposition is \`${report.decision.disposition}\` (option-jitter).`
+    );
+    lines.push('');
+  } else {
+    const hr = report.headroom;
+    lines.push(
+      `Measured at the SHIPPED speed limit (${fmtSpeed(hr.L)}). The slowest admitted must-flag item is ` +
+        `${hr.slowest ? describeItem(hr.slowest.item) : '(none found)'}, excess ` +
+        `${hr.slowest ? fmtMetres(hr.slowest.excess) : '—'} (max run aggregate speed ` +
+        `${hr.slowest ? fmtSpeed(hr.slowest.maxRunAggregateSpeed) : '—'}, max folded step speed ` +
+        `${hr.slowest ? fmtSpeed(hr.slowest.maxFoldedStepSpeed) : '—'}).`
+    );
+    lines.push('');
+    lines.push(
+      '| Fixture | Window | Max folded step speed | Max run aggregate speed | Excess at L | Absolute headroom | Relative headroom |'
+    );
+    lines.push('|---|---|---|---|---|---|---|');
+    for (const f of hr.fixtures) {
+      lines.push(
+        `| ${f.id} | t=${f.window.startSec}-${f.window.endSec} | ${fmtSpeed(f.maxFoldedStepSpeed)} | ` +
+          `${fmtSpeed(f.maxRunAggregateSpeed)} | ${f.excess === null ? '— (not a candidate at L, spared by the speed limit alone)' : fmtMetres(f.excess)} | ` +
+          `${f.absoluteHeadroom === null ? '—' : fmtMetres(f.absoluteHeadroom)} | ${f.relativeHeadroom === null ? '—' : fmtPct(f.relativeHeadroom)} |`
+      );
+    }
+    lines.push('');
+  }
+
+  // ## Suunto over-measurement disposition — 4556693525 (D-01/D-02/D-03)
+  lines.push(`## Suunto over-measurement disposition — ${SUUNTO_ACTIVITY_ID} (D-01/D-02/D-03)`);
+  lines.push('');
+  if (report.suunto === null) {
+    lines.push(
+      `**Not rendered.** Decision disposition is \`${report.decision.disposition}\` (option-jitter).`
+    );
+    lines.push('');
+  } else if (!report.suunto.found) {
+    lines.push(`**${SUUNTO_ACTIVITY_ID} is absent from the current archive** — disclosure could not be rendered.`);
+    lines.push('');
+  } else {
+    lines.push('Committed-stream samples around the burst (index, t, d, dt, dd, implied speed):');
+    lines.push('');
+    lines.push('| Index | t | d | dt | dd | Implied speed |');
+    lines.push('|---|---|---|---|---|---|');
+    for (const s of report.suunto.samples) {
+      lines.push(
+        `| ${s.index} | ${s.t} | ${s.d.toFixed(1)} | ${s.dt === null ? '—' : s.dt} | ` +
+          `${s.dd === null ? '—' : s.dd.toFixed(1)} | ${s.impliedSpeed === null ? '—' : fmtSpeed(s.impliedSpeed)} |`
+      );
+    }
+    lines.push('');
+    lines.push('Every detector segment overlapping this span, at the shipped constants:');
+    lines.push('');
+    if (report.suunto.overlapping.length === 0) {
+      lines.push('(none — no detector segment overlaps this span)');
+    } else {
+      lines.push('| startSec | endSec | Mechanism | Metres | Seconds |');
+      lines.push('|---|---|---|---|---|');
+      for (const seg of report.suunto.overlapping) {
+        lines.push(`| ${seg.startSec} | ${seg.endSec} | ${seg.mechanism} | ${fmtM(seg.metres)} | ${fmtS(seg.seconds)} |`);
+      }
+    }
+    lines.push('');
+    lines.push(report.suunto.sentence);
+    lines.push('');
+  }
+
+  // ## One downstream treatment (D-04)
+  lines.push('## One downstream treatment (D-04)');
+  lines.push('');
+  lines.push(d04Statement());
+  lines.push('');
+
+  // ## Per-segment table — 3475724402 (detector output)
+  lines.push(`## Per-segment table — ${RECOUNT_TARGET_ACTIVITY_ID} (detector output)`);
+  lines.push('');
+  lines.push(
+    "The detector's OWN output at the shipped constants (`DEFAULT_DETECTOR_PARAMS`) — this exact " +
+      'table is parsed by `scripts/compute-unreliable-segment-recount.mjs` (D-15), which never ' +
+      'imports the detector, and its own independently-derived rows are checked against it.'
+  );
+  lines.push('');
+  lines.push(renderPerSegmentTable(report.perSegmentSegments));
+  lines.push('');
+  const nonGapAdjacent = report.perSegmentSegments.filter((s) => s.mechanism !== 'gap-adjacent');
+  if (nonGapAdjacent.length > 0) {
+    lines.push(
+      `**STOP CONDITION (b) TRIGGERED:** ${nonGapAdjacent.length} segment(s) on ` +
+        `${RECOUNT_TARGET_ACTIVITY_ID} carry a mechanism other than \`gap-adjacent\` — ROADMAP criterion 1 ` +
+        'says every burst on this activity is gap-adjacent. This is a finding to escalate, not a fixture ' +
+        'to adjust.'
+    );
+  } else {
+    lines.push(
+      `Every one of the ${report.perSegmentSegments.length} segment(s) above carries mechanism ` +
+        '`gap-adjacent` — matching ROADMAP criterion 1.'
+    );
+  }
+  lines.push('');
+
+  return lines.join('\n');
+}
+
+function formatPct(numerator, denominator) {
+  if (denominator === 0) return `${numerator} of 0 (n/a)`;
+  return `${numerator} of ${denominator} (${((numerator / denominator) * 100).toFixed(1)}%)`;
 }
 
 /** Pure string assembly: no `Date`, no `Math.random`, no unsorted object-key/Set/Map iteration
@@ -2006,6 +2851,8 @@ export function renderCalibrationMarkdown(report) {
   lines.push('');
 
   lines.push(renderChosenConstantsSections(report.decision, report.chosenConstants));
+
+  lines.push(renderFindingsSections(report));
 
   // ## Inputs
   lines.push('## Inputs');

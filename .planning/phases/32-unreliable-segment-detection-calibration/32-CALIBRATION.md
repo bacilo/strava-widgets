@@ -129,9 +129,9 @@ Derived in order L, then F, then B, bound by the 32-05 Decision (disposition `op
 
 | Constant | Value | Statistic / rule | Live-derived value | Shipped value equal |
 |---|---|---|---|---|
-| `UNRELIABLE_SPEED_LIMIT_MPS` | 7.35 m/s | ceil(multiplier x S-A x 100) / 100, multiplier = smallest of {0.90, 0.95, 0.97, 0.99} outer percentile of per-activity (p95/p50 folded-step-speed) ratio that clears D-13 | 7.35 m/s | yes |
-| `UNRELIABLE_EXCESS_FLOOR_M` | 3.0 m | R-7 p10 (the complement of D-10(a)'s own 90th-percentile order) of every folded covered step's own metres, pooled archive-wide, floor-rounded to 0.1 m | 3.0 m | yes |
-| `HIDDEN_PAUSE_MIN_METRES` | 116.95 m | valley search over the anchor interval [52.4, 181.5) m; NO clean valley found — anchor-interval midpoint fallback | 116.95 m | yes |
+| `UNRELIABLE_SPEED_LIMIT_MPS` | 7.35 | ceil(multiplier x S-A x 100) / 100, multiplier = smallest of {0.90, 0.95, 0.97, 0.99} outer percentile of per-activity (p95/p50 folded-step-speed) ratio that clears D-13 | 7.35 m/s | yes |
+| `UNRELIABLE_EXCESS_FLOOR_M` | 3.0 | R-7 p10 (the complement of D-10(a)'s own 90th-percentile order) of every folded covered step's own metres, pooled archive-wide, floor-rounded to 0.1 m | 3.0 m | yes |
+| `HIDDEN_PAUSE_MIN_METRES` | 116.95 | valley search over the anchor interval [52.4, 181.5) m; NO clean valley found — anchor-interval midpoint fallback | 116.95 m | yes |
 
 ## Non-circularity (D-13)
 
@@ -196,6 +196,149 @@ Decision (32-05-SUMMARY.md): disposition `option-refixture`, statistic `S-A`, fi
 | mustSpare | 3475734189 t=1581-1583 (D-09 trivial pair (~17.3m/2s, 8.65 m/s)) | 2.6 m | spared | floor |
 | mustSpare | 7409028052 t=586-624 (D-05 locked fixture (32-05 Decision, disposition: option-refixture)) | 1.5 m | spared | floor |
 | mustSpare | 3647739864 t=945-971 (D-05 locked fixture (32-05 Decision, disposition: option-refixture)) | — | spared | speed limit |
+
+## Figures of record (D-16)
+
+Per-mechanism, over the LIVE denominators: **1874** stream files scanned (`isStreamFile`), **1874** computable (pass `validateStreamSeries`). No single number below is presented as "the" figure — three units (activities, segments, metres+seconds) per mechanism, plus a total row.
+
+| Mechanism | Activities | / stream files | / computable | Segments | Metres | Seconds |
+|---|---|---|---|---|---|---|
+| gap-adjacent | 63 | 63 of 1874 (3.4%) | 63 of 1874 (3.4%) | 85 | 12730.8 m | 11574.0 s |
+| hidden-pause | 54 | 54 of 1874 (2.9%) | 54 of 1874 (2.9%) | 97 | 25716.3 m | 1364.0 s |
+| isolated-jump | 645 | 645 of 1874 (34.4%) | 645 of 1874 (34.4%) | 1162 | 39468.3 m | 3082.0 s |
+| total | 699 | 699 of 1874 (37.3%) | 699 of 1874 (37.3%) | 1344 | 77915.4 m | 16020.0 s |
+
+## Reconciliation against the scoping probe (D-16)
+
+Each rung changes exactly ONE factor from the previous. The scoping probe's own recorded figures (2026-09-19) are shown as a separate reference column, NEVER asserted — differences are attributed to the named factor, not failed.
+
+| Rung | Changed factor | Streams >=100m excess (the 259 analogue) | Streams w/ burst touching a gap (the 121 analogue) |
+|---|---|---|---|
+| scoping probe (2026-09-19, recorded) | — (reference only) | 259 of 1873 | 121 of 1873 |
+| R0: R0: the scoping probe's own per-sample >7 m/s rule, on the CURRENT archive | archive growth only (same per-sample rule, same 7 m/s, same floor 0, live stream count instead of the probe's 1,873) | 85 of 1874 | 88 of 1874 |
+| R1: R1: run-level (folded-step) grouping at 7 m/s, floor 0 | per-sample grouping -> run-level grouping (folded covered steps, contiguous fast runs) at the SAME 7 m/s | 78 of 1874 | 84 of 1874 |
+| R2: R2: run-level grouping at the calibrated speed limit (7.35 m/s), floor 0 | 7 m/s -> the calibrated speed limit (7.35 m/s), grouping unchanged | 74 of 1874 | 83 of 1874 |
+| R3: R3: the detector itself — calibrated speed limit AND the calibrated excess floor (3 m) | floor 0 -> the calibrated excess floor (3 m), speed limit unchanged | 74 of 1874 | 63 of 1874 |
+
+Same ladder, restricted to `3475724402`:
+
+| Rung | Bursts | Gaps touched | Burst metres | Burst seconds | Gap seconds |
+|---|---|---|---|---|---|
+| scoping probe (2026-09-19, recorded) | 30 | 18 | 1694.0 m | 106.0 s | 707.0 s |
+| R0 | 30 | 17 | 1694.3 m | 106.0 s | 685.0 s |
+| R1 | 30 | 17 | 1694.3 m | 106.0 s | 685.0 s |
+| R2 | 30 | 17 | 1651.0 m | 100.0 s | 685.0 s |
+| R3 | 25 | 16 | 1573.1 m | 90.0 s | 661.0 s |
+
+## Overlap with the decimation-severe cohort (D-11)
+
+`decimationSignal(t, d)` (`src/analytics/pace-quality.ts`) recomputed per stream — never read from `data/dashboard/`. Both denominators are reported:
+
+- flagged ∩ severe: **84 of 699 (12.0%)** of flagged, **84 of 154 (54.5%)** of severe (flagged=699, severe=154, intersection=84)
+- severe cohort's own flagged-rate: 84 of 154 (54.5%); non-severe cohort's own flagged-rate: 615 of 1720 (35.8%)
+- **ratio (severe flagged-rate / non-severe flagged-rate): 1.525**
+
+The ratio is above 1 (attributed, not hidden): the severe-decimation cohort is flagged at 1.53x the rate of the non-severe cohort. Below the plan's own STOP threshold (>= 2), but disclosed rather than rounded away — decimation-severe streams tend to carry more genuinely large per-sample jumps (fewer real samples per unit distance), which is a property of the STREAM, not evidence the detector is re-deriving Phase 27's cohort.
+
+## Adjacency near-miss sweep (D-06)
+
+D-06 stays touching-only (no tolerance constant). This sweep reports how close the live archive comes to reopening that decision: no-gap segments whose nearest gap boundary sits exactly 1, 2 or 3 clean folded steps away (a reporting window, never a rule — `k` counts steps, which is scale-relative).
+
+| k (steps away) | Count |
+|---|---|
+| 1 | 25 |
+| 2 | 25 |
+| 3 | 18 |
+
+Up to 10 named examples:
+
+| Id | t | Side | k |
+|---|---|---|---|
+| 10580824223 | 6053 | trailing | 1 |
+| 10586975334 | 5740 | trailing | 3 |
+| 10948757233 | 4732 | trailing | 1 |
+| 11039753365 | 4227 | trailing | 3 |
+| 11709594739 | 5785 | trailing | 2 |
+| 11709594739 | 5790 | leading | 3 |
+| 12255177444 | 400 | trailing | 1 |
+| 12294930682 | 391 | trailing | 2 |
+| 13146921403 | 5781 | trailing | 2 |
+| 13191190889 | 2871 | trailing | 1 |
+
+## Negative-control headroom (D-05)
+
+Measured at the SHIPPED speed limit (7.350 m/s). The slowest admitted must-flag item is 3475740390 t=2347-2350 (isolated jump t=2347 (30.1m/3s)), excess 8.0 m (max run aggregate speed —, max folded step speed 10.033 m/s).
+
+| Fixture | Window | Max folded step speed | Max run aggregate speed | Excess at L | Absolute headroom | Relative headroom |
+|---|---|---|---|---|---|---|
+| 7409028052 | t=586-624 | 8.700 m/s | 6.883 m/s | 1.5 m | 6.5 m | 81.37% |
+| 3647739864 | t=945-971 | 5.885 m/s | — | — (not a candidate at L, spared by the speed limit alone) | — | — |
+
+## Suunto over-measurement disposition — 4556693525 (D-01/D-02/D-03)
+
+Committed-stream samples around the burst (index, t, d, dt, dd, implied speed):
+
+| Index | t | d | dt | dd | Implied speed |
+|---|---|---|---|---|---|
+| 126 | 253 | 815.0 | 2 | 14.0 | 7.000 m/s |
+| 127 | 255 | 830.0 | 2 | 15.0 | 7.500 m/s |
+| 128 | 257 | 847.0 | 2 | 17.0 | 8.500 m/s |
+| 129 | 259 | 863.0 | 2 | 16.0 | 8.000 m/s |
+| 130 | 261 | 879.0 | 2 | 16.0 | 8.000 m/s |
+| 131 | 263 | 895.0 | 2 | 16.0 | 8.000 m/s |
+| 132 | 265 | 912.0 | 2 | 17.0 | 8.500 m/s |
+| 133 | 267 | 929.0 | 2 | 17.0 | 8.500 m/s |
+| 134 | 269 | 946.0 | 2 | 17.0 | 8.500 m/s |
+| 135 | 271 | 962.0 | 2 | 16.0 | 8.000 m/s |
+| 136 | 273 | 998.0 | 2 | 36.0 | 18.000 m/s |
+| 137 | 275 | 1040.0 | 2 | 42.0 | 21.000 m/s |
+| 138 | 277 | 1054.0 | 2 | 14.0 | 7.000 m/s |
+| 139 | 279 | 1070.0 | 2 | 16.0 | 8.000 m/s |
+| 140 | 281 | 1081.0 | 2 | 11.0 | 5.500 m/s |
+| 141 | 283 | 1091.0 | 2 | 10.0 | 5.000 m/s |
+| 142 | 285 | 1105.0 | 2 | 14.0 | 7.000 m/s |
+| 143 | 287 | 1116.0 | 2 | 11.0 | 5.500 m/s |
+| 144 | 289 | 1132.0 | 2 | 16.0 | 8.000 m/s |
+| 145 | 291 | 1159.0 | 2 | 27.0 | 13.500 m/s |
+| 146 | 293 | 1181.0 | 2 | 22.0 | 11.000 m/s |
+
+Every detector segment overlapping this span, at the shipped constants:
+
+| startSec | endSec | Mechanism | Metres | Seconds |
+|---|---|---|---|---|
+| 253 | 275 | hidden-pause | 225.0 m | 22.0 s |
+| 287 | 293 | isolated-jump | 65.0 m | 6.0 s |
+
+Activity 4556693525 (Suunto 9 over-measurement sample, D-01/D-02): the committed stream carries 18.0 m/s (36 m/2s, t=271-273) and 21.0 m/s (42 m/2s, t=273-275) across two decimated pairs. At the shipped constants (7.350 m/s, 3.0 m floor) this sample is DETECTED (mechanism: hidden-pause, isolated-jump). The label reflects the detector's own observable mechanism (D-03) — there is no fourth over-measurement label, because the detector cannot tell device over-measurement from a genuine GPS jump from `t`/`d` alone. This sample is never corrected, only disclosed (D-01). The original v2.2 prose figure ("17 m/s") did not reproduce exactly on the committed stream (32-RESEARCH.md Assumption A1); the numbers stated above are what this artifact actually measured. Research's second, separate ~80s low-HR span (t≈239-319, ~7.15 m/s aggregate) ALSO fired at the shipped constants.
+
+## One downstream treatment (D-04)
+
+Every detected segment — `gap-adjacent`, `hidden-pause` or `isolated-jump` alike — receives exactly ONE downstream treatment. Phase 33 clips pace across the segment span and Phase 36 bars a best-effort window that overlaps it; both WITHHOLD a claim rather than alter it — neither phase changes recorded distance, activity totals or splits (the same "flagged, never corrected" guarantee v2.2 established). No phase branches on `mechanism` to apply a different treatment: the label is diagnostic only, never a dispatch key.
+
+## Per-segment table — 3475724402 (detector output)
+
+The detector's OWN output at the shipped constants (`DEFAULT_DETECTOR_PARAMS`) — this exact table is parsed by `scripts/compute-unreliable-segment-recount.mjs` (D-15), which never imports the detector, and its own independently-derived rows are checked against it.
+
+| # | startIndex | endIndex | startSec | endSec | seconds | metres | gapSeconds | gapMetres | burstSeconds | burstMetres | gaps | bursts | mechanism |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+ | 1 | 515 | 517 | 1030 | 1048 | 18 | 52.4 | 16 | 29.4 | 2 | 23.0 | 1 | 1 | gap-adjacent | 
+ | 2 | 525 | 533 | 1064 | 1135 | 71 | 288.6 | 57 | 29.3 | 14 | 259.3 | 1 | 2 | gap-adjacent | 
+ | 3 | 696 | 700 | 1461 | 1515 | 54 | 124.6 | 48 | 29.3 | 6 | 95.3 | 1 | 2 | gap-adjacent | 
+ | 4 | 737 | 739 | 1589 | 1611 | 22 | 52.2 | 20 | 29.4 | 2 | 22.8 | 1 | 1 | gap-adjacent | 
+ | 5 | 788 | 791 | 1729 | 1760 | 31 | 88.4 | 27 | 27.4 | 4 | 61.0 | 1 | 1 | gap-adjacent | 
+ | 6 | 962 | 964 | 2102 | 2125 | 23 | 53.4 | 21 | 29.4 | 2 | 24.0 | 1 | 1 | gap-adjacent | 
+ | 7 | 971 | 974 | 2139 | 2169 | 30 | 90.1 | 26 | 29.5 | 4 | 60.6 | 1 | 2 | gap-adjacent | 
+ | 8 | 979 | 983 | 2179 | 2236 | 57 | 157.5 | 51 | 29.3 | 6 | 128.2 | 1 | 2 | gap-adjacent | 
+ | 9 | 1107 | 1109 | 2491 | 2525 | 34 | 81.7 | 32 | 38.2 | 2 | 43.5 | 1 | 1 | gap-adjacent | 
+ | 10 | 1325 | 1332 | 2957 | 3067 | 110 | 305.4 | 98 | 29.4 | 12 | 276.0 | 1 | 2 | gap-adjacent | 
+ | 11 | 1506 | 1508 | 3438 | 3456 | 18 | 49.2 | 16 | 29.4 | 2 | 19.8 | 1 | 1 | gap-adjacent | 
+ | 12 | 1523 | 1527 | 3486 | 3547 | 61 | 157.8 | 55 | 53.8 | 6 | 104.0 | 1 | 2 | gap-adjacent | 
+ | 13 | 1741 | 1745 | 3975 | 4028 | 53 | 154.4 | 47 | 58.7 | 6 | 95.7 | 1 | 2 | gap-adjacent | 
+ | 14 | 1759 | 1764 | 4056 | 4121 | 65 | 201.7 | 57 | 56.1 | 8 | 145.6 | 1 | 2 | gap-adjacent | 
+ | 15 | 1770 | 1777 | 4133 | 4212 | 79 | 219.0 | 67 | 29.4 | 12 | 189.6 | 1 | 2 | gap-adjacent | 
+ | 16 | 1790 | 1792 | 4238 | 4263 | 25 | 72.3 | 23 | 47.6 | 2 | 24.7 | 1 | 1 | gap-adjacent | 
+
+Every one of the 16 segment(s) above carries mechanism `gap-adjacent` — matching ROADMAP criterion 1.
 
 ## Inputs
 
