@@ -261,12 +261,14 @@ export function measureSegmentAt1Hz(relPoints, startSec, endSec, speedLimitMps) 
 
 /** Builds the full per-activity finding: committed segments, FIT alignment, and each segment's
  * 1 Hz measurement. Returns `{ id, skipped: reason }` when the FIT original is absent/unreadable,
- * decode fails, the committed stream is missing/unparseable, or the committed stream has no
- * array `t`/`d` channels — never throws (CR-03: the committed-stream read used to be unguarded
- * and could throw ENOENT/SyntaxError, and `validateStreamSeries` itself dereferences `t.length`,
- * which throws on a non-array rather than returning a not-ok result — the explicit
+ * decode fails, the committed stream is missing/unparseable, the committed stream has no array
+ * `t`/`d` channels, or the committed activity doc is missing/null/non-object or its `start_date`
+ * is missing/null/non-string — never throws (CR-03: the committed-stream read used to be
+ * unguarded and could throw ENOENT/SyntaxError, and `validateStreamSeries` itself dereferences
+ * `t.length`, which throws on a non-array rather than returning a not-ok result — the explicit
  * `Array.isArray` check below exists so this function never reaches that dereference on
- * malformed on-disk JSON). */
+ * malformed on-disk JSON. WR-01, round 2: the adjacent `activityDoc.start_date` dereference had
+ * the exact same unguarded-null defect three lines below CR-03's fix; guarded the same way). */
 export async function buildActivityFinding(id, streamsDir, activitiesDir, csvMap, exportRoot) {
   const csvFile = csvMap.get(id);
   if (!csvFile) {
@@ -307,6 +309,18 @@ export async function buildActivityFinding(id, streamsDir, activitiesDir, csvMap
     activityDoc = JSON.parse(readFileSync(join(activitiesDir, `${id}.json`), 'utf8'));
   } catch {
     return { id, skipped: 'data/activities/{id}.json missing or unreadable' };
+  }
+  // WR-01 (32-REVIEW.md round 2): a committed activity doc that parses successfully to `null` (or
+  // any non-object, or an object whose `start_date` is missing/null/non-string) used to throw
+  // here (`Cannot read properties of null (reading 'start_date')`) — the same class of defect
+  // CR-03 closed for the sibling stream read three lines above, in the same function. Guarded the
+  // same way: fail closed with a skipped finding, never a throw.
+  if (
+    activityDoc === null ||
+    typeof activityDoc !== 'object' ||
+    typeof activityDoc.start_date !== 'string'
+  ) {
+    return { id, skipped: 'activity doc missing, not an object, or start_date not a string' };
   }
   const startEpoch = Math.floor(Date.parse(activityDoc.start_date) / 1000);
   if (!Number.isFinite(startEpoch)) {
