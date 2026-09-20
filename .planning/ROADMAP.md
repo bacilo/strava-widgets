@@ -128,7 +128,7 @@ context, measured facts and decisions in `PROJECT.md` § Current Milestone; requ
   4. A committed, regenerable calibration artifact states the calibrated speed-limit constant, a non-circularity argument (the calibration population provably excludes what the threshold detects), and the Suunto 17 m/s descent sample's disposition — detected or not, with committed-stream numbers; if detected, no fourth mechanism label, because from `t`/`d` alone over-measurement and an isolated GPS jump look the same; disclosed by activity ID `4556693525` in the artifact and never corrected — replacing the crude 259/1,873 and 121/1,873 scoping sweep with a figure of record. **Amended 2026-09-19 (32-CONTEXT.md D-03):** the original v2.2 prose cited "17 m/s"; that figure did not reproduce exactly under this phase's own measurement (32-RESEARCH.md § A1), so the artifact reports measured committed-stream figures instead.
   5. The single-source audit test is extended to the detector and demonstrated catching a planted second implementation before passing against the real one. (SEG-05a, amended 2026-09-19 per D-14. The Goal's "one source every downstream consumer reads" is SEG-05b, discharged by Phases 33, 35 and 36.)
 
-**Plans**: 9 plans
+**Plans**: 16 plans (9 executed + 7 gap-closure, 2026-09-20)
 Plans:
 **Wave 1**
 
@@ -156,6 +156,19 @@ Plans:
 **Wave 6** *(blocked on Wave 5 completion)*
 
 - [x] 32-09-PLAN.md — Merge origin, regenerate post-merge, D-12 local 1 Hz validation, closing gate
+
+**Gap closure**
+
+*added 2026-09-20 after 32-VERIFICATION.md returned gaps_found, 5/8 must-haves; waves renumbered
+from 1 for this set*
+
+- [ ] 32-10-PLAN.md — reopen the prematurely-closed VALIDATION/ROADMAP/REQUIREMENTS/STATE artifacts
+- [ ] 32-11-PLAN.md — GAP 1 total-function contract made true for shape-level malformed input
+- [ ] 32-12-PLAN.md — GAP 2 replace the vacuous fs-namespace import-time guards with an observing mechanism
+- [ ] 32-13-PLAN.md — GAP 3 one gap-boundary index convention, duplicate-timestamp invariance
+- [ ] 32-14-PLAN.md — CR-04 findValley, CR-06 parseDecisionText, ambiguous namedItemSegmentMetres
+- [ ] 32-15-PLAN.md — SEG-05a needle quoting, D-05/D-09 negative-control reachability, CR-03 never-throws
+- [ ] 32-16-PLAN.md — re-close, gate re-run and artifacts re-ticked against recorded evidence
 
 ### Phase 33: Coverage Integration — Pace Clipping & Segment Signal
 
