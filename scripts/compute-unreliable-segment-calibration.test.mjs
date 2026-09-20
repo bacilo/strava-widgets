@@ -635,6 +635,67 @@ describe('findValley (D-08 valley search)', () => {
     expect(result.valleyFound).toBe(false);
     expect(result.B).toBeNull();
   });
+
+  // CR-04 gap closure (32-14, both-directions discipline): findValley must be shown SUPPRESSING a
+  // valley it would otherwise manufacture, not merely finding one. The negative case below is
+  // constructed so the PRE-FIX function (binning ALL of `values` over edges that straddle below
+  // `lowMetres` and above `highMetres`) reports `valleyFound: true` — reproducing 32-REVIEW.md's
+  // CR-04 finding — while the fixed function, which bins only in-interval mass, reports false.
+  describe('CR-04 — findValley proven sound in both directions (in-interval-only binning)', () => {
+    it('finds a valley at a SPECIFIC bin edge when real in-interval mass sits either side of an empty interior bin', () => {
+      // low=20, high=100, binWidth=20 (default) -> edges 20,40,60,80,100. Dense mass at 25 (bin
+      // 20), a deliberately sub-threshold count at 45 (bin 40, count=30 > 0.5*min(50,50)=25 so it
+      // is NOT itself a valley), nothing in bin 60, dense mass at 85 (bin 80). The lowest
+      // qualifying empty-enough bin is edge=60, not edge=40 — pins the exact edge, not merely
+      // valleyFound === true (a valley found at the wrong edge would move a shipped constant).
+      const values = [
+        ...Array(50).fill(25),
+        ...Array(30).fill(45),
+        ...Array(50).fill(85),
+      ];
+
+      const result = findValley(values, 20, 100);
+
+      expect(result.valleyFound).toBe(true);
+      expect(result.B).toBe(60);
+    });
+
+    it('reports valleyFound false when the only large counts lie BELOW low and AT OR ABOVE high, with sparse in-interval mass — the pre-fix function returns true here', () => {
+      // low=30, high=100, binWidth=20 (default) -> edges 20,40,60,80,100. 50 values at 22 (BELOW
+      // low=30) land in bin 20; 50 values at 110 (AT/ABOVE high=100) land in bin 100; only 4
+      // sparse in-interval values at 65 land in bin 60. The pre-fix function bins ALL values
+      // (including the out-of-interval 22s and 110s) and finds a "valley" at edge=40 purely from
+      // that out-of-interval shoulder mass — reproducing 32-REVIEW.md's CR-04 finding exactly.
+      const values = [...Array(50).fill(22), ...Array(4).fill(65), ...Array(50).fill(110)];
+
+      const result = findValley(values, 30, 100);
+
+      expect(result.valleyFound).toBe(false);
+      expect(result.B).toBeNull();
+    });
+
+    it('reports valleyFound false on a population with values only OUTSIDE the anchor interval', () => {
+      const values = [...Array(20).fill(5), ...Array(20).fill(150)];
+
+      const result = findValley(values, 30, 100);
+
+      expect(result.valleyFound).toBe(false);
+      expect(result.B).toBeNull();
+    });
+
+    it('reports valleyFound false with an empty histogram when lowMetres >= highMetres', () => {
+      const result = findValley([1, 2, 3], 100, 100);
+
+      expect(result.valleyFound).toBe(false);
+      expect(result.B).toBeNull();
+      expect(result.histogram).toEqual([]);
+
+      const inverted = findValley([1, 2, 3], 100, 20);
+      expect(inverted.valleyFound).toBe(false);
+      expect(inverted.B).toBeNull();
+      expect(inverted.histogram).toEqual([]);
+    });
+  });
 });
 
 describe('deriveExcessFloor / strawmanExcessFloorTailPercentile with D-13 insensitivity', () => {
