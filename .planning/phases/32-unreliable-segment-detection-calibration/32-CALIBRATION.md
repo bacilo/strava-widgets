@@ -162,14 +162,14 @@ Bin width: 20 m. Histogram over this interval:
 
 | Bin lower edge (m) | Count |
 |---|---|
-| 40 | 166 |
+| 40 | 40 |
 | 60 | 84 |
 | 80 | 30 |
 | 100 | 20 |
 | 120 | 13 |
 | 140 | 17 |
 | 160 | 8 |
-| 180 | 7 |
+| 180 | 0 |
 
 **No clean valley exists in this interval** (D-08's own legitimate outcome — reported verbatim, not manufactured). B falls back to the anchor interval's own midpoint, 116.95 m. The `hidden-pause` label is therefore a best-effort description, not a verified cause, for any segment landing on this exact fallback value.
 
