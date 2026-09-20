@@ -1,11 +1,12 @@
 ---
 phase: 32
 slug: unreliable-segment-detection-calibration
-status: in-progress
+status: complete
 nyquist_compliant: true
 wave_0_complete: true
 created: 2026-09-19
 reopened: 2026-09-20
+closed: 2026-09-20
 reopened_reason: "32-VERIFICATION.md gaps_found, 5/8 — three blockers falsify 32-02/32-05/32-06 must_haves"
 ---
 
@@ -74,13 +75,13 @@ Task IDs are filled by the planner. Every `-t` row MUST record the matched test 
 | 32-04-T1/T2 | 04 | 2 | SEG-05a | T-32-08, T-32-09 | Importer, arithmetic, structural and param-key confinement | unit | `npx vitest run src/analytics/pace-single-source.test.ts -t "SEG-05a"` (**7 matched, 7 passed** — recorded in 32-04-SUMMARY.md, re-confirmed unregressed by this session's full-suite run). A planted second implementation is watched red first (in-suite and on the real tree) | ✅ extend | ✅ green |
 | 32-01-T2, 32-09-T1 | 01, 09 | 1, 6 | D-17 | T-32-01, T-32-02, T-32-03 | Stream byte-identity: a digest change fails, new files are tolerated, append-only | unit | `npx vitest run scripts/compute-stream-checksums.test.mjs` (12/12 passed). A planted one-byte edit is watched red, then restored, and `git status --porcelain data/streams` is empty (confirmed post-merge, `npm run compute-stream-checksums` printed `added 0`) | ✅ | ✅ green |
 | 32-09-T2 | 09 | 6 | D-12 | T-32-20, T-32-21 | Local-only; no `.test.mjs`; graceful absence | manual (local) | `node scripts/validate-unreliable-segments-1hz.mjs --as-of <date>` run twice with the same flag, zero diff confirmed; `UNRELIABLE_1HZ_EXPORT_ROOT=/nonexistent node scripts/validate-unreliable-segments-1hz.mjs --as-of 2026-09-19` prints `Nothing to validate` and exits 0; missing/malformed `--as-of` exits 1 with a usage line | ✅ | ✅ green |
-| 32-10-T1/T2 | 10 | 1 | bookkeeping | T-32-28 | No Phase 32 artifact claims completion for work this verification falsified | grep | This plan's own acceptance greps (32-10-PLAN.md Tasks 1-2) | ⬜ | ⬜ pending |
-| 32-11-T1/T2 | 11 | 1 | SEG-01 | T-32-22 | Shape-level malformed input (null/non-array `t`, `d`, `gaps`; null `params`; a `[null]` gap entry) returns a fresh `[]` and never throws | unit | `npx vitest run src/analytics/unreliable-segments.test.ts -t "shape-level"`, matched count recorded, watched RED before the guards land | ⬜ | ⬜ pending |
-| 32-12-T1/T2 | 12 | 1 | SEG-02, SEG-04 | T-32-23 | Importing either generator performs no `readFileSync`/`readdirSync`/`writeFileSync` | unit | `npx vitest run scripts/unreliable-segment-import-guards.test.mjs`; the control probes must be observed CALLING `readFileSync`, which is what makes the negative assertion falsifiable | ⬜ | ⬜ pending |
-| 32-13-T1/T2/T3 | 13 | 2 | SEG-01, SEG-02 | T-32-24 | A duplicate timestamp on a gap boundary changes neither mechanism nor conserved metres/seconds | unit + dist | `npx vitest run src/analytics/unreliable-segments.test.ts -t "boundary convention"`, matched count recorded, plus the dist-level reproduction of both verifier fixtures | ⬜ | ⬜ pending |
-| 32-14-T1/T2/T3 | 14 | 3 | SEG-04 | T-32-25 | `findValley` cannot manufacture a valley from out-of-interval mass; `parseDecisionText` refuses a non-finite span; `namedItemSegmentMetres` fails closed on ambiguous overlap | script | `npx vitest run scripts/compute-unreliable-segment-calibration.test.mjs` plus the generator run twice with `git diff --exit-code` on the artifact | ⬜ | ⬜ pending |
-| 32-15-T1/T2/T3 | 15 | 3 | SEG-03, SEG-04, SEG-05a | T-32-26 | The SEG-05a importer scan catches double-quoted and backtick specifiers; the D-05 and D-09 negative controls are shown able to fire; `buildActivityFinding` returns a skipped finding instead of throwing | unit + local CLI | `-t "SEG-05a"` and `-t "negative control"`, both matched counts recorded | ⬜ | ⬜ pending |
-| 32-16-T1/T2 | 16 | 4 | all five | T-32-27 | The closing gate is re-run on the post-closure tree and every reopened artifact re-closed only against recorded evidence | gate | build, tsc, `npm test`, recount, `git status --porcelain data/streams` | ⬜ | ⬜ pending |
+| 32-10-T1/T2 | 10 | 1 | bookkeeping | T-32-28 | No Phase 32 artifact claims completion for work this verification falsified | grep | This plan's own acceptance greps (32-10-PLAN.md Tasks 1-2) | ✅ | ✅ green (32-10-SUMMARY.md: both task commits' acceptance greps passed, 0fcb24ba/4b935955) |
+| 32-11-T1/T2 | 11 | 1 | SEG-01 | T-32-22 | Shape-level malformed input (null/non-array `t`, `d`, `gaps`; null `params`; a `[null]` gap entry) returns a fresh `[]` and never throws | unit | `npx vitest run src/analytics/unreliable-segments.test.ts -t "shape-level"`, matched count recorded, watched RED before the guards land | ✅ | ✅ green (**31 matched, 31 passed**, re-run 2026-09-20 on the merged tree; RED confirmed in 32-11-SUMMARY.md: 22 failed/9 passed pre-fix; all five verifier-listed dist-level inputs re-reproduced returning `[]` without throwing, two successive invalid calls confirmed to return distinct array objects — `GAP1-ALL-FIVE-EMPTY-NO-THROW-DISTINCT-OBJECTS-OK`) |
+| 32-12-T1/T2 | 12 | 1 | SEG-02, SEG-04 | T-32-23 | Importing either generator performs no `readFileSync`/`readdirSync`/`writeFileSync` | unit | `npx vitest run scripts/unreliable-segment-import-guards.test.mjs`; the control probes must be observed CALLING `readFileSync`, which is what makes the negative assertion falsifiable | ✅ | ✅ green (**5 matched, 5 passed**, re-run 2026-09-20; both controls confirmed recording a `readFileSync` call against `package.json`; watched-failing demonstration re-run in this plan — see Approval note below and SUMMARY — then reverted, `git diff` on the file empty after revert) |
+| 32-13-T1/T2/T3 | 13 | 2 | SEG-01, SEG-02 | T-32-24 | A duplicate timestamp on a gap boundary changes neither mechanism nor conserved metres/seconds | unit + dist | `npx vitest run src/analytics/unreliable-segments.test.ts -t "boundary convention"`, matched count recorded, plus the dist-level reproduction of both verifier fixtures | ✅ | ✅ green (**6 matched, 6 passed**, re-run 2026-09-20; both verifier fixtures A/B re-reproduced against `dist/analytics/unreliable-segments.js` — `GAP3-A-AND-B-GAP-ADJACENT-21M-13S-1GAP-OK`) |
+| 32-14-T1/T2/T3 | 14 | 3 | SEG-04 | T-32-25 | `findValley` cannot manufacture a valley from out-of-interval mass; `parseDecisionText` refuses a non-finite span; `namedItemSegmentMetres` fails closed on ambiguous overlap | script | `npx vitest run scripts/compute-unreliable-segment-calibration.test.mjs` plus the generator run twice with `git diff --exit-code` on the artifact | ✅ | ✅ green (**7 matched, 7 passed** for `-t "findValley"`, re-run 2026-09-20; generator run twice, `git diff --exit-code` on 32-CALIBRATION.md clean — byte-identical, sha256 `f8f6d5db...`. Carry-forward: this row's own plan-verify literal `grep -c "valleyFound: false"` can never match this artifact's rendered prose (32-14-SUMMARY.md's own documented finding); re-confirmed here via the semantic equivalent `grep -c "NO clean valley found" 32-CALIBRATION.md` → `1`) |
+| 32-15-T1/T2/T3 | 15 | 3 | SEG-03, SEG-04, SEG-05a | T-32-26 | The SEG-05a importer scan catches double-quoted and backtick specifiers; the D-05 and D-09 negative controls are shown able to fire; `buildActivityFinding` returns a skipped finding instead of throwing | unit + local CLI | `-t "SEG-05a"` and `-t "negative control"`, both matched counts recorded | ✅ | ✅ green (**`-t "SEG-05a"` 9 matched, 9 passed** (≥7 baseline); **`-t "negative control"` 6 matched, 6 passed** (≥3 required), re-run 2026-09-20 on `src/analytics/pace-single-source.test.ts` and `src/analytics/unreliable-segments.test.ts` respectively. Carry-forward: 32-15's D-05/D-09 discriminator correction stands as documented — `7409028052` and the D-09 pair are protected by the 3.0 m excess floor, not the 7.35 m/s speed limit; only `3647739864` is speed-protected. CR-03 CLOSED: 32-15's bare worktree had no `export_data/` and could only prove the missing/malformed-stream directions; this checkout DOES have `export_data/strava/`, and `buildActivityFinding('3475724402', ...)` was re-run here directly against the real `.fit.gz` original (`activities/3711971403.fit.gz`) — `skipped: null`, `fitSampleCount: 3655`, 16 segments, all `gap-adjacent`, matching the recount table row-for-row. This is the "real activity, normal finding shape" demonstration 32-15 could not complete; it is closed now, not carried forward) |
+| 32-16-T1/T2 | 16 | 4 | all five | T-32-27 | The closing gate is re-run on the post-closure tree and every reopened artifact re-closed only against recorded evidence | gate | build, tsc, `npm test`, recount, `git status --porcelain data/streams` | ✅ | ✅ green (build/tsc/npm test/recount/checksums/streams all re-run 2026-09-20 on the merged tree at `080ea7da` — see Approval note below for the full recorded gate output) |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -138,3 +139,106 @@ already an ancestor of local master) and the D-12 1 Hz findings.
 post-gap-closure tree, and every artifact reopened by this plan (this file, `ROADMAP.md`,
 `REQUIREMENTS.md`, `STATE.md`) is re-closed only against that recorded evidence — not against this
 superseded paragraph.
+
+---
+
+## Re-Approval 2026-09-20 (plan 32-16, post-gap-closure)
+
+**Closing gate, re-run on the merged post-gap-closure tree (HEAD `080ea7da`, primary checkout, not a
+worktree):**
+
+- `npm run build` (tsc) — exit 0
+- `npx tsc --noEmit` — exit 0
+- `npm test` — `91 files passed (91)`, `2847 tests passed (2847)` (up from the pre-gap-closure
+  90/2,788 baseline: +1 file (`scripts/unreliable-segment-import-guards.test.mjs`, 32-12), +59 tests
+  net — every plan's own recorded delta (32-11 +31 shape-level, 32-12 −2 vacuous +5 guard-file,
+  32-13 +6 boundary-convention (net of the mechanism-collision rename), 32-14 +14 CR-04/CR-06/WR-07,
+  32-15 +5 SEG-05a-quoting/negative-control) sums to +59, matching this run exactly)
+- `node scripts/compute-unreliable-segment-recount.mjs` — exit 0, PASS, all 16 rows agree with
+  `32-CALIBRATION.md`'s detector table
+- `node scripts/compute-unreliable-segment-calibration.mjs` run, then `git diff --exit-code` on
+  `32-CALIBRATION.md` — clean (byte-identical); sha256 `f8f6d5db0df01f8735b664d2712f6c87dc2516c8263439b5a9dd3132365b027e`,
+  unchanged from the orchestrator's pre-plan check
+- `npm run compute-stream-checksums` — printed `added 0`
+- `git status --porcelain data/streams` — empty (`STREAMS-CLEAN`)
+
+**Three gaps re-reproduced closed directly against `dist/analytics/unreliable-segments.js`** (not
+the TypeScript source, not a SUMMARY's narration):
+
+- GAP 1 (total-function contract): all five verifier-listed inputs
+  (`detectUnreliableSegments(t,d,null,P)`, `(t,d,[],null)`, `(t,d,[null],P)`,
+  `(null,null,[],P)`, `advanceSteps(t,d,null)`) returned a fresh `[]` without throwing; two
+  successive invalid calls confirmed to return distinct array objects — `GAP1-ALL-FIVE-EMPTY-NO-THROW-DISTINCT-OBJECTS-OK`
+- GAP 3 (gap-boundary convention): both verifier fixtures (`{t:[0,1,1,13], d:[0,20,20,21], gaps:[{startSec:1,endSec:13}]}`
+  and `{t:[0,1,13], d:[0,20,21], gaps:[{startSec:1,endSec:13}]}`) returned exactly one segment each,
+  `mechanism: 'gap-adjacent'`, `metres: 21`, `seconds: 13`, `gapCount: 1` —
+  `GAP3-A-AND-B-GAP-ADJACENT-21M-13S-1GAP-OK`
+- GAP 2 (import-time guard): `npx vitest run scripts/unreliable-segment-import-guards.test.mjs`
+  passed 5/5, with both control tests confirmed recording a real `readFileSync` call against
+  `package.json`. The watched-failing demonstration was re-run in this plan: the recount guard's
+  `expect(calls).toEqual([])` assertion was pointed at
+  `./lib/import-time-read-probe-named.mjs` instead of the real recount script and re-run —
+  ```
+  FAIL  scripts/unreliable-segment-import-guards.test.mjs > compute-unreliable-segment-recount.mjs performs no disk read at import > records zero fs calls
+  AssertionError: expected [ { fn: 'readFileSync', …(1) } ] to deeply equal []
+  - []
+  + [ { "arg0": "file:///Users/pedf/workspace/strava-widgets/package.json", "fn": "readFileSync" } ]
+  ```
+  then reverted (`git diff` on the file empty after revert; whole-file re-run confirmed 5/5 green
+  again).
+
+**Every `-t` filter named in 32-16-PLAN.md's action, matched count recorded (all non-zero):**
+`shape-level` 31, `boundary convention` 6, `findValley` 7, `SEG-05a` 9 (≥7 baseline), `negative
+control` 6 (≥3 required), `3475724402` 4, `mechanism` 12, `decimation` 3. No Per-Task row's Status
+cell reads pending anymore — all seven gap-closure rows are ✅ green.
+
+**Plan-verify-literal note (documented, not silently satisfied — same pattern as 32-14's
+`valleyFound: false` finding and 32-15's `.test.mjs` baseline):** 32-16-PLAN.md's own acceptance
+criterion asks for a zero count of the pending-status marker-plus-word combination across this
+file. It is not zero: the Per-Task table's own legend caption (present since Wave 0, unchanged by
+any gap-closure plan) spells out all four status markers including the pending one, so counting
+that exact combination returns 1 even in a fully-closed file — confirmed identical at the phase's
+ORIGINAL 2026-09-20 close (`60e3ef6a`, pre-reopen), before any row was ever pending. The
+substantive criterion — no per-task row's own Status cell still reading pending — holds; the
+plan's literal count does not account for the legend caption sharing that combination.
+
+**Shipped constants and valleyFound, re-confirmed unchanged:**
+`grep -E "UNRELIABLE_SPEED_LIMIT_MPS = 7.35|UNRELIABLE_EXCESS_FLOOR_M = 3;|HIDDEN_PAUSE_MIN_METRES = 116.95" src/analytics/unreliable-segments.ts | wc -l`
+→ `3`. `grep -c "NO clean valley found" 32-CALIBRATION.md` → `1` (the semantic equivalent of
+`valleyFound: false` — see the 32-14 row's carried-forward note on why the literal string can never
+appear in this artifact's rendered prose; `valleyFound` is still false).
+
+**Carry-forward items from the six sibling gap-closure plans, reflected honestly, not silently
+ticked away:**
+
+1. **32-14's Task 3 verify-literal mismatch** — `grep -c "valleyFound: false"` can never match this
+   artifact (it is only ever rendered as prose: "NO clean valley found — anchor-interval midpoint
+   fallback"). Not re-litigated as a plan defect; the semantic check above stands in for it, as it
+   did in 32-14-SUMMARY.md.
+2. **32-15's D-05/D-09 discriminator correction** — the plan's originally proposed single check
+   (`vMax < UNRELIABLE_SPEED_LIMIT_MPS`) is false for 2 of 3 real fixtures (`7409028052` vMax=8.70
+   m/s, the D-09 pair vMax=8.80 m/s — both protected by the 3.0 m excess floor instead, not the
+   speed limit; only `3647739864` is speed-protected). This correction is shipped in the test file
+   as-is; not reverted or re-litigated here.
+3. **32-15's CR-03 environment limitation — CLOSED in this plan.** 32-15's bare worktree had no
+   `export_data/`, so its "real activity, normal finding shape" demonstration used a dummy
+   `.fit.gz` and only proved the code path reaches segment detection before skipping at FIT decode.
+   This primary checkout DOES have `export_data/strava/`; re-ran
+   `buildActivityFinding('3475724402', 'data/streams', 'data/activities', csvMap, 'export_data/strava')`
+   directly against the real `activities/3711971403.fit.gz` original: `skipped: null`,
+   `fitSampleCount: 3655`, 16 segments returned, all `gap-adjacent`, matching the recount table
+   row-for-row. The full "normal finding shape" 32-15 could not reach is now demonstrated; also
+   re-confirmed the missing-stream direction still returns a skipped finding rather than throwing
+   (`{"id":"0000000000","skipped":"no Filename in activities.csv"}`).
+4. **32-15's `grep -c "\.test\.mjs"` baseline mismatch** — the plan's stated expectation of `0` does
+   not match `scripts/validate-unreliable-segments-1hz.mjs`'s actual pre-existing baseline of `3`
+   (unchanged docblock prose about D-12, confirmed via `git show HEAD~7:...` still `3` on this
+   checkout). Not a defect introduced by any gap-closure plan; documented, not silently ticked past.
+
+**Approval:** the phase's closing gate passes on the post-gap-closure tree at `080ea7da`. All three
+verifier-scored blockers (GAP 1, GAP 2, GAP 3) are re-reproduced closed directly against the
+compiled `dist/` module and the committed test suite, not trusted from a SUMMARY's narration. No
+calibrated constant moved; `valleyFound` is still false. This file is re-closed
+(`status: complete`, `closed: 2026-09-20`, `reopened: 2026-09-20` retained). **The phase itself is
+NOT re-closed by this paragraph** — that is `/gsd-verify-work`'s call, which has not yet re-run
+against this tree.
