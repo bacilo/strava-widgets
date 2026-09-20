@@ -41,6 +41,7 @@ import {
   measureDecimationOverlap,
   mustFlagItems,
   mustSpareItems,
+  namedItemSegmentMetres,
   nearMissSweep,
   parseDecisionText,
   perSampleFastRuns,
@@ -347,6 +348,52 @@ describe('parseDecisionText', () => {
 
   it('throws when a required Decision line is missing rather than silently defaulting', () => {
     expect(() => parseDecisionText('disposition: option-refixture\nstatistic: S-A')).toThrow();
+  });
+
+  // CR-06 gap closure (32-14): parseDecisionText must fail loudly on a malformed parsed span
+  // instead of silently accepting NaN/undefined, which would render a D-05 negative control
+  // "spared" without ever measuring anything (32-REVIEW.md CR-06).
+  describe('CR-06 — validates the parsed span, refusing NaN/undefined/inverted windows', () => {
+    const wrap = (fixturesLine) =>
+      ['disposition: option-refixture', fixturesLine, 'statistic: S-A'].join('\n');
+
+    it('still parses the real 32-05 Decision fixtures line (plain hyphens) unaffected', () => {
+      const decision = parseDecisionText(wrap('fixtures: 7409028052:586-624, 3647739864:945-971'));
+      expect(decision.fixtures).toEqual([
+        { id: '7409028052', startSec: 586, endSec: 624 },
+        { id: '3647739864', startSec: 945, endSec: 971 },
+      ]);
+      for (const f of decision.fixtures) {
+        expect(Number.isFinite(f.startSec)).toBe(true);
+        expect(Number.isFinite(f.endSec)).toBe(true);
+        expect(f.endSec).toBeGreaterThan(f.startSec);
+      }
+    });
+
+    it('throws naming the offending entry on an EN-DASH span (the defect: pre-fix this silently yields NaN)', () => {
+      // – is an en-dash, not a hyphen.
+      const entry = '7409028052:586–624';
+      expect(() => parseDecisionText(wrap(`fixtures: ${entry}`))).toThrow(
+        new RegExp(entry.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      );
+    });
+
+    it('throws naming the offending entry on a missing colon', () => {
+      expect(() => parseDecisionText(wrap('fixtures: 7409028052'))).toThrow(/7409028052/);
+    });
+
+    it('throws naming the offending entry on a missing span', () => {
+      expect(() => parseDecisionText(wrap('fixtures: 7409028052:'))).toThrow(/7409028052/);
+    });
+
+    it('throws naming the offending entry on a non-numeric bound', () => {
+      expect(() => parseDecisionText(wrap('fixtures: 7409028052:abc-624'))).toThrow(/7409028052:abc-624/);
+    });
+
+    it('throws naming the offending entry when endSec <= startSec', () => {
+      expect(() => parseDecisionText(wrap('fixtures: 7409028052:624-586'))).toThrow(/7409028052:624-586/);
+      expect(() => parseDecisionText(wrap('fixtures: 7409028052:600-600'))).toThrow(/7409028052:600-600/);
+    });
   });
 });
 
@@ -841,6 +888,64 @@ describe('deriveHiddenPauseBoundary (D-08) — anchor emptiness and valley integ
     expect(result.valleyFound).toBe(true);
     expect(result.B).toBeGreaterThan(30);
     expect(result.B).toBeLessThan(100);
+  });
+});
+
+// CR-06/WR-07 gap closure (32-14): namedItemSegmentMetres feeds the D-08 anchor interval directly
+// (deriveHiddenPauseBoundary), so an arbitrary tie-break on ambiguous overlap would put an
+// unexplained choice behind the shipped HIDDEN_PAUSE_MIN_METRES. Must fail closed instead.
+describe('namedItemSegmentMetres — fail-closed on ambiguous overlap (32-REVIEW.md WR-07)', () => {
+  const L = 4;
+  const F = 0;
+
+  // Two well-separated fast bursts on one activity, padded between with a slow (0.5 m/s, well
+  // under L) lead-in/gap so each burst stands alone as its own segment.
+  function buildTwoSegmentActivity(id) {
+    // pad 0-10 @0.5m/s = 5m; burst 10-15 metres=50 (10m/s, excess=50-4*5=30 -> fast);
+    // pad 15-30 @0.5m/s = 7.5m; burst 30-35 metres=60 (12m/s, excess=60-4*5=40 -> fast).
+    return { id, t: [0, 10, 15, 30, 35], d: [0, 5, 55, 62.5, 122.5], gaps: [] };
+  }
+
+  it('returns the metres of the single overlapping segment when exactly one overlaps', () => {
+    const activity = buildTwoSegmentActivity('act-1');
+    const byId = new Map([[activity.id, activity]]);
+    const item = { id: 'act-1', window: { startSec: 5, endSec: 20 } };
+
+    expect(namedItemSegmentMetres(byId, item, L, F)).toBe(50);
+  });
+
+  it('returns null when no segment overlaps the window', () => {
+    const activity = buildTwoSegmentActivity('act-1');
+    const byId = new Map([[activity.id, activity]]);
+    const item = { id: 'act-1', window: { startSec: 16, endSec: 29 } };
+
+    expect(namedItemSegmentMetres(byId, item, L, F)).toBeNull();
+  });
+
+  it('returns null when the item id is absent from the archive', () => {
+    const byId = new Map();
+    const item = { id: 'missing-id', window: { startSec: 0, endSec: 100 } };
+
+    expect(namedItemSegmentMetres(byId, item, L, F)).toBeNull();
+  });
+
+  it('throws naming the item id and every overlapping segment when two or more overlap', () => {
+    const activity = buildTwoSegmentActivity('act-2');
+    const byId = new Map([[activity.id, activity]]);
+    const item = { id: 'act-2', window: { startSec: 5, endSec: 32 } };
+
+    expect(() => namedItemSegmentMetres(byId, item, L, F)).toThrow(/act-2/);
+    try {
+      namedItemSegmentMetres(byId, item, L, F);
+      throw new Error('expected namedItemSegmentMetres to throw');
+    } catch (error) {
+      expect(error.message).toMatch(/10/);
+      expect(error.message).toMatch(/15/);
+      expect(error.message).toMatch(/50/);
+      expect(error.message).toMatch(/30/);
+      expect(error.message).toMatch(/35/);
+      expect(error.message).toMatch(/60/);
+    }
   });
 });
 

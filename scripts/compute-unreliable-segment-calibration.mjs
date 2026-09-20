@@ -1146,7 +1146,7 @@ function noGapSegmentMetres(archive, L, F) {
 }
 
 /** The metres of the segment overlapping `item.window` at `(L, F)`, or `null` if none. */
-function namedItemSegmentMetres(byId, item, L, F) {
+export function namedItemSegmentMetres(byId, item, L, F) {
   const activity = byId.get(item.id);
   if (!activity) return null;
   const segments = detectUnreliableSegments(activity.t, activity.d, activity.gaps, {
