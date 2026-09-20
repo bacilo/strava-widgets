@@ -424,6 +424,13 @@ describe('detectUnreliableSegments — total function', () => {
   });
 
   it('conservation holds for every segment produced by the adjacency fixtures (within 1e-9)', () => {
+    // 6 fixtures (up from the original 4): the two added by round-2 CR-01 (`32-REVIEW.md`) are
+    // the "not swallowed" two-SEPARATE-segments case (exercises the cross-segment startIndex
+    // ordering check below on a legitimately non-overlapping pair) and the reviewer's exact
+    // two-adjacent-gaps-sharing-a-duplicate-boundary overlap fixture (fails closed to [], so it
+    // contributes zero segments here — see the dedicated "round-2 CR-01" test above for its own
+    // assertion, and this test's own Reachability Evidence for the temporarily-reverted-guard
+    // proof that the cross-segment check below CAN fail on this exact fixture).
     const cases: Array<[number[], number[], GapSpan[]]> = [
       [
         [0, 1, 2, 3, 4, 5, 15, 16],
@@ -448,6 +455,22 @@ describe('detectUnreliableSegments — total function', () => {
           { startSec: 3, endSec: 4 },
         ],
       ],
+      [
+        [0, 1, 2, 3, 4, 5, 6, 7],
+        [0, 10, 10, 20, 23, 33, 33, 36],
+        [
+          { startSec: 1, endSec: 2 },
+          { startSec: 5, endSec: 6 },
+        ],
+      ],
+      [
+        [0, 1, 5, 5, 10, 11],
+        [0, 20, 25, 45, 50, 140],
+        [
+          { startSec: 1, endSec: 5 },
+          { startSec: 5, endSec: 10 },
+        ],
+      ],
     ];
     const params: DetectorParams = {
       speedLimitMps: 5,
@@ -460,12 +483,28 @@ describe('detectUnreliableSegments — total function', () => {
       const segments = detectUnreliableSegments(t, d, gaps, params);
       for (const seg of segments) {
         assertedAtLeastOneSegment = true;
+        // Within-segment check (32-13's own "conservation holds" sweep design). NOT sufficient
+        // on its own: round-2 CR-01's two overlapping segments each individually satisfied this
+        // exact assertion while jointly double-counting the shared interval's distance — see the
+        // cross-segment check below, which is the actual guard against that failure mode.
         expect(Math.abs(seg.metres - (seg.burstMetres + seg.gapMetres))).toBeLessThan(1e-9);
         expect(Math.abs(seg.seconds - (seg.burstSeconds + seg.gapSeconds))).toBeLessThan(1e-9);
         for (let i = 1; i < seg.parts.length; i++) {
           expect(seg.parts[i].startIndex).toBe(seg.parts[i - 1].endIndex);
         }
       }
+
+      // Cross-segment check (round-2 CR-01): asserted ACROSS the whole `segments` array for this
+      // fixture, against an INDEPENDENTLY-DERIVED total (the stream's own d[last]-d[first]), not
+      // against the segments' own self-reported arithmetic. No segment's startIndex may precede
+      // the previous segment's endIndex, and the segments' combined metres may never exceed what
+      // the stream itself actually covers.
+      for (let i = 1; i < segments.length; i++) {
+        expect(segments[i].startIndex).toBeGreaterThanOrEqual(segments[i - 1].endIndex);
+      }
+      const totalSegmentMetres = segments.reduce((sum, seg) => sum + seg.metres, 0);
+      const actualStreamMetres = d[d.length - 1] - d[0];
+      expect(totalSegmentMetres).toBeLessThanOrEqual(actualStreamMetres + 1e-9);
     }
     expect(assertedAtLeastOneSegment).toBe(true);
   });
