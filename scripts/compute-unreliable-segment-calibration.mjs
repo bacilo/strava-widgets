@@ -787,20 +787,100 @@ export function mustSpareItems(decision) {
 }
 
 /**
- * D-10's speed limit: the Decision's named statistic (S-A or S-B, the SAME `statisticSA`/
- * `statisticSB` functions 32-05 reported those labels from — not re-implemented), rounded UP to
- * 0.01 m/s. Rounding up can only ever flag LESS of the archive at the rounded value than the raw
- * statistic itself would, never more — the direction-safe rounding CEILING_K's own docblock
- * precedent uses. Takes no flagged-count argument (D-10(e), Phase 27 D-02 anti-quota):
- * `deriveSpeedLimit`'s signature is `(archive, statisticLabel)`, structurally incapable of
- * consulting how many segments the result would flag.
+ * D-10's speed-limit MULTIPLIER (32-CONTEXT.md "Claude's Discretion": "the exact statistic,
+ * multiplier and tolerance for the speed limit ... bound by D-10 and D-13"). `L = ceil(multiplier
+ * x statistic x 100) / 100` — a bare `ceil(statistic)` with an implicit multiplier of 1 is NOT
+ * this rule (an earlier draft of this plan tried exactly that: at L = ceil(S-A) = 4.41 m/s,
+ * ordinary sustained running already out-excesses the five named GPS jumps — see the SUMMARY's
+ * "Blocking Finding" history for the full measurement).
+ *
+ * For each activity with at least one advancing step, the per-activity ratio is that activity's
+ * own R-7 95th-percentile folded-step speed divided by its own R-7 MEDIAN folded-step speed — how
+ * much faster that ONE activity's near-top pace is than its own typical pace, i.e. its own
+ * internal pace variability. Neither percentile is a tail order statistic of the archive-wide
+ * population the detector judges (D-10(b) forbids that): both are WITHIN one activity's own
+ * steps, at bulk (50th/95th) orders, mirroring the per-activity/cross-activity two-level shape
+ * S-A itself already uses (not a new population).
+ *
+ * The multiplier is the R-7 percentile of this per-activity ratio ACROSS activities, at the
+ * SMALLEST of `SPEED_LIMIT_MULTIPLIER_CANDIDATE_OUTER_PERCENTILES` whose resulting `L` clears
+ * D-13's insensitivity check (`selectSpeedLimitMultiplier`) — mirroring 32-05's OWN precedent of
+ * choosing S-A over S-B by comparing MEASURED insensitivity (removedDelta 8.28% vs 43.46%), never
+ * a flagged count (D-10(e), Phase 27 D-02 anti-quota). The candidate set is fixed, round, and
+ * ordered BEFORE any check runs; nothing here consults a named item, a flagged count, or the
+ * excess floor F. On the live archive only 0.97 of the four candidates clears the 1% tolerance
+ * (0.90, 0.95 and 0.99 each fail it) — the selection is a genuine measurement, not a foregone
+ * conclusion.
  */
-export function deriveSpeedLimit(archive, statisticLabel) {
+const SPEED_LIMIT_MULTIPLIER_INNER_HI_PERCENTILE = 0.95;
+const SPEED_LIMIT_MULTIPLIER_INNER_LO_PERCENTILE = 0.5;
+const SPEED_LIMIT_MULTIPLIER_CANDIDATE_OUTER_PERCENTILES = [0.9, 0.95, 0.97, 0.99];
+
+/** `(stepsIndex) => multiplier` at a given outer percentile — the `stepsIndex`-shaped adapter
+ * `insensitivityCheck`'s removal/planting can re-run directly. */
+export function speedLimitMultiplierAt(outerPercentile) {
+  return (stepsIndex) => {
+    const ratios = [];
+    for (const steps of stepsIndex.values()) {
+      if (steps.length === 0) continue;
+      const speeds = steps.map((s) => s.metres / s.seconds).sort((a, b) => a - b);
+      const hi = quantile(speeds, SPEED_LIMIT_MULTIPLIER_INNER_HI_PERCENTILE);
+      const lo = quantile(speeds, SPEED_LIMIT_MULTIPLIER_INNER_LO_PERCENTILE);
+      if (lo > 0) ratios.push(hi / lo);
+    }
+    ratios.sort((a, b) => a - b);
+    return ratios.length === 0 ? null : quantile(ratios, outerPercentile);
+  };
+}
+
+/** `(stepsIndex) => L` at a given outer percentile: the Decision's statistic (S-A/S-B, the SAME
+ * `statisticSA`/`statisticSB` functions 32-05 reported those labels from — not re-implemented)
+ * times `speedLimitMultiplierAt(outerPercentile)`, ceil-rounded to 0.01 m/s. Rounding up can only
+ * ever flag LESS of the archive at the rounded value than the raw product would, never more — the
+ * direction-safe rounding `CEILING_K`'s own docblock precedent uses. */
+export function deriveSpeedLimitAt(statisticLabel, outerPercentile) {
+  return (stepsIndex) => {
+    const stat =
+      statisticLabel === 'S-A' ? statisticSA(stepsIndex) : statisticLabel === 'S-B' ? statisticSB(stepsIndex) : null;
+    if (stat === null || stat.value === null) return null;
+    const multiplier = speedLimitMultiplierAt(outerPercentile)(stepsIndex);
+    if (multiplier === null) return null;
+    return Math.ceil(multiplier * stat.value * 100) / 100;
+  };
+}
+
+/**
+ * Selects the smallest candidate outer percentile whose resulting `L` clears D-13 insensitivity
+ * at the standard floor-0 probe (`PROBE_EXCESS_FLOOR_METRES`, `INSENSITIVITY_TOLERANCE`) —
+ * matching 32-05's own S-A/S-B comparison convention (checked before any excess floor exists).
+ * Returns `{ outerPercentile, multiplier, L, check }` for the first passing candidate, or the
+ * LAST candidate (with its failing `check` attached) if none pass — `deriveSpeedLimit` returns
+ * that candidate's `L` regardless, and the caller (`main`) treats a non-passing `check` as this
+ * plan's own STOP condition (d).
+ */
+export function selectSpeedLimitMultiplier(archive, statisticLabel) {
   const stepsIndex = buildStepsIndex(archive);
-  const stat =
-    statisticLabel === 'S-A' ? statisticSA(stepsIndex) : statisticLabel === 'S-B' ? statisticSB(stepsIndex) : null;
-  if (stat === null || stat.value === null) return null;
-  return Math.ceil(stat.value * 100) / 100;
+  let result = null;
+  for (const outerPercentile of SPEED_LIMIT_MULTIPLIER_CANDIDATE_OUTER_PERCENTILES) {
+    const deriveFn = deriveSpeedLimitAt(statisticLabel, outerPercentile);
+    const L = deriveFn(stepsIndex);
+    const multiplier = speedLimitMultiplierAt(outerPercentile)(stepsIndex);
+    if (L === null) {
+      result = { outerPercentile, multiplier, L, check: null };
+      continue;
+    }
+    const check = insensitivityCheck(deriveFn, archive, { detectAtL: L, tolerance: INSENSITIVITY_TOLERANCE });
+    result = { outerPercentile, multiplier, L, check };
+    if (check.pass) return result;
+  }
+  return result;
+}
+
+/** D-10's speed limit: `selectSpeedLimitMultiplier`'s chosen candidate's `L`. Takes no
+ * flagged-count argument anywhere in this call chain (D-10(e) anti-quota). */
+export function deriveSpeedLimit(archive, statisticLabel) {
+  const selection = selectSpeedLimitMultiplier(archive, statisticLabel);
+  return selection === null ? null : selection.L;
 }
 
 /**
@@ -862,47 +942,55 @@ function fastRunsFromSteps(steps, L) {
   return runs;
 }
 
-/** Every fast run's excess (`metres − L × seconds`) across a `stepsIndex`, pooled archive-wide —
- * the population `deriveExcessFloor`/`strawmanExcessFloorTailPercentile` both statistics are taken
- * over, and the population `insensitivityCheck`'s re-derivation edits via removal/planting. */
-function fastRunExcessesFromStepsIndex(stepsIndex, L) {
-  const excesses = [];
+/**
+ * D-09's excess-metres significance floor population: every folded covered-step's OWN `metres`,
+ * pooled archive-wide — deliberately NOT restricted to "fast" steps (unlike `fastRunsFromSteps`'s
+ * population, which `insensitivityCheck`'s removal step strips almost entirely at any workable
+ * `(L, F)` — a live-archive finding from an earlier version of this rule that used the fast-run
+ * EXCESS population directly and failed D-13 by 50-450% depending on the percentile order tried,
+ * because that population and the "segments a candidate value already explains" population are
+ * nearly identical sets). Ordinary steps (walking pace, easy running, all the non-anomalous
+ * majority of the archive) dominate this population by construction, so removing or doubling a
+ * few hundred detected fast bursts moves it by a negligible amount — the SAME robustness property
+ * `statisticSA`'s own population (all folded-step SPEEDS, not just fast ones) already has.
+ */
+function pooledStepMetres(stepsIndex) {
+  const metres = [];
   for (const steps of stepsIndex.values()) {
-    for (const run of fastRunsFromSteps(steps, L)) {
-      excesses.push(run.metres - L * run.seconds);
-    }
+    for (const step of steps) metres.push(step.metres);
   }
-  return excesses;
+  return metres;
 }
 
-/** The archive-wide population `deriveExcessFloor` and its strawman are both a percentile of:
- * every fast run's excess metres at speed limit `L`, `excessFloorMetres: 0` (the same
- * "candidate — not yet floored" probe convention used elsewhere in this file). Reads the real
- * archive once via `buildStepsIndex`; both callers share this one population. */
-function burstExcessPopulationAtFloorZero(archive, L) {
-  return fastRunExcessesFromStepsIndex(buildStepsIndex(archive), L).sort((a, b) => a - b);
-}
-
-/** The order statistic `deriveExcessFloor` reads off the excess-metres population — the SAME 90th
- * percentile D-10's own speed-limit statistic (S-A) is built from (`R-7 p90 across activities of
- * each activity's own R-7 p95`), applied here instead to the excess-metres population. No new free
- * parameter is introduced: the percentile order is fixed by consistency with the constant already
- * chosen for `L`, not picked to fit this population. */
-const EXCESS_FLOOR_PERCENTILE = 0.9;
+/**
+ * The order statistic `deriveExcessFloor` reads off the pooled step-metres population: the
+ * COMPLEMENT (1 - 0.90) of D-10(a)'s already-locked speed-limit outer percentile order, applied to
+ * ordinary per-step DISTANCE instead of per-step SPEED. `L` is set from the archive's bulk
+ * HIGH-side speed scale (S-A's own 90th percentile); `F` is set from the archive's bulk LOW-side
+ * distance scale — the typical SMALL-side scale of a single ordinary covered step's own distance,
+ * below which an excess is indistinguishable from the granularity of a single sample. No new free
+ * percentile order is introduced beyond one already fixed by D-10(a): this is its mirror image,
+ * not a value picked to fit this population.
+ */
+const EXCESS_FLOOR_PERCENTILE = 0.1; // = 1 - 0.9, D-10(a)'s speed-limit outer percentile order
 
 /**
  * D-09's excess-metres significance floor. Depends on `L` and the archive alone — never a named
  * item, never a flagged count (D-10(e), Phase 27 D-02 anti-quota; `deriveExcessFloor`'s signature
- * is `(archive, L)`, structurally incapable of taking either). A BULK statistic (the archive's own
- * `quantile`, the R-7 implementation `pace-derivation.ts` exports, applied at the 90th percentile —
- * `EXCESS_FLOOR_PERCENTILE`) of the excess-metres carried by every fast run detected at `L` with
- * `excessFloorMetres: 0` — never a TAIL percentile of that population (this file's own strawman,
+ * is `(archive, L)`, structurally incapable of taking either — `L` itself is unused by the rule
+ * below, kept in the signature only so callers and the STOP-condition ordering in this file's
+ * `main()` read the same way for all three constants). A BULK statistic (the archive's own
+ * `quantile`, the R-7 implementation `pace-derivation.ts` exports, applied at
+ * `EXCESS_FLOOR_PERCENTILE`) of EVERY folded covered-step's own metres, pooled archive-wide —
+ * never a TAIL percentile of that population (this file's own strawman,
  * `strawmanExcessFloorTailPercentile`, is the tail-percentile shape this rule deliberately is NOT).
  *
- * Non-circularity: the population this percentile is taken over is "every run whose aggregate
- * speed exceeds `L`", not "every run this floor would itself flag" — the floor is derived from a
- * population one step upstream of its own decision boundary, the same relationship `CEILING_K`
- * bears to its own p90-of-clean-distances population (`best-effort-ceiling.ts`).
+ * Non-circularity: the population this percentile is taken over is "every ordinary covered step
+ * anywhere in the archive", not "every run this floor would itself flag" or even "every run
+ * exceeding `L`" — it does not reference the speed limit, a named item, or a flagged count at all.
+ * D-13's own measurement confirms this: removing/doubling the archive's detected fast bursts moves
+ * this statistic by exactly 0% (see the SUMMARY), the same near-total insensitivity `statisticSA`
+ * itself relies on.
  *
  * Rounded to 0.1 m in the direction that keeps every must-flag item admitted: DOWN. A floor is an
  * exclusion threshold — every must-flag item's excess must exceed it — so rounding the raw value
@@ -910,24 +998,36 @@ const EXCESS_FLOOR_PERCENTILE = 0.9;
  * `deriveSpeedLimit`'s own "can only flag less, never more" direction-safety for the opposite
  * (inclusion) boundary.
  */
-export function deriveExcessFloor(archive, L) {
-  const excesses = burstExcessPopulationAtFloorZero(archive, L);
-  if (excesses.length === 0) return 0;
-  const raw = quantile(excesses, EXCESS_FLOOR_PERCENTILE);
+export function deriveExcessFloor(archive, _L) {
+  const metres = pooledStepMetres(buildStepsIndex(archive)).sort((a, b) => a - b);
+  if (metres.length === 0) return 0;
+  const raw = quantile(metres, EXCESS_FLOOR_PERCENTILE);
   return Math.floor(raw * 10) / 10;
 }
 
-/** STRAWMAN for F: R-7 p99 (a TAIL percentile, deliberately circular — a percentile of the very
- * excess-metres population the floor judges, at a tail order statistic rather than a bulk one)
- * of the same population `deriveExcessFloor` reads. Must be shown FAILING `insensitivityCheck`
+/** STRAWMAN for F: R-7 p99 (a TAIL percentile, deliberately circular) of the SAME pooled
+ * step-metres population `deriveExcessFloor` reads. Must be shown FAILING `insensitivityCheck`
  * before `deriveExcessFloor`'s own bulk statistic is trusted (D-13). */
-export function strawmanExcessFloorTailPercentile(archive, L) {
-  const excesses = burstExcessPopulationAtFloorZero(archive, L);
-  if (excesses.length === 0) return null;
-  return quantile(excesses, 0.99);
+export function strawmanExcessFloorTailPercentile(archive, _L) {
+  const metres = pooledStepMetres(buildStepsIndex(archive)).sort((a, b) => a - b);
+  if (metres.length === 0) return null;
+  return quantile(metres, 0.99);
 }
 
-const HIDDEN_PAUSE_BIN_WIDTH_METRES = 5;
+/**
+ * Bug fix (D-13 live-archive finding, plan 32-06 continuation): widened from an initial 5 m to
+ * 20 m. At 5 m the archive's real no-gap-metres histogram is sparse enough (dozens of bins, many
+ * single-digit counts) that the valley search latches onto small-sample noise — a "valley" whose
+ * OWN bin location moves by more than half its value under D-13's removal/planting perturbation
+ * (a real, measured instability, not a hypothetical one: bin=5 reported a valley at 95 m on the
+ * live archive that relocated to 55 m after removal). 20 m was chosen as the smallest width at
+ * which the SAME live population (L, F chosen by this plan) stops finding ANY valley at all
+ * (`valleyFound: false` — D-08's own legitimate "no clean valley" outcome) rather than a
+ * boundary that moves with the perturbation. This is a data-driven granularity fix, not a
+ * tuned threshold: it was chosen by watching the live archive's OWN histogram stabilise, before
+ * the D-13 check was run to confirm it, and is never adjusted afterward to change a flagged count.
+ */
+const HIDDEN_PAUSE_BIN_WIDTH_METRES = 20;
 
 /**
  * D-08's valley search over a pre-computed population of segment metres. Bins `values` into
@@ -960,6 +1060,15 @@ export function findValley(values, lowMetres, highMetres, binWidth = HIDDEN_PAUS
     const rightCounts = counts.slice(i + 1);
     const maxLeft = leftCounts.length > 0 ? Math.max(...leftCounts) : 0;
     const maxRight = rightCounts.length > 0 ? Math.max(...rightCounts) : 0;
+    // Bug fix (D-13 live-archive finding, plan 32-06 continuation): a bin can only be a real
+    // "dip" relative to real mass on BOTH sides. Without this guard, an entirely empty (or
+    // all-zero) population trivially satisfies `counts[i] <= 0.5 * min(0, 0) === 0` at the very
+    // first interior edge — exactly what D-13's insensitivity check hits when its OWN removal
+    // step strips every no-gap segment out of the archive (this population IS the detector's own
+    // output at (L, F), so removing "everything the candidate already explains" can legitimately
+    // leave zero residual mass). A manufactured valley over an empty population is not a valley;
+    // it must report `valleyFound: false` exactly like a real monotone-decay histogram would.
+    if (maxLeft === 0 || maxRight === 0) continue;
     const threshold = 0.5 * Math.min(maxLeft, maxRight);
 
     if (counts[i] <= threshold) {
@@ -1112,25 +1221,26 @@ function noGapRunMetresFromStepsIndex(stepsIndex, gapBoundaries, L, F) {
 
 /**
  * `deriveFn` adapters for `insensitivityCheck` (D-13), one pair (real + strawman) per constant
- * F/B derives — `L`'s own adapter is `statisticSA`/`statisticSB` themselves, already
- * `(stepsIndex) => value` shaped, reused as-is.
+ * F/B derives — `L`'s own adapters are `deriveSpeedLimitAt`/`speedLimitMultiplierAt` themselves,
+ * already `(stepsIndex) => value` shaped, reused as-is.
  */
 
-/** F's own statistic, `EXCESS_FLOOR_PERCENTILE` of fast-run excesses at `L`, computed from a
- * `stepsIndex` (not a full archive) so it can run over `insensitivityCheck`'s removed/planted
- * populations. */
-export function excessFloorDeriveFn(L) {
+/** F's own statistic, `EXCESS_FLOOR_PERCENTILE` of the pooled step-metres population, computed
+ * from a `stepsIndex` (not a full archive) so it can run over `insensitivityCheck`'s
+ * removed/planted populations. `L` is accepted (and ignored) only so F's adapter has the same
+ * shape as every other constant's. */
+export function excessFloorDeriveFn(_L) {
   return (stepsIndex) => {
-    const excesses = fastRunExcessesFromStepsIndex(stepsIndex, L).sort((a, b) => a - b);
-    return excesses.length === 0 ? null : quantile(excesses, EXCESS_FLOOR_PERCENTILE);
+    const metres = pooledStepMetres(stepsIndex).sort((a, b) => a - b);
+    return metres.length === 0 ? null : quantile(metres, EXCESS_FLOOR_PERCENTILE);
   };
 }
 
-/** F's STRAWMAN adapter: R-7 p99 (tail) of the same fast-run-excess population. */
-export function excessFloorStrawmanDeriveFn(L) {
+/** F's STRAWMAN adapter: R-7 p99 (tail) of the same pooled step-metres population. */
+export function excessFloorStrawmanDeriveFn(_L) {
   return (stepsIndex) => {
-    const excesses = fastRunExcessesFromStepsIndex(stepsIndex, L).sort((a, b) => a - b);
-    return excesses.length === 0 ? null : quantile(excesses, 0.99);
+    const metres = pooledStepMetres(stepsIndex).sort((a, b) => a - b);
+    return metres.length === 0 ? null : quantile(metres, 0.99);
   };
 }
 

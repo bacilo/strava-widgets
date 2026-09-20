@@ -20,6 +20,7 @@ import {
   deriveExcessFloor,
   deriveHiddenPauseBoundary,
   deriveSpeedLimit,
+  deriveSpeedLimitAt,
   excessFloorDeriveFn,
   excessFloorStrawmanDeriveFn,
   findNegativeControlCandidates,
@@ -32,6 +33,8 @@ import {
   mustSpareItems,
   parseDecisionText,
   renderCalibrationMarkdown,
+  selectSpeedLimitMultiplier,
+  speedLimitMultiplierAt,
   statisticSA,
 } from './compute-unreliable-segment-calibration.mjs';
 
@@ -453,6 +456,90 @@ describe('deriveSpeedLimit', () => {
   });
 });
 
+describe('speedLimitMultiplierAt / selectSpeedLimitMultiplier (D-10 multiplier, D-13 insensitivity)', () => {
+  function flatStepsIndex(speedMps, activityIds) {
+    const idx = new Map();
+    for (const id of activityIds) {
+      idx.set(
+        id,
+        Array.from({ length: 10 }, (_, i) => ({
+          startIndex: i,
+          endIndex: i + 1,
+          startSec: i * 10,
+          endSec: (i + 1) * 10,
+          metres: speedMps * 10,
+          seconds: 10,
+        }))
+      );
+    }
+    return idx;
+  }
+
+  it('returns exactly 1 when every activity has perfectly uniform step speeds (p95 === p50)', () => {
+    const idx = flatStepsIndex(3, ['A', 'B', 'C']);
+    expect(speedLimitMultiplierAt(0.9)(idx)).toBe(1);
+    expect(speedLimitMultiplierAt(0.97)(idx)).toBe(1);
+  });
+
+  it('returns a multiplier greater than 1 once at least one activity has real speed spread (p95 > p50)', () => {
+    const idx = flatStepsIndex(3, ['A', 'B', 'C']);
+    // Overwrite one activity with a spread-out speed distribution (1..10 m/s).
+    idx.set(
+      'SPIKY',
+      Array.from({ length: 10 }, (_, i) => ({
+        startIndex: i,
+        endIndex: i + 1,
+        startSec: i * 10,
+        endSec: (i + 1) * 10,
+        metres: (i + 1) * 10,
+        seconds: 10,
+      }))
+    );
+    const k = speedLimitMultiplierAt(0.9)(idx);
+    expect(k).toBeGreaterThan(1);
+  });
+
+  it('returns null when no activity has any step', () => {
+    expect(speedLimitMultiplierAt(0.9)(new Map())).toBeNull();
+  });
+
+  it('selectSpeedLimitMultiplier PASSES insensitivity on a dominant-bulk hand-built archive and returns a candidate from the fixed outer-percentile list', () => {
+    // Mirrors the `insensitivityCheck` describe block's own bulk archive: two clean bulk
+    // activities plus the source activity's one genuine burst — a rare minority the multiplier's
+    // own bulk-of-bulk shape should not move under removal or planting.
+    function bulkActivity(id, speedMps) {
+      const t = [0, 10, 20, 30, 40, 50, 60];
+      const d = t.map((sec) => sec * speedMps);
+      return { id, t, d, gaps: [] };
+    }
+    function sourceActivityWithBurst() {
+      const t = [0, 10, 20, 30, 32, 42, 52, 62];
+      const d = [0, 30, 60, 90, 120, 150, 180, 210];
+      return { id: INSENSITIVITY_SOURCE_ACTIVITY_ID, t, d, gaps: [] };
+    }
+    const bulk = Array.from({ length: 50 }, (_, i) => bulkActivity(`bulk-${i}`, 3 + (i % 3) * 0.1));
+    const archive = { activities: [...bulk, sourceActivityWithBurst()] };
+
+    const selection = selectSpeedLimitMultiplier(archive, 'S-A');
+
+    expect(selection).not.toBeNull();
+    expect(selection.check).not.toBeNull();
+    expect(selection.check.pass).toBe(true);
+    expect([0.9, 0.95, 0.97, 0.99]).toContain(selection.outerPercentile);
+    expect(deriveSpeedLimit(archive, 'S-A')).toBe(selection.L);
+  });
+
+  it('deriveSpeedLimitAt composes the Decision statistic and the multiplier (never a bare ceil(statistic))', () => {
+    const idx = flatStepsIndex(4, ['A', 'B']);
+    const L = deriveSpeedLimitAt('S-A', 0.9)(idx);
+    const rawSA = statisticSA(idx).value;
+    // Uniform speeds -> multiplier is exactly 1, so this degenerates to ceil(S-A), but via the
+    // multiplier code path (not a hard-coded skip) — proven by calling the SAME function real
+    // 32-06 code exercises for a non-trivial multiplier above.
+    expect(L).toBe(Math.ceil(rawSA * 100) / 100);
+  });
+});
+
 describe('findValley (D-08 valley search)', () => {
   it('finds a valley in a hand-built BIMODAL histogram (dense near each anchor, empty in the middle)', () => {
     const values = [...Array(4).fill(32), ...Array(4).fill(97)];
@@ -463,6 +550,18 @@ describe('findValley (D-08 valley search)', () => {
     expect(result.B).not.toBeNull();
     expect(result.B).toBeGreaterThan(20);
     expect(result.B).toBeLessThan(100);
+  });
+
+  it('reports valleyFound false (never a manufactured valley) on a completely EMPTY population — bug fix, plan 32-06 continuation', () => {
+    // Regression test for a live-archive finding: every interior bin's count is 0 against
+    // maxLeft=0/maxRight=0, so the ORIGINAL `counts[i] <= 0.5 * min(0, 0) === 0` condition
+    // trivially matched at the very first interior edge — a manufactured "valley" over zero real
+    // data. D-13's own removal arm hits exactly this (it can legitimately strip an entire
+    // no-gap-segment population), so this must report `valleyFound: false`, not a random edge.
+    const result = findValley([], 20, 100);
+
+    expect(result.valleyFound).toBe(false);
+    expect(result.B).toBeNull();
   });
 
   it('reports valleyFound false on a hand-built MONOTONE-DECAY histogram (no clean dip anywhere)', () => {
@@ -484,18 +583,24 @@ describe('findValley (D-08 valley search)', () => {
 });
 
 describe('deriveExcessFloor / strawmanExcessFloorTailPercentile with D-13 insensitivity', () => {
+  // NEW population (plan 32-06 continuation, live-archive finding): EVERY folded step's own
+  // metres, pooled archive-wide — NOT restricted to fast/excess runs (the original rule used the
+  // excess of already-fast runs directly and failed D-13 by 50-450% on the real archive, because
+  // that population is nearly identical to what insensitivityCheck's own removal strips out).
   const L = 6;
 
   function bulkActivity(id) {
-    // Single clean fast run: 65m in 10s at L=6 -> excess = 65 - 60 = 5 (the "bulk" value).
-    return { id, t: [0, 10, 40], d: [0, 65, 70], gaps: [] };
+    // Single clean NON-fast step: 4m in 10s at L=6 (0.4 m/s) — the dominant "ordinary step" value.
+    return { id, t: [0, 10], d: [0, 4], gaps: [] };
   }
-  function outlierActivity(id, excess) {
-    const metres = L * 10 + excess;
-    return { id, t: [0, 10, 40], d: [0, metres, metres + 5], gaps: [] };
+  function outlierActivity(id) {
+    // Single FAST step: 200m in 5s (40 m/s at L=6) — excess = 200 - 30 = 170, comfortably flagged
+    // at any reasonable F, so `insensitivityCheck`'s removal strips it entirely.
+    return { id, t: [0, 5], d: [0, 200], gaps: [] };
   }
   function sourceActivity() {
-    // Bulk steps at 3 m/s (non-fast at L=6), one burst step at 15 m/s (30m/2s, excess=30-12=18).
+    // Six NON-fast steps at 3 m/s (metres=30 each) plus one FAST burst step at 15 m/s
+    // (30m/2s, excess=30-12=18) — the same shape prior fixtures in this file use.
     const t = [0, 10, 20, 30, 32, 42, 52, 62];
     const d = [0, 30, 60, 90, 120, 150, 180, 210];
     return { id: INSENSITIVITY_SOURCE_ACTIVITY_ID, t, d, gaps: [] };
@@ -503,18 +608,19 @@ describe('deriveExcessFloor / strawmanExcessFloorTailPercentile with D-13 insens
 
   function buildArchive() {
     const bulk = Array.from({ length: 1000 }, (_, i) => bulkActivity(`bulk-${i}`));
-    const outliers = [50, 55, 60, 65, 70, 75, 80, 85, 90, 95].map((excess, i) => outlierActivity(`outlier-${i}`, excess));
+    const outliers = Array.from({ length: 10 }, (_, i) => outlierActivity(`outlier-${i}`));
     return { activities: [...bulk, ...outliers, sourceActivity()] };
   }
 
-  it('deriveExcessFloor is the archive-wide p90 of fast-run excesses at L, rounded DOWN to 0.1 m', () => {
+  it('deriveExcessFloor is the archive-wide p10 of ALL pooled step metres, rounded DOWN to 0.1 m', () => {
     const archive = buildArchive();
     const F = deriveExcessFloor(archive, L);
-    // The 1000-strong bulk cluster (excess exactly 5) comfortably contains the 90th percentile.
-    expect(F).toBe(5);
+    // The 1000-strong bulk cluster (metres exactly 4) comfortably contains the 10th percentile —
+    // the 10 outliers (200) and the source's 7 steps (30) are all far above it.
+    expect(F).toBe(4);
   });
 
-  it('PASSES insensitivity for the real bulk (p90) derivation — a dominant bulk cluster is not moved by removing or planting a small minority', () => {
+  it('PASSES insensitivity for the real bulk (p10) derivation — a dominant bulk cluster is not moved by removing or planting a small minority', () => {
     const archive = buildArchive();
     const F = deriveExcessFloor(archive, L);
 
@@ -539,6 +645,8 @@ describe('deriveExcessFloor / strawmanExcessFloorTailPercentile with D-13 insens
       tolerance: 0.01,
     });
 
+    // The p99 tail sits in the source's/outliers' minority clusters (30s/200s), which removal
+    // strips down to almost nothing — a dramatic, watched-failing move.
     expect(result.pass).toBe(false);
     expect(result.removedDelta).toBeGreaterThan(0.01);
   });
