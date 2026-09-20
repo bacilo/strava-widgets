@@ -672,7 +672,7 @@ describe('D-06/D-07 gap boundary convention — duplicate timestamps (gap closur
     expect(seg.endIndex).toBe(2);
   });
 
-  it('A and B agree on mechanism and every conserved total (indices legitimately differ)', () => {
+  it('A and B agree on classification and every conserved total (indices legitimately differ)', () => {
     const a = detectUnreliableSegments([0, 1, 1, 13], [0, 20, 20, 21], gaps, params)[0];
     const b = detectUnreliableSegments([0, 1, 13], [0, 20, 21], gaps, params)[0];
 
