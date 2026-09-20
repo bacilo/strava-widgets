@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
-status: executing
-stopped_at: Completed 32-10-PLAN.md — reopened 32-VALIDATION.md, ROADMAP.md, REQUIREMENTS.md and STATE.md following 32-VERIFICATION.md gaps_found (5/8); 7 gap-closure plans 32-10..32-16 tracked, none of 32-01..32-09 touched
-last_updated: "2026-09-20T19:31:31.924Z"
+status: verifying
+stopped_at: Phase 32 gap closure complete — 32-10..32-16 executed; GAP 1 total-function contract, GAP 2 import-time guards and GAP 3 gap-boundary convention all re-reproduced closed against dist; awaiting re-verification
+last_updated: "2026-09-20T20:29:29Z"
 last_activity: 2026-09-20
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 16
-  completed_plans: 9
+  completed_plans: 16
   percent: 0
 ---
 
@@ -46,9 +46,9 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 ## Current Position
 
-Phase: 32 (unreliable-segment-detection-calibration) — EXECUTING
-Plan: 2 of 16
-Status: Ready to execute
+Phase: 32 (unreliable-segment-detection-calibration) — AWAITING RE-VERIFICATION
+Plan: 16 of 16
+Status: All 16 plans executed (9 original + 7 gap-closure); phase gate not yet re-verified by /gsd-verify-work
 Last activity: 2026-09-20
 
 ## Performance Metrics
@@ -167,6 +167,8 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 32]: 32-08: pinned SEG-02/SEG-03 named behaviours as permanent regression tests on the real committed streams (3475724402, 3475734189, 3475740390), every extent computed in-test from raw t/d; added scripts/unreliable-segment-recount-crosscheck.test.mjs as the sole file crossing the D-15 zero-import boundary, run every npm test, with a watched-failing broken-row case
 - [Phase 32]: 32-09 MERGE-01 was a truthful no-op: origin/master (5e902283) was already an ancestor of local master (0 behind, 47 ahead) at close time, so npm run compute-stream-checksums added 0 new stream files and 32-CALIBRATION.md's live 1874-stream denominator is unchanged pre/post merge. Both regenerated the artifact twice (byte-identical) and the recount (exit 0) on the merged tree; the D-12 1 Hz cross-check against real export_data/ (24 activities, 83 segments) found all segments corroborated at 1 Hz, closing the phase gate (nyquist_compliant: true, SEG-04 ticked).
 - [Phase 32]: 32-10: reopened 32-VALIDATION.md (status: in-progress), ROADMAP.md (16 plans, seven gap-closure plans 32-10..32-16 listed unticked) and REQUIREMENTS.md (SEG-01/SEG-02/SEG-04 unticked with dated reopen clauses) following 32-VERIFICATION.md's gaps_found (5/8) result; SEG-03/SEG-05a stayed ticked, no executed 32-01..32-09 plan or SUMMARY touched
+- [Phase 32]: 32-11..32-15 closed the three verifier-scored gaps: 32-11 made the total-function contract true for shape-level malformed input (GAP 1); 32-12 replaced the vacuous fs-namespace import-time guards with an observing `vi.mock('fs')` mechanism (GAP 2); 32-13 aligned `mapGapToIndices` with `isGapPair`'s inclusive boundary convention (GAP 3); 32-14 closed three calibration-generator warnings (CR-04 findValley, CR-06 parseDecisionText, WR-07 namedItemSegmentMetres); 32-15 closed the SEG-05a quote-blindness, corrected the D-05/D-09 negative-control discriminator (measured: 2 of 3 fixtures are protected by the 3.0 m excess floor, not the 7.35 m/s speed limit), and made `buildActivityFinding` never throw (CR-03).
+- [Phase 32]: 32-16 re-ran the full closing gate on the merged post-gap-closure tree (`080ea7da`): build/tsc clean, npm test 91 files/2,847 tests (up from 90/2,788, +59 attributed to 32-11..32-15), recount PASS, calibration artifact byte-identical, stream checksums `added 0`. All three verifier-scored gaps re-reproduced closed directly against `dist/analytics/unreliable-segments.js`, not trusted from any SUMMARY's narration; GAP 2's watched-failing demonstration was re-run and reverted. Closed 32-15's CR-03 environment limitation using this checkout's real `export_data/strava/` (32-15's bare worktree had none): `buildActivityFinding('3475724402', ...)` now returns a full 16-segment normal finding shape. Re-closed `32-VALIDATION.md` (`status: complete`), re-ticked SEG-01/SEG-02/SEG-04 in REQUIREMENTS.md (all Traceability cells now Complete), and set STATE.md to `status: verifying` (not `complete`) by hand — the Phase 32 ROADMAP checkbox stays unticked pending `/gsd-verify-work`'s re-run, per this plan's explicit scope boundary.
 
 ### Key Findings
 
@@ -276,8 +278,8 @@ It is named here because PROJECT.md's Evolution entry still describes it as open
 
 ## Session Continuity
 
-Last session: 2026-09-20T19:31:31.915Z
-Stopped at: Completed 32-10-PLAN.md — reopened 32-VALIDATION.md, ROADMAP.md, REQUIREMENTS.md and STATE.md following 32-VERIFICATION.md gaps_found (5/8); 7 gap-closure plans 32-10..32-16 tracked, none of 32-01..32-09 touched
+Last session: 2026-09-20T20:29:29Z
+Stopped at: Phase 32 gap closure complete — 32-10..32-16 executed; GAP 1 total-function contract, GAP 2 import-time guards and GAP 3 gap-boundary convention all re-reproduced closed against dist; awaiting re-verification
 Resume file: None
 
 ---
