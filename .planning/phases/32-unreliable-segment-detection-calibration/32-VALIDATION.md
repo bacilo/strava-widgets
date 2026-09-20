@@ -1,13 +1,12 @@
 ---
 phase: 32
 slug: unreliable-segment-detection-calibration
-status: complete
+status: in-progress
 nyquist_compliant: true
 wave_0_complete: true
 created: 2026-09-19
 reopened: 2026-09-20
-closed: 2026-09-20
-reopened_reason: "32-VERIFICATION.md gaps_found, 5/8 — three blockers falsify 32-02/32-05/32-06 must_haves"
+reopened_reason: "32-REVIEW.md round-2 CR-01 (Critical): 32-13's own gap-boundary fix double-counts distance across two adjacent gap spans sharing a duplicated boundary timestamp — falsifies the maximal-contiguous-chain/conservation invariant. Closing plan: 32-17. Prior reopen (same date): 32-VERIFICATION.md gaps_found, 5/8 — three blockers falsify 32-02/32-05/32-06 must_haves, closed by 32-10..32-16."
 ---
 
 # Phase 32 — Validation Strategy

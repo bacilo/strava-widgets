@@ -169,6 +169,7 @@ from 1 for this set*
 - [x] 32-14-PLAN.md — CR-04 findValley, CR-06 parseDecisionText, ambiguous namedItemSegmentMetres
 - [x] 32-15-PLAN.md — SEG-05a needle quoting, D-05/D-09 negative-control reachability, CR-03 never-throws
 - [x] 32-16-PLAN.md — re-close, gate re-run and artifacts re-ticked against recorded evidence
+- [ ] 32-17-PLAN.md — round-2 CR-01 overlapping gap blocks double-count distance, WR-01 start_date guard
 
 ### Phase 33: Coverage Integration — Pace Clipping & Segment Signal
 
@@ -285,7 +286,7 @@ from 1 for this set*
 | 29. Curation Review Queue | v2.2 | 8/8 | Complete    | 2026-09-18 |
 | 30. Elevation Quality Signal | v2.2 | 8/8 | Complete    | 2026-09-18 |
 | 31. Tech-Debt Closure — Silent-Failure Guards & Docs Reconciliation | v2.2 | 10/10 | Complete    | 2026-09-19 |
-| 32. Unreliable-Segment Detection & Calibration | v2.3 | 16/16 | In Progress|  |
+| 32. Unreliable-Segment Detection & Calibration | v2.3 | 16/17 | In Progress|  |
 | 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 0/TBD | Not started | - |
 | 34. Pause Classification & Forgotten-Stop | v2.3 | 0/TBD | Not started | - |
 | 35. Stream-Derived Running Pace | v2.3 | 0/TBD | Not started | - |
