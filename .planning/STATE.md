@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
-status: verifying
-stopped_at: Phase 32 round-2 gap closure complete — 32-17 executed; CR-01 (overlapping gap blocks double-count distance) and WR-01 (unguarded activityDoc.start_date) both closed against dist, archive output unchanged; awaiting re-verification
-last_updated: "2026-09-20T21:00:38Z"
+status: ready_to_plan
+stopped_at: Phase 32 complete (17/17) — ready to discuss Phase 33
+last_updated: 2026-09-20T21:15:17.029Z
 last_activity: 2026-09-20
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 17
   completed_plans: 17
-  percent: 0
+  percent: 17
 ---
 
 # Project State
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 32 — unreliable-segment-detection-calibration
+**Current focus:** Phase 33 — coverage integration — pace clipping & segment signal
 
 **Carried into the next milestone** (full list with reasons in PROJECT.md § Active):
 
@@ -46,9 +46,9 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 ## Current Position
 
-Phase: 32 (unreliable-segment-detection-calibration) — AWAITING RE-VERIFICATION
-Plan: 17 of 17
-Status: All 17 plans executed (9 original + 8 gap-closure); round-2 CR-01/WR-01 closed by 32-17; phase gate not yet re-verified by /gsd-verify-work
+Phase: 33
+Plan: Not started
+Status: Ready to plan
 Last activity: 2026-09-20
 
 ## Performance Metrics
