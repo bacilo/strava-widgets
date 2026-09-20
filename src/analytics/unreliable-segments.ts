@@ -369,12 +369,29 @@ function gapListIsWellShaped(gaps: unknown): gaps is readonly GapSpan[] {
 }
 
 /**
- * Maps a gap span to sample indices `[gi, gj]`: `gi` is the LAST index with
- * `t[gi] === span.startSec`, `gj` is the FIRST index with `t[gj] ===
+ * Maps a gap span to sample indices `[gi, gj]`: `gi` is the FIRST index with
+ * `t[gi] === span.startSec`, `gj` is the LAST index with `t[gj] ===
  * span.endSec`. Returns `null` if `span` is not a non-null object, its
  * bounds are non-finite, `endSec <= startSec`, or either bound matches no
  * sample time (a malformed gap span) — callers fail closed on `null` rather
  * than guessing.
+ *
+ * This is deliberately the SAME index range `isGapPair` already reports as
+ * inside the gap under its own inclusive test (`g.startSec <= t[i] &&
+ * t[i+1] <= g.endSec`), because `advanceSteps` discards precisely those
+ * pairs from burst candidacy. `[gi, gj]` must cover every pair `isGapPair`
+ * treats as a gap pair, or the chaining loop's touching test
+ * (`blocks[j+1].startIndex === blocks[j].endIndex`) can fail to fire against
+ * an adjacent burst whose own endpoint sits on the widened side of a
+ * duplicate timestamp — silently dropping the gap's own metres/seconds from
+ * the chained segment (D-07's conservation requirement) or leaving a
+ * discarded pair unaccounted for in either tally. A duplicate timestamp
+ * sitting exactly on a gap boundary is the input shape where the two
+ * conventions previously diverged — the FIRST-at-startSec/LAST-at-endSec
+ * choice here widens the gap block to include every duplicate sample at
+ * the boundary, which can only ever ADD that sample's own zero-duration,
+ * zero-distance contribution to the gap side; it cannot move metres between
+ * the burst and gap tallies. See 32-VERIFICATION.md gap #3.
  */
 function mapGapToIndices(
   t: readonly number[],
@@ -391,16 +408,16 @@ function mapGapToIndices(
 
   let gi = -1;
   for (let i = 0; i < t.length; i++) {
-    if (t[i] === span.startSec) gi = i;
+    if (t[i] === span.startSec) {
+      gi = i;
+      break;
+    }
   }
   if (gi === -1) return null;
 
   let gj = -1;
   for (let j = 0; j < t.length; j++) {
-    if (t[j] === span.endSec) {
-      gj = j;
-      break;
-    }
+    if (t[j] === span.endSec) gj = j;
   }
   if (gj === -1) return null;
 
