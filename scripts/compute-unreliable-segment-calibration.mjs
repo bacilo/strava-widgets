@@ -1066,6 +1066,22 @@ const HIDDEN_PAUSE_BIN_WIDTH_METRES = 20;
  * right (both restricted to the interval). Returns `{ valleyFound: true, B }` at the LOWEST such
  * bin's lower edge, or `{ valleyFound: false, B: null }` if none exists — "no clean valley" is
  * reported, never manufactured (D-08). `histogram` is always returned for rendering.
+ *
+ * Bug fix (CR-04, gap closure 32-14): the edge grid's first bin (`[floor(lowMetres/binWidth)*
+ * binWidth, ...)`) starts BELOW `lowMetres`, and the last bin (`[floor(highMetres/binWidth)*
+ * binWidth, ...)`) extends up to a full `binWidth` ABOVE `highMetres`. Binning `values` directly
+ * (as the pre-fix code did) therefore let mass lying entirely OUTSIDE `[lowMetres, highMetres)`
+ * count toward `maxLeft`/`maxRight`, the very shoulder maxima that gate a candidate bin
+ * (`counts[i] <= 0.5 * min(maxLeft, maxRight)`). Out-of-interval mass can only ever RAISE a
+ * shoulder maximum, which can only ever ADMIT a valley that in-interval mass alone would not
+ * support — a one-way failure direction, strictly toward manufacturing a valley, never toward
+ * suppressing one. That is why the shipped value was unaffected on today's archive (`valleyFound`
+ * happened to land on `false` regardless) while the derivation itself was unsound. The fix bins
+ * only `v >= lowMetres && v < highMetres`, so a candidate bin's shoulders reflect in-interval mass
+ * alone. The practical consequence: a candidate bin immediately above `lowMetres` now has no
+ * in-interval mass to its left (the pre-`lowMetres` bin is always empty post-filter) and is never
+ * selectable — the conservative reading that a real dip needs real mass on both sides, inside the
+ * interval.
  */
 export function findValley(values, lowMetres, highMetres, binWidth = HIDDEN_PAUSE_BIN_WIDTH_METRES) {
   if (!(lowMetres < highMetres)) {
@@ -1077,7 +1093,8 @@ export function findValley(values, lowMetres, highMetres, binWidth = HIDDEN_PAUS
   const edges = [];
   for (let e = firstEdge; e <= lastEdge; e += binWidth) edges.push(Math.round(e * 1e6) / 1e6);
 
-  const counts = edges.map((edge) => values.filter((v) => v >= edge && v < edge + binWidth).length);
+  const inInterval = values.filter((v) => v >= lowMetres && v < highMetres);
+  const counts = edges.map((edge) => inInterval.filter((v) => v >= edge && v < edge + binWidth).length);
   const histogram = edges.map((edge, i) => ({ edge, count: counts[i] }));
 
   let bestIndex = -1;
