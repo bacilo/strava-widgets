@@ -15,8 +15,7 @@
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 
-import { describe, expect, it, vi } from 'vitest';
-import fs from 'fs';
+import { describe, expect, it } from 'vitest';
 
 import {
   checkStream,
@@ -522,13 +521,16 @@ describe('parseCalibrationArtifact — fails closed', () => {
   });
 });
 
-describe('import-time side effects', () => {
-  it('importing this module triggers no read of the stream file or the calibration artifact', async () => {
-    const spy = vi.spyOn(fs, 'readFileSync');
-    // Cache-busting query so this assertion is not defeated by vitest's module cache having
-    // already loaded the module for the describe blocks above.
-    await import('./compute-unreliable-segment-recount.mjs?cache-bust-guard-test');
-    expect(spy).not.toHaveBeenCalled();
-    spy.mockRestore();
-  });
-});
+// The import-time side-effect guard formerly here moved to
+// scripts/unreliable-segment-import-guards.test.mjs (Phase 32 plan 12, closing
+// 32-VERIFICATION.md gap #2). The old mechanism — a spy-based property replacement of
+// `readFileSync` on the default `fs` namespace object — was structurally vacuous: this module
+// consumes `fs` via `import { readFileSync } from 'fs' }` (a named import), and Node resolves a
+// builtin's named exports once, at namespace creation, so a property replacement made on the
+// namespace afterwards is never dereferenced by a call already bound to the original named
+// export. The spy recorded zero calls regardless of what this module actually did at import
+// time. The replacement is a `vi.mock` of the `fs` module with two positive controls proving the
+// mechanism can observe a read through both the named-import and default-import idioms before it
+// is trusted to certify this module's absence of import-time I/O.
+//
+// Do NOT re-add a namespace-object spy on `fs` here — it cannot fail and proves nothing.
