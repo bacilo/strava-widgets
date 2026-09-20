@@ -749,8 +749,31 @@ export function parseDecisionText(text) {
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0)
     .map((entry) => {
+      // Bug fix (CR-06, gap closure 32-14): this hand-written Decision block is parsed with a
+      // plain-hyphen contract (`id:startSec-endSec`), and this codebase uses en-dashes/em-dashes
+      // pervasively in prose. Pre-fix, a missing colon/span left `span`/`endSec` `undefined`
+      // (throwing an opaque TypeError three lines below, or silently returning `undefined`
+      // fields), and an en-dash in the span left `startSec: NaN` with no error at all — a
+      // malformed window that can never overlap anything, so the D-05 negative control it feeds
+      // would render "spared" without ever measuring anything (32-REVIEW.md CR-06). The format is
+      // the contract: this deliberately does NOT widen the split to accept en-dashes, since
+      // silently accepting a look-alike separator is exactly how a wrong span would reach a
+      // shipped constant undetected.
       const [id, span] = entry.split(':').map((s) => s.trim());
+      if (!id || !span) {
+        throw new Error(
+          `32-05-SUMMARY.md Decision fixtures entry is malformed (expected "id:startSec-endSec"): ` +
+            `${JSON.stringify(entry)} — fix the Decision block in 32-05-SUMMARY.md.`
+        );
+      }
       const [startSec, endSec] = span.split('-').map((s) => Number(s.trim()));
+      if (!Number.isFinite(startSec) || !Number.isFinite(endSec) || !(endSec > startSec)) {
+        throw new Error(
+          `32-05-SUMMARY.md Decision fixture "${entry}" has a non-numeric or non-increasing span ` +
+            `— refusing to derive constants against an unmeasurable window. Fix the Decision ` +
+            `block in 32-05-SUMMARY.md (a plain hyphen is required, not an en-dash or em-dash).`
+        );
+      }
       return { id, startSec, endSec };
     });
 
@@ -1145,7 +1168,17 @@ function noGapSegmentMetres(archive, L, F) {
   return metres;
 }
 
-/** The metres of the segment overlapping `item.window` at `(L, F)`, or `null` if none. */
+/**
+ * The metres of the segment overlapping `item.window` at `(L, F)`, or `null` if none.
+ *
+ * Bug fix (WR-07, gap closure 32-14): pre-fix, this returned the FIRST segment (in `startIndex`
+ * order) satisfying the overlap test, silently ignoring any second overlapping segment. This
+ * value anchors the D-08 anchor interval (`deriveHiddenPauseBoundary`'s `low`/`high`), which in
+ * turn produces the shipped `HIDDEN_PAUSE_MIN_METRES` — an arbitrary tie-break here would put an
+ * unexplained choice directly behind a shipped constant. Failing closed on ambiguity, naming the
+ * item and every overlapping segment, makes a genuine multi-overlap a visible finding for a
+ * developer to resolve rather than a silent, unreviewed pick.
+ */
 export function namedItemSegmentMetres(byId, item, L, F) {
   const activity = byId.get(item.id);
   if (!activity) return null;
@@ -1154,10 +1187,22 @@ export function namedItemSegmentMetres(byId, item, L, F) {
     excessFloorMetres: F,
     hiddenPauseMinMetres: Number.MAX_SAFE_INTEGER,
   });
-  for (const segment of segments) {
-    if (segment.startSec <= item.window.endSec && segment.endSec >= item.window.startSec) return segment.metres;
+  const overlapping = segments.filter(
+    (segment) => segment.startSec <= item.window.endSec && segment.endSec >= item.window.startSec
+  );
+  if (overlapping.length === 0) return null;
+  if (overlapping.length > 1) {
+    const spans = overlapping
+      .map((s) => `[startSec=${s.startSec}, endSec=${s.endSec}, metres=${s.metres}]`)
+      .join(', ');
+    throw new Error(
+      `namedItemSegmentMetres: ambiguous overlap for item "${item.id}" window ` +
+        `[startSec=${item.window.startSec}, endSec=${item.window.endSec}] — ${overlapping.length} ` +
+        `segments overlap: ${spans}. Refusing to arbitrarily tie-break a value that anchors the ` +
+        `D-08 interval behind HIDDEN_PAUSE_MIN_METRES.`
+    );
   }
-  return null;
+  return overlapping[0].metres;
 }
 
 /**
