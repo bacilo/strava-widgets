@@ -61,6 +61,7 @@
  * text literally — if the two ever disagree, the plan text wins and this file is the bug.
  */
 
+import assert from 'assert';
 import { execSync } from 'child_process';
 import { readFileSync, readdirSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
@@ -1495,6 +1496,18 @@ function main() {
   const cohort = buildFlaggedCohort(archive);
   const selection = selectSevereCut(cohort.fractions, { tolerance: INSENSITIVITY_TOLERANCE });
   const strawman = strawmanCandidate(cohort.fractions, { tolerance: INSENSITIVITY_TOLERANCE });
+
+  // D-13 harness contract (33-14-PLAN.md <d13_harness>): the new step-level strawman's BASE value
+  // must equal 33-08's legacy q=0.99 cut exactly (same population, same quantile) — a mismatch means
+  // buildBaseViews' excess-fraction population diverges from buildFlaggedCohort's, i.e. the views are
+  // wrong. Asserted BEFORE the strawman is trusted or rendered.
+  if (arbitration) {
+    assert.strictEqual(
+      arbitration.strawman.base,
+      strawman.base,
+      'D-13 harness contract violated: the new step-level strawman base does not equal 33-08\'s legacy q=0.99 cut — the views are wrong.'
+    );
+  }
 
   const provenance = { streamsTree: gitId('rev-parse HEAD:data/streams') };
 
