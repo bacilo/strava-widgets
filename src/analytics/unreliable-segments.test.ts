@@ -1179,3 +1179,98 @@ describe('D-09 negative control — 3475734189 t=1581-1583 never fires, and can'
     ).toBeGreaterThan(0);
   });
 });
+
+/**
+ * Phase 33 plan 08, D-07: `excessMetres` as a merged-segment output field. Every case here asserts
+ * against the MERGED segment's own `metres`/`seconds` (`seg.metres - speedLimitMps * seg.seconds`,
+ * clamped at 0), never a single part's own metres/seconds — that distinction is exactly what the
+ * "merged gap seconds more than pay for its metres" case below exercises.
+ */
+describe('excessMetres output field (D-07)', () => {
+  const params: DetectorParams = { speedLimitMps: 5, excessFloorMetres: 2, hiddenPauseMinMetres: 100 };
+
+  it('equals Math.max(0, metres - speedLimitMps*seconds) over the merged segment, both-sides gap-adjacent case', () => {
+    const t = [0, 1, 2, 3];
+    const d = [0, 10, 10, 20];
+    const gaps: GapSpan[] = [{ startSec: 1, endSec: 2 }];
+
+    const segments = detectUnreliableSegments(t, d, gaps, params);
+
+    expect(segments).toHaveLength(1);
+    const seg = segments[0];
+    expect(seg.metres).toBe(20);
+    expect(seg.seconds).toBe(3);
+    const expected = Math.max(0, seg.metres - params.speedLimitMps * seg.seconds);
+    expect(seg.excessMetres).toBeCloseTo(expected, 9);
+    expect(seg.excessMetres).toBeCloseTo(5, 9); // 20 - 5*3 = 5
+  });
+
+  it('a segment whose merged gap seconds more than pay for its metres reports excessMetres 0, never negative', () => {
+    // Burst (t=0-1, 10m/1s, speed 10 m/s > 5, excess 5 > floor 2) touches a long gap (t=1-100)
+    // that pays no distance at all. The merged segment's total elapsed time (100s) swamps its
+    // total distance (10m) at the 5 m/s limit (raw = 10 - 5*100 = -490), so the field must clamp
+    // to 0 rather than report a negative value.
+    const t = [0, 1, 100, 101];
+    const d = [0, 10, 10, 13];
+    const gaps: GapSpan[] = [{ startSec: 1, endSec: 100 }];
+
+    const segments = detectUnreliableSegments(t, d, gaps, params);
+
+    expect(segments).toHaveLength(1);
+    const seg = segments[0];
+    expect(seg.mechanism).toBe('gap-adjacent');
+    expect(seg.gapCount).toBe(1);
+    expect(seg.metres).toBe(10);
+    expect(seg.seconds).toBe(100);
+    expect(seg.excessMetres).toBe(0);
+  });
+
+  it('a pure isolated-jump segment (no merged gap) reports the same excess the burst-level floor test already computed, clamped at 0', () => {
+    // Same fixture as the D-09 excess-floor describe block's "a run with excess 4 and floor 5
+    // gives []" / "the same run with floor 3 gives one isolated-jump segment" cases above — the
+    // burst-level floor test there computes excess = 14 - 5*2 = 4. With no merged gap, the
+    // segment's own metres/seconds equal the burst's, so the segment-level field must equal that
+    // same 4, already non-negative so clamping is a no-op.
+    const t = [0, 2];
+    const d = [0, 14];
+    const isolatedParams: DetectorParams = {
+      speedLimitMps: 5,
+      excessFloorMetres: 3,
+      hiddenPauseMinMetres: 1000,
+    };
+
+    const segments = detectUnreliableSegments(t, d, [], isolatedParams);
+
+    expect(segments).toHaveLength(1);
+    const seg = segments[0];
+    expect(seg.mechanism).toBe('isolated-jump');
+    expect(seg.gapCount).toBe(0);
+    expect(seg.excessMetres).toBe(4);
+  });
+
+  it.each(['3475724402', '3475734189', '3475740390'])(
+    'every segment on %s carries a defined, non-negative excessMetres equal to Math.max(0, metres - speedLimitMps*seconds), whatever its mechanism',
+    (id) => {
+      const { t, d } = readStream(id);
+      const gaps: GapSpan[] = classifyGapsThreeWay(t, d).gapIntervals;
+      const segments = detectUnreliableSegments(t, d, gaps, DEFAULT_DETECTOR_PARAMS);
+
+      expect(segments.length).toBeGreaterThan(0);
+      for (const seg of segments) {
+        expect(seg.excessMetres).toBeDefined();
+        expect(typeof seg.excessMetres).toBe('number');
+        expect(seg.excessMetres).toBeGreaterThanOrEqual(0);
+        const raw = seg.metres - UNRELIABLE_SPEED_LIMIT_MPS * seg.seconds;
+        expect(seg.excessMetres).toBeCloseTo(Math.max(0, raw), 9);
+      }
+
+      const clampedToZero = segments.filter((s) => s.excessMetres === 0).length;
+      // eslint-disable-next-line no-console
+      console.log(
+        `[excessMetres] ${id}: ${segments.length} segment(s), values=[${segments
+          .map((s) => s.excessMetres.toFixed(2))
+          .join(', ')}], clampedToZero=${clampedToZero}`
+      );
+    }
+  );
+});

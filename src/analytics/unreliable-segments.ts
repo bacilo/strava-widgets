@@ -195,6 +195,19 @@ export interface UnreliableSegment {
   burstCount: number;
   gapCount: number;
   parts: SegmentPart[];
+  /**
+   * The MERGED segment's own distance beyond what `UNRELIABLE_SPEED_LIMIT_MPS` allows over its OWN
+   * elapsed seconds (burst seconds plus any merged gap seconds — i.e. `this.metres`/`this.seconds`,
+   * not any single part's own metres/seconds), clamped at 0 (Phase 33 D-07). Computed with the
+   * detector's own private `excessMetres` helper — never re-derived here or by any consumer.
+   *
+   * This is exported as a FIELD rather than recomputed by consumers because
+   * `pace-single-source.test.ts`'s `DETECTOR_ARITHMETIC_LITERALS` needle bans the detector's
+   * `speedLimitMps * seconds` arithmetic literal outside this file and `pace-derivation.ts`; a
+   * consumer re-deriving this value would either trip that audit or evade its needle by renaming a
+   * variable, which is exactly the defect the audit exists to catch.
+   */
+  excessMetres: number;
 }
 
 /**
@@ -607,6 +620,7 @@ export function detectUnreliableSegments(
         burstCount,
         gapCount,
         parts,
+        excessMetres: Math.max(0, excessMetres(metres, seconds, params.speedLimitMps)),
       });
     } else if (hasBurst) {
       // A burst chain touching no gap — still a segment (isolated-jump or
@@ -653,6 +667,7 @@ export function detectUnreliableSegments(
         burstCount,
         gapCount: 0,
         parts,
+        excessMetres: Math.max(0, excessMetres(metres, seconds, params.speedLimitMps)),
       });
     }
     // A gap-only chain (no burst) touches nothing — yields nothing.
