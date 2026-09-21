@@ -181,3 +181,11 @@ None beyond the three findings above, all resolved by documentation rather than 
 ---
 *Phase: 33-coverage-integration-pace-clipping-segment-signal*
 *Completed: 2026-09-21*
+
+## Self-Check: PASSED
+
+- FOUND: `.planning/phases/33-coverage-integration-pace-clipping-segment-signal/33-VALIDATION.md`
+- FOUND: `.planning/phases/33-coverage-integration-pace-clipping-segment-signal/33-12-SUMMARY.md`
+- FOUND commit: `6a491720`
+- FOUND commit: `aaf58c34`
+- `git status --short`: clean
