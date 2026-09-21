@@ -54,17 +54,29 @@
  * those calibrated constants as given and asks only "does the detector's own bookkeeping, given
  * those constants, correctly total to what it claims."
  *
- * KNOWN SCOPE LIMIT (stated plainly, matching the Phase 32 analog's own documented limit): the
- * local gap definition below covers RECORDING gaps only (`dt > LOCAL_GAP_THRESHOLD_SEC`), not
- * `pause` (distance-flat-run) spans — mirroring the Phase 32 analog's own documented scope
- * ("covers only RECORDING gaps, which is sufficient for 3475724402 because every one of its gaps
- * is a recording gap"). The shipped detector's own `mechanism` field structurally guarantees this
- * is safe archive-wide too: `gapCount > 0` is the ONLY way a segment is labelled `gap-adjacent`;
- * every `hidden-pause`/`isolated-jump` segment has `gapCount === 0` by construction, meaning it
- * touches NEITHER a recording-gap NOR a pause span — so this recount's inability to model pause
- * spans only matters for the `gap-adjacent` mechanism, and the archive-wide recount agreement
- * check below is the actual proof that this scope limit is harmless on the LIVE archive, not an
- * assumption taken on faith.
+ * MEASURED, NOT ASSUMED (the local gap definition covers BOTH recording gaps AND pause spans):
+ * an earlier draft of this file modelled RECORDING gaps only (`dt > LOCAL_GAP_THRESHOLD_SEC`),
+ * mirroring the Phase 32 single-activity analog's own documented scope ("covers only RECORDING
+ * gaps, which is sufficient for 3475724402 because every one of its gaps is a recording gap").
+ * Running the archive-wide comparison against that draft surfaced 10 genuine mismatches (out of
+ * 1874 streams) — every one of them a burst chaining a recording-gap directly into an ADJACENT
+ * `pause` span (e.g. `11335618229`: a recording-gap `[2024, 2119]` touches a pause `[2119, 2124]`
+ * touches a burst starting at `2124`; the shipped detector's own `isGapPair`
+ * (`src/analytics/unreliable-segments.ts`) treats EITHER kind as a gap block indiscriminately, so
+ * this three-way chain becomes ONE `gap-adjacent` segment with `gapCount: 2`). The Phase 32
+ * analog's own narrower scope is safe only for its ONE pinned activity, not archive-wide. Fixed by
+ * reconstructing the FULL pre-detector gap definition (recording-gap strict-priority over pause,
+ * `LOCAL_PAUSE_GAP_P90_MULTIPLIER` below) — reimplemented fresh in this file
+ * (`localNonCoveredSpans`, never calling `classifyGapsThreeWay` for this purpose), not because
+ * re-deriving pause classification is itself under test here (it is Phase 26's own, separately
+ * tested pre-existing behaviour, already the one canonical gap definition per D-14,
+ * `33-01-SUMMARY.md`) but because `recountActivity`'s gap-first walk needs to know about every
+ * pair the shipped detector treats as a gap, not only the recording-gap ones, to chain bursts the
+ * same way the shipped detector does. `gapCount === 0` still structurally guarantees a
+ * `hidden-pause`/`isolated-jump` segment touches NEITHER kind — this fix changes only which pairs
+ * `recountActivity` recognises as gap-adjacent-eligible boundaries, never the hidden-pause/
+ * isolated-jump classification rule itself. After this fix the archive-wide recount agreement
+ * check reports zero mismatches (see the generated artifact) — the proof, not an assumption.
  *
  * `readShippedCoverage`'s own docblock states the scoped-import rule again, next to the one call
  * site it governs.
@@ -227,6 +239,105 @@ export function localGapSpans(t, d) {
 }
 
 /**
+ * A local duplicate of `PAUSE_GAP_P90_MULTIPLIER` (`src/analytics/pace-derivation.ts`), never
+ * imported from there. See the module docblock's "MEASURED, NOT ASSUMED" paragraph for why the
+ * gap-first walk needs to know about pause spans too, not only recording gaps.
+ */
+const LOCAL_PAUSE_GAP_P90_MULTIPLIER = 5;
+
+/** R-7 linear-interpolation quantile, reimplemented fresh from `pace-derivation.ts`'s own
+ * `quantile` (same formula, independent code) — `pos = (len - 1) * q`, interpolated. */
+function localQuantile(sortedAsc, q) {
+  const n = sortedAsc.length;
+  if (n === 0) return NaN;
+  if (n === 1) return sortedAsc[0];
+  const pos = (n - 1) * q;
+  const lo = Math.floor(pos);
+  const hi = Math.ceil(pos);
+  if (lo === hi) return sortedAsc[lo];
+  const frac = pos - lo;
+  return sortedAsc[lo] + frac * (sortedAsc[hi] - sortedAsc[lo]);
+}
+
+/** Reimplemented fresh from `pace-derivation.ts`'s own `advanceIntervals` — the real-time gap
+ * between each pair of samples where `d` actually advances, seeded from the stream's own start. */
+function localAdvanceIntervals(t, d) {
+  const n = Math.min(t.length, d.length);
+  if (n === 0) return [];
+  const result = [];
+  let lastAdvanceT = t[0];
+  for (let i = 1; i < n; i++) {
+    if (d[i] > d[i - 1]) {
+      result.push(t[i] - lastAdvanceT);
+      lastAdvanceT = t[i];
+    }
+  }
+  return result.sort((a, b) => a - b);
+}
+
+/** Reimplemented fresh from `pace-derivation.ts`'s own `computeFlatRunDurations` — per pair index,
+ * the duration of the maximal distance-flat run it belongs to, or `-1` if not distance-flat. */
+function localFlatRunDurations(t, d, n) {
+  const flatRunDuration = new Array(n - 1).fill(-1);
+  let i = 0;
+  while (i < n - 1) {
+    if (d[i + 1] - d[i] <= 0) {
+      let j = i;
+      while (j < n - 1 && d[j + 1] - d[j] <= 0) j++;
+      const duration = t[j] - t[i];
+      for (let k = i; k < j; k++) flatRunDuration[k] = duration;
+      i = j;
+    } else {
+      i++;
+    }
+  }
+  return flatRunDuration;
+}
+
+/**
+ * Returns spans for maximal runs of consecutive pairs classified as EITHER a recording gap
+ * (`dt > LOCAL_GAP_THRESHOLD_SEC`) OR a pause (belongs to a distance-flat run whose duration
+ * exceeds the resolved scale-relative pause threshold) — the FULL pre-detector gap definition the
+ * shipped detector's own `isGapPair` (`src/analytics/unreliable-segments.ts`) is fed, reimplemented
+ * fresh here (never calling `classifyGapsThreeWay`) so `recountActivity`'s chain walk recognises
+ * every boundary the shipped detector does. Recording-gap takes strict priority over pause,
+ * matching `pace-derivation.ts`'s own `classifyPairKinds` priority order exactly. Assumes
+ * `checkStream(t, d).ok` already holds.
+ */
+function localNonCoveredSpans(t, d) {
+  const n = t.length;
+  const intervals = localAdvanceIntervals(t, d);
+  const pauseThresholdSec =
+    intervals.length === 0
+      ? Infinity
+      : LOCAL_PAUSE_GAP_P90_MULTIPLIER * localQuantile(intervals, 0.9);
+  const flatRunDuration = localFlatRunDurations(t, d, n);
+
+  const spans = [];
+  let openStart = -1;
+  for (let i = 0; i < n - 1; i++) {
+    const dt = t[i + 1] - t[i];
+    const isNonCovered =
+      dt > LOCAL_GAP_THRESHOLD_SEC || (flatRunDuration[i] >= 0 && flatRunDuration[i] > pauseThresholdSec);
+    if (isNonCovered) {
+      if (openStart === -1) openStart = i;
+    } else if (openStart !== -1) {
+      spans.push({ startIndex: openStart, endIndex: i, startSec: t[openStart], endSec: t[i] });
+      openStart = -1;
+    }
+  }
+  if (openStart !== -1) {
+    spans.push({
+      startIndex: openStart,
+      endIndex: n - 1,
+      startSec: t[openStart],
+      endSec: t[n - 1],
+    });
+  }
+  return spans;
+}
+
+/**
  * Forward-folds the covered pairs of one segment (`[segStart, segEnd]` sample indices, no local
  * gap inside) into steps: a step's end is the end index of an advancing pair (metres > 0 AND
  * seconds > 0); any immediately preceding zero-advance or zero-duration pairs are folded into
@@ -352,9 +463,10 @@ function mergeAdjacentRows(t, d, rows) {
 
 /**
  * The detector-free, gap-first, all-three-mechanisms recount for ONE activity (D-03, extending
- * the Phase 32 gap-adjacent-only analog). Walks every inter-gap segment, finds every kept
- * (isBurst) run via `computeRunsInSegment`, and emits a row for each:
- *   - a run touching a local recording-gap boundary chains with that gap (and any further
+ * the Phase 32 gap-adjacent-only analog). Walks every inter-gap segment (using
+ * `localNonCoveredSpans`'s FULL pre-detector gap definition — recording-gap AND pause), finds
+ * every kept (isBurst) run via `computeRunsInSegment`, and emits a row for each:
+ *   - a run touching a local gap boundary chains with that gap (and any further
  *     touching gap/burst pairs, D-07's dedup) into one `gap-adjacent` row — the exact walk
  *     `scripts/compute-unreliable-segment-recount.mjs`'s own `recountGapFirst` performs, extended
  *     here to also track WHICH runs were consumed so the remaining loop below never double-emits
@@ -403,7 +515,9 @@ export function recountActivity(t, d, params) {
     };
   }
 
-  const gaps = localGapSpans(t, d);
+  // Uses the FULL pre-detector gap definition (recording-gap AND pause), not `localGapSpans`
+  // alone — see the module docblock's "MEASURED, NOT ASSUMED" paragraph for why.
+  const gaps = localNonCoveredSpans(t, d);
   const n = t.length;
 
   const segments = [];
