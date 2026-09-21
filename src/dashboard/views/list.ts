@@ -453,13 +453,23 @@ export function qualityBadgeSpecs(row: Pick<ParsedDashboardIndexRow, 'quality'>)
     const pct = Math.round(gapProfile.gapFraction * 100);
     specs.push({
       signal: 'gapProfile',
-      // Names BOTH recording gaps and pauses, and calls the denominator
-      // "recorded time" rather than "elapsed time": gapFraction is
-      // (recordingGapSec + pauseSec) / spanSec straight from classifyGaps —
-      // spanSec is the STREAM'S OWN recorded span, not the metadata
-      // elapsed_time. Naming only one category, or calling the span
-      // "elapsed time", would misdescribe the number this badge shows.
-      visibleText: `${pct}% of recorded time in gaps or pauses`,
+      // Names all THREE categories — recording gaps, pauses AND unreliable
+      // segments — and calls the denominator "recorded time" rather than
+      // "elapsed time": gapFraction is
+      // (recordingGapSec + pauseSec + unreliableSec) / spanSec straight from
+      // classifyGaps — spanSec is the STREAM'S OWN recorded span, not the
+      // metadata elapsed_time. Naming only one or two categories, or calling
+      // the span "elapsed time", would misdescribe the number this badge
+      // shows.
+      // (widened 2026-09-21, 33-CONTEXT.md D-11): this is a correctness fix,
+      // not a copy tweak — plan 33-03 put unreliableSec inside gapFraction's
+      // numerator, so the two-category text above misdescribed the number
+      // this badge shows from that point on, exactly the defect this
+      // comment's own rule exists to prevent. Uses the SAME wording
+      // detail-sections.ts's gapProfileRow gives the equivalent detail-view
+      // row (plan 33-04), so the two surfaces describing the same number
+      // never drift apart.
+      visibleText: `${pct}% of recorded time in gaps, pauses or unreliable segments`,
       explanation: 'pace during a gap is interpolated, not measured',
       descriptionIdSuffix: 'gap-profile',
     });
