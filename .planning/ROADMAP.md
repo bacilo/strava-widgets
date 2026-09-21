@@ -194,10 +194,10 @@ Plans:
 
 **Wave 2** *(blocked on 33-01)*
 
-- [ ] 33-03-PLAN.md — D-04 three-term `gapFraction` numerator; D-05 tier constants frozen and pinned
-- [ ] 33-04-PLAN.md — D-09 split marker, D-10 caption fourth term, D-11 gap-profile row copy and itemised evidence
-- [ ] 33-05-PLAN.md — the `VALID_GAP_KINDS` parse trap and the D-11 list-badge copy
-- [ ] 33-06-PLAN.md — PACE-08 inherited clipping proven by fixture, zero source change
+- [x] 33-03-PLAN.md — D-04 three-term `gapFraction` numerator; D-05 tier constants frozen and pinned
+- [x] 33-04-PLAN.md — D-09 split marker, D-10 caption fourth term, D-11 gap-profile row copy and itemised evidence
+- [x] 33-05-PLAN.md — the `VALID_GAP_KINDS` parse trap and the D-11 list-badge copy
+- [x] 33-06-PLAN.md — PACE-08 inherited clipping proven by fixture, zero source change
 
 **Wave 3** *(blocked on Wave 2)*
 
@@ -328,7 +328,7 @@ Plans:
 | 30. Elevation Quality Signal | v2.2 | 8/8 | Complete    | 2026-09-18 |
 | 31. Tech-Debt Closure — Silent-Failure Guards & Docs Reconciliation | v2.2 | 10/10 | Complete    | 2026-09-19 |
 | 32. Unreliable-Segment Detection & Calibration | v2.3 | 17/17 | Complete    | 2026-09-20 |
-| 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 2/13 | In Progress|  |
+| 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 6/13 | In Progress|  |
 | 34. Pause Classification & Forgotten-Stop | v2.3 | 0/TBD | Not started | - |
 | 35. Stream-Derived Running Pace | v2.3 | 0/TBD | Not started | - |
 | 36. Best-Effort Clean-Window Search & Ceiling Recalibration | v2.3 | 0/TBD | Not started | - |
