@@ -119,8 +119,9 @@
  */
 
 import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { stripComments } from '../dashboard/row-semantics.test.js';
 
@@ -783,5 +784,82 @@ describe('SEG-05a — the audit is demonstrated catching a reintroduced second u
       source: 'export const steps = computeSteps(t, d, gaps);\n',
     };
     expect(findUnreliableSegmentViolations([cleanedFile])).toEqual([]);
+  });
+});
+
+/**
+ * pace-derivation.ts's detector import is load-bearing (SEG-05b, D-15)
+ *
+ * The allowlist above (and `SEG-05a`'s importer-confinement scan) already
+ * proves `pace-derivation.ts` is the detector's ONE permitted importer —
+ * but an import that exists textually and an import that actually DRIVES
+ * behaviour are different claims. SEG-05b's own text requires the LATTER:
+ * a consuming phase must show its consumer READING the detector, not merely
+ * importing it. This describe block is Phase 33's half of that proof
+ * (D-15) — `detectUnreliableSegments` is stubbed to return `[]` via
+ * `vi.doMock` + a dynamic re-`import()` (this file has no existing static
+ * import of `pace-derivation.ts` to fight with `vi.mock`'s hoisting), and
+ * BOTH directions are asserted inside one test: with the stub, the
+ * previously-clipped window opens back up; with the real module, it clips.
+ * A one-direction assertion would pass against a build where the chart
+ * never renders at all (33-PLAN.md's own stated risk).
+ *
+ * `ALLOWED_FILE_SUFFIX`/`DETECTOR_ARITHMETIC_LITERALS` above are NOT
+ * widened by this block — the allowlist already names
+ * `analytics/pace-derivation.ts` (this module's own docblock, lines
+ * 109-113: "Phase 33 folds this detector into `classifyGaps` there"), and
+ * Phase 33 is exactly the wiring that docblock anticipates.
+ */
+describe('pace-derivation.ts\'s detector import is load-bearing (SEG-05b, D-15)', () => {
+  it('stubbing detectUnreliableSegments to return [] on real 3475734189 both zeroes unreliableSec AND un-clips the previously-clipped window; the real module does the opposite in both respects', async () => {
+    const stream = JSON.parse(
+      readFileSync(path.join('data', 'streams', '3475734189.json'), 'utf-8')
+    ) as import('../streams/stream.types.js').CanonicalStream;
+
+    // Real direction first, from a clean module registry — no mock active yet.
+    vi.resetModules();
+    const real = await import('./pace-derivation.js');
+    const realCoverage = real.classifyGaps(stream.t, stream.d);
+    const realDerived = real.derivePaceWithCoverage(stream);
+
+    expect(realCoverage.unreliableSec).toBeGreaterThan(0);
+    // The detected hidden-pause segment on this stream spans sample indices
+    // [1352, 1360) / t=1352-1360 (reconciles against PROJECT.md's measured
+    // t=1353-1360 — that figure names the BURST's own start, one sample
+    // after this segment's start, which additionally absorbs the touching
+    // gap-classified pair at t=1352-1353). "Strictly inside" (t strictly
+    // between the segment's own startSec/endSec, matching
+    // derivePaceSeriesGapAware's own open-interval clip rule) is t=1353
+    // through t=1359 — indices 1353..1359.
+    const strictlyInsideIndices = [1353, 1354, 1355, 1356, 1357, 1358, 1359];
+    for (const i of strictlyInsideIndices) {
+      expect(stream.t[i]).toBe(i); // reachability: this stream's t[i] === i in this window
+      expect(realDerived.paceSeries[i]).toBeNull();
+    }
+
+    // Stubbed direction: detectUnreliableSegments always returns [], every
+    // other export (including DEFAULT_DETECTOR_PARAMS) passes through
+    // untouched via vi.importActual.
+    vi.doMock('./unreliable-segments.js', async () => {
+      const actual =
+        await vi.importActual<typeof import('./unreliable-segments.js')>('./unreliable-segments.js');
+      return { ...actual, detectUnreliableSegments: () => [] };
+    });
+    vi.resetModules();
+    const stubbed = await import('./pace-derivation.js');
+    const stubbedCoverage = stubbed.classifyGaps(stream.t, stream.d);
+    const stubbedDerived = stubbed.derivePaceWithCoverage(stream);
+
+    expect(stubbedCoverage.unreliableSec).toBe(0);
+    // At least one previously-clipped index now yields a non-null pace —
+    // both directions asserted in the SAME test, so this cannot pass
+    // against a build where the chart never renders at all.
+    const anyNonNullInStubbedWindow = strictlyInsideIndices.some(
+      (i) => stubbedDerived.paceSeries[i] !== null
+    );
+    expect(anyNonNullInStubbedWindow).toBe(true);
+
+    vi.doUnmock('./unreliable-segments.js');
+    vi.resetModules();
   });
 });

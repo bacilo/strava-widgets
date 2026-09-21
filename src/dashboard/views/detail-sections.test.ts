@@ -130,7 +130,16 @@ describe('coverageCaptionText — coverage caption (D-08, COV-02)', () => {
     // Pre-computed at execution time (see this plan's SUMMARY.md) so
     // plan 26-10's human checkpoint has an expectation to read back against,
     // not just "a caption is present".
-    expect(text).toBe('99% of elapsed time covered · 1% recording gaps · 0% paused');
+    //
+    // Phase 33 (2026-09-21, D-01/D-02): this stream now carries a detected
+    // unreliable segment (32 of 3394 s). coverageCaptionText itself is
+    // unchanged by this plan (that widening is a later plan's job, D-10) and
+    // still sums only coveredSec/recordingGapSec/pauseSec — the 32 s moved
+    // OUT of coveredSec into unreliableSec, which this caption does not yet
+    // render, so the displayed covered percentage drops from 99% to 98%
+    // (measured coveredSec 3331 of 3394 = 98.14%, rounds to 98). This is the
+    // real, measured consequence of D-01, not a caption defect.
+    expect(text).toBe('98% of elapsed time covered · 1% recording gaps · 0% paused');
   });
 });
 

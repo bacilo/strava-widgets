@@ -15,7 +15,16 @@ import {
   type GapSpan,
   type UnreliableSegment,
 } from './unreliable-segments.js';
-import { classifyGaps } from './pace-derivation.js';
+import { classifyGapsThreeWay } from './pace-derivation.js';
+
+/**
+ * 2026-09-21, Phase 33 (D-14, D-15): pace-derivation.ts's classifyGaps folded
+ * detectUnreliableSegments into itself this phase, so classifyGaps(...).gapIntervals is now the
+ * POST-detector four-way list. Feeding it back into detectUnreliableSegments below would be
+ * circular (the detector judging its own prior output) — every fixture in this file uses
+ * classifyGapsThreeWay instead, the pre-detector recording-gap/pause list, the ONE shape the
+ * detector is ever fed.
+ */
 
 /** Reads a committed stream file from `data/streams/` — never the derived stats output. */
 function readStream(activityId: string): { t: number[]; d: number[] } {
@@ -837,7 +846,7 @@ describe('D-06/D-07 gap boundary convention — duplicate timestamps (gap closur
  */
 describe('SEG-02 — 3475724402: every burst is gap-adjacent, both sides inspected (D-07)', () => {
   const { t, d } = readStream('3475724402');
-  const gaps: GapSpan[] = classifyGaps(t, d).gapIntervals;
+  const gaps: GapSpan[] = classifyGapsThreeWay(t, d).gapIntervals;
   const segments = detectUnreliableSegments(t, d, gaps, DEFAULT_DETECTOR_PARAMS);
 
   it('produces at least one segment (reachability) and every one is gap-adjacent', () => {
@@ -876,7 +885,7 @@ describe('SEG-02 — 3475724402: every burst is gap-adjacent, both sides inspect
 
 describe('SEG-03 mechanism — 3475734189 hidden pause at t=1353–1360', () => {
   const { t, d } = readStream('3475734189');
-  const gaps: GapSpan[] = classifyGaps(t, d).gapIntervals;
+  const gaps: GapSpan[] = classifyGapsThreeWay(t, d).gapIntervals;
   const segments = detectUnreliableSegments(t, d, gaps, DEFAULT_DETECTOR_PARAMS);
 
   // Computed from raw t/d, not hard-coded: every pair whose start sample time falls in
@@ -908,7 +917,7 @@ describe('SEG-03 mechanism — 3475734189 hidden pause at t=1353–1360', () => 
 
 describe('SEG-03 mechanism — 3475740390 isolated jumps', () => {
   const { t, d } = readStream('3475740390');
-  const gaps: GapSpan[] = classifyGaps(t, d).gapIntervals;
+  const gaps: GapSpan[] = classifyGapsThreeWay(t, d).gapIntervals;
   const segments = detectUnreliableSegments(t, d, gaps, DEFAULT_DETECTOR_PARAMS);
 
   // The five named jump start times (32-CONTEXT.md "Suunto over-measurement" measurement); the
@@ -1035,7 +1044,7 @@ describe('D-05 negative control — locked fixtures never fire, and can', () => 
 
   it.each(lockedFixtures)('no segment overlaps the locked fixture $id t=$startSec-$endSec', ({ id, startSec, endSec }) => {
     const { t, d } = readStream(id);
-    const gaps: GapSpan[] = classifyGaps(t, d).gapIntervals;
+    const gaps: GapSpan[] = classifyGapsThreeWay(t, d).gapIntervals;
     const segments = detectUnreliableSegments(t, d, gaps, DEFAULT_DETECTOR_PARAMS);
 
     const overlapping = segments.filter(
@@ -1056,7 +1065,7 @@ describe('D-05 negative control — locked fixtures never fire, and can', () => 
     "reachability: $id's own measured window discriminators explain why DEFAULT_DETECTOR_PARAMS never fires here, and a lowered params variant DOES produce an overlapping segment",
     ({ id, startSec, endSec }) => {
       const { t, d } = readStream(id);
-      const gaps: GapSpan[] = classifyGaps(t, d).gapIntervals;
+      const gaps: GapSpan[] = classifyGapsThreeWay(t, d).gapIntervals;
       const steps = advanceSteps(t, d, gaps);
 
       const { vMax, maxRunExcess, overlappingCount } = deriveWindowDiscriminators(
@@ -1114,7 +1123,7 @@ describe('D-09 negative control — 3475734189 t=1581-1583 never fires, and can'
 
   it('no segment overlaps the D-09 trivial pair span', () => {
     const { t, d } = readStream(id);
-    const gaps: GapSpan[] = classifyGaps(t, d).gapIntervals;
+    const gaps: GapSpan[] = classifyGapsThreeWay(t, d).gapIntervals;
     const segments = detectUnreliableSegments(t, d, gaps, DEFAULT_DETECTOR_PARAMS);
 
     const overlapping = segments.filter((seg) => seg.startSec < endSec && seg.endSec > startSec);
@@ -1128,7 +1137,7 @@ describe('D-09 negative control — 3475734189 t=1581-1583 never fires, and can'
   // active discriminator here).
   it("reachability: the D-09 window's own measured discriminators explain why DEFAULT_DETECTOR_PARAMS never fires here, and a lowered params variant DOES produce an overlapping segment", () => {
     const { t, d } = readStream(id);
-    const gaps: GapSpan[] = classifyGaps(t, d).gapIntervals;
+    const gaps: GapSpan[] = classifyGapsThreeWay(t, d).gapIntervals;
     const steps = advanceSteps(t, d, gaps);
 
     const { vMax, maxRunExcess, overlappingCount } = deriveWindowDiscriminators(
