@@ -173,7 +173,7 @@ from 1 for this set*
 
 ### Phase 33: Coverage Integration — Pace Clipping & Segment Signal
 
-**Goal**: The detector's output is wired into `classifyGaps` as a fourth `GapKind`, clipping pace chart, histogram, splits and coverage caption exactly as gaps are clipped today with zero code change outside `pace-derivation.ts`, the coverage identity is re-verified archive-wide across the new four-way split, and unreliable segments surface as a disclosed per-activity quality signal.
+**Goal**: The detector's output is wired into `classifyGaps` as a fourth `GapKind`; the pace chart band, histogram and per-km splits inherit clipping from the widened `GapKind` with zero change at their own call sites (PACE-08), the coverage identity is re-verified archive-wide across the new four-way split, and unreliable segments surface as a disclosed per-activity quality signal. **Amended 2026-09-21 (33-CONTEXT.md D-12):** the original phrase attached its zero-change claim to the whole phase rather than the clipping mechanism alone. That claim is true of PACE-08's clipping and false of the phase: PACE-09's split marker, COV-03's caption term and SEG-06's quality signal necessarily touch `detail-sections.ts`, `pace-quality.ts`, `list.ts`, `pace-quality-client.ts`, the dashboard index row and the lazy quality shard — surfaces this phase does touch. Left unnarrowed, the verifier would score every one of those rendered-surface edits as a goal violation.
 **Depends on**: Phase 32
 **Requirements**: SEG-06, PACE-08, PACE-09, COV-03
 **Success Criteria** (what must be TRUE):
