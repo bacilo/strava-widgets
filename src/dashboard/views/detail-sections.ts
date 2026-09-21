@@ -842,6 +842,22 @@ export const EXPLANATION_PROBE_QUALITY: ActivityQualitySignals = {
     closureDrift: { state: 'clear', deltaM: 4, startEndDistM: 38 },
     verticalRate: { flagged: false, worstRateMps: 1.2, violatingSamples: 0 },
   },
+  // Seventh signal (Phase 33, SEG-06, plan 33-09 Task 3): DELIBERATELY kept
+  // clean (tier 'none') here, mirroring elevation's own choice above —
+  // `qualityBadgeSpecs` has no unreliableSegments spec in this probe's
+  // three-signal assertion loop below (SEG-06 is excluded from
+  // hasAnySevereSignal exactly like elevation, D-06), so a severe value
+  // here would add a fourth entry to `EXPLANATION_PROBE_SPECS` with no
+  // corresponding assertion, silently implying it feeds the composite.
+  unreliableSegments: {
+    tier: 'none',
+    count: 0,
+    totalMetres: 0,
+    totalExcessMetres: 0,
+    totalSeconds: 0,
+    excessFraction: 0,
+    mechanisms: [],
+  },
   deviceEra: { family: 'no-device-name', rawDeviceName: null },
   elapsedVsMoving: { ratio: null, elapsedSec: null, movingSec: null },
   anySevere: true,

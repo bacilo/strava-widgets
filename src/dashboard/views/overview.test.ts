@@ -26,6 +26,18 @@ const CLEAN_QUALITY: ActivityQualitySignals = {
     closureDrift: { state: 'clear', deltaM: 4, startEndDistM: 38 },
     verticalRate: { flagged: false, worstRateMps: 1.2, violatingSamples: 0 },
   },
+  // Seventh signal (Phase 33, SEG-06, plan 33-09 Task 3): a required field
+  // this suite does not exercise — a clean/zero default, same precedent as
+  // the three signals and elevation above.
+  unreliableSegments: {
+    tier: 'none',
+    count: 0,
+    totalMetres: 0,
+    totalExcessMetres: 0,
+    totalSeconds: 0,
+    excessFraction: 0,
+    mechanisms: [],
+  },
   deviceEra: { family: 'no-device-name', rawDeviceName: null },
   elapsedVsMoving: { ratio: 1, elapsedSec: 3000, movingSec: 3000 },
   anySevere: false,

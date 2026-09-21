@@ -35,9 +35,10 @@ import type {
   PaceQualityShard,
   QualityTier,
   SubGroundSignal,
+  UnreliableSegmentsSignal,
   VerticalRateSignal,
 } from '../../analytics/pace-quality.js';
-import type { GapInterval, GapKind } from '../../analytics/pace-derivation.js';
+import type { GapInterval, GapKind, SegmentMechanism } from '../../analytics/pace-derivation.js';
 
 /** Own-property read only — no prototype key is ever reachable through the parsed document. */
 function hasOwn(obj: object, key: string): boolean {
@@ -90,6 +91,17 @@ const VALID_DEVICE_FAMILIES: ReadonlySet<string> = new Set<DeviceFamilyKind>([
  * its own set instead).
  */
 const VALID_GAP_KINDS: ReadonlySet<string> = new Set<GapKind>(['recording-gap', 'pause', 'unreliable']);
+
+/**
+ * Phase 33 (SEG-06, D-08, plan 33-09 Task 3): the seventh signal's mechanism
+ * set — a validating `Set` adjacent to the union it guards, same discipline
+ * as `VALID_ELEVATION_TIERS`/`VALID_GAP_KINDS` above.
+ */
+const VALID_SEGMENT_MECHANISMS: ReadonlySet<string> = new Set<SegmentMechanism>([
+  'gap-adjacent',
+  'hidden-pause',
+  'isolated-jump',
+]);
 
 function parseTier(raw: unknown): QualityTier | null {
   return typeof raw === 'string' && VALID_TIERS.has(raw) ? (raw as QualityTier) : null;
@@ -202,6 +214,53 @@ function parseElevationSignal(raw: unknown): ElevationSignal | null {
   return { tier, subGround, closureDrift, verticalRate };
 }
 
+function parseSegmentMechanism(raw: unknown): SegmentMechanism | null {
+  return typeof raw === 'string' && VALID_SEGMENT_MECHANISMS.has(raw) ? (raw as SegmentMechanism) : null;
+}
+
+/**
+ * Total, never-throwing parse of the seventh signal (Phase 33, SEG-06, D-08,
+ * plan 33-09). Mirrors `parseDecimationSignal`'s flat shape (`tier` plus
+ * several nullable numeric fields), widened with a `mechanisms` array:
+ * `null` passes through as `null` (T-26-02's not-computable state), but any
+ * other non-array value, or ANY array entry that fails
+ * `parseSegmentMechanism`, invalidates the WHOLE signal — the same
+ * all-or-nothing discipline `parseElevationSignal` established, so a shard
+ * predating this plan (no `unreliableSegments` key at all) or one carrying a
+ * malformed mechanism degrades to the caller's `??` not-computable fallback
+ * rather than a partially-trusted shape.
+ */
+function parseUnreliableSegmentsSignal(raw: unknown): UnreliableSegmentsSignal | null {
+  if (!isPlainObject(raw)) return null;
+  const tier = parseTier(raw.tier);
+  if (tier === null) return null;
+
+  let mechanisms: SegmentMechanism[] | null;
+  if (raw.mechanisms === null) {
+    mechanisms = null;
+  } else if (Array.isArray(raw.mechanisms)) {
+    const parsedMechanisms: SegmentMechanism[] = [];
+    for (const item of raw.mechanisms) {
+      const mechanism = parseSegmentMechanism(item);
+      if (mechanism === null) return null; // one malformed entry invalidates the whole signal
+      parsedMechanisms.push(mechanism);
+    }
+    mechanisms = parsedMechanisms;
+  } else {
+    return null;
+  }
+
+  return {
+    tier,
+    count: nullableNumber(raw.count),
+    totalMetres: nullableNumber(raw.totalMetres),
+    totalExcessMetres: nullableNumber(raw.totalExcessMetres),
+    totalSeconds: nullableNumber(raw.totalSeconds),
+    excessFraction: nullableNumber(raw.excessFraction),
+    mechanisms,
+  };
+}
+
 /**
  * `rawDeviceName` is deliberately passed through UNMODIFIED here — no HTML
  * transform of any kind. It is untrusted athlete/device free text
@@ -266,6 +325,20 @@ function parseActivityQualitySignals(raw: unknown): ActivityQualitySignals | nul
       subGround: { flagged: false, minAltM: null },
       closureDrift: { state: 'not-computable', deltaM: null, startEndDistM: null },
       verticalRate: { flagged: false, worstRateMps: null, violatingSamples: null },
+    },
+    // Phase 33 (SEG-06, D-08, plan 33-09 Task 3): the same stale-artifact
+    // defence as `elevation` above — a shard written before this plan (or
+    // carrying a malformed unreliableSegments object) has no usable key at
+    // all and must degrade to this explicit not-computable literal rather
+    // than throwing or silently fabricating a clean 'none' reading.
+    unreliableSegments: parseUnreliableSegmentsSignal(raw.unreliableSegments) ?? {
+      tier: 'not-computable',
+      count: null,
+      totalMetres: null,
+      totalExcessMetres: null,
+      totalSeconds: null,
+      excessFraction: null,
+      mechanisms: null,
     },
     deviceEra: parseDeviceEraSignal(raw.deviceEra) ?? { family: 'no-device-name', rawDeviceName: null },
     elapsedVsMoving: parseElapsedVsMovingSignal(raw.elapsedVsMoving) ?? {

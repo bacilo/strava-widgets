@@ -607,6 +607,18 @@ const HEALTHY_QUALITY: ActivityQualitySignals = {
     closureDrift: { state: 'clear', deltaM: 4, startEndDistM: 38 },
     verticalRate: { flagged: false, worstRateMps: 1.2, violatingSamples: 0 },
   },
+  // Seventh signal (Phase 33, SEG-06, plan 33-09 Task 3): a required field
+  // this suite does not exercise -- a clean/zero default, same precedent
+  // as the three signals and elevation above.
+  unreliableSegments: {
+    tier: 'none',
+    count: 0,
+    totalMetres: 0,
+    totalExcessMetres: 0,
+    totalSeconds: 0,
+    excessFraction: 0,
+    mechanisms: [],
+  },
   deviceEra: { family: 'garmin-fenix-6-pro', rawDeviceName: null },
   elapsedVsMoving: { ratio: 1.01, elapsedSec: 1010, movingSec: 1000 },
   anySevere: false,
@@ -623,6 +635,18 @@ const NOT_COMPUTABLE_QUALITY: ActivityQualitySignals = {
     subGround: { flagged: false, minAltM: null },
     closureDrift: { state: 'not-computable', deltaM: null, startEndDistM: null },
     verticalRate: { flagged: false, worstRateMps: null, violatingSamples: null },
+  },
+  // Seventh signal (Phase 33, SEG-06, plan 33-09 Task 3): whole-signal
+  // not-computable, matching notComputableSignals's own shape, mirroring
+  // every other tiering signal above.
+  unreliableSegments: {
+    tier: 'not-computable',
+    count: null,
+    totalMetres: null,
+    totalExcessMetres: null,
+    totalSeconds: null,
+    excessFraction: null,
+    mechanisms: null,
   },
   deviceEra: { family: 'no-device-name', rawDeviceName: null },
   elapsedVsMoving: { ratio: null, elapsedSec: null, movingSec: null },

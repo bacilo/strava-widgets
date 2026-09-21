@@ -54,6 +54,20 @@ const validShard = {
       closureDrift: { state: 'flagged', deltaM: -197.6, startEndDistM: 12.5 },
       verticalRate: { flagged: true, worstRateMps: 80.4, violatingSamples: 3 },
     },
+    // Phase 33 (SEG-06, D-08, plan 33-09 Task 3): a well-formed
+    // unreliableSegments object — every field populated so the round-trip
+    // test below proves every field survives the real
+    // `parseUnreliableSegmentsSignal`, not just the not-computable fallback
+    // shape.
+    unreliableSegments: {
+      tier: 'severe',
+      count: 2,
+      totalMetres: 45.6,
+      totalExcessMetres: 12.3,
+      totalSeconds: 18,
+      excessFraction: 0.0221,
+      mechanisms: ['gap-adjacent', 'isolated-jump'],
+    },
     deviceEra: { family: 'garmin-fenix-6-pro', rawDeviceName: null },
     elapsedVsMoving: { ratio: 1.02, elapsedSec: 510, movingSec: 500 },
     anySevere: false,
@@ -301,6 +315,118 @@ describe('parsePaceQualityShard', () => {
     const result = parsePaceQualityShard(doc);
     expect(result?.elevationVerticalRateSamples).toEqual([{ index: 1, rateMps: 6, dtSec: 1, dAltM: 6 }]);
   });
+
+  it('a well-formed unreliableSegments object round-trips every field (Phase 33 SEG-06, plan 33-09 Task 3)', () => {
+    const result = parsePaceQualityShard(validShard);
+    expect(result?.signals.unreliableSegments).toEqual(validShard.signals.unreliableSegments);
+  });
+
+  it('unreliableSegments absent entirely (the stale-artifact / pre-33-09 shard case) parses to not-computable with no throw', () => {
+    const doc = { ...validShard, signals: { ...validShard.signals, unreliableSegments: undefined } };
+    expect(() => parsePaceQualityShard(doc)).not.toThrow();
+    const result = parsePaceQualityShard(doc);
+    expect(result).not.toBeNull();
+    expect(result?.signals.unreliableSegments).toEqual({
+      tier: 'not-computable',
+      count: null,
+      totalMetres: null,
+      totalExcessMetres: null,
+      totalSeconds: null,
+      excessFraction: null,
+      mechanisms: null,
+    });
+  });
+
+  it('unreliableSegments with mechanisms: null (the genuine not-computable shape) round-trips null, not an empty array', () => {
+    const doc = {
+      ...validShard,
+      signals: {
+        ...validShard.signals,
+        unreliableSegments: {
+          tier: 'not-computable',
+          count: null,
+          totalMetres: null,
+          totalExcessMetres: null,
+          totalSeconds: null,
+          excessFraction: null,
+          mechanisms: null,
+        },
+      },
+    };
+    const result = parsePaceQualityShard(doc);
+    expect(result?.signals.unreliableSegments.mechanisms).toBeNull();
+    expect(result?.signals.unreliableSegments.tier).toBe('not-computable');
+  });
+
+  it('unreliableSegments with tier: "minor" (a genuinely valid tier for this signal, unlike elevation) round-trips minor rather than degrading', () => {
+    const doc = {
+      ...validShard,
+      signals: {
+        ...validShard.signals,
+        unreliableSegments: { ...validShard.signals.unreliableSegments, tier: 'minor' },
+      },
+    };
+    const result = parsePaceQualityShard(doc);
+    expect(result?.signals.unreliableSegments.tier).toBe('minor');
+  });
+
+  it('a malformed unreliableSegments.tier is rejected to the whole-signal not-computable fallback', () => {
+    const doc = {
+      ...validShard,
+      signals: {
+        ...validShard.signals,
+        unreliableSegments: { ...validShard.signals.unreliableSegments, tier: 'bogus' },
+      },
+    };
+    const result = parsePaceQualityShard(doc);
+    expect(result?.signals.unreliableSegments).toEqual({
+      tier: 'not-computable',
+      count: null,
+      totalMetres: null,
+      totalExcessMetres: null,
+      totalSeconds: null,
+      excessFraction: null,
+      mechanisms: null,
+    });
+  });
+
+  it('one malformed mechanisms array entry invalidates the WHOLE unreliableSegments signal, not just that entry', () => {
+    const doc = {
+      ...validShard,
+      signals: {
+        ...validShard.signals,
+        unreliableSegments: {
+          ...validShard.signals.unreliableSegments,
+          mechanisms: ['gap-adjacent', 'not-a-real-mechanism'],
+        },
+      },
+    };
+    const result = parsePaceQualityShard(doc);
+    expect(result?.signals.unreliableSegments).toEqual({
+      tier: 'not-computable',
+      count: null,
+      totalMetres: null,
+      totalExcessMetres: null,
+      totalSeconds: null,
+      excessFraction: null,
+      mechanisms: null,
+    });
+  });
+
+  it.each(['count', 'totalMetres', 'totalExcessMetres', 'totalSeconds', 'excessFraction'] as const)(
+    'unreliableSegments numeric field %s supplied as a non-number becomes null, never 0',
+    (field) => {
+      const doc = {
+        ...validShard,
+        signals: {
+          ...validShard.signals,
+          unreliableSegments: { ...validShard.signals.unreliableSegments, [field]: 'not-a-number' },
+        },
+      };
+      const result = parsePaceQualityShard(doc);
+      expect(result?.signals.unreliableSegments[field]).toBeNull();
+    }
+  );
 
   it('rawDeviceName containing markup survives the parse byte-for-byte unescaped', () => {
     const payload = '<img src=x onerror=alert(1)>';
