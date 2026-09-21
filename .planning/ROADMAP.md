@@ -189,8 +189,8 @@ from 1 for this set*
 Plans:
 **Wave 1**
 
-- [ ] 33-01-PLAN.md — `classifyGaps` four-way widening, the pre-detector `classifyGapsThreeWay` seam, and the D-15 load-bearing proof
-- [ ] 33-02-PLAN.md — D-12 ROADMAP goal amendment and D-15 SEG-05b reopen
+- [x] 33-01-PLAN.md — `classifyGaps` four-way widening, the pre-detector `classifyGapsThreeWay` seam, and the D-15 load-bearing proof
+- [x] 33-02-PLAN.md — D-12 ROADMAP goal amendment and D-15 SEG-05b reopen
 
 **Wave 2** *(blocked on 33-01)*
 
@@ -328,7 +328,7 @@ Plans:
 | 30. Elevation Quality Signal | v2.2 | 8/8 | Complete    | 2026-09-18 |
 | 31. Tech-Debt Closure — Silent-Failure Guards & Docs Reconciliation | v2.2 | 10/10 | Complete    | 2026-09-19 |
 | 32. Unreliable-Segment Detection & Calibration | v2.3 | 17/17 | Complete    | 2026-09-20 |
-| 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 0/TBD | Not started | - |
+| 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 2/13 | In Progress|  |
 | 34. Pause Classification & Forgotten-Stop | v2.3 | 0/TBD | Not started | - |
 | 35. Stream-Derived Running Pace | v2.3 | 0/TBD | Not started | - |
 | 36. Best-Effort Clean-Window Search & Ceiling Recalibration | v2.3 | 0/TBD | Not started | - |
