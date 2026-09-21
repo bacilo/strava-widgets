@@ -118,8 +118,17 @@ describe('derivePaceSeriesGapAware (via pace-derivation.ts, the primitive the de
     }
   });
 
-  it('weights by real Δt: a 60-second 10 m/s burst inside a 3 m/s stretch moves the window pace much more than a 1-second burst', () => {
-    // Baseline: 3 m/s throughout, sampled once per second for 200s.
+  it('weights by real Δt: a 60-second 6 m/s burst inside a 3 m/s stretch moves the window pace much more than a 1-second burst', () => {
+    // Baseline: 3 m/s throughout, sampled once per second for 200s. The
+    // burst speed is deliberately 6 m/s, not the original 10 m/s (Phase 33,
+    // 2026-09-21): pace-derivation.ts's classifyGaps now folds
+    // detectUnreliableSegments in (D-01/D-02), and 10 m/s exceeds that
+    // detector's calibrated UNRELIABLE_SPEED_LIMIT_MPS (7.35 m/s) — a
+    // 60-second burst at 10 m/s got detected and clipped OUT of the pace
+    // window entirely, collapsing longDeviation toward 0 and inverting this
+    // test's own claim. 6 m/s stays below the detector's threshold, so this
+    // fixture again tests only derivePaceSeriesGapAware's Δt-weighting, not
+    // the unrelated unreliable-segment feature.
     function buildWithBurst(burstStartSec: number, burstDurationSec: number): CanonicalStream {
       const t: number[] = [];
       const d: number[] = [];
@@ -128,7 +137,7 @@ describe('derivePaceSeriesGapAware (via pace-derivation.ts, the primitive the de
         t.push(s);
         d.push(dist);
         const inBurst = s >= burstStartSec && s < burstStartSec + burstDurationSec;
-        dist += inBurst ? 10 : 3;
+        dist += inBurst ? 6 : 3;
       }
       return makeStream({ t, d });
     }

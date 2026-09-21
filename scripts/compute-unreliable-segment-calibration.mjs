@@ -14,11 +14,17 @@
  * This generator imports the detector, `advanceSteps`/`detectUnreliableSegments`, from
  * `../dist/analytics/unreliable-segments.js` — permitted, because calibrating the detector is
  * exactly this generator's job (unlike `compute-unreliable-segment-recount.mjs`, which is
- * deliberately forbidden from that import). It also imports `classifyGaps`/`quantile` from
+ * deliberately forbidden from that import). It also imports `classifyGapsThreeWay`/`quantile` from
  * `../dist/analytics/pace-derivation.js` (the ONE gap definition and the ONE R-7 percentile
  * implementation this codebase uses) and `validateStreamSeries` from
  * `../dist/analytics/best-effort-utils.js` (the same total-function guard the detector itself
  * calls, used here only to classify a stream as not-computable rather than silently dropping it).
+ *
+ * 2026-09-21, Phase 33: `classifyGaps` folded `detectUnreliableSegments` into itself this phase
+ * (D-14), so `classifyGaps(...).gapIntervals` is now the POST-detector four-way list — feeding it
+ * back into `detectUnreliableSegments` here would be circular, judging the detector's own prior
+ * output as its input. This generator imports `classifyGapsThreeWay` instead, the pre-detector
+ * recording-gap/pause list, which is the ONE shape the detector is ever fed (D-02).
  *
  * Every figure in this file derives from committed `data/streams/*.json` (via `isStreamFile`,
  * never `manifest.json`) and committed `data/activities/*.json` only. `export_data/` and
@@ -52,7 +58,7 @@ import {
   UNRELIABLE_EXCESS_FLOOR_M as SHIPPED_EXCESS_FLOOR_M,
   HIDDEN_PAUSE_MIN_METRES as SHIPPED_HIDDEN_PAUSE_MIN_METRES,
 } from '../dist/analytics/unreliable-segments.js';
-import { classifyGaps, quantile } from '../dist/analytics/pace-derivation.js';
+import { classifyGapsThreeWay, quantile } from '../dist/analytics/pace-derivation.js';
 import { validateStreamSeries } from '../dist/analytics/best-effort-utils.js';
 import { decimationSignal } from '../dist/analytics/pace-quality.js';
 import { isStreamFile, idFromFilename } from './lib/stream-files.mjs';
@@ -2010,7 +2016,7 @@ export function loadArchive(streamsDir, activitiesDir) {
 
     const hr = stream.channels?.hr && Array.isArray(stream.hr) ? stream.hr : undefined;
     const cadence = stream.channels?.cadence && Array.isArray(stream.cadence) ? stream.cadence : undefined;
-    const gaps = classifyGaps(t, d).gapIntervals;
+    const gaps = classifyGapsThreeWay(t, d).gapIntervals;
 
     let device;
     try {

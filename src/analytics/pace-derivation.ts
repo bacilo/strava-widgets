@@ -30,6 +30,7 @@
 
 import { validateStreamSeries } from './best-effort-utils.js';
 import type { CanonicalStream } from '../streams/stream.types.js';
+import { detectUnreliableSegments, DEFAULT_DETECTOR_PARAMS } from './unreliable-segments.js';
 
 /**
  * Absolute-time threshold above which a `[t[i], t[i+1]]` segment is a
@@ -49,8 +50,23 @@ export const RECORDING_GAP_ABS_THRESHOLD_SEC = 10;
  */
 export const PAUSE_GAP_P90_MULTIPLIER = 5;
 
-/** The two named non-covered segment categories (D-04). */
-export type GapKind = 'recording-gap' | 'pause';
+/**
+ * The three named non-covered segment categories (33-CONTEXT.md D-02).
+ * `unreliable` sits at the TOP of `classifyGaps`' strict-priority tree —
+ * above `recording-gap`, above `pause` (D-01) — because a detected
+ * unreliable segment's seconds are folded in AFTER the pre-detector
+ * three-way pass (see `classifyGapsThreeWay` below for that pre-detector
+ * list, and `classifyGaps`' own docblock for the four-rung priority order).
+ */
+export type GapKind = 'recording-gap' | 'pause' | 'unreliable';
+
+/**
+ * The two pre-detector non-covered categories — `GapKind` minus
+ * `'unreliable'`. This is the classification `classifyGapsThreeWay` returns
+ * and the ONE gap-list shape `detectUnreliableSegments` is ever fed (D-14,
+ * 33-CONTEXT.md D-02).
+ */
+export type PreDetectorGapKind = 'recording-gap' | 'pause';
 
 /** One merged run of adjacent same-kind non-covered segments, in real time. */
 export interface GapInterval {
@@ -59,17 +75,46 @@ export interface GapInterval {
   kind: GapKind;
 }
 
+/** The pre-detector twin of `GapInterval` — never carries `kind: 'unreliable'`. */
+export interface PreDetectorGapInterval {
+  startSec: number;
+  endSec: number;
+  kind: PreDetectorGapKind;
+}
+
 /**
  * Exact coverage accounting over one stream's span. `coveredSec +
- * recordingGapSec + pauseSec === spanSec` by construction (COV-01, D-07) —
- * every segment lands in exactly one category, none is skipped.
+ * recordingGapSec + pauseSec + unreliableSec === spanSec` by construction
+ * (COV-01, D-07, widened by 33-CONTEXT.md D-01/D-02) — every segment lands
+ * in exactly one category, none is skipped.
+ *
+ * That four-term identity is a STRUCTURAL property of a mutually exclusive,
+ * exhaustive pair classification — it holds even if the WRONG pairs were
+ * classified `unreliable` (a bug that relabels segments without changing
+ * their count still sums to `spanSec`). It is therefore NOT on its own
+ * evidence that the right pairs were classified `unreliable`; the
+ * load-bearing check is plan 33-07's detector-free recount, reconciled
+ * against an independently-derived segment-seconds total.
  */
 export interface PaceCoverage {
   spanSec: number;
   coveredSec: number;
   recordingGapSec: number;
   pauseSec: number;
+  unreliableSec: number;
   gapIntervals: GapInterval[];
+}
+
+/**
+ * The shape `classifyGaps` had before Phase 33 — the pre-detector three-way
+ * split, with no `unreliableSec` term. Returned by `classifyGapsThreeWay`.
+ */
+export interface ThreeWayPaceCoverage {
+  spanSec: number;
+  coveredSec: number;
+  recordingGapSec: number;
+  pauseSec: number;
+  gapIntervals: PreDetectorGapInterval[];
 }
 
 /**
@@ -85,6 +130,18 @@ export type PauseRule =
 
 /** Returns a fresh zeroed result — never a shared/mutable module-level constant. */
 function zeroCoverage(): PaceCoverage {
+  return {
+    spanSec: 0,
+    coveredSec: 0,
+    recordingGapSec: 0,
+    pauseSec: 0,
+    unreliableSec: 0,
+    gapIntervals: [],
+  };
+}
+
+/** The `ThreeWayPaceCoverage` sibling of `zeroCoverage` — never a shared/mutable constant. */
+function zeroThreeWayCoverage(): ThreeWayPaceCoverage {
   return { spanSec: 0, coveredSec: 0, recordingGapSec: 0, pauseSec: 0, gapIntervals: [] };
 }
 
@@ -165,14 +222,19 @@ function computeFlatRunDurations(t: readonly number[], d: readonly number[], n: 
   return flatRunDuration;
 }
 
+/** The per-pair result of pass 1 — one of `GapKind`'s members, or `'covered'`. */
+type PairKind = GapKind | 'covered';
+
 /**
- * Classifies every `[t[i], t[i+1]]` segment of a stream into exactly one of
- * `recording-gap`, `pause`, or `covered`, and accounts the real-time span of
- * each category exactly (D-04, D-07, COV-01).
+ * Pass 1: classifies every `[t[i], t[i+1]]` segment of a stream into exactly
+ * one of `recording-gap`, `pause`, or `covered` — the pre-detector decision,
+ * shared verbatim by `classifyGapsThreeWay` and `classifyGaps` (D-14: one
+ * definition of "gap"). Never itself produces `'unreliable'` — that label is
+ * assigned only by `classifyGaps`' own pass 3, after the detector runs.
  *
  * Guarded by `validateStreamSeries` on entry (T-26-01) — any non-`ok` input
  * (length mismatch, fewer than 2 samples, a non-finite value, decreasing
- * `t`/`d`) returns the zeroed `PaceCoverage` rather than throwing.
+ * `t`/`d`) returns `ok: false` rather than throwing.
  *
  * Classification is by STRICT PRIORITY, never as two independent overlapping
  * checks (26-RESEARCH.md Pitfall 3 — independent checks can double-count a
@@ -188,16 +250,15 @@ function computeFlatRunDurations(t: readonly number[], d: readonly number[], n: 
  * `Infinity` — nothing is classified as pause rather than everything (a
  * stream with no advance intervals has no basis to judge "long relative to
  * what").
- *
- * `gapIntervals` merges adjacent same-kind non-covered segments into runs
- * with real `startSec`/`endSec` boundaries (not indices), ordered ascending.
  */
-export function classifyGaps(
+function classifyPairKinds(
   t: readonly number[],
   d: readonly number[],
   options?: { pauseRule?: PauseRule }
-): PaceCoverage {
-  if (!validateStreamSeries(t as number[], d as number[]).ok) return zeroCoverage();
+): { ok: boolean; spanSec: number; pairKinds: PairKind[] } {
+  if (!validateStreamSeries(t as number[], d as number[]).ok) {
+    return { ok: false, spanSec: 0, pairKinds: [] };
+  }
 
   const n = t.length;
   const spanSec = t[n - 1] - t[0];
@@ -216,27 +277,57 @@ export function classifyGaps(
 
   const flatRunDuration = computeFlatRunDurations(t, d, n);
 
+  const pairKinds: PairKind[] = new Array(n - 1);
+  for (let i = 0; i < n - 1; i++) {
+    const dt = t[i + 1] - t[i];
+    if (dt > RECORDING_GAP_ABS_THRESHOLD_SEC) {
+      pairKinds[i] = 'recording-gap';
+    } else if (flatRunDuration[i] >= 0 && flatRunDuration[i] > pauseThresholdSec) {
+      pairKinds[i] = 'pause';
+    } else {
+      pairKinds[i] = 'covered';
+    }
+  }
+
+  return { ok: true, spanSec, pairKinds };
+}
+
+/**
+ * Accumulates a `pairKinds` array (from `classifyPairKinds`, optionally
+ * mutated by `classifyGaps`' pass 3) into totals and merged `gapIntervals`
+ * runs. This is the ONE classification-arithmetic implementation in this
+ * module — kind-count-agnostic by construction (the `openKind === kind`
+ * same-kind-run merge below does not special-case how many non-`'covered'`
+ * kinds exist), reused by `classifyGapsThreeWay` (once, over the pre-detector
+ * `pairKinds`) and `classifyGaps` (twice: once to build the detector's own
+ * `gaps` argument, once more after pass 3 relabels the detected segments).
+ */
+function accumulateCoverage(
+  t: readonly number[],
+  pairKinds: readonly PairKind[]
+): {
+  coveredSec: number;
+  recordingGapSec: number;
+  pauseSec: number;
+  unreliableSec: number;
+  gapIntervals: GapInterval[];
+} {
   let coveredSec = 0;
   let recordingGapSec = 0;
   let pauseSec = 0;
+  let unreliableSec = 0;
   const gapIntervals: GapInterval[] = [];
   let openKind: GapKind | null = null;
   let openStartSec = 0;
+  const n = pairKinds.length + 1;
 
   for (let i = 0; i < n - 1; i++) {
     const dt = t[i + 1] - t[i];
-
-    let kind: GapKind | 'covered';
-    if (dt > RECORDING_GAP_ABS_THRESHOLD_SEC) {
-      kind = 'recording-gap';
-    } else if (flatRunDuration[i] >= 0 && flatRunDuration[i] > pauseThresholdSec) {
-      kind = 'pause';
-    } else {
-      kind = 'covered';
-    }
+    const kind = pairKinds[i];
 
     if (kind === 'recording-gap') recordingGapSec += dt;
     else if (kind === 'pause') pauseSec += dt;
+    else if (kind === 'unreliable') unreliableSec += dt;
     else coveredSec += dt;
 
     if (kind === 'covered') {
@@ -259,7 +350,135 @@ export function classifyGaps(
     gapIntervals.push({ startSec: openStartSec, endSec: t[n - 1], kind: openKind });
   }
 
-  return { spanSec, coveredSec, recordingGapSec, pauseSec, gapIntervals };
+  return { coveredSec, recordingGapSec, pauseSec, unreliableSec, gapIntervals };
+}
+
+/**
+ * The PRE-detector classification (D-02, D-14) — `recording-gap` and `pause`
+ * only, never `unreliable`. This is the ONE definition of "gap" that
+ * `detectUnreliableSegments` is fed, matching that module's own docblock
+ * rule that gaps arrive as the caller's argument rather than being
+ * redefined internally. Any caller needing "gaps as the detector sees them"
+ * MUST call this function, never `classifyGaps(...).gapIntervals` — feeding
+ * the POST-detector four-way list back into the detector is circular,
+ * because those intervals already have the detector's own prior output
+ * folded into them (Task 2 of this plan repairs the four call sites that
+ * once did exactly this).
+ *
+ * On an invalid stream (T-26-01), returns the zeroed `ThreeWayPaceCoverage`.
+ */
+export function classifyGapsThreeWay(
+  t: readonly number[],
+  d: readonly number[],
+  options?: { pauseRule?: PauseRule }
+): ThreeWayPaceCoverage {
+  const pass1 = classifyPairKinds(t, d, options);
+  if (!pass1.ok) return zeroThreeWayCoverage();
+
+  const acc = accumulateCoverage(t, pass1.pairKinds);
+  return {
+    spanSec: pass1.spanSec,
+    coveredSec: acc.coveredSec,
+    recordingGapSec: acc.recordingGapSec,
+    pauseSec: acc.pauseSec,
+    // Safe: `pass1.pairKinds` comes straight from `classifyPairKinds`, which
+    // only ever assigns 'recording-gap' | 'pause' | 'covered' — never
+    // 'unreliable' — so `acc.gapIntervals` structurally cannot contain a
+    // `kind: 'unreliable'` entry here.
+    gapIntervals: acc.gapIntervals as PreDetectorGapInterval[],
+  };
+}
+
+/**
+ * Classifies every `[t[i], t[i+1]]` segment of a stream into exactly one of
+ * `unreliable`, `recording-gap`, `pause`, or `covered`, and accounts the
+ * real-time span of each category exactly (D-04, D-07, COV-01, widened by
+ * 33-CONTEXT.md D-01/D-02/D-14).
+ *
+ * Guarded by `validateStreamSeries` on entry (T-26-01) — any non-`ok` input
+ * (length mismatch, fewer than 2 samples, a non-finite value, decreasing
+ * `t`/`d`) returns the zeroed `PaceCoverage` rather than throwing.
+ *
+ * Classification is by STRICT PRIORITY, four rungs, `unreliable` first
+ * (D-01) — a pair the pre-detector pass called `recording-gap` or `pause`
+ * that lies inside a detected unreliable segment is RECLASSIFIED as
+ * `unreliable` in pass 3 below, so those seconds MOVE between caption terms;
+ * `spanSec` and every stream byte are unchanged:
+ *   1. inside a segment `detectUnreliableSegments` returns → `unreliable`.
+ *   2. else `dt = t[i+1] - t[i] > RECORDING_GAP_ABS_THRESHOLD_SEC` → `recording-gap`.
+ *   3. else if the segment belongs to a distance-flat run whose duration
+ *      exceeds the resolved pause threshold → `pause`.
+ *   4. else → `covered`.
+ *
+ * Three passes over the one `classifyPairKinds`/`accumulateCoverage`
+ * classification, never a second copy of the arithmetic:
+ *   - Pass 1 (`classifyPairKinds`): the pre-detector recording-gap/pause/
+ *     covered decision, unchanged from before this phase.
+ *   - Pass 2: accumulates pass 1 once to obtain the pre-detector
+ *     `gapIntervals` — the SAME list `classifyGapsThreeWay` returns — maps
+ *     it to `{ startSec, endSec }` spans, and calls
+ *     `detectUnreliableSegments(t, d, spans, DEFAULT_DETECTOR_PARAMS)`.
+ *   - Pass 3: for each returned segment, overwrites `pairKinds[i] =
+ *     'unreliable'` for every `i` with `seg.startIndex <= i && i <
+ *     seg.endIndex`, then accumulates a second time to get the final
+ *     four-way totals and `gapIntervals`.
+ *
+ * Containment in pass 3 is INDEX-based, using the detector's own
+ * `startIndex`/`endIndex` — never a `startSec <= t[i] && t[i+1] <= endSec`
+ * float comparison. Re-deriving membership from floating `startSec`/`endSec`
+ * boundaries would create a SECOND boundary convention alongside the
+ * detector's own index-based one, and a disagreeing second convention is
+ * exactly the defect 32-13/32-17 fixed (overlapping mapped gap blocks
+ * double-counting a shared interval).
+ *
+ * `gapIntervals` merges adjacent same-kind non-covered segments into runs
+ * with real `startSec`/`endSec` boundaries (not indices), ordered ascending.
+ */
+export function classifyGaps(
+  t: readonly number[],
+  d: readonly number[],
+  options?: { pauseRule?: PauseRule }
+): PaceCoverage {
+  const pass1 = classifyPairKinds(t, d, options);
+  if (!pass1.ok) return zeroCoverage();
+
+  // Pass 2: the pre-detector three-way gapIntervals — the detector's own
+  // `gaps` argument. This is exactly what `classifyGapsThreeWay` returns;
+  // computed again here (rather than calling that function) only because
+  // `spanSec`/`pairKinds` are already in hand from pass 1 above — the
+  // arithmetic itself is the one shared `accumulateCoverage` call, not a
+  // second implementation.
+  const preDetectorAcc = accumulateCoverage(t, pass1.pairKinds);
+  const detectorGaps = preDetectorAcc.gapIntervals.map((g) => ({
+    startSec: g.startSec,
+    endSec: g.endSec,
+  }));
+  const segments = detectUnreliableSegments(
+    t as number[],
+    d as number[],
+    detectorGaps,
+    DEFAULT_DETECTOR_PARAMS
+  );
+
+  // Pass 3: reclassify every pair inside a detected segment as 'unreliable',
+  // using the detector's own startIndex/endIndex (see docblock above for why
+  // this must not be re-derived from startSec/endSec).
+  const pairKinds: PairKind[] = pass1.pairKinds.slice();
+  for (const seg of segments) {
+    for (let i = seg.startIndex; i < seg.endIndex; i++) {
+      pairKinds[i] = 'unreliable';
+    }
+  }
+
+  const finalAcc = accumulateCoverage(t, pairKinds);
+  return {
+    spanSec: pass1.spanSec,
+    coveredSec: finalAcc.coveredSec,
+    recordingGapSec: finalAcc.recordingGapSec,
+    pauseSec: finalAcc.pauseSec,
+    unreliableSec: finalAcc.unreliableSec,
+    gapIntervals: finalAcc.gapIntervals,
+  };
 }
 
 // ---------------------------------------------------------------------------

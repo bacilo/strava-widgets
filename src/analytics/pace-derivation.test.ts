@@ -35,6 +35,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   classifyGaps,
+  classifyGapsThreeWay,
   derivePaceWithCoverage,
   derivePaceSeriesGapAware,
   adaptiveWindowSec,
@@ -42,6 +43,7 @@ import {
   paceHistogramAccounting,
   detectPaceDisagreement,
 } from './pace-derivation.js';
+import { detectUnreliableSegments, DEFAULT_DETECTOR_PARAMS } from './unreliable-segments.js';
 import {
   syntheticRecordingGapStream,
   syntheticIntervalSessionStream,
@@ -138,24 +140,39 @@ describe('classifyGaps — coverage sums exactly and pins the two negative cases
     expect(shortfall).toBeLessThan(1000);
   });
 
-  it('positive: classifyGaps on real 4556693525 sums exactly to spanSec (coverage sums)', () => {
+  it('positive: classifyGaps on real 4556693525 sums exactly to spanSec (coverage sums, widened to the four-way identity by Phase 33 D-01/D-02)', () => {
     const stream = readStream('4556693525');
     const spanSec = stream.t[stream.t.length - 1] - stream.t[0];
     const coverage = classifyGaps(stream.t, stream.d);
     expect(coverage.spanSec).toBe(spanSec);
-    expect(coverage.coveredSec + coverage.recordingGapSec + coverage.pauseSec).toBe(spanSec);
+    // Phase 33: this stream now carries a detected unreliable segment
+    // (measured unreliableSec 32 of 3394 s), so the pre-Phase-33 three-term
+    // sum no longer equals spanSec on its own — the fourth term is required.
+    expect(
+      coverage.coveredSec + coverage.recordingGapSec + coverage.pauseSec + coverage.unreliableSec
+    ).toBe(spanSec);
   });
 
-  it('negative case 2: an absolute 30s pause rule misclassifies >90% of real 5059204779 as paused despite a 7s max Δt', () => {
+  it('negative case 2: an absolute 30s pause rule misclassifies real 5059204779 (Phase 33: the detector now swallows the whole misclassified span as unreliable, not pause)', () => {
     const stream = readStream('5059204779');
     // This stream's maximum Δt is 7 s (26-RESEARCH.md, re-confirmed at
     // planning time) — there is no recording gap here to explain a large
-    // paused fraction. Any large pause fraction under the absolute rule is
-    // pure misclassification of scale-relative flat runs (D-05).
+    // paused fraction. The absolute rule's D-05 misclassification is still
+    // real, but its OWN pre-detector gap list — the exact garbage this rule
+    // produces — is what `classifyGaps` now feeds `detectUnreliableSegments`
+    // (D-14: the detector runs on whatever pauseRule the caller passed).
+    // Measured 2026-09-21: the ENTIRE span (3788 of 3788 s) is swallowed as
+    // one 'unreliable' segment, not 'pause' — 'unreliable' outranks 'pause'
+    // in the priority tree (D-01), so the OLD claim ("misclassified as
+    // paused") is no longer literally true, but the underlying defect (the
+    // absolute rule feeding a degenerate gap list) is demonstrated even more
+    // starkly: pauseSec collapses to exactly 0 and unreliableSec absorbs the
+    // whole activity.
     const coverage = classifyGaps(stream.t, stream.d, {
       pauseRule: { kind: 'absolute', thresholdSec: 30 },
     });
-    expect(coverage.pauseSec / coverage.spanSec).toBeGreaterThan(0.9);
+    expect(coverage.pauseSec).toBe(0);
+    expect(coverage.unreliableSec).toBe(coverage.spanSec);
   });
 
   it('positive: the default scale-relative pause rule classifies real 5059204779 as <2% paused', () => {
@@ -193,6 +210,7 @@ describe('classifyGaps — coverage sums exactly and pins the two negative cases
         coveredSec: 0,
         recordingGapSec: 0,
         pauseSec: 0,
+        unreliableSec: 0,
         gapIntervals: [],
       });
     });
@@ -348,22 +366,30 @@ describe('derivePaceWithCoverage — adaptive window, gap clipping, D-16 entry p
     });
   });
 
-  it('3647739864 recovers to fast mass < 2% and coverage > 98% under the adaptive window', () => {
+  it('3647739864 recovers to fast mass < 2% and coverage > 97% under the adaptive window (Phase 33: coverage floor lowered from 98% — the detector now clips a genuine unreliable segment here too)', () => {
     const stream = readArchiveStream('3647739864');
     const result = derivePaceWithCoverage(stream);
     const { fastMass, coveredFraction } = fastMassAndCoverage(result, stream.t);
-    // Measured 0.62% / 100.0%.
+    // Pre-Phase-33 measured 0.62% / 100.0%. Phase 33 (2026-09-21): this
+    // stream carries a detected unreliable segment (88 s) that
+    // paceHistogramSamples now excludes exactly as it excludes a gap
+    // (PACE-08's inherited clipping, D-02) — measured 0.08% / 97.45%. The
+    // coverage floor is lowered to reflect this genuine, intended clip, not
+    // a regression.
     expect(fastMass).toBeLessThan(0.02);
-    expect(coveredFraction).toBeGreaterThan(0.98);
+    expect(coveredFraction).toBeGreaterThan(0.97);
   });
 
-  it('4598855187 recovers to fast mass < 2% and coverage > 98% under the adaptive window', () => {
+  it('4598855187 recovers to fast mass < 2% and coverage > 97% under the adaptive window (Phase 33: coverage floor lowered from 98% — the detector now clips a genuine unreliable segment here too)', () => {
     const stream = readArchiveStream('4598855187');
     const result = derivePaceWithCoverage(stream);
     const { fastMass, coveredFraction } = fastMassAndCoverage(result, stream.t);
-    // Measured 0.00% / 100.0%.
+    // Pre-Phase-33 measured 0.00% / 100.0%. Phase 33 (2026-09-21): this
+    // stream carries a detected unreliable segment (147 s), clipped the same
+    // way — measured 0.09% / 97.91%. The coverage floor is lowered to
+    // reflect this genuine, intended clip, not a regression.
     expect(fastMass).toBeLessThan(0.02);
-    expect(coveredFraction).toBeGreaterThan(0.98);
+    expect(coveredFraction).toBeGreaterThan(0.97);
   });
 
   describe('gap boundary — negative case 3: an unclipped window bridges a recording gap', () => {
@@ -637,5 +663,184 @@ describe('WR-01 — zero-net-advance covered segment flanked by recording gaps',
     const archiveResult = derivePaceWithCoverage(archive);
     const archiveAccounting = paceHistogramAccounting(archive.t, archiveResult.paceSeries, archiveResult.coverage);
     expect(archiveAccounting.unbucketedCoveredSec).toBeGreaterThanOrEqual(0);
+  });
+});
+
+/**
+ * classifyGaps reclassification — real committed unreliable segments
+ * (Phase 33, PACE-08, D-01/D-02/D-14/D-15). Every case below reads
+ * `data/streams/{id}.json` directly and computes every numeric expectation
+ * in-test from raw `t`/`d` (or from `classifyGapsThreeWay`) — never a number
+ * copied from CONTEXT.md/RESEARCH.md/32-CALIBRATION.md, per this plan's own
+ * anti-circularity instruction. Named so `-t "unreliable"` selects every
+ * test in this block (the describe title itself carries the word).
+ *
+ * The three named activities are 33-CONTEXT.md's own fixtures: 3475724402
+ * (18 gaps, 30 gap-adjacent bursts), 3475734189 (no timestamp gap at all;
+ * the 199 m hidden pause at t=1353-1360), 3475740390 (five isolated jumps,
+ * t=2508 is the 52.4 m jump). Real IDs only, no synthetic look-alikes
+ * (33-RESEARCH.md Pitfall 12).
+ */
+describe('classifyGaps reclassification — real-stream unreliable segments (Phase 33 D-01, D-02, D-14/D-15)', () => {
+  const NAMED_ACTIVITY_IDS = ['3475724402', '3475734189', '3475740390'] as const;
+
+  it('priority: on 3475724402, at least one pair classifyGapsThreeWay calls recording-gap is called unreliable by classifyGaps, and recordingGapSec strictly shrinks', () => {
+    const stream = readStream('3475724402');
+    const threeWay = classifyGapsThreeWay(stream.t, stream.d);
+    const fourWay = classifyGaps(stream.t, stream.d);
+
+    // Reachability: this stream must actually have a three-way recording-gap
+    // interval for the priority claim to be checkable at all.
+    const threeWayRecordingGapIntervals = threeWay.gapIntervals.filter((g) => g.kind === 'recording-gap');
+    expect(threeWayRecordingGapIntervals.length).toBeGreaterThan(0);
+
+    // At least one three-way recording-gap interval overlaps a four-way
+    // unreliable interval — the pair that pass 1 called recording-gap is
+    // reclassified unreliable by pass 3.
+    const fourWayUnreliableIntervals = fourWay.gapIntervals.filter((g) => g.kind === 'unreliable');
+    expect(fourWayUnreliableIntervals.length).toBeGreaterThan(0);
+    const anyOverlap = threeWayRecordingGapIntervals.some((tg) =>
+      fourWayUnreliableIntervals.some((fg) => tg.startSec < fg.endSec && fg.startSec < tg.endSec)
+    );
+    expect(anyOverlap).toBe(true);
+
+    expect(fourWay.recordingGapSec).toBeLessThan(threeWay.recordingGapSec);
+  });
+
+  it('A1 measured, not assumed: four-way coveredSec is <= three-way coveredSec on all three named activities, and strictly less on at least one', () => {
+    const measurements = NAMED_ACTIVITY_IDS.map((id) => {
+      const stream = readStream(id);
+      const threeWay = classifyGapsThreeWay(stream.t, stream.d);
+      const fourWay = classifyGaps(stream.t, stream.d);
+      return { id, threeWayCoveredSec: threeWay.coveredSec, fourWayCoveredSec: fourWay.coveredSec };
+    });
+
+    // eslint-disable-next-line no-console
+    console.log('[pace-derivation A1] ' + JSON.stringify(measurements));
+
+    for (const m of measurements) {
+      expect(m.fourWayCoveredSec).toBeLessThanOrEqual(m.threeWayCoveredSec);
+    }
+    expect(measurements.some((m) => m.fourWayCoveredSec < m.threeWayCoveredSec)).toBe(true);
+  });
+
+  it('conservation: for each named activity, three-way and four-way sums both equal spanSec, and equal each other, to 1e-9 (a structural property of an exhaustive if/else partition — NOT the proof of COV-03; plan 33-07\'s detector-free recount is)', () => {
+    for (const id of NAMED_ACTIVITY_IDS) {
+      const stream = readStream(id);
+      const threeWay = classifyGapsThreeWay(stream.t, stream.d);
+      const fourWay = classifyGaps(stream.t, stream.d);
+
+      const threeWaySum = threeWay.coveredSec + threeWay.recordingGapSec + threeWay.pauseSec;
+      const fourWaySum =
+        fourWay.coveredSec + fourWay.recordingGapSec + fourWay.pauseSec + fourWay.unreliableSec;
+
+      expect(Math.abs(threeWaySum - fourWay.spanSec)).toBeLessThan(1e-9);
+      expect(Math.abs(fourWaySum - fourWay.spanSec)).toBeLessThan(1e-9);
+      expect(Math.abs(threeWaySum - fourWaySum)).toBeLessThan(1e-9);
+    }
+  });
+
+  it('unreliableSec equals the summed duration of classifyGaps intervals of kind unreliable, and that set\'s boundaries equal the detector\'s own segment boundaries on the same stream', () => {
+    for (const id of NAMED_ACTIVITY_IDS) {
+      const stream = readStream(id);
+      const threeWay = classifyGapsThreeWay(stream.t, stream.d);
+      const fourWay = classifyGaps(stream.t, stream.d);
+
+      const unreliableIntervals = fourWay.gapIntervals.filter((g) => g.kind === 'unreliable');
+      const summedDuration = unreliableIntervals.reduce((sum, g) => sum + (g.endSec - g.startSec), 0);
+      expect(Math.abs(summedDuration - fourWay.unreliableSec)).toBeLessThan(1e-9);
+
+      // Independently re-derive the detector's own segment boundaries from
+      // the pre-detector three-way list, the same way classifyGaps' own
+      // pass 2 does — not by trusting fourWay's own output.
+      const detectorGaps = threeWay.gapIntervals.map((g) => ({ startSec: g.startSec, endSec: g.endSec }));
+      const segments = detectUnreliableSegments(stream.t, stream.d, detectorGaps, DEFAULT_DETECTOR_PARAMS);
+      const segmentBoundaries = segments
+        .map((s) => ({ startSec: s.startSec, endSec: s.endSec }))
+        .sort((a, b) => a.startSec - b.startSec);
+      const intervalBoundaries = unreliableIntervals
+        .map((g) => ({ startSec: g.startSec, endSec: g.endSec }))
+        .sort((a, b) => a.startSec - b.startSec);
+
+      expect(intervalBoundaries).toEqual(segmentBoundaries);
+    }
+  });
+
+  it('clipping is real, not nominal: on 3475734189 (199 m hidden pause, no timestamp gap) every sample index strictly inside the detected segment is null in derivePaceWithCoverage\'s paceSeries, and paceHistogramSamples emits no sample whose start falls inside it', () => {
+    const stream = readStream('3475734189');
+    const threeWay = classifyGapsThreeWay(stream.t, stream.d);
+    const detectorGaps = threeWay.gapIntervals.map((g) => ({ startSec: g.startSec, endSec: g.endSec }));
+    const segments = detectUnreliableSegments(stream.t, stream.d, detectorGaps, DEFAULT_DETECTOR_PARAMS);
+
+    expect(segments.length).toBeGreaterThan(0); // reachability
+    const segment = segments[0];
+    expect(segment.mechanism).toBe('hidden-pause');
+
+    const result = derivePaceWithCoverage(stream);
+
+    // Strictly inside: t strictly between the segment's own startSec/endSec
+    // (the same open-interval rule derivePaceSeriesGapAware's own clip uses)
+    // — every sample index in that range must be null.
+    let checkedAny = false;
+    for (let i = segment.startIndex; i <= segment.endIndex; i++) {
+      const time = stream.t[i];
+      if (time > segment.startSec && time < segment.endSec) {
+        checkedAny = true;
+        expect(result.paceSeries[i]).toBeNull();
+      }
+    }
+    expect(checkedAny).toBe(true); // reachability: at least one strictly-inside index must exist
+
+    // paceHistogramSamples excludes a raw index i whenever t[i] (the
+    // segment's own start) falls inside a gapIntervals entry — re-derive,
+    // from raw t alone, which indices in this segment's window WOULD have
+    // survived if this segment carried no gap-membership exclusion at all
+    // (dt > 0 and a non-null pace), then confirm every one of them IS
+    // excluded once result.coverage.gapIntervals (which now includes this
+    // segment as 'unreliable') is applied — proving the exclusion is doing
+    // real work here, not vacuously finding nothing to exclude.
+    const wouldSurviveWithNoGapIntervals: number[] = [];
+    for (let i = segment.startIndex; i < segment.endIndex; i++) {
+      const segStart = stream.t[i];
+      const dt = stream.t[i + 1] - stream.t[i];
+      if (dt > 0 && segStart >= segment.startSec && segStart < segment.endSec) {
+        wouldSurviveWithNoGapIntervals.push(i);
+      }
+    }
+    expect(wouldSurviveWithNoGapIntervals.length).toBeGreaterThan(0); // reachability
+
+    const samplesWithNoGaps = paceHistogramSamples(stream.t, result.paceSeries, []);
+    const samplesWithRealGaps = paceHistogramSamples(stream.t, result.paceSeries, result.coverage.gapIntervals);
+
+    // With gapIntervals stripped entirely, the segment's own bucketed time
+    // (sum of dt for indices whose t[i] falls inside [startSec, endSec))
+    // is non-zero — proving the exclusion mechanism, not a null pace series,
+    // is what would otherwise let these samples through.
+    const bucketedInsideSegmentNoGaps = wouldSurviveWithNoGapIntervals.reduce(
+      (sum, i) => sum + (stream.t[i + 1] - stream.t[i]),
+      0
+    );
+    expect(bucketedInsideSegmentNoGaps).toBeGreaterThan(0);
+    expect(samplesWithNoGaps.length).toBeGreaterThanOrEqual(samplesWithRealGaps.length);
+
+    // With the real gapIntervals applied, paceHistogramSamples' own total
+    // bucketed time never includes any of this segment's dt.
+    const totalBucketedRealGaps = samplesWithRealGaps.reduce((sum, s) => sum + s.timeSec, 0);
+    const totalBucketedNoGaps = samplesWithNoGaps.reduce((sum, s) => sum + s.timeSec, 0);
+    expect(totalBucketedRealGaps).toBeLessThan(totalBucketedNoGaps);
+  });
+
+  it('WR-01 identity survives the shrink: paceHistogramAccounting\'s coveredSec === bucketedSec + unbucketedCoveredSec holds on 3475724402 with the now-smaller coveredSec', () => {
+    const stream = readStream('3475724402');
+    const threeWay = classifyGapsThreeWay(stream.t, stream.d);
+    const result = derivePaceWithCoverage(stream);
+    const accounting = paceHistogramAccounting(stream.t, result.paceSeries, result.coverage);
+
+    // Reachability: coveredSec must genuinely have shrunk from the
+    // pre-detector three-way value for "the now-smaller coveredSec" to be
+    // a real claim, not an assumption.
+    expect(result.coverage.coveredSec).toBeLessThan(threeWay.coveredSec);
+
+    expect(result.coverage.coveredSec).toBe(accounting.bucketedSec + accounting.unbucketedCoveredSec);
   });
 });

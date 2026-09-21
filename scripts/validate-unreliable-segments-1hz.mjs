@@ -49,6 +49,12 @@
  * timestamp, so re-running with the same flag over an unchanged archive and export produces a
  * byte-identical report (idempotence, Pitfall 13's standing discipline) — a missing or malformed
  * flag exits 1 with a usage line rather than silently defaulting to `new Date()`.
+ *
+ * 2026-09-21, Phase 33: `classifyGaps` folded `detectUnreliableSegments` into itself this phase
+ * (D-14), so `classifyGaps(...).gapIntervals` is now the POST-detector four-way list — feeding it
+ * back into `detectUnreliableSegments` here would be circular, judging the detector's own prior
+ * output as its input. This script imports `classifyGapsThreeWay` instead, the pre-detector
+ * recording-gap/pause list, which is the ONE shape the detector is ever fed (D-02).
  */
 
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'fs';
@@ -60,7 +66,7 @@ import {
   DEFAULT_DETECTOR_PARAMS,
   UNRELIABLE_SPEED_LIMIT_MPS,
 } from '../dist/analytics/unreliable-segments.js';
-import { classifyGaps } from '../dist/analytics/pace-derivation.js';
+import { classifyGapsThreeWay } from '../dist/analytics/pace-derivation.js';
 import { validateStreamSeries } from '../dist/analytics/best-effort-utils.js';
 import { parseCsv, columnIndices } from '../dist/exports/csv.js';
 import { readOriginal } from '../dist/exports/geometry-readers.js';
@@ -146,7 +152,7 @@ export function findFlaggedActivitiesWithFitOriginal(streamsDir, csvMap) {
     const d = Array.isArray(stream.d) ? stream.d : [];
     if (!validateStreamSeries(t, d).ok) continue;
 
-    const gaps = classifyGaps(t, d).gapIntervals;
+    const gaps = classifyGapsThreeWay(t, d).gapIntervals;
     const segments = detectUnreliableSegments(t, d, gaps, DEFAULT_DETECTOR_PARAMS);
     if (segments.length === 0) continue;
 
@@ -298,7 +304,7 @@ export async function buildActivityFinding(id, streamsDir, activitiesDir, csvMap
     return { id, skipped: 'committed stream fails validateStreamSeries' };
   }
 
-  const gaps = classifyGaps(t, d).gapIntervals;
+  const gaps = classifyGapsThreeWay(t, d).gapIntervals;
   const segments = detectUnreliableSegments(t, d, gaps, DEFAULT_DETECTOR_PARAMS);
   if (segments.length === 0) {
     return { id, skipped: 'shipped detector finds no segment on this activity' };

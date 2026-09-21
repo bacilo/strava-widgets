@@ -11,8 +11,14 @@
  * (the nightly deploy gate) rather than only when a human happens to run the recount script by
  * hand.
  *
- * `classifyGaps` is imported here (from `../dist/analytics/pace-derivation.js`) ONLY to prove the
- * precondition below — this file does not use it to build the detector's input in any other way.
+ * `classifyGapsThreeWay` is imported here (from `../dist/analytics/pace-derivation.js`) ONLY to
+ * prove the precondition below and to build the detector's `gaps` argument — never the four-way
+ * `classifyGaps`. **2026-09-21, Phase 33 (D-14, D-15):** `classifyGaps` folded
+ * `detectUnreliableSegments` into itself this phase, so `classifyGaps(...).gapIntervals` is now
+ * the POST-detector list (3475724402's recording gaps have already been absorbed into
+ * `unreliable` intervals). Feeding that list back into the detector here would be circular and
+ * would silently diverge this file's own precondition from what `localGapSpans` re-derives —
+ * `classifyGapsThreeWay` is the pre-detector list, the ONE shape the detector is ever fed.
  */
 
 import fs from 'node:fs';
@@ -21,7 +27,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { detectUnreliableSegments, DEFAULT_DETECTOR_PARAMS } from '../dist/analytics/unreliable-segments.js';
-import { classifyGaps } from '../dist/analytics/pace-derivation.js';
+import { classifyGaps, classifyGapsThreeWay } from '../dist/analytics/pace-derivation.js';
 
 import { recountGapFirst, localGapSpans } from './compute-unreliable-segment-recount.mjs';
 
@@ -79,9 +85,9 @@ function rowSetsMatch(recountRows, otherRows) {
 describe('D-15 cross-check — 3475724402 detector vs independent gap-first recount', () => {
   const { t, d } = readStream(ACTIVITY_ID);
 
-  it('precondition: the recount\'s own local gap spans equal classifyGaps(t, d).gapIntervals on this stream', () => {
+  it('precondition: the recount\'s own local gap spans equal classifyGapsThreeWay(t, d).gapIntervals on this stream (the pre-detector list, Phase 33 D-14/D-15)', () => {
     const localSpans = localGapSpans(t, d).map((g) => ({ startSec: g.startSec, endSec: g.endSec }));
-    const classified = classifyGaps(t, d).gapIntervals.map((g) => ({
+    const classified = classifyGapsThreeWay(t, d).gapIntervals.map((g) => ({
       startSec: g.startSec,
       endSec: g.endSec,
     }));
@@ -91,7 +97,7 @@ describe('D-15 cross-check — 3475724402 detector vs independent gap-first reco
   });
 
   it('the recount runs ok and returns a non-vacuous row set', () => {
-    const gaps = classifyGaps(t, d).gapIntervals;
+    const gaps = classifyGapsThreeWay(t, d).gapIntervals;
     const recount = recountGapFirst(t, d, DEFAULT_DETECTOR_PARAMS);
 
     expect(recount.ok).toBe(true);
@@ -103,7 +109,7 @@ describe('D-15 cross-check — 3475724402 detector vs independent gap-first reco
   });
 
   it('agrees with the detector row-by-row (startIndex/endIndex/gaps/bursts exact; metres/seconds fields within 1e-6)', () => {
-    const gaps = classifyGaps(t, d).gapIntervals;
+    const gaps = classifyGapsThreeWay(t, d).gapIntervals;
     const detectorSegments = detectUnreliableSegments(t, d, gaps, DEFAULT_DETECTOR_PARAMS);
     const detectorRows = detectorSegments.map(detectorSegmentToRow);
 
@@ -131,7 +137,7 @@ describe('D-15 cross-check — 3475724402 detector vs independent gap-first reco
   });
 
   it('watched failing: stripping the leading burst off the first gap-adjacent segment that has one makes the comparison fail; the unmodified output still matches', () => {
-    const gaps = classifyGaps(t, d).gapIntervals;
+    const gaps = classifyGapsThreeWay(t, d).gapIntervals;
     const detectorSegments = detectUnreliableSegments(t, d, gaps, DEFAULT_DETECTOR_PARAMS);
     const recount = recountGapFirst(t, d, DEFAULT_DETECTOR_PARAMS);
     expect(recount.ok).toBe(true);
@@ -165,5 +171,21 @@ describe('D-15 cross-check — 3475724402 detector vs independent gap-first reco
     // real discriminator, not a vacuous one.
     const unmodifiedRows = detectorSegments.map(detectorSegmentToRow);
     expect(rowSetsMatch(recount.rows, unmodifiedRows)).toBe(true);
+  });
+
+  it('pre-detector vs post-detector gap lists stay distinct on 3475724402 (Phase 33 D-14/D-15 regression pin)', () => {
+    // Named so `-t "pre-detector"` selects it: guards against a future regression that swaps
+    // classifyGapsThreeWay and classifyGaps at any detector-input call site (this file's own three
+    // above, or the three .mjs scripts Task 2 repairs) — the fifth silent-inheritance trap found
+    // live during Phase 33 planning.
+    const threeWay = classifyGapsThreeWay(t, d).gapIntervals;
+    expect(threeWay.length).toBeGreaterThan(0);
+    for (const gap of threeWay) {
+      expect(['recording-gap', 'pause']).toContain(gap.kind);
+    }
+
+    const fourWayCoverage = classifyGaps(t, d);
+    const fourWay = fourWayCoverage.gapIntervals;
+    expect(fourWay.some((gap) => gap.kind === 'unreliable')).toBe(true);
   });
 });
