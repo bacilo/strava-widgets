@@ -20,9 +20,9 @@
  * single constructor for that state — see its own doc comment.
  */
 
-import { adaptiveWindowSec, classifyGaps, quantile } from './pace-derivation.js';
+import { adaptiveWindowSec, classifyGapsWithSegments, quantile } from './pace-derivation.js';
 import { WORLD_RECORD_100M_SPEED_MPS, validateStreamSeries } from './best-effort-utils.js';
-import type { GapInterval } from './pace-derivation.js';
+import type { GapInterval, PaceCoverage, UnreliableSegment, SegmentMechanism } from './pace-derivation.js';
 import type { CanonicalStream } from '../streams/stream.types.js';
 
 // ---------------------------------------------------------------------------
@@ -128,6 +128,44 @@ export interface ImpossibleSampleSignal {
    * used to reduce `count`; purely additional evidence.
    */
   countInsideZeroAdvanceRun: number | null;
+}
+
+/**
+ * Seventh signal (D-06/D-07/D-08, Phase 33 SEG-06, plan 33-09): the
+ * detector's own segments (`detectUnreliableSegments`, reached exclusively
+ * through `pace-derivation.ts`'s `classifyGapsWithSegments`), rolled up
+ * per activity. `tier` is `'none'` with zero detected segments (a presence
+ * fact, D-06's planner decision — never a magnitude judgement), `'minor'`
+ * with at least one segment whose `excessFraction` is at or below
+ * `UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION`, `'severe'` above it.
+ *
+ * DELIBERATELY EXCLUDED from `anySevere` (D-06) — see
+ * `ActivityQualitySignals.unreliableSegments`'s own doc comment and the
+ * `anySevere excludes unreliableSegments` test in `pace-quality.test.ts`.
+ *
+ * `count`/`totalMetres`/`totalExcessMetres`/`totalSeconds` are exact sums of
+ * the detector's own per-segment `metres`/`excessMetres`/`seconds` fields —
+ * this signal contains no excess arithmetic of its own (T-33-12b).
+ * `excessFraction` is `totalExcessMetres / totalDistanceM` where
+ * `totalDistanceM` is the activity's own `d[d.length - 1] - d[0]` (the same
+ * denominator `33-CALIBRATION.md`'s own anchor check and archive-wide
+ * finding use). `mechanisms` lists each DISTINCT `SegmentMechanism` present,
+ * in the type's own fixed declaration order, never Set
+ * iteration/insertion order.
+ *
+ * `not-computable` (T-26-02): every numeric field is `null` and
+ * `mechanisms` is `null` — never zeroed — when `validateStreamSeries`
+ * fails or `totalDistanceM` is not positive; a zeroed shape here would read
+ * as a genuinely clean, zero-segment activity.
+ */
+export interface UnreliableSegmentsSignal {
+  tier: QualityTier;
+  count: number | null;
+  totalMetres: number | null;
+  totalExcessMetres: number | null;
+  totalSeconds: number | null;
+  excessFraction: number | null;
+  mechanisms: SegmentMechanism[] | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -498,6 +536,20 @@ export interface ActivityQualitySignals {
    * `anySevere excludes elevation` test in `pace-quality.test.ts`.
    */
   elevation: ElevationSignal;
+  /**
+   * Seventh signal (D-06/D-07/D-08, Phase 33 SEG-06, plan 33-09):
+   * unreliable-segment detection rolled up per activity. Tiered
+   * (`UnreliableSegmentsSignal.tier`), but DELIBERATELY EXCLUDED from
+   * `anySevere` below (D-06) — 699 of 1,874 activities (37.3%,
+   * 32-CALIBRATION.md) carry at least one segment, so folding presence
+   * into the composite would roughly triple v2.2's figure of record (299
+   * of 1,890, 15.8%) and break its comparability across milestones, the
+   * exact Phase 30 D-06 elevation precedent restated for a second signal.
+   * `hasAnySevereSignal`'s `Pick<>` is NEVER widened to include this key;
+   * see that function's own doc comment and the
+   * `anySevere excludes unreliableSegments` test in `pace-quality.test.ts`.
+   */
+  unreliableSegments: UnreliableSegmentsSignal;
   deviceEra: DeviceEraSignal;
   elapsedVsMoving: ElapsedVsMovingSignal;
   /**
@@ -505,10 +557,12 @@ export interface ActivityQualitySignals {
    * impossibleSamples — D-01/D-05/D-16) is `'severe'`. `deviceEra`,
    * `elapsedVsMoving` and `elevation` are all excluded from this field —
    * the first two as untiered facts (D-13/D-14), `elevation` as a
-   * DELIBERATE exclusion of a tiered signal (Phase 30 D-06). This is the
-   * SAME composite the calibration report (27-03), the recount script
-   * (27-05) and the list filter (27-08) all measure — one definition,
-   * three readers.
+   * DELIBERATE exclusion of a tiered signal (Phase 30 D-06).
+   * `unreliableSegments` is excluded the same deliberate way (Phase 33
+   * D-06, see that field's own doc comment above). This is the SAME
+   * composite the calibration report (27-03), the recount script (27-05)
+   * and the list filter (27-08) all measure — one definition, three
+   * readers.
    */
   anySevere: boolean;
   /**
@@ -724,6 +778,18 @@ export function notComputableSignals(
       closureDrift: { state: 'not-computable', deltaM: null, startEndDistM: null },
       verticalRate: { flagged: false, worstRateMps: null, violatingSamples: null },
     },
+    // Seventh signal (Phase 33, SEG-06, plan 33-09): the whole-signal
+    // not-computable literal, matching every other tiering signal's own
+    // branch above — never zeroed (T-26-02).
+    unreliableSegments: {
+      tier: 'not-computable',
+      count: null,
+      totalMetres: null,
+      totalExcessMetres: null,
+      totalSeconds: null,
+      excessFraction: null,
+      mechanisms: null,
+    },
     deviceEra,
     elapsedVsMoving,
     anySevere: false,
@@ -748,6 +814,8 @@ export interface QualityThresholdOverrides {
   gapProfileSevereFraction?: number;
   impossibleSevereCount?: number;
   impossibleFloorMps?: number;
+  /** Overrides `UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION` (D-07). Production callers pass nothing. */
+  unreliableSegmentsSevereExcessFraction?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -976,14 +1044,20 @@ export const GAP_PROFILE_MINOR_FRACTION = 0.05;
 export const UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION = 0.00423;
 
 /**
- * The SOLE call site of the shared gap classifier in this module — the
- * classifier is called at most once per activity and its result shared,
- * never a second independent invocation inviting drift. Both
- * `gapProfileSignal` and `buildPaceQualityShard` route through this one
- * wrapper.
+ * The SOLE call site of the shared gap classifier AND the unreliable-segment
+ * detector in this module (widened 2026-09-21, Phase 33 plan 33-09 —
+ * previously coverage-only) — both are called at most once per activity and
+ * their result shared, never a second independent invocation inviting
+ * drift. `gapProfileSignal`, `computePaceQualitySignals` and
+ * `buildPaceQualityShard` all route through this one wrapper; the latter
+ * two additionally share its `segments` half with `unreliableSegmentsSignal`
+ * rather than resolving the detector a second time (T-33-12c).
  */
-function resolveCoverage(t: readonly number[], d: readonly number[]) {
-  return classifyGaps(t as number[], d as number[]);
+function resolveCoverage(
+  t: readonly number[],
+  d: readonly number[]
+): { coverage: PaceCoverage; segments: UnreliableSegment[] } {
+  return classifyGapsWithSegments(t as number[], d as number[]);
 }
 
 /**
@@ -1005,7 +1079,7 @@ function resolveCoverage(t: readonly number[], d: readonly number[]) {
  * itemised instead).
  */
 function tierGapProfileFromCoverage(
-  coverage: ReturnType<typeof resolveCoverage>,
+  coverage: PaceCoverage,
   options?: QualityThresholdOverrides
 ): GapProfileSignal {
   if (coverage.spanSec === 0) {
@@ -1064,8 +1138,111 @@ export function gapProfileSignal(
   d: readonly number[],
   options?: QualityThresholdOverrides
 ): GapProfileSignal {
-  const coverage = resolveCoverage(t, d);
+  const { coverage } = resolveCoverage(t, d);
   return tierGapProfileFromCoverage(coverage, options);
+}
+
+// ---------------------------------------------------------------------------
+// Unreliable-segments signal (D-06/D-07/D-08, Phase 33 SEG-06, plan 33-09)
+// ---------------------------------------------------------------------------
+
+/**
+ * `SegmentMechanism`'s fixed declaration order — used to build
+ * `UnreliableSegmentsSignal.mechanisms` deterministically, never via Set
+ * iteration/insertion order (which would depend on detection order).
+ */
+const SEGMENT_MECHANISM_ORDER: readonly SegmentMechanism[] = [
+  'gap-adjacent',
+  'hidden-pause',
+  'isolated-jump',
+];
+
+/** The shared `not-computable` literal both guard branches below return — never a shared mutable constant (T-26-02). */
+function notComputableUnreliableSegmentsSignal(): UnreliableSegmentsSignal {
+  return {
+    tier: 'not-computable',
+    count: null,
+    totalMetres: null,
+    totalExcessMetres: null,
+    totalSeconds: null,
+    excessFraction: null,
+    mechanisms: null,
+  };
+}
+
+/**
+ * Seventh quality signal (D-06/D-07/D-08, Phase 33 SEG-06, plan 33-09): the
+ * detector's own segments, rolled up per activity. Pure — takes the
+ * ALREADY-RESOLVED `segments` list (`resolveCoverage`'s `segments` half,
+ * Task 1's `classifyGapsWithSegments`) rather than running the detector
+ * itself, so this signal costs no detector invocation beyond the one
+ * `resolveCoverage` already performs per producer (T-33-12c).
+ *
+ * Guard (T-26-01/T-26-02, mirrors `tierGapProfileFromCoverage`'s
+ * `spanSec === 0` branch): a non-`ok` `validateStreamSeries(t, d)` result,
+ * OR a non-positive activity distance (`d[d.length - 1] - d[0]`, the same
+ * denominator `33-CALIBRATION.md`'s anchor check and archive-wide finding
+ * use), returns `tier: 'not-computable'` with every numeric field `null`
+ * and `mechanisms: null` — never a zeroed shape, which would read as a
+ * genuinely clean, zero-segment activity.
+ *
+ * `tier`: `'none'` with zero segments (D-06's presence-fact planner
+ * decision); `'severe'` when `excessFraction` is STRICTLY GREATER than the
+ * resolved severe cut (`options?.unreliableSegmentsSevereExcessFraction ??
+ * UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION`); `'minor'` for any other
+ * count > 0 — including an `excessFraction` of exactly 0
+ * (3475724402's 16 segments, 33-08/33-14's own recorded finding: gap
+ * dilution clamps every one of them to zero excess, but at least one
+ * segment was still detected, so this reads `'minor'`, never `'none'`).
+ *
+ * `totalMetres`/`totalExcessMetres`/`totalSeconds` are exact sums of the
+ * detector's own per-segment `metres`/`excessMetres`/`seconds` — this
+ * function contains no excess arithmetic of its own (T-33-12b). `mechanisms`
+ * lists each DISTINCT mechanism present, in `SEGMENT_MECHANISM_ORDER`.
+ */
+export function unreliableSegmentsSignal(
+  t: readonly number[],
+  d: readonly number[],
+  segments: readonly UnreliableSegment[],
+  options?: QualityThresholdOverrides
+): UnreliableSegmentsSignal {
+  if (!validateStreamSeries(t as number[], d as number[]).ok) {
+    return notComputableUnreliableSegmentsSignal();
+  }
+
+  const totalDistanceM = d[d.length - 1] - d[0];
+  if (!(totalDistanceM > 0)) {
+    return notComputableUnreliableSegmentsSignal();
+  }
+
+  let totalMetres = 0;
+  let totalExcessMetres = 0;
+  let totalSeconds = 0;
+  const mechanismsPresent = new Set<SegmentMechanism>();
+  for (const seg of segments) {
+    totalMetres += seg.metres;
+    totalExcessMetres += seg.excessMetres;
+    totalSeconds += seg.seconds;
+    mechanismsPresent.add(seg.mechanism);
+  }
+
+  const count = segments.length;
+  const excessFraction = totalExcessMetres / totalDistanceM;
+  const severeCut =
+    options?.unreliableSegmentsSevereExcessFraction ?? UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION;
+
+  let tier: QualityTier;
+  if (count === 0) {
+    tier = 'none';
+  } else if (excessFraction > severeCut) {
+    tier = 'severe';
+  } else {
+    tier = 'minor';
+  }
+
+  const mechanisms = SEGMENT_MECHANISM_ORDER.filter((m) => mechanismsPresent.has(m));
+
+  return { tier, count, totalMetres, totalExcessMetres, totalSeconds, excessFraction, mechanisms };
 }
 
 // ---------------------------------------------------------------------------
@@ -1368,9 +1545,15 @@ export function computePaceQualitySignals(
   }
 
   const decimation = decimationSignal(t, d, options);
-  const gapProfile = gapProfileSignal(t, d, options);
+  // Phase 33 plan 33-09 (T-33-12c): resolve coverage AND the detector's
+  // segments exactly ONCE here, sharing both halves between gapProfile and
+  // the seventh signal — never a second independent classifyGapsWithSegments
+  // call within this producer.
+  const { coverage, segments } = resolveCoverage(t, d);
+  const gapProfile = tierGapProfileFromCoverage(coverage, options);
   const impossibleSamples = impossibleSampleSignal(t, d, options);
   const elevation = elevationSignal(stream, metadata);
+  const unreliableSegments = unreliableSegmentsSignal(t, d, segments, options);
   const anySevere = hasAnySevereSignal({ decimation, gapProfile, impossibleSamples });
 
   return {
@@ -1378,6 +1561,7 @@ export function computePaceQualitySignals(
     gapProfile,
     impossibleSamples,
     elevation,
+    unreliableSegments,
     deviceEra,
     elapsedVsMoving,
     anySevere,
@@ -1493,8 +1677,11 @@ function computeZeroAdvanceRunProfile(
 /**
  * Builds the D-17 evidence shard for one activity. `gapIntervals` comes
  * straight from the SAME coverage result `gapProfileSignal`'s own tiering
- * derives from (`resolveCoverage`, the sole `classifyGaps` call site) —
- * computed once here and shared, never a second independent call.
+ * derives from (`resolveCoverage`, the sole `classifyGapsWithSegments` call
+ * site) — computed once here and shared, never a second independent call.
+ * `resolveCoverage`'s `segments` half is likewise shared with
+ * `unreliableSegmentsSignal` below (Phase 33 plan 33-09, T-33-12c), never
+ * re-resolved.
  *
  * Not-computable activities (no stream, or a stream failing
  * `validateStreamSeries`) return a shard whose `activityId` is set, whose
@@ -1547,11 +1734,13 @@ export function buildPaceQualityShard(
     };
   }
 
-  // The sole coverage computation for this activity — shared by the
-  // gap-profile signal below and this shard's own `gapIntervals`.
-  const coverage = resolveCoverage(t, d);
+  // The sole coverage-and-segments computation for this activity — shared by
+  // the gap-profile signal, this shard's own `gapIntervals`, and the seventh
+  // signal below (Phase 33 plan 33-09, T-33-12c).
+  const { coverage, segments } = resolveCoverage(t, d);
   const gapProfile = tierGapProfileFromCoverage(coverage, options);
   const decimation = decimationSignal(t, d, options);
+  const unreliableSegments = unreliableSegmentsSignal(t, d, segments, options);
 
   const impossibleRaw = countImpossibleSamples(t, d, { floorMps: options?.impossibleFloorMps });
   const impossibleSevereCut = options?.impossibleSevereCount ?? IMPOSSIBLE_SAMPLE_SEVERE_COUNT;
@@ -1588,6 +1777,7 @@ export function buildPaceQualityShard(
     gapProfile,
     impossibleSamples: impossibleSignal,
     elevation,
+    unreliableSegments,
     deviceEra,
     elapsedVsMoving,
     anySevere,

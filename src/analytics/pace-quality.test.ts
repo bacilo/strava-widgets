@@ -40,10 +40,12 @@ import {
   notComputableSignals,
   resolveDeviceFamily,
   subGroundSignal,
+  unreliableSegmentsSignal,
   verticalRateSignal,
   type ActivityQualityMetadata,
   type ActivityQualitySignals,
   type DeviceEraSignal,
+  type UnreliableSegmentsSignal,
 } from './pace-quality.js';
 import {
   PINNED_FIXTURES,
@@ -58,7 +60,12 @@ import {
   syntheticSubGroundStream,
   syntheticVerticalRateSpikeStream,
 } from './pace-fixtures.js';
-import { adaptiveWindowSec as recomputeAdaptiveWindowSec, classifyGaps } from './pace-derivation.js';
+import {
+  adaptiveWindowSec as recomputeAdaptiveWindowSec,
+  classifyGaps,
+  classifyGapsWithSegments,
+} from './pace-derivation.js';
+import type { UnreliableSegment, SegmentMechanism } from './pace-derivation.js';
 import type { CanonicalStream } from '../streams/stream.types.js';
 
 /** Builds the two-field metadata slice `resolveDeviceFamily` consumes from a raw activity record. */
@@ -394,18 +401,20 @@ describe('gap profile signal', () => {
  * anti-quota constant freeze. Named so `-t "gapProfile"` selects every test
  * in this block.
  *
- * The synthetic-coverage cases below mock `classifyGaps` (imported by
- * `pace-quality.ts` from `pace-derivation.js`) to return an exact,
- * hand-specified coverage object — `tierGapProfileFromCoverage` is a
- * private, unexported pure function of that object, so this is the only way
- * to pin its arithmetic to an exact `{ spanSec, recordingGapSec, pauseSec,
- * unreliableSec }` combination without engineering a real stream whose
- * detected-segment seconds happen to land on a chosen value — the same
- * `vi.doMock` + dynamic-`import()` technique `pace-single-source.test.ts`'s
- * D-15 load-bearing proof already established in this tree. Each case
- * cleans its own mock up via `vi.doUnmock` + `vi.resetModules()` so later
- * tests in this file (and the real-stream/shard-passthrough cases below,
- * which need the REAL `classifyGaps`) are never contaminated.
+ * The synthetic-coverage cases below mock `classifyGapsWithSegments`
+ * (imported by `pace-quality.ts` from `pace-derivation.js` — Phase 33 plan
+ * 33-09 widened `resolveCoverage` to call this instead of the bare
+ * `classifyGaps`) to return an exact, hand-specified coverage object —
+ * `tierGapProfileFromCoverage` is a private, unexported pure function of
+ * that object, so this is the only way to pin its arithmetic to an exact
+ * `{ spanSec, recordingGapSec, pauseSec, unreliableSec }` combination
+ * without engineering a real stream whose detected-segment seconds happen
+ * to land on a chosen value — the same `vi.doMock` + dynamic-`import()`
+ * technique `pace-single-source.test.ts`'s D-15 load-bearing proof already
+ * established in this tree. Each case cleans its own mock up via
+ * `vi.doUnmock` + `vi.resetModules()` so later tests in this file (and the
+ * real-stream/shard-passthrough cases below, which need the REAL
+ * `classifyGapsWithSegments`) are never contaminated.
  */
 describe('gapProfile numerator widening (D-04) and constant freeze (D-05)', () => {
   type MockCoverage = {
@@ -417,7 +426,8 @@ describe('gapProfile numerator widening (D-04) and constant freeze (D-05)', () =
   };
 
   /**
-   * Mocks `classifyGaps` to return `coverage` verbatim (plus an empty
+   * Mocks `classifyGapsWithSegments` to return `{ coverage, segments: [] }`
+   * with `coverage` set to `coverage` verbatim (plus an empty
    * `gapIntervals`, irrelevant to `gapProfileSignal`'s own return shape),
    * dynamically re-imports a fresh `pace-quality.js` bound to that mock,
    * calls its `gapProfileSignal`, then tears the mock down before
@@ -431,7 +441,13 @@ describe('gapProfile numerator widening (D-04) and constant freeze (D-05)', () =
     vi.doMock('./pace-derivation.js', async () => {
       const actual =
         await vi.importActual<typeof import('./pace-derivation.js')>('./pace-derivation.js');
-      return { ...actual, classifyGaps: () => ({ ...coverage, gapIntervals: [] }) };
+      return {
+        ...actual,
+        classifyGapsWithSegments: () => ({
+          coverage: { ...coverage, gapIntervals: [] },
+          segments: [],
+        }),
+      };
     });
     vi.resetModules();
     try {
@@ -583,6 +599,289 @@ describe('gapProfile numerator widening (D-04) and constant freeze (D-05)', () =
         })
     );
     expect(unreliableIntervals.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// unreliableSegments — the seventh quality signal (D-06/D-07/D-08, SEG-06, plan 33-09)
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds a minimal, valid `UnreliableSegment` for `unreliableSegmentsSignal`
+ * unit tests — every field the interface requires, with sane defaults a
+ * caller overrides only the fields a given case cares about. Test-only;
+ * never read by production code.
+ */
+function fakeSegment(
+  overrides: Pick<UnreliableSegment, 'metres' | 'seconds' | 'excessMetres' | 'mechanism'> &
+    Partial<UnreliableSegment>
+): UnreliableSegment {
+  return {
+    startIndex: 0,
+    endIndex: 1,
+    startSec: 0,
+    endSec: overrides.seconds,
+    burstMetres: overrides.metres,
+    burstSeconds: overrides.seconds,
+    gapMetres: 0,
+    gapSeconds: 0,
+    burstCount: 1,
+    gapCount: 0,
+    parts: [],
+    ...overrides,
+  };
+}
+
+describe('unreliableSegmentsSignal — the seventh quality signal (D-06/D-07/D-08, SEG-06, plan 33-09)', () => {
+  // A flat-distance, otherwise-valid stream — totalDistanceM (d[n-1] - d[0])
+  // is exactly 0, distinct from an invalid stream (validateStreamSeries
+  // still passes: t strictly increasing, d non-decreasing).
+  const FLAT_DISTANCE_STREAM = makeStream({ t: [0, 10, 20, 30], d: [100, 100, 100, 100] });
+  // An ordinary, valid stream with real distance (totalDistanceM = 1000) —
+  // the "count 0" / "minor" / "severe" / mechanisms / sum cases below all
+  // share this as their t/d, varying only the hand-crafted `segments` array
+  // passed to `unreliableSegmentsSignal`.
+  const REAL_STREAM = makeStream({ t: [0, 10, 20, 30, 40], d: [0, 50, 100, 150, 1000] });
+  // totalDistanceM = 1 exactly — division by 1 is exact in IEEE-754, so the
+  // D-07 boundary case below can compare against
+  // UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION with no floating-point
+  // rounding risk.
+  const UNIT_DISTANCE_STREAM = makeStream({ t: [0, 10], d: [0, 1] });
+
+  it('zero segments: tier none, count 0, totalMetres 0, totalExcessMetres 0, totalSeconds 0, excessFraction 0, mechanisms []', () => {
+    const result = unreliableSegmentsSignal(REAL_STREAM.t, REAL_STREAM.d, []);
+    expect(result).toEqual<UnreliableSegmentsSignal>({
+      tier: 'none',
+      count: 0,
+      totalMetres: 0,
+      totalExcessMetres: 0,
+      totalSeconds: 0,
+      excessFraction: 0,
+      mechanisms: [],
+    });
+  });
+
+  it('a segment whose excessFraction is at or below the D-07 cut tiers minor — including exactly 0 excess (the 3475724402 gap-dilution finding) and exactly AT the cut (division by 1, no floating-point risk)', () => {
+    // Below the cut: a single segment with 0 excess metres.
+    const belowCutSegments = [
+      fakeSegment({ metres: 30, seconds: 10, excessMetres: 0, mechanism: 'gap-adjacent' }),
+    ];
+    const belowCutResult = unreliableSegmentsSignal(REAL_STREAM.t, REAL_STREAM.d, belowCutSegments);
+    expect(belowCutResult.tier).toBe('minor');
+    expect(belowCutResult.count).toBe(1);
+    expect(belowCutResult.excessFraction).toBe(0);
+
+    // Exactly AT the cut: UNIT_DISTANCE_STREAM's totalDistanceM is 1, so
+    // excessFraction === excessMetres exactly (division by 1) — strictly
+    // greater-than is what promotes to severe (matching
+    // tierGapProfileFromCoverage's own >-not->= convention), so exactly AT
+    // the cut must still be minor.
+    const atCutSegments = [
+      fakeSegment({
+        metres: 1,
+        seconds: 10,
+        excessMetres: UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION,
+        mechanism: 'gap-adjacent',
+      }),
+    ];
+    const atCutResult = unreliableSegmentsSignal(
+      UNIT_DISTANCE_STREAM.t,
+      UNIT_DISTANCE_STREAM.d,
+      atCutSegments
+    );
+    expect(atCutResult.excessFraction).toBe(UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION);
+    expect(atCutResult.tier).toBe('minor');
+  });
+
+  it('a segment whose excessFraction is above the D-07 cut tiers severe', () => {
+    const aboveCutSegments = [
+      fakeSegment({
+        metres: 1,
+        seconds: 10,
+        excessMetres: UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION + 0.001,
+        mechanism: 'hidden-pause',
+      }),
+    ];
+    const result = unreliableSegmentsSignal(
+      UNIT_DISTANCE_STREAM.t,
+      UNIT_DISTANCE_STREAM.d,
+      aboveCutSegments
+    );
+    expect(result.tier).toBe('severe');
+  });
+
+  it('totalDistanceM <= 0 (a flat-distance but otherwise-valid stream) returns tier not-computable with every numeric field null and mechanisms null — never zeroed', () => {
+    const segments = [fakeSegment({ metres: 5, seconds: 5, excessMetres: 1, mechanism: 'isolated-jump' })];
+    const result = unreliableSegmentsSignal(FLAT_DISTANCE_STREAM.t, FLAT_DISTANCE_STREAM.d, segments);
+    expect(result).toEqual<UnreliableSegmentsSignal>({
+      tier: 'not-computable',
+      count: null,
+      totalMetres: null,
+      totalExcessMetres: null,
+      totalSeconds: null,
+      excessFraction: null,
+      mechanisms: null,
+    });
+  });
+
+  it('a stream failing validateStreamSeries (length mismatch) returns tier not-computable with every numeric field null and mechanisms null', () => {
+    const result = unreliableSegmentsSignal([0, 1, 2], [0, 1], []);
+    expect(result).toEqual<UnreliableSegmentsSignal>({
+      tier: 'not-computable',
+      count: null,
+      totalMetres: null,
+      totalExcessMetres: null,
+      totalSeconds: null,
+      excessFraction: null,
+      mechanisms: null,
+    });
+  });
+
+  it('mechanisms lists each distinct mechanism present, in the fixed gap-adjacent/hidden-pause/isolated-jump order, with no duplicates, regardless of detection order', () => {
+    const segments = [
+      fakeSegment({ metres: 10, seconds: 5, excessMetres: 0, mechanism: 'isolated-jump' }),
+      fakeSegment({ metres: 10, seconds: 5, excessMetres: 0, mechanism: 'gap-adjacent' }),
+      fakeSegment({ metres: 10, seconds: 5, excessMetres: 0, mechanism: 'isolated-jump' }), // duplicate mechanism
+      fakeSegment({ metres: 10, seconds: 5, excessMetres: 0, mechanism: 'hidden-pause' }),
+    ];
+    const result = unreliableSegmentsSignal(REAL_STREAM.t, REAL_STREAM.d, segments);
+    expect(result.mechanisms).toEqual<SegmentMechanism[]>(['gap-adjacent', 'hidden-pause', 'isolated-jump']);
+    expect(result.count).toBe(4); // count is the raw segment count, not the distinct-mechanism count
+  });
+
+  it("totalExcessMetres/totalMetres/totalSeconds are exact sums of the segments' own fields — no excess arithmetic of its own", () => {
+    const segments = [
+      fakeSegment({ metres: 12.5, seconds: 4.2, excessMetres: 1.1, mechanism: 'gap-adjacent' }),
+      fakeSegment({ metres: 30.75, seconds: 9.8, excessMetres: 2.9, mechanism: 'hidden-pause' }),
+    ];
+    const result = unreliableSegmentsSignal(REAL_STREAM.t, REAL_STREAM.d, segments);
+    expect(result.totalMetres).toBeCloseTo(12.5 + 30.75, 10);
+    expect(result.totalSeconds).toBeCloseTo(4.2 + 9.8, 10);
+    expect(result.totalExcessMetres).toBeCloseTo(1.1 + 2.9, 10);
+  });
+
+  describe("real-stream count/totalMetres/totalSeconds match classifyGapsWithSegments' own segments (3475724402, 3475734189, 3475740390)", () => {
+    const NAMED_ACTIVITY_IDS = ['3475724402', '3475734189', '3475740390'] as const;
+
+    it.each(NAMED_ACTIVITY_IDS)('%s', (id) => {
+      const stream = JSON.parse(
+        fs.readFileSync(path.join('data', 'streams', `${id}.json`), 'utf-8')
+      ) as CanonicalStream;
+      const { segments } = classifyGapsWithSegments(stream.t, stream.d);
+      expect(segments.length).toBeGreaterThan(0); // reachability — all three named activities carry >=1 segment
+
+      const expectedTotalMetres = segments.reduce((sum, s) => sum + s.metres, 0);
+      const expectedTotalSeconds = segments.reduce((sum, s) => sum + s.seconds, 0);
+
+      const result = unreliableSegmentsSignal(stream.t, stream.d, segments);
+
+      // eslint-disable-next-line no-console
+      console.log(
+        `[pace-quality unreliableSegmentsSignal ${id}] ` +
+          JSON.stringify({
+            count: result.count,
+            totalMetres: result.totalMetres,
+            totalExcessMetres: result.totalExcessMetres,
+            totalSeconds: result.totalSeconds,
+            excessFraction: result.excessFraction,
+            tier: result.tier,
+          })
+      );
+
+      expect(result.count).toBe(segments.length);
+      expect(result.totalMetres).toBeCloseTo(expectedTotalMetres, 9);
+      expect(result.totalSeconds).toBeCloseTo(expectedTotalSeconds, 9);
+    });
+  });
+
+  /**
+   * One-detector-run-per-producer (T-33-12c): `computePaceQualitySignals`
+   * and `buildPaceQualityShard` each resolve coverage-and-segments EXACTLY
+   * ONCE per activity, sharing the result between `gapProfile` and this
+   * signal — never a second independent `classifyGapsWithSegments` call
+   * within one producer. A namespace `vi.spyOn` cannot observe a named
+   * import (Phase 32 GAP 2's exact shape) — this counts real invocations of
+   * the REAL `classifyGapsWithSegments` via a `vi.doMock` wrapper instead,
+   * and first demonstrates the counter itself is observant (reads 2 after
+   * two calls) before trusting its 1-per-producer readings.
+   */
+  describe('one detector run per producer (T-33-12c)', () => {
+    async function withCountingClassifyGapsWithSegments<T>(
+      fn: (getCallCount: () => number) => Promise<T>
+    ): Promise<T> {
+      let callCount = 0;
+      vi.doMock('./pace-derivation.js', async () => {
+        const actual =
+          await vi.importActual<typeof import('./pace-derivation.js')>('./pace-derivation.js');
+        return {
+          ...actual,
+          classifyGapsWithSegments: (...args: Parameters<typeof classifyGapsWithSegments>) => {
+            callCount++;
+            return actual.classifyGapsWithSegments(...args);
+          },
+        };
+      });
+      vi.resetModules();
+      try {
+        return await fn(() => callCount);
+      } finally {
+        vi.doUnmock('./pace-derivation.js');
+        vi.resetModules();
+      }
+    }
+
+    it('the counter itself observes: calling the mocked classifyGapsWithSegments twice reads 2, proving it is not vacuously fixed at 0/1', async () => {
+      await withCountingClassifyGapsWithSegments(async (getCallCount) => {
+        const mod = await import('./pace-derivation.js');
+        mod.classifyGapsWithSegments([0, 10], [0, 5]);
+        mod.classifyGapsWithSegments([0, 10], [0, 5]);
+        expect(getCallCount()).toBe(2);
+      });
+    });
+
+    it('computePaceQualitySignals causes exactly ONE classifyGapsWithSegments call per activity', async () => {
+      const stream = JSON.parse(
+        fs.readFileSync(path.join('data', 'streams', '3475724402.json'), 'utf-8')
+      ) as CanonicalStream;
+      const metadata: ActivityQualityMetadata = {
+        deviceName: 'test-device',
+        sourceProvider: undefined,
+        elapsedTimeSec: stream.t[stream.t.length - 1] - stream.t[0],
+        movingTimeSec: stream.t[stream.t.length - 1] - stream.t[0],
+        startLatlng: undefined,
+        endLatlng: undefined,
+      };
+
+      await withCountingClassifyGapsWithSegments(async (getCallCount) => {
+        const mod = await import('./pace-quality.js');
+        const result = mod.computePaceQualitySignals(stream, metadata);
+        expect(getCallCount()).toBe(1);
+        // Reachability: the shared call genuinely fed both signals — not a
+        // vacuous 1-call reading against a producer that short-circuited.
+        expect(result.unreliableSegments.count).toBeGreaterThan(0);
+      });
+    });
+
+    it('buildPaceQualityShard causes exactly ONE classifyGapsWithSegments call per activity', async () => {
+      const stream = JSON.parse(
+        fs.readFileSync(path.join('data', 'streams', '3475724402.json'), 'utf-8')
+      ) as CanonicalStream;
+      const metadata: ActivityQualityMetadata = {
+        deviceName: 'test-device',
+        sourceProvider: undefined,
+        elapsedTimeSec: stream.t[stream.t.length - 1] - stream.t[0],
+        movingTimeSec: stream.t[stream.t.length - 1] - stream.t[0],
+        startLatlng: undefined,
+        endLatlng: undefined,
+      };
+
+      await withCountingClassifyGapsWithSegments(async (getCallCount) => {
+        const mod = await import('./pace-quality.js');
+        const shard = mod.buildPaceQualityShard('3475724402', stream, metadata);
+        expect(getCallCount()).toBe(1);
+        expect(shard.signals.unreliableSegments.count).toBeGreaterThan(0);
+      });
+    });
   });
 });
 
