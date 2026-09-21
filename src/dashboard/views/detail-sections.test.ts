@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import {
   coverageCaptionText,
   splitGapAnnotations,
+  dominantGapKindLabel,
   breakdownSectionPlan,
   qualitySignalsSectionPlan,
   EXPLANATION_PROBE_QUALITY,
@@ -152,14 +153,18 @@ describe('splitGapAnnotations — gap marker source of truth', () => {
     const splits = [makeSplit(1, 0, 100), makeSplit(2, 100, 200)];
     const gap = makeGap(50, 80, 'recording-gap'); // fully inside km 1's window: 30s
     const result = splitGapAnnotations(splits, [gap]);
-    expect(result).toEqual<SplitGapAnnotation[]>([{ km: 1, recordingGapSec: 30, pauseSec: 0, totalSec: 30 }]);
+    expect(result).toEqual<SplitGapAnnotation[]>([
+      { km: 1, recordingGapSec: 30, pauseSec: 0, unreliableSec: 0, totalSec: 30 },
+    ]);
   });
 
   it('attributes a pause-kind gap to pauseSec, not recordingGapSec', () => {
     const splits = [makeSplit(1, 0, 100)];
     const gap = makeGap(10, 40, 'pause'); // 30s
     const result = splitGapAnnotations(splits, [gap]);
-    expect(result).toEqual<SplitGapAnnotation[]>([{ km: 1, recordingGapSec: 0, pauseSec: 30, totalSec: 30 }]);
+    expect(result).toEqual<SplitGapAnnotation[]>([
+      { km: 1, recordingGapSec: 0, pauseSec: 30, unreliableSec: 0, totalSec: 30 },
+    ]);
   });
 
   it('a gap partially overlapping a split contributes only the overlapping seconds, not the whole gap', () => {
@@ -168,14 +173,47 @@ describe('splitGapAnnotations — gap marker source of truth', () => {
     // remaining 20s ([200, 220]) is outside any split entirely.
     const gap = makeGap(180, 220, 'recording-gap');
     const result = splitGapAnnotations(splits, [gap]);
-    expect(result).toEqual<SplitGapAnnotation[]>([{ km: 2, recordingGapSec: 20, pauseSec: 0, totalSec: 20 }]);
+    expect(result).toEqual<SplitGapAnnotation[]>([
+      { km: 2, recordingGapSec: 20, pauseSec: 0, unreliableSec: 0, totalSec: 20 },
+    ]);
   });
 
   it('accumulates overlap across multiple gaps of mixed kind touching the same split', () => {
     const splits = [makeSplit(1, 0, 100)];
     const gaps = [makeGap(10, 20, 'recording-gap'), makeGap(50, 65, 'pause')];
     const result = splitGapAnnotations(splits, gaps);
-    expect(result).toEqual<SplitGapAnnotation[]>([{ km: 1, recordingGapSec: 10, pauseSec: 15, totalSec: 25 }]);
+    expect(result).toEqual<SplitGapAnnotation[]>([
+      { km: 1, recordingGapSec: 10, pauseSec: 15, unreliableSec: 0, totalSec: 25 },
+    ]);
+  });
+
+  it('an unreliable-kind interval overlapping a split contributes to unreliableSec and totalSec, and ZERO to pauseSec — a test that would still pass under the old two-way else is not acceptable', () => {
+    const splits = [makeSplit(1, 0, 100)];
+    const gap = makeGap(10, 40, 'unreliable'); // 30s
+    const result = splitGapAnnotations(splits, [gap]);
+    expect(result).toEqual<SplitGapAnnotation[]>([
+      { km: 1, recordingGapSec: 0, pauseSec: 0, unreliableSec: 30, totalSec: 30 },
+    ]);
+    // Explicit negative assertion: pauseSec must be exactly 0, never carrying
+    // the unreliable interval's seconds (the exact trap the old `else {
+    // pauseSec += overlapSec }` branch would have produced).
+    expect(result[0].pauseSec).toBe(0);
+  });
+
+  it('totalSec equals the three-term sum, and a split with only unreliable overlap is still emitted (totalSec > 0)', () => {
+    const splits = [makeSplit(1, 0, 100)];
+    const gaps = [makeGap(5, 10, 'recording-gap'), makeGap(20, 25, 'pause'), makeGap(40, 50, 'unreliable')];
+    const result = splitGapAnnotations(splits, gaps);
+    expect(result).toHaveLength(1);
+    const annotation = result[0];
+    expect(annotation.totalSec).toBe(annotation.recordingGapSec + annotation.pauseSec + annotation.unreliableSec);
+    expect(annotation.totalSec).toBe(20);
+
+    const unreliableOnlySplits = [makeSplit(2, 100, 200)];
+    const unreliableOnlyResult = splitGapAnnotations(unreliableOnlySplits, [makeGap(110, 115, 'unreliable')]);
+    expect(unreliableOnlyResult).toEqual<SplitGapAnnotation[]>([
+      { km: 2, recordingGapSec: 0, pauseSec: 0, unreliableSec: 5, totalSec: 5 },
+    ]);
   });
 
   it('returns entries in km ascending order, matching the input split order', () => {
@@ -197,7 +235,7 @@ describe('splitGapAnnotations — gap marker source of truth', () => {
     // restored, must produce exactly one annotation — proving the empty
     // result above is not simply "this function always returns []".
     expect(splitGapAnnotations(splits, [realGap])).toEqual<SplitGapAnnotation[]>([
-      { km: 1, recordingGapSec: 30, pauseSec: 0, totalSec: 30 },
+      { km: 1, recordingGapSec: 30, pauseSec: 0, unreliableSec: 0, totalSec: 30 },
     ]);
   });
 
@@ -205,6 +243,62 @@ describe('splitGapAnnotations — gap marker source of truth', () => {
     const splits = [makeSplit(1, 0, 100), makeSplit(2, 100, 200)];
     const gap = makeGap(300, 400, 'recording-gap'); // outside both splits entirely
     expect(splitGapAnnotations(splits, [gap])).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// dominantGapKindLabel — unreliable-first marker priority (D-09)
+// ---------------------------------------------------------------------------
+
+describe('splitGapAnnotations — dominantGapKindLabel unreliable-first priority (D-09)', () => {
+  it("D-09's own worked example: pauseSec 200 and unreliableSec 2.7 returns the unreliable label, not 'pause'", () => {
+    const annotation: SplitGapAnnotation = { km: 1, recordingGapSec: 0, pauseSec: 200, unreliableSec: 2.7, totalSec: 202.7 };
+    expect(dominantGapKindLabel(annotation)).toBe('unreliable segment');
+  });
+
+  it('recordingGapSec 5, pauseSec 5, unreliableSec 0 still returns the unchanged tie rule: recording gap', () => {
+    const annotation: SplitGapAnnotation = { km: 1, recordingGapSec: 5, pauseSec: 5, unreliableSec: 0, totalSec: 10 };
+    expect(dominantGapKindLabel(annotation)).toBe('recording gap');
+  });
+
+  it('recordingGapSec 1, pauseSec 9, unreliableSec 0 still returns pause (magnitude rule unchanged)', () => {
+    const annotation: SplitGapAnnotation = { km: 1, recordingGapSec: 1, pauseSec: 9, unreliableSec: 0, totalSec: 10 };
+    expect(dominantGapKindLabel(annotation)).toBe('pause');
+  });
+
+  it('unreliableSec > 0 wins even when it is the smallest of the three categories', () => {
+    const annotation: SplitGapAnnotation = { km: 1, recordingGapSec: 50, pauseSec: 50, unreliableSec: 1, totalSec: 101 };
+    expect(dominantGapKindLabel(annotation)).toBe('unreliable segment');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Real archive activity 3475740390 — the split-8 unreliable fixture (PACE-09)
+// ---------------------------------------------------------------------------
+
+describe('splitGapAnnotations — real activity 3475740390 (split-8 unreliable fixture, PACE-09)', () => {
+  it("the split covering t=2508's isolated GPS jump is derived in-test as km 8 and carries unreliableSec > 0 with the unreliable label", () => {
+    const stream = loadStream('3475740390');
+    const derived = derivePaceWithCoverage(stream);
+    const splits = computeSplits(stream);
+
+    // Reachability proof, derived from the raw stream in-test rather than
+    // trusted from 33-VALIDATION.md's stated d=7305 m: find the raw sample
+    // index at t=2508 and the split whose window contains it.
+    const tIndex = stream.t.findIndex((t) => t === 2508);
+    expect(tIndex).toBeGreaterThanOrEqual(0);
+    const dAtJump = stream.d[tIndex];
+    expect(dAtJump).toBe(7305);
+
+    const containingSplit = splits.find((split) => 2508 >= split.startTimeSec && 2508 <= split.endTimeSec);
+    expect(containingSplit).toBeDefined();
+    expect(containingSplit?.km).toBe(8);
+
+    const annotations = splitGapAnnotations(splits, derived.coverage.gapIntervals);
+    const km8 = annotations.find((annotation) => annotation.km === 8);
+    expect(km8).toBeDefined();
+    expect(km8!.unreliableSec).toBeGreaterThan(0);
+    expect(dominantGapKindLabel(km8!)).toBe('unreliable segment');
   });
 });
 
@@ -226,12 +320,16 @@ describe('splitGapAnnotations — real activity 10198771331 (gap-crossing split,
     expect(annotations[0].totalSec).toBe(689);
 
     // 689s = 11 minutes 29 seconds — the exact legend string plan 26-10's
-    // human checkpoint row must read back on screen.
+    // human checkpoint row must read back on screen. The kind label is now
+    // read from the real dominantGapKindLabel call (Phase 33, D-09) — this
+    // is the one production call site's expected-copy test.
+    const kindLabel = dominantGapKindLabel(annotations[0]);
+    expect(kindLabel).toBe('recording gap');
     const minutes = Math.floor(annotations[0].totalSec / 60);
     const seconds = annotations[0].totalSec % 60;
     const durationText = `${minutes}:${String(seconds).padStart(2, '0')}`;
     expect(durationText).toBe('11:29');
-    expect(`Km ${annotations[0].km}: includes ${durationText} of recording gap`).toBe(
+    expect(`Km ${annotations[0].km}: includes ${durationText} of ${kindLabel}`).toBe(
       'Km 11: includes 11:29 of recording gap'
     );
   });

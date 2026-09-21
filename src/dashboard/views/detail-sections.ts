@@ -88,14 +88,16 @@ export function coverageCaptionText(coverage: PaceCoverage): string | null {
 
 /**
  * One split's accumulated overlap with the stream's gap intervals (D-09,
- * PACE-05). `recordingGapSec` and `pauseSec` are accumulated separately
- * since a split's window can cross more than one gap, of mixed kinds;
- * `totalSec` is their sum, the exact quantity the marker/legend states.
+ * PACE-05). `recordingGapSec`, `pauseSec` and `unreliableSec` are
+ * accumulated separately since a split's window can cross more than one
+ * gap, of mixed kinds; `totalSec` is their three-term sum, the exact
+ * quantity the marker/legend states.
  */
 export interface SplitGapAnnotation {
   km: number;
   recordingGapSec: number;
   pauseSec: number;
+  unreliableSec: number;
   totalSec: number;
 }
 
@@ -127,23 +129,33 @@ export function splitGapAnnotations(
   for (const split of splits) {
     let recordingGapSec = 0;
     let pauseSec = 0;
+    let unreliableSec = 0;
 
     for (const gap of gapIntervals) {
       const overlapStart = Math.max(split.startTimeSec, gap.startSec);
       const overlapEnd = Math.min(split.endTimeSec, gap.endSec);
       const overlapSec = overlapEnd - overlapStart;
       if (overlapSec > 0) {
+        // Explicit three-way branch (D-09). Before Phase 33 this was a
+        // two-way `if (gap.kind === 'recording-gap') ... else pauseSec +=
+        // overlapSec`, which silently swallowed ANY non-recording-gap kind
+        // into pauseSec — once `GapKind` widened to include `'unreliable'`
+        // (D-01/D-02), that `else` branch would have disclosed an unreliable
+        // interval to the user as an ordinary pause, a wrong disclosure, not
+        // a cosmetic defect.
         if (gap.kind === 'recording-gap') {
           recordingGapSec += overlapSec;
-        } else {
+        } else if (gap.kind === 'pause') {
           pauseSec += overlapSec;
+        } else {
+          unreliableSec += overlapSec;
         }
       }
     }
 
-    const totalSec = recordingGapSec + pauseSec;
+    const totalSec = recordingGapSec + pauseSec + unreliableSec;
     if (totalSec > 0) {
-      result.push({ km: split.km, recordingGapSec, pauseSec, totalSec });
+      result.push({ km: split.km, recordingGapSec, pauseSec, unreliableSec, totalSec });
     }
   }
 
@@ -151,15 +163,35 @@ export function splitGapAnnotations(
 }
 
 /**
- * Picks the single named category ("recording gap" or "pause") a mixed
- * split annotation is described by, for the marker `aria-label` and the
- * legend line (both carry exactly one category name per the UI-SPEC's
- * `{recording gap|pause}` copy contract). The larger accumulated duration
- * wins; a tie (including the common case of one category being exactly 0)
- * favours `recording-gap`, since a stopped recording is the more
- * significant disclosure of the two categories.
+ * Picks the single named category ("unreliable segment", "recording gap" or
+ * "pause") a mixed split annotation is described by, for the marker
+ * `aria-label` and the legend line (both carry exactly one category name
+ * per the UI-SPEC's copy contract, widened by D-09).
+ *
+ * `unreliableSec > 0` is checked FIRST and wins unconditionally, before the
+ * existing magnitude comparison — a split holding a 200s pause and a 2.7s
+ * isolated jump would, under pure magnitude, name only the pause and never
+ * mention the jump that corrupted that split's pace. D-09 rejected both a
+ * second marker per split and a three-way magnitude comparison: unreliable
+ * time is a data-integrity concern the reader must always see, not merely
+ * the largest one.
+ *
+ * Below that, today's rule is unchanged byte-for-byte: the larger
+ * accumulated duration between `recordingGapSec` and `pauseSec` wins; a tie
+ * (including the common case of one category being exactly 0) favours
+ * `recording-gap`, since a stopped recording is the more significant
+ * disclosure of the two categories.
+ *
+ * Exported (Phase 33) solely so `detail-sections.test.ts` can pin the exact
+ * worked-example priority rule directly — this module's own file-header
+ * comment establishes there is no DOM-simulation dependency in this tree, so
+ * the marker/legend copy this function drives (only reachable through
+ * `buildSplitsSection`, a DOM builder) could not otherwise be unit-tested at
+ * all, only re-derived independently inside a test (a strictly weaker check
+ * than calling the real function).
  */
-function dominantGapKindLabel(annotation: SplitGapAnnotation): 'recording gap' | 'pause' {
+export function dominantGapKindLabel(annotation: SplitGapAnnotation): 'unreliable segment' | 'recording gap' | 'pause' {
+  if (annotation.unreliableSec > 0) return 'unreliable segment';
   return annotation.recordingGapSec >= annotation.pauseSec ? 'recording gap' : 'pause';
 }
 
