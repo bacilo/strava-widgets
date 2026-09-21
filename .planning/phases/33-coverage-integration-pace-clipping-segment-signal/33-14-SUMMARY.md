@@ -176,3 +176,17 @@ Non-vacuity facts (asserted before any delta was trusted): removed step count 21
 ---
 *Phase: 33-coverage-integration-pace-clipping-segment-signal*
 *Completed: 2026-09-21*
+
+## Self-Check: PASSED
+
+- FOUND: `scripts/compute-unreliable-segment-severity-calibration.mjs`
+- FOUND: `scripts/compute-unreliable-segment-severity-calibration.test.mjs`
+- FOUND: `src/analytics/pace-quality.ts`
+- FOUND: `src/analytics/pace-quality.test.ts`
+- FOUND: `.planning/phases/33-coverage-integration-pace-clipping-segment-signal/33-CALIBRATION.md`
+- FOUND: `.planning/phases/33-coverage-integration-pace-clipping-segment-signal/33-14-SUMMARY.md`
+- FOUND commit: `548628b7`
+- FOUND commit: `1d618c4c`
+- FOUND commit: `6c622743`
+- FOUND commit: `739118ca`
+- FOUND commit: `ba1a99e4`
