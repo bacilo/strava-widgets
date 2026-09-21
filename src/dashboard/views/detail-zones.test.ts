@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import fs from 'node:fs';
 import type { CanonicalStream } from '../../streams/stream.types.js';
 import {
@@ -8,7 +8,17 @@ import {
   computeHrZoneTimes,
   type AthleteConfig,
 } from './detail-zones.js';
-import { derivePaceWithCoverage } from '../../analytics/pace-derivation.js';
+import {
+  classifyGaps,
+  classifyGapsThreeWay,
+  derivePaceWithCoverage,
+  adaptiveWindowSec,
+  paceHistogramAccounting,
+} from '../../analytics/pace-derivation.js';
+import {
+  detectUnreliableSegments,
+  DEFAULT_DETECTOR_PARAMS,
+} from '../../analytics/unreliable-segments.js';
 
 /**
  * Reads the pinned worked-example stream (activity 4556693525) directly via
@@ -24,6 +34,99 @@ import { derivePaceWithCoverage } from '../../analytics/pace-derivation.js';
 function loadWorkedExampleStream(): CanonicalStream {
   const raw = fs.readFileSync('data/streams/4556693525.json', 'utf-8');
   return JSON.parse(raw) as CanonicalStream;
+}
+
+/**
+ * Reads any committed stream by id via `node:fs`, for the named 33-CONTEXT.md
+ * fixture (3475740390) and this task's clean-control activity (10146303423,
+ * the same id Task 1 pinned in `detail-charts-logic.test.ts`) — same
+ * import-boundary rationale as `loadWorkedExampleStream` above.
+ */
+function loadStreamById(id: string): CanonicalStream {
+  const raw = fs.readFileSync(`data/streams/${id}.json`, 'utf-8');
+  return JSON.parse(raw) as CanonicalStream;
+}
+
+/**
+ * A from-scratch linear interpolation, written independently of
+ * `interpValueAtTime` (pace-derivation.ts) — mirrors
+ * `detail-charts-logic.test.ts`'s own `handInterp`, duplicated here rather
+ * than imported cross-file since each test file owns its fixture helpers in
+ * this codebase.
+ */
+function handInterp(t: readonly number[], d: readonly number[], time: number): number {
+  const n = t.length;
+  if (n === 0) return NaN;
+  if (n === 1 || time <= t[0]) return d[0];
+  if (time >= t[n - 1]) return d[n - 1];
+  let lo = 0;
+  let hi = n - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (t[mid] <= time) lo = mid;
+    else hi = mid - 1;
+  }
+  const i = lo;
+  const j = Math.min(i + 1, n - 1);
+  if (t[j] === t[i]) return d[i];
+  const frac = (time - t[i]) / (t[j] - t[i]);
+  return d[i] + frac * (d[j] - d[i]);
+}
+
+/**
+ * D-13 (mirrors `detail-charts-logic.test.ts`'s Task 1 method exactly, per
+ * this task's own `<action>` instruction to reuse it): the
+ * independently-derived post-clip FASTEST pace, computed from raw `t`/`d`,
+ * sharing only the production `adaptiveWindowSec` width and never calling
+ * `derivePaceSeriesGapAware`/`computePaceDistribution`.
+ */
+function independentFastestPaceSecPerKm(
+  t: readonly number[],
+  d: readonly number[],
+  windowSec: number,
+  gapIntervals: readonly { startSec: number; endSec: number }[]
+): number {
+  const n = t.length;
+  let fastest = Infinity;
+  for (let i = 0; i < n; i++) {
+    const time = t[i];
+    const insideGap = gapIntervals.some((g) => g.startSec < time && time < g.endSec);
+    if (insideGap) continue;
+
+    let windowStart = Math.max(t[0], time - windowSec / 2);
+    let windowEnd = Math.min(t[n - 1], time + windowSec / 2);
+    for (const g of gapIntervals) {
+      if (g.endSec <= time && g.endSec > windowStart) windowStart = g.endSec;
+      if (g.startSec >= time && g.startSec < windowEnd) windowEnd = g.startSec;
+    }
+
+    const windowElapsedSec = windowEnd - windowStart;
+    if (!(windowElapsedSec > 0)) continue;
+    const dStart = handInterp(t, d, windowStart);
+    const dEnd = handInterp(t, d, windowEnd);
+    const windowMetres = dEnd - dStart;
+    if (!(windowMetres > 0)) continue;
+
+    // Deliberately NOT `elapsed / (metres / 1000)` — pace-single-source.test.ts's
+    // single-source-of-truth audit bans that exact literal anywhere outside
+    // pace-derivation.ts (the historical duplicate-implementation defect
+    // shape), and this hand computation is meant to be structurally distinct
+    // from the production formula it is checking, not a copy of it.
+    const pace = (windowElapsedSec * 1000) / windowMetres;
+    if (pace < fastest) fastest = pace;
+  }
+  return fastest;
+}
+
+/**
+ * D-13: the detector's own segment boundaries, obtained via the pre-detector
+ * `classifyGapsThreeWay` path — see `detail-charts-logic.test.ts`'s identical
+ * helper for the full rationale.
+ */
+function detectedSegmentsFor(stream: CanonicalStream) {
+  const preDetector = classifyGapsThreeWay(stream.t, stream.d);
+  const gaps = preDetector.gapIntervals.map((g) => ({ startSec: g.startSec, endSec: g.endSec }));
+  return detectUnreliableSegments(stream.t, stream.d, gaps, DEFAULT_DETECTOR_PARAMS);
 }
 
 /** Builds a minimal valid `CanonicalStream` fixture for pure-function tests. */
@@ -281,6 +384,152 @@ describe('computePaceDistribution — PACE-04 worked example 4556693525 (phantom
         expect(b.timeSec / totalT).toBeLessThanOrEqual(0.02);
       }
     }
+  });
+});
+
+/**
+ * PACE-08, D-02, D-12 (33-06 Task 2): the pace histogram excludes unreliable
+ * segments exactly as it excludes recording gaps and pauses — with NO edit
+ * to `detail-zones.ts`. `computePaceDistribution` calls
+ * `paceHistogramSamples(t, derived.paceSeries, derived.coverage.gapIntervals)`
+ * unchanged; this describe block proves the widened `classifyGaps` reaches
+ * the histogram through that unchanged call site, on the real committed
+ * stream 33-CONTEXT.md names for the isolated-jump case (3475740390), the
+ * WR-01 accounting identity on 3475724402, plus Task 1's clean control.
+ *
+ * Every case below is named to be selected by `-t "unreliable"`.
+ */
+describe('unreliable segment exclusion reaches the histogram with zero source-file change (unreliable, PACE-08)', () => {
+  describe('activity 3475740390 (five isolated jumps, the 1:10-1:40/km case)', () => {
+    const stream = loadStreamById('3475740390');
+    const derived = derivePaceWithCoverage(stream);
+    const windowSec = adaptiveWindowSec(stream.t, stream.d);
+    const segments = detectedSegmentsFor(stream);
+    const unreliableIntervals = derived.coverage.gapIntervals.filter((g) => g.kind === 'unreliable');
+    const buckets = computePaceDistribution(derived, stream.t);
+
+    it('the detector finds exactly the five named isolated jumps — non-vacuity (unreliable)', () => {
+      expect(segments.length).toBe(5);
+      for (const seg of segments) {
+        expect(seg.mechanism).toBe('isolated-jump');
+      }
+    });
+
+    it("each of the five jumps' own sample start falls inside an unreliable interval — attributable, not incidental (unreliable)", () => {
+      // Same membership test paceHistogramSamples itself uses
+      // (segStart >= g.startSec && segStart < g.endSec) — confirms the
+      // detector's own segment starts are what the histogram's exclusion
+      // rule actually catches, not a coincidence of some other gap kind.
+      for (const seg of segments) {
+        const segStartTime = stream.t[seg.startIndex];
+        const inside = unreliableIntervals.some(
+          (g) => segStartTime >= g.startSec && segStartTime < g.endSec
+        );
+        expect(inside).toBe(true);
+      }
+    });
+
+    it('no sample in the distribution falls in the 1:10-1:40/km band (unreliable)', () => {
+      const overlapping = buckets.filter((b) => b.minSecPerKm < 100 && b.maxSecPerKm > 70);
+      expect(overlapping).toEqual([]);
+    });
+
+    it('discriminator: total bucketed seconds is greater than zero and at least 3 buckets are populated, so this cannot pass against an empty histogram (unreliable)', () => {
+      const totalBucketedSec = buckets.reduce((sum, b) => sum + b.timeSec, 0);
+      expect(totalBucketedSec).toBeGreaterThan(0);
+      expect(buckets.length).toBeGreaterThanOrEqual(3);
+    });
+
+    it("load-bearing: the five isolated jumps' own EXCLUSION (not merely their absence from a pace band) is what the histogram reflects — bucketed seconds never exceed coveredSec (unreliable)", () => {
+      // The band-absence and fastest-edge checks above are insensitive to
+      // WR-01's documented subtle leak (a segment's own START sample stays
+      // non-null and is not itself an "impossible" pace value — see
+      // pace-derivation.ts's paceHistogramSamples docblock) — a caller that
+      // dropped 'unreliable' entries from the gapIntervals list passed to
+      // paceHistogramSamples would leak exactly those 5 start samples in
+      // without moving the fastest bucket or the 1:10-1:40 band. This
+      // accounting-identity check is the one that DOES catch it: the total
+      // time computePaceDistribution buckets can never exceed
+      // derived.coverage.coveredSec, because coveredSec excludes unreliable
+      // seconds by construction. Watched failing: temporarily dropping
+      // 'unreliable' from the gapIntervals array passed to
+      // paceHistogramSamples inside detail-zones.ts's own
+      // computePaceDistribution call site made this exact assertion fail
+      // (bucketedSec 3584 > coveredSec 3569, unbucketedCoveredSec -15) before
+      // being reverted — see the SUMMARY's Deviations section.
+      const totalBucketedSec = buckets.reduce((sum, b) => sum + b.timeSec, 0);
+      expect(totalBucketedSec).toBeLessThanOrEqual(derived.coverage.coveredSec + 1e-6);
+    });
+
+    it("the distribution's fastest populated bucket edge is no faster than the independently-derived post-clip fastest pace, within one bucket width of quantization slop (unreliable)", () => {
+      const independentFastest = independentFastestPaceSecPerKm(
+        stream.t,
+        stream.d,
+        windowSec,
+        derived.coverage.gapIntervals
+      );
+      expect(Number.isFinite(independentFastest)).toBe(true);
+
+      const fastestBucket = buckets[0]; // buckets returned in ascending pace order
+      // Bucket edges are quantized to PACE_BUCKET_WIDTH_SEC (15s) floors, so
+      // a genuine sample at the independently-derived fastest pace can land
+      // in a bucket whose OWN minSecPerKm reads up to one full bucket width
+      // below that value (e.g. a 160 sec/km sample floors into the
+      // 150-165 bucket) — this is expected quantization, not a defect. The
+      // discriminator this guards against is a bucket edge more than one
+      // full bucket width faster than physically achievable, which a
+      // leaked-clipping bug would produce.
+      expect(fastestBucket.minSecPerKm).toBeGreaterThanOrEqual(
+        independentFastest - PACE_BUCKET_WIDTH_SEC
+      );
+    });
+  });
+
+  it('3475724402: paceHistogramAccounting\'s coveredSec === bucketedSec + unbucketedCoveredSec identity holds with the now-smaller coveredSec (unreliable)', () => {
+    const stream = loadStreamById('3475724402');
+    const derived = derivePaceWithCoverage(stream);
+    expect(derived.coverage.unreliableSec).toBeGreaterThan(0); // non-vacuity: this stream's coveredSec IS smaller now
+
+    const accounting = paceHistogramAccounting(stream.t, derived.paceSeries, derived.coverage);
+    expect(accounting.bucketedSec + accounting.unbucketedCoveredSec).toBeCloseTo(
+      derived.coverage.coveredSec,
+      6
+    );
+  });
+
+  describe('clean control 10146303423 (same id Task 1 pinned)', () => {
+    it('the detector finds this activity clean — non-vacuity for the control itself (unreliable)', () => {
+      const stream = loadStreamById('10146303423');
+      const coverage = classifyGaps(stream.t, stream.d);
+      expect(coverage.unreliableSec).toBe(0);
+    });
+
+    it('produces an IDENTICAL distribution through the widened detector path and a path with the detector stubbed to return [] (unreliable)', async () => {
+      const stream = loadStreamById('10146303423');
+
+      vi.resetModules();
+      const real = await import('../../analytics/pace-derivation.js');
+      const realZones = await import('./detail-zones.js');
+      const realDerived = real.derivePaceWithCoverage(stream);
+      const realBuckets = realZones.computePaceDistribution(realDerived, stream.t);
+
+      vi.doMock('../../analytics/unreliable-segments.js', async () => {
+        const actual = await vi.importActual<typeof import('../../analytics/unreliable-segments.js')>(
+          '../../analytics/unreliable-segments.js'
+        );
+        return { ...actual, detectUnreliableSegments: () => [] };
+      });
+      vi.resetModules();
+      const stubbed = await import('../../analytics/pace-derivation.js');
+      const stubbedZones = await import('./detail-zones.js');
+      const stubbedDerived = stubbed.derivePaceWithCoverage(stream);
+      const stubbedBuckets = stubbedZones.computePaceDistribution(stubbedDerived, stream.t);
+
+      expect(stubbedBuckets).toEqual(realBuckets);
+
+      vi.doUnmock('../../analytics/unreliable-segments.js');
+      vi.resetModules();
+    });
   });
 });
 
