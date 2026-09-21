@@ -58,23 +58,29 @@ import type {
 const DASH = '—';
 
 /**
- * Coverage caption text for the `Pace Distribution` heading (D-08, COV-02).
- * Reads directly from the same `PaceCoverage` the histogram beside it is
- * built from — never recomputed independently — so the two cannot drift
- * apart (D-16's structural guarantee made visible on screen).
+ * Coverage caption text for the `Pace Distribution` heading (D-08, D-10,
+ * COV-02, COV-03). Reads directly from the same `PaceCoverage` the
+ * histogram beside it is built from — never recomputed independently — so
+ * the two cannot drift apart (D-16's structural guarantee made visible on
+ * screen).
  *
  * Returns `null` when `spanSec` is not positive (no stream, or a
  * zero-length span); the caller then appends nothing. Otherwise always
- * renders all three named segments — covered, recording gaps, paused —
- * even at 0%, so a clean run states its own health rather than the reader
- * inferring it from an absent line (D-08's always-on requirement).
+ * renders all FOUR named segments — covered, recording gaps, paused,
+ * unreliable — even at 0%, so a clean run states its own health rather than
+ * the reader inferring it from an absent line (D-08's always-on
+ * requirement, extended by D-10 to the fourth term: an absent unreliable
+ * clause would stop meaning "zero" and start meaning "unknown", the exact
+ * ambiguity D-08 already forbids for the first three terms).
  *
  * Each percentage is `Math.round`ed INDEPENDENTLY from `coverage.coveredSec
- * / coverage.spanSec`, etc. The three rounded integers may not sum to
+ * / coverage.spanSec`, etc. The four rounded integers may not sum to
  * exactly 100 (a cosmetic display artifact of independent rounding) — this
  * is deliberate and must never be "corrected" by forcing a 100% total,
  * which would falsify one of the individual category values against
  * COV-01's exact-second sum (asserted on the unrounded seconds elsewhere).
+ * This applies identically to the new fourth term: `unreliablePercent` is
+ * never normalised against the other three.
  */
 export function coverageCaptionText(coverage: PaceCoverage): string | null {
   if (coverage.spanSec <= 0) return null;
@@ -82,8 +88,9 @@ export function coverageCaptionText(coverage: PaceCoverage): string | null {
   const coveredPercent = Math.round((coverage.coveredSec / coverage.spanSec) * 100);
   const recordingGapPercent = Math.round((coverage.recordingGapSec / coverage.spanSec) * 100);
   const pausePercent = Math.round((coverage.pauseSec / coverage.spanSec) * 100);
+  const unreliablePercent = Math.round((coverage.unreliableSec / coverage.spanSec) * 100);
 
-  return `${coveredPercent}% of elapsed time covered · ${recordingGapPercent}% recording gaps · ${pausePercent}% paused`;
+  return `${coveredPercent}% of elapsed time covered · ${recordingGapPercent}% recording gaps · ${pausePercent}% paused · ${unreliablePercent}% unreliable`;
 }
 
 /**

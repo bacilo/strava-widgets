@@ -95,52 +95,70 @@ function loadShard(activityId: string): PaceQualityShard {
 // coverageCaptionText
 // ---------------------------------------------------------------------------
 
-describe('coverageCaptionText — coverage caption (D-08, COV-02)', () => {
-  it('emits all three segments at 0%, joined by the middle-dot separator, on a fully covered stream', () => {
-    const coverage = makeCoverage({ spanSec: 100, coveredSec: 100, recordingGapSec: 0, pauseSec: 0 });
-    expect(coverageCaptionText(coverage)).toBe('100% of elapsed time covered · 0% recording gaps · 0% paused');
+describe('coverageCaptionText — coverage caption (D-08, D-10, COV-02, COV-03)', () => {
+  it('emits all four segments at 0%, joined by the middle-dot separator, on a fully covered stream', () => {
+    const coverage = makeCoverage({ spanSec: 100, coveredSec: 100, recordingGapSec: 0, pauseSec: 0, unreliableSec: 0 });
+    expect(coverageCaptionText(coverage)).toBe(
+      '100% of elapsed time covered · 0% recording gaps · 0% paused · 0% unreliable'
+    );
+  });
+
+  it("D-10's always-on proof: a coverage with unreliableSec 0 still renders the fourth term, reading '0% unreliable', never omitted", () => {
+    const coverage = makeCoverage({ spanSec: 200, coveredSec: 150, recordingGapSec: 50, pauseSec: 0, unreliableSec: 0 });
+    const text = coverageCaptionText(coverage);
+    expect(text).toBe('75% of elapsed time covered · 25% recording gaps · 0% paused · 0% unreliable');
+    expect(text).toContain('0% unreliable');
   });
 
   it('returns null on a zero span (T-26-01: never throws, never renders a nonsensical caption)', () => {
-    const coverage = makeCoverage({ spanSec: 0, coveredSec: 0, recordingGapSec: 0, pauseSec: 0 });
+    const coverage = makeCoverage({ spanSec: 0, coveredSec: 0, recordingGapSec: 0, pauseSec: 0, unreliableSec: 0 });
     expect(coverageCaptionText(coverage)).toBeNull();
   });
 
   it('returns null on a negative span (malformed/adversarial input, T-26-01)', () => {
-    const coverage = makeCoverage({ spanSec: -5, coveredSec: 0, recordingGapSec: 0, pauseSec: 0 });
+    const coverage = makeCoverage({ spanSec: -5, coveredSec: 0, recordingGapSec: 0, pauseSec: 0, unreliableSec: 0 });
     expect(coverageCaptionText(coverage)).toBeNull();
   });
 
-  it('does not force the three rounded percentages to sum to 100 — a 33/33/33 split stays 33/33/33, not adjusted to 100', () => {
-    // spanSec 3, one second in each category: each fraction is 33.333...%,
-    // which Math.round independently rounds to 33 for all three — summing
-    // to 99, not 100. Asserting the un-adjusted 33/33/33 output pins that
-    // this helper never "fixes" the display total (see its own doc comment).
-    const coverage = makeCoverage({ spanSec: 3, coveredSec: 1, recordingGapSec: 1, pauseSec: 1 });
+  it('does not force the four rounded percentages to sum to 100 — a fixture chosen so they demonstrably do not', () => {
+    // spanSec 7: coveredSec 2 (~28.57% -> 29), recordingGapSec 2 (~28.57% ->
+    // 29), pauseSec 2 (~28.57% -> 29), unreliableSec 1 (~14.29% -> 14).
+    // Rounded sum: 29+29+29+14 = 101, not 100 — computed and asserted in the
+    // test itself so this case cannot pass vacuously against a fixture that
+    // happens to be clean.
+    const coverage = makeCoverage({ spanSec: 7, coveredSec: 2, recordingGapSec: 2, pauseSec: 2, unreliableSec: 1 });
     const text = coverageCaptionText(coverage);
-    expect(text).toBe('33% of elapsed time covered · 33% recording gaps · 33% paused');
-    // Explicit non-100 assertion, so this test would fail loudly if a future
-    // edit "corrected" the percentages to sum to exactly 100.
-    expect(33 + 33 + 33).not.toBe(100);
+    expect(text).toBe('29% of elapsed time covered · 29% recording gaps · 29% paused · 14% unreliable');
+    const sum = 29 + 29 + 29 + 14;
+    expect(sum).toBe(101);
+    expect(sum).not.toBe(100);
   });
 
-  it('renders the pinned worked example (4556693525) at the percentages plan 26-10 will read back', () => {
+  it('renders the pinned worked example (4556693525) at the percentages plan 26-10 will read back, now with the fourth unreliable term', () => {
     const stream = loadStream('4556693525');
     const derived = derivePaceWithCoverage(stream);
     const text = coverageCaptionText(derived.coverage);
-    // Pre-computed at execution time (see this plan's SUMMARY.md) so
-    // plan 26-10's human checkpoint has an expectation to read back against,
-    // not just "a caption is present".
-    //
-    // Phase 33 (2026-09-21, D-01/D-02): this stream now carries a detected
-    // unreliable segment (32 of 3394 s). coverageCaptionText itself is
-    // unchanged by this plan (that widening is a later plan's job, D-10) and
-    // still sums only coveredSec/recordingGapSec/pauseSec — the 32 s moved
-    // OUT of coveredSec into unreliableSec, which this caption does not yet
-    // render, so the displayed covered percentage drops from 99% to 98%
-    // (measured coveredSec 3331 of 3394 = 98.14%, rounds to 98). This is the
-    // real, measured consequence of D-01, not a caption defect.
-    expect(text).toBe('98% of elapsed time covered · 1% recording gaps · 0% paused');
+    // Phase 33 (2026-09-21, D-01/D-02/D-10): this stream carries a detected
+    // unreliable segment (measured coverage.unreliableSec = 32 of spanSec
+    // 3394 = 0.94%, rounds to 1%). coveredSec is 3331 of 3394 = 98.14%,
+    // rounds to 98%; recordingGapSec is 31 of 3394 = 0.91%, rounds to 1%;
+    // pauseSec is 0. The fourth term now discloses the 32s that moved out of
+    // coveredSec, closing the gap the earlier plan-01 comment named.
+    expect(text).toBe('98% of elapsed time covered · 1% recording gaps · 0% paused · 1% unreliable');
+  });
+
+  it('real stream 3475724402: the unreliable term, recomputed in-test from the same coverage object, is greater than 0', () => {
+    const stream = loadStream('3475724402');
+    const derived = derivePaceWithCoverage(stream);
+    const coverage = derived.coverage;
+    const unreliablePercent = Math.round((coverage.unreliableSec / coverage.spanSec) * 100);
+    expect(coverage.unreliableSec).toBeGreaterThan(0);
+    expect(unreliablePercent).toBeGreaterThan(0);
+    const text = coverageCaptionText(coverage);
+    expect(text).toContain(`${unreliablePercent}% unreliable`);
+    // Measured live this session: spanSec 4345, coveredSec 3548,
+    // recordingGapSec 46, pauseSec 0, unreliableSec 751 -> 82/1/0/17.
+    expect(text).toBe('82% of elapsed time covered · 1% recording gaps · 0% paused · 17% unreliable');
   });
 });
 
@@ -352,7 +370,7 @@ describe('breakdownSectionPlan — D-08 always-on coverage caption (CR-01 regres
     const plan = breakdownSectionPlan([], coverage, null);
 
     expect(plan).not.toBeNull();
-    expect(plan!.captionText).toBe('33% of elapsed time covered · 67% recording gaps · 0% paused');
+    expect(plan!.captionText).toBe('33% of elapsed time covered · 67% recording gaps · 0% paused · 0% unreliable');
     expect(plan!.showPaceHeading).toBe(true);
     expect(plan!.showBars).toBe(false);
     expect(plan!.showHrZones).toBe(false);
@@ -365,10 +383,11 @@ describe('breakdownSectionPlan — D-08 always-on coverage caption (CR-01 regres
     expect(derived.coverage.spanSec).toBe(18);
     expect(derived.coverage.coveredSec).toBe(6);
     expect(derived.coverage.recordingGapSec).toBe(12);
+    expect(derived.coverage.unreliableSec).toBe(0);
 
     const plan = breakdownSectionPlan([], derived.coverage, null);
     expect(plan).not.toBeNull();
-    expect(plan!.captionText).toBe('33% of elapsed time covered · 67% recording gaps · 0% paused');
+    expect(plan!.captionText).toBe('33% of elapsed time covered · 67% recording gaps · 0% paused · 0% unreliable');
   });
 
   it('returns null when there is no coverage, no buckets, and no zone times — nothing to show, nothing rendered', () => {
@@ -385,7 +404,7 @@ describe('breakdownSectionPlan — D-08 always-on coverage caption (CR-01 regres
     const plan = breakdownSectionPlan([], coverage, null);
 
     expect(plan).not.toBeNull();
-    expect(plan!.captionText).toBe('0% of elapsed time covered · 100% recording gaps · 0% paused');
+    expect(plan!.captionText).toBe('0% of elapsed time covered · 100% recording gaps · 0% paused · 0% unreliable');
     expect(plan!.noteText).toContain('0:00');
   });
 
