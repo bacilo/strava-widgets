@@ -663,13 +663,14 @@ describe('qualitySignalsSectionPlan — quality signals section (D-08, D-09, D-1
     const [decimation, gapProfile, impossibleSamples] = plan.rows;
     expect(decimation.valueText).toBe('No decimation detected');
     expect(decimation.tier).toBe('none');
-    expect(gapProfile.valueText).toBe('No recording gaps');
+    expect(gapProfile.valueText).toBe('No gaps, pauses or unreliable segments');
     expect(gapProfile.tier).toBe('none');
+    expect(gapProfile.label).toBe('Coverage gaps');
     expect(impossibleSamples.valueText).toBe('No impossible samples');
     expect(impossibleSamples.tier).toBe('none');
   });
 
-  it('a row severe on gapProfile with a shard: the gap row names the percentage and its evidenceText carries a figure from shard.gapIntervals; evidenceText is absent when shard is null', () => {
+  it('gapProfileRow severe with a shard: the gap row names the percentage and its evidenceText itemises unreliable segments separately from gap/pause intervals; evidenceText is absent when shard is null', () => {
     const quality: ActivityQualitySignals = {
       ...HEALTHY_QUALITY,
       gapProfile: { tier: 'severe', gapFraction: 0.2655, recordingGapSec: 2112, pauseSec: 1, spanSec: 7958 },
@@ -678,23 +679,72 @@ describe('qualitySignalsSectionPlan — quality signals section (D-08, D-09, D-1
 
     const withoutShard = qualitySignalsSectionPlan(quality, null);
     const gapRowNoShard = withoutShard.rows[1];
-    expect(gapRowNoShard.valueText).toBe('27% of recorded time in gaps or pauses');
+    expect(gapRowNoShard.label).toBe('Coverage gaps');
+    expect(gapRowNoShard.valueText).toBe('27% of recorded time in gaps, pauses or unreliable segments');
     expect(gapRowNoShard.tier).toBe('severe');
     expect(gapRowNoShard.evidenceText).toBeNull();
 
+    // Fixture with 3 recording-gap/pause intervals and 2 unreliable
+    // intervals — built as explicit object literals (Pitfall B: a shard
+    // with no unreliable entry would prove nothing about the itemisation).
     const shard = makeShard({
+      signals: quality,
+      gapIntervals: [
+        { startSec: 78, endSec: 127, kind: 'recording-gap' },
+        { startSec: 4766, endSec: 5769, kind: 'recording-gap' }, // 1003s, the longest across ALL intervals
+        { startSec: 6000, endSec: 6010, kind: 'pause' },
+        { startSec: 200, endSec: 210, kind: 'unreliable' },
+        { startSec: 300, endSec: 305, kind: 'unreliable' },
+      ],
+    });
+    const withShard = qualitySignalsSectionPlan(quality, shard);
+    const gapRowWithShard = withShard.rows[1];
+    expect(gapRowWithShard.valueText).toBe('27% of recorded time in gaps, pauses or unreliable segments');
+    expect(gapRowWithShard.evidenceText).not.toBeNull();
+    expect(gapRowWithShard.evidenceText).toBe('3 gap/pause intervals, 2 unreliable segments; longest 16:43');
+    expect(gapRowWithShard.evidenceText).toContain('16:43'); // longest interval, 1003s
+
+    // Zero-unreliable-intervals case: the count is stated explicitly, not
+    // omitted (same always-on reasoning as D-10's fourth caption term).
+    const shardNoUnreliable = makeShard({
       signals: quality,
       gapIntervals: [
         { startSec: 78, endSec: 127, kind: 'recording-gap' },
         { startSec: 4766, endSec: 5769, kind: 'recording-gap' },
       ],
     });
-    const withShard = qualitySignalsSectionPlan(quality, shard);
-    const gapRowWithShard = withShard.rows[1];
-    expect(gapRowWithShard.valueText).toBe('27% of recorded time in gaps or pauses');
-    expect(gapRowWithShard.evidenceText).not.toBeNull();
-    expect(gapRowWithShard.evidenceText).toContain('2 gap intervals');
-    expect(gapRowWithShard.evidenceText).toContain('16:43'); // longest interval, 1003s
+    const withShardNoUnreliable = qualitySignalsSectionPlan(quality, shardNoUnreliable);
+    const gapRowNoUnreliable = withShardNoUnreliable.rows[1];
+    expect(gapRowNoUnreliable.evidenceText).toBe('2 gap/pause intervals, 0 unreliable segments; longest 16:43');
+    expect(gapRowNoUnreliable.evidenceText).toContain('0 unreliable segments');
+  });
+
+  it('gapProfileRow D-11 itemised evidence: singular/plural nouns are correct for 1 vs many in both counts', () => {
+    const quality: ActivityQualitySignals = {
+      ...HEALTHY_QUALITY,
+      gapProfile: { tier: 'minor', gapFraction: 0.05, recordingGapSec: 50, pauseSec: 0, spanSec: 1000 },
+    };
+    const oneOfEach = makeShard({
+      signals: quality,
+      gapIntervals: [
+        { startSec: 78, endSec: 127, kind: 'recording-gap' },
+        { startSec: 200, endSec: 210, kind: 'unreliable' },
+      ],
+    });
+    const singularPlan = qualitySignalsSectionPlan(quality, oneOfEach);
+    expect(singularPlan.rows[1].evidenceText).toBe('1 gap/pause interval, 1 unreliable segment; longest 0:49');
+
+    const manyOfEach = makeShard({
+      signals: quality,
+      gapIntervals: [
+        { startSec: 78, endSec: 127, kind: 'recording-gap' },
+        { startSec: 200, endSec: 210, kind: 'pause' },
+        { startSec: 300, endSec: 305, kind: 'unreliable' },
+        { startSec: 400, endSec: 405, kind: 'unreliable' },
+      ],
+    });
+    const pluralPlan = qualitySignalsSectionPlan(quality, manyOfEach);
+    expect(pluralPlan.rows[1].evidenceText).toBe('2 gap/pause intervals, 2 unreliable segments; longest 0:49');
   });
 
   it('a not-computable row: all three tiering rows read "Not computable — {reason}" with tier not-computable, and NO row reads 0% or a healthy statement', () => {
@@ -706,9 +756,10 @@ describe('qualitySignalsSectionPlan — quality signals section (D-08, D-09, D-1
       expect(row.tier).toBe('not-computable');
       expect(row.valueText).not.toContain('0%');
       expect(row.valueText).not.toBe('No decimation detected');
-      expect(row.valueText).not.toBe('No recording gaps');
+      expect(row.valueText).not.toBe('No gaps, pauses or unreliable segments');
       expect(row.valueText).not.toBe('No impossible samples');
     }
+    expect(gapProfile.label).toBe('Coverage gaps');
   });
 
   it('quality === null: the section plan is still produced (never null/undefined) and says so', () => {

@@ -1038,10 +1038,29 @@ function decimationRow(
 }
 
 /**
- * Gap-profile row (D-08, D-17) — same not-computable/healthy/tiered shape as
- * `decimationRow`. `evidenceText` names the count and longest interval from
- * `shard.gapIntervals`, the classified list the index row's own scalars
- * (`recordingGapSec`, `pauseSec`, `spanSec`) do not carry (D-17).
+ * Gap-profile row (D-08, D-11, D-17) — same not-computable/healthy/tiered
+ * shape as `decimationRow`. `label` reads `'Coverage gaps'` in all three
+ * branches (D-11) — the number this row displays now counts recording
+ * gaps, pauses AND unreliable segments (plan 33-03 widened `gapFraction`),
+ * so the old `'Recording gaps'` label and its `'... in gaps or pauses'`
+ * copy would misdescribe a shipped figure. This is a CORRECTNESS fix, not
+ * cosmetic — exactly the defect this badge's own docblock rule (every
+ * string names what its number counts) exists to prevent.
+ *
+ * `evidenceText` itemises `shard.gapIntervals` by kind — recording-gap/pause
+ * intervals counted together, unreliable segments counted separately
+ * (RESEARCH.md's Open Question 1: itemise, not a raw cross-kind count) —
+ * and always names the unreliable count, including when it is zero, the
+ * same always-on reasoning D-10 applies to the coverage caption's fourth
+ * term (an omitted clause would read as "unknown", not "none"). `longest`
+ * is computed across ALL intervals of both kinds, as before.
+ *
+ * This evidence line's DATA depends on `pace-quality-client.ts`'s
+ * `VALID_GAP_KINDS` being widened to include `'unreliable'` (plan 33-05) —
+ * without that fix this logic is correct but permanently starved of
+ * unreliable intervals once the shard is parsed in the browser, and the
+ * unreliable count below would read zero on every activity regardless of
+ * what the detector actually found.
  */
 function gapProfileRow(
   signal: GapProfileSignal,
@@ -1052,7 +1071,7 @@ function gapProfileRow(
 
   if (notComputableReason !== null) {
     return {
-      label: 'Recording gaps',
+      label: 'Coverage gaps',
       valueText: `Not computable — ${notComputableReason}`,
       tier: 'not-computable',
       explanation,
@@ -1062,9 +1081,9 @@ function gapProfileRow(
 
   let valueText: string;
   if (signal.tier === 'none') {
-    valueText = 'No recording gaps';
+    valueText = 'No gaps, pauses or unreliable segments';
   } else if (signal.gapFraction !== null) {
-    valueText = `${Math.round(signal.gapFraction * 100)}% of recorded time in gaps or pauses`;
+    valueText = `${Math.round(signal.gapFraction * 100)}% of recorded time in gaps, pauses or unreliable segments`;
   } else {
     valueText = 'Gap profile data unavailable';
   }
@@ -1072,12 +1091,15 @@ function gapProfileRow(
   const intervals = shard?.gapIntervals ?? [];
   let evidenceText: string | null = null;
   if (intervals.length > 0) {
+    const unreliableIntervals = intervals.filter((gap) => gap.kind === 'unreliable');
+    const gapPauseIntervals = intervals.filter((gap) => gap.kind !== 'unreliable');
     const longestSec = intervals.reduce((max, gap) => Math.max(max, gap.endSec - gap.startSec), 0);
-    const noun = intervals.length === 1 ? 'interval' : 'intervals';
-    evidenceText = `${intervals.length} gap ${noun}; longest ${formatEffortDuration(longestSec)}`;
+    const gapPauseNoun = gapPauseIntervals.length === 1 ? 'interval' : 'intervals';
+    const unreliableNoun = unreliableIntervals.length === 1 ? 'segment' : 'segments';
+    evidenceText = `${gapPauseIntervals.length} gap/pause ${gapPauseNoun}, ${unreliableIntervals.length} unreliable ${unreliableNoun}; longest ${formatEffortDuration(longestSec)}`;
   }
 
-  return { label: 'Recording gaps', valueText, tier: signal.tier, explanation, evidenceText };
+  return { label: 'Coverage gaps', valueText, tier: signal.tier, explanation, evidenceText };
 }
 
 /**
@@ -1347,7 +1369,11 @@ function notAvailableRows(): QualitySignalRow[] {
       evidenceText: null,
     },
     {
-      label: 'Recording gaps',
+      // 'Coverage gaps' (D-11) — matches gapProfileRow's own label in all
+      // three of its branches, so a `quality === null` fallback row does
+      // not disagree with the label the same signal carries everywhere
+      // else.
+      label: 'Coverage gaps',
       valueText: QUALITY_DATA_NOT_AVAILABLE,
       tier: 'not-computable',
       explanation: tieringExplanation('gapProfile'),
