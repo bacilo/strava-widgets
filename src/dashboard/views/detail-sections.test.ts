@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import {
   coverageCaptionText,
   splitGapAnnotations,
+  dominantGapKindLabel,
   breakdownSectionPlan,
   qualitySignalsSectionPlan,
   EXPLANATION_PROBE_QUALITY,
@@ -94,52 +95,70 @@ function loadShard(activityId: string): PaceQualityShard {
 // coverageCaptionText
 // ---------------------------------------------------------------------------
 
-describe('coverageCaptionText — coverage caption (D-08, COV-02)', () => {
-  it('emits all three segments at 0%, joined by the middle-dot separator, on a fully covered stream', () => {
-    const coverage = makeCoverage({ spanSec: 100, coveredSec: 100, recordingGapSec: 0, pauseSec: 0 });
-    expect(coverageCaptionText(coverage)).toBe('100% of elapsed time covered · 0% recording gaps · 0% paused');
+describe('coverageCaptionText — coverage caption (D-08, D-10, COV-02, COV-03)', () => {
+  it('emits all four segments at 0%, joined by the middle-dot separator, on a fully covered stream', () => {
+    const coverage = makeCoverage({ spanSec: 100, coveredSec: 100, recordingGapSec: 0, pauseSec: 0, unreliableSec: 0 });
+    expect(coverageCaptionText(coverage)).toBe(
+      '100% of elapsed time covered · 0% recording gaps · 0% paused · 0% unreliable'
+    );
+  });
+
+  it("D-10's always-on proof: a coverage with unreliableSec 0 still renders the fourth term, reading '0% unreliable', never omitted", () => {
+    const coverage = makeCoverage({ spanSec: 200, coveredSec: 150, recordingGapSec: 50, pauseSec: 0, unreliableSec: 0 });
+    const text = coverageCaptionText(coverage);
+    expect(text).toBe('75% of elapsed time covered · 25% recording gaps · 0% paused · 0% unreliable');
+    expect(text).toContain('0% unreliable');
   });
 
   it('returns null on a zero span (T-26-01: never throws, never renders a nonsensical caption)', () => {
-    const coverage = makeCoverage({ spanSec: 0, coveredSec: 0, recordingGapSec: 0, pauseSec: 0 });
+    const coverage = makeCoverage({ spanSec: 0, coveredSec: 0, recordingGapSec: 0, pauseSec: 0, unreliableSec: 0 });
     expect(coverageCaptionText(coverage)).toBeNull();
   });
 
   it('returns null on a negative span (malformed/adversarial input, T-26-01)', () => {
-    const coverage = makeCoverage({ spanSec: -5, coveredSec: 0, recordingGapSec: 0, pauseSec: 0 });
+    const coverage = makeCoverage({ spanSec: -5, coveredSec: 0, recordingGapSec: 0, pauseSec: 0, unreliableSec: 0 });
     expect(coverageCaptionText(coverage)).toBeNull();
   });
 
-  it('does not force the three rounded percentages to sum to 100 — a 33/33/33 split stays 33/33/33, not adjusted to 100', () => {
-    // spanSec 3, one second in each category: each fraction is 33.333...%,
-    // which Math.round independently rounds to 33 for all three — summing
-    // to 99, not 100. Asserting the un-adjusted 33/33/33 output pins that
-    // this helper never "fixes" the display total (see its own doc comment).
-    const coverage = makeCoverage({ spanSec: 3, coveredSec: 1, recordingGapSec: 1, pauseSec: 1 });
+  it('does not force the four rounded percentages to sum to 100 — a fixture chosen so they demonstrably do not', () => {
+    // spanSec 7: coveredSec 2 (~28.57% -> 29), recordingGapSec 2 (~28.57% ->
+    // 29), pauseSec 2 (~28.57% -> 29), unreliableSec 1 (~14.29% -> 14).
+    // Rounded sum: 29+29+29+14 = 101, not 100 — computed and asserted in the
+    // test itself so this case cannot pass vacuously against a fixture that
+    // happens to be clean.
+    const coverage = makeCoverage({ spanSec: 7, coveredSec: 2, recordingGapSec: 2, pauseSec: 2, unreliableSec: 1 });
     const text = coverageCaptionText(coverage);
-    expect(text).toBe('33% of elapsed time covered · 33% recording gaps · 33% paused');
-    // Explicit non-100 assertion, so this test would fail loudly if a future
-    // edit "corrected" the percentages to sum to exactly 100.
-    expect(33 + 33 + 33).not.toBe(100);
+    expect(text).toBe('29% of elapsed time covered · 29% recording gaps · 29% paused · 14% unreliable');
+    const sum = 29 + 29 + 29 + 14;
+    expect(sum).toBe(101);
+    expect(sum).not.toBe(100);
   });
 
-  it('renders the pinned worked example (4556693525) at the percentages plan 26-10 will read back', () => {
+  it('renders the pinned worked example (4556693525) at the percentages plan 26-10 will read back, now with the fourth unreliable term', () => {
     const stream = loadStream('4556693525');
     const derived = derivePaceWithCoverage(stream);
     const text = coverageCaptionText(derived.coverage);
-    // Pre-computed at execution time (see this plan's SUMMARY.md) so
-    // plan 26-10's human checkpoint has an expectation to read back against,
-    // not just "a caption is present".
-    //
-    // Phase 33 (2026-09-21, D-01/D-02): this stream now carries a detected
-    // unreliable segment (32 of 3394 s). coverageCaptionText itself is
-    // unchanged by this plan (that widening is a later plan's job, D-10) and
-    // still sums only coveredSec/recordingGapSec/pauseSec — the 32 s moved
-    // OUT of coveredSec into unreliableSec, which this caption does not yet
-    // render, so the displayed covered percentage drops from 99% to 98%
-    // (measured coveredSec 3331 of 3394 = 98.14%, rounds to 98). This is the
-    // real, measured consequence of D-01, not a caption defect.
-    expect(text).toBe('98% of elapsed time covered · 1% recording gaps · 0% paused');
+    // Phase 33 (2026-09-21, D-01/D-02/D-10): this stream carries a detected
+    // unreliable segment (measured coverage.unreliableSec = 32 of spanSec
+    // 3394 = 0.94%, rounds to 1%). coveredSec is 3331 of 3394 = 98.14%,
+    // rounds to 98%; recordingGapSec is 31 of 3394 = 0.91%, rounds to 1%;
+    // pauseSec is 0. The fourth term now discloses the 32s that moved out of
+    // coveredSec, closing the gap the earlier plan-01 comment named.
+    expect(text).toBe('98% of elapsed time covered · 1% recording gaps · 0% paused · 1% unreliable');
+  });
+
+  it('real stream 3475724402: the unreliable term, recomputed in-test from the same coverage object, is greater than 0', () => {
+    const stream = loadStream('3475724402');
+    const derived = derivePaceWithCoverage(stream);
+    const coverage = derived.coverage;
+    const unreliablePercent = Math.round((coverage.unreliableSec / coverage.spanSec) * 100);
+    expect(coverage.unreliableSec).toBeGreaterThan(0);
+    expect(unreliablePercent).toBeGreaterThan(0);
+    const text = coverageCaptionText(coverage);
+    expect(text).toContain(`${unreliablePercent}% unreliable`);
+    // Measured live this session: spanSec 4345, coveredSec 3548,
+    // recordingGapSec 46, pauseSec 0, unreliableSec 751 -> 82/1/0/17.
+    expect(text).toBe('82% of elapsed time covered · 1% recording gaps · 0% paused · 17% unreliable');
   });
 });
 
@@ -152,14 +171,18 @@ describe('splitGapAnnotations — gap marker source of truth', () => {
     const splits = [makeSplit(1, 0, 100), makeSplit(2, 100, 200)];
     const gap = makeGap(50, 80, 'recording-gap'); // fully inside km 1's window: 30s
     const result = splitGapAnnotations(splits, [gap]);
-    expect(result).toEqual<SplitGapAnnotation[]>([{ km: 1, recordingGapSec: 30, pauseSec: 0, totalSec: 30 }]);
+    expect(result).toEqual<SplitGapAnnotation[]>([
+      { km: 1, recordingGapSec: 30, pauseSec: 0, unreliableSec: 0, totalSec: 30 },
+    ]);
   });
 
   it('attributes a pause-kind gap to pauseSec, not recordingGapSec', () => {
     const splits = [makeSplit(1, 0, 100)];
     const gap = makeGap(10, 40, 'pause'); // 30s
     const result = splitGapAnnotations(splits, [gap]);
-    expect(result).toEqual<SplitGapAnnotation[]>([{ km: 1, recordingGapSec: 0, pauseSec: 30, totalSec: 30 }]);
+    expect(result).toEqual<SplitGapAnnotation[]>([
+      { km: 1, recordingGapSec: 0, pauseSec: 30, unreliableSec: 0, totalSec: 30 },
+    ]);
   });
 
   it('a gap partially overlapping a split contributes only the overlapping seconds, not the whole gap', () => {
@@ -168,14 +191,47 @@ describe('splitGapAnnotations — gap marker source of truth', () => {
     // remaining 20s ([200, 220]) is outside any split entirely.
     const gap = makeGap(180, 220, 'recording-gap');
     const result = splitGapAnnotations(splits, [gap]);
-    expect(result).toEqual<SplitGapAnnotation[]>([{ km: 2, recordingGapSec: 20, pauseSec: 0, totalSec: 20 }]);
+    expect(result).toEqual<SplitGapAnnotation[]>([
+      { km: 2, recordingGapSec: 20, pauseSec: 0, unreliableSec: 0, totalSec: 20 },
+    ]);
   });
 
   it('accumulates overlap across multiple gaps of mixed kind touching the same split', () => {
     const splits = [makeSplit(1, 0, 100)];
     const gaps = [makeGap(10, 20, 'recording-gap'), makeGap(50, 65, 'pause')];
     const result = splitGapAnnotations(splits, gaps);
-    expect(result).toEqual<SplitGapAnnotation[]>([{ km: 1, recordingGapSec: 10, pauseSec: 15, totalSec: 25 }]);
+    expect(result).toEqual<SplitGapAnnotation[]>([
+      { km: 1, recordingGapSec: 10, pauseSec: 15, unreliableSec: 0, totalSec: 25 },
+    ]);
+  });
+
+  it('an unreliable-kind interval overlapping a split contributes to unreliableSec and totalSec, and ZERO to pauseSec — a test that would still pass under the old two-way else is not acceptable', () => {
+    const splits = [makeSplit(1, 0, 100)];
+    const gap = makeGap(10, 40, 'unreliable'); // 30s
+    const result = splitGapAnnotations(splits, [gap]);
+    expect(result).toEqual<SplitGapAnnotation[]>([
+      { km: 1, recordingGapSec: 0, pauseSec: 0, unreliableSec: 30, totalSec: 30 },
+    ]);
+    // Explicit negative assertion: pauseSec must be exactly 0, never carrying
+    // the unreliable interval's seconds (the exact trap the old `else {
+    // pauseSec += overlapSec }` branch would have produced).
+    expect(result[0].pauseSec).toBe(0);
+  });
+
+  it('totalSec equals the three-term sum, and a split with only unreliable overlap is still emitted (totalSec > 0)', () => {
+    const splits = [makeSplit(1, 0, 100)];
+    const gaps = [makeGap(5, 10, 'recording-gap'), makeGap(20, 25, 'pause'), makeGap(40, 50, 'unreliable')];
+    const result = splitGapAnnotations(splits, gaps);
+    expect(result).toHaveLength(1);
+    const annotation = result[0];
+    expect(annotation.totalSec).toBe(annotation.recordingGapSec + annotation.pauseSec + annotation.unreliableSec);
+    expect(annotation.totalSec).toBe(20);
+
+    const unreliableOnlySplits = [makeSplit(2, 100, 200)];
+    const unreliableOnlyResult = splitGapAnnotations(unreliableOnlySplits, [makeGap(110, 115, 'unreliable')]);
+    expect(unreliableOnlyResult).toEqual<SplitGapAnnotation[]>([
+      { km: 2, recordingGapSec: 0, pauseSec: 0, unreliableSec: 5, totalSec: 5 },
+    ]);
   });
 
   it('returns entries in km ascending order, matching the input split order', () => {
@@ -197,7 +253,7 @@ describe('splitGapAnnotations — gap marker source of truth', () => {
     // restored, must produce exactly one annotation — proving the empty
     // result above is not simply "this function always returns []".
     expect(splitGapAnnotations(splits, [realGap])).toEqual<SplitGapAnnotation[]>([
-      { km: 1, recordingGapSec: 30, pauseSec: 0, totalSec: 30 },
+      { km: 1, recordingGapSec: 30, pauseSec: 0, unreliableSec: 0, totalSec: 30 },
     ]);
   });
 
@@ -205,6 +261,62 @@ describe('splitGapAnnotations — gap marker source of truth', () => {
     const splits = [makeSplit(1, 0, 100), makeSplit(2, 100, 200)];
     const gap = makeGap(300, 400, 'recording-gap'); // outside both splits entirely
     expect(splitGapAnnotations(splits, [gap])).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// dominantGapKindLabel — unreliable-first marker priority (D-09)
+// ---------------------------------------------------------------------------
+
+describe('splitGapAnnotations — dominantGapKindLabel unreliable-first priority (D-09)', () => {
+  it("D-09's own worked example: pauseSec 200 and unreliableSec 2.7 returns the unreliable label, not 'pause'", () => {
+    const annotation: SplitGapAnnotation = { km: 1, recordingGapSec: 0, pauseSec: 200, unreliableSec: 2.7, totalSec: 202.7 };
+    expect(dominantGapKindLabel(annotation)).toBe('unreliable segment');
+  });
+
+  it('recordingGapSec 5, pauseSec 5, unreliableSec 0 still returns the unchanged tie rule: recording gap', () => {
+    const annotation: SplitGapAnnotation = { km: 1, recordingGapSec: 5, pauseSec: 5, unreliableSec: 0, totalSec: 10 };
+    expect(dominantGapKindLabel(annotation)).toBe('recording gap');
+  });
+
+  it('recordingGapSec 1, pauseSec 9, unreliableSec 0 still returns pause (magnitude rule unchanged)', () => {
+    const annotation: SplitGapAnnotation = { km: 1, recordingGapSec: 1, pauseSec: 9, unreliableSec: 0, totalSec: 10 };
+    expect(dominantGapKindLabel(annotation)).toBe('pause');
+  });
+
+  it('unreliableSec > 0 wins even when it is the smallest of the three categories', () => {
+    const annotation: SplitGapAnnotation = { km: 1, recordingGapSec: 50, pauseSec: 50, unreliableSec: 1, totalSec: 101 };
+    expect(dominantGapKindLabel(annotation)).toBe('unreliable segment');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Real archive activity 3475740390 — the split-8 unreliable fixture (PACE-09)
+// ---------------------------------------------------------------------------
+
+describe('splitGapAnnotations — real activity 3475740390 (split-8 unreliable fixture, PACE-09)', () => {
+  it("the split covering t=2508's isolated GPS jump is derived in-test as km 8 and carries unreliableSec > 0 with the unreliable label", () => {
+    const stream = loadStream('3475740390');
+    const derived = derivePaceWithCoverage(stream);
+    const splits = computeSplits(stream);
+
+    // Reachability proof, derived from the raw stream in-test rather than
+    // trusted from 33-VALIDATION.md's stated d=7305 m: find the raw sample
+    // index at t=2508 and the split whose window contains it.
+    const tIndex = stream.t.findIndex((t) => t === 2508);
+    expect(tIndex).toBeGreaterThanOrEqual(0);
+    const dAtJump = stream.d[tIndex];
+    expect(dAtJump).toBe(7305);
+
+    const containingSplit = splits.find((split) => 2508 >= split.startTimeSec && 2508 <= split.endTimeSec);
+    expect(containingSplit).toBeDefined();
+    expect(containingSplit?.km).toBe(8);
+
+    const annotations = splitGapAnnotations(splits, derived.coverage.gapIntervals);
+    const km8 = annotations.find((annotation) => annotation.km === 8);
+    expect(km8).toBeDefined();
+    expect(km8!.unreliableSec).toBeGreaterThan(0);
+    expect(dominantGapKindLabel(km8!)).toBe('unreliable segment');
   });
 });
 
@@ -226,12 +338,16 @@ describe('splitGapAnnotations — real activity 10198771331 (gap-crossing split,
     expect(annotations[0].totalSec).toBe(689);
 
     // 689s = 11 minutes 29 seconds — the exact legend string plan 26-10's
-    // human checkpoint row must read back on screen.
+    // human checkpoint row must read back on screen. The kind label is now
+    // read from the real dominantGapKindLabel call (Phase 33, D-09) — this
+    // is the one production call site's expected-copy test.
+    const kindLabel = dominantGapKindLabel(annotations[0]);
+    expect(kindLabel).toBe('recording gap');
     const minutes = Math.floor(annotations[0].totalSec / 60);
     const seconds = annotations[0].totalSec % 60;
     const durationText = `${minutes}:${String(seconds).padStart(2, '0')}`;
     expect(durationText).toBe('11:29');
-    expect(`Km ${annotations[0].km}: includes ${durationText} of recording gap`).toBe(
+    expect(`Km ${annotations[0].km}: includes ${durationText} of ${kindLabel}`).toBe(
       'Km 11: includes 11:29 of recording gap'
     );
   });
@@ -254,7 +370,7 @@ describe('breakdownSectionPlan — D-08 always-on coverage caption (CR-01 regres
     const plan = breakdownSectionPlan([], coverage, null);
 
     expect(plan).not.toBeNull();
-    expect(plan!.captionText).toBe('33% of elapsed time covered · 67% recording gaps · 0% paused');
+    expect(plan!.captionText).toBe('33% of elapsed time covered · 67% recording gaps · 0% paused · 0% unreliable');
     expect(plan!.showPaceHeading).toBe(true);
     expect(plan!.showBars).toBe(false);
     expect(plan!.showHrZones).toBe(false);
@@ -267,10 +383,11 @@ describe('breakdownSectionPlan — D-08 always-on coverage caption (CR-01 regres
     expect(derived.coverage.spanSec).toBe(18);
     expect(derived.coverage.coveredSec).toBe(6);
     expect(derived.coverage.recordingGapSec).toBe(12);
+    expect(derived.coverage.unreliableSec).toBe(0);
 
     const plan = breakdownSectionPlan([], derived.coverage, null);
     expect(plan).not.toBeNull();
-    expect(plan!.captionText).toBe('33% of elapsed time covered · 67% recording gaps · 0% paused');
+    expect(plan!.captionText).toBe('33% of elapsed time covered · 67% recording gaps · 0% paused · 0% unreliable');
   });
 
   it('returns null when there is no coverage, no buckets, and no zone times — nothing to show, nothing rendered', () => {
@@ -287,7 +404,7 @@ describe('breakdownSectionPlan — D-08 always-on coverage caption (CR-01 regres
     const plan = breakdownSectionPlan([], coverage, null);
 
     expect(plan).not.toBeNull();
-    expect(plan!.captionText).toBe('0% of elapsed time covered · 100% recording gaps · 0% paused');
+    expect(plan!.captionText).toBe('0% of elapsed time covered · 100% recording gaps · 0% paused · 0% unreliable');
     expect(plan!.noteText).toContain('0:00');
   });
 
@@ -546,13 +663,14 @@ describe('qualitySignalsSectionPlan — quality signals section (D-08, D-09, D-1
     const [decimation, gapProfile, impossibleSamples] = plan.rows;
     expect(decimation.valueText).toBe('No decimation detected');
     expect(decimation.tier).toBe('none');
-    expect(gapProfile.valueText).toBe('No recording gaps');
+    expect(gapProfile.valueText).toBe('No gaps, pauses or unreliable segments');
     expect(gapProfile.tier).toBe('none');
+    expect(gapProfile.label).toBe('Coverage gaps');
     expect(impossibleSamples.valueText).toBe('No impossible samples');
     expect(impossibleSamples.tier).toBe('none');
   });
 
-  it('a row severe on gapProfile with a shard: the gap row names the percentage and its evidenceText carries a figure from shard.gapIntervals; evidenceText is absent when shard is null', () => {
+  it('gapProfileRow severe with a shard: the gap row names the percentage and its evidenceText itemises unreliable segments separately from gap/pause intervals; evidenceText is absent when shard is null', () => {
     const quality: ActivityQualitySignals = {
       ...HEALTHY_QUALITY,
       gapProfile: { tier: 'severe', gapFraction: 0.2655, recordingGapSec: 2112, pauseSec: 1, spanSec: 7958 },
@@ -561,23 +679,72 @@ describe('qualitySignalsSectionPlan — quality signals section (D-08, D-09, D-1
 
     const withoutShard = qualitySignalsSectionPlan(quality, null);
     const gapRowNoShard = withoutShard.rows[1];
-    expect(gapRowNoShard.valueText).toBe('27% of recorded time in gaps or pauses');
+    expect(gapRowNoShard.label).toBe('Coverage gaps');
+    expect(gapRowNoShard.valueText).toBe('27% of recorded time in gaps, pauses or unreliable segments');
     expect(gapRowNoShard.tier).toBe('severe');
     expect(gapRowNoShard.evidenceText).toBeNull();
 
+    // Fixture with 3 recording-gap/pause intervals and 2 unreliable
+    // intervals — built as explicit object literals (Pitfall B: a shard
+    // with no unreliable entry would prove nothing about the itemisation).
     const shard = makeShard({
+      signals: quality,
+      gapIntervals: [
+        { startSec: 78, endSec: 127, kind: 'recording-gap' },
+        { startSec: 4766, endSec: 5769, kind: 'recording-gap' }, // 1003s, the longest across ALL intervals
+        { startSec: 6000, endSec: 6010, kind: 'pause' },
+        { startSec: 200, endSec: 210, kind: 'unreliable' },
+        { startSec: 300, endSec: 305, kind: 'unreliable' },
+      ],
+    });
+    const withShard = qualitySignalsSectionPlan(quality, shard);
+    const gapRowWithShard = withShard.rows[1];
+    expect(gapRowWithShard.valueText).toBe('27% of recorded time in gaps, pauses or unreliable segments');
+    expect(gapRowWithShard.evidenceText).not.toBeNull();
+    expect(gapRowWithShard.evidenceText).toBe('3 gap/pause intervals, 2 unreliable segments; longest 16:43');
+    expect(gapRowWithShard.evidenceText).toContain('16:43'); // longest interval, 1003s
+
+    // Zero-unreliable-intervals case: the count is stated explicitly, not
+    // omitted (same always-on reasoning as D-10's fourth caption term).
+    const shardNoUnreliable = makeShard({
       signals: quality,
       gapIntervals: [
         { startSec: 78, endSec: 127, kind: 'recording-gap' },
         { startSec: 4766, endSec: 5769, kind: 'recording-gap' },
       ],
     });
-    const withShard = qualitySignalsSectionPlan(quality, shard);
-    const gapRowWithShard = withShard.rows[1];
-    expect(gapRowWithShard.valueText).toBe('27% of recorded time in gaps or pauses');
-    expect(gapRowWithShard.evidenceText).not.toBeNull();
-    expect(gapRowWithShard.evidenceText).toContain('2 gap intervals');
-    expect(gapRowWithShard.evidenceText).toContain('16:43'); // longest interval, 1003s
+    const withShardNoUnreliable = qualitySignalsSectionPlan(quality, shardNoUnreliable);
+    const gapRowNoUnreliable = withShardNoUnreliable.rows[1];
+    expect(gapRowNoUnreliable.evidenceText).toBe('2 gap/pause intervals, 0 unreliable segments; longest 16:43');
+    expect(gapRowNoUnreliable.evidenceText).toContain('0 unreliable segments');
+  });
+
+  it('gapProfileRow D-11 itemised evidence: singular/plural nouns are correct for 1 vs many in both counts', () => {
+    const quality: ActivityQualitySignals = {
+      ...HEALTHY_QUALITY,
+      gapProfile: { tier: 'minor', gapFraction: 0.05, recordingGapSec: 50, pauseSec: 0, spanSec: 1000 },
+    };
+    const oneOfEach = makeShard({
+      signals: quality,
+      gapIntervals: [
+        { startSec: 78, endSec: 127, kind: 'recording-gap' },
+        { startSec: 200, endSec: 210, kind: 'unreliable' },
+      ],
+    });
+    const singularPlan = qualitySignalsSectionPlan(quality, oneOfEach);
+    expect(singularPlan.rows[1].evidenceText).toBe('1 gap/pause interval, 1 unreliable segment; longest 0:49');
+
+    const manyOfEach = makeShard({
+      signals: quality,
+      gapIntervals: [
+        { startSec: 78, endSec: 127, kind: 'recording-gap' },
+        { startSec: 200, endSec: 210, kind: 'pause' },
+        { startSec: 300, endSec: 305, kind: 'unreliable' },
+        { startSec: 400, endSec: 405, kind: 'unreliable' },
+      ],
+    });
+    const pluralPlan = qualitySignalsSectionPlan(quality, manyOfEach);
+    expect(pluralPlan.rows[1].evidenceText).toBe('2 gap/pause intervals, 2 unreliable segments; longest 0:49');
   });
 
   it('a not-computable row: all three tiering rows read "Not computable — {reason}" with tier not-computable, and NO row reads 0% or a healthy statement', () => {
@@ -589,9 +756,10 @@ describe('qualitySignalsSectionPlan — quality signals section (D-08, D-09, D-1
       expect(row.tier).toBe('not-computable');
       expect(row.valueText).not.toContain('0%');
       expect(row.valueText).not.toBe('No decimation detected');
-      expect(row.valueText).not.toBe('No recording gaps');
+      expect(row.valueText).not.toBe('No gaps, pauses or unreliable segments');
       expect(row.valueText).not.toBe('No impossible samples');
     }
+    expect(gapProfile.label).toBe('Coverage gaps');
   });
 
   it('quality === null: the section plan is still produced (never null/undefined) and says so', () => {

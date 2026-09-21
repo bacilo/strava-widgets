@@ -58,23 +58,29 @@ import type {
 const DASH = '—';
 
 /**
- * Coverage caption text for the `Pace Distribution` heading (D-08, COV-02).
- * Reads directly from the same `PaceCoverage` the histogram beside it is
- * built from — never recomputed independently — so the two cannot drift
- * apart (D-16's structural guarantee made visible on screen).
+ * Coverage caption text for the `Pace Distribution` heading (D-08, D-10,
+ * COV-02, COV-03). Reads directly from the same `PaceCoverage` the
+ * histogram beside it is built from — never recomputed independently — so
+ * the two cannot drift apart (D-16's structural guarantee made visible on
+ * screen).
  *
  * Returns `null` when `spanSec` is not positive (no stream, or a
  * zero-length span); the caller then appends nothing. Otherwise always
- * renders all three named segments — covered, recording gaps, paused —
- * even at 0%, so a clean run states its own health rather than the reader
- * inferring it from an absent line (D-08's always-on requirement).
+ * renders all FOUR named segments — covered, recording gaps, paused,
+ * unreliable — even at 0%, so a clean run states its own health rather than
+ * the reader inferring it from an absent line (D-08's always-on
+ * requirement, extended by D-10 to the fourth term: an absent unreliable
+ * clause would stop meaning "zero" and start meaning "unknown", the exact
+ * ambiguity D-08 already forbids for the first three terms).
  *
  * Each percentage is `Math.round`ed INDEPENDENTLY from `coverage.coveredSec
- * / coverage.spanSec`, etc. The three rounded integers may not sum to
+ * / coverage.spanSec`, etc. The four rounded integers may not sum to
  * exactly 100 (a cosmetic display artifact of independent rounding) — this
  * is deliberate and must never be "corrected" by forcing a 100% total,
  * which would falsify one of the individual category values against
  * COV-01's exact-second sum (asserted on the unrounded seconds elsewhere).
+ * This applies identically to the new fourth term: `unreliablePercent` is
+ * never normalised against the other three.
  */
 export function coverageCaptionText(coverage: PaceCoverage): string | null {
   if (coverage.spanSec <= 0) return null;
@@ -82,20 +88,23 @@ export function coverageCaptionText(coverage: PaceCoverage): string | null {
   const coveredPercent = Math.round((coverage.coveredSec / coverage.spanSec) * 100);
   const recordingGapPercent = Math.round((coverage.recordingGapSec / coverage.spanSec) * 100);
   const pausePercent = Math.round((coverage.pauseSec / coverage.spanSec) * 100);
+  const unreliablePercent = Math.round((coverage.unreliableSec / coverage.spanSec) * 100);
 
-  return `${coveredPercent}% of elapsed time covered · ${recordingGapPercent}% recording gaps · ${pausePercent}% paused`;
+  return `${coveredPercent}% of elapsed time covered · ${recordingGapPercent}% recording gaps · ${pausePercent}% paused · ${unreliablePercent}% unreliable`;
 }
 
 /**
  * One split's accumulated overlap with the stream's gap intervals (D-09,
- * PACE-05). `recordingGapSec` and `pauseSec` are accumulated separately
- * since a split's window can cross more than one gap, of mixed kinds;
- * `totalSec` is their sum, the exact quantity the marker/legend states.
+ * PACE-05). `recordingGapSec`, `pauseSec` and `unreliableSec` are
+ * accumulated separately since a split's window can cross more than one
+ * gap, of mixed kinds; `totalSec` is their three-term sum, the exact
+ * quantity the marker/legend states.
  */
 export interface SplitGapAnnotation {
   km: number;
   recordingGapSec: number;
   pauseSec: number;
+  unreliableSec: number;
   totalSec: number;
 }
 
@@ -127,23 +136,33 @@ export function splitGapAnnotations(
   for (const split of splits) {
     let recordingGapSec = 0;
     let pauseSec = 0;
+    let unreliableSec = 0;
 
     for (const gap of gapIntervals) {
       const overlapStart = Math.max(split.startTimeSec, gap.startSec);
       const overlapEnd = Math.min(split.endTimeSec, gap.endSec);
       const overlapSec = overlapEnd - overlapStart;
       if (overlapSec > 0) {
+        // Explicit three-way branch (D-09). Before Phase 33 this was a
+        // two-way `if (gap.kind === 'recording-gap') ... else pauseSec +=
+        // overlapSec`, which silently swallowed ANY non-recording-gap kind
+        // into pauseSec — once `GapKind` widened to include `'unreliable'`
+        // (D-01/D-02), that `else` branch would have disclosed an unreliable
+        // interval to the user as an ordinary pause, a wrong disclosure, not
+        // a cosmetic defect.
         if (gap.kind === 'recording-gap') {
           recordingGapSec += overlapSec;
-        } else {
+        } else if (gap.kind === 'pause') {
           pauseSec += overlapSec;
+        } else {
+          unreliableSec += overlapSec;
         }
       }
     }
 
-    const totalSec = recordingGapSec + pauseSec;
+    const totalSec = recordingGapSec + pauseSec + unreliableSec;
     if (totalSec > 0) {
-      result.push({ km: split.km, recordingGapSec, pauseSec, totalSec });
+      result.push({ km: split.km, recordingGapSec, pauseSec, unreliableSec, totalSec });
     }
   }
 
@@ -151,15 +170,35 @@ export function splitGapAnnotations(
 }
 
 /**
- * Picks the single named category ("recording gap" or "pause") a mixed
- * split annotation is described by, for the marker `aria-label` and the
- * legend line (both carry exactly one category name per the UI-SPEC's
- * `{recording gap|pause}` copy contract). The larger accumulated duration
- * wins; a tie (including the common case of one category being exactly 0)
- * favours `recording-gap`, since a stopped recording is the more
- * significant disclosure of the two categories.
+ * Picks the single named category ("unreliable segment", "recording gap" or
+ * "pause") a mixed split annotation is described by, for the marker
+ * `aria-label` and the legend line (both carry exactly one category name
+ * per the UI-SPEC's copy contract, widened by D-09).
+ *
+ * `unreliableSec > 0` is checked FIRST and wins unconditionally, before the
+ * existing magnitude comparison — a split holding a 200s pause and a 2.7s
+ * isolated jump would, under pure magnitude, name only the pause and never
+ * mention the jump that corrupted that split's pace. D-09 rejected both a
+ * second marker per split and a three-way magnitude comparison: unreliable
+ * time is a data-integrity concern the reader must always see, not merely
+ * the largest one.
+ *
+ * Below that, today's rule is unchanged byte-for-byte: the larger
+ * accumulated duration between `recordingGapSec` and `pauseSec` wins; a tie
+ * (including the common case of one category being exactly 0) favours
+ * `recording-gap`, since a stopped recording is the more significant
+ * disclosure of the two categories.
+ *
+ * Exported (Phase 33) solely so `detail-sections.test.ts` can pin the exact
+ * worked-example priority rule directly — this module's own file-header
+ * comment establishes there is no DOM-simulation dependency in this tree, so
+ * the marker/legend copy this function drives (only reachable through
+ * `buildSplitsSection`, a DOM builder) could not otherwise be unit-tested at
+ * all, only re-derived independently inside a test (a strictly weaker check
+ * than calling the real function).
  */
-function dominantGapKindLabel(annotation: SplitGapAnnotation): 'recording gap' | 'pause' {
+export function dominantGapKindLabel(annotation: SplitGapAnnotation): 'unreliable segment' | 'recording gap' | 'pause' {
+  if (annotation.unreliableSec > 0) return 'unreliable segment';
   return annotation.recordingGapSec >= annotation.pauseSec ? 'recording gap' : 'pause';
 }
 
@@ -999,10 +1038,29 @@ function decimationRow(
 }
 
 /**
- * Gap-profile row (D-08, D-17) — same not-computable/healthy/tiered shape as
- * `decimationRow`. `evidenceText` names the count and longest interval from
- * `shard.gapIntervals`, the classified list the index row's own scalars
- * (`recordingGapSec`, `pauseSec`, `spanSec`) do not carry (D-17).
+ * Gap-profile row (D-08, D-11, D-17) — same not-computable/healthy/tiered
+ * shape as `decimationRow`. `label` reads `'Coverage gaps'` in all three
+ * branches (D-11) — the number this row displays now counts recording
+ * gaps, pauses AND unreliable segments (plan 33-03 widened `gapFraction`),
+ * so the old `'Recording gaps'` label and its `'... in gaps or pauses'`
+ * copy would misdescribe a shipped figure. This is a CORRECTNESS fix, not
+ * cosmetic — exactly the defect this badge's own docblock rule (every
+ * string names what its number counts) exists to prevent.
+ *
+ * `evidenceText` itemises `shard.gapIntervals` by kind — recording-gap/pause
+ * intervals counted together, unreliable segments counted separately
+ * (RESEARCH.md's Open Question 1: itemise, not a raw cross-kind count) —
+ * and always names the unreliable count, including when it is zero, the
+ * same always-on reasoning D-10 applies to the coverage caption's fourth
+ * term (an omitted clause would read as "unknown", not "none"). `longest`
+ * is computed across ALL intervals of both kinds, as before.
+ *
+ * This evidence line's DATA depends on `pace-quality-client.ts`'s
+ * `VALID_GAP_KINDS` being widened to include `'unreliable'` (plan 33-05) —
+ * without that fix this logic is correct but permanently starved of
+ * unreliable intervals once the shard is parsed in the browser, and the
+ * unreliable count below would read zero on every activity regardless of
+ * what the detector actually found.
  */
 function gapProfileRow(
   signal: GapProfileSignal,
@@ -1013,7 +1071,7 @@ function gapProfileRow(
 
   if (notComputableReason !== null) {
     return {
-      label: 'Recording gaps',
+      label: 'Coverage gaps',
       valueText: `Not computable — ${notComputableReason}`,
       tier: 'not-computable',
       explanation,
@@ -1023,9 +1081,9 @@ function gapProfileRow(
 
   let valueText: string;
   if (signal.tier === 'none') {
-    valueText = 'No recording gaps';
+    valueText = 'No gaps, pauses or unreliable segments';
   } else if (signal.gapFraction !== null) {
-    valueText = `${Math.round(signal.gapFraction * 100)}% of recorded time in gaps or pauses`;
+    valueText = `${Math.round(signal.gapFraction * 100)}% of recorded time in gaps, pauses or unreliable segments`;
   } else {
     valueText = 'Gap profile data unavailable';
   }
@@ -1033,12 +1091,15 @@ function gapProfileRow(
   const intervals = shard?.gapIntervals ?? [];
   let evidenceText: string | null = null;
   if (intervals.length > 0) {
+    const unreliableIntervals = intervals.filter((gap) => gap.kind === 'unreliable');
+    const gapPauseIntervals = intervals.filter((gap) => gap.kind !== 'unreliable');
     const longestSec = intervals.reduce((max, gap) => Math.max(max, gap.endSec - gap.startSec), 0);
-    const noun = intervals.length === 1 ? 'interval' : 'intervals';
-    evidenceText = `${intervals.length} gap ${noun}; longest ${formatEffortDuration(longestSec)}`;
+    const gapPauseNoun = gapPauseIntervals.length === 1 ? 'interval' : 'intervals';
+    const unreliableNoun = unreliableIntervals.length === 1 ? 'segment' : 'segments';
+    evidenceText = `${gapPauseIntervals.length} gap/pause ${gapPauseNoun}, ${unreliableIntervals.length} unreliable ${unreliableNoun}; longest ${formatEffortDuration(longestSec)}`;
   }
 
-  return { label: 'Recording gaps', valueText, tier: signal.tier, explanation, evidenceText };
+  return { label: 'Coverage gaps', valueText, tier: signal.tier, explanation, evidenceText };
 }
 
 /**
@@ -1308,7 +1369,11 @@ function notAvailableRows(): QualitySignalRow[] {
       evidenceText: null,
     },
     {
-      label: 'Recording gaps',
+      // 'Coverage gaps' (D-11) — matches gapProfileRow's own label in all
+      // three of its branches, so a `quality === null` fallback row does
+      // not disagree with the label the same signal carries everywhere
+      // else.
+      label: 'Coverage gaps',
       valueText: QUALITY_DATA_NOT_AVAILABLE,
       tier: 'not-computable',
       explanation: tieringExplanation('gapProfile'),
