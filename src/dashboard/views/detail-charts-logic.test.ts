@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import fs from 'node:fs';
 import {
   CHANNEL_KEYS,
@@ -17,11 +17,17 @@ import type { CanonicalStream } from '../../streams/stream.types.js';
 import type { WebStorage } from '../storage.js';
 import {
   classifyGaps,
+  classifyGapsThreeWay,
   derivePaceWithCoverage,
   derivePaceSeriesGapAware,
   paceHistogramSamples,
+  adaptiveWindowSec,
   PACE_WINDOW_FLOOR_SEC,
 } from '../../analytics/pace-derivation.js';
+import {
+  detectUnreliableSegments,
+  DEFAULT_DETECTOR_PARAMS,
+} from '../../analytics/unreliable-segments.js';
 
 /**
  * Reads the pinned worked-example stream (activity 4556693525) directly via
@@ -47,6 +53,104 @@ function loadWorkedExampleStream(): CanonicalStream {
 function loadPinnedExemplarStream(): CanonicalStream {
   const raw = fs.readFileSync('data/streams/5059204779.json', 'utf-8');
   return JSON.parse(raw) as CanonicalStream;
+}
+
+/**
+ * Reads any committed stream by id via `node:fs`, for the three named
+ * 33-CONTEXT.md fixtures (3475724402, 3475734189) and the clean-control
+ * activity this task pins (10146303423) — same import-boundary rationale as
+ * the two loaders above.
+ */
+function loadStreamById(id: string): CanonicalStream {
+  const raw = fs.readFileSync(`data/streams/${id}.json`, 'utf-8');
+  return JSON.parse(raw) as CanonicalStream;
+}
+
+/**
+ * A from-scratch linear interpolation, written independently of
+ * `interpValueAtTime` (pace-derivation.ts) precisely so Task 1's fastest-pace
+ * proof below does not lean on the same primitive the production windowing
+ * algorithm uses internally.
+ */
+function handInterp(t: readonly number[], d: readonly number[], time: number): number {
+  const n = t.length;
+  if (n === 0) return NaN;
+  if (n === 1 || time <= t[0]) return d[0];
+  if (time >= t[n - 1]) return d[n - 1];
+  let lo = 0;
+  let hi = n - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (t[mid] <= time) lo = mid;
+    else hi = mid - 1;
+  }
+  const i = lo;
+  const j = Math.min(i + 1, n - 1);
+  if (t[j] === t[i]) return d[i];
+  const frac = (time - t[i]) / (t[j] - t[i]);
+  return d[i] + frac * (d[j] - d[i]);
+}
+
+/**
+ * D-13: the independently-derived post-clip FASTEST pace, computed here from
+ * raw `t`/`d` — never from `paceSeries` and never from a planning-document
+ * figure. Walks every sample index, skips any whose time falls strictly
+ * inside a gap interval (matching `derivePaceSeriesGapAware`'s own
+ * open-interval rule, restated independently rather than imported), and for
+ * the rest takes a centred `windowSec`-wide window clamped at the stream's
+ * extent and at the nearest bounding gap on either side — the SAME window
+ * shape `derivePaceSeriesGapAware` resolves, deliberately, since `windowSec`
+ * itself is shared (read from the production `adaptiveWindowSec` helper
+ * below, never hardcoded). What is NOT shared is the EXTENT: this function
+ * is a fresh hand computation using its own interpolation
+ * (`handInterp`, not `interpValueAtTime`), never a call into
+ * `derivePaceSeriesGapAware`/`buildChannelSeries` — so it can fail
+ * independently of whichever of those has a bug.
+ */
+function independentFastestPaceSecPerKm(
+  t: readonly number[],
+  d: readonly number[],
+  windowSec: number,
+  gapIntervals: readonly { startSec: number; endSec: number }[]
+): number {
+  const n = t.length;
+  let fastest = Infinity;
+  for (let i = 0; i < n; i++) {
+    const time = t[i];
+    const insideGap = gapIntervals.some((g) => g.startSec < time && time < g.endSec);
+    if (insideGap) continue;
+
+    let windowStart = Math.max(t[0], time - windowSec / 2);
+    let windowEnd = Math.min(t[n - 1], time + windowSec / 2);
+    for (const g of gapIntervals) {
+      if (g.endSec <= time && g.endSec > windowStart) windowStart = g.endSec;
+      if (g.startSec >= time && g.startSec < windowEnd) windowEnd = g.startSec;
+    }
+
+    const elapsed = windowEnd - windowStart;
+    if (!(elapsed > 0)) continue;
+    const dStart = handInterp(t, d, windowStart);
+    const dEnd = handInterp(t, d, windowEnd);
+    const metres = dEnd - dStart;
+    if (!(metres > 0)) continue;
+
+    const pace = elapsed / (metres / 1000);
+    if (pace < fastest) fastest = pace;
+  }
+  return fastest;
+}
+
+/**
+ * D-13: the detector's own segment boundaries, obtained via the pre-detector
+ * `classifyGapsThreeWay` path (the ONE shape `detectUnreliableSegments` is
+ * ever fed, per 33-01's D-14 seam) — an independent re-derivation of "which
+ * sample indices are inside a detected unreliable segment", not read back
+ * from `classifyGaps`' own post-detector `gapIntervals`.
+ */
+function detectedSegmentsFor(stream: CanonicalStream) {
+  const preDetector = classifyGapsThreeWay(stream.t, stream.d);
+  const gaps = preDetector.gapIntervals.map((g) => ({ startSec: g.startSec, endSec: g.endSec }));
+  return detectUnreliableSegments(stream.t, stream.d, gaps, DEFAULT_DETECTOR_PARAMS);
 }
 
 function makeStream(partial: Partial<CanonicalStream> & { t: number[]; d: number[] }): CanonicalStream {
@@ -327,6 +431,127 @@ describe('CR-03 — the chart band and the histogram read one derivation (Criter
     }
 
     expect(buildChannelSeries(control, 'pace', 'time')).toEqual(expected);
+  });
+});
+
+/**
+ * PACE-08, D-02, D-12 (33-06 Task 1): the chart band's pace series clips
+ * unreliable segments exactly as it clips recording gaps and pauses — with
+ * NO edit to `detail-charts-logic.ts`. `buildChannelSeries`'s pace branch
+ * calls `derivePaceWithCoverage(stream)` unchanged (see this file's earlier
+ * CR-03 block); this describe block proves the widened `classifyGaps`
+ * reaches the chart through that unchanged call site, on the two real
+ * committed streams 33-CONTEXT.md names for the 0:34/km case, plus a clean
+ * control proving the chart still renders its full range when nothing needs
+ * clipping.
+ *
+ * Every case below is named to be selected by `-t "unreliable"`.
+ */
+describe('unreliable segment clipping reaches the chart band with zero source-file change (unreliable, PACE-08)', () => {
+  for (const id of ['3475724402', '3475734189'] as const) {
+    describe(`activity ${id}`, () => {
+      const stream = loadStreamById(id);
+      const derived = derivePaceWithCoverage(stream);
+      const windowSec = adaptiveWindowSec(stream.t, stream.d);
+      const segments = detectedSegmentsFor(stream);
+      const chartPoints = buildChannelSeries(stream, 'pace', 'time')!;
+
+      it('the detector finds at least one segment on this real stream — non-vacuity (unreliable)', () => {
+        expect(segments.length).toBeGreaterThan(0);
+      });
+
+      it('every sample index strictly inside a detected segment has a null pace value in the CHART series (unreliable)', () => {
+        // Asserted against `chartPoints` — buildChannelSeries's OWN output —
+        // not against `derived.paceSeries` (a separately-computed value that
+        // would pass even if buildChannelSeries's forwarding were broken,
+        // since `derived` above is computed independently of the chart).
+        // buildChannelSeries filters nulls out entirely (time axis), so
+        // "null at index i" means "no chart point carries x === stream.t[i]".
+        // "Strictly inside" = startIndex < i < endIndex, matching
+        // derivePaceSeriesGapAware's own open-interval clip rule
+        // (g.startSec < time && time < g.endSec) — the boundary samples at
+        // exactly startIndex/endIndex are deliberately NOT asserted absent
+        // (the read_first note's "last sample before a gap stays non-null"
+        // boundary behaviour).
+        const chartXValues = new Set(chartPoints.map((p) => p.x));
+        let checkedAny = false;
+        for (const seg of segments) {
+          for (let i = seg.startIndex + 1; i < seg.endIndex; i++) {
+            checkedAny = true;
+            expect(chartXValues.has(stream.t[i])).toBe(false);
+          }
+        }
+        expect(checkedAny).toBe(true);
+      });
+
+      it('discriminator: the rendered series has at least 100 non-null pace values, and its fastest value equals the independently-derived post-clip fastest to within one second per km (unreliable)', () => {
+        expect(chartPoints.length).toBeGreaterThanOrEqual(100);
+
+        const fastestRendered = Math.min(...chartPoints.map((p) => p.y));
+        const independentFastest = independentFastestPaceSecPerKm(
+          stream.t,
+          stream.d,
+          windowSec,
+          derived.coverage.gapIntervals
+        );
+        expect(Number.isFinite(independentFastest)).toBe(true);
+        expect(Math.abs(fastestRendered - independentFastest)).toBeLessThanOrEqual(1);
+      });
+
+      it('no rendered pace sample is faster than the independently-derived post-clip fastest pace (unreliable)', () => {
+        const independentFastest = independentFastestPaceSecPerKm(
+          stream.t,
+          stream.d,
+          windowSec,
+          derived.coverage.gapIntervals
+        );
+        for (const p of chartPoints) {
+          expect(p.y).toBeGreaterThanOrEqual(independentFastest - 1e-6);
+        }
+      });
+
+      it('the named impossible sample is absent — no rendered pace value falls in the 0:30-0:40/km band (unreliable)', () => {
+        const inBand = chartPoints.filter((p) => p.y >= 30 && p.y < 40);
+        expect(inBand).toEqual([]);
+      });
+    });
+  }
+
+  describe('clean control 10146303423 (classifyGaps unreliableSec === 0, ~42.6 min, normal pace range)', () => {
+    it('the detector finds this activity clean — non-vacuity for the control itself (unreliable)', () => {
+      const stream = loadStreamById('10146303423');
+      const coverage = classifyGaps(stream.t, stream.d);
+      expect(coverage.unreliableSec).toBe(0);
+      expect(coverage.spanSec).toBeGreaterThan(1800);
+    });
+
+    it('renders an IDENTICAL non-null count and fastest value through the widened detector path and a path with the detector stubbed to return [] (unreliable)', async () => {
+      const stream = loadStreamById('10146303423');
+
+      vi.resetModules();
+      const real = await import('./detail-charts-logic.js');
+      const realPoints = real.buildChannelSeries(stream, 'pace', 'time')!;
+
+      vi.doMock('../../analytics/unreliable-segments.js', async () => {
+        const actual = await vi.importActual<typeof import('../../analytics/unreliable-segments.js')>(
+          '../../analytics/unreliable-segments.js'
+        );
+        return { ...actual, detectUnreliableSegments: () => [] };
+      });
+      vi.resetModules();
+      const stubbed = await import('./detail-charts-logic.js');
+      const stubbedPoints = stubbed.buildChannelSeries(stream, 'pace', 'time')!;
+
+      expect(stubbedPoints.length).toBe(realPoints.length);
+      expect(stubbedPoints.length).toBe(stream.t.length); // full range: no clipping either way
+
+      const fastestReal = Math.min(...realPoints.map((p) => p.y));
+      const fastestStubbed = Math.min(...stubbedPoints.map((p) => p.y));
+      expect(fastestStubbed).toBeCloseTo(fastestReal, 6);
+
+      vi.doUnmock('../../analytics/unreliable-segments.js');
+      vi.resetModules();
+    });
   });
 });
 
