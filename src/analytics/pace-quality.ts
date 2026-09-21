@@ -1618,6 +1618,34 @@ export interface PaceQualityShard {
   elevationVerticalRateSamplesTruncated: boolean;
   elevationLoopRadiusM: number;
   elevationStartEndDistM: number | null;
+  /**
+   * SEG-06 evidence (Phase 33, D-08, plan 33-10): the per-segment list naming
+   * WHERE in the run the detector's segments sit — same two-field shape as
+   * `elevationVerticalRateSamples`/`elevationVerticalRateSamplesTruncated`
+   * above, capped at 100 entries like `impossibleSamples`. Measured scale:
+   * about 2 segments per flagged activity archive-wide (1,344 segments over
+   * 699 flagged activities, `32-CALIBRATION.md`, cited as a reference, not
+   * an expected value) — the cap is generous, not tight.
+   *
+   * `parts` is DELIBERATELY ABSENT: `UnreliableSegment.parts` is a
+   * compute-time grouping shape (`SegmentPart[]`, the detector's internal
+   * burst/gap bookkeeping) and letting it into the wire format would leak
+   * an internal representation into a published document (D-08's own
+   * rejected alternative — "full `UnreliableSegment` objects including
+   * `parts`"). Each entry carries exactly `startSec`/`endSec`/`metres`/
+   * `excessMetres`/`seconds`/`mechanism` — no `startIndex`/`endIndex`
+   * either, since those are sample-array positions meaningless outside the
+   * stream that produced them.
+   */
+  unreliableSegments: {
+    startSec: number;
+    endSec: number;
+    metres: number;
+    excessMetres: number;
+    seconds: number;
+    mechanism: SegmentMechanism;
+  }[];
+  unreliableSegmentsTruncated: boolean;
 }
 
 /**
@@ -1675,6 +1703,46 @@ function computeZeroAdvanceRunProfile(
 }
 
 /**
+ * D-08's parts-free, capped per-segment projection (Phase 33, plan 33-10,
+ * T-33-13): a PURE function over an already-resolved `segments` list — never
+ * calls the detector or `resolveCoverage` itself, so it can be exercised
+ * directly against a synthetic `UnreliableSegment[]` fixture (the 101-segment
+ * truncation case needs this — building 101 genuinely detected segments from
+ * a real/synthetic stream would be nondeterministic and slow). `buildPaceQualityShard`
+ * is this function's one production call site, fed the SAME `segments`
+ * `resolveCoverage` already resolved for that activity (T-33-12c) — this
+ * function performs no detection of its own.
+ *
+ * Each projected entry carries exactly `startSec`/`endSec`/`metres`/
+ * `excessMetres`/`seconds`/`mechanism` — no `parts`, `startIndex`, `endIndex`
+ * or burst/gap sub-fields (D-08's rejected "full `UnreliableSegment` objects
+ * including `parts`" alternative). Capped at 100, matching
+ * `impossibleSamples`'s own cap — measured scale is about 2 segments per
+ * flagged activity archive-wide (1,344 segments over 699 flagged activities,
+ * `32-CALIBRATION.md`, cited as a reference, not an expected value), so the
+ * cap is generous, not tight. `truncated` compares the full segment count
+ * against the projected length, exactly as
+ * `elevationVerticalRateSamplesTruncated` does for its own capped list.
+ */
+export function projectUnreliableSegments(
+  segments: readonly UnreliableSegment[]
+): { segments: PaceQualityShard['unreliableSegments']; truncated: boolean } {
+  const projected: PaceQualityShard['unreliableSegments'] = [];
+  for (const segment of segments) {
+    if (projected.length >= 100) break;
+    projected.push({
+      startSec: segment.startSec,
+      endSec: segment.endSec,
+      metres: segment.metres,
+      excessMetres: segment.excessMetres,
+      seconds: segment.seconds,
+      mechanism: segment.mechanism,
+    });
+  }
+  return { segments: projected, truncated: segments.length > projected.length };
+}
+
+/**
  * Builds the D-17 evidence shard for one activity. `gapIntervals` comes
  * straight from the SAME coverage result `gapProfileSignal`'s own tiering
  * derives from (`resolveCoverage`, the sole `classifyGapsWithSegments` call
@@ -1713,6 +1781,8 @@ export function buildPaceQualityShard(
       elevationVerticalRateSamplesTruncated: false,
       elevationLoopRadiusM: LOOP_RADIUS_M,
       elevationStartEndDistM: null,
+      unreliableSegments: [],
+      unreliableSegmentsTruncated: false,
     };
   }
 
@@ -1731,6 +1801,8 @@ export function buildPaceQualityShard(
       elevationVerticalRateSamplesTruncated: false,
       elevationLoopRadiusM: LOOP_RADIUS_M,
       elevationStartEndDistM: null,
+      unreliableSegments: [],
+      unreliableSegmentsTruncated: false,
     };
   }
 
@@ -1784,6 +1856,12 @@ export function buildPaceQualityShard(
     notComputableReason: null,
   };
 
+  // D-08's parts-free, capped per-segment projection — reads the SAME
+  // `segments` `resolveCoverage` already resolved above (T-33-12c), never a
+  // second resolver or detector call.
+  const { segments: projectedUnreliableSegments, truncated: unreliableSegmentsTruncated } =
+    projectUnreliableSegments(segments);
+
   return {
     activityId,
     signals,
@@ -1797,5 +1875,7 @@ export function buildPaceQualityShard(
     elevationVerticalRateSamplesTruncated: elevationRaw.violatingSamples > elevationRaw.samples.length,
     elevationLoopRadiusM: LOOP_RADIUS_M,
     elevationStartEndDistM: elevation.closureDrift.startEndDistM,
+    unreliableSegments: projectedUnreliableSegments,
+    unreliableSegmentsTruncated,
   };
 }

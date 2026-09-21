@@ -38,6 +38,7 @@ import {
   hasAnySevereSignal,
   impossibleSampleSignal,
   notComputableSignals,
+  projectUnreliableSegments,
   resolveDeviceFamily,
   subGroundSignal,
   unreliableSegmentsSignal,
@@ -1160,7 +1161,120 @@ describe('D-17 evidence shard', () => {
     expect(shard.adaptiveWindowSec).toBeNull();
     expect(shard.notComputableReason).toBe(NOT_COMPUTABLE_NO_STREAM);
     expect(shard.signals.notComputableReason).toBe(NOT_COMPUTABLE_NO_STREAM);
+    // The not-computable shard path (T-33-13, D-08): empty array and false,
+    // consistent with how impossibleSamples/elevationVerticalRateSamples
+    // behave on this exact branch above.
+    expect(shard.unreliableSegments).toEqual([]);
+    expect(shard.unreliableSegmentsTruncated).toBe(false);
   });
+});
+
+describe('projectUnreliableSegments — D-08 parts-free, capped shard projection (Phase 33, plan 33-10, T-33-13)', () => {
+  it('an empty segments array yields an empty array and false, never null', () => {
+    const result = projectUnreliableSegments([]);
+    expect(result.segments).toEqual([]);
+    expect(result.truncated).toBe(false);
+  });
+
+  it('each projected entry carries EXACTLY startSec, endSec, metres, excessMetres, seconds, mechanism — no parts, startIndex, endIndex or burst/gap sub-fields', () => {
+    const segment = fakeSegment({
+      startSec: 12.5,
+      endSec: 20.1,
+      metres: 30,
+      seconds: 7.6,
+      excessMetres: 4.2,
+      mechanism: 'hidden-pause',
+      // Deliberately non-empty/non-default compute-time fields, to prove
+      // they are dropped by the projection rather than merely absent from
+      // a fixture that never set them.
+      startIndex: 5,
+      endIndex: 9,
+      burstMetres: 20,
+      burstSeconds: 5,
+      gapMetres: 10,
+      gapSeconds: 2.6,
+      burstCount: 2,
+      gapCount: 1,
+      parts: [{ kind: 'burst', startIndex: 5, endIndex: 7, startSec: 12.5, endSec: 17, metres: 20, seconds: 5 }],
+    });
+    const result = projectUnreliableSegments([segment]);
+    expect(result.segments).toHaveLength(1);
+    const keys = Object.keys(result.segments[0]).sort();
+    expect(keys).toEqual(['endSec', 'excessMetres', 'mechanism', 'metres', 'seconds', 'startSec'].sort());
+    expect(result.segments[0]).toEqual({
+      startSec: 12.5,
+      endSec: 20.1,
+      metres: 30,
+      excessMetres: 4.2,
+      seconds: 7.6,
+      mechanism: 'hidden-pause',
+    });
+  });
+
+  it('exactly 100 segments yields all 100 entries with truncated false', () => {
+    const segments = Array.from({ length: 100 }, (_, i) =>
+      fakeSegment({ startSec: i * 10, endSec: i * 10 + 5, metres: 30, seconds: 5, excessMetres: 1, mechanism: 'isolated-jump' })
+    );
+    const result = projectUnreliableSegments(segments);
+    expect(result.segments).toHaveLength(100);
+    expect(result.truncated).toBe(false);
+  });
+
+  it('101 segments yields exactly 100 projected entries with truncated true (a synthetic segments array — deterministic, no real detection needed)', () => {
+    const segments = Array.from({ length: 101 }, (_, i) =>
+      fakeSegment({ startSec: i * 10, endSec: i * 10 + 5, metres: 30, seconds: 5, excessMetres: 1, mechanism: 'isolated-jump' })
+    );
+    const result = projectUnreliableSegments(segments);
+    expect(result.segments).toHaveLength(100);
+    expect(result.truncated).toBe(true);
+    // The first 100, in order — never a re-sort or a different subset.
+    expect(result.segments[0].startSec).toBe(0);
+    expect(result.segments[99].startSec).toBe(990);
+  });
+});
+
+describe("buildPaceQualityShard's unreliableSegments projection on real streams (3475724402, 3475734189, 3475740390)", () => {
+  const NAMED_ACTIVITY_IDS = ['3475724402', '3475734189', '3475740390'] as const;
+
+  it.each(NAMED_ACTIVITY_IDS)(
+    "%s: the shard's projected entries match classifyGapsWithSegments' own segments exactly, and the count matches the seventh signal's count field",
+    (id) => {
+      const stream = JSON.parse(
+        fs.readFileSync(path.join('data', 'streams', `${id}.json`), 'utf-8')
+      ) as CanonicalStream;
+      const metadata: ActivityQualityMetadata = {
+        deviceName: 'test-device',
+        sourceProvider: undefined,
+        elapsedTimeSec: stream.t[stream.t.length - 1] - stream.t[0],
+        movingTimeSec: stream.t[stream.t.length - 1] - stream.t[0],
+        startLatlng: undefined,
+        endLatlng: undefined,
+      };
+      const { segments } = classifyGapsWithSegments(stream.t, stream.d);
+      expect(segments.length).toBeGreaterThan(0); // reachability
+
+      const shard = buildPaceQualityShard(id, stream, metadata);
+
+      expect(shard.unreliableSegments).toHaveLength(segments.length);
+      expect(shard.unreliableSegments.length).toBe(shard.signals.unreliableSegments.count);
+      expect(shard.unreliableSegmentsTruncated).toBe(false); // none of the three named activities exceed 100
+
+      for (let i = 0; i < segments.length; i++) {
+        expect(shard.unreliableSegments[i].startSec).toBe(segments[i].startSec);
+        expect(shard.unreliableSegments[i].endSec).toBe(segments[i].endSec);
+        expect(shard.unreliableSegments[i].metres).toBe(segments[i].metres);
+        expect(shard.unreliableSegments[i].seconds).toBe(segments[i].seconds);
+        expect(shard.unreliableSegments[i].excessMetres).toBe(segments[i].excessMetres);
+        expect(shard.unreliableSegments[i].mechanism).toBe(segments[i].mechanism);
+      }
+
+      // eslint-disable-next-line no-console
+      console.log(
+        `[pace-quality shard unreliableSegments ${id}] count=${shard.unreliableSegments.length} ` +
+          `signalCount=${shard.signals.unreliableSegments.count}`
+      );
+    }
+  );
 });
 
 describe('elevation detectors (D-07..D-09, ELEV-01)', () => {

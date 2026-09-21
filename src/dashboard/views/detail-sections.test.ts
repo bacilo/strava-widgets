@@ -668,6 +668,11 @@ function makeShard(overrides: Partial<PaceQualityShard>): PaceQualityShard {
     elevationVerticalRateSamplesTruncated: false,
     elevationLoopRadiusM: 100,
     elevationStartEndDistM: 38,
+    // SEG-06 evidence (Phase 33, D-08, plan 33-10 Task 1): a required field
+    // this suite does not exercise -- an empty/untruncated default, same
+    // precedent as elevationVerticalRateSamples above.
+    unreliableSegments: [],
+    unreliableSegmentsTruncated: false,
     ...overrides,
   };
 }
