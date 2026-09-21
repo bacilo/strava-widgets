@@ -382,6 +382,29 @@ function parseImpossibleSampleEntry(
   return { index, impliedSpeedMps, dtSec, ddM };
 }
 
+/**
+ * Total, never-throwing parse of one shard `unreliableSegments` entry (Phase
+ * 33, SEG-06, D-08, plan 33-10 Task 2). Mirrors `parseGapInterval`'s
+ * drop-on-failure contract (T-33-13b): returns `null` on any structural
+ * failure, and the caller — `parsePaceQualityShard`'s tolerant-drop loop,
+ * the same `if (parsed)` shape every other capped shard list already uses —
+ * drops just that one entry without invalidating the whole shard or the
+ * rest of the list. `mechanism` is validated against `VALID_SEGMENT_MECHANISMS`,
+ * not merely checked for `typeof === 'string'` — an unknown mechanism string
+ * is exactly as untrustworthy as a missing numeric field.
+ */
+function parseUnreliableSegment(
+  raw: unknown
+): { startSec: number; endSec: number; metres: number; excessMetres: number; seconds: number; mechanism: SegmentMechanism } | null {
+  if (!isPlainObject(raw)) return null;
+  const { startSec, endSec, metres, excessMetres, seconds, mechanism } = raw;
+  if (typeof startSec !== 'number' || typeof endSec !== 'number') return null;
+  if (typeof metres !== 'number' || typeof excessMetres !== 'number' || typeof seconds !== 'number') return null;
+  const parsedMechanism = parseSegmentMechanism(mechanism);
+  if (parsedMechanism === null) return null;
+  return { startSec, endSec, metres, excessMetres, seconds, mechanism: parsedMechanism };
+}
+
 function parseZeroAdvanceRunProfile(raw: unknown): PaceQualityShard['zeroAdvanceRunProfile'] {
   if (raw === null) return null;
   if (!isPlainObject(raw)) return null;
@@ -439,6 +462,26 @@ export function parsePaceQualityShard(raw: unknown): PaceQualityShard | null {
     }
   }
 
+  // Phase 33 (SEG-06, D-08, plan 33-10 Task 2): same tolerance/cap-agnostic
+  // discipline as `impossibleSamples`/`elevationVerticalRateSamples` above —
+  // individually malformed entries are dropped, never invalidating the
+  // whole shard; a shard with no `unreliableSegments` key at all (a
+  // pre-plan-33-10 stale artifact) yields an empty array, never `undefined`.
+  const unreliableSegments: {
+    startSec: number;
+    endSec: number;
+    metres: number;
+    excessMetres: number;
+    seconds: number;
+    mechanism: SegmentMechanism;
+  }[] = [];
+  if (Array.isArray(raw.unreliableSegments)) {
+    for (const item of raw.unreliableSegments) {
+      const parsed = parseUnreliableSegment(item);
+      if (parsed) unreliableSegments.push(parsed);
+    }
+  }
+
   return {
     activityId: raw.activityId,
     signals,
@@ -453,6 +496,9 @@ export function parsePaceQualityShard(raw: unknown): PaceQualityShard | null {
       typeof raw.elevationVerticalRateSamplesTruncated === 'boolean' ? raw.elevationVerticalRateSamplesTruncated : false,
     elevationLoopRadiusM: finiteNumberOrNull(raw.elevationLoopRadiusM) ?? LOOP_RADIUS_M,
     elevationStartEndDistM: finiteNumberOrNull(raw.elevationStartEndDistM),
+    unreliableSegments,
+    unreliableSegmentsTruncated:
+      typeof raw.unreliableSegmentsTruncated === 'boolean' ? raw.unreliableSegmentsTruncated : false,
   };
 }
 

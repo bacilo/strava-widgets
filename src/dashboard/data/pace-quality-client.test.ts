@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { FetchLike } from './index-client.js';
 import { createPaceQualityClient, parsePaceQualityShard } from './pace-quality-client.js';
-import type { GapKind } from '../../analytics/pace-derivation.js';
+import type { GapKind, SegmentMechanism } from '../../analytics/pace-derivation.js';
 
 interface FakeResponseSpec {
   ok: boolean;
@@ -85,6 +85,16 @@ const validShard = {
   elevationVerticalRateSamplesTruncated: false,
   elevationLoopRadiusM: 100,
   elevationStartEndDistM: 12.5,
+  // Phase 33 (SEG-06, D-08, plan 33-10 Task 2): a well-formed shard-level
+  // unreliableSegments evidence list — every field populated so the
+  // round-trip test below proves every field survives the real
+  // `parseUnreliableSegment`, not just the not-computable/empty fallback
+  // shape.
+  unreliableSegments: [
+    { startSec: 120, endSec: 128, metres: 22.8, excessMetres: 6.1, seconds: 8, mechanism: 'gap-adjacent' },
+    { startSec: 340, endSec: 342.2, metres: 22.8, excessMetres: 6.2, seconds: 10, mechanism: 'isolated-jump' },
+  ],
+  unreliableSegmentsTruncated: false,
 };
 
 describe('parsePaceQualityShard', () => {
@@ -138,6 +148,51 @@ describe('parsePaceQualityShard', () => {
     const result = parsePaceQualityShard(doc);
     expect(result?.gapIntervals.length).toBe(1);
     expect(result?.gapIntervals[0]).toEqual({ startSec: 0, endSec: 10, kind: 'pause' });
+  });
+
+  // Phase 33 (SEG-06, D-08, plan 33-10 Task 2): the shard's per-segment
+  // evidence list. Named so `-t "unreliableSegments"` selects every case.
+  it('a well-formed shard unreliableSegments list round-trips every entry and field (Phase 33 SEG-06, plan 33-10)', () => {
+    const result = parsePaceQualityShard(validShard);
+    expect(result?.unreliableSegments).toEqual(validShard.unreliableSegments);
+    expect(result?.unreliableSegmentsTruncated).toBe(false);
+  });
+
+  it('a shard with no unreliableSegments key at all (the pre-plan-33-10 stale-artifact case) yields an empty array and unreliableSegmentsTruncated false, never undefined', () => {
+    const doc: Record<string, unknown> = { ...validShard };
+    delete doc.unreliableSegments;
+    delete doc.unreliableSegmentsTruncated;
+    const result = parsePaceQualityShard(doc);
+    expect(result?.unreliableSegments).toEqual([]);
+    expect(result?.unreliableSegmentsTruncated).toBe(false);
+  });
+
+  it('drops an individually malformed shard unreliableSegments entry, keeping the rest and keeping the shard itself valid', () => {
+    const doc = {
+      ...validShard,
+      unreliableSegments: [
+        { startSec: 10, endSec: 18, metres: 30, excessMetres: 2, seconds: 8, mechanism: 'hidden-pause' },
+        { startSec: 'nope', endSec: 20, metres: 10, excessMetres: 1, seconds: 5, mechanism: 'gap-adjacent' },
+        { startSec: 50, endSec: 55, metres: 15, excessMetres: 0, seconds: 5, mechanism: 'bogus-mechanism' },
+      ],
+    };
+    const result = parsePaceQualityShard(doc);
+    expect(result).not.toBeNull(); // the whole shard stays valid
+    expect(result?.unreliableSegments.length).toBe(1);
+    expect(result?.unreliableSegments[0]).toEqual({
+      startSec: 10,
+      endSec: 18,
+      metres: 30,
+      excessMetres: 2,
+      seconds: 8,
+      mechanism: 'hidden-pause',
+    });
+  });
+
+  it('unreliableSegmentsTruncated: a non-boolean value degrades to false rather than throwing', () => {
+    const doc = { ...validShard, unreliableSegmentsTruncated: 'yes' };
+    const result = parsePaceQualityShard(doc);
+    expect(result?.unreliableSegmentsTruncated).toBe(false);
   });
 
   // Phase 33 (COV-03, T-33-06): the fourth silent-inheritance trap.
@@ -427,6 +482,40 @@ describe('parsePaceQualityShard', () => {
       expect(result?.signals.unreliableSegments[field]).toBeNull();
     }
   );
+
+  // Phase 33 (SEG-06, D-08, plan 33-10 Task 2): VALID_SEGMENT_MECHANISMS is
+  // its own set (mirroring VALID_ELEVATION_TIERS's precedent) validating the
+  // shard's per-entry `mechanism` field. This enumerates the SegmentMechanism
+  // union against it, so a future fourth mechanism cannot be added without
+  // this test failing — the `Record<SegmentMechanism, true>` literal fails
+  // to COMPILE if the union widens without a matching key here, and the
+  // runtime probe below fails if VALID_SEGMENT_MECHANISMS itself is not
+  // updated to match (the set is private, not exported, so this test drives
+  // it exclusively through parsePaceQualityShard's public surface).
+  it('VALID_SEGMENT_MECHANISMS accepts every declared SegmentMechanism union member on a shard unreliableSegments entry, and rejects an unknown one', () => {
+    const ALL_MECHANISMS: Record<SegmentMechanism, true> = {
+      'gap-adjacent': true,
+      'hidden-pause': true,
+      'isolated-jump': true,
+    };
+    const members = Object.keys(ALL_MECHANISMS) as SegmentMechanism[];
+    expect(members).toHaveLength(3); // sanity: the union has exactly 3 members today
+
+    for (const mechanism of members) {
+      const entry = { startSec: 0, endSec: 5, metres: 10, excessMetres: 1, seconds: 5, mechanism };
+      const doc = { ...validShard, unreliableSegments: [entry] };
+      const result = parsePaceQualityShard(doc);
+      expect(result?.unreliableSegments).toEqual([entry]);
+    }
+
+    const bogusDoc = {
+      ...validShard,
+      unreliableSegments: [
+        { startSec: 0, endSec: 5, metres: 10, excessMetres: 1, seconds: 5, mechanism: 'fabricated-fourth' },
+      ],
+    };
+    expect(parsePaceQualityShard(bogusDoc)?.unreliableSegments).toEqual([]);
+  });
 
   it('rawDeviceName containing markup survives the parse byte-for-byte unescaped', () => {
     const payload = '<img src=x onerror=alert(1)>';
