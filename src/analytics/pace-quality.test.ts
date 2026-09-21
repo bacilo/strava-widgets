@@ -1383,6 +1383,81 @@ describe('elevation assembly, anySevere exclusion, and not-computable rollup (D-
     expect(hasAnySevereSignal(asTiering)).toBe(false);
   });
 
+  /**
+   * The exact twin of the elevation guard above, for `unreliableSegments`
+   * (D-06, Phase 33 SEG-06, plan 33-09 Task 4). Copied part-for-part in
+   * shape, per 33-PATTERNS.md's own instruction to mirror the elevation
+   * guard verbatim.
+   *
+   * Watched RED per D-06's explicit requirement (Phase 30 precedent): see
+   * the plan's own SUMMARY for the verbatim failing output from a temporary,
+   * uncommitted widening of `hasAnySevereSignal`'s `Pick<>` to include
+   * `'unreliableSegments'`.
+   */
+  it("anySevere excludes unreliableSegments: a severe unreliableSegments tier never flips hasAnySevereSignal", () => {
+    const tieringNone: Pick<ActivityQualitySignals, 'decimation' | 'gapProfile' | 'impossibleSamples'> = {
+      decimation: { tier: 'none', zeroAdvanceFraction: 0, sampleCount: 10 },
+      gapProfile: { tier: 'none', gapFraction: 0, recordingGapSec: 0, pauseSec: 0, spanSec: 100 },
+      impossibleSamples: { tier: 'none', count: 0, maxImpliedSpeedMps: null, countInsideZeroAdvanceRun: 0 },
+    };
+    const severeUnreliableSegments: ActivityQualitySignals['unreliableSegments'] = {
+      tier: 'severe',
+      count: 3,
+      totalMetres: 200,
+      totalExcessMetres: 50,
+      totalSeconds: 40,
+      excessFraction: 0.25,
+      mechanisms: ['hidden-pause'],
+    };
+    const full = { ...tieringNone, unreliableSegments: severeUnreliableSegments };
+
+    // Part 1 (primary assertion): all three TIERING signals are 'none',
+    // unreliableSegments is 'severe' — hasAnySevereSignal must still read
+    // false. A future widening of the Pick<> to fold this signal into the
+    // composite (the exact D-06 mistake this guard exists to catch) would
+    // flip this to true.
+    expect(hasAnySevereSignal(full)).toBe(false);
+
+    // Part 2 (structural guard): severe-ifying each of the three TIERING
+    // keys DOES flip the result — proving they ARE read.
+    expect(hasAnySevereSignal({ ...full, decimation: { ...full.decimation, tier: 'severe' } })).toBe(true);
+    expect(hasAnySevereSignal({ ...full, gapProfile: { ...full.gapProfile, tier: 'severe' } })).toBe(true);
+    expect(
+      hasAnySevereSignal({ ...full, impossibleSamples: { ...full.impossibleSamples, tier: 'severe' } })
+    ).toBe(true);
+
+    // Part 3: deleting 'unreliableSegments' entirely must NOT throw and
+    // must NOT change the (false) result — proving the function never
+    // dereferences `signals.unreliableSegments` at all. A future accidental
+    // `signals.unreliableSegments.tier === 'severe'` read inside this
+    // function would throw here rather than pass silently.
+    const withoutUnreliableSegments: Record<string, unknown> = { ...full };
+    delete withoutUnreliableSegments.unreliableSegments;
+    const asTieringOnly = withoutUnreliableSegments as Pick<
+      ActivityQualitySignals,
+      'decimation' | 'gapProfile' | 'impossibleSamples'
+    >;
+    expect(() => hasAnySevereSignal(asTieringOnly)).not.toThrow();
+    expect(hasAnySevereSignal(asTieringOnly)).toBe(false);
+
+    // Part 4: the composite's figure of record is unmoved — hasAnySevereSignal's
+    // Pick<> names EXACTLY three keys, checked at the TYPE level (not just
+    // asserted at runtime): `TieringKeysRecord` is typed against
+    // `hasAnySevereSignal`'s own parameter type via `Record<keyof ..., true>`.
+    // If that Pick<> ever widens to a fourth key, this object literal fails to
+    // compile until the new key is added here too (a missing-property error);
+    // if this literal ever names a key OUTSIDE the Pick<>, the object-literal
+    // excess-property check fails to compile — so a silent widening in either
+    // direction is a compile error, not just a runtime miss.
+    type TieringSignalsParam = Parameters<typeof hasAnySevereSignal>[0];
+    const tieringKeysRecord: Record<keyof TieringSignalsParam, true> = {
+      decimation: true,
+      gapProfile: true,
+      impossibleSamples: true,
+    };
+    expect(Object.keys(tieringKeysRecord)).toEqual(['decimation', 'gapProfile', 'impossibleSamples']);
+  });
+
   describe('mode independence (Criterion 2, D-14)', () => {
     const inRadiusStart = [46.5, 7.3];
     const inRadiusEnd = [46.5, 7.3]; // distance 0, inside LOOP_RADIUS_M
