@@ -36,6 +36,7 @@ import { describe, expect, it } from 'vitest';
 import {
   classifyGaps,
   classifyGapsThreeWay,
+  classifyGapsWithSegments,
   derivePaceWithCoverage,
   derivePaceSeriesGapAware,
   adaptiveWindowSec,
@@ -43,6 +44,7 @@ import {
   paceHistogramAccounting,
   detectPaceDisagreement,
 } from './pace-derivation.js';
+import type { UnreliableSegment, SegmentMechanism } from './pace-derivation.js';
 import { detectUnreliableSegments, DEFAULT_DETECTOR_PARAMS } from './unreliable-segments.js';
 import {
   syntheticRecordingGapStream,
@@ -842,5 +844,83 @@ describe('classifyGaps reclassification — real-stream unreliable segments (Pha
     expect(result.coverage.coveredSec).toBeLessThan(threeWay.coveredSec);
 
     expect(result.coverage.coveredSec).toBe(accounting.bucketedSec + accounting.unbucketedCoveredSec);
+  });
+});
+
+/**
+ * `classifyGapsWithSegments` — the detector's one permitted accessor
+ * (Phase 33 plan 33-09, Task 1). Four named inputs throughout, per this
+ * plan's own acceptance criteria: 3475724402, 3475734189, 3475740390 (the
+ * three CONTEXT.md fixtures) plus one invalid stream (a length-mismatched
+ * `t`/`d` pair, mirroring the "totality" block above).
+ */
+describe('classifyGapsWithSegments — the detector\'s one permitted accessor (Phase 33 plan 33-09 D-06)', () => {
+  const NAMED_ACTIVITY_IDS = ['3475724402', '3475734189', '3475740390'] as const;
+
+  it('classifyGaps(t, d, options) deep-equals classifyGapsWithSegments(t, d, options).coverage on all three named activities plus one invalid stream', () => {
+    for (const id of NAMED_ACTIVITY_IDS) {
+      const stream = readStream(id);
+      const viaClassifyGaps = classifyGaps(stream.t, stream.d);
+      const viaAccessor = classifyGapsWithSegments(stream.t, stream.d);
+      expect(viaClassifyGaps).toEqual(viaAccessor.coverage);
+    }
+
+    // The invalid-stream case: a length-mismatched t/d pair (mirrors the
+    // "totality" describe block above). Both must independently return the
+    // zeroed PaceCoverage.
+    const invalidT = [0, 1, 2];
+    const invalidD = [0, 1];
+    const viaClassifyGapsInvalid = classifyGaps(invalidT, invalidD);
+    const viaAccessorInvalid = classifyGapsWithSegments(invalidT, invalidD);
+    expect(viaClassifyGapsInvalid).toEqual(viaAccessorInvalid.coverage);
+    expect(viaAccessorInvalid.coverage).toEqual({
+      spanSec: 0,
+      coveredSec: 0,
+      recordingGapSec: 0,
+      pauseSec: 0,
+      unreliableSec: 0,
+      gapIntervals: [],
+    });
+    expect(viaAccessorInvalid.segments).toEqual([]);
+  });
+
+  it('on 3475724402 the returned segments array is non-empty and every segment\'s [startSec, endSec] equals an \'unreliable\' interval in the SAME call\'s coverage.gapIntervals', () => {
+    const stream = readStream('3475724402');
+    const { coverage, segments } = classifyGapsWithSegments(stream.t, stream.d);
+
+    expect(segments.length).toBeGreaterThan(0); // reachability
+
+    const unreliableIntervals = coverage.gapIntervals
+      .filter((g) => g.kind === 'unreliable')
+      .map((g) => ({ startSec: g.startSec, endSec: g.endSec }))
+      .sort((a, b) => a.startSec - b.startSec);
+    const segmentBoundaries = segments
+      .map((s) => ({ startSec: s.startSec, endSec: s.endSec }))
+      .sort((a, b) => a.startSec - b.startSec);
+
+    expect(segmentBoundaries).toEqual(unreliableIntervals);
+  });
+
+  it('on a clean activity (10146303423, no detected segments) both the segments array is empty and coverage.unreliableSec is 0', () => {
+    const stream = readStream('10146303423');
+    const { coverage, segments } = classifyGapsWithSegments(stream.t, stream.d);
+
+    expect(segments).toEqual([]);
+    expect(coverage.unreliableSec).toBe(0);
+  });
+
+  it('the re-exported UnreliableSegment and SegmentMechanism types are usable from another analytics module without importing unreliable-segments.js — a segment produced through the accessor is directly assignable to the re-exported type', () => {
+    const stream = readStream('3475724402');
+    const { segments } = classifyGapsWithSegments(stream.t, stream.d);
+    expect(segments.length).toBeGreaterThan(0); // reachability
+
+    // This assignment is itself the type-level proof: if the re-export at
+    // the top of pace-derivation.ts were missing or mistyped, this file
+    // (which imports UnreliableSegment/SegmentMechanism ONLY from
+    // './pace-derivation.js', never from './unreliable-segments.js') would
+    // fail to compile.
+    const oneSegment: UnreliableSegment = segments[0];
+    const mechanism: SegmentMechanism = oneSegment.mechanism;
+    expect(['gap-adjacent', 'hidden-pause', 'isolated-jump']).toContain(mechanism);
   });
 });

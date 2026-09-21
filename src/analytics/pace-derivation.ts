@@ -31,6 +31,19 @@
 import { validateStreamSeries } from './best-effort-utils.js';
 import type { CanonicalStream } from '../streams/stream.types.js';
 import { detectUnreliableSegments, DEFAULT_DETECTOR_PARAMS } from './unreliable-segments.js';
+import type { UnreliableSegment, SegmentMechanism } from './unreliable-segments.js';
+
+/**
+ * `pace-derivation.ts` is the detector's ONE permitted importer
+ * (`pace-single-source.test.ts:138`) — every other analytics module reaches
+ * `detectUnreliableSegments`' output through `classifyGapsWithSegments`
+ * below and these re-exported types, rather than importing
+ * `unreliable-segments.js` directly. Widening that allowlist in a later
+ * phase needs its own recorded reason, the same discipline
+ * `ALLOWED_FILE_SUFFIX` already holds that audit file to (Phase 33 plan
+ * 33-09, Task 1).
+ */
+export type { UnreliableSegment, SegmentMechanism } from './unreliable-segments.js';
 
 /**
  * Absolute-time threshold above which a `[t[i], t[i+1]]` segment is a
@@ -393,11 +406,41 @@ export function classifyGapsThreeWay(
  * Classifies every `[t[i], t[i+1]]` segment of a stream into exactly one of
  * `unreliable`, `recording-gap`, `pause`, or `covered`, and accounts the
  * real-time span of each category exactly (D-04, D-07, COV-01, widened by
- * 33-CONTEXT.md D-01/D-02/D-14).
+ * 33-CONTEXT.md D-01/D-02/D-14). Exactly `classifyGapsWithSegments(t, d,
+ * options).coverage` for every input, including invalid streams (Phase 33
+ * plan 33-09, Task 1) — the coverage half of that function's result, with
+ * the detector's own `UnreliableSegment[]` list discarded. A caller needing
+ * BOTH halves (e.g. SEG-06's per-activity signal, which also needs each
+ * segment's mechanism and excess metres) must call
+ * `classifyGapsWithSegments` directly rather than calling this function and
+ * separately calling the detector, which would run it twice.
+ *
+ * See `classifyGapsWithSegments`'s own docblock for the full four-rung
+ * priority order and the three-pass mechanics.
+ */
+export function classifyGaps(
+  t: readonly number[],
+  d: readonly number[],
+  options?: { pauseRule?: PauseRule }
+): PaceCoverage {
+  return classifyGapsWithSegments(t, d, options).coverage;
+}
+
+/**
+ * The detector's ONE permitted accessor (Phase 33 plan 33-09, Task 1). This
+ * function is the SOLE call site of `detectUnreliableSegments` in this
+ * module — exactly one `detectUnreliableSegments(` call exists in this file
+ * after this change — so any module needing BOTH the coverage accounting
+ * AND the detector's own `UnreliableSegment[]` (mechanism, excess metres,
+ * per-segment bounds) calls this function once and shares both halves of
+ * the result, rather than calling `classifyGaps` and
+ * `detectUnreliableSegments` separately (which would run the detector twice
+ * and risk the two results disagreeing).
  *
  * Guarded by `validateStreamSeries` on entry (T-26-01) — any non-`ok` input
  * (length mismatch, fewer than 2 samples, a non-finite value, decreasing
- * `t`/`d`) returns the zeroed `PaceCoverage` rather than throwing.
+ * `t`/`d`) returns the zeroed `PaceCoverage` and an empty `segments` array
+ * rather than throwing — never a partial result.
  *
  * Classification is by STRICT PRIORITY, four rungs, `unreliable` first
  * (D-01) — a pair the pre-detector pass called `recording-gap` or `pause`
@@ -433,14 +476,16 @@ export function classifyGapsThreeWay(
  *
  * `gapIntervals` merges adjacent same-kind non-covered segments into runs
  * with real `startSec`/`endSec` boundaries (not indices), ordered ascending.
+ * The returned `segments` array is the detector's own raw output — unsorted
+ * beyond whatever order `detectUnreliableSegments` itself returns.
  */
-export function classifyGaps(
+export function classifyGapsWithSegments(
   t: readonly number[],
   d: readonly number[],
   options?: { pauseRule?: PauseRule }
-): PaceCoverage {
+): { coverage: PaceCoverage; segments: UnreliableSegment[] } {
   const pass1 = classifyPairKinds(t, d, options);
-  if (!pass1.ok) return zeroCoverage();
+  if (!pass1.ok) return { coverage: zeroCoverage(), segments: [] };
 
   // Pass 2: the pre-detector three-way gapIntervals — the detector's own
   // `gaps` argument. This is exactly what `classifyGapsThreeWay` returns;
@@ -472,12 +517,15 @@ export function classifyGaps(
 
   const finalAcc = accumulateCoverage(t, pairKinds);
   return {
-    spanSec: pass1.spanSec,
-    coveredSec: finalAcc.coveredSec,
-    recordingGapSec: finalAcc.recordingGapSec,
-    pauseSec: finalAcc.pauseSec,
-    unreliableSec: finalAcc.unreliableSec,
-    gapIntervals: finalAcc.gapIntervals,
+    coverage: {
+      spanSec: pass1.spanSec,
+      coveredSec: finalAcc.coveredSec,
+      recordingGapSec: finalAcc.recordingGapSec,
+      pauseSec: finalAcc.pauseSec,
+      unreliableSec: finalAcc.unreliableSec,
+      gapIntervals: finalAcc.gapIntervals,
+    },
+    segments,
   };
 }
 
