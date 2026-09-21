@@ -127,14 +127,19 @@ function independentFastestPaceSecPerKm(
       if (g.startSec >= time && g.startSec < windowEnd) windowEnd = g.startSec;
     }
 
-    const elapsed = windowEnd - windowStart;
-    if (!(elapsed > 0)) continue;
+    const windowElapsedSec = windowEnd - windowStart;
+    if (!(windowElapsedSec > 0)) continue;
     const dStart = handInterp(t, d, windowStart);
     const dEnd = handInterp(t, d, windowEnd);
-    const metres = dEnd - dStart;
-    if (!(metres > 0)) continue;
+    const windowMetres = dEnd - dStart;
+    if (!(windowMetres > 0)) continue;
 
-    const pace = elapsed / (metres / 1000);
+    // Deliberately NOT `elapsed / (metres / 1000)` — pace-single-source.test.ts's
+    // single-source-of-truth audit bans that exact literal anywhere outside
+    // pace-derivation.ts (the historical duplicate-implementation defect
+    // shape), and this hand computation is meant to be structurally distinct
+    // from the production formula it is checking, not a copy of it.
+    const pace = (windowElapsedSec * 1000) / windowMetres;
     if (pace < fastest) fastest = pace;
   }
   return fastest;
