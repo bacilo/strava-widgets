@@ -26,7 +26,8 @@ import type {
   ParsedDashboardIndexRow,
   PaceDisagreement,
 } from '../../analytics/dashboard-index.types.js';
-import type { ElevationSignal } from '../../analytics/pace-quality.js';
+import type { ElevationSignal, UnreliableSegmentsSignal } from '../../analytics/pace-quality.js';
+import type { SegmentMechanism } from '../../analytics/pace-derivation.js';
 import { navigateTo } from '../router.js';
 import { attachRowNavigation, activityDetailHref } from '../row-navigation.js';
 import type { SortKey, SortDir, ListState, DatePresetId } from './list-logic.js';
@@ -360,7 +361,7 @@ export function rowPaceDisagreement(row: Pick<DashboardIndexRow, 'paceDisagreeme
  * `title`/`aria-describedby` slots `appendAccessibleBadge` already exposes.
  */
 export interface QualityBadgeSpec {
-  signal: 'decimation' | 'gapProfile' | 'impossibleSamples' | 'elevation';
+  signal: 'decimation' | 'gapProfile' | 'impossibleSamples' | 'elevation' | 'unreliableSegments';
   visibleText: string;
   explanation: string;
   descriptionIdSuffix: string;
@@ -437,6 +438,14 @@ export function qualityBadgeSpecs(row: Pick<ParsedDashboardIndexRow, 'quality'>)
   // `elevation` key at all. Widened only at this read site — the write-side
   // type in `pace-quality.ts` stays required.
   const elevation: ElevationSignal | undefined = quality.elevation;
+  // Phase 33 (SEG-06, CR-01/30-REVIEW.md precedent): `unreliableSegments` is
+  // REQUIRED by `ActivityQualitySignals` on the write side (plan 33-09), but
+  // `index-client.ts`'s `fetchDocument()` casts the network response with no
+  // field-level validation, so a pre-Phase-33 `index.json` (stale browser
+  // cache or a lagging staged build) hands this function a `quality` object
+  // carrying the six original sub-keys and no seventh `unreliableSegments`
+  // key at all. Widened only at this read site, same as `elevation` above.
+  const unreliableSegments: UnreliableSegmentsSignal | undefined = quality.unreliableSegments;
 
   if (decimation.tier === 'severe' && decimation.zeroAdvanceFraction !== null) {
     const pct = Math.round(decimation.zeroAdvanceFraction * 100);
@@ -508,6 +517,29 @@ export function qualityBadgeSpecs(row: Pick<ParsedDashboardIndexRow, 'quality'>)
     }
   }
 
+  // Phase 33 (SEG-06, D-06, D-08): unreliableSegments is a SIXTH badge
+  // source, deliberately NOT one of the three tiering signals above — it
+  // never feeds hasAnySevereSignal's composite (D-06's never-widen rule,
+  // pace-quality.ts's `hasAnySevereSignal` doc comment and its own
+  // `anySevere excludes unreliableSegments` guard test). Only the 'severe'
+  // tier badges a row ('minor', 'none' and 'not-computable' all stay silent
+  // here; every tier, including minor, is disclosed on the detail view
+  // instead, as a ninth always-on row, plan 33-11). `unreliableSegmentsBadgeContent`
+  // below is the single source of the visible text and explanation, reused
+  // unchanged by `detail-sections.ts`'s Quality Signals row so the two
+  // surfaces cannot drift apart for the same measured value.
+  if (unreliableSegments !== undefined && unreliableSegments.tier === 'severe') {
+    const content = unreliableSegmentsBadgeContent(unreliableSegments);
+    if (content !== null) {
+      specs.push({
+        signal: 'unreliableSegments',
+        visibleText: content.visibleText,
+        explanation: content.explanation,
+        descriptionIdSuffix: 'unreliable-segments',
+      });
+    }
+  }
+
   return specs;
 }
 
@@ -544,6 +576,68 @@ export function elevationBadgeContent(
     visibleText: clauses.join(' · '),
     explanation:
       'barometric and GPS altitude errors of this size mean the elevation figures for this activity are not measured ground truth; this project flags rather than corrects them, so no DEM lookup or grade-adjusted pace is applied',
+  };
+}
+
+/**
+ * Human-readable label for each `SegmentMechanism` (SEG-06) — the single
+ * source of mechanism wording, so `unreliableSegmentsBadgeContent` below and
+ * `detail-sections.ts`'s `unreliableSegmentsRow` (which imports this
+ * function) cannot describe the same mechanism with two different phrases.
+ * Exhaustive `switch` with NO `default` branch, matching
+ * `detail-sections.ts`'s `deviceFamilyDisplayName` precedent — a fourth
+ * `SegmentMechanism` member added in a later phase without a matching case
+ * here fails `npx tsc --noEmit` rather than silently falling through.
+ */
+export function segmentMechanismLabel(mechanism: SegmentMechanism): string {
+  switch (mechanism) {
+    case 'gap-adjacent':
+      return 'gap adjacent';
+    case 'hidden-pause':
+      return 'hidden pause';
+    case 'isolated-jump':
+      return 'isolated jump';
+  }
+}
+
+/**
+ * Builds the sixth badge's visible text and explanation from a signal whose
+ * `count`/`totalMetres`/`totalSeconds`/`mechanisms` fields are non-null
+ * (SEG-06, D-06/D-08) — modelled on `elevationBadgeContent`'s null-on-no-evidence
+ * defence, simpler since there is one condition, not three independent
+ * modes. Returns `null` for a signal whose evidence fields are somehow null
+ * (the `not-computable` shape, or a `'severe'` tier with a null field — a
+ * contradiction `unreliableSegmentsSignal` cannot produce, since every
+ * `'severe'`/`'minor'` result carries its measured value; defended anyway,
+ * never a fabricated `null`/`NaN` badge).
+ *
+ * Exported so `detail-sections.ts`'s `unreliableSegmentsRow` reuses this
+ * SAME text for its `'minor'`/`'severe'` branches rather than retyping it —
+ * the row additionally discloses `'minor'`-tier activities this badge never
+ * shows (D-06: only `'severe'` badges a list row), so the two surfaces are
+ * not a 1:1 badge/row pair the way `elevationBadgeContent`'s reuse in
+ * `detail.ts`'s stat card is, but the MEASURED-VALUE TEXT itself must not
+ * drift between the two.
+ */
+export function unreliableSegmentsBadgeContent(
+  signal: Pick<UnreliableSegmentsSignal, 'count' | 'totalMetres' | 'totalSeconds' | 'mechanisms'>
+): { visibleText: string; explanation: string } | null {
+  if (
+    signal.count === null ||
+    signal.totalMetres === null ||
+    signal.totalSeconds === null ||
+    signal.mechanisms === null
+  ) {
+    return null;
+  }
+  const noun = signal.count === 1 ? 'segment' : 'segments';
+  const metresText = `${Math.round(signal.totalMetres)} m`;
+  const durationText = formatEffortDuration(signal.totalSeconds);
+  const mechanismsText = signal.mechanisms.map(segmentMechanismLabel).join(', ');
+  return {
+    visibleText: `${signal.count} unreliable ${noun}, ${metresText} over ${durationText} (${mechanismsText})`,
+    explanation:
+      'distance recorded here in less time than it could physically take is clipped from pace charts and splits, never filled in or corrected',
   };
 }
 

@@ -851,6 +851,194 @@ describe('CR-01 (30-REVIEW.md) — a row whose quality object lacks elevation do
   });
 });
 
+describe('unreliableSegments quality badge text (SEG-06, D-06, D-08) — 33-11 Task 1', () => {
+  it('a severe unreliableSegments signal produces exactly one badge spec with signal "unreliableSegments"', () => {
+    const row = qualityRow({
+      unreliableSegments: {
+        tier: 'severe',
+        count: 1,
+        totalMetres: 181.5,
+        totalExcessMetres: 122.7,
+        totalSeconds: 8,
+        excessFraction: 0.017964072,
+        mechanisms: ['hidden-pause'],
+      },
+    });
+    const specs = qualityBadgeSpecs(row);
+    expect(specs).toHaveLength(1);
+    expect(specs[0].signal).toBe('unreliableSegments');
+    expect(specs[0].descriptionIdSuffix).toBe('unreliable-segments');
+  });
+
+  it("the badge's visibleText names the measured segment count, total metres, total seconds and the mechanisms that fired", () => {
+    const row = qualityRow({
+      unreliableSegments: {
+        tier: 'severe',
+        count: 5,
+        totalMetres: 166.2,
+        totalExcessMetres: 55.95,
+        totalSeconds: 15,
+        excessFraction: 0.005292732,
+        mechanisms: ['isolated-jump'],
+      },
+    });
+    const specs = qualityBadgeSpecs(row);
+    expect(specs).toHaveLength(1);
+    const { visibleText } = specs[0];
+    expect(visibleText).toContain('5');
+    expect(visibleText).toContain('166');
+    expect(visibleText).toContain('0:15');
+    expect(visibleText).toContain('isolated jump');
+    expect(visibleText).toBe('5 unreliable segments, 166 m over 0:15 (isolated jump)');
+  });
+
+  it("a mechanisms array with more than one distinct mechanism names all of them, in the signal's own declared order", () => {
+    const row = qualityRow({
+      unreliableSegments: {
+        tier: 'severe',
+        count: 3,
+        totalMetres: 400,
+        totalExcessMetres: 40,
+        totalSeconds: 30,
+        excessFraction: 0.02,
+        mechanisms: ['gap-adjacent', 'hidden-pause', 'isolated-jump'],
+      },
+    });
+    const specs = qualityBadgeSpecs(row);
+    expect(specs).toHaveLength(1);
+    expect(specs[0].visibleText).toBe('3 unreliable segments, 400 m over 0:30 (gap adjacent, hidden pause, isolated jump)');
+  });
+
+  it("uses the singular 'segment' for count === 1", () => {
+    const row = qualityRow({
+      unreliableSegments: {
+        tier: 'severe',
+        count: 1,
+        totalMetres: 50,
+        totalExcessMetres: 5,
+        totalSeconds: 4,
+        excessFraction: 0.01,
+        mechanisms: ['hidden-pause'],
+      },
+    });
+    const specs = qualityBadgeSpecs(row);
+    expect(specs[0].visibleText.startsWith('1 unreliable segment,')).toBe(true);
+    expect(specs[0].visibleText).not.toContain('1 unreliable segments');
+  });
+
+  it("a 'minor' tier unreliableSegments signal produces no badge (D-06: only severe badges a list row)", () => {
+    const row = qualityRow({
+      unreliableSegments: {
+        tier: 'minor',
+        count: 16,
+        totalMetres: 2148.7,
+        totalExcessMetres: 0,
+        totalSeconds: 751,
+        excessFraction: 0,
+        mechanisms: ['gap-adjacent'],
+      },
+    });
+    expect(qualityBadgeSpecs(row)).toEqual([]);
+  });
+
+  it("a 'none' tier unreliableSegments signal produces no badge", () => {
+    const row = qualityRow({
+      unreliableSegments: { tier: 'none', count: 0, totalMetres: 0, totalExcessMetres: 0, totalSeconds: 0, excessFraction: 0, mechanisms: [] },
+    });
+    expect(qualityBadgeSpecs(row)).toEqual([]);
+  });
+
+  it("a 'not-computable' tier unreliableSegments signal produces no badge", () => {
+    const row = qualityRow({
+      unreliableSegments: {
+        tier: 'not-computable',
+        count: null,
+        totalMetres: null,
+        totalExcessMetres: null,
+        totalSeconds: null,
+        excessFraction: null,
+        mechanisms: null,
+      },
+    });
+    expect(qualityBadgeSpecs(row)).toEqual([]);
+  });
+
+  it('a severe signal whose count/totalMetres/totalSeconds/mechanisms are somehow null produces no badge, via unreliableSegmentsBadgeContent\'s null-evidence defence', () => {
+    const row = qualityRow({
+      unreliableSegments: {
+        tier: 'severe',
+        count: null,
+        totalMetres: null,
+        totalExcessMetres: null,
+        totalSeconds: null,
+        excessFraction: 0.5,
+        mechanisms: null,
+      },
+    });
+    expect(qualityBadgeSpecs(row)).toEqual([]);
+  });
+
+  it('a signal object absent entirely from quality (a pre-Phase-33 cached index.json) produces no badge and does not throw', () => {
+    const row = rowMissingUnreliableSegments({
+      gapProfile: { tier: 'severe', gapFraction: 0.12, recordingGapSec: 300, pauseSec: 60, spanSec: 3000 },
+    });
+    expect('unreliableSegments' in row.quality).toBe(false);
+    expect(() => qualityBadgeSpecs(row)).not.toThrow();
+    const specs = qualityBadgeSpecs(row);
+    // The other severe signal (gapProfile) still produces its own badge —
+    // the absent unreliableSegments key silently contributes zero specs,
+    // never a crash that would take the whole render loop down with it.
+    expect(specs.map((s) => s.signal)).toEqual(['gapProfile']);
+  });
+
+  it('no other badge source\'s output changes for a fixture that is ALSO severe on unreliableSegments', () => {
+    const row = qualityRow({
+      decimation: { tier: 'severe', zeroAdvanceFraction: 0.2, sampleCount: 500 },
+      unreliableSegments: {
+        tier: 'severe',
+        count: 1,
+        totalMetres: 181.5,
+        totalExcessMetres: 122.7,
+        totalSeconds: 8,
+        excessFraction: 0.017964072,
+        mechanisms: ['hidden-pause'],
+      },
+    });
+    const withoutUnreliable = qualityRow({
+      decimation: { tier: 'severe', zeroAdvanceFraction: 0.2, sampleCount: 500 },
+    });
+    const decimationSpecWith = qualityBadgeSpecs(row).find((s) => s.signal === 'decimation');
+    const decimationSpecWithout = qualityBadgeSpecs(withoutUnreliable).find((s) => s.signal === 'decimation');
+    expect(decimationSpecWith).toEqual(decimationSpecWithout);
+  });
+
+  it('the composed row aria-label includes the new badge text when unreliableSegments is severe', () => {
+    const row = baseRow({
+      quality: {
+        ...CLEAN_QUALITY,
+        unreliableSegments: {
+          tier: 'severe',
+          count: 1,
+          totalMetres: 181.5,
+          totalExcessMetres: 122.7,
+          totalSeconds: 8,
+          excessFraction: 0.017964072,
+          mechanisms: ['hidden-pause'],
+        },
+      },
+    });
+    const label = activityRowAriaLabel(row);
+    expect(label).toBe('Morning Run, Aug 6, 2026, 5.0 km, 1 unreliable segment, 182 m over 0:08 (hidden pause)');
+  });
+
+  it('the composed row aria-label is unchanged (the clean-row baseline) when unreliableSegments is not severe', () => {
+    const row = baseRow({
+      quality: { ...CLEAN_QUALITY, unreliableSegments: { tier: 'minor', count: 2, totalMetres: 40, totalExcessMetres: 0, totalSeconds: 10, excessFraction: 0, mechanisms: ['gap-adjacent'] } },
+    });
+    expect(activityRowAriaLabel(row)).toBe('Morning Run, Aug 6, 2026, 5.0 km');
+  });
+});
+
 describe('qualityBadgeDescriptionId — quality badge id shape, mirroring lowConfidenceDescriptionId/paceDisputedDescriptionId', () => {
   it('produces two different ids for the card prefix and the table prefix of the same activity', () => {
     const cardId = qualityBadgeDescriptionId('activity-card-123', 'gap-profile');
@@ -958,6 +1146,21 @@ function rowMissingElevation(overrides: Partial<ActivityQualitySignals> = {}): D
   const { elevation, ...qualityWithoutElevation } = fullQuality;
   void elevation;
   return baseRow({ quality: qualityWithoutElevation as ActivityQualitySignals });
+}
+
+/**
+ * A row shaped like a pre-Phase-33 parsed `index.json` entry: `quality` is
+ * present with all six original sub-keys, but `unreliableSegments` is
+ * genuinely ABSENT as a key (CR-01, 30-REVIEW.md precedent) — the exact
+ * shape a browser cache or a staged build lagging the bundle serves.
+ * Mirrors `rowMissingElevation` one level deeper: the top-level `quality`
+ * key survives the cast, only its newest sub-key does not.
+ */
+function rowMissingUnreliableSegments(overrides: Partial<ActivityQualitySignals> = {}): DashboardIndexRow {
+  const fullQuality: ActivityQualitySignals = { ...CLEAN_QUALITY, ...overrides };
+  const { unreliableSegments, ...qualityWithoutUnreliableSegments } = fullQuality;
+  void unreliableSegments;
+  return baseRow({ quality: qualityWithoutUnreliableSegments as ActivityQualitySignals });
 }
 
 describe('G-04 (27-REVIEW.md CR-01) — a row missing quality does not crash qualityBadgeSpecs or the render loop', () => {
