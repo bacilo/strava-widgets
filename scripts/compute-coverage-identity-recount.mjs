@@ -847,14 +847,30 @@ function renderViolationList(items, formatter, label) {
   return items.map(formatter).join('\n');
 }
 
-function gitCommitHash() {
+/**
+ * Content-addressed provenance (2026-09-21). An earlier draft embedded `git rev-parse HEAD`, which
+ * made the byte-identical-regeneration contract unsatisfiable for a COMMITTED artifact: committing
+ * the file moves HEAD, so the next regeneration always differs. These ids instead name the run's
+ * actual inputs — the committed stream archive's git tree and the two classifier sources' blob
+ * hashes — so they move when, and only when, an input moves.
+ */
+function gitId(args) {
   try {
-    return execSync('git rev-parse HEAD', { cwd: ROOT_DIR, stdio: ['ignore', 'pipe', 'ignore'] })
+    return execSync(`git ${args}`, { cwd: ROOT_DIR, stdio: ['ignore', 'pipe', 'ignore'] })
       .toString()
       .trim();
   } catch {
-    return 'unknown (git rev-parse failed)';
+    return 'unknown (git failed)';
   }
+}
+
+const PROVENANCE_SOURCES = ['src/analytics/pace-derivation.ts', 'src/analytics/unreliable-segments.ts'];
+
+function inputProvenance() {
+  return {
+    streamsTree: gitId('rev-parse HEAD:data/streams'),
+    sources: PROVENANCE_SOURCES.map((path) => ({ path, blob: gitId(`hash-object ${path}`) })),
+  };
 }
 
 function renderArtifact({
@@ -863,14 +879,14 @@ function renderArtifact({
   evalResult,
   findings,
   constants,
-  commitHash,
+  provenance,
 }) {
   const lines = [];
 
   lines.push('# Phase 33 — Coverage Identity Recount (COV-03)');
   lines.push('');
   lines.push(
-    `Machine-written by \`npm run compute-coverage-identity-recount\`; never hand-edit. Regenerating this file against an unchanged archive and an unchanged git commit produces a byte-identical result — no wall-clock timestamp appears anywhere below.`
+    `Machine-written by \`npm run compute-coverage-identity-recount\`; never hand-edit. Regenerating this file against an unchanged archive and unchanged classifier sources produces a byte-identical result, including after this file is committed — provenance below is content-addressed, not a commit hash, and — no wall-clock timestamp appears anywhere below.`
   );
   lines.push('');
 
@@ -970,7 +986,10 @@ function renderArtifact({
   lines.push(
     `- Constants used — \`speedLimitMps\`: ${constants.speedLimitMps} m/s, \`excessFloorMetres\`: ${constants.excessFloorMetres} m, \`hiddenPauseMinMetres\`: ${constants.hiddenPauseMinMetres} m, all parsed from \`.planning/phases/32-unreliable-segment-detection-calibration/32-CALIBRATION.md\`'s own "## Chosen constants" table (never hand-copied literals) — \`LOCAL_GAP_THRESHOLD_SEC\`: ${LOCAL_GAP_THRESHOLD_SEC} s, a local literal duplicate of \`RECORDING_GAP_ABS_THRESHOLD_SEC\` (\`src/analytics/pace-derivation.ts\`).`
   );
-  lines.push(`- Git commit this run was made at: \`${commitHash}\``);
+  lines.push(`- Stream archive git tree (\`HEAD:data/streams\`): \`${provenance.streamsTree}\``);
+  for (const { path, blob } of provenance.sources) {
+    lines.push(`- Classifier source blob — \`${path}\`: \`${blob}\``);
+  }
   lines.push('');
   lines.push('Regenerate this artifact against the live committed archive with:');
   lines.push('');
@@ -1030,7 +1049,7 @@ function main() {
 
   const evalResult = evaluateArchive(entries, parsedConstants.constants);
   const findings = computeArchiveWideFindings(entries);
-  const commitHash = gitCommitHash();
+  const provenance = inputProvenance();
 
   const streamCount = filenames.length;
   const computableCount = streamCount - evalResult.skipped.length;
@@ -1041,7 +1060,7 @@ function main() {
     evalResult,
     findings,
     constants: parsedConstants.constants,
-    commitHash,
+    provenance,
   });
 
   try {
