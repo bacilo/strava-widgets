@@ -29,6 +29,7 @@
     "compute-pr-ceiling-recount": "node scripts/compute-pr-ceiling-recount.mjs",
     "compute-unreliable-segment-calibration": "npm run build && node scripts/compute-unreliable-segment-calibration.mjs",
     "compute-unreliable-segment-recount": "node scripts/compute-unreliable-segment-recount.mjs",
+    "compute-coverage-identity-recount": "node scripts/compute-coverage-identity-recount.mjs",
     "compute-stream-checksums": "node scripts/compute-stream-checksums.mjs",
     "validate-unreliable-segments-1hz": "npm run build && node scripts/validate-unreliable-segments-1hz.mjs",
     "compute-heatmap-data": "node scripts/compute-heatmap-data.mjs",
