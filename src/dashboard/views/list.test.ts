@@ -12,6 +12,7 @@ import {
   paceDisputedDescriptionId,
   qualityBadgeDescriptionId,
   qualityBadgeSpecs,
+  segmentMechanismLabel,
   noteViewedActivity,
   takeNotedActivityId,
   applyReturnHighlight,
@@ -21,7 +22,9 @@ import {
 } from './list.js';
 import type { RowSurface } from './list.js';
 import type { DashboardIndexRow, ParsedDashboardIndexRow } from '../../analytics/dashboard-index.types.js';
-import type { ActivityQualitySignals } from '../../analytics/pace-quality.js';
+import type { ActivityQualitySignals, ActivityQualityMetadata } from '../../analytics/pace-quality.js';
+import { buildPaceQualityShard } from '../../analytics/pace-quality.js';
+import type { CanonicalStream } from '../../streams/stream.types.js';
 import { buildFilterChips, removeChip, activeFilterCount, EMPTY_FILTERS } from './list-logic.js';
 
 /**
@@ -1485,5 +1488,68 @@ describe('severe filter wiring (27-08, D-16)', () => {
   it('composeRowAriaLabel( still occurs exactly twice in the stripped source — this plan does not touch the aria-label fold', () => {
     const matches = listStripped.match(/composeRowAriaLabel\(/g) || [];
     expect(matches.length).toBe(2);
+  });
+});
+
+describe('Task 3 (33-11): end-to-end badge proof on the named activities — compute -> serialise -> parse -> render', () => {
+  const NAMED_ACTIVITY_IDS = ['3475724402', '3475734189', '3475740390'] as const;
+
+  function buildMetadata(stream: CanonicalStream): ActivityQualityMetadata {
+    return {
+      deviceName: 'test-device',
+      sourceProvider: undefined,
+      elapsedTimeSec: stream.t[stream.t.length - 1] - stream.t[0],
+      movingTimeSec: stream.t[stream.t.length - 1] - stream.t[0],
+      startLatlng: undefined,
+      endLatlng: undefined,
+    };
+  }
+
+  it.each(NAMED_ACTIVITY_IDS)(
+    'named activities %s: qualityBadgeSpecs on the parsed, wire-shaped signal reproduces the computed measured value exactly, badge present exactly when the observed tier is severe',
+    (id) => {
+      const stream = JSON.parse(readFileSync(`data/streams/${id}.json`, 'utf-8')) as CanonicalStream;
+      const metadata = buildMetadata(stream);
+
+      const rawShard = buildPaceQualityShard(id, stream, metadata);
+      const computedSignal = rawShard.signals.unreliableSegments;
+
+      // The same serialise/parse hop Task 3's detail-sections.test.ts
+      // companion case performs — a genuine wire-shaped document, not the
+      // in-memory object handed straight to qualityBadgeSpecs.
+      const wireQuality = JSON.parse(JSON.stringify(rawShard.signals)) as ActivityQualitySignals;
+
+      const row = baseRow({ quality: wireQuality });
+      const specs = qualityBadgeSpecs(row);
+      const spec = specs.find((s) => s.signal === 'unreliableSegments');
+
+      if (computedSignal.tier === 'severe') {
+        expect(spec).toBeDefined();
+        expect(spec?.visibleText).toContain(String(computedSignal.count));
+        expect(spec?.visibleText).toContain(`${Math.round(computedSignal.totalMetres as number)} m`);
+        for (const mechanism of computedSignal.mechanisms ?? []) {
+          expect(spec?.visibleText).toContain(segmentMechanismLabel(mechanism));
+        }
+      } else {
+        expect(spec).toBeUndefined();
+      }
+
+      // eslint-disable-next-line no-console
+      console.log(
+        `[33-11 Task 3 list badge named activity ${id}] tier=${computedSignal.tier} badgePresent=${spec !== undefined} ` +
+          `visibleText=${JSON.stringify(spec?.visibleText ?? null)}`
+      );
+    }
+  );
+
+  it("named activities: at least one of the three produces a badge, so this proof cannot pass vacuously against a pipeline that found nothing severe", () => {
+    const specsPerActivity = NAMED_ACTIVITY_IDS.map((id) => {
+      const stream = JSON.parse(readFileSync(`data/streams/${id}.json`, 'utf-8')) as CanonicalStream;
+      const metadata = buildMetadata(stream);
+      const rawShard = buildPaceQualityShard(id, stream, metadata);
+      const row = baseRow({ quality: rawShard.signals });
+      return qualityBadgeSpecs(row).find((s) => s.signal === 'unreliableSegments');
+    });
+    expect(specsPerActivity.some((s) => s !== undefined)).toBe(true);
   });
 });

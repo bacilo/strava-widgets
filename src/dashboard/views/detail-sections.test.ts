@@ -20,6 +20,13 @@ import type { CanonicalStream } from '../../streams/stream.types.js';
 import { stripComments } from '../row-semantics.test.js';
 import { qualityBadgeSpecs } from './list.js';
 import type { ActivityQualitySignals, DeviceFamilyKind, PaceQualityShard } from '../../analytics/pace-quality.js';
+import {
+  buildPaceQualityShard,
+  UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION,
+  type ActivityQualityMetadata,
+} from '../../analytics/pace-quality.js';
+import { classifyGapsWithSegments } from '../../analytics/pace-derivation.js';
+import { parsePaceQualityShard } from '../data/pace-quality-client.js';
 
 /*
  * Unit tests for the pure D-08/D-09 helpers (`coverageCaptionText`,
@@ -1170,6 +1177,112 @@ describe('CR-01 (30-REVIEW.md precedent) — quality missing the unreliableSegme
     expect(row.valueText).toBe('Unreliable-segment data unavailable');
     expect(row.tier).toBe('not-computable');
     expect(row.valueText).not.toMatch(/null|undefined|NaN/);
+  });
+});
+
+describe('Task 3 (33-11): end-to-end render-plan proof on the named activities — compute -> serialise -> parse -> render', () => {
+  const NAMED_ACTIVITY_IDS = ['3475724402', '3475734189', '3475740390'] as const;
+
+  function buildMetadata(stream: CanonicalStream): ActivityQualityMetadata {
+    return {
+      deviceName: 'test-device',
+      sourceProvider: undefined,
+      elapsedTimeSec: stream.t[stream.t.length - 1] - stream.t[0],
+      movingTimeSec: stream.t[stream.t.length - 1] - stream.t[0],
+      startLatlng: undefined,
+      endLatlng: undefined,
+    };
+  }
+
+  it.each(NAMED_ACTIVITY_IDS)(
+    "named activities %s: compute -> JSON.parse(JSON.stringify(shard)) -> parsePaceQualityShard -> qualitySignalsSectionPlan reproduces the computed signal's own count/metres/seconds exactly, and the observed tier reconciles against an independently-recomputed excess fraction",
+    (id) => {
+      const stream = JSON.parse(fs.readFileSync(`data/streams/${id}.json`, 'utf-8')) as CanonicalStream;
+      const metadata = buildMetadata(stream);
+
+      const rawShard = buildPaceQualityShard(id, stream, metadata);
+      const computedSignal = rawShard.signals.unreliableSegments;
+
+      // Independent reconciliation: recompute excessFraction from the
+      // detector's OWN segments (classifyGapsWithSegments), never from
+      // unreliableSegmentsSignal's own output, and re-derive what tier that
+      // fraction implies against the shipped constant — a genuine
+      // non-circular cross-check, not a restatement of the code under test.
+      const { segments } = classifyGapsWithSegments(stream.t, stream.d);
+      const totalDistanceM = stream.d[stream.d.length - 1] - stream.d[0];
+      const independentExcessFraction = segments.reduce((sum, s) => sum + s.excessMetres, 0) / totalDistanceM;
+      const independentTier =
+        segments.length === 0
+          ? 'none'
+          : independentExcessFraction > UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION
+            ? 'severe'
+            : 'minor';
+
+      expect(computedSignal.tier).toBe(independentTier);
+
+      // The serialise/parse hop — a genuine wire-shaped document, not the
+      // in-memory object handed straight to the render plan. This is where
+      // plan 33-05's VALID_GAP_KINDS trap and plan 33-10's new parsers
+      // actually bite.
+      const wireShard = JSON.parse(JSON.stringify(rawShard)) as unknown;
+      const parsedShard = parsePaceQualityShard(wireShard);
+      expect(parsedShard).not.toBeNull();
+      const parsed = parsedShard as PaceQualityShard;
+
+      const parsedSignal = parsed.signals.unreliableSegments;
+      expect(parsedSignal.count).toBe(computedSignal.count);
+      expect(parsedSignal.totalMetres).toBe(computedSignal.totalMetres);
+      expect(parsedSignal.totalExcessMetres).toBe(computedSignal.totalExcessMetres);
+      expect(parsedSignal.totalSeconds).toBe(computedSignal.totalSeconds);
+      expect(parsedSignal.mechanisms).toEqual(computedSignal.mechanisms);
+      expect(parsedSignal.tier).toBe(computedSignal.tier);
+
+      const sectionRows = qualitySignalsSectionPlan(parsed.signals, parsed).rows;
+      const row = sectionRows[3];
+      expect(row.label).toBe('Unreliable segments');
+      expect(row.tier).toBe(computedSignal.tier);
+
+      // Double-disclosure check (environment note): gapProfileRow (index 1)
+      // ALSO itemises unreliable-kind gapIntervals in its own evidenceText
+      // ("N unreliable segments"). Both numbers are read from the SAME
+      // detector segments (one 'unreliable'-kind gapIntervals entry per
+      // detected segment, classifyGapsWithSegments' own agreement) — assert
+      // here, on a real named activity, that the two disclosures cannot
+      // contradict each other.
+      const gapProfileRowResult = sectionRows[1];
+      if (computedSignal.count !== null && computedSignal.count > 0) {
+        expect(gapProfileRowResult.evidenceText).toContain(`${computedSignal.count} unreliable`);
+      }
+
+      const badgeSpecs = qualityBadgeSpecs({ quality: parsed.signals });
+      const badgeSpec = badgeSpecs.find((s) => s.signal === 'unreliableSegments');
+      // The badge is present exactly when the observed tier is 'severe'.
+      if (computedSignal.tier === 'severe') {
+        expect(badgeSpec).toBeDefined();
+        expect(badgeSpec?.visibleText).toBe(row.valueText);
+      } else {
+        expect(badgeSpec).toBeUndefined();
+      }
+
+      // eslint-disable-next-line no-console
+      console.log(
+        `[33-11 Task 3 named activity ${id}] count=${computedSignal.count} totalMetres=${computedSignal.totalMetres} ` +
+          `totalExcessMetres=${computedSignal.totalExcessMetres} totalSeconds=${computedSignal.totalSeconds} ` +
+          `mechanisms=${JSON.stringify(computedSignal.mechanisms)} excessFraction=${computedSignal.excessFraction} ` +
+          `independentExcessFraction=${independentExcessFraction} tier=${computedSignal.tier} ` +
+          `badgePresent=${badgeSpec !== undefined} valueText=${JSON.stringify(row.valueText)} ` +
+          `evidenceText=${JSON.stringify(row.evidenceText)}`
+      );
+    }
+  );
+
+  it("named activities: at least one of the three produces a non-'none' tier, so this proof cannot pass vacuously against a pipeline that found nothing", () => {
+    const tiers = NAMED_ACTIVITY_IDS.map((id) => {
+      const stream = JSON.parse(fs.readFileSync(`data/streams/${id}.json`, 'utf-8')) as CanonicalStream;
+      const metadata = buildMetadata(stream);
+      return buildPaceQualityShard(id, stream, metadata).signals.unreliableSegments.tier;
+    });
+    expect(tiers.some((t) => t !== 'none')).toBe(true);
   });
 });
 
