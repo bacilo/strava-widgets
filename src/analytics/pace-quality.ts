@@ -97,10 +97,21 @@ export interface DecimationSignal {
   sampleCount: number | null;
 }
 
-/** Non-covered-time signal — recording gaps and pauses over the stream's own span. */
+/**
+ * Non-covered-time signal — recording gaps, pauses AND unreliable time over
+ * the stream's own span (widened 2026-09-21, 33-CONTEXT.md D-04). Only
+ * `recordingGapSec` and `pauseSec` are echoed separately here —
+ * `unreliableSec` is NOT a field on this interface (planner discretion,
+ * 33-CONTEXT.md "Claude's Discretion"): the per-kind itemisation lives on
+ * `PaceQualityShard.gapIntervals` (kind-tagged, includes `'unreliable'`) and
+ * the per-activity unreliable-seconds total is SEG-06's own signal (D-08,
+ * plan 33-09). A reader wanting the third term by name should look there,
+ * not infer it by subtracting `recordingGapSec + pauseSec` from a
+ * `gapFraction * spanSec` product.
+ */
 export interface GapProfileSignal {
   tier: QualityTier;
-  gapFraction: number | null; // (recordingGapSec + pauseSec) / spanSec
+  gapFraction: number | null; // (recordingGapSec + pauseSec + unreliableSec) / spanSec (widened 2026-09-21, 33-CONTEXT.md D-04)
   recordingGapSec: number | null;
   pauseSec: number | null;
   spanSec: number | null;
@@ -838,11 +849,15 @@ export function decimationSignal(
  * value is a deliverable in its own right, not a constant dropped in from
  * elsewhere.
  *
- * (1) WHAT IT MEASURES: `(recordingGapSec + pauseSec) / spanSec`, straight
- * from `classifyGaps` — the fraction of a stream's own recorded span in
- * which no pace was actually measured (either the device stopped recording
- * entirely, or the athlete's distance genuinely froze for longer than that
- * activity's own advance-interval distribution justifies as a pause).
+ * (1) WHAT IT MEASURES: `(recordingGapSec + pauseSec + unreliableSec) /
+ * spanSec` (widened 2026-09-21, 33-CONTEXT.md D-04; was a two-term
+ * numerator through v2.2), straight from `classifyGaps` — the fraction of a
+ * stream's own recorded span in which no pace was actually measured (either
+ * the device stopped recording entirely, the athlete's distance genuinely
+ * froze for longer than that activity's own advance-interval distribution
+ * justifies as a pause, or the sample-level detector found the recorded
+ * distance untrustworthy — a gap-adjacent slew burst, a hidden pause with no
+ * timestamp gap, or an isolated GPS jump).
  *
  * (2) MECHANISM ARGUMENT: a pace distribution, a splits table, or a
  * headline "average pace" figure all implicitly claim to describe the whole
@@ -854,8 +869,11 @@ export function decimationSignal(
  * activity's own timeline a viewer can trust the displayed pace figures to
  * represent, and it would read the same if the archive were twice as large.
  *
- * (3) MEASURED COHORT AT THE CHOSEN CUT AND ITS TWO NEIGHBOURS (live
- * archive, `27-RESEARCH.md`'s sweep table, re-measured at each execution):
+ * (3) MEASURED COHORT AT THE CHOSEN CUT AND ITS TWO NEIGHBOURS — Phase 27
+ * figures over the PRE-WIDENING two-term numerator (live archive,
+ * `27-RESEARCH.md`'s sweep table, Phase 27 / v2.2 milestone, shipped
+ * 2026-09-19; NOT re-measured against the three-term numerator this Phase
+ * 33 docblock now describes — see (5) below):
  *   - >15% of span in gap: 197 activities (10.6%)
  *   - >20% of span in gap: 127 activities (6.8%)  <- CHOSEN CUT
  *   - >25% of span in gap:  88 activities (4.7%)
@@ -867,6 +885,20 @@ export function decimationSignal(
  * this signal contributes to is reported honestly in 27-03's calibration
  * document, including if it lands above ~5% once unioned with the other two
  * tiering signals.
+ *
+ * (5) ANTI-QUOTA (widened 2026-09-21, 33-CONTEXT.md D-04/D-05): Phase 33
+ * widened this signal's numerator to a three-term sum (unreliable time
+ * added, see (1)) and deliberately did NOT re-derive this cut or
+ * `GAP_PROFILE_MINOR_FRACTION` to compensate. The before/after per-tier
+ * migration this widening causes is measured archive-wide and reported as a
+ * finding in plan 33-07's artifact, including if the migration is zero.
+ * Phase 27's own D-02 anti-quota rule — a constant is never moved to change
+ * a count — is restated here because a reader meeting a changed numerator
+ * on an unchanged threshold will be tempted to "recalibrate"; that
+ * temptation is exactly what D-02/D-05 forbid. The cohort figures in (3)
+ * above are NOT re-measured against this widened numerator — they remain
+ * the Phase 27 figures they always were, now explicitly dated and sourced
+ * as such.
  */
 export const GAP_PROFILE_SEVERE_FRACTION = 0.2;
 
@@ -898,11 +930,15 @@ function resolveCoverage(t: readonly number[], d: readonly number[]) {
  * `tier: 'not-computable'` with every numeric field `null` — never
  * `gapFraction: 0`, which would read as a genuinely clean stream (T-26-02).
  *
- * Otherwise `gapFraction = (recordingGapSec + pauseSec) / spanSec`; tier
- * `'severe'` above the resolved severe cut, `'minor'` above
- * `GAP_PROFILE_MINOR_FRACTION`, `'none'` otherwise. `recordingGapSec` and
- * `pauseSec` are echoed separately (never only their sum) so the badge and
- * the shard can name the two categories independently.
+ * Otherwise `gapFraction = (recordingGapSec + pauseSec + unreliableSec) /
+ * spanSec` (widened 2026-09-21, 33-CONTEXT.md D-04; was a two-term
+ * numerator through v2.2); tier `'severe'` above the resolved severe cut,
+ * `'minor'` above `GAP_PROFILE_MINOR_FRACTION`, `'none'` otherwise.
+ * `recordingGapSec` and `pauseSec` are echoed separately (never only their
+ * sum) so the badge and the shard can name those two categories
+ * independently — `unreliableSec` is NOT echoed on this returned signal
+ * (see `GapProfileSignal`'s own doc comment for where the third category is
+ * itemised instead).
  */
 function tierGapProfileFromCoverage(
   coverage: ReturnType<typeof resolveCoverage>,
@@ -918,7 +954,19 @@ function tierGapProfileFromCoverage(
     };
   }
 
-  const gapFraction = (coverage.recordingGapSec + coverage.pauseSec) / coverage.spanSec;
+  // D-04 (33-CONTEXT.md, widened 2026-09-21): unreliable time enters the
+  // numerator alongside recording gaps and pauses. Measured reason: under
+  // D-01 the 63 gap-adjacent activities keep EXACTLY the fraction they have
+  // today (unreliable time is re-labelled from an existing gap/pause, not
+  // added on top), so no shipped badge is silently lost by this widening —
+  // excluding unreliable time could only SHRINK the fraction for those 63
+  // activities and drop severe/minor badges purely because of a re-label.
+  // hidden-pause activities gain ~25s and isolated-jump activities gain
+  // ~4.8s per activity, both fractions of a percent (figures cited to
+  // 33-CONTEXT.md D-04, sourced from 32-CALIBRATION.md — reference values
+  // to reconcile against in plan 33-07, never expected values).
+  const gapFraction =
+    (coverage.recordingGapSec + coverage.pauseSec + coverage.unreliableSec) / coverage.spanSec;
   const severeFraction = options?.gapProfileSevereFraction ?? GAP_PROFILE_SEVERE_FRACTION;
 
   let tier: QualityTier;

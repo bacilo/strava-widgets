@@ -10,12 +10,16 @@
  * finding, never silently absorbed by relaxing the fixture.
  */
 
-import { describe, expect, it } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
+
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   CLOSURE_DRIFT_SEVERE_DELTA_M,
   DECIMATION_SEVERE_MIN_SAMPLES,
   DECIMATION_SEVERE_ZERO_ADVANCE_FRACTION,
+  GAP_PROFILE_MINOR_FRACTION,
   GAP_PROFILE_SEVERE_FRACTION,
   IMPOSSIBLE_SAMPLE_SEVERE_COUNT,
   LOOP_RADIUS_M,
@@ -53,7 +57,8 @@ import {
   syntheticSubGroundStream,
   syntheticVerticalRateSpikeStream,
 } from './pace-fixtures.js';
-import { adaptiveWindowSec as recomputeAdaptiveWindowSec } from './pace-derivation.js';
+import { adaptiveWindowSec as recomputeAdaptiveWindowSec, classifyGaps } from './pace-derivation.js';
+import type { CanonicalStream } from '../streams/stream.types.js';
 
 /** Builds the two-field metadata slice `resolveDeviceFamily` consumes from a raw activity record. */
 function metadataOf(activity: unknown): Pick<ActivityQualityMetadata, 'deviceName' | 'sourceProvider'> {
@@ -380,6 +385,203 @@ describe('gap profile signal', () => {
       expect(result.pauseSec).toBeNull();
       expect(result.spanSec).toBeNull();
     }
+  });
+});
+
+/**
+ * gapProfile numerator widening (COV-03, 33-CONTEXT.md D-04) and the D-05
+ * anti-quota constant freeze. Named so `-t "gapProfile"` selects every test
+ * in this block.
+ *
+ * The synthetic-coverage cases below mock `classifyGaps` (imported by
+ * `pace-quality.ts` from `pace-derivation.js`) to return an exact,
+ * hand-specified coverage object — `tierGapProfileFromCoverage` is a
+ * private, unexported pure function of that object, so this is the only way
+ * to pin its arithmetic to an exact `{ spanSec, recordingGapSec, pauseSec,
+ * unreliableSec }` combination without engineering a real stream whose
+ * detected-segment seconds happen to land on a chosen value — the same
+ * `vi.doMock` + dynamic-`import()` technique `pace-single-source.test.ts`'s
+ * D-15 load-bearing proof already established in this tree. Each case
+ * cleans its own mock up via `vi.doUnmock` + `vi.resetModules()` so later
+ * tests in this file (and the real-stream/shard-passthrough cases below,
+ * which need the REAL `classifyGaps`) are never contaminated.
+ */
+describe('gapProfile numerator widening (D-04) and constant freeze (D-05)', () => {
+  type MockCoverage = {
+    spanSec: number;
+    coveredSec: number;
+    recordingGapSec: number;
+    pauseSec: number;
+    unreliableSec: number;
+  };
+
+  /**
+   * Mocks `classifyGaps` to return `coverage` verbatim (plus an empty
+   * `gapIntervals`, irrelevant to `gapProfileSignal`'s own return shape),
+   * dynamically re-imports a fresh `pace-quality.js` bound to that mock,
+   * calls its `gapProfileSignal`, then tears the mock down before
+   * returning — so every caller gets a clean module registry regardless of
+   * pass/fail.
+   */
+  async function gapProfileSignalOverCoverage(
+    coverage: MockCoverage,
+    options?: Parameters<typeof gapProfileSignal>[2]
+  ): Promise<ReturnType<typeof gapProfileSignal>> {
+    vi.doMock('./pace-derivation.js', async () => {
+      const actual =
+        await vi.importActual<typeof import('./pace-derivation.js')>('./pace-derivation.js');
+      return { ...actual, classifyGaps: () => ({ ...coverage, gapIntervals: [] }) };
+    });
+    vi.resetModules();
+    try {
+      const mod = await import('./pace-quality.js');
+      return mod.gapProfileSignal([], [], options);
+    } finally {
+      vi.doUnmock('./pace-derivation.js');
+      vi.resetModules();
+    }
+  }
+
+  it('coverage { recordingGapSec 0, pauseSec 0, unreliableSec 30, spanSec 100 } tiers severe with gapFraction 0.30', async () => {
+    const result = await gapProfileSignalOverCoverage({
+      spanSec: 100,
+      coveredSec: 70,
+      recordingGapSec: 0,
+      pauseSec: 0,
+      unreliableSec: 30,
+    });
+    expect(result.tier).toBe('severe');
+    expect(result.gapFraction).toBeCloseTo(0.3, 10);
+    expect(result.recordingGapSec).toBe(0);
+    expect(result.pauseSec).toBe(0);
+    expect(result.spanSec).toBe(100);
+  });
+
+  it('coverage { recordingGapSec 3, pauseSec 2, unreliableSec 1, spanSec 100 } tiers minor with gapFraction 0.06', async () => {
+    const result = await gapProfileSignalOverCoverage({
+      spanSec: 100,
+      coveredSec: 94,
+      recordingGapSec: 3,
+      pauseSec: 2,
+      unreliableSec: 1,
+    });
+    expect(result.tier).toBe('minor');
+    expect(result.gapFraction).toBeCloseTo(0.06, 10);
+  });
+
+  it('unreliableSec 0 reproduces today\'s (pre-D-04) tier and fraction exactly, for a matrix of recordingGapSec/pauseSec combinations', async () => {
+    const cases: Array<{ recordingGapSec: number; pauseSec: number; spanSec: number; expectTier: 'severe' | 'minor' | 'none' }> = [
+      { recordingGapSec: 25, pauseSec: 0, spanSec: 100, expectTier: 'severe' }, // 0.25 > 0.20
+      { recordingGapSec: 3, pauseSec: 3, spanSec: 100, expectTier: 'minor' }, // 0.06 > 0.05
+      { recordingGapSec: 0, pauseSec: 1, spanSec: 100, expectTier: 'none' }, // 0.01 <= 0.05
+    ];
+    for (const c of cases) {
+      const result = await gapProfileSignalOverCoverage({
+        spanSec: c.spanSec,
+        coveredSec: c.spanSec - c.recordingGapSec - c.pauseSec,
+        recordingGapSec: c.recordingGapSec,
+        pauseSec: c.pauseSec,
+        unreliableSec: 0,
+      });
+      const expectedFraction = (c.recordingGapSec + c.pauseSec) / c.spanSec;
+      expect(result.tier).toBe(c.expectTier);
+      expect(result.gapFraction).toBeCloseTo(expectedFraction, 10);
+    }
+  });
+
+  it('spanSec 0 still returns tier not-computable with every numeric field null, even when unreliableSec is present on the mocked coverage', async () => {
+    const result = await gapProfileSignalOverCoverage({
+      spanSec: 0,
+      coveredSec: 0,
+      recordingGapSec: 0,
+      pauseSec: 0,
+      unreliableSec: 50,
+    });
+    expect(result.tier).toBe('not-computable');
+    expect(result.gapFraction).toBeNull();
+    expect(result.recordingGapSec).toBeNull();
+    expect(result.pauseSec).toBeNull();
+    expect(result.spanSec).toBeNull();
+  });
+
+  it("D-05: GAP_PROFILE_SEVERE_FRACTION and GAP_PROFILE_MINOR_FRACTION are frozen at their pre-Phase-33 values, never re-derived for the widened numerator", () => {
+    expect(GAP_PROFILE_SEVERE_FRACTION).toBe(0.2);
+    expect(GAP_PROFILE_MINOR_FRACTION).toBe(0.05);
+  });
+
+  it('real stream 3475724402: gapFraction equals the three-term (recordingGapSec + pauseSec + unreliableSec) / spanSec recomputed independently from classifyGaps\' own coverage object, and is strictly greater than the two-term fraction over the same object', () => {
+    const stream = JSON.parse(
+      fs.readFileSync(path.join('data', 'streams', '3475724402.json'), 'utf-8')
+    ) as CanonicalStream;
+
+    // The real, unmocked classifyGaps — this test runs after the mocked
+    // cases above each tear their own mock down in a `finally` block, so
+    // this call resolves the genuine module.
+    const coverage = classifyGaps(stream.t, stream.d);
+    const result = gapProfileSignal(stream.t, stream.d);
+
+    const threeTermFraction =
+      (coverage.recordingGapSec + coverage.pauseSec + coverage.unreliableSec) / coverage.spanSec;
+    const twoTermFraction = (coverage.recordingGapSec + coverage.pauseSec) / coverage.spanSec;
+
+    // eslint-disable-next-line no-console
+    console.log(
+      '[pace-quality gapProfile 3475724402] ' +
+        JSON.stringify({
+          spanSec: coverage.spanSec,
+          recordingGapSec: coverage.recordingGapSec,
+          pauseSec: coverage.pauseSec,
+          unreliableSec: coverage.unreliableSec,
+          threeTermFraction,
+          twoTermFraction,
+        })
+    );
+
+    // Reachability: this stream must actually carry detected unreliable
+    // time for the "strictly greater" discriminator below to be checkable
+    // at all (33-CONTEXT.md's own named fixture: 18 gaps, 30 gap-adjacent
+    // bursts).
+    expect(coverage.unreliableSec).toBeGreaterThan(0);
+
+    expect(result.gapFraction).toBeCloseTo(threeTermFraction, 10);
+    expect(threeTermFraction).toBeGreaterThan(twoTermFraction);
+  });
+
+  it("shard passthrough: buildPaceQualityShard on real stream 3475724402 carries at least one kind: 'unreliable' interval, and every interval's kind is one of the four valid GapKind values", () => {
+    const stream = JSON.parse(
+      fs.readFileSync(path.join('data', 'streams', '3475724402.json'), 'utf-8')
+    ) as CanonicalStream;
+    const metadata: ActivityQualityMetadata = {
+      deviceName: 'test-device',
+      sourceProvider: undefined,
+      elapsedTimeSec: stream.t[stream.t.length - 1] - stream.t[0],
+      movingTimeSec: stream.t[stream.t.length - 1] - stream.t[0],
+      startLatlng: undefined,
+      endLatlng: undefined,
+    };
+
+    const shard = buildPaceQualityShard('3475724402', stream, metadata);
+
+    // The four-valued PairKind superset ('recording-gap' | 'pause' |
+    // 'unreliable' | 'covered') — 'covered' never actually appears in
+    // `gapIntervals` (only non-covered runs are pushed), but is included
+    // here so this assertion checks against the real full kind universe
+    // rather than a narrower assumption of which three are reachable.
+    const validKinds = new Set(['recording-gap', 'pause', 'unreliable', 'covered']);
+    expect(shard.gapIntervals.length).toBeGreaterThan(0);
+    for (const interval of shard.gapIntervals) {
+      expect(validKinds.has(interval.kind)).toBe(true);
+    }
+    const unreliableIntervals = shard.gapIntervals.filter((g) => g.kind === 'unreliable');
+    // eslint-disable-next-line no-console
+    console.log(
+      '[pace-quality shard passthrough 3475724402] ' +
+        JSON.stringify({
+          totalIntervals: shard.gapIntervals.length,
+          unreliableIntervals: unreliableIntervals.length,
+        })
+    );
+    expect(unreliableIntervals.length).toBeGreaterThan(0);
   });
 });
 
