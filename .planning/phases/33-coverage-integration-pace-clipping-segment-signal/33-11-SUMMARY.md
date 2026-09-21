@@ -188,3 +188,16 @@ None beyond what the plan's own threat register already names and this plan's ow
 ---
 *Phase: 33-coverage-integration-pace-clipping-segment-signal*
 *Completed: 2026-09-21*
+
+## Self-Check: PASSED
+
+- FOUND: `src/dashboard/views/list.ts`
+- FOUND: `src/dashboard/views/list.test.ts`
+- FOUND: `src/dashboard/views/detail-sections.ts`
+- FOUND: `src/dashboard/views/detail-sections.test.ts`
+- FOUND: `.planning/phases/33-coverage-integration-pace-clipping-segment-signal/33-11-SUMMARY.md`
+- FOUND commit: `671e3656`
+- FOUND commit: `23176cfb`
+- FOUND commit: `149660be`
+- FOUND commit: `ac34e62a`
+- FOUND commit: `2fcc78ba`
