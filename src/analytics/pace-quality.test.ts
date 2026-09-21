@@ -25,6 +25,7 @@ import {
   LOOP_RADIUS_M,
   NOT_COMPUTABLE_NO_STREAM,
   SUB_GROUND_MIN_ALT_M,
+  UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION,
   VERTICAL_RATE_SEVERE_MPS,
   buildPaceQualityShard,
   closureDriftSignal,
@@ -1155,5 +1156,64 @@ describe('elevation assembly, anySevere exclusion, and not-computable rollup (D-
     expect(result.elevation.subGround).toEqual({ flagged: false, minAltM: null });
     expect(result.elevation.closureDrift).toEqual({ state: 'not-computable', deltaM: null, startEndDistM: null });
     expect(result.elevation.verticalRate).toEqual({ flagged: false, worstRateMps: null, violatingSamples: null });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION shipped from 33-CALIBRATION.md
+// (D-16, plan 33-14) — named so `-t "shipped from 33-CALIBRATION"` selects it
+// ---------------------------------------------------------------------------
+
+describe('UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION shipped from 33-CALIBRATION', () => {
+  const ARTIFACT_PATH = path.join(
+    '.planning',
+    'phases',
+    '33-coverage-integration-pace-clipping-segment-signal',
+    '33-CALIBRATION.md'
+  );
+  const SOURCE_PATH = path.join('src', 'analytics', 'pace-quality.ts');
+  const CONSTANT_LINE_PATTERN = /^\*\*UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION = ([0-9.]+)\*\*$/gm;
+  const SOURCE_LITERAL_PATTERN =
+    /export const UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION = ([0-9.]+);/;
+
+  it('finds exactly one Chosen-constant line in the committed artifact and matches the production export, numerically AND character-for-character', () => {
+    if (!fs.existsSync(ARTIFACT_PATH)) {
+      throw new Error(
+        `Missing ${ARTIFACT_PATH} — likely a milestone-archival \`git mv\` moved this phase's ` +
+          'directory; update this test\'s ARTIFACT_PATH to the archived location. Never skip this test.'
+      );
+    }
+    const artifactContent = fs.readFileSync(ARTIFACT_PATH, 'utf8');
+    const matches = [...artifactContent.matchAll(CONSTANT_LINE_PATTERN)];
+    if (matches.length !== 1) {
+      throw new Error(
+        `Expected exactly one line-anchored "**UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION = ...**" ` +
+          `in ${ARTIFACT_PATH}, found ${matches.length}. A milestone-archival `+
+          '\`git mv\` moving this phase\'s directory is the likely cause of zero matches; a re-run of ' +
+          'the generator landing on its own NO SHAPE CLEARS halt branch (never shipping a line) is ' +
+          'the likely cause too — never skip, never silently pass.'
+      );
+    }
+    const artifactLiteral = matches[0][1];
+
+    if (!fs.existsSync(SOURCE_PATH)) {
+      throw new Error(`Missing ${SOURCE_PATH} — cannot read the production source literal.`);
+    }
+    const sourceContent = fs.readFileSync(SOURCE_PATH, 'utf8');
+    const sourceMatch = SOURCE_LITERAL_PATTERN.exec(sourceContent);
+    if (!sourceMatch) {
+      throw new Error(
+        `Could not find "export const UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION = <literal>;" in ` +
+          `${SOURCE_PATH} — the export may have been renamed or removed.`
+      );
+    }
+    const sourceLiteral = sourceMatch[1];
+
+    // Numeric equality against the runtime export (parses correctly, not just textually).
+    expect(Number(artifactLiteral)).toBe(UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION);
+    // Character-for-character against the SOURCE TEXT literal (never the runtime `String(value)`,
+    // which would silently normalise away a trailing-zero mismatch a plain numeric check cannot
+    // catch — plan 33-09's own acceptance wording).
+    expect(sourceLiteral).toBe(artifactLiteral);
   });
 });

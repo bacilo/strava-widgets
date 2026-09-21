@@ -4,17 +4,23 @@
  * 33-CALIBRATION.md — if it does, the self-execution guard documented at the bottom of that file is
  * wrong and must be fixed rather than worked around here.
  *
- * No test in this file reads any file under `data/streams/` — every fixture below is hand-built,
- * mirroring compute-unreliable-segment-calibration.test.mjs's own "no archive reads" contract. The
- * archive-shaped fixtures used by `buildFlaggedCohort`/`severityDistribution` below DO run the real
- * `detectUnreliableSegments` (imported from `dist/`), because that IS what those functions call —
- * but the `t`/`d`/`gaps` inputs are all synthetic, never a read from `data/streams/`.
+ * This file reads EXACTLY FOUR named stream files under `data/streams/` (the shipped-constant
+ * named-activity tiering cases at the bottom, plan 33-14 Task 4) — 3475734189, 10146303423,
+ * 3475724402, 3475740390 — and still never scans the archive: every other fixture above those cases
+ * is hand-built, mirroring compute-unreliable-segment-calibration.test.mjs's own "no archive reads"
+ * contract. The archive-shaped fixtures used by `buildFlaggedCohort`/`severityDistribution` DO run
+ * the real `detectUnreliableSegments` (imported from `dist/`), because that IS what those functions
+ * call — but their `t`/`d`/`gaps` inputs are all synthetic, never a read from `data/streams/`.
  */
+
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { quantile } from '../dist/analytics/pace-derivation.js';
-import { DEFAULT_DETECTOR_PARAMS } from '../dist/analytics/unreliable-segments.js';
+import { classifyGapsThreeWay, quantile } from '../dist/analytics/pace-derivation.js';
+import { UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION } from '../dist/analytics/pace-quality.js';
+import { DEFAULT_DETECTOR_PARAMS, detectUnreliableSegments } from '../dist/analytics/unreliable-segments.js';
 import {
   ANCHOR_CONTROL_ACTIVITY_ID,
   ANCHOR_SEVERE_ACTIVITY_ID,
@@ -1111,5 +1117,62 @@ describe('shape arbitration: decideOutcome (exit-code contract)', () => {
     expect(result.exitCode).toBe(1);
     expect(result.exitReason).toBe('anchor-check-failed');
     expect(result.anchor.pass).toBe(false);
+  });
+});
+
+// ===========================================================================
+// Task 4: shipped-constant named-activity tiering. Reads EXACTLY FOUR named
+// stream files under data/streams/ — never the archive.
+// ===========================================================================
+
+function readNamedStream(id) {
+  return JSON.parse(readFileSync(join('data', 'streams', `${id}.json`), 'utf-8'));
+}
+
+function segmentsForNamedActivity(id) {
+  const { t, d } = readNamedStream(id);
+  const gaps = classifyGapsThreeWay(t, d).gapIntervals;
+  const segments = detectUnreliableSegments(t, d, gaps, DEFAULT_DETECTOR_PARAMS);
+  const totalDistanceM = d[d.length - 1] - d[0];
+  return { segments, totalDistanceM };
+}
+
+describe('shipped constant named-activity tiering (plan 33-14 Task 4)', () => {
+  it('3475734189 tiers severe against the independent fraction 122.70 / 6830.3', () => {
+    const { segments, totalDistanceM } = segmentsForNamedActivity('3475734189');
+    expect(segments).toHaveLength(1);
+    const fraction = activityExcessFraction(segments, totalDistanceM);
+    expect(fraction).toBeCloseTo(122.7 / 6830.3, 3);
+    expect(classifyActivityTier(segments, totalDistanceM, UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION)).toBe(
+      'severe'
+    );
+  });
+
+  it('10146303423 tiers none (zero detected segments, the clean control)', () => {
+    const { segments, totalDistanceM } = segmentsForNamedActivity('10146303423');
+    expect(segments).toHaveLength(0);
+    expect(classifyActivityTier(segments, totalDistanceM, UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION)).toBe(
+      'none'
+    );
+  });
+
+  it('3475724402 tiers minor with fraction exactly 0 (every segment clamped to excess 0, gap dilution — a finding)', () => {
+    const { segments, totalDistanceM } = segmentsForNamedActivity('3475724402');
+    expect(segments.length).toBeGreaterThan(0);
+    const fraction = activityExcessFraction(segments, totalDistanceM);
+    expect(fraction).toBe(0);
+    expect(classifyActivityTier(segments, totalDistanceM, UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION)).toBe(
+      'minor'
+    );
+  });
+
+  it('the cross-segment summation property is asserted on 3475740390 (N=5: 55.95 / 10571.1), never a one-segment fixture', () => {
+    const { segments, totalDistanceM } = segmentsForNamedActivity('3475740390');
+    expect(segments).toHaveLength(5);
+    const summedExcess = segments.reduce((sum, s) => sum + s.excessMetres, 0);
+    expect(summedExcess).toBeCloseTo(55.95, 1);
+    expect(totalDistanceM).toBeCloseTo(10571.1, 0);
+    const fraction = activityExcessFraction(segments, totalDistanceM);
+    expect(fraction).toBeCloseTo(55.95 / 10571.1, 3);
   });
 });

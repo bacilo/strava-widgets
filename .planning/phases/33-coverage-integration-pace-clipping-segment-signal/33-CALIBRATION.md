@@ -82,7 +82,7 @@ Shape **R1** (accumulated ordinary step noise) is the FIRST to clear D-13 insens
 
 **UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION = 0.00423**
 
-Live-derived: 0.00423. Shipped (`src/analytics/pace-quality.ts`): not yet shipped. Shipped value equal: not yet shipped.
+Live-derived: 0.00423. Shipped (`src/analytics/pace-quality.ts`): 0.00423. Shipped value equal: yes.
 
 ## D-07 anchor check
 

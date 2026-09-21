@@ -912,6 +912,70 @@ export const GAP_PROFILE_SEVERE_FRACTION = 0.2;
 export const GAP_PROFILE_MINOR_FRACTION = 0.05;
 
 /**
+ * (1) WHAT IT MEASURES: the fraction of an activity's OWN distance carried
+ * as excess metres beyond what the detector's speed limit allows over the
+ * segments' own elapsed time — `sum(segment excessMetres) / (activity's own
+ * total distance)`, tiered strictly-greater-than (`'severe'` above this
+ * value, `'minor'` at or below it with at least one segment, `'none'` with
+ * zero segments — a presence fact, not a magnitude judgement).
+ *
+ * (2) DERIVATION (D-16, plan 33-14): plan 33-08 measured that every outer
+ * percentile of the FLAGGED cohort's own excess-fraction population fails
+ * D-13 insensitivity by 50-4333% against a 1% tolerance — the percentiled
+ * population IS the population the cut later judges, so "re-derive with
+ * detected segments removed" collapses the population itself, and the
+ * would-be q=0.99 candidate is literally the same computation as its own
+ * deliberately circular strawman. Plan 33-14 closes that HALT by deriving
+ * the cut from a reference population that is NOT the flagged set: four
+ * shapes were pre-declared in the plan's own text before any measurement,
+ * ordered by unit-match then independence then fewest inherited caveats,
+ * arbitrated by first-clearing order. Shape **R1 — "accumulated ordinary
+ * step noise"** was the first to clear: for each activity, every interior
+ * folded covered step whose neighbours are index-contiguous contributes a
+ * residual against the mean of its neighbours' implied speed; `sigma` is a
+ * MEDIAN over thousands of such residuals per activity (50% breakdown
+ * point), so a handful of burst steps cannot move it; `epsilon = sigma *
+ * sqrt(step count) / activity distance`; the shipped cut is the R-7 90th
+ * percentile of `epsilon` ACROSS ALL COMPUTABLE ACTIVITIES (flagged or not).
+ * Non-circularity: nothing in the statistic references the speed limit, the
+ * excess floor, a segment, or flagged membership — the population is every
+ * activity's own ordinary sample-to-sample noise, not the excess-fraction
+ * population this constant later tiers. Disclosed model assumption:
+ * independent per-step errors accumulating as a random walk.
+ *
+ * (3) THE VALUE: raw 0.004229423790775019, rounded UP to 3 significant
+ * figures (rounding up can only call FEWER activities severe than the raw
+ * value would, and 3 s.f. is the coarsest precision whose quantum never
+ * exceeds the 1% D-13 tolerance) to **0.00423** — D-13 insensitivity
+ * deltas removedDelta 0.2848%, plantedDelta 0.5081%, both against the 1%
+ * tolerance, all four quoted from
+ * `.planning/phases/33-coverage-integration-pace-clipping-segment-signal/33-CALIBRATION.md`
+ * § "Chosen constant" / "Shape arbitration", the source of record for this
+ * value.
+ *
+ * (4) 33-08's own shape (an outer percentile of the flagged cohort itself)
+ * was MEASURED failing D-13 by 50-4333% against the 1% tolerance — kept in
+ * the artifact under "Recorded negative finding", never deleted (evidence is
+ * never deleted).
+ *
+ * (5) ANTI-QUOTA (Phase 27 D-02): the archive-wide severe rate this cut
+ * produces (136 severe / 563 minor / 1175 none of 1874, per the artifact) is
+ * a REPORTED FINDING, computed only after the shape was selected, never an
+ * input to selection and never a reason to move this constant.
+ *
+ * (6) REJECTED (33-CONTEXT.md D-07): unreliable-seconds-over-span was
+ * measured and rejected — it scores 3475734189's 199 m hidden pause at
+ * about 0.2% of span, structurally unable to call the archive's worst
+ * distance lie severe.
+ *
+ * (7) Shipped by plan 33-14 FROM the artifact above, and pinned to it by the
+ * "shipped from 33-CALIBRATION" test in `pace-quality.test.ts` — that test
+ * goes red under a seeded edit of either side. Plan 33-09 Task 2 step 1
+ * CONSUMES this export and must not declare a second one.
+ */
+export const UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION = 0.00423;
+
+/**
  * The SOLE call site of the shared gap classifier in this module — the
  * classifier is called at most once per activity and its result shared,
  * never a second independent invocation inviting drift. Both
