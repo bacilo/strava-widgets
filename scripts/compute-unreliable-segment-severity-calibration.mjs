@@ -61,6 +61,7 @@
  * text literally — if the two ever disagree, the plan text wins and this file is the bug.
  */
 
+import { execSync } from 'child_process';
 import { readFileSync, readdirSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
@@ -73,6 +74,10 @@ import {
 import { classifyGapsThreeWay, quantile } from '../dist/analytics/pace-derivation.js';
 import { validateStreamSeries } from '../dist/analytics/best-effort-utils.js';
 import { isStreamFile, idFromFilename } from './lib/stream-files.mjs';
+// Namespace import (never named): the production constant does not exist until plan 33-14's Task 4
+// ships it, so a named import would be a link error on every run before that — this reads `undefined`
+// instead and the artifact states "not yet shipped".
+import * as shippedPaceQuality from '../dist/analytics/pace-quality.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = join(__dirname, '..');
@@ -822,6 +827,7 @@ export function evaluateShape(deriveFn, { base, removed, planted }, { tolerance 
   return {
     base: baseValue,
     baseN: baseResult.n,
+    baseExcluded: baseResult.excluded ?? 0,
     removed: removedValue,
     removedN: removedResult.n,
     planted: plantedValue,
@@ -829,6 +835,186 @@ export function evaluateShape(deriveFn, { base, removed, planted }, { tolerance 
     removedDelta,
     plantedDelta,
     pass,
+  };
+}
+
+/**
+ * SELECTION RULE (33-14-PLAN.md): the FIRST shape (in `PREDECLARED_SHAPES` order) whose row `pass`
+ * is `true` wins; a later passing row never beats an earlier one. Takes ONLY `{ id, pass }` rows —
+ * structurally incapable of receiving a cut, count, severe rate or activity id (T-33-14b,
+ * anti-quota); this function's own source text is asserted, by a test, to reference no such field.
+ */
+export function selectShape(rows) {
+  for (const row of rows) {
+    if (row.pass) return row.id;
+  }
+  return null;
+}
+
+/**
+ * Rounds `raw` UP to `significantDigits` significant figures (default 3) — rounding UP can only
+ * ever call FEWER activities severe than the raw value would (the direction-safety
+ * `deriveSpeedLimitAt` uses), and 3 significant figures is the coarsest decimal precision whose
+ * quantum never exceeds the 1% D-13 tolerance: shipping finer would be false precision, shipping
+ * coarser would move the constant further than D-13 lets its own derivation move. A value already
+ * exact at the target precision is returned UNCHANGED — the `1e9` rescale-and-round step exists
+ * only to absorb binary-float noise (e.g. `0.0123 * 10000` landing at `122.99999999999999`), never
+ * to nudge a genuinely different value. `null`/`undefined` returns `null`; `0` returns `0`.
+ */
+export function ceilToSignificant(raw, significantDigits = 3) {
+  if (raw === null || raw === undefined) return null;
+  if (raw === 0) return 0;
+
+  const sign = Math.sign(raw);
+  const magnitude = Math.abs(raw);
+  const exponent = Math.floor(Math.log10(magnitude));
+  const factor = Math.pow(10, significantDigits - 1 - exponent);
+
+  const scaled = Math.round(magnitude * factor * 1e9) / 1e9;
+  const ceiled = Math.ceil(scaled);
+  return (sign * ceiled) / factor;
+}
+
+/** Renders `value` in plain decimal notation (never exponent notation) at exactly
+ * `significantDigits` significant figures, trailing zeros included. `null`/`undefined` renders as
+ * `'—'`. */
+export function formatShippedConstant(value, significantDigits = 3) {
+  if (value === null || value === undefined) return '—';
+  if (value === 0) return (0).toFixed(significantDigits - 1);
+
+  const exponent = Math.floor(Math.log10(Math.abs(value)));
+  const decimals = Math.max(0, significantDigits - 1 - exponent);
+  return value.toFixed(decimals);
+}
+
+/**
+ * Tiers one activity against an already-selected `cut` (33-08-PLAN.md's "PLANNER DECISION",
+ * unchanged by this plan): `none` for zero segments under any cut; `severe` for a fraction STRICTLY
+ * GREATER than `cut`; `minor` otherwise (including exactly at `cut`); `not-computable` for a
+ * degenerate `totalDistanceM` with at least one segment — never silently folded into `none`.
+ * `segmentsOrExcessList` may be an array of `{ excessMetres }` segments or a plain number array of
+ * excess values; both are summed identically.
+ */
+export function classifyActivityTier(segmentsOrExcessList, totalDistanceM, cut) {
+  if (!Array.isArray(segmentsOrExcessList) || segmentsOrExcessList.length === 0) return 'none';
+  if (!Number.isFinite(totalDistanceM) || !(totalDistanceM > 0)) return 'not-computable';
+
+  let sum = 0;
+  for (const entry of segmentsOrExcessList) {
+    sum += typeof entry === 'number' ? entry : entry.excessMetres;
+  }
+  const fraction = sum / totalDistanceM;
+  return fraction > cut ? 'severe' : 'minor';
+}
+
+/** The two D-07 anchor activities (33-CONTEXT.md D-07's own rejection reasoning, 33-14-PLAN.md
+ * interfaces): 3475734189 must tier `severe` under the winning shape's cut, 10146303423 must tier
+ * `none`. Fixed by the plan text, never derived. */
+export const ANCHOR_SEVERE_ACTIVITY_ID = '3475734189';
+export const ANCHOR_CONTROL_ACTIVITY_ID = '10146303423';
+
+/** The two named FINDING activities (reported, never an anchor requirement): 3475724402 (every
+ * segment clamped to excess 0 — `minor` under any positive cut, a finding) and 3475740390 (the N=5
+ * cross-segment summation fixture). */
+export const FINDING_ACTIVITY_IDS = Object.freeze(['3475724402', '3475740390']);
+
+function namedActivityRow(archive, cut, id) {
+  const activity = archive.activities.find((a) => a.id === id);
+  if (!activity) return { id, found: false };
+
+  const segments = detectUnreliableSegments(
+    activity.t,
+    activity.d,
+    activity.gaps,
+    DEFAULT_DETECTOR_PARAMS
+  );
+  const totalDistanceM =
+    Array.isArray(activity.d) && activity.d.length > 0
+      ? activity.d[activity.d.length - 1] - activity.d[0]
+      : NaN;
+  const excessMetresSum = segments.reduce((sum, s) => sum + s.excessMetres, 0);
+  const fraction = activityExcessFraction(segments, totalDistanceM);
+  const tier = classifyActivityTier(segments, totalDistanceM, cut);
+
+  return {
+    id,
+    found: true,
+    segmentCount: segments.length,
+    excessMetresSum,
+    totalDistanceM,
+    fraction,
+    tier,
+  };
+}
+
+/**
+ * `## D-07 anchor check` (33-14-PLAN.md action step 4): evaluated on the WINNING shape's cut only,
+ * never an input to shape selection. `pass` requires 3475734189 to tier `severe` (33-CONTEXT.md D-07
+ * rejected unreliable-seconds-over-span precisely because it could not call that activity severe)
+ * AND 10146303423 to tier `none`. An anchor failure halts — it is never a reason to fall through to
+ * the next shape, since a named activity steering the choice of shape would be a fit.
+ */
+export function anchorCheck(archive, cut) {
+  const severe = namedActivityRow(archive, cut, ANCHOR_SEVERE_ACTIVITY_ID);
+  const control = namedActivityRow(archive, cut, ANCHOR_CONTROL_ACTIVITY_ID);
+  const findings = FINDING_ACTIVITY_IDS.map((id) => namedActivityRow(archive, cut, id));
+
+  const pass = severe.found && severe.tier === 'severe' && control.found && control.tier === 'none';
+  return { severe, control, findings, pass };
+}
+
+/**
+ * Runs the full D-13 harness and first-clearing arbitration over `archive` (33-14-PLAN.md action
+ * step 6): builds the base/removed/planted views once, evaluates the strawman FIRST, then every
+ * `PREDECLARED_SHAPES` row in order, and selects via `selectShape` — fed ONLY `{ id, pass }` rows.
+ * When the strawman itself passes, selection is forced to `null` regardless of what the real shapes
+ * did (the check is not discriminating; a chosen constant could not be trusted). Every row is always
+ * computed and returned, whichever wins.
+ */
+export function runShapeArbitration(archive, { tolerance = INSENSITIVITY_TOLERANCE } = {}) {
+  const baseViews = buildBaseViews(archive);
+  const removedResult = buildRemovedViews(archive, baseViews);
+  const plantedResult = buildPlantedViews(archive, baseViews);
+  const viewSets = { base: baseViews, removed: removedResult.views, planted: plantedResult.views };
+
+  const strawman = evaluateShape((views) => strawmanFromViews(views), viewSets, { tolerance });
+
+  const rows = PREDECLARED_SHAPES.map((shape) => ({
+    id: shape.id,
+    label: shape.label,
+    meaning: shape.meaning,
+    nonCircularityArgument: shape.nonCircularityArgument,
+    caveats: shape.caveats,
+    ...evaluateShape(shape.derive, viewSets, { tolerance }),
+  }));
+
+  const strawmanBlocked = strawman.pass === true;
+  const selectedId = strawmanBlocked ? null : selectShape(rows.map((r) => ({ id: r.id, pass: r.pass })));
+  const chosenRow = selectedId === null ? null : rows.find((r) => r.id === selectedId);
+
+  const nonVacuity = {
+    removedStepCount: removedResult.removedStepCount,
+    plantedCount: plantedResult.plantedCount,
+    detectedSegmentCount: plantedResult.detectedSegmentCount,
+    sourceBurstPartCount: plantedResult.sourceBurstPartCount,
+    removedChangedDistanceActivityCount: removedResult.changedDistanceActivityCount,
+    plantedChangedDistanceActivityCount: plantedResult.changedDistanceActivityCount,
+  };
+  const nonVacuityOk =
+    nonVacuity.removedStepCount > 0 &&
+    nonVacuity.detectedSegmentCount > 0 &&
+    nonVacuity.plantedCount >= nonVacuity.detectedSegmentCount &&
+    nonVacuity.sourceBurstPartCount > 0;
+
+  return {
+    tolerance,
+    strawman,
+    strawmanBlocked,
+    rows,
+    selectedId,
+    chosenRow,
+    nonVacuity,
+    nonVacuityOk,
   };
 }
 
@@ -858,50 +1044,79 @@ function renderInsensitivityTable(rows) {
   return lines.join('\n');
 }
 
+/** Renders a `PREDECLARED_SHAPES`/strawman-shaped `evaluateShape` row table (id/n/base/removed/
+ * planted/deltas/verdict) — the new, step-level D-13 harness's own table shape, distinct from
+ * `renderInsensitivityTable`'s legacy `q`-keyed one. */
+function renderShapeTable(rows) {
+  const lines = [];
+  lines.push('| id | n | base | removed (n) | removedDelta | planted (n) | plantedDelta | Verdict |');
+  lines.push('|---|---|---|---|---|---|---|---|');
+  for (const r of rows) {
+    lines.push(
+      `| ${r.id} | ${r.baseN} | ${fmtNum(r.base)} | ${fmtNum(r.removed)} (${r.removedN}) | ` +
+        `${fmtPct(r.removedDelta)} | ${fmtNum(r.planted)} (${r.plantedN}) | ${fmtPct(r.plantedDelta)} | ` +
+        `${r.pass ? 'PASS' : 'FAIL'} |`
+    );
+  }
+  return lines.join('\n');
+}
+
+function renderNamedActivityTable(rows) {
+  const lines = [];
+  lines.push('| id | segments | excess (m) | own distance (m) | fraction | tier |');
+  lines.push('|---|---|---|---|---|---|');
+  for (const r of rows) {
+    if (!r.found) {
+      lines.push(`| ${r.id} | not found in this archive | — | — | — | — |`);
+      continue;
+    }
+    lines.push(
+      `| ${r.id} | ${r.segmentCount} | ${fmtNum(r.excessMetresSum, 2)} | ${fmtNum(r.totalDistanceM, 1)} | ` +
+        `${fmtNum(r.fraction, 6)} | ${r.tier} |`
+    );
+  }
+  return lines.join('\n');
+}
+
 /**
- * Renders the full artifact. `selection.chosen` is `null` on a NO CANDIDATE CLEARS outcome — that
- * branch omits any "Chosen constant" value and states the halt condition instead (33-08-PLAN.md
- * Task 3 step 5), never inventing a fallback constant.
+ * 33-08's own outer-percentile candidate table and strawman, computed LIVE by the untouched 33-08
+ * functions (`buildFlaggedCohort`/`selectSevereCut`/`strawmanCandidate`) and demoted into `###`
+ * subsections under a `## Recorded negative finding` heading — evidence is never deleted (D-16,
+ * T-33-14e). Returns body lines only; the caller renders the `##` heading.
  */
-export function renderCalibrationMarkdown({ archive, cohort, selection, strawman, distribution }) {
+function renderLegacyNegativeFinding({ archive, cohort, selection, strawman }) {
   const lines = [];
 
-  lines.push('# Phase 33 Plan 8: D-07 severity-tier calibration (SEG-06)');
-  lines.push('');
   lines.push(
-    `Regenerate with \`${REGENERATE_COMMAND}\`. This artifact carries no wall-clock timestamp or ` +
-      'generated-at field — a re-run against an unchanged archive is byte-identical.'
+    "33-08's own derivation — an outer percentile of the FLAGGED COHORT's own excess-fraction " +
+      'population — is kept here as a recorded negative finding, never deleted. Every candidate order ' +
+      'measured circular on the real archive; this is WHY plan 33-14 (D-16) moved the statistic to a ' +
+      'reference population that is not the flagged set.'
   );
   lines.push('');
 
-  lines.push('## Statistic');
+  lines.push('### Statistic (33-08)');
   lines.push('');
   lines.push(
     'For each activity with at least one detected unreliable segment, `excessFraction = ' +
-      'sum(segment.excessMetres) / (d[n-1] - d[0])` — the summed merged-segment excess over the ' +
-      "activity's own total distance (D-07: a fraction of the activity's OWN distance, never " +
-      'unreliable-seconds over span). The candidate cut is `quantile(sortedAsc(excessFractions), q)` ' +
-      `for \`q\` drawn in order from \`[${CANDIDATE_OUTER_PERCENTILES.join(', ')}]\`; the smallest ` +
-      'passing candidate wins.'
+      'sum(segment.excessMetres) / (d[n-1] - d[0])`. The candidate cut is ' +
+      '`quantile(sortedAsc(excessFractions), q)` for `q` drawn in order from ' +
+      `\`[${CANDIDATE_OUTER_PERCENTILES.join(', ')}]\`; the smallest passing candidate wins.`
   );
   lines.push('');
 
-  lines.push('## Non-circularity');
+  lines.push('### Non-circularity (33-08)');
   lines.push('');
   lines.push(
-    `The cut is derived from the flagged cohort's own excess-fraction population — ${cohort.members.length} ` +
+    `The cut was derived from the flagged cohort's own excess-fraction population — ${cohort.members.length} ` +
       `of ${archive.activities.length} activities with at least one detected segment ` +
       `(cohort size ${cohort.cohortSize}, ${cohort.notComputableInCohort} not computable within it). This ` +
-      "population IS the population the cut later judges (every flagged activity's own fraction), so a " +
-      'percentile of it is PARTIALLY circular by construction — stated plainly here rather than argued away. ' +
-      'The insensitivity check below is what adjudicates whether that partial circularity is disqualifying: ' +
-      'a candidate clears D-13 only when removing its own top decile, or planting extreme synthetic ' +
-      'contamination, barely moves it — evidence the cut is not merely restating an arbitrary rank of its own ' +
-      'judged population.'
+      "population IS the population the cut later judges (every flagged activity's own fraction) — the " +
+      'insensitivity check below measured that circularity disqualifying, not a false alarm.'
   );
   lines.push('');
 
-  lines.push('## Candidate excess-fraction cuts (D-13 insensitivity)');
+  lines.push('### Candidate excess-fraction cuts (D-13 insensitivity) (33-08)');
   lines.push('');
   lines.push(
     `Tolerance: ${fmtPct(selection.tolerance, 0)}. Selection rule: the SMALLEST \`q\` whose both deltas ` +
@@ -912,77 +1127,265 @@ export function renderCalibrationMarkdown({ archive, cohort, selection, strawman
   lines.push('');
 
   if (selection.chosen) {
-    lines.push('## Chosen constant');
+    lines.push('### Chosen constant (33-08)');
     lines.push('');
     lines.push(
       `**SEG_SEVERE_EXCESS_FRACTION = ${fmtNum(selection.chosen.base)}** (q=${selection.chosen.q}, the ` +
-        'smallest candidate clearing the tolerance).'
+        'smallest candidate clearing the tolerance). Superseded by plan 33-14 (D-16) — see the top-level ' +
+        'Chosen constant / NO SHAPE CLEARS section above.'
     );
-    lines.push('');
   } else {
-    lines.push('## NO CANDIDATE CLEARS');
+    lines.push('### NO CANDIDATE CLEARS (33-08)');
     lines.push('');
     lines.push(
       `None of \`[${CANDIDATE_OUTER_PERCENTILES.join(', ')}]\` cleared the ${fmtPct(selection.tolerance, 0)} ` +
-        'tolerance in both directions — see the candidate table above for every measured delta. No constant ' +
-        'is named; this is a HALT condition for a developer decision (33-08-PLAN.md Task 3 step 5), not a ' +
-        'widened candidate list or a loosened tolerance chosen unilaterally.'
+        'tolerance in both directions — see the candidate table above for every measured delta. This is ' +
+        "33-08's own recorded HALT (33-08-PLAN.md Task 3 step 5), closed by plan 33-14 (D-16) above."
     );
-    lines.push('');
   }
+  lines.push('');
 
-  lines.push('## Why not a tail percentile of the population itself');
+  lines.push('### Why not a tail percentile of the population itself (33-08)');
   lines.push('');
   lines.push(
     `The deliberately circular strawman — \`quantile(excessFractions, ${STRAWMAN_PERCENTILE})\`, a raw tail ` +
-      'percentile of the excess-fraction population ITSELF — is run through the identical two-direction ' +
-      'insensitivity check as every real candidate:'
+      'percentile of the excess-fraction population ITSELF — was run through the identical two-direction ' +
+      'insensitivity check as every 33-08 candidate:'
   );
   lines.push('');
   lines.push(renderInsensitivityTable([strawman]));
   lines.push('');
   lines.push(
     strawman.pass
-      ? '**BLOCKER: the strawman PASSED the insensitivity tolerance.** An unfalsifiable candidate clearing ' +
-          'this check means the check itself is not discriminating — the constant above cannot be trusted ' +
-          'until this is understood. Do not ship it as-is.'
+      ? '**BLOCKER: the strawman PASSED the insensitivity tolerance.**'
       : `**FAILED** — removedDelta ${fmtPct(strawman.removedDelta)}, plantedDelta ${fmtPct(strawman.plantedDelta)}, ` +
           `both measured against the ${fmtPct(selection.tolerance, 0)} tolerance. The strawman's own top rank ` +
-          'moves with its own top decile and with planted contamination close to exactly as much as removing or ' +
-          'planting would move any other tail percentile of the same population — it fails for the same ' +
-          'structural reason Phase 32\'s two strawmen did.'
+          'moved with its own top decile and with planted contamination close to exactly as much as removing or ' +
+          'planting would move any other tail percentile of the same population — it failed for the same ' +
+          "structural reason 33-08's own real q=0.99 candidate did (they are the same computation)."
   );
+
+  return lines;
+}
+
+/**
+ * Renders the full plan 33-14 artifact (D-16). `data.chosen` is `null` on a `## NO SHAPE CLEARS`
+ * outcome — the branch states which HALT condition fired (`data.exitReason`) and never invents a
+ * fallback constant. 33-08's own recorded negative finding is ALWAYS rendered (`### ...`
+ * subsections), regardless of this plan's own outcome.
+ */
+export function renderCalibrationMarkdown(data) {
+  const { archive, provenance, arbitration, chosen, shippedComparison, anchor, distribution, legacy, exitReason } =
+    data;
+  const lines = [];
+
+  lines.push('# Phase 33 Plan 8: D-07 severity-tier calibration (SEG-06)');
+  lines.push('');
+  lines.push(
+    `Regenerate with \`${REGENERATE_COMMAND}\`. This artifact carries no wall-clock timestamp, ` +
+      'generated-at field, or classifier source hash — provenance is content-addressed to ' +
+      "`data/streams`' own git tree alone. A re-run against an unchanged archive and unchanged " +
+      'classifier behaviour is byte-identical, including after this file is committed. Plan 33-14 ' +
+      "(D-16) supersedes plan 33-08's own derivation below, which stays on the record as a negative " +
+      'finding.'
+  );
+  lines.push('');
+
+  lines.push('## Statistic');
+  lines.push('');
+  lines.push(
+    "D-07's measured quantity is UNCHANGED by this plan: for each activity with at least one detected " +
+      'unreliable segment, `excessFraction = sum(segment.excessMetres) / (d[n-1] - d[0])` — the summed ' +
+      "merged-segment excess over the activity's own total distance (never unreliable-seconds over " +
+      'span, rejected by 33-CONTEXT.md D-07). Only the DERIVATION of the severe-tier CUT changes ' +
+      '(D-16): from an outer percentile of the flagged cohort itself (33-08, circular, see the ' +
+      'recorded negative finding below) to the first of four pre-declared reference shapes clearing ' +
+      'D-13 insensitivity, each read over ordinary folded covered steps and per-activity distances ' +
+      'across ALL computable activities.'
+  );
+  lines.push('');
+
+  lines.push('## Pre-declared reference shapes (D-16)');
+  lines.push('');
+  lines.push(
+    "Fixed by 33-14-PLAN.md's `<predeclared_shapes>` text BEFORE any measurement (a counts-and-booleans " +
+      'existence probe only — no value, delta, or severe rate was looked at). If the implementation and ' +
+      'that text ever disagree, the text wins.'
+  );
+  lines.push('');
+  for (const shape of PREDECLARED_SHAPES) {
+    lines.push(`### ${shape.id} — ${shape.label}`);
+    lines.push('');
+    lines.push(`**Meaning:** ${shape.meaning}`);
+    lines.push('');
+    lines.push(`**Non-circularity:** ${shape.nonCircularityArgument}`);
+    lines.push('');
+    lines.push(`**Caveats:** ${shape.caveats}`);
+    lines.push('');
+  }
+  lines.push('### Considered and rejected before measurement');
+  lines.push('');
+  for (const entry of REJECTED_SHAPES) lines.push(`- ${entry}`);
+  lines.push('');
+
+  lines.push('## Non-circularity');
+  lines.push('');
+  lines.push(
+    "Every pre-declared shape's reference population is ordinary folded covered steps and " +
+      'per-activity distances over ALL computable activities — never the flagged cohort the cut later ' +
+      'judges. 33-08 measured that a percentile of the flagged cohort itself is circular (every ' +
+      'candidate order failed D-13 by 50–4333% against the 1% tolerance): the percentiled population ' +
+      'IS the flagged set, so "re-derive with detected segments removed" collapses the population ' +
+      'itself, and the real q=0.99 candidate was literally the same computation as its own deliberately ' +
+      'circular strawman. See each shape above for its own argument, and the recorded negative finding ' +
+      "below for 33-08's own measurement."
+  );
+  lines.push('');
+
+  lines.push('## Strawman watched failing (D-13 harness)');
+  lines.push('');
+  lines.push(
+    'The step-level D-13 harness (`buildBaseViews`/`buildRemovedViews`/`buildPlantedViews`) evaluates ' +
+      `a strawman FIRST, before any real shape: R-7 q=${STRAWMAN_PERCENTILE} of the excess fractions of ` +
+      'views with a non-empty `excessList` — deliberately the same computation as 33-08\'s own strawman, ' +
+      'restated over the view shape the new shapes need. Its base value must equal 33-08\'s legacy ' +
+      'q=0.99 cut exactly (same population, same quantile).'
+  );
+  lines.push('');
+  lines.push(renderShapeTable([{ id: `strawman (q=${STRAWMAN_PERCENTILE})`, ...arbitration.strawman }]));
+  lines.push('');
+  lines.push(
+    arbitration.strawman.pass
+      ? '**BLOCKER: the strawman PASSED the insensitivity tolerance.** An unfalsifiable candidate ' +
+          'clearing this check means the check itself is not discriminating — arbitration below is ' +
+          'forced to select no shape, whatever the real shapes measured.'
+      : `**FAILED** — removedDelta ${fmtPct(arbitration.strawman.removedDelta)}, plantedDelta ` +
+          `${fmtPct(arbitration.strawman.plantedDelta)}, both measured against the ` +
+          `${fmtPct(arbitration.tolerance, 0)} tolerance — the harness is discriminating.`
+  );
+  lines.push('');
+
+  lines.push('## Shape arbitration (D-13 insensitivity)');
+  lines.push('');
+  lines.push(
+    `Tolerance: ${fmtPct(arbitration.tolerance, 0)}. SELECTION RULE: the strawman is evaluated first; ` +
+      'then R1, R2, R3, R4 in that fixed order; the FIRST shape whose removedDelta AND plantedDelta are ' +
+      'both at or below the tolerance (computed on the RAW unrounded value) is chosen. All four rows are ' +
+      'always computed and rendered, whichever wins. `selectShape` receives only `{ id, pass }` rows — no ' +
+      'cut, count, rate or activity id can reach it.'
+  );
+  lines.push('');
+  lines.push(renderShapeTable(arbitration.rows));
+  lines.push('');
+  lines.push(
+    `Non-vacuity: removed step count ${arbitration.nonVacuity.removedStepCount}, planted count ` +
+      `${arbitration.nonVacuity.plantedCount} (>= detected segment count ` +
+      `${arbitration.nonVacuity.detectedSegmentCount}), source burst shape count ` +
+      `${arbitration.nonVacuity.sourceBurstPartCount}, activities whose totalDistanceM changed under ` +
+      `removal ${arbitration.nonVacuity.removedChangedDistanceActivityCount} / under planting ` +
+      `${arbitration.nonVacuity.plantedChangedDistanceActivityCount}.`
+  );
+  lines.push('');
+
+  if (chosen) {
+    lines.push('## Chosen constant');
+    lines.push('');
+    lines.push(
+      `Shape **${chosen.row.id}** (${chosen.row.label}) is the FIRST to clear D-13 insensitivity — ` +
+        `raw value ${fmtNum(chosen.rawValue)}, rounded UP to 3 significant figures (rounding up can ` +
+        'only call FEWER activities severe than the raw value would, and 3 s.f. is the coarsest ' +
+        "precision whose quantum never exceeds the 1% D-13 tolerance) to " +
+        `${formatShippedConstant(chosen.roundedValue)}.`
+    );
+    lines.push('');
+    lines.push(`**UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION = ${formatShippedConstant(chosen.roundedValue)}**`);
+    lines.push('');
+    lines.push(
+      `Live-derived: ${formatShippedConstant(chosen.roundedValue)}. Shipped (\`src/analytics/pace-quality.ts\`): ` +
+        `${shippedComparison.shippedFormatted ?? 'not yet shipped'}. Shipped value equal: ` +
+        `${shippedComparison.notYetShipped ? 'not yet shipped' : shippedComparison.equal ? 'yes' : 'no'}.`
+    );
+    lines.push('');
+  } else {
+    lines.push('## NO SHAPE CLEARS');
+    lines.push('');
+    const reasonText =
+      exitReason === 'strawman-blocker'
+        ? 'the strawman PASSED the insensitivity tolerance — see the BLOCKER above. Arbitration was ' +
+          'forced to select no shape, whatever R1..R4 measured.'
+        : exitReason === 'non-vacuity-failed'
+          ? 'a non-vacuity assertion failed before any delta could be trusted — see the non-vacuity ' +
+            'facts above.'
+          : exitReason === 'anchor-check-failed'
+            ? `the winning shape's D-07 anchor check FAILED — see \`## D-07 anchor check\` below. A named ` +
+              'activity steering the choice of shape would be a fit, so this halts rather than falling ' +
+              'through to the next shape.'
+            : 'none of R1, R2, R3, R4 cleared the tolerance in both directions — see the arbitration table ' +
+              'above for every measured delta.';
+    lines.push(
+      `${reasonText} No constant is named; this is plan 33-14's own documented HALT branch (D-16), not a ` +
+        'widened shape list, a re-ordered shape, or a loosened tolerance chosen unilaterally.'
+    );
+    lines.push('');
+  }
+
+  lines.push('## D-07 anchor check');
+  lines.push('');
+  if (anchor) {
+    lines.push(
+      `Evaluated on the winning shape's cut only, never an input to selection. ${ANCHOR_SEVERE_ACTIVITY_ID} ` +
+        `must tier \`severe\`; ${ANCHOR_CONTROL_ACTIVITY_ID} must tier \`none\`. Findings (never an anchor ` +
+        `requirement): ${FINDING_ACTIVITY_IDS.join(', ')}.`
+    );
+    lines.push('');
+    lines.push(renderNamedActivityTable([anchor.severe, anchor.control, ...anchor.findings]));
+    lines.push('');
+    lines.push(anchor.pass ? '**PASS** — both anchor activities tier as required.' : '**FAIL**.');
+  } else {
+    lines.push(
+      'Not evaluated — no shape was selected to anchor-check (see `## NO SHAPE CLEARS` above).'
+    );
+  }
   lines.push('');
 
   lines.push('## Archive-wide severe/minor/none distribution (reported finding)');
   lines.push('');
-  if (selection.chosen) {
+  if (distribution) {
     lines.push(
-      `At the chosen cut (${fmtNum(selection.chosen.base)}): **severe ${distribution.severe}**, ` +
+      `At the chosen cut (${formatShippedConstant(chosen.roundedValue)}): **severe ${distribution.severe}**, ` +
         `**minor ${distribution.minor}**, **none ${distribution.none}**, not-computable ` +
         `${distribution.notComputable}, of ${distribution.total} activities.`
     );
     lines.push('');
     lines.push(
-      'This rate is reported as a finding, never tuned toward. Nothing in `selectSevereCut` or this ' +
-        'rendering step adjusts `q`, the tolerance, the statistic, or the synthetic plant in response to it.'
+      'This rate is reported as a finding, never tuned toward. Nothing in `selectShape` or this rendering ' +
+        'step adjusts the shape, the tolerance, or the synthetic plant in response to it.'
     );
   } else {
-    lines.push('Not computed — no candidate cleared the tolerance, so no cut exists to classify against.');
+    lines.push('Not computed — no cut was chosen, so no cut exists to classify against.');
   }
+  lines.push('');
+
+  lines.push('## Recorded negative finding — outer percentiles of the flagged cohort (plan 33-08)');
+  lines.push('');
+  lines.push(...renderLegacyNegativeFinding({ archive, ...legacy }));
   lines.push('');
 
   lines.push('## Inputs');
   lines.push('');
   lines.push(`- Streams scanned: ${archive.streamFileCount}, not computable: ${archive.notComputable}`);
+  lines.push(`- data/streams git tree: \`${provenance.streamsTree}\``);
+  lines.push(`- Insensitivity tolerance: ${fmtPct(arbitration.tolerance, 0)}`);
+  lines.push(`- Plant source activity: ${PLANT_SOURCE_ACTIVITY_ID}`);
+  lines.push(`- Source burst shape count: ${arbitration.nonVacuity.sourceBurstPartCount}`);
+  lines.push(`- Archive-wide detected segment count: ${arbitration.nonVacuity.detectedSegmentCount}`);
+  lines.push(`- Planted count: ${arbitration.nonVacuity.plantedCount}`);
+  for (const r of arbitration.rows) {
+    lines.push(`- ${r.id} exclusion count (base population): ${r.baseExcluded}`);
+  }
   lines.push(
-    `- Flagged cohort: ${cohort.members.length} activities with ≥1 detected segment ` +
-      `(cohort size ${cohort.cohortSize}, ${cohort.notComputableInCohort} not computable within it)`
+    `- Detector constants (imported, never re-derived here): speedLimitMps=${DEFAULT_DETECTOR_PARAMS.speedLimitMps}, excessFloorMetres=${DEFAULT_DETECTOR_PARAMS.excessFloorMetres}, hiddenPauseMinMetres=${DEFAULT_DETECTOR_PARAMS.hiddenPauseMinMetres}`
   );
-  lines.push(`- Candidate outer percentiles: [${CANDIDATE_OUTER_PERCENTILES.join(', ')}]`);
-  lines.push(`- Insensitivity tolerance: ${fmtPct(selection.tolerance, 0)}`);
-  lines.push(`- Planted-synthetic batch: ${PLANT_COUNT} values at ${PLANT_MULTIPLIER}x the population's own maximum`);
-  lines.push(`- Detector constants (imported, never re-derived here): speedLimitMps=${DEFAULT_DETECTOR_PARAMS.speedLimitMps}, excessFloorMetres=${DEFAULT_DETECTOR_PARAMS.excessFloorMetres}, hiddenPauseMinMetres=${DEFAULT_DETECTOR_PARAMS.hiddenPauseMinMetres}`);
   lines.push('');
 
   return lines.join('\n');
@@ -992,8 +1395,75 @@ export function renderCalibrationMarkdown({ archive, cohort, selection, strawman
 // main() — gated behind the self-execution guard
 // ---------------------------------------------------------------------------
 
+/** Content-addressed provenance (mirroring `compute-coverage-identity-recount.mjs`'s own `gitId`):
+ * names the run's actual input (the committed stream archive's git tree), never `HEAD`, never a
+ * wall-clock read, never a classifier source hash. */
+function gitId(args) {
+  try {
+    return execSync(`git ${args}`, { cwd: ROOT_DIR, stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString()
+      .trim();
+  } catch {
+    return 'unknown (git failed)';
+  }
+}
+
+/** Decides the exit-code contract (33-14-PLAN.md Task 2 behavior): 0 only when a shape cleared AND
+ * the shipped constant equals the derived one; 1 when no shape clears, the strawman passed, a
+ * non-vacuity assertion failed, the D-07 anchor check failed, or the cohort is empty; 2 when a shape
+ * cleared but the production constant is absent or different. Delegated to from `main()` so tests can
+ * exercise every branch without I/O. */
+export function decideOutcome(archive, { tolerance = INSENSITIVITY_TOLERANCE, shippedValue } = {}) {
+  if (archive.activities.length === 0) {
+    return { exitCode: 1, exitReason: 'empty-archive', arbitration: null, chosen: null, anchor: null, distribution: null, shippedComparison: null };
+  }
+
+  const arbitration = runShapeArbitration(archive, { tolerance });
+
+  if (!arbitration.nonVacuityOk) {
+    return { exitCode: 1, exitReason: 'non-vacuity-failed', arbitration, chosen: null, anchor: null, distribution: null, shippedComparison: null };
+  }
+  if (arbitration.strawmanBlocked) {
+    return { exitCode: 1, exitReason: 'strawman-blocker', arbitration, chosen: null, anchor: null, distribution: null, shippedComparison: null };
+  }
+  if (arbitration.chosenRow === null) {
+    return { exitCode: 1, exitReason: 'no-shape-clears', arbitration, chosen: null, anchor: null, distribution: null, shippedComparison: null };
+  }
+
+  const roundedValue = ceilToSignificant(arbitration.chosenRow.base, 3);
+  const anchor = anchorCheck(archive, roundedValue);
+  if (!anchor.pass) {
+    return { exitCode: 1, exitReason: 'anchor-check-failed', arbitration, chosen: null, anchor, distribution: null, shippedComparison: null };
+  }
+
+  const chosen = { row: arbitration.chosenRow, rawValue: arbitration.chosenRow.base, roundedValue };
+  const distribution = severityDistribution(archive, roundedValue);
+
+  const shippedFormatted = shippedValue === undefined ? null : String(shippedValue);
+  const notYetShipped = shippedValue === undefined;
+  const equal = !notYetShipped && Number(shippedValue) === roundedValue;
+  const shippedComparison = {
+    liveDerivedFormatted: formatShippedConstant(roundedValue),
+    shipped: shippedValue,
+    shippedFormatted,
+    equal,
+    notYetShipped,
+  };
+
+  const exitCode = notYetShipped || !equal ? 2 : 0;
+  return {
+    exitCode,
+    exitReason: exitCode === 0 ? null : 'shipped-mismatch',
+    arbitration,
+    chosen,
+    anchor,
+    distribution,
+    shippedComparison,
+  };
+}
+
 function main() {
-  console.log('Computing the D-07 unreliable-segment severity-tier calibration...\n');
+  console.log('Computing the D-07 unreliable-segment severity-tier calibration (plan 33-14, D-16)...\n');
 
   let archive;
   try {
@@ -1007,37 +1477,49 @@ function main() {
 
   console.log(`Streams scanned: ${archive.streamFileCount}, not computable: ${archive.notComputable}`);
 
-  const cohort = buildFlaggedCohort(archive);
-  console.log(`Flagged cohort: ${cohort.members.length} activities (cohort size ${cohort.cohortSize})`);
-  if (cohort.members.length === 0) {
-    console.error('Error: the flagged cohort is empty — cannot derive a percentile over zero activities.');
-    process.exitCode = 1;
-    return;
-  }
+  const shippedValue = shippedPaceQuality.UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION;
+  const outcome = decideOutcome(archive, { tolerance: INSENSITIVITY_TOLERANCE, shippedValue });
+  const { arbitration } = outcome;
 
-  const selection = selectSevereCut(cohort.fractions, { tolerance: INSENSITIVITY_TOLERANCE });
-  for (const r of selection.results) {
+  if (arbitration) {
     console.log(
-      `  q=${r.q}: cut=${r.base} removedDelta=${r.removedDelta} plantedDelta=${r.plantedDelta} pass=${r.pass}`
+      `  strawman (q=${STRAWMAN_PERCENTILE}): base=${arbitration.strawman.base} removedDelta=${arbitration.strawman.removedDelta} plantedDelta=${arbitration.strawman.plantedDelta} pass=${arbitration.strawman.pass}`
     );
+    for (const r of arbitration.rows) {
+      console.log(`  ${r.id}: base=${r.base} removedDelta=${r.removedDelta} plantedDelta=${r.plantedDelta} pass=${r.pass}`);
+    }
+    console.log(`  selected: ${arbitration.selectedId ?? 'none'}`);
   }
 
+  // 33-08's own legacy derivation — computed live so its negative finding stays generable.
+  const cohort = buildFlaggedCohort(archive);
+  const selection = selectSevereCut(cohort.fractions, { tolerance: INSENSITIVITY_TOLERANCE });
   const strawman = strawmanCandidate(cohort.fractions, { tolerance: INSENSITIVITY_TOLERANCE });
-  console.log(
-    `  strawman (q=${STRAWMAN_PERCENTILE}): cut=${strawman.base} removedDelta=${strawman.removedDelta} plantedDelta=${strawman.plantedDelta} pass=${strawman.pass}`
-  );
 
-  const distribution = selection.chosen
-    ? severityDistribution(archive, selection.chosen.base)
-    : { none: 0, minor: 0, severe: 0, notComputable: 0, total: archive.activities.length };
+  const provenance = { streamsTree: gitId('rev-parse HEAD:data/streams') };
 
-  const markdown = renderCalibrationMarkdown({ archive, cohort, selection, strawman, distribution });
+  const markdown = renderCalibrationMarkdown({
+    archive,
+    provenance,
+    arbitration: outcome.arbitration ?? {
+      tolerance: INSENSITIVITY_TOLERANCE,
+      strawman: { base: null, baseN: 0, removed: null, removedN: 0, planted: null, plantedN: 0, removedDelta: null, plantedDelta: null, pass: false },
+      rows: [],
+      nonVacuity: { removedStepCount: 0, plantedCount: 0, detectedSegmentCount: 0, sourceBurstPartCount: 0, removedChangedDistanceActivityCount: 0, plantedChangedDistanceActivityCount: 0 },
+    },
+    chosen: outcome.chosen,
+    shippedComparison: outcome.shippedComparison,
+    anchor: outcome.anchor,
+    distribution: outcome.distribution,
+    legacy: { cohort, selection, strawman },
+    exitReason: outcome.exitReason,
+  });
   writeFileSync(OUTPUT_PATH, markdown, 'utf8');
   console.log(`\nWrote ${OUTPUT_PATH}`);
 
-  if (!selection.chosen) {
-    console.error('\nNO CANDIDATE CLEARS — no constant named. See the artifact for the full candidate table.');
-    process.exitCode = 1;
+  process.exitCode = outcome.exitCode;
+  if (outcome.exitCode !== 0) {
+    console.error(`\nExit ${outcome.exitCode}: ${outcome.exitReason}. See the artifact for full detail.`);
   }
 }
 

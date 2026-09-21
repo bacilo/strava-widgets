@@ -16,7 +16,10 @@ import { describe, expect, it } from 'vitest';
 import { quantile } from '../dist/analytics/pace-derivation.js';
 import { DEFAULT_DETECTOR_PARAMS } from '../dist/analytics/unreliable-segments.js';
 import {
+  ANCHOR_CONTROL_ACTIVITY_ID,
+  ANCHOR_SEVERE_ACTIVITY_ID,
   CANDIDATE_OUTER_PERCENTILES,
+  FINDING_ACTIVITY_IDS,
   INSENSITIVITY_TOLERANCE,
   PLANT_COUNT,
   PLANT_MULTIPLIER,
@@ -25,14 +28,21 @@ import {
   REJECTED_SHAPES,
   STRAWMAN_PERCENTILE,
   activityExcessFraction,
+  anchorCheck,
   buildBaseViews,
   buildFlaggedCohort,
   buildPlantedViews,
   buildRemovedViews,
   candidateCut,
+  ceilToSignificant,
+  classifyActivityTier,
+  decideOutcome,
   evaluateShape,
+  formatShippedConstant,
   insensitivityForCandidate,
   renderCalibrationMarkdown,
+  runShapeArbitration,
+  selectShape,
   selectSevereCut,
   severityDistribution,
   shapeR1,
@@ -271,43 +281,167 @@ describe('severityDistribution', () => {
 // renderCalibrationMarkdown — both the Chosen-constant and NO CANDIDATE CLEARS branches
 // ---------------------------------------------------------------------------
 
-describe('renderCalibrationMarkdown', () => {
-  it('renders every required section and a named Chosen constant when a candidate clears', () => {
-    const fractions = buildPlateauWithTailFractions();
-    const selection = selectSevereCut(fractions, { tolerance: INSENSITIVITY_TOLERANCE });
-    const strawman = strawmanCandidate(fractions, { tolerance: INSENSITIVITY_TOLERANCE });
+/** A minimal, hand-built `arbitration`-shaped fixture for `renderCalibrationMarkdown` tests — the
+ * rendering function's own unit tests exercise the RENDERING logic, not shape derivation (that's
+ * `reference shape R1..R4` and `D-13 harness` above), mirroring 33-08's own render-test idiom of
+ * hand-building `selection`/`strawman` objects directly. */
+function buildArbitrationFixture({ chosenId = 'R1', strawmanPasses = false } = {}) {
+  return {
+    tolerance: INSENSITIVITY_TOLERANCE,
+    strawman: {
+      base: 0.05,
+      baseN: 10,
+      removed: strawmanPasses ? 0.05 : 0.09,
+      removedN: 9,
+      planted: strawmanPasses ? 0.05 : 0.2,
+      plantedN: 15,
+      removedDelta: strawmanPasses ? 0 : 0.8,
+      plantedDelta: strawmanPasses ? 0 : 3,
+      pass: strawmanPasses,
+    },
+    rows: PREDECLARED_SHAPES.map((shape) => ({
+      id: shape.id,
+      label: shape.label,
+      meaning: shape.meaning,
+      nonCircularityArgument: shape.nonCircularityArgument,
+      caveats: shape.caveats,
+      base: 0.02,
+      baseN: 100,
+      baseExcluded: 0,
+      removed: shape.id === chosenId ? 0.02 : 0.09,
+      removedN: 90,
+      planted: shape.id === chosenId ? 0.02 : 0.2,
+      plantedN: 125,
+      removedDelta: shape.id === chosenId ? 0 : 0.9,
+      plantedDelta: shape.id === chosenId ? 0 : 3,
+      pass: shape.id === chosenId,
+    })),
+    nonVacuity: {
+      removedStepCount: 5,
+      plantedCount: 3,
+      detectedSegmentCount: 3,
+      sourceBurstPartCount: 2,
+      removedChangedDistanceActivityCount: 3,
+      plantedChangedDistanceActivityCount: 3,
+    },
+  };
+}
 
+function buildLegacyFixture() {
+  const fractions = buildPlateauWithTailFractions();
+  return {
+    cohort: { members: [{ id: 'X' }], fractions, cohortSize: 1, notComputableInCohort: 0 },
+    selection: selectSevereCut(fractions, { tolerance: INSENSITIVITY_TOLERANCE }),
+    strawman: strawmanCandidate(fractions, { tolerance: INSENSITIVITY_TOLERANCE }),
+  };
+}
+
+describe('shape arbitration: renderCalibrationMarkdown', () => {
+  it('renders every required section and a named Chosen constant when a shape clears', () => {
     const archive = { activities: [{ id: 'X' }], streamFileCount: 1, notComputable: 0 };
-    const cohort = { members: [{ id: 'X' }], fractions, cohortSize: 1, notComputableInCohort: 0 };
-    const distribution = { none: 0, minor: 900, severe: 100, notComputable: 0, total: 1000 };
+    const arbitration = buildArbitrationFixture({ chosenId: 'R1' });
+    const chosen = { row: arbitration.rows[0], rawValue: 0.02, roundedValue: 0.0201 };
+    const shippedComparison = {
+      liveDerivedFormatted: '0.0201',
+      shipped: undefined,
+      shippedFormatted: null,
+      equal: false,
+      notYetShipped: true,
+    };
+    const anchor = {
+      severe: {
+        id: '3475734189',
+        found: true,
+        segmentCount: 1,
+        excessMetresSum: 122.7,
+        totalDistanceM: 6830.3,
+        fraction: 0.017964,
+        tier: 'severe',
+      },
+      control: {
+        id: '10146303423',
+        found: true,
+        segmentCount: 0,
+        excessMetresSum: 0,
+        totalDistanceM: 7096.6,
+        fraction: null,
+        tier: 'none',
+      },
+      findings: [],
+      pass: true,
+    };
+    const distribution = { none: 1800, minor: 60, severe: 14, notComputable: 0, total: 1874 };
 
-    const markdown = renderCalibrationMarkdown({ archive, cohort, selection, strawman, distribution });
+    const markdown = renderCalibrationMarkdown({
+      archive,
+      provenance: { streamsTree: 'abc123' },
+      arbitration,
+      chosen,
+      shippedComparison,
+      anchor,
+      distribution,
+      legacy: buildLegacyFixture(),
+      exitReason: null,
+    });
 
+    expect(markdown).toContain('## Statistic');
+    expect(markdown).toContain('## Pre-declared reference shapes (D-16)');
     expect(markdown).toContain('## Non-circularity');
+    expect(markdown).toContain('## Strawman watched failing (D-13 harness)');
+    expect(markdown).toContain('## Shape arbitration (D-13 insensitivity)');
     expect(markdown).toContain('## Chosen constant');
-    expect(markdown).toContain('## Why not a tail percentile of the population itself');
-    expect(markdown).toContain('tail percentile');
+    expect(markdown).toMatch(/\*\*UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION = 0\.0201\*\*/);
+    expect(markdown).toContain('## D-07 anchor check');
     expect(markdown).toContain('## Archive-wide severe/minor/none distribution');
+    expect(markdown).toContain('## Recorded negative finding');
+    expect(markdown).toContain('### Why not a tail percentile of the population itself (33-08)');
     expect(markdown).toContain('## Inputs');
-    expect(markdown).not.toContain('NO CANDIDATE CLEARS');
-    expect(markdown).toContain('FAILED');
+    expect(markdown).not.toContain('## NO SHAPE CLEARS');
   });
 
-  it('renders a NO CANDIDATE CLEARS section and never a "Chosen constant" value when nothing passes', () => {
-    const fractions = buildNoCandidateClearsFractions();
-    const selection = selectSevereCut(fractions, { tolerance: INSENSITIVITY_TOLERANCE });
-    const strawman = strawmanCandidate(fractions, { tolerance: INSENSITIVITY_TOLERANCE });
-
+  it('renders a NO SHAPE CLEARS section and never a "Chosen constant" value when nothing clears', () => {
     const archive = { activities: [{ id: 'X' }], streamFileCount: 1, notComputable: 0 };
-    const cohort = { members: [{ id: 'X' }], fractions, cohortSize: 1, notComputableInCohort: 0 };
-    const distribution = { none: 0, minor: 0, severe: 0, notComputable: 0, total: 1 };
+    const arbitration = buildArbitrationFixture({ chosenId: null });
 
-    const markdown = renderCalibrationMarkdown({ archive, cohort, selection, strawman, distribution });
+    const markdown = renderCalibrationMarkdown({
+      archive,
+      provenance: { streamsTree: 'abc123' },
+      arbitration,
+      chosen: null,
+      shippedComparison: null,
+      anchor: null,
+      distribution: null,
+      legacy: buildLegacyFixture(),
+      exitReason: 'no-shape-clears',
+    });
 
-    expect(markdown).toContain('## NO CANDIDATE CLEARS');
+    expect(markdown).toContain('## NO SHAPE CLEARS');
     expect(markdown).not.toContain('## Chosen constant\n');
+    expect(markdown).not.toMatch(/\*\*UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION = /);
     expect(markdown).toContain('## Non-circularity');
-    expect(markdown).toContain('## Why not a tail percentile of the population itself');
+    expect(markdown).toContain('## Recorded negative finding');
+    expect(markdown).toContain('### Why not a tail percentile of the population itself (33-08)');
+  });
+
+  it('renders a BLOCKER outcome and no constant when the strawman itself passes', () => {
+    const archive = { activities: [{ id: 'X' }], streamFileCount: 1, notComputable: 0 };
+    const arbitration = buildArbitrationFixture({ chosenId: null, strawmanPasses: true });
+
+    const markdown = renderCalibrationMarkdown({
+      archive,
+      provenance: { streamsTree: 'abc123' },
+      arbitration,
+      chosen: null,
+      shippedComparison: null,
+      anchor: null,
+      distribution: null,
+      legacy: buildLegacyFixture(),
+      exitReason: 'strawman-blocker',
+    });
+
+    expect(markdown).toContain('## NO SHAPE CLEARS');
+    expect(markdown).toContain('BLOCKER');
+    expect(markdown).not.toMatch(/\*\*UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION = /);
   });
 });
 
@@ -730,5 +864,252 @@ describe('evaluateShape', () => {
     expect(result.removedDelta).toBeNull();
     expect(result.plantedDelta).toBeNull();
     expect(result.pass).toBe(false);
+  });
+});
+
+// ===========================================================================
+// Task 2: first-clearing arbitration, direction-safe rounding, generated
+// prose, and the exit-code contract (all named so `-t "shape arbitration"`
+// selects them)
+// ===========================================================================
+
+describe('shape arbitration: selectShape (anti-quota)', () => {
+  it('selects the first passing row in array order — a later pass never beats an earlier one', () => {
+    const rows = [
+      { id: 'R1', pass: false },
+      { id: 'R2', pass: true },
+      { id: 'R3', pass: true },
+    ];
+    expect(selectShape(rows)).toBe('R2');
+  });
+
+  it('returns null when no row passes', () => {
+    expect(
+      selectShape([
+        { id: 'R1', pass: false },
+        { id: 'R2', pass: false },
+      ])
+    ).toBeNull();
+  });
+
+  it('returns null on an empty row list', () => {
+    expect(selectShape([])).toBeNull();
+  });
+
+  it("its own source text reads only `.id` and `.pass` — structurally incapable of a cut, count, rate or activity id reaching it", () => {
+    const source = selectShape.toString();
+    const propertyReads = [...source.matchAll(/\.([a-zA-Z_][a-zA-Z0-9_]*)/g)].map((m) => m[1]);
+    expect(propertyReads.length).toBeGreaterThan(0);
+    for (const prop of propertyReads) {
+      expect(['id', 'pass']).toContain(prop);
+    }
+  });
+});
+
+describe('shape arbitration: ceilToSignificant', () => {
+  it('0.0123401 gives 0.0124', () => {
+    expect(ceilToSignificant(0.0123401)).toBeCloseTo(0.0124, 12);
+  });
+
+  it('a value already exact at 3 significant figures comes back UNCHANGED', () => {
+    expect(ceilToSignificant(0.0123)).toBeCloseTo(0.0123, 12);
+    expect(ceilToSignificant(0.00999)).toBeCloseTo(0.00999, 12);
+    expect(ceilToSignificant(0.1)).toBeCloseTo(0.1, 12);
+  });
+
+  it('0.00099901 gives 0.001', () => {
+    expect(ceilToSignificant(0.00099901)).toBeCloseTo(0.001, 12);
+  });
+
+  it('null gives null; 0 gives 0', () => {
+    expect(ceilToSignificant(null)).toBeNull();
+    expect(ceilToSignificant(0)).toBe(0);
+  });
+
+  it('rounds UP, never down, so it can only ever call FEWER activities severe', () => {
+    const raw = 0.035713802737883264; // 33-08's own legacy q=0.99 cut, an irrational-looking real value
+    const rounded = ceilToSignificant(raw);
+    expect(rounded).toBeGreaterThanOrEqual(raw);
+  });
+});
+
+describe('shape arbitration: formatShippedConstant', () => {
+  it('renders plain decimal notation with exactly 3 significant figures, trailing zeros included', () => {
+    expect(formatShippedConstant(0.0124)).toBe('0.0124');
+    expect(formatShippedConstant(0.001)).toBe('0.00100');
+    expect(formatShippedConstant(0.1)).toBe('0.100');
+  });
+
+  it('never renders exponent notation, even for a very small value', () => {
+    const formatted = formatShippedConstant(0.0000123);
+    expect(formatted).not.toMatch(/e/i);
+  });
+
+  it('null renders as an em dash', () => {
+    expect(formatShippedConstant(null)).toBe('—');
+  });
+});
+
+describe('shape arbitration: classifyActivityTier', () => {
+  it('zero segments -> none, under any cut', () => {
+    expect(classifyActivityTier([], 100, 0.001)).toBe('none');
+    expect(classifyActivityTier([], 100, 999)).toBe('none');
+  });
+
+  it('fraction strictly greater than cut -> severe; equal to cut -> minor', () => {
+    expect(classifyActivityTier([{ excessMetres: 10 }], 100, 0.05)).toBe('severe'); // 0.1 > 0.05
+    expect(classifyActivityTier([{ excessMetres: 5 }], 100, 0.05)).toBe('minor'); // 0.05 == 0.05
+  });
+
+  it('a degenerate totalDistanceM with at least one segment -> not-computable, never none', () => {
+    expect(classifyActivityTier([{ excessMetres: 10 }], 0, 0.05)).toBe('not-computable');
+    expect(classifyActivityTier([{ excessMetres: 10 }], -5, 0.05)).toBe('not-computable');
+    expect(classifyActivityTier([{ excessMetres: 10 }], NaN, 0.05)).toBe('not-computable');
+  });
+
+  it('accepts a plain excess-value array identically to a segment array', () => {
+    expect(classifyActivityTier([10], 100, 0.05)).toBe('severe');
+  });
+});
+
+describe('shape arbitration: anchorCheck', () => {
+  it('passes when the severe anchor tiers severe and the control anchor tiers none', () => {
+    const severeActivity = buildSyntheticActivity(ANCHOR_SEVERE_ACTIVITY_ID, { burstAt: 3, burstMetres: 200 });
+    const controlActivity = buildSyntheticActivity(ANCHOR_CONTROL_ACTIVITY_ID, { numSteps: 5 });
+    const archive = { activities: [severeActivity, controlActivity] };
+
+    const result = anchorCheck(archive, 0.01);
+    expect(result.severe.found).toBe(true);
+    expect(result.severe.tier).toBe('severe');
+    expect(result.control.found).toBe(true);
+    expect(result.control.tier).toBe('none');
+    expect(result.pass).toBe(true);
+  });
+
+  it('fails when the severe anchor does not tier severe under the given cut', () => {
+    const severeActivity = buildSyntheticActivity(ANCHOR_SEVERE_ACTIVITY_ID, { burstAt: 3, burstMetres: 200 });
+    const controlActivity = buildSyntheticActivity(ANCHOR_CONTROL_ACTIVITY_ID, { numSteps: 5 });
+    const archive = { activities: [severeActivity, controlActivity] };
+
+    const result = anchorCheck(archive, 100); // a cut nothing clears
+    expect(result.severe.tier).toBe('minor');
+    expect(result.pass).toBe(false);
+  });
+
+  it('reports found: false for a missing named activity, never coercing to a pass', () => {
+    const result = anchorCheck({ activities: [] }, 0.01);
+    expect(result.severe.found).toBe(false);
+    expect(result.control.found).toBe(false);
+    expect(result.pass).toBe(false);
+  });
+
+  it('renders FINDING_ACTIVITY_IDS as findings without gating pass/fail on them', () => {
+    const severeActivity = buildSyntheticActivity(ANCHOR_SEVERE_ACTIVITY_ID, { burstAt: 3, burstMetres: 200 });
+    const controlActivity = buildSyntheticActivity(ANCHOR_CONTROL_ACTIVITY_ID, { numSteps: 5 });
+    const archive = { activities: [severeActivity, controlActivity] };
+
+    const result = anchorCheck(archive, 0.01);
+    expect(result.findings).toHaveLength(FINDING_ACTIVITY_IDS.length);
+    expect(result.findings.every((f) => f.found === false)).toBe(true); // absent from this synthetic archive
+    expect(result.pass).toBe(true); // findings never gate pass/fail
+  });
+});
+
+describe('shape arbitration: runShapeArbitration', () => {
+  it('selects the FIRST passing row in table order — never a later-passing row, never the strawman', () => {
+    const archive = buildBulkDominatedArchive();
+    const result = runShapeArbitration(archive, { tolerance: INSENSITIVITY_TOLERANCE });
+
+    expect(result.rows).toHaveLength(4);
+    expect(result.strawmanBlocked).toBe(false);
+    // On this bulk-dominated fixture, R2/R3/R4 all clear trivially (0%/0% deltas) but R1 does not
+    // (its base value is exactly 0 on a wholly constant-speed population, which is verdict FAIL by
+    // the null-is-FAIL rule) — the selection must be the FIRST passing row, not just any passing row.
+    const firstPassingId = result.rows.find((r) => r.pass)?.id ?? null;
+    expect(firstPassingId).not.toBeNull();
+    expect(result.selectedId).toBe(firstPassingId);
+    expect(result.chosenRow.id).toBe(firstPassingId);
+    expect(result.nonVacuityOk).toBe(true);
+  });
+});
+
+describe('shape arbitration: strawmanBlocked forces null selection (structural)', () => {
+  it("runShapeArbitration's own source short-circuits selection to null when the strawman passes", () => {
+    // buildRemovedViews always empties EVERY flagged activity's excessList entirely (never
+    // partially), so the strawman's own removed population is always null by construction — it can
+    // never actually pass through the real harness on any archive (a structural guarantee, not a
+    // coincidence of any one fixture), which is why this forcing rule can only be pinned by reading
+    // the production source rather than constructing a live pass — a rendering-level test
+    // (`shape arbitration: renderCalibrationMarkdown`, "BLOCKER outcome") exercises the resulting
+    // artifact text via a hand-built `strawmanPasses: true` fixture instead.
+    const source = runShapeArbitration.toString();
+    expect(source).toMatch(/strawmanBlocked\s*\?\s*null\s*:\s*selectShape/);
+  });
+});
+
+describe('shape arbitration: decideOutcome (exit-code contract)', () => {
+  it('exit 1 on an empty archive', () => {
+    const result = decideOutcome({ activities: [] }, { shippedValue: undefined });
+    expect(result.exitCode).toBe(1);
+    expect(result.exitReason).toBe('empty-archive');
+  });
+
+  it('exit 1 when no shape clears', () => {
+    // A single activity, no burst at all: R1..R4 and the strawman all degrade to n<=1 populations
+    // that cannot pass a non-trivial insensitivity check meaningfully, and — decisively — the
+    // non-vacuity assertion itself fails (zero detected segments archive-wide), which this
+    // contract also routes to exit 1.
+    const archive = { activities: [buildSyntheticActivity('LONE', { numSteps: 5 })] };
+    const result = decideOutcome(archive, { shippedValue: undefined });
+    expect(result.exitCode).toBe(1);
+    expect(['non-vacuity-failed', 'no-shape-clears']).toContain(result.exitReason);
+  });
+
+  /** `buildBulkDominatedArchive` plus the two D-07 anchor activities, tiered to PASS the anchor
+   * check (3475734189 severe, 10146303423 none) under whatever cut the bulk archive clears at. */
+  function buildArchiveWithPassingAnchors() {
+    const archive = buildBulkDominatedArchive();
+    archive.activities.push(buildSyntheticActivity(ANCHOR_SEVERE_ACTIVITY_ID, { burstAt: 3, burstMetres: 200 }));
+    archive.activities.push(buildSyntheticActivity(ANCHOR_CONTROL_ACTIVITY_ID, { numSteps: 5 }));
+    return archive;
+  }
+
+  it('exit 2 when a shape clears but the shipped constant is absent', () => {
+    const archive = buildArchiveWithPassingAnchors();
+    const result = decideOutcome(archive, { tolerance: INSENSITIVITY_TOLERANCE, shippedValue: undefined });
+    expect(result.exitCode).toBe(2);
+    expect(result.chosen).not.toBeNull();
+    expect(result.anchor.pass).toBe(true);
+    expect(result.shippedComparison.notYetShipped).toBe(true);
+  });
+
+  it('exit 2 when a shape clears but the shipped constant differs from the derived one', () => {
+    const archive = buildArchiveWithPassingAnchors();
+    const result = decideOutcome(archive, { tolerance: INSENSITIVITY_TOLERANCE, shippedValue: 0.999 });
+    expect(result.exitCode).toBe(2);
+    expect(result.shippedComparison.equal).toBe(false);
+  });
+
+  it('exit 0 when a shape clears and the shipped constant equals the derived one', () => {
+    const archive = buildArchiveWithPassingAnchors();
+    const probe = decideOutcome(archive, { tolerance: INSENSITIVITY_TOLERANCE, shippedValue: undefined });
+    const result = decideOutcome(archive, {
+      tolerance: INSENSITIVITY_TOLERANCE,
+      shippedValue: probe.chosen.roundedValue,
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.shippedComparison.equal).toBe(true);
+  });
+
+  it('exit 1 when the D-07 anchor check fails on the winning shape', () => {
+    // A bulk-dominated archive whose 3475734189 activity is deliberately CLEAN (no burst at all) —
+    // R3 still clears D-13, but the anchor requirement (3475734189 must tier severe) fails.
+    const archive = buildBulkDominatedArchive();
+    archive.activities.push(buildSyntheticActivity(ANCHOR_SEVERE_ACTIVITY_ID, { numSteps: 5 }));
+    archive.activities.push(buildSyntheticActivity(ANCHOR_CONTROL_ACTIVITY_ID, { numSteps: 5 }));
+    const result = decideOutcome(archive, { tolerance: INSENSITIVITY_TOLERANCE, shippedValue: undefined });
+    expect(result.exitCode).toBe(1);
+    expect(result.exitReason).toBe('anchor-check-failed');
+    expect(result.anchor.pass).toBe(false);
   });
 });
