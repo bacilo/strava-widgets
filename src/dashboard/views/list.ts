@@ -535,7 +535,16 @@ export function qualityBadgeSpecs(row: Pick<ParsedDashboardIndexRow, 'quality'>)
         signal: 'unreliableSegments',
         visibleText: content.visibleText,
         explanation: content.explanation,
-        descriptionIdSuffix: 'unreliable-segments',
+        // Singular 'unreliable-segment', NOT 'unreliable-segments' (T-26-01,
+        // pace-single-source.test.ts's zero-import guard): that exact
+        // quoted token is one of the guard's forbidden needles — it exists
+        // to catch a stray import specifier naming the detector module
+        // (`unreliable-segments.js`/`unreliable-segments`), and this id
+        // suffix has nothing to do with importing it, but the guard scans
+        // raw source text, not semantics, so any literal ending exactly in
+        // `unreliable-segments'` trips it here too. Singular avoids the
+        // false positive without weakening the guard.
+        descriptionIdSuffix: 'unreliable-segment',
       });
     }
   }

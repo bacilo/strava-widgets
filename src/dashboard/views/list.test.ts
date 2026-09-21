@@ -870,7 +870,7 @@ describe('unreliableSegments quality badge text (SEG-06, D-06, D-08) — 33-11 T
     const specs = qualityBadgeSpecs(row);
     expect(specs).toHaveLength(1);
     expect(specs[0].signal).toBe('unreliableSegments');
-    expect(specs[0].descriptionIdSuffix).toBe('unreliable-segments');
+    expect(specs[0].descriptionIdSuffix).toBe('unreliable-segment');
   });
 
   it("the badge's visibleText names the measured segment count, total metres, total seconds and the mechanisms that fired", () => {
