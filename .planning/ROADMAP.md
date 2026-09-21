@@ -185,7 +185,48 @@ from 1 for this set*
 
 **Note (32-CONTEXT.md D-04, 2026-09-19):** every unreliable segment receives one downstream treatment regardless of mechanism. Clipping pace or barring a window withholds a claim; it never alters distance, totals or splits. No per-mechanism branch.
 
-**Plans**: TBD
+**Plans**: 13 plans across 9 waves
+Plans:
+**Wave 1**
+
+- [ ] 33-01-PLAN.md — `classifyGaps` four-way widening, the pre-detector `classifyGapsThreeWay` seam, and the D-15 load-bearing proof
+- [ ] 33-02-PLAN.md — D-12 ROADMAP goal amendment and D-15 SEG-05b reopen
+
+**Wave 2** *(blocked on 33-01)*
+
+- [ ] 33-03-PLAN.md — D-04 three-term `gapFraction` numerator; D-05 tier constants frozen and pinned
+- [ ] 33-04-PLAN.md — D-09 split marker, D-10 caption fourth term, D-11 gap-profile row copy and itemised evidence
+- [ ] 33-05-PLAN.md — the `VALID_GAP_KINDS` parse trap and the D-11 list-badge copy
+- [ ] 33-06-PLAN.md — PACE-08 inherited clipping proven by fixture, zero source change
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 33-07-PLAN.md — D-03 archive-wide detector-free identity recount, watched failing
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [ ] 33-08-PLAN.md — `excessMetres` output field and D-07's severity constant, circular strawman watched failing
+
+**Wave 5** *(blocked on Wave 4)*
+
+- [ ] 33-09-PLAN.md — SEG-06 signal, the shipped constant and D-06's never-widen guard
+
+**Wave 6** *(blocked on Wave 5)*
+
+- [ ] 33-10-PLAN.md — D-08 shard projection, browser parsers, `DASHBOARD_INDEX_SCHEMA_VERSION` pinned at 1
+
+**Wave 7** *(blocked on Wave 6)*
+
+- [ ] 33-11-PLAN.md — SEG-06 surfaces: sixth badge source, ninth Quality Signals row, end-to-end render proof
+
+**Wave 8** *(blocked on Wave 7)*
+
+- [ ] 33-12-PLAN.md — MERGE-01, post-merge regeneration, closing gate, D-13 checkpoint rows drafted
+
+**Wave 9** *(blocked on Wave 8)*
+
+- [ ] 33-13-PLAN.md — human browser checkpoint and requirement disposition
+
 **UI hint**: yes
 
 ### Phase 34: Pause Classification & Forgotten-Stop
