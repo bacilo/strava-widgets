@@ -40,6 +40,10 @@ function makeCoverage(overrides: Partial<PaceCoverage>): PaceCoverage {
     coveredSec: 0,
     recordingGapSec: 0,
     pauseSec: 0,
+    // Phase 33 (D-02) widened PaceCoverage with a fourth term; this fixture
+    // predates that widening and is untouched by this plan's own scope
+    // otherwise — zeroed here to keep this file's tests as they were.
+    unreliableSec: 0,
     gapIntervals: [],
     ...overrides,
   };
