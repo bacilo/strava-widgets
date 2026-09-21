@@ -198,3 +198,18 @@ AssertionError: expected [] to deeply equal [ { startSec: +0, endSec: 5, …(4) 
 ---
 *Phase: 33-coverage-integration-pace-clipping-segment-signal*
 *Completed: 2026-09-21*
+
+## Self-Check: PASSED
+
+- FOUND: `src/analytics/pace-quality.ts`
+- FOUND: `src/analytics/pace-quality.test.ts`
+- FOUND: `src/dashboard/data/pace-quality-client.ts`
+- FOUND: `src/dashboard/data/pace-quality-client.test.ts`
+- FOUND: `src/analytics/dashboard-index.types.ts`
+- FOUND: `src/analytics/compute-dashboard-index.test.ts`
+- FOUND: `.planning/phases/33-coverage-integration-pace-clipping-segment-signal/33-10-SUMMARY.md`
+- FOUND commit: `468879f8`
+- FOUND commit: `949c4473`
+- FOUND commit: `0b997f6d`
+- FOUND commit: `b9404622`
+- FOUND commit: `1f0077c6`
