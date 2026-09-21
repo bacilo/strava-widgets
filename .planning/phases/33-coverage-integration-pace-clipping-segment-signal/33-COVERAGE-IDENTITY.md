@@ -62,8 +62,7 @@ Activities with a changed tier: **3** of 1874 computed (0 skipped as non-computa
 - Stream files scanned (`isStreamFile`, excluding `manifest.json`): **1874**
 - Constants used — `speedLimitMps`: 7.35 m/s, `excessFloorMetres`: 3 m, `hiddenPauseMinMetres`: 116.95 m, all parsed from `.planning/phases/32-unreliable-segment-detection-calibration/32-CALIBRATION.md`'s own "## Chosen constants" table (never hand-copied literals) — `LOCAL_GAP_THRESHOLD_SEC`: 10 s, a local literal duplicate of `RECORDING_GAP_ABS_THRESHOLD_SEC` (`src/analytics/pace-derivation.ts`).
 - Stream archive git tree (`HEAD:data/streams`): `dfdc7b352f0a138645ad54fe91b881afdb9bbd5f`
-- Classifier source blob — `src/analytics/pace-derivation.ts`: `0d07bc37c096edffe0a25784c77e4514f0bcb2db`
-- Classifier source blob — `src/analytics/unreliable-segments.ts`: `5829c163aa2321652cbc7ea903cac637aefc4f19`
+- Shipped classifier sources digest (`git ls-files -s` over non-test `src/analytics/`, hashed): `963a698f80720eb056ef5dd733bf3f80dbcc0eec`
 
 Regenerate this artifact against the live committed archive with:
 
