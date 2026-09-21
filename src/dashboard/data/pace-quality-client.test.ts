@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { FetchLike } from './index-client.js';
 import { createPaceQualityClient, parsePaceQualityShard } from './pace-quality-client.js';
+import type { GapKind } from '../../analytics/pace-derivation.js';
 
 interface FakeResponseSpec {
   ok: boolean;
@@ -123,6 +124,79 @@ describe('parsePaceQualityShard', () => {
     const result = parsePaceQualityShard(doc);
     expect(result?.gapIntervals.length).toBe(1);
     expect(result?.gapIntervals[0]).toEqual({ startSec: 0, endSec: 10, kind: 'pause' });
+  });
+
+  // Phase 33 (COV-03, T-33-06): the fourth silent-inheritance trap.
+  // VALID_GAP_KINDS was a hardcoded two-member allowlist while GapKind
+  // widened to three members (plan 33-01) — parseGapInterval returned null
+  // for any 'unreliable'-kind entry and parsePaceQualityShard's tolerant-drop
+  // loop then dropped it with no error, no warning, no telemetry. Every case
+  // below is named so `-t "unreliable"` selects it, and this fixture shard is
+  // built as an explicit object literal (never round-tripped from a real
+  // computed shard) so the case is deterministic and obviously non-vacuous.
+  it('a shard whose gapIntervals carries a single unreliable-kind entry survives the parse with startSec/endSec/kind preserved exactly', () => {
+    const doc = {
+      ...validShard,
+      gapIntervals: [{ startSec: 42, endSec: 58.5, kind: 'unreliable' }],
+    };
+    const result = parsePaceQualityShard(doc);
+    expect(result?.gapIntervals).toEqual([{ startSec: 42, endSec: 58.5, kind: 'unreliable' }]);
+  });
+
+  it('a mixed gapIntervals array of one recording-gap, one pause and one unreliable entry parses to all three, in order', () => {
+    const doc = {
+      ...validShard,
+      gapIntervals: [
+        { startSec: 0, endSec: 10, kind: 'recording-gap' },
+        { startSec: 20, endSec: 30, kind: 'pause' },
+        { startSec: 40, endSec: 50, kind: 'unreliable' },
+      ],
+    };
+    const result = parsePaceQualityShard(doc);
+    expect(result?.gapIntervals).toEqual([
+      { startSec: 0, endSec: 10, kind: 'recording-gap' },
+      { startSec: 20, endSec: 30, kind: 'pause' },
+      { startSec: 40, endSec: 50, kind: 'unreliable' },
+    ]);
+  });
+
+  it('an unreliable entry alongside a bogus-kind entry: the bogus entry is still dropped, the unreliable entry still parses — the tolerant-drop contract is unchanged', () => {
+    const doc = {
+      ...validShard,
+      gapIntervals: [
+        { startSec: 0, endSec: 10, kind: 'bogus' },
+        { startSec: 40, endSec: 50, kind: 'unreliable' },
+      ],
+    };
+    const result = parsePaceQualityShard(doc);
+    expect(result?.gapIntervals).toEqual([{ startSec: 40, endSec: 50, kind: 'unreliable' }]);
+  });
+
+  it('an unreliable-kind entry with a non-numeric startSec is still dropped and does not invalidate the shard', () => {
+    const doc = {
+      ...validShard,
+      gapIntervals: [
+        { startSec: 'nope', endSec: 50, kind: 'unreliable' },
+        { startSec: 40, endSec: 50, kind: 'unreliable' },
+      ],
+    };
+    const result = parsePaceQualityShard(doc);
+    expect(result).not.toBeNull();
+    expect(result?.gapIntervals).toEqual([{ startSec: 40, endSec: 50, kind: 'unreliable' }]);
+  });
+
+  it('VALID_GAP_KINDS accepts every member of the unreliable GapKind union — a future fourth kind added to GapKind will fail this test until the parser is updated', () => {
+    // `satisfies`-style exhaustiveness: if GapKind ever widens to a fourth
+    // member, this array literal (typed exactly as GapKind[]) will not fail
+    // to compile on its own, but each new member added here must also parse
+    // successfully below, which is what actually forces a future author back
+    // to VALID_GAP_KINDS in pace-quality-client.ts.
+    const ALL_GAP_KINDS: GapKind[] = ['recording-gap', 'pause', 'unreliable'];
+    for (const kind of ALL_GAP_KINDS) {
+      const doc = { ...validShard, gapIntervals: [{ startSec: 1, endSec: 2, kind }] };
+      const result = parsePaceQualityShard(doc);
+      expect(result?.gapIntervals).toEqual([{ startSec: 1, endSec: 2, kind }]);
+    }
   });
 
   it('a shard whose signals is missing one sub-signal parses to a non-null shard with that sub-signal not-computable, not the whole shard invalidated', () => {

@@ -74,7 +74,22 @@ const VALID_DEVICE_FAMILIES: ReadonlySet<string> = new Set<DeviceFamilyKind>([
   'unrecognized-device',
 ]);
 
-const VALID_GAP_KINDS: ReadonlySet<string> = new Set<GapKind>(['recording-gap', 'pause']);
+/**
+ * Phase 33 (COV-03, T-33-06): the fourth silent-inheritance trap. Before this
+ * fix this set was a two-member hardcoded allowlist while `GapKind`
+ * (`pace-derivation.ts`) had already widened to three members (plan 33-01) —
+ * `parseGapInterval` returns `null` for any `kind` outside this set, and
+ * `parsePaceQualityShard`'s `if (parsed)` tolerant-drop loop below then
+ * silently dropped every `'unreliable'`-kind entry with no error, no
+ * warning, and no telemetry, starving every downstream reader of a fetched
+ * shard's `gapIntervals` of the fourth kind. Mirrors the file's own
+ * discipline at `VALID_ELEVATION_TIERS` (:53-59) of keeping a validating set
+ * adjacent to the union it guards — but unlike that set, this one needs a
+ * THIRD MEMBER rather than a separate set, because `GapKind` genuinely has
+ * three members here (`ElevationTier` has no `'minor'`, so that case needed
+ * its own set instead).
+ */
+const VALID_GAP_KINDS: ReadonlySet<string> = new Set<GapKind>(['recording-gap', 'pause', 'unreliable']);
 
 function parseTier(raw: unknown): QualityTier | null {
   return typeof raw === 'string' && VALID_TIERS.has(raw) ? (raw as QualityTier) : null;
