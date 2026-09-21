@@ -192,23 +192,24 @@ Activities with a changed tier: 3 of 1,874 computed (0 skipped).
 
 ## Orchestrator addendum (2026-09-21, post-plan gate)
 
-**Provenance changed from a commit hash to content-addressed input ids — commits `c134b2f7`, `0efb8890`.**
+**Provenance changed from a commit hash to a content-addressed input id — commits `c134b2f7`, `0efb8890`, and the one that follows this addendum.**
 The plan asked for both "the git commit the run was made at" (action step, Inputs section) and
 byte-identical regeneration. For a COMMITTED artifact those are jointly unsatisfiable: committing the
 file moves `HEAD`, so the next regeneration always differs. The executor's two-run check passed only
 because both runs preceded the commit; the orchestrator's post-commit regeneration dirtied the file,
 and plan 33-12's `<automated>` verify diffs the regenerated file against the committed one.
-The Inputs section now records the git tree of `data/streams` and one digest over the staged
-non-test `src/analytics` sources. Proven by: regenerate → commit → regenerate twice →
-`git diff --exit-code` clean against the committed file.
+The Inputs section now records the git tree of `data/streams` only (the calibration constants were
+already listed). Proven by: regenerate → commit → regenerate twice → `git diff --exit-code` clean
+against the committed file.
 
-- `c134b2f7` first named the detector source in a provenance path literal and tripped the D-03
-  zero-import guard (substring check). That commit carries one red guard test; `0efb8890` replaced
-  the per-file blobs with a single analytics digest rather than weakening the guard. Full suite at
-  `0efb8890`: 92 files / 2,935 tests green.
-- Consequence for 33-08..33-10: any non-test `src/analytics` change legitimately moves the digest,
-  so this artifact is expected to need regeneration in plan 33-12. That is a real input change, not
-  idempotence failure.
+- Two intermediate attempts were superseded, both caught by existing checks rather than by luck:
+  `c134b2f7` named the detector source in a path literal and tripped the D-03 zero-import guard
+  (that one commit carries one red guard test); `0efb8890` replaced it with a digest over the
+  non-test `src/analytics` sources, which would have broken plan 33-08's use of this artifact's
+  byte-identity across a detector-source edit as its no-detection-outcome-change proof. The final
+  form carries no source hash at all. Full suite at the final commit: 92 files / 2,935 tests green.
+- The artifact's bytes now move only when the archive or the classifier's BEHAVIOUR moves — which
+  is the property plans 33-08 and 33-12 both rely on.
 
 **Deviation 1 reviewed and accepted.** The recount was widened to agree with the shipped detector on
 10 activities — the direction in which a check can be bent to bless a defect — so it was checked

@@ -1,6 +1,6 @@
 # Phase 33 — Coverage Identity Recount (COV-03)
 
-Machine-written by `npm run compute-coverage-identity-recount`; never hand-edit. Regenerating this file against an unchanged archive and unchanged classifier sources produces a byte-identical result, including after this file is committed — provenance below is content-addressed, not a commit hash, and — no wall-clock timestamp appears anywhere below.
+Machine-written by `npm run compute-coverage-identity-recount`; never hand-edit. Regenerating this file against an unchanged archive and unchanged classifier behaviour produces a byte-identical result, including after this file is committed — provenance below is content-addressed, not a commit hash, and — no wall-clock timestamp appears anywhere below.
 
 ## Method
 
@@ -62,7 +62,6 @@ Activities with a changed tier: **3** of 1874 computed (0 skipped as non-computa
 - Stream files scanned (`isStreamFile`, excluding `manifest.json`): **1874**
 - Constants used — `speedLimitMps`: 7.35 m/s, `excessFloorMetres`: 3 m, `hiddenPauseMinMetres`: 116.95 m, all parsed from `.planning/phases/32-unreliable-segment-detection-calibration/32-CALIBRATION.md`'s own "## Chosen constants" table (never hand-copied literals) — `LOCAL_GAP_THRESHOLD_SEC`: 10 s, a local literal duplicate of `RECORDING_GAP_ABS_THRESHOLD_SEC` (`src/analytics/pace-derivation.ts`).
 - Stream archive git tree (`HEAD:data/streams`): `dfdc7b352f0a138645ad54fe91b881afdb9bbd5f`
-- Shipped classifier sources digest (`git ls-files -s` over non-test `src/analytics/`, hashed): `963a698f80720eb056ef5dd733bf3f80dbcc0eec`
 
 Regenerate this artifact against the live committed archive with:
 
