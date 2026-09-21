@@ -1277,6 +1277,94 @@ describe("buildPaceQualityShard's unreliableSegments projection on real streams 
   );
 });
 
+describe('D-08 cross-check: the shard list SUMS to the row scalars (multi-segment real activities, not just N=1)', () => {
+  // 33-10's own orchestrator note requires this proven directly on
+  // MULTI-segment activities, not merely inferred by combining the two
+  // separate facts already established elsewhere in this file (that
+  // `shard.unreliableSegments[i]` equals `segments[i]` field-for-field, and
+  // that `unreliableSegmentsSignal`'s totals are exact sums of `segments`'
+  // own fields) — those two facts are each true independently and this test
+  // makes the transitive step explicit and directly assertable in one place.
+  const MULTI_SEGMENT_ACTIVITY_IDS = ['3475724402', '3475740390'] as const; // N=16, N=5
+
+  it.each(MULTI_SEGMENT_ACTIVITY_IDS)(
+    '%s: summing the shard entries reproduces signals.unreliableSegments.totalMetres/totalExcessMetres/totalSeconds/count exactly',
+    (id) => {
+      const stream = JSON.parse(
+        fs.readFileSync(path.join('data', 'streams', `${id}.json`), 'utf-8')
+      ) as CanonicalStream;
+      const metadata: ActivityQualityMetadata = {
+        deviceName: 'test-device',
+        sourceProvider: undefined,
+        elapsedTimeSec: stream.t[stream.t.length - 1] - stream.t[0],
+        movingTimeSec: stream.t[stream.t.length - 1] - stream.t[0],
+        startLatlng: undefined,
+        endLatlng: undefined,
+      };
+      const shard = buildPaceQualityShard(id, stream, metadata);
+
+      expect(shard.unreliableSegments.length).toBeGreaterThan(1); // reachability — genuinely multi-segment
+
+      const summedMetres = shard.unreliableSegments.reduce((sum, s) => sum + s.metres, 0);
+      const summedExcessMetres = shard.unreliableSegments.reduce((sum, s) => sum + s.excessMetres, 0);
+      const summedSeconds = shard.unreliableSegments.reduce((sum, s) => sum + s.seconds, 0);
+
+      expect(shard.unreliableSegments.length).toBe(shard.signals.unreliableSegments.count);
+      expect(summedMetres).toBeCloseTo(shard.signals.unreliableSegments.totalMetres as number, 9);
+      expect(summedExcessMetres).toBeCloseTo(shard.signals.unreliableSegments.totalExcessMetres as number, 9);
+      expect(summedSeconds).toBeCloseTo(shard.signals.unreliableSegments.totalSeconds as number, 9);
+
+      // eslint-disable-next-line no-console
+      console.log(
+        `[pace-quality D-08 sum-vs-scalar ${id}] N=${shard.unreliableSegments.length} ` +
+          `summedMetres=${summedMetres} rowTotalMetres=${shard.signals.unreliableSegments.totalMetres} ` +
+          `summedExcessMetres=${summedExcessMetres} rowTotalExcessMetres=${shard.signals.unreliableSegments.totalExcessMetres} ` +
+          `summedSeconds=${summedSeconds} rowTotalSeconds=${shard.signals.unreliableSegments.totalSeconds}`
+      );
+    }
+  );
+});
+
+describe('D-08 cross-check: row scalars stay UNCAPPED totals even when the shard list itself is capped at 100', () => {
+  it('a synthetic 150-segment array yields a capped 100-entry shard projection but the row scalars (count/totalMetres/totalExcessMetres/totalSeconds) reflect all 150', () => {
+    // A synthetic segments array is the only viable input here (the archive's
+    // real per-activity max is 20, far under the 100 cap — reported
+    // separately in the SUMMARY), following the exact same
+    // "PURE function... exercised directly against a synthetic fixture"
+    // precedent `projectUnreliableSegments`'s own 101-segment cap test
+    // already established.
+    const SEGMENT_TOTAL = 150;
+    const segments: UnreliableSegment[] = Array.from({ length: SEGMENT_TOTAL }, (_, i) =>
+      fakeSegment({
+        startSec: i * 10,
+        endSec: i * 10 + 5,
+        metres: 30,
+        seconds: 5,
+        excessMetres: 1,
+        mechanism: 'isolated-jump',
+      })
+    );
+    const stream = makeStream({ t: [0, 10, 20, 30, 40], d: [0, 50, 100, 150, 1000] });
+
+    const { segments: projected, truncated } = projectUnreliableSegments(segments);
+    expect(projected).toHaveLength(100);
+    expect(truncated).toBe(true);
+
+    const rowScalars = unreliableSegmentsSignal(stream.t, stream.d, segments);
+    expect(rowScalars.count).toBe(SEGMENT_TOTAL); // uncapped — not 100
+    expect(rowScalars.totalMetres).toBeCloseTo(SEGMENT_TOTAL * 30, 9);
+    expect(rowScalars.totalExcessMetres).toBeCloseTo(SEGMENT_TOTAL * 1, 9);
+    expect(rowScalars.totalSeconds).toBeCloseTo(SEGMENT_TOTAL * 5, 9);
+
+    // The capped shard list itself sums to LESS than the uncapped row total,
+    // proving the two are genuinely decoupled rather than one silently
+    // mirroring the other.
+    const summedProjectedMetres = projected.reduce((sum, s) => sum + s.metres, 0);
+    expect(summedProjectedMetres).toBeLessThan(rowScalars.totalMetres as number);
+    expect(summedProjectedMetres).toBeCloseTo(100 * 30, 9);
+  });
+});
+
 describe('elevation detectors (D-07..D-09, ELEV-01)', () => {
   describe('subGroundSignal — threshold boundary', () => {
     it('flags when the minimum altitude is just below -50 m', () => {
