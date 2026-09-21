@@ -189,3 +189,30 @@ Activities with a changed tier: 3 of 1,874 computed (0 skipped).
 - FOUND: `.planning/phases/33-coverage-integration-pace-clipping-segment-signal/33-07-SUMMARY.md`
 - FOUND commit: `adb5e665`
 - FOUND commit: `e3dc25b4`
+
+## Orchestrator addendum (2026-09-21, post-plan gate)
+
+**Provenance changed from a commit hash to content-addressed input ids — commits `c134b2f7`, `0efb8890`.**
+The plan asked for both "the git commit the run was made at" (action step, Inputs section) and
+byte-identical regeneration. For a COMMITTED artifact those are jointly unsatisfiable: committing the
+file moves `HEAD`, so the next regeneration always differs. The executor's two-run check passed only
+because both runs preceded the commit; the orchestrator's post-commit regeneration dirtied the file,
+and plan 33-12's `<automated>` verify diffs the regenerated file against the committed one.
+The Inputs section now records the git tree of `data/streams` and one digest over the staged
+non-test `src/analytics` sources. Proven by: regenerate → commit → regenerate twice →
+`git diff --exit-code` clean against the committed file.
+
+- `c134b2f7` first named the detector source in a provenance path literal and tripped the D-03
+  zero-import guard (substring check). That commit carries one red guard test; `0efb8890` replaced
+  the per-file blobs with a single analytics digest rather than weakening the guard. Full suite at
+  `0efb8890`: 92 files / 2,935 tests green.
+- Consequence for 33-08..33-10: any non-test `src/analytics` change legitimately moves the digest,
+  so this artifact is expected to need regeneration in plan 33-12. That is a real input change, not
+  idempotence failure.
+
+**Deviation 1 reviewed and accepted.** The recount was widened to agree with the shipped detector on
+10 activities — the direction in which a check can be bent to bless a defect — so it was checked
+against independent text: Phase 32 D-06/D-07 define adjacency against the pre-detector gap list
+(recording gaps AND pauses), and this phase's D-01 requires reporting seconds moved "out of pause"
+per mechanism. The narrow recording-gap-only scope was the recount's defect. The widened recount
+is fresh local code, not a call into `classifyGapsThreeWay`. Flagged for the verifier regardless.
