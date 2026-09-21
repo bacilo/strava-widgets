@@ -185,7 +185,7 @@ from 1 for this set*
 
 **Note (32-CONTEXT.md D-04, 2026-09-19):** every unreliable segment receives one downstream treatment regardless of mechanism. Clipping pace or barring a window withholds a claim; it never alters distance, totals or splits. No per-mechanism branch.
 
-**Plans**: 13 plans across 9 waves
+**Plans**: 14 plans across 10 waves
 Plans:
 **Wave 1**
 
@@ -209,21 +209,25 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4)*
 
-- [ ] 33-09-PLAN.md — SEG-06 signal, the shipped constant and D-06's never-widen guard
+- [ ] 33-14-PLAN.md — corrective: D-07 severity cut from a non-self-referential reference population (D-16), pre-declared shapes arbitrated by D-13, constant shipped from the artifact
 
 **Wave 6** *(blocked on Wave 5)*
 
-- [ ] 33-10-PLAN.md — D-08 shard projection, browser parsers, `DASHBOARD_INDEX_SCHEMA_VERSION` pinned at 1
+- [ ] 33-09-PLAN.md — SEG-06 signal, the shipped constant and D-06's never-widen guard
 
 **Wave 7** *(blocked on Wave 6)*
 
-- [ ] 33-11-PLAN.md — SEG-06 surfaces: sixth badge source, ninth Quality Signals row, end-to-end render proof
+- [ ] 33-10-PLAN.md — D-08 shard projection, browser parsers, `DASHBOARD_INDEX_SCHEMA_VERSION` pinned at 1
 
 **Wave 8** *(blocked on Wave 7)*
 
-- [ ] 33-12-PLAN.md — MERGE-01, post-merge regeneration, closing gate, D-13 checkpoint rows drafted
+- [ ] 33-11-PLAN.md — SEG-06 surfaces: sixth badge source, ninth Quality Signals row, end-to-end render proof
 
 **Wave 9** *(blocked on Wave 8)*
+
+- [ ] 33-12-PLAN.md — MERGE-01, post-merge regeneration, closing gate, D-13 checkpoint rows drafted
+
+**Wave 10** *(blocked on Wave 9)*
 
 - [ ] 33-13-PLAN.md — human browser checkpoint and requirement disposition
 

@@ -170,6 +170,32 @@ corrects one.
   contradiction. Phase 33 then records its own half: `pace-derivation.ts` reading the detector,
   proven **load-bearing** by watching the clipping disappear when the call is stubbed — not by the
   import merely existing. Re-tick only after Phases 35 and 36 record theirs.
+- **D-16:** **D-07's severe cut is derived from a non-self-referential reference population
+  (developer decision, 2026-09-21, resolving plan 33-08's HALT).** Plan 33-08 ended in its own
+  documented HALT branch (Task 3 step 5): every candidate outer percentile (0.90 / 0.95 / 0.97 /
+  0.99) of the 699 flagged activities' excess-fraction population failed 32-CONTEXT.md D-13
+  insensitivity against the fixed 1% tolerance (removedDelta 50–77%, plantedDelta 55–4333%).
+  Measured root cause, structural rather than a near miss: the percentiled population IS the
+  flagged set, so "re-derive with detected segments removed" collapses the population itself, and
+  the real q=0.99 candidate is literally the same computation as the deliberately circular strawman.
+  The distribution is heavily right-skewed with no plateau (31 of 699 exactly 0, median 0.00127, max
+  0.109), so no order statistic of it is stable. **Chosen — option 1, a different statistic SHAPE:**
+  the cut is derived from a reference population that is NOT the flagged set (ordinary folded
+  covered steps and per-activity distances over all computable activities — the Phase 32 lesson that
+  rescued `UNRELIABLE_EXCESS_FLOOR_M`), with D-07's measured quantity (excess metres ÷ the
+  activity's own distance), D-13's two-direction check and the 1% tolerance all kept intact. The
+  candidate shapes are pre-declared in plan 33-14's text as a short fixed ordered list, each with a
+  written non-circularity argument BEFORE any measurement; D-13 arbitrates by first-clearing order;
+  the archive-wide severe rate is a reported finding and may never select, tune or re-order a shape
+  (Phase 27 D-02 anti-quota). If no pre-declared shape clears, plan 33-14 HALTS again on a committed
+  NO SHAPE CLEARS artifact — nothing is widened or loosened unilaterally. 33-08's failed percentile
+  table stays in `33-CALIBRATION.md` as a recorded negative finding. Rejected: **lower percentiles
+  of the same flagged population** (still a rank of the judged population — the same circular shape
+  at a different order, and it reclassifies more activities as severe by construction); **a wider
+  tolerance** (the nearest miss is 50.35%, over 50× the tolerance — no justification survives that
+  margin, and the tolerance was fixed before the check precisely so it could not be moved after);
+  **a declared product threshold** (abandons measured-not-chosen for the one constant SEG-06's tier
+  rests on, with no insensitivity evidence at all).
 
 ### Claude's Discretion
 
