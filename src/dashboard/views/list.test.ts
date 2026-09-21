@@ -601,13 +601,28 @@ function qualityRow(overrides: Partial<ActivityQualitySignals>): DashboardIndexR
 }
 
 describe('quality badge text (QUAL-04, D-07, D-09)', () => {
-  it('a row severe on gapProfile with gapFraction 0.12 returns exactly one spec with the exact expected text', () => {
+  // Phase 33 (D-11): widened from two categories to three — plan 33-03 put
+  // unreliableSec inside gapFraction's numerator, so a badge naming only
+  // "gaps or pauses" would misdescribe the number it shows. Named so
+  // `-t "gaps, pauses or unreliable"` selects this case.
+  it('a row severe on gapProfile with gapFraction 0.12 returns exactly one spec with visibleText naming gaps, pauses or unreliable segments', () => {
     const row = qualityRow({
       gapProfile: { tier: 'severe', gapFraction: 0.12, recordingGapSec: 300, pauseSec: 60, spanSec: 3000 },
     });
     const specs = qualityBadgeSpecs(row);
     expect(specs).toHaveLength(1);
-    expect(specs[0].visibleText).toBe('12% of recorded time in gaps or pauses');
+    expect(specs[0].visibleText).toBe('12% of recorded time in gaps, pauses or unreliable segments');
+  });
+
+  it('a severe gapProfile at gapFraction 0.34 produces the D-11 three-category text', () => {
+    const row = qualityRow({
+      gapProfile: { tier: 'severe', gapFraction: 0.34, recordingGapSec: 900, pauseSec: 100, spanSec: 3000 },
+    });
+    const specs = qualityBadgeSpecs(row);
+    expect(specs).toHaveLength(1);
+    expect(specs[0].visibleText).toBe('34% of recorded time in gaps, pauses or unreliable segments');
+    expect(specs[0].descriptionIdSuffix).toBe('gap-profile');
+    expect(specs[0].explanation).toBe('pace during a gap is interpolated, not measured');
   });
 
   it('a row severe on all three signals returns three specs in the fixed render order, each with a distinct descriptionIdSuffix', () => {
@@ -884,7 +899,7 @@ describe('existing badges unregressed (Task 2, T-27-23) — the two pre-existing
     });
     const label = activityRowAriaLabel(row);
     expect(label).toBe(
-      'Morning Run, Aug 6, 2026, 5.0 km, Low confidence, 12% of recorded time in gaps or pauses'
+      'Morning Run, Aug 6, 2026, 5.0 km, Low confidence, 12% of recorded time in gaps, pauses or unreliable segments'
     );
   });
 
