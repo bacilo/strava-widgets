@@ -186,3 +186,15 @@ None — plan executed exactly as written, including its own documented HALT bra
 ---
 *Phase: 33-coverage-integration-pace-clipping-segment-signal*
 *Completed: 2026-09-21*
+
+## Self-Check: PASSED
+
+- FOUND: `src/analytics/unreliable-segments.ts`
+- FOUND: `scripts/compute-unreliable-segment-severity-calibration.mjs`
+- FOUND: `scripts/compute-unreliable-segment-severity-calibration.test.mjs`
+- FOUND: `.planning/phases/33-coverage-integration-pace-clipping-segment-signal/33-CALIBRATION.md`
+- FOUND: `.planning/phases/33-coverage-integration-pace-clipping-segment-signal/33-08-SUMMARY.md`
+- FOUND commit: `a30369cd`
+- FOUND commit: `ad29187b`
+- FOUND commit: `494aed50`
+- FOUND commit: `c186007c`
