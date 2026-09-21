@@ -48,6 +48,17 @@
  * `scripts/unreliable-segment-import-guards.test.mjs` already built and demonstrated OBSERVED for
  * the sibling calibration/recount generators — duplicating that apparatus a third time for this
  * file adds no new coverage shape, only a third copy of the same mechanism.
+ *
+ * PLAN 33-14 EXTENSION (D-16, closing 33-08's HALT): every function above this comment is 33-08's
+ * own, kept verbatim so its recorded negative finding (the outer-percentile table) stays generable.
+ * Below it, a NON-SELF-REFERENTIAL derivation of the same D-07 cut: four pre-declared reference
+ * shapes (`PREDECLARED_SHAPES`, R1..R4), each reading ordinary folded covered steps and per-activity
+ * distances over ALL computable activities — never the flagged cohort's own excess-fraction
+ * population 33-08 measured circular — plus a step-level D-13 harness (`buildBaseViews` /
+ * `buildRemovedViews` / `buildPlantedViews` / `evaluateShape`) and first-clearing arbitration
+ * (`selectShape`). The shape list, its order, its percentile orders and the 1% tolerance are FIXED
+ * by 33-14-PLAN.md's `<predeclared_shapes>` block before any measurement; this file implements that
+ * text literally — if the two ever disagree, the plan text wins and this file is the bug.
  */
 
 import { readFileSync, readdirSync, writeFileSync } from 'fs';
@@ -55,6 +66,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 
 import {
+  advanceSteps,
   detectUnreliableSegments,
   DEFAULT_DETECTOR_PARAMS,
 } from '../dist/analytics/unreliable-segments.js';
@@ -304,6 +316,520 @@ export function loadArchive(streamsDir) {
   }
 
   return { activities, streamFileCount: files.length, notComputable };
+}
+
+// ---------------------------------------------------------------------------
+// Plan 33-14 (D-16): perturbation views, the four pre-declared reference
+// shapes, the step-level D-13 harness, first-clearing arbitration
+// ---------------------------------------------------------------------------
+
+/** The activity whose real detected burst shapes are cloned into the D-13 planting step —
+ * mirroring `compute-unreliable-segment-calibration.mjs`'s own `INSENSITIVITY_SOURCE_ACTIVITY_ID`.
+ * Fixed by the plan text, never derived from a flagged count. */
+export const PLANT_SOURCE_ACTIVITY_ID = '3475724402';
+
+/**
+ * One view per activity: `{ id, steps, totalDistanceM, excessList }` (33-14-PLAN.md
+ * `<predeclared_shapes>`, "A view of an activity is..."). `steps` is the ONE folded covered-step
+ * definition (`advanceSteps`, imported — never re-implemented). `totalDistanceM` is the stream's own
+ * endpoint difference. `excessList` is each detected segment's own `excessMetres` at
+ * `DEFAULT_DETECTOR_PARAMS` — the SAME field D-07's statistic reads, unchanged by this plan.
+ */
+export function buildBaseViews(archive) {
+  const views = [];
+  for (const activity of archive.activities) {
+    const steps = advanceSteps(activity.t, activity.d, activity.gaps);
+    const totalDistanceM =
+      Array.isArray(activity.d) && activity.d.length > 0
+        ? activity.d[activity.d.length - 1] - activity.d[0]
+        : NaN;
+    const segments = detectUnreliableSegments(
+      activity.t,
+      activity.d,
+      activity.gaps,
+      DEFAULT_DETECTOR_PARAMS
+    );
+    views.push({
+      id: activity.id,
+      steps,
+      totalDistanceM,
+      excessList: segments.map((s) => s.excessMetres),
+    });
+  }
+  return views;
+}
+
+/**
+ * REMOVED views (D-13 harness, per 33-14-PLAN.md `<d13_harness>`): for each activity, drops exactly
+ * the steps lying wholly inside a `kind: 'burst'` part of a detected segment (Phase 32's own
+ * `part.startIndex >= step... `, mirrored here as `step.startIndex >= part.startIndex &&
+ * step.endIndex <= part.endIndex`), subtracts exactly their metres from `totalDistanceM`, and empties
+ * `excessList` (every detected segment is gone — the perturbation removes the thing the statistic
+ * would otherwise attribute to it). An activity detecting no segment at all is returned UNCHANGED
+ * (nothing to remove). Denominators are re-derived (never held at the base value): the returned
+ * `totalDistanceM` is the base value minus exactly the dropped steps' own metres.
+ */
+export function buildRemovedViews(archive, baseViews) {
+  const baseById = new Map(baseViews.map((v) => [v.id, v]));
+  const views = [];
+  let removedStepCount = 0;
+  let changedDistanceActivityCount = 0;
+
+  for (const activity of archive.activities) {
+    const base = baseById.get(activity.id);
+    if (!base) continue;
+
+    const segments = detectUnreliableSegments(
+      activity.t,
+      activity.d,
+      activity.gaps,
+      DEFAULT_DETECTOR_PARAMS
+    );
+    if (segments.length === 0) {
+      views.push(base);
+      continue;
+    }
+
+    const burstRanges = [];
+    for (const segment of segments) {
+      for (const part of segment.parts) {
+        if (part.kind === 'burst') burstRanges.push([part.startIndex, part.endIndex]);
+      }
+    }
+
+    const kept = [];
+    let droppedMetres = 0;
+    let droppedCount = 0;
+    for (const step of base.steps) {
+      const insideBurst = burstRanges.some(
+        ([s, e]) => step.startIndex >= s && step.endIndex <= e
+      );
+      if (insideBurst) {
+        droppedMetres += step.metres;
+        droppedCount++;
+      } else {
+        kept.push(step);
+      }
+    }
+    removedStepCount += droppedCount;
+    if (droppedMetres !== 0) changedDistanceActivityCount++;
+
+    views.push({
+      id: activity.id,
+      steps: kept,
+      totalDistanceM: base.totalDistanceM - droppedMetres,
+      excessList: [],
+    });
+  }
+
+  return { views, removedStepCount, changedDistanceActivityCount };
+}
+
+/**
+ * PLANTED views (D-13 harness): collects `{ metres, seconds }` of every `kind: 'burst'` part
+ * detected on `PLANT_SOURCE_ACTIVITY_ID` at `DEFAULT_DETECTOR_PARAMS` (real shapes, no synthetic
+ * look-alikes), and clones them round-robin into the activities sorted by id until the planted count
+ * equals the archive-wide detected SEGMENT count (at least doubling the contamination, per the
+ * archive's own segments-per-activity ratio). Each plant is appended as a step with negative
+ * sentinel indices (`-(plantedCount)`, never index-contiguous with a real step, so `shapeR1`'s
+ * contiguity test cannot fold a residual across it); its metres are added to `totalDistanceM`; its
+ * own burst-level excess (`metres - speedLimitMps*seconds`, counted only when strictly above
+ * `excessFloorMetres`) is appended to that activity's `excessList`. With zero source burst shapes
+ * (`sourceBurstPartCount === 0`) or zero detected segments archive-wide, this function plants
+ * nothing (`plantedCount: 0`) and returns the base views unchanged — `evaluateShape`'s null-is-FAIL
+ * rule (via a `planted` value identical to `base`, still subject to the delta check) is what turns
+ * that into a FAIL, never a vacuous PASS; the harness's own non-vacuity assertion is a SEPARATE,
+ * stronger guard the caller applies before trusting any delta at all.
+ */
+export function buildPlantedViews(archive, baseViews) {
+  let detectedSegmentCount = 0;
+  for (const activity of archive.activities) {
+    detectedSegmentCount += detectUnreliableSegments(
+      activity.t,
+      activity.d,
+      activity.gaps,
+      DEFAULT_DETECTOR_PARAMS
+    ).length;
+  }
+
+  const source = archive.activities.find((a) => a.id === PLANT_SOURCE_ACTIVITY_ID);
+  const sourceBurstParts = [];
+  if (source) {
+    const sourceSegments = detectUnreliableSegments(
+      source.t,
+      source.d,
+      source.gaps,
+      DEFAULT_DETECTOR_PARAMS
+    );
+    for (const segment of sourceSegments) {
+      for (const part of segment.parts) {
+        if (part.kind === 'burst') {
+          sourceBurstParts.push({ metres: part.metres, seconds: part.seconds });
+        }
+      }
+    }
+  }
+
+  const working = new Map(
+    baseViews.map((v) => [
+      v.id,
+      { id: v.id, steps: v.steps.slice(), totalDistanceM: v.totalDistanceM, excessList: v.excessList.slice() },
+    ])
+  );
+  const sortedIds = [...working.keys()].sort();
+  const changedDistanceIds = new Set();
+
+  let plantedCount = 0;
+  if (sourceBurstParts.length > 0 && sortedIds.length > 0 && detectedSegmentCount > 0) {
+    let cursor = 0;
+    while (plantedCount < detectedSegmentCount) {
+      const targetId = sortedIds[cursor % sortedIds.length];
+      const template = sourceBurstParts[plantedCount % sourceBurstParts.length];
+      const target = working.get(targetId);
+
+      target.steps.push({
+        startIndex: -(plantedCount + 1),
+        endIndex: -(plantedCount + 1),
+        startSec: 0,
+        endSec: template.seconds,
+        metres: template.metres,
+        seconds: template.seconds,
+      });
+      target.totalDistanceM += template.metres;
+      changedDistanceIds.add(targetId);
+
+      const burstExcess = template.metres - DEFAULT_DETECTOR_PARAMS.speedLimitMps * template.seconds;
+      if (burstExcess > DEFAULT_DETECTOR_PARAMS.excessFloorMetres) {
+        target.excessList.push(burstExcess);
+      }
+
+      plantedCount++;
+      cursor++;
+    }
+  }
+
+  return {
+    views: [...working.values()],
+    plantedCount,
+    detectedSegmentCount,
+    sourceBurstPartCount: sourceBurstParts.length,
+    changedDistanceActivityCount: changedDistanceIds.size,
+  };
+}
+
+/**
+ * Shared activity-level exclusion every reference shape applies (33-14-PLAN.md `<predeclared_shapes>`
+ * common definitions): an activity with `totalDistanceM <= 0` or zero steps contributes to no
+ * reference population and is counted (`excluded`), never coerced to a 0 contribution.
+ */
+function isDegenerateView(view) {
+  return !(view.totalDistanceM > 0) || view.steps.length === 0;
+}
+
+/**
+ * R1 — "accumulated ordinary step noise". Reference population: ALL computable activities, one
+ * value each. For each activity, every INTERIOR step whose two neighbours are index-contiguous
+ * contributes a residual `r_i = |v_i - (v_(i-1)+v_(i+1))/2| * seconds_i`; `sigma_a = 1.4826 *
+ * median(r) * sqrt(2/3)` (a normal-consistency MAD undoing a centred-second-difference's 3/2
+ * variance inflation — mathematical identities of the stated random-walk model, not tunables);
+ * `epsilon_a = sigma_a * sqrt(steps.length) / totalDistanceM`. Cut = R-7 p90 across activities of
+ * `epsilon_a`. An activity with no interior residual (too few contiguous steps) is excluded and
+ * counted, never coerced to 0.
+ *
+ * Non-circularity: `sigma_a` is a MEDIAN over thousands of ordinary residuals per activity (50%
+ * breakdown point), so a handful of burst steps cannot move it; the across-activity p90 is taken
+ * over every activity, most of which carry no segment at all; nothing in the statistic references
+ * the speed limit, the excess floor, a segment, or the flagged set. Disclosed model assumption:
+ * independent per-step errors accumulating as a random walk.
+ */
+export function shapeR1(views) {
+  const perActivity = [];
+  let excluded = 0;
+
+  for (const view of views) {
+    if (isDegenerateView(view)) {
+      excluded++;
+      continue;
+    }
+
+    const residuals = [];
+    for (let i = 1; i < view.steps.length - 1; i++) {
+      const prev = view.steps[i - 1];
+      const cur = view.steps[i];
+      const next = view.steps[i + 1];
+      if (prev.endIndex !== cur.startIndex || cur.endIndex !== next.startIndex) continue;
+
+      const vPrev = prev.metres / prev.seconds;
+      const vCur = cur.metres / cur.seconds;
+      const vNext = next.metres / next.seconds;
+      residuals.push(Math.abs(vCur - (vPrev + vNext) / 2) * cur.seconds);
+    }
+
+    if (residuals.length === 0) {
+      excluded++;
+      continue;
+    }
+
+    residuals.sort((a, b) => a - b);
+    const sigma = 1.4826 * quantile(residuals, 0.5) * Math.sqrt(2 / 3);
+    perActivity.push((sigma * Math.sqrt(view.steps.length)) / view.totalDistanceM);
+  }
+
+  perActivity.sort((a, b) => a - b);
+  return {
+    value: perActivity.length === 0 ? null : quantile(perActivity, 0.9),
+    n: perActivity.length,
+    excluded,
+  };
+}
+
+/**
+ * R2 — "own-distance step share, bulk-of-bulk" (the S-A shape with speed replaced by distance
+ * share). Reference population: ALL computable activities, one value each. Per activity, R-7 p95 of
+ * `step.metres / totalDistanceM` over its own steps; cut = R-7 p90 across activities of those
+ * per-activity values.
+ *
+ * Non-circularity: the population is every ordinary step of every activity (the same bulk-dominated
+ * population `statisticSA` and `deriveExcessFloor` both already proved robust); a per-activity p95
+ * over thousands of steps shifts by a rank or two when a few burst steps leave or arrive; no
+ * detector constant and no flagged membership enters it. Disclosed caveat: a SAMPLE-level scale, the
+ * same population `UNRELIABLE_EXCESS_FLOOR_M` was drawn from (its p10) — closer to a detection scale
+ * than R1, which is why it ranks below R1 on unit-match.
+ */
+export function shapeR2(views) {
+  const perActivity = [];
+  let excluded = 0;
+
+  for (const view of views) {
+    if (isDegenerateView(view)) {
+      excluded++;
+      continue;
+    }
+    const shares = view.steps.map((s) => s.metres / view.totalDistanceM).sort((a, b) => a - b);
+    perActivity.push(quantile(shares, 0.95));
+  }
+
+  perActivity.sort((a, b) => a - b);
+  return {
+    value: perActivity.length === 0 ? null : quantile(perActivity, 0.9),
+    n: perActivity.length,
+    excluded,
+  };
+}
+
+/**
+ * R3 — "bulk step over bulk distance" (R2's reference idea with the two scales decoupled):
+ * `quantile(all steps' metres pooled archive-wide, 0.90) / quantile(all activities' totalDistanceM,
+ * 0.50)`. Meaning: one high-ordinary step as a share of a typical-length activity.
+ *
+ * Non-circularity: the numerator is the very population `deriveExcessFloor` reads, measured at
+ * 0.00%/0.00% under the equivalent removal-and-planting harness in `32-CALIBRATION.md`; the
+ * denominator is a median over all activities of a quantity segments alter by well under 1%. Ranks
+ * below R2 because it judges every activity against a TYPICAL distance rather than through each
+ * activity's own distance (D-07's own framing).
+ */
+export function shapeR3(views) {
+  const metres = [];
+  const distances = [];
+  let excluded = 0;
+
+  for (const view of views) {
+    if (isDegenerateView(view)) {
+      excluded++;
+      continue;
+    }
+    distances.push(view.totalDistanceM);
+    for (const s of view.steps) metres.push(s.metres);
+  }
+
+  metres.sort((a, b) => a - b);
+  distances.sort((a, b) => a - b);
+  if (metres.length === 0 || distances.length === 0) {
+    return { value: null, n: distances.length, excluded };
+  }
+
+  const denominator = quantile(distances, 0.5);
+  const value = denominator === 0 ? null : quantile(metres, 0.9) / denominator;
+  return { value, n: distances.length, excluded };
+}
+
+/**
+ * R4 — "hidden-pause boundary over bulk distance": `HIDDEN_PAUSE_MIN_METRES /
+ * quantile(all activities' totalDistanceM, 0.50)`, reading the constant from
+ * `params.hiddenPauseMinMetres` — never a literal (`pace-single-source.test.ts`'s own detector-param
+ * confinement needles would trip on a literal here).
+ *
+ * Ranks LAST: its numerator is a DETECTOR constant whose own derivation found no clean valley and
+ * fell back to an anchor-interval midpoint whose upper end is 3475734189's own segment, so (a) its
+ * D-13 insensitivity is partly insensitivity-of-a-constant, weak evidence, and (b) the D-07 anchor
+ * check on 3475734189 is not independent of it; and it compares an excess-metres quantity against a
+ * segment-metres scale. Non-circularity: neither factor is a statistic of the flagged cohort's
+ * excess fractions; the denominator is R3's.
+ */
+export function shapeR4(views, params) {
+  const distances = [];
+  let excluded = 0;
+
+  for (const view of views) {
+    if (isDegenerateView(view)) {
+      excluded++;
+      continue;
+    }
+    distances.push(view.totalDistanceM);
+  }
+  distances.sort((a, b) => a - b);
+  if (distances.length === 0) return { value: null, n: 0, excluded };
+
+  const denominator = quantile(distances, 0.5);
+  const value = denominator === 0 ? null : params.hiddenPauseMinMetres / denominator;
+  return { value, n: distances.length, excluded };
+}
+
+/** The pre-declared reference shapes, FROZEN, in the fixed order the plan's `<predeclared_shapes>`
+ * ORDER block sets: R1 (activity-level distance-error unit, fewest caveats), R2 (a sample-level
+ * scale one rank down), R3 (R2's idea with scales decoupled, judged through a typical rather than
+ * each activity's own distance), R4 (a detector constant, ranked last, two disclosed independence
+ * caveats). Every prose field below is this plan's own text, generated into the artifact — never
+ * hand-written there. */
+export const PREDECLARED_SHAPES = Object.freeze([
+  Object.freeze({
+    id: 'R1',
+    label: 'accumulated ordinary step noise',
+    derive: shapeR1,
+    meaning:
+      "The share of its own distance that an ordinary activity's sample-to-sample distance noise " +
+      'could plausibly accumulate to. Severe = the impossible excess is larger than that.',
+    nonCircularityArgument:
+      "`sigma_a` is a MEDIAN over thousands of ordinary residuals per activity (50% breakdown " +
+      'point), so the handful of burst steps a flagged activity carries cannot move it; the ' +
+      "across-activity p90 is taken over every activity, most of which carry no segment at all; " +
+      'and nothing in the statistic references the speed limit, the floor, a segment, or the ' +
+      'flagged set. Removing detected bursts changes `steps.length` and `totalDistanceM` by ' +
+      'fractions of a percent; planting one burst into an activity adds one non-contiguous step ' +
+      'that enters no residual.',
+    caveats: 'Disclosed model assumption: independent per-step errors accumulating as a random walk.',
+  }),
+  Object.freeze({
+    id: 'R2',
+    label: 'own-distance step share, bulk-of-bulk',
+    derive: shapeR2,
+    meaning:
+      'The share of its own activity that one high-ordinary recorded step carries - the ' +
+      'granularity at which the stream resolves distance at all. Severe = the impossible excess ' +
+      'exceeds what a single ordinary sample step could ever account for.',
+    nonCircularityArgument:
+      'The population is every ordinary step of every activity (the population `statisticSA` and ' +
+      '`deriveExcessFloor` both already proved bulk-dominated); a per-activity p95 over thousands ' +
+      'of steps shifts by a rank or two when a few burst steps leave or arrive; no detector ' +
+      'constant and no flagged membership enters it.',
+    caveats:
+      'Disclosed caveat: this is a SAMPLE-level scale, the same population `UNRELIABLE_EXCESS_FLOOR_M` ' +
+      'was drawn from (its p10), so it sits closer to a detection scale than R1 does.',
+  }),
+  Object.freeze({
+    id: 'R3',
+    label: 'bulk step over bulk distance',
+    derive: shapeR3,
+    meaning: 'One high-ordinary step as a share of a typical-length activity.',
+    nonCircularityArgument:
+      'The numerator is the very population `deriveExcessFloor` reads, measured at 0.00%/0.00% ' +
+      "under this same removal-and-planting harness in 32-CALIBRATION.md; the denominator is a " +
+      'median over all activities of a quantity segments alter by well under 1%.',
+    caveats:
+      'Ranks below R2 because it judges every activity against a TYPICAL distance rather than ' +
+      "through each activity's own distance (D-07's framing).",
+  }),
+  Object.freeze({
+    id: 'R4',
+    label: 'hidden-pause boundary over bulk distance',
+    derive: shapeR4,
+    meaning: 'The share of a typical activity that a pause-scale distance lie represents.',
+    nonCircularityArgument:
+      "Neither factor is a statistic of the flagged cohort's excess fractions; the denominator is R3's.",
+    caveats:
+      'Ranks LAST on independence and inherited caveats: its numerator is a DETECTOR constant whose ' +
+      'own derivation found no clean valley and fell back to the midpoint of an anchor interval ' +
+      "whose upper end is 3475734189's own segment, so (a) its D-13 insensitivity is partly " +
+      'insensitivity-of-a-constant, weak evidence, and (b) the D-07 anchor check on 3475734189 is ' +
+      'not independent of it; and it compares an excess-metres quantity against a segment-metres scale.',
+  }),
+]);
+
+/** REJECTED ON ARGUMENT before measurement (33-14-PLAN.md `<predeclared_shapes>`), recorded as
+ * considered-and-rejected — never measured, never a candidate row. */
+export const REJECTED_SHAPES = Object.freeze([
+  'Stream-distance versus summary-distance disagreement: measured DEGENERATE by the planner - the ' +
+    "summary distance is the stream's own final value (exactly equal on 1,499 of 1,788 numeric-id " +
+    'activities, within 1 m on 239 more), so it is not a second record of distance.',
+  "The detector's own sub-floor \"trivia\" excess: bounded above by `UNRELIABLE_EXCESS_FLOOR_M` by " +
+    'construction while every detected burst exceeds it, so the cut could only restate presence.',
+  'Any statistic over unflagged activities ONLY: membership is defined by the detector, and the ' +
+    'planting step would evict most of the population.',
+  'An across-activity percentile of an ordinary fast-side overshoot SUM: bursts dominate the sum in ' +
+    'exactly the share of activities the removal step edits.',
+]);
+
+/**
+ * STRAWMAN over views (D-13 harness): R-7 `STRAWMAN_PERCENTILE` of the excess fractions
+ * (`sum(excessList) / totalDistanceM`) of views with a non-empty `excessList` — deliberately the
+ * SAME computation as 33-08's own `strawmanCandidate`, restated over the view shape this plan's
+ * shapes need. Its BASE value must equal 33-08's legacy q=0.99 cut exactly (same population, same
+ * quantile) — asserted by the caller; a mismatch means the views are wrong.
+ */
+export function strawmanFromViews(views) {
+  const fractions = [];
+  for (const view of views) {
+    if (view.excessList.length === 0 || !(view.totalDistanceM > 0)) continue;
+    const sum = view.excessList.reduce((a, b) => a + b, 0);
+    fractions.push(sum / view.totalDistanceM);
+  }
+  fractions.sort((a, b) => a - b);
+  return { value: fractions.length === 0 ? null : quantile(fractions, STRAWMAN_PERCENTILE), n: fractions.length };
+}
+
+/**
+ * D-13's two-direction insensitivity check for one shape's `deriveFn` (any of `shapeR1`..`shapeR4`,
+ * or a view-shaped strawman deriver), evaluated over ALREADY-BUILT base/removed/planted view arrays
+ * — the perturbation itself lives in `buildRemovedViews`/`buildPlantedViews`, never here. `pass`
+ * requires BOTH relative deltas (computed on RAW, unrounded values) to clear `tolerance`; a `null`
+ * or zero base, or a `null` perturbed value, is verdict FAIL (an emptied population is the most
+ * extreme sensitivity there is, never a pass) — mirroring `insensitivityForCandidate`'s own rule.
+ */
+export function evaluateShape(deriveFn, { base, removed, planted }, { tolerance }) {
+  const baseResult = deriveFn(base, DEFAULT_DETECTOR_PARAMS);
+  const removedResult = deriveFn(removed, DEFAULT_DETECTOR_PARAMS);
+  const plantedResult = deriveFn(planted, DEFAULT_DETECTOR_PARAMS);
+
+  const baseValue = baseResult.value;
+  const removedValue = removedResult.value;
+  const plantedValue = plantedResult.value;
+
+  const removedDelta =
+    baseValue === null || baseValue === 0 || removedValue === null
+      ? null
+      : Math.abs(removedValue - baseValue) / Math.abs(baseValue);
+  const plantedDelta =
+    baseValue === null || baseValue === 0 || plantedValue === null
+      ? null
+      : Math.abs(plantedValue - baseValue) / Math.abs(baseValue);
+
+  const pass =
+    removedDelta !== null &&
+    plantedDelta !== null &&
+    removedDelta <= tolerance &&
+    plantedDelta <= tolerance;
+
+  return {
+    base: baseValue,
+    baseN: baseResult.n,
+    removed: removedValue,
+    removedN: removedResult.n,
+    planted: plantedValue,
+    plantedN: plantedResult.n,
+    removedDelta,
+    plantedDelta,
+    pass,
+  };
 }
 
 // ---------------------------------------------------------------------------
