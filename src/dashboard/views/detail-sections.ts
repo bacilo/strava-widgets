@@ -33,6 +33,7 @@ import {
   formatEffortDuration,
   appendAccessibleBadge,
   qualityBadgeSpecs,
+  unreliableSegmentsBadgeContent,
 } from './list.js';
 import { prFlagBadgeSpecs, type BestEffortPanelRow } from './detail-best-efforts-logic.js';
 import type { PaceCoverage, GapInterval } from '../../analytics/pace-derivation.js';
@@ -49,6 +50,7 @@ import type {
   PaceQualityShard,
   QualityTier,
   SubGroundSignal,
+  UnreliableSegmentsSignal,
   VerticalRateSignal,
 } from '../../analytics/pace-quality.js';
 
@@ -937,7 +939,22 @@ const CLOSURE_DRIFT_EXPLANATION =
 const VERTICAL_RATE_EXPLANATION =
   'a per-sample climb or descent rate no runner achieves means the altitude channel moved without the athlete doing so';
 
-/** Shown for all eight rows when `quality` itself is `null` (D-08: absence must say so, never vanish). */
+/**
+ * SEG-06's own explanation (Phase 33, plan 33-11). Deliberately NOT routed
+ * through `tieringExplanation`/`EXPLANATION_PROBE_SPECS`: that mechanism
+ * exists only for the three `hasAnySevereSignal`-feeding TIERING signals
+ * (`decimation`/`gapProfile`/`impossibleSamples`), and routing SEG-06
+ * through it would falsely imply this signal feeds that composite — it
+ * structurally does not (D-06, `hasAnySevereSignal`'s never-widen `Pick<>`
+ * and its own guard test in `pace-quality.test.ts`). Follows
+ * `SUB_GROUND_EXPLANATION`'s exact precedent instead: a standalone,
+ * module-level explanation constant for a row with no `qualityBadgeSpecs`
+ * tiering-loop entry.
+ */
+export const UNRELIABLE_SEGMENTS_EXPLANATION =
+  'distance recorded here in less time than it could physically take means pace inside this segment is not measured; the segment is clipped from pace charts and splits, never filled in or corrected';
+
+/** Shown for all nine rows when `quality` itself is `null` (D-08: absence must say so, never vanish). */
 const QUALITY_DATA_NOT_AVAILABLE = 'Quality data not available for this activity';
 
 /**
@@ -958,9 +975,10 @@ export interface QualitySignalRow {
 }
 
 /**
- * The full always-on Quality Signals section decision — always exactly eight
- * rows, in fixed order (D-08; Phase 30 D-11 extends the original five with
- * three always-on elevation rows).
+ * The full always-on Quality Signals section decision — always exactly nine
+ * rows, in fixed order (D-08; Phase 30 D-11 extended the original five with
+ * three always-on elevation rows; Phase 33 SEG-06, plan 33-11, adds a ninth
+ * for unreliable segments).
  */
 export interface QualitySignalsSectionPlan {
   rows: QualitySignalRow[];
@@ -1169,6 +1187,80 @@ function impossibleSamplesRow(
 }
 
 /**
+ * Unreliable-segments row (SEG-06, D-06, D-08, plan 33-11) — the same
+ * not-computable/healthy/tiered three-branch shape as `decimationRow`, NOT
+ * elevation's three-sub-row shape, since SEG-06 is one rolled-up signal.
+ * Unlike the three TIERING rows above, `signal.tier` reaches all the way to
+ * `'minor'` here (D-06): `qualityBadgeSpecs` only badges a list row at
+ * `'severe'`, so a `'minor'`-tier activity — e.g. 3475724402's 16
+ * gap-adjacent segments, 2148.7 m, D-07's own recorded gap-dilution finding
+ * that clamps its `excessFraction` to exactly 0 — has no list badge, but
+ * this always-on row still discloses its measured count/metres/seconds so
+ * the fact is never silently absent from the detail view.
+ *
+ * `valueText` for the `'minor'`/`'severe'` branches reuses
+ * `unreliableSegmentsBadgeContent` from `list.ts` — the SAME text builder
+ * `qualityBadgeSpecs`'s sixth badge block calls (33-11 Task 1) — so this row
+ * and that badge cannot describe the same measured value with two different
+ * strings. The `'none'` branch is this row's own healthy statement, since
+ * `unreliableSegmentsBadgeContent` has no meaningful output for a
+ * zero-segment signal (no mechanism to name).
+ *
+ * `evidenceText` is read from `shard?.unreliableSegments` — the capped,
+ * `parts`-free per-segment list (D-08) — naming where in the run the
+ * segments sit (first segment's start time, longest segment's duration) and
+ * stating the truncation when `shard.unreliableSegmentsTruncated` is true.
+ * `null` whenever the shard carries no segments, including when `shard`
+ * itself is `null` (fetch failed or still in flight, T-27-31).
+ *
+ * NOTE ON DOUBLE DISCLOSURE (33-CONTEXT.md environment note): `gapProfileRow`
+ * above already itemises `shard.gapIntervals`' `'unreliable'`-kind entries
+ * in ITS OWN evidence line ("N unreliable segments"). Both that count and
+ * this row's `signal.count` are read from the SAME detector segments (one
+ * `unreliable`-kind `gapIntervals` entry per detected segment,
+ * `classifyGapsWithSegments`'s own agreement, pinned by plan 33-09's Task 1
+ * tests) — they cannot disagree by construction, so the two rows disclosing
+ * the same fact twice is intentional overlap, never a contradiction.
+ */
+function unreliableSegmentsRow(
+  signal: UnreliableSegmentsSignal,
+  notComputableReason: string | null,
+  shard: PaceQualityShard | null
+): QualitySignalRow {
+  if (notComputableReason !== null) {
+    return {
+      label: 'Unreliable segments',
+      valueText: `Not computable — ${notComputableReason}`,
+      tier: 'not-computable',
+      explanation: UNRELIABLE_SEGMENTS_EXPLANATION,
+      evidenceText: null,
+    };
+  }
+
+  let valueText: string;
+  if (signal.tier === 'none') {
+    valueText = 'No unreliable segments detected';
+  } else {
+    const content = unreliableSegmentsBadgeContent(signal);
+    valueText = content !== null ? content.visibleText : 'Unreliable-segment data unavailable';
+  }
+
+  const entries = shard?.unreliableSegments ?? [];
+  let evidenceText: string | null = null;
+  if (entries.length > 0) {
+    const first = entries[0];
+    const longest = entries.reduce((max, e) => (e.seconds > max.seconds ? e : max), entries[0]);
+    const truncationText = shard?.unreliableSegmentsTruncated
+      ? ` (list truncated to the first ${entries.length})`
+      : '';
+    evidenceText =
+      `First segment at ${formatEffortDuration(first.startSec)}; longest ${formatEffortDuration(longest.seconds)}${truncationText}`;
+  }
+
+  return { label: 'Unreliable segments', valueText, tier: signal.tier, explanation: UNRELIABLE_SEGMENTS_EXPLANATION, evidenceText };
+}
+
+/**
  * Sub-ground-level row (D-11, D-17, Phase 30). Unlike the three tiering rows
  * above, `notComputableReason` here is the WHOLE-SIGNAL reason
  * (`quality.notComputableReason`) — the same one `decimationRow`/
@@ -1371,9 +1463,10 @@ function elapsedVsMovingRow(signal: ElapsedVsMovingSignal): QualitySignalRow {
 }
 
 /**
- * The eight-row fallback for a `quality === null` row (D-08: absence says
- * so, never vanishes; Phase 30 D-11 extends the original five with three
- * always-on elevation entries, same literal shape as the other five).
+ * The nine-row fallback for a `quality === null` row (D-08: absence says
+ * so, never vanishes; Phase 30 D-11 extended the original five with three
+ * always-on elevation entries, Phase 33 SEG-06/plan 33-11 added a ninth —
+ * same literal shape as the other eight).
  */
 function notAvailableRows(): QualitySignalRow[] {
   return [
@@ -1400,6 +1493,13 @@ function notAvailableRows(): QualitySignalRow[] {
       valueText: QUALITY_DATA_NOT_AVAILABLE,
       tier: 'not-computable',
       explanation: tieringExplanation('impossibleSamples'),
+      evidenceText: null,
+    },
+    {
+      label: 'Unreliable segments',
+      valueText: QUALITY_DATA_NOT_AVAILABLE,
+      tier: 'not-computable',
+      explanation: UNRELIABLE_SEGMENTS_EXPLANATION,
       evidenceText: null,
     },
     {
@@ -1458,18 +1558,34 @@ const NOT_COMPUTABLE_ELEVATION: ElevationSignal = {
 };
 
 /**
+ * CR-01 (30-REVIEW.md precedent) fallback for a `quality` object that has
+ * every pre-Phase-33 sub-key but no `unreliableSegments` at all (Phase 33,
+ * SEG-06, plan 33-11) — same stale-`index.json`/lagging-staged-build hazard
+ * as `NOT_COMPUTABLE_ELEVATION` above, one signal later.
+ */
+const NOT_COMPUTABLE_UNRELIABLE_SEGMENTS: UnreliableSegmentsSignal = {
+  tier: 'not-computable',
+  count: null,
+  totalMetres: null,
+  totalExcessMetres: null,
+  totalSeconds: null,
+  excessFraction: null,
+  mechanisms: null,
+};
+
+/**
  * Decides the always-on Quality Signals section (D-08, D-09, D-12, D-17,
  * D-18) — pure, no DOM, same `*-logic`/plan split `breakdownSectionPlan`
  * uses and for the same reason (there is no DOM-simulation dependency
  * anywhere in this tree). Unlike `breakdownSectionPlan`, this NEVER returns
  * `null` (D-08): even a `quality === null` row (an index row predating the
  * field, or a re-parsed row missing it — `ParsedDashboardIndexRow` is a
- * `Partial<>`) still produces eight rows, each saying explicitly that
+ * `Partial<>`) still produces nine rows, each saying explicitly that
  * quality data is not available, rather than vanishing.
  *
  * `shard` supplies ONLY the `evidenceText` fields — every `valueText` comes
  * from `quality` (the index row's own scalars) alone, so the section still
- * renders its eight value rows even when `shard` is `null` (fetch failed, or
+ * renders its nine value rows even when `shard` is `null` (fetch failed, or
  * still in flight, T-27-31).
  */
 export function qualitySignalsSectionPlan(
@@ -1489,12 +1605,18 @@ export function qualitySignalsSectionPlan(
   // `elevation` key at all. Fall back to the not-computable shape rather
   // than dereferencing `undefined` three lines below.
   const elevation: ElevationSignal = quality.elevation ?? NOT_COMPUTABLE_ELEVATION;
+  // Same CR-01 hazard, one signal later (Phase 33, SEG-06, plan 33-11): a
+  // pre-Phase-33 `index.json` carries the six original sub-keys and no
+  // `unreliableSegments` key at all.
+  const unreliableSegments: UnreliableSegmentsSignal =
+    quality.unreliableSegments ?? NOT_COMPUTABLE_UNRELIABLE_SEGMENTS;
 
   return {
     rows: [
       decimationRow(quality.decimation, reason, shard),
       gapProfileRow(quality.gapProfile, reason, shard),
       impossibleSamplesRow(quality.impossibleSamples, reason, shard),
+      unreliableSegmentsRow(unreliableSegments, reason, shard),
       subGroundRow(elevation.subGround, reason, shard),
       closureDriftRow(elevation.closureDrift, shard),
       verticalRateRow(elevation.verticalRate, reason, shard),

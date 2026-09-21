@@ -8,6 +8,7 @@ import {
   breakdownSectionPlan,
   qualitySignalsSectionPlan,
   EXPLANATION_PROBE_QUALITY,
+  UNRELIABLE_SEGMENTS_EXPLANATION,
   type SplitGapAnnotation,
 } from './detail-sections.js';
 import type { Split } from './detail-splits.js';
@@ -678,9 +679,9 @@ function makeShard(overrides: Partial<PaceQualityShard>): PaceQualityShard {
 }
 
 describe('qualitySignalsSectionPlan — quality signals section (D-08, D-09, D-12, D-17)', () => {
-  it('a fully healthy row produces eight rows (Phase 30: three elevation rows extend the original five), all three tiering rows carrying an explicit healthy statement, none blank/undefined/null/NaN', () => {
+  it('a fully healthy row produces nine rows (Phase 30: three elevation rows extend the original five; Phase 33 SEG-06 adds a ninth), all four tiering rows carrying an explicit healthy statement, none blank/undefined/null/NaN', () => {
     const plan = qualitySignalsSectionPlan(HEALTHY_QUALITY, null);
-    expect(plan.rows).toHaveLength(8);
+    expect(plan.rows).toHaveLength(9);
 
     for (const row of plan.rows) {
       expect(row.valueText.length).toBeGreaterThan(0);
@@ -689,7 +690,7 @@ describe('qualitySignalsSectionPlan — quality signals section (D-08, D-09, D-1
       expect(row.valueText).not.toContain('NaN');
     }
 
-    const [decimation, gapProfile, impossibleSamples] = plan.rows;
+    const [decimation, gapProfile, impossibleSamples, unreliableSegments] = plan.rows;
     expect(decimation.valueText).toBe('No decimation detected');
     expect(decimation.tier).toBe('none');
     expect(gapProfile.valueText).toBe('No gaps, pauses or unreliable segments');
@@ -697,6 +698,9 @@ describe('qualitySignalsSectionPlan — quality signals section (D-08, D-09, D-1
     expect(gapProfile.label).toBe('Coverage gaps');
     expect(impossibleSamples.valueText).toBe('No impossible samples');
     expect(impossibleSamples.tier).toBe('none');
+    expect(unreliableSegments.valueText).toBe('No unreliable segments detected');
+    expect(unreliableSegments.tier).toBe('none');
+    expect(unreliableSegments.label).toBe('Unreliable segments');
   });
 
   it('gapProfileRow severe with a shard: the gap row names the percentage and its evidenceText itemises unreliable segments separately from gap/pause intervals; evidenceText is absent when shard is null', () => {
@@ -776,25 +780,46 @@ describe('qualitySignalsSectionPlan — quality signals section (D-08, D-09, D-1
     expect(pluralPlan.rows[1].evidenceText).toBe('2 gap/pause intervals, 2 unreliable segments; longest 0:49');
   });
 
-  it('a not-computable row: all three tiering rows read "Not computable — {reason}" with tier not-computable, and NO row reads 0% or a healthy statement', () => {
+  it('a not-computable row: all four tiering rows (including unreliableSegmentsRow) read "Not computable — {reason}" with tier not-computable, and NO row reads 0% or a healthy statement', () => {
     const plan = qualitySignalsSectionPlan(NOT_COMPUTABLE_QUALITY, null);
-    const [decimation, gapProfile, impossibleSamples] = plan.rows;
+    const [decimation, gapProfile, impossibleSamples, unreliableSegments] = plan.rows;
 
-    for (const row of [decimation, gapProfile, impossibleSamples]) {
+    for (const row of [decimation, gapProfile, impossibleSamples, unreliableSegments]) {
       expect(row.valueText).toBe('Not computable — no stream committed for this activity');
       expect(row.tier).toBe('not-computable');
       expect(row.valueText).not.toContain('0%');
       expect(row.valueText).not.toBe('No decimation detected');
       expect(row.valueText).not.toBe('No gaps, pauses or unreliable segments');
       expect(row.valueText).not.toBe('No impossible samples');
+      expect(row.valueText).not.toBe('No unreliable segments detected');
     }
     expect(gapProfile.label).toBe('Coverage gaps');
+    expect(unreliableSegments.label).toBe('Unreliable segments');
+    expect(unreliableSegments.evidenceText).toBeNull();
+  });
+
+  it('unreliableSegmentsRow (SEG-06, plan 33-11): qualitySignalsSectionPlan and notAvailableRows return the SAME nine labels, in the SAME fixed order — a reordering fails this test with a readable diff', () => {
+    const EXPECTED_LABELS = [
+      'Decimation',
+      'Coverage gaps',
+      'Impossible samples',
+      'Unreliable segments',
+      'Lowest altitude',
+      'Start/end altitude',
+      'Max vertical rate',
+      'Device / recording source',
+      'Elapsed vs. moving',
+    ];
+    const healthyLabels = qualitySignalsSectionPlan(HEALTHY_QUALITY, null).rows.map((r) => r.label);
+    const notAvailableLabels = qualitySignalsSectionPlan(null, null).rows.map((r) => r.label);
+    expect(healthyLabels).toEqual(EXPECTED_LABELS);
+    expect(notAvailableLabels).toEqual(EXPECTED_LABELS);
   });
 
   it('quality === null: the section plan is still produced (never null/undefined) and says so', () => {
     const plan = qualitySignalsSectionPlan(null, null);
     expect(plan).not.toBeNull();
-    expect(plan.rows).toHaveLength(8);
+    expect(plan.rows).toHaveLength(9);
     for (const row of plan.rows) {
       expect(row.valueText).toBe('Quality data not available for this activity');
     }
@@ -815,7 +840,7 @@ describe('qualitySignalsSectionPlan — quality signals section (D-08, D-09, D-1
       deviceEra: { family, rawDeviceName: null },
     };
     const plan = qualitySignalsSectionPlan(quality, null);
-    const deviceRow = plan.rows[6];
+    const deviceRow = plan.rows[7];
     expect(deviceRow.valueText).toBe(expected);
   });
 
@@ -826,7 +851,7 @@ describe('qualitySignalsSectionPlan — quality signals section (D-08, D-09, D-1
       deviceEra: { family: 'unrecognized-device', rawDeviceName: payload },
     };
     const plan = qualitySignalsSectionPlan(quality, null);
-    const deviceRow = plan.rows[6];
+    const deviceRow = plan.rows[7];
     expect(deviceRow.valueText).toBe(`Unrecognized device: ${payload}`);
   });
 
@@ -845,7 +870,7 @@ describe('qualitySignalsSectionPlan — quality signals section (D-08, D-09, D-1
         ...HEALTHY_QUALITY,
         deviceEra: { family, rawDeviceName: family === 'unrecognized-device' ? 'Some Watch X1' : null },
       };
-      return qualitySignalsSectionPlan(quality, null).rows[6].valueText;
+      return qualitySignalsSectionPlan(quality, null).rows[7].valueText;
     });
     expect(new Set(displayNames).size).toBe(allFamilies.length);
   });
@@ -924,14 +949,227 @@ describe('qualitySignalsSectionPlan — quality signals section (D-08, D-09, D-1
       elapsedVsMoving: { ratio: null, elapsedSec: null, movingSec: null },
     };
     const plan = qualitySignalsSectionPlan(quality, null);
-    expect(plan.rows[7].valueText).toBe('Elapsed/moving ratio not available');
-    expect(plan.rows[7].tier).toBe('untiered');
+    expect(plan.rows[8].valueText).toBe('Elapsed/moving ratio not available');
+    expect(plan.rows[8].tier).toBe('untiered');
   });
 
   it('deviceEra and elapsedVsMoving carry the untiered tier value, never one of the four QualityTier members', () => {
     const plan = qualitySignalsSectionPlan(HEALTHY_QUALITY, null);
-    expect(plan.rows[6].tier).toBe('untiered');
     expect(plan.rows[7].tier).toBe('untiered');
+    expect(plan.rows[8].tier).toBe('untiered');
+  });
+});
+
+describe('unreliableSegmentsRow (SEG-06, D-06, D-08, plan 33-11 Task 2)', () => {
+  it('unreliableSegmentsRow not-computable branch renders "Not computable — {reason}" with tier not-computable and evidenceText null', () => {
+    const plan = qualitySignalsSectionPlan(NOT_COMPUTABLE_QUALITY, null);
+    const row = plan.rows[3];
+    expect(row.label).toBe('Unreliable segments');
+    expect(row.valueText).toBe('Not computable — no stream committed for this activity');
+    expect(row.tier).toBe('not-computable');
+    expect(row.evidenceText).toBeNull();
+  });
+
+  it('unreliableSegmentsRow healthy (tier none) branch renders a plain-language no-segments statement, evidenceText null when the shard carries no segments', () => {
+    const plan = qualitySignalsSectionPlan(HEALTHY_QUALITY, null);
+    const row = plan.rows[3];
+    expect(row.valueText).toBe('No unreliable segments detected');
+    expect(row.tier).toBe('none');
+    expect(row.evidenceText).toBeNull();
+  });
+
+  it('unreliableSegmentsRow tiered branch (minor) renders the measured count/metres/seconds/mechanisms, byte-identical to unreliableSegmentsBadgeContent\'s own visibleText', () => {
+    const quality: ActivityQualitySignals = {
+      ...HEALTHY_QUALITY,
+      unreliableSegments: {
+        tier: 'minor',
+        count: 16,
+        totalMetres: 2148.7,
+        totalExcessMetres: 0,
+        totalSeconds: 751,
+        excessFraction: 0,
+        mechanisms: ['gap-adjacent'],
+      },
+    };
+    const plan = qualitySignalsSectionPlan(quality, null);
+    const row = plan.rows[3];
+    expect(row.tier).toBe('minor');
+    expect(row.valueText).toBe('16 unreliable segments, 2149 m over 12:31 (gap adjacent)');
+    // D-06: qualityBadgeSpecs never badges a 'minor' tier on the list row —
+    // this row is the ONLY surface that discloses a minor-tier activity's
+    // measured value, so the text must genuinely be produced here, not
+    // merely inherited from a badge that would never have been shown.
+    const specs = qualityBadgeSpecs({ quality });
+    expect(specs).toEqual([]);
+  });
+
+  it('unreliableSegmentsRow tiered branch (severe) renders the measured value, matching the SAME text list.ts\'s badge would show for the identical signal', () => {
+    const signal: ActivityQualitySignals['unreliableSegments'] = {
+      tier: 'severe',
+      count: 1,
+      totalMetres: 181.5,
+      totalExcessMetres: 122.7,
+      totalSeconds: 8,
+      excessFraction: 0.017964072,
+      mechanisms: ['hidden-pause'],
+    };
+    const quality: ActivityQualitySignals = { ...HEALTHY_QUALITY, unreliableSegments: signal, anySevere: true };
+    const plan = qualitySignalsSectionPlan(quality, null);
+    const row = plan.rows[3];
+    expect(row.tier).toBe('severe');
+    expect(row.valueText).toBe('1 unreliable segment, 182 m over 0:08 (hidden pause)');
+
+    const badgeSpecs = qualityBadgeSpecs({ quality });
+    expect(badgeSpecs).toHaveLength(1);
+    expect(badgeSpecs[0].visibleText).toBe(row.valueText);
+  });
+
+  it("unreliableSegmentsRow evidenceText names the first segment's start time and the longest segment's duration when the shard carries segments", () => {
+    const quality: ActivityQualitySignals = {
+      ...HEALTHY_QUALITY,
+      unreliableSegments: {
+        tier: 'minor',
+        count: 3,
+        totalMetres: 300,
+        totalExcessMetres: 10,
+        totalSeconds: 40,
+        excessFraction: 0.001,
+        mechanisms: ['isolated-jump'],
+      },
+    };
+    const shard = makeShard({
+      signals: quality,
+      unreliableSegments: [
+        { startSec: 120, endSec: 128, metres: 100, excessMetres: 3, seconds: 8, mechanism: 'isolated-jump' },
+        { startSec: 500, endSec: 525, metres: 150, excessMetres: 5, seconds: 25, mechanism: 'isolated-jump' },
+        { startSec: 900, endSec: 907, metres: 50, excessMetres: 2, seconds: 7, mechanism: 'isolated-jump' },
+      ],
+    });
+    const plan = qualitySignalsSectionPlan(quality, shard);
+    const row = plan.rows[3];
+    expect(row.evidenceText).toBe('First segment at 2:00; longest 0:25');
+  });
+
+  it('unreliableSegmentsRow evidenceText states the truncation when unreliableSegmentsTruncated is true', () => {
+    const quality: ActivityQualitySignals = {
+      ...HEALTHY_QUALITY,
+      unreliableSegments: {
+        tier: 'minor',
+        count: 150,
+        totalMetres: 4500,
+        totalExcessMetres: 150,
+        totalSeconds: 750,
+        excessFraction: 0.02,
+        mechanisms: ['isolated-jump'],
+      },
+    };
+    const entries = Array.from({ length: 100 }, (_, i) => ({
+      startSec: i * 10,
+      endSec: i * 10 + 5,
+      metres: 30,
+      excessMetres: 1,
+      seconds: 5,
+      mechanism: 'isolated-jump' as const,
+    }));
+    const shard = makeShard({ signals: quality, unreliableSegments: entries, unreliableSegmentsTruncated: true });
+    const plan = qualitySignalsSectionPlan(quality, shard);
+    const row = plan.rows[3];
+    expect(row.evidenceText).toContain('list truncated');
+    expect(row.evidenceText).toContain('100');
+  });
+
+  it('unreliableSegmentsRow: a null shard yields evidenceText null without throwing', () => {
+    const quality: ActivityQualitySignals = {
+      ...HEALTHY_QUALITY,
+      unreliableSegments: {
+        tier: 'severe',
+        count: 1,
+        totalMetres: 181.5,
+        totalExcessMetres: 122.7,
+        totalSeconds: 8,
+        excessFraction: 0.017964072,
+        mechanisms: ['hidden-pause'],
+      },
+    };
+    expect(() => qualitySignalsSectionPlan(quality, null)).not.toThrow();
+    const row = qualitySignalsSectionPlan(quality, null).rows[3];
+    expect(row.evidenceText).toBeNull();
+  });
+
+  it("unreliableSegmentsRow's explanation is UNRELIABLE_SEGMENTS_EXPLANATION on every branch, and is NOT obtained from tieringExplanation/EXPLANATION_PROBE_SPECS", () => {
+    expect(UNRELIABLE_SEGMENTS_EXPLANATION.length).toBeGreaterThan(0);
+
+    const notComputableRow = qualitySignalsSectionPlan(NOT_COMPUTABLE_QUALITY, null).rows[3];
+    const healthyRow = qualitySignalsSectionPlan(HEALTHY_QUALITY, null).rows[3];
+    const tieredQuality: ActivityQualitySignals = {
+      ...HEALTHY_QUALITY,
+      unreliableSegments: {
+        tier: 'severe',
+        count: 1,
+        totalMetres: 181.5,
+        totalExcessMetres: 122.7,
+        totalSeconds: 8,
+        excessFraction: 0.017964072,
+        mechanisms: ['hidden-pause'],
+      },
+    };
+    const tieredRow = qualitySignalsSectionPlan(tieredQuality, null).rows[3];
+
+    for (const row of [notComputableRow, healthyRow, tieredRow]) {
+      expect(row.explanation).toBe(UNRELIABLE_SEGMENTS_EXPLANATION);
+    }
+
+    // EXPLANATION_PROBE_SPECS' own three-member loop never names
+    // 'unreliableSegments' (T-33-12) — qualityBadgeSpecs({ quality:
+    // EXPLANATION_PROBE_QUALITY }) therefore produces no spec whose signal
+    // is 'unreliableSegments' for this row's explanation to have come from.
+    const probeSpecs = qualityBadgeSpecs({ quality: EXPLANATION_PROBE_QUALITY });
+    expect(probeSpecs.find((s) => s.signal === 'unreliableSegments')).toBeUndefined();
+  });
+
+  it('notAvailableRows() supplies the same "Unreliable segments" ninth row, not-computable, with the same explanation', () => {
+    const plan = qualitySignalsSectionPlan(null, null);
+    const row = plan.rows[3];
+    expect(row.label).toBe('Unreliable segments');
+    expect(row.valueText).toBe('Quality data not available for this activity');
+    expect(row.tier).toBe('not-computable');
+    expect(row.explanation).toBe(UNRELIABLE_SEGMENTS_EXPLANATION);
+    expect(row.evidenceText).toBeNull();
+  });
+});
+
+/**
+ * A `quality` object shaped like a pre-Phase-33 parsed `index.json` entry
+ * (CR-01, 30-REVIEW.md precedent): every original sub-key present,
+ * `unreliableSegments` genuinely ABSENT as a key — the exact shape a
+ * browser cache or a staged build lagging the bundle serves.
+ * `ActivityQualitySignals.unreliableSegments` is required on the write
+ * side, so this cast mirrors the same boundary `qualityMissingElevation`
+ * below exercises for the sixth signal, one signal later.
+ */
+function qualityMissingUnreliableSegments(): ActivityQualitySignals {
+  const full: ActivityQualitySignals = { ...HEALTHY_QUALITY, notComputableReason: null };
+  const { unreliableSegments, ...withoutUnreliableSegments } = full;
+  void unreliableSegments;
+  return withoutUnreliableSegments as ActivityQualitySignals;
+}
+
+describe('CR-01 (30-REVIEW.md precedent) — quality missing the unreliableSegments key does not crash qualitySignalsSectionPlan', () => {
+  it("the fixture helper's own quality object genuinely lacks the key (not present-and-undefined)", () => {
+    const quality = qualityMissingUnreliableSegments();
+    expect('unreliableSegments' in quality).toBe(false);
+  });
+
+  it('does not throw and still returns nine rows, the ninth reading its own not-computable fallback phrasing (CR-01: the whole-signal notComputableReason is null here, same as qualityMissingElevation\'s own fixture, so the row reads its OWN unavailable-data text, not "Not computable — {reason}")', () => {
+    const quality = qualityMissingUnreliableSegments();
+    expect(() => qualitySignalsSectionPlan(quality, null)).not.toThrow();
+    const plan = qualitySignalsSectionPlan(quality, null);
+    expect(plan.rows).toHaveLength(9);
+    const row = plan.rows[3];
+    expect(row.label).toBe('Unreliable segments');
+    expect(row.valueText).toBe('Unreliable-segment data unavailable');
+    expect(row.tier).toBe('not-computable');
+    expect(row.valueText).not.toMatch(/null|undefined|NaN/);
   });
 });
 
@@ -957,16 +1195,16 @@ describe('CR-01 (30-REVIEW.md) — quality missing the elevation key does not cr
     expect('elevation' in quality).toBe(false);
   });
 
-  it('does not throw and still returns eight rows', () => {
+  it('does not throw and still returns nine rows', () => {
     const quality = qualityMissingElevation();
     expect(() => qualitySignalsSectionPlan(quality, null)).not.toThrow();
-    expect(qualitySignalsSectionPlan(quality, null).rows).toHaveLength(8);
+    expect(qualitySignalsSectionPlan(quality, null).rows).toHaveLength(9);
   });
 
   it('renders the three elevation rows in the not-computable fallback phrasing, with no null/undefined/NaN anywhere', () => {
     const quality = qualityMissingElevation();
     const plan = qualitySignalsSectionPlan(quality, null);
-    const [subGround, closureDrift, verticalRate] = plan.rows.slice(3, 6);
+    const [subGround, closureDrift, verticalRate] = plan.rows.slice(4, 7);
 
     expect(subGround.valueText).toBe('Lowest-altitude data unavailable');
     expect(subGround.tier).toBe('none');
@@ -994,7 +1232,7 @@ describe('CR-01 (30-REVIEW.md) — quality missing the elevation key does not cr
 describe('elevation rows — subGroundRow / closureDriftRow / verticalRateRow (D-02, D-11)', () => {
   it('healthy activity: all three elevation rows present, each carrying a number, none blank/undefined/null/NaN, tier none on each', () => {
     const plan = qualitySignalsSectionPlan(HEALTHY_QUALITY, null);
-    const [subGround, closureDrift, verticalRate] = plan.rows.slice(3, 6);
+    const [subGround, closureDrift, verticalRate] = plan.rows.slice(4, 7);
 
     for (const row of [subGround, closureDrift, verticalRate]) {
       expect(row.valueText.length).toBeGreaterThan(0);
@@ -1022,7 +1260,7 @@ describe('elevation rows — subGroundRow / closureDriftRow / verticalRateRow (D
       },
     };
     const plan = qualitySignalsSectionPlan(quality, null);
-    const [subGround, closureDrift, verticalRate] = plan.rows.slice(3, 6);
+    const [subGround, closureDrift, verticalRate] = plan.rows.slice(4, 7);
 
     expect(subGround.valueText).toBe('lowest altitude -282 m — below plausible ground level');
     expect(subGround.tier).toBe('severe');
@@ -1042,7 +1280,7 @@ describe('elevation rows — subGroundRow / closureDriftRow / verticalRateRow (D
       },
     };
     const plan = qualitySignalsSectionPlan(quality, null);
-    const closureDrift = plan.rows[4];
+    const closureDrift = plan.rows[5];
 
     expect(closureDrift.valueText).toBe(
       'start and end altitudes differ by 198 m on a loop whose endpoints are 0 m apart'
@@ -1052,7 +1290,7 @@ describe('elevation rows — subGroundRow / closureDriftRow / verticalRateRow (D
 
   it("drift clear on a loop: D-11's own phrasing shape, with both numbers present", () => {
     const plan = qualitySignalsSectionPlan(HEALTHY_QUALITY, null);
-    const closureDrift = plan.rows[4];
+    const closureDrift = plan.rows[5];
 
     expect(closureDrift.valueText).toBe('start/end altitude differ by 4 m (loop, 38 m apart)');
     expect(closureDrift.tier).toBe('none');
@@ -1067,7 +1305,7 @@ describe('elevation rows — subGroundRow / closureDriftRow / verticalRateRow (D
       },
     };
     const plan = qualitySignalsSectionPlan(quality, null);
-    const closureDrift = plan.rows[4];
+    const closureDrift = plan.rows[5];
 
     expect(closureDrift.valueText).toBe('start/end position measured 9600 m apart — not a loop, so drift was not checked');
     expect(closureDrift.tier).toBe('none');
@@ -1083,7 +1321,7 @@ describe('elevation rows — subGroundRow / closureDriftRow / verticalRateRow (D
       },
     };
     const plan = qualitySignalsSectionPlan(quality, null);
-    const closureDrift = plan.rows[4];
+    const closureDrift = plan.rows[5];
 
     expect(closureDrift.valueText).toBe('start/end position unknown — drift not checked');
     expect(closureDrift.tier).toBe('not-computable');
@@ -1099,7 +1337,7 @@ describe('elevation rows — subGroundRow / closureDriftRow / verticalRateRow (D
         closureDrift: { state: 'clear', deltaM: null, startEndDistM: 9600 },
       },
     };
-    const excludedRow = qualitySignalsSectionPlan(excludedQuality, null).rows[4];
+    const excludedRow = qualitySignalsSectionPlan(excludedQuality, null).rows[5];
     expect(closureDrift.valueText).not.toBe(excludedRow.valueText);
   });
 
@@ -1113,7 +1351,7 @@ describe('elevation rows — subGroundRow / closureDriftRow / verticalRateRow (D
       },
     };
     const plan = qualitySignalsSectionPlan(quality, null);
-    const verticalRate = plan.rows[5];
+    const verticalRate = plan.rows[6];
 
     expect(verticalRate.valueText).toContain('80.4 m/s');
     expect(verticalRate.valueText).toContain('3');
@@ -1135,7 +1373,7 @@ describe('elevation rows — subGroundRow / closureDriftRow / verticalRateRow (D
       },
     };
     const plan = qualitySignalsSectionPlan(quality, null);
-    const verticalRate = plan.rows[5];
+    const verticalRate = plan.rows[6];
 
     expect(verticalRate.valueText).toBe('max vertical rate 80.4 m/s — violating sample count unavailable');
     expect(verticalRate.tier).toBe('severe');
@@ -1145,7 +1383,7 @@ describe('elevation rows — subGroundRow / closureDriftRow / verticalRateRow (D
 
   it('whole-signal not-computable (stream-less): the sub-ground and vertical-rate rows read "Not computable — {reason}" with tier not-computable, and NO elevation row reads 0 m, 0 m/s or any healthy statement (T-30-26, T-26-02)', () => {
     const plan = qualitySignalsSectionPlan(NOT_COMPUTABLE_QUALITY, null);
-    const [subGround, closureDrift, verticalRate] = plan.rows.slice(3, 6);
+    const [subGround, closureDrift, verticalRate] = plan.rows.slice(4, 7);
 
     expect(subGround.valueText).toBe('Not computable — no stream committed for this activity');
     expect(subGround.tier).toBe('not-computable');
@@ -1163,11 +1401,11 @@ describe('elevation rows — subGroundRow / closureDriftRow / verticalRateRow (D
     }
   });
 
-  it('quality === null: notAvailableRows() supplies eight rows including the three elevation ones, so the section still says something rather than vanishing', () => {
+  it('quality === null: notAvailableRows() supplies nine rows including the three elevation ones, so the section still says something rather than vanishing', () => {
     const plan = qualitySignalsSectionPlan(null, null);
-    expect(plan.rows).toHaveLength(8);
+    expect(plan.rows).toHaveLength(9);
 
-    const [subGround, closureDrift, verticalRate] = plan.rows.slice(3, 6);
+    const [subGround, closureDrift, verticalRate] = plan.rows.slice(4, 7);
     expect(subGround.label).toBe('Lowest altitude');
     expect(closureDrift.label).toBe('Start/end altitude');
     expect(verticalRate.label).toBe('Max vertical rate');
@@ -1179,7 +1417,7 @@ describe('elevation rows — subGroundRow / closureDriftRow / verticalRateRow (D
 
   it("shard null: every elevation row's evidenceText is null while its valueText is unchanged, so a failed shard fetch degrades the evidence line only (T-30-27)", () => {
     const withoutShard = qualitySignalsSectionPlan(HEALTHY_QUALITY, null);
-    const [subGroundNoShard, closureDriftNoShard, verticalRateNoShard] = withoutShard.rows.slice(3, 6);
+    const [subGroundNoShard, closureDriftNoShard, verticalRateNoShard] = withoutShard.rows.slice(4, 7);
     expect(subGroundNoShard.evidenceText).toBeNull();
     expect(closureDriftNoShard.evidenceText).toBeNull();
     expect(verticalRateNoShard.evidenceText).toBeNull();
@@ -1191,7 +1429,7 @@ describe('elevation rows — subGroundRow / closureDriftRow / verticalRateRow (D
       elevationVerticalRateSamples: [{ index: 42, rateMps: 1.2, dtSec: 1, dAltM: 1.2 }],
     });
     const withShard = qualitySignalsSectionPlan(HEALTHY_QUALITY, shard);
-    const [subGroundShard, closureDriftShard, verticalRateShard] = withShard.rows.slice(3, 6);
+    const [subGroundShard, closureDriftShard, verticalRateShard] = withShard.rows.slice(4, 7);
 
     // valueText comes from `quality` alone -- unchanged by the shard's presence.
     expect(subGroundShard.valueText).toBe(subGroundNoShard.valueText);
@@ -1210,7 +1448,7 @@ describe('elevation rows — subGroundRow / closureDriftRow / verticalRateRow (D
     it('4556693525 (severe, sub-ground exemplar) — data/stats/pace-quality/4556693525.json', () => {
       const shard = loadShard('4556693525');
       const plan = qualitySignalsSectionPlan(shard.signals, shard);
-      const [subGround, closureDrift, verticalRate] = plan.rows.slice(3, 6);
+      const [subGround, closureDrift, verticalRate] = plan.rows.slice(4, 7);
 
       expect(subGround.valueText).toBe('lowest altitude -282 m — below plausible ground level');
       expect(closureDrift.valueText).toBe('start/end altitude differ by 6 m (loop, 0 m apart)');
@@ -1220,7 +1458,7 @@ describe('elevation rows — subGroundRow / closureDriftRow / verticalRateRow (D
     it('17257505831 (healthy exemplar) — data/stats/pace-quality/17257505831.json', () => {
       const shard = loadShard('17257505831');
       const plan = qualitySignalsSectionPlan(shard.signals, shard);
-      const [subGround, closureDrift, verticalRate] = plan.rows.slice(3, 6);
+      const [subGround, closureDrift, verticalRate] = plan.rows.slice(4, 7);
 
       expect(subGround.valueText).toBe('lowest altitude 8 m');
       expect(closureDrift.valueText).toBe('start/end altitude differ by 2 m (loop, 0 m apart)');
@@ -1230,7 +1468,7 @@ describe('elevation rows — subGroundRow / closureDriftRow / verticalRateRow (D
     it('i184264408 (drift not-computable, position unknown exemplar) — data/stats/pace-quality/i184264408.json', () => {
       const shard = loadShard('i184264408');
       const plan = qualitySignalsSectionPlan(shard.signals, shard);
-      const [subGround, closureDrift, verticalRate] = plan.rows.slice(3, 6);
+      const [subGround, closureDrift, verticalRate] = plan.rows.slice(4, 7);
 
       expect(subGround.valueText).toBe('lowest altitude -1 m');
       expect(closureDrift.valueText).toBe('start/end position unknown — drift not checked');
