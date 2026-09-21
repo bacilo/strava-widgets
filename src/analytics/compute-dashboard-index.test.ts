@@ -960,6 +960,69 @@ describe('computeDashboardIndex — archive orchestration', () => {
       expect(DASHBOARD_INDEX_SCHEMA_VERSION).toBe(1);
     });
 
+    // Phase 33 (SEG-06, D-08, plan 33-10 Task 3): DASHBOARD_INDEX_SCHEMA_VERSION
+    // stays 1 for the seventh quality signal's additive arrival — named so a
+    // reader (and the decision-coverage gate) sees Phase 33 kept the
+    // pre-existing invariant, not merely that the constant happens to equal 1.
+    it('Phase 33 (SEG-06, D-08) kept DASHBOARD_INDEX_SCHEMA_VERSION at 1 despite quality.unreliableSegments arriving on every row', async () => {
+      const manifest = emptyManifestDoc();
+      manifest.activities['a1'] = { available: false, reason: 'manual' };
+      await writeManifest(manifest);
+      await writeActivity('a1');
+
+      const doc = await computeDashboardIndex(baseOptions());
+      expect(doc.schemaVersion).toBe(1);
+      expect(doc.activities[0].quality.unreliableSegments).toBeDefined();
+    });
+
+    it("a computed index row's quality.unreliableSegments carries every field populated for an activity with real detected segments (3475734189, the hidden-pause fixture)", async () => {
+      const manifest = emptyManifestDoc();
+      manifest.activities['3475734189'] = {
+        available: true,
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 11,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+      };
+      await writeManifest(manifest);
+      await writeActivity('3475734189');
+      const rawStream = await fs.readFile(path.join('data', 'streams', '3475734189.json'), 'utf-8');
+      const realStream = JSON.parse(rawStream) as CanonicalStream;
+      await writeStream('3475734189', realStream);
+
+      const doc = await computeDashboardIndex(baseOptions());
+      const row = doc.activities[0];
+      // Independently-known values for this named activity (33-09-SUMMARY.md,
+      // reproduced from 33-14's anchor check): 1 segment, 181.5 m, 122.7 m
+      // excess, 8 s, hidden-pause, severe.
+      expect(row.quality.unreliableSegments.tier).toBe('severe');
+      expect(row.quality.unreliableSegments.count).toBe(1);
+      expect(row.quality.unreliableSegments.totalMetres).toBeCloseTo(181.5, 6);
+      expect(row.quality.unreliableSegments.totalExcessMetres).toBeCloseTo(122.7, 6);
+      expect(row.quality.unreliableSegments.totalSeconds).toBe(8);
+      expect(row.quality.unreliableSegments.excessFraction).not.toBeNull();
+      expect(row.quality.unreliableSegments.mechanisms).toEqual(['hidden-pause']);
+    });
+
+    it('a stream-less activity reports quality.unreliableSegments in its not-computable shape too, not absent', async () => {
+      const manifest = emptyManifestDoc();
+      manifest.activities['nostream-unreliable'] = { available: false, reason: 'manual' };
+      await writeManifest(manifest);
+      await writeActivity('nostream-unreliable', { device_name: null, source_provider: null });
+
+      const doc = await computeDashboardIndex(baseOptions());
+      const row = doc.activities[0];
+      expect(row.quality.unreliableSegments).toEqual({
+        tier: 'not-computable',
+        count: null,
+        totalMetres: null,
+        totalExcessMetres: null,
+        totalSeconds: null,
+        excessFraction: null,
+        mechanisms: null,
+      });
+    });
+
     it('totals.qualityAnySevere equals the count of rows whose quality.anySevere is true, recomputed independently from doc.activities', async () => {
       const manifest = emptyManifestDoc();
       manifest.activities['severe1'] = {

@@ -128,6 +128,15 @@ export interface DashboardIndexRow {
    * version and this field's presence on every row.
    * `ParsedDashboardIndexRow`'s `Partial<>` covers the re-parse side with no
    * change needed there.
+   *
+   * Phase 33 (SEG-06, D-08, plan 33-09/33-10) added a SEVENTH signal inside
+   * this same nested object — `quality.unreliableSegments` (tier, segment
+   * count, total metres, total excess metres, total seconds, which
+   * mechanisms fired) — purely additively, following this field's own
+   * precedent verbatim: no call site here changed, and
+   * `DASHBOARD_INDEX_SCHEMA_VERSION` stays `1`. The shard-only evidence
+   * (the parts-free per-segment list, D-08) lives on `PaceQualityShard`
+   * instead, never on this row.
    */
   quality: ActivityQualitySignals;
 }
