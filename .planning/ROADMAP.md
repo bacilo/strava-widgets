@@ -217,7 +217,7 @@ Plans:
 
 **Wave 7** *(blocked on Wave 6)*
 
-- [ ] 33-10-PLAN.md — D-08 shard projection, browser parsers, `DASHBOARD_INDEX_SCHEMA_VERSION` pinned at 1
+- [x] 33-10-PLAN.md — D-08 shard projection, browser parsers, `DASHBOARD_INDEX_SCHEMA_VERSION` pinned at 1
 
 **Wave 8** *(blocked on Wave 7)*
 
@@ -332,7 +332,7 @@ Plans:
 | 30. Elevation Quality Signal | v2.2 | 8/8 | Complete    | 2026-09-18 |
 | 31. Tech-Debt Closure — Silent-Failure Guards & Docs Reconciliation | v2.2 | 10/10 | Complete    | 2026-09-19 |
 | 32. Unreliable-Segment Detection & Calibration | v2.3 | 17/17 | Complete    | 2026-09-20 |
-| 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 10/14 | In Progress|  |
+| 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 11/14 | In Progress|  |
 | 34. Pause Classification & Forgotten-Stop | v2.3 | 0/TBD | Not started | - |
 | 35. Stream-Derived Running Pace | v2.3 | 0/TBD | Not started | - |
 | 36. Best-Effort Clean-Window Search & Ceiling Recalibration | v2.3 | 0/TBD | Not started | - |
