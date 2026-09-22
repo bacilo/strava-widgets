@@ -1231,3 +1231,446 @@ describe('predeclared constants', () => {
     expect(REJECTED_SHAPES.length).toBeGreaterThan(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// reachability (34-12-PLAN.md Task 3): each of G4, G5, M1, M2, W1, W2 is shown able to both PASS
+// and FAIL on BOTH the REMOVED and PLANTED axes, through the real harness functions
+// (buildBaseViews/removeNeighbourhoods/plantShapes/runFamily), on synthetic fixtures whose speeds
+// are arbitrary round numbers — none echoes a HALT-1 or 34-CONTEXT figure (D-19 contamination guard).
+// ---------------------------------------------------------------------------
+
+/** A single pause-bearing activity (pause1 -> bridge -> pause2, then a recording gap of `gapMetres`
+ * over 15s) — small enough that ONE plant (or removal) meaningfully moves G4/G5. */
+function buildPauseBearingActivityWithGap(id, gapMetres) {
+  const t = [];
+  const d = [];
+  let time = 0;
+  let dist = 0;
+  for (let i = 0; i <= 50; i++) {
+    t.push(time);
+    d.push(dist);
+    time += 1;
+    dist += 3.0;
+  }
+  for (let i = 0; i < 10; i++) {
+    t.push(time);
+    d.push(dist);
+    time += 1;
+  }
+  t.push(time);
+  d.push(dist);
+  for (let i = 0; i < 3; i++) {
+    time += 1;
+    dist += 0.5;
+    t.push(time);
+    d.push(dist);
+  }
+  for (let i = 0; i < 10; i++) {
+    time += 1;
+    t.push(time);
+    d.push(dist);
+  }
+  time += 15;
+  dist += gapMetres;
+  t.push(time);
+  d.push(dist);
+  for (let i = 0; i < 10; i++) {
+    time += 1;
+    dist += 3.0;
+    t.push(time);
+    d.push(dist);
+  }
+  return { id, t, d, cadence: null };
+}
+
+/** G4/G5 REMOVED CAN FAIL / PLANTED CAN FAIL(ish): two small activities, each with one chained
+ * episode near its own J interval (0s separation, within the R=10s neighbourhood) — REMOVED
+ * trivially empties the (small) population. */
+function buildReachGSmallArchive(gapMetres = 1.0) {
+  const activities = [
+    buildPauseBearingActivityWithGap(INSENSITIVITY_SOURCE_ACTIVITY_ID, gapMetres),
+    buildPauseBearingActivityWithGap('PB2', gapMetres),
+  ];
+  return { activities, streamFileCount: activities.length, notComputable: 0 };
+}
+
+/** G5 PLANTED CAN FAIL: a SINGLE-activity archive (one G5 "member") whose recording gap carries a
+ * much higher rate (50 m / 15 s) than the episode's own drift rate — the plant dominates the one
+ * member's ratio outright. */
+function buildReachG5PlantedFailArchive() {
+  const activities = [buildPauseBearingActivityWithGap(INSENSITIVITY_SOURCE_ACTIVITY_ID, 50.0)];
+  return { activities, streamFileCount: 1, notComputable: 0 };
+}
+
+/** M1/M2 REMOVED CAN FAIL: activities whose ENTIRE advance-interval population sits within the
+ * R=10s neighbourhood of their own creep candidate (a slow stretch immediately followed by one
+ * huge advance-interval outlier) — REMOVED wipes them out, shifting the cross-activity quantile.
+ * `creepyCount` controls how many such activities exist (1 moves M1's p90 only; 2 also moves M2's
+ * p50, since the median then sits among the creepy activities' own inflated values). */
+function buildReachMRemovedFailArchive(creepyCount) {
+  function creepDominated(id) {
+    const t = [];
+    const d = [];
+    let time = 0;
+    let dist = 0;
+    for (let i = 0; i <= 8; i++) {
+      t.push(time);
+      d.push(dist);
+      time += 1;
+      dist += 0.01;
+    }
+    time += 100;
+    dist += 300;
+    t.push(time);
+    d.push(dist);
+    return { id, t, d, cadence: null };
+  }
+  function normal(id, withGap) {
+    const t = [];
+    const d = [];
+    let time = 0;
+    let dist = 0;
+    for (let i = 0; i <= 400; i++) {
+      t.push(time);
+      d.push(dist);
+      time += 1;
+      dist += 3.0;
+    }
+    if (withGap) {
+      time += 15;
+      dist += 1.0;
+      t.push(time);
+      d.push(dist);
+    }
+    return { id, t, d, cadence: null };
+  }
+  const activities = [];
+  for (let i = 0; i < creepyCount; i++) activities.push(creepDominated(`creepy${i}`));
+  activities.push(normal(INSENSITIVITY_SOURCE_ACTIVITY_ID, true));
+  if (creepyCount === 1) activities.push(normal('normal2', false));
+  return { activities, streamFileCount: activities.length, notComputable: 0 };
+}
+
+/** M1/M2 PLANTED CAN FAIL: two TINY activities (n advance intervals each) — a single planted 15s
+ * advance interval dominates the small host's own p90/p50, shifting the cross-activity quantile. */
+function buildReachMPlantedFailArchive(n) {
+  function small(id, withGap) {
+    const t = [];
+    const d = [];
+    let time = 0;
+    let dist = 0;
+    for (let i = 0; i <= n; i++) {
+      t.push(time);
+      d.push(dist);
+      time += 1;
+      dist += 3.0;
+    }
+    if (withGap) {
+      time += 15;
+      dist += 1.0;
+      t.push(time);
+      d.push(dist);
+      for (let i = 0; i <= n; i++) {
+        time += 1;
+        dist += 3.0;
+        t.push(time);
+        d.push(dist);
+      }
+    }
+    return { id, t, d, cadence: null };
+  }
+  const activities = [small(INSENSITIVITY_SOURCE_ACTIVITY_ID, true), small('a2', false)];
+  return { activities, streamFileCount: activities.length, notComputable: 0 };
+}
+
+/** W1/W2 REMOVED/PLANTED CAN FAIL: a single tiny activity with a thin walk(1)/run(1) valley and a
+ * recording gap whose rate lands EXACTLY in the current argmin bin [1.1, 1.2) — planting there
+ * fills the bin (changing the argmin); removing the activity's only folded steps near the gap
+ * empties the population entirely. */
+function buildReachThinValleyArchive() {
+  const t = [0, 1, 2];
+  const d = [0, 3, 6];
+  let time = 2;
+  let dist = 6;
+  time += 16;
+  dist += 1.15 * 16; // recording-gap rate exactly 1.15 m/s -> bin [1.1, 1.2)
+  t.push(time);
+  d.push(dist);
+  time += 1;
+  dist += 1.0;
+  t.push(time);
+  d.push(dist); // one walk-speed folded step
+  time += 1;
+  dist += 3.0;
+  t.push(time);
+  d.push(dist); // one run-speed folded step
+  return { activities: [{ id: INSENSITIVITY_SOURCE_ACTIVITY_ID, t, d, cadence: null }], streamFileCount: 1, notComputable: 0 };
+}
+
+function sourceShapesFor(views) {
+  return views
+    .find((v) => v.id === INSENSITIVITY_SOURCE_ACTIVITY_ID)
+    .J.map((iv) => ({ metres: iv.metres, seconds: iv.seconds }));
+}
+
+describe('reachability', () => {
+  describe('G4', () => {
+    it('G4 REMOVED CAN FAIL: the whole (small) population sits within its own J neighbourhood, ' +
+      'so REMOVED empties it — null, FAIL', () => {
+      const views = buildBaseViews(buildReachGSmallArchive());
+      const family = runFamily('G', views, { sourceShapes: sourceShapesFor(views) });
+      const row = family.rows.find((r) => r.id === 'G4');
+      expect(row.base).not.toBeNull();
+      expect(row.removed).toBeNull();
+      expect(row.pass).toBe(false);
+    });
+
+    it('G4 REMOVED CAN PASS: on the bulk archive (12 groups/activity, far from any J neighbourhood) ' +
+      'removal touches nothing — 0% delta', () => {
+      const views = buildBaseViews(buildClearArchive());
+      const family = runFamily('G', views, { sourceShapes: sourceShapesFor(views) });
+      const row = family.rows.find((r) => r.id === 'G4');
+      expect(row.removedDelta).toBe(0);
+      expect(row.pass).toBe(true);
+      // non-vacuity: strawman G FAILs on the same fixture that makes G4 PASS.
+      expect(family.strawman.pass).toBe(false);
+    });
+
+    it('G4 PLANTED CAN FAIL: >= 1 plant always; on a small (n=2) population a single planted ' +
+      "J-rate episode moves the p90 by more than 1%", () => {
+      const views = buildBaseViews(buildReachGSmallArchive());
+      const family = runFamily('G', views, { sourceShapes: sourceShapesFor(views) });
+      const row = family.rows.find((r) => r.id === 'G4');
+      expect(row.plantCount).toBeGreaterThanOrEqual(1);
+      expect(row.plantedDelta).toBeGreaterThan(0.01);
+      expect(row.pass).toBe(false);
+    });
+
+    it('G4 PLANTED CAN PASS: on the bulk archive every episode is tied at the same rate, so a tied ' +
+      'run at the p90 index absorbs the plant', () => {
+      const views = buildBaseViews(buildClearArchive());
+      const family = runFamily('G', views, { sourceShapes: sourceShapesFor(views) });
+      const row = family.rows.find((r) => r.id === 'G4');
+      expect(row.plantCount).toBeGreaterThanOrEqual(1);
+      expect(row.plantedDelta).toBeLessThanOrEqual(0.01);
+      expect(row.pass).toBe(true);
+      expect(family.strawman.pass).toBe(false);
+    });
+  });
+
+  describe('G5', () => {
+    it('G5 REMOVED CAN FAIL: an activity loses its only episode (leaves the population) on the ' +
+      'small archive', () => {
+      const views = buildBaseViews(buildReachGSmallArchive());
+      const family = runFamily('G', views, { sourceShapes: sourceShapesFor(views) });
+      const row = family.rows.find((r) => r.id === 'G5');
+      expect(row.base).not.toBeNull();
+      expect(row.removed).toBeNull();
+      expect(row.pass).toBe(false);
+    });
+
+    it('G5 REMOVED CAN PASS: on the bulk archive removal touches only activities whose ratio ' +
+      'position is unchanged (all tied)', () => {
+      const views = buildBaseViews(buildClearArchive());
+      const family = runFamily('G', views, { sourceShapes: sourceShapesFor(views) });
+      const row = family.rows.find((r) => r.id === 'G5');
+      expect(row.removedDelta).toBe(0);
+      expect(row.pass).toBe(true);
+      expect(family.strawman.pass).toBe(false);
+    });
+
+    it('G5 PLANTED CAN FAIL: with only ONE member activity, a plant with a much higher rate lifts ' +
+      "that member's ratio outright, moving the (single-member) p90 by far more than 1%", () => {
+      const views = buildBaseViews(buildReachG5PlantedFailArchive());
+      const family = runFamily('G', views, { sourceShapes: sourceShapesFor(views) });
+      const row = family.rows.find((r) => r.id === 'G5');
+      expect(row.plantCount).toBeGreaterThanOrEqual(1);
+      expect(row.plantedDelta).toBeGreaterThan(0.01);
+      expect(row.pass).toBe(false);
+    });
+
+    it('G5 PLANTED CAN PASS: on the bulk archive plants land only in members already tied at the ' +
+      'same ratio (deterministic round-robin by id), so the order statistic is unchanged', () => {
+      const views = buildBaseViews(buildClearArchive());
+      const family = runFamily('G', views, { sourceShapes: sourceShapesFor(views) });
+      const row = family.rows.find((r) => r.id === 'G5');
+      expect(row.plantCount).toBeGreaterThanOrEqual(1);
+      expect(row.plantedDelta).toBeLessThanOrEqual(0.01);
+      expect(row.pass).toBe(true);
+      expect(family.strawman.pass).toBe(false);
+    });
+  });
+
+  describe('M1', () => {
+    it('M1 REMOVED CAN FAIL: dropping advance intervals near a creep candidate strips a host\'s ' +
+      "own outlier-dominated p90, moving the cross-activity p90 far past 1%", () => {
+      const views = buildBaseViews(buildReachMRemovedFailArchive(1));
+      const removed = removeNeighbourhoods(views, 'M', 0.05);
+      expect(removed.removedCount).toBeGreaterThan(0);
+      const family = runFamily('M', views, { sourceShapes: sourceShapesFor(views), shippedFloor: 0.05 });
+      const row = family.rows.find((r) => r.id === 'M1');
+      expect(row.removedDelta).toBeGreaterThan(0.01);
+      expect(row.pass).toBe(false);
+    });
+
+    it('M1 REMOVED CAN PASS: a host dominated by one sampling interval keeps its p90 when a ' +
+      'minority is removed (bulk archive)', () => {
+      const views = buildBaseViews(buildInsensitiveArchive());
+      const family = runFamily('M', views, { sourceShapes: sourceShapesFor(views), shippedFloor: 0.131 });
+      const row = family.rows.find((r) => r.id === 'M1');
+      expect(row.removedDelta).toBeLessThanOrEqual(0.01);
+      expect(row.pass).toBe(true);
+      expect(family.strawman.pass).toBe(false);
+    });
+
+    it('M1 PLANTED CAN FAIL: on tiny hosts, a single planted long advance interval sits at the top ' +
+      "of the host's own distribution, moving its p90 (and the cross-activity p90) past 1%", () => {
+      const views = buildBaseViews(buildReachMPlantedFailArchive(3));
+      const family = runFamily('M', views, { sourceShapes: sourceShapesFor(views), shippedFloor: 0.5 });
+      const row = family.rows.find((r) => r.id === 'M1');
+      expect(row.plantCount).toBeGreaterThanOrEqual(1);
+      expect(row.plantedDelta).toBeGreaterThan(0.01);
+      expect(row.pass).toBe(false);
+    });
+
+    it('M1 PLANTED CAN PASS: an atom-dominated distribution (bulk archive) absorbs a 1% top ' +
+      'insertion', () => {
+      const views = buildBaseViews(buildInsensitiveArchive());
+      const family = runFamily('M', views, { sourceShapes: sourceShapesFor(views), shippedFloor: 0.131 });
+      const row = family.rows.find((r) => r.id === 'M1');
+      expect(row.plantCount).toBeGreaterThanOrEqual(1);
+      expect(row.plantedDelta).toBeLessThanOrEqual(0.01);
+      expect(row.pass).toBe(true);
+      expect(family.strawman.pass).toBe(false);
+    });
+  });
+
+  describe('M2', () => {
+    it('M2 REMOVED CAN FAIL: with TWO creep-dominated hosts, removal changes which host sits at ' +
+      'the cross-activity median, moving M2 far past 1%', () => {
+      const views = buildBaseViews(buildReachMRemovedFailArchive(2));
+      const removed = removeNeighbourhoods(views, 'M', 0.05);
+      expect(removed.removedCount).toBeGreaterThan(0);
+      const family = runFamily('M', views, { sourceShapes: sourceShapesFor(views), shippedFloor: 0.05 });
+      const row = family.rows.find((r) => r.id === 'M2');
+      expect(row.removedDelta).toBeGreaterThan(0.01);
+      expect(row.pass).toBe(false);
+    });
+
+    it('M2 REMOVED CAN PASS: a typical (not conservative) scale on the bulk archive keeps its ' +
+      'median when a minority is removed', () => {
+      const views = buildBaseViews(buildInsensitiveArchive());
+      const family = runFamily('M', views, { sourceShapes: sourceShapesFor(views), shippedFloor: 0.131 });
+      const row = family.rows.find((r) => r.id === 'M2');
+      expect(row.removedDelta).toBeLessThanOrEqual(0.01);
+      expect(row.pass).toBe(true);
+      expect(family.strawman.pass).toBe(false);
+    });
+
+    it('M2 PLANTED CAN FAIL: on tiny hosts, a single planted long advance interval shifts the ' +
+      "host's own median far past 1%", () => {
+      const views = buildBaseViews(buildReachMPlantedFailArchive(3));
+      const family = runFamily('M', views, { sourceShapes: sourceShapesFor(views), shippedFloor: 0.5 });
+      const row = family.rows.find((r) => r.id === 'M2');
+      expect(row.plantCount).toBeGreaterThanOrEqual(1);
+      expect(row.plantedDelta).toBeGreaterThan(0.01);
+      expect(row.pass).toBe(false);
+    });
+
+    it('M2 PLANTED CAN PASS: an atom-dominated distribution (bulk archive) absorbs a 1% top ' +
+      'insertion at the median too', () => {
+      const views = buildBaseViews(buildInsensitiveArchive());
+      const family = runFamily('M', views, { sourceShapes: sourceShapesFor(views), shippedFloor: 0.131 });
+      const row = family.rows.find((r) => r.id === 'M2');
+      expect(row.plantCount).toBeGreaterThanOrEqual(1);
+      expect(row.plantedDelta).toBeLessThanOrEqual(0.01);
+      expect(row.pass).toBe(true);
+      expect(family.strawman.pass).toBe(false);
+    });
+  });
+
+  describe('W1', () => {
+    it('W1 REMOVED CAN FAIL: removing the only folded steps near the activity\'s own J interval ' +
+      'empties the tiny population — null, FAIL', () => {
+      const views = buildBaseViews(buildReachThinValleyArchive());
+      const family = runFamily('W', views, { sourceShapes: sourceShapesFor(views), shippedFloor: 0.5 });
+      const row = family.rows.find((r) => r.id === 'W1');
+      expect(row.base).not.toBeNull();
+      expect(row.removed).toBeNull();
+      expect(row.pass).toBe(false);
+    });
+
+    it('W1 REMOVED CAN PASS: proportional thinning on the bulk archive keeps the argmin bin (0% ' +
+      'delta — quantised to bins)', () => {
+      const views = buildBaseViews(buildClearArchive());
+      const family = runFamily('W', views, { sourceShapes: sourceShapesFor(views), shippedFloor: 0.131 });
+      const row = family.rows.find((r) => r.id === 'W1');
+      expect(row.removedDelta).toBe(0);
+      expect(row.pass).toBe(true);
+      expect(family.strawman.pass).toBe(false);
+    });
+
+    it('W1 PLANTED CAN FAIL: a plant landing EXACTLY in the current argmin bin fills it, changing ' +
+      'the argmin bin by more than 1%', () => {
+      const views = buildBaseViews(buildReachThinValleyArchive());
+      const family = runFamily('W', views, { sourceShapes: sourceShapesFor(views), shippedFloor: 0.5 });
+      const row = family.rows.find((r) => r.id === 'W1');
+      expect(row.plantCount).toBeGreaterThanOrEqual(1);
+      expect(row.plantedDelta).toBeGreaterThan(0.01);
+      expect(row.pass).toBe(false);
+    });
+
+    it('W1 PLANTED CAN PASS: the valley bin\'s margin on the bulk archive absorbs the added ' +
+      'weight — the bin is unchanged', () => {
+      const views = buildBaseViews(buildClearArchive());
+      const family = runFamily('W', views, { sourceShapes: sourceShapesFor(views), shippedFloor: 0.131 });
+      const row = family.rows.find((r) => r.id === 'W1');
+      expect(row.plantCount).toBeGreaterThanOrEqual(1);
+      expect(row.plantedDelta).toBeLessThanOrEqual(0.01);
+      expect(row.pass).toBe(true);
+      expect(family.strawman.pass).toBe(false);
+    });
+  });
+
+  describe('W2', () => {
+    it('W2 REMOVED CAN FAIL: removing the only folded steps near the activity\'s own J interval ' +
+      'empties the tiny population — null, FAIL', () => {
+      const views = buildBaseViews(buildReachThinValleyArchive());
+      const family = runFamily('W', views, { sourceShapes: sourceShapesFor(views), shippedFloor: 0.5 });
+      const row = family.rows.find((r) => r.id === 'W2');
+      expect(row.base).not.toBeNull();
+      expect(row.removed).toBeNull();
+      expect(row.pass).toBe(false);
+    });
+
+    it('W2 REMOVED CAN PASS: proportional thinning on the bulk archive keeps the argmin bin', () => {
+      const views = buildBaseViews(buildClearArchive());
+      const family = runFamily('W', views, { sourceShapes: sourceShapesFor(views), shippedFloor: 0.131 });
+      const row = family.rows.find((r) => r.id === 'W2');
+      expect(row.removedDelta).toBe(0);
+      expect(row.pass).toBe(true);
+      expect(family.strawman.pass).toBe(false);
+    });
+
+    it('W2 PLANTED CAN FAIL: a plant landing EXACTLY in the current argmin bin fills it (count- ' +
+      'weighted), changing the argmin bin by more than 1%', () => {
+      const views = buildBaseViews(buildReachThinValleyArchive());
+      const family = runFamily('W', views, { sourceShapes: sourceShapesFor(views), shippedFloor: 0.5 });
+      const row = family.rows.find((r) => r.id === 'W2');
+      expect(row.plantCount).toBeGreaterThanOrEqual(1);
+      expect(row.plantedDelta).toBeGreaterThan(0.01);
+      expect(row.pass).toBe(false);
+    });
+
+    it('W2 PLANTED CAN PASS: the valley bin\'s margin on the bulk archive absorbs the added ' +
+      'weight (count-weighted)', () => {
+      const views = buildBaseViews(buildClearArchive());
+      const family = runFamily('W', views, { sourceShapes: sourceShapesFor(views), shippedFloor: 0.131 });
+      const row = family.rows.find((r) => r.id === 'W2');
+      expect(row.plantCount).toBeGreaterThanOrEqual(1);
+      expect(row.plantedDelta).toBeLessThanOrEqual(0.01);
+      expect(row.pass).toBe(true);
+      expect(family.strawman.pass).toBe(false);
+    });
+  });
+});
