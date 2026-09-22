@@ -2128,23 +2128,114 @@ describe('provenance chain', () => {
     return match[1];
   }
 
-  it('binds 34-CONTEXT.md D-20, the generator source text and the rendered artifact line ' +
-    'character-for-character (never merely numerically); asserts the exact provenance line', () => {
-    const contextValue = readContextValue();
-    const generatorValue = readGeneratorTextValue();
-    expect(generatorValue).toBe(DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT);
-    expect(generatorValue).toBe(contextValue);
+  // ---------------------------------------------------------------------------
+  // [D-21, plan 34-14, Task 3] Table-driven over BOTH declared constants — extends this block, never
+  // forks it. Each entry reads 34-CONTEXT.md's line-anchored DECLARED line, the generator's own
+  // source-text constant, and a rendered clear fixture's artifact line, and asserts all three
+  // decimal strings agree character-for-character.
+  // ---------------------------------------------------------------------------
+  const PROVENANCE_CONSTANTS = [
+    {
+      label: 'STATIONARY_MAX_SPEED_MPS (D-20)',
+      contextPattern: /^DECLARED STATIONARY_MAX_SPEED_MPS = ([0-9.]+)$/m,
+      generatorTextPattern: /export const DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT = '([0-9.]+)';/,
+      artifactPattern: /^STATIONARY_MAX_SPEED_MPS = ([0-9.]+)$/m,
+      exportedText: () => DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT,
+      provenanceLine: 'STATIONARY_MAX_SPEED_MPS provenance: developer-declared (D-20), not calibrated',
+    },
+    {
+      label: 'WALK_RUN_BOUNDARY_MPS (D-21)',
+      contextPattern: /^DECLARED WALK_RUN_BOUNDARY_MPS = ([0-9.]+)$/m,
+      generatorTextPattern: /export const DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT = '([0-9.]+)';/,
+      artifactPattern: /^WALK_RUN_BOUNDARY_MPS = ([0-9.]+)$/m,
+      exportedText: () => DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT,
+      provenanceLine: 'WALK_RUN_BOUNDARY_MPS provenance: developer-declared (D-21), not calibrated',
+    },
+  ];
 
-    const result = runCalibration(buildClearArchive(), GATES_PASS_CONTROL_TEXT);
-    const markdown = renderCalibrationMarkdown({ ...result, provenance: {} });
-    const artifactMatch = ARTIFACT_LINE_PATTERN.exec(markdown);
-    expect(artifactMatch).not.toBeNull();
-    expect(artifactMatch[1]).toBe(contextValue);
-    expect(artifactMatch[1]).toBe(generatorValue);
+  for (const c of PROVENANCE_CONSTANTS) {
+    it(`binds 34-CONTEXT.md, the generator source text and the rendered artifact line for ` +
+      `${c.label} character-for-character (never merely numerically); asserts the exact ` +
+      'provenance line', () => {
+      const contextText = readFileSync(CONTEXT_PATH, 'utf8');
+      const contextMatch = c.contextPattern.exec(contextText);
+      expect(contextMatch, `DECLARED line for ${c.label} not found in ${CONTEXT_PATH}`).not.toBeNull();
+      const contextValue = contextMatch[1];
 
-    expect(markdown).toContain(
-      'STATIONARY_MAX_SPEED_MPS provenance: developer-declared (D-20), not calibrated'
-    );
+      const generatorText = readFileSync(GENERATOR_PATH, 'utf8');
+      const generatorMatch = c.generatorTextPattern.exec(generatorText);
+      expect(generatorMatch, `source-text literal for ${c.label} not found in ${GENERATOR_PATH}`).not.toBeNull();
+      const generatorValue = generatorMatch[1];
+
+      expect(generatorValue).toBe(c.exportedText());
+      expect(generatorValue).toBe(contextValue);
+
+      const result = runCalibration(buildClearArchive(), GATES_PASS_CONTROL_TEXT);
+      const markdown = renderCalibrationMarkdown({ ...result, provenance: {} });
+      const artifactMatch = c.artifactPattern.exec(markdown);
+      expect(artifactMatch, `artifact line for ${c.label} not found`).not.toBeNull();
+      expect(artifactMatch[1]).toBe(contextValue);
+      expect(artifactMatch[1]).toBe(generatorValue);
+
+      expect(markdown).toContain(c.provenanceLine);
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // [D-21, plan 34-14, Task 3] M7 no-stray-literal guard, for BOTH constants (34-13 shipped this for
+  // 0.5 only). In the generator's non-comment source, every bare 0.5/2.2 occurrence must be the
+  // declaration line; in the test file, every value assertion must reference the exported constant,
+  // except the provenance-chain block's own comparisons against the context file's parsed text.
+  // ---------------------------------------------------------------------------
+
+  function nonCommentLines(text) {
+    return text
+      .split('\n')
+      .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line));
+  }
+
+  it('M7: in the generator, every bare 0.5 is either the D-20 declaration line or one of the two ' +
+    "PRE-EXISTING, semantically-unrelated 0.5 literals (shapeM2's own p50 statistic; the valley " +
+    "dip-qualification prominence threshold, both load-bearing since plan 34-04, long before D-20 " +
+    "existed) — and every bare 2.2 is the D-21 declaration line. No stray DUPLICATE of either " +
+    'declared value anywhere else', () => {
+    const lines = nonCommentLines(readFileSync(GENERATOR_PATH, 'utf8'));
+    const stationaryDeclLine = "export const DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT = '0.5';";
+    const boundaryDeclLine = "export const DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT = '2.2';";
+    const preexisting05Lines = [
+      // shapeM2 (pre-declared, plan 34-04): R-7 p50 across activities — unrelated to D-20.
+      '  return { value: sorted.length === 0 ? null : quantile(sorted, 0.5), n: sorted.length, excluded, items: countAdvanceIntervals(views) };',
+      // Dip-qualification prominence test (valleyOf/histogramOf, plan 34-04, unchanged by the
+      // D-21 histogramOf extraction) — unrelated to D-20.
+      '    if (leftMax > 0 && rightMax > 0 && counts[i] <= 0.5 * Math.min(leftMax, rightMax)) {',
+    ];
+    for (const line of lines) {
+      if (/\b0\.5\b/.test(line)) {
+        expect([stationaryDeclLine, ...preexisting05Lines], `stray 0.5: ${line}`).toContain(line);
+      }
+      if (/\b2\.2\b/.test(line)) {
+        expect(line, `stray 2.2: ${line}`).toBe(boundaryDeclLine);
+      }
+    }
+  });
+
+  it('M7: outside the provenance-chain block, the ONLY quoted-string occurrences of either declared ' +
+    "value's source text are the two canonical round-trip pins in the 'declared constant'/'declared " +
+    "boundary' describe blocks — no OTHER assertion hardcodes either value's source text as an " +
+    'independent expected value', () => {
+    const testText = readFileSync(new URL('./compute-pause-classification-calibration.test.mjs', import.meta.url), 'utf8');
+    const provenanceBlockStart = testText.indexOf("describe('provenance chain'");
+    const provenanceBlockEnd = testText.indexOf("\ndescribe(", provenanceBlockStart + 1);
+    const outsideProvenanceBlock =
+      testText.slice(0, provenanceBlockStart) +
+      testText.slice(provenanceBlockEnd === -1 ? testText.length : provenanceBlockEnd);
+
+    const allowedStationaryLine = "expect(DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT).toBe('0.5');";
+    const allowedBoundaryLine = "expect(DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT).toBe('2.2');";
+    for (const line of outsideProvenanceBlock.split('\n')) {
+      if (line.includes("'0.5'")) expect(line.trim(), `stray '0.5': ${line}`).toBe(allowedStationaryLine);
+      if (line.includes("'2.2'")) expect(line.trim(), `stray '2.2': ${line}`).toBe(allowedBoundaryLine);
+    }
   });
 
   it('S1 RED: editing 34-CONTEXT.md\'s DECLARED line breaks the context<->generator binding; ' +
@@ -2260,6 +2351,144 @@ describe('provenance chain', () => {
     console.log(redMessage);
     expect(execSync(`git diff --exit-code -- ${GENERATOR_PATH}`).toString()).toBe('');
     expect(readGeneratorTextValue()).toBe('0.5');
+  });
+
+  // ---------------------------------------------------------------------------
+  // [D-21, plan 34-14, Task 3] The SAME three seeded edits, this time for WALK_RUN_BOUNDARY_MPS —
+  // each watched failing then reverted via `git checkout --`, never committed, never left dirty.
+  // ---------------------------------------------------------------------------
+
+  const BOUNDARY_CONTEXT_LINE_PATTERN = /^DECLARED WALK_RUN_BOUNDARY_MPS = ([0-9.]+)$/m;
+  const BOUNDARY_GENERATOR_TEXT_LINE_PATTERN = /export const DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT = '([0-9.]+)';/;
+  const BOUNDARY_ARTIFACT_LINE_PATTERN = /^WALK_RUN_BOUNDARY_MPS = ([0-9.]+)$/m;
+
+  function readBoundaryContextValue() {
+    const text = readFileSync(CONTEXT_PATH, 'utf8');
+    const match = BOUNDARY_CONTEXT_LINE_PATTERN.exec(text);
+    if (!match) throw new Error(`DECLARED WALK_RUN_BOUNDARY_MPS line not found in ${CONTEXT_PATH}`);
+    return match[1];
+  }
+
+  function readBoundaryGeneratorTextValue() {
+    const text = readFileSync(GENERATOR_PATH, 'utf8');
+    const match = BOUNDARY_GENERATOR_TEXT_LINE_PATTERN.exec(text);
+    if (!match) throw new Error(`DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT literal not found in ${GENERATOR_PATH}`);
+    return match[1];
+  }
+
+  it('S1 (WALK_RUN_BOUNDARY_MPS) RED: editing 34-CONTEXT.md\'s D-21 DECLARED line breaks the ' +
+    'context<->generator binding; reverted, the tree is clean', () => {
+    const originalContext = readFileSync(CONTEXT_PATH, 'utf8');
+    const editedContext = originalContext.replace(
+      BOUNDARY_CONTEXT_LINE_PATTERN,
+      'DECLARED WALK_RUN_BOUNDARY_MPS = 3.3'
+    );
+    expect(editedContext).not.toBe(originalContext);
+    writeFileSync(CONTEXT_PATH, editedContext, 'utf8');
+    let redMessage = null;
+    try {
+      const contextValue = readBoundaryContextValue();
+      const generatorValue = readBoundaryGeneratorTextValue();
+      expect(contextValue).toBe('3.3');
+      if (generatorValue !== contextValue) {
+        redMessage =
+          `RED (S1 boundary, 34-CONTEXT.md D-21 DECLARED line edited to 3.3): generator source ` +
+          `text ('${generatorValue}') !== 34-CONTEXT.md DECLARED line ('${contextValue}')`;
+      }
+    } finally {
+      execSync(`git checkout -- ${CONTEXT_PATH}`);
+    }
+    expect(redMessage).not.toBeNull();
+    // eslint-disable-next-line no-console -- RED evidence, quoted verbatim in the plan 34-14 SUMMARY
+    console.log(redMessage);
+    expect(execSync(`git diff --exit-code -- ${CONTEXT_PATH}`).toString()).toBe('');
+    expect(readBoundaryContextValue()).toBe('2.2');
+  });
+
+  it('S2 (WALK_RUN_BOUNDARY_MPS) RED: editing the generator\'s own source-text constant breaks the ' +
+    'generator<->context binding; reverted, the tree is clean', () => {
+    const originalGenerator = readFileSync(GENERATOR_PATH, 'utf8');
+    const editedGenerator = originalGenerator.replace(
+      "export const DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT = '2.2';",
+      "export const DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT = '2.3';"
+    );
+    expect(editedGenerator).not.toBe(originalGenerator);
+    writeFileSync(GENERATOR_PATH, editedGenerator, 'utf8');
+    let redMessage = null;
+    try {
+      const contextValue = readBoundaryContextValue();
+      const generatorValue = readBoundaryGeneratorTextValue();
+      expect(generatorValue).toBe('2.3');
+      if (generatorValue !== contextValue) {
+        redMessage =
+          `RED (S2 boundary, generator DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT edited to '2.3'): ` +
+          `generator source text ('${generatorValue}') !== 34-CONTEXT.md DECLARED line ` +
+          `('${contextValue}')`;
+      }
+    } finally {
+      execSync(`git checkout -- ${GENERATOR_PATH}`);
+    }
+    expect(redMessage).not.toBeNull();
+    // eslint-disable-next-line no-console -- RED evidence, quoted verbatim in the plan 34-14 SUMMARY
+    console.log(redMessage);
+    expect(execSync(`git diff --exit-code -- ${GENERATOR_PATH}`).toString()).toBe('');
+    expect(readBoundaryGeneratorTextValue()).toBe('2.2');
+  });
+
+  it('S3 (WALK_RUN_BOUNDARY_MPS) RED: a renderer that emits String(number) instead of the source ' +
+    'text silently drops a trailing zero — proving the guard is character-level, not numeric; ' +
+    'reverted, the tree is clean', async () => {
+    const originalGenerator = readFileSync(GENERATOR_PATH, 'utf8');
+
+    // Combined seeded edit, transient only (never committed): (a) the source text gains a trailing
+    // zero (2.20, which Number()/String() round-trips back to '2.2', dropping it), (b) the module-
+    // load round-trip assert for THIS constant is removed for this transient copy only, and (c) the
+    // Chosen-constants render call site for WALK_RUN_BOUNDARY_MPS switches from the source-text
+    // constant to the plain numeric constant.
+    let edited = originalGenerator.replace(
+      "export const DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT = '2.2';",
+      "export const DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT = '2.20';"
+    );
+    expect(edited).not.toBe(originalGenerator);
+    const beforeAssertStrip = edited;
+    edited = edited.replace(
+      /assert\(\s*String\(DECLARED_WALK_RUN_BOUNDARY_MPS\)[\s\S]*?\n\);\n/,
+      '// [S3 boundary seeded edit, transient] round-trip assert removed for this RED demonstration only\n'
+    );
+    expect(edited).not.toBe(beforeAssertStrip);
+    const beforeRenderEdit = edited;
+    edited = edited.replace(
+      'lines.push(`WALK_RUN_BOUNDARY_MPS = ${DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT}`);',
+      'lines.push(`WALK_RUN_BOUNDARY_MPS = ${DECLARED_WALK_RUN_BOUNDARY_MPS}`);'
+    );
+    expect(edited).not.toBe(beforeRenderEdit);
+
+    writeFileSync(GENERATOR_PATH, edited, 'utf8');
+    let redMessage = null;
+    try {
+      const generatorSourceText = readBoundaryGeneratorTextValue(); // '2.20'
+      expect(generatorSourceText).toBe('2.20');
+
+      const mod = await import(`${path.resolve(GENERATOR_PATH)}?seed=${Date.now()}-${Math.random()}`);
+      const result = mod.runCalibration(buildClearArchive(), GATES_PASS_CONTROL_TEXT);
+      const markdown = mod.renderCalibrationMarkdown({ ...result, provenance: {} });
+      const artifactMatch = BOUNDARY_ARTIFACT_LINE_PATTERN.exec(markdown);
+      const artifactValue = artifactMatch ? artifactMatch[1] : null;
+
+      if (artifactValue !== generatorSourceText) {
+        redMessage =
+          `RED (S3 boundary, renderer switched to String(number) on source text '2.20'): rendered ` +
+          `artifact line ('${artifactValue}') !== generator source text ('${generatorSourceText}') ` +
+          '— a String(number) renderer silently drops the trailing zero';
+      }
+    } finally {
+      execSync(`git checkout -- ${GENERATOR_PATH}`);
+    }
+    expect(redMessage).not.toBeNull();
+    // eslint-disable-next-line no-console -- RED evidence, quoted verbatim in the plan 34-14 SUMMARY
+    console.log(redMessage);
+    expect(execSync(`git diff --exit-code -- ${GENERATOR_PATH}`).toString()).toBe('');
+    expect(readBoundaryGeneratorTextValue()).toBe('2.2');
   });
 });
 
