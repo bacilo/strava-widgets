@@ -5,6 +5,10 @@
  * invoked here (D-08: the generator is not run against the real archive in this plan).
  */
 
+import { execSync } from 'node:child_process';
+import { readFileSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import { UNRELIABLE_SPEED_LIMIT_MPS } from '../dist/analytics/pace-derivation.js';
@@ -1544,6 +1548,170 @@ describe('exit contract', () => {
       shipped: GATES_PASS_SHIPPED,
     };
     expect(decideOutcome(result, {}).exitCode).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// provenance chain (D-20, plan 34-13, Task 3) — the declared value cannot drift silently between
+// 34-CONTEXT.md's D-20 line, the generator's own source text, and the rendered artifact line.
+// Every seeded edit below writes to a REAL repo file, is watched failing, then reverted via
+// `git checkout --` in a `finally` block — never left dirty, never committed. main() is never
+// invoked and no real stream is read.
+// ---------------------------------------------------------------------------
+
+describe('provenance chain', () => {
+  const CONTEXT_PATH = '.planning/phases/34-pause-classification-forgotten-stop/34-CONTEXT.md';
+  const GENERATOR_PATH = 'scripts/compute-pause-classification-calibration.mjs';
+  const CONTEXT_LINE_PATTERN = /^DECLARED STATIONARY_MAX_SPEED_MPS = ([0-9.]+)$/m;
+  const GENERATOR_TEXT_LINE_PATTERN = /export const DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT = '([0-9.]+)';/;
+  const ARTIFACT_LINE_PATTERN = /^STATIONARY_MAX_SPEED_MPS = ([0-9.]+)$/m;
+
+  function readContextValue() {
+    const text = readFileSync(CONTEXT_PATH, 'utf8');
+    const match = CONTEXT_LINE_PATTERN.exec(text);
+    if (!match) throw new Error(`DECLARED STATIONARY_MAX_SPEED_MPS line not found in ${CONTEXT_PATH}`);
+    return match[1];
+  }
+
+  function readGeneratorTextValue() {
+    const text = readFileSync(GENERATOR_PATH, 'utf8');
+    const match = GENERATOR_TEXT_LINE_PATTERN.exec(text);
+    if (!match) throw new Error(`DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT literal not found in ${GENERATOR_PATH}`);
+    return match[1];
+  }
+
+  it('binds 34-CONTEXT.md D-20, the generator source text and the rendered artifact line ' +
+    'character-for-character (never merely numerically); asserts the exact provenance line', () => {
+    const contextValue = readContextValue();
+    const generatorValue = readGeneratorTextValue();
+    expect(generatorValue).toBe(DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT);
+    expect(generatorValue).toBe(contextValue);
+
+    const result = runCalibration(buildClearArchive(), GATES_PASS_CONTROL_TEXT);
+    const markdown = renderCalibrationMarkdown({ ...result, provenance: {} });
+    const artifactMatch = ARTIFACT_LINE_PATTERN.exec(markdown);
+    expect(artifactMatch).not.toBeNull();
+    expect(artifactMatch[1]).toBe(contextValue);
+    expect(artifactMatch[1]).toBe(generatorValue);
+
+    expect(markdown).toContain(
+      'STATIONARY_MAX_SPEED_MPS provenance: developer-declared (D-20), not calibrated'
+    );
+  });
+
+  it('S1 RED: editing 34-CONTEXT.md\'s DECLARED line breaks the context<->generator binding; ' +
+    'reverted, the tree is clean', () => {
+    const originalContext = readFileSync(CONTEXT_PATH, 'utf8');
+    const editedContext = originalContext.replace(
+      CONTEXT_LINE_PATTERN,
+      'DECLARED STATIONARY_MAX_SPEED_MPS = 0.7'
+    );
+    expect(editedContext).not.toBe(originalContext); // the seed must actually change the file
+    writeFileSync(CONTEXT_PATH, editedContext, 'utf8');
+    let redMessage = null;
+    try {
+      const contextValue = readContextValue();
+      const generatorValue = readGeneratorTextValue();
+      expect(contextValue).toBe('0.7');
+      if (generatorValue !== contextValue) {
+        redMessage =
+          `RED (S1, 34-CONTEXT.md DECLARED line edited to 0.7): generator source text ` +
+          `('${generatorValue}') !== 34-CONTEXT.md DECLARED line ('${contextValue}')`;
+      }
+    } finally {
+      execSync(`git checkout -- ${CONTEXT_PATH}`);
+    }
+    expect(redMessage).not.toBeNull();
+    // eslint-disable-next-line no-console -- RED evidence, quoted verbatim in the plan 34-13 SUMMARY
+    console.log(redMessage);
+    expect(execSync(`git diff --exit-code -- ${CONTEXT_PATH}`).toString()).toBe('');
+    expect(readContextValue()).toBe('0.5');
+  });
+
+  it('S2 RED: editing the generator\'s own source-text constant breaks the generator<->context ' +
+    'binding; reverted, the tree is clean', () => {
+    const originalGenerator = readFileSync(GENERATOR_PATH, 'utf8');
+    const editedGenerator = originalGenerator.replace(
+      "export const DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT = '0.5';",
+      "export const DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT = '0.6';"
+    );
+    expect(editedGenerator).not.toBe(originalGenerator);
+    writeFileSync(GENERATOR_PATH, editedGenerator, 'utf8');
+    let redMessage = null;
+    try {
+      const contextValue = readContextValue();
+      const generatorValue = readGeneratorTextValue();
+      expect(generatorValue).toBe('0.6');
+      if (generatorValue !== contextValue) {
+        redMessage =
+          `RED (S2, generator DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT edited to '0.6'): generator ` +
+          `source text ('${generatorValue}') !== 34-CONTEXT.md DECLARED line ('${contextValue}')`;
+      }
+    } finally {
+      execSync(`git checkout -- ${GENERATOR_PATH}`);
+    }
+    expect(redMessage).not.toBeNull();
+    // eslint-disable-next-line no-console -- RED evidence, quoted verbatim in the plan 34-13 SUMMARY
+    console.log(redMessage);
+    expect(execSync(`git diff --exit-code -- ${GENERATOR_PATH}`).toString()).toBe('');
+    expect(readGeneratorTextValue()).toBe('0.5');
+  });
+
+  it('S3 RED: a renderer that emits String(number) instead of the source text silently drops a ' +
+    'trailing zero — proving the guard is character-level, not numeric; reverted, the tree is clean', async () => {
+    const originalGenerator = readFileSync(GENERATOR_PATH, 'utf8');
+
+    // Combined seeded edit, transient only (never committed): (a) the source text gains a trailing
+    // zero, (b) the module-load round-trip assert is removed FOR THIS TRANSIENT COPY ONLY — a real
+    // trailing-zero text is legitimate source text; only the load-bearing round-trip assert (Task 1)
+    // would reject it, and this seed exists to test the RENDERER's own behaviour, not that assert —
+    // and (c) the Chosen-constants render call site switches from the source-text constant to the
+    // plain numeric constant (String(number) via template-literal coercion), the exact anti-pattern
+    // 33-14's ship-from-artifact precedent warns against.
+    let edited = originalGenerator.replace(
+      "export const DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT = '0.5';",
+      "export const DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT = '0.50';"
+    );
+    expect(edited).not.toBe(originalGenerator);
+    const beforeAssertStrip = edited;
+    edited = edited.replace(
+      /assert\(\s*String\(DECLARED_STATIONARY_MAX_SPEED_MPS\)[\s\S]*?\n\);\n/,
+      '// [S3 seeded edit, transient] round-trip assert removed for this RED demonstration only\n'
+    );
+    expect(edited).not.toBe(beforeAssertStrip);
+    const beforeRenderEdit = edited;
+    edited = edited.replace(
+      'lines.push(`STATIONARY_MAX_SPEED_MPS = ${DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT}`);',
+      'lines.push(`STATIONARY_MAX_SPEED_MPS = ${DECLARED_STATIONARY_MAX_SPEED_MPS}`);'
+    );
+    expect(edited).not.toBe(beforeRenderEdit);
+
+    writeFileSync(GENERATOR_PATH, edited, 'utf8');
+    let redMessage = null;
+    try {
+      const generatorSourceText = readGeneratorTextValue(); // '0.50'
+      expect(generatorSourceText).toBe('0.50');
+
+      const mod = await import(`${path.resolve(GENERATOR_PATH)}?seed=${Date.now()}-${Math.random()}`);
+      const result = mod.runCalibration(buildClearArchive(), GATES_PASS_CONTROL_TEXT);
+      const markdown = mod.renderCalibrationMarkdown({ ...result, provenance: {} });
+      const artifactMatch = ARTIFACT_LINE_PATTERN.exec(markdown);
+      const artifactValue = artifactMatch ? artifactMatch[1] : null;
+
+      if (artifactValue !== generatorSourceText) {
+        redMessage =
+          `RED (S3, renderer switched to String(number) on source text '0.50'): rendered artifact ` +
+          `line ('${artifactValue}') !== generator source text ('${generatorSourceText}') — a ` +
+          'String(number) renderer silently drops the trailing zero';
+      }
+    } finally {
+      execSync(`git checkout -- ${GENERATOR_PATH}`);
+    }
+    expect(redMessage).not.toBeNull();
+    // eslint-disable-next-line no-console -- RED evidence, quoted verbatim in the plan 34-13 SUMMARY
+    console.log(redMessage);
+    expect(execSync(`git diff --exit-code -- ${GENERATOR_PATH}`).toString()).toBe('');
+    expect(readGeneratorTextValue()).toBe('0.5');
   });
 });
 
