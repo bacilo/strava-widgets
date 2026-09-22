@@ -304,9 +304,12 @@ describe('render', () => {
     expect(a).toBe(b);
   });
 
-  it('carries no wall-clock timestamp and no bare HEAD commit hash label', () => {
+  it('carries no "generated at" wall-clock label and no bare HEAD commit hash label', () => {
     const markdown = renderRemeasurementMarkdown(sampleResult, sampleProvenance);
-    expect(markdown).not.toMatch(/\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/); // no ISO wall-clock stamp
+    // Content-addressed provenance is present (a git TREE id) and the newest-activity-start-date
+    // input field may itself look like an ISO date — that is a fact about the DATA, not a
+    // "when-was-this-generated" wall-clock read. What must never appear is a generated-at label.
+    expect(markdown).not.toMatch(/generated[\s-]?(at|on)/i);
     expect(markdown).not.toMatch(/rev-parse HEAD`/); // never a bare HEAD-only provenance label
     expect(markdown).toContain('git tree'); // content-addressed provenance label present
   });
