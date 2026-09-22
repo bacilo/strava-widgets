@@ -152,6 +152,51 @@ covered time are rare — <0.3 m/s ≥30 s in 35 activities (5 at ≥120 s); <0.
   browser row reads the rendered classes back against it. The probe's 2.31–4.06 m/s figures and the
   scoping "~1.9 m/s" are references only.
 
+### Family G re-declared after HALT-1 (added 2026-09-22)
+
+- **D-19 (2026-09-22):** **Family G is re-declared; the planted perturbation becomes proportional;
+  HALT-1's vacuous planted rows are fixed. Everything else in D-06/D-07/D-08/D-12/D-13 stands.**
+  - *What happened.* Plan 34-06's first real-archive run (record: `34-06-HALT-1.md`, artifact at
+    commit `00c02bda`) HALTED under D-08. The circular strawman failed as required, then every
+    pre-declared Family G shape (G1/G2/G3) failed D-13 insensitivity at the fixed 1% tolerance.
+    Families M and W never ran (upstream HALT). Nothing shipped.
+  - *Why the misses were secondary.* All three G bases came out at walking/jogging speeds, not
+    stationary-drift speeds. Each would have classified at least one of the three
+    developer-confirmed walking breaks (`34-WALKING-BREAK-CONTROL.md`) as stationary, so the D-12
+    anchor gate would have failed even at a wider tolerance. Likely causes: cadence 0 is often a
+    sensor dropout while running (G1/G2's own caveat), and G3's population mixes deceleration and
+    acceleration pairs.
+  - *Developer decision (2026-09-22).* Option 1 of the HALT-1 write-up: re-plan Family G with NEW
+    pre-declared shapes that measure stationary GPS drift directly. Option 3 (widen the 1%
+    tolerance) is **REJECTED**; the tolerance stays 1%, fixed. Option 2 (investigate G3 first) was
+    not chosen. G1/G2/G3 are retired, and plan 34-12 re-declares Family G as "standstill episodes"
+    (drift across chained zero-advance pauses), pooled (G4) and per activity (G5).
+  - *Planted rule change (developer-authorised, 2026-09-22).* The D-13 planted perturbation used
+    to plant exactly |J| items (the number of judged gap-bearing intervals archive-wide) into every
+    population. It now plants `ceil(INSENSITIVITY_TOLERANCE × N)` items, where N is the shape's own
+    base population size in its own unit. The rule is **uniform across G, M and W**. The
+    justification rests on counting alone, not on any measured value. Under the old rule, once the
+    plants outnumber a population's real items, any quantile's rank lands inside the plants. So a
+    population much smaller than |J| can never pass, whatever its statistic. An unpassable check
+    proves nothing about circularity, and speed-free-identified standstills are far fewer than
+    |J| on this archive. The fraction equals the tolerance, so the check asks "does a 1% leak of
+    judged-like items move the statistic by more than 1%?" No new free number is introduced. M and
+    W's planted rule changed too. Neither family has ever been measured, so the direction of the
+    change for them is unknown and was not chosen by looking. The removed perturbation, the 1%
+    tolerance, strawman-first, first-clearing arbitration, the D-12 anchor gate, D-07's single
+    shared constant and HALT-on-failure are all unchanged.
+  - *HALT-1's vacuous planted rows.* Plants were placed at span `[0, seconds]` and pushed only into
+    covered pairs, folded steps and advance intervals. So they never entered G3's
+    position-filtered population or strawman G's J population: both planted rows had a planted
+    count equal to their base count and tested nothing. The fix is that every plant enters the
+    population its shape reads, unconditionally, and a test asserts `planted items = base items +
+    plants entered` for every shape and strawman. The test is watched RED against the HALT-1
+    code on a synthetic fixture that actually contains pauses.
+  - *Contamination guard.* HALT-1's measured values, including G3's removed-view median, are known
+    and must never be pinned as an expected value, success criterion or fixture target anywhere.
+    The re-declared shapes are argued from first principles. Plan 34-12 states where its population
+    overlaps G3's and why it is not "G3 with the neighbourhood removed".
+
 ### Claude's Discretion
 
 - Field names and shapes for the index summary key and the shard's per-interval list (additive
