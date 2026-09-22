@@ -197,6 +197,65 @@ covered time are rare — <0.3 m/s ≥30 s in 35 activities (5 at ≥120 s); <0.
     The re-declared shapes are argued from first principles. Plan 34-12 states where its population
     overlaps G3's and why it is not "G3 with the neighbourhood removed".
 
+### Stationary constant declared after HALT-2 (added 2026-09-22)
+
+- **D-20 (2026-09-22):** **Drift-while-stationary is a MEASURED NON-ISSUE on this archive, and
+  `STATIONARY_MAX_SPEED_MPS` is DEVELOPER-DECLARED at 0.5 m/s. This narrows D-08 for this ONE
+  constant only. Families M and W stay fully calibrated under D-06/D-08/D-13.**
+  - *What happened.* Plan 34-06's second run (record: `34-06-HALT-2.md`, artifact at commit
+    `a740a65b`) HALTED again. Plan 34-12's fixes worked: proportional planting was non-vacuous on
+    every row (`planted items = base items + plants`, verified on the result object). But the
+    re-declared Family G population was almost empty. Archive-wide there are 684 standstill
+    episodes, of which only 6 are chained (0.877%) and 678 are single unbridged zero-advance
+    pauses. G4 and G5 both measured base 0.029873 m/s over n=6 and failed both axes (removed
+    89.75%, dropping 2 of 6; planted 3902% / 1562% at the mandatory minimum of 1 plant). D-10 and
+    join both PASS. M and W never ran.
+  - *The D-12 anchor was not the blocker.* The three developer-confirmed walking breaks run at
+    1.26–1.80 m/s, which is 42–60x the measured value. The blocker was D-13 insensitivity on a
+    population of 6.
+  - *The finding.* This archive's devices do not accrue meaningful distance while stationary.
+    Across 684 standstills, 678 record exactly zero advance and the 6 that accrue anything
+    accrued 2.70 m in total. STOP-02's own text anticipates this outcome: "otherwise drift is
+    recorded as a measured non-issue". That disposition, with the figures above and the G4/G5
+    rows kept as the evidence that produced it, is what satisfies STOP-02's "the artifact measures
+    how much drift exists". A shipped calibrated cut is not required for it.
+  - *Structural caveat, recorded so the finding is not overstated.* A single-pause standstill has
+    zero advance BY CONSTRUCTION: the pause rule only marks zero-advance runs. So "678 of 684
+    record exactly zero" is partly definitional. The measured, non-definitional part is that
+    drift almost never breaks a standstill into a chain (6 of 684), and that the chained six
+    accrued 2.70 m in total. The declared constant below does not rest on the definitional part.
+  - *Developer decision (2026-09-22).* `STATIONARY_MAX_SPEED_MPS` is declared, not calibrated:
+
+DECLARED STATIONARY_MAX_SPEED_MPS = 0.5
+
+    That is 0.5 m/s, 1.8 km/h. It is chosen on physical grounds: far above the measured drift
+    (~0.03 m/s) and far below the slowest developer-confirmed walking control (1.264 m/s). It is
+    NOT derived from any measured Phase 34 figure, and it must never be presented as calibrated.
+    Every artifact, docblock and summary naming it says "developer-declared (D-20)".
+  - *What this narrows.*
+    - **D-08**, for this constant only. D-08's "no defensible value → HALT" assumed a measurable
+      population. Here the population is measured to be degenerate, so a declaration is the honest
+      outcome rather than a third re-declaration. This narrowing does not extend to any other
+      constant, this phase or later.
+    - **D-07**, in provenance only. The same 0.5 m/s still serves both the stationary/walked class
+      boundary and STOP-02's near-zero threshold, so there is still exactly ONE constant with one
+      definition. Only its origin changes, from derived to declared.
+  - *What is unchanged.* Family M (minimum duration) and Family W (walk/run boundary) are still
+    calibrated under D-06, D-08 and D-13 with the pre-declared shapes, the fixed 1% tolerance,
+    strawman-first and first-clearing arbitration. Either may still HALT, and a HALT there is still
+    a developer decision. The D-12 anchor gate and the walking-break control tests still run
+    against the declared value, unchanged. So does the D-10 rule, the order gate and join
+    exhaustiveness.
+  - *No independent literal.* The declared value lives in exactly one place per layer, and the
+    layers are bound by tests: 34-CONTEXT.md's `DECLARED STATIONARY_MAX_SPEED_MPS` line above, the
+    generator's declared constant, the artifact's `## Chosen constants` line (with its provenance
+    line beside it), and production's literal in `pause-classification.ts`. Production still
+    parses the artifact, as 33-14's ship-from-artifact precedent requires. Plan 34-13 adds the
+    test that the value cannot drift silently between those layers.
+  - *Evidence retained.* Family G still measures and renders G4/G5 and strawman G, now as evidence
+    for the non-issue finding rather than as arbitration. Nothing is deleted to make the
+    declaration look cleaner.
+
 ### Claude's Discretion
 
 - Field names and shapes for the index summary key and the shard's per-interval list (additive
