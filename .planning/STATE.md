@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
 status: executing
-stopped_at: "Completed 34-14-PLAN.md (D-21 gap closure); plan 34-06 can now run a fourth time"
-last_updated: "2026-09-22T21:25:27.944Z"
+stopped_at: "Completed 34-06-PLAN.md (fourth run) — all three constants shipped; plans 34-07 through 34-11 unblocked"
+last_updated: "2026-09-22T21:55:35.983Z"
 last_activity: 2026-09-22
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 45
-  completed_plans: 39
+  completed_plans: 40
   percent: 33
 ---
 
@@ -47,16 +47,19 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 ## Current Position
 
 Phase: 34 (pause-classification-forgotten-stop) — EXECUTING
-Plan: 14 (D-21 gap closure) complete — 34-06 HALTed three times before this: D-08/HALT-1 addressed
-by 34-12's D-19 re-declaration, D-08/HALT-2 addressed by 34-13's D-20 declared-constant closure,
-HALT-3 (d12-anchor-ii gate failure on Family W's shipped boundary) addressed by this plan's D-21
-declared-boundary closure.
-Status: 34-14 complete (2026-09-22): WALK_RUN_BOUNDARY_MPS ships as developer-declared 2.2 m/s with
-tested provenance; Family W is now evidence-only (measures and renders strawman W/W1/W2, never
-arbitrates); Family M remains the phase's only calibrated constant; a new d21-basis gate ties the
-declaration to live evidence (every confirmed control's window speed; the W1 time-weighted modal
-bin centre). 156 generator tests, 3360 total npm test, all green. Plan 34-06 can now run a fourth
-time — plans 34-07 through 34-11 remain blocked until that run ships all three constants.
+Plan: 06 (fourth real-archive run) complete — HALT BLOCKER CLEARED. 34-06 HALTed three times
+before this: D-08/HALT-1 addressed by 34-12's D-19 re-declaration, D-08/HALT-2 addressed by
+34-13's D-20 declared-constant closure, HALT-3 (d12-anchor-ii gate failure on Family W's shipped
+boundary) addressed by 34-14's D-21 declared-boundary closure.
+Status: 34-06 complete (2026-09-22, fourth run): all three families cleared/evidenced, every gate
+PASSED for the first time this phase (order, d12-anchor-i/ii/iii, d10-rule, join, d20-basis,
+d21-basis), Family M selected M1 (40s) by arbitration for the first time. Shipped
+STATIONARY_MAX_SPEED_MPS = 0.5 (developer-declared, D-20), WALK_RUN_BOUNDARY_MPS = 2.2
+(developer-declared, D-21), FORGOTTEN_STOP_MIN_SEC = 40 (calibrated, Family M) from the artifact
+under a two-sided equality guard. A pre-existing findCreepStretches merge-boundary bug (Rule 1)
+was found and fixed mid-plan (40 of 300 archive-wide covered-creep stretches exceeded the 0.5 m/s
+bound before the fix; 0 of 363 after; no gate verdict changed). 45 pause-classification.test.ts
+tests (up from 34), 3371 total npm test, all green. Plans 34-07 through 34-11 are now unblocked.
 Last activity: 2026-09-22
 
 ## Performance Metrics
@@ -116,6 +119,7 @@ Last activity: 2026-09-22
 | Phase 34 P05 | ~30min | 2 tasks | 3 files |
 | Phase 34 P13 | ~25min | 3 tasks | 2 files |
 | Phase 34 P14 | ~55min | 3 tasks | 2 files |
+| Phase 34 PP06 (4th run) | ~35min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -194,6 +198,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 34]: 34-13 (D-20) complete: STATIONARY_MAX_SPEED_MPS ships as developer-declared 0.5 m/s with tested provenance (34-CONTEXT.md D-20 line, generator source text, rendered artifact line bound character-for-character, watched RED from three sides); Family G measures and renders G4/G5 as evidence only (arbitrate: false, never selects); M and W calibrate unchanged on the declared floor; a new D-20 basis gate asserts the declared value exceeds G4's measured base. 122 generator tests, 3326 total npm test, all green. main() never run; 34-CALIBRATION.md and data/streams untouched. Plan 34-06 can now run a third time.
 - [Phase 34]: 34-06 third re-run (HALT-3, 2026-09-22): re-ran the calibration generator against the real archive with 34-13's D-20 amendments. All three strawmen watched FAIL first. Family G measured/rendered as evidence only (D-20, not arbitrated). Families M and W BOTH CLEARED D-13 for the first time this phase — M1 selected (40s, first-clearing), W1 selected (6.95 m/s, first-clearing), both 0.0000% on both axes. But post-selection gate d12-anchor-ii FAILED: the first confirmed walking-break control's (6286234101) rest-of-activity covered speed (2.8257 m/s, an easy-running pace) is not strictly greater than the shipped WALK_RUN_BOUNDARY_MPS (6.95 m/s). A direct histogram dump of W1's population showed the valley-picking rule (global-minimum qualifying bin) landed in a sparse tail bin (6.90-7.00 m/s, 309 seconds archive-wide out of 2.6M) near the 7.35 m/s unreliable-speed ceiling, not a genuine walk/run transition — corroborated by 3475724402's own per-interval table (all 18 rows classify `walked`, none `ran-through`, contradicting D-02's own stated expectation that this activity's segments split between the two classes). All other gates PASS (order, d12-anchor-i, d12-anchor-iii, d10-rule, join, d20-basis). Nothing shipped; Task 2 skipped; 32/33 upstream artifacts and data/streams unchanged. An additional (non-gating) check at the candidate params (0.5 m/s, 40s) found the THIRD confirmed walking-break control (3475715143) IS flagged by classifyForgottenStop (a 42s stretch at exactly 0.5 m/s), matching the developer's own advance warning; the other two controls are not flagged. See `34-06-HALT-3.md`'s Blocking Developer Decision for three named, unchosen options on Family W's shape. Plans 34-07 through 34-11 remain blocked.
 - [Phase 34]: 34-14 (D-21) complete: WALK_RUN_BOUNDARY_MPS ships as developer-declared 2.2 m/s with tested provenance (34-CONTEXT.md D-21 line, generator source text, rendered artifact line bound character-for-character, watched RED from three sides); Family W measures and renders strawman W/W1/W2 as evidence only (arbitrate: false, shippedFloor kept so every row stays finite); Family M remains the phase's only calibrated constant; a new d21-basis gate asserts the declared boundary exceeds every confirmed control's window speed and sits below the W1 time-weighted modal bin centre; buildGatesPassArchive extended (H1, never retuned) with a bulk running-hump activity so every gate id reads PASS individually. Fixed a bug this plan's own change exposed: buildHaltArchive's uniform-duration population let Family M trivially clear D-13 once Family W could no longer block the pipeline; rebuilt as creep-dominated. 156 generator tests, 3360 total npm test, all green. main() never run; 34-CALIBRATION.md and data/streams untouched. Plan 34-06 can now run a fourth time.
+- [Phase 34]: 34-06 fourth re-run (2026-09-22): ran the real archive through plan 34-14's D-21-amended generator for the fourth time. All three strawmen FAILED first. Family G (evidence-only, D-20) and Family W (evidence-only, D-21) rendered as evidence; Family M cleared D-13 for the first time and selected M1 (40s) by arbitration. Every gate PASSED for the first time this phase (order, d12-anchor-i/ii/iii at the 2.2 m/s declared boundary, d10-rule, join, d20-basis, d21-basis). Shipped STATIONARY_MAX_SPEED_MPS=0.5, WALK_RUN_BOUNDARY_MPS=2.2, FORGOTTEN_STOP_MIN_SEC=40 from the artifact under a two-sided equality guard. Found and fixed (Rule 1) a pre-existing findCreepStretches merge-boundary bug while building the plan's own DEFINITIONAL regression test: 40 of 300 archive-wide covered-creep stretches exceeded the 0.5 m/s bound before the fix, 0 of 363 after; no gate verdict changed. See 34-06-SUMMARY.md. Plans 34-07 through 34-11 are unblocked.
 
 ### Key Findings
 
@@ -306,8 +311,8 @@ It is named here because PROJECT.md's Evolution entry still describes it as open
 
 ## Session Continuity
 
-Last session: 2026-09-22T21:25:21.815Z
-Stopped at: Completed 34-14-PLAN.md (D-21 gap closure); plan 34-06 can now run a fourth time
+Last session: 2026-09-22T21:48:30.104Z
+Stopped at: Completed 34-06-PLAN.md (fourth run) — all three constants shipped; plans 34-07 through 34-11 unblocked
 Resume file: None
 
 ---
