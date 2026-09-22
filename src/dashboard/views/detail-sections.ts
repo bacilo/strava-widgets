@@ -45,14 +45,17 @@ import type {
   DeviceEraSignal,
   ElapsedVsMovingSignal,
   ElevationSignal,
+  ForgottenStopSignal,
   GapProfileSignal,
   ImpossibleSampleSignal,
   PaceQualityShard,
+  PauseClassificationSignal,
   QualityTier,
   SubGroundSignal,
   UnreliableSegmentsSignal,
   VerticalRateSignal,
 } from '../../analytics/pace-quality.js';
+import type { PauseClass, PauseSource } from '../../analytics/pause-classification.js';
 
 // Same em dash as `DASH` in detail.ts. Defined locally rather than imported:
 // detail.ts imports THIS module, so importing back would create a cycle.
@@ -981,6 +984,24 @@ const VERTICAL_RATE_EXPLANATION =
 export const UNRELIABLE_SEGMENTS_EXPLANATION =
   'distance recorded here in less time than it could physically take means pace inside this segment is not measured; the segment is clipped from pace charts and splits, never filled in or corrected';
 
+/**
+ * The tenth row's own explanation (Phase 34, PAUSE-02, STOP-01, STOP-03,
+ * D-11, D-14, plan 34-09). Deliberately NOT routed through
+ * `tieringExplanation`/`EXPLANATION_PROBE_SPECS` — same reasoning as
+ * `DEVICE_ERA_EXPLANATION`/`ELAPSED_VS_MOVING_EXPLANATION`/
+ * `UNRELIABLE_SEGMENTS_EXPLANATION` above: neither `pauseClassification` nor
+ * `forgottenStop` is one of the three `hasAnySevereSignal`-feeding tiering
+ * signals, so routing this row through that mechanism would falsely imply
+ * it feeds that composite.
+ *
+ * Also read by `buildPausesSection` below (shared, not retyped) — the
+ * Pauses section's own heading explains the SAME two facts at greater
+ * length (D-14: a section plus a one-line summary row, not two
+ * independently-worded explanations of the same underlying computation).
+ */
+export const PAUSES_SUMMARY_EXPLANATION =
+  'each interval’s class is judged from its own distance over its own elapsed time; a possible forgotten stop is timer-running standstill time — creep inside recorded time, plus paused intervals — and none of this changes moving time, pace or best efforts';
+
 /** Shown for all nine rows when `quality` itself is `null` (D-08: absence must say so, never vanish). */
 const QUALITY_DATA_NOT_AVAILABLE = 'Quality data not available for this activity';
 
@@ -1490,10 +1511,86 @@ function elapsedVsMovingRow(signal: ElapsedVsMovingSignal): QualitySignalRow {
 }
 
 /**
- * The nine-row fallback for a `quality === null` row (D-08: absence says
+ * Formats one `<n> stretches, <T> total, longest <L> (creep <kc>/<Tc>,
+ * paused <kp>/<Tp>)` clause from a COMPUTABLE `ForgottenStopSignal` (every
+ * numeric field non-null by construction once `computable` is `true` —
+ * `?? 0` below is defensive formatting, never a fabrication of a
+ * not-computable state, since the caller only reaches this branch after
+ * confirming `computable`).
+ */
+function forgottenStopStretchesText(signal: ForgottenStopSignal): string {
+  return (
+    `${signal.count ?? 0} stretches, ${formatEffortDuration(signal.totalSec ?? 0)} total, ` +
+    `longest ${formatEffortDuration(signal.longestSec ?? 0)} ` +
+    `(creep ${signal.creepCount ?? 0}/${formatEffortDuration(signal.creepTotalSec ?? 0)}, ` +
+    `paused ${signal.pauseCount ?? 0}/${formatEffortDuration(signal.pauseTotalSec ?? 0)})`
+  );
+}
+
+/**
+ * Tenth row of the always-on Quality Signals section (Phase 34, PAUSE-02,
+ * STOP-01, STOP-03, D-09, D-10, D-11, D-14, plan 34-09) — a SINGLE combined
+ * row for both new untiered facts (D-14: "a one-line summary row", not two),
+ * always `tier: 'untiered'` (mirroring `elapsedVsMovingRow`'s own choice
+ * above — neither `pc` nor `fs` carries a `.tier` to branch on).
+ *
+ * The two clauses are independently worded and joined with ' · ' (matching
+ * `elevationBadgeContent`'s own multi-clause join in `list.ts`):
+ *   - the classification clause reads the class counts when
+ *     `pc.intervalCount !== null`, or an explicit not-computable statement
+ *     otherwise (T-26-02: never a fabricated `0 intervals`);
+ *   - the forgotten-stop clause (D-10) reads "none found" for a genuine
+ *     zero-stretch computable result, the full itemised figures for a
+ *     non-zero one, or "not computable — {reason}" when `fs.computable` is
+ *     `false` — NEVER the bare word "none" for a not-computable result,
+ *     since that would read as "looked and found none" (D-10's own rule).
+ *
+ * `notComputableReason` is the WHOLE-SIGNAL not-computable reason (same
+ * argument every other row function above takes) — `PauseClassificationSignal`
+ * itself carries no `reason` field (unlike `ForgottenStopSignal`, which
+ * carries its own), so this is the classification clause's only source of
+ * wording when `pc` arrives as the CR-01 fallback literal
+ * (`NOT_COMPUTABLE_PAUSE_CLASSIFICATION`, no reason of its own) rather than
+ * from a genuinely not-computable stream (where the caller's own
+ * `notComputableReason` is set).
+ */
+function pausesSummaryRow(
+  pc: PauseClassificationSignal,
+  fs: ForgottenStopSignal,
+  notComputableReason: string | null
+): QualitySignalRow {
+  const fallbackReason = notComputableReason ?? 'not computed for this activity';
+
+  const classificationText =
+    pc.intervalCount === null
+      ? `pause classification not computable — ${fallbackReason}`
+      : `${pc.intervalCount} intervals: ${pc.stationaryCount ?? 0} stationary, ${pc.walkedCount ?? 0} walked, ` +
+        `${pc.ranThroughCount ?? 0} ran through, ${pc.transportedCount ?? 0} transported`;
+
+  let forgottenStopText: string;
+  if (!fs.computable) {
+    forgottenStopText = `possible forgotten stop: not computable — ${fs.reason ?? fallbackReason}`;
+  } else if ((fs.count ?? 0) === 0) {
+    forgottenStopText = 'possible forgotten stop: none found';
+  } else {
+    forgottenStopText = `possible forgotten stop: ${forgottenStopStretchesText(fs)}`;
+  }
+
+  return {
+    label: 'Pauses',
+    valueText: `${classificationText} · ${forgottenStopText}`,
+    tier: 'untiered',
+    explanation: PAUSES_SUMMARY_EXPLANATION,
+    evidenceText: null,
+  };
+}
+
+/**
+ * The ten-row fallback for a `quality === null` row (D-08: absence says
  * so, never vanishes; Phase 30 D-11 extended the original five with three
- * always-on elevation entries, Phase 33 SEG-06/plan 33-11 added a ninth —
- * same literal shape as the other eight).
+ * always-on elevation entries, Phase 33 SEG-06/plan 33-11 added a ninth,
+ * Phase 34/plan 34-09 adds a tenth for Pauses — same literal shape as the
+ * other nine).
  */
 function notAvailableRows(): QualitySignalRow[] {
   return [
@@ -1564,6 +1661,13 @@ function notAvailableRows(): QualitySignalRow[] {
       explanation: ELAPSED_VS_MOVING_EXPLANATION,
       evidenceText: null,
     },
+    {
+      label: 'Pauses',
+      valueText: QUALITY_DATA_NOT_AVAILABLE,
+      tier: 'untiered',
+      explanation: PAUSES_SUMMARY_EXPLANATION,
+      evidenceText: null,
+    },
   ];
 }
 
@@ -1598,6 +1702,47 @@ const NOT_COMPUTABLE_UNRELIABLE_SEGMENTS: UnreliableSegmentsSignal = {
   totalSeconds: null,
   excessFraction: null,
   mechanisms: null,
+};
+
+/**
+ * CR-01 (30-REVIEW.md precedent) fallback for a `quality` object that has
+ * every pre-Phase-34 sub-key but no `pauseClassification` at all (Phase 34,
+ * PAUSE-02, D-11, plan 34-09) — same stale-`index.json`/lagging-staged-build
+ * hazard as `NOT_COMPUTABLE_ELEVATION`/`NOT_COMPUTABLE_UNRELIABLE_SEGMENTS`
+ * above, two signals later. Every count `null` (T-26-02: never zeroed, since
+ * a zero here would read as "genuinely no pauses classified" rather than
+ * "not looked").
+ */
+export const NOT_COMPUTABLE_PAUSE_CLASSIFICATION: PauseClassificationSignal = {
+  intervalCount: null,
+  stationaryCount: null,
+  walkedCount: null,
+  ranThroughCount: null,
+  transportedCount: null,
+  notClassifiableCount: null,
+};
+
+/**
+ * CR-01 (30-REVIEW.md precedent) fallback for a `quality` object that has
+ * every pre-Phase-34 sub-key but no `forgottenStop` at all (Phase 34,
+ * STOP-01, STOP-03, D-09, D-11, plan 34-09) — same hazard, one signal later.
+ * `computable: false` with a generic reason (this row's own read-side
+ * fallback never claims to know WHY the whole activity is not computable —
+ * `pausesSummaryRow`'s own `notComputableReason` parameter is the more
+ * specific source when the whole signal itself is not computable).
+ */
+export const NOT_COMPUTABLE_FORGOTTEN_STOP: ForgottenStopSignal = {
+  computable: false,
+  reason: 'not computed for this activity',
+  count: null,
+  totalSec: null,
+  longestSec: null,
+  creepCount: null,
+  creepTotalSec: null,
+  creepLongestSec: null,
+  pauseCount: null,
+  pauseTotalSec: null,
+  pauseLongestSec: null,
 };
 
 /**
@@ -1637,6 +1782,13 @@ export function qualitySignalsSectionPlan(
   // `unreliableSegments` key at all.
   const unreliableSegments: UnreliableSegmentsSignal =
     quality.unreliableSegments ?? NOT_COMPUTABLE_UNRELIABLE_SEGMENTS;
+  // Same CR-01 hazard, two signals later (Phase 34, PAUSE-02/STOP-01/
+  // STOP-03, D-11, plan 34-09): a pre-Phase-34 `index.json` carries the
+  // eight original sub-keys and no `pauseClassification`/`forgottenStop`
+  // keys at all.
+  const pauseClassification: PauseClassificationSignal =
+    quality.pauseClassification ?? NOT_COMPUTABLE_PAUSE_CLASSIFICATION;
+  const forgottenStop: ForgottenStopSignal = quality.forgottenStop ?? NOT_COMPUTABLE_FORGOTTEN_STOP;
 
   return {
     rows: [
@@ -1649,6 +1801,7 @@ export function qualitySignalsSectionPlan(
       verticalRateRow(elevation.verticalRate, reason, shard),
       deviceEraRow(quality.deviceEra),
       elapsedVsMovingRow(quality.elapsedVsMoving),
+      pausesSummaryRow(pauseClassification, forgottenStop, reason),
     ],
   };
 }
@@ -1717,6 +1870,200 @@ export function buildQualitySignalsSection(plan: QualitySignalsSectionPlan): HTM
     }
 
     section.appendChild(rowEl);
+  }
+
+  return section;
+}
+
+// ---------------------------------------------------------------------------
+// Pauses section (Phase 34, PAUSE-02, D-14, D-15, D-17, plan 34-09) — the
+// per-interval disclosure the Quality Signals summary row above rolls up.
+// Fed from the lazy quality shard's `pauseIntervals` list (after first
+// paint, `detail.ts`'s `mountBestEffortsAndBadges`), never from the index
+// row's own scalars — the opposite data source from `qualitySignalsSectionPlan`
+// above, mirroring `buildSplitsSection`'s own pure-plan/DOM-builder split.
+// No pace-chart or chart-logic module is touched by this section (D-16).
+// ---------------------------------------------------------------------------
+
+/** One rendered row of the Pauses section table (D-14/D-15). */
+export interface PausesSectionRow {
+  atText: string;
+  classText: string;
+  durationText: string;
+  distanceText: string;
+}
+
+/**
+ * The full Pauses section decision (D-14/D-15) — pure, no DOM, same
+ * `*-logic`/plan split every other section builder in this file uses.
+ * `'unavailable'` (shard fetch failed, or still in flight, T-27-31) and
+ * `'empty'` (shard present, genuinely zero pause/gap intervals) are DISTINCT
+ * states with distinct copy (the plan's own two named empty strings) —
+ * collapsing them would misdescribe a failed fetch as "no pauses found".
+ */
+export type PausesSectionPlan =
+  | { kind: 'unavailable' }
+  | { kind: 'empty' }
+  | { kind: 'rows'; rows: PausesSectionRow[]; truncated: boolean };
+
+/**
+ * Human-readable label for each `PauseClass` (D-14's copy) — the single
+ * source of class wording `pausesSectionRowClassText` below builds on.
+ * Exhaustive `switch` with NO `default` branch, matching
+ * `deviceFamilyDisplayName`/`segmentMechanismLabel`'s own precedent — a
+ * fifth `PauseClass` member added in a later phase without a matching case
+ * here fails `npx tsc --noEmit` rather than silently falling through.
+ */
+function pauseClassLabel(pauseClass: PauseClass): string {
+  switch (pauseClass) {
+    case 'stationary':
+      return 'Stationary';
+    case 'walked':
+      return 'Walked';
+    case 'ran-through':
+      return 'Ran through';
+    case 'transported':
+      return 'Transported';
+  }
+}
+
+/**
+ * D-14's copy: a covered-creep row's class cell names the possible
+ * forgotten stop; a zero-advance-pause row names the plain pause — both are
+ * timer-running standstill facts (D-09), marked here rather than left
+ * indistinguishable from a recording-gap/merged-segment row carrying the
+ * same `pauseClass`. Every other source renders the plain class label.
+ */
+function pausesSectionRowClassText(pauseClass: PauseClass, source: PauseSource): string {
+  const base = pauseClassLabel(pauseClass);
+  if (source === 'covered-creep') return `${base} — possible forgotten stop (timer running)`;
+  if (source === 'zero-advance-pause') return `${base} — paused (timer running)`;
+  return base;
+}
+
+/**
+ * Decides the Pauses section (D-14, D-15, D-17) — pure, no DOM. `shard`
+ * alone determines the plan's `kind`: `null` (fetch failed, or still in
+ * flight) is `'unavailable'`; a present shard with zero `pauseIntervals`
+ * entries is `'empty'`; otherwise every entry becomes one row, IN THE
+ * SHARD'S OWN ORDER (`projectPauseIntervals`, `pace-quality.ts`, already
+ * sorts by `startSec` — this function performs no re-sort of its own). No
+ * row here can come from anything but `shard.pauseIntervals` (D-15:
+ * `shard.unreliableSegments` entries — isolated-jump/hidden-pause segments —
+ * never leak into this list, matching D-01/D-15's own membership rule).
+ *
+ * `quality` is accepted for call-site symmetry with the sibling
+ * `qualitySignalsSectionPlan(quality, shard)` this section's own summary row
+ * reads (`detail.ts`'s call site passes both), but is not currently
+ * consulted: `shard.pauseIntervals` already degrades to an empty list for a
+ * not-computable activity (`buildPaceQualityShard`'s own not-computable
+ * branches), so the two empty-list causes ("genuinely zero pauses" and "the
+ * whole activity is not computable") are not distinguished by this function
+ * today — both read the same "No pauses or recording gaps in this
+ * activity." copy.
+ */
+export function pausesSectionPlan(
+  shard: PaceQualityShard | null,
+  quality: ActivityQualitySignals | null
+): PausesSectionPlan {
+  void quality;
+  if (shard === null) {
+    return { kind: 'unavailable' };
+  }
+  if (shard.pauseIntervals.length === 0) {
+    return { kind: 'empty' };
+  }
+  const rows: PausesSectionRow[] = shard.pauseIntervals.map((entry) => ({
+    atText: `${formatEffortDuration(entry.startSec)} · km ${(entry.startMetres / 1000).toFixed(2)}`,
+    classText: pausesSectionRowClassText(entry.pauseClass, entry.source),
+    durationText: formatEffortDuration(entry.seconds),
+    distanceText: `${Math.round(entry.metres)} m`,
+  }));
+  return { kind: 'rows', rows, truncated: shard.pauseIntervalsTruncated };
+}
+
+/** D-14's one-sentence legend, verbatim. */
+const PAUSES_LEGEND_TEXT =
+  "Class is judged from each interval's own distance over its own elapsed time. GPS jumps are not listed here; see Unreliable segments.";
+
+/** D-15's truncation disclosure, verbatim. */
+const PAUSES_TRUNCATION_TEXT = 'Showing the first 100 intervals.';
+
+/**
+ * Builds the Pauses section (D-14, D-15, T-34-30) — same `<section
+ * class="card detail-section">` + `<h2>` + empty-state-else-`<table>` shape
+ * `buildSplitsSection` uses above, reusing that function's `.splits-scroll`/
+ * `.splits-table` classes rather than inventing new CSS (this plan touches
+ * no chart module and adds no new stylesheet rule, D-16). Every string here
+ * reaches the DOM through `textContent` only (T-18-XSS-01/T-34-30) — no
+ * `innerHTML`, `insertAdjacentHTML` or `outerHTML` anywhere in this
+ * function's body.
+ */
+export function buildPausesSection(plan: PausesSectionPlan): HTMLElement {
+  const section = document.createElement('section');
+  section.className = 'card detail-section';
+
+  const heading = document.createElement('h2');
+  heading.className = 'text-heading';
+  heading.textContent = 'Pauses';
+  section.appendChild(heading);
+
+  if (plan.kind === 'unavailable') {
+    const empty = document.createElement('p');
+    empty.className = 'text-body';
+    empty.textContent = 'Pause detail unavailable.';
+    section.appendChild(empty);
+    return section;
+  }
+
+  if (plan.kind === 'empty') {
+    const empty = document.createElement('p');
+    empty.className = 'text-body';
+    empty.textContent = 'No pauses or recording gaps in this activity.';
+    section.appendChild(empty);
+    return section;
+  }
+
+  const scroll = document.createElement('div');
+  scroll.className = 'splits-scroll';
+
+  const table = document.createElement('table');
+  table.className = 'splits-table';
+
+  const thead = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  for (const headerText of ['At', 'Class', 'Duration', 'Distance']) {
+    const th = document.createElement('th');
+    th.textContent = headerText;
+    headRow.appendChild(th);
+  }
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  for (const row of plan.rows) {
+    const tr = document.createElement('tr');
+    tr.appendChild(buildTextCell(row.atText));
+    tr.appendChild(buildTextCell(row.classText));
+    tr.appendChild(buildTextCell(row.durationText));
+    tr.appendChild(buildTextCell(row.distanceText));
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+
+  scroll.appendChild(table);
+  section.appendChild(scroll);
+
+  const legend = document.createElement('p');
+  legend.className = 'text-label';
+  legend.textContent = PAUSES_LEGEND_TEXT;
+  section.appendChild(legend);
+
+  if (plan.truncated) {
+    const truncationNote = document.createElement('p');
+    truncationNote.className = 'text-label';
+    truncationNote.textContent = PAUSES_TRUNCATION_TEXT;
+    section.appendChild(truncationNote);
   }
 
   return section;

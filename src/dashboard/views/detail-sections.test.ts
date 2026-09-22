@@ -9,6 +9,8 @@ import {
   qualitySignalsSectionPlan,
   EXPLANATION_PROBE_QUALITY,
   UNRELIABLE_SEGMENTS_EXPLANATION,
+  PAUSES_SUMMARY_EXPLANATION,
+  pausesSectionPlan,
   type SplitGapAnnotation,
 } from './detail-sections.js';
 import type { Split } from './detail-splits.js';
@@ -739,9 +741,9 @@ function makeShard(overrides: Partial<PaceQualityShard>): PaceQualityShard {
 }
 
 describe('qualitySignalsSectionPlan — quality signals section (D-08, D-09, D-12, D-17)', () => {
-  it('a fully healthy row produces nine rows (Phase 30: three elevation rows extend the original five; Phase 33 SEG-06 adds a ninth), all four tiering rows carrying an explicit healthy statement, none blank/undefined/null/NaN', () => {
+  it('a fully healthy row produces ten rows (Phase 30: three elevation rows extend the original five; Phase 33 SEG-06 adds a ninth; Phase 34/plan 34-09 adds a tenth for Pauses), all four tiering rows carrying an explicit healthy statement, none blank/undefined/null/NaN', () => {
     const plan = qualitySignalsSectionPlan(HEALTHY_QUALITY, null);
-    expect(plan.rows).toHaveLength(9);
+    expect(plan.rows).toHaveLength(10);
 
     for (const row of plan.rows) {
       expect(row.valueText.length).toBeGreaterThan(0);
@@ -858,7 +860,7 @@ describe('qualitySignalsSectionPlan — quality signals section (D-08, D-09, D-1
     expect(unreliableSegments.evidenceText).toBeNull();
   });
 
-  it('unreliableSegmentsRow (SEG-06, plan 33-11): qualitySignalsSectionPlan and notAvailableRows return the SAME nine labels, in the SAME fixed order — a reordering fails this test with a readable diff', () => {
+  it('unreliableSegmentsRow (SEG-06, plan 33-11) / pausesSummaryRow (plan 34-09): qualitySignalsSectionPlan and notAvailableRows return the SAME ten labels, in the SAME fixed order — a reordering fails this test with a readable diff', () => {
     const EXPECTED_LABELS = [
       'Decimation',
       'Coverage gaps',
@@ -869,6 +871,7 @@ describe('qualitySignalsSectionPlan — quality signals section (D-08, D-09, D-1
       'Max vertical rate',
       'Device / recording source',
       'Elapsed vs. moving',
+      'Pauses',
     ];
     const healthyLabels = qualitySignalsSectionPlan(HEALTHY_QUALITY, null).rows.map((r) => r.label);
     const notAvailableLabels = qualitySignalsSectionPlan(null, null).rows.map((r) => r.label);
@@ -879,7 +882,7 @@ describe('qualitySignalsSectionPlan — quality signals section (D-08, D-09, D-1
   it('quality === null: the section plan is still produced (never null/undefined) and says so', () => {
     const plan = qualitySignalsSectionPlan(null, null);
     expect(plan).not.toBeNull();
-    expect(plan.rows).toHaveLength(9);
+    expect(plan.rows).toHaveLength(10);
     for (const row of plan.rows) {
       expect(row.valueText).toBe('Quality data not available for this activity');
     }
@@ -1198,6 +1201,240 @@ describe('unreliableSegmentsRow (SEG-06, D-06, D-08, plan 33-11 Task 2)', () => 
   });
 });
 
+// ---------------------------------------------------------------------------
+// Pauses summary row (Phase 34, PAUSE-02, STOP-01, STOP-03, D-09, D-10,
+// D-11, D-14, plan 34-09) — the tenth Quality Signals row. Only tested
+// indirectly through qualitySignalsSectionPlan's rows[9], same pattern
+// every other private row function (decimationRow, gapProfileRow, ...) in
+// this file already uses.
+// ---------------------------------------------------------------------------
+
+describe('Pauses summary row (Phase 34, PAUSE-02, STOP-01, STOP-03, D-09, D-10, D-11, D-14, plan 34-09) — qualitySignalsSectionPlan rows[9]', () => {
+  it('is always tier "untiered", label "Pauses", with the shared PAUSES_SUMMARY_EXPLANATION, across the computable, whole-signal-not-computable and quality===null branches', () => {
+    const computable = qualitySignalsSectionPlan(HEALTHY_QUALITY, null).rows[9];
+    const notComputable = qualitySignalsSectionPlan(NOT_COMPUTABLE_QUALITY, null).rows[9];
+    const nullQuality = qualitySignalsSectionPlan(null, null).rows[9];
+    for (const row of [computable, notComputable, nullQuality]) {
+      expect(row.label).toBe('Pauses');
+      expect(row.tier).toBe('untiered');
+    }
+    expect(computable.explanation).toBe(PAUSES_SUMMARY_EXPLANATION);
+    expect(notComputable.explanation).toBe(PAUSES_SUMMARY_EXPLANATION);
+  });
+
+  it('valueText numbers equal the signal\'s own class counts (a fixture with 2/3/1/0 renders "2 stationary, 3 walked, 1 ran through, 0 transported")', () => {
+    const quality: ActivityQualitySignals = {
+      ...HEALTHY_QUALITY,
+      pauseClassification: {
+        intervalCount: 6,
+        stationaryCount: 2,
+        walkedCount: 3,
+        ranThroughCount: 1,
+        transportedCount: 0,
+        notClassifiableCount: 0,
+      },
+    };
+    const row = qualitySignalsSectionPlan(quality, null).rows[9];
+    expect(row.valueText).toContain('6 intervals: 2 stationary, 3 walked, 1 ran through, 0 transported');
+  });
+
+  it('a computable forgottenStop with zero stretches reads "possible forgotten stop: none found"', () => {
+    const row = qualitySignalsSectionPlan(HEALTHY_QUALITY, null).rows[9];
+    expect(row.valueText).toContain('possible forgotten stop: none found');
+  });
+
+  it('a computable forgottenStop with non-zero stretches itemises count/total/longest and both named sources (D-09)', () => {
+    const quality: ActivityQualitySignals = {
+      ...HEALTHY_QUALITY,
+      forgottenStop: {
+        computable: true,
+        reason: null,
+        count: 3,
+        totalSec: 210,
+        longestSec: 120,
+        creepCount: 1,
+        creepTotalSec: 90,
+        creepLongestSec: 90,
+        pauseCount: 2,
+        pauseTotalSec: 120,
+        pauseLongestSec: 120,
+      },
+    };
+    const row = qualitySignalsSectionPlan(quality, null).rows[9];
+    expect(row.valueText).toContain(
+      'possible forgotten stop: 3 stretches, 3:30 total, longest 2:00 (creep 1/1:30, paused 2/2:00)'
+    );
+  });
+
+  it('forgottenStop computable: false with reason R reads "not computable — R", and never the bare word "none"', () => {
+    const reason = 'distance-triggered recording: a standstill would be written as a recording gap, not a covered creep';
+    const quality: ActivityQualitySignals = {
+      ...HEALTHY_QUALITY,
+      forgottenStop: {
+        computable: false,
+        reason,
+        count: null,
+        totalSec: null,
+        longestSec: null,
+        creepCount: null,
+        creepTotalSec: null,
+        creepLongestSec: null,
+        pauseCount: null,
+        pauseTotalSec: null,
+        pauseLongestSec: null,
+      },
+    };
+    const row = qualitySignalsSectionPlan(quality, null).rows[9];
+    expect(row.valueText).toContain(`possible forgotten stop: not computable — ${reason}`);
+    expect(row.valueText).not.toContain('none');
+  });
+
+  it('stale index.json (pauseClassification and forgottenStop both genuinely absent as keys): the row renders from NOT_COMPUTABLE_PAUSE_CLASSIFICATION / NOT_COMPUTABLE_FORGOTTEN_STOP without throwing, and valueText contains "not computable"', () => {
+    const full: ActivityQualitySignals = { ...HEALTHY_QUALITY, notComputableReason: null };
+    const { pauseClassification, forgottenStop, ...withoutBoth } = full;
+    void pauseClassification;
+    void forgottenStop;
+    const quality = withoutBoth as ActivityQualitySignals;
+    expect('pauseClassification' in quality).toBe(false);
+    expect('forgottenStop' in quality).toBe(false);
+
+    expect(() => qualitySignalsSectionPlan(quality, null)).not.toThrow();
+    const row = qualitySignalsSectionPlan(quality, null).rows[9];
+    expect(row.label).toBe('Pauses');
+    expect(row.tier).toBe('untiered');
+    expect(row.valueText.toLowerCase()).toContain('not computable');
+    expect(row.valueText).not.toMatch(/undefined|NaN/);
+  });
+
+  it('whole-signal not-computable (NOT_COMPUTABLE_QUALITY fixture): valueText names the whole-signal reason for both clauses, never a healthy statement', () => {
+    const row = qualitySignalsSectionPlan(NOT_COMPUTABLE_QUALITY, null).rows[9];
+    expect(row.valueText).toContain(`not computable — ${NOT_COMPUTABLE_QUALITY.notComputableReason}`);
+    expect(row.valueText).not.toContain('intervals:');
+    expect(row.valueText).not.toContain('none found');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// pausesSectionPlan (Phase 34, PAUSE-02, D-14, D-15, plan 34-09) — the pure
+// Pauses section plan, fully invokable in this node-environment suite
+// (unlike buildPausesSection, which builds real DOM and is instead pinned
+// by a source-text guard below).
+// ---------------------------------------------------------------------------
+
+describe('pausesSectionPlan (Phase 34, PAUSE-02, D-14, D-15, plan 34-09)', () => {
+  function makePauseInterval(
+    overrides: Partial<PaceQualityShard['pauseIntervals'][number]>
+  ): PaceQualityShard['pauseIntervals'][number] {
+    return {
+      source: 'recording-gap',
+      pauseClass: 'stationary',
+      startSec: 100,
+      endSec: 150,
+      seconds: 50,
+      metres: 0,
+      startMetres: 500,
+      ...overrides,
+    };
+  }
+
+  it('shard null gives { kind: "unavailable" }', () => {
+    expect(pausesSectionPlan(null, null)).toEqual({ kind: 'unavailable' });
+  });
+
+  it('a present shard with an empty pauseIntervals list gives { kind: "empty" }', () => {
+    const shard = makeShard({ pauseIntervals: [] });
+    expect(pausesSectionPlan(shard, null)).toEqual({ kind: 'empty' });
+  });
+
+  it('a shard with unreliableSegments entries (mechanism isolated-jump) and an empty pauseIntervals still gives kind "empty" — no plan row can come from anything but shard.pauseIntervals (D-15)', () => {
+    const shard = makeShard({
+      pauseIntervals: [],
+      unreliableSegments: [
+        { startSec: 10, endSec: 15, metres: 20, excessMetres: 5, seconds: 5, mechanism: 'isolated-jump' },
+      ],
+    });
+    expect(pausesSectionPlan(shard, null)).toEqual({ kind: 'empty' });
+  });
+
+  it('a populated shard yields one row per entry with atText/classText/durationText/distanceText', () => {
+    const shard = makeShard({
+      pauseIntervals: [makePauseInterval({ startSec: 90, startMetres: 1500, seconds: 40, metres: 0 })],
+      pauseIntervalsTruncated: false,
+    });
+    const plan = pausesSectionPlan(shard, null);
+    expect(plan.kind).toBe('rows');
+    if (plan.kind !== 'rows') throw new Error('expected kind rows');
+    expect(plan.rows).toEqual([
+      { atText: '1:30 · km 1.50', classText: 'Stationary', durationText: '0:40', distanceText: '0 m' },
+    ]);
+    expect(plan.truncated).toBe(false);
+  });
+
+  it('the truncated flag is read straight from shard.pauseIntervalsTruncated, not recomputed', () => {
+    const shard = makeShard({ pauseIntervals: [makePauseInterval({})], pauseIntervalsTruncated: true });
+    const plan = pausesSectionPlan(shard, null);
+    expect(plan.kind).toBe('rows');
+    if (plan.kind === 'rows') expect(plan.truncated).toBe(true);
+  });
+
+  it('a covered-creep row is marked as a possible forgotten stop (D-09); a zero-advance-pause row is marked as paused; every other source renders the plain class label', () => {
+    const shard = makeShard({
+      pauseIntervals: [
+        makePauseInterval({ source: 'covered-creep', pauseClass: 'stationary' }),
+        makePauseInterval({ source: 'zero-advance-pause', pauseClass: 'stationary' }),
+        makePauseInterval({ source: 'recording-gap', pauseClass: 'walked' }),
+        makePauseInterval({ source: 'merged-segment', pauseClass: 'ran-through' }),
+      ],
+    });
+    const plan = pausesSectionPlan(shard, null);
+    expect(plan.kind).toBe('rows');
+    if (plan.kind !== 'rows') throw new Error('expected kind rows');
+    expect(plan.rows.map((r) => r.classText)).toEqual([
+      'Stationary — possible forgotten stop (timer running)',
+      'Stationary — paused (timer running)',
+      'Walked',
+      'Ran through',
+    ]);
+  });
+
+  it('all four PauseClass labels render distinct, correctly-cased text', () => {
+    const shard = makeShard({
+      pauseIntervals: [
+        makePauseInterval({ pauseClass: 'stationary' }),
+        makePauseInterval({ pauseClass: 'walked' }),
+        makePauseInterval({ pauseClass: 'ran-through' }),
+        makePauseInterval({ pauseClass: 'transported' }),
+      ],
+    });
+    const plan = pausesSectionPlan(shard, null);
+    expect(plan.kind).toBe('rows');
+    if (plan.kind !== 'rows') throw new Error('expected kind rows');
+    expect(plan.rows.map((r) => r.classText)).toEqual(['Stationary', 'Walked', 'Ran through', 'Transported']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildPausesSection (T-34-30) — cannot be invoked in this node-environment
+// suite (no DOM-simulation library anywhere in this tree), so its
+// textContent-only discipline is pinned as a comment-stripped source scan,
+// the same idiom the buildPrFlagsCell wiring guard above uses.
+// ---------------------------------------------------------------------------
+
+describe('buildPausesSection source guard (T-34-30) — textContent only, no raw-markup DOM assignment', () => {
+  const buildPausesSectionBody = isolateFunctionBody(detailSectionsStripped, 'export function buildPausesSection(');
+
+  it('the body contains no innerHTML, insertAdjacentHTML or outerHTML', () => {
+    expect(buildPausesSectionBody).not.toContain('innerHTML');
+    expect(buildPausesSectionBody).not.toContain('insertAdjacentHTML');
+    expect(buildPausesSectionBody).not.toContain('outerHTML');
+  });
+
+  it('the body writes cell/label text through textContent (both directly and via buildTextCell)', () => {
+    expect(buildPausesSectionBody).toContain('.textContent =');
+    expect(buildPausesSectionBody).toContain('buildTextCell(');
+  });
+});
+
 /**
  * A `quality` object shaped like a pre-Phase-33 parsed `index.json` entry
  * (CR-01, 30-REVIEW.md precedent): every original sub-key present,
@@ -1220,11 +1457,11 @@ describe('CR-01 (30-REVIEW.md precedent) — quality missing the unreliableSegme
     expect('unreliableSegments' in quality).toBe(false);
   });
 
-  it('does not throw and still returns nine rows, the ninth reading its own not-computable fallback phrasing (CR-01: the whole-signal notComputableReason is null here, same as qualityMissingElevation\'s own fixture, so the row reads its OWN unavailable-data text, not "Not computable — {reason}")', () => {
+  it('does not throw and still returns ten rows, the fourth (Unreliable segments) reading its own not-computable fallback phrasing (CR-01: the whole-signal notComputableReason is null here, same as qualityMissingElevation\'s own fixture, so the row reads its OWN unavailable-data text, not "Not computable — {reason}")', () => {
     const quality = qualityMissingUnreliableSegments();
     expect(() => qualitySignalsSectionPlan(quality, null)).not.toThrow();
     const plan = qualitySignalsSectionPlan(quality, null);
-    expect(plan.rows).toHaveLength(9);
+    expect(plan.rows).toHaveLength(10);
     const row = plan.rows[3];
     expect(row.label).toBe('Unreliable segments');
     expect(row.valueText).toBe('Unreliable-segment data unavailable');
@@ -1361,10 +1598,10 @@ describe('CR-01 (30-REVIEW.md) — quality missing the elevation key does not cr
     expect('elevation' in quality).toBe(false);
   });
 
-  it('does not throw and still returns nine rows', () => {
+  it('does not throw and still returns ten rows', () => {
     const quality = qualityMissingElevation();
     expect(() => qualitySignalsSectionPlan(quality, null)).not.toThrow();
-    expect(qualitySignalsSectionPlan(quality, null).rows).toHaveLength(9);
+    expect(qualitySignalsSectionPlan(quality, null).rows).toHaveLength(10);
   });
 
   it('renders the three elevation rows in the not-computable fallback phrasing, with no null/undefined/NaN anywhere', () => {
@@ -1567,9 +1804,9 @@ describe('elevation rows — subGroundRow / closureDriftRow / verticalRateRow (D
     }
   });
 
-  it('quality === null: notAvailableRows() supplies nine rows including the three elevation ones, so the section still says something rather than vanishing', () => {
+  it('quality === null: notAvailableRows() supplies ten rows including the three elevation ones and the tenth Pauses row, so the section still says something rather than vanishing', () => {
     const plan = qualitySignalsSectionPlan(null, null);
-    expect(plan.rows).toHaveLength(9);
+    expect(plan.rows).toHaveLength(10);
 
     const [subGround, closureDrift, verticalRate] = plan.rows.slice(4, 7);
     expect(subGround.label).toBe('Lowest altitude');
