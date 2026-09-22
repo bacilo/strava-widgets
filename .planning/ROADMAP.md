@@ -268,7 +268,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4)*
 
-- [ ] 34-14-PLAN.md — gap closure after 34-06 HALT-3 (D-21): Family W evidence-only with live histogram evidence that the covered-time distribution has no valley, WALK_RUN_BOUNDARY_MPS developer-declared at 2.2 with a provenance chain test and a d21-basis gate, Family M still arbitrating; synthetic fixtures only, not run
+- [x] 34-14-PLAN.md — gap closure after 34-06 HALT-3 (D-21): Family W evidence-only with live histogram evidence that the covered-time distribution has no valley, WALK_RUN_BOUNDARY_MPS developer-declared at 2.2 with a provenance chain test and a d21-basis gate, Family M still arbitrating; synthetic fixtures only, not run
 
 **Wave 6** *(blocked on Wave 5)*
 
@@ -380,7 +380,7 @@ Plans:
 | 31. Tech-Debt Closure — Silent-Failure Guards & Docs Reconciliation | v2.2 | 10/10 | Complete    | 2026-09-19 |
 | 32. Unreliable-Segment Detection & Calibration | v2.3 | 17/17 | Complete    | 2026-09-20 |
 | 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 14/14 | Complete    | 2026-09-22 |
-| 34. Pause Classification & Forgotten-Stop | v2.3 | 7/14 | In Progress|  |
+| 34. Pause Classification & Forgotten-Stop | v2.3 | 8/14 | In Progress|  |
 | 35. Stream-Derived Running Pace | v2.3 | 0/TBD | Not started | - |
 | 36. Best-Effort Clean-Window Search & Ceiling Recalibration | v2.3 | 0/TBD | Not started | - |
 | 37. Review-Queue Priority & CUR-04 | v2.3 | 0/TBD | Not started | - |
