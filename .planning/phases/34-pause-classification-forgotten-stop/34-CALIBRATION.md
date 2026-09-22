@@ -138,28 +138,37 @@ Selected: M1
 
 ### Family W
 
+NOT ARBITRATED (D-21): WALK_RUN_BOUNDARY_MPS is developer-declared, not calibrated. The rows below are EVIDENCE for the valley-evidence finding, never candidates — no row here can select or influence a constant.
+
 | id | n | base | removed (n) | removedDelta | planted (n) | plantedDelta | plants | Verdict |
 |---|---|---|---|---|---|---|---|---|
 | W1 | 2612365 | 6.950000 | 6.950000 (2574257) | 0.0000% | 6.950000 (2638590) | 0.0000% | 26225 | PASS |
 | W2 | 2612365 | 6.850000 | 6.850000 (2574257) | 0.0000% | 6.850000 (2638590) | 0.0000% | 26225 | PASS |
 
-Selected: W1
+Selected: not applicable — not arbitrated (D-21)
 
-## GATE FAILED
+## Chosen constants
 
-All three families cleared, but a post-selection gate failed (see `## Gates` below). No constant is confirmed shipped — there is no fallback to a later shape.
+STATIONARY_MAX_SPEED_MPS = 0.5
+STATIONARY_MAX_SPEED_MPS provenance: developer-declared (D-20), not calibrated
+FORGOTTEN_STOP_MIN_SEC = 40
+FORGOTTEN_STOP_MIN_SEC provenance: calibrated (M family, M1)
+WALK_RUN_BOUNDARY_MPS = 2.2
+WALK_RUN_BOUNDARY_MPS provenance: developer-declared (D-21), not calibrated
+UNRELIABLE_SPEED_LIMIT_MPS = 7.35 (imported, 32-CALIBRATION.md)
 
 ## Gates
 
 | gate | measured | bound | Verdict |
 |---|---|---|---|
-| order | 0.5 < 6.95 < 7.35 | 0 <= STATIONARY_MAX_SPEED_MPS < WALK_RUN_BOUNDARY_MPS < UNRELIABLE_SPEED_LIMIT_MPS | PASS |
+| order | 0.5 < 2.2 < 7.35 | 0 <= STATIONARY_MAX_SPEED_MPS < WALK_RUN_BOUNDARY_MPS < UNRELIABLE_SPEED_LIMIT_MPS | PASS |
 | d12-anchor-i | walked | walked | PASS |
-| d12-anchor-ii | 2.8257182738164475 | > 6.95 | FAIL |
+| d12-anchor-ii | 2.8257182738164475 | > 2.2 | PASS |
 | d12-anchor-iii | no creep intersects window | no creep intersecting window | PASS |
 | d10-rule | anchors pass, margin clear | anchors match; margin clear | PASS |
 | join | 0 | 0 | PASS |
 | d20-basis | 0.029873294347019862 | < STATIONARY_MAX_SPEED_MPS (0.5) | PASS |
+| d21-basis | control-window max=1.797; W1 modal bin centre=3.050 | boundary > every confirmed control window aggregate speed AND boundary < W1 time-weighted modal bin centre | PASS |
 
 ## D-10 blind-spot rule
 
@@ -184,6 +193,18 @@ Disposition (D-20, 2026-09-22): drift-while-stationary is a MEASURED NON-ISSUE o
 
 Definitional caveat: a single-pause standstill (no qualifying bridge on either side) is zero-advance BY CONSTRUCTION — the pause rule only marks zero-advance runs — so the single-pause share of the counts above is partly definitional. The chained share and the G4/G5 rates above are the measured, non-definitional part of this finding.
 
+## Valley evidence
+
+Population: [lo, hi) = [0.500, 7.350) — lo is the declared stationary constant, hi the imported unreliable-speed ceiling.
+
+W1 (time-weighted): total mass=7715582.0, modal bin [3.00, 3.10) mass=852973.0, qualifying dips=16, picked bin centre=6.95 mass=309.0 share=0.0040%
+
+W2 (count-weighted): total mass=2612365.0, modal bin [3.00, 3.10) mass=308708.0, qualifying dips=16, picked bin centre=6.85 mass=150.0 share=0.0057%
+
+Only the time-weighted mode (W1) is gated by `d21-basis` below; W2 is rendered as evidence only.
+
+D-21 (2026-09-22) records the finding that walking and running form one hump on this archive, so D-06's valley premise does not hold here: the valley rule's picked bin (6.95 m/s (mass share 0.0040%)) sits away from the modal bin (3.05 m/s (mass share 11.0552%)), a computed relation rather than a fixed sentence.
+
 ## Join exhaustiveness
 
 Summed joinViolations archive-wide: 0. PASS.
@@ -192,28 +213,28 @@ Summed joinViolations archive-wide: 0. PASS.
 
 | # | source | startSec | endSec | seconds | metres | speedMps | class |
 |---|---|---|---|---|---|---|---|
-| 1 | merged-segment | 1030 | 1048 | 18 | 52.4 | 2.911 | walked |
-| 2 | merged-segment | 1064 | 1135 | 71 | 288.6 | 4.065 | walked |
-| 3 | merged-segment | 1461 | 1515 | 54 | 124.6 | 2.307 | walked |
-| 4 | merged-segment | 1589 | 1611 | 22 | 52.2 | 2.373 | walked |
-| 5 | recording-gap | 1663 | 1685 | 22 | 58.1 | 2.641 | walked |
-| 6 | merged-segment | 1729 | 1760 | 31 | 88.4 | 2.852 | walked |
-| 7 | merged-segment | 2102 | 2125 | 23 | 53.4 | 2.322 | walked |
-| 8 | merged-segment | 2139 | 2169 | 30 | 90.1 | 3.003 | walked |
-| 9 | merged-segment | 2179 | 2236 | 57 | 157.5 | 2.763 | walked |
-| 10 | merged-segment | 2491 | 2525 | 34 | 81.7 | 2.403 | walked |
-| 11 | merged-segment | 2957 | 3067 | 110 | 305.4 | 2.776 | walked |
+| 1 | merged-segment | 1030 | 1048 | 18 | 52.4 | 2.911 | ran-through |
+| 2 | merged-segment | 1064 | 1135 | 71 | 288.6 | 4.065 | ran-through |
+| 3 | merged-segment | 1461 | 1515 | 54 | 124.6 | 2.307 | ran-through |
+| 4 | merged-segment | 1589 | 1611 | 22 | 52.2 | 2.373 | ran-through |
+| 5 | recording-gap | 1663 | 1685 | 22 | 58.1 | 2.641 | ran-through |
+| 6 | merged-segment | 1729 | 1760 | 31 | 88.4 | 2.852 | ran-through |
+| 7 | merged-segment | 2102 | 2125 | 23 | 53.4 | 2.322 | ran-through |
+| 8 | merged-segment | 2139 | 2169 | 30 | 90.1 | 3.003 | ran-through |
+| 9 | merged-segment | 2179 | 2236 | 57 | 157.5 | 2.763 | ran-through |
+| 10 | merged-segment | 2491 | 2525 | 34 | 81.7 | 2.403 | ran-through |
+| 11 | merged-segment | 2957 | 3067 | 110 | 305.4 | 2.776 | ran-through |
 | 12 | recording-gap | 3364 | 3388 | 24 | 46.3 | 1.929 | walked |
-| 13 | merged-segment | 3438 | 3456 | 18 | 49.2 | 2.733 | walked |
-| 14 | merged-segment | 3486 | 3547 | 61 | 157.8 | 2.587 | walked |
-| 15 | merged-segment | 3975 | 4028 | 53 | 154.4 | 2.913 | walked |
-| 16 | merged-segment | 4056 | 4121 | 65 | 201.7 | 3.103 | walked |
-| 17 | merged-segment | 4133 | 4212 | 79 | 219.0 | 2.772 | walked |
-| 18 | merged-segment | 4238 | 4263 | 25 | 72.3 | 2.892 | walked |
+| 13 | merged-segment | 3438 | 3456 | 18 | 49.2 | 2.733 | ran-through |
+| 14 | merged-segment | 3486 | 3547 | 61 | 157.8 | 2.587 | ran-through |
+| 15 | merged-segment | 3975 | 4028 | 53 | 154.4 | 2.913 | ran-through |
+| 16 | merged-segment | 4056 | 4121 | 65 | 201.7 | 3.103 | ran-through |
+| 17 | merged-segment | 4133 | 4212 | 79 | 219.0 | 2.772 | ran-through |
+| 18 | merged-segment | 4238 | 4263 | 25 | 72.3 | 2.892 | ran-through |
 
 ## Archive-wide findings (never an input to selection)
 
-Class distribution: stationary=5260 (1170 activities), walked=790 (285 activities), ran-through=0 (0 activities), transported=6 (5 activities). Not-classifiable intervals: 1259.
+Class distribution: stationary=5260 (1170 activities), walked=623 (237 activities), ran-through=167 (75 activities), transported=6 (5 activities). Not-classifiable intervals: 1259.
 
 Forgotten-stop: computable 1769, not-computable 105 ({"fewer than 30 covered pairs available to compute the recording-mechanism signature":1,"distance-triggered recording: a standstill would be written as a recording gap, not a covered creep, so the forgotten-stop flag cannot see it":104}). Covered-creep flagged on 82 activities (300 stretches); zero-advance-pause flagged on 414 activities (694 intervals).
 
