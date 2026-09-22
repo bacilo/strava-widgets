@@ -88,6 +88,31 @@ export const VALLEY_BIN_WIDTH_MPS = 0.1;
 /** The activity whose real J-interval shapes are cloned into the D-13 planting step, every family. */
 export const INSENSITIVITY_SOURCE_ACTIVITY_ID = '3475724402';
 
+/**
+ * [D-20, plan 34-13] STATIONARY_MAX_SPEED_MPS is DEVELOPER-DECLARED, not calibrated. Two independent
+ * Family G population designs (G1/G2/G3, `34-06-HALT-1.md`; G4/G5, `34-06-HALT-2.md`) were each
+ * measured against the real archive and neither could clear D-13 — this archive's standstills accrue
+ * essentially no distance, the finding STOP-02's own text anticipates ("otherwise drift is recorded
+ * as a measured non-issue"). The value below is chosen on PHYSICAL grounds alone, argued in
+ * `34-CONTEXT.md` D-20 (2026-09-22): far above the measured drift on this archive and far below the
+ * slowest developer-confirmed walking control. It is NOT derived from any measured Phase 34 figure.
+ * `DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT` is the ONE source-text literal this generator ships for
+ * this constant; the module asserts its parsed numeric sibling round-trips back to the same text at
+ * load. Family G still measures and renders G4/G5 (see `runFamily`'s `arbitrate: false` call below)
+ * as evidence for the non-issue finding — it no longer arbitrates a cut. This constant is
+ * developer-declared, never calibrated: no docblock, heading or summary line naming it may contain
+ * the word "calibrated" except inside the phrase "not calibrated".
+ */
+export const DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT = '0.5';
+export const DECLARED_STATIONARY_MAX_SPEED_MPS = Number(DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT);
+assert(
+  String(DECLARED_STATIONARY_MAX_SPEED_MPS) === DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT,
+  `DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT ('${DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT}') does not ` +
+    'round-trip through Number() parsing — the source text and its parsed numeric sibling have drifted.'
+);
+/** The provenance line's exact text, D-20. Never say "calibrated" of this constant anywhere else. */
+export const STATIONARY_PROVENANCE_TEXT = 'developer-declared (D-20), not calibrated';
+
 function sortAsc(values) {
   return [...values].sort((a, b) => a - b);
 }
@@ -1057,12 +1082,13 @@ export function d10Section(views) {
 // ---------------------------------------------------------------------------
 
 /**
- * [D-19, plan 34-12] DRIFT MEASUREMENT (replaces 34-04's G1-population version): rendered as
- * FINDINGS, strictly after selection and WHETHER OR NOT G clears — over the BASE standstill
- * episodes: episodes total, chained count, single-pause count, chained share, total standstill
- * seconds, total chained-episode metres. Independent of `shippedG`; the ONLY thing `shippedG` gates
- * is the "drift matters" line (`shippedG > 0`) and, when G HALTed entirely with zero chained
- * episodes, the stated reason.
+ * [D-20, plan 34-13] DRIFT MEASUREMENT — a MEASURED NON-ISSUE finding, rendered UNCONDITIONALLY,
+ * independent of whether Family G "clears" (it no longer arbitrates at all, D-20). Computed over the
+ * BASE standstill episodes only: episodes total, chained count, single-pause count, chained share,
+ * total standstill seconds, total chained-episode metres, plus G4's and G5's own measured base
+ * values (the same functions Family G's evidence rows use) — kept as the evidence for the
+ * disposition, never as a selection input. [D-19, plan 34-12] replaced 34-04's G1-population
+ * version; this replaces D-19's own `shippedG`-gated "drift matters" branch.
  */
 export function driftSection(views) {
   let episodesTotal = 0;
@@ -1092,6 +1118,8 @@ export function driftSection(views) {
     chainedShare: episodesTotal > 0 ? chainedCount / episodesTotal : null,
     totalStandstillSeconds,
     totalChainedMetres,
+    g4Base: shapeG4(views).value,
+    g5Base: shapeG5(views).value,
   };
 }
 
@@ -1501,33 +1529,37 @@ function renderD10(d10) {
 }
 
 /**
- * [D-19, plan 34-12] Renders the standstill-episode findings, always — whether or not G cleared —
- * plus the "drift matters" line, gated on `shippedG` (the shipped, rounded G value; `null` if G
- * has not shipped a value at all this run).
+ * [D-20, plan 34-13] Renders drift-while-stationary as a MEASURED NON-ISSUE finding, ALWAYS —
+ * independent of whether Family G "clears" (it no longer arbitrates at all). Reports the live
+ * standstill-episode evidence (including G4's and G5's own measured bases), the D-20 disposition and
+ * date, the declared bound stated in PROSE (never a `STATIONARY_MAX_SPEED_MPS = ` line — that
+ * pattern is reserved for `## Chosen constants`), and the definitional caveat that a single-pause
+ * standstill is zero-advance by construction. Replaces D-19's `shippedG`-gated "drift matters" line.
  */
-function renderDrift(drift, shippedG) {
-  const base =
+function renderDrift(drift) {
+  const evidence =
     `Standstill episodes: total=${drift.episodesTotal}, chained=${drift.chainedCount}, ` +
     `single-pause=${drift.singlePauseCount}, chainedShare=${fmtPct(drift.chainedShare)}, ` +
     `totalStandstillSeconds=${fmtNum(drift.totalStandstillSeconds, 1)}, ` +
-    `totalChainedMetres=${fmtNum(drift.totalChainedMetres, 2)}.`;
+    `totalChainedMetres=${fmtNum(drift.totalChainedMetres, 2)}. G4 measured base (pooled, chained-` +
+    `episode rate, R-7 p90) = ${fmtNum(drift.g4Base)} m/s; G5 measured base (per-activity) = ` +
+    `${fmtNum(drift.g5Base)} m/s.`;
 
-  if (shippedG === null || shippedG === undefined) {
-    if (drift.chainedCount === 0) {
-      return (
-        `${base} No chained episode exists: the base is null and G HALTs; the standstill counts ` +
-        'above are the measured reason.'
-      );
-    }
-    return `${base} Drift-matters not yet determined — Family G has not shipped a value this run.`;
-  }
-  if (shippedG > 0) {
-    return `${base} Drift matters: the shipped G value is > 0.`;
-  }
-  return (
-    `${base} The shipped G value is exactly 0: drift-while-stationary is a measured non-issue on ` +
-    'this archive.'
-  );
+  const disposition =
+    'Disposition (D-20, 2026-09-22): drift-while-stationary is a MEASURED NON-ISSUE on this archive. ' +
+    'Family G still measures and renders the G4/G5 rows above, under Shape arbitration, as evidence ' +
+    'for this finding; it no longer arbitrates a cut for this constant. The stationary/walked ' +
+    `boundary sits at the developer-declared ${DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT} m/s bound, ` +
+    'stated (never re-stated as a value line) in the Chosen constants section when every family ' +
+    'clears, chosen on physical grounds, far above what the evidence above measures.';
+
+  const caveat =
+    'Definitional caveat: a single-pause standstill (no qualifying bridge on either side) is ' +
+    'zero-advance BY CONSTRUCTION — the pause rule only marks zero-advance runs — so the single-' +
+    'pause share of the counts above is partly definitional. The chained share and the G4/G5 rates ' +
+    'above are the measured, non-definitional part of this finding.';
+
+  return `${evidence}\n\n${disposition}\n\n${caveat}`;
 }
 
 function renderFindings(findings) {
@@ -1659,9 +1691,19 @@ export function renderCalibrationMarkdown(result) {
   if (result.allCleared && !gateFailed) {
     lines.push('## Chosen constants');
     lines.push('');
-    lines.push(`STATIONARY_MAX_SPEED_MPS = ${result.shipped.STATIONARY_MAX_SPEED_MPS}`);
+    // [D-20, plan 34-13] STATIONARY_MAX_SPEED_MPS ships the DECLARED source text verbatim, never
+    // `String(result.shipped.STATIONARY_MAX_SPEED_MPS)` — 33-14's ship-from-artifact precedent pins
+    // to source text, not a runtime-derived string.
+    lines.push(`STATIONARY_MAX_SPEED_MPS = ${DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT}`);
+    lines.push(`STATIONARY_MAX_SPEED_MPS provenance: ${STATIONARY_PROVENANCE_TEXT}`);
     lines.push(`FORGOTTEN_STOP_MIN_SEC = ${result.shipped.FORGOTTEN_STOP_MIN_SEC}`);
+    lines.push(
+      `FORGOTTEN_STOP_MIN_SEC provenance: calibrated (M family, ${result.families.M.selectedId})`
+    );
     lines.push(`WALK_RUN_BOUNDARY_MPS = ${result.shipped.WALK_RUN_BOUNDARY_MPS}`);
+    lines.push(
+      `WALK_RUN_BOUNDARY_MPS provenance: calibrated (W family, ${result.families.W.selectedId})`
+    );
     lines.push(`UNRELIABLE_SPEED_LIMIT_MPS = ${UNRELIABLE_SPEED_LIMIT_MPS} (imported, 32-CALIBRATION.md)`);
     lines.push('');
   } else if (!result.allCleared) {
@@ -1698,7 +1740,7 @@ export function renderCalibrationMarkdown(result) {
 
   lines.push('## Drift-while-stationary');
   lines.push('');
-  lines.push(renderDrift(result.drift, result.shipped.STATIONARY_MAX_SPEED_MPS));
+  lines.push(renderDrift(result.drift));
   lines.push('');
 
   lines.push('## Join exhaustiveness');

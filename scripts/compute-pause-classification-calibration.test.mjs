@@ -9,12 +9,15 @@ import { describe, expect, it } from 'vitest';
 
 import { UNRELIABLE_SPEED_LIMIT_MPS } from '../dist/analytics/pace-derivation.js';
 import {
+  DECLARED_STATIONARY_MAX_SPEED_MPS,
+  DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT,
   INSENSITIVITY_SOURCE_ACTIVITY_ID,
   INSENSITIVITY_TOLERANCE,
   NEIGHBOURHOOD_SEC,
   PLANT_FRACTION,
   PREDECLARED_SHAPES,
   REJECTED_SHAPES,
+  STATIONARY_PROVENANCE_TEXT,
   VALLEY_BIN_WIDTH_MPS,
   applyGates,
   archiveFindings,
@@ -1024,15 +1027,131 @@ describe('gates', () => {
     expect(haltDrift.chainedCount).toBe(0);
   });
 
-  it('[D-19] rendered drift section states "Drift matters" when the shipped G value is > 0, and ' +
-    'names the standstill counts as the HALT reason when G HALTed with zero chained episodes', () => {
-    const clear = runCalibration(buildClearArchive(), null);
+  // [D-20, plan 34-13] The old "Drift matters iff the shipped G value is > 0" / "No chained episode
+  // exists" branch is RETIRED — see the "drift non-issue" describe below, which replaces this test.
+  // D-20 renders drift-while-stationary as a MEASURED NON-ISSUE finding, unconditionally, never
+  // gated on whether Family G "clears" (it no longer arbitrates at all).
+});
+
+// ---------------------------------------------------------------------------
+// declared constant (D-20, plan 34-13) — the stationary constant is developer-declared, never
+// calibrated; Family G still measures and renders G4/G5 as evidence but no longer arbitrates a cut.
+// ---------------------------------------------------------------------------
+
+describe('declared constant', () => {
+  it('DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT is the D-20 source text, and its numeric sibling ' +
+    'parses from it exactly (module-load round-trip assertion)', () => {
+    expect(DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT).toBe('0.5');
+    expect(DECLARED_STATIONARY_MAX_SPEED_MPS).toBe(Number(DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT));
+  });
+
+  it('STATIONARY_PROVENANCE_TEXT is exactly "developer-declared (D-20), not calibrated"', () => {
+    expect(STATIONARY_PROVENANCE_TEXT).toBe('developer-declared (D-20), not calibrated');
+  });
+
+  it('a clear fixture renders the line-anchored declared value and its provenance line under ' +
+    '## Chosen constants; M and W provenance lines name their own winning shape ids', () => {
+    const result = runCalibration(buildClearArchive(), GATES_PASS_CONTROL_TEXT);
+    expect(result.allCleared).toBe(true);
+    const markdown = renderCalibrationMarkdown({ ...result, provenance: {} });
+    expect(markdown).toMatch(/^STATIONARY_MAX_SPEED_MPS = 0\.5$/m);
+    expect(markdown).toContain(
+      'STATIONARY_MAX_SPEED_MPS provenance: developer-declared (D-20), not calibrated'
+    );
+    expect(markdown).toMatch(
+      new RegExp(
+        `^FORGOTTEN_STOP_MIN_SEC provenance: calibrated \\(M family, ${result.families.M.selectedId}\\)$`,
+        'm'
+      )
+    );
+    expect(markdown).toMatch(
+      new RegExp(
+        `^WALK_RUN_BOUNDARY_MPS provenance: calibrated \\(W family, ${result.families.W.selectedId}\\)$`,
+        'm'
+      )
+    );
+  });
+
+  it('no line matching ^STATIONARY_MAX_SPEED_MPS = appears outside ## Chosen constants; the HALT ' +
+    'fixture renders neither the section nor the line at all', () => {
+    const clear = runCalibration(buildClearArchive(), GATES_PASS_CONTROL_TEXT);
     const clearMarkdown = renderCalibrationMarkdown({ ...clear, provenance: {} });
-    expect(clearMarkdown).toContain('Drift matters: the shipped G value is > 0.');
+    const chosenIdx = clearMarkdown.indexOf('## Chosen constants');
+    expect(chosenIdx).toBeGreaterThan(-1);
+    const nextHeadingIdx = clearMarkdown.indexOf('\n## ', chosenIdx + 1);
+    const beforeChosen = clearMarkdown.slice(0, chosenIdx);
+    const afterChosen = clearMarkdown.slice(nextHeadingIdx);
+    expect(beforeChosen).not.toMatch(/^STATIONARY_MAX_SPEED_MPS = /m);
+    expect(afterChosen).not.toMatch(/^STATIONARY_MAX_SPEED_MPS = /m);
 
     const halt = runCalibration(buildHaltArchive(), null);
     const haltMarkdown = renderCalibrationMarkdown({ ...halt, provenance: {} });
-    expect(haltMarkdown).toContain('No chained episode exists: the base is null and G HALTs');
+    expect(haltMarkdown).not.toContain('## Chosen constants');
+    expect(haltMarkdown).not.toMatch(/^STATIONARY_MAX_SPEED_MPS = /m);
+  });
+
+  it('the word "calibrated" appears adjacent to the stationary constant only inside "not calibrated"', () => {
+    const result = runCalibration(buildClearArchive(), GATES_PASS_CONTROL_TEXT);
+    const markdown = renderCalibrationMarkdown({ ...result, provenance: {} });
+    const stationaryLines = markdown.split('\n').filter((l) => l.includes('STATIONARY_MAX_SPEED_MPS'));
+    expect(stationaryLines.length).toBeGreaterThan(0);
+    for (const line of stationaryLines) {
+      if (line.includes('calibrated')) expect(line).toContain('not calibrated');
+    }
+  });
+
+  it('rendering the same clear-fixture result twice is byte-identical', () => {
+    const result = runCalibration(buildClearArchive(), GATES_PASS_CONTROL_TEXT);
+    const fixed = { ...result, provenance: {} };
+    expect(renderCalibrationMarkdown(fixed)).toBe(renderCalibrationMarkdown(fixed));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// drift non-issue (D-20, plan 34-13) — drift-while-stationary renders as a MEASURED NON-ISSUE with
+// its own live evidence, independent of whether Family G "clears".
+// ---------------------------------------------------------------------------
+
+describe('drift non-issue', () => {
+  it('driftSection(views) carries G4 and G5 measured bases alongside the standstill episode counts, ' +
+    'computed live from the views (never hardcoded)', () => {
+    const views = buildBaseViews(pauseBearingArchive());
+    const drift = driftSection(views);
+    expect(drift.episodesTotal).toBeGreaterThan(0);
+    expect(drift.chainedCount).toBeGreaterThan(0);
+    expect(drift.g4Base).toBeCloseTo(shapeG4(views).value, 8);
+    expect(drift.g5Base).toBeCloseTo(shapeG5(views).value, 8);
+  });
+
+  it('driftSection reports g4Base/g5Base as null when there is no chained episode anywhere', () => {
+    const drift = driftSection(buildBaseViews(buildHaltArchive()));
+    expect(drift.episodesTotal).toBe(0);
+    expect(drift.g4Base).toBeNull();
+    expect(drift.g5Base).toBeNull();
+  });
+
+  it('the rendered ## Drift-while-stationary section states the MEASURED NON-ISSUE disposition, ' +
+    'names D-20 and its date, states the declared bound in prose (never a ' +
+    '"STATIONARY_MAX_SPEED_MPS = " line), and states the definitional single-pause caveat', () => {
+    const result = runCalibration(pauseBearingArchive(), null);
+    const markdown = renderCalibrationMarkdown({ ...result, provenance: {} });
+    const section = markdown.split('## Drift-while-stationary')[1].split('## Join exhaustiveness')[0];
+    expect(section).toContain('MEASURED NON-ISSUE');
+    expect(section).toContain('D-20');
+    expect(section).toContain('2026-09-22');
+    expect(section).toContain(`${DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT} m/s`);
+    expect(section).toContain('zero-advance BY CONSTRUCTION');
+    expect(section).not.toMatch(/^STATIONARY_MAX_SPEED_MPS = /m);
+    expect(section).toMatch(/G4 measured base/);
+    expect(section).toMatch(/G5 measured base/);
+  });
+
+  it('the Drift-while-stationary section is byte-identical on re-render of the same result', () => {
+    const result = runCalibration(pauseBearingArchive(), null);
+    const fixed = { ...result, provenance: {} };
+    const section1 = renderCalibrationMarkdown(fixed).split('## Drift-while-stationary')[1];
+    const section2 = renderCalibrationMarkdown(fixed).split('## Drift-while-stationary')[1];
+    expect(section1).toBe(section2);
   });
 });
 
@@ -1074,7 +1193,11 @@ describe('render', () => {
 
   it('the Chosen constants block contains the exact contract lines', () => {
     const markdown = renderCalibrationMarkdown(clearResult);
-    expect(markdown).toContain(`STATIONARY_MAX_SPEED_MPS = ${clearResult.shipped.STATIONARY_MAX_SPEED_MPS}`);
+    // [D-20, plan 34-13] STATIONARY_MAX_SPEED_MPS ships the DECLARED source text, never
+    // `clearResult.shipped.STATIONARY_MAX_SPEED_MPS` (which, before plan 34-13's Task 2 rewires
+    // `runCalibration`, is still G4's calibrated raw value on this fixture — the two are pinned equal
+    // by the "declared constant" describe block above once Task 2 lands).
+    expect(markdown).toContain(`STATIONARY_MAX_SPEED_MPS = ${DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT}`);
     expect(markdown).toContain(`FORGOTTEN_STOP_MIN_SEC = ${clearResult.shipped.FORGOTTEN_STOP_MIN_SEC}`);
     expect(markdown).toContain(`WALK_RUN_BOUNDARY_MPS = ${clearResult.shipped.WALK_RUN_BOUNDARY_MPS}`);
     expect(markdown).toContain(`UNRELIABLE_SPEED_LIMIT_MPS = ${UNRELIABLE_SPEED_LIMIT_MPS} (imported, 32-CALIBRATION.md)`);
