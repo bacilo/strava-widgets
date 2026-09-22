@@ -55,6 +55,30 @@ function makeRow(overrides: Partial<DashboardIndexRow> & { id: string }): Dashbo
       },
       deviceEra: { family: 'no-device-name', rawDeviceName: null },
       elapsedVsMoving: { ratio: 1, elapsedSec: 3000, movingSec: 3000 },
+      // Ninth/tenth signals (Phase 34, PAUSE-02/STOP-01/STOP-03): a required
+      // field this suite does not exercise — a clean/zero default, same
+      // precedent as the signals above.
+      pauseClassification: {
+        intervalCount: 0,
+        stationaryCount: 0,
+        walkedCount: 0,
+        ranThroughCount: 0,
+        transportedCount: 0,
+        notClassifiableCount: 0,
+      },
+      forgottenStop: {
+        computable: true,
+        reason: null,
+        count: 0,
+        totalSec: 0,
+        longestSec: 0,
+        creepCount: 0,
+        creepTotalSec: 0,
+        creepLongestSec: 0,
+        pauseCount: 0,
+        pauseTotalSec: 0,
+        pauseLongestSec: 0,
+      },
       anySevere: false,
       notComputableReason: null,
     },

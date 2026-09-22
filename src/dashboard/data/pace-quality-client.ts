@@ -30,9 +30,11 @@ import type {
   ElapsedVsMovingSignal,
   ElevationSignal,
   ElevationTier,
+  ForgottenStopSignal,
   GapProfileSignal,
   ImpossibleSampleSignal,
   PaceQualityShard,
+  PauseClassificationSignal,
   QualityTier,
   SubGroundSignal,
   UnreliableSegmentsSignal,
@@ -289,6 +291,85 @@ function parseElapsedVsMovingSignal(raw: unknown): ElapsedVsMovingSignal | null 
 }
 
 /**
+ * Phase 34 (PAUSE-02, D-11): all-or-nothing parse of the ninth signal — the
+ * `parseUnreliableSegmentsSignal` shape minus `tier` (this signal is
+ * UNTIERED by design, so there is no tier field to parse). Every field goes
+ * through `finiteNumberOrNull` (the Phase 30 elevation guard, not
+ * `nullableNumber` — a NaN/Infinity count must never reach the DOM).
+ */
+function parsePauseClassificationSignal(raw: unknown): PauseClassificationSignal | null {
+  if (!isPlainObject(raw)) return null;
+  return {
+    intervalCount: finiteNumberOrNull(raw.intervalCount),
+    stationaryCount: finiteNumberOrNull(raw.stationaryCount),
+    walkedCount: finiteNumberOrNull(raw.walkedCount),
+    ranThroughCount: finiteNumberOrNull(raw.ranThroughCount),
+    transportedCount: finiteNumberOrNull(raw.transportedCount),
+    notClassifiableCount: finiteNumberOrNull(raw.notClassifiableCount),
+  };
+}
+
+/**
+ * CR-01 fallback for `parsePauseClassificationSignal` — every count `null`,
+ * matching `notComputableSignals`' own literal in `pace-quality.ts`
+ * (T-26-02: never zeroed, since a zero here would read as "genuinely no
+ * pauses classified" rather than "not looked / stale document").
+ */
+const NOT_COMPUTABLE_PAUSE_CLASSIFICATION_PARSED: PauseClassificationSignal = {
+  intervalCount: null,
+  stationaryCount: null,
+  walkedCount: null,
+  ranThroughCount: null,
+  transportedCount: null,
+  notClassifiableCount: null,
+};
+
+/**
+ * Phase 34 (STOP-01, STOP-03, D-09, D-11): all-or-nothing parse of the
+ * tenth signal. `computable` must be a genuine boolean and `reason` must be
+ * a string or `null` — either field failing that check invalidates the
+ * WHOLE signal (never a partially-trusted shape), since a malformed
+ * `computable` cannot be trusted to say whether the numeric fields below it
+ * are meaningful. Numbers go through `finiteNumberOrNull`.
+ */
+function parseForgottenStopSignal(raw: unknown): ForgottenStopSignal | null {
+  if (!isPlainObject(raw)) return null;
+  if (typeof raw.computable !== 'boolean') return null;
+  if (raw.reason !== null && typeof raw.reason !== 'string') return null;
+  return {
+    computable: raw.computable,
+    reason: raw.reason,
+    count: finiteNumberOrNull(raw.count),
+    totalSec: finiteNumberOrNull(raw.totalSec),
+    longestSec: finiteNumberOrNull(raw.longestSec),
+    creepCount: finiteNumberOrNull(raw.creepCount),
+    creepTotalSec: finiteNumberOrNull(raw.creepTotalSec),
+    creepLongestSec: finiteNumberOrNull(raw.creepLongestSec),
+    pauseCount: finiteNumberOrNull(raw.pauseCount),
+    pauseTotalSec: finiteNumberOrNull(raw.pauseTotalSec),
+    pauseLongestSec: finiteNumberOrNull(raw.pauseLongestSec),
+  };
+}
+
+/**
+ * CR-01 fallback for `parseForgottenStopSignal` — `computable: false` with
+ * every number `null`, matching the plan's own named literal.
+ */
+const NOT_COMPUTABLE_FORGOTTEN_STOP_PARSED: ForgottenStopSignal = {
+  computable: false,
+  reason: 'not computed for this activity',
+  count: null,
+  totalSec: null,
+  longestSec: null,
+  creepCount: null,
+  creepTotalSec: null,
+  creepLongestSec: null,
+  pauseCount: null,
+  pauseTotalSec: null,
+  pauseLongestSec: null,
+};
+
+/**
  * Total, never-throwing parse of the `ActivityQualitySignals` composite. A
  * shard whose `signals` object is present but missing (or malformed on) one
  * sub-signal parses with that sub-signal `null` rather than returning `null`
@@ -348,6 +429,13 @@ function parseActivityQualitySignals(raw: unknown): ActivityQualitySignals | nul
       elapsedSec: null,
       movingSec: null,
     },
+    // Phase 34 (PAUSE-02, D-11): the same stale-artifact defence as
+    // `elevation`/`unreliableSegments` above — a row written before this
+    // plan has no usable `pauseClassification` key at all.
+    pauseClassification:
+      parsePauseClassificationSignal(raw.pauseClassification) ?? NOT_COMPUTABLE_PAUSE_CLASSIFICATION_PARSED,
+    // Phase 34 (STOP-01, STOP-03, D-09, D-11): same defence, one signal later.
+    forgottenStop: parseForgottenStopSignal(raw.forgottenStop) ?? NOT_COMPUTABLE_FORGOTTEN_STOP_PARSED,
     anySevere: typeof raw.anySevere === 'boolean' ? raw.anySevere : false,
     notComputableReason: typeof raw.notComputableReason === 'string' ? raw.notComputableReason : null,
   };
@@ -503,6 +591,15 @@ export function parsePaceQualityShard(raw: unknown): PaceQualityShard | null {
     unreliableSegments,
     unreliableSegmentsTruncated:
       typeof raw.unreliableSegmentsTruncated === 'boolean' ? raw.unreliableSegmentsTruncated : false,
+    // Phase 34 (PAUSE-02, D-15): the shard's per-interval pause list arrives
+    // structurally here (type-level, so this parser type-checks against the
+    // widened `PaceQualityShard`), but its own per-entry parse function
+    // ships in plan 34-09 alongside the Pauses section that reads it — until
+    // then this degrades to an empty, untruncated list, exactly the same
+    // "present, not absent" CR-01 shape every other capped list here
+    // defaults to on a stale/malformed document.
+    pauseIntervals: [],
+    pauseIntervalsTruncated: false,
   };
 }
 

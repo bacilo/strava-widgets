@@ -862,6 +862,33 @@ export const EXPLANATION_PROBE_QUALITY: ActivityQualitySignals = {
   },
   deviceEra: { family: 'no-device-name', rawDeviceName: null },
   elapsedVsMoving: { ratio: null, elapsedSec: null, movingSec: null },
+  // Ninth/tenth signals (Phase 34, PAUSE-02/STOP-01/STOP-03, D-11): flat
+  // untiered defaults, mirroring `deviceEra`/`elapsedVsMoving`'s own choice
+  // above — neither key has a `tier` field, so there is no 'none'/'severe'
+  // choice to make, and neither participates in the three-signal assertion
+  // loop below (they are not tiering signals feeding hasAnySevereSignal).
+  // Rows and sections for these two ship in plan 34-09.
+  pauseClassification: {
+    intervalCount: 0,
+    stationaryCount: 0,
+    walkedCount: 0,
+    ranThroughCount: 0,
+    transportedCount: 0,
+    notClassifiableCount: 0,
+  },
+  forgottenStop: {
+    computable: true,
+    reason: null,
+    count: 0,
+    totalSec: 0,
+    longestSec: 0,
+    creepCount: 0,
+    creepTotalSec: 0,
+    creepLongestSec: 0,
+    pauseCount: 0,
+    pauseTotalSec: 0,
+    pauseLongestSec: 0,
+  },
   anySevere: true,
   notComputableReason: null,
 };

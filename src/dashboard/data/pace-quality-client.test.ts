@@ -70,6 +70,34 @@ const validShard = {
     },
     deviceEra: { family: 'garmin-fenix-6-pro', rawDeviceName: null },
     elapsedVsMoving: { ratio: 1.02, elapsedSec: 510, movingSec: 500 },
+    // Phase 34 (PAUSE-02, D-11): a well-formed pauseClassification object —
+    // every field populated so the round-trip test below proves every
+    // field survives the real `parsePauseClassificationSignal`, not just
+    // the not-computable fallback shape.
+    pauseClassification: {
+      intervalCount: 4,
+      stationaryCount: 0,
+      walkedCount: 1,
+      ranThroughCount: 3,
+      transportedCount: 0,
+      notClassifiableCount: 2,
+    },
+    // Phase 34 (STOP-01, STOP-03, D-09, D-11): a well-formed forgottenStop
+    // object — every field populated so the round-trip test below proves
+    // every field survives the real `parseForgottenStopSignal`.
+    forgottenStop: {
+      computable: true,
+      reason: null,
+      count: 3,
+      totalSec: 210,
+      longestSec: 120,
+      creepCount: 1,
+      creepTotalSec: 90,
+      creepLongestSec: 90,
+      pauseCount: 2,
+      pauseTotalSec: 120,
+      pauseLongestSec: 120,
+    },
     anySevere: false,
     notComputableReason: null,
   },
@@ -95,6 +123,14 @@ const validShard = {
     { startSec: 340, endSec: 342.2, metres: 22.8, excessMetres: 6.2, seconds: 10, mechanism: 'isolated-jump' },
   ],
   unreliableSegmentsTruncated: false,
+  // Phase 34 (PAUSE-02, D-15): the shard's per-interval pause-list entry
+  // parse ships in plan 34-09 — until then `parsePaceQualityShard` always
+  // returns the empty/untruncated default, so this fixture's own
+  // `pauseIntervals` (even though populated in the raw wire shape) is NOT
+  // expected to round-trip here; see the dedicated "pauseIntervals stub"
+  // test below.
+  pauseIntervals: [],
+  pauseIntervalsTruncated: false,
 };
 
 describe('parsePaceQualityShard', () => {
@@ -561,6 +597,165 @@ describe('parsePaceQualityShard', () => {
     };
     const result = parsePaceQualityShard(doc);
     expect(result?.signals.deviceEra.rawDeviceName).toBe(payload);
+  });
+
+  // Phase 34 (PAUSE-02, D-11): the ninth signal. Named so `-t
+  // "pauseClassification parse"` selects every case in this block.
+  describe('pauseClassification parse', () => {
+    it('a well-formed pauseClassification object round-trips every field', () => {
+      const result = parsePaceQualityShard(validShard);
+      expect(result?.signals.pauseClassification).toEqual(validShard.signals.pauseClassification);
+    });
+
+    it('a non-object pauseClassification value degrades to the all-null not-computable literal, never throws', () => {
+      const doc = { ...validShard, signals: { ...validShard.signals, pauseClassification: 'nope' } };
+      const result = parsePaceQualityShard(doc);
+      expect(result).not.toBeNull();
+      expect(result?.signals.pauseClassification).toEqual({
+        intervalCount: null,
+        stationaryCount: null,
+        walkedCount: null,
+        ranThroughCount: null,
+        transportedCount: null,
+        notClassifiableCount: null,
+      });
+    });
+
+    it('a pauseClassification key absent entirely (a pre-Phase-34 stale document) yields the all-null not-computable literal, present not absent', () => {
+      const signals: Record<string, unknown> = { ...validShard.signals };
+      delete signals.pauseClassification;
+      const doc = { ...validShard, signals };
+      const result = parsePaceQualityShard(doc);
+      expect(result).not.toBeNull();
+      expect(result?.signals.pauseClassification).toEqual({
+        intervalCount: null,
+        stationaryCount: null,
+        walkedCount: null,
+        ranThroughCount: null,
+        transportedCount: null,
+        notClassifiableCount: null,
+      });
+    });
+
+    it('pauseClassification fields carrying NaN or Infinity parse to null, never a non-finite number', () => {
+      const doc = {
+        ...validShard,
+        signals: {
+          ...validShard.signals,
+          pauseClassification: {
+            ...validShard.signals.pauseClassification,
+            walkedCount: Number.NaN,
+            ranThroughCount: Number.POSITIVE_INFINITY,
+          },
+        },
+      };
+      const result = parsePaceQualityShard(doc);
+      expect(result).not.toBeNull();
+      expect(result?.signals.pauseClassification.walkedCount).toBeNull();
+      expect(result?.signals.pauseClassification.ranThroughCount).toBeNull();
+      expect(result?.signals.pauseClassification.intervalCount).toBe(
+        validShard.signals.pauseClassification.intervalCount
+      );
+    });
+  });
+
+  // Phase 34 (STOP-01, STOP-03, D-09, D-11): the tenth signal. Named so `-t
+  // "forgottenStop parse"` selects every case in this block.
+  describe('forgottenStop parse', () => {
+    it('a well-formed computable forgottenStop object round-trips every field', () => {
+      const result = parsePaceQualityShard(validShard);
+      expect(result?.signals.forgottenStop).toEqual(validShard.signals.forgottenStop);
+    });
+
+    it('a well-formed not-computable forgottenStop object (computable: false, reason: a string, every number null) round-trips exactly', () => {
+      const notComputable = {
+        computable: false,
+        reason: 'distance-triggered recording: a standstill would be written as a recording gap, not a covered creep, so the forgotten-stop flag cannot see it',
+        count: null,
+        totalSec: null,
+        longestSec: null,
+        creepCount: null,
+        creepTotalSec: null,
+        creepLongestSec: null,
+        pauseCount: null,
+        pauseTotalSec: null,
+        pauseLongestSec: null,
+      };
+      const doc = { ...validShard, signals: { ...validShard.signals, forgottenStop: notComputable } };
+      const result = parsePaceQualityShard(doc);
+      expect(result?.signals.forgottenStop).toEqual(notComputable);
+    });
+
+    it('a non-object forgottenStop value degrades to the named not-computable fallback, never throws', () => {
+      const doc = { ...validShard, signals: { ...validShard.signals, forgottenStop: 'nope' } };
+      const result = parsePaceQualityShard(doc);
+      expect(result).not.toBeNull();
+      expect(result?.signals.forgottenStop).toEqual({
+        computable: false,
+        reason: 'not computed for this activity',
+        count: null,
+        totalSec: null,
+        longestSec: null,
+        creepCount: null,
+        creepTotalSec: null,
+        creepLongestSec: null,
+        pauseCount: null,
+        pauseTotalSec: null,
+        pauseLongestSec: null,
+      });
+    });
+
+    it('a forgottenStop key absent entirely (a pre-Phase-34 stale document) yields the named not-computable fallback, present not absent', () => {
+      const signals: Record<string, unknown> = { ...validShard.signals };
+      delete signals.forgottenStop;
+      const doc = { ...validShard, signals };
+      const result = parsePaceQualityShard(doc);
+      expect(result).not.toBeNull();
+      expect(result?.signals.forgottenStop.computable).toBe(false);
+      expect(result?.signals.forgottenStop.reason).toBe('not computed for this activity');
+      expect(result?.signals.forgottenStop.count).toBeNull();
+    });
+
+    it('a non-boolean computable, or a non-string-non-null reason, invalidates the WHOLE signal (all-or-nothing), degrading to the named fallback', () => {
+      const badComputable = {
+        ...validShard,
+        signals: {
+          ...validShard.signals,
+          forgottenStop: { ...validShard.signals.forgottenStop, computable: 'yes' },
+        },
+      };
+      expect(parsePaceQualityShard(badComputable)?.signals.forgottenStop.computable).toBe(false);
+      expect(parsePaceQualityShard(badComputable)?.signals.forgottenStop.count).toBeNull();
+
+      const badReason = {
+        ...validShard,
+        signals: {
+          ...validShard.signals,
+          forgottenStop: { ...validShard.signals.forgottenStop, reason: 42 },
+        },
+      };
+      expect(parsePaceQualityShard(badReason)?.signals.forgottenStop.computable).toBe(false);
+      expect(parsePaceQualityShard(badReason)?.signals.forgottenStop.count).toBeNull();
+    });
+
+    it('forgottenStop numeric fields carrying NaN or Infinity parse to null, never a non-finite number', () => {
+      const doc = {
+        ...validShard,
+        signals: {
+          ...validShard.signals,
+          forgottenStop: {
+            ...validShard.signals.forgottenStop,
+            totalSec: Number.NaN,
+            longestSec: Number.POSITIVE_INFINITY,
+          },
+        },
+      };
+      const result = parsePaceQualityShard(doc);
+      expect(result).not.toBeNull();
+      expect(result?.signals.forgottenStop.totalSec).toBeNull();
+      expect(result?.signals.forgottenStop.longestSec).toBeNull();
+      expect(result?.signals.forgottenStop.count).toBe(validShard.signals.forgottenStop.count);
+    });
   });
 });
 

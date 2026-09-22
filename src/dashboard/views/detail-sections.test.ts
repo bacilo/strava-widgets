@@ -629,6 +629,30 @@ const HEALTHY_QUALITY: ActivityQualitySignals = {
   },
   deviceEra: { family: 'garmin-fenix-6-pro', rawDeviceName: null },
   elapsedVsMoving: { ratio: 1.01, elapsedSec: 1010, movingSec: 1000 },
+  // Ninth/tenth signals (Phase 34, PAUSE-02/STOP-01/STOP-03): required
+  // fields this suite does not exercise (rows/sections ship in plan
+  // 34-09) -- a clean/zero default, same precedent as the signals above.
+  pauseClassification: {
+    intervalCount: 0,
+    stationaryCount: 0,
+    walkedCount: 0,
+    ranThroughCount: 0,
+    transportedCount: 0,
+    notClassifiableCount: 0,
+  },
+  forgottenStop: {
+    computable: true,
+    reason: null,
+    count: 0,
+    totalSec: 0,
+    longestSec: 0,
+    creepCount: 0,
+    creepTotalSec: 0,
+    creepLongestSec: 0,
+    pauseCount: 0,
+    pauseTotalSec: 0,
+    pauseLongestSec: 0,
+  },
   anySevere: false,
   notComputableReason: null,
 };
@@ -658,6 +682,30 @@ const NOT_COMPUTABLE_QUALITY: ActivityQualitySignals = {
   },
   deviceEra: { family: 'no-device-name', rawDeviceName: null },
   elapsedVsMoving: { ratio: null, elapsedSec: null, movingSec: null },
+  // Ninth/tenth signals (Phase 34): whole-signal not-computable, matching
+  // notComputableSignals' own shape, mirroring every other tiering signal
+  // above.
+  pauseClassification: {
+    intervalCount: null,
+    stationaryCount: null,
+    walkedCount: null,
+    ranThroughCount: null,
+    transportedCount: null,
+    notClassifiableCount: null,
+  },
+  forgottenStop: {
+    computable: false,
+    reason: 'no stream committed for this activity',
+    count: null,
+    totalSec: null,
+    longestSec: null,
+    creepCount: null,
+    creepTotalSec: null,
+    creepLongestSec: null,
+    pauseCount: null,
+    pauseTotalSec: null,
+    pauseLongestSec: null,
+  },
   anySevere: false,
   notComputableReason: 'no stream committed for this activity',
 };
@@ -681,6 +729,11 @@ function makeShard(overrides: Partial<PaceQualityShard>): PaceQualityShard {
     // precedent as elevationVerticalRateSamples above.
     unreliableSegments: [],
     unreliableSegmentsTruncated: false,
+    // Phase 34 (PAUSE-02, D-15) evidence: a required field this suite does
+    // not exercise (the Pauses section ships in plan 34-09) -- an
+    // empty/untruncated default, same precedent as unreliableSegments above.
+    pauseIntervals: [],
+    pauseIntervalsTruncated: false,
     ...overrides,
   };
 }
