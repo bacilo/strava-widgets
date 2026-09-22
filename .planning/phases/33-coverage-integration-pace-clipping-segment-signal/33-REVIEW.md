@@ -21,7 +21,7 @@ findings:
   warning: 1
   info: 4
   total: 6
-status: issues_found
+status: resolved
 ---
 
 # Phase 33: Code Review Report
@@ -59,7 +59,7 @@ addressed explicitly below, including the items that turned out fine.
 
 ## Critical Issues
 
-### CR-01: New calibration/recount npm scripts omit the build step their own code assumes
+### CR-01: New calibration/recount npm scripts omit the build step their own code assumes — **RESOLVED** in `fa8c6598`
 
 **File:** `package.json:32-33`
 **Issue:** The two new scripts added this phase both import from `../dist/...`, exactly like their
@@ -106,7 +106,7 @@ and update `compute-coverage-identity-recount.mjs`'s own printed regenerate line
 
 ## Warnings
 
-### WR-01: New `UnreliableSegmentsSignal` browser parser accepts NaN/Infinity/negative numeric fields
+### WR-01: New `UnreliableSegmentsSignal` browser parser accepts NaN/Infinity/negative numeric fields — **RESOLVED** in `fa8c6598` (finite guard; negative values are still accepted, as they are for every sibling signal — noted, not changed)
 
 **File:** `src/dashboard/data/pace-quality-client.ts:253-262` (`parseUnreliableSegmentsSignal`) and
 `:396-406` (`parseUnreliableSegment`)
