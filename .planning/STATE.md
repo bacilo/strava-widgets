@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
 status: executing
-stopped_at: Completed 34-08-PLAN.md (pauseClassification/forgottenStop wired into quality signals) — plans 34-09 through 34-11 still open
-last_updated: "2026-09-22T22:38:29.133Z"
+stopped_at: Completed 34-09-PLAN.md (Pauses disclosed on the activity detail view) — plans 34-10 and 34-11 still open
+last_updated: "2026-09-22T22:57:56.000Z"
 last_activity: 2026-09-23
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 45
-  completed_plans: 42
+  completed_plans: 43
   percent: 33
 ---
 
@@ -47,20 +47,22 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 ## Current Position
 
 Phase: 34 (pause-classification-forgotten-stop) — EXECUTING
-Plan: 08 (wire the classifier and forgotten-stop core into the per-activity quality signals)
-complete. Plan 07 (D-18 independent recount of 3475724402's class table) preceded it — see prior
-entries in git history for its own record.
-Status: 34-08 complete (2026-09-23): pace-quality.ts gained two untiered ninth/tenth signals
-(pauseClassification, forgottenStop), both structurally excluded from hasAnySevereSignal (no tier
-field at all, D-11) — the never-widen guard was watched failing under a temporary Pick<> widening,
-then reverted. PaceQualityShard gained a capped pauseIntervals list (projectPauseIntervals, D-15).
-Real 3475724402: pauseClassification = walked 1, ran-through 17, matching the 34-07 independent
-recount exactly; real 3475740390 (distance-triggered): forgottenStop not-computable with the D-10
-reason. Read-side parsers (parsePauseClassificationSignal/parseForgottenStopSignal) added to
-pace-quality-client.ts with named CR-01 fallbacks; the shard's own pauseIntervals entry-level parse
-is deferred to plan 34-09 (documented as a Known Stub, CR-01-safe). tsc's own post-Task-1/2 error
-list was treated as authoritative for the 13-file fixture cascade. 25 new tests, 98 files / 3432
-total npm test, all green. Plans 34-09 through 34-11 still open.
+Plan: 09 (disclose the classification and the forgotten-stop flag on the activity detail view)
+complete. Plan 08 (wire the classifier and forgotten-stop core into the per-activity quality
+signals) preceded it — see prior entries in git history for its own record.
+Status: 34-09 complete (2026-09-23): the detail view gained a new Pauses section (per-interval
+table fed from the lazy shard: position, class, duration, distance; covered-creep and
+zero-advance-pause rows marked as timer-running standstills, D-09) and a 10th untiered Quality
+Signals summary row (pausesSummaryRow, combining pauseClassification's counts and forgottenStop's
+itemised totals). The 34-08 shard-parse stub (pauseIntervals always []) was replaced with a real
+tolerant per-entry parser (VALID_PAUSE_CLASSES/VALID_PAUSE_SOURCES, parsePauseInterval). No list
+badge, no filter, no chart diff (D-16/D-17); D-17's guard was watched failing under a planted
+qualityBadgeSpecs spec push, then reverted (list.ts byte-identical to HEAD). Pauses section mounted
+in the same mountBestEffortsAndBadges Promise.all batch as Quality Signals — no new fetch
+(paceQualityClient.load( still occurs exactly once). 28 new tests, 98 files / 3460 total npm test,
+all green. tsc/build/build-widgets all clean. requirements mark-complete and
+roadmap update-plan-progress were deliberately NOT run this plan (Requirement-tick safety
+instruction) — PAUSE-02/STOP-03's disposition is left open. Plans 34-10 and 34-11 still open.
 Last activity: 2026-09-23
 
 ## Performance Metrics
@@ -123,6 +125,7 @@ Last activity: 2026-09-23
 | Phase 34 PP06 (4th run) | ~35min | 2 tasks | 3 files |
 | Phase 34 P07 | ~40min | 2 tasks | 3 files |
 | Phase 34 P08 | ~15min | 3 tasks | 16 files |
+| Phase 34 P09 | ~10min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -206,6 +209,8 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 34]: 34-08: hasAnySevereSignal's own function body confirmed unchanged via a targeted diff check (not the plan's literal file-wide grep, which false-positives on this plan's own doc comments naming the function)
 - [Phase 34]: 34-08: buildPaceQualityShard calls classifyPauses/classifyForgottenStop directly, once each, reusing the same rollup helpers pauseClassificationSignal/forgottenStopSignal use internally, so the shard's pauseIntervals projection and the row signals' counts always agree
 - [Phase 34]: 34-08: parsePaceQualityShard's pauseIntervals/pauseIntervalsTruncated are stubbed to an always-empty/untruncated default; production already writes real entries, but no browser reader consumes them until plan 34-09's own per-entry parser and Pauses section ship
+- [Phase 34]: 34-09: replaced the 34-08 pauseIntervals parse stub with a real tolerant per-entry parser (VALID_PAUSE_CLASSES/VALID_PAUSE_SOURCES, deliberately separate Sets per D-15); added the 10th Quality Signals row (pausesSummaryRow, untiered) and the new Pauses section (pausesSectionPlan/buildPausesSection), fed only from shard.pauseIntervals — D-15's membership rule (no unreliableSegments leakage) proved by a dedicated test
+- [Phase 34]: 34-09: the D-17 no-list-badge guard was watched failing under a temporary planted qualityBadgeSpecs spec push (signal: 'forgottenStop' when forgottenStop.totalSec > 0), then reverted — list.ts confirmed byte-identical to HEAD via git diff --exit-code
 
 ### Key Findings
 
@@ -318,8 +323,8 @@ It is named here because PROJECT.md's Evolution entry still describes it as open
 
 ## Session Continuity
 
-Last session: 2026-09-22T22:38:29.125Z
-Stopped at: Completed 34-08-PLAN.md (pauseClassification/forgottenStop wired into quality signals) — plans 34-09 through 34-11 still open
+Last session: 2026-09-22T22:57:56.000Z
+Stopped at: Completed 34-09-PLAN.md (Pauses disclosed on the activity detail view) — plans 34-10 and 34-11 still open
 Resume file: None
 
 ---
