@@ -376,10 +376,12 @@ export function evaluateShape(fn, { base, removed, planted }, { tolerance, ctx }
     base: baseValue,
     baseN: baseResult.n,
     baseExcluded: baseResult.excluded ?? 0,
+    baseItems: baseResult.items ?? null,
     removed: removedValue,
     removedN: removedResult.n,
     planted: plantedValue,
     plantedN: plantedResult.n,
+    plantedItems: plantedResult.items ?? null,
     removedDelta,
     plantedDelta,
     pass,
@@ -390,6 +392,15 @@ export function evaluateShape(fn, { base, removed, planted }, { tolerance, ctx }
 // G family
 // ---------------------------------------------------------------------------
 
+function countCadenceSilentPairs(views) {
+  let count = 0;
+  for (const v of views) {
+    if (!v.computable) continue;
+    for (const p of v.coveredPairs) if (p.cadenceSilent) count++;
+  }
+  return count;
+}
+
 export function shapeG1(views) {
   const speeds = [];
   for (const v of views) {
@@ -397,7 +408,9 @@ export function shapeG1(views) {
     for (const p of v.coveredPairs) if (p.cadenceSilent) speeds.push(p.speedMps);
   }
   const sorted = sortAsc(speeds);
-  return { value: sorted.length === 0 ? null : quantile(sorted, 0.9), n: sorted.length, excluded: 0 };
+  // items (D-19, additive): the pooled cadence-silent pair count — G1 has no per-activity threshold,
+  // so this equals `n` exactly.
+  return { value: sorted.length === 0 ? null : quantile(sorted, 0.9), n: sorted.length, excluded: 0, items: sorted.length };
 }
 
 export function shapeG2(views) {
@@ -413,7 +426,9 @@ export function shapeG2(views) {
     perActivity.push(quantile(sortAsc(silentSpeeds), 0.5));
   }
   const sorted = sortAsc(perActivity);
-  return { value: sorted.length === 0 ? null : quantile(sorted, 0.9), n: sorted.length, excluded };
+  // items (D-19, additive): the pooled cadence-silent pair count BEFORE the per-activity >=30
+  // threshold — the same pooled population G1 reads, not the qualifying-activity count `n` above.
+  return { value: sorted.length === 0 ? null : quantile(sorted, 0.9), n: sorted.length, excluded, items: countCadenceSilentPairs(views) };
 }
 
 export function shapeG3(views) {
@@ -433,7 +448,9 @@ export function shapeG3(views) {
     }
   }
   const sorted = sortAsc(speeds);
-  return { value: sorted.length === 0 ? null : quantile(sorted, 0.5), n: sorted.length, excluded: 0 };
+  // items (D-19, additive): the pooled run-in pair count — G3 has no per-activity threshold, so
+  // this equals `n` exactly.
+  return { value: sorted.length === 0 ? null : quantile(sorted, 0.5), n: sorted.length, excluded: 0, items: sorted.length };
 }
 
 export function strawmanG(views) {
@@ -443,7 +460,7 @@ export function strawmanG(views) {
     for (const j of v.J) speeds.push(j.speedMps);
   }
   const sorted = sortAsc(speeds);
-  return { value: sorted.length === 0 ? null : quantile(sorted, 0.9), n: sorted.length, excluded: 0 };
+  return { value: sorted.length === 0 ? null : quantile(sorted, 0.9), n: sorted.length, excluded: 0, items: sorted.length };
 }
 
 // ---------------------------------------------------------------------------
@@ -471,14 +488,23 @@ function pooledPa(views) {
   return { sorted: sortAsc(perActivity), excluded };
 }
 
+function countAdvanceIntervals(views) {
+  let count = 0;
+  for (const v of views) {
+    if (!v.computable) continue;
+    count += v.positionedAdvanceIntervals.length;
+  }
+  return count;
+}
+
 export function shapeM1(views) {
   const { sorted, excluded } = pooledPa(views);
-  return { value: sorted.length === 0 ? null : quantile(sorted, 0.9), n: sorted.length, excluded };
+  return { value: sorted.length === 0 ? null : quantile(sorted, 0.9), n: sorted.length, excluded, items: countAdvanceIntervals(views) };
 }
 
 export function shapeM2(views) {
   const { sorted, excluded } = pooledPa(views);
-  return { value: sorted.length === 0 ? null : quantile(sorted, 0.5), n: sorted.length, excluded };
+  return { value: sorted.length === 0 ? null : quantile(sorted, 0.5), n: sorted.length, excluded, items: countAdvanceIntervals(views) };
 }
 
 export function strawmanM(views, ctx) {
@@ -489,7 +515,7 @@ export function strawmanM(views, ctx) {
     for (const c of creepCandidates(v.coveredPairs, floor)) durations.push(c.seconds);
   }
   const sorted = sortAsc(durations);
-  return { value: sorted.length === 0 ? null : quantile(sorted, 0.9), n: sorted.length, excluded: 0 };
+  return { value: sorted.length === 0 ? null : quantile(sorted, 0.9), n: sorted.length, excluded: 0, items: sorted.length };
 }
 
 // ---------------------------------------------------------------------------
@@ -548,35 +574,41 @@ function inRangeCount(items, lo, hi) {
 
 export function shapeW1(views, ctx) {
   const items = [];
+  let totalSteps = 0;
   for (const v of views) {
     if (!v.computable) continue;
+    totalSteps += v.foldedSteps.length;
     for (const s of v.foldedSteps) items.push({ value: s.metres / s.seconds, weight: s.seconds });
   }
   const value = valleyOf(items, ctx.lo, ctx.hi);
   const n = inRangeCount(items, ctx.lo, ctx.hi);
-  return { value, n, excluded: items.length - n };
+  return { value, n, excluded: items.length - n, items: totalSteps };
 }
 
 export function shapeW2(views, ctx) {
   const items = [];
+  let totalSteps = 0;
   for (const v of views) {
     if (!v.computable) continue;
+    totalSteps += v.foldedSteps.length;
     for (const s of v.foldedSteps) items.push({ value: s.metres / s.seconds, weight: 1 });
   }
   const value = valleyOf(items, ctx.lo, ctx.hi);
   const n = inRangeCount(items, ctx.lo, ctx.hi);
-  return { value, n, excluded: items.length - n };
+  return { value, n, excluded: items.length - n, items: totalSteps };
 }
 
 export function strawmanW(views, ctx) {
   const items = [];
+  let totalJ = 0;
   for (const v of views) {
     if (!v.computable) continue;
+    totalJ += v.J.length;
     for (const j of v.J) items.push({ value: j.speedMps, weight: 1 });
   }
   const value = valleyOf(items, ctx.lo, ctx.hi);
   const n = inRangeCount(items, ctx.lo, ctx.hi);
-  return { value, n, excluded: items.length - n };
+  return { value, n, excluded: items.length - n, items: totalJ };
 }
 
 // ---------------------------------------------------------------------------

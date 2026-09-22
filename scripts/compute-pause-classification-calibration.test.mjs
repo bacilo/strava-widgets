@@ -43,6 +43,135 @@ import {
 } from './compute-pause-classification-calibration.mjs';
 
 // ---------------------------------------------------------------------------
+// planted entry (34-12-PLAN.md D-19 gap closure) — RED evidence, then GREEN
+// ---------------------------------------------------------------------------
+
+/**
+ * A synthetic archive that actually contains zero-advance pauses (unlike `buildClearArchive`'s
+ * "no pause anywhere" fixture): two activities, each with two zero-advance pause intervals joined
+ * by a short advancing bridge (duration < P_a), a recording gap immediately adjoining the second
+ * pause (within the R=10s neighbourhood width), and a cadence array. One activity is literally
+ * `INSENSITIVITY_SOURCE_ACTIVITY_ID` (3475724402), so its own J interval(s) serve as the D-13
+ * plant source shapes.
+ */
+function buildPauseBearingActivity(id) {
+  const t = [];
+  const d = [];
+  const cadence = [];
+  let time = 0;
+  let dist = 0;
+
+  // Warm-up: 50 covered samples at dt=1s, speed=3.0 m/s, cadence=160 (background population).
+  for (let i = 0; i <= 50; i++) {
+    t.push(time);
+    d.push(dist);
+    cadence.push(160);
+    time += 1;
+    dist += 3.0;
+  }
+  // Pause 1: flat run, duration 10s (> P_a=5s for this fixture), cadence 0.
+  for (let i = 0; i < 10; i++) {
+    t.push(time);
+    d.push(dist);
+    cadence.push(0);
+    time += 1;
+  }
+  t.push(time);
+  d.push(dist);
+  cadence.push(0);
+  // Bridge: 3 samples advancing at 0.5 m/s per step, duration 3s (< P_a=5s), cadence 0.
+  for (let i = 0; i < 3; i++) {
+    time += 1;
+    dist += 0.5;
+    t.push(time);
+    d.push(dist);
+    cadence.push(0);
+  }
+  // Pause 2: flat run, duration 10s, cadence 0.
+  for (let i = 0; i < 10; i++) {
+    time += 1;
+    t.push(time);
+    d.push(dist);
+    cadence.push(0);
+  }
+  // Recording gap immediately adjoining pause 2's end (0s separation, well within the R=10s
+  // neighbourhood width): a 15s jump (> RECORDING_GAP_ABS_THRESHOLD_SEC=10s).
+  time += 15;
+  dist += 1.0;
+  t.push(time);
+  d.push(dist);
+  cadence.push(160);
+  // Tail: 10 more covered samples at 3.0 m/s, cadence 160.
+  for (let i = 0; i < 10; i++) {
+    time += 1;
+    dist += 3.0;
+    t.push(time);
+    d.push(dist);
+    cadence.push(160);
+  }
+
+  return { id, t, d, cadence };
+}
+
+function pauseBearingArchive() {
+  const activities = [
+    buildPauseBearingActivity(INSENSITIVITY_SOURCE_ACTIVITY_ID),
+    buildPauseBearingActivity('PB2'),
+  ];
+  return { activities, streamFileCount: activities.length, notComputable: 0 };
+}
+
+describe('planted entry', () => {
+  it('pauseBearingArchive yields non-empty pauseIntervals and a non-empty G3 population', () => {
+    const views = buildBaseViews(pauseBearingArchive());
+    for (const v of views) {
+      expect(v.computable).toBe(true);
+      expect(v.pauseIntervals.length).toBeGreaterThan(0);
+    }
+    expect(shapeG3(views).n).toBeGreaterThan(0);
+  });
+
+  it('RED (HALT-1 code): every PREDECLARED_SHAPES entry and every strawman satisfies ' +
+    'planted.items === base.items + plantCount, at least G3 and strawman G do not', () => {
+    const views = buildBaseViews(pauseBearingArchive());
+    const sourceShapes = views
+      .find((v) => v.id === INSENSITIVITY_SOURCE_ACTIVITY_ID)
+      .J.map((iv) => ({ metres: iv.metres, seconds: iv.seconds }));
+
+    // The CURRENT (HALT-1) harness: one family-wide plant, count = archive |J|, pushed only into
+    // coveredPairs/foldedSteps/positionedAdvanceIntervals — never into J or a position-filtered
+    // population.
+    const plantResult = plantShapes(views, sourceShapes);
+    const plantCount = plantResult.plantedCount;
+    const plantedViews = plantResult.views;
+
+    const failures = [];
+    const g3Base = shapeG3(views).items;
+    const g3Planted = shapeG3(plantedViews).items;
+    if (g3Planted !== g3Base + plantCount) {
+      failures.push(
+        `G3: expected planted.items (${g3Planted}) === base.items (${g3Base}) + plantCount ` +
+          `(${plantCount}) = ${g3Base + plantCount}, got ${g3Planted}`
+      );
+    }
+
+    const sgBase = strawmanG(views).items;
+    const sgPlanted = strawmanG(plantedViews).items;
+    if (sgPlanted !== sgBase + plantCount) {
+      failures.push(
+        `strawman G: expected planted.items (${sgPlanted}) === base.items (${sgBase}) + plantCount ` +
+          `(${plantCount}) = ${sgBase + plantCount}, got ${sgPlanted}`
+      );
+    }
+
+    // eslint-disable-next-line no-console -- RED evidence must be visible in the SUMMARY verbatim
+    console.log('RED evidence (HALT-1 planting code):\n' + failures.join('\n'));
+
+    expect(failures, 'HALT-1 planting defect must reproduce on G3 and strawman G').toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Shared synthetic fixture builders — no real stream is ever read
 // ---------------------------------------------------------------------------
 
