@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
 status: executing
-stopped_at: "34-06 third re-run HALTED (HALT-3): all three families cleared for the first time (G evidence-only per D-20, M1 selected 40s, W1 selected 6.95 m/s), but post-selection gate d12-anchor-ii FAILED — the confirmed walking-break control's rest-of-activity running pace (2.8257 m/s) does not clear the shipped 6.95 m/s boundary. Nothing shipped. Plans 34-07 through 34-11 remain blocked pending a developer decision on Family W's shape (34-06-HALT-3.md)."
-last_updated: "2026-09-22T19:34:55.000Z"
+stopped_at: "Completed 34-14-PLAN.md (D-21 gap closure); plan 34-06 can now run a fourth time"
+last_updated: "2026-09-22T21:25:27.944Z"
 last_activity: 2026-09-22
 progress:
   total_phases: 6
   completed_phases: 2
-  total_plans: 44
-  completed_plans: 38
+  total_plans: 45
+  completed_plans: 39
   percent: 33
 ---
 
@@ -47,13 +47,16 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 ## Current Position
 
 Phase: 34 (pause-classification-forgotten-stop) — EXECUTING
-Plan: 06 (third re-run, HALTed a third time: 34-06 HALTed twice before — D-08/HALT-1 addressed by
-34-12's D-19 re-declaration, D-08/HALT-2 addressed by 34-13's D-20 declared-constant closure)
-Status: 34-06's third real-archive run HALTED (HALT-3, 2026-09-22): all three families cleared for
-the first time (G evidence-only, M1 selected, W1 selected), but post-selection gate d12-anchor-ii
-FAILED — WALK_RUN_BOUNDARY_MPS (6.95 m/s, W1) is too high for a confirmed walking-break control's
-own rest-of-activity running pace to clear it. Nothing shipped. A developer decision on Family W's
-shape is required before 34-06 can re-run a fourth time. Plans 34-07 through 34-11 remain blocked.
+Plan: 14 (D-21 gap closure) complete — 34-06 HALTed three times before this: D-08/HALT-1 addressed
+by 34-12's D-19 re-declaration, D-08/HALT-2 addressed by 34-13's D-20 declared-constant closure,
+HALT-3 (d12-anchor-ii gate failure on Family W's shipped boundary) addressed by this plan's D-21
+declared-boundary closure.
+Status: 34-14 complete (2026-09-22): WALK_RUN_BOUNDARY_MPS ships as developer-declared 2.2 m/s with
+tested provenance; Family W is now evidence-only (measures and renders strawman W/W1/W2, never
+arbitrates); Family M remains the phase's only calibrated constant; a new d21-basis gate ties the
+declaration to live evidence (every confirmed control's window speed; the W1 time-weighted modal
+bin centre). 156 generator tests, 3360 total npm test, all green. Plan 34-06 can now run a fourth
+time — plans 34-07 through 34-11 remain blocked until that run ships all three constants.
 Last activity: 2026-09-22
 
 ## Performance Metrics
@@ -112,6 +115,7 @@ Last activity: 2026-09-22
 | Phase 34 P04 | single session | 2 tasks | 3 files |
 | Phase 34 P05 | ~30min | 2 tasks | 3 files |
 | Phase 34 P13 | ~25min | 3 tasks | 2 files |
+| Phase 34 P14 | ~55min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -189,6 +193,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 34]: 34-06 re-run (HALT-2, 2026-09-22): re-ran the calibration generator against the real archive with 34-12's re-declared Family G. Strawman G watched FAIL first (its plant now genuinely enters J, unlike HALT-1's vacuous row). G4 and G5 both FAIL D-13 on both axes: removedDelta 89.7455% (only 6 chained standstill episodes exist archive-wide; 2 sit near a J-neighbourhood and are dropped), plantedDelta 3902.09%/1561.89% (one proportional plant, sized from J's transport-scale speeds, swamps a 6-item drift-scale population). Both failures materialise 34-12's own disclosed caveat (c5) ("pauses often adjoin recording gaps ... a real sensitivity for the harness to measure, not a defect"). Non-vacuity re-confirmed for every row (plantedItems = baseItems + plantCount); an independent, non-gated check confirmed the three D-12 confirmed walking-break windows move 42x-60x faster than the failed G4 value, so D-12 is not the obstacle. NO SHAPE CLEARS again; nothing shipped; Task 2 skipped; 32/33 upstream artifacts and data/streams unchanged. See `34-06-HALT-2.md`'s Blocking Developer Decision for three named, unchosen options. Plans 34-07 through 34-11 remain blocked.
 - [Phase 34]: 34-13 (D-20) complete: STATIONARY_MAX_SPEED_MPS ships as developer-declared 0.5 m/s with tested provenance (34-CONTEXT.md D-20 line, generator source text, rendered artifact line bound character-for-character, watched RED from three sides); Family G measures and renders G4/G5 as evidence only (arbitrate: false, never selects); M and W calibrate unchanged on the declared floor; a new D-20 basis gate asserts the declared value exceeds G4's measured base. 122 generator tests, 3326 total npm test, all green. main() never run; 34-CALIBRATION.md and data/streams untouched. Plan 34-06 can now run a third time.
 - [Phase 34]: 34-06 third re-run (HALT-3, 2026-09-22): re-ran the calibration generator against the real archive with 34-13's D-20 amendments. All three strawmen watched FAIL first. Family G measured/rendered as evidence only (D-20, not arbitrated). Families M and W BOTH CLEARED D-13 for the first time this phase — M1 selected (40s, first-clearing), W1 selected (6.95 m/s, first-clearing), both 0.0000% on both axes. But post-selection gate d12-anchor-ii FAILED: the first confirmed walking-break control's (6286234101) rest-of-activity covered speed (2.8257 m/s, an easy-running pace) is not strictly greater than the shipped WALK_RUN_BOUNDARY_MPS (6.95 m/s). A direct histogram dump of W1's population showed the valley-picking rule (global-minimum qualifying bin) landed in a sparse tail bin (6.90-7.00 m/s, 309 seconds archive-wide out of 2.6M) near the 7.35 m/s unreliable-speed ceiling, not a genuine walk/run transition — corroborated by 3475724402's own per-interval table (all 18 rows classify `walked`, none `ran-through`, contradicting D-02's own stated expectation that this activity's segments split between the two classes). All other gates PASS (order, d12-anchor-i, d12-anchor-iii, d10-rule, join, d20-basis). Nothing shipped; Task 2 skipped; 32/33 upstream artifacts and data/streams unchanged. An additional (non-gating) check at the candidate params (0.5 m/s, 40s) found the THIRD confirmed walking-break control (3475715143) IS flagged by classifyForgottenStop (a 42s stretch at exactly 0.5 m/s), matching the developer's own advance warning; the other two controls are not flagged. See `34-06-HALT-3.md`'s Blocking Developer Decision for three named, unchosen options on Family W's shape. Plans 34-07 through 34-11 remain blocked.
+- [Phase 34]: 34-14 (D-21) complete: WALK_RUN_BOUNDARY_MPS ships as developer-declared 2.2 m/s with tested provenance (34-CONTEXT.md D-21 line, generator source text, rendered artifact line bound character-for-character, watched RED from three sides); Family W measures and renders strawman W/W1/W2 as evidence only (arbitrate: false, shippedFloor kept so every row stays finite); Family M remains the phase's only calibrated constant; a new d21-basis gate asserts the declared boundary exceeds every confirmed control's window speed and sits below the W1 time-weighted modal bin centre; buildGatesPassArchive extended (H1, never retuned) with a bulk running-hump activity so every gate id reads PASS individually. Fixed a bug this plan's own change exposed: buildHaltArchive's uniform-duration population let Family M trivially clear D-13 once Family W could no longer block the pipeline; rebuilt as creep-dominated. 156 generator tests, 3360 total npm test, all green. main() never run; 34-CALIBRATION.md and data/streams untouched. Plan 34-06 can now run a fourth time.
 
 ### Key Findings
 
@@ -301,9 +306,9 @@ It is named here because PROJECT.md's Evolution entry still describes it as open
 
 ## Session Continuity
 
-Last session: 2026-09-22T19:34:55.000Z
-Stopped at: 34-06 third re-run HALTED (HALT-3): all three families cleared for the first time (G evidence-only, M1 selected 40s, W1 selected 6.95 m/s, both clean on D-13), but post-selection gate d12-anchor-ii FAILED — the confirmed walking-break control's rest-of-activity running pace (2.8257 m/s) does not clear the shipped 6.95 m/s boundary. Nothing shipped. See 34-06-HALT-3.md for the three named, unchosen options on Family W's shape. Plans 34-07 through 34-11 remain blocked pending a developer decision.
-Resume file: .planning/phases/34-pause-classification-forgotten-stop/34-06-HALT-3.md
+Last session: 2026-09-22T21:25:21.815Z
+Stopped at: Completed 34-14-PLAN.md (D-21 gap closure); plan 34-06 can now run a fourth time
+Resume file: None
 
 ---
 *Last updated: 2026-08-11 — Phase 17 (activity-browser-detail-views) all 15 planned plans executed and summarized; human checkpoint on plan 17-15 came back PARTIAL — 8/10 Manual-Only Verifications rows confirmed clean, GAP 1 (DETAIL-02, route-map basemap tiles absent) and GAP 2 (DETAIL-03/04, chart band x-axis misalignment) have open gaps pending gap-closure planning (`/gsd-plan-phase 17 --gaps`) before the phase gate closes*
