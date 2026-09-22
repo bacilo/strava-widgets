@@ -243,9 +243,9 @@ Plans:
   1. Each of 3475724402's merged segments is classified from its own merged distance and elapsed time, under speed bands calibrated in a regenerable artifact with its own non-circularity argument, and the per-segment classes on the detail view match a hand-derived table produced outside the classifier. The scoping probe's activity-level estimate (~1.9 m/s across all gaps, i.e. walking) is a reference only — individual segments may legitimately differ (the 98 s gap near t=2963 merges to roughly running speed), and the criterion is per-segment agreement with the independent table, not a single expected class. **Amended 2026-09-22 (34-CONTEXT.md D-02):** classes are stationary / walked / ran-through / transported; 3475724402's merged segments are expected to split between walked and ran-through under the calibrated walk/run boundary, and the criterion stays per-segment agreement with the independent table, never a pinned class.
   2. The detail view lists each pause with its class, duration and distance; the per-activity summary is an additive index key with per-interval detail in the lazy quality shard.
   3. v2.2's "9 activities advance >100 m across a ≥30s gap" figure is re-measured on merged segments rather than the gap interval alone, and the corrected figure is recorded with dated provenance in a regenerable artifact.
-  4. A forgotten-stop flag (total seconds, longest stretch) is computed per activity under a near-zero threshold and minimum duration calibrated against the archive's own measured GPS-drift-while-stationary, disclosed on the detail view, structurally excluded from the severe composite, and shown NOT firing on a walking-break activity. **Amended 2026-09-22 (34-CONTEXT.md D-09):** 'inside recorded, timer-running time' — covered-time creep and the existing zero-advance pause intervals, itemised by source (count, total seconds, longest stretch) and combined; recording gaps excluded; a distance-triggered stream reports not-computable with a stated reason (D-10).
+  4. A forgotten-stop flag (total seconds, longest stretch) is computed per activity under a near-zero threshold and minimum duration calibrated against the archive's own measured GPS-drift-while-stationary, disclosed on the detail view, structurally excluded from the severe composite, and shown NOT firing on a walking-break activity. **Amended 2026-09-22 (34-CONTEXT.md D-09):** 'inside recorded, timer-running time' — covered-time creep and the existing zero-advance pause intervals, itemised by source (count, total seconds, longest stretch) and combined; recording gaps excluded; a distance-triggered stream reports not-computable with a stated reason (D-10). **Amended 2026-09-22 (34-CONTEXT.md D-20, D-21):** the near-zero threshold is developer-declared at 0.5 m/s because drift-while-stationary was measured to be a non-issue on this archive (D-20), and the minimum duration is still calibrated. "Shown NOT firing on a walking-break activity" is read as "not firing for a walking break's walking pace": the flag marks timer-running standstills, so a genuine standstill inside a walking break is flagged honestly and disclosed. Measured at (0.5 m/s, 40 s): two of the three developer-confirmed controls are not flagged, and 3475715143 is flagged for a 42 s stretch at exactly 0.5 m/s, which the developer accepted (34-06-HALT-3.md). The criterion is the property — no control flagged at walking pace, every flagged stretch at or below the stationary bound — with the measured figures reported as findings, never pinned.
 
-**Plans**: 13 plans
+**Plans**: 14 plans
 Plans:
 **Wave 1**
 
@@ -268,25 +268,29 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4)*
 
-- [ ] 34-06-PLAN.md — measured calibration run (strawmen RED first, first-clearing, gates) and constants shipped from the artifact, or HALT (third run: G declared per D-20, M/W still calibrated)
+- [ ] 34-14-PLAN.md — gap closure after 34-06 HALT-3 (D-21): Family W evidence-only with live histogram evidence that the covered-time distribution has no valley, WALK_RUN_BOUNDARY_MPS developer-declared at 2.2 with a provenance chain test and a d21-basis gate, Family M still arbitrating; synthetic fixtures only, not run
 
 **Wave 6** *(blocked on Wave 5)*
 
-- [ ] 34-07-PLAN.md — D-18 zero-import independent class recount for 3475724402, watched failing against a broken classifier
+- [ ] 34-06-PLAN.md — measured calibration run (strawman RED first, M arbitrates, gates) and constants shipped from the artifact, or HALT (fourth run: G and W declared per D-20/D-21, M still calibrated)
 
 **Wave 7** *(blocked on Wave 6)*
 
-- [ ] 34-08-PLAN.md — untiered pauseClassification/forgottenStop signals, capped shard list, never-widen guard, read-side parsers, fixture cascade
+- [ ] 34-07-PLAN.md — D-18 zero-import independent class recount for 3475724402, watched failing against a broken classifier
 
 **Wave 8** *(blocked on Wave 7)*
 
-- [ ] 34-09-PLAN.md — Pauses section and the Quality Signals summary row, textContent-only, no badge/filter/chart change
+- [ ] 34-08-PLAN.md — untiered pauseClassification/forgottenStop signals, capped shard list, never-widen guard, read-side parsers, fixture cascade
 
 **Wave 9** *(blocked on Wave 8)*
 
-- [ ] 34-10-PLAN.md — MERGE-01, regeneration on the merged tree, closing gate, checkpoint rows drafted with independent expected values
+- [ ] 34-09-PLAN.md — Pauses section and the Quality Signals summary row, textContent-only, no badge/filter/chart change
 
 **Wave 10** *(blocked on Wave 9)*
+
+- [ ] 34-10-PLAN.md — MERGE-01, regeneration on the merged tree, closing gate, checkpoint rows drafted with independent expected values
+
+**Wave 11** *(blocked on Wave 10)*
 
 - [ ] 34-11-PLAN.md — human browser checkpoint and per-requirement disposition
 **UI hint**: yes
@@ -376,7 +380,7 @@ Plans:
 | 31. Tech-Debt Closure — Silent-Failure Guards & Docs Reconciliation | v2.2 | 10/10 | Complete    | 2026-09-19 |
 | 32. Unreliable-Segment Detection & Calibration | v2.3 | 17/17 | Complete    | 2026-09-20 |
 | 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 14/14 | Complete    | 2026-09-22 |
-| 34. Pause Classification & Forgotten-Stop | v2.3 | 7/13 | In Progress|  |
+| 34. Pause Classification & Forgotten-Stop | v2.3 | 7/14 | In Progress|  |
 | 35. Stream-Derived Running Pace | v2.3 | 0/TBD | Not started | - |
 | 36. Best-Effort Clean-Window Search & Ceiling Recalibration | v2.3 | 0/TBD | Not started | - |
 | 37. Review-Queue Priority & CUR-04 | v2.3 | 0/TBD | Not started | - |
