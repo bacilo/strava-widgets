@@ -46,6 +46,20 @@ import type { UnreliableSegment, SegmentMechanism } from './unreliable-segments.
 export type { UnreliableSegment, SegmentMechanism } from './unreliable-segments.js';
 
 /**
+ * The transport-speed VALUE re-export (34-CONTEXT.md D-05) — the one door
+ * through which the detector's calibrated transport boundary reaches every
+ * downstream consumer (`pause-classification.ts`'s `isTransported`/
+ * `classifyPauseSpeed`). A pure `export … from` re-export leaves the name
+ * unbound in THIS module's own scope (`pace-derivation.ts` itself never
+ * reads `UNRELIABLE_SPEED_LIMIT_MPS` — it only forwards it), which is fine:
+ * this file has no comparison of its own to make against it. Consumers must
+ * import it from here, never copy the literal `7.35` (D-05's single-source
+ * audit forbids the literal outside `unreliable-segments.ts` and its own
+ * test).
+ */
+export { UNRELIABLE_SPEED_LIMIT_MPS } from './unreliable-segments.js';
+
+/**
  * Absolute-time threshold above which a `[t[i], t[i+1]]` segment is a
  * `recording-gap` rather than a `pause` or `covered` segment. Unchanged from
  * PROJECT.md's existing 1,233-activity cohort (a gap >10s with no samples
@@ -93,6 +107,47 @@ export interface PreDetectorGapInterval {
   startSec: number;
   endSec: number;
   kind: PreDetectorGapKind;
+}
+
+/**
+ * One maximal run of consecutive `'covered'` pairs, `[startIndex, endIndex)`
+ * over the pair-index space (pair `i` spans samples `t[i]`..`t[i+1]`), from
+ * `classifyGapsWithSegments`'s own FINAL `pairKinds` array (34-CONTEXT.md
+ * D-01, 34-RESEARCH.md Pattern 1/Pitfall 5). Deliberately index-based, never
+ * a second `startSec`/`endSec` boundary convention derived by re-scanning
+ * floating-point sample times — the same reason the pass-3 detector-segment
+ * containment check above is index-based (32-13/32-17's fixed defect: a
+ * second, disagreeing boundary convention can double-count a shared
+ * interval). A downstream covered-time consumer (Phase 34's
+ * `findCreepStretches`) that needs "which samples are covered" reads THIS
+ * field, never `coverage.gapIntervals`'s absence as a proxy.
+ */
+export interface CoveredRun {
+  startIndex: number;
+  endIndex: number;
+}
+
+/**
+ * Derives `CoveredRun[]` from a FINAL `pairKinds` array (post pass-3, the
+ * same array `accumulateCoverage` sums) — a maximal run of consecutive
+ * `'covered'` entries `i` is reported as `{ startIndex: firstPair, endIndex:
+ * lastPair + 1 }`. Pure, total: an empty `pairKinds` array returns `[]`.
+ */
+function deriveCoveredRuns(pairKinds: readonly PairKind[]): CoveredRun[] {
+  const runs: CoveredRun[] = [];
+  let runStart: number | null = null;
+  for (let i = 0; i < pairKinds.length; i++) {
+    if (pairKinds[i] === 'covered') {
+      if (runStart === null) runStart = i;
+    } else if (runStart !== null) {
+      runs.push({ startIndex: runStart, endIndex: i });
+      runStart = null;
+    }
+  }
+  if (runStart !== null) {
+    runs.push({ startIndex: runStart, endIndex: pairKinds.length });
+  }
+  return runs;
 }
 
 /**
@@ -247,7 +302,12 @@ type PairKind = GapKind | 'covered';
  *
  * Guarded by `validateStreamSeries` on entry (T-26-01) — any non-`ok` input
  * (length mismatch, fewer than 2 samples, a non-finite value, decreasing
- * `t`/`d`) returns `ok: false` rather than throwing.
+ * `t`/`d`) returns `ok: false` rather than throwing. A `null`/`undefined`
+ * `t` or `d` is checked FIRST, before `validateStreamSeries` is called at
+ * all (34-03 Task 1) — `validateStreamSeries` itself reads `t.length`
+ * unconditionally and would throw a raw `TypeError` on `null`, which is the
+ * one gap T-26-01's "never throws" guarantee had against a `null`-shaped
+ * (as opposed to merely malformed-array-shaped) input.
  *
  * Classification is by STRICT PRIORITY, never as two independent overlapping
  * checks (26-RESEARCH.md Pitfall 3 — independent checks can double-count a
@@ -269,7 +329,7 @@ function classifyPairKinds(
   d: readonly number[],
   options?: { pauseRule?: PauseRule }
 ): { ok: boolean; spanSec: number; pairKinds: PairKind[] } {
-  if (!validateStreamSeries(t as number[], d as number[]).ok) {
+  if (t == null || d == null || !validateStreamSeries(t as number[], d as number[]).ok) {
     return { ok: false, spanSec: 0, pairKinds: [] };
   }
 
@@ -483,9 +543,9 @@ export function classifyGapsWithSegments(
   t: readonly number[],
   d: readonly number[],
   options?: { pauseRule?: PauseRule }
-): { coverage: PaceCoverage; segments: UnreliableSegment[] } {
+): { coverage: PaceCoverage; segments: UnreliableSegment[]; coveredRuns: CoveredRun[] } {
   const pass1 = classifyPairKinds(t, d, options);
-  if (!pass1.ok) return { coverage: zeroCoverage(), segments: [] };
+  if (!pass1.ok) return { coverage: zeroCoverage(), segments: [], coveredRuns: [] };
 
   // Pass 2: the pre-detector three-way gapIntervals — the detector's own
   // `gaps` argument. This is exactly what `classifyGapsThreeWay` returns;
@@ -526,6 +586,9 @@ export function classifyGapsWithSegments(
       gapIntervals: finalAcc.gapIntervals,
     },
     segments,
+    // Derived from the SAME final pairKinds array finalAcc was summed from —
+    // no second classification pass, no re-scan of gapIntervals (D-01).
+    coveredRuns: deriveCoveredRuns(pairKinds),
   };
 }
 
