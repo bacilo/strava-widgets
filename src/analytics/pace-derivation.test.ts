@@ -43,9 +43,14 @@ import {
   paceHistogramSamples,
   paceHistogramAccounting,
   detectPaceDisagreement,
+  UNRELIABLE_SPEED_LIMIT_MPS as UNRELIABLE_SPEED_LIMIT_MPS_VIA_PACE_DERIVATION,
 } from './pace-derivation.js';
 import type { UnreliableSegment, SegmentMechanism } from './pace-derivation.js';
-import { detectUnreliableSegments, DEFAULT_DETECTOR_PARAMS } from './unreliable-segments.js';
+import {
+  detectUnreliableSegments,
+  DEFAULT_DETECTOR_PARAMS,
+  UNRELIABLE_SPEED_LIMIT_MPS as UNRELIABLE_SPEED_LIMIT_MPS_VIA_DETECTOR,
+} from './unreliable-segments.js';
 import {
   syntheticRecordingGapStream,
   syntheticIntervalSessionStream,
@@ -922,5 +927,154 @@ describe('classifyGapsWithSegments — the detector\'s one permitted accessor (P
     const oneSegment: UnreliableSegment = segments[0];
     const mechanism: SegmentMechanism = oneSegment.mechanism;
     expect(['gap-adjacent', 'hidden-pause', 'isolated-jump']).toContain(mechanism);
+  });
+});
+
+/**
+ * `coveredRuns` (34-CONTEXT.md D-01, 34-03-PLAN.md Task 1) — the index-based
+ * covered-pair-run field Phase 34's downstream consumers (`findCreepStretches`
+ * in `pause-classification.ts`) read instead of re-deriving covered
+ * membership from floating `gapIntervals` boundaries. Additive to
+ * `classifyGapsWithSegments`'s existing `{ coverage, segments }` result —
+ * every pre-existing test above stays green unmodified.
+ */
+describe('classifyGapsWithSegments coveredRuns (Phase 34)', () => {
+  /**
+   * Hand-built five-phase fixture: covered (200 s) -> recording gap (300 s,
+   * one sample jump, no advance) -> covered (200 s) -> zero-advance pause
+   * (400 s, flat distance) -> covered (200 s). Mirrors
+   * `buildSyntheticMultiCategoryFixture` above with one extra covered phase
+   * inserted between the gap and the pause, so the pattern is exactly the
+   * plan's own behavior-list wording: "(covered, recording gap, covered,
+   * zero-advance pause, covered)".
+   *
+   * Pair-index accounting (hand-derived, dense 2 s sampling throughout):
+   *   pairs   0..99   covered   (phase 1, 100 steps)
+   *   pair    100      recording-gap (phase 2, one 300 s jump)
+   *   pairs 101..200  covered   (phase 3, 100 steps)
+   *   pairs 201..400  pause     (phase 4, 200 steps, one 400 s flat run)
+   *   pairs 401..500  covered   (phase 5, 100 steps)
+   * The pause threshold (scale-relative default, multiplier 5) resolves to
+   * 5 * quantile(p90 of the 2 s advance intervals) = 5 * 2 = 10 s; the
+   * phase-4 flat run's own duration (400 s) clears that threshold by a wide
+   * margin, so every pair in it is classified `pause`, not `covered`.
+   */
+  function buildFiveCategoryFixture(): { t: number[]; d: number[] } {
+    const t: number[] = [];
+    const d: number[] = [];
+    let time = 0;
+    let dist = 0;
+
+    // Phase 1: covered, dense 2 s sampling, advancing distance, 200 s (100 steps).
+    t.push(time);
+    d.push(dist);
+    for (let i = 0; i < 100; i++) {
+      time += 2;
+      dist += 10;
+      t.push(time);
+      d.push(dist);
+    }
+    // pairs 0..99 covered. time=200, dist=1000
+
+    // Phase 2: one 300 s recording gap (single sample jump, no advance).
+    time += 300;
+    t.push(time);
+    d.push(dist);
+    // pair 100: recording-gap. time=500
+
+    // Phase 3: covered again, dense 2 s sampling, advancing distance, 200 s (100 steps).
+    for (let i = 0; i < 100; i++) {
+      time += 2;
+      dist += 10;
+      t.push(time);
+      d.push(dist);
+    }
+    // pairs 101..200 covered. time=700, dist=2000
+
+    // Phase 4: zero-advance pause, dense 2 s sampling, flat distance, 400 s (200 steps).
+    for (let i = 0; i < 200; i++) {
+      time += 2;
+      t.push(time);
+      d.push(dist); // flat — zero advance
+    }
+    // pairs 201..400 pause. time=1100
+
+    // Phase 5: covered again, dense 2 s sampling, advancing distance, 200 s (100 steps).
+    for (let i = 0; i < 100; i++) {
+      time += 2;
+      dist += 10;
+      t.push(time);
+      d.push(dist);
+    }
+    // pairs 401..500 covered. time=1300, dist=3000
+
+    return { t, d };
+  }
+
+  it('on the hand-built five-phase fixture, returns exactly three covered runs with the expected index bounds', () => {
+    const { t, d } = buildFiveCategoryFixture();
+    const { coveredRuns } = classifyGapsWithSegments(t, d);
+
+    expect(coveredRuns).toEqual([
+      { startIndex: 0, endIndex: 100 },
+      { startIndex: 101, endIndex: 201 },
+      { startIndex: 401, endIndex: 501 },
+    ]);
+  });
+
+  it('for each of the three named activities, the sum over coveredRuns of (t[endIndex] - t[startIndex]) equals coverage.coveredSec (within 1e-9), and no coveredRuns pair lies inside any gapIntervals entry', () => {
+    const NAMED_ACTIVITY_IDS = ['3475724402', '3475734189', '3475740390'] as const;
+
+    for (const id of NAMED_ACTIVITY_IDS) {
+      const stream = readStream(id);
+      const { coverage, coveredRuns } = classifyGapsWithSegments(stream.t, stream.d);
+
+      expect(coveredRuns.length).toBeGreaterThan(0); // reachability
+
+      const summedCoveredSec = coveredRuns.reduce(
+        (sum, run) => sum + (stream.t[run.endIndex] - stream.t[run.startIndex]),
+        0
+      );
+      expect(Math.abs(summedCoveredSec - coverage.coveredSec)).toBeLessThan(1e-9);
+
+      // No coveredRuns pair lies inside any gapIntervals entry: a covered
+      // run's own time span must never have an interior overlap with a
+      // gapIntervals entry's time span (they may share a boundary sample,
+      // since one category ends exactly where the next begins).
+      for (const run of coveredRuns) {
+        const runStartSec = stream.t[run.startIndex];
+        const runEndSec = stream.t[run.endIndex];
+        for (const gap of coverage.gapIntervals) {
+          const interiorOverlap = gap.startSec < runEndSec && gap.endSec > runStartSec;
+          expect(interiorOverlap).toBe(false);
+        }
+      }
+    }
+  });
+
+  it('invalid input (null t, mismatched lengths) returns coveredRuns [] and never throws', () => {
+    expect(() => {
+      const resultNullT = classifyGapsWithSegments(null as unknown as number[], [0, 1, 2]);
+      expect(resultNullT.coveredRuns).toEqual([]);
+      expect(resultNullT.coverage.spanSec).toBe(0);
+      expect(resultNullT.segments).toEqual([]);
+    }).not.toThrow();
+
+    expect(() => {
+      const resultNullD = classifyGapsWithSegments([0, 1, 2], null as unknown as number[]);
+      expect(resultNullD.coveredRuns).toEqual([]);
+    }).not.toThrow();
+
+    expect(() => {
+      const resultMismatched = classifyGapsWithSegments([0, 1, 2], [0, 1]);
+      expect(resultMismatched.coveredRuns).toEqual([]);
+    }).not.toThrow();
+  });
+
+  it("UNRELIABLE_SPEED_LIMIT_MPS re-exported from pace-derivation.js is strictly greater than 0 and Object.is-identical to unreliable-segments.js's own export", () => {
+    expect(UNRELIABLE_SPEED_LIMIT_MPS_VIA_PACE_DERIVATION).toBeGreaterThan(0);
+    expect(
+      Object.is(UNRELIABLE_SPEED_LIMIT_MPS_VIA_PACE_DERIVATION, UNRELIABLE_SPEED_LIMIT_MPS_VIA_DETECTOR)
+    ).toBe(true);
   });
 });
