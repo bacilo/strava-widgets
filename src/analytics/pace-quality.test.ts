@@ -67,6 +67,7 @@ import {
   classifyGapsWithSegments,
 } from './pace-derivation.js';
 import type { UnreliableSegment, SegmentMechanism } from './pace-derivation.js';
+import { NOT_COMPUTABLE_DISTANCE_TRIGGERED } from './pause-classification.js';
 import type { CanonicalStream } from '../streams/stream.types.js';
 
 /** Builds the two-field metadata slice `resolveDeviceFamily` consumes from a raw activity record. */
@@ -883,6 +884,227 @@ describe('unreliableSegmentsSignal — the seventh quality signal (D-06/D-07/D-0
         expect(shard.signals.unreliableSegments.count).toBeGreaterThan(0);
       });
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// pauseClassification / forgottenStop — ninth/tenth quality signals
+// (Phase 34: PAUSE-02, STOP-01, STOP-03, D-09, D-11)
+// ---------------------------------------------------------------------------
+
+describe('pauseClassification / forgottenStop signals (Phase 34, PAUSE-02, STOP-01, STOP-03)', () => {
+  function metadataForStream(stream: CanonicalStream): ActivityQualityMetadata {
+    return {
+      deviceName: 'test-device',
+      sourceProvider: undefined,
+      elapsedTimeSec: stream.t[stream.t.length - 1] - stream.t[0],
+      movingTimeSec: stream.t[stream.t.length - 1] - stream.t[0],
+      startLatlng: undefined,
+      endLatlng: undefined,
+    };
+  }
+
+  it('computePaceQualitySignals on real 3475724402 returns pauseClassification whose intervalCount equals the sum of the four class counts, every count a non-negative integer', () => {
+    const stream = JSON.parse(
+      fs.readFileSync(path.join('data', 'streams', '3475724402.json'), 'utf-8')
+    ) as CanonicalStream;
+    const result = computePaceQualitySignals(stream, metadataForStream(stream));
+    const pc = result.pauseClassification;
+    expect(pc.intervalCount).not.toBeNull();
+    const sum = pc.stationaryCount! + pc.walkedCount! + pc.ranThroughCount! + pc.transportedCount!;
+    expect(pc.intervalCount).toBe(sum);
+    for (const count of [
+      pc.intervalCount,
+      pc.stationaryCount,
+      pc.walkedCount,
+      pc.ranThroughCount,
+      pc.transportedCount,
+      pc.notClassifiableCount,
+    ]) {
+      expect(count).not.toBeNull();
+      expect(Number.isInteger(count)).toBe(true);
+      expect(count as number).toBeGreaterThanOrEqual(0);
+    }
+
+    // eslint-disable-next-line no-console
+    console.log('[pace-quality pauseClassification 3475724402]', JSON.stringify(pc));
+  });
+
+  it('computePaceQualitySignals on real 3475740390 (distance-triggered) returns forgottenStop not-computable with the D-10 reason, and pauseClassification.notClassifiableCount at least 5 (its isolated jumps, never classified)', () => {
+    const stream = JSON.parse(
+      fs.readFileSync(path.join('data', 'streams', '3475740390.json'), 'utf-8')
+    ) as CanonicalStream;
+    const result = computePaceQualitySignals(stream, metadataForStream(stream));
+    expect(result.forgottenStop.computable).toBe(false);
+    expect(result.forgottenStop.reason).toBe(NOT_COMPUTABLE_DISTANCE_TRIGGERED);
+    expect(result.forgottenStop.count).toBeNull();
+    expect(result.pauseClassification.notClassifiableCount).not.toBeNull();
+    expect(result.pauseClassification.notClassifiableCount as number).toBeGreaterThanOrEqual(5);
+  });
+
+  it('forgottenStop.count === creepCount + pauseCount, totalSec === creepTotalSec + pauseTotalSec, longestSec === max(creepLongestSec, pauseLongestSec) on a real computable stream (3475724402)', () => {
+    const stream = JSON.parse(
+      fs.readFileSync(path.join('data', 'streams', '3475724402.json'), 'utf-8')
+    ) as CanonicalStream;
+    const result = computePaceQualitySignals(stream, metadataForStream(stream));
+    const fs_ = result.forgottenStop;
+    expect(fs_.computable).toBe(true);
+    expect(fs_.count).toBe(fs_.creepCount! + fs_.pauseCount!);
+    expect(fs_.totalSec).toBeCloseTo(fs_.creepTotalSec! + fs_.pauseTotalSec!, 9);
+    expect(fs_.longestSec).toBe(Math.max(fs_.creepLongestSec!, fs_.pauseLongestSec!));
+  });
+
+  it('a stream-less activity returns both keys in their not-computable literal form (present, not absent), and forgottenStop.reason equals the top-level notComputableReason', () => {
+    const metadata: ActivityQualityMetadata = {
+      deviceName: 'test-device',
+      sourceProvider: undefined,
+      elapsedTimeSec: 100,
+      movingTimeSec: 100,
+      startLatlng: undefined,
+      endLatlng: undefined,
+    };
+    const result = computePaceQualitySignals(null, metadata);
+    expect(result.notComputableReason).toBe(NOT_COMPUTABLE_NO_STREAM);
+    expect(result.pauseClassification).toEqual({
+      intervalCount: null,
+      stationaryCount: null,
+      walkedCount: null,
+      ranThroughCount: null,
+      transportedCount: null,
+      notClassifiableCount: null,
+    });
+    expect(result.forgottenStop.computable).toBe(false);
+    expect(result.forgottenStop.reason).toBe(result.notComputableReason);
+    expect(result.forgottenStop.reason).toBe(NOT_COMPUTABLE_NO_STREAM);
+  });
+
+  it("anySevere excludes pauseClassification and forgottenStop: neither untiered fact ever flips hasAnySevereSignal", () => {
+    const tieringNone: Pick<ActivityQualitySignals, 'decimation' | 'gapProfile' | 'impossibleSamples'> = {
+      decimation: { tier: 'none', zeroAdvanceFraction: 0, sampleCount: 10 },
+      gapProfile: { tier: 'none', gapFraction: 0, recordingGapSec: 0, pauseSec: 0, spanSec: 100 },
+      impossibleSamples: { tier: 'none', count: 0, maxImpliedSpeedMps: null, countInsideZeroAdvanceRun: 0 },
+    };
+    const severePauseClassification: ActivityQualitySignals['pauseClassification'] = {
+      intervalCount: 3,
+      stationaryCount: 0,
+      walkedCount: 0,
+      ranThroughCount: 0,
+      transportedCount: 3,
+      notClassifiableCount: 0,
+    };
+    const severeForgottenStop: ActivityQualitySignals['forgottenStop'] = {
+      computable: true,
+      reason: null,
+      count: 5,
+      totalSec: 600,
+      longestSec: 300,
+      creepCount: 2,
+      creepTotalSec: 300,
+      creepLongestSec: 200,
+      pauseCount: 3,
+      pauseTotalSec: 300,
+      pauseLongestSec: 300,
+    };
+    const full = {
+      ...tieringNone,
+      pauseClassification: severePauseClassification,
+      forgottenStop: severeForgottenStop,
+    };
+
+    // Part 1 (primary assertion): all three TIERING signals are 'none', both
+    // new untiered facts carry "severe-looking" values (a transported pause,
+    // a 10-minute forgotten stop) — hasAnySevereSignal must still read false.
+    expect(hasAnySevereSignal(full)).toBe(false);
+
+    // Part 2 (structural guard): severe-ifying each of the three TIERING
+    // keys DOES flip the result — proving they ARE read.
+    expect(hasAnySevereSignal({ ...full, decimation: { ...full.decimation, tier: 'severe' } })).toBe(true);
+    expect(hasAnySevereSignal({ ...full, gapProfile: { ...full.gapProfile, tier: 'severe' } })).toBe(true);
+    expect(
+      hasAnySevereSignal({ ...full, impossibleSamples: { ...full.impossibleSamples, tier: 'severe' } })
+    ).toBe(true);
+
+    // Part 3: deleting EITHER new key entirely must NOT throw and must NOT
+    // change the (false) result — proving hasAnySevereSignal never
+    // dereferences `signals.pauseClassification`/`signals.forgottenStop` at
+    // all. Since neither key even HAS a `.tier` property, this is the most
+    // important part of this guard for an untiered signal: there is no
+    // `.tier` to accidentally read.
+    const withoutPauseClassification: Record<string, unknown> = { ...full };
+    delete withoutPauseClassification.pauseClassification;
+    const asTieringOnly1 = withoutPauseClassification as Pick<
+      ActivityQualitySignals,
+      'decimation' | 'gapProfile' | 'impossibleSamples'
+    >;
+    expect(() => hasAnySevereSignal(asTieringOnly1)).not.toThrow();
+    expect(hasAnySevereSignal(asTieringOnly1)).toBe(false);
+
+    const withoutForgottenStop: Record<string, unknown> = { ...full };
+    delete withoutForgottenStop.forgottenStop;
+    const asTieringOnly2 = withoutForgottenStop as Pick<
+      ActivityQualitySignals,
+      'decimation' | 'gapProfile' | 'impossibleSamples'
+    >;
+    expect(() => hasAnySevereSignal(asTieringOnly2)).not.toThrow();
+    expect(hasAnySevereSignal(asTieringOnly2)).toBe(false);
+
+    // Part 4: the composite's figure of record is unmoved — hasAnySevereSignal's
+    // Pick<> names EXACTLY three keys, checked at the TYPE level. If that
+    // Pick<> ever widens to a fourth/fifth key (pauseClassification or
+    // forgottenStop), this object literal fails to compile until the new
+    // key is added here too; if this literal ever names a key OUTSIDE the
+    // Pick<>, the object-literal excess-property check fails to compile —
+    // so a silent widening in either direction is a compile error, not just
+    // a runtime miss.
+    type TieringSignalsParam = Parameters<typeof hasAnySevereSignal>[0];
+    const tieringKeysRecord: Record<keyof TieringSignalsParam, true> = {
+      decimation: true,
+      gapProfile: true,
+      impossibleSamples: true,
+    };
+    expect(Object.keys(tieringKeysRecord)).toEqual(['decimation', 'gapProfile', 'impossibleSamples']);
+  });
+
+  /**
+   * One-computation-per-producer (T-33-12c, extended Phase 34):
+   * `computePaceQualitySignals` calls `classifyGapsWithSegments` exactly
+   * ONCE per activity, sharing `coverage`/`segments`/`coveredRuns` with
+   * `pauseClassificationSignal`/`forgottenStopSignal` too, never a second
+   * independent call. Same `vi.doMock`-wrapping-the-real-function technique
+   * the pre-existing "one detector run per producer" block above uses (a
+   * namespace `vi.spyOn` cannot observe a named import — Phase 32 GAP 2).
+   */
+  it('one computation per producer: computePaceQualitySignals causes exactly ONE classifyGapsWithSegments call, and the shared result feeds pauseClassification/forgottenStop too', async () => {
+    const stream = JSON.parse(
+      fs.readFileSync(path.join('data', 'streams', '3475724402.json'), 'utf-8')
+    ) as CanonicalStream;
+    const metadata = metadataForStream(stream);
+
+    let callCount = 0;
+    vi.doMock('./pace-derivation.js', async () => {
+      const actual =
+        await vi.importActual<typeof import('./pace-derivation.js')>('./pace-derivation.js');
+      return {
+        ...actual,
+        classifyGapsWithSegments: (...args: Parameters<typeof classifyGapsWithSegments>) => {
+          callCount++;
+          return actual.classifyGapsWithSegments(...args);
+        },
+      };
+    });
+    vi.resetModules();
+    try {
+      const mod = await import('./pace-quality.js');
+      const result = mod.computePaceQualitySignals(stream, metadata);
+      expect(callCount).toBe(1);
+      // Reachability: the one shared call genuinely fed pauseClassification
+      // and forgottenStop, not just the pre-existing signals.
+      expect(result.pauseClassification.intervalCount).toBeGreaterThan(0);
+      expect(result.forgottenStop.computable).toBe(true);
+    } finally {
+      vi.doUnmock('./pace-derivation.js');
+      vi.resetModules();
+    }
   });
 });
 

@@ -22,8 +22,15 @@
 
 import { adaptiveWindowSec, classifyGapsWithSegments, quantile } from './pace-derivation.js';
 import { WORLD_RECORD_100M_SPEED_MPS, validateStreamSeries } from './best-effort-utils.js';
-import type { GapInterval, PaceCoverage, UnreliableSegment, SegmentMechanism } from './pace-derivation.js';
+import type { CoveredRun, GapInterval, PaceCoverage, UnreliableSegment, SegmentMechanism } from './pace-derivation.js';
 import type { CanonicalStream } from '../streams/stream.types.js';
+import {
+  classifyForgottenStop,
+  classifyPauses,
+  SHIPPED_PAUSE_BANDS,
+  SHIPPED_STOP_PARAMS,
+} from './pause-classification.js';
+import type { ClassifiedPauseInterval, PauseClass, PauseInterval, PauseSource } from './pause-classification.js';
 
 // ---------------------------------------------------------------------------
 // Quality tier
@@ -182,6 +189,78 @@ export interface ElapsedVsMovingSignal {
   ratio: number | null; // elapsed_time / moving_time — untiered (D-14)
   elapsedSec: number | null;
   movingSec: number | null;
+}
+
+// ---------------------------------------------------------------------------
+// Pause classification & forgotten-stop signals (Phase 34: PAUSE-02, STOP-01,
+// STOP-03, D-09, D-11, D-14) — two more untiered facts, on the
+// `ElapsedVsMovingSignal`/`DeviceEraSignal` template.
+// ---------------------------------------------------------------------------
+
+/**
+ * Ninth signal (PAUSE-02, D-11, D-14): per-class counts of every gap-bearing
+ * interval `classifyPauses` (`pause-classification.ts`) classified for this
+ * activity, using the shipped bands (`SHIPPED_PAUSE_BANDS`, D-20/D-21).
+ * `intervalCount` is the sum of the four class counts. `notClassifiableCount`
+ * covers `hidden-pause`/`isolated-jump` segments (D-01) — counted here, never
+ * classified, never listed. Covered-creep stretches are NOT counted here —
+ * they belong to `ForgottenStopSignal` below (D-09's own itemisation), never
+ * double-counted between the two signals.
+ *
+ * UNTIERED BY DESIGN (D-11): no `tier` field at all — not "a tier we chose
+ * not to compute", but a field this type structurally does not have. This is
+ * exactly why `hasAnySevereSignal`'s three-member `Pick<>` can never widen to
+ * include this key: there is no `.tier` to read. See the
+ * "anySevere excludes pauseClassification and forgottenStop" guard test in
+ * `pace-quality.test.ts`.
+ */
+export interface PauseClassificationSignal {
+  intervalCount: number | null;
+  stationaryCount: number | null;
+  walkedCount: number | null;
+  ranThroughCount: number | null;
+  transportedCount: number | null;
+  notClassifiableCount: number | null;
+}
+
+/**
+ * Tenth signal (STOP-01, STOP-03, D-09, D-10, D-11): the forgotten-stop flag,
+ * itemised by its two sources (D-09) — `'covered-creep'` stretches inside
+ * covered time (`findCreepStretches`) and the existing zero-advance `'pause'`
+ * intervals. `count`/`totalSec`/`longestSec` are the COMBINED figures:
+ * `count = creepCount + pauseCount`, `totalSec = creepTotalSec +
+ * pauseTotalSec` (the two sources are disjoint by construction — creep is
+ * covered time, pauses are not), `longestSec = max(creepLongestSec,
+ * pauseLongestSec)`. Recording gaps are never counted (D-09 — the timer was
+ * not running).
+ *
+ * `computable` is `false` — with every numeric field `null` — exactly when
+ * `classifyForgottenStop`'s D-10 blind-spot signature says so (a
+ * distance-triggered stream, or too few signature pairs): a clean
+ * `computable: true` result with zero counts always means "looked and found
+ * none", never "could not look" (T-26-02). `reason` is non-null exactly when
+ * `computable` is `false`, and equals the top-level `notComputableReason` in
+ * the whole-signal not-computable state (`notComputableSignals` below).
+ *
+ * UNTIERED BY DESIGN (D-11), same structural guarantee as
+ * `PauseClassificationSignal` above — no `tier` field, so `hasAnySevereSignal`
+ * cannot structurally read one. A behavioural fact about the athlete's
+ * stream must never mark an activity's DATA "severe" (this file's own threat
+ * register, T-34-26). See the
+ * "anySevere excludes pauseClassification and forgottenStop" guard test.
+ */
+export interface ForgottenStopSignal {
+  computable: boolean;
+  reason: string | null;
+  count: number | null;
+  totalSec: number | null;
+  longestSec: number | null;
+  creepCount: number | null;
+  creepTotalSec: number | null;
+  creepLongestSec: number | null;
+  pauseCount: number | null;
+  pauseTotalSec: number | null;
+  pauseLongestSec: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -553,13 +632,35 @@ export interface ActivityQualitySignals {
   deviceEra: DeviceEraSignal;
   elapsedVsMoving: ElapsedVsMovingSignal;
   /**
+   * Ninth signal (Phase 34, PAUSE-02, D-11, D-14): per-class pause-interval
+   * counts. UNTIERED — no `tier` field exists on `PauseClassificationSignal`
+   * at all, so `hasAnySevereSignal`'s `Pick<>` structurally CANNOT read one.
+   * NEVER widen that `Pick<>` to include this key; see the
+   * `anySevere excludes pauseClassification and forgottenStop` test in
+   * `pace-quality.test.ts`.
+   */
+  pauseClassification: PauseClassificationSignal;
+  /**
+   * Tenth signal (Phase 34, STOP-01, STOP-03, D-09, D-11): the itemised
+   * forgotten-stop flag. UNTIERED — no `tier` field exists on
+   * `ForgottenStopSignal` at all, so `hasAnySevereSignal`'s `Pick<>`
+   * structurally CANNOT read one — a behavioural fact about the athlete must
+   * never mark the DATA "severe" (STOP-03). NEVER widen that `Pick<>` to
+   * include this key; see the
+   * `anySevere excludes pauseClassification and forgottenStop` test in
+   * `pace-quality.test.ts`.
+   */
+  forgottenStop: ForgottenStopSignal;
+  /**
    * True iff ANY of the three TIERING signals (decimation, gapProfile,
    * impossibleSamples — D-01/D-05/D-16) is `'severe'`. `deviceEra`,
    * `elapsedVsMoving` and `elevation` are all excluded from this field —
    * the first two as untiered facts (D-13/D-14), `elevation` as a
    * DELIBERATE exclusion of a tiered signal (Phase 30 D-06).
    * `unreliableSegments` is excluded the same deliberate way (Phase 33
-   * D-06, see that field's own doc comment above). This is the SAME
+   * D-06, see that field's own doc comment above). `pauseClassification`
+   * and `forgottenStop` are excluded the same deliberate way (Phase 34
+   * D-11, see each field's own doc comment above). This is the SAME
    * composite the calibration report (27-03), the recount script (27-05)
    * and the list filter (27-08) all measure — one definition, three
    * readers.
@@ -789,6 +890,35 @@ export function notComputableSignals(
       totalSeconds: null,
       excessFraction: null,
       mechanisms: null,
+    },
+    // Ninth signal (Phase 34, PAUSE-02, D-11): the whole-signal not-computable
+    // literal — every count null, never zeroed (T-26-02: a zero here would
+    // read as "genuinely no pauses classified" rather than "not looked").
+    pauseClassification: {
+      intervalCount: null,
+      stationaryCount: null,
+      walkedCount: null,
+      ranThroughCount: null,
+      transportedCount: null,
+      notClassifiableCount: null,
+    },
+    // Tenth signal (Phase 34, STOP-01, STOP-03, D-09, D-10): the whole-signal
+    // not-computable literal. `reason` echoes the SAME top-level `reason`
+    // this constructor was given — a stream-less activity's forgotten-stop
+    // flag is not-computable for the identical reason the rest of the
+    // stream-derived signals are.
+    forgottenStop: {
+      computable: false,
+      reason,
+      count: null,
+      totalSec: null,
+      longestSec: null,
+      creepCount: null,
+      creepTotalSec: null,
+      creepLongestSec: null,
+      pauseCount: null,
+      pauseTotalSec: null,
+      pauseLongestSec: null,
     },
     deviceEra,
     elapsedVsMoving,
@@ -1046,17 +1176,20 @@ export const UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION = 0.00423;
 /**
  * The SOLE call site of the shared gap classifier AND the unreliable-segment
  * detector in this module (widened 2026-09-21, Phase 33 plan 33-09 —
- * previously coverage-only) — both are called at most once per activity and
- * their result shared, never a second independent invocation inviting
- * drift. `gapProfileSignal`, `computePaceQualitySignals` and
- * `buildPaceQualityShard` all route through this one wrapper; the latter
- * two additionally share its `segments` half with `unreliableSegmentsSignal`
- * rather than resolving the detector a second time (T-33-12c).
+ * previously coverage-only; widened again 2026-09-23, Phase 34, to return
+ * `coveredRuns` for the forgotten-stop core) — all three are called at most
+ * once per activity and their result shared, never a second independent
+ * invocation inviting drift. `gapProfileSignal`, `computePaceQualitySignals`
+ * and `buildPaceQualityShard` all route through this one wrapper; the latter
+ * two additionally share its `segments`/`coveredRuns` halves with
+ * `unreliableSegmentsSignal`, `pauseClassificationSignal` and
+ * `forgottenStopSignal` rather than resolving the detector a second time
+ * (T-33-12c, extended by Phase 34's "one computation per producer" test).
  */
 function resolveCoverage(
   t: readonly number[],
   d: readonly number[]
-): { coverage: PaceCoverage; segments: UnreliableSegment[] } {
+): { coverage: PaceCoverage; segments: UnreliableSegment[]; coveredRuns: CoveredRun[] } {
   return classifyGapsWithSegments(t as number[], d as number[]);
 }
 
@@ -1468,6 +1601,146 @@ export function impossibleSampleSignal(
 }
 
 // ---------------------------------------------------------------------------
+// Pause classification & forgotten-stop core (Phase 34: PAUSE-02, STOP-01,
+// STOP-03, D-09, D-11) — ninth/tenth signals, built from
+// `pause-classification.ts`'s pure classifier/forgotten-stop core over an
+// ALREADY-RESOLVED `{ coverage, segments, coveredRuns }` (never a second
+// `classifyGapsWithSegments` call — T-33-12c, extended).
+// ---------------------------------------------------------------------------
+
+/**
+ * Rolls up a `classifyPauses` result into the ninth signal's per-class
+ * counts — pure arithmetic over an already-classified interval list, shared
+ * between `pauseClassificationSignal` (computePaceQualitySignals's own call)
+ * and `buildPaceQualityShard` (which additionally needs the classified
+ * intervals themselves for the shard's `pauseIntervals` projection, so it
+ * calls `classifyPauses` once and reuses this helper rather than calling
+ * `pauseClassificationSignal` a second time).
+ */
+function pauseClassificationFromIntervals(
+  intervals: readonly ClassifiedPauseInterval[],
+  notClassifiableCount: number
+): PauseClassificationSignal {
+  let stationaryCount = 0;
+  let walkedCount = 0;
+  let ranThroughCount = 0;
+  let transportedCount = 0;
+  for (const interval of intervals) {
+    switch (interval.pauseClass) {
+      case 'stationary':
+        stationaryCount++;
+        break;
+      case 'walked':
+        walkedCount++;
+        break;
+      case 'ran-through':
+        ranThroughCount++;
+        break;
+      case 'transported':
+        transportedCount++;
+        break;
+    }
+  }
+  return {
+    intervalCount: intervals.length,
+    stationaryCount,
+    walkedCount,
+    ranThroughCount,
+    transportedCount,
+    notClassifiableCount,
+  };
+}
+
+/**
+ * Ninth quality signal (PAUSE-02, D-11): calls `classifyPauses` (imported
+ * from `pause-classification.ts`, this module's own pre-allowed call site —
+ * see `pace-single-source.test.ts`'s confinement guard) with the SHIPPED
+ * bands (`SHIPPED_PAUSE_BANDS`, D-20/D-21), over the caller's
+ * already-resolved `coverage`/`segments` (never re-resolves the detector
+ * itself). Total, like `classifyPauses` itself — never a plausible-looking
+ * zero where the value is unknown (T-26-02): this function is only ever
+ * called from the computed (stream-present, validated) branch of its two
+ * producers; the whole-signal not-computable literal lives in
+ * `notComputableSignals` above, not here.
+ */
+export function pauseClassificationSignal(
+  t: readonly number[],
+  d: readonly number[],
+  coverage: PaceCoverage,
+  segments: readonly UnreliableSegment[]
+): PauseClassificationSignal {
+  const { intervals, notClassifiableCount } = classifyPauses(t, d, coverage, segments, SHIPPED_PAUSE_BANDS);
+  return pauseClassificationFromIntervals(intervals, notClassifiableCount);
+}
+
+/**
+ * Rolls up a `classifyForgottenStop` result into the tenth signal's itemised
+ * totals (D-09) — pure arithmetic over an already-computed result, shared
+ * between `forgottenStopSignal` and `buildPaceQualityShard` for the same
+ * "call the core once, reuse the result" reason `pauseClassificationFromIntervals`
+ * documents above.
+ */
+function forgottenStopFromResult(
+  result: ReturnType<typeof classifyForgottenStop>
+): ForgottenStopSignal {
+  if (!result.computable) {
+    return {
+      computable: false,
+      reason: result.reason,
+      count: null,
+      totalSec: null,
+      longestSec: null,
+      creepCount: null,
+      creepTotalSec: null,
+      creepLongestSec: null,
+      pauseCount: null,
+      pauseTotalSec: null,
+      pauseLongestSec: null,
+    };
+  }
+
+  const creepCount = result.creep.length;
+  const creepTotalSec = result.creep.reduce((sum, iv) => sum + iv.seconds, 0);
+  const creepLongestSec = result.creep.reduce((max, iv) => Math.max(max, iv.seconds), 0);
+  const pauseCount = result.pauses.length;
+  const pauseTotalSec = result.pauses.reduce((sum, iv) => sum + iv.seconds, 0);
+  const pauseLongestSec = result.pauses.reduce((max, iv) => Math.max(max, iv.seconds), 0);
+
+  return {
+    computable: true,
+    reason: null,
+    count: creepCount + pauseCount,
+    totalSec: creepTotalSec + pauseTotalSec,
+    longestSec: Math.max(creepLongestSec, pauseLongestSec),
+    creepCount,
+    creepTotalSec,
+    creepLongestSec,
+    pauseCount,
+    pauseTotalSec,
+    pauseLongestSec,
+  };
+}
+
+/**
+ * Tenth quality signal (STOP-01, STOP-03, D-09, D-10): calls
+ * `classifyForgottenStop` (this module's own pre-allowed call site) with the
+ * SHIPPED params (`SHIPPED_STOP_PARAMS`, D-20's stationary bound + the
+ * calibrated Family M minimum duration), over the caller's already-resolved
+ * `coverage`/`coveredRuns`. `classifyForgottenStop` itself decides
+ * computability via the D-10 recording-mechanism signature — this function
+ * only rolls that result up, never re-derives the signature.
+ */
+export function forgottenStopSignal(
+  t: readonly number[],
+  d: readonly number[],
+  coverage: PaceCoverage,
+  coveredRuns: readonly CoveredRun[]
+): ForgottenStopSignal {
+  const result = classifyForgottenStop(t, d, coverage, coveredRuns, SHIPPED_STOP_PARAMS);
+  return forgottenStopFromResult(result);
+}
+
+// ---------------------------------------------------------------------------
 // Composite predicate (D-01) — the single "any severe" definition
 // ---------------------------------------------------------------------------
 
@@ -1546,14 +1819,21 @@ export function computePaceQualitySignals(
 
   const decimation = decimationSignal(t, d, options);
   // Phase 33 plan 33-09 (T-33-12c): resolve coverage AND the detector's
-  // segments exactly ONCE here, sharing both halves between gapProfile and
-  // the seventh signal — never a second independent classifyGapsWithSegments
-  // call within this producer.
-  const { coverage, segments } = resolveCoverage(t, d);
+  // segments exactly ONCE here, sharing all three halves between gapProfile,
+  // the seventh signal, and (Phase 34) the ninth/tenth signals below — never
+  // a second independent classifyGapsWithSegments call within this producer.
+  const { coverage, segments, coveredRuns } = resolveCoverage(t, d);
   const gapProfile = tierGapProfileFromCoverage(coverage, options);
   const impossibleSamples = impossibleSampleSignal(t, d, options);
   const elevation = elevationSignal(stream, metadata);
   const unreliableSegments = unreliableSegmentsSignal(t, d, segments, options);
+  // Phase 34 (PAUSE-02, STOP-01, STOP-03, D-11): the ninth/tenth signals,
+  // sharing the SAME coverage/segments/coveredRuns this producer already
+  // resolved above. `anySevere` below is textually UNCHANGED — its Pick<>
+  // still names exactly the three tiering signals (see that function's own
+  // doc comment and the never-widen guard test in pace-quality.test.ts).
+  const pauseClassification = pauseClassificationSignal(t, d, coverage, segments);
+  const forgottenStop = forgottenStopSignal(t, d, coverage, coveredRuns);
   const anySevere = hasAnySevereSignal({ decimation, gapProfile, impossibleSamples });
 
   return {
@@ -1564,6 +1844,8 @@ export function computePaceQualitySignals(
     unreliableSegments,
     deviceEra,
     elapsedVsMoving,
+    pauseClassification,
+    forgottenStop,
     anySevere,
     notComputableReason: null,
   };
