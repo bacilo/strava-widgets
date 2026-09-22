@@ -383,17 +383,19 @@ Mounting: the shard already arrives lazily, after first paint, in `mountBestEffo
 
 **If this table is empty:** N/A — see rows above.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Exact join key between `coverage.gapIntervals` and `segments` for the `'unreliable'` case**
    - What we know: both are derived from the same pass in `classifyGapsWithSegments`; in the overwhelmingly common case each detector segment produces exactly one `'unreliable'`-kind `gapIntervals` entry with identical `startSec`/`endSec`.
    - What's unclear: whether two detector segments can ever be pair-adjacent (one's `endIndex` equals another's `startIndex`) without the detector's OWN chaining logic already merging them into one segment — if this can happen, `accumulateCoverage`'s same-kind-run merge would silently fold two `UnreliableSegment`s into one `gapIntervals` entry, breaking a naive 1:1 boundary match.
    - Recommendation: the classifier should match by `startIndex`/`endIndex` semantics where possible (deriving indices via the same `t.indexOf` approach as Pattern 2) rather than trusting a 1:1 assumption, and a unit test should assert the join is exhaustive (every `'unreliable'`-kind interval resolves to at least one segment) before relying on it.
+   - RESOLVED: 34-03's join-exhaustiveness unit test (every `'unreliable'`-kind interval resolves to at least one segment), re-checked archive-wide by 34-04's join gate.
 
 2. **Which of the walk/run valley / drift-floor shapes will actually clear D-13 insensitivity**
    - What we know: the project's own track record (32-06, 33-08→33-14) shows roughly half of first-attempt shapes fail and require a second, structurally different shape.
    - What's unclear: which of W1–W3/G1–G3 clears first on THIS population — genuinely unknown until measured, by design (Pitfall 4).
    - Recommendation: the plan should budget for at least one HALT/re-shape cycle, following 33-08→33-14's own precedent, rather than assuming the first pre-declared shape ships.
+   - RESOLVED: 34-04/34-06's pre-declared, HALT-capable pipeline (ordered G/M/W shapes with strawmen, first-clearing arbitration, exit 1 on NO SHAPE CLEARS, no fallback or retune).
 
 ## Environment Availability
 
