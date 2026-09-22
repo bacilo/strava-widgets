@@ -107,7 +107,7 @@ context, measured facts and decisions in `PROJECT.md` § Current Milestone; requ
 `REQUIREMENTS.md`.
 
 - [x] **Phase 32: Unreliable-Segment Detection & Calibration** - One calibrated detector merges gap-adjacent slew bursts, hidden-pause bursts and isolated GPS jumps into segments that conserve real distance/time, and becomes the single source (completed 2026-09-20)
-- [ ] **Phase 33: Coverage Integration — Pace Clipping & Segment Signal** - Pace chart, histogram, splits and coverage caption clip unreliable segments exactly as gaps are clipped; the segment count/metres/seconds/mechanisms surface as a disclosed per-activity quality signal
+- [x] **Phase 33: Coverage Integration — Pace Clipping & Segment Signal** - Pace chart, histogram, splits and coverage caption clip unreliable segments exactly as gaps are clipped; the segment count/metres/seconds/mechanisms surface as a disclosed per-activity quality signal (completed 2026-09-22)
 - [ ] **Phase 34: Pause Classification & Forgotten-Stop** - Every gap/merged segment classified stationary/walked/transported; sustained near-zero speed inside recorded time flagged, never corrected
 - [ ] **Phase 35: Stream-Derived Running Pace** - A stream-derived running pace (unreliable segments and gaps excluded) shown beside metadata pace; "Pace disputed" extended to fire on material disagreement
 - [ ] **Phase 36: Best-Effort Clean-Window Search & Ceiling Recalibration** - Efforts spanning an unreliable segment are demoted-and-kept while the search continues in clean sub-intervals; ceiling recalibrated on the excluded population; both diffs signed
@@ -332,7 +332,7 @@ Plans:
 | 30. Elevation Quality Signal | v2.2 | 8/8 | Complete    | 2026-09-18 |
 | 31. Tech-Debt Closure — Silent-Failure Guards & Docs Reconciliation | v2.2 | 10/10 | Complete    | 2026-09-19 |
 | 32. Unreliable-Segment Detection & Calibration | v2.3 | 17/17 | Complete    | 2026-09-20 |
-| 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 14/14 | In Progress|  |
+| 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 14/14 | Complete    | 2026-09-22 |
 | 34. Pause Classification & Forgotten-Stop | v2.3 | 0/TBD | Not started | - |
 | 35. Stream-Derived Running Pace | v2.3 | 0/TBD | Not started | - |
 | 36. Best-Effort Clean-Window Search & Ceiling Recalibration | v2.3 | 0/TBD | Not started | - |
