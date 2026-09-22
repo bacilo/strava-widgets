@@ -189,6 +189,39 @@ describe('parsePaceQualityShard', () => {
     });
   });
 
+  it('a shard unreliableSegments entry carrying NaN or Infinity is dropped like any other malformed entry (Phase 33 review WR-01, finite guard)', () => {
+    const doc = {
+      ...validShard,
+      unreliableSegments: [
+        { startSec: 10, endSec: 18, metres: 30, excessMetres: 2, seconds: 8, mechanism: 'hidden-pause' },
+        { startSec: 20, endSec: 25, metres: Number.NaN, excessMetres: 1, seconds: 5, mechanism: 'gap-adjacent' },
+        { startSec: 30, endSec: 35, metres: 15, excessMetres: Number.POSITIVE_INFINITY, seconds: 5, mechanism: 'isolated-jump' },
+      ],
+    };
+    const result = parsePaceQualityShard(doc);
+    expect(result).not.toBeNull();
+    expect(result?.unreliableSegments.map((e) => e.startSec)).toEqual([10]);
+  });
+
+  it('unreliableSegments signal scalars carrying NaN or Infinity parse to null, never to a non-finite number (Phase 33 review WR-01)', () => {
+    const doc = {
+      ...validShard,
+      signals: {
+        ...validShard.signals,
+        unreliableSegments: {
+          ...validShard.signals.unreliableSegments,
+          totalMetres: Number.NaN,
+          totalSeconds: Number.POSITIVE_INFINITY,
+        },
+      },
+    };
+    const result = parsePaceQualityShard(doc);
+    expect(result).not.toBeNull();
+    expect(result?.signals.unreliableSegments.totalMetres).toBeNull();
+    expect(result?.signals.unreliableSegments.totalSeconds).toBeNull();
+    expect(result?.signals.unreliableSegments.count).toBe(validShard.signals.unreliableSegments.count);
+  });
+
   it('unreliableSegmentsTruncated: a non-boolean value degrades to false rather than throwing', () => {
     const doc = { ...validShard, unreliableSegmentsTruncated: 'yes' };
     const result = parsePaceQualityShard(doc);

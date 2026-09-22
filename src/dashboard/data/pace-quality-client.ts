@@ -252,11 +252,13 @@ function parseUnreliableSegmentsSignal(raw: unknown): UnreliableSegmentsSignal |
 
   return {
     tier,
-    count: nullableNumber(raw.count),
-    totalMetres: nullableNumber(raw.totalMetres),
-    totalExcessMetres: nullableNumber(raw.totalExcessMetres),
-    totalSeconds: nullableNumber(raw.totalSeconds),
-    excessFraction: nullableNumber(raw.excessFraction),
+    // Phase 33 review WR-01: the Phase-30 finite guard, not `nullableNumber` —
+    // a NaN/Infinity here would otherwise render as "NaN m" in the ninth row.
+    count: finiteNumberOrNull(raw.count),
+    totalMetres: finiteNumberOrNull(raw.totalMetres),
+    totalExcessMetres: finiteNumberOrNull(raw.totalExcessMetres),
+    totalSeconds: finiteNumberOrNull(raw.totalSeconds),
+    excessFraction: finiteNumberOrNull(raw.excessFraction),
     mechanisms,
   };
 }
@@ -398,8 +400,10 @@ function parseUnreliableSegment(
 ): { startSec: number; endSec: number; metres: number; excessMetres: number; seconds: number; mechanism: SegmentMechanism } | null {
   if (!isPlainObject(raw)) return null;
   const { startSec, endSec, metres, excessMetres, seconds, mechanism } = raw;
+  // Phase 33 review WR-01: finite-only, matching the Phase-30 elevation guard.
   if (typeof startSec !== 'number' || typeof endSec !== 'number') return null;
   if (typeof metres !== 'number' || typeof excessMetres !== 'number' || typeof seconds !== 'number') return null;
+  if (![startSec, endSec, metres, excessMetres, seconds].every(Number.isFinite)) return null;
   const parsedMechanism = parseSegmentMechanism(mechanism);
   if (parsedMechanism === null) return null;
   return { startSec, endSec, metres, excessMetres, seconds, mechanism: parsedMechanism };
