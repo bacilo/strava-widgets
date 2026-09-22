@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
 status: executing
-stopped_at: Completed 34-05-PLAN.md
-last_updated: "2026-09-22T13:36:40.571Z"
+stopped_at: HALTED at 34-06-PLAN.md (D-08, Family G no shape clears) — blocked pending developer decision
+last_updated: "2026-09-22T13:48:04.520Z"
 last_activity: 2026-09-22
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 42
-  completed_plans: 36
+  completed_plans: 37
   percent: 33
 ---
 
@@ -216,6 +216,7 @@ Previously resolved — SQLITE_CANTOPEN CI failure resolved by quick-1-01 (lazy 
 - OPEN 2026-08-13: Phase 19 gap-closure register (19-12 Round 3 checkpoint, PARTIAL) — GAP 7 (UI-02, new): the sticky top nav does not remain on screen while scrolling on Activities, confirmed by an ad-hoc probe (navH 77 = parentH 77, position: sticky computed but not holding). Blocks row 18 of 19-VALIDATION.md and UI-02. No suggested fix or root-cause theory recorded, per house rule for still-failing rows — next planning round (/gsd-plan-phase 19 --gaps) diagnoses and fixes it. GAP 6 (CR-01's z-index: 20 fix) is not marked resolved either: Probe B confirms the declaration ships in the bundle, but its rendered paint-order effect could not be observed because row 18 failed for the unrelated GAP 7 reason first. GAP 4 (CR-02) and GAP 5 (CR-03) ARE resolved this round on rendered evidence (rows 14-16 and row 17 all PASS). See 19-VALIDATION.md Gap-Closure Record and 19-12-SUMMARY.md.
 - OPEN 2026-08-13: Phase 19 GAP 8 (new, found unprompted during 19-17's Round 4 checkpoint) — Leaflet map tiles paint over the top nav on the detail-view route map. Source-derived (not measured): Leaflet's own panes (z-index 400) and controls (z-index 1000) are untouched by src/dashboard/styles.css and sit above #app-nav-root's z-index: 20. Second face: plan 19-16's sticky-layer ladder comment claims a totally-ordered four-rung ladder that does not list Leaflet's panes as a fifth, unlisted rung above it. Argued in 19-VALIDATION.md and REQUIREMENTS.md not to block UI-02 (different component, no checkpoint row named it) — UI-02 is ticked complete. Not patched per house rule since 16-09. Disposition (a small follow-up plan: z-index fix + one browser re-check + ladder-comment correction, or a deferred item) is the user's call after Phase 19 closes. See 19-VALIDATION.md GAP 8.
 - RESOLVED 2026-09-20: 32-06's original blocker (D-10(d) unreachable at L=4.41 m/s) traced to a wrong "multiplier of 1" reading of D-10's own derivation rule, not a genuine dead end. Fixed by deriving a real, D-13-verified multiplier (1.6667, candidate-selected from {0.90,0.95,0.97,0.99} outer percentiles of per-activity p95/p50 folded-step-speed ratio) applied to S-A before ceil-rounding, giving L=7.35 m/s; redesigning the excess floor's population (pooled step metres, not excess-of-fast-runs, which nearly duplicates whatever D-13's removal strips out) giving F=3.0 m; and fixing a findValley bug that manufactured a valley over an empty population, giving B=116.95 m (no clean valley found). All three real derivations now pass D-13 insensitivity; all three strawmen still fail; shipped constants match live-derived values; artifact regenerates byte-identically. See 32-06-SUMMARY.md.
+- Phase 34 plan 34-06 HALTED (D-08): Family G (stationary/walked speed boundary, also STOP-02's near-zero threshold) - all three pre-declared shapes (G1/G2/G3) failed D-13 insensitivity at the fixed 1% tolerance on the real 1,874-stream archive (G1 2.69%/10.16%, G2 2.55%/5.14%, G3 89.47%/0.00%). NO SHAPE CLEARS; no constant shipped; Families M/W never ran (fixed-order upstream-HALT dependency). See 34-CALIBRATION.md and 34-06-SUMMARY.md's Blocking Developer Decision section for the three named options. Plans 34-07 through 34-11 are blocked pending a developer decision.
 
 ### Quick Tasks Completed
 
@@ -288,8 +289,8 @@ It is named here because PROJECT.md's Evolution entry still describes it as open
 
 ## Session Continuity
 
-Last session: 2026-09-22T13:36:40.561Z
-Stopped at: Completed 34-05-PLAN.md
+Last session: 2026-09-22T13:48:04.512Z
+Stopped at: HALTED at 34-06-PLAN.md (D-08, Family G no shape clears) — blocked pending developer decision
 Resume file: None
 
 ---
