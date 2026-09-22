@@ -4,35 +4,27 @@ Regenerate with `npm run compute-pause-classification-calibration`. This artifac
 
 ## Statistic and scope
 
-Families run in the fixed order G, then M, then W (34-04-PLAN.md <predeclared_shapes>). Downstream families use the upstream chosen value AS SHIPPED (rounded). If a family HALTs, every downstream family renders "not computed: upstream HALT".
+Families run in the fixed order G, then M, then W (34-04-PLAN.md <predeclared_shapes>, as amended by 34-12-PLAN.md (D-19)). Downstream families use the upstream chosen value AS SHIPPED (rounded). If a family HALTs, every downstream family renders "not computed: upstream HALT". The D-13 PLANTED perturbation plants ceil(PLANT_FRACTION x the shape's own base items) items into that shape's own population, uniform across G, M and W (D-19) — never a single family-wide plant.
 
 ## Pre-declared shapes
 
 ### Family G
 
-#### G1 — cadence-silent covered pairs, pooled
+#### G4 — standstill episodes, pooled
 
-**Meaning:** 90% of the odometer's advance rate while the athlete takes no steps sits at or below it. Above that, something is moving.
+**Meaning:** 90% of the archive's established standstills in which the odometer drifted at all accrued drift at or below this rate. Above it the odometer is advancing faster than all but the top tenth of real standstills, so something is moving.
 
-**Non-circularity:** Membership is decided by the cadence channel, which no detector, pause rule, classifier or band reads. Covered pairs exclude every J interval and pause by construction, so J cannot enter the population. Why this is not device-family relabelling: cadence here only selects which covered PAIRS enter a calibration sample for one speed cut. It never labels a stream or device, never gates a stream into or out of D-10's recordingMechanismSignature, and never enters the shipped classifier, which stays a pure function of t/d and reads only the derived constant. The D-10 rule and this population stay separate functions with separately-stated non-circularity arguments; the D-10 rule only ever gates the STOP-01 flag's own computability, never the PAUSE-01 band derivation (device-family reasoning creeping in is exactly what this avoids, per Pitfall 5).
+**Non-circularity:** Membership comes only from the pause rule (Phase 26, duration-only, no speed term) and covered-run adjacency. Neither reads a band, a class or a speed. No J interval can lie inside an episode, because a bridge is a covered run and any gap-bearing interval between two pauses breaks the chain. The band judges J (never pause intervals, D-01) and, through STOP-01, individual covered pairs. The statistic is an aggregate over whole standstills including their zero-advance time, never a percentile of judged items. The unchanged REMOVED view measures what leakage remains. By the structural bound, an episode's rate is strictly less than half the fastest speed of its bridges (each pause lasts more than P_a and each bridge less than P_a, so bridges occupy strictly less than half of any episode's seconds). Overlap with the retired G3: bridges can lie inside G3's old pause-boundary windows whenever they are shorter than the neighbourhood width, so the two populations share covered pairs — but this population is not "G3 with the neighbourhood removed": it pre-excludes nothing near J (its REMOVED row is live), its statistic is a whole-standstill aggregate including zero-advance time (not a pair median), and a single stop's run-in/run-out pairs never enter (only covered runs sandwiched between two pauses qualify).
 
-**Caveats:** Cadence is present on a subset of streams; a cadence of 0 can also be a sensor dropout while moving, which inflates the tail. The D-12 anchor gate exists to catch that.
+**Caveats:** Sees light drift only (heavier drift forms no pause, so it is invisible here — conservative for walking breaks, forgotten stops with dense drift may be under-detected). Aggregate versus pair: a single drift tick's pair speed exceeds an episode's average, so ticks can split creep runs (same under-detection direction, disclosed and not corrected). Conditional on drift: a single-pause standstill accrues 0 by construction and is excluded — including it would risk a zero base. Small population: at most half the archive's pause intervals (pauses often adjoin recording gaps).
 
-#### G2 — cadence-silent covered pairs, per activity
+#### G5 — standstill episodes, per activity
 
-**Meaning:** Guards criterion (2): a few long cadence-silent activities cannot dominate the pooled G1 statistic.
+**Meaning:** The same ceiling, with each activity voting once (total chained-episode metres / total chained-episode seconds, R-7 p90 across activities), so an activity with many stops cannot dominate G4's pooled statistic. Each planted item lifts exactly one host activity's ratio.
 
-**Non-circularity:** As G1, including the device-family relabelling sentence. Why this is not device-family relabelling: cadence here only selects which covered PAIRS enter a calibration sample for one speed cut. It never labels a stream or device, never gates a stream into or out of D-10's recordingMechanismSignature, and never enters the shipped classifier, which stays a pure function of t/d and reads only the derived constant. The D-10 rule and this population stay separate functions with separately-stated non-circularity arguments; the D-10 rule only ever gates the STOP-01 flag's own computability, never the PAUSE-01 band derivation (device-family reasoning creeping in is exactly what this avoids, per Pitfall 5).
+**Non-circularity:** Membership comes only from the pause rule (Phase 26, duration-only, no speed term) and covered-run adjacency. Neither reads a band, a class or a speed. No J interval can lie inside an episode, because a bridge is a covered run and any gap-bearing interval between two pauses breaks the chain. The band judges J (never pause intervals, D-01) and, through STOP-01, individual covered pairs. The statistic is an aggregate over whole standstills including their zero-advance time, never a percentile of judged items. The unchanged REMOVED view measures what leakage remains. By the structural bound, an episode's rate is strictly less than half the fastest speed of its bridges (each pause lasts more than P_a and each bridge less than P_a, so bridges occupy strictly less than half of any episode's seconds). Overlap with the retired G3: bridges can lie inside G3's old pause-boundary windows whenever they are shorter than the neighbourhood width, so the two populations share covered pairs — but this population is not "G3 with the neighbourhood removed": it pre-excludes nothing near J (its REMOVED row is live), its statistic is a whole-standstill aggregate including zero-advance time (not a pair median), and a single stop's run-in/run-out pairs never enter (only covered runs sandwiched between two pauses qualify).
 
-**Caveats:** Ranks below G1 on criterion (3) — a two-level statistic.
-
-#### G3 — pause-boundary run-in
-
-**Meaning:** The speed of covered pairs immediately bracketing an established zero-advance pause interval.
-
-**Non-circularity:** The pause rule is a duration-only rule with no speed term, so it is independent of any band; no band or class enters it.
-
-**Caveats:** Ranks last: the population mixes deceleration and acceleration pairs, so its upper tail is contaminated by construction — the median is used for that reason.
+**Caveats:** Sees light drift only (heavier drift forms no pause, so it is invisible here — conservative for walking breaks, forgotten stops with dense drift may be under-detected). Aggregate versus pair: a single drift tick's pair speed exceeds an episode's average, so ticks can split creep runs (same under-detection direction, disclosed and not corrected). Conditional on drift: a single-pause standstill accrues 0 by construction and is excluded — including it would risk a zero base. Small population: at most half the archive's pause intervals (pauses often adjoin recording gaps). Ranks below G4 on criterion (2), being a two-level statistic.
 
 ### Family M
 
@@ -78,12 +70,17 @@ Families run in the fixed order G, then M, then W (34-04-PLAN.md <predeclared_sh
 - M (rejected on argument): any round-number duration, including the scoping probe's 30s and 120s, which are references only and never a shape.
 - W (rejected on argument): a per-activity valley percentile — most activities contain no walking hump, so the population would be selected by the property being measured.
 - W (rejected on argument): a cadence-split anchor, which needs its own uncalibrated cadence constant.
+- G (rejected on argument, D-19): (c) pause-interval interiors alone — zero-advance by definition, so the rate is exactly 0: a degenerate population and a zero base.
+- G (rejected on argument, D-19): (d) G3's population restricted to pairs outside every J neighbourhood — it makes the REMOVED axis vacuous by construction, and a measured HALT-1 view of nearly that population already exists, so declaring it would be choosing by outcome.
+- G (rejected on argument, D-19): (e) pre-start / post-finish stationary tails — no speed-free rule tells a stationary tail from a start or finish effort except the pause rule itself, which reduces to G4.
+- G (rejected on argument, D-19): (f) chained plus single-pause standstills together — a single-pause standstill accrues 0 by construction and is excluded (see G4/G5 caveats).
+- G (rejected on argument, D-19): (g) pair speeds of drift ticks inside bridges — a tick's pair speed is one sample's odometer jump, not a drift rate over standing time; wrong unit for a boundary that judges interval aggregates.
+- RETIRED (D-19, not argued, recorded in 34-06-HALT-1.md): G1 (cadence-silent covered pairs, pooled), G2 (cadence-silent covered pairs, per activity), G3 (pause-boundary run-in). All three measured walking/jogging speeds, not stationary-drift speeds, and failed D-13 insensitivity on the real archive.
 
 ## Non-circularity
 
-- **G1:** Membership is decided by the cadence channel, which no detector, pause rule, classifier or band reads. Covered pairs exclude every J interval and pause by construction, so J cannot enter the population. Why this is not device-family relabelling: cadence here only selects which covered PAIRS enter a calibration sample for one speed cut. It never labels a stream or device, never gates a stream into or out of D-10's recordingMechanismSignature, and never enters the shipped classifier, which stays a pure function of t/d and reads only the derived constant. The D-10 rule and this population stay separate functions with separately-stated non-circularity arguments; the D-10 rule only ever gates the STOP-01 flag's own computability, never the PAUSE-01 band derivation (device-family reasoning creeping in is exactly what this avoids, per Pitfall 5).
-- **G2:** As G1, including the device-family relabelling sentence. Why this is not device-family relabelling: cadence here only selects which covered PAIRS enter a calibration sample for one speed cut. It never labels a stream or device, never gates a stream into or out of D-10's recordingMechanismSignature, and never enters the shipped classifier, which stays a pure function of t/d and reads only the derived constant. The D-10 rule and this population stay separate functions with separately-stated non-circularity arguments; the D-10 rule only ever gates the STOP-01 flag's own computability, never the PAUSE-01 band derivation (device-family reasoning creeping in is exactly what this avoids, per Pitfall 5).
-- **G3:** The pause rule is a duration-only rule with no speed term, so it is independent of any band; no band or class enters it.
+- **G4:** Membership comes only from the pause rule (Phase 26, duration-only, no speed term) and covered-run adjacency. Neither reads a band, a class or a speed. No J interval can lie inside an episode, because a bridge is a covered run and any gap-bearing interval between two pauses breaks the chain. The band judges J (never pause intervals, D-01) and, through STOP-01, individual covered pairs. The statistic is an aggregate over whole standstills including their zero-advance time, never a percentile of judged items. The unchanged REMOVED view measures what leakage remains. By the structural bound, an episode's rate is strictly less than half the fastest speed of its bridges (each pause lasts more than P_a and each bridge less than P_a, so bridges occupy strictly less than half of any episode's seconds). Overlap with the retired G3: bridges can lie inside G3's old pause-boundary windows whenever they are shorter than the neighbourhood width, so the two populations share covered pairs — but this population is not "G3 with the neighbourhood removed": it pre-excludes nothing near J (its REMOVED row is live), its statistic is a whole-standstill aggregate including zero-advance time (not a pair median), and a single stop's run-in/run-out pairs never enter (only covered runs sandwiched between two pauses qualify).
+- **G5:** Membership comes only from the pause rule (Phase 26, duration-only, no speed term) and covered-run adjacency. Neither reads a band, a class or a speed. No J interval can lie inside an episode, because a bridge is a covered run and any gap-bearing interval between two pauses breaks the chain. The band judges J (never pause intervals, D-01) and, through STOP-01, individual covered pairs. The statistic is an aggregate over whole standstills including their zero-advance time, never a percentile of judged items. The unchanged REMOVED view measures what leakage remains. By the structural bound, an episode's rate is strictly less than half the fastest speed of its bridges (each pause lasts more than P_a and each bridge less than P_a, so bridges occupy strictly less than half of any episode's seconds). Overlap with the retired G3: bridges can lie inside G3's old pause-boundary windows whenever they are shorter than the neighbourhood width, so the two populations share covered pairs — but this population is not "G3 with the neighbourhood removed": it pre-excludes nothing near J (its REMOVED row is live), its statistic is a whole-standstill aggregate including zero-advance time (not a pair median), and a single stop's run-in/run-out pairs never enter (only covered runs sandwiched between two pauses qualify).
 - **M1:** P_a comes from each activity's full advance-interval distribution (thousands of intervals) under the already-calibrated PAUSE_GAP_P90_MULTIPLIER. No creep stretch, band or class enters it.
 - **M2:** As M1.
 - **W1:** Covered steps exclude every J interval, pause and unreliable segment by construction (D-06: "disjoint from what it judges"); the harness measures leakage directly.
@@ -95,11 +92,11 @@ Removal empties a strawman by construction — its population IS the population 
 
 ### Strawman G
 
-| id | n | base | removed (n) | removedDelta | planted (n) | plantedDelta | Verdict |
-|---|---|---|---|---|---|---|---|
-| strawman G | 5362 | 0.908333 | — (0) | — | 0.908333 (5362) | 0.0000% | FAIL |
+| id | n | base | removed (n) | removedDelta | planted (n) | plantedDelta | plants | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| strawman G | 5362 | 0.908333 | — (0) | — | 0.941667 (5416) | 3.6697% | 54 | FAIL |
 
-**FAILED** — removedDelta —, plantedDelta 0.0000% (expected).
+**FAILED** — removedDelta —, plantedDelta 3.6697% (expected).
 
 ### Strawman M
 
@@ -113,11 +110,10 @@ not computed: upstream HALT
 
 ### Family G
 
-| id | n | base | removed (n) | removedDelta | planted (n) | plantedDelta | Verdict |
-|---|---|---|---|---|---|---|---|
-| G1 | 7943 | 2.723333 | 2.650000 (4569) | 2.6928% | 3.000000 (13305) | 10.1591% | FAIL |
-| G2 | 50 | 1.655000 | 1.612738 (35) | 2.5536% | 1.740000 (57) | 5.1360% | FAIL |
-| G3 | 2737 | 1.900000 | 0.200000 (965) | 89.4737% | 1.900000 (2737) | 0.0000% | FAIL |
+| id | n | base | removed (n) | removedDelta | planted (n) | plantedDelta | plants | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| G4 | 6 | 0.029873 | 0.003063 (4) | 89.7455% | 1.195556 (7) | 3902.0881% | 1 | FAIL |
+| G5 | 6 | 0.029873 | 0.003063 (4) | 89.7455% | 0.496462 (6) | 1561.8912% | 1 | FAIL |
 
 Selected: NO SHAPE CLEARS
 
@@ -154,7 +150,7 @@ Findings (never expected values): distance-triggered 104, insufficient-data 1, c
 
 ## Drift-while-stationary
 
-Not computed — upstream G family did not clear.
+Standstill episodes: total=684, chained=6, single-pause=678, chainedShare=0.8772%, totalStandstillSeconds=5824.0, totalChainedMetres=2.70. Drift-matters not yet determined — Family G has not shipped a value this run.
 
 ## Join exhaustiveness
 
