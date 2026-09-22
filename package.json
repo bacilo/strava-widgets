@@ -33,6 +33,8 @@
     "compute-unreliable-segment-severity-calibration": "npm run build && node scripts/compute-unreliable-segment-severity-calibration.mjs",
     "compute-stream-checksums": "node scripts/compute-stream-checksums.mjs",
     "compute-walking-break-evidence": "node scripts/compute-walking-break-evidence.mjs --write",
+    "compute-pause-classification-calibration": "npm run build && node scripts/compute-pause-classification-calibration.mjs",
+    "compute-pause-transport-remeasurement": "npm run build && node scripts/compute-pause-transport-remeasurement.mjs",
     "validate-unreliable-segments-1hz": "npm run build && node scripts/validate-unreliable-segments-1hz.mjs",
     "compute-heatmap-data": "node scripts/compute-heatmap-data.mjs",
     "build-widget": "vite build",

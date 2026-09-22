@@ -1,7 +1,8 @@
 /**
- * Synthetic-fixture tests for compute-pause-classification-calibration.mjs (34-04-PLAN.md), Task 1:
- * the views, the D-13 harness, the seven pre-declared shapes and three strawmen. No real committed
- * stream file is read anywhere in this file — every fixture below is hand-built.
+ * Synthetic-fixture tests for compute-pause-classification-calibration.mjs (34-04-PLAN.md). No real
+ * committed stream file is read anywhere in this file — every fixture below is hand-built. Importing
+ * the generator must not run an archive read or a write to 34-CALIBRATION.md; `main()` is never
+ * invoked here (D-08: the generator is not run against the real archive in this plan).
  */
 
 import { describe, expect, it } from 'vitest';
@@ -14,10 +15,20 @@ import {
   PREDECLARED_SHAPES,
   REJECTED_SHAPES,
   VALLEY_BIN_WIDTH_MPS,
+  applyGates,
+  archiveFindings,
   buildBaseViews,
+  d10Section,
+  decideOutcome,
+  driftSection,
   evaluateShape,
+  joinSection,
+  perIntervalTable,
   plantShapes,
   removeNeighbourhoods,
+  renderCalibrationMarkdown,
+  runCalibration,
+  runFamily,
   shapeG1,
   shapeG2,
   shapeG3,
@@ -190,7 +201,6 @@ function buildClearArchive() {
 // reference shape
 // ---------------------------------------------------------------------------
 
-
 describe('reference shape', () => {
   const views = buildBaseViews(buildClearArchive());
 
@@ -315,6 +325,10 @@ describe('reference shape', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// D-13 harness
+// ---------------------------------------------------------------------------
+
 describe('D-13 harness', () => {
   it('buildBaseViews: positioned advance intervals match the imported advanceIntervals(t, d) exactly', () => {
     expect(() => buildBaseViews(buildClearArchive())).not.toThrow();
@@ -437,6 +451,10 @@ describe('D-13 harness', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// shape arbitration
+// ---------------------------------------------------------------------------
+
 describe('shape arbitration', () => {
   it('PREDECLARED_SHAPES ids and order are pinned exactly: G [G1,G2,G3], M [M1,M2], W [W1,W2]', () => {
     expect(PREDECLARED_SHAPES.G.map((s) => s.id)).toEqual(['G1', 'G2', 'G3']);
@@ -452,7 +470,308 @@ describe('shape arbitration', () => {
       expect(shape.nonCircularity).toContain('device-family reasoning creeping in');
     }
   });
+
+  it('runFamily returns { strawman, rows, chosen } with chosen = first PASS or null', () => {
+    const views = buildBaseViews(buildClearArchive());
+    const family = runFamily('G', views, { plantedViews: views });
+    expect(family).toHaveProperty('strawman');
+    expect(family).toHaveProperty('rows');
+    expect(family.rows.length).toBe(3);
+    expect(family.chosen).not.toBeNull();
+    expect(family.selectedId).toBe(family.chosen.id);
+  });
+
+  it('selectShape receives only { id, pass } rows at the runFamily call site', () => {
+    // Source-scan: the call site maps rows to { id, pass } before calling selectShape, never
+    // passing the full row (which would carry base/removed/planted/meaning/etc).
+    return import('node:fs').then(({ readFileSync }) => {
+      const text = readFileSync(new URL('./compute-pause-classification-calibration.mjs', import.meta.url), 'utf8');
+      expect(text).toContain('rows.map((r) => ({ id: r.id, pass: r.pass }))');
+    });
+  });
+
+  it('rounding: G and W round via ceilToSignificant(raw, 3); M rounds via Math.ceil(raw)', () => {
+    const result = runCalibration(buildClearArchive(), null);
+    expect(result.allCleared).toBe(true);
+    // 0.12345 rounds UP to 3 significant figures as 0.124 (never 0.123, which a standard
+    // round-to-nearest would give) — proves ceilToSignificant, not Math.round, is used.
+    expect(result.shipped.STATIONARY_MAX_SPEED_MPS).toBeCloseTo(0.124, 6);
+    // 6.5 rounds via Math.ceil to 7, not 6 (Math.floor).
+    expect(result.shipped.FORGOTTEN_STOP_MIN_SEC).toBe(7);
+  });
+
+  it('a G HALT makes M and W render "not computed: upstream HALT" — families are null and the ' +
+    'markdown says so', () => {
+    const result = runCalibration(buildHaltArchive(), null);
+    expect(result.families.G.chosen).toBeNull();
+    expect(result.families.M).toBeNull();
+    expect(result.families.W).toBeNull();
+    expect(result.allCleared).toBe(false);
+
+    const markdown = renderCalibrationMarkdown({ ...result, provenance: {} });
+    expect(markdown).toContain('not computed: upstream HALT');
+    expect(markdown).not.toContain('STATIONARY_MAX_SPEED_MPS = ');
+  });
 });
+
+// ---------------------------------------------------------------------------
+// gates
+// ---------------------------------------------------------------------------
+
+describe('gates', () => {
+  it('ORDER gate passes iff 0 <= stationary < walkRun < UNRELIABLE_SPEED_LIMIT_MPS', () => {
+    const views = buildBaseViews(buildGatesPassArchive());
+    const okShipped = { STATIONARY_MAX_SPEED_MPS: 0.5, WALK_RUN_BOUNDARY_MPS: 2.0, FORGOTTEN_STOP_MIN_SEC: 30 };
+    const badShipped = { STATIONARY_MAX_SPEED_MPS: 2.0, WALK_RUN_BOUNDARY_MPS: 0.5, FORGOTTEN_STOP_MIN_SEC: 30 };
+    expect(applyGates(views, okShipped, GATES_PASS_CONTROL_TEXT).gates.find((g) => g.id === 'order').pass).toBe(true);
+    expect(applyGates(views, badShipped, GATES_PASS_CONTROL_TEXT).gates.find((g) => g.id === 'order').pass).toBe(false);
+  });
+
+  it('D-12 anchor with no CONFIRMED_CONTROL line fails every sub-gate with reason "no developer-confirmed control"', () => {
+    const views = buildBaseViews(buildGatesPassArchive());
+    const result = applyGates(views, GATES_PASS_SHIPPED, null);
+    for (const id of ['d12-anchor-i', 'd12-anchor-ii', 'd12-anchor-iii']) {
+      const gate = result.gates.find((g) => g.id === id);
+      expect(gate.pass).toBe(false);
+      expect(gate.reason).toBe('no developer-confirmed control');
+    }
+  });
+
+  it('D-12 anchor (i)/(ii)/(iii) all pass on a genuine walking-break control window', () => {
+    const views = buildBaseViews(buildGatesPassArchive());
+    const result = applyGates(views, GATES_PASS_SHIPPED, GATES_PASS_CONTROL_TEXT);
+    expect(result.gates.find((g) => g.id === 'd12-anchor-i').pass).toBe(true);
+    expect(result.gates.find((g) => g.id === 'd12-anchor-i').measured).toBe('walked');
+    expect(result.gates.find((g) => g.id === 'd12-anchor-ii').pass).toBe(true);
+    expect(result.gates.find((g) => g.id === 'd12-anchor-iii').pass).toBe(true);
+  });
+
+  it('D-10 rule: named anchors classify correctly and the archive margin is clear', () => {
+    const views = buildBaseViews(buildGatesPassArchive());
+    const d10 = d10Section(views);
+    expect(d10.anchorsPass).toBe(true);
+    expect(d10.marginClear).toBe(true);
+    expect(d10.pass).toBe(true);
+  });
+
+  it('D-10 rule: a wrong-signature named anchor fails the anchor check', () => {
+    // Swap the named distance-triggered anchor for a time-triggered stream.
+    const views = buildBaseViews({
+      activities: [
+        buildTimeTriggered('3475740390'), // wrong: should be distance-triggered
+        buildTimeTriggered('3475724402'),
+        buildTimeTriggered('3475734189'),
+        buildTimeTriggered('4556693525'),
+      ],
+      streamFileCount: 4,
+      notComputable: 0,
+    });
+    const d10 = d10Section(views);
+    expect(d10.anchorsPass).toBe(false);
+    expect(d10.pass).toBe(false);
+  });
+
+  it('JOIN gate passes iff summed joinViolations is 0', () => {
+    const views = buildBaseViews(buildGatesPassArchive());
+    expect(joinSection(views).total).toBe(0);
+    expect(joinSection(views).pass).toBe(true);
+
+    const withViolation = views.map((v) => (v.computable ? { ...v, joinViolations: 1 } : v));
+    expect(joinSection(withViolation).total).toBeGreaterThan(0);
+    expect(joinSection(withViolation).pass).toBe(false);
+  });
+
+  it('applyGates: every gate passes on the full gates-pass archive', () => {
+    const views = buildBaseViews(buildGatesPassArchive());
+    const result = applyGates(views, GATES_PASS_SHIPPED, GATES_PASS_CONTROL_TEXT);
+    expect(result.pass).toBe(true);
+  });
+
+  it('driftSection: "matters" iff the shipped G value is > 0; not computed on upstream HALT', () => {
+    const views = buildBaseViews(buildClearArchive());
+    expect(driftSection(views, null).computed).toBe(false);
+    const drift = driftSection(views, 0.124);
+    expect(drift.computed).toBe(true);
+    expect(drift.matters).toBe(true);
+    expect(drift.pairCount).toBeGreaterThan(0);
+
+    const zeroDrift = driftSection(views, 0);
+    expect(zeroDrift.matters).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// render
+// ---------------------------------------------------------------------------
+
+describe('render', () => {
+  const clearResult = { ...runCalibration(buildClearArchive(), GATES_PASS_CONTROL_TEXT) };
+  clearResult.provenance = { streamsTree: 'abc123', newestActivityStartDate: '2026-01-01T00:00:00Z', controlFilePath: 'x.md' };
+
+  const haltResult = { ...runCalibration(buildHaltArchive(), null) };
+  haltResult.provenance = { streamsTree: 'def456', newestActivityStartDate: '2026-01-01T00:00:00Z', controlFilePath: 'x.md' };
+
+  it('a clear fixture renders every heading in the contract order, then Chosen constants', () => {
+    const markdown = renderCalibrationMarkdown(clearResult);
+    const headings = [...markdown.matchAll(/^## (.+)$/gm)].map((m) => m[1]);
+    const expectedPrefix = [
+      'Statistic and scope',
+      'Pre-declared shapes',
+      'Rejected on argument',
+      'Non-circularity',
+      'Strawmen watched failing',
+      'Shape arbitration',
+    ];
+    expect(headings.slice(0, expectedPrefix.length)).toEqual(expectedPrefix);
+    expect(headings).toContain('Chosen constants');
+    const expectedSuffix = [
+      'Gates',
+      'D-10 blind-spot rule',
+      'Drift-while-stationary',
+      'Join exhaustiveness',
+      'Per-interval class table — 3475724402 (classifier output)',
+      'Archive-wide findings (never an input to selection)',
+      'Inputs',
+    ];
+    expect(headings.slice(headings.length - expectedSuffix.length)).toEqual(expectedSuffix);
+  });
+
+  it('the Chosen constants block contains the exact contract lines', () => {
+    const markdown = renderCalibrationMarkdown(clearResult);
+    expect(markdown).toContain(`STATIONARY_MAX_SPEED_MPS = ${clearResult.shipped.STATIONARY_MAX_SPEED_MPS}`);
+    expect(markdown).toContain(`FORGOTTEN_STOP_MIN_SEC = ${clearResult.shipped.FORGOTTEN_STOP_MIN_SEC}`);
+    expect(markdown).toContain(`WALK_RUN_BOUNDARY_MPS = ${clearResult.shipped.WALK_RUN_BOUNDARY_MPS}`);
+    expect(markdown).toContain(`UNRELIABLE_SPEED_LIMIT_MPS = ${UNRELIABLE_SPEED_LIMIT_MPS} (imported, 32-CALIBRATION.md)`);
+  });
+
+  it('the per-interval table header string equals the contract exactly', () => {
+    const markdown = renderCalibrationMarkdown(clearResult);
+    expect(markdown).toContain('| # | source | startSec | endSec | seconds | metres | speedMps | class |');
+    expect(markdown).toContain('## Per-interval class table — 3475724402 (classifier output)');
+  });
+
+  it('a HALT fixture contains ## NO SHAPE CLEARS and NO "STATIONARY_MAX_SPEED_MPS = " line', () => {
+    const markdown = renderCalibrationMarkdown(haltResult);
+    expect(markdown).toContain('## NO SHAPE CLEARS');
+    expect(markdown).not.toContain('STATIONARY_MAX_SPEED_MPS = ');
+  });
+
+  it('a GATE FAILED fixture renders ## GATE FAILED, not ## NO SHAPE CLEARS, and no Chosen constants', () => {
+    // All three families clear on the gates-pass archive when given synthetic shipped-band-shaped
+    // context, but withholding the control text fails the D-12 gate.
+    const views = buildBaseViews(buildGatesPassArchive());
+    const gateFailedResult = {
+      archive: { streamFileCount: 5, notComputable: 0 },
+      families: {
+        G: { strawman: { pass: false, base: 1, removed: null, planted: 1, removedDelta: null, plantedDelta: 0, baseN: 1, removedN: 0, plantedN: 1 }, rows: PREDECLARED_SHAPES.G.map((s) => ({ id: s.id, pass: false, base: null, removed: null, planted: null, removedDelta: null, plantedDelta: null, baseN: 0, removedN: 0, plantedN: 0 })), selectedId: 'G1', chosen: { id: 'G1', base: 0.5 } },
+        M: { strawman: { pass: false, base: 1, removed: null, planted: 1, removedDelta: null, plantedDelta: 0, baseN: 1, removedN: 0, plantedN: 1 }, rows: PREDECLARED_SHAPES.M.map((s) => ({ id: s.id, pass: false, base: null, removed: null, planted: null, removedDelta: null, plantedDelta: null, baseN: 0, removedN: 0, plantedN: 0 })), selectedId: 'M1', chosen: { id: 'M1', base: 30 } },
+        W: { strawman: { pass: false, base: 1, removed: null, planted: 1, removedDelta: null, plantedDelta: 0, baseN: 1, removedN: 0, plantedN: 1 }, rows: PREDECLARED_SHAPES.W.map((s) => ({ id: s.id, pass: false, base: null, removed: null, planted: null, removedDelta: null, plantedDelta: null, baseN: 0, removedN: 0, plantedN: 0 })), selectedId: 'W1', chosen: { id: 'W1', base: 2.0 } },
+      },
+      shipped: GATES_PASS_SHIPPED,
+      allCleared: true,
+      gates: applyGates(views, GATES_PASS_SHIPPED, null),
+      d10: d10Section(views),
+      join: joinSection(views),
+      drift: driftSection(views, GATES_PASS_SHIPPED.STATIONARY_MAX_SPEED_MPS),
+      perIntervalTable: perIntervalTable(views, { stationaryMaxMps: 0.5, walkRunMps: 2.0 }),
+      archiveFindings: archiveFindings(views, { stationaryMaxMps: 0.5, walkRunMps: 2.0 }, { stationaryMaxMps: 0.5, minSec: 30 }),
+      provenance: {},
+    };
+    expect(gateFailedResult.gates.pass).toBe(false);
+    const markdown = renderCalibrationMarkdown(gateFailedResult);
+    expect(markdown).toContain('## GATE FAILED');
+    expect(markdown).not.toContain('## NO SHAPE CLEARS');
+    expect(markdown).not.toContain('STATIONARY_MAX_SPEED_MPS = ');
+  });
+
+  it("the ## Non-circularity section's G rows contain the device-family substrings on both the clear and the HALT fixtures", () => {
+    for (const result of [clearResult, haltResult]) {
+      const markdown = renderCalibrationMarkdown(result);
+      expect(markdown).toContain('Why this is not device-family relabelling');
+      expect(markdown).toContain('device-family reasoning creeping in');
+    }
+  });
+
+  it('rendering the same fixture twice is byte-identical', () => {
+    const first = renderCalibrationMarkdown(clearResult);
+    const second = renderCalibrationMarkdown(clearResult);
+    expect(first).toBe(second);
+  });
+
+  it('the rendered Markdown contains no wall-clock date pattern, no bare rev-parse HEAD commit id, and no source-file hash', () => {
+    const markdown = renderCalibrationMarkdown(clearResult);
+    // No ISO-8601 timestamp literal anywhere except the one explicitly provided as a fixed
+    // provenance INPUT (not a wall-clock read) — the generator itself calls Date.now()/new Date()
+    // nowhere, verified by source-scan below.
+    expect(markdown).not.toMatch(/\b[0-9a-f]{40}\b/); // no 40-hex commit id
+  });
+
+  it("the generator's own source never calls Date.now() or `new Date()`, and never runs `rev-parse HEAD'` alone", () => {
+    return import('node:fs').then(({ readFileSync }) => {
+      const text = readFileSync(new URL('./compute-pause-classification-calibration.mjs', import.meta.url), 'utf8');
+      expect(text).not.toMatch(/Date\.now\(\)|new Date\(/);
+      expect(text).not.toContain("rev-parse HEAD'");
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// exit contract
+// ---------------------------------------------------------------------------
+
+describe('exit contract', () => {
+  it('decideOutcome: 0 when every family cleared, every gate passed, and no shipped constant is present', () => {
+    const views = buildBaseViews(buildGatesPassArchive());
+    const result = {
+      allCleared: true,
+      gates: applyGates(views, GATES_PASS_SHIPPED, GATES_PASS_CONTROL_TEXT),
+      shipped: GATES_PASS_SHIPPED,
+    };
+    expect(decideOutcome(result, {}).exitCode).toBe(0);
+  });
+
+  it('decideOutcome: 0 when the shipped constant is present and exactly equal to the derived value', () => {
+    const views = buildBaseViews(buildGatesPassArchive());
+    const result = {
+      allCleared: true,
+      gates: applyGates(views, GATES_PASS_SHIPPED, GATES_PASS_CONTROL_TEXT),
+      shipped: GATES_PASS_SHIPPED,
+    };
+    expect(decideOutcome(result, { STATIONARY_MAX_SPEED_MPS: 0.5 }).exitCode).toBe(0);
+  });
+
+  it('decideOutcome: 1 on NO SHAPE CLEARS (allCleared false)', () => {
+    const result = { allCleared: false, gates: null, shipped: {} };
+    expect(decideOutcome(result, {}).exitCode).toBe(1);
+    expect(decideOutcome(result, {}).reason).toBe('no-shape-clears');
+  });
+
+  it('decideOutcome: 1 on a failed gate (allCleared true, gates.pass false)', () => {
+    const views = buildBaseViews(buildGatesPassArchive());
+    const result = {
+      allCleared: true,
+      gates: applyGates(views, GATES_PASS_SHIPPED, null), // no control text -> D-12 gate fails
+      shipped: GATES_PASS_SHIPPED,
+    };
+    expect(decideOutcome(result, {}).exitCode).toBe(1);
+    expect(decideOutcome(result, {}).reason).toBe('gate-failed');
+  });
+
+  it('decideOutcome: 2 when a shipped constant is present and differs from the derived value', () => {
+    const views = buildBaseViews(buildGatesPassArchive());
+    const result = {
+      allCleared: true,
+      gates: applyGates(views, GATES_PASS_SHIPPED, GATES_PASS_CONTROL_TEXT),
+      shipped: GATES_PASS_SHIPPED,
+    };
+    expect(decideOutcome(result, { STATIONARY_MAX_SPEED_MPS: 0.999 }).exitCode).toBe(2);
+    expect(decideOutcome(result, { STATIONARY_MAX_SPEED_MPS: 0.999 }).reason).toBe('shipped-mismatch');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// D-13 constants sanity (also exercised implicitly above)
+// ---------------------------------------------------------------------------
 
 describe('predeclared constants', () => {
   it('INSENSITIVITY_TOLERANCE is fixed at 1%', () => {

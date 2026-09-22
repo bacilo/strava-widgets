@@ -20,6 +20,10 @@
  */
 
 import assert from 'assert';
+import { execSync } from 'child_process';
+import { readFileSync, readdirSync, writeFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath, pathToFileURL } from 'url';
 
 import { advanceSteps } from '../dist/analytics/unreliable-segments.js';
 import {
@@ -28,12 +32,31 @@ import {
   PAUSE_GAP_P90_MULTIPLIER,
   quantile,
   RECORDING_GAP_ABS_THRESHOLD_SEC,
+  UNRELIABLE_SPEED_LIMIT_MPS,
 } from '../dist/analytics/pace-derivation.js';
+import { validateStreamSeries } from '../dist/analytics/best-effort-utils.js';
+import { isStreamFile, idFromFilename } from './lib/stream-files.mjs';
+import { ceilToSignificant, selectShape } from './compute-unreliable-segment-severity-calibration.mjs';
+import { parseControlFile } from './compute-walking-break-evidence.mjs';
 // Namespace import (never named): STATIONARY_MAX_SPEED_MPS / FORGOTTEN_STOP_MIN_SEC /
 // WALK_RUN_BOUNDARY_MPS do not exist on the shipped module until plan 34-06 ships them — a named
-// import would be a link error on every run before that. Task 1 only needs
-// pc.collectPauseIntervals and pc.SIGNATURE_MIN_COVERED_PAIRS.
+// import would be a link error on every run before that. This reads `undefined` instead and the
+// artifact/decideOutcome state "not yet shipped".
 import * as pc from '../dist/analytics/pause-classification.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ROOT_DIR = join(__dirname, '..');
+const STREAMS_DIR = join(ROOT_DIR, 'data/streams');
+const ACTIVITIES_DIR = join(ROOT_DIR, 'data/activities');
+const CONTROL_FILE_PATH = join(
+  ROOT_DIR,
+  '.planning/phases/34-pause-classification-forgotten-stop/34-WALKING-BREAK-CONTROL.md'
+);
+const OUTPUT_PATH = join(
+  ROOT_DIR,
+  '.planning/phases/34-pause-classification-forgotten-stop/34-CALIBRATION.md'
+);
+const REGENERATE_COMMAND = 'npm run compute-pause-classification-calibration';
 
 // ---------------------------------------------------------------------------
 // Fixed constants — pre-declared before any measurement
@@ -671,3 +694,911 @@ export const REJECTED_SHAPES = Object.freeze([
   'W (rejected on argument): a cadence-split anchor, which needs its own uncalibrated cadence constant.',
 ]);
 
+const STRAWMEN = { G: strawmanG, M: strawmanM, W: strawmanW };
+
+// ---------------------------------------------------------------------------
+// Arbitration
+// ---------------------------------------------------------------------------
+
+/**
+ * Evaluates one family's strawman (first) then every pre-declared shape in fixed order, and selects
+ * the first PASS via `selectShape`, fed ONLY `{ id, pass }` rows — nothing else can reach it.
+ * `upstream.shippedFloor` is the rounded G value (required for M/W; unused for G itself).
+ */
+export function runFamily(familyId, views, upstream = {}) {
+  const shippedFloor = upstream.shippedFloor ?? null;
+  const plantedViews = upstream.plantedViews ?? views;
+  const removedResult = removeNeighbourhoods(views, familyId, shippedFloor);
+  const ctx =
+    familyId === 'M'
+      ? { shippedFloor }
+      : familyId === 'W'
+        ? { lo: shippedFloor, hi: UNRELIABLE_SPEED_LIMIT_MPS }
+        : undefined;
+
+  const viewSets = { base: views, removed: removedResult.views, planted: plantedViews };
+  const strawman = evaluateShape(STRAWMEN[familyId], viewSets, { tolerance: INSENSITIVITY_TOLERANCE, ctx });
+
+  const rows = PREDECLARED_SHAPES[familyId].map((shape) => ({
+    id: shape.id,
+    name: shape.name,
+    meaning: shape.meaning,
+    nonCircularity: shape.nonCircularity,
+    caveat: shape.caveat,
+    ...evaluateShape(shape.fn, viewSets, { tolerance: INSENSITIVITY_TOLERANCE, ctx }),
+  }));
+
+  const selectedId = selectShape(rows.map((r) => ({ id: r.id, pass: r.pass })));
+  const chosen = selectedId === null ? null : rows.find((r) => r.id === selectedId);
+
+  return {
+    familyId,
+    strawman,
+    rows,
+    selectedId,
+    chosen,
+    nonVacuity: {
+      removedCount: removedResult.removedCount,
+      removedChangedActivityCount: removedResult.changedActivityCount,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// D-10 blind-spot rule verification
+// ---------------------------------------------------------------------------
+
+const D10_NAMED_ANCHORS = Object.freeze([
+  { id: '3475740390', expected: true },
+  { id: '3475724402', expected: false },
+  { id: '3475734189', expected: false },
+  { id: '4556693525', expected: false },
+]);
+const D10_MARGIN = 0.02;
+
+/**
+ * Verifies D-10's pre-declared `recordingMechanismSignature` constants against named anchors (the
+ * imported `pc.recordingMechanismSignature` — never re-derived here) and against an empty margin
+ * around the ratio cut in the archive's own distribution. Failure is a HALT, never a retune.
+ */
+export function d10Section(views) {
+  const signatures = views
+    .filter((v) => v.computable)
+    .map((v) => ({ id: v.id, sig: pc.recordingMechanismSignature(v.t, v.d) }));
+
+  const anchorRows = D10_NAMED_ANCHORS.map(({ id, expected }) => {
+    const found = signatures.find((s) => s.id === id);
+    const actual = found && found.sig.computable ? found.sig.distanceTriggered : null;
+    return { id, expected, actual, pass: actual === expected };
+  });
+  const anchorsPass = anchorRows.every((r) => r.pass);
+
+  const inCvBand = signatures.filter((s) => s.sig.computable && s.sig.cvDd < pc.DISTANCE_TRIGGERED_MAX_CV_DD);
+  const lo = pc.DISTANCE_TRIGGERED_MAX_CV_RATIO - D10_MARGIN;
+  const hi = pc.DISTANCE_TRIGGERED_MAX_CV_RATIO + D10_MARGIN;
+  const inMargin = inCvBand.filter((s) => s.sig.ratio >= lo && s.sig.ratio <= hi);
+
+  let nearestBelow = null;
+  let nearestAbove = null;
+  for (const s of inCvBand) {
+    if (s.sig.ratio < lo && (nearestBelow === null || s.sig.ratio > nearestBelow.sig.ratio)) nearestBelow = s;
+    if (s.sig.ratio > hi && (nearestAbove === null || s.sig.ratio < nearestAbove.sig.ratio)) nearestAbove = s;
+  }
+  const marginClear = inMargin.length === 0;
+
+  const distanceTriggeredCount = signatures.filter((s) => s.sig.computable && s.sig.distanceTriggered).length;
+  const insufficientCount = signatures.filter((s) => !s.sig.computable).length;
+  const computableCount = signatures.filter((s) => s.sig.computable).length;
+
+  const pass = anchorsPass && marginClear;
+  return {
+    anchorRows,
+    anchorsPass,
+    marginClear,
+    nearestBelow,
+    nearestAbove,
+    distanceTriggeredCount,
+    insufficientCount,
+    computableCount,
+    summary: `anchors ${anchorsPass ? 'pass' : 'FAIL'}, margin ${marginClear ? 'clear' : 'VIOLATED'}`,
+    pass,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Drift and join sections
+// ---------------------------------------------------------------------------
+
+/**
+ * STOP-02's drift measurement, over G1's own (base, unperturbed) population: pair count, total
+ * seconds, total phantom metres and the share of pairs with d-advance > 0. "Drift matters" iff the
+ * shipped G value is > 0.
+ */
+export function driftSection(views, shippedFloor) {
+  if (shippedFloor === null || shippedFloor === undefined) {
+    return { computed: false };
+  }
+  const pairs = [];
+  for (const v of views) {
+    if (!v.computable) continue;
+    for (const p of v.coveredPairs) if (p.cadenceSilent) pairs.push(p);
+  }
+  const pairCount = pairs.length;
+  const totalSeconds = pairs.reduce((s, p) => s + p.seconds, 0);
+  const totalPhantomMetres = pairs.reduce((s, p) => s + Math.max(0, p.metres), 0);
+  const advancingCount = pairs.filter((p) => p.metres > 0).length;
+  const advancingShare = pairCount > 0 ? advancingCount / pairCount : null;
+  return {
+    computed: true,
+    pairCount,
+    totalSeconds,
+    totalPhantomMetres,
+    advancingShare,
+    matters: shippedFloor > 0,
+    shippedFloor,
+  };
+}
+
+/** JOIN gate's own facts: the archive-wide summed `joinViolations` from `collectPauseIntervals`. */
+export function joinSection(views) {
+  const total = views.reduce((sum, v) => sum + (v.computable ? v.joinViolations : 0), 0);
+  return { total, pass: total === 0 };
+}
+
+// ---------------------------------------------------------------------------
+// Gates
+// ---------------------------------------------------------------------------
+
+function buildIndexByTime(t) {
+  const map = new Map();
+  for (let i = 0; i < t.length; i++) map.set(t[i], i);
+  return map;
+}
+
+function windowAggregateSpeed(view, startSec, endSec) {
+  const index = buildIndexByTime(view.t);
+  const startIdx = index.get(startSec);
+  const endIdx = index.get(endSec);
+  if (startIdx === undefined || endIdx === undefined) return null;
+  const seconds = endSec - startSec;
+  if (!(seconds > 0)) return null;
+  return { metres: view.d[endIdx] - view.d[startIdx], seconds };
+}
+
+function restOfActivityCoveredSpeed(view, startSec, endSec) {
+  let metres = 0;
+  let seconds = 0;
+  for (const p of view.coveredPairs) {
+    const inWindow = p.startSec < endSec && p.endSec > startSec;
+    if (inWindow) continue;
+    metres += p.metres;
+    seconds += p.seconds;
+  }
+  if (!(seconds > 0)) return null;
+  return metres / seconds;
+}
+
+/**
+ * POST-SELECTION GATES, run on the shipped, rounded values only: ORDER, D-12 ANCHOR (i)/(ii)/(iii)
+ * (parsed via the FIRST `CONFIRMED_CONTROL` in `controlText`), D-10 RULE, JOIN. ANY failure is a
+ * HALT — there is no fallback to a later shape.
+ */
+export function applyGates(views, shipped, controlText) {
+  const gates = [];
+
+  const orderPass =
+    shipped.STATIONARY_MAX_SPEED_MPS !== null &&
+    shipped.WALK_RUN_BOUNDARY_MPS !== null &&
+    0 <= shipped.STATIONARY_MAX_SPEED_MPS &&
+    shipped.STATIONARY_MAX_SPEED_MPS < shipped.WALK_RUN_BOUNDARY_MPS &&
+    shipped.WALK_RUN_BOUNDARY_MPS < UNRELIABLE_SPEED_LIMIT_MPS;
+  gates.push({
+    id: 'order',
+    measured: `${shipped.STATIONARY_MAX_SPEED_MPS} < ${shipped.WALK_RUN_BOUNDARY_MPS} < ${UNRELIABLE_SPEED_LIMIT_MPS}`,
+    bound: '0 <= STATIONARY_MAX_SPEED_MPS < WALK_RUN_BOUNDARY_MPS < UNRELIABLE_SPEED_LIMIT_MPS',
+    pass: orderPass,
+  });
+
+  let controls = [];
+  try {
+    controls = controlText ? parseControlFile(controlText) : [];
+  } catch {
+    controls = [];
+  }
+
+  if (controls.length === 0) {
+    const reason = 'no developer-confirmed control';
+    gates.push({ id: 'd12-anchor-i', measured: null, bound: 'walked', pass: false, reason });
+    gates.push({ id: 'd12-anchor-ii', measured: null, bound: '> WALK_RUN_BOUNDARY_MPS', pass: false, reason });
+    gates.push({
+      id: 'd12-anchor-iii',
+      measured: null,
+      bound: 'no creep intersecting window',
+      pass: false,
+      reason,
+    });
+  } else {
+    const control = controls[0];
+    const view = views.find((v) => v.id === control.id);
+    if (!view || !view.computable) {
+      const reason = `control activity ${control.id} not found or not computable`;
+      gates.push({ id: 'd12-anchor-i', measured: null, bound: 'walked', pass: false, reason });
+      gates.push({ id: 'd12-anchor-ii', measured: null, bound: '> WALK_RUN_BOUNDARY_MPS', pass: false, reason });
+      gates.push({
+        id: 'd12-anchor-iii',
+        measured: null,
+        bound: 'no creep intersecting window',
+        pass: false,
+        reason,
+      });
+    } else {
+      const bands = { stationaryMaxMps: shipped.STATIONARY_MAX_SPEED_MPS, walkRunMps: shipped.WALK_RUN_BOUNDARY_MPS };
+      const window = windowAggregateSpeed(view, control.startSec, control.endSec);
+      const windowClass = window === null ? null : pc.classifyPauseSpeed(window.metres, window.seconds, bands);
+      gates.push({ id: 'd12-anchor-i', measured: windowClass, bound: 'walked', pass: windowClass === 'walked' });
+
+      const restSpeed = restOfActivityCoveredSpeed(view, control.startSec, control.endSec);
+      const iiPass = restSpeed !== null && restSpeed > shipped.WALK_RUN_BOUNDARY_MPS;
+      gates.push({
+        id: 'd12-anchor-ii',
+        measured: restSpeed,
+        bound: `> ${shipped.WALK_RUN_BOUNDARY_MPS}`,
+        pass: iiPass,
+      });
+
+      const stopParams = { stationaryMaxMps: shipped.STATIONARY_MAX_SPEED_MPS, minSec: shipped.FORGOTTEN_STOP_MIN_SEC };
+      const stopResult = pc.classifyForgottenStop(view.t, view.d, view.coverage, view.coveredRuns, stopParams);
+      let iiiPass = false;
+      let iiiMeasured = 'not computable';
+      if (stopResult.computable) {
+        const intersects = stopResult.creep.some((c) => c.startSec < control.endSec && c.endSec > control.startSec);
+        iiiPass = !intersects;
+        iiiMeasured = intersects ? 'creep intersects window' : 'no creep intersects window';
+      }
+      gates.push({
+        id: 'd12-anchor-iii',
+        measured: iiiMeasured,
+        bound: 'no creep intersecting window',
+        pass: iiiPass,
+      });
+    }
+  }
+
+  const d10 = d10Section(views);
+  gates.push({ id: 'd10-rule', measured: d10.summary, bound: 'anchors match; margin clear', pass: d10.pass });
+
+  const totalJoinViolations = views.reduce((sum, v) => sum + (v.computable ? v.joinViolations : 0), 0);
+  gates.push({ id: 'join', measured: totalJoinViolations, bound: 0, pass: totalJoinViolations === 0 });
+
+  const pass = gates.every((g) => g.pass);
+  return { gates, pass };
+}
+
+// ---------------------------------------------------------------------------
+// Per-interval class table and archive-wide findings
+// ---------------------------------------------------------------------------
+
+/**
+ * D-18's per-interval class table for 3475724402, computed via the imported `pc.classifyPauses`
+ * (never re-implemented) at the shipped-rounded bands. Rendered whenever all three families cleared,
+ * even if a gate failed.
+ */
+export function perIntervalTable(views, shippedBands) {
+  const view = views.find((v) => v.id === '3475724402');
+  if (!view || !view.computable) return { rows: [], found: false };
+
+  const result = pc.classifyPauses(view.t, view.d, view.coverage, view.segments, shippedBands);
+  const rows = result.intervals
+    .map((iv, idx) => ({
+      index: idx + 1,
+      source: iv.source,
+      startSec: iv.startSec,
+      endSec: iv.endSec,
+      seconds: iv.seconds,
+      metres: iv.metres,
+      speedMps: iv.metres / iv.seconds,
+      pauseClass: iv.pauseClass,
+    }))
+    .sort((a, b) => a.startSec - b.startSec)
+    .map((row, idx) => ({ ...row, index: idx + 1 }));
+
+  return { rows, found: true };
+}
+
+/**
+ * Archive-wide class distribution and forgotten-stop counts, rendered strictly AFTER selection
+ * (D-08 anti-quota) and never consulted by any selection function.
+ */
+export function archiveFindings(views, shippedBands, shippedStop) {
+  const classCounts = { stationary: 0, walked: 0, 'ran-through': 0, transported: 0 };
+  const activitySets = {
+    stationary: new Set(),
+    walked: new Set(),
+    'ran-through': new Set(),
+    transported: new Set(),
+  };
+  let notClassifiableTotal = 0;
+  let stopComputableCount = 0;
+  let stopNotComputableCount = 0;
+  const stopNotComputableReasons = {};
+  let creepActivityCount = 0;
+  let creepIntervalCount = 0;
+  let pauseActivityCount = 0;
+  let pauseIntervalCount = 0;
+
+  for (const v of views) {
+    if (!v.computable) continue;
+
+    const result = pc.classifyPauses(v.t, v.d, v.coverage, v.segments, shippedBands);
+    notClassifiableTotal += result.notClassifiableCount;
+    for (const iv of result.intervals) {
+      classCounts[iv.pauseClass]++;
+      activitySets[iv.pauseClass].add(v.id);
+    }
+
+    const stopResult = pc.classifyForgottenStop(v.t, v.d, v.coverage, v.coveredRuns, shippedStop);
+    if (!stopResult.computable) {
+      stopNotComputableCount++;
+      stopNotComputableReasons[stopResult.reason] = (stopNotComputableReasons[stopResult.reason] ?? 0) + 1;
+    } else {
+      stopComputableCount++;
+      if (stopResult.creep.length > 0) {
+        creepActivityCount++;
+        creepIntervalCount += stopResult.creep.length;
+      }
+      if (stopResult.pauses.length > 0) {
+        pauseActivityCount++;
+        pauseIntervalCount += stopResult.pauses.length;
+      }
+    }
+  }
+
+  return {
+    classCounts,
+    activityCounts: Object.fromEntries(Object.entries(activitySets).map(([k, s]) => [k, s.size])),
+    notClassifiableTotal,
+    stopComputableCount,
+    stopNotComputableCount,
+    stopNotComputableReasons,
+    creepActivityCount,
+    creepIntervalCount,
+    pauseActivityCount,
+    pauseIntervalCount,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Top-level orchestration: runCalibration / decideOutcome
+// ---------------------------------------------------------------------------
+
+function jShapesForActivity(views, id) {
+  const view = views.find((v) => v.id === id);
+  if (!view || !view.computable) return [];
+  return view.J.map((iv) => ({ metres: iv.metres, seconds: iv.seconds }));
+}
+
+/**
+ * Runs the whole pipeline (pure — no I/O beyond what `archive`/`controlText` already carry): builds
+ * base views once, plants once (family-independent), runs G then M then W in the fixed order — a G
+ * HALT skips M and W entirely — then, only if all three families cleared, applies the gates and
+ * computes the per-interval table and archive-wide findings.
+ */
+export function runCalibration(archive, controlText) {
+  const baseViews = buildBaseViews(archive);
+  const sourceShapes = jShapesForActivity(baseViews, INSENSITIVITY_SOURCE_ACTIVITY_ID);
+  const plantResult = plantShapes(baseViews, sourceShapes);
+
+  const gFamily = runFamily('G', baseViews, { plantedViews: plantResult.views });
+  const gHalted = gFamily.chosen === null;
+  const shippedG = gHalted ? null : ceilToSignificant(gFamily.chosen.base, 3);
+
+  let mFamily = null;
+  let shippedM = null;
+  let mHalted = true;
+  let wFamily = null;
+  let shippedW = null;
+  let wHalted = true;
+
+  if (!gHalted) {
+    mFamily = runFamily('M', baseViews, { plantedViews: plantResult.views, shippedFloor: shippedG });
+    mHalted = mFamily.chosen === null;
+    shippedM = mHalted ? null : Math.ceil(mFamily.chosen.base);
+
+    wFamily = runFamily('W', baseViews, { plantedViews: plantResult.views, shippedFloor: shippedG });
+    wHalted = wFamily.chosen === null;
+    shippedW = wHalted ? null : ceilToSignificant(wFamily.chosen.base, 3);
+  }
+
+  const allCleared = !gHalted && !mHalted && !wHalted;
+  const shipped = {
+    STATIONARY_MAX_SPEED_MPS: shippedG,
+    FORGOTTEN_STOP_MIN_SEC: shippedM,
+    WALK_RUN_BOUNDARY_MPS: shippedW,
+  };
+
+  const d10 = d10Section(baseViews);
+  const join = joinSection(baseViews);
+  const drift = driftSection(baseViews, shippedG);
+
+  let gates = null;
+  let perIntervalTableResult = null;
+  let archiveFindingsResult = null;
+
+  if (allCleared) {
+    gates = applyGates(baseViews, shipped, controlText);
+    perIntervalTableResult = perIntervalTable(baseViews, {
+      stationaryMaxMps: shippedG,
+      walkRunMps: shippedW,
+    });
+    archiveFindingsResult = archiveFindings(
+      baseViews,
+      { stationaryMaxMps: shippedG, walkRunMps: shippedW },
+      { stationaryMaxMps: shippedG, minSec: shippedM }
+    );
+  }
+
+  return {
+    archive,
+    baseViews,
+    plantResult,
+    sourceShapes,
+    families: { G: gFamily, M: mFamily, W: wFamily },
+    shipped,
+    allCleared,
+    gates,
+    d10,
+    join,
+    drift,
+    perIntervalTable: perIntervalTableResult,
+    archiveFindings: archiveFindingsResult,
+    controlText,
+  };
+}
+
+/**
+ * The exit-code contract: 0 only when every family cleared, every gate passed, and each shipped
+ * production constant (`shippedProduction`, keyed by name — `undefined` values are ignored, never
+ * treated as a mismatch) equals its derived rounded value; 1 on any NO SHAPE CLEARS or failed gate;
+ * 2 when a shipped constant is present and differs.
+ */
+export function decideOutcome(result, shippedProduction = {}) {
+  if (!result.allCleared) {
+    return { exitCode: 1, reason: 'no-shape-clears' };
+  }
+  if (!result.gates || !result.gates.pass) {
+    return { exitCode: 1, reason: 'gate-failed' };
+  }
+
+  const keys = ['STATIONARY_MAX_SPEED_MPS', 'FORGOTTEN_STOP_MIN_SEC', 'WALK_RUN_BOUNDARY_MPS'];
+  let mismatch = false;
+  for (const key of keys) {
+    const shippedVal = shippedProduction[key];
+    if (shippedVal === undefined) continue;
+    if (Number(shippedVal) !== result.shipped[key]) mismatch = true;
+  }
+
+  return { exitCode: mismatch ? 2 : 0, reason: mismatch ? 'shipped-mismatch' : null };
+}
+
+// ---------------------------------------------------------------------------
+// Rendering
+// ---------------------------------------------------------------------------
+
+function fmtNum(v, decimals = 6) {
+  return v === null || v === undefined ? '—' : Number(v).toFixed(decimals);
+}
+
+function fmtPct(v, decimals = 4) {
+  return v === null || v === undefined ? '—' : `${(v * 100).toFixed(decimals)}%`;
+}
+
+function renderShapeRow(id, r) {
+  return (
+    `| ${id} | ${r.baseN} | ${fmtNum(r.base)} | ${fmtNum(r.removed)} (${r.removedN}) | ` +
+    `${fmtPct(r.removedDelta)} | ${fmtNum(r.planted)} (${r.plantedN}) | ${fmtPct(r.plantedDelta)} | ` +
+    `${r.pass ? 'PASS' : 'FAIL'} |`
+  );
+}
+
+function renderShapeTable(rows) {
+  const lines = [
+    '| id | n | base | removed (n) | removedDelta | planted (n) | plantedDelta | Verdict |',
+    '|---|---|---|---|---|---|---|---|',
+  ];
+  for (const r of rows) lines.push(renderShapeRow(r.id, r));
+  return lines.join('\n');
+}
+
+function renderGatesTable(gates) {
+  const lines = ['| gate | measured | bound | Verdict |', '|---|---|---|---|'];
+  for (const g of gates) {
+    const reasonSuffix = g.reason ? ` (${g.reason})` : '';
+    lines.push(`| ${g.id} | ${g.measured ?? '—'} | ${g.bound ?? '—'} | ${g.pass ? 'PASS' : 'FAIL'}${reasonSuffix} |`);
+  }
+  return lines.join('\n');
+}
+
+function renderD10(d10) {
+  const lines = [];
+  lines.push('Named anchors:');
+  lines.push('');
+  lines.push('| id | expected distanceTriggered | actual | Verdict |');
+  lines.push('|---|---|---|---|');
+  for (const row of d10.anchorRows) {
+    lines.push(`| ${row.id} | ${row.expected} | ${row.actual} | ${row.pass ? 'PASS' : 'FAIL'} |`);
+  }
+  lines.push('');
+  lines.push(
+    `Among computable streams with cvDd < ${pc.DISTANCE_TRIGGERED_MAX_CV_DD}, the ±${D10_MARGIN} margin ` +
+      `around DISTANCE_TRIGGERED_MAX_CV_RATIO (${pc.DISTANCE_TRIGGERED_MAX_CV_RATIO}) is ` +
+      `${d10.marginClear ? 'CLEAR' : 'VIOLATED'}. Nearest ratio below: ` +
+      `${d10.nearestBelow ? `${d10.nearestBelow.id} (${d10.nearestBelow.sig.ratio})` : '—'}; nearest above: ` +
+      `${d10.nearestAbove ? `${d10.nearestAbove.id} (${d10.nearestAbove.sig.ratio})` : '—'}.`
+  );
+  lines.push('');
+  lines.push(
+    `Findings (never expected values): distance-triggered ${d10.distanceTriggeredCount}, insufficient-data ` +
+      `${d10.insufficientCount}, computable ${d10.computableCount}.`
+  );
+  return lines.join('\n');
+}
+
+function renderDrift(drift) {
+  if (!drift.computed) {
+    return 'Not computed — upstream G family did not clear.';
+  }
+  if (!drift.matters) {
+    return (
+      `pairCount=${drift.pairCount}, totalSeconds=${fmtNum(drift.totalSeconds, 1)}, ` +
+      `totalPhantomMetres=${fmtNum(drift.totalPhantomMetres, 2)}, advancingShare=${fmtPct(drift.advancingShare)}. ` +
+      'The shipped G value is exactly 0: drift-while-stationary is a measured non-issue on this archive.'
+    );
+  }
+  return (
+    `pairCount=${drift.pairCount}, totalSeconds=${fmtNum(drift.totalSeconds, 1)}, ` +
+    `totalPhantomMetres=${fmtNum(drift.totalPhantomMetres, 2)}, advancingShare=${fmtPct(drift.advancingShare)}.`
+  );
+}
+
+function renderFindings(findings) {
+  const lines = [];
+  lines.push(
+    `Class distribution: stationary=${findings.classCounts.stationary} ` +
+      `(${findings.activityCounts.stationary} activities), walked=${findings.classCounts.walked} ` +
+      `(${findings.activityCounts.walked} activities), ran-through=${findings.classCounts['ran-through']} ` +
+      `(${findings.activityCounts['ran-through']} activities), transported=${findings.classCounts.transported} ` +
+      `(${findings.activityCounts.transported} activities). Not-classifiable intervals: ` +
+      `${findings.notClassifiableTotal}.`
+  );
+  lines.push('');
+  lines.push(
+    `Forgotten-stop: computable ${findings.stopComputableCount}, not-computable ` +
+      `${findings.stopNotComputableCount} (${JSON.stringify(findings.stopNotComputableReasons)}). ` +
+      `Covered-creep flagged on ${findings.creepActivityCount} activities (${findings.creepIntervalCount} ` +
+      `stretches); zero-advance-pause flagged on ${findings.pauseActivityCount} activities ` +
+      `(${findings.pauseIntervalCount} intervals).`
+  );
+  return lines.join('\n');
+}
+
+/**
+ * Renders the full calibration artifact. `result.allCleared === false` renders `## NO SHAPE CLEARS`
+ * and NO `Chosen constants` lines; `result.allCleared === true && !result.gates.pass` renders
+ * `## GATE FAILED` instead. Deterministic — no wall-clock timestamp, no bare `rev-parse HEAD`
+ * commit id, no source-file hash: a re-render of the same `result` is byte-identical.
+ */
+export function renderCalibrationMarkdown(result) {
+  const lines = [];
+
+  lines.push('# Phase 34 Plan 4: pause-classification / forgotten-stop calibration (PAUSE-01, STOP-02)');
+  lines.push('');
+  lines.push(
+    `Regenerate with \`${REGENERATE_COMMAND}\`. This artifact carries no wall-clock timestamp or ` +
+      "generated-at field — provenance is content-addressed to data/streams' own git tree. A re-run " +
+      'against an unchanged archive is byte-identical.'
+  );
+  lines.push('');
+
+  lines.push('## Statistic and scope');
+  lines.push('');
+  lines.push(
+    'Families run in the fixed order G, then M, then W (34-04-PLAN.md <predeclared_shapes>). ' +
+      'Downstream families use the upstream chosen value AS SHIPPED (rounded). If a family HALTs, ' +
+      'every downstream family renders "not computed: upstream HALT".'
+  );
+  lines.push('');
+
+  lines.push('## Pre-declared shapes');
+  lines.push('');
+  for (const familyId of ['G', 'M', 'W']) {
+    lines.push(`### Family ${familyId}`);
+    lines.push('');
+    for (const shape of PREDECLARED_SHAPES[familyId]) {
+      lines.push(`#### ${shape.id} — ${shape.name}`);
+      lines.push('');
+      lines.push(`**Meaning:** ${shape.meaning}`);
+      lines.push('');
+      lines.push(`**Non-circularity:** ${shape.nonCircularity}`);
+      lines.push('');
+      lines.push(`**Caveats:** ${shape.caveat}`);
+      lines.push('');
+    }
+  }
+
+  lines.push('## Rejected on argument');
+  lines.push('');
+  for (const entry of REJECTED_SHAPES) lines.push(`- ${entry}`);
+  lines.push('');
+
+  lines.push('## Non-circularity');
+  lines.push('');
+  for (const familyId of ['G', 'M', 'W']) {
+    for (const shape of PREDECLARED_SHAPES[familyId]) {
+      lines.push(`- **${shape.id}:** ${shape.nonCircularity}`);
+    }
+  }
+  lines.push('');
+
+  lines.push('## Strawmen watched failing');
+  lines.push('');
+  lines.push(
+    'Removal empties a strawman by construction — its population IS the population the boundary/' +
+      'duration later judges.'
+  );
+  lines.push('');
+  for (const familyId of ['G', 'M', 'W']) {
+    const family = result.families[familyId];
+    lines.push(`### Strawman ${familyId}`);
+    lines.push('');
+    if (family) {
+      lines.push(renderShapeTable([{ id: `strawman ${familyId}`, ...family.strawman }]));
+      lines.push('');
+      lines.push(
+        family.strawman.pass
+          ? '**BLOCKER: the strawman PASSED the insensitivity tolerance.**'
+          : `**FAILED** — removedDelta ${fmtPct(family.strawman.removedDelta)}, plantedDelta ` +
+              `${fmtPct(family.strawman.plantedDelta)} (expected).`
+      );
+    } else {
+      lines.push('not computed: upstream HALT');
+    }
+    lines.push('');
+  }
+
+  lines.push('## Shape arbitration');
+  lines.push('');
+  for (const familyId of ['G', 'M', 'W']) {
+    const family = result.families[familyId];
+    lines.push(`### Family ${familyId}`);
+    lines.push('');
+    if (family) {
+      lines.push(renderShapeTable(family.rows));
+      lines.push('');
+      lines.push(`Selected: ${family.selectedId ?? 'NO SHAPE CLEARS'}`);
+    } else {
+      lines.push('not computed: upstream HALT');
+    }
+    lines.push('');
+  }
+
+  const gateFailed = result.allCleared && result.gates && !result.gates.pass;
+
+  if (result.allCleared && !gateFailed) {
+    lines.push('## Chosen constants');
+    lines.push('');
+    lines.push(`STATIONARY_MAX_SPEED_MPS = ${result.shipped.STATIONARY_MAX_SPEED_MPS}`);
+    lines.push(`FORGOTTEN_STOP_MIN_SEC = ${result.shipped.FORGOTTEN_STOP_MIN_SEC}`);
+    lines.push(`WALK_RUN_BOUNDARY_MPS = ${result.shipped.WALK_RUN_BOUNDARY_MPS}`);
+    lines.push(`UNRELIABLE_SPEED_LIMIT_MPS = ${UNRELIABLE_SPEED_LIMIT_MPS} (imported, 32-CALIBRATION.md)`);
+    lines.push('');
+  } else if (!result.allCleared) {
+    lines.push('## NO SHAPE CLEARS');
+    lines.push('');
+    lines.push(
+      'At least one family failed to select a shape clearing D-13 insensitivity. No constant is named ' +
+        'for that family or any family downstream of it. Nothing is widened or loosened.'
+    );
+    lines.push('');
+  } else {
+    lines.push('## GATE FAILED');
+    lines.push('');
+    lines.push(
+      'All three families cleared, but a post-selection gate failed (see `## Gates` below). No constant ' +
+        'is confirmed shipped — there is no fallback to a later shape.'
+    );
+    lines.push('');
+  }
+
+  lines.push('## Gates');
+  lines.push('');
+  if (result.gates) {
+    lines.push(renderGatesTable(result.gates.gates));
+  } else {
+    lines.push('Not evaluated — not every family cleared (see `## NO SHAPE CLEARS` above).');
+  }
+  lines.push('');
+
+  lines.push('## D-10 blind-spot rule');
+  lines.push('');
+  lines.push(renderD10(result.d10));
+  lines.push('');
+
+  lines.push('## Drift-while-stationary');
+  lines.push('');
+  lines.push(renderDrift(result.drift));
+  lines.push('');
+
+  lines.push('## Join exhaustiveness');
+  lines.push('');
+  lines.push(
+    `Summed joinViolations archive-wide: ${result.join.total}. ${result.join.pass ? 'PASS' : 'FAIL'}.`
+  );
+  lines.push('');
+
+  lines.push('## Per-interval class table — 3475724402 (classifier output)');
+  lines.push('');
+  if (result.allCleared && result.perIntervalTable && result.perIntervalTable.found) {
+    lines.push('| # | source | startSec | endSec | seconds | metres | speedMps | class |');
+    lines.push('|---|---|---|---|---|---|---|---|');
+    for (const row of result.perIntervalTable.rows) {
+      lines.push(
+        `| ${row.index} | ${row.source} | ${row.startSec} | ${row.endSec} | ${row.seconds} | ` +
+          `${row.metres.toFixed(1)} | ${row.speedMps.toFixed(3)} | ${row.pauseClass} |`
+      );
+    }
+  } else {
+    lines.push('Not rendered — not every family cleared.');
+  }
+  lines.push('');
+
+  lines.push('## Archive-wide findings (never an input to selection)');
+  lines.push('');
+  lines.push(
+    result.allCleared && result.archiveFindings
+      ? renderFindings(result.archiveFindings)
+      : 'Not computed — not every family cleared.'
+  );
+  lines.push('');
+
+  lines.push('## Inputs');
+  lines.push('');
+  lines.push(`- Streams scanned: ${result.archive.streamFileCount}, not computable: ${result.archive.notComputable}`);
+  const provenance = result.provenance ?? {};
+  lines.push(`- data/streams git tree: \`${provenance.streamsTree ?? 'unknown'}\``);
+  lines.push(`- Newest activity start date: ${provenance.newestActivityStartDate ?? 'unknown'}`);
+  lines.push(`- Control file: ${provenance.controlFilePath ?? CONTROL_FILE_PATH}`);
+  lines.push(`- Regenerate: \`${REGENERATE_COMMAND}\``);
+  lines.push('');
+
+  return lines.join('\n');
+}
+
+// ---------------------------------------------------------------------------
+// main() — gated behind the self-execution guard
+// ---------------------------------------------------------------------------
+
+/** Content-addressed provenance: names the run's actual input (the committed stream archive's git
+ * tree), never `rev-parse HEAD` alone, never a wall-clock read, never a classifier source hash. */
+function gitId(args) {
+  try {
+    return execSync(`git ${args}`, { cwd: ROOT_DIR, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch {
+    return 'unknown (git failed)';
+  }
+}
+
+function loadArchive(streamsDir) {
+  const files = readdirSync(streamsDir).filter(isStreamFile).sort();
+  const activities = [];
+  let notComputable = 0;
+
+  for (const filename of files) {
+    const id = idFromFilename(filename);
+    let stream;
+    try {
+      stream = JSON.parse(readFileSync(join(streamsDir, filename), 'utf8'));
+    } catch {
+      notComputable++;
+      continue;
+    }
+    const t = Array.isArray(stream.t) ? stream.t : [];
+    const d = Array.isArray(stream.d) ? stream.d : [];
+    if (!validateStreamSeries(t, d).ok) {
+      notComputable++;
+      continue;
+    }
+    const cadence = Array.isArray(stream.cadence) ? stream.cadence : null;
+    activities.push({ id, t, d, cadence });
+  }
+
+  return { activities, streamFileCount: files.length, notComputable };
+}
+
+function newestActivityStartDate(activitiesDir) {
+  let newest = null;
+  let files;
+  try {
+    files = readdirSync(activitiesDir);
+  } catch {
+    return null;
+  }
+  for (const filename of files) {
+    if (!filename.endsWith('.json')) continue;
+    try {
+      const doc = JSON.parse(readFileSync(join(activitiesDir, filename), 'utf8'));
+      if (typeof doc.start_date === 'string' && (newest === null || doc.start_date > newest)) {
+        newest = doc.start_date;
+      }
+    } catch {
+      // skip malformed activity docs — not this script's concern
+    }
+  }
+  return newest;
+}
+
+function main() {
+  console.log('Computing the pause-classification / forgotten-stop calibration (plan 34-04)...\n');
+
+  let archive;
+  try {
+    archive = loadArchive(STREAMS_DIR);
+  } catch (error) {
+    console.error(`Error: could not read the archive: ${error.message}`);
+    console.error('Run `npm run build` first, then re-run `npm run compute-pause-classification-calibration`.');
+    process.exitCode = 1;
+    return;
+  }
+
+  console.log(`Streams scanned: ${archive.streamFileCount}, not computable: ${archive.notComputable}`);
+
+  let controlText = null;
+  try {
+    controlText = readFileSync(CONTROL_FILE_PATH, 'utf8');
+  } catch {
+    controlText = null;
+  }
+
+  const result = runCalibration(archive, controlText);
+  result.provenance = {
+    streamsTree: gitId('rev-parse HEAD:data/streams'),
+    newestActivityStartDate: newestActivityStartDate(ACTIVITIES_DIR),
+    controlFilePath: CONTROL_FILE_PATH,
+  };
+
+  const shippedProduction = {
+    STATIONARY_MAX_SPEED_MPS: pc.STATIONARY_MAX_SPEED_MPS,
+    FORGOTTEN_STOP_MIN_SEC: pc.FORGOTTEN_STOP_MIN_SEC,
+    WALK_RUN_BOUNDARY_MPS: pc.WALK_RUN_BOUNDARY_MPS,
+  };
+  const outcome = decideOutcome(result, shippedProduction);
+
+  for (const familyId of ['G', 'M', 'W']) {
+    const family = result.families[familyId];
+    if (family) {
+      console.log(`Family ${familyId}: strawman pass=${family.strawman.pass}`);
+      for (const r of family.rows) {
+        console.log(`  ${r.id}: base=${r.base} removedDelta=${r.removedDelta} plantedDelta=${r.plantedDelta} pass=${r.pass}`);
+      }
+      console.log(`  selected: ${family.selectedId ?? 'none'}`);
+    } else {
+      console.log(`Family ${familyId}: not computed (upstream HALT)`);
+    }
+  }
+
+  const markdown = renderCalibrationMarkdown(result);
+  writeFileSync(OUTPUT_PATH, markdown, 'utf8');
+  console.log(`\nWrote ${OUTPUT_PATH}`);
+
+  process.exitCode = outcome.exitCode;
+  if (outcome.exitCode !== 0) {
+    console.error(`\nExit ${outcome.exitCode}: ${outcome.reason}. See the artifact for full detail.`);
+  }
+}
+
+// Self-execution guard: main() runs only under direct invocation, so
+// compute-pause-classification-calibration.test.mjs can import every pure function above without
+// triggering an archive read or a write to 34-CALIBRATION.md as an import-time side effect. This
+// plan never runs main() against the real archive (D-08: no peeking) — that is plan 34-06's job.
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+  main();
+}
