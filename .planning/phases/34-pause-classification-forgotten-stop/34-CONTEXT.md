@@ -256,6 +256,73 @@ DECLARED STATIONARY_MAX_SPEED_MPS = 0.5
     for the non-issue finding rather than as arbitration. Nothing is deleted to make the
     declaration look cleaner.
 
+### Walk/run boundary declared, and the forest-run flag accepted, after HALT-3 (added 2026-09-22)
+
+- **D-21 (2026-09-22):** **`WALK_RUN_BOUNDARY_MPS` is DEVELOPER-DECLARED at 2.2 m/s, on the same
+  footing as D-20's 0.5; and the forgotten-stop flag on the third walking control is ACCEPTED as
+  honest.** This narrows D-06 and D-08 for this ONE constant only. Family M stays fully
+  calibrated.
+  - *What happened.* Plan 34-06's third run (record: `34-06-HALT-3.md`, artifact at commit
+    `bc77e8e0`) cleared every family for the first time, then failed a post-selection gate.
+    Family M selected M1 at 40.0 s (removed 0.0000%, planted 0.0000%, n=1873, plants=26276), with
+    M2 at 30.0 s also passing. Family W selected W1 at 6.95 m/s, with W2 at 6.85 m/s, both at
+    0.0000% on each axis over n=2,612,365 folded steps. All three strawmen FAILED correctly and no
+    row was vacuous. Family G rendered evidence-only per D-20, and the d20-basis, order,
+    d12-anchor-i, d12-anchor-iii, d10-rule and join gates all PASSED.
+  - *The gate that failed.* **d12-anchor-ii**: the first confirmed walking control's
+    rest-of-activity speed, 2.8257 m/s, must exceed the shipped boundary, and 6.95 m/s does not
+    let it. The all-or-none exit contract shipped nothing.
+  - *Why the valley rule found 6.95.* W1's population is UNIMODAL. A single hump peaks at
+    3.0–3.1 m/s over 2.6M seconds and there is no dip anywhere near the confirmed walks
+    (1.26–1.80 m/s), where the histogram instead rises smoothly. The global-minimum-qualifying-bin
+    rule therefore landed in a sparse tail bin, 6.90–7.00 m/s holding 309 of 2.6M seconds, close
+    to the 7.35 m/s ceiling. The artifact's own per-interval table for 3475724402 corroborates it:
+    all 18 rows classified `walked` and none `ran-through`, contradicting D-02's expectation.
+  - *The finding.* D-06's premise — that this athlete's covered-time speed distribution contains a
+    walk/run valley — does not hold for this archive. Walking and running form one continuous
+    hump. There is no valley to calibrate, so no shape over this population can produce one. The
+    measured evidence stays rendered in the artifact: the histogram finding, W1's and W2's rows,
+    and the 3475724402 table that showed the consequence.
+  - *Developer decision (2026-09-22).* `WALK_RUN_BOUNDARY_MPS` is declared, not calibrated:
+
+DECLARED WALK_RUN_BOUNDARY_MPS = 2.2
+
+    That is 2.2 m/s, 7:35/km. It sits between the developer-confirmed walking controls
+    (1.26–1.80 m/s) and the measured running hump (3.0–3.1 m/s). It is NOT derived from any
+    measured Phase 34 figure, and must never be presented as calibrated. Every artifact, docblock
+    and summary naming it says "developer-declared (D-21)".
+  - *What this narrows.* **D-06**, whose "walk/run valley in the athlete's own covered-time speed
+    distribution" premise is measured not to hold here, and **D-08**, for this constant only,
+    exactly as D-20 did for the stationary bound. The narrowing extends to no other constant, this
+    phase or later. **Family M stays fully calibrated** under D-06/D-08/D-13: M1 at 40 s is
+    expected to re-select on the fourth run, but it must still be SELECTED by arbitration and may
+    never be hardcoded.
+  - *Disclosed consequence, not a gate.* At 2.2 m/s every one of 3475724402's merged intervals
+    (2.307–4.065 m/s) classifies `ran-through` rather than splitting. D-02 expected a split, and
+    ROADMAP criterion 1 already states the criterion is per-segment agreement with the independent
+    table and never a pinned class, so nothing fails. It is recorded here so the fourth run's
+    findings are read with it in mind.
+  - *Basis gate.* Like D-20's, the declaration is checked against live evidence on every future
+    run, by two structural comparisons that introduce no new number: the declared boundary must be
+    strictly greater than every confirmed control's own window aggregate speed, and strictly less
+    than the modal bin of the covered-time histogram the W shapes already build. A failure HALTs
+    for a developer revisit and is never retuned.
+
+  **Second decision: the forest-run flag is accepted as honest.**
+  - *What was measured.* At the candidate params (0.5 m/s, 40 s), `classifyForgottenStop` was run
+    against all three confirmed controls. 6286234101 and 3475733231 do not flag. 3475715143 flags
+    a 42 s stretch at t=1708–1750 measuring exactly 0.5 m/s, at the declared bound itself.
+  - *Decision.* The developer declined to lower 0.5 to avoid it. The flag marks timer-running
+    STANDSTILLS, and a genuine standstill inside a walking break is flagged honestly. What must
+    not happen is a walking break flagged FOR ITS WALKING PACE.
+  - *Consequence.* STOP-02 and ROADMAP criterion 4's "walking breaks are shown not to be flagged"
+    get dated in-place amendments recording this reading and the measured evidence for all three
+    controls. The control test asserts the property, not the number: no control is flagged for
+    walking pace, meaning every flagged stretch on a control sits at or below the stationary
+    bound; control 3's standstill is an accepted, disclosed flag whose measured seconds and speed
+    are reported as findings, never pinned as expected values. D-12's own gate on the first
+    control is NOT weakened.
+
 ### Claude's Discretion
 
 - Field names and shapes for the index summary key and the shard's per-interval list (additive
