@@ -100,38 +100,66 @@ Removal empties a strawman by construction — its population IS the population 
 
 ### Strawman M
 
-not computed: upstream HALT
+| id | n | base | removed (n) | removedDelta | planted (n) | plantedDelta | plants | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| strawman M | 78895 | 4.000000 | — (0) | — | 4.000000 (79684) | 0.0000% | 789 | FAIL |
+
+**FAILED** — removedDelta —, plantedDelta 0.0000% (expected).
 
 ### Strawman W
 
-not computed: upstream HALT
+| id | n | base | removed (n) | removedDelta | planted (n) | plantedDelta | plants | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| strawman W | 794 | 4.450000 | — (0) | — | 4.450000 (848) | 0.0000% | 54 | FAIL |
+
+**FAILED** — removedDelta —, plantedDelta 0.0000% (expected).
 
 ## Shape arbitration
 
 ### Family G
+
+NOT ARBITRATED (D-20): STATIONARY_MAX_SPEED_MPS is developer-declared, not calibrated. The rows below are EVIDENCE for the drift-while-stationary finding, never candidates — no row here can select or influence a constant.
 
 | id | n | base | removed (n) | removedDelta | planted (n) | plantedDelta | plants | Verdict |
 |---|---|---|---|---|---|---|---|---|
 | G4 | 6 | 0.029873 | 0.003063 (4) | 89.7455% | 1.195556 (7) | 3902.0881% | 1 | FAIL |
 | G5 | 6 | 0.029873 | 0.003063 (4) | 89.7455% | 0.496462 (6) | 1561.8912% | 1 | FAIL |
 
-Selected: NO SHAPE CLEARS
+Selected: not applicable — not arbitrated (D-20)
 
 ### Family M
 
-not computed: upstream HALT
+| id | n | base | removed (n) | removedDelta | planted (n) | plantedDelta | plants | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| M1 | 1873 | 40.000000 | 40.000000 (1870) | 0.0000% | 40.000000 (1873) | 0.0000% | 26276 | PASS |
+| M2 | 1873 | 30.000000 | 30.000000 (1870) | 0.0000% | 30.000000 (1873) | 0.0000% | 26276 | PASS |
+
+Selected: M1
 
 ### Family W
 
-not computed: upstream HALT
+| id | n | base | removed (n) | removedDelta | planted (n) | plantedDelta | plants | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| W1 | 2612365 | 6.950000 | 6.950000 (2574257) | 0.0000% | 6.950000 (2638590) | 0.0000% | 26225 | PASS |
+| W2 | 2612365 | 6.850000 | 6.850000 (2574257) | 0.0000% | 6.850000 (2638590) | 0.0000% | 26225 | PASS |
 
-## NO SHAPE CLEARS
+Selected: W1
 
-At least one family failed to select a shape clearing D-13 insensitivity. No constant is named for that family or any family downstream of it. Nothing is widened or loosened.
+## GATE FAILED
+
+All three families cleared, but a post-selection gate failed (see `## Gates` below). No constant is confirmed shipped — there is no fallback to a later shape.
 
 ## Gates
 
-Not evaluated — not every family cleared (see `## NO SHAPE CLEARS` above).
+| gate | measured | bound | Verdict |
+|---|---|---|---|
+| order | 0.5 < 6.95 < 7.35 | 0 <= STATIONARY_MAX_SPEED_MPS < WALK_RUN_BOUNDARY_MPS < UNRELIABLE_SPEED_LIMIT_MPS | PASS |
+| d12-anchor-i | walked | walked | PASS |
+| d12-anchor-ii | 2.8257182738164475 | > 6.95 | FAIL |
+| d12-anchor-iii | no creep intersects window | no creep intersecting window | PASS |
+| d10-rule | anchors pass, margin clear | anchors match; margin clear | PASS |
+| join | 0 | 0 | PASS |
+| d20-basis | 0.029873294347019862 | < STATIONARY_MAX_SPEED_MPS (0.5) | PASS |
 
 ## D-10 blind-spot rule
 
@@ -150,7 +178,11 @@ Findings (never expected values): distance-triggered 104, insufficient-data 1, c
 
 ## Drift-while-stationary
 
-Standstill episodes: total=684, chained=6, single-pause=678, chainedShare=0.8772%, totalStandstillSeconds=5824.0, totalChainedMetres=2.70. Drift-matters not yet determined — Family G has not shipped a value this run.
+Standstill episodes: total=684, chained=6, single-pause=678, chainedShare=0.8772%, totalStandstillSeconds=5824.0, totalChainedMetres=2.70. G4 measured base (pooled, chained-episode rate, R-7 p90) = 0.029873 m/s; G5 measured base (per-activity) = 0.029873 m/s.
+
+Disposition (D-20, 2026-09-22): drift-while-stationary is a MEASURED NON-ISSUE on this archive. Family G still measures and renders the G4/G5 rows above, under Shape arbitration, as evidence for this finding; it no longer arbitrates a cut for this constant. The stationary/walked boundary sits at the developer-declared 0.5 m/s bound, stated (never re-stated as a value line) in the Chosen constants section when every family clears, chosen on physical grounds, far above what the evidence above measures.
+
+Definitional caveat: a single-pause standstill (no qualifying bridge on either side) is zero-advance BY CONSTRUCTION — the pause rule only marks zero-advance runs — so the single-pause share of the counts above is partly definitional. The chained share and the G4/G5 rates above are the measured, non-definitional part of this finding.
 
 ## Join exhaustiveness
 
@@ -158,11 +190,32 @@ Summed joinViolations archive-wide: 0. PASS.
 
 ## Per-interval class table — 3475724402 (classifier output)
 
-Not rendered — not every family cleared.
+| # | source | startSec | endSec | seconds | metres | speedMps | class |
+|---|---|---|---|---|---|---|---|
+| 1 | merged-segment | 1030 | 1048 | 18 | 52.4 | 2.911 | walked |
+| 2 | merged-segment | 1064 | 1135 | 71 | 288.6 | 4.065 | walked |
+| 3 | merged-segment | 1461 | 1515 | 54 | 124.6 | 2.307 | walked |
+| 4 | merged-segment | 1589 | 1611 | 22 | 52.2 | 2.373 | walked |
+| 5 | recording-gap | 1663 | 1685 | 22 | 58.1 | 2.641 | walked |
+| 6 | merged-segment | 1729 | 1760 | 31 | 88.4 | 2.852 | walked |
+| 7 | merged-segment | 2102 | 2125 | 23 | 53.4 | 2.322 | walked |
+| 8 | merged-segment | 2139 | 2169 | 30 | 90.1 | 3.003 | walked |
+| 9 | merged-segment | 2179 | 2236 | 57 | 157.5 | 2.763 | walked |
+| 10 | merged-segment | 2491 | 2525 | 34 | 81.7 | 2.403 | walked |
+| 11 | merged-segment | 2957 | 3067 | 110 | 305.4 | 2.776 | walked |
+| 12 | recording-gap | 3364 | 3388 | 24 | 46.3 | 1.929 | walked |
+| 13 | merged-segment | 3438 | 3456 | 18 | 49.2 | 2.733 | walked |
+| 14 | merged-segment | 3486 | 3547 | 61 | 157.8 | 2.587 | walked |
+| 15 | merged-segment | 3975 | 4028 | 53 | 154.4 | 2.913 | walked |
+| 16 | merged-segment | 4056 | 4121 | 65 | 201.7 | 3.103 | walked |
+| 17 | merged-segment | 4133 | 4212 | 79 | 219.0 | 2.772 | walked |
+| 18 | merged-segment | 4238 | 4263 | 25 | 72.3 | 2.892 | walked |
 
 ## Archive-wide findings (never an input to selection)
 
-Not computed — not every family cleared.
+Class distribution: stationary=5260 (1170 activities), walked=790 (285 activities), ran-through=0 (0 activities), transported=6 (5 activities). Not-classifiable intervals: 1259.
+
+Forgotten-stop: computable 1769, not-computable 105 ({"fewer than 30 covered pairs available to compute the recording-mechanism signature":1,"distance-triggered recording: a standstill would be written as a recording gap, not a covered creep, so the forgotten-stop flag cannot see it":104}). Covered-creep flagged on 82 activities (300 stretches); zero-advance-pause flagged on 414 activities (694 intervals).
 
 ## Inputs
 
