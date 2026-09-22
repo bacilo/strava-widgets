@@ -113,6 +113,34 @@ assert(
 /** The provenance line's exact text, D-20. Never say "calibrated" of this constant anywhere else. */
 export const STATIONARY_PROVENANCE_TEXT = 'developer-declared (D-20), not calibrated';
 
+/**
+ * [D-21, plan 34-14] WALK_RUN_BOUNDARY_MPS is DEVELOPER-DECLARED, not calibrated. Plan 34-06's third
+ * real-archive run (`34-06-HALT-3.md`) cleared every family for the first time — Family W's own
+ * pre-declared shapes (W1/W2) both cleared D-13 insensitivity cleanly — but the shipped value (6.95
+ * m/s) failed the D-12(ii) post-selection gate: the archive's covered-time speed distribution is
+ * UNIMODAL (walking and running form one continuous hump), so the valley-picking rule landed in a
+ * sparse artifact tail near the 7.35 m/s unreliable-speed ceiling rather than at any genuine walk/run
+ * transition. `34-CONTEXT.md` D-21 (2026-09-22) records that measurement as the finding and declares
+ * the boundary on physical grounds instead: it sits between the developer-confirmed walking controls
+ * (1.26–1.80 m/s) and the measured running hump (3.0–3.1 m/s). It is NOT derived from any measured
+ * Phase 34 figure. `DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT` is the ONE source-text literal this
+ * generator ships for this constant; the module asserts its parsed numeric sibling round-trips back
+ * to the same text at load, mirroring D-20's block above. Family W still measures and renders
+ * strawman W, W1 and W2 (see `runFamily`'s `arbitrate: false` call for W below) — it no longer
+ * arbitrates a boundary. This constant is developer-declared, never calibrated: no docblock, heading
+ * or summary line naming it may contain the word "calibrated" except inside the phrase "not
+ * calibrated". Family M stays fully calibrated under D-06/D-08/D-13, unchanged.
+ */
+export const DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT = '2.2';
+export const DECLARED_WALK_RUN_BOUNDARY_MPS = Number(DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT);
+assert(
+  String(DECLARED_WALK_RUN_BOUNDARY_MPS) === DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT,
+  `DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT ('${DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT}') does not round-trip ` +
+    'through Number() parsing — the source text and its parsed numeric sibling have drifted.'
+);
+/** The provenance line's exact text, D-21. Never say "calibrated" of this constant anywhere else. */
+export const WALK_RUN_PROVENANCE_TEXT = 'developer-declared (D-21), not calibrated';
+
 function sortAsc(values) {
   return [...values].sort((a, b) => a - b);
 }
@@ -646,15 +674,14 @@ export function strawmanM(views, ctx) {
 // ---------------------------------------------------------------------------
 
 /**
- * The one valley definition every W shape and the W strawman share: a histogram over `[lo, hi)`,
- * bin width `VALLEY_BIN_WIDTH_MPS`, edges starting at `floor(lo / 0.1) * 0.1`. A bin qualifies as a
- * dip iff `leftMax > 0`, `rightMax > 0` and `counts[i] <= 0.5 * min(leftMax, rightMax)`. The valley
- * is the qualifying bin with the LOWEST count (ties go to the lowest edge); its value is the bin
- * centre. `null` on no qualifying bin (a monotone histogram or an empty population) — deliberately
- * the MINIMUM qualifying bin, not the first (`findValley`'s own rule), since the first qualifying bin
- * is a shoulder of the walking hump, not the minimum.
+ * [D-21, plan 34-14] The ONE binning implementation every W shape, the W strawman, `valleyOf` and the
+ * new valley-evidence section share: a histogram over `[lo, hi)`, bin width `VALLEY_BIN_WIDTH_MPS`,
+ * edges starting at `floor(lo / 0.1) * 0.1`. `null` on a degenerate range (`lo`/`hi` non-finite or
+ * `hi <= lo`) or zero bins. Extracted from `valleyOf` (behaviour unchanged — proven by 34-12's
+ * untouched W tests and reachability matrix) so the valley-evidence section describes EXACTLY the
+ * histogram the shapes measure, never a second, drifting implementation.
  */
-export function valleyOf(items, lo, hi) {
+export function histogramOf(items, lo, hi) {
   if (!Number.isFinite(lo) || !Number.isFinite(hi) || hi <= lo) return null;
 
   const edgeStart = Math.floor(lo / VALLEY_BIN_WIDTH_MPS) * VALLEY_BIN_WIDTH_MPS;
@@ -670,25 +697,129 @@ export function valleyOf(items, lo, hi) {
     counts[idx] += weight;
   }
 
-  let bestIdx = null;
-  for (let i = 0; i < binCount; i++) {
+  return { edgeStart, binCount, counts };
+}
+
+/** A bin qualifies as a dip iff `leftMax > 0`, `rightMax > 0` and `counts[i] <= 0.5 * min(leftMax,
+ * rightMax)` — the unchanged prominence test `valleyOf` has always used. Returns every qualifying
+ * bin's index, in ascending order. */
+function qualifyingDipIndices(counts) {
+  const dips = [];
+  for (let i = 0; i < counts.length; i++) {
     let leftMax = 0;
     for (let k = 0; k < i; k++) leftMax = Math.max(leftMax, counts[k]);
     let rightMax = 0;
-    for (let k = i + 1; k < binCount; k++) rightMax = Math.max(rightMax, counts[k]);
+    for (let k = i + 1; k < counts.length; k++) rightMax = Math.max(rightMax, counts[k]);
     if (leftMax > 0 && rightMax > 0 && counts[i] <= 0.5 * Math.min(leftMax, rightMax)) {
-      if (
-        bestIdx === null ||
-        counts[i] < counts[bestIdx] ||
-        (counts[i] === counts[bestIdx] && i < bestIdx)
-      ) {
-        bestIdx = i;
-      }
+      dips.push(i);
     }
   }
+  return dips;
+}
 
+/** The qualifying bin with the LOWEST count (ties go to the lowest edge) — `valleyOf`'s own pick
+ * rule, extracted so the valley-evidence section can report the SAME picked bin the shapes select,
+ * not merely its value. `null` on no qualifying bin. */
+function pickValleyIndex(counts) {
+  const dips = qualifyingDipIndices(counts);
+  if (dips.length === 0) return null;
+  let bestIdx = dips[0];
+  for (const i of dips) {
+    if (counts[i] < counts[bestIdx] || (counts[i] === counts[bestIdx] && i < bestIdx)) bestIdx = i;
+  }
+  return bestIdx;
+}
+
+/** The bin with the HIGHEST count (ties go to the lowest edge) — the histogram's mode. `null` on an
+ * empty population (every bin zero) or a degenerate histogram. */
+function modalIndex(counts) {
+  if (counts.length === 0) return null;
+  let total = 0;
+  let bestIdx = 0;
+  for (let i = 0; i < counts.length; i++) {
+    total += counts[i];
+    if (counts[i] > counts[bestIdx]) bestIdx = i;
+  }
+  return total > 0 ? bestIdx : null;
+}
+
+/**
+ * The one valley definition every W shape and the W strawman share, deliberately the MINIMUM
+ * qualifying bin, not the first (`findValley`'s own rule), since the first qualifying bin is a
+ * shoulder of the walking hump, not the minimum. `null` on no qualifying bin (a monotone histogram or
+ * an empty population). Unchanged behaviour — now built on the extracted `histogramOf`.
+ */
+export function valleyOf(items, lo, hi) {
+  const hist = histogramOf(items, lo, hi);
+  if (hist === null) return null;
+  const bestIdx = pickValleyIndex(hist.counts);
   if (bestIdx === null) return null;
-  return edgeStart + bestIdx * VALLEY_BIN_WIDTH_MPS + VALLEY_BIN_WIDTH_MPS / 2;
+  return hist.edgeStart + bestIdx * VALLEY_BIN_WIDTH_MPS + VALLEY_BIN_WIDTH_MPS / 2;
+}
+
+/**
+ * [D-21, plan 34-14] Facts about ONE weighting's histogram over `[lo, hi)`, rendered as evidence for
+ * the valley-evidence section: total mass, the modal bin's edges and mass, the count of qualifying
+ * dip bins, and the picked bin (`valleyOf`'s own pick — same `histogramOf`, same rule) with its mass
+ * and its share of total mass. Every field is `null`/`0` on a degenerate or empty population — never
+ * thrown.
+ */
+function weightingEvidence(items, lo, hi) {
+  const hist = histogramOf(items, lo, hi);
+  if (hist === null) {
+    return {
+      totalMass: 0,
+      modalBinLo: null,
+      modalBinHi: null,
+      modalMass: null,
+      dipCount: 0,
+      pickedCentre: null,
+      pickedMass: null,
+      pickedShare: null,
+    };
+  }
+  const { edgeStart, counts } = hist;
+  const totalMass = counts.reduce((sum, c) => sum + c, 0);
+  const modalIdx = modalIndex(counts);
+  const dipCount = qualifyingDipIndices(counts).length;
+  const pickedIdx = pickValleyIndex(counts);
+  return {
+    totalMass,
+    modalBinLo: modalIdx === null ? null : edgeStart + modalIdx * VALLEY_BIN_WIDTH_MPS,
+    modalBinHi: modalIdx === null ? null : edgeStart + (modalIdx + 1) * VALLEY_BIN_WIDTH_MPS,
+    modalMass: modalIdx === null ? null : counts[modalIdx],
+    dipCount,
+    pickedCentre: pickedIdx === null ? null : edgeStart + pickedIdx * VALLEY_BIN_WIDTH_MPS + VALLEY_BIN_WIDTH_MPS / 2,
+    pickedMass: pickedIdx === null ? null : counts[pickedIdx],
+    pickedShare: pickedIdx === null || totalMass === 0 ? null : counts[pickedIdx] / totalMass,
+  };
+}
+
+/**
+ * [D-21, plan 34-14] VALLEY EVIDENCE — a finding computed from BASE views that takes no part in any
+ * selection, following `driftSection`'s shape: what the covered-time speed distribution actually
+ * looks like, per weighting (W1 time-weighted, W2 count-weighted), over the SAME `[lo, hi)` range and
+ * `histogramOf` the W shapes themselves use. `lo` is the declared stationary constant, `hi` the
+ * imported unreliable-speed ceiling — both rendered. Only W1 (time-weighted) is gated (`d21-basis`,
+ * below); W2 is evidence only.
+ */
+export function valleyEvidenceSection(views, lo, hi) {
+  const w1Items = [];
+  const w2Items = [];
+  for (const v of views) {
+    if (!v.computable) continue;
+    for (const s of v.foldedSteps) {
+      const value = s.metres / s.seconds;
+      w1Items.push({ value, weight: s.seconds });
+      w2Items.push({ value, weight: 1 });
+    }
+  }
+  return {
+    lo,
+    hi,
+    w1: weightingEvidence(w1Items, lo, hi),
+    w2: weightingEvidence(w2Items, lo, hi),
+  };
 }
 
 function inRangeCount(items, lo, hi) {
@@ -1447,6 +1578,9 @@ export function runCalibration(archive, controlText) {
   const join = joinSection(baseViews);
   // [D-19, plan 34-12] Always computed from BASE standstill episodes, whether or not G cleared.
   const drift = driftSection(baseViews);
+  // [D-21, plan 34-14] Always computed from BASE views, over [declared stationary constant,
+  // imported unreliable-speed ceiling) — never gated on whether any family cleared.
+  const valleyEvidence = valleyEvidenceSection(baseViews, DECLARED_STATIONARY_MAX_SPEED_MPS, UNRELIABLE_SPEED_LIMIT_MPS);
 
   let gates = null;
   let perIntervalTableResult = null;
@@ -1476,6 +1610,7 @@ export function runCalibration(archive, controlText) {
     d10,
     join,
     drift,
+    valleyEvidence,
     perIntervalTable: perIntervalTableResult,
     archiveFindings: archiveFindingsResult,
     controlText,
@@ -1632,6 +1767,69 @@ function renderFindings(findings) {
 }
 
 /**
+ * [D-21, plan 34-14] Renders ONE weighting's evidence row: total mass, the modal bin's edges and
+ * mass, the qualifying-dip count, and the picked bin's centre/mass/share — the exact facts
+ * `valleyEvidenceSection` computes, never re-derived here.
+ */
+function renderValleyWeighting(label, ev) {
+  const modal =
+    ev.modalMass === null
+      ? '—'
+      : `[${fmtNum(ev.modalBinLo, 2)}, ${fmtNum(ev.modalBinHi, 2)}) mass=${fmtNum(ev.modalMass, 1)}`;
+  const picked =
+    ev.pickedCentre === null
+      ? 'none (no qualifying dip)'
+      : `centre=${fmtNum(ev.pickedCentre, 2)} mass=${fmtNum(ev.pickedMass, 1)} share=${fmtPct(ev.pickedShare)}`;
+  return (
+    `${label}: total mass=${fmtNum(ev.totalMass, 1)}, modal bin ${modal}, qualifying dips=${ev.dipCount}, ` +
+    `picked bin ${picked}`
+  );
+}
+
+/**
+ * [D-21, plan 34-14] VALLEY EVIDENCE section — the measured, live histogram evidence behind the
+ * declared walk/run boundary, following `driftSection`'s shape: a finding computed from base views
+ * that takes no part in any selection. Only W1 (time-weighted) is gated (`d21-basis`); W2 is evidence
+ * only, stated as such. The no-valley finding is ATTRIBUTED to D-21, never asserted as a fixed
+ * sentence — the claim is carried by the computed picked-bin-versus-modal-bin relation rendered
+ * beside it.
+ */
+function renderValleyEvidence(evidence) {
+  const lines = [];
+  lines.push(
+    `Population: [lo, hi) = [${fmtNum(evidence.lo, 3)}, ${fmtNum(evidence.hi, 3)}) — lo is the ` +
+      'declared stationary constant, hi the imported unreliable-speed ceiling.'
+  );
+  lines.push('');
+  lines.push(renderValleyWeighting('W1 (time-weighted)', evidence.w1));
+  lines.push('');
+  lines.push(renderValleyWeighting('W2 (count-weighted)', evidence.w2));
+  lines.push('');
+  lines.push(
+    'Only the time-weighted mode (W1) is gated by `d21-basis` below; W2 is rendered as evidence only.'
+  );
+  lines.push('');
+
+  const w1 = evidence.w1;
+  const pickedStr =
+    w1.pickedCentre === null
+      ? 'no qualifying bin'
+      : `${fmtNum(w1.pickedCentre, 2)} m/s (mass share ${fmtPct(w1.pickedShare)})`;
+  const modalStr =
+    w1.modalMass === null
+      ? 'no modal bin (empty population)'
+      : `${fmtNum((w1.modalBinLo + w1.modalBinHi) / 2, 2)} m/s (mass share ` +
+        `${fmtPct(w1.totalMass > 0 ? w1.modalMass / w1.totalMass : null)})`;
+  lines.push(
+    'D-21 (2026-09-22) records the finding that walking and running form one hump on this archive, ' +
+      "so D-06's valley premise does not hold here: the valley rule's picked bin " +
+      `(${pickedStr}) sits away from the modal bin (${modalStr}), a computed relation rather than a ` +
+      'fixed sentence.'
+  );
+  return lines.join('\n');
+}
+
+/**
  * Renders the full calibration artifact. `result.allCleared === false` renders `## NO SHAPE CLEARS`
  * and NO `Chosen constants` lines; `result.allCleared === true && !result.gates.pass` renders
  * `## GATE FAILED` instead. Deterministic — no wall-clock timestamp, no bare `rev-parse HEAD`
@@ -1763,10 +1961,10 @@ export function renderCalibrationMarkdown(result) {
     lines.push(
       `FORGOTTEN_STOP_MIN_SEC provenance: calibrated (M family, ${result.families.M.selectedId})`
     );
-    lines.push(`WALK_RUN_BOUNDARY_MPS = ${result.shipped.WALK_RUN_BOUNDARY_MPS}`);
-    lines.push(
-      `WALK_RUN_BOUNDARY_MPS provenance: calibrated (W family, ${result.families.W.selectedId})`
-    );
+    // [D-21, plan 34-14] WALK_RUN_BOUNDARY_MPS ships the DECLARED source text verbatim, mirroring
+    // STATIONARY_MAX_SPEED_MPS above — never `String(result.shipped.WALK_RUN_BOUNDARY_MPS)`.
+    lines.push(`WALK_RUN_BOUNDARY_MPS = ${DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT}`);
+    lines.push(`WALK_RUN_BOUNDARY_MPS provenance: ${WALK_RUN_PROVENANCE_TEXT}`);
     lines.push(`UNRELIABLE_SPEED_LIMIT_MPS = ${UNRELIABLE_SPEED_LIMIT_MPS} (imported, 32-CALIBRATION.md)`);
     lines.push('');
   } else if (!result.allCleared) {
@@ -1804,6 +2002,16 @@ export function renderCalibrationMarkdown(result) {
   lines.push('## Drift-while-stationary');
   lines.push('');
   lines.push(renderDrift(result.drift));
+  lines.push('');
+
+  lines.push('## Valley evidence');
+  lines.push('');
+  lines.push(
+    renderValleyEvidence(
+      result.valleyEvidence ??
+        valleyEvidenceSection(result.baseViews ?? [], DECLARED_STATIONARY_MAX_SPEED_MPS, UNRELIABLE_SPEED_LIMIT_MPS)
+    )
+  );
   lines.push('');
 
   lines.push('## Join exhaustiveness');

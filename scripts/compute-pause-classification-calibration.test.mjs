@@ -15,6 +15,8 @@ import { UNRELIABLE_SPEED_LIMIT_MPS } from '../dist/analytics/pace-derivation.js
 import {
   DECLARED_STATIONARY_MAX_SPEED_MPS,
   DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT,
+  DECLARED_WALK_RUN_BOUNDARY_MPS,
+  DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT,
   INSENSITIVITY_SOURCE_ACTIVITY_ID,
   INSENSITIVITY_TOLERANCE,
   NEIGHBOURHOOD_SEC,
@@ -23,6 +25,7 @@ import {
   REJECTED_SHAPES,
   STATIONARY_PROVENANCE_TEXT,
   VALLEY_BIN_WIDTH_MPS,
+  WALK_RUN_PROVENANCE_TEXT,
   applyGates,
   archiveFindings,
   buildBaseViews,
@@ -30,6 +33,7 @@ import {
   decideOutcome,
   driftSection,
   evaluateShape,
+  histogramOf,
   joinSection,
   mwFloorFromDeclared,
   perIntervalTable,
@@ -47,6 +51,7 @@ import {
   strawmanG,
   strawmanM,
   strawmanW,
+  valleyEvidenceSection,
   valleyOf,
 } from './compute-pause-classification-calibration.mjs';
 
@@ -424,7 +429,7 @@ function buildGatesPassArchive() {
   ];
   return { activities, streamFileCount: activities.length, notComputable: 0 };
 }
-const GATES_PASS_SHIPPED = { STATIONARY_MAX_SPEED_MPS: 0.5, WALK_RUN_BOUNDARY_MPS: 2.0, FORGOTTEN_STOP_MIN_SEC: 30 };
+const GATES_PASS_SHIPPED = { STATIONARY_MAX_SPEED_MPS: 0.5, WALK_RUN_BOUNDARY_MPS: 2.0, FORGOTTEN_STOP_MIN_SEC: 31 };
 const GATES_PASS_CONTROL_TEXT = 'CONFIRMED_CONTROL: CTRL1 t=100-400\n';
 
 /**
@@ -1095,8 +1100,8 @@ describe('evidence only', () => {
 describe('gates', () => {
   it('ORDER gate passes iff 0 <= stationary < walkRun < UNRELIABLE_SPEED_LIMIT_MPS', () => {
     const views = buildBaseViews(buildGatesPassArchive());
-    const okShipped = { STATIONARY_MAX_SPEED_MPS: 0.5, WALK_RUN_BOUNDARY_MPS: 2.0, FORGOTTEN_STOP_MIN_SEC: 30 };
-    const badShipped = { STATIONARY_MAX_SPEED_MPS: 2.0, WALK_RUN_BOUNDARY_MPS: 0.5, FORGOTTEN_STOP_MIN_SEC: 30 };
+    const okShipped = { STATIONARY_MAX_SPEED_MPS: 0.5, WALK_RUN_BOUNDARY_MPS: 2.0, FORGOTTEN_STOP_MIN_SEC: 31 };
+    const badShipped = { STATIONARY_MAX_SPEED_MPS: 2.0, WALK_RUN_BOUNDARY_MPS: 0.5, FORGOTTEN_STOP_MIN_SEC: 31 };
     expect(applyGates(views, okShipped, GATES_PASS_CONTROL_TEXT).gates.find((g) => g.id === 'order').pass).toBe(true);
     expect(applyGates(views, badShipped, GATES_PASS_CONTROL_TEXT).gates.find((g) => g.id === 'order').pass).toBe(false);
   });
@@ -1176,7 +1181,7 @@ describe('gates', () => {
     const views = buildBaseViews(pauseBearingArchive());
     const g4Base = shapeG4(views).value;
     expect(g4Base).toBeGreaterThan(0);
-    const shipped = { STATIONARY_MAX_SPEED_MPS: 0.5, WALK_RUN_BOUNDARY_MPS: 2.0, FORGOTTEN_STOP_MIN_SEC: 30 };
+    const shipped = { STATIONARY_MAX_SPEED_MPS: 0.5, WALK_RUN_BOUNDARY_MPS: 2.0, FORGOTTEN_STOP_MIN_SEC: 31 };
     expect(shipped.STATIONARY_MAX_SPEED_MPS).toBeGreaterThan(g4Base);
     const result = applyGates(views, shipped, null);
     const gate = result.gates.find((g) => g.id === 'd20-basis');
@@ -1189,7 +1194,7 @@ describe('gates', () => {
     'the declared value', () => {
     const views = buildBaseViews(pauseBearingArchive());
     const g4Base = shapeG4(views).value;
-    const shipped = { STATIONARY_MAX_SPEED_MPS: g4Base, WALK_RUN_BOUNDARY_MPS: 2.0, FORGOTTEN_STOP_MIN_SEC: 30 };
+    const shipped = { STATIONARY_MAX_SPEED_MPS: g4Base, WALK_RUN_BOUNDARY_MPS: 2.0, FORGOTTEN_STOP_MIN_SEC: 31 };
     const result = applyGates(views, shipped, null);
     const gate = result.gates.find((g) => g.id === 'd20-basis');
     expect(gate.pass).toBe(false);
@@ -1291,6 +1296,230 @@ describe('declared constant', () => {
 });
 
 // ---------------------------------------------------------------------------
+// declared boundary (D-21, plan 34-14) — the walk/run boundary is developer-declared, never
+// calibrated; Family W still measures and renders strawman W, W1 and W2 but no longer arbitrates.
+// ---------------------------------------------------------------------------
+
+describe('declared boundary', () => {
+  it('DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT is the D-21 source text, and its numeric sibling parses ' +
+    'from it exactly (module-load round-trip assertion)', () => {
+    expect(DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT).toBe('2.2');
+    expect(DECLARED_WALK_RUN_BOUNDARY_MPS).toBe(Number(DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT));
+  });
+
+  it('WALK_RUN_PROVENANCE_TEXT is exactly "developer-declared (D-21), not calibrated"', () => {
+    expect(WALK_RUN_PROVENANCE_TEXT).toBe('developer-declared (D-21), not calibrated');
+  });
+
+  it('a clear fixture renders the line-anchored declared boundary (source text verbatim) and its ' +
+    "provenance line under ## Chosen constants; M's provenance line still names its winning shape " +
+    'id', () => {
+    const result = runCalibration(buildClearArchive(), GATES_PASS_CONTROL_TEXT);
+    const markdown = renderCalibrationMarkdown({ ...result, provenance: {} });
+    expect(markdown).toMatch(/^WALK_RUN_BOUNDARY_MPS = 2\.2$/m);
+    expect(markdown).toContain(
+      'WALK_RUN_BOUNDARY_MPS provenance: developer-declared (D-21), not calibrated'
+    );
+    expect(markdown).toMatch(
+      new RegExp(
+        `^FORGOTTEN_STOP_MIN_SEC provenance: calibrated \\(M family, ${result.families.M.selectedId}\\)$`,
+        'm'
+      )
+    );
+  });
+
+  it('no line matching ^WALK_RUN_BOUNDARY_MPS = appears outside ## Chosen constants; the HALT ' +
+    'fixture renders neither the section nor the line at all', () => {
+    const clear = runCalibration(buildClearArchive(), GATES_PASS_CONTROL_TEXT);
+    const clearMarkdown = renderCalibrationMarkdown({ ...clear, provenance: {} });
+    const chosenIdx = clearMarkdown.indexOf('## Chosen constants');
+    expect(chosenIdx).toBeGreaterThan(-1);
+    const nextHeadingIdx = clearMarkdown.indexOf('\n## ', chosenIdx + 1);
+    const beforeChosen = clearMarkdown.slice(0, chosenIdx);
+    const afterChosen = clearMarkdown.slice(nextHeadingIdx);
+    expect(beforeChosen).not.toMatch(/^WALK_RUN_BOUNDARY_MPS = /m);
+    expect(afterChosen).not.toMatch(/^WALK_RUN_BOUNDARY_MPS = /m);
+
+    const halt = runCalibration(buildHaltArchive(), null);
+    const haltMarkdown = renderCalibrationMarkdown({ ...halt, provenance: {} });
+    expect(haltMarkdown).not.toContain('## Chosen constants');
+    expect(haltMarkdown).not.toMatch(/^WALK_RUN_BOUNDARY_MPS = /m);
+  });
+
+  it('the word "calibrated" appears adjacent to WALK_RUN_BOUNDARY_MPS only inside "not calibrated"', () => {
+    const result = runCalibration(buildClearArchive(), GATES_PASS_CONTROL_TEXT);
+    const markdown = renderCalibrationMarkdown({ ...result, provenance: {} });
+    const boundaryLines = markdown.split('\n').filter((l) => l.includes('WALK_RUN_BOUNDARY_MPS'));
+    expect(boundaryLines.length).toBeGreaterThan(0);
+    for (const line of boundaryLines) {
+      if (line.includes('calibrated')) expect(line).toContain('not calibrated');
+    }
+  });
+
+  it('rendering the same clear-fixture result twice is byte-identical', () => {
+    const result = runCalibration(buildClearArchive(), GATES_PASS_CONTROL_TEXT);
+    const fixed = { ...result, provenance: {} };
+    expect(renderCalibrationMarkdown(fixed)).toBe(renderCalibrationMarkdown(fixed));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// valley evidence (D-21, plan 34-14) — the measured, live histogram evidence behind the declared
+// walk/run boundary: one histogramOf implementation shared with the W shapes, rendered for both
+// weightings, never asserted as a fixed sentence.
+// ---------------------------------------------------------------------------
+
+/** A single continuous covered activity (dt=1s per sample, no gap, no pause) built from a list of
+ * `{ speed, count }` segments — every consecutive sample-to-sample step lands as its own folded step
+ * at exactly `speed` m/s, so the resulting covered-time histogram's per-bin mass is precisely
+ * controlled by `count`. */
+function buildValleyEvidenceActivity(id, segments) {
+  const t = [0];
+  const d = [0];
+  let time = 0;
+  let dist = 0;
+  for (const { speed, count } of segments) {
+    for (let i = 0; i < count; i++) {
+      time += 1;
+      dist += speed;
+      t.push(time);
+      d.push(dist);
+    }
+  }
+  return { id, t, d, cadence: null };
+}
+
+/** UNIMODAL: a dominant running hump (3.0 m/s, mass 1000) decaying smoothly through three adjacent,
+ * always-positive bins (3.1/3.2/3.3 — no empty gap anywhere) into a genuinely sparse bin (3.3, mass
+ * 2) followed by a small recovery bump (3.4, mass 30) — the recovery bump is what gives the sparse
+ * bin a positive `rightMax`, so it qualifies as the single, non-null, global-minimum dip. Mirrors the
+ * real archive's own shape (one hump, no dip near the walking cluster, a sparse qualifying bin deep
+ * in the tail) without pinning any HALT-run figure.
+ */
+function buildUnimodalValleyArchive() {
+  return {
+    activities: [
+      buildValleyEvidenceActivity('UNI1', [
+        { speed: 3.0, count: 1000 },
+        { speed: 3.1, count: 200 },
+        { speed: 3.2, count: 50 },
+        { speed: 3.3, count: 2 },
+        { speed: 3.4, count: 30 },
+      ]),
+    ],
+    streamFileCount: 1,
+    notComputable: 0,
+  };
+}
+
+/** BIMODAL: two well-separated humps (a walking cluster at 1.2 m/s and a running cluster at 3.5 m/s)
+ * with a genuine, unpopulated gap between them — every empty bin in the gap qualifies as a dip
+ * (flanked by both humps), so the picked bin sits in the gap, a real trough rather than a decaying
+ * shoulder. */
+function buildBimodalValleyArchive() {
+  return {
+    activities: [
+      buildValleyEvidenceActivity('BI1', [
+        { speed: 1.2, count: 500 },
+        { speed: 3.5, count: 1000 },
+      ]),
+    ],
+    streamFileCount: 1,
+    notComputable: 0,
+  };
+}
+
+describe('valley evidence', () => {
+  it('histogramOf is the one binning implementation valleyOf now uses — a fixture whose valleyOf ' +
+    'value and histogramOf-derived picked-bin centre must agree exactly', () => {
+    const views = buildBaseViews(buildUnimodalValleyArchive());
+    const items = [];
+    for (const v of views) for (const s of v.foldedSteps) items.push({ value: s.metres / s.seconds, weight: s.seconds });
+    const hist = histogramOf(items, DECLARED_STATIONARY_MAX_SPEED_MPS, UNRELIABLE_SPEED_LIMIT_MPS);
+    expect(hist).not.toBeNull();
+    expect(hist.counts.some((c) => c > 0)).toBe(true);
+    const valley = valleyOf(items, DECLARED_STATIONARY_MAX_SPEED_MPS, UNRELIABLE_SPEED_LIMIT_MPS);
+    const evidence = valleyEvidenceSection(views, DECLARED_STATIONARY_MAX_SPEED_MPS, UNRELIABLE_SPEED_LIMIT_MPS);
+    expect(evidence.w1.pickedCentre).toBeCloseTo(valley, 8);
+  });
+
+  it("34-12's untouched reachability matrix and W-shape tests still pass — valleyOf's own " +
+    'behaviour is unchanged by the histogramOf extraction (proven by re-running the pre-existing ' +
+    '"reference shape" valleyOf assertions here)', () => {
+    const items = [];
+    for (let i = 0; i < 10; i++) items.push({ value: 0.05, weight: 1 });
+    for (let i = 0; i < 3; i++) items.push({ value: 0.15, weight: 1 });
+    for (let i = 0; i < 10; i++) items.push({ value: 0.25, weight: 1 });
+    for (let i = 0; i < 10; i++) items.push({ value: 0.45, weight: 1 });
+    expect(valleyOf(items, 0, 0.5)).toBeCloseTo(0.35, 5);
+  });
+
+  it('valleyEvidenceSection: lo equals the declared stationary constant and hi the imported ' +
+    'unreliable-speed ceiling, both rendered', () => {
+    const views = buildBaseViews(buildUnimodalValleyArchive());
+    const evidence = valleyEvidenceSection(views, DECLARED_STATIONARY_MAX_SPEED_MPS, UNRELIABLE_SPEED_LIMIT_MPS);
+    expect(evidence.lo).toBe(DECLARED_STATIONARY_MAX_SPEED_MPS);
+    expect(evidence.hi).toBe(UNRELIABLE_SPEED_LIMIT_MPS);
+    const markdown = renderCalibrationMarkdown({
+      ...runCalibration(buildUnimodalValleyArchive(), null),
+      provenance: {},
+    });
+    expect(markdown).toContain(`[${evidence.lo.toFixed(3)}, ${evidence.hi.toFixed(3)})`);
+  });
+
+  it('the UNIMODAL fixture yields a non-null picked bin (a genuine dip), reports both weightings, ' +
+    'labels which is time-weighted (W1) and which is count-weighted (W2), and states only W1 is ' +
+    'gated', () => {
+    const views = buildBaseViews(buildUnimodalValleyArchive());
+    const evidence = valleyEvidenceSection(views, DECLARED_STATIONARY_MAX_SPEED_MPS, UNRELIABLE_SPEED_LIMIT_MPS);
+    expect(evidence.w1.pickedCentre).not.toBeNull();
+    expect(evidence.w1.modalMass).not.toBeNull();
+    expect(evidence.w1.totalMass).toBeGreaterThan(0);
+    expect(evidence.w2.pickedCentre).not.toBeNull();
+
+    const result = runCalibration(buildUnimodalValleyArchive(), null);
+    const markdown = renderCalibrationMarkdown({ ...result, provenance: {} });
+    const section = markdown.split('## Valley evidence')[1].split('## Join exhaustiveness')[0];
+    expect(section).toContain('W1 (time-weighted)');
+    expect(section).toContain('W2 (count-weighted)');
+    expect(section).toMatch(/Only the time-weighted mode \(W1\) is gated/);
+  });
+
+  it('the no-valley finding is attributed to D-21 and carried by a computed picked-versus-modal ' +
+    'relation, never asserted as a fixed sentence', () => {
+    const result = runCalibration(buildUnimodalValleyArchive(), null);
+    const markdown = renderCalibrationMarkdown({ ...result, provenance: {} });
+    const section = markdown.split('## Valley evidence')[1].split('## Join exhaustiveness')[0];
+    expect(section).toContain(
+      'D-21 (2026-09-22) records the finding that walking and running form one hump on this ' +
+        "archive, so D-06's valley premise does not hold here"
+    );
+    expect(section).toMatch(/picked bin \(.+m\/s.+share.+\) sits away from the modal bin \(.+m\/s.+share.+\)/);
+  });
+
+  it('the UNIMODAL and BIMODAL fixtures render different modal bins, picked bins and mass shares, ' +
+    'cell by cell — the section describes its input, not a fixed shape', () => {
+    const uniViews = buildBaseViews(buildUnimodalValleyArchive());
+    const biViews = buildBaseViews(buildBimodalValleyArchive());
+    const uni = valleyEvidenceSection(uniViews, DECLARED_STATIONARY_MAX_SPEED_MPS, UNRELIABLE_SPEED_LIMIT_MPS);
+    const bi = valleyEvidenceSection(biViews, DECLARED_STATIONARY_MAX_SPEED_MPS, UNRELIABLE_SPEED_LIMIT_MPS);
+
+    expect(bi.w1.pickedCentre).not.toBeNull(); // a genuine trough, not "null versus a value"
+    expect(uni.w1.pickedCentre).not.toBe(bi.w1.pickedCentre);
+    expect(uni.w1.modalBinLo).not.toBe(bi.w1.modalBinLo);
+    expect(uni.w1.pickedMass).not.toBe(bi.w1.pickedMass);
+    expect(uni.w1.pickedShare).not.toBe(bi.w1.pickedShare);
+    expect(uni.w1.totalMass).not.toBe(bi.w1.totalMass);
+  });
+
+  it('rendering the same fixture twice is byte-identical', () => {
+    const result = runCalibration(buildUnimodalValleyArchive(), null);
+    const fixed = { ...result, provenance: {} };
+    expect(renderCalibrationMarkdown(fixed)).toBe(renderCalibrationMarkdown(fixed));
+  });
+});
+
+// ---------------------------------------------------------------------------
 // drift non-issue (D-20, plan 34-13) — drift-while-stationary renders as a MEASURED NON-ISSUE with
 // its own live evidence, independent of whether Family G "clears".
 // ---------------------------------------------------------------------------
@@ -1366,6 +1595,7 @@ describe('render', () => {
       'Gates',
       'D-10 blind-spot rule',
       'Drift-while-stationary',
+      'Valley evidence',
       'Join exhaustiveness',
       'Per-interval class table — 3475724402 (classifier output)',
       'Archive-wide findings (never an input to selection)',
@@ -1382,7 +1612,9 @@ describe('render', () => {
     expect(markdown).toContain(`STATIONARY_MAX_SPEED_MPS = ${DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT}`);
     expect(clearResult.shipped.STATIONARY_MAX_SPEED_MPS).toBe(DECLARED_STATIONARY_MAX_SPEED_MPS);
     expect(markdown).toContain(`FORGOTTEN_STOP_MIN_SEC = ${clearResult.shipped.FORGOTTEN_STOP_MIN_SEC}`);
-    expect(markdown).toContain(`WALK_RUN_BOUNDARY_MPS = ${clearResult.shipped.WALK_RUN_BOUNDARY_MPS}`);
+    // [D-21, plan 34-14] WALK_RUN_BOUNDARY_MPS ships the DECLARED source text, mirroring the
+    // stationary constant above — never `clearResult.shipped.WALK_RUN_BOUNDARY_MPS` directly.
+    expect(markdown).toContain(`WALK_RUN_BOUNDARY_MPS = ${DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT}`);
     expect(markdown).toContain(`UNRELIABLE_SPEED_LIMIT_MPS = ${UNRELIABLE_SPEED_LIMIT_MPS} (imported, 32-CALIBRATION.md)`);
   });
 
