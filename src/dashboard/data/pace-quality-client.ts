@@ -41,6 +41,7 @@ import type {
   VerticalRateSignal,
 } from '../../analytics/pace-quality.js';
 import type { GapInterval, GapKind, SegmentMechanism } from '../../analytics/pace-derivation.js';
+import type { PauseClass, PauseSource } from '../../analytics/pause-classification.js';
 
 /** Own-property read only — no prototype key is ever reachable through the parsed document. */
 function hasOwn(obj: object, key: string): boolean {
@@ -103,6 +104,42 @@ const VALID_SEGMENT_MECHANISMS: ReadonlySet<string> = new Set<SegmentMechanism>(
   'gap-adjacent',
   'hidden-pause',
   'isolated-jump',
+]);
+
+/**
+ * Phase 34 (PAUSE-02, D-15, plan 34-09): the shard's own per-interval
+ * `pauseClass` set — DELIBERATELY SEPARATE from `VALID_GAP_KINDS` and
+ * `VALID_SEGMENT_MECHANISMS` above, same discipline as `VALID_ELEVATION_TIERS`
+ * (:56-62). `PauseClass` is its own four-member union (`'stationary' |
+ * 'walked' | 'ran-through' | 'transported'`) sharing no members with
+ * `GapKind` (`'recording-gap' | 'pause' | 'unreliable'`) or
+ * `SegmentMechanism` (`'gap-adjacent' | 'hidden-pause' | 'isolated-jump'`) —
+ * reusing either set would let a value from the WRONG union survive this
+ * field's parse.
+ */
+const VALID_PAUSE_CLASSES: ReadonlySet<string> = new Set<PauseClass>([
+  'stationary',
+  'walked',
+  'ran-through',
+  'transported',
+]);
+
+/**
+ * Phase 34 (PAUSE-02, D-15, plan 34-09): the shard's own per-interval
+ * `source` set, one field over from `VALID_PAUSE_CLASSES` above — same
+ * "deliberately separate Set" discipline. `PauseSource` is its own
+ * four-member union (`'recording-gap' | 'merged-segment' |
+ * 'zero-advance-pause' | 'covered-creep'`) — despite the first member's name
+ * overlapping `GapKind`'s `'recording-gap'` in spelling, the two unions are
+ * unrelated (one names a `pauseIntervals` entry's origin, the other a
+ * `gapIntervals` entry's kind), so this validates independently rather than
+ * reusing `VALID_GAP_KINDS`.
+ */
+const VALID_PAUSE_SOURCES: ReadonlySet<string> = new Set<PauseSource>([
+  'recording-gap',
+  'merged-segment',
+  'zero-advance-pause',
+  'covered-creep',
 ]);
 
 function parseTier(raw: unknown): QualityTier | null {
@@ -497,6 +534,57 @@ function parseUnreliableSegment(
   return { startSec, endSec, metres, excessMetres, seconds, mechanism: parsedMechanism };
 }
 
+function parsePauseClass(raw: unknown): PauseClass | null {
+  return typeof raw === 'string' && VALID_PAUSE_CLASSES.has(raw) ? (raw as PauseClass) : null;
+}
+
+function parsePauseSource(raw: unknown): PauseSource | null {
+  return typeof raw === 'string' && VALID_PAUSE_SOURCES.has(raw) ? (raw as PauseSource) : null;
+}
+
+/**
+ * Total, never-throwing parse of one shard `pauseIntervals` entry (Phase 34,
+ * PAUSE-02, D-15, plan 34-09). Mirrors `parseUnreliableSegment`'s
+ * drop-on-failure contract: returns `null` on any structural failure, and
+ * the caller — `parsePaceQualityShard`'s tolerant-drop loop, the same
+ * `if (parsed)` shape every other capped shard list here already uses —
+ * drops just that one entry without invalidating the whole shard or the
+ * rest of the list. `source`/`pauseClass` are each validated against their
+ * own set (`VALID_PAUSE_SOURCES`/`VALID_PAUSE_CLASSES`), not merely checked
+ * for `typeof === 'string'` — an unknown value is exactly as untrustworthy
+ * as a missing numeric field.
+ */
+function parsePauseInterval(
+  raw: unknown
+): {
+  source: PauseSource;
+  pauseClass: PauseClass;
+  startSec: number;
+  endSec: number;
+  seconds: number;
+  metres: number;
+  startMetres: number;
+} | null {
+  if (!isPlainObject(raw)) return null;
+  const { source, pauseClass, startSec, endSec, seconds, metres, startMetres } = raw;
+  if (typeof startSec !== 'number' || typeof endSec !== 'number') return null;
+  if (typeof seconds !== 'number' || typeof metres !== 'number' || typeof startMetres !== 'number') return null;
+  if (![startSec, endSec, seconds, metres, startMetres].every(Number.isFinite)) return null;
+  const parsedSource = parsePauseSource(source);
+  if (parsedSource === null) return null;
+  const parsedPauseClass = parsePauseClass(pauseClass);
+  if (parsedPauseClass === null) return null;
+  return {
+    source: parsedSource,
+    pauseClass: parsedPauseClass,
+    startSec,
+    endSec,
+    seconds,
+    metres,
+    startMetres,
+  };
+}
+
 function parseZeroAdvanceRunProfile(raw: unknown): PaceQualityShard['zeroAdvanceRunProfile'] {
   if (raw === null) return null;
   if (!isPlainObject(raw)) return null;
@@ -574,6 +662,28 @@ export function parsePaceQualityShard(raw: unknown): PaceQualityShard | null {
     }
   }
 
+  // Phase 34 (PAUSE-02, D-15, plan 34-09): same tolerance/cap-agnostic
+  // discipline as `unreliableSegments` above — individually malformed
+  // entries are dropped, never invalidating the whole shard; a shard with
+  // no `pauseIntervals` key at all (a pre-plan-34-09 stale artifact, or the
+  // plan 34-08 stub this parser used to always return) yields an empty
+  // array, never `undefined`.
+  const pauseIntervals: {
+    source: PauseSource;
+    pauseClass: PauseClass;
+    startSec: number;
+    endSec: number;
+    seconds: number;
+    metres: number;
+    startMetres: number;
+  }[] = [];
+  if (Array.isArray(raw.pauseIntervals)) {
+    for (const item of raw.pauseIntervals) {
+      const parsed = parsePauseInterval(item);
+      if (parsed) pauseIntervals.push(parsed);
+    }
+  }
+
   return {
     activityId: raw.activityId,
     signals,
@@ -591,15 +701,13 @@ export function parsePaceQualityShard(raw: unknown): PaceQualityShard | null {
     unreliableSegments,
     unreliableSegmentsTruncated:
       typeof raw.unreliableSegmentsTruncated === 'boolean' ? raw.unreliableSegmentsTruncated : false,
-    // Phase 34 (PAUSE-02, D-15): the shard's per-interval pause list arrives
-    // structurally here (type-level, so this parser type-checks against the
-    // widened `PaceQualityShard`), but its own per-entry parse function
-    // ships in plan 34-09 alongside the Pauses section that reads it — until
-    // then this degrades to an empty, untruncated list, exactly the same
-    // "present, not absent" CR-01 shape every other capped list here
-    // defaults to on a stale/malformed document.
-    pauseIntervals: [],
-    pauseIntervalsTruncated: false,
+    // Phase 34 (PAUSE-02, D-15, plan 34-09): the shard's per-interval pause
+    // list, tolerantly parsed entry-by-entry above — a shard predating this
+    // plan (no `pauseIntervals` key at all) degrades to the same
+    // "present, not absent" empty/untruncated CR-01 shape every other
+    // capped list here defaults to on a stale/malformed document.
+    pauseIntervals,
+    pauseIntervalsTruncated: typeof raw.pauseIntervalsTruncated === 'boolean' ? raw.pauseIntervalsTruncated : false,
   };
 }
 

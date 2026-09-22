@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { FetchLike } from './index-client.js';
 import { createPaceQualityClient, parsePaceQualityShard } from './pace-quality-client.js';
 import type { GapKind, SegmentMechanism } from '../../analytics/pace-derivation.js';
+import type { PauseClass, PauseSource } from '../../analytics/pause-classification.js';
 
 interface FakeResponseSpec {
   ok: boolean;
@@ -123,13 +124,15 @@ const validShard = {
     { startSec: 340, endSec: 342.2, metres: 22.8, excessMetres: 6.2, seconds: 10, mechanism: 'isolated-jump' },
   ],
   unreliableSegmentsTruncated: false,
-  // Phase 34 (PAUSE-02, D-15): the shard's per-interval pause-list entry
-  // parse ships in plan 34-09 — until then `parsePaceQualityShard` always
-  // returns the empty/untruncated default, so this fixture's own
-  // `pauseIntervals` (even though populated in the raw wire shape) is NOT
-  // expected to round-trip here; see the dedicated "pauseIntervals stub"
-  // test below.
-  pauseIntervals: [],
+  // Phase 34 (PAUSE-02, D-15, plan 34-09): a well-formed shard-level
+  // pause-interval list — one 'recording-gap' entry and one
+  // 'zero-advance-pause' entry, every field populated, so the round-trip
+  // test below proves every field survives the real `parsePauseInterval`,
+  // not just the empty/untruncated fallback shape.
+  pauseIntervals: [
+    { source: 'recording-gap', pauseClass: 'stationary', startSec: 40, endSec: 90, seconds: 50, metres: 0, startMetres: 500 },
+    { source: 'zero-advance-pause', pauseClass: 'stationary', startSec: 200, endSec: 242, seconds: 42, metres: 0.3, startMetres: 900 },
+  ],
   pauseIntervalsTruncated: false,
 };
 
@@ -755,6 +758,136 @@ describe('parsePaceQualityShard', () => {
       expect(result?.signals.forgottenStop.totalSec).toBeNull();
       expect(result?.signals.forgottenStop.longestSec).toBeNull();
       expect(result?.signals.forgottenStop.count).toBe(validShard.signals.forgottenStop.count);
+    });
+  });
+
+  // Phase 34 (PAUSE-02, D-15, plan 34-09): the shard's own per-interval
+  // pause list. Named so `-t "pauseIntervals parse"` selects every case in
+  // this block.
+  describe('pauseIntervals parse', () => {
+    it('a well-formed pauseIntervals array round-trips every field, in order', () => {
+      const result = parsePaceQualityShard(validShard);
+      expect(result?.pauseIntervals).toEqual(validShard.pauseIntervals);
+    });
+
+    it('a shard with no pauseIntervals key at all (a pre-plan-34-09 stale document) yields an empty, untruncated list, present not absent', () => {
+      const raw: Record<string, unknown> = { ...validShard };
+      delete raw.pauseIntervals;
+      delete raw.pauseIntervalsTruncated;
+      const result = parsePaceQualityShard(raw);
+      expect(result).not.toBeNull();
+      expect(result?.pauseIntervals).toEqual([]);
+      expect(result?.pauseIntervalsTruncated).toBe(false);
+    });
+
+    it('an entry with an unknown pauseClass is dropped alone; the rest of the shard survives', () => {
+      const doc = {
+        ...validShard,
+        pauseIntervals: [validShard.pauseIntervals[0], { ...validShard.pauseIntervals[1], pauseClass: 'sprinting' }],
+      };
+      const result = parsePaceQualityShard(doc);
+      expect(result).not.toBeNull();
+      expect(result?.pauseIntervals).toEqual([validShard.pauseIntervals[0]]);
+    });
+
+    it('an entry with an unknown source is dropped alone; the rest of the shard survives', () => {
+      const doc = {
+        ...validShard,
+        pauseIntervals: [validShard.pauseIntervals[0], { ...validShard.pauseIntervals[1], source: 'teleported' }],
+      };
+      const result = parsePaceQualityShard(doc);
+      expect(result).not.toBeNull();
+      expect(result?.pauseIntervals).toEqual([validShard.pauseIntervals[0]]);
+    });
+
+    it.each(['startSec', 'endSec', 'seconds', 'metres', 'startMetres'] as const)(
+      'an entry with a non-finite numeric field %s is dropped alone; the rest of the shard survives',
+      (field) => {
+        const doc = {
+          ...validShard,
+          pauseIntervals: [validShard.pauseIntervals[0], { ...validShard.pauseIntervals[1], [field]: Number.NaN }],
+        };
+        const result = parsePaceQualityShard(doc);
+        expect(result).not.toBeNull();
+        expect(result?.pauseIntervals).toEqual([validShard.pauseIntervals[0]]);
+      }
+    );
+
+    // Phase 34 (PAUSE-02, D-15): VALID_PAUSE_CLASSES/VALID_PAUSE_SOURCES are
+    // each their own set (mirroring VALID_SEGMENT_MECHANISMS' precedent
+    // above), validating the shard's per-entry `pauseClass`/`source` fields.
+    // The `Record<PauseClass, true>`/`Record<PauseSource, true>` literals
+    // below fail to COMPILE if either union widens without a matching key
+    // here, and the runtime probe fails if the corresponding private Set is
+    // not updated to match — both sets are private, not exported, so these
+    // tests drive them exclusively through parsePaceQualityShard's public
+    // surface.
+    it('VALID_PAUSE_CLASSES accepts every declared PauseClass union member, and rejects an unknown one', () => {
+      const ALL_CLASSES: Record<PauseClass, true> = {
+        stationary: true,
+        walked: true,
+        'ran-through': true,
+        transported: true,
+      };
+      const members = Object.keys(ALL_CLASSES) as PauseClass[];
+      expect(members).toHaveLength(4); // sanity: the union has exactly 4 members today
+
+      for (const pauseClass of members) {
+        const entry = {
+          source: 'recording-gap' as const,
+          pauseClass,
+          startSec: 0,
+          endSec: 5,
+          seconds: 5,
+          metres: 10,
+          startMetres: 0,
+        };
+        const doc = { ...validShard, pauseIntervals: [entry] };
+        const result = parsePaceQualityShard(doc);
+        expect(result?.pauseIntervals).toEqual([entry]);
+      }
+
+      const bogusDoc = {
+        ...validShard,
+        pauseIntervals: [
+          { source: 'recording-gap', pauseClass: 'fabricated-fifth', startSec: 0, endSec: 5, seconds: 5, metres: 10, startMetres: 0 },
+        ],
+      };
+      expect(parsePaceQualityShard(bogusDoc)?.pauseIntervals).toEqual([]);
+    });
+
+    it('VALID_PAUSE_SOURCES accepts every declared PauseSource union member, and rejects an unknown one', () => {
+      const ALL_SOURCES: Record<PauseSource, true> = {
+        'recording-gap': true,
+        'merged-segment': true,
+        'zero-advance-pause': true,
+        'covered-creep': true,
+      };
+      const members = Object.keys(ALL_SOURCES) as PauseSource[];
+      expect(members).toHaveLength(4); // sanity: the union has exactly 4 members today
+
+      for (const source of members) {
+        const entry = {
+          source,
+          pauseClass: 'stationary' as const,
+          startSec: 0,
+          endSec: 5,
+          seconds: 5,
+          metres: 10,
+          startMetres: 0,
+        };
+        const doc = { ...validShard, pauseIntervals: [entry] };
+        const result = parsePaceQualityShard(doc);
+        expect(result?.pauseIntervals).toEqual([entry]);
+      }
+
+      const bogusDoc = {
+        ...validShard,
+        pauseIntervals: [
+          { source: 'fabricated-fifth', pauseClass: 'stationary', startSec: 0, endSec: 5, seconds: 5, metres: 10, startMetres: 0 },
+        ],
+      };
+      expect(parsePaceQualityShard(bogusDoc)?.pauseIntervals).toEqual([]);
     });
   });
 });
