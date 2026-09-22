@@ -186,6 +186,37 @@ own instruction not to invent a browser row for a claim that isn't rendered.
 
 ---
 
+### Orchestrator pre-read of the served build (2026-09-22, before the human walk-through)
+
+The Chrome extension was not connected to the session, so the DOM could not be driven. Instead the
+SERVED build was read back through the browser-side code it ships: `createIndexClient({ baseUrl:
+'http://127.0.0.1:4180/data/' }).loadIndex()`, `parsePaceQualityShard` on the served shard,
+`qualityBadgeSpecs`, `qualitySignalsSectionPlan`, `coverageCaptionText(classifyGaps(t, d))`,
+`buildChannelSeries`, `computePaceDistribution`, `computeSplits` + `splitGapAnnotations` +
+`dominantGapKindLabel` — all imported from `dist/`, all fed only by HTTP fetches from
+`127.0.0.1:4180`. Served digests were verified equal to the built tree first (`index-B3Etra57.js`
+`7aa210d4…`, `index.json` `3b3a65dd…`, shard `3475740390.json` `3bfa98f1…`; `Cache-Control:
+no-store`). This is render-plan evidence, not a rendered-pixel verdict: hover tooltips and copy
+judgement remain the developer's (R1–R4, R14, and the visual half of R15).
+
+| row | served read-back | vs. expected |
+|---|---|---|
+| R1 | `buildChannelSeries` fastest **173.01 s/km = 2:53/km**; 0 points in 0:30–0:40; with `clipAtGaps:false` the fastest becomes **1:37/km** (215 samples differ) | match; CAN FAIL shown |
+| R2 | fastest **231.21 s/km = 3:51/km**; 0 points in 0:30–0:40; unclipped **1:30/km** (62 differ) | match; CAN FAIL shown |
+| R3 | chart fastest **160.00 s/km = 2:40/km**; histogram fastest populated bucket edge 150 (raw min 160.00); unclipped chart fastest **2:50/km** (53 differ), unclipped histogram edge 165. **Nuance:** the 70–100 s/km band count is 0 with clipping ON *and* OFF — at the chart's 20-s window the five 2–5 s jumps (raw 70–100 s/km at 1 s) never surface as a windowed sample, so the band scan alone cannot fail; the extent value (2:40 vs 2:50) is the load-bearing assertion, consistent with 33-06's histogram proof resting on `bucketedSec ≤ coveredSec` | match on extent; band half of the row is not a discriminator |
+| R4 | 2,545 chart points, 0 null samples, `unreliableSec 0`, fastest 3:46/km, full 42.6-min span | match |
+| R5 | split 8 `startTimeSec 2393.34`, `endTimeSec 2684.46`, annotation `{recordingGapSec 14, pauseSec 0, unreliableSec 12}`, `dominantGapKindLabel` → **`unreliable segment`**; annotated splits 7:UG 8:UG 10:G 11:G | match |
+| R6 | `82% of elapsed time covered · 1% recording gaps · 0% paused · 17% unreliable` | exact |
+| R7 | `99% of elapsed time covered · 0% recording gaps · 1% paused · 0% unreliable` | exact |
+| R8 | `98% of elapsed time covered · 2% recording gaps · 0% paused · 0% unreliable` | exact |
+| R9 | `100% of elapsed time covered · 0% recording gaps · 0% paused · 0% unreliable` (fourth term present) | exact |
+| R10 | badge **shown** `1 unreliable segment, 182 m over 0:08 (hidden pause)`; ninth row same `valueText`, evidence `First segment at 22:32; longest 0:08`, tier severe | exact |
+| R11 | badge **shown** `5 unreliable segments, 166 m over 0:15 (isolated jump)`; evidence `First segment at 39:07; longest 0:05`, tier severe | exact |
+| R12 | badge **NONE**; ninth row `16 unreliable segments, 2149 m over 12:31 (gap adjacent)`, evidence `First segment at 17:10; longest 1:50`, tier minor | exact |
+| R13 | badge **NONE**; ninth row `No unreliable segments detected`, evidence null, tier none | exact |
+| R15 | Coverage-gaps row evidence vs ninth-row count — 3475734189: `1 gap/pause interval, 1 unreliable segment; longest 0:16` vs 1; 3475740390: `5 gap/pause intervals, 5 unreliable segments; longest 0:18` vs 5; 3475724402: `2 gap/pause intervals, 16 unreliable segments; longest 1:50` vs 16 | counts agree on all three |
+
+
 ## Validation Sign-Off
 
 - [x] All tasks have an `<automated>` verify or a stated Wave 0 dependency
