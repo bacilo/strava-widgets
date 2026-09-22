@@ -12,6 +12,7 @@ import {
   INSENSITIVITY_SOURCE_ACTIVITY_ID,
   INSENSITIVITY_TOLERANCE,
   NEIGHBOURHOOD_SEC,
+  PLANT_FRACTION,
   PREDECLARED_SHAPES,
   REJECTED_SHAPES,
   VALLEY_BIN_WIDTH_MPS,
@@ -131,43 +132,115 @@ describe('planted entry', () => {
     expect(shapeG3(views).n).toBeGreaterThan(0);
   });
 
-  it('RED (HALT-1 code): every PREDECLARED_SHAPES entry and every strawman satisfies ' +
-    'planted.items === base.items + plantCount, at least G3 and strawman G do not', () => {
+  // HISTORICAL NOTE — RED evidence (recorded verbatim in 34-12-SUMMARY.md and in the "test(34-12):
+  // planted entry fails on HALT-1 planting" commit): before the fix below, calling the then-current
+  // family-wide `plantShapes(views, sourceShapes)` (count = archive |J|, plants pushed only into
+  // coveredPairs/foldedSteps/positionedAdvanceIntervals at span [0, seconds]) on this fixture gave:
+  //   G3: expected planted.items (32) === base.items (32) + plantCount (2) = 34, got 32
+  //   strawman G: expected planted.items (2) === base.items (2) + plantCount (2) = 4, got 2
+  // — G3's position-filtered population and strawman G's J population never received a plant. The
+  // fix below (proportional, per-shape planting with unconditional admission) is exercised by every
+  // test in this describe block from here on.
+
+  it('GREEN: every PREDECLARED_SHAPES entry and every strawman satisfies ' +
+    'plantedItems === baseItems + plantCount, and plantCount === ceil(PLANT_FRACTION * baseItems)', () => {
     const views = buildBaseViews(pauseBearingArchive());
     const sourceShapes = views
       .find((v) => v.id === INSENSITIVITY_SOURCE_ACTIVITY_ID)
       .J.map((iv) => ({ metres: iv.metres, seconds: iv.seconds }));
 
-    // The CURRENT (HALT-1) harness: one family-wide plant, count = archive |J|, pushed only into
-    // coveredPairs/foldedSteps/positionedAdvanceIntervals — never into J or a position-filtered
-    // population.
-    const plantResult = plantShapes(views, sourceShapes);
-    const plantCount = plantResult.plantedCount;
-    const plantedViews = plantResult.views;
+    const gFamily = runFamily('G', views, { sourceShapes });
+    const mFamily = runFamily('M', views, { sourceShapes, shippedFloor: 0.2 });
+    const wFamily = runFamily('W', views, { sourceShapes, shippedFloor: 0.2 });
 
-    const failures = [];
-    const g3Base = shapeG3(views).items;
-    const g3Planted = shapeG3(plantedViews).items;
-    if (g3Planted !== g3Base + plantCount) {
-      failures.push(
-        `G3: expected planted.items (${g3Planted}) === base.items (${g3Base}) + plantCount ` +
-          `(${plantCount}) = ${g3Base + plantCount}, got ${g3Planted}`
-      );
+    let checked = 0;
+    for (const family of [gFamily, mFamily, wFamily]) {
+      for (const row of [family.strawman, ...family.rows]) {
+        expect(row.baseItems).not.toBeNull();
+        expect(row.plantCount).toBe(Math.ceil(PLANT_FRACTION * row.baseItems));
+        expect(row.plantedItems, `${family.familyId ?? ''} ${row.id ?? 'strawman'}`).toBe(
+          row.baseItems + row.plantCount
+        );
+        checked++;
+      }
     }
+    // G(strawman+3 shapes) + M(strawman+2 shapes) + W(strawman+2 shapes) = 4 + 3 + 3 = 10 rows.
+    expect(checked).toBe(10);
+  });
 
-    const sgBase = strawmanG(views).items;
-    const sgPlanted = strawmanG(plantedViews).items;
-    if (sgPlanted !== sgBase + plantCount) {
-      failures.push(
-        `strawman G: expected planted.items (${sgPlanted}) === base.items (${sgBase}) + plantCount ` +
-          `(${plantCount}) = ${sgBase + plantCount}, got ${sgPlanted}`
-      );
-    }
+  it('PLANT_FRACTION is assigned from INSENSITIVITY_TOLERANCE, not a literal', () => {
+    expect(PLANT_FRACTION).toBe(INSENSITIVITY_TOLERANCE);
+  });
 
-    // eslint-disable-next-line no-console -- RED evidence must be visible in the SUMMARY verbatim
-    console.log('RED evidence (HALT-1 planting code):\n' + failures.join('\n'));
+  it('a shape with base items 0 receives 0 plants and evaluates FAIL (null base)', () => {
+    // buildClearArchive() has NO zero-advance pause anywhere, so G3's base population is empty.
+    const views = buildBaseViews(buildClearArchive());
+    const sourceShapes = views
+      .find((v) => v.id === INSENSITIVITY_SOURCE_ACTIVITY_ID)
+      .J.map((iv) => ({ metres: iv.metres, seconds: iv.seconds }));
+    const gFamily = runFamily('G', views, { sourceShapes });
+    const g3Row = gFamily.rows.find((r) => r.id === 'G3');
+    expect(g3Row.baseItems).toBe(0);
+    expect(g3Row.plantCount).toBe(0);
+    expect(g3Row.base).toBeNull();
+    expect(g3Row.pass).toBe(false);
+  });
 
-    expect(failures, 'HALT-1 planting defect must reproduce on G3 and strawman G').toEqual([]);
+  it('placement: a plant never lands in an activity with zero base items for that population', () => {
+    const views = buildBaseViews(pauseBearingArchive());
+    const sourceShapes = views
+      .find((v) => v.id === INSENSITIVITY_SOURCE_ACTIVITY_ID)
+      .J.map((iv) => ({ metres: iv.metres, seconds: iv.seconds }));
+    // A third, non-member activity: computable, but contributes zero cadence-silent covered pairs.
+    const nonMember = {
+      id: 'NOPAIRS',
+      computable: true,
+      t: [0, 1],
+      d: [0, 1],
+      coverage: { spanSec: 1, coveredSec: 1, recordingGapSec: 0, pauseSec: 0, unreliableSec: 0, gapIntervals: [] },
+      segments: [],
+      coveredRuns: [{ startIndex: 0, endIndex: 1 }],
+      J: [],
+      pauseIntervals: [],
+      coveredPairs: [],
+      foldedSteps: [],
+      positionedAdvanceIntervals: [],
+      plantedCreepDurations: [],
+      notClassifiableCount: 0,
+      joinViolations: 0,
+    };
+    const population = {
+      arrayKey: 'coveredPairs',
+      baseItemCount: (v) => v.coveredPairs.filter((p) => p.cadenceSilent).length,
+      buildItem: (template, sentinel) => ({
+        index: sentinel,
+        startSec: 0,
+        endSec: template.seconds,
+        metres: template.metres,
+        seconds: template.seconds,
+        speedMps: template.metres / template.seconds,
+        cadenceSilent: true,
+        planted: true,
+      }),
+    };
+    const result = plantShapes([...views, nonMember], sourceShapes, { population, count: 5 });
+    const nopairsView = result.views.find((v) => v.id === 'NOPAIRS');
+    expect(nopairsView.coveredPairs.length).toBe(0);
+    expect(result.plantedCount).toBe(5);
+  });
+
+  it('no plant carries a synthetic [0, seconds] span that a shape filters on — membership comes ' +
+    'only from the `planted` flag', () => {
+    const views = buildBaseViews(pauseBearingArchive());
+    const sourceShapes = views
+      .find((v) => v.id === INSENSITIVITY_SOURCE_ACTIVITY_ID)
+      .J.map((iv) => ({ metres: iv.metres, seconds: iv.seconds }));
+    const gFamily = runFamily('G', views, { sourceShapes });
+    const g3Row = gFamily.rows.find((r) => r.id === 'G3');
+    // G3's window filter would reject a [0, seconds] item unless it happens to sit in a pause's
+    // lead/trail window — yet plantedItems still grew by plantCount (checked above), proving
+    // admission is unconditional via the `planted` flag, not the window position.
+    expect(g3Row.plantedItems).toBe(g3Row.baseItems + g3Row.plantCount);
   });
 });
 
@@ -323,6 +396,24 @@ function buildClearArchive() {
   activities.push(buildTimeTriggered('3475734189'));
   activities.push(buildTimeTriggered('4556693525'));
   activities.push(buildControlActivity('CTRL1'));
+  return { activities, streamFileCount: activities.length, notComputable: 0 };
+}
+
+/**
+ * 20 UNIFORM background activities (no small D-10/D-12 fixtures mixed in), one literally named
+ * 3475724402. [D-19] Proportional per-shape planting round-robins evenly BY ACTIVITY ID, not
+ * weighted by each activity's own population size — mixing in `buildClearArchive`'s small
+ * (~40-sample) D-10/D-12 fixtures means those activities absorb the same plant share as a
+ * ~1200-sample background activity, contaminating them far more than 1%. This fixture keeps every
+ * member activity's own population large, so a proportional plant is genuinely negligible
+ * everywhere it lands.
+ */
+function buildInsensitiveArchive() {
+  const activities = [];
+  for (let i = 0; i < 19; i++) {
+    activities.push(buildBackgroundActivity(`ia${i}`, { gapMetres: i % 2 === 0 ? 2.0 : 45.0 }));
+  }
+  activities.push(buildBackgroundActivity(INSENSITIVITY_SOURCE_ACTIVITY_ID));
   return { activities, streamFileCount: activities.length, notComputable: 0 };
 }
 
@@ -502,80 +593,96 @@ describe('D-13 harness', () => {
     }
   });
 
-  it('plantShapes: plants round-robin by id until planted count equals archive |J|; plants carry negative sentinel indices and are cadence-silent', () => {
+  it('plantShapes: plants round-robin by id, into the given population, count clones; plants carry ' +
+    'the `planted: true` flag', () => {
     const views = buildBaseViews(buildClearArchive());
-    const jTotal = views.reduce((sum, v) => sum + (v.computable ? v.J.length : 0), 0);
     const sourceShapes = views
       .find((v) => v.id === INSENSITIVITY_SOURCE_ACTIVITY_ID)
       .J.map((iv) => ({ metres: iv.metres, seconds: iv.seconds }));
+    const population = {
+      arrayKey: 'coveredPairs',
+      baseItemCount: (v) => v.coveredPairs.filter((p) => p.cadenceSilent).length,
+      buildItem: (template, sentinel) => ({
+        index: sentinel,
+        startSec: 0,
+        endSec: template.seconds,
+        metres: template.metres,
+        seconds: template.seconds,
+        speedMps: template.metres / template.seconds,
+        cadenceSilent: true,
+        planted: true,
+      }),
+    };
 
-    const result = plantShapes(views, sourceShapes);
-    expect(result.plantedCount).toBe(jTotal);
+    const result = plantShapes(views, sourceShapes, { population, count: 7 });
+    expect(result.plantedCount).toBe(7);
 
     let plantedFound = 0;
     for (const v of result.views) {
       if (!v.computable) continue;
       for (const p of v.coveredPairs) {
-        if (p.index < 0) {
+        if (p.planted) {
           plantedFound++;
           expect(p.cadenceSilent).toBe(true);
         }
       }
     }
-    expect(plantedFound).toBe(jTotal);
+    expect(plantedFound).toBe(7);
   });
 
-  it('plantShapes: zero source shapes plants nothing', () => {
+  it('plantShapes: zero count plants nothing; zero source shapes plants nothing', () => {
     const views = buildBaseViews(buildClearArchive());
-    const result = plantShapes(views, []);
-    expect(result.plantedCount).toBe(0);
-    expect(result.views).toBe(views);
+    const population = {
+      arrayKey: 'coveredPairs',
+      baseItemCount: (v) => v.coveredPairs.length,
+      buildItem: (template, sentinel) => ({ index: sentinel, cadenceSilent: true, planted: true, ...template }),
+    };
+    const zeroCount = plantShapes(views, [{ metres: 1, seconds: 1 }], { population, count: 0 });
+    expect(zeroCount.plantedCount).toBe(0);
+    expect(zeroCount.views).toBe(views);
+
+    const zeroSource = plantShapes(views, [], { population, count: 5 });
+    expect(zeroSource.plantedCount).toBe(0);
+    expect(zeroSource.views).toBe(views);
   });
 
   describe('CAN PASS / CAN FAIL (bulk-dominated synthetic archive)', () => {
-    // Built directly from Task 1's own primitives (buildBaseViews / removeNeighbourhoods /
-    // plantShapes / evaluateShape) — this harness-level demonstration does not need runFamily or
-    // runCalibration (both Task 2 deliverables).
-    const base = buildBaseViews(buildClearArchive());
-    const gShippedFloor = null; // G itself needs no upstream floor
-    const gRemoved = removeNeighbourhoods(base, 'G', gShippedFloor).views;
+    // Built via runFamily (the real per-shape planting/removal harness, D-19) — each shape's own
+    // plant count is proportional to its own base items (D-19: no longer a single family-wide
+    // |J| plant), so EVERY member activity must itself be bulk-dominated, not just the pooled
+    // total — `buildInsensitiveArchive` (20 uniform background activities, no small D-10/D-12
+    // fixtures mixed in) is deliberately different from `buildClearArchive` for this reason.
+    const base = buildBaseViews(buildInsensitiveArchive());
     const sourceShapes = base
       .find((v) => v.id === INSENSITIVITY_SOURCE_ACTIVITY_ID)
       .J.map((iv) => ({ metres: iv.metres, seconds: iv.seconds }));
-    const gPlanted = plantShapes(base, sourceShapes).views;
 
+    const gFamily = runFamily('G', base, { sourceShapes });
     const mShippedFloor = 0.124; // the archive's own derived G value (see "reference shape" above)
-    const mRemoved = removeNeighbourhoods(base, 'M', mShippedFloor).views;
-    const mPlanted = plantShapes(base, sourceShapes).views;
-
-    const wCtx = { lo: mShippedFloor, hi: UNRELIABLE_SPEED_LIMIT_MPS };
-    const wRemoved = removeNeighbourhoods(base, 'W', mShippedFloor).views;
-    const wPlanted = plantShapes(base, sourceShapes).views;
+    const mFamily = runFamily('M', base, { sourceShapes, shippedFloor: mShippedFloor });
+    const wFamily = runFamily('W', base, { sourceShapes, shippedFloor: mShippedFloor });
 
     it('CAN PASS: G1, M1 and W1 each PASS on the bulk-dominated archive', () => {
-      const g1 = evaluateShape(shapeG1, { base, removed: gRemoved, planted: gPlanted }, { tolerance: INSENSITIVITY_TOLERANCE });
-      const m1 = evaluateShape(shapeM1, { base, removed: mRemoved, planted: mPlanted }, { tolerance: INSENSITIVITY_TOLERANCE });
-      const w1 = evaluateShape(shapeW1, { base, removed: wRemoved, planted: wPlanted }, { tolerance: INSENSITIVITY_TOLERANCE, ctx: wCtx });
+      const g1 = gFamily.rows.find((r) => r.id === 'G1');
+      const m1 = mFamily.rows.find((r) => r.id === 'M1');
+      const w1 = wFamily.rows.find((r) => r.id === 'W1');
       expect(g1.pass).toBe(true);
       expect(m1.pass).toBe(true);
       expect(w1.pass).toBe(true);
     });
 
     it('CAN FAIL: every strawman FAILs on the same archive (removal empties its own population)', () => {
-      const sg = evaluateShape(strawmanG, { base, removed: gRemoved, planted: gPlanted }, { tolerance: INSENSITIVITY_TOLERANCE });
-      expect(sg.base).not.toBeNull();
-      expect(sg.removed).toBeNull();
-      expect(sg.pass).toBe(false);
+      expect(gFamily.strawman.base).not.toBeNull();
+      expect(gFamily.strawman.removed).toBeNull();
+      expect(gFamily.strawman.pass).toBe(false);
 
-      const sm = evaluateShape(strawmanM, { base, removed: mRemoved, planted: mPlanted }, { tolerance: INSENSITIVITY_TOLERANCE, ctx: { shippedFloor: mShippedFloor } });
-      expect(sm.base).not.toBeNull();
-      expect(sm.removed).toBeNull();
-      expect(sm.pass).toBe(false);
+      expect(mFamily.strawman.base).not.toBeNull();
+      expect(mFamily.strawman.removed).toBeNull();
+      expect(mFamily.strawman.pass).toBe(false);
 
-      const sw = evaluateShape(strawmanW, { base, removed: wRemoved, planted: wPlanted }, { tolerance: INSENSITIVITY_TOLERANCE, ctx: wCtx });
-      expect(sw.base).not.toBeNull();
-      expect(sw.removed).toBeNull();
-      expect(sw.pass).toBe(false);
+      expect(wFamily.strawman.base).not.toBeNull();
+      expect(wFamily.strawman.removed).toBeNull();
+      expect(wFamily.strawman.pass).toBe(false);
     });
   });
 });
@@ -602,7 +709,10 @@ describe('shape arbitration', () => {
 
   it('runFamily returns { strawman, rows, chosen } with chosen = first PASS or null', () => {
     const views = buildBaseViews(buildClearArchive());
-    const family = runFamily('G', views, { plantedViews: views });
+    const sourceShapes = views
+      .find((v) => v.id === INSENSITIVITY_SOURCE_ACTIVITY_ID)
+      .J.map((iv) => ({ metres: iv.metres, seconds: iv.seconds }));
+    const family = runFamily('G', views, { sourceShapes });
     expect(family).toHaveProperty('strawman');
     expect(family).toHaveProperty('rows');
     expect(family.rows.length).toBe(3);

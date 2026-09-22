@@ -10,6 +10,13 @@
  * on argument, before any measurement — if the implementation and that text ever disagree, the text
  * wins and this file is the bug.
  *
+ * [AMENDED 2026-09-22 — D-19, plan 34-12.] Family G is re-declared (G4/G5, "standstill episodes")
+ * per 34-12-PLAN.md's <predeclared_shapes_amendment>, and the D-13 PLANTED perturbation is now
+ * proportional (`ceil(PLANT_FRACTION x the shape's own base items)`, uniform across G/M/W) rather
+ * than a fixed `|J|` count — see `PLANT_FRACTION` and `plantShapes` below. HALT-1's vacuous planted
+ * rows (`34-06-HALT-1.md`) are fixed here: every plant now enters its shape's own population
+ * unconditionally.
+ *
  * This generator is never run against the real archive in this plan (D-08: no peeking). `main()` is
  * gated behind the standard self-execution guard at the bottom so
  * compute-pause-classification-calibration.test.mjs can import every pure function without
@@ -65,6 +72,13 @@ const REGENERATE_COMMAND = 'npm run compute-pause-classification-calibration';
 /** D-13's tolerance, fixed before any check runs. */
 export const INSENSITIVITY_TOLERANCE = 0.01;
 
+/**
+ * [D-19, plan 34-12] The PLANTED perturbation's fraction, ASSIGNED from the tolerance itself, never
+ * a literal — a plant count of `ceil(PLANT_FRACTION x N)` asks exactly "does a leak equal to the
+ * tolerance move the statistic by more than the tolerance?", no free number.
+ */
+export const PLANT_FRACTION = INSENSITIVITY_TOLERANCE;
+
 /** The neighbourhood width, reused from the imported recording-gap threshold — never a literal 10. */
 export const NEIGHBOURHOOD_SEC = RECORDING_GAP_ABS_THRESHOLD_SEC;
 
@@ -89,7 +103,9 @@ function sortAsc(values) {
  * zero-advance pause intervals, every covered pair (with cadence-silence when both endpoint samples
  * carry a finite cadence of exactly 0), the folded covered steps (`advanceSteps` over ALL THREE
  * gapIntervals kinds), and the positioned advance intervals — asserted (throws on mismatch) to equal
- * the imported `advanceIntervals(t, d)` as a sorted multiset.
+ * the imported `advanceIntervals(t, d)` as a sorted multiset. `plantedCreepDurations` starts empty —
+ * it exists only so `plantShapes` can plant unconditionally into strawman M's own duration
+ * population, which (unlike every other shape) is not itself a stored view array (D-19).
  */
 export function buildBaseViews(archive) {
   const views = [];
@@ -167,6 +183,7 @@ export function buildBaseViews(archive) {
       coveredPairs,
       foldedSteps,
       positionedAdvanceIntervals,
+      plantedCreepDurations: [],
       notClassifiableCount: collected.notClassifiableCount,
       joinViolations: collected.joinViolations,
     });
@@ -184,13 +201,14 @@ function intersectsAny(startSec, endSec, neighbourhoods) {
 }
 
 /**
- * A creep candidate (REMOVED view, M family, and STRAWMAN M's own population): a maximal run of
- * consecutive covered pairs (contiguous `index`) each with pair speed `<= floor`, of any duration.
- * `floor === null` (upstream G HALT) returns no candidates.
+ * A creep candidate (REMOVED view, M family, and STRAWMAN M's own real-item population): a maximal
+ * run of consecutive covered pairs (contiguous `index`) each with pair speed `<= floor`, of any
+ * duration. `floor === null` (upstream G HALT) returns no candidates. Never includes planted items —
+ * those are unconditional, in `plantedCreepDurations` (D-19).
  */
 function creepCandidates(coveredPairs, floor) {
   if (floor === null || floor === undefined) return [];
-  const sorted = [...coveredPairs].sort((a, b) => a.index - b.index);
+  const sorted = [...coveredPairs].filter((p) => !p.planted).sort((a, b) => a.index - b.index);
   const candidates = [];
   let current = null;
   for (const p of sorted) {
@@ -260,10 +278,10 @@ export function removeNeighbourhoods(views, family, shippedFloor) {
       );
       removedCount += view.positionedAdvanceIntervals.length - keptAdvance.length;
       if (keptAdvance.length !== view.positionedAdvanceIntervals.length) changed = true;
-      // STRAWMAN M's population (creep-candidate durations) is recomputed from coveredPairs — drop
-      // exactly the covered pairs that FORMED each candidate (a candidate's own pairs trivially
-      // intersect its own padded neighbourhood), so recomputing candidates on the kept pairs finds
-      // none there — the same trivial self-emptying property as G/W above.
+      // STRAWMAN M's own real-item population (creep-candidate durations) is recomputed from
+      // coveredPairs — drop exactly the covered pairs that FORMED each candidate (a candidate's own
+      // pairs trivially intersect its own padded neighbourhood), so recomputing candidates on the
+      // kept pairs finds none there — the same trivial self-emptying property as G/W above.
       const keptPairs = view.coveredPairs.filter((p) => !intersectsAny(p.startSec, p.endSec, neighbourhoods));
       removedCount += view.coveredPairs.length - keptPairs.length;
       if (keptPairs.length !== view.coveredPairs.length) changed = true;
@@ -278,61 +296,48 @@ export function removeNeighbourhoods(views, family, shippedFloor) {
 }
 
 /**
- * PLANTED perturbation (D-13 harness, all families at once): clones `sourceShapes` (every J
- * interval's `{ metres, seconds }` on 3475724402) round-robin into activities sorted by id until the
- * planted count equals the archive-wide `|J|`. Each plant enters coveredPairs (cadence-silent),
- * foldedSteps and positionedAdvanceIntervals of its target activity — one item per population, per
- * plant — with negative sentinel indices so it can never be index-contiguous with a real item.
+ * [D-19, plan 34-12] PLANTED perturbation (D-13 harness): plants `count` clones of `sourceShapes`
+ * ({ metres, seconds } of every J interval on 3475724402, cycled in order) round-robin into
+ * `population.arrayKey` of every activity, sorted by id, that CONTRIBUTES AT LEAST ONE BASE ITEM to
+ * that population per `population.baseItemCount` — a leak enters a population where it lives. Every
+ * plant is `planted: true`, built by `population.buildItem`, and enters that population
+ * UNCONDITIONALLY: no shape may filter it out by position, cadence or adjacency (this generalises
+ * 34-04's "treated as cadence-silent (worst case)"). `count === 0` or zero member activities plants
+ * nothing. Replaces 34-04's family-wide `plantShapes(views, sourceShapes)` (HALT-1's own defect:
+ * plants at span `[0, seconds]` pushed only into coveredPairs/foldedSteps/positionedAdvanceIntervals,
+ * so they never reached G3's window-filtered population or strawman G/W's J population — both
+ * planted rows tested nothing).
  */
-export function plantShapes(views, sourceShapes) {
-  const jTotal = views.reduce((sum, v) => sum + (v.computable ? v.J.length : 0), 0);
-  const computableIds = views.filter((v) => v.computable).map((v) => v.id).sort();
+export function plantShapes(views, sourceShapes, { population, count } = {}) {
+  if (!population || !count || sourceShapes.length === 0) {
+    return { views, plantedCount: 0, sourceShapeCount: sourceShapes.length };
+  }
 
-  if (sourceShapes.length === 0 || computableIds.length === 0 || jTotal === 0) {
+  const memberIds = views
+    .filter((v) => v.computable && population.baseItemCount(v) > 0)
+    .map((v) => v.id)
+    .sort();
+
+  if (memberIds.length === 0) {
     return { views, plantedCount: 0, sourceShapeCount: sourceShapes.length };
   }
 
   const byId = new Map(
     views.map((v) => [
       v.id,
-      v.computable
-        ? {
-            ...v,
-            coveredPairs: v.coveredPairs.slice(),
-            foldedSteps: v.foldedSteps.slice(),
-            positionedAdvanceIntervals: v.positionedAdvanceIntervals.slice(),
-          }
-        : v,
+      v.computable ? { ...v, [population.arrayKey]: v[population.arrayKey].slice() } : v,
     ])
   );
 
   let plantedCount = 0;
   let cursor = 0;
-  while (plantedCount < jTotal) {
-    const targetId = computableIds[cursor % computableIds.length];
+  while (plantedCount < count) {
+    const targetId = memberIds[cursor % memberIds.length];
     const template = sourceShapes[plantedCount % sourceShapes.length];
     const target = byId.get(targetId);
     const sentinel = -(plantedCount + 1);
-    const speed = template.metres / template.seconds;
 
-    target.coveredPairs.push({
-      index: sentinel,
-      startSec: 0,
-      endSec: template.seconds,
-      metres: template.metres,
-      seconds: template.seconds,
-      speedMps: speed,
-      cadenceSilent: true,
-    });
-    target.foldedSteps.push({
-      startIndex: sentinel,
-      endIndex: sentinel,
-      startSec: 0,
-      endSec: template.seconds,
-      metres: template.metres,
-      seconds: template.seconds,
-    });
-    target.positionedAdvanceIntervals.push({ seconds: template.seconds, startSec: 0, endSec: template.seconds });
+    target[population.arrayKey].push(population.buildItem(template, sentinel));
 
     plantedCount++;
     cursor++;
@@ -349,7 +354,8 @@ export function plantShapes(views, sourceShapes) {
  * D-13's two-direction insensitivity check for one shape's `fn`, over already-built base/removed/
  * planted view arrays. `pass` requires BOTH relative deltas (raw, unrounded) to clear `tolerance`; a
  * null/zero base or a null perturbed value is FAIL (an emptied population is the most extreme
- * sensitivity there is).
+ * sensitivity there is). Also threads through each call's `items` (the pre-qualification count in
+ * the shape's plant unit, D-19) as `baseItems`/`plantedItems`.
  */
 export function evaluateShape(fn, { base, removed, planted }, { tolerance, ctx } = {}) {
   const baseResult = fn(base, ctx);
@@ -408,8 +414,6 @@ export function shapeG1(views) {
     for (const p of v.coveredPairs) if (p.cadenceSilent) speeds.push(p.speedMps);
   }
   const sorted = sortAsc(speeds);
-  // items (D-19, additive): the pooled cadence-silent pair count — G1 has no per-activity threshold,
-  // so this equals `n` exactly.
   return { value: sorted.length === 0 ? null : quantile(sorted, 0.9), n: sorted.length, excluded: 0, items: sorted.length };
 }
 
@@ -426,8 +430,8 @@ export function shapeG2(views) {
     perActivity.push(quantile(sortAsc(silentSpeeds), 0.5));
   }
   const sorted = sortAsc(perActivity);
-  // items (D-19, additive): the pooled cadence-silent pair count BEFORE the per-activity >=30
-  // threshold — the same pooled population G1 reads, not the qualifying-activity count `n` above.
+  // items (D-19): the pooled cadence-silent pair count BEFORE the per-activity >=30 threshold —
+  // i.e. the same pooled population G1 reads, not the qualifying-activity count `n` above.
   return { value: sorted.length === 0 ? null : quantile(sorted, 0.9), n: sorted.length, excluded, items: countCadenceSilentPairs(views) };
 }
 
@@ -435,12 +439,18 @@ export function shapeG3(views) {
   const speeds = [];
   for (const v of views) {
     if (!v.computable) continue;
+    // Plants are admitted unconditionally, bypassing the position window entirely (D-19) — pushed
+    // into coveredPairs by the G3 `plantInto` population, flagged `planted: true`.
+    for (const p of v.coveredPairs) {
+      if (p.planted) speeds.push(p.speedMps);
+    }
     for (const pause of v.pauseIntervals) {
       const leadStart = pause.startSec - NEIGHBOURHOOD_SEC;
       const leadEnd = pause.startSec;
       const trailStart = pause.endSec;
       const trailEnd = pause.endSec + NEIGHBOURHOOD_SEC;
       for (const p of v.coveredPairs) {
+        if (p.planted) continue; // already admitted above, unconditionally — avoid double-count
         const inLead = p.startSec >= leadStart && p.endSec <= leadEnd;
         const inTrail = p.startSec >= trailStart && p.endSec <= trailEnd;
         if (inLead || inTrail) speeds.push(p.speedMps);
@@ -448,8 +458,6 @@ export function shapeG3(views) {
     }
   }
   const sorted = sortAsc(speeds);
-  // items (D-19, additive): the pooled run-in pair count — G3 has no per-activity threshold, so
-  // this equals `n` exactly.
   return { value: sorted.length === 0 ? null : quantile(sorted, 0.5), n: sorted.length, excluded: 0, items: sorted.length };
 }
 
@@ -510,12 +518,23 @@ export function shapeM2(views) {
 export function strawmanM(views, ctx) {
   const floor = ctx && ctx.shippedFloor;
   const durations = [];
+  let baseItemCount = 0;
   for (const v of views) {
     if (!v.computable) continue;
-    for (const c of creepCandidates(v.coveredPairs, floor)) durations.push(c.seconds);
+    const candidates = creepCandidates(v.coveredPairs, floor);
+    baseItemCount += candidates.length;
+    for (const c of candidates) durations.push(c.seconds);
+    // Plants (D-19) enter via `plantedCreepDurations`, unconditionally — never filtered by the
+    // `speedMps <= floor` creep-candidate rule.
+    for (const p of v.plantedCreepDurations ?? []) durations.push(p.seconds);
   }
   const sorted = sortAsc(durations);
-  return { value: sorted.length === 0 ? null : quantile(sorted, 0.9), n: sorted.length, excluded: 0, items: sorted.length };
+  return {
+    value: sorted.length === 0 ? null : quantile(sorted, 0.9),
+    n: sorted.length,
+    excluded: 0,
+    items: baseItemCount + views.reduce((sum, v) => sum + (v.computable ? (v.plantedCreepDurations ?? []).length : 0), 0),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -612,6 +631,74 @@ export function strawmanW(views, ctx) {
 }
 
 // ---------------------------------------------------------------------------
+// PLANT populations — where each shape's plants live (D-19)
+// ---------------------------------------------------------------------------
+
+const COVERED_PAIR_POPULATION = Object.freeze({
+  arrayKey: 'coveredPairs',
+  baseItemCount: (v) => v.coveredPairs.filter((p) => p.cadenceSilent).length,
+  buildItem: (template, sentinel) => ({
+    index: sentinel,
+    startSec: 0,
+    endSec: template.seconds,
+    metres: template.metres,
+    seconds: template.seconds,
+    speedMps: template.metres / template.seconds,
+    cadenceSilent: true,
+    planted: true,
+  }),
+});
+
+const M_POPULATION = Object.freeze({
+  arrayKey: 'positionedAdvanceIntervals',
+  baseItemCount: (v) => v.positionedAdvanceIntervals.length,
+  buildItem: (template, sentinel) => ({
+    seconds: template.seconds,
+    startSec: 0,
+    endSec: template.seconds,
+    planted: true,
+    sentinel,
+  }),
+});
+
+const W_POPULATION = Object.freeze({
+  arrayKey: 'foldedSteps',
+  baseItemCount: (v) => v.foldedSteps.length,
+  buildItem: (template, sentinel) => ({
+    startIndex: sentinel,
+    endIndex: sentinel,
+    startSec: 0,
+    endSec: template.seconds,
+    metres: template.metres,
+    seconds: template.seconds,
+    planted: true,
+  }),
+});
+
+const J_POPULATION = Object.freeze({
+  arrayKey: 'J',
+  baseItemCount: (v) => v.J.length,
+  buildItem: (template, sentinel) => ({
+    source: 'planted',
+    startSec: 0,
+    endSec: template.seconds,
+    seconds: template.seconds,
+    metres: template.metres,
+    speedMps: template.metres / template.seconds,
+    planted: true,
+    sentinel,
+  }),
+});
+
+function creepDurationPopulation(shippedFloor) {
+  return Object.freeze({
+    arrayKey: 'plantedCreepDurations',
+    baseItemCount: (v) => creepCandidates(v.coveredPairs, shippedFloor).length,
+    buildItem: (template, sentinel) => ({ seconds: template.seconds, planted: true, sentinel }),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // PREDECLARED_SHAPES / REJECTED_SHAPES — prose copied from 34-04-PLAN.md verbatim in spirit
 // ---------------------------------------------------------------------------
 
@@ -630,6 +717,7 @@ export const PREDECLARED_SHAPES = Object.freeze({
       id: 'G1',
       name: 'cadence-silent covered pairs, pooled',
       fn: shapeG1,
+      population: COVERED_PAIR_POPULATION,
       meaning:
         "90% of the odometer's advance rate while the athlete takes no steps sits at or below it. " +
         'Above that, something is moving.',
@@ -645,6 +733,7 @@ export const PREDECLARED_SHAPES = Object.freeze({
       id: 'G2',
       name: 'cadence-silent covered pairs, per activity',
       fn: shapeG2,
+      population: COVERED_PAIR_POPULATION,
       meaning:
         'Guards criterion (2): a few long cadence-silent activities cannot dominate the pooled G1 ' +
         'statistic.',
@@ -655,6 +744,7 @@ export const PREDECLARED_SHAPES = Object.freeze({
       id: 'G3',
       name: 'pause-boundary run-in',
       fn: shapeG3,
+      population: COVERED_PAIR_POPULATION,
       meaning:
         'The speed of covered pairs immediately bracketing an established zero-advance pause interval.',
       nonCircularity:
@@ -670,6 +760,7 @@ export const PREDECLARED_SHAPES = Object.freeze({
       id: 'M1',
       name: 'pause-rule scale, conservative',
       fn: shapeM1,
+      population: M_POPULATION,
       meaning:
         "A creep standstill is recognised at the duration the archive's own zero-advance pause rule " +
         'recognises a standstill, for all but the sparsest-sampled tenth of activities. One duration ' +
@@ -683,6 +774,7 @@ export const PREDECLARED_SHAPES = Object.freeze({
       id: 'M2',
       name: 'pause-rule scale, typical',
       fn: shapeM2,
+      population: M_POPULATION,
       meaning: 'The same population, at a typical (not conservative) scale.',
       nonCircularity: 'As M1.',
       caveat: 'Ranks second on criterion (2): typical, not conservative.',
@@ -693,6 +785,7 @@ export const PREDECLARED_SHAPES = Object.freeze({
       id: 'W1',
       name: 'covered time by speed',
       fn: shapeW1,
+      population: W_POPULATION,
       meaning: "The valley in the athlete's own covered-time speed distribution, time-weighted.",
       nonCircularity:
         "Covered steps exclude every J interval, pause and unreliable segment by construction (D-06: " +
@@ -703,6 +796,7 @@ export const PREDECLARED_SHAPES = Object.freeze({
       id: 'W2',
       name: 'covered steps by speed',
       fn: shapeW2,
+      population: W_POPULATION,
       meaning: 'The same valley, count-weighted rather than time-weighted.',
       nonCircularity: 'As W1.',
       caveat:
@@ -726,7 +820,11 @@ export const REJECTED_SHAPES = Object.freeze([
   'W (rejected on argument): a cadence-split anchor, which needs its own uncalibrated cadence constant.',
 ]);
 
-const STRAWMEN = { G: strawmanG, M: strawmanM, W: strawmanW };
+const STRAWMEN = Object.freeze({
+  G: Object.freeze({ fn: strawmanG, population: J_POPULATION }),
+  M: Object.freeze({ fn: strawmanM, population: (ctx) => creepDurationPopulation(ctx && ctx.shippedFloor) }),
+  W: Object.freeze({ fn: strawmanW, population: J_POPULATION }),
+});
 
 // ---------------------------------------------------------------------------
 // Arbitration
@@ -736,10 +834,13 @@ const STRAWMEN = { G: strawmanG, M: strawmanM, W: strawmanW };
  * Evaluates one family's strawman (first) then every pre-declared shape in fixed order, and selects
  * the first PASS via `selectShape`, fed ONLY `{ id, pass }` rows — nothing else can reach it.
  * `upstream.shippedFloor` is the rounded G value (required for M/W; unused for G itself).
+ * `upstream.sourceShapes` (D-19) is 3475724402's own J-interval `{ metres, seconds }` shapes — the
+ * SAME source list every family/shape reads, cycled in order, cloned proportionally to EACH shape's
+ * own base item count (`ceil(PLANT_FRACTION x items)`) — never a single family-wide plant.
  */
 export function runFamily(familyId, views, upstream = {}) {
   const shippedFloor = upstream.shippedFloor ?? null;
-  const plantedViews = upstream.plantedViews ?? views;
+  const sourceShapes = upstream.sourceShapes ?? [];
   const removedResult = removeNeighbourhoods(views, familyId, shippedFloor);
   const ctx =
     familyId === 'M'
@@ -748,17 +849,27 @@ export function runFamily(familyId, views, upstream = {}) {
         ? { lo: shippedFloor, hi: UNRELIABLE_SPEED_LIMIT_MPS }
         : undefined;
 
-  const viewSets = { base: views, removed: removedResult.views, planted: plantedViews };
-  const strawman = evaluateShape(STRAWMEN[familyId], viewSets, { tolerance: INSENSITIVITY_TOLERANCE, ctx });
+  function evalEntry(id, fn, populationSpec, extra) {
+    const population = typeof populationSpec === 'function' ? populationSpec(ctx) : populationSpec;
+    const baseResult = fn(views, ctx);
+    const plantCount = Math.ceil(PLANT_FRACTION * (baseResult.items ?? 0));
+    const plantResult = plantShapes(views, sourceShapes, { population, count: plantCount });
+    const viewSets = { base: views, removed: removedResult.views, planted: plantResult.views };
+    const evaluated = evaluateShape(fn, viewSets, { tolerance: INSENSITIVITY_TOLERANCE, ctx });
+    return { id, plantCount, ...extra, ...evaluated };
+  }
 
-  const rows = PREDECLARED_SHAPES[familyId].map((shape) => ({
-    id: shape.id,
-    name: shape.name,
-    meaning: shape.meaning,
-    nonCircularity: shape.nonCircularity,
-    caveat: shape.caveat,
-    ...evaluateShape(shape.fn, viewSets, { tolerance: INSENSITIVITY_TOLERANCE, ctx }),
-  }));
+  const strawmanSpec = STRAWMEN[familyId];
+  const strawman = evalEntry(`strawman ${familyId}`, strawmanSpec.fn, strawmanSpec.population, {});
+
+  const rows = PREDECLARED_SHAPES[familyId].map((shape) =>
+    evalEntry(shape.id, shape.fn, shape.population, {
+      name: shape.name,
+      meaning: shape.meaning,
+      nonCircularity: shape.nonCircularity,
+      caveat: shape.caveat,
+    })
+  );
 
   const selectedId = selectShape(rows.map((r) => ({ id: r.id, pass: r.pass })));
   const chosen = selectedId === null ? null : rows.find((r) => r.id === selectedId);
@@ -1111,16 +1222,17 @@ function jShapesForActivity(views, id) {
 
 /**
  * Runs the whole pipeline (pure — no I/O beyond what `archive`/`controlText` already carry): builds
- * base views once, plants once (family-independent), runs G then M then W in the fixed order — a G
- * HALT skips M and W entirely — then, only if all three families cleared, applies the gates and
- * computes the per-interval table and archive-wide findings.
+ * base views once, runs G then M then W in the fixed order — a G HALT skips M and W entirely — then,
+ * only if all three families cleared, applies the gates and computes the per-interval table and
+ * archive-wide findings. [D-19, plan 34-12] The D-13 PLANTED perturbation is now per-shape (built
+ * inside `runFamily`, proportional to each shape's own base items), never a single family-wide plant
+ * built once here.
  */
 export function runCalibration(archive, controlText) {
   const baseViews = buildBaseViews(archive);
   const sourceShapes = jShapesForActivity(baseViews, INSENSITIVITY_SOURCE_ACTIVITY_ID);
-  const plantResult = plantShapes(baseViews, sourceShapes);
 
-  const gFamily = runFamily('G', baseViews, { plantedViews: plantResult.views });
+  const gFamily = runFamily('G', baseViews, { sourceShapes });
   const gHalted = gFamily.chosen === null;
   const shippedG = gHalted ? null : ceilToSignificant(gFamily.chosen.base, 3);
 
@@ -1132,11 +1244,11 @@ export function runCalibration(archive, controlText) {
   let wHalted = true;
 
   if (!gHalted) {
-    mFamily = runFamily('M', baseViews, { plantedViews: plantResult.views, shippedFloor: shippedG });
+    mFamily = runFamily('M', baseViews, { sourceShapes, shippedFloor: shippedG });
     mHalted = mFamily.chosen === null;
     shippedM = mHalted ? null : Math.ceil(mFamily.chosen.base);
 
-    wFamily = runFamily('W', baseViews, { plantedViews: plantResult.views, shippedFloor: shippedG });
+    wFamily = runFamily('W', baseViews, { sourceShapes, shippedFloor: shippedG });
     wHalted = wFamily.chosen === null;
     shippedW = wHalted ? null : ceilToSignificant(wFamily.chosen.base, 3);
   }
@@ -1172,7 +1284,6 @@ export function runCalibration(archive, controlText) {
   return {
     archive,
     baseViews,
-    plantResult,
     sourceShapes,
     families: { G: gFamily, M: mFamily, W: wFamily },
     shipped,
@@ -1228,14 +1339,14 @@ function renderShapeRow(id, r) {
   return (
     `| ${id} | ${r.baseN} | ${fmtNum(r.base)} | ${fmtNum(r.removed)} (${r.removedN}) | ` +
     `${fmtPct(r.removedDelta)} | ${fmtNum(r.planted)} (${r.plantedN}) | ${fmtPct(r.plantedDelta)} | ` +
-    `${r.pass ? 'PASS' : 'FAIL'} |`
+    `${r.plantCount ?? '—'} | ${r.pass ? 'PASS' : 'FAIL'} |`
   );
 }
 
 function renderShapeTable(rows) {
   const lines = [
-    '| id | n | base | removed (n) | removedDelta | planted (n) | plantedDelta | Verdict |',
-    '|---|---|---|---|---|---|---|---|',
+    '| id | n | base | removed (n) | removedDelta | planted (n) | plantedDelta | plants | Verdict |',
+    '|---|---|---|---|---|---|---|---|---|',
   ];
   for (const r of rows) lines.push(renderShapeRow(r.id, r));
   return lines.join('\n');
@@ -1569,7 +1680,7 @@ function newestActivityStartDate(activitiesDir) {
 }
 
 function main() {
-  console.log('Computing the pause-classification / forgotten-stop calibration (plan 34-04)...\n');
+  console.log('Computing the pause-classification / forgotten-stop calibration (plan 34-04, amended 34-12)...\n');
 
   let archive;
   try {
