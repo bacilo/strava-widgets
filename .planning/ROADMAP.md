@@ -272,7 +272,7 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5)*
 
-- [ ] 34-06-PLAN.md — measured calibration run (strawman RED first, M arbitrates, gates) and constants shipped from the artifact, or HALT (fourth run: G and W declared per D-20/D-21, M still calibrated)
+- [x] 34-06-PLAN.md — measured calibration run (strawman RED first, M arbitrates, gates) and constants shipped from the artifact, or HALT (fourth run: G and W declared per D-20/D-21, M still calibrated)
 
 **Wave 7** *(blocked on Wave 6)*
 
@@ -380,7 +380,7 @@ Plans:
 | 31. Tech-Debt Closure — Silent-Failure Guards & Docs Reconciliation | v2.2 | 10/10 | Complete    | 2026-09-19 |
 | 32. Unreliable-Segment Detection & Calibration | v2.3 | 17/17 | Complete    | 2026-09-20 |
 | 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 14/14 | Complete    | 2026-09-22 |
-| 34. Pause Classification & Forgotten-Stop | v2.3 | 8/14 | In Progress|  |
+| 34. Pause Classification & Forgotten-Stop | v2.3 | 9/14 | In Progress|  |
 | 35. Stream-Derived Running Pace | v2.3 | 0/TBD | Not started | - |
 | 36. Best-Effort Clean-Window Search & Ceiling Recalibration | v2.3 | 0/TBD | Not started | - |
 | 37. Review-Queue Priority & CUR-04 | v2.3 | 0/TBD | Not started | - |
