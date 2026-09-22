@@ -86,6 +86,139 @@ export interface ClassifiedPauseInterval extends PauseInterval {
 }
 
 // ---------------------------------------------------------------------------
+// Shipped calibrated constants (plan 34-06's fourth real-archive run)
+//
+// Every value below is SHIPPED FROM `34-CALIBRATION.md` — the
+// "shipped from 34-CALIBRATION" test in `pause-classification.test.ts`
+// parses that artifact's `## Chosen constants` lines and asserts each
+// export below equal to it, numerically AND character-for-character
+// against the artifact's own source-text literal, watched failing under a
+// seeded edit of either side (33-14's ship-from-artifact precedent).
+// ---------------------------------------------------------------------------
+
+/**
+ * D-06/D-07/D-08/D-20 — the stationary/walked class boundary AND (D-07)
+ * STOP-02's near-zero forgotten-stop threshold: ONE constant, one
+ * definition, never two that could disagree.
+ *
+ * DEVELOPER-DECLARED (D-20, 2026-09-22), NOT CALIBRATED. Plan 34-06's
+ * second real-archive run measured Family G's re-declared shapes (G4
+ * pooled, G5 per-activity — standstill-episode drift rate, R-7 p90) on an
+ * almost-empty population: archive-wide there are 684 standstill episodes,
+ * of which only 6 are chained (0.8772%); G4 and G5 both measured base
+ * 0.029873 m/s over that n=6, and both FAILED D-13 insensitivity on both
+ * axes (removedDelta 89.7455%, plantedDelta 3902.0881% / 1561.8912% at the
+ * mandatory minimum of 1 plant) — a population too small for any shape to
+ * clear, not a defensible-value failure. Strawman G FAILED first
+ * (plantedDelta 3.6697%), as required before any row is trusted. The
+ * developer declared 0.5 m/s (1.8 km/h) on physical grounds: far above the
+ * measured drift (~0.03 m/s) and far below the slowest developer-confirmed
+ * walking control (1.264 m/s). Family G still measures and renders G4/G5
+ * as EVIDENCE for the drift-while-stationary MEASURED NON-ISSUE finding —
+ * it never arbitrates a cut for this constant (D-20 narrows D-08 for this
+ * ONE constant only). The `d20-basis` gate re-checks the declaration
+ * against G4's live measured base on every run (0.029873 < 0.5, PASS).
+ * Rejected on argument (never measured, D-19): a low percentile of all
+ * pooled covered speeds (overlaps the walking cluster Family W judges);
+ * HR-band stillness (HR stays elevated after a stop); pause-interval
+ * interiors alone (zero-advance by definition, a degenerate zero base);
+ * G3's population restricted outside every J neighbourhood (vacuous
+ * REMOVED axis by construction); pre/post-activity stationary tails (no
+ * speed-free rule distinguishes them from the pause rule itself); chained
+ * plus single-pause standstills together (a single-pause standstill
+ * accrues 0 by construction); drift-tick pair speeds inside bridges (wrong
+ * unit — a single sample's jump, not a standing-time rate).
+ */
+export const STATIONARY_MAX_SPEED_MPS = 0.5;
+
+/**
+ * D-06/D-08/D-13/D-21 — the walked/ran-through class boundary.
+ *
+ * DEVELOPER-DECLARED (D-21, 2026-09-22), NOT CALIBRATED. Plan 34-06's
+ * third real-archive run cleared Family W's D-13 arbitration for the first
+ * time this phase (strawman W FAILED first as required; W1 time-weighted
+ * selected first-clearing at 6.95 m/s, base=6.950000, removedDelta
+ * 0.0000%, plantedDelta 0.0000%, n=2,612,365; W2 count-weighted also
+ * passed at 6.85 m/s) — but the shipped value then FAILED the
+ * post-selection `d12-anchor-ii` gate: the first confirmed walking-break
+ * control's rest-of-activity covered speed (2.8257 m/s, an easy-running
+ * pace) did not exceed 6.95 m/s. A live histogram dump showed W1's
+ * population is UNIMODAL — one hump peaking at 3.0-3.1 m/s over 2.6M
+ * covered seconds, with no dip anywhere near the developer-confirmed
+ * walking speeds (1.26-1.80 m/s); the valley-picking rule (global-minimum
+ * qualifying bin) landed instead in a sparse tail bin (6.90-7.00 m/s, 309
+ * of 2.6M seconds) near the 7.35 m/s unreliable-speed ceiling — not a
+ * genuine walk/run transition. D-06's premise (a walk/run valley exists in
+ * this athlete's own covered-time speed distribution) is measured not to
+ * hold on this archive. The developer declared 2.2 m/s (7:35/km): it sits
+ * between the developer-confirmed walking controls (1.26-1.80 m/s) and the
+ * measured running hump (3.0-3.1 m/s). Family W still measures and renders
+ * strawman W/W1/W2 as EVIDENCE for the no-valley finding — it never
+ * arbitrates a cut for this constant (D-21 narrows D-06 and D-08 for this
+ * ONE constant only). The `d21-basis` gate re-checks the declaration
+ * against live evidence on every run: strictly greater than every
+ * confirmed control's own window aggregate speed (max 1.797 m/s) AND
+ * strictly less than the covered-time histogram's modal bin centre
+ * (3.050 m/s) — both PASS. Disclosed consequence, not a gate: at 2.2 m/s
+ * every one of 3475724402's 18 merged intervals (2.307-4.065 m/s)
+ * classifies `ran-through` rather than splitting, per D-21's own note;
+ * criterion 1 is per-segment agreement with the independent table and
+ * never a pinned class, so nothing fails. Rejected on argument: a
+ * per-activity valley percentile (most activities contain no walking
+ * hump, so the population would be selected by the property being
+ * measured); a cadence-split anchor (needs its own uncalibrated cadence
+ * constant).
+ */
+export const WALK_RUN_BOUNDARY_MPS = 2.2;
+
+/**
+ * D-06/D-07/D-08/D-09/D-13 — the minimum sustained near-zero-speed
+ * duration for both `findCreepStretches` (STOP-02's covered-creep source)
+ * and the shared zero-advance `pause` rule's own scale (D-07: one duration
+ * definition for both D-09 sources).
+ *
+ * CALIBRATED (Family M, plan 34-06's fourth real-archive run, first time
+ * this constant has ever been SELECTED by arbitration on the real
+ * archive). Strawman M FAILED first (population emptied under removal, as
+ * required before any row is trusted). Pre-declared shape **M1** — the
+ * pause-rule scale, conservative (R-7 p90 of each activity's own P_a
+ * across activities) — was the first-clearing shape: base=40.000000
+ * (n=1873 activities), removedDelta=0.0000% (n=1870), plantedDelta=
+ * 0.0000% (n=1873, plants=26276). M2 (the same population, typical/p50
+ * scale, base 30.000000) also cleared but ranks second in the pre-declared
+ * order. Non-circularity: P_a comes from each activity's full
+ * advance-interval distribution (thousands of intervals) under the
+ * already-calibrated `PAUSE_GAP_P90_MULTIPLIER` — no creep stretch, band
+ * or class enters it. Rejected on argument: run lengths of pre-pause creep
+ * (the same mixed population the retired G3 shape disclosed as
+ * contaminated); any round-number duration, including the scoping
+ * probe's 30s/120s figures, which are references only and never a shape.
+ */
+export const FORGOTTEN_STOP_MIN_SEC = 40;
+
+/**
+ * D-06/D-07 composed: the shipped `PauseClass` boundaries, built from the
+ * two constants above — never a repeated `0.5`/`2.2` literal anywhere else
+ * in this module or its consumers (D-07's one-definition rule, verified by
+ * `grep -cE "stationaryMaxMps: [0-9]"` finding zero matches in this file).
+ */
+export const SHIPPED_PAUSE_BANDS: PauseBands = {
+  stationaryMaxMps: STATIONARY_MAX_SPEED_MPS,
+  walkRunMps: WALK_RUN_BOUNDARY_MPS,
+};
+
+/**
+ * D-07/D-09/D-13 composed: the shipped `StopParams` for
+ * `classifyForgottenStop`, built from the same stationary constant
+ * `SHIPPED_PAUSE_BANDS` uses (D-07's one-constant rule) and the calibrated
+ * minimum duration above — never a repeated literal.
+ */
+export const SHIPPED_STOP_PARAMS: StopParams = {
+  stationaryMaxMps: STATIONARY_MAX_SPEED_MPS,
+  minSec: FORGOTTEN_STOP_MIN_SEC,
+};
+
+// ---------------------------------------------------------------------------
 // The mechanism-lookup join (D-01, 34-RESEARCH.md Pattern 1/Pitfall 1)
 // ---------------------------------------------------------------------------
 
