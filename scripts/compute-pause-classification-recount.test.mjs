@@ -294,6 +294,40 @@ describe('contract: parseChosenConstants / parseClassTable — fail closed on 34
     expect(() => parseChosenConstants(undefined)).toThrow();
   });
 
+  it('parseChosenConstants falls back to the "## Gates" table\'s own "order" row when "## Chosen constants" is absent (a GATE FAILED artifact — discovered live during the Task 2 watch)', () => {
+    const gateFailedMarkdown = [
+      '## GATE FAILED',
+      '',
+      'Family M cleared and both declared constants are present, but a post-selection gate failed.',
+      '',
+      '## Gates',
+      '',
+      '| gate | measured | bound | Verdict |',
+      '|---|---|---|---|',
+      '| order | 0.5 < 2.2 < 7.35 | 0 <= STATIONARY_MAX_SPEED_MPS < WALK_RUN_BOUNDARY_MPS < UNRELIABLE_SPEED_LIMIT_MPS | PASS |',
+      '| d12-anchor-i | ran-through | walked | FAIL |',
+      '',
+    ].join('\n');
+
+    const result = parseChosenConstants(gateFailedMarkdown);
+    expect(result).toEqual({ stationary: 0.5, walkRun: 2.2, limit: 7.35 });
+  });
+
+  it('parseChosenConstants still throws "artifact missing ## Chosen constants" under "## NO SHAPE CLEARS" (no family cleared — no order row exists anywhere to fall back to)', () => {
+    const noShapeClearsMarkdown = [
+      '## NO SHAPE CLEARS',
+      '',
+      'At least one family failed to select a shape clearing D-13 insensitivity.',
+      '',
+      '## Gates',
+      '',
+      'Not evaluated — not every family cleared (see `## NO SHAPE CLEARS` above).',
+      '',
+    ].join('\n');
+
+    expect(() => parseChosenConstants(noShapeClearsMarkdown)).toThrow(/artifact missing ## Chosen constants/);
+  });
+
   it('parseClassTable parses a minimal contract-conforming table', () => {
     const rows = parseClassTable(validClassTable());
     expect(rows).toEqual([

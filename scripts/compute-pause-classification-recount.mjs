@@ -173,8 +173,23 @@ export function localClassify(metres, seconds, bands) {
  * Parses `34-CALIBRATION.md`'s `## Chosen constants` section for its three line-anchored
  * `NAME = value` lines (never a markdown table row — that is 32-CALIBRATION.md's own shape, parsed
  * separately by `parseCalibrationArtifact`). Throws `"artifact missing ## Chosen constants"` when
- * the heading itself is absent, or `"constant <NAME> missing"` when one line is absent from the
- * section. Never returns a partial result.
+ * NEITHER the heading NOR the fallback below is present, or `"constant <NAME> missing"` when one
+ * line is absent from a found `## Chosen constants` section. Never returns a partial result.
+ *
+ * FALLBACK (discovered during plan 34-07 Task 2's watched-failing exercise — a genuinely deliberate
+ * classifier breakage almost always also breaks the D-12 walking-control anchor gate, which is
+ * itself a real, in-scope consequence of the same bug, not a special case to route around): when
+ * a post-selection gate fails, the generator renders `## GATE FAILED` instead of
+ * `## Chosen constants` (its own all-or-none shipping contract) and prints NO `NAME = value` lines
+ * anywhere — but the three numeric band values themselves are unaffected by ANY classifier bug
+ * (the bands gate the classifier's ladder; the classifier never gates the bands back), and they are
+ * still published, in the same order, on the `## Gates` table's own `order` row
+ * (`| order | A < B < C | ... |`), which renders whenever any family cleared at all (`GATE FAILED`
+ * or a full pass), and is absent only under `## NO SHAPE CLEARS` (no family cleared D-13 at all —
+ * there is genuinely no value to read anywhere in that state, and this function still throws for
+ * it). Falling back to that row is a second PUBLISHED location for the SAME three numbers, never a
+ * re-derivation — it is what lets this recount keep verifying the classifier's per-interval table
+ * even while an unrelated post-selection gate fails.
  */
 export function parseChosenConstants(markdown) {
   if (typeof markdown !== 'string') {
@@ -182,32 +197,42 @@ export function parseChosenConstants(markdown) {
   }
 
   const headingIdx = markdown.indexOf(CHOSEN_CONSTANTS_HEADING);
-  if (headingIdx === -1) {
-    throw new Error(`artifact missing ${CHOSEN_CONSTANTS_HEADING}`);
+  if (headingIdx !== -1) {
+    const nextHeadingIdx = markdown.indexOf('\n## ', headingIdx + CHOSEN_CONSTANTS_HEADING.length);
+    const section = nextHeadingIdx === -1 ? markdown.slice(headingIdx) : markdown.slice(headingIdx, nextHeadingIdx);
+
+    function extract(name) {
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp('^' + escaped + ' = ([0-9.]+)', 'm');
+      const match = section.match(re);
+      if (!match) {
+        throw new Error(`constant ${name} missing`);
+      }
+      const value = Number(match[1]);
+      if (!Number.isFinite(value)) {
+        throw new Error(`constant ${name} is not numeric: ${JSON.stringify(match[1])}`);
+      }
+      return value;
+    }
+
+    return {
+      stationary: extract('STATIONARY_MAX_SPEED_MPS'),
+      walkRun: extract('WALK_RUN_BOUNDARY_MPS'),
+      limit: extract('UNRELIABLE_SPEED_LIMIT_MPS'),
+    };
   }
 
-  const nextHeadingIdx = markdown.indexOf('\n## ', headingIdx + CHOSEN_CONSTANTS_HEADING.length);
-  const section = nextHeadingIdx === -1 ? markdown.slice(headingIdx) : markdown.slice(headingIdx, nextHeadingIdx);
-
-  function extract(name) {
-    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const re = new RegExp('^' + escaped + ' = ([0-9.]+)', 'm');
-    const match = section.match(re);
-    if (!match) {
-      throw new Error(`constant ${name} missing`);
+  const orderRowMatch = markdown.match(/\|\s*order\s*\|\s*([0-9.]+)\s*<\s*([0-9.]+)\s*<\s*([0-9.]+)\s*\|/);
+  if (orderRowMatch) {
+    const stationary = Number(orderRowMatch[1]);
+    const walkRun = Number(orderRowMatch[2]);
+    const limit = Number(orderRowMatch[3]);
+    if (Number.isFinite(stationary) && Number.isFinite(walkRun) && Number.isFinite(limit)) {
+      return { stationary, walkRun, limit };
     }
-    const value = Number(match[1]);
-    if (!Number.isFinite(value)) {
-      throw new Error(`constant ${name} is not numeric: ${JSON.stringify(match[1])}`);
-    }
-    return value;
   }
 
-  return {
-    stationary: extract('STATIONARY_MAX_SPEED_MPS'),
-    walkRun: extract('WALK_RUN_BOUNDARY_MPS'),
-    limit: extract('UNRELIABLE_SPEED_LIMIT_MPS'),
-  };
+  throw new Error(`artifact missing ${CHOSEN_CONSTANTS_HEADING}`);
 }
 
 /**
