@@ -30,9 +30,8 @@ import {
   renderCalibrationMarkdown,
   runCalibration,
   runFamily,
-  shapeG1,
-  shapeG2,
-  shapeG3,
+  shapeG4,
+  shapeG5,
   shapeM1,
   shapeM2,
   shapeW1,
@@ -123,13 +122,13 @@ function pauseBearingArchive() {
 }
 
 describe('planted entry', () => {
-  it('pauseBearingArchive yields non-empty pauseIntervals and a non-empty G3 population', () => {
+  it('pauseBearingArchive yields non-empty pauseIntervals and a non-empty G4 (chained episode) population', () => {
     const views = buildBaseViews(pauseBearingArchive());
     for (const v of views) {
       expect(v.computable).toBe(true);
       expect(v.pauseIntervals.length).toBeGreaterThan(0);
     }
-    expect(shapeG3(views).n).toBeGreaterThan(0);
+    expect(shapeG4(views).n).toBeGreaterThan(0);
   });
 
   // HISTORICAL NOTE — RED evidence (recorded verbatim in 34-12-SUMMARY.md and in the "test(34-12):
@@ -164,8 +163,8 @@ describe('planted entry', () => {
         checked++;
       }
     }
-    // G(strawman+3 shapes) + M(strawman+2 shapes) + W(strawman+2 shapes) = 4 + 3 + 3 = 10 rows.
-    expect(checked).toBe(10);
+    // G(strawman+2 shapes) + M(strawman+2 shapes) + W(strawman+2 shapes) = 3 + 3 + 3 = 9 rows.
+    expect(checked).toBe(9);
   });
 
   it('PLANT_FRACTION is assigned from INSENSITIVITY_TOLERANCE, not a literal', () => {
@@ -173,17 +172,18 @@ describe('planted entry', () => {
   });
 
   it('a shape with base items 0 receives 0 plants and evaluates FAIL (null base)', () => {
-    // buildClearArchive() has NO zero-advance pause anywhere, so G3's base population is empty.
-    const views = buildBaseViews(buildClearArchive());
+    // buildHaltArchive() has NO zero-advance pause anywhere, so G4/G5's base population is empty.
+    const views = buildBaseViews(buildHaltArchive());
     const sourceShapes = views
       .find((v) => v.id === INSENSITIVITY_SOURCE_ACTIVITY_ID)
       .J.map((iv) => ({ metres: iv.metres, seconds: iv.seconds }));
     const gFamily = runFamily('G', views, { sourceShapes });
-    const g3Row = gFamily.rows.find((r) => r.id === 'G3');
-    expect(g3Row.baseItems).toBe(0);
-    expect(g3Row.plantCount).toBe(0);
-    expect(g3Row.base).toBeNull();
-    expect(g3Row.pass).toBe(false);
+    for (const row of gFamily.rows) {
+      expect(row.baseItems).toBe(0);
+      expect(row.plantCount).toBe(0);
+      expect(row.base).toBeNull();
+      expect(row.pass).toBe(false);
+    }
   });
 
   it('placement: a plant never lands in an activity with zero base items for that population', () => {
@@ -230,17 +230,17 @@ describe('planted entry', () => {
   });
 
   it('no plant carries a synthetic [0, seconds] span that a shape filters on — membership comes ' +
-    'only from the `planted` flag', () => {
+    'only from the `planted` flag (HALT-1\'s own defect: strawman G\'s J population never received ' +
+    'a plant because plants never reached J)', () => {
     const views = buildBaseViews(pauseBearingArchive());
     const sourceShapes = views
       .find((v) => v.id === INSENSITIVITY_SOURCE_ACTIVITY_ID)
       .J.map((iv) => ({ metres: iv.metres, seconds: iv.seconds }));
     const gFamily = runFamily('G', views, { sourceShapes });
-    const g3Row = gFamily.rows.find((r) => r.id === 'G3');
-    // G3's window filter would reject a [0, seconds] item unless it happens to sit in a pause's
-    // lead/trail window — yet plantedItems still grew by plantCount (checked above), proving
-    // admission is unconditional via the `planted` flag, not the window position.
-    expect(g3Row.plantedItems).toBe(g3Row.baseItems + g3Row.plantCount);
+    // strawman G's population is J — under HALT-1's family-wide plantShapes, plants never entered
+    // J at all (pushed only into coveredPairs/foldedSteps/positionedAdvanceIntervals). Now they do,
+    // unconditionally, via the `planted` flag — no span-based filter exists on J membership.
+    expect(gFamily.strawman.plantedItems).toBe(gFamily.strawman.baseItems + gFamily.strawman.plantCount);
   });
 });
 
@@ -249,28 +249,67 @@ describe('planted entry', () => {
 // ---------------------------------------------------------------------------
 
 /**
- * The canonical "bulk-dominated" background activity: a long cadence-silent creep block (phase 1,
- * feeds G1/G2/M1/M2), a single recording gap (feeds J/strawmen), a walking hump (phase 3, ~1.0 m/s)
- * and a running hump (phase 4, ~3.0 m/s) separated by an empty speed band (feeds W1/W2's valley).
- * `dt` and `phase1Speed` are deliberately non-round (1.3s, 0.12345 m/s) so the rounding rule
- * (`ceilToSignificant` for G/W, `Math.ceil` for M) is genuinely exercised, not a no-op on an
- * already-round input.
+ * [D-19, plan 34-12] The canonical "bulk-dominated" background activity, redesigned for Family G's
+ * re-declared shapes (G4/G5, standstill episodes):
+ * - `standstillGroups` repeated groups, each: a moving separator (10s @ 3.0 m/s — a covered run of
+ *   duration >= P_a, so it structurally BREAKS chaining between groups), a pause (10s, > P_a), a
+ *   short bridge (3 samples advancing at 1.0 m/s each, duration 3s < P_a — deliberately the SAME
+ *   speed as the walking hump below, so its folded-step speed merges into W's walk cluster rather
+ *   than creating a spurious extra valley dip), and a second pause (10s). Each group forms exactly
+ *   one CHAINED standstill episode (feeds G4/G5).
+ * - a slow creep block (300 samples @ `creepSpeed`, well below the eventual shipped G value so it
+ *   is EXCLUDED from W's [lo, hi) histogram range but still a covered population — feeds M1/M2's
+ *   P_a and gives strawman M's creep-candidate population real (non-degenerate) content).
+ * - a single recording gap (feeds J / the G/W strawmen and the D-13 plant source shapes).
+ * - a walking hump (~1.0 m/s) and a running hump (~3.0 m/s) separated by an empty speed band (feeds
+ *   W1/W2's valley).
+ * `dt` is deliberately non-round (1.3s) so the rounding rule (`ceilToSignificant` for G/W,
+ * `Math.ceil` for M) is genuinely exercised, not a no-op on an already-round input.
  */
-function buildBackgroundActivity(id, { gapMetres = 1.0, dt = 1.3, phase1Speed = 0.12345 } = {}) {
+function buildBackgroundActivity(id, { gapMetres = 1.0, dt = 1.3, creepSpeed = 0.05, standstillGroups = 12 } = {}) {
   const t = [];
   const d = [];
   const cadence = [];
   let time = 0;
   let dist = 0;
 
-  for (let i = 0; i <= 600; i++) {
+  for (let g = 0; g < standstillGroups; g++) {
+    for (let i = 0; i < 10; i++) {
+      time += 1;
+      dist += 3.0;
+      t.push(time);
+      d.push(dist);
+      cadence.push(160);
+    }
+    for (let i = 0; i < 10; i++) {
+      time += 1;
+      t.push(time);
+      d.push(dist);
+      cadence.push(0);
+    }
+    for (let i = 0; i < 3; i++) {
+      time += 1;
+      dist += 1.0;
+      t.push(time);
+      d.push(dist);
+      cadence.push(80);
+    }
+    for (let i = 0; i < 10; i++) {
+      time += 1;
+      t.push(time);
+      d.push(dist);
+      cadence.push(0);
+    }
+  }
+
+  for (let i = 0; i <= 300; i++) {
     t.push(time);
     d.push(dist);
     cadence.push(0);
     time += dt;
-    dist += phase1Speed * dt;
+    dist += creepSpeed * dt;
   }
-  time += 15 - dt; // total gap dt = 15s > RECORDING_GAP_ABS_THRESHOLD_SEC (10s)
+  time += 15; // recording gap: dt = 15s > RECORDING_GAP_ABS_THRESHOLD_SEC (10s)
   dist += gapMetres;
   for (let i = 0; i < 300; i++) {
     t.push(time);
@@ -418,27 +457,159 @@ function buildInsensitiveArchive() {
 }
 
 // ---------------------------------------------------------------------------
+// standstill episodes (34-12-PLAN.md D-19 STANDSTILL DEFINITIONS)
+// ---------------------------------------------------------------------------
+
+describe('standstill episodes', () => {
+  it('chains across a bridge shorter than P_a: two pauses joined by a short advancing covered run ' +
+    'become ONE episode, chained: true, with hand-computed seconds/metres/rate', () => {
+    // buildPauseBearingActivity: pause1 (10s) -> bridge (3 samples @ 0.5 m/s/step, 3s) -> pause2 (10s).
+    const views = buildBaseViews(pauseBearingArchive());
+    const view = views.find((v) => v.id === INSENSITIVITY_SOURCE_ACTIVITY_ID);
+    expect(view.paSec).toBe(5); // PAUSE_GAP_P90_MULTIPLIER(5) * p90(1s advance intervals)
+    expect(view.standstillEpisodes.length).toBe(1);
+    const ep = view.standstillEpisodes[0];
+    expect(ep.chained).toBe(true);
+    expect(ep.pauseCount).toBe(2);
+    expect(ep.seconds).toBe(23); // 10 (pause1) + 3 (bridge) + 10 (pause2)
+    expect(ep.metres).toBeCloseTo(1.5, 6); // 3 steps * 0.5 m
+    expect(ep.rateMps).toBeCloseTo(1.5 / 23, 6);
+  });
+
+  it('does NOT chain across a covered run of P_a or longer: a moving separator (duration >= P_a) ' +
+    'between two pause groups gives TWO separate episodes, not one', () => {
+    // Each buildBackgroundActivity() standstill group is [moving separator (10s @ 3.0 m/s, >= P_a) ,
+    // pause, bridge (3s @ 1.0 m/s, < P_a), pause] — NG groups must give NG separate chained episodes,
+    // never one giant chain, because the separator's own duration structurally fails the bridge test.
+    const views = buildBaseViews({
+      activities: [buildBackgroundActivity('bg', { standstillGroups: 3 })],
+      streamFileCount: 1,
+      notComputable: 0,
+    });
+    const view = views[0];
+    const chained = view.standstillEpisodes.filter((ep) => ep.chained);
+    expect(chained.length).toBe(3);
+    for (const ep of chained) expect(ep.pauseCount).toBe(2);
+  });
+
+  it('does NOT chain across a recording gap: a gap-bearing interval between two pauses breaks the ' +
+    'chain even when the gap itself is short', () => {
+    const t = [];
+    const d = [];
+    let time = 0;
+    let dist = 0;
+    // bulk moving phase (establishes a small, robust P_a=5 baseline: 5 * p90(1s advance intervals))
+    for (let i = 0; i <= 50; i++) {
+      t.push(time);
+      d.push(dist);
+      time += 1;
+      dist += 1.0;
+    }
+    // pause 1 (10s)
+    for (let i = 0; i < 10; i++) {
+      time += 1;
+      t.push(time);
+      d.push(dist);
+    }
+    // recording gap (12s > RECORDING_GAP_ABS_THRESHOLD_SEC=10s), d UNCHANGED across it (so the gap
+    // itself registers no advance interval, keeping P_a at the bulk-phase baseline)
+    time += 12;
+    t.push(time);
+    d.push(dist);
+    // pause 2 (10s)
+    for (let i = 0; i < 10; i++) {
+      time += 1;
+      t.push(time);
+      d.push(dist);
+    }
+    const views = buildBaseViews({ activities: [{ id: 'gapbreak', t, d, cadence: null }], streamFileCount: 1, notComputable: 0 });
+    const view = views[0];
+    expect(view.paSec).toBe(5);
+    expect(view.pauseIntervals.length).toBe(2);
+    expect(view.standstillEpisodes.every((ep) => !ep.chained)).toBe(true);
+    expect(view.standstillEpisodes.length).toBe(2);
+  });
+
+  it('a single-pause episode (no qualifying bridge on either side) is chained: false', () => {
+    const t2 = [];
+    const d2 = [];
+    let time = 0;
+    for (let i = 0; i <= 20; i++) {
+      t2.push(time);
+      d2.push(time);
+      time += 1;
+    }
+    for (let i = 0; i < 10; i++) {
+      time += 1;
+      t2.push(time);
+      d2.push(20);
+    }
+    const views2 = buildBaseViews({ activities: [{ id: 'single2', t: t2, d: d2, cadence: null }], streamFileCount: 1, notComputable: 0 });
+    const view2 = views2[0];
+    expect(view2.pauseIntervals.length).toBe(1);
+    expect(view2.standstillEpisodes.length).toBe(1);
+    expect(view2.standstillEpisodes[0].chained).toBe(false);
+    expect(view2.standstillEpisodes[0].metres).toBe(0);
+    expect(view2.standstillEpisodes[0].rateMps).toBe(0);
+  });
+
+  it('the bridge invariant: a hand-built stream cannot make classifyGapsWithSegments emit two ' +
+    'ADJACENT maximal zero-advance runs with a zero-metres covered run bridging them — a flat run ' +
+    'immediately followed by more flat samples simply MERGES into one longer pause, confirming the ' +
+    'invariant\'s own premise ("two distinct maximal zero-advance runs must be separated by at ' +
+    'least one advance, or they would be one run") holds through the real pipeline, never throwing ' +
+    'on this ordinary, non-adversarial fixture', () => {
+    const t = [];
+    const d = [];
+    let time = 0;
+    let dist = 0;
+    // bulk moving phase (establishes a small, robust P_a=5 baseline)
+    for (let i = 0; i <= 50; i++) {
+      t.push(time);
+      d.push(dist);
+      time += 1;
+      dist += 1.0;
+    }
+    // 23 flat samples (22s): would-be "pause1 + zero-metres bridge + pause2" all merge into one
+    // maximal zero-advance run, since nothing separates them.
+    for (let i = 0; i <= 22; i++) {
+      time += 1;
+      t.push(time);
+      d.push(dist);
+    }
+    const archive = { activities: [{ id: 'zerobridge', t, d, cadence: null }], streamFileCount: 1, notComputable: 0 };
+    expect(() => buildBaseViews(archive)).not.toThrow();
+    const views = buildBaseViews(archive);
+    // Exactly ONE (unchained) episode — the merge-into-one-pause reading, never two pauses bridged
+    // by a zero-metres run.
+    expect(views[0].standstillEpisodes.length).toBe(1);
+    expect(views[0].standstillEpisodes[0].chained).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // reference shape
 // ---------------------------------------------------------------------------
 
 describe('reference shape', () => {
   const views = buildBaseViews(buildClearArchive());
 
-  it('G1: R-7 p90 of cadence-silent covered pairs, pooled', () => {
-    const result = shapeG1(views);
-    expect(result.value).toBeCloseTo(0.12345, 5);
+  it('G4: R-7 p90 of chained standstill-episode rates, pooled', () => {
+    const result = shapeG4(views);
+    // Each group's episode: bridge metres 3*1.0=3.0m over seconds 10+3+10=23 -> rate 3/23.
+    expect(result.value).toBeCloseTo(3 / 23, 5);
     expect(result.n).toBeGreaterThan(0);
+    expect(result.items).toBe(result.n);
   });
 
-  it('G2: per-activity median of cadence-silent speeds, archive p90', () => {
-    const result = shapeG2(views);
-    expect(result.value).toBeCloseTo(0.12345, 5);
+  it('G5: R-7 p90 across activities of (chained-episode metres / chained-episode seconds)', () => {
+    const result = shapeG5(views);
+    expect(result.value).toBeCloseTo(3 / 23, 5);
   });
 
-  it('G3: median speed of covered pairs run-in around a zero-advance pause — empty on this archive', () => {
-    // This archive has no zero-advance `pause` gapIntervals anywhere, so G3's population is empty.
-    const result = shapeG3(views);
-    expect(result.value).toBeNull();
+  it('G4/G5: HALTed (null base) on an archive with no zero-advance pause anywhere', () => {
+    expect(shapeG4(buildBaseViews(buildHaltArchive())).value).toBeNull();
+    expect(shapeG5(buildBaseViews(buildHaltArchive())).value).toBeNull();
   });
 
   it('strawman G: R-7 p90 of J speeds, pooled', () => {
@@ -449,8 +620,8 @@ describe('reference shape', () => {
 
   it('M1: R-7 p90 across activities of each activity\'s own P_a', () => {
     const result = shapeM1(views);
-    // Every advance interval in this fixture is exactly dt=1.3s (a constant array), so
-    // P_a = PAUSE_GAP_P90_MULTIPLIER * 1.3 for every activity — the same value archive-wide.
+    // The dt=1.3s creep/walk/run population dominates each activity's own advance-interval
+    // distribution, so P_a = PAUSE_GAP_P90_MULTIPLIER * 1.3 archive-wide.
     expect(result.value).toBeCloseTo(6.5, 5);
   });
 
@@ -460,28 +631,28 @@ describe('reference shape', () => {
   });
 
   it('strawman M: R-7 p90 of creep-candidate durations archive-wide, at the shipped G floor', () => {
-    const result = strawmanM(views, { shippedFloor: 0.124 });
+    const result = strawmanM(views, { shippedFloor: 0.131 });
     expect(result.value).not.toBeNull();
     expect(result.value).toBeGreaterThan(0);
   });
 
   it('W1: the valley in covered time by speed, time-weighted, over [lo, hi)', () => {
-    const result = shapeW1(views, { lo: 0.124, hi: UNRELIABLE_SPEED_LIMIT_MPS });
+    const result = shapeW1(views, { lo: 0.131, hi: UNRELIABLE_SPEED_LIMIT_MPS });
     expect(result.value).not.toBeNull();
     expect(result.value).toBeGreaterThan(1.0);
     expect(result.value).toBeLessThan(3.0);
   });
 
   it('W2: the same valley, count-weighted', () => {
-    const result = shapeW2(views, { lo: 0.124, hi: UNRELIABLE_SPEED_LIMIT_MPS });
+    const result = shapeW2(views, { lo: 0.131, hi: UNRELIABLE_SPEED_LIMIT_MPS });
     expect(result.value).not.toBeNull();
   });
 
   it('strawman W: the valley over J speeds (count-weighted)', () => {
-    const result = strawmanW(views, { lo: 0.124, hi: UNRELIABLE_SPEED_LIMIT_MPS });
-    // The two-cluster J population (one low, one high) DOES admit a real valley on this fixture —
-    // the D-13 harness below is what shows it FAILing under removal, not an empty base here.
-    expect(result.value).not.toBeNull();
+    const result = strawmanW(views, { lo: 0.131, hi: UNRELIABLE_SPEED_LIMIT_MPS });
+    // A small pooled J population (16 items, one per activity) may or may not admit a qualifying
+    // dip on its own — the D-13 harness below is what proves the strawman FAILs regardless.
+    expect(result.n).toBeGreaterThan(0);
   });
 
   describe('valleyOf', () => {
@@ -658,15 +829,18 @@ describe('D-13 harness', () => {
       .J.map((iv) => ({ metres: iv.metres, seconds: iv.seconds }));
 
     const gFamily = runFamily('G', base, { sourceShapes });
-    const mShippedFloor = 0.124; // the archive's own derived G value (see "reference shape" above)
+    // A floor between the creep block's speed (0.05) and the walk/bridge speed (1.0) — an
+    // arbitrary value for the M/W-family checks in this describe block, independent of G's own
+    // derived value (see "reference shape" above for G4/G5's own real rate).
+    const mShippedFloor = 0.124;
     const mFamily = runFamily('M', base, { sourceShapes, shippedFloor: mShippedFloor });
     const wFamily = runFamily('W', base, { sourceShapes, shippedFloor: mShippedFloor });
 
-    it('CAN PASS: G1, M1 and W1 each PASS on the bulk-dominated archive', () => {
-      const g1 = gFamily.rows.find((r) => r.id === 'G1');
+    it('CAN PASS: G4, M1 and W1 each PASS on the bulk-dominated archive', () => {
+      const g4 = gFamily.rows.find((r) => r.id === 'G4');
       const m1 = mFamily.rows.find((r) => r.id === 'M1');
       const w1 = wFamily.rows.find((r) => r.id === 'W1');
-      expect(g1.pass).toBe(true);
+      expect(g4.pass).toBe(true);
       expect(m1.pass).toBe(true);
       expect(w1.pass).toBe(true);
     });
@@ -692,18 +866,28 @@ describe('D-13 harness', () => {
 // ---------------------------------------------------------------------------
 
 describe('shape arbitration', () => {
-  it('PREDECLARED_SHAPES ids and order are pinned exactly: G [G1,G2,G3], M [M1,M2], W [W1,W2]', () => {
-    expect(PREDECLARED_SHAPES.G.map((s) => s.id)).toEqual(['G1', 'G2', 'G3']);
+  it('PREDECLARED_SHAPES ids and order are pinned exactly (D-19): G [G4,G5], M [M1,M2], W [W1,W2]', () => {
+    expect(PREDECLARED_SHAPES.G.map((s) => s.id)).toEqual(['G4', 'G5']);
     expect(PREDECLARED_SHAPES.M.map((s) => s.id)).toEqual(['M1', 'M2']);
     expect(PREDECLARED_SHAPES.W.map((s) => s.id)).toEqual(['W1', 'W2']);
   });
 
-  it('G1 and G2 nonCircularity both carry the device-family-relabelling argument verbatim', () => {
-    const g1 = PREDECLARED_SHAPES.G.find((s) => s.id === 'G1');
-    const g2 = PREDECLARED_SHAPES.G.find((s) => s.id === 'G2');
-    for (const shape of [g1, g2]) {
-      expect(shape.nonCircularity).toContain('Why this is not device-family relabelling');
-      expect(shape.nonCircularity).toContain('device-family reasoning creeping in');
+  it('M and W entries are byte-for-byte unchanged in prose and function (D-19 only amends G)', () => {
+    const m1 = PREDECLARED_SHAPES.M.find((s) => s.id === 'M1');
+    expect(m1.name).toBe('pause-rule scale, conservative');
+    expect(m1.fn).toBe(shapeM1);
+    const w1 = PREDECLARED_SHAPES.W.find((s) => s.id === 'W1');
+    expect(w1.name).toBe('covered time by speed');
+    expect(w1.fn).toBe(shapeW1);
+  });
+
+  it('G4/G5 nonCircularity/caveat carry the amendment\'s prose, including the "not G3 with the ' +
+    'neighbourhood removed" disclaimer and the half-bridge-speed bound', () => {
+    const g4 = PREDECLARED_SHAPES.G.find((s) => s.id === 'G4');
+    const g5 = PREDECLARED_SHAPES.G.find((s) => s.id === 'G5');
+    for (const shape of [g4, g5]) {
+      expect(shape.nonCircularity).toContain('not "G3 with the neighbourhood removed"');
+      expect(shape.nonCircularity).toContain('half the fastest speed of its bridges');
     }
   });
 
@@ -715,7 +899,7 @@ describe('shape arbitration', () => {
     const family = runFamily('G', views, { sourceShapes });
     expect(family).toHaveProperty('strawman');
     expect(family).toHaveProperty('rows');
-    expect(family.rows.length).toBe(3);
+    expect(family.rows.length).toBe(2);
     expect(family.chosen).not.toBeNull();
     expect(family.selectedId).toBe(family.chosen.id);
   });
@@ -732,9 +916,9 @@ describe('shape arbitration', () => {
   it('rounding: G and W round via ceilToSignificant(raw, 3); M rounds via Math.ceil(raw)', () => {
     const result = runCalibration(buildClearArchive(), null);
     expect(result.allCleared).toBe(true);
-    // 0.12345 rounds UP to 3 significant figures as 0.124 (never 0.123, which a standard
-    // round-to-nearest would give) — proves ceilToSignificant, not Math.round, is used.
-    expect(result.shipped.STATIONARY_MAX_SPEED_MPS).toBeCloseTo(0.124, 6);
+    // G4's raw rate 3/23 = 0.130434... rounds UP to 3 significant figures as 0.131 (never 0.130,
+    // which a standard round-to-nearest would give) — proves ceilToSignificant, not Math.round.
+    expect(result.shipped.STATIONARY_MAX_SPEED_MPS).toBeCloseTo(0.131, 6);
     // 6.5 rounds via Math.ceil to 7, not 6 (Math.floor).
     expect(result.shipped.FORGOTTEN_STOP_MIN_SEC).toBe(7);
   });
@@ -826,16 +1010,29 @@ describe('gates', () => {
     expect(result.pass).toBe(true);
   });
 
-  it('driftSection: "matters" iff the shipped G value is > 0; not computed on upstream HALT', () => {
+  it('[D-19] driftSection: always computed from BASE standstill episodes, independent of shippedG ' +
+    '(unlike 34-04\'s G1-gated version)', () => {
     const views = buildBaseViews(buildClearArchive());
-    expect(driftSection(views, null).computed).toBe(false);
-    const drift = driftSection(views, 0.124);
-    expect(drift.computed).toBe(true);
-    expect(drift.matters).toBe(true);
-    expect(drift.pairCount).toBeGreaterThan(0);
+    const drift = driftSection(views);
+    expect(drift.episodesTotal).toBeGreaterThan(0);
+    expect(drift.chainedCount).toBeGreaterThan(0);
+    expect(drift.chainedShare).toBeGreaterThan(0);
+    expect(drift.totalChainedMetres).toBeGreaterThan(0);
 
-    const zeroDrift = driftSection(views, 0);
-    expect(zeroDrift.matters).toBe(false);
+    const haltDrift = driftSection(buildBaseViews(buildHaltArchive()));
+    expect(haltDrift.episodesTotal).toBe(0);
+    expect(haltDrift.chainedCount).toBe(0);
+  });
+
+  it('[D-19] rendered drift section states "Drift matters" when the shipped G value is > 0, and ' +
+    'names the standstill counts as the HALT reason when G HALTed with zero chained episodes', () => {
+    const clear = runCalibration(buildClearArchive(), null);
+    const clearMarkdown = renderCalibrationMarkdown({ ...clear, provenance: {} });
+    expect(clearMarkdown).toContain('Drift matters: the shipped G value is > 0.');
+
+    const halt = runCalibration(buildHaltArchive(), null);
+    const haltMarkdown = renderCalibrationMarkdown({ ...halt, provenance: {} });
+    expect(haltMarkdown).toContain('No chained episode exists: the base is null and G HALTs');
   });
 });
 
@@ -923,11 +1120,12 @@ describe('render', () => {
     expect(markdown).not.toContain('STATIONARY_MAX_SPEED_MPS = ');
   });
 
-  it("the ## Non-circularity section's G rows contain the device-family substrings on both the clear and the HALT fixtures", () => {
+  it("the ## Non-circularity section's G rows contain the D-19 amendment's substrings on both the " +
+    'clear and the HALT fixtures', () => {
     for (const result of [clearResult, haltResult]) {
       const markdown = renderCalibrationMarkdown(result);
-      expect(markdown).toContain('Why this is not device-family relabelling');
-      expect(markdown).toContain('device-family reasoning creeping in');
+      expect(markdown).toContain('not "G3 with the neighbourhood removed"');
+      expect(markdown).toContain('half the fastest speed of its bridges');
     }
   });
 

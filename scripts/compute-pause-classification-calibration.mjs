@@ -93,6 +93,88 @@ function sortAsc(values) {
 }
 
 // ---------------------------------------------------------------------------
+// [D-19, plan 34-12] STANDSTILL DEFINITIONS: chained standstill episodes (Family G's new
+// population, G4/G5)
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds this activity's standstill episodes from BASE data only, never perturbed. A bridge is a
+ * `CoveredRun` whose real-time span runs EXACTLY from one pause interval's `endSec` to the next
+ * pause interval's `startSec` (sample-time equality, the same convention `intervalFromGapInterval`
+ * uses), with `seconds < paSec`. A standstill episode is a maximal alternating chain of pause
+ * intervals and bridges; anything else between two pauses (a recording gap, a merged/unreliable
+ * segment, or a covered run of `paSec` or longer) breaks the chain. `chained` iff the episode's
+ * chain has >= 2 pauses — a chained episode's `rateMps` is strictly > 0 by the bridge invariant
+ * below, so G4/G5 can never produce a zero base from a real item. `paSec === null` (no advance
+ * interval at all) disables bridging entirely — every pause becomes its own single-pause episode.
+ */
+function buildStandstillEpisodes(t, d, coveredRuns, pauseIntervals, paSec, activityId) {
+  if (pauseIntervals.length === 0) return [];
+
+  const sortedPauses = [...pauseIntervals].sort((a, b) => a.startSec - b.startSec);
+
+  const runByBounds = new Map();
+  for (const run of coveredRuns) {
+    const startSec = t[run.startIndex];
+    const endSec = t[run.endIndex];
+    runByBounds.set(`${startSec}|${endSec}`, {
+      seconds: endSec - startSec,
+      metres: d[run.endIndex] - d[run.startIndex],
+    });
+  }
+
+  function findBridge(prevEndSec, nextStartSec) {
+    const candidate = runByBounds.get(`${prevEndSec}|${nextStartSec}`);
+    if (!candidate) return null;
+    if (paSec === null || !(candidate.seconds < paSec)) return null;
+    // Bridge invariant (D-19): every bridge has metres > 0. Two distinct maximal zero-advance runs
+    // must be separated by at least one advance, or they would be one run — a zero-metre bridge
+    // means the views are wrong.
+    assert(
+      candidate.metres > 0,
+      `buildStandstillEpisodes: activity ${activityId} has a zero-or-negative-metres bridge ` +
+        `[${prevEndSec}, ${nextStartSec}] (seconds=${candidate.seconds}) — the bridge invariant is violated.`
+    );
+    return candidate;
+  }
+
+  function finalizeEpisode(pauses, metres) {
+    const startSec = pauses[0].startSec;
+    const endSec = pauses[pauses.length - 1].endSec;
+    const seconds = endSec - startSec;
+    const chained = pauses.length >= 2;
+    return {
+      startSec,
+      endSec,
+      seconds,
+      metres,
+      rateMps: seconds > 0 ? metres / seconds : 0,
+      pauseCount: pauses.length,
+      chained,
+    };
+  }
+
+  const episodes = [];
+  let chainPauses = [sortedPauses[0]];
+  let chainMetres = 0;
+  for (let i = 0; i < sortedPauses.length - 1; i++) {
+    const p = sortedPauses[i];
+    const pn = sortedPauses[i + 1];
+    const bridge = findBridge(p.endSec, pn.startSec);
+    if (bridge) {
+      chainPauses.push(pn);
+      chainMetres += bridge.metres;
+    } else {
+      episodes.push(finalizeEpisode(chainPauses, chainMetres));
+      chainPauses = [pn];
+      chainMetres = 0;
+    }
+  }
+  episodes.push(finalizeEpisode(chainPauses, chainMetres));
+  return episodes;
+}
+
+// ---------------------------------------------------------------------------
 // Views: buildBaseViews / removeNeighbourhoods / plantShapes
 // ---------------------------------------------------------------------------
 
@@ -170,6 +252,11 @@ export function buildBaseViews(archive) {
         'imported advanceIntervals(t, d) exactly — the views are wrong.'
     );
 
+    // [D-19, plan 34-12] STANDSTILL DEFINITIONS: P_a (paSec) and the chained-episode chain over
+    // this activity's own zero-advance pauses and bridges.
+    const paSec = positionedSeconds.length === 0 ? null : PAUSE_GAP_P90_MULTIPLIER * quantile(positionedSeconds, 0.9);
+    const standstillEpisodes = buildStandstillEpisodes(t, d, r.coveredRuns, pauseIntervals, paSec, activity.id);
+
     views.push({
       id: activity.id,
       computable: true,
@@ -184,6 +271,8 @@ export function buildBaseViews(archive) {
       foldedSteps,
       positionedAdvanceIntervals,
       plantedCreepDurations: [],
+      paSec,
+      standstillEpisodes,
       notClassifiableCount: collected.notClassifiableCount,
       joinViolations: collected.joinViolations,
     });
@@ -245,16 +334,21 @@ export function removeNeighbourhoods(views, family, shippedFloor) {
 
     if (family === 'G') {
       const neighbourhoods = neighbourhoodsFromIntervals(view.J);
-      const keptPairs = view.coveredPairs.filter((p) => !intersectsAny(p.startSec, p.endSec, neighbourhoods));
-      removedCount += view.coveredPairs.length - keptPairs.length;
-      if (keptPairs.length !== view.coveredPairs.length) changed = true;
+      // [D-19, plan 34-12] REMOVED VIEW for G4/G5: drop every standstill episode whose span
+      // [p1.startSec, pk.endSec] intersects the neighbourhood of any J interval of the same
+      // activity. Episodes are built once from base data and never re-chained after removal.
+      const keptEpisodes = view.standstillEpisodes.filter(
+        (ep) => !intersectsAny(ep.startSec, ep.endSec, neighbourhoods)
+      );
+      removedCount += view.standstillEpisodes.length - keptEpisodes.length;
+      if (keptEpisodes.length !== view.standstillEpisodes.length) changed = true;
       // J's own removed view (STRAWMAN G's population): every J item trivially intersects its own
       // padded neighbourhood, so this always empties J — the "unfalsifiable-fail" property.
       const keptJ = view.J.filter((j) => !intersectsAny(j.startSec, j.endSec, neighbourhoods));
       removedCount += view.J.length - keptJ.length;
       if (keptJ.length !== view.J.length) changed = true;
       if (changed) changedActivityCount++;
-      return { ...view, coveredPairs: keptPairs, J: keptJ };
+      return { ...view, standstillEpisodes: keptEpisodes, J: keptJ };
     }
 
     if (family === 'W') {
@@ -395,70 +489,55 @@ export function evaluateShape(fn, { base, removed, planted }, { tolerance, ctx }
 }
 
 // ---------------------------------------------------------------------------
-// G family
+// G family — [D-19, plan 34-12] re-declared: G4 "standstill episodes, pooled", then G5 "standstill
+// episodes, per activity". G1/G2/G3 (cadence-silent covered pairs) are RETIRED, recorded in
+// REJECTED_SHAPES below. Admits `planted: true` standstill episodes unconditionally — no positional
+// filter exists on this population, so no special-casing is needed (unlike the retired G3).
 // ---------------------------------------------------------------------------
 
-function countCadenceSilentPairs(views) {
+function countChainedEpisodes(views) {
   let count = 0;
   for (const v of views) {
     if (!v.computable) continue;
-    for (const p of v.coveredPairs) if (p.cadenceSilent) count++;
+    for (const ep of v.standstillEpisodes) if (ep.chained) count++;
   }
   return count;
 }
 
-export function shapeG1(views) {
-  const speeds = [];
+export function shapeG4(views) {
+  const rates = [];
   for (const v of views) {
     if (!v.computable) continue;
-    for (const p of v.coveredPairs) if (p.cadenceSilent) speeds.push(p.speedMps);
+    for (const ep of v.standstillEpisodes) if (ep.chained) rates.push(ep.rateMps);
   }
-  const sorted = sortAsc(speeds);
+  const sorted = sortAsc(rates);
   return { value: sorted.length === 0 ? null : quantile(sorted, 0.9), n: sorted.length, excluded: 0, items: sorted.length };
 }
 
-export function shapeG2(views) {
+export function shapeG5(views) {
   const perActivity = [];
-  let excluded = 0;
+  let totalChainedEpisodes = 0;
   for (const v of views) {
     if (!v.computable) continue;
-    const silentSpeeds = v.coveredPairs.filter((p) => p.cadenceSilent).map((p) => p.speedMps);
-    if (silentSpeeds.length < pc.SIGNATURE_MIN_COVERED_PAIRS) {
-      excluded++;
-      continue;
+    let metres = 0;
+    let seconds = 0;
+    let count = 0;
+    for (const ep of v.standstillEpisodes) {
+      if (!ep.chained) continue;
+      metres += ep.metres;
+      seconds += ep.seconds;
+      count++;
     }
-    perActivity.push(quantile(sortAsc(silentSpeeds), 0.5));
+    totalChainedEpisodes += count;
+    if (count > 0 && seconds > 0) perActivity.push(metres / seconds);
   }
   const sorted = sortAsc(perActivity);
-  // items (D-19): the pooled cadence-silent pair count BEFORE the per-activity >=30 threshold —
-  // i.e. the same pooled population G1 reads, not the qualifying-activity count `n` above.
-  return { value: sorted.length === 0 ? null : quantile(sorted, 0.9), n: sorted.length, excluded, items: countCadenceSilentPairs(views) };
-}
-
-export function shapeG3(views) {
-  const speeds = [];
-  for (const v of views) {
-    if (!v.computable) continue;
-    // Plants are admitted unconditionally, bypassing the position window entirely (D-19) — pushed
-    // into coveredPairs by the G3 `plantInto` population, flagged `planted: true`.
-    for (const p of v.coveredPairs) {
-      if (p.planted) speeds.push(p.speedMps);
-    }
-    for (const pause of v.pauseIntervals) {
-      const leadStart = pause.startSec - NEIGHBOURHOOD_SEC;
-      const leadEnd = pause.startSec;
-      const trailStart = pause.endSec;
-      const trailEnd = pause.endSec + NEIGHBOURHOOD_SEC;
-      for (const p of v.coveredPairs) {
-        if (p.planted) continue; // already admitted above, unconditionally — avoid double-count
-        const inLead = p.startSec >= leadStart && p.endSec <= leadEnd;
-        const inTrail = p.startSec >= trailStart && p.endSec <= trailEnd;
-        if (inLead || inTrail) speeds.push(p.speedMps);
-      }
-    }
-  }
-  const sorted = sortAsc(speeds);
-  return { value: sorted.length === 0 ? null : quantile(sorted, 0.5), n: sorted.length, excluded: 0, items: sorted.length };
+  return {
+    value: sorted.length === 0 ? null : quantile(sorted, 0.9),
+    n: sorted.length,
+    excluded: 0,
+    items: totalChainedEpisodes,
+  };
 }
 
 export function strawmanG(views) {
@@ -634,18 +713,19 @@ export function strawmanW(views, ctx) {
 // PLANT populations — where each shape's plants live (D-19)
 // ---------------------------------------------------------------------------
 
-const COVERED_PAIR_POPULATION = Object.freeze({
-  arrayKey: 'coveredPairs',
-  baseItemCount: (v) => v.coveredPairs.filter((p) => p.cadenceSilent).length,
+const G4_G5_POPULATION = Object.freeze({
+  arrayKey: 'standstillEpisodes',
+  baseItemCount: (v) => v.standstillEpisodes.filter((ep) => ep.chained).length,
   buildItem: (template, sentinel) => ({
-    index: sentinel,
     startSec: 0,
     endSec: template.seconds,
-    metres: template.metres,
     seconds: template.seconds,
-    speedMps: template.metres / template.seconds,
-    cadenceSilent: true,
+    metres: template.metres,
+    rateMps: template.metres / template.seconds,
+    pauseCount: 2,
+    chained: true,
     planted: true,
+    sentinel,
   }),
 });
 
@@ -702,57 +782,63 @@ function creepDurationPopulation(shippedFloor) {
 // PREDECLARED_SHAPES / REJECTED_SHAPES — prose copied from 34-04-PLAN.md verbatim in spirit
 // ---------------------------------------------------------------------------
 
-const DEVICE_FAMILY_NOTE =
-  'Why this is not device-family relabelling: cadence here only selects which covered PAIRS enter a ' +
-  'calibration sample for one speed cut. It never labels a stream or device, never gates a stream ' +
-  "into or out of D-10's recordingMechanismSignature, and never enters the shipped classifier, which " +
-  'stays a pure function of t/d and reads only the derived constant. The D-10 rule and this population ' +
-  'stay separate functions with separately-stated non-circularity arguments; the D-10 rule only ever ' +
-  "gates the STOP-01 flag's own computability, never the PAUSE-01 band derivation (device-family " +
-  'reasoning creeping in is exactly what this avoids, per Pitfall 5).';
+/**
+ * [D-19, plan 34-12] G4/G5's shared non-circularity argument (STANDSTILL DEFINITIONS, G FAMILY in
+ * 34-12-PLAN.md's <predeclared_shapes_amendment>): membership comes only from the pause rule
+ * (duration-only, no speed term) and covered-run adjacency, never a band, class or speed. Includes
+ * the half-bridge-speed structural bound and the explicit "not G3 with the neighbourhood removed"
+ * disclaimer (D-19's own overlap-with-G3 caveat).
+ */
+const G4_G5_NON_CIRCULARITY =
+  'Membership comes only from the pause rule (Phase 26, duration-only, no speed term) and ' +
+  'covered-run adjacency. Neither reads a band, a class or a speed. No J interval can lie inside an ' +
+  'episode, because a bridge is a covered run and any gap-bearing interval between two pauses ' +
+  'breaks the chain. The band judges J (never pause intervals, D-01) and, through STOP-01, ' +
+  'individual covered pairs. The statistic is an aggregate over whole standstills including their ' +
+  'zero-advance time, never a percentile of judged items. The unchanged REMOVED view measures what ' +
+  'leakage remains. By the structural bound, an episode\'s rate is strictly less than half the ' +
+  "fastest speed of its bridges (each pause lasts more than P_a and each bridge less than P_a, so " +
+  "bridges occupy strictly less than half of any episode's seconds). Overlap with the retired G3: " +
+  "bridges can lie inside G3's old pause-boundary windows whenever they are shorter than the " +
+  'neighbourhood width, so the two populations share covered pairs — but this population is ' +
+  'not "G3 with the neighbourhood removed": it pre-excludes nothing near J (its REMOVED row is ' +
+  'live), its statistic is a whole-standstill aggregate including zero-advance time (not a pair ' +
+  "median), and a single stop's run-in/run-out pairs never enter (only covered runs sandwiched " +
+  'between two pauses qualify).';
+
+const G4_G5_CAVEAT =
+  'Sees light drift only (heavier drift forms no pause, so it is invisible here — conservative for ' +
+  'walking breaks, forgotten stops with dense drift may be under-detected). Aggregate versus pair: ' +
+  "a single drift tick's pair speed exceeds an episode's average, so ticks can split creep runs (same " +
+  'under-detection direction, disclosed and not corrected). Conditional on drift: a single-pause ' +
+  'standstill accrues 0 by construction and is excluded — including it would risk a zero base. Small ' +
+  "population: at most half the archive's pause intervals (pauses often adjoin recording gaps).";
 
 export const PREDECLARED_SHAPES = Object.freeze({
   G: Object.freeze([
     Object.freeze({
-      id: 'G1',
-      name: 'cadence-silent covered pairs, pooled',
-      fn: shapeG1,
-      population: COVERED_PAIR_POPULATION,
+      id: 'G4',
+      name: 'standstill episodes, pooled',
+      fn: shapeG4,
+      population: G4_G5_POPULATION,
       meaning:
-        "90% of the odometer's advance rate while the athlete takes no steps sits at or below it. " +
-        'Above that, something is moving.',
-      nonCircularity:
-        'Membership is decided by the cadence channel, which no detector, pause rule, classifier or ' +
-        'band reads. Covered pairs exclude every J interval and pause by construction, so J cannot ' +
-        `enter the population. ${DEVICE_FAMILY_NOTE}`,
-      caveat:
-        'Cadence is present on a subset of streams; a cadence of 0 can also be a sensor dropout while ' +
-        'moving, which inflates the tail. The D-12 anchor gate exists to catch that.',
+        "90% of the archive's established standstills in which the odometer drifted at all accrued " +
+        'drift at or below this rate. Above it the odometer is advancing faster than all but the top ' +
+        'tenth of real standstills, so something is moving.',
+      nonCircularity: G4_G5_NON_CIRCULARITY,
+      caveat: G4_G5_CAVEAT,
     }),
     Object.freeze({
-      id: 'G2',
-      name: 'cadence-silent covered pairs, per activity',
-      fn: shapeG2,
-      population: COVERED_PAIR_POPULATION,
+      id: 'G5',
+      name: 'standstill episodes, per activity',
+      fn: shapeG5,
+      population: G4_G5_POPULATION,
       meaning:
-        'Guards criterion (2): a few long cadence-silent activities cannot dominate the pooled G1 ' +
-        'statistic.',
-      nonCircularity: `As G1, including the device-family relabelling sentence. ${DEVICE_FAMILY_NOTE}`,
-      caveat: 'Ranks below G1 on criterion (3) — a two-level statistic.',
-    }),
-    Object.freeze({
-      id: 'G3',
-      name: 'pause-boundary run-in',
-      fn: shapeG3,
-      population: COVERED_PAIR_POPULATION,
-      meaning:
-        'The speed of covered pairs immediately bracketing an established zero-advance pause interval.',
-      nonCircularity:
-        'The pause rule is a duration-only rule with no speed term, so it is independent of any band; ' +
-        'no band or class enters it.',
-      caveat:
-        'Ranks last: the population mixes deceleration and acceleration pairs, so its upper tail is ' +
-        'contaminated by construction — the median is used for that reason.',
+        "The same ceiling, with each activity voting once (total chained-episode metres / total " +
+        "chained-episode seconds, R-7 p90 across activities), so an activity with many stops cannot " +
+        "dominate G4's pooled statistic. Each planted item lifts exactly one host activity's ratio.",
+      nonCircularity: G4_G5_NON_CIRCULARITY,
+      caveat: `${G4_G5_CAVEAT} Ranks below G4 on criterion (2), being a two-level statistic.`,
     }),
   ]),
   M: Object.freeze([
@@ -818,6 +904,24 @@ export const REJECTED_SHAPES = Object.freeze([
   'W (rejected on argument): a per-activity valley percentile — most activities contain no walking ' +
     'hump, so the population would be selected by the property being measured.',
   'W (rejected on argument): a cadence-split anchor, which needs its own uncalibrated cadence constant.',
+  // [D-19, plan 34-12] appended after HALT-1 (34-06-HALT-1.md), 34-12-PLAN.md's REJECTED ON ARGUMENT:
+  'G (rejected on argument, D-19): (c) pause-interval interiors alone — zero-advance by definition, so ' +
+    'the rate is exactly 0: a degenerate population and a zero base.',
+  'G (rejected on argument, D-19): (d) G3\'s population restricted to pairs outside every J ' +
+    'neighbourhood — it makes the REMOVED axis vacuous by construction, and a measured HALT-1 view of ' +
+    'nearly that population already exists, so declaring it would be choosing by outcome.',
+  'G (rejected on argument, D-19): (e) pre-start / post-finish stationary tails — no speed-free rule ' +
+    'tells a stationary tail from a start or finish effort except the pause rule itself, which reduces ' +
+    'to G4.',
+  'G (rejected on argument, D-19): (f) chained plus single-pause standstills together — a single-pause ' +
+    'standstill accrues 0 by construction and is excluded (see G4/G5 caveats).',
+  'G (rejected on argument, D-19): (g) pair speeds of drift ticks inside bridges — a tick\'s pair speed ' +
+    'is one sample\'s odometer jump, not a drift rate over standing time; wrong unit for a boundary that ' +
+    'judges interval aggregates.',
+  'RETIRED (D-19, not argued, recorded in 34-06-HALT-1.md): G1 (cadence-silent covered pairs, pooled), ' +
+    'G2 (cadence-silent covered pairs, per activity), G3 (pause-boundary run-in). All three measured ' +
+    'walking/jogging speeds, not stationary-drift speeds, and failed D-13 insensitivity on the real ' +
+    'archive.',
 ]);
 
 const STRAWMEN = Object.freeze({
@@ -953,32 +1057,41 @@ export function d10Section(views) {
 // ---------------------------------------------------------------------------
 
 /**
- * STOP-02's drift measurement, over G1's own (base, unperturbed) population: pair count, total
- * seconds, total phantom metres and the share of pairs with d-advance > 0. "Drift matters" iff the
- * shipped G value is > 0.
+ * [D-19, plan 34-12] DRIFT MEASUREMENT (replaces 34-04's G1-population version): rendered as
+ * FINDINGS, strictly after selection and WHETHER OR NOT G clears — over the BASE standstill
+ * episodes: episodes total, chained count, single-pause count, chained share, total standstill
+ * seconds, total chained-episode metres. Independent of `shippedG`; the ONLY thing `shippedG` gates
+ * is the "drift matters" line (`shippedG > 0`) and, when G HALTed entirely with zero chained
+ * episodes, the stated reason.
  */
-export function driftSection(views, shippedFloor) {
-  if (shippedFloor === null || shippedFloor === undefined) {
-    return { computed: false };
-  }
-  const pairs = [];
+export function driftSection(views) {
+  let episodesTotal = 0;
+  let chainedCount = 0;
+  let singlePauseCount = 0;
+  let totalStandstillSeconds = 0;
+  let totalChainedMetres = 0;
+
   for (const v of views) {
     if (!v.computable) continue;
-    for (const p of v.coveredPairs) if (p.cadenceSilent) pairs.push(p);
+    for (const ep of v.standstillEpisodes) {
+      episodesTotal++;
+      totalStandstillSeconds += ep.seconds;
+      if (ep.chained) {
+        chainedCount++;
+        totalChainedMetres += ep.metres;
+      } else {
+        singlePauseCount++;
+      }
+    }
   }
-  const pairCount = pairs.length;
-  const totalSeconds = pairs.reduce((s, p) => s + p.seconds, 0);
-  const totalPhantomMetres = pairs.reduce((s, p) => s + Math.max(0, p.metres), 0);
-  const advancingCount = pairs.filter((p) => p.metres > 0).length;
-  const advancingShare = pairCount > 0 ? advancingCount / pairCount : null;
+
   return {
-    computed: true,
-    pairCount,
-    totalSeconds,
-    totalPhantomMetres,
-    advancingShare,
-    matters: shippedFloor > 0,
-    shippedFloor,
+    episodesTotal,
+    chainedCount,
+    singlePauseCount,
+    chainedShare: episodesTotal > 0 ? chainedCount / episodesTotal : null,
+    totalStandstillSeconds,
+    totalChainedMetres,
   };
 }
 
@@ -1262,7 +1375,8 @@ export function runCalibration(archive, controlText) {
 
   const d10 = d10Section(baseViews);
   const join = joinSection(baseViews);
-  const drift = driftSection(baseViews, shippedG);
+  // [D-19, plan 34-12] Always computed from BASE standstill episodes, whether or not G cleared.
+  const drift = driftSection(baseViews);
 
   let gates = null;
   let perIntervalTableResult = null;
@@ -1386,20 +1500,33 @@ function renderD10(d10) {
   return lines.join('\n');
 }
 
-function renderDrift(drift) {
-  if (!drift.computed) {
-    return 'Not computed — upstream G family did not clear.';
+/**
+ * [D-19, plan 34-12] Renders the standstill-episode findings, always — whether or not G cleared —
+ * plus the "drift matters" line, gated on `shippedG` (the shipped, rounded G value; `null` if G
+ * has not shipped a value at all this run).
+ */
+function renderDrift(drift, shippedG) {
+  const base =
+    `Standstill episodes: total=${drift.episodesTotal}, chained=${drift.chainedCount}, ` +
+    `single-pause=${drift.singlePauseCount}, chainedShare=${fmtPct(drift.chainedShare)}, ` +
+    `totalStandstillSeconds=${fmtNum(drift.totalStandstillSeconds, 1)}, ` +
+    `totalChainedMetres=${fmtNum(drift.totalChainedMetres, 2)}.`;
+
+  if (shippedG === null || shippedG === undefined) {
+    if (drift.chainedCount === 0) {
+      return (
+        `${base} No chained episode exists: the base is null and G HALTs; the standstill counts ` +
+        'above are the measured reason.'
+      );
+    }
+    return `${base} Drift-matters not yet determined — Family G has not shipped a value this run.`;
   }
-  if (!drift.matters) {
-    return (
-      `pairCount=${drift.pairCount}, totalSeconds=${fmtNum(drift.totalSeconds, 1)}, ` +
-      `totalPhantomMetres=${fmtNum(drift.totalPhantomMetres, 2)}, advancingShare=${fmtPct(drift.advancingShare)}. ` +
-      'The shipped G value is exactly 0: drift-while-stationary is a measured non-issue on this archive.'
-    );
+  if (shippedG > 0) {
+    return `${base} Drift matters: the shipped G value is > 0.`;
   }
   return (
-    `pairCount=${drift.pairCount}, totalSeconds=${fmtNum(drift.totalSeconds, 1)}, ` +
-    `totalPhantomMetres=${fmtNum(drift.totalPhantomMetres, 2)}, advancingShare=${fmtPct(drift.advancingShare)}.`
+    `${base} The shipped G value is exactly 0: drift-while-stationary is a measured non-issue on ` +
+    'this archive.'
   );
 }
 
@@ -1445,9 +1572,12 @@ export function renderCalibrationMarkdown(result) {
   lines.push('## Statistic and scope');
   lines.push('');
   lines.push(
-    'Families run in the fixed order G, then M, then W (34-04-PLAN.md <predeclared_shapes>). ' +
-      'Downstream families use the upstream chosen value AS SHIPPED (rounded). If a family HALTs, ' +
-      'every downstream family renders "not computed: upstream HALT".'
+    'Families run in the fixed order G, then M, then W (34-04-PLAN.md <predeclared_shapes>, as ' +
+      'amended by 34-12-PLAN.md (D-19)). Downstream families use the upstream chosen value AS ' +
+      'SHIPPED (rounded). If a family HALTs, every downstream family renders "not computed: ' +
+      'upstream HALT". The D-13 PLANTED perturbation plants ceil(PLANT_FRACTION x the shape\'s own ' +
+      'base items) items into that shape\'s own population, uniform across G, M and W (D-19) — ' +
+      'never a single family-wide plant.'
   );
   lines.push('');
 
@@ -1568,7 +1698,7 @@ export function renderCalibrationMarkdown(result) {
 
   lines.push('## Drift-while-stationary');
   lines.push('');
-  lines.push(renderDrift(result.drift));
+  lines.push(renderDrift(result.drift, result.shipped.STATIONARY_MAX_SPEED_MPS));
   lines.push('');
 
   lines.push('## Join exhaustiveness');
