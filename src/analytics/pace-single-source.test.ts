@@ -447,6 +447,82 @@ export function findUnreliableSegmentViolations(files: readonly SourceFile[]): S
   return violations;
 }
 
+// ---------------------------------------------------------------------------
+// Phase 34 — pause-classification.ts: D-05 no-literal guard and confinement
+// (see the "pause-classification reads the detector (SEG-05b, Phase 34
+// half)" describe block far below for the load-bearing proof itself)
+// ---------------------------------------------------------------------------
+
+/**
+ * The transport-speed literal (D-05). This needle is deliberately the exact
+ * numeric string, never a broader "any float near it" shape — mirroring
+ * `BANNED_LITERALS`'s own narrow-literal discipline above. The ONE file
+ * allowed to hold it is the detector itself; every `.test.ts` file is also
+ * excluded (this audit file's own docblocks/planted fixtures, and
+ * `pause-classification.test.ts`'s own probe-construction constant, both
+ * legitimately hold the literal as documentation/test data, not production
+ * arithmetic — the same self-exemption reasoning `ALLOWED_SELF_SUFFIX`
+ * already applies to `BANNED_LITERALS` above).
+ */
+const TRANSPORT_SPEED_LITERAL = '7.35';
+const TRANSPORT_LITERAL_ALLOWED_FILE_SUFFIX = 'analytics/unreliable-segments.ts';
+
+/**
+ * Pure scanner (same `{ path, needle, count }` shape as
+ * `findStreamPaceViolations`): flags any non-test `.ts` file other than the
+ * detector itself that holds the transport-speed literal as executable
+ * source (comment-stripped first, so a docblock merely naming the number is
+ * never flagged — only a literal reachable at runtime is).
+ */
+function findTransportLiteralViolations(files: readonly SourceFile[]): StreamPaceViolation[] {
+  const violations: StreamPaceViolation[] = [];
+  for (const file of files) {
+    if (file.path.endsWith('.test.ts')) continue;
+    if (file.path.endsWith(TRANSPORT_LITERAL_ALLOWED_FILE_SUFFIX)) continue;
+    const stripped = stripComments(file.source);
+    const count = countOccurrences(stripped, TRANSPORT_SPEED_LITERAL);
+    if (count > 0) violations.push({ path: file.path, needle: TRANSPORT_SPEED_LITERAL, count });
+  }
+  return violations;
+}
+
+/**
+ * The classifier's own call-site confinement (D-01, D-15's per-phase
+ * "reads the detector, never re-derives it" discipline extended to THIS
+ * module's own consumers). `pace-quality.ts` is pre-allowed because plan
+ * 34-08 wires the classifier into it — recorded here so a future reader
+ * does not mistake the allowance for an oversight.
+ */
+const PAUSE_CLASSIFICATION_CALL_SITE_LITERALS = [
+  'classifyPauses(',
+  'collectPauseIntervals(',
+  'classifyForgottenStop(',
+  'findCreepStretches(',
+] as const;
+
+function isPauseClassificationCallSiteAllowed(path: string): boolean {
+  return (
+    path.endsWith('analytics/pause-classification.ts') ||
+    path.endsWith('analytics/pace-quality.ts') || // pre-allowed: plan 34-08 wires the classifier here
+    path.endsWith('.test.ts')
+  );
+}
+
+/** Pure scanner, same `OverrideMatch` shape as `findConfinedCallSites`'s callers use directly. */
+function findPauseClassificationConfinementViolations(files: readonly SourceFile[]): OverrideMatch[] {
+  const matches: OverrideMatch[] = [];
+  for (const file of files) {
+    if (isPauseClassificationCallSiteAllowed(file.path)) continue;
+    const stripped = stripComments(file.source);
+    for (const literal of PAUSE_CLASSIFICATION_CALL_SITE_LITERALS) {
+      if (stripped.includes(literal)) {
+        matches.push({ path: file.path, literal });
+      }
+    }
+  }
+  return matches;
+}
+
 describe('PACE-01 Criterion 4 / D-18 — single-source stream-pace audit', () => {
   const { files, failures } = readSourceTree(SRC_ROOT);
 
@@ -861,5 +937,198 @@ describe('pace-derivation.ts\'s detector import is load-bearing (SEG-05b, D-15)'
 
     vi.doUnmock('./unreliable-segments.js');
     vi.resetModules();
+  });
+});
+
+/**
+ * pause-classification reads the detector (SEG-05b, Phase 34 half)
+ *
+ * The Phase 34 twin of the `pace-derivation.ts's detector import is
+ * load-bearing (SEG-05b, D-15)` block above. `pause-classification.ts`
+ * imports ONLY from `pace-derivation.ts` (never `unreliable-segments.ts`
+ * directly, per `DETECTOR_IMPORTER_NEEDLES` above and this module's own
+ * docblock) — but an import chain that exists textually and one that
+ * actually DRIVES this module's output are different claims. This block
+ * proves the LATTER by stubbing `detectUnreliableSegments` to return `[]`
+ * two modules downstream: `pause-classification.js` re-imports
+ * `pace-derivation.js`, which re-imports `unreliable-segments.js` — the
+ * stub therefore has to survive TWO hops to reach `classifyPauses`' output.
+ * Both directions are asserted in the SAME test (real: at least one
+ * `merged-segment` interval; stub: zero `merged-segment` intervals, and at
+ * least one stubbed `recording-gap` interval that lies inside a REAL
+ * merged interval's own `[startSec, endSec]` carries a different class
+ * under `TEST_BANDS`) — a one-direction assertion would pass against a
+ * build where the classifier never actually reads its `coverage`/`segments`
+ * arguments at all (this plan's own T-34-10 threat).
+ */
+describe('pause-classification reads the detector (SEG-05b, Phase 34 half)', () => {
+  /** Deliberately round synthetic bands for this mechanism proof — NOT calibrated (plans 34-04/34-06 calibrate the real values). */
+  const TEST_BANDS = { stationaryMaxMps: 0.5, walkRunMps: 2.0 };
+
+  it("stubbing detectUnreliableSegments to [] on real 3475724402 zeroes merged-segment intervals and changes at least one recording-gap interval's class inside a real merged interval's bounds; the real module gives at least one merged-segment interval", async () => {
+    const stream = JSON.parse(
+      readFileSync(path.join('data', 'streams', '3475724402.json'), 'utf-8')
+    ) as import('../streams/stream.types.js').CanonicalStream;
+
+    // Real direction first, from a clean module registry — no mock active yet.
+    vi.resetModules();
+    const realPaceDerivation = await import('./pace-derivation.js');
+    const realPauseClassification = await import('./pause-classification.js');
+    const { coverage: realCoverage, segments: realSegments } = realPaceDerivation.classifyGapsWithSegments(
+      stream.t,
+      stream.d
+    );
+    const realResult = realPauseClassification.classifyPauses(
+      stream.t,
+      stream.d,
+      realCoverage,
+      realSegments,
+      TEST_BANDS
+    );
+    const realMergedIntervals = realResult.intervals.filter((iv) => iv.source === 'merged-segment');
+    expect(realMergedIntervals.length).toBeGreaterThan(0); // reachability — real direction
+
+    // Stubbed direction: detectUnreliableSegments always returns [], every
+    // other export (including DEFAULT_DETECTOR_PARAMS) passes through
+    // untouched via vi.importActual. The stub is declared at the DETECTOR
+    // level — pause-classification.js never imports unreliable-segments.js
+    // itself, so this proves the stub's effect propagates through
+    // pace-derivation.js's own re-export chain.
+    vi.doMock('./unreliable-segments.js', async () => {
+      const actual =
+        await vi.importActual<typeof import('./unreliable-segments.js')>('./unreliable-segments.js');
+      return { ...actual, detectUnreliableSegments: () => [] };
+    });
+    vi.resetModules();
+    const stubbedPaceDerivation = await import('./pace-derivation.js');
+    const stubbedPauseClassification = await import('./pause-classification.js');
+    const { coverage: stubbedCoverage, segments: stubbedSegments } =
+      stubbedPaceDerivation.classifyGapsWithSegments(stream.t, stream.d);
+    expect(stubbedSegments).toEqual([]); // reachability — the stub actually took
+
+    const stubbedResult = stubbedPauseClassification.classifyPauses(
+      stream.t,
+      stream.d,
+      stubbedCoverage,
+      stubbedSegments,
+      TEST_BANDS
+    );
+    const stubbedMergedIntervals = stubbedResult.intervals.filter((iv) => iv.source === 'merged-segment');
+    expect(stubbedMergedIntervals).toEqual([]);
+
+    // At least one stubbed 'recording-gap' interval lies inside a real
+    // merged interval's own [startSec, endSec] and carries a different
+    // class than that real merged interval did.
+    const stubbedRecordingGapIntervals = stubbedResult.intervals.filter((iv) => iv.source === 'recording-gap');
+    let foundDifferingClass = false;
+    for (const stubbedGap of stubbedRecordingGapIntervals) {
+      const containingRealMerged = realMergedIntervals.find(
+        (real) => stubbedGap.startSec >= real.startSec && stubbedGap.endSec <= real.endSec
+      );
+      if (containingRealMerged !== undefined && containingRealMerged.pauseClass !== stubbedGap.pauseClass) {
+        foundDifferingClass = true;
+        break;
+      }
+    }
+    expect(foundDifferingClass).toBe(true);
+
+    vi.doUnmock('./unreliable-segments.js');
+    vi.resetModules();
+  });
+});
+
+/**
+ * pause-classification D-05: no transport-speed literal outside the
+ * detector
+ *
+ * D-05 (34-CONTEXT.md): the transported boundary is
+ * `UNRELIABLE_SPEED_LIMIT_MPS`, imported through `pace-derivation.ts`,
+ * never a literal. This guard is watched failing first against a planted
+ * `7.35` inside `pause-classification.ts` (recorded verbatim in this
+ * plan's SUMMARY.md), then reverted — the standing "watch it fail first"
+ * convention this project applies to every guard.
+ */
+describe('pause-classification D-05: no transport-speed literal outside the detector', () => {
+  const { files } = readSourceTree(SRC_ROOT);
+
+  it('non-vacuous: unreliable-segments.ts itself carries the literal, and pause-classification.ts imports UNRELIABLE_SPEED_LIMIT_MPS rather than copying it', () => {
+    const detectorFile = files.find((f) => f.path.endsWith('analytics/unreliable-segments.ts'));
+    expect(detectorFile, 'expected to find unreliable-segments.ts in the scanned file list').toBeTruthy();
+    expect(countOccurrences(stripComments(detectorFile!.source), TRANSPORT_SPEED_LITERAL)).toBeGreaterThanOrEqual(1);
+
+    const classifierFile = files.find((f) => f.path.endsWith('analytics/pause-classification.ts'));
+    expect(classifierFile, 'expected to find pause-classification.ts in the scanned file list').toBeTruthy();
+    expect(countOccurrences(stripComments(classifierFile!.source), 'UNRELIABLE_SPEED_LIMIT_MPS')).toBeGreaterThan(0);
+  });
+
+  it('zero transport-speed-literal offenders exist outside unreliable-segments.ts and *.test.ts files', () => {
+    const violations = findTransportLiteralViolations(files);
+    const message = violations.map((v) => `${v.path}: contains "${v.needle}" (${v.count}x)`).join('\n');
+    expect(violations, `violations found:\n${message}`).toEqual([]);
+  });
+
+  it('is demonstrated catching a planted literal: a synthetic analytics/planted-transport.ts with a bare 7.35 is flagged with its path, and the same file with the literal removed is not flagged', () => {
+    const plantedPath = 'src/analytics/planted-transport.ts';
+    const plantedFile: SourceFile = {
+      path: plantedPath,
+      source: 'export const LIMIT = 7.35;\n',
+    };
+    const violations = findTransportLiteralViolations([plantedFile]);
+    expect(violations).toEqual([{ path: plantedPath, needle: TRANSPORT_SPEED_LITERAL, count: 1 }]);
+
+    const cleanedFile: SourceFile = {
+      path: plantedPath,
+      source: 'export const LIMIT = UNRELIABLE_SPEED_LIMIT_MPS;\n',
+    };
+    expect(findTransportLiteralViolations([cleanedFile])).toEqual([]);
+  });
+});
+
+/**
+ * pause-classification confinement
+ *
+ * Confines the classifier's own call sites (`classifyPauses(`,
+ * `collectPauseIntervals(`, `classifyForgottenStop(`, `findCreepStretches(`)
+ * to `pause-classification.ts` itself, `pace-quality.ts` (pre-allowed —
+ * plan 34-08 wires the classifier there), and `*.test.ts` files. A caller
+ * appearing anywhere else would be a second, undisclosed consumption path
+ * this audit exists to catch.
+ */
+describe('pause-classification confinement', () => {
+  const { files } = readSourceTree(SRC_ROOT);
+
+  it('non-vacuous: pause-classification.ts itself carries all four call-site literals (its own exported definitions), and pause-classification.test.ts carries real call sites', () => {
+    const classifierFile = files.find((f) => f.path.endsWith('analytics/pause-classification.ts'));
+    expect(classifierFile, 'expected to find pause-classification.ts in the scanned file list').toBeTruthy();
+    const stripped = stripComments(classifierFile!.source);
+    for (const literal of PAUSE_CLASSIFICATION_CALL_SITE_LITERALS) {
+      expect(stripped.includes(literal), `expected pause-classification.ts to contain "${literal}"`).toBe(true);
+    }
+
+    const testFile = files.find((f) => f.path.endsWith('analytics/pause-classification.test.ts'));
+    expect(testFile, 'expected to find pause-classification.test.ts in the scanned file list').toBeTruthy();
+    expect(stripComments(testFile!.source).includes('classifyPauses(')).toBe(true);
+  });
+
+  it('zero call-site offenders exist outside pause-classification.ts, pace-quality.ts and *.test.ts files', () => {
+    const violations = findPauseClassificationConfinementViolations(files);
+    const message = violations.map((v) => `${v.path}: contains "${v.literal}"`).join('\n');
+    expect(violations, `violations found:\n${message}`).toEqual([]);
+  });
+
+  it('is demonstrated catching a planted call site: a synthetic dashboard file calling classifyPauses( is flagged, and the same file with the call removed is not flagged', () => {
+    const plantedPath = 'src/dashboard/views/planted-pause-classification-caller.ts';
+    const plantedFile: SourceFile = {
+      path: plantedPath,
+      source: "import { classifyPauses } from '../../analytics/pause-classification.js';\nexport const result = classifyPauses(t, d, coverage, segments, bands);\n",
+    };
+    const violations = findPauseClassificationConfinementViolations([plantedFile]);
+    expect(violations).toEqual([{ path: plantedPath, literal: 'classifyPauses(' }]);
+
+    const cleanedFile: SourceFile = {
+      path: plantedPath,
+      source: "export const result = null;\n",
+    };
+    expect(findPauseClassificationConfinementViolations([cleanedFile])).toEqual([]);
   });
 });
