@@ -436,7 +436,17 @@ export function recordingMechanismSignature(
  * non-decreasing as `i` increases, giving O(n) per run) and keeps the
  * window when its aggregate speed `(d[j] - d[i]) / (t[j] - t[i])` is `<=
  * maxSpeedMps`. Overlapping/adjacent qualifying windows are unioned into
- * one maximal stretch. Total: `null`/`undefined` input returns `[]`.
+ * one maximal stretch, but ONLY while the growing union's OWN aggregate
+ * speed also stays `<= maxSpeedMps` — verified before every extension
+ * (plan 34-06 Task 2's own "walking-break control" DEFINITIONAL test found
+ * this the hard way: a naive index-range union of individually-bounded
+ * windows is not itself bounded in general, since two overlapping low-speed
+ * windows can straddle a faster segment that only surfaces once they are
+ * joined). A window whose union with the current stretch WOULD exceed the
+ * bound starts its own stretch instead (it independently qualifies on its
+ * own span). INVARIANT: every returned `PauseInterval`'s own
+ * `metres / seconds` is `<= maxSpeedMps` — never merely "built from
+ * qualifying windows". Total: `null`/`undefined` input returns `[]`.
  */
 export function findCreepStretches(
   t: readonly number[],
@@ -465,9 +475,29 @@ export function findCreepStretches(
       const metres = d[j] - d[i];
       if (seconds <= 0 || metres / seconds > maxSpeedMps) continue;
 
+      // This window [i, j] independently satisfies the bound (checked above). Extending the
+      // PREVIOUS stretch to cover it is only safe if the EXTENDED union's own aggregate speed
+      // ALSO satisfies the bound — a union of individually-bounded windows is not itself
+      // guaranteed bounded (two overlapping low-speed windows can straddle a faster segment
+      // whose own contribution only shows up once the two are joined into one longer span).
+      // Verifying the candidate union's own speed before committing to it, rather than simply
+      // taking the index-range union, keeps every RETURNED stretch's own metres/seconds within
+      // maxSpeedMps — the property `findCreepStretches`' own docblock and every downstream
+      // consumer (the walking-break control's DEFINITIONAL regression tripwire; STOP-02's
+      // Pauses-section disclosure) relies on.
       const last = mergedStretches[mergedStretches.length - 1];
       if (last !== undefined && i <= last.endIdx) {
-        last.endIdx = Math.max(last.endIdx, j);
+        if (j <= last.endIdx) continue; // already fully covered by the existing bounded stretch
+        const candidateEndIdx = j;
+        const candidateSeconds = t[candidateEndIdx] - t[last.startIdx];
+        const candidateMetres = d[candidateEndIdx] - d[last.startIdx];
+        if (candidateSeconds > 0 && candidateMetres / candidateSeconds <= maxSpeedMps) {
+          last.endIdx = candidateEndIdx;
+        } else {
+          // The union would exceed the bound — [i, j] still independently qualifies (checked
+          // above), so it starts its own stretch rather than being folded into `last`.
+          mergedStretches.push({ startIdx: i, endIdx: j });
+        }
       } else {
         mergedStretches.push({ startIdx: i, endIdx: j });
       }

@@ -236,7 +236,7 @@ Summed joinViolations archive-wide: 0. PASS.
 
 Class distribution: stationary=5260 (1170 activities), walked=623 (237 activities), ran-through=167 (75 activities), transported=6 (5 activities). Not-classifiable intervals: 1259.
 
-Forgotten-stop: computable 1769, not-computable 105 ({"fewer than 30 covered pairs available to compute the recording-mechanism signature":1,"distance-triggered recording: a standstill would be written as a recording gap, not a covered creep, so the forgotten-stop flag cannot see it":104}). Covered-creep flagged on 82 activities (300 stretches); zero-advance-pause flagged on 414 activities (694 intervals).
+Forgotten-stop: computable 1769, not-computable 105 ({"fewer than 30 covered pairs available to compute the recording-mechanism signature":1,"distance-triggered recording: a standstill would be written as a recording gap, not a covered creep, so the forgotten-stop flag cannot see it":104}). Covered-creep flagged on 82 activities (363 stretches); zero-advance-pause flagged on 414 activities (694 intervals).
 
 ## Inputs
 
