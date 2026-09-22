@@ -38,6 +38,7 @@ import {
   hasAnySevereSignal,
   impossibleSampleSignal,
   notComputableSignals,
+  projectPauseIntervals,
   projectUnreliableSegments,
   resolveDeviceFamily,
   subGroundSignal,
@@ -68,6 +69,7 @@ import {
 } from './pace-derivation.js';
 import type { UnreliableSegment, SegmentMechanism } from './pace-derivation.js';
 import { NOT_COMPUTABLE_DISTANCE_TRIGGERED } from './pause-classification.js';
+import type { ClassifiedPauseInterval, PauseInterval } from './pause-classification.js';
 import type { CanonicalStream } from '../streams/stream.types.js';
 
 /** Builds the two-field metadata slice `resolveDeviceFamily` consumes from a raw activity record. */
@@ -1452,6 +1454,114 @@ describe('projectUnreliableSegments — D-08 parts-free, capped shard projection
     // The first 100, in order — never a re-sort or a different subset.
     expect(result.segments[0].startSec).toBe(0);
     expect(result.segments[99].startSec).toBe(990);
+  });
+});
+
+/** Test-only fixture builder for one `ClassifiedPauseInterval` — never read by production code. */
+function fakeClassifiedInterval(
+  overrides: Partial<ClassifiedPauseInterval> = {}
+): ClassifiedPauseInterval {
+  return {
+    source: 'recording-gap',
+    startSec: 0,
+    endSec: 10,
+    seconds: 10,
+    metres: 1,
+    startMetres: 0,
+    pauseClass: 'walked',
+    ...overrides,
+  };
+}
+
+/** Test-only fixture builder for one covered-creep `PauseInterval` — never read by production code. */
+function fakeCreepInterval(overrides: Partial<PauseInterval> = {}): PauseInterval {
+  return {
+    source: 'covered-creep',
+    startSec: 0,
+    endSec: 10,
+    seconds: 10,
+    metres: 1,
+    startMetres: 0,
+    ...overrides,
+  };
+}
+
+describe('projectPauseIntervals — D-15 parts-free, capped shard projection (Phase 34, plan 34-08)', () => {
+  it('empty classified and creep lists yield an empty entries array and truncated false, never null', () => {
+    const result = projectPauseIntervals([], []);
+    expect(result.entries).toEqual([]);
+    expect(result.truncated).toBe(false);
+  });
+
+  it('each projected entry carries EXACTLY source, pauseClass, startSec, endSec, seconds, metres, startMetres — no index fields', () => {
+    const classified = fakeClassifiedInterval({
+      source: 'merged-segment',
+      startSec: 12.5,
+      endSec: 20.1,
+      seconds: 7.6,
+      metres: 30,
+      startMetres: 100,
+      pauseClass: 'ran-through',
+    });
+    const result = projectPauseIntervals([classified], []);
+    expect(result.entries).toHaveLength(1);
+    const keys = Object.keys(result.entries[0]).sort();
+    expect(keys).toEqual(
+      ['source', 'pauseClass', 'startSec', 'endSec', 'seconds', 'metres', 'startMetres'].sort()
+    );
+    expect(result.entries[0]).toEqual({
+      source: 'merged-segment',
+      pauseClass: 'ran-through',
+      startSec: 12.5,
+      endSec: 20.1,
+      seconds: 7.6,
+      metres: 30,
+      startMetres: 100,
+    });
+  });
+
+  it('a covered-creep interval always projects with source "covered-creep" and pauseClass "stationary"', () => {
+    const creep = fakeCreepInterval({ startSec: 5, endSec: 47, seconds: 42, metres: 3, startMetres: 200 });
+    const result = projectPauseIntervals([], [creep]);
+    expect(result.entries).toHaveLength(1);
+    expect(result.entries[0].source).toBe('covered-creep');
+    expect(result.entries[0].pauseClass).toBe('stationary');
+    expect(result.entries[0].startSec).toBe(5);
+    expect(result.entries[0].endSec).toBe(47);
+  });
+
+  it('merges both sources and sorts the combined list by startSec', () => {
+    const classified = [
+      fakeClassifiedInterval({ startSec: 30, endSec: 40, source: 'recording-gap', pauseClass: 'walked' }),
+      fakeClassifiedInterval({ startSec: 0, endSec: 10, source: 'zero-advance-pause', pauseClass: 'stationary' }),
+    ];
+    const creep = [fakeCreepInterval({ startSec: 15, endSec: 20 })];
+    const result = projectPauseIntervals(classified, creep);
+    expect(result.entries.map((e) => e.startSec)).toEqual([0, 15, 30]);
+    expect(result.entries.map((e) => e.source)).toEqual(['zero-advance-pause', 'covered-creep', 'recording-gap']);
+  });
+
+  it('exactly 100 combined entries yields all 100 with truncated false', () => {
+    const classified = Array.from({ length: 100 }, (_, i) =>
+      fakeClassifiedInterval({ startSec: i * 10, endSec: i * 10 + 5 })
+    );
+    const result = projectPauseIntervals(classified, []);
+    expect(result.entries).toHaveLength(100);
+    expect(result.truncated).toBe(false);
+  });
+
+  it('101 combined entries (classified + creep) yields exactly 100 projected entries with truncated true, the first 100 in sorted order', () => {
+    const classified = Array.from({ length: 60 }, (_, i) =>
+      fakeClassifiedInterval({ startSec: i * 10, endSec: i * 10 + 5 })
+    );
+    const creep = Array.from({ length: 41 }, (_, i) =>
+      fakeCreepInterval({ startSec: 600 + i * 10, endSec: 600 + i * 10 + 5 })
+    );
+    const result = projectPauseIntervals(classified, creep);
+    expect(result.entries).toHaveLength(100);
+    expect(result.truncated).toBe(true);
+    expect(result.entries[0].startSec).toBe(0);
+    expect(result.entries[99].startSec).toBe(990);
   });
 });
 

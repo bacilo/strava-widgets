@@ -1023,6 +1023,87 @@ describe('computeDashboardIndex — archive orchestration', () => {
       });
     });
 
+    describe('pauses (Phase 34: PAUSE-02, STOP-01, STOP-03, D-11, D-14)', () => {
+      it("a computed index row for 3475724402 carries quality.pauseClassification and quality.forgottenStop with every field populated", async () => {
+        const manifest = emptyManifestDoc();
+        manifest.activities['3475724402'] = {
+          available: true,
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: 11,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+        };
+        await writeManifest(manifest);
+        await writeActivity('3475724402');
+        const rawStream = await fs.readFile(path.join('data', 'streams', '3475724402.json'), 'utf-8');
+        const realStream = JSON.parse(rawStream) as CanonicalStream;
+        await writeStream('3475724402', realStream);
+
+        const doc = await computeDashboardIndex(baseOptions());
+        const row = doc.activities[0];
+
+        const pc = row.quality.pauseClassification;
+        expect(pc.intervalCount).not.toBeNull();
+        expect(pc.stationaryCount).not.toBeNull();
+        expect(pc.walkedCount).not.toBeNull();
+        expect(pc.ranThroughCount).not.toBeNull();
+        expect(pc.transportedCount).not.toBeNull();
+        expect(pc.notClassifiableCount).not.toBeNull();
+        // Independently known from the 34-07 zero-import recount: walked=1,
+        // ran-through=17, stationary=0, transported=0.
+        expect(pc.walkedCount).toBe(1);
+        expect(pc.ranThroughCount).toBe(17);
+        expect(pc.stationaryCount).toBe(0);
+        expect(pc.transportedCount).toBe(0);
+
+        const fsSignal = row.quality.forgottenStop;
+        expect(fsSignal.computable).toBe(true);
+        expect(fsSignal.reason).toBeNull();
+        expect(fsSignal.count).not.toBeNull();
+        expect(fsSignal.totalSec).not.toBeNull();
+        expect(fsSignal.longestSec).not.toBeNull();
+        expect(fsSignal.creepCount).not.toBeNull();
+        expect(fsSignal.creepTotalSec).not.toBeNull();
+        expect(fsSignal.creepLongestSec).not.toBeNull();
+        expect(fsSignal.pauseCount).not.toBeNull();
+        expect(fsSignal.pauseTotalSec).not.toBeNull();
+        expect(fsSignal.pauseLongestSec).not.toBeNull();
+      });
+
+      it('a stream-less activity carries quality.pauseClassification and quality.forgottenStop in not-computable form (present, not absent)', async () => {
+        const manifest = emptyManifestDoc();
+        manifest.activities['nostream-pauses'] = { available: false, reason: 'manual' };
+        await writeManifest(manifest);
+        await writeActivity('nostream-pauses', { device_name: null, source_provider: null });
+
+        const doc = await computeDashboardIndex(baseOptions());
+        const row = doc.activities[0];
+        expect(row.quality.pauseClassification).toEqual({
+          intervalCount: null,
+          stationaryCount: null,
+          walkedCount: null,
+          ranThroughCount: null,
+          transportedCount: null,
+          notClassifiableCount: null,
+        });
+        expect(row.quality.forgottenStop.computable).toBe(false);
+        expect(row.quality.forgottenStop.reason).toBe(row.quality.notComputableReason);
+      });
+
+      it('doc.schemaVersion equals DASHBOARD_INDEX_SCHEMA_VERSION, which is still 1, despite quality.pauseClassification/forgottenStop arriving on every row', async () => {
+        const manifest = emptyManifestDoc();
+        manifest.activities['a1'] = { available: false, reason: 'manual' };
+        await writeManifest(manifest);
+        await writeActivity('a1');
+
+        const doc = await computeDashboardIndex(baseOptions());
+        expect(doc.schemaVersion).toBe(1);
+        expect(DASHBOARD_INDEX_SCHEMA_VERSION).toBe(1);
+        expect(doc.activities[0].quality.pauseClassification).toBeDefined();
+        expect(doc.activities[0].quality.forgottenStop).toBeDefined();
+      });
+    });
+
     it('totals.qualityAnySevere equals the count of rows whose quality.anySevere is true, recomputed independently from doc.activities', async () => {
       const manifest = emptyManifestDoc();
       manifest.activities['severe1'] = {

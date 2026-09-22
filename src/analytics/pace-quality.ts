@@ -1928,6 +1928,28 @@ export interface PaceQualityShard {
     mechanism: SegmentMechanism;
   }[];
   unreliableSegmentsTruncated: boolean;
+  /**
+   * Phase 34 evidence (PAUSE-02, D-14, D-15): the per-interval pause/stop
+   * list, feeding the detail view's Pauses section (plan 34-09). Capped at
+   * 100 entries, same convention as `unreliableSegments`/`impossibleSamples`
+   * above — no `startIndex`/`endIndex` (D-15 rejects them the same way D-08
+   * did for the unreliable-segments shard). Membership (D-15): recording
+   * gaps, gap-adjacent merged segments and zero-advance pauses (each with
+   * its classified `pauseClass`), PLUS covered-creep stretches marked
+   * `source: 'covered-creep'` and `pauseClass: 'stationary'`. Isolated-jump
+   * and hidden-pause segments are NEVER in this list (D-01) — they stay only
+   * in the Unreliable Segments row/list. Sorted by `startSec`.
+   */
+  pauseIntervals: {
+    source: PauseSource;
+    pauseClass: PauseClass;
+    startSec: number;
+    endSec: number;
+    seconds: number;
+    metres: number;
+    startMetres: number;
+  }[];
+  pauseIntervalsTruncated: boolean;
 }
 
 /**
@@ -2025,6 +2047,61 @@ export function projectUnreliableSegments(
 }
 
 /**
+ * D-15's parts-free, capped per-interval pause-list projection (Phase 34,
+ * PAUSE-02, plan 34-08), the exact `projectUnreliableSegments` shape one
+ * evidence field later: a PURE function over two already-resolved interval
+ * lists — never calls the classifier, the forgotten-stop core, or
+ * `resolveCoverage` itself, so it can be exercised directly against a
+ * synthetic 101-entry fixture. `buildPaceQualityShard` is this function's
+ * one production call site, fed the SAME `classified`/`creep` lists that
+ * producer's own single `classifyPauses`/`classifyForgottenStop` calls
+ * already resolved.
+ *
+ * Merges the classifier's own classified intervals with the forgotten-stop
+ * core's covered-creep stretches (D-15's two named sources beyond the
+ * classifier alone), gives every creep entry `pauseClass: 'stationary'`
+ * (creep is a near-zero-speed stretch BY CONSTRUCTION — `findCreepStretches`
+ * only ever returns windows at or under the stationary bound) and
+ * `source: 'covered-creep'` (already true on every `PauseInterval` `creep`
+ * carries, per `pause-classification.ts`'s own `findCreepStretches`), sorts
+ * the merged list by `startSec`, and caps at 100 — same cap as
+ * `impossibleSamples`/`unreliableSegments`. `truncated` compares the full
+ * merged count against the capped length.
+ */
+export function projectPauseIntervals(
+  classified: readonly ClassifiedPauseInterval[],
+  creep: readonly PauseInterval[]
+): { entries: PaceQualityShard['pauseIntervals']; truncated: boolean } {
+  const merged: PaceQualityShard['pauseIntervals'] = [];
+  for (const iv of classified) {
+    merged.push({
+      source: iv.source,
+      pauseClass: iv.pauseClass,
+      startSec: iv.startSec,
+      endSec: iv.endSec,
+      seconds: iv.seconds,
+      metres: iv.metres,
+      startMetres: iv.startMetres,
+    });
+  }
+  for (const iv of creep) {
+    merged.push({
+      source: 'covered-creep',
+      pauseClass: 'stationary',
+      startSec: iv.startSec,
+      endSec: iv.endSec,
+      seconds: iv.seconds,
+      metres: iv.metres,
+      startMetres: iv.startMetres,
+    });
+  }
+  merged.sort((a, b) => a.startSec - b.startSec);
+
+  const entries = merged.length > 100 ? merged.slice(0, 100) : merged;
+  return { entries, truncated: merged.length > entries.length };
+}
+
+/**
  * Builds the D-17 evidence shard for one activity. `gapIntervals` comes
  * straight from the SAME coverage result `gapProfileSignal`'s own tiering
  * derives from (`resolveCoverage`, the sole `classifyGapsWithSegments` call
@@ -2065,6 +2142,8 @@ export function buildPaceQualityShard(
       elevationStartEndDistM: null,
       unreliableSegments: [],
       unreliableSegmentsTruncated: false,
+      pauseIntervals: [],
+      pauseIntervalsTruncated: false,
     };
   }
 
@@ -2085,16 +2164,33 @@ export function buildPaceQualityShard(
       elevationStartEndDistM: null,
       unreliableSegments: [],
       unreliableSegmentsTruncated: false,
+      pauseIntervals: [],
+      pauseIntervalsTruncated: false,
     };
   }
 
   // The sole coverage-and-segments computation for this activity — shared by
-  // the gap-profile signal, this shard's own `gapIntervals`, and the seventh
-  // signal below (Phase 33 plan 33-09, T-33-12c).
-  const { coverage, segments } = resolveCoverage(t, d);
+  // the gap-profile signal, this shard's own `gapIntervals`, the seventh
+  // signal, and (Phase 34) the ninth/tenth signals plus the pause-interval
+  // projection below (Phase 33 plan 33-09, T-33-12c, extended).
+  const { coverage, segments, coveredRuns } = resolveCoverage(t, d);
   const gapProfile = tierGapProfileFromCoverage(coverage, options);
   const decimation = decimationSignal(t, d, options);
   const unreliableSegments = unreliableSegmentsSignal(t, d, segments, options);
+  // Phase 34 (PAUSE-02, STOP-01, STOP-03): the classifier and forgotten-stop
+  // core are each called ONCE here — their raw results feed both the
+  // ninth/tenth row signals (via the shared `pauseClassificationFromIntervals`/
+  // `forgottenStopFromResult` helpers, the same ones `pauseClassificationSignal`/
+  // `forgottenStopSignal` use) and the shard's own `pauseIntervals` projection,
+  // never a second independent classifyPauses/classifyForgottenStop call.
+  const { intervals: classifiedPauseIntervals, notClassifiableCount: pauseNotClassifiableCount } =
+    classifyPauses(t, d, coverage, segments, SHIPPED_PAUSE_BANDS);
+  const pauseClassification = pauseClassificationFromIntervals(
+    classifiedPauseIntervals,
+    pauseNotClassifiableCount
+  );
+  const forgottenStopResult = classifyForgottenStop(t, d, coverage, coveredRuns, SHIPPED_STOP_PARAMS);
+  const forgottenStop = forgottenStopFromResult(forgottenStopResult);
 
   const impossibleRaw = countImpossibleSamples(t, d, { floorMps: options?.impossibleFloorMps });
   const impossibleSevereCut = options?.impossibleSevereCount ?? IMPOSSIBLE_SAMPLE_SEVERE_COUNT;
@@ -2134,6 +2230,8 @@ export function buildPaceQualityShard(
     unreliableSegments,
     deviceEra,
     elapsedVsMoving,
+    pauseClassification,
+    forgottenStop,
     anySevere,
     notComputableReason: null,
   };
@@ -2143,6 +2241,16 @@ export function buildPaceQualityShard(
   // second resolver or detector call.
   const { segments: projectedUnreliableSegments, truncated: unreliableSegmentsTruncated } =
     projectUnreliableSegments(segments);
+
+  // D-15's parts-free, capped per-interval pause-list projection — reads the
+  // SAME classified-interval/creep lists resolved once above; the not-
+  // computable forgotten-stop path contributes no creep entries (its own
+  // covered-creep source could not be looked at).
+  const creepForProjection = forgottenStopResult.computable ? forgottenStopResult.creep : [];
+  const { entries: projectedPauseIntervals, truncated: pauseIntervalsTruncated } = projectPauseIntervals(
+    classifiedPauseIntervals,
+    creepForProjection
+  );
 
   return {
     activityId,
@@ -2159,5 +2267,7 @@ export function buildPaceQualityShard(
     elevationStartEndDistM: elevation.closureDrift.startEndDistM,
     unreliableSegments: projectedUnreliableSegments,
     unreliableSegmentsTruncated,
+    pauseIntervals: projectedPauseIntervals,
+    pauseIntervalsTruncated,
   };
 }
