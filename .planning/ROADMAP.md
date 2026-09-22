@@ -229,7 +229,7 @@ Plans:
 
 **Wave 10** *(blocked on Wave 9)*
 
-- [ ] 33-13-PLAN.md — human browser checkpoint and requirement disposition
+- [x] 33-13-PLAN.md — human browser checkpoint and requirement disposition
 
 **UI hint**: yes
 
@@ -332,7 +332,7 @@ Plans:
 | 30. Elevation Quality Signal | v2.2 | 8/8 | Complete    | 2026-09-18 |
 | 31. Tech-Debt Closure — Silent-Failure Guards & Docs Reconciliation | v2.2 | 10/10 | Complete    | 2026-09-19 |
 | 32. Unreliable-Segment Detection & Calibration | v2.3 | 17/17 | Complete    | 2026-09-20 |
-| 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 13/14 | In Progress|  |
+| 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 14/14 | In Progress|  |
 | 34. Pause Classification & Forgotten-Stop | v2.3 | 0/TBD | Not started | - |
 | 35. Stream-Derived Running Pace | v2.3 | 0/TBD | Not started | - |
 | 36. Best-Effort Clean-Window Search & Ceiling Recalibration | v2.3 | 0/TBD | Not started | - |
