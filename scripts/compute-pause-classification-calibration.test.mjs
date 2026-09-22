@@ -27,6 +27,7 @@ import {
   driftSection,
   evaluateShape,
   joinSection,
+  mwFloorFromDeclared,
   perIntervalTable,
   plantShapes,
   removeNeighbourhoods,
@@ -916,27 +917,170 @@ describe('shape arbitration', () => {
     });
   });
 
-  it('rounding: G and W round via ceilToSignificant(raw, 3); M rounds via Math.ceil(raw)', () => {
+  it('[D-20] rounding: STATIONARY_MAX_SPEED_MPS ships the DECLARED value, never ' +
+    'ceilToSignificant on a G row; W still rounds via ceilToSignificant(raw, 3); M via ' +
+    'Math.ceil(raw)', () => {
     const result = runCalibration(buildClearArchive(), null);
     expect(result.allCleared).toBe(true);
-    // G4's raw rate 3/23 = 0.130434... rounds UP to 3 significant figures as 0.131 (never 0.130,
-    // which a standard round-to-nearest would give) — proves ceilToSignificant, not Math.round.
-    expect(result.shipped.STATIONARY_MAX_SPEED_MPS).toBeCloseTo(0.131, 6);
+    expect(result.shipped.STATIONARY_MAX_SPEED_MPS).toBe(DECLARED_STATIONARY_MAX_SPEED_MPS);
     // 6.5 rounds via Math.ceil to 7, not 6 (Math.floor).
     expect(result.shipped.FORGOTTEN_STOP_MIN_SEC).toBe(7);
   });
 
-  it('a G HALT makes M and W render "not computed: upstream HALT" — families are null and the ' +
-    'markdown says so', () => {
+  it('[D-20] Family G never halts the pipeline — it is evidence-only (arbitrated: false, ' +
+    'selectedId/chosen null) even on an archive with no chained standstill anywhere, while M and W ' +
+    'still run on the declared floor (contrast with the pre-D-20 "G HALT blocks M/W" behaviour)', () => {
     const result = runCalibration(buildHaltArchive(), null);
+    expect(result.families.G.arbitrated).toBe(false);
+    expect(result.families.G.selectedId).toBeNull();
     expect(result.families.G.chosen).toBeNull();
-    expect(result.families.M).toBeNull();
-    expect(result.families.W).toBeNull();
-    expect(result.allCleared).toBe(false);
+    expect(result.families.M).not.toBeNull();
+    expect(result.families.W).not.toBeNull();
+    expect(result.shipped.STATIONARY_MAX_SPEED_MPS).toBe(DECLARED_STATIONARY_MAX_SPEED_MPS);
+  });
 
-    const markdown = renderCalibrationMarkdown({ ...result, provenance: {} });
+  it('[D-20] mwFloorFromDeclared gates M/W on presence and finiteness — an injected non-finite/' +
+    'absent value yields a null floor, never a run on a null floor', () => {
+    expect(mwFloorFromDeclared(0.5)).toBe(0.5);
+    expect(mwFloorFromDeclared(NaN)).toBeNull();
+    expect(mwFloorFromDeclared(undefined)).toBeNull();
+    expect(mwFloorFromDeclared(null)).toBeNull();
+  });
+
+  it('"not computed: upstream HALT" renders for M/W whenever those families are null (whatever the ' +
+    'reason — an absent declared floor, per mwFloorFromDeclared, in production; never merely ' +
+    'because Family G did not "clear", which it no longer can)', () => {
+    const archive = buildHaltArchive();
+    const views = buildBaseViews(archive);
+    const gFamily = runFamily('G', views, { sourceShapes: [], arbitrate: false });
+    const result = {
+      archive,
+      families: { G: gFamily, M: null, W: null },
+      shipped: { STATIONARY_MAX_SPEED_MPS: null, FORGOTTEN_STOP_MIN_SEC: null, WALK_RUN_BOUNDARY_MPS: null },
+      allCleared: false,
+      gates: null,
+      d10: d10Section(views),
+      join: joinSection(views),
+      drift: driftSection(views),
+      perIntervalTable: null,
+      archiveFindings: null,
+      provenance: {},
+    };
+    const markdown = renderCalibrationMarkdown(result);
     expect(markdown).toContain('not computed: upstream HALT');
-    expect(markdown).not.toContain('STATIONARY_MAX_SPEED_MPS = ');
+    expect(markdown).not.toMatch(/^STATIONARY_MAX_SPEED_MPS = /m);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// evidence only (D-20, plan 34-13) — runFamily's arbitrate: false option, exercised directly.
+// Family G measures and renders every row exactly like an arbitrated family, but never selects.
+// ---------------------------------------------------------------------------
+
+describe('evidence only', () => {
+  it("runFamily('G', views, { arbitrate: false }) evaluates strawman G, G4 and G5 (same rows as " +
+    'arbitrate: true) but returns { arbitrated: false, selectedId: null, chosen: null } — ' +
+    'selectShape is never reached for G', () => {
+    const views = buildBaseViews(buildClearArchive());
+    const sourceShapes = sourceShapesFor(views);
+    const family = runFamily('G', views, { sourceShapes, arbitrate: false });
+    expect(family.arbitrated).toBe(false);
+    expect(family.selectedId).toBeNull();
+    expect(family.chosen).toBeNull();
+    expect(family.rows.length).toBe(2);
+    expect(family.rows.map((r) => r.id)).toEqual(['G4', 'G5']);
+    expect(family.strawman).toBeDefined();
+  });
+
+  it('a PASSING G4/G5 row still selects nothing under arbitrate: false — contrast with the same ' +
+    'views under arbitrate: true (the default), which DOES select', () => {
+    const views = buildBaseViews(buildInsensitiveArchive());
+    const sourceShapes = sourceShapesFor(views);
+    const arbitrated = runFamily('G', views, { sourceShapes });
+    const evidenceOnly = runFamily('G', views, { sourceShapes, arbitrate: false });
+    expect(arbitrated.rows.find((r) => r.id === 'G4').pass).toBe(true);
+    expect(arbitrated.selectedId).not.toBeNull();
+    expect(evidenceOnly.rows.find((r) => r.id === 'G4').pass).toBe(true);
+    expect(evidenceOnly.selectedId).toBeNull();
+    expect(evidenceOnly.chosen).toBeNull();
+    // The evidence-only run computes byte-identical rows to the arbitrated run — only selection
+    // differs.
+    expect(evidenceOnly.rows).toEqual(arbitrated.rows);
+  });
+
+  it('strawman G keeps its role under evidence-only mode: it is still evaluated and rendered, and ' +
+    'its FAIL is still required — a PASSING strawman G is a harness-integrity failure regardless of ' +
+    'whether Family G arbitrates', () => {
+    const views = buildBaseViews(buildInsensitiveArchive());
+    const sourceShapes = sourceShapesFor(views);
+    const family = runFamily('G', views, { sourceShapes, arbitrate: false });
+    expect(family.strawman.pass).toBe(false); // removal empties J, the strawman's own population
+    const markdown = renderCalibrationMarkdown({
+      archive: { streamFileCount: 1, notComputable: 0 },
+      families: { G: family, M: null, W: null },
+      shipped: { STATIONARY_MAX_SPEED_MPS: null, FORGOTTEN_STOP_MIN_SEC: null, WALK_RUN_BOUNDARY_MPS: null },
+      allCleared: false,
+      gates: null,
+      d10: d10Section(views),
+      join: joinSection(views),
+      drift: driftSection(views),
+      perIntervalTable: null,
+      archiveFindings: null,
+      provenance: {},
+    });
+    expect(markdown).toContain('FAILED');
+    expect(markdown).not.toContain('BLOCKER: the strawman PASSED');
+  });
+
+  it('the Family G rendering block states it is NOT ARBITRATED and names D-20, and every row/' +
+    'verdict is still rendered', () => {
+    const result = runCalibration(buildClearArchive(), GATES_PASS_CONTROL_TEXT);
+    const markdown = renderCalibrationMarkdown({ ...result, provenance: {} });
+    const shapeArbitration = markdown.split('## Shape arbitration')[1].split('## Chosen constants')[0];
+    const arbitrationSection = shapeArbitration.split('### Family G')[1].split('### Family M')[0];
+    expect(arbitrationSection).toContain('NOT ARBITRATED (D-20)');
+    expect(arbitrationSection).toContain('G4');
+    expect(arbitrationSection).toContain('G5');
+    expect(arbitrationSection).toMatch(/PASS|FAIL/);
+  });
+
+  it('runCalibration never calls ceilToSignificant on a G row; the shipped stationary constant is ' +
+    'the DECLARED value', () => {
+    const result = runCalibration(buildClearArchive(), GATES_PASS_CONTROL_TEXT);
+    expect(result.shipped.STATIONARY_MAX_SPEED_MPS).toBe(DECLARED_STATIONARY_MAX_SPEED_MPS);
+  });
+
+  it('M and W still run and arbitrate exactly as before on the declared floor — shapes, tolerance, ' +
+    'strawman-first and first-clearing arbitration are all unchanged', () => {
+    const result = runCalibration(buildClearArchive(), GATES_PASS_CONTROL_TEXT);
+    expect(result.families.M.selectedId).not.toBeNull();
+    expect(result.families.W.selectedId).not.toBeNull();
+    expect(result.allCleared).toBe(true);
+  });
+
+  it('a family with no clearing shape (e.g. M) still renders NO SHAPE CLEARS, ships nothing, and ' +
+    'exits 1 — even though the declared G floor is present and Family G no longer blocks anything', () => {
+    const gFamily = {
+      familyId: 'G',
+      arbitrated: false,
+      strawman: { pass: false },
+      rows: [],
+      selectedId: null,
+      chosen: null,
+      nonVacuity: { removedCount: 0, removedChangedActivityCount: 0 },
+    };
+    const result = {
+      families: { G: gFamily, M: null, W: null },
+      allCleared: false,
+      shipped: {
+        STATIONARY_MAX_SPEED_MPS: DECLARED_STATIONARY_MAX_SPEED_MPS,
+        FORGOTTEN_STOP_MIN_SEC: null,
+        WALK_RUN_BOUNDARY_MPS: null,
+      },
+      gates: null,
+    };
+    expect(decideOutcome(result, {}).exitCode).toBe(1);
+    expect(decideOutcome(result, {}).reason).toBe('no-shape-clears');
   });
 });
 
@@ -1011,6 +1155,41 @@ describe('gates', () => {
     const views = buildBaseViews(buildGatesPassArchive());
     const result = applyGates(views, GATES_PASS_SHIPPED, GATES_PASS_CONTROL_TEXT);
     expect(result.pass).toBe(true);
+  });
+
+  it('[D-20] basis gate PASSES with a stated reason when G4\'s measured base is null (no chained ' +
+    'standstill anywhere means nothing accrued)', () => {
+    const views = buildBaseViews(buildGatesPassArchive());
+    expect(shapeG4(views).value).toBeNull(); // no zero-advance pause anywhere on this fixture
+    const result = applyGates(views, GATES_PASS_SHIPPED, GATES_PASS_CONTROL_TEXT);
+    const gate = result.gates.find((g) => g.id === 'd20-basis');
+    expect(gate.measured).toBeNull();
+    expect(gate.pass).toBe(true);
+    expect(gate.reason).toBe('no chained standstill means nothing accrued');
+  });
+
+  it('[D-20] basis gate PASSES when the declared value strictly exceeds G4\'s measured base', () => {
+    const views = buildBaseViews(pauseBearingArchive());
+    const g4Base = shapeG4(views).value;
+    expect(g4Base).toBeGreaterThan(0);
+    const shipped = { STATIONARY_MAX_SPEED_MPS: 0.5, WALK_RUN_BOUNDARY_MPS: 2.0, FORGOTTEN_STOP_MIN_SEC: 30 };
+    expect(shipped.STATIONARY_MAX_SPEED_MPS).toBeGreaterThan(g4Base);
+    const result = applyGates(views, shipped, null);
+    const gate = result.gates.find((g) => g.id === 'd20-basis');
+    expect(gate.measured).toBeCloseTo(g4Base, 8);
+    expect(gate.pass).toBe(true);
+    expect(gate.reason).toBeUndefined();
+  });
+
+  it('[D-20] basis gate FAILS — a HALT, never a retune — when a fixture\'s measured drift reaches ' +
+    'the declared value', () => {
+    const views = buildBaseViews(pauseBearingArchive());
+    const g4Base = shapeG4(views).value;
+    const shipped = { STATIONARY_MAX_SPEED_MPS: g4Base, WALK_RUN_BOUNDARY_MPS: 2.0, FORGOTTEN_STOP_MIN_SEC: 30 };
+    const result = applyGates(views, shipped, null);
+    const gate = result.gates.find((g) => g.id === 'd20-basis');
+    expect(gate.pass).toBe(false);
+    expect(result.pass).toBe(false);
   });
 
   it('[D-19] driftSection: always computed from BASE standstill episodes, independent of shippedG ' +
@@ -1193,11 +1372,11 @@ describe('render', () => {
 
   it('the Chosen constants block contains the exact contract lines', () => {
     const markdown = renderCalibrationMarkdown(clearResult);
-    // [D-20, plan 34-13] STATIONARY_MAX_SPEED_MPS ships the DECLARED source text, never
-    // `clearResult.shipped.STATIONARY_MAX_SPEED_MPS` (which, before plan 34-13's Task 2 rewires
-    // `runCalibration`, is still G4's calibrated raw value on this fixture — the two are pinned equal
-    // by the "declared constant" describe block above once Task 2 lands).
+    // [D-20, plan 34-13] STATIONARY_MAX_SPEED_MPS ships the DECLARED source text — by Task 2,
+    // `clearResult.shipped.STATIONARY_MAX_SPEED_MPS` IS `DECLARED_STATIONARY_MAX_SPEED_MPS` (never
+    // G4's raw base), so both forms below agree.
     expect(markdown).toContain(`STATIONARY_MAX_SPEED_MPS = ${DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT}`);
+    expect(clearResult.shipped.STATIONARY_MAX_SPEED_MPS).toBe(DECLARED_STATIONARY_MAX_SPEED_MPS);
     expect(markdown).toContain(`FORGOTTEN_STOP_MIN_SEC = ${clearResult.shipped.FORGOTTEN_STOP_MIN_SEC}`);
     expect(markdown).toContain(`WALK_RUN_BOUNDARY_MPS = ${clearResult.shipped.WALK_RUN_BOUNDARY_MPS}`);
     expect(markdown).toContain(`UNRELIABLE_SPEED_LIMIT_MPS = ${UNRELIABLE_SPEED_LIMIT_MPS} (imported, 32-CALIBRATION.md)`);
@@ -1317,7 +1496,8 @@ describe('exit contract', () => {
     expect(decideOutcome(result, {}).reason).toBe('gate-failed');
   });
 
-  it('decideOutcome: 2 when a shipped constant is present and differs from the derived value', () => {
+  it('decideOutcome: 2 when a shipped constant is present and differs from the derived value, ' +
+    'including the declared stationary constant', () => {
     const views = buildBaseViews(buildGatesPassArchive());
     const result = {
       allCleared: true,
@@ -1326,6 +1506,44 @@ describe('exit contract', () => {
     };
     expect(decideOutcome(result, { STATIONARY_MAX_SPEED_MPS: 0.999 }).exitCode).toBe(2);
     expect(decideOutcome(result, { STATIONARY_MAX_SPEED_MPS: 0.999 }).reason).toBe('shipped-mismatch');
+    // [D-20] The declared stationary constant is subject to the same equality guard as M/W — a
+    // production literal that drifted from the declared value is caught exactly like any other.
+    expect(
+      decideOutcome(result, { STATIONARY_MAX_SPEED_MPS: DECLARED_STATIONARY_MAX_SPEED_MPS + 0.001 }).exitCode
+    ).toBe(2);
+  });
+
+  it('[D-20] decideOutcome: 1 with reason "strawman-g-passed" when strawman G PASSES — regardless ' +
+    'of Family G no longer arbitrating, and even when M/W both cleared and every gate passed', () => {
+    const views = buildBaseViews(buildGatesPassArchive());
+    const gFamily = {
+      familyId: 'G',
+      arbitrated: false,
+      strawman: { pass: true }, // a harness-integrity failure: circular and non-circular indistinguishable
+      rows: [],
+      selectedId: null,
+      chosen: null,
+    };
+    const result = {
+      families: { G: gFamily, M: {}, W: {} },
+      allCleared: true,
+      gates: applyGates(views, GATES_PASS_SHIPPED, GATES_PASS_CONTROL_TEXT),
+      shipped: GATES_PASS_SHIPPED,
+    };
+    expect(decideOutcome(result, {}).exitCode).toBe(1);
+    expect(decideOutcome(result, {}).reason).toBe('strawman-g-passed');
+  });
+
+  it('[D-20] decideOutcome: 0 is unaffected when strawman G correctly FAILS (the ordinary case)', () => {
+    const views = buildBaseViews(buildGatesPassArchive());
+    const gFamily = { familyId: 'G', arbitrated: false, strawman: { pass: false }, rows: [], selectedId: null, chosen: null };
+    const result = {
+      families: { G: gFamily, M: {}, W: {} },
+      allCleared: true,
+      gates: applyGates(views, GATES_PASS_SHIPPED, GATES_PASS_CONTROL_TEXT),
+      shipped: GATES_PASS_SHIPPED,
+    };
+    expect(decideOutcome(result, {}).exitCode).toBe(0);
   });
 });
 

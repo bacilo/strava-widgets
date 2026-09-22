@@ -960,9 +960,13 @@ const STRAWMEN = Object.freeze({
 // ---------------------------------------------------------------------------
 
 /**
- * Evaluates one family's strawman (first) then every pre-declared shape in fixed order, and selects
- * the first PASS via `selectShape`, fed ONLY `{ id, pass }` rows — nothing else can reach it.
- * `upstream.shippedFloor` is the rounded G value (required for M/W; unused for G itself).
+ * Evaluates one family's strawman (first) then every pre-declared shape in fixed order. When
+ * `upstream.arbitrate` is NOT false (default `true`), selects the first PASS via `selectShape`, fed
+ * ONLY `{ id, pass }` rows — nothing else can reach it. [D-20, plan 34-13] `arbitrate: false` (used
+ * for Family G only, see `runCalibration`) evaluates every row exactly the same way but never calls
+ * `selectShape` at all — `selectedId`/`chosen` stay `null` and `arbitrated: false` is returned, so
+ * the rows exist purely as EVIDENCE, never as a candidate that could select or influence a constant.
+ * `upstream.shippedFloor` is the shipped G value (required for M/W; unused for G itself).
  * `upstream.sourceShapes` (D-19) is 3475724402's own J-interval `{ metres, seconds }` shapes — the
  * SAME source list every family/shape reads, cycled in order, cloned proportionally to EACH shape's
  * own base item count (`ceil(PLANT_FRACTION x items)`) — never a single family-wide plant.
@@ -970,6 +974,7 @@ const STRAWMEN = Object.freeze({
 export function runFamily(familyId, views, upstream = {}) {
   const shippedFloor = upstream.shippedFloor ?? null;
   const sourceShapes = upstream.sourceShapes ?? [];
+  const arbitrate = upstream.arbitrate !== false;
   const removedResult = removeNeighbourhoods(views, familyId, shippedFloor);
   const ctx =
     familyId === 'M'
@@ -1000,11 +1005,14 @@ export function runFamily(familyId, views, upstream = {}) {
     })
   );
 
-  const selectedId = selectShape(rows.map((r) => ({ id: r.id, pass: r.pass })));
+  // [D-20, plan 34-13] Not arbitrated (Family G only): selectShape is never called, so no row can
+  // select or influence a constant — the rows above exist purely as evidence.
+  const selectedId = arbitrate ? selectShape(rows.map((r) => ({ id: r.id, pass: r.pass }))) : null;
   const chosen = selectedId === null ? null : rows.find((r) => r.id === selectedId);
 
   return {
     familyId,
+    arbitrated: arbitrate,
     strawman,
     rows,
     selectedId,
@@ -1254,6 +1262,24 @@ export function applyGates(views, shipped, controlText) {
   const totalJoinViolations = views.reduce((sum, v) => sum + (v.computable ? v.joinViolations : 0), 0);
   gates.push({ id: 'join', measured: totalJoinViolations, bound: 0, pass: totalJoinViolations === 0 });
 
+  // [D-20, plan 34-13] BASIS gate: the declared stationary constant must exceed the measured drift
+  // statistic (G4's base) whenever that base is non-null. A null base (no chained standstill
+  // anywhere) means nothing accrued — PASSES with a stated reason, since there is no basis to
+  // exceed. A failure HALTs for a developer revisit of D-20 — it is NEVER retuned or widened.
+  const g4Base = shapeG4(views).value;
+  const basisPass =
+    g4Base === null ||
+    (shipped.STATIONARY_MAX_SPEED_MPS !== null &&
+      shipped.STATIONARY_MAX_SPEED_MPS !== undefined &&
+      shipped.STATIONARY_MAX_SPEED_MPS > g4Base);
+  gates.push({
+    id: 'd20-basis',
+    measured: g4Base,
+    bound: `< STATIONARY_MAX_SPEED_MPS (${shipped.STATIONARY_MAX_SPEED_MPS})`,
+    pass: basisPass,
+    reason: g4Base === null ? 'no chained standstill means nothing accrued' : undefined,
+  });
+
   const pass = gates.every((g) => g.pass);
   return { gates, pass };
 }
@@ -1362,20 +1388,36 @@ function jShapesForActivity(views, id) {
 }
 
 /**
+ * [D-20, plan 34-13] M and W are gated on the declared stationary constant being PRESENT and
+ * FINITE — they run on the declared floor, never on a null floor. Module load always provides a
+ * real, finite `DECLARED_STATIONARY_MAX_SPEED_MPS`; this pure function is exported so the gate
+ * itself can be exercised directly with an injected non-finite/absent value in tests, without
+ * mutating module state.
+ */
+export function mwFloorFromDeclared(declaredValue) {
+  return Number.isFinite(declaredValue) ? declaredValue : null;
+}
+
+/**
  * Runs the whole pipeline (pure — no I/O beyond what `archive`/`controlText` already carry): builds
- * base views once, runs G then M then W in the fixed order — a G HALT skips M and W entirely — then,
- * only if all three families cleared, applies the gates and computes the per-interval table and
- * archive-wide findings. [D-19, plan 34-12] The D-13 PLANTED perturbation is now per-shape (built
- * inside `runFamily`, proportional to each shape's own base items), never a single family-wide plant
- * built once here.
+ * base views once, then runs G, M, W. [D-20, plan 34-13] Family G is evidence-only (`arbitrate:
+ * false`) — it always measures and renders G4/G5/strawman G, but never selects a constant. The
+ * shipped stationary constant is the DEVELOPER-DECLARED value (never `ceilToSignificant` on a G
+ * row); M and W run on that declared floor, gated on it being present and finite
+ * (`mwFloorFromDeclared`), and keep their own D-06/D-08/D-13 arbitration, shapes, tolerance,
+ * strawmen and HALT branch exactly as pre-declared, unchanged. [D-19, plan 34-12] The D-13 PLANTED
+ * perturbation is per-shape (built inside `runFamily`, proportional to each shape's own base items),
+ * never a single family-wide plant built once here.
  */
 export function runCalibration(archive, controlText) {
   const baseViews = buildBaseViews(archive);
   const sourceShapes = jShapesForActivity(baseViews, INSENSITIVITY_SOURCE_ACTIVITY_ID);
 
-  const gFamily = runFamily('G', baseViews, { sourceShapes });
-  const gHalted = gFamily.chosen === null;
-  const shippedG = gHalted ? null : ceilToSignificant(gFamily.chosen.base, 3);
+  // [D-20, plan 34-13] Family G no longer arbitrates — it is evaluated purely as evidence for the
+  // drift-while-stationary finding (see `driftSection`/`renderDrift`).
+  const gFamily = runFamily('G', baseViews, { sourceShapes, arbitrate: false });
+  const shippedG = mwFloorFromDeclared(DECLARED_STATIONARY_MAX_SPEED_MPS);
+  const gPresent = shippedG !== null;
 
   let mFamily = null;
   let shippedM = null;
@@ -1384,7 +1426,7 @@ export function runCalibration(archive, controlText) {
   let shippedW = null;
   let wHalted = true;
 
-  if (!gHalted) {
+  if (gPresent) {
     mFamily = runFamily('M', baseViews, { sourceShapes, shippedFloor: shippedG });
     mHalted = mFamily.chosen === null;
     shippedM = mHalted ? null : Math.ceil(mFamily.chosen.base);
@@ -1394,7 +1436,7 @@ export function runCalibration(archive, controlText) {
     shippedW = wHalted ? null : ceilToSignificant(wFamily.chosen.base, 3);
   }
 
-  const allCleared = !gHalted && !mHalted && !wHalted;
+  const allCleared = gPresent && !mHalted && !wHalted;
   const shipped = {
     STATIONARY_MAX_SPEED_MPS: shippedG,
     FORGOTTEN_STOP_MIN_SEC: shippedM,
@@ -1441,12 +1483,18 @@ export function runCalibration(archive, controlText) {
 }
 
 /**
- * The exit-code contract: 0 only when every family cleared, every gate passed, and each shipped
+ * The exit-code contract: 0 only when M and W both cleared, every gate passed, and each shipped
  * production constant (`shippedProduction`, keyed by name — `undefined` values are ignored, never
- * treated as a mismatch) equals its derived rounded value; 1 on any NO SHAPE CLEARS or failed gate;
- * 2 when a shipped constant is present and differs.
+ * treated as a mismatch) equals its derived rounded value — including the declared stationary
+ * constant; 1 on any NO SHAPE CLEARS, a failed gate, or [D-20, plan 34-13] a PASSING strawman G
+ * (the non-issue evidence rests on the harness being able to tell a circular population apart from a
+ * real one — a passing strawman means it cannot, regardless of Family G no longer arbitrating); 2
+ * when a shipped constant is present and differs.
  */
 export function decideOutcome(result, shippedProduction = {}) {
+  if (result.families && result.families.G && result.families.G.strawman.pass) {
+    return { exitCode: 1, reason: 'strawman-g-passed' };
+  }
   if (!result.allCleared) {
     return { exitCode: 1, reason: 'no-shape-clears' };
   }
@@ -1677,9 +1725,24 @@ export function renderCalibrationMarkdown(result) {
     lines.push(`### Family ${familyId}`);
     lines.push('');
     if (family) {
+      if (family.arbitrated === false) {
+        // [D-20, plan 34-13] Family G: not arbitrated. The rows below are evidence for the
+        // drift-while-stationary finding, never candidates — no row here can select or influence a
+        // constant.
+        lines.push(
+          'NOT ARBITRATED (D-20): STATIONARY_MAX_SPEED_MPS is developer-declared, not calibrated. ' +
+            'The rows below are EVIDENCE for the drift-while-stationary finding, never candidates — ' +
+            'no row here can select or influence a constant.'
+        );
+        lines.push('');
+      }
       lines.push(renderShapeTable(family.rows));
       lines.push('');
-      lines.push(`Selected: ${family.selectedId ?? 'NO SHAPE CLEARS'}`);
+      lines.push(
+        family.arbitrated === false
+          ? 'Selected: not applicable — not arbitrated (D-20)'
+          : `Selected: ${family.selectedId ?? 'NO SHAPE CLEARS'}`
+      );
     } else {
       lines.push('not computed: upstream HALT');
     }
