@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
 status: executing
-stopped_at: HALTED at 34-06-PLAN.md re-run (D-08, HALT-2 — Family G's re-declared G4/G5 shapes both fail D-13 insensitivity) — blocked pending developer decision
-last_updated: "2026-09-22T17:48:25.000Z"
+stopped_at: "34-13 (D-20 gap closure) complete: declared stationary constant, drift non-issue, Family G evidence-only, D-20 basis gate all shipped and tested. Plan 34-06 can run a third time (STATIONARY_MAX_SPEED_MPS now ships from the declaration; M/W will calibrate against the real archive for the first time). Plans 34-07 through 34-11 remain blocked on that third run."
+last_updated: "2026-09-22T19:25:40.544Z"
 last_activity: 2026-09-22
 progress:
   total_phases: 6
   completed_phases: 2
-  total_plans: 43
-  completed_plans: 37
+  total_plans: 44
+  completed_plans: 38
   percent: 33
 ---
 
@@ -47,8 +47,11 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 ## Current Position
 
 Phase: 34 (pause-classification-forgotten-stop) — EXECUTING
-Plan: 5 of 11
-Status: Ready to execute
+Plan: 13 of 13 (gap-closure chain: 34-06 HALTed twice — D-08/HALT-1 addressed by 34-12's D-19
+re-declaration, D-08/HALT-2 addressed by this plan's D-20 declared-constant closure)
+Status: 34-13 (D-20) complete. Plan 34-06 is unblocked to run a third time — it is the next plan to
+execute. Plans 34-07 through 34-11 remain blocked on that third run producing real shipped
+constants.
 Last activity: 2026-09-22
 
 ## Performance Metrics
@@ -106,6 +109,7 @@ Last activity: 2026-09-22
 | Phase 34 P02 | ~1h10m | 3 tasks | 5 files |
 | Phase 34 P04 | single session | 2 tasks | 3 files |
 | Phase 34 P05 | ~30min | 2 tasks | 3 files |
+| Phase 34 P13 | ~25min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -181,6 +185,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 34]: 34-05: v2.2's rule text (no surviving script) implemented fresh, re-run side by side on the pre-detector recording-gap interval and the merged collectPauseIntervals interval; old-rule 13 vs merged-rule 22 activities measured (beside historical 9 and research's illustrative 12/26), plus D-05 transported class (5 activities/6 intervals), all reconciled in words, none asserted equal
 - [Phase 34]: 34-12 gap closure (D-19) complete: fixed HALT-1's vacuous D-13 planted rows (RED watched first on pauseBearingArchive, then proportional per-shape planting ceil(PLANT_FRACTION x base items) with unconditional admission), re-declared Family G as G4/G5 standstill episodes (chained zero-advance-pause/bridge chains) replacing G1/G2/G3 (all three measured walking/jogging speeds and failed D-13 on the real archive per 34-06-HALT-1.md), and proved all six real shapes (G4, G5, M1, M2, W1, W2) reachable in both directions on both D-13 axes via a 24-cell matrix. 95 synthetic tests, full npm test green, tsc clean. main() never run; 34-CALIBRATION.md and data/streams untouched. Plan 34-06's re-run is now unblocked.
 - [Phase 34]: 34-06 re-run (HALT-2, 2026-09-22): re-ran the calibration generator against the real archive with 34-12's re-declared Family G. Strawman G watched FAIL first (its plant now genuinely enters J, unlike HALT-1's vacuous row). G4 and G5 both FAIL D-13 on both axes: removedDelta 89.7455% (only 6 chained standstill episodes exist archive-wide; 2 sit near a J-neighbourhood and are dropped), plantedDelta 3902.09%/1561.89% (one proportional plant, sized from J's transport-scale speeds, swamps a 6-item drift-scale population). Both failures materialise 34-12's own disclosed caveat (c5) ("pauses often adjoin recording gaps ... a real sensitivity for the harness to measure, not a defect"). Non-vacuity re-confirmed for every row (plantedItems = baseItems + plantCount); an independent, non-gated check confirmed the three D-12 confirmed walking-break windows move 42x-60x faster than the failed G4 value, so D-12 is not the obstacle. NO SHAPE CLEARS again; nothing shipped; Task 2 skipped; 32/33 upstream artifacts and data/streams unchanged. See `34-06-HALT-2.md`'s Blocking Developer Decision for three named, unchosen options. Plans 34-07 through 34-11 remain blocked.
+- [Phase 34]: 34-13 (D-20) complete: STATIONARY_MAX_SPEED_MPS ships as developer-declared 0.5 m/s with tested provenance (34-CONTEXT.md D-20 line, generator source text, rendered artifact line bound character-for-character, watched RED from three sides); Family G measures and renders G4/G5 as evidence only (arbitrate: false, never selects); M and W calibrate unchanged on the declared floor; a new D-20 basis gate asserts the declared value exceeds G4's measured base. 122 generator tests, 3326 total npm test, all green. main() never run; 34-CALIBRATION.md and data/streams untouched. Plan 34-06 can now run a third time.
 
 ### Key Findings
 
@@ -292,8 +297,8 @@ It is named here because PROJECT.md's Evolution entry still describes it as open
 
 ## Session Continuity
 
-Last session: 2026-09-22T17:48:25.000Z
-Stopped at: HALTED at 34-06-PLAN.md re-run (D-08, HALT-2 — Family G's re-declared G4/G5 shapes both fail D-13 insensitivity) — blocked pending developer decision
+Last session: 2026-09-22T19:25:40.532Z
+Stopped at: 34-13 (D-20 gap closure) complete: declared stationary constant, drift non-issue, Family G evidence-only, D-20 basis gate all shipped and tested. Plan 34-06 can run a third time (STATIONARY_MAX_SPEED_MPS now ships from the declaration; M/W will calibrate against the real archive for the first time). Plans 34-07 through 34-11 remain blocked on that third run.
 Resume file: None
 
 ---
