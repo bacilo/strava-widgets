@@ -23,13 +23,13 @@ Scoped from a live investigation on 2026-09-19 of three developer-flagged activi
 - [x] **SEG-04**: The speed limit and adjacency rule are calibrated against the archive in a committed, regenerable, idempotent calibration artifact, with an explicit non-circularity argument (the calibration population provably excludes what the threshold detects) and a stated disposition for genuine device over-measurement (the Suunto 17 m/s descent sample): whether it is detected, with its committed-stream numbers; if detected, it carries whichever of the three observable mechanisms the detector assigns — there is no fourth label, because from `t`/`d` alone over-measurement and an isolated GPS jump look the same; and the calibration artifact discloses it by activity ID (`4556693525`, identified 2026-09-19 in 32-RESEARCH.md § D-02) and states plainly that the detector cannot tell over-measurement from a jump — it is never corrected. The artifact replaces the crude 259/1,873 and 121/1,873 scoping figures with figures of record. **Amended 2026-09-19 (32-CONTEXT.md D-03):** the five isolated jumps on 3475740390 run slower than the Suunto sample, so no speed rule can flag them and spare it, and a fourth label would need lat/lng or device-family relabelling, both rejected. **Reopened 2026-09-20 (32-VERIFICATION.md, gaps_found):** the calibration generator's import-time side-effect guard is structurally vacuous (a `vi.spyOn(fs, 'readFileSync')` cannot observe a named-import call) and its `findValley` derivation is unsound in general (CR-04), closed by gap-closure plans 32-12 and 32-14. **Closed 2026-09-20 by 32-12 and 32-14:** the import-time guard is now observing (proven both directions, re-watched failing in 32-16) and `findValley` bins only in-interval mass (7 matched `-t "findValley"` tests); the artifact regenerates byte-identically (sha256 `f8f6d5db...`) and the three shipped constants (7.35/3.0/116.95) are unchanged.
 - [x] **SEG-05a**: The single-source audit test is extended to the detector and shown catching a planted second implementation (a permanent in-suite planted block AND a one-off planted probe file against the real tree). This is Phase 32's half.
 - [ ] **SEG-05b**: The detector is the single source — pace derivation, quality signals and best efforts all consume its output. Stays Pending until every consuming phase (33, 34/35, 36) has shown its consumer reading the detector, and each phase records its own part. **Split 2026-09-19 (32-CONTEXT.md D-14):** Phase 32 has no consumer, and an unsplittable row is a planning defect (Phase 25's R6 lesson). **Reopened 2026-09-21 (33-CONTEXT.md D-15):** this row was carried as `[x]` Complete by commit `f5819975` ("docs(phase-32): complete phase execution"), contradicting its own text — it stays Pending until every consuming phase has shown its consumer reading the detector, and Phase 32 shipped no consumer at all, so nothing could have satisfied it. Phase 33 records its own half: `pace-derivation.ts` reads the detector inside `classifyGaps`, proven load-bearing by plan 33-01 Task 3 — the clipping disappears when the call is stubbed, not merely because the import exists. The row re-ticks only after Phases 35 and 36 each record theirs.
-- [ ] **SEG-06**: Unreliable segments surface as an individually-disclosed per-activity quality signal (count, total metres, total seconds, mechanisms), badged with its measured value like the existing six, added additively with `DASHBOARD_INDEX_SCHEMA_VERSION` unchanged. Whether it joins the severe composite is decided from the calibrated rate and recorded, not assumed.
+- [x] **SEG-06**: Unreliable segments surface as an individually-disclosed per-activity quality signal (count, total metres, total seconds, mechanisms), badged with its measured value like the existing six, added additively with `DASHBOARD_INDEX_SCHEMA_VERSION` unchanged. Whether it joins the severe composite is decided from the calibrated rate and recorded, not assumed.
 
 ### Pace surfaces and coverage (PACE, COV)
 
-- [ ] **PACE-08**: The pace chart band, pace histogram and splits clip unreliable segments exactly as they clip recording and pause gaps — no pace value is manufactured inside one, and none is smoothed across one. The 0:34/km samples on 3475724402 and 3475734189 and the 1:10–1:40/km samples on 3475740390 are absent from chart and histogram on the served build.
-- [ ] **PACE-09**: A per-km split that contains an unreliable segment carries a marker, consistent with the existing gap-crossing split marker.
-- [ ] **COV-03**: The coverage identity stays exact with the new class — covered + recording-gap + pause + unreliable time sums to the stream's own span with zero violations across every stream in the archive — and the always-on coverage caption discloses unreliable time as its own term. How `gapProfileSignal`'s fraction treats unreliable time is decided explicitly and recorded.
+- [x] **PACE-08**: The pace chart band, pace histogram and splits clip unreliable segments exactly as they clip recording and pause gaps — no pace value is manufactured inside one, and none is smoothed across one. The 0:34/km samples on 3475724402 and 3475734189 and the 1:10–1:40/km samples on 3475740390 are absent from chart and histogram on the served build.
+- [x] **PACE-09**: A per-km split that contains an unreliable segment carries a marker, consistent with the existing gap-crossing split marker.
+- [x] **COV-03**: The coverage identity stays exact with the new class — covered + recording-gap + pause + unreliable time sums to the stream's own span with zero violations across every stream in the archive — and the always-on coverage caption discloses unreliable time as its own term. How `gapProfileSignal`'s fraction treats unreliable time is decided explicitly and recorded.
 
 ### Best efforts (PR)
 
@@ -98,10 +98,10 @@ Deferred, tracked, not in this roadmap.
 | SEG-04 | Phase 32 | Complete |
 | SEG-05a | Phase 32 | Complete |
 | SEG-05b | Phases 33, 35, 36 (per consumer) | Pending |
-| SEG-06 | Phase 33 | Pending |
-| PACE-08 | Phase 33 | Pending |
-| PACE-09 | Phase 33 | Pending |
-| COV-03 | Phase 33 | Pending |
+| SEG-06 | Phase 33 | Complete |
+| PACE-08 | Phase 33 | Complete |
+| PACE-09 | Phase 33 | Complete |
+| COV-03 | Phase 33 | Complete |
 | PAUSE-01 | Phase 34 | Pending |
 | PAUSE-02 | Phase 34 | Pending |
 | PAUSE-03 | Phase 34 | Pending |
