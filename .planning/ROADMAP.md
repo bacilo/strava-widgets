@@ -260,7 +260,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 34-12-PLAN.md — gap closure after 34-06 HALT-1 (D-19): Family G re-declared as standstill episodes (G4 pooled, G5 per activity), proportional planted perturbation across G/M/W, planting-entry defect fixed and watched RED first; synthetic fixtures only, not run
+- [x] 34-12-PLAN.md — gap closure after 34-06 HALT-1 (D-19): Family G re-declared as standstill episodes (G4 pooled, G5 per activity), proportional planted perturbation across G/M/W, planting-entry defect fixed and watched RED first; synthetic fixtures only, not run
 
 **Wave 4** *(blocked on Wave 3)*
 
@@ -372,7 +372,7 @@ Plans:
 | 31. Tech-Debt Closure — Silent-Failure Guards & Docs Reconciliation | v2.2 | 10/10 | Complete    | 2026-09-19 |
 | 32. Unreliable-Segment Detection & Calibration | v2.3 | 17/17 | Complete    | 2026-09-20 |
 | 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 14/14 | Complete    | 2026-09-22 |
-| 34. Pause Classification & Forgotten-Stop | v2.3 | 5/12 | In Progress|  |
+| 34. Pause Classification & Forgotten-Stop | v2.3 | 6/12 | In Progress|  |
 | 35. Stream-Derived Running Pace | v2.3 | 0/TBD | Not started | - |
 | 36. Best-Effort Clean-Window Search & Ceiling Recalibration | v2.3 | 0/TBD | Not started | - |
 | 37. Review-Queue Priority & CUR-04 | v2.3 | 0/TBD | Not started | - |
