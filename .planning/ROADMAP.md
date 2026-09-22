@@ -288,7 +288,7 @@ Plans:
 
 **Wave 10** *(blocked on Wave 9)*
 
-- [ ] 34-10-PLAN.md — MERGE-01, regeneration on the merged tree, closing gate, checkpoint rows drafted with independent expected values
+- [x] 34-10-PLAN.md — MERGE-01, regeneration on the merged tree, closing gate, checkpoint rows drafted with independent expected values
 
 **Wave 11** *(blocked on Wave 10)*
 
@@ -380,7 +380,7 @@ Plans:
 | 31. Tech-Debt Closure — Silent-Failure Guards & Docs Reconciliation | v2.2 | 10/10 | Complete    | 2026-09-19 |
 | 32. Unreliable-Segment Detection & Calibration | v2.3 | 17/17 | Complete    | 2026-09-20 |
 | 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 14/14 | Complete    | 2026-09-22 |
-| 34. Pause Classification & Forgotten-Stop | v2.3 | 12/14 | In Progress|  |
+| 34. Pause Classification & Forgotten-Stop | v2.3 | 13/14 | In Progress|  |
 | 35. Stream-Derived Running Pace | v2.3 | 0/TBD | Not started | - |
 | 36. Best-Effort Clean-Window Search & Ceiling Recalibration | v2.3 | 0/TBD | Not started | - |
 | 37. Review-Queue Priority & CUR-04 | v2.3 | 0/TBD | Not started | - |
