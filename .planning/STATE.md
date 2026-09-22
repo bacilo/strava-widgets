@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
 status: executing
-stopped_at: Completed 34-09-PLAN.md (Pauses disclosed on the activity detail view) — plans 34-10 and 34-11 still open
-last_updated: "2026-09-22T22:57:56.000Z"
+stopped_at: Completed 34-10-PLAN.md (merge/regenerate/draft-checkpoint-rows) — plan 34-11 (browser checkpoint) still open
+last_updated: "2026-09-22T23:19:30.699Z"
 last_activity: 2026-09-23
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 45
-  completed_plans: 43
+  completed_plans: 44
   percent: 33
 ---
 
@@ -47,22 +47,24 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 ## Current Position
 
 Phase: 34 (pause-classification-forgotten-stop) — EXECUTING
-Plan: 09 (disclose the classification and the forgotten-stop flag on the activity detail view)
-complete. Plan 08 (wire the classifier and forgotten-stop core into the per-activity quality
-signals) preceded it — see prior entries in git history for its own record.
-Status: 34-09 complete (2026-09-23): the detail view gained a new Pauses section (per-interval
-table fed from the lazy shard: position, class, duration, distance; covered-creep and
-zero-advance-pause rows marked as timer-running standstills, D-09) and a 10th untiered Quality
-Signals summary row (pausesSummaryRow, combining pauseClassification's counts and forgottenStop's
-itemised totals). The 34-08 shard-parse stub (pauseIntervals always []) was replaced with a real
-tolerant per-entry parser (VALID_PAUSE_CLASSES/VALID_PAUSE_SOURCES, parsePauseInterval). No list
-badge, no filter, no chart diff (D-16/D-17); D-17's guard was watched failing under a planted
-qualityBadgeSpecs spec push, then reverted (list.ts byte-identical to HEAD). Pauses section mounted
-in the same mountBestEffortsAndBadges Promise.all batch as Quality Signals — no new fetch
-(paceQualityClient.load( still occurs exactly once). 28 new tests, 98 files / 3460 total npm test,
-all green. tsc/build/build-widgets all clean. requirements mark-complete and
-roadmap update-plan-progress were deliberately NOT run this plan (Requirement-tick safety
-instruction) — PAUSE-02/STOP-03's disposition is left open. Plans 34-10 and 34-11 still open.
+Plan: 10 (merge origin, regenerate every derived artifact on the merged tree, draft the
+browser-checkpoint rows) complete. Plan 09 (Pauses disclosed on the activity detail view)
+preceded it — see prior entries in git history for its own record.
+Status: 34-10 complete (2026-09-23): `git fetch origin && git merge origin/master` reported
+"Already up to date" — origin/master (`5e902283`) is the exact commit 32-09 already recorded as
+an ancestor; a truthful no-op merge, no nightly-CI commit landed since. All six phase-related
+artifacts (34-CALIBRATION.md, 34-PAUSE03-REMEASUREMENT.md, 34-WALKING-BREAK-EVIDENCE.md,
+32-CALIBRATION.md, 33-CALIBRATION.md, 33-COVERAGE-IDENTITY.md) regenerated twice each, byte-
+identical both times and to the already-committed content — no commit needed for Task 1. The D-18
+recount re-confirmed exit 0 (walked=1 ran-through=17, matching 34-07 exactly). Full gate green:
+98 files / 3460 tests, tsc clean, verify-dashboard 66/66. Served digest confirmed equal to the
+freshly built digest (`468220ab9d80...` on data/dashboard/index.json both sides). 34-VALIDATION.md
+now carries a filled Per-Task Verification Map and 9 drafted Manual-Only checkpoint rows (R1-R9),
+each with an independently-sourced Expected value, CAN FAIL and CAN PASS clause computed live on
+its own named real input (3475724402, 3475740390, 6286234101, 3475715143) — Verdict left empty for
+plan 34-11's browser checkpoint. requirements mark-complete and roadmap update-plan-progress were
+deliberately NOT run this plan (Requirement-tick safety instruction) — this plan ticks nothing.
+Plan 34-11 (the browser checkpoint) is the only plan still open.
 Last activity: 2026-09-23
 
 ## Performance Metrics
@@ -126,6 +128,7 @@ Last activity: 2026-09-23
 | Phase 34 P07 | ~40min | 2 tasks | 3 files |
 | Phase 34 P08 | ~15min | 3 tasks | 16 files |
 | Phase 34 P09 | ~10min | 3 tasks | 6 files |
+| Phase 34 P10 | ~50min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -211,6 +214,8 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 34]: 34-08: parsePaceQualityShard's pauseIntervals/pauseIntervalsTruncated are stubbed to an always-empty/untruncated default; production already writes real entries, but no browser reader consumes them until plan 34-09's own per-entry parser and Pauses section ship
 - [Phase 34]: 34-09: replaced the 34-08 pauseIntervals parse stub with a real tolerant per-entry parser (VALID_PAUSE_CLASSES/VALID_PAUSE_SOURCES, deliberately separate Sets per D-15); added the 10th Quality Signals row (pausesSummaryRow, untiered) and the new Pauses section (pausesSectionPlan/buildPausesSection), fed only from shard.pauseIntervals — D-15's membership rule (no unreliableSegments leakage) proved by a dedicated test
 - [Phase 34]: 34-09: the D-17 no-list-badge guard was watched failing under a temporary planted qualityBadgeSpecs spec push (signal: 'forgottenStop' when forgottenStop.totalSec > 0), then reverted — list.ts confirmed byte-identical to HEAD via git diff --exit-code
+- [Phase 34]: 34-10: MERGE-01 satisfied as a truthful no-op — origin/master (5e902283) already an ancestor, same commit 32-09 recorded; no merge commit forced, all six phase artifacts regenerated byte-identical
+- [Phase 34]: 34-10: drafted 9 independently-sourced Manual-Only checkpoint rows (R1-R9) in 34-VALIDATION.md, each with a live-computed Expected value, CAN FAIL and CAN PASS clause on its own named real input; wave_0_complete set true; Verdict left empty for plan 34-11
 
 ### Key Findings
 
@@ -323,8 +328,8 @@ It is named here because PROJECT.md's Evolution entry still describes it as open
 
 ## Session Continuity
 
-Last session: 2026-09-22T22:57:56.000Z
-Stopped at: Completed 34-09-PLAN.md (Pauses disclosed on the activity detail view) — plans 34-10 and 34-11 still open
+Last session: 2026-09-22T23:19:30.692Z
+Stopped at: Completed 34-10-PLAN.md (merge/regenerate/draft-checkpoint-rows) — plan 34-11 (browser checkpoint) still open
 Resume file: None
 
 ---
