@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
 status: executing
-stopped_at: Completed 34-02-PLAN.md
-last_updated: "2026-09-22T12:36:15.128Z"
+stopped_at: Completed 34-04-PLAN.md
+last_updated: "2026-09-22T13:13:38.467Z"
 last_activity: 2026-09-22
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 42
-  completed_plans: 34
+  completed_plans: 35
   percent: 33
 ---
 
@@ -47,7 +47,7 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 ## Current Position
 
 Phase: 34 (pause-classification-forgotten-stop) — EXECUTING
-Plan: 3 of 11
+Plan: 4 of 11
 Status: Ready to execute
 Last activity: 2026-09-22
 
@@ -104,6 +104,7 @@ Last activity: 2026-09-22
 | Phase 32 P10 | ~15min | 2 tasks | 4 files |
 | Phase 34 P01 | 3min | 2 tasks | 3 files |
 | Phase 34 P02 | ~1h10m | 3 tasks | 5 files |
+| Phase 34 P04 | single session | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -175,6 +176,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 32]: 32-17 closed both round-2 findings. CR-01: `detectUnreliableSegments` now sorts mapped gap blocks by `startIndex` and fails closed (a fresh `[]`) on any overlap — chosen over merging, since merging still requires deciding which duplicate-timestamp sample owns the shared interval, the same ambiguity that produces divergent answers in the first place. Added a cross-segment conservation assertion (independently-derived total, not each segment's own self-reported arithmetic) alongside the pre-existing within-segment check, proven able to fail by temporarily reverting the new guard. WR-01: guarded `activityDoc.start_date` the same way CR-03 guarded the stream read. Re-ran the full closing gate: build/tsc clean, 91 files/2,848 tests (+1, this plan's own fixture), calibration artifact byte-identical (sha256 unchanged), three constants unchanged, recount PASS, archive scan unchanged (0 overlapping-segment activities across all 1,874 streams). REQUIREMENTS.md was not reopened by this round (SEG-01/SEG-02/SEG-04 stayed ticked throughout), so nothing there needed re-closing. `32-VALIDATION.md` is `status: complete` again; ROADMAP's Phase 32 row reads 17/17, checkbox and status still open pending `/gsd-verify-work`.
 - [Phase 34]: 34-01: PAUSE-01 and STOP-01 amended in place (original text kept, dated note appended) per the SEG-04/32-CONTEXT.md D-03 house style, naming four pause classes and widening the forgotten-stop scope to recorded timer-running time; SEG-05b traceability (table cell and row prose) now names Phase 34 as a consumer; v2.2-REQUIREMENTS.md's superseded transport figure gains a dated forward pointer that quotes no new number. Nothing ticked.
 - [Phase 34]: 34-02 D-12 resolved: the developer confirmed all three research-proposed walking-break candidates (6286234101, 3475733231, 3475715143) as genuine walking breaks, verbatim, each with a CONFIRMED_CONTROL line in 34-WALKING-BREAK-CONTROL.md; all three are valid negative controls for plans 34-06 onward
+- [Phase 34]: 34-04: split the plan's two tasks into two accurate atomic commits along the Task 1/Task 2 boundary (not TDD RED/GREEN); the REMOVED perturbation was widened to also empty each strawman's own population (J for G/W, creep-candidate-forming coveredPairs for M) against its own neighbourhood -- the plan text's 'removal empties it by construction' otherwise left the strawman untouched and falsely passing
 
 ### Key Findings
 
@@ -284,8 +286,8 @@ It is named here because PROJECT.md's Evolution entry still describes it as open
 
 ## Session Continuity
 
-Last session: 2026-09-22T12:36:15.118Z
-Stopped at: Completed 34-02-PLAN.md
+Last session: 2026-09-22T13:13:25.872Z
+Stopped at: Completed 34-04-PLAN.md
 Resume file: None
 
 ---
