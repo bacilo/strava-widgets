@@ -255,8 +255,8 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 34-04-PLAN.md — HALT-capable calibration generator (G/M/W shapes pre-declared verbatim, one D-13 harness, three strawmen, gates), built and tested, not run
-- [ ] 34-05-PLAN.md — PAUSE-03 re-measurement on merged segments beside the old rule and the transported class, dated provenance
+- [x] 34-04-PLAN.md — HALT-capable calibration generator (G/M/W shapes pre-declared verbatim, one D-13 harness, three strawmen, gates), built and tested, not run
+- [x] 34-05-PLAN.md — PAUSE-03 re-measurement on merged segments beside the old rule and the transported class, dated provenance
 
 **Wave 3** *(blocked on Wave 2)*
 
@@ -368,7 +368,7 @@ Plans:
 | 31. Tech-Debt Closure — Silent-Failure Guards & Docs Reconciliation | v2.2 | 10/10 | Complete    | 2026-09-19 |
 | 32. Unreliable-Segment Detection & Calibration | v2.3 | 17/17 | Complete    | 2026-09-20 |
 | 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 14/14 | Complete    | 2026-09-22 |
-| 34. Pause Classification & Forgotten-Stop | v2.3 | 3/11 | In Progress|  |
+| 34. Pause Classification & Forgotten-Stop | v2.3 | 5/11 | In Progress|  |
 | 35. Stream-Derived Running Pace | v2.3 | 0/TBD | Not started | - |
 | 36. Best-Effort Clean-Window Search & Ceiling Recalibration | v2.3 | 0/TBD | Not started | - |
 | 37. Review-Queue Priority & CUR-04 | v2.3 | 0/TBD | Not started | - |
