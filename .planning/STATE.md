@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
 status: executing
-stopped_at: "Completed 34-07-PLAN.md (D-18 independent recount) — plans 34-08 through 34-11 still open"
-last_updated: "2026-09-22T22:17:55.460Z"
+stopped_at: Completed 34-08-PLAN.md (pauseClassification/forgottenStop wired into quality signals) — plans 34-09 through 34-11 still open
+last_updated: "2026-09-22T22:38:29.133Z"
 last_activity: 2026-09-23
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 45
-  completed_plans: 41
+  completed_plans: 42
   percent: 33
 ---
 
@@ -47,19 +47,20 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 ## Current Position
 
 Phase: 34 (pause-classification-forgotten-stop) — EXECUTING
-Plan: 07 (D-18 independent recount of 3475724402's class table) complete. Plan 06 (fourth
-real-archive run, all three constants shipped) preceded it — see prior entries in git history for
-its own HALT-1/2/3 recovery record.
-Status: 34-07 complete (2026-09-23): built scripts/compute-pause-classification-recount.mjs, a
-zero-import recount (imports only compute-unreliable-segment-recount.mjs's pure functions, never
-the classifier/pace-derivation/detector) that reuses the Phase 32 recount's gap-first merge and
-adds its own independently-written class ladder. Watched FAILING (18 named class-mismatch
-problems) against a deliberately walked/ran-through-swapped classifier before any passing run
-counted, then PASSING against the shipped classifier (walked=1 ran-through=17). Mid-plan fix
-(Rule 3): the deliberate breakage also tripped the d12-anchor-i gate, collapsing the artifact into
-its "## GATE FAILED" shape with no "## Chosen constants" section — parseChosenConstants gained a
-tested fallback to the Gates table's own "order" row. 36 new tests, 98 files / 3407 total npm
-test, all green. Plans 34-08 through 34-11 still open.
+Plan: 08 (wire the classifier and forgotten-stop core into the per-activity quality signals)
+complete. Plan 07 (D-18 independent recount of 3475724402's class table) preceded it — see prior
+entries in git history for its own record.
+Status: 34-08 complete (2026-09-23): pace-quality.ts gained two untiered ninth/tenth signals
+(pauseClassification, forgottenStop), both structurally excluded from hasAnySevereSignal (no tier
+field at all, D-11) — the never-widen guard was watched failing under a temporary Pick<> widening,
+then reverted. PaceQualityShard gained a capped pauseIntervals list (projectPauseIntervals, D-15).
+Real 3475724402: pauseClassification = walked 1, ran-through 17, matching the 34-07 independent
+recount exactly; real 3475740390 (distance-triggered): forgottenStop not-computable with the D-10
+reason. Read-side parsers (parsePauseClassificationSignal/parseForgottenStopSignal) added to
+pace-quality-client.ts with named CR-01 fallbacks; the shard's own pauseIntervals entry-level parse
+is deferred to plan 34-09 (documented as a Known Stub, CR-01-safe). tsc's own post-Task-1/2 error
+list was treated as authoritative for the 13-file fixture cascade. 25 new tests, 98 files / 3432
+total npm test, all green. Plans 34-09 through 34-11 still open.
 Last activity: 2026-09-23
 
 ## Performance Metrics
@@ -121,6 +122,7 @@ Last activity: 2026-09-23
 | Phase 34 P14 | ~55min | 3 tasks | 2 files |
 | Phase 34 PP06 (4th run) | ~35min | 2 tasks | 3 files |
 | Phase 34 P07 | ~40min | 2 tasks | 3 files |
+| Phase 34 P08 | ~15min | 3 tasks | 16 files |
 
 ## Accumulated Context
 
@@ -201,6 +203,9 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 34]: 34-14 (D-21) complete: WALK_RUN_BOUNDARY_MPS ships as developer-declared 2.2 m/s with tested provenance (34-CONTEXT.md D-21 line, generator source text, rendered artifact line bound character-for-character, watched RED from three sides); Family W measures and renders strawman W/W1/W2 as evidence only (arbitrate: false, shippedFloor kept so every row stays finite); Family M remains the phase's only calibrated constant; a new d21-basis gate asserts the declared boundary exceeds every confirmed control's window speed and sits below the W1 time-weighted modal bin centre; buildGatesPassArchive extended (H1, never retuned) with a bulk running-hump activity so every gate id reads PASS individually. Fixed a bug this plan's own change exposed: buildHaltArchive's uniform-duration population let Family M trivially clear D-13 once Family W could no longer block the pipeline; rebuilt as creep-dominated. 156 generator tests, 3360 total npm test, all green. main() never run; 34-CALIBRATION.md and data/streams untouched. Plan 34-06 can now run a fourth time.
 - [Phase 34]: 34-06 fourth re-run (2026-09-22): ran the real archive through plan 34-14's D-21-amended generator for the fourth time. All three strawmen FAILED first. Family G (evidence-only, D-20) and Family W (evidence-only, D-21) rendered as evidence; Family M cleared D-13 for the first time and selected M1 (40s) by arbitration. Every gate PASSED for the first time this phase (order, d12-anchor-i/ii/iii at the 2.2 m/s declared boundary, d10-rule, join, d20-basis, d21-basis). Shipped STATIONARY_MAX_SPEED_MPS=0.5, WALK_RUN_BOUNDARY_MPS=2.2, FORGOTTEN_STOP_MIN_SEC=40 from the artifact under a two-sided equality guard. Found and fixed (Rule 1) a pre-existing findCreepStretches merge-boundary bug while building the plan's own DEFINITIONAL regression test: 40 of 300 archive-wide covered-creep stretches exceeded the 0.5 m/s bound before the fix, 0 of 363 after; no gate verdict changed. See 34-06-SUMMARY.md. Plans 34-07 through 34-11 are unblocked.
 - [Phase 34]: D-18 recount (34-07): parseChosenConstants falls back to the Gates table's own order row when Chosen constants is absent (GATE FAILED artifact state) — discovered live during the plan's required watched-failing exercise, never a re-derivation.
+- [Phase 34]: 34-08: hasAnySevereSignal's own function body confirmed unchanged via a targeted diff check (not the plan's literal file-wide grep, which false-positives on this plan's own doc comments naming the function)
+- [Phase 34]: 34-08: buildPaceQualityShard calls classifyPauses/classifyForgottenStop directly, once each, reusing the same rollup helpers pauseClassificationSignal/forgottenStopSignal use internally, so the shard's pauseIntervals projection and the row signals' counts always agree
+- [Phase 34]: 34-08: parsePaceQualityShard's pauseIntervals/pauseIntervalsTruncated are stubbed to an always-empty/untruncated default; production already writes real entries, but no browser reader consumes them until plan 34-09's own per-entry parser and Pauses section ship
 
 ### Key Findings
 
@@ -313,8 +318,8 @@ It is named here because PROJECT.md's Evolution entry still describes it as open
 
 ## Session Continuity
 
-Last session: 2026-09-22T22:17:55.448Z
-Stopped at: Completed 34-07-PLAN.md (D-18 independent recount) — plans 34-08 through 34-11 still open
+Last session: 2026-09-22T22:38:29.125Z
+Stopped at: Completed 34-08-PLAN.md (pauseClassification/forgottenStop wired into quality signals) — plans 34-09 through 34-11 still open
 Resume file: None
 
 ---
