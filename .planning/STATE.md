@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
 status: executing
-stopped_at: HALTED at 34-06-PLAN.md (D-08, Family G no shape clears) — blocked pending developer decision
-last_updated: "2026-09-22T13:48:04.520Z"
+stopped_at: 34-12-PLAN.md (D-19 gap closure) complete — Family G re-declared as G4/G5 standstill episodes, HALT-1 planting defect fixed; 34-06's re-run is next and unblocked
+last_updated: "2026-09-22T17:38:04.974Z"
 last_activity: 2026-09-22
 progress:
   total_phases: 6
   completed_phases: 2
-  total_plans: 42
+  total_plans: 43
   completed_plans: 37
   percent: 33
 ---
@@ -179,6 +179,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 34]: 34-02 D-12 resolved: the developer confirmed all three research-proposed walking-break candidates (6286234101, 3475733231, 3475715143) as genuine walking breaks, verbatim, each with a CONFIRMED_CONTROL line in 34-WALKING-BREAK-CONTROL.md; all three are valid negative controls for plans 34-06 onward
 - [Phase 34]: 34-04: split the plan's two tasks into two accurate atomic commits along the Task 1/Task 2 boundary (not TDD RED/GREEN); the REMOVED perturbation was widened to also empty each strawman's own population (J for G/W, creep-candidate-forming coveredPairs for M) against its own neighbourhood -- the plan text's 'removal empties it by construction' otherwise left the strawman untouched and falsely passing
 - [Phase 34]: 34-05: v2.2's rule text (no surviving script) implemented fresh, re-run side by side on the pre-detector recording-gap interval and the merged collectPauseIntervals interval; old-rule 13 vs merged-rule 22 activities measured (beside historical 9 and research's illustrative 12/26), plus D-05 transported class (5 activities/6 intervals), all reconciled in words, none asserted equal
+- [Phase 34]: 34-12 gap closure (D-19) complete: fixed HALT-1's vacuous D-13 planted rows (RED watched first on pauseBearingArchive, then proportional per-shape planting ceil(PLANT_FRACTION x base items) with unconditional admission), re-declared Family G as G4/G5 standstill episodes (chained zero-advance-pause/bridge chains) replacing G1/G2/G3 (all three measured walking/jogging speeds and failed D-13 on the real archive per 34-06-HALT-1.md), and proved all six real shapes (G4, G5, M1, M2, W1, W2) reachable in both directions on both D-13 axes via a 24-cell matrix. 95 synthetic tests, full npm test green, tsc clean. main() never run; 34-CALIBRATION.md and data/streams untouched. Plan 34-06's re-run is now unblocked.
 
 ### Key Findings
 
@@ -289,8 +290,8 @@ It is named here because PROJECT.md's Evolution entry still describes it as open
 
 ## Session Continuity
 
-Last session: 2026-09-22T13:48:04.512Z
-Stopped at: HALTED at 34-06-PLAN.md (D-08, Family G no shape clears) — blocked pending developer decision
+Last session: 2026-09-22T17:34:44.466Z
+Stopped at: 34-12-PLAN.md (D-19 gap closure) complete — Family G re-declared as G4/G5 standstill episodes, HALT-1 planting defect fixed; 34-06's re-run is next and unblocked
 Resume file: None
 
 ---
