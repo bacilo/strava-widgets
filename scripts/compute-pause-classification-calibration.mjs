@@ -1302,9 +1302,72 @@ function restOfActivityCoveredSpeed(view, startSec, endSec) {
 }
 
 /**
+ * [D-21, plan 34-14] `d21-basis` sub-check (a): the declared boundary must be strictly greater than
+ * EVERY confirmed control's own window aggregate speed (not merely the first, unlike the D-12
+ * anchors) — `controls` is the SAME array `applyGates` already parses. Stated-reason FAILs, never
+ * vacuous passes: no confirmed control at all, a named control not found/not computable, or a
+ * control window whose aggregate speed is unmeasurable (`null`).
+ */
+function d21BasisSubA(views, controls, boundary) {
+  const bound = '> every confirmed control window aggregate speed';
+  if (!controls || controls.length === 0) {
+    return { measured: null, bound, pass: false, reason: 'no confirmed control' };
+  }
+  const speeds = [];
+  for (const control of controls) {
+    const view = views.find((v) => v.id === control.id);
+    if (!view || !view.computable) {
+      return {
+        measured: null,
+        bound,
+        pass: false,
+        reason: `control activity ${control.id} not found or not computable`,
+      };
+    }
+    const window = windowAggregateSpeed(view, control.startSec, control.endSec);
+    if (window === null) {
+      return {
+        measured: null,
+        bound,
+        pass: false,
+        reason: `control ${control.id} window aggregate speed is unmeasurable`,
+      };
+    }
+    speeds.push(window.metres / window.seconds);
+  }
+  const maxSpeed = Math.max(...speeds);
+  const pass = boundary !== null && boundary !== undefined && boundary > maxSpeed;
+  return { measured: maxSpeed, bound: `${bound} (max ${fmtNum(maxSpeed, 3)})`, pass };
+}
+
+/**
+ * [D-21, plan 34-14] `d21-basis` sub-check (b): the declared boundary must be strictly LESS than the
+ * modal bin centre of the TIME-WEIGHTED (W1) covered-time histogram — the SAME `histogramOf` the W
+ * shapes and the valley-evidence section use, over `[stationary constant, UNRELIABLE_SPEED_LIMIT_MPS)`.
+ * The count-weighted (W2) mode is never gated. Stated-reason FAIL on an empty covered-time
+ * population (no modal bin at all).
+ */
+function d21BasisSubB(views, boundary, lo, hi) {
+  const bound = '< W1 time-weighted modal bin centre';
+  const items = [];
+  for (const v of views) {
+    if (!v.computable) continue;
+    for (const s of v.foldedSteps) items.push({ value: s.metres / s.seconds, weight: s.seconds });
+  }
+  const hist = histogramOf(items, lo, hi);
+  const idx = hist === null ? null : modalIndex(hist.counts);
+  if (idx === null) {
+    return { measured: null, bound, pass: false, reason: 'empty covered-time population' };
+  }
+  const centre = hist.edgeStart + idx * VALLEY_BIN_WIDTH_MPS + VALLEY_BIN_WIDTH_MPS / 2;
+  const pass = boundary !== null && boundary !== undefined && boundary < centre;
+  return { measured: centre, bound: `${bound} (${fmtNum(centre, 3)})`, pass };
+}
+
+/**
  * POST-SELECTION GATES, run on the shipped, rounded values only: ORDER, D-12 ANCHOR (i)/(ii)/(iii)
- * (parsed via the FIRST `CONFIRMED_CONTROL` in `controlText`), D-10 RULE, JOIN. ANY failure is a
- * HALT — there is no fallback to a later shape.
+ * (parsed via the FIRST `CONFIRMED_CONTROL` in `controlText`), D-10 RULE, JOIN, D-20-BASIS,
+ * D-21-BASIS. ANY failure is a HALT — there is no fallback to a later shape.
  */
 export function applyGates(views, shipped, controlText) {
   const gates = [];
@@ -1409,6 +1472,28 @@ export function applyGates(views, shipped, controlText) {
     bound: `< STATIONARY_MAX_SPEED_MPS (${shipped.STATIONARY_MAX_SPEED_MPS})`,
     pass: basisPass,
     reason: g4Base === null ? 'no chained standstill means nothing accrued' : undefined,
+  });
+
+  // [D-21, plan 34-14] BASIS gate: the declared boundary must sit strictly ABOVE every confirmed
+  // control's own window aggregate speed AND strictly BELOW the time-weighted (W1) modal bin centre —
+  // two structural comparisons that introduce no new number. A failure HALTs for a developer revisit
+  // of D-21 — it is NEVER retuned or widened.
+  const subA = d21BasisSubA(views, controls, shipped.WALK_RUN_BOUNDARY_MPS);
+  const subB = d21BasisSubB(
+    views,
+    shipped.WALK_RUN_BOUNDARY_MPS,
+    shipped.STATIONARY_MAX_SPEED_MPS,
+    UNRELIABLE_SPEED_LIMIT_MPS
+  );
+  gates.push({
+    id: 'd21-basis',
+    subA,
+    subB,
+    measured: `control-window max=${subA.measured === null ? '—' : fmtNum(subA.measured, 3)}; ` +
+      `W1 modal bin centre=${subB.measured === null ? '—' : fmtNum(subB.measured, 3)}`,
+    bound: 'boundary > every confirmed control window aggregate speed AND boundary < W1 time-weighted modal bin centre',
+    pass: subA.pass && subB.pass,
+    reason: !subA.pass ? subA.reason : !subB.pass ? subB.reason : undefined,
   });
 
   const pass = gates.every((g) => g.pass);
@@ -1534,11 +1619,14 @@ export function mwFloorFromDeclared(declaredValue) {
  * base views once, then runs G, M, W. [D-20, plan 34-13] Family G is evidence-only (`arbitrate:
  * false`) — it always measures and renders G4/G5/strawman G, but never selects a constant. The
  * shipped stationary constant is the DEVELOPER-DECLARED value (never `ceilToSignificant` on a G
- * row); M and W run on that declared floor, gated on it being present and finite
- * (`mwFloorFromDeclared`), and keep their own D-06/D-08/D-13 arbitration, shapes, tolerance,
- * strawmen and HALT branch exactly as pre-declared, unchanged. [D-19, plan 34-12] The D-13 PLANTED
- * perturbation is per-shape (built inside `runFamily`, proportional to each shape's own base items),
- * never a single family-wide plant built once here.
+ * row). [D-21, plan 34-14] Family W is ALSO evidence-only (`arbitrate: false`) — it still measures
+ * and renders strawman W/W1/W2 on the declared floor (`shippedFloor: shippedG`, so `ctx.lo` stays
+ * real and every W row keeps a finite base), but never selects a boundary; the shipped boundary is
+ * the DEVELOPER-DECLARED `WALK_RUN_BOUNDARY_MPS`, gated on presence/finiteness exactly like the
+ * stationary constant. Family M is the ONLY family still calibrated — its shapes, tolerance,
+ * strawman-first/first-clearing arbitration and HALT branch are exactly as pre-declared, unchanged.
+ * [D-19, plan 34-12] The D-13 PLANTED perturbation is per-shape (built inside `runFamily`,
+ * proportional to each shape's own base items), never a single family-wide plant built once here.
  */
 export function runCalibration(archive, controlText) {
   const baseViews = buildBaseViews(archive);
@@ -1549,25 +1637,32 @@ export function runCalibration(archive, controlText) {
   const gFamily = runFamily('G', baseViews, { sourceShapes, arbitrate: false });
   const shippedG = mwFloorFromDeclared(DECLARED_STATIONARY_MAX_SPEED_MPS);
   const gPresent = shippedG !== null;
+  // [D-21, plan 34-14] The declared boundary is gated on presence/finiteness exactly like the
+  // stationary constant — both declared constants must be present for the pipeline to proceed, since
+  // the generator's own exit contract ships all three constants together or none.
+  const shippedW = mwFloorFromDeclared(DECLARED_WALK_RUN_BOUNDARY_MPS);
+  const wPresent = shippedW !== null;
+  const declaredPresent = gPresent && wPresent;
 
   let mFamily = null;
   let shippedM = null;
   let mHalted = true;
   let wFamily = null;
-  let shippedW = null;
-  let wHalted = true;
 
-  if (gPresent) {
+  if (declaredPresent) {
     mFamily = runFamily('M', baseViews, { sourceShapes, shippedFloor: shippedG });
     mHalted = mFamily.chosen === null;
     shippedM = mHalted ? null : Math.ceil(mFamily.chosen.base);
 
-    wFamily = runFamily('W', baseViews, { sourceShapes, shippedFloor: shippedG });
-    wHalted = wFamily.chosen === null;
-    shippedW = wHalted ? null : ceilToSignificant(wFamily.chosen.base, 3);
+    // [D-21, plan 34-14] Family W is evidence-only: it still measures and renders strawman W, W1
+    // and W2 on the declared floor, but `selectShape` is never reached — `arbitrated: false`,
+    // `selectedId`/`chosen` stay null. It can never halt the pipeline.
+    wFamily = runFamily('W', baseViews, { sourceShapes, shippedFloor: shippedG, arbitrate: false });
   }
 
-  const allCleared = gPresent && !mHalted && !wHalted;
+  // [D-21, plan 34-14] W can never halt the pipeline (evidence-only) — `allCleared` now depends on
+  // both declared constants being present and M (the sole arbiter) having selected a shape.
+  const allCleared = declaredPresent && !mHalted;
   const shipped = {
     STATIONARY_MAX_SPEED_MPS: shippedG,
     FORGOTTEN_STOP_MIN_SEC: shippedM,
@@ -1618,17 +1713,26 @@ export function runCalibration(archive, controlText) {
 }
 
 /**
- * The exit-code contract: 0 only when M and W both cleared, every gate passed, and each shipped
- * production constant (`shippedProduction`, keyed by name — `undefined` values are ignored, never
- * treated as a mismatch) equals its derived rounded value — including the declared stationary
- * constant; 1 on any NO SHAPE CLEARS, a failed gate, or [D-20, plan 34-13] a PASSING strawman G
- * (the non-issue evidence rests on the harness being able to tell a circular population apart from a
- * real one — a passing strawman means it cannot, regardless of Family G no longer arbitrating); 2
- * when a shipped constant is present and differs.
+ * The exit-code contract: 0 only when M cleared (the sole arbiter, [D-21, plan 34-14]), every gate
+ * passed, and each shipped production constant (`shippedProduction`, keyed by name — `undefined`
+ * values are ignored, never treated as a mismatch) equals its derived rounded value — including
+ * BOTH declared constants (stationary, D-20; walk/run boundary, D-21); 1 on any NO SHAPE CLEARS, a
+ * failed gate, or [D-20/D-21] a PASSING strawman for ANY family present, checked family-agnostically
+ * — the non-issue/no-valley evidence rests on the harness being able to tell a circular population
+ * apart from a real one, for every family, whether or not that family still arbitrates; 2 when a
+ * shipped constant is present and differs.
  */
 export function decideOutcome(result, shippedProduction = {}) {
-  if (result.families && result.families.G && result.families.G.strawman.pass) {
-    return { exitCode: 1, reason: 'strawman-g-passed' };
+  // [D-21, plan 34-14] Family-agnostic: loops over every family PRESENT in `result.families` (G, M,
+  // W, in that fixed order), so a passing strawman for ANY of them — including M, now the only
+  // arbiter — stops the run, not merely G's.
+  if (result.families) {
+    for (const familyId of ['G', 'M', 'W']) {
+      const family = result.families[familyId];
+      if (family && family.strawman && family.strawman.pass) {
+        return { exitCode: 1, reason: `strawman-${familyId.toLowerCase()}-passed` };
+      }
+    }
   }
   if (!result.allCleared) {
     return { exitCode: 1, reason: 'no-shape-clears' };
@@ -1744,6 +1848,24 @@ function renderDrift(drift) {
 
   return `${evidence}\n\n${disposition}\n\n${caveat}`;
 }
+
+/**
+ * [D-21, plan 34-14] Per-family not-arbitrated render data (M3): each evidence-only family names ITS
+ * OWN constant, decision id and finding heading — never another family's. Replaces the hardcoded
+ * D-20-only strings the not-arbitrated render block used before Family W also became evidence-only.
+ */
+const NOT_ARBITRATED_INFO = Object.freeze({
+  G: Object.freeze({
+    constantName: 'STATIONARY_MAX_SPEED_MPS',
+    decisionId: 'D-20',
+    finding: 'the drift-while-stationary finding',
+  }),
+  W: Object.freeze({
+    constantName: 'WALK_RUN_BOUNDARY_MPS',
+    decisionId: 'D-21',
+    finding: 'the valley-evidence finding',
+  }),
+});
 
 function renderFindings(findings) {
   const lines = [];
@@ -1924,13 +2046,13 @@ export function renderCalibrationMarkdown(result) {
     lines.push('');
     if (family) {
       if (family.arbitrated === false) {
-        // [D-20, plan 34-13] Family G: not arbitrated. The rows below are evidence for the
-        // drift-while-stationary finding, never candidates — no row here can select or influence a
-        // constant.
+        // [D-21, plan 34-14] Per-family not-arbitrated data (M3): each evidence-only family names
+        // ITS OWN constant, decision id and finding — never another family's.
+        const info = NOT_ARBITRATED_INFO[familyId];
         lines.push(
-          'NOT ARBITRATED (D-20): STATIONARY_MAX_SPEED_MPS is developer-declared, not calibrated. ' +
-            'The rows below are EVIDENCE for the drift-while-stationary finding, never candidates — ' +
-            'no row here can select or influence a constant.'
+          `NOT ARBITRATED (${info.decisionId}): ${info.constantName} is developer-declared, not ` +
+            `calibrated. The rows below are EVIDENCE for ${info.finding}, never candidates — no row ` +
+            'here can select or influence a constant.'
         );
         lines.push('');
       }
@@ -1938,7 +2060,7 @@ export function renderCalibrationMarkdown(result) {
       lines.push('');
       lines.push(
         family.arbitrated === false
-          ? 'Selected: not applicable — not arbitrated (D-20)'
+          ? `Selected: not applicable — not arbitrated (${NOT_ARBITRATED_INFO[familyId].decisionId})`
           : `Selected: ${family.selectedId ?? 'NO SHAPE CLEARS'}`
       );
     } else {
@@ -1979,8 +2101,11 @@ export function renderCalibrationMarkdown(result) {
     lines.push('## GATE FAILED');
     lines.push('');
     lines.push(
-      'All three families cleared, but a post-selection gate failed (see `## Gates` below). No constant ' +
-        'is confirmed shipped — there is no fallback to a later shape.'
+      // [D-21, plan 34-14] Family M is the only family that "clears" now (G and W are evidence-only);
+      // this branch is reached when M cleared and both declared constants are present, but a
+      // post-selection gate still failed.
+      'Family M cleared and both declared constants are present, but a post-selection gate failed ' +
+        '(see `## Gates` below). No constant is confirmed shipped — there is no fallback to a later shape.'
     );
     lines.push('');
   }

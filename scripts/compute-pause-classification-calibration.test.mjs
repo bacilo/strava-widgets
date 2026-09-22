@@ -345,23 +345,47 @@ function buildBackgroundActivity(id, { gapMetres = 1.0, dt = 1.3, creepSpeed = 0
   return { id, t, d, cadence };
 }
 
-/** No cadence anywhere and no zero-advance pause interval anywhere: every G shape's population is
- * empty, so G HALTs (no shape clears — there is nothing to clear) and M/W never run. */
+/**
+ * No cadence anywhere and no zero-advance pause interval anywhere, so G4/G5's population is always
+ * empty (shapeG4/shapeG5 value null — unaffected by [D-21]'s change below).
+ *
+ * [D-21, plan 34-14] Every activity is ALSO "creep-dominated": a tiny near-zero-speed block (8
+ * samples at 0.01 m/s, well under the declared 0.5 m/s floor) immediately followed by one huge
+ * single-sample advance-interval outlier (100s). Before D-21, Family W's own inability to find a
+ * valley on a single-speed population was what made this fixture represent "no shape clears" archive-
+ * wide; D-21 makes W evidence-only, so that blocker is gone, and M1/M2 (Family M's OWN pre-declared
+ * shapes, unaffected by D-21) would otherwise trivially CLEAR D-13 on a perfectly uniform-duration
+ * population (nothing for REMOVED/PLANTED to be sensitive to — the harness's own known limitation on
+ * a degenerate fixture, not a D-21 defect). Every activity being creep-dominated makes
+ * `removeNeighbourhoods('M', ...)` strip EACH activity's ENTIRE `positionedAdvanceIntervals` (the
+ * creep candidate's padded neighbourhood covers the whole activity, including the outlier), so
+ * `pooledPa`'s REMOVED array is empty for every member — `shapeM1`/`shapeM2`'s REMOVED value is
+ * `null`, which `evaluateShape` FAILs unconditionally, restoring this fixture's documented "no shape
+ * clears" property for M as well as G.
+ */
 function buildHaltArchive() {
-  function noCadenceActivity(id) {
+  function creepDominatedActivity(id) {
     const t = [];
     const d = [];
     let time = 0;
     let dist = 0;
-    for (let i = 0; i <= 200; i++) {
+    for (let i = 0; i <= 8; i++) {
       t.push(time);
       d.push(dist);
       time += 1;
-      dist += 3.0; // always "moving" — no cadence-silent population anywhere
+      dist += 0.01; // creep: well under the declared 0.5 m/s stationary floor
     }
+    time += 100; // one huge single-sample advance-interval outlier
+    dist += 300;
+    t.push(time);
+    d.push(dist);
     return { id, t, d, cadence: null };
   }
-  const activities = [noCadenceActivity('h0'), noCadenceActivity('h1'), noCadenceActivity(INSENSITIVITY_SOURCE_ACTIVITY_ID)];
+  const activities = [
+    creepDominatedActivity('h0'),
+    creepDominatedActivity('h1'),
+    creepDominatedActivity(INSENSITIVITY_SOURCE_ACTIVITY_ID),
+  ];
   return { activities, streamFileCount: activities.length, notComputable: 0 };
 }
 
@@ -417,8 +441,26 @@ function buildTimeTriggered(id) {
   return { id, t, d, cadence: null };
 }
 
-/** The full "everything clears, every gate passes" archive: the control activity plus the four named
- * D-10 anchors. */
+/** [D-21, plan 34-14] H1 fixture reshape: a bulk running-hump activity, continuous covered running
+ * well above the declared 2.2 m/s boundary, ADDED to `buildGatesPassArchive` so the archive's OWN
+ * time-weighted (W1) modal bin sits above the boundary under test — required by the new `d21-basis`
+ * gate. Never a retune of any EXISTING activity's speeds or durations. */
+function buildRunningHumpActivity(id) {
+  const t = [0];
+  const d = [0];
+  let time = 0;
+  let dist = 0;
+  for (let i = 0; i < 2000; i++) {
+    time += 1;
+    dist += 3.2; // well above the declared 2.2 m/s boundary
+    t.push(time);
+    d.push(dist);
+  }
+  return { id, t, d, cadence: null };
+}
+
+/** The full "everything clears, every gate passes" archive: the control activity, the four named
+ * D-10 anchors, and [D-21] the bulk running-hump activity H1 adds. */
 function buildGatesPassArchive() {
   const activities = [
     buildControlActivity('CTRL1'),
@@ -426,10 +468,11 @@ function buildGatesPassArchive() {
     buildTimeTriggered('3475724402'),
     buildTimeTriggered('3475734189'),
     buildTimeTriggered('4556693525'),
+    buildRunningHumpActivity('RUNHUMP1'),
   ];
   return { activities, streamFileCount: activities.length, notComputable: 0 };
 }
-const GATES_PASS_SHIPPED = { STATIONARY_MAX_SPEED_MPS: 0.5, WALK_RUN_BOUNDARY_MPS: 2.0, FORGOTTEN_STOP_MIN_SEC: 31 };
+const GATES_PASS_SHIPPED = { STATIONARY_MAX_SPEED_MPS: 0.5, WALK_RUN_BOUNDARY_MPS: 2.2, FORGOTTEN_STOP_MIN_SEC: 31 };
 const GATES_PASS_CONTROL_TEXT = 'CONFIRMED_CONTROL: CTRL1 t=100-400\n';
 
 /**
@@ -1048,9 +1091,97 @@ describe('evidence only', () => {
     const shapeArbitration = markdown.split('## Shape arbitration')[1].split('## Chosen constants')[0];
     const arbitrationSection = shapeArbitration.split('### Family G')[1].split('### Family M')[0];
     expect(arbitrationSection).toContain('NOT ARBITRATED (D-20)');
+    expect(arbitrationSection).not.toContain('(D-21)');
     expect(arbitrationSection).toContain('G4');
     expect(arbitrationSection).toContain('G5');
     expect(arbitrationSection).toMatch(/PASS|FAIL/);
+  });
+
+  // -------------------------------------------------------------------------
+  // Family W evidence-only (D-21, plan 34-14) — the known trap: mirroring Family G's evidence-only
+  // call literally (omitting shippedFloor) would give W `ctx.lo = null` and every row a null base.
+  // -------------------------------------------------------------------------
+
+  it("runFamily('W', views, { arbitrate: false, shippedFloor }) evaluates strawman W, W1 and W2 " +
+    '(same rows as arbitrate: true on the same shippedFloor) but returns { arbitrated: false, ' +
+    'selectedId: null, chosen: null } — selectShape is never reached for W', () => {
+    const views = buildBaseViews(buildClearArchive());
+    const sourceShapes = sourceShapesFor(views);
+    const family = runFamily('W', views, { sourceShapes, shippedFloor: DECLARED_STATIONARY_MAX_SPEED_MPS, arbitrate: false });
+    expect(family.arbitrated).toBe(false);
+    expect(family.selectedId).toBeNull();
+    expect(family.chosen).toBeNull();
+    expect(family.rows.length).toBe(2);
+    expect(family.rows.map((r) => r.id)).toEqual(['W1', 'W2']);
+    expect(family.strawman).toBeDefined();
+  });
+
+  it("THE TRAP: W's evidence-only call MUST carry shippedFloor — every W row keeps a FINITE base, " +
+    'never "—", and the evidence rows are byte-identical to the same views run with arbitrate: true', () => {
+    const views = buildBaseViews(buildClearArchive());
+    const sourceShapes = sourceShapesFor(views);
+    const arbitrated = runFamily('W', views, { sourceShapes, shippedFloor: DECLARED_STATIONARY_MAX_SPEED_MPS });
+    const evidenceOnly = runFamily('W', views, { sourceShapes, shippedFloor: DECLARED_STATIONARY_MAX_SPEED_MPS, arbitrate: false });
+    for (const row of evidenceOnly.rows) {
+      expect(row.base, row.id).not.toBeNull();
+      expect(Number.isFinite(row.base), row.id).toBe(true);
+    }
+    expect(evidenceOnly.rows).toEqual(arbitrated.rows);
+  });
+
+  it('runCalibration threads shippedFloor: shippedG into Family W\'s evidence-only call — every ' +
+    'rendered W row has a finite base, and the valley-evidence section\'s lo equals the declared ' +
+    'stationary constant', () => {
+    const result = runCalibration(buildClearArchive(), GATES_PASS_CONTROL_TEXT);
+    for (const row of result.families.W.rows) {
+      expect(Number.isFinite(row.base), row.id).toBe(true);
+    }
+    expect(result.valleyEvidence.lo).toBe(DECLARED_STATIONARY_MAX_SPEED_MPS);
+    const markdown = renderCalibrationMarkdown({ ...result, provenance: {} });
+    const shapeArbitration = markdown.split('## Shape arbitration')[1].split('## Chosen constants')[0];
+    const wSection = shapeArbitration.split('### Family W')[1];
+    expect(wSection).not.toContain('| — |');
+  });
+
+  it('the Family W rendering block states it is NOT ARBITRATED and names D-21 (never D-20), and ' +
+    'every row/verdict is still rendered', () => {
+    const result = runCalibration(buildClearArchive(), GATES_PASS_CONTROL_TEXT);
+    const markdown = renderCalibrationMarkdown({ ...result, provenance: {} });
+    const shapeArbitration = markdown.split('## Shape arbitration')[1].split('## Chosen constants')[0];
+    const arbitrationSection = shapeArbitration.split('### Family W')[1];
+    expect(arbitrationSection).toContain('NOT ARBITRATED (D-21)');
+    expect(arbitrationSection).not.toContain('(D-20)');
+    expect(arbitrationSection).toContain('W1');
+    expect(arbitrationSection).toContain('W2');
+    expect(arbitrationSection).toMatch(/PASS|FAIL/);
+    expect(arbitrationSection).toContain('Selected: not applicable — not arbitrated (D-21)');
+  });
+
+  it('the GATE FAILED prose no longer says "All three families cleared"', () => {
+    const views = buildBaseViews(buildGatesPassArchive());
+    const gFamily = { familyId: 'G', arbitrated: false, strawman: { pass: false }, rows: [], selectedId: null, chosen: null };
+    const mFamily = { familyId: 'M', arbitrated: true, strawman: { pass: false }, rows: [], selectedId: 'M1', chosen: { id: 'M1', base: 5 } };
+    const wFamily = { familyId: 'W', arbitrated: false, strawman: { pass: false }, rows: [], selectedId: null, chosen: null };
+    const shipped = { ...GATES_PASS_SHIPPED };
+    const badGates = { gates: [{ id: 'order', measured: '', bound: '', pass: false }], pass: false };
+    const result = {
+      archive: { streamFileCount: views.length, notComputable: 0 },
+      families: { G: gFamily, M: mFamily, W: wFamily },
+      shipped,
+      allCleared: true,
+      gates: badGates,
+      d10: d10Section(views),
+      join: joinSection(views),
+      drift: driftSection(views),
+      valleyEvidence: undefined,
+      perIntervalTable: perIntervalTable(views, { stationaryMaxMps: 0.5, walkRunMps: 2.2 }),
+      archiveFindings: archiveFindings(views, { stationaryMaxMps: 0.5, walkRunMps: 2.2 }, { stationaryMaxMps: 0.5, minSec: 31 }),
+      provenance: {},
+    };
+    const markdown = renderCalibrationMarkdown(result);
+    expect(markdown).toContain('## GATE FAILED');
+    expect(markdown).not.toContain('All three families cleared');
+    expect(markdown).toContain('Family M cleared');
   });
 
   it('runCalibration never calls ceilToSignificant on a G row; the shipped stationary constant is ' +
@@ -1059,11 +1190,18 @@ describe('evidence only', () => {
     expect(result.shipped.STATIONARY_MAX_SPEED_MPS).toBe(DECLARED_STATIONARY_MAX_SPEED_MPS);
   });
 
-  it('M and W still run and arbitrate exactly as before on the declared floor — shapes, tolerance, ' +
-    'strawman-first and first-clearing arbitration are all unchanged', () => {
+  it('[D-21, retired premise] M still runs and arbitrates exactly as before on the declared floor ' +
+    '— shapes, tolerance, strawman-first and first-clearing arbitration are all unchanged. Family W ' +
+    'is now ALSO evidence-only: it is not arbitrated and selects nothing, even when every W row ' +
+    'PASSES D-13 on this same bulk-dominated archive', () => {
     const result = runCalibration(buildClearArchive(), GATES_PASS_CONTROL_TEXT);
     expect(result.families.M.selectedId).not.toBeNull();
-    expect(result.families.W.selectedId).not.toBeNull();
+    expect(result.families.W.arbitrated).toBe(false);
+    expect(result.families.W.selectedId).toBeNull();
+    expect(result.families.W.chosen).toBeNull();
+    // Not vacuous: W's own rows genuinely clear D-13 on this archive — arbitration is what's absent,
+    // not a degenerate population.
+    expect(result.families.W.rows.some((r) => r.pass)).toBe(true);
     expect(result.allCleared).toBe(true);
   });
 
@@ -1201,6 +1339,116 @@ describe('gates', () => {
     expect(result.pass).toBe(false);
   });
 
+  // -------------------------------------------------------------------------
+  // d21-basis (D-21, plan 34-14): two structural sub-checks, no new number.
+  // -------------------------------------------------------------------------
+
+  it('[D-21] d21-basis PASSES on the H1-extended gates-pass archive: the declared boundary clears ' +
+    "the control's own window speed AND sits below the archive's own W1 time-weighted modal bin " +
+    'centre (asserted directly)', () => {
+    const views = buildBaseViews(buildGatesPassArchive());
+    const result = applyGates(views, GATES_PASS_SHIPPED, GATES_PASS_CONTROL_TEXT);
+    const gate = result.gates.find((g) => g.id === 'd21-basis');
+    expect(gate.pass).toBe(true);
+    expect(gate.subA.pass).toBe(true);
+    expect(gate.subB.pass).toBe(true);
+    // The fixture's own modal bin centre, asserted directly — RUNHUMP1's 2000-sample mass at 3.2
+    // m/s dominates every other activity's own covered-time mass combined.
+    expect(gate.subB.measured).toBeCloseTo(3.25, 1);
+    expect(gate.subB.measured).toBeGreaterThan(GATES_PASS_SHIPPED.WALK_RUN_BOUNDARY_MPS);
+  });
+
+  it('[D-21] d21-basis sub-check (a) FAILS independently when a confirmed control\'s own window ' +
+    'speed reaches the declared boundary — sub-check (b) still passes', () => {
+    const views = buildBaseViews(buildGatesPassArchive());
+    const highBoundary = { ...GATES_PASS_SHIPPED, WALK_RUN_BOUNDARY_MPS: 0.9 }; // CTRL1 window speed is 1.0
+    const result = applyGates(views, highBoundary, GATES_PASS_CONTROL_TEXT);
+    const gate = result.gates.find((g) => g.id === 'd21-basis');
+    expect(gate.subA.pass).toBe(false);
+    expect(gate.subB.pass).toBe(true);
+    expect(gate.pass).toBe(false);
+  });
+
+  it('[D-21] d21-basis sub-check (b) FAILS independently when the declared boundary reaches the ' +
+    "archive's own W1 time-weighted modal bin centre — sub-check (a) still passes", () => {
+    const views = buildBaseViews(buildGatesPassArchive());
+    const lowModalBoundary = { ...GATES_PASS_SHIPPED, WALK_RUN_BOUNDARY_MPS: 3.5 }; // above RUNHUMP1's own 3.2 m/s mode
+    const result = applyGates(views, lowModalBoundary, GATES_PASS_CONTROL_TEXT);
+    const gate = result.gates.find((g) => g.id === 'd21-basis');
+    expect(gate.subA.pass).toBe(true);
+    expect(gate.subB.pass).toBe(false);
+    expect(gate.pass).toBe(false);
+  });
+
+  it('[D-21] d21-basis: no confirmed control at all is a stated-reason FAIL, never a vacuous pass', () => {
+    const views = buildBaseViews(buildGatesPassArchive());
+    const result = applyGates(views, GATES_PASS_SHIPPED, null);
+    const gate = result.gates.find((g) => g.id === 'd21-basis');
+    expect(gate.subA.pass).toBe(false);
+    expect(gate.subA.reason).toBe('no confirmed control');
+    expect(gate.pass).toBe(false);
+  });
+
+  it('[D-21] d21-basis: an unmeasurable control window (its samples dropped) is a stated-reason ' +
+    'FAIL', () => {
+    const views = buildBaseViews(buildGatesPassArchive()).map((v) =>
+      v.id === 'CTRL1' ? { ...v, t: [v.t[0]], d: [v.d[0]] } : v
+    );
+    const result = applyGates(views, GATES_PASS_SHIPPED, GATES_PASS_CONTROL_TEXT);
+    const gate = result.gates.find((g) => g.id === 'd21-basis');
+    expect(gate.subA.pass).toBe(false);
+    expect(gate.subA.reason).toMatch(/unmeasurable/);
+    expect(gate.pass).toBe(false);
+  });
+
+  it('[D-21] d21-basis: an empty covered-time population is a stated-reason FAIL', () => {
+    const emptyView = {
+      id: 'EMPTY',
+      computable: true,
+      t: [0, 1],
+      d: [0, 1],
+      coverage: { spanSec: 1, coveredSec: 1, recordingGapSec: 0, pauseSec: 0, unreliableSec: 0, gapIntervals: [] },
+      segments: [],
+      coveredRuns: [],
+      J: [],
+      pauseIntervals: [],
+      coveredPairs: [],
+      foldedSteps: [],
+      positionedAdvanceIntervals: [],
+      plantedCreepDurations: [],
+      standstillEpisodes: [],
+      notClassifiableCount: 0,
+      joinViolations: 0,
+    };
+    const result = applyGates([emptyView], GATES_PASS_SHIPPED, null);
+    const gate = result.gates.find((g) => g.id === 'd21-basis');
+    expect(gate.subB.pass).toBe(false);
+    expect(gate.subB.reason).toBe('empty covered-time population');
+  });
+
+  it('[D-21] H1: after the RUNHUMP1 extension, EVERY gate id reads PASS individually on ' +
+    'buildGatesPassArchive — asserted id by id, not merely via gates.pass', () => {
+    const views = buildBaseViews(buildGatesPassArchive());
+    const result = applyGates(views, GATES_PASS_SHIPPED, GATES_PASS_CONTROL_TEXT);
+    const expectedIds = [
+      'order',
+      'd12-anchor-i',
+      'd12-anchor-ii',
+      'd12-anchor-iii',
+      'd10-rule',
+      'join',
+      'd20-basis',
+      'd21-basis',
+    ];
+    expect(result.gates.map((g) => g.id)).toEqual(expectedIds);
+    for (const id of expectedIds) {
+      const gate = result.gates.find((g) => g.id === id);
+      expect(gate, id).toBeDefined();
+      expect(gate.pass, id).toBe(true);
+    }
+    expect(result.pass).toBe(true);
+  });
+
   it('[D-19] driftSection: always computed from BASE standstill episodes, independent of shippedG ' +
     '(unlike 34-04\'s G1-gated version)', () => {
     const views = buildBaseViews(buildClearArchive());
@@ -1237,10 +1485,13 @@ describe('declared constant', () => {
     expect(STATIONARY_PROVENANCE_TEXT).toBe('developer-declared (D-20), not calibrated');
   });
 
-  it('a clear fixture renders the line-anchored declared value and its provenance line under ' +
-    '## Chosen constants; M and W provenance lines name their own winning shape ids', () => {
+  it('[D-21, retired premise] a clear fixture renders the line-anchored declared value and its ' +
+    "provenance line under ## Chosen constants; M's provenance line names its own winning shape id, " +
+    "but WALK_RUN_BOUNDARY_MPS provenance now reads DECLARED (D-21), never 'calibrated (W family, " +
+    "...)' — Family W no longer has a winning shape id to name", () => {
     const result = runCalibration(buildClearArchive(), GATES_PASS_CONTROL_TEXT);
     expect(result.allCleared).toBe(true);
+    expect(result.families.W.selectedId).toBeNull();
     const markdown = renderCalibrationMarkdown({ ...result, provenance: {} });
     expect(markdown).toMatch(/^STATIONARY_MAX_SPEED_MPS = 0\.5$/m);
     expect(markdown).toContain(
@@ -1252,12 +1503,11 @@ describe('declared constant', () => {
         'm'
       )
     );
-    expect(markdown).toMatch(
-      new RegExp(
-        `^WALK_RUN_BOUNDARY_MPS provenance: calibrated \\(W family, ${result.families.W.selectedId}\\)$`,
-        'm'
-      )
+    expect(markdown).toMatch(/^WALK_RUN_BOUNDARY_MPS = 2\.2$/m);
+    expect(markdown).toContain(
+      'WALK_RUN_BOUNDARY_MPS provenance: developer-declared (D-21), not calibrated'
     );
+    expect(markdown).not.toMatch(/^WALK_RUN_BOUNDARY_MPS provenance: calibrated \(W family/m);
   });
 
   it('no line matching ^STATIONARY_MAX_SPEED_MPS = appears outside ## Chosen constants; the HALT ' +
@@ -1775,6 +2025,72 @@ describe('exit contract', () => {
     const gFamily = { familyId: 'G', arbitrated: false, strawman: { pass: false }, rows: [], selectedId: null, chosen: null };
     const result = {
       families: { G: gFamily, M: {}, W: {} },
+      allCleared: true,
+      gates: applyGates(views, GATES_PASS_SHIPPED, GATES_PASS_CONTROL_TEXT),
+      shipped: GATES_PASS_SHIPPED,
+    };
+    expect(decideOutcome(result, {}).exitCode).toBe(0);
+  });
+
+  // -------------------------------------------------------------------------
+  // H5 (D-21, plan 34-14): the strawman-passed branch is FAMILY-AGNOSTIC — one exit-contract test
+  // per family, including M, which is now the only arbiter.
+  // -------------------------------------------------------------------------
+
+  it('[D-21] decideOutcome: 1 with reason "strawman-m-passed" when strawman M PASSES — even though ' +
+    'M is the only family that still arbitrates, and even when every gate passed', () => {
+    const views = buildBaseViews(buildGatesPassArchive());
+    const gFamily = { familyId: 'G', arbitrated: false, strawman: { pass: false }, rows: [], selectedId: null, chosen: null };
+    const mFamily = {
+      familyId: 'M',
+      arbitrated: true,
+      strawman: { pass: true }, // a harness-integrity failure: circular and non-circular indistinguishable
+      rows: [],
+      selectedId: 'M1',
+      chosen: { id: 'M1', base: 5 },
+    };
+    const wFamily = { familyId: 'W', arbitrated: false, strawman: { pass: false }, rows: [], selectedId: null, chosen: null };
+    const result = {
+      families: { G: gFamily, M: mFamily, W: wFamily },
+      allCleared: true,
+      gates: applyGates(views, GATES_PASS_SHIPPED, GATES_PASS_CONTROL_TEXT),
+      shipped: GATES_PASS_SHIPPED,
+    };
+    expect(decideOutcome(result, {}).exitCode).toBe(1);
+    expect(decideOutcome(result, {}).reason).toBe('strawman-m-passed');
+  });
+
+  it('[D-21] decideOutcome: 1 with reason "strawman-w-passed" when strawman W PASSES, even though ' +
+    'Family W no longer arbitrates', () => {
+    const views = buildBaseViews(buildGatesPassArchive());
+    const gFamily = { familyId: 'G', arbitrated: false, strawman: { pass: false }, rows: [], selectedId: null, chosen: null };
+    const mFamily = { familyId: 'M', arbitrated: true, strawman: { pass: false }, rows: [], selectedId: 'M1', chosen: { id: 'M1', base: 5 } };
+    const wFamily = {
+      familyId: 'W',
+      arbitrated: false,
+      strawman: { pass: true }, // a harness-integrity failure
+      rows: [],
+      selectedId: null,
+      chosen: null,
+    };
+    const result = {
+      families: { G: gFamily, M: mFamily, W: wFamily },
+      allCleared: true,
+      gates: applyGates(views, GATES_PASS_SHIPPED, GATES_PASS_CONTROL_TEXT),
+      shipped: GATES_PASS_SHIPPED,
+    };
+    expect(decideOutcome(result, {}).exitCode).toBe(1);
+    expect(decideOutcome(result, {}).reason).toBe('strawman-w-passed');
+  });
+
+  it('[D-21] decideOutcome: 0 is unaffected when EVERY family present\'s strawman correctly FAILS ' +
+    '(G, M and W all checked)', () => {
+    const views = buildBaseViews(buildGatesPassArchive());
+    const gFamily = { familyId: 'G', arbitrated: false, strawman: { pass: false }, rows: [], selectedId: null, chosen: null };
+    const mFamily = { familyId: 'M', arbitrated: true, strawman: { pass: false }, rows: [], selectedId: 'M1', chosen: { id: 'M1', base: 5 } };
+    const wFamily = { familyId: 'W', arbitrated: false, strawman: { pass: false }, rows: [], selectedId: null, chosen: null };
+    const result = {
+      families: { G: gFamily, M: mFamily, W: wFamily },
       allCleared: true,
       gates: applyGates(views, GATES_PASS_SHIPPED, GATES_PASS_CONTROL_TEXT),
       shipped: GATES_PASS_SHIPPED,
