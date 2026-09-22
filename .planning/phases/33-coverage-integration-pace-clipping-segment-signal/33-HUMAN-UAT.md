@@ -1,14 +1,14 @@
 ---
-status: partial
+status: complete
 phase: 33-coverage-integration-pace-clipping-segment-signal
 source: [33-VERIFICATION.md]
 started: 2026-09-22T08:18:08Z
-updated: 2026-09-22T09:52:26Z
+updated: 2026-09-22T09:54:55Z
 ---
 
 ## Current Test
 
-4. R15 — double disclosure agrees
+[complete]
 
 ## Tests
 
@@ -30,14 +30,14 @@ result: pass — developer 2026-09-22: "item 3: first two corrrect. The Possido 
 
 ### 4. R15 — double disclosure agrees (SEG-06/COV-03)
 expected: on each of the three named activities, the "Coverage gaps" row's itemised "N unreliable segments" equals the "Unreliable segments" row's count (1 / 5 / 16)
-result: [pending]
+result: pass — developer 2026-09-22: "possidi - 16, islands brygge - 1 and bairro dos loios -5"
 
 ## Summary
 
 total: 4
-passed: 3
+passed: 4
 issues: 0
-pending: 1
+pending: 0
 skipped: 0
 blocked: 0
 
