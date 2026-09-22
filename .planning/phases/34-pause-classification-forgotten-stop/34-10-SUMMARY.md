@@ -138,3 +138,12 @@ None beyond the plan's own `<threat_model>` (T-34-34..T-34-37), all mitigated as
 ---
 *Phase: 34-pause-classification-forgotten-stop*
 *Completed: 2026-09-23*
+
+## Self-Check: PASSED
+
+- FOUND: `.planning/phases/34-pause-classification-forgotten-stop/34-VALIDATION.md`
+- FOUND: `.planning/phases/34-pause-classification-forgotten-stop/34-10-SUMMARY.md` (this file)
+- FOUND: `.planning/phases/34-pause-classification-forgotten-stop/34-CALIBRATION.md`
+- FOUND: `.planning/phases/34-pause-classification-forgotten-stop/34-PAUSE03-REMEASUREMENT.md`
+- FOUND: `.planning/phases/34-pause-classification-forgotten-stop/34-WALKING-BREAK-EVIDENCE.md`
+- FOUND commits: `6a2c99b7` (Task 2), `d7cde5b0` (SUMMARY)
