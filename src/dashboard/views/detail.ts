@@ -64,6 +64,8 @@ import {
   buildBestEffortsSection,
   buildQualitySignalsSection,
   qualitySignalsSectionPlan,
+  buildPausesSection,
+  pausesSectionPlan,
   splitGapAnnotations,
 } from './detail-sections.js';
 import { buildPrBadgeLabels, buildBestEffortsPanelRows } from './detail-best-efforts-logic.js';
@@ -570,6 +572,7 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
     badgesContainer: HTMLElement,
     panelContainer: HTMLElement,
     qualitySignalsContainer: HTMLElement,
+    pausesContainer: HTMLElement,
     detail: ActivityDetail,
     myToken: number
   ): Promise<void> {
@@ -602,6 +605,11 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
     qualitySignalsContainer.replaceChildren(
       buildQualitySignalsSection(qualitySignalsSectionPlan(quality, paceQualityShard))
     );
+
+    // Phase 34 (PAUSE-02, D-14, plan 34-09): the Pauses section reads the
+    // SAME already-fetched paceQualityShard/quality pair the Quality
+    // Signals fill just above used — no new fetch, no new await point.
+    pausesContainer.replaceChildren(buildPausesSection(pausesSectionPlan(paceQualityShard, quality)));
 
     container.dispatchEvent(
       new CustomEvent('dashboard:best-efforts-mounted', {
@@ -773,6 +781,13 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
     // `replaceChildren` once the evidence shard resolves, exactly like
     // `bestEffortsContainer` below — never blocking this synchronous render.
     const qualitySignalsContainer = document.createElement('div');
+    // Pauses placeholder (Phase 34, PAUSE-02, D-14, plan 34-09) — same
+    // create-once/append-once-per-branch/fill-later shape as
+    // `qualitySignalsContainer` immediately above, appended directly after
+    // it in BOTH branches below. `mountBestEffortsAndBadges` fills it from
+    // the SAME already-fetched `paceQualityShard`/`quality` pair the
+    // Quality Signals section reads — no new fetch, no new await point.
+    const pausesContainer = document.createElement('div');
 
     if (detail.stream !== null) {
       const splits = computeSplits(detail.stream);
@@ -816,11 +831,13 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
       if (breakdownSection) view.appendChild(breakdownSection);
 
       view.appendChild(qualitySignalsContainer);
+      view.appendChild(pausesContainer);
     } else {
       const reason = indexClient.getRow(detail.id)?.streams.reason;
       view.appendChild(buildNoStreamSection(reason));
 
       view.appendChild(qualitySignalsContainer);
+      view.appendChild(pausesContainer);
     }
 
     // Best-efforts panel placeholder (18-UI-SPEC § 5, D-08) — supplementary
@@ -857,6 +874,7 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
       badgesContainer,
       bestEffortsContainer,
       qualitySignalsContainer,
+      pausesContainer,
       detail,
       myToken
     );

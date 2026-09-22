@@ -750,6 +750,74 @@ describe('quality badge text (QUAL-04, D-07, D-09)', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// no pause badge (Phase 34, D-17, plan 34-09) — pauseClassification and
+// forgottenStop are detail-view-only facts; qualityBadgeSpecs must never
+// produce a spec for either, so a transported pause or a large
+// forgotten-stop total never surfaces as a list-row badge (Phase 37's
+// review-queue ordering is the only other consumer of these two keys,
+// reading the index row directly, never through this function).
+// ---------------------------------------------------------------------------
+
+describe('no pause badge (D-17) — pauseClassification/forgottenStop never produce a qualityBadgeSpecs entry', () => {
+  it('a row with transportedCount 5 and forgottenStop.totalSec 900 returns specs deep-equal to the same row with both keys at their not-computable literals; no spec names pauseClassification or forgottenStop', () => {
+    const withPauseFacts = qualityRow({
+      pauseClassification: {
+        intervalCount: 5,
+        stationaryCount: 0,
+        walkedCount: 0,
+        ranThroughCount: 0,
+        transportedCount: 5,
+        notClassifiableCount: 0,
+      },
+      forgottenStop: {
+        computable: true,
+        reason: null,
+        count: 3,
+        totalSec: 900,
+        longestSec: 600,
+        creepCount: 1,
+        creepTotalSec: 300,
+        creepLongestSec: 300,
+        pauseCount: 2,
+        pauseTotalSec: 600,
+        pauseLongestSec: 400,
+      },
+    });
+    const withoutPauseFacts = qualityRow({
+      pauseClassification: {
+        intervalCount: null,
+        stationaryCount: null,
+        walkedCount: null,
+        ranThroughCount: null,
+        transportedCount: null,
+        notClassifiableCount: null,
+      },
+      forgottenStop: {
+        computable: false,
+        reason: 'not computed for this activity',
+        count: null,
+        totalSec: null,
+        longestSec: null,
+        creepCount: null,
+        creepTotalSec: null,
+        creepLongestSec: null,
+        pauseCount: null,
+        pauseTotalSec: null,
+        pauseLongestSec: null,
+      },
+    });
+
+    const specsWith = qualityBadgeSpecs(withPauseFacts);
+    const specsWithout = qualityBadgeSpecs(withoutPauseFacts);
+    expect(specsWith).toEqual(specsWithout);
+
+    const signalNames = specsWith.map((s) => s.signal as string);
+    expect(signalNames).not.toContain('pauseClassification');
+    expect(signalNames).not.toContain('forgottenStop');
+  });
+});
+
 describe('elevation quality badge text (ELEV-01, D-06, D-10)', () => {
   it('a sub-ground-only severe row returns exactly one spec whose visibleText contains the measured minimum', () => {
     const row = qualityRow({
