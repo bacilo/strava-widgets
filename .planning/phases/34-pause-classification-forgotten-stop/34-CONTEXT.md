@@ -1,0 +1,297 @@
+# Phase 34: Pause Classification & Forgotten-Stop - Context
+
+**Gathered:** 2026-09-22
+**Status:** Ready for planning
+
+<domain>
+## Phase Boundary
+
+Every gap-bearing interval — a recording gap, or a merged unreliable segment that contains gap
+time — is classified by the implied speed across the whole interval (its own merged metres ÷ its
+own merged seconds) into one of four classes: stationary, walked, ran-through, transported. Timer-
+running standstills — creeping near-zero stretches inside covered time plus the existing
+zero-advance `pause` intervals — are flagged per activity as a possible forgotten stop. Both are
+disclosed on the detail view in a new Pauses section with a summary row in Quality Signals, and
+v2.2's "9 activities" transport figure is re-measured on merged segments with dated provenance.
+
+**Requirements:** PAUSE-01, PAUSE-02, PAUSE-03, STOP-01, STOP-02, STOP-03 — plus Phase 34's own
+half of SEG-05b if the classifier reads the detector's merged segments (it does; see D-01).
+
+**Not in this phase:** stream-derived running pace and the disputed-pace threshold (Phase 35),
+best-effort partitioning and the ceiling diff (Phase 36), review-queue ordering by pause class and
+CUR-04 (Phase 37), a "stopped time removed" pace (STOP-04, out of milestone). Nothing is corrected:
+no moving time, pace, split, total or best effort changes, no stream file is rewritten, and Phase
+33's pace-chart clipping is not touched.
+
+</domain>
+
+<decisions>
+## Implementation Decisions
+
+### What gets classified
+
+Measured during this discussion (throwaway probe, `classifyGaps` over 1,788 committed streams,
+interval metres ÷ interval seconds — references, never expected values):
+
+| Interval kind | Count | Implied speed |
+|---|---|---|
+| Recording gap ≥30 s | 2,168 | 2,054 < 0.3 m/s; 99 at 0.3–1.5; 15 above 1.5; none above 7.35 |
+| Recording gap <30 s | ~2,630 | mostly < 0.3 m/s; a long tail through 1.5–5.5 m/s |
+| Unreliable, no gap (isolated-jump / hidden-pause) | ~1,230 | almost all > 7.35 m/s — by construction |
+| `pause` (zero-advance) | 663 | all stationary — by construction |
+| 3475724402's 18 merged intervals | 18 | 2.31–4.06 m/s (developer's easy running ≈ 3.4 m/s) |
+
+- **D-01:** **Only gap-bearing intervals are classified.** Recording gaps and gap-adjacent merged
+  unreliable segments get a class from their own merged metres ÷ merged seconds. Isolated-jump and
+  hidden-pause segments carry no off-clock time and sit above 7.35 m/s *by the detector's
+  definition*, so a speed class would call every GPS jump "transported" — they are
+  **not-classifiable** and keep only their Phase 32 mechanism label. Zero-advance `pause` intervals
+  are stationary by definition (distance does not move) and are listed as such without a speed
+  test. The classifier reads the detector's merged segments (via `pace-derivation.ts`'s existing
+  import), never re-deriving them — Phase 34's half of SEG-05b, proven load-bearing the Phase 33
+  D-15 way (stub the call, watch the classes change). Rejected: classifying every interval
+  (≈1,230 jumps labelled transported); classifying raw gaps only (contradicts PAUSE-01 and
+  criterion 1, and reproduces v2.2's gap-interval-alone undercount).
+- **D-02:** **Four classes, not three: stationary / walked / ran-through / transported.**
+  3475724402's merged segments sit at 2.3–4.1 m/s — continued running through signal loss, which
+  none of PAUSE-01's three classes describe. Needs a **dated in-place amendment** to REQUIREMENTS
+  PAUSE-01 (and ROADMAP Phase 34's goal/criterion 1 wording) adding `ran-through`, in the Phase 32
+  D-03 pattern, so the verifier does not score the fourth class as a deviation. Rejected: stretching
+  "walked" to mean "on foot" (a 4.06 m/s segment labelled walked); an "ambiguous" residual (would
+  likely be the commonest label on the phase's own named activity).
+- **D-03:** **No duration floor.** Every gap-bearing interval is classified however short; each
+  carries its measured metres and seconds so the reader sees its scale. No new constant.
+- **D-04:** **PAUSE-03 records both figures side by side.** (a) v2.2's exact rule (>100 m across a
+  ≥30 s interval) re-run on merged segments, directly comparable to the old "9 activities, all at
+  ≤14 km/h"; (b) the transported-class count under D-05's bands. Both in a regenerable artifact with
+  dated provenance and a live denominator, plus a dated pointer line beside the old figure in
+  `.planning/milestones/v2.2-REQUIREMENTS.md:165` ("in place of the old one" = superseded with a
+  forward reference, not a silent overwrite of the archive).
+
+### Speed bands
+
+- **D-05:** **ran-through → transported = `UNRELIABLE_SPEED_LIMIT_MPS` (7.35), imported, not
+  copied.** "Faster than this athlete physically runs" already has one calibrated definition; a
+  second transport constant would have ~2 gap-bearing intervals above 7.35 to calibrate on. The
+  single-source audit should see an import, not a literal.
+- **D-06:** **walked → ran-through = the walk/run valley in the athlete's own covered-time speed
+  distribution.** Covered time contains no gaps or unreliable segments, so the population is
+  disjoint from what it judges (non-circular by construction); 32 D-13's insensitivity check still
+  applies (re-derive with classified intervals' neighbourhoods removed / planted synthetics added,
+  1% tolerance fixed before measuring, watched failing first on a deliberately circular strawman).
+  Candidate statistic shapes are **pre-declared in the plan text before any measurement**, each
+  with a written non-circularity argument; D-13 arbitrates in first-clearing order.
+- **D-07:** **stationary → walked = the same drift constant STOP-02 measures.** One measurement of
+  GPS drift-while-stationary defines "not moving" for both a stationary pause class and a
+  forgotten stop — one artifact, one constant, no two definitions that can disagree.
+- **D-08:** **No defensible value → HALT.** If the walk/run valley or the drift floor fails D-13
+  under every pre-declared shape, the plan commits a NO-VALUE artifact and stops for the developer
+  (the 33-08 / 33-14 / 33 D-16 pattern). Nothing is widened, loosened or hand-picked on executor
+  judgement. The class distribution archive-wide is a reported finding and may never select or
+  re-order a shape (Phase 27 D-02 anti-quota).
+
+### Forgotten stops
+
+Measured during this discussion (crude, pair-level, uncalibrated): near-zero stretches inside
+covered time are rare — <0.3 m/s ≥30 s in 35 activities (5 at ≥120 s); <0.8 m/s ≥30 s in 76 (8 at
+≥120 s). Zero-advance `pause` intervals number 663 (36 ≥30 s).
+
+- **D-09:** **The flag covers timer-running standstills from two sources, itemised by source:**
+  creeping near-zero stretches inside covered time (drift keeps `d` advancing slightly, so the
+  zero-advance pause rule misses them) **and** the existing zero-advance `pause` intervals. Total
+  seconds, longest stretch and count are reported per source and combined. Recording gaps are
+  excluded (auto-pause or signal loss — the timer was not running). Needs a **dated wording
+  amendment** to STOP-01 (and ROADMAP criterion 4) from "inside recorded (covered) time" to
+  "inside recorded, timer-running time", since `pause` intervals are not covered time. Still flag
+  only: nothing is removed from moving time, pace or best efforts, and covered-creep stretches are
+  NOT clipped from the pace chart.
+- **D-10:** **Blind-spot streams are `not-computable` with a stated reason.** Where a standstill is
+  structurally invisible — distance-triggered recording (e.g. 3475740390, ~10 m/sample) writes no
+  samples while stationary, so a stop becomes a recording gap — the flag is not-computable rather
+  than "none". Research determines how to recognise such streams from `t`/`d` alone (no device-
+  family relabelling — 32 D-03's t/d-purity reasoning). A clean result must always mean "looked and
+  found none".
+- **D-11:** **Untiered fact, like `deviceEra` / `elapsedVsMoving`.** Total seconds, longest stretch,
+  count — no none/minor/severe cut, so no extra constant, never a list-row badge, and structurally
+  outside `hasAnySevereSignal` (STOP-03). Still add the never-widen guard assertion (the 33 D-06 /
+  30 D-06 precedent: temporarily widen, watch the guard fail, revert) so a future edit cannot
+  quietly pull it in.
+- **D-12:** **Walking-break negative control: research proposes, developer confirms.** Research
+  finds 2–3 real activities with sustained covered walking (~1.2–1.8 m/s) and presents them; the
+  developer confirms at least one genuinely was a walking break before it is pinned. The
+  discriminator gets a stated CAN FAIL / CAN PASS reachability proof in both directions (a walk
+  that the chosen threshold would actually flag if it were set too high). Real IDs only.
+- **D-13:** The near-zero threshold and minimum duration are calibrated under the same D-06/D-08
+  rules (pre-declared shapes, D-13 insensitivity, HALT on failure). If drift is measured not to
+  matter, the artifact records it as a measured non-issue (STOP-02's own wording).
+
+### Detail-view disclosure
+
+- **D-14:** **A new Pauses section plus a one-line summary row in Quality Signals.** The section
+  lists one row per interval: position (elapsed time and km), class, duration, distance.
+  Forgotten-stop creep stretches appear in the same list, marked as such. The Quality Signals row
+  summarises counts per class and the forgotten-stop totals. The list is fed from the lazy quality
+  shard (after first paint); the summary from the index row.
+- **D-15:** **List membership = everything off the clock, jumps excluded.** Recording gaps,
+  gap-adjacent merged segments and zero-advance pauses, each with its class; covered-creep stops
+  marked. Isolated-jump and hidden-pause segments stay in the Unreliable Segments row (D-01 —
+  not-classifiable). Capped at 100 entries like `impossibleSamples` / the unreliable-segment list.
+- **D-16:** **No pace-chart change.** Phase 33's clipping stays exactly as closed on its
+  checkpoint; no class tinting.
+- **D-17:** **Detail view only — no list-row badge, no filter.** A transported pause surfaces
+  outside the detail view only via Phase 37's review-queue ordering. The index-row summary key
+  exists so Phase 37 can read it without a shard fetch — additive, `DASHBOARD_INDEX_SCHEMA_VERSION`
+  stays `1`.
+
+### Evidence and process (carried conventions, restated for the planner)
+
+- **D-18:** **Checkpoint rows assert independently-derived values.** Criterion 1's per-segment
+  class table for 3475724402 is produced by a committed script that never imports the classifier
+  or the detector (gap-first recount, the 32 D-15 / `compute-unreliable-segment-recount.mjs`
+  pattern, fails closed, shown failing against a deliberately broken classifier first), and the
+  browser row reads the rendered classes back against it. The probe's 2.31–4.06 m/s figures and the
+  scoping "~1.9 m/s" are references only.
+
+### Claude's Discretion
+
+- Field names and shapes for the index summary key and the shard's per-interval list (additive
+  only).
+- The artifact filename(s) and generator/recount script names, following `32-CALIBRATION.md` /
+  `33-CALIBRATION.md` and `compute-*-calibration.mjs` / `compute-*-recount.mjs`. Whether the band
+  calibration, drift calibration and PAUSE-03 re-measurement share one artifact or three.
+- The Pauses section's exact copy, column order, empty state, and whether the class label carries a
+  short explanation.
+- How the not-computable blind-spot rule (D-10) is expressed, subject to t/d purity.
+- Where the classifier module lives (its own leaf vs inside `pace-quality.ts`), subject to the
+  single-source audit.
+
+</decisions>
+
+<canonical_refs>
+## Canonical References
+
+**Downstream agents MUST read these before planning or implementing.**
+
+### Phase scope and requirements
+- `.planning/ROADMAP.md` § Phase 34 — goal and four success criteria. **Criterion 1 / goal gain
+  `ran-through` (D-02) and criterion 4's "covered time" is widened (D-09); read with those
+  amendments once made.**
+- `.planning/REQUIREMENTS.md` — PAUSE-01..03, STOP-01..03, STOP-04 (Out of Scope), the standing
+  conventions paragraph, and SEG-05b's row (Phase 34 records its half, D-01).
+- `.planning/PROJECT.md` § Current Milestone: v2.3 — the three named activities' scoping facts and
+  "Forgotten stops are flagged, never corrected".
+- `.planning/milestones/v2.2-REQUIREMENTS.md:165` — the "9 activities … all at ≤14 km/h" figure
+  PAUSE-03 supersedes (D-04).
+
+### Decisions this phase inherits
+- `.planning/phases/32-unreliable-segment-detection-calibration/32-CONTEXT.md` — D-03 (no fourth
+  mechanism), D-04 (one downstream treatment, withhold never correct), D-10 (structural constraints
+  on constants), D-13 (insensitivity, watched failing first), D-15 (independent recount), D-16
+  (figures of record over a live denominator).
+- `.planning/phases/32-unreliable-segment-detection-calibration/32-CALIBRATION.md` —
+  `UNRELIABLE_SPEED_LIMIT_MPS = 7.35` derivation (D-05 reuses it) and the non-circularity shape.
+- `.planning/phases/33-coverage-integration-pace-clipping-segment-signal/33-CONTEXT.md` — D-01
+  (merged segment = one `unreliable` interval), D-06 (never-widen composite guard), D-08 (row
+  scalars + shard list, capped 100), D-13 (checkpoint rows vs independent extent), D-15 (SEG-05b
+  per-phase, load-bearing proof), D-16 (non-self-referential population; HALT on no shape).
+- `.planning/phases/33-coverage-integration-pace-clipping-segment-signal/33-CALIBRATION.md` and
+  `33-COVERAGE-IDENTITY.md` — artifact shape; 33-08's failed-percentile table as the negative
+  example D-06/D-08 guard against.
+- `.planning/research/FEATURES.md` (§ GAP classification requires the merged segment),
+  `.planning/research/PITFALLS.md` (4, 5, 11, 12, 13), `.planning/research/ARCHITECTURE.md`.
+- `.planning/RETROSPECTIVE.md` — vacuous checks, unsatisfiable rows, recounts.
+
+### Code this phase reads or changes
+- `src/analytics/pace-derivation.ts` — `classifyGaps` / `classifyGapsWithSegments` (returns merged
+  `gapIntervals` and raw `segments`), `GapKind`, `GapInterval`, `PAUSE_GAP_P90_MULTIPLIER`,
+  `RECORDING_GAP_ABS_THRESHOLD_SEC`, `advanceIntervals`, `quantile` (R-7 — reuse, no third
+  percentile).
+- `src/analytics/unreliable-segments.ts` — `UNRELIABLE_SPEED_LIMIT_MPS`, `UnreliableSegment`,
+  mechanism labels (D-01 uses them to separate gap-bearing from not-classifiable).
+- `src/analytics/pace-quality.ts` — `ActivityQualitySignals`, `elapsedVsMovingSignal` / `deviceEra`
+  (the untiered-fact template for D-11), `hasAnySevereSignal` (never widened), `PaceQualityShard`,
+  `buildPaceQualityShard`, `projectUnreliableSegments` (cap-100 projection template).
+- `src/dashboard/views/detail-sections.ts` — `qualitySignalsSectionPlan` (row list; add the summary
+  row with the CR-01 missing-key fallback pattern), `elapsedVsMovingRow`, `buildSplitsSection`
+  (section-builder template for the new Pauses section).
+- `src/dashboard/views/detail.ts` — section mounting order and shard arrival.
+- `src/analytics/dashboard-index.types.ts`, `src/analytics/compute-dashboard-index.ts`,
+  `src/dashboard/data/pace-quality-client.ts` — index key and shard read/write ends.
+- `src/analytics/pace-single-source.test.ts` — audit; D-05's import-not-literal.
+- `scripts/compute-unreliable-segment-recount.mjs`, `scripts/compute-unreliable-segment-calibration.mjs`,
+  `scripts/compute-unreliable-segment-severity-calibration.mjs` (+ `.test.mjs`) — generator and
+  recount patterns; `scripts/compute-stream-checksums.mjs` — `data/streams/` immutability gate.
+
+</canonical_refs>
+
+<code_context>
+## Existing Code Insights
+
+### Reusable Assets
+- `classifyGapsWithSegments` already returns merged `gapIntervals` with kind and real
+  `startSec`/`endSec` plus the detector's segments with mechanism — the classifier needs only
+  metres per interval and a mechanism lookup, no new detection.
+- `elapsedVsMovingSignal` / `deviceEra` — untiered-fact signal shape and row renderers (D-11).
+- `projectUnreliableSegments` — the capped shard projection to mirror for the pause list (D-15).
+- `quantile` (R-7) — the percentile definition for any band statistic.
+
+### Established Patterns
+- `pause` GapKind = zero-advance run longer than 5× the activity's p90 advance interval; `recording
+  gap` = `dt > 10 s`. Covered time excludes both. Creep stops therefore live only in covered time.
+- Missing-key fallback (CR-01) in `qualitySignalsSectionPlan` for stale `index.json` — needed for
+  the new summary key.
+- Every calibration generator has a `.test.mjs`, is run twice for idempotence, and its prose is
+  generated.
+- Guards are watched failing on a planted violation before they may pass.
+
+### Integration Points
+- The index row summary (Phase 37 reads it for queue priority) and the shard list (detail view).
+- `npm test` is the nightly deploy gate: nothing may read gitignored or owner-editable live files.
+- `data/streams/` stays byte-identical (checksum gate).
+
+</code_context>
+
+<specifics>
+## Specific Ideas
+
+- Named fixtures: **3475724402** (criterion 1 — 18 merged intervals, expected to split between
+  walked and ran-through per D-06's valley, never pinned to one class; the 98 s gap near t=2963 is
+  the ran-through case criterion 1 names); **3475740390** (distance-triggered — D-10's not-computable
+  case for the stop flag); the developer-confirmed walking-break activity (D-12).
+- Three documents need recorded, dated amendments: REQUIREMENTS PAUSE-01 + ROADMAP Phase 34 goal/
+  criterion 1 (`ran-through`, D-02); REQUIREMENTS STOP-01 + ROADMAP criterion 4 (timer-running
+  scope, D-09); `milestones/v2.2-REQUIREMENTS.md:165` forward pointer (D-04). ROADMAP/STATE
+  mutations via `gsd-sdk query` handlers where one exists.
+- The discussion's probe numbers are references to reconcile against, never expected values —
+  audit every figure a plan quotes (scoping-probe-figures-get-pinned lesson).
+- Planner: list the D-NN ids in each plan's frontmatter `must_haves.decisions`.
+- Merge origin at least once during the phase and regenerate artifacts after the merge.
+- Closes on a human browser checkpoint against a digest-verified served build; hard-reload after
+  every fixture edit.
+
+</specifics>
+
+<deferred>
+## Deferred Ideas
+
+- Tinting clipped pace-chart bands by pause class — a visual idea for a later phase (D-16).
+- A list-row badge or filter for transported pauses — not in this milestone beyond Phase 37's
+  queue ordering (D-17).
+- A tiered forgotten-stop signal — revisit only if the untiered fact proves unreadable (D-11).
+- "Stopped time removed" pace — STOP-04, already Out of Scope pending STOP-02's calibration.
+
+### Reviewed Todos (not folded)
+- "Pace chart y-axis compressed by pre-pause run-in samples (3475734189, 68–93 min/km at
+  t=208–219)" (`.planning/todos/pending/2026-09-22-pace-chart-y-axis-compressed-by-pre-pause-run-in-samples.md`)
+  — matched at 0.6 on keywords; a chart-scaling concern no PAUSE/STOP requirement covers. Kept
+  deferred by the developer. Note: D-09's covered-creep stops are the same shape of sample, so
+  Phase 34's stop list may help locate such run-ins, but it does not change the chart.
+- "Garmin export adapter when export arrives" — score 0.2 on "provenance" only; unrelated and still
+  externally blocked (STREAM-04).
+
+</deferred>
+
+---
+
+*Phase: 34-Pause Classification & Forgotten-Stop*
+*Context gathered: 2026-09-22*
