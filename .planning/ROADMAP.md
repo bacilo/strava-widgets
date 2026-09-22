@@ -245,7 +245,7 @@ Plans:
   3. v2.2's "9 activities advance >100 m across a ≥30s gap" figure is re-measured on merged segments rather than the gap interval alone, and the corrected figure is recorded with dated provenance in a regenerable artifact.
   4. A forgotten-stop flag (total seconds, longest stretch) is computed per activity under a near-zero threshold and minimum duration calibrated against the archive's own measured GPS-drift-while-stationary, disclosed on the detail view, structurally excluded from the severe composite, and shown NOT firing on a walking-break activity. **Amended 2026-09-22 (34-CONTEXT.md D-09):** 'inside recorded, timer-running time' — covered-time creep and the existing zero-advance pause intervals, itemised by source (count, total seconds, longest stretch) and combined; recording gaps excluded; a distance-triggered stream reports not-computable with a stated reason (D-10).
 
-**Plans**: 12 plans
+**Plans**: 13 plans
 Plans:
 **Wave 1**
 
@@ -264,25 +264,29 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3)*
 
-- [ ] 34-06-PLAN.md — measured calibration run (strawmen RED first, first-clearing, gates) and constants shipped from the artifact, or HALT (re-run after HALT-1)
+- [ ] 34-13-PLAN.md — gap closure after 34-06 HALT-2 (D-20): drift recorded as a measured non-issue with its evidence, STATIONARY_MAX_SPEED_MPS developer-declared at 0.5 with a provenance chain test, Family G evidence-only, M/W calibration untouched; synthetic fixtures only, not run
 
 **Wave 5** *(blocked on Wave 4)*
 
-- [ ] 34-07-PLAN.md — D-18 zero-import independent class recount for 3475724402, watched failing against a broken classifier
+- [ ] 34-06-PLAN.md — measured calibration run (strawmen RED first, first-clearing, gates) and constants shipped from the artifact, or HALT (third run: G declared per D-20, M/W still calibrated)
 
 **Wave 6** *(blocked on Wave 5)*
 
-- [ ] 34-08-PLAN.md — untiered pauseClassification/forgottenStop signals, capped shard list, never-widen guard, read-side parsers, fixture cascade
+- [ ] 34-07-PLAN.md — D-18 zero-import independent class recount for 3475724402, watched failing against a broken classifier
 
 **Wave 7** *(blocked on Wave 6)*
 
-- [ ] 34-09-PLAN.md — Pauses section and the Quality Signals summary row, textContent-only, no badge/filter/chart change
+- [ ] 34-08-PLAN.md — untiered pauseClassification/forgottenStop signals, capped shard list, never-widen guard, read-side parsers, fixture cascade
 
 **Wave 8** *(blocked on Wave 7)*
 
-- [ ] 34-10-PLAN.md — MERGE-01, regeneration on the merged tree, closing gate, checkpoint rows drafted with independent expected values
+- [ ] 34-09-PLAN.md — Pauses section and the Quality Signals summary row, textContent-only, no badge/filter/chart change
 
 **Wave 9** *(blocked on Wave 8)*
+
+- [ ] 34-10-PLAN.md — MERGE-01, regeneration on the merged tree, closing gate, checkpoint rows drafted with independent expected values
+
+**Wave 10** *(blocked on Wave 9)*
 
 - [ ] 34-11-PLAN.md — human browser checkpoint and per-requirement disposition
 **UI hint**: yes
@@ -372,7 +376,7 @@ Plans:
 | 31. Tech-Debt Closure — Silent-Failure Guards & Docs Reconciliation | v2.2 | 10/10 | Complete    | 2026-09-19 |
 | 32. Unreliable-Segment Detection & Calibration | v2.3 | 17/17 | Complete    | 2026-09-20 |
 | 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 14/14 | Complete    | 2026-09-22 |
-| 34. Pause Classification & Forgotten-Stop | v2.3 | 6/12 | In Progress|  |
+| 34. Pause Classification & Forgotten-Stop | v2.3 | 6/13 | In Progress|  |
 | 35. Stream-Derived Running Pace | v2.3 | 0/TBD | Not started | - |
 | 36. Best-Effort Clean-Window Search & Ceiling Recalibration | v2.3 | 0/TBD | Not started | - |
 | 37. Review-Queue Priority & CUR-04 | v2.3 | 0/TBD | Not started | - |
