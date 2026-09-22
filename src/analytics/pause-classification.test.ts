@@ -19,14 +19,19 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { classifyGapsWithSegments } from './pace-derivation.js';
+import { classifyGapsWithSegments, UNRELIABLE_SPEED_LIMIT_MPS as IMPORTED_UNRELIABLE_SPEED_LIMIT_MPS } from './pace-derivation.js';
 import type { CoveredRun, GapInterval, PaceCoverage, UnreliableSegment } from './pace-derivation.js';
 import {
   DISTANCE_TRIGGERED_MAX_CV_DD,
   DISTANCE_TRIGGERED_MAX_CV_RATIO,
+  FORGOTTEN_STOP_MIN_SEC,
   NOT_COMPUTABLE_DISTANCE_TRIGGERED,
   NOT_COMPUTABLE_TOO_FEW_SIGNATURE_PAIRS,
+  SHIPPED_PAUSE_BANDS,
+  SHIPPED_STOP_PARAMS,
   SIGNATURE_MIN_COVERED_PAIRS,
+  STATIONARY_MAX_SPEED_MPS,
+  WALK_RUN_BOUNDARY_MPS,
   classifyForgottenStop,
   classifyPauseSpeed,
   classifyPauses,
@@ -593,5 +598,276 @@ describe('classifyForgottenStop', () => {
       { stationaryMaxMps: 0.3, minSec: 30 }
     );
     expect(result).toEqual({ computable: false, reason: NOT_COMPUTABLE_TOO_FEW_SIGNATURE_PAIRS });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// shipped from 34-CALIBRATION (plan 34-06 Task 2) — the equality guard.
+// Named so `-t "shipped from 34-CALIBRATION"` selects it (33-14 precedent).
+// ---------------------------------------------------------------------------
+
+describe('shipped from 34-CALIBRATION', () => {
+  const ARTIFACT_PATH = path.join(
+    '.planning',
+    'phases',
+    '34-pause-classification-forgotten-stop',
+    '34-CALIBRATION.md'
+  );
+  const SOURCE_PATH = path.join('src', 'analytics', 'pause-classification.ts');
+
+  function readArtifact(): string {
+    if (!fs.existsSync(ARTIFACT_PATH)) {
+      throw new Error(
+        `Missing ${ARTIFACT_PATH} — likely a milestone-archival \`git mv\` moved this phase's ` +
+          "directory; update this test's ARTIFACT_PATH to the archived location. Never skip this test."
+      );
+    }
+    return fs.readFileSync(ARTIFACT_PATH, 'utf8');
+  }
+
+  function readSource(): string {
+    return fs.readFileSync(SOURCE_PATH, 'utf8');
+  }
+
+  const CASES: { name: string; exportValue: number }[] = [
+    { name: 'STATIONARY_MAX_SPEED_MPS', exportValue: STATIONARY_MAX_SPEED_MPS },
+    { name: 'WALK_RUN_BOUNDARY_MPS', exportValue: WALK_RUN_BOUNDARY_MPS },
+    { name: 'FORGOTTEN_STOP_MIN_SEC', exportValue: FORGOTTEN_STOP_MIN_SEC },
+  ];
+
+  it.each(CASES)(
+    '$name: the artifact line-anchored value equals the export numerically AND matches the source text literal character-for-character',
+    ({ name, exportValue }) => {
+      const artifactContent = readArtifact();
+      const artifactPattern = new RegExp(`^${name} = ([0-9.]+)$`, 'm');
+      const artifactMatch = artifactPattern.exec(artifactContent);
+      if (artifactMatch === null) {
+        throw new Error(
+          `Expected a line-anchored "${name} = <value>" line in ${ARTIFACT_PATH} — a re-run of the ` +
+            'generator landing on its own HALT branch (never shipping a line) is the likely cause; ' +
+            'never skip, never silently pass.'
+        );
+      }
+      const artifactLiteral = artifactMatch[1];
+
+      const sourceContent = readSource();
+      const sourcePattern = new RegExp(`export const ${name} = ([0-9.]+);`);
+      const sourceMatch = sourcePattern.exec(sourceContent);
+      if (sourceMatch === null) {
+        throw new Error(`Could not find "export const ${name} = <literal>;" in ${SOURCE_PATH}.`);
+      }
+      const sourceLiteral = sourceMatch[1];
+
+      // Numeric equality against the runtime export (parses correctly, not just textually).
+      expect(Number(artifactLiteral)).toBe(exportValue);
+      // Character-for-character against the SOURCE TEXT literal, never a runtime String(value),
+      // which would silently normalise away a trailing-zero mismatch a plain numeric check misses.
+      expect(sourceLiteral).toBe(artifactLiteral);
+    }
+  );
+
+  it("the artifact's UNRELIABLE_SPEED_LIMIT_MPS line equals the imported constant", () => {
+    const artifactContent = readArtifact();
+    const match = /^UNRELIABLE_SPEED_LIMIT_MPS = ([0-9.]+) \(imported, 32-CALIBRATION\.md\)$/m.exec(
+      artifactContent
+    );
+    expect(match).not.toBeNull();
+    expect(Number(match![1])).toBe(IMPORTED_UNRELIABLE_SPEED_LIMIT_MPS);
+  });
+
+  it('SHIPPED_PAUSE_BANDS deep-equals { stationaryMaxMps: STATIONARY_MAX_SPEED_MPS, walkRunMps: WALK_RUN_BOUNDARY_MPS } (D-07: one constant referenced, never a repeated literal)', () => {
+    expect(SHIPPED_PAUSE_BANDS).toEqual({
+      stationaryMaxMps: STATIONARY_MAX_SPEED_MPS,
+      walkRunMps: WALK_RUN_BOUNDARY_MPS,
+    });
+  });
+
+  it('SHIPPED_STOP_PARAMS deep-equals { stationaryMaxMps: STATIONARY_MAX_SPEED_MPS, minSec: FORGOTTEN_STOP_MIN_SEC } (D-07: the same stationary constant reference as SHIPPED_PAUSE_BANDS)', () => {
+    expect(SHIPPED_STOP_PARAMS).toEqual({
+      stationaryMaxMps: STATIONARY_MAX_SPEED_MPS,
+      minSec: FORGOTTEN_STOP_MIN_SEC,
+    });
+    expect(SHIPPED_STOP_PARAMS.stationaryMaxMps).toBe(SHIPPED_PAUSE_BANDS.stationaryMaxMps);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// walking-break control (STOP-02 / D-12 / D-21) — the developer-confirmed
+// negative control(s), read from 34-WALKING-BREAK-CONTROL.md /
+// 34-WALKING-BREAK-EVIDENCE.md at test time, never pinned as literals here.
+// ---------------------------------------------------------------------------
+
+describe('walking-break control', () => {
+  const CONTROL_PATH = path.join(
+    '.planning',
+    'phases',
+    '34-pause-classification-forgotten-stop',
+    '34-WALKING-BREAK-CONTROL.md'
+  );
+  const EVIDENCE_PATH = path.join(
+    '.planning',
+    'phases',
+    '34-pause-classification-forgotten-stop',
+    '34-WALKING-BREAK-EVIDENCE.md'
+  );
+
+  interface ConfirmedControl {
+    id: string;
+    startSec: number;
+    endSec: number;
+  }
+
+  /** Reads every `CONFIRMED_CONTROL: <id> t=<start>-<end>` line — never fewer than one, per D-12. */
+  function readConfirmedControls(): ConfirmedControl[] {
+    const content = fs.readFileSync(CONTROL_PATH, 'utf8');
+    const pattern = /^CONFIRMED_CONTROL: (\d+) t=(\d+)-(\d+)$/gm;
+    const controls: ConfirmedControl[] = [];
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(content)) !== null) {
+      controls.push({ id: match[1], startSec: Number(match[2]), endSec: Number(match[3]) });
+    }
+    return controls;
+  }
+
+  /** Parses a candidate's own "Aggregate (m/s)" figure from 34-WALKING-BREAK-EVIDENCE.md's Candidates table — never pinned as a literal in this file (1.264 / 1.512 / 1.797 are forbidden here). */
+  function parseCandidateAggregateSpeed(id: string): number {
+    const content = fs.readFileSync(EVIDENCE_PATH, 'utf8');
+    const pattern = new RegExp(`^\\| ${id} \\| t=\\d+-\\d+ \\| \\d+ \\| [0-9.]+ \\| ([0-9.]+) \\|`, 'm');
+    const match = pattern.exec(content);
+    if (match === null) {
+      throw new Error(`Expected a Candidates table row for ${id} in ${EVIDENCE_PATH}`);
+    }
+    return Number(match[1]);
+  }
+
+  /**
+   * Direct in-test computation of the minimum aggregate speed over any
+   * `minSec`-duration sub-window inside `[startSec, endSec]` — a fresh,
+   * self-contained computation (never imports `findCreepStretches` or the
+   * evidence generator's own `minWindowSpeed`), used only to derive the
+   * CAN-FAIL threshold for the first control's reachability test below.
+   */
+  function minSubWindowSpeed(
+    t: readonly number[],
+    d: readonly number[],
+    startSec: number,
+    endSec: number,
+    minSec: number
+  ): number | null {
+    let min: number | null = null;
+    for (let i = 0; i < t.length; i++) {
+      if (t[i] < startSec) continue;
+      if (t[i] > endSec) break;
+      let j = i;
+      while (j < t.length - 1 && t[j] - t[i] < minSec) j++;
+      if (t[j] - t[i] < minSec) continue;
+      if (t[j] > endSec) continue;
+      const duration = t[j] - t[i];
+      const speed = (d[j] - d[i]) / duration;
+      if (min === null || speed < min) min = speed;
+    }
+    return min;
+  }
+
+  function intersectsWindow(interval: { startSec: number; endSec: number }, control: ConfirmedControl): boolean {
+    return interval.startSec < control.endSec && interval.endSec > control.startSec;
+  }
+
+  const confirmedControls = readConfirmedControls();
+
+  it('reads at least one CONFIRMED_CONTROL line from 34-WALKING-BREAK-CONTROL.md (D-12)', () => {
+    expect(confirmedControls.length).toBeGreaterThan(0);
+  });
+
+  it('the FIRST confirmed control (D-12 anchor) is computable and NOT flagged at SHIPPED_STOP_PARAMS, but IS flagged once stationaryMaxMps is raised just above its own minimum FORGOTTEN_STOP_MIN_SEC-duration sub-window speed — both directions in one test', () => {
+    const first = confirmedControls[0];
+    const stream = readStream(first.id);
+    const { coverage, coveredRuns } = classifyGapsWithSegments(stream.t, stream.d);
+
+    // Direction 1 (CAN PASS): at the shipped params, computable and no creep stretch intersects the window.
+    const shippedResult = classifyForgottenStop(stream.t, stream.d, coverage, coveredRuns, SHIPPED_STOP_PARAMS);
+    expect(shippedResult.computable).toBe(true);
+    if (shippedResult.computable) {
+      expect(shippedResult.creep.filter((c) => intersectsWindow(c, first))).toEqual([]);
+    }
+
+    // Direction 2 (CAN FAIL): raise stationaryMaxMps to just above the window's own measured
+    // minimum FORGOTTEN_STOP_MIN_SEC sub-window speed — at least one stretch must then intersect.
+    const minSpeed = minSubWindowSpeed(stream.t, stream.d, first.startSec, first.endSec, FORGOTTEN_STOP_MIN_SEC);
+    expect(minSpeed).not.toBeNull();
+    const raisedParams = { stationaryMaxMps: (minSpeed as number) + 0.01, minSec: FORGOTTEN_STOP_MIN_SEC };
+    const raisedResult = classifyForgottenStop(stream.t, stream.d, coverage, coveredRuns, raisedParams);
+    expect(raisedResult.computable).toBe(true);
+    if (raisedResult.computable) {
+      expect(raisedResult.creep.filter((c) => intersectsWindow(c, first)).length).toBeGreaterThan(0);
+    }
+  });
+
+  it('across EVERY confirmed control (D-21), no control is flagged FOR ITS WALKING PACE — every flagged stretch intersecting a control\'s window is strictly BELOW that control\'s OWN parsed window aggregate speed (independent of the classifier), and CAN FAIL when stationaryMaxMps is raised to that same parsed speed', () => {
+    const findings: string[] = [];
+
+    for (const control of confirmedControls) {
+      const windowSpeed = parseCandidateAggregateSpeed(control.id);
+      const stream = readStream(control.id);
+      const { coverage, coveredRuns } = classifyGapsWithSegments(stream.t, stream.d);
+
+      // CAN PASS at the shipped params: every flagged stretch intersecting the window is
+      // strictly below the control's own parsed window speed — never asserted as exactly zero.
+      const shippedResult = classifyForgottenStop(stream.t, stream.d, coverage, coveredRuns, SHIPPED_STOP_PARAMS);
+      expect(shippedResult.computable).toBe(true);
+      if (shippedResult.computable) {
+        const intersecting = shippedResult.creep.filter((c) => intersectsWindow(c, control));
+        if (intersecting.length === 0) {
+          findings.push(`${control.id}: not flagged at shipped params (window aggregate ${windowSpeed} m/s)`);
+        }
+        for (const stretch of intersecting) {
+          const stretchSpeed = stretch.metres / stretch.seconds;
+          expect(stretchSpeed).toBeLessThan(windowSpeed);
+          findings.push(
+            `${control.id}: flagged ${stretch.seconds}s stretch at ${stretchSpeed.toFixed(4)} m/s ` +
+              `(control window aggregate ${windowSpeed} m/s) — reported as a finding, never an expected value`
+          );
+        }
+      }
+
+      // CAN FAIL: raise stationaryMaxMps to the control's own parsed window speed — at least one
+      // flagged stretch must then cover the window at walking pace.
+      const raisedParams = { stationaryMaxMps: windowSpeed, minSec: FORGOTTEN_STOP_MIN_SEC };
+      const raisedResult = classifyForgottenStop(stream.t, stream.d, coverage, coveredRuns, raisedParams);
+      expect(raisedResult.computable).toBe(true);
+      if (raisedResult.computable) {
+        expect(raisedResult.creep.filter((c) => intersectsWindow(c, control)).length).toBeGreaterThan(0);
+      }
+    }
+
+    // eslint-disable-next-line no-console
+    console.log('walking-break control findings (SUMMARY quotes these verbatim):\n' + findings.join('\n'));
+  });
+
+  it('DEFINITIONAL (regression tripwire only — cannot fail while findCreepStretches admits only such stretches by construction, pause-classification.ts:466 — proves nothing on its own): every flagged stretch on every confirmed control sits at or below SHIPPED_PAUSE_BANDS.stationaryMaxMps', () => {
+    for (const control of confirmedControls) {
+      const stream = readStream(control.id);
+      const { coverage, coveredRuns } = classifyGapsWithSegments(stream.t, stream.d);
+      const result = classifyForgottenStop(stream.t, stream.d, coverage, coveredRuns, SHIPPED_STOP_PARAMS);
+      expect(result.computable).toBe(true);
+      if (result.computable) {
+        for (const stretch of result.creep) {
+          expect(stretch.metres / stretch.seconds).toBeLessThanOrEqual(SHIPPED_PAUSE_BANDS.stationaryMaxMps);
+        }
+      }
+    }
+  });
+
+  it("each confirmed control window's own aggregate speed classifies 'walked' under SHIPPED_PAUSE_BANDS", () => {
+    for (const control of confirmedControls) {
+      const stream = readStream(control.id);
+      const startIdx = stream.t.indexOf(control.startSec);
+      const endIdx = stream.t.indexOf(control.endSec);
+      expect(startIdx).toBeGreaterThanOrEqual(0);
+      expect(endIdx).toBeGreaterThan(startIdx);
+      const seconds = stream.t[endIdx] - stream.t[startIdx];
+      const metres = stream.d[endIdx] - stream.d[startIdx];
+      expect(classifyPauseSpeed(metres, seconds, SHIPPED_PAUSE_BANDS)).toBe('walked');
+    }
   });
 });
