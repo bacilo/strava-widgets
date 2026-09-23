@@ -245,7 +245,7 @@ Plans:
   3. v2.2's "9 activities advance >100 m across a ≥30s gap" figure is re-measured on merged segments rather than the gap interval alone, and the corrected figure is recorded with dated provenance in a regenerable artifact.
   4. A forgotten-stop flag (total seconds, longest stretch) is computed per activity under a near-zero threshold and minimum duration calibrated against the archive's own measured GPS-drift-while-stationary, disclosed on the detail view, structurally excluded from the severe composite, and shown NOT firing on a walking-break activity. **Amended 2026-09-22 (34-CONTEXT.md D-09):** 'inside recorded, timer-running time' — covered-time creep and the existing zero-advance pause intervals, itemised by source (count, total seconds, longest stretch) and combined; recording gaps excluded; a distance-triggered stream reports not-computable with a stated reason (D-10). **Amended 2026-09-22 (34-CONTEXT.md D-20, D-21):** the near-zero threshold is developer-declared at 0.5 m/s because drift-while-stationary was measured to be a non-issue on this archive (D-20), and the minimum duration is still calibrated. "Shown NOT firing on a walking-break activity" is read as "not firing for a walking break's walking pace": the flag marks timer-running standstills, so a genuine standstill inside a walking break is flagged honestly and disclosed. Measured at (0.5 m/s, 40 s): two of the three developer-confirmed controls are not flagged, and 3475715143 is flagged for a 42 s stretch at exactly 0.5 m/s, which the developer accepted (34-06-HALT-3.md). The criterion is the property, asserted against an independent value: every flagged stretch on a control sits strictly below that control's own confirmed window aggregate speed, parsed from 34-WALKING-BREAK-EVIDENCE.md rather than pinned, so it can genuinely fail. **Amended 2026-09-23 (34-CONTEXT.md D-22):** the 'at or below the stationary bound' reading is retired for reported stretches — each stretch is the maximal union of overlapping qualifying windows, reported once with the union's own seconds and metres (no double counting), every constituent window within the bound, and the union's own aggregate speed disclosed rather than asserted. Measured figures are reported as findings, never pinned.
 
-**Plans**: 15 plans
+**Plans**: 16 plans
 Plans:
 **Wave 1**
 
@@ -296,7 +296,11 @@ Plans:
 
 **Wave 12** *(blocked on Wave 11)*
 
-- [x] 34-11-PLAN.md — human browser checkpoint and per-requirement disposition (re-run after 34-15; R2 and R4 need re-checking, R3/R5/R7 need refreshed evidence)
+- [ ] 34-16-PLAN.md — code-review closure (34-REVIEW.md): CR-01 fabricated "none found" over an unreadable shard and CR-02 fabricated NaN standstill both fixed with their reproductions as regression tests; creep rows classified from the union's own numbers per D-22; tests no longer write to tracked files; one cap constant across write/read/render; scanner-backed protection for the declared constants; oracle divergence recorded; four findings deferred to todos
+
+**Wave 13** *(blocked on Wave 12)*
+
+- [x] 34-11-PLAN.md — human browser checkpoint and per-requirement disposition (complete; 34-16 runs after it and does not reopen it — its RE-LOOK rows are recorded in 34-VALIDATION.md)
 **UI hint**: yes
 
 ### Phase 35: Stream-Derived Running Pace
@@ -384,7 +388,7 @@ Plans:
 | 31. Tech-Debt Closure — Silent-Failure Guards & Docs Reconciliation | v2.2 | 10/10 | Complete    | 2026-09-19 |
 | 32. Unreliable-Segment Detection & Calibration | v2.3 | 17/17 | Complete    | 2026-09-20 |
 | 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 14/14 | Complete    | 2026-09-22 |
-| 34. Pause Classification & Forgotten-Stop | v2.3 | 15/15 | In Progress|  |
+| 34. Pause Classification & Forgotten-Stop | v2.3 | 15/16 | In Progress|  |
 | 35. Stream-Derived Running Pace | v2.3 | 0/TBD | Not started | - |
 | 36. Best-Effort Clean-Window Search & Ceiling Recalibration | v2.3 | 0/TBD | Not started | - |
 | 37. Review-Queue Priority & CUR-04 | v2.3 | 0/TBD | Not started | - |
