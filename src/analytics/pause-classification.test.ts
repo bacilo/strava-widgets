@@ -21,6 +21,7 @@ import { describe, expect, it } from 'vitest';
 
 import { classifyGapsWithSegments, UNRELIABLE_SPEED_LIMIT_MPS as IMPORTED_UNRELIABLE_SPEED_LIMIT_MPS } from './pace-derivation.js';
 import type { CoveredRun, GapInterval, PaceCoverage, UnreliableSegment } from './pace-derivation.js';
+import type { PauseInterval } from './pause-classification.js';
 import {
   DISTANCE_TRIGGERED_MAX_CV_DD,
   DISTANCE_TRIGGERED_MAX_CV_RATIO,
@@ -42,6 +43,22 @@ import {
   recordingMechanismSignature,
 } from './pause-classification.js';
 import type { CanonicalStream } from '../streams/stream.types.js';
+
+// The independent oracle (D-22's "independent scan" tests, 34-CONTEXT.md D-22): a plain ESM
+// script with no declaration file. `@ts-expect-error` suppresses TS7016 (implicit any) for this
+// one import only — every value this oracle returns is used and compared directly in the tests
+// below, never re-typed or re-declared, so a real shape change in the script still surfaces as a
+// runtime assertion failure rather than being silently absorbed by a stale ambient type.
+// @ts-expect-error — scripts/compute-walking-break-evidence.mjs has no .d.ts; see comment above.
+import { localCreepWindows } from '../../scripts/compute-walking-break-evidence.mjs';
+
+/** The oracle's own returned window shape (duck-typed here, not imported — see the import comment above). */
+interface OracleWindow {
+  startSec: number;
+  endSec: number;
+  seconds: number;
+  metres: number;
+}
 
 /** Reads a committed stream file from `data/streams/` — never the derived stats output. */
 function readStream(activityId: string): CanonicalStream {
@@ -518,11 +535,264 @@ describe('findCreepStretches', () => {
     expect(stretches).toEqual([]);
   });
 
+  // -------------------------------------------------------------------------
+  // D-22 union semantics — one synthetic test per clause of 34-CONTEXT.md's
+  // D-22, plus the double-count defect reproduction. Bands/minSec here are
+  // deliberately round TEST values, not the shipped constants — these tests
+  // isolate the merge algorithm, not any calibrated figure.
+  // -------------------------------------------------------------------------
+
+  it('D-22: two overlapping windows merge into one union, carrying the UNION\'s own seconds and metres (recomputed fresh, never summed from the constituent windows)', () => {
+    // minSec=3, maxSpeedMps=1. Exactly two raw windows are found: [0,3] (metres 2, speed 0.667)
+    // and [1,4] (metres 1, speed 0.333) — they overlap on indices {1,2,3}. i=2 cannot find a
+    // window within the 5-sample run (t[j]-t[2] never reaches 3 within range), so the sweep
+    // stops there.
+    const t = [0, 1, 2, 3, 4];
+    const d = [0, 1, 2, 2, 2];
+    const coveredRuns: CoveredRun[] = [{ startIndex: 0, endIndex: 4 }];
+
+    const stretches = findCreepStretches(t, d, coveredRuns, 1, 3);
+
+    expect(stretches).toEqual([
+      { source: 'covered-creep', startSec: 0, endSec: 4, seconds: 4, metres: 2, startMetres: 0 },
+    ]);
+    // The union's own recomputed speed (0.5) differs from BOTH constituent windows' own speeds
+    // (0.667 and 0.333) — proof it is freshly derived from the union's own start/end samples.
+    expect(stretches[0].metres / stretches[0].seconds).toBeCloseTo(0.5, 10);
+  });
+
+  it('D-22: a window entirely contained in an already-qualifying stretch merges without changing the enclosing stretch\'s own bounds', () => {
+    // minSec=2, flat (zero-advance) samples throughout, with a large time jump after index 4 so
+    // the FIRST window found (i=0) is the widest — [0,5] — and every subsequent window (i=1..4)
+    // lands entirely inside it (all ending at index 5, the only reachable index once minSec=2
+    // can only be satisfied by jumping to t=20). i=5 cannot find a further window (run ends at
+    // index 5), so the sweep stops there.
+    const t = [0, 1, 2, 3, 4, 20];
+    const d = [0, 0, 0, 0, 0, 0];
+    const coveredRuns: CoveredRun[] = [{ startIndex: 0, endIndex: 5 }];
+
+    const stretches = findCreepStretches(t, d, coveredRuns, 1, 2);
+
+    // A single stretch spanning exactly the FIRST (widest) window's own bounds — the four
+    // contained windows [1,5]..[4,5] added nothing, proving containment is a true no-op merge.
+    expect(stretches).toEqual([
+      { source: 'covered-creep', startSec: 0, endSec: 20, seconds: 20, metres: 0, startMetres: 0 },
+    ]);
+  });
+
+  it('D-22: two windows sharing ONLY the boundary sample (one ends at sample k, the next starts at sample k) still merge into one stretch', () => {
+    const t = [0, 2, 4];
+    const d = [0, 1, 2];
+    const coveredRuns: CoveredRun[] = [{ startIndex: 0, endIndex: 2 }];
+
+    // i=0 -> window [0,1] (indices {0,1}); i=1 -> window [1,2] (indices {1,2}) — the two windows
+    // share EXACTLY index 1 and nothing else.
+    const stretches = findCreepStretches(t, d, coveredRuns, 1, 2);
+
+    expect(stretches).toEqual([
+      { source: 'covered-creep', startSec: 0, endSec: 4, seconds: 4, metres: 2, startMetres: 0 },
+    ]);
+  });
+
+  it('D-22: two windows sharing NO sample index stay separate, however close in time — adjacency alone never merges', () => {
+    // i=0 -> window [0,1] (indices {0,1}). i=1's window is deliberately too fast to qualify
+    // (disqualified, skipped). i=2 -> window [2,3] (indices {2,3}) — index-adjacent to window
+    // [0,1] (endIdx 1, next startIdx 2) but sharing NO sample index, so per D-22 they must stay
+    // separate rather than merge across the gap at index 1-2 (which no qualifying window covers).
+    const t = [0, 2, 4, 10];
+    const d = [0, 1, 5, 5];
+    const coveredRuns: CoveredRun[] = [{ startIndex: 0, endIndex: 3 }];
+
+    const stretches = findCreepStretches(t, d, coveredRuns, 1, 2);
+
+    expect(stretches).toEqual([
+      { source: 'covered-creep', startSec: 0, endSec: 2, seconds: 2, metres: 1, startMetres: 0 },
+      { source: 'covered-creep', startSec: 4, endSec: 10, seconds: 6, metres: 0, startMetres: 5 },
+    ]);
+    // No two returned stretches overlap (Rule: next.startSec >= prev.endSec for every adjacent pair).
+    for (let i = 1; i < stretches.length; i++) {
+      expect(stretches[i].startSec).toBeGreaterThanOrEqual(stretches[i - 1].endSec);
+    }
+  });
+
+  it('D-22: a union whose OWN aggregate speed exceeds maxSpeedMps is still returned as ONE stretch — the union merge never consults the growing union\'s own speed as a merge condition (this is the exact shape of the 6286234101 defect plan 34-15 fixes, reproduced synthetically)', () => {
+    // minSec=5, maxSpeedMps=2. Every 5-second window from i=0..4 (j=i+5) has metres exactly 10
+    // (four "normal" 2.5 m/s diffs plus one shared "flat" diff at index 4-5 = 0), so EVERY window
+    // independently qualifies at exactly the bound (speed 2.0). But the windows pairwise overlap
+    // (window i and window i+1 share 4 of their 5 samples), so they all transitively merge into
+    // ONE stretch spanning the full run [0,9] — whose own aggregate speed (20/9 ≈ 2.222) EXCEEDS
+    // the bound, because the union sums EIGHT 2.5 m/s diffs plus the one flat diff, not four.
+    //
+    // Under plan 34-06's retired merge (which refused to extend past the bound), this exact
+    // shape produced FIVE overlapping, double-counting stretches — the 34-11 checkpoint's
+    // 6286234101 defect, reproduced here synthetically and fixed by D-22's union rule.
+    const t = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    const d = [0, 2.5, 5.0, 7.5, 10.0, 10.0, 12.5, 15.0, 17.5, 20.0];
+    const coveredRuns: CoveredRun[] = [{ startIndex: 0, endIndex: 9 }];
+
+    const stretches = findCreepStretches(t, d, coveredRuns, 2, 5);
+
+    expect(stretches.length).toBe(1);
+    expect(stretches[0]).toEqual({
+      source: 'covered-creep',
+      startSec: 0,
+      endSec: 9,
+      seconds: 9,
+      metres: 20,
+      startMetres: 0,
+    });
+    const unionSpeed = stretches[0].metres / stretches[0].seconds;
+    expect(unionSpeed).toBeGreaterThan(2); // D-22: the union's own aggregate speed is disclosed, not bounded
+    // No two returned stretches overlap — trivially true here (length 1), the defect this
+    // fixture reproduces was FIVE overlapping rows under the retired merge.
+    for (let i = 1; i < stretches.length; i++) {
+      expect(stretches[i].startSec).toBeGreaterThanOrEqual(stretches[i - 1].endSec);
+    }
+  });
+
   it('is total: null t/d/coveredRuns returns [] rather than throwing', () => {
     expect(() => findCreepStretches(null as unknown as number[], [1, 2], [], 0.3, 30)).not.toThrow();
     expect(findCreepStretches(null as unknown as number[], [1, 2], [], 0.3, 30)).toEqual([]);
     expect(findCreepStretches([1, 2], [1, 2], null as unknown as CoveredRun[], 0.3, 30)).toEqual([]);
   });
+});
+
+// ---------------------------------------------------------------------------
+// independent scan (D-22, plan 34-15) — findCreepStretches vs. the
+// zero-import oracle localCreepWindows, on real committed streams. Every
+// expected value below is PARSED FROM THE ORACLE AT TEST TIME; no defect
+// figure from the 6286234101 write-up (its window bounds, seconds, metres
+// or speed, or any sibling figure) is pinned as a literal anywhere in this
+// describe block.
+// ---------------------------------------------------------------------------
+
+describe('independent scan', () => {
+  const SCAN_ACTIVITIES = ['6286234101', '3475715143'] as const;
+
+  interface ScanResult {
+    production: PauseInterval[];
+    oracle: OracleWindow[];
+    /** Oracle windows fully contained inside a SINGLE covered run — the fair, apples-to-apples comparison set (D-22's <oracle> scope note: the oracle scans the whole stream under its own local-gap rule; production is restricted to covered runs). */
+    oracleWithinOneCoveredRun: OracleWindow[];
+    /** Oracle windows NOT fully contained in a single covered run — expected to have no production match, and required to be structurally explained below (never silently accepted). */
+    oracleCrossingCoverageBoundary: OracleWindow[];
+  }
+
+  /** Runs both production's findCreepStretches and the independent oracle at SHIPPED_STOP_PARAMS on a named real activity, and partitions the oracle's own windows by whether each sits inside one CoveredRun. */
+  function scan(activityId: string): ScanResult {
+    const stream = readStream(activityId);
+    const { coveredRuns } = classifyGapsWithSegments(stream.t, stream.d);
+    const production = findCreepStretches(
+      stream.t,
+      stream.d,
+      coveredRuns,
+      SHIPPED_STOP_PARAMS.stationaryMaxMps,
+      SHIPPED_STOP_PARAMS.minSec
+    );
+    const oracle = localCreepWindows(
+      stream.t,
+      stream.d,
+      SHIPPED_STOP_PARAMS.stationaryMaxMps,
+      SHIPPED_STOP_PARAMS.minSec
+    ) as OracleWindow[];
+
+    const runSpansSec = coveredRuns.map((r) => ({ start: stream.t[r.startIndex], end: stream.t[r.endIndex] }));
+    const oracleWithinOneCoveredRun = oracle.filter((w) =>
+      runSpansSec.some((run) => w.startSec >= run.start && w.endSec <= run.end)
+    );
+    const oracleCrossingCoverageBoundary = oracle.filter(
+      (w) => !runSpansSec.some((run) => w.startSec >= run.start && w.endSec <= run.end)
+    );
+
+    return { production, oracle, oracleWithinOneCoveredRun, oracleCrossingCoverageBoundary };
+  }
+
+  it.each(SCAN_ACTIVITIES)(
+    "%s: every findCreepStretches stretch equals an independent localCreepWindows window exactly (startSec, endSec, seconds, metres) — production never reports a stretch the oracle disagrees with, with every expected value parsed from the oracle at test time",
+    (activityId) => {
+      const { production, oracle } = scan(activityId);
+
+      expect(oracle.length).toBeGreaterThan(0); // reachability — a vacuous 0-vs-0 "agreement" proves nothing
+      expect(production.length).toBeGreaterThan(0); // reachability
+
+      for (const stretch of production) {
+        const match = oracle.find((w) => w.startSec === stretch.startSec && w.endSec === stretch.endSec);
+        expect(match).toBeDefined();
+        if (match !== undefined) {
+          expect(stretch.seconds).toBe(match.seconds);
+          expect(stretch.metres).toBeCloseTo(match.metres, 9);
+        }
+        expect(stretch.source).toBe('covered-creep');
+      }
+    }
+  );
+
+  it.each(SCAN_ACTIVITIES)(
+    '%s: production reports EVERY oracle window that sits fully inside a single covered run (no miss) — the oracle\'s scope note (whole-stream scan under its own local-gap rule vs. production\'s covered-run restriction) accounts for every window it does NOT report, and each such window is verified here to actually cross a covered-run boundary, never silently accepted',
+    (activityId) => {
+      const { production, oracleWithinOneCoveredRun, oracleCrossingCoverageBoundary } = scan(activityId);
+
+      // No miss: every oracle window confined to one covered run has an exact production match.
+      for (const w of oracleWithinOneCoveredRun) {
+        const match = production.find((s) => s.startSec === w.startSec && s.endSec === w.endSec);
+        expect(match).toBeDefined();
+      }
+
+      // Every unmatched oracle window is structurally explained (D-09: a covered-creep stretch
+      // never spans a covered-run boundary — a pause, a recording gap, or an unreliable segment
+      // always sits between two CoveredRuns; the oracle's own local-gap rule does not recognise a
+      // zero-advance `pause` boundary at all, since it only blocks on `dt > 10s`, and a dense
+      // `pause` interval has small per-sample `dt`). This is never a defect figure — the
+      // partition itself is computed fresh from the stream at test time.
+      for (const w of oracleCrossingCoverageBoundary) {
+        const match = production.find((s) => s.startSec === w.startSec && s.endSec === w.endSec);
+        expect(match).toBeUndefined(); // confirms this window really is coverage-boundary-only, not also separately matched
+      }
+    }
+  );
+
+  it('3475715143\'s FIRST creep stretch is unchanged by the D-22 fix: it equals the oracle\'s own first window exactly (regression guard — this window already agreed before this plan)', () => {
+    const { production, oracle } = scan('3475715143');
+
+    expect(production.length).toBeGreaterThan(0);
+    expect(oracle.length).toBeGreaterThan(0);
+
+    // Both arrays are ascending by startSec (production sorts per-run in scan order; the oracle
+    // sorts by startIndex before merging) — the first entry of each is each source's own
+    // earliest stretch.
+    expect(production[0].startSec).toBe(oracle[0].startSec);
+    expect(production[0].endSec).toBe(oracle[0].endSec);
+    expect(production[0].seconds).toBe(oracle[0].seconds);
+    expect(production[0].metres).toBeCloseTo(oracle[0].metres, 9);
+  });
+
+  it.each(SCAN_ACTIVITIES)(
+    "%s: the derived per-source totals (count, summed seconds, longest/max seconds) equal the FAIR (coverage-scoped) oracle comparison set's own count/sum/max, computed in-test — never pinned",
+    (activityId) => {
+      const { production, oracleWithinOneCoveredRun } = scan(activityId);
+
+      const oracleTotalSec = oracleWithinOneCoveredRun.reduce((sum, w) => sum + w.seconds, 0);
+      const oracleLongestSec = oracleWithinOneCoveredRun.reduce((max, w) => Math.max(max, w.seconds), 0);
+
+      const productionTotalSec = production.reduce((sum, s) => sum + s.seconds, 0);
+      const productionLongestSec = production.reduce((max, s) => Math.max(max, s.seconds), 0);
+
+      expect(production.length).toBe(oracleWithinOneCoveredRun.length);
+      expect(productionTotalSec).toBe(oracleTotalSec);
+      expect(productionLongestSec).toBe(oracleLongestSec);
+    }
+  );
+
+  it.each(SCAN_ACTIVITIES)(
+    '%s: no two returned stretches overlap (next.startSec >= prev.endSec for every adjacent pair) — the double-count defect this plan fixes',
+    (activityId) => {
+      const { production } = scan(activityId);
+      expect(production.length).toBeGreaterThan(0); // reachability
+      for (let i = 1; i < production.length; i++) {
+        expect(production[i].startSec).toBeGreaterThanOrEqual(production[i - 1].endSec);
+      }
+    }
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -844,18 +1114,38 @@ describe('walking-break control', () => {
     console.log('walking-break control findings (SUMMARY quotes these verbatim):\n' + findings.join('\n'));
   });
 
-  it('DEFINITIONAL (regression tripwire only — cannot fail while findCreepStretches admits only such stretches by construction, pause-classification.ts:466 — proves nothing on its own): every flagged stretch on every confirmed control sits at or below SHIPPED_PAUSE_BANDS.stationaryMaxMps', () => {
+  it("CONSTITUENT-WINDOW PROPERTY (D-22, plan 34-15 — replaces the retired DEFINITIONAL tripwire, which asserted every RETURNED stretch stays at or below the bound; that claim is false in general under union semantics): every flagged stretch on every confirmed control is exactly covered by the independent oracle's own merged window at the same shipped params — proof it is a genuine union of individually-bounded qualifying windows, never a fabricated span. The stretch's OWN aggregate speed is recorded here as a finding, never asserted to satisfy the bound.", () => {
+    const findings: string[] = [];
     for (const control of confirmedControls) {
       const stream = readStream(control.id);
       const { coverage, coveredRuns } = classifyGapsWithSegments(stream.t, stream.d);
       const result = classifyForgottenStop(stream.t, stream.d, coverage, coveredRuns, SHIPPED_STOP_PARAMS);
       expect(result.computable).toBe(true);
-      if (result.computable) {
-        for (const stretch of result.creep) {
-          expect(stretch.metres / stretch.seconds).toBeLessThanOrEqual(SHIPPED_PAUSE_BANDS.stationaryMaxMps);
+      if (!result.computable) continue;
+
+      const oracle = localCreepWindows(
+        stream.t,
+        stream.d,
+        SHIPPED_STOP_PARAMS.stationaryMaxMps,
+        SHIPPED_STOP_PARAMS.minSec
+      ) as OracleWindow[];
+
+      for (const stretch of result.creep) {
+        const match = oracle.find((w) => w.startSec === stretch.startSec && w.endSec === stretch.endSec);
+        expect(match).toBeDefined(); // every returned stretch is exactly an independent oracle window
+        if (match !== undefined) {
+          expect(stretch.seconds).toBe(match.seconds);
+          expect(stretch.metres).toBeCloseTo(match.metres, 9);
         }
+        const stretchSpeed = stretch.metres / stretch.seconds;
+        findings.push(
+          `${control.id}: stretch ${stretch.startSec}-${stretch.endSec} (${stretch.seconds}s) own aggregate ` +
+            `${stretchSpeed.toFixed(4)} m/s — recorded as a finding, not asserted against the bound (D-22)`
+        );
       }
     }
+    // eslint-disable-next-line no-console
+    console.log('constituent-window property findings (SUMMARY quotes these verbatim):\n' + findings.join('\n'));
   });
 
   it("each confirmed control window's own aggregate speed classifies 'walked' under SHIPPED_PAUSE_BANDS", () => {

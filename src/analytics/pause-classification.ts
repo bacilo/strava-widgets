@@ -567,19 +567,41 @@ export function recordingMechanismSignature(
  * `CoveredRun`s). For every sample index `i` in a run, finds the smallest
  * `j >= i` with `t[j] - t[i] >= minSec` via a two-pointer sweep (`j` is
  * non-decreasing as `i` increases, giving O(n) per run) and keeps the
- * window when its aggregate speed `(d[j] - d[i]) / (t[j] - t[i])` is `<=
- * maxSpeedMps`. Overlapping/adjacent qualifying windows are unioned into
- * one maximal stretch, but ONLY while the growing union's OWN aggregate
- * speed also stays `<= maxSpeedMps` — verified before every extension
- * (plan 34-06 Task 2's own "walking-break control" DEFINITIONAL test found
- * this the hard way: a naive index-range union of individually-bounded
- * windows is not itself bounded in general, since two overlapping low-speed
+ * window when its OWN aggregate speed `(d[j] - d[i]) / (t[j] - t[i])` is
+ * `<= maxSpeedMps` — every CONSTITUENT window satisfies the bound.
+ *
+ * D-22 UNION SEMANTICS (2026-09-23, plan 34-15 — retires plan 34-06's
+ * stronger claim below): a covered-creep stretch is the MAXIMAL UNION of
+ * qualifying windows that SHARE AT LEAST ONE SAMPLE INDEX, reported ONCE
+ * with the union's own `seconds`/`metres`, recomputed fresh from the
+ * union's own start/end samples (never summed or averaged from the
+ * constituent windows). Two windows overlapping, or one contained in the
+ * other, merge; sharing only the boundary sample (one window's `endIdx`
+ * equal to the next window's `startIdx`) also counts as sharing and
+ * merges. Windows that share NO sample index stay separate, however close
+ * in time — adjacency alone never merges, because the samples strictly
+ * between two disjoint windows are not covered by any qualifying window,
+ * and reporting that gap as standstill would be unevidenced. The merge
+ * step NEVER consults the growing union's own aggregate speed as a merge
+ * condition — under D-22 that speed is a DISCLOSED OUTPUT of the returned
+ * interval, never a guarantee, since a union of individually-bounded
+ * windows is not itself bounded in general (two overlapping low-speed
  * windows can straddle a faster segment that only surfaces once they are
- * joined). A window whose union with the current stretch WOULD exceed the
- * bound starts its own stretch instead (it independently qualifies on its
- * own span). INVARIANT: every returned `PauseInterval`'s own
- * `metres / seconds` is `<= maxSpeedMps` — never merely "built from
- * qualifying windows". Total: `null`/`undefined` input returns `[]`.
+ * joined; plan 34-06's original merge-boundary fix discovered this, then
+ * plan 34-11's browser checkpoint found that FIX itself double-counted
+ * overlapping stretches by starting a second, overlapping stretch whenever
+ * a union would have exceeded the bound — see 34-CONTEXT.md D-22). This
+ * shape mirrors `scripts/compute-walking-break-evidence.mjs`'s independent
+ * `localCreepWindows` oracle exactly: collect every qualifying window
+ * first, then merge by index overlap in one pass, so per-source count,
+ * total seconds and longest stretch are a true partition of standstill
+ * time with no double counting — what STOP-01 asks for.
+ *
+ * RETIRED (plan 34-06, superseded by D-22): "every RETURNED stretch's own
+ * `metres / seconds` is `<= maxSpeedMps`" — false in general; the UNION's
+ * own aggregate speed may exceed the bound even though every window that
+ * built it does not (disclosed, not asserted). Total: `null`/`undefined`
+ * input returns `[]`.
  */
 export function findCreepStretches(
   t: readonly number[],
@@ -597,7 +619,8 @@ export function findCreepStretches(
     const runEnd = run.endIndex;
     if (runEnd <= runStart || runEnd >= t.length || runStart < 0) continue;
 
-    const mergedStretches: { startIdx: number; endIdx: number }[] = [];
+    // Pass 1: collect every window that independently qualifies (D-22's constituent bound).
+    const qualifying: { startIdx: number; endIdx: number }[] = [];
     let j = runStart;
     for (let i = runStart; i <= runEnd; i++) {
       if (j < i) j = i;
@@ -608,31 +631,21 @@ export function findCreepStretches(
       const metres = d[j] - d[i];
       if (seconds <= 0 || metres / seconds > maxSpeedMps) continue;
 
-      // This window [i, j] independently satisfies the bound (checked above). Extending the
-      // PREVIOUS stretch to cover it is only safe if the EXTENDED union's own aggregate speed
-      // ALSO satisfies the bound — a union of individually-bounded windows is not itself
-      // guaranteed bounded (two overlapping low-speed windows can straddle a faster segment
-      // whose own contribution only shows up once the two are joined into one longer span).
-      // Verifying the candidate union's own speed before committing to it, rather than simply
-      // taking the index-range union, keeps every RETURNED stretch's own metres/seconds within
-      // maxSpeedMps — the property `findCreepStretches`' own docblock and every downstream
-      // consumer (the walking-break control's DEFINITIONAL regression tripwire; STOP-02's
-      // Pauses-section disclosure) relies on.
+      qualifying.push({ startIdx: i, endIdx: j });
+    }
+
+    // Pass 2: union qualifying windows that SHARE AT LEAST ONE SAMPLE INDEX (D-22). `qualifying`
+    // is already ascending in both startIdx and endIdx (the two-pointer sweep above is
+    // monotonic), matching the oracle's own post-sort order — no separate sort needed. The
+    // union's own aggregate speed is NEVER consulted here: it is an output of the merge, never a
+    // merge condition.
+    const mergedStretches: { startIdx: number; endIdx: number }[] = [];
+    for (const w of qualifying) {
       const last = mergedStretches[mergedStretches.length - 1];
-      if (last !== undefined && i <= last.endIdx) {
-        if (j <= last.endIdx) continue; // already fully covered by the existing bounded stretch
-        const candidateEndIdx = j;
-        const candidateSeconds = t[candidateEndIdx] - t[last.startIdx];
-        const candidateMetres = d[candidateEndIdx] - d[last.startIdx];
-        if (candidateSeconds > 0 && candidateMetres / candidateSeconds <= maxSpeedMps) {
-          last.endIdx = candidateEndIdx;
-        } else {
-          // The union would exceed the bound — [i, j] still independently qualifies (checked
-          // above), so it starts its own stretch rather than being folded into `last`.
-          mergedStretches.push({ startIdx: i, endIdx: j });
-        }
+      if (last !== undefined && w.startIdx <= last.endIdx) {
+        if (w.endIdx > last.endIdx) last.endIdx = w.endIdx;
       } else {
-        mergedStretches.push({ startIdx: i, endIdx: j });
+        mergedStretches.push({ startIdx: w.startIdx, endIdx: w.endIdx });
       }
     }
 
