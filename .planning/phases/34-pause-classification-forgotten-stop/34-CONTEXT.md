@@ -302,6 +302,20 @@ DECLARED WALK_RUN_BOUNDARY_MPS = 2.2
     ROADMAP criterion 1 already states the criterion is per-segment agreement with the independent
     table and never a pinned class, so nothing fails. It is recorded here so the fourth run's
     findings are read with it in mind.
+  - *Correction (2026-09-23, post-34-16 verification).* This bullet's own wording — "every one of
+    3475724402's merged intervals ... classifies `ran-through`" — over-generalised from the 16
+    `merged-segment` intervals (whose range is indeed 2.307–4.065 m/s) to all 18 gap-bearing
+    intervals named by criterion 1. The shipped, independently-recounted data
+    (`scripts/compute-pause-classification-recount.mjs`, and `34-CALIBRATION.md`'s own committed
+    per-interval class table) has always shown 17 `ran-through` and 1 `walked`: row 12 is a
+    `recording-gap` interval at t=3364–3388, 1.929 m/s — below 2.2 m/s and outside the
+    merged-segment range this bullet quoted, which is why the original sentence missed it. This
+    was never a pinned expectation (criterion 1 always scored per-segment agreement, not a class
+    count) and the DECLARED value below — `WALK_RUN_BOUNDARY_MPS = 2.2` — is unaffected; only this
+    bullet's prose description of its own consequence was wrong. Found by `34-VERIFICATION.md`
+    (Anti-Patterns, `pause-classification.ts` ~161-163) and corrected the same day in
+    `src/analytics/pause-classification.ts`'s provenance docblock, `34-06-SUMMARY.md` and this
+    file.
   - *Basis gate.* Like D-20's, the declaration is checked against live evidence on every future
     run, by two structural comparisons that introduce no new number: the declared boundary must be
     strictly greater than every confirmed control's own window aggregate speed, and strictly less

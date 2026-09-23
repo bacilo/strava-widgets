@@ -159,11 +159,17 @@ export const STATIONARY_MAX_SPEED_MPS = 0.5;
  * against live evidence on every run: strictly greater than every
  * confirmed control's own window aggregate speed (max 1.797 m/s) AND
  * strictly less than the covered-time histogram's modal bin centre
- * (3.050 m/s) — both PASS. Disclosed consequence, not a gate: at 2.2 m/s
- * every one of 3475724402's 18 merged intervals (2.307-4.065 m/s)
- * classifies `ran-through` rather than splitting, per D-21's own note;
- * criterion 1 is per-segment agreement with the independent table and
- * never a pinned class, so nothing fails. Rejected on argument: a
+ * (3.050 m/s) — both PASS. Disclosed consequence, not a gate: at 2.2 m/s,
+ * 17 of 3475724402's 18 gap-bearing intervals (16 `merged-segment` + 2
+ * `recording-gap`, 2.307-4.065 m/s) classify `ran-through`; the 18th
+ * (`recording-gap`, t=3364-3388, 1.929 m/s) classifies `walked` — D-21's
+ * original note over-generalised "every one... classifies ran-through"
+ * from the 16 merged-segment intervals alone (2.307-4.065 m/s is that
+ * subset's range) to all 18, missing the slower recording-gap row.
+ * Corrected 2026-09-23 against the shipped, independently-recounted data
+ * (`scripts/compute-pause-classification-recount.mjs`); criterion 1 is
+ * per-segment agreement with the independent table and never a pinned
+ * class, so nothing failed or fails. Rejected on argument: a
  * per-activity valley percentile (most activities contain no walking
  * hump, so the population would be selected by the property being
  * measured); a cadence-split anchor (needs its own uncalibrated cadence
