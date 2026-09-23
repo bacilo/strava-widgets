@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
-status: executing
-stopped_at: Completed 34-16-PLAN.md (gap closure: code-review CR-01/CR-02, WR-01..WR-08, R4, test-safety rework) — phase-34 code review closed; see 34-16-SUMMARY.md
-last_updated: "2026-09-23T10:49:00.000Z"
+status: ready_to_plan
+stopped_at: Phase 34 complete (16/16) — ready to discuss Phase 35
+last_updated: 2026-09-23T11:34:48.880Z
 last_activity: 2026-09-23
 progress:
   total_phases: 6
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 34 — pause-classification-forgotten-stop
+**Current focus:** Phase 35 — stream derived running pace
 
 **Carried into the next milestone** (full list with reasons in PROJECT.md § Active):
 
@@ -46,11 +46,11 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 ## Current Position
 
-Phase: 34 (pause-classification-forgotten-stop) — EXECUTING
-Plan: 10 (merge origin, regenerate every derived artifact on the merged tree, draft the
+Phase: 35
+Plan: Not started
 browser-checkpoint rows) complete. Plan 09 (Pauses disclosed on the activity detail view)
 preceded it — see prior entries in git history for its own record.
-Status: 34-10 complete (2026-09-23): `git fetch origin && git merge origin/master` reported
+Status: Ready to plan
 "Already up to date" — origin/master (`5e902283`) is the exact commit 32-09 already recorded as
 an ancestor; a truthful no-op merge, no nightly-CI commit landed since. All six phase-related
 artifacts (34-CALIBRATION.md, 34-PAUSE03-REMEASUREMENT.md, 34-WALKING-BREAK-EVIDENCE.md,
