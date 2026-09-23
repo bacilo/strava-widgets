@@ -185,6 +185,21 @@ export function minWindowSpeed(t, d, startSec, endSec, minSec) {
  * Never crosses a local gap — a qualifying window itself never crosses one (by construction), and
  * merging only unions windows that already share sample indices, so a merged stretch cannot either.
  * Never throws; returns `[]` on invalid input or when nothing qualifies.
+ *
+ * WR-04 (2026-09-23, plan 34-16): this function's MERGE step mirrors
+ * `pause-classification.ts`'s `findCreepStretches` exactly (collect, then union by index overlap
+ * in one pass) — but its ADMISSIBILITY step is DELIBERATELY LOOSER, and must be, since this file
+ * has zero imports of the detector (D-18, this file's own header). Production runs inside each
+ * `CoveredRun`, so a zero-advance `pause` pair always breaks a window there; this function, which
+ * cannot see `CoveredRun` boundaries at all, approximates that with `LOCAL_GAP_THRESHOLD_SEC`'s raw
+ * per-sample `dt > 10 s` test — a densely-sampled `pause` interval (`dt` around 1-2 s) never trips
+ * that test, so this function ADMITS pause-interior samples production correctly excludes. On a
+ * stream with a `pause` run longer than `minSec`, this function reports a creep window production
+ * does not — a known, structurally-explained definitional gap (34-15's archive-wide reconciliation:
+ * all 13 archive-wide disagreements accounted for this way, 0 unexplained), never a production
+ * defect. Quote this function's output as an expected value only for a window containing no
+ * `'pause'`-kind `gapIntervals` entry (34-VALIDATION.md states this procedure beside the rows that
+ * quote it).
  */
 export function localCreepWindows(t, d, maxMps, minSec) {
   const streamCheck = checkStream(t, d);

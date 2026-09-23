@@ -78,6 +78,9 @@ recount and the D-13 insensitivity check must each be shown failing against a pl
 | 34-15 T1 | 34-15 | 11 | STOP-01, STOP-02 | T-34-41, T-34-42 | D-22 union-merge fix: overlapping/boundary-sharing covered-creep windows merge into ONE stretch with the union's own seconds/metres, never consulting the union's speed as a merge condition; matches the independent oracle window-for-window on 6286234101 and 3475715143 (coverage-scoped); no two returned stretches overlap | unit | `npx vitest run src/analytics/pause-classification.test.ts -t "independent scan"`, `-t "walking-break control"`, `-t "findCreepStretches"` | 9, 5, 10 (live-measured 2026-09-23; matches 34-15-SUMMARY.md exactly) | ✅ green |
 | 34-15 T2 | 34-15 | 11 | PAUSE-02, STOP-03 | T-34-44 | pausesSummaryRow discloses `pauseClassification.notClassifiableCount` as a trailing parenthetical when > 0, adds nothing when 0 or null (CR-01) | unit | `npx vitest run src/dashboard/views/detail-sections.test.ts -t "Pauses"` | 15 (live-measured 2026-09-23; matches 34-15-SUMMARY.md exactly) | ✅ green |
 | 34-15 T3 | 34-15 | 11 | STOP-01, STOP-02, PAUSE-02 | T-34-43, T-34-45, T-34-46 | Regeneration on the merged tree; D-22 fix changes only the archive-wide covered-creep stretch count (363→300, still 82 activities); calibration constants and their provenance unchanged; D-18 recount, five upstream artifacts and data/streams byte-identical; archive-wide reconciliation (82 activities with ≥1 production covered-creep stretch, 69 full agreement, 13 explained by coverage-scope divergence, 0 unexplained) | script + gate | `npm run compute-pause-classification-calibration` (byte-identical x2), `npm run compute-pause-classification-recount`, `npm test`, `npx tsc --noEmit`, `npm run build-widgets`, `npm run verify-dashboard` | n/a (artifact/gate) — sha256 `e40aeaca...` byte-identical x2, recount PASS (walked=1 ran-through=17, matches 34-07 exactly), npm test 3478/3478, verify-dashboard 66/66, served digest `13a244ed...` equals freshly built digest | ✅ green |
+| 34-16 T1 | 34-16 | 13 (gap closure) | PAUSE-01, STOP-01 | T-34-48, T-34-49 | CR-02: `findCreepStretches` rejects a t/d length mismatch and any non-finite seconds/metres inside a window (a bare `NaN > max` comparison is `false` and previously accepted the corruption); WR-05: `collectPauseIntervals`'s merged-segment branch validates `d[seg.startIndex]`, counting a failed lookup as a `joinViolation` rather than emitting `startMetres: undefined`; WR-01/D-22: a covered-creep union's class is derived from the union's OWN metres/seconds via `classifyPauseSpeed`, never hard-coded to `'stationary'` | unit | `npx vitest run src/analytics/pause-classification.test.ts src/analytics/pace-quality.test.ts` | 187 (both files combined, live-measured 2026-09-23); CR-02's two new tests and WR-05's one new test each watched RED first against the pre-fix code (quoted in `34-16-SUMMARY.md`); WR-01's new test watched RED first (expected `'walked'`, received `'stationary'`) | ✅ green |
+| 34-16 T2 | 34-16 | 13 (gap closure) | PAUSE-02, STOP-01, STOP-03 | T-34-47 | CR-01: `parseForgottenStopSignal` is all-or-nothing on the `computable: true` branch (a present-but-unreadable numeric field invalidates the whole signal) plus a `pausesSummaryRow` render-boundary defence (`fs.count === null` treated like `!fs.computable`); WR-02: `parsePauseClassificationSignal` genuinely all-or-nothing; WR-07: `SHARD_LIST_CAP` exported once, enforced on write, read (`parsePaceQualityShard`) and the rendered truncation notice; IN-01: `pausesSectionPlan` gains a third `'not-computable'` kind, distinguishing a genuinely empty Pauses list from a not-computable activity; R4: the not-classifiable clause rewords to a category (`"N not-classifiable — see Unreliable segments"`) | unit | `npx vitest run src/dashboard/data/pace-quality-client.test.ts src/dashboard/views/detail-sections.test.ts` | 262 (both files combined, live-measured 2026-09-23); all 10 new/changed assertions watched RED first against the pre-fix code, including CR-01's own reproduction (`computable:true`, `count` a string, `totalSec` NaN, `creepCount`/`pauseCount` well-formed) and the honest-`count:0`-still-renders-"none found" negative control | ✅ green |
+| 34-16 T3 | 34-16 | 13 (gap closure) | STOP-01, STOP-02, PAUSE-01, PAUSE-02 | T-34-50, T-34-51, T-34-52, T-34-53 | WR-03: the provenance-chain S1/S2/S3 tests no longer write to, or revert via a child-process call, any tracked repo path — S1/S2 are pure in-memory comparisons, S3 runs against a `mkdtempSync` scratch copy with a symlinked `dist/`; a guard test bans the removed pattern's return; WR-08: the D-05 scanner extended to ban the two declared band literals under `src/` outside `pause-classification.ts`/`*.test.ts`, with two planted-violation demonstrations; WR-04: the oracle-admissibility caveat written in `findCreepStretches`' docblock, `localCreepWindows`' own header and this file's Manual-Only rows; IN-06: `d20-basis` renders `VACUOUS` (not `PASS`) when `g4Base === null`, both branches tested at the object and markdown-render level; IN-07/IN-05: a zero-duration J interval or standstill episode yields a null speed/rate, never `Infinity`/`NaN`/a coerced `0` | unit + script + gate | `npx vitest run scripts/compute-pause-classification-calibration.test.mjs src/analytics/pace-single-source.test.ts`, `npm test`, `npx tsc --noEmit`, `npm run build-widgets`, `npm run verify-dashboard` | 160 + 95 (both files, live-measured 2026-09-23); `git status --porcelain scripts .planning/phases/34-pause-classification-forgotten-stop/34-CONTEXT.md` confirmed clean immediately after the full `npm test` run; all 4 IN-06 tests watched RED first against the pre-fix generator (quoted in `34-16-SUMMARY.md`); npm test 3499/3499, verify-dashboard 66/66, served digest `16250d75...` equals freshly built digest | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -132,6 +135,87 @@ NOT:**
   `13a244ed...` (a NEW value, since `index.json`'s content genuinely changed — the digest VALUE was
   never pinned, per this row's own 2026-09-23 correction). The claim (equality) holds; no human
   re-judgment needed beyond re-glancing that the page still renders.
+
+---
+
+## Re-check Note (2026-09-23, plan 34-16, code-review closure)
+
+Plan 34-16 closed the phase code review (`34-REVIEW.md`): CR-01/CR-02 (fabricated confident
+statements over unreadable/corrupted data), WR-01 (a covered-creep row's class no longer
+hard-coded), WR-02/WR-05/WR-07 (parser/boundary/cap hardening), WR-03 (test-safety rework), WR-08
+(a scanner for the two declared band literals), WR-04/IN-06/IN-07/IN-05 (documentation and
+defensive guards), IN-01 (a third Pauses-section state) and R4 (the not-classifiable clause
+reworded to a category). This note lists which Manual-Only rows the executor confirmed actually
+moved against the regenerated data (per this plan's own `<rendered_surfaces>` list), verified
+directly against the freshly regenerated `data/dashboard/index.json` and shard files — never
+assumed from the plan's own prediction alone.
+
+**The forgotten-stop ARITHMETIC did not move** (the hard constraint this plan was built under):
+`forgottenStop.{count,totalSec,longestSec}` for all four named activities (3475724402,
+6286234101, 3475740390, 3475715143) are byte-identical before and after this plan's regeneration —
+confirmed by a direct before/after diff of the live index rows, quoted in `34-16-SUMMARY.md`'s
+Required Report. The three shipped constants and their provenance lines in `34-CALIBRATION.md` are
+also unchanged (sha256 `e40aeaca...`, byte-identical across two fresh runs, matching the
+already-committed artifact exactly).
+
+**Must be RE-LOOKED AT by a human on the rebuilt page** (rendered TEXT changed; the underlying
+claims below are either unaffected or explicitly re-verified by this plan, never assumed):
+
+- **R3** — 6286234101's Pauses section. The covered-creep row spanning 5866-5922 (56s, 35.6m,
+  ≈0.636 m/s) changes its class label from **`Stationary — possible forgotten stop (timer
+  running)`** to **`Walked — possible forgotten stop (timer running)`** (WR-01/D-22 — this union's
+  own speed exceeds the 0.5 m/s stationary bound, so it is no longer hard-coded). R3's own CLAIM
+  ("no row falls inside the confirmed walking-break control's window [5289, 5696]") is UNAFFECTED —
+  both post-34-15 creep windows (5866-5922, 6236-6313) still lie entirely outside that window,
+  confirmed directly against the regenerated shard. Only the VISUAL class label a human would see on
+  that specific row changed; the row's own position/duration/distance are unchanged.
+- **R4** — 3475740390's Pauses summary row TEXT changed again (R4's own wording, this time): the
+  not-classifiable clause now reads **`(5 not-classifiable — see Unreliable segments)`**, replacing
+  34-15's `(5 not-classifiable: isolated-jump/hidden-pause)` — the exact cosmetic finding 34-11's
+  checkpoint disclosed as an OPEN COSMETIC ITEM ("labelled with the generic category
+  'isolated-jump/hidden-pause' although this activity's five are all isolated-jump") is now closed
+  by construction: the clause is a category, no longer names both mechanisms unconditionally. The
+  not-computable forgotten-stop clause itself, and the classified counts
+  (`5 intervals: 0 stationary, 5 walked, 0 ran through, 0 transported`), are unchanged — confirmed
+  directly against the regenerated index row.
+- **R9** — served digest equals freshly built digest. Re-run this plan (required, since the build
+  changed again): served digest, `dist/widgets/` copy and `data/dashboard/index.json` all equal a
+  NEW digest `16250d75...` (the digest VALUE is never pinned — only the equality claim). Verified
+  via `curl http://127.0.0.1:8123/data/dashboard/index.json | shasum -a 256` against the same
+  command run on the freshly built `data/dashboard/index.json` and its `dist/widgets/` copy — all
+  three equal. `verify-dashboard` 66/66. 3475724402's pace chart is untouched by this plan (no chart
+  module was modified, D-16) — the 2:53/km bound this row's own claim reads against still applies,
+  never re-derived.
+
+**Confirmed provably unaffected (re-quote the evidence only, do not re-judge), verified against the
+regenerated data:**
+
+- **R1** — 3475724402's Pauses section rows. Confirmed UNAFFECTED: this activity carries zero
+  covered-creep entries (WR-01 only touches covered-creep rows) and its `pauseClassification`
+  counts (18 intervals: 0/1/17/0) are byte-identical before and after this plan.
+- **R2** — 3475724402's Quality Signals "Pauses" summary row. Confirmed UNAFFECTED: this
+  activity's `notClassifiableCount` is `0` (R4's wording change never fires here), its `forgottenStop`
+  is a genuine computable zero (CR-01's fix does not change an honest zero, per this plan's own
+  negative control), and its `pauseClassification` counts are unchanged (WR-02's fix does not change
+  a well-formed signal's parsed output) — the rendered row text is BYTE-IDENTICAL to before this
+  plan.
+- **R5** — 3475715143's first creep row (startSec 1708, endSec 1750, seconds 42, metres 21).
+  Confirmed UNAFFECTED by WR-01: this window's own speed is exactly `21/42 = 0.5 m/s`, at (not
+  above) the stationary bound — `classifyPauseSpeed`'s `<=` inclusive rule (D-02) still classifies
+  it `stationary`, matching the hard-coded value it replaced exactly for this specific row. The
+  dedicated regression-guard test (`pause-classification.test.ts -t "independent scan"`) continues
+  to pin this window's position unchanged.
+- **R6** — 3475740390, Pauses section vs. Unreliable Segments row. Confirmed UNAFFECTED: D-15's
+  membership rule (isolated-jump/hidden-pause segments never enter the Pauses section) is untouched
+  by this plan; the rendered Pauses-section rows are all `zero-advance-pause`/`merged-segment`
+  sources (not `covered-creep`), so WR-01 does not touch them, and R4's clause change is scoped to
+  the SUMMARY row, not this section's own rows.
+- **R7** — 3475715143's `forgottenStop.totalSec=232, count=5` figure. Confirmed UNAFFECTED: this
+  plan changes labels, parsers and caps, never the union arithmetic (the hard constraint) —
+  `forgottenStop` for 3475715143 is byte-identical before and after this plan's regeneration,
+  confirmed by direct diff.
+- **R8** — PAUSE-03 artifact. Confirmed UNAFFECTED: `34-PAUSE03-REMEASUREMENT.md` byte-identical
+  (sha256 `964afdf5...`) before and after this plan's regeneration.
 
 ---
 

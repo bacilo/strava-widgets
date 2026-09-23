@@ -199,8 +199,14 @@ export const FORGOTTEN_STOP_MIN_SEC = 40;
 /**
  * D-06/D-07 composed: the shipped `PauseClass` boundaries, built from the
  * two constants above — never a repeated `0.5`/`2.2` literal anywhere else
- * in this module or its consumers (D-07's one-definition rule, verified by
- * `grep -cE "stationaryMaxMps: [0-9]"` finding zero matches in this file).
+ * in this module or its consumers (D-07's one-definition rule).
+ *
+ * WR-08 (2026-09-23, plan 34-16): this claim is no longer a one-off grep
+ * recorded in prose — `pace-single-source.test.ts`'s "pause-classification
+ * D-07: no band literal outside pause-classification.ts" describe block
+ * extends the same proven scanner `findTransportLiteralViolations` uses for
+ * D-05 to these two developer-declared band literals, re-run on every
+ * `npm test`, with a planted-fixture demonstration.
  */
 export const SHIPPED_PAUSE_BANDS: PauseBands = {
   stationaryMaxMps: STATIONARY_MAX_SPEED_MPS,

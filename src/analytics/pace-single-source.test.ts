@@ -1085,6 +1085,110 @@ describe('pause-classification D-05: no transport-speed literal outside the dete
 });
 
 /**
+ * pause-classification D-07/WR-08: no declared band literal outside
+ * pause-classification.ts
+ *
+ * D-05's `findTransportLiteralViolations` above bans `7.35` everywhere
+ * outside the detector — but until now, nothing scanned `src/` for the TWO
+ * developer-declared pause-classification band literals
+ * (`STATIONARY_MAX_SPEED_MPS` = `0.5` m/s, D-20; `WALK_RUN_BOUNDARY_MPS` =
+ * `2.2` m/s, D-21). The only claimed protection was a one-off prose grep
+ * recorded as a comment inside `pause-classification.ts` itself
+ * (`grep -cE "stationaryMaxMps: [0-9]"`), scoped to a single file and never
+ * re-run by any test (34-REVIEW.md WR-08). Given D-20/D-21's values are
+ * developer-declared — the most likely kind of constant to be re-typed from
+ * memory into a future consumer — the asymmetry against `7.35` was
+ * backwards. This extends the SAME proven scanner shape
+ * (`findTransportLiteralViolations`'s own `{ path, needle, count }`
+ * contract) to these two literals, watched failing first against a planted
+ * violation (recorded verbatim in this plan's SUMMARY.md), then reverted —
+ * the standing "watch it fail first" convention this project applies to
+ * every guard.
+ *
+ * The needles are the exact OBJECT-LITERAL-PROPERTY shapes
+ * `SHIPPED_PAUSE_BANDS`/`SHIPPED_STOP_PARAMS` would take if a consumer
+ * re-typed the value directly (`stationaryMaxMps: 0.5`, `walkRunMps: 2.2`)
+ * rather than the bare numbers `0.5`/`2.2` — a bare-number scan would
+ * false-positive on countless unrelated numeric literals across `src/`
+ * (durations, indices, other constants). `pause-classification.ts` itself
+ * is allow-listed: it legitimately builds `SHIPPED_PAUSE_BANDS` from the
+ * imported CONSTANTS (`stationaryMaxMps: STATIONARY_MAX_SPEED_MPS`), never
+ * a repeated literal, so it does not (and must not) trip this scanner even
+ * though it is where the constants are declared — mirroring
+ * `TRANSPORT_LITERAL_ALLOWED_FILE_SUFFIX`'s own allow-one-file shape above.
+ */
+const DECLARED_BAND_LITERALS = ['stationaryMaxMps: 0.5', 'walkRunMps: 2.2'] as const;
+const DECLARED_BAND_LITERAL_ALLOWED_FILE_SUFFIX = 'analytics/pause-classification.ts';
+
+/** Pure scanner, same `{ path, needle, count }` shape as `findTransportLiteralViolations`. */
+function findDeclaredBandLiteralViolations(files: readonly SourceFile[]): StreamPaceViolation[] {
+  const violations: StreamPaceViolation[] = [];
+  for (const file of files) {
+    if (file.path.endsWith('.test.ts')) continue;
+    if (file.path.endsWith(DECLARED_BAND_LITERAL_ALLOWED_FILE_SUFFIX)) continue;
+    const stripped = stripComments(file.source);
+    for (const needle of DECLARED_BAND_LITERALS) {
+      const count = countOccurrences(stripped, needle);
+      if (count > 0) violations.push({ path: file.path, needle, count });
+    }
+  }
+  return violations;
+}
+
+describe('pause-classification D-07/WR-08: no declared band literal outside pause-classification.ts', () => {
+  const { files } = readSourceTree(SRC_ROOT);
+
+  it('non-vacuous: pause-classification.ts itself declares both constants as bare numeric literals (its own source of truth), never in the object-literal-property shape this scanner bans', () => {
+    const classifierFile = files.find((f) => f.path.endsWith('analytics/pause-classification.ts'));
+    expect(classifierFile, 'expected to find pause-classification.ts in the scanned file list').toBeTruthy();
+    const stripped = stripComments(classifierFile!.source);
+    expect(stripped).toContain('export const STATIONARY_MAX_SPEED_MPS = 0.5;');
+    expect(stripped).toContain('export const WALK_RUN_BOUNDARY_MPS = 2.2;');
+    // SHIPPED_PAUSE_BANDS builds the object-literal shape from the CONSTANTS, never a repeated
+    // literal — zero occurrences of the banned needles, even in the allow-listed file itself.
+    expect(findDeclaredBandLiteralViolations([classifierFile!])).toEqual([]);
+  });
+
+  it('zero declared-band-literal offenders exist under src/ outside pause-classification.ts and *.test.ts files', () => {
+    const violations = findDeclaredBandLiteralViolations(files);
+    const message = violations.map((v) => `${v.path}: contains "${v.needle}" (${v.count}x)`).join('\n');
+    expect(violations, `violations found:\n${message}`).toEqual([]);
+  });
+
+  it('is demonstrated catching a planted stationaryMaxMps literal: a synthetic analytics/planted-band.ts is flagged with its path, and the same file with the literal replaced by the imported constant is not flagged', () => {
+    const plantedPath = 'src/analytics/planted-band.ts';
+    const plantedFile: SourceFile = {
+      path: plantedPath,
+      source: 'export const BANDS = { stationaryMaxMps: 0.5, walkRunMps: 2.0 };\n',
+    };
+    const violations = findDeclaredBandLiteralViolations([plantedFile]);
+    expect(violations).toEqual([{ path: plantedPath, needle: 'stationaryMaxMps: 0.5', count: 1 }]);
+
+    const cleanedFile: SourceFile = {
+      path: plantedPath,
+      source: 'export const BANDS = { stationaryMaxMps: STATIONARY_MAX_SPEED_MPS, walkRunMps: 2.0 };\n',
+    };
+    expect(findDeclaredBandLiteralViolations([cleanedFile])).toEqual([]);
+  });
+
+  it('is demonstrated catching a planted walkRunMps literal: a synthetic analytics/planted-boundary.ts is flagged with its path, and the same file with the literal replaced by the imported constant is not flagged', () => {
+    const plantedPath = 'src/analytics/planted-boundary.ts';
+    const plantedFile: SourceFile = {
+      path: plantedPath,
+      source: 'export const BOUNDARY = { walkRunMps: 2.2 };\n',
+    };
+    const violations = findDeclaredBandLiteralViolations([plantedFile]);
+    expect(violations).toEqual([{ path: plantedPath, needle: 'walkRunMps: 2.2', count: 1 }]);
+
+    const cleanedFile: SourceFile = {
+      path: plantedPath,
+      source: 'export const BOUNDARY = { walkRunMps: WALK_RUN_BOUNDARY_MPS };\n',
+    };
+    expect(findDeclaredBandLiteralViolations([cleanedFile])).toEqual([]);
+  });
+});
+
+/**
  * pause-classification confinement
  *
  * Confines the classifier's own call sites (`classifyPauses(`,

@@ -201,7 +201,13 @@ function buildStandstillEpisodes(t, d, coveredRuns, pauseIntervals, paSec, activ
       endSec,
       seconds,
       metres,
-      rateMps: seconds > 0 ? metres / seconds : 0,
+      // IN-05 (34-REVIEW.md, plan 34-16): a zero-duration episode (a single pause whose own
+      // startSec === endSec) has no basis for a measured drift rate — `null`, never a plausible-
+      // looking `0`, mirroring this phase's `null`-not-zero discipline everywhere else (T-26-02).
+      // Unreachable on the current archive (every chained episode's rate is strictly positive by
+      // the bridge invariant, and a single-pause episode's own duration is never zero in practice)
+      // — guarded regardless, since the shape is cheap and the discipline is uniform.
+      rateMps: seconds > 0 ? metres / seconds : null,
       pauseCount: pauses.length,
       chained,
     };
@@ -255,9 +261,18 @@ export function buildBaseViews(archive) {
     }
 
     const collected = pc.collectPauseIntervals(t, d, r.coverage, r.segments);
+    // IN-07 (34-REVIEW.md, plan 34-16): a zero-duration J interval (`collectPauseIntervals` can
+    // emit `seconds === 0` when a gap interval's own `startSec === endSec`) has no basis for a
+    // measured speed — `Infinity`/`NaN`, never a plausible-looking number, mirroring
+    // `classifyPauseSpeed`'s own guard in `pause-classification.ts`. Downstream histogram filters
+    // (`value >= lo && value < hi`) already reject `NaN` (self-healing per the review), but `null`
+    // is the honest total-function answer rather than relying on that incidental behaviour.
     const J = collected.intervals
       .filter((iv) => iv.source === 'recording-gap' || iv.source === 'merged-segment')
-      .map((iv) => ({ ...iv, speedMps: iv.metres / iv.seconds }));
+      .map((iv) => ({
+        ...iv,
+        speedMps: iv.seconds > 0 && Number.isFinite(iv.metres) ? iv.metres / iv.seconds : null,
+      }));
     const pauseIntervals = collected.intervals.filter((iv) => iv.source === 'zero-advance-pause');
 
     const cadenceArr = Array.isArray(cadence) ? cadence : null;
@@ -597,7 +612,9 @@ export function strawmanG(views) {
   const speeds = [];
   for (const v of views) {
     if (!v.computable) continue;
-    for (const j of v.J) speeds.push(j.speedMps);
+    // IN-07: a null speedMps (zero-duration J interval) is not a measured speed — excluded from
+    // the population entirely, never coerced through arithmetic (`null - b` silently reads as `0`).
+    for (const j of v.J) if (j.speedMps !== null) speeds.push(j.speedMps);
   }
   const sorted = sortAsc(speeds);
   return { value: sorted.length === 0 ? null : quantile(sorted, 0.9), n: sorted.length, excluded: 0, items: sorted.length };
@@ -858,7 +875,10 @@ export function strawmanW(views, ctx) {
   for (const v of views) {
     if (!v.computable) continue;
     totalJ += v.J.length;
-    for (const j of v.J) items.push({ value: j.speedMps, weight: 1 });
+    // IN-07: a null speedMps (zero-duration J interval) has no basis for a histogram bin — excluded
+    // from the pushed population, never coerced through a numeric comparison (`null >= lo` reads as
+    // `0 >= lo`).
+    for (const j of v.J) if (j.speedMps !== null) items.push({ value: j.speedMps, weight: 1 });
   }
   const value = valleyOf(items, ctx.lo, ctx.hi);
   const n = inRangeCount(items, ctx.lo, ctx.hi);
@@ -920,7 +940,9 @@ const J_POPULATION = Object.freeze({
     endSec: template.seconds,
     seconds: template.seconds,
     metres: template.metres,
-    speedMps: template.metres / template.seconds,
+    // IN-07: mirror buildBaseViews' own J speedMps guard — a planted item cloned from a
+    // zero-duration template has no basis for a measured speed either.
+    speedMps: template.seconds > 0 && Number.isFinite(template.metres) ? template.metres / template.seconds : null,
     planted: true,
     sentinel,
   }),
@@ -1460,6 +1482,16 @@ export function applyGates(views, shipped, controlText) {
   // statistic (G4's base) whenever that base is non-null. A null base (no chained standstill
   // anywhere) means nothing accrued — PASSES with a stated reason, since there is no basis to
   // exceed. A failure HALTs for a developer revisit of D-20 — it is NEVER retuned or widened.
+  //
+  // IN-06 (34-REVIEW.md, plan 34-16): `basisPass` alone (`g4Base === null OR STATIONARY_MAX_SPEED_MPS
+  // > g4Base`) reads as a measured PASS in the rendered table even when `g4Base === null` — an
+  // archive with NO chained standstill anywhere passes this declaration check with no evidence
+  // behind it at all. `verdict` is a DISTINCT token from `pass`/`reason`: `'VACUOUS'` when
+  // `g4Base === null` (an unmeasured, structurally-unfalsifiable state), `'PASS'`/`'FAIL'`
+  // otherwise — so a reader of 34-CALIBRATION.md can tell a measured pass from an unmeasured one.
+  // `pass` itself is UNCHANGED (still `true` on the vacuous branch — `decideOutcome`'s gate-clearing
+  // logic must not HALT on an archive with zero chained episodes, which is a legitimate, if
+  // evidence-free, outcome).
   const g4Base = shapeG4(views).value;
   const basisPass =
     g4Base === null ||
@@ -1471,6 +1503,7 @@ export function applyGates(views, shipped, controlText) {
     measured: g4Base,
     bound: `< STATIONARY_MAX_SPEED_MPS (${shipped.STATIONARY_MAX_SPEED_MPS})`,
     pass: basisPass,
+    verdict: g4Base === null ? 'VACUOUS' : basisPass ? 'PASS' : 'FAIL',
     reason: g4Base === null ? 'no chained standstill means nothing accrued' : undefined,
   });
 
@@ -1785,7 +1818,10 @@ function renderGatesTable(gates) {
   const lines = ['| gate | measured | bound | Verdict |', '|---|---|---|---|'];
   for (const g of gates) {
     const reasonSuffix = g.reason ? ` (${g.reason})` : '';
-    lines.push(`| ${g.id} | ${g.measured ?? '—'} | ${g.bound ?? '—'} | ${g.pass ? 'PASS' : 'FAIL'}${reasonSuffix} |`);
+    // IN-06: honour an explicit `verdict` token (e.g. 'VACUOUS') when a gate supplies one, rather
+    // than collapsing every gate to a binary PASS/FAIL derived from `pass` alone.
+    const verdict = g.verdict ?? (g.pass ? 'PASS' : 'FAIL');
+    lines.push(`| ${g.id} | ${g.measured ?? '—'} | ${g.bound ?? '—'} | ${verdict}${reasonSuffix} |`);
   }
   return lines.join('\n');
 }

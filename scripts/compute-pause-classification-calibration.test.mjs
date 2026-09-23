@@ -5,9 +5,10 @@
  * invoked here (D-08: the generator is not run against the real archive in this plan).
  */
 
-import { execSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
@@ -1305,7 +1306,8 @@ describe('gates', () => {
   });
 
   it('[D-20] basis gate PASSES with a stated reason when G4\'s measured base is null (no chained ' +
-    'standstill anywhere means nothing accrued)', () => {
+    'standstill anywhere means nothing accrued) — IN-06: verdict reads VACUOUS, not PASS, so a ' +
+    'reader can tell this is unmeasured', () => {
     const views = buildBaseViews(buildGatesPassArchive());
     expect(shapeG4(views).value).toBeNull(); // no zero-advance pause anywhere on this fixture
     const result = applyGates(views, GATES_PASS_SHIPPED, GATES_PASS_CONTROL_TEXT);
@@ -1313,9 +1315,11 @@ describe('gates', () => {
     expect(gate.measured).toBeNull();
     expect(gate.pass).toBe(true);
     expect(gate.reason).toBe('no chained standstill means nothing accrued');
+    expect(gate.verdict).toBe('VACUOUS');
   });
 
-  it('[D-20] basis gate PASSES when the declared value strictly exceeds G4\'s measured base', () => {
+  it('[D-20] basis gate PASSES when the declared value strictly exceeds G4\'s measured base — ' +
+    'IN-06: verdict reads PASS (a genuinely measured pass, distinct from VACUOUS)', () => {
     const views = buildBaseViews(pauseBearingArchive());
     const g4Base = shapeG4(views).value;
     expect(g4Base).toBeGreaterThan(0);
@@ -1326,17 +1330,27 @@ describe('gates', () => {
     expect(gate.measured).toBeCloseTo(g4Base, 8);
     expect(gate.pass).toBe(true);
     expect(gate.reason).toBeUndefined();
+    expect(gate.verdict).toBe('PASS');
   });
 
   it('[D-20] basis gate FAILS — a HALT, never a retune — when a fixture\'s measured drift reaches ' +
-    'the declared value', () => {
+    'the declared value; IN-06: verdict reads FAIL, distinct from VACUOUS', () => {
     const views = buildBaseViews(pauseBearingArchive());
     const g4Base = shapeG4(views).value;
     const shipped = { STATIONARY_MAX_SPEED_MPS: g4Base, WALK_RUN_BOUNDARY_MPS: 2.0, FORGOTTEN_STOP_MIN_SEC: 31 };
     const result = applyGates(views, shipped, null);
     const gate = result.gates.find((g) => g.id === 'd20-basis');
     expect(gate.pass).toBe(false);
+    expect(gate.verdict).toBe('FAIL');
     expect(result.pass).toBe(false);
+  });
+
+  it('IN-06: the rendered artifact prints the VACUOUS token (never PASS) for a vacuous d20-basis gate on the real gates-pass fixture (shapeG4 null on this archive)', () => {
+    const result = runCalibration(buildGatesPassArchive(), GATES_PASS_CONTROL_TEXT);
+    expect(result.gates.gates.find((g) => g.id === 'd20-basis').verdict).toBe('VACUOUS');
+    const markdown = renderCalibrationMarkdown({ ...result, provenance: {} });
+    expect(markdown).toMatch(/\| d20-basis \|[^\n]*\| VACUOUS[^\n]*\|/);
+    expect(markdown).not.toMatch(/\| d20-basis \|[^\n]*\| PASS[^\n]*\|/);
   });
 
   // -------------------------------------------------------------------------
@@ -2100,11 +2114,21 @@ describe('exit contract', () => {
 });
 
 // ---------------------------------------------------------------------------
-// provenance chain (D-20, plan 34-13, Task 3) — the declared value cannot drift silently between
-// 34-CONTEXT.md's D-20 line, the generator's own source text, and the rendered artifact line.
-// Every seeded edit below writes to a REAL repo file, is watched failing, then reverted via
-// `git checkout --` in a `finally` block — never left dirty, never committed. main() is never
-// invoked and no real stream is read.
+// provenance chain (D-20, plan 34-13, Task 3; test-safety reworked WR-03, plan 34-16) — the
+// declared value cannot drift silently between 34-CONTEXT.md's D-20 line, the generator's own
+// source text, and the rendered artifact line. main() is never invoked and no real stream is read.
+//
+// WR-03 (2026-09-23): NO test in this file writes to, or reverts via a child-process
+// version-control call, any path inside the working tree — that pattern (`writeFileSync` on a
+// real tracked file, reverted via a shelled-out revert command in a `finally`) previously lived
+// here and already destroyed uncommitted work once (34-REVIEW.md). S1 and S2 (for both declared constants) are now pure
+// in-memory string comparisons — no filesystem write at all. S3 (which genuinely needs an
+// importable module to prove the RENDERER's own behaviour) runs against a `mkdtempSync` copy of
+// `scripts/` (the generator's sibling imports — `./lib/stream-files.mjs`,
+// `./compute-unreliable-segment-severity-calibration.mjs`, `./compute-walking-break-evidence.mjs`
+// — are relative, so the whole directory is copied) plus a symlink to the real `dist/` (read-only,
+// never written), and the temp directory is removed in `finally`. The provenance-chain assertions
+// themselves are UNCHANGED in strength — still character-level, still watched RED under each seed.
 // ---------------------------------------------------------------------------
 
 describe('provenance chain', () => {
@@ -2126,6 +2150,32 @@ describe('provenance chain', () => {
     const match = GENERATOR_TEXT_LINE_PATTERN.exec(text);
     if (!match) throw new Error(`DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT literal not found in ${GENERATOR_PATH}`);
     return match[1];
+  }
+
+  /**
+   * WR-03's S3 helper: copies `scripts/` (the generator's relative sibling imports —
+   * `./lib/stream-files.mjs`, `./compute-unreliable-segment-severity-calibration.mjs`,
+   * `./compute-walking-break-evidence.mjs` — need to resolve) into a `mkdtempSync` temp directory,
+   * SYMLINKS `dist/` alongside it (the generator's own `../dist/analytics/...` imports resolve
+   * against this — a symlink, never a 212 MB copy, and never written to), applies `editFn` to the
+   * COPIED generator's own source text, writes the edited text ONLY inside the temp copy, and
+   * dynamically imports it. The temp directory is always removed in `finally` — no path inside the
+   * working tree is ever written to, and no version-control revert command ever runs.
+   */
+  async function runEditedGeneratorInScratchCopy(editFn) {
+    const dir = mkdtempSync(path.join(tmpdir(), 'pause-calib-s3-'));
+    try {
+      cpSync(path.resolve('scripts'), path.join(dir, 'scripts'), { recursive: true });
+      symlinkSync(path.resolve('dist'), path.join(dir, 'dist'), 'dir');
+      const tmpGeneratorPath = path.join(dir, 'scripts', 'compute-pause-classification-calibration.mjs');
+      const originalGenerator = readFileSync(tmpGeneratorPath, 'utf8');
+      const edited = editFn(originalGenerator);
+      writeFileSync(tmpGeneratorPath, edited, 'utf8'); // scratch-copy write only — never a repo path
+      const mod = await import(`${pathToFileURL(tmpGeneratorPath).href}?seed=${Date.now()}-${Math.random()}`);
+      return mod;
+    } finally {
+      rmSync(dir, { recursive: true, force: true }); // deleting a temp dir is safe on any path
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -2238,124 +2288,117 @@ describe('provenance chain', () => {
     }
   });
 
-  it('S1 RED: editing 34-CONTEXT.md\'s DECLARED line breaks the context<->generator binding; ' +
-    'reverted, the tree is clean', () => {
-    const originalContext = readFileSync(CONTEXT_PATH, 'utf8');
+  it('S1 RED: editing 34-CONTEXT.md\'s DECLARED line (in memory only) breaks the context<->generator ' +
+    'binding, compared against the real, unedited, on-disk generator', () => {
+    const originalContext = readFileSync(CONTEXT_PATH, 'utf8'); // read-only
     const editedContext = originalContext.replace(
       CONTEXT_LINE_PATTERN,
       'DECLARED STATIONARY_MAX_SPEED_MPS = 0.7'
     );
-    expect(editedContext).not.toBe(originalContext); // the seed must actually change the file
-    writeFileSync(CONTEXT_PATH, editedContext, 'utf8');
+    expect(editedContext).not.toBe(originalContext); // the seed must actually change the in-memory text
+    const seededContextValue = CONTEXT_LINE_PATTERN.exec(editedContext)[1];
+    expect(seededContextValue).toBe('0.7');
+
+    const generatorValue = readGeneratorTextValue(); // the real, on-disk, unedited generator
     let redMessage = null;
-    try {
-      const contextValue = readContextValue();
-      const generatorValue = readGeneratorTextValue();
-      expect(contextValue).toBe('0.7');
-      if (generatorValue !== contextValue) {
-        redMessage =
-          `RED (S1, 34-CONTEXT.md DECLARED line edited to 0.7): generator source text ` +
-          `('${generatorValue}') !== 34-CONTEXT.md DECLARED line ('${contextValue}')`;
-      }
-    } finally {
-      execSync(`git checkout -- ${CONTEXT_PATH}`);
+    if (generatorValue !== seededContextValue) {
+      redMessage =
+        `RED (S1, 34-CONTEXT.md DECLARED line seeded in memory to 0.7): generator source text ` +
+        `('${generatorValue}') !== seeded 34-CONTEXT.md DECLARED line ('${seededContextValue}')`;
     }
     expect(redMessage).not.toBeNull();
-    // eslint-disable-next-line no-console -- RED evidence, quoted verbatim in the plan 34-13 SUMMARY
+    // eslint-disable-next-line no-console -- RED evidence, quoted verbatim in the plan 34-16 SUMMARY
     console.log(redMessage);
-    expect(execSync(`git diff --exit-code -- ${CONTEXT_PATH}`).toString()).toBe('');
+    // No write happened — 34-CONTEXT.md was never touched on disk.
     expect(readContextValue()).toBe('0.5');
   });
 
-  it('S2 RED: editing the generator\'s own source-text constant breaks the generator<->context ' +
-    'binding; reverted, the tree is clean', () => {
-    const originalGenerator = readFileSync(GENERATOR_PATH, 'utf8');
+  it('S2 RED: editing the generator\'s own source-text constant (in memory only) breaks the ' +
+    'generator<->context binding, compared against the real, unedited, on-disk 34-CONTEXT.md', () => {
+    const originalGenerator = readFileSync(GENERATOR_PATH, 'utf8'); // read-only
     const editedGenerator = originalGenerator.replace(
       "export const DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT = '0.5';",
       "export const DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT = '0.6';"
     );
     expect(editedGenerator).not.toBe(originalGenerator);
-    writeFileSync(GENERATOR_PATH, editedGenerator, 'utf8');
+    const seededGeneratorValue = GENERATOR_TEXT_LINE_PATTERN.exec(editedGenerator)[1];
+    expect(seededGeneratorValue).toBe('0.6');
+
+    const contextValue = readContextValue(); // the real, on-disk, unedited 34-CONTEXT.md
     let redMessage = null;
-    try {
-      const contextValue = readContextValue();
-      const generatorValue = readGeneratorTextValue();
-      expect(generatorValue).toBe('0.6');
-      if (generatorValue !== contextValue) {
-        redMessage =
-          `RED (S2, generator DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT edited to '0.6'): generator ` +
-          `source text ('${generatorValue}') !== 34-CONTEXT.md DECLARED line ('${contextValue}')`;
-      }
-    } finally {
-      execSync(`git checkout -- ${GENERATOR_PATH}`);
+    if (seededGeneratorValue !== contextValue) {
+      redMessage =
+        `RED (S2, generator DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT seeded in memory to '0.6'): ` +
+        `seeded generator source text ('${seededGeneratorValue}') !== 34-CONTEXT.md DECLARED line ` +
+        `('${contextValue}')`;
     }
     expect(redMessage).not.toBeNull();
-    // eslint-disable-next-line no-console -- RED evidence, quoted verbatim in the plan 34-13 SUMMARY
+    // eslint-disable-next-line no-console -- RED evidence, quoted verbatim in the plan 34-16 SUMMARY
     console.log(redMessage);
-    expect(execSync(`git diff --exit-code -- ${GENERATOR_PATH}`).toString()).toBe('');
+    // No write happened — the generator was never touched on disk.
     expect(readGeneratorTextValue()).toBe('0.5');
   });
 
   it('S3 RED: a renderer that emits String(number) instead of the source text silently drops a ' +
-    'trailing zero — proving the guard is character-level, not numeric; reverted, the tree is clean', async () => {
-    const originalGenerator = readFileSync(GENERATOR_PATH, 'utf8');
+    'trailing zero — proving the guard is character-level, not numeric; run against a mkdtemp scratch ' +
+    'copy, never a repo path', async () => {
+    // Combined seeded edit, applied to the SCRATCH COPY only (never committed, never touching the
+    // real repo file): (a) the source text gains a trailing zero, (b) the module-load round-trip
+    // assert is removed FOR THIS SCRATCH COPY ONLY — a real trailing-zero text is legitimate source
+    // text; only the load-bearing round-trip assert (Task 1) would reject it, and this seed exists
+    // to test the RENDERER's own behaviour, not that assert — and (c) the Chosen-constants render
+    // call site switches from the source-text constant to the plain numeric constant
+    // (String(number) via template-literal coercion), the exact anti-pattern 33-14's
+    // ship-from-artifact precedent warns against.
+    const mod = await runEditedGeneratorInScratchCopy((originalGenerator) => {
+      let edited = originalGenerator.replace(
+        "export const DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT = '0.5';",
+        "export const DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT = '0.50';"
+      );
+      expect(edited).not.toBe(originalGenerator);
+      const beforeAssertStrip = edited;
+      edited = edited.replace(
+        /assert\(\s*String\(DECLARED_STATIONARY_MAX_SPEED_MPS\)[\s\S]*?\n\);\n/,
+        '// [S3 seeded edit, scratch-copy only] round-trip assert removed for this RED demonstration only\n'
+      );
+      expect(edited).not.toBe(beforeAssertStrip);
+      const beforeRenderEdit = edited;
+      edited = edited.replace(
+        'lines.push(`STATIONARY_MAX_SPEED_MPS = ${DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT}`);',
+        'lines.push(`STATIONARY_MAX_SPEED_MPS = ${DECLARED_STATIONARY_MAX_SPEED_MPS}`);'
+      );
+      expect(edited).not.toBe(beforeRenderEdit);
+      return edited;
+    });
 
-    // Combined seeded edit, transient only (never committed): (a) the source text gains a trailing
-    // zero, (b) the module-load round-trip assert is removed FOR THIS TRANSIENT COPY ONLY — a real
-    // trailing-zero text is legitimate source text; only the load-bearing round-trip assert (Task 1)
-    // would reject it, and this seed exists to test the RENDERER's own behaviour, not that assert —
-    // and (c) the Chosen-constants render call site switches from the source-text constant to the
-    // plain numeric constant (String(number) via template-literal coercion), the exact anti-pattern
-    // 33-14's ship-from-artifact precedent warns against.
-    let edited = originalGenerator.replace(
-      "export const DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT = '0.5';",
-      "export const DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT = '0.50';"
-    );
-    expect(edited).not.toBe(originalGenerator);
-    const beforeAssertStrip = edited;
-    edited = edited.replace(
-      /assert\(\s*String\(DECLARED_STATIONARY_MAX_SPEED_MPS\)[\s\S]*?\n\);\n/,
-      '// [S3 seeded edit, transient] round-trip assert removed for this RED demonstration only\n'
-    );
-    expect(edited).not.toBe(beforeAssertStrip);
-    const beforeRenderEdit = edited;
-    edited = edited.replace(
-      'lines.push(`STATIONARY_MAX_SPEED_MPS = ${DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT}`);',
-      'lines.push(`STATIONARY_MAX_SPEED_MPS = ${DECLARED_STATIONARY_MAX_SPEED_MPS}`);'
-    );
-    expect(edited).not.toBe(beforeRenderEdit);
+    // The scratch copy's own exported source-text constant is the source of truth here — no need
+    // to re-read any path off disk a second time.
+    expect(mod.DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT).toBe('0.50');
 
-    writeFileSync(GENERATOR_PATH, edited, 'utf8');
+    const result = mod.runCalibration(buildClearArchive(), GATES_PASS_CONTROL_TEXT);
+    const markdown = mod.renderCalibrationMarkdown({ ...result, provenance: {} });
+    const artifactMatch = ARTIFACT_LINE_PATTERN.exec(markdown);
+    const artifactValue = artifactMatch ? artifactMatch[1] : null;
+
     let redMessage = null;
-    try {
-      const generatorSourceText = readGeneratorTextValue(); // '0.50'
-      expect(generatorSourceText).toBe('0.50');
-
-      const mod = await import(`${path.resolve(GENERATOR_PATH)}?seed=${Date.now()}-${Math.random()}`);
-      const result = mod.runCalibration(buildClearArchive(), GATES_PASS_CONTROL_TEXT);
-      const markdown = mod.renderCalibrationMarkdown({ ...result, provenance: {} });
-      const artifactMatch = ARTIFACT_LINE_PATTERN.exec(markdown);
-      const artifactValue = artifactMatch ? artifactMatch[1] : null;
-
-      if (artifactValue !== generatorSourceText) {
-        redMessage =
-          `RED (S3, renderer switched to String(number) on source text '0.50'): rendered artifact ` +
-          `line ('${artifactValue}') !== generator source text ('${generatorSourceText}') — a ` +
-          'String(number) renderer silently drops the trailing zero';
-      }
-    } finally {
-      execSync(`git checkout -- ${GENERATOR_PATH}`);
+    if (artifactValue !== mod.DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT) {
+      redMessage =
+        `RED (S3, renderer switched to String(number) on source text '0.50'): rendered artifact ` +
+        `line ('${artifactValue}') !== generator source text ('${mod.DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT}') — a ` +
+        'String(number) renderer silently drops the trailing zero';
     }
     expect(redMessage).not.toBeNull();
-    // eslint-disable-next-line no-console -- RED evidence, quoted verbatim in the plan 34-13 SUMMARY
+    // eslint-disable-next-line no-console -- RED evidence, quoted verbatim in the plan 34-16 SUMMARY
     console.log(redMessage);
-    expect(execSync(`git diff --exit-code -- ${GENERATOR_PATH}`).toString()).toBe('');
+    // No write happened to any repo path — the scratch copy is removed in `finally` inside
+    // runEditedGeneratorInScratchCopy, and the real, on-disk generator was never opened for writing.
     expect(readGeneratorTextValue()).toBe('0.5');
   });
 
   // ---------------------------------------------------------------------------
   // [D-21, plan 34-14, Task 3] The SAME three seeded edits, this time for WALK_RUN_BOUNDARY_MPS —
-  // each watched failing then reverted via `git checkout --`, never committed, never left dirty.
+  // each watched failing (WR-03, plan 34-16: in memory or in a scratch copy only, never against a
+  // tracked repo path, never reverted via a shelled-out revert command).
   // ---------------------------------------------------------------------------
 
   const BOUNDARY_CONTEXT_LINE_PATTERN = /^DECLARED WALK_RUN_BOUNDARY_MPS = ([0-9.]+)$/m;
@@ -2376,119 +2419,139 @@ describe('provenance chain', () => {
     return match[1];
   }
 
-  it('S1 (WALK_RUN_BOUNDARY_MPS) RED: editing 34-CONTEXT.md\'s D-21 DECLARED line breaks the ' +
-    'context<->generator binding; reverted, the tree is clean', () => {
-    const originalContext = readFileSync(CONTEXT_PATH, 'utf8');
+  it('S1 (WALK_RUN_BOUNDARY_MPS) RED: editing 34-CONTEXT.md\'s D-21 DECLARED line (in memory only) ' +
+    'breaks the context<->generator binding, compared against the real, unedited, on-disk generator', () => {
+    const originalContext = readFileSync(CONTEXT_PATH, 'utf8'); // read-only
     const editedContext = originalContext.replace(
       BOUNDARY_CONTEXT_LINE_PATTERN,
       'DECLARED WALK_RUN_BOUNDARY_MPS = 3.3'
     );
     expect(editedContext).not.toBe(originalContext);
-    writeFileSync(CONTEXT_PATH, editedContext, 'utf8');
+    const seededContextValue = BOUNDARY_CONTEXT_LINE_PATTERN.exec(editedContext)[1];
+    expect(seededContextValue).toBe('3.3');
+
+    const generatorValue = readBoundaryGeneratorTextValue(); // the real, on-disk, unedited generator
     let redMessage = null;
-    try {
-      const contextValue = readBoundaryContextValue();
-      const generatorValue = readBoundaryGeneratorTextValue();
-      expect(contextValue).toBe('3.3');
-      if (generatorValue !== contextValue) {
-        redMessage =
-          `RED (S1 boundary, 34-CONTEXT.md D-21 DECLARED line edited to 3.3): generator source ` +
-          `text ('${generatorValue}') !== 34-CONTEXT.md DECLARED line ('${contextValue}')`;
-      }
-    } finally {
-      execSync(`git checkout -- ${CONTEXT_PATH}`);
+    if (generatorValue !== seededContextValue) {
+      redMessage =
+        `RED (S1 boundary, 34-CONTEXT.md D-21 DECLARED line seeded in memory to 3.3): generator ` +
+        `source text ('${generatorValue}') !== seeded 34-CONTEXT.md DECLARED line ('${seededContextValue}')`;
     }
     expect(redMessage).not.toBeNull();
-    // eslint-disable-next-line no-console -- RED evidence, quoted verbatim in the plan 34-14 SUMMARY
+    // eslint-disable-next-line no-console -- RED evidence, quoted verbatim in the plan 34-16 SUMMARY
     console.log(redMessage);
-    expect(execSync(`git diff --exit-code -- ${CONTEXT_PATH}`).toString()).toBe('');
     expect(readBoundaryContextValue()).toBe('2.2');
   });
 
-  it('S2 (WALK_RUN_BOUNDARY_MPS) RED: editing the generator\'s own source-text constant breaks the ' +
-    'generator<->context binding; reverted, the tree is clean', () => {
-    const originalGenerator = readFileSync(GENERATOR_PATH, 'utf8');
+  it('S2 (WALK_RUN_BOUNDARY_MPS) RED: editing the generator\'s own source-text constant (in memory ' +
+    'only) breaks the generator<->context binding, compared against the real, unedited, on-disk ' +
+    '34-CONTEXT.md', () => {
+    const originalGenerator = readFileSync(GENERATOR_PATH, 'utf8'); // read-only
     const editedGenerator = originalGenerator.replace(
       "export const DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT = '2.2';",
       "export const DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT = '2.3';"
     );
     expect(editedGenerator).not.toBe(originalGenerator);
-    writeFileSync(GENERATOR_PATH, editedGenerator, 'utf8');
+    const seededGeneratorValue = BOUNDARY_GENERATOR_TEXT_LINE_PATTERN.exec(editedGenerator)[1];
+    expect(seededGeneratorValue).toBe('2.3');
+
+    const contextValue = readBoundaryContextValue(); // the real, on-disk, unedited 34-CONTEXT.md
     let redMessage = null;
-    try {
-      const contextValue = readBoundaryContextValue();
-      const generatorValue = readBoundaryGeneratorTextValue();
-      expect(generatorValue).toBe('2.3');
-      if (generatorValue !== contextValue) {
-        redMessage =
-          `RED (S2 boundary, generator DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT edited to '2.3'): ` +
-          `generator source text ('${generatorValue}') !== 34-CONTEXT.md DECLARED line ` +
-          `('${contextValue}')`;
-      }
-    } finally {
-      execSync(`git checkout -- ${GENERATOR_PATH}`);
+    if (seededGeneratorValue !== contextValue) {
+      redMessage =
+        `RED (S2 boundary, generator DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT seeded in memory to '2.3'): ` +
+        `seeded generator source text ('${seededGeneratorValue}') !== 34-CONTEXT.md DECLARED line ` +
+        `('${contextValue}')`;
     }
     expect(redMessage).not.toBeNull();
-    // eslint-disable-next-line no-console -- RED evidence, quoted verbatim in the plan 34-14 SUMMARY
+    // eslint-disable-next-line no-console -- RED evidence, quoted verbatim in the plan 34-16 SUMMARY
     console.log(redMessage);
-    expect(execSync(`git diff --exit-code -- ${GENERATOR_PATH}`).toString()).toBe('');
     expect(readBoundaryGeneratorTextValue()).toBe('2.2');
   });
 
   it('S3 (WALK_RUN_BOUNDARY_MPS) RED: a renderer that emits String(number) instead of the source ' +
-    'text silently drops a trailing zero — proving the guard is character-level, not numeric; ' +
-    'reverted, the tree is clean', async () => {
-    const originalGenerator = readFileSync(GENERATOR_PATH, 'utf8');
+    'text silently drops a trailing zero — proving the guard is character-level, not numeric; run ' +
+    'against a mkdtemp scratch copy, never a repo path', async () => {
+    // Combined seeded edit, applied to the SCRATCH COPY only (never committed, never touching the
+    // real repo file): (a) the source text gains a trailing zero (2.20, which Number()/String()
+    // round-trips back to '2.2', dropping it), (b) the module-load round-trip assert for THIS
+    // constant is removed for this scratch copy only, and (c) the Chosen-constants render call site
+    // for WALK_RUN_BOUNDARY_MPS switches from the source-text constant to the plain numeric constant.
+    const mod = await runEditedGeneratorInScratchCopy((originalGenerator) => {
+      let edited = originalGenerator.replace(
+        "export const DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT = '2.2';",
+        "export const DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT = '2.20';"
+      );
+      expect(edited).not.toBe(originalGenerator);
+      const beforeAssertStrip = edited;
+      edited = edited.replace(
+        /assert\(\s*String\(DECLARED_WALK_RUN_BOUNDARY_MPS\)[\s\S]*?\n\);\n/,
+        '// [S3 boundary seeded edit, scratch-copy only] round-trip assert removed for this RED demonstration only\n'
+      );
+      expect(edited).not.toBe(beforeAssertStrip);
+      const beforeRenderEdit = edited;
+      edited = edited.replace(
+        'lines.push(`WALK_RUN_BOUNDARY_MPS = ${DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT}`);',
+        'lines.push(`WALK_RUN_BOUNDARY_MPS = ${DECLARED_WALK_RUN_BOUNDARY_MPS}`);'
+      );
+      expect(edited).not.toBe(beforeRenderEdit);
+      return edited;
+    });
 
-    // Combined seeded edit, transient only (never committed): (a) the source text gains a trailing
-    // zero (2.20, which Number()/String() round-trips back to '2.2', dropping it), (b) the module-
-    // load round-trip assert for THIS constant is removed for this transient copy only, and (c) the
-    // Chosen-constants render call site for WALK_RUN_BOUNDARY_MPS switches from the source-text
-    // constant to the plain numeric constant.
-    let edited = originalGenerator.replace(
-      "export const DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT = '2.2';",
-      "export const DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT = '2.20';"
-    );
-    expect(edited).not.toBe(originalGenerator);
-    const beforeAssertStrip = edited;
-    edited = edited.replace(
-      /assert\(\s*String\(DECLARED_WALK_RUN_BOUNDARY_MPS\)[\s\S]*?\n\);\n/,
-      '// [S3 boundary seeded edit, transient] round-trip assert removed for this RED demonstration only\n'
-    );
-    expect(edited).not.toBe(beforeAssertStrip);
-    const beforeRenderEdit = edited;
-    edited = edited.replace(
-      'lines.push(`WALK_RUN_BOUNDARY_MPS = ${DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT}`);',
-      'lines.push(`WALK_RUN_BOUNDARY_MPS = ${DECLARED_WALK_RUN_BOUNDARY_MPS}`);'
-    );
-    expect(edited).not.toBe(beforeRenderEdit);
+    expect(mod.DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT).toBe('2.20');
 
-    writeFileSync(GENERATOR_PATH, edited, 'utf8');
+    const result = mod.runCalibration(buildClearArchive(), GATES_PASS_CONTROL_TEXT);
+    const markdown = mod.renderCalibrationMarkdown({ ...result, provenance: {} });
+    const artifactMatch = BOUNDARY_ARTIFACT_LINE_PATTERN.exec(markdown);
+    const artifactValue = artifactMatch ? artifactMatch[1] : null;
+
     let redMessage = null;
-    try {
-      const generatorSourceText = readBoundaryGeneratorTextValue(); // '2.20'
-      expect(generatorSourceText).toBe('2.20');
-
-      const mod = await import(`${path.resolve(GENERATOR_PATH)}?seed=${Date.now()}-${Math.random()}`);
-      const result = mod.runCalibration(buildClearArchive(), GATES_PASS_CONTROL_TEXT);
-      const markdown = mod.renderCalibrationMarkdown({ ...result, provenance: {} });
-      const artifactMatch = BOUNDARY_ARTIFACT_LINE_PATTERN.exec(markdown);
-      const artifactValue = artifactMatch ? artifactMatch[1] : null;
-
-      if (artifactValue !== generatorSourceText) {
-        redMessage =
-          `RED (S3 boundary, renderer switched to String(number) on source text '2.20'): rendered ` +
-          `artifact line ('${artifactValue}') !== generator source text ('${generatorSourceText}') ` +
-          '— a String(number) renderer silently drops the trailing zero';
-      }
-    } finally {
-      execSync(`git checkout -- ${GENERATOR_PATH}`);
+    if (artifactValue !== mod.DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT) {
+      redMessage =
+        `RED (S3 boundary, renderer switched to String(number) on source text '2.20'): rendered ` +
+        `artifact line ('${artifactValue}') !== generator source text ` +
+        `('${mod.DECLARED_WALK_RUN_BOUNDARY_MPS_TEXT}') — a String(number) renderer silently drops the trailing zero`;
     }
     expect(redMessage).not.toBeNull();
-    // eslint-disable-next-line no-console -- RED evidence, quoted verbatim in the plan 34-14 SUMMARY
+    // eslint-disable-next-line no-console -- RED evidence, quoted verbatim in the plan 34-16 SUMMARY
     console.log(redMessage);
-    expect(execSync(`git diff --exit-code -- ${GENERATOR_PATH}`).toString()).toBe('');
+    // No write happened to any repo path.
     expect(readBoundaryGeneratorTextValue()).toBe('2.2');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// WR-03 guard (34-REVIEW.md, plan 34-16): asserts the removed pattern cannot return. Reads this
+// test file's OWN source (`import.meta.url` names this exact file) and bans the child-process
+// version-control-revert call this file used to make, plus any `writeFileSync` call not targeting
+// the mkdtemp-derived scratch path. Self-hygiene (the same problem `pace-single-source.test.ts`'s
+// own docblock names): the banned needles are built from CONCATENATED PARTS below, and this
+// section's own prose avoids spelling either banned phrase out as one contiguous run of
+// characters — otherwise this guard's own explanatory comments would trip it.
+// ---------------------------------------------------------------------------
+
+describe('WR-03 guard: no test in this file writes to, or reverts, a tracked path via a child process', () => {
+  // Built from parts so this guard's own source never contains the banned phrase contiguously.
+  const CHILD_PROCESS_HELPER_NAME = ['exec', 'Sync'].join('');
+  const REVERT_COMMAND_NAME = ['git', 'checkout'].join(' ');
+
+  it('the file contains zero child-process revert-command invocations', () => {
+    const text = readFileSync(new URL(import.meta.url), 'utf8');
+    expect(text).not.toContain(REVERT_COMMAND_NAME);
+  });
+
+  it('the file contains zero child-process helper calls at all — the import itself was removed with the pattern', () => {
+    const text = readFileSync(new URL(import.meta.url), 'utf8');
+    expect(text).not.toContain(CHILD_PROCESS_HELPER_NAME);
+  });
+
+  it('every writeFileSync call site targets a `tmpGeneratorPath`/mkdtemp-derived variable, never CONTEXT_PATH or GENERATOR_PATH directly', () => {
+    const text = readFileSync(new URL(import.meta.url), 'utf8');
+    const writeFileSyncCalls = text.match(/writeFileSync\([^,]+,/g) ?? [];
+    expect(writeFileSyncCalls.length).toBeGreaterThan(0); // reachability — S3 still writes, into the scratch copy
+    for (const call of writeFileSyncCalls) {
+      expect(call, `unexpected writeFileSync target: ${call}`).toMatch(/tmpGeneratorPath,$/);
+    }
   });
 });
 
