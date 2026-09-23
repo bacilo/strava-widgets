@@ -323,6 +323,65 @@ DECLARED WALK_RUN_BOUNDARY_MPS = 2.2
     are reported as findings, never pinned as expected values. D-12's own gate on the first
     control is NOT weakened.
 
+### Covered-creep merge semantics, after the 34-11 checkpoint (added 2026-09-23)
+
+- **D-22 (2026-09-23):** **A covered-creep stretch is the MAXIMAL UNION of overlapping qualifying
+  windows, reported once, with the union's own seconds and metres. The union's own aggregate speed
+  is a disclosed property, not a guarantee.**
+  - *What happened.* Plan 34-11's browser checkpoint passed all nine rows but exposed a STOP-01
+    defect. On 6286234101 production emitted two OVERLAPPING covered-creep stretches — 5866–5915
+    (49 s, 21.7 m) and 5877–5922 (45 s, 19.7 m) — overlapping on [5877, 5915], so 38 s was counted
+    twice. The index row read `count 3, totalSec 171, longestSec 77` where the union truth is
+    `count 2, totalSec 133, longestSec 77`, and the detail view rendered both rows to the reader.
+    STOP-01's amended text is specifically about per-source count, total seconds and longest
+    stretch, so the shipped numbers were wrong.
+  - *How it survived.* Every in-repo test agreed with itself; the independent zero-import scan
+    (`compute-walking-break-evidence.mjs --scan`) disagreed. This is the project's
+    "guards must assert against an independent value" lesson, repeated.
+  - *Why the two tools disagreed.* They encode different rules, and neither was written down as
+    the requirement. `localCreepWindows` (the scan) unions qualifying windows by index overlap and
+    never re-checks the union. `findCreepStretches` (production, after plan 34-06's own
+    merge-boundary fix) refuses to merge when the union's aggregate would exceed the bound — and
+    then emitted the unmerged window anyway, overlapping the previous one. The first fix addressed
+    stretches whose union exceeded the bound; it did not address stretches that overlap at
+    different start offsets, and its chosen resolution created the double count.
+  - *Decision: union semantics (the scan's), stated once and for all.*
+    - Two qualifying windows that SHARE at least one sample index (overlapping, or one contained
+      in the other) merge into a single stretch spanning `[min start, max end]`.
+    - Sharing only the boundary sample counts as overlap and merges: one window ending at sample
+      k and the next starting at sample k are one stretch.
+    - Two qualifying windows that share NO sample index stay separate, however close in time.
+      Adjacency alone never merges, because the samples between them are not covered by any
+      qualifying window and the time would otherwise be reported as standstill without evidence.
+    - Each reported stretch carries the union's own `seconds` and `metres`, so per-source count,
+      total seconds and longest stretch are a partition of time with no double counting — which is
+      what STOP-01 asks for.
+    - Every CONSTITUENT window satisfies `metres / seconds <= stationaryMaxMps`. The UNION's own
+      aggregate may exceed it, because a union of individually-bounded windows is not itself
+      bounded. On 6286234101 the union runs at roughly 0.64 m/s against a 0.5 m/s bound.
+  - *What this retires.* Plan 34-06's stronger claim — that every RETURNED stretch's own
+    metres/seconds stays within `maxSpeedMps` — is retired, along with the "definitional tripwire"
+    reading of the walking-break control test and the same clause in STOP-02 and ROADMAP criterion
+    4 (both amended 2026-09-23). The honest property is the constituent one above, and the union's
+    aggregate speed is disclosed rather than asserted.
+  - *What is unchanged.* The flag still marks timer-running standstills and still never corrects
+    anything (D-09, D-11). The independent primary assertion from D-21 still holds and still
+    binds: every flagged stretch on a confirmed walking control sits strictly BELOW that control's
+    own window aggregate speed, parsed rather than pinned — 0.64 m/s against 1.264 m/s on this
+    activity. The D-12 anchor gate is untouched: both of 6286234101's creep windows lie outside
+    the gated control window, before and after this fix.
+  - *Scope of the oracle.* The scan is an independent oracle, not a second implementation of the
+    same rule: it scans the whole stream under its own local-gap rule, while production is
+    restricted to covered runs. The two are expected to agree on activities where coverage does
+    not intervene, and any archive-wide disagreement is a finding to explain in the plan's summary,
+    never something to tune away.
+  - *Disclosure gap fixed at the same time.* The Quality Signals Pauses summary row omitted
+    `pauseClassification.notClassifiableCount`, so 3475740390 read "5 intervals: 0 stationary, 5
+    walked, 0 ran through, 0 transported" beside an undisclosed 5 not-classifiable isolated-jump
+    segments. The Pauses SECTION correctly omits the jumps (D-01, human-verified at the
+    checkpoint); the summary row must SAY they are not-classifiable rather than leaving them out,
+    since "not-classifiable" is not "none" (D-01, and D-10's own reasoning for not-computable).
+
 ### Claude's Discretion
 
 - Field names and shapes for the index summary key and the shard's per-interval list (additive
