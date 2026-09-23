@@ -1312,6 +1312,94 @@ describe('Pauses summary row (Phase 34, PAUSE-02, STOP-01, STOP-03, D-09, D-10, 
     expect(row.valueText).not.toContain('intervals:');
     expect(row.valueText).not.toContain('none found');
   });
+
+  // -------------------------------------------------------------------------
+  // notClassifiableCount disclosure (D-01, D-14, D-22's closing bullet,
+  // plan 34-15) — "not-classifiable" is not "none": an isolated-jump or
+  // hidden-pause segment is disclosed with its count and mechanism label,
+  // never silently dropped from the row a reader sees.
+  // -------------------------------------------------------------------------
+
+  it('notClassifiableCount > 0 (3475740390\'s own shape: 5 classified intervals, 5 not-classifiable) discloses the count and mechanism label in the SAME classification clause, and the row reads coherently as a whole: classified counts, then the not-classifiable disclosure, then the forgotten-stop clause', () => {
+    const quality: ActivityQualitySignals = {
+      ...HEALTHY_QUALITY,
+      pauseClassification: {
+        intervalCount: 5,
+        stationaryCount: 0,
+        walkedCount: 5,
+        ranThroughCount: 0,
+        transportedCount: 0,
+        notClassifiableCount: 5,
+      },
+    };
+    const row = qualitySignalsSectionPlan(quality, null).rows[9];
+    expect(row.valueText).toContain(
+      '5 intervals: 0 stationary, 5 walked, 0 ran through, 0 transported (5 not-classifiable: isolated-jump/hidden-pause)'
+    );
+    // Never "none" for a genuinely non-classifiable count, and never silently omitted (D-01).
+    expect(row.valueText).not.toMatch(/not-classifiable: none/);
+    // Whole-row coherence: classification clause (with its not-classifiable disclosure) precedes
+    // the forgotten-stop clause.
+    const classificationIdx = row.valueText.indexOf('not-classifiable');
+    const forgottenStopIdx = row.valueText.indexOf('possible forgotten stop');
+    expect(classificationIdx).toBeGreaterThan(-1);
+    expect(forgottenStopIdx).toBeGreaterThan(classificationIdx);
+  });
+
+  it('notClassifiableCount === 0 adds NO not-classifiable clause at all — a clean row stays clean', () => {
+    const row = qualitySignalsSectionPlan(HEALTHY_QUALITY, null).rows[9]; // HEALTHY_QUALITY's own notClassifiableCount is 0
+    expect(row.valueText).not.toContain('not-classifiable');
+  });
+
+  it('notClassifiableCount === null (a stale index.json row predating this field, CR-01) renders exactly as it did before this disclosure existed: no crash, no invented zero, no not-classifiable clause', () => {
+    const quality: ActivityQualitySignals = {
+      ...HEALTHY_QUALITY,
+      pauseClassification: {
+        intervalCount: 4,
+        stationaryCount: 1,
+        walkedCount: 2,
+        ranThroughCount: 1,
+        transportedCount: 0,
+        notClassifiableCount: null,
+      },
+    };
+    expect(() => qualitySignalsSectionPlan(quality, null)).not.toThrow();
+    const row = qualitySignalsSectionPlan(quality, null).rows[9];
+    expect(row.valueText).toContain('4 intervals: 1 stationary, 2 walked, 1 ran through, 0 transported');
+    expect(row.valueText).not.toContain('not-classifiable');
+    expect(row.valueText).not.toMatch(/undefined|NaN/);
+  });
+
+  it('the not-computable forgotten-stop clause (D-10) is unchanged by this disclosure and still reads "not computable — {reason}", distinct from the not-classifiable clause', () => {
+    const reason = 'distance-triggered recording: a standstill would be written as a recording gap, not a covered creep';
+    const quality: ActivityQualitySignals = {
+      ...HEALTHY_QUALITY,
+      pauseClassification: {
+        intervalCount: 5,
+        stationaryCount: 0,
+        walkedCount: 5,
+        ranThroughCount: 0,
+        transportedCount: 0,
+        notClassifiableCount: 5,
+      },
+      forgottenStop: {
+        computable: false,
+        reason,
+        count: null,
+        totalSec: null,
+        longestSec: null,
+        creepCount: null,
+        creepTotalSec: null,
+        creepLongestSec: null,
+        pauseCount: null,
+        pauseTotalSec: null,
+        pauseLongestSec: null,
+      },
+    };
+    const row = qualitySignalsSectionPlan(quality, null).rows[9];
+    expect(row.valueText).toContain('(5 not-classifiable: isolated-jump/hidden-pause)');
+    expect(row.valueText).toContain(`possible forgotten stop: not computable — ${reason}`);
+  });
 });
 
 // ---------------------------------------------------------------------------

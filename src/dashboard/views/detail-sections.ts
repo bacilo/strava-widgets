@@ -1538,7 +1538,16 @@ function forgottenStopStretchesText(signal: ForgottenStopSignal): string {
  * `elevationBadgeContent`'s own multi-clause join in `list.ts`):
  *   - the classification clause reads the class counts when
  *     `pc.intervalCount !== null`, or an explicit not-computable statement
- *     otherwise (T-26-02: never a fabricated `0 intervals`);
+ *     otherwise (T-26-02: never a fabricated `0 intervals`); when
+ *     `pc.notClassifiableCount` is a positive number, the SAME clause
+ *     discloses it as its own trailing parenthetical (D-01, D-22's closing
+ *     bullet: "not-classifiable" is not "none", and must never be silently
+ *     dropped — `hidden-pause`/`isolated-jump` segments keep only their
+ *     Phase 32 mechanism label, never a speed class). `notClassifiableCount
+ *     === 0` adds no clause at all (a clean row stays clean); `=== null`
+ *     (a stale `index.json` row predating this field, CR-01) also adds no
+ *     clause — T-26-02: never an invented zero, and the row otherwise reads
+ *     exactly as it did before this disclosure existed;
  *   - the forgotten-stop clause (D-10) reads "none found" for a genuine
  *     zero-stretch computable result, the full itemised figures for a
  *     non-zero one, or "not computable — {reason}" when `fs.computable` is
@@ -1561,11 +1570,16 @@ function pausesSummaryRow(
 ): QualitySignalRow {
   const fallbackReason = notComputableReason ?? 'not computed for this activity';
 
+  const notClassifiableClause =
+    pc.notClassifiableCount !== null && pc.notClassifiableCount > 0
+      ? ` (${pc.notClassifiableCount} not-classifiable: isolated-jump/hidden-pause)`
+      : '';
+
   const classificationText =
     pc.intervalCount === null
       ? `pause classification not computable — ${fallbackReason}`
       : `${pc.intervalCount} intervals: ${pc.stationaryCount ?? 0} stationary, ${pc.walkedCount ?? 0} walked, ` +
-        `${pc.ranThroughCount ?? 0} ran through, ${pc.transportedCount ?? 0} transported`;
+        `${pc.ranThroughCount ?? 0} ran through, ${pc.transportedCount ?? 0} transported${notClassifiableClause}`;
 
   let forgottenStopText: string;
   if (!fs.computable) {
