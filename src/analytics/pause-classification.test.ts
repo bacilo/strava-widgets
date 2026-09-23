@@ -280,6 +280,28 @@ describe('collectPauseIntervals', () => {
     }
   });
 
+  it("WR-05: a merged-segment whose startIndex does not address the stream is dropped and counted as a joinViolation, never emitting startMetres: undefined", () => {
+    const t = [0, 10, 20];
+    const d = [0, 5, 10];
+    const coverage: PaceCoverage = {
+      spanSec: 20,
+      coveredSec: 0,
+      recordingGapSec: 0,
+      pauseSec: 0,
+      unreliableSec: 20,
+      gapIntervals: [{ startSec: 0, endSec: 20, kind: 'unreliable' }],
+    };
+    // startIndex 999 does not address this 3-sample stream — every other boundary lookup in this
+    // file (`intervalFromGapInterval`) would count this as a join violation rather than emit
+    // `undefined`; this branch bypassed that until WR-05's fix.
+    const segment = buildSegment(0, 20, 'gap-adjacent', 999, 1000);
+    const result = collectPauseIntervals(t, d, coverage, [segment]);
+
+    expect(result.intervals.some((iv) => iv.source === 'merged-segment')).toBe(false);
+    expect(result.intervals.every((iv) => Number.isFinite(iv.startMetres))).toBe(true);
+    expect(result.joinViolations).toBe(1);
+  });
+
   it('is total: null t/d, mismatched lengths and null coverage return the empty result rather than throwing', () => {
     expect(() => collectPauseIntervals(null as unknown as number[], [1, 2], null as unknown as PaceCoverage, [])).not.toThrow();
     expect(collectPauseIntervals(null as unknown as number[], [1, 2], null as unknown as PaceCoverage, [])).toEqual({
@@ -648,6 +670,42 @@ describe('findCreepStretches', () => {
     for (let i = 1; i < stretches.length; i++) {
       expect(stretches[i].startSec).toBeGreaterThanOrEqual(stretches[i - 1].endSec);
     }
+  });
+
+  // -------------------------------------------------------------------------
+  // CR-02 (34-REVIEW.md, plan 34-16): a `t`/`d` length mismatch, or a
+  // non-finite `seconds`/`metres` inside an otherwise well-formed pair, must
+  // never fabricate a plausible-looking creep stretch. `NaN > max` is
+  // `false`, so a bare `>` comparison ACCEPTS a corrupted window — reproduced
+  // synthetically here (the reviewer's own repro used `t.length 200`,
+  // `d.length 60`; this is the same defect class at unit-test scale).
+  // -------------------------------------------------------------------------
+
+  it('CR-02: a t/d length mismatch returns [] rather than fabricating a NaN-metres stretch', () => {
+    const t = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    const d = [0, 0, 0, 0, 0]; // shorter than t — the module docblock's own named malformed-input class
+    const coveredRuns: CoveredRun[] = [{ startIndex: 0, endIndex: 9 }];
+
+    // Pre-fix, this run would read `d[j]` out of bounds (`undefined`), so `metres` is `NaN` and
+    // `NaN > 0.5` is `false` — every window "qualifies", fabricating a 179 s-style stretch with
+    // `metres: NaN`. Watched RED against the pre-fix code (no length-mismatch guard): the assertion
+    // below failed with a returned stretch carrying `metres: NaN`.
+    const stretches = findCreepStretches(t, d, coveredRuns, 0.5, 3);
+    expect(stretches).toEqual([]);
+  });
+
+  it('CR-02: a non-finite metres/seconds inside an otherwise length-matched t/d is rejected explicitly, never accepted by a bare NaN > max comparison', () => {
+    // The only window that would qualify at this bound (0.5 m/s) is the corrupted [0,2] window,
+    // whose metres is NaN (a NaN sample at index 2) — `NaN > 0.5` is `false`, so a bare `>`
+    // comparison would wrongly ACCEPT it. Every OTHER window in this run is a genuine 100 m/s burst
+    // that correctly fails the bound on its own, so if the guard were absent this would return one
+    // bogus NaN-metres stretch instead of [].
+    const t = [0, 1, 2, 3];
+    const d = [0, 100, NaN, 300];
+    const coveredRuns: CoveredRun[] = [{ startIndex: 0, endIndex: 3 }];
+
+    const stretches = findCreepStretches(t, d, coveredRuns, 0.5, 2);
+    expect(stretches).toEqual([]);
   });
 
   it('is total: null t/d/coveredRuns returns [] rather than throwing', () => {

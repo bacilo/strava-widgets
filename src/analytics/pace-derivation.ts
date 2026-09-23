@@ -306,8 +306,16 @@ type PairKind = GapKind | 'covered';
  * `t` or `d` is checked FIRST, before `validateStreamSeries` is called at
  * all (34-03 Task 1) — `validateStreamSeries` itself reads `t.length`
  * unconditionally and would throw a raw `TypeError` on `null`, which is the
- * one gap T-26-01's "never throws" guarantee had against a `null`-shaped
- * (as opposed to merely malformed-array-shaped) input.
+ * one gap T-26-01's "never throws" guarantee had AT THIS CALL SITE (IN-04,
+ * 2026-09-23) against a `null`-shaped (as opposed to merely
+ * malformed-array-shaped) input. `validateStreamSeries`'s other nine call
+ * sites (`pace-derivation.ts:784,937`; `pace-quality.ts:1013,1342,1433,
+ * 1576,1816,2151`) retain the identical gap — no Phase 34 entry point
+ * reaches them with `null`, so this is scoped documentation, not a claim
+ * the gap is closed everywhere; see
+ * `.planning/todos/pending/2026-09-23-validate-stream-series-null-safety-at-source.md`
+ * for the deferred fix that closes all ten call sites at once, at the
+ * shared util itself.
  *
  * Classification is by STRICT PRIORITY, never as two independent overlapping
  * checks (26-RESEARCH.md Pitfall 3 — independent checks can double-count a

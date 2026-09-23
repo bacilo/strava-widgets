@@ -27,6 +27,7 @@ import type { CanonicalStream } from '../streams/stream.types.js';
 import {
   classifyForgottenStop,
   classifyPauses,
+  classifyPauseSpeed,
   SHIPPED_PAUSE_BANDS,
   SHIPPED_STOP_PARAMS,
 } from './pause-classification.js';
@@ -205,7 +206,10 @@ export interface ElapsedVsMovingSignal {
  * covers `hidden-pause`/`isolated-jump` segments (D-01) — counted here, never
  * classified, never listed. Covered-creep stretches are NOT counted here —
  * they belong to `ForgottenStopSignal` below (D-09's own itemisation), never
- * double-counted between the two signals.
+ * double-counted between the two signals FOR THE COVERED-CREEP SOURCE (IN-08,
+ * 2026-09-23): zero-advance pauses deliberately appear in BOTH signals —
+ * `stationaryCount` here, `pauseCount` there — that overlap is D-09's own
+ * itemisation, not a violation of this sentence.
  *
  * UNTIERED BY DESIGN (D-11): no `tier` field at all — not "a tier we chose
  * not to compute", but a field this type structurally does not have. This is
@@ -1936,9 +1940,12 @@ export interface PaceQualityShard {
    * did for the unreliable-segments shard). Membership (D-15): recording
    * gaps, gap-adjacent merged segments and zero-advance pauses (each with
    * its classified `pauseClass`), PLUS covered-creep stretches marked
-   * `source: 'covered-creep'` and `pauseClass: 'stationary'`. Isolated-jump
-   * and hidden-pause segments are NEVER in this list (D-01) — they stay only
-   * in the Unreliable Segments row/list. Sorted by `startSec`.
+   * `source: 'covered-creep'`, classified from the UNION's own metres/seconds
+   * via `classifyPauseSpeed` (D-22, WR-01: a union of individually-bounded
+   * windows is not itself bounded, so the class is measured from the same
+   * figures this row renders, never hard-coded to `'stationary'`).
+   * Isolated-jump and hidden-pause segments are NEVER in this list (D-01) —
+   * they stay only in the Unreliable Segments row/list. Sorted by `startSec`.
    */
   pauseIntervals: {
     source: PauseSource;
@@ -2059,14 +2066,17 @@ export function projectUnreliableSegments(
  *
  * Merges the classifier's own classified intervals with the forgotten-stop
  * core's covered-creep stretches (D-15's two named sources beyond the
- * classifier alone), gives every creep entry `pauseClass: 'stationary'`
- * (creep is a near-zero-speed stretch BY CONSTRUCTION — `findCreepStretches`
- * only ever returns windows at or under the stationary bound) and
- * `source: 'covered-creep'` (already true on every `PauseInterval` `creep`
- * carries, per `pause-classification.ts`'s own `findCreepStretches`), sorts
- * the merged list by `startSec`, and caps at 100 — same cap as
- * `impossibleSamples`/`unreliableSegments`. `truncated` compares the full
- * merged count against the capped length.
+ * classifier alone). WR-01/D-22 (2026-09-23): every creep entry's
+ * `pauseClass` is classified from the union's OWN `metres`/`seconds` via
+ * `classifyPauseSpeed`/`SHIPPED_PAUSE_BANDS`, never hard-coded — a union of
+ * individually-bounded windows is not itself bounded in general (D-22), so
+ * the class is measured from the same disclosed figures this row renders,
+ * and the forgotten-stop marker on the row (not the class) is what makes it
+ * a standstill disclosure. `source: 'covered-creep'` is already true on
+ * every `PauseInterval` `creep` carries, per `pause-classification.ts`'s own
+ * `findCreepStretches`. Sorts the merged list by `startSec`, and caps at
+ * 100 — same cap as `impossibleSamples`/`unreliableSegments`. `truncated`
+ * compares the full merged count against the capped length.
  */
 export function projectPauseIntervals(
   classified: readonly ClassifiedPauseInterval[],
@@ -2087,7 +2097,13 @@ export function projectPauseIntervals(
   for (const iv of creep) {
     merged.push({
       source: 'covered-creep',
-      pauseClass: 'stationary',
+      // WR-01/D-22: a union of individually-bounded windows is NOT itself
+      // bounded. Classify from the union's OWN metres/seconds — the same
+      // disclosed numbers this row renders — never a hard-coded class. The
+      // `?? 'stationary'` fallback is defensive (structurally unreachable in
+      // practice, since `findCreepStretches` only ever emits `seconds > 0`
+      // windows): "no motion inferred" is the safest total-function default.
+      pauseClass: classifyPauseSpeed(iv.metres, iv.seconds, SHIPPED_PAUSE_BANDS) ?? 'stationary',
       startSec: iv.startSec,
       endSec: iv.endSec,
       seconds: iv.seconds,

@@ -1520,14 +1520,28 @@ describe('projectPauseIntervals — D-15 parts-free, capped shard projection (Ph
     });
   });
 
-  it('a covered-creep interval always projects with source "covered-creep" and pauseClass "stationary"', () => {
-    const creep = fakeCreepInterval({ startSec: 5, endSec: 47, seconds: 42, metres: 3, startMetres: 200 });
+  it('a covered-creep interval always projects with source "covered-creep", and pauseClass "stationary" when the union\'s own speed sits within the stationary bound', () => {
+    const creep = fakeCreepInterval({ startSec: 5, endSec: 47, seconds: 42, metres: 3, startMetres: 200 }); // ~0.071 m/s
     const result = projectPauseIntervals([], [creep]);
     expect(result.entries).toHaveLength(1);
     expect(result.entries[0].source).toBe('covered-creep');
     expect(result.entries[0].pauseClass).toBe('stationary');
     expect(result.entries[0].startSec).toBe(5);
     expect(result.entries[0].endSec).toBe(47);
+  });
+
+  it("WR-01/D-22: a covered-creep union whose OWN speed exceeds the stationary bound projects the class its own numbers give, never a hard-coded 'stationary'", () => {
+    // 10 m / 10 s = 1.0 m/s — above SHIPPED_PAUSE_BANDS.stationaryMaxMps (0.5), within
+    // walkRunMps (2.2), so classifyPauseSpeed gives 'walked'. A hard-coded 'stationary' would
+    // contradict the Duration/Distance cells rendered beside this exact row.
+    const fastCreep = fakeCreepInterval({ startSec: 0, endSec: 10, seconds: 10, metres: 10, startMetres: 0 });
+    const slowCreep = fakeCreepInterval({ startSec: 20, endSec: 30, seconds: 10, metres: 1, startMetres: 100 }); // 0.1 m/s
+    const result = projectPauseIntervals([], [fastCreep, slowCreep]);
+
+    const fast = result.entries.find((e) => e.startSec === 0);
+    const slow = result.entries.find((e) => e.startSec === 20);
+    expect(fast?.pauseClass).toBe('walked');
+    expect(slow?.pauseClass).toBe('stationary');
   });
 
   it('merges both sources and sorts the combined list by startSec', () => {

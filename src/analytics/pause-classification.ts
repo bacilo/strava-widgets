@@ -385,13 +385,24 @@ export function collectPauseIntervals(
   );
   joinViolations += violations;
   for (const seg of gapAdjacent) {
+    // WR-05: every other boundary lookup in this file routes through
+    // `intervalFromGapInterval`, which counts a failed lookup as a
+    // `joinViolation` rather than emitting `undefined`. This branch bypassed
+    // that — an out-of-range `seg.startIndex` produced `startMetres:
+    // undefined` (typed `number`, silently dropped by `JSON.stringify`).
+    // Validate the same way every sibling path does.
+    const startMetres = d[seg.startIndex];
+    if (!Number.isFinite(startMetres)) {
+      joinViolations++; // a segment whose startIndex does not address this stream
+      continue;
+    }
     intervals.push({
       source: 'merged-segment',
       startSec: seg.startSec,
       endSec: seg.endSec,
       seconds: seg.seconds,
       metres: seg.metres,
-      startMetres: d[seg.startIndex],
+      startMetres,
     });
   }
 
@@ -590,18 +601,36 @@ export function recordingMechanismSignature(
  * joined; plan 34-06's original merge-boundary fix discovered this, then
  * plan 34-11's browser checkpoint found that FIX itself double-counted
  * overlapping stretches by starting a second, overlapping stretch whenever
- * a union would have exceeded the bound — see 34-CONTEXT.md D-22). This
- * shape mirrors `scripts/compute-walking-break-evidence.mjs`'s independent
- * `localCreepWindows` oracle exactly: collect every qualifying window
- * first, then merge by index overlap in one pass, so per-source count,
- * total seconds and longest stretch are a true partition of standstill
- * time with no double counting — what STOP-01 asks for.
+ * a union would have exceeded the bound — see 34-CONTEXT.md D-22).
+ *
+ * WR-04 (2026-09-23, plan 34-16): this shape mirrors
+ * `scripts/compute-walking-break-evidence.mjs`'s independent
+ * `localCreepWindows` oracle in its MERGE step exactly — collect every
+ * qualifying window first, then merge by index overlap in one pass, so
+ * per-source count, total seconds and longest stretch are a true partition
+ * of standstill time with no double counting (what STOP-01 asks for). Its
+ * ADMISSIBILITY step differs by construction and MUST: this function runs
+ * inside each `CoveredRun`, so a zero-advance pause pair always breaks a
+ * window; the oracle, which may not import this detector (D-18), approximates
+ * that with a local `dt > 10 s` gap test and therefore ADMITS pause-interior
+ * samples this function excludes. On a stream with a pause run longer than
+ * `minSec`, the oracle reports a creep window this function does not — a
+ * known definitional gap, never a production defect (34-15's archive-wide
+ * reconciliation found and structurally explained all 13 such disagreements
+ * on the current archive). Quote the oracle as an expected value only for a
+ * window containing no `'pause'`-kind `gapIntervals` entry (34-VALIDATION.md
+ * states this procedure beside the rows that quote it).
  *
  * RETIRED (plan 34-06, superseded by D-22): "every RETURNED stretch's own
  * `metres / seconds` is `<= maxSpeedMps`" — false in general; the UNION's
  * own aggregate speed may exceed the bound even though every window that
- * built it does not (disclosed, not asserted). Total: `null`/`undefined`
- * input returns `[]`.
+ * built it does not (disclosed, not asserted).
+ *
+ * CR-02 (2026-09-23, plan 34-16): total — `null`/`undefined` input or a
+ * `t`/`d` length mismatch (the module docblock's own named malformed-input
+ * class) returns `[]`; a non-finite `seconds`/`metres` inside an otherwise
+ * well-formed window is rejected explicitly, never accepted by a bare
+ * `NaN > max` comparison (which is `false`).
  */
 export function findCreepStretches(
   t: readonly number[],
@@ -611,13 +640,17 @@ export function findCreepStretches(
   minSec: number
 ): PauseInterval[] {
   if (t == null || d == null || coveredRuns == null) return [];
+  // CR-02: the module docblock's own named malformed-input class — a length
+  // mismatch is never accepted here, matching `collectPauseIntervals`' own
+  // guard above.
+  if (t.length !== d.length) return [];
 
   const result: PauseInterval[] = [];
 
   for (const run of coveredRuns) {
     const runStart = run.startIndex;
     const runEnd = run.endIndex;
-    if (runEnd <= runStart || runEnd >= t.length || runStart < 0) continue;
+    if (runEnd <= runStart || runEnd >= t.length || runEnd >= d.length || runStart < 0) continue;
 
     // Pass 1: collect every window that independently qualifies (D-22's constituent bound).
     const qualifying: { startIdx: number; endIdx: number }[] = [];
@@ -629,6 +662,12 @@ export function findCreepStretches(
 
       const seconds = t[j] - t[i];
       const metres = d[j] - d[i];
+      // CR-02: reject non-finite explicitly. `NaN > max` is `false`, so a
+      // bare `>` comparison ACCEPTS a corrupted window rather than
+      // rejecting it — this is the load-bearing half of the fix, since it
+      // also closes the same hole for a NaN inside an otherwise
+      // length-matched `t`/`d`.
+      if (!Number.isFinite(seconds) || !Number.isFinite(metres)) continue;
       if (seconds <= 0 || metres / seconds > maxSpeedMps) continue;
 
       qualifying.push({ startIdx: i, endIdx: j });
