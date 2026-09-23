@@ -640,7 +640,11 @@ describe('parsePaceQualityShard', () => {
       });
     });
 
-    it('pauseClassification fields carrying NaN or Infinity parse to null, never a non-finite number', () => {
+    // WR-02 (34-REVIEW.md, plan 34-16): PRESENT-but-unparseable numeric fields
+    // (NaN, Infinity, a wrong type) now invalidate the WHOLE signal — the
+    // fallback is the named all-null literal, never a partially-trusted
+    // shape whose rendered counts silently fail to sum to intervalCount.
+    it('a PRESENT but non-finite/wrong-typed numeric field invalidates the WHOLE pauseClassification signal, degrading to the all-null fallback — never a per-field-tolerant partial parse', () => {
       const doc = {
         ...validShard,
         signals: {
@@ -652,13 +656,44 @@ describe('parsePaceQualityShard', () => {
           },
         },
       };
+      // Watched RED first against the pre-fix parser: it returned
+      // { intervalCount: 4, stationaryCount: 0, walkedCount: null,
+      //   ranThroughCount: null, transportedCount: 0, notClassifiableCount: 2 } —
+      // `0 + null + null + 0` summing wrong against the disclosed `intervalCount: 4`
+      // (the WR-02 finding's exact reproduction shape).
       const result = parsePaceQualityShard(doc);
       expect(result).not.toBeNull();
-      expect(result?.signals.pauseClassification.walkedCount).toBeNull();
-      expect(result?.signals.pauseClassification.ranThroughCount).toBeNull();
+      expect(result?.signals.pauseClassification).toEqual({
+        intervalCount: null,
+        stationaryCount: null,
+        walkedCount: null,
+        ranThroughCount: null,
+        transportedCount: null,
+        notClassifiableCount: null,
+      });
+    });
+
+    it('a present-but-string count (the reviewer\'s own repro shape: stationaryCount as a string) invalidates the whole signal', () => {
+      const doc = {
+        ...validShard,
+        signals: {
+          ...validShard.signals,
+          pauseClassification: { ...validShard.signals.pauseClassification, stationaryCount: 'x' },
+        },
+      };
+      const result = parsePaceQualityShard(doc);
+      expect(result?.signals.pauseClassification.intervalCount).toBeNull();
+    });
+
+    it('a genuinely ABSENT field (undefined, not present in the raw object) does NOT by itself invalidate the signal — matching every sibling all-or-nothing parser\'s distinction between "malformed" and "missing"', () => {
+      const raw = { ...validShard.signals.pauseClassification } as Record<string, unknown>;
+      delete raw.notClassifiableCount;
+      const doc = { ...validShard, signals: { ...validShard.signals, pauseClassification: raw } };
+      const result = parsePaceQualityShard(doc);
       expect(result?.signals.pauseClassification.intervalCount).toBe(
         validShard.signals.pauseClassification.intervalCount
       );
+      expect(result?.signals.pauseClassification.notClassifiableCount).toBeNull();
     });
   });
 
@@ -741,7 +776,13 @@ describe('parsePaceQualityShard', () => {
       expect(parsePaceQualityShard(badReason)?.signals.forgottenStop.count).toBeNull();
     });
 
-    it('forgottenStop numeric fields carrying NaN or Infinity parse to null, never a non-finite number', () => {
+    // CR-01 (34-REVIEW.md, plan 34-16): on the `computable: true` branch, a
+    // PRESENT but non-finite/wrong-typed numeric field now invalidates the
+    // WHOLE signal — `computable: true` means every figure was measured, so
+    // a null/corrupted field there is a malformed document, never a
+    // measured absence. `computable: false` is UNCHANGED (every field
+    // legitimately reads null there).
+    it('a computable:true forgottenStop with a PRESENT but non-finite numeric field invalidates the WHOLE signal, degrading to the named not-computable fallback — never a partially-trusted computable:true shape', () => {
       const doc = {
         ...validShard,
         signals: {
@@ -755,9 +796,73 @@ describe('parsePaceQualityShard', () => {
       };
       const result = parsePaceQualityShard(doc);
       expect(result).not.toBeNull();
-      expect(result?.signals.forgottenStop.totalSec).toBeNull();
-      expect(result?.signals.forgottenStop.longestSec).toBeNull();
-      expect(result?.signals.forgottenStop.count).toBe(validShard.signals.forgottenStop.count);
+      expect(result?.signals.forgottenStop).toEqual({
+        computable: false,
+        reason: 'not computed for this activity',
+        count: null,
+        totalSec: null,
+        longestSec: null,
+        creepCount: null,
+        creepTotalSec: null,
+        creepLongestSec: null,
+        pauseCount: null,
+        pauseTotalSec: null,
+        pauseLongestSec: null,
+      });
+    });
+
+    // CR-01's own reproduction (34-REVIEW.md): a shard whose `count` is a
+    // string and `totalSec` is NaN, with `creepCount`/`pauseCount` etc. all
+    // well-formed — the pre-fix parser produced `count: null` while
+    // `computable` stayed `true`, which `pausesSummaryRow`'s
+    // `(fs.count ?? 0) === 0` then read as a genuine, confident zero.
+    it("CR-01's own reproduction: computable:true, count a string, totalSec NaN, every OTHER numeric field well-formed — invalidates the whole signal rather than rendering a fabricated zero", () => {
+      const doc = {
+        ...validShard,
+        signals: {
+          ...validShard.signals,
+          forgottenStop: {
+            computable: true,
+            reason: null,
+            count: 'not-a-number',
+            totalSec: Number.NaN,
+            longestSec: 90,
+            creepCount: 3,
+            creepTotalSec: 180,
+            creepLongestSec: 90,
+            pauseCount: 1,
+            pauseTotalSec: 60,
+            pauseLongestSec: 60,
+          },
+        },
+      };
+      const result = parsePaceQualityShard(doc);
+      expect(result).not.toBeNull();
+      expect(result?.signals.forgottenStop.computable).toBe(false);
+      expect(result?.signals.forgottenStop.count).toBeNull();
+      expect(result?.signals.forgottenStop.creepCount).toBeNull();
+    });
+
+    // Negative control (hard constraint): a well-formed computable:true,
+    // count:0 signal must still parse and render an honest "none found" —
+    // CR-01's fix must never turn an honest zero into a cannot-read state.
+    it('a well-formed computable:true, count:0 forgottenStop (an honest, genuinely-measured zero) parses through unchanged — the fix does not turn a real zero into not-computable', () => {
+      const honestZero = {
+        computable: true,
+        reason: null,
+        count: 0,
+        totalSec: 0,
+        longestSec: 0,
+        creepCount: 0,
+        creepTotalSec: 0,
+        creepLongestSec: 0,
+        pauseCount: 0,
+        pauseTotalSec: 0,
+        pauseLongestSec: 0,
+      };
+      const doc = { ...validShard, signals: { ...validShard.signals, forgottenStop: honestZero } };
+      const result = parsePaceQualityShard(doc);
+      expect(result?.signals.forgottenStop).toEqual(honestZero);
     });
   });
 
@@ -778,6 +883,21 @@ describe('parsePaceQualityShard', () => {
       expect(result).not.toBeNull();
       expect(result?.pauseIntervals).toEqual([]);
       expect(result?.pauseIntervalsTruncated).toBe(false);
+    });
+
+    // WR-07 (34-REVIEW.md, plan 34-16): the read side honours the SAME cap
+    // the write side (`projectPauseIntervals`) enforces — a shard carrying
+    // more than the cap's worth of otherwise-valid entries parses to
+    // exactly the cap, never all of them.
+    it('a raw pauseIntervals array with more than SHARD_LIST_CAP (100) valid entries parses to exactly 100, in order — the read-side cap', () => {
+      const template = validShard.pauseIntervals[0];
+      const raw = Array.from({ length: 150 }, (_, i) => ({ ...template, startSec: i }));
+      const doc = { ...validShard, pauseIntervals: raw };
+      const result = parsePaceQualityShard(doc);
+      expect(result).not.toBeNull();
+      expect(result?.pauseIntervals).toHaveLength(100);
+      expect(result?.pauseIntervals[0].startSec).toBe(0);
+      expect(result?.pauseIntervals[99].startSec).toBe(99);
     });
 
     it('an entry with an unknown pauseClass is dropped alone; the rest of the shard survives', () => {

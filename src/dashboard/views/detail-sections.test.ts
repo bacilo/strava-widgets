@@ -1266,6 +1266,57 @@ describe('Pauses summary row (Phase 34, PAUSE-02, STOP-01, STOP-03, D-09, D-10, 
     );
   });
 
+  // CR-01 render boundary (34-REVIEW.md, plan 34-16): even given a
+  // hand-built signal claiming `computable: true` with `count === null` (a
+  // shape the fixed parser itself should no longer produce, but this
+  // boundary defends the render path independently so the index-row path
+  // cannot regress on its own), the row reads the not-computable sentence —
+  // NEVER "possible forgotten stop: none found".
+  it('a hand-built computable:true, count:null forgottenStop renders the not-computable sentence, never a fabricated "none found"', () => {
+    const quality: ActivityQualitySignals = {
+      ...HEALTHY_QUALITY,
+      forgottenStop: {
+        computable: true,
+        reason: null,
+        count: null,
+        totalSec: null,
+        longestSec: null,
+        creepCount: 3,
+        creepTotalSec: 180,
+        creepLongestSec: 90,
+        pauseCount: 1,
+        pauseTotalSec: 60,
+        pauseLongestSec: 60,
+      },
+    };
+    const row = qualitySignalsSectionPlan(quality, null).rows[9];
+    expect(row.valueText).toContain('possible forgotten stop: not computable');
+    expect(row.valueText).not.toContain('possible forgotten stop: none found');
+  });
+
+  // Negative control (hard constraint): a well-formed computable:true,
+  // count:0 signal must still render the honest "none found" sentence.
+  it('a well-formed computable:true, count:0 forgottenStop (an honest, genuinely-measured zero) still renders "none found"', () => {
+    const quality: ActivityQualitySignals = {
+      ...HEALTHY_QUALITY,
+      forgottenStop: {
+        computable: true,
+        reason: null,
+        count: 0,
+        totalSec: 0,
+        longestSec: 0,
+        creepCount: 0,
+        creepTotalSec: 0,
+        creepLongestSec: 0,
+        pauseCount: 0,
+        pauseTotalSec: 0,
+        pauseLongestSec: 0,
+      },
+    };
+    const row = qualitySignalsSectionPlan(quality, null).rows[9];
+    expect(row.valueText).toContain('possible forgotten stop: none found');
+  });
+
   it('forgottenStop computable: false with reason R reads "not computable — R", and never the bare word "none"', () => {
     const reason = 'distance-triggered recording: a standstill would be written as a recording gap, not a covered creep';
     const quality: ActivityQualitySignals = {
@@ -1333,8 +1384,10 @@ describe('Pauses summary row (Phase 34, PAUSE-02, STOP-01, STOP-03, D-09, D-10, 
       },
     };
     const row = qualitySignalsSectionPlan(quality, null).rows[9];
+    // R4 (34-16): the clause reads as a CATEGORY ("not-classifiable"), never naming both
+    // mechanisms (isolated-jump/hidden-pause) as if both are always present on the row.
     expect(row.valueText).toContain(
-      '5 intervals: 0 stationary, 5 walked, 0 ran through, 0 transported (5 not-classifiable: isolated-jump/hidden-pause)'
+      '5 intervals: 0 stationary, 5 walked, 0 ran through, 0 transported (5 not-classifiable — see Unreliable segments)'
     );
     // Never "none" for a genuinely non-classifiable count, and never silently omitted (D-01).
     expect(row.valueText).not.toMatch(/not-classifiable: none/);
@@ -1397,7 +1450,7 @@ describe('Pauses summary row (Phase 34, PAUSE-02, STOP-01, STOP-03, D-09, D-10, 
       },
     };
     const row = qualitySignalsSectionPlan(quality, null).rows[9];
-    expect(row.valueText).toContain('(5 not-classifiable: isolated-jump/hidden-pause)');
+    expect(row.valueText).toContain('(5 not-classifiable — see Unreliable segments)');
     expect(row.valueText).toContain(`possible forgotten stop: not computable — ${reason}`);
   });
 });
@@ -1429,9 +1482,9 @@ describe('pausesSectionPlan (Phase 34, PAUSE-02, D-14, D-15, plan 34-09)', () =>
     expect(pausesSectionPlan(null, null)).toEqual({ kind: 'unavailable' });
   });
 
-  it('a present shard with an empty pauseIntervals list gives { kind: "empty" }', () => {
+  it('a present shard with an empty pauseIntervals list, on a COMPUTABLE activity, gives { kind: "empty" }', () => {
     const shard = makeShard({ pauseIntervals: [] });
-    expect(pausesSectionPlan(shard, null)).toEqual({ kind: 'empty' });
+    expect(pausesSectionPlan(shard, HEALTHY_QUALITY)).toEqual({ kind: 'empty' });
   });
 
   it('a shard with unreliableSegments entries (mechanism isolated-jump) and an empty pauseIntervals still gives kind "empty" — no plan row can come from anything but shard.pauseIntervals (D-15)', () => {
@@ -1441,7 +1494,23 @@ describe('pausesSectionPlan (Phase 34, PAUSE-02, D-14, D-15, plan 34-09)', () =>
         { startSec: 10, endSec: 15, metres: 20, excessMetres: 5, seconds: 5, mechanism: 'isolated-jump' },
       ],
     });
-    expect(pausesSectionPlan(shard, null)).toEqual({ kind: 'empty' });
+    expect(pausesSectionPlan(shard, HEALTHY_QUALITY)).toEqual({ kind: 'empty' });
+  });
+
+  // -------------------------------------------------------------------------
+  // IN-01 (34-16): `quality` now distinguishes "genuinely zero pauses" from
+  // "the whole activity's quality data was not computable" — both produce
+  // an empty `shard.pauseIntervals`, but only the first is `'empty'`.
+  // -------------------------------------------------------------------------
+
+  it('an empty pauseIntervals list with quality === null gives { kind: "not-computable" }, never "empty"', () => {
+    const shard = makeShard({ pauseIntervals: [] });
+    expect(pausesSectionPlan(shard, null)).toEqual({ kind: 'not-computable' });
+  });
+
+  it('an empty pauseIntervals list with a set quality.notComputableReason gives { kind: "not-computable" }', () => {
+    const shard = makeShard({ pauseIntervals: [], notComputableReason: NOT_COMPUTABLE_QUALITY.notComputableReason });
+    expect(pausesSectionPlan(shard, NOT_COMPUTABLE_QUALITY)).toEqual({ kind: 'not-computable' });
   });
 
   it('a populated shard yields one row per entry with atText/classText/durationText/distanceText', () => {

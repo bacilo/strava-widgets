@@ -20,7 +20,7 @@
  */
 
 import type { FetchLike } from './index-client.js';
-import { LOOP_RADIUS_M } from '../../analytics/pace-quality.js';
+import { LOOP_RADIUS_M, SHARD_LIST_CAP } from '../../analytics/pace-quality.js';
 import type {
   ActivityQualitySignals,
   ClosureDriftSignal,
@@ -333,17 +333,41 @@ function parseElapsedVsMovingSignal(raw: unknown): ElapsedVsMovingSignal | null 
  * UNTIERED by design, so there is no tier field to parse). Every field goes
  * through `finiteNumberOrNull` (the Phase 30 elevation guard, not
  * `nullableNumber` — a NaN/Infinity count must never reach the DOM).
+ *
+ * WR-02 (2026-09-23, plan 34-16): genuinely all-or-nothing, matching
+ * `parseElevationSignal`'s own discipline (the docblock's claim, previously
+ * false) — a PRESENT but unparseable field (a string, `NaN`, `Infinity`)
+ * invalidates the WHOLE signal, so the caller's `NOT_COMPUTABLE_PAUSE_
+ * CLASSIFICATION_PARSED` fallback applies rather than a per-field `?? 0`
+ * fabrication that could make the rendered counts not add up to
+ * `intervalCount`. An ABSENT field (`undefined`) on a stale/pre-Phase-34
+ * document is not "unparseable" in this sense — it degrades the same way
+ * every other field does today, via the whole-signal fallback the caller
+ * already applies when this function returns `null` for a document missing
+ * the key entirely (`isPlainObject` still passes for an object missing one
+ * key, so an explicit per-field check is what makes this all-or-nothing
+ * rather than per-field-tolerant).
  */
 function parsePauseClassificationSignal(raw: unknown): PauseClassificationSignal | null {
   if (!isPlainObject(raw)) return null;
-  return {
-    intervalCount: finiteNumberOrNull(raw.intervalCount),
-    stationaryCount: finiteNumberOrNull(raw.stationaryCount),
-    walkedCount: finiteNumberOrNull(raw.walkedCount),
-    ranThroughCount: finiteNumberOrNull(raw.ranThroughCount),
-    transportedCount: finiteNumberOrNull(raw.transportedCount),
-    notClassifiableCount: finiteNumberOrNull(raw.notClassifiableCount),
-  };
+  const keys = [
+    'intervalCount',
+    'stationaryCount',
+    'walkedCount',
+    'ranThroughCount',
+    'transportedCount',
+    'notClassifiableCount',
+  ] as const;
+  const out: Record<string, number | null> = {};
+  for (const key of keys) {
+    const value = finiteNumberOrNull(raw[key]);
+    // A present-but-unparseable count is a malformed document, not a
+    // measured absence — one bad field invalidates the whole signal
+    // (`parseElevationSignal`'s own rule, applied here for the first time).
+    if (value === null && raw[key] !== null && raw[key] !== undefined) return null;
+    out[key] = value;
+  }
+  return out as unknown as PauseClassificationSignal;
 }
 
 /**
@@ -368,24 +392,50 @@ const NOT_COMPUTABLE_PAUSE_CLASSIFICATION_PARSED: PauseClassificationSignal = {
  * WHOLE signal (never a partially-trusted shape), since a malformed
  * `computable` cannot be trusted to say whether the numeric fields below it
  * are meaningful. Numbers go through `finiteNumberOrNull`.
+ *
+ * CR-01 (2026-09-23, plan 34-16): `computable: true` means every numeric
+ * figure was MEASURED — a `null`/unreadable numeric field on that branch is
+ * a malformed or stale document, never a measured absence, so it
+ * invalidates the WHOLE signal and the caller's not-computable fallback
+ * applies. Before this fix, a shard with `computable: true` and a
+ * corrupted/absent `count` still parsed with `count: null`, and
+ * `pausesSummaryRow`'s `(fs.count ?? 0) === 0` read that as a genuine zero —
+ * a fabricated "possible forgotten stop: none found" beside a document that
+ * carried real, well-formed `creepCount`/`pauseCount` figures one field
+ * over. `computable: false` is UNCHANGED: every numeric field legitimately
+ * reads `null` there (nothing was measured), so `finiteNumberOrNull`'s
+ * tolerant per-field behaviour stays exactly as before on that branch.
  */
 function parseForgottenStopSignal(raw: unknown): ForgottenStopSignal | null {
   if (!isPlainObject(raw)) return null;
   if (typeof raw.computable !== 'boolean') return null;
   if (raw.reason !== null && typeof raw.reason !== 'string') return null;
-  return {
-    computable: raw.computable,
-    reason: raw.reason,
-    count: finiteNumberOrNull(raw.count),
-    totalSec: finiteNumberOrNull(raw.totalSec),
-    longestSec: finiteNumberOrNull(raw.longestSec),
-    creepCount: finiteNumberOrNull(raw.creepCount),
-    creepTotalSec: finiteNumberOrNull(raw.creepTotalSec),
-    creepLongestSec: finiteNumberOrNull(raw.creepLongestSec),
-    pauseCount: finiteNumberOrNull(raw.pauseCount),
-    pauseTotalSec: finiteNumberOrNull(raw.pauseTotalSec),
-    pauseLongestSec: finiteNumberOrNull(raw.pauseLongestSec),
-  };
+
+  const NUMERIC_KEYS = [
+    'count',
+    'totalSec',
+    'longestSec',
+    'creepCount',
+    'creepTotalSec',
+    'creepLongestSec',
+    'pauseCount',
+    'pauseTotalSec',
+    'pauseLongestSec',
+  ] as const;
+
+  const numbers: Record<string, number | null> = {};
+  for (const key of NUMERIC_KEYS) {
+    const value = finiteNumberOrNull(raw[key]);
+    // CR-01: `computable: true` means every figure was measured — a null
+    // here is a malformed/stale document, never a measured absence.
+    // Invalidate the whole signal so the caller's not-computable fallback
+    // applies, instead of letting a partially-corrupted shard render a
+    // confident "none found" beside its own well-formed sibling fields.
+    if (raw.computable && value === null) return null;
+    numbers[key] = value;
+  }
+
+  return { computable: raw.computable, reason: raw.reason, ...numbers } as ForgottenStopSignal;
 }
 
 /**
@@ -679,6 +729,12 @@ export function parsePaceQualityShard(raw: unknown): PaceQualityShard | null {
   }[] = [];
   if (Array.isArray(raw.pauseIntervals)) {
     for (const item of raw.pauseIntervals) {
+      // WR-07: the read side honours the SAME `SHARD_LIST_CAP` the write side
+      // (`projectPauseIntervals`) enforces — an uncapped read here would let a
+      // hand-edited, stale, or partially-written shard build an unbounded
+      // number of DOM rows downstream, even though the write side never
+      // produces more than the cap.
+      if (pauseIntervals.length >= SHARD_LIST_CAP) break;
       const parsed = parsePauseInterval(item);
       if (parsed) pauseIntervals.push(parsed);
     }

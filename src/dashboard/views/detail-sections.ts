@@ -55,6 +55,7 @@ import type {
   UnreliableSegmentsSignal,
   VerticalRateSignal,
 } from '../../analytics/pace-quality.js';
+import { SHARD_LIST_CAP } from '../../analytics/pace-quality.js';
 import type { PauseClass, PauseSource } from '../../analytics/pause-classification.js';
 
 // Same em dash as `DASH` in detail.ts. Defined locally rather than imported:
@@ -1570,21 +1571,38 @@ function pausesSummaryRow(
 ): QualitySignalRow {
   const fallbackReason = notComputableReason ?? 'not computed for this activity';
 
+  // R4 (34-11-SUMMARY.md's disclosed cosmetic finding): reads as a CATEGORY
+  // — "not-classifiable" — rather than naming both mechanisms
+  // (isolated-jump AND hidden-pause) unconditionally, which previously
+  // implied both kinds of segment exist on a row even when only one does.
+  // The exact per-mechanism breakdown is deferred (needs an additive index
+  // key) — see
+  // `.planning/todos/pending/2026-09-23-not-classifiable-mechanism-breakdown-in-pauses-row.md`.
   const notClassifiableClause =
     pc.notClassifiableCount !== null && pc.notClassifiableCount > 0
-      ? ` (${pc.notClassifiableCount} not-classifiable: isolated-jump/hidden-pause)`
+      ? ` (${pc.notClassifiableCount} not-classifiable — see Unreliable segments)`
       : '';
 
+  // WR-02: with `parsePauseClassificationSignal` now genuinely all-or-nothing
+  // on `pc.intervalCount !== null`, every sibling count field is guaranteed
+  // non-null too — the `?? 0` fabrications this branch used to need are gone,
+  // so a corrupted document can no longer render counts that silently fail
+  // to sum to `intervalCount`.
   const classificationText =
     pc.intervalCount === null
       ? `pause classification not computable — ${fallbackReason}`
-      : `${pc.intervalCount} intervals: ${pc.stationaryCount ?? 0} stationary, ${pc.walkedCount ?? 0} walked, ` +
-        `${pc.ranThroughCount ?? 0} ran through, ${pc.transportedCount ?? 0} transported${notClassifiableClause}`;
+      : `${pc.intervalCount} intervals: ${pc.stationaryCount} stationary, ${pc.walkedCount} walked, ` +
+        `${pc.ranThroughCount} ran through, ${pc.transportedCount} transported${notClassifiableClause}`;
 
+  // CR-01 render boundary: `fs.count === null` is reachable even given a
+  // hand-built/stale signal claiming `computable: true` (the whole-signal
+  // parser now rejects that shape, but this boundary defends the render
+  // path independently, so the index-row path cannot regress on its own) —
+  // treated exactly like `!fs.computable`, never as a coerced zero.
   let forgottenStopText: string;
-  if (!fs.computable) {
+  if (!fs.computable || fs.count === null) {
     forgottenStopText = `possible forgotten stop: not computable — ${fs.reason ?? fallbackReason}`;
-  } else if ((fs.count ?? 0) === 0) {
+  } else if (fs.count === 0) {
     forgottenStopText = 'possible forgotten stop: none found';
   } else {
     forgottenStopText = `possible forgotten stop: ${forgottenStopStretchesText(fs)}`;
@@ -1914,10 +1932,18 @@ export interface PausesSectionRow {
  * `'empty'` (shard present, genuinely zero pause/gap intervals) are DISTINCT
  * states with distinct copy (the plan's own two named empty strings) —
  * collapsing them would misdescribe a failed fetch as "no pauses found".
+ *
+ * IN-01 (2026-09-23, plan 34-16): `'not-computable'` is a THIRD, distinct
+ * empty-list state — the shard fetch succeeded and the list is genuinely
+ * empty, but the ACTIVITY's own quality data was not computable (no stream,
+ * or another whole-signal not-computable cause), so "zero rows" here means
+ * "could not look", not "looked and found none" (D-10's own rule, extended
+ * to this section for the first time).
  */
 export type PausesSectionPlan =
   | { kind: 'unavailable' }
   | { kind: 'empty' }
+  | { kind: 'not-computable' }
   | { kind: 'rows'; rows: PausesSectionRow[]; truncated: boolean };
 
 /**
@@ -1966,25 +1992,27 @@ function pausesSectionRowClassText(pauseClass: PauseClass, source: PauseSource):
  * `shard.unreliableSegments` entries — isolated-jump/hidden-pause segments —
  * never leak into this list, matching D-01/D-15's own membership rule).
  *
- * `quality` is accepted for call-site symmetry with the sibling
- * `qualitySignalsSectionPlan(quality, shard)` this section's own summary row
- * reads (`detail.ts`'s call site passes both), but is not currently
- * consulted: `shard.pauseIntervals` already degrades to an empty list for a
- * not-computable activity (`buildPaceQualityShard`'s own not-computable
- * branches), so the two empty-list causes ("genuinely zero pauses" and "the
- * whole activity is not computable") are not distinguished by this function
- * today — both read the same "No pauses or recording gaps in this
- * activity." copy.
+ * IN-01 (2026-09-23, plan 34-16): `quality` is now USED, not discarded —
+ * `shard.pauseIntervals` degrades to an empty list for BOTH a genuinely
+ * clean activity and a not-computable one (`buildPaceQualityShard`'s own
+ * not-computable branches), so an empty list alone cannot tell the two
+ * apart. When the list is empty, `quality === null` or a set
+ * `quality.notComputableReason` means the WHOLE activity's quality data was
+ * not computable (no stream, most commonly) — that reads `'not-computable'`
+ * rather than `'empty'`, so a reader is never told "looked and found none"
+ * (D-10's own rule) about an activity that was never looked at.
  */
 export function pausesSectionPlan(
   shard: PaceQualityShard | null,
   quality: ActivityQualitySignals | null
 ): PausesSectionPlan {
-  void quality;
   if (shard === null) {
     return { kind: 'unavailable' };
   }
   if (shard.pauseIntervals.length === 0) {
+    if (quality === null || quality.notComputableReason !== null) {
+      return { kind: 'not-computable' };
+    }
     return { kind: 'empty' };
   }
   const rows: PausesSectionRow[] = shard.pauseIntervals.map((entry) => ({
@@ -2000,8 +2028,12 @@ export function pausesSectionPlan(
 const PAUSES_LEGEND_TEXT =
   "Class is judged from each interval's own distance over its own elapsed time. GPS jumps are not listed here; see Unreliable segments.";
 
-/** D-15's truncation disclosure, verbatim. */
-const PAUSES_TRUNCATION_TEXT = 'Showing the first 100 intervals.';
+/**
+ * D-15's truncation disclosure. WR-07 (2026-09-23, plan 34-16): built from
+ * `SHARD_LIST_CAP` rather than repeating its number as a bare literal, so
+ * changing the cap can never silently make this sentence a lie.
+ */
+const PAUSES_TRUNCATION_TEXT = `Showing the first ${SHARD_LIST_CAP} intervals.`;
 
 /**
  * Builds the Pauses section (D-14, D-15, T-34-30) — same `<section
@@ -2035,6 +2067,17 @@ export function buildPausesSection(plan: PausesSectionPlan): HTMLElement {
     empty.className = 'text-body';
     empty.textContent = 'No pauses or recording gaps in this activity.';
     section.appendChild(empty);
+    return section;
+  }
+
+  if (plan.kind === 'not-computable') {
+    // IN-01: distinguishable from the 'empty' copy above — this activity's
+    // quality data was not computable, so an empty list here means "could
+    // not look", never "looked and found none" (D-10).
+    const notComputable = document.createElement('p');
+    notComputable.className = 'text-body';
+    notComputable.textContent = 'Pause detail not computable for this activity.';
+    section.appendChild(notComputable);
     return section;
   }
 

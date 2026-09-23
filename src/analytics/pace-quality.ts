@@ -2075,9 +2075,18 @@ export function projectUnreliableSegments(
  * a standstill disclosure. `source: 'covered-creep'` is already true on
  * every `PauseInterval` `creep` carries, per `pause-classification.ts`'s own
  * `findCreepStretches`. Sorts the merged list by `startSec`, and caps at
- * 100 — same cap as `impossibleSamples`/`unreliableSegments`. `truncated`
- * compares the full merged count against the capped length.
+ * `SHARD_LIST_CAP` — same cap as `impossibleSamples`/`unreliableSegments`.
+ * `truncated` compares the full merged count against the capped length.
+ *
+ * WR-07 (2026-09-23, plan 34-16): `SHARD_LIST_CAP` is the ONE exported
+ * source of the cap number — this projection (write side), the read-side
+ * `parsePaceQualityShard`'s `pauseIntervals` loop, and the rendered
+ * truncation notice in `detail-sections.ts` all reference it directly, so
+ * the disclosed "first N intervals" sentence can never drift away from the
+ * number actually enforced on either side.
  */
+export const SHARD_LIST_CAP = 100;
+
 export function projectPauseIntervals(
   classified: readonly ClassifiedPauseInterval[],
   creep: readonly PauseInterval[]
@@ -2113,7 +2122,7 @@ export function projectPauseIntervals(
   }
   merged.sort((a, b) => a.startSec - b.startSec);
 
-  const entries = merged.length > 100 ? merged.slice(0, 100) : merged;
+  const entries = merged.length > SHARD_LIST_CAP ? merged.slice(0, SHARD_LIST_CAP) : merged;
   return { entries, truncated: merged.length > entries.length };
 }
 
