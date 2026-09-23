@@ -292,7 +292,7 @@ Plans:
 
 **Wave 11** *(blocked on Wave 10)*
 
-- [ ] 34-15-PLAN.md — gap closure after the 34-11 checkpoint (D-22): overlapping covered-creep stretches merged into one union each (STOP-01's count/totalSec/longestSec were double-counting), asserted against the independent zero-import scan and watched RED first; not-classifiable intervals disclosed in the Quality Signals Pauses row; artifacts and shards regenerated with the moved numbers written down
+- [x] 34-15-PLAN.md — gap closure after the 34-11 checkpoint (D-22): overlapping covered-creep stretches merged into one union each (STOP-01's count/totalSec/longestSec were double-counting), asserted against the independent zero-import scan and watched RED first; not-classifiable intervals disclosed in the Quality Signals Pauses row; artifacts and shards regenerated with the moved numbers written down
 
 **Wave 12** *(blocked on Wave 11)*
 
@@ -384,7 +384,7 @@ Plans:
 | 31. Tech-Debt Closure — Silent-Failure Guards & Docs Reconciliation | v2.2 | 10/10 | Complete    | 2026-09-19 |
 | 32. Unreliable-Segment Detection & Calibration | v2.3 | 17/17 | Complete    | 2026-09-20 |
 | 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 14/14 | Complete    | 2026-09-22 |
-| 34. Pause Classification & Forgotten-Stop | v2.3 | 13/15 | In Progress|  |
+| 34. Pause Classification & Forgotten-Stop | v2.3 | 14/15 | In Progress|  |
 | 35. Stream-Derived Running Pace | v2.3 | 0/TBD | Not started | - |
 | 36. Best-Effort Clean-Window Search & Ceiling Recalibration | v2.3 | 0/TBD | Not started | - |
 | 37. Review-Queue Priority & CUR-04 | v2.3 | 0/TBD | Not started | - |
