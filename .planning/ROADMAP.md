@@ -306,14 +306,28 @@ Plans:
 
 ### Phase 35: Stream-Derived Running Pace
 
-**Goal**: A stream-derived running pace — unreliable segments and gaps excluded from both distance and time — is computed for every activity with a computable stream through the existing single pace-derivation module, shown beside metadata pace, with the existing "Pace disputed" badge raised on material disagreement.
+**Goal**: A stream-derived running pace — unreliable segments and gaps excluded from both distance and time — is computed for every activity with a computable stream through the existing single pace-derivation module, shown beside metadata pace, with the existing "Pace disputed" badge raised on material disagreement. **Amended 2026-09-24 (35-CONTEXT.md D-08, D-06):** the running pace is covered metres over `coverage.coveredSec` off the same
+   `pairKinds` partition (never a mean of windowed paces), and 'material disagreement' is
+   slower-only — the running pace slower than metadata — gated on strictly positive withheld
+   distance.
 **Depends on**: Phase 33
 **Requirements**: RPACE-01, RPACE-02, RPACE-03
 **Success Criteria** (what must be TRUE):
 
-  1. Every activity with a computable stream carries a stream-derived running pace value computed through the existing single pace-derivation module.
+  1. Every activity with a computable stream carries a stream-derived running pace value computed through the existing single pace-derivation module. **Amended 2026-09-24 (35-CONTEXT.md D-08):** 'computable stream' means
+   `validateStreamSeries(t, d).ok` AND `coveredSec > 0` AND covered metres > 0; every other stream
+   carries an explicit not-computable value with a stated reason, and the archive-wide count of
+   those is reported as a finding.
   2. 3475724402's detail view shows the running pace beside the metadata pace (4:56/km) with a plain statement of the excluded metres and seconds, and the two figures visibly differ — consistent with no split on the activity being under 5:00/km.
-  3. The "Pace disputed" badge is raised on 3475724402 under a threshold calibrated against the archive and recorded in a regenerable artifact, and the count of newly-disputed activities archive-wide is reported as a finding.
+  3. The "Pace disputed" badge is raised on 3475724402 under a threshold calibrated against the archive and recorded in a regenerable artifact, and the count of newly-disputed activities archive-wide is reported as a finding. **Amended 2026-09-24 (35-CONTEXT.md D-02, D-05, D-06, D-07):** the
+   eligibility gate is zero-free-parameter (withheld distance > 0) and the direction is
+   slower-only, both pre-declared in plan 35-01 before any measurement. The threshold is selected by
+   first-clearing arbitration over shapes pre-declared in plan 35-05's text; the archive-wide
+   newly-disputed count, the faster-side count and the gate-excluded count are all reported as
+   findings and may never select, tune or re-order a shape (Phase 27 D-02 anti-quota). 'Is raised on
+   3475724402' is a BASIS GATE on the run, not a selector: if the first-clearing shape's cut does
+   not badge 3475724402 the run records `## GATE FAILED` and HALTs, and a different shape is NOT
+   substituted to satisfy it.
   4. Metadata pace and device `moving_time` remain byte-identical everywhere else — lists, stats documents and widgets are unchanged by this phase.
 
 **Plans**: 13 plans in 12 waves
