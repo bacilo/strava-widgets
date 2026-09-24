@@ -132,8 +132,21 @@ const SRC_ROOT = new URL('../../src/', import.meta.url);
  * pre-fix divergent stream-derived pace implementations. Deliberately NOT
  * a broad `movingTime.*distance` shape (26-RESEARCH.md Pitfall 5) — that
  * shape false-positives on the four legitimate metadata/aggregate sites.
+ *
+ * EXTENDED 2026-09-24 (35-03 Task 3, D-08/D-11): two more literal shapes for
+ * `deriveRunningPace`'s own division (`coveredSec / (coveredM / 1000)` —
+ * the exact text at `pace-derivation.ts`'s own call site — plus
+ * `/ (coveredMetres / 1000)`, the same divisor shape under the alternate
+ * variable name RESEARCH.md's own prose used) so a second, drifted inline
+ * copy of the running-pace formula is caught the same way the original two
+ * pre-fix implementations were.
  */
-const BANNED_LITERALS = ['dt / (dd / 1000)', 'elapsed / (metres / 1000)'] as const;
+const BANNED_LITERALS = [
+  'dt / (dd / 1000)',
+  'elapsed / (metres / 1000)',
+  'coveredSec / (coveredM / 1000)',
+  '/ (coveredMetres / 1000)',
+] as const;
 
 /** The one file allowed to contain the banned literals — where the arithmetic actually lives. */
 const ALLOWED_FILE_SUFFIX = 'analytics/pace-derivation.ts';
@@ -681,6 +694,54 @@ describe('PACE-01 Criterion 4 — the audit is demonstrated catching a reintrodu
     const cleanMatches = findConfinedCallSites([rewrittenFile], OVERRIDE_LITERALS);
     expect(cleanMatches).toEqual([]);
   });
+
+  it('35-03 Task 3 extension (D-08/D-11): a planted inline copy of deriveRunningPace\'s own formula is REPORTED when presented as if from a disallowed file, and NOT reported for the identical literal inside pace-derivation.ts', () => {
+    const plantedDriftedCopy: SourceFile = {
+      path: 'src/dashboard/views/planted-running-pace-drift.ts',
+      source: [
+        '// A deliberately reintroduced second copy of the running-pace formula.',
+        'export function driftedRunningPaceSecPerKm(coveredSec: number, coveredM: number): number {',
+        '  return coveredSec / (coveredM / 1000);',
+        '}',
+      ].join('\n'),
+    };
+
+    const violations = findStreamPaceViolations([plantedDriftedCopy]);
+    expect(violations).toEqual([
+      {
+        path: 'src/dashboard/views/planted-running-pace-drift.ts',
+        needle: 'coveredSec / (coveredM / 1000)',
+        count: 1,
+      },
+    ]);
+
+    // Negative direction: the identical literal, presented as living inside
+    // pace-derivation.ts (the one allowed file), is not reported.
+    const sameLiteralInAllowedFile: SourceFile = {
+      path: 'src/analytics/pace-derivation.ts',
+      source: 'const p = coveredSec / (coveredM / 1000);',
+    };
+    expect(findStreamPaceViolations([sameLiteralInAllowedFile])).toEqual([]);
+
+    // The coveredMetres variant, same both-directions proof.
+    const plantedCoveredMetresVariant: SourceFile = {
+      path: 'src/dashboard/views/planted-running-pace-drift-2.ts',
+      source: 'export const pace = coveredSecValue / (coveredMetres / 1000);',
+    };
+    const variantViolations = findStreamPaceViolations([plantedCoveredMetresVariant]);
+    expect(variantViolations).toEqual([
+      {
+        path: 'src/dashboard/views/planted-running-pace-drift-2.ts',
+        needle: '/ (coveredMetres / 1000)',
+        count: 1,
+      },
+    ]);
+    expect(
+      findStreamPaceViolations([
+        { path: 'src/analytics/pace-derivation.ts', source: 'const p = x / (coveredMetres / 1000);' },
+      ])
+    ).toEqual([]);
+  });
 });
 
 describe('SEG-05a — single-source audit extended to the unreliable-segment detector', () => {
@@ -1031,6 +1092,75 @@ describe('pause-classification reads the detector (SEG-05b, Phase 34 half)', () 
       }
     }
     expect(foundDifferingClass).toBe(true);
+
+    vi.doUnmock('./unreliable-segments.js');
+    vi.resetModules();
+  });
+});
+
+/**
+ * deriveRunningPace reads the detector (SEG-05b, Phase 35 half)
+ *
+ * Phase 35's own half of SEG-05b (D-11, RPACE-01): `deriveRunningPace`
+ * consumes the detector's output through `classifyGapsWithSegments`'s
+ * existing single import — one hop, not two, since `deriveRunningPace`
+ * itself lives inside `pace-derivation.ts` (unlike `pause-classification.ts`
+ * above, which is a second module re-importing this chain). This copies the
+ * Phase 33 SINGLE-HOP shape directly above (`pace-derivation.ts's detector
+ * import is load-bearing (SEG-05b, D-15)`), on the SAME named activity
+ * `3475724402` — ROADMAP criterion 3's own fixture, so no new named
+ * activity is introduced for this proof.
+ *
+ * Both directions in the SAME test, per this file's own standing rule
+ * (stated verbatim in the two blocks above): a one-direction assertion
+ * would pass equally well against a build where `deriveRunningPace` returns
+ * a hard-coded constant regardless of its `segments` input — only watching
+ * the running pace/excluded metres/excluded seconds actually MOVE when the
+ * detector is stubbed proves the detector is load-bearing, not merely
+ * imported.
+ */
+describe('deriveRunningPace reads the detector (SEG-05b, Phase 35 half)', () => {
+  it('stubbing detectUnreliableSegments to [] on real 3475724402 changes runningPaceSecPerKm AND strictly decreases at least one of excludedM/excludedSec; the real module has a non-empty segments list to remove', async () => {
+    const stream = JSON.parse(
+      readFileSync(path.join('data', 'streams', '3475724402.json'), 'utf-8')
+    ) as import('../streams/stream.types.js').CanonicalStream;
+
+    // Real direction first, from a clean module registry — no mock active yet.
+    vi.resetModules();
+    const real = await import('./pace-derivation.js');
+    const realClassified = real.classifyGapsWithSegments(stream.t, stream.d);
+    expect(realClassified.segments.length).toBeGreaterThan(0); // reachability — real direction
+    expect(realClassified.coverage.unreliableSec).toBeGreaterThan(0); // reachability — real direction
+
+    const realRunningPace = real.deriveRunningPace(stream);
+    expect(realRunningPace.computable).toBe(true);
+
+    // Stubbed direction: detectUnreliableSegments always returns [], every
+    // other export (including DEFAULT_DETECTOR_PARAMS) passes through
+    // untouched via vi.importActual.
+    vi.doMock('./unreliable-segments.js', async () => {
+      const actual =
+        await vi.importActual<typeof import('./unreliable-segments.js')>('./unreliable-segments.js');
+      return { ...actual, detectUnreliableSegments: () => [] };
+    });
+    vi.resetModules();
+    const stubbed = await import('./pace-derivation.js');
+    const stubbedClassified = stubbed.classifyGapsWithSegments(stream.t, stream.d);
+    expect(stubbedClassified.segments).toEqual([]); // reachability — the stub actually took
+    expect(stubbedClassified.coverage.unreliableSec).toBe(0); // reachability — the stub actually took
+
+    const stubbedRunningPace = stubbed.deriveRunningPace(stream);
+    expect(stubbedRunningPace.computable).toBe(true);
+
+    // Both directions in one test: the stubbed value must strictly differ
+    // from the real one, and at least one of excludedM/excludedSec must
+    // strictly decrease (removing the detector's unreliable segments can
+    // only ever shrink or leave unchanged the excluded portion, never grow
+    // it, since those seconds/metres move back into `covered`).
+    expect(stubbedRunningPace.runningPaceSecPerKm).not.toBe(realRunningPace.runningPaceSecPerKm);
+    const excludedMDecreased = stubbedRunningPace.excludedM < realRunningPace.excludedM;
+    const excludedSecDecreased = stubbedRunningPace.excludedSec < realRunningPace.excludedSec;
+    expect(excludedMDecreased || excludedSecDecreased).toBe(true);
 
     vi.doUnmock('./unreliable-segments.js');
     vi.resetModules();
