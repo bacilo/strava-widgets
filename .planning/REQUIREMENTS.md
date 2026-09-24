@@ -14,6 +14,9 @@ Scoped from a live investigation on 2026-09-19 of three developer-flagged activi
 - SEG-05b reopened — see its row (reopened 2026-09-21, 33-CONTEXT.md D-15).
 - PAUSE-01's classes and scope — see its row (amended 2026-09-22, 34-CONTEXT.md D-02/D-01).
 - STOP-01's timer-running scope — see its row (amended 2026-09-22, 34-CONTEXT.md D-09).
+- RPACE-01's running-pace definition and boundary rule — see its row (amended 2026-09-24, 35-CONTEXT.md D-08).
+- RPACE-02's rendering contract — see its row (amended 2026-09-24, 35-CONTEXT.md D-10).
+- RPACE-03's comparator, eligibility gate, direction and statistic families — see its row (amended 2026-09-24, 35-CONTEXT.md D-01/D-02/D-06/D-07).
 
 ## v2.3 Requirements
 
@@ -42,9 +45,50 @@ Scoped from a live investigation on 2026-09-19 of three developer-flagged activi
 
 ### Overall pace (RPACE)
 
-- [ ] **RPACE-01**: A stream-derived running pace (unreliable segments and gaps excluded from both distance and time) is computed for every activity with a computable stream, through the existing single pace-derivation module.
-- [ ] **RPACE-02**: The activity detail view shows the running pace beside the metadata pace with a plain statement of what was excluded (metres and seconds). Metadata pace and device `moving_time` remain the shipped aggregate everywhere — lists, stats and widgets are unchanged.
-- [ ] **RPACE-03**: The existing "Pace disputed" badge is raised when the two figures disagree materially, under a threshold calibrated against the archive and recorded. 3475724402 (metadata 4:56/km, no split under 5:00) is badged; the count of newly-disputed activities is reported as a finding.
+- [ ] **RPACE-01**: A stream-derived running pace (unreliable segments and gaps excluded from both distance and time) is computed for every activity with a computable stream, through the existing single pace-derivation module. **Amended 2026-09-24 (35-CONTEXT.md D-08):** the shipped definition is
+   covered metres over covered seconds, both read off the SAME final `pairKinds` partition
+   `classifyGapsWithSegments` already produces: the numerator is the sum of
+   `d[run.endIndex] - d[run.startIndex]` over every `coveredRuns` entry, the denominator is
+   `coverage.coveredSec`. Reading B (a fresh re-scan of `gapIntervals`' real-second boundaries) is
+   rejected because it would re-derive a second gap-boundary convention alongside the index-based
+   one, the defect 32-13/32-17 fixed twice. Boundary rule: classification is per PAIR — pair `i`
+   spans `t[i]..t[i+1]` and belongs to exactly one kind — so no sample step straddles an interval
+   edge and no pair is ever split; the rule is pinned by its own test. Excluded metres are
+   `(d[n-1] - d[0]) - coveredMetres` and excluded seconds are `coverage.spanSec -
+   coverage.coveredSec`, so both reconcile with the coverage caption's four always-on terms
+   (33 D-10) by construction rather than by agreement. 'Computable stream' means
+   `validateStreamSeries(t, d).ok` AND `coveredSec > 0` AND covered metres > 0; anything else
+   reports not-computable with a stated reason drawn from the existing `notComputableReason`
+   vocabulary, never a fabricated zero, and the archive-wide count of non-computable streams is
+   reported as a finding.
+- [ ] **RPACE-02**: The activity detail view shows the running pace beside the metadata pace with a plain statement of what was excluded (metres and seconds). Metadata pace and device `moving_time` remain the shipped aggregate everywhere — lists, stats and widgets are unchanged. **Amended 2026-09-24 (35-CONTEXT.md D-10, 35-UI-SPEC.md):** the running
+   pace renders as a fourth stat tile named 'Running Pace', immediately after the metadata 'Pace'
+   tile, with an ALWAYS-ON `.text-label` exclusion line as its third child (COV-02's precedent: a
+   term that disappears at zero stops meaning 'zero' and starts meaning 'unknown'). The tile is
+   omitted entirely only when the activity has no stream at all. 'Lists, stats and widgets are
+   unchanged' is read strictly as the metadata pace FIGURE and device `moving_time` staying
+   byte-identical on those surfaces; it does not bar the existing 'Pace disputed' badge from
+   reaching more rows, because the badge is not the metadata pace figure (35-CONTEXT.md D-03).
+- [ ] **RPACE-03**: The existing "Pace disputed" badge is raised when the two figures disagree materially, under a threshold calibrated against the archive and recorded. 3475724402 (metadata 4:56/km, no split under 5:00) is badged; the count of newly-disputed activities is reported as a finding. **Amended 2026-09-24 (35-CONTEXT.md D-01, D-02, D-06, D-07), pre-declared
+   before any measurement:** (i) D-01 — the running pace is the ONE comparator; the span-based
+   `streamPaceSecPerKm` is retired as the disputed comparator and deleted, nothing else in `src/`
+   calling it. (ii) D-02 — the 3:20/km implausibility gate
+   (`PACE_DISAGREEMENT_METADATA_THRESHOLD_SEC_PER_KM = 200`) is replaced by a ZERO-FREE-PARAMETER
+   eligibility gate: an activity is eligible only if its running-pace computation withheld strictly
+   positive distance (excluded metres > 0). Non-circularity: the gate is a mechanism filter, not a
+   magnitude filter, and has no tunable value, so it cannot be moved toward a count. It keeps
+   3475724402 (which withholds distance) in reach and removes the pure-`moving_time`-divergence
+   population, which is `elapsedVsMoving`'s territory; that excluded population's measured count is
+   reported as a finding. (iii) D-06 — the direction is SLOWER-ONLY (slower-only: the running pace
+   slower than metadata, i.e. larger sec/km), matching the milestone's own claim that distance covered off the
+   clock is reported as speed; the measured count on the faster side is reported as a finding, never
+   silently dropped. (iv) D-07 — the candidate statistic families are declared in plan 35-05's text
+   with their non-circularity arguments before any measurement, and the shipped constant is named
+   `PACE_DISAGREEMENT_RUNNING_DELTA_SEC_PER_KM` if a sec/km-difference shape clears or
+   `PACE_DISAGREEMENT_RUNNING_RATIO` if a ratio shape clears. If no pre-declared shape clears D-13
+   insensitivity, or the cleared shape's cut does not badge 3475724402, the run commits a
+   `## NO SHAPE CLEARS` / `## GATE FAILED` artifact and HALTs for the developer; nothing is widened,
+   loosened or hand-picked (D-05).
 
 ### Pause classification (PAUSE)
 
