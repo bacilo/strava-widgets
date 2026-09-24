@@ -301,6 +301,7 @@ Plans:
 **Wave 13** *(blocked on Wave 12)*
 
 - [x] 34-11-PLAN.md — human browser checkpoint and per-requirement disposition (complete; 34-16 runs after it and does not reopen it — its RE-LOOK rows are recorded in 34-VALIDATION.md)
+
 **UI hint**: yes
 
 ### Phase 35: Stream-Derived Running Pace
@@ -318,19 +319,55 @@ Plans:
 **Plans**: 13 plans in 12 waves
 
 Plans:
+**Wave 1**
+
 - [ ] 35-01-PLAN.md — Dated amendments recording every discretion resolution, before any measurement (D-01/02/04/06/07/08)
 - [ ] 35-02-PLAN.md — Folded todo: make validateStreamSeries total at source, restore the narrowed comment
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 35-03-PLAN.md — deriveRunningPace (D-08 Reading A), its pinned boundary rule, and D-11's stub-the-detector proof
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 35-04-PLAN.md — Build the zero-import independent running-pace recount and its watched-RED guard
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 35-05-PLAN.md — Generate 35-RUNNING-PACE-RECOUNT.md, prove idempotence, reconcile the shipped function against it
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
 - [ ] 35-06-PLAN.md — Build the HALT-capable D-05 calibration generator encoding seven pre-declared shapes
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
 - [ ] 35-07-PLAN.md — Measure the archive, commit 35-CALIBRATION.md, name the constant or HALT (blocking decision)
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
 - [ ] 35-08-PLAN.md — Retarget detectPaceDisagreement onto the running pace, ship the calibrated constant, rename the field
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
 - [ ] 35-09-PLAN.md — Remove the 200 s/km stream-read gate, fold into one read, add the additive runningPace row field
+
+**Wave 9** *(blocked on Wave 8 completion)*
+
 - [ ] 35-10-PLAN.md — The Running Pace stat tile, its always-on exclusion line, and one extended CSS selector
+
+**Wave 10** *(blocked on Wave 9 completion)*
+
 - [ ] 35-11-PLAN.md — Retarget the three disputed-pace strings, prove the D-09 rebase and criterion 4's byte-identical boundary
+
+**Wave 11** *(blocked on Wave 10 completion)*
+
 - [ ] 35-12-PLAN.md — Merge origin, regenerate on the merged tree, freeze checkpoint rows against independent values
+
+**Wave 12** *(blocked on Wave 11 completion)*
+
 - [ ] 35-13-PLAN.md — Human browser checkpoint, per-requirement disposition, SEG-05b's Phase 35 half (blocking)
+
 **UI hint**: yes
 
 ### Phase 36: Best-Effort Clean-Window Search & Ceiling Recalibration
