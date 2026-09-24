@@ -44,6 +44,8 @@ import {
   paceHistogramAccounting,
   detectPaceDisagreement,
   streamPaceSecPerKm,
+  deriveRunningPace,
+  NOT_COMPUTABLE_NO_COVERED_DISTANCE,
   UNRELIABLE_SPEED_LIMIT_MPS as UNRELIABLE_SPEED_LIMIT_MPS_VIA_PACE_DERIVATION,
 } from './pace-derivation.js';
 import type { UnreliableSegment, SegmentMechanism } from './pace-derivation.js';
@@ -1154,5 +1156,286 @@ describe('validateStreamSeries null-safety at source — every reaching exported
     const nullStream = { ...stream, t: null as unknown as number[], d: null as unknown as number[] };
     expect(() => detectPaceDisagreement(100, nullStream)).not.toThrow();
     expect(detectPaceDisagreement(100, nullStream)).toBeNull();
+  });
+});
+
+/**
+ * 35-03 Task 2 (RPACE-01, D-08): `deriveRunningPace` — hand-computed boundary
+ * fixtures pinning the per-pair boundary rule (Group A), plus structural
+ * conservation on the four named real activities (Group B).
+ *
+ * Every Group A expected value below is derived BY HAND, in a comment
+ * immediately above its assertion, from the fixture's own construction —
+ * never by calling `deriveRunningPace` itself and asserting its own output
+ * back. Per 35-CONTEXT.md's contamination guard, none of these fixtures'
+ * numbers are drawn from this phase's own probe table — every number here
+ * is invented fresh for this test file, on purpose-built synthetic streams.
+ */
+describe('deriveRunningPace — boundary rule pinned by hand-computed fixtures (RPACE-01, D-08)', () => {
+  describe('Group A — hand-computed synthetic fixtures', () => {
+    it('(a) a clean stream with no gaps, pauses or unreliable segments: excludedM === 0, excludedSec === 0, pace matches the hand-computed division', () => {
+      // 50 dense steps of dt=2s, dd=10m each: t = 0, 2, 4, ..., 100;
+      // d = 0, 10, 20, ..., 500. Every pair is covered (dt=2 <= 10s
+      // recording-gap threshold; d always advances, so the pause threshold
+      // never fires). Hand-computed: coveredM = 500, coveredSec = 100,
+      // pace = 100 / (500 / 1000) = 200 sec/km.
+      const t: number[] = [];
+      const d: number[] = [];
+      for (let i = 0; i <= 50; i++) {
+        t.push(i * 2);
+        d.push(i * 10);
+      }
+      const stream = makeStream({ t, d });
+
+      const result = deriveRunningPace(stream);
+
+      expect(result.computable).toBe(true);
+      expect(result.notComputableReason).toBeNull();
+      expect(result.coveredM).toBe(500);
+      expect(result.coveredSec).toBe(100);
+      expect(result.excludedM).toBe(0);
+      expect(result.excludedSec).toBe(0);
+      expect(result.runningPaceSecPerKm).toBe(100 / (500 / 1000)); // hand: 200 sec/km
+    });
+
+    it('(b) THE BOUNDARY CASE — near-zero excluded metres, large excluded seconds: a long mid-stream recording gap across which distance does not advance', () => {
+      // Phase A: 100 dense covered steps, dt=2s/dd=10m each: samples
+      // index 0..100, t: 0 -> 200, d: 0 -> 1000.
+      // Gap: ONE pair, dt=500s (> 10s recording-gap threshold), dd=0 (no
+      // advance): index 100 -> 101, t: 200 -> 700, d stays 1000.
+      // Phase B: 100 more dense covered steps: index 101..201, t: 700 ->
+      // 900, d: 1000 -> 2000.
+      const t: number[] = [0];
+      const d: number[] = [0];
+      for (let i = 1; i <= 100; i++) {
+        t.push(t[t.length - 1] + 2);
+        d.push(d[d.length - 1] + 10);
+      }
+      t.push(t[t.length - 1] + 500); // the gap: dt=500, dd=0
+      d.push(d[d.length - 1]);
+      for (let i = 1; i <= 100; i++) {
+        t.push(t[t.length - 1] + 2);
+        d.push(d[d.length - 1] + 10);
+      }
+      const stream = makeStream({ t, d });
+
+      // Reachability: confirm the fixture actually produces two covered
+      // runs straddling one recording-gap pair before trusting the
+      // hand-computed numbers below.
+      const { coveredRuns, coverage } = classifyGapsWithSegments(t, d);
+      expect(coveredRuns).toEqual([
+        { startIndex: 0, endIndex: 100 },
+        { startIndex: 101, endIndex: 201 },
+      ]);
+      expect(coverage.recordingGapSec).toBe(500);
+
+      const result = deriveRunningPace(stream);
+
+      expect(result.computable).toBe(true);
+      // Hand: run1 metres = d[100]-d[0] = 1000-0 = 1000; run2 metres =
+      // d[201]-d[101] = 2000-1000 = 1000; coveredM = 1000+1000 = 2000.
+      expect(result.coveredM).toBe(2000);
+      // Hand: run1 seconds = t[100]-t[0] = 200-0 = 200; run2 seconds =
+      // t[201]-t[101] = 900-700 = 200; coveredSec = 200+200 = 400.
+      expect(result.coveredSec).toBe(400);
+      // Hand: total distance = d[201]-d[0] = 2000-0 = 2000; excludedM =
+      // 2000 - 2000 = 0 — the gap pair contributes ZERO metres, so the
+      // covered run immediately adjacent to it contributes nothing from
+      // the gap's own pair (the boundary rule this case pins).
+      expect(result.excludedM).toBe(0);
+      // Hand: total span = t[201]-t[0] = 900-0 = 900; excludedSec = 900 -
+      // 400 = 500 — EXACTLY the gap's own 500 s duration.
+      expect(result.excludedSec).toBe(500);
+    });
+
+    it('(c) the mirror case — large excluded distance, small excluded seconds: an isolated single-pair GPS jump (slew burst), no adjacent gap', () => {
+      // Phase A: 50 dense covered steps, dt=2s/dd=10m each: index 0..50,
+      // t: 0 -> 100, d: 0 -> 500.
+      // Burst: ONE pair, dt=2s, dd=60m (implied speed 30 m/s, far above
+      // UNRELIABLE_SPEED_LIMIT_MPS=7.35; excess = 60 - 7.35*2 = 45.3 m,
+      // clears UNRELIABLE_EXCESS_FLOOR_M=3; not adjacent to any gap and
+      // 60 m < HIDDEN_PAUSE_MIN_METRES=116.95, so the detector labels it
+      // isolated-jump): index 50 -> 51, t: 100 -> 102, d: 500 -> 560.
+      // Phase B: 50 more dense covered steps: index 51..101, t: 102 ->
+      // 202, d: 560 -> 1060.
+      const t: number[] = [];
+      const d: number[] = [];
+      for (let i = 0; i <= 50; i++) {
+        t.push(i * 2);
+        d.push(i * 10);
+      }
+      t.push(t[t.length - 1] + 2); // the burst: dt=2, dd=60
+      d.push(d[d.length - 1] + 60);
+      for (let i = 1; i <= 50; i++) {
+        t.push(t[t.length - 1] + 2);
+        d.push(d[d.length - 1] + 10);
+      }
+      const stream = makeStream({ t, d });
+
+      // Reachability: confirm the detector actually flagged the burst
+      // pair as unreliable before trusting the hand-computed numbers.
+      const { coverage, segments } = classifyGapsWithSegments(t, d);
+      expect(segments).toHaveLength(1);
+      expect(segments[0].mechanism).toBe('isolated-jump');
+      expect(coverage.unreliableSec).toBe(2);
+
+      const result = deriveRunningPace(stream);
+
+      expect(result.computable).toBe(true);
+      // Hand: run1 metres = 500-0 = 500; run2 metres = 1060-560 = 500;
+      // coveredM = 500+500 = 1000.
+      expect(result.coveredM).toBe(1000);
+      // Hand: run1 seconds = 100-0 = 100; run2 seconds = 202-102 = 100;
+      // coveredSec = 100+100 = 200.
+      expect(result.coveredSec).toBe(200);
+      // Hand: total distance = 1060-0 = 1060; excludedM = 1060-1000 = 60
+      // — EXACTLY the burst pair's own 60 m advance.
+      expect(result.excludedM).toBe(60);
+      // Hand: total span = 202-0 = 202; excludedSec = 202-200 = 2 —
+      // EXACTLY the burst pair's own 2 s duration.
+      expect(result.excludedSec).toBe(2);
+    });
+
+    it('(d) two adjacent covered runs separated by a single non-covered pair: coveredM is the sum of both runs\' own literal metres, and the non-covered pair\'s own advance appears in excludedM and nowhere else', () => {
+      // Run 1: 3 dense covered steps, dt=2s/dd=10m each: t: 0->2->4->6,
+      // d: 0->10->20->30.
+      // Non-covered pair: dt=15s (> 10s recording-gap threshold), dd=5m
+      // (a small nonzero advance during the gap — GPS drift, not zero):
+      // t: 6->21, d: 30->35.
+      // Run 2: 4 dense covered steps: t: 21->23->25->27->29,
+      // d: 35->45->55->65->75.
+      const t = [0, 2, 4, 6, 21, 23, 25, 27, 29];
+      const d = [0, 10, 20, 30, 35, 45, 55, 65, 75];
+      const stream = makeStream({ t, d });
+
+      const { coveredRuns, coverage } = classifyGapsWithSegments(t, d);
+      expect(coveredRuns).toEqual([
+        { startIndex: 0, endIndex: 3 },
+        { startIndex: 4, endIndex: 8 },
+      ]);
+      expect(coverage.recordingGapSec).toBe(15);
+
+      const result = deriveRunningPace(stream);
+
+      expect(result.computable).toBe(true);
+      // Hand, both terms as literals: run1 metres = d[3]-d[0] = 30-0 = 30;
+      // run2 metres = d[8]-d[4] = 75-35 = 40.
+      expect(result.coveredM).toBe(30 + 40);
+      // Hand: the single non-covered pair's own advance is d[4]-d[3] =
+      // 35-30 = 5 m — total distance 75-0=75, coveredM=70,
+      // excludedM = 75-70 = 5, exactly that one pair's own dd and nowhere
+      // else (there is no other non-covered pair in this fixture).
+      expect(result.excludedM).toBe(5);
+      expect(result.excludedSec).toBe(15);
+    });
+
+    describe('(e) totality — never throws, always the neutral result with a stated reason, runningPaceSecPerKm: null (never a computed zero)', () => {
+      it('deriveRunningPace(null) is not computable, reason NOT_COMPUTABLE_NO_STREAM\'s own text, runningPaceSecPerKm null', () => {
+        expect(() => deriveRunningPace(null)).not.toThrow();
+        const result = deriveRunningPace(null);
+        expect(result).toEqual({
+          computable: false,
+          notComputableReason: 'no stream committed for this activity',
+          runningPaceSecPerKm: null,
+          coveredM: 0,
+          coveredSec: 0,
+          excludedM: 0,
+          excludedSec: 0,
+        });
+      });
+
+      it('deriveRunningPace(undefined) is not computable, same reason as null, runningPaceSecPerKm null', () => {
+        expect(() => deriveRunningPace(undefined)).not.toThrow();
+        const result = deriveRunningPace(undefined);
+        expect(result.computable).toBe(false);
+        expect(result.notComputableReason).toBe('no stream committed for this activity');
+        expect(result.runningPaceSecPerKm).toBeNull();
+      });
+
+      it('a stream whose t/d are null is not computable, same NOT_COMPUTABLE_NO_STREAM reason (non-array shape), runningPaceSecPerKm null', () => {
+        const stream = makeStream({ t: [0, 1, 2], d: [0, 1, 2] });
+        const nullStream = {
+          ...stream,
+          t: null as unknown as number[],
+          d: null as unknown as number[],
+        };
+        expect(() => deriveRunningPace(nullStream)).not.toThrow();
+        const result = deriveRunningPace(nullStream);
+        expect(result.computable).toBe(false);
+        expect(result.notComputableReason).toBe('no stream committed for this activity');
+        expect(result.runningPaceSecPerKm).toBeNull();
+      });
+
+      it('a 1-sample stream is not computable, reason NOT_COMPUTABLE_UNUSABLE_STREAM\'s own text (fails validateStreamSeries inside pass 1), runningPaceSecPerKm null', () => {
+        const stream = makeStream({ t: [0], d: [0] });
+        expect(() => deriveRunningPace(stream)).not.toThrow();
+        const result = deriveRunningPace(stream);
+        expect(result.computable).toBe(false);
+        expect(result.notComputableReason).toBe('stream failed validateStreamSeries');
+        expect(result.runningPaceSecPerKm).toBeNull();
+      });
+
+      it('a stream whose d never advances is not computable, reason NOT_COMPUTABLE_NO_COVERED_DISTANCE (passes validateStreamSeries but coveredM is 0), runningPaceSecPerKm null', () => {
+        // 50 dense steps, dt=2s, d flat at 0 throughout. Since d never
+        // advances anywhere, advanceIntervals(t, d) returns [] (no advance
+        // ever recorded), so classifyPairKinds resolves the pause
+        // threshold to Infinity and every pair falls through to
+        // 'covered' — coveredSec > 0 but coveredM === 0, the exact shape
+        // NOT_COMPUTABLE_NO_COVERED_DISTANCE exists to name.
+        const t: number[] = [];
+        const d: number[] = [];
+        for (let i = 0; i <= 50; i++) {
+          t.push(i * 2);
+          d.push(0);
+        }
+        const stream = makeStream({ t, d });
+
+        expect(() => deriveRunningPace(stream)).not.toThrow();
+        const result = deriveRunningPace(stream);
+        expect(result.computable).toBe(false);
+        expect(result.notComputableReason).toBe(NOT_COMPUTABLE_NO_COVERED_DISTANCE);
+        expect(result.runningPaceSecPerKm).toBeNull();
+        expect(result.coveredM).toBe(0);
+        expect(result.coveredSec).toBeGreaterThan(0);
+      });
+    });
+  });
+
+  /**
+   * Group B — STRUCTURAL CONSERVATION on the four named real activities.
+   * This is NOT evidence that the right pairs were classified covered —
+   * it holds even if the wrong pairs were labelled, the same distinction
+   * `PaceCoverage`'s own docblock draws about its four-term identity. The
+   * independent evidence that the RIGHT pairs were classified covered is
+   * plan 35-04's zero-import recount, not this block.
+   */
+  describe('Group B — structural conservation on the four named real activities (NOT evidence of correct classification — see plan 35-04\'s recount for that)', () => {
+    const NAMED_ACTIVITY_IDS = ['3475724402', '3475734189', '3475740390', '5059204779'] as const;
+
+    it.each(NAMED_ACTIVITY_IDS)(
+      'activity %s: coveredSec + excludedSec === spanSec, excludedSec === the caption\'s own three excluded terms, coveredM + excludedM === total distance, computable with a positive pace',
+      (id) => {
+        const stream = readStream(id);
+        const { coverage } = classifyGapsWithSegments(stream.t, stream.d);
+        const result = deriveRunningPace(stream);
+
+        expect(result.computable).toBe(true); // reachability
+        expect(result.runningPaceSecPerKm).toBeGreaterThan(0);
+
+        expect(
+          Math.abs(result.coveredSec + result.excludedSec - coverage.spanSec)
+        ).toBeLessThan(1e-9);
+
+        expect(
+          Math.abs(
+            result.excludedSec -
+              (coverage.recordingGapSec + coverage.pauseSec + coverage.unreliableSec)
+          )
+        ).toBeLessThan(1e-9);
+
+        const totalM = stream.d[stream.d.length - 1] - stream.d[0];
+        expect(Math.abs(result.coveredM + result.excludedM - totalM)).toBeLessThan(1e-6);
+      }
+    );
   });
 });
