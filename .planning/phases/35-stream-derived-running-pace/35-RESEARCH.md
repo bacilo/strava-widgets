@@ -629,9 +629,16 @@ today, which is the load-bearing fact for whichever disposition the planner choo
 | A3 | `detectPaceDisagreement`'s signature likely needs to change to accept an already-computed running pace rather than recomputing it internally from `stream`. | Code Examples | If the planner keeps the current `(metadataPace, stream, options)` signature and has it call the new running-pace function internally, that creates the exact "recompute vs. reuse" duplication risk the Anti-Patterns section warns against — not incorrect, but a second computation of the same numbers per activity. |
 | A4 | The "nine call sites" the folded todo names is very likely an off-by-one in the todo's own title (eight are explicitly enumerated in its body); only `pace-derivation.ts:937` (inside the retiring `streamPaceSecPerKm`) is in THIS phase's scope per D-11's own CONTEXT.md text. | Common Pitfalls Pitfall 3 | If the planner trusts "nine" and searches for a ninth site rather than re-grepping, time is wasted on a discrepancy that traces to the todo file itself, not to a missed site in this codebase. |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+Both questions were resolved during planning on 2026-09-24. Each carries its resolution inline
+below; neither is open, and nothing downstream is waiting on them.
 
 1. **Does the running pace ship as a row scalar, a shard field, or both (D-10 discretion)?**
+   **RESOLVED — row scalar.** 35-CONTEXT.md D-10 leaves the shape to Claude's discretion; plan
+   35-09 Task 2 ships `RunningPaceRow` as a REQUIRED row-scalar key on `DashboardIndexRow` with
+   `DASHBOARD_INDEX_SCHEMA_VERSION` unchanged at `1`, following the `paceDisagreement` precedent and
+   COV-02's always-on rule. No shard field is added. This matches the recommendation below.
    - What we know: `paceDisagreement` (a small, always-needed-on-detail-view object) ships as a row
      scalar today; the per-segment evidence lists (SEG-06's mechanism breakdown) ship in the lazy
      shard instead, per the established "small/always-needed → row scalar, large/detail-only →
@@ -645,6 +652,15 @@ today, which is the load-bearing fact for whichever disposition the planner choo
 
 2. **Does `detectPaceDisagreement`'s eligibility gate (D-02) need its own named constant with a
    docblock, mirroring `PACE_DISAGREEMENT_METADATA_THRESHOLD_SEC_PER_KM`'s existing precedent?**
+   **RESOLVED — no constant, because the gate has no free parameter.** 35-CONTEXT.md D-02 was
+   settled as "excluded metres strictly positive": a mechanism filter with ZERO tunable numbers,
+   encoded as a clause in `detectPaceDisagreement`'s body (plan 35-08 Task 1 step 4c) and as
+   population E's defining predicate in the calibration's pre-declaration (plan 35-06). There is no
+   value to name, so the one-named-constant-per-gate convention does not apply — but the docblock
+   convention it protects DOES: the gate's rationale and its no-tuning-toward-a-count rule are
+   carried in `detectPaceDisagreement`'s docblock (35-08 Task 1 step 5) instead. The single
+   calibrated constant this phase ships is the CUT, not the gate, and it carries the full
+   provenance docblock the convention requires.
    - What we know: the retired 200 s/km constant's docblock is explicitly named as "itself the
      prose D-04 must amend" — a strong signal the codebase's convention is one named, documented
      constant per gate, with a measurement-provenance comment and the "rule forbidding tuning
