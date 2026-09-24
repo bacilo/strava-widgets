@@ -315,7 +315,22 @@ Plans:
   3. The "Pace disputed" badge is raised on 3475724402 under a threshold calibrated against the archive and recorded in a regenerable artifact, and the count of newly-disputed activities archive-wide is reported as a finding.
   4. Metadata pace and device `moving_time` remain byte-identical everywhere else — lists, stats documents and widgets are unchanged by this phase.
 
-**Plans**: TBD
+**Plans**: 13 plans in 12 waves
+
+Plans:
+- [ ] 35-01-PLAN.md — Dated amendments recording every discretion resolution, before any measurement (D-01/02/04/06/07/08)
+- [ ] 35-02-PLAN.md — Folded todo: make validateStreamSeries total at source, restore the narrowed comment
+- [ ] 35-03-PLAN.md — deriveRunningPace (D-08 Reading A), its pinned boundary rule, and D-11's stub-the-detector proof
+- [ ] 35-04-PLAN.md — Build the zero-import independent running-pace recount and its watched-RED guard
+- [ ] 35-05-PLAN.md — Generate 35-RUNNING-PACE-RECOUNT.md, prove idempotence, reconcile the shipped function against it
+- [ ] 35-06-PLAN.md — Build the HALT-capable D-05 calibration generator encoding seven pre-declared shapes
+- [ ] 35-07-PLAN.md — Measure the archive, commit 35-CALIBRATION.md, name the constant or HALT (blocking decision)
+- [ ] 35-08-PLAN.md — Retarget detectPaceDisagreement onto the running pace, ship the calibrated constant, rename the field
+- [ ] 35-09-PLAN.md — Remove the 200 s/km stream-read gate, fold into one read, add the additive runningPace row field
+- [ ] 35-10-PLAN.md — The Running Pace stat tile, its always-on exclusion line, and one extended CSS selector
+- [ ] 35-11-PLAN.md — Retarget the three disputed-pace strings, prove the D-09 rebase and criterion 4's byte-identical boundary
+- [ ] 35-12-PLAN.md — Merge origin, regenerate on the merged tree, freeze checkpoint rows against independent values
+- [ ] 35-13-PLAN.md — Human browser checkpoint, per-requirement disposition, SEG-05b's Phase 35 half (blocking)
 **UI hint**: yes
 
 ### Phase 36: Best-Effort Clean-Window Search & Ceiling Recalibration
