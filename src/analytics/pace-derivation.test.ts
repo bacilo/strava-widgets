@@ -43,6 +43,7 @@ import {
   paceHistogramSamples,
   paceHistogramAccounting,
   detectPaceDisagreement,
+  streamPaceSecPerKm,
   UNRELIABLE_SPEED_LIMIT_MPS as UNRELIABLE_SPEED_LIMIT_MPS_VIA_PACE_DERIVATION,
 } from './pace-derivation.js';
 import type { UnreliableSegment, SegmentMechanism } from './pace-derivation.js';
@@ -1076,5 +1077,82 @@ describe('classifyGapsWithSegments coveredRuns (Phase 34)', () => {
     expect(
       Object.is(UNRELIABLE_SPEED_LIMIT_MPS_VIA_PACE_DERIVATION, UNRELIABLE_SPEED_LIMIT_MPS_VIA_DETECTOR)
     ).toBe(true);
+  });
+});
+
+/**
+ * 35-02 Task 2 (D-08 folded todo, `validateStreamSeries` null-safety at
+ * source): one null-input assertion per exported function in this module
+ * that transitively reaches a `validateStreamSeries` call, each asserting
+ * the function's OWN already-documented neutral value on a `null`/
+ * `undefined` `t`/`d` — never throws, never a newly-invented value.
+ * `classifyGapsWithSegments` itself already has this exact coverage in the
+ * `coveredRuns (Phase 34)` describe block above (the `null t`/`null d`/
+ * mismatched-length case at line ~1055) — not duplicated here.
+ */
+describe('validateStreamSeries null-safety at source — every reaching exported function (35-02, D-08)', () => {
+  it('classifyGaps(null, null) does not throw and returns the zeroed PaceCoverage', () => {
+    expect(() => classifyGaps(null as unknown as number[], null as unknown as number[])).not.toThrow();
+    const coverage = classifyGaps(null as unknown as number[], null as unknown as number[]);
+    expect(coverage).toEqual({
+      spanSec: 0,
+      coveredSec: 0,
+      recordingGapSec: 0,
+      pauseSec: 0,
+      unreliableSec: 0,
+      gapIntervals: [],
+    });
+  });
+
+  it('classifyGapsThreeWay(undefined, undefined) does not throw and returns the zeroed ThreeWayPaceCoverage', () => {
+    expect(() =>
+      classifyGapsThreeWay(undefined as unknown as number[], undefined as unknown as number[])
+    ).not.toThrow();
+    const coverage = classifyGapsThreeWay(
+      undefined as unknown as number[],
+      undefined as unknown as number[]
+    );
+    expect(coverage).toEqual({
+      spanSec: 0,
+      coveredSec: 0,
+      recordingGapSec: 0,
+      pauseSec: 0,
+      gapIntervals: [],
+    });
+  });
+
+  it('derivePaceWithCoverage on a stream whose t/d are null does not throw and returns an empty series with the zeroed coverage and the floor window width', () => {
+    const stream = makeStream({ t: [0, 1, 2], d: [0, 1, 2] });
+    const nullStream = { ...stream, t: null as unknown as number[], d: null as unknown as number[] };
+    expect(() => derivePaceWithCoverage(nullStream)).not.toThrow();
+    const result = derivePaceWithCoverage(nullStream);
+    expect(result.paceSeries).toEqual([]);
+    expect(result.coverage).toEqual({
+      spanSec: 0,
+      coveredSec: 0,
+      recordingGapSec: 0,
+      pauseSec: 0,
+      unreliableSec: 0,
+      gapIntervals: [],
+    });
+    expect(result.windowSec).toBe(20);
+  });
+
+  it('streamPaceSecPerKm on a stream whose t/d are undefined does not throw and returns null', () => {
+    const stream = makeStream({ t: [0, 1, 2], d: [0, 1, 2] });
+    const undefinedStream = {
+      ...stream,
+      t: undefined as unknown as number[],
+      d: undefined as unknown as number[],
+    };
+    expect(() => streamPaceSecPerKm(undefinedStream)).not.toThrow();
+    expect(streamPaceSecPerKm(undefinedStream)).toBeNull();
+  });
+
+  it('detectPaceDisagreement on a stream whose t/d are null does not throw and returns null (own documented neutral value)', () => {
+    const stream = makeStream({ t: [0, 1, 2], d: [0, 1, 2] });
+    const nullStream = { ...stream, t: null as unknown as number[], d: null as unknown as number[] };
+    expect(() => detectPaceDisagreement(100, nullStream)).not.toThrow();
+    expect(detectPaceDisagreement(100, nullStream)).toBeNull();
   });
 });

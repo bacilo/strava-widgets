@@ -24,6 +24,7 @@ import {
   IMPOSSIBLE_SAMPLE_SEVERE_COUNT,
   LOOP_RADIUS_M,
   NOT_COMPUTABLE_NO_STREAM,
+  NOT_COMPUTABLE_UNUSABLE_STREAM,
   SUB_GROUND_MIN_ALT_M,
   UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION,
   VERTICAL_RATE_SEVERE_MPS,
@@ -338,6 +339,16 @@ describe('decimation signal (D-04)', () => {
       expect(result.sampleCount).toBeNull();
     }
   });
+
+  it('35-02 D-08: decimationSignal(null, null) does not throw and reports not-computable (validateStreamSeries null-safety at source)', () => {
+    expect(() =>
+      decimationSignal(null as unknown as number[], null as unknown as number[])
+    ).not.toThrow();
+    const result = decimationSignal(null as unknown as number[], null as unknown as number[]);
+    expect(result.tier).toBe('not-computable');
+    expect(result.zeroAdvanceFraction).toBeNull();
+    expect(result.sampleCount).toBeNull();
+  });
 });
 
 describe('gap profile signal', () => {
@@ -397,6 +408,15 @@ describe('gap profile signal', () => {
       expect(result.pauseSec).toBeNull();
       expect(result.spanSec).toBeNull();
     }
+  });
+
+  it('35-02 D-08: gapProfileSignal(undefined, undefined) does not throw and reports not-computable (transitively via classifyGapsWithSegments\' own null-safety)', () => {
+    expect(() =>
+      gapProfileSignal(undefined as unknown as number[], undefined as unknown as number[])
+    ).not.toThrow();
+    const result = gapProfileSignal(undefined as unknown as number[], undefined as unknown as number[]);
+    expect(result.tier).toBe('not-computable');
+    expect(result.gapFraction).toBeNull();
   });
 });
 
@@ -730,6 +750,22 @@ describe('unreliableSegmentsSignal — the seventh quality signal (D-06/D-07/D-0
 
   it('a stream failing validateStreamSeries (length mismatch) returns tier not-computable with every numeric field null and mechanisms null', () => {
     const result = unreliableSegmentsSignal([0, 1, 2], [0, 1], []);
+    expect(result).toEqual<UnreliableSegmentsSignal>({
+      tier: 'not-computable',
+      count: null,
+      totalMetres: null,
+      totalExcessMetres: null,
+      totalSeconds: null,
+      excessFraction: null,
+      mechanisms: null,
+    });
+  });
+
+  it('35-02 D-08: unreliableSegmentsSignal(null, null, []) does not throw and returns tier not-computable with every numeric field null and mechanisms null', () => {
+    expect(() =>
+      unreliableSegmentsSignal(null as unknown as number[], null as unknown as number[], [])
+    ).not.toThrow();
+    const result = unreliableSegmentsSignal(null as unknown as number[], null as unknown as number[], []);
     expect(result).toEqual<UnreliableSegmentsSignal>({
       tier: 'not-computable',
       count: null,
@@ -1203,6 +1239,35 @@ describe('impossible samples detector', () => {
     }
   });
 
+  it('35-02 D-08: countImpossibleSamples(null, null) does not throw and returns the zeroed shape', () => {
+    expect(() =>
+      countImpossibleSamples(null as unknown as number[], null as unknown as number[])
+    ).not.toThrow();
+    const result = countImpossibleSamples(null as unknown as number[], null as unknown as number[]);
+    expect(result).toEqual({
+      count: 0,
+      maxImpliedSpeedMps: null,
+      countInsideZeroAdvanceRun: 0,
+      samples: [],
+    });
+  });
+
+  it('35-02 D-08: impossibleSampleSignal(undefined, undefined) does not throw and reports tier not-computable with every numeric field null', () => {
+    expect(() =>
+      impossibleSampleSignal(undefined as unknown as number[], undefined as unknown as number[])
+    ).not.toThrow();
+    const result = impossibleSampleSignal(
+      undefined as unknown as number[],
+      undefined as unknown as number[]
+    );
+    expect(result).toEqual({
+      tier: 'not-computable',
+      count: null,
+      maxImpliedSpeedMps: null,
+      countInsideZeroAdvanceRun: null,
+    });
+  });
+
   it('IMPOSSIBLE_SAMPLE_SEVERE_COUNT is a positive integer cut, not a fraction', () => {
     expect(Number.isInteger(IMPOSSIBLE_SAMPLE_SEVERE_COUNT)).toBe(true);
     expect(IMPOSSIBLE_SAMPLE_SEVERE_COUNT).toBeGreaterThan(0);
@@ -1259,6 +1324,33 @@ describe('independent signals (QUAL-02)', () => {
     expect(result.gapProfile.tier).toBe('not-computable');
     expect(result.impossibleSamples.tier).toBe('not-computable');
     expect(result.notComputableReason).toBe(NOT_COMPUTABLE_NO_STREAM);
+    expect(result.anySevere).toBe(false);
+    expect(result.deviceEra.family).toBe('suunto-9');
+  });
+
+  it('35-02 D-08: computePaceQualitySignals on a stream object whose t/d are null (not stream === null) does not throw and reports all three tiering signals not-computable with NOT_COMPUTABLE_UNUSABLE_STREAM', () => {
+    const validStream = makeStream({ t: [0, 1, 2], d: [0, 1, 2] });
+    const nullTDStream = {
+      ...validStream,
+      t: null as unknown as number[],
+      d: null as unknown as number[],
+    };
+    const metadata: ActivityQualityMetadata = {
+      deviceName: 'Suunto 9',
+      sourceProvider: undefined,
+      elapsedTimeSec: 3600,
+      movingTimeSec: 3000,
+      startLatlng: undefined,
+      endLatlng: undefined,
+    };
+
+    expect(() => computePaceQualitySignals(nullTDStream, metadata)).not.toThrow();
+    const result = computePaceQualitySignals(nullTDStream, metadata);
+
+    expect(result.decimation.tier).toBe('not-computable');
+    expect(result.gapProfile.tier).toBe('not-computable');
+    expect(result.impossibleSamples.tier).toBe('not-computable');
+    expect(result.notComputableReason).toBe(NOT_COMPUTABLE_UNUSABLE_STREAM);
     expect(result.anySevere).toBe(false);
     expect(result.deviceEra.family).toBe('suunto-9');
   });
@@ -1390,6 +1482,36 @@ describe('D-17 evidence shard', () => {
     // behave on this exact branch above.
     expect(shard.unreliableSegments).toEqual([]);
     expect(shard.unreliableSegmentsTruncated).toBe(false);
+  });
+
+  it('35-02 D-08: buildPaceQualityShard on a stream object whose t/d are null (not stream === null) does not throw and returns the not-computable shard with NOT_COMPUTABLE_UNUSABLE_STREAM', () => {
+    const validStream = syntheticMultiHourPauseStream();
+    const nullTDStream = {
+      ...validStream,
+      t: null as unknown as number[],
+      d: null as unknown as number[],
+    };
+    const metadata: ActivityQualityMetadata = {
+      deviceName: 'Suunto 9',
+      sourceProvider: undefined,
+      elapsedTimeSec: 3600,
+      movingTimeSec: 3000,
+      startLatlng: undefined,
+      endLatlng: undefined,
+    };
+
+    expect(() => buildPaceQualityShard('null-t-d-activity', nullTDStream, metadata)).not.toThrow();
+    const shard = buildPaceQualityShard('null-t-d-activity', nullTDStream, metadata);
+
+    expect(shard.activityId).toBe('null-t-d-activity');
+    expect(shard.gapIntervals).toEqual([]);
+    expect(shard.impossibleSamples).toEqual([]);
+    expect(shard.zeroAdvanceRunProfile).toBeNull();
+    expect(shard.adaptiveWindowSec).toBeNull();
+    expect(shard.notComputableReason).toBe(NOT_COMPUTABLE_UNUSABLE_STREAM);
+    expect(shard.signals.notComputableReason).toBe(NOT_COMPUTABLE_UNUSABLE_STREAM);
+    expect(shard.unreliableSegments).toEqual([]);
+    expect(shard.pauseIntervals).toEqual([]);
   });
 });
 
