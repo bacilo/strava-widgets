@@ -596,6 +596,161 @@ export function classifyGapsWithSegments(
 }
 
 // ---------------------------------------------------------------------------
+// Running pace (RPACE-01, D-08) — total-distance ÷ total-time off the SAME
+// final pairKinds partition classifyGapsWithSegments already produces
+// ---------------------------------------------------------------------------
+
+/**
+ * The result of `deriveRunningPace` (RPACE-01, D-08). Never partially
+ * populated: `computable: false` always pairs with `notComputableReason !==
+ * null` and `runningPaceSecPerKm: null` — never a computed `0` standing in
+ * for "could not compute" (T-35-09).
+ */
+export interface RunningPace {
+  computable: boolean;
+  notComputableReason: string | null;
+  runningPaceSecPerKm: number | null;
+  coveredM: number;
+  coveredSec: number;
+  excludedM: number;
+  excludedSec: number;
+}
+
+/**
+ * The third, new member of the not-computable reason closed set
+ * `pace-quality.ts` already declares two of (`NOT_COMPUTABLE_NO_STREAM =
+ * 'no stream committed for this activity'`, `NOT_COMPUTABLE_UNUSABLE_STREAM
+ * = 'stream failed validateStreamSeries'`) — quoted verbatim here. This
+ * extends that closed set with the one reason those two do not name: a
+ * stream that DID pass `validateStreamSeries` (so it is a usable stream) but
+ * whose covered runs sum to zero metres, or whose `coverage.coveredSec` is
+ * zero, so no running pace can be computed.
+ *
+ * Declared HERE, in `pace-derivation.ts`, rather than beside the other two
+ * in `pace-quality.ts`, because `pace-quality.ts` imports FROM
+ * `pace-derivation.ts` (`classifyGapsWithSegments`, `quantile`, `CoveredRun`
+ * et al. — confirmed by reading `pace-quality.ts`'s own import block this
+ * session: `import { adaptiveWindowSec, classifyGapsWithSegments, quantile }
+ * from './pace-derivation.js'` at its line 23) — the reverse edge
+ * (`pace-derivation.ts` importing `pace-quality.ts`) would be a circular
+ * module dependency.
+ */
+export const NOT_COMPUTABLE_NO_COVERED_DISTANCE =
+  'stream has no covered distance or no covered time';
+
+/** Returns a fresh not-computable result — never a shared/mutable module-level constant (mirrors `zeroCoverage`). */
+function zeroRunningPace(reason: string): RunningPace {
+  return {
+    computable: false,
+    notComputableReason: reason,
+    runningPaceSecPerKm: null,
+    coveredM: 0,
+    coveredSec: 0,
+    excludedM: 0,
+    excludedSec: 0,
+  };
+}
+
+/**
+ * The ONE running-pace implementation (RPACE-01, D-08) — any second inline
+ * copy of `coveredSec / (coveredM / 1000)` (or an equivalent division) is a
+ * single-source violation caught by `pace-single-source.test.ts`'s literal
+ * scanner.
+ *
+ * It is TOTAL. It never throws for any input shape, including
+ * `null`/`undefined` streams, non-array `t`/`d`, and a stream that fails
+ * `classifyGapsWithSegments`'s own pass-1 validation.
+ *
+ * THE BOUNDARY RULE, stated explicitly (D-08 requires this): classification
+ * is per PAIR. Pair `i` spans `t[i]..t[i+1]` and belongs to exactly one of
+ * covered / recording-gap / pause / unreliable — `classifyGapsWithSegments`'s
+ * own final `pairKinds` partition — so no sample step can straddle an
+ * interval edge and no pair is ever split between two categories. A covered
+ * run's metres are `d[run.endIndex] - d[run.startIndex]`, which telescopes
+ * over its own consecutive covered pairs and contributes nothing from either
+ * adjacent non-covered pair — this deliberately never introduces a
+ * `startSec`/`endSec` boundary convention of its own, the 32-13/32-17 defect
+ * (a second, disagreeing boundary convention double-counting a shared
+ * interval) this avoids by construction.
+ *
+ * Numerator (`coveredM`, summed over `coveredRuns`) and denominator
+ * (`coveredSec`, read from `coverage.coveredSec`) are two views of the SAME
+ * final `pairKinds` partition `classifyGapsWithSegments` produces in one
+ * pass — not two independent computations that happen to agree. This
+ * function's `excludedSec` (`coverage.spanSec - coverage.coveredSec`, exactly
+ * `recordingGapSec + pauseSec + unreliableSec`) therefore cannot disagree
+ * with the coverage caption's own excluded terms by construction, not by
+ * agreement.
+ *
+ * It is the ONE running-pace implementation. Any second inline copy of the
+ * division is a single-source violation (`pace-single-source.test.ts`).
+ *
+ * "Computable stream" means: `validateStreamSeries(t, d).ok` (checked inside
+ * `classifyGapsWithSegments`'s own pass 1) AND `coveredSec > 0` AND
+ * `coveredM > 0`. Any other shape returns the neutral not-computable result
+ * with a stated reason, `runningPaceSecPerKm: null` — never a computed zero.
+ *
+ * No rounding here (a pure-function boundary) — rounding to one decimal is
+ * `round1`'s job at the CI write boundary (plan 35-08); a second rounding
+ * convention inside this pure function would make a zero-import recount
+ * unable to reconcile against the exact value.
+ */
+export function deriveRunningPace(
+  stream: CanonicalStream | null | undefined,
+  options?: { pauseRule?: PauseRule }
+): RunningPace {
+  if (stream == null || !Array.isArray(stream.t) || !Array.isArray(stream.d)) {
+    // Reused verbatim (by string value, not import) from pace-quality.ts's
+    // NOT_COMPUTABLE_NO_STREAM — see the docblock above NOT_COMPUTABLE_NO_COVERED_DISTANCE
+    // for why this is a literal rather than an imported symbol.
+    return zeroRunningPace('no stream committed for this activity');
+  }
+
+  const { t, d } = stream;
+  const { coverage, coveredRuns } = classifyGapsWithSegments(t, d, {
+    pauseRule: options?.pauseRule,
+  });
+
+  if (coveredRuns.length === 0 && coverage.spanSec === 0) {
+    // Reused verbatim (by string value, not import) from pace-quality.ts's
+    // NOT_COMPUTABLE_UNUSABLE_STREAM — see the docblock above
+    // NOT_COMPUTABLE_NO_COVERED_DISTANCE for why this is a literal rather
+    // than an imported symbol.
+    return zeroRunningPace('stream failed validateStreamSeries');
+  }
+
+  let coveredM = 0;
+  for (const run of coveredRuns) {
+    coveredM += d[run.endIndex] - d[run.startIndex];
+  }
+  const coveredSec = coverage.coveredSec;
+  const excludedM = d[d.length - 1] - d[0] - coveredM;
+  const excludedSec = coverage.spanSec - coveredSec;
+
+  if (coveredSec > 0 && coveredM > 0) {
+    return {
+      computable: true,
+      notComputableReason: null,
+      runningPaceSecPerKm: coveredSec / (coveredM / 1000),
+      coveredM,
+      coveredSec,
+      excludedM,
+      excludedSec,
+    };
+  }
+
+  return {
+    computable: false,
+    notComputableReason: NOT_COMPUTABLE_NO_COVERED_DISTANCE,
+    runningPaceSecPerKm: null,
+    coveredM,
+    coveredSec,
+    excludedM,
+    excludedSec,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Pace series (adaptive, gap-clipped windowed averaging) — PACE-02, PACE-03
 // ---------------------------------------------------------------------------
 
