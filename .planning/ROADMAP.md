@@ -340,7 +340,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 35-03-PLAN.md — deriveRunningPace (D-08 Reading A), its pinned boundary rule, and D-11's stub-the-detector proof
+- [x] 35-03-PLAN.md — deriveRunningPace (D-08 Reading A), its pinned boundary rule, and D-11's stub-the-detector proof
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -455,7 +455,7 @@ Plans:
 | 32. Unreliable-Segment Detection & Calibration | v2.3 | 17/17 | Complete    | 2026-09-20 |
 | 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 14/14 | Complete    | 2026-09-22 |
 | 34. Pause Classification & Forgotten-Stop | v2.3 | 16/16 | Complete    | 2026-09-23 |
-| 35. Stream-Derived Running Pace | v2.3 | 2/13 | In Progress|  |
+| 35. Stream-Derived Running Pace | v2.3 | 3/13 | In Progress|  |
 | 36. Best-Effort Clean-Window Search & Ceiling Recalibration | v2.3 | 0/TBD | Not started | - |
 | 37. Review-Queue Priority & CUR-04 | v2.3 | 0/TBD | Not started | - |
 
