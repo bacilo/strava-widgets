@@ -127,3 +127,11 @@ None - no external service configuration required.
 ---
 *Phase: 35-stream-derived-running-pace*
 *Completed: 2026-09-24*
+
+## Self-Check: PASSED
+
+All 4 files confirmed present via `[ -f ... ]`: this summary,
+`src/analytics/pace-derivation.ts`, `src/analytics/pace-derivation.test.ts`,
+`src/analytics/pace-single-source.test.ts`. All four commit hashes
+(`41882146`, `0ee46414`, `a5dd8498`, `3ec5dd0e`) confirmed present via
+`git log --oneline --all`.
