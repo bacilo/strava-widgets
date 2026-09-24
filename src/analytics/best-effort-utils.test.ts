@@ -153,6 +153,111 @@ describe('validateStreamSeries', () => {
   });
 });
 
+describe('validateStreamSeries — total for null/undefined/non-array input (D-08)', () => {
+  it('does not throw for (null, null) and returns ok:false naming t', () => {
+    const result = validateStreamSeries(null as never, null as never);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toContain('t is not an array');
+    }
+  });
+
+  it('does not throw for (null, [0,1]) and returns ok:false naming t', () => {
+    const result = validateStreamSeries(null as never, [0, 1]);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toContain('t is not an array');
+    }
+  });
+
+  it('does not throw for ([0,1], null) and returns ok:false naming d', () => {
+    const result = validateStreamSeries([0, 1], null as never);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toContain('d is not an array');
+    }
+  });
+
+  it('does not throw for (undefined, undefined) and returns ok:false naming t', () => {
+    const result = validateStreamSeries(undefined as never, undefined as never);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toContain('t is not an array');
+    }
+  });
+
+  it('does not throw for (undefined, [0,1]) and returns ok:false naming t', () => {
+    const result = validateStreamSeries(undefined as never, [0, 1]);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toContain('t is not an array');
+    }
+  });
+
+  it('does not throw for ([0,1], undefined) and returns ok:false naming d', () => {
+    const result = validateStreamSeries([0, 1], undefined as never);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toContain('d is not an array');
+    }
+  });
+
+  it('does not throw for a non-array object ({} , []) and returns ok:false naming t', () => {
+    const result = validateStreamSeries({} as never, [] as never);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toContain('t is not an array');
+    }
+  });
+
+  it('does not throw for a non-array number (42, 42) and returns ok:false naming t', () => {
+    const result = validateStreamSeries(42 as never, 42 as never);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toContain('t is not an array');
+    }
+  });
+});
+
+describe('validateStreamSeries — unchanged behaviour for already-covered input shapes (D-08)', () => {
+  it('an equal-length valid series still returns exactly { ok: true }', () => {
+    const result = validateStreamSeries([0, 1, 2, 3], [0, 100, 100, 200]);
+    expect(result).toStrictEqual({ ok: true });
+  });
+
+  it('a length mismatch still returns the same reason string', () => {
+    const result = validateStreamSeries([0, 1, 2], [0, 100]);
+    expect(result).toStrictEqual({
+      ok: false,
+      reason: 't and d length mismatch: t has 3 samples, d has 2 samples',
+    });
+  });
+
+  it('a fewer-than-2-samples series still returns the same reason string', () => {
+    const result = validateStreamSeries([0], [0]);
+    expect(result).toStrictEqual({
+      ok: false,
+      reason: 'series has 1 sample(s), at least 2 are required',
+    });
+  });
+
+  it('a non-finite value still returns the same reason string', () => {
+    const result = validateStreamSeries([0, 1, NaN], [0, 100, 200]);
+    expect(result).toStrictEqual({
+      ok: false,
+      reason: 't[2] is not a finite number: NaN',
+    });
+  });
+
+  it('a decreasing t value still returns the same reason string', () => {
+    const result = validateStreamSeries([0, 2, 1], [0, 100, 200]);
+    expect(result).toStrictEqual({
+      ok: false,
+      reason: 't decreases at index 2: t[1]=2, t[2]=1',
+    });
+  });
+});
+
 describe('isPlausible — max_speed guard', () => {
   it('accepts a normal effort well under both ceilings', () => {
     const result = isPlausible(4.0, 5.5, 6.6);

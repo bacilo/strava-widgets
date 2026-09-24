@@ -65,11 +65,29 @@ export const WORLD_RECORD_100M_SPEED_MPS = 10.44;
 
 /**
  * Validates a `(t, d)` series before it reaches the sweep. Runs, in order:
- * equal-length check, minimum-sample-count check, finiteness check, and
- * non-decreasing checks on both arrays. Equal consecutive values are valid
- * in both arrays (a genuine standstill, or samples sharing a timestamp).
+ * array-shape check, equal-length check, minimum-sample-count check,
+ * finiteness check, and non-decreasing checks on both arrays. Equal
+ * consecutive values are valid in both arrays (a genuine standstill, or
+ * samples sharing a timestamp).
+ *
+ * TOTAL: this function never throws, for any input shape, including `null`,
+ * `undefined` and a non-array value — the array-shape check runs first and
+ * rejects any argument for which `Array.isArray` is false before anything
+ * reads `.length`, so an untyped `.mjs` caller passing `null`/`undefined`
+ * gets the same `{ ok: false, reason }` shape every other rejection uses,
+ * never a raw `TypeError` (35-02, 2026-09-24).
  */
-export function validateStreamSeries(t: number[], d: number[]): PlausibilityResult {
+export function validateStreamSeries(
+  t: readonly number[] | null | undefined,
+  d: readonly number[] | null | undefined
+): PlausibilityResult {
+  if (!Array.isArray(t)) {
+    return { ok: false, reason: `t is not an array: ${typeof t}` };
+  }
+  if (!Array.isArray(d)) {
+    return { ok: false, reason: `d is not an array: ${typeof d}` };
+  }
+
   if (t.length !== d.length) {
     return {
       ok: false,
