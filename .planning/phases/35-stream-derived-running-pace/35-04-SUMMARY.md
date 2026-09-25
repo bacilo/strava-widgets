@@ -141,3 +141,12 @@ None - no external service configuration required.
 ---
 *Phase: 35-stream-derived-running-pace*
 *Completed: 2026-09-25*
+
+## Self-Check: PASSED
+
+All 5 files confirmed present via `[ -f ... ]`: this summary,
+`scripts/compute-running-pace-recount.mjs`,
+`scripts/compute-running-pace-recount.test.mjs`,
+`scripts/unreliable-segment-import-guards.test.mjs`, `package.json`. All
+three commit hashes (`4cf6778a`, `de7e94e5`, `71f97dd4`) confirmed present
+via `git log --oneline --all`.
