@@ -576,7 +576,7 @@ export function renderRecountMarkdown(result) {
 
   lines.push('## Inputs');
   lines.push('');
-  lines.push(`Streams tree: ${result.provenance.streamsTree}`);
+  lines.push(`Streams tree (git rev-parse HEAD:data/streams): ${result.provenance.streamsTree}`);
   lines.push(`Newest activity start date: ${result.provenance.newestActivityStartDate ?? 'unknown'}`);
   lines.push('');
 
