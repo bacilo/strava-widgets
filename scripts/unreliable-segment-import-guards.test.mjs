@@ -119,6 +119,14 @@ describe('compute-unreliable-segment-calibration.mjs performs no disk read, dire
   });
 });
 
+describe('compute-running-pace-recount.mjs performs no disk read or write at import', () => {
+  it('records zero fs calls', async () => {
+    calls.length = 0;
+    await import('./compute-running-pace-recount.mjs?cache-bust-running-pace-recount-import-guard');
+    expect(calls).toEqual([]);
+  });
+});
+
 describe('32-CALIBRATION.md is byte-untouched across the calibration import', () => {
   let mtimeBeforeImport;
 
