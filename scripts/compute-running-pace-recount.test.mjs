@@ -303,13 +303,51 @@ describe('findOverspeedRanges (c)', () => {
     expect(findOverspeedRanges(t, d, [])).toEqual([]);
   });
 
-  it('breaks a run at a zero-advance pair — two short bursts are judged independently, not pooled into one aggregate', () => {
+  it('breaks a run at a zero-advance pair — two bursts are still judged on their own metres, never pooled into one aggregate (metres are unaffected by the 2026-09-26 window correction below: the flat stretch between them carries no distance, so nothing from burst 1 ever bleeds into burst 2\'s numerator)', () => {
     const t = [0, 1, 2, 3, 4];
-    const d = [0, 10, 10, 10, 20]; // pair0: 10 m/s (own run); pair1-2: flat; pair3: 10 m/s (own run)
+    const d = [0, 10, 10, 10, 5000]; // pair0: 10 m/s (own run, no preceding quiet time; unaffected by
+    // the window correction). pair1-2: flat. pair3: metres=4990 over its own 1s dt PLUS the 2s of
+    // preceding flat time (window seconds = t[4]-t[1] = 3) -> speed=4990/3=1663.3, still nowhere
+    // near explained by the 2s of quiet time it is credited with -- still flagged. Proves bursts
+    // stay independently judged (burst 1's own 10 m never enters burst 2's metres or window).
     expect(findOverspeedRanges(t, d, [])).toEqual([
       { startIndex: 0, endIndex: 1 },
       { startIndex: 3, endIndex: 4 },
     ]);
+  });
+
+  describe('2026-09-26 correction (defect 1): the aggregate speed window extends backward through the immediately preceding zero-advance, non-gap stretch — never the run\'s own dt alone', () => {
+    it('CAN PASS: a lump following a PROPORTIONATE zero-advance stretch is judged sane, not a fictitious teleport (the shape of activity 5059204779\'s own finding: a per-second-ticking, quantized-distance stream that only reports cumulative distance in an occasional lump)', () => {
+      // 61 samples, t ticking every second (0..60); d flat for the first 60 samples, then one lump
+      // of 166 m on the very last pair. Judged on its own 1s dt alone: 166 m/s (598 km/h) --
+      // exactly the fictitious-teleport shape 35-04's original rule produced on 5059204779 (37-184
+      // m/s implied speed on a stream whose own average pace is 2.85 m/s). Judged over the
+      // extended window (the 59s of preceding quantization latency, credited to the lump per this
+      // correction's own physical reading): 166 m / 60 s = 2.77 m/s -- sane, not flagged.
+      const t = Array.from({ length: 61 }, (_, i) => i);
+      const d = new Array(60).fill(0).concat([166]);
+      expect(findOverspeedRanges(t, d, [])).toEqual([]);
+    });
+
+    it('CAN FAIL (the correction is a real discriminator, not a blanket amnesty): a lump whose magnitude remains implausible even after crediting the SAME 59s preceding quiet stretch is still flagged', () => {
+      // Identical shape to the CAN-PASS fixture above (61 samples, 59s of quiet time before the
+      // final pair), except the lump is 50,000 m instead of 166 m -- even credited with the full
+      // 60s window, that is 833.3 m/s (>3000 km/h), nowhere near explainable by one minute of
+      // quantization latency. Proves the window correction explains ordinary reporting latency, it
+      // does not forgive an arbitrarily large jump merely because SOME quiet time preceded it.
+      const t = Array.from({ length: 61 }, (_, i) => i);
+      const d = new Array(60).fill(0).concat([50000]);
+      expect(findOverspeedRanges(t, d, [])).toEqual([{ startIndex: 59, endIndex: 60 }]);
+    });
+
+    it('CAN FAIL: a genuine GPS jump immediately after only a SHORT (non-proportionate) quiet pair is still flagged -- the window credits actual elapsed quiet time, it does not manufacture a floor', () => {
+      // pair0 flat (1s), pair1 a 5000m jump in 1s. Window-extended speed = 5000 / (1+1) = 2500 m/s
+      // -- the 1s of quiet credit does nothing to rescue a jump three orders of magnitude too
+      // large for even a generous window.
+      const t = [0, 1, 2];
+      const d = [0, 0, 5000];
+      expect(findOverspeedRanges(t, d, [])).toEqual([{ startIndex: 1, endIndex: 2 }]);
+    });
   });
 
   it('flags a single pair immediately AFTER a recording gap on its OWN speed, even though it sits inside a longer run whose AGGREGATE stays under the limit (so the general scan alone would miss it)', () => {

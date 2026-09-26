@@ -89,9 +89,12 @@ export const NAMED_ACTIVITY_IDS = ['3475724402', '3475734189', '3475740390', '50
 /**
  * A LOCAL DUPLICATE of `RECORDING_GAP_ABS_THRESHOLD_SEC` (`src/analytics/pace-derivation.ts`, live
  * value read this session), NOT imported from there — duplicating this tiny constant is the price
- * of staying a genuinely independent recount.
+ * of staying a genuinely independent recount. Exported (2026-09-26 correction) so the crosscheck
+ * file's own honestly-derived UNEXPLAINED magnitude bound (defect 3, `classifyDivergence`) can cite
+ * the SAME per-pair second bound this file's own over-speed rule uses, without duplicating it a
+ * third time.
  */
-const LOCAL_GAP_THRESHOLD_SEC = 10;
+export const LOCAL_GAP_THRESHOLD_SEC = 10;
 
 /**
  * A LOCAL DUPLICATE of `PAUSE_GAP_P90_MULTIPLIER` (`src/analytics/pace-derivation.ts`, live value
@@ -103,9 +106,10 @@ const LOCAL_PAUSE_MULTIPLIER = 5;
  * A LOCAL DUPLICATE of `UNRELIABLE_SPEED_LIMIT_MPS` (`src/analytics/unreliable-segments.ts`, live
  * value read this session; also the shipped figure of record in
  * `.planning/phases/32-unreliable-segment-detection-calibration/32-CALIBRATION.md`), NOT imported
- * from there.
+ * from there. Exported (2026-09-26 correction) for the same reason as `LOCAL_GAP_THRESHOLD_SEC`
+ * above.
  */
-const LOCAL_SPEED_LIMIT_MPS = 7.35;
+export const LOCAL_SPEED_LIMIT_MPS = 7.35;
 
 /**
  * The rendered artifact's own "Local duplicated constants" / "Scope and bound on claim" sections
@@ -272,15 +276,61 @@ export function findPauseRanges(t, d, p90AdvanceSec) {
 }
 
 /**
+ * Walks backward from `runStartIndex` (the first sample of a maximal advancing run) through the
+ * immediately preceding run of zero-advance, non-gap pairs, returning the sample index at which
+ * that preceding quiet stretch began. A pair only counts as "preceding quiet stretch" if it is
+ * BOTH zero-advance (`d[k] - d[k-1] <= 0`) AND not itself a recording gap
+ * (`t[k] - t[k-1] <= LOCAL_GAP_THRESHOLD_SEC`) — a genuine multi-second-plus data gap is a
+ * different disposition (we do not know what happened during it) and must not be folded into the
+ * over-speed window silently. By construction of the maximal-run scan below, the pair immediately
+ * before `runStartIndex` (if any) is never itself advancing — a preceding advancing pair would
+ * already have been absorbed into the same run — so this only ever walks back through pairs that
+ * are flat, never back into a DIFFERENT advancing run's own metres.
+ */
+function findPrecedingQuietWindowStart(t, d, runStartIndex) {
+  let k = runStartIndex;
+  while (k > 0 && d[k] - d[k - 1] <= 0 && t[k] - t[k - 1] <= LOCAL_GAP_THRESHOLD_SEC) {
+    k -= 1;
+  }
+  return k;
+}
+
+/**
  * (c) Over-speed intervals, in two parts, mirroring the detector's merge intent (a burst can
  * condemn a run of pairs, and a burst touching a recording gap is still a burst) WITHOUT reusing
  * its gap-first traversal:
  *   1. Every maximal run of consecutive strictly-advancing pairs (`d[i+1] - d[i] > 0`) whose
- *      AGGREGATE implied speed (`totalMetres / totalSeconds` over the whole run) exceeds
- *      `LOCAL_SPEED_LIMIT_MPS`.
+ *      AGGREGATE implied speed exceeds `LOCAL_SPEED_LIMIT_MPS`, where the speed's own time
+ *      denominator is measured over the run's own elapsed time PLUS the immediately preceding
+ *      zero-advance, non-gap stretch (`findPrecedingQuietWindowStart`) — never the run's own dt
+ *      alone.
+ *
+ *      WHY (2026-09-26 correction, defect 1, evidence: activity 5059204779): a stream whose device
+ *      ticks a timestamp every second but only reports cumulative distance in an occasional lump
+ *      (quantized distance, sparse-advance) produces maximal advancing runs that are almost always
+ *      a single pair, with 1-2s of its own dt, carrying the ENTIRE distance accrued since the
+ *      previous lump. Judging that pair's speed over its own 1-2s dt computes an obviously
+ *      fictitious speed (in 5059204779's case, 37-184 m/s, i.e. up to 662 km/h) and is self-refuting
+ *      against the very same stream's own average pace (10,804 m over 3,788 s = 2.85 m/s here). The
+ *      physically correct reading is that the lump's distance was accrued over the WHOLE elapsed
+ *      time since the device's last report — i.e. the run's own dt plus the immediately preceding
+ *      zero-advance run, not the lump's own dt in isolation. This is independently motivated by the
+ *      stream's own reporting mechanism (distance latency), not copied from production's
+ *      `UNRELIABLE_EXCESS_FLOOR_M` excess-floor gate — production's fix is a magnitude floor
+ *      ("don't flag unless the EXCESS over the limit clears a floor"), this fix is a WINDOW
+ *      correction ("measure the speed over the physically correct elapsed time"). The two are not
+ *      the same mechanism and one is not derived from the other; a genuine teleport (a lump not
+ *      preceded by a proportionate quiet stretch, or whose own magnitude remains implausible even
+ *      once the preceding quiet time is credited to it) is still flagged — proven by dedicated
+ *      fixtures in `compute-running-pace-recount.test.mjs`.
  *   2. Additionally, the single pair immediately before a recording gap's start and the single pair
- *      immediately after its end, each checked on ITS OWN implied speed — catching an isolated
- *      gap-adjacent burst too short to dominate a longer run's own aggregate.
+ *      immediately after its end, each checked on ITS OWN implied speed (never window-extended) —
+ *      catching an isolated gap-adjacent burst too short to dominate a longer run's own aggregate.
+ *      This second check is left unchanged by the 2026-09-26 correction: it exists to catch a burst
+ *      adjacent to a genuine multi-second RECORDING gap (missing samples), a different physical
+ *      situation from part 1's sparse-advance-but-present-samples lumps, and window-extending across
+ *      an actual data gap (where we do not know what happened) would be a different, unjustified
+ *      claim.
  * Returns `[{ startIndex, endIndex }]` pair-index ranges, not yet merged or deduplicated (the merge
  * step below is what removes any overlap between the two parts).
  */
@@ -296,7 +346,8 @@ export function findOverspeedRanges(t, d, recordingGapRanges) {
         j += 1;
       }
       const metres = d[j + 1] - d[i];
-      const seconds = t[j + 1] - t[i];
+      const windowStartIndex = findPrecedingQuietWindowStart(t, d, i);
+      const seconds = t[j + 1] - t[windowStartIndex];
       const impliedSpeedMps = seconds > 0 ? metres / seconds : Infinity;
       if (impliedSpeedMps > LOCAL_SPEED_LIMIT_MPS) {
         ranges.push({ startIndex: i, endIndex: j + 1 });
