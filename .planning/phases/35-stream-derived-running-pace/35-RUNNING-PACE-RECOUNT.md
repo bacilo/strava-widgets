@@ -17,19 +17,19 @@ LOCAL_SPEED_LIMIT_MPS = 7.35 (local duplicate of UNRELIABLE_SPEED_LIMIT_MPS, src
 | 3475724402 | yes | 11709.7 | 3578 | 1715 | 767 | 5:06/km (305.6) |
 | 3475734189 | yes | 6830.3 | 2371 | 0 | 16 | 5:47/km (347.1) |
 | 3475740390 | yes | 10515 | 3584 | 56.1 | 66 | 5:41/km (340.8) |
-| 5059204779 | no (no covered distance) | - | - | - | - | - |
+| 5059204779 | yes | 10638 | 3787 | 166 | 1 | 5:56/km (356) |
 
 ## Archive-wide reconciliation
 
 Streams scanned: 1874
-Computable: 1872
-Archive-wide covered/excluded (computable activities only): coveredM=22441694.4, coveredSec=7747901, excludedM=85374.8, excludedSec=602540
+Computable: 1873
+Archive-wide covered/excluded (computable activities only): coveredM=22497586.3, coveredSec=7753525, excludedM=40286.9, excludedSec=600704
 
 ## Skipped and non-computable
 
 Parse error: 0
 Invalid shape (checkStreamLocal failed): 0
-No covered distance (recountCoveredM <= 0): 2
+No covered distance (recountCoveredM <= 0): 1
 
 ## Inputs
 
