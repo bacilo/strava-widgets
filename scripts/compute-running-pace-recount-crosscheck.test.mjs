@@ -7,7 +7,18 @@
  * metres agree within `1e-6` m and covered/excluded seconds agree within `1e-6` s. A row outside
  * that bar is a DIVERGENCE, closed only by naming a structural cause (never by widening the bar,
  * never by editing this recount's own algorithm to match production, never by editing the
- * committed artifact). The UNEXPLAINED count must be exactly 0.
+ * committed artifact).
+ *
+ * UNEXPLAINED IS NOT REQUIRED TO BE ZERO (2026-09-26 correction, defect 3). It previously read
+ * "must be exactly 0", enforced by an UNCONDITIONAL fallback to EXPLAINED DIVERGENCE /
+ * `TRAVERSAL_BOUNDARY_CAUSE` for every non-conserving-violation divergence, regardless of size —
+ * 677 archive-wide activities were stamped EXPLAINED by that fallback with no check that a
+ * traversal-boundary effect could plausibly produce a divergence of the observed MAGNITUDE.
+ * `classifyDivergence` below now gates that branch on an honestly-derived magnitude bound (see its
+ * own docblock); a divergence too large for a bounded number of boundary-pair reclassifications to
+ * plausibly explain falls through to UNEXPLAINED. On the real archive this is a legitimate,
+ * non-zero, reportable count — see the archive-wide sweep test below for the actual figure and its
+ * cause split. Never tune the bound to force this back to 0.
  *
  * This file is the deliberate exception (mirroring
  * `scripts/unreliable-segment-recount-crosscheck.test.mjs`) that imports the COMPILED production
@@ -27,13 +38,22 @@
  * still where this file's watched-failing perturbation control operates, per the plan's own
  * instruction — that is a real, independent consumer of the artifact text, not a decorative parse.
  *
- * THE CENTRAL FINDING THIS FILE MUST NOT DISSOLVE (35-04's own disclosure, confirmed again by this
- * file's archive-wide sweep): 5059204779's stream is 1,833/1,892 zero-advance pairs, so every one
- * of its 59 advancing pairs is an isolated maximal-advancing-run whose own aggregate speed exceeds
- * `LOCAL_SPEED_LIMIT_MPS` — this recount's own over-speed rule has NO excess-floor requirement,
- * unlike production's excess-floor-gated, chain-merged `detectUnreliableSegments`. The result:
- * `recountCoveredM=0` (this recount excludes the entire activity) vs. production's
- * `excludedM=166`. This is named EXPLAINED DIVERGENCE below, never engineered away.
+ * THE FINDING THIS FILE PREVIOUSLY DISCLOSED ON 5059204779 WAS ITSELF A DEFECT IN THIS RECOUNT, NOT
+ * IN PRODUCTION (2026-09-26 correction, defect 1, fixed in `compute-running-pace-recount.mjs`'s
+ * `findOverspeedRanges`). 5059204779's stream is a QUANTIZED-DISTANCE stream: the device ticks a
+ * timestamp every second but only reports cumulative distance in an occasional lump (1,833/1,892
+ * pairs are zero-advance). Judging each lump's speed over its own 1-2s dt alone (the recount's
+ * PRE-2026-09-26 behaviour) produced a self-refuting reading — 37-184 m/s per lump on a stream
+ * whose own average pace is 2.85 m/s — and excluded `recountCoveredM=0` for an activity that
+ * plainly covered 10,804 m. That was NOT a legitimate second opinion; it was this recount's own
+ * over-speed rule misreading a physically ordinary stream shape. The fix measures each lump's
+ * speed over a window that includes the elapsed time since the device's last report (the
+ * immediately preceding zero-advance, non-gap stretch), which is the physically correct reading.
+ * After the fix, this recount and production both report a sane covered distance for 5059204779
+ * (`recountCoveredM=10638`, matching production's own `coveredM=10638` exactly; a small 2s
+ * boundary-difference remains in `coveredSec`/`excludedSec`, EXPLAINED DIVERGENCE below). This
+ * activity is no longer named as "the central finding" — it is an ordinary, small, EXPLAINED row
+ * like the other three named activities.
  */
 
 import fs from 'node:fs';
@@ -53,6 +73,8 @@ import {
   mergeExcludedRanges,
   localAdvanceIntervalsSec,
   localQuantileR7,
+  LOCAL_GAP_THRESHOLD_SEC,
+  LOCAL_SPEED_LIMIT_MPS,
 } from './compute-running-pace-recount.mjs';
 
 const ARTIFACT_PATH = path.join(
@@ -167,6 +189,15 @@ export function describeComparison(id, rowA, rowB, comparison) {
  * least 90% of the recount's own excluded metres come from ranges that do not overlap any
  * recording-gap range (i.e., from the over-speed/pause rules, not gap absorption) AND this recount
  * excludes strictly more than production.
+ *
+ * NOTE (2026-09-26 correction, defect 1): before the fix to `findOverspeedRanges`'s aggregate-speed
+ * window, this cause fired catastrophically on quantized-distance streams (5059204779: recount
+ * excluded the ENTIRE activity). That was a bug in this recount, not a legitimate second opinion —
+ * fixed by measuring a lump's implied speed over the elapsed time since the device's last report,
+ * not the lump's own 1-2s dt alone. This cause still fires (n=6 on the real archive, worst case
+ * 162.6 m of a multi-thousand-metre activity) for GENUINELY isolated single-pair bursts not
+ * preceded by a proportionate quiet stretch — a real, bounded, and much smaller-scale instance of
+ * the same no-excess-floor mechanism, not the same defect recurring.
  */
 export const NO_EXCESS_FLOOR_CAUSE =
   'no-excess-floor over-speed rule: this recount flags every isolated/near-isolated advancing run ' +
@@ -181,15 +212,30 @@ export const NO_EXCESS_FLOOR_CAUSE =
  * different (D-08's own docblock, "TRAVERSAL, DELIBERATELY DIFFERENT") — a gap-adjacent burst's
  * exact extent, the independently-derived R-7 pause threshold, or a recording-gap boundary pair can
  * legitimately classify differently between this recount's interval-first traversal and
- * production's three-pass, strict-priority, chain-merged classifier, without either side being
- * wrong.
+ * production's three-pass, strict-priority, chain-merged classifier.
+ *
+ * MAGNITUDE-BOUNDED (2026-09-26 correction, defect 3): this cause is a CHECKED STRUCTURAL FACT about
+ * the SIZE of a given divergence, never an assumption that any two independently-derived readings
+ * must agree by construction. `classifyDivergence` only names this cause when the divergence does
+ * not exceed what a bounded number of boundary-PAIR reclassifications could plausibly produce: at
+ * most 2 boundary pairs per recording-gap/pause/over-speed range this recount itself detected (one
+ * at each end, where the two traversals' differing pass order or threshold estimate could disagree
+ * about a single pair's classification), each pair capped at `LOCAL_GAP_THRESHOLD_SEC` seconds
+ * (any pair that is not itself a recording gap has `dt <= LOCAL_GAP_THRESHOLD_SEC` by definition)
+ * and `LOCAL_GAP_THRESHOLD_SEC * LOCAL_SPEED_LIMIT_MPS` metres (any pair not itself flagged
+ * over-speed has `speed <= LOCAL_SPEED_LIMIT_MPS`). A divergence exceeding that bound is NOT
+ * explained by this cause — it is UNEXPLAINED, because a small, bounded number of boundary pairs
+ * cannot plausibly account for it, whatever its true origin.
  */
 export const TRAVERSAL_BOUNDARY_CAUSE =
-  "traversal-shape/boundary difference: the interval-first recount's gap-adjacent single-pair " +
-  'check, independently-derived R-7 pause threshold, or recording-gap boundary handling classifies ' +
-  "a different (but structurally comparable) pair set than production's three-pass, strict-priority, " +
-  'chain-merged classifier — both are legitimate, independently-derived readings of the same D-08 ' +
-  'boundary rule, not a shared blind spot';
+  "traversal-shape/boundary difference, magnitude-checked: the interval-first recount's " +
+  "gap-adjacent single-pair check, independently-derived R-7 pause threshold, or recording-gap " +
+  'boundary handling classifies a different (but structurally comparable) SMALL pair set than ' +
+  "production's three-pass, strict-priority, chain-merged classifier — named only when this " +
+  'divergence\'s own magnitude is within what a bounded number of boundary-pair reclassifications ' +
+  '(2 per recording-gap/pause/over-speed range this recount detected, each capped at ' +
+  'LOCAL_GAP_THRESHOLD_SEC seconds / LOCAL_GAP_THRESHOLD_SEC*LOCAL_SPEED_LIMIT_MPS metres) could ' +
+  'plausibly produce, checked structurally by classifyDivergence, never asserted by fiat';
 
 function rangesOverlap(a, b) {
   return a.startIndex < b.endIndex && b.startIndex < a.endIndex;
@@ -224,13 +270,30 @@ function conserves(row, spanSec, totalM) {
 }
 
 /**
- * Pure classifier: FULL AGREEMENT / EXPLAINED DIVERGENCE / UNEXPLAINED, given already-computed
- * rows. Deliberately separated from `classifyActivity` (which computes those rows from a real
- * stream) so this function's own reachability — CAN report UNEXPLAINED, CAN report EXPLAINED
- * DIVERGENCE — can be demonstrated directly with synthetic fixtures, independent of the real
- * archive.
+ * The magnitude bound on `TRAVERSAL_BOUNDARY_CAUSE` (2026-09-26 correction, defect 3): what a
+ * BOUNDED NUMBER of boundary-pair reclassifications could plausibly produce. `boundaryPairBound` is
+ * the count of individual pairs whose classification the two traversals could plausibly disagree
+ * about — at most 2 per recording-gap/pause/over-speed range this recount itself detected (one at
+ * each end of the range, where a differing pass order or threshold estimate could shift a single
+ * pair's classification). Each such pair is capped, independently of the real archive, at
+ * `LOCAL_GAP_THRESHOLD_SEC` seconds (a pair that is not itself a recording gap has
+ * `dt <= LOCAL_GAP_THRESHOLD_SEC` by `findRecordingGapRanges`' own definition) and
+ * `LOCAL_GAP_THRESHOLD_SEC * LOCAL_SPEED_LIMIT_MPS` metres (a pair not itself flagged over-speed has
+ * `speed <= LOCAL_SPEED_LIMIT_MPS` by `findOverspeedRanges`' own definition). This is NOT
+ * production's `UNRELIABLE_EXCESS_FLOOR_M` rebadged — it is derived entirely from THIS recount's own
+ * two local duplicated constants and its own detected range counts, never from a number chosen to
+ * make the current archive pass (verified live against the real archive: applying this bound
+ * honestly yields a non-zero UNEXPLAINED count, reported by the archive-wide sweep test below, not
+ * tuned back to 0).
  */
-export function classifyDivergence({ recountRow, shippedRow, spanSec, totalM, gapFreeShare }) {
+export function classifyDivergence({
+  recountRow,
+  shippedRow,
+  spanSec,
+  totalM,
+  gapFreeShare,
+  boundaryPairBound,
+}) {
   const comparison = compareFields(recountRow, shippedRow);
   if (comparison.agrees) {
     return { classification: 'FULL AGREEMENT', comparison };
@@ -255,7 +318,28 @@ export function classifyDivergence({ recountRow, shippedRow, spanSec, totalM, ga
     return { classification: 'EXPLAINED DIVERGENCE', cause: NO_EXCESS_FLOOR_CAUSE, comparison };
   }
 
-  return { classification: 'EXPLAINED DIVERGENCE', cause: TRAVERSAL_BOUNDARY_CAUSE, comparison };
+  const maxBoundaryM = boundaryPairBound * LOCAL_GAP_THRESHOLD_SEC * LOCAL_SPEED_LIMIT_MPS;
+  const maxBoundarySec = boundaryPairBound * LOCAL_GAP_THRESHOLD_SEC;
+  const withinBoundaryBound =
+    comparison.diffs.coveredM <= maxBoundaryM &&
+    comparison.diffs.excludedM <= maxBoundaryM &&
+    comparison.diffs.coveredSec <= maxBoundarySec &&
+    comparison.diffs.excludedSec <= maxBoundarySec;
+
+  if (withinBoundaryBound) {
+    return { classification: 'EXPLAINED DIVERGENCE', cause: TRAVERSAL_BOUNDARY_CAUSE, comparison };
+  }
+
+  return {
+    classification: 'UNEXPLAINED',
+    cause:
+      `divergence exceeds the honestly-derived boundary-pair bound (boundaryPairBound=${boundaryPairBound}, ` +
+      `maxBoundaryM=${maxBoundaryM.toFixed(1)}, maxBoundarySec=${maxBoundarySec.toFixed(1)}) -- a ` +
+      'bounded number of boundary-pair reclassifications cannot plausibly account for a divergence ' +
+      'this large; this is a genuine, unaccounted-for difference between this recount and production, ' +
+      'not a traversal-shape/boundary nuance',
+    comparison,
+  };
 }
 
 /** Computes recount + shipped rows for a real stream, then classifies via `classifyDivergence`. */
@@ -288,15 +372,20 @@ export function classifyActivity(id, t, d) {
   const merged = mergeExcludedRanges([...recordingGapRanges, ...pauseRanges, ...overspeedRanges]);
   const gapFreeShare = gapFreeExcludedShare(d, recordingGapRanges, merged);
 
+  // 2026-09-26 correction (defect 3): the honestly-derived boundary-pair bound's own input — 2
+  // boundary pairs per range this recount itself detected, see TRAVERSAL_BOUNDARY_CAUSE's docblock.
+  const boundaryPairBound = 2 * (recordingGapRanges.length + pauseRanges.length + overspeedRanges.length);
+
   const result = classifyDivergence({
     recountRow,
     shippedRow,
     spanSec: recount.spanSec,
     totalM: recount.totalM,
     gapFreeShare,
+    boundaryPairBound,
   });
 
-  return { id, recountRow, shippedRow, gapFreeShare, ...result };
+  return { id, recountRow, shippedRow, gapFreeShare, boundaryPairBound, ...result };
 }
 
 describe('D-08 crosscheck — shipped deriveRunningPace vs the independent recount', () => {
@@ -363,18 +452,24 @@ describe('D-08 crosscheck — shipped deriveRunningPace vs the independent recou
         spanSec: 150,
         totalM: 500,
         gapFreeShare: 1,
+        // Irrelevant here: the no-excess-floor branch returns before the boundary-pair bound is
+        // ever consulted -- 0 proves that (a bound of 0 would reject this if the bound path ran).
+        boundaryPairBound: 0,
       });
       expect(result.classification).toBe('EXPLAINED DIVERGENCE');
       expect(result.cause).toBe(NO_EXCESS_FLOOR_CAUSE);
     });
 
-    it('CAN report EXPLAINED DIVERGENCE (traversal-boundary cause): a small, non-gap-free divergence', () => {
+    it('CAN report EXPLAINED DIVERGENCE (traversal-boundary cause): a small, non-gap-free divergence within the boundary-pair bound', () => {
       const result = classifyDivergence({
         recountRow: { coveredM: 480, coveredSec: 490, excludedM: 20, excludedSec: 10 },
         shippedRow: { coveredM: 470, coveredSec: 480, excludedM: 30, excludedSec: 20 },
         spanSec: 500,
         totalM: 500,
         gapFreeShare: 0,
+        // 1 detected range -> boundaryPairBound=2 -> maxBoundaryM=2*10*7.35=147, maxBoundarySec=20;
+        // this fixture's diffs (10m, 10s) sit comfortably inside that bound.
+        boundaryPairBound: 2,
       });
       expect(result.classification).toBe('EXPLAINED DIVERGENCE');
       expect(result.cause).toBe(TRAVERSAL_BOUNDARY_CAUSE);
@@ -382,8 +477,49 @@ describe('D-08 crosscheck — shipped deriveRunningPace vs the independent recou
 
     it('CAN report FULL AGREEMENT: identical rows', () => {
       const row = { coveredM: 100, coveredSec: 50, excludedM: 0, excludedSec: 0 };
-      const result = classifyDivergence({ recountRow: row, shippedRow: { ...row }, spanSec: 50, totalM: 100, gapFreeShare: 0 });
+      const result = classifyDivergence({
+        recountRow: row,
+        shippedRow: { ...row },
+        spanSec: 50,
+        totalM: 100,
+        gapFreeShare: 0,
+        boundaryPairBound: 0,
+      });
       expect(result.classification).toBe('FULL AGREEMENT');
+    });
+
+    it('CAN report UNEXPLAINED via the MAGNITUDE path specifically (2026-09-26, defect 3) -- a conserving divergence too large for a bounded number of boundary pairs to explain, distinct from the conservation-violation fixture above -- AND the identical divergence classifies as EXPLAINED DIVERGENCE given a bound generous enough to cover it, proving the gate is a real discriminator checked in both directions, not a number chosen to always reject or always accept', () => {
+      // Conserves on both sides (100+900=1000, 500+0=500 on shipped; recount excludes nothing).
+      const recountRow = { coveredM: 1000, coveredSec: 500, excludedM: 0, excludedSec: 0 };
+      const shippedRow = { coveredM: 100, coveredSec: 500, excludedM: 900, excludedSec: 0 };
+
+      // Direction 1: a small bound (1 detected range -> maxBoundaryM=73.5) cannot explain a 900m
+      // divergence -- UNEXPLAINED, naming the magnitude-bound cause, not TRAVERSAL_BOUNDARY_CAUSE.
+      const tooSmall = classifyDivergence({
+        recountRow,
+        shippedRow,
+        spanSec: 500,
+        totalM: 1000,
+        gapFreeShare: 0,
+        boundaryPairBound: 1,
+      });
+      expect(tooSmall.classification).toBe('UNEXPLAINED');
+      expect(tooSmall.cause).toContain('boundary-pair bound');
+      expect(tooSmall.cause).not.toBe(TRAVERSAL_BOUNDARY_CAUSE);
+
+      // Direction 2: the SAME divergence, given a bound generous enough to cover it (100 detected
+      // ranges -> maxBoundaryM=7350), is EXPLAINED DIVERGENCE -- the gate is not a rule that always
+      // fires regardless of its own input.
+      const generous = classifyDivergence({
+        recountRow,
+        shippedRow,
+        spanSec: 500,
+        totalM: 1000,
+        gapFreeShare: 0,
+        boundaryPairBound: 100,
+      });
+      expect(generous.classification).toBe('EXPLAINED DIVERGENCE');
+      expect(generous.cause).toBe(TRAVERSAL_BOUNDARY_CAUSE);
     });
   });
 
@@ -397,7 +533,7 @@ describe('D-08 crosscheck — shipped deriveRunningPace vs the independent recou
       }
     });
 
-    it('classifies every named activity and asserts zero UNEXPLAINED, printing all sixteen compared numbers', () => {
+    it('classifies every named activity and prints all sixteen compared numbers (2026-09-26 correction: UNEXPLAINED is no longer required to be 0 -- see defect 3)', () => {
       const results = NAMED_ACTIVITY_IDS.map((id) => {
         const { t, d } = readStream(id);
         return classifyActivity(id, t, d);
@@ -407,6 +543,7 @@ describe('D-08 crosscheck — shipped deriveRunningPace vs the independent recou
         console.log(
           `${result.id}: classification=${result.classification}` +
             (result.cause ? ` cause=${result.cause}` : '') +
+            ` boundaryPairBound=${result.boundaryPairBound}` +
             ` | recount coveredM=${result.recountRow.coveredM} coveredSec=${result.recountRow.coveredSec}` +
             ` excludedM=${result.recountRow.excludedM} excludedSec=${result.recountRow.excludedSec}` +
             ` | shipped coveredM=${result.shippedRow.coveredM} coveredSec=${result.shippedRow.coveredSec}` +
@@ -414,25 +551,44 @@ describe('D-08 crosscheck — shipped deriveRunningPace vs the independent recou
         );
       }
 
-      const unexplained = results.filter((r) => r.classification === 'UNEXPLAINED');
-      expect(unexplained).toHaveLength(0);
+      // 2026-09-26 correction (defect 1): 5059204779 is no longer the extreme, near-total-exclusion
+      // finding it was pre-fix -- it is now a small EXPLAINED DIVERGENCE (traversal-boundary,
+      // a 2-second coveredSec difference), like 3475724402 and 3475740390.
+      const byId = Object.fromEntries(results.map((r) => [r.id, r]));
+      expect(byId['5059204779'].classification).toBe('EXPLAINED DIVERGENCE');
+      expect(byId['5059204779'].cause).toBe(TRAVERSAL_BOUNDARY_CAUSE);
+      expect(byId['3475724402'].classification).toBe('EXPLAINED DIVERGENCE');
+      expect(byId['3475724402'].cause).toBe(TRAVERSAL_BOUNDARY_CAUSE);
+      expect(byId['3475740390'].classification).toBe('EXPLAINED DIVERGENCE');
+      expect(byId['3475740390'].cause).toBe(TRAVERSAL_BOUNDARY_CAUSE);
+
+      // 2026-09-26 correction (defect 3): applying the honestly-derived boundary-pair bound to
+      // 3475734189 (recount finds only a single 16s, 0m pause range -> boundaryPairBound=2 ->
+      // maxBoundaryM=147) against its own real divergence (181.5 m) finds the divergence EXCEEDS
+      // what that bounded number of boundary pairs could plausibly produce -- this is now honestly
+      // UNEXPLAINED, not blessed by an unconditional fallback. Reported, not engineered away: this
+      // recount's own detectors find nothing at the scale needed to account for production's
+      // additional 181.5 m exclusion on this activity, a genuine gap in what this simpler,
+      // independently-derived detector can explain.
+      expect(byId['3475734189'].classification).toBe('UNEXPLAINED');
+      expect(byId['3475734189'].cause).toContain('boundary-pair bound');
 
       // Reachability: the named-activity population is not vacuously all-one-classification.
-      // (35-04's own finding: three close divergences, one extreme divergence -- zero full
-      // agreements among the four, by construction of the two genuinely different algorithms.)
-      expect(results.every((r) => r.classification === 'EXPLAINED DIVERGENCE')).toBe(true);
+      const classifications = new Set(results.map((r) => r.classification));
+      expect(classifications.has('EXPLAINED DIVERGENCE')).toBe(true);
+      expect(classifications.has('UNEXPLAINED')).toBe(true);
     });
   });
 
   describe('archive-wide sweep: every data/streams/*.json activity, FULL AGREEMENT / EXPLAINED DIVERGENCE / UNEXPLAINED', () => {
-    it('sweeps the real archive and asserts UNEXPLAINED is exactly 0', () => {
+    it('sweeps the real archive and reports the honest FULL AGREEMENT / EXPLAINED DIVERGENCE / UNEXPLAINED split (2026-09-26 correction, defect 3: UNEXPLAINED is no longer required to be 0 -- a magnitude-bounded gate on the traversal-boundary cause honestly finds some divergences too large for a bounded number of boundary pairs to explain, and that is reported, not tuned away)', () => {
       const filenames = fs.readdirSync(STREAMS_DIR).filter(isStreamFile).sort();
       expect(filenames.length).toBeGreaterThan(0); // reachability: not vacuous
 
       let fullAgreement = 0;
       let explainedDivergence = 0;
       let unexplained = 0;
-      const unexplainedIds = [];
+      const unexplainedRows = [];
       const causeCounts = {};
 
       for (const filename of filenames) {
@@ -443,12 +599,12 @@ describe('D-08 crosscheck — shipped deriveRunningPace vs the independent recou
           doc = JSON.parse(raw);
         } catch {
           unexplained += 1;
-          unexplainedIds.push(`${id} (parse error)`);
+          unexplainedRows.push({ id, note: 'parse error', dM: Infinity });
           continue;
         }
         if (!Array.isArray(doc.t) || !Array.isArray(doc.d)) {
           unexplained += 1;
-          unexplainedIds.push(`${id} (t/d not arrays)`);
+          unexplainedRows.push({ id, note: 't/d not arrays', dM: Infinity });
           continue;
         }
 
@@ -460,21 +616,34 @@ describe('D-08 crosscheck — shipped deriveRunningPace vs the independent recou
           causeCounts[result.cause] = (causeCounts[result.cause] ?? 0) + 1;
         } else {
           unexplained += 1;
-          unexplainedIds.push(id);
+          unexplainedRows.push({
+            id,
+            note: result.cause ?? 'no cause',
+            dM: result.comparison?.diffs.coveredM ?? Infinity,
+          });
         }
       }
 
+      // Worst offenders (2026-09-26 correction, defect 3): the brief requires reporting the count
+      // AND the worst offenders when an honest bound leaves UNEXPLAINED > 0, never tuning the bound
+      // to erase them.
+      const worstOffenders = [...unexplainedRows].sort((a, b) => b.dM - a.dM).slice(0, 10);
+
       console.log(
         `Archive-wide reconciliation (${filenames.length} streams): FULL AGREEMENT=${fullAgreement}, ` +
-          `EXPLAINED DIVERGENCE=${explainedDivergence}, UNEXPLAINED=${unexplained}` +
-          (unexplainedIds.length ? ` [${unexplainedIds.join(', ')}]` : '')
+          `EXPLAINED DIVERGENCE=${explainedDivergence}, UNEXPLAINED=${unexplained}`
       );
       console.log('EXPLAINED DIVERGENCE cause breakdown:', JSON.stringify(causeCounts));
+      console.log(
+        `UNEXPLAINED worst offenders (by |coveredM diff|, top ${worstOffenders.length} of ${unexplained}):`,
+        JSON.stringify(worstOffenders)
+      );
 
-      // Reachability: neither bucket is vacuously empty on the real archive.
+      // Reachability: neither bucket is vacuously empty on the real archive, and the
+      // magnitude-bounded gate genuinely fires (UNEXPLAINED > 0) rather than being unreachable.
       expect(fullAgreement).toBeGreaterThan(0);
       expect(explainedDivergence).toBeGreaterThan(0);
-      expect(unexplained).toBe(0);
+      expect(unexplained).toBeGreaterThan(0);
     });
   });
 });
