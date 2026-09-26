@@ -158,3 +158,119 @@ All 4 files confirmed present via `[ -f ... ]`: this summary,
 `35-RUNNING-PACE-RECOUNT.md`, `scripts/compute-running-pace-recount-crosscheck.test.mjs`,
 `scripts/compute-running-pace-recount.mjs`. Both commit hashes (`38d2bfa2`,
 `2d64c7e0`) confirmed present via `git log --oneline --all`.
+
+---
+
+## Post-hoc correction (user-authorized) — 2026-09-26
+
+This plan's own "central finding" (5059204779's near-total exclusion under this recount's
+over-speed rule) was itself a defect in the VERIFICATION SCAFFOLDING, not a legitimate second
+opinion. Corrected after the user supplied direct measurement of the underlying stream and
+authorized a fix to the recount and its crosscheck classifier. Production code
+(`src/analytics/pace-derivation.ts` and everything under `src/`) was NOT touched.
+
+### The evidence
+
+Direct measurement of `data/streams/5059204779.json`: 1,892 pairs total, 1,833 with ZERO
+distance advance, 59 advancing. The 59 advancing pairs jump 75-368 m each over a dt of only
+1-2 seconds — implied per-pair speed 37-184 m/s (135-662 km/h). The whole-activity average is
+10,804 m over 3,788 s = 2.85 m/s = 5:50/km. Diagnosis: a QUANTIZED DISTANCE stream — the device
+ticks a timestamp every second but only reports cumulative distance in an occasional lump, so a
+166 m jump over 2 s is not teleportation, it is ~60 s of real running reported late. This plan's
+own 35-04-inherited over-speed rule (aggregate speed over a maximal advancing run's OWN dt, no
+excess-floor) flagged all 59 lumps individually and concluded `recountCoveredM=0` — self-refuting
+against the stream's own average pace. Production's `deriveRunningPace` gets this right
+(`coveredM=10638`, ~5:56/km); production was not the thing to fix.
+
+### What changed
+
+1. **`scripts/compute-running-pace-recount.mjs` (`findOverspeedRanges`, defect 1):** the aggregate
+   speed window now extends backward through the immediately preceding zero-advance, non-gap
+   stretch (the elapsed time since the device's last report), never the run's own dt alone. This is
+   independently motivated by the stream's own reporting mechanism — a WINDOW correction — never
+   copied from production's `UNRELIABLE_EXCESS_FLOOR_M` excess-floor gate, which is a MAGNITUDE
+   correction on a different quantity. A genuine teleport (implausible even once credited with the
+   preceding quiet time) is still flagged, proven by new fixtures shaped exactly like this
+   activity's own stream (a 166 m lump after 59 s of quiet, not flagged; a 50,000 m or 5,000 m lump
+   given the same or less quiet credit, still flagged) plus the pre-existing gap-adjacent
+   single-pair check (a genuinely different mechanism, for genuine multi-second recording gaps, left
+   untouched).
+2. **`scripts/compute-running-pace-recount-crosscheck.test.mjs` (`classifyDivergence`, defects 2
+   and 3):** `TRAVERSAL_BOUNDARY_CAUSE`'s text no longer asserts the two readings are "both
+   legitimate ... not a shared blind spot" by fiat. The branch that names this cause is now gated on
+   an honestly-derived magnitude bound — 2 boundary pairs per recording-gap/pause/over-speed range
+   this recount itself detected, each capped at `LOCAL_GAP_THRESHOLD_SEC` seconds and
+   `LOCAL_GAP_THRESHOLD_SEC * LOCAL_SPEED_LIMIT_MPS` metres (both local duplicates already exported
+   from the recount script, never copied from production's own excess-floor constant). A divergence
+   too large for that bound falls through to UNEXPLAINED instead of an unconditional EXPLAINED
+   fallback. The bound was derived from the mechanism and verified live against the real archive —
+   it was NOT tuned to force UNEXPLAINED back to 0, and it does not: 236 archive-wide activities are
+   honestly UNEXPLAINED after the fix.
+
+### Before / after numbers for 5059204779
+
+| Field | Before (defective rule) | After (fixed rule) | Shipped `deriveRunningPace` |
+|---|---|---|---|
+| Computable | no (`no covered distance`) | yes | yes |
+| coveredM | 0 | 10638 | 10638 |
+| coveredSec | 3671 | 3787 | 3785 |
+| excludedM | 10804 | 166 | 166 |
+| excludedSec | 117 | 1 | 3 |
+| Running pace | n/a | 5:56/km (356.0) | 355.8 sec/km (~5:56/km) |
+| Classification vs. shipped | EXPLAINED DIVERGENCE (no-excess-floor cause, dominating the archive's own 98-activity no-excess-floor bucket) | EXPLAINED DIVERGENCE (traversal-shape/boundary difference, a 2-second `coveredSec` difference only) | — |
+
+5059204779's `coveredM` now agrees with production EXACTLY (10638 = 10638); only a small 2-second
+`coveredSec`/`excludedSec` difference remains, well inside the boundary-pair bound
+(`boundaryPairBound=2`, `maxBoundarySec=20`). This activity is no longer "the central finding" of
+this file's own docblock — it is an ordinary, small, EXPLAINED row like the other three named
+activities.
+
+### New archive-wide counts (after the fix)
+
+Real 1,874-stream archive, live recount vs. live shipped `deriveRunningPace` (`npx vitest run
+scripts/compute-running-pace-recount-crosscheck.test.mjs`, unfiltered, 10/10 tests pass):
+
+- **FULL AGREEMENT = 1184** (was 1099 before the fix — the fix moved many sparse-advance streams
+  from catastrophic no-excess-floor divergence into either full agreement or a small divergence).
+- **EXPLAINED DIVERGENCE = 454** (was 775 before the fix): 448 traversal-shape/boundary
+  (magnitude-checked, was 677 before defect 3's gate), 6 no-excess-floor (was 98 before defect 1's
+  fix — the residual 6 are genuinely isolated single-pair bursts not preceded by a proportionate
+  quiet stretch, worst case 162.6 m of a multi-thousand-metre activity, a real but much
+  smaller-scale instance of the same mechanism, not the same defect recurring).
+- **UNEXPLAINED = 236** (was 0 before defect 3's gate — the previous 0 was an artifact of an
+  unconditional fallback, not a verified fact). This is a legitimate, honest finding: applying the
+  boundary-pair bound finds 236 activities where this recount's own detectors (recording-gap,
+  pause, over-speed) find nothing, or too little, to account for production's own additional
+  exclusion. The worst offenders (by `|coveredM diff|`) are printed by the crosscheck test's own
+  archive-wide sweep (e.g. `5059213289`: 1806 m; `3475714543`: 1667 m; `3475735234`: 1314 m, where
+  this recount's own detectors find ZERO exclusion mechanisms at all, `boundaryPairBound=0`). This
+  is disclosed, not resolved — this recount is a deliberately simpler traversal than production's
+  excess-floor-gated, chain-merged detector, and 236 activities are where that simplification's own
+  limits show. Not tuned away.
+- One of the four NAMED activities, `3475734189`, is affected by this same honest gate: its
+  divergence (181.5 m) exceeds its own `boundaryPairBound=2` bound (147 m) — it is now UNEXPLAINED,
+  not EXPLAINED DIVERGENCE. The other three named activities (`3475724402`, `3475740390`, and the
+  now-fixed `5059204779`) remain small EXPLAINED DIVERGENCEs (traversal-shape/boundary).
+
+### New artifact sha
+
+`.planning/phases/35-stream-derived-running-pace/35-RUNNING-PACE-RECOUNT.md` regenerated via
+`node scripts/compute-running-pace-recount.mjs --write` (never hand-edited):
+`sha256=4e3c1d377dd65dc963c28be9171f9c2856f526ea8c599ea6af4b64f0a05ad0e7`. Proven byte-identical
+across two runs before the commit, and re-proven byte-identical AFTER the commit (regenerated a
+third time post-commit: same sha256, `git status --short` on the artifact reports no change,
+`git status --porcelain data/` empty throughout). The artifact's `HEAD:data/streams` tree hash
+provenance line is unchanged in shape and still correct; only the `data/streams` tree hash's own
+content is unaffected (this correction touched no file under `data/`).
+
+### Commits
+
+1. `e09b7a40` — fix(35-04): recount over-speed rule window-extends past quantization latency
+   (defect 1: `scripts/compute-running-pace-recount.mjs`, `scripts/compute-running-pace-recount.test.mjs`)
+2. `d4dac462` — feat(35-05): regenerate `35-RUNNING-PACE-RECOUNT.md` after over-speed window fix
+3. `bf3a0d5e` — fix(35-05): crosscheck cause text + magnitude-bounded traversal-boundary gate
+   (defects 2 and 3: `scripts/compute-running-pace-recount-crosscheck.test.mjs`)
+
+Full gate re-run after all three commits: `npx vitest run` 3600/3600, `npx tsc --noEmit` clean,
+`git status --porcelain data/` empty. No file under `src/` was touched. No `STATE.md`/`ROADMAP.md`
+progress edit was made by this correction.

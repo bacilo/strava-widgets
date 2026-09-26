@@ -150,3 +150,17 @@ All 5 files confirmed present via `[ -f ... ]`: this summary,
 `scripts/unreliable-segment-import-guards.test.mjs`, `package.json`. All
 three commit hashes (`4cf6778a`, `de7e94e5`, `71f97dd4`) confirmed present
 via `git log --oneline --all`.
+
+---
+
+## Post-hoc correction pointer — 2026-09-26
+
+This plan's Accomplishments section above disclosed a "genuine independence finding" on
+5059204779 (this recount's over-speed rule excluding the entire activity,
+`recountCoveredM=0`/`recountExcludedM=10804`). That finding was itself a DEFECT in this plan's own
+over-speed rule (a quantized-distance stream's lump misread as a teleport), not a legitimate
+second opinion — production's `deriveRunningPace` had it right all along. The rule shipped by this
+plan (`findOverspeedRanges` in `scripts/compute-running-pace-recount.mjs`) was superseded by a
+user-authorized correction; see the "Post-hoc correction (user-authorized)" section appended to
+`35-05-SUMMARY.md` for the full evidence, the fix, and the new before/after numbers. No file under
+`src/` was touched by the correction.
