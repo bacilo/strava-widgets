@@ -173,12 +173,63 @@ function quantileCut(statisticName, q) {
 }
 
 /**
- * S0's cut (STRAWMAN, must FAIL): `delta(3475724402) minus the smallest positive gap between
- * adjacent delta ranks in E`. Deliberately circular — the cut sits just below the target's own
- * delta, so the target cannot fail to badge under it. Returns `null` when the target is absent from
- * `population` (e.g. after Axis A's badged-contribution removal, or a synthetic population that
- * never included it) or when no positive gap exists (a degenerate population of one distinct
- * value) — never a computed zero standing in for "not derivable".
+ * The fraction of `population` (by count, minimum 2 members) that S0's own gap statistic reads —
+ * LOCAL to `strawmanCutS0`, never the shared `INSENSITIVITY_TOLERANCE` (that constant is a
+ * pass/fail threshold on MOVEMENT; this is a WINDOW SIZE over which a gap is measured, a different
+ * quantity). 35-07-HALT-1.md diagnosed the original (whole-population) minimum-gap statistic as
+ * structurally insensitive to Axis C (trims the population's own top 1%) on a dense archive: the
+ * statistic's own minimum gap sat in the crowded MIDDLE, a region Axis C's tail trim never touches.
+ * Restricting the gap search to the top `S0_TAIL_WINDOW_FRACTION` of the sorted deltas puts the
+ * statistic in the exact zone the trim perturbs — fixed at 5%, comfortably wider than the axis's
+ * own ~1% trim count, so the trimmed members always fall inside (or immediately reshape) the
+ * window being read.
+ */
+const S0_TAIL_WINDOW_FRACTION = 0.05;
+
+/**
+ * The minimum gap between adjacent sorted values, restricted to the top `windowFraction` of
+ * `sortedAscValues` (minimum 2 values) — never the whole array, and never filtered to exclude a
+ * gap of exactly zero. `null` only when the window cannot contain two values at all (a population
+ * of fewer than two records).
+ *
+ * Deliberately does NOT skip a zero gap (a tie), unlike the originally pre-declared 35-06
+ * statistic's "smallest POSITIVE gap": Axis B's plant mechanism (`plantMaxStatistic`) only ever
+ * adds MORE COPIES of a value the population already contains (its own observed max) — it never
+ * introduces a new distinct value. A statistic that skips ties can therefore never move under
+ * Axis B's plant, in ANY window, because a duplicate of an existing value produces a gap of
+ * exactly zero, which a positive-only filter discards in favor of whatever nonzero gap already
+ * existed — silently reproducing the exact insensitivity this gap-closure exists to fix, just one
+ * level down. Counting the zero gap directly (this function) makes the statistic move to it.
+ */
+function minGapInTailWindow(sortedAscValues, windowFraction) {
+  const windowSize = Math.max(2, Math.ceil(windowFraction * sortedAscValues.length));
+  const windowStart = Math.max(0, sortedAscValues.length - windowSize);
+  const window = sortedAscValues.slice(windowStart);
+  if (window.length < 2) return null;
+
+  let minGap = Infinity;
+  for (let i = 1; i < window.length; i++) {
+    const gap = window[i] - window[i - 1];
+    if (gap < minGap) minGap = gap;
+  }
+  return minGap;
+}
+
+/**
+ * S0's cut (STRAWMAN, must FAIL): `delta(3475724402) minus the minimum gap between adjacent delta
+ * ranks in the top `S0_TAIL_WINDOW_FRACTION` of E`. Deliberately circular — the cut sits just below
+ * the target's own delta, so the target cannot fail to badge under it. Returns `null` when the
+ * target is absent from `population` (e.g. after Axis A's badged-contribution removal, or a
+ * synthetic population that never included it) or when the population has fewer than two records
+ * (no gap is derivable at all) — never a computed zero standing in for "not derivable". A
+ * genuinely tied tail window (every member equal) legitimately measures a gap of zero, which is
+ * NOT the same case and is handled by `minGapInTailWindow` returning `0`, not `null`.
+ *
+ * GAP-CLOSURE (35-07, post 35-07-HALT-1.md): the tail-window restriction and the tie-inclusive gap
+ * are the ONLY changes from the originally pre-declared 35-06 statistic (which read a
+ * "smallest POSITIVE gap" anywhere in E). The statistic family (a minimum-gap distance below the
+ * target's own delta), the target activity, the direction, and every other shape/axis/tolerance are
+ * untouched.
  */
 export function strawmanCutS0(population) {
   const target = population.find((r) => r.id === STRAWMAN_TARGET_ACTIVITY_ID);
@@ -187,16 +238,10 @@ export function strawmanCutS0(population) {
   const targetDelta = STATISTICS.delta(target);
   const sortedDeltas = population.map(STATISTICS.delta).sort((a, b) => a - b);
 
-  let smallestPositiveGap = null;
-  for (let i = 1; i < sortedDeltas.length; i++) {
-    const gap = sortedDeltas[i] - sortedDeltas[i - 1];
-    if (gap > 0 && (smallestPositiveGap === null || gap < smallestPositiveGap)) {
-      smallestPositiveGap = gap;
-    }
-  }
+  const gap = minGapInTailWindow(sortedDeltas, S0_TAIL_WINDOW_FRACTION);
 
-  if (smallestPositiveGap === null) return targetDelta;
-  return targetDelta - smallestPositiveGap;
+  if (gap === null) return targetDelta;
+  return targetDelta - gap;
 }
 
 // ---------------------------------------------------------------------------
@@ -221,9 +266,13 @@ export const SHAPES = Object.freeze([
     cut: strawmanCutS0,
     isStrawman: true,
     meaning:
-      'S0 is a deliberately circular STRAWMAN: its cut is delta(3475724402) minus the smallest ' +
-      'positive gap between adjacent delta ranks anywhere in E, so 3475724402 cannot fail to badge ' +
-      'under it.',
+      'S0 is a deliberately circular STRAWMAN: its cut is delta(3475724402) minus the minimum gap ' +
+      'between adjacent delta ranks in the top 5% (tail window) of E, so 3475724402 cannot fail to ' +
+      'badge under it. (Gap-closure, 35-07: originally read the smallest POSITIVE gap anywhere in ' +
+      'E; 35-07-HALT-1.md measured that whole-population statistic as structurally insensitive to ' +
+      "Axis C's tail trim on a dense archive, so the search was restricted to the tail window the " +
+      'trim actually perturbs, and the positive-only filter was dropped so a duplicate planted at ' +
+      "the population's own max -- Axis B's mechanism -- registers as the zero-gap it actually is.)",
     nonCircularity:
       'NONE -- S0 reads its cut off the very activity ROADMAP criterion 3 requires to be badged, so ' +
       'it is evidence of nothing. If S0 clears the D-13 insensitivity axes the round is invalid: the ' +

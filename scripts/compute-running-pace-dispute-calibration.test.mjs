@@ -24,6 +24,7 @@ import {
   buildPopulations,
   assertPopulationsDisjoint,
   strawmanCutS0,
+  buildSyntheticStatisticRecord,
   plantMaxStatistic,
   evaluateAxisBFromPlanted,
   axisBForShape,
@@ -515,22 +516,146 @@ describe('renderCalibrationMarkdown terminal branches', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 6. Strawman handling — a genuine synthetic archive where S0 clears both axes
+// 6. Strawman handling (GAP-CLOSURE, 35-07 post 35-07-HALT-1.md)
+//
+// 35-07-HALT-1.md measured the ORIGINAL (35-06) `strawmanCutS0` -- a whole-population
+// smallest-positive-gap -- clearing both D-13 insensitivity axes against the real archive: the
+// statistic's own minimum gap sat in the dense MIDDLE of a 1291-item population, a region neither
+// Axis B (plants at the population's own max) nor Axis C (trims the population's own top 1%) ever
+// touches. The fix (still in this file, see `strawmanCutS0`/`S0_TAIL_WINDOW_FRACTION`) restricts
+// the gap search to the top 5% (tail window) of the population -- the exact zone both axes perturb
+// -- and changes NOTHING else about S0, any real shape, any axis mechanism or the tolerance.
+//
+// The tests below prove the fix two ways, per the plan's own trap: (1) with the axes WORKING,
+// S0 now FAILS on a population shaped like the real archive's flaw (a tiny, irrelevant dense-
+// middle gap the fix must ignore, plus a genuinely tail-sensitive gap it must read instead); (2)
+// S0 is still CAPABLE of clearing -- it is not a strawman rigged to fail unconditionally -- both
+// when the tail itself is degenerate (fully tied, independent of axis strength) and when the axes
+// themselves are weakened to miss the tail window entirely (a synthetic harness, never a change to
+// the real `plantMaxStatistic`/`trimBaseTail` mechanisms).
 // ---------------------------------------------------------------------------
 
-describe('strawman S0 clearing invalidates the round', () => {
-  it('when S0 clears Axis B and Axis C, the round HALTs before ever selecting C1 (or any real shape)', () => {
-    // Crafted so the smallest positive delta gap in E sits between two unrelated members far below
-    // the target, and the population's own maximum sits far above the target -- so neither
-    // plants-at-the-max (Axis B) nor trimming-the-top-1% (Axis C) disturbs the gap S0's cut reads.
-    const records = [
-      makeRecord(STRAWMAN_TARGET_ACTIVITY_ID, 350, 300, 500, 100), // delta = 50
-      makeRecord('pair-a', 310, 300, 500, 100), // delta = 10
-      makeRecord('pair-b', 310.0001, 300, 500, 100), // delta = 10.0001 -- smallest positive gap
-    ];
-    for (let i = 0; i < 987; i++) {
-      records.push(makeRecord(`filler-${i}`, 300 + 1000 + i, 300, 500, 100)); // delta = 1000+i
+/**
+ * A population shaped to exercise the fixed `strawmanCutS0`'s tail window under REAL (unweakened)
+ * Axis B/C mechanics: N=200 so `windowSize = ceil(0.05*200) = 10` and `plantCount =
+ * membersRemoved = ceil(0.01*200) = 2`.
+ *
+ * - `target`: delta=100 (the strawman's own target activity).
+ * - A 12-member tail (500, 495, 490, then 480 down to 320 in steps of 20) -- the top 10 of these
+ *   (dropping the bottom 2) form the baseline tail window; its smallest positive gap is 5 (between
+ *   500/495 and 495/490), so `baseCut = 100 - 5 = 95`.
+ * - A dense-middle pair at delta=50.0000/50.0001 (gap 0.0001) -- far below the tail window, added
+ *   specifically to prove the fix ignores it (the ORIGINAL, whole-population statistic would have
+ *   picked THIS gap instead, producing `baseCut ~= 99.9999`).
+ * - 185 filler records at delta=1..185 (all well below the 320 tail floor), two of which are
+ *   replaced by the dense-middle pair, for exactly 187 non-tail, non-target records.
+ *
+ * Total: 1 (target) + 12 (tail) + 187 (filler, including the dense-middle pair) = 200.
+ */
+function buildS0TailWindowFixture() {
+  const target = makeRecord(STRAWMAN_TARGET_ACTIVITY_ID, 400, 300, 500, 100); // delta = 100
+  const tailDeltas = [500, 495, 490, 480, 460, 440, 420, 400, 380, 360, 340, 320];
+  const tail = tailDeltas.map((d, i) => makeRecord(`tail-${i}`, 300 + d, 300, 500, 100));
+
+  const filler = [];
+  for (let i = 1; i <= 187; i++) {
+    filler.push(makeRecord(`filler-${i}`, 300 + i, 300, 500, 100)); // delta = i
+  }
+  // Replace two filler entries with the dense-middle near-zero-gap pair the fix must ignore.
+  filler[48] = makeRecord('dense-a', 350.0, 300, 500, 100); // delta = 50.0000
+  filler[49] = makeRecord('dense-b', 350.0001, 300, 500, 100); // delta = 50.0001
+
+  const population = [target, ...tail, ...filler];
+  expect(population.length).toBe(200);
+  return { population, target };
+}
+
+describe('strawman S0 gap-closure (35-07): tail-window fix proven, then watched clearing on a degenerate tail and on weakened axes', () => {
+  it('SYNTHETIC PROOF 1 (fails, axes working): S0 reads the tail-window gap (5), not the dense-middle gap (0.0001), and FAILS both Axis B and Axis C', () => {
+    const { population } = buildS0TailWindowFixture();
+    const shape = SHAPES.find((s) => s.id === 'S0');
+    const baseCut = shape.cut(population);
+
+    // The fix must ignore the dense-middle pair's near-zero gap (0.0001) entirely. If it did not,
+    // baseCut would be ~99.9999 (100 - 0.0001) rather than 95 (100 - 5).
+    const wholePopulationSortedDeltas = population.map(STATISTICS.delta).sort((a, b) => a - b);
+    let wholePopulationSmallestGap = null;
+    for (let i = 1; i < wholePopulationSortedDeltas.length; i++) {
+      const gap = wholePopulationSortedDeltas[i] - wholePopulationSortedDeltas[i - 1];
+      if (gap > 0 && (wholePopulationSmallestGap === null || gap < wholePopulationSmallestGap)) {
+        wholePopulationSmallestGap = gap;
+      }
     }
+    expect(wholePopulationSmallestGap).toBeCloseTo(0.0001, 4); // the ORIGINAL statistic's own pick
+    expect(baseCut).toBeCloseTo(95, 5); // the FIXED statistic's actual pick -- the tail gap, not it
+
+    const axisB = axisBForShape(shape, population, baseCut);
+    expect(axisB.accountingOk).toBe(true);
+    expect(axisB.movement).toBeGreaterThan(INSENSITIVITY_TOLERANCE);
+    expect(axisB.status).toBe('failed');
+
+    const axisC = axisCForShape(shape, population, baseCut);
+    expect(axisC.trimmedItems).toBe(population.length - axisC.membersRemoved); // removal accounting holds
+    expect(axisC.movement).toBeGreaterThan(INSENSITIVITY_TOLERANCE);
+    expect(axisC.status).toBe('failed');
+
+    expect(shapeClears({ axisB, axisC })).toBe(false);
+  });
+
+  it('SYNTHETIC PROOF 2a (clears, axis weakened): a planter that plants away from the tail (not at the population max) lets S0 clear', () => {
+    const { population } = buildS0TailWindowFixture();
+    const shape = SHAPES.find((s) => s.id === 'S0');
+    const baseCut = shape.cut(population);
+
+    // A weakened Axis B: plants two synthetic members at delta=-1000, far below the tail window --
+    // standing in for a planter that has been weakened to miss the tail entirely (never the real
+    // plantMaxStatistic, which correctly plants at the population's own max, per Proof 1 above).
+    const weakPlant = {
+      population: [
+        ...population,
+        buildSyntheticStatisticRecord('delta', -1000, 'weak-plant-0'),
+        buildSyntheticStatisticRecord('delta', -1000, 'weak-plant-1'),
+      ],
+      plantsEntered: 2,
+    };
+    const axisB = evaluateAxisBFromPlanted(shape, population, baseCut, weakPlant);
+    expect(axisB.accountingOk).toBe(true);
+    expect(axisB.movement).toBe(0); // the weakened plant never touches the tail window
+    expect(axisB.status).toBe('cleared');
+  });
+
+  it('SYNTHETIC PROOF 2b (clears, axis weakened): a trimmer that removes from the bottom (not the top tail) lets S0 clear', () => {
+    const { population } = buildS0TailWindowFixture();
+    const shape = SHAPES.find((s) => s.id === 'S0');
+    const baseCut = shape.cut(population);
+
+    // A weakened Axis C: removes the two SMALLEST members instead of the largest -- standing in
+    // for a trimmer that has been weakened to miss the tail S0's cut reads entirely (never the
+    // real trimBaseTail, which correctly drops the largest members, per Proof 1 above).
+    const membersRemoved = 2;
+    const ascendingByDelta = [...population].sort((a, b) => STATISTICS.delta(a) - STATISTICS.delta(b));
+    const weakTrimmed = ascendingByDelta.slice(membersRemoved);
+
+    const axisC = evaluateAxisCFromTrimmed(shape, population, baseCut, weakTrimmed, membersRemoved);
+    expect(axisC.trimmedItems).toBe(population.length - membersRemoved); // removal accounting holds
+    expect(axisC.movement).toBe(0); // the weakened trim never touches the tail window
+    expect(axisC.status).toBe('cleared');
+  });
+
+  it('WATCHED (round-invalidation plumbing, still reachable post-fix): a degenerate, fully-tied tail lets S0 clear real Axis B/C, and the round HALTs before ever selecting C1', () => {
+    // The fix closes the dense-MIDDLE insensitivity 35-07-HALT-1.md measured, but a genuinely
+    // degenerate tail (every member tied at the same value) is a DIFFERENT, honestly-disclosed
+    // limitation: with no positive gap anywhere in the tail window, `strawmanCutS0` falls back to
+    // `targetDelta` itself (its own documented "no positive gap exists" contract) both before and
+    // after either axis's perturbation, so nothing moves. N=200 again: windowSize=10,
+    // plantCount=membersRemoved=2; 15 tied tail members comfortably exceeds both the window (10)
+    // and the trim count (2), so at least 10 tied members remain in the window after either axis
+    // runs.
+    const target = makeRecord(STRAWMAN_TARGET_ACTIVITY_ID, 350, 300, 500, 100); // delta = 50
+    const tiedTail = Array.from({ length: 15 }, (_, i) => makeRecord(`tied-${i}`, 1300, 300, 500, 100)); // delta = 1000, tied
+    const filler = Array.from({ length: 184 }, (_, i) => makeRecord(`filler-${i}`, 300 + i + 1, 300, 500, 100)); // delta = 1..184
+    const records = [target, ...tiedTail, ...filler];
+    expect(records.length).toBe(200);
 
     const result = runCalibration(records);
     const s0 = result.evaluated[0];
