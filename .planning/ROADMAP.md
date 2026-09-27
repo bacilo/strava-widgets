@@ -352,7 +352,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 35-06-PLAN.md — Build the HALT-capable D-05 calibration generator encoding seven pre-declared shapes
+- [x] 35-06-PLAN.md — Build the HALT-capable D-05 calibration generator encoding seven pre-declared shapes
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
@@ -455,7 +455,7 @@ Plans:
 | 32. Unreliable-Segment Detection & Calibration | v2.3 | 17/17 | Complete    | 2026-09-20 |
 | 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 14/14 | Complete    | 2026-09-22 |
 | 34. Pause Classification & Forgotten-Stop | v2.3 | 16/16 | Complete    | 2026-09-23 |
-| 35. Stream-Derived Running Pace | v2.3 | 5/13 | In Progress|  |
+| 35. Stream-Derived Running Pace | v2.3 | 6/13 | In Progress|  |
 | 36. Best-Effort Clean-Window Search & Ceiling Recalibration | v2.3 | 0/TBD | Not started | - |
 | 37. Review-Queue Priority & CUR-04 | v2.3 | 0/TBD | Not started | - |
 
