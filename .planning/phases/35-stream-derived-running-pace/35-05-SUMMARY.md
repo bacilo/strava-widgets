@@ -274,3 +274,141 @@ content is unaffected (this correction touched no file under `data/`).
 Full gate re-run after all three commits: `npx vitest run` 3600/3600, `npx tsc --noEmit` clean,
 `git status --porcelain data/` empty. No file under `src/` was touched. No `STATE.md`/`ROADMAP.md`
 progress edit was made by this correction.
+
+---
+
+## Second post-hoc correction (user-authorized) — 2026-09-27
+
+The 236-activity UNEXPLAINED bucket the first correction (above) honestly disclosed was itself
+incompletely diagnosed: it was not a genuine, unaccounted-for disagreement between this recount and
+production. It was a known, deliberate scope gap in what this recount models. Corrected after the
+user supplied direct measurement of the worst offenders and authorized a third structural cause.
+Production code (`src/analytics/pace-derivation.ts`, `src/analytics/unreliable-segments.ts`, and
+everything under `src/`) was NOT touched, and neither was this recount's own algorithm
+(`scripts/compute-running-pace-recount.mjs`). Scope: ONE file,
+`scripts/compute-running-pace-recount-crosscheck.test.mjs`.
+
+### The evidence
+
+This recount (`compute-running-pace-recount.mjs`) implements exactly three detectors: recording
+gaps, pauses, over-speed. It never implemented production's own unreliable-SEGMENT detector
+(`detectUnreliableSegments`, reached via `classifyGapsWithSegments`). Direct measurement of the
+worst UNEXPLAINED offenders on the real archive, via `dist/analytics/pace-derivation.js`'s
+`classifyGapsWithSegments`:
+
+| Activity | segments | unreliableSec | recordingGapSec | recount detected |
+|---|---|---|---|---|
+| 3475735234 | 7 | 73 | 0 | nothing |
+| 3475725513 | 8 | 61 | 0 | nothing |
+| 3475724988 | 4 | 58 | 0 | nothing |
+| 3475723743 | 13 | 58 | 0 | nothing |
+| 3475734189 (NAMED) | 1 | 8 | 0 | nothing |
+
+For every one of these, this recount's own detectors report zero exclusion while production reports
+one or more unreliable segments, and the divergence between the two — `shippedRow.excludedM` minus
+`recountRow.excludedM` — matched production's own reported segment metres almost exactly (e.g.
+3475735234: diffM=1313.7, segmentMetres=1313.7; 3475734189: diffM=181.5, segmentMetres=181.5). The
+previous UNEXPLAINED note text ("this is a genuine, unaccounted-for difference between this recount
+and production") was FALSE for these rows.
+
+### What changed
+
+`scripts/compute-running-pace-recount-crosscheck.test.mjs` gained a third named cause,
+`SEGMENT_SCOPE_GAP_CAUSE`, in `classifyDivergence`. Gated structurally on all three of:
+
+- **(a) presence:** production reports at least one unreliable segment for this activity
+  (`segmentCount > 0`, counted live from a fresh call to `classifyGapsWithSegments(t, d)` — the SAME
+  function `deriveRunningPace` itself calls internally).
+- **(b) direction:** production excludes strictly more than this recount, never the reverse. A
+  divergence where the RECOUNT excludes more is the opposite defect, already owned by
+  `NO_EXCESS_FLOOR_CAUSE`, and is structurally excluded from this new cause by the direction check.
+- **(c) magnitude:** the divergence is within `segmentMetres + maxBoundaryM` (metres) and
+  `segmentSeconds + maxBoundarySec` (seconds), where `segmentMetres`/`segmentSeconds` are summed live
+  from production's own `UnreliableSegment[]` list (`metres` fields) and `coverage.unreliableSec` for
+  THIS activity — never a flat constant, never sized to a specific offender — and `maxBoundaryM`/
+  `maxBoundarySec` are the SAME pre-existing boundary-pair allowance `TRAVERSAL_BOUNDARY_CAUSE`
+  already uses.
+
+**Ordering:** the conservation-violation UNEXPLAINED branch stays first, unchanged. The new cause is
+checked AFTER `TRAVERSAL_BOUNDARY_CAUSE` fails to explain a divergence — this means every activity
+the ordinary boundary-pair bound already explained keeps its EXPLAINED DIVERGENCE (traversal-
+shape/boundary) classification exactly as before; the new cause only fires for divergences that
+bound could not cover. `classifyActivity` was extended to compute `segmentCount`/`segmentMetres`/
+`segmentSeconds` from one live `classifyGapsWithSegments(t, d)` call and thread them into
+`classifyDivergence`; the function's new parameters default to `0`, so every pre-existing synthetic
+fixture that does not pass them is unaffected.
+
+The final UNEXPLAINED cause text was corrected: it no longer claims every survivor is a "genuine,
+unaccounted-for difference." It now names both bounds it failed (boundary-pair AND segment-scope)
+and states plainly that failing both named mechanisms is not proof no explanation could ever exist —
+only that this classifier's own two named causes do not cover it.
+
+### Reachability (synthetic, independent of the real archive)
+
+Four new fixtures, sharing a base case (production excludes 100m/5s more, `boundaryPairBound=0` so
+the ordinary bound is deliberately insufficient on its own):
+
+1. **CAN:** `segmentCount=1`, `segmentMetres=100`, `segmentSeconds=5`, correct direction → EXPLAINED
+   DIVERGENCE, `SEGMENT_SCOPE_GAP_CAUSE`.
+2. **CANNOT via direction:** rows swapped (recount excludes more) with the SAME segment data →
+   UNEXPLAINED, cause is not `SEGMENT_SCOPE_GAP_CAUSE`.
+3. **CANNOT via magnitude:** correct direction, but a 9900m divergence against `segmentMetres=50` →
+   UNEXPLAINED, cause names the failed segment figures.
+4. **CANNOT via absence:** `segmentCount=0` but `segmentMetres=100`/`segmentSeconds=5` (the SAME
+   figures that satisfy the CAN case's magnitude gate on their own) → UNEXPLAINED, proving gate (a)
+   is an independent discriminator, not a restatement of gate (c).
+
+All four verified to flip the outcome relative to the CAN case, per the correction's own
+requirement.
+
+### New archive-wide counts (after the fix)
+
+Real 1,874-stream archive, live recount vs. live shipped `deriveRunningPace` (`npx vitest run
+scripts/compute-running-pace-recount-crosscheck.test.mjs`, unfiltered, 14/14 tests pass, up from
+10/10):
+
+- **FULL AGREEMENT = 1184** (unchanged).
+- **EXPLAINED DIVERGENCE = 690** (was 454): **448 traversal-shape/boundary** (unchanged from the
+  first correction — no previously-explained row was reclassified), **6 no-excess-floor**
+  (unchanged), **236 segment-scope-gap** (new).
+- **UNEXPLAINED = 0** (was 236). This was NOT tuned to reach 0 — every one of the previous 236
+  UNEXPLAINED activities independently satisfied all three structural gates ((a) segments present,
+  (b) production excludes more, (c) within the segment+boundary bound), which is exactly what the
+  evidence above predicted: this recount's blind spot is unreliable-segment detection, and every
+  UNEXPLAINED survivor's divergence traced back to that one missing mechanism. **There are no
+  UNEXPLAINED survivors to report** on this archive. UNEXPLAINED's own reachability is proven by the
+  four synthetic fixtures above, independent of what this or any other real archive happens to
+  contain — the sweep test's own assertion (`expect(unexplained).toBeGreaterThan(0)`) was removed and
+  replaced with a report-what-you-find branch plus a comment pointing to the synthetic fixtures,
+  rather than requiring the real archive to stay imperfect.
+- The one previously-UNEXPLAINED NAMED activity, `3475734189`, is now EXPLAINED DIVERGENCE
+  (segment-scope-gap): its 181.5 m divergence exceeded its own boundary-pair bound (147 m) but
+  exactly matches its one reported unreliable segment's own metres (181.5 m). The other three named
+  activities (`3475724402`, `3475740390`, `5059204779`) are unaffected — their divergences already
+  fit the ordinary boundary-pair bound alone, so the new, more specific cause never gets a chance to
+  fire ahead of `TRAVERSAL_BOUNDARY_CAUSE`.
+
+### The bounded, honest claim
+
+This recount independently corroborates production on the three mechanisms it models: recording
+gaps, pauses, and over-speed bursts. It is SILENT on unreliable-segment detection — production's
+fourth mechanism — and every divergence this file's classifier could not otherwise explain traces
+back to exactly that silence, not to a genuine disagreement about the mechanisms this recount does
+model.
+
+### Artifact sha (unchanged)
+
+No change to `.planning/phases/35-stream-derived-running-pace/35-RUNNING-PACE-RECOUNT.md` was made
+or needed — this correction touches only the crosscheck classifier, not the recount script that
+generates the artifact. `sha256=4e3c1d377dd65dc963c28be9171f9c2856f526ea8c599ea6af4b64f0a05ad0e7`
+(same as the first correction), confirmed via `sha256sum` after this correction's commit.
+
+### Commits
+
+1. `8b6feac9` — fix(35-05): add segment-scope-gap cause to crosscheck classifier
+   (`scripts/compute-running-pace-recount-crosscheck.test.mjs` only)
+
+Full gate re-run after this commit: `npx vitest run` 3604/3604 (up from 3600), `npx tsc --noEmit`
+clean, `git status --porcelain data/` empty. No file under `src/` was touched. No file under
+`scripts/compute-running-pace-recount.mjs` was touched. No `STATE.md`/`ROADMAP.md` progress edit was
+made by this correction.
