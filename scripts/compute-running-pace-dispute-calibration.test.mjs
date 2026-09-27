@@ -522,31 +522,38 @@ describe('renderCalibrationMarkdown terminal branches', () => {
 // smallest-positive-gap -- clearing both D-13 insensitivity axes against the real archive: the
 // statistic's own minimum gap sat in the dense MIDDLE of a 1291-item population, a region neither
 // Axis B (plants at the population's own max) nor Axis C (trims the population's own top 1%) ever
-// touches. The fix (still in this file, see `strawmanCutS0`/`S0_TAIL_WINDOW_FRACTION`) restricts
-// the gap search to the top 5% (tail window) of the population -- the exact zone both axes perturb
-// -- and changes NOTHING else about S0, any real shape, any axis mechanism or the tolerance.
+// touches. This session's own record shows the fix went through two iterations: a first repair
+// narrowed the search to a top-5%-by-fraction window, which a re-measurement against the real
+// archive showed was STILL wide enough to leave its own minimum gap in the untouched remainder
+// below Axis C's trimmed top 1% (movement 0.0000%, unchanged). The fix that actually holds (still
+// in this file, see `strawmanCutS0`/`S0_TAIL_WINDOW_SIZE`) narrows the window to the absolute
+// minimum -- the top TWO order statistics of E -- which no trim of one-or-more top members, and no
+// duplicate-of-the-max plant, can ever leave untouched. Nothing else about S0, any real shape, any
+// axis mechanism or the tolerance is changed.
 //
 // The tests below prove the fix two ways, per the plan's own trap: (1) with the axes WORKING,
 // S0 now FAILS on a population shaped like the real archive's flaw (a tiny, irrelevant dense-
 // middle gap the fix must ignore, plus a genuinely tail-sensitive gap it must read instead); (2)
 // S0 is still CAPABLE of clearing -- it is not a strawman rigged to fail unconditionally -- both
 // when the tail itself is degenerate (fully tied, independent of axis strength) and when the axes
-// themselves are weakened to miss the tail window entirely (a synthetic harness, never a change to
-// the real `plantMaxStatistic`/`trimBaseTail` mechanisms).
+// themselves are weakened to miss the top-two window entirely (a synthetic harness, never a change
+// to the real `plantMaxStatistic`/`trimBaseTail` mechanisms).
 // ---------------------------------------------------------------------------
 
 /**
- * A population shaped to exercise the fixed `strawmanCutS0`'s tail window under REAL (unweakened)
- * Axis B/C mechanics: N=200 so `windowSize = ceil(0.05*200) = 10` and `plantCount =
- * membersRemoved = ceil(0.01*200) = 2`.
+ * A population shaped to exercise the fixed `strawmanCutS0`'s top-two window under REAL
+ * (unweakened) Axis B/C mechanics: N=200 so `plantCount = membersRemoved = ceil(0.01*200) = 2`
+ * (`S0_TAIL_WINDOW_SIZE` itself is a fixed 2, independent of N).
  *
  * - `target`: delta=100 (the strawman's own target activity).
- * - A 12-member tail (500, 495, 490, then 480 down to 320 in steps of 20) -- the top 10 of these
- *   (dropping the bottom 2) form the baseline tail window; its smallest positive gap is 5 (between
- *   500/495 and 495/490), so `baseCut = 100 - 5 = 95`.
- * - A dense-middle pair at delta=50.0000/50.0001 (gap 0.0001) -- far below the tail window, added
- *   specifically to prove the fix ignores it (the ORIGINAL, whole-population statistic would have
- *   picked THIS gap instead, producing `baseCut ~= 99.9999`).
+ * - A 12-member tail (500, 495, 490, then 480 down to 320 in steps of 20) -- E's own two largest
+ *   deltas (500, 495) form the baseline top-two window; their gap is 5, so `baseCut = 100 - 5 =
+ *   95`. The remaining ten tail values (490 down to 320) exist only so Axis C's trim (which
+ *   removes the top 2 = 500, 495) has a well-defined, non-degenerate new top-two pair (490, 480)
+ *   to expose.
+ * - A dense-middle pair at delta=50.0000/50.0001 (gap 0.0001) -- far below the top-two window,
+ *   added specifically to prove the fix ignores it (the ORIGINAL, whole-population statistic would
+ *   have picked THIS gap instead, producing `baseCut ~= 99.9999`).
  * - 185 filler records at delta=1..185 (all well below the 320 tail floor), two of which are
  *   replaced by the dense-middle pair, for exactly 187 non-tail, non-target records.
  *
@@ -571,7 +578,7 @@ function buildS0TailWindowFixture() {
 }
 
 describe('strawman S0 gap-closure (35-07): tail-window fix proven, then watched clearing on a degenerate tail and on weakened axes', () => {
-  it('SYNTHETIC PROOF 1 (fails, axes working): S0 reads the tail-window gap (5), not the dense-middle gap (0.0001), and FAILS both Axis B and Axis C', () => {
+  it('SYNTHETIC PROOF 1 (fails, axes working): S0 reads the top-two-window gap (5), not the dense-middle gap (0.0001), and FAILS both Axis B and Axis C', () => {
     const { population } = buildS0TailWindowFixture();
     const shape = SHAPES.find((s) => s.id === 'S0');
     const baseCut = shape.cut(population);
@@ -607,9 +614,10 @@ describe('strawman S0 gap-closure (35-07): tail-window fix proven, then watched 
     const shape = SHAPES.find((s) => s.id === 'S0');
     const baseCut = shape.cut(population);
 
-    // A weakened Axis B: plants two synthetic members at delta=-1000, far below the tail window --
-    // standing in for a planter that has been weakened to miss the tail entirely (never the real
-    // plantMaxStatistic, which correctly plants at the population's own max, per Proof 1 above).
+    // A weakened Axis B: plants two synthetic members at delta=-1000, far below the top-two window
+    // -- standing in for a planter that has been weakened to miss the tail entirely (never the
+    // real plantMaxStatistic, which correctly plants at the population's own max, per Proof 1
+    // above).
     const weakPlant = {
       population: [
         ...population,
@@ -620,7 +628,7 @@ describe('strawman S0 gap-closure (35-07): tail-window fix proven, then watched 
     };
     const axisB = evaluateAxisBFromPlanted(shape, population, baseCut, weakPlant);
     expect(axisB.accountingOk).toBe(true);
-    expect(axisB.movement).toBe(0); // the weakened plant never touches the tail window
+    expect(axisB.movement).toBe(0); // the weakened plant never touches the top-two window
     expect(axisB.status).toBe('cleared');
   });
 
@@ -630,27 +638,26 @@ describe('strawman S0 gap-closure (35-07): tail-window fix proven, then watched 
     const baseCut = shape.cut(population);
 
     // A weakened Axis C: removes the two SMALLEST members instead of the largest -- standing in
-    // for a trimmer that has been weakened to miss the tail S0's cut reads entirely (never the
-    // real trimBaseTail, which correctly drops the largest members, per Proof 1 above).
+    // for a trimmer that has been weakened to miss the top-two window S0's cut reads entirely
+    // (never the real trimBaseTail, which correctly drops the largest members, per Proof 1 above).
     const membersRemoved = 2;
     const ascendingByDelta = [...population].sort((a, b) => STATISTICS.delta(a) - STATISTICS.delta(b));
     const weakTrimmed = ascendingByDelta.slice(membersRemoved);
 
     const axisC = evaluateAxisCFromTrimmed(shape, population, baseCut, weakTrimmed, membersRemoved);
     expect(axisC.trimmedItems).toBe(population.length - membersRemoved); // removal accounting holds
-    expect(axisC.movement).toBe(0); // the weakened trim never touches the tail window
+    expect(axisC.movement).toBe(0); // the weakened trim never touches the top-two window
     expect(axisC.status).toBe('cleared');
   });
 
   it('WATCHED (round-invalidation plumbing, still reachable post-fix): a degenerate, fully-tied tail lets S0 clear real Axis B/C, and the round HALTs before ever selecting C1', () => {
     // The fix closes the dense-MIDDLE insensitivity 35-07-HALT-1.md measured, but a genuinely
     // degenerate tail (every member tied at the same value) is a DIFFERENT, honestly-disclosed
-    // limitation: with no positive gap anywhere in the tail window, `strawmanCutS0` falls back to
-    // `targetDelta` itself (its own documented "no positive gap exists" contract) both before and
-    // after either axis's perturbation, so nothing moves. N=200 again: windowSize=10,
-    // plantCount=membersRemoved=2; 15 tied tail members comfortably exceeds both the window (10)
-    // and the trim count (2), so at least 10 tied members remain in the window after either axis
-    // runs.
+    // limitation: with the top-two window itself fully tied, the gap is a genuine, measured zero
+    // both before and after either axis's perturbation (still tied post-perturbation, since at
+    // least two tied members always remain), so nothing moves. N=200; plantCount=
+    // membersRemoved=2; 15 tied tail members comfortably exceeds the trim count (2), so at least
+    // 13 tied members -- far more than the top-two window needs -- remain after Axis C runs.
     const target = makeRecord(STRAWMAN_TARGET_ACTIVITY_ID, 350, 300, 500, 100); // delta = 50
     const tiedTail = Array.from({ length: 15 }, (_, i) => makeRecord(`tied-${i}`, 1300, 300, 500, 100)); // delta = 1000, tied
     const filler = Array.from({ length: 184 }, (_, i) => makeRecord(`filler-${i}`, 300 + i + 1, 300, 500, 100)); // delta = 1..184

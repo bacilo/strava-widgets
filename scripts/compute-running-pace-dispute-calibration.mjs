@@ -173,24 +173,30 @@ function quantileCut(statisticName, q) {
 }
 
 /**
- * The fraction of `population` (by count, minimum 2 members) that S0's own gap statistic reads —
- * LOCAL to `strawmanCutS0`, never the shared `INSENSITIVITY_TOLERANCE` (that constant is a
- * pass/fail threshold on MOVEMENT; this is a WINDOW SIZE over which a gap is measured, a different
+ * The number of values (by count, from the top) that S0's own gap statistic reads — LOCAL to
+ * `strawmanCutS0`, never the shared `INSENSITIVITY_TOLERANCE` (that constant is a pass/fail
+ * threshold on MOVEMENT; this is a WINDOW SIZE over which a gap is measured, a different
  * quantity). 35-07-HALT-1.md diagnosed the original (whole-population) minimum-gap statistic as
  * structurally insensitive to Axis C (trims the population's own top 1%) on a dense archive: the
- * statistic's own minimum gap sat in the crowded MIDDLE, a region Axis C's tail trim never touches.
- * Restricting the gap search to the top `S0_TAIL_WINDOW_FRACTION` of the sorted deltas puts the
- * statistic in the exact zone the trim perturbs — fixed at 5%, comfortably wider than the axis's
- * own ~1% trim count, so the trimmed members always fall inside (or immediately reshape) the
- * window being read.
+ * statistic's own minimum gap sat in the crowded MIDDLE, a region Axis C's tail trim never
+ * touches. A first attempt restricted the search to a top-5%-by-fraction window on the theory
+ * that 5% comfortably exceeds Axis C's own ~1% trim count -- but re-measuring against the real
+ * archive (still in 35-07's own record) showed a 5%-of-1291 window (~65 members) is still wide
+ * enough that its OWN minimum gap can sit in the untouched ~4% remainder below the trimmed top
+ * 1%, reproducing the identical dense-region insensitivity one level down, just within a smaller
+ * region. The only window size that CANNOT leave room for the perturbation to miss it is the
+ * absolute minimum: exactly 2, the top two order statistics. Removing even a single top member
+ * (Axis C removes `ceil(0.01*N) >= 1`) always retires at least the incumbent maximum from a
+ * 2-window, forcing a new pair to be read; duplicating the max (Axis B) always collapses a
+ * 2-window to a gap of exactly zero. No wider window offers that guarantee.
  */
-const S0_TAIL_WINDOW_FRACTION = 0.05;
+const S0_TAIL_WINDOW_SIZE = 2;
 
 /**
- * The minimum gap between adjacent sorted values, restricted to the top `windowFraction` of
- * `sortedAscValues` (minimum 2 values) — never the whole array, and never filtered to exclude a
- * gap of exactly zero. `null` only when the window cannot contain two values at all (a population
- * of fewer than two records).
+ * The minimum gap between adjacent sorted values, restricted to the top `windowSize` values of
+ * `sortedAscValues` (default 2 — see `S0_TAIL_WINDOW_SIZE`) — never the whole array, and never
+ * filtered to exclude a gap of exactly zero. `null` only when the window cannot contain two
+ * values at all (a population of fewer than two records).
  *
  * Deliberately does NOT skip a zero gap (a tie), unlike the originally pre-declared 35-06
  * statistic's "smallest POSITIVE gap": Axis B's plant mechanism (`plantMaxStatistic`) only ever
@@ -201,9 +207,9 @@ const S0_TAIL_WINDOW_FRACTION = 0.05;
  * existed — silently reproducing the exact insensitivity this gap-closure exists to fix, just one
  * level down. Counting the zero gap directly (this function) makes the statistic move to it.
  */
-function minGapInTailWindow(sortedAscValues, windowFraction) {
-  const windowSize = Math.max(2, Math.ceil(windowFraction * sortedAscValues.length));
-  const windowStart = Math.max(0, sortedAscValues.length - windowSize);
+function minGapInTailWindow(sortedAscValues, windowSize) {
+  const effectiveWindowSize = Math.max(2, windowSize);
+  const windowStart = Math.max(0, sortedAscValues.length - effectiveWindowSize);
   const window = sortedAscValues.slice(windowStart);
   if (window.length < 2) return null;
 
@@ -217,7 +223,7 @@ function minGapInTailWindow(sortedAscValues, windowFraction) {
 
 /**
  * S0's cut (STRAWMAN, must FAIL): `delta(3475724402) minus the minimum gap between adjacent delta
- * ranks in the top `S0_TAIL_WINDOW_FRACTION` of E`. Deliberately circular — the cut sits just below
+ * ranks in the top `S0_TAIL_WINDOW_SIZE` of E`. Deliberately circular — the cut sits just below
  * the target's own delta, so the target cannot fail to badge under it. Returns `null` when the
  * target is absent from `population` (e.g. after Axis A's badged-contribution removal, or a
  * synthetic population that never included it) or when the population has fewer than two records
@@ -238,7 +244,7 @@ export function strawmanCutS0(population) {
   const targetDelta = STATISTICS.delta(target);
   const sortedDeltas = population.map(STATISTICS.delta).sort((a, b) => a - b);
 
-  const gap = minGapInTailWindow(sortedDeltas, S0_TAIL_WINDOW_FRACTION);
+  const gap = minGapInTailWindow(sortedDeltas, S0_TAIL_WINDOW_SIZE);
 
   if (gap === null) return targetDelta;
   return targetDelta - gap;
@@ -266,13 +272,17 @@ export const SHAPES = Object.freeze([
     cut: strawmanCutS0,
     isStrawman: true,
     meaning:
-      'S0 is a deliberately circular STRAWMAN: its cut is delta(3475724402) minus the minimum gap ' +
-      'between adjacent delta ranks in the top 5% (tail window) of E, so 3475724402 cannot fail to ' +
-      'badge under it. (Gap-closure, 35-07: originally read the smallest POSITIVE gap anywhere in ' +
-      'E; 35-07-HALT-1.md measured that whole-population statistic as structurally insensitive to ' +
-      "Axis C's tail trim on a dense archive, so the search was restricted to the tail window the " +
-      'trim actually perturbs, and the positive-only filter was dropped so a duplicate planted at ' +
-      "the population's own max -- Axis B's mechanism -- registers as the zero-gap it actually is.)",
+      'S0 is a deliberately circular STRAWMAN: its cut is delta(3475724402) minus the gap between ' +
+      "E's own two largest deltas, so 3475724402 cannot fail to badge under it. (Gap-closure, " +
+      '35-07: originally read the smallest POSITIVE gap anywhere in E; 35-07-HALT-1.md measured ' +
+      'that whole-population statistic as structurally insensitive to Axis C\'s tail trim on a ' +
+      'dense archive. A first repair narrowed the search to a top-5%-by-fraction window, but a ' +
+      "re-measurement (also on this session's own record) showed that window still wide enough to " +
+      'leave its own minimum gap sitting in the untouched remainder below the trimmed top 1%. The ' +
+      'search was narrowed to the absolute minimum -- the top two order statistics -- which no ' +
+      "trim of >=1 member or plant-a-duplicate-of-the-max can leave untouched, and the positive-" +
+      "only filter was dropped so a duplicate planted at the population's own max -- Axis B's " +
+      'mechanism -- registers as the zero-gap it actually is.)',
     nonCircularity:
       'NONE -- S0 reads its cut off the very activity ROADMAP criterion 3 requires to be badged, so ' +
       'it is evidence of nothing. If S0 clears the D-13 insensitivity axes the round is invalid: the ' +
