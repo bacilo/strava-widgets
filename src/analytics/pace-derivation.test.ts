@@ -43,12 +43,12 @@ import {
   paceHistogramSamples,
   paceHistogramAccounting,
   detectPaceDisagreement,
-  streamPaceSecPerKm,
+  PACE_DISAGREEMENT_RUNNING_RATIO,
   deriveRunningPace,
   NOT_COMPUTABLE_NO_COVERED_DISTANCE,
   UNRELIABLE_SPEED_LIMIT_MPS as UNRELIABLE_SPEED_LIMIT_MPS_VIA_PACE_DERIVATION,
 } from './pace-derivation.js';
-import type { UnreliableSegment, SegmentMechanism } from './pace-derivation.js';
+import type { UnreliableSegment, SegmentMechanism, RunningPace } from './pace-derivation.js';
 import {
   detectUnreliableSegments,
   DEFAULT_DETECTOR_PARAMS,
@@ -67,6 +67,27 @@ function readStream(activityId: string): CanonicalStream {
   return JSON.parse(
     fs.readFileSync(path.join('data/streams', `${activityId}.json`), 'utf-8')
   ) as CanonicalStream;
+}
+
+/**
+ * Builds a hand-specified `RunningPace` fixture for `detectPaceDisagreement`'s
+ * SYNTHETIC totality/behaviour suite (35-08, RPACE-03) — deliberately
+ * independent of `deriveRunningPace`, so every expectation below is a fact
+ * about the comparator, not a fact about the derivation. Defaults describe a
+ * plainly computable, plainly eligible (D-02: `excludedM > 0`) running pace;
+ * every case overrides exactly the fields its own name says it varies.
+ */
+function makeRunningPace(overrides: Partial<RunningPace> = {}): RunningPace {
+  return {
+    computable: true,
+    notComputableReason: null,
+    runningPaceSecPerKm: 300,
+    coveredM: 1000,
+    coveredSec: 300,
+    excludedM: 10,
+    excludedSec: 5,
+    ...overrides,
+  };
 }
 
 /**
@@ -248,31 +269,208 @@ describe('classifyGaps — coverage sums exactly and pins the two negative cases
 });
 
 /**
- * `detectPaceDisagreement`'s totality guarantee (PACE-07, T-26-01), pinned
+ * `detectPaceDisagreement`'s totality guarantee (RPACE-03, T-26-01), pinned
  * alongside `classifyGaps`' own totality block above so every never-throwing
- * guarantee for this module lives together. Positive/negative-case coverage
- * of the actual disagreement (activity 5059204779, negative case 7 with the
- * threshold disabled) lives in `compute-dashboard-index.test.ts`'s
- * `describe('pace disagreement', ...)` block, alongside the archive-wide
- * over-fire sweep it shares fixtures with.
+ * guarantee for this module lives together. Retargeted (35-08, D-01): the
+ * comparator now takes an already-computed `RunningPace`, never a stream —
+ * the malformed-input cases below chain through `deriveRunningPace`'s own
+ * totality (pinned separately in this file, 35-03) to preserve the original
+ * "malformed stream" flavour of each case rather than dropping it. Positive/
+ * negative-case coverage of the actual disagreement (activity 5059204779,
+ * the D-02 gate's own can-fail/can-pass pair) lives in
+ * `compute-dashboard-index.test.ts`'s `describe('pace disagreement', ...)`
+ * block, alongside the archive-wide over-fire sweep it shares fixtures with.
+ * Boundary and direction behaviour (cases a-h) live in the calibration-pinned
+ * describe block below this one.
  */
 describe('detectPaceDisagreement — totality, never throws, always null on malformed input', () => {
-  it('returns null on a malformed stream (t/d length mismatch)', () => {
+  it('returns null on a not-computable RunningPace produced from a malformed stream (t/d length mismatch)', () => {
     const badStream = makeStream({ t: [0, 10, 20], d: [0, 100] });
-    expect(() => detectPaceDisagreement(100, badStream)).not.toThrow();
-    expect(detectPaceDisagreement(100, badStream)).toBeNull();
+    const runningPace = deriveRunningPace(badStream);
+    expect(runningPace.computable).toBe(false);
+    expect(() => detectPaceDisagreement(100, runningPace)).not.toThrow();
+    expect(detectPaceDisagreement(100, runningPace)).toBeNull();
   });
 
-  it('returns null when metadataPaceSecPerKm is null', () => {
-    const stream = makeStream({ t: [0, 10, 20], d: [0, 50, 100] });
-    expect(() => detectPaceDisagreement(null, stream)).not.toThrow();
-    expect(detectPaceDisagreement(null, stream)).toBeNull();
+  it('returns null when metadataPaceSecPerKm is null, even given an otherwise-eligible computable RunningPace', () => {
+    const runningPace = makeRunningPace();
+    expect(() => detectPaceDisagreement(null, runningPace)).not.toThrow();
+    expect(detectPaceDisagreement(null, runningPace)).toBeNull();
   });
 
-  it('returns null on a zero-distance stream (d never advances)', () => {
+  it('returns null on the not-computable RunningPace produced from a zero-distance stream (d never advances)', () => {
     const stream = makeStream({ t: [0, 10, 20], d: [0, 0, 0] });
-    expect(() => detectPaceDisagreement(100, stream)).not.toThrow();
-    expect(detectPaceDisagreement(100, stream)).toBeNull();
+    const runningPace = deriveRunningPace(stream);
+    expect(runningPace.computable).toBe(false);
+    expect(runningPace.notComputableReason).toBe(NOT_COMPUTABLE_NO_COVERED_DISTANCE);
+    expect(() => detectPaceDisagreement(100, runningPace)).not.toThrow();
+    expect(detectPaceDisagreement(100, runningPace)).toBeNull();
+  });
+});
+
+/**
+ * The calibrated constant, and the eligibility gate / cut / direction it
+ * governs (RPACE-03, D-01/D-02/D-06/D-07, 35-08). This suite stays
+ * SYNTHETIC throughout — every case is built on `makeRunningPace`, so no
+ * expectation here depends on `deriveRunningPace`'s own correctness.
+ * Named-activity reachability against the real archive lives in
+ * `compute-dashboard-index.test.ts`'s `describe('pace disagreement', ...)`
+ * block, the phase's one archive-reading location for this comparator.
+ */
+describe('detectPaceDisagreement — calibrated cut, D-02 gate, D-06 direction (RPACE-03, pinned to 35-CALIBRATION.md)', () => {
+  const ARTIFACT_PATH = path.join(
+    '.planning',
+    'phases',
+    '35-stream-derived-running-pace',
+    '35-CALIBRATION.md'
+  );
+
+  /**
+   * Parses `PACE_DISAGREEMENT_RUNNING_RATIO`'s value out of
+   * `35-CALIBRATION.md`'s `## Chosen constants` line at TEST TIME (34
+   * D-21's parse-from-artifact precedent) — never a literal `1.0173` pinned
+   * in this file, so the test fails if the artifact and the shipped
+   * constant ever diverge, rather than silently agreeing with itself.
+   */
+  function parsedCut(): number {
+    if (!fs.existsSync(ARTIFACT_PATH)) {
+      throw new Error(
+        `Missing ${ARTIFACT_PATH} — likely a milestone-archival \`git mv\` moved this phase's ` +
+          "directory; update this test's ARTIFACT_PATH to the archived location. Never skip this test."
+      );
+    }
+    const artifact = fs.readFileSync(ARTIFACT_PATH, 'utf-8');
+    const match = /^PACE_DISAGREEMENT_RUNNING_RATIO = ([0-9.]+)$/m.exec(artifact);
+    if (match === null) {
+      throw new Error(
+        `Expected a line-anchored "PACE_DISAGREEMENT_RUNNING_RATIO = <value>" line in ` +
+          `${ARTIFACT_PATH} — a re-run of the generator landing on its own HALT branch (never ` +
+          'shipping a line) is the likely cause; never skip, never silently pass.'
+      );
+    }
+    return Number(match[1]);
+  }
+
+  it('the exported constant equals the value parsed from 35-CALIBRATION.md', () => {
+    expect(PACE_DISAGREEMENT_RUNNING_RATIO).toBe(parsedCut());
+  });
+
+  it('just above the cut: flagged, with a fully-populated result and both roundings correct', () => {
+    const cut = parsedCut();
+    const metadataPaceSecPerKm = 300;
+    const runningPace = makeRunningPace({
+      runningPaceSecPerKm: metadataPaceSecPerKm * cut + 1,
+      excludedM: 10,
+    });
+    const result = detectPaceDisagreement(metadataPaceSecPerKm, runningPace);
+    expect(result).not.toBeNull();
+    expect(result).toEqual({
+      runningPaceSecPerKm: Math.round((metadataPaceSecPerKm * cut + 1) * 10) / 10,
+      metadataPaceSecPerKm: 300,
+      ratio: Math.round(((metadataPaceSecPerKm * cut + 1) / metadataPaceSecPerKm) * 100) / 100,
+    });
+  });
+
+  it('just below the cut: null', () => {
+    const cut = parsedCut();
+    const metadataPaceSecPerKm = 300;
+    const runningPace = makeRunningPace({
+      runningPaceSecPerKm: metadataPaceSecPerKm * cut - 1,
+      excludedM: 10,
+    });
+    expect(detectPaceDisagreement(metadataPaceSecPerKm, runningPace)).toBeNull();
+  });
+
+  it('exactly at the cut: flagged — the comparison is inclusive (boundary asserted explicitly)', () => {
+    const cut = parsedCut();
+    const metadataPaceSecPerKm = 300;
+    const runningPace = makeRunningPace({
+      runningPaceSecPerKm: metadataPaceSecPerKm * cut,
+      excludedM: 10,
+    });
+    const result = detectPaceDisagreement(metadataPaceSecPerKm, runningPace);
+    expect(result).not.toBeNull();
+    // The raw ratio (runningPaceSecPerKm / metadataPaceSecPerKm) sits exactly
+    // at `cut` by construction; the returned field is `cut` rounded to two
+    // decimals, matching `detectPaceDisagreement`'s own rounding convention.
+    expect(result?.ratio).toBe(Math.round(cut * 100) / 100);
+  });
+
+  it('D-02 gate: excludedM === 0 returns null even far beyond the cut; the smallest positive excludedM returns a result (can-fail AND can-pass in one pair)', () => {
+    const cut = parsedCut();
+    const metadataPaceSecPerKm = 300;
+    const farBeyondCut = makeRunningPace({
+      runningPaceSecPerKm: metadataPaceSecPerKm * cut * 2,
+      excludedM: 0,
+    });
+    expect(detectPaceDisagreement(metadataPaceSecPerKm, farBeyondCut)).toBeNull();
+
+    const smallestPositiveExcludedM = { ...farBeyondCut, excludedM: Number.EPSILON };
+    expect(detectPaceDisagreement(metadataPaceSecPerKm, smallestPositiveExcludedM)).not.toBeNull();
+  });
+
+  it('D-06 direction: a running pace FASTER than metadata by more than the cut\'s magnitude returns null, in both statistic families\' arithmetic', () => {
+    const cut = parsedCut();
+    const metadataPaceSecPerKm = 300;
+    // Ratio-family mirror: running pace at 1/cut of metadata (i.e. running
+    // faster by exactly the same magnitude the slow-side cut requires).
+    const fasterRatioMirror = makeRunningPace({
+      runningPaceSecPerKm: metadataPaceSecPerKm / cut,
+      excludedM: 10,
+    });
+    expect(detectPaceDisagreement(metadataPaceSecPerKm, fasterRatioMirror)).toBeNull();
+
+    // Delta-family mirror: running pace faster by the same absolute sec/km
+    // magnitude the ratio cut implies at this metadata pace.
+    const deltaMagnitude = metadataPaceSecPerKm * cut - metadataPaceSecPerKm;
+    const fasterDeltaMirror = makeRunningPace({
+      runningPaceSecPerKm: metadataPaceSecPerKm - deltaMagnitude,
+      excludedM: 10,
+    });
+    expect(detectPaceDisagreement(metadataPaceSecPerKm, fasterDeltaMirror)).toBeNull();
+  });
+
+  it('computable: false returns null even when every other clause would pass', () => {
+    const cut = parsedCut();
+    const metadataPaceSecPerKm = 300;
+    const runningPace = makeRunningPace({
+      computable: false,
+      notComputableReason: NOT_COMPUTABLE_NO_COVERED_DISTANCE,
+      runningPaceSecPerKm: metadataPaceSecPerKm * cut * 2,
+      excludedM: 10,
+    });
+    expect(detectPaceDisagreement(metadataPaceSecPerKm, runningPace)).toBeNull();
+  });
+
+  it('runningPace.runningPaceSecPerKm === null returns null even when computable is (incorrectly) true', () => {
+    const runningPace = makeRunningPace({ runningPaceSecPerKm: null, excludedM: 10 });
+    expect(detectPaceDisagreement(300, runningPace)).toBeNull();
+  });
+
+  it.each([
+    ['null', null],
+    ['0', 0],
+    ['a negative value', -50],
+  ])('metadataPaceSecPerKm of %s returns null', (_label, metadataPaceSecPerKm) => {
+    const cut = parsedCut();
+    const runningPace = makeRunningPace({ runningPaceSecPerKm: 1000 * cut, excludedM: 10 });
+    expect(detectPaceDisagreement(metadataPaceSecPerKm, runningPace)).toBeNull();
+  });
+
+  it('all-or-nothing: a flagged result has exactly the three expected keys and no undefined value on any of them', () => {
+    const cut = parsedCut();
+    const metadataPaceSecPerKm = 300;
+    const runningPace = makeRunningPace({
+      runningPaceSecPerKm: metadataPaceSecPerKm * cut * 1.5,
+      excludedM: 10,
+    });
+    const result = detectPaceDisagreement(metadataPaceSecPerKm, runningPace);
+    expect(result).not.toBeNull();
+    const keys = Object.keys(result as object).sort();
+    expect(keys).toEqual(['metadataPaceSecPerKm', 'ratio', 'runningPaceSecPerKm']);
+    for (const key of keys) {
+      expect((result as Record<string, unknown>)[key]).not.toBeUndefined();
+    }
   });
 });
 
@@ -1140,22 +1338,13 @@ describe('validateStreamSeries null-safety at source — every reaching exported
     expect(result.windowSec).toBe(20);
   });
 
-  it('streamPaceSecPerKm on a stream whose t/d are undefined does not throw and returns null', () => {
-    const stream = makeStream({ t: [0, 1, 2], d: [0, 1, 2] });
-    const undefinedStream = {
-      ...stream,
-      t: undefined as unknown as number[],
-      d: undefined as unknown as number[],
-    };
-    expect(() => streamPaceSecPerKm(undefinedStream)).not.toThrow();
-    expect(streamPaceSecPerKm(undefinedStream)).toBeNull();
-  });
-
-  it('detectPaceDisagreement on a stream whose t/d are null does not throw and returns null (own documented neutral value)', () => {
+  it('detectPaceDisagreement given the not-computable RunningPace deriveRunningPace produces for a stream whose t/d are null does not throw and returns null (35-08 retarget: composed through deriveRunningPace, which is the function that now reaches validateStreamSeries here)', () => {
     const stream = makeStream({ t: [0, 1, 2], d: [0, 1, 2] });
     const nullStream = { ...stream, t: null as unknown as number[], d: null as unknown as number[] };
-    expect(() => detectPaceDisagreement(100, nullStream)).not.toThrow();
-    expect(detectPaceDisagreement(100, nullStream)).toBeNull();
+    const runningPace = deriveRunningPace(nullStream);
+    expect(runningPace.computable).toBe(false);
+    expect(() => detectPaceDisagreement(100, runningPace)).not.toThrow();
+    expect(detectPaceDisagreement(100, runningPace)).toBeNull();
   });
 });
 
