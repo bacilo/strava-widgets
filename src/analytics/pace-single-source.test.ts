@@ -118,11 +118,13 @@
  * verbatim failing output is recorded in `32-04-SUMMARY.md`.
  */
 
-import { readdirSync, readFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { findBestEffort } from './best-effort-utils.js';
 import { stripComments } from '../dashboard/row-semantics.test.js';
 
 const SRC_ROOT = new URL('../../src/', import.meta.url);
@@ -1164,6 +1166,141 @@ describe('deriveRunningPace reads the detector (SEG-05b, Phase 35 half)', () => 
 
     vi.doUnmock('./unreliable-segments.js');
     vi.resetModules();
+  });
+});
+
+/**
+ * computeBestEfforts reads the detector (SEG-05b, Phase 36 half)
+ *
+ * Phase 36's consumer reaches the detector through TWO hops —
+ * `compute-best-efforts.js` -> `pace-derivation.js` -> `unreliable-segments.js`
+ * — the Phase 34 TWO-HOP shape (`pause-classification reads the detector
+ * (SEG-05b, Phase 34 half)` above), copied for this phase's own consumer.
+ * Proven through the PRODUCTION ORCHESTRATOR (`computeBestEfforts`), not
+ * only through the pure `computeActivityEfforts` seam — an import chain that
+ * exists textually and one that actually drives `computeBestEfforts`'s own
+ * shipped document are different claims (35-CONTEXT.md D-11). A
+ * one-direction assertion would pass equally well against a build where
+ * `computeBestEfforts` never actually read its `segments` input — both
+ * directions are asserted in the SAME test, per this file's own standing
+ * rule (stated verbatim in the three blocks above).
+ *
+ * Reads the REAL committed `data/streams/3475740390.json` and
+ * `data/activities/3475740390.json` — this project has had a severity call
+ * inverted by a synthesized look-alike substitution once already
+ * (36-VALIDATION.md's own citation of that lesson); this fixture is the
+ * genuine archive activity, copied verbatim into a throwaway directory
+ * (removed in a `finally`).
+ */
+describe('computeBestEfforts reads the detector (SEG-05b, Phase 36 half)', () => {
+  it("stubbing detectUnreliableSegments to [] on real 3475740390 collapses the 400m effort to today's unconstrained figure (contaminated null, durationSec matches the unbounded sweep, pace 3:20); the real module carries a non-null contaminated record", async () => {
+    const stream = JSON.parse(
+      readFileSync(path.join('data', 'streams', '3475740390.json'), 'utf-8')
+    ) as import('../streams/stream.types.js').CanonicalStream;
+
+    const tmpDir = mkdtempSync(path.join(os.tmpdir(), 'seg05b-phase36-'));
+    try {
+      mkdirSync(path.join(tmpDir, 'streams'), { recursive: true });
+      mkdirSync(path.join(tmpDir, 'activities'), { recursive: true });
+      copyFileSync(
+        path.join('data', 'streams', '3475740390.json'),
+        path.join(tmpDir, 'streams', '3475740390.json')
+      );
+      copyFileSync(
+        path.join('data', 'activities', '3475740390.json'),
+        path.join(tmpDir, 'activities', '3475740390.json')
+      );
+      writeFileSync(
+        path.join(tmpDir, 'streams', 'manifest.json'),
+        JSON.stringify({
+          schemaVersion: 1,
+          generated_at: '',
+          note: 'SEG-05b Phase 36 half fixture',
+          totals: { activities: 1, with_streams: 1, without_streams: 0, by_reason: {} },
+          activities: {
+            '3475740390': {
+              available: true,
+              source: stream.source,
+              distanceSource: stream.distanceSource,
+              sampleCount: stream.t.length,
+              channels: stream.channels,
+            },
+          },
+        })
+      );
+
+      // Real direction first, from a clean module registry — no mock active yet.
+      vi.resetModules();
+      const realPaceDerivation = await import('./pace-derivation.js');
+      const realComputeBestEfforts = await import('./compute-best-efforts.js');
+
+      const { segments: realSegments } = realPaceDerivation.classifyGapsWithSegments(stream.t, stream.d);
+      expect(realSegments.length).toBeGreaterThan(0); // reachability — real direction
+
+      const realDoc = await realComputeBestEfforts.computeBestEfforts({
+        activitiesDir: path.join(tmpDir, 'activities'),
+        streamsDir: path.join(tmpDir, 'streams'),
+        streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+        statsDir: path.join(tmpDir, 'stats-real'),
+        ceilingStatePath: path.join(tmpDir, 'ceiling-state-real.json'),
+        exclusionsPath: path.join(tmpDir, 'no-such-exclusions.json'),
+      });
+      const realEffort = realDoc.activities['3475740390'].efforts.find((e) => e.distance === '400m')!;
+      expect(realEffort.contaminated).not.toBeNull();
+
+      // Stubbed direction: detectUnreliableSegments always returns [], every
+      // other export (including DEFAULT_DETECTOR_PARAMS) passes through
+      // untouched via vi.importActual. The stub is declared at the DETECTOR
+      // level — compute-best-efforts.js never imports unreliable-segments.js
+      // itself (SEG-05a's own audit), so this proves the stub's effect
+      // propagates through pace-derivation.js's own re-export chain, two
+      // hops deep.
+      vi.doMock('./unreliable-segments.js', async () => {
+        const actual =
+          await vi.importActual<typeof import('./unreliable-segments.js')>('./unreliable-segments.js');
+        return { ...actual, detectUnreliableSegments: () => [] };
+      });
+      vi.resetModules();
+      const stubbedPaceDerivation = await import('./pace-derivation.js');
+      const stubbedComputeBestEfforts = await import('./compute-best-efforts.js');
+
+      const { segments: stubbedSegments, coverage: stubbedCoverage } =
+        stubbedPaceDerivation.classifyGapsWithSegments(stream.t, stream.d);
+      expect(stubbedSegments).toEqual([]); // reachability — the stub actually took
+      expect(stubbedCoverage.unreliableSec).toBe(0); // reachability — the stub actually took
+
+      const stubbedDoc = await stubbedComputeBestEfforts.computeBestEfforts({
+        activitiesDir: path.join(tmpDir, 'activities'),
+        streamsDir: path.join(tmpDir, 'streams'),
+        streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+        // A FRESH temp stats dir — never the real direction's own statsDir/ceilingStatePath.
+        statsDir: path.join(tmpDir, 'stats-stubbed'),
+        ceilingStatePath: path.join(tmpDir, 'ceiling-state-stubbed.json'),
+        exclusionsPath: path.join(tmpDir, 'no-such-exclusions.json'),
+      });
+      const stubbedEffort = stubbedDoc.activities['3475740390'].efforts.find((e) => e.distance === '400m')!;
+
+      expect(stubbedEffort.contaminated).toBeNull();
+      expect(stubbedEffort.durationSec).not.toBe(realEffort.durationSec);
+
+      const unbounded = findBestEffort(stream.t, stream.d, 400)!;
+      const round1 = (value: number): number => Math.round(value * 10) / 10;
+      expect(stubbedEffort.durationSec).toBe(round1(unbounded.durationSec));
+
+      const paceMinSec = (paceSecPerKm: number): string =>
+        `${Math.floor(paceSecPerKm / 60)}:${String(Math.round(paceSecPerKm) % 60).padStart(2, '0')}`;
+      expect(paceMinSec(stubbedEffort.paceSecPerKm)).toBe('3:20');
+
+      vi.doUnmock('./unreliable-segments.js');
+      vi.resetModules();
+
+      // A leaked mock cannot silently poison later tests in this file.
+      const afterUnmock = await import('./pace-derivation.js');
+      const { segments: afterUnmockSegments } = afterUnmock.classifyGapsWithSegments(stream.t, stream.d);
+      expect(afterUnmockSegments.length).toBeGreaterThan(0);
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });
 
