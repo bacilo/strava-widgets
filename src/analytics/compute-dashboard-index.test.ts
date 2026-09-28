@@ -463,6 +463,7 @@ describe('computeDashboardIndex — archive orchestration', () => {
               wasPRAtTheTime: true,
               excludedFromRecords: false,
               demotion: null,
+              contaminated: null,
             },
             {
               distance: '1k',
@@ -474,6 +475,7 @@ describe('computeDashboardIndex — archive orchestration', () => {
               wasPRAtTheTime: true,
               excludedFromRecords: false,
               demotion: null,
+              contaminated: null,
             },
             {
               distance: '5k',
@@ -485,6 +487,7 @@ describe('computeDashboardIndex — archive orchestration', () => {
               wasPRAtTheTime: false,
               excludedFromRecords: false,
               demotion: null,
+              contaminated: null,
             },
           ],
         },

@@ -52,6 +52,7 @@ const validShard = {
       wasPRAtTheTime: true,
       excludedFromRecords: false,
       demotion: null,
+      contaminated: null,
     },
   ],
   excludedFromRecords: false,
@@ -111,6 +112,76 @@ describe('parseActivityBestEfforts', () => {
     expect(result?.efforts[0].demotion).toEqual({
       guard: 'ceiling',
       reason: 'implied 6.5 m/s exceeds derived ceiling 5.8 m/s',
+    });
+  });
+
+  const wellFormedContamination = {
+    guard: 'unreliable-segment' as const,
+    reason: 'window t=2508-2588s intersects 4 unreliable segments',
+    durationSec: 79.9,
+    paceSecPerKm: 199.8,
+    startOffsetSec: 2508,
+    endOffsetSec: 2587.9,
+  };
+
+  it('a stale shard written before contaminated existed (no key at all) degrades to contaminated: null rather than throwing or dropping the effort', () => {
+    const staleEffort: Record<string, unknown> = { ...validShard.efforts[0] };
+    delete staleEffort.contaminated;
+    const doc = { ...validShard, efforts: [staleEffort] };
+    const result = parseActivityBestEfforts(doc);
+    expect(result?.efforts.length).toBe(1);
+    expect(result?.efforts[0].contaminated).toBeNull();
+  });
+
+  it.each([
+    ['a string', 'not-an-object'],
+    ['an array', [1, 2, 3]],
+    ['the number 0', 0],
+  ])('a contaminated value that is %s degrades to null', (_label, malformed) => {
+    const doc = {
+      ...validShard,
+      efforts: [{ ...validShard.efforts[0], contaminated: malformed }],
+    };
+    const result = parseActivityBestEfforts(doc);
+    expect(result?.efforts[0].contaminated).toBeNull();
+  });
+
+  it("a contaminated value whose guard is 'ceiling' degrades to null — only 'unreliable-segment' can produce this record", () => {
+    const doc = {
+      ...validShard,
+      efforts: [{ ...validShard.efforts[0], contaminated: { ...wellFormedContamination, guard: 'ceiling' } }],
+    };
+    const result = parseActivityBestEfforts(doc);
+    expect(result?.efforts[0].contaminated).toBeNull();
+  });
+
+  it('a contaminated value with a NaN paceSecPerKm degrades the WHOLE record to null, not a partially populated object', () => {
+    const doc = {
+      ...validShard,
+      efforts: [{ ...validShard.efforts[0], contaminated: { ...wellFormedContamination, paceSecPerKm: NaN } }],
+    };
+    const result = parseActivityBestEfforts(doc);
+    expect(result?.efforts[0].contaminated).toBeNull();
+  });
+
+  it('a well-formed contaminated value round-trips with all six fields intact', () => {
+    const doc = {
+      ...validShard,
+      efforts: [{ ...validShard.efforts[0], contaminated: wellFormedContamination }],
+    };
+    const result = parseActivityBestEfforts(doc);
+    expect(result?.efforts[0].contaminated).toEqual(wellFormedContamination);
+  });
+
+  it("a demotion with guard: 'unreliable-segment' is ADMITTED by VALID_DEMOTION_GUARDS — the allowlist that would otherwise silently drop it", () => {
+    const doc = {
+      ...validShard,
+      efforts: [{ ...validShard.efforts[0], demotion: { guard: 'unreliable-segment', reason: 'no clean window covers this distance' } }],
+    };
+    const result = parseActivityBestEfforts(doc);
+    expect(result?.efforts[0].demotion).toEqual({
+      guard: 'unreliable-segment',
+      reason: 'no clean window covers this distance',
     });
   });
 });

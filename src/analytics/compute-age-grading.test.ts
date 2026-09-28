@@ -290,6 +290,7 @@ describe('computeAgeGrading — cross-referencing and degradation contract', () 
               wasPRAtTheTime: true,
               excludedFromRecords: false,
               demotion: null,
+              contaminated: null,
             },
           ],
         }),
@@ -323,6 +324,7 @@ describe('computeAgeGrading — cross-referencing and degradation contract', () 
               wasPRAtTheTime: false,
               excludedFromRecords: false,
               demotion: null,
+              contaminated: null,
             },
             {
               distance: '1k',
@@ -334,6 +336,7 @@ describe('computeAgeGrading — cross-referencing and degradation contract', () 
               wasPRAtTheTime: true, // the only PR-setting effort in this activity
               excludedFromRecords: false,
               demotion: null,
+              contaminated: null,
             },
             {
               distance: '5k',
@@ -345,6 +348,7 @@ describe('computeAgeGrading — cross-referencing and degradation contract', () 
               wasPRAtTheTime: false,
               excludedFromRecords: false,
               demotion: null,
+              contaminated: null,
             },
           ],
         }),

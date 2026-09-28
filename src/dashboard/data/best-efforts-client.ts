@@ -17,6 +17,7 @@ import type { FetchLike } from './index-client.js';
 import type {
   ActivityBestEfforts,
   BestEffort,
+  EffortContamination,
   EffortDemotion,
   EffortDemotionGuard,
   TargetDistanceKey,
@@ -41,10 +42,19 @@ const VALID_DISTANCES: ReadonlySet<string> = new Set<TargetDistanceKey>([
   'marathon',
 ]);
 
+/**
+ * Typed by `EffortDemotionGuard` — an omitted member here returns `null` from
+ * `parseDemotion` below, so a guard missing from this Set vanishes in the
+ * browser with no type error. This is the SECOND of the value's three
+ * required homes (Phase 36 D-06); the union itself and the per-guard switch
+ * in `records-logic.ts` are the other two, and plan 36-09's lockstep audit
+ * enforces all three stay in sync.
+ */
 const VALID_DEMOTION_GUARDS: ReadonlySet<string> = new Set<EffortDemotionGuard>([
   'world-record',
   'max-speed',
   'ceiling',
+  'unreliable-segment',
 ]);
 
 /**
@@ -64,10 +74,48 @@ function parseDemotion(raw: unknown): EffortDemotion | null {
   return { guard: guard as EffortDemotionGuard, reason };
 }
 
+/**
+ * Total, never-throwing parse of one effort's `contaminated` field (Phase 36
+ * D-05, mirroring `parseDemotion`'s T-28-02-A discipline exactly): a stale
+ * shard written before this field existed carries no `contaminated` key at
+ * all, and a hand-edited one could carry a malformed value. Both degrade to
+ * `null` rather than a fabricated record or a thrown error. `guard` is
+ * checked against the single literal `'unreliable-segment'` directly — NOT
+ * `VALID_DEMOTION_GUARDS` — because only this one guard can ever produce a
+ * contamination record; consulting the demotion allowlist here would admit a
+ * shape no code constructs. The four numeric fields use `Number.isFinite` in
+ * addition to `typeof x === 'number'`, deliberately STRONGER than
+ * `parseEffort`'s own numeric checks below: these four numbers are rendered
+ * beside a ranked figure, and a `NaN` reaching the render path would read as
+ * a measurement. This strengthens the NEW field only; it changes nothing
+ * about `parseEffort`'s existing checks. Any failure returns `null` — the
+ * whole record, never a half-populated object.
+ */
+function parseContaminated(raw: unknown): EffortContamination | null {
+  if (raw === null || raw === undefined) return null;
+  if (!isPlainObject(raw)) return null;
+  const { guard, reason, durationSec, paceSecPerKm, startOffsetSec, endOffsetSec } = raw;
+  if (guard !== 'unreliable-segment') return null;
+  if (typeof reason !== 'string') return null;
+  if (
+    typeof durationSec !== 'number' ||
+    !Number.isFinite(durationSec) ||
+    typeof paceSecPerKm !== 'number' ||
+    !Number.isFinite(paceSecPerKm) ||
+    typeof startOffsetSec !== 'number' ||
+    !Number.isFinite(startOffsetSec) ||
+    typeof endOffsetSec !== 'number' ||
+    !Number.isFinite(endOffsetSec)
+  ) {
+    return null;
+  }
+  return { guard, reason, durationSec, paceSecPerKm, startOffsetSec, endOffsetSec };
+}
+
 /** Total, never-throwing parse of one effort entry. Returns null on any structural failure. */
 function parseEffort(raw: unknown): BestEffort | null {
   if (!isPlainObject(raw)) return null;
-  const { distance, durationSec, paceSecPerKm, startOffsetSec, endOffsetSec, lowConfidence, wasPRAtTheTime, excludedFromRecords, demotion } = raw;
+  const { distance, durationSec, paceSecPerKm, startOffsetSec, endOffsetSec, lowConfidence, wasPRAtTheTime, excludedFromRecords, demotion, contaminated } = raw;
   if (typeof distance !== 'string' || !VALID_DISTANCES.has(distance)) return null;
   if (typeof durationSec !== 'number' || typeof paceSecPerKm !== 'number') return null;
   if (typeof startOffsetSec !== 'number' || typeof endOffsetSec !== 'number') return null;
@@ -84,6 +132,7 @@ function parseEffort(raw: unknown): BestEffort | null {
     wasPRAtTheTime,
     excludedFromRecords,
     demotion: parseDemotion(demotion),
+    contaminated: parseContaminated(contaminated),
   };
 }
 
