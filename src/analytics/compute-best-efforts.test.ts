@@ -8,13 +8,23 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { FileStore } from '../storage/file-store.js';
 import type { StreamManifest } from '../streams/stream.types.js';
 import { ceilingDemotion, deriveCeilings } from './best-effort-ceiling.js';
+import { findBestEffort } from './best-effort-utils.js';
 import { TARGET_ORDER } from './best-effort.types.js';
-import type { CeilingDerivation, TargetDistanceKey } from './best-effort.types.js';
+import type { CeilingDerivation, RawEffort, TargetDistanceKey } from './best-effort.types.js';
 import {
+  complementSubIntervals,
   computeActivityEfforts,
   computeBestEfforts,
+  CONTAMINATION_REASON_SEGMENT_CAP,
+  segmentIntersectionReason,
   type ActivityEffortInput,
+  type CleanSubInterval,
 } from './compute-best-efforts.js';
+// Type-only imports of the detector's own shapes are permitted in *.test.ts
+// files (pace-single-source.test.ts's SEG-05a audit exempts every test
+// file), so this file — unlike compute-best-efforts.ts itself — may import
+// directly from the detector module.
+import type { SegmentMechanism, SegmentPart, UnreliableSegment } from './unreliable-segments.js';
 
 /** Builds a synthetic constant-pace series: `count` samples, `metersPerSec` m/s, 1s spacing. */
 function constantPaceSeries(count: number, metersPerSec: number): { t: number[]; d: number[] } {
@@ -41,7 +51,53 @@ function baseInput(overrides: Partial<ActivityEffortInput> = {}): ActivityEffort
     distanceSource: 'native',
     t,
     d,
+    // Empty by default — this file's pre-existing describe blocks exercise
+    // the no-segments (Branch 1) path. The "clean-window search branches"
+    // describe (Task 3) passes its own non-empty `segments` per-test.
+    segments: [],
     ...overrides,
+  };
+}
+
+/**
+ * Builds a complete, internally consistent synthetic `UnreliableSegment` —
+ * every field present, `parts` matching the whole span by default, and
+ * `burstMetres + gapMetres === metres` / `burstSeconds + gapSeconds ===
+ * seconds` maintained by construction (D-07's conservation rule,
+ * unreliable-segments.ts's own docblock). Every clean-window-search fixture
+ * in this file uses this ONE helper so a field cannot drift between them.
+ */
+function makeSegment(overrides: Partial<UnreliableSegment> = {}): UnreliableSegment {
+  const startIndex = overrides.startIndex ?? 0;
+  const endIndex = overrides.endIndex ?? startIndex + 1;
+  const startSec = overrides.startSec ?? 0;
+  const endSec = overrides.endSec ?? startSec + 1;
+  const metres = overrides.metres ?? 50;
+  const seconds = overrides.seconds ?? endSec - startSec;
+  const mechanism: SegmentMechanism = overrides.mechanism ?? 'isolated-jump';
+  const burstMetres = overrides.burstMetres ?? metres;
+  const burstSeconds = overrides.burstSeconds ?? seconds;
+  const gapMetres = overrides.gapMetres ?? metres - burstMetres;
+  const gapSeconds = overrides.gapSeconds ?? seconds - burstSeconds;
+  const parts: SegmentPart[] = overrides.parts ?? [
+    { kind: 'burst', startIndex, endIndex, startSec, endSec, metres: burstMetres, seconds: burstSeconds },
+  ];
+  return {
+    startIndex,
+    endIndex,
+    startSec,
+    endSec,
+    metres,
+    seconds,
+    mechanism,
+    burstMetres,
+    burstSeconds,
+    gapMetres,
+    gapSeconds,
+    burstCount: overrides.burstCount ?? 1,
+    gapCount: overrides.gapCount ?? 0,
+    parts,
+    excessMetres: overrides.excessMetres ?? 0,
   };
 }
 
@@ -201,6 +257,356 @@ describe('computeActivityEfforts — rounding and pace consistency', () => {
     expect(isRoundedTo1Decimal(oneK!.durationSec)).toBe(true);
     expect(isRoundedTo1Decimal(oneK!.paceSecPerKm)).toBe(true);
     expect(isRoundedTo1Decimal(oneK!.endOffsetSec)).toBe(true);
+  });
+});
+
+describe('complementSubIntervals boundary rule (PR-06, D-01)', () => {
+  it('no cuts on a streamLength of 10 yields the whole span as one clean sub-interval', () => {
+    expect(complementSubIntervals(10, [])).toEqual([{ startIndex: 0, endIndex: 10 }]);
+  });
+
+  it('one cut {4,7} on streamLength 10 yields [{0,5},{7,10}] — the +1 boundary correction', () => {
+    // Hand computation: cursor starts at 0. cut.startIndex=4 >= cursor+1=1,
+    // so push {startIndex: cursor, endIndex: cut.startIndex + 1} = {0, 5}.
+    // cursor becomes max(0, cut.endIndex) = 7; streamLength - cursor = 3 >=
+    // 2, so the trailing sub-interval {7, 10} is pushed too.
+    const result = complementSubIntervals(10, [{ startIndex: 4, endIndex: 7 }]);
+    expect(result).toEqual([
+      { startIndex: 0, endIndex: 5 },
+      { startIndex: 7, endIndex: 10 },
+    ]);
+    // 36-RESEARCH.md's illustrative snippet pushes `endIndex: cut.startIndex`
+    // (4, not 5) for the leading sub-interval — that off-by-one silently
+    // drops the last clean pair (samples 3..4). Assert the corrected value
+    // explicitly, in the direction that would catch the research snippet's
+    // own error.
+    expect(result[0].endIndex).toBe(5);
+    expect(result[0].endIndex).not.toBe(4);
+  });
+
+  it('a cut starting at index 0 produces no leading sub-interval', () => {
+    // cursor=0; cut.startIndex=0 >= cursor+1=1 is false, so nothing is
+    // pushed before the cut. Only the trailing {cut.endIndex, streamLength}
+    // sub-interval exists.
+    const result = complementSubIntervals(10, [{ startIndex: 0, endIndex: 3 }]);
+    expect(result).toEqual([{ startIndex: 3, endIndex: 10 }]);
+  });
+
+  it('a cut ending at the last sample produces no trailing sub-interval', () => {
+    // cursor becomes max(0, cut.endIndex) = 10 after the cut; streamLength -
+    // cursor = 0, which is < 2, so no trailing sub-interval is pushed.
+    const result = complementSubIntervals(10, [{ startIndex: 6, endIndex: 10 }]);
+    expect(result).toEqual([{ startIndex: 0, endIndex: 7 }]);
+  });
+
+  it('overlapping and adjacent cuts both merge via the Math.max cursor; no zero-length or 1-sample sub-interval is emitted', () => {
+    // Two OVERLAPPING cuts {3,6} and {5,9} on streamLength 12: after {3,6},
+    // cursor=6. The second cut's startIndex=5 >= cursor+1=7 is false (5 < 7),
+    // so nothing is pushed between them; cursor becomes max(6,9)=9. Leading:
+    // cut[0].startIndex=3 >= cursor+1=1, push {0,4}. Trailing: 12-9=3 >= 2,
+    // push {9,12}.
+    const overlapping = complementSubIntervals(12, [
+      { startIndex: 3, endIndex: 6 },
+      { startIndex: 5, endIndex: 9 },
+    ]);
+    expect(overlapping).toEqual([
+      { startIndex: 0, endIndex: 4 },
+      { startIndex: 9, endIndex: 12 },
+    ]);
+
+    // Two ADJACENT cuts {4,7} and {7,9}: cursor after the first cut is 7;
+    // the second cut's startIndex=7 >= cursor+1=8 is false, so no
+    // sub-interval is emitted between them either — adjacency is handled
+    // identically to overlap by the same Math.max cursor.
+    const adjacent = complementSubIntervals(12, [
+      { startIndex: 4, endIndex: 7 },
+      { startIndex: 7, endIndex: 9 },
+    ]);
+    expect(adjacent).toEqual([
+      { startIndex: 0, endIndex: 5 },
+      { startIndex: 9, endIndex: 12 },
+    ]);
+
+    for (const sub of [...overlapping, ...adjacent]) {
+      expect(sub.endIndex - sub.startIndex).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it('cuts supplied in descending order produce the same result as ascending order, and the input array is not mutated', () => {
+    const ascending: CleanSubInterval[] = [
+      { startIndex: 2, endIndex: 4 },
+      { startIndex: 8, endIndex: 10 },
+    ];
+    const descending: CleanSubInterval[] = [
+      { startIndex: 8, endIndex: 10 },
+      { startIndex: 2, endIndex: 4 },
+    ];
+    const snapshot = descending.map((c) => ({ ...c }));
+
+    const ascResult = complementSubIntervals(14, ascending);
+    const descResult = complementSubIntervals(14, descending);
+
+    expect(descResult).toEqual(ascResult);
+    // The detector's own segments array is documented as unsorted — this
+    // function must sort a COPY, never the caller's own array.
+    expect(descending).toEqual(snapshot);
+  });
+
+  it('streamLength 0 and 1 both yield an empty array (too short to hold any 2-sample sub-interval)', () => {
+    expect(complementSubIntervals(0, [])).toEqual([]);
+    expect(complementSubIntervals(1, [])).toEqual([]);
+  });
+});
+
+describe('clean-window search branches (PR-07, D-04/D-05/D-06)', () => {
+  it('Branch 1 (segments: []): contaminated is null, demotion is null, and durationSec matches the hand-computed constant-pace duration', () => {
+    // Constant 3 m/s pace (baseInput's own series) — 400m is reached at
+    // exactly t = 400 / 3 = 133.33...s.
+    const input = baseInput({ activityDistanceM: 6000 });
+    const result = computeActivityEfforts(input);
+    const fourHundred = result.efforts.find((e) => e.distance === '400m');
+    expect(fourHundred).toBeDefined();
+    expect(fourHundred!.contaminated).toBeNull();
+    expect(fourHundred!.demotion).toBeNull();
+    expect(fourHundred!.durationSec).toBeCloseTo(400 / 3, 1);
+  });
+
+  it('Branch 1: a non-intersecting segment leaves contaminated null; moved to touch the window boundary exactly, it is STILL non-intersecting (touching is not overlap, asserted in the direction that can fail)', () => {
+    const { t, d } = constantPaceSeries(2000, 3);
+    const raw = findBestEffort(t, d, 400);
+    expect(raw).toBeDefined();
+
+    // A segment strictly AFTER the raw window's own pair range.
+    const farSegment = makeSegment({
+      startIndex: raw!.endIndex + 10,
+      endIndex: raw!.endIndex + 11,
+      startSec: t[raw!.endIndex + 10],
+      endSec: t[raw!.endIndex + 11],
+    });
+    const farResult = computeActivityEfforts(
+      baseInput({ activityDistanceM: d[d.length - 1], t, d, segments: [farSegment] })
+    );
+    expect(farResult.efforts.find((e) => e.distance === '400m')!.contaminated).toBeNull();
+
+    // The SAME segment moved to touch the window's end sample EXACTLY:
+    // seg.startIndex === raw.endIndex. Touching shares only the boundary
+    // sample and is NOT overlap (segmentsIntersectingWindow's own docblock)
+    // — if the predicate used `<=` instead of `<`, this case would wrongly
+    // report an intersection.
+    const touchingSegment = makeSegment({
+      startIndex: raw!.endIndex,
+      endIndex: raw!.endIndex + 1,
+      startSec: t[raw!.endIndex],
+      endSec: t[raw!.endIndex + 1],
+    });
+    const touchingResult = computeActivityEfforts(
+      baseInput({ activityDistanceM: d[d.length - 1], t, d, segments: [touchingSegment] })
+    );
+    expect(touchingResult.efforts.find((e) => e.distance === '400m')!.contaminated).toBeNull();
+  });
+
+  it('Branch 2: a fabricated burst wins the raw 400m sweep, but a slower clean 400m sub-interval exists — the effort ranks on the CLEAN figure and carries the RAW figure as contaminated', () => {
+    // Sample 0->1: 400m in 1s (the burst — by far the fastest way to cover
+    // 400m, so the UNCONSTRAINED sweep always picks it). Sample 1->2: 400m
+    // over 200s (2 m/s, clean, well under any world record). The segment
+    // supplied directly below covers exactly pair 0 (the burst), matching
+    // D-01's whole-merged-span convention.
+    const t = [0, 1, 201];
+    const d = [0, 400, 800];
+    const segment = makeSegment({ startIndex: 0, endIndex: 1, startSec: 0, endSec: 1, metres: 400, seconds: 1 });
+
+    const raw = findBestEffort(t, d, 400)!;
+    // Hand computation, RAW (unconstrained): i=0, d[1]-d[0]=400 >= 400
+    // stops immediately at j=1; frac=400/400=1, crossingTime=t[0]+1*(t[1]-
+    // t[0])=1; durationSec=1-0=1s. This is faster than the i=1 alternative
+    // (400m over 200s) so it is the sweep's overall minimum.
+    expect(raw.durationSec).toBeCloseTo(1, 5);
+    expect(raw.startIndex).toBe(0);
+    expect(raw.endIndex).toBe(1);
+
+    const result = computeActivityEfforts(
+      baseInput({ activityDistanceM: 800, t, d, segments: [segment] })
+    );
+    const fourHundred = result.efforts.find((e) => e.distance === '400m')!;
+
+    expect(fourHundred.demotion).toBeNull();
+    // Hand computation, CLEAN (bounded to the complement {1,3}): i=1,
+    // d[2]-d[1]=400 >= 400 stops at j=2; frac=1, crossingTime=t[1]+1*(t[2]-
+    // t[1])=201; durationSec=201-1=200s.
+    expect(fourHundred.durationSec).toBeCloseTo(200, 1);
+    expect(fourHundred.paceSecPerKm).toBeCloseTo(500, 1);
+
+    expect(fourHundred.contaminated).not.toBeNull();
+    expect(fourHundred.contaminated!.guard).toBe('unreliable-segment');
+    // The contaminated record carries the RAW figure — round1(1)=1.0,
+    // round1(1/(400/1000))=round1(2.5)=2.5.
+    expect(fourHundred.contaminated!.durationSec).toBeCloseTo(1, 1);
+    expect(fourHundred.contaminated!.paceSecPerKm).toBeCloseTo(2.5, 1);
+    expect(fourHundred.contaminated!.startOffsetSec).toBeCloseTo(raw.startOffsetSec, 1);
+    expect(fourHundred.contaminated!.endOffsetSec).toBeCloseTo(raw.endOffsetSec, 1);
+
+    // The ranked (clean) figure is strictly SLOWER than the raw contaminated
+    // one — a search that mistakenly returned the raw window as "clean"
+    // would fail this.
+    expect(fourHundred.contaminated!.durationSec).toBeLessThan(fourHundred.durationSec);
+  });
+
+  it('Branch 3: no clean 400m sub-interval covers the distance — the effort is kept-and-demoted under the RAW figure, with exactly one rejected row and no max-speed/world-record row', () => {
+    // Same burst as Branch 2's fixture, but the remainder covers only 100m
+    // (not enough for a clean 400m sub-interval): sample 1->2 is 100m over
+    // 200s.
+    const t = [0, 1, 201];
+    const d = [0, 400, 500];
+    const segment = makeSegment({ startIndex: 0, endIndex: 1, startSec: 0, endSec: 1, metres: 400, seconds: 1 });
+
+    const raw = findBestEffort(t, d, 400)!;
+    expect(raw.durationSec).toBeCloseTo(1, 5);
+
+    const result = computeActivityEfforts(
+      baseInput({ activityDistanceM: 500, t, d, segments: [segment] })
+    );
+    const fourHundred = result.efforts.find((e) => e.distance === '400m')!;
+
+    expect(fourHundred.contaminated).toBeNull();
+    expect(fourHundred.demotion).not.toBeNull();
+    expect(fourHundred.demotion!.guard).toBe('unreliable-segment');
+    // The top-level fields hold the RAW (contaminated) figure — round1(1)=1.0.
+    expect(fourHundred.durationSec).toBeCloseTo(1, 1);
+    expect(fourHundred.demotion!.reason).toContain(
+      'no clean 400m sub-interval covers the distance'
+    );
+    // Hand computation: the only clean sub-interval is {1,3}, spanning
+    // d[2]-d[1] = 500-400 = 100m.
+    expect(fourHundred.demotion!.reason).toContain('longest clean sub-interval spans 100.0m');
+
+    expect(result.rejected.length).toBe(1);
+    expect(result.rejected[0].distance).toBe('400m');
+    expect(result.rejected.some((r) => r.reason.includes('max_speed'))).toBe(false);
+    expect(result.rejected.some((r) => r.reason.includes('world-record'))).toBe(false);
+  });
+
+  it("D-08's short-circuit: the same Branch 3 fixture with an implausibly low maxSpeedMps still demotes under 'unreliable-segment', not 'max-speed' — isPlausible is never independently evaluated", () => {
+    const t = [0, 1, 201];
+    const d = [0, 400, 500];
+    const segment = makeSegment({ startIndex: 0, endIndex: 1, startSec: 0, endSec: 1, metres: 400, seconds: 1 });
+
+    const result = computeActivityEfforts(
+      baseInput({ activityDistanceM: 500, t, d, segments: [segment], maxSpeedMps: 0.001 })
+    );
+    const fourHundred = result.efforts.find((e) => e.distance === '400m')!;
+
+    expect(fourHundred.demotion!.guard).toBe('unreliable-segment');
+    expect(result.rejected.length).toBe(1);
+    expect(result.rejected[0].reason).not.toMatch(/max_speed/);
+  });
+
+  it('Branch 2 crossed with an absolute guard: the RAW figure fails max-speed but the CLEAN figure does not — demotion is null (the absolute guard saw only the clean figure) and contaminated is populated', () => {
+    // Same Branch 2 fixture (raw implied speed 400 m/s, clean implied speed
+    // 2 m/s). maxSpeedMps=3 sets the max-speed threshold at 3*1.02=3.06 —
+    // the RAW figure (400 m/s) would fail it by a huge margin, but Branch 2
+    // never evaluates isPlausible against the raw figure; only the CLEAN
+    // figure (2 m/s, well under 3.06) is evaluated. The real-activity form
+    // of this exact row is plan 36-05's `3475725842` fixture; this synthetic
+    // version exists only to pin the branch in isolation, not to replace it.
+    const t = [0, 1, 201];
+    const d = [0, 400, 800];
+    const segment = makeSegment({ startIndex: 0, endIndex: 1, startSec: 0, endSec: 1, metres: 400, seconds: 1 });
+
+    const result = computeActivityEfforts(
+      baseInput({ activityDistanceM: 800, t, d, segments: [segment], maxSpeedMps: 3 })
+    );
+    const fourHundred = result.efforts.find((e) => e.distance === '400m')!;
+
+    expect(fourHundred.demotion).toBeNull();
+    expect(fourHundred.contaminated).not.toBeNull();
+    expect(fourHundred.contaminated!.guard).toBe('unreliable-segment');
+  });
+});
+
+describe('contamination reason strings (PR-07, D-07)', () => {
+  const raw: RawEffort = {
+    durationSec: 79.9,
+    startOffsetSec: 2508,
+    endOffsetSec: 2587.9,
+    startIndex: 629,
+    endIndex: 657,
+  };
+
+  it('a single intersecting segment renders the single-segment template with every number at exactly 1 decimal place', () => {
+    const segment = makeSegment({
+      startSec: 2508,
+      endSec: 2513,
+      metres: 52.4,
+      seconds: 5,
+      mechanism: 'isolated-jump',
+    });
+    const reason = segmentIntersectionReason('400m', raw, [segment]);
+    expect(reason).toContain('contaminated window: 400m in 79.9s at t=2508.0-2587.9s');
+    expect(reason).toContain(
+      'intersecting an unreliable segment at t=2508.0-2513.0s (isolated-jump, 52.4m/5.0s)'
+    );
+  });
+
+  it('four intersecting segments name exactly CONTAMINATION_REASON_SEGMENT_CAP of them (the two with the smallest startSec) and end with "+2 more"', () => {
+    expect(CONTAMINATION_REASON_SEGMENT_CAP).toBe(2);
+    const segments = [
+      makeSegment({ startSec: 2580, endSec: 2583, metres: 30.4, seconds: 3, mechanism: 'isolated-jump' }),
+      makeSegment({ startSec: 2508, endSec: 2513, metres: 52.4, seconds: 5, mechanism: 'isolated-jump' }),
+      makeSegment({ startSec: 2587, endSec: 2589, metres: 24.7, seconds: 2, mechanism: 'isolated-jump' }),
+      makeSegment({ startSec: 2536, endSec: 2538, metres: 28.6, seconds: 2, mechanism: 'isolated-jump' }),
+    ];
+    // segmentIntersectionReason itself does not sort — the CALLER
+    // (segmentsIntersectingWindow) is responsible for the deterministic
+    // startSec-ascending order. Sort here to match how the two compose in
+    // computeActivityEfforts.
+    const sorted = [...segments].sort((a, b) => a.startSec - b.startSec);
+    const reason = segmentIntersectionReason('400m', raw, sorted);
+    expect(reason).toContain('intersecting 4 unreliable segments');
+    expect(reason).toContain('isolated-jump 52.4m/5.0s at t=2508.0');
+    expect(reason).toContain('isolated-jump 28.6m/2.0s at t=2536.0');
+    expect(reason.endsWith('+2 more)')).toBe(true);
+    // The two NAMED are the two with the smallest startSec (2508, 2536) —
+    // not the later 2580/2587 pair.
+    expect(reason).not.toContain('t=2580.0');
+    expect(reason).not.toContain('t=2587.0');
+  });
+
+  it('exactly CONTAMINATION_REASON_SEGMENT_CAP segments: the "; +0 more" clause is absent', () => {
+    const segments = [
+      makeSegment({ startSec: 2508, endSec: 2513, metres: 52.4, seconds: 5, mechanism: 'isolated-jump' }),
+      makeSegment({ startSec: 2536, endSec: 2538, metres: 28.6, seconds: 2, mechanism: 'isolated-jump' }),
+    ];
+    expect(segments.length).toBe(CONTAMINATION_REASON_SEGMENT_CAP);
+    const reason = segmentIntersectionReason('400m', raw, segments);
+    expect(reason).not.toContain('more');
+    expect(reason).not.toContain('; +0');
+  });
+
+  it('the four-segment reason contains no "|" or newline and stays under 320 characters', () => {
+    const segments = [
+      makeSegment({ startSec: 2580, endSec: 2583, metres: 30.4, seconds: 3, mechanism: 'isolated-jump' }),
+      makeSegment({ startSec: 2508, endSec: 2513, metres: 52.4, seconds: 5, mechanism: 'isolated-jump' }),
+      makeSegment({ startSec: 2587, endSec: 2589, metres: 24.7, seconds: 2, mechanism: 'isolated-jump' }),
+      makeSegment({ startSec: 2536, endSec: 2538, metres: 28.6, seconds: 2, mechanism: 'isolated-jump' }),
+    ].sort((a, b) => a.startSec - b.startSec);
+    const reason = segmentIntersectionReason('400m', raw, segments);
+    expect(reason).not.toContain('|');
+    expect(reason).not.toContain('\n');
+    expect(reason.length).toBeLessThan(320);
+  });
+
+  it('the reason contains none of the banned adjectives (Phase 27 D-09 register)', () => {
+    const segment = makeSegment({
+      startSec: 2508,
+      endSec: 2513,
+      metres: 52.4,
+      seconds: 5,
+      mechanism: 'isolated-jump',
+    });
+    const reason = segmentIntersectionReason('400m', raw, [segment]);
+    for (const banned of ['unrealistic', 'implausible', 'suspicious', 'bad', 'wrong']) {
+      expect(reason.toLowerCase()).not.toContain(banned);
+    }
   });
 });
 
@@ -518,20 +924,34 @@ describe('computeBestEfforts — archive orchestration', () => {
       channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
     };
     await writeManifest(manifest);
-    await writeActivity('implausible', '2026-01-01T00:00:00Z', 1000);
-    // First 400m in 5s implies 80 m/s (implausible, beats the world-record
-    // ceiling); the remaining 600m over 295s is a normal ~2 m/s pace, so the
-    // 1k window (which spans the whole series) is plausible. Only the fastest
-    // (minimum-duration) 400m window is implausible — the 1k effort survives.
+    await writeActivity('implausible', '2026-01-01T00:00:00Z', 21390);
+    // Phase 36 note: this fixture was originally an 80 m/s two-segment burst
+    // (400m in 5s), which — now that `computeBestEfforts` wires the REAL
+    // detector into every run (this plan) — is *structurally* impossible to
+    // isolate from `classifyGapsWithSegments`: the 400m world-record ceiling
+    // (~9.296 m/s) exceeds `UNRELIABLE_SPEED_LIMIT_MPS` (7.35 m/s,
+    // unreliable-segments.ts), so ANY window failing 400m's world-record
+    // guard also trips the detector's fast-step classification, taking a
+    // different code path (`contaminated`/`'unreliable-segment'`, exercised
+    // by the "clean-window search branches" describe block below) rather
+    // than this plain absolute-guard one. Redesigned as a single
+    // constant-pace pair at 6.2 m/s — deliberately BELOW the detector's own
+    // threshold, so `classifyGapsWithSegments` returns zero segments and this
+    // fixture exercises Branch 1 (untouched by the clean-window search)
+    // exactly as it did before this plan. 6.2 m/s exceeds the HALF
+    // marathon's own world-record ceiling (~6.133 m/s) but stays under every
+    // shorter distance's own (much higher) ceiling — 400m's is ~9.296 m/s —
+    // so only the half-marathon effort is implausible; the 400m effort on
+    // the SAME activity, at the SAME constant pace, survives.
     await fileStore.writeJson(path.join('streams', 'implausible.json'), {
       schemaVersion: 1,
       id: 'implausible',
       source: 'fit',
       distanceSource: 'native',
-      sampleCount: 3,
+      sampleCount: 2,
       channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
-      t: [0, 5, 300],
-      d: [0, 400, 1000],
+      t: [0, 3450],
+      d: [0, 21390],
     });
 
     const doc = await computeBestEfforts({
@@ -545,22 +965,28 @@ describe('computeBestEfforts — archive orchestration', () => {
     // The `rejected` row still exists — it is the archive-wide report of
     // which guard fired, not evidence the effort was deleted.
     expect(doc.rejected.length).toBe(1);
-    expect(doc.rejected[0]).toMatchObject({ activityId: 'implausible', distance: '400m' });
+    expect(doc.rejected[0]).toMatchObject({ activityId: 'implausible', distance: 'half' });
     expect(doc.rejected[0].reason).toMatch(/exceeds world-record pace/);
 
     // D-08: the effort is RETAINED in activities[id].efforts, not removed —
     // this is the assertion the old test inverted (it used to assert the
-    // 400m effort was ABSENT).
-    const demoted400m = doc.activities['implausible'].efforts.find((e) => e.distance === '400m');
-    expect(demoted400m).toBeDefined();
-    expect(demoted400m!.demotion).not.toBeNull();
-    expect(demoted400m!.demotion!.guard).toBe('world-record');
-    expect(demoted400m!.demotion!.reason).toMatch(/exceeds world-record pace/);
+    // demoted effort was ABSENT).
+    const demotedHalf = doc.activities['implausible'].efforts.find((e) => e.distance === 'half');
+    expect(demotedHalf).toBeDefined();
+    expect(demotedHalf!.demotion).not.toBeNull();
+    expect(demotedHalf!.demotion!.guard).toBe('world-record');
+    expect(demotedHalf!.demotion!.reason).toMatch(/exceeds world-record pace/);
+    // Phase 36: this stream carries no detected segment (its single pair's
+    // implied speed is under the detector's own threshold), so the
+    // clean-window search never engages — `contaminated` stays null exactly
+    // as D-05's docblock states for an effort whose raw window never
+    // intersected a segment.
+    expect(demotedHalf!.contaminated).toBeNull();
 
-    // The plausible 1k effort survives untouched.
-    const oneK = doc.activities['implausible'].efforts.find((e) => e.distance === '1k');
-    expect(oneK).toBeDefined();
-    expect(oneK!.demotion).toBeNull();
+    // The plausible 400m effort, at the SAME constant pace, survives untouched.
+    const fourHundred = doc.activities['implausible'].efforts.find((e) => e.distance === '400m');
+    expect(fourHundred).toBeDefined();
+    expect(fourHundred!.demotion).toBeNull();
   });
 
   it('a max-speed-guard rejection is also retained and flagged with guard "max-speed"', async () => {

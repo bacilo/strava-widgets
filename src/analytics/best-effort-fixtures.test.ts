@@ -124,6 +124,9 @@ function computeEffortsForActivity(
     distanceSource,
     t: stream.t,
     d: stream.d,
+    // Empty: this suite exercises the no-segments path only; plan 36-06 owns
+    // the real-segment archive-wide sweep.
+    segments: [],
   };
 
   return computeActivityEfforts(input);
