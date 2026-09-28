@@ -357,6 +357,78 @@ export function resolvePrTableDemotionNote(
   return describeDemotionCounts(label, counts);
 }
 
+/**
+ * Counts EFFORTS at `distance` across every activity in `activities` whose
+ * unpartitioned window intersected an unreliable segment but which still
+ * RANK on a clean sub-interval (Phase 36 D-05/D-16) — the
+ * `effort.contaminated != null` population. This is D-16's disclosure
+ * mechanism for the phase's largest effect on the ranking: without it, the
+ * ~1,200 moved-but-ranked efforts are invisible on the Records screen, since
+ * D-06 only gives a `demotion` to the (much smaller) no-clean-window
+ * population `countDemotedAtDistance` above already counts.
+ *
+ * Derived by WALKING the shipped document with a plain `for` loop over
+ * `Object.keys(activities)` — deliberately NOT `.filter`/`.reduce` — mirroring
+ * `compute-best-efforts.ts:450-462`'s `effortsDemoted` precedent, so a
+ * source-text audit can tell this read-only count apart from a mutation, and
+ * so the count can never drift from what a consumer of the same document
+ * actually sees (it is never threaded through the pipeline as an incrementing
+ * counter). Uses the same `hasOwn` guard as `countDemotedAtDistance` and
+ * `buildEvolutionSeries`.
+ *
+ * A contaminated effort still RANKS — this is NOT a demotion count, and this
+ * count and `countDemotedAtDistance`'s total must never be added together or
+ * presented as one number: they describe two different populations (D-16,
+ * T-36-51). Skips `effort.excludedFromRecords === true` (D-10), exactly as
+ * `countDemotedAtDistance` does, so the machine's observation about a clean
+ * window never leaks into a sentence about what the owner chose to exclude.
+ * Reads `effort.contaminated` only through `!= null` (T-28-02-A style), so a
+ * stale shard written before this field existed degrades to "not
+ * contaminated" rather than throwing.
+ */
+export function countContaminatedAtDistance(
+  activities: BestEffortsDocument['activities'],
+  distance: TargetDistanceKey
+): number {
+  let count = 0;
+
+  for (const activityId of Object.keys(activities)) {
+    if (!hasOwn(activities, activityId)) continue;
+    const activity = activities[activityId];
+    if (!activity) continue;
+
+    for (const effort of activity.efforts) {
+      if (effort.distance !== distance) continue;
+      if (effort.excludedFromRecords === true) continue;
+      if (effort.contaminated != null) count++;
+    }
+  }
+
+  return count;
+}
+
+/**
+ * The Records-screen note for D-16's contamination count, mirroring
+ * `resolvePrTableDemotionNote`'s two `null` rules exactly: `null` when
+ * `contaminatedCount` is 0 — nothing to disclose — and `null` for `scope ===
+ * 'this-year'` (WR-01), since the count is archive-wide and would otherwise
+ * misleadingly sit under a year-filtered table, implying those efforts moved
+ * within the filtered year. Register: measured numbers, not adjectives
+ * (Phase 27 D-09).
+ */
+export function resolvePrTableContaminationNote(
+  distance: TargetDistanceKey,
+  scope: RecordScope,
+  contaminatedCount: number
+): string | null {
+  if (scope === 'this-year') return null;
+  if (contaminatedCount === 0) return null;
+
+  const label = DISTANCE_DISPLAY_NAMES[distance];
+  const effortWord = contaminatedCount === 1 ? 'effort' : 'efforts';
+  return `${contaminatedCount} all-time ${label} ${effortWord} rank on a clean window after an unreliable segment was excluded from the original window; the original time and the segment are named on each activity's detail view.`;
+}
+
 /** The two scopes OVR-03 names. Nothing persists this value — D-04. */
 export type RecordScope = 'all-time' | 'this-year';
 

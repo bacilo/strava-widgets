@@ -17,10 +17,12 @@ import {
   buildExclusionReasonIndex,
   buildPrTableRows,
   buildProgressionRows,
+  countContaminatedAtDistance,
   countDemotedAtDistance,
   evolutionCardSummary,
   filterRankingsToYear,
   isEmptyRanking,
+  resolvePrTableContaminationNote,
   resolvePrTableDemotionNote,
   resolvePrTableEmptyState,
   selectSuperlatives,
@@ -849,5 +851,115 @@ describe('resolvePrTableDemotionNote — D-03/CR-02/WR-01 guard-accurate short-t
     expect(note).toBe(
       '35 400m efforts were demoted by a plausibility guard (8 by the personal ceiling, 17 by the world-record pace guard, 10 by the activity max-speed guard). Efforts the owner excluded are not counted here. See the activity detail view for each reason.'
     );
+  });
+});
+
+describe('countContaminatedAtDistance — Phase 36 D-05/D-16, the walked moved-but-ranked disclosure', () => {
+  const contamination = {
+    guard: 'unreliable-segment' as const,
+    reason: 'a 52.4m/5s unreliable segment was excluded from the original window',
+    durationSec: 119.6,
+    paceSecPerKm: 299.0,
+    startOffsetSec: 1308,
+    endOffsetSec: 1427.6,
+  };
+
+  it('a mixed document counts exactly 1: contaminated-and-ranked at the target distance, excluding a contaminated-and-excluded effort, a contaminated effort at a different distance, a demoted-but-not-contaminated effort, and a plain effort — and countDemotedAtDistance\'s total on the SAME document is unaffected by countContaminatedAtDistance\'s presence, proving the two populations are independent', () => {
+    const activities: BestEffortsDocument['activities'] = {
+      a1: fixtureActivity({
+        activityId: 'a1',
+        startDate: '2024-01-01T00:00:00Z',
+        efforts: [
+          // contaminated and ranked — counts
+          fixtureEffort({ distance: '400m', durationSec: 119.6, contaminated: { ...contamination } }),
+          // contaminated but owner-excluded — must not count (D-10)
+          fixtureEffort({
+            distance: '400m',
+            durationSec: 45,
+            excludedFromRecords: true,
+            contaminated: { ...contamination },
+          }),
+          // contaminated at a different distance — must not count
+          fixtureEffort({ distance: '5k', durationSec: 1200, contaminated: { ...contamination } }),
+          // demoted but NOT contaminated — the two populations are disjoint in this fixture
+          fixtureEffort({ distance: '400m', durationSec: 46, demotion: { guard: 'ceiling', reason: 'x' } }),
+          // plain effort, neither demoted nor contaminated
+          fixtureEffort({ distance: '400m', durationSec: 47 }),
+        ],
+      }),
+    };
+
+    expect(countContaminatedAtDistance(activities, '400m')).toBe(1);
+    expect(countDemotedAtDistance(activities, '400m')).toEqual({
+      total: 1,
+      ceiling: 1,
+      worldRecord: 0,
+      maxSpeed: 0,
+      unreliableSegment: 0,
+      other: 0,
+    });
+  });
+
+  it('T-28-02-A / T-36-53: a stale effort with no contaminated key at all counts as 0 rather than throwing', () => {
+    const staleEffort = fixtureEffort({ distance: '400m', durationSec: 45 }) as Partial<BestEffort>;
+    delete staleEffort.contaminated;
+    const activities: BestEffortsDocument['activities'] = {
+      a1: fixtureActivity({ activityId: 'a1', startDate: '2024-01-01T00:00:00Z', efforts: [staleEffort as BestEffort] }),
+    };
+    expect(() => countContaminatedAtDistance(activities, '400m')).not.toThrow();
+    expect(countContaminatedAtDistance(activities, '400m')).toBe(0);
+  });
+
+  it('returns 0 for an empty activities record', () => {
+    expect(countContaminatedAtDistance({}, '400m')).toBe(0);
+  });
+
+  it('counts multiple contaminated efforts across multiple activities at the same distance', () => {
+    const activities: BestEffortsDocument['activities'] = {
+      a1: fixtureActivity({
+        activityId: 'a1',
+        startDate: '2024-01-01T00:00:00Z',
+        efforts: [fixtureEffort({ distance: '400m', durationSec: 119.6, contaminated: { ...contamination } })],
+      }),
+      a2: fixtureActivity({
+        activityId: 'a2',
+        startDate: '2024-01-02T00:00:00Z',
+        efforts: [fixtureEffort({ distance: '400m', durationSec: 121.2, contaminated: { ...contamination } })],
+      }),
+    };
+    expect(countContaminatedAtDistance(activities, '400m')).toBe(2);
+  });
+
+  it('an effort with contaminated explicitly null does not count — null is the permanent value for "no contamination", not a placeholder', () => {
+    const activities: BestEffortsDocument['activities'] = {
+      a1: fixtureActivity({
+        activityId: 'a1',
+        startDate: '2024-01-01T00:00:00Z',
+        efforts: [fixtureEffort({ distance: '400m', durationSec: 45, contaminated: null })],
+      }),
+    };
+    expect(countContaminatedAtDistance(activities, '400m')).toBe(0);
+  });
+});
+
+describe('resolvePrTableContaminationNote — D-16, mirroring resolvePrTableDemotionNote\'s two null rules', () => {
+  it('returns null when contaminatedCount is 0', () => {
+    expect(resolvePrTableContaminationNote('400m', 'all-time', 0)).toBeNull();
+  });
+
+  it('returns null under the this-year scope even with a positive count (WR-01)', () => {
+    expect(resolvePrTableContaminationNote('400m', 'this-year', 12)).toBeNull();
+  });
+
+  it('returns a measured, singular-agreement note for a count of 1', () => {
+    const note = resolvePrTableContaminationNote('400m', 'all-time', 1);
+    expect(note).not.toBeNull();
+    expect(note).toContain('1 all-time 400m effort rank');
+  });
+
+  it('returns a measured, plural note for a count greater than 1', () => {
+    const note = resolvePrTableContaminationNote('400m', 'all-time', 1200);
+    expect(note).not.toBeNull();
+    expect(note).toContain('1200 all-time 400m efforts rank');
   });
 });
