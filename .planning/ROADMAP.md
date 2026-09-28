@@ -360,7 +360,7 @@ Plans:
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
-- [ ] 35-08-PLAN.md — Retarget detectPaceDisagreement onto the running pace, ship the calibrated constant, rename the field
+- [x] 35-08-PLAN.md — Retarget detectPaceDisagreement onto the running pace, ship the calibrated constant, rename the field
 
 **Wave 8** *(blocked on Wave 7 completion)*
 
@@ -455,7 +455,7 @@ Plans:
 | 32. Unreliable-Segment Detection & Calibration | v2.3 | 17/17 | Complete    | 2026-09-20 |
 | 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 14/14 | Complete    | 2026-09-22 |
 | 34. Pause Classification & Forgotten-Stop | v2.3 | 16/16 | Complete    | 2026-09-23 |
-| 35. Stream-Derived Running Pace | v2.3 | 7/13 | In Progress|  |
+| 35. Stream-Derived Running Pace | v2.3 | 8/13 | In Progress|  |
 | 36. Best-Effort Clean-Window Search & Ceiling Recalibration | v2.3 | 0/TBD | Not started | - |
 | 37. Review-Queue Priority & CUR-04 | v2.3 | 0/TBD | Not started | - |
 
