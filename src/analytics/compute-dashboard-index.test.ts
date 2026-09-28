@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FileStore } from '../storage/file-store.js';
 import type { CanonicalStream, StreamManifest } from '../streams/stream.types.js';
@@ -1199,6 +1199,267 @@ describe('computeDashboardIndex — archive orchestration', () => {
       const row = doc.activities[0];
       expect(row.quality.notComputableReason).toBe(NOT_COMPUTABLE_NO_STREAM);
       expect(row.quality.decimation.tier).toBe('not-computable');
+    });
+  });
+
+  /**
+   * RPACE-01/RPACE-03 (35-09): the writer-level reachability proof for the
+   * gate this plan deletes. NEW describe block per plan instruction — the
+   * pre-existing `describe('pace disagreement', ...)` block below (added by
+   * 35-08, retargeted onto the real archive) is left untouched.
+   *
+   * `3475724402`'s own metadata pace is 296.0 s/km — well above the retired
+   * 200 sec/km gate — so these fixtures use that same shape (`distance:
+   * 1000, moving_time: 296` → `paceSecPerKm: 296`) rather than reusing the
+   * real archive, since the real archive's own reachability is already
+   * covered by the `pace disagreement` block below.
+   */
+  describe('running pace reachability (RPACE-01/RPACE-03, 35-09 — the retired 200 sec/km gate is deleted)', () => {
+    const SLOW_METADATA_PACE_SEC_PER_KM = 296; // matches 3475724402's own real profile
+
+    /**
+     * Builds a synthetic stream shaped like `pace-derivation.test.ts`'s own
+     * proven "(c) isolated single-pair GPS jump" fixture: `pairCount` dense
+     * covered pairs (`dt=pairDtSec`, `dd=pairDdM` each, strictly increasing
+     * so no pair is ever classified `pause`), then ONE isolated-jump burst
+     * pair (`dt=2s`, `dd=60m` — implied speed 30 m/s, far above
+     * `UNRELIABLE_SPEED_LIMIT_MPS` (7.35), excess 45.3 m clears
+     * `UNRELIABLE_EXCESS_FLOOR_M` (3), 60 m below `HIDDEN_PAUSE_MIN_METRES`
+     * (116.95) — the exact reachable shape `pace-derivation.test.ts` already
+     * proved classifies `isolated-jump`, not `gap-adjacent`/`hidden-pause`),
+     * then `pairCount` more dense covered pairs. `dt<=10` throughout keeps
+     * every non-burst pair under `RECORDING_GAP_ABS_THRESHOLD_SEC` (10), so
+     * it is never classified `recording-gap` either.
+     *
+     * Hand: `coveredM = 2 * pairCount * pairDdM`, `coveredSec = 2 * pairCount
+     * * pairDtSec`, `excludedM = 60` (exactly the burst pair's own advance),
+     * `excludedSec = 2` (exactly the burst pair's own duration) — the same
+     * boundary rule `deriveRunningPace`'s own docblock states.
+     */
+    function buildRunningPaceFixtureStream(opts: {
+      pairDtSec: number;
+      pairDdM: number;
+      pairCount: number;
+    }): CanonicalStream {
+      const { pairDtSec, pairDdM, pairCount } = opts;
+      const t: number[] = [0];
+      const d: number[] = [0];
+      for (let i = 0; i < pairCount; i++) {
+        t.push(t[t.length - 1] + pairDtSec);
+        d.push(d[d.length - 1] + pairDdM);
+      }
+      t.push(t[t.length - 1] + 2); // the isolated-jump burst: dt=2, dd=60
+      d.push(d[d.length - 1] + 60);
+      for (let i = 0; i < pairCount; i++) {
+        t.push(t[t.length - 1] + pairDtSec);
+        d.push(d[d.length - 1] + pairDdM);
+      }
+      return makeStream({ t, d });
+    }
+
+    /**
+     * coveredM=1600, coveredSec=500, excludedM=60, excludedSec=2 (hand,
+     * per the docblock above) → runningPaceSecPerKm = 500/(1600/1000) =
+     * 312.5. ratio = 312.5/296 ≈ 1.0557, clears
+     * `PACE_DISAGREEMENT_RUNNING_RATIO` (1.0173) — this fixture IS flagged.
+     */
+    function makeFlaggedStream(): CanonicalStream {
+      return buildRunningPaceFixtureStream({ pairDtSec: 10, pairDdM: 32, pairCount: 25 });
+    }
+
+    /**
+     * coveredM=1500, coveredSec=450, excludedM=60, excludedSec=2 (hand) →
+     * runningPaceSecPerKm = 450/(1500/1000) = 300.0. ratio = 300/296 ≈
+     * 1.0135, does NOT clear 1.0173 — this fixture is eligible (excludedM >
+     * 0, D-02's gate) but NOT flagged. The mirror of `makeFlaggedStream`,
+     * proving reachability fails in the correct direction too, not just the
+     * accept direction.
+     */
+    function makeMirrorStream(): CanonicalStream {
+      return buildRunningPaceFixtureStream({ pairDtSec: 9, pairDdM: 30, pairCount: 25 });
+    }
+
+    it('a slow-metadata activity (paceSecPerKm well above the retired 200 sec/km gate) is reachable: runningPace is populated and paceDisagreement is non-null once the running pace clears the calibrated cut', async () => {
+      const manifest = emptyManifestDoc();
+      manifest.activities['slow-badged'] = {
+        available: true,
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 53,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+      };
+      await writeManifest(manifest);
+      await writeActivity('slow-badged', { distance: 1000, moving_time: 296 });
+      await writeStream('slow-badged', makeFlaggedStream());
+
+      const doc = await computeDashboardIndex(baseOptions());
+      const row = doc.activities[0];
+
+      expect(row.paceSecPerKm).toBe(SLOW_METADATA_PACE_SEC_PER_KM);
+      expect(row.paceSecPerKm as number).toBeGreaterThan(200); // above the retired gate
+
+      expect(row.runningPace).not.toBeNull();
+      expect(row.runningPace?.computable).toBe(true);
+      expect(row.runningPace?.notComputableReason).toBeNull();
+      expect(row.runningPace?.runningPaceSecPerKm).toBeCloseTo(312.5, 5);
+      expect(row.runningPace?.excludedM).toBeCloseTo(60, 5);
+
+      expect(row.paceDisagreement).not.toBeNull();
+      expect(row.paceDisagreement?.runningPaceSecPerKm).toBeCloseTo(312.5, 1);
+    });
+
+    it('the mirror slow-metadata activity, whose running pace does NOT clear the calibrated cut, has runningPace populated but paceDisagreement null — reachability fails correctly in this direction too, so the first case is not vacuous', async () => {
+      const manifest = emptyManifestDoc();
+      manifest.activities['slow-not-badged'] = {
+        available: true,
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 53,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+      };
+      await writeManifest(manifest);
+      await writeActivity('slow-not-badged', { distance: 1000, moving_time: 296 });
+      await writeStream('slow-not-badged', makeMirrorStream());
+
+      const doc = await computeDashboardIndex(baseOptions());
+      const row = doc.activities[0];
+
+      expect(row.paceSecPerKm).toBe(SLOW_METADATA_PACE_SEC_PER_KM);
+      expect(row.paceSecPerKm as number).toBeGreaterThan(200); // above the retired gate
+
+      expect(row.runningPace).not.toBeNull();
+      expect(row.runningPace?.computable).toBe(true);
+      expect(row.runningPace?.runningPaceSecPerKm).toBeCloseTo(300, 5);
+      expect(row.runningPace?.excludedM).toBeCloseTo(60, 5); // D-02 eligible
+
+      expect(row.paceDisagreement).toBeNull();
+    });
+
+    it("the retired 200 sec/km gate, reproduced inline against the SAME flagged fixture, would never have read this activity's stream and paceDisagreement would have stayed null forever — proving the gate itself, not the comparator, was what made ROADMAP criterion 3 unsatisfiable (T-35-36)", () => {
+      // The retired constant's own value (35-08's carry-over docblock: 200)
+      // reproduced here as a LOCAL literal for comparison only — the real
+      // export is deleted, and this file never imports or re-adds it.
+      const OLD_RETIRED_GATE_SEC_PER_KM = 200;
+
+      let oldGateStreamReadAttempted = false;
+      let oldGatePaceDisagreement: ReturnType<typeof detectPaceDisagreement> = null;
+      if (
+        SLOW_METADATA_PACE_SEC_PER_KM !== null &&
+        SLOW_METADATA_PACE_SEC_PER_KM < OLD_RETIRED_GATE_SEC_PER_KM
+      ) {
+        oldGateStreamReadAttempted = true;
+        const stream = makeFlaggedStream();
+        oldGatePaceDisagreement = detectPaceDisagreement(
+          SLOW_METADATA_PACE_SEC_PER_KM,
+          deriveRunningPace(stream)
+        );
+      }
+
+      // VERBATIM RESULT under the old gate (296.0 is not < 200, so the
+      // condition is false): the stream is never read, and
+      // paceDisagreement stays null — permanently, for every activity whose
+      // metadata pace is >= 200 sec/km, no matter what the comparator or
+      // threshold does.
+      expect(oldGateStreamReadAttempted).toBe(false);
+      expect(oldGatePaceDisagreement).toBeNull();
+
+      // Contrast: the SAME fixture, read unconditionally (what Task 1
+      // shipped and the test above proves), DOES compute a non-null
+      // paceDisagreement. The only difference between "never reachable" and
+      // "correctly badged" is whether the gate stands.
+    });
+
+    it('the stream is read exactly once per activity across a full row assembly — a regression re-adding a second gated read would otherwise be invisible', async () => {
+      const manifest = emptyManifestDoc();
+      manifest.activities['single-read'] = {
+        available: true,
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 53,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+      };
+      await writeManifest(manifest);
+      await writeActivity('single-read', { distance: 1000, moving_time: 296 });
+      await writeStream('single-read', makeFlaggedStream());
+
+      const readJsonSpy = vi.spyOn(FileStore.prototype, 'readJson');
+      try {
+        await computeDashboardIndex(baseOptions());
+
+        const streamPath = path.join(tmpDir, 'streams', 'single-read.json');
+        const streamReadCalls = readJsonSpy.mock.calls.filter(([calledPath]) => calledPath === streamPath);
+        expect(streamReadCalls).toHaveLength(1);
+      } finally {
+        readJsonSpy.mockRestore();
+      }
+    });
+
+    it('an activity with entry.available === false yields runningPace: null (the "no stream at all" state, never "not computable")', async () => {
+      const manifest = emptyManifestDoc();
+      manifest.activities['no-stream-at-all'] = { available: false, reason: 'manual' };
+      await writeManifest(manifest);
+      await writeActivity('no-stream-at-all');
+
+      const doc = await computeDashboardIndex(baseOptions());
+      expect(doc.activities[0].runningPace).toBeNull();
+    });
+
+    it('a stream present but failing validateStreamSeries yields a POPULATED runningPace with computable: false, a non-empty reason, and runningPaceSecPerKm: null — never null and never a fabricated zero', async () => {
+      const manifest = emptyManifestDoc();
+      manifest.activities['unusable-stream'] = {
+        available: true,
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 1,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+      };
+      await writeManifest(manifest);
+      await writeActivity('unusable-stream', { distance: 1000, moving_time: 296 });
+      // A single-sample stream fails validateStreamSeries (fewer than 2
+      // samples) — classifyGapsWithSegments' own pass 1 rejects it.
+      await writeStream('unusable-stream', makeStream({ t: [0], d: [0] }));
+
+      const doc = await computeDashboardIndex(baseOptions());
+      const rp = doc.activities[0].runningPace;
+      expect(rp).not.toBeNull();
+      expect(rp?.computable).toBe(false);
+      expect(typeof rp?.notComputableReason).toBe('string');
+      expect(rp?.notComputableReason?.length).toBeGreaterThan(0);
+      expect(rp?.runningPaceSecPerKm).toBeNull();
+    });
+
+    it("criterion 4 guard: each fixture's row.paceSecPerKm is byte-identical to an INDEPENDENTLY computed moving_time / (distance / 1000) — never derived from, or perturbed by, the writer's own running-pace or disagreement computation", async () => {
+      const manifest = emptyManifestDoc();
+      manifest.activities['guard1'] = {
+        available: true,
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 53,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+      };
+      manifest.activities['guard2'] = {
+        available: true,
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: 53,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+      };
+      await writeManifest(manifest);
+      await writeActivity('guard1', { distance: 1000, moving_time: 296 });
+      await writeActivity('guard2', { distance: 7500, moving_time: 2222 });
+      await writeStream('guard1', makeFlaggedStream());
+      await writeStream('guard2', makeMirrorStream());
+
+      const doc = await computeDashboardIndex(baseOptions());
+      const byId = Object.fromEntries(doc.activities.map((r) => [r.id, r]));
+
+      // Independent — computed here from the raw activity fields alone,
+      // never by reading row.runningPace or row.paceDisagreement.
+      const independentPaceSecPerKm = (distanceM: number, movingTimeSec: number): number =>
+        Math.round((movingTimeSec / (distanceM / 1000)) * 10) / 10;
+
+      expect(byId['guard1'].paceSecPerKm).toBe(independentPaceSecPerKm(1000, 296));
+      expect(byId['guard2'].paceSecPerKm).toBe(independentPaceSecPerKm(7500, 2222));
     });
   });
 });
