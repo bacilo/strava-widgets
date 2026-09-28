@@ -376,7 +376,7 @@ Plans:
 
 **Wave 11** *(blocked on Wave 10 completion)*
 
-- [ ] 35-12-PLAN.md — Merge origin, regenerate on the merged tree, freeze checkpoint rows against independent values
+- [x] 35-12-PLAN.md — Merge origin, regenerate on the merged tree, freeze checkpoint rows against independent values
 
 **Wave 12** *(blocked on Wave 11 completion)*
 
@@ -455,7 +455,7 @@ Plans:
 | 32. Unreliable-Segment Detection & Calibration | v2.3 | 17/17 | Complete    | 2026-09-20 |
 | 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 14/14 | Complete    | 2026-09-22 |
 | 34. Pause Classification & Forgotten-Stop | v2.3 | 16/16 | Complete    | 2026-09-23 |
-| 35. Stream-Derived Running Pace | v2.3 | 11/13 | In Progress|  |
+| 35. Stream-Derived Running Pace | v2.3 | 12/13 | In Progress|  |
 | 36. Best-Effort Clean-Window Search & Ceiling Recalibration | v2.3 | 0/TBD | Not started | - |
 | 37. Review-Queue Priority & CUR-04 | v2.3 | 0/TBD | Not started | - |
 
