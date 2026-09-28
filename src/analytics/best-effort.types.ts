@@ -56,6 +56,24 @@ export interface RawEffort {
   startOffsetSec: number;
   /** Computed at the exact target-distance crossing, therefore fractional. */
   endOffsetSec: number;
+  /**
+   * The sweep's own SAMPLE indices, in the same half-open PAIR convention
+   * `classifyGapsWithSegments`'s pass 3 already uses for `UnreliableSegment`
+   * (`pace-derivation.ts`: `for (let i = seg.startIndex; i < seg.endIndex; i++)`).
+   * `startIndex` is the sample `startOffsetSec` coincides with; `endIndex` is
+   * the FIRST sample at or beyond the target distance, so the window spans
+   * PAIRS `startIndex .. endIndex - 1` and `endOffsetSec` falls inside pair
+   * `endIndex - 1`, between `t[endIndex - 1]` and `t[endIndex]`.
+   *
+   * These exist so a consumer can decide a window's overlap with a detected
+   * segment in INDEX space, under the detector's own half-open convention,
+   * instead of inventing a second float-boundary rule — the exact defect
+   * class 32-13/32-17 fixed twice (two disagreeing boundary conventions for
+   * "what counts as inside the segment").
+   */
+  startIndex: number;
+  /** See `startIndex`'s docblock for the half-open pair-space contract. */
+  endIndex: number;
 }
 
 /**
