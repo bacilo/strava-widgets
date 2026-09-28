@@ -36,7 +36,7 @@ import {
   unreliableSegmentsBadgeContent,
   formatMetres,
 } from './list.js';
-import { prFlagBadgeSpecs, type BestEffortPanelRow } from './detail-best-efforts-logic.js';
+import { prFlagBadgeSpecs, type BestEffortPanelRow, type PrFlagBadgeSpec } from './detail-best-efforts-logic.js';
 import type { PaceCoverage, GapInterval } from '../../analytics/pace-derivation.js';
 import { unbucketedCoveredSec } from '../../analytics/pace-derivation.js';
 import type { RunningPaceRow } from '../../analytics/dashboard-index.types.js';
@@ -687,15 +687,31 @@ function buildAgeGradeCell(row: BestEffortPanelRow): HTMLTableCellElement {
 }
 
 /**
+ * Maps a `PrFlagBadgeSpec.kind` to its CSS modifier class. A kind absent
+ * from this lookup (`'pr'`, `'low-confidence'`, `'excluded'`) renders as a
+ * plain `.badge` by design — only `'demoted'` and `'contaminated'` carry
+ * their own dedicated colour token. `'contaminated'` gets its own modifier,
+ * distinct from `'demoted'`'s, because a moved-but-ranked effort and a
+ * rejected effort are different claims (Phase 36 D-15) — Phase 28 WR-02
+ * already established a dedicated token per badge claim rather than a
+ * shared one, and this is that precedent applied to the new claim.
+ */
+const BADGE_KIND_CLASS: Partial<Record<PrFlagBadgeSpec['kind'], string>> = {
+  demoted: 'badge--demoted',
+  contaminated: 'badge--contaminated',
+};
+
+/**
  * Builds the PR? cell. This function DECIDES NOTHING ITSELF — it renders
  * whatever `prFlagBadgeSpecs` returns, one `appendAccessibleBadge` call per
- * spec, and nothing else. Every badge therefore carries its own
- * `aria-describedby` pointing at a `.sr-only` explanation span, which is
- * what keeps two adjacent badges separable when a screen reader flows the
- * cell's text — Phase 24 Round 2's R15 recorded two bare, unexplained
- * badges concatenating into one run-on claim, `PRExcluded — {reason}`. The
- * badge strings themselves live in `prFlagBadgeSpecs`, a pure module,
- * precisely because this repository's vitest runs with
+ * spec, and nothing else (the kind-to-class lookup above is the one
+ * exception: a CSS modifier, not a wording decision). Every badge therefore
+ * carries its own `aria-describedby` pointing at a `.sr-only` explanation
+ * span, which is what keeps two adjacent badges separable when a screen
+ * reader flows the cell's text — Phase 24 Round 2's R15 recorded two bare,
+ * unexplained badges concatenating into one run-on claim, `PRExcluded —
+ * {reason}`. The badge strings themselves live in `prFlagBadgeSpecs`, a
+ * pure module, precisely because this repository's vitest runs with
  * `environment: 'node'` and cannot invoke a DOM builder — a string decided
  * here would be a string no test could ever read.
  */
@@ -708,7 +724,7 @@ function buildPrFlagsCell(row: BestEffortPanelRow, exclusionReason: string | nul
       spec.visibleText,
       spec.explanation,
       `best-efforts-${row.distance}-${spec.descriptionIdSuffix}`,
-      spec.kind === 'demoted' ? 'badge--demoted' : undefined
+      BADGE_KIND_CLASS[spec.kind]
     );
   }
 

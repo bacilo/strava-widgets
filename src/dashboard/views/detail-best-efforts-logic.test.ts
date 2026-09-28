@@ -41,6 +41,10 @@ function panelRow(overrides: Partial<BestEffortPanelRow> = {}): BestEffortPanelR
     ageDerived: false,
     demoted: false,
     demotionReason: null,
+    contaminated: false,
+    contaminatedReason: null,
+    contaminatedDurationSec: null,
+    contaminatedPaceSecPerKm: null,
     ...overrides,
   };
 }
@@ -257,6 +261,91 @@ describe('buildBestEffortsPanelRows', () => {
   });
 });
 
+describe('buildBestEffortsPanelRows — contaminated panel row (Phase 36 D-05/D-15)', () => {
+  it('a shard whose effort carries a full contaminated object populates all four fields with its exact values, and durationSec/paceSecPerKm remain the effort\'s own top-level (clean) values', () => {
+    const entry = activity({
+      efforts: [
+        effort({
+          distance: '400m',
+          durationSec: 79.9,
+          paceSecPerKm: 199.75,
+          contaminated: {
+            guard: 'unreliable-segment',
+            reason: '52 m burst at t=2508',
+            durationSec: 119.6,
+            paceSecPerKm: 299,
+            startOffsetSec: 1308,
+            endOffsetSec: 1427.6,
+          },
+        }),
+      ],
+    });
+    const rows = buildBestEffortsPanelRows(entry, null, null);
+    expect(rows.length).toBe(1);
+    const row = rows[0];
+    expect(row.contaminated).toBe(true);
+    expect(row.contaminatedReason).toBe('52 m burst at t=2508');
+    expect(row.contaminatedDurationSec).toBe(119.6);
+    expect(row.contaminatedPaceSecPerKm).toBe(299);
+    // The row's own (clean, ranked) window must stay distinct from the
+    // original (contaminated) window — a mix-up between the two would
+    // silently swap which figure the owner sees ranked.
+    expect(row.durationSec).toBe(79.9);
+    expect(row.paceSecPerKm).toBe(199.75);
+  });
+
+  it('contaminated: null yields contaminated: false and all three others null — never 0', () => {
+    const entry = activity({
+      efforts: [effort({ distance: '5k', contaminated: null })],
+    });
+    const rows = buildBestEffortsPanelRows(entry, null, null);
+    expect(rows[0].contaminated).toBe(false);
+    expect(rows[0].contaminatedReason).toBeNull();
+    expect(rows[0].contaminatedDurationSec).toBeNull();
+    expect(rows[0].contaminatedPaceSecPerKm).toBeNull();
+  });
+
+  it('T-28-02-A: a stale shard with no contaminated key at all degrades to the same false/null shape rather than throwing', () => {
+    const staleEffort = effort({ distance: '5k' }) as Partial<BestEffort>;
+    delete staleEffort.contaminated;
+    const entry = activity({ efforts: [staleEffort as BestEffort] });
+    const rows = buildBestEffortsPanelRows(entry, null, null);
+    expect(rows.length).toBe(1);
+    expect(rows[0].contaminated).toBe(false);
+    expect(rows[0].contaminatedReason).toBeNull();
+    expect(rows[0].contaminatedDurationSec).toBeNull();
+    expect(rows[0].contaminatedPaceSecPerKm).toBeNull();
+  });
+
+  it('a row that is contaminated AND demoted AND excluded carries all three flags true at once, with three separate unconcatenated reason values', () => {
+    const entry = activity({
+      efforts: [
+        effort({
+          distance: '10k',
+          excludedFromRecords: true,
+          demotion: { guard: 'ceiling', reason: 'implied speed exceeds ceiling' },
+          contaminated: {
+            guard: 'unreliable-segment',
+            reason: 'segment at t=100',
+            durationSec: 3000,
+            paceSecPerKm: 300,
+            startOffsetSec: 0,
+            endOffsetSec: 3000,
+          },
+        }),
+      ],
+    });
+    const rows = buildBestEffortsPanelRows(entry, null, null);
+    const row = rows[0];
+    expect(row.contaminated).toBe(true);
+    expect(row.demoted).toBe(true);
+    expect(row.excluded).toBe(true);
+    expect(row.contaminatedReason).toBe('segment at t=100');
+    expect(row.demotionReason).toBe('implied speed exceeds ceiling');
+    expect(row.contaminatedReason).not.toBe(row.demotionReason);
+  });
+});
+
 describe('prFlagBadgeSpecs', () => {
   it('a plain row with no flags produces zero specs', () => {
     expect(prFlagBadgeSpecs(panelRow(), null)).toEqual([]);
@@ -356,6 +445,83 @@ describe('prFlagBadgeSpecs', () => {
       'this effort is left out of the ranked PR list because a plausibility guard rejected it; it stays visible here with its reason'
     );
     expect(specs[0].explanation).not.toContain('excluded');
+  });
+});
+
+describe('prFlagBadgeSpecs — contaminated badge (Phase 36 D-15)', () => {
+  it('a contaminated row with a reason produces exactly one spec of kind "contaminated", visibleText starting with the fixed prefix and containing the reason verbatim, with a distinct explanation from the demoted branch', () => {
+    const specs = prFlagBadgeSpecs(
+      panelRow({ contaminated: true, contaminatedReason: '52 m burst at t=2508' }),
+      null
+    );
+    expect(specs.length).toBe(1);
+    expect(specs[0].kind).toBe('contaminated');
+    expect(specs[0].visibleText.startsWith('Ranked on clean window — ')).toBe(true);
+    expect(specs[0].visibleText).toContain('52 m burst at t=2508');
+    expect(specs[0].descriptionIdSuffix).toBe('contaminated');
+    expect(specs[0].explanation.length).toBeGreaterThan(0);
+
+    const demotedSpecs = prFlagBadgeSpecs(panelRow({ demoted: true, demotionReason: 'x' }), null);
+    expect(specs[0].explanation).not.toBe(demotedSpecs[0].explanation);
+  });
+
+  it('a contaminated row with contaminatedReason: null falls back to "Ranked on clean window" with no trailing dash', () => {
+    const specs = prFlagBadgeSpecs(panelRow({ contaminated: true, contaminatedReason: null }), null);
+    expect(specs.length).toBe(1);
+    expect(specs[0].visibleText).toBe('Ranked on clean window');
+  });
+
+  it('a row that is NOT contaminated produces no spec of kind "contaminated" — the can-fail direction, a branch that fired unconditionally would badge every effort', () => {
+    const specs = prFlagBadgeSpecs(panelRow({ contaminated: false }), null);
+    expect(specs.some((s) => s.kind === 'contaminated')).toBe(false);
+  });
+
+  it('ORDER: a row that is PR, contaminated, demoted, low-confidence AND excluded returns kinds in exactly [pr, contaminated, demoted, low-confidence, excluded]', () => {
+    const specs = prFlagBadgeSpecs(
+      panelRow({
+        isPr: true,
+        contaminated: true,
+        contaminatedReason: 'seg',
+        demoted: true,
+        demotionReason: 'x',
+        lowConfidence: true,
+        excluded: true,
+      }),
+      'owner reason'
+    );
+    expect(specs.map((s) => s.kind)).toEqual(['pr', 'contaminated', 'demoted', 'low-confidence', 'excluded']);
+  });
+
+  it('R15 separability: every spec for the same five-flag row has a DISTINCT descriptionIdSuffix', () => {
+    const specs = prFlagBadgeSpecs(
+      panelRow({
+        isPr: true,
+        contaminated: true,
+        contaminatedReason: 'seg',
+        demoted: true,
+        demotionReason: 'x',
+        lowConfidence: true,
+        excluded: true,
+      }),
+      'owner reason'
+    );
+    const suffixes = new Set(specs.map((s) => s.descriptionIdSuffix));
+    expect(suffixes.size).toBe(specs.length);
+  });
+
+  it('D-06: a no-clean-window row (contaminated: false, demoted: true, demotionReason carrying the segment text) emits exactly one demoted spec containing the segment reason and no contaminated spec — the no-clean case travels through the existing demoted copy, deliberately, checked rather than assumed', () => {
+    const specs = prFlagBadgeSpecs(
+      panelRow({
+        contaminated: false,
+        demoted: true,
+        demotionReason: 'no clean window found; segment spans the entire target distance',
+      }),
+      null
+    );
+    expect(specs.length).toBe(1);
+    expect(specs[0].kind).toBe('demoted');
+    expect(specs[0].visibleText).toContain('no clean window found; segment spans the entire target distance');
+    expect(specs.some((s) => s.kind === 'contaminated')).toBe(false);
   });
 });
 

@@ -649,6 +649,70 @@ describe('buildPrFlagsCell wiring (source guard)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Phase 36 D-15 — contaminated badge wiring. Same node-environment
+// constraint as the rest of this file: no DOM library exists, so this is a
+// source-text guard, not a rendered-DOM assertion. Pixels are judged by
+// plan 36-14's browser checkpoint against a digest-verified served build.
+// ---------------------------------------------------------------------------
+
+describe('contaminated badge wiring (source guard, Phase 36 D-15)', () => {
+  const detailBestEffortsLogicStripped = stripComments(readSource('detail-best-efforts-logic.ts'));
+  const stylesStripped = stripComments(readSource('../styles.css'));
+
+  it('a) detail-sections.ts contains badge--contaminated', () => {
+    expect(detailSectionsStripped).toContain('badge--contaminated');
+  });
+
+  it('b) buildPrFlagsCell contains exactly one appendAccessibleBadge( call — the loop body, no second un-described badge path', () => {
+    const buildPrFlagsCellBody = isolateFunctionBody(detailSectionsStripped, 'function buildPrFlagsCell(');
+    expect(countOccurrences(buildPrFlagsCellBody, 'appendAccessibleBadge(')).toBe(1);
+  });
+
+  it('c) styles.css contains a .badge--contaminated rule and a --contaminated-text token, and --contaminated-text is NOT declared the same value as --demoted-text', () => {
+    expect(stylesStripped).toContain('.badge--contaminated');
+    expect(stylesStripped).toContain('--contaminated-text');
+
+    const demotedMatch = stylesStripped.match(/--demoted-text:\s*([^;]+);/);
+    const contaminatedMatch = stylesStripped.match(/--contaminated-text:\s*([^;]+);/);
+    expect(demotedMatch).not.toBeNull();
+    expect(contaminatedMatch).not.toBeNull();
+    // A copy-paste that reused the same colour would make the two claims
+    // visually identical, defeating the point of a dedicated token.
+    expect(demotedMatch![1].trim()).not.toBe(contaminatedMatch![1].trim());
+  });
+
+  it('d) the badge kind union (detail-best-efforts-logic.ts) and the class lookup (detail-sections.ts) agree in both directions', () => {
+    const unionMatch = detailBestEffortsLogicStripped.match(/kind:\s*((?:'[^']+'\s*\|\s*)*'[^']+');/);
+    expect(unionMatch).not.toBeNull();
+    const unionKinds = new Set(
+      Array.from(unionMatch![1].matchAll(/'([^']+)'/g)).map((m) => m[1])
+    );
+    expect(unionKinds).toEqual(new Set(['pr', 'contaminated', 'demoted', 'low-confidence', 'excluded']));
+
+    const lookupMatch = detailSectionsStripped.match(
+      /BADGE_KIND_CLASS[^=]*=\s*\{([^}]*)\}/
+    );
+    expect(lookupMatch).not.toBeNull();
+    const lookupKinds = new Set(
+      Array.from(lookupMatch![1].matchAll(/(\w[\w-]*):\s*'badge--/g)).map((m) => m[1])
+    );
+
+    // Direction 1: the lookup names no kind absent from the union.
+    for (const lookupKind of lookupKinds) {
+      expect(unionKinds.has(lookupKind), `lookup names unknown kind: ${lookupKind}`).toBe(true);
+    }
+    // Direction 2: every kind the union names is either present in the
+    // lookup (dedicated modifier) or falls through by design (plain
+    // .badge). Structurally, everything not in lookupKinds falls through
+    // via BADGE_KIND_CLASS[spec.kind] returning undefined — assert the
+    // exact expected split rather than assuming it.
+    expect(lookupKinds).toEqual(new Set(['demoted', 'contaminated']));
+    const fallthroughKinds = new Set([...unionKinds].filter((k) => !lookupKinds.has(k)));
+    expect(fallthroughKinds).toEqual(new Set(['pr', 'low-confidence', 'excluded']));
+  });
+});
+
+// ---------------------------------------------------------------------------
 // qualitySignalsSectionPlan — quality signals section (Phase 27, plan 27-09:
 // QUAL-01, QUAL-04, ERA-02). Only the pure plan is tested — there is no
 // DOM-simulation dependency anywhere in this tree, so `buildQualitySignalsSection`

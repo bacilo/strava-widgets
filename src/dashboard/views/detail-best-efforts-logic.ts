@@ -119,6 +119,26 @@ export interface BestEffortPanelRow {
   demoted: boolean;
   /** The demoting guard's reason string, or `null` when `demoted` is false or the reason itself is absent. */
   demotionReason: string | null;
+  /**
+   * True when the clean-window search (Phase 36 D-05) found and excluded an
+   * unreliable segment from this effort's own window — a MACHINE
+   * observation about WHICH window was measured, entirely separate from
+   * `demoted` (a guard's rejection of the measured figure) and from
+   * `excluded` (the owner's stated intent): all three can be true on the
+   * same row at once. This row's own `durationSec`/`paceSecPerKm` ARE the
+   * clean window and rank normally; the four `contaminated*` fields below
+   * describe the ORIGINAL unpartitioned window the ranked figure replaced.
+   * Read via `!= null` (T-28-02-A), so a stale shard shipped before this
+   * field existed degrades to `contaminated: false` and three `null`s
+   * rather than throwing into the render path.
+   */
+  contaminated: boolean;
+  /** The original window's reason string, or `null` when `contaminated` is false or the reason itself is absent. */
+  contaminatedReason: string | null;
+  /** The original (unpartitioned) window's duration in seconds, or `null` when `contaminated` is false. */
+  contaminatedDurationSec: number | null;
+  /** The original (unpartitioned) window's pace in seconds/km, or `null` when `contaminated` is false. */
+  contaminatedPaceSecPerKm: number | null;
 }
 
 /**
@@ -199,6 +219,10 @@ export function buildBestEffortsPanelRows(
       ageDerived: distance === '1k',
       demoted: effort.demotion != null,
       demotionReason: effort.demotion?.reason ?? null,
+      contaminated: effort.contaminated != null,
+      contaminatedReason: effort.contaminated?.reason ?? null,
+      contaminatedDurationSec: effort.contaminated?.durationSec ?? null,
+      contaminatedPaceSecPerKm: effort.contaminated?.paceSecPerKm ?? null,
     });
   }
   return rows;
@@ -214,7 +238,7 @@ export function buildBestEffortsPanelRows(
  * since this cell's specs are keyed by flag kind, not quality signal.
  */
 export interface PrFlagBadgeSpec {
-  kind: 'pr' | 'demoted' | 'low-confidence' | 'excluded';
+  kind: 'pr' | 'contaminated' | 'demoted' | 'low-confidence' | 'excluded';
   visibleText: string;
   explanation: string;
   descriptionIdSuffix: string;
@@ -234,9 +258,23 @@ export interface PrFlagBadgeSpec {
  * `appendAccessibleBadge` with its own `aria-describedby`, so the two
  * claims stay separable by assistive technology, not only by pixels.
  *
- * Emission order: `pr`, `demoted`, `low-confidence`, `excluded` — a row can
- * carry more than one flag at once (e.g. demoted AND excluded), and each
- * becomes its own spec rather than concatenating strings into one cell.
+ * Emission order: `pr`, `contaminated`, `demoted`, `low-confidence`,
+ * `excluded` — a row can carry more than one flag at once (e.g. demoted AND
+ * excluded), and each becomes its own spec rather than concatenating
+ * strings into one cell.
+ *
+ * `contaminated` (Phase 36 D-15) is emitted SECOND, deliberately, not
+ * slipped in at the end: it explains WHICH window produced the number this
+ * row displays, so a reader meets it before any judgment about that number
+ * (`demoted`), before a caveat about the distance's provenance
+ * (`low-confidence`) and before the owner's own intent (`excluded`) — the
+ * fixed order is machine measurement, then machine judgment, then owner
+ * intent. This branch is how D-15's two bounds are satisfied: the original
+ * figure and its reason are reachable WITHOUT leaving the detail view,
+ * because this is a badge on the same panel row; and the ranked figure is
+ * NEVER presented as if nothing changed, because the badge fires whenever
+ * `row.contaminated` is true, independently of `demotion`, which is `null`
+ * for every moved (contaminated-but-ranked) effort.
  *
  * `exclusionReason` is a REQUIRED second parameter with no default
  * (WR-05's discipline, matching `buildPrBadgeLabels`) — a forgotten call
@@ -255,6 +293,18 @@ export function prFlagBadgeSpecs(
       visibleText: 'PR',
       explanation: 'this run set a personal record at this distance at the time it was run',
       descriptionIdSuffix: 'pr',
+    });
+  }
+
+  if (row.contaminated) {
+    specs.push({
+      kind: 'contaminated',
+      visibleText: row.contaminatedReason
+        ? `Ranked on clean window — ${row.contaminatedReason}`
+        : 'Ranked on clean window',
+      explanation:
+        'the ranked time excludes an unreliable segment; the original time and the segment that caused it are named here, without leaving this view',
+      descriptionIdSuffix: 'contaminated',
     });
   }
 
