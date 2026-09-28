@@ -96,8 +96,24 @@ export type PlausibilityResult =
 
 /** Which plausibility guard produced a demotion (Phase 28 D-08). `'ceiling'` is the new
  * personal-plausibility-ceiling guard; `'world-record'` and `'max-speed'` are the
- * pre-existing absolute guards, now routed through demotion instead of deletion. */
-export type EffortDemotionGuard = 'world-record' | 'max-speed' | 'ceiling';
+ * pre-existing absolute guards, now routed through demotion instead of deletion.
+ * `'unreliable-segment'` (Phase 36 D-06) marks an effort whose EVERY candidate window
+ * at that distance intersects a detected unreliable segment — no clean sub-interval
+ * covers the distance, so the effort genuinely does not rank. This is distinct from
+ * `ComputedEffort.contaminated` below: when a clean window DOES exist, the effort
+ * ranks normally on that clean figure and carries `contaminated` as an additive
+ * sibling instead of a demotion (Phase 36 D-05).
+ *
+ * This value has THREE required homes which must move in lockstep, or a
+ * no-clean-window demotion vanishes or is mis-bucketed with no type error:
+ * 1. This union.
+ * 2. `VALID_DEMOTION_GUARDS` in `src/dashboard/data/best-efforts-client.ts` — returns
+ *    `null` for any unlisted guard, so omitting it here makes the demotion vanish in
+ *    the browser silently.
+ * 3. The per-guard switch in `src/dashboard/views/records-logic.ts` — would otherwise
+ *    bucket it into `other` with no type error.
+ * Plan 36-09's lockstep audit is what enforces all three stay in sync. */
+export type EffortDemotionGuard = 'world-record' | 'max-speed' | 'ceiling' | 'unreliable-segment';
 
 /**
  * One demoted effort's machine judgment (Phase 28 D-08/D-10): which guard
@@ -108,6 +124,28 @@ export type EffortDemotionGuard = 'world-record' | 'max-speed' | 'ceiling';
 export interface EffortDemotion {
   guard: EffortDemotionGuard;
   reason: string;
+}
+
+/**
+ * The ORIGINAL, unpartitioned best window an effort would have ranked on before
+ * the clean-window search (Phase 36 D-05, PR-07) — retained so nothing is deleted.
+ * Populated whenever the RAW (unconstrained) sweep result's window intersects at
+ * least one detected unreliable segment AND a clean sub-interval was found (so the
+ * effort ranks normally on the clean figure, `demotion: null`, and this sibling
+ * records what the contaminated figure was and why it was unusable). `guard` is
+ * narrowed to the single literal, not the full `EffortDemotionGuard` union, because
+ * only this one guard can ever produce a contamination record — widening it would
+ * admit a shape no code constructs. The four numeric fields use the same rounding
+ * the top-level `ComputedEffort` fields use, so a consumer comparing them compares
+ * like with like.
+ */
+export interface EffortContamination {
+  guard: 'unreliable-segment';
+  reason: string;
+  durationSec: number;
+  paceSecPerKm: number;
+  startOffsetSec: number;
+  endOffsetSec: number;
 }
 
 /**
@@ -142,8 +180,48 @@ export interface ComputedEffort {
    * absolute-guard demotion (world-record/max-speed) always takes
    * precedence over the ceiling: once `demotion` is non-null, no later pass
    * re-evaluates it.
+   *
+   * Phase 36 D-08's precedence, stated in the same register as the paragraph
+   * above: the clean-window search (unreliable-segment exclusion) resolves
+   * WHICH duration reaches `isPlausible` and `ceilingDemotion` below. It runs
+   * conceptually BEFORE them and is not a fourth guard racing to overwrite
+   * `demotion` on the same duration. When a clean window exists,
+   * `isPlausible`/`ceilingDemotion` evaluate ONLY the clean figure, exactly
+   * as today, unmodified — so an effort whose RAW window failed an absolute
+   * guard can rank normally on its clean figure with `demotion: null` and
+   * `contaminated` populated below. When no clean window exists (D-06),
+   * `demotion` is set once, directly, to `{ guard: 'unreliable-segment',
+   * reason }`, and `isPlausible` is never independently evaluated against
+   * the contaminated figure — mirroring the "once `demotion` is non-null, no
+   * later pass re-evaluates it" invariant stated above. Measured reachability
+   * (2026-09-28, a sweep of 1,874 activities × 7 distances): 0 of 440
+   * no-clean-window occurrences independently fail an absolute guard on the
+   * raw timing — so the "no clean window AND independently implausible"
+   * branch is defensive code with no real fixture on today's archive, and no
+   * synthetic look-alike is built for it (Pitfall 12).
    */
   demotion: EffortDemotion | null;
+  /**
+   * The effort's unpartitioned window when it intersected an unreliable
+   * segment but a clean sub-interval was still found (Phase 36 D-05, PR-07).
+   * When this is non-null, this effort's OWN `durationSec`/`paceSecPerKm`/
+   * `startOffsetSec`/`endOffsetSec` ARE the clean window and it ranks
+   * normally; `contaminated` records what the unpartitioned window was and
+   * which segment(s) made it unusable. `null` is the correct PERMANENT value
+   * for an effort whose unpartitioned window intersected no segment — not an
+   * unset placeholder. Purely additive: does NOT require a schema version
+   * bump per the schema version constant's own comment, matching the Phase
+   * 26 D-14 precedent and the way `totals.effortsDemoted` and `ceilings`
+   * were added below. At most one effort per distance still
+   * holds, so the four existing `.find(e => e.distance === key)` sites keep
+   * working unchanged. Why this is a sibling rather than a fourth `demotion`
+   * guard, stated as a mechanism not an opinion: `compute-best-efforts.ts`'s
+   * Pass-1 accumulator skips any effort whose `demotion !== null` from
+   * `byDistance` (the ceiling's input population), so attaching a demotion to
+   * a moved-but-ranked effort would drop its genuine CLEAN time out of the
+   * ceiling's population — a correctness bug, not a style preference.
+   */
+  contaminated: EffortContamination | null;
 }
 
 /**
