@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { FileStore } from '../storage/file-store.js';
 import type { StreamManifest } from '../streams/stream.types.js';
 import { ceilingDemotion, deriveCeilings } from './best-effort-ceiling.js';
-import { findBestEffort } from './best-effort-utils.js';
+import { findBestEffort, isPlausible, WORLD_RECORD_SPEED_MPS } from './best-effort-utils.js';
 import { TARGET_ORDER } from './best-effort.types.js';
 import type { CeilingDerivation, RawEffort, TargetDistanceKey } from './best-effort.types.js';
 import {
@@ -17,9 +17,18 @@ import {
   computeBestEfforts,
   CONTAMINATION_REASON_SEGMENT_CAP,
   segmentIntersectionReason,
+  segmentsIntersectingWindow,
+  wholeSpanCuts,
   type ActivityEffortInput,
   type CleanSubInterval,
 } from './compute-best-efforts.js';
+// `classifyGapsWithSegments` is a VALUE import of a `pace-derivation.js`
+// re-export (never a direct `unreliable-segments.js` import), the detector's
+// one permitted accessor (Phase 33 plan 33-09) — plan 36-05's real-archive
+// demonstrations (splice fabrication D-02, D-08 precedence, the scoping
+// activities' after-state) call this directly against real committed
+// streams, the SAME call the production per-activity loop makes.
+import { classifyGapsWithSegments } from './pace-derivation.js';
 // Type-only imports of the detector's own shapes are permitted in *.test.ts
 // files (pace-single-source.test.ts's SEG-05a audit exempts every test
 // file), so this file — unlike compute-best-efforts.ts itself — may import
@@ -39,6 +48,23 @@ function constantPaceSeries(count: number, metersPerSec: number): { t: number[];
 
 function round1(value: number): number {
   return Math.round(value * 10) / 10;
+}
+
+/** mm:ss conversion, computed locally — mirrors best-effort-utils.test.ts's own copy (this file is analytics, must not import a dashboard formatter). */
+function paceMinSec(paceSecPerKm: number): string {
+  return `${Math.floor(paceSecPerKm / 60)}:${String(Math.round(paceSecPerKm) % 60).padStart(2, '0')}`;
+}
+
+/** Reads a committed stream file from `data/streams/` — never the derived stats output (mirrors pace-derivation.test.ts's own `readStream`). */
+async function readRealStream(activityId: string): Promise<{ t: number[]; d: number[] }> {
+  const raw = await fs.readFile(path.join('data/streams', `${activityId}.json`), 'utf-8');
+  return JSON.parse(raw) as { t: number[]; d: number[] };
+}
+
+/** Reads a committed activity record from `data/activities/` — the real `max_speed`/`distance` fields plan 36-05's real-archive demonstrations depend on. */
+async function readRealActivity(activityId: string): Promise<{ max_speed?: number; distance: number }> {
+  const raw = await fs.readFile(path.join('data/activities', `${activityId}.json`), 'utf-8');
+  return JSON.parse(raw) as { max_speed?: number; distance: number };
 }
 
 function baseInput(overrides: Partial<ActivityEffortInput> = {}): ActivityEffortInput {
@@ -607,6 +633,142 @@ describe('contamination reason strings (PR-07, D-07)', () => {
     for (const banned of ['unrealistic', 'implausible', 'suspicious', 'bad', 'wrong']) {
       expect(reason.toLowerCase()).not.toContain(banned);
     }
+  });
+});
+
+/**
+ * D-02 — the d-rebased splice fabricates a strictly faster window than the
+ * shipped partition on the locked real fixture (`3475740390`@400m,
+ * 36-CONTEXT.md's own pinned row). Reads the REAL committed
+ * `data/streams/<id>.json` directly — no synthetic look-alike (Pitfall 12,
+ * 36-RESEARCH.md).
+ *
+ * Reachability is proven FIRST: `segments.length > 0` and a non-empty
+ * intersection for the raw (unconstrained) window, so this fixture is known
+ * to have something for the splice to get wrong before any comparison runs
+ * — without this, the whole row could pass against a stream carrying no
+ * segments at all.
+ */
+describe('splice fabricates a faster window than the shipped partition (D-02, PR-06)', () => {
+  /**
+   * The WRONG implementation a competent maintainer would actually write
+   * (36-RESEARCH.md Pitfall 7): walk the samples in order; for each
+   * whole-span cut (`wholeSpanCuts(segments)`), DROP every sample strictly
+   * inside the cut (indices `cut.startIndex + 1` through `cut.endIndex`,
+   * inclusive) and SUBTRACT that cut's own `d[cut.endIndex] -
+   * d[cut.startIndex]` from every retained DOWNSTREAM `d` value — rebasing
+   * distance as if the segment's metres had never been covered. `t` is left
+   * untouched, so the surviving samples stitch across the removed span.
+   * TEST-ONLY: the shipped code never builds a combined/stitched array
+   * (Pattern 1, 36-RESEARCH.md — partition, never splice).
+   */
+  function dRebasedSplice(
+    t: readonly number[],
+    d: readonly number[],
+    segments: readonly UnreliableSegment[]
+  ): { t: number[]; d: number[] } {
+    const cuts = [...wholeSpanCuts(segments)].sort((a, b) => a.startIndex - b.startIndex);
+    const splicedT: number[] = [];
+    const splicedD: number[] = [];
+    let offset = 0;
+    let cutIndex = 0;
+    for (let i = 0; i < t.length; i++) {
+      while (cutIndex < cuts.length && i > cuts[cutIndex].endIndex) cutIndex++;
+      const cut = cuts[cutIndex];
+      if (cut && i > cut.startIndex && i <= cut.endIndex) {
+        if (i === cut.endIndex) offset += d[cut.endIndex] - d[cut.startIndex];
+        continue;
+      }
+      splicedT.push(t[i]);
+      splicedD.push(d[i] - offset);
+    }
+    return { t: splicedT, d: splicedD };
+  }
+
+  /** Independently re-derives the honest partition answer from complementSubIntervals + the bounded sweep — never read off the splice's own output. */
+  function honestPartitionDuration(
+    t: readonly number[],
+    d: readonly number[],
+    segments: readonly UnreliableSegment[]
+  ): RawEffort | undefined {
+    const subs = complementSubIntervals(t.length, wholeSpanCuts(segments));
+    let best: RawEffort | undefined;
+    for (const sub of subs) {
+      const candidate = findBestEffort(t as number[], d as number[], 400, sub);
+      if (candidate && (!best || candidate.durationSec < best.durationSec)) best = candidate;
+    }
+    return best;
+  }
+
+  it("3475740390@400m: the d-rebased splice is STRICTLY faster than the honest partition, and NOTHING is asserted against today's unconstrained figure", async () => {
+    const { t, d } = await readRealStream('3475740390');
+    const { segments } = classifyGapsWithSegments(t, d);
+
+    // REACHABILITY PROOF.
+    expect(segments.length).toBeGreaterThan(0);
+    const rawWindow = findBestEffort(t, d, 400);
+    expect(rawWindow).toBeDefined();
+    expect(segmentsIntersectingWindow(segments, rawWindow!).length).toBeGreaterThan(0);
+
+    const spliced = dRebasedSplice(t, d, segments);
+    expect(spliced.t.length).toBeLessThan(t.length);
+    for (let i = 1; i < spliced.d.length; i++) {
+      expect(spliced.d[i]).toBeGreaterThanOrEqual(spliced.d[i - 1]);
+    }
+
+    const splicedResult = findBestEffort(spliced.t, spliced.d, 400);
+    expect(splicedResult).toBeDefined();
+
+    const honestPartition = honestPartitionDuration(t, d, segments);
+    expect(honestPartition).toBeDefined();
+
+    const shippedResult = computeActivityEfforts(
+      baseInput({ activityDistanceM: d[d.length - 1], t, d, segments })
+    );
+    const shippedEffort = shippedResult.efforts.find((e) => e.distance === '400m')!;
+    expect(shippedEffort.durationSec).toBeCloseTo(honestPartition!.durationSec, 1);
+
+    // THE ROW: the splice fabricates a STRICTLY faster window than
+    // partitioning does. A shipped implementation that spliced would make
+    // these equal, failing this assertion — the row's CAN FAIL direction.
+    expect(splicedResult!.durationSec).toBeLessThan(shippedEffort.durationSec);
+
+    // Measured 2026-09-28 (re-verify against a moving archive; reconciled in
+    // full, with mm:ss, in 36-05-SUMMARY.md): today (raw, unconstrained)
+    // ~79.9s; honest partition ~119.6s; naive splice (delete only, no
+    // rebase) ~81.5s — SLOWER than today, so a "splice beats today"
+    // assertion would be FALSE on this activity — the comparison that holds
+    // is splice vs partition, asserted above; the d-rebased splice measured
+    // here, ~116.6s — FASTER than the honest partition (~119.6s) but NEVER
+    // compared against today's unconstrained figure.
+  });
+
+  it("3475724402@400m: re-measures the d-rebased splice — DELIBERATELY NOT paired with this variant (36-CONTEXT.md finding 2); no ordering is asserted", async () => {
+    const { t, d } = await readRealStream('3475724402');
+    const { segments } = classifyGapsWithSegments(t, d);
+    expect(segments.length).toBeGreaterThan(0);
+
+    const spliced = dRebasedSplice(t, d, segments);
+    expect(spliced.t.length).toBeLessThan(t.length);
+    for (let i = 1; i < spliced.d.length; i++) {
+      expect(spliced.d[i]).toBeGreaterThanOrEqual(spliced.d[i - 1]);
+    }
+    const splicedResult = findBestEffort(spliced.t, spliced.d, 400);
+    expect(splicedResult).toBeDefined();
+
+    const honestPartition = honestPartitionDuration(t, d, segments);
+    expect(honestPartition).toBeDefined();
+
+    // DELIBERATELY NOT paired with the d-rebased variant as this plan's
+    // locked test row (D-02 pins 3475740390 only): the two source documents
+    // disagree about this activity's own d-rebased-vs-partition ordering —
+    // 36-CONTEXT.md finding 2 measured the splice SLOWER than partition here
+    // (roughly 118.8s versus 116.1s), 36-RESEARCH.md's own re-implementation
+    // measured them IDENTICAL (both roughly 116.1s) — so pairing this
+    // variant with this fixture would be an unsatisfiable row either way
+    // (36-RESEARCH.md Pitfall 7). No ordering is asserted below; both
+    // re-measured figures (and which source document this run's own
+    // measurement agrees with), in mm:ss, are recorded in 36-05-SUMMARY.md.
   });
 });
 
