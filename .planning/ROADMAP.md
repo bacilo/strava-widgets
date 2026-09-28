@@ -109,7 +109,7 @@ context, measured facts and decisions in `PROJECT.md` § Current Milestone; requ
 - [x] **Phase 32: Unreliable-Segment Detection & Calibration** - One calibrated detector merges gap-adjacent slew bursts, hidden-pause bursts and isolated GPS jumps into segments that conserve real distance/time, and becomes the single source (completed 2026-09-20)
 - [x] **Phase 33: Coverage Integration — Pace Clipping & Segment Signal** - Pace chart, histogram, splits and coverage caption clip unreliable segments exactly as gaps are clipped; the segment count/metres/seconds/mechanisms surface as a disclosed per-activity quality signal (completed 2026-09-22)
 - [x] **Phase 34: Pause Classification & Forgotten-Stop** - Every gap/merged segment classified stationary/walked/transported; sustained near-zero speed inside recorded time flagged, never corrected (completed 2026-09-23)
-- [ ] **Phase 35: Stream-Derived Running Pace** - A stream-derived running pace (unreliable segments and gaps excluded) shown beside metadata pace; "Pace disputed" extended to fire on material disagreement
+- [x] **Phase 35: Stream-Derived Running Pace** - A stream-derived running pace (unreliable segments and gaps excluded) shown beside metadata pace; "Pace disputed" extended to fire on material disagreement (completed 2026-09-28)
 - [ ] **Phase 36: Best-Effort Clean-Window Search & Ceiling Recalibration** - Efforts spanning an unreliable segment are demoted-and-kept while the search continues in clean sub-intervals; ceiling recalibrated on the excluded population; both diffs signed
 - [ ] **Phase 37: Review-Queue Priority & CUR-04** - Queue reordered by pause class and guard-moved efforts; a reversible "reviewed and kept" action distinct from exclude
 
@@ -455,7 +455,7 @@ Plans:
 | 32. Unreliable-Segment Detection & Calibration | v2.3 | 17/17 | Complete    | 2026-09-20 |
 | 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 14/14 | Complete    | 2026-09-22 |
 | 34. Pause Classification & Forgotten-Stop | v2.3 | 16/16 | Complete    | 2026-09-23 |
-| 35. Stream-Derived Running Pace | v2.3 | 13/13 | In Progress|  |
+| 35. Stream-Derived Running Pace | v2.3 | 13/13 | Complete    | 2026-09-28 |
 | 36. Best-Effort Clean-Window Search & Ceiling Recalibration | v2.3 | 0/TBD | Not started | - |
 | 37. Review-Queue Priority & CUR-04 | v2.3 | 0/TBD | Not started | - |
 

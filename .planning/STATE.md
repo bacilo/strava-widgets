@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
-status: executing
-stopped_at: Phase 35 UI-SPEC approved
-last_updated: "2026-09-24T10:46:30.932Z"
-last_activity: 2026-09-24 -- Phase 35 execution started
+status: ready_to_plan
+stopped_at: Phase 35 complete (13/13) — ready to discuss Phase 36
+last_updated: 2026-09-28T09:02:55.729Z
+last_activity: 2026-09-28 -- Phase 35 complete, verified passed (4/4 criteria)
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 60
-  completed_plans: 47
-  percent: 50
+  completed_plans: 60
+  percent: 67
 ---
 
 # Project State
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 35 — stream-derived-running-pace
+**Current focus:** Phase 36 — best effort clean window search & ceiling recalibration
 
 **Carried into the next milestone** (full list with reasons in PROJECT.md § Active):
 
@@ -46,11 +46,11 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 ## Current Position
 
-Phase: 35 (stream-derived-running-pace) — EXECUTING
-Plan: 1 of 13
+Phase: 36
+Plan: Not started
 browser-checkpoint rows) complete. Plan 09 (Pauses disclosed on the activity detail view)
 preceded it — see prior entries in git history for its own record.
-Status: Executing Phase 35
+Status: Ready to plan
 "Already up to date" — origin/master (`5e902283`) is the exact commit 32-09 already recorded as
 an ancestor; a truthful no-op merge, no nightly-CI commit landed since. All six phase-related
 artifacts (34-CALIBRATION.md, 34-PAUSE03-REMEASUREMENT.md, 34-WALKING-BREAK-EVIDENCE.md,
@@ -120,7 +120,7 @@ re-check note (R3's visual class-label change, R4's further-reworded text, R9's 
 R1/R2/R5/R6/R7/R8 confirmed unaffected). `requirements mark-complete` and `roadmap update-plan-
 progress` deliberately NOT run (Requirement-tick safety instruction) — this plan ticks nothing;
 `status`/`nyquist_compliant` in `34-VALIDATION.md` untouched.
-Last activity: 2026-09-24 -- Phase 35 execution started
+Last activity: 2026-09-28
 
 ## Performance Metrics
 
