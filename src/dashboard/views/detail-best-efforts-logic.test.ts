@@ -41,6 +41,10 @@ function panelRow(overrides: Partial<BestEffortPanelRow> = {}): BestEffortPanelR
     ageDerived: false,
     demoted: false,
     demotionReason: null,
+    contaminated: false,
+    contaminatedReason: null,
+    contaminatedDurationSec: null,
+    contaminatedPaceSecPerKm: null,
     ...overrides,
   };
 }
@@ -254,6 +258,91 @@ describe('buildBestEffortsPanelRows', () => {
     expect(rows.length).toBe(1);
     expect(rows[0].demoted).toBe(false);
     expect(rows[0].demotionReason).toBeNull();
+  });
+});
+
+describe('buildBestEffortsPanelRows — contaminated panel row (Phase 36 D-05/D-15)', () => {
+  it('a shard whose effort carries a full contaminated object populates all four fields with its exact values, and durationSec/paceSecPerKm remain the effort\'s own top-level (clean) values', () => {
+    const entry = activity({
+      efforts: [
+        effort({
+          distance: '400m',
+          durationSec: 79.9,
+          paceSecPerKm: 199.75,
+          contaminated: {
+            guard: 'unreliable-segment',
+            reason: '52 m burst at t=2508',
+            durationSec: 119.6,
+            paceSecPerKm: 299,
+            startOffsetSec: 1308,
+            endOffsetSec: 1427.6,
+          },
+        }),
+      ],
+    });
+    const rows = buildBestEffortsPanelRows(entry, null, null);
+    expect(rows.length).toBe(1);
+    const row = rows[0];
+    expect(row.contaminated).toBe(true);
+    expect(row.contaminatedReason).toBe('52 m burst at t=2508');
+    expect(row.contaminatedDurationSec).toBe(119.6);
+    expect(row.contaminatedPaceSecPerKm).toBe(299);
+    // The row's own (clean, ranked) window must stay distinct from the
+    // original (contaminated) window — a mix-up between the two would
+    // silently swap which figure the owner sees ranked.
+    expect(row.durationSec).toBe(79.9);
+    expect(row.paceSecPerKm).toBe(199.75);
+  });
+
+  it('contaminated: null yields contaminated: false and all three others null — never 0', () => {
+    const entry = activity({
+      efforts: [effort({ distance: '5k', contaminated: null })],
+    });
+    const rows = buildBestEffortsPanelRows(entry, null, null);
+    expect(rows[0].contaminated).toBe(false);
+    expect(rows[0].contaminatedReason).toBeNull();
+    expect(rows[0].contaminatedDurationSec).toBeNull();
+    expect(rows[0].contaminatedPaceSecPerKm).toBeNull();
+  });
+
+  it('T-28-02-A: a stale shard with no contaminated key at all degrades to the same false/null shape rather than throwing', () => {
+    const staleEffort = effort({ distance: '5k' }) as Partial<BestEffort>;
+    delete staleEffort.contaminated;
+    const entry = activity({ efforts: [staleEffort as BestEffort] });
+    const rows = buildBestEffortsPanelRows(entry, null, null);
+    expect(rows.length).toBe(1);
+    expect(rows[0].contaminated).toBe(false);
+    expect(rows[0].contaminatedReason).toBeNull();
+    expect(rows[0].contaminatedDurationSec).toBeNull();
+    expect(rows[0].contaminatedPaceSecPerKm).toBeNull();
+  });
+
+  it('a row that is contaminated AND demoted AND excluded carries all three flags true at once, with three separate unconcatenated reason values', () => {
+    const entry = activity({
+      efforts: [
+        effort({
+          distance: '10k',
+          excludedFromRecords: true,
+          demotion: { guard: 'ceiling', reason: 'implied speed exceeds ceiling' },
+          contaminated: {
+            guard: 'unreliable-segment',
+            reason: 'segment at t=100',
+            durationSec: 3000,
+            paceSecPerKm: 300,
+            startOffsetSec: 0,
+            endOffsetSec: 3000,
+          },
+        }),
+      ],
+    });
+    const rows = buildBestEffortsPanelRows(entry, null, null);
+    const row = rows[0];
+    expect(row.contaminated).toBe(true);
+    expect(row.demoted).toBe(true);
+    expect(row.excluded).toBe(true);
+    expect(row.contaminatedReason).toBe('segment at t=100');
+    expect(row.demotionReason).toBe('implied speed exceeds ceiling');
+    expect(row.contaminatedReason).not.toBe(row.demotionReason);
   });
 });
 

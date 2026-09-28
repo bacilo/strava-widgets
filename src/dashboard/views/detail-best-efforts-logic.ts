@@ -119,6 +119,26 @@ export interface BestEffortPanelRow {
   demoted: boolean;
   /** The demoting guard's reason string, or `null` when `demoted` is false or the reason itself is absent. */
   demotionReason: string | null;
+  /**
+   * True when the clean-window search (Phase 36 D-05) found and excluded an
+   * unreliable segment from this effort's own window — a MACHINE
+   * observation about WHICH window was measured, entirely separate from
+   * `demoted` (a guard's rejection of the measured figure) and from
+   * `excluded` (the owner's stated intent): all three can be true on the
+   * same row at once. This row's own `durationSec`/`paceSecPerKm` ARE the
+   * clean window and rank normally; the four `contaminated*` fields below
+   * describe the ORIGINAL unpartitioned window the ranked figure replaced.
+   * Read via `!= null` (T-28-02-A), so a stale shard shipped before this
+   * field existed degrades to `contaminated: false` and three `null`s
+   * rather than throwing into the render path.
+   */
+  contaminated: boolean;
+  /** The original window's reason string, or `null` when `contaminated` is false or the reason itself is absent. */
+  contaminatedReason: string | null;
+  /** The original (unpartitioned) window's duration in seconds, or `null` when `contaminated` is false. */
+  contaminatedDurationSec: number | null;
+  /** The original (unpartitioned) window's pace in seconds/km, or `null` when `contaminated` is false. */
+  contaminatedPaceSecPerKm: number | null;
 }
 
 /**
@@ -199,6 +219,10 @@ export function buildBestEffortsPanelRows(
       ageDerived: distance === '1k',
       demoted: effort.demotion != null,
       demotionReason: effort.demotion?.reason ?? null,
+      contaminated: effort.contaminated != null,
+      contaminatedReason: effort.contaminated?.reason ?? null,
+      contaminatedDurationSec: effort.contaminated?.durationSec ?? null,
+      contaminatedPaceSecPerKm: effort.contaminated?.paceSecPerKm ?? null,
     });
   }
   return rows;
