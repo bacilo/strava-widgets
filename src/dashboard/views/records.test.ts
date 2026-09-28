@@ -65,6 +65,18 @@ describe('records.ts wiring (source guard) — empty-state and demotion-note ren
     expect(countOccurrences(renderTablesBody, 'countDemotedAtDistance(')).toBe(1);
   });
 
+  it('D-16 (Phase 36): buildPrTableSection calls resolvePrTableContaminationNote exactly once, ADDED beside the existing resolvePrTableDemotionNote call rather than substituted for it', () => {
+    expect(countOccurrences(buildPrTableSectionBody, 'resolvePrTableContaminationNote(')).toBe(1);
+    // The demotion-note call from the assertion above must still be present in the
+    // same function body — this proves the new note was added, not swapped in.
+    expect(countOccurrences(buildPrTableSectionBody, 'resolvePrTableDemotionNote(')).toBe(1);
+  });
+
+  it('D-16 (Phase 36): the render loop (renderTables) calls countContaminatedAtDistance exactly once per distance, ADDED beside the existing countDemotedAtDistance call', () => {
+    expect(countOccurrences(renderTablesBody, 'countContaminatedAtDistance(')).toBe(1);
+    expect(countOccurrences(renderTablesBody, 'countDemotedAtDistance(')).toBe(1);
+  });
+
   it('innerHTML appears zero times in the whole file — no reason string can be injected as markup', () => {
     expect(countOccurrences(recordsStripped, 'innerHTML')).toBe(0);
   });

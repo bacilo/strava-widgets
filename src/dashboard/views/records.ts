@@ -29,8 +29,10 @@ import {
   filterRankingsToYear,
   isEmptyRanking,
   countDemotedAtDistance,
+  countContaminatedAtDistance,
   resolvePrTableEmptyState,
   resolvePrTableDemotionNote,
+  resolvePrTableContaminationNote,
   buildEvolutionSeries,
   buildProgressionRows,
   selectSuperlatives,
@@ -571,7 +573,8 @@ function buildPrTableSection(
   empty: boolean,
   scope: RecordScope,
   year: number,
-  counts: DemotionCounts
+  counts: DemotionCounts,
+  contaminatedCount: number
 ): HTMLElement {
   const section = document.createElement('section');
   section.className = 'card detail-section';
@@ -583,6 +586,10 @@ function buildPrTableSection(
   section.appendChild(heading);
 
   if (empty) {
+    // No ranked contaminated effort to describe here: an empty table has no
+    // ranked rows at all, so buildPrTableEmptyState's own guard-accurate copy
+    // (which already covers the demotion population) is the whole story —
+    // D-16's contamination note only ever appends beside a non-empty table.
     section.appendChild(buildPrTableEmptyState(distance, scope, year, counts));
     return section;
   }
@@ -595,6 +602,19 @@ function buildPrTableSection(
     demotionNote.className = 'text-label';
     demotionNote.textContent = demotionNoteText;
     section.appendChild(demotionNote);
+  }
+
+  // D-16: a second, independent claim about a second, independent
+  // population — "moved but still ranks" vs. "did not rank at all". The two
+  // notes may appear together, and that is correct: they are never merged
+  // into one sentence or one count, so a reader can tell which efforts each
+  // one is talking about.
+  const contaminationNoteText = resolvePrTableContaminationNote(distance, scope, contaminatedCount);
+  if (contaminationNoteText !== null) {
+    const contaminationNote = document.createElement('p');
+    contaminationNote.className = 'text-label';
+    contaminationNote.textContent = contaminationNoteText;
+    section.appendChild(contaminationNote);
   }
 
   if (distance === '1k') {
@@ -682,8 +702,11 @@ function buildPrTablesSection(
       const entries = currentScope === 'this-year' ? filterRankingsToYear(allTimeEntries, year) : allTimeEntries;
       const empty = isEmptyRanking(entries);
       const demotionCounts = countDemotedAtDistance(bestEfforts.activities, distance);
+      const contaminatedCount = countContaminatedAtDistance(bestEfforts.activities, distance);
       const rows = buildPrTableRows(entries, ageGrading, distance, exclusionReasons);
-      tables.push(buildPrTableSection(distance, rows, empty, currentScope, year, demotionCounts));
+      tables.push(
+        buildPrTableSection(distance, rows, empty, currentScope, year, demotionCounts, contaminatedCount)
+      );
     }
     tablesContainer.replaceChildren(...tables);
   }

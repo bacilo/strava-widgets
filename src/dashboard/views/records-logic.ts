@@ -147,21 +147,28 @@ export function isEmptyRanking(entries: readonly PRRankingEntry[] | undefined): 
 
 /**
  * Per-guard breakdown of demoted EFFORTS at one distance (CR-02). `total`
- * is the sum of `ceiling` + `worldRecord` + `maxSpeed` + `other`. `other`
- * counts any demotion whose `guard` value this module does not recognize —
- * a defensive-only case, since `EffortDemotionGuard` is a closed union
- * today, but one a shard written by a future or foreign guard could still
- * produce. `other` is REQUIRED (not optional) so a future test literal
- * cannot silently omit it and reinstate the fold this field exists to
- * close (D-07 of Phase 31) — the compiler enforces every call site. Never
- * confuse this with PR-05's cohort, which is counted in ACTIVITIES
- * elsewhere.
+ * is the sum of `ceiling` + `worldRecord` + `maxSpeed` + `unreliableSegment`
+ * + `other`. `unreliableSegment` counts the no-clean-window demotion (Phase
+ * 36 D-06) by name, as its own field, rather than letting it fall into the
+ * unexplained `other` bucket — this is the THIRD of the guard value's three
+ * required homes (see `EffortDemotionGuard`'s docblock in
+ * `best-effort.types.ts` for the other two), enforced in lockstep by plan
+ * 36-09's `effort-guard-homes.test.ts` audit. `other` counts any demotion
+ * whose `guard` value this module does not recognize — a defensive-only
+ * case, since `EffortDemotionGuard` is a closed union today, but one a
+ * shard written by a future or foreign guard could still produce. Both
+ * `unreliableSegment` and `other` are REQUIRED (not optional) so a future
+ * test literal cannot silently omit either and reinstate the fold these
+ * fields exist to close (D-07 of Phase 31; D-06 of Phase 36) — the compiler
+ * enforces every call site. Never confuse this with PR-05's cohort, which
+ * is counted in ACTIVITIES elsewhere.
  */
 export interface DemotionCounts {
   total: number;
   ceiling: number;
   worldRecord: number;
   maxSpeed: number;
+  unreliableSegment: number;
   other: number;
 }
 
@@ -183,12 +190,30 @@ export interface DemotionCounts {
  * chose. This is what keeps CR-01's fix (which lets an excluded effort
  * carry a ceiling demotion) from inflating the Records-screen count with
  * efforts the owner already removed on their own authority.
+ *
+ * The `'unreliable-segment'` guard value (Phase 36 D-06) has THREE required
+ * homes which must move in lockstep, or a no-clean-window demotion vanishes
+ * or is mis-bucketed with no type error: the `EffortDemotionGuard` union in
+ * `src/analytics/best-effort.types.ts`, `VALID_DEMOTION_GUARDS` in
+ * `src/dashboard/data/best-efforts-client.ts` (an omission there makes the
+ * demotion vanish silently in the browser), and this function's own
+ * per-guard switch below (the THIRD home — an omission here would bucket it
+ * into the unexplained `other` count instead). Plan 36-09's
+ * `src/analytics/effort-guard-homes.test.ts` lockstep audit is what
+ * enforces all three stay in sync.
  */
 export function countDemotedAtDistance(
   activities: BestEffortsDocument['activities'],
   distance: TargetDistanceKey
 ): DemotionCounts {
-  const counts: DemotionCounts = { total: 0, ceiling: 0, worldRecord: 0, maxSpeed: 0, other: 0 };
+  const counts: DemotionCounts = {
+    total: 0,
+    ceiling: 0,
+    worldRecord: 0,
+    maxSpeed: 0,
+    unreliableSegment: 0,
+    other: 0,
+  };
 
   for (const activityId of Object.keys(activities)) {
     if (!hasOwn(activities, activityId)) continue;
@@ -211,6 +236,9 @@ export function countDemotedAtDistance(
         case 'max-speed':
           counts.maxSpeed++;
           break;
+        case 'unreliable-segment':
+          counts.unreliableSegment++;
+          break;
         default:
           // Unrecognized guard value — a closed union today, defensive
           // against a shard written by a future guard. Still counts toward
@@ -231,11 +259,15 @@ export function countDemotedAtDistance(
  * Builds the shared, guard-accurate sentence both `resolvePrTableDemotionNote`
  * and `resolvePrTableEmptyState`'s all-time-with-demotions branch use, so the
  * two copy surfaces cannot drift apart (CR-02). Zero-count parts are omitted;
- * the fixed order is ceiling, world-record, max-speed, then `other` LAST
- * (D-07 of Phase 31) — an unrecognized guard is always the trailing part, so
- * the displayed total can never exceed the sum of the parts a reader sees.
- * Register: named condition plus measured value (Phase 27 D-09) — a guard's
- * name plus its count, never an adjective.
+ * the fixed order is ceiling, world-record, max-speed, unreliable-segment
+ * (Phase 36 D-06), then `other` LAST (D-07 of Phase 31) — an unrecognized
+ * guard is always the trailing part, so the displayed total can never exceed
+ * the sum of the parts a reader sees. `other` stays last even now that a
+ * fourth named guard exists, for the same reason it was placed last
+ * originally: a future or foreign guard this module does not yet recognize
+ * must never be mistaken for one of the guards named above it. Register:
+ * named condition plus measured value (Phase 27 D-09) — a guard's name plus
+ * its count, never an adjective.
  */
 function describeDemotionCounts(label: string, counts: DemotionCounts): string {
   const effortWord = counts.total === 1 ? 'effort' : 'efforts';
@@ -245,6 +277,9 @@ function describeDemotionCounts(label: string, counts: DemotionCounts): string {
   if (counts.ceiling > 0) parts.push(`${counts.ceiling} by the personal ceiling`);
   if (counts.worldRecord > 0) parts.push(`${counts.worldRecord} by the world-record pace guard`);
   if (counts.maxSpeed > 0) parts.push(`${counts.maxSpeed} by the activity max-speed guard`);
+  if (counts.unreliableSegment > 0) {
+    parts.push(`${counts.unreliableSegment} by the unreliable-segment guard (no clean window at this distance)`);
+  }
   if (counts.other > 0) parts.push(`${counts.other} by another guard`);
   const breakdown = parts.length > 0 ? ` (${parts.join(', ')})` : '';
 
@@ -320,6 +355,78 @@ export function resolvePrTableDemotionNote(
 
   const label = DISTANCE_DISPLAY_NAMES[distance];
   return describeDemotionCounts(label, counts);
+}
+
+/**
+ * Counts EFFORTS at `distance` across every activity in `activities` whose
+ * unpartitioned window intersected an unreliable segment but which still
+ * RANK on a clean sub-interval (Phase 36 D-05/D-16) — the
+ * `effort.contaminated != null` population. This is D-16's disclosure
+ * mechanism for the phase's largest effect on the ranking: without it, the
+ * ~1,200 moved-but-ranked efforts are invisible on the Records screen, since
+ * D-06 only gives a `demotion` to the (much smaller) no-clean-window
+ * population `countDemotedAtDistance` above already counts.
+ *
+ * Derived by WALKING the shipped document with a plain `for` loop over
+ * `Object.keys(activities)` — deliberately NOT `.filter`/`.reduce` — mirroring
+ * `compute-best-efforts.ts:450-462`'s `effortsDemoted` precedent, so a
+ * source-text audit can tell this read-only count apart from a mutation, and
+ * so the count can never drift from what a consumer of the same document
+ * actually sees (it is never threaded through the pipeline as an incrementing
+ * counter). Uses the same `hasOwn` guard as `countDemotedAtDistance` and
+ * `buildEvolutionSeries`.
+ *
+ * A contaminated effort still RANKS — this is NOT a demotion count, and this
+ * count and `countDemotedAtDistance`'s total must never be added together or
+ * presented as one number: they describe two different populations (D-16,
+ * T-36-51). Skips `effort.excludedFromRecords === true` (D-10), exactly as
+ * `countDemotedAtDistance` does, so the machine's observation about a clean
+ * window never leaks into a sentence about what the owner chose to exclude.
+ * Reads `effort.contaminated` only through `!= null` (T-28-02-A style), so a
+ * stale shard written before this field existed degrades to "not
+ * contaminated" rather than throwing.
+ */
+export function countContaminatedAtDistance(
+  activities: BestEffortsDocument['activities'],
+  distance: TargetDistanceKey
+): number {
+  let count = 0;
+
+  for (const activityId of Object.keys(activities)) {
+    if (!hasOwn(activities, activityId)) continue;
+    const activity = activities[activityId];
+    if (!activity) continue;
+
+    for (const effort of activity.efforts) {
+      if (effort.distance !== distance) continue;
+      if (effort.excludedFromRecords === true) continue;
+      if (effort.contaminated != null) count++;
+    }
+  }
+
+  return count;
+}
+
+/**
+ * The Records-screen note for D-16's contamination count, mirroring
+ * `resolvePrTableDemotionNote`'s two `null` rules exactly: `null` when
+ * `contaminatedCount` is 0 — nothing to disclose — and `null` for `scope ===
+ * 'this-year'` (WR-01), since the count is archive-wide and would otherwise
+ * misleadingly sit under a year-filtered table, implying those efforts moved
+ * within the filtered year. Register: measured numbers, not adjectives
+ * (Phase 27 D-09).
+ */
+export function resolvePrTableContaminationNote(
+  distance: TargetDistanceKey,
+  scope: RecordScope,
+  contaminatedCount: number
+): string | null {
+  if (scope === 'this-year') return null;
+  if (contaminatedCount === 0) return null;
+
+  const label = DISTANCE_DISPLAY_NAMES[distance];
+  const effortWord = contaminatedCount === 1 ? 'effort' : 'efforts';
+  return `${contaminatedCount} all-time ${label} ${effortWord} rank on a clean window after an unreliable segment was excluded from the original window; the original time and the segment are named on each activity's detail view.`;
 }
 
 /** The two scopes OVR-03 names. Nothing persists this value — D-04. */

@@ -89,6 +89,68 @@ describe('deriveFlaggedActivities — D-01 population (all guards, not ceiling-o
     const rows = deriveFlaggedActivities(doc, {});
     expect(rows.length).toBe(0);
   });
+
+  // D-17 evidence (Phase 36, plan 36-09): Phase 36 adds the 'unreliable-segment' guard value.
+  // No file under scripts/curate-queue/ is touched by Phase 36 — this describe block already
+  // existed as D-01's "not ceiling-only" population proof, and these three tests extend it with
+  // the new guard specifically. This is EVIDENCE that the untouched queue admits the new guard
+  // through the same guard-agnostic path it already uses for the other three, not a queue
+  // feature: D-17 explicitly forbids assuming this without a test proving it, because
+  // VALID_DEMOTION_GUARDS (the browser's allowlist) is exactly the kind of mechanism that fails
+  // silently on an unlisted guard, and deriveFlaggedActivities has no allowlist of its own to
+  // fail the same way.
+  it('D-17 evidence: a best-efforts document whose only demoted effort carries the new unreliable-segment guard produces exactly one queue row, with guard and reason passed through verbatim (no allowlist filters it out)', () => {
+    const reason = 'no clean window at this distance: every candidate window intersects a detected unreliable segment';
+    const doc = {
+      activities: {
+        a1: activity('2024-01-01T00:00:00Z', [effort('10k', 'unreliable-segment', reason)]),
+      },
+    };
+    const rows = deriveFlaggedActivities(doc, {});
+    expect(rows.length).toBe(1);
+    expect(rows[0].flaggedEfforts.length).toBe(1);
+    expect(rows[0].flaggedEfforts[0].guard).toBe('unreliable-segment');
+    expect(rows[0].flaggedEfforts[0].reason).toBe(reason);
+    // A filtered derivation (an allowlist checking only the original three guards) would have
+    // dropped this row entirely — the row count above, not just the guard string, is the proof
+    // there is no allowlist: a filter that silently excluded 'unreliable-segment' would still
+    // pass a bare guard-string assertion on a row that was never produced. Asserting length 1
+    // catches that failure mode the guard-string assertion alone would miss.
+    expect(rows.length).not.toBe(0);
+  });
+
+  it('D-17 evidence: a document mixing all FOUR guards on one activity produces four flagged efforts — a derivation that knew only the original three would return 3', () => {
+    const doc = {
+      activities: {
+        a1: activity('2024-01-01T00:00:00Z', [
+          effort('400m', 'ceiling', 'ceiling reason'),
+          effort('1k', 'world-record', 'wr reason'),
+          effort('1mi', 'max-speed', 'ms reason'),
+          effort('10k', 'unreliable-segment', 'no clean window at this distance'),
+        ]),
+      },
+    };
+    const rows = deriveFlaggedActivities(doc, {});
+    expect(rows.length).toBe(1);
+    expect(rows[0].flaggedEfforts.length).toBe(4);
+    const guards = rows[0].flaggedEfforts.map((e) => e.guard).sort();
+    expect(guards).toEqual(['ceiling', 'max-speed', 'unreliable-segment', 'world-record']);
+  });
+
+  it('D-17 evidence: buildPrefillReason includes the unreliable-segment effort line, so the prefill the queue writes is not silently missing it', () => {
+    const doc = {
+      activities: {
+        a1: activity('2024-01-01T00:00:00Z', [
+          effort('1k', 'world-record', 'wr reason'),
+          effort('10k', 'unreliable-segment', 'no clean window at this distance'),
+        ]),
+      },
+    };
+    const rows = deriveFlaggedActivities(doc, {});
+    expect(rows.length).toBe(1);
+    expect(rows[0].prefillReason).toContain('10k: no clean window at this distance');
+    expect(rows[0].prefillReason).toBe('1k: wr reason\n10k: no clean window at this distance');
+  });
 });
 
 describe('deriveFlaggedActivities — D-03 one row per activity', () => {
