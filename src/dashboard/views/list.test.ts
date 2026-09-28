@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import {
   formatActivityDate,
   formatPace,
+  formatDurationHms,
   formatEffortDuration,
   highlightAndFocus,
   statusBadgeTexts,
@@ -1647,5 +1648,216 @@ describe('Task 3 (33-11): end-to-end badge proof on the named activities — com
       return qualityBadgeSpecs(row).find((s) => s.signal === 'unreliableSegments');
     });
     expect(specsPerActivity.some((s) => s !== undefined)).toBe(true);
+  });
+});
+
+/**
+ * Task 3 (35-11): ROADMAP criterion 4's automated half — "the metadata pace
+ * figure and device moving_time are byte-identical on lists, stats
+ * documents and widgets", proven by regression assertions rather than by
+ * intention. 35-VALIDATION.md's criterion-4 row explicitly requires this
+ * automated half in addition to a served-build browser confirmation
+ * (Manual-Only Verifications, "Metadata pace / moving_time byte-identical
+ * on lists, stats documents and widgets" — absence-only browser rows are
+ * not sufficient alone).
+ *
+ * `renderActivityRow`/`buildTableRow` themselves cannot be invoked in this
+ * suite (vitest runs with `environment: 'node'`, no DOM-simulation library
+ * anywhere in this tree — the same constraint `rowIdPrefix`'s own describe
+ * block above documents). Both cells are single-expression assignments
+ * (`list.ts`: `paceTd.textContent = formatPace(row.paceSecPerKm)`,
+ * `movingTimeTd.textContent = formatDurationHms(row.movingTimeSec)`, and
+ * the mobile card's summary line folds the same two calls into one
+ * `metaEl.textContent` string), so the strongest DOM-free proof available
+ * is: (a) a source scan proving those are the ONLY expressions feeding the
+ * three text nodes (no read of `paceDisagreement`/`runningPace` anywhere
+ * near them), combined with (b) a pure-value equality proving `formatPace`/
+ * `formatDurationHms` produce byte-identical output whether or not a row
+ * carries `paceDisagreement`/`runningPace`, against an INDEPENDENTLY
+ * computed pace rather than the row's own `paceSecPerKm` field. Together
+ * these are at least as strong as an actual DOM render would be, since (a)
+ * constrains every possible input to the cells and (b) constrains the
+ * output for the one input that remains. The literal served-build
+ * rendering is additionally confirmed by the mandatory browser checkpoint
+ * (plan 35-13).
+ */
+describe('criterion 4 regression (35-11 Task 3) — metadata pace and moving_time are unaffected by paceDisagreement/runningPace', () => {
+  const listSource = readFileSync(new URL('./list.ts', import.meta.url), 'utf8');
+  const listStripped = stripComments(listSource);
+
+  it('the pace cell equals formatPace(movingTimeSec / (distanceM / 1000)) computed independently in this test from the fixture\'s own metadata, not from row.paceSecPerKm', () => {
+    const distanceM = 12345;
+    const movingTimeSec = 3456;
+    const independentPaceSecPerKm = movingTimeSec / (distanceM / 1000);
+
+    const row = baseRow({
+      distanceM,
+      movingTimeSec,
+      paceSecPerKm: independentPaceSecPerKm,
+    });
+
+    // `formatPace(row.paceSecPerKm)` is exactly what `list.ts`'s pace cell
+    // and mobile-card summary line compute (see the source-wiring block
+    // below) — asserted here against the independently-derived value, not
+    // read back from the row's own field.
+    expect(formatPace(row.paceSecPerKm)).toBe(formatPace(independentPaceSecPerKm));
+    expect(row.paceSecPerKm).toBe(independentPaceSecPerKm);
+  });
+
+  it('the pace cell and the moving-time cell are byte-identical between a with-fields render and a without-fields render of the SAME metadata, while the badge set differs (the criterion-4 pair)', () => {
+    const distanceM = 8000;
+    const movingTimeSec = 2000;
+    const paceSecPerKm = movingTimeSec / (distanceM / 1000);
+
+    const withFields = baseRow({
+      distanceM,
+      movingTimeSec,
+      paceSecPerKm,
+      paceDisagreement: { runningPaceSecPerKm: 280.4, metadataPaceSecPerKm: paceSecPerKm, ratio: 1.02 },
+      runningPace: {
+        runningPaceSecPerKm: 280.4,
+        excludedM: 120.5,
+        excludedSec: 45.2,
+        computable: true,
+        notComputableReason: null,
+      },
+    });
+    const withoutFields = baseRow({
+      distanceM,
+      movingTimeSec,
+      paceSecPerKm,
+      paceDisagreement: null,
+      runningPace: null,
+    });
+
+    // The claim itself: the new fields change badges, never figures.
+    expect(formatPace(withFields.paceSecPerKm)).toBe(formatPace(withoutFields.paceSecPerKm));
+    expect(formatDurationHms(withFields.movingTimeSec)).toBe(formatDurationHms(withoutFields.movingTimeSec));
+
+    // The difference that SHOULD appear — without this, the invariance
+    // assertion above could pass against a render that produced nothing at
+    // all for either row.
+    expect(statusBadgeTexts(withFields)).toContain(PACE_DISPUTED_BADGE_TEXT);
+    expect(statusBadgeTexts(withoutFields)).not.toContain(PACE_DISPUTED_BADGE_TEXT);
+  });
+
+  it('source wiring: the desktop pace cell and moving-time cell are built from exactly one expression each, neither reading paceDisagreement or runningPace', () => {
+    expect(listStripped).toContain('paceTd.textContent = formatPace(row.paceSecPerKm)');
+    expect(listStripped).toContain('movingTimeTd.textContent = formatDurationHms(row.movingTimeSec)');
+    // Exactly one assignment to each cell in the whole file — no second,
+    // conditional writer that could substitute a different value depending
+    // on the new fields.
+    expect((listStripped.match(/paceTd\.textContent\s*=/g) || []).length).toBe(1);
+    expect((listStripped.match(/movingTimeTd\.textContent\s*=/g) || []).length).toBe(1);
+  });
+
+  it('source wiring: the mobile card summary line folds the same two calls (formatDurationHms(row.movingTimeSec), formatPace(row.paceSecPerKm)) into metaEl.textContent, with no other read of paceDisagreement/runningPace feeding it', () => {
+    const metaLineIndex = listStripped.indexOf('metaEl.textContent =');
+    expect(metaLineIndex).toBeGreaterThanOrEqual(0);
+    const metaLine = listStripped.slice(metaLineIndex, metaLineIndex + 200);
+    expect(metaLine).toContain('formatDurationHms(row.movingTimeSec)');
+    expect(metaLine).toContain('formatPace(row.paceSecPerKm)');
+    expect(metaLine).not.toContain('paceDisagreement');
+    expect(metaLine).not.toContain('runningPace');
+  });
+
+  /**
+   * Recursive `.ts`-file walk (mirrors `pace-single-source.test.ts`'s
+   * `readSourceTree`, a knowing third copy for this file's own isolation,
+   * following `stripComments`'s own documented precedent three copies deep
+   * already in this codebase) — built fresh at test time so a newly added
+   * widget file is covered automatically, per the plan's own requirement.
+   * Unreadable directories/files are recorded as failures rather than
+   * silently skipped, so a scan that could not read part of the tree does
+   * not silently pass.
+   */
+  function walkTsFiles(rootUrl: URL, label: string): { path: string; source: string }[] {
+    const files: { path: string; source: string }[] = [];
+    let entries: import('node:fs').Dirent<string>[];
+    try {
+      entries = readdirSync(rootUrl, { withFileTypes: true, encoding: 'utf8' });
+    } catch (error) {
+      throw new Error(`walkTsFiles: unreadable directory ${label}: ${String(error)}`);
+    }
+    for (const entry of entries) {
+      const isDir = entry.isDirectory();
+      const entryUrl = new URL(entry.name + (isDir ? '/' : ''), rootUrl);
+      const entryLabel = `${label}${entry.name}`;
+      if (isDir) {
+        files.push(...walkTsFiles(entryUrl, `${entryLabel}/`));
+        continue;
+      }
+      if (!entry.name.endsWith('.ts') || entry.name.endsWith('.test.ts')) continue;
+      files.push({ path: entryLabel, source: readFileSync(entryUrl, 'utf8') });
+    }
+    return files;
+  }
+
+  const FORBIDDEN_IDENTIFIERS = ['runningPace', 'RunningPaceRow', 'deriveRunningPace'] as const;
+
+  // Widget entry points (grepped at plan time, 2026-09-28): TWO directories
+  // hold widget entry points in this tree — `src/widgets/` (the current
+  // eleven-widget suite: comparison-chart, geo-stats-widget,
+  // geo-table-widget, heatmap-widget, map-test-widget, multi-run-overlay,
+  // pin-map-widget, route-browser, shared, single-run-map, stats-card,
+  // streak-widget) and `src/widget/` (singular — the older embeddable
+  // weekly-bar-chart widget, `chart-config.ts`/`index.ts`). Both are walked
+  // so a criterion-4 violation cannot hide in the less-obvious singular
+  // directory.
+  it('no file under src/widgets/ or src/widget/ references runningPace, RunningPaceRow or deriveRunningPace (comment-stripped)', () => {
+    const widgetFiles = [
+      ...walkTsFiles(new URL('../../widgets/', import.meta.url), 'src/widgets/'),
+      ...walkTsFiles(new URL('../../widget/', import.meta.url), 'src/widget/'),
+    ];
+    expect(widgetFiles.length).toBeGreaterThan(0);
+
+    const violations: { path: string; needle: string }[] = [];
+    for (const file of widgetFiles) {
+      const stripped = stripComments(file.source);
+      for (const needle of FORBIDDEN_IDENTIFIERS) {
+        if (stripped.includes(needle)) violations.push({ path: file.path, needle });
+      }
+    }
+    expect(violations, JSON.stringify(violations)).toEqual([]);
+  });
+
+  // Stats-computation source: `src/analytics/` (recursive) EXCLUDING the
+  // three files that are the legitimate producer/type-definition side of
+  // this feature (`pace-derivation.ts` defines `deriveRunningPace`;
+  // `compute-dashboard-index.ts` calls it and writes `row.runningPace`;
+  // `dashboard-index.types.ts` declares `RunningPaceRow`) — those three are
+  // WHERE the identifiers are meant to live, not a criterion-4 violation.
+  // Also walks `src/geo/`, `src/exports/` and the two root pipeline-step
+  // files `src/compute-all-stats-steps.ts` / `src/index.ts` (grepped at
+  // plan time: these are the other stats-computation/document-producing
+  // sources in this tree outside `src/analytics/` and `src/dashboard/`).
+  it('no stats-computation source references runningPace, RunningPaceRow or deriveRunningPace, outside the three files that legitimately define/produce them', () => {
+    const LEGITIMATE_PRODUCER_SUFFIXES = [
+      'src/analytics/pace-derivation.ts',
+      'src/analytics/compute-dashboard-index.ts',
+      'src/analytics/dashboard-index.types.ts',
+    ];
+
+    const statsFiles = [
+      ...walkTsFiles(new URL('../../analytics/', import.meta.url), 'src/analytics/'),
+      ...walkTsFiles(new URL('../../geo/', import.meta.url), 'src/geo/'),
+      ...walkTsFiles(new URL('../../exports/', import.meta.url), 'src/exports/'),
+    ];
+    expect(statsFiles.length).toBeGreaterThan(0);
+
+    const rootFiles = ['compute-all-stats-steps.ts', 'index.ts'].map((name) => ({
+      path: `src/${name}`,
+      source: readFileSync(new URL(`../../${name}`, import.meta.url), 'utf8'),
+    }));
+
+    const violations: { path: string; needle: string }[] = [];
+    for (const file of [...statsFiles, ...rootFiles]) {
+      if (LEGITIMATE_PRODUCER_SUFFIXES.includes(file.path)) continue;
+      const stripped = stripComments(file.source);
+      for (const needle of FORBIDDEN_IDENTIFIERS) {
+        if (stripped.includes(needle)) violations.push({ path: file.path, needle });
+      }
+    }
+    expect(violations, JSON.stringify(violations)).toEqual([]);
   });
 });
