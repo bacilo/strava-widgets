@@ -598,3 +598,77 @@ describe('findBestEffort — bounds (36-02, PR-06)', () => {
     });
   });
 });
+
+/**
+ * The three scoping activities' 400m BEFORE figures — ROADMAP criterion 4's
+ * pinned permanent regression fixtures (36-02, PR-06/PR-09). Every case
+ * below lives under one describe whose title contains "scoping activities"
+ * so `npx vitest run ... -t "scoping activities"` selects exactly this
+ * group.
+ *
+ * BEFORE STATE: these are the unconstrained sweep's answer as it stands
+ * TODAY — the contaminated figure the phase's clean-window search must
+ * still reproduce once it lands (this plan does not implement the search;
+ * it only pins what "before" means). They are NOT the after figures. The
+ * after figures — 4:59/km, 4:50/km, 5:08/km respectively (36-CONTEXT.md's
+ * "Measured during this discussion" table) — are named here purely as
+ * references to reconcile against once the clean-window search exists; they
+ * are never asserted in this file. Plan 36-05 owns the after-state
+ * assertions.
+ *
+ * If any activity's mm:ss does not come out as the pinned string below, this
+ * is a HALT: the archive has moved under a figure ROADMAP criterion 4 pins,
+ * which is a developer decision. Do not adjust the pinned string or widen
+ * the tolerance to make the test pass.
+ */
+describe('findBestEffort — scoping activities, 400m BEFORE regression fixtures (ROADMAP criterion 4, 36-02)', () => {
+  /** mm:ss conversion, computed locally — this file is analytics, must not import a dashboard formatter. */
+  function paceMinSec(paceSecPerKm: number): string {
+    return `${Math.floor(paceSecPerKm / 60)}:${String(Math.round(paceSecPerKm) % 60).padStart(2, '0')}`;
+  }
+
+  it('3475740390 @ 400m: BEFORE pace is 3:20/km — the window starts on the 52m jump at t=2508, SEG-03\'s own named fixture', () => {
+    const { t, d } = readStream('3475740390');
+    const result = findBestEffort(t, d, TARGET_METERS['400m']);
+    expect(result).toBeDefined();
+    if (!result) return;
+
+    const paceSecPerKm = result.durationSec / (TARGET_METERS['400m'] / 1000);
+    expect(paceMinSec(paceSecPerKm)).toBe('3:20');
+    expect(result.durationSec).toBeCloseTo(79.9, 1);
+    expect(Number.isInteger(result.startIndex)).toBe(true);
+    expect(Number.isInteger(result.endIndex)).toBe(true);
+    expect(result.endIndex).toBeGreaterThan(result.startIndex);
+    expect(t[result.startIndex]).toBe(result.startOffsetSec);
+  });
+
+  it('3475724402 @ 400m: BEFORE pace is 3:21/km', () => {
+    const { t, d } = readStream('3475724402');
+    const result = findBestEffort(t, d, TARGET_METERS['400m']);
+    expect(result).toBeDefined();
+    if (!result) return;
+
+    const paceSecPerKm = result.durationSec / (TARGET_METERS['400m'] / 1000);
+    expect(paceMinSec(paceSecPerKm)).toBe('3:21');
+    expect(result.durationSec).toBeCloseTo(80.4, 1);
+    expect(Number.isInteger(result.startIndex)).toBe(true);
+    expect(Number.isInteger(result.endIndex)).toBe(true);
+    expect(result.endIndex).toBeGreaterThan(result.startIndex);
+    expect(t[result.startIndex]).toBe(result.startOffsetSec);
+  });
+
+  it('3475734189 @ 400m: BEFORE pace is 3:22/km', () => {
+    const { t, d } = readStream('3475734189');
+    const result = findBestEffort(t, d, TARGET_METERS['400m']);
+    expect(result).toBeDefined();
+    if (!result) return;
+
+    const paceSecPerKm = result.durationSec / (TARGET_METERS['400m'] / 1000);
+    expect(paceMinSec(paceSecPerKm)).toBe('3:22');
+    expect(result.durationSec).toBeCloseTo(80.8, 1);
+    expect(Number.isInteger(result.startIndex)).toBe(true);
+    expect(Number.isInteger(result.endIndex)).toBe(true);
+    expect(result.endIndex).toBeGreaterThan(result.startIndex);
+    expect(t[result.startIndex]).toBe(result.startOffsetSec);
+  });
+});
