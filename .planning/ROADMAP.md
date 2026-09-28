@@ -398,7 +398,49 @@ Plans:
 
 **Note (32-CONTEXT.md D-04, 2026-09-19):** every unreliable segment receives one downstream treatment regardless of mechanism. Clipping pace or barring a window withholds a claim; it never alters distance, totals or splits. No per-mechanism branch.
 
-**Plans**: TBD
+**Plans**: 14 plans
+Plans:
+**Wave 1**
+
+- [ ] 36-01-PLAN.md — Dated amendments recording every delegated resolution, D-08's measured unsatisfiability and D-02's variant/fixture pinning
+- [ ] 36-02-PLAN.md — `findBestEffort` gains a zero-copy half-open index bound; the three scoping activities' 400m BEFORE figures pinned
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 36-03-PLAN.md — `ComputedEffort.contaminated`, the widened guard union with D-08's precedence prose, and the browser's total parser plus allowlist
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 36-04-PLAN.md — The clean-window partition search inside Pass 1, with the whole-merged-span complement and the two record branches
+- [ ] 36-08-PLAN.md — D-15: the detail view's contaminated badge with its own visual modifier
+- [ ] 36-09-PLAN.md — D-16 records disclosure, the named guard case, the three-homes lockstep audit and D-17's queue evidence
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [ ] 36-05-PLAN.md — D-02's splice demonstration, D-08's two real fixtures, D-14's ceiling-population proof and SEG-05b's stub proof
+- [ ] 36-06-PLAN.md — D-01's archive-wide equivalence and D-03's overlap invariant, watched red on a one-index widening
+- [ ] 36-07-PLAN.md — D-11: the ceiling-state write gate at the CLI flag boundary, closing 28 WR-06
+
+**Wave 5** *(blocked on Wave 4)*
+
+- [ ] 36-10-PLAN.md — D-09/D-10/D-12: the `36-CEILING-RECALIBRATION.md` artifact of record with a measured cause per row
+
+**Wave 6** *(blocked on Wave 5)*
+
+- [ ] 36-11-PLAN.md — PR-09 leg 1: the archive-wide `36-DIFF.md` with its internal guard-count reconciliation
+
+**Wave 7** *(blocked on Wave 6)*
+
+- [ ] 36-12-PLAN.md — PR-09 leg 3: the zero-import, fails-closed recount watched red on a planted broken partitioner
+
+**Wave 8** *(blocked on Wave 7)*
+
+- [ ] 36-13-PLAN.md — MERGE-01: merge origin, regenerate both artifacts, digest-verified gate, bind the verification map and freeze the checkpoint rows
+
+**Wave 9** *(blocked on Wave 8)*
+
+- [ ] 36-14-PLAN.md — Browser checkpoint, PR-09's developer signature, per-requirement disposition and SEG-05b's final half
+
 **UI hint**: yes
 
 ### Phase 37: Review-Queue Priority & CUR-04
