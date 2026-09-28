@@ -513,7 +513,7 @@ describe('source wiring — detail-sections.ts / detail.ts (text-structure guard
   // instead — the same idiom this file already uses above.
   // ---------------------------------------------------------------------
 
-  it('D-13 wiring: detail.ts derives the buildSplitsSection average from the disagreement branch — the stream-derived pace when flagged, the metadata pace otherwise', () => {
+  it('D-13 wiring: detail.ts derives the buildSplitsSection average from the disagreement branch — the running pace when flagged, the metadata pace otherwise (35-11: the population-widening consequence — this line is unchanged by plan 35-11, only the copy that describes its result was retargeted)', () => {
     expect(detailStripped).toContain(
       'const rebasedAveragePaceSecPerKm = disagreement !== null ? disagreement.runningPaceSecPerKm : paceSecPerKm;'
     );
@@ -533,11 +533,61 @@ describe('source wiring — detail-sections.ts / detail.ts (text-structure guard
     expect(detailSectionsStripped).toContain('formatPace(activityAvgPaceSecPerKm)');
   });
 
-  it('D-13 caption-note copy string is present verbatim in detail-sections.ts', () => {
+  it('D-13 caption-note copy string is present verbatim in detail-sections.ts, retargeted to name the running pace (35-11, 33-D-11)', () => {
     expect(detailSectionsStripped).toContain(
-      'Splits above are compared against the stream-derived average'
+      'Splits above are compared against the running pace'
     );
     expect(detailSectionsStripped).toContain('not the disputed metadata average.');
+    // The retired wording no longer uniquely names one number (both the
+    // retired span-based pace and the running pace are stream-derived) and
+    // must not survive the retarget anywhere in this file.
+    expect(detailSectionsStripped).not.toContain('stream-derived average');
+  });
+
+  // ---------------------------------------------------------------------
+  // 35-11 (Task 2): the rebase note and the vs. Avg bars must move together
+  // onto the running pace, and stay off it when the activity is not
+  // disputed. `buildSplitsSection` and `buildPaceBarCell` both call
+  // `document.createElement` directly, and this suite runs under vitest's
+  // `environment: 'node'` with no DOM-simulation library installed anywhere
+  // in this tree (confirmed: no jsdom/happy-dom dependency) — the SAME
+  // constraint this file's own header comment already documents for
+  // `buildBreakdownSection`/`buildSplitsSection`. These two builders
+  // therefore cannot be invoked here; the assertions below are the
+  // strongest DOM-free proof available (single-parameter source wiring),
+  // and the value-level claim — that the rendered bars actually differ
+  // between a rebased and a non-rebased call on the same splits — is
+  // covered only by the mandatory human browser checkpoint (plan 35-13),
+  // per 35-VALIDATION.md's "Splits 'vs. Avg' bars rebase to the running
+  // pace on the widened badged population" Manual-Only row, extending the
+  // "unit + manual" D-09 row already on that table.
+  // ---------------------------------------------------------------------
+
+  it('the rebase footnote is emitted from exactly ONE call site in buildSplitsSection, gated by isRebasedAverage && activityAvgPaceSecPerKm !== null — proving the false/null direction renders no footnote at all, not merely a differently-worded one', () => {
+    const body = isolateFunctionBody(detailSectionsStripped, 'function buildSplitsSection(');
+    const guardNeedle = 'if (isRebasedAverage && activityAvgPaceSecPerKm !== null)';
+    const noteNeedle = 'Splits above are compared against the running pace';
+
+    expect(countOccurrences(body, noteNeedle)).toBe(1);
+    const guardIndex = body.indexOf(guardNeedle);
+    const noteIndex = body.indexOf(noteNeedle);
+    expect(guardIndex).toBeGreaterThanOrEqual(0);
+    expect(noteIndex).toBeGreaterThan(guardIndex);
+
+    // No second, unconditional emission of the same note exists anywhere
+    // else in the file — the guarded call site above is the only source.
+    expect(countOccurrences(detailSectionsStripped, noteNeedle)).toBe(1);
+  });
+
+  it('the vs. Avg bars and the rebase footnote read the SAME activityAvgPaceSecPerKm parameter — a rebased and a non-rebased call cannot show the note and the bars disagreeing, because both read one parameter, not two independently-set values', () => {
+    const body = isolateFunctionBody(detailSectionsStripped, 'function buildSplitsSection(');
+
+    expect(body).toContain('buildPaceBarCell(split, activityAvgPaceSecPerKm)');
+    expect(body).toContain('formatPace(activityAvgPaceSecPerKm)');
+    // Exactly one parameter of this name in the signature — no second,
+    // differently-scoped average exists for the bars to read from while the
+    // note reads another.
+    expect(countOccurrences(body, 'activityAvgPaceSecPerKm: number | null')).toBe(1);
   });
 
   it('negative case 4 (marking removed) is pinned permanently in this suite, not just described', () => {
