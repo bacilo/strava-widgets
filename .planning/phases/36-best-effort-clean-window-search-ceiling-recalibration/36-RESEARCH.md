@@ -859,10 +859,19 @@ try {
 
 **If this table is empty:** N/A — see above.
 
-## Open Questions
+## Open Questions (ALL RESOLVED during planning, 2026-09-28)
 
-1. **Does the "no clean window AND independently implausible" combination the planner should test
-   for D-08 need to exist at all, or is documenting its unsatisfiability sufficient?**
+> All three were substantively settled while the Phase 36 plan set was written. Each resolution and
+> its owning plan is recorded inline below. Nothing here is a blocking unknown at execution time.
+
+1. **(RESOLVED — 36-03, 36-04)** **Does the "no clean window AND independently implausible"
+   combination the planner should test for D-08 need to exist at all, or is documenting its
+   unsatisfiability sufficient?**
+   **Resolution:** documenting it is sufficient. Plan 36-01 amends PR-07 and ROADMAP criterion 2 to
+   record the unsatisfiability *before* any test exists; the defensive precedence code is written
+   (stated in D-08's docblock, plans 36-03/36-04) and **no synthetic fixture is built** for the
+   vacuous combination. Plan 36-05 T2 demonstrates the adjacent *moved* case instead, on the real
+   fixtures `3475725842` and `3475713251`.
    - What we know: 0 of 440 real no-clean-window occurrences today independently fail an absolute
      guard on their raw figure (verified this session).
    - What's unclear: whether a future archive growth could produce one, and whether the plan should
@@ -875,15 +884,21 @@ try {
      per Pitfall 12's discipline (a synthetic look-alike fixture risks not discriminating the real
      failure mode).
 
-2. **Exact wording/format for D-07's reason string and D-12's generated prose is not fully specified
-   here** (deliberately — both are Claude's Discretion bound only by measured-numbers/bounded-length
-   and by-cause-explained respectively). The planner should draft exact copy during plan-writing, not
-   here.
+2. **(RESOLVED — 36-04, 36-10)** **Exact wording/format for D-07's reason string and D-12's
+   generated prose is not fully specified here** (deliberately — both are Claude's Discretion bound
+   only by measured-numbers/bounded-length and by-cause-explained respectively).
+   **Resolution:** drafted during plan-writing as intended. D-07's reason builder is specified in
+   plan 36-04; D-12's generated prose is specified in plan 36-10.
 
-3. **`compute-all-stats-steps.ts`'s exact mechanism for threading a per-invocation flag into a step
-   closure** (Assumption A3) needs a quick read of that file's step-table construction before
-   committing to the CLI-flag design over an env-var design — a 5-minute check during Wave 0, not a
-   blocking unknown.
+3. **(RESOLVED — 36-07)** **`compute-all-stats-steps.ts`'s exact mechanism for threading a
+   per-invocation flag into a step closure** (Assumption A3) needed a read of that file's step-table
+   construction before committing to the CLI-flag design over an env-var design.
+   **Resolution:** read and settled — no longer a Wave 0 unknown. `COMPUTE_ALL_STATS_STEPS` is a
+   module constant whose `run` closures capture only module-level `config`, and
+   `compute-all-stats-steps.test.ts` is data-only (`typeof step.run === 'function'` — asserted, never
+   called). So D-11 threads a **required `ComputeStepOptions` through `step.run(...)`** rather than
+   reading `process.argv` inside a closure. Plan 36-07 additionally asserts `process.argv` and
+   `process.env` are absent from that module.
 
 ## Validation Architecture
 

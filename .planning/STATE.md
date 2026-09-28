@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
-status: planning
-stopped_at: Phase 36 context gathered
-last_updated: "2026-09-28T10:30:31.693Z"
-last_activity: 2026-09-28
+status: executing
+stopped_at: Phase 36 planned -- 14 plans, 9 waves, ready to execute
+last_updated: "2026-09-28T12:48:07.572Z"
+last_activity: 2026-09-28 -- Phase 36 planning complete
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 60
+  total_plans: 74
   completed_plans: 60
   percent: 67
 ---
@@ -48,79 +48,35 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 Phase: 36
 Plan: Not started
-browser-checkpoint rows) complete. Plan 09 (Pauses disclosed on the activity detail view)
-preceded it — see prior entries in git history for its own record.
-Status: Ready to plan
-"Already up to date" — origin/master (`5e902283`) is the exact commit 32-09 already recorded as
-an ancestor; a truthful no-op merge, no nightly-CI commit landed since. All six phase-related
-artifacts (34-CALIBRATION.md, 34-PAUSE03-REMEASUREMENT.md, 34-WALKING-BREAK-EVIDENCE.md,
-32-CALIBRATION.md, 33-CALIBRATION.md, 33-COVERAGE-IDENTITY.md) regenerated twice each, byte-
-identical both times and to the already-committed content — no commit needed for Task 1. The D-18
-recount re-confirmed exit 0 (walked=1 ran-through=17, matching 34-07 exactly). Full gate green:
-98 files / 3460 tests, tsc clean, verify-dashboard 66/66. Served digest confirmed equal to the
-freshly built digest (`468220ab9d80...` on data/dashboard/index.json both sides). 34-VALIDATION.md
-now carries a filled Per-Task Verification Map and 9 drafted Manual-Only checkpoint rows (R1-R9),
-each with an independently-sourced Expected value, CAN FAIL and CAN PASS clause computed live on
-its own named real input (3475724402, 3475740390, 6286234101, 3475715143) — Verdict left empty for
-plan 34-11's browser checkpoint. requirements mark-complete and roadmap update-plan-progress were
-deliberately NOT run this plan (Requirement-tick safety instruction) — this plan ticks nothing.
-Plan 34-15 (gap closure: D-22 double-count fix, notClassifiableCount disclosure) complete
-(2026-09-23), inserted after 34-11's checkpoint exposed the covered-creep double-count defect.
-`findCreepStretches` rewritten to D-22 union semantics (collect every individually-bounded
-qualifying window, merge by shared sample index in a second pass, never consulting the union's own
-speed as a merge condition) — matches the independent oracle (`localCreepWindows`) window-for-
-window wherever coverage does not intervene. 6286234101: `forgottenStop` count 3→2, totalSec
-171→133, longestSec unchanged at 77. 3475715143: count 9→5, totalSec 384→232, longestSec unchanged
-at 66, first creep row (1708-1750) unchanged. `pausesSummaryRow` now discloses
-`pauseClassification.notClassifiableCount` as a trailing parenthetical when > 0. Archive
-regenerated; `34-CALIBRATION.md`'s three shipped constants and provenance unchanged, only the
-archive-wide "Covered-creep flagged" finding count moved (363→300 stretches, still 82 activities);
-D-18 recount and five upstream artifacts byte-identical. Archive-wide reconciliation against the
-independent oracle: 82 activities with ≥1 production covered-creep stretch, 69 full agreement, 13
-explained by a coverage-scope divergence (production correctly never crosses a covered-run
-boundary; the oracle's simpler rule blocks only on raw per-sample dt > 10s, so it bridges through
-dense-sampled `pause` intervals production correctly excludes), 0 unexplained. `34-VALIDATION.md`
-updated: R7's quoted figures refreshed, a dated re-check note added correcting this plan's own
-drafted `<recheck>` prediction that R2 would need re-verification (it does not — 3475724402's
-`notClassifiableCount` is 0 both before and after, so its row text is byte-identical). Full gate
-green: 98 files / 3478 tests (+18), tsc clean, verify-dashboard 66/66, served digest equals the
-freshly built digest (`13a244ed...`). `requirements mark-complete` and `roadmap update-plan-
-progress` deliberately NOT run (Requirement-tick safety instruction) — this plan ticks nothing.
-Plan 34-11 (the browser checkpoint) is still the only plan open; re-run it against the rebuilt
-page — only R4 and R7 need fresh human verification, per 34-15-SUMMARY.md's Required Report.
-`34-VALIDATION.md`'s own Approval line already records plan 34-11's checkpoint as a full nine-row
-PASS with R4/R7 re-judged post-34-15 (dated 2026-09-23, present in the file at the start of this
-session) — that re-run happened in a session this STATE.md body was not updated to reflect; noted
-here rather than silently left inconsistent.
+Status: Ready to execute
 
-Plan 34-16 (gap closure: the phase-34 code-review closure, `34-REVIEW.md`, 2 Critical / 8 Warning /
-8 Info) complete (2026-09-23). Both Critical findings fixed with reproductions as regression
-tests: CR-01 (`parseForgottenStopSignal` now all-or-nothing on `computable: true`, closing a
-fabricated "possible forgotten stop: none found" over a corrupted-but-`computable:true` document)
-and CR-02 (`findCreepStretches` now rejects a `t`/`d` length mismatch and non-finite
-`seconds`/`metres` explicitly, closing a fabricated positive standstill a bare `NaN > max`
-comparison previously accepted). Six Warnings closed: WR-01 (`projectPauseIntervals` classifies a
-covered-creep union from its own metres/seconds via `classifyPauseSpeed`, never hard-coded —
-6286234101's 5866-5922 row moves Stationary→Walked), WR-02 (`parsePauseClassificationSignal`
-genuinely all-or-nothing), WR-03 (the calibration test's provenance-chain S1/S2/S3 no longer write
-to or revert a tracked repo path — the hazard that already destroyed uncommitted work once — S1/S2
-pure in-memory, S3 a `mkdtempSync` scratch copy), WR-05 (`collectPauseIntervals`'s merged-segment
-boundary lookup validated, counted as a `joinViolation` on failure), WR-07 (`SHARD_LIST_CAP`
-exported once, enforced on write/read/render), WR-08 (the D-05 scanner extended to ban the two
-declared band literals under `src/`, two planted violations). WR-04 documented (not coded) in three
-places per the developer's own disposition; IN-01/IN-04/IN-05/IN-06/IN-07/IN-08/R4 all closed; the
-remaining four Info findings have named homes under `.planning/todos/pending/` (pre-created during
-plan authoring, verified matching the triage). Archive regenerated: `34-CALIBRATION.md` byte-
-identical twice (sha256 `e40aeaca...`), three shipped constants/provenance unchanged, all five
-upstream artifacts byte-identical, the four named activities' `forgottenStop` figures byte-
-identical before/after (union arithmetic did not move — only labels/parsers/caps changed). Full
-gate green: 98 files / 3499 tests (+21), tsc clean, verify-dashboard 66/66, served digest equals
-the freshly built digest (`16250d75...`). `34-VALIDATION.md` updated: three Per-Task rows, a dated
-re-check note (R3's visual class-label change, R4's further-reworded text, R9's re-verified digest;
-R1/R2/R5/R6/R7/R8 confirmed unaffected). `requirements mark-complete` and `roadmap update-plan-
-progress` deliberately NOT run (Requirement-tick safety instruction) — this plan ticks nothing;
-`status`/`nyquist_compliant` in `34-VALIDATION.md` untouched.
-Last activity: 2026-09-28
+Phase 36 planned (2026-09-28): 14 plans in 9 waves, committed `ebe0245c`. Research `4a61a19b`,
+validation/pattern artifacts `e9a16e61`. Plan-checker returned VERIFICATION PASSED — 0 blockers,
+3 warnings (all informational: two scope-size notes on 36-03/36-05, one archive-sweep runtime note
+on 36-06/36-10/36-11 already precedented by `pace-derivation.test.ts`).
+
+Gates: requirements coverage 4/4 (PR-06..PR-09) plus SEG-05b; decision coverage 18/18 (D-01..D-18,
+visible to the gate because the planner carried the ids in frontmatter `must_haves.decisions`).
+
+Carried into execution:
+- **D-08's literal bound is unsatisfiable** — 0 of 440 no-clean-window occurrences independently
+  fail an absolute guard. Plan 36-01 amends PR-07 and ROADMAP criterion 2 before any test exists;
+  36-05 T2 demonstrates the adjacent *moved* case on real fixtures 3475725842 / 3475713251. No
+  synthetic fixture for the vacuous combination.
+- **CONTEXT.md is wrong that `pace-single-source.test.ts` bans a duplicate sweep** — its
+  `BANNED_LITERALS` holds only the two pace-division literals. Reusing `findBestEffort` via optional
+  half-open bounds is still the design, but no existing guard enforces it.
+- **Research's own `complementSubIntervals` snippet was off by one** (`endIndex: seg.startIndex`
+  drops the last clean pair and swallows a clean boundary sample, contradicting 32-CONTEXT.md
+  D-06/D-07). Plans carry `endIndex: cut.startIndex + 1` with a hand-computed unit assertion.
+- **Plans 36-13 and 36-14 must run on the primary checkout**, not a worktree. MERGE-01's origin
+  merge → regenerate → *then* the sha256 signature, in that order.
+
+*(Phase 34's execution narrative previously sat in this section; it is preserved in
+`.planning/phases/34-pause-classification-forgotten-stop/34-{01..16}-SUMMARY.md` and git history.
+Phases 34 and 35 are both closed in ROADMAP.md.)*
+
+Last activity: 2026-09-28 -- Phase 36 planning complete
 
 ## Performance Metrics
 
