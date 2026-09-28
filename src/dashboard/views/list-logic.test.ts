@@ -422,7 +422,7 @@ describe('filterRows — AND semantics (D-11)', () => {
  * corroborating check, not the primary one.
  */
 describe('D-12 (26-08): a pace disputed activity is not suppressed from pace sort or filter results', () => {
-  const disagreement = { streamPaceSecPerKm: 350.6, metadataPaceSecPerKm: 112.6, ratio: 3.11 };
+  const disagreement = { runningPaceSecPerKm: 350.6, metadataPaceSecPerKm: 112.6, ratio: 3.11 };
 
   it('compareRows(flaggedRow, identicalUnflaggedRow, "pace", dir) is a tie (0) in both directions — the flag has zero effect on the sort VALUE', () => {
     const flagged = makeRow({ id: 'flagged', paceSecPerKm: 112.6, paceDisagreement: disagreement });

@@ -510,7 +510,7 @@ describe('statusBadgeTexts — CR-02 single source of truth for badge text', () 
   // is read to decide whether "Pace disputed" is pushed.
   it('returns "Pace disputed" for a row whose paceDisagreement is populated', () => {
     const row = baseRow({
-      paceDisagreement: { streamPaceSecPerKm: 350.6, metadataPaceSecPerKm: 112.6, ratio: 3.11 },
+      paceDisagreement: { runningPaceSecPerKm: 350.6, metadataPaceSecPerKm: 112.6, ratio: 3.11 },
     });
     expect(statusBadgeTexts(row)).toEqual(['Pace disputed']);
   });
@@ -523,7 +523,7 @@ describe('statusBadgeTexts — CR-02 single source of truth for badge text', () 
     const row = baseRow({
       streams: { available: false, reason: 'treadmill', hr: false, cadence: false, elevation: false },
       lowConfidence: true,
-      paceDisagreement: { streamPaceSecPerKm: 350.6, metadataPaceSecPerKm: 112.6, ratio: 3.11 },
+      paceDisagreement: { runningPaceSecPerKm: 350.6, metadataPaceSecPerKm: 112.6, ratio: 3.11 },
       excludedFromRecords: true,
       prCount: 2,
     });
@@ -611,7 +611,7 @@ describe('CR-02 — a row whose index predates the paceDisagreement field produc
 
   it('positive control: a row with a real PaceDisagreement still produces the badge and the aria-label fragment', () => {
     const row = baseRow({
-      paceDisagreement: { streamPaceSecPerKm: 350.6, metadataPaceSecPerKm: 112.6, ratio: 3.11 },
+      paceDisagreement: { runningPaceSecPerKm: 350.6, metadataPaceSecPerKm: 112.6, ratio: 3.11 },
     });
     expect(statusBadgeTexts(row)).toContain(PACE_DISPUTED_BADGE_TEXT);
     expect(activityRowAriaLabel(row)).toContain('Pace disputed');
@@ -1162,7 +1162,7 @@ describe('existing badges unregressed (Task 2, T-27-23) — the two pre-existing
 
   it('a row that is BOTH pace-disputed AND severe on gapProfile keeps the two paths from interfering', () => {
     const row = baseRow({
-      paceDisagreement: { streamPaceSecPerKm: 350.6, metadataPaceSecPerKm: 112.6, ratio: 3.11 },
+      paceDisagreement: { runningPaceSecPerKm: 350.6, metadataPaceSecPerKm: 112.6, ratio: 3.11 },
       quality: {
         ...CLEAN_QUALITY,
         gapProfile: { tier: 'severe', gapFraction: 0.3, recordingGapSec: 800, pauseSec: 100, spanSec: 3000 },

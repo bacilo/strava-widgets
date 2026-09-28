@@ -691,7 +691,7 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
       // fixed "Pace disputed" text does not.
       appendAccessibleBadge(
         paceStatCard,
-        `Pace disputed — stream-derived ${formatPace(disagreement.streamPaceSecPerKm)}`,
+        `Pace disputed — stream-derived ${formatPace(disagreement.runningPaceSecPerKm)}`,
         paceDisputedExplanation(disagreement),
         paceDisputedDescriptionId('detail-pace-stat')
       );
@@ -806,7 +806,7 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
       // to render its own D-13 disclosure note from that same average value
       // (built there, not re-derived here); buildPaceBarCell itself does
       // not change (D-13 is a call-site change).
-      const rebasedAveragePaceSecPerKm = disagreement !== null ? disagreement.streamPaceSecPerKm : paceSecPerKm;
+      const rebasedAveragePaceSecPerKm = disagreement !== null ? disagreement.runningPaceSecPerKm : paceSecPerKm;
 
       view.appendChild(
         buildSplitsSection(

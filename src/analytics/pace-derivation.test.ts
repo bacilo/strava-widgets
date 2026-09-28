@@ -466,10 +466,11 @@ describe('detectPaceDisagreement — calibrated cut, D-02 gate, D-06 direction (
     });
     const result = detectPaceDisagreement(metadataPaceSecPerKm, runningPace);
     expect(result).not.toBeNull();
-    const keys = Object.keys(result as object).sort();
+    const entries = Object.entries(result as unknown as Record<string, unknown>);
+    const keys = entries.map(([key]) => key).sort();
     expect(keys).toEqual(['metadataPaceSecPerKm', 'ratio', 'runningPaceSecPerKm']);
-    for (const key of keys) {
-      expect((result as Record<string, unknown>)[key]).not.toBeUndefined();
+    for (const [, value] of entries) {
+      expect(value).not.toBeUndefined();
     }
   });
 });

@@ -513,7 +513,7 @@ describe('source wiring — detail-sections.ts / detail.ts (text-structure guard
 
   it('D-13 wiring: detail.ts derives the buildSplitsSection average from the disagreement branch — the stream-derived pace when flagged, the metadata pace otherwise', () => {
     expect(detailStripped).toContain(
-      'const rebasedAveragePaceSecPerKm = disagreement !== null ? disagreement.streamPaceSecPerKm : paceSecPerKm;'
+      'const rebasedAveragePaceSecPerKm = disagreement !== null ? disagreement.runningPaceSecPerKm : paceSecPerKm;'
     );
   });
 

@@ -88,17 +88,30 @@ export interface DashboardIndexRow {
    */
   gearName: string | null;
   /**
-   * Metadata-vs-stream pace cross-check result (PACE-07, D-10, D-14), or
-   * `null` when checked and not flagged. `null` NEVER means "not checked" —
-   * the writer always evaluates the check and assigns a value here.
+   * Metadata-vs-running-pace cross-check result (RPACE-03, D-01/D-10/D-14),
+   * or `null` when checked and not flagged. `null` NEVER means "not
+   * checked" — the writer always evaluates the check and assigns a value
+   * here.
    *
    * REQUIRED, deliberately, following the `gearName` precedent above
    * (WR-06): making this key optional would let compute-dashboard-index.ts
-   * silently stop emitting it with no compile error. This is PACE-07/D-10's
-   * disclosure field — `paceSecPerKm` above is never recomputed or
-   * substituted because of it; the flag only ADDS the stream-derived figure
-   * alongside the untouched metadata one. `DASHBOARD_INDEX_SCHEMA_VERSION`
-   * stays at `1` because this field is purely additive.
+   * silently stop emitting it with no compile error. This is
+   * RPACE-03/D-10's disclosure field — `paceSecPerKm` above is never
+   * recomputed or substituted because of it; the flag only ADDS the
+   * running-pace figure alongside the untouched metadata one.
+   * `DASHBOARD_INDEX_SCHEMA_VERSION` stays at `1` because this field is
+   * purely additive.
+   *
+   * Amended 2026-09-24 (35-CONTEXT.md D-01/D-04): the comparator moved from
+   * the span-based stream pace to the gap-, pause- and unreliable-excluded
+   * running pace (`deriveRunningPace`'s output), and `PaceDisagreement`'s
+   * field was renamed to match (33 D-11 precedent: a shipped field's name
+   * must match what it holds). This is a rename inside an existing nested
+   * object, not a new top-level key, and `DASHBOARD_INDEX_SCHEMA_VERSION`
+   * stays `1` because `data/dashboard/index.json` is gitignored and
+   * regenerated wholesale by the same CI run that ships the reader, and
+   * `ParsedDashboardIndexRow`'s `Partial<>` already forces every consumer
+   * to handle a missing key.
    */
   paceDisagreement: PaceDisagreement | null;
   /**
@@ -142,12 +155,12 @@ export interface DashboardIndexRow {
 }
 
 /**
- * A material metadata-vs-stream pace disagreement (PACE-07, D-10). Produced
- * by `detectPaceDisagreement` in `pace-derivation.ts`; both paces are
- * rounded to one decimal.
+ * A material metadata-vs-running-pace disagreement (RPACE-03, D-01/D-10).
+ * Produced by `detectPaceDisagreement` in `pace-derivation.ts`; both paces
+ * are rounded to one decimal.
  */
 export interface PaceDisagreement {
-  streamPaceSecPerKm: number;
+  runningPaceSecPerKm: number;
   metadataPaceSecPerKm: number;
   ratio: number;
 }

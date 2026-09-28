@@ -305,7 +305,7 @@ export function paceDisputedDescriptionId(idPrefix: string): string {
  * text cannot drift between the two surfaces.
  */
 export function paceDisputedExplanation(disagreement: PaceDisagreement): string {
-  return `Metadata pace disagrees with the stream-derived pace: ${formatPace(disagreement.streamPaceSecPerKm)} measured vs. ${formatPace(disagreement.metadataPaceSecPerKm)} shown`;
+  return `Metadata pace disagrees with the stream-derived pace: ${formatPace(disagreement.runningPaceSecPerKm)} measured vs. ${formatPace(disagreement.metadataPaceSecPerKm)} shown`;
 }
 
 /**

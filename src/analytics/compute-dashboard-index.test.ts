@@ -10,7 +10,7 @@ import type { StravaActivity } from '../types/strava.types.js';
 import type { BestEffortsDocument } from './best-effort.types.js';
 import { DASHBOARD_INDEX_SCHEMA_VERSION } from './dashboard-index.types.js';
 import { computeDashboardIndex } from './compute-dashboard-index.js';
-import { detectPaceDisagreement } from './pace-derivation.js';
+import { detectPaceDisagreement, deriveRunningPace } from './pace-derivation.js';
 import { NOT_COMPUTABLE_NO_STREAM } from './pace-quality.js';
 import { makeStream, syntheticDecimationAliasedStream } from './pace-fixtures.js';
 
@@ -1203,20 +1203,36 @@ describe('computeDashboardIndex — archive orchestration', () => {
 });
 
 /**
- * PACE-07/D-14: the metadata-vs-stream pace disagreement cross-check,
+ * RPACE-03/D-01/D-14: the metadata-vs-running-pace disagreement cross-check,
  * measured against the REAL committed archive (`data/activities/*.json` +
  * `data/streams/{id}.json`), not the tmpDir fixtures above — this is the
  * same archive-wide sweep discipline `pace-derivation.test.ts` uses for
  * `classifyGaps`. Re-verify at execution time (the archive grows nightly);
- * do not trust these numbers blindly.
+ * do not trust these numbers blindly. This is the phase's ONE archive-
+ * reading location for `detectPaceDisagreement` reachability — every bound
+ * and figure below is PARSED from `35-CALIBRATION.md` / `35-RUNNING-PACE-
+ * RECOUNT.md` at test time, never re-pinned as a new literal (T-35-41).
  *
- * Disposition rule: a newly flagged activity beyond the ones named here is
- * a genuine finding to record and, if real, to regenerate the PACE-06/
- * PACE-07 reporting for — it is never a reason to loosen this assertion.
+ * Disposition rule: a mismatch against the parsed bound is a genuine
+ * finding — either the archive moved since the artifact was rendered
+ * (re-run the generator) or the comparator diverged from the calibration
+ * (a real regression) — never a reason to loosen this assertion.
  */
 describe('pace disagreement', () => {
   const ACTIVITIES_DIR = 'data/activities';
   const STREAMS_DIR = 'data/streams';
+  const CALIBRATION_PATH = path.join(
+    '.planning',
+    'phases',
+    '35-stream-derived-running-pace',
+    '35-CALIBRATION.md'
+  );
+  const RECOUNT_PATH = path.join(
+    '.planning',
+    'phases',
+    '35-stream-derived-running-pace',
+    '35-RUNNING-PACE-RECOUNT.md'
+  );
 
   function metadataPaceSecPerKm(activity: StravaActivity): number | null {
     const distanceM = activity.distance;
@@ -1224,7 +1240,71 @@ describe('pace disagreement', () => {
     return distanceM > 0 && movingTimeSec > 0 ? movingTimeSec / (distanceM / 1000) : null;
   }
 
-  it('flags exactly a handful of activities archive-wide, including 5059204779, at or under the 0.5% over-fire ceiling', async () => {
+  /** Mirrors `list.ts`'s `formatPace` locally (RECOUNT.md's own "local duplicate" convention) — this is analytics-layer, and importing dashboard view code here would cross a layering boundary this suite otherwise never crosses. */
+  function formatPaceLocal(secPerKm: number): string {
+    const totalSeconds = Math.round(secPerKm);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${String(seconds).padStart(2, '0')}/km`;
+  }
+
+  async function readCalibration(): Promise<string> {
+    return fs.readFile(CALIBRATION_PATH, 'utf-8');
+  }
+
+  async function readRecount(): Promise<string> {
+    return fs.readFile(RECOUNT_PATH, 'utf-8');
+  }
+
+  /** Parses "Newly-disputed count under the chosen cut (population E): <n>" from 35-CALIBRATION.md § Gates. */
+  async function parsedArchiveWideFlaggedCount(): Promise<number> {
+    const artifact = await readCalibration();
+    const match = /Newly-disputed count under the chosen cut \(population E\): (\d+)/.exec(
+      artifact
+    );
+    if (match === null) {
+      throw new Error(
+        `Expected a "Newly-disputed count under the chosen cut (population E): <n>" line in ` +
+          `${CALIBRATION_PATH} — a re-run of the generator landing on its own HALT branch is the ` +
+          'likely cause; never skip, never silently pass.'
+      );
+    }
+    return Number(match[1]);
+  }
+
+  /** Parses the § Gates "Named activity" table's `status` column (badged / not badged) for one activity id. */
+  async function parsedBadgedStatus(activityId: string): Promise<'badged' | 'not badged'> {
+    const artifact = await readCalibration();
+    const rowPattern = new RegExp(
+      `\\|\\s*${activityId}\\s*\\|[^|]*\\|[^|]*\\|[^|]*\\|[^|]*\\|\\s*(badged|not badged)\\s*\\|`
+    );
+    const match = rowPattern.exec(artifact);
+    if (match === null) {
+      throw new Error(
+        `Expected a "| ${activityId} | ... | badged|not badged |" row in ${CALIBRATION_PATH}'s ` +
+          '§ Gates Named activity table — never skip, never silently pass.'
+      );
+    }
+    return match[1] as 'badged' | 'not badged';
+  }
+
+  /** Parses 5059204779's "Running pace" column value (the parenthesised sec/km figure) from 35-RUNNING-PACE-RECOUNT.md. */
+  async function parsedRecountRunningPaceSecPerKm(activityId: string): Promise<number> {
+    const artifact = await readRecount();
+    const rowPattern = new RegExp(
+      `\\|\\s*${activityId}\\s*\\|[^|]*\\|[^|]*\\|[^|]*\\|[^|]*\\|[^|]*\\|[^(]*\\(([0-9.]+)\\)\\s*\\|`
+    );
+    const match = rowPattern.exec(artifact);
+    if (match === null) {
+      throw new Error(
+        `Expected a "| ${activityId} | ... (<secPerKm>) |" row in ${RECOUNT_PATH} — never skip, ` +
+          'never silently pass.'
+      );
+    }
+    return Number(match[1]);
+  }
+
+  it('flags EXACTLY the archive-wide count parsed from 35-CALIBRATION.md § Gates (population E, D-02 eligibility gate)', async () => {
     // Scans every committed activity record, matching the writer's own
     // per-activity loop (compute-dashboard-index.ts) — the denominator is
     // the archive's full activity count (~1,890), not the smaller subset
@@ -1255,7 +1335,9 @@ describe('pace disagreement', () => {
       }
 
       const result =
-        stream !== null ? detectPaceDisagreement(metadataPaceSecPerKm(activity), stream) : null;
+        stream !== null
+          ? detectPaceDisagreement(metadataPaceSecPerKm(activity), deriveRunningPace(stream))
+          : null;
       if (result !== null) flagged.push(id);
     }
 
@@ -1263,17 +1345,56 @@ describe('pace disagreement', () => {
       `pace disagreement sweep: scanned ${scanned} activities, flagged ${flagged.length} (${flagged.join(', ')})`
     );
 
+    const expectedCount = await parsedArchiveWideFlaggedCount();
     expect(scanned).toBeGreaterThanOrEqual(1890);
-    expect(flagged).toContain('5059204779');
-    expect(flagged.length).toBeLessThanOrEqual(3);
-    expect(flagged.length / scanned).toBeLessThanOrEqual(0.005);
+    expect(
+      flagged.length,
+      `flagged.length (${flagged.length}) !== 35-CALIBRATION.md's parsed archive-wide count ` +
+        `(${expectedCount}). A mismatch of a handful most likely means the nightly archive moved ` +
+        "since 35-CALIBRATION.md was rendered — re-run 35-07's generator (idempotent, content-" +
+        'addressed to `rev-parse HEAD:data/streams`) and recommit the artifact. A mismatch of tens ' +
+        'means the comparator has diverged from the calibration — the failure this row exists to ' +
+        'catch. Never widen or soften this assertion to make it pass.'
+    ).toBe(expectedCount);
     // Reads and derives pace over the whole ~1,890-activity archive, which lands
     // just under vitest's 5s default and fails intermittently on a busy machine.
     // The budget is generous on purpose — this guards the assertions above, not
     // the sweep's runtime.
   }, 60_000);
 
-  it("5059204779's flagged values round to streamPaceSecPerKm 350.6 (5:51/km) and metadataPaceSecPerKm 112.6 — the exact string UI-SPEC's browser checkpoint row 3 reads back on screen", async () => {
+  it.each(['3475724402', '3475734189', '3475740390', '5059204779'])(
+    "%s's badged status matches 35-CALIBRATION.md § Gates' Named activity table (parsed, not pinned)",
+    async (activityId) => {
+      const activity = JSON.parse(
+        await fs.readFile(path.join(ACTIVITIES_DIR, `${activityId}.json`), 'utf-8')
+      ) as StravaActivity;
+      const stream = JSON.parse(
+        await fs.readFile(path.join(STREAMS_DIR, `${activityId}.json`), 'utf-8')
+      ) as CanonicalStream;
+
+      const result = detectPaceDisagreement(
+        metadataPaceSecPerKm(activity),
+        deriveRunningPace(stream)
+      );
+      const expectedStatus = await parsedBadgedStatus(activityId);
+      expect(result !== null ? 'badged' : 'not badged').toBe(expectedStatus);
+    }
+  );
+
+  it("the four named activities are not all badged — 35-CALIBRATION.md § Gates reports at least one 'not badged' (3475740390), so this sweep genuinely exercises both directions", async () => {
+    const artifact = await readCalibration();
+    const statuses = ['3475724402', '3475734189', '3475740390', '5059204779'];
+    const results = await Promise.all(statuses.map((id) => parsedBadgedStatus(id)));
+    expect(results).toContain('not badged');
+    // Guards the guard: if a future recalibration badges all four, this test
+    // fails loudly instead of silently certifying a vacuous "both directions"
+    // claim — per this row's own acceptance criteria, a future reader must
+    // add an explicit not-badged control from the artifact's gate-excluded
+    // population instead of deleting this check.
+    void artifact;
+  });
+
+  it("5059204779's running pace is parsed from 35-RUNNING-PACE-RECOUNT.md (within the already-disclosed traversal-shape/boundary divergence), never a new hardcoded literal — the exact string UI-SPEC's browser checkpoint row 3 reads back on screen", async () => {
     const activity = JSON.parse(
       await fs.readFile(path.join(ACTIVITIES_DIR, '5059204779.json'), 'utf-8')
     ) as StravaActivity;
@@ -1281,14 +1402,38 @@ describe('pace disagreement', () => {
       await fs.readFile(path.join(STREAMS_DIR, '5059204779.json'), 'utf-8')
     ) as CanonicalStream;
 
-    const result = detectPaceDisagreement(metadataPaceSecPerKm(activity), stream);
+    const result = detectPaceDisagreement(
+      metadataPaceSecPerKm(activity),
+      deriveRunningPace(stream)
+    );
 
     expect(result).not.toBeNull();
-    expect(result?.streamPaceSecPerKm).toBe(350.6);
     expect(result?.metadataPaceSecPerKm).toBe(112.6);
+
+    const recountPace = await parsedRecountRunningPaceSecPerKm('5059204779');
+    // 35-07-SUMMARY.md's own reconciliation table names this activity's
+    // production-vs-recount gap as an EXPLAINED DIVERGENCE ("traversal-
+    // shape/boundary", a 2-second coveredSec difference only) — production
+    // measures 355.8, the independent recount measures 356. Asserting exact
+    // equality here would either falsely fail (dishonestly) or require
+    // silently widening the comparator to match the recount (a behaviour
+    // change this plan does not make) — so this assertion is a small,
+    // explicitly-bounded tolerance around the PARSED recount figure, not a
+    // second hardcoded literal: 1 sec/km comfortably covers the disclosed
+    // 0.2 sec/km gap while still failing on any materially different figure.
+    expect(Math.abs((result?.runningPaceSecPerKm as number) - recountPace)).toBeLessThanOrEqual(1);
+
+    // What actually matters for UI-SPEC's browser checkpoint row 3 is the
+    // ON-SCREEN STRING a reader sees — and both the production figure and
+    // the independently-recounted figure round to the SAME displayed
+    // "5:56/km", despite differing at the one-decimal level. This is the
+    // assertion the checkpoint itself depends on.
+    expect(formatPaceLocal(result?.runningPaceSecPerKm as number)).toBe(
+      formatPaceLocal(recountPace)
+    );
   });
 
-  it('negative case 7 (permanent): disabling the cross-check via metadataThresholdSecPerKm: 0 returns null for 5059204779, proving the cross-check itself produces the flag — with it disabled the row carries nothing and 112.6 sec/km stands unqualified, which is today\'s shipped behaviour', async () => {
+  it("negative case 7 (permanent, D-02 gate): forcing 5059204779's own real RunningPace's excludedM to 0 returns null, proving the eligibility gate itself produces the flag — the unmodified object (real excludedM=166) returns non-null, so this negative case is not vacuous in the other direction", async () => {
     const activity = JSON.parse(
       await fs.readFile(path.join(ACTIVITIES_DIR, '5059204779.json'), 'utf-8')
     ) as StravaActivity;
@@ -1296,14 +1441,17 @@ describe('pace disagreement', () => {
       await fs.readFile(path.join(STREAMS_DIR, '5059204779.json'), 'utf-8')
     ) as CanonicalStream;
     const pace = metadataPaceSecPerKm(activity);
+    const runningPace = deriveRunningPace(stream);
+    expect(runningPace.excludedM).toBeGreaterThan(0);
 
-    const disabled = detectPaceDisagreement(pace, stream, { metadataThresholdSecPerKm: 0 });
+    const gatedOff = { ...runningPace, excludedM: 0 };
+    const disabled = detectPaceDisagreement(pace, gatedOff);
     expect(disabled).toBeNull();
 
-    // Fails-in-both-directions check: the same call with the default
-    // threshold must return non-null on this same stream, or this negative
-    // case would be vacuous (unfailable in the other direction).
-    const enabled = detectPaceDisagreement(pace, stream);
+    // Fails-in-both-directions check: the unmodified (real) RunningPace must
+    // return non-null on this same activity, or this negative case would be
+    // vacuous (unfailable in the other direction).
+    const enabled = detectPaceDisagreement(pace, runningPace);
     expect(enabled).not.toBeNull();
   });
 });

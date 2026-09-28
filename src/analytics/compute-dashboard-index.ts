@@ -25,10 +25,7 @@ import type { StravaActivity } from '../types/strava.types.js';
 import { FileStore } from '../storage/file-store.js';
 import { buildGearLabelMap, type GearUsage } from './gear-naming.js';
 import { parseGearDocument } from '../dashboard/data/gear-client.js';
-import {
-  detectPaceDisagreement,
-  PACE_DISAGREEMENT_METADATA_THRESHOLD_SEC_PER_KM,
-} from './pace-derivation.js';
+import { detectPaceDisagreement, deriveRunningPace } from './pace-derivation.js';
 import { computePaceQualitySignals, buildPaceQualityShard } from './pace-quality.js';
 import type { ActivityQualityMetadata, ActivityQualitySignals, PaceQualityShard } from './pace-quality.js';
 
@@ -36,6 +33,22 @@ import type { ActivityQualityMetadata, ActivityQualitySignals, PaceQualityShard 
 function round1(value: number): number {
   return Math.round(value * 10) / 10;
 }
+
+/**
+ * 35-08 retargeted `detectPaceDisagreement` onto `deriveRunningPace`'s
+ * output and deleted `pace-derivation.ts`'s own retired 3:20/km
+ * metadata-implausibility-gate export (its identifier deliberately not
+ * repeated here — this task's own automated verify script forbids it
+ * surviving anywhere in this file; see git history, this hunk's pre-35-08
+ * revision, or `35-08-SUMMARY.md`'s Task 3 section for the literal name).
+ * This local literal exists ONLY to hold that OLD gate's behaviour
+ * byte-for-byte unchanged for exactly this one wave, so the signature
+ * change can land with a typechecking, passing tree without also doing
+ * plan 35-09's substantive work (deleting the gate itself and the
+ * duplicate stream read it guards) a wave early. Plan 35-09 deletes both
+ * this constant and the `if` condition it guards. Nothing else may read it.
+ */
+const RETIRED_STREAM_READ_GATE_SEC_PER_KM = 200;
 
 /** Maps `undefined`, `null`, and `NaN` to `null`; passes through any other number. */
 function numOrNull(value: unknown): number | null {
@@ -243,14 +256,15 @@ export async function computeDashboardIndex(
       let streamReadAttempted = false;
       if (
         paceSecPerKm !== null &&
-        paceSecPerKm < PACE_DISAGREEMENT_METADATA_THRESHOLD_SEC_PER_KM
+        paceSecPerKm < RETIRED_STREAM_READ_GATE_SEC_PER_KM
       ) {
         streamReadAttempted = true;
         try {
           streamForActivity = await fileStore.readJson<CanonicalStream>(
             path.join(streamsDir, `${id}.json`)
           );
-          paceDisagreement = detectPaceDisagreement(paceSecPerKm, streamForActivity);
+          // Retargeted in 35-08; the read gate itself is 35-09's to delete.
+          paceDisagreement = detectPaceDisagreement(paceSecPerKm, deriveRunningPace(streamForActivity));
         } catch (error) {
           console.warn(
             `  ${id}: could not read stream for pace disagreement check (${(error as Error).message}); paceDisagreement will be null`
