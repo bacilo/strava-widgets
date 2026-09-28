@@ -41,6 +41,10 @@ function baseInput(overrides: Partial<ActivityEffortInput> = {}): ActivityEffort
     distanceSource: 'native',
     t,
     d,
+    // Empty by default — this file's pre-existing describe blocks exercise
+    // the no-segments (Branch 1) path. The "clean-window search branches"
+    // describe (Task 3) passes its own non-empty `segments` per-test.
+    segments: [],
     ...overrides,
   };
 }
@@ -518,20 +522,34 @@ describe('computeBestEfforts — archive orchestration', () => {
       channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
     };
     await writeManifest(manifest);
-    await writeActivity('implausible', '2026-01-01T00:00:00Z', 1000);
-    // First 400m in 5s implies 80 m/s (implausible, beats the world-record
-    // ceiling); the remaining 600m over 295s is a normal ~2 m/s pace, so the
-    // 1k window (which spans the whole series) is plausible. Only the fastest
-    // (minimum-duration) 400m window is implausible — the 1k effort survives.
+    await writeActivity('implausible', '2026-01-01T00:00:00Z', 21390);
+    // Phase 36 note: this fixture was originally an 80 m/s two-segment burst
+    // (400m in 5s), which — now that `computeBestEfforts` wires the REAL
+    // detector into every run (this plan) — is *structurally* impossible to
+    // isolate from `classifyGapsWithSegments`: the 400m world-record ceiling
+    // (~9.296 m/s) exceeds `UNRELIABLE_SPEED_LIMIT_MPS` (7.35 m/s,
+    // unreliable-segments.ts), so ANY window failing 400m's world-record
+    // guard also trips the detector's fast-step classification, taking a
+    // different code path (`contaminated`/`'unreliable-segment'`, exercised
+    // by the "clean-window search branches" describe block below) rather
+    // than this plain absolute-guard one. Redesigned as a single
+    // constant-pace pair at 6.2 m/s — deliberately BELOW the detector's own
+    // threshold, so `classifyGapsWithSegments` returns zero segments and this
+    // fixture exercises Branch 1 (untouched by the clean-window search)
+    // exactly as it did before this plan. 6.2 m/s exceeds the HALF
+    // marathon's own world-record ceiling (~6.133 m/s) but stays under every
+    // shorter distance's own (much higher) ceiling — 400m's is ~9.296 m/s —
+    // so only the half-marathon effort is implausible; the 400m effort on
+    // the SAME activity, at the SAME constant pace, survives.
     await fileStore.writeJson(path.join('streams', 'implausible.json'), {
       schemaVersion: 1,
       id: 'implausible',
       source: 'fit',
       distanceSource: 'native',
-      sampleCount: 3,
+      sampleCount: 2,
       channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
-      t: [0, 5, 300],
-      d: [0, 400, 1000],
+      t: [0, 3450],
+      d: [0, 21390],
     });
 
     const doc = await computeBestEfforts({
@@ -545,22 +563,28 @@ describe('computeBestEfforts — archive orchestration', () => {
     // The `rejected` row still exists — it is the archive-wide report of
     // which guard fired, not evidence the effort was deleted.
     expect(doc.rejected.length).toBe(1);
-    expect(doc.rejected[0]).toMatchObject({ activityId: 'implausible', distance: '400m' });
+    expect(doc.rejected[0]).toMatchObject({ activityId: 'implausible', distance: 'half' });
     expect(doc.rejected[0].reason).toMatch(/exceeds world-record pace/);
 
     // D-08: the effort is RETAINED in activities[id].efforts, not removed —
     // this is the assertion the old test inverted (it used to assert the
-    // 400m effort was ABSENT).
-    const demoted400m = doc.activities['implausible'].efforts.find((e) => e.distance === '400m');
-    expect(demoted400m).toBeDefined();
-    expect(demoted400m!.demotion).not.toBeNull();
-    expect(demoted400m!.demotion!.guard).toBe('world-record');
-    expect(demoted400m!.demotion!.reason).toMatch(/exceeds world-record pace/);
+    // demoted effort was ABSENT).
+    const demotedHalf = doc.activities['implausible'].efforts.find((e) => e.distance === 'half');
+    expect(demotedHalf).toBeDefined();
+    expect(demotedHalf!.demotion).not.toBeNull();
+    expect(demotedHalf!.demotion!.guard).toBe('world-record');
+    expect(demotedHalf!.demotion!.reason).toMatch(/exceeds world-record pace/);
+    // Phase 36: this stream carries no detected segment (its single pair's
+    // implied speed is under the detector's own threshold), so the
+    // clean-window search never engages — `contaminated` stays null exactly
+    // as D-05's docblock states for an effort whose raw window never
+    // intersected a segment.
+    expect(demotedHalf!.contaminated).toBeNull();
 
-    // The plausible 1k effort survives untouched.
-    const oneK = doc.activities['implausible'].efforts.find((e) => e.distance === '1k');
-    expect(oneK).toBeDefined();
-    expect(oneK!.demotion).toBeNull();
+    // The plausible 400m effort, at the SAME constant pace, survives untouched.
+    const fourHundred = doc.activities['implausible'].efforts.find((e) => e.distance === '400m');
+    expect(fourHundred).toBeDefined();
+    expect(fourHundred!.demotion).toBeNull();
   });
 
   it('a max-speed-guard rejection is also retained and flagged with guard "max-speed"', async () => {

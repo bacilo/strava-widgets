@@ -31,7 +31,6 @@ import {
   validateStreamSeries,
   WORLD_RECORD_SPEED_MPS,
 } from './best-effort-utils.js';
-import type { UnreliableSegment } from './unreliable-segments.js';
 // `deriveCeilings(...)` is imported here and called exactly once below, in
 // the derivation pass between accumulation and filtering (PR-01's
 // no-iteration clause) — see the "no iteration to convergence" suite in
@@ -44,6 +43,20 @@ import {
   loadCeilingState,
 } from './best-effort-ceiling-state.js';
 import { isExcluded, loadExclusions } from './best-effort-exclusions.js';
+// The detector's ONE permitted accessor (Phase 33 plan 33-09) — this file
+// must never call `detectUnreliableSegments` directly, only through this
+// function, so the detector never runs twice per activity with two results
+// that could disagree. Exactly one call site exists below.
+//
+// `UnreliableSegment` is imported from THIS module too (its own re-export at
+// `pace-derivation.ts:46`), never from `unreliable-segments.js` directly —
+// `pace-single-source.test.ts`'s SEG-05a audit confines a direct
+// `unreliable-segments.js`/`'unreliable-segments'` import to the detector
+// file itself, `pace-derivation.ts` (its one allowed importer) and
+// `*.test.ts` files; importing the type straight from the detector module
+// here would trip that audit even though it is type-only.
+import { classifyGapsWithSegments } from './pace-derivation.js';
+import type { UnreliableSegment } from './pace-derivation.js';
 import { loadManifest } from '../streams/stream-manifest.js';
 import type { CanonicalStream, DistanceSource } from '../streams/stream.types.js';
 import type { StravaActivity } from '../types/strava.types.js';
@@ -319,6 +332,20 @@ export interface ActivityEffortInput {
   distanceSource: DistanceSource;
   t: number[];
   d: number[];
+  /**
+   * The detector's own segments for this activity's stream, computed by the
+   * CALLER through `classifyGapsWithSegments` — the detector's one permitted
+   * accessor (`pace-derivation.ts`) — so `computeActivityEfforts` itself
+   * stays pure and unit-testable with a synthetic array, never calling
+   * `detectUnreliableSegments` directly (this function's own docblock's "the
+   * seam the fixture-validation suite calls directly without any file
+   * writing" claim stays true either way).
+   *
+   * REQUIRED, not optional: an optional field would let a forgotten call
+   * site silently default to `[]`, disabling the clean-window search exactly
+   * the way plan 36-05's deliberate stub proof is designed to detect.
+   */
+  segments: readonly UnreliableSegment[];
 }
 
 /** Output of `computeActivityEfforts` — per-activity efforts, rejections, and eligibility metadata. */
@@ -333,9 +360,28 @@ export interface ActivityEffortResult {
  * Computes all plausible efforts for one activity across the seven target
  * distances. Pure — no file I/O. This is the seam the fixture-validation
  * suite (plan 04) calls directly without any file writing.
+ *
+ * D-14's placement argument, stated as a fact a reader can check: this
+ * function — including the clean-window search's own `for` loops below — is
+ * defined entirely before the file's derive-and-filter passes' own source
+ * markers (this function sits above PASS ONE's marker, which itself precedes
+ * the two markers the "no iteration to convergence" suite's audit scans
+ * between). Nothing in this function's own loops can trip that audit, and
+ * that audit needs zero edits for this plan. (Deliberately NOT spelling the
+ * literal marker text here — the audit locates its scanned slice by
+ * `indexOf` on that exact text, and a second occurrence earlier in the file
+ * would shift the slice it finds.)
+ *
+ * PR-08's ordering consequence, not just a comment but demonstrated by plan
+ * 36-05's ceiling-population test: because line ~590's existing filter
+ * (`if (effort.demotion !== null) continue;`) admits only `demotion === null`
+ * efforts into `byDistance`, and because the top-level `durationSec` below is
+ * now always the CLEAN figure whenever one exists (Branch 2), a contaminated
+ * timing can never reach the ceiling's population through any path — no new
+ * filter and no change to `best-effort-ceiling.ts` is required.
  */
 export function computeActivityEfforts(input: ActivityEffortInput): ActivityEffortResult {
-  const { activityId, activityDistanceM, maxSpeedMps, distanceSource, t, d } = input;
+  const { activityId, activityDistanceM, maxSpeedMps, distanceSource, t, d, segments } = input;
 
   const seriesValidation = validateStreamSeries(t, d);
   if (!seriesValidation.ok) {
@@ -351,6 +397,16 @@ export function computeActivityEfforts(input: ActivityEffortInput): ActivityEffo
   const efforts: ComputedEffort[] = [];
   const rejected: RejectedEffort[] = [];
 
+  // D-01/Pattern 1: the clean sub-interval complement depends only on the
+  // stream length and the detector's own segments — never on the target
+  // distance — so it is computed ONCE per activity here, hoisted out of the
+  // per-target loop below, rather than recomputed per distance. Computed
+  // LAZILY: an activity with no segments at all (the common case) does zero
+  // extra work — `cleanSubs` stays `undefined` and Branch 1 below never
+  // reads it.
+  const cleanSubs: CleanSubInterval[] | undefined =
+    segments.length > 0 ? complementSubIntervals(t.length, wholeSpanCuts(segments)) : undefined;
+
   for (const key of eligibleTargets) {
     try {
       const raw = findBestEffort(t, d, TARGET_METERS[key]);
@@ -359,30 +415,124 @@ export function computeActivityEfforts(input: ActivityEffortInput): ActivityEffo
         continue;
       }
 
-      const impliedSpeedMps = TARGET_METERS[key] / raw.durationSec;
-      const plausibility = isPlausible(impliedSpeedMps, maxSpeedMps, WORLD_RECORD_SPEED_MPS[key]);
-      const paceSecPerKm = raw.durationSec / (TARGET_METERS[key] / 1000);
+      const intersecting = segmentsIntersectingWindow(segments, raw);
 
-      // D-08: an absolute-guard rejection no longer deletes the effort. It
-      // still gets a `rejected` row (the archive-wide report), but the
-      // effort itself is retained in `efforts[]` below, carrying its
-      // demotion — the single shared path `demotionFromPlausibility` builds.
-      if (!plausibility.ok) {
-        rejected.push({ activityId, distance: key, reason: plausibility.reason });
+      if (intersecting.length === 0) {
+        // Branch 1 — today's code path, byte-for-byte unchanged apart from
+        // the `contaminated: null` field (already added by plan 36-03). This
+        // is exactly what plan 36-05's stubbed-segments proof asserts is
+        // identical to today's output.
+        const impliedSpeedMps = TARGET_METERS[key] / raw.durationSec;
+        const plausibility = isPlausible(impliedSpeedMps, maxSpeedMps, WORLD_RECORD_SPEED_MPS[key]);
+        const paceSecPerKm = raw.durationSec / (TARGET_METERS[key] / 1000);
+
+        // D-08: an absolute-guard rejection no longer deletes the effort. It
+        // still gets a `rejected` row (the archive-wide report), but the
+        // effort itself is retained in `efforts[]` below, carrying its
+        // demotion — the single shared path `demotionFromPlausibility` builds.
+        if (!plausibility.ok) {
+          rejected.push({ activityId, distance: key, reason: plausibility.reason });
+        }
+
+        efforts.push({
+          distance: key,
+          durationSec: round1(raw.durationSec),
+          paceSecPerKm: round1(paceSecPerKm),
+          startOffsetSec: Math.round(raw.startOffsetSec),
+          endOffsetSec: round1(raw.endOffsetSec),
+          lowConfidence: distanceSource === 'geo',
+          demotion: plausibility.ok ? null : demotionFromPlausibility(plausibility),
+          contaminated: null,
+        });
+      } else {
+        // The raw window intersects at least one segment. `cleanSubs` is
+        // guaranteed defined here: `intersecting.length > 0` requires
+        // `segments.length > 0` (segmentsIntersectingWindow can only return a
+        // non-empty array by filtering `segments`), the exact condition
+        // `cleanSubs` was computed under above.
+        //
+        // Bounded search over each clean sub-interval — the ONE sweep
+        // (`findBestEffort`, plan 36-02's bound), never a second sweep
+        // implementation — keeping the minimum-duration result with an
+        // `undefined`-safe running comparison.
+        let clean: RawEffort | undefined;
+        for (const sub of cleanSubs!) {
+          const candidate = findBestEffort(t, d, TARGET_METERS[key], sub);
+          if (candidate && (!clean || candidate.durationSec < clean.durationSec)) {
+            clean = candidate;
+          }
+        }
+
+        if (clean) {
+          // Branch 2 (D-05): a clean sub-interval covers the distance. The
+          // existing absolute-guard code path below is UNCHANGED, now fed
+          // the CLEAN figure (D-08) — `isPlausible` never sees the raw/
+          // contaminated duration in this branch.
+          const impliedSpeedMps = TARGET_METERS[key] / clean.durationSec;
+          const plausibility = isPlausible(
+            impliedSpeedMps,
+            maxSpeedMps,
+            WORLD_RECORD_SPEED_MPS[key]
+          );
+          const paceSecPerKm = clean.durationSec / (TARGET_METERS[key] / 1000);
+
+          if (!plausibility.ok) {
+            rejected.push({ activityId, distance: key, reason: plausibility.reason });
+          }
+
+          efforts.push({
+            distance: key,
+            durationSec: round1(clean.durationSec),
+            paceSecPerKm: round1(paceSecPerKm),
+            startOffsetSec: Math.round(clean.startOffsetSec),
+            endOffsetSec: round1(clean.endOffsetSec),
+            lowConfidence: distanceSource === 'geo',
+            demotion: plausibility.ok ? null : demotionFromPlausibility(plausibility),
+            contaminated: contaminationRecord(
+              key,
+              raw,
+              TARGET_METERS[key],
+              segmentIntersectionReason(key, raw, intersecting)
+            ),
+          });
+        } else {
+          // Branch 3 (D-06): no clean sub-interval covers the distance. The
+          // effort is kept, carrying the CONTAMINATED figure in its
+          // top-level fields, with `demotion` set directly to the new guard.
+          // `isPlausible` is NOT independently evaluated here — D-08's
+          // short-circuit, not an oversight: once the clean-window search has
+          // already resolved that no clean duration exists, no later guard
+          // re-evaluates the raw one, mirroring the file's existing "once
+          // `demotion` is non-null, no later pass re-evaluates it" invariant.
+          // Exactly ONE `rejected` row is pushed, carrying the demotion's own
+          // reason — pushing a second row here would break this file's
+          // stated `rejected[]` identity (one row per demoted effort across
+          // every guard; `totals.effortsRejected` is `rejected.length`).
+          const longestCleanSpanM = cleanSubs!.reduce(
+            (max, sub) => Math.max(max, d[sub.endIndex - 1] - d[sub.startIndex]),
+            0
+          );
+          const reason = noCleanWindowReason(key, raw, intersecting, longestCleanSpanM);
+
+          rejected.push({ activityId, distance: key, reason });
+
+          efforts.push({
+            distance: key,
+            durationSec: round1(raw.durationSec),
+            paceSecPerKm: round1(raw.durationSec / (TARGET_METERS[key] / 1000)),
+            startOffsetSec: Math.round(raw.startOffsetSec),
+            endOffsetSec: round1(raw.endOffsetSec),
+            lowConfidence: distanceSource === 'geo',
+            demotion: unreliableSegmentDemotion(reason),
+            // `contaminated` is `null` here DELIBERATELY: D-05/D-06 give each
+            // case exactly one unambiguous home for the contaminated figure —
+            // Branch 2 uses `contaminated`, Branch 3 (this one) uses
+            // `demotion`. Populating both would create two homes for one
+            // figure.
+            contaminated: null,
+          });
+        }
       }
-
-      efforts.push({
-        distance: key,
-        durationSec: round1(raw.durationSec),
-        paceSecPerKm: round1(paceSecPerKm),
-        startOffsetSec: Math.round(raw.startOffsetSec),
-        endOffsetSec: round1(raw.endOffsetSec),
-        lowConfidence: distanceSource === 'geo',
-        demotion: plausibility.ok ? null : demotionFromPlausibility(plausibility),
-        // Placeholder: the clean-window search itself is plan 36-04's work.
-        // This line always reads `null` until that plan replaces it.
-        contaminated: null,
-      });
     } catch (error) {
       // NOT a demotion of a computed effort (D-08 is about retained-but-
       // flagged efforts) — the computation itself threw, so there is no
@@ -490,6 +640,14 @@ export async function computeBestEfforts(
       );
       const stream = await fileStore.readJson<CanonicalStream>(path.join(streamsDir, `${id}.json`));
 
+      // The detector's ONE permitted accessor, called exactly once per
+      // activity, with NO options: no production caller anywhere in `src/`
+      // overrides `pauseRule` (verified 2026-09-28), so this resolves the
+      // identical pause rule every other consumer already resolves — a
+      // best-effort-specific override would be a second definition of
+      // "clean" (36-CONTEXT.md D-01's rationale).
+      const { segments } = classifyGapsWithSegments(stream.t, stream.d);
+
       const result = computeActivityEfforts({
         activityId: id,
         startDate: activity.start_date,
@@ -498,6 +656,7 @@ export async function computeBestEfforts(
         distanceSource: entry.distanceSource,
         t: stream.t,
         d: stream.d,
+        segments,
       });
 
       if (result.seriesError) {
