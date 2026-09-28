@@ -448,6 +448,83 @@ describe('prFlagBadgeSpecs', () => {
   });
 });
 
+describe('prFlagBadgeSpecs — contaminated badge (Phase 36 D-15)', () => {
+  it('a contaminated row with a reason produces exactly one spec of kind "contaminated", visibleText starting with the fixed prefix and containing the reason verbatim, with a distinct explanation from the demoted branch', () => {
+    const specs = prFlagBadgeSpecs(
+      panelRow({ contaminated: true, contaminatedReason: '52 m burst at t=2508' }),
+      null
+    );
+    expect(specs.length).toBe(1);
+    expect(specs[0].kind).toBe('contaminated');
+    expect(specs[0].visibleText.startsWith('Ranked on clean window — ')).toBe(true);
+    expect(specs[0].visibleText).toContain('52 m burst at t=2508');
+    expect(specs[0].descriptionIdSuffix).toBe('contaminated');
+    expect(specs[0].explanation.length).toBeGreaterThan(0);
+
+    const demotedSpecs = prFlagBadgeSpecs(panelRow({ demoted: true, demotionReason: 'x' }), null);
+    expect(specs[0].explanation).not.toBe(demotedSpecs[0].explanation);
+  });
+
+  it('a contaminated row with contaminatedReason: null falls back to "Ranked on clean window" with no trailing dash', () => {
+    const specs = prFlagBadgeSpecs(panelRow({ contaminated: true, contaminatedReason: null }), null);
+    expect(specs.length).toBe(1);
+    expect(specs[0].visibleText).toBe('Ranked on clean window');
+  });
+
+  it('a row that is NOT contaminated produces no spec of kind "contaminated" — the can-fail direction, a branch that fired unconditionally would badge every effort', () => {
+    const specs = prFlagBadgeSpecs(panelRow({ contaminated: false }), null);
+    expect(specs.some((s) => s.kind === 'contaminated')).toBe(false);
+  });
+
+  it('ORDER: a row that is PR, contaminated, demoted, low-confidence AND excluded returns kinds in exactly [pr, contaminated, demoted, low-confidence, excluded]', () => {
+    const specs = prFlagBadgeSpecs(
+      panelRow({
+        isPr: true,
+        contaminated: true,
+        contaminatedReason: 'seg',
+        demoted: true,
+        demotionReason: 'x',
+        lowConfidence: true,
+        excluded: true,
+      }),
+      'owner reason'
+    );
+    expect(specs.map((s) => s.kind)).toEqual(['pr', 'contaminated', 'demoted', 'low-confidence', 'excluded']);
+  });
+
+  it('R15 separability: every spec for the same five-flag row has a DISTINCT descriptionIdSuffix', () => {
+    const specs = prFlagBadgeSpecs(
+      panelRow({
+        isPr: true,
+        contaminated: true,
+        contaminatedReason: 'seg',
+        demoted: true,
+        demotionReason: 'x',
+        lowConfidence: true,
+        excluded: true,
+      }),
+      'owner reason'
+    );
+    const suffixes = new Set(specs.map((s) => s.descriptionIdSuffix));
+    expect(suffixes.size).toBe(specs.length);
+  });
+
+  it('D-06: a no-clean-window row (contaminated: false, demoted: true, demotionReason carrying the segment text) emits exactly one demoted spec containing the segment reason and no contaminated spec — the no-clean case travels through the existing demoted copy, deliberately, checked rather than assumed', () => {
+    const specs = prFlagBadgeSpecs(
+      panelRow({
+        contaminated: false,
+        demoted: true,
+        demotionReason: 'no clean window found; segment spans the entire target distance',
+      }),
+      null
+    );
+    expect(specs.length).toBe(1);
+    expect(specs[0].kind).toBe('demoted');
+    expect(specs[0].visibleText).toContain('no clean window found; segment spans the entire target distance');
+    expect(specs.some((s) => s.kind === 'contaminated')).toBe(false);
+  });
+});
+
 describe('GAP-24-01 — panel row exclusion derives from the live exclusions file', () => {
   it('a live index that marks the activity excluded wins over a false precomputed flag (post-Save, pre-Recompute window)', () => {
     const entry = activity({
