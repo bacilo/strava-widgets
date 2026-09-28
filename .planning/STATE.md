@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
 status: executing
-stopped_at: Phase 36 planned -- 14 plans, 9 waves, ready to execute
-last_updated: "2026-09-28T12:48:07.572Z"
-last_activity: 2026-09-28 -- Phase 36 planning complete
+stopped_at: Phase 36 context gathered
+last_updated: "2026-09-28T13:29:21.445Z"
+last_activity: 2026-09-28 -- Phase 36 execution started
 progress:
   total_phases: 6
   completed_phases: 4
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 36 — best effort clean window search & ceiling recalibration
+**Current focus:** Phase 36 — best-effort-clean-window-search-ceiling-recalibration
 
 **Carried into the next milestone** (full list with reasons in PROJECT.md § Active):
 
@@ -46,9 +46,9 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 ## Current Position
 
-Phase: 36
-Plan: Not started
-Status: Ready to execute
+Phase: 36 (best-effort-clean-window-search-ceiling-recalibration) — EXECUTING
+Plan: 1 of 14
+Status: Executing Phase 36
 
 Phase 36 planned (2026-09-28): 14 plans in 9 waves, committed `ebe0245c`. Research `4a61a19b`,
 validation/pattern artifacts `e9a16e61`. Plan-checker returned VERIFICATION PASSED — 0 blockers,
@@ -59,16 +59,20 @@ Gates: requirements coverage 4/4 (PR-06..PR-09) plus SEG-05b; decision coverage 
 visible to the gate because the planner carried the ids in frontmatter `must_haves.decisions`).
 
 Carried into execution:
+
 - **D-08's literal bound is unsatisfiable** — 0 of 440 no-clean-window occurrences independently
   fail an absolute guard. Plan 36-01 amends PR-07 and ROADMAP criterion 2 before any test exists;
   36-05 T2 demonstrates the adjacent *moved* case on real fixtures 3475725842 / 3475713251. No
   synthetic fixture for the vacuous combination.
+
 - **CONTEXT.md is wrong that `pace-single-source.test.ts` bans a duplicate sweep** — its
   `BANNED_LITERALS` holds only the two pace-division literals. Reusing `findBestEffort` via optional
   half-open bounds is still the design, but no existing guard enforces it.
+
 - **Research's own `complementSubIntervals` snippet was off by one** (`endIndex: seg.startIndex`
   drops the last clean pair and swallows a clean boundary sample, contradicting 32-CONTEXT.md
   D-06/D-07). Plans carry `endIndex: cut.startIndex + 1` with a hand-computed unit assertion.
+
 - **Plans 36-13 and 36-14 must run on the primary checkout**, not a worktree. MERGE-01's origin
   merge → regenerate → *then* the sha256 signature, in that order.
 
@@ -76,7 +80,7 @@ Carried into execution:
 `.planning/phases/34-pause-classification-forgotten-stop/34-{01..16}-SUMMARY.md` and git history.
 Phases 34 and 35 are both closed in ROADMAP.md.)*
 
-Last activity: 2026-09-28 -- Phase 36 planning complete
+Last activity: 2026-09-28 -- Phase 36 execution started
 
 ## Performance Metrics
 
