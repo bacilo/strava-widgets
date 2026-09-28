@@ -67,6 +67,7 @@ import {
   buildPausesSection,
   pausesSectionPlan,
   splitGapAnnotations,
+  runningPaceTilePlan,
 } from './detail-sections.js';
 import { buildPrBadgeLabels, buildBestEffortsPanelRows } from './detail-best-efforts-logic.js';
 // buildExclusionReasonIndex is records-logic.ts's pure, __proto__-safe
@@ -697,6 +698,30 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
       );
     }
     statGrid.appendChild(paceStatCard);
+
+    // Running Pace tile (Phase 35, RPACE-02, D-10, plan 35-10): the fourth
+    // stat tile, appended IMMEDIATELY after Pace, because ROADMAP criterion
+    // 2 requires the two figures to read side by side (35-UI-SPEC.md §
+    // Layout and Responsive Notes: "Tile order is load-bearing"). Read via
+    // the file's ONE existing optional-chained row-read pattern, right
+    // beside the `disagreement` read above so both come from the same
+    // row-lookup region. `runningPaceTilePlan` (detail-sections.ts) decides
+    // everything — omitting the node entirely when it returns `null` (a
+    // stream-less activity) is the `.stat-grid` auto-fit reflow contract,
+    // mirroring the Gear tile's own conditional-append precedent below. The
+    // note (the tile's third child, a plain `.text-label` paragraph, never a
+    // badge) is always present for any activity that has a stream — COV-02's
+    // always-on rule, extended by D-10.
+    const runningPace = indexClient.getRow(detail.id)?.runningPace ?? null;
+    const runningPacePlan = runningPaceTilePlan(runningPace);
+    if (runningPacePlan !== null) {
+      const runningPaceStatCard = buildStatCard(runningPacePlan.value, 'Running Pace');
+      const runningPaceNote = document.createElement('p');
+      runningPaceNote.className = 'text-label';
+      runningPaceNote.textContent = runningPacePlan.note;
+      runningPaceStatCard.appendChild(runningPaceNote);
+      statGrid.appendChild(runningPaceStatCard);
+    }
 
     // D-12: the one stat card whose number this same page flags as
     // implausible carries a caveat — nothing else (no split column, no
