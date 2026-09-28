@@ -327,7 +327,7 @@ function buildPaceBarCell(split: Split, activityAvgPaceSecPerKm: number | null):
  * `isRebasedAverage` (D-13, PACE-07) is optional and defaults to `false` —
  * this function does not itself decide when a rebase applies; the caller
  * (`detail.ts`) sets it `true` only on the branch where it already passed
- * the stream-derived pace as `activityAvgPaceSecPerKm` in place of the
+ * the running pace as `activityAvgPaceSecPerKm` in place of the
  * disputed metadata average (D-13 is a call-site change, not a change to
  * `buildPaceBarCell`, which keeps diffing against whatever baseline it is
  * handed). When `true`, a `<p class="text-label">` stating the D-13
@@ -429,7 +429,7 @@ export function buildSplitsSection(
   if (isRebasedAverage && activityAvgPaceSecPerKm !== null) {
     const note = document.createElement('p');
     note.className = 'text-label';
-    note.textContent = `Splits above are compared against the stream-derived average (${formatPace(activityAvgPaceSecPerKm)}), not the disputed metadata average.`;
+    note.textContent = `Splits above are compared against the running pace (${formatPace(activityAvgPaceSecPerKm)}), not the disputed metadata average.`;
     section.appendChild(note);
   }
 

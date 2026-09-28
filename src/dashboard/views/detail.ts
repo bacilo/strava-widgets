@@ -688,11 +688,17 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
       // D-10) — this badge only ADDS the disclosure below the `.text-label`
       // "Pace" caption. Reuses the shared appendAccessibleBadge block from
       // list.ts (not appendPaceDisputedBadge) because this badge's visible
-      // text carries the stream-derived figure, which the row badge's
+      // text carries the running-pace figure, which the row badge's
       // fixed "Pace disputed" text does not.
+      //
+      // Retargeted 2026-09-24 (35-UI-SPEC.md Copywriting Contract, 33 D-11):
+      // the prior wording named the badge's figure by its derivation method,
+      // which is now ambiguous between two different numbers — the retired
+      // span-based pace and the new running pace both come from the stream —
+      // so the badge names the running pace explicitly instead.
       appendAccessibleBadge(
         paceStatCard,
-        `Pace disputed — stream-derived ${formatPace(disagreement.runningPaceSecPerKm)}`,
+        `Pace disputed — running ${formatPace(disagreement.runningPaceSecPerKm)}`,
         paceDisputedExplanation(disagreement),
         paceDisputedDescriptionId('detail-pace-stat')
       );
@@ -825,7 +831,7 @@ export function createDetailView(deps: DetailViewDeps): DashboardView {
       const derived = derivePaceWithCoverage(detail.stream);
 
       // D-13 (26-08): for a flagged activity ONLY, the vs. Avg baseline is
-      // rebased to the stream-derived average — the untouched metadata
+      // rebased to the running-pace average — the untouched metadata
       // `paceSecPerKm` above is never mutated, only the argument handed to
       // buildSplitsSection here differs. `isRebasedAverage` tells the section
       // to render its own D-13 disclosure note from that same average value

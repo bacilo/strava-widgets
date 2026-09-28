@@ -237,7 +237,7 @@ export function lowConfidenceDescriptionId(idPrefix: string): string {
  * use `textContent` only (T-18-XSS-01).
  *
  * Exported (26-08, D-11) so `detail.ts`'s Pace stat-card badge — whose
- * visible text differs per activity (`Pace disputed — stream-derived …`) and
+ * visible text differs per activity (`Pace disputed — running …`) and
  * so cannot reuse `appendPaceDisputedBadge`'s fixed-text signature below —
  * builds its badge from this SAME block rather than a fourth hand-rolled
  * badge builder. `appendLowConfidenceBadge` and `appendPaceDisputedBadge`
@@ -317,9 +317,22 @@ export function paceDisputedDescriptionId(idPrefix: string): string {
  * single definition both the row badge (`appendPaceDisputedBadge`) and the
  * detail Pace stat-card badge (`detail.ts`) read from, so the explanation
  * text cannot drift between the two surfaces.
+ *
+ * Retargeted 2026-09-24 (35-UI-SPEC.md Copywriting Contract, 35-CONTEXT.md
+ * D-01, 33-CONTEXT.md D-11): the comparator this sentence describes is now
+ * the running pace, not the retired span-based pace — both are derived from
+ * the stream, so naming either one by its derivation method stopped
+ * uniquely identifying one number the moment D-01 shipped. No direction
+ * clause ("running pace is slower") is appended here because D-06 ships
+ * slower-only: the badge never
+ * fires for a faster running pace, so a reader cannot be misled about which
+ * way the pace moved by the sentence's silence on direction. If a future
+ * plan widens the badge to symmetric direction, THIS is the one place the
+ * sign clause belongs (35-UI-SPEC.md's symmetric-direction template) — do
+ * not add a second sentence elsewhere.
  */
 export function paceDisputedExplanation(disagreement: PaceDisagreement): string {
-  return `Metadata pace disagrees with the stream-derived pace: ${formatPace(disagreement.runningPaceSecPerKm)} measured vs. ${formatPace(disagreement.metadataPaceSecPerKm)} shown`;
+  return `Metadata pace disagrees with the running pace: ${formatPace(disagreement.runningPaceSecPerKm)} measured vs. ${formatPace(disagreement.metadataPaceSecPerKm)} shown`;
 }
 
 /**
@@ -720,6 +733,18 @@ export function statusBadgeTexts(row: DashboardIndexRow): string[] {
  * branch here (rather than a second badge-append path per surface) is what
  * makes the "Pace disputed" badge reach all four surfaces from one change.
  * A future badge must be added HERE, not as a new per-surface call.
+ *
+ * D-03 disposition (2026-09-24, Phase 35, plan 35-11): Phase 35 widens WHICH
+ * rows carry the pace-disputed badge (the comparator moved from the retired
+ * span-based pace to the running pace, D-01), but makes NO structural change
+ * here. All four `RowSurface` values already dispatch through this one
+ * function on `rowPaceDisagreement(row) !== null` — a population-size-agnostic
+ * boolean — so no code path exists by which two surfaces could disagree about
+ * whether a given row is disputed; the widened population reaches every
+ * surface automatically and identically. A detail-view-only reach was
+ * rejected because it would require actively SUPPRESSING this dispatch for
+ * the other three surfaces, which is the duplicated-derivation shape Phase
+ * 24 D-04 warns against.
  */
 function appendStatusBadges(container: HTMLElement, row: DashboardIndexRow, idPrefix: string): void {
   const disagreement = rowPaceDisagreement(row);
