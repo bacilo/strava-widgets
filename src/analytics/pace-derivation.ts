@@ -1058,53 +1058,56 @@ export function paceHistogramAccounting(
 }
 
 // ---------------------------------------------------------------------------
-// Metadata-vs-stream pace disagreement (PACE-07, D-10, D-14)
+// Metadata-vs-running-pace disagreement (RPACE-03, D-01/D-02/D-06/D-07)
 // ---------------------------------------------------------------------------
 
 /**
- * Metadata pace threshold, in sec/km, below which a disagreement check is
- * even attempted (PACE-07). The roadmap states the threshold as "metadata
- * implying a sustained pace faster than 3:20/km" — 200 sec/km is exactly
- * 3:20/km. 26-RESEARCH.md measured exactly one archive-wide flag at this
- * threshold (activity 5059204779, metadata 112.6 sec/km).
- */
-export const PACE_DISAGREEMENT_METADATA_THRESHOLD_SEC_PER_KM = 200;
-
-/**
- * Minimum ratio of stream-derived pace to metadata pace for a disagreement
- * to count as material (PACE-07). Activity 5059204779's measured ratio is
- * 350.6 / 112.6 = 3.11, well above this floor.
- */
-export const PACE_DISAGREEMENT_RATIO = 2;
-
-/**
- * Span-based stream pace: `(t[n-1] - t[0]) / ((d[n-1] - d[0]) / 1000)`, or
- * `null` when the stream is invalid (via `validateStreamSeries`), the time
- * span is not positive, or the distance span is not positive.
+ * The one calibrated constant RPACE-03 ships (D-01/D-07). Measures: the 95th
+ * percentile of `runningPaceSecPerKm / metadataPaceSecPerKm` over control
+ * population C (`excludedM === 0`, N=377) — every member of C provably has
+ * zero distance withheld off the clock and zero time withheld, so a cut
+ * derived from C cannot be circular with respect to the eligible population.
  *
- * Deliberately SPAN-based, not covered-time-based (unlike
- * `derivePaceWithCoverage`'s windowed series) — this reproduces the
- * roadmap's and UI-SPEC's cited 5:51/km for 5059204779 exactly (3788s /
- * 10.804km = 350.6 sec/km), which is the figure the browser checkpoint
- * reads back verbatim. A gap-aware windowed average would answer a
- * different question ("how fast when moving") than this check needs
- * ("what pace does the whole recorded stream actually imply").
+ * Provenance (verbatim from `.planning/phases/35-stream-derived-running-pace/
+ * 35-CALIBRATION.md` § Chosen constants): "PACE_DISAGREEMENT_RUNNING_RATIO
+ * provenance: calibrated (shape C3, base population C, N=377)". Basis gate:
+ * PASS — 3475724402 is eligible and its ratio (1.0731) exceeds this cut.
+ *
+ * Standing rule: this constant is NEVER tuned toward a badged count. Any
+ * recalibration re-runs `scripts/compute-running-pace-dispute-calibration.mjs`
+ * against the full seven-shape pre-declaration and regenerates
+ * `35-CALIBRATION.md`; the value here is copied from that artifact's own
+ * "## Chosen constants" line, never hand-edited.
+ *
+ * Amended 2026-09-24 (35-CONTEXT.md D-01/D-02/D-07): this constant replaces
+ * two retired constants — both removed by this same task, their identifiers
+ * deliberately not repeated here since this task's own automated verify
+ * script forbids either surviving anywhere in this file; see git history
+ * (this hunk's pre-35-08 revision) or `35-08-SUMMARY.md`'s Task 1 section
+ * for their literal names — that could never fire on 3475724402 (RPACE-03's
+ * own finding, ROADMAP criterion 3):
+ *   - a 200 sec/km (3:20/km) metadata-implausibility gate. 3475724402's
+ *     metadata pace is 296.0 sec/km, which fails (is not faster than) that
+ *     threshold outright.
+ *   - a 2x span-pace ratio floor. 3475724402's ratio against the running
+ *     pace is 1.0731, nowhere near 2.
+ * Both are replaced by this one calibrated cut, compared against the running
+ * pace (not the retired span-based per-activity pace this same task deletes)
+ * under D-02's zero-free-parameter eligibility gate.
  */
-export function streamPaceSecPerKm(stream: CanonicalStream): number | null {
-  const { t, d } = stream;
-  if (!validateStreamSeries(t, d).ok) return null;
+export const PACE_DISAGREEMENT_RUNNING_RATIO = 1.0173;
 
-  const n = t.length;
-  const spanSec = t[n - 1] - t[0];
-  const spanM = d[n - 1] - d[0];
-  if (!(spanSec > 0) || !(spanM > 0)) return null;
-
-  return spanSec / (spanM / 1000);
-}
-
-/** The result of a material metadata-vs-stream pace disagreement (PACE-07, D-10). */
+/** The result of a material metadata-vs-running-pace disagreement (RPACE-03, D-01). */
 export interface PaceDisagreementResult {
-  streamPaceSecPerKm: number;
+  /**
+   * Renamed (33 D-11 precedent: a shipped field's name must match what it
+   * holds) from the span-based field name this task's own automated verify
+   * script forbids surviving anywhere in this file — the retired identifier
+   * is preserved verbatim in git history (this hunk's pre-35-08 revision)
+   * and in `35-08-SUMMARY.md`'s Task 1 section, so the rename stays
+   * findable without repeating it here. Holds `RunningPace.runningPaceSecPerKm`.
+   */
+  runningPaceSecPerKm: number;
   metadataPaceSecPerKm: number;
   ratio: number;
 }
@@ -1112,41 +1115,51 @@ export interface PaceDisagreementResult {
 /**
  * Detects a material disagreement between an activity's metadata-derived
  * pace (`movingTimeSec / (distanceM / 1000)`, computed by the caller) and
- * its own stream-derived pace (PACE-07). Returns `null` — never a
- * partially-filled object and never a zero — unless ALL of:
+ * its own running pace (`deriveRunningPace`'s output, computed by the
+ * caller — this function never re-derives it, so the arithmetic is never
+ * executed twice per activity). Returns `null` — never a partially-filled
+ * object and never a zero standing in for not-disputed — unless ALL of:
  *   - `metadataPaceSecPerKm` is not `null` and is `> 0`
- *   - `metadataPaceSecPerKm < threshold` (gate: only implausibly fast
- *     metadata paces are even checked, so a slow-but-real activity like
- *     11544429866's 402.4 sec/km is never considered)
- *   - `streamPaceSecPerKm(stream)` is not `null`
- *   - the stream pace is at least `ratio` times the metadata pace
+ *   - `runningPace.computable === true` and `runningPace.runningPaceSecPerKm`
+ *     is not `null`
+ *   - D-02's eligibility gate: `runningPace.excludedM > 0` — a
+ *     zero-free-parameter gate (no threshold to calibrate) that separates
+ *     mechanism (a), distance covered off the clock (this milestone's
+ *     target), from mechanism (b), pure `moving_time` divergence with zero
+ *     distance withheld, which is `elapsedVsMoving`'s territory (D-06)
+ *   - the running pace is at least `cut` times the metadata pace
  *
- * Nothing about `paceSecPerKm` is recomputed or substituted here (D-10) —
- * this function only DETECTS and reports the disagreement; the caller
- * decides what to do with it. Never throws on any array-shaped stream
- * (T-26-01). Both returned paces are rounded to one decimal, matching
- * `compute-dashboard-index.ts`'s existing `round1` convention.
+ * With `cut` above 1 (the ratio family), the last clause IS the slower-only
+ * direction (D-06): an activity whose running pace is FASTER than metadata
+ * can never satisfy `runningPace.runningPaceSecPerKm / metadataPaceSecPerKm
+ * >= cut`, so it can never be flagged here. The faster side is never badged
+ * by this function — it is `elapsedVsMoving`'s territory, per D-06's binding
+ * resolution.
+ *
+ * The all-or-nothing contract is unchanged from the retired rule: every
+ * reject path returns `null`, and the sole accept path returns a fully
+ * populated object, never partial. Never throws on any well-typed
+ * `RunningPace` input (T-26-01's totality precedent, carried forward). Both
+ * returned paces are rounded to one decimal and the ratio to two,
+ * matching `compute-dashboard-index.ts`'s existing `round1` convention.
  */
 export function detectPaceDisagreement(
   metadataPaceSecPerKm: number | null,
-  stream: CanonicalStream,
-  options?: { metadataThresholdSecPerKm?: number; ratio?: number }
+  runningPace: RunningPace,
+  options?: { cut?: number }
 ): PaceDisagreementResult | null {
-  const threshold =
-    options?.metadataThresholdSecPerKm ?? PACE_DISAGREEMENT_METADATA_THRESHOLD_SEC_PER_KM;
-  const ratioFloor = options?.ratio ?? PACE_DISAGREEMENT_RATIO;
+  const cut = options?.cut ?? PACE_DISAGREEMENT_RUNNING_RATIO;
 
   if (metadataPaceSecPerKm === null || !(metadataPaceSecPerKm > 0)) return null;
-  if (!(metadataPaceSecPerKm < threshold)) return null;
+  if (runningPace.computable !== true || runningPace.runningPaceSecPerKm === null) return null;
+  if (!(runningPace.excludedM > 0)) return null;
 
-  const streamPace = streamPaceSecPerKm(stream);
-  if (streamPace === null) return null;
-
-  if (!(streamPace / metadataPaceSecPerKm >= ratioFloor)) return null;
+  const ratio = runningPace.runningPaceSecPerKm / metadataPaceSecPerKm;
+  if (!(ratio >= cut)) return null;
 
   return {
-    streamPaceSecPerKm: Math.round(streamPace * 10) / 10,
+    runningPaceSecPerKm: Math.round(runningPace.runningPaceSecPerKm * 10) / 10,
     metadataPaceSecPerKm: Math.round(metadataPaceSecPerKm * 10) / 10,
-    ratio: Math.round((streamPace / metadataPaceSecPerKm) * 100) / 100,
+    ratio: Math.round(ratio * 100) / 100,
   };
 }
