@@ -152,6 +152,54 @@ export interface DashboardIndexRow {
    * instead, never on this row.
    */
   quality: ActivityQualitySignals;
+  /**
+   * The stream-derived running pace and its exclusion accounting (RPACE-01,
+   * RPACE-02, D-08, D-10), one row scalar rather than a shard field —
+   * following the `paceDisagreement` precedent above, not the per-activity
+   * shard precedent (`PaceQualityShard`): these five small values are
+   * needed on every detail-view open, and COV-02's always-on rule (a term
+   * that disappears at zero stops meaning "zero" and starts meaning
+   * "unknown") applies here exactly as it does to the coverage caption.
+   *
+   * REQUIRED, deliberately, following the `gearName` / `paceDisagreement` /
+   * `quality` WR-06 precedent verbatim: an optional key would let
+   * `compute-dashboard-index.ts` silently stop emitting it with no compile
+   * error. `DASHBOARD_INDEX_SCHEMA_VERSION` stays `1` because this is
+   * purely additive — the same rule Phase 33 used for
+   * `quality.unreliableSegments`.
+   *
+   * `null` ONLY when the activity has no stream at all
+   * (`entry.available === false`, 35-UI-SPEC.md's "omitted entirely"
+   * state) — `null` means "no stream", never "not computable". A stream
+   * that IS present but not computable (failed `validateStreamSeries`, or
+   * zero covered distance/time) carries a POPULATED `RunningPaceRow` with
+   * `computable: false` and a non-empty `notComputableReason`, and
+   * `runningPaceSecPerKm: null` — never a fabricated zero standing in for
+   * "could not compute" (T-35-09).
+   */
+  runningPace: RunningPaceRow | null;
+}
+
+/**
+ * The stream-derived running pace and its exclusion accounting (RPACE-01,
+ * D-08), as written onto `DashboardIndexRow.runningPace`. Produced by
+ * `deriveRunningPace` in `pace-derivation.ts`; the three numeric members
+ * are rounded to one decimal at the CI write boundary (`compute-dashboard-
+ * index.ts`'s `round1`) — `deriveRunningPace` itself stays unrounded so a
+ * zero-import recount can reconcile against full precision.
+ *
+ * `computable: false` always pairs with a non-empty `notComputableReason`
+ * and `runningPaceSecPerKm: null`; `computable: true` always pairs with a
+ * `null` reason and a positive `runningPaceSecPerKm` — never a partially
+ * populated shape (mirrors `RunningPace`'s own contract in
+ * `pace-derivation.ts`, T-35-09).
+ */
+export interface RunningPaceRow {
+  runningPaceSecPerKm: number | null;
+  excludedM: number;
+  excludedSec: number;
+  computable: boolean;
+  notComputableReason: string | null;
 }
 
 /**

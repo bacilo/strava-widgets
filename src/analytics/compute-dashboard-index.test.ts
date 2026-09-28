@@ -32,6 +32,7 @@ const EXPECTED_ROW_KEYS = [
   'paceSecPerKm',
   'prCount',
   'quality',
+  'runningPace',
   'sportType',
   'startDate',
   'startDateLocal',

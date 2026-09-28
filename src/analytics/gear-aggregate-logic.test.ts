@@ -82,6 +82,10 @@ function makeRow(overrides: Partial<DashboardIndexRow> & { id: string }): Dashbo
       anySevere: false,
       notComputableReason: null,
     },
+    // RPACE-01/RPACE-03 (35-09): a required field this suite does not
+    // exercise — `null` ("no stream at all"), same precedent as `gearName`
+    // / `paceDisagreement` above.
+    runningPace: null,
     ...overrides,
   };
 }

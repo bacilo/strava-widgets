@@ -139,6 +139,7 @@ function makeDocument(overrides: Partial<DashboardIndexDocument> = {}): Dashboar
         gearName: null,
         paceDisagreement: null,
         quality: CLEAN_QUALITY,
+        runningPace: null,
       },
       {
         id: '1234',
@@ -161,6 +162,7 @@ function makeDocument(overrides: Partial<DashboardIndexDocument> = {}): Dashboar
         gearName: null,
         paceDisagreement: null,
         quality: CLEAN_QUALITY,
+        runningPace: null,
       },
     ],
     ...overrides,

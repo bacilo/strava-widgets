@@ -334,6 +334,27 @@ export async function computeDashboardIndex(
         prCount,
         paceDisagreement,
         quality,
+        // RPACE-01/RPACE-02/RPACE-03 (35-09): `null` means "no stream at
+        // all" (`entry.available === false`) — the detail view's "omitted
+        // entirely" state (35-UI-SPEC.md). A stream that IS present but not
+        // computable (failed validation, or zero covered distance/time)
+        // carries a POPULATED object with `computable: false` and its
+        // reason, never `null` and never a fabricated zero pace (T-35-09).
+        // `round1` at this CI write boundary only — `deriveRunningPace`
+        // itself stays unrounded so a zero-import recount can reconcile
+        // against full precision (35-03).
+        runningPace: entry.available
+          ? {
+              runningPaceSecPerKm:
+                runningPace.runningPaceSecPerKm !== null
+                  ? round1(runningPace.runningPaceSecPerKm)
+                  : null,
+              excludedM: round1(runningPace.excludedM),
+              excludedSec: round1(runningPace.excludedSec),
+              computable: runningPace.computable,
+              notComputableReason: runningPace.notComputableReason,
+            }
+          : null,
       };
 
       pendingRows.push({ row, gearId, shard });

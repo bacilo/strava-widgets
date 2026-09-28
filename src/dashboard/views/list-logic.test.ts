@@ -113,6 +113,10 @@ function makeRow(overrides: Partial<DashboardIndexRow> = {}): DashboardIndexRow 
     gearName: null,
     paceDisagreement: null,
     quality: CLEAN_QUALITY,
+    // RPACE-01/RPACE-03 (35-09): a required field this suite does not
+    // exercise -- `null` ("no stream at all"), same precedent as `gearName`
+    // / `paceDisagreement` above.
+    runningPace: null,
     ...overrides,
   };
 }

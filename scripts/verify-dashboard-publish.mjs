@@ -345,6 +345,71 @@ async function main() {
             `/data/dashboard/index.json no row's quality.deviceEra.rawDeviceName contains "<", ">" or '"' (scanned all ${parsed.activities.length} rows)`
           );
         }
+
+        // runningPace (RPACE-01/RPACE-02/RPACE-03, 35-09) must survive
+        // publication on EVERY row, not just one — following the `quality`
+        // precedent immediately above (T-27-14's "partial rollout" lesson
+        // applies here too). UNLIKE `quality`, `null` is a legitimate value
+        // for this field (35-UI-SPEC.md's "omitted entirely" state, an
+        // activity with `entry.available === false`) — so the checks below
+        // distinguish "key present and null" (fine) from "key entirely
+        // missing" (a defect) from "key present, non-null, but malformed or
+        // internally inconsistent" (also a defect): `computable: false`
+        // must pair with a non-empty `notComputableReason` and a `null`
+        // `runningPaceSecPerKm`; `computable: true` must pair with a `null`
+        // reason and a positive `runningPaceSecPerKm` — never a fabricated
+        // zero standing in for "could not compute" (T-35-09).
+        const RUNNING_PACE_SUB_KEYS = [
+          'runningPaceSecPerKm',
+          'excludedM',
+          'excludedSec',
+          'computable',
+          'notComputableReason',
+        ];
+        const hasAnyRunningPace = parsed.activities.some(
+          (row) => row.runningPace !== null && row.runningPace !== undefined
+        );
+        const missingRunningPaceRow = parsed.activities.find(
+          (row) => row.runningPace === undefined
+        );
+        const malformedRunningPaceRow = parsed.activities.find((row) => {
+          const rp = row.runningPace;
+          if (rp === null || rp === undefined) return false;
+          if (typeof rp !== 'object') return true;
+          if (RUNNING_PACE_SUB_KEYS.some((key) => !(key in rp))) return true;
+          if (rp.computable === false) {
+            return (
+              typeof rp.notComputableReason !== 'string' ||
+              rp.notComputableReason.length === 0 ||
+              rp.runningPaceSecPerKm !== null
+            );
+          }
+          if (rp.computable === true) {
+            return (
+              rp.notComputableReason !== null ||
+              typeof rp.runningPaceSecPerKm !== 'number' ||
+              !(rp.runningPaceSecPerKm > 0)
+            );
+          }
+          return true; // `computable` neither true nor false is malformed.
+        });
+        if (!hasAnyRunningPace) {
+          fail(
+            '/data/dashboard/index.json no row has a non-null "runningPace" — RPACE-01 stream-derived pace computation may not have survived publication'
+          );
+        } else if (missingRunningPaceRow) {
+          fail(
+            `/data/dashboard/index.json activity ${missingRunningPaceRow.id} is missing the "runningPace" key entirely — the key must always be present (possibly \`null\`), never omitted (T-35-09)`
+          );
+        } else if (malformedRunningPaceRow) {
+          fail(
+            `/data/dashboard/index.json activity ${malformedRunningPaceRow.id} has a malformed "runningPace" — missing a sub-key, or its computable/notComputableReason/runningPaceSecPerKm triple is internally inconsistent (T-35-09)`
+          );
+        } else {
+          ok(
+            `/data/dashboard/index.json every row (${parsed.activities.length}) has a "runningPace" key (either \`null\`, or a well-shaped, internally-consistent object)`
+          );
+        }
       }
     }
 
