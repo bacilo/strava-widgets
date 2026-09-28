@@ -96,3 +96,8 @@ None - no external service configuration required.
 ---
 *Phase: 36-best-effort-clean-window-search-ceiling-recalibration*
 *Completed: 2026-09-28*
+
+## Self-Check: PASSED
+- FOUND: `.planning/phases/36-best-effort-clean-window-search-ceiling-recalibration/36-01-SUMMARY.md`
+- FOUND: commit `8fd368cf` (Task 1)
+- FOUND: commit `b0611a7a` (Task 2)
