@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { FileStore } from '../storage/file-store.js';
 import type { StreamManifest } from '../streams/stream.types.js';
 import { ceilingDemotion, deriveCeilings } from './best-effort-ceiling.js';
-import { findBestEffort } from './best-effort-utils.js';
+import { findBestEffort, isPlausible, WORLD_RECORD_SPEED_MPS } from './best-effort-utils.js';
 import { TARGET_ORDER } from './best-effort.types.js';
 import type { CeilingDerivation, RawEffort, TargetDistanceKey } from './best-effort.types.js';
 import {
@@ -17,9 +17,18 @@ import {
   computeBestEfforts,
   CONTAMINATION_REASON_SEGMENT_CAP,
   segmentIntersectionReason,
+  segmentsIntersectingWindow,
+  wholeSpanCuts,
   type ActivityEffortInput,
   type CleanSubInterval,
 } from './compute-best-efforts.js';
+// `classifyGapsWithSegments` is a VALUE import of a `pace-derivation.js`
+// re-export (never a direct `unreliable-segments.js` import), the detector's
+// one permitted accessor (Phase 33 plan 33-09) — plan 36-05's real-archive
+// demonstrations (splice fabrication D-02, D-08 precedence, the scoping
+// activities' after-state) call this directly against real committed
+// streams, the SAME call the production per-activity loop makes.
+import { classifyGapsWithSegments } from './pace-derivation.js';
 // Type-only imports of the detector's own shapes are permitted in *.test.ts
 // files (pace-single-source.test.ts's SEG-05a audit exempts every test
 // file), so this file — unlike compute-best-efforts.ts itself — may import
@@ -39,6 +48,23 @@ function constantPaceSeries(count: number, metersPerSec: number): { t: number[];
 
 function round1(value: number): number {
   return Math.round(value * 10) / 10;
+}
+
+/** mm:ss conversion, computed locally — mirrors best-effort-utils.test.ts's own copy (this file is analytics, must not import a dashboard formatter). */
+function paceMinSec(paceSecPerKm: number): string {
+  return `${Math.floor(paceSecPerKm / 60)}:${String(Math.round(paceSecPerKm) % 60).padStart(2, '0')}`;
+}
+
+/** Reads a committed stream file from `data/streams/` — never the derived stats output (mirrors pace-derivation.test.ts's own `readStream`). */
+async function readRealStream(activityId: string): Promise<{ t: number[]; d: number[] }> {
+  const raw = await fs.readFile(path.join('data/streams', `${activityId}.json`), 'utf-8');
+  return JSON.parse(raw) as { t: number[]; d: number[] };
+}
+
+/** Reads a committed activity record from `data/activities/` — the real `max_speed`/`distance` fields plan 36-05's real-archive demonstrations depend on. */
+async function readRealActivity(activityId: string): Promise<{ max_speed?: number; distance: number }> {
+  const raw = await fs.readFile(path.join('data/activities', `${activityId}.json`), 'utf-8');
+  return JSON.parse(raw) as { max_speed?: number; distance: number };
 }
 
 function baseInput(overrides: Partial<ActivityEffortInput> = {}): ActivityEffortInput {
@@ -606,6 +632,347 @@ describe('contamination reason strings (PR-07, D-07)', () => {
     const reason = segmentIntersectionReason('400m', raw, [segment]);
     for (const banned of ['unrealistic', 'implausible', 'suspicious', 'bad', 'wrong']) {
       expect(reason.toLowerCase()).not.toContain(banned);
+    }
+  });
+});
+
+/**
+ * D-02 — the d-rebased splice fabricates a strictly faster window than the
+ * shipped partition on the locked real fixture (`3475740390`@400m,
+ * 36-CONTEXT.md's own pinned row). Reads the REAL committed
+ * `data/streams/<id>.json` directly — no synthetic look-alike (Pitfall 12,
+ * 36-RESEARCH.md).
+ *
+ * Reachability is proven FIRST: `segments.length > 0` and a non-empty
+ * intersection for the raw (unconstrained) window, so this fixture is known
+ * to have something for the splice to get wrong before any comparison runs
+ * — without this, the whole row could pass against a stream carrying no
+ * segments at all.
+ */
+describe('splice fabricates a faster window than the shipped partition (D-02, PR-06)', () => {
+  /**
+   * The WRONG implementation a competent maintainer would actually write
+   * (36-RESEARCH.md Pitfall 7): walk the samples in order; for each
+   * whole-span cut (`wholeSpanCuts(segments)`), DROP every sample strictly
+   * inside the cut (indices `cut.startIndex + 1` through `cut.endIndex`,
+   * inclusive) and SUBTRACT that cut's own `d[cut.endIndex] -
+   * d[cut.startIndex]` from every retained DOWNSTREAM `d` value — rebasing
+   * distance as if the segment's metres had never been covered. `t` is left
+   * untouched, so the surviving samples stitch across the removed span.
+   * TEST-ONLY: the shipped code never builds a combined/stitched array
+   * (Pattern 1, 36-RESEARCH.md — partition, never splice).
+   */
+  function dRebasedSplice(
+    t: readonly number[],
+    d: readonly number[],
+    segments: readonly UnreliableSegment[]
+  ): { t: number[]; d: number[] } {
+    const cuts = [...wholeSpanCuts(segments)].sort((a, b) => a.startIndex - b.startIndex);
+    const splicedT: number[] = [];
+    const splicedD: number[] = [];
+    let offset = 0;
+    let cutIndex = 0;
+    for (let i = 0; i < t.length; i++) {
+      while (cutIndex < cuts.length && i > cuts[cutIndex].endIndex) cutIndex++;
+      const cut = cuts[cutIndex];
+      if (cut && i > cut.startIndex && i <= cut.endIndex) {
+        if (i === cut.endIndex) offset += d[cut.endIndex] - d[cut.startIndex];
+        continue;
+      }
+      splicedT.push(t[i]);
+      splicedD.push(d[i] - offset);
+    }
+    return { t: splicedT, d: splicedD };
+  }
+
+  /** Independently re-derives the honest partition answer from complementSubIntervals + the bounded sweep — never read off the splice's own output. */
+  function honestPartitionDuration(
+    t: readonly number[],
+    d: readonly number[],
+    segments: readonly UnreliableSegment[]
+  ): RawEffort | undefined {
+    const subs = complementSubIntervals(t.length, wholeSpanCuts(segments));
+    let best: RawEffort | undefined;
+    for (const sub of subs) {
+      const candidate = findBestEffort(t as number[], d as number[], 400, sub);
+      if (candidate && (!best || candidate.durationSec < best.durationSec)) best = candidate;
+    }
+    return best;
+  }
+
+  it("3475740390@400m: the d-rebased splice is STRICTLY faster than the honest partition, and NOTHING is asserted against today's unconstrained figure", async () => {
+    const { t, d } = await readRealStream('3475740390');
+    const { segments } = classifyGapsWithSegments(t, d);
+
+    // REACHABILITY PROOF.
+    expect(segments.length).toBeGreaterThan(0);
+    const rawWindow = findBestEffort(t, d, 400);
+    expect(rawWindow).toBeDefined();
+    expect(segmentsIntersectingWindow(segments, rawWindow!).length).toBeGreaterThan(0);
+
+    const spliced = dRebasedSplice(t, d, segments);
+    expect(spliced.t.length).toBeLessThan(t.length);
+    for (let i = 1; i < spliced.d.length; i++) {
+      expect(spliced.d[i]).toBeGreaterThanOrEqual(spliced.d[i - 1]);
+    }
+
+    const splicedResult = findBestEffort(spliced.t, spliced.d, 400);
+    expect(splicedResult).toBeDefined();
+
+    const honestPartition = honestPartitionDuration(t, d, segments);
+    expect(honestPartition).toBeDefined();
+
+    const shippedResult = computeActivityEfforts(
+      baseInput({ activityDistanceM: d[d.length - 1], t, d, segments })
+    );
+    const shippedEffort = shippedResult.efforts.find((e) => e.distance === '400m')!;
+    expect(shippedEffort.durationSec).toBeCloseTo(honestPartition!.durationSec, 1);
+
+    // THE ROW: the splice fabricates a STRICTLY faster window than
+    // partitioning does. A shipped implementation that spliced would make
+    // these equal, failing this assertion — the row's CAN FAIL direction.
+    expect(splicedResult!.durationSec).toBeLessThan(shippedEffort.durationSec);
+
+    // Measured 2026-09-28 (re-verify against a moving archive; reconciled in
+    // full, with mm:ss, in 36-05-SUMMARY.md): today (raw, unconstrained)
+    // ~79.9s; honest partition ~119.6s; naive splice (delete only, no
+    // rebase) ~81.5s — SLOWER than today, so a "splice beats today"
+    // assertion would be FALSE on this activity — the comparison that holds
+    // is splice vs partition, asserted above; the d-rebased splice measured
+    // here, ~116.6s — FASTER than the honest partition (~119.6s) but NEVER
+    // compared against today's unconstrained figure.
+  });
+
+  it("3475724402@400m: re-measures the d-rebased splice — DELIBERATELY NOT paired with this variant (36-CONTEXT.md finding 2); no ordering is asserted", async () => {
+    const { t, d } = await readRealStream('3475724402');
+    const { segments } = classifyGapsWithSegments(t, d);
+    expect(segments.length).toBeGreaterThan(0);
+
+    const spliced = dRebasedSplice(t, d, segments);
+    expect(spliced.t.length).toBeLessThan(t.length);
+    for (let i = 1; i < spliced.d.length; i++) {
+      expect(spliced.d[i]).toBeGreaterThanOrEqual(spliced.d[i - 1]);
+    }
+    const splicedResult = findBestEffort(spliced.t, spliced.d, 400);
+    expect(splicedResult).toBeDefined();
+
+    const honestPartition = honestPartitionDuration(t, d, segments);
+    expect(honestPartition).toBeDefined();
+
+    // DELIBERATELY NOT paired with the d-rebased variant as this plan's
+    // locked test row (D-02 pins 3475740390 only): the two source documents
+    // disagree about this activity's own d-rebased-vs-partition ordering —
+    // 36-CONTEXT.md finding 2 measured the splice SLOWER than partition here
+    // (roughly 118.8s versus 116.1s), 36-RESEARCH.md's own re-implementation
+    // measured them IDENTICAL (both roughly 116.1s) — so pairing this
+    // variant with this fixture would be an unsatisfiable row either way
+    // (36-RESEARCH.md Pitfall 7). No ordering is asserted below; both
+    // re-measured figures (and which source document this run's own
+    // measurement agrees with), in mm:ss, are recorded in 36-05-SUMMARY.md.
+  });
+});
+
+/**
+ * D-08's precedence, demonstrated on two REAL activities whose raw window
+ * genuinely fails an absolute guard (the "moved" case — 31 real pairs on
+ * the live archive, swept 2026-09-28, 36-VALIDATION.md § Two-Direction
+ * Reachability). D-08's LITERAL bound ("a real activity that trips both the
+ * unreliable-segment guard AND an absolute guard") is UNSATISFIABLE for the
+ * no-clean-window case: 0 of 440 no-clean-window occurrences independently
+ * fail an absolute guard on the live archive — plan 36-01's REQUIREMENTS.md
+ * amendment records this asymmetry. No synthetic fixture is built for the
+ * empty combination here; only the moved case (this describe) is
+ * demonstrated.
+ */
+describe('3475725842 & 3475713251 — D-08 precedence on real activities whose raw window fails an absolute guard', () => {
+  it("3475725842@400m: raw fails max-speed, ranked figure is plausible, demotion is null, contaminated carries the raw figure under 'unreliable-segment'", async () => {
+    const { t, d } = await readRealStream('3475725842');
+    const activity = await readRealActivity('3475725842');
+    const { segments } = classifyGapsWithSegments(t, d);
+
+    const raw = findBestEffort(t, d, 400);
+    expect(raw).toBeDefined();
+    const rawSpeed = 400 / raw!.durationSec;
+    const rawPlausibility = isPlausible(rawSpeed, activity.max_speed, WORLD_RECORD_SPEED_MPS['400m']);
+    expect(rawPlausibility.ok).toBe(false);
+    if (rawPlausibility.ok) throw new Error('unreachable — asserted false above');
+    expect(rawPlausibility.guard).toBe('max-speed');
+
+    expect(segmentsIntersectingWindow(segments, raw!).length).toBeGreaterThan(0);
+
+    const result = computeActivityEfforts(
+      baseInput({
+        activityDistanceM: activity.distance,
+        t,
+        d,
+        segments,
+        maxSpeedMps: activity.max_speed,
+      })
+    );
+    const effort = result.efforts.find((e) => e.distance === '400m')!;
+    expect(effort.demotion).toBeNull();
+    expect(effort.contaminated).not.toBeNull();
+    expect(effort.contaminated!.guard).toBe('unreliable-segment');
+    const rankedSpeed = 400 / effort.durationSec;
+    expect(isPlausible(rankedSpeed, activity.max_speed, WORLD_RECORD_SPEED_MPS['400m']).ok).toBe(true);
+    expect(effort.contaminated!.durationSec).toBeLessThan(effort.durationSec);
+    expect(effort.contaminated!.reason).not.toMatch(/max_speed/);
+    expect(effort.contaminated!.reason).not.toMatch(/world-record/);
+  });
+
+  it("3475713251@400m: raw fails world-record, ranked figure is plausible, demotion is null, contaminated carries the raw figure under 'unreliable-segment'", async () => {
+    const { t, d } = await readRealStream('3475713251');
+    const activity = await readRealActivity('3475713251');
+    const { segments } = classifyGapsWithSegments(t, d);
+
+    const raw = findBestEffort(t, d, 400);
+    expect(raw).toBeDefined();
+    const rawSpeed = 400 / raw!.durationSec;
+    const rawPlausibility = isPlausible(rawSpeed, activity.max_speed, WORLD_RECORD_SPEED_MPS['400m']);
+    expect(rawPlausibility.ok).toBe(false);
+    if (rawPlausibility.ok) throw new Error('unreachable — asserted false above');
+    expect(rawPlausibility.guard).toBe('world-record');
+
+    expect(segmentsIntersectingWindow(segments, raw!).length).toBeGreaterThan(0);
+
+    const result = computeActivityEfforts(
+      baseInput({
+        activityDistanceM: activity.distance,
+        t,
+        d,
+        segments,
+        maxSpeedMps: activity.max_speed,
+      })
+    );
+    const effort = result.efforts.find((e) => e.distance === '400m')!;
+    expect(effort.demotion).toBeNull();
+    expect(effort.contaminated).not.toBeNull();
+    expect(effort.contaminated!.guard).toBe('unreliable-segment');
+    const rankedSpeed = 400 / effort.durationSec;
+    expect(isPlausible(rankedSpeed, activity.max_speed, WORLD_RECORD_SPEED_MPS['400m']).ok).toBe(true);
+    expect(effort.contaminated!.durationSec).toBeLessThan(effort.durationSec);
+    expect(effort.contaminated!.reason).not.toMatch(/max_speed/);
+    expect(effort.contaminated!.reason).not.toMatch(/world-record/);
+  });
+});
+
+/**
+ * All three scoping activities' after-state (ROADMAP criterion 1/4,
+ * 36-02-SUMMARY.md's BEFORE reference table). Every `contaminated` record
+ * below is checked against the SAME pinned BEFORE figures plan 36-02
+ * asserts directly on `findBestEffort` — proving the contaminated record is
+ * provably the ORIGINAL figure, not something new — while the ranked
+ * top-level figure is asserted strictly slower and, for 3475740390, moved
+ * off the detected segments entirely (criterion 1). The three scoping
+ * activities' pinned per-km AFTER pace figures (36-CONTEXT.md's own
+ * "Measured during this discussion" table) are never asserted here — they
+ * are references to reconcile against, recorded only in 36-05-SUMMARY.md.
+ */
+describe('scoping activities after — contaminated retains the BEFORE window, ranked figure moves off it', () => {
+  it("3475740390@400m: contaminated is the pinned BEFORE window (3:20/km, startOffsetSec=2508); ranked is strictly slower and does not overlap any detected segment", async () => {
+    const { t, d } = await readRealStream('3475740390');
+    const activity = await readRealActivity('3475740390');
+    const { segments } = classifyGapsWithSegments(t, d);
+
+    const result = computeActivityEfforts(
+      baseInput({
+        activityDistanceM: activity.distance,
+        t,
+        d,
+        segments,
+        maxSpeedMps: activity.max_speed,
+      })
+    );
+    const effort = result.efforts.find((e) => e.distance === '400m')!;
+    expect(effort.contaminated).not.toBeNull();
+    expect(paceMinSec(effort.contaminated!.paceSecPerKm)).toBe('3:20');
+    expect(effort.contaminated!.startOffsetSec).toBe(2508);
+    expect(effort.paceSecPerKm).toBeGreaterThan(effort.contaminated!.paceSecPerKm);
+    expect(effort.demotion).toBeNull();
+
+    // Criterion 1: the shipped (ranked) window no longer spans any detected
+    // segment. Rounding tolerance: 0.6s total, stated in two named
+    // components — 0.5s from Math.round on startOffsetSec, plus 0.05s from
+    // round1 on endOffsetSec, plus float slack.
+    const OVERLAP_TOLERANCE_SEC = 0.6;
+    for (const seg of segments) {
+      const overlaps =
+        seg.startSec < effort.endOffsetSec - OVERLAP_TOLERANCE_SEC &&
+        effort.startOffsetSec + OVERLAP_TOLERANCE_SEC < seg.endSec;
+      expect(overlaps).toBe(false);
+    }
+    expect(effort.startOffsetSec).not.toBe(effort.contaminated!.startOffsetSec);
+
+    // Criterion 1's reason content: derive the intersecting segments' own
+    // metres/seconds from the detector's output — never hardcoded — and
+    // confirm the first CONTAMINATION_REASON_SEGMENT_CAP of them appear in
+    // the reason string, formatted to one decimal place.
+    const raw = findBestEffort(t, d, 400)!;
+    const intersecting = segmentsIntersectingWindow(segments, raw);
+    expect(intersecting.length).toBeGreaterThan(0);
+    for (const seg of intersecting.slice(0, CONTAMINATION_REASON_SEGMENT_CAP)) {
+      expect(effort.contaminated!.reason).toContain(seg.metres.toFixed(1));
+      expect(effort.contaminated!.reason).toContain(seg.seconds.toFixed(1));
+    }
+  });
+
+  it("3475724402@400m: contaminated is the pinned BEFORE window (3:21/km, startOffsetSec=3061); ranked is strictly slower", async () => {
+    const { t, d } = await readRealStream('3475724402');
+    const activity = await readRealActivity('3475724402');
+    const { segments } = classifyGapsWithSegments(t, d);
+
+    const result = computeActivityEfforts(
+      baseInput({
+        activityDistanceM: activity.distance,
+        t,
+        d,
+        segments,
+        maxSpeedMps: activity.max_speed,
+      })
+    );
+    const effort = result.efforts.find((e) => e.distance === '400m')!;
+    expect(effort.contaminated).not.toBeNull();
+    expect(paceMinSec(effort.contaminated!.paceSecPerKm)).toBe('3:21');
+    expect(effort.contaminated!.startOffsetSec).toBe(3061);
+    expect(effort.paceSecPerKm).toBeGreaterThan(effort.contaminated!.paceSecPerKm);
+    expect(effort.demotion).toBeNull();
+
+    const raw = findBestEffort(t, d, 400)!;
+    const intersecting = segmentsIntersectingWindow(segments, raw);
+    expect(intersecting.length).toBeGreaterThan(0);
+    for (const seg of intersecting.slice(0, CONTAMINATION_REASON_SEGMENT_CAP)) {
+      expect(effort.contaminated!.reason).toContain(seg.metres.toFixed(1));
+      expect(effort.contaminated!.reason).toContain(seg.seconds.toFixed(1));
+    }
+  });
+
+  it("3475734189@400m: contaminated is the pinned BEFORE window (3:22/km, startOffsetSec=1285); ranked is strictly slower", async () => {
+    const { t, d } = await readRealStream('3475734189');
+    const activity = await readRealActivity('3475734189');
+    const { segments } = classifyGapsWithSegments(t, d);
+
+    const result = computeActivityEfforts(
+      baseInput({
+        activityDistanceM: activity.distance,
+        t,
+        d,
+        segments,
+        maxSpeedMps: activity.max_speed,
+      })
+    );
+    const effort = result.efforts.find((e) => e.distance === '400m')!;
+    expect(effort.contaminated).not.toBeNull();
+    expect(paceMinSec(effort.contaminated!.paceSecPerKm)).toBe('3:22');
+    expect(effort.contaminated!.startOffsetSec).toBe(1285);
+    expect(effort.paceSecPerKm).toBeGreaterThan(effort.contaminated!.paceSecPerKm);
+    expect(effort.demotion).toBeNull();
+
+    const raw = findBestEffort(t, d, 400)!;
+    const intersecting = segmentsIntersectingWindow(segments, raw);
+    expect(intersecting.length).toBeGreaterThan(0);
+    for (const seg of intersecting.slice(0, CONTAMINATION_REASON_SEGMENT_CAP)) {
+      expect(effort.contaminated!.reason).toContain(seg.metres.toFixed(1));
+      expect(effort.contaminated!.reason).toContain(seg.seconds.toFixed(1));
     }
   });
 });
@@ -2343,6 +2710,247 @@ describe('computeBestEfforts — archive orchestration', () => {
 
       // 3. `populationN` itself testifies to which population was used.
       expect(doc.ceilings['400m'].populationN).toBe(CLEAN_COUNT);
+    });
+  });
+
+  describe("ceiling population (D-14): contaminated timings never enter the ceiling's p90 population", () => {
+    it('divergence first: two hand-built deriveCeilings candidates (clean-only vs raw-included) diverge; the shipped 400m ceiling equals the CLEAN candidate, not the RAW one, and populationN=120 testifies every contaminated activity contributed its clean figure', async () => {
+      const CLEAN_COUNT = 100;
+      const CLEAN_SPEED_MPS = 3.5;
+      const CONTAM_COUNT = 20;
+      // The SLOW hand-chosen pace of the genuine clean sub-interval each
+      // contaminated activity's stream carries, UNIFORMLY from just after
+      // the fabricated burst to the end of its stream — so the bounded
+      // clean-window search finds exactly this value, never a blend with
+      // the burst.
+      const CONTAM_CLEAN_SPEED_MPS = 2.5;
+      // The UNBOUNDED sweep's fastest 400m window's own average speed —
+      // guard-passing (strictly below WORLD_RECORD_SPEED_MPS['400m'],
+      // ~9.296 m/s, and below the fixture's own max_speed, 20 m/s, set
+      // below), yet clearly faster than the clean pace — so this fixture
+      // does not rely on an absolute guard to do the ceiling's job.
+      const RAW_TARGET_SPEED_MPS = 7.0;
+      const BURST_DURATION_SEC = 1;
+
+      // Arithmetic (stated, not hidden): the raw window's own duration is
+      // 400 / RAW_TARGET_SPEED_MPS; the burst contributes BURST_DURATION_SEC
+      // of that; the remainder is covered entirely at CONTAM_CLEAN_SPEED_MPS
+      // (uniform from the burst onward), so:
+      const rawDurationSec = 400 / RAW_TARGET_SPEED_MPS; // ~57.142857s
+      const tailDurationForRawSec = rawDurationSec - BURST_DURATION_SEC; // ~56.142857s
+      const tailMetresForRaw = tailDurationForRawSec * CONTAM_CLEAN_SPEED_MPS; // ~140.357m
+      const burstMetres = 400 - tailMetresForRaw; // ~259.6m in 1s — a huge, clearly-flagged burst
+      expect(RAW_TARGET_SPEED_MPS).toBeLessThan(WORLD_RECORD_SPEED_MPS['400m']);
+
+      const CONTAM_MAX_SPEED_MPS = 20; // comfortably above RAW_TARGET_SPEED_MPS
+      expect(RAW_TARGET_SPEED_MPS).toBeLessThan(CONTAM_MAX_SPEED_MPS);
+
+      const STEP_SEC = 10; // <= the 10s recording-gap threshold — never classified as a recording gap
+      const STEP_METRES = STEP_SEC * CONTAM_CLEAN_SPEED_MPS;
+      const TAIL_STEPS = 20; // 200s / 500m of uniform clean tail — enough for one full 400m clean sub-interval
+
+      const manifest = emptyManifestDoc();
+      const cleanIds = Array.from({ length: CLEAN_COUNT }, (_, i) => `d14-clean-${i}`);
+      const contamIds = Array.from({ length: CONTAM_COUNT }, (_, i) => `d14-contam-${i}`);
+      for (const id of cleanIds) {
+        manifest.activities[id] = {
+          available: true,
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: 2,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+        };
+      }
+      for (const id of contamIds) {
+        manifest.activities[id] = {
+          available: true,
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: TAIL_STEPS + 2,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+        };
+      }
+      await writeManifest(manifest);
+
+      async function writeClean400m(id: string, speed: number): Promise<void> {
+        const durationSec = round1(400 / speed);
+        await writeActivity(id, '2020-01-01T00:00:00Z', 400);
+        await fileStore.writeJson(path.join('streams', `${id}.json`), {
+          schemaVersion: 1,
+          id,
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: 2,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+          t: [0, durationSec],
+          d: [0, 400],
+        });
+      }
+
+      async function writeContaminated400m(id: string): Promise<{ t: number[]; d: number[] }> {
+        const t = [0, BURST_DURATION_SEC];
+        const d = [0, burstMetres];
+        for (let i = 1; i <= TAIL_STEPS; i++) {
+          t.push(BURST_DURATION_SEC + i * STEP_SEC);
+          d.push(burstMetres + i * STEP_METRES);
+        }
+        await writeActivity(id, '2021-01-01T00:00:00Z', d[d.length - 1], CONTAM_MAX_SPEED_MPS);
+        await fileStore.writeJson(path.join('streams', `${id}.json`), {
+          schemaVersion: 1,
+          id,
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: t.length,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+          t,
+          d,
+        });
+        return { t, d };
+      }
+
+      for (const id of cleanIds) await writeClean400m(id, CLEAN_SPEED_MPS);
+      const contamStreams: Record<string, { t: number[]; d: number[] }> = {};
+      for (const id of contamIds) contamStreams[id] = await writeContaminated400m(id);
+
+      // Reachability: the fabricated burst is actually detected as a
+      // segment for EVERY contaminated activity — without this, the whole
+      // fixture would be vacuous.
+      for (const id of contamIds) {
+        const { segments } = classifyGapsWithSegments(contamStreams[id].t, contamStreams[id].d);
+        expect(segments.length).toBeGreaterThan(0);
+      }
+
+      // Two independent, hand-built deriveCeilings candidates, from
+      // hand-written speed arrays — never from the production output.
+      const cleanCandidate = new Map<TargetDistanceKey, number[]>();
+      const rawCandidate = new Map<TargetDistanceKey, number[]>();
+      for (const key of TARGET_ORDER) {
+        if (key === '400m') {
+          cleanCandidate.set(key, [
+            ...Array.from({ length: CLEAN_COUNT }, () => CLEAN_SPEED_MPS),
+            ...Array.from({ length: CONTAM_COUNT }, () => CONTAM_CLEAN_SPEED_MPS),
+          ]);
+          rawCandidate.set(key, [
+            ...Array.from({ length: CLEAN_COUNT }, () => CLEAN_SPEED_MPS),
+            ...Array.from({ length: CONTAM_COUNT }, () => RAW_TARGET_SPEED_MPS),
+          ]);
+        } else {
+          cleanCandidate.set(key, []);
+          rawCandidate.set(key, []);
+        }
+      }
+      const cleanResult = deriveCeilings(cleanCandidate);
+      const rawResult = deriveCeilings(rawCandidate);
+
+      // DIVERGENCE FIRST — the fixture must discriminate before anything else runs.
+      expect(cleanResult['400m'].ceilingMps).not.toBeNull();
+      expect(rawResult['400m'].ceilingMps).not.toBeNull();
+      expect(cleanResult['400m'].ceilingMps).not.toBe(rawResult['400m'].ceilingMps);
+
+      const doc = await computeBestEfforts({
+        activitiesDir: path.join(tmpDir, 'activities'),
+        streamsDir: path.join(tmpDir, 'streams'),
+        streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+        statsDir: path.join(tmpDir, 'stats'),
+        ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
+        exclusionsPath: path.join(tmpDir, 'no-such-exclusions.json'),
+      });
+
+      // 2. Equality with the CLEAN candidate, inequality with the RAW one.
+      expect(doc.ceilings['400m'].ceilingMps).toBeCloseTo(cleanResult['400m'].ceilingMps!, 2);
+      expect(doc.ceilings['400m'].ceilingMps).not.toBeCloseTo(rawResult['400m'].ceilingMps!, 0);
+
+      // 3. `populationN` testifies: every contaminated activity contributed
+      // its CLEAN figure to the population, none was dropped entirely.
+      expect(doc.ceilings['400m'].populationN).toBe(CLEAN_COUNT + CONTAM_COUNT);
+
+      const expectedCleanPaceSecPerKm = 400 / CONTAM_CLEAN_SPEED_MPS / (400 / 1000);
+      for (const id of contamIds) {
+        const effort = doc.activities[id].efforts.find((e) => e.distance === '400m')!;
+        expect(effort.demotion).toBeNull();
+        expect(effort.contaminated).not.toBeNull();
+        expect(effort.paceSecPerKm).toBeCloseTo(expectedCleanPaceSecPerKm, 1);
+      }
+    });
+
+    it("no-clean-window activities are excluded entirely from populationN — 100, not 103 — while carrying demotion under 'unreliable-segment'", async () => {
+      const CLEAN_COUNT = 100;
+      const CLEAN_SPEED_MPS = 3.5;
+      const manifest = emptyManifestDoc();
+      const cleanIds = Array.from({ length: CLEAN_COUNT }, (_, i) => `d14nc-clean-${i}`);
+      const noCleanIds = ['d14nc-a', 'd14nc-b', 'd14nc-c'];
+      for (const id of cleanIds) {
+        manifest.activities[id] = {
+          available: true,
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: 2,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+        };
+      }
+      for (const id of noCleanIds) {
+        manifest.activities[id] = {
+          available: true,
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: 3,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+        };
+      }
+      await writeManifest(manifest);
+
+      for (const id of cleanIds) {
+        const durationSec = round1(400 / CLEAN_SPEED_MPS);
+        await writeActivity(id, '2020-01-01T00:00:00Z', 400);
+        await fileStore.writeJson(path.join('streams', `${id}.json`), {
+          schemaVersion: 1,
+          id,
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: 2,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+          t: [0, durationSec],
+          d: [0, 400],
+        });
+      }
+
+      // Burst covers almost the entire 400m target (395m in 1s — a huge,
+      // clearly-flagged burst); the remainder (5m over 10s) is the ONLY
+      // clean sub-interval available, far short of a full 400m — no clean
+      // window exists.
+      const t = [0, 1, 11];
+      const d = [0, 395, 400];
+      for (const id of noCleanIds) {
+        const { segments } = classifyGapsWithSegments(t, d);
+        expect(segments.length).toBeGreaterThan(0); // reachability
+        await writeActivity(id, '2021-01-01T00:00:00Z', 400, 20);
+        await fileStore.writeJson(path.join('streams', `${id}.json`), {
+          schemaVersion: 1,
+          id,
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: t.length,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+          t,
+          d,
+        });
+      }
+
+      const doc = await computeBestEfforts({
+        activitiesDir: path.join(tmpDir, 'activities'),
+        streamsDir: path.join(tmpDir, 'streams'),
+        streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+        statsDir: path.join(tmpDir, 'stats'),
+        ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
+        exclusionsPath: path.join(tmpDir, 'no-such-exclusions.json'),
+      });
+
+      expect(doc.ceilings['400m'].populationN).toBe(CLEAN_COUNT);
+      for (const id of noCleanIds) {
+        const effort = doc.activities[id].efforts.find((e) => e.distance === '400m')!;
+        expect(effort.demotion).not.toBeNull();
+        expect(effort.demotion!.guard).toBe('unreliable-segment');
+      }
     });
   });
 
