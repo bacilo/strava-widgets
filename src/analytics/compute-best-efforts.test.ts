@@ -3013,6 +3013,9 @@ describe('computeBestEfforts — archive orchestration', () => {
         statsDir: path.join(tmpDir, 'stats'),
         exclusionsPath: path.join(tmpDir, 'no-such-exclusions.json'),
         ceilingStatePath,
+        // 36-07/D-11: the write is opt-in by default (28 WR-06) — this
+        // describe block tests the write itself, so it opts in explicitly.
+        writeCeilingState: true,
       });
 
       const written = JSON.parse(await fs.readFile(ceilingStatePath, 'utf-8'));
@@ -3056,6 +3059,9 @@ describe('computeBestEfforts — archive orchestration', () => {
         streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
         exclusionsPath: path.join(tmpDir, 'no-such-exclusions.json'),
         ceilingStatePath,
+        // 36-07/D-11: opt in explicitly — this describe block tests the
+        // write itself, which is opt-in by default since 28 WR-06 closed.
+        writeCeilingState: true,
       };
 
       // First run: no previous state exists, so exactly one first-run
@@ -3096,6 +3102,9 @@ describe('computeBestEfforts — archive orchestration', () => {
         streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
         exclusionsPath: path.join(tmpDir, 'no-such-exclusions.json'),
         ceilingStatePath,
+        // 36-07/D-11: opt in explicitly — this describe block tests the
+        // write itself, which is opt-in by default since 28 WR-06 closed.
+        writeCeilingState: true,
       };
 
       await computeBestEfforts({ ...common, statsDir: path.join(tmpDir, 'stats-run1') });

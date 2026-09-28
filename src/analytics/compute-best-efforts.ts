@@ -558,6 +558,26 @@ export interface ComputeBestEffortsOptions {
   statsDir?: string;
   exclusionsPath?: string;
   ceilingStatePath?: string;
+  /**
+   * DEFAULT `false`. When false, the committed `data/best-effort-ceiling.json`
+   * is never written, no matter how far the ceiling moved — closing 28 WR-06
+   * ("partially resolved — the hazard is now documented, not removed. No
+   * opt-in guard was added."). Two bounds this satisfies (D-11):
+   *   (a) reproducible from a clean checkout — this flag affects ONLY the
+   *       committed baseline file, never a single figure in the returned
+   *       `BestEffortsDocument` or in `<statsDir>/best-efforts.json`, so a
+   *       clean checkout re-derives identical ceilings regardless of the flag.
+   *   (b) not rewritable as a side effect of an unrelated local command —
+   *       every hand-run entry point (`npm run compute-best-efforts`,
+   *       `npm run compute-all-stats`, `npm run process`) leaves this false.
+   *       The one invocation permitted to opt in is
+   *       `.github/workflows/daily-refresh.yml`'s `compute-all-stats` step,
+   *       which passes `--write-ceiling-state` explicitly.
+   * Resolved below with an explicit `=== true` (never a bare truthy check) so
+   * an untyped `.mjs` caller passing a truthy non-boolean cannot opt in by
+   * accident.
+   */
+  writeCeilingState?: boolean;
 }
 
 interface PRAccumulatorEntry {
@@ -587,6 +607,10 @@ export async function computeBestEfforts(
   const statsDir = options.statsDir || 'data/stats';
   const exclusionsPath = options.exclusionsPath || 'data/best-effort-exclusions.json';
   const ceilingStatePath = options.ceilingStatePath || 'data/best-effort-ceiling.json';
+  // D-11/28 WR-06: an explicit `=== true`, not a bare truthy check — an
+  // untyped `.mjs` caller passing a truthy non-boolean must not opt in by
+  // accident. See `ComputeBestEffortsOptions.writeCeilingState`'s docblock.
+  const writeCeilingState = options.writeCeilingState === true;
 
   const fileStore = new FileStore('.');
 
@@ -954,10 +978,30 @@ export async function computeBestEfforts(
   // baseline CI never produced. When nothing moved, the file is left
   // byte-untouched so git sees no diff and the auto-commit step below
   // (daily-refresh.yml) has nothing to stage for this path.
-  if (ceilingMovement.length > 0) {
+  //
+  // D-11/28 WR-06: the condition above is now CONJUNCTIVE — the write
+  // additionally requires `writeCeilingState === true` (see
+  // `ComputeBestEffortsOptions.writeCeilingState`'s docblock). The movement
+  // report immediately above still prints UNCONDITIONALLY, so a local run
+  // still SEES the movement it is not allowed to persist — the console
+  // report and the committed write are deliberately decoupled. A local run
+  // that wants to refresh the committed baseline deliberately must pass the
+  // opt-in explicitly (`--write-ceiling-state`, threaded through
+  // `src/index.ts`/`src/compute-all-stats-steps.ts`); the one invocation
+  // that does so today is `.github/workflows/daily-refresh.yml`'s
+  // `compute-all-stats` step. This closes 28 WR-06 ("partially resolved —
+  // the hazard is now documented, not removed. No opt-in guard was added.").
+  if (writeCeilingState && ceilingMovement.length > 0) {
     const stateFile = buildCeilingStateFile(doc.ceilings, doc.generatedAt);
     await fileStore.writeJson(ceilingStatePath, stateFile);
     console.log(`  Committed ceiling state updated: ${ceilingStatePath}`);
+  } else if (ceilingMovement.length > 0) {
+    // Silence here would make the gate indistinguishable from "nothing
+    // moved" — the exact ambiguity the movement report above exists to
+    // remove. Name the file and state why the write was skipped.
+    console.log(
+      `  Ceiling moved but the write to ${ceilingStatePath} was skipped (opt-in --write-ceiling-state absent)`
+    );
   }
 
   if (rejected.length > 0) {

@@ -120,7 +120,9 @@ describe('runComputeAllStatsSteps', () => {
       fakeStep({ name: 'c' }, ran),
     ];
 
-    await expect(runComputeAllStatsSteps(steps, { continueOnError: false })).rejects.toThrow('b broke');
+    await expect(
+      runComputeAllStatsSteps(steps, { continueOnError: false, writeCeilingState: false })
+    ).rejects.toThrow('b broke');
     expect(ran).toEqual(['a', 'b']);
   });
 
@@ -145,6 +147,7 @@ describe('runComputeAllStatsSteps', () => {
 
     const degraded = await runComputeAllStatsSteps(steps, {
       continueOnError: true,
+      writeCeilingState: false,
       log: (line) => logged.push(line),
     });
 
@@ -172,7 +175,9 @@ describe('runComputeAllStatsSteps', () => {
       fakeStep({ name: 'c' }, ran),
     ];
 
-    await expect(runComputeAllStatsSteps(steps, { continueOnError: true })).rejects.toThrow('b broke');
+    await expect(
+      runComputeAllStatsSteps(steps, { continueOnError: true, writeCeilingState: false })
+    ).rejects.toThrow('b broke');
     expect(ran).toEqual(['a', 'b']);
   });
 
@@ -183,10 +188,30 @@ describe('runComputeAllStatsSteps', () => {
 
     const degraded = await runComputeAllStatsSteps(steps, {
       continueOnError: true,
+      writeCeilingState: false,
       log: (line) => logged.push(line),
     });
 
     expect(degraded).toEqual([]);
     expect(logged).toEqual([]);
+  });
+
+  it('threads ComputeStepOptions.writeCeilingState into every step.run, per invocation — 36-07/D-11 (records the received options; never calls a real COMPUTE_ALL_STATS_STEPS member)', async () => {
+    const received: boolean[] = [];
+    const steps: ComputeStep[] = [
+      {
+        name: 'records-options',
+        mandatory: false,
+        warning: null,
+        run: async (options) => {
+          received.push(options.writeCeilingState);
+        },
+      },
+    ];
+
+    await runComputeAllStatsSteps(steps, { continueOnError: false, writeCeilingState: true });
+    await runComputeAllStatsSteps(steps, { continueOnError: false, writeCeilingState: false });
+
+    expect(received).toEqual([true, false]);
   });
 });

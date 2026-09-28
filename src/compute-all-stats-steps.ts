@@ -80,9 +80,31 @@
  * CI state, not a failure — do not "fix" it by committing the private file.
  * The step still exits successfully; see `compute-age-grading`'s own
  * disabled-path contract.
+ *
+ * 36-07/D-11: `writeCeilingState` (see `ComputeStepOptions`) is the one
+ * per-invocation value threaded through this chain today — read only by the
+ * `compute-best-efforts` step, to gate the committed
+ * `data/best-effort-ceiling.json` write (28 WR-06).
  */
 
 import { config } from './config/strava.config.js';
+
+/**
+ * Per-invocation values the chain's steps need (36-07/D-11). This interface
+ * exists because every step's `run` previously captured only the
+ * module-level `config` import above — `COMPUTE_ALL_STATS_STEPS` is a
+ * module-level constant, so there was no path for a value that differs
+ * between two calls (e.g. "is this the nightly CI run?") to reach a step's
+ * closure. `writeCeilingState` is threaded here, per invocation, rather than
+ * read from an ambient global inside a step's closure (e.g. the process's
+ * own argument vector or its environment) — a read of ambient global state
+ * inside a closure is untestable without mutating that same global state,
+ * which is what makes the flag's behaviour unverifiable.
+ */
+export interface ComputeStepOptions {
+  /** Forwarded into `computeBestEfforts`'s own `writeCeilingState` option (28 WR-06, D-11). */
+  writeCeilingState: boolean;
+}
 
 /** One entry in the compute-all-stats chain (D-01/D-02/D-03). */
 export interface ComputeStep {
@@ -96,9 +118,13 @@ export interface ComputeStep {
    * never warn.
    */
   warning: string | null;
-  /** The step's work. Always a dynamic import so importing this module
-   *  never pulls in any compute code. */
-  run: () => Promise<void>;
+  /**
+   * The step's work. Always a dynamic import so importing this module never
+   * pulls in any compute code. Takes the per-invocation `ComputeStepOptions`
+   * (36-07/D-11) — a step ignoring the argument is fine, and only
+   * `compute-best-efforts` reads it today.
+   */
+  run: (options: ComputeStepOptions) => Promise<void>;
 }
 
 export const COMPUTE_ALL_STATS_STEPS: readonly ComputeStep[] = [
@@ -142,13 +168,14 @@ export const COMPUTE_ALL_STATS_STEPS: readonly ComputeStep[] = [
     name: 'compute-best-efforts',
     mandatory: true,
     warning: null,
-    run: async () => {
+    run: async (options) => {
       const { computeBestEfforts } = await import('./analytics/compute-best-efforts.js');
       await computeBestEfforts({
         activitiesDir: config.activitiesDir,
         streamsDir: config.streamsDir,
         streamsManifestPath: config.streamsManifestPath,
         statsDir: 'data/stats',
+        writeCeilingState: options.writeCeilingState,
       });
     },
   },
@@ -229,17 +256,23 @@ export interface DegradedStep {
  *
  * `log` defaults to `console.log` but exists so callers (and tests) can
  * capture emitted lines without spying on `console`.
+ *
+ * `writeCeilingState` (36-07/D-11) is threaded per invocation into every
+ * step's `run` via `ComputeStepOptions` — deliberately NOT read from an
+ * ambient global (the process's own argument vector or its environment)
+ * inside a step closure, since an ambient read inside a closure is
+ * untestable without mutating that same global state.
  */
 export async function runComputeAllStatsSteps(
   steps: readonly ComputeStep[],
-  options: { continueOnError: boolean; log?: (line: string) => void }
+  options: { continueOnError: boolean; writeCeilingState: boolean; log?: (line: string) => void }
 ): Promise<DegradedStep[]> {
   const log = options.log ?? console.log;
   const degraded: DegradedStep[] = [];
 
   for (const step of steps) {
     try {
-      await step.run();
+      await step.run({ writeCeilingState: options.writeCeilingState });
     } catch (error: any) {
       if (step.mandatory || !options.continueOnError) {
         throw error;
