@@ -11,6 +11,7 @@ import {
   UNRELIABLE_SEGMENTS_EXPLANATION,
   PAUSES_SUMMARY_EXPLANATION,
   pausesSectionPlan,
+  runningPaceTilePlan,
   type SplitGapAnnotation,
 } from './detail-sections.js';
 import type { Split } from './detail-splits.js';
@@ -20,7 +21,8 @@ import { derivePaceWithCoverage } from '../../analytics/pace-derivation.js';
 import { computeSplits } from './detail-splits.js';
 import type { CanonicalStream } from '../../streams/stream.types.js';
 import { stripComments } from '../row-semantics.test.js';
-import { qualityBadgeSpecs } from './list.js';
+import { qualityBadgeSpecs, formatPace, formatEffortDuration, formatMetres } from './list.js';
+import type { RunningPaceRow } from '../../analytics/dashboard-index.types.js';
 import type { ActivityQualitySignals, DeviceFamilyKind, PaceQualityShard } from '../../analytics/pace-quality.js';
 import {
   buildPaceQualityShard,
@@ -2048,5 +2050,120 @@ describe('deviceFamilyDisplayName exhaustive switch (ERA-02, Criterion 5) — no
     const closeIndex = switchBlock.indexOf('\n}');
     const bounded = closeIndex >= 0 ? switchBlock.slice(0, closeIndex) : switchBlock;
     expect(bounded).not.toContain('default:');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// runningPaceTilePlan (Phase 35, plan 35-10: RPACE-02, D-10) — the Running
+// Pace stat tile's pure plan function. Every expectation below asserts
+// FULL-STRING equality, never `toContain`, per the plan's own instruction.
+// ---------------------------------------------------------------------------
+
+/** Fixture builder — every field explicit, no defaults hidden behind `...overrides`. */
+function makeRunningPaceRow(overrides: Partial<RunningPaceRow> = {}): RunningPaceRow {
+  return {
+    runningPaceSecPerKm: null,
+    excludedM: 0,
+    excludedSec: 0,
+    computable: true,
+    notComputableReason: null,
+    ...overrides,
+  };
+}
+
+describe('runningPaceTilePlan (Phase 35, plan 35-10: RPACE-02, D-10)', () => {
+  it('returns null for a null runningPace (the "no stream at all" / tile-omitted case)', () => {
+    expect(runningPaceTilePlan(null)).toBeNull();
+  });
+
+  it('returns null for an undefined runningPace (a stale re-parsed row missing the key)', () => {
+    expect(runningPaceTilePlan(undefined)).toBeNull();
+  });
+
+  it('not-computable with a real reason returns the dash value and the exact "Not computable — {reason}" sentence', () => {
+    const row = makeRunningPaceRow({
+      computable: false,
+      runningPaceSecPerKm: null,
+      notComputableReason: 'stream failed validateStreamSeries: fewer than two usable samples',
+    });
+    expect(runningPaceTilePlan(row)).toEqual({
+      value: '—',
+      note: 'Not computable — stream failed validateStreamSeries: fewer than two usable samples',
+    });
+  });
+
+  it('not-computable with an empty-string reason returns the contract-violation note, not a dangling "Not computable — " prefix', () => {
+    const row = makeRunningPaceRow({ computable: false, runningPaceSecPerKm: null, notComputableReason: '' });
+    const plan = runningPaceTilePlan(row);
+    expect(plan!.value).toBe('—');
+    expect(plan!.note).not.toBe('Not computable — ');
+    expect(plan!.note).toBe(
+      'Not computable — no reason was recorded for this not-computable running pace (producer contract violation)'
+    );
+  });
+
+  it('not-computable with a null reason (a producer-contract violation of its own kind) returns the same contract-violation note', () => {
+    const row = makeRunningPaceRow({ computable: false, runningPaceSecPerKm: null, notComputableReason: null });
+    const plan = runningPaceTilePlan(row);
+    expect(plan!.note).toBe(
+      'Not computable — no reason was recorded for this not-computable running pace (producer contract violation)'
+    );
+  });
+
+  it('computable with both excludedM and excludedSec rounding to exactly 0 returns the zero sentence verbatim', () => {
+    const row = makeRunningPaceRow({ runningPaceSecPerKm: 300, excludedM: 0, excludedSec: 0, computable: true });
+    expect(runningPaceTilePlan(row)).toEqual({
+      value: '5:00/km',
+      note: 'No time excluded — every second of this activity is covered.',
+    });
+  });
+
+  it('computable, nonzero exclusion — worked example (real archive activity 3475724402) — sentence built from the shared helpers, not a hand-typed literal', () => {
+    const row = makeRunningPaceRow({
+      runningPaceSecPerKm: 317.6,
+      excludedM: 2253.1,
+      excludedSec: 797,
+      computable: true,
+    });
+    const plan = runningPaceTilePlan(row);
+    expect(plan!.value).toBe(formatPace(317.6));
+    // Pinned to the values the shared helpers themselves produce — never a
+    // hand-typed string that could silently drift from either convention.
+    expect(plan!.note).toBe(
+      `Excludes ${formatMetres(2253.1)} over ${formatEffortDuration(797)} of recording gaps, pauses and unreliable segments.`
+    );
+    // Quoted verbatim for the SUMMARY's worked example / thousands-separator
+    // discrepancy record.
+    expect(plan!.note).toBe('Excludes 2253 m over 13:17 of recording gaps, pauses and unreliable segments.');
+  });
+
+  it('a sub-0.5 m excluded distance (rounds to 0) with large excluded seconds does NOT take the zero branch', () => {
+    const row = makeRunningPaceRow({
+      runningPaceSecPerKm: 317.6,
+      excludedM: 0.4,
+      excludedSec: 797,
+      computable: true,
+    });
+    const plan = runningPaceTilePlan(row);
+    // Pins which branch fired: the nonzero sentence, built from the same
+    // shared helpers, never the zero sentence.
+    expect(plan!.note).not.toBe('No time excluded — every second of this activity is covered.');
+    expect(plan!.note).toBe(
+      `Excludes ${formatMetres(0.4)} over ${formatEffortDuration(797)} of recording gaps, pauses and unreliable segments.`
+    );
+  });
+
+  it('the mirrored rounding boundary — a sub-0.5 sec excluded duration with a real excluded distance — also does NOT take the zero branch', () => {
+    const row = makeRunningPaceRow({
+      runningPaceSecPerKm: 317.6,
+      excludedM: 5,
+      excludedSec: 0.4,
+      computable: true,
+    });
+    const plan = runningPaceTilePlan(row);
+    expect(plan!.note).not.toBe('No time excluded — every second of this activity is covered.');
+    expect(plan!.note).toBe(
+      `Excludes ${formatMetres(5)} over ${formatEffortDuration(0.4)} of recording gaps, pauses and unreliable segments.`
+    );
   });
 });

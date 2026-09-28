@@ -34,10 +34,12 @@ import {
   appendAccessibleBadge,
   qualityBadgeSpecs,
   unreliableSegmentsBadgeContent,
+  formatMetres,
 } from './list.js';
 import { prFlagBadgeSpecs, type BestEffortPanelRow } from './detail-best-efforts-logic.js';
 import type { PaceCoverage, GapInterval } from '../../analytics/pace-derivation.js';
 import { unbucketedCoveredSec } from '../../analytics/pace-derivation.js';
+import type { RunningPaceRow } from '../../analytics/dashboard-index.types.js';
 import type {
   ActivityQualitySignals,
   ClosureDriftSignal,
@@ -806,6 +808,102 @@ export function buildBestEffortsSection(
   }
 
   return section;
+}
+
+// ---------------------------------------------------------------------------
+// Running Pace tile (Phase 35, plan 35-10: RPACE-02, D-10) — the fourth stat
+// tile's pure plan function, following this file's own section-plan
+// convention (`breakdownSectionPlan`, `qualitySignalsSectionPlan`,
+// `pausesSectionPlan`): returns DATA, never DOM. `detail.ts` is a DOM
+// controller with no test harness of its own (no `detail.test.ts` exists),
+// so the render DECISION lives here, unit-testable, and `detail.ts` builds
+// the actual `.stat-grid` tile elements from what this returns.
+// ---------------------------------------------------------------------------
+
+/**
+ * Decides the Running Pace tile's value and its always-on exclusion note
+ * (RPACE-02, D-10, 35-UI-SPEC.md § Copywriting Contract), across all four
+ * states, in this precedence order:
+ *
+ *   1. `runningPace` is `null` or `undefined` — the "no stream at all" case
+ *      only (`DashboardIndexRow.runningPace` is `null` ONLY when
+ *      `entry.available === false`; `ParsedDashboardIndexRow`'s `Partial<>`
+ *      also makes `undefined` reachable for a stale re-parsed row missing
+ *      the key). The tile is omitted entirely — this returns `null` and the
+ *      caller appends nothing, mirroring the Gear tile's own
+ *      conditional-append precedent.
+ *   2. `computable === false` — `value` is the same em dash this file's own
+ *      `DASH` constant already uses for a missing figure (never a freshly
+ *      typed character; `DASH` is defined locally rather than importing
+ *      `detail.ts`'s `formatOrDash`, since `detail.ts` imports THIS module —
+ *      importing back would create the cycle this file's header comment
+ *      already forbids; both copies of the glyph must stay identical).
+ *      `note` is `Not computable — {reason}`, the SAME phrase template
+ *      `decimationRow`/`gapProfileRow`/`impossibleSamplesRow`/
+ *      `unreliableSegmentsRow` above already use verbatim. A `null` or
+ *      empty/whitespace-only reason on a not-computable row is a
+ *      PRODUCER-CONTRACT VIOLATION (`RunningPaceRow`'s own docblock:
+ *      `computable: false` always pairs with a non-empty
+ *      `notComputableReason`) — this returns a note naming the violation
+ *      explicitly rather than a dangling `"Not computable — "` prefix with
+ *      nothing after it.
+ *   3. `computable === true` with BOTH `excludedM` and `excludedSec`
+ *      rounding to exactly 0 — `value` is `formatPace(runningPaceSecPerKm)`,
+ *      `note` is the zero sentence verbatim. A genuinely clean stream states
+ *      its own health, exactly like `coverageCaptionText` always rendering
+ *      all four of its own terms even at 0% (D-08/COV-02's always-on
+ *      precedent, extended by D-10 to this tile).
+ *   4. Otherwise (computable, something excluded) — `value` is
+ *      `formatPace(runningPaceSecPerKm)`, `note` is the nonzero sentence,
+ *      with `metresText` from `formatMetres` (the extracted, single-source
+ *      metres convention `unreliableSegmentsBadgeContent` also calls, so
+ *      this tile's number formatting cannot drift from the Quality Signals
+ *      section's own convention) and `durationText` from
+ *      `formatEffortDuration(excludedSec)`.
+ *
+ * The note is ALWAYS present for any activity with a stream (states 2/3/4
+ * above) — a term that disappears at zero stops meaning "zero" and starts
+ * meaning "unknown" (COV-02's precedent). The three named categories in
+ * state 4's sentence ("recording gaps, pauses and unreliable segments")
+ * deliberately echo `coverageCaptionText`'s own three non-covered terms and
+ * must never disagree with it (D-08's binding "must reconcile with what the
+ * coverage caption already discloses" constraint).
+ *
+ * Returns DATA only, never DOM — the caller (`detail.ts`) writes both
+ * `value` and `note` to the DOM with `textContent` only, never a raw-markup
+ * DOM-assignment method.
+ */
+export function runningPaceTilePlan(
+  runningPace: RunningPaceRow | null | undefined
+): { value: string; note: string } | null {
+  if (runningPace === null || runningPace === undefined) return null;
+
+  if (!runningPace.computable) {
+    const reason = runningPace.notComputableReason;
+    if (reason === null || reason.trim().length === 0) {
+      return {
+        value: DASH,
+        note:
+          'Not computable — no reason was recorded for this not-computable running pace (producer contract violation)',
+      };
+    }
+    return { value: DASH, note: `Not computable — ${reason}` };
+  }
+
+  const value = formatPace(runningPace.runningPaceSecPerKm);
+  const excludedMRounded = Math.round(runningPace.excludedM);
+  const excludedSecRounded = Math.round(runningPace.excludedSec);
+
+  if (excludedMRounded === 0 && excludedSecRounded === 0) {
+    return { value, note: 'No time excluded — every second of this activity is covered.' };
+  }
+
+  const metresText = formatMetres(runningPace.excludedM);
+  const durationText = formatEffortDuration(runningPace.excludedSec);
+  return {
+    value,
+    note: `Excludes ${metresText} over ${durationText} of recording gaps, pauses and unreliable segments.`,
+  };
 }
 
 // ---------------------------------------------------------------------------

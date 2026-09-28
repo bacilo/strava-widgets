@@ -140,6 +140,20 @@ export function formatEffortDuration(totalSeconds: number): string {
 }
 
 /**
+ * Formats a metres value as `"{n} m"`, rounding to the nearest whole metre —
+ * the metres convention `unreliableSegmentsBadgeContent` below already
+ * establishes. Extracted (Phase 35, plan 35-10) so a second call site
+ * (`detail-sections.ts`'s `runningPaceTilePlan`, the Running Pace tile's
+ * exclusion line) reuses this exact one-line format rather than retyping
+ * `${Math.round(m)} m` a second time, per 35-UI-SPEC.md's anti-pattern note:
+ * one metres convention, every consumer reuses it, so the two surfaces
+ * cannot drift apart.
+ */
+export function formatMetres(m: number): string {
+  return `${Math.round(m)} m`;
+}
+
+/**
  * Appends one plain `.badge` span. Exported (18-UI-SPEC § 5) so `detail.ts`
  * reuses it for the per-distance PR badge rather than duplicating this
  * 5-line DOM builder — the same single-source discipline already applied
@@ -640,7 +654,7 @@ export function unreliableSegmentsBadgeContent(
     return null;
   }
   const noun = signal.count === 1 ? 'segment' : 'segments';
-  const metresText = `${Math.round(signal.totalMetres)} m`;
+  const metresText = formatMetres(signal.totalMetres);
   const durationText = formatEffortDuration(signal.totalSeconds);
   const mechanismsText = signal.mechanisms.map(segmentMechanismLabel).join(', ');
   return {
