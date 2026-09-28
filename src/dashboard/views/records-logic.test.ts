@@ -67,6 +67,7 @@ function fixtureEffort(overrides: Partial<BestEffort> & { distance: TargetDistan
     wasPRAtTheTime: false,
     excludedFromRecords: false,
     demotion: null,
+    contaminated: null,
     ...overrides,
   };
 }

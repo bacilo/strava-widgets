@@ -23,6 +23,7 @@ function effort(overrides: Partial<BestEffort> & Pick<BestEffort, 'distance'>): 
     wasPRAtTheTime: false,
     excludedFromRecords: false,
     demotion: null,
+    contaminated: null,
     ...overrides,
   };
 }

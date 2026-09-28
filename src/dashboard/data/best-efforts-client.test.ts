@@ -52,6 +52,7 @@ const validShard = {
       wasPRAtTheTime: true,
       excludedFromRecords: false,
       demotion: null,
+      contaminated: null,
     },
   ],
   excludedFromRecords: false,

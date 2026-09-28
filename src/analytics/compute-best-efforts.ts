@@ -153,6 +153,9 @@ export function computeActivityEfforts(input: ActivityEffortInput): ActivityEffo
         endOffsetSec: round1(raw.endOffsetSec),
         lowConfidence: distanceSource === 'geo',
         demotion: plausibility.ok ? null : demotionFromPlausibility(plausibility),
+        // Placeholder: the clean-window search itself is plan 36-04's work.
+        // This line always reads `null` until that plan replaces it.
+        contaminated: null,
       });
     } catch (error) {
       // NOT a demotion of a computed effort (D-08 is about retained-but-

@@ -84,6 +84,8 @@ function parseEffort(raw: unknown): BestEffort | null {
     wasPRAtTheTime,
     excludedFromRecords,
     demotion: parseDemotion(demotion),
+    // Placeholder: Task 3 of this plan replaces this with parseContaminated(contaminated).
+    contaminated: null,
   };
 }
 
