@@ -142,3 +142,11 @@ None — no external service configuration required.
 ---
 *Phase: 35-stream-derived-running-pace*
 *Completed: 2026-09-28*
+
+## Self-Check: PASSED
+
+All 6 modified files confirmed present via `[ -f ... ]`: `src/dashboard/views/detail-sections.ts`,
+`src/dashboard/views/detail-sections.test.ts`, `src/dashboard/views/detail.ts`,
+`src/dashboard/views/list.ts`, `src/dashboard/styles.css`, `src/dashboard/styles.test.ts`, plus
+this summary. All four commit hashes (`444334b0`, `77bf5ca7`, `46e21c41`, `df94323e`) confirmed
+present via `git log --oneline --all`.
