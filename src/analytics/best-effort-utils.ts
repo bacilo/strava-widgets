@@ -136,23 +136,64 @@ export function validateStreamSeries(
  * then linearly interpolates the exact crossing time between `t[j-1]` and
  * `t[j]`. Tracks the minimum such duration across all `i`.
  *
- * Assumes a validated series — callers run `validateStreamSeries` first.
+ * Assumes a validated series — callers run `validateStreamSeries` first. The
+ * in-range case (a well-formed `bounds`, or `bounds` omitted) still makes
+ * this assumption exactly as before this parameter existed.
+ *
+ * OPTIONAL BOUND — SAMPLE space, HALF-OPEN: `bounds` restricts the sweep to
+ * samples `bounds.startIndex .. bounds.endIndex - 1` inclusive, and can
+ * therefore only produce a window over pairs `bounds.startIndex ..
+ * bounds.endIndex - 2`. Omitting `bounds` is exactly
+ * `{ startIndex: 0, endIndex: t.length }` — today's full-array behaviour,
+ * unchanged — which is why no existing call site or test needs to move.
+ *
+ * ZERO COPY: the bound adjusts the loop's own `lo`/`hi` limits only; it never
+ * calls `slice`/`subarray`/`concat`/`Array.from`. `d[j] - d[i]` is safe under
+ * a bound because only DIFFERENCES of the distance channel are ever read, so
+ * nothing needs rebasing and no array is ever built. Slicing `t`/`d` per
+ * sub-interval was rejected because it would allocate a fresh pair of arrays
+ * per sub-interval per target distance per activity — a real, avoidable
+ * allocation cost at this codebase's archive scale.
+ *
+ * THIS IS THE ONE SWEEP. A second implementation anywhere, including in a
+ * `.mjs` script, is a drift hazard — `pace-single-source.test.ts`'s
+ * `BANNED_LITERALS` does NOT currently ban a duplicate two-pointer sweep
+ * (verified against the source 2026-09-28: it bans only the pace-division
+ * shape and the detector's own excess-metres arithmetic literal). Stated
+ * here so a future reader does not assume a guard exists that does not.
+ *
+ * TOTALITY: an inverted, negative, over-long, non-integer or too-short bound
+ * returns `undefined` rather than throwing or reading past the array —
+ * checked before any array read.
  */
 export function findBestEffort(
   t: number[],
   d: number[],
-  targetMeters: number
+  targetMeters: number,
+  bounds?: { startIndex: number; endIndex: number }
 ): RawEffort | undefined {
-  const n = t.length;
-  if (n < 2 || d[n - 1] - d[0] < targetMeters) return undefined;
+  const lo = bounds?.startIndex ?? 0;
+  const hi = bounds?.endIndex ?? t.length;
+
+  if (
+    !Number.isInteger(lo) ||
+    !Number.isInteger(hi) ||
+    lo < 0 ||
+    hi > t.length ||
+    hi - lo < 2
+  ) {
+    return undefined;
+  }
+
+  if (d[hi - 1] - d[lo] < targetMeters) return undefined;
 
   let best: RawEffort | undefined;
-  let j = 0;
+  let j = lo;
 
-  for (let i = 0; i < n; i++) {
+  for (let i = lo; i < hi; i++) {
     if (j < i + 1) j = i + 1;
-    while (j < n && d[j] - d[i] < targetMeters) j++;
-    if (j >= n) break;
+    while (j < hi && d[j] - d[i] < targetMeters) j++;
+    if (j >= hi) break;
 
     // Linear interpolation at the exact crossing — never snap to d[j]/t[j].
     const needed = targetMeters - (d[j - 1] - d[i]);
@@ -162,7 +203,13 @@ export function findBestEffort(
 
     const durationSec = crossingTime - t[i];
     if (durationSec > 0 && (!best || durationSec < best.durationSec)) {
-      best = { durationSec, startOffsetSec: t[i], endOffsetSec: crossingTime };
+      best = {
+        durationSec,
+        startOffsetSec: t[i],
+        endOffsetSec: crossingTime,
+        startIndex: i,
+        endIndex: j,
+      };
     }
   }
 
