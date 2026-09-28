@@ -2713,6 +2713,247 @@ describe('computeBestEfforts — archive orchestration', () => {
     });
   });
 
+  describe("ceiling population (D-14): contaminated timings never enter the ceiling's p90 population", () => {
+    it('divergence first: two hand-built deriveCeilings candidates (clean-only vs raw-included) diverge; the shipped 400m ceiling equals the CLEAN candidate, not the RAW one, and populationN=120 testifies every contaminated activity contributed its clean figure', async () => {
+      const CLEAN_COUNT = 100;
+      const CLEAN_SPEED_MPS = 3.5;
+      const CONTAM_COUNT = 20;
+      // The SLOW hand-chosen pace of the genuine clean sub-interval each
+      // contaminated activity's stream carries, UNIFORMLY from just after
+      // the fabricated burst to the end of its stream — so the bounded
+      // clean-window search finds exactly this value, never a blend with
+      // the burst.
+      const CONTAM_CLEAN_SPEED_MPS = 2.5;
+      // The UNBOUNDED sweep's fastest 400m window's own average speed —
+      // guard-passing (strictly below WORLD_RECORD_SPEED_MPS['400m'],
+      // ~9.296 m/s, and below the fixture's own max_speed, 20 m/s, set
+      // below), yet clearly faster than the clean pace — so this fixture
+      // does not rely on an absolute guard to do the ceiling's job.
+      const RAW_TARGET_SPEED_MPS = 7.0;
+      const BURST_DURATION_SEC = 1;
+
+      // Arithmetic (stated, not hidden): the raw window's own duration is
+      // 400 / RAW_TARGET_SPEED_MPS; the burst contributes BURST_DURATION_SEC
+      // of that; the remainder is covered entirely at CONTAM_CLEAN_SPEED_MPS
+      // (uniform from the burst onward), so:
+      const rawDurationSec = 400 / RAW_TARGET_SPEED_MPS; // ~57.142857s
+      const tailDurationForRawSec = rawDurationSec - BURST_DURATION_SEC; // ~56.142857s
+      const tailMetresForRaw = tailDurationForRawSec * CONTAM_CLEAN_SPEED_MPS; // ~140.357m
+      const burstMetres = 400 - tailMetresForRaw; // ~259.6m in 1s — a huge, clearly-flagged burst
+      expect(RAW_TARGET_SPEED_MPS).toBeLessThan(WORLD_RECORD_SPEED_MPS['400m']);
+
+      const CONTAM_MAX_SPEED_MPS = 20; // comfortably above RAW_TARGET_SPEED_MPS
+      expect(RAW_TARGET_SPEED_MPS).toBeLessThan(CONTAM_MAX_SPEED_MPS);
+
+      const STEP_SEC = 10; // <= the 10s recording-gap threshold — never classified as a recording gap
+      const STEP_METRES = STEP_SEC * CONTAM_CLEAN_SPEED_MPS;
+      const TAIL_STEPS = 20; // 200s / 500m of uniform clean tail — enough for one full 400m clean sub-interval
+
+      const manifest = emptyManifestDoc();
+      const cleanIds = Array.from({ length: CLEAN_COUNT }, (_, i) => `d14-clean-${i}`);
+      const contamIds = Array.from({ length: CONTAM_COUNT }, (_, i) => `d14-contam-${i}`);
+      for (const id of cleanIds) {
+        manifest.activities[id] = {
+          available: true,
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: 2,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+        };
+      }
+      for (const id of contamIds) {
+        manifest.activities[id] = {
+          available: true,
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: TAIL_STEPS + 2,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+        };
+      }
+      await writeManifest(manifest);
+
+      async function writeClean400m(id: string, speed: number): Promise<void> {
+        const durationSec = round1(400 / speed);
+        await writeActivity(id, '2020-01-01T00:00:00Z', 400);
+        await fileStore.writeJson(path.join('streams', `${id}.json`), {
+          schemaVersion: 1,
+          id,
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: 2,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+          t: [0, durationSec],
+          d: [0, 400],
+        });
+      }
+
+      async function writeContaminated400m(id: string): Promise<{ t: number[]; d: number[] }> {
+        const t = [0, BURST_DURATION_SEC];
+        const d = [0, burstMetres];
+        for (let i = 1; i <= TAIL_STEPS; i++) {
+          t.push(BURST_DURATION_SEC + i * STEP_SEC);
+          d.push(burstMetres + i * STEP_METRES);
+        }
+        await writeActivity(id, '2021-01-01T00:00:00Z', d[d.length - 1], CONTAM_MAX_SPEED_MPS);
+        await fileStore.writeJson(path.join('streams', `${id}.json`), {
+          schemaVersion: 1,
+          id,
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: t.length,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+          t,
+          d,
+        });
+        return { t, d };
+      }
+
+      for (const id of cleanIds) await writeClean400m(id, CLEAN_SPEED_MPS);
+      const contamStreams: Record<string, { t: number[]; d: number[] }> = {};
+      for (const id of contamIds) contamStreams[id] = await writeContaminated400m(id);
+
+      // Reachability: the fabricated burst is actually detected as a
+      // segment for EVERY contaminated activity — without this, the whole
+      // fixture would be vacuous.
+      for (const id of contamIds) {
+        const { segments } = classifyGapsWithSegments(contamStreams[id].t, contamStreams[id].d);
+        expect(segments.length).toBeGreaterThan(0);
+      }
+
+      // Two independent, hand-built deriveCeilings candidates, from
+      // hand-written speed arrays — never from the production output.
+      const cleanCandidate = new Map<TargetDistanceKey, number[]>();
+      const rawCandidate = new Map<TargetDistanceKey, number[]>();
+      for (const key of TARGET_ORDER) {
+        if (key === '400m') {
+          cleanCandidate.set(key, [
+            ...Array.from({ length: CLEAN_COUNT }, () => CLEAN_SPEED_MPS),
+            ...Array.from({ length: CONTAM_COUNT }, () => CONTAM_CLEAN_SPEED_MPS),
+          ]);
+          rawCandidate.set(key, [
+            ...Array.from({ length: CLEAN_COUNT }, () => CLEAN_SPEED_MPS),
+            ...Array.from({ length: CONTAM_COUNT }, () => RAW_TARGET_SPEED_MPS),
+          ]);
+        } else {
+          cleanCandidate.set(key, []);
+          rawCandidate.set(key, []);
+        }
+      }
+      const cleanResult = deriveCeilings(cleanCandidate);
+      const rawResult = deriveCeilings(rawCandidate);
+
+      // DIVERGENCE FIRST — the fixture must discriminate before anything else runs.
+      expect(cleanResult['400m'].ceilingMps).not.toBeNull();
+      expect(rawResult['400m'].ceilingMps).not.toBeNull();
+      expect(cleanResult['400m'].ceilingMps).not.toBe(rawResult['400m'].ceilingMps);
+
+      const doc = await computeBestEfforts({
+        activitiesDir: path.join(tmpDir, 'activities'),
+        streamsDir: path.join(tmpDir, 'streams'),
+        streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+        statsDir: path.join(tmpDir, 'stats'),
+        ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
+        exclusionsPath: path.join(tmpDir, 'no-such-exclusions.json'),
+      });
+
+      // 2. Equality with the CLEAN candidate, inequality with the RAW one.
+      expect(doc.ceilings['400m'].ceilingMps).toBeCloseTo(cleanResult['400m'].ceilingMps!, 2);
+      expect(doc.ceilings['400m'].ceilingMps).not.toBeCloseTo(rawResult['400m'].ceilingMps!, 0);
+
+      // 3. `populationN` testifies: every contaminated activity contributed
+      // its CLEAN figure to the population, none was dropped entirely.
+      expect(doc.ceilings['400m'].populationN).toBe(CLEAN_COUNT + CONTAM_COUNT);
+
+      const expectedCleanPaceSecPerKm = 400 / CONTAM_CLEAN_SPEED_MPS / (400 / 1000);
+      for (const id of contamIds) {
+        const effort = doc.activities[id].efforts.find((e) => e.distance === '400m')!;
+        expect(effort.demotion).toBeNull();
+        expect(effort.contaminated).not.toBeNull();
+        expect(effort.paceSecPerKm).toBeCloseTo(expectedCleanPaceSecPerKm, 1);
+      }
+    });
+
+    it("no-clean-window activities are excluded entirely from populationN — 100, not 103 — while carrying demotion under 'unreliable-segment'", async () => {
+      const CLEAN_COUNT = 100;
+      const CLEAN_SPEED_MPS = 3.5;
+      const manifest = emptyManifestDoc();
+      const cleanIds = Array.from({ length: CLEAN_COUNT }, (_, i) => `d14nc-clean-${i}`);
+      const noCleanIds = ['d14nc-a', 'd14nc-b', 'd14nc-c'];
+      for (const id of cleanIds) {
+        manifest.activities[id] = {
+          available: true,
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: 2,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+        };
+      }
+      for (const id of noCleanIds) {
+        manifest.activities[id] = {
+          available: true,
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: 3,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+        };
+      }
+      await writeManifest(manifest);
+
+      for (const id of cleanIds) {
+        const durationSec = round1(400 / CLEAN_SPEED_MPS);
+        await writeActivity(id, '2020-01-01T00:00:00Z', 400);
+        await fileStore.writeJson(path.join('streams', `${id}.json`), {
+          schemaVersion: 1,
+          id,
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: 2,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+          t: [0, durationSec],
+          d: [0, 400],
+        });
+      }
+
+      // Burst covers almost the entire 400m target (395m in 1s — a huge,
+      // clearly-flagged burst); the remainder (5m over 10s) is the ONLY
+      // clean sub-interval available, far short of a full 400m — no clean
+      // window exists.
+      const t = [0, 1, 11];
+      const d = [0, 395, 400];
+      for (const id of noCleanIds) {
+        const { segments } = classifyGapsWithSegments(t, d);
+        expect(segments.length).toBeGreaterThan(0); // reachability
+        await writeActivity(id, '2021-01-01T00:00:00Z', 400, 20);
+        await fileStore.writeJson(path.join('streams', `${id}.json`), {
+          schemaVersion: 1,
+          id,
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: t.length,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+          t,
+          d,
+        });
+      }
+
+      const doc = await computeBestEfforts({
+        activitiesDir: path.join(tmpDir, 'activities'),
+        streamsDir: path.join(tmpDir, 'streams'),
+        streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+        statsDir: path.join(tmpDir, 'stats'),
+        ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
+        exclusionsPath: path.join(tmpDir, 'no-such-exclusions.json'),
+      });
+
+      expect(doc.ceilings['400m'].populationN).toBe(CLEAN_COUNT);
+      for (const id of noCleanIds) {
+        const effort = doc.activities[id].efforts.find((e) => e.distance === '400m')!;
+        expect(effort.demotion).not.toBeNull();
+        expect(effort.demotion!.guard).toBe('unreliable-segment');
+      }
+    });
+  });
+
   it('D-02 fails open below CEILING_MIN_POPULATION: ceilings.half.ceilingMps is null with a non-null failOpenReason, and every half effort in the fixture is still ranked', async () => {
     const manifest = emptyManifestDoc();
     const ids = ['half-1', 'half-2', 'half-3'];
