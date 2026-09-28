@@ -178,8 +178,15 @@ jobs:
       # are mandatory so the run dies at the step that broke rather than at a
       # 404 several steps later — the outcome was already "no deploy" either
       # way (WR-01).
+      #
+      # --write-ceiling-state (28 WR-06, D-11): this is the ONE invocation
+      # permitted to rewrite the committed data/best-effort-ceiling.json,
+      # which the auto-commit step below already lists in its file_pattern.
+      # Every local invocation of compute-all-stats/compute-best-efforts (the
+      # npm scripts, or a hand-run of dist/index.js without this flag) leaves
+      # that file untouched — closing 28 WR-06.
       - name: Compute all statistics
-        run: node dist/index.js compute-all-stats --ci
+        run: node dist/index.js compute-all-stats --ci --write-ceiling-state
 
       - name: Build widgets
         run: npm run build-widgets
@@ -227,8 +234,10 @@ jobs:
       # routine before (see the 2026-08-11 STATE.md blocker entry) —
       # compute-best-efforts.ts rewrites that file whenever population, p90
       # or ceiling changes at any distance, so an unchanged nightly run adds
-      # nothing here to commit. That includes local runs, which then dirty
-      # this CI-committed file too.
+      # nothing here to commit. A local run can no longer dirty this
+      # CI-committed file: the write is gated behind the --write-ceiling-state
+      # flag (28 WR-06, D-11), which only the "Compute all statistics" step
+      # above passes.
       - name: Commit updated data and stats
         id: commit
         continue-on-error: true  # Bookkeeping failure must not block the deploy

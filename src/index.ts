@@ -7,7 +7,11 @@ import { ActivitySync } from './sync/activity-sync.js';
 import { config } from './config/strava.config.js';
 import { computeAllStats } from './analytics/compute-stats.js';
 import { computeAdvancedStats } from './analytics/compute-advanced-stats.js';
-import { COMPUTE_ALL_STATS_STEPS, runComputeAllStatsSteps } from './compute-all-stats-steps.js';
+import {
+  COMPUTE_ALL_STATS_STEPS,
+  runComputeAllStatsSteps,
+  type ComputeStepOptions,
+} from './compute-all-stats-steps.js';
 import * as fs from 'fs/promises';
 
 const command = process.argv[2];
@@ -198,11 +202,16 @@ async function computeBestEffortsCommand() {
   try {
     const { computeBestEfforts } = await import('./analytics/compute-best-efforts.js');
     console.log('Computing best efforts from committed streams...\n');
+    // --write-ceiling-state (28 WR-06, D-11): only the nightly CI invocation
+    // passes this. It gates the committed data/best-effort-ceiling.json
+    // write, so a hand-run of this command cannot dirty that file.
+    const writeCeilingState = process.argv.includes('--write-ceiling-state');
     await computeBestEfforts({
       activitiesDir: config.activitiesDir,
       streamsDir: config.streamsDir,
       streamsManifestPath: config.streamsManifestPath,
       statsDir: 'data/stats',
+      writeCeilingState,
     });
     console.log('\nBest efforts generated successfully!');
     process.exitCode = 0;
@@ -315,6 +324,11 @@ async function computeAllStatsCommand() {
     // --ci selects warn-and-continue for tolerated steps (D-02); without it
     // the walk is fail-fast by default, matching a hand-run's expectations.
     const continueOnError = process.argv.includes('--ci');
+    // --write-ceiling-state (28 WR-06, D-11): only the nightly CI invocation
+    // passes this. It gates the committed data/best-effort-ceiling.json
+    // write inside the compute-best-efforts step, so a hand-run of this
+    // chain cannot dirty that file.
+    const writeCeilingState = process.argv.includes('--write-ceiling-state');
 
     // The chain's order and each step's mandatory/tolerated disposition are
     // declared exactly once, in src/compute-all-stats-steps.ts (D-01) — wrap
@@ -323,14 +337,14 @@ async function computeAllStatsCommand() {
     // boundary the eight green/red boxes used to provide.
     const announcedSteps = COMPUTE_ALL_STATS_STEPS.map((step) => ({
       ...step,
-      run: async () => {
+      run: async (stepOptions: ComputeStepOptions) => {
         console.log(`> ${step.name}`);
-        await step.run();
+        await step.run(stepOptions);
         console.log(''); // Blank line separator
       },
     }));
 
-    const degraded = await runComputeAllStatsSteps(announcedSteps, { continueOnError });
+    const degraded = await runComputeAllStatsSteps(announcedSteps, { continueOnError, writeCeilingState });
 
     // The headline must not claim success on a degraded run. It used to be
     // unconditional, so a nightly where three tolerated steps failed printed
@@ -587,12 +601,12 @@ function printHelp() {
   console.log('  compute-stats          - Compute basic statistics from synced activities');
   console.log('  compute-advanced-stats - Compute advanced statistics (year-over-year, time-of-day, etc.)');
   console.log('  compute-geo-stats      - Compute geographic statistics (countries, cities) from GPS data');
-  console.log('  compute-best-efforts   - Compute best efforts (fastest 400m..marathon) from committed streams');
+  console.log('  compute-best-efforts [--write-ceiling-state] - Compute best efforts (fastest 400m..marathon) from committed streams. --write-ceiling-state: opt in to rewriting the committed data/best-effort-ceiling.json (28 WR-06); default leaves it untouched.');
   console.log('  compute-dashboard-index - Compute the dashboard activity index manifest from the committed archive');
   console.log('  compute-training-load  - Compute CTL/ATL/TSB training load from committed streams');
   console.log('  compute-age-grading    - Compute age-grade percentages from best efforts and WMA tables');
   console.log('  compute-gear-aggregate - Compute the per-shoe gear aggregate from the dashboard index');
-  console.log('  compute-all-stats [--ci] - Compute all statistics (basic, advanced, geo, best efforts, age-grading, dashboard index, gear aggregate, training load). --ci: warn and continue on tolerated steps, print a failure summary; default is fail-fast.');
+  console.log('  compute-all-stats [--ci] [--write-ceiling-state] - Compute all statistics (basic, advanced, geo, best efforts, age-grading, dashboard index, gear aggregate, training load). --ci: warn and continue on tolerated steps, print a failure summary; default is fail-fast. --write-ceiling-state: opt in to rewriting the committed data/best-effort-ceiling.json (28 WR-06); default leaves it untouched.');
   console.log('  sync-intervals         - Sync new activities from intervals.icu (Garmin bridge)');
   console.log('  consolidate-exports    - Reconcile bulk exports under export_data/ into the archive');
   console.log('  backfill-streams       - Derive committed per-activity streams from export_data/ originals, local only');
@@ -612,6 +626,7 @@ function printHelp() {
   console.log('  npm run compute-gear-aggregate  # Generate the per-shoe gear aggregate');
   console.log('  npm run compute-all-stats      # Generate all stats');
   console.log('  node dist/index.js compute-all-stats --ci   # CI mode: tolerate optional steps');
+  console.log('  node dist/index.js compute-all-stats --ci --write-ceiling-state   # nightly CI form: also opts in to rewriting the committed ceiling baseline');
 }
 
 async function main() {
