@@ -772,6 +772,211 @@ describe('splice fabricates a faster window than the shipped partition (D-02, PR
   });
 });
 
+/**
+ * D-08's precedence, demonstrated on two REAL activities whose raw window
+ * genuinely fails an absolute guard (the "moved" case — 31 real pairs on
+ * the live archive, swept 2026-09-28, 36-VALIDATION.md § Two-Direction
+ * Reachability). D-08's LITERAL bound ("a real activity that trips both the
+ * unreliable-segment guard AND an absolute guard") is UNSATISFIABLE for the
+ * no-clean-window case: 0 of 440 no-clean-window occurrences independently
+ * fail an absolute guard on the live archive — plan 36-01's REQUIREMENTS.md
+ * amendment records this asymmetry. No synthetic fixture is built for the
+ * empty combination here; only the moved case (this describe) is
+ * demonstrated.
+ */
+describe('3475725842 & 3475713251 — D-08 precedence on real activities whose raw window fails an absolute guard', () => {
+  it("3475725842@400m: raw fails max-speed, ranked figure is plausible, demotion is null, contaminated carries the raw figure under 'unreliable-segment'", async () => {
+    const { t, d } = await readRealStream('3475725842');
+    const activity = await readRealActivity('3475725842');
+    const { segments } = classifyGapsWithSegments(t, d);
+
+    const raw = findBestEffort(t, d, 400);
+    expect(raw).toBeDefined();
+    const rawSpeed = 400 / raw!.durationSec;
+    const rawPlausibility = isPlausible(rawSpeed, activity.max_speed, WORLD_RECORD_SPEED_MPS['400m']);
+    expect(rawPlausibility.ok).toBe(false);
+    if (rawPlausibility.ok) throw new Error('unreachable — asserted false above');
+    expect(rawPlausibility.guard).toBe('max-speed');
+
+    expect(segmentsIntersectingWindow(segments, raw!).length).toBeGreaterThan(0);
+
+    const result = computeActivityEfforts(
+      baseInput({
+        activityDistanceM: activity.distance,
+        t,
+        d,
+        segments,
+        maxSpeedMps: activity.max_speed,
+      })
+    );
+    const effort = result.efforts.find((e) => e.distance === '400m')!;
+    expect(effort.demotion).toBeNull();
+    expect(effort.contaminated).not.toBeNull();
+    expect(effort.contaminated!.guard).toBe('unreliable-segment');
+    const rankedSpeed = 400 / effort.durationSec;
+    expect(isPlausible(rankedSpeed, activity.max_speed, WORLD_RECORD_SPEED_MPS['400m']).ok).toBe(true);
+    expect(effort.contaminated!.durationSec).toBeLessThan(effort.durationSec);
+    expect(effort.contaminated!.reason).not.toMatch(/max_speed/);
+    expect(effort.contaminated!.reason).not.toMatch(/world-record/);
+  });
+
+  it("3475713251@400m: raw fails world-record, ranked figure is plausible, demotion is null, contaminated carries the raw figure under 'unreliable-segment'", async () => {
+    const { t, d } = await readRealStream('3475713251');
+    const activity = await readRealActivity('3475713251');
+    const { segments } = classifyGapsWithSegments(t, d);
+
+    const raw = findBestEffort(t, d, 400);
+    expect(raw).toBeDefined();
+    const rawSpeed = 400 / raw!.durationSec;
+    const rawPlausibility = isPlausible(rawSpeed, activity.max_speed, WORLD_RECORD_SPEED_MPS['400m']);
+    expect(rawPlausibility.ok).toBe(false);
+    if (rawPlausibility.ok) throw new Error('unreachable — asserted false above');
+    expect(rawPlausibility.guard).toBe('world-record');
+
+    expect(segmentsIntersectingWindow(segments, raw!).length).toBeGreaterThan(0);
+
+    const result = computeActivityEfforts(
+      baseInput({
+        activityDistanceM: activity.distance,
+        t,
+        d,
+        segments,
+        maxSpeedMps: activity.max_speed,
+      })
+    );
+    const effort = result.efforts.find((e) => e.distance === '400m')!;
+    expect(effort.demotion).toBeNull();
+    expect(effort.contaminated).not.toBeNull();
+    expect(effort.contaminated!.guard).toBe('unreliable-segment');
+    const rankedSpeed = 400 / effort.durationSec;
+    expect(isPlausible(rankedSpeed, activity.max_speed, WORLD_RECORD_SPEED_MPS['400m']).ok).toBe(true);
+    expect(effort.contaminated!.durationSec).toBeLessThan(effort.durationSec);
+    expect(effort.contaminated!.reason).not.toMatch(/max_speed/);
+    expect(effort.contaminated!.reason).not.toMatch(/world-record/);
+  });
+});
+
+/**
+ * All three scoping activities' after-state (ROADMAP criterion 1/4,
+ * 36-02-SUMMARY.md's BEFORE reference table). Every `contaminated` record
+ * below is checked against the SAME pinned BEFORE figures plan 36-02
+ * asserts directly on `findBestEffort` — proving the contaminated record is
+ * provably the ORIGINAL figure, not something new — while the ranked
+ * top-level figure is asserted strictly slower and, for 3475740390, moved
+ * off the detected segments entirely (criterion 1). The three scoping
+ * activities' pinned per-km AFTER pace figures (36-CONTEXT.md's own
+ * "Measured during this discussion" table) are never asserted here — they
+ * are references to reconcile against, recorded only in 36-05-SUMMARY.md.
+ */
+describe('scoping activities after — contaminated retains the BEFORE window, ranked figure moves off it', () => {
+  it("3475740390@400m: contaminated is the pinned BEFORE window (3:20/km, startOffsetSec=2508); ranked is strictly slower and does not overlap any detected segment", async () => {
+    const { t, d } = await readRealStream('3475740390');
+    const activity = await readRealActivity('3475740390');
+    const { segments } = classifyGapsWithSegments(t, d);
+
+    const result = computeActivityEfforts(
+      baseInput({
+        activityDistanceM: activity.distance,
+        t,
+        d,
+        segments,
+        maxSpeedMps: activity.max_speed,
+      })
+    );
+    const effort = result.efforts.find((e) => e.distance === '400m')!;
+    expect(effort.contaminated).not.toBeNull();
+    expect(paceMinSec(effort.contaminated!.paceSecPerKm)).toBe('3:20');
+    expect(effort.contaminated!.startOffsetSec).toBe(2508);
+    expect(effort.paceSecPerKm).toBeGreaterThan(effort.contaminated!.paceSecPerKm);
+    expect(effort.demotion).toBeNull();
+
+    // Criterion 1: the shipped (ranked) window no longer spans any detected
+    // segment. Rounding tolerance: 0.6s total, stated in two named
+    // components — 0.5s from Math.round on startOffsetSec, plus 0.05s from
+    // round1 on endOffsetSec, plus float slack.
+    const OVERLAP_TOLERANCE_SEC = 0.6;
+    for (const seg of segments) {
+      const overlaps =
+        seg.startSec < effort.endOffsetSec - OVERLAP_TOLERANCE_SEC &&
+        effort.startOffsetSec + OVERLAP_TOLERANCE_SEC < seg.endSec;
+      expect(overlaps).toBe(false);
+    }
+    expect(effort.startOffsetSec).not.toBe(effort.contaminated!.startOffsetSec);
+
+    // Criterion 1's reason content: derive the intersecting segments' own
+    // metres/seconds from the detector's output — never hardcoded — and
+    // confirm the first CONTAMINATION_REASON_SEGMENT_CAP of them appear in
+    // the reason string, formatted to one decimal place.
+    const raw = findBestEffort(t, d, 400)!;
+    const intersecting = segmentsIntersectingWindow(segments, raw);
+    expect(intersecting.length).toBeGreaterThan(0);
+    for (const seg of intersecting.slice(0, CONTAMINATION_REASON_SEGMENT_CAP)) {
+      expect(effort.contaminated!.reason).toContain(seg.metres.toFixed(1));
+      expect(effort.contaminated!.reason).toContain(seg.seconds.toFixed(1));
+    }
+  });
+
+  it("3475724402@400m: contaminated is the pinned BEFORE window (3:21/km, startOffsetSec=3061); ranked is strictly slower", async () => {
+    const { t, d } = await readRealStream('3475724402');
+    const activity = await readRealActivity('3475724402');
+    const { segments } = classifyGapsWithSegments(t, d);
+
+    const result = computeActivityEfforts(
+      baseInput({
+        activityDistanceM: activity.distance,
+        t,
+        d,
+        segments,
+        maxSpeedMps: activity.max_speed,
+      })
+    );
+    const effort = result.efforts.find((e) => e.distance === '400m')!;
+    expect(effort.contaminated).not.toBeNull();
+    expect(paceMinSec(effort.contaminated!.paceSecPerKm)).toBe('3:21');
+    expect(effort.contaminated!.startOffsetSec).toBe(3061);
+    expect(effort.paceSecPerKm).toBeGreaterThan(effort.contaminated!.paceSecPerKm);
+    expect(effort.demotion).toBeNull();
+
+    const raw = findBestEffort(t, d, 400)!;
+    const intersecting = segmentsIntersectingWindow(segments, raw);
+    expect(intersecting.length).toBeGreaterThan(0);
+    for (const seg of intersecting.slice(0, CONTAMINATION_REASON_SEGMENT_CAP)) {
+      expect(effort.contaminated!.reason).toContain(seg.metres.toFixed(1));
+      expect(effort.contaminated!.reason).toContain(seg.seconds.toFixed(1));
+    }
+  });
+
+  it("3475734189@400m: contaminated is the pinned BEFORE window (3:22/km, startOffsetSec=1285); ranked is strictly slower", async () => {
+    const { t, d } = await readRealStream('3475734189');
+    const activity = await readRealActivity('3475734189');
+    const { segments } = classifyGapsWithSegments(t, d);
+
+    const result = computeActivityEfforts(
+      baseInput({
+        activityDistanceM: activity.distance,
+        t,
+        d,
+        segments,
+        maxSpeedMps: activity.max_speed,
+      })
+    );
+    const effort = result.efforts.find((e) => e.distance === '400m')!;
+    expect(effort.contaminated).not.toBeNull();
+    expect(paceMinSec(effort.contaminated!.paceSecPerKm)).toBe('3:22');
+    expect(effort.contaminated!.startOffsetSec).toBe(1285);
+    expect(effort.paceSecPerKm).toBeGreaterThan(effort.contaminated!.paceSecPerKm);
+    expect(effort.demotion).toBeNull();
+
+    const raw = findBestEffort(t, d, 400)!;
+    const intersecting = segmentsIntersectingWindow(segments, raw);
+    expect(intersecting.length).toBeGreaterThan(0);
+    for (const seg of intersecting.slice(0, CONTAMINATION_REASON_SEGMENT_CAP)) {
+      expect(effort.contaminated!.reason).toContain(seg.metres.toFixed(1));
+      expect(effort.contaminated!.reason).toContain(seg.seconds.toFixed(1));
+    }
+  });
+});
+
 describe('computeBestEfforts — archive orchestration', () => {
   let tmpDir: string;
   let fileStore: FileStore;
