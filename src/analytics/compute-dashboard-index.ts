@@ -34,22 +34,6 @@ function round1(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
-/**
- * 35-08 retargeted `detectPaceDisagreement` onto `deriveRunningPace`'s
- * output and deleted `pace-derivation.ts`'s own retired 3:20/km
- * metadata-implausibility-gate export (its identifier deliberately not
- * repeated here — this task's own automated verify script forbids it
- * surviving anywhere in this file; see git history, this hunk's pre-35-08
- * revision, or `35-08-SUMMARY.md`'s Task 3 section for the literal name).
- * This local literal exists ONLY to hold that OLD gate's behaviour
- * byte-for-byte unchanged for exactly this one wave, so the signature
- * change can land with a typechecking, passing tree without also doing
- * plan 35-09's substantive work (deleting the gate itself and the
- * duplicate stream read it guards) a wave early. Plan 35-09 deletes both
- * this constant and the `if` condition it guards. Nothing else may read it.
- */
-const RETIRED_STREAM_READ_GATE_SEC_PER_KM = 200;
-
 /** Maps `undefined`, `null`, and `NaN` to `null`; passes through any other number. */
 function numOrNull(value: unknown): number | null {
   if (value === undefined || value === null) return null;
@@ -166,6 +150,12 @@ export async function computeDashboardIndex(
   let paceDisagreementCount = 0;
   let qualityAnySevereCount = 0;
   let qualityNotComputableCount = 0;
+  // RPACE-01/35-09: parallel to qualityNotComputableCount above, but for
+  // `deriveRunningPace`'s own not-computable reason set (a superset:
+  // includes the no-stream-at-all case as well as a stream that fails
+  // validation or has zero covered distance/time).
+  let runningPaceComputableCount = 0;
+  let runningPaceNotComputableCount = 0;
   // Added cost of computing the Phase 27 quality signals and building the
   // D-17 evidence shard — a full stream read over the archive added to a
   // step that previously read streams only conditionally (PACE-07's
@@ -241,67 +231,53 @@ export async function computeDashboardIndex(
       const paceSecPerKm =
         distanceM > 0 && movingTimeSec > 0 ? round1(movingTimeSec / (distanceM / 1000)) : null;
 
-      // PACE-07/D-14: gated on the threshold so the archive sweep stays
-      // cheap — only when the metadata pace is implausibly fast do we read
-      // the activity's stream file at all (T-26-09). Degrades to `null` on
-      // any stream read/parse failure (T-26-01), following the existing
-      // OPTIONAL-read pattern this file already uses for best-efforts,
-      // cities and gear.
-      //
-      // `streamForActivity`/`streamReadAttempted` carry this read forward
-      // to the QUAL-01/QUAL-03 block below so an activity whose pace also
-      // triggered this check is never read from `streamsDir` twice.
-      let paceDisagreement: PaceDisagreement | null = null;
-      let streamForActivity: CanonicalStream | null = null;
-      let streamReadAttempted = false;
-      if (
-        paceSecPerKm !== null &&
-        paceSecPerKm < RETIRED_STREAM_READ_GATE_SEC_PER_KM
-      ) {
-        streamReadAttempted = true;
+      // QUAL-01/QUAL-03 + RPACE-01/RPACE-03 (35-09): ONE unconditional
+      // stream read per activity now feeds coverage, the quality signals,
+      // the running pace and the disagreement check. The retired 200
+      // sec/km metadata-implausibility gate (35-08's one-wave carry-over
+      // constant, deleted above) and the duplicated read it guarded are
+      // both gone — 3475724402's metadata pace (296.0 s/km) sat above that
+      // gate, so its own branch never executed and no comparator or
+      // threshold change could ever badge it while the gate stood
+      // (35-RESEARCH.md Pitfall 1; this was ROADMAP criterion 3's blocker).
+      // Where the manifest says no stream is available, pass `null`
+      // directly without attempting a read — `computePaceQualitySignals`
+      // and `deriveRunningPace` both turn that into an explicit
+      // not-computable reason, never a zeroed tier or a computed zero
+      // (D-06/T-35-09). A read/parse failure degrades the same way,
+      // following the same try/catch-and-warn shape every other OPTIONAL
+      // read in this file already uses.
+      const qualityStart = Date.now();
+      let streamForQuality: CanonicalStream | null = null;
+      if (entry.available) {
         try {
-          streamForActivity = await fileStore.readJson<CanonicalStream>(
+          streamForQuality = await fileStore.readJson<CanonicalStream>(
             path.join(streamsDir, `${id}.json`)
           );
-          // Retargeted in 35-08; the read gate itself is 35-09's to delete.
-          paceDisagreement = detectPaceDisagreement(paceSecPerKm, deriveRunningPace(streamForActivity));
         } catch (error) {
           console.warn(
-            `  ${id}: could not read stream for pace disagreement check (${(error as Error).message}); paceDisagreement will be null`
+            `  ${id}: could not read stream (${(error as Error).message}); quality and running pace will be not-computable`
           );
-          paceDisagreement = null;
-          streamForActivity = null;
-        }
-        if (paceDisagreement !== null) paceDisagreementCount++;
-      }
-
-      // QUAL-01/QUAL-03: UNLIKE paceDisagreement's gated read above, the
-      // three stream-derived quality signals need every activity's stream
-      // unconditionally — reuse the read above when it already happened for
-      // this activity, otherwise read once here when the manifest says a
-      // stream exists. Where the manifest says no stream is available, pass
-      // `null` directly without attempting a read — `computePaceQualitySignals`
-      // turns that into an explicit `notComputableReason`, never a zeroed
-      // `'none'` tier (D-06). A read/parse failure degrades the same way,
-      // following the same try/catch-and-warn shape as the block above.
-      const qualityStart = Date.now();
-      let streamForQuality: CanonicalStream | null = streamForActivity;
-      if (!streamReadAttempted) {
-        if (entry.available) {
-          try {
-            streamForQuality = await fileStore.readJson<CanonicalStream>(
-              path.join(streamsDir, `${id}.json`)
-            );
-          } catch (error) {
-            console.warn(
-              `  ${id}: could not read stream for quality signals (${(error as Error).message}); quality will be not-computable`
-            );
-            streamForQuality = null;
-          }
-        } else {
           streamForQuality = null;
         }
       }
+
+      // `deriveRunningPace` is total — a `null` stream (or one that fails
+      // `validateStreamSeries`) returns the neutral not-computable shape,
+      // never a thrown error and never a computed zero standing in for
+      // "could not compute". `detectPaceDisagreement`'s OWN gate (D-02's
+      // `excludedM > 0` eligibility filter, applied to this
+      // already-computed running pace) is what decides whether a
+      // disagreement fires — never a condition placed in front of either
+      // call here.
+      const runningPace = deriveRunningPace(streamForQuality);
+      const paceDisagreement: PaceDisagreement | null = detectPaceDisagreement(
+        paceSecPerKm,
+        runningPace
+      );
+      if (paceDisagreement !== null) paceDisagreementCount++;
+      if (runningPace.computable) runningPaceComputableCount++;
+      else runningPaceNotComputableCount++;
 
       const qualityMetadata: ActivityQualityMetadata = {
         deviceName: activity.device_name,
@@ -447,6 +423,8 @@ export async function computeDashboardIndex(
   console.log(`- Skipped (unreadable): ${totals.skippedUnreadable}`);
   console.log(`- With gear: ${totals.withGear}`);
   console.log(`- Pace disagreements flagged: ${paceDisagreementCount}`);
+  console.log(`- Running pace: computable: ${runningPaceComputableCount}`);
+  console.log(`- Running pace: not computable: ${runningPaceNotComputableCount}`);
   console.log(`- Quality: any severe signal: ${totals.qualityAnySevere}`);
   console.log(`- Quality: not computable: ${totals.qualityNotComputable}`);
   console.log(
