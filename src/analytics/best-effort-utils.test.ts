@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -9,8 +12,25 @@ import {
   WORLD_RECORD_100M_SPEED_MPS,
   WORLD_RECORD_SPEED_MPS,
 } from './best-effort-utils.js';
-import { TARGET_ORDER } from './best-effort.types.js';
+import { TARGET_METERS, TARGET_ORDER } from './best-effort.types.js';
 import type { PRRankingEntry } from './best-effort.types.js';
+
+/** Reads a committed stream file from `data/streams/` — never the derived stats output. */
+function readStream(activityId: string): { t: number[]; d: number[] } {
+  return JSON.parse(
+    fs.readFileSync(path.join('data/streams', `${activityId}.json`), 'utf-8')
+  ) as { t: number[]; d: number[] };
+}
+
+/** Every `available: true` activity id in the committed stream manifest. */
+function readManifestAvailableIds(): string[] {
+  const manifest = JSON.parse(
+    fs.readFileSync(path.join('data/streams', 'manifest.json'), 'utf-8')
+  ) as { activities: Record<string, { available: boolean }> };
+  return Object.entries(manifest.activities)
+    .filter(([, v]) => v.available)
+    .map(([id]) => id);
+}
 
 describe('WORLD_RECORD_100M_SPEED_MPS', () => {
   it('is the 100m world-record floor, 10.44 m/s, declared standalone from WORLD_RECORD_SPEED_MPS', () => {
@@ -442,5 +462,139 @@ describe('rankTopN', () => {
     const result = rankTopN(efforts, 2);
     expect(result[0]).toMatchObject({ rank: 1, activityId: 'earlier' });
     expect(result[1]).toMatchObject({ rank: 2, activityId: 'later' });
+  });
+});
+
+/**
+ * `findBestEffort`'s optional half-open sample `bounds` (36-02, PR-06). Every
+ * test below lives under one describe whose title contains "bounds" so
+ * `npx vitest run ... -t "bounds"` selects exactly this group — required by
+ * this plan's own verification step, which asserts the matched count is
+ * nonzero (a name filter matching 0 tests exits 0 and proves nothing).
+ */
+describe('findBestEffort — bounds (36-02, PR-06)', () => {
+  it(
+    'omitting bounds is exactly {startIndex:0, endIndex:t.length} on every archive activity and every TARGET_ORDER distance — THE INDEPENDENT VALUE: a compared-pair counter proves the sweep over the real archive actually ran, not vacuously',
+    () => {
+      const ids = readManifestAvailableIds();
+      let comparedPairs = 0;
+
+      for (const id of ids) {
+        const { t, d } = readStream(id);
+        for (const key of TARGET_ORDER) {
+          const targetMeters = TARGET_METERS[key];
+          const omitted = findBestEffort(t, d, targetMeters);
+          const explicit = findBestEffort(t, d, targetMeters, {
+            startIndex: 0,
+            endIndex: t.length,
+          });
+          expect(explicit).toEqual(omitted);
+          comparedPairs++;
+        }
+      }
+
+      // eslint-disable-next-line no-console
+      console.log(
+        `bounds omitted-identity sweep: ${comparedPairs} activity/distance pairs compared across ${ids.length} activities`
+      );
+      expect(comparedPairs).toBeGreaterThan(0);
+    },
+    60_000
+  );
+
+  describe('bound equivalence against an explicitly sliced expectation — THE INDEPENDENT VALUE: the expected answer is produced by an array copy the shipped code deliberately never makes, so this is not the bounded sweep agreeing with itself', () => {
+    /**
+     * Only `startIndex`/`endIndex` need `lo` added back. `t`'s values are
+     * absolute seconds since the ORIGINAL stream's first sample, and
+     * `.slice` preserves values verbatim (sample `t[lo+k]` becomes
+     * `slicedT[k]` with the identical number) — so `durationSec`,
+     * `startOffsetSec` and `endOffsetSec`, which are read directly off `t`
+     * (or a subtraction of it), come out identical whether the sweep is
+     * bounded over the full array or unbounded over the pre-sliced
+     * sub-array. `d[j] - d[i]` is likewise slice-safe because only
+     * DIFFERENCES of the distance channel are ever read — this is exactly
+     * why the shipped sweep can adjust loop bounds instead of copying.
+     */
+    function slicedExpectation(t: number[], d: number[], targetMeters: number, lo: number, hi: number) {
+      const result = findBestEffort(t.slice(lo, hi), d.slice(lo, hi), targetMeters);
+      if (!result) return undefined;
+      return { ...result, startIndex: result.startIndex + lo, endIndex: result.endIndex + lo };
+    }
+
+    it('synthetic stream A (steady pace): bound strictly inside the array matches the sliced-array expectation', () => {
+      const t = [0, 10, 20, 30, 40, 50, 60, 70];
+      const d = [0, 100, 200, 300, 400, 500, 600, 700];
+      const lo = 2;
+      const hi = 6;
+      const bounded = findBestEffort(t, d, 150, { startIndex: lo, endIndex: hi });
+      expect(bounded).toBeDefined();
+      expect(bounded).toEqual(slicedExpectation(t, d, 150, lo, hi));
+    });
+
+    it('synthetic stream B (a pause inside the bound): bound strictly inside the array matches the sliced-array expectation', () => {
+      const t = [0, 1, 2, 600, 601, 602, 603, 604];
+      const d = [0, 100, 200, 200, 300, 400, 500, 600];
+      const lo = 1;
+      const hi = 7;
+      const bounded = findBestEffort(t, d, 250, { startIndex: lo, endIndex: hi });
+      expect(bounded).toBeDefined();
+      expect(bounded).toEqual(slicedExpectation(t, d, 250, lo, hi));
+    });
+
+    it('synthetic stream C (a standstill inside the bound): bound strictly inside the array matches the sliced-array expectation', () => {
+      const t = [0, 5, 10, 15, 20, 25, 30];
+      const d = [0, 50, 50, 100, 150, 150, 200];
+      const lo = 1;
+      const hi = 6;
+      const bounded = findBestEffort(t, d, 100, { startIndex: lo, endIndex: hi });
+      expect(bounded).toBeDefined();
+      expect(bounded).toEqual(slicedExpectation(t, d, 100, lo, hi));
+    });
+
+    it('the real 3475740390 stream: bound strictly inside the array matches the sliced-array expectation', () => {
+      const { t, d } = readStream('3475740390');
+      const lo = 100;
+      const hi = t.length - 100;
+      expect(hi).toBeGreaterThan(lo + 2);
+      const targetMeters = TARGET_METERS['400m'];
+      const bounded = findBestEffort(t, d, targetMeters, { startIndex: lo, endIndex: hi });
+      expect(bounded).toBeDefined();
+      expect(bounded).toEqual(slicedExpectation(t, d, targetMeters, lo, hi));
+    });
+  });
+
+  describe('bounds totality — every malformed bound returns undefined without throwing, each its own assertion (never a loop that could skip a case)', () => {
+    const t = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    const d = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90];
+
+    it('degenerate bound {startIndex:5, endIndex:5} (zero-width, hi-lo<2) returns undefined and does not throw', () => {
+      expect(() => findBestEffort(t, d, 50, { startIndex: 5, endIndex: 5 })).not.toThrow();
+      expect(findBestEffort(t, d, 50, { startIndex: 5, endIndex: 5 })).toBeUndefined();
+    });
+
+    it('inverted bound {startIndex:6, endIndex:5} returns undefined and does not throw', () => {
+      expect(() => findBestEffort(t, d, 50, { startIndex: 6, endIndex: 5 })).not.toThrow();
+      expect(findBestEffort(t, d, 50, { startIndex: 6, endIndex: 5 })).toBeUndefined();
+    });
+
+    it('negative startIndex {startIndex:-1, endIndex:4} returns undefined and does not throw', () => {
+      expect(() => findBestEffort(t, d, 50, { startIndex: -1, endIndex: 4 })).not.toThrow();
+      expect(findBestEffort(t, d, 50, { startIndex: -1, endIndex: 4 })).toBeUndefined();
+    });
+
+    it('over-long endIndex {startIndex:0, endIndex:t.length+1} returns undefined and does not throw', () => {
+      expect(() => findBestEffort(t, d, 50, { startIndex: 0, endIndex: t.length + 1 })).not.toThrow();
+      expect(findBestEffort(t, d, 50, { startIndex: 0, endIndex: t.length + 1 })).toBeUndefined();
+    });
+
+    it('non-integer startIndex {startIndex:0.5, endIndex:4} returns undefined and does not throw', () => {
+      expect(() => findBestEffort(t, d, 50, { startIndex: 0.5, endIndex: 4 })).not.toThrow();
+      expect(findBestEffort(t, d, 50, { startIndex: 0.5, endIndex: 4 })).toBeUndefined();
+    });
+
+    it('a bound long enough in samples (10, well above the 2-sample floor) but too short in metres to cover the target returns undefined and does not throw', () => {
+      expect(() => findBestEffort(t, d, 1000, { startIndex: 0, endIndex: t.length })).not.toThrow();
+      expect(findBestEffort(t, d, 1000, { startIndex: 0, endIndex: t.length })).toBeUndefined();
+    });
   });
 });
