@@ -2466,3 +2466,42 @@ describe('styles.css — WR-02 (plan 28-13): --demoted-text meets WCAG AA (>= 4.
     expect(body).not.toContain('--accent-strong');
   });
 });
+
+describe('styles.css — Phase 35 plan 35-10 (D-10): Running Pace tile exclusion line shares the badge\'s third-child spacing', () => {
+  // 35-UI-SPEC.md § Spacing Scale's one implementation note: extend the
+  // existing 26-08 selector to also match a plain <p class="text-label">
+  // third child, never a new rule with a new value. Watched RED against the
+  // unpatched stylesheet first (Phase 19's dead-token precedent) — before
+  // 35-10's CSS edit landed, this second clause did not exist on any rule,
+  // so `.stat-grid > div > .text-label:nth-child(3)` resolved to no match at
+  // all and this assertion failed with:
+  //   AssertionError: expected false to be true // Object.is equality
+  // (the FIRST expect below, on the extended-selector clause). Recorded
+  // verbatim in 35-10-SUMMARY.md.
+  it('both .stat-grid > div > .badge and .stat-grid > div > .text-label:nth-child(3) declare margin-top: var(--space-xs), in the SAME rule', () => {
+    expect(
+      selectorListDeclares('.stat-grid > div > .text-label:nth-child(3)', 'margin-top: var(--space-xs)')
+    ).toBe(true);
+    expect(selectorListDeclares('.stat-grid > div > .badge', 'margin-top: var(--space-xs)')).toBe(true);
+    assertNoAtRuleOverride('.stat-grid > div > .badge', 'margin-top');
+    assertNoAtRuleOverride('.stat-grid > div > .text-label:nth-child(3)', 'margin-top');
+  });
+
+  // No new --space- custom property was introduced by this extension — the
+  // extended selector reuses --space-xs (35-UI-SPEC.md: "no new token").
+  // Counts the DECLARED tokens (the :root definitions, `--space-xs: 4px;`
+  // shaped), not usages (`var(--space-xs)`), so a new `var(--space-xs)` call
+  // site elsewhere in the file cannot inflate this count. 7 before this
+  // plan's edit, 7 after.
+  it('adds no new --space- custom property token (7 declared before this plan, 7 after)', () => {
+    const declaredSpaceTokens = css.match(/--space-[a-z0-9]+:\s*[0-9]/g) ?? [];
+    expect(declaredSpaceTokens.length).toBe(7);
+  });
+
+  // The anti-pattern this plan's own scope fence names: no new CSS class,
+  // token, colour or glyph.
+  it('the stylesheet declares no new .running-pace or .pace-exclusion rule', () => {
+    expect(cssNoComments).not.toMatch(/\.running-pace\b/);
+    expect(cssNoComments).not.toMatch(/\.pace-exclusion\b/);
+  });
+});
