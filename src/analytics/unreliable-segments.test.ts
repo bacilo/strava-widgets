@@ -985,50 +985,106 @@ describe('SEG-03 mechanism — 3475740390 isolated jumps', () => {
  * ABOVE the shipped speed limit and still never produce a segment, because `isFastStep` only
  * marks a SINGLE step fast — the significance floor (`excessFloorMetres`) judges the ACCUMULATED
  * excess of the run those fast steps chain into, not any one step's raw speed.
+ *
+ * Phase 36 gap closure: `maxRunExcess` (and the new `maxExtendedRunSpeed`, below) are computed
+ * AFTER extending each run's own endIndex through any immediately-following non-advancing, non-gap
+ * raw pair — an independent re-derivation of the shipped detector's own trailing-stall dilution
+ * (`extendThroughTrailingStall` in `unreliable-segments.ts`, not imported here, same discipline as
+ * the rest of this helper). Needed so this probe's own "why does this window never fire" and
+ * "what lowered params make it fire" measurements stay faithful to the shipped detector's actual
+ * (now symmetric) behaviour — see `.planning/debug/36-recount-isolated-jump.md`, bucket Q, and the
+ * "Resolution (detector)" section appended there.
  */
+function extendThroughTrailingStallIndependent(
+  t: readonly number[],
+  d: readonly number[],
+  gaps: readonly GapSpan[],
+  endIndex: number
+): number {
+  let e = endIndex;
+  while (e < t.length - 1 && d[e + 1] - d[e] <= 0) {
+    const insideGap = gaps.some((g) => g.startSec <= t[e] && t[e + 1] <= g.endSec);
+    if (insideGap) break;
+    e++;
+  }
+  return e;
+}
+
 function deriveWindowDiscriminators(
+  t: readonly number[],
+  d: readonly number[],
+  gaps: readonly GapSpan[],
   allSteps: readonly AdvanceStep[],
   startSec: number,
   endSec: number,
   speedLimitMps: number
-): { vMax: number; maxRunExcess: number; overlappingCount: number } {
+): { vMax: number; maxRunExcess: number; maxExtendedRunSpeed: number; overlappingCount: number } {
   const overlapping = allSteps.filter((s) => s.startSec < endSec && s.endSec > startSec);
   const vMax = overlapping.length > 0 ? Math.max(...overlapping.map((s) => s.metres / s.seconds)) : -Infinity;
 
+  // `maxExtendedRunSpeed`: the EXTENDED speed (metres over seconds AFTER extending through any
+  // immediately-following non-advancing, non-gap pair) of each individually overlapping step,
+  // taken on its own — mirroring `vMax`'s own per-step definition exactly, just post-extension.
+  // Deliberately NOT gated on `isFastStep` at `speedLimitMps`: a window like 3647739864's (whose
+  // single overlapping step, 153m/26s=5.885 m/s, never clears the DEFAULT 7.35 m/s limit at all)
+  // never forms a "run" to extend under `maxRunExcess`'s own fast-run grouping below, but a
+  // LOWERED speedLimitMps candidate still needs this step's own extended speed (153m/36s=4.25 m/s,
+  // not the raw 5.885) as the bound to drop below, or the chosen lowered limit will fail to clear
+  // the shipped detector's post-extension excess check even though it clears the raw speed test.
+  const vMaxExtended =
+    overlapping.length > 0
+      ? Math.max(
+          ...overlapping.map((s) => {
+            const extendedEndIndex = extendThroughTrailingStallIndependent(t, d, gaps, s.endIndex);
+            const extendedMetres = d[extendedEndIndex] - d[s.startIndex];
+            const extendedSeconds = t[extendedEndIndex] - t[s.startIndex];
+            return extendedMetres / extendedSeconds;
+          })
+        )
+      : -Infinity;
+
   let maxRunExcess = -Infinity;
-  let runMetres = 0;
-  let runSeconds = 0;
+  let runStartIndex: number | null = null;
+  let runEndIndex: number | null = null;
   let runTouchesWindow = false;
   let prevEndIndex: number | null = null;
+
+  const finalizeRun = () => {
+    if (runStartIndex !== null && runEndIndex !== null && runTouchesWindow) {
+      const extendedEndIndex = extendThroughTrailingStallIndependent(t, d, gaps, runEndIndex);
+      const extendedMetres = d[extendedEndIndex] - d[runStartIndex];
+      const extendedSeconds = t[extendedEndIndex] - t[runStartIndex];
+      maxRunExcess = Math.max(maxRunExcess, extendedMetres - speedLimitMps * extendedSeconds);
+    }
+    runStartIndex = null;
+    runEndIndex = null;
+    runTouchesWindow = false;
+  };
 
   for (const step of allSteps) {
     const isFast = step.metres > speedLimitMps * step.seconds;
     const contiguous = prevEndIndex !== null && step.startIndex === prevEndIndex;
     const touches = step.startSec < endSec && step.endSec > startSec;
     if (isFast) {
-      if (contiguous) {
-        runMetres += step.metres;
-        runSeconds += step.seconds;
+      if (contiguous && runStartIndex !== null) {
+        runEndIndex = step.endIndex;
         runTouchesWindow = runTouchesWindow || touches;
       } else {
-        runMetres = step.metres;
-        runSeconds = step.seconds;
+        runStartIndex = step.startIndex;
+        runEndIndex = step.endIndex;
         runTouchesWindow = touches;
       }
-      if (runTouchesWindow) {
-        maxRunExcess = Math.max(maxRunExcess, runMetres - speedLimitMps * runSeconds);
-      }
     } else {
-      runMetres = 0;
-      runSeconds = 0;
-      runTouchesWindow = false;
+      finalizeRun();
     }
     prevEndIndex = step.endIndex;
   }
+  finalizeRun();
 
   return {
     vMax,
     maxRunExcess: maxRunExcess === -Infinity ? 0 : maxRunExcess,
+    maxExtendedRunSpeed: vMaxExtended === -Infinity ? 0 : vMaxExtended,
     overlappingCount: overlapping.length,
   };
 }
@@ -1068,7 +1124,10 @@ describe('D-05 negative control — locked fixtures never fire, and can', () => 
       const gaps: GapSpan[] = classifyGapsThreeWay(t, d).gapIntervals;
       const steps = advanceSteps(t, d, gaps);
 
-      const { vMax, maxRunExcess, overlappingCount } = deriveWindowDiscriminators(
+      const { vMax, maxRunExcess, maxExtendedRunSpeed, overlappingCount } = deriveWindowDiscriminators(
+        t,
+        d,
+        gaps,
         steps,
         startSec,
         endSec,
@@ -1100,10 +1159,14 @@ describe('D-05 negative control — locked fixtures never fire, and can', () => 
 
       // Red direction: lower whichever parameter this window is ACTUALLY protected by, so the
       // lowered variant targets the real discriminator rather than a parameter this window's
-      // control does not depend on.
+      // control does not depend on. Phase 36 gap closure: the speed branch targets
+      // `maxExtendedRunSpeed` (the run's own speed AFTER the shipped detector's trailing-stall
+      // extension), not the raw single-step `vMax` — lowering below `vMax` alone no longer
+      // guarantees a fire, because the shipped detector now also dilutes the run's excess with any
+      // immediately-following stall before comparing against the (lowered) limit.
       const loweredParams: DetectorParams = protectedByFloor
         ? { ...DEFAULT_DETECTOR_PARAMS, excessFloorMetres: maxRunExcess * 0.99 }
-        : { ...DEFAULT_DETECTOR_PARAMS, speedLimitMps: vMax * 0.99, excessFloorMetres: 0 };
+        : { ...DEFAULT_DETECTOR_PARAMS, speedLimitMps: maxExtendedRunSpeed * 0.99, excessFloorMetres: 0 };
       const loweredSegments = detectUnreliableSegments(t, d, gaps, loweredParams);
       const loweredOverlapping = loweredSegments.filter(
         (seg) => seg.startSec < endSec && seg.endSec > startSec
@@ -1140,7 +1203,10 @@ describe('D-09 negative control — 3475734189 t=1581-1583 never fires, and can'
     const gaps: GapSpan[] = classifyGapsThreeWay(t, d).gapIntervals;
     const steps = advanceSteps(t, d, gaps);
 
-    const { vMax, maxRunExcess, overlappingCount } = deriveWindowDiscriminators(
+    const { vMax, maxRunExcess, maxExtendedRunSpeed, overlappingCount } = deriveWindowDiscriminators(
+      t,
+      d,
+      gaps,
       steps,
       startSec,
       endSec,
@@ -1166,9 +1232,11 @@ describe('D-09 negative control — 3475734189 t=1581-1583 never fires, and can'
       `${id}: neither the speed limit nor the excess floor explains why this window does not fire — vMax=${vMax}, maxRunExcess=${maxRunExcess}`
     ).toBe(true);
 
+    // Phase 36 gap closure: see the D-05 block above for why the speed branch targets
+    // `maxExtendedRunSpeed`, not raw `vMax`.
     const loweredParams: DetectorParams = protectedByFloor
       ? { ...DEFAULT_DETECTOR_PARAMS, excessFloorMetres: maxRunExcess * 0.99 }
-      : { ...DEFAULT_DETECTOR_PARAMS, speedLimitMps: vMax * 0.99, excessFloorMetres: 0 };
+      : { ...DEFAULT_DETECTOR_PARAMS, speedLimitMps: maxExtendedRunSpeed * 0.99, excessFloorMetres: 0 };
     const loweredSegments = detectUnreliableSegments(t, d, gaps, loweredParams);
     const loweredOverlapping = loweredSegments.filter(
       (seg) => seg.startSec < endSec && seg.endSec > startSec

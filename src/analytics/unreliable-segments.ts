@@ -323,6 +323,37 @@ function excessMetres(metres: number, seconds: number, speedLimitMps: number): n
   return metres - speedLimitMps * seconds;
 }
 
+/**
+ * Extends a fast run's own `endIndex` forward through any immediately-following run of
+ * non-advancing (`d` flat or decreasing), non-gap raw pairs — symmetric to the dilution a LEADING
+ * stall already receives for free via `advanceSteps`'s own pending-start folding (a quiet stretch
+ * before a run's first qualifying advance is already baked into that step's own `seconds`,
+ * lowering its average speed; see `advanceSteps`'s docblock). Without this, a stall immediately
+ * AFTER a fast run is invisible to the excess check: `advanceSteps` attributes that quiet time to
+ * whichever step comes NEXT (an unrelated genuine advance), never back to the run that just ended.
+ *
+ * On quantized-distance streams (long stretches of zero-advance samples at coarse sampling
+ * intervals) this asymmetry alone false-flags a catch-up lump immediately followed by a stall as an
+ * `isolated-jump` — `.planning/debug/36-recount-isolated-jump.md`, bucket Q (Phase 36 gap closure).
+ *
+ * Stops at the stream's last index, or at the first pair `isGapPair` considers part of a caller
+ * gap — folding never crosses a gap, mirroring `advanceSteps`'s own rule. Uses `<= 0` (not `=== 0`)
+ * purely for parity with `advanceSteps`'s own non-advancing test; cumulative distance never
+ * decreases in a well-formed stream.
+ */
+function extendThroughTrailingStall(
+  t: readonly number[],
+  d: readonly number[],
+  gaps: readonly GapSpan[],
+  endIndex: number
+): number {
+  let e = endIndex;
+  while (e < t.length - 1 && d[e + 1] - d[e] <= 0 && !isGapPair(t, e, gaps)) {
+    e++;
+  }
+  return e;
+}
+
 /** One maximal contiguous run of fast steps (an internal grouping unit; never exported). */
 interface FastRun {
   startIndex: number;
@@ -536,16 +567,19 @@ export function detectUnreliableSegments(
 
   const burstBlocks: Block[] = [];
   for (const run of fastRuns) {
-    const metres = d[run.endIndex] - d[run.startIndex];
-    const seconds = t[run.endIndex] - t[run.startIndex];
+    // Trailing-stall dilution (Phase 36 gap closure, symmetric with the leading-stall dilution
+    // advanceSteps already provides for free) — see extendThroughTrailingStall's docblock.
+    const endIndex = extendThroughTrailingStall(t, d, gaps, run.endIndex);
+    const metres = d[endIndex] - d[run.startIndex];
+    const seconds = t[endIndex] - t[run.startIndex];
     const excess = excessMetres(metres, seconds, params.speedLimitMps);
     if (excess > params.excessFloorMetres) {
       burstBlocks.push({
         kind: 'burst',
         startIndex: run.startIndex,
-        endIndex: run.endIndex,
+        endIndex,
         startSec: t[run.startIndex],
-        endSec: t[run.endIndex],
+        endSec: t[endIndex],
         metres,
         seconds,
       });
