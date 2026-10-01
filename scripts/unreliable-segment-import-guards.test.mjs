@@ -153,6 +153,14 @@ describe('compute-clean-window-diff.mjs performs no disk read or write at import
   });
 });
 
+describe('compute-clean-window-recount.mjs performs no disk read or write at import', () => {
+  it('records zero fs calls', async () => {
+    calls.length = 0;
+    await import('./compute-clean-window-recount.mjs?cache-bust-clean-window-recount-import-guard');
+    expect(calls).toEqual([]);
+  });
+});
+
 describe('32-CALIBRATION.md is byte-untouched across the calibration import', () => {
   let mtimeBeforeImport;
 
