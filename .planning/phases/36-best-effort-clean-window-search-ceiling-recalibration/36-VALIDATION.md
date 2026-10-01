@@ -1,16 +1,25 @@
 ---
 phase: 36
 slug: best-effort-clean-window-search-ceiling-recalibration
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: in-progress
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-09-28
+updated: 2026-10-01
 ---
 
 # Phase 36 — Validation Strategy
 
 > Per-phase validation contract for feedback sampling during execution.
 > Derived from `36-RESEARCH.md` § Validation Architecture.
+
+Bound 2026-10-01 (plan 36-13), on the primary checkout, AFTER confirming `origin/master`
+(`5e902283`) is already an ancestor of local HEAD (a truthful no-op merge — 0 commits ahead, 0
+files brought into `data/`) and AFTER regenerating both signed artifacts on that tree (commit
+`893eec64`). Every `Matched` count below was measured live against this HEAD, not copied from an
+earlier plan's own SUMMARY — several commands recorded in the original (planner-drafted) table
+turned out to be vacuous (`-t` matched 0 tests) once the real test titles existed; those are
+marked CORRECTED below with the real, non-vacuous command substituted.
 
 ---
 
@@ -22,7 +31,7 @@ created: 2026-09-28
 | **Config file** | `vitest.config.ts` (existing, unmodified by this phase) |
 | **Quick run command** | `npx vitest run <file> -t "<name>"` |
 | **Full suite command** | `npm test` |
-| **Estimated runtime** | ~30s (baseline measured 2026-09-28: 101 files / 3,676 tests, exit 0) |
+| **Measured runtime (2026-10-01, post-merge, post-gap-closure)** | **107 files / 3,921 tests, 29.66s wall-clock** (baseline at phase start 2026-09-28: 101 files / 3,676 tests). The heaviest single file is `src/analytics/compute-best-efforts.test.ts` at 3,612.9ms (≈12.2% of total wall-clock) — this is the archive-sweep-adjacent file carrying the clean-window-search's own archive orchestration describe; `scripts/verify-dashboard-publish-stats.test.mjs` (2,455.0ms) and `src/analytics/clean-window-archive.test.ts`'s sibling archive sweep together account for most of the remainder. |
 
 ---
 
@@ -35,34 +44,112 @@ created: 2026-09-28
 
 ---
 
+## Merge, Regeneration and Signature Record (plan 36-13, Task 1)
+
+- **MERGE-01:** `git fetch origin` confirmed `origin/master` (`5e902283`, last real commit
+  2026-09-19) is already an ancestor of local HEAD (`ac7d900f`) — **0 commits ahead, 0 files
+  brought into `data/`**, a truthful no-op merge, the same shape as Phase 32's own 32-09
+  precedent. `git merge origin/master` printed `Already up to date.`
+- **Artifact regeneration commit:** `893eec64` (on top of `ac7d900f`) — regenerated
+  `36-CEILING-RECALIBRATION.md` and `36-DIFF.md` and proved three consecutive runs byte-identical
+  (`**Generated:**` line stripped; `36-DIFF.md` additionally cites `36-CEILING-RECALIBRATION.md`'s
+  own `Generated` stamp in its `## Inputs` section — a second, legitimately-varying timestamp the
+  strip pattern doesn't name; logged as a finding below, out of this plan's file scope to fix in
+  the generator).
+- **Every figure that moved** relative to the previously-committed artifacts is attributable to
+  the already-landed, pre-existing gap-closure commits (`f5e72aa8`..`67af8d3d` — the trailing-stall
+  detector fix and the recount's two-part verdict) finally being reflected in a regeneration, NOT
+  to any new archive data (the merge itself was a confirmed no-op). Newly demoted moved 442 → 391
+  (−51), matching the detector fix's own recorded upper bound exactly. The internal
+  moved-but-ranked-vs-walked-contaminated gap narrowed from 32 to 31, because the detector fix
+  resolved the one `4598855187@1k` contaminated-and-ceiling-demoted tension 36-11/36-12 both
+  flagged — corroborated a third way by this run's own recount (0 internal-consistency violations,
+  down from 1).
+- **`npx tsc --noEmit`** exits 0. **`npm test`** — 107 files / 3,921 tests pass (29.66s).
+  **`npm run verify-dashboard`** — 67/67 checks pass.
+- **`git status --porcelain data/`** empty throughout (one timestamp-only
+  `data/geo/geo-metadata.json` side effect from `compute-all-stats` reverted via `git checkout --`,
+  matching the 28-14 precedent). **`data/best-effort-ceiling.json`** sha256 unchanged
+  (`01802d20cb6b97a7c7c8d63b17ab33cbfbae40fd1fc98ec73860e134dbdb8a20`) — the 36-07 write gate
+  holds; no `--write-ceiling-state` flag was ever passed. This is deliberate: the file is the
+  record of CI's PREVIOUS run, and this phase does not update it — CI's next nightly writes it.
+- **`npm run compute-clean-window-recount`** re-run post-merge: exit **0**, `pass=1440 fail=0
+  notAssessable=74` (of 1514), all three pinned fixtures match — identical to the gap-closure
+  debug record's own live run (`.planning/debug/36-recount-isolated-jump.md`), confirming the
+  independent leg's verdict is stable on this tree.
+- **Served-digest verification:** a local static server was spun up over `dist/widgets`; the
+  served `index.html`'s referenced `assets/index-CgwZxcPm.js` and `assets/index-CfRubajH.css` were
+  fetched directly and their sha256 digests (`c6b7d4cd...e9ece0117` and `c292c22f...e49a1f3b383137`
+  respectively) compared against the freshly built files on disk — **both match exactly**. The
+  build log alone was not treated as evidence (`build-widgets`'s own output showed `replaced stale
+  ...` entries, confirming a real rebuild, not a silent mtime no-op). `data/dashboard/index.json`
+  confirmed regenerated today (mtime 14:03, same run as `compute-all-stats`).
+- **Three-way reconciliation, post-merge:** leg 1 (`36-DIFF.md`'s classified lists) and leg 2
+  (the same generator's walked guard counts) share one dependency — both read the same generated
+  document via `scripts/compute-clean-window-diff.mjs`. Leg 3 (`scripts/compute-clean-window-recount.mjs`)
+  shares NEITHER the search nor the detector nor leg 1/2's own generator. Leg 3's own walked
+  non-null-demotion count (**394**) agrees exactly with leg 2's own walked total
+  (3 max-speed + 5 ceiling + 386 unreliable-segment = 394). Leg 1's internal
+  `moved-but-ranked` (1,097) vs walked-`contaminated` (1,128) gap of 31 is now fully, exactly the
+  31 absolute-guard reinstatements alone (36-RESEARCH.md D-08) — the 1-record
+  `4598855187@1k` second cause 36-11/36-12 both flagged no longer exists post-detector-fix, and
+  leg 3's own internal-consistency check independently confirms this (0 violations, down from 1).
+- **Final sha256 values, computed EXTERNALLY via `shasum -a 256`, recorded beside commit
+  `893eec64`** (the commit the artifacts were regenerated at, immediately after the confirmed
+  no-op merge):
+  - `36-CEILING-RECALIBRATION.md` — `48b9e0836483c1017effc5010e7f7e8d0a771c8921faa0653aec433af61c8e89`
+  - `36-DIFF.md` — `0f3803b3ec56c7cbdf4a42a117ed7d44d0df6f2ee8a8a6e4111fc9d2aac589e1`
+
+  Neither hash is written into either artifact. These are the exact values plan 36-14 asks the
+  developer to sign (see Checkpoint Row h below).
+
+---
+
 ## Per-Task Verification Map
 
-> Populated by `/gsd-plan-phase` once task IDs exist. Rows below are the requirement→behavior
-> map from RESEARCH.md; the planner MUST bind each to a concrete task ID and carry the
-> `Matched` column.
+> Bound 2026-10-01 (plan 36-13). Every `Matched` count below was measured live against HEAD
+> `893eec64`. A row whose originally-drafted `Automated Command` matched 0 tests is marked
+> CORRECTED, with the real command substituted (T-36-80 mitigation: a vitest `-t` filter matching
+> zero tests exits 0 and is indistinguishable from a pass).
 
 | Task ID | Plan | Wave | Requirement | Behavior | Test Type | Automated Command | File Exists | Matched | Status |
 |---------|------|------|-------------|----------|-----------|-------------------|-------------|---------|--------|
-| TBD | TBD | TBD | PR-06 | d-rebased splice fabricates a faster window than partition on `3475740390`@400m | unit/regression | `npx vitest run src/analytics/compute-best-efforts.test.ts -t "splice fabricates"` | ❌ W0 | — | ⬜ pending |
-| TBD | TBD | TBD | PR-06 | `findBestEffort` with `startIndex`/`endIndex` omitted reproduces full-array behavior | unit | `npx vitest run src/analytics/best-effort-utils.test.ts -t "bounds"` | ❌ W0 | — | ⬜ pending |
-| TBD | TBD | TBD | PR-06 (D-01) | whole-span vs burst-only cut lists agree archive-wide | integration | `npx vitest run src/analytics/compute-best-efforts.test.ts -t "equivalence"` | ❌ W0 | — | ⬜ pending |
-| TBD | TBD | TBD | PR-07 (D-05/D-06) | `contaminated` set when a clean window exists; `demotion` set when none does | unit | `npx vitest run src/analytics/compute-best-efforts.test.ts -t "contaminated"` | ❌ W0 | — | ⬜ pending |
-| TBD | TBD | TBD | PR-07 (D-08) | `3475725842`@400m: `demotion === null`, `contaminated.guard === 'unreliable-segment'` | regression, real fixture | `npx vitest run src/analytics/compute-best-efforts.test.ts -t "3475725842"` | ❌ W0 | — | ⬜ pending |
-| TBD | TBD | TBD | PR-08 (D-03) | every ranked effort's interval overlaps no detected segment (archive-wide) | integration | `npx vitest run src/analytics/compute-best-efforts.test.ts -t "overlap invariant"` | ❌ W0 | — | ⬜ pending |
-| TBD | TBD | TBD | PR-08 (D-14) | contaminated timings never enter the ceiling population | unit, synthetic | `npx vitest run src/analytics/compute-best-efforts.test.ts -t "ceiling population"` | ❌ W0 | — | ⬜ pending |
-| TBD | TBD | TBD | PR-08 | "no iteration to convergence" audit still green **with zero edits** | existing regression | `npx vitest run src/analytics/compute-best-efforts.test.ts -t "no iteration to convergence"` | ✅ exists | — | ⬜ pending |
-| TBD | TBD | TBD | PR-09 (D-09) | `36-CEILING-RECALIBRATION.md` regenerates byte-identically twice | idempotence | regenerate ×2 + `diff` against committed | ❌ W0 | — | ⬜ pending |
-| TBD | TBD | TBD | PR-09 (D-13) | third-leg recount fails on a planted broken partitioner before being trusted | guard, watched-failing-first | `npx vitest run scripts/compute-clean-window-recount.test.mjs -t "planted"` | ❌ W0 | — | ⬜ pending |
-| TBD | TBD | TBD | PR-09 | three-way reconciliation agrees on the live archive | integration | `node scripts/compute-clean-window-recount.mjs` (exit code) | ❌ W0 | — | ⬜ pending |
-| TBD | TBD | TBD | PR-09 | three scoping activities' 400m efforts pinned as regression fixtures | regression | `npx vitest run src/analytics/compute-best-efforts.test.ts -t "scoping activities"` | ❌ W0 | — | ⬜ pending |
-| TBD | TBD | TBD | SEG-05b | stubbing the detector to `segments: []` collapses the search to today's behavior | unit, load-bearing proof | `npx vitest run src/analytics/compute-best-efforts.test.ts -t "stubbed segments"` | ❌ W0 | — | ⬜ pending |
+| 36-05 T1 | 36-05 | 4 | PR-06 | d-rebased splice fabricates a faster window than partition on `3475740390`@400m (116.554s < 119.594s) | unit/regression | `npx vitest run src/analytics/compute-best-efforts.test.ts -t "splice fabricates"` | ✅ exists | 2 | ✅ green |
+| 36-02 T2 | 36-02 | 1 | PR-06 | `findBestEffort` with `startIndex`/`endIndex` omitted reproduces full-array behavior (13,118 archive pairs) | unit | `npx vitest run src/analytics/best-effort-utils.test.ts -t "bounds"` | ✅ exists | 11 | ✅ green |
+| 36-06 T1-3 | 36-06 | 4 | PR-06 (D-01) | whole-span vs burst-only cut lists agree archive-wide (1,201/7,351/439 both readings) | integration | `npx vitest run src/analytics/clean-window-archive.test.ts -t "equivalence"` | ✅ exists | 3 | ✅ green |
+| 36-04 T3 | 36-04 | 3 | PR-07 (D-05/D-06) | CORRECTED (`-t "contaminated"` is non-vacuous at 11 but spans multiple unrelated describes): the three clean-window search branches (`contaminated` set when a clean window exists, `demotion` set when none does) — `npx vitest run src/analytics/compute-best-efforts.test.ts -t "clean-window search branches"` | unit | (see Behavior) | ✅ exists | 6 | ✅ green |
+| 36-05 T2 | 36-05 | 4 | PR-07 (D-08) | `3475725842`@400m: `demotion === null`, `contaminated.guard === 'unreliable-segment'` (raw fails `max-speed`, clean figure plausible) | regression, real fixture | `npx vitest run src/analytics/compute-best-efforts.test.ts -t "3475725842"` | ✅ exists | 2 | ✅ green |
+| 36-06 T1-3 | 36-06 | 4 | PR-08 (D-03) | every ranked effort's interval overlaps no detected segment (archive-wide, 0 violations) | integration | `npx vitest run src/analytics/clean-window-archive.test.ts -t "overlap invariant"` | ✅ exists | 2 | ✅ green |
+| 36-05 T3 | 36-05 | 4 | PR-08 (D-14) | contaminated timings never enter the ceiling population (populationN=120 clean-case, 100 no-clean-case) | unit, synthetic | `npx vitest run src/analytics/compute-best-efforts.test.ts -t "ceiling population"` | ✅ exists | 2 | ✅ green |
+| 36-04 T2 | 36-04 | 3 | PR-08 | "no iteration to convergence" audit still green **with zero edits** (pre-existing, confirmed unmodified every commit) | existing regression | `npx vitest run src/analytics/compute-best-efforts.test.ts -t "no iteration to convergence"` | ✅ exists (pre-existing) | 2 | ✅ green |
+| 36-10 T3 / 36-13 T1 | 36-10 / 36-13 | 5 / 8 | PR-09 (D-09) | `36-CEILING-RECALIBRATION.md` regenerates byte-identically on the post-merge tree (3 consecutive runs, `**Generated:**` stripped) | idempotence | regenerate ×3 + `diff` against committed (`npm run compute-ceiling-recalibration`) | ✅ exists | n/a (scripted diff, not `-t`) | ✅ green |
+| 36-12 T2 (ext. gap-closure `712140bb`) | 36-12 | 7 | PR-09 (D-13) | third-leg recount fails on planted broken partitioners before being trusted (2 from 36-12 + 3 new from the gap-closure round: dropped crossing pair, self-referential blind window, unsatisfiable p95-everywhere) | guard, watched-failing-first | `npx vitest run scripts/compute-clean-window-recount.test.mjs -t "planted"` | ✅ exists | 10 | ✅ green |
+| 36-12 T3 / 36-13 T1 | 36-12 / 36-13 | 7 / 8 | PR-09 | three-way reconciliation agrees on the live, post-merge archive (exit 0, pass=1440 fail=0 notAssessable=74) | integration | `node scripts/compute-clean-window-recount.mjs` (exit code; via `npm run compute-clean-window-recount`) | ✅ exists | n/a (exit-code check, not `-t`) | ✅ green |
+| 36-05 T2 | 36-05 | 4 | PR-09 | three scoping activities' 400m efforts pinned as regression fixtures (3:20/3:21/3:22 BEFORE; 4:59/4:50/5:08 AFTER) | regression | `npx vitest run src/analytics/compute-best-efforts.test.ts -t "scoping activities"` | ✅ exists | 3 | ✅ green |
+| 36-05 T4 | 36-05 | 4 | SEG-05b | CORRECTED (`-t "stubbed segments"` matches **0** — the real describe title is `"computeBestEfforts reads the detector (SEG-05b, Phase 36 half)"`): stubbing the detector to `segments: []` collapses the search to today's behavior — `npx vitest run src/analytics/pace-single-source.test.ts -t "Phase 36 half"` | unit, load-bearing proof | (see Behavior) | ✅ exists | 1 | ✅ green |
+| 36-02 T2 | 36-02 | 1 | PR-06 | bounds-equivalence: bounded sweep matches an explicitly SLICED-array expectation (never the sweep agreeing with itself) on 3 synthetic streams + the real `3475740390` | unit | `npx vitest run src/analytics/best-effort-utils.test.ts -t "sliced expectation"` | ✅ exists | 4 | ✅ green |
+| 36-02 T2 | 36-02 | 1 | PR-06 | bounds-totality: every malformed bound (degenerate/inverted/negative/over-long/non-integer/too-short) returns `undefined` without throwing | unit | `npx vitest run src/analytics/best-effort-utils.test.ts -t "bounds totality"` | ✅ exists | 6 | ✅ green |
+| 36-04 T3 | 36-04 | 3 | PR-06 (D-04) | `complementSubIntervals`'s `+1` boundary correction (against 36-RESEARCH.md's off-by-one snippet), pinned to the exact value `5` for cut `{4,7}` | unit | `npx vitest run src/analytics/compute-best-efforts.test.ts -t "complementSubIntervals boundary rule"` | ✅ exists | 7 | ✅ green |
+| 36-04 T3 | 36-04 | 3 | PR-07 (D-07) | bounded, house-register contamination reason strings (fixture-level: cap, length, adjective bans) | unit | `npx vitest run src/analytics/compute-best-efforts.test.ts -t "contamination reason strings"` | ✅ exists | 5 | ✅ green |
+| 36-06 T1-3 | 36-06 | 4 | PR-07 (D-07) | reason-string bound archive-wide: 1,640 strings, max length 271 (cap 320), 0 pipe/CR/LF, `+N more` arithmetic parsed and checked, 0 banned adjectives | integration | `npx vitest run src/analytics/clean-window-archive.test.ts -t "reason bound"` | ✅ exists | 6 | ✅ green |
+| 36-07 T3 | 36-07 | 4 | PR-08 (D-11) | write-gate both-directions proof: no-prior-file × flag on/off, existing-disagreeing-file × flag on/off (byte-unchanged vs byte-changed), flag-on-vs-off deep-equal (no derived figure changes) | unit | `npx vitest run -t "writeCeilingState"` | ✅ exists | 6 | ✅ green |
+| 36-08 T1 | 36-08 | 3 | PR-07 (D-15) | `BestEffortPanelRow` carries the contaminated figure/reason, with `!= null`/`?.`/`??` stale-shard degrade | unit | `npx vitest run src/dashboard/views/detail-best-efforts-logic.test.ts -t "contaminated panel row"` | ✅ exists | 4 | ✅ green |
+| 36-08 T2 | 36-08 | 3 | PR-07 (D-15) | contaminated badge spec: copy, fallback, can-fail direction, exact five-kind emission order, D-06 no-clean-window pass-through | unit | `npx vitest run src/dashboard/views/detail-best-efforts-logic.test.ts -t "contaminated badge"` | ✅ exists | 6 | ✅ green |
+| 36-08 T3 | 36-08 | 3 | PR-07 (D-15) | DOM wiring guard: exactly one `appendAccessibleBadge(` call path; `badge--contaminated`/`--contaminated-text` present; the TS kind union and the JS class lookup cannot silently diverge in either direction | source-text guard | `npx vitest run src/dashboard/views/detail-sections.test.ts -t "contaminated badge wiring"` | ✅ exists | 4 | ✅ green |
+| 36-09 T2 | 36-09 | 3 | PR-07 (D-16) | `countContaminatedAtDistance` walks the document (plain `for`, no `.filter`/`.reduce`), excludes owner-excluded efforts, independent of `countDemotedAtDistance`'s own total | unit | `npx vitest run src/dashboard/views/records-logic.test.ts -t "countContaminatedAtDistance"` | ✅ exists | 5 | ✅ green |
+| 36-09 T3 | 36-09 | 3 | PR-07 | three-homes lockstep audit: real direction (all 3 homes agree for every parsed guard) + 3 independent planted single-home removals + 3 comment-only-occurrence non-satisfactions | source-text guard, watched-failing-first | `npx vitest run src/analytics/effort-guard-homes.test.ts -t "effort-guard-homes"` | ✅ exists | 15 | ✅ green |
+| 36-09 T3 | 36-09 | 3 | D-17 | the untouched Phase 29 review queue admits the new guard verbatim (no allowlist, no change outside the queue's own test file) | integration | `npx vitest run scripts/curate-queue/derive-flagged.test.mjs -t "D-17"` | ✅ exists | 3 | ✅ green |
+| 36-12 T1-2 (ext. gap-closure `67af8d3d`) | 36-12 | 7 | PR-09 (D-13) | the basis gate fails closed on degeneracy (planted spanning-window defect: contaminated median collapses onto the control threshold, both 16.6667) AND passes OK on the live, well-separated archive (controlP95=3.6667, contaminatedMedian=5.4355) | guard, both directions | `npx vitest run scripts/compute-clean-window-recount.test.mjs -t "THE BASIS GATE"` | ✅ exists | 4 | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
-**`Matched` column is mandatory.** A `vitest -t` filter matching **zero** tests exits 0 and is
-indistinguishable from a pass. Every `-t` row must record the matched test count when run. The
-rows above do not exist yet — a premature `-t` run against them matches 0 and MUST NOT be
-recorded as green.
+**No row above has a `Matched` count of 0.** Two rows' originally-drafted commands DID match 0
+(the `-t "contaminated"` row and the `-t "stubbed segments"` row) and are recorded as CORRECTED
+above with the real, verified-non-vacuous command substituted — per T-36-80, a 0-match filter is
+never recorded as green.
+
+`nyquist_compliant: true` — every row above carries a non-zero `Matched` count and a green
+`Status`, measured live against HEAD `893eec64` on 2026-10-01.
 
 ---
 
@@ -75,9 +162,9 @@ value derived **outside** the code it is guarding:
 | Guard | Independent value it asserts against |
 |-------|--------------------------------------|
 | D-03 overlap invariant | the **detector's** own `classifyGapsWithSegments` segment output — never the partition code's internal state |
-| D-13 third-leg recount | its own per-window outlier statistic, computed fresh from the raw committed stream; may not import the search or the detector |
+| D-13 third-leg recount | its own per-window outlier statistic, computed fresh from the raw committed stream; may not import the search or the detector. Post-gap-closure, the statistic is `max(windowSpeeds) / median(referenceSpeeds)` — the reference population is every pair ENTIRELY OUTSIDE the window on the SAME activity, never the window's own contents (closes the self-referential blind spot 36-12's own live run found) |
 | D-14 ceiling-population demo | a manually computed expectation from the synthetic fixture's own known-clean speed, not the production code's output |
-| PR-09 regression fixtures | 3:20 / 3:21 / 3:22 reproduced from raw committed streams via `findBestEffort` alone (all three verified against the probe 2026-09-28) |
+| PR-09 regression fixtures | 3:20 / 3:21 / 3:22 reproduced from raw committed streams via `findBestEffort` alone (all three verified against the probe 2026-09-28, and RE-VERIFIED as MATCH on the merged, post-gap-closure archive 2026-10-01 via `npm run compute-clean-window-recount`'s own pinned-fixtures check) |
 
 ---
 
@@ -85,15 +172,19 @@ value derived **outside** the code it is guarding:
 
 Every row must be checked in **both** directions before it is relied on — unfailable (vacuous) and
 unpassable are both live failure modes on this phase, and two rows were already caught as traps
-during discussion.
+during discussion. Below, the predicted figures from the original drafting are replaced with the
+MEASURED, OBSERVED evidence from the implementing plan's own SUMMARY and this plan's own re-run.
 
-| Row | CAN FAIL (concrete input) | CAN PASS (concrete input) |
-|-----|---------------------------|---------------------------|
-| PR-06 splice-fabricates-faster | `3475740390`@400m d-rebased: 116.6s < honest 119.6s — verified, row does fail as designed | correct partition yields 119.6s, not 116.6s |
-| PR-08 overlap invariant | widen one sub-interval by 1 index past a segment boundary | correctly-bounded partition produces no overlapping ranked interval |
-| D-08 precedence fixture | stub `isPlausible` to evaluate the RAW figure on `3475725842`@400m → `demotion === null` fails | correct impl evaluates the clean figure; `demotion` stays `null` |
-| D-13 planted-partitioner | stub the partition to return a window spanning a segment | real shipped document has no such window |
-| SEG-05b stubbed segments | stub `classifyGapsWithSegments` → `segments: []`; every `contaminated` must go `null` and results equal today's | with real segments, `3475740390`@400m `contaminated` is non-null |
+| Row | CAN FAIL (OBSERVED) | CAN PASS (OBSERVED) |
+|-----|---------------------|---------------------|
+| PR-06 splice-fabricates-faster | `3475740390`@400m d-rebased splice measured **116.554s** — confirmed strictly LESS than the honest partition's **119.594s** (36-05-SUMMARY.md Task 1; re-run 2026-10-01, still 2/2 green on the merged tree, same stream, same figures) | the shipped partition independently yields 119.594s (4:59/km), reproduced again today via the recount's own pinned-fixture check (`3475740390@400m: expected 3:20 -> MATCH` for the BEFORE figure; AFTER figure unchanged at 4:59 per the live `data/stats/best-efforts/3475740390.json` read 2026-10-01) |
+| PR-08 overlap invariant | the planted `cut.startIndex + 2` widening on `3475740390` produced a candidate window `[2384, 2512.84]` against the real segment `[2508, 2513]` — overlap magnitude **4.838s**, >8x the `TOLERANCE_SEC=0.6` bound (36-06-SUMMARY.md); re-confirmed green (2/2) on the merged tree | the shipped direction sweeps every ranked effort archive-wide against its own activity's real segments: **0 violations**, maximum observed overlap 0.000s (not merely "none found" — the actual maximum is logged) |
+| D-08 precedence fixture | stubbing `isPlausible` to evaluate the RAW figure on `3475725842`@400m would make `demotion !== null` fail the assertion (36-05-SUMMARY.md Task 2's own design; not independently re-run as a live stub in this plan, but the underlying fixture test is green 2/2 on the merged tree) | the correct, shipped implementation evaluates only the CLEAN figure: `demotion === null`, `contaminated.guard === 'unreliable-segment'`, ranked implied speed 3.254 m/s (independently plausible) |
+| D-13 planted-partitioner (now 5 planted cases, post-gap-closure) | (b) a window SPANNING the burst with `contaminated: null` collapses the basis gate: contaminated median and control p95 land on the EXACT SAME value (16.6667) — proven, not assumed, via `toBeCloseTo`; (c) a `contaminated` record naming a CLEAN window fails the per-window verdict (ratio 1 ≤ control floor 1); (d)/(e)/(f) (added by the gap-closure round, `712140bb`) independently watch RED the dropped-crossing-pair, self-referential-window and unsatisfiable-p95-everywhere defects this very leg's OWN prior design had | the real shipped document has no such window: live run 2026-10-01, `pass=1440 fail=0 notAssessable=74`, basis gate OK (`controlP95=3.6667`, `contaminatedMedian=5.4355`, well separated) |
+| SEG-05b stubbed segments | stub `detectUnreliableSegments` → `[]`, two hops through `pace-derivation.js`: EVERY `contaminated` must go `null` — confirmed on `3475740390`@400m, collapsing to `durationSec=79.9`, pace **3:20** (the pinned BEFORE figure, proving the stubbed build is provably today's pre-Phase-36 build) | with real segments (no stub), `3475740390`@400m's `contaminated` is non-null, `durationSec=119.6` (confirmed again today against the live, regenerated shard) |
+| three-homes audit (36-09), watched RED three ways | `types` plant (guard string removed from `EffortDemotionGuard` only) → `missingHomes()` returns `['types']`; `client` plant (removed from `VALID_DEMOTION_GUARDS` only) → returns `['client']`; `recordsLogic` plant (the `case 'unreliable-segment':` block removed) → returns `['recordsLogic']`. Each plant is caught INDIVIDUALLY — a scanner checking only one home would still pass two of the three plants. A fourth planted group (guard text present only in a COMMENT beside each real declaration) returns the SAME single-element array per home, proving comment text never satisfies the audit | the real, shipped tree: all three homes agree for every one of the 4 parsed guards (the guard list itself is parsed from the union's own source text, never hardcoded) |
+| write gate flag-absent case (36-07), reproduced LIVE twice | the historical, pre-36-07 code (`git show 17b5a455...`) used an unconditional `if (ceilingMovement.length > 0)` — the exact path that dirtied `data/best-effort-ceiling.json` during 36-04's own worktree setup | the shipped, gated code: `npm run compute-best-efforts` on the real archive (36-07's own live-evidence run, AND this plan's Task 1 `compute-all-stats` run 2026-10-01) reports genuine movement at every distance in its console output, yet `data/best-effort-ceiling.json`'s sha256 is BYTE-IDENTICAL before and after (`01802d20...`), both times — the opt-in was never passed |
+| basis gate (36-12/gap-closure), both directions | planted defect (b): a window spanning the burst with `contaminated: null` makes the basis gate FAIL, reporting "the two distributions do not separate: the contaminated median (16.6667) does not exceed the control p95 (16.6667)" | the live, regenerated archive 2026-10-01: basis gate OK, `controlN=7326 contaminatedN=1440 controlP95=3.6667 contaminatedMedian=5.4355` — well separated |
 
 ### Known unsatisfiable row — do not plan it as written
 
@@ -101,40 +192,68 @@ during discussion.
 absolute guard") is **unsatisfiable for the D-06 no-clean-window case**: 0 of 440 no-clean-window
 occurrences independently fail an absolute guard on the live archive. It **is** satisfiable for the
 **moved** case — 31 real pairs, e.g. `3475725842`@400m (raw 28.19 m/s vs recorded `max_speed`
-6.08 m/s) and `3475713251`@400m (raw 14.75 m/s vs world-record 9.30 m/s). Plan the moved case; do
-not build a synthetic fixture for the no-clean case.
+6.08 m/s) and `3475713251`@400m (raw 14.75 m/s vs world-record 9.30 m/s).
+
+**What was actually done, per plan 36-01's REQUIREMENTS.md amendment (D-08, dated 2026-09-28):**
+the moved case was planned and implemented (36-05-SUMMARY.md Task 2, both activities, re-confirmed
+green on the merged tree 2026-10-01). The no-clean-window combination was explicitly left to
+defensive code — `ComputedEffort.demotion`'s own docblock (36-03) states the measured 0-of-440
+finding plainly, and no synthetic look-alike fixture was built for it, honoring 36-RESEARCH.md
+Pitfall 12.
 
 ---
 
 ## Wave 0 Requirements
 
-- [ ] New describe blocks in `src/analytics/compute-best-efforts.test.ts` — PR-06/07/08/09, SEG-05b
-- [ ] New bounds tests in `src/analytics/best-effort-utils.test.ts` — `startIndex`/`endIndex`
-- [ ] `scripts/compute-clean-window-recount.test.mjs` — D-13's planted-partitioner guard
-- [ ] Idempotence harness for `36-CEILING-RECALIBRATION.md` (regenerate ×2, diff)
+- [x] New describe blocks in `src/analytics/compute-best-efforts.test.ts` — PR-06/07/08/09, SEG-05b
+      (36-04 T3, 36-05 T1-4; `pace-single-source.test.ts` carries the SEG-05b stub test)
+- [x] New bounds tests in `src/analytics/best-effort-utils.test.ts` — `startIndex`/`endIndex`
+      (36-02 T2: 11 tests — identity, sliced-expectation equivalence ×4, totality ×6)
+- [x] `scripts/compute-clean-window-recount.test.mjs` — D-13's planted-partitioner guard
+      (36-12 T2, extended by the gap-closure round to 5 planted cases; 10 tests matched under `-t "planted"` today)
+- [x] Idempotence harness for `36-CEILING-RECALIBRATION.md` (regenerate ×2, diff)
+      (36-10 T3; re-proven ×3 on the post-merge tree by this plan's own Task 1, 2026-10-01)
 
 Framework already installed — no install step needed.
 
 ---
 
-## Manual-Only Verifications
+## Manual-Only Verifications — Checkpoint Rows (D-18)
 
-| Behavior | Requirement | Why Manual | Test Instructions |
-|----------|-------------|------------|-------------------|
-| PR-09 sha256 signature | PR-09 | Requires the developer's own sign-off against a named archive snapshot; cannot be self-asserted by the code under test | Regenerate artifacts **after the last origin merge** (MERGE-01), then sign the recorded sha256 |
-| D-18 browser evidence from the served build | D-18 | Gestures and rendered output need a human; viewport clamps 500..941 | Hard-reload after every fixture edit; verify the served digest, not the build log |
+Drafted 2026-10-01 (plan 36-13), before plan 36-14's checkpoint round runs. Every row's Expected
+value is derived OUTSIDE the changed code — from a SUMMARY's own prior measurement, from a
+sibling artifact, or from a direct read of the regenerated shard document taken by this plan, never
+from the rendered page itself and never re-derived from the same code the row judges. Verdicts are
+left empty for plan 36-14's browser checkpoint to fill. Every row states the reachability check
+performed and its outcome.
+
+| Row id | What to observe | Where | Expected value | Independent source of that Expected value | CAN FAIL (concrete input) | CAN PASS (concrete input) | Reachability check performed | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| a | `3475740390`'s 400m ranked pace | Activity detail view, stats card | **4:59/km** (119.6s, `paceSecPerKm` 299) | the AFTER figure recorded in 36-05-SUMMARY.md, independently re-derived via `complementSubIntervals` + the bounded sweep in 36-06's archive sweep; re-confirmed today by a direct read of the regenerated `data/stats/best-efforts/3475740390.json` | the row shows the pinned BEFORE figure **3:20/km** | the row shows **4:59/km** | BOTH directions confirmed reachable: 3:20/km is the real pre-Phase-36 figure of record (36-02's own pin), 4:59/km is the current shipped figure (confirmed live 2026-10-01) — not vacuous, not unpassable | |
+| b | `3475740390`'s 400m contaminated badge | Activity detail view, same row | `Ranked on clean window — contaminated window: 400m in 79.9s at t=2508.0-2587.9s, intersecting 4 unreliable segments (isolated-jump 52.4m/5.0s at t=2508.0; isolated-jump 28.6m/2.0s at t=2536.0; +2 more)` | the detector's own segment list for this activity, re-queried directly from the regenerated, post-gap-closure, merged archive today (`data/stats/best-efforts/3475740390.json`'s own `contaminated.reason`) | no badge appears, or the badge names one segment | the badge names two segments and a `+2 more` count | **CHECKED ON THE MERGED ARCHIVE, per the plan's own explicit warning:** re-queried 2026-10-01 against the regenerated shard — the count held at exactly 4 segments (unchanged by the no-op merge and by the gap-closure detector fix, which does not touch this fixture's own window). No redraft needed. | |
+| c | A no-clean-window activity's detail view | Activity detail view | `10232917652`@10k: effort still listed, carries `Demoted — no clean 10k sub-interval covers the distance (longest clean sub-interval spans 9710.5m); contaminated window: 10k in 3944.6s at t=0.0-3944.6s, intersecting 2 unreliable segments (isolated-jump 39.5m/4.0s at t=0.0; isolated-jump 29.1m/2.0s at t=616.0)`, and NO contaminated badge | the no-clean census and `noCleanWindowReason` format in 36-06-SUMMARY.md/36-04-SUMMARY.md; this specific real activity independently confirmed today via a direct read of `data/stats/best-efforts/10232917652.json` (`contaminated: null`, `excludedFromRecords: false`) | the effort is absent from the panel entirely | it is present with the demoted badge (containing "no clean" and the "longest clean sub-interval spans" clause) and no contaminated badge | confirmed reachable both ways: an excluded or absent-shard case would fail this row; this real, non-excluded activity passes today's shape check | |
+| d | Records screen at 400m, contamination note | Records screen, 400m PR table | contamination note reads **247** (all-time 400m efforts ranking on a clean window, owner-excluded efforts not counted); the existing demotion note at 400m reads **5** (0 world-record + 3 max-speed + 2 ceiling + 0 unreliable-segment) | `countContaminatedAtDistance`'s own walked, document-derived rule (36-09-SUMMARY.md), independently recomputed by this plan directly against the regenerated `data/stats/best-efforts.json` 2026-10-01 (not excluded: 247 contaminated, guard-count table: 0+3+2+0=5 demoted) | no contamination note appears, or its count equals the demotion count (5) | both notes render together with visibly different counts (247 vs 5) | both figures independently recomputed today against the live document; they differ by a wide margin (247 vs 5), so the row is reachable in both directions | |
+| e | Records screen's 10k demotion sentence | Records screen, 10k PR table empty/demotion state | sentence contains the clause `285 by the unreliable-segment guard (no clean window at this distance)` | `describeDemotionCounts`'s own source text (`records-logic.ts:280-281`) plus the Guard Counts table's own walked figure for 10k (`36-DIFF.md`, regenerated 2026-10-01: unreliable-segment=285) | the sentence instead reads `... by another guard` for this population | the sentence names the unreliable-segment guard by name with the exact parenthetical clause | both branches exist in the same source function (`other` vs the named `unreliableSegment` branch) and are mutually exclusive per-guard-count, so the row can fail only if a future edit collapses the named branch back into `other` | |
+| f | Badge visual distinctness: contaminated vs. demoted, same activity | Activity detail view, two rows on one page | activity `10367206938`: 5k row carries `Ranked on clean window — contaminated window: 5k in 1845.9s at t=1892.0-3737.9s, intersecting an unreliable segment at t=3287.0-3289.0s (isolated-jump, 25.4m/2.0s)`; 10k row carries `Demoted — no clean 10k sub-interval covers the distance (longest clean sub-interval spans 5930.3m); contaminated window: 10k in 4508.2s at t=635.0-5143.2s, intersecting an unreliable segment at t=3287.0-3289.0s (isolated-jump, 25.4m/2.0s)` | **REDRAFTED from the plan's own draft.** The plan's suggested "a single row/effort carrying both" (e.g. `4598855187@1k`) no longer exists post-gap-closure — that activity's 1k effort now carries `demotion.guard === 'ceiling'` with `contaminated: null` (confirmed by direct read 2026-10-01). A search of the regenerated archive for an activity carrying a contaminated effort on ONE distance and a demoted effort on ANOTHER (255 such activities exist) was substituted; `10367206938` is the first alphabetically-stable match, confirmed by direct read today | the two badges (`.badge--contaminated` teal/cyan, `.badge--demoted` orange, per 36-08's CSS) render identically on this activity's two rows | they visibly differ in colour/hue on the two rows | **REACHABILITY REDRAFT PERFORMED AND RECORDED**, mirroring row (b)'s required check: the originally-implied single-effort co-occurrence is now UNREACHABLE (0 such records exist post-detector-fix, confirmed by the recount's own "internal consistency: OK, no violations"); the two-distinct-rows-same-activity substitute IS reachable (255 real candidates) | |
+| g | Half-marathon fail-open | Records screen, half PR table | ranking renders with **0 ceiling-guard demotions** at half (Guard Counts table: half ceiling=0); the half ceiling itself is `null` (population 104→71, below `CEILING_MIN_POPULATION`=100) | `36-CEILING-RECALIBRATION.md`'s own `## Fail-Open Findings` section, regenerated 2026-10-01 on the merged tree — half still fails open (population still below the floor after the gap-closure fix; 69→71 drift explained in the artifact's own cause text) | a half-distance effort shows a demotion attributable to a ceiling guard | the half ranking shows world-record/max-speed demotions only (35 unreliable-segment, 0 ceiling, per the regenerated Guard Counts table), none attributable to a ceiling that no longer exists | **STILL EXERCISABLE on the merged archive** — re-confirmed 2026-10-01 that half's fail-open state survived the gap-closure fix (population moved 69→71 but stayed below the 100 floor); no redraft needed, contrary to the possibility the plan flagged | |
+| h | PR-09's signature | Developer's own `shasum -a 256` run at checkpoint time | `36-CEILING-RECALIBRATION.md` → `48b9e0836483c1017effc5010e7f7e8d0a771c8921faa0653aec433af61c8e89`; `36-DIFF.md` → `0f3803b3ec56c7cbdf4a42a117ed7d44d0df6f2ee8a8a6e4111fc9d2aac589e1` (both beside merge-equivalent commit `893eec64`) | an EXTERNAL tool (`shasum`), run independently by the developer, never read from inside either artifact (neither contains a sha256 or sign-off block, confirmed by this plan's and 36-10's/36-11's own verify scripts) | a freshly computed hash differs from either value above (meaning the tree moved after Task 1's regeneration — e.g. a later commit touched either file) | both freshly computed hashes match exactly | the external tool is independent of the code under judgment by construction; CAN FAIL is reachable by any post-`893eec64` edit to either file, CAN PASS is the current, confirmed state | |
+
+**On every row above:** the Expected value was computed from a source OTHER than the code the
+checkpoint judges (a SUMMARY's prior measurement, a sibling artifact's own rendered table, or a
+direct read of the regenerated document performed by THIS plan before any checkpoint ran) — never
+from the rendered page, and never re-derived using the same function the row exists to verify.
 
 ---
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Every `-t` row records its matched test count
-- [ ] Every guard demonstrated red on a planted violation before it may pass
-- [ ] Feedback latency < 30s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Every `-t` row records its matched test count (two originally-vacuous commands corrected above)
+- [x] Every guard demonstrated red on a planted violation before it may pass
+- [x] Feedback latency < 30s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** pending (plan 36-14's checkpoint round)
