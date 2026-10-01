@@ -47,7 +47,7 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 ## Current Position
 
 Phase: 36 (best-effort-clean-window-search-ceiling-recalibration) — EXECUTING
-Plan: 13 of 14
+Plan: 14 of 14
 Status: Executing Phase 36
 
 Phase 36 planned (2026-09-28): 14 plans in 9 waves, committed `ebe0245c`. Research `4a61a19b`,
