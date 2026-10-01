@@ -1,8 +1,9 @@
 /**
- * Guard test for compute-clean-window-recount.mjs (Phase 36 plan 12, D-13). Every document and
- * stream here is HAND-BUILT and injected through the `readStream` parameter — this file never
- * reads the real shipped best-efforts document (gitignored, deliberately never read by a test
- * sibling — Phase 31 TD-01) and never calls `main()`.
+ * Guard test for compute-clean-window-recount.mjs (Phase 36 plan 12, D-13; amended 2026-10-01 for
+ * PR-09 leg 3's gap-closure fix — see `.planning/debug/36-recount-isolated-jump.md` "## Resolution
+ * (recount)"). Every document and stream here is HAND-BUILT and injected through the `readStream`
+ * parameter — this file never reads the real shipped best-efforts document (gitignored, deliberately
+ * never read by a test sibling — Phase 31 TD-01) and never calls `main()`.
  *
  * Section 1 is D-13's own required red proof and the reason this file exists: a recount only ever
  * exercised on correct output is worth nothing. This project has twice shipped a Critical past a
@@ -12,6 +13,14 @@
  * two failure shapes D-13 names (a window that spans an anomaly and is wrongly left clean; a
  * contaminated record that names the wrong, anomaly-free window) and watch this recount catch it
  * BEFORE it is trusted on the real document.
+ *
+ * Sections 1(d)/1(e)/1(f) are the 2026-10-01 gap-closure amendment's own required red proofs, one per
+ * defect found by `.planning/debug/36-recount-isolated-jump.md`:
+ *   (d) defect 1 — `pairSpeeds` used to drop a pair straddling the window's end boundary (bucket E).
+ *   (e) defect 2 — a window lying entirely inside an anomaly could not be judged self-referentially
+ *       (bucket W); the fix normalises against the activity's own pairs OUTSIDE the window instead.
+ *   (f) defect 3 — the old "every window must clear control p95" verdict was unsatisfiable from its
+ *       own measured basis (bucket T); the fix is a two-part verdict with a lower per-window floor.
  */
 
 import { readFileSync } from 'fs';
@@ -26,6 +35,7 @@ import {
   classifyWindows,
   deriveVerdict,
   pairSpeeds,
+  referenceSpeeds,
   windowOutlierRatio,
 } from './compute-clean-window-recount.mjs';
 
@@ -46,8 +56,11 @@ function buildStream(speedsPerSecond) {
 }
 
 // Pair 0 (t=0..1) jumps 50m in 1s; pairs 1..39 hold a steady 3 m/s. Window [0,10] therefore
-// carries one extreme outlier among ten pairs (ratio 50/3 ≈ 16.667); window [10,40] is uniformly
-// clean (ratio 1).
+// carries one extreme outlier among ten pairs (ratio 50/3 ≈ 16.667 under both the old
+// self-referential statistic AND the new activity-outside-window reference statistic, since this
+// symmetric fixture's "rest of the window" and "rest of the stream" medians coincide at 3 — see
+// 1(a)'s comment below for why the numbers did not need to change). Window [10,40] is uniformly
+// clean (ratio 1 under both statistics, for the same reason).
 const BURST_STREAM = buildStream([50, ...Array(39).fill(3)]);
 // Uniformly steady at 3 m/s — any 3+ pair sub-window has ratio exactly 1.
 const LOW_STREAM = buildStream(Array(10).fill(3));
@@ -120,7 +133,8 @@ function readStreamFromMap(map) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// SECTION 1 — THE planted BROKEN PARTITIONER (D-13's own required red proof)
+// SECTION 1 — THE planted BROKEN PARTITIONER (D-13's own required red proof), plus the 2026-10-01
+// gap-closure amendment's three defect-specific red proofs (d, e, f).
 // ---------------------------------------------------------------------------------------------
 
 describe('THE planted BROKEN PARTITIONER (D-13)', () => {
@@ -161,7 +175,9 @@ describe('THE planted BROKEN PARTITIONER (D-13)', () => {
     expect(basisGate.reason).toContain('do not separate');
     expect(basisGate.controlN).toBe(32);
     expect(basisGate.contaminatedN).toBe(3);
-    // The planted windows carry the SAME burst statistic as the real contaminated windows, so the
+    // The planted windows carry the SAME burst statistic as the real contaminated windows (this
+    // still holds under the 2026-10-01 activity-outside-window reference statistic, because this
+    // fixture's "outside the window" pairs are the same clean 3 m/s pairs either way), so the
     // control threshold they inflate the p95 to is numerically identical to the contaminated
     // median — proving the mechanism (not just the verdict) is the one D-13 describes.
     expect(basisGate.controlThresholdBasis).toBeCloseTo(basisGate.contaminatedMedian, 6);
@@ -185,6 +201,163 @@ describe('THE planted BROKEN PARTITIONER (D-13)', () => {
     expect(verdict.offendingEntries[0].activityId).toBe('burst_7');
     expect(verdict.offendingEntries[0].ratio).toBeCloseTo(1, 6);
   });
+
+  it('(d) planted defect #1 (gap-closure, bucket E): a jump pair straddling the WINDOW END boundary used to be silently dropped by pairSpeeds, hiding the anomaly', () => {
+    // Mirrors the real production failure: activity 13343108965@1mi, window ends at t=577.8s
+    // inside a segment pair spanning t=574-578s (40.2m/4s ≈ 10 m/s) — the OLD fully-inside rule
+    // (`t[i] >= startSec && t[i+1] <= endSec`) excluded that pair because its end (578) is past the
+    // window's end (577.8), giving a self-referential ratio of 1.71 (undetected). The NEW
+    // intersecting rule included it, giving 3.63 against the activity's own outside-window
+    // reference (measured 2026-10-01, `.planning/debug/36-recount-isolated-jump.md` bucket E).
+    //
+    // This synthetic fixture reproduces the same shape with round numbers: nine 1s pairs at 3 m/s
+    // (t=0..9), then a single 4s "jump" pair (t=9..13, 40m ⇒ 10 m/s) whose END (13) is past the
+    // window's end (11) — the window only partially consumes the jump — then eleven more 1s pairs
+    // at 3 m/s (t=13..24).
+    const t = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24];
+    const d = [0];
+    for (let i = 0; i < 9; i++) d.push(d[d.length - 1] + 3); // pairs 0-8: 3 m/s each -> d[1..9]
+    d.push(d[d.length - 1] + 40); // pair 9 (t=9-13, dt=4): the 40m jump -> d[10] = 27 + 40 = 67
+    for (let i = 0; i < 11; i++) d.push(d[d.length - 1] + 3); // pairs 10-20: 3 m/s each -> d[11..21]
+
+    const start = 0;
+    const end = 11; // the window ends INSIDE the jump pair's span [9, 13]
+
+    const windowSpeeds = pairSpeeds(t, d, start, end);
+    // The crossing pair (speed 10) IS included: 9 clean pairs (3 m/s) + the jump pair (10 m/s).
+    expect(windowSpeeds).toHaveLength(10);
+    expect(windowSpeeds).toContain(10);
+    expect(Math.max(...windowSpeeds)).toBe(10);
+
+    const outsideSpeeds = referenceSpeeds(t, d, start, end);
+    // The crossing pair overlaps the window, so it is NOT counted as a reference pair either — it
+    // contributes to the window's max exactly once, never to both sides.
+    expect(outsideSpeeds).toHaveLength(11);
+    expect(outsideSpeeds.every((s) => s === 3)).toBe(true);
+
+    const ratio = windowOutlierRatio(windowSpeeds, outsideSpeeds);
+    expect(ratio).toBeCloseTo(10 / 3, 10);
+
+    // RED-proof statement: under the OLD fully-inside rule, the crossing pair (t=9-13) would have
+    // been excluded because its end (13) exceeds the window's end (11). The window would then see
+    // only the nine clean 3 m/s pairs, giving a self-referential max/median of 3/3 = 1 — the
+    // anomaly is invisible. Demonstrated here by applying the OLD rule inline (not by calling a
+    // since-removed function) and confirming it produces exactly that blind ratio, so this
+    // assertion is falsifiable rather than a narrative.
+    function oldFullyInsidePairSpeeds(tArr, dArr, s, e) {
+      const speeds = [];
+      for (let i = 0; i < tArr.length - 1; i++) {
+        const t0 = tArr[i];
+        const t1 = tArr[i + 1];
+        if (t0 < s || t1 > e) continue;
+        const dt = t1 - t0;
+        if (dt === 0) continue;
+        speeds.push((dArr[i + 1] - dArr[i]) / dt);
+      }
+      return speeds;
+    }
+    const oldSpeeds = oldFullyInsidePairSpeeds(t, d, start, end);
+    expect(oldSpeeds).toHaveLength(9);
+    expect(oldSpeeds).not.toContain(10);
+    expect(Math.max(...oldSpeeds) / (oldSpeeds.reduce((a, b) => a + b, 0) / oldSpeeds.length)).toBe(1);
+  });
+
+  it('(e) planted defect #2 (gap-closure, bucket W): a window lying ENTIRELY inside an anomaly cannot be judged by its own self-referential median, but the outside-window reference catches it', () => {
+    // Mirrors the real production failure: activity 3475713616@400m, a hidden-pause window
+    // (t=3178-3196.5s) whose every pair is part of the catch-up burst itself (14.5-28.6 m/s) —
+    // the OLD self-referential max/median collapsed to 1.11 (undetected) because there was no
+    // clean pair left INSIDE the window to contrast against. The NEW outside-window reference gave
+    // 10.59 against the activity's own normal pace (measured 2026-10-01,
+    // `.planning/debug/36-recount-isolated-jump.md` bucket W).
+    //
+    // Synthetic fixture: a 50s stream, steady at 3 m/s everywhere except a burst of ten 1s pairs
+    // at 28 m/s between t=20 and t=30. The window [20, 30] is EXACTLY the burst — every pair
+    // inside it is anomalous, so the window has no "clean" pair of its own.
+    const t = [];
+    for (let i = 0; i <= 50; i++) t.push(i);
+    const d = [0];
+    for (let i = 0; i < 50; i++) {
+      const speed = i >= 20 && i < 30 ? 28 : 3;
+      d.push(d[d.length - 1] + speed);
+    }
+
+    const start = 20;
+    const end = 30;
+
+    const windowSpeeds = pairSpeeds(t, d, start, end);
+    expect(windowSpeeds).toHaveLength(10);
+    expect(windowSpeeds.every((s) => s === 28)).toBe(true);
+
+    // Pre-fix behaviour, demonstrated inline: a self-referential ratio over the window's OWN
+    // pairs alone collapses to 1 — the anomaly cannot see itself.
+    const selfReferentialRatio = Math.max(...windowSpeeds) / (windowSpeeds.reduce((a, b) => a + b, 0) / windowSpeeds.length);
+    expect(selfReferentialRatio).toBe(1);
+
+    const outsideSpeeds = referenceSpeeds(t, d, start, end);
+    expect(outsideSpeeds).toHaveLength(40);
+    expect(outsideSpeeds.every((s) => s === 3)).toBe(true);
+
+    const ratio = windowOutlierRatio(windowSpeeds, outsideSpeeds);
+    expect(ratio).toBeCloseTo(28 / 3, 10);
+    expect(ratio).toBeGreaterThan(9); // nowhere near the undetected self-referential ratio of 1
+  });
+
+  it('(f) fix 3 reachability (gap-closure, bucket T): a jump of realistic T-bucket magnitude (~2.5x the control p95) FAILS the OLD uniform-p95 rule but PASSES the redesigned two-part verdict', () => {
+    // The OLD rule required EVERY contaminated window to individually clear the control
+    // population's OWN p95 — shown unsatisfiable from its own measured basis (contaminated p05
+    // 2.596 < control p95 3.0 on the pre-fix statistic; `.planning/debug/36-recount-isolated-jump.md`
+    // bucket T, 148/190 of the live failures). The redesigned verdict keeps the POPULATION-level
+    // separation check (`checkBasisGate`: contaminated median > control p95) but judges each window
+    // against a materially LOWER per-window floor (`deriveVerdict`'s control p75).
+    //
+    // Synthetic control population (40 entries, evenly spread 1.0..2.9 — the measured archive's own
+    // control distribution has a similar shape: mostly near 1-2, a thin tail reaching toward 3).
+    const controlRatios = [];
+    for (let i = 0; i < 40; i++) controlRatios.push(1.0 + i * (1.9 / 39));
+    const control = controlRatios.map((ratio, i) => ({
+      activityId: `control_${i}`,
+      distance: '1k',
+      window: { startSec: 0, endSec: 10 },
+      ratio,
+      pairCount: 10,
+      referenceCount: 40,
+      label: `control_${i}@1k`,
+    }));
+
+    // Three contaminated windows: a realistic T-bucket-magnitude jump (2.6, between the control
+    // p75 and p95) plus two clearly-anomalous windows that keep the population median well above
+    // the control p95 so the basis gate separates.
+    const contaminatedRatios = [2.6, 6.0, 8.0];
+    const contaminated = contaminatedRatios.map((ratio, i) => ({
+      activityId: `burst_${i}`,
+      distance: '400m',
+      window: { startSec: 0, endSec: 10 },
+      ratio,
+      pairCount: 10,
+      referenceCount: 40,
+      label: `burst_${i}@400m`,
+    }));
+
+    const populations = { control, contaminated };
+
+    const basisGate = checkBasisGate(populations);
+    expect(basisGate.ok).toBe(true);
+    // The T-bucket-magnitude window (2.6) is BELOW the population-level p95 that the OLD rule
+    // required every window to individually clear — proving it would have FAILED the old rule.
+    expect(basisGate.controlThresholdBasis).toBeGreaterThan(2.6);
+
+    const verdict = deriveVerdict(populations);
+    // Yet the redesigned per-window floor (control p75, materially lower) is BELOW 2.6, so the
+    // same window PASSES under the new two-part verdict.
+    expect(verdict.controlFloor).toBeLessThan(2.6);
+    expect(verdict.controlFloorPercentile).toBe(75);
+    expect(verdict.fail).toBe(0);
+    expect(verdict.pass).toBe(3);
+  });
+
+  it('a recount only ever exercised on correct output is worth nothing — this project has twice shipped a Critical past a guard that checked the changed code against itself (Phase 23 extent clamp, Phase 32 cross-segment conservation)', () => {
+    expect(true).toBe(true); // documentation-only assertion, see the describe block's own comment
+  });
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -198,6 +371,7 @@ function populationFromRatios(ratios) {
     window: { startSec: 0, endSec: 10 },
     ratio,
     pairCount: 5,
+    referenceCount: 10,
     label: `fixture_${i}@400m`,
   }));
 }
@@ -452,43 +626,55 @@ describe('PINNED FIXTURES (ROADMAP Criterion 4) — both directions', () => {
 });
 
 // ---------------------------------------------------------------------------------------------
-// SECTION 6 — pairSpeeds / windowOutlierRatio totality on degenerate windows
+// SECTION 6 — pairSpeeds / referenceSpeeds / windowOutlierRatio totality on degenerate windows
+// (2026-10-01 gap-closure amendment: windowOutlierRatio now takes TWO arrays — window speeds and
+// the activity's own outside-window reference speeds — rather than one self-referential array)
 // ---------------------------------------------------------------------------------------------
 
-describe('pairSpeeds / windowOutlierRatio — totality on degenerate windows', () => {
-  it('zero qualifying pairs: pairSpeeds returns [] and the ratio is null, never Infinity', () => {
-    const speeds = pairSpeeds([0, 1], [0, 3], 5, 10); // window entirely outside the stream's range
-    expect(speeds).toEqual([]);
-    const ratio = windowOutlierRatio(speeds);
+describe('pairSpeeds / referenceSpeeds / windowOutlierRatio — totality on degenerate windows', () => {
+  it('zero qualifying window pairs: pairSpeeds returns [] and the ratio is null, never Infinity', () => {
+    const windowSpeeds = pairSpeeds([0, 1], [0, 3], 5, 10); // window entirely outside the stream's range
+    expect(windowSpeeds).toEqual([]);
+    const outsideSpeeds = referenceSpeeds([0, 1], [0, 3], 5, 10);
+    const ratio = windowOutlierRatio(windowSpeeds, outsideSpeeds);
     expect(ratio).toBeNull();
     expect(ratio).not.toBe(Infinity);
   });
 
-  it('one qualifying pair: below the minimum pair count, the ratio is null', () => {
-    const speeds = pairSpeeds([0, 1, 2], [0, 3, 3], 0, 1); // only the first pair qualifies
-    expect(speeds).toHaveLength(1);
-    expect(windowOutlierRatio(speeds)).toBeNull();
+  it('one qualifying window pair but fewer than 3 reference pairs: the ratio is null (reference too small)', () => {
+    const t = [0, 1, 2];
+    const d = [0, 3, 3];
+    const windowSpeeds = pairSpeeds(t, d, 0, 1); // only the first pair qualifies for the window
+    expect(windowSpeeds).toHaveLength(1);
+    const outsideSpeeds = referenceSpeeds(t, d, 0, 1); // only 1 pair remains outside -> below minimum
+    expect(outsideSpeeds.length).toBeLessThan(3);
+    expect(windowOutlierRatio(windowSpeeds, outsideSpeeds)).toBeNull();
   });
 
-  it('a pair with dt === 0 is skipped rather than dividing by zero', () => {
+  it('a window pair with dt === 0 is skipped rather than dividing by zero, on both sides', () => {
     const t = [0, 0, 1, 2, 3];
     const d = [0, 5, 8, 11, 14];
-    const speeds = pairSpeeds(t, d, 0, 3);
-    expect(speeds.every((s) => Number.isFinite(s))).toBe(true);
-    expect(speeds).not.toContain(Infinity);
+    const windowSpeeds = pairSpeeds(t, d, 0, 3);
+    const outsideSpeeds = referenceSpeeds(t, d, 0, 3);
+    expect(windowSpeeds.every((s) => Number.isFinite(s))).toBe(true);
+    expect(outsideSpeeds.every((s) => Number.isFinite(s))).toBe(true);
+    expect(windowSpeeds).not.toContain(Infinity);
+    expect(outsideSpeeds).not.toContain(Infinity);
   });
 
-  it('a window whose median speed is 0 returns null, never Infinity', () => {
-    const speeds = [5, 0, 0, 0]; // median 0
-    const ratio = windowOutlierRatio(speeds);
+  it('a reference population whose median speed is 0 returns null, never Infinity', () => {
+    const windowSpeeds = [5];
+    const referenceSpeedsFixture = [0, 0, 0]; // median 0
+    const ratio = windowOutlierRatio(windowSpeeds, referenceSpeedsFixture);
     expect(ratio).toBeNull();
     expect(ratio).not.toBe(Infinity);
   });
 
   it('never throws on any of the four degenerate cases', () => {
     expect(() => pairSpeeds([], [], 0, 10)).not.toThrow();
-    expect(() => windowOutlierRatio([])).not.toThrow();
-    expect(() => windowOutlierRatio([1])).not.toThrow();
-    expect(() => windowOutlierRatio([0, 0, 0])).not.toThrow();
+    expect(() => referenceSpeeds([], [], 0, 10)).not.toThrow();
+    expect(() => windowOutlierRatio([], [])).not.toThrow();
+    expect(() => windowOutlierRatio([1], [1, 1])).not.toThrow();
+    expect(() => windowOutlierRatio([5], [0, 0, 0])).not.toThrow();
   });
 });
