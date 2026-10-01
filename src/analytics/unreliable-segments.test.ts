@@ -1181,6 +1181,85 @@ describe('D-09 negative control — 3475734189 t=1581-1583 never fires, and can'
 });
 
 /**
+ * Phase 36 gap closure (`.planning/debug/36-recount-isolated-jump.md`, bucket Q): the detector
+ * merges a LEADING zero-advance stall into the step it precedes (via `advanceSteps`'s own
+ * pending-start folding — a quiet stretch before a run's first qualifying advance is already baked
+ * into that step's own `seconds`, diluting its average speed), but a TRAILING zero-advance stall
+ * immediately AFTER a fast run was invisible to the excess check: `advanceSteps` attributes that
+ * quiet time to whichever step comes NEXT (an unrelated genuine advance), never back to the run
+ * that just ended. On quantized-distance streams (long stretches of zero-advance samples at ~2s
+ * sampling), this asymmetry alone false-flags a catch-up lump immediately followed by a stall as an
+ * `isolated-jump`. Fixed by extending a fast run's own `endIndex` forward through any immediately
+ * following non-advancing, non-gap pairs before computing its excess — symmetric with the existing
+ * leading-side dilution, same constants (`UNRELIABLE_SPEED_LIMIT_MPS`, `UNRELIABLE_EXCESS_FLOOR_M`),
+ * no new threshold.
+ */
+describe('detectUnreliableSegments — trailing-stall dilution (Phase 36 gap closure, debug bucket Q)', () => {
+  it('real activity 4454640041 t=36-38 (18m/2s=9m/s, excess 3.3m) is NOT flagged once the 4s trailing stall (t=38-42) is counted', () => {
+    const { t, d } = readStream('4454640041');
+    const gaps: GapSpan[] = classifyGapsThreeWay(t, d).gapIntervals;
+
+    // Reachability: confirm the exact raw pair shape the debug file measured, computed from the
+    // real stream, never hand-typed.
+    const i36 = t.indexOf(36);
+    expect(i36).toBeGreaterThanOrEqual(0);
+    expect(d[i36 + 1] - d[i36]).toBe(18);
+    expect(t[i36 + 1] - t[i36]).toBe(2);
+    expect(d[i36 + 2] - d[i36 + 1]).toBe(0); // 38-40 stall
+    expect(d[i36 + 3] - d[i36 + 2]).toBe(0); // 40-42 stall
+
+    const segments = detectUnreliableSegments(t, d, gaps, DEFAULT_DETECTOR_PARAMS);
+    const overlapping = segments.filter((seg) => seg.startSec < 38 && seg.endSec > 36);
+
+    expect(overlapping).toEqual([]);
+  });
+
+  it('synthetic mirror of the same shape (11m, 18m jump, 0, 0, 13m) is NOT flagged isolated-jump', () => {
+    const t = [0, 2, 4, 6, 8, 10];
+    const d = [0, 11, 29, 29, 29, 42];
+
+    const segments = detectUnreliableSegments(t, d, [], DEFAULT_DETECTOR_PARAMS);
+    const overlapping = segments.filter((seg) => seg.startSec < 4 && seg.endSec > 2);
+
+    expect(overlapping).toEqual([]);
+  });
+
+  it('symmetric control: a LEADING stall before the same jump magnitude is already (and remains) not flagged', () => {
+    // Mirrors the fix's own target shape in reverse: two zero-advance pairs (4s stall) THEN the
+    // same 18m/2s jump. Already-correct behaviour prior to this fix (via advanceSteps's own
+    // pending-start folding) — locked here so the trailing-side fix cannot be mistaken for the
+    // only correct direction.
+    const t = [0, 2, 4, 6];
+    const d = [0, 0, 0, 18];
+
+    const segments = detectUnreliableSegments(t, d, [], DEFAULT_DETECTOR_PARAMS);
+
+    expect(segments).toEqual([]);
+  });
+
+  it('a genuine isolated jump followed by a stall that does NOT average below the limit is STILL flagged (the fix must not blind the detector)', () => {
+    // 30m in 2s (15 m/s) against a 5 m/s limit, floor 2: excess = 30 - 5*2 = 20. Even after
+    // extending through the following 2s stall (total seconds 4), excess = 30 - 5*4 = 10, still
+    // well above the floor.
+    const params: DetectorParams = {
+      speedLimitMps: 5,
+      excessFloorMetres: 2,
+      hiddenPauseMinMetres: 1000,
+    };
+    const t = [0, 2, 4];
+    const d = [0, 30, 30];
+
+    const segments = detectUnreliableSegments(t, d, [], params);
+
+    expect(segments).toHaveLength(1);
+    expect(segments[0].mechanism).toBe('isolated-jump');
+    expect(segments[0].metres).toBe(30);
+    expect(segments[0].seconds).toBe(4);
+    expect(segments[0].excessMetres).toBeCloseTo(10, 9);
+  });
+});
+
+/**
  * Phase 33 plan 08, D-07: `excessMetres` as a merged-segment output field. Every case here asserts
  * against the MERGED segment's own `metres`/`seconds` (`seg.metres - speedLimitMps * seg.seconds`,
  * clamped at 0), never a single part's own metres/seconds — that distinction is exactly what the
