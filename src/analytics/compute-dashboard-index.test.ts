@@ -1611,16 +1611,41 @@ describe('pace disagreement', () => {
     );
 
     const expectedCount = await parsedArchiveWideFlaggedCount();
+
+    // Phase 36 gap closure (`.planning/debug/36-recount-isolated-jump.md`, bucket Q; detector fix
+    // in `unreliable-segments.ts`'s `extendThroughTrailingStall`): 35-CALIBRATION.md's parsed count
+    // (125) was rendered against the PRE-fix detector, which false-flagged a quantized-stream
+    // catch-up lump immediately followed by a stall as `isolated-jump` on these two activities —
+    // excluding real covered distance from `deriveRunningPace`'s denominator and pushing their
+    // derived running pace far enough from metadata pace to clear `PACE_DISAGREEMENT_RUNNING_RATIO`.
+    // Post-fix, both windows are correctly recognised as reliable, their running pace moves back
+    // into agreement, and they stop being flagged — a diagnosed, one-time, EXPLAINED two-activity
+    // delta, not comparator drift and not a real regression. Verified: re-running the full sweep
+    // against the pre-fix detector (git-committed `unreliable-segments.ts` as of `f5e72aa8`)
+    // reproduces 35-CALIBRATION.md's 125 exactly, and the only set difference between the two runs
+    // is these two ids. `35-CALIBRATION.md` itself (and the `PACE_DISAGREEMENT_RUNNING_RATIO`
+    // constant it calibrates) is NOT regenerated here — re-deriving that archive-wide ratio
+    // statistic is a separate, heavier recalibration decision, out of this gap-closure's scope.
+    const PHASE_36_GAP_CLOSURE_NO_LONGER_FLAGGED = ['14675028146', '4598855187'];
+    for (const id of PHASE_36_GAP_CLOSURE_NO_LONGER_FLAGGED) {
+      expect(
+        flagged,
+        `${id}: expected to no longer be flagged post Phase-36-gap-closure (was flagged under the ` +
+          'pre-fix detector per 35-CALIBRATION.md) — see .planning/debug/36-recount-isolated-jump.md'
+      ).not.toContain(id);
+    }
+
     expect(scanned).toBeGreaterThanOrEqual(1890);
     expect(
       flagged.length,
       `flagged.length (${flagged.length}) !== 35-CALIBRATION.md's parsed archive-wide count ` +
-        `(${expectedCount}). A mismatch of a handful most likely means the nightly archive moved ` +
-        "since 35-CALIBRATION.md was rendered — re-run 35-07's generator (idempotent, content-" +
-        'addressed to `rev-parse HEAD:data/streams`) and recommit the artifact. A mismatch of tens ' +
-        'means the comparator has diverged from the calibration — the failure this row exists to ' +
-        'catch. Never widen or soften this assertion to make it pass.'
-    ).toBe(expectedCount);
+        `(${expectedCount}) minus the ${PHASE_36_GAP_CLOSURE_NO_LONGER_FLAGGED.length} diagnosed ` +
+        'Phase 36 gap-closure exceptions above. A further mismatch most likely means the nightly ' +
+        "archive moved since 35-CALIBRATION.md was rendered — re-run 35-07's generator (idempotent, " +
+        'content-addressed to `rev-parse HEAD:data/streams`) and recommit the artifact. A mismatch ' +
+        'of tens means the comparator has diverged from the calibration — the failure this row ' +
+        'exists to catch. Never widen or soften this assertion to make it pass.'
+    ).toBe(expectedCount - PHASE_36_GAP_CLOSURE_NO_LONGER_FLAGGED.length);
     // Reads and derives pace over the whole ~1,890-activity archive, which lands
     // just under vitest's 5s default and fails intermittently on a busy machine.
     // The budget is generous on purpose — this guards the assertions above, not
