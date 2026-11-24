@@ -398,7 +398,7 @@ Plans:
 
 **Note (32-CONTEXT.md D-04, 2026-09-19):** every unreliable segment receives one downstream treatment regardless of mechanism. Clipping pace or barring a window withholds a claim; it never alters distance, totals or splits. No per-mechanism branch.
 
-**Plans**: 14 plans
+**Plans**: 20 plans
 Plans:
 **Wave 1**
 
@@ -440,6 +440,21 @@ Plans:
 **Wave 9** *(blocked on Wave 8)*
 
 - [x] 36-14-PLAN.md — Browser checkpoint, PR-09's developer signature, per-requirement disposition and SEG-05b's final half
+
+**Wave 10** *(gap closure round 2 — 36-VERIFICATION.md CR-01, 36-REVIEW.md WR-01..WR-04, checkpoint rows d/e/g)*
+
+- [ ] 36-15-PLAN.md — CR-01/WR-01: the diff's OLD state applies the pre-phase ceiling; owner-excluded and guard-changed kinds; real-pair ceiling-reinstatement test
+- [ ] 36-16-PLAN.md — PR-09 before-state leg: runs the pre-phase pipeline (ebe0245c) and reconciles the diff's BEFORE side, watched red on the pre-fix artifact
+- [ ] 36-17-PLAN.md — WR-02: one contaminated/demotion contract demonstrated at the writer and enforced by the recount in both directions
+- [ ] 36-18-PLAN.md — WR-03/WR-04: badge says "Ranked" only for ranking efforts; contamination count skips demoted efforts
+
+**Wave 11** *(blocked on Wave 10)*
+
+- [ ] 36-19-PLAN.md — Merge, gate, regenerate 36-DIFF.md (idempotent), re-verify the recalibration, four legs green, redraft rows d/e/g with an explicit Requirement column
+
+**Wave 12** *(blocked on Wave 11)*
+
+- [ ] 36-20-PLAN.md — Round-2 browser checkpoint, fresh PR-09 signature over the new sha256, per-requirement disposition
 
 **UI hint**: yes
 
