@@ -292,6 +292,123 @@ Recorded verbatim, unpatched; no root-cause theory or fix is offered here (`/gsd
 
 ---
 
+## Gap-Closure Round 2 (plans 36-15..36-19)
+
+Executed 2026-11-24 on the PRIMARY checkout by plan 36-19. Nothing in the sections above this one was rewritten: rows a-h, their verdicts, the PR-09 Signature Record (with its Superseded note), the Requirement Disposition and the Gap-Closure Record all stay on record verbatim. This section is appended.
+
+### Round 2 Regeneration Record
+
+- **Merge (MERGE-01).** `git fetch origin` succeeded. `git rev-list --count HEAD..origin/master` printed `0`, so no merge was needed and no merge commit exists. This is a truthful no-op, not a skipped step. Both artifacts were judged on HEAD `8a942e16` (plans 36-15..36-18 merged).
+- **Rebuild.** `npm run build`, `npm run compute-all-stats`, `npm run build-widgets` and `npm run verify-dashboard` all exit 0 (verify-dashboard: 67 passed, 0 failures).
+- **geo-metadata revert.** `compute-all-stats` changed `data/geo/geo-metadata.json` `generatedAt` from `2026-09-19T12:56:11.589Z` to `2026-11-24T22:55:54.393Z`. Reverted with `git checkout -- data/geo/geo-metadata.json`; `git status --porcelain data/` is empty.
+- **Ceiling baseline.** `data/best-effort-ceiling.json` sha256 `01802d20cb6b97a7c7c8d63b17ab33cbfbae40fd1fc98ec73860e134dbdb8a20`, byte-unchanged. `--write-ceiling-state` was never passed.
+- **Gate.** `npx tsc --noEmit` exits 0. `npm test`: 108 files / 3,971 tests passed, 0 failed, 24.9 s duration (baseline 107 / 3,921: one new test file, `scripts/compute-clean-window-before-state.test.mjs` with 15 tests, plus 35 added to existing files by plans 36-15, 36-17 and 36-18).
+- **Recalibration re-verification.** `npm run compute-ceiling-recalibration` was run against a saved copy of the committed file. With the `**Generated:**` line stripped the two are identical, so the signed bytes were restored with `git checkout --` and `shasum -a 256` is still `48b9e0836483c1017effc5010e7f7e8d0a771c8921faa0653aec433af61c8e89`. `git diff --exit-code 40cf1651 -- scripts/compute-ceiling-recalibration.mjs` exits 0 (generator unchanged). CR-01 cannot move this artifact: its OLD population keeps would-be-ceiling-demoted efforts under Phase 28's Pass-1 rule, and leg 4's ceiling-before rows (below) independently agree with it per distance.
+- **Diff regeneration.** `npm run compute-clean-window-diff`, committed as `3200aa41`. Headline: Moved but still ranked 1044; Newly demoted 372; Reinstated 45 (30 absolute-guard, 15 ceiling); Demoted before and after, guard changed 0; Unchanged 7469; Owner-excluded 61; 6 of 7 ceilings moved. Prior signed headline was 1097 / 391 / 31 (31 absolute, 0 ceiling) / 7472.
+- **Idempotence (regen, commit, regen).** After the commit the generator was run again. `git diff --stat` showed exactly one changed line (`**Generated:**`); `diff <(grep -v '^\*\*Generated:\*\*' <(git show HEAD:<path>)) <(grep -v '^\*\*Generated:\*\*' <path>)` exited 0. The committed bytes were then restored. `grep -c` of the full and short HEAD sha in the artifact: 0 and 0. The `## Inputs` recalibration generatedAt (`2026-10-01T12:08:24.589Z`) equals the committed recalibration file's own Generated value.
+- **Served digest.** `dist/widgets` served on 127.0.0.1:8765. The served `index.html` references `assets/index-C7XxjkuI.js`; served sha256 `eaf8e3d3cf4f9bf95dda50a095b39946b5f89d241f2e81ba14dba7cc2f88f8b2` equals the on-disk file. The served bundle contains `Measured on clean window` (1 occurrence). No mismatch, no clean rebuild needed. Server stopped.
+- **Hashes at HEAD `3200aa41152ee787e9b59bbcc09606b2f2007671` (neither is written into either artifact):**
+  - `36-DIFF.md` `e67f3cba48ac7e96e1ecac3de7f9db7d8525d5deaea124f14f55a78e39afacb4`
+  - `36-CEILING-RECALIBRATION.md` `48b9e0836483c1017effc5010e7f7e8d0a771c8921faa0653aec433af61c8e89` (unchanged from the earlier signature)
+
+### Four-Leg Reconciliation
+
+| Leg | Reads | Shares | Result on the regenerated artifact |
+|---|---|---|---|
+| 1 diff generator internal sum | the diff's own populations | the generator's reconstruction | agrees: unreliable-segment demotions 386 vs walked 386 |
+| 2 contaminated-record sum | the diff's addends vs the walked document | the generator's reconstruction | agrees: 1128 vs 1128 (1044 + 39 excluded + 45 reinstated) |
+| 3 recount (`compute-clean-window-recount`) | the shipped document, own partitioner | nothing of the diff generator; never derives the BEFORE state | exit 0; pass=1440 fail=0 notAssessable=74 (of 1514), the same as baseline; basis gate OK (controlN=7326, contaminatedN=1440, controlP95=3.6667, contaminatedMedian=5.4355); floor p75 2.2857; internal consistency OK with no violations under 36-17's narrowed rule; three pinned fixtures MATCH (3:20, 3:21, 3:22) |
+| 4 before-state (`compute-clean-window-before-state`) | the pre-phase pipeline (`ebe0245c`) run over the same tracked archive | the archive only | `BEFORE-STATE LEG: OK`, exit 0, 90 rows `agrees=true`, 0 `agrees=false`; `onlyInOld=0 onlyInNew=0` |
+
+Leg 4 (`scripts/compute-clean-window-before-state.mjs`) is the only leg that independently derives the BEFORE state: it runs the pre-phase pipeline (`ebe0245c`) over the same tracked archive. Legs 1 and 2 share the diff generator's reconstruction (`reconstructOldEfforts` plus `applyOldCeilings`); leg 3 never derives the BEFORE state.
+
+The before-state leg was RED against the pre-fix diff in plan 36-16 (52 disagreements, `ceiling reinstatements (total) | derived=15 | artifact=0`). It is GREEN now, which is the direction this plan supplies. Leg 4 rows: reinstated 45/45, absolute-guard 30/30, ceiling 15/15, newly demoted 372/372, guard-changed 0/0, moved-but-ranked 1044/1044, unchanged 7469/7469, owner-excluded 61/61, OLD guards not recognised 0/0; every per-distance reinstatement row; every OLD rank row at 400m, 1k, 1mi, 5k, 10k and half; ceiling-before for all seven distances against both `36-DIFF.md` and `36-CEILING-RECALIBRATION.md`.
+
+Plan 36-15's real pair `3475714424`@400m (66.3 s OLD to 124.1 s NEW) appears in leg 4's ceiling-reinstated list, as do the other candidates 36-15 named (`3475723743`, `3475712272`, `3475725279`).
+
+Reinstatement figures per distance and guard:
+
+| Distance | Artifact absolute / ceiling | Leg 4 derived absolute / ceiling | Reviewer probe (ceiling) | Verifier probe (absolute + ceiling) | Difference explained |
+|---|---|---|---|---|---|
+| 400m | 24 / 7 | 24 / 7 | 7 | 31 | the verifier's figure is 24 + 7, the sum of both buckets; no per-pair difference |
+| 1k | 4 / 5 | 4 / 5 | 5 | 9 | verifier = 4 + 5 |
+| 1mi | 2 / 3 | 2 / 3 | 3 | 5 | verifier = 2 + 3 |
+| 5k, 10k, half, marathon | 0 / 0 | 0 / 0 | 0 | 0 | none |
+| Total | 30 / 15 | 30 / 15 | 15 (7/5/3) | 45 across all distances | the pre-fix artifact printed 0 ceiling and folded them into other buckets (CR-01); none of these figures is an expected value |
+
+Strength-of-evidence notes the verifier asked this re-sign to state:
+
+- **IN-01.** The leg-3 floor (p75) was chosen by outcome, so leg 3 is corroboration, not proof. Its pass=1440 does not by itself show the partition is right.
+- **IN-04.** The diff's OLD plausibility is re-evaluated on a rounded duration, while leg 4 uses production's unrounded evaluation. Leg 4 found no boundary disagreement: every per-pair row agrees, so no pair needed an IN-04 label. This is evidence the rounding did not move any pair across a guard threshold in this archive; it is not a proof for other archives.
+
+### Round 2 Verification Map
+
+All counts measured live on HEAD `3200aa41` with `NO_COLOR=1 npx vitest run <file> -t "<filter>"`, read from vitest's own `Tests  N passed` line. No filter contains a regex metacharacter.
+
+| Task ID | Plan | Wave | Requirement | Behavior | Test Type | Automated Command | File Exists | Matched | Status |
+|---------|------|------|-------------|----------|-----------|-------------------|-------------|---------|--------|
+| 36-15 T1 | 36-15 | 10 | PR-09 | `applyOldCeilings` gives the OLD side the pre-phase ceiling, so a ceiling reinstatement is expressible | unit | `NO_COLOR=1 npx vitest run scripts/compute-clean-window-diff.test.mjs -t "applyOldCeilings CR-01"` | ✅ exists | 7 | ✅ green |
+| 36-15 T2 | 36-15 | 10 | PR-09 | real committed pair `3475714424`@400m classified as a ceiling reinstatement | regression, real fixture | `NO_COLOR=1 npx vitest run scripts/compute-clean-window-diff.test.mjs -t "real-pair ceiling reinstatement CR-01"` | ✅ exists | 2 | ✅ green |
+| 36-15 T3 | 36-15 | 10 | PR-09 | owner-excluded and guard-changed kinds exist and are counted | unit | `NO_COLOR=1 npx vitest run scripts/compute-clean-window-diff.test.mjs -t "owner-excluded and guard-changed kinds WR-01"` | ✅ exists | 5 | ✅ green |
+| 36-15 T3 | 36-15 | 10 | PR-09 | rendered headline and new sections | unit | `NO_COLOR=1 npx vitest run scripts/compute-clean-window-diff.test.mjs -t "headline and new sections"` | ✅ exists | 4 | ✅ green |
+| 36-16 T1 | 36-16 | 10 | PR-09 | before-state leg bucket derivation | unit | `NO_COLOR=1 npx vitest run scripts/compute-clean-window-before-state.test.mjs -t "bucket derivation"` | ✅ exists | 5 | ✅ green |
+| 36-16 T2 | 36-16 | 10 | PR-09 | before-state leg reconciles against the diff headline, fails closed on a missing figure | guard, both directions | `NO_COLOR=1 npx vitest run scripts/compute-clean-window-before-state.test.mjs -t "reconciliation against the diff headline"` | ✅ exists | 6 | ✅ green |
+| 36-16 T3 | 36-16 | 10 | PR-09 | before-state leg imports neither the diff generator nor the recalibration script | source-text guard | `NO_COLOR=1 npx vitest run scripts/compute-clean-window-before-state.test.mjs -t "zero-import guard"` | ✅ exists | 4 | ✅ green |
+| 36-17 T1 | 36-17 | 10 | PR-07 | WR-02 contract in the writer: contaminated records the measured window, demotion independent | unit | `NO_COLOR=1 npx vitest run src/analytics/compute-best-efforts.test.ts -t "WR-02 contract"` | ✅ exists | 3 | ✅ green |
+| 36-17 T2 | 36-17 | 10 | PR-09 | recount internal consistency under the WR-02 contract | guard | `NO_COLOR=1 npx vitest run scripts/compute-clean-window-recount.test.mjs -t "WR-02 contract"` | ✅ exists | 4 | ✅ green |
+| 36-17 T2 | 36-17 | 10 | PR-09 | recount internal-consistency describe as a whole | guard | `NO_COLOR=1 npx vitest run scripts/compute-clean-window-recount.test.mjs -t "INTERNAL CONSISTENCY"` | ✅ exists | 7 | ✅ green |
+| 36-18 T1 | 36-18 | 10 | PR-07 | WR-03: a contaminated effort that is excluded or demoted shows `Measured`, not `Ranked`, copy | unit | `NO_COLOR=1 npx vitest run src/dashboard/views/detail-best-efforts-logic.test.ts -t "contaminated badge on a non-ranking row WR-03"` | ✅ exists | 5 | ✅ green |
+| 36-18 T2 | 36-18 | 10 | PR-07 | WR-04: `countContaminatedAtDistance` skips demoted efforts | unit | `NO_COLOR=1 npx vitest run src/dashboard/views/records-logic.test.ts -t "skips demoted efforts WR-04"` | ✅ exists | 3 | ✅ green |
+| 36-12 (re-measured) | 36-12 | 7 | PR-09 (D-13) | recount planted broken partitioners (re-measure of the existing leg-3 row) | guard, watched-failing-first | `NO_COLOR=1 npx vitest run scripts/compute-clean-window-recount.test.mjs -t "planted"` | ✅ exists | 10 | ✅ green |
+| 36-16 live | 36-16 | 10 | PR-09 | leg 4 live run on the regenerated artifact | integration | `npm run compute-clean-window-before-state -- --pre-phase-dist <tmp>/prephase/dist` (exit code, and `BEFORE-STATE LEG: OK` in the output) | ✅ exists | n/a (exit-code check, not `-t`) | ✅ green |
+
+The earlier statement that `36-17 T1`'s `WR-02 contract` filter matched 3 in `compute-best-efforts.test.ts` and 4 in the recount file is confirmed live: the filter is scoped per file, never run unscoped, because the two describes share the title fragment.
+
+### Round 2 Checkpoint Rows
+
+Expected values were derived on 2026-11-24 by walking `data/stats/best-efforts.json` with the independent command below, which applies the Records screen's documented filters (demotion: skip `excludedFromRecords === true`, bucket by `demotion.guard`; contamination: skip excluded and skip demoted). It imports nothing from `records-logic`, `dist/` or the diff generator.
+
+Command W (pasted into every row that uses it):
+
+`python3 -c "import json,collections as C;d=json.load(open('data/stats/best-efforts.json'));A=d['activities'].values();[print(k,'dem',sum(1 for a in A for e in a['efforts'] if e['distance']==k and e['demotion'] is not None and e['excludedFromRecords'] is not True),dict(C.Counter(e['demotion']['guard'] for a in A for e in a['efforts'] if e['distance']==k and e['demotion'] is not None and e['excludedFromRecords'] is not True)),'demInclExcl',sum(1 for a in A for e in a['efforts'] if e['distance']==k and e['demotion'] is not None),'cont',sum(1 for a in A for e in a['efforts'] if e['distance']==k and e['contaminated'] is not None and e['excludedFromRecords'] is not True and e['demotion'] is None),'contInclExcl',sum(1 for a in A for e in a['efforts'] if e['distance']==k and e['contaminated'] is not None and e['demotion'] is None),'contAndDemoted',sum(1 for a in A for e in a['efforts'] if e['distance']==k and e['contaminated'] is not None and e['demotion'] is not None and e['excludedFromRecords'] is not True)) for k in ['400m','1k','1mi','5k','10k','half']]"`
+
+Its output: 400m dem 4 {max-speed 3, ceiling 1} demInclExcl 5 cont 247 contInclExcl 258 contAndDemoted 0; 10k dem 278 {unreliable-segment 278} demInclExcl 285; half dem 33 {unreliable-segment 33} demInclExcl 35 cont 11 contInclExcl 12; 5k dem 55 demInclExcl 60.
+
+| Row id | Requirement | Supersedes | What to observe | Where | Expected value | Independent source of that Expected value | CAN FAIL (concrete input) | CAN PASS (concrete input) | Reachability check performed | Verdict |
+|---|---|---|---|---|---|---|---|---|---|---|
+| d2 | PR-07 | d | Records screen at 400m: contamination note and demotion note | Records screen, 400m PR table | contamination note **247**; demotion note **4** (0 world-record + 3 max-speed + 1 ceiling + 0 unreliable-segment) | Command W, 400m line: `cont 247`, `dem 4 {max-speed 3, ceiling 1}` | the demotion note reads **5** (owner-excluded counted, `demInclExcl 5`, the shipped defect row d exposed) or the contamination note reads **258** (owner-excluded counted, `contInclExcl 258`) | both notes show 247 and 4, which differ from each other and from the defect values 258 and 5 | BOTH directions reachable: the defect value 5 differs from the Expected 4 by the one owner-excluded ceiling demotion, so the row is not vacuous; 247 and 4 are the live walked figures, so it is not unpassable. WR-04 clause (contaminated and demoted, non-excluded) measures 0 at every distance on live data (`contAndDemoted 0`), so this row CANNOT discriminate the WR-04 skip; that clause is covered only by plan 36-18's unit test (`-t "skips demoted efforts WR-04"`, 3 matched) | |
+| e2 | PR-07 | e | Records 10k demotion sentence | Records screen, 10k PR table demotion state | sentence contains `278 by the unreliable-segment guard (no clean window at this distance)` | Command W, 10k line: `dem 278 {unreliable-segment 278}` | the sentence reads `285 by the unreliable-segment guard ...` (owner-excluded counted, `demInclExcl 285`) or `... by another guard` | the exact clause with 278 | BOTH directions reachable: 285 differs from 278 by 7 owner-excluded 10k demotions, so the exclusion defect is discriminated; 278 is the live non-excluded count (the developer observed 278 in round 1) | |
+| g2 | PR-08 | g | Records half-marathon demotion sentence and ceiling | Records screen, half PR table | **33** by the unreliable-segment guard, **0** ceiling-guard demotions; half ceiling `null` (population 71, below `CEILING_MIN_POPULATION` 100) | Command W, half line: `dem 33 {unreliable-segment 33}`; `ceilings.half.ceilingMps` is `null`, `populationN` 71, in `data/stats/best-efforts.json`; also `36-CEILING-RECALIBRATION.md` `## Fail-Open Findings` | a ceiling-guard demotion at half, or **35** (owner-excluded counted, `demInclExcl 35`) | exactly 33 unreliable-segment and 0 ceiling | EXERCISABLE: re-measured on this merged archive, half still fails open (populationN 71, ceilingMps null). 35 differs from 33 by 2 excluded demotions, so the row can fail; 33 is the live count, so it can pass | |
+| i | PR-07 | new (WR-03) | Detail view of an owner-excluded contaminated effort: `3475711469`@400m (125.4 s, `demotion` null, `excludedFromRecords` true) | Activity detail view for `3475711469`, 400m row | badge text exactly `Measured on clean window — contaminated window: 400m in 57.5s at t=1648.0-1705.5s, intersecting an unreliable segment at t=1689.0-1705.0s (hidden-pause, 274.6m/16.0s)`, plus an excluded badge, and NO visible text containing `Ranked` on that row | `data/stats/best-efforts/3475711469.json` `contaminated.reason`, and the live `data/best-effort-exclusions.json` entry `{activityId: "3475711469", distances: null, reason: "bad measurement"}` (whole activity), so the detail view's live `excluded` resolves true. 39 such efforts exist (contaminated, owner-excluded, demotion null), across 11 activities, found by an `excludedFromRecords is True and contaminated is not None` walk | the row shows `Ranked on clean window — ...` (the shipped WR-03 defect) | the row shows the `Measured on clean window` copy | BOTH directions reachable: 39 real efforts qualify, all with `demotion` null, so the defect path (`Ranked` beside Excluded) was reachable before plan 36-18 and the fixed copy is reachable now | |
+| b2 | PR-07 | new (regression for the changed badge code) | `3475740390`@400m badge | Activity detail view, same 400m row as old row b | exactly `Ranked on clean window — contaminated window: 400m in 79.9s at t=2508.0-2587.9s, intersecting 4 unreliable segments (isolated-jump 52.4m/5.0s at t=2508.0; isolated-jump 28.6m/2.0s at t=2536.0; +2 more)` | `data/stats/best-efforts/3475740390.json` 400m `contaminated.reason`, re-read today; `excludedFromRecords` false and `demotion` null | `Measured on clean window — ...` (an over-broad rank condition from plan 36-18) | the `Ranked on clean window` copy | BOTH directions reachable: this effort is neither excluded nor demoted, so Ranked is correct, and an over-broad change would flip it to Measured | |
+| f carry-forward | PR-07 | f carries forward (no f2) | none: `10367206938`@5k is neither excluded nor demoted (measured: `excludedFromRecords` false, `demotion` null, `contaminated` present; the 10k row is demoted with guard unreliable-segment and not excluded), so the WR-03 change cannot alter row f's Expected | n/a | row f's Expected is unchanged | direct read of `data/stats/best-efforts.json` | n/a | n/a | measured, see Expected | not re-run |
+| h2 | PR-09 | h | a fresh `shasum -a 256` of both artifacts at checkpoint time | developer's own `shasum` | `36-DIFF.md` `e67f3cba48ac7e96e1ecac3de7f9db7d8525d5deaea124f14f55a78e39afacb4`; `36-CEILING-RECALIBRATION.md` `48b9e0836483c1017effc5010e7f7e8d0a771c8921faa0653aec433af61c8e89` (beside HEAD `3200aa41`; the 36-DIFF.md hash is the round-2 artifact, not the superseded `0f3803b3...`) | an EXTERNAL tool (`shasum`), never read from inside either artifact | a freshly computed hash differs from either value (any post-`3200aa41` edit to either file) | both match exactly | CAN FAIL by any later edit, CAN PASS in the current state, both confirmed by the task-2 shasum run | |
+
+### Row-to-Requirement Mapping (all rows, explicit)
+
+| Row | Requirement(s) | Verdict on record | Superseded by | Counts toward disposition? |
+|---|---|---|---|---|
+| a | PR-06, PR-09 | PASS | none | yes |
+| b | PR-07 | PASS | none | yes |
+| c | PR-07 | PASS | none | yes |
+| d | PR-07 | FAIL (row defect) | d2 | no, superseded; verdict stays on record |
+| e | PR-07 | FAIL (row defect) | e2 | no, superseded; verdict stays on record |
+| f | PR-07 | PASS | none (carries forward, see the f carry-forward row) | yes |
+| g | PR-08 | FAIL (row defect) | g2 | no, superseded; verdict stays on record |
+| h | PR-09 | PASS | h2 | no, superseded; verdict stays on record |
+| d2 | PR-07 | pending | none | yes |
+| e2 | PR-07 | pending | none | yes |
+| g2 | PR-08 | pending | none | yes |
+| i | PR-07 | pending | none | yes |
+| b2 | PR-07 | pending | none | yes |
+| h2 | PR-09 | pending | none | yes |
+
+A requirement is ticked only when every non-superseded row mapped to it is PASS; for PR-09 the developer's round-2 signature is additionally required.
+
+Frontmatter `status: partial` and `nyquist_compliant: false` stay until plan 36-20. Approval is left as it is.
+
+---
+
 ## Validation Sign-Off
 
 - [x] All tasks have `<automated>` verify or Wave 0 dependencies
