@@ -443,10 +443,10 @@ Plans:
 
 **Wave 10** *(gap closure round 2 — 36-VERIFICATION.md CR-01, 36-REVIEW.md WR-01..WR-04, checkpoint rows d/e/g)*
 
-- [ ] 36-15-PLAN.md — CR-01/WR-01: the diff's OLD state applies the pre-phase ceiling; owner-excluded and guard-changed kinds; real-pair ceiling-reinstatement test
-- [ ] 36-16-PLAN.md — PR-09 before-state leg: runs the pre-phase pipeline (ebe0245c) and reconciles the diff's BEFORE side, watched red on the pre-fix artifact
-- [ ] 36-17-PLAN.md — WR-02: one contaminated/demotion contract demonstrated at the writer and enforced by the recount in both directions
-- [ ] 36-18-PLAN.md — WR-03/WR-04: badge says "Ranked" only for ranking efforts; contamination count skips demoted efforts
+- [x] 36-15-PLAN.md — CR-01/WR-01: the diff's OLD state applies the pre-phase ceiling; owner-excluded and guard-changed kinds; real-pair ceiling-reinstatement test
+- [x] 36-16-PLAN.md — PR-09 before-state leg: runs the pre-phase pipeline (ebe0245c) and reconciles the diff's BEFORE side, watched red on the pre-fix artifact
+- [x] 36-17-PLAN.md — WR-02: one contaminated/demotion contract demonstrated at the writer and enforced by the recount in both directions
+- [x] 36-18-PLAN.md — WR-03/WR-04: badge says "Ranked" only for ranking efforts; contamination count skips demoted efforts
 
 **Wave 11** *(blocked on Wave 10)*
 
@@ -513,7 +513,7 @@ Plans:
 | 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 14/14 | Complete    | 2026-09-22 |
 | 34. Pause Classification & Forgotten-Stop | v2.3 | 16/16 | Complete    | 2026-09-23 |
 | 35. Stream-Derived Running Pace | v2.3 | 13/13 | Complete    | 2026-09-28 |
-| 36. Best-Effort Clean-Window Search & Ceiling Recalibration | v2.3 | 14/14 | In Progress|  |
+| 36. Best-Effort Clean-Window Search & Ceiling Recalibration | v2.3 | 18/20 | In Progress|  |
 | 37. Review-Queue Priority & CUR-04 | v2.3 | 0/TBD | Not started | - |
 
 *Last updated: 2026-09-19 — **v2.3 Pause & Slew Integrity roadmap created**: 6 phases (32-37), 24/24 requirements mapped, derived from research/SUMMARY.md's suggested sequence (detection → coverage integration → pause/stop → stream pace → best-effort/ceiling → review queue), with the hard dependency chain 32→33→36 preserved. SEG-06 (the unreliable-segment quality signal/badge) placed in Phase 33 rather than Phase 32, keeping Phase 32 compute/calibration-only and grouping the badge with the other consumers `classifyGaps`' output feeds. Phases 33-37 add rendered surfaces and close on a human browser checkpoint; Phase 32 does not. No archive-wide target rates were guessed into any success criterion — v2.2's "~5%" criterion was found jointly unsatisfiable; where a rate is unknown this milestone, the criterion is "measured and reported in a regenerable artifact."
