@@ -101,8 +101,10 @@ export type PlausibilityResult =
  * at that distance intersects a detected unreliable segment — no clean sub-interval
  * covers the distance, so the effort genuinely does not rank. This is distinct from
  * `ComputedEffort.contaminated` below: when a clean window DOES exist, the effort
- * ranks normally on that clean figure and carries `contaminated` as an additive
- * sibling instead of a demotion (Phase 36 D-05).
+ * carries `contaminated` as an additive sibling instead of an `unreliable-segment`
+ * demotion (Phase 36 D-05). The clean figure is still judged independently by the
+ * other guards (D-08; WR-02 contract), so such an effort may ALSO carry a
+ * world-record, max-speed or ceiling demotion; it never carries `unreliable-segment`.
  *
  * This value has THREE required homes which must move in lockstep, or a
  * no-clean-window demotion vanishes or is mis-bucketed with no type error:
@@ -130,9 +132,15 @@ export interface EffortDemotion {
  * The ORIGINAL, unpartitioned best window an effort would have ranked on before
  * the clean-window search (Phase 36 D-05, PR-07) — retained so nothing is deleted.
  * Populated whenever the RAW (unconstrained) sweep result's window intersects at
- * least one detected unreliable segment AND a clean sub-interval was found (so the
- * effort ranks normally on the clean figure, `demotion: null`, and this sibling
- * records what the contaminated figure was and why it was unusable). `guard` is
+ * least one detected unreliable segment AND a clean sub-interval was found. The
+ * WR-02 contract: `contaminated` records which window was measured: the
+ * unpartitioned window intersected an unreliable segment, and the effort's own
+ * figures are the best clean sub-interval. It says nothing about whether the effort
+ * ranks. `demotion` is the guards' independent judgment of that clean figure (D-08):
+ * world-record, max-speed or ceiling may still reject it, in which case the effort
+ * carries both and does not rank. The one impossible pairing is `contaminated` with
+ * an `unreliable-segment` demotion; Branch 3 sets `contaminated: null` by
+ * construction. `guard` is
  * narrowed to the single literal, not the full `EffortDemotionGuard` union, because
  * only this one guard can ever produce a contamination record — widening it would
  * admit a shape no code constructs. The four numeric fields use the same rounding
@@ -188,8 +196,9 @@ export interface ComputedEffort {
    * `demotion` on the same duration. When a clean window exists,
    * `isPlausible`/`ceilingDemotion` evaluate ONLY the clean figure, exactly
    * as today, unmodified — so an effort whose RAW window failed an absolute
-   * guard can rank normally on its clean figure with `demotion: null` and
-   * `contaminated` populated below. When no clean window exists (D-06),
+   * guard can rank on its clean figure with `demotion: null` and
+   * `contaminated` populated below, while a clean figure that itself fails a
+   * guard carries both `contaminated` and that guard's demotion (WR-02). When no clean window exists (D-06),
    * `demotion` is set once, directly, to `{ guard: 'unreliable-segment',
    * reason }`, and `isPlausible` is never independently evaluated against
    * the contaminated figure — mirroring the "once `demotion` is non-null, no
@@ -205,9 +214,13 @@ export interface ComputedEffort {
    * The effort's unpartitioned window when it intersected an unreliable
    * segment but a clean sub-interval was still found (Phase 36 D-05, PR-07).
    * When this is non-null, this effort's OWN `durationSec`/`paceSecPerKm`/
-   * `startOffsetSec`/`endOffsetSec` ARE the clean window and it ranks
-   * normally; `contaminated` records what the unpartitioned window was and
-   * which segment(s) made it unusable. `null` is the correct PERMANENT value
+   * `startOffsetSec`/`endOffsetSec` ARE the clean window. `contaminated`
+   * records which window was measured (what the unpartitioned window was and
+   * which segment(s) made it unusable) and says nothing about rank: `demotion`
+   * is the guards' independent judgment of the clean figure (D-08), so
+   * world-record, max-speed or ceiling may still demote it and the effort then
+   * carries both. The only impossible pair is `contaminated` with an
+   * `unreliable-segment` demotion (Branch 3 sets `contaminated: null`). `null` is the correct PERMANENT value
    * for an effort whose unpartitioned window intersected no segment — not an
    * unset placeholder. Purely additive: does NOT require a schema version
    * bump per the schema version constant's own comment, matching the Phase

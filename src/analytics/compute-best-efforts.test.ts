@@ -549,6 +549,46 @@ describe('clean-window search branches (PR-07, D-04/D-05/D-06)', () => {
   });
 });
 
+describe('WR-02 contract: contaminated records the measured window; demotion is independent', () => {
+  it('WR-02 contract: Branch 2 whose CLEAN figure fails max-speed carries BOTH contaminated and a max-speed demotion, with one rejected row', () => {
+    // t=[0,1,201], d=[0,400,800], segment over indices 0..1: the raw 400m
+    // window (400 m in 1 s) intersects it; the clean 400m is 400 m / 200 s =
+    // 2 m/s. maxSpeedMps 1 gives a max-speed threshold of 1.02 m/s, which the
+    // CLEAN 2 m/s figure exceeds.
+    const t = [0, 1, 201];
+    const d = [0, 400, 800];
+    const segment = makeSegment({ startIndex: 0, endIndex: 1, startSec: 0, endSec: 1, metres: 400, seconds: 1 });
+
+    const result = computeActivityEfforts(
+      baseInput({ activityDistanceM: 800, t, d, segments: [segment], maxSpeedMps: 1 })
+    );
+    const fourHundred = result.efforts.find((e) => e.distance === '400m')!;
+
+    expect(fourHundred.contaminated).not.toBeNull();
+    expect(fourHundred.demotion).not.toBeNull();
+    expect(fourHundred.demotion!.guard).toBe('max-speed');
+    // The effort's own figures are the CLEAN window (2 m/s = 200 s), not the raw 1 s.
+    expect(fourHundred.durationSec).toBeCloseTo(200, 1);
+    expect(result.rejected.filter((r) => r.distance === '400m').length).toBe(1);
+  });
+
+  it('WR-02 contract: Branch 3 (no clean window) never carries contaminated — the one impossible pairing is pinned', () => {
+    const t = [0, 1, 201];
+    const d = [0, 400, 500];
+    const segment = makeSegment({ startIndex: 0, endIndex: 1, startSec: 0, endSec: 1, metres: 400, seconds: 1 });
+
+    const result = computeActivityEfforts(
+      baseInput({ activityDistanceM: 500, t, d, segments: [segment] })
+    );
+    const unreliable = result.efforts.filter((e) => e.demotion?.guard === 'unreliable-segment');
+    // Reachability: the fixture really reaches Branch 3, so the loop below is not vacuous.
+    expect(unreliable.length).toBeGreaterThan(0);
+    for (const e of unreliable) {
+      expect(e.contaminated).toBeNull();
+    }
+  });
+});
+
 describe('contamination reason strings (PR-07, D-07)', () => {
   const raw: RawEffort = {
     durationSec: 79.9,
@@ -2871,6 +2911,100 @@ describe('computeBestEfforts — archive orchestration', () => {
         expect(effort.contaminated).not.toBeNull();
         expect(effort.paceSecPerKm).toBeCloseTo(expectedCleanPaceSecPerKm, 1);
       }
+    });
+
+    it('WR-02 contract: Branch 2 whose CLEAN figure exceeds the archive ceiling, through the real orchestration, carries contaminated plus a ceiling demotion and does not rank', async () => {
+      const CLEAN_COUNT = 100;
+      const CLEAN_SPEED_MPS = 3.5;
+      const FAST_CLEAN_SPEED_MPS = 5.0;
+      // Ceiling arithmetic, by hand, from the population's KNOWN speeds:
+      // population = 100 x 3.5 m/s plus the one contaminated activity's CLEAN
+      // 5.0 m/s = 101 speeds. Nearest-rank p90 index = ceil(0.9 * 101) - 1
+      // = 90, and sorted[90] is 3.5 (indices 0..99 are 3.5, index 100 is 5.0).
+      // Ceiling = CEILING_K * p90 = 1.28 * 3.5 = 4.48 m/s < 5.0 m/s clean.
+      const expectedCeilingMps = 1.28 * CLEAN_SPEED_MPS;
+      expect(FAST_CLEAN_SPEED_MPS).toBeGreaterThan(expectedCeilingMps);
+      expect(FAST_CLEAN_SPEED_MPS).toBeLessThan(WORLD_RECORD_SPEED_MPS['400m']);
+
+      const BURST_SEC = 1;
+      const BURST_METRES = 300;
+      const STEP_SEC = 10;
+      const TAIL_STEPS = 12; // 120 s * 5 m/s = 600 m of uniform clean tail
+      const t = [0, BURST_SEC];
+      const d = [0, BURST_METRES];
+      for (let i = 1; i <= TAIL_STEPS; i++) {
+        t.push(BURST_SEC + i * STEP_SEC);
+        d.push(BURST_METRES + i * STEP_SEC * FAST_CLEAN_SPEED_MPS);
+      }
+
+      const manifest = emptyManifestDoc();
+      const cleanIds = Array.from({ length: CLEAN_COUNT }, (_, i) => `wr02-clean-${i}`);
+      const fastId = 'wr02-fast';
+      for (const id of cleanIds) {
+        manifest.activities[id] = {
+          available: true,
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: 2,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+        };
+      }
+      manifest.activities[fastId] = {
+        available: true,
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: t.length,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+      };
+      await writeManifest(manifest);
+      for (const id of cleanIds) {
+        await writeActivity(id, '2020-01-01T00:00:00Z', 400);
+        await fileStore.writeJson(path.join('streams', `${id}.json`), {
+          schemaVersion: 1,
+          id,
+          source: 'fit',
+          distanceSource: 'native',
+          sampleCount: 2,
+          channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+          t: [0, round1(400 / CLEAN_SPEED_MPS)],
+          d: [0, 400],
+        });
+      }
+      // Reachability: the burst is detected, so the fast activity is Branch 2.
+      expect(classifyGapsWithSegments(t, d).segments.length).toBeGreaterThan(0);
+      await writeActivity(fastId, '2021-01-01T00:00:00Z', d[d.length - 1], 30);
+      await fileStore.writeJson(path.join('streams', `${fastId}.json`), {
+        schemaVersion: 1,
+        id: fastId,
+        source: 'fit',
+        distanceSource: 'native',
+        sampleCount: t.length,
+        channels: { time: true, distance: true, hr: false, cadence: false, elevation: false },
+        t,
+        d,
+      });
+
+      const doc = await computeBestEfforts({
+        activitiesDir: path.join(tmpDir, 'activities'),
+        streamsDir: path.join(tmpDir, 'streams'),
+        streamsManifestPath: path.join(tmpDir, 'streams', 'manifest.json'),
+        statsDir: path.join(tmpDir, 'stats'),
+        ceilingStatePath: path.join(tmpDir, 'ceiling-state.json'),
+        exclusionsPath: path.join(tmpDir, 'no-such-exclusions.json'),
+      });
+
+      expect(doc.ceilings['400m'].populationN).toBe(CLEAN_COUNT + 1);
+      expect(doc.ceilings['400m'].ceilingMps).toBeCloseTo(expectedCeilingMps, 2);
+
+      const effort = doc.activities[fastId].efforts.find((e) => e.distance === '400m')!;
+      expect(effort.contaminated).not.toBeNull();
+      expect(effort.demotion).not.toBeNull();
+      expect(effort.demotion!.guard).toBe('ceiling');
+      expect(doc.rankings['400m'].some((r) => r.activityId === fastId)).toBe(false);
+      // Direction that can fail: the clean activities DO rank.
+      // (rankings are capped, so assert non-empty and clean-only rather than the full count.)
+      expect(doc.rankings['400m'].length).toBeGreaterThan(0);
+      expect(doc.rankings['400m'].every((r) => r.activityId.startsWith('wr02-clean-'))).toBe(true);
     });
 
     it("no-clean-window activities are excluded entirely from populationN — 100, not 103 — while carrying demotion under 'unreliable-segment'", async () => {
