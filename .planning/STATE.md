@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
 status: executing
-stopped_at: Phase 36 context gathered
+stopped_at: Phase 36 verification gaps_found — awaiting /gsd-plan-phase 36 --gaps
 last_updated: "2026-09-28T13:29:21.445Z"
-last_activity: 2026-09-28 -- Phase 36 execution started
+last_activity: 2026-11-24 -- Phase 36 plans 14/14 executed; verification gaps_found (CR-01 diff OLD state, PR-09 reopened)
 progress:
   total_phases: 6
   completed_phases: 4

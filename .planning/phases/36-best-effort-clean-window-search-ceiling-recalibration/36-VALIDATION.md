@@ -264,6 +264,7 @@ The round ran on the PRIMARY checkout (`/Users/pedf/workspace/strava-widgets`), 
 - **The signature explicitly covers the half-marathon fail-open finding (D-10):** the half-marathon ceiling population fell 104 -> 71, below `CEILING_MIN_POPULATION` = 100, so the half-marathon fails open and keeps only the world-record and max-speed guards. The floor was not moved to rescue it.
 - Shown to the developer before the decision: totals (moved 1097, newly demoted 391, reinstated 31 = 31 absolute-guard + 0 ceiling, unchanged 7472); every per-distance ceiling row with its cause, including marathon not moving and 10k rising; the fail-open finding in full; the three-way reconciliation (legs 1 and 2 share one generator, leg 3 is independent, pass=1440 fail=0 notAssessable=74; the diff's internal 1097 vs 1128 gap is the 31 reinstatements; the two recount caveats: p75 was chosen by outcome, and 52 whole-activity windows cannot be assessed); D-17 queue evidence presented as evidence only, no queue change made or claimed.
 - No signature or hash is written inside either artifact.
+- **Superseded 2026-11-24 (orchestrator, after `/gsd-execute-phase 36` verification):** `36-VERIFICATION.md` returned `gaps_found` on ROADMAP criterion 4 / PR-09. `36-REVIEW.md` CR-01, confirmed in code (`compute-clean-window-diff.mjs`: `oldCeilings` reaches only `buildCeilingTable`), shows the signed `36-DIFF.md` never applies the pre-phase ceiling to its OLD reconstruction, so the figure shown to the developer, "reinstated 31 = 31 absolute-guard + 0 ceiling", was structurally unable to report a ceiling reinstatement. The decision above stays on record verbatim; it no longer binds, because the corrected diff will carry a new sha256. `36-CEILING-RECALIBRATION.md` is not implicated.
 
 ## Requirement Disposition (plan 36-14, Task 3)
 
@@ -274,7 +275,7 @@ The checkpoint table has no `Requirement` column, so the mapping of checkpoint r
 | PR-06 | a (partition figure of `3475740390`@400m; map rows 36-05 T1, 36-06) | PASS | all map rows green, all checkpoint rows PASS: ticked |
 | PR-07 | b, c, d, e, f (contaminated and demoted surfaces; map rows 36-08, 36-09 D-15/D-16) | b, c, f PASS; d, e FAIL | withheld by rows d and e |
 | PR-08 | g (half-marathon fail-open; D-10 is PR-08's own amendment) | FAIL | withheld by row g |
-| PR-09 | a (pinned scoping fixture), h (signature hashes) | PASS, PASS; signature decision `sign-both` | ticked |
+| PR-09 | a (pinned scoping fixture), h (signature hashes) | PASS, PASS; signature decision `sign-both` | ticked, then REOPENED 2026-11-24 by verification (CR-01; signature superseded) |
 | SEG-05b | map row 36-05 T4 (`-t "Phase 36 half"`, matched 1, green) | n/a, no checkpoint row | final half recorded; ticked on the two-condition rule (all four halves present in the row's text, stub proof green) |
 
 `nyquist_compliant` is `false`: every Per-Task Verification Map row is green with a non-zero matched count, but the rule also requires every checkpoint row to be PASS, and d, e and g are FAIL. The earlier statement under the map that `nyquist_compliant: true` was set referred to the map rows only. `status: partial`.
