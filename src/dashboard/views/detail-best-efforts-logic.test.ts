@@ -451,7 +451,7 @@ describe('prFlagBadgeSpecs', () => {
 describe('prFlagBadgeSpecs — contaminated badge (Phase 36 D-15)', () => {
   it('a contaminated row with a reason produces exactly one spec of kind "contaminated", visibleText starting with the fixed prefix and containing the reason verbatim, with a distinct explanation from the demoted branch', () => {
     const specs = prFlagBadgeSpecs(
-      panelRow({ contaminated: true, contaminatedReason: '52 m burst at t=2508' }),
+      panelRow({ contaminated: true, contaminatedReason: '52 m burst at t=2508', excluded: false, demoted: false }),
       null
     );
     expect(specs.length).toBe(1);
@@ -466,7 +466,10 @@ describe('prFlagBadgeSpecs — contaminated badge (Phase 36 D-15)', () => {
   });
 
   it('a contaminated row with contaminatedReason: null falls back to "Ranked on clean window" with no trailing dash', () => {
-    const specs = prFlagBadgeSpecs(panelRow({ contaminated: true, contaminatedReason: null }), null);
+    const specs = prFlagBadgeSpecs(
+      panelRow({ contaminated: true, contaminatedReason: null, excluded: false, demoted: false }),
+      null
+    );
     expect(specs.length).toBe(1);
     expect(specs[0].visibleText).toBe('Ranked on clean window');
   });
@@ -522,6 +525,74 @@ describe('prFlagBadgeSpecs — contaminated badge (Phase 36 D-15)', () => {
     expect(specs[0].kind).toBe('demoted');
     expect(specs[0].visibleText).toContain('no clean window found; segment spans the entire target distance');
     expect(specs.some((s) => s.kind === 'contaminated')).toBe(false);
+  });
+});
+
+describe('prFlagBadgeSpecs — contaminated badge on a non-ranking row WR-03', () => {
+  const RANKED_EXPLANATION =
+    'the ranked time excludes an unreliable segment; the original time and the segment that caused it are named here, without leaving this view';
+  const MEASURED_EXPLANATION =
+    'the time shown excludes an unreliable segment, but this effort does not rank (see the other badges on this row); the original time and the segment that caused it are named here, without leaving this view';
+
+  it('a ranking contaminated row keeps exactly "Ranked on clean window — seg" and the ranked explanation', () => {
+    const specs = prFlagBadgeSpecs(panelRow({ contaminated: true, contaminatedReason: 'seg' }), null);
+    expect(specs[0].visibleText).toBe('Ranked on clean window — seg');
+    expect(specs[0].explanation).toBe(RANKED_EXPLANATION);
+  });
+
+  it('an owner-excluded contaminated row reads "Measured on clean window — seg" and no spec says Ranked', () => {
+    const specs = prFlagBadgeSpecs(
+      panelRow({ contaminated: true, contaminatedReason: 'seg', excluded: true }),
+      'owner reason'
+    );
+    const c = specs.find((s) => s.kind === 'contaminated')!;
+    expect(c.visibleText).toBe('Measured on clean window — seg');
+    expect(c.explanation).toBe(MEASURED_EXPLANATION);
+    expect(c.descriptionIdSuffix).toBe('contaminated');
+    expect(specs.some((s) => s.visibleText.includes('Ranked'))).toBe(false);
+  });
+
+  it('a demoted contaminated row reads "Measured on clean window — seg" and no spec says Ranked', () => {
+    const specs = prFlagBadgeSpecs(
+      panelRow({ contaminated: true, contaminatedReason: 'seg', demoted: true, demotionReason: 'x' }),
+      null
+    );
+    const c = specs.find((s) => s.kind === 'contaminated')!;
+    expect(c.visibleText).toBe('Measured on clean window — seg');
+    expect(c.explanation).toBe(MEASURED_EXPLANATION);
+    expect(specs.some((s) => s.visibleText.includes('Ranked'))).toBe(false);
+  });
+
+  it('null-reason fallbacks: Measured when excluded, Ranked when ranking, no trailing dash', () => {
+    const excl = prFlagBadgeSpecs(
+      panelRow({ contaminated: true, contaminatedReason: null, excluded: true }),
+      null
+    );
+    expect(excl[0].visibleText).toBe('Measured on clean window');
+    const dem = prFlagBadgeSpecs(
+      panelRow({ contaminated: true, contaminatedReason: null, demoted: true }),
+      null
+    );
+    expect(dem.find((s) => s.kind === 'contaminated')!.visibleText).toBe('Measured on clean window');
+    const ok = prFlagBadgeSpecs(panelRow({ contaminated: true, contaminatedReason: null }), null);
+    expect(ok[0].visibleText).toBe('Ranked on clean window');
+  });
+
+  it('the all-flags row never contains the word Ranked and keeps the five-kind order', () => {
+    const specs = prFlagBadgeSpecs(
+      panelRow({
+        isPr: true,
+        contaminated: true,
+        contaminatedReason: 'seg',
+        demoted: true,
+        demotionReason: 'x',
+        lowConfidence: true,
+        excluded: true,
+      }),
+      'owner reason'
+    );
+    expect(specs.map((s) => s.kind)).toEqual(['pr', 'contaminated', 'demoted', 'low-confidence', 'excluded']);
+    expect(specs.some((s) => s.visibleText.includes('Ranked'))).toBe(false);
   });
 });
 

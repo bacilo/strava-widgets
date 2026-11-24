@@ -126,7 +126,9 @@ export interface BestEffortPanelRow {
    * `demoted` (a guard's rejection of the measured figure) and from
    * `excluded` (the owner's stated intent): all three can be true on the
    * same row at once. This row's own `durationSec`/`paceSecPerKm` ARE the
-   * clean window and rank normally; the four `contaminated*` fields below
+   * clean window; it ranks only when neither `demoted` nor `excluded`
+   * (WR-02 contract: `contaminated` is which window, `demoted` is whether
+   * it ranks). The four `contaminated*` fields below
    * describe the ORIGINAL unpartitioned window the ranked figure replaced.
    * Read via `!= null` (T-28-02-A), so a stale shard shipped before this
    * field existed degrades to `contaminated: false` and three `null`s
@@ -271,10 +273,12 @@ export interface PrFlagBadgeSpec {
  * fixed order is machine measurement, then machine judgment, then owner
  * intent. This branch is how D-15's two bounds are satisfied: the original
  * figure and its reason are reachable WITHOUT leaving the detail view,
- * because this is a badge on the same panel row; and the ranked figure is
- * NEVER presented as if nothing changed, because the badge fires whenever
- * `row.contaminated` is true, independently of `demotion`, which is `null`
- * for every moved (contaminated-but-ranked) effort.
+ * because this is a badge on the same panel row; and the figure is NEVER
+ * presented as if nothing changed, because the badge fires whenever
+ * `row.contaminated` is true. WR-02 contract: `contaminated` says which
+ * window was measured; `demotion` independently says whether it ranks. The
+ * badge word follows rank: "Ranked" only when neither demoted nor excluded,
+ * otherwise "Measured".
  *
  * `exclusionReason` is a REQUIRED second parameter with no default
  * (WR-05's discipline, matching `buildPrBadgeLabels`) — a forgotten call
@@ -297,13 +301,17 @@ export function prFlagBadgeSpecs(
   }
 
   if (row.contaminated) {
+    // WR-03: "Ranked" is only true when the effort actually ranks, i.e.
+    // neither owner-excluded nor demoted. Otherwise the badge says which
+    // window was measured and nothing more.
+    const ranks = !row.excluded && !row.demoted;
+    const lead = ranks ? 'Ranked on clean window' : 'Measured on clean window';
     specs.push({
       kind: 'contaminated',
-      visibleText: row.contaminatedReason
-        ? `Ranked on clean window — ${row.contaminatedReason}`
-        : 'Ranked on clean window',
-      explanation:
-        'the ranked time excludes an unreliable segment; the original time and the segment that caused it are named here, without leaving this view',
+      visibleText: row.contaminatedReason ? `${lead} — ${row.contaminatedReason}` : lead,
+      explanation: ranks
+        ? 'the ranked time excludes an unreliable segment; the original time and the segment that caused it are named here, without leaving this view'
+        : 'the time shown excludes an unreliable segment, but this effort does not rank (see the other badges on this row); the original time and the segment that caused it are named here, without leaving this view',
       descriptionIdSuffix: 'contaminated',
     });
   }
