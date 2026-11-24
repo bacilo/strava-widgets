@@ -942,6 +942,46 @@ describe('countContaminatedAtDistance — Phase 36 D-05/D-16, the walked moved-b
   });
 });
 
+describe('countContaminatedAtDistance — skips demoted efforts WR-04', () => {
+  const contamination = {
+    guard: 'unreliable-segment' as const,
+    reason: 'a 52.4m/5s unreliable segment was excluded from the original window',
+    durationSec: 119.6,
+    paceSecPerKm: 299.0,
+    startOffsetSec: 1308,
+    endOffsetSec: 1427.6,
+  };
+  const doc = (demotion?: { guard: 'ceiling' | 'max-speed'; reason: string }): BestEffortsDocument['activities'] => ({
+    a1: fixtureActivity({
+      activityId: 'a1',
+      startDate: '2024-01-01T00:00:00Z',
+      efforts: [
+        fixtureEffort({ distance: '400m', durationSec: 119.6, contaminated: { ...contamination } }),
+        fixtureEffort({
+          distance: '400m',
+          durationSec: 50,
+          contaminated: { ...contamination },
+          ...(demotion ? { demotion } : {}),
+        }),
+      ],
+    }),
+  });
+
+  it('a contaminated and ceiling-demoted effort is not counted, and is counted by countDemotedAtDistance (disjoint populations)', () => {
+    const activities = doc({ guard: 'ceiling', reason: 'x' });
+    expect(countContaminatedAtDistance(activities, '400m')).toBe(1);
+    expect(countDemotedAtDistance(activities, '400m').total).toBe(1);
+  });
+
+  it('a contaminated and max-speed-demoted effort is not counted', () => {
+    expect(countContaminatedAtDistance(doc({ guard: 'max-speed', reason: 'x' }), '400m')).toBe(1);
+  });
+
+  it('control: without a demotion both contaminated efforts count', () => {
+    expect(countContaminatedAtDistance(doc(), '400m')).toBe(2);
+  });
+});
+
 describe('resolvePrTableContaminationNote — D-16, mirroring resolvePrTableDemotionNote\'s two null rules', () => {
   it('returns null when contaminatedCount is 0', () => {
     expect(resolvePrTableContaminationNote('400m', 'all-time', 0)).toBeNull();
