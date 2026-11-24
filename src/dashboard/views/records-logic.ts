@@ -376,12 +376,15 @@ export function resolvePrTableDemotionNote(
  * counter). Uses the same `hasOwn` guard as `countDemotedAtDistance` and
  * `buildEvolutionSeries`.
  *
- * A contaminated effort still RANKS — this is NOT a demotion count, and this
- * count and `countDemotedAtDistance`'s total must never be added together or
- * presented as one number: they describe two different populations (D-16,
- * T-36-51). Skips `effort.excludedFromRecords === true` (D-10), exactly as
- * `countDemotedAtDistance` does, so the machine's observation about a clean
- * window never leaks into a sentence about what the owner chose to exclude.
+ * Counts contaminated efforts that RANK: neither owner-excluded (D-10) nor
+ * demoted (under the WR-02 contract a guard may reject the clean figure, in
+ * which case the effort does not rank). This is NOT a demotion count, and
+ * this count and `countDemotedAtDistance`'s total must never be added
+ * together or presented as one number (D-16, T-36-51); the skips make the two
+ * populations disjoint by construction (WR-04). The `excludedFromRecords`
+ * skip mirrors `countDemotedAtDistance`, so the machine's observation about a
+ * clean window never leaks into a sentence about what the owner chose to
+ * exclude.
  * Reads `effort.contaminated` only through `!= null` (T-28-02-A style), so a
  * stale shard written before this field existed degrades to "not
  * contaminated" rather than throwing.
@@ -400,6 +403,7 @@ export function countContaminatedAtDistance(
     for (const effort of activity.efforts) {
       if (effort.distance !== distance) continue;
       if (effort.excludedFromRecords === true) continue;
+      if (effort.demotion != null) continue;
       if (effort.contaminated != null) count++;
     }
   }
