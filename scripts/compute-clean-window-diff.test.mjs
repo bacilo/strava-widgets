@@ -13,9 +13,11 @@ import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
-import { TARGET_ORDER } from '../dist/analytics/best-effort.types.js';
+import { TARGET_METERS, TARGET_ORDER } from '../dist/analytics/best-effort.types.js';
 
+import { buildPopulations } from './compute-ceiling-recalibration.mjs';
 import {
+  applyOldCeilings,
   buildRankChanges,
   classifyEffortChanges,
   crossCheckCeilingAgainstRecalibration,
@@ -36,7 +38,22 @@ const MOVED_BUT_RANKED_RENDER_CAP = 50;
 
 /** Minimal flat OLD-effort record, the shape `reconstructOldEfforts` returns. */
 function makeOldEffort({ activityId, distance, durationSec, demotion = null, excludedFromRecords = false }) {
-  return { activityId, distance, durationSec, impliedSpeedMps: null, demotion, excludedFromRecords };
+  // applyOldCeilings reads impliedSpeedMps, so a fixture carries the real one (meters / duration).
+  const meters = TARGET_METERS[distance];
+  const impliedSpeedMps = meters && durationSec > 0 ? meters / durationSec : null;
+  return { activityId, distance, durationSec, impliedSpeedMps, demotion, excludedFromRecords };
+}
+
+/** A full CeilingDerivation fixture. */
+function makeCeiling(distance, ceilingMps) {
+  return {
+    distance,
+    populationN: 100,
+    p90Mps: ceilingMps === null ? null : ceilingMps / 1.28,
+    multiplier: 1.28,
+    ceilingMps,
+    failOpenReason: ceilingMps === null ? 'population below minimum' : null,
+  };
 }
 
 /** Minimal `ComputedEffort`/`BestEffort`-shaped NEW effort fixture. */
@@ -121,6 +138,75 @@ function baseReport(overrides = {}) {
 }
 
 // ---------------------------------------------------------------------------
+// CR-01 — the OLD state applies the pre-phase ceiling
+// ---------------------------------------------------------------------------
+
+describe('applyOldCeilings CR-01', () => {
+  // 400m at 60 s is 6.667 m/s; at 100 s is 4.0 m/s.
+  const ceilings = { '400m': makeCeiling('400m', 5.0), '1k': makeCeiling('1k', null) };
+
+  it('sets guard ceiling on a null-demotion record whose speed is strictly above the ceiling', () => {
+    const out = applyOldCeilings([makeOldEffort({ activityId: '1', distance: '400m', durationSec: 60 })], ceilings);
+    expect(out[0].demotion.guard).toBe('ceiling');
+    expect(typeof out[0].demotion.reason).toBe('string');
+  });
+
+  it('leaves a record at or below the ceiling unchanged (demotion stays null)', () => {
+    const out = applyOldCeilings([makeOldEffort({ activityId: '1', distance: '400m', durationSec: 100 })], ceilings);
+    expect(out[0].demotion).toBeNull();
+  });
+
+  it('never overwrites an absolute guard: a max-speed record keeps max-speed', () => {
+    const demotion = { guard: 'max-speed', reason: 'above max_speed' };
+    const out = applyOldCeilings(
+      [makeOldEffort({ activityId: '1', distance: '400m', durationSec: 60, demotion })],
+      ceilings
+    );
+    expect(out[0].demotion).toEqual(demotion);
+  });
+
+  it('leaves a record at a distance whose ceilingMps is null (or absent) unchanged', () => {
+    const out = applyOldCeilings(
+      [
+        makeOldEffort({ activityId: '1', distance: '1k', durationSec: 100 }),
+        makeOldEffort({ activityId: '2', distance: '5k', durationSec: 600 }),
+      ],
+      ceilings
+    );
+    expect(out[0].demotion).toBeNull();
+    expect(out[1].demotion).toBeNull();
+  });
+
+  it('also demotes an owner-excluded over-ceiling record (production parity with the excluded sweep)', () => {
+    const out = applyOldCeilings(
+      [makeOldEffort({ activityId: '1', distance: '400m', durationSec: 60, excludedFromRecords: true })],
+      ceilings
+    );
+    expect(out[0].demotion.guard).toBe('ceiling');
+    expect(out[0].excludedFromRecords).toBe(true);
+  });
+
+  it('does not mutate its input array or its records', () => {
+    const input = [
+      makeOldEffort({ activityId: '1', distance: '400m', durationSec: 60 }),
+      makeOldEffort({ activityId: '2', distance: '400m', durationSec: 100 }),
+    ];
+    const before = structuredClone(input);
+    const out = applyOldCeilings(input, ceilings);
+    expect(input).toEqual(before);
+    expect(out).not.toBe(input);
+    expect(out[0]).not.toBe(input[0]);
+  });
+
+  it('ORDERING: buildPopulations(useOld) rejects the ceiling-applied array, so the ceiling must be derived first', () => {
+    const input = [makeOldEffort({ activityId: '1', distance: '400m', durationSec: 60 })];
+    expect(() => buildPopulations(input, { useOld: true })).not.toThrow();
+    const applied = applyOldCeilings(input, ceilings);
+    expect(() => buildPopulations(applied, { useOld: true })).toThrow(/ceiling/);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // a. CLASSIFICATION — one record per kind, fails closed on ambiguity
 // ---------------------------------------------------------------------------
 
@@ -190,7 +276,7 @@ describe('classifyEffortChanges', () => {
     expect(byActivity['1004'].kind).toBe('unchanged');
 
     // Each record falls into exactly one kind.
-    const kinds = ['moved-but-ranked', 'newly-demoted', 'reinstated', 'unchanged'];
+    const kinds = ['excluded', 'reinstated', 'moved-but-ranked', 'newly-demoted', 'demoted-guard-changed', 'unchanged'];
     for (const change of changes) {
       const matches = kinds.filter((k) => k === change.kind);
       expect(matches.length).toBe(1);
@@ -220,6 +306,66 @@ describe('classifyEffortChanges', () => {
   });
 });
 
+describe('classifyEffortChanges — owner-excluded and guard-changed kinds WR-01', () => {
+  const classifyOne = (oldEffort, newEffort) => {
+    const newDoc = makeNewDoc([makeActivity({ activityId: oldEffort.activityId, efforts: [newEffort] })]);
+    return classifyEffortChanges(newDoc, [oldEffort])[0];
+  };
+  const ceilingGuard = { guard: 'ceiling', reason: 'over ceiling' };
+
+  it('files an effort owner-excluded on the NEW side as excluded, whatever its guards', () => {
+    const c = classifyOne(
+      makeOldEffort({ activityId: '1', distance: '400m', durationSec: 90 }),
+      makeNewEffort({ distance: '400m', durationSec: 90, excludedFromRecords: true })
+    );
+    expect(c.kind).toBe('excluded');
+  });
+
+  it('files an effort owner-excluded on the OLD side as excluded even with a reinstating guard pattern', () => {
+    const c = classifyOne(
+      makeOldEffort({
+        activityId: '1',
+        distance: '400m',
+        durationSec: 60,
+        demotion: ceilingGuard,
+        excludedFromRecords: true,
+      }),
+      makeNewEffort({ distance: '400m', durationSec: 90 })
+    );
+    expect(c.kind).toBe('excluded');
+  });
+
+  it('old ceiling plus new null is reinstated', () => {
+    const c = classifyOne(
+      makeOldEffort({ activityId: '1', distance: '400m', durationSec: 60, demotion: ceilingGuard }),
+      makeNewEffort({ distance: '400m', durationSec: 90 })
+    );
+    expect(c.kind).toBe('reinstated');
+  });
+
+  it('old ceiling plus new unreliable-segment is demoted-guard-changed, never unchanged or newly-demoted', () => {
+    const c = classifyOne(
+      makeOldEffort({ activityId: '1', distance: '400m', durationSec: 60, demotion: ceilingGuard }),
+      makeNewEffort({
+        distance: '400m',
+        durationSec: 60,
+        demotion: { guard: 'unreliable-segment', reason: 'no clean window' },
+      })
+    );
+    expect(c.kind).toBe('demoted-guard-changed');
+    expect(c.oldGuard).toBe('ceiling');
+    expect(c.newGuard).toBe('unreliable-segment');
+  });
+
+  it('old ceiling plus new ceiling is unchanged', () => {
+    const c = classifyOne(
+      makeOldEffort({ activityId: '1', distance: '400m', durationSec: 60, demotion: ceilingGuard }),
+      makeNewEffort({ distance: '400m', durationSec: 60, demotion: ceilingGuard })
+    );
+    expect(c.kind).toBe('unchanged');
+  });
+});
+
 // ---------------------------------------------------------------------------
 // b. REINSTATEMENT SPLIT
 // ---------------------------------------------------------------------------
@@ -239,6 +385,13 @@ describe('splitReinstatements', () => {
     expect(absoluteGuard.every((c) => c.oldGuard === 'max-speed' || c.oldGuard === 'world-record')).toBe(true);
     expect(ceiling.map((c) => c.activityId)).toEqual(['c']);
     expect(ceiling[0].oldGuard).toBe('ceiling');
+  });
+
+  it('throws (fails closed) on a reinstated record with an unknown OLD guard, naming the pair and guard', () => {
+    const changes = [
+      { activityId: 'z', distance: '1k', kind: 'reinstated', oldGuard: 'unreliable-segment', oldReason: 'x' },
+    ];
+    expect(() => splitReinstatements(changes)).toThrow(/z.*1k.*unreliable-segment/s);
   });
 });
 
@@ -306,30 +459,49 @@ describe('buildRankChanges', () => {
 describe('reconcileCounts', () => {
   it('reports agreement on both checks when the lists and the walked counts match', () => {
     const changes = [
-      { kind: 'newly-demoted', newGuard: 'unreliable-segment' },
-      { kind: 'moved-but-ranked' },
+      { kind: 'newly-demoted', newGuard: 'unreliable-segment', contaminatedReason: null },
+      { kind: 'moved-but-ranked', newGuard: null, contaminatedReason: 'segment' },
     ];
     const guardCounts = { totals: { 'unreliable-segment': 1, contaminated: 1 } };
 
     const rows = reconcileCounts(changes, guardCounts);
-    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.length).toBe(2);
     expect(rows.every((r) => r.agrees)).toBe(true);
+    expect(rows.every((r) => typeof r.addends === 'object')).toBe(true);
+  });
+
+  it('agrees on a fixture mixing moved, reinstated-with-contamination, excluded-contaminated and excluded-unreliable-segment records', () => {
+    const changes = [
+      { kind: 'moved-but-ranked', newGuard: null, contaminatedReason: 'seg' },
+      { kind: 'reinstated', newGuard: null, contaminatedReason: 'seg' },
+      { kind: 'excluded', newGuard: null, contaminatedReason: 'seg' },
+      { kind: 'excluded', newGuard: 'unreliable-segment', contaminatedReason: null },
+      { kind: 'newly-demoted', newGuard: 'unreliable-segment', contaminatedReason: null },
+      { kind: 'demoted-guard-changed', newGuard: 'unreliable-segment', contaminatedReason: null },
+    ];
+    const guardCounts = { totals: { 'unreliable-segment': 3, contaminated: 3 } };
+    const rows = reconcileCounts(changes, guardCounts);
+    expect(rows.every((r) => r.agrees)).toBe(true);
+    const contaminatedRow = rows.find((r) => r.check.includes('contaminated'));
+    expect(contaminatedRow.addends).toMatchObject({ 'moved-but-ranked': 1, reinstated: 1, excluded: 1 });
+    const segmentRow = rows.find((r) => r.check.includes('unreliable-segment'));
+    expect(segmentRow.addends).toMatchObject({ 'newly-demoted': 1, 'demoted-guard-changed': 1, excluded: 1 });
   });
 
   it('reports a disagreement (never throws) when a contaminated effort is omitted from the lists, naming both figures', () => {
     const changes = [
-      { kind: 'newly-demoted', newGuard: 'unreliable-segment' },
-      // Deliberately NO 'moved-but-ranked' record here, even though the
+      { kind: 'newly-demoted', newGuard: 'unreliable-segment', contaminatedReason: null },
+      // Deliberately NO contaminated record here, even though the
       // walked document below claims 5 contaminated efforts exist.
     ];
     const guardCounts = { totals: { 'unreliable-segment': 1, contaminated: 5 } };
 
     const rows = reconcileCounts(changes, guardCounts);
-    const movedRow = rows.find((r) => r.check.includes('moved-but-ranked'));
-    expect(movedRow).toBeDefined();
-    expect(movedRow.agrees).toBe(false);
-    expect(movedRow.listsFigure).toBe(0);
-    expect(movedRow.walkedFigure).toBe(5);
+    const contaminatedRow = rows.find((r) => r.check.includes('contaminated'));
+    expect(contaminatedRow).toBeDefined();
+    expect(contaminatedRow.agrees).toBe(false);
+    expect(contaminatedRow.listsFigure).toBe(0);
+    expect(contaminatedRow.walkedFigure).toBe(5);
 
     // The sibling check (unreliable-segment) still agrees — a disagreement in
     // one check must not corrupt the other.
@@ -341,16 +513,90 @@ describe('reconcileCounts', () => {
     const report = baseReport({
       reconciliation: [
         {
-          check: "'moved-but-ranked' record count vs the walked contaminated-effort count",
+          check: 'contaminated records across every kind vs the walked contaminated-effort count',
           listsFigure: 10,
           walkedFigure: 15,
           agrees: false,
+          addends: { 'moved-but-ranked': 10 },
         },
       ],
     });
     const markdown = renderDiffMarkdown(report);
     expect(markdown).toContain('| 10 | 15 | NO |');
     expect(markdown.toLowerCase()).toContain('disagree');
+  });
+});
+
+describe('renderDiffMarkdown headline and new sections', () => {
+  const change = (kind, extra = {}) => ({
+    activityId: '123456',
+    distance: '400m',
+    oldDurationSec: 100,
+    newDurationSec: 90,
+    oldPaceSecPerKm: 250,
+    newPaceSecPerKm: 225,
+    oldGuard: null,
+    oldReason: null,
+    newGuard: null,
+    newReason: null,
+    contaminatedReason: null,
+    kind,
+    ...extra,
+  });
+
+  it('renders the seven exact headline lines', () => {
+    const md = renderDiffMarkdown(baseReport());
+    const lines = md.split('\n');
+    const has = (prefix) => lines.some((l) => l.startsWith(prefix));
+    expect(has('- Moved but still ranked: ')).toBe(true);
+    expect(has('- Newly demoted: ')).toBe(true);
+    expect(lines).toContain('- Reinstated: 0 (0 absolute-guard, 0 ceiling)');
+    expect(has('- Demoted before and after, guard changed: ')).toBe(true);
+    expect(has('- Unchanged: ')).toBe(true);
+    expect(lines).toContain(
+      '- Owner-excluded, omitted from the five populations above: 0 (the Records screen skips these too)'
+    );
+    expect(has('- Distances whose ceiling moved: ')).toBe(true);
+  });
+
+  it('renders the per-distance reinstatement table first under ## Reinstated', () => {
+    const absolute = change('reinstated', { oldGuard: 'max-speed', oldReason: 'r' });
+    const ceiling = change('reinstated', { oldGuard: 'ceiling', oldReason: 'r', distance: '1k' });
+    const md = renderDiffMarkdown(
+      baseReport({
+        changes: [absolute, ceiling],
+        reinstatements: { absoluteGuard: [absolute], ceiling: [ceiling] },
+      })
+    );
+    const start = md.indexOf('## Reinstated');
+    const section = md.slice(start).split('\n');
+    const headerIdx = section.indexOf('| Distance | Absolute-guard reinstatements | Ceiling reinstatements |');
+    expect(headerIdx).toBe(2);
+    expect(section[headerIdx + 1]).toBe('|---|---|---|');
+    expect(section[headerIdx + 2]).toBe('| 400m | 1 | 0 |');
+    expect(section[headerIdx + 3]).toBe('| 1k | 0 | 1 |');
+  });
+
+  it('renders the owner-excluded section, its per-distance table, and the headline count', () => {
+    const md = renderDiffMarkdown(baseReport({ changes: [change('excluded'), change('excluded')] }));
+    expect(md).toContain('## Owner-Excluded Efforts');
+    expect(md).toContain('| Distance | Owner-excluded efforts |');
+    expect(md).toContain('| 400m | 2 |');
+    expect(md).toContain(
+      '- Owner-excluded, omitted from the five populations above: 2 (the Records screen skips these too)'
+    );
+  });
+
+  it('renders the guard-changed section with old and new guard, or the none sentence', () => {
+    const md = renderDiffMarkdown(
+      baseReport({
+        changes: [change('demoted-guard-changed', { oldGuard: 'ceiling', newGuard: 'unreliable-segment' })],
+      })
+    );
+    expect(md).toContain('## Demoted Before and After, Guard Changed');
+    expect(md).toContain('| 123456 | 400m | ceiling | unreliable-segment |');
+    expect(md).toContain('- Demoted before and after, guard changed: 1');
+    expect(renderDiffMarkdown(baseReport())).toContain('No effort changed demotion guard.');
   });
 });
 

@@ -18,34 +18,40 @@
  * same pre-phase state. This file defines no reconstruction of its own; the
  * only reconstruction identifier appearing below is the imported one.
  *
- * FOUR POPULATIONS (36-CONTEXT.md's own definitions, restated so a reader
- * can audit which one fired): MOVED-BUT-RANKED (`contaminated != null` and
- * the effort ranks both before and after), NEWLY DEMOTED (ranked before, not
- * ranked after), REINSTATED (not ranked before, ranked after — split further
- * below), UNCHANGED (neither). A record falls into exactly one kind,
- * resolved by priority (REINSTATED first) rather than left ambiguous: 31
- * real activity/distance pairs (36-RESEARCH.md D-08) are BOTH "ranked on a
- * moved clean figure" and "not ranked before" at once — today's absolute
- * guards (`world-record`/`max-speed`) evaluate the single unconstrained
- * sweep result, so an effort whose RAW window fails an absolute guard but
- * which has a clean sub-interval is reinstated by this phase, not merely
- * moved. REINSTATED is checked first so these 31 pairs land there, where
- * 36-RESEARCH.md's own finding says they belong, not in MOVED-BUT-RANKED.
- * The genuinely ambiguous, fail-closed case this file guards against is a
+ * SIX KINDS (36-CONTEXT.md's definitions, restated so a reader can audit
+ * which one fired). A record falls into exactly one kind, resolved by
+ * priority: EXCLUDED (owner-excluded on either side, disclosed and never
+ * classified further — WR-01: the Records screen skips these too, so the diff
+ * and that screen reconcile on a stated difference), REINSTATED (demoted
+ * before, ranked after — split by OLD guard into absolute-guard and ceiling),
+ * MOVED-BUT-RANKED (`contaminated != null` and ranked on both sides),
+ * NEWLY DEMOTED (ranked before, demoted after), DEMOTED-GUARD-CHANGED
+ * (demoted on both sides under a DIFFERENT guard — never silently filed as
+ * unchanged or newly demoted), UNCHANGED (same ranked state, same guard).
+ * REINSTATED is checked before MOVED-BUT-RANKED because an effort whose RAW
+ * window failed an absolute guard but which has a clean sub-interval is both
+ * "ranked on a moved clean figure" and "not ranked before" at once; it
+ * belongs with the reinstatements (36-RESEARCH.md D-08). The measured size of
+ * each kind lives in the generated artifact, never in this source. The
+ * genuinely ambiguous, fail-closed case this file guards against is a
  * malformed or duplicated OLD reconstruction — two OLD records claiming the
  * same activity/distance pair — which is rejected outright rather than
  * silently resolved by picking the first match.
  *
+ * CR-01 — THE OLD STATE APPLIES THE PRE-PHASE CEILING. `reconstructOldEfforts`
+ * recomputes only the absolute guards, so the ranking that SHIPPED before this
+ * phase (absolute guards first, personal ceiling second) is not what it
+ * returns. `applyOldCeilings` closes that gap with the shipped
+ * `ceilingDemotion`; without it a ceiling reinstatement is structurally
+ * impossible and the artifact's ceiling bucket reads 0 whatever the archive
+ * holds.
+ *
  * PR-09 LEG 2 (the internal reconciliation): `walkGuardCounts` is a plain
  * walk over the shipped document's own guard values, independent of the
- * classification above. `reconcileCounts` compares the two halves and NEVER
- * throws on a mismatch — a mismatch is exactly the finding this
- * reconciliation exists to surface, and the 31 reinstated-with-contamination
- * pairs above are expected to produce exactly this kind of reported,
- * non-silent gap between "how many moved-but-ranked records this diff
- * lists" and "how many contaminated efforts the shipped document itself
- * carries" (the latter also counts the 31 reinstated ones, which the former
- * deliberately excludes).
+ * classification above. `reconcileCounts` compares the two halves, sums each
+ * lists-side figure over EVERY kind that can carry the walked property, reports
+ * the per-kind addends, and NEVER throws on a mismatch — a mismatch is exactly
+ * the finding this reconciliation exists to surface.
  *
  * PROVENANCE RULE (mirrors `compute-ceiling-recalibration.mjs` exactly): the
  * artifact's `**Generated:**` line is a wall-clock `new Date().toISOString()`
@@ -83,7 +89,7 @@ import { fileURLToPath, pathToFileURL } from 'url';
 import { computeBestEfforts } from '../dist/analytics/compute-best-efforts.js';
 import { TARGET_METERS, TARGET_ORDER } from '../dist/analytics/best-effort.types.js';
 import { markPRs, rankTopN, TOP_N } from '../dist/analytics/best-effort-utils.js';
-import { deriveCeilings } from '../dist/analytics/best-effort-ceiling.js';
+import { ceilingDemotion, deriveCeilings } from '../dist/analytics/best-effort-ceiling.js';
 
 // The ONE shared definition of the pre-Phase-36 reconstruction rule —
 // imported, never reimplemented. See this file's own top docblock.
@@ -171,11 +177,43 @@ function paceSecPerKmFromDuration(durationSec, distance) {
 }
 
 /**
+ * CR-01: returns the OLD efforts with the pre-phase personal ceiling applied,
+ * so the OLD side is the ranking that actually shipped.
+ *
+ * PRECEDENCE: absolute guards first, ceiling second, never overwriting. A
+ * record already carrying a demotion (`world-record`/`max-speed`) keeps it;
+ * only a `demotion === null` record can gain `'ceiling'`, via the SHIPPED
+ * `ceilingDemotion` (the comparison is not re-implemented here).
+ *
+ * PRODUCTION PARITY: production's Pass 3 applies the ceiling to the surviving
+ * efforts AND sweeps owner-excluded efforts too, so excluded records are
+ * included here. A record whose distance has no entry in `oldCeilings`, or a
+ * null `ceilingMps`, is returned unchanged.
+ *
+ * ORDERING RULE: the caller derives `oldCeilings` from
+ * `buildPopulations(oldEfforts, { useOld: true })` on the PRE-ceiling array,
+ * because that function asserts no `'ceiling'` guard exists. Passing this
+ * function's output to `buildPopulations` with `useOld: true` throws.
+ *
+ * Returns a NEW array of shallow-copied records; the input is not mutated.
+ */
+export function applyOldCeilings(oldEfforts, oldCeilings) {
+  return oldEfforts.map((record) => {
+    const copy = { ...record };
+    if (copy.demotion !== null) return copy;
+    const derivation = oldCeilings?.[copy.distance];
+    if (!derivation) return copy;
+    const demotion = ceilingDemotion(copy.impliedSpeedMps, derivation);
+    if (demotion !== null) copy.demotion = demotion;
+    return copy;
+  });
+}
+
+/**
  * Classifies every activity/distance pair the NEW document carries into
- * exactly one of the four populations 36-CONTEXT.md defines, using the
- * priority rule stated in this file's top docblock (REINSTATED checked
- * first, which is what makes the 31 real reinstated-with-contamination pairs
- * land in exactly one bucket rather than tripping the fail-closed check).
+ * exactly one of six kinds, using the priority rule stated in this file's top
+ * docblock: excluded, reinstated, moved-but-ranked, newly-demoted,
+ * demoted-guard-changed, unchanged.
  *
  * FAILS CLOSED on a genuinely ambiguous input: if `oldEfforts` carries two
  * records for the same activity/distance key, this throws rather than
@@ -225,12 +263,16 @@ export function classifyEffortChanges(newDoc, oldEfforts) {
       const contaminated = effort.contaminated ?? null;
 
       let kind;
-      if (oldGuard !== null && newGuard === null) {
+      if (old.excludedFromRecords === true || effort.excludedFromRecords === true) {
+        kind = 'excluded';
+      } else if (oldGuard !== null && newGuard === null) {
         kind = 'reinstated';
       } else if (oldGuard === null && newGuard === null && contaminated != null) {
         kind = 'moved-but-ranked';
       } else if (oldGuard === null && newGuard !== null) {
         kind = 'newly-demoted';
+      } else if (oldGuard !== null && newGuard !== null && oldGuard !== newGuard) {
+        kind = 'demoted-guard-changed';
       } else {
         kind = 'unchanged';
       }
@@ -256,19 +298,32 @@ export function classifyEffortChanges(newDoc, oldEfforts) {
 }
 
 /**
- * Partitions the `'reinstated'` records by their OLD guard — the two kinds
- * 36-RESEARCH.md D-08 found: `'world-record'`/`'max-speed'` (an absolute
- * guard reinstatement — 31 real pairs measured this session, since today's
- * single unconstrained sweep result is what `isPlausible` currently
- * evaluates, so this population is a direct consequence of the phase rather
- * than a ceiling side effect) and `'ceiling'` (a ceiling reinstatement). Each
- * retains its OLD guard name so the artifact states WHICH guard had demoted
- * the effort before this phase.
+ * Partitions the `'reinstated'` records by their OLD guard: `'world-record'`/
+ * `'max-speed'` (an absolute-guard reinstatement — today's single
+ * unconstrained sweep result is what `isPlausible` evaluates, so this is a
+ * direct consequence of the phase, 36-RESEARCH.md D-08) and `'ceiling'` (a
+ * ceiling reinstatement). Each retains its OLD guard name.
+ *
+ * FAILS CLOSED: a reinstated record whose OLD guard is none of the three
+ * throws, so no reinstated record can silently drop out of both buckets.
  */
 export function splitReinstatements(changes) {
   const reinstated = changes.filter((c) => c.kind === 'reinstated');
-  const absoluteGuard = reinstated.filter((c) => c.oldGuard === 'world-record' || c.oldGuard === 'max-speed');
-  const ceiling = reinstated.filter((c) => c.oldGuard === 'ceiling');
+  const absoluteGuard = [];
+  const ceiling = [];
+  for (const c of reinstated) {
+    if (c.oldGuard === 'world-record' || c.oldGuard === 'max-speed') {
+      absoluteGuard.push(c);
+    } else if (c.oldGuard === 'ceiling') {
+      ceiling.push(c);
+    } else {
+      throw new Error(
+        `splitReinstatements: reinstated record ${c.activityId}|${c.distance} carries oldGuard ` +
+          `'${c.oldGuard}', which is none of world-record, max-speed or ceiling — refusing to drop it ` +
+          `from both buckets (fail closed).`
+      );
+    }
+  }
   return { absoluteGuard, ceiling };
 }
 
@@ -385,34 +440,48 @@ export function walkGuardCounts(newDoc) {
 /**
  * PR-09's internal cross-check: the diff's own classified lists against the
  * walked guard counts, two independent derivations of the same shipped
- * document. NEVER throws on a mismatch — a mismatch is exactly the finding
- * this reconciliation exists to surface, since the diff's lists and the
- * walked counts answer subtly different questions (see this file's top
- * docblock: the 31 reinstated-with-contamination pairs are counted once by
- * the walk, under `contaminated`, but classified as `'reinstated'` rather
- * than `'moved-but-ranked'` by the list above).
+ * document. NEVER throws on a mismatch — a mismatch is the finding this
+ * reconciliation exists to surface.
+ *
+ * Each lists-side figure sums over EVERY kind that can carry the walked
+ * property, and the per-kind addends are returned so a reader can see which
+ * kinds contributed: check 1 counts `newGuard === 'unreliable-segment'`
+ * (newly-demoted, demoted-guard-changed, excluded, unchanged); check 2 counts
+ * a non-null `contaminatedReason` across all kinds.
  */
 export function reconcileCounts(changes, guardCounts) {
-  const newlyDemotedUnreliableSegment = changes.filter(
-    (c) => c.kind === 'newly-demoted' && c.newGuard === 'unreliable-segment'
-  ).length;
+  const addendsBy = (predicate) => {
+    const addends = {};
+    for (const c of changes) {
+      if (!predicate(c)) continue;
+      addends[c.kind] = (addends[c.kind] ?? 0) + 1;
+    }
+    return addends;
+  };
+  const sum = (addends) => Object.values(addends).reduce((a, b) => a + b, 0);
+
+  const segmentAddends = addendsBy((c) => c.newGuard === 'unreliable-segment');
+  const segmentLists = sum(segmentAddends);
   const walkedUnreliableSegment = guardCounts.totals['unreliable-segment'];
 
-  const movedButRanked = changes.filter((c) => c.kind === 'moved-but-ranked').length;
+  const contaminatedAddends = addendsBy((c) => c.contaminatedReason != null);
+  const contaminatedLists = sum(contaminatedAddends);
   const walkedContaminated = guardCounts.totals.contaminated;
 
   return [
     {
-      check: "'newly-demoted' (unreliable-segment) vs the walked unreliable-segment demotion count",
-      listsFigure: newlyDemotedUnreliableSegment,
+      check: 'unreliable-segment demotions across every kind vs the walked unreliable-segment demotion count',
+      listsFigure: segmentLists,
       walkedFigure: walkedUnreliableSegment,
-      agrees: newlyDemotedUnreliableSegment === walkedUnreliableSegment,
+      agrees: segmentLists === walkedUnreliableSegment,
+      addends: segmentAddends,
     },
     {
-      check: "'moved-but-ranked' record count vs the walked contaminated-effort count",
-      listsFigure: movedButRanked,
+      check: 'contaminated records across every kind vs the walked contaminated-effort count',
+      listsFigure: contaminatedLists,
       walkedFigure: walkedContaminated,
-      agrees: movedButRanked === walkedContaminated,
+      agrees: contaminatedLists === walkedContaminated,
+      addends: contaminatedAddends,
     },
   ];
 }
@@ -621,6 +690,8 @@ export function renderDiffMarkdown(report) {
   const movedButRanked = report.changes.filter((c) => c.kind === 'moved-but-ranked');
   const newlyDemoted = report.changes.filter((c) => c.kind === 'newly-demoted');
   const unchanged = report.changes.filter((c) => c.kind === 'unchanged');
+  const guardChanged = report.changes.filter((c) => c.kind === 'demoted-guard-changed');
+  const excluded = report.changes.filter((c) => c.kind === 'excluded');
   const reinstatedTotal = report.reinstatements.absoluteGuard.length + report.reinstatements.ceiling.length;
   const ceilingMovedCount = report.ceilingTable.filter((r) => r.oldCeilingMps !== r.newCeilingMps).length;
 
@@ -633,7 +704,12 @@ export function renderDiffMarkdown(report) {
     `- Reinstated: ${reinstatedTotal} (${report.reinstatements.absoluteGuard.length} absolute-guard, ` +
       `${report.reinstatements.ceiling.length} ceiling)`
   );
+  lines.push(`- Demoted before and after, guard changed: ${guardChanged.length}`);
   lines.push(`- Unchanged: ${unchanged.length}`);
+  lines.push(
+    `- Owner-excluded, omitted from the five populations above: ${excluded.length} ` +
+      '(the Records screen skips these too)'
+  );
   lines.push(`- Distances whose ceiling moved: ${ceilingMovedCount} of ${report.ceilingTable.length}`);
   lines.push('');
 
@@ -723,6 +799,14 @@ export function renderDiffMarkdown(report) {
   // ## Reinstated
   lines.push('## Reinstated');
   lines.push('');
+  lines.push('| Distance | Absolute-guard reinstatements | Ceiling reinstatements |');
+  lines.push('|---|---|---|');
+  for (const distance of TARGET_ORDER) {
+    const a = report.reinstatements.absoluteGuard.filter((c) => c.distance === distance).length;
+    const c = report.reinstatements.ceiling.filter((x) => x.distance === distance).length;
+    lines.push(`| ${distance} | ${a} | ${c} |`);
+  }
+  lines.push('');
   lines.push(
     'Not purely a ceiling phenomenon (36-RESEARCH.md D-08): today\'s single unconstrained sweep result ' +
       'is what `isPlausible` evaluates, so an effort whose RAW window fails an absolute guard but which ' +
@@ -760,6 +844,37 @@ export function renderDiffMarkdown(report) {
         `| ${safeActivityId(c.activityId)} | ${c.distance} | ${c.oldGuard} | ${safeCell(c.oldReason)} | ` +
           `${fmtSec(c.newPaceSecPerKm)} |`
       );
+    }
+  }
+  lines.push('');
+
+  // ## Owner-Excluded Efforts
+  lines.push('## Owner-Excluded Efforts');
+  lines.push('');
+  lines.push(
+    'Efforts the owner excluded from records are disclosed here and omitted from every population above ' +
+      '(WR-01); the Records screen skips them too, so the two reconcile on this stated difference.'
+  );
+  lines.push('');
+  lines.push('| Distance | Owner-excluded efforts |');
+  lines.push('|---|---|');
+  for (const distance of TARGET_ORDER) {
+    lines.push(`| ${distance} | ${excluded.filter((c) => c.distance === distance).length} |`);
+  }
+  lines.push('');
+
+  // ## Demoted Before and After, Guard Changed
+  lines.push('## Demoted Before and After, Guard Changed');
+  lines.push('');
+  if (guardChanged.length === 0) {
+    lines.push('No effort changed demotion guard.');
+  } else {
+    lines.push(`Full count: ${guardChanged.length}.`);
+    lines.push('');
+    lines.push('| Activity ID | Distance | Old guard | New guard |');
+    lines.push('|---|---|---|---|');
+    for (const c of guardChanged) {
+      lines.push(`| ${safeActivityId(c.activityId)} | ${c.distance} | ${c.oldGuard} | ${c.newGuard} |`);
     }
   }
   lines.push('');
@@ -820,6 +935,12 @@ export function renderDiffMarkdown(report) {
   lines.push('|---|---|---|---|');
   for (const row of report.reconciliation) {
     lines.push(`| ${row.check} | ${row.listsFigure} | ${row.walkedFigure} | ${row.agrees ? 'yes' : 'NO'} |`);
+  }
+  lines.push('');
+  for (const row of report.reconciliation) {
+    const entries = Object.entries(row.addends ?? {});
+    const text = entries.length === 0 ? 'none' : entries.map(([k, n]) => `${k} ${n}`).join(' + ');
+    lines.push(`- ${row.check}: addends ${text}`);
   }
   lines.push('');
   lines.push(
@@ -919,8 +1040,13 @@ async function main() {
     }
 
     const oldEfforts = reconstructOldEfforts(newDoc, activityMaxSpeeds);
+    // CR-01 ORDERING RULE: the OLD ceiling is derived from the PRE-ceiling
+    // reconstruction (buildPopulations throws on a 'ceiling' guard when
+    // useOld is true), and only THEN applied to the OLD efforts, so the OLD
+    // side is the ranking the pre-phase pipeline actually shipped.
     const oldPopulations = buildPopulations(oldEfforts, { useOld: true });
     const oldCeilings = deriveCeilings(oldPopulations);
+    const oldEffortsWithCeiling = applyOldCeilings(oldEfforts, oldCeilings);
 
     let recalibrationText = null;
     try {
@@ -937,14 +1063,24 @@ async function main() {
       recalibrationGeneratedAt: extractGeneratedLine(recalibrationText),
     };
 
-    const report = buildDiffReport({ newDoc, oldEfforts, oldCeilings, recalibrationText, inputs });
+    const report = buildDiffReport({
+      newDoc,
+      oldEfforts: oldEffortsWithCeiling,
+      oldCeilings,
+      recalibrationText,
+      inputs,
+    });
 
     console.log(`Archive size: ${report.archiveSize}`);
     console.log(`Moved-but-ranked: ${report.changes.filter((c) => c.kind === 'moved-but-ranked').length}`);
     console.log(`Newly demoted: ${report.changes.filter((c) => c.kind === 'newly-demoted').length}`);
     console.log(`Reinstated (absolute-guard): ${report.reinstatements.absoluteGuard.length}`);
     console.log(`Reinstated (ceiling): ${report.reinstatements.ceiling.length}`);
+    console.log(
+      `Demoted before and after, guard changed: ${report.changes.filter((c) => c.kind === 'demoted-guard-changed').length}`
+    );
     console.log(`Unchanged: ${report.changes.filter((c) => c.kind === 'unchanged').length}`);
+    console.log(`Owner-excluded: ${report.changes.filter((c) => c.kind === 'excluded').length}`);
     for (const row of report.reconciliation) {
       console.log(`  ${row.check}: ${row.listsFigure} vs ${row.walkedFigure} (agrees: ${row.agrees})`);
     }
