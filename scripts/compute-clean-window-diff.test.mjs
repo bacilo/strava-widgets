@@ -4,8 +4,10 @@
  * sweep or write 36-DIFF.md — if it does, the self-execution guard
  * documented at the bottom of compute-clean-window-diff.mjs is wrong and
  * must be fixed rather than worked around here. Every fixture below is
- * hand-built; no fixture reads any committed archive directory under the
- * repo's top-level `data` folder, and no test writes anywhere.
+ * hand-built EXCEPT one describe ('real-pair ceiling reinstatement CR-01'),
+ * which reads two TRACKED files read-only (`data/streams/<id>.json` and
+ * `data/activities/<id>.json`) and never the gitignored `data/stats/` or the
+ * CI-rewritten `data/best-effort-ceiling.json`. No test writes anywhere.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -15,7 +17,9 @@ import { fileURLToPath } from 'url';
 
 import { TARGET_METERS, TARGET_ORDER } from '../dist/analytics/best-effort.types.js';
 
-import { buildPopulations } from './compute-ceiling-recalibration.mjs';
+import { computeActivityEfforts } from '../dist/analytics/compute-best-efforts.js';
+import { classifyGapsWithSegments } from '../dist/analytics/pace-derivation.js';
+import { buildPopulations, reconstructOldEfforts } from './compute-ceiling-recalibration.mjs';
 import {
   applyOldCeilings,
   buildRankChanges,
@@ -28,6 +32,7 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const GENERATOR_PATH = join(__dirname, 'compute-clean-window-diff.mjs');
+const REPO_ROOT = join(__dirname, '..');
 
 /** `MOVED_BUT_RANKED_RENDER_CAP`'s own value, mirrored here so a test can assert cap behaviour precisely. */
 const MOVED_BUT_RANKED_RENDER_CAP = 50;
@@ -203,6 +208,83 @@ describe('applyOldCeilings CR-01', () => {
     expect(() => buildPopulations(input, { useOld: true })).not.toThrow();
     const applied = applyOldCeilings(input, ceilings);
     expect(() => buildPopulations(applied, { useOld: true })).toThrow(/ceiling/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CR-01 on REAL input — the ceiling-reinstatement bucket is reachable
+// ---------------------------------------------------------------------------
+
+/**
+ * The pre-phase personal ceilings, an INDEPENDENT source: written by the
+ * pre-phase pipeline in CI and committed. Re-read with
+ * `git show ebe0245c:data/best-effort-ceiling.json` (generatedAt
+ * 2026-09-19T07:42:53.759Z). The live `data/best-effort-ceiling.json` must NOT
+ * be read from a test, because CI rewrites it nightly.
+ */
+const PRE_PHASE_CEILINGS_EBE0245C = {
+  '400m': { distance: '400m', populationN: 1834, p90Mps: 3.992015968063872, multiplier: 1.28, ceilingMps: 5.1098, failOpenReason: null },
+  '1k': { distance: '1k', populationN: 1852, p90Mps: 3.7105751391465676, multiplier: 1.28, ceilingMps: 4.7496, failOpenReason: null },
+  '1mi': { distance: '1mi', populationN: 1851, p90Mps: 3.6156908559874186, multiplier: 1.28, ceilingMps: 4.6281, failOpenReason: null },
+};
+
+/**
+ * One real committed pair, chosen by probe: its pre-phase window implies a
+ * speed above the pre-phase ceiling, yet it passes the absolute guards
+ * (the activity's own max_speed is well above it), and the clean-window
+ * search finds a clean sub-interval so it ranks after the phase.
+ */
+const REAL_PAIR = { activityId: '3475714424', distance: '400m' };
+
+function loadRealPair({ activityId, distance }) {
+  const activity = JSON.parse(readFileSync(join(REPO_ROOT, 'data/activities', `${activityId}.json`), 'utf8'));
+  const stream = JSON.parse(readFileSync(join(REPO_ROOT, 'data/streams', `${activityId}.json`), 'utf8'));
+  const { segments } = classifyGapsWithSegments(stream.t, stream.d);
+  const result = computeActivityEfforts({
+    activityId,
+    startDate: activity.start_date,
+    activityDistanceM: activity.distance,
+    maxSpeedMps: activity.max_speed,
+    distanceSource: 'native',
+    t: stream.t,
+    d: stream.d,
+    segments,
+  });
+  const effort = result.efforts.find((e) => e.distance === distance);
+  const newDoc = { activities: { [activityId]: { activityId, startDate: activity.start_date, efforts: [effort] } } };
+  const activityMaxSpeeds = new Map([[activityId, activity.max_speed]]);
+  return { effort, newDoc, activityMaxSpeeds };
+}
+
+describe('real-pair ceiling reinstatement CR-01', () => {
+  it('the ceiling-applied OLD state classifies the real pair as a ceiling reinstatement', () => {
+    const { effort, newDoc, activityMaxSpeeds } = loadRealPair(REAL_PAIR);
+    // Preconditions, asserted so a changed archive fails loudly here.
+    expect(effort.contaminated).not.toBeNull();
+    expect(effort.demotion).toBeNull();
+
+    const oldEfforts = reconstructOldEfforts(newDoc, activityMaxSpeeds);
+    expect(oldEfforts).toHaveLength(1);
+    expect(oldEfforts[0].demotion).toBeNull();
+    expect(oldEfforts[0].impliedSpeedMps).toBeGreaterThan(PRE_PHASE_CEILINGS_EBE0245C[REAL_PAIR.distance].ceilingMps);
+
+    const withCeiling = applyOldCeilings(oldEfforts, PRE_PHASE_CEILINGS_EBE0245C);
+    expect(withCeiling[0].demotion.guard).toBe('ceiling');
+
+    const changes = classifyEffortChanges(newDoc, withCeiling);
+    expect(changes[0].kind).toBe('reinstated');
+    const { ceiling, absoluteGuard } = splitReinstatements(changes);
+    expect(ceiling.length).toBe(1);
+    expect(ceiling[0].activityId).toBe(REAL_PAIR.activityId);
+    expect(absoluteGuard.length).toBe(0);
+  });
+
+  it('the SAME pair without applyOldCeilings (the CR-01 defect path) lands outside reinstated', () => {
+    const { newDoc, activityMaxSpeeds } = loadRealPair(REAL_PAIR);
+    const oldEfforts = reconstructOldEfforts(newDoc, activityMaxSpeeds);
+    const changes = classifyEffortChanges(newDoc, oldEfforts);
+    expect(changes[0].kind).toBe('moved-but-ranked');
+    expect(splitReinstatements(changes).ceiling.length).toBe(0);
   });
 });
 
