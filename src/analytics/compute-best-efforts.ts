@@ -468,6 +468,13 @@ export function computeActivityEfforts(input: ActivityEffortInput): ActivityEffo
           // existing absolute-guard code path below is UNCHANGED, now fed
           // the CLEAN figure (D-08) — `isPlausible` never sees the raw/
           // contaminated duration in this branch.
+          //
+          // WR-02 contract: `contaminated` records which window was measured
+          // (a machine observation); `demotion` is the guards' independent
+          // judgment of the clean figure. Both may be non-null together
+          // (world-record, max-speed, or the Pass 3 ceiling). The one
+          // impossible pair is `contaminated` with an `unreliable-segment`
+          // demotion, which Branch 3 excludes by setting `contaminated: null`.
           const impliedSpeedMps = TARGET_METERS[key] / clean.durationSec;
           const plausibility = isPlausible(
             impliedSpeedMps,

@@ -497,15 +497,42 @@ describe('THE ZERO-IMPORT SCAN (D-13) — watched RED before it is trusted', () 
 // SECTION 4 — INTERNAL CONSISTENCY, both directions
 // ---------------------------------------------------------------------------------------------
 
+describe('INTERNAL CONSISTENCY — WR-02 contract', () => {
+  const contaminatedRecord = {
+    guard: 'unreliable-segment',
+    reason: 'y',
+    durationSec: 10,
+    paceSecPerKm: 100,
+    startOffsetSec: 0,
+    endOffsetSec: 10,
+  };
+  const docWith = (guard) => ({
+    activities: { a: { efforts: [{ distance: '400m', demotion: { guard, reason: 'x' }, contaminated: contaminatedRecord }] } },
+    totals: { effortsDemoted: 1 },
+  });
+
+  it('WR-02 contract: contaminated + unreliable-segment demotion is the one violation', () => {
+    const { violations } = checkInternalConsistency(docWith('unreliable-segment'));
+    expect(violations.length).toBe(1);
+    expect(violations[0]).toContain('contaminated record and an unreliable-segment demotion');
+  });
+
+  for (const guard of ['ceiling', 'max-speed', 'world-record']) {
+    it(`WR-02 contract: contaminated + ${guard} demotion is legitimate and reports zero violations`, () => {
+      expect(checkInternalConsistency(docWith(guard)).violations).toEqual([]);
+    });
+  }
+});
+
 describe('INTERNAL CONSISTENCY — both directions', () => {
-  it('flags the two-homes violation: an effort carrying BOTH a non-null contaminated record and a non-null demotion', () => {
+  it('flags the one impossible pairing (WR-02): a contaminated record together with an unreliable-segment demotion', () => {
     const doc = {
       activities: {
         bad: {
           efforts: [
             {
               distance: '400m',
-              demotion: { guard: 'ceiling', reason: 'x' },
+              demotion: { guard: 'unreliable-segment', reason: 'x' },
               contaminated: {
                 guard: 'unreliable-segment',
                 reason: 'y',
@@ -522,7 +549,7 @@ describe('INTERNAL CONSISTENCY — both directions', () => {
     };
     const result = checkInternalConsistency(doc);
     expect(result.violations.length).toBeGreaterThan(0);
-    expect(result.violations.some((v) => v.includes('non-null demotion'))).toBe(true);
+    expect(result.violations.some((v) => v.includes('contaminated record and an unreliable-segment demotion'))).toBe(true);
   });
 
   it('flags a totals.effortsDemoted mismatch against the walked non-null-demotion count', () => {

@@ -33,7 +33,8 @@
  * THE BOUND ON ITS CLAIM: this leg confirms that an anomaly really is inside each window the
  * shipped document calls contaminated (via a non-null `contaminated` record, or a
  * `demotion.guard === 'unreliable-segment'` no-clean-window record), and that the shipped
- * document's own counts and record shapes are internally consistent (the two-homes invariant, the
+ * document's own counts and record shapes are internally consistent (the WR-02 contract: contaminated
+ * with an unreliable-segment demotion is the one impossible pair, the
  * finite-numbers invariant, `totals.effortsDemoted` against a plain walk). It does NOT and CANNOT
  * arbitrate whether Phase 32's calibrated detector thresholds (`UNRELIABLE_SPEED_LIMIT_MPS`,
  * `excessFloorMetres`, `hiddenPauseMinMetres`) are exactly right — that question belongs to Phase
@@ -528,10 +529,12 @@ export function deriveVerdict(populations) {
 /**
  * Walks the shipped document and confirms its own invariants with NO import of the module that
  * produced it:
- * - no effort carries BOTH a non-null `contaminated` record AND a non-null `demotion` (the
- *   two-homes rule — this also covers the narrower "a `demotion.guard === 'unreliable-segment'`
- *   effort has `contaminated === null`" case, since that is one instance of the same pair of
- *   fields being non-null together);
+ * - the WR-02 contract: `contaminated` records which window was measured and says nothing about
+ *   rank, while `demotion` is the guards' independent judgment of that clean figure (D-08), so a
+ *   contaminated effort MAY also carry a world-record, max-speed or ceiling demotion. The ONE
+ *   impossible pairing is a non-null `contaminated` together with an `unreliable-segment`
+ *   demotion (the writer's Branch 3 sets `contaminated: null` by construction) and only that is
+ *   reported;
  * - every `contaminated` record's four numeric fields (`durationSec`, `paceSecPerKm`,
  *   `startOffsetSec`, `endOffsetSec`) are finite numbers;
  * - every effort's `distance` is one of the seven known target distances (`TARGET_METERS_LOCAL`);
@@ -557,9 +560,9 @@ export function checkInternalConsistency(shippedDoc) {
 
       if (hasDemotion) walkedDemotedCount += 1;
 
-      if (hasContaminated && hasDemotion) {
+      if (hasContaminated && hasDemotion && effort.demotion.guard === 'unreliable-segment') {
         violations.push(
-          `${label}: carries both a non-null contaminated record and a non-null demotion (guard=${JSON.stringify(effort.demotion.guard)}) — the two-homes rule forbids this`
+          `${label}: carries both a non-null contaminated record and an unreliable-segment demotion — Branch 3 sets contaminated to null by construction (WR-02 contract)`
         );
       }
 
