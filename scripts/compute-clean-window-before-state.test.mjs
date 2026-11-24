@@ -134,7 +134,7 @@ function fullDiffText({ ceiling = 1, abs = 0, ranks = ['| 1 | a1 | a9 | 60.0 | 8
     '| Distance | Absolute-guard reinstatements | Ceiling reinstatements |',
     '|---|---|---|',
     `| 400m | ${abs} | ${ceiling} |`,
-    '| 1k | 0 | 0 |',
+    ...['1k', '1mi', '5k', '10k', 'half', 'marathon'].map((d) => `| ${d} | 0 | 0 |`),
     '',
     '## Ceiling Values',
     '',
