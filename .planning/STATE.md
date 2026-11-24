@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
 status: executing
-stopped_at: Phase 36 gap-closure round planned (36-15..36-20) — ready for /gsd-execute-phase 36 --gaps-only
-last_updated: "2026-11-24T21:42:35.332Z"
-last_activity: 2026-11-24 -- Phase 36 planning complete
+stopped_at: Phase 36 gap-closure round executing (36-15..36-20, --gaps-only)
+last_updated: "2026-11-24T22:49:52.721Z"
+last_activity: 2026-11-24 -- Phase 36 execution started
 progress:
   total_phases: 6
   completed_phases: 4
@@ -47,8 +47,8 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 ## Current Position
 
 Phase: 36 (best-effort-clean-window-search-ceiling-recalibration) — EXECUTING
-Plan: 14 of 20 (gap-closure plans 36-15..36-20 planned 2026-11-24)
-Status: Ready to execute
+Plan: 14 of 20 (gap-closure plans 36-15..36-20 executing)
+Status: Executing Phase 36 gap-closure round
 
 Phase 36 planned (2026-09-28): 14 plans in 9 waves, committed `ebe0245c`. Research `4a61a19b`,
 validation/pattern artifacts `e9a16e61`. Plan-checker returned VERIFICATION PASSED — 0 blockers,
@@ -80,7 +80,7 @@ Carried into execution:
 `.planning/phases/34-pause-classification-forgotten-stop/34-{01..16}-SUMMARY.md` and git history.
 Phases 34 and 35 are both closed in ROADMAP.md.)*
 
-Last activity: 2026-11-24 -- Phase 36 gap-closure planning complete (6 plans, 3 waves; closes CR-01/WR-01..04, redrafts rows d/e/g, re-signs PR-09; WR-02 contract accepted by developer)
+Last activity: 2026-11-24 -- Phase 36 gap-closure execution started (36-15..36-20)
 
 ## Performance Metrics
 
