@@ -29,9 +29,9 @@
   "claim": "This audit covers only runs recorded in this export that start between 2021-07-08T07:45:06Z and 2026-11-24T06:34:17Z inclusive. It makes no claim about runs outside that window or absent from the export.",
   "counts": {
     "export_runs": 1055,
-    "matched_exact": 1048,
+    "matched_exact": 1049,
     "near": 2,
-    "missing": 5,
+    "missing": 4,
     "missing_trivial": 1,
     "ignored_types": {
       "cycling": 3,
@@ -81,13 +81,6 @@
       "start_date": "2025-04-23T22:48:04Z",
       "activity_type": "running",
       "distance_m": 6255.93017578125,
-      "trivial": false
-    },
-    {
-      "source_id": "25116720114",
-      "start_date": "2026-11-18T06:25:50Z",
-      "activity_type": "running",
-      "distance_m": 12609.7001953125,
       "trivial": false
     }
   ]
