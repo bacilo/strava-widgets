@@ -49,10 +49,20 @@
  *      caught and REPORTED rather than read, instead of throwing out of
  *      this pure function (WR-19, the directory-shaped sibling of the
  *      file case above).
+ *
+ * Phase 37 (D-01/D-03): the reviewed-and-kept file (data/curation/reviewed.json)
+ * is curate-only state and is a `.json`, which the content scan above
+ * deliberately skips. It is therefore caught BY PATH, with two rules: the
+ * `data/curation` directory (anchored at publishDir, not a substring match)
+ * and any file named `reviewed.json` at any depth. Both are kept because the
+ * directory rule alone misses a dataFiles-style single copy at data/reviewed.json,
+ * and the file-name rule alone misses a renamed copy inside the directory.
+ * UNSCANNED_EXTENSIONS is untouched, so the public
+ * data/best-effort-exclusions.json is still never flagged.
  */
 
 import { existsSync, readdirSync, readFileSync } from 'fs';
-import { resolve } from 'path';
+import { relative, resolve, sep } from 'path';
 
 export const CURATE_DIR_NAME = '__curate';
 export const CURATE_MARKER = '__curate';
@@ -111,6 +121,13 @@ export function findCurationArtifacts(publishDir) {
           // Still descend — a nested violation inside it is worth reporting
           // too, and does no harm to also list.
         }
+        if (relative(publishDir, entryPath).split(sep).join('/') === 'data/curation') {
+          violations.push({
+            path: entryPath,
+            reason: 'a "data/curation" directory (curate-only review state, D-01) must never exist under the published bundle',
+          });
+          // Still descend, as the __curate rule does.
+        }
         if (entry.name === '.curate-dist') {
           violations.push({
             path: entryPath,
@@ -146,6 +163,16 @@ export function findCurationArtifacts(publishDir) {
         violations.push({
           path: entryPath,
           reason: 'a file named ".curate-dist" (the curate overlay\'s esbuild output) must never exist under the published bundle',
+        });
+        continue;
+      }
+
+      // Phase 37 D-03: path rule for the curate-only reviewed file (.json is
+      // content-exempt, so only the name can catch it).
+      if (entry.name === 'reviewed.json') {
+        violations.push({
+          path: entryPath,
+          reason: 'a file named "reviewed.json" (curate-only review state, D-01) must never exist under the published bundle',
         });
         continue;
       }

@@ -419,6 +419,65 @@ describe('D-19 — the review queue leaks are caught by the existing scan (no ne
   });
 });
 
+describe('Phase 37 D-03 — reviewed state is caught by path', () => {
+  let tmpDir;
+
+  beforeEach(async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'curation-guard-p37-'));
+  });
+
+  afterEach(async () => {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  async function writeFile(relativePath, contents) {
+    const fullPath = path.join(tmpDir, relativePath);
+    await fs.mkdir(path.dirname(fullPath), { recursive: true });
+    await fs.writeFile(fullPath, contents, 'utf8');
+  }
+
+  it('(a) data/curation/reviewed.json yields exactly two violations: the directory and the file, no path twice', async () => {
+    await writeFile('data/curation/reviewed.json', '{"reviewed":[]}');
+    const violations = findCurationArtifacts(tmpDir);
+    expect(violations.length).toBe(2);
+    const dir = violations.filter((v) => v.path === path.join(tmpDir, 'data/curation'));
+    const file = violations.filter((v) => v.path === path.join(tmpDir, 'data/curation/reviewed.json'));
+    expect(dir.length).toBe(1);
+    expect(dir[0].reason).toContain('data/curation');
+    expect(file.length).toBe(1);
+    expect(file[0].reason).toContain('reviewed.json');
+  });
+
+  it('(b) a sibling file in data/curation with a clean name yields exactly one violation, for the directory', async () => {
+    await writeFile('data/curation/notes.txt', 'plain notes');
+    const violations = findCurationArtifacts(tmpDir);
+    expect(violations.map((v) => v.path)).toEqual([path.join(tmpDir, 'data/curation')]);
+  });
+
+  it('(c) data/reviewed.json (single-file leak outside the directory) yields exactly one violation', async () => {
+    await writeFile('data/reviewed.json', '{"reviewed":[]}');
+    const violations = findCurationArtifacts(tmpDir);
+    expect(violations.map((v) => v.path)).toEqual([path.join(tmpDir, 'data/reviewed.json')]);
+  });
+
+  it('(d) widgets/x/reviewed.json (any depth) yields exactly one violation', async () => {
+    await writeFile('widgets/x/reviewed.json', '{}');
+    const violations = findCurationArtifacts(tmpDir);
+    expect(violations.map((v) => v.path)).toEqual([path.join(tmpDir, 'widgets/x/reviewed.json')]);
+  });
+
+  it('(e) clean control: the public exclusions file and best-efforts json return []', async () => {
+    await writeFile('data/best-effort-exclusions.json', '{"schemaVersion":1,"exclusions":[]}');
+    await writeFile('data/stats/best-efforts.json', '{}');
+    expect(findCurationArtifacts(tmpDir)).toEqual([]);
+  });
+
+  it('(f) a "curation" directory NOT directly under data/ is not flagged (anchored rule)', async () => {
+    await writeFile('assets/curation/info.txt', 'plain');
+    expect(findCurationArtifacts(tmpDir)).toEqual([]);
+  });
+});
+
 describe('build-widgets.mjs source-structure: OD-2 call-site ordering', () => {
   const source = readFileSync(new URL('../build-widgets.mjs', import.meta.url), 'utf8');
 
