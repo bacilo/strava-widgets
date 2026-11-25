@@ -471,11 +471,18 @@ async function main() {
     // very next lines below. Only the write PATH is private; the data is not.
     // Phase 29 (D-17) added the two curation review queue routes below,
     // extending this list from three to five literal assertions.
+    // Phase 37 (D-04) extends it from five to eight: the two reviewed-state
+    // routes and /data/curation/reviewed.json. That last one is a literal
+    // FILE path, which keeps the no-/data/-prefix rule above intact. Never
+    // add a prefix or wildcard match.
     await expect404(baseUrl, '/__curate/health', 'the curate health probe must never be published');
     await expect404(baseUrl, '/__curate/overlay.js', 'the curate overlay bundle must never be published');
     await expect404(baseUrl, '/__curate/exclusions/3475726256', 'the curate write endpoint must never be published');
     await expect404(baseUrl, '/__curate/queue', 'the curate review queue page must never be published');
     await expect404(baseUrl, '/__curate/queue.js', 'the curate review queue bundle must never be published');
+    await expect404(baseUrl, '/__curate/reviewed', 'the curate reviewed-state read route must never be published');
+    await expect404(baseUrl, '/__curate/reviewed/3475726256', 'the curate reviewed-state write endpoint must never be published');
+    await expect404(baseUrl, '/data/curation/reviewed.json', 'curate-only review state (D-01) must never be published');
 
     const exclusionsBody = await expect200(baseUrl, '/data/best-effort-exclusions.json');
     if (exclusionsBody) {

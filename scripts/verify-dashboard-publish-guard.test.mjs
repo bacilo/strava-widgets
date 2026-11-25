@@ -33,6 +33,8 @@ const DIST_WIDGETS = resolve(REPO_ROOT, 'dist/widgets');
 const INDEX_HTML = resolve(DIST_WIDGETS, 'index.html');
 const INDEX_JSON = resolve(DIST_WIDGETS, 'data/dashboard/index.json');
 const CURATE_DIR = resolve(DIST_WIDGETS, '__curate');
+const CURATION_DIR = resolve(DIST_WIDGETS, 'data/curation');
+const EXCLUSIONS_PUBLIC = resolve(DIST_WIDGETS, 'data/best-effort-exclusions.json');
 const VERIFIER = resolve(REPO_ROOT, 'scripts/verify-dashboard-publish.mjs');
 
 function runVerifier() {
@@ -55,12 +57,18 @@ function cleanupCurateDir() {
   rmSync(CURATE_DIR, { recursive: true, force: true });
 }
 
+// Removes only data/curation, never dist/widgets/data itself.
+function cleanupCurationDir() {
+  rmSync(CURATION_DIR, { recursive: true, force: true });
+}
+
 describe.skipIf(!existsSync(INDEX_HTML))('verify-dashboard-publish.mjs: D-10(b)/D-11 planted-fixture proof', () => {
   afterEach(() => {
     cleanupCurateDir();
+    cleanupCurationDir();
   });
 
-  it('Case A (clean): asserts the five /__curate/... -> 404 lines AND the public exclusions parses line in the same run', () => {
+  it('Case A (clean): asserts the eight /__curate/... -> 404 lines AND the public exclusions parses line in the same run', () => {
     const { output } = runVerifier();
 
     expect(output).toContain('✓ GET /__curate/health -> 404');
@@ -69,6 +77,10 @@ describe.skipIf(!existsSync(INDEX_HTML))('verify-dashboard-publish.mjs: D-10(b)/
     // Phase 29, D-17: the curation review queue's page and bundle routes.
     expect(output).toContain('✓ GET /__curate/queue -> 404');
     expect(output).toContain('✓ GET /__curate/queue.js -> 404');
+    // Phase 37, D-04: reviewed-and-kept routes and file, as literal paths.
+    expect(output).toContain('✓ GET /__curate/reviewed -> 404');
+    expect(output).toContain('✓ GET /__curate/reviewed/3475726256 -> 404');
+    expect(output).toContain('✓ GET /data/curation/reviewed.json -> 404');
     // Non-regression row (T-24-NONREG-01): the public exclusions data file
     // must still 200-and-parse in the exact same clean run.
     expect(output).toContain('✓ /data/best-effort-exclusions.json parses with an "exclusions" array');
@@ -153,8 +165,55 @@ describe.skipIf(!existsSync(INDEX_HTML))('verify-dashboard-publish.mjs: D-10(b)/
     expect(result.output).toContain('GET /__curate/queue.js expected 404');
   });
 
-  it('post-suite: no planted fixture survives (dist/widgets/__curate does not exist)', () => {
+  it('Case H (planted reviewed read route): exits non-zero and names the path', () => {
+    mkdirSync(CURATE_DIR, { recursive: true });
+    writeFileSync(resolve(CURATE_DIR, 'reviewed'), '{"reviewed":[]}', 'utf8');
+
+    let result;
+    try {
+      result = runVerifier();
+    } finally {
+      cleanupCurateDir();
+    }
+
+    expect(result.status).not.toBe(0);
+    expect(result.output).toContain('GET /__curate/reviewed expected 404');
+  });
+
+  it('Case I (planted reviewed write endpoint): exits non-zero and names the path', () => {
+    mkdirSync(resolve(CURATE_DIR, 'reviewed'), { recursive: true });
+    writeFileSync(resolve(CURATE_DIR, 'reviewed', '3475726256'), '{}', 'utf8');
+
+    let result;
+    try {
+      result = runVerifier();
+    } finally {
+      cleanupCurateDir();
+    }
+
+    expect(result.status).not.toBe(0);
+    expect(result.output).toContain('GET /__curate/reviewed/3475726256 expected 404');
+  });
+
+  it('Case J (planted reviewed file): exits non-zero and names /data/curation/reviewed.json', () => {
+    mkdirSync(CURATION_DIR, { recursive: true });
+    writeFileSync(resolve(CURATION_DIR, 'reviewed.json'), '{"reviewed":[]}', 'utf8');
+
+    let result;
+    try {
+      result = runVerifier();
+    } finally {
+      cleanupCurationDir();
+    }
+
+    expect(result.status).not.toBe(0);
+    expect(result.output).toContain('GET /data/curation/reviewed.json expected 404');
+  });
+
+  it('post-suite: no planted fixture survives (dist/widgets/__curate and data/curation do not exist)', () => {
     expect(existsSync(CURATE_DIR)).toBe(false);
+    expect(existsSync(CURATION_DIR)).toBe(false);
+    expect(existsSync(EXCLUSIONS_PUBLIC)).toBe(true);
   });
 });
 
