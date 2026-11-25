@@ -80,7 +80,7 @@ Carried into execution:
 `.planning/phases/34-pause-classification-forgotten-stop/34-{01..16}-SUMMARY.md` and git history.
 Phases 34 and 35 are both closed in ROADMAP.md.)*
 
-Last activity: 2026-11-25 -- Phase 36 complete: gap-closure round 2 (36-15..36-20) executed, PR-09 re-signed (sign-both, 36-DIFF.md e67f3cba…), round-2 review 0 critical / 3 warnings (follow-ups recorded in 36-VERIFICATION.md), re-verification passed 4/4
+Last activity: 2026-11-25 - Completed quick task 261125-cvq: unblock the nightly deploy (55 intervals.icu runs synced, pace-disagreement ratio recalibrated, clean-clone CI green; push pending)
 
 ## Performance Metrics
 
@@ -281,6 +281,7 @@ Previously resolved — SQLITE_CANTOPEN CI failure resolved by quick-1-01 (lazy 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 1 | Fix Daily Widget Refresh GitHub Actions workflow error | 2026-02-18 | 0f1d761 | [1-fix-daily-widget-refresh-github-actions-](./quick/1-fix-daily-widget-refresh-github-actions-/) |
+| 261125-cvq | Unblock the nightly deploy: sync 55 intervals.icu runs (CI had discarded them nightly since 2026-09-19 — test gate red on origin), recalibrate PACE_DISAGREEMENT_RUNNING_RATIO 1.0173→1.0171 (0 badge flips), clean-clone CI green; push pending | 2026-11-25 | c6241d9d | [261125-cvq-unblock-the-nightly-deploy-sync-new-inte](./quick/261125-cvq-unblock-the-nightly-deploy-sync-new-inte/) |
 
 ## Deferred Items
 
