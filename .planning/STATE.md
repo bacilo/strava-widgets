@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
 status: executing
-stopped_at: Completed 37-04-PLAN.md
-last_updated: "2026-11-25T14:44:55.897Z"
+stopped_at: Completed 37-05-PLAN.md
+last_updated: "2026-11-25T14:49:36.544Z"
 last_activity: 2026-11-25
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 96
-  completed_plans: 93
+  completed_plans: 94
   percent: 86
 ---
 
@@ -47,7 +47,7 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 ## Current Position
 
 Phase: 37 (review-queue-priority-cur-04) — EXECUTING
-Plan: 5 of 7
+Plan: 6 of 7
 Status: Ready to execute
 
 Phase 37 planned (2026-11-25): 7 plans in 3 waves (01-04 | 05, 06 | 07 checkpoint), committed
@@ -246,6 +246,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 34]: 34-16 gap closure (code-review closure, 2026-09-23) fixed both Critical findings from 34-REVIEW.md as regression tests (CR-01: parseForgottenStopSignal all-or-nothing on computable:true, closing a fabricated "none found" over a corrupted-but-computable document; CR-02: findCreepStretches rejects a t/d length mismatch and non-finite seconds/metres explicitly, closing a fabricated positive standstill a bare NaN>max comparison accepted); closed WR-01 (covered-creep class derived from the union's own speed, never hard-coded — D-22), WR-02 (pauseClassification parse genuinely all-or-nothing), WR-03 (the calibration test's provenance-chain tests no longer write to or revert a tracked repo path — the hazard that had already destroyed uncommitted work once — S1/S2 pure in-memory, S3 a mkdtemp scratch copy), WR-05 (merged-segment boundary lookup validated, joinViolation on failure), WR-07 (SHARD_LIST_CAP the one source of the cap on write/read/render), WR-08 (the D-05 scanner extended to the two declared band literals); WR-04 documented in three places (production docblock, oracle header, 34-VALIDATION.md) rather than coded, per the developer's own disposition; the four remaining Info findings deferred with named homes under .planning/todos/pending/ (pre-created during plan authoring); archive regenerated with the forgotten-stop union arithmetic proven byte-identical before/after for all four named activities and all five upstream artifacts; this plan ticks nothing.
 - [Phase 37]: 37-02: reviewed routes dispatch PUT|DELETE only (GET/POST on /reviewed/:id fall to 404); corrupt reviewed file fails closed (500 server, non-zero CLI); reviewedAt is server-stamped ISO
 - [Phase 37]: Unknown queue view falls back to to-review; excluded+reviewed rows sit under Excluded with reviewConflict; tier ladder fails closed
+- [Phase 37]: Recount forbidden-module scan is specifier-scoped; message and data-path strings legitimately name compute-best-efforts and pace-quality
 
 ### Key Findings
 
@@ -359,8 +360,8 @@ It is named here because PROJECT.md's Evolution entry still describes it as open
 
 ## Session Continuity
 
-Last session: 2026-11-25T14:44:53.445Z
-Stopped at: Completed 37-04-PLAN.md
+Last session: 2026-11-25T14:49:32.039Z
+Stopped at: Completed 37-05-PLAN.md
 Resume file: None
 
 ---
