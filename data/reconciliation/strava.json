@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "source": "strava",
+  "export_date": "2026-08-08",
+  "export_identity": {
+    "summary_files": [
+      {
+        "path": "activities.csv",
+        "sha256": "f17075ce4ed2b3fc9ea6fa8f8ed4edee0a20afa843091496f888288d47e58645"
+      }
+    ]
+  },
+  "coverage_window": {
+    "first_run_start": "2011-08-16T18:55:32Z",
+    "last_run_start": "2026-08-08T05:14:17Z"
+  },
+  "claim": "This audit covers only runs recorded in this export that start between 2011-08-16T18:55:32Z and 2026-08-08T05:14:17Z inclusive. It makes no claim about runs outside that window or absent from the export.",
+  "counts": {
+    "export_runs": 1865,
+    "matched_exact": 1865,
+    "near": 0,
+    "missing": 0,
+    "missing_trivial": 0,
+    "ignored_types": {
+      "E-Bike Ride": 1,
+      "Hike": 1,
+      "Ride": 9,
+      "Walk": 4,
+      "Workout": 17
+    }
+  },
+  "near": [],
+  "missing": []
+}
