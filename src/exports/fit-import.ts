@@ -141,6 +141,15 @@ export async function importFit(opts: FitImportOptions): Promise<FitImportResult
   if (!/^\d{1,20}$/.test(opts.garminId)) {
     throw new Error(`invalid garmin id: ${JSON.stringify(opts.garminId)}`);
   }
+  // The record stores `id: Number(garminId)` beside the string filename and
+  // garmin_activity_id; every consumer keys on String(activity.id). Refuse an
+  // id that does not round-trip exactly: above Number.MAX_SAFE_INTEGER it
+  // rounds, and a leading zero is dropped (36.1 WR-10).
+  if (!Number.isSafeInteger(Number(opts.garminId)) || String(Number(opts.garminId)) !== opts.garminId) {
+    throw new Error(
+      `invalid garmin id: ${JSON.stringify(opts.garminId)} does not round-trip as a safe integer`
+    );
+  }
   if (!/^[a-z]+$/.test(opts.source)) {
     throw new Error(`invalid source: ${JSON.stringify(opts.source)}`);
   }

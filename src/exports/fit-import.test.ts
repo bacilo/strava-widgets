@@ -331,6 +331,25 @@ describe('importFit', () => {
     expect(counts()).toEqual(before);
   });
 
+  it.each([
+    ['9007199254740993', 'above MAX_SAFE_INTEGER, rounds to ...992'],
+    ['12345678901234567890', '20 digits'],
+    ['0123', 'leading zero'],
+  ])('refuses garmin id %s that does not round-trip (%s) (WR-10)', async id => {
+    // Independent witness that the id really does not round-trip.
+    expect(String(Number(id))).not.toBe(id);
+    await expect(run(place('x.fit', buildFit()), id)).rejects.toThrow(/does not round-trip/);
+    expect(counts()).toEqual({ activities: 0, streams: 0, provenance: 0 });
+  });
+
+  it('accepts Number.MAX_SAFE_INTEGER and keeps id, filename and garmin_activity_id in agreement', async () => {
+    const id = String(Number.MAX_SAFE_INTEGER);
+    await run(place('x.fit', buildFit()), id);
+    const rec = JSON.parse(fs.readFileSync(path.join(dirs.activitiesDir, `${id}.json`), 'utf-8'));
+    expect(String(rec.id)).toBe(id);
+    expect(rec.garmin_activity_id).toBe(id);
+  });
+
   it.each(['g123', '../1', ''])('refuses invalid garmin id %j', async id => {
     await expect(run(place('x.fit', buildFit()), id)).rejects.toThrow(/invalid garmin id/);
     expect(counts().activities).toBe(0);
