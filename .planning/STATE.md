@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
 status: executing
-stopped_at: Phase 36 context gathered
+stopped_at: "Phase 36.1 paused at 36.1-07 Task 1 (human-action): waiting for the Garmin bulk export in export_data/garmin/. Plans 01-06 done. Morning-run FIT already at export_data/garmin/single/25116720114.zip (start 2026-11-18T06:25:50Z, 12609.7 m)"
 last_updated: "2026-11-25T11:53:42.032Z"
 last_activity: 2026-11-25
 progress:
