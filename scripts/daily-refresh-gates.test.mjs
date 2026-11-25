@@ -96,6 +96,50 @@ describe('daily-refresh.yml structure', () => {
     );
   });
 
+  // 36.1 WR-02: four mutations that each returned [] before the fix.
+  it('NO-BARE-TEST: an unnamed `- run:` step invoking vitest is its own step and is flagged', () => {
+    const mutated = real.replace(
+      '      - name: Verify dashboard publish contract\n',
+      '      - run: npx vitest run\n\n      - name: Verify dashboard publish contract\n',
+    );
+    expect(splitSteps(mutated)).toHaveLength(splitSteps(real).length + 1);
+    expectRule(mutated, 'NO-BARE-TEST');
+  });
+
+  it('NO-BARE-TEST: an unnamed `- uses:` step does not swallow the next step', () => {
+    const mutated = real.replace(
+      '      - name: Run logic tests (blocking)\n',
+      '      - uses: actions/cache@v4\n      - name: Run logic tests (blocking)\n',
+    );
+    expect(splitSteps(mutated)).toHaveLength(splitSteps(real).length + 1);
+    expect(checkWorkflow(mutated)).toEqual([]);
+  });
+
+  it('ARCHIVE-REPORTED: `shell: bash {0}` on archive_pinned (no pipefail)', () => {
+    const mutated = real.replace(/(id: archive_pinned\n(?: {8}[^\n]*\n)*? {8}shell: )bash\n/, '$1bash {0}\n');
+    expectRule(mutated, 'ARCHIVE-REPORTED');
+  });
+
+  it('ARCHIVE-REPORTED: `|| true` on the archive_pinned run body', () => {
+    expectRule(real.replace('2>&1 | tee archive-pinned.log', '2>&1 | tee archive-pinned.log || true'), 'ARCHIVE-REPORTED');
+  });
+
+  it('EARLY-COMMIT: an if: on commit_fetched', () => {
+    expectRule(
+      real.replace('        id: commit_fetched\n', '        id: commit_fetched\n        if: false\n'),
+      'EARLY-COMMIT',
+    );
+  });
+
+  it.each([
+    ['|| true', 'run: npm run test:logic || true'],
+    ['|| :', 'run: npm run test:logic || :'],
+    ['set +e', 'run: |\n          set +e\n          npm run test:logic'],
+    ['; true', 'run: npm run test:logic; true'],
+  ])('LOGIC-BLOCKING: exit suppression %s on the logic step', (_label, replacement) => {
+    expectRule(real.replace('run: npm run test:logic', replacement), 'LOGIC-BLOCKING');
+  });
+
   it('NO-INLINE-INPUTS: interpolating an input into a run body', () => {
     expectRule(
       real.replace('        run: npm run build\n', '        run: echo "${{ inputs.exclude_reason }}"\n'),
