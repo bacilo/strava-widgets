@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
-status: planning
-stopped_at: Phase 36.1 (Ingestion Integrity) inserted — ready to plan
-last_updated: "2026-11-25T08:59:46.952Z"
-last_activity: "2026-11-25 - Completed quick task 261125-cvq: unblock the nightly deploy (55 intervals.icu runs synced, pace-disagreement ratio recalibrated, clean-clone CI green; pushed 7ed30c1e; CI run 45576545685 deployed)"
+status: executing
+stopped_at: Phase 36.1 (Ingestion Integrity) planned — 9 plans in 6 waves, ready to execute
+last_updated: "2026-11-25T11:15:46.298Z"
+last_activity: "2026-11-25 - Phase 36.1 planned: 9 plans / 6 waves, plan-checker passed on iteration 2"
 progress:
   total_phases: 7
   completed_phases: 5
-  total_plans: 80
+  total_plans: 89
   completed_plans: 80
   percent: 71
 ---
@@ -46,9 +46,9 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 ## Current Position
 
-Phase: 36.1 (ingestion-integrity, INSERTED) — not planned
-Plan: Not started
-Status: Ready to plan — next: /gsd-plan-phase 36.1 (Phase 37 follows)
+Phase: 36.1 (ingestion-integrity, INSERTED) — planned 2026-11-25: 9 plans in 6 waves
+Plan: Not started (next: 36.1-01 / 36.1-03, wave 1)
+Status: Ready to execute — next: /gsd-execute-phase 36.1. Plan 07 blocks on a human checkpoint until a fresh Garmin bulk export is unzipped under export_data/garmin/ (request it now; days to deliver). ING-02/SC2 reworded 2026-11-25: 18180779941 is present via strava-export, so 2026-11-18 is the named miss.
 
 Phase 36 planned (2026-09-28): 14 plans in 9 waves, committed `ebe0245c`. Research `4a61a19b`,
 validation/pattern artifacts `e9a16e61`. Plan-checker returned VERIFICATION PASSED — 0 blockers,
@@ -80,7 +80,7 @@ Carried into execution:
 `.planning/phases/34-pause-classification-forgotten-stop/34-{01..16}-SUMMARY.md` and git history.
 Phases 34 and 35 are both closed in ROADMAP.md.)*
 
-Last activity: 2026-11-25 - Completed quick task 261125-cvq: unblock the nightly deploy (55 intervals.icu runs synced, pace-disagreement ratio recalibrated, clean-clone CI green; pushed 7ed30c1e, CI run 45576545685 green and deployed 1,954 activities); Phase 36.1 Ingestion Integrity inserted
+Last activity: 2026-11-25 - Phase 36.1 planned (9 plans, 6 waves; checker passed iteration 2). Earlier: quick task 261125-cvq unblocked the nightly deploy (55 intervals.icu runs synced, pace-disagreement ratio recalibrated; pushed 7ed30c1e, CI run 45576545685 green and deployed 1,954 activities); Phase 36.1 Ingestion Integrity inserted
 
 ## Performance Metrics
 
