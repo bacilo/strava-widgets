@@ -134,8 +134,19 @@ function toCanonical(run: ExportRun): StravaActivity {
   };
 }
 
-export async function consolidateExports(): Promise<void> {
-  const exportRoot = 'export_data';
+/** Accept only `<source>:<relative path>` with no NUL and no '..' segment; anything else yields no link. */
+function safeOriginalFile(value: unknown): string | undefined {
+  if (typeof value !== 'string' || !/^[a-z]+:[^\0]+$/.test(value)) return undefined;
+  if (value.split(/[\\/:]/).includes('..')) return undefined;
+  return value;
+}
+
+export async function consolidateExports(
+  opts: { exportRoot?: string; activitiesDir?: string; provenancePath?: string } = {}
+): Promise<void> {
+  const exportRoot = opts.exportRoot ?? 'export_data';
+  const activitiesDir = opts.activitiesDir ?? ACTIVITIES_DIR;
+  const provenancePath = opts.provenancePath ?? PROVENANCE_PATH;
   const sources = fs.existsSync(exportRoot)
     ? fs.readdirSync(exportRoot).filter(d => fs.statSync(path.join(exportRoot, d)).isDirectory())
     : [];
@@ -148,9 +159,13 @@ export async function consolidateExports(): Promise<void> {
   // Canonical archive index.
   const archiveById = new Map<string, string>(); // id -> filename
   const archiveByEpoch = new Map<number, string>(); // epoch -> id
-  for (const file of fs.readdirSync(ACTIVITIES_DIR).filter(f => f.endsWith('.json'))) {
-    const activity = JSON.parse(fs.readFileSync(path.join(ACTIVITIES_DIR, file), 'utf-8'));
+  const garminImported: Array<{ id: string; original?: string }> = [];
+  for (const file of fs.readdirSync(activitiesDir).filter(f => f.endsWith('.json'))) {
+    const activity = JSON.parse(fs.readFileSync(path.join(activitiesDir, file), 'utf-8'));
     const id = String(activity.id);
+    if (activity.source_provider === 'garmin-export') {
+      garminImported.push({ id, original: safeOriginalFile(activity.original_file) });
+    }
     archiveById.set(id, file);
     archiveByEpoch.set(Math.floor(new Date(activity.start_date).getTime() / 1000), id);
   }
@@ -162,6 +177,13 @@ export async function consolidateExports(): Promise<void> {
 
   for (const source of sources) {
     const root = path.join(exportRoot, source);
+
+    if (source === 'garmin') {
+      const status = 'inventoried; reconcile via reconcile-exports, import via import-fit';
+      console.log(`== ${source}: ${status}`);
+      sourceSummaries[source] = { status };
+      continue;
+    }
 
     if (source !== 'strava') {
       console.log(`== ${source}: no adapter yet — inventoried but not consolidated`);
@@ -218,7 +240,7 @@ export async function consolidateExports(): Promise<void> {
 
       const filename = `${activity.id}.json`;
       fs.writeFileSync(
-        path.join(ACTIVITIES_DIR, filename),
+        path.join(activitiesDir, filename),
         JSON.stringify(activity, null, 2)
       );
       archiveById.set(String(activity.id), filename);
@@ -245,6 +267,13 @@ export async function consolidateExports(): Promise<void> {
     };
   }
 
+  // Re-derive links for FIT-imported records from the record itself; a Strava link wins.
+  for (const { id, original } of garminImported) {
+    if (provenance[id] === undefined && original !== undefined) {
+      provenance[id] = { matched_by: 'imported', original };
+    }
+  }
+
   // Archive records with no original anywhere (Garmin-only blips, pre-export deletions).
   const withoutOriginal = [...archiveById.keys()].filter(
     id => !provenance[id]?.original && provenance[id]?.matched_by !== 'imported'
@@ -258,9 +287,9 @@ export async function consolidateExports(): Promise<void> {
     archive_without_original: withoutOriginal,
     activities: provenance,
   };
-  fs.writeFileSync(PROVENANCE_PATH, JSON.stringify(doc, null, 2));
+  fs.writeFileSync(provenancePath, JSON.stringify(doc, null, 2));
 
-  console.log(`\nProvenance written: ${PROVENANCE_PATH}`);
+  console.log(`\nProvenance written: ${provenancePath}`);
   console.log(`  archive total: ${archiveById.size}`);
   console.log(`  linked to an original: ${Object.values(provenance).filter(p => p.original).length}`);
   console.log(`  imported this run: ${imported}`);
