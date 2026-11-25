@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
 status: executing
-stopped_at: "Completed 36.1-07-PLAN.md: Garmin probe section 10 and scrubbed fixture committed (H2 resolved by L-01a). Plans 01-07 done (7 of 9); 36.1-08 is next"
-last_updated: "2026-11-25T12:20:13.747Z"
+stopped_at: "Completed 36.1-08-PLAN.md: Garmin adapter, recount branch and committed Garmin audit (missing 5 = recount; 25116720114 missing, 25121466706 matched). Plans 01-08 done (8 of 9); 36.1-09 is next"
+last_updated: "2026-11-25T12:24:11.942Z"
 last_activity: 2026-11-25
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 89
-  completed_plans: 87
+  completed_plans: 88
   percent: 71
 ---
 
@@ -47,7 +47,7 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 ## Current Position
 
 Phase: 36.1 (Ingestion Integrity) — EXECUTING
-Plan: plans 01-07 done (7 of 9); 07 closed after HALT H2 resolved by L-01a (both-present row 25121466706 = i211719792); 08 is next
+Plan: plans 01-08 done (8 of 9); 08 closed with the committed Garmin audit (5 missing = recount, G1 25116720114 missing, G2 25121466706 matched exact); 09 is next
 Status: Ready to execute
 
 Phase 36 planned (2026-09-28): 14 plans in 9 waves, committed `ebe0245c`. Research `4a61a19b`,
@@ -349,8 +349,8 @@ It is named here because PROJECT.md's Evolution entry still describes it as open
 
 ## Session Continuity
 
-Last session: 2026-11-25T12:20:13.740Z
-Stopped at: Completed 36.1-07-PLAN.md (plans 01-07 done, 08 next)
+Last session: 2026-11-25T12:24:11.935Z
+Stopped at: Completed 36.1-08-PLAN.md (plans 01-08 done, 09 next)
 Resume file: None
 
 ---
