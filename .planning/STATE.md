@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
-status: planning
-stopped_at: Phase 37 context gathered
-last_updated: "2026-11-25T13:51:13.611Z"
-last_activity: 2026-11-25
+status: executing
+stopped_at: Phase 37 planned (7 plans, 3 waves)
+last_updated: "2026-11-25T14:31:18.157Z"
+last_activity: 2026-11-25 -- Phase 37 planning complete
 progress:
   total_phases: 7
   completed_phases: 6
-  total_plans: 89
+  total_plans: 96
   completed_plans: 89
   percent: 86
 ---
@@ -48,39 +48,44 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 Phase: 37
 Plan: Not started
-Status: Ready to plan
+Status: Ready to execute
 
-Phase 36 planned (2026-09-28): 14 plans in 9 waves, committed `ebe0245c`. Research `4a61a19b`,
-validation/pattern artifacts `e9a16e61`. Plan-checker returned VERIFICATION PASSED — 0 blockers,
-3 warnings (all informational: two scope-size notes on 36-03/36-05, one archive-sweep runtime note
-on 36-06/36-10/36-11 already precedented by `pace-derivation.test.ts`).
+Phase 37 planned (2026-11-25): 7 plans in 3 waves (01-04 | 05, 06 | 07 checkpoint), committed
+`e7120b32`, revised `c29c6ea5` + `f66323cb`. Research `fa2c388e`, validation `10e7ad8f`, patterns
+`838dd27e`. Planned with `--skip-ui` (user's choice; UI contract = CONTEXT D-15..D-18). Plan-checker:
+round 1 ISSUES FOUND (1 blocker — 37-06 discriminators had no RED→GREEN proof — plus 6 warnings);
+round 2 VERIFICATION PASSED with 2 warnings, both closed by hand in `f66323cb`.
 
-Gates: requirements coverage 4/4 (PR-06..PR-09) plus SEG-05b; decision coverage 18/18 (D-01..D-18,
-visible to the gate because the planner carried the ids in frontmatter `must_haves.decisions`).
+Gates: requirements coverage 2/2 (CUR-04, CUR-06); decision coverage 20/20 (D-01..D-20 in
+frontmatter `must_haves.decisions`).
 
 Carried into execution:
 
-- **D-08's literal bound is unsatisfiable** — 0 of 440 no-clean-window occurrences independently
-  fail an absolute guard. Plan 36-01 amends PR-07 and ROADMAP criterion 2 before any test exists;
-  36-05 T2 demonstrates the adjacent *moved* case on real fixtures 3475725842 / 3475713251. No
-  synthetic fixture for the vacuous combination.
+- **37-05's live derive-vs-recount block fails closed in a worktree** with stale `data/stats`
+  (the `contaminatedMetres` field is missing). That is designed; the live evidence is deferred to 37-07
+  on the primary checkout after regeneration. Schema-widening wave: regenerate `compute-best-efforts` +
+  `build-widgets` on the primary checkout before the post-merge `npm test`.
 
-- **CONTEXT.md is wrong that `pace-single-source.test.ts` bans a duplicate sweep** — its
-  `BANNED_LITERALS` holds only the two pace-division literals. Reusing `findBestEffort` via optional
-  half-open bounds is still the design, but no existing guard enforces it.
+- **37-06's fingerprint-contract mutation lives in the test file**, never in `derive-flagged.mjs`
+  (owned by 37-04 and imported by 37-05 in the same wave).
 
-- **Research's own `complementSubIntervals` snippet was off by one** (`endIndex: seg.startIndex`
-  drops the last clean pair and swallows a clean boundary sample, contradicting 32-CONTEXT.md
-  D-06/D-07). Plans carry `endIndex: cut.startIndex + 1` with a hand-computed unit assertion.
+- **37-07 runs on the primary checkout**, `autonomous: false`. It asserts a clean start on
+  `data/curation/reviewed.json` and has a DELETE-first fallback restore. It takes working-tree, dist and
+  served digests for all three queue inputs, and ticks CUR-04/CUR-06 only on all-rows-PASS.
 
-- **Plans 36-13 and 36-14 must run on the primary checkout**, not a worktree. MERGE-01's origin
-  merge → regenerate → *then* the sha256 signature, in that order.
+- **Choices adopted from research:** `contaminatedMetres` is one per-activity number (A2);
+  `exclusion-cli.mjs` refuses reviewed ids (A7); guard 1 forbids the whole `data/curation` tree plus
+  any `reviewed.json`.
+
+*(Phase 36's planning narrative previously sat here; it is preserved in the Phase 36 plan/summary files
+and git history. Phase 34's narrative before it is in
+`.planning/phases/34-pause-classification-forgotten-stop/34-{01..16}-SUMMARY.md`.)*
 
 *(Phase 34's execution narrative previously sat in this section; it is preserved in
 `.planning/phases/34-pause-classification-forgotten-stop/34-{01..16}-SUMMARY.md` and git history.
 Phases 34 and 35 are both closed in ROADMAP.md.)*
 
-Last activity: 2026-11-25
+Last activity: 2026-11-25 -- Phase 37 planning complete
 
 ## Performance Metrics
 
