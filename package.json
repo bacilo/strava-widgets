@@ -55,6 +55,8 @@
     "fetch-strava": "npm run build && node dist/index.js sync",
     "process": "npm run build && node dist/index.js compute-all-stats",
     "test": "vitest run",
+    "test:logic": "vitest run --config vitest.logic.config.ts",
+    "test:archive": "vitest run --config vitest.archive.config.ts",
     "test:watch": "vitest"
   },
   "keywords": [],
