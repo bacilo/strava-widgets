@@ -478,7 +478,7 @@ Plans:
 
 **Wave 1**
 
-- [ ] 36.1-01-PLAN.md — ING-01: logic/archive vitest split, archive-count test moved, fail-closed partition guard, Direction A on the real pre-sync drift
+- [x] 36.1-01-PLAN.md — ING-01: logic/archive vitest split, archive-count test moved, fail-closed partition guard, Direction A on the real pre-sync drift
 - [ ] 36.1-03-PLAN.md — ING-02 core: exact-epoch reconcile (±120 s near, fail-closed types, derived window), Strava adapter, zero-import recount
 
 **Wave 2** *(blocked on Wave 1)*
@@ -559,7 +559,7 @@ Plans:
 | 34. Pause Classification & Forgotten-Stop | v2.3 | 16/16 | Complete    | 2026-09-23 |
 | 35. Stream-Derived Running Pace | v2.3 | 13/13 | Complete    | 2026-09-28 |
 | 36. Best-Effort Clean-Window Search & Ceiling Recalibration | v2.3 | 20/20 | Complete    | 2026-11-25 |
-| 36.1. Ingestion Integrity (INSERTED) | v2.3 | 0/9 | Planned | - |
+| 36.1. Ingestion Integrity (INSERTED) | v2.3 | 1/9 | In Progress|  |
 | 37. Review-Queue Priority & CUR-04 | v2.3 | 0/TBD | Not started | - |
 
 *Last updated: 2026-09-19 — **v2.3 Pause & Slew Integrity roadmap created**: 6 phases (32-37), 24/24 requirements mapped, derived from research/SUMMARY.md's suggested sequence (detection → coverage integration → pause/stop → stream pace → best-effort/ceiling → review queue), with the hard dependency chain 32→33→36 preserved. SEG-06 (the unreliable-segment quality signal/badge) placed in Phase 33 rather than Phase 32, keeping Phase 32 compute/calibration-only and grouping the badge with the other consumers `classifyGaps`' output feeds. Phases 33-37 add rendered surfaces and close on a human browser checkpoint; Phase 32 does not. No archive-wide target rates were guessed into any success criterion — v2.2's "~5%" criterion was found jointly unsatisfiable; where a rate is unknown this milestone, the criterion is "measured and reported in a regenerable artifact."

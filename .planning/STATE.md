@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
 status: executing
-stopped_at: Phase 36.1 execution started — wave 1 (36.1-01, 36.1-03)
-last_updated: "2026-11-25T11:35:29.347Z"
-last_activity: 2026-11-25 -- Phase 36.1 execution started
+stopped_at: Phase 36 context gathered
+last_updated: "2026-11-25T11:38:36.339Z"
+last_activity: 2026-11-25
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 89
-  completed_plans: 80
+  completed_plans: 81
   percent: 71
 ---
 
@@ -47,8 +47,8 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 ## Current Position
 
 Phase: 36.1 (Ingestion Integrity) — EXECUTING
-Plan: 1 of 9
-Status: Executing Phase 36.1
+Plan: 2 of 9
+Status: Ready to execute
 
 Phase 36 planned (2026-09-28): 14 plans in 9 waves, committed `ebe0245c`. Research `4a61a19b`,
 validation/pattern artifacts `e9a16e61`. Plan-checker returned VERIFICATION PASSED — 0 blockers,
@@ -80,7 +80,7 @@ Carried into execution:
 `.planning/phases/34-pause-classification-forgotten-stop/34-{01..16}-SUMMARY.md` and git history.
 Phases 34 and 35 are both closed in ROADMAP.md.)*
 
-Last activity: 2026-11-25 -- Phase 36.1 execution started
+Last activity: 2026-11-25
 
 ## Performance Metrics
 
@@ -349,9 +349,9 @@ It is named here because PROJECT.md's Evolution entry still describes it as open
 
 ## Session Continuity
 
-Last session: 2026-09-28T10:30:31.680Z
+Last session: 2026-11-25T11:38:36.332Z
 Stopped at: Phase 36 context gathered
-Resume file: .planning/phases/36-best-effort-clean-window-search-ceiling-recalibration/36-CONTEXT.md
+Resume file: None
 
 ---
 *Last updated: 2026-08-11 — Phase 17 (activity-browser-detail-views) all 15 planned plans executed and summarized; human checkpoint on plan 17-15 came back PARTIAL — 8/10 Manual-Only Verifications rows confirmed clean, GAP 1 (DETAIL-02, route-map basemap tiles absent) and GAP 2 (DETAIL-03/04, chart band x-axis misalignment) have open gaps pending gap-closure planning (`/gsd-plan-phase 17 --gaps`) before the phase gate closes*
