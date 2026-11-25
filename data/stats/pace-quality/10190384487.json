@@ -36,6 +36,15 @@
         "violatingSamples": 0
       }
     },
+    "unreliableSegments": {
+      "tier": "none",
+      "count": 0,
+      "totalMetres": 0,
+      "totalExcessMetres": 0,
+      "totalSeconds": 0,
+      "excessFraction": 0,
+      "mechanisms": []
+    },
     "deviceEra": {
       "family": "strava-app-gpx",
       "rawDeviceName": null
@@ -44,6 +53,27 @@
       "ratio": 1.92,
       "elapsedSec": 1218,
       "movingSec": 634
+    },
+    "pauseClassification": {
+      "intervalCount": 1,
+      "stationaryCount": 0,
+      "walkedCount": 1,
+      "ranThroughCount": 0,
+      "transportedCount": 0,
+      "notClassifiableCount": 0
+    },
+    "forgottenStop": {
+      "computable": true,
+      "reason": null,
+      "count": 0,
+      "totalSec": 0,
+      "longestSec": 0,
+      "creepCount": 0,
+      "creepTotalSec": 0,
+      "creepLongestSec": 0,
+      "pauseCount": 0,
+      "pauseTotalSec": 0,
+      "pauseLongestSec": 0
     },
     "anySevere": true,
     "notComputableReason": null
@@ -69,5 +99,19 @@
   "elevationVerticalRateSamples": [],
   "elevationVerticalRateSamplesTruncated": false,
   "elevationLoopRadiusM": 100,
-  "elevationStartEndDistM": 2553.1761340036787
+  "elevationStartEndDistM": 2553.1761340036787,
+  "unreliableSegments": [],
+  "unreliableSegmentsTruncated": false,
+  "pauseIntervals": [
+    {
+      "source": "recording-gap",
+      "pauseClass": "walked",
+      "startSec": 635,
+      "endSec": 1216,
+      "seconds": 581,
+      "metres": 1079.1,
+      "startMetres": 1820.1
+    }
+  ],
+  "pauseIntervalsTruncated": false
 }

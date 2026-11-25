@@ -8,7 +8,7 @@
     },
     "gapProfile": {
       "tier": "none",
-      "gapFraction": 0,
+      "gapFraction": 0.0052942197535150145,
       "recordingGapSec": 0,
       "pauseSec": 0,
       "spanSec": 11522
@@ -36,6 +36,18 @@
         "violatingSamples": 0
       }
     },
+    "unreliableSegments": {
+      "tier": "severe",
+      "count": 8,
+      "totalMetres": 1092.499999999991,
+      "totalExcessMetres": 644.149999999991,
+      "totalSeconds": 61,
+      "excessFraction": 0.020120570366552376,
+      "mechanisms": [
+        "hidden-pause",
+        "isolated-jump"
+      ]
+    },
     "deviceEra": {
       "family": "no-device-name",
       "rawDeviceName": null
@@ -45,10 +57,72 @@
       "elapsedSec": 11522,
       "movingSec": 11522
     },
+    "pauseClassification": {
+      "intervalCount": 0,
+      "stationaryCount": 0,
+      "walkedCount": 0,
+      "ranThroughCount": 0,
+      "transportedCount": 0,
+      "notClassifiableCount": 8
+    },
+    "forgottenStop": {
+      "computable": true,
+      "reason": null,
+      "count": 0,
+      "totalSec": 0,
+      "longestSec": 0,
+      "creepCount": 0,
+      "creepTotalSec": 0,
+      "creepLongestSec": 0,
+      "pauseCount": 0,
+      "pauseTotalSec": 0,
+      "pauseLongestSec": 0
+    },
     "anySevere": true,
     "notComputableReason": null
   },
-  "gapIntervals": [],
+  "gapIntervals": [
+    {
+      "startSec": 2229,
+      "endSec": 2232,
+      "kind": "unreliable"
+    },
+    {
+      "startSec": 4344,
+      "endSec": 4347,
+      "kind": "unreliable"
+    },
+    {
+      "startSec": 5982,
+      "endSec": 5988,
+      "kind": "unreliable"
+    },
+    {
+      "startSec": 8262,
+      "endSec": 8266,
+      "kind": "unreliable"
+    },
+    {
+      "startSec": 8416,
+      "endSec": 8419,
+      "kind": "unreliable"
+    },
+    {
+      "startSec": 8611,
+      "endSec": 8620,
+      "kind": "unreliable"
+    },
+    {
+      "startSec": 9781,
+      "endSec": 9784,
+      "kind": "unreliable"
+    },
+    {
+      "startSec": 10882,
+      "endSec": 10912,
+      "kind": "unreliable"
+    }
+  ],
   "impossibleSamples": [
     {
       "index": 1995,
@@ -148,5 +222,74 @@
   "elevationVerticalRateSamples": [],
   "elevationVerticalRateSamplesTruncated": false,
   "elevationLoopRadiusM": 100,
-  "elevationStartEndDistM": 15962.677114736618
+  "elevationStartEndDistM": 15962.677114736618,
+  "unreliableSegments": [
+    {
+      "startSec": 2229,
+      "endSec": 2232,
+      "metres": 25.899999999999636,
+      "excessMetres": 3.849999999999639,
+      "seconds": 3,
+      "mechanism": "isolated-jump"
+    },
+    {
+      "startSec": 4344,
+      "endSec": 4347,
+      "metres": 31.099999999998545,
+      "excessMetres": 9.049999999998548,
+      "seconds": 3,
+      "mechanism": "isolated-jump"
+    },
+    {
+      "startSec": 5982,
+      "endSec": 5988,
+      "metres": 121.09999999999854,
+      "excessMetres": 76.99999999999855,
+      "seconds": 6,
+      "mechanism": "hidden-pause"
+    },
+    {
+      "startSec": 8262,
+      "endSec": 8266,
+      "metres": 37.79999999999927,
+      "excessMetres": 8.399999999999274,
+      "seconds": 4,
+      "mechanism": "isolated-jump"
+    },
+    {
+      "startSec": 8416,
+      "endSec": 8419,
+      "metres": 35.19999999999709,
+      "excessMetres": 13.149999999997092,
+      "seconds": 3,
+      "mechanism": "isolated-jump"
+    },
+    {
+      "startSec": 8611,
+      "endSec": 8620,
+      "metres": 158.39999999999782,
+      "excessMetres": 92.24999999999783,
+      "seconds": 9,
+      "mechanism": "hidden-pause"
+    },
+    {
+      "startSec": 9781,
+      "endSec": 9784,
+      "metres": 28,
+      "excessMetres": 5.950000000000003,
+      "seconds": 3,
+      "mechanism": "isolated-jump"
+    },
+    {
+      "startSec": 10882,
+      "endSec": 10912,
+      "metres": 655,
+      "excessMetres": 434.5,
+      "seconds": 30,
+      "mechanism": "hidden-pause"
+    }
+  ],
+  "unreliableSegmentsTruncated": false,
+  "pauseIntervals": [],
+  "pauseIntervalsTruncated": false
 }

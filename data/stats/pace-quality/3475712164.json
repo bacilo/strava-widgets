@@ -8,7 +8,7 @@
     },
     "gapProfile": {
       "tier": "none",
-      "gapFraction": 0.009518477043673012,
+      "gapFraction": 0.010078387458006719,
       "recordingGapSec": 34,
       "pauseSec": 0,
       "spanSec": 3572
@@ -36,6 +36,17 @@
         "violatingSamples": 0
       }
     },
+    "unreliableSegments": {
+      "tier": "minor",
+      "count": 1,
+      "totalMetres": 24.299999999999997,
+      "totalExcessMetres": 9.599999999999998,
+      "totalSeconds": 2,
+      "excessFraction": 0.0009596641175588542,
+      "mechanisms": [
+        "isolated-jump"
+      ]
+    },
     "deviceEra": {
       "family": "no-device-name",
       "rawDeviceName": null
@@ -45,10 +56,36 @@
       "elapsedSec": 3572,
       "movingSec": 3538
     },
+    "pauseClassification": {
+      "intervalCount": 2,
+      "stationaryCount": 0,
+      "walkedCount": 2,
+      "ranThroughCount": 0,
+      "transportedCount": 0,
+      "notClassifiableCount": 1
+    },
+    "forgottenStop": {
+      "computable": false,
+      "reason": "distance-triggered recording: a standstill would be written as a recording gap, not a covered creep, so the forgotten-stop flag cannot see it",
+      "count": null,
+      "totalSec": null,
+      "longestSec": null,
+      "creepCount": null,
+      "creepTotalSec": null,
+      "creepLongestSec": null,
+      "pauseCount": null,
+      "pauseTotalSec": null,
+      "pauseLongestSec": null
+    },
     "anySevere": false,
     "notComputableReason": null
   },
   "gapIntervals": [
+    {
+      "startSec": 26,
+      "endSec": 28,
+      "kind": "unreliable"
+    },
     {
       "startSec": 3518,
       "endSec": 3536,
@@ -81,5 +118,37 @@
   "elevationVerticalRateSamples": [],
   "elevationVerticalRateSamplesTruncated": false,
   "elevationLoopRadiusM": 100,
-  "elevationStartEndDistM": 0
+  "elevationStartEndDistM": 0,
+  "unreliableSegments": [
+    {
+      "startSec": 26,
+      "endSec": 28,
+      "metres": 24.299999999999997,
+      "excessMetres": 9.599999999999998,
+      "seconds": 2,
+      "mechanism": "isolated-jump"
+    }
+  ],
+  "unreliableSegmentsTruncated": false,
+  "pauseIntervals": [
+    {
+      "source": "recording-gap",
+      "pauseClass": "walked",
+      "startSec": 3518,
+      "endSec": 3536,
+      "seconds": 18,
+      "metres": 10.600000000000364,
+      "startMetres": 9931.4
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "walked",
+      "startSec": 3552,
+      "endSec": 3568,
+      "seconds": 16,
+      "metres": 11.300000000001091,
+      "startMetres": 9985.4
+    }
+  ],
+  "pauseIntervalsTruncated": false
 }

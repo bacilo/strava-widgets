@@ -8,7 +8,7 @@
     },
     "gapProfile": {
       "tier": "none",
-      "gapFraction": 0,
+      "gapFraction": 0.002155753166262463,
       "recordingGapSec": 0,
       "pauseSec": 0,
       "spanSec": 3711
@@ -36,6 +36,17 @@
         "violatingSamples": 0
       }
     },
+    "unreliableSegments": {
+      "tier": "severe",
+      "count": 1,
+      "totalMetres": 157.7,
+      "totalExcessMetres": 98.89999999999999,
+      "totalSeconds": 8,
+      "excessFraction": 0.009891681585869597,
+      "mechanisms": [
+        "hidden-pause"
+      ]
+    },
     "deviceEra": {
       "family": "no-device-name",
       "rawDeviceName": null
@@ -45,10 +56,37 @@
       "elapsedSec": 3711,
       "movingSec": 3678
     },
+    "pauseClassification": {
+      "intervalCount": 0,
+      "stationaryCount": 0,
+      "walkedCount": 0,
+      "ranThroughCount": 0,
+      "transportedCount": 0,
+      "notClassifiableCount": 1
+    },
+    "forgottenStop": {
+      "computable": true,
+      "reason": null,
+      "count": 0,
+      "totalSec": 0,
+      "longestSec": 0,
+      "creepCount": 0,
+      "creepTotalSec": 0,
+      "creepLongestSec": 0,
+      "pauseCount": 0,
+      "pauseTotalSec": 0,
+      "pauseLongestSec": 0
+    },
     "anySevere": false,
     "notComputableReason": null
   },
-  "gapIntervals": [],
+  "gapIntervals": [
+    {
+      "startSec": 138,
+      "endSec": 146,
+      "kind": "unreliable"
+    }
+  ],
   "impossibleSamples": [
     {
       "index": 70,
@@ -82,5 +120,18 @@
   "elevationVerticalRateSamples": [],
   "elevationVerticalRateSamplesTruncated": false,
   "elevationLoopRadiusM": 100,
-  "elevationStartEndDistM": 5512.894248485409
+  "elevationStartEndDistM": 5512.894248485409,
+  "unreliableSegments": [
+    {
+      "startSec": 138,
+      "endSec": 146,
+      "metres": 157.7,
+      "excessMetres": 98.89999999999999,
+      "seconds": 8,
+      "mechanism": "hidden-pause"
+    }
+  ],
+  "unreliableSegmentsTruncated": false,
+  "pauseIntervals": [],
+  "pauseIntervalsTruncated": false
 }

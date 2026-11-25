@@ -5,59 +5,96 @@
   "efforts": [
     {
       "distance": "400m",
-      "durationSec": 17,
-      "paceSecPerKm": 42.4,
-      "startOffsetSec": 5982,
-      "endOffsetSec": 5999,
+      "durationSec": 127,
+      "paceSecPerKm": 317.5,
+      "startOffsetSec": 822,
+      "endOffsetSec": 949,
       "lowConfidence": false,
-      "demotion": {
-        "guard": "world-record",
-        "reason": "implied 23.56 m/s exceeds world-record pace 9.30 m/s"
+      "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 400m in 17.0s at t=5982.0-5999.0s, intersecting an unreliable segment at t=5979.0-6003.0s (hidden-pause, 479.8m/24.0s)",
+        "durationSec": 17,
+        "paceSecPerKm": 42.4,
+        "startOffsetSec": 5982,
+        "endOffsetSec": 5999
       },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
     {
       "distance": "1k",
-      "durationSec": 210.6,
-      "paceSecPerKm": 210.6,
-      "startOffsetSec": 5865,
-      "endOffsetSec": 6075.6,
+      "durationSec": 325,
+      "paceSecPerKm": 325,
+      "startOffsetSec": 627,
+      "endOffsetSec": 952,
       "lowConfidence": false,
       "demotion": null,
-      "wasPRAtTheTime": true,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 1k in 210.6s at t=5865.0-6075.6s, intersecting an unreliable segment at t=5979.0-6003.0s (hidden-pause, 479.8m/24.0s)",
+        "durationSec": 210.6,
+        "paceSecPerKm": 210.6,
+        "startOffsetSec": 5865,
+        "endOffsetSec": 6075.6
+      },
+      "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
     {
       "distance": "1mi",
-      "durationSec": 440.3,
-      "paceSecPerKm": 273.6,
-      "startOffsetSec": 5634,
-      "endOffsetSec": 6074.3,
+      "durationSec": 525.7,
+      "paceSecPerKm": 326.7,
+      "startOffsetSec": 666,
+      "endOffsetSec": 1191.7,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 1mi in 440.3s at t=5634.0-6074.3s, intersecting an unreliable segment at t=5979.0-6003.0s (hidden-pause, 479.8m/24.0s)",
+        "durationSec": 440.3,
+        "paceSecPerKm": 273.6,
+        "startOffsetSec": 5634,
+        "endOffsetSec": 6074.3
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
     {
       "distance": "5k",
-      "durationSec": 1572.1,
-      "paceSecPerKm": 314.4,
-      "startOffsetSec": 4440,
-      "endOffsetSec": 6012.1,
+      "durationSec": 1691.9,
+      "paceSecPerKm": 338.4,
+      "startOffsetSec": 30,
+      "endOffsetSec": 1721.9,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 5k in 1572.1s at t=4440.0-6012.1s, intersecting 3 unreliable segments (isolated-jump 108.5m/9.0s at t=4650.0; hidden-pause 294.6m/15.0s at t=4674.0; +1 more)",
+        "durationSec": 1572.1,
+        "paceSecPerKm": 314.4,
+        "startOffsetSec": 4440,
+        "endOffsetSec": 6012.1
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
     {
       "distance": "10k",
-      "durationSec": 3405.8,
-      "paceSecPerKm": 340.6,
-      "startOffsetSec": 2607,
-      "endOffsetSec": 6012.8,
+      "durationSec": 3456.8,
+      "paceSecPerKm": 345.7,
+      "startOffsetSec": 27,
+      "endOffsetSec": 3483.8,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 10k in 3405.8s at t=2607.0-6012.8s, intersecting 3 unreliable segments (isolated-jump 108.5m/9.0s at t=4650.0; hidden-pause 294.6m/15.0s at t=4674.0; +1 more)",
+        "durationSec": 3405.8,
+        "paceSecPerKm": 340.6,
+        "startOffsetSec": 2607,
+        "endOffsetSec": 6012.8
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     }

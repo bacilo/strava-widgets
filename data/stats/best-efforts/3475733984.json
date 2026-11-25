@@ -5,34 +5,58 @@
   "efforts": [
     {
       "distance": "400m",
-      "durationSec": 101,
-      "paceSecPerKm": 252.4,
-      "startOffsetSec": 76,
-      "endOffsetSec": 177,
+      "durationSec": 141.8,
+      "paceSecPerKm": 354.4,
+      "startOffsetSec": 26,
+      "endOffsetSec": 167.8,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 400m in 101.0s at t=76.0-177.0s, intersecting an unreliable segment at t=168.0-231.0s (gap-adjacent, 154.5m/63.0s)",
+        "durationSec": 101,
+        "paceSecPerKm": 252.4,
+        "startOffsetSec": 76,
+        "endOffsetSec": 177
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
     {
       "distance": "1k",
-      "durationSec": 332,
-      "paceSecPerKm": 332,
-      "startOffsetSec": 6,
-      "endOffsetSec": 338,
+      "durationSec": 486.5,
+      "paceSecPerKm": 486.5,
+      "startOffsetSec": 532,
+      "endOffsetSec": 1018.5,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 1k in 332.0s at t=6.0-338.0s, intersecting 2 unreliable segments (gap-adjacent 154.5m/63.0s at t=168.0; isolated-jump 112.9m/5.0s at t=333.0)",
+        "durationSec": 332,
+        "paceSecPerKm": 332,
+        "startOffsetSec": 6,
+        "endOffsetSec": 338
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
     {
       "distance": "1mi",
-      "durationSec": 643.2,
-      "paceSecPerKm": 399.7,
-      "startOffsetSec": 0,
-      "endOffsetSec": 643.2,
+      "durationSec": 842.7,
+      "paceSecPerKm": 523.6,
+      "startOffsetSec": 539,
+      "endOffsetSec": 1381.7,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 1mi in 643.2s at t=0.0-643.2s, intersecting 2 unreliable segments (gap-adjacent 154.5m/63.0s at t=168.0; isolated-jump 112.9m/5.0s at t=333.0)",
+        "durationSec": 643.2,
+        "paceSecPerKm": 399.7,
+        "startOffsetSec": 0,
+        "endOffsetSec": 643.2
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     }

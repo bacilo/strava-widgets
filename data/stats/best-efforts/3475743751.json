@@ -11,6 +11,7 @@
       "endOffsetSec": 957.8,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -22,6 +23,7 @@
       "endOffsetSec": 953.8,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -33,7 +35,8 @@
       "endOffsetSec": 1283.4,
       "lowConfidence": false,
       "demotion": null,
-      "wasPRAtTheTime": false,
+      "contaminated": null,
+      "wasPRAtTheTime": true,
       "excludedFromRecords": false
     }
   ],

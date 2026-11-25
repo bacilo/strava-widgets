@@ -8,7 +8,7 @@
     },
     "gapProfile": {
       "tier": "none",
-      "gapFraction": 0.03397804495556717,
+      "gapFraction": 0.03423941453214846,
       "recordingGapSec": 130,
       "pauseSec": 0,
       "spanSec": 3826
@@ -36,6 +36,17 @@
         "violatingSamples": 0
       }
     },
+    "unreliableSegments": {
+      "tier": "minor",
+      "count": 1,
+      "totalMetres": 11.400000000000546,
+      "totalExcessMetres": 4.050000000000546,
+      "totalSeconds": 1,
+      "excessFraction": 0.00040412708549538454,
+      "mechanisms": [
+        "isolated-jump"
+      ]
+    },
     "deviceEra": {
       "family": "no-device-name",
       "rawDeviceName": null
@@ -44,6 +55,27 @@
       "ratio": 1.02,
       "elapsedSec": 3826,
       "movingSec": 3744
+    },
+    "pauseClassification": {
+      "intervalCount": 8,
+      "stationaryCount": 2,
+      "walkedCount": 6,
+      "ranThroughCount": 0,
+      "transportedCount": 0,
+      "notClassifiableCount": 1
+    },
+    "forgottenStop": {
+      "computable": false,
+      "reason": "distance-triggered recording: a standstill would be written as a recording gap, not a covered creep, so the forgotten-stop flag cannot see it",
+      "count": null,
+      "totalSec": null,
+      "longestSec": null,
+      "creepCount": null,
+      "creepTotalSec": null,
+      "creepLongestSec": null,
+      "pauseCount": null,
+      "pauseTotalSec": null,
+      "pauseLongestSec": null
     },
     "anySevere": false,
     "notComputableReason": null
@@ -68,6 +100,11 @@
       "startSec": 1780,
       "endSec": 1791,
       "kind": "recording-gap"
+    },
+    {
+      "startSec": 2099,
+      "endSec": 2100,
+      "kind": "unreliable"
     },
     {
       "startSec": 2763,
@@ -111,5 +148,91 @@
   "elevationVerticalRateSamples": [],
   "elevationVerticalRateSamplesTruncated": false,
   "elevationLoopRadiusM": 100,
-  "elevationStartEndDistM": 0
+  "elevationStartEndDistM": 0,
+  "unreliableSegments": [
+    {
+      "startSec": 2099,
+      "endSec": 2100,
+      "metres": 11.400000000000546,
+      "excessMetres": 4.050000000000546,
+      "seconds": 1,
+      "mechanism": "isolated-jump"
+    }
+  ],
+  "unreliableSegmentsTruncated": false,
+  "pauseIntervals": [
+    {
+      "source": "recording-gap",
+      "pauseClass": "walked",
+      "startSec": 128,
+      "endSec": 139,
+      "seconds": 11,
+      "metres": 10.299999999999955,
+      "startMetres": 363.6
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "walked",
+      "startSec": 195,
+      "endSec": 206,
+      "seconds": 11,
+      "metres": 10.999999999999943,
+      "startMetres": 509.3
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 754,
+      "endSec": 778,
+      "seconds": 24,
+      "metres": 11.099999999999909,
+      "startMetres": 2109.9
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "walked",
+      "startSec": 1780,
+      "endSec": 1791,
+      "seconds": 11,
+      "metres": 11.400000000000546,
+      "startMetres": 4969.4
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "walked",
+      "startSec": 2763,
+      "endSec": 2774,
+      "seconds": 11,
+      "metres": 10,
+      "startMetres": 7652.2
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "walked",
+      "startSec": 2854,
+      "endSec": 2879,
+      "seconds": 25,
+      "metres": 15.199999999999818,
+      "startMetres": 7890.2
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 3518,
+      "endSec": 3543,
+      "seconds": 25,
+      "metres": 6.799999999999272,
+      "startMetres": 9392.7
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "walked",
+      "startSec": 3639,
+      "endSec": 3651,
+      "seconds": 12,
+      "metres": 11.100000000000364,
+      "startMetres": 9620.3
+    }
+  ],
+  "pauseIntervalsTruncated": false
 }

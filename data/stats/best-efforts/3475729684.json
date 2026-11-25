@@ -11,7 +11,8 @@
       "endOffsetSec": 2625.9,
       "lowConfidence": false,
       "demotion": null,
-      "wasPRAtTheTime": false,
+      "contaminated": null,
+      "wasPRAtTheTime": true,
       "excludedFromRecords": false
     },
     {
@@ -22,6 +23,7 @@
       "endOffsetSec": 2779.4,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -33,6 +35,7 @@
       "endOffsetSec": 430.5,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -44,6 +47,7 @@
       "endOffsetSec": 1352.9,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -55,6 +59,7 @@
       "endOffsetSec": 2780.9,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     }

@@ -5,35 +5,59 @@
   "efforts": [
     {
       "distance": "400m",
-      "durationSec": 106.9,
-      "paceSecPerKm": 267.2,
-      "startOffsetSec": 665,
-      "endOffsetSec": 771.9,
+      "durationSec": 117.5,
+      "paceSecPerKm": 293.8,
+      "startOffsetSec": 316,
+      "endOffsetSec": 433.5,
       "lowConfidence": false,
       "demotion": null,
-      "wasPRAtTheTime": true,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 400m in 106.9s at t=665.0-771.9s, intersecting an unreliable segment at t=754.0-771.0s (gap-adjacent, 105.7m/17.0s)",
+        "durationSec": 106.9,
+        "paceSecPerKm": 267.2,
+        "startOffsetSec": 665,
+        "endOffsetSec": 771.9
+      },
+      "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
     {
       "distance": "1k",
-      "durationSec": 340.7,
-      "paceSecPerKm": 340.7,
-      "startOffsetSec": 641,
-      "endOffsetSec": 981.7,
+      "durationSec": 351.8,
+      "paceSecPerKm": 351.8,
+      "startOffsetSec": 127,
+      "endOffsetSec": 478.8,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 1k in 340.7s at t=641.0-981.7s, intersecting an unreliable segment at t=754.0-771.0s (gap-adjacent, 105.7m/17.0s)",
+        "durationSec": 340.7,
+        "paceSecPerKm": 340.7,
+        "startOffsetSec": 641,
+        "endOffsetSec": 981.7
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
     {
       "distance": "1mi",
-      "durationSec": 594.9,
-      "paceSecPerKm": 369.7,
-      "startOffsetSec": 178,
-      "endOffsetSec": 772.9,
+      "durationSec": 611.7,
+      "paceSecPerKm": 380.1,
+      "startOffsetSec": 127,
+      "endOffsetSec": 738.7,
       "lowConfidence": false,
       "demotion": null,
-      "wasPRAtTheTime": false,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 1mi in 594.9s at t=178.0-772.9s, intersecting an unreliable segment at t=754.0-771.0s (gap-adjacent, 105.7m/17.0s)",
+        "durationSec": 594.9,
+        "paceSecPerKm": 369.7,
+        "startOffsetSec": 178,
+        "endOffsetSec": 772.9
+      },
+      "wasPRAtTheTime": true,
       "excludedFromRecords": false
     }
   ],

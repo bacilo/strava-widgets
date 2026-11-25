@@ -36,6 +36,15 @@
         "violatingSamples": 0
       }
     },
+    "unreliableSegments": {
+      "tier": "none",
+      "count": 0,
+      "totalMetres": 0,
+      "totalExcessMetres": 0,
+      "totalSeconds": 0,
+      "excessFraction": 0,
+      "mechanisms": []
+    },
     "deviceEra": {
       "family": "no-device-name",
       "rawDeviceName": null
@@ -44,6 +53,27 @@
       "ratio": 1.17,
       "elapsedSec": 949,
       "movingSec": 814
+    },
+    "pauseClassification": {
+      "intervalCount": 1,
+      "stationaryCount": 1,
+      "walkedCount": 0,
+      "ranThroughCount": 0,
+      "transportedCount": 0,
+      "notClassifiableCount": 0
+    },
+    "forgottenStop": {
+      "computable": true,
+      "reason": null,
+      "count": 2,
+      "totalSec": 71,
+      "longestSec": 62,
+      "creepCount": 1,
+      "creepTotalSec": 62,
+      "creepLongestSec": 62,
+      "pauseCount": 1,
+      "pauseTotalSec": 9,
+      "pauseLongestSec": 9
     },
     "anySevere": false,
     "notComputableReason": null
@@ -69,5 +99,28 @@
   "elevationVerticalRateSamples": [],
   "elevationVerticalRateSamplesTruncated": false,
   "elevationLoopRadiusM": 100,
-  "elevationStartEndDistM": 0
+  "elevationStartEndDistM": 0,
+  "unreliableSegments": [],
+  "unreliableSegmentsTruncated": false,
+  "pauseIntervals": [
+    {
+      "source": "zero-advance-pause",
+      "pauseClass": "stationary",
+      "startSec": 878,
+      "endSec": 887,
+      "seconds": 9,
+      "metres": 0,
+      "startMetres": 1766.9
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 887,
+      "endSec": 949,
+      "seconds": 62,
+      "metres": 21.59999999999991,
+      "startMetres": 1766.9
+    }
+  ],
+  "pauseIntervalsTruncated": false
 }

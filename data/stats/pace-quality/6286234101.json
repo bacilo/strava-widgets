@@ -36,6 +36,15 @@
         "violatingSamples": 0
       }
     },
+    "unreliableSegments": {
+      "tier": "none",
+      "count": 0,
+      "totalMetres": 0,
+      "totalExcessMetres": 0,
+      "totalSeconds": 0,
+      "excessFraction": 0,
+      "mechanisms": []
+    },
     "deviceEra": {
       "family": "garmin-fenix-6-pro",
       "rawDeviceName": null
@@ -44,6 +53,27 @@
       "ratio": 1,
       "elapsedSec": 9015,
       "movingSec": 9014
+    },
+    "pauseClassification": {
+      "intervalCount": 1,
+      "stationaryCount": 0,
+      "walkedCount": 1,
+      "ranThroughCount": 0,
+      "transportedCount": 0,
+      "notClassifiableCount": 0
+    },
+    "forgottenStop": {
+      "computable": true,
+      "reason": null,
+      "count": 2,
+      "totalSec": 133,
+      "longestSec": 77,
+      "creepCount": 2,
+      "creepTotalSec": 133,
+      "creepLongestSec": 77,
+      "pauseCount": 0,
+      "pauseTotalSec": 0,
+      "pauseLongestSec": 0
     },
     "anySevere": false,
     "notComputableReason": null
@@ -69,5 +99,37 @@
   "elevationVerticalRateSamples": [],
   "elevationVerticalRateSamplesTruncated": false,
   "elevationLoopRadiusM": 100,
-  "elevationStartEndDistM": 0
+  "elevationStartEndDistM": 0,
+  "unreliableSegments": [],
+  "unreliableSegmentsTruncated": false,
+  "pauseIntervals": [
+    {
+      "source": "covered-creep",
+      "pauseClass": "walked",
+      "startSec": 5866,
+      "endSec": 5922,
+      "seconds": 56,
+      "metres": 35.60000000000218,
+      "startMetres": 17151.6
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "walked",
+      "startSec": 6225,
+      "endSec": 6236,
+      "seconds": 11,
+      "metres": 13.200000000000728,
+      "startMetres": 17528
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 6236,
+      "endSec": 6313,
+      "seconds": 77,
+      "metres": 26.700000000000728,
+      "startMetres": 17541.2
+    }
+  ],
+  "pauseIntervalsTruncated": false
 }

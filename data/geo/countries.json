@@ -2,11 +2,12 @@
   {
     "countryName": "Denmark",
     "countryIso2": "DK",
-    "activityCount": 1404,
-    "totalDistanceKm": 17123.3,
+    "activityCount": 1456,
+    "totalDistanceKm": 17832.4,
     "cities": [
       "Billund",
       "Buddinge",
+      "Charlottenlund",
       "Christianshavn",
       "Frederiksberg",
       "Herlev",
@@ -62,14 +63,16 @@
   {
     "countryName": "United Kingdom",
     "countryIso2": "GB",
-    "activityCount": 11,
-    "totalDistanceKm": 177.5,
+    "activityCount": 14,
+    "totalDistanceKm": 221.6,
     "cities": [
       "Belfast",
+      "Bethnal Green",
       "Bow",
       "City of London",
       "Edinburgh",
       "Glasgow",
+      "Hillingdon",
       "Lambeth",
       "Portree",
       "Taunton"

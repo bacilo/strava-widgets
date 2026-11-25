@@ -11,6 +11,7 @@
       "endOffsetSec": 2151,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -22,6 +23,7 @@
       "endOffsetSec": 760.2,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -33,6 +35,7 @@
       "endOffsetSec": 758.1,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -44,17 +47,26 @@
       "endOffsetSec": 1543.7,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
     {
       "distance": "10k",
-      "durationSec": 3134.2,
-      "paceSecPerKm": 313.4,
-      "startOffsetSec": 198,
-      "endOffsetSec": 3332.2,
+      "durationSec": 3520.5,
+      "paceSecPerKm": 352,
+      "startOffsetSec": 5218,
+      "endOffsetSec": 8738.5,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 10k in 3134.2s at t=198.0-3332.2s, intersecting an unreliable segment at t=2594.0-2599.0s (isolated-jump, 52.0m/5.0s)",
+        "durationSec": 3134.2,
+        "paceSecPerKm": 313.4,
+        "startOffsetSec": 198,
+        "endOffsetSec": 3332.2
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -65,7 +77,11 @@
       "startOffsetSec": 198,
       "endOffsetSec": 7559.2,
       "lowConfidence": false,
-      "demotion": null,
+      "demotion": {
+        "guard": "unreliable-segment",
+        "reason": "no clean half sub-interval covers the distance (longest clean sub-interval spans 19647.9m); contaminated window: half in 7361.2s at t=198.0-7559.2s, intersecting an unreliable segment at t=2594.0-2599.0s (isolated-jump, 52.0m/5.0s)"
+      },
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     }

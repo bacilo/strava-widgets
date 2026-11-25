@@ -1,0 +1,80 @@
+{
+  "activityId": "i193326262",
+  "startDate": "2026-10-04T07:25:08Z",
+  "distanceSource": "native",
+  "efforts": [
+    {
+      "distance": "400m",
+      "durationSec": 124.9,
+      "paceSecPerKm": 312.3,
+      "startOffsetSec": 1355,
+      "endOffsetSec": 1479.9,
+      "lowConfidence": false,
+      "demotion": null,
+      "contaminated": null,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "1k",
+      "durationSec": 318.6,
+      "paceSecPerKm": 318.6,
+      "startOffsetSec": 1281,
+      "endOffsetSec": 1599.6,
+      "lowConfidence": false,
+      "demotion": null,
+      "contaminated": null,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "1mi",
+      "durationSec": 517.1,
+      "paceSecPerKm": 321.3,
+      "startOffsetSec": 2351,
+      "endOffsetSec": 2868.1,
+      "lowConfidence": false,
+      "demotion": null,
+      "contaminated": null,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "5k",
+      "durationSec": 1633,
+      "paceSecPerKm": 326.6,
+      "startOffsetSec": 231,
+      "endOffsetSec": 1864,
+      "lowConfidence": false,
+      "demotion": null,
+      "contaminated": null,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "10k",
+      "durationSec": 3298.2,
+      "paceSecPerKm": 329.8,
+      "startOffsetSec": 208,
+      "endOffsetSec": 3506.2,
+      "lowConfidence": false,
+      "demotion": null,
+      "contaminated": null,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "half",
+      "durationSec": 7357.3,
+      "paceSecPerKm": 348.7,
+      "startOffsetSec": 208,
+      "endOffsetSec": 7565.3,
+      "lowConfidence": false,
+      "demotion": null,
+      "contaminated": null,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    }
+  ],
+  "excludedFromRecords": false
+}

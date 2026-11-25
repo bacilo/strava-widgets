@@ -5,56 +5,96 @@
   "efforts": [
     {
       "distance": "400m",
-      "durationSec": 85.6,
-      "paceSecPerKm": 214,
-      "startOffsetSec": 72,
-      "endOffsetSec": 157.6,
+      "durationSec": 101.8,
+      "paceSecPerKm": 254.5,
+      "startOffsetSec": 114,
+      "endOffsetSec": 215.8,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 400m in 85.6s at t=72.0-157.6s, intersecting an unreliable segment at t=109.0-114.0s (isolated-jump, 48.5m/5.0s)",
+        "durationSec": 85.6,
+        "paceSecPerKm": 214,
+        "startOffsetSec": 72,
+        "endOffsetSec": 157.6
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
     {
       "distance": "1k",
-      "durationSec": 259.3,
-      "paceSecPerKm": 259.3,
-      "startOffsetSec": 70,
-      "endOffsetSec": 329.3,
+      "durationSec": 270.1,
+      "paceSecPerKm": 270.1,
+      "startOffsetSec": 3222,
+      "endOffsetSec": 3492.1,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 1k in 259.3s at t=70.0-329.3s, intersecting an unreliable segment at t=109.0-114.0s (isolated-jump, 48.5m/5.0s)",
+        "durationSec": 259.3,
+        "paceSecPerKm": 259.3,
+        "startOffsetSec": 70,
+        "endOffsetSec": 329.3
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
     {
       "distance": "1mi",
-      "durationSec": 435.1,
-      "paceSecPerKm": 270.4,
-      "startOffsetSec": 70,
-      "endOffsetSec": 505.1,
+      "durationSec": 452.7,
+      "paceSecPerKm": 281.3,
+      "startOffsetSec": 114,
+      "endOffsetSec": 566.7,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 1mi in 435.1s at t=70.0-505.1s, intersecting an unreliable segment at t=109.0-114.0s (isolated-jump, 48.5m/5.0s)",
+        "durationSec": 435.1,
+        "paceSecPerKm": 270.4,
+        "startOffsetSec": 70,
+        "endOffsetSec": 505.1
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
     {
       "distance": "5k",
-      "durationSec": 1441.2,
-      "paceSecPerKm": 288.2,
-      "startOffsetSec": 70,
-      "endOffsetSec": 1511.2,
+      "durationSec": 1460.8,
+      "paceSecPerKm": 292.2,
+      "startOffsetSec": 114,
+      "endOffsetSec": 1574.8,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 5k in 1441.2s at t=70.0-1511.2s, intersecting an unreliable segment at t=109.0-114.0s (isolated-jump, 48.5m/5.0s)",
+        "durationSec": 1441.2,
+        "paceSecPerKm": 288.2,
+        "startOffsetSec": 70,
+        "endOffsetSec": 1511.2
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
     {
       "distance": "10k",
-      "durationSec": 2967.6,
-      "paceSecPerKm": 296.8,
-      "startOffsetSec": 46,
-      "endOffsetSec": 3013.6,
+      "durationSec": 2991.5,
+      "paceSecPerKm": 299.1,
+      "startOffsetSec": 114,
+      "endOffsetSec": 3105.5,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 10k in 2967.6s at t=46.0-3013.6s, intersecting an unreliable segment at t=109.0-114.0s (isolated-jump, 48.5m/5.0s)",
+        "durationSec": 2967.6,
+        "paceSecPerKm": 296.8,
+        "startOffsetSec": 46,
+        "endOffsetSec": 3013.6
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     }

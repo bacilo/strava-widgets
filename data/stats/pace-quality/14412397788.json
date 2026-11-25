@@ -36,6 +36,15 @@
         "violatingSamples": 0
       }
     },
+    "unreliableSegments": {
+      "tier": "none",
+      "count": 0,
+      "totalMetres": 0,
+      "totalExcessMetres": 0,
+      "totalSeconds": 0,
+      "excessFraction": 0,
+      "mechanisms": []
+    },
     "deviceEra": {
       "family": "garmin-fenix-6-pro",
       "rawDeviceName": null
@@ -44,6 +53,27 @@
       "ratio": 1.37,
       "elapsedSec": 3563,
       "movingSec": 2610
+    },
+    "pauseClassification": {
+      "intervalCount": 10,
+      "stationaryCount": 10,
+      "walkedCount": 0,
+      "ranThroughCount": 0,
+      "transportedCount": 0,
+      "notClassifiableCount": 0
+    },
+    "forgottenStop": {
+      "computable": true,
+      "reason": null,
+      "count": 2,
+      "totalSec": 3,
+      "longestSec": 2,
+      "creepCount": 0,
+      "creepTotalSec": 0,
+      "creepLongestSec": 0,
+      "pauseCount": 2,
+      "pauseTotalSec": 3,
+      "pauseLongestSec": 2
     },
     "anySevere": true,
     "notComputableReason": null
@@ -114,5 +144,100 @@
   "elevationVerticalRateSamples": [],
   "elevationVerticalRateSamplesTruncated": false,
   "elevationLoopRadiusM": 100,
-  "elevationStartEndDistM": null
+  "elevationStartEndDistM": null,
+  "unreliableSegments": [],
+  "unreliableSegmentsTruncated": false,
+  "pauseIntervals": [
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 171,
+      "endSec": 788,
+      "seconds": 617,
+      "metres": 2.400000000000034,
+      "startMetres": 448.2
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 799,
+      "endSec": 900,
+      "seconds": 101,
+      "metres": 0,
+      "startMetres": 477.9
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 1091,
+      "endSec": 1124,
+      "seconds": 33,
+      "metres": 0,
+      "startMetres": 995.7
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 2195,
+      "endSec": 2210,
+      "seconds": 15,
+      "metres": 0,
+      "startMetres": 3867.5
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 2343,
+      "endSec": 2369,
+      "seconds": 26,
+      "metres": 0,
+      "startMetres": 4243.2
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 2666,
+      "endSec": 2715,
+      "seconds": 49,
+      "metres": 0,
+      "startMetres": 5076.5
+    },
+    {
+      "source": "zero-advance-pause",
+      "pauseClass": "stationary",
+      "startSec": 2715,
+      "endSec": 2717,
+      "seconds": 2,
+      "metres": 0,
+      "startMetres": 5076.5
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 2768,
+      "endSec": 2822,
+      "seconds": 54,
+      "metres": 0,
+      "startMetres": 5226.9
+    },
+    {
+      "source": "zero-advance-pause",
+      "pauseClass": "stationary",
+      "startSec": 2822,
+      "endSec": 2823,
+      "seconds": 1,
+      "metres": 0,
+      "startMetres": 5226.9
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 3294,
+      "endSec": 3320,
+      "seconds": 26,
+      "metres": 0,
+      "startMetres": 6524.5
+    }
+  ],
+  "pauseIntervalsTruncated": false
 }

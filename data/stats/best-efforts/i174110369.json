@@ -5,34 +5,58 @@
   "efforts": [
     {
       "distance": "400m",
-      "durationSec": 116.5,
-      "paceSecPerKm": 291.2,
-      "startOffsetSec": 224,
-      "endOffsetSec": 340.5,
+      "durationSec": 134.7,
+      "paceSecPerKm": 336.8,
+      "startOffsetSec": 18,
+      "endOffsetSec": 152.7,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 400m in 116.5s at t=224.0-340.5s, intersecting an unreliable segment at t=237.0-238.0s (isolated-jump, 25.5m/1.0s)",
+        "durationSec": 116.5,
+        "paceSecPerKm": 291.2,
+        "startOffsetSec": 224,
+        "endOffsetSec": 340.5
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
     {
       "distance": "1k",
-      "durationSec": 328.7,
-      "paceSecPerKm": 328.7,
-      "startOffsetSec": 11,
-      "endOffsetSec": 339.7,
+      "durationSec": 418.2,
+      "paceSecPerKm": 418.2,
+      "startOffsetSec": 238,
+      "endOffsetSec": 656.2,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 1k in 328.7s at t=11.0-339.7s, intersecting an unreliable segment at t=237.0-238.0s (isolated-jump, 25.5m/1.0s)",
+        "durationSec": 328.7,
+        "paceSecPerKm": 328.7,
+        "startOffsetSec": 11,
+        "endOffsetSec": 339.7
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
     {
       "distance": "1mi",
-      "durationSec": 624.7,
-      "paceSecPerKm": 388.2,
-      "startOffsetSec": 15,
-      "endOffsetSec": 639.7,
+      "durationSec": 691.4,
+      "paceSecPerKm": 429.6,
+      "startOffsetSec": 238,
+      "endOffsetSec": 929.4,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 1mi in 624.7s at t=15.0-639.7s, intersecting an unreliable segment at t=237.0-238.0s (isolated-jump, 25.5m/1.0s)",
+        "durationSec": 624.7,
+        "paceSecPerKm": 388.2,
+        "startOffsetSec": 15,
+        "endOffsetSec": 639.7
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     }

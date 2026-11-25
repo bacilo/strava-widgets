@@ -1,0 +1,273 @@
+{
+  "activityId": "i194138244",
+  "signals": {
+    "decimation": {
+      "tier": "none",
+      "zeroAdvanceFraction": 0.013725490196078431,
+      "sampleCount": 1021
+    },
+    "gapProfile": {
+      "tier": "minor",
+      "gapFraction": 0.06333403939843253,
+      "recordingGapSec": 295,
+      "pauseSec": 0,
+      "spanSec": 4721
+    },
+    "impossibleSamples": {
+      "tier": "none",
+      "count": 0,
+      "maxImpliedSpeedMps": null,
+      "countInsideZeroAdvanceRun": 0
+    },
+    "elevation": {
+      "tier": "none",
+      "subGround": {
+        "flagged": false,
+        "minAltM": 7.8
+      },
+      "closureDrift": {
+        "state": "not-computable",
+        "deltaM": null,
+        "startEndDistM": null
+      },
+      "verticalRate": {
+        "flagged": false,
+        "worstRateMps": 0.2999999999999998,
+        "violatingSamples": 0
+      }
+    },
+    "unreliableSegments": {
+      "tier": "minor",
+      "count": 1,
+      "totalMetres": 36.69999999999993,
+      "totalExcessMetres": 7.299999999999933,
+      "totalSeconds": 4,
+      "excessFraction": 0.0006041495973715299,
+      "mechanisms": [
+        "isolated-jump"
+      ]
+    },
+    "deviceEra": {
+      "family": "intervals-icu",
+      "rawDeviceName": null
+    },
+    "elapsedVsMoving": {
+      "ratio": 1.07,
+      "elapsedSec": 4721,
+      "movingSec": 4417
+    },
+    "pauseClassification": {
+      "intervalCount": 11,
+      "stationaryCount": 10,
+      "walkedCount": 1,
+      "ranThroughCount": 0,
+      "transportedCount": 0,
+      "notClassifiableCount": 1
+    },
+    "forgottenStop": {
+      "computable": true,
+      "reason": null,
+      "count": 0,
+      "totalSec": 0,
+      "longestSec": 0,
+      "creepCount": 0,
+      "creepTotalSec": 0,
+      "creepLongestSec": 0,
+      "pauseCount": 0,
+      "pauseTotalSec": 0,
+      "pauseLongestSec": 0
+    },
+    "anySevere": false,
+    "notComputableReason": null
+  },
+  "gapIntervals": [
+    {
+      "startSec": 200,
+      "endSec": 212,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 218,
+      "endSec": 222,
+      "kind": "unreliable"
+    },
+    {
+      "startSec": 655,
+      "endSec": 692,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 1703,
+      "endSec": 1728,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 1904,
+      "endSec": 1935,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2349,
+      "endSec": 2383,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2728,
+      "endSec": 2784,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 2962,
+      "endSec": 2975,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3432,
+      "endSec": 3451,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3775,
+      "endSec": 3794,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 3890,
+      "endSec": 3907,
+      "kind": "recording-gap"
+    },
+    {
+      "startSec": 4358,
+      "endSec": 4390,
+      "kind": "recording-gap"
+    }
+  ],
+  "impossibleSamples": [],
+  "impossibleSamplesTruncated": false,
+  "zeroAdvanceRunProfile": {
+    "runCount": 12,
+    "longestRunSamples": 2,
+    "longestRunSec": 56,
+    "medianRunSamples": 1,
+    "p90RunSec": 37.6
+  },
+  "adaptiveWindowSec": 20,
+  "notComputableReason": null,
+  "elevationVerticalRateSamples": [],
+  "elevationVerticalRateSamplesTruncated": false,
+  "elevationLoopRadiusM": 100,
+  "elevationStartEndDistM": null,
+  "unreliableSegments": [
+    {
+      "startSec": 218,
+      "endSec": 222,
+      "metres": 36.69999999999993,
+      "excessMetres": 7.299999999999933,
+      "seconds": 4,
+      "mechanism": "isolated-jump"
+    }
+  ],
+  "unreliableSegmentsTruncated": false,
+  "pauseIntervals": [
+    {
+      "source": "recording-gap",
+      "pauseClass": "walked",
+      "startSec": 200,
+      "endSec": 212,
+      "seconds": 12,
+      "metres": 18.700000000000045,
+      "startMetres": 562
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 655,
+      "endSec": 692,
+      "seconds": 37,
+      "metres": 0,
+      "startMetres": 1858.5
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 1703,
+      "endSec": 1728,
+      "seconds": 25,
+      "metres": 0,
+      "startMetres": 4583.5
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 1904,
+      "endSec": 1935,
+      "seconds": 31,
+      "metres": 0,
+      "startMetres": 5084.5
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 2349,
+      "endSec": 2383,
+      "seconds": 34,
+      "metres": 0,
+      "startMetres": 6247.8
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 2728,
+      "endSec": 2784,
+      "seconds": 56,
+      "metres": 0,
+      "startMetres": 7200.7
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 2962,
+      "endSec": 2975,
+      "seconds": 13,
+      "metres": 0,
+      "startMetres": 7688.9
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 3432,
+      "endSec": 3451,
+      "seconds": 19,
+      "metres": 0,
+      "startMetres": 8907.4
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 3775,
+      "endSec": 3794,
+      "seconds": 19,
+      "metres": 0,
+      "startMetres": 9775.9
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 3890,
+      "endSec": 3907,
+      "seconds": 17,
+      "metres": 0,
+      "startMetres": 10043.5
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 4358,
+      "endSec": 4390,
+      "seconds": 32,
+      "metres": 0,
+      "startMetres": 11269.7
+    }
+  ],
+  "pauseIntervalsTruncated": false
+}

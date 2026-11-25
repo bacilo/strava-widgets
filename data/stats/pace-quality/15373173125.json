@@ -36,6 +36,15 @@
         "violatingSamples": 0
       }
     },
+    "unreliableSegments": {
+      "tier": "none",
+      "count": 0,
+      "totalMetres": 0,
+      "totalExcessMetres": 0,
+      "totalSeconds": 0,
+      "excessFraction": 0,
+      "mechanisms": []
+    },
     "deviceEra": {
       "family": "garmin-fenix-6-pro",
       "rawDeviceName": null
@@ -44,6 +53,27 @@
       "ratio": 1.43,
       "elapsedSec": 6418,
       "movingSec": 4492
+    },
+    "pauseClassification": {
+      "intervalCount": 13,
+      "stationaryCount": 13,
+      "walkedCount": 0,
+      "ranThroughCount": 0,
+      "transportedCount": 0,
+      "notClassifiableCount": 0
+    },
+    "forgottenStop": {
+      "computable": true,
+      "reason": null,
+      "count": 1,
+      "totalSec": 10,
+      "longestSec": 10,
+      "creepCount": 0,
+      "creepTotalSec": 0,
+      "creepLongestSec": 0,
+      "pauseCount": 1,
+      "pauseTotalSec": 10,
+      "pauseLongestSec": 10
     },
     "anySevere": true,
     "notComputableReason": null
@@ -129,5 +159,127 @@
   "elevationVerticalRateSamples": [],
   "elevationVerticalRateSamplesTruncated": false,
   "elevationLoopRadiusM": 100,
-  "elevationStartEndDistM": null
+  "elevationStartEndDistM": null,
+  "unreliableSegments": [],
+  "unreliableSegmentsTruncated": false,
+  "pauseIntervals": [
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 207,
+      "endSec": 351,
+      "seconds": 144,
+      "metres": 0,
+      "startMetres": 544.4
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 437,
+      "endSec": 511,
+      "seconds": 74,
+      "metres": 0,
+      "startMetres": 775.5
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 944,
+      "endSec": 956,
+      "seconds": 12,
+      "metres": 0.2999999999999545,
+      "startMetres": 1953.2
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 1972,
+      "endSec": 2002,
+      "seconds": 30,
+      "metres": 0,
+      "startMetres": 4663.1
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 2236,
+      "endSec": 2278,
+      "seconds": 42,
+      "metres": 0.1999999999998181,
+      "startMetres": 5291.5
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 2591,
+      "endSec": 3245,
+      "seconds": 654,
+      "metres": 0.1000000000003638,
+      "startMetres": 6117
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 3393,
+      "endSec": 3404,
+      "seconds": 11,
+      "metres": 1.5999999999994543,
+      "startMetres": 6409.6
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 3413,
+      "endSec": 3590,
+      "seconds": 177,
+      "metres": 0,
+      "startMetres": 6420.4
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 3690,
+      "endSec": 3716,
+      "seconds": 26,
+      "metres": 2,
+      "startMetres": 6701.9
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 4145,
+      "endSec": 4845,
+      "seconds": 700,
+      "metres": 0,
+      "startMetres": 7806.9
+    },
+    {
+      "source": "zero-advance-pause",
+      "pauseClass": "stationary",
+      "startSec": 4845,
+      "endSec": 4855,
+      "seconds": 10,
+      "metres": 0,
+      "startMetres": 7806.9
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 4855,
+      "endSec": 4878,
+      "seconds": 23,
+      "metres": 0,
+      "startMetres": 7806.9
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 5463,
+      "endSec": 5488,
+      "seconds": 25,
+      "metres": 2.099999999998545,
+      "startMetres": 9397.2
+    }
+  ],
+  "pauseIntervalsTruncated": false
 }

@@ -5,23 +5,39 @@
   "efforts": [
     {
       "distance": "400m",
-      "durationSec": 110.3,
-      "paceSecPerKm": 275.7,
-      "startOffsetSec": 383,
-      "endOffsetSec": 493.3,
+      "durationSec": 121.7,
+      "paceSecPerKm": 304.4,
+      "startOffsetSec": 186,
+      "endOffsetSec": 307.7,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 400m in 110.3s at t=383.0-493.3s, intersecting 2 unreliable segments (isolated-jump 34.5m/4.0s at t=414.0; isolated-jump 25.6m/3.0s at t=458.0)",
+        "durationSec": 110.3,
+        "paceSecPerKm": 275.7,
+        "startOffsetSec": 383,
+        "endOffsetSec": 493.3
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
     {
       "distance": "1k",
-      "durationSec": 349.8,
-      "paceSecPerKm": 349.8,
-      "startOffsetSec": 175,
-      "endOffsetSec": 524.8,
+      "durationSec": 375.6,
+      "paceSecPerKm": 375.6,
+      "startOffsetSec": 470,
+      "endOffsetSec": 845.6,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 1k in 349.8s at t=175.0-524.8s, intersecting 2 unreliable segments (isolated-jump 34.5m/4.0s at t=414.0; isolated-jump 25.6m/3.0s at t=458.0)",
+        "durationSec": 349.8,
+        "paceSecPerKm": 349.8,
+        "startOffsetSec": 175,
+        "endOffsetSec": 524.8
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -32,7 +48,11 @@
       "startOffsetSec": 246,
       "endOffsetSec": 825.2,
       "lowConfidence": false,
-      "demotion": null,
+      "demotion": {
+        "guard": "unreliable-segment",
+        "reason": "no clean 1mi sub-interval covers the distance (longest clean sub-interval spans 1055.8m); contaminated window: 1mi in 579.2s at t=246.0-825.2s, intersecting 2 unreliable segments (isolated-jump 34.5m/4.0s at t=414.0; isolated-jump 25.6m/3.0s at t=458.0)"
+      },
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     }

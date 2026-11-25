@@ -36,6 +36,15 @@
         "violatingSamples": 0
       }
     },
+    "unreliableSegments": {
+      "tier": "none",
+      "count": 0,
+      "totalMetres": 0,
+      "totalExcessMetres": 0,
+      "totalSeconds": 0,
+      "excessFraction": 0,
+      "mechanisms": []
+    },
     "deviceEra": {
       "family": "garmin-fenix-6-pro",
       "rawDeviceName": null
@@ -44,6 +53,27 @@
       "ratio": 1.31,
       "elapsedSec": 7869,
       "movingSec": 5986
+    },
+    "pauseClassification": {
+      "intervalCount": 2,
+      "stationaryCount": 2,
+      "walkedCount": 0,
+      "ranThroughCount": 0,
+      "transportedCount": 0,
+      "notClassifiableCount": 0
+    },
+    "forgottenStop": {
+      "computable": true,
+      "reason": null,
+      "count": 1,
+      "totalSec": 41,
+      "longestSec": 41,
+      "creepCount": 1,
+      "creepTotalSec": 41,
+      "creepLongestSec": 41,
+      "pauseCount": 0,
+      "pauseTotalSec": 0,
+      "pauseLongestSec": 0
     },
     "anySevere": true,
     "notComputableReason": null
@@ -74,5 +104,37 @@
   "elevationVerticalRateSamples": [],
   "elevationVerticalRateSamplesTruncated": false,
   "elevationLoopRadiusM": 100,
-  "elevationStartEndDistM": 867.0704911800278
+  "elevationStartEndDistM": 867.0704911800278,
+  "unreliableSegments": [],
+  "unreliableSegmentsTruncated": false,
+  "pauseIntervals": [
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 388,
+      "endSec": 429,
+      "seconds": 41,
+      "metres": 14.599999999999909,
+      "startMetres": 1106.2
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 3215,
+      "endSec": 3243,
+      "seconds": 28,
+      "metres": 0,
+      "startMetres": 8491.2
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 5795,
+      "endSec": 7649,
+      "seconds": 1854,
+      "metres": 2.5,
+      "startMetres": 15288.8
+    }
+  ],
+  "pauseIntervalsTruncated": false
 }

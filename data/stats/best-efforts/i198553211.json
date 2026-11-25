@@ -1,0 +1,82 @@
+{
+  "activityId": "i198553211",
+  "startDate": "2026-10-18T06:15:22Z",
+  "distanceSource": "native",
+  "efforts": [
+    {
+      "distance": "400m",
+      "durationSec": 120.7,
+      "paceSecPerKm": 301.6,
+      "startOffsetSec": 70,
+      "endOffsetSec": 190.7,
+      "lowConfidence": false,
+      "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 400m in 98.3s at t=6123.0-6221.3s, intersecting an unreliable segment at t=6130.0-6137.0s (hidden-pause, 132.2m/7.0s)",
+        "durationSec": 98.3,
+        "paceSecPerKm": 245.8,
+        "startOffsetSec": 6123,
+        "endOffsetSec": 6221.3
+      },
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "1k",
+      "durationSec": 304,
+      "paceSecPerKm": 304,
+      "startOffsetSec": 254,
+      "endOffsetSec": 558,
+      "lowConfidence": false,
+      "demotion": null,
+      "contaminated": null,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "1mi",
+      "durationSec": 492.5,
+      "paceSecPerKm": 306,
+      "startOffsetSec": 70,
+      "endOffsetSec": 562.5,
+      "lowConfidence": false,
+      "demotion": null,
+      "contaminated": null,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "5k",
+      "durationSec": 1584,
+      "paceSecPerKm": 316.8,
+      "startOffsetSec": 70,
+      "endOffsetSec": 1654,
+      "lowConfidence": false,
+      "demotion": null,
+      "contaminated": null,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "10k",
+      "durationSec": 3470.7,
+      "paceSecPerKm": 347.1,
+      "startOffsetSec": 2279,
+      "endOffsetSec": 5749.7,
+      "lowConfidence": false,
+      "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 10k in 3258.4s at t=4.0-3262.4s, intersecting an unreliable segment at t=2267.0-2269.0s (isolated-jump, 26.6m/2.0s)",
+        "durationSec": 3258.4,
+        "paceSecPerKm": 325.8,
+        "startOffsetSec": 4,
+        "endOffsetSec": 3262.4
+      },
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    }
+  ],
+  "excludedFromRecords": false
+}

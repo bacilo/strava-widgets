@@ -5,12 +5,20 @@
   "efforts": [
     {
       "distance": "400m",
-      "durationSec": 114.4,
-      "paceSecPerKm": 286,
-      "startOffsetSec": 15,
-      "endOffsetSec": 129.4,
+      "durationSec": 116.8,
+      "paceSecPerKm": 292,
+      "startOffsetSec": 3289,
+      "endOffsetSec": 3405.8,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 400m in 114.4s at t=15.0-129.4s, intersecting an unreliable segment at t=54.0-56.0s (isolated-jump, 18.5m/2.0s)",
+        "durationSec": 114.4,
+        "paceSecPerKm": 286,
+        "startOffsetSec": 15,
+        "endOffsetSec": 129.4
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -22,6 +30,7 @@
       "endOffsetSec": 3405.9,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -33,6 +42,7 @@
       "endOffsetSec": 3402.3,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -44,6 +54,7 @@
       "endOffsetSec": 3775,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -55,17 +66,26 @@
       "endOffsetSec": 3685.4,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
     {
       "distance": "half",
-      "durationSec": 7525.6,
-      "paceSecPerKm": 356.7,
-      "startOffsetSec": 2,
-      "endOffsetSec": 7527.6,
+      "durationSec": 7562.7,
+      "paceSecPerKm": 358.5,
+      "startOffsetSec": 56,
+      "endOffsetSec": 7618.7,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: half in 7525.6s at t=2.0-7527.6s, intersecting an unreliable segment at t=54.0-56.0s (isolated-jump, 18.5m/2.0s)",
+        "durationSec": 7525.6,
+        "paceSecPerKm": 356.7,
+        "startOffsetSec": 2,
+        "endOffsetSec": 7527.6
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     }

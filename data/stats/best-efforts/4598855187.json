@@ -14,6 +14,7 @@
         "guard": "max-speed",
         "reason": "implied 195.33 m/s exceeds activity max_speed 24.20 m/s"
       },
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -26,8 +27,9 @@
       "lowConfidence": false,
       "demotion": {
         "guard": "ceiling",
-        "reason": "implied 6.200 m/s exceeds personal ceiling 4.750 m/s by 1.450 m/s (1.28 x p90 3.711 m/s over 1852 filtered 1k efforts)"
+        "reason": "implied 6.200 m/s exceeds personal ceiling 4.708 m/s by 1.492 m/s (1.28 x p90 3.678 m/s over 1909 filtered 1k efforts)"
       },
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -40,8 +42,9 @@
       "lowConfidence": false,
       "demotion": {
         "guard": "ceiling",
-        "reason": "implied 4.747 m/s exceeds personal ceiling 4.628 m/s by 0.119 m/s (1.28 x p90 3.616 m/s over 1851 filtered 1mi efforts)"
+        "reason": "implied 4.747 m/s exceeds personal ceiling 4.592 m/s by 0.155 m/s (1.28 x p90 3.587 m/s over 1904 filtered 1mi efforts)"
       },
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -53,6 +56,7 @@
       "endOffsetSec": 2830.3,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -64,6 +68,7 @@
       "endOffsetSec": 4578.7,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     }

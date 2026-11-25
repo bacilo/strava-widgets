@@ -36,6 +36,15 @@
         "violatingSamples": 0
       }
     },
+    "unreliableSegments": {
+      "tier": "none",
+      "count": 0,
+      "totalMetres": 0,
+      "totalExcessMetres": 0,
+      "totalSeconds": 0,
+      "excessFraction": 0,
+      "mechanisms": []
+    },
     "deviceEra": {
       "family": "no-device-name",
       "rawDeviceName": null
@@ -44,6 +53,27 @@
       "ratio": 1.12,
       "elapsedSec": 3427,
       "movingSec": 3051
+    },
+    "pauseClassification": {
+      "intervalCount": 2,
+      "stationaryCount": 2,
+      "walkedCount": 0,
+      "ranThroughCount": 0,
+      "transportedCount": 0,
+      "notClassifiableCount": 0
+    },
+    "forgottenStop": {
+      "computable": true,
+      "reason": null,
+      "count": 3,
+      "totalSec": 280,
+      "longestSec": 234,
+      "creepCount": 1,
+      "creepTotalSec": 234,
+      "creepLongestSec": 234,
+      "pauseCount": 2,
+      "pauseTotalSec": 46,
+      "pauseLongestSec": 30
     },
     "anySevere": false,
     "notComputableReason": null
@@ -74,5 +104,37 @@
   "elevationVerticalRateSamples": [],
   "elevationVerticalRateSamplesTruncated": false,
   "elevationLoopRadiusM": 100,
-  "elevationStartEndDistM": 4577.828617823972
+  "elevationStartEndDistM": 4577.828617823972,
+  "unreliableSegments": [],
+  "unreliableSegmentsTruncated": false,
+  "pauseIntervals": [
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 2181,
+      "endSec": 2415,
+      "seconds": 234,
+      "metres": 97.29999999999927,
+      "startMetres": 6308.1
+    },
+    {
+      "source": "zero-advance-pause",
+      "pauseClass": "stationary",
+      "startSec": 2415,
+      "endSec": 2431,
+      "seconds": 16,
+      "metres": 0,
+      "startMetres": 6405.4
+    },
+    {
+      "source": "zero-advance-pause",
+      "pauseClass": "stationary",
+      "startSec": 2451,
+      "endSec": 2481,
+      "seconds": 30,
+      "metres": 0,
+      "startMetres": 6411.3
+    }
+  ],
+  "pauseIntervalsTruncated": false
 }

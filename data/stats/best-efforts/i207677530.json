@@ -1,0 +1,71 @@
+{
+  "activityId": "i207677530",
+  "startDate": "2026-11-09T06:06:37Z",
+  "distanceSource": "native",
+  "efforts": [
+    {
+      "distance": "400m",
+      "durationSec": 135.9,
+      "paceSecPerKm": 339.8,
+      "startOffsetSec": 4479,
+      "endOffsetSec": 4614.9,
+      "lowConfidence": false,
+      "demotion": {
+        "guard": "max-speed",
+        "reason": "implied 2.94 m/s exceeds activity max_speed 2.88 m/s"
+      },
+      "contaminated": null,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "1k",
+      "durationSec": 362.3,
+      "paceSecPerKm": 362.3,
+      "startOffsetSec": 640,
+      "endOffsetSec": 1002.3,
+      "lowConfidence": false,
+      "demotion": null,
+      "contaminated": null,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "1mi",
+      "durationSec": 596.6,
+      "paceSecPerKm": 370.7,
+      "startOffsetSec": 640,
+      "endOffsetSec": 1236.6,
+      "lowConfidence": false,
+      "demotion": null,
+      "contaminated": null,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "5k",
+      "durationSec": 1873.3,
+      "paceSecPerKm": 374.7,
+      "startOffsetSec": 94,
+      "endOffsetSec": 1967.3,
+      "lowConfidence": false,
+      "demotion": null,
+      "contaminated": null,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "10k",
+      "durationSec": 4129,
+      "paceSecPerKm": 412.9,
+      "startOffsetSec": 35,
+      "endOffsetSec": 4164,
+      "lowConfidence": false,
+      "demotion": null,
+      "contaminated": null,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    }
+  ],
+  "excludedFromRecords": false
+}

@@ -8,7 +8,7 @@
     },
     "gapProfile": {
       "tier": "none",
-      "gapFraction": 0,
+      "gapFraction": 0.004789781798829164,
       "recordingGapSec": 0,
       "pauseSec": 0,
       "spanSec": 3758
@@ -36,6 +36,17 @@
         "violatingSamples": 0
       }
     },
+    "unreliableSegments": {
+      "tier": "severe",
+      "count": 1,
+      "totalMetres": 368.6999999999998,
+      "totalExcessMetres": 236.39999999999984,
+      "totalSeconds": 18,
+      "excessFraction": 0.02363881805909703,
+      "mechanisms": [
+        "hidden-pause"
+      ]
+    },
     "deviceEra": {
       "family": "no-device-name",
       "rawDeviceName": null
@@ -45,10 +56,37 @@
       "elapsedSec": 3758,
       "movingSec": 3749
     },
+    "pauseClassification": {
+      "intervalCount": 0,
+      "stationaryCount": 0,
+      "walkedCount": 0,
+      "ranThroughCount": 0,
+      "transportedCount": 0,
+      "notClassifiableCount": 1
+    },
+    "forgottenStop": {
+      "computable": true,
+      "reason": null,
+      "count": 0,
+      "totalSec": 0,
+      "longestSec": 0,
+      "creepCount": 0,
+      "creepTotalSec": 0,
+      "creepLongestSec": 0,
+      "pauseCount": 0,
+      "pauseTotalSec": 0,
+      "pauseLongestSec": 0
+    },
     "anySevere": false,
     "notComputableReason": null
   },
-  "gapIntervals": [],
+  "gapIntervals": [
+    {
+      "startSec": 1198,
+      "endSec": 1216,
+      "kind": "unreliable"
+    }
+  ],
   "impossibleSamples": [
     {
       "index": 600,
@@ -106,5 +144,18 @@
   "elevationVerticalRateSamples": [],
   "elevationVerticalRateSamplesTruncated": false,
   "elevationLoopRadiusM": 100,
-  "elevationStartEndDistM": 5512.894248485409
+  "elevationStartEndDistM": 5512.894248485409,
+  "unreliableSegments": [
+    {
+      "startSec": 1198,
+      "endSec": 1216,
+      "metres": 368.6999999999998,
+      "excessMetres": 236.39999999999984,
+      "seconds": 18,
+      "mechanism": "hidden-pause"
+    }
+  ],
+  "unreliableSegmentsTruncated": false,
+  "pauseIntervals": [],
+  "pauseIntervalsTruncated": false
 }

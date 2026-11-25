@@ -36,6 +36,15 @@
         "violatingSamples": 0
       }
     },
+    "unreliableSegments": {
+      "tier": "none",
+      "count": 0,
+      "totalMetres": 0,
+      "totalExcessMetres": 0,
+      "totalSeconds": 0,
+      "excessFraction": 0,
+      "mechanisms": []
+    },
     "deviceEra": {
       "family": "suunto-9",
       "rawDeviceName": null
@@ -44,6 +53,27 @@
       "ratio": 1.16,
       "elapsedSec": 4023,
       "movingSec": 3475
+    },
+    "pauseClassification": {
+      "intervalCount": 8,
+      "stationaryCount": 8,
+      "walkedCount": 0,
+      "ranThroughCount": 0,
+      "transportedCount": 0,
+      "notClassifiableCount": 0
+    },
+    "forgottenStop": {
+      "computable": true,
+      "reason": null,
+      "count": 3,
+      "totalSec": 8,
+      "longestSec": 4,
+      "creepCount": 0,
+      "creepTotalSec": 0,
+      "creepLongestSec": 0,
+      "pauseCount": 3,
+      "pauseTotalSec": 8,
+      "pauseLongestSec": 4
     },
     "anySevere": true,
     "notComputableReason": null
@@ -111,5 +141,82 @@
   "elevationVerticalRateSamples": [],
   "elevationVerticalRateSamplesTruncated": false,
   "elevationLoopRadiusM": 100,
-  "elevationStartEndDistM": 0
+  "elevationStartEndDistM": 0,
+  "unreliableSegments": [],
+  "unreliableSegmentsTruncated": false,
+  "pauseIntervals": [
+    {
+      "source": "zero-advance-pause",
+      "pauseClass": "stationary",
+      "startSec": 992,
+      "endSec": 994,
+      "seconds": 2,
+      "metres": 0,
+      "startMetres": 3122
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 994,
+      "endSec": 1058,
+      "seconds": 64,
+      "metres": 0,
+      "startMetres": 3122
+    },
+    {
+      "source": "zero-advance-pause",
+      "pauseClass": "stationary",
+      "startSec": 1058,
+      "endSec": 1060,
+      "seconds": 2,
+      "metres": 0,
+      "startMetres": 3122
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 1194,
+      "endSec": 1249,
+      "seconds": 55,
+      "metres": 5,
+      "startMetres": 3533
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 1609,
+      "endSec": 1754,
+      "seconds": 145,
+      "metres": 0,
+      "startMetres": 4585
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 3050,
+      "endSec": 3277,
+      "seconds": 227,
+      "metres": 2,
+      "startMetres": 8058
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 3609,
+      "endSec": 3661,
+      "seconds": 52,
+      "metres": 0,
+      "startMetres": 9026
+    },
+    {
+      "source": "zero-advance-pause",
+      "pauseClass": "stationary",
+      "startSec": 3661,
+      "endSec": 3665,
+      "seconds": 4,
+      "metres": 0,
+      "startMetres": 9026
+    }
+  ],
+  "pauseIntervalsTruncated": false
 }

@@ -5,12 +5,20 @@
   "efforts": [
     {
       "distance": "400m",
-      "durationSec": 115,
-      "paceSecPerKm": 287.4,
-      "startOffsetSec": 58,
-      "endOffsetSec": 173,
+      "durationSec": 117.6,
+      "paceSecPerKm": 294,
+      "startOffsetSec": 59,
+      "endOffsetSec": 176.6,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 400m in 115.0s at t=58.0-173.0s, intersecting an unreliable segment at t=45.0-59.0s (gap-adjacent, 41.7m/14.0s)",
+        "durationSec": 115,
+        "paceSecPerKm": 287.4,
+        "startOffsetSec": 58,
+        "endOffsetSec": 173
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     }

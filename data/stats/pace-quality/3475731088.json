@@ -8,7 +8,7 @@
     },
     "gapProfile": {
       "tier": "none",
-      "gapFraction": 0,
+      "gapFraction": 0.0005483959418700301,
       "recordingGapSec": 0,
       "pauseSec": 0,
       "spanSec": 3647
@@ -36,6 +36,17 @@
         "violatingSamples": 0
       }
     },
+    "unreliableSegments": {
+      "tier": "minor",
+      "count": 1,
+      "totalMetres": 32.59999999999991,
+      "totalExcessMetres": 17.89999999999991,
+      "totalSeconds": 2,
+      "excessFraction": 0.0024132445331248027,
+      "mechanisms": [
+        "isolated-jump"
+      ]
+    },
     "deviceEra": {
       "family": "no-device-name",
       "rawDeviceName": null
@@ -45,10 +56,37 @@
       "elapsedSec": 3647,
       "movingSec": 3547
     },
+    "pauseClassification": {
+      "intervalCount": 0,
+      "stationaryCount": 0,
+      "walkedCount": 0,
+      "ranThroughCount": 0,
+      "transportedCount": 0,
+      "notClassifiableCount": 1
+    },
+    "forgottenStop": {
+      "computable": true,
+      "reason": null,
+      "count": 1,
+      "totalSec": 42,
+      "longestSec": 42,
+      "creepCount": 1,
+      "creepTotalSec": 42,
+      "creepLongestSec": 42,
+      "pauseCount": 0,
+      "pauseTotalSec": 0,
+      "pauseLongestSec": 0
+    },
     "anySevere": false,
     "notComputableReason": null
   },
-  "gapIntervals": [],
+  "gapIntervals": [
+    {
+      "startSec": 1024,
+      "endSec": 1026,
+      "kind": "unreliable"
+    }
+  ],
   "impossibleSamples": [
     {
       "index": 513,
@@ -70,5 +108,28 @@
   "elevationVerticalRateSamples": [],
   "elevationVerticalRateSamplesTruncated": false,
   "elevationLoopRadiusM": 100,
-  "elevationStartEndDistM": 1415.8109683313103
+  "elevationStartEndDistM": 1415.8109683313103,
+  "unreliableSegments": [
+    {
+      "startSec": 1024,
+      "endSec": 1026,
+      "metres": 32.59999999999991,
+      "excessMetres": 17.89999999999991,
+      "seconds": 2,
+      "mechanism": "isolated-jump"
+    }
+  ],
+  "unreliableSegmentsTruncated": false,
+  "pauseIntervals": [
+    {
+      "source": "covered-creep",
+      "pauseClass": "walked",
+      "startSec": 982,
+      "endSec": 1024,
+      "seconds": 42,
+      "metres": 21.200000000000045,
+      "startMetres": 1530.7
+    }
+  ],
+  "pauseIntervalsTruncated": false
 }

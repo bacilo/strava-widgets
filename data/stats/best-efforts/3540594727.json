@@ -5,14 +5,19 @@
   "efforts": [
     {
       "distance": "400m",
-      "durationSec": 2,
-      "paceSecPerKm": 4.9,
-      "startOffsetSec": 13978,
-      "endOffsetSec": 13980,
+      "durationSec": 126.4,
+      "paceSecPerKm": 316,
+      "startOffsetSec": 124,
+      "endOffsetSec": 250.4,
       "lowConfidence": true,
-      "demotion": {
-        "guard": "max-speed",
-        "reason": "implied 202.45 m/s exceeds activity max_speed 4.70 m/s"
+      "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 400m in 2.0s at t=13978.0-13980.0s, intersecting an unreliable segment at t=9471.0-13982.0s (gap-adjacent, 2730.8m/4511.0s)",
+        "durationSec": 2,
+        "paceSecPerKm": 4.9,
+        "startOffsetSec": 13978,
+        "endOffsetSec": 13980
       },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
@@ -25,6 +30,7 @@
       "endOffsetSec": 329.7,
       "lowConfidence": true,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -36,6 +42,7 @@
       "endOffsetSec": 532.2,
       "lowConfidence": true,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -47,17 +54,26 @@
       "endOffsetSec": 1694.1,
       "lowConfidence": true,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
     {
       "distance": "10k",
-      "durationSec": 4219.3,
-      "paceSecPerKm": 421.9,
-      "startOffsetSec": 0,
-      "endOffsetSec": 4219.3,
+      "durationSec": 4962.5,
+      "paceSecPerKm": 496.3,
+      "startOffsetSec": 4020,
+      "endOffsetSec": 8982.5,
       "lowConfidence": true,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 10k in 4219.3s at t=0.0-4219.3s, intersecting an unreliable segment at t=4003.0-4020.0s (gap-adjacent, 48.3m/17.0s)",
+        "durationSec": 4219.3,
+        "paceSecPerKm": 421.9,
+        "startOffsetSec": 0,
+        "endOffsetSec": 4219.3
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     }

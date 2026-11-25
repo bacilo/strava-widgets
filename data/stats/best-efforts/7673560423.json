@@ -11,6 +11,7 @@
       "endOffsetSec": 2433.5,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -22,6 +23,7 @@
       "endOffsetSec": 2438.6,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -33,6 +35,7 @@
       "endOffsetSec": 2524.8,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -44,28 +47,45 @@
       "endOffsetSec": 2872.3,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
     {
       "distance": "10k",
-      "durationSec": 2721.2,
-      "paceSecPerKm": 272.1,
-      "startOffsetSec": 128,
-      "endOffsetSec": 2849.2,
+      "durationSec": 2876.3,
+      "paceSecPerKm": 287.6,
+      "startOffsetSec": 1257,
+      "endOffsetSec": 4133.3,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 10k in 2721.2s at t=128.0-2849.2s, intersecting 2 unreliable segments (isolated-jump 24.0m/1.0s at t=503.0; isolated-jump 26.9m/2.0s at t=1138.0)",
+        "durationSec": 2721.2,
+        "paceSecPerKm": 272.1,
+        "startOffsetSec": 128,
+        "endOffsetSec": 2849.2
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
     {
       "distance": "half",
-      "durationSec": 6195,
-      "paceSecPerKm": 293.6,
-      "startOffsetSec": 0,
-      "endOffsetSec": 6195,
+      "durationSec": 6391.3,
+      "paceSecPerKm": 302.9,
+      "startOffsetSec": 1140,
+      "endOffsetSec": 7531.3,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: half in 6195.0s at t=0.0-6195.0s, intersecting 2 unreliable segments (isolated-jump 24.0m/1.0s at t=503.0; isolated-jump 26.9m/2.0s at t=1138.0)",
+        "durationSec": 6195,
+        "paceSecPerKm": 293.6,
+        "startOffsetSec": 0,
+        "endOffsetSec": 6195
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     }

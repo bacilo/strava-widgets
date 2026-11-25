@@ -1,0 +1,89 @@
+{
+  "activityId": "i190790252",
+  "startDate": "2026-09-27T08:07:35Z",
+  "distanceSource": "native",
+  "efforts": [
+    {
+      "distance": "400m",
+      "durationSec": 114.4,
+      "paceSecPerKm": 286,
+      "startOffsetSec": 1958,
+      "endOffsetSec": 2072.4,
+      "lowConfidence": false,
+      "demotion": null,
+      "contaminated": null,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "1k",
+      "durationSec": 297,
+      "paceSecPerKm": 297,
+      "startOffsetSec": 4532,
+      "endOffsetSec": 4829,
+      "lowConfidence": false,
+      "demotion": null,
+      "contaminated": null,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "1mi",
+      "durationSec": 485.1,
+      "paceSecPerKm": 301.4,
+      "startOffsetSec": 4348,
+      "endOffsetSec": 4833.1,
+      "lowConfidence": false,
+      "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 1mi in 484.9s at t=339.0-823.9s, intersecting an unreliable segment at t=715.0-717.0s (isolated-jump, 21.5m/2.0s)",
+        "durationSec": 484.9,
+        "paceSecPerKm": 301.3,
+        "startOffsetSec": 339,
+        "endOffsetSec": 823.9
+      },
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "5k",
+      "durationSec": 1555,
+      "paceSecPerKm": 311,
+      "startOffsetSec": 1321,
+      "endOffsetSec": 2876,
+      "lowConfidence": false,
+      "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 5k in 1543.2s at t=11.0-1554.2s, intersecting an unreliable segment at t=715.0-717.0s (isolated-jump, 21.5m/2.0s)",
+        "durationSec": 1543.2,
+        "paceSecPerKm": 308.6,
+        "startOffsetSec": 11,
+        "endOffsetSec": 1554.2
+      },
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "10k",
+      "durationSec": 3203.2,
+      "paceSecPerKm": 320.3,
+      "startOffsetSec": 733,
+      "endOffsetSec": 3936.2,
+      "lowConfidence": false,
+      "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 10k in 3114.6s at t=14.0-3128.6s, intersecting an unreliable segment at t=715.0-717.0s (isolated-jump, 21.5m/2.0s)",
+        "durationSec": 3114.6,
+        "paceSecPerKm": 311.5,
+        "startOffsetSec": 14,
+        "endOffsetSec": 3128.6
+      },
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    }
+  ],
+  "excludedFromRecords": false
+}

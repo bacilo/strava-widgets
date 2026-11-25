@@ -1,26 +1,26 @@
 [
   {
     "period": "Morning (6am-12pm)",
-    "runCount": 1049,
-    "totalKm": 13326.89131000001,
-    "percentage": 55.23959978936283
+    "runCount": 1082,
+    "totalKm": 13799.201890000011,
+    "percentage": 55.373592630501534
   },
   {
     "period": "Afternoon (12pm-6pm)",
-    "runCount": 353,
-    "totalKm": 3881.759750000003,
-    "percentage": 18.588730911005793
+    "runCount": 364,
+    "totalKm": 4043.4848700000034,
+    "percentage": 18.62845445240532
   },
   {
     "period": "Evening (6pm-10pm)",
     "runCount": 32,
     "totalKm": 313.50870000000003,
-    "percentage": 1.685097419694576
+    "percentage": 1.6376663254861823
   },
   {
     "period": "Night (10pm-6am)",
-    "runCount": 465,
-    "totalKm": 5241.1620699999985,
-    "percentage": 24.486571879936808
+    "runCount": 476,
+    "totalKm": 5360.297579999998,
+    "percentage": 24.36028659160696
   }
 ]

@@ -1,0 +1,59 @@
+{
+  "activityId": "i192494036",
+  "startDate": "2026-10-02T05:30:02Z",
+  "distanceSource": "native",
+  "efforts": [
+    {
+      "distance": "400m",
+      "durationSec": 121.6,
+      "paceSecPerKm": 303.9,
+      "startOffsetSec": 97,
+      "endOffsetSec": 218.6,
+      "lowConfidence": false,
+      "demotion": null,
+      "contaminated": null,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "1k",
+      "durationSec": 310.9,
+      "paceSecPerKm": 310.9,
+      "startOffsetSec": 4,
+      "endOffsetSec": 314.9,
+      "lowConfidence": false,
+      "demotion": null,
+      "contaminated": null,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "1mi",
+      "durationSec": 511.8,
+      "paceSecPerKm": 318,
+      "startOffsetSec": 13,
+      "endOffsetSec": 524.8,
+      "lowConfidence": false,
+      "demotion": null,
+      "contaminated": null,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "5k",
+      "durationSec": 1704.2,
+      "paceSecPerKm": 340.8,
+      "startOffsetSec": 0,
+      "endOffsetSec": 1704.2,
+      "lowConfidence": false,
+      "demotion": {
+        "guard": "unreliable-segment",
+        "reason": "no clean 5k sub-interval covers the distance (longest clean sub-interval spans 3142.7m); contaminated window: 5k in 1704.2s at t=0.0-1704.2s, intersecting an unreliable segment at t=1035.0-1036.0s (isolated-jump, 17.0m/1.0s)"
+      },
+      "contaminated": null,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    }
+  ],
+  "excludedFromRecords": false
+}

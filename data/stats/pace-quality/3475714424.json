@@ -8,7 +8,7 @@
     },
     "gapProfile": {
       "tier": "none",
-      "gapFraction": 0,
+      "gapFraction": 0.002964845404489623,
       "recordingGapSec": 0,
       "pauseSec": 0,
       "spanSec": 4722
@@ -36,6 +36,18 @@
         "violatingSamples": 0
       }
     },
+    "unreliableSegments": {
+      "tier": "severe",
+      "count": 2,
+      "totalMetres": 245.49999999999963,
+      "totalExcessMetres": 142.59999999999965,
+      "totalSeconds": 14,
+      "excessFraction": 0.01028096003691338,
+      "mechanisms": [
+        "hidden-pause",
+        "isolated-jump"
+      ]
+    },
     "deviceEra": {
       "family": "no-device-name",
       "rawDeviceName": null
@@ -45,10 +57,42 @@
       "elapsedSec": 4722,
       "movingSec": 4706
     },
+    "pauseClassification": {
+      "intervalCount": 0,
+      "stationaryCount": 0,
+      "walkedCount": 0,
+      "ranThroughCount": 0,
+      "transportedCount": 0,
+      "notClassifiableCount": 2
+    },
+    "forgottenStop": {
+      "computable": true,
+      "reason": null,
+      "count": 0,
+      "totalSec": 0,
+      "longestSec": 0,
+      "creepCount": 0,
+      "creepTotalSec": 0,
+      "creepLongestSec": 0,
+      "pauseCount": 0,
+      "pauseTotalSec": 0,
+      "pauseLongestSec": 0
+    },
     "anySevere": false,
     "notComputableReason": null
   },
-  "gapIntervals": [],
+  "gapIntervals": [
+    {
+      "startSec": 48,
+      "endSec": 50,
+      "kind": "unreliable"
+    },
+    {
+      "startSec": 4064,
+      "endSec": 4076,
+      "kind": "unreliable"
+    }
+  ],
   "impossibleSamples": [
     {
       "index": 2033,
@@ -100,5 +144,26 @@
   "elevationVerticalRateSamples": [],
   "elevationVerticalRateSamplesTruncated": false,
   "elevationLoopRadiusM": 100,
-  "elevationStartEndDistM": 6024.050355434108
+  "elevationStartEndDistM": 6024.050355434108,
+  "unreliableSegments": [
+    {
+      "startSec": 48,
+      "endSec": 50,
+      "metres": 18.599999999999994,
+      "excessMetres": 3.899999999999995,
+      "seconds": 2,
+      "mechanism": "isolated-jump"
+    },
+    {
+      "startSec": 4064,
+      "endSec": 4076,
+      "metres": 226.89999999999964,
+      "excessMetres": 138.69999999999965,
+      "seconds": 12,
+      "mechanism": "hidden-pause"
+    }
+  ],
+  "unreliableSegmentsTruncated": false,
+  "pauseIntervals": [],
+  "pauseIntervalsTruncated": false
 }

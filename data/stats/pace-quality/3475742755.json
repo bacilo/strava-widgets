@@ -8,7 +8,7 @@
     },
     "gapProfile": {
       "tier": "none",
-      "gapFraction": 0.0052716950527169504,
+      "gapFraction": 0.0072992700729927005,
       "recordingGapSec": 13,
       "pauseSec": 0,
       "spanSec": 2466
@@ -36,6 +36,17 @@
         "violatingSamples": 0
       }
     },
+    "unreliableSegments": {
+      "tier": "severe",
+      "count": 3,
+      "totalMetres": 80.49999999999955,
+      "totalExcessMetres": 43.749999999999545,
+      "totalSeconds": 5,
+      "excessFraction": 0.0054309371004381424,
+      "mechanisms": [
+        "isolated-jump"
+      ]
+    },
     "deviceEra": {
       "family": "no-device-name",
       "rawDeviceName": null
@@ -45,14 +56,50 @@
       "elapsedSec": 2466,
       "movingSec": 2466
     },
+    "pauseClassification": {
+      "intervalCount": 1,
+      "stationaryCount": 0,
+      "walkedCount": 1,
+      "ranThroughCount": 0,
+      "transportedCount": 0,
+      "notClassifiableCount": 3
+    },
+    "forgottenStop": {
+      "computable": true,
+      "reason": null,
+      "count": 0,
+      "totalSec": 0,
+      "longestSec": 0,
+      "creepCount": 0,
+      "creepTotalSec": 0,
+      "creepLongestSec": 0,
+      "pauseCount": 0,
+      "pauseTotalSec": 0,
+      "pauseLongestSec": 0
+    },
     "anySevere": false,
     "notComputableReason": null
   },
   "gapIntervals": [
     {
+      "startSec": 401,
+      "endSec": 403,
+      "kind": "unreliable"
+    },
+    {
       "startSec": 1658,
       "endSec": 1671,
       "kind": "recording-gap"
+    },
+    {
+      "startSec": 2402,
+      "endSec": 2404,
+      "kind": "unreliable"
+    },
+    {
+      "startSec": 2408,
+      "endSec": 2409,
+      "kind": "unreliable"
     }
   ],
   "impossibleSamples": [
@@ -88,5 +135,44 @@
   "elevationVerticalRateSamples": [],
   "elevationVerticalRateSamplesTruncated": false,
   "elevationLoopRadiusM": 100,
-  "elevationStartEndDistM": 0
+  "elevationStartEndDistM": 0,
+  "unreliableSegments": [
+    {
+      "startSec": 401,
+      "endSec": 403,
+      "metres": 28.40000000000009,
+      "excessMetres": 13.700000000000092,
+      "seconds": 2,
+      "mechanism": "isolated-jump"
+    },
+    {
+      "startSec": 2402,
+      "endSec": 2404,
+      "metres": 38.19999999999982,
+      "excessMetres": 23.49999999999982,
+      "seconds": 2,
+      "mechanism": "isolated-jump"
+    },
+    {
+      "startSec": 2408,
+      "endSec": 2409,
+      "metres": 13.899999999999636,
+      "excessMetres": 6.549999999999637,
+      "seconds": 1,
+      "mechanism": "isolated-jump"
+    }
+  ],
+  "unreliableSegmentsTruncated": false,
+  "pauseIntervals": [
+    {
+      "source": "recording-gap",
+      "pauseClass": "walked",
+      "startSec": 1658,
+      "endSec": 1671,
+      "seconds": 13,
+      "metres": 11.800000000000182,
+      "startMetres": 5447
+    }
+  ],
+  "pauseIntervalsTruncated": false
 }

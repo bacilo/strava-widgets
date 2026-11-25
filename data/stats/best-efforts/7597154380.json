@@ -5,12 +5,20 @@
   "efforts": [
     {
       "distance": "400m",
-      "durationSec": 109.6,
-      "paceSecPerKm": 274.1,
-      "startOffsetSec": 8152,
-      "endOffsetSec": 8261.6,
+      "durationSec": 111.5,
+      "paceSecPerKm": 278.8,
+      "startOffsetSec": 2413,
+      "endOffsetSec": 2524.5,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 400m in 109.6s at t=8152.0-8261.6s, intersecting an unreliable segment at t=8243.0-8246.0s (isolated-jump, 33.3m/3.0s)",
+        "durationSec": 109.6,
+        "paceSecPerKm": 274.1,
+        "startOffsetSec": 8152,
+        "endOffsetSec": 8261.6
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -22,6 +30,7 @@
       "endOffsetSec": 1381.9,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -33,6 +42,7 @@
       "endOffsetSec": 1397.9,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -44,6 +54,7 @@
       "endOffsetSec": 2499.3,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -55,6 +66,7 @@
       "endOffsetSec": 3522.8,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -65,7 +77,11 @@
       "startOffsetSec": 154,
       "endOffsetSec": 7373.7,
       "lowConfidence": false,
-      "demotion": null,
+      "demotion": {
+        "guard": "unreliable-segment",
+        "reason": "no clean half sub-interval covers the distance (longest clean sub-interval spans 15048.2m); contaminated window: half in 7219.7s at t=154.0-7373.7s, intersecting an unreliable segment at t=5213.0-5215.0s (isolated-jump, 29.7m/2.0s)"
+      },
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     }

@@ -36,6 +36,15 @@
         "violatingSamples": 0
       }
     },
+    "unreliableSegments": {
+      "tier": "none",
+      "count": 0,
+      "totalMetres": 0,
+      "totalExcessMetres": 0,
+      "totalSeconds": 0,
+      "excessFraction": 0,
+      "mechanisms": []
+    },
     "deviceEra": {
       "family": "strava-app-gpx",
       "rawDeviceName": null
@@ -44,6 +53,27 @@
       "ratio": 1.2,
       "elapsedSec": 5680,
       "movingSec": 4739
+    },
+    "pauseClassification": {
+      "intervalCount": 2,
+      "stationaryCount": 2,
+      "walkedCount": 0,
+      "ranThroughCount": 0,
+      "transportedCount": 0,
+      "notClassifiableCount": 0
+    },
+    "forgottenStop": {
+      "computable": true,
+      "reason": null,
+      "count": 5,
+      "totalSec": 262,
+      "longestSec": 78,
+      "creepCount": 4,
+      "creepTotalSec": 242,
+      "creepLongestSec": 78,
+      "pauseCount": 1,
+      "pauseTotalSec": 20,
+      "pauseLongestSec": 20
     },
     "anySevere": false,
     "notComputableReason": null
@@ -74,5 +104,64 @@
   "elevationVerticalRateSamples": [],
   "elevationVerticalRateSamplesTruncated": false,
   "elevationLoopRadiusM": 100,
-  "elevationStartEndDistM": 0
+  "elevationStartEndDistM": 0,
+  "unreliableSegments": [],
+  "unreliableSegmentsTruncated": false,
+  "pauseIntervals": [
+    {
+      "source": "covered-creep",
+      "pauseClass": "walked",
+      "startSec": 1036,
+      "endSec": 1094,
+      "seconds": 58,
+      "metres": 30.5,
+      "startMetres": 2387.8
+    },
+    {
+      "source": "zero-advance-pause",
+      "pauseClass": "stationary",
+      "startSec": 1094,
+      "endSec": 1114,
+      "seconds": 20,
+      "metres": 0,
+      "startMetres": 2418.3
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 1114,
+      "endSec": 1192,
+      "seconds": 78,
+      "metres": 37.899999999999636,
+      "startMetres": 2418.3
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "walked",
+      "startSec": 1496,
+      "endSec": 1556,
+      "seconds": 60,
+      "metres": 32.30000000000018,
+      "startMetres": 3015.2
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "walked",
+      "startSec": 3776,
+      "endSec": 3822,
+      "seconds": 46,
+      "metres": 25.199999999999818,
+      "startMetres": 7987
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 4376,
+      "endSec": 5319,
+      "seconds": 943,
+      "metres": 40.399999999999636,
+      "startMetres": 9232.6
+    }
+  ],
+  "pauseIntervalsTruncated": false
 }

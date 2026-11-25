@@ -1,0 +1,80 @@
+{
+  "activityId": "i207319071",
+  "startDate": "2026-11-08T07:59:25Z",
+  "distanceSource": "native",
+  "efforts": [
+    {
+      "distance": "400m",
+      "durationSec": 113.3,
+      "paceSecPerKm": 283.2,
+      "startOffsetSec": 127,
+      "endOffsetSec": 240.3,
+      "lowConfidence": false,
+      "demotion": null,
+      "contaminated": null,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "1k",
+      "durationSec": 296.1,
+      "paceSecPerKm": 296.1,
+      "startOffsetSec": 127,
+      "endOffsetSec": 423.1,
+      "lowConfidence": false,
+      "demotion": null,
+      "contaminated": null,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "1mi",
+      "durationSec": 481.1,
+      "paceSecPerKm": 299,
+      "startOffsetSec": 127,
+      "endOffsetSec": 608.1,
+      "lowConfidence": false,
+      "demotion": null,
+      "contaminated": null,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "5k",
+      "durationSec": 1632.8,
+      "paceSecPerKm": 326.6,
+      "startOffsetSec": 127,
+      "endOffsetSec": 1759.8,
+      "lowConfidence": false,
+      "demotion": null,
+      "contaminated": null,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "10k",
+      "durationSec": 3905.4,
+      "paceSecPerKm": 390.5,
+      "startOffsetSec": 4290,
+      "endOffsetSec": 8195.4,
+      "lowConfidence": false,
+      "demotion": null,
+      "contaminated": null,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    },
+    {
+      "distance": "half",
+      "durationSec": 8753.1,
+      "paceSecPerKm": 414.9,
+      "startOffsetSec": 122,
+      "endOffsetSec": 8875.1,
+      "lowConfidence": false,
+      "demotion": null,
+      "contaminated": null,
+      "wasPRAtTheTime": false,
+      "excludedFromRecords": false
+    }
+  ],
+  "excludedFromRecords": false
+}

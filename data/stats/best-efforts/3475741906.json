@@ -11,6 +11,7 @@
       "endOffsetSec": 529.2,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -22,6 +23,7 @@
       "endOffsetSec": 725.5,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -33,28 +35,45 @@
       "endOffsetSec": 589.3,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
     {
       "distance": "5k",
-      "durationSec": 1668.5,
-      "paceSecPerKm": 333.7,
-      "startOffsetSec": 100,
-      "endOffsetSec": 1768.5,
+      "durationSec": 1732.9,
+      "paceSecPerKm": 346.6,
+      "startOffsetSec": 974,
+      "endOffsetSec": 2706.9,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 5k in 1668.5s at t=100.0-1768.5s, intersecting an unreliable segment at t=902.0-906.0s (isolated-jump, 67.1m/4.0s)",
+        "durationSec": 1668.5,
+        "paceSecPerKm": 333.7,
+        "startOffsetSec": 100,
+        "endOffsetSec": 1768.5
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
     {
       "distance": "10k",
-      "durationSec": 3457.9,
-      "paceSecPerKm": 345.8,
-      "startOffsetSec": 74,
-      "endOffsetSec": 3531.9,
+      "durationSec": 3542,
+      "paceSecPerKm": 354.2,
+      "startOffsetSec": 1006,
+      "endOffsetSec": 4548,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 10k in 3457.9s at t=74.0-3531.9s, intersecting an unreliable segment at t=902.0-906.0s (isolated-jump, 67.1m/4.0s)",
+        "durationSec": 3457.9,
+        "paceSecPerKm": 345.8,
+        "startOffsetSec": 74,
+        "endOffsetSec": 3531.9
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     }

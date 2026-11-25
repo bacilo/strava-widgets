@@ -36,6 +36,15 @@
         "violatingSamples": 0
       }
     },
+    "unreliableSegments": {
+      "tier": "none",
+      "count": 0,
+      "totalMetres": 0,
+      "totalExcessMetres": 0,
+      "totalSeconds": 0,
+      "excessFraction": 0,
+      "mechanisms": []
+    },
     "deviceEra": {
       "family": "no-device-name",
       "rawDeviceName": null
@@ -44,6 +53,27 @@
       "ratio": 1.14,
       "elapsedSec": 8593,
       "movingSec": 7514
+    },
+    "pauseClassification": {
+      "intervalCount": 12,
+      "stationaryCount": 5,
+      "walkedCount": 7,
+      "ranThroughCount": 0,
+      "transportedCount": 0,
+      "notClassifiableCount": 0
+    },
+    "forgottenStop": {
+      "computable": false,
+      "reason": "distance-triggered recording: a standstill would be written as a recording gap, not a covered creep, so the forgotten-stop flag cannot see it",
+      "count": null,
+      "totalSec": null,
+      "longestSec": null,
+      "creepCount": null,
+      "creepTotalSec": null,
+      "creepLongestSec": null,
+      "pauseCount": null,
+      "pauseTotalSec": null,
+      "pauseLongestSec": null
     },
     "anySevere": false,
     "notComputableReason": null
@@ -124,5 +154,118 @@
   "elevationVerticalRateSamples": [],
   "elevationVerticalRateSamplesTruncated": false,
   "elevationLoopRadiusM": 100,
-  "elevationStartEndDistM": 0
+  "elevationStartEndDistM": 0,
+  "unreliableSegments": [],
+  "unreliableSegmentsTruncated": false,
+  "pauseIntervals": [
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 155,
+      "endSec": 180,
+      "seconds": 25,
+      "metres": 10.699999999999989,
+      "startMetres": 432.3
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "walked",
+      "startSec": 1570,
+      "endSec": 1586,
+      "seconds": 16,
+      "metres": 11.300000000000182,
+      "startMetres": 4283.2
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 1834,
+      "endSec": 2390,
+      "seconds": 556,
+      "metres": 7.600000000000364,
+      "startMetres": 4943
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "walked",
+      "startSec": 3830,
+      "endSec": 3850,
+      "seconds": 20,
+      "metres": 10.5,
+      "startMetres": 8526.6
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "walked",
+      "startSec": 3857,
+      "endSec": 3876,
+      "seconds": 19,
+      "metres": 10.5,
+      "startMetres": 8547.9
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "walked",
+      "startSec": 4354,
+      "endSec": 4366,
+      "seconds": 12,
+      "metres": 11.199999999998909,
+      "startMetres": 9770.2
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 5394,
+      "endSec": 5729,
+      "seconds": 335,
+      "metres": 40.20000000000073,
+      "startMetres": 12545
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 6302,
+      "endSec": 6336,
+      "seconds": 34,
+      "metres": 10.899999999999636,
+      "startMetres": 14185.6
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "walked",
+      "startSec": 6749,
+      "endSec": 6760,
+      "seconds": 11,
+      "metres": 11.600000000000364,
+      "startMetres": 15298.6
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "walked",
+      "startSec": 7076,
+      "endSec": 7092,
+      "seconds": 16,
+      "metres": 11.299999999999272,
+      "startMetres": 16145.5
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "walked",
+      "startSec": 7531,
+      "endSec": 7553,
+      "seconds": 22,
+      "metres": 11.599999999998545,
+      "startMetres": 17320.7
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 7896,
+      "endSec": 7923,
+      "seconds": 27,
+      "metres": 12.19999999999709,
+      "startMetres": 18220.9
+    }
+  ],
+  "pauseIntervalsTruncated": false
 }

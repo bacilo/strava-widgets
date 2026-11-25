@@ -8,7 +8,7 @@
     },
     "gapProfile": {
       "tier": "none",
-      "gapFraction": 0,
+      "gapFraction": 0.00016254876462938882,
       "recordingGapSec": 0,
       "pauseSec": 0,
       "spanSec": 6152
@@ -36,6 +36,17 @@
         "violatingSamples": 1
       }
     },
+    "unreliableSegments": {
+      "tier": "minor",
+      "count": 1,
+      "totalMetres": 14.799999999999272,
+      "totalExcessMetres": 7.449999999999273,
+      "totalSeconds": 1,
+      "excessFraction": 0.0003502635204069297,
+      "mechanisms": [
+        "isolated-jump"
+      ]
+    },
     "deviceEra": {
       "family": "garmin-fenix-6-pro",
       "rawDeviceName": null
@@ -45,10 +56,37 @@
       "elapsedSec": 6152,
       "movingSec": 6152
     },
+    "pauseClassification": {
+      "intervalCount": 0,
+      "stationaryCount": 0,
+      "walkedCount": 0,
+      "ranThroughCount": 0,
+      "transportedCount": 0,
+      "notClassifiableCount": 1
+    },
+    "forgottenStop": {
+      "computable": true,
+      "reason": null,
+      "count": 0,
+      "totalSec": 0,
+      "longestSec": 0,
+      "creepCount": 0,
+      "creepTotalSec": 0,
+      "creepLongestSec": 0,
+      "pauseCount": 0,
+      "pauseTotalSec": 0,
+      "pauseLongestSec": 0
+    },
     "anySevere": false,
     "notComputableReason": null
   },
-  "gapIntervals": [],
+  "gapIntervals": [
+    {
+      "startSec": 2209,
+      "endSec": 2210,
+      "kind": "unreliable"
+    }
+  ],
   "impossibleSamples": [
     {
       "index": 570,
@@ -77,5 +115,18 @@
   ],
   "elevationVerticalRateSamplesTruncated": false,
   "elevationLoopRadiusM": 100,
-  "elevationStartEndDistM": 10268.51214921699
+  "elevationStartEndDistM": 10268.51214921699,
+  "unreliableSegments": [
+    {
+      "startSec": 2209,
+      "endSec": 2210,
+      "metres": 14.799999999999272,
+      "excessMetres": 7.449999999999273,
+      "seconds": 1,
+      "mechanism": "isolated-jump"
+    }
+  ],
+  "unreliableSegmentsTruncated": false,
+  "pauseIntervals": [],
+  "pauseIntervalsTruncated": false
 }

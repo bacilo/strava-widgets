@@ -36,6 +36,15 @@
         "violatingSamples": 0
       }
     },
+    "unreliableSegments": {
+      "tier": "none",
+      "count": 0,
+      "totalMetres": 0,
+      "totalExcessMetres": 0,
+      "totalSeconds": 0,
+      "excessFraction": 0,
+      "mechanisms": []
+    },
     "deviceEra": {
       "family": "garmin-fenix-6-pro",
       "rawDeviceName": null
@@ -44,6 +53,27 @@
       "ratio": 1.06,
       "elapsedSec": 2832,
       "movingSec": 2679
+    },
+    "pauseClassification": {
+      "intervalCount": 1,
+      "stationaryCount": 0,
+      "walkedCount": 1,
+      "ranThroughCount": 0,
+      "transportedCount": 0,
+      "notClassifiableCount": 0
+    },
+    "forgottenStop": {
+      "computable": true,
+      "reason": null,
+      "count": 2,
+      "totalSec": 106,
+      "longestSec": 55,
+      "creepCount": 2,
+      "creepTotalSec": 106,
+      "creepLongestSec": 55,
+      "pauseCount": 0,
+      "pauseTotalSec": 0,
+      "pauseLongestSec": 0
     },
     "anySevere": false,
     "notComputableReason": null
@@ -69,5 +99,37 @@
   "elevationVerticalRateSamples": [],
   "elevationVerticalRateSamplesTruncated": false,
   "elevationLoopRadiusM": 100,
-  "elevationStartEndDistM": 5825.16200116986
+  "elevationStartEndDistM": 5825.16200116986,
+  "unreliableSegments": [],
+  "unreliableSegmentsTruncated": false,
+  "pauseIntervals": [
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 1077,
+      "endSec": 1132,
+      "seconds": 55,
+      "metres": 26.199999999999818,
+      "startMetres": 2745
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "walked",
+      "startSec": 1588,
+      "endSec": 1599,
+      "seconds": 11,
+      "metres": 15.099999999999909,
+      "startMetres": 3759.8
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "walked",
+      "startSec": 1902,
+      "endSec": 1953,
+      "seconds": 51,
+      "metres": 36.69999999999982,
+      "startMetres": 4621.3
+    }
+  ],
+  "pauseIntervalsTruncated": false
 }

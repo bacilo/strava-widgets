@@ -8,7 +8,7 @@
     },
     "gapProfile": {
       "tier": "none",
-      "gapFraction": 0,
+      "gapFraction": 0.004956629491945477,
       "recordingGapSec": 0,
       "pauseSec": 0,
       "spanSec": 3228
@@ -36,6 +36,17 @@
         "violatingSamples": 0
       }
     },
+    "unreliableSegments": {
+      "tier": "severe",
+      "count": 5,
+      "totalMetres": 179.09999999999928,
+      "totalExcessMetres": 61.49999999999929,
+      "totalSeconds": 16,
+      "excessFraction": 0.006297100262123125,
+      "mechanisms": [
+        "isolated-jump"
+      ]
+    },
     "deviceEra": {
       "family": "no-device-name",
       "rawDeviceName": null
@@ -45,10 +56,57 @@
       "elapsedSec": 3228,
       "movingSec": 3222
     },
+    "pauseClassification": {
+      "intervalCount": 0,
+      "stationaryCount": 0,
+      "walkedCount": 0,
+      "ranThroughCount": 0,
+      "transportedCount": 0,
+      "notClassifiableCount": 5
+    },
+    "forgottenStop": {
+      "computable": true,
+      "reason": null,
+      "count": 0,
+      "totalSec": 0,
+      "longestSec": 0,
+      "creepCount": 0,
+      "creepTotalSec": 0,
+      "creepLongestSec": 0,
+      "pauseCount": 0,
+      "pauseTotalSec": 0,
+      "pauseLongestSec": 0
+    },
     "anySevere": false,
     "notComputableReason": null
   },
-  "gapIntervals": [],
+  "gapIntervals": [
+    {
+      "startSec": 48,
+      "endSec": 50,
+      "kind": "unreliable"
+    },
+    {
+      "startSec": 594,
+      "endSec": 598,
+      "kind": "unreliable"
+    },
+    {
+      "startSec": 1742,
+      "endSec": 1744,
+      "kind": "unreliable"
+    },
+    {
+      "startSec": 1928,
+      "endSec": 1930,
+      "kind": "unreliable"
+    },
+    {
+      "startSec": 2042,
+      "endSec": 2048,
+      "kind": "unreliable"
+    }
+  ],
   "impossibleSamples": [
     {
       "index": 25,
@@ -88,5 +146,50 @@
   "elevationVerticalRateSamples": [],
   "elevationVerticalRateSamplesTruncated": false,
   "elevationLoopRadiusM": 100,
-  "elevationStartEndDistM": 867.0704911800278
+  "elevationStartEndDistM": 867.0704911800278,
+  "unreliableSegments": [
+    {
+      "startSec": 48,
+      "endSec": 50,
+      "metres": 23.80000000000001,
+      "excessMetres": 9.100000000000012,
+      "seconds": 2,
+      "mechanism": "isolated-jump"
+    },
+    {
+      "startSec": 594,
+      "endSec": 598,
+      "metres": 38,
+      "excessMetres": 8.600000000000001,
+      "seconds": 4,
+      "mechanism": "isolated-jump"
+    },
+    {
+      "startSec": 1742,
+      "endSec": 1744,
+      "metres": 20.800000000000182,
+      "excessMetres": 6.100000000000183,
+      "seconds": 2,
+      "mechanism": "isolated-jump"
+    },
+    {
+      "startSec": 1928,
+      "endSec": 1930,
+      "metres": 35.79999999999927,
+      "excessMetres": 21.099999999999273,
+      "seconds": 2,
+      "mechanism": "isolated-jump"
+    },
+    {
+      "startSec": 2042,
+      "endSec": 2048,
+      "metres": 60.69999999999982,
+      "excessMetres": 16.599999999999824,
+      "seconds": 6,
+      "mechanism": "isolated-jump"
+    }
+  ],
+  "unreliableSegmentsTruncated": false,
+  "pauseIntervals": [],
+  "pauseIntervalsTruncated": false
 }

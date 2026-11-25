@@ -11,17 +11,26 @@
       "endOffsetSec": 939.4,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
     {
       "distance": "1k",
-      "durationSec": 277.4,
-      "paceSecPerKm": 277.4,
-      "startOffsetSec": 13,
-      "endOffsetSec": 290.4,
+      "durationSec": 278.9,
+      "paceSecPerKm": 278.9,
+      "startOffsetSec": 519,
+      "endOffsetSec": 797.9,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 1k in 277.4s at t=13.0-290.4s, intersecting an unreliable segment at t=90.0-92.0s (isolated-jump, 17.9m/2.0s)",
+        "durationSec": 277.4,
+        "paceSecPerKm": 277.4,
+        "startOffsetSec": 13,
+        "endOffsetSec": 290.4
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -33,6 +42,7 @@
       "endOffsetSec": 956.9,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -44,17 +54,26 @@
       "endOffsetSec": 1781.3,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
     {
       "distance": "10k",
-      "durationSec": 2961,
-      "paceSecPerKm": 296.1,
-      "startOffsetSec": 49,
-      "endOffsetSec": 3010,
+      "durationSec": 2967,
+      "paceSecPerKm": 296.7,
+      "startOffsetSec": 110,
+      "endOffsetSec": 3077,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 10k in 2961.0s at t=49.0-3010.0s, intersecting an unreliable segment at t=90.0-92.0s (isolated-jump, 17.9m/2.0s)",
+        "durationSec": 2961,
+        "paceSecPerKm": 296.1,
+        "startOffsetSec": 49,
+        "endOffsetSec": 3010
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     }

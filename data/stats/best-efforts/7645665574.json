@@ -5,12 +5,20 @@
   "efforts": [
     {
       "distance": "400m",
-      "durationSec": 99.3,
-      "paceSecPerKm": 248.2,
-      "startOffsetSec": 4057,
-      "endOffsetSec": 4156.3,
+      "durationSec": 99.6,
+      "paceSecPerKm": 248.9,
+      "startOffsetSec": 4013,
+      "endOffsetSec": 4112.6,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 400m in 99.3s at t=4057.0-4156.3s, intersecting an unreliable segment at t=4150.0-4152.0s (isolated-jump, 23.2m/2.0s)",
+        "durationSec": 99.3,
+        "paceSecPerKm": 248.2,
+        "startOffsetSec": 4057,
+        "endOffsetSec": 4156.3
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -22,6 +30,7 @@
       "endOffsetSec": 430.6,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -33,17 +42,26 @@
       "endOffsetSec": 607.9,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
     {
       "distance": "5k",
-      "durationSec": 1456.6,
-      "paceSecPerKm": 291.3,
-      "startOffsetSec": 2772,
-      "endOffsetSec": 4228.6,
+      "durationSec": 1457.4,
+      "paceSecPerKm": 291.5,
+      "startOffsetSec": 272,
+      "endOffsetSec": 1729.4,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 5k in 1456.6s at t=2772.0-4228.6s, intersecting an unreliable segment at t=4150.0-4152.0s (isolated-jump, 23.2m/2.0s)",
+        "durationSec": 1456.6,
+        "paceSecPerKm": 291.3,
+        "startOffsetSec": 2772,
+        "endOffsetSec": 4228.6
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -55,6 +73,7 @@
       "endOffsetSec": 3084.2,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     }

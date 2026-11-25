@@ -17,8 +17,15 @@
     "cityName": "Christianshavn",
     "countryName": "Denmark",
     "countryIso2": "DK",
-    "activityCount": 164,
-    "totalDistanceKm": 1835.1
+    "activityCount": 173,
+    "totalDistanceKm": 1969.1
+  },
+  {
+    "cityName": "Herlev",
+    "countryName": "Denmark",
+    "countryIso2": "DK",
+    "activityCount": 148,
+    "totalDistanceKm": 1815.3
   },
   {
     "cityName": "Alvalade",
@@ -26,13 +33,6 @@
     "countryIso2": "PT",
     "activityCount": 103,
     "totalDistanceKm": 1274.8
-  },
-  {
-    "cityName": "Herlev",
-    "countryName": "Denmark",
-    "countryIso2": "DK",
-    "activityCount": 106,
-    "totalDistanceKm": 1262.3
   },
   {
     "cityName": "Olivais",
@@ -138,6 +138,13 @@
     "countryIso2": "GR",
     "activityCount": 3,
     "totalDistanceKm": 33
+  },
+  {
+    "cityName": "Bethnal Green",
+    "countryName": "United Kingdom",
+    "countryIso2": "GB",
+    "activityCount": 2,
+    "totalDistanceKm": 32.8
   },
   {
     "cityName": "Sofia",
@@ -249,6 +256,13 @@
     "countryName": "Portugal",
     "countryIso2": "PT",
     "activityCount": 2,
+    "totalDistanceKm": 22
+  },
+  {
+    "cityName": "Charlottenlund",
+    "countryName": "Denmark",
+    "countryIso2": "DK",
+    "activityCount": 1,
     "totalDistanceKm": 22
   },
   {
@@ -418,6 +432,13 @@
     "countryIso2": "GB",
     "activityCount": 1,
     "totalDistanceKm": 11.6
+  },
+  {
+    "cityName": "Hillingdon",
+    "countryName": "United Kingdom",
+    "countryIso2": "GB",
+    "activityCount": 1,
+    "totalDistanceKm": 11.3
   },
   {
     "cityName": "Armação de Pêra",

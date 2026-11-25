@@ -8,7 +8,7 @@
     },
     "gapProfile": {
       "tier": "none",
-      "gapFraction": 0.00356102298478472,
+      "gapFraction": 0.004855940433797346,
       "recordingGapSec": 11,
       "pauseSec": 0,
       "spanSec": 3089
@@ -36,6 +36,17 @@
         "violatingSamples": 0
       }
     },
+    "unreliableSegments": {
+      "tier": "minor",
+      "count": 1,
+      "totalMetres": 36.19999999999891,
+      "totalExcessMetres": 6.79999999999891,
+      "totalSeconds": 4,
+      "excessFraction": 0.0006801496329191332,
+      "mechanisms": [
+        "isolated-jump"
+      ]
+    },
     "deviceEra": {
       "family": "no-device-name",
       "rawDeviceName": null
@@ -45,6 +56,27 @@
       "elapsedSec": 3089,
       "movingSec": 3089
     },
+    "pauseClassification": {
+      "intervalCount": 1,
+      "stationaryCount": 0,
+      "walkedCount": 0,
+      "ranThroughCount": 1,
+      "transportedCount": 0,
+      "notClassifiableCount": 1
+    },
+    "forgottenStop": {
+      "computable": true,
+      "reason": null,
+      "count": 0,
+      "totalSec": 0,
+      "longestSec": 0,
+      "creepCount": 0,
+      "creepTotalSec": 0,
+      "creepLongestSec": 0,
+      "pauseCount": 0,
+      "pauseTotalSec": 0,
+      "pauseLongestSec": 0
+    },
     "anySevere": false,
     "notComputableReason": null
   },
@@ -53,6 +85,11 @@
       "startSec": 626,
       "endSec": 637,
       "kind": "recording-gap"
+    },
+    {
+      "startSec": 2613,
+      "endSec": 2617,
+      "kind": "unreliable"
     }
   ],
   "impossibleSamples": [],
@@ -69,5 +106,28 @@
   "elevationVerticalRateSamples": [],
   "elevationVerticalRateSamplesTruncated": false,
   "elevationLoopRadiusM": 100,
-  "elevationStartEndDistM": 0
+  "elevationStartEndDistM": 0,
+  "unreliableSegments": [
+    {
+      "startSec": 2613,
+      "endSec": 2617,
+      "metres": 36.19999999999891,
+      "excessMetres": 6.79999999999891,
+      "seconds": 4,
+      "mechanism": "isolated-jump"
+    }
+  ],
+  "unreliableSegmentsTruncated": false,
+  "pauseIntervals": [
+    {
+      "source": "recording-gap",
+      "pauseClass": "ran-through",
+      "startSec": 626,
+      "endSec": 637,
+      "seconds": 11,
+      "metres": 56.99999999999977,
+      "startMetres": 2002.2
+    }
+  ],
+  "pauseIntervalsTruncated": false
 }

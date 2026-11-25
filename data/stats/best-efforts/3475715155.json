@@ -5,23 +5,39 @@
   "efforts": [
     {
       "distance": "400m",
-      "durationSec": 99.5,
-      "paceSecPerKm": 248.6,
-      "startOffsetSec": 279,
-      "endOffsetSec": 378.5,
+      "durationSec": 131.1,
+      "paceSecPerKm": 327.8,
+      "startOffsetSec": 109,
+      "endOffsetSec": 240.1,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 400m in 99.5s at t=279.0-378.5s, intersecting 2 unreliable segments (isolated-jump 84.6m/3.0s at t=351.0; isolated-jump 40.9m/2.0s at t=355.0)",
+        "durationSec": 99.5,
+        "paceSecPerKm": 248.6,
+        "startOffsetSec": 279,
+        "endOffsetSec": 378.5
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
     {
       "distance": "1k",
-      "durationSec": 302.5,
-      "paceSecPerKm": 302.5,
-      "startOffsetSec": 94,
-      "endOffsetSec": 396.5,
+      "durationSec": 378.6,
+      "paceSecPerKm": 378.6,
+      "startOffsetSec": 821,
+      "endOffsetSec": 1199.6,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 1k in 302.5s at t=94.0-396.5s, intersecting 2 unreliable segments (isolated-jump 84.6m/3.0s at t=351.0; isolated-jump 40.9m/2.0s at t=355.0)",
+        "durationSec": 302.5,
+        "paceSecPerKm": 302.5,
+        "startOffsetSec": 94,
+        "endOffsetSec": 396.5
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -32,7 +48,11 @@
       "startOffsetSec": 75,
       "endOffsetSec": 623.9,
       "lowConfidence": false,
-      "demotion": null,
+      "demotion": {
+        "guard": "unreliable-segment",
+        "reason": "no clean 1mi sub-interval covers the distance (longest clean sub-interval spans 1058.9m); contaminated window: 1mi in 548.9s at t=75.0-623.9s, intersecting 2 unreliable segments (isolated-jump 84.6m/3.0s at t=351.0; isolated-jump 40.9m/2.0s at t=355.0)"
+      },
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     }

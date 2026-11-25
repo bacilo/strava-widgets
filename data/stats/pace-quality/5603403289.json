@@ -36,6 +36,36 @@
         "violatingSamples": null
       }
     },
+    "unreliableSegments": {
+      "tier": "not-computable",
+      "count": null,
+      "totalMetres": null,
+      "totalExcessMetres": null,
+      "totalSeconds": null,
+      "excessFraction": null,
+      "mechanisms": null
+    },
+    "pauseClassification": {
+      "intervalCount": null,
+      "stationaryCount": null,
+      "walkedCount": null,
+      "ranThroughCount": null,
+      "transportedCount": null,
+      "notClassifiableCount": null
+    },
+    "forgottenStop": {
+      "computable": false,
+      "reason": "no stream committed for this activity",
+      "count": null,
+      "totalSec": null,
+      "longestSec": null,
+      "creepCount": null,
+      "creepTotalSec": null,
+      "creepLongestSec": null,
+      "pauseCount": null,
+      "pauseTotalSec": null,
+      "pauseLongestSec": null
+    },
     "deviceEra": {
       "family": "no-device-name",
       "rawDeviceName": null
@@ -57,5 +87,9 @@
   "elevationVerticalRateSamples": [],
   "elevationVerticalRateSamplesTruncated": false,
   "elevationLoopRadiusM": 100,
-  "elevationStartEndDistM": null
+  "elevationStartEndDistM": null,
+  "unreliableSegments": [],
+  "unreliableSegmentsTruncated": false,
+  "pauseIntervals": [],
+  "pauseIntervalsTruncated": false
 }

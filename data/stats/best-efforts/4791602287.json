@@ -11,6 +11,7 @@
       "endOffsetSec": 187.4,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -22,6 +23,7 @@
       "endOffsetSec": 374.3,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -33,28 +35,45 @@
       "endOffsetSec": 573.1,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
     {
       "distance": "5k",
-      "durationSec": 1597.3,
+      "durationSec": 1597.7,
       "paceSecPerKm": 319.5,
-      "startOffsetSec": 25,
-      "endOffsetSec": 1622.3,
+      "startOffsetSec": 75,
+      "endOffsetSec": 1672.7,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 5k in 1597.3s at t=25.0-1622.3s, intersecting an unreliable segment at t=41.0-43.0s (isolated-jump, 20.0m/2.0s)",
+        "durationSec": 1597.3,
+        "paceSecPerKm": 319.5,
+        "startOffsetSec": 25,
+        "endOffsetSec": 1622.3
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
     {
       "distance": "10k",
-      "durationSec": 3335.4,
-      "paceSecPerKm": 333.5,
-      "startOffsetSec": 9,
-      "endOffsetSec": 3344.4,
+      "durationSec": 3347.7,
+      "paceSecPerKm": 334.8,
+      "startOffsetSec": 83,
+      "endOffsetSec": 3430.7,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 10k in 3335.4s at t=9.0-3344.4s, intersecting an unreliable segment at t=41.0-43.0s (isolated-jump, 20.0m/2.0s)",
+        "durationSec": 3335.4,
+        "paceSecPerKm": 333.5,
+        "startOffsetSec": 9,
+        "endOffsetSec": 3344.4
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     }

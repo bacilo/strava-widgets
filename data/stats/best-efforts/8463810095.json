@@ -5,12 +5,20 @@
   "efforts": [
     {
       "distance": "400m",
-      "durationSec": 103.7,
-      "paceSecPerKm": 259.2,
-      "startOffsetSec": 34,
-      "endOffsetSec": 137.7,
+      "durationSec": 106.6,
+      "paceSecPerKm": 266.5,
+      "startOffsetSec": 3162,
+      "endOffsetSec": 3268.6,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 400m in 103.7s at t=34.0-137.7s, intersecting an unreliable segment at t=97.0-100.0s (isolated-jump, 50.4m/3.0s)",
+        "durationSec": 103.7,
+        "paceSecPerKm": 259.2,
+        "startOffsetSec": 34,
+        "endOffsetSec": 137.7
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -22,6 +30,7 @@
       "endOffsetSec": 3423.3,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -33,17 +42,26 @@
       "endOffsetSec": 3637.6,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
     {
       "distance": "5k",
-      "durationSec": 1585.6,
-      "paceSecPerKm": 317.1,
-      "startOffsetSec": 20,
-      "endOffsetSec": 1605.6,
+      "durationSec": 1598.4,
+      "paceSecPerKm": 319.7,
+      "startOffsetSec": 2119,
+      "endOffsetSec": 3717.4,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 5k in 1585.6s at t=20.0-1605.6s, intersecting an unreliable segment at t=97.0-100.0s (isolated-jump, 50.4m/3.0s)",
+        "durationSec": 1585.6,
+        "paceSecPerKm": 317.1,
+        "startOffsetSec": 20,
+        "endOffsetSec": 1605.6
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -55,6 +73,7 @@
       "endOffsetSec": 3711.4,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     }

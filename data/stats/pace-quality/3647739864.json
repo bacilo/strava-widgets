@@ -8,7 +8,7 @@
     },
     "gapProfile": {
       "tier": "none",
-      "gapFraction": 0.003105590062111801,
+      "gapFraction": 0.010559006211180125,
       "recordingGapSec": 15,
       "pauseSec": 0,
       "spanSec": 4830
@@ -36,6 +36,17 @@
         "violatingSamples": 2
       }
     },
+    "unreliableSegments": {
+      "tier": "severe",
+      "count": 2,
+      "totalMetres": 670,
+      "totalExcessMetres": 405.4,
+      "totalSeconds": 36,
+      "excessFraction": 0.02829819907859835,
+      "mechanisms": [
+        "hidden-pause"
+      ]
+    },
     "deviceEra": {
       "family": "suunto-9",
       "rawDeviceName": null
@@ -45,14 +56,45 @@
       "elapsedSec": 4829,
       "movingSec": 4810
     },
+    "pauseClassification": {
+      "intervalCount": 1,
+      "stationaryCount": 0,
+      "walkedCount": 0,
+      "ranThroughCount": 0,
+      "transportedCount": 1,
+      "notClassifiableCount": 2
+    },
+    "forgottenStop": {
+      "computable": true,
+      "reason": null,
+      "count": 46,
+      "totalSec": 3644,
+      "longestSec": 210,
+      "creepCount": 46,
+      "creepTotalSec": 3644,
+      "creepLongestSec": 210,
+      "pauseCount": 0,
+      "pauseTotalSec": 0,
+      "pauseLongestSec": 0
+    },
     "anySevere": true,
     "notComputableReason": null
   },
   "gapIntervals": [
     {
+      "startSec": 3722,
+      "endSec": 3732,
+      "kind": "unreliable"
+    },
+    {
       "startSec": 4647,
       "endSec": 4662,
       "kind": "recording-gap"
+    },
+    {
+      "startSec": 4804,
+      "endSec": 4830,
+      "kind": "unreliable"
     }
   ],
   "impossibleSamples": [
@@ -605,5 +647,450 @@
   ],
   "elevationVerticalRateSamplesTruncated": false,
   "elevationLoopRadiusM": 100,
-  "elevationStartEndDistM": 0
+  "elevationStartEndDistM": 0,
+  "unreliableSegments": [
+    {
+      "startSec": 3722,
+      "endSec": 3732,
+      "metres": 234,
+      "excessMetres": 160.5,
+      "seconds": 10,
+      "mechanism": "hidden-pause"
+    },
+    {
+      "startSec": 4804,
+      "endSec": 4830,
+      "metres": 436,
+      "excessMetres": 244.9,
+      "seconds": 26,
+      "mechanism": "hidden-pause"
+    }
+  ],
+  "unreliableSegmentsTruncated": false,
+  "pauseIntervals": [
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 79,
+      "endSec": 157,
+      "seconds": 78,
+      "metres": 0,
+      "startMetres": 309
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 159,
+      "endSec": 199,
+      "seconds": 40,
+      "metres": 0,
+      "startMetres": 527
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 201,
+      "endSec": 271,
+      "seconds": 70,
+      "metres": 0,
+      "startMetres": 684
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 273,
+      "endSec": 357,
+      "seconds": 84,
+      "metres": 0,
+      "startMetres": 904
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 379,
+      "endSec": 509,
+      "seconds": 130,
+      "metres": 0,
+      "startMetres": 1187
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 511,
+      "endSec": 643,
+      "seconds": 132,
+      "metres": 0,
+      "startMetres": 1640
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 675,
+      "endSec": 767,
+      "seconds": 92,
+      "metres": 20,
+      "startMetres": 2126
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 769,
+      "endSec": 823,
+      "seconds": 54,
+      "metres": 0,
+      "startMetres": 2431
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 825,
+      "endSec": 885,
+      "seconds": 60,
+      "metres": 0,
+      "startMetres": 2678
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 887,
+      "endSec": 943,
+      "seconds": 56,
+      "metres": 0,
+      "startMetres": 2809
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 971,
+      "endSec": 1079,
+      "seconds": 108,
+      "metres": 4,
+      "startMetres": 3141
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 1081,
+      "endSec": 1129,
+      "seconds": 48,
+      "metres": 0,
+      "startMetres": 3365
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 1131,
+      "endSec": 1173,
+      "seconds": 42,
+      "metres": 0,
+      "startMetres": 3603
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 1175,
+      "endSec": 1297,
+      "seconds": 122,
+      "metres": 0,
+      "startMetres": 3741
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 1299,
+      "endSec": 1363,
+      "seconds": 64,
+      "metres": 12,
+      "startMetres": 4023
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 1365,
+      "endSec": 1467,
+      "seconds": 102,
+      "metres": 0,
+      "startMetres": 4283
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 1469,
+      "endSec": 1526,
+      "seconds": 57,
+      "metres": 4,
+      "startMetres": 4568
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 1528,
+      "endSec": 1578,
+      "seconds": 50,
+      "metres": 0,
+      "startMetres": 4621
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 1606,
+      "endSec": 1662,
+      "seconds": 56,
+      "metres": 0,
+      "startMetres": 4874
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 1758,
+      "endSec": 1814,
+      "seconds": 56,
+      "metres": 0,
+      "startMetres": 5340
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 1816,
+      "endSec": 1874,
+      "seconds": 58,
+      "metres": 0,
+      "startMetres": 5496
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 1952,
+      "endSec": 2008,
+      "seconds": 56,
+      "metres": 0,
+      "startMetres": 5912
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 2064,
+      "endSec": 2108,
+      "seconds": 44,
+      "metres": 0,
+      "startMetres": 6238
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 2168,
+      "endSec": 2230,
+      "seconds": 62,
+      "metres": 0,
+      "startMetres": 6569
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 2232,
+      "endSec": 2284,
+      "seconds": 52,
+      "metres": 0,
+      "startMetres": 6784
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 2350,
+      "endSec": 2392,
+      "seconds": 42,
+      "metres": 0,
+      "startMetres": 7184
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 2458,
+      "endSec": 2500,
+      "seconds": 42,
+      "metres": 0,
+      "startMetres": 7540
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 2592,
+      "endSec": 2672,
+      "seconds": 80,
+      "metres": 0,
+      "startMetres": 7934
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 2674,
+      "endSec": 2730,
+      "seconds": 56,
+      "metres": 6,
+      "startMetres": 8202
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 2854,
+      "endSec": 2920,
+      "seconds": 66,
+      "metres": 0,
+      "startMetres": 8729
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 2922,
+      "endSec": 3024,
+      "seconds": 102,
+      "metres": 0,
+      "startMetres": 8875
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 3026,
+      "endSec": 3082,
+      "seconds": 56,
+      "metres": 0,
+      "startMetres": 9083
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 3084,
+      "endSec": 3136,
+      "seconds": 52,
+      "metres": 0,
+      "startMetres": 9359
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 3138,
+      "endSec": 3210,
+      "seconds": 72,
+      "metres": 0,
+      "startMetres": 9565
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 3212,
+      "endSec": 3324,
+      "seconds": 112,
+      "metres": 0,
+      "startMetres": 9701
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 3352,
+      "endSec": 3398,
+      "seconds": 46,
+      "metres": 0,
+      "startMetres": 10187
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 3400,
+      "endSec": 3508,
+      "seconds": 108,
+      "metres": 0,
+      "startMetres": 10333
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 3510,
+      "endSec": 3720,
+      "seconds": 210,
+      "metres": 0,
+      "startMetres": 10542
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 3750,
+      "endSec": 3796,
+      "seconds": 46,
+      "metres": 0,
+      "startMetres": 11325
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 3814,
+      "endSec": 3910,
+      "seconds": 96,
+      "metres": 0,
+      "startMetres": 11534
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 4030,
+      "endSec": 4086,
+      "seconds": 56,
+      "metres": 0,
+      "startMetres": 12099
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 4088,
+      "endSec": 4271,
+      "seconds": 183,
+      "metres": 0,
+      "startMetres": 12240
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 4313,
+      "endSec": 4427,
+      "seconds": 114,
+      "metres": 0,
+      "startMetres": 12908
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 4429,
+      "endSec": 4569,
+      "seconds": 140,
+      "metres": 0,
+      "startMetres": 13100
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 4597,
+      "endSec": 4647,
+      "seconds": 50,
+      "metres": 0,
+      "startMetres": 13690
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "transported",
+      "startSec": 4647,
+      "endSec": 4662,
+      "seconds": 15,
+      "metres": 190,
+      "startMetres": 13690
+    },
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 4662,
+      "endSec": 4804,
+      "seconds": 142,
+      "metres": 10,
+      "startMetres": 13880
+    }
+  ],
+  "pauseIntervalsTruncated": false
 }

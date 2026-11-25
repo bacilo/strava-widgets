@@ -5,12 +5,20 @@
   "efforts": [
     {
       "distance": "400m",
-      "durationSec": 114.1,
-      "paceSecPerKm": 285.2,
-      "startOffsetSec": 4527,
-      "endOffsetSec": 4641.1,
+      "durationSec": 114.9,
+      "paceSecPerKm": 287.2,
+      "startOffsetSec": 1358,
+      "endOffsetSec": 1472.9,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": {
+        "guard": "unreliable-segment",
+        "reason": "contaminated window: 400m in 114.1s at t=4527.0-4641.1s, intersecting an unreliable segment at t=4604.0-4640.0s (gap-adjacent, 153.0m/36.0s)",
+        "durationSec": 114.1,
+        "paceSecPerKm": 285.2,
+        "startOffsetSec": 4527,
+        "endOffsetSec": 4641.1
+      },
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -22,6 +30,7 @@
       "endOffsetSec": 1523.5,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -33,6 +42,7 @@
       "endOffsetSec": 1528.7,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -44,6 +54,7 @@
       "endOffsetSec": 1890.6,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": false,
       "excludedFromRecords": false
     },
@@ -55,6 +66,7 @@
       "endOffsetSec": 3652.5,
       "lowConfidence": false,
       "demotion": null,
+      "contaminated": null,
       "wasPRAtTheTime": true,
       "excludedFromRecords": false
     },
@@ -65,8 +77,12 @@
       "startOffsetSec": 157,
       "endOffsetSec": 6899.3,
       "lowConfidence": false,
-      "demotion": null,
-      "wasPRAtTheTime": true,
+      "demotion": {
+        "guard": "unreliable-segment",
+        "reason": "no clean half sub-interval covers the distance (longest clean sub-interval spans 14368.8m); contaminated window: half in 6742.3s at t=157.0-6899.3s, intersecting an unreliable segment at t=4604.0-4640.0s (gap-adjacent, 153.0m/36.0s)"
+      },
+      "contaminated": null,
+      "wasPRAtTheTime": false,
       "excludedFromRecords": false
     }
   ],

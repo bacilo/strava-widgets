@@ -8,8 +8,8 @@
     },
     "gapProfile": {
       "tier": "minor",
-      "gapFraction": 0.16271576524741083,
-      "recordingGapSec": 707,
+      "gapFraction": 0.18342922899884925,
+      "recordingGapSec": 46,
       "pauseSec": 0,
       "spanSec": 4345
     },
@@ -36,6 +36,17 @@
         "violatingSamples": 0
       }
     },
+    "unreliableSegments": {
+      "tier": "minor",
+      "count": 16,
+      "totalMetres": 2148.7,
+      "totalExcessMetres": 0,
+      "totalSeconds": 751,
+      "excessFraction": 0,
+      "mechanisms": [
+        "gap-adjacent"
+      ]
+    },
     "deviceEra": {
       "family": "no-device-name",
       "rawDeviceName": null
@@ -45,29 +56,50 @@
       "elapsedSec": 4345,
       "movingSec": 3973
     },
+    "pauseClassification": {
+      "intervalCount": 18,
+      "stationaryCount": 0,
+      "walkedCount": 1,
+      "ranThroughCount": 17,
+      "transportedCount": 0,
+      "notClassifiableCount": 0
+    },
+    "forgottenStop": {
+      "computable": true,
+      "reason": null,
+      "count": 0,
+      "totalSec": 0,
+      "longestSec": 0,
+      "creepCount": 0,
+      "creepTotalSec": 0,
+      "creepLongestSec": 0,
+      "pauseCount": 0,
+      "pauseTotalSec": 0,
+      "pauseLongestSec": 0
+    },
     "anySevere": true,
     "notComputableReason": null
   },
   "gapIntervals": [
     {
       "startSec": 1030,
-      "endSec": 1046,
-      "kind": "recording-gap"
+      "endSec": 1048,
+      "kind": "unreliable"
     },
     {
-      "startSec": 1072,
-      "endSec": 1129,
-      "kind": "recording-gap"
+      "startSec": 1064,
+      "endSec": 1135,
+      "kind": "unreliable"
     },
     {
-      "startSec": 1463,
-      "endSec": 1511,
-      "kind": "recording-gap"
+      "startSec": 1461,
+      "endSec": 1515,
+      "kind": "unreliable"
     },
     {
-      "startSec": 1591,
+      "startSec": 1589,
       "endSec": 1611,
-      "kind": "recording-gap"
+      "kind": "unreliable"
     },
     {
       "startSec": 1663,
@@ -76,33 +108,33 @@
     },
     {
       "startSec": 1729,
-      "endSec": 1756,
-      "kind": "recording-gap"
+      "endSec": 1760,
+      "kind": "unreliable"
     },
     {
-      "startSec": 2104,
+      "startSec": 2102,
       "endSec": 2125,
-      "kind": "recording-gap"
+      "kind": "unreliable"
     },
     {
-      "startSec": 2141,
-      "endSec": 2167,
-      "kind": "recording-gap"
+      "startSec": 2139,
+      "endSec": 2169,
+      "kind": "unreliable"
     },
     {
-      "startSec": 2183,
-      "endSec": 2234,
-      "kind": "recording-gap"
+      "startSec": 2179,
+      "endSec": 2236,
+      "kind": "unreliable"
     },
     {
       "startSec": 2491,
-      "endSec": 2523,
-      "kind": "recording-gap"
+      "endSec": 2525,
+      "kind": "unreliable"
     },
     {
-      "startSec": 2963,
-      "endSec": 3061,
-      "kind": "recording-gap"
+      "startSec": 2957,
+      "endSec": 3067,
+      "kind": "unreliable"
     },
     {
       "startSec": 3364,
@@ -111,33 +143,33 @@
     },
     {
       "startSec": 3438,
-      "endSec": 3454,
-      "kind": "recording-gap"
+      "endSec": 3456,
+      "kind": "unreliable"
     },
     {
-      "startSec": 3488,
-      "endSec": 3543,
-      "kind": "recording-gap"
+      "startSec": 3486,
+      "endSec": 3547,
+      "kind": "unreliable"
     },
     {
-      "startSec": 3977,
-      "endSec": 4024,
-      "kind": "recording-gap"
+      "startSec": 3975,
+      "endSec": 4028,
+      "kind": "unreliable"
     },
     {
-      "startSec": 4058,
-      "endSec": 4115,
-      "kind": "recording-gap"
+      "startSec": 4056,
+      "endSec": 4121,
+      "kind": "unreliable"
     },
     {
-      "startSec": 4139,
-      "endSec": 4206,
-      "kind": "recording-gap"
+      "startSec": 4133,
+      "endSec": 4212,
+      "kind": "unreliable"
     },
     {
       "startSec": 4238,
-      "endSec": 4261,
-      "kind": "recording-gap"
+      "endSec": 4263,
+      "kind": "unreliable"
     }
   ],
   "impossibleSamples": [
@@ -371,5 +403,301 @@
   "elevationVerticalRateSamples": [],
   "elevationVerticalRateSamplesTruncated": false,
   "elevationLoopRadiusM": 100,
-  "elevationStartEndDistM": 0
+  "elevationStartEndDistM": 0,
+  "unreliableSegments": [
+    {
+      "startSec": 1030,
+      "endSec": 1048,
+      "metres": 52.40000000000009,
+      "excessMetres": 0,
+      "seconds": 18,
+      "mechanism": "gap-adjacent"
+    },
+    {
+      "startSec": 1064,
+      "endSec": 1135,
+      "metres": 288.5999999999999,
+      "excessMetres": 0,
+      "seconds": 71,
+      "mechanism": "gap-adjacent"
+    },
+    {
+      "startSec": 1461,
+      "endSec": 1515,
+      "metres": 124.59999999999945,
+      "excessMetres": 0,
+      "seconds": 54,
+      "mechanism": "gap-adjacent"
+    },
+    {
+      "startSec": 1589,
+      "endSec": 1611,
+      "metres": 52.19999999999982,
+      "excessMetres": 0,
+      "seconds": 22,
+      "mechanism": "gap-adjacent"
+    },
+    {
+      "startSec": 1729,
+      "endSec": 1760,
+      "metres": 88.40000000000055,
+      "excessMetres": 0,
+      "seconds": 31,
+      "mechanism": "gap-adjacent"
+    },
+    {
+      "startSec": 2102,
+      "endSec": 2125,
+      "metres": 53.399999999999636,
+      "excessMetres": 0,
+      "seconds": 23,
+      "mechanism": "gap-adjacent"
+    },
+    {
+      "startSec": 2139,
+      "endSec": 2169,
+      "metres": 90.09999999999945,
+      "excessMetres": 0,
+      "seconds": 30,
+      "mechanism": "gap-adjacent"
+    },
+    {
+      "startSec": 2179,
+      "endSec": 2236,
+      "metres": 157.5,
+      "excessMetres": 0,
+      "seconds": 57,
+      "mechanism": "gap-adjacent"
+    },
+    {
+      "startSec": 2491,
+      "endSec": 2525,
+      "metres": 81.69999999999982,
+      "excessMetres": 0,
+      "seconds": 34,
+      "mechanism": "gap-adjacent"
+    },
+    {
+      "startSec": 2957,
+      "endSec": 3067,
+      "metres": 305.40000000000146,
+      "excessMetres": 0,
+      "seconds": 110,
+      "mechanism": "gap-adjacent"
+    },
+    {
+      "startSec": 3438,
+      "endSec": 3456,
+      "metres": 49.20000000000073,
+      "excessMetres": 0,
+      "seconds": 18,
+      "mechanism": "gap-adjacent"
+    },
+    {
+      "startSec": 3486,
+      "endSec": 3547,
+      "metres": 157.79999999999927,
+      "excessMetres": 0,
+      "seconds": 61,
+      "mechanism": "gap-adjacent"
+    },
+    {
+      "startSec": 3975,
+      "endSec": 4028,
+      "metres": 154.39999999999964,
+      "excessMetres": 0,
+      "seconds": 53,
+      "mechanism": "gap-adjacent"
+    },
+    {
+      "startSec": 4056,
+      "endSec": 4121,
+      "metres": 201.70000000000073,
+      "excessMetres": 0,
+      "seconds": 65,
+      "mechanism": "gap-adjacent"
+    },
+    {
+      "startSec": 4133,
+      "endSec": 4212,
+      "metres": 219,
+      "excessMetres": 0,
+      "seconds": 79,
+      "mechanism": "gap-adjacent"
+    },
+    {
+      "startSec": 4238,
+      "endSec": 4263,
+      "metres": 72.29999999999927,
+      "excessMetres": 0,
+      "seconds": 25,
+      "mechanism": "gap-adjacent"
+    }
+  ],
+  "unreliableSegmentsTruncated": false,
+  "pauseIntervals": [
+    {
+      "source": "merged-segment",
+      "pauseClass": "ran-through",
+      "startSec": 1030,
+      "endSec": 1048,
+      "seconds": 18,
+      "metres": 52.40000000000009,
+      "startMetres": 3295.4
+    },
+    {
+      "source": "merged-segment",
+      "pauseClass": "ran-through",
+      "startSec": 1064,
+      "endSec": 1135,
+      "seconds": 71,
+      "metres": 288.5999999999999,
+      "startMetres": 3379.5
+    },
+    {
+      "source": "merged-segment",
+      "pauseClass": "ran-through",
+      "startSec": 1461,
+      "endSec": 1515,
+      "seconds": 54,
+      "metres": 124.59999999999945,
+      "startMetres": 4598.6
+    },
+    {
+      "source": "merged-segment",
+      "pauseClass": "ran-through",
+      "startSec": 1589,
+      "endSec": 1611,
+      "seconds": 22,
+      "metres": 52.19999999999982,
+      "startMetres": 4962.6
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "ran-through",
+      "startSec": 1663,
+      "endSec": 1685,
+      "seconds": 22,
+      "metres": 58.099999999999454,
+      "startMetres": 5195.8
+    },
+    {
+      "source": "merged-segment",
+      "pauseClass": "ran-through",
+      "startSec": 1729,
+      "endSec": 1760,
+      "seconds": 31,
+      "metres": 88.40000000000055,
+      "startMetres": 5401.9
+    },
+    {
+      "source": "merged-segment",
+      "pauseClass": "ran-through",
+      "startSec": 2102,
+      "endSec": 2125,
+      "seconds": 23,
+      "metres": 53.399999999999636,
+      "startMetres": 6592.8
+    },
+    {
+      "source": "merged-segment",
+      "pauseClass": "ran-through",
+      "startSec": 2139,
+      "endSec": 2169,
+      "seconds": 30,
+      "metres": 90.09999999999945,
+      "startMetres": 6701.3
+    },
+    {
+      "source": "merged-segment",
+      "pauseClass": "ran-through",
+      "startSec": 2179,
+      "endSec": 2236,
+      "seconds": 57,
+      "metres": 157.5,
+      "startMetres": 6823.9
+    },
+    {
+      "source": "merged-segment",
+      "pauseClass": "ran-through",
+      "startSec": 2491,
+      "endSec": 2525,
+      "seconds": 34,
+      "metres": 81.69999999999982,
+      "startMetres": 7726.6
+    },
+    {
+      "source": "merged-segment",
+      "pauseClass": "ran-through",
+      "startSec": 2957,
+      "endSec": 3067,
+      "seconds": 110,
+      "metres": 305.40000000000146,
+      "startMetres": 9159.8
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "walked",
+      "startSec": 3364,
+      "endSec": 3388,
+      "seconds": 24,
+      "metres": 46.29999999999927,
+      "startMetres": 10434.2
+    },
+    {
+      "source": "merged-segment",
+      "pauseClass": "ran-through",
+      "startSec": 3438,
+      "endSec": 3456,
+      "seconds": 18,
+      "metres": 49.20000000000073,
+      "startMetres": 10647.9
+    },
+    {
+      "source": "merged-segment",
+      "pauseClass": "ran-through",
+      "startSec": 3486,
+      "endSec": 3547,
+      "seconds": 61,
+      "metres": 157.79999999999927,
+      "startMetres": 10799
+    },
+    {
+      "source": "merged-segment",
+      "pauseClass": "ran-through",
+      "startSec": 3975,
+      "endSec": 4028,
+      "seconds": 53,
+      "metres": 154.39999999999964,
+      "startMetres": 12291.2
+    },
+    {
+      "source": "merged-segment",
+      "pauseClass": "ran-through",
+      "startSec": 4056,
+      "endSec": 4121,
+      "seconds": 65,
+      "metres": 201.70000000000073,
+      "startMetres": 12543.3
+    },
+    {
+      "source": "merged-segment",
+      "pauseClass": "ran-through",
+      "startSec": 4133,
+      "endSec": 4212,
+      "seconds": 79,
+      "metres": 219,
+      "startMetres": 12789.6
+    },
+    {
+      "source": "merged-segment",
+      "pauseClass": "ran-through",
+      "startSec": 4238,
+      "endSec": 4263,
+      "seconds": 25,
+      "metres": 72.29999999999927,
+      "startMetres": 13108.7
+    }
+  ],
+  "pauseIntervalsTruncated": false
 }

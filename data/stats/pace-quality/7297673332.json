@@ -8,7 +8,7 @@
     },
     "gapProfile": {
       "tier": "none",
-      "gapFraction": 0.019534778681120146,
+      "gapFraction": 0.02009936766034327,
       "recordingGapSec": 173,
       "pauseSec": 0,
       "spanSec": 8856
@@ -36,6 +36,17 @@
         "violatingSamples": 0
       }
     },
+    "unreliableSegments": {
+      "tier": "minor",
+      "count": 3,
+      "totalMetres": 121.20000000000073,
+      "totalExcessMetres": 84.45000000000073,
+      "totalSeconds": 5,
+      "excessFraction": 0.0030097080458459514,
+      "mechanisms": [
+        "isolated-jump"
+      ]
+    },
     "deviceEra": {
       "family": "garmin-fenix-6-pro",
       "rawDeviceName": null
@@ -45,6 +56,27 @@
       "elapsedSec": 8856,
       "movingSec": 8674
     },
+    "pauseClassification": {
+      "intervalCount": 5,
+      "stationaryCount": 5,
+      "walkedCount": 0,
+      "ranThroughCount": 0,
+      "transportedCount": 0,
+      "notClassifiableCount": 3
+    },
+    "forgottenStop": {
+      "computable": true,
+      "reason": null,
+      "count": 1,
+      "totalSec": 61,
+      "longestSec": 61,
+      "creepCount": 1,
+      "creepTotalSec": 61,
+      "creepLongestSec": 61,
+      "pauseCount": 0,
+      "pauseTotalSec": 0,
+      "pauseLongestSec": 0
+    },
     "anySevere": false,
     "notComputableReason": null
   },
@@ -53,6 +85,11 @@
       "startSec": 899,
       "endSec": 910,
       "kind": "recording-gap"
+    },
+    {
+      "startSec": 2945,
+      "endSec": 2946,
+      "kind": "unreliable"
     },
     {
       "startSec": 3252,
@@ -68,6 +105,16 @@
       "startSec": 5911,
       "endSec": 5933,
       "kind": "recording-gap"
+    },
+    {
+      "startSec": 6805,
+      "endSec": 6808,
+      "kind": "unreliable"
+    },
+    {
+      "startSec": 7716,
+      "endSec": 7717,
+      "kind": "unreliable"
     },
     {
       "startSec": 8561,
@@ -108,5 +155,89 @@
   "elevationVerticalRateSamples": [],
   "elevationVerticalRateSamplesTruncated": false,
   "elevationLoopRadiusM": 100,
-  "elevationStartEndDistM": 6099.27073001985
+  "elevationStartEndDistM": 6099.27073001985,
+  "unreliableSegments": [
+    {
+      "startSec": 2945,
+      "endSec": 2946,
+      "metres": 64.70000000000073,
+      "excessMetres": 57.350000000000726,
+      "seconds": 1,
+      "mechanism": "isolated-jump"
+    },
+    {
+      "startSec": 6805,
+      "endSec": 6808,
+      "metres": 44.20000000000073,
+      "excessMetres": 22.15000000000073,
+      "seconds": 3,
+      "mechanism": "isolated-jump"
+    },
+    {
+      "startSec": 7716,
+      "endSec": 7717,
+      "metres": 12.299999999999272,
+      "excessMetres": 4.949999999999273,
+      "seconds": 1,
+      "mechanism": "isolated-jump"
+    }
+  ],
+  "unreliableSegmentsTruncated": false,
+  "pauseIntervals": [
+    {
+      "source": "covered-creep",
+      "pauseClass": "stationary",
+      "startSec": 190,
+      "endSec": 251,
+      "seconds": 61,
+      "metres": 22.800000000000068,
+      "startMetres": 669.4
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 899,
+      "endSec": 910,
+      "seconds": 11,
+      "metres": 0.7000000000002728,
+      "startMetres": 2918.7
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 3252,
+      "endSec": 3332,
+      "seconds": 80,
+      "metres": 0.3999999999996362,
+      "startMetres": 10535.6
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 4930,
+      "endSec": 4974,
+      "seconds": 44,
+      "metres": 0,
+      "startMetres": 15820.9
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 5911,
+      "endSec": 5933,
+      "seconds": 22,
+      "metres": 0,
+      "startMetres": 18854.7
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 8561,
+      "endSec": 8577,
+      "seconds": 16,
+      "metres": 2,
+      "startMetres": 27154.4
+    }
+  ],
+  "pauseIntervalsTruncated": false
 }

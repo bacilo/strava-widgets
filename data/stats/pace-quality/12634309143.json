@@ -8,8 +8,8 @@
     },
     "gapProfile": {
       "tier": "severe",
-      "gapFraction": 0.24673267326732673,
-      "recordingGapSec": 1240,
+      "gapFraction": 0.24712871287128713,
+      "recordingGapSec": 1228,
       "pauseSec": 6,
       "spanSec": 5050
     },
@@ -36,6 +36,17 @@
         "violatingSamples": 0
       }
     },
+    "unreliableSegments": {
+      "tier": "minor",
+      "count": 1,
+      "totalMetres": 40.80000000000109,
+      "totalExcessMetres": 0,
+      "totalSeconds": 14,
+      "excessFraction": 0,
+      "mechanisms": [
+        "gap-adjacent"
+      ]
+    },
     "deviceEra": {
       "family": "garmin-fenix-6-pro",
       "rawDeviceName": null
@@ -44,6 +55,27 @@
       "ratio": 1.32,
       "elapsedSec": 5050,
       "movingSec": 3835
+    },
+    "pauseClassification": {
+      "intervalCount": 7,
+      "stationaryCount": 5,
+      "walkedCount": 0,
+      "ranThroughCount": 2,
+      "transportedCount": 0,
+      "notClassifiableCount": 0
+    },
+    "forgottenStop": {
+      "computable": true,
+      "reason": null,
+      "count": 1,
+      "totalSec": 6,
+      "longestSec": 6,
+      "creepCount": 0,
+      "creepTotalSec": 0,
+      "creepLongestSec": 0,
+      "pauseCount": 1,
+      "pauseTotalSec": 6,
+      "pauseLongestSec": 6
     },
     "anySevere": true,
     "notComputableReason": null
@@ -81,8 +113,8 @@
     },
     {
       "startSec": 4790,
-      "endSec": 4802,
-      "kind": "recording-gap"
+      "endSec": 4804,
+      "kind": "unreliable"
     }
   ],
   "impossibleSamples": [
@@ -106,5 +138,82 @@
   "elevationVerticalRateSamples": [],
   "elevationVerticalRateSamplesTruncated": false,
   "elevationLoopRadiusM": 100,
-  "elevationStartEndDistM": 0
+  "elevationStartEndDistM": 0,
+  "unreliableSegments": [
+    {
+      "startSec": 4790,
+      "endSec": 4804,
+      "metres": 40.80000000000109,
+      "excessMetres": 0,
+      "seconds": 14,
+      "mechanism": "gap-adjacent"
+    }
+  ],
+  "unreliableSegmentsTruncated": false,
+  "pauseIntervals": [
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 128,
+      "endSec": 141,
+      "seconds": 13,
+      "metres": 2.5,
+      "startMetres": 379.2
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 1160,
+      "endSec": 1223,
+      "seconds": 63,
+      "metres": 2.599999999999909,
+      "startMetres": 3349
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 1256,
+      "endSec": 1449,
+      "seconds": 193,
+      "metres": 1.400000000000091,
+      "startMetres": 3437.5
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "stationary",
+      "startSec": 3756,
+      "endSec": 4703,
+      "seconds": 947,
+      "metres": 0,
+      "startMetres": 9696.8
+    },
+    {
+      "source": "zero-advance-pause",
+      "pauseClass": "stationary",
+      "startSec": 4703,
+      "endSec": 4709,
+      "seconds": 6,
+      "metres": 0,
+      "startMetres": 9696.8
+    },
+    {
+      "source": "recording-gap",
+      "pauseClass": "ran-through",
+      "startSec": 4716,
+      "endSec": 4728,
+      "seconds": 12,
+      "metres": 62.20000000000073,
+      "startMetres": 9723
+    },
+    {
+      "source": "merged-segment",
+      "pauseClass": "ran-through",
+      "startSec": 4790,
+      "endSec": 4804,
+      "seconds": 14,
+      "metres": 40.80000000000109,
+      "startMetres": 9959.9
+    }
+  ],
+  "pauseIntervalsTruncated": false
 }
