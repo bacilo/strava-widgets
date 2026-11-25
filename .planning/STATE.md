@@ -4,13 +4,13 @@ milestone: v2.3
 milestone_name: Pause & Slew Integrity
 status: executing
 stopped_at: Phase 36 context gathered
-last_updated: "2026-11-25T11:51:55.121Z"
+last_updated: "2026-11-25T11:53:42.032Z"
 last_activity: 2026-11-25
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 89
-  completed_plans: 85
+  completed_plans: 86
   percent: 71
 ---
 
@@ -47,7 +47,7 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 ## Current Position
 
 Phase: 36.1 (Ingestion Integrity) — EXECUTING
-Plan: plans 01-05 done (5 of 9); 06 is next
+Plan: plans 01-06 done (6 of 9); 07 is next (the Garmin bulk-export checkpoint)
 Status: Ready to execute
 
 Phase 36 planned (2026-09-28): 14 plans in 9 waves, committed `ebe0245c`. Research `4a61a19b`,
