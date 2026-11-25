@@ -1,0 +1,27 @@
+{
+  "id": 25116720114,
+  "name": "Herlev Running",
+  "type": "Run",
+  "start_date": "2026-11-18T06:25:50Z",
+  "start_date_local": "2026-11-18T07:25:50",
+  "distance": 12609.7,
+  "moving_time": 4520,
+  "elapsed_time": 4858,
+  "total_elevation_gain": 44,
+  "average_speed": 2.79,
+  "max_speed": 4.609,
+  "average_heartrate": 133,
+  "max_heartrate": 159,
+  "map": {
+    "summary_polyline": "c{`sIup}jABEJIRM@E?]E_A@I@WAOCQAQAOASAGAI?GCOEa@Es@Ei@?EBU@CCQMk@?k@AY?E?gA?G@cA?QAc@@_@@m@?eAAi@A[Am@C_AA_AAICy@AGC{@Ey@C_A?G?QAO?c@?a@@QBMLWHAf@CNA\\SDMDM@Y?YXyC?UBgAA_A@QBYF_@L{@@GTm@\\c@Te@H_@@w@IaACCSOCCUUY[ECW_@IUEa@Ny@H_@DMFCB@TZb@XLEBCBGTk@\\q@HQ\\s@BEZo@BGZi@R]J[Xk@BE\\s@BEVo@FKXi@Xa@FIV]Te@HIZg@FI\\i@BGNWFKDIX]\\g@DKR]@ER_A?GDSRe@d@QD?b@GB?^]NQNSBC`@g@P[FMBCNO@E`@e@BCHKFWJ[BO?[D[DEZYTSLM\\a@FG^c@`@_@PQPOHCHG^_@BERONG`@WDCVOHGNI`@SXMBAb@Sb@UXOb@WNE`@M\\Ef@OHADCb@QBADC`@ONCVIRIb@ORGb@OBAb@MNEb@KBAHEf@OBAb@MHEb@OHCf@OHAd@SHCd@ONEd@QDAd@QJALGZGb@KNEf@MVKBAf@IHEb@MFEf@QHCb@GHCVQf@OFCRIHCZKTEPINs@Fi@DYHg@BOJq@BW@GBOJo@Hk@BSDOPw@?GBQ@OL_A@GJs@Fa@L_ABOBMJe@J{@@GL}@@GHg@BWN}@BMFa@Jo@?GN_ABOBOJy@Fe@DY?GBq@@{@?OA}@@_A?QC{@A}@AcA?_@@S@{@@eAAEBw@BeA?G?cA@G?{@?eA?cA?QCaACa@Ai@@eAHc@Tw@Ty@Vy@Nu@Tw@@EDOTu@DUT}@DUNi@Ry@BGFUFUFWNm@J]HSJi@Ja@DMDOPq@@GRy@@GP}@La@Vk@Ru@DONe@J[Rw@FWRs@@GDMT{@T{@@GNc@No@Ty@@ETu@H]Ps@Pk@FSTw@@GJ}@DOP{@H[Lw@@E@MBMDOLi@Lq@BOL_AFo@Nu@BOD_@Da@@GF_@BMB[@GFa@D[Hu@L}@H}@@IH}@@QHcAJ_ADeAHaAFeA@IBw@B[@GH_A?GDcADaADcA?OB}@?a@Bi@By@@cA?QAaA?eA?UM{@AGC_AAEQw@AGQk@Mu@Uy@EMAEYs@M_@Bm@@?FGPEPMPa@JaA@GHm@@IDeA?OBy@Bs@Ce@Cw@EaAAOG}@?GD{@?OGc@Mk@GWM_AOm@CEG_@?Q?ECU@GH]Je@Pi@Jo@De@@IHe@b@i@\\i@\\a@BE`@c@DEd@IBEN_@P_@Jc@NULWJg@Lm@h@YLE\\c@BEVY\\QPQRS\\m@BIJk@BQ@Q?GHe@N_ABW?O@S@WAUD[Bg@NcAD]Fc@BEDKLi@Ro@BKFWNk@Lw@Ry@@ODm@P{@L_ARy@BY@OLaABINaA@OPaAR}@BOL}@BMJs@DOHk@Dw@Bc@AEDk@BG@G@GLm@D_ANy@Hg@DULy@J{@Bc@?KN]@EHa@Dc@?OBw@BK@S@WAUDc@?IBO@]@STi@Lc@@GAGBM@GDc@A{@?{@Ra@J]?EBe@D}@D{@b@g@BSBMF]Bi@?IAS@I?q@Ls@d@o@DOVw@BGNc@J_@DIB_A@OASAe@@O?q@@kADK\\{@Ra@A[?EXw@Ne@@G@S@e@@k@?GFw@Fk@Aq@?i@BGXk@NIFGL[?]?EBa@FcAFiA?KBM@[AaAD]BGFc@No@D_@@GHg@Fc@NQRYH[No@^u@@GB_@?WCm@@OFi@Xw@@EFq@PWXo@DMDq@@GL[BK@GPaAF_@Jc@DYDOLWDy@Hi@BWBYBO@GBORw@AGBGDUBe@J]JcAEi@CS?]?[Xq@D]P}@@KAs@Jm@Rs@BIJKFY@EFq@DUBOD[@GAQ@[Nq@N_@X{@L_@Rw@J}@@GRw@D_@Fe@L{@Lg@Jw@Bw@Kk@?M?KAg@Ca@Gs@@UCcA?O@gA?[AcACOEi@C]@Q?GEm@H}@BGRq@@GBOHaA@GH_ATw@DQRu@DQTw@HW@K^g@??DQDi@@W?UDSHk@@IBSBUBY?ODWLITq@BGNi@J}@FUDSJu@FMPe@JYDGLSVUTKPMBCDEBE^a@\\k@Lc@b@WJBZGFENK^@BEBOZi@BCFMLM^i@DI^a@BC^c@BGT_@VM`@c@HKX]\\m@DEXa@JSPc@HALH?ARUX_@VSDMJODBNF@ALOFQ?GBw@J[No@?IDm@DGVOJK@C@GP_@V_@Zc@b@g@R]Vi@DKZm@Tm@\\o@BGTo@JSLe@FOBGNm@FKLY^a@DETu@FOVq@HUJWJSPa@Vm@??FWH_@BIBODUPc@J]DKDIBE@CDI@EDWL{@FUNa@f@[JSDKFOJ[DGLSF]@UA_@DYHKBGDWHWJIZIFIBS@IRe@P]FI^g@@G@CTm@Ti@Vu@@ETi@Vo@JWTi@Vq@@EVm@HSVu@Xe@BERm@@EBOBCDIJOXe@Xq@BGHULa@La@DMHSBEDKNCXNNV`@^LHVPHXPCTUAIB_@Da@Bc@Bq@BYVs@B@DTBL\\p@f@p@RN`@b@DBP\\\\`@^`@JJF@DHNHDFBBBVL^F@T_@Vk@DAJGHOLOBETs@BED{@Fg@H]BMPy@De@BGJWTw@Ts@HQZi@BGJKFAF@VJ??FOPw@D_@@GDWJa@BINu@@EJs@BO@ENUJIBE@GBEHQNURi@J[Ri@Jc@FUBGLW@GNy@Ve@Vk@Ho@D_@BAL@D?PALM^]@K^U`@UF?b@MB@f@ATOTg@`@WB?ZZb@XBC`@a@@GHQJYPc@@IPk@@q@BOA]BcAAm@CW@A@@BDFP^f@PRd@PNDb@HXQBy@"
+  },
+  "source_provider": "garmin-export",
+  "garmin_activity_id": "25116720114",
+  "external_id": "25116720114_ACTIVITY.fit",
+  "original_file": "garmin:_extracted/single_25116720114/25116720114_ACTIVITY.fit",
+  "field_origin": "fit-session",
+  "start_latlng": [
+    55.71521881967783,
+    12.444434948265553
+  ]
+}

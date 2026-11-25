@@ -8750,6 +8750,10 @@
       "matched_by": "imported",
       "original": "strava:activities/4912492091.fit.gz",
       "gear": "Nike Pegasus 37 Pegasus 37 (Magasin)"
+    },
+    "25116720114": {
+      "matched_by": "imported",
+      "original": "garmin:_extracted/single_25116720114/25116720114_ACTIVITY.fit"
     }
   }
 }
