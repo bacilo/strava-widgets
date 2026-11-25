@@ -106,3 +106,24 @@ Task IDs bound by the planner on 2026-11-25 (`<plan>-T<n>` = task n of that plan
 - [ ] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending
+
+---
+
+## Checkpoint Evidence
+
+Gathered by 37-07-T1 on the PRIMARY checkout, 2026-11-25. Human verdicts (37-07-T2) are NOT yet recorded here.
+
+1. **Merge.** `git fetch origin`: origin/master is 0 commits ahead of HEAD (a995b6b2). No merge needed, no merge sha.
+2. **Regenerate.** `npm run build`, `npm run compute-all-stats`, `npm run build-widgets` (in that order). The regeneration rewrote only the `generatedAt` stamp of `data/geo/geo-metadata.json`; that one generated file was reverted with `git checkout -- data/geo/geo-metadata.json`. `data/stats/best-efforts.json`: 1930 per-activity objects carry `contaminatedMetres`, non-numeric count 0.
+3. **Gates.** `npx tsc --noEmit` clean. `npm test`: 122 files, 4274 tests passed. `live archive: derive vs recount` ran (not skipped) and passed; `scripts/compute-review-queue-recount.test.mjs` 21 passed. `scripts/verify-dashboard-publish-guard.test.mjs` 12 + `scripts/lib/curation-guard.test.mjs` 36 = 48 passed, none skipped. `npm run verify-dashboard` exit 0, and the three new success lines are present: `GET /__curate/reviewed -> 404`, `GET /__curate/reviewed/3475726256 -> 404`, `GET /data/curation/reviewed.json -> 404`.
+4. **Served digests (D-20)** against `npm run curate` on 127.0.0.1:4173 (three equal triples: working tree = dist = served):
+   - best-efforts.json: `f1254806fbcc7c42a8238bf162fbea70d0bffd9c`
+   - dashboard/index.json: `6f3c51dec61a99bada98a4256ead9cbf41b81a63`
+   - best-effort-exclusions.json: `6accea937561343174ad4a43c77a03f950c6fc14`
+   - served `assets/index-twhf7FvW.js`: dist = served = `052f7e3557ddfa8c810d4ae7704f5aa6828967de`
+5. **Recount.** `npm run compute-review-queue-recount`: exit 0, `PASS:`, 565 rows, tiers T1 5 / T2 556 / T3 4. Equals the CONTEXT probe figure (565) and its tier split; reference only, not the expected value (the expected value is the recount's own printed list). 12 exclusions, all 12 inside the recount list, so All 565 = To review 553 + Reviewed 0 + Excluded 12.
+6. **Guards red then green** (planted on the real built tree, removal in a shell `trap`):
+   - Planting only a FILE named `dist/widgets/__curate` leaves `/__curate/reviewed` at 404 (a file has no children), so guard 2 named only `/data/curation/reviewed.json`. The plan's expectation that guard 2 names `/__curate/reviewed` is reachable only by planting a directory `__curate/` containing a file `reviewed`. That plant was used for the recorded run below.
+   - Guard 1 `findCurationArtifacts('dist/widgets')` exit 1: `dist/widgets/__curate` (directory), `dist/widgets/data/curation`, `dist/widgets/data/curation/reviewed.json`.
+   - Guard 2 `npm run verify-dashboard` exit 1: `GET /__curate/reviewed expected 404 ..., got 200` and `GET /data/curation/reviewed.json expected 404 ..., got 200`.
+   - After removal: both exit 0; `test ! -e dist/widgets/data/curation && test ! -e dist/widgets/__curate` holds; `git diff --exit-code data/curation/reviewed.json data/best-effort-exclusions.json` exit 0.
