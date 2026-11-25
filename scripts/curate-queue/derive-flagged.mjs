@@ -50,6 +50,12 @@
  * @property {number|null} contaminatedMetres null on tier 3
  * @property {boolean} metresMissing
  * @property {boolean} transported
+ * @property {string} fingerprint
+ * @property {'none'|'reviewed'|'changed'} reviewState
+ * @property {string|null} reviewReason
+ * @property {string|null} reviewedAt
+ * @property {string|null} reviewedFingerprint
+ * @property {boolean} reviewConflict excluded AND present in the reviewed file (hand-edited)
  */
 
 /**
@@ -136,6 +142,83 @@ function buildNameMap(indexDoc) {
 }
 
 /**
+ * D-12 fingerprint: which flags, not how much. The sorted, de-duplicated set of
+ * `<distance>:<guard>` tokens over demotions and contaminated efforts, joined by ',', then
+ * '|t=1' or '|t=0'. Independent of effort order, metres, reasons and durations, so metre drift
+ * never resurfaces a reviewed row. Non-object efforts and non-string distance/guard are skipped.
+ *
+ * @param {unknown[]} efforts
+ * @param {boolean} transported
+ * @returns {string}
+ */
+export function fingerprintFor(efforts, transported) {
+  const tokens = new Set();
+  const list = Array.isArray(efforts) ? efforts : [];
+  for (const e of list) {
+    if (e === null || typeof e !== 'object' || typeof e.distance !== 'string') continue;
+    for (const flag of [e.demotion, e.contaminated]) {
+      if (flag !== null && typeof flag === 'object' && typeof flag.guard === 'string') {
+        tokens.add(`${e.distance}:${flag.guard}`);
+      }
+    }
+  }
+  return `${[...tokens].sort().join(',')}|t=${transported ? 1 : 0}`;
+}
+
+/**
+ * D-05: builds Map activityId -> { reason, reviewedAt, fingerprint } over `reviewedDoc.reviewed`.
+ * Skips AND counts: a non-object entry, a non-string or `__proto__` activityId, a non-string or
+ * whitespace-only reason, a reviewedAt that is not a string or does not parse as a date, a
+ * non-string fingerprint, and a duplicate activityId (counted once; the first entry wins).
+ * Duplicated from the server's validation rather than shared: this file has zero imports.
+ *
+ * @param {unknown} reviewedDoc
+ * @returns {{ map: Map<string, { reason: string, reviewedAt: string, fingerprint: string }>, skippedCount: number }}
+ */
+function buildReviewedMap(reviewedDoc) {
+  const map = new Map();
+  const reviewed = reviewedDoc && Array.isArray(reviewedDoc.reviewed) ? reviewedDoc.reviewed : [];
+  let skippedCount = 0;
+  for (const entry of reviewed) {
+    if (
+      entry === null ||
+      typeof entry !== 'object' ||
+      typeof entry.activityId !== 'string' ||
+      entry.activityId === '__proto__' ||
+      typeof entry.reason !== 'string' ||
+      entry.reason.trim() === '' ||
+      typeof entry.reviewedAt !== 'string' ||
+      Number.isNaN(Date.parse(entry.reviewedAt)) ||
+      typeof entry.fingerprint !== 'string'
+    ) {
+      skippedCount += 1;
+      continue;
+    }
+    if (map.has(entry.activityId)) {
+      skippedCount += 1;
+      continue;
+    }
+    map.set(entry.activityId, {
+      reason: entry.reason,
+      reviewedAt: entry.reviewedAt,
+      fingerprint: entry.fingerprint,
+    });
+  }
+  return { map, skippedCount };
+}
+
+/**
+ * Counts reviewed entries `buildReviewedMap` drops (D-05). A missing, null or wrongly shaped
+ * document counts 0 and never throws.
+ *
+ * @param {unknown} reviewedDoc
+ * @returns {number}
+ */
+export function countMalformedReviewed(reviewedDoc) {
+  return buildReviewedMap(reviewedDoc).skippedCount;
+}
+
+/**
  * Builds a Map from String(id) -> { transported, startDate } over `indexDoc.activities`, in the
  * buildNameMap style. transported means `quality.pauseClassification.transportedCount` is a number
  * greater than 0. Rows that are not objects, or whose id is null/undefined, are skipped.
@@ -189,7 +272,7 @@ export function compareQueueRows(a, b) {
  * @param {unknown} bestEffortsDoc
  * @param {unknown} exclusionsDoc
  * @param {unknown} [indexDoc]
- * @param {unknown} [reviewedDoc] accepted for the review overlay (applied below)
+ * @param {unknown} [reviewedDoc] D-10 review overlay; absent means every row is reviewState none
  * @returns {QueueRow[]}
  */
 export function deriveFlaggedActivities(bestEffortsDoc, exclusionsDoc, indexDoc, reviewedDoc) {
@@ -201,6 +284,7 @@ export function deriveFlaggedActivities(bestEffortsDoc, exclusionsDoc, indexDoc,
   const { map: exclusionsMap } = buildExclusionsMap(exclusionsDoc);
   const nameMap = buildNameMap(indexDoc);
   const transportedMap = buildTransportedMap(indexDoc);
+  const { map: reviewedMap } = buildReviewedMap(reviewedDoc);
 
   // D-06: union of the best-efforts keys and transported ids that have no entry at all.
   const ids = Object.keys(activities).filter((id) => id !== '__proto__');
@@ -280,6 +364,12 @@ export function deriveFlaggedActivities(bestEffortsDoc, exclusionsDoc, indexDoc,
     const name = nameMap.has(activityId) ? nameMap.get(activityId) : null;
     const label = name !== null ? name : `Activity ${activityId}`;
 
+    const fingerprint = fingerprintFor(efforts, transported);
+    const review = reviewedMap.get(activityId);
+    // D-10: reviewed only while the stored fingerprint equals the current one.
+    const reviewState =
+      review === undefined ? 'none' : review.fingerprint === fingerprint ? 'reviewed' : 'changed';
+
     rows.push({
       activityId,
       startDate,
@@ -295,6 +385,13 @@ export function deriveFlaggedActivities(bestEffortsDoc, exclusionsDoc, indexDoc,
       contaminatedMetres,
       metresMissing,
       transported,
+      fingerprint,
+      reviewState,
+      reviewReason: review !== undefined ? review.reason : null,
+      reviewedAt: review !== undefined ? review.reviewedAt : null,
+      reviewedFingerprint: review !== undefined ? review.fingerprint : null,
+      // D-11: excluded wins; a hand-edited excluded+reviewed row is flagged, never shown as kept.
+      reviewConflict: excluded && review !== undefined,
     });
   }
 
@@ -331,5 +428,79 @@ export function summarizeQueue(rows) {
   return {
     flaggedCount: list.length,
     excludedCount: list.filter((r) => r && r.excluded).length,
+  };
+}
+
+/** D-15 view ids, default first. */
+export const QUEUE_VIEWS = ['to-review', 'reviewed', 'excluded', 'all'];
+
+/**
+ * D-15: filters rows for a view without re-sorting. An unknown view falls back to 'to-review', the
+ * direction that adds attention. Excluded rows never appear under reviewed (D-11).
+ *
+ * @param {QueueRow[]} rows
+ * @param {string} view
+ * @returns {QueueRow[]}
+ */
+export function rowsForView(rows, view) {
+  const list = Array.isArray(rows) ? rows : [];
+  switch (view) {
+    case 'reviewed':
+      return list.filter((r) => !r.excluded && r.reviewState === 'reviewed');
+    case 'excluded':
+      return list.filter((r) => r.excluded);
+    case 'all':
+      return list.slice();
+    default:
+      return list.filter((r) => !r.excluded && r.reviewState !== 'reviewed');
+  }
+}
+
+/**
+ * D-13: reviewed entries whose activity is not in the derived set. Never dropped. Sorted by
+ * reviewedAt descending, then activityId ascending.
+ *
+ * @param {QueueRow[]} rows
+ * @param {unknown} reviewedDoc
+ * @returns {{ activityId: string, reason: string, reviewedAt: string, fingerprint: string }[]}
+ */
+export function deriveOrphans(rows, reviewedDoc) {
+  const present = new Set((Array.isArray(rows) ? rows : []).map((r) => r.activityId));
+  const orphans = [];
+  for (const [activityId, entry] of buildReviewedMap(reviewedDoc).map) {
+    if (present.has(activityId)) continue;
+    orphans.push({
+      activityId,
+      reason: entry.reason,
+      reviewedAt: entry.reviewedAt,
+      fingerprint: entry.fingerprint,
+    });
+  }
+  orphans.sort((a, b) => {
+    if (a.reviewedAt !== b.reviewedAt) return a.reviewedAt < b.reviewedAt ? 1 : -1;
+    return a.activityId < b.activityId ? -1 : a.activityId > b.activityId ? 1 : 0;
+  });
+  return orphans;
+}
+
+/**
+ * Per-view counts for the summary line. `reviewed` counts reviewed non-excluded rows plus orphans.
+ *
+ * @param {QueueRow[]} rows
+ * @param {unknown[]} orphans
+ */
+export function summarizeViews(rows, orphans) {
+  const list = Array.isArray(rows) ? rows : [];
+  const orphanCount = Array.isArray(orphans) ? orphans.length : 0;
+  const toReview = rowsForView(list, 'to-review');
+  return {
+    toReview: toReview.length,
+    changed: toReview.filter((r) => r.reviewState === 'changed').length,
+    reviewed: rowsForView(list, 'reviewed').length + orphanCount,
+    excluded: rowsForView(list, 'excluded').length,
+    all: list.length,
+    orphans: orphanCount,
+    metresMissing: list.filter((r) => r.metresMissing).length,
+    conflicts: list.filter((r) => r.reviewConflict).length,
   };
 }

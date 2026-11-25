@@ -19,8 +19,14 @@ import {
   buildPrefillReason,
   compareQueueRows,
   countMalformedExclusions,
+  countMalformedReviewed,
   deriveFlaggedActivities,
+  deriveOrphans,
+  fingerprintFor,
+  QUEUE_VIEWS,
+  rowsForView,
   summarizeQueue,
+  summarizeViews,
 } from './derive-flagged.mjs';
 import { recountDemotedActivities } from '../compute-pr-ceiling-recount.mjs';
 
@@ -37,6 +43,10 @@ describe('collection canary', () => {
     expect(typeof summarizeQueue).toBe('function');
     expect(typeof compareQueueRows).toBe('function');
     expect(typeof countMalformedExclusions).toBe('function');
+    for (const fn of [fingerprintFor, countMalformedReviewed, rowsForView, deriveOrphans, summarizeViews]) {
+      expect(typeof fn).toBe('function');
+    }
+    expect(QUEUE_VIEWS).toEqual(['to-review', 'reviewed', 'excluded', 'all']);
   });
 });
 
@@ -378,6 +388,210 @@ describe('deriveFlaggedActivities — D-08 ordering', () => {
     const rows = deriveFlaggedActivities(bestEfforts, { exclusions: [{ activityId: 'T1', reason: 'r' }] }, indexDoc);
     expect(rows.map((r) => r.activityId)).toEqual(Q_ORDER);
     expect(rows[0].excluded).toBe(true);
+  });
+});
+
+describe('fingerprintFor — D-12', () => {
+  const e400 = { distance: '400m', demotion: { guard: 'ceiling', reason: 'r1' }, contaminated: null, durationSec: 10 };
+  const e1k = {
+    distance: '1k',
+    demotion: null,
+    contaminated: { guard: 'unreliable-segment', reason: 'r2', durationSec: 5 },
+    durationSec: 20,
+  };
+
+  it("is the sorted token set then |t=; '1k:...' sorts before '400m:...' because '1' < '4'", () => {
+    expect(fingerprintFor([e400, e1k], false)).toBe('1k:unreliable-segment,400m:ceiling|t=0');
+  });
+
+  it('an empty effort list with transported is exactly |t=1', () => {
+    expect(fingerprintFor([], true)).toBe('|t=1');
+    expect(fingerprintFor([], false)).toBe('|t=0');
+  });
+
+  it('is independent of effort order, durations, reasons and metres', () => {
+    const base = fingerprintFor([e400, e1k], false);
+    expect(fingerprintFor([e1k, e400], false)).toBe(base);
+    const drifted = [
+      { ...e400, durationSec: 999, paceSecPerKm: 1, demotion: { guard: 'ceiling', reason: 'other words' } },
+      { ...e1k, contaminated: { guard: 'unreliable-segment', reason: 'x', durationSec: 1234 }, contaminatedMetres: 77 },
+    ];
+    expect(fingerprintFor(drifted, false)).toBe(base);
+  });
+
+  it('a new distance flag, a new guard, or transported each change it', () => {
+    const base = fingerprintFor([e400], false);
+    expect(fingerprintFor([e400, e1k], false)).not.toBe(base);
+    expect(fingerprintFor([{ ...e400, demotion: { guard: 'world-record', reason: 'r' } }], false)).not.toBe(base);
+    expect(fingerprintFor([e400], true)).not.toBe(base);
+  });
+
+  it('duplicate tokens collapse to one', () => {
+    const dup = { distance: '400m', demotion: { guard: 'ceiling', reason: 'again' }, contaminated: null };
+    expect(fingerprintFor([e400, dup], false)).toBe('400m:ceiling|t=0');
+  });
+
+  it('every row carries fingerprint = fingerprintFor(its efforts, transported)', () => {
+    const { bestEfforts, indexDoc } = fixtureQ();
+    const rows = deriveFlaggedActivities(bestEfforts, {}, indexDoc);
+    const gc = rows.find((r) => r.activityId === 'GC');
+    // GC: 400m contaminated unreliable-segment + 1k ceiling, not transported
+    expect(gc.fingerprint).toBe('1k:ceiling,400m:unreliable-segment|t=0');
+    const tx = rows.find((r) => r.activityId === 'TX');
+    expect(tx.fingerprint).toBe('|t=1');
+    const tc = rows.find((r) => r.activityId === 'TC');
+    expect(tc.fingerprint).toBe('1k:ceiling|t=1');
+  });
+});
+
+// Review overlay over fixture Q. Fingerprints, derived from the fixture:
+//   G1: 400m contaminated unreliable-segment, not transported -> '400m:unreliable-segment|t=0'
+//   G3: same shape -> '400m:unreliable-segment|t=0'
+//   C1: 400m ceiling -> '400m:ceiling|t=0'
+const G_FP = '400m:unreliable-segment|t=0';
+function reviewedDocFor() {
+  return {
+    reviewed: [
+      { activityId: 'G1', reason: 'kept: jump is on a bridge', reviewedAt: '2026-11-01T10:00:00.000Z', fingerprint: G_FP },
+      // stale: a token was removed (an extra 1k flag existed at review time); G3 now has only 400m
+      { activityId: 'G3', reason: 'old reason', reviewedAt: '2026-10-01T10:00:00.000Z', fingerprint: `1k:ceiling,${G_FP}` },
+      { activityId: 'C1', reason: 'hand edit', reviewedAt: '2026-11-02T10:00:00.000Z', fingerprint: '400m:ceiling|t=0' },
+      { activityId: 'ghost', reason: 'gone', reviewedAt: '2026-09-01T10:00:00.000Z', fingerprint: 'x|t=0' },
+    ],
+  };
+}
+function overlayRows() {
+  const { bestEfforts, indexDoc } = fixtureQ();
+  const exclusions = { exclusions: [{ activityId: 'C1', reason: 'excluded too' }] };
+  const reviewed = reviewedDocFor();
+  return { rows: deriveFlaggedActivities(bestEfforts, exclusions, indexDoc, reviewed), reviewed };
+}
+
+describe('review overlay, views, orphans — D-10 D-11 D-13 D-15', () => {
+  it('G1 with its current fingerprint is reviewed, carrying reason and date', () => {
+    const g1 = overlayRows().rows.find((r) => r.activityId === 'G1');
+    expect(g1).toMatchObject({
+      reviewState: 'reviewed',
+      reviewReason: 'kept: jump is on a bridge',
+      reviewedAt: '2026-11-01T10:00:00.000Z',
+    });
+  });
+
+  it('G3 with a stale fingerprint is changed and carries the old reason and date', () => {
+    const g3 = overlayRows().rows.find((r) => r.activityId === 'G3');
+    expect(g3).toMatchObject({
+      reviewState: 'changed',
+      reviewReason: 'old reason',
+      reviewedAt: '2026-10-01T10:00:00.000Z',
+      reviewedFingerprint: `1k:ceiling,${G_FP}`,
+    });
+  });
+
+  it('C1 excluded AND reviewed is flagged reviewConflict and appears only under Excluded', () => {
+    const { rows } = overlayRows();
+    const c1 = rows.find((r) => r.activityId === 'C1');
+    expect(c1.reviewConflict).toBe(true);
+    expect(rowsForView(rows, 'excluded').map((r) => r.activityId)).toEqual(['C1']);
+    expect(rowsForView(rows, 'reviewed').map((r) => r.activityId)).not.toContain('C1');
+    expect(rowsForView(rows, 'to-review').map((r) => r.activityId)).not.toContain('C1');
+    expect(rows.filter((r) => r.activityId !== 'C1').every((r) => r.reviewConflict === false)).toBe(true);
+  });
+
+  it('views: to-review keeps G3 (changed), drops G1 and C1, preserves comparator order', () => {
+    const { rows } = overlayRows();
+    // Q_ORDER minus G1 (reviewed) and C1 (excluded)
+    expect(rowsForView(rows, 'to-review').map((r) => r.activityId)).toEqual([
+      'T1', 'T0', 'TX', 'TC', 'G3', 'G2', 'GC', 'W1',
+    ]);
+    expect(rowsForView(rows, 'reviewed').map((r) => r.activityId)).toEqual(['G1']);
+    expect(rowsForView(rows, 'all').map((r) => r.activityId)).toEqual(Q_ORDER);
+    expect(rowsForView(rows, 'nonsense').map((r) => r.activityId)).toEqual(
+      rowsForView(rows, 'to-review').map((r) => r.activityId)
+    );
+  });
+
+  it('deriveOrphans returns the ghost entry, never dropped', () => {
+    const { rows, reviewed } = overlayRows();
+    expect(deriveOrphans(rows, reviewed)).toEqual([
+      { activityId: 'ghost', reason: 'gone', reviewedAt: '2026-09-01T10:00:00.000Z', fingerprint: 'x|t=0' },
+    ]);
+  });
+
+  it('orphans sort by reviewedAt descending, then activityId', () => {
+    const doc = {
+      reviewed: [
+        { activityId: 'b', reason: 'r', reviewedAt: '2026-01-01T00:00:00Z', fingerprint: 'f' },
+        { activityId: 'a', reason: 'r', reviewedAt: '2026-01-01T00:00:00Z', fingerprint: 'f' },
+        { activityId: 'c', reason: 'r', reviewedAt: '2026-05-01T00:00:00Z', fingerprint: 'f' },
+      ],
+    };
+    expect(deriveOrphans([], doc).map((o) => o.activityId)).toEqual(['c', 'a', 'b']);
+  });
+
+  it('summarizeViews counts, derived from the fixture', () => {
+    const { rows, reviewed } = overlayRows();
+    const orphans = deriveOrphans(rows, reviewed);
+    // rows 10: to-review 8 (above), of which changed 1 (G3); reviewed rows 1 (G1) + orphans 1 = 2;
+    // excluded 1 (C1); all 10; metresMissing 0; conflicts 1 (C1)
+    expect(summarizeViews(rows, orphans)).toEqual({
+      toReview: 8,
+      changed: 1,
+      reviewed: 2,
+      excluded: 1,
+      all: 10,
+      orphans: 1,
+      metresMissing: 0,
+      conflicts: 1,
+    });
+  });
+
+  it('without a reviewedDoc every row is reviewState none', () => {
+    const { bestEfforts, indexDoc } = fixtureQ();
+    const rows = deriveFlaggedActivities(bestEfforts, {}, indexDoc);
+    expect(rows.every((r) => r.reviewState === 'none' && r.reviewReason === null && !r.reviewConflict)).toBe(true);
+  });
+
+  it('a malformed reviewed entry never marks a row reviewed', () => {
+    const { bestEfforts, indexDoc } = fixtureQ();
+    const doc = { reviewed: [{ activityId: 'G1', reason: '   ', reviewedAt: '2026-11-01T10:00:00Z', fingerprint: G_FP }] };
+    const g1 = deriveFlaggedActivities(bestEfforts, {}, indexDoc, doc).find((r) => r.activityId === 'G1');
+    expect(g1.reviewState).toBe('none');
+  });
+});
+
+describe('countMalformedReviewed — D-05', () => {
+  const good = { activityId: 'ok', reason: 'r', reviewedAt: '2026-11-01T10:00:00Z', fingerprint: 'f' };
+
+  it('the clean doc counts 0', () => {
+    expect(countMalformedReviewed({ reviewed: [good] })).toBe(0);
+  });
+
+  it('a planted doc with eight classes counts exactly 8', () => {
+    // 1 null entry, 2 numeric activityId, 3 __proto__ id, 4 whitespace reason, 5 unparseable
+    // reviewedAt, 6 missing reviewedAt, 7 numeric fingerprint, 8 duplicate id (second 'ok').
+    // The first 'ok' is well formed and counts 0.
+    const doc = JSON.parse(
+      JSON.stringify({
+        reviewed: [
+          good,
+          null,
+          { ...good, activityId: 5 },
+          { ...good, activityId: 'p' },
+          { ...good, activityId: 'ws', reason: '   ' },
+          { ...good, activityId: 'bad', reviewedAt: 'not a date' },
+          { activityId: 'nodate', reason: 'r', fingerprint: 'f' },
+          { ...good, activityId: 'fp', fingerprint: 42 },
+          { ...good, reason: 'second ok' },
+        ],
+      }).replace('"activityId":"p"', '"activityId":"__proto__"')
+    );
+    expect(countMalformedReviewed(doc)).toBe(8);
+  });
+
+  it('a missing, null or wrongly shaped doc counts 0 and never throws', () => {
+    expect(countMalformedReviewed(null)).toBe(0);
+    expect(countMalformedReviewed(undefined)).toBe(0);
+    expect(countMalformedReviewed({ reviewed: 'x' })).toBe(0);
   });
 });
 
