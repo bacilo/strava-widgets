@@ -354,6 +354,8 @@ export interface ActivityEffortResult {
   rejected: RejectedEffort[];
   eligibleTargets: TargetDistanceKey[];
   seriesError?: string;
+  /** Phase 37 D-07: de-duplicated metres of segments touching a moved effort window (Branch 2 + 3). */
+  contaminatedMetres: number;
 }
 
 /**
@@ -385,7 +387,13 @@ export function computeActivityEfforts(input: ActivityEffortInput): ActivityEffo
 
   const seriesValidation = validateStreamSeries(t, d);
   if (!seriesValidation.ok) {
-    return { efforts: [], rejected: [], eligibleTargets: [], seriesError: seriesValidation.reason };
+    return {
+      efforts: [],
+      rejected: [],
+      eligibleTargets: [],
+      seriesError: seriesValidation.reason,
+      contaminatedMetres: 0,
+    };
   }
 
   // D-01: 1% margin absorbs the difference between the canonical `distance`
@@ -406,6 +414,10 @@ export function computeActivityEfforts(input: ActivityEffortInput): ActivityEffo
   // reads it.
   const cleanSubs: CleanSubInterval[] | undefined =
     segments.length > 0 ? complementSubIntervals(t.length, wholeSpanCuts(segments)) : undefined;
+
+  // Phase 37 D-07: segments touching a moved window (Branch 2 or 3), keyed by
+  // index pair so a segment hit by several distances' windows counts once.
+  const movedSegmentMetres = new Map<string, number>();
 
   for (const key of eligibleTargets) {
     try {
@@ -475,6 +487,9 @@ export function computeActivityEfforts(input: ActivityEffortInput): ActivityEffo
           // (world-record, max-speed, or the Pass 3 ceiling). The one
           // impossible pair is `contaminated` with an `unreliable-segment`
           // demotion, which Branch 3 excludes by setting `contaminated: null`.
+          for (const seg of intersecting) {
+            movedSegmentMetres.set(`${seg.startIndex}:${seg.endIndex}`, seg.metres);
+          }
           const impliedSpeedMps = TARGET_METERS[key] / clean.durationSec;
           const plausibility = isPlausible(
             impliedSpeedMps,
@@ -520,6 +535,9 @@ export function computeActivityEfforts(input: ActivityEffortInput): ActivityEffo
             0
           );
           const reason = noCleanWindowReason(key, raw, intersecting, longestCleanSpanM);
+          for (const seg of intersecting) {
+            movedSegmentMetres.set(`${seg.startIndex}:${seg.endIndex}`, seg.metres);
+          }
 
           rejected.push({ activityId, distance: key, reason });
 
@@ -554,7 +572,10 @@ export function computeActivityEfforts(input: ActivityEffortInput): ActivityEffo
     }
   }
 
-  return { efforts, rejected, eligibleTargets };
+  let contaminatedMetres = 0;
+  for (const metres of movedSegmentMetres.values()) contaminatedMetres += metres;
+
+  return { efforts, rejected, eligibleTargets, contaminatedMetres: round1(contaminatedMetres) };
 }
 
 /** Options for `computeBestEfforts`, each defaulted to the repo's standard data layout. */
@@ -741,6 +762,7 @@ export async function computeBestEfforts(
           excludedFromRecords: isExcluded(exclusions, id, e.distance),
         })),
         excludedFromRecords: exclusions.has(id),
+        contaminatedMetres: result.contaminatedMetres,
       };
     } catch (error) {
       // A truncated or hand-edited stream/activity file must not abort a

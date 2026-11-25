@@ -262,6 +262,19 @@ export interface ActivityBestEfforts {
   efforts: BestEffort[];
   /** True when this activity matched at least one entry in the exclusion list. */
   excludedFromRecords: boolean;
+  /**
+   * Phase 37 D-07: the sum of `UnreliableSegment.metres` over the segments
+   * that intersect any effort window in Branch 2 (`contaminated != null`) or
+   * Branch 3 (`demotion.guard === 'unreliable-segment'`). Each segment is
+   * counted ONCE per activity (keyed `startIndex:endIndex`) even when several
+   * distances' windows hit it. Rounded with `round1`; 0 when no effort was
+   * moved (Branch 1 only, or a series error). It is never parsed from a
+   * reason string (the reason is length-bounded with "+N more").
+   *
+   * Additive, so it does NOT bump `BEST_EFFORTS_SCHEMA_VERSION` (Phase 26
+   * D-14 / Phase 36 D-05 precedent). The review queue sorts on it.
+   */
+  contaminatedMetres: number;
 }
 
 /**

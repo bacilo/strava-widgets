@@ -1136,6 +1136,11 @@ describe('computeBestEfforts — archive orchestration', () => {
     // not the full manifest size (5).
     expect(doc.totals.activitiesConsidered).toBe(3);
     expect(Object.keys(doc.activities).sort()).toEqual(['a1', 'a2', 'a3']);
+    // Phase 37 D-07: every activity carries the additive numeric field; schema unchanged.
+    for (const id of ['a1', 'a2', 'a3']) {
+      expect(typeof doc.activities[id].contaminatedMetres).toBe('number');
+    }
+    expect(doc.schemaVersion).toBe(1);
   });
 
   it('a corrupt stream file warns, increments skippedUnreadable, and does not abort the run — other activities still produce efforts', async () => {
@@ -3266,5 +3271,89 @@ describe('computeBestEfforts — archive orchestration', () => {
       const secondParsed = JSON.parse(secondWrite);
       expect(secondParsed.ceilings['1k'].populationN).toBe(2);
     });
+  });
+});
+
+describe('contaminatedMetres (Phase 37 D-07): de-duplicated per activity, Branch 2 + Branch 3', () => {
+  // Constant 3 m/s, 1 s spacing, 2000 samples. activityDistanceM 1200 makes
+  // exactly the 400m and 1k targets eligible (1mi needs >= 1593m).
+  const { t, d } = constantPaceSeries(2000, 3);
+  const input = (segments: UnreliableSegment[]) =>
+    baseInput({ activityDistanceM: 1200, t, d, segments });
+
+  it('F1 dedupe: a segment inside BOTH the 400m and 1k raw windows counts once; a segment inside neither adds nothing', () => {
+    const raw400 = findBestEffort(t, d, 400)!;
+    const raw1k = findBestEffort(t, d, 1000)!;
+    // Hand derivation: constant pace ties every window; the sweep's float
+    // tie-break lands the 400m window at pairs 891..1025 and the 1k window at
+    // 691..1025 (asserted below so a drift fails loudly). S1 = pair 950..951
+    // sits inside both; S2 = pair 100..101 sits inside neither.
+    expect([raw400.startIndex, raw400.endIndex]).toEqual([891, 1025]);
+    expect([raw1k.startIndex, raw1k.endIndex]).toEqual([691, 1025]);
+
+    const s1 = makeSegment({ startIndex: 950, endIndex: 951, startSec: 950, endSec: 951, metres: 40 });
+    const s2 = makeSegment({ startIndex: 100, endIndex: 101, startSec: 100, endSec: 101, metres: 70 });
+    const result = computeActivityEfforts(input([s1, s2]));
+
+    // Both distances were moved by S1 (precondition for the test to bite).
+    expect(result.efforts.find((e) => e.distance === '400m')!.contaminated).not.toBeNull();
+    expect(result.efforts.find((e) => e.distance === '1k')!.contaminated).not.toBeNull();
+    // S1 counted once (D-07) = 40. No-dedupe would give 2 * 40 = 80.
+    expect(result.contaminatedMetres).toBe(40);
+    expect(result.contaminatedMetres).not.toBe(80);
+  });
+
+  it('F2 two segments, two windows: S1 (both windows) + S3 (1k window only) = 40 + 25', () => {
+    const raw400 = findBestEffort(t, d, 400)!;
+    const raw1k = findBestEffort(t, d, 1000)!;
+    // S3 = pair 750..751: before the 400m window's start (891), inside the 1k window (691..1025).
+    expect(raw400.startIndex).toBeGreaterThan(751);
+    expect(raw1k.startIndex).toBeLessThan(750);
+    const s1 = makeSegment({ startIndex: 950, endIndex: 951, startSec: 950, endSec: 951, metres: 40 });
+    const s3 = makeSegment({ startIndex: 750, endIndex: 751, startSec: 750, endSec: 751, metres: 25 });
+    const result = computeActivityEfforts(input([s1, s3]));
+    // 400m window hits S1 only (40); 1k window hits S1 and S3 (65); union = 65.
+    // No-dedupe would give 40 + 65 = 105.
+    expect(result.contaminatedMetres).toBe(65);
+  });
+
+  it('F3 Branch 3: no clean window covers the distance, the figure is still counted (A5)', () => {
+    const bt = [0, 1, 201];
+    const bd = [0, 400, 500];
+    const segment = makeSegment({ startIndex: 0, endIndex: 1, startSec: 0, endSec: 1, metres: 400, seconds: 1 });
+    const result = computeActivityEfforts(
+      baseInput({ activityDistanceM: 500, t: bt, d: bd, segments: [segment] })
+    );
+    const e = result.efforts.find((x) => x.distance === '400m')!;
+    expect(e.demotion!.guard).toBe('unreliable-segment');
+    expect(e.contaminated).toBeNull();
+    // The one intersecting segment is 400 m.
+    expect(result.contaminatedMetres).toBe(400);
+  });
+
+  it('F4 Branch 1 only: no segments gives 0', () => {
+    expect(computeActivityEfforts(input([])).contaminatedMetres).toBe(0);
+  });
+
+  it('F4b a segment touching no window gives 0', () => {
+    const s2 = makeSegment({ startIndex: 100, endIndex: 101, startSec: 100, endSec: 101, metres: 70 });
+    expect(computeActivityEfforts(input([s2])).contaminatedMetres).toBe(0);
+  });
+
+  it('F5 seriesError early return carries contaminatedMetres 0', () => {
+    expect(computeActivityEfforts(baseInput({ t: [0, 1, 2], d: [0, 3] }))).toEqual({
+      efforts: [],
+      rejected: [],
+      eligibleTargets: [],
+      seriesError: expect.stringMatching(/length mismatch/),
+      contaminatedMetres: 0,
+    });
+  });
+
+  it('rounds with round1', () => {
+    const s1 = makeSegment({ startIndex: 950, endIndex: 951, startSec: 950, endSec: 951, metres: 40.04 });
+    const s3 = makeSegment({ startIndex: 750, endIndex: 751, startSec: 750, endSec: 751, metres: 25.03 });
+    // 65.07 -> 65.1
+    expect(computeActivityEfforts(input([s1, s3])).contaminatedMetres).toBe(65.1);
   });
 });
