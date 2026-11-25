@@ -61,8 +61,18 @@ function num(value: string | undefined): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-/** Parse the Strava bulk export's activities.csv into typed rows. */
-export function readStravaExportCsv(root: string): { runs: ExportRun[]; nonRuns: Map<string, number> } {
+/**
+ * Parse the Strava bulk export's activities.csv into typed rows.
+ *
+ * `skippedRuns` lists the Activity IDs of 'Run' rows whose date could not be
+ * parsed. They are absent from `runs`, so a caller claiming completeness (the
+ * reconcile adapter) must refuse when this is non-empty (36.1 WR-05).
+ */
+export function readStravaExportCsv(root: string): {
+  runs: ExportRun[];
+  nonRuns: Map<string, number>;
+  skippedRuns: string[];
+} {
   const rows = parseCsv(fs.readFileSync(path.join(root, 'activities.csv'), 'utf-8'));
   const header = rows[0];
   const cols = columnIndices(header);
@@ -77,6 +87,7 @@ export function readStravaExportCsv(root: string): { runs: ExportRun[]; nonRuns:
 
   const runs: ExportRun[] = [];
   const nonRuns = new Map<string, number>();
+  const skippedRuns: string[] = [];
 
   for (const row of rows.slice(1)) {
     const activityType = row[last('Activity Type')];
@@ -88,6 +99,7 @@ export function readStravaExportCsv(root: string): { runs: ExportRun[]; nonRuns:
     const epoch = parseStravaExportDate(row[last('Activity Date')]);
     if (epoch === undefined) {
       console.warn(`  unparseable date, skipping row: ${row[last('Activity Date')]}`);
+      skippedRuns.push(row[last('Activity ID')]);
       continue;
     }
 
@@ -109,7 +121,7 @@ export function readStravaExportCsv(root: string): { runs: ExportRun[]; nonRuns:
     });
   }
 
-  return { runs, nonRuns };
+  return { runs, nonRuns, skippedRuns };
 }
 
 /** Build a canonical record from an export row, geometry attached separately. */

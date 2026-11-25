@@ -11,10 +11,21 @@ export interface AdapterOutput {
 /**
  * Strava export -> reconcile input. Wraps (does not copy) readStravaExportCsv.
  * That parser keeps only the exact type 'Run' (fail-open), so any run-like type
- * it dropped is a hard error here: reconcile refuses to claim completeness.
+ * it dropped, and any Run row it skipped for an unparseable date, is a hard
+ * error here: reconcile refuses to claim completeness.
  */
 export function readStravaExportForReconcile(root: string): AdapterOutput {
-  const { runs, nonRuns } = readStravaExportCsv(root);
+  const { runs, nonRuns, skippedRuns } = readStravaExportCsv(root);
+
+  // A Run row the parser skipped (unparseable date) can never appear in
+  // `missing`, so the completeness claim would silently shrink (36.1 WR-05).
+  if (skippedRuns.length > 0) {
+    throw new Error(
+      `Strava CSV parser skipped ${skippedRuns.length} Run row(s) with unparseable dates ` +
+        `(Activity ID ${skippedRuns.slice(0, 5).join(', ')}${skippedRuns.length > 5 ? ', ...' : ''}); ` +
+        'reconcile refuses to report completeness'
+    );
+  }
 
   for (const [type, count] of nonRuns) {
     if (isRunLike(type)) {

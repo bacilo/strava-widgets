@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { readStravaExportForReconcile } from './strava.js';
 
@@ -58,5 +58,28 @@ describe('readStravaExportForReconcile', () => {
       { id: '444', date: 'Aug 19, 2011, 6:55:32 PM', type: 'Trail Run', distanceM: 8000 },
     ]);
     expect(() => readStravaExportForReconcile(dir)).toThrow('Trail Run');
+  });
+
+  it('throws on a Run row with an unparseable date instead of dropping it (WR-05)', () => {
+    const dir = writeExport([
+      { id: '111', date: 'Aug 16, 2011, 6:55:32 PM', type: 'Run', distanceM: 5000 },
+      { id: '555', date: 'not a date', type: 'Run', distanceM: 6000 },
+    ]);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      expect(() => readStravaExportForReconcile(dir)).toThrow(/skipped 1 Run row.*555.*refuses to report completeness/);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('a non-Run row with an unparseable date is still only counted as preIgnored', () => {
+    const dir = writeExport([
+      { id: '111', date: 'Aug 16, 2011, 6:55:32 PM', type: 'Run', distanceM: 5000 },
+      { id: '666', date: 'not a date', type: 'Ride', distanceM: 6000 },
+    ]);
+    const out = readStravaExportForReconcile(dir);
+    expect(out.runs.map(r => r.sourceId)).toEqual(['111']);
+    expect(out.preIgnored).toEqual({ Ride: 1 });
   });
 });
