@@ -48,7 +48,7 @@ describe('daily-refresh.yml structure', () => {
   });
 
   it('ARCHIVE-REPORTED: dropping shell: bash from archive_pinned', () => {
-    expectRule(real.replace(/^ {8}shell: bash\n/m, ''), 'ARCHIVE-REPORTED');
+    expectRule(real.replace(/(id: archive_pinned\n(?: {8}[^\n]*\n)*?) {8}shell: bash\n/, '$1'), 'ARCHIVE-REPORTED');
   });
 
   it('FINAL-RED: moving the final step before Deploy', () => {
@@ -94,6 +94,39 @@ describe('daily-refresh.yml structure', () => {
       real.replace(`'chore: commit fetched activities ${SKIP}'`, "'chore: commit fetched activities'"),
       'EARLY-COMMIT',
     );
+  });
+
+  // 36.1 WR-01: the early push must retry with a merge, never a rebase.
+  it('EARLY-COMMIT: replacing --no-rebase with --rebase in the retry', () => {
+    const mutated = real.replace('git pull --no-rebase --no-edit', 'git pull --rebase --no-edit');
+    expectRule(mutated, 'EARLY-COMMIT');
+  });
+
+  it('EARLY-COMMIT: removing the retry loop', () => {
+    const mutated = real.replace('for attempt in 1 2 3; do', 'if true; then').replace(
+      '          done\n          exit 1\n',
+      '          fi\n          exit 1\n',
+    );
+    expectRule(mutated, 'EARLY-COMMIT');
+  });
+
+  it('EARLY-COMMIT: a retry loop of one attempt', () => {
+    expectRule(real.replace('for attempt in 1 2 3; do', 'for attempt in 1; do'), 'EARLY-COMMIT');
+  });
+
+  it('EARLY-COMMIT: dropping the pull between attempts', () => {
+    const mutated = real.replace('git pull --no-rebase --no-edit', 'git fetch --no-edit');
+    expectRule(mutated, 'EARLY-COMMIT');
+  });
+
+  it('EARLY-COMMIT: suppressing the push exit code', () => {
+    expectRule(real.replace('exit 1\n\n      - name: Warn on early', 'exit 1\n          git push || true\n\n      - name: Warn on early'), 'EARLY-COMMIT');
+  });
+
+  it('EARLY-COMMIT: swapping the step back to a silent no-retry shape (no shell: bash)', () => {
+    const c = cut(real, '        id: commit_fetched\n', '        run: |');
+    expect(c).not.toBeNull();
+    expectRule(c.before + '        id: commit_fetched\n        continue-on-error: true\n' + c.after, 'EARLY-COMMIT');
   });
 
   // 36.1 WR-02: four mutations that each returned [] before the fix.
