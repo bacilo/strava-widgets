@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "source": "garmin",
+  "export_date": "2026-11-25",
+  "export_identity": {
+    "summary_files": [
+      {
+        "path": "DI_CONNECT/DI-Connect-Fitness/<account>_1_summarizedActivities.json",
+        "sha256": "2f76b5f2b64b7fe45642e14d1c0cc83254736d61c8e0b93284dcab6393ef8b55"
+      },
+      {
+        "path": "DI_CONNECT/DI-Connect-Fitness/<account>_301_summarizedActivities.json",
+        "sha256": "2789d1de4df75cef804f941005f6025ebcb182df0beae6322eef17ee9ffe3f3b"
+      },
+      {
+        "path": "DI_CONNECT/DI-Connect-Fitness/<account>_601_summarizedActivities.json",
+        "sha256": "254e129314c2677104206f9cf88455c0f2c60324f55d20a77c686049d273377a"
+      },
+      {
+        "path": "DI_CONNECT/DI-Connect-Fitness/<account>_901_summarizedActivities.json",
+        "sha256": "a68127dda58e636562f5abc83e99f73b1103b94d830071940d2d0b1150130260"
+      }
+    ]
+  },
+  "coverage_window": {
+    "first_run_start": "2021-07-08T07:45:06Z",
+    "last_run_start": "2026-11-24T06:34:17Z"
+  },
+  "claim": "This audit covers only runs recorded in this export that start between 2021-07-08T07:45:06Z and 2026-11-24T06:34:17Z inclusive. It makes no claim about runs outside that window or absent from the export.",
+  "counts": {
+    "export_runs": 1055,
+    "matched_exact": 1048,
+    "near": 2,
+    "missing": 5,
+    "missing_trivial": 1,
+    "ignored_types": {
+      "cycling": 3,
+      "floor_climbing": 12,
+      "hiking": 1,
+      "other": 3
+    }
+  },
+  "near": [
+    {
+      "source_id": "18743076537",
+      "start_date": "2025-04-05T23:41:00Z",
+      "archive_id": "14092163965",
+      "delta_s": -46
+    },
+    {
+      "source_id": "18753232184",
+      "start_date": "2025-04-06T23:09:00Z",
+      "archive_id": "14102532408",
+      "delta_s": -47
+    }
+  ],
+  "missing": [
+    {
+      "source_id": "7206746268",
+      "start_date": "2021-07-28T17:35:26Z",
+      "activity_type": "running",
+      "distance_m": 402.7799987792969,
+      "trivial": false
+    },
+    {
+      "source_id": "11689644619",
+      "start_date": "2023-08-01T07:50:44Z",
+      "activity_type": "running",
+      "distance_m": 1014.6799926757812,
+      "trivial": false
+    },
+    {
+      "source_id": "18665042154",
+      "start_date": "2025-03-28T20:00:57Z",
+      "activity_type": "running",
+      "distance_m": 0,
+      "trivial": true
+    },
+    {
+      "source_id": "18917950039",
+      "start_date": "2025-04-23T22:48:04Z",
+      "activity_type": "running",
+      "distance_m": 6255.93017578125,
+      "trivial": false
+    },
+    {
+      "source_id": "25116720114",
+      "start_date": "2026-11-18T06:25:50Z",
+      "activity_type": "running",
+      "distance_m": 12609.7001953125,
+      "trivial": false
+    }
+  ]
+}
