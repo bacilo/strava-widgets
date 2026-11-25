@@ -1,214 +1,209 @@
 ---
 phase: 36-best-effort-clean-window-search-ceiling-recalibration
-reviewed: 2026-11-24T00:00:00Z
+round: 2
+reviewed: 2026-11-25T00:00:00Z
 depth: standard
-files_reviewed: 35
+diff_base: e55f0540
+round_1_review: 1a3f88f4
+files_reviewed: 14
 files_reviewed_list:
-  - .github/workflows/daily-refresh.yml
-  - scripts/compute-ceiling-recalibration.mjs
-  - scripts/compute-ceiling-recalibration.test.mjs
+  - package.json
+  - scripts/compute-clean-window-before-state.mjs
+  - scripts/compute-clean-window-before-state.test.mjs
   - scripts/compute-clean-window-diff.mjs
   - scripts/compute-clean-window-diff.test.mjs
   - scripts/compute-clean-window-recount.mjs
   - scripts/compute-clean-window-recount.test.mjs
-  - scripts/curate-queue/derive-flagged.test.mjs
-  - scripts/unreliable-segment-import-guards.test.mjs
-  - src/analytics/best-effort-fixtures.test.ts
-  - src/analytics/best-effort-utils.test.ts
-  - src/analytics/best-effort-utils.ts
   - src/analytics/best-effort.types.ts
-  - src/analytics/ceiling-state-write-gate.test.ts
-  - src/analytics/clean-window-archive.test.ts
-  - src/analytics/compute-age-grading.test.ts
   - src/analytics/compute-best-efforts.test.ts
   - src/analytics/compute-best-efforts.ts
-  - src/analytics/compute-dashboard-index.test.ts
-  - src/analytics/effort-guard-homes.test.ts
-  - src/analytics/pace-single-source.test.ts
-  - src/compute-all-stats-steps.test.ts
-  - src/compute-all-stats-steps.ts
-  - src/dashboard/data/best-efforts-client.test.ts
-  - src/dashboard/data/best-efforts-client.ts
-  - src/dashboard/styles.css
   - src/dashboard/views/detail-best-efforts-logic.test.ts
   - src/dashboard/views/detail-best-efforts-logic.ts
-  - src/dashboard/views/detail-sections.test.ts
-  - src/dashboard/views/detail-sections.ts
   - src/dashboard/views/records-logic.test.ts
   - src/dashboard/views/records-logic.ts
-  - src/dashboard/views/records.test.ts
-  - src/dashboard/views/records.ts
-  - src/index.ts
+round_1_disposition:
+  CR-01: closed
+  WR-01: closed
+  WR-02: closed
+  WR-03: closed
+  WR-04: closed
+  IN-01: open
+  IN-02: open
+  IN-03: open
+  IN-04: partially_closed
+  IN-05: open
+  IN-06: open
 findings:
-  critical: 1
-  warning: 4
-  info: 6
-  total: 11
+  critical: 0
+  warning: 3
+  info: 10
+  total: 13
 status: issues_found
 ---
 
-# Phase 36: Code Review Report
+# Phase 36: Code Review Report (Round 2)
 
-**Reviewed:** 2026-11-24
+**Reviewed:** 2026-11-25
 **Depth:** standard
-**Files Reviewed:** 35
+**Files Reviewed:** 14 (diff `e55f0540..HEAD`, each read in the context of the whole file)
 **Status:** issues_found
+
+This file replaces the round-1 review. Round 1 (CR-01, WR-01..WR-04, IN-01..IN-06) is preserved in git at `1a3f88f4`.
 
 ## Summary
 
-I reviewed the diff `ebe0245c..HEAD` across the 35 scoped files. This covers the clean-window search in `compute-best-efforts.ts`, the bounded `findBestEffort`, the `--write-ceiling-state` gate, the dashboard surfaces (client parse, detail badge, Records notes) and the three PR-09 generator and recount scripts.
+Round 2 covers gap-closure plans 36-15..36-18:
+- **36-15:** the diff generator applies the OLD ceiling and adds the `excluded` and `demoted-guard-changed` kinds.
+- **36-16:** a new leg 4 runs the pre-phase pipeline from `ebe0245c`.
+- **36-17:** the WR-02 contract is written down and enforced at the writer and in the recount.
+- **36-18:** the badge copy and the Records count are made truthful.
 
-The core search is sound. I traced `complementSubIntervals`' `+ 1` boundary, `segmentsIntersectingWindow`'s half-open pair overlap and the bounded sweep's `lo`/`hi` limits by hand. They agree with the detector's pass-3 convention, and a Branch-2 clean window cannot reach a segment pair. The ceiling write gate is tested in both directions inside `mkdtemp` directories, and no test writes to a tracked file. The import guard intercepts `fs` through a module mock rather than `vi.spyOn`, so named imports are observed.
+**All five round-1 Critical and Warning findings are closed.** The fixes do what their findings asked. Leg 4 is a real independent check: it runs the shipped pre-phase code rather than a second reconstruction. It went red on the pre-fix artifact (52 disagreements, ceiling 15 vs 0) and green on the regenerated one (90/90).
 
-The defects are in the **signed PR-09 artifact generator** and in the **contract that a contaminated effort ranks**:
+I checked the write paths:
+- `FileStore` resolves absolute paths with `path.resolve`.
+- Both pipelines get temp `statsDir` and `ceilingStatePath`.
+- The pre-phase pipeline's conditional ceiling-state write therefore lands in `mkdtemp`.
+- No new test writes a tracked file. The real-pair test only reads `data/activities` and `data/streams`.
 
-- **Generator.** `compute-clean-window-diff.mjs` rebuilds the pre-phase state without applying the pre-phase ceiling. The "old" top-10s, the "Reinstated: 0 ceiling" figure and the moved-but-ranked population in `36-DIFF.md` therefore describe a ranking that never shipped.
-- **Ranking contract.** Several components assume "contaminated ⇒ ranked, demotion null": the shipped detail-view badge, the Records note and the recount's "two-homes" invariant. The writer (`compute-best-efforts.ts`) does not guarantee this. For owner-excluded efforts the badge is wrong on today's data: 39 efforts.
+**Three new defects:**
+- **WR-01 (leg 2):** the rewritten leg 2 now counts the same set twice. It cannot disagree on any document the generator produces, so "four green legs" is really three legs plus a check that always passes.
+- **WR-02 (leg 4):** leg 4 only checks the old rank rows that the diff chose to render, and only the reinstatement *counts*. It cannot detect a row or a pair the diff left out.
+- **WR-03 (recount):** the narrowed recount rule blocks one forbidden guard instead of allowing the permitted ones. A contaminated effort with an unknown or missing demotion guard passes.
 
-**On the excluded-effort divergence the checkpoint recorded:** the Records-screen behaviour is correct and disclosed. `countContaminatedAtDistance` and `countDemotedAtDistance` both skip `excludedFromRecords === true`, with the reason in their docblocks (D-10), and an owner-excluded effort does not rank, so it cannot "rank on a clean window". The defect is on the `36-DIFF.md` side. `classifyEffortChanges` never reads `excludedFromRecords`, yet labels its buckets "still ranked" and "ranked before, not ranked after". Its own `buildRankChanges` *does* filter exclusions, and the artifact never mentions exclusion. The divergence is an undisclosed labelling defect in the diff (WR-01), not a defect in the screen.
+None of the three changes a shipped number today, so none is a Blocker. Each one weakens the evidence PR-09's re-signature rests on.
 
-## Critical Issues
+## Round-1 Disposition
 
-### CR-01: The diff's OLD state never applies the pre-phase ceiling. Its "old" rankings, its "0 ceiling reinstatements" and its moved-but-ranked population describe a state that never shipped
-
-**File:** `scripts/compute-clean-window-diff.mjs:186-249, 285-331, 918-940`. The reconstruction it imports is in `scripts/compute-ceiling-recalibration.mjs:183-230`.
-
-**Issue:**
-- **The reconstruction never assigns a ceiling demotion.** `reconstructOldEfforts` only recomputes the absolute guards and is documented to never emit `'ceiling'`.
-- **`main()` derives the old ceiling but never uses it.** It computes `oldCeilings = deriveCeilings(oldPopulations)` (line 923) but only uses it for the ceiling *table*. It never runs `ceilingDemotion` over `oldEfforts`.
-- **Production did apply the ceiling before ranking.** It ranked only ceiling survivors (`compute-best-efforts.ts`, Pass 3: `rankTopN(survivors)`).
-
-Three consequences follow, none of them disclosed in `36-DIFF.md`:
-
-1. **The "Old" columns of `## Rank Changes` list efforts that were never ranked.** The pre-phase committed 400m ceiling is 5.1098 m/s, so any 400m effort under 400/5.1098 = 78.28 s was ceiling-demoted. Eight of the ten "old" 400m rows (66.3, 66.4, 66.9, 68.9, 71.0, 77.9, 78.2, 78.2 s) are below that. The 1mi rows 287.0, 339.0, 342.9 and 347.6 s are below 1609.344/4.6281 = 347.7 s.
-2. **`splitReinstatements` can never return a ceiling row.** The `ceiling` bucket is structurally unreachable on real input. Its only test (`compute-clean-window-diff.test.mjs:227-236`) feeds a synthetic `oldGuard: 'ceiling'` row, so the test passes against a population the real pipeline cannot produce. I re-ran it against the current `data/stats/best-efforts.json` and the committed pre-phase `data/best-effort-ceiling.json` at `ebe0245c`. **15** non-excluded efforts pass the old absolute guards, exceeded the old ceiling, and now rank (400m 7, 1k 5, 1mi 3). Those are ceiling reinstatements. The diff files them under "Moved but still ranked", and the artifact states "Reinstated: 31 (31 absolute-guard, 0 ceiling)".
-3. **`36-VALIDATION.md:265` records that the developer signed on these figures** ("reinstated 31 = 31 absolute-guard + 0 ceiling"). PR-09's sign-off is bound to a document that misstates the before-state.
-
-Legs 1 and 2 share this generator, and leg 3 (the recount) does not reconstruct the OLD state at all. None of the three legs could catch this.
-
-**Fix:** Apply the old ceiling to the reconstruction before classifying or ranking, using the shipped constructor rather than a second rule:
-```js
-import { ceilingDemotion } from '../dist/analytics/best-effort-ceiling.js';
-// in main(), after oldCeilings = deriveCeilings(oldPopulations):
-for (const old of oldEfforts) {
-  if (old.demotion !== null) continue;            // absolute guards take precedence
-  const d = ceilingDemotion(old.impliedSpeedMps, oldCeilings[old.distance]);
-  if (d) old.demotion = d;                        // covers excluded efforts too (CR-01 sweep parity)
-}
-```
-`buildPopulations({ useOld: true })` currently throws on a `'ceiling'` guard. Run it **before** this pass, or relax that assertion. Then add a test on a real activity/distance pair from the 15 above that asserts `splitReinstatements(...).ceiling.length > 0`. Regenerate `36-DIFF.md` and reopen the PR-09 sign-off.
+| ID | Status | Evidence |
+|---|---|---|
+| CR-01 | **CLOSED** | The OLD ceiling is derived from the pre-ceiling reconstruction, then applied with the shipped `ceilingDemotion` (`compute-clean-window-diff.mjs:200-210`, `:1047-1049`, `:1066-1068`). Precedence never overwrites an absolute guard (`:203`). The real-pair test feeds real archive data (activity 3475714424) with pre-phase ceilings pinned from `ebe0245c`, and asserts `ceiling.length === 1` (`compute-clean-window-diff.test.mjs:259-292`). It has a watched red. Leg 4 independently confirms 15 ceiling reinstatements, the per-distance split, all seven ceilings-before, and every rendered old rank row (36-19-SUMMARY:44). |
+| WR-01 | **CLOSED** | `excluded` is checked first (`compute-clean-window-diff.mjs:266-267`). The headline discloses the excluded count (`:709-712`) and a per-distance section renders it. Leg 4's own exclusion rule (`compute-clean-window-before-state.mjs:101`) agrees with the artifact. |
+| WR-02 | **CLOSED** (contract chosen: contaminated and demotion are independent) | Docblocks: `best-effort.types.ts:101-107, 132-143, 196-201, 214-223` and `compute-best-efforts.ts:471-477`. Writer tests: Branch-2 max-speed, Branch-3 forbidden pair, and an orchestration ceiling case with the ceiling computed by hand (`compute-best-efforts.test.ts:552-590, 2916-3008`). The recount is narrowed to the one impossible pair (`compute-clean-window-recount.mjs:563`), but see new **WR-03** on how it was narrowed. |
+| WR-03 | **CLOSED** | The badge word follows rank: `ranks = !row.excluded && !row.demoted` (`detail-best-efforts-logic.ts:307-315`). It is pinned by a 5-test describe (`detail-best-efforts-logic.test.ts:531`). |
+| WR-04 | **CLOSED** | `countContaminatedAtDistance` now skips demoted efforts (`records-logic.ts:406`), so it is disjoint from `countDemotedAtDistance` by construction. Test at `records-logic.test.ts:945`. |
+| IN-01 | OPEN | The recount still prints no control-population false-pass rate for the p75 floor. |
+| IN-02 | OPEN | `pace-single-source.test.ts:1294` still calls `vi.doUnmock` inside the `try` and not in the `finally` (`:1301`). File out of round-2 scope. |
+| IN-03 | OPEN | `pace-single-source.test.ts:1290` `paceMinSec` still floors before rounding. |
+| IN-04 | PARTIALLY CLOSED | The generator still reconstructs from `round1`'d durations. Leg 4 now evaluates unrounded production output and agreed 90/90, so a boundary flip would now be caught. The generator itself still has the ±0.05 s exposure, and its provenance section does not state it. |
+| IN-05 | OPEN | `contaminatedDurationSec`/`contaminatedPaceSecPerKm` are still populated (`detail-best-efforts-logic.ts:226-227`) and read by no non-test code. |
+| IN-06 | OPEN | The note still says "the segment [is] named" (`records-logic.ts:433`), while reasons are capped at two segments. |
 
 ## Warnings
 
-### WR-01: `classifyEffortChanges` ignores `excludedFromRecords`, so the diff's "still ranked" and "newly demoted" counts include efforts that never rank
+### WR-01: Leg 2 (`reconcileCounts`) now counts the same set twice and can never disagree
 
-**File:** `scripts/compute-clean-window-diff.mjs:186-249` (contrast `:291`)
+**File:** `scripts/compute-clean-window-diff.mjs:452-488`, called at `:636-640`
 
-**Issue:** The docblock defines MOVED-BUT-RANKED as "the effort ranks both before and after" and NEWLY DEMOTED as "ranked before, not ranked after". An owner-excluded effort ranks in neither state. The classifier still puts it in both buckets, because it only compares `demotion` values. On current data, 39 contaminated efforts are owner-excluded and 15 demoted efforts are owner-excluded.
+**Issue:** Before this round, leg 2 compared a *classified bucket* (newly-demoted, moved-but-ranked) with a walked total. That comparison could and did disagree, and the disagreement was informative. 36-15 changed both checks to sum "across every kind":
+- check 1 counts `c.newGuard === 'unreliable-segment'` over every change;
+- check 2 counts `c.contaminatedReason != null` over every change.
 
-The same file's `buildRankChanges` does skip `old.excludedFromRecords` (line 291), so the artifact is internally inconsistent. `36-DIFF.md` never mentions exclusion. This is the source of the Records-screen vs diff divergence the checkpoint recorded. The Records screen is the correct side (see Summary).
+`changes` comes from `classifyEffortChanges(newDoc, …)`, which emits exactly one change per effort in `newDoc` and throws if any effort lacks an OLD record. `guardCounts` comes from `walkGuardCounts(newDoc)` over the same efforts. Both sides therefore read the same field off the same efforts of the same document. The classification never enters either sum, so the check passes by construction.
 
-**Fix:** Add an `excluded` kind, checked first, or skip excluded efforts with a stated count. Render that count in the headline ("N owner-excluded efforts omitted from the four populations") so the artifact and the Records screen reconcile on a disclosed difference.
+The only reachable disagreements are degenerate:
+- an effort with an unknown `distance`, which the reconstruction skips and so already throws;
+- a `contaminated` record whose `reason` is `null`.
 
-### WR-02: "Contaminated ⇒ ranked, demotion null" is asserted in three components but not guaranteed by the writer
+The tests that show leg 2 disagreeing (`compute-clean-window-diff.test.mjs:541-610`) hand-build `changes` and `guardCounts` independently. `main()` never does that. This is the "asserts internal agreement, not an independent value" pattern. The 36-19 claim that "all four reconciliation legs are green" counts leg 2 as evidence, but it is a check that cannot fail.
 
-**File:** `src/analytics/compute-best-efforts.ts:470-498, 798-806`; `scripts/compute-clean-window-recount.mjs:542-560`; `src/dashboard/views/detail-best-efforts-logic.ts:259-277`
+**Fix:** Make leg 2 compare a classification-dependent figure with an independent walk. For example, reconcile the per-kind partition against the walk:
+```js
+// every walked contaminated effort must be in exactly one of the kinds that may carry it,
+// and moved-but-ranked must equal walked(contaminated && demotion == null && !excluded)
+const walkedMovedRanked = countWhere(newDoc, e => e.contaminated != null && e.demotion == null && e.excludedFromRecords !== true);
+rows.push({ check: 'moved-but-ranked + reinstated-with-contamination vs walked ranked-contaminated',
+  listsFigure: (addends['moved-but-ranked'] ?? 0) + reinstatedWithContamination, walkedFigure: walkedMovedRanked, ... });
+```
+Then add a test that runs `classifyEffortChanges` and `walkGuardCounts` on **one** hand-built document with a planted misclassification, and assert `agrees === false`. Alternatively, keep the current rows but stop counting them as a reconciliation leg in 36-VALIDATION.md and say so.
 
-**Issue:** There are two ways an effort ends up with both `contaminated` and `demotion` set:
-- In Branch 2, `computeActivityEfforts` sets `demotion: demotionFromPlausibility(...)` when the **clean** figure fails `isPlausible`, together with `contaminated: contaminationRecord(...)`.
-- Pass 3's ceiling loop sets `effort.demotion = ceilingDemotion(...)` on any `byDistance` survivor, including Branch-2 efforts, and never clears `contaminated`.
+### WR-02: Leg 4 only checks the rows and counts the diff chose to render, so omissions are invisible
 
-Three components contradict this:
-- `checkInternalConsistency` (recount) reports `contaminated + demotion` as a "two-homes rule" violation, so a legitimate document would fail leg 3.
-- `prFlagBadgeSpecs`' docblock states `demotion` "is `null` for every moved (contaminated-but-ranked) effort".
-- `ComputedEffort.contaminated`'s docblock states "it ranks normally".
+**File:** `scripts/compute-clean-window-before-state.mjs:264-307` (rank rows `:285-299`)
 
-The overlap is 0 on today's archive. Any Branch-2 clean window faster than the new ceiling triggers it, and the ceiling moves nightly. The memory note "guards must assert vs an independent value" applies here: the recount enforces an invariant the producer never promised.
+**Issue:**
+- **Rank rows.** These are checked only for positions the artifact renders under `## Rank Changes`. The generator renders a position only when its reconstructed OLD ranking differs from NEW (`compute-clean-window-diff.mjs:374-377`). Suppose the reconstruction's OLD row equals NEW at some position while the real pre-phase ranking differs. The diff omits that row and leg 4 never looks at it. Leg 4 has everything needed to close this (`oldDoc.rankings` and `newDoc.rankings`) but never compares the unrendered positions. A distance with no rendered rows ("No rank position changed at: …") gets zero old-rank checks.
+- **Reinstatements.** These are reconciled as per-distance counts only. `ceilingPairs` (`:109-114`) is derived and printed but never compared with the pairs the artifact lists. Two compensating misattributions at the same distance would pass.
 
-**Fix:** Pick one contract and enforce it at the writer:
-- either document "contaminated describes which window was measured; demotion is independent" and drop the recount's two-homes check for non-`unreliable-segment` guards (keep it only for `guard === 'unreliable-segment' && contaminated != null`),
-- or make it impossible by construction, with a `compute-best-efforts.test.ts` case where a Branch-2 clean figure exceeds the ceiling.
-
-Then fix WR-03 and WR-04 to match.
-
-### WR-03: The detail-view badge says "Ranked on clean window" on efforts that do not rank (39 owner-excluded efforts today)
-
-**File:** `src/dashboard/views/detail-best-efforts-logic.ts:299-309`
-
-**Issue:** The `contaminated` spec fires on `row.contaminated` alone. Its visible text is `Ranked on clean window — …` and its sr-only explanation is "the ranked time excludes an unreliable segment". The badge appears whether or not the row is excluded or demoted.
-
-On current data, 39 contaminated efforts carry `excludedFromRecords: true`. Each of them renders "Ranked on clean window" next to "Excluded from records" in the same cell, which is a direct contradiction. Any WR-02 contaminated+demoted effort would render "Ranked…" beside "Demoted…".
-
-`detail-best-efforts-logic.test.ts:320` and `:479-492` assert the contaminated, demoted and excluded flags together and the badge order, so the tests certify the contradictory copy instead of catching it.
-
-**Fix:** Make the visible text state the machine observation without claiming rank, e.g. `Measured on clean window — {reason}`. Alternatively, condition the word on `!row.excluded && !row.demoted`. Add a test asserting that an excluded or demoted contaminated row's badge text does not contain "Ranked".
-
-### WR-04: The Records contamination note counts demoted efforts as "rank on a clean window"
-
-**File:** `src/dashboard/views/records-logic.ts:388-405, 418-430`
-
-**Issue:** `countContaminatedAtDistance` skips owner-excluded efforts but not `effort.demotion != null`. A contaminated effort carrying a ceiling or absolute-guard demotion (WR-02) is counted twice. `countDemotedAtDistance` counts it as demoted, and `resolvePrTableContaminationNote` says it "rank[s] on a clean window". The docblock itself says the two counts "describe two different populations" and must never overlap. It is 0 today, and reachable by the code as written.
+This is the before-state counterpart of round-1's CR-01, where the generator could only see what it already computed.
 
 **Fix:**
-```ts
-if (effort.excludedFromRecords === true) continue;
-if (effort.demotion != null) continue; // a demoted effort does not rank (D-16 disjointness)
-if (effort.contaminated != null) count++;
+```js
+// in reconcileBeforeState(derived, parsed, oldDoc, newDoc):
+for (const d of TARGET_ORDER_LOCAL) {
+  const rendered = new Set(((parsed.oldRankRows ?? {})[d] ?? []).map(r => r.rank));
+  const oldR = oldDoc.rankings?.[d] ?? [], newR = newDoc.rankings?.[d] ?? [];
+  for (let i = 0; i < Math.max(oldR.length, newR.length); i++) {
+    if (rendered.has(i + 1)) continue;
+    const same = oldR[i]?.activityId === newR[i]?.activityId && oldR[i]?.durationSec === newR[i]?.durationSec;
+    rows.push({ check: `unrendered rank ${d} #${i + 1} unchanged`, derived: same, artifact: true, agrees: same });
+  }
+}
 ```
-Add a test with a contaminated + ceiling-demoted effort asserting the count excludes it.
+Also parse the artifact's reinstated-pair table and compare its `activityId|distance` set with `ceilingPairs` and the absolute-guard pairs.
+
+### WR-03: The narrowed recount rule blocks one guard instead of allowing three, so unknown guards pass
+
+**File:** `scripts/compute-clean-window-recount.mjs:563`; docblock `:532-537`
+
+**Issue:** The docblock states the contract as an allow-list: a contaminated effort "MAY also carry a world-record, max-speed or ceiling demotion". The code implements a deny-list: it only reports `demotion.guard === 'unreliable-segment'`. A contaminated effort whose demotion has a misspelled guard, a guard added later, or no `guard` field at all (`{ reason: 'x' }`) produces zero violations.
+
+Before this round, the same check reported *any* demotion on a contaminated effort, so it failed closed. The narrowing turned it into a fail-open check. The new tests only cover the three permitted guards and the one forbidden guard (`compute-clean-window-recount.test.mjs:500-526`), so this gap is not exercised.
+
+**Fix:**
+```js
+const PERMITTED_WITH_CONTAMINATED = new Set(['world-record', 'max-speed', 'ceiling']);
+if (hasContaminated && hasDemotion && !PERMITTED_WITH_CONTAMINATED.has(effort.demotion.guard)) {
+  violations.push(`${label}: contaminated record with demotion guard ${JSON.stringify(effort.demotion.guard)} — only world-record, max-speed or ceiling may accompany it (WR-02 contract)`);
+}
+```
+Add planted tests for `guard: 'typo'` and a demotion object with no `guard` field.
 
 ## Info
 
-### IN-01: The recount's per-window floor (control p75) was chosen against the population it judges
+### IN-07: An old rank row whose OLD side is legitimately empty can never pass leg 4
 
-**File:** `scripts/compute-clean-window-recount.mjs:91-105, 141-153`
+**File:** `scripts/compute-clean-window-before-state.mjs:288-296`
 
-**Issue:** The first run failed (190/1627), and the floor moved from p95 to the strictest percentile with zero failures on the live contaminated set. The docblock says it is "not a value chosen after the fact to force a pass", but selecting by outcome is exactly that. At p75, 25% of genuinely clean windows also clear the bar, so a mislabelled window has a 1-in-4 chance of passing on ratio alone. This was disclosed to the developer (`36-VALIDATION.md:265`), so it is recorded here as a strength-of-evidence note rather than a defect.
+**Issue:** The generator renders a position present only on the NEW side with `—` in the old columns. Leg 4 then sets `derivedText = null` when the pre-phase ranking also has no entry at that rank, and `agrees` requires `derivedText !== null`. Both sides agree that there is no entry, yet the row fails. Today no such row exists (90/90 agree). A distance whose top-N grows from fewer than 10 entries (half, for example) would make leg 4 permanently red.
 
-**Fix:** State the floor's false-pass rate on the control population in the verdict output, and treat leg 3 as corroboration rather than proof of per-window correctness.
+**Fix:** Map a missing pre-phase entry to `'— —'` before comparing, so that "absent on both" agrees.
 
-### IN-02: The "leaked mock cannot poison later tests" claim only holds on the success path
+### IN-08: Leg 4 silently drops unrecognised distances and can produce zero ceiling rows
 
-**File:** `src/analytics/pace-single-source.test.ts:1271-1278`
+**File:** `scripts/compute-clean-window-before-state.mjs:98`, `:241`
 
-**Issue:** `vi.doUnmock('./unreliable-segments.js')` and `vi.resetModules()` are inside the `try`, after the assertions. Any failing `expect` above them skips the unmock, and the stubbed detector leaks into later tests in the file, turning one red test into a cascade of misleading ones.
+**Issue:**
+- `if (!(d in out.excluded)) continue;` discards a pair with an unknown distance without counting it anywhere. Contrast `onlyInOld` and `unknownOldGuard`, which are counted.
+- `compareCeilingsBefore` skips a distance that is absent on both sides. If the table header is found but has no rows, and `oldDoc.ceilings` is missing, it returns `[]`, a vacuous pass for that check.
 
-**Fix:** Move `vi.doUnmock(...)` and `vi.resetModules()` into the `finally` next to `rmSync`.
+**Fix:** Count unknown distances into a reconciled-to-0 row. Emit one failing row when `compareCeilingsBefore` would return no rows.
 
-### IN-03: The test's local `paceMinSec` helper mis-formats near minute boundaries
+### IN-09: `findForbiddenImports` misses re-exports and `require`
 
-**File:** `src/analytics/pace-single-source.test.ts:1263-1264`
+**File:** `scripts/compute-clean-window-before-state.mjs:316-326`
 
-**Issue:** `Math.floor(p/60)` combined with `Math.round(p) % 60` renders 239.6 s/km as `3:00` instead of `4:00`. It only passes because the pinned value (3:20) is away from a boundary. The recount's `paceSecToMinSecLocal` already does this correctly by rounding first.
+**Issue:** The guard regexes cover `import … from` and `import()`. They do not cover `export { x } from '…/compute-clean-window-diff.mjs'` or `createRequire(...)('…')`, so leg 4's independence guarantee depends on contributors not using those forms.
 
-**Fix:** `const s = Math.round(p); return \`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}\`;`
+**Fix:** Add `\bexport\b[^'"`;]*?\bfrom\s*['"`]…` and `\brequire\s*\(\s*['"`]…` patterns, each with a planted-hit test.
 
-### IN-04: OLD plausibility is re-evaluated on a rounded duration
+### IN-10: Stale wording survives the WR-02 contract change
 
-**File:** `scripts/compute-ceiling-recalibration.mjs:203-213`
+**File:** `src/dashboard/views/records-logic.ts:366`; `scripts/compute-clean-window-diff.mjs:118-123`; `src/dashboard/styles.css:422-427` (out of scope, comment only)
 
-**Issue:** `contaminated.durationSec` is `round1`'d, but the pre-phase pipeline evaluated `isPlausible` on the unrounded sweep result. An effort within 0.05 s of a world-record or max-speed threshold can be reconstructed with the wrong old demotion. This is a boundary case, but it feeds the signed artifact.
+**Issue:**
+- The CSS comment still says a contaminated effort "still ranks — the opposite claim from .badge--demoted". Under the WR-02 contract both badges can appear on one row.
+- Two docblocks still quote the probe figure "~1,200" moved-but-ranked. The regenerated diff measures 1044.
 
-**Fix:** Either persist the unrounded raw duration in the reconstruction input, or document the ±0.05 s bound in the artifact's provenance section.
+**Fix:** Reword the CSS comment to "which window was measured, independent of rank". Drop or date the probe figures.
 
-### IN-05: `contaminatedDurationSec` and `contaminatedPaceSecPerKm` are dead row fields
+### IN-01, IN-02, IN-03, IN-04 (partial), IN-05, IN-06: carried from round 1
 
-**File:** `src/dashboard/views/detail-best-efforts-logic.ts:136-141, 224-225`
-
-**Issue:** Both fields are populated but read nowhere outside tests. The original time reaches the reader only through the reason string, in seconds, and the original pace is never shown, despite the badge explanation saying "the original time … [is] named here".
-
-**Fix:** Either render the formatted original time and pace in the badge, or remove the two fields.
-
-### IN-06: The Records note's "the segment is named" over-promises for windows with more than two segments
-
-**File:** `src/dashboard/views/records-logic.ts:429`; `src/analytics/compute-best-efforts.ts:211, 245-255`
-
-**Issue:** `CONTAMINATION_REASON_SEGMENT_CAP = 2` collapses the rest into "+N more". One real 10k window intersects 20 segments (`3475712117`), so "the segment[s] … are named on each activity's detail view" is not true for those efforts.
-
-**Fix:** Reword the note to "the original time and the intersecting segments (up to two named) are shown on each activity's detail view".
+These are unchanged except IN-04. See the disposition table above and the round-1 text at `1a3f88f4`. These six make up the remaining Info count.
 
 ---
 
-_Reviewed: 2026-11-24_
+_Reviewed: 2026-11-25_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
+_Round 1 preserved at commit 1a3f88f4_
