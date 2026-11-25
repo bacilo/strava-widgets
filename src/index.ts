@@ -615,6 +615,7 @@ function printHelp() {
   console.log('  sync-intervals         - Sync new activities from intervals.icu (Garmin bridge)');
   console.log('  consolidate-exports    - Reconcile bulk exports under export_data/ into the archive');
   console.log('  import-fit <path> --garmin-id N [--source garmin] [--name "..."] - Import one original FIT (a run intervals.icu never received) into data/activities + data/streams with provenance; dedupes on session start time (ING-03)');
+  console.log('  reconcile-exports <source> --export-date YYYY-MM-DD - Reconcile an export under export_data/<source>/ against data/activities; writes data/reconciliation/<source>.json (ING-02/ING-04)');
   console.log('  backfill-streams       - Derive committed per-activity streams from export_data/ originals, local only');
   console.log('  probe-intervals        - Dry-run the intervals.icu provider (writes nothing)');
   console.log('\nExamples:');
@@ -710,6 +711,23 @@ async function main() {
       } else {
         console.log(`duplicate of ${result.existingId} (start ${result.startDate}); nothing written`);
       }
+      break;
+    }
+    case 'reconcile-exports': {
+      const source = process.argv[3];
+      const exportDate = flagValue('--export-date');
+      if (!source || source.startsWith('--') || !exportDate) {
+        console.error('Usage: reconcile-exports <source> --export-date YYYY-MM-DD');
+        throw new Error('reconcile-exports: missing source or --export-date');
+      }
+      const { runReconciliation } = await import('./exports/reconcile-exports.js');
+      await runReconciliation({
+        source,
+        exportRoot: 'export_data',
+        activitiesDir: 'data/activities',
+        auditDir: 'data/reconciliation',
+        exportDate,
+      });
       break;
     }
     case 'backfill-streams': {
