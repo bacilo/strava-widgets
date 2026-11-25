@@ -7,10 +7,19 @@
 
 import http from 'node:http';
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   CURATE_HOST,
@@ -20,7 +29,11 @@ import {
   MOUNT_PREFIX,
   PUBLISH_EXCLUSIONS_PATH,
   REVIEWED_PATH,
+  MAX_BODY_BYTES,
+  REVIEWED_NOTE,
   applyRemove,
+  applyReviewRemove,
+  applyReviewUpsert,
   applyUpsert,
   buildQueueBundle,
   createServer,
@@ -29,7 +42,9 @@ import {
   isCurateRoute,
   isTrustedOrigin,
   isValidCurateActivityId,
+  normalizeFingerprint,
   normalizeReason,
+  readReviewedFile,
   renderQueuePage,
   resolveServerPaths,
   safeResolve,
@@ -650,5 +665,463 @@ describe('listener symmetry (D-11, GAP-24-03)', () => {
     const body = bodyEnd === -1 ? rest : rest.slice(0, bodyEnd);
     expect(body).toContain('try');
     expect(body).toContain('respond500');
+  });
+});
+
+// --- CUR-04: reviewed-and-kept helpers (D-05, D-13, D-14) -----------------
+
+function deepFreeze(value) {
+  if (value !== null && typeof value === 'object') {
+    Object.values(value).forEach(deepFreeze);
+    Object.freeze(value);
+  }
+  return value;
+}
+
+const reviewedEntry = (id, reason = 'Looked at it; the pace is real.') => ({
+  activityId: id,
+  reason,
+  reviewedAt: '2026-11-25T10:00:00.000Z',
+  fingerprint: '1k:ceiling|t=0',
+});
+
+const reviewedDoc = (...ids) => ({
+  schemaVersion: 1,
+  note: 'n',
+  reviewed: ids.map((id) => reviewedEntry(id)),
+});
+
+describe('applyReviewUpsert (D-05, D-13)', () => {
+  it('appends when the id is absent', () => {
+    const result = applyReviewUpsert(reviewedDoc('1', '2'), reviewedEntry('3'));
+    expect(result.reviewed.map((e) => e.activityId)).toEqual(['1', '2', '3']);
+  });
+
+  it('replaces at the same index when the id is present and leaves the others byte-identical', () => {
+    const doc = reviewedDoc('1', '2', '3');
+    const next = reviewedEntry('2', 'A newer reason.');
+    const result = applyReviewUpsert(doc, next);
+    expect(result.reviewed).toHaveLength(3);
+    expect(result.reviewed[1]).toEqual(next);
+    expect(JSON.stringify(result.reviewed[0])).toBe(JSON.stringify(doc.reviewed[0]));
+    expect(JSON.stringify(result.reviewed[2])).toBe(JSON.stringify(doc.reviewed[2]));
+  });
+
+  it('never mutates its input (deep-frozen)', () => {
+    const doc = deepFreeze(reviewedDoc('1', '2'));
+    expect(() => applyReviewUpsert(doc, reviewedEntry('2', 'x'))).not.toThrow();
+    expect(() => applyReviewUpsert(doc, reviewedEntry('9'))).not.toThrow();
+  });
+
+  it('carries schemaVersion and note through', () => {
+    const result = applyReviewUpsert(reviewedDoc('1'), reviewedEntry('2'));
+    expect(result.schemaVersion).toBe(1);
+    expect(result.note).toBe('n');
+  });
+});
+
+describe('applyReviewRemove (D-14)', () => {
+  it('removes every entry for the id, including duplicates, and leaves the others', () => {
+    const result = applyReviewRemove(reviewedDoc('1', '2', '2', '3'), '2');
+    expect(result.reviewed.map((e) => e.activityId)).toEqual(['1', '3']);
+  });
+
+  it('writes no tombstone and does not mutate its input', () => {
+    const doc = deepFreeze(reviewedDoc('1', '2'));
+    const result = applyReviewRemove(doc, '1');
+    expect(result.reviewed).toHaveLength(1);
+    expect(result.reviewed[0].activityId).toBe('2');
+  });
+
+  it('removing an absent id returns an equal document', () => {
+    const doc = reviewedDoc('1');
+    expect(applyReviewRemove(doc, '9')).toEqual(doc);
+  });
+});
+
+describe('normalizeFingerprint (T-37-07)', () => {
+  it.each(['1k:ceiling,400m:unreliable-segment|t=0', '1k:ceiling|t=1', '|t=0'])(
+    'accepts %s unchanged',
+    (fp) => {
+      expect(normalizeFingerprint(fp)).toBe(fp);
+    }
+  );
+
+  it.each([
+    ['empty', ''],
+    ['non-string', 5],
+    ['null', null],
+    ['1001 chars', 'a'.repeat(1001)],
+    ['markup', '<script>'],
+    ['a space', 'a b'],
+  ])('rejects %s', (_label, raw) => {
+    expect(normalizeFingerprint(raw)).toBe(null);
+  });
+
+  it('accepts exactly 1000 chars', () => {
+    expect(normalizeFingerprint('a'.repeat(1000))).toBe('a'.repeat(1000));
+  });
+});
+
+describe('readReviewedFile', () => {
+  let dir;
+  beforeAll(() => {
+    dir = mkdtempSync(join(tmpdir(), 'curate-readreviewed-'));
+  });
+  afterAll(() => rmSync(dir, { recursive: true, force: true }));
+
+  it('a missing file reads as the default document', () => {
+    expect(readReviewedFile(join(dir, 'absent.json'))).toEqual({
+      schemaVersion: 1,
+      note: REVIEWED_NOTE,
+      reviewed: [],
+    });
+  });
+
+  it('invalid JSON throws', () => {
+    const p = join(dir, 'bad.json');
+    writeFileSync(p, '{not json');
+    expect(() => readReviewedFile(p)).toThrow();
+  });
+
+  it('a non-array reviewed throws', () => {
+    const p = join(dir, 'shape.json');
+    writeFileSync(p, JSON.stringify({ schemaVersion: 1, reviewed: {} }));
+    expect(() => readReviewedFile(p)).toThrow(/reviewed/);
+  });
+
+  it('a valid file is returned as parsed', () => {
+    const p = join(dir, 'ok.json');
+    writeFileSync(p, JSON.stringify(reviewedDoc('7')));
+    expect(readReviewedFile(p)).toEqual(reviewedDoc('7'));
+  });
+});
+
+// Real-socket write tests. Every path is injected and lives under one
+// mkdtemp directory: this suite never touches a tracked file (T-37-12) and
+// never touches dist/widgets, so it is NOT skipped on a checkout with no
+// build.
+describe('reviewed routes over a real socket, temporary paths (D-16, D-11)', () => {
+  let server;
+  let port;
+  let tmp;
+  let paths;
+  const exclusionsFixture = () =>
+    JSON.stringify(
+      {
+        schemaVersion: 1,
+        note: 'n',
+        exclusions: [{ activityId: '5550001', distances: null, reason: 'Bad GPS.' }],
+      },
+      null,
+      2
+    ) + '\n';
+
+  function call(method, path, { body, headers = {}, raw } = {}) {
+    return new Promise((settle) => {
+      const payload = raw ?? (body === undefined ? undefined : JSON.stringify(body));
+      const req = http.request(
+        {
+          host: '127.0.0.1',
+          port,
+          path,
+          method,
+          headers: {
+            Host: '127.0.0.1:4173',
+            ...(payload === undefined ? {} : { 'Content-Type': 'application/json' }),
+            ...headers,
+          },
+        },
+        (res) => {
+          const chunks = [];
+          res.on('data', (c) => chunks.push(c));
+          res.on('end', () =>
+            settle({ status: res.statusCode, body: Buffer.concat(chunks).toString('utf8') })
+          );
+        }
+      );
+      req.on('error', (e) => settle({ status: 'error', body: String(e.code ?? e.message) }));
+      req.end(payload);
+    });
+  }
+
+  function listTree(dir) {
+    const out = [];
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) out.push(...listTree(p));
+      else out.push(p);
+    }
+    return out;
+  }
+
+  beforeAll(async () => {
+    tmp = mkdtempSync(join(tmpdir(), 'curate-reviewed-'));
+    paths = {
+      exclusionsPath: join(tmp, 'data', 'best-effort-exclusions.json'),
+      publishRoot: join(tmp, 'publish'),
+      publishExclusionsPath: join(tmp, 'publish', 'data', 'best-effort-exclusions.json'),
+      reviewedPath: join(tmp, 'data', 'curation', 'reviewed.json'),
+    };
+    mkdirSync(join(tmp, 'data'), { recursive: true });
+    mkdirSync(paths.publishRoot, { recursive: true });
+    await new Promise((settle) => {
+      server = createServer(paths);
+      server.listen(0, '127.0.0.1', () => {
+        port = server.address().port;
+        settle();
+      });
+    });
+  });
+
+  beforeEach(() => {
+    writeFileSync(paths.exclusionsPath, exclusionsFixture());
+    rmSync(join(tmp, 'data', 'curation'), { recursive: true, force: true });
+    rmSync(paths.publishRoot, { recursive: true, force: true });
+    mkdirSync(paths.publishRoot, { recursive: true });
+  });
+
+  afterAll(async () => {
+    await new Promise((settle) => server.close(() => settle()));
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
+  const put = (id, body, extra) =>
+    call('PUT', `${CURATE_PREFIX}/reviewed/${id}`, { body, ...extra });
+  const seedReviewed = (doc) => {
+    mkdirSync(join(tmp, 'data', 'curation'), { recursive: true });
+    writeFileSync(paths.reviewedPath, JSON.stringify(doc, null, 2) + '\n');
+  };
+  const seedCorrupt = () => {
+    mkdirSync(join(tmp, 'data', 'curation'), { recursive: true });
+    writeFileSync(paths.reviewedPath, '{corrupt');
+  };
+
+  describe('GET /__curate/reviewed', () => {
+    it('with no file responds 200 and the default document', async () => {
+      const { status, body } = await call('GET', `${CURATE_PREFIX}/reviewed`);
+      expect(status).toBe(200);
+      expect(JSON.parse(body)).toEqual({ schemaVersion: 1, note: REVIEWED_NOTE, reviewed: [] });
+    });
+
+    it('with a valid file responds 200 and the file contents', async () => {
+      seedReviewed(reviewedDoc('777'));
+      const { status, body } = await call('GET', `${CURATE_PREFIX}/reviewed`);
+      expect(status).toBe(200);
+      expect(JSON.parse(body)).toEqual(reviewedDoc('777'));
+    });
+
+    it('with a corrupt file responds 500', async () => {
+      seedCorrupt();
+      const { status } = await call('GET', `${CURATE_PREFIX}/reviewed`);
+      expect(status).toBe(500);
+    });
+
+    it('with a cross-origin Origin responds 403', async () => {
+      const { status } = await call('GET', `${CURATE_PREFIX}/reviewed`, {
+        headers: { Origin: 'http://evil.example' },
+      });
+      expect(status).toBe(403);
+    });
+
+    it('with a mismatched Host responds 403', async () => {
+      const { status } = await call('GET', `${CURATE_PREFIX}/reviewed`, {
+        headers: { Host: 'evil.example' },
+      });
+      expect(status).toBe(403);
+    });
+  });
+
+  describe('PUT /__curate/reviewed/:id', () => {
+    it('writes exactly four keys, server-stamps reviewedAt and ignores a client-supplied one', async () => {
+      const t0 = Date.now();
+      const { status } = await put('4440001', {
+        reason: '  Real effort, checked the stream.  ',
+        fingerprint: '1k:ceiling|t=0',
+        reviewedAt: '1999-01-01T00:00:00.000Z',
+        extra: 'ignored',
+      });
+      const t1 = Date.now();
+      expect(status).toBe(200);
+      const doc = JSON.parse(readFileSync(paths.reviewedPath, 'utf8'));
+      expect(doc.reviewed).toHaveLength(1);
+      const entry = doc.reviewed[0];
+      expect(Object.keys(entry).sort()).toEqual([
+        'activityId',
+        'fingerprint',
+        'reason',
+        'reviewedAt',
+      ]);
+      expect(entry.activityId).toBe('4440001');
+      expect(entry.reason).toBe('Real effort, checked the stream.');
+      expect(entry.fingerprint).toBe('1k:ceiling|t=0');
+      const stamped = new Date(entry.reviewedAt).getTime();
+      expect(stamped).toBeGreaterThanOrEqual(t0);
+      expect(stamped).toBeLessThanOrEqual(t1);
+    });
+
+    it('a second PUT for the same id replaces in place (one entry)', async () => {
+      await put('4440001', { reason: 'first', fingerprint: 'a|t=0' });
+      await put('4440001', { reason: 'second', fingerprint: 'a|t=1' });
+      const doc = JSON.parse(readFileSync(paths.reviewedPath, 'utf8'));
+      expect(doc.reviewed).toHaveLength(1);
+      expect(doc.reviewed[0].reason).toBe('second');
+    });
+
+    it.each([
+      ['empty reason', { reason: '', fingerprint: 'a|t=0' }],
+      ['whitespace reason', { reason: '   ', fingerprint: 'a|t=0' }],
+      ['missing reason', { fingerprint: 'a|t=0' }],
+      ['missing fingerprint', { reason: 'ok' }],
+      ['bad fingerprint charset', { reason: 'ok', fingerprint: '<script>' }],
+    ])('%s responds 400 and writes nothing', async (_l, body) => {
+      const { status } = await put('4440001', body);
+      expect(status).toBe(400);
+      expect(existsSync(paths.reviewedPath)).toBe(false);
+    });
+
+    it.each(['..%2Fx', '__proto__', 'abc', '%'])('invalid id %s responds 400', async (id) => {
+      const { status } = await put(id, { reason: 'ok', fingerprint: 'a|t=0' });
+      expect(status).toBe(400);
+      expect(existsSync(paths.reviewedPath)).toBe(false);
+    });
+
+    it('a body over MAX_BODY_BYTES is rejected (413, or a reset) and writes nothing', async () => {
+      const { status } = await put('4440001', {
+        reason: 'x'.repeat(MAX_BODY_BYTES + 1),
+        fingerprint: 'a|t=0',
+      });
+      expect([413, 'error']).toContain(status);
+      expect(existsSync(paths.reviewedPath)).toBe(false);
+    });
+
+    it('a cross-origin PUT responds 403 and writes nothing', async () => {
+      const { status } = await put(
+        '4440001',
+        { reason: 'ok', fingerprint: 'a|t=0' },
+        { headers: { Origin: 'http://evil.example' } }
+      );
+      expect(status).toBe(403);
+      expect(existsSync(paths.reviewedPath)).toBe(false);
+    });
+
+    it('a mismatched Host PUT responds 403', async () => {
+      const { status } = await put(
+        '4440001',
+        { reason: 'ok', fingerprint: 'a|t=0' },
+        { headers: { Host: 'evil.example' } }
+      );
+      expect(status).toBe(403);
+    });
+
+    it('GET and POST on /reviewed/:id fall through to 404 (dispatch is PUT|DELETE only)', async () => {
+      expect((await call('GET', `${CURATE_PREFIX}/reviewed/4440001`)).status).toBe(404);
+      expect((await call('POST', `${CURATE_PREFIX}/reviewed/4440001`, { body: {} })).status).toBe(
+        404
+      );
+    });
+
+    it('409 when the id is in the exclusions file, and the reviewed file is unchanged', async () => {
+      seedReviewed(reviewedDoc('9'));
+      const before = readFileSync(paths.reviewedPath);
+      const { status, body } = await put('5550001', { reason: 'ok', fingerprint: 'a|t=0' });
+      expect(status).toBe(409);
+      expect(body).toMatch(/excluded/);
+      expect(readFileSync(paths.reviewedPath).equals(before)).toBe(true);
+    });
+
+    it('409 leaves no reviewed file behind when none existed', async () => {
+      const { status } = await put('5550001', { reason: 'ok', fingerprint: 'a|t=0' });
+      expect(status).toBe(409);
+      expect(existsSync(paths.reviewedPath)).toBe(false);
+    });
+
+    it('PUT on a corrupt existing reviewed file responds 500 and the corrupt bytes are unchanged', async () => {
+      seedCorrupt();
+      const { status } = await put('4440001', { reason: 'ok', fingerprint: 'a|t=0' });
+      expect(status).toBe(500);
+      expect(readFileSync(paths.reviewedPath, 'utf8')).toBe('{corrupt');
+    });
+
+    it('other entries are untouched by a PUT for a different id (D-13)', async () => {
+      seedReviewed(reviewedDoc('1', '2'));
+      await put('3', { reason: 'ok', fingerprint: 'a|t=0' });
+      const doc = JSON.parse(readFileSync(paths.reviewedPath, 'utf8'));
+      expect(doc.reviewed.slice(0, 2)).toEqual(reviewedDoc('1', '2').reviewed);
+      expect(doc.reviewed).toHaveLength(3);
+    });
+  });
+
+  describe('DELETE /__curate/reviewed/:id', () => {
+    it('removes the entry and answers 200', async () => {
+      seedReviewed(reviewedDoc('1', '2'));
+      const { status } = await call('DELETE', `${CURATE_PREFIX}/reviewed/1`);
+      expect(status).toBe(200);
+      const doc = JSON.parse(readFileSync(paths.reviewedPath, 'utf8'));
+      expect(doc.reviewed.map((e) => e.activityId)).toEqual(['2']);
+    });
+
+    it('is never 409, even for an id that is excluded', async () => {
+      const { status } = await call('DELETE', `${CURATE_PREFIX}/reviewed/5550001`);
+      expect(status).toBe(200);
+    });
+
+    it('a cross-origin DELETE responds 403 and removes nothing', async () => {
+      seedReviewed(reviewedDoc('1'));
+      const { status } = await call('DELETE', `${CURATE_PREFIX}/reviewed/1`, {
+        headers: { Origin: 'http://evil.example' },
+      });
+      expect(status).toBe(403);
+      expect(JSON.parse(readFileSync(paths.reviewedPath, 'utf8')).reviewed).toHaveLength(1);
+    });
+  });
+
+  describe('PUT /__curate/exclusions/:id (D-11, the symmetric check)', () => {
+    const putExclusion = (id) =>
+      call('PUT', `${CURATE_PREFIX}/exclusions/${id}`, { body: { reason: 'Bad GPS.' } });
+
+    it('409 when the id is in the reviewed file, and the exclusions file and publish copy are unchanged', async () => {
+      seedReviewed(reviewedDoc('4440001'));
+      const before = readFileSync(paths.exclusionsPath);
+      const { status, body } = await putExclusion('4440001');
+      expect(status).toBe(409);
+      expect(body).toMatch(/reviewed/);
+      expect(readFileSync(paths.exclusionsPath).equals(before)).toBe(true);
+      expect(existsSync(paths.publishExclusionsPath)).toBe(false);
+    });
+
+    it('a corrupt reviewed file fails closed with 500 and nothing is written', async () => {
+      seedCorrupt();
+      const before = readFileSync(paths.exclusionsPath);
+      const { status } = await putExclusion('4440002');
+      expect(status).toBe(500);
+      expect(readFileSync(paths.exclusionsPath).equals(before)).toBe(true);
+    });
+
+    it('control: with no reviewed file, an exclusion PUT still succeeds and mirrors', async () => {
+      const { status } = await putExclusion('4440002');
+      expect(status).toBe(200);
+      expect(existsSync(paths.publishExclusionsPath)).toBe(true);
+    });
+  });
+
+  describe('a reviewed write never publishes (D-01, T-37-11)', () => {
+    it('leaves the publish root empty after PUT and DELETE', async () => {
+      await put('4440001', { reason: 'ok', fingerprint: 'a|t=0' });
+      await call('DELETE', `${CURATE_PREFIX}/reviewed/4440001`);
+      expect(listTree(paths.publishRoot)).toEqual([]);
+    });
+  });
+});
+
+describe('persistReviewed source discipline (D-01, T-37-11)', () => {
+  it('its function body contains neither mirrorExclusions nor dist', () => {
+    const start = SOURCE.indexOf('function persistReviewed(');
+    expect(start).toBeGreaterThan(-1);
+    const rest = SOURCE.slice(start);
+    const body = rest.slice(0, rest.indexOf('\n}'));
+    expect(body).toContain('writeAtomic');
+    expect(body).not.toContain('mirrorExclusions');
+    expect(body).not.toContain('dist');
   });
 });

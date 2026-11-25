@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1,
+  "note": "Maintained by the developer through `npm run curate`. Records activities reviewed and kept: each entry says the flagged evidence was looked at and the result stands. It never affects ranking and is never published; nothing under data/curation is copied into dist/widgets.",
+  "reviewed": []
+}

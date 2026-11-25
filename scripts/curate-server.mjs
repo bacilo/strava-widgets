@@ -407,6 +407,113 @@ export function applyRemove(fileDoc, activityId) {
   return { ...fileDoc, exclusions };
 }
 
+// --- Reviewed-and-kept helpers (CUR-04, D-05, D-14) ---------------------------
+
+export const REVIEWED_NOTE =
+  'Maintained by the developer through `npm run curate`. Records activities reviewed and kept: each entry says the flagged evidence was looked at and the result stands. It never affects ranking and is never published; nothing under data/curation is copied into dist/widgets.';
+
+/**
+ * D-05: returns a NEW document with `entry` (exactly
+ * `{ activityId, reason, reviewedAt, fingerprint }`, built by the caller)
+ * appended, or replacing the existing entry for that activity AT THE SAME
+ * INDEX. Every other entry is carried through untouched (D-13: nothing the
+ * caller did not ask to change is rewritten). Never mutates its input.
+ *
+ * @param {{reviewed: object[]}} fileDoc
+ * @param {{activityId: string, reason: string, reviewedAt: string, fingerprint: string}} entry
+ * @returns {object}
+ */
+export function applyReviewUpsert(fileDoc, entry) {
+  const reviewed = fileDoc.reviewed.slice();
+  const existingIndex = reviewed.findIndex((e) => e.activityId === entry.activityId);
+  if (existingIndex === -1) {
+    reviewed.push(entry);
+  } else {
+    reviewed[existingIndex] = entry;
+  }
+  return { ...fileDoc, reviewed };
+}
+
+/**
+ * D-14: returns a NEW document with EVERY entry for `activityId` removed.
+ * Un-review deletes; no tombstone is written. Git history is the audit trail.
+ *
+ * @param {{reviewed: object[]}} fileDoc
+ * @param {string} activityId
+ * @returns {object}
+ */
+export function applyReviewRemove(fileDoc, activityId) {
+  const reviewed = fileDoc.reviewed.filter((e) => e.activityId !== activityId);
+  return { ...fileDoc, reviewed };
+}
+
+/**
+ * T-37-07: the fingerprint is stored in a committed file and rendered by the
+ * queue, so it is held to a closed charset (the D-12 serialisation uses only
+ * letters, digits and `: , | = -`) and a length cap. Returns the string
+ * unchanged when valid, otherwise null.
+ *
+ * @param {unknown} raw
+ * @returns {string | null}
+ */
+export function normalizeFingerprint(raw) {
+  if (typeof raw !== 'string') return null;
+  return /^[A-Za-z0-9:,|=-]{1,1000}$/.test(raw) ? raw : null;
+}
+
+/**
+ * Reads the reviewed file. A MISSING file reads as the default empty
+ * document (the seed may not exist on a fresh checkout). Unparseable JSON,
+ * or a document whose `reviewed` is not an array, THROWS so the caller
+ * responds 500 and never overwrites bytes it could not understand (T-37-09).
+ *
+ * @param {string} path
+ * @returns {{schemaVersion: number, note: string, reviewed: object[]}}
+ */
+export function readReviewedFile(path) {
+  if (!existsSync(path)) {
+    return { schemaVersion: 1, note: REVIEWED_NOTE, reviewed: [] };
+  }
+  const doc = JSON.parse(readFileSync(path, 'utf8'));
+  if (doc === null || typeof doc !== 'object' || !Array.isArray(doc.reviewed)) {
+    throw new Error(`${path} is malformed: "reviewed" must be an array`);
+  }
+  return doc;
+}
+
+/**
+ * D-01 / T-37-11: writes the reviewed file and NOTHING ELSE. It must never
+ * mirror into dist/widgets — the reviewed file is curate-only state and any
+ * published copy is a leak.
+ *
+ * @param {object} doc
+ * @param {{reviewedPath: string}} paths
+ */
+function persistReviewed(doc, paths) {
+  mkdirSync(dirname(paths.reviewedPath), { recursive: true });
+  writeAtomic(paths.reviewedPath, `${JSON.stringify(doc, null, 2)}\n`);
+}
+
+/**
+ * Returns the activity ids present in both documents, sorted. Used to pin
+ * D-11 (excluded and reviewed are mutually exclusive) over the committed
+ * files. Non-object entries and non-string ids are skipped.
+ *
+ * @param {{exclusions?: unknown[]}} exclusionsDoc
+ * @param {{reviewed?: unknown[]}} reviewedDoc
+ * @returns {string[]}
+ */
+export function sharedActivityIds(exclusionsDoc, reviewedDoc) {
+  const ids = (list) =>
+    new Set(
+      (Array.isArray(list) ? list : [])
+        .filter((e) => e !== null && typeof e === 'object' && typeof e.activityId === 'string')
+        .map((e) => e.activityId)
+    );
+  const excluded = ids(exclusionsDoc && exclusionsDoc.exclusions);
+  return [...ids(reviewedDoc && reviewedDoc.reviewed)].filter((id) => excluded.has(id)).sort();
+}
+
 /**
  * Resolves every filesystem path the server reads or writes. Each key
  * defaults to the module constant, so `createServer()` with no argument
@@ -583,27 +690,38 @@ function readJsonBody(req) {
 
 // --- Write routes (PUT/DELETE /__curate/exclusions/:activityId) -------------
 
-async function handleExclusionWrite(req, res, urlPath, paths = resolveServerPaths()) {
+/**
+ * The prefix both write handlers share (D-16: one machinery, not a second
+ * write surface): Origin/Host gate (403), id decode (400), id validation
+ * (400). Returns the activity id, or null after it has already responded.
+ */
+function resolveWriteTarget(req, res, urlPath, routePrefix) {
   if (!isTrustedOrigin(req, EXPECTED_HOST)) {
     res.writeHead(403, { 'Content-Type': 'text/plain' });
     res.end('Forbidden: cross-origin write rejected');
-    return;
+    return null;
   }
 
   let activityId;
   try {
-    activityId = decodeURIComponent(urlPath.slice(EXCLUSIONS_ROUTE_PREFIX.length));
+    activityId = decodeURIComponent(urlPath.slice(routePrefix.length));
   } catch {
     res.writeHead(400, { 'Content-Type': 'text/plain' });
     res.end('Bad Request: malformed activity id');
-    return;
+    return null;
   }
 
   if (!isValidCurateActivityId(activityId)) {
     res.writeHead(400, { 'Content-Type': 'text/plain' });
     res.end('Bad Request: invalid activity id');
-    return;
+    return null;
   }
+  return activityId;
+}
+
+async function handleExclusionWrite(req, res, urlPath, paths = resolveServerPaths()) {
+  const activityId = resolveWriteTarget(req, res, urlPath, EXCLUSIONS_ROUTE_PREFIX);
+  if (activityId === null) return;
 
   if (req.method === 'PUT') {
     const bodyResult = await readJsonBody(req);
@@ -618,6 +736,21 @@ async function handleExclusionWrite(req, res, urlPath, paths = resolveServerPath
     if (reason === null) {
       res.writeHead(400, { 'Content-Type': 'text/plain' });
       res.end('Bad Request: reason must be a non-empty string');
+      return;
+    }
+
+    // D-11: excluded and reviewed-and-kept are mutually exclusive. A missing
+    // reviewed file reads as empty; a corrupt one fails CLOSED (500) rather
+    // than skipping the check.
+    try {
+      if (readReviewedFile(paths.reviewedPath).reviewed.some((e) => e.activityId === activityId)) {
+        res.writeHead(409, { 'Content-Type': 'text/plain' });
+        res.end('Conflict: activity is reviewed and kept — un-review it first');
+        return;
+      }
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.end(`Internal Server Error: ${error.message}`);
       return;
     }
 
@@ -636,6 +769,77 @@ async function handleExclusionWrite(req, res, urlPath, paths = resolveServerPath
   if (req.method === 'DELETE') {
     try {
       persistExclusions(applyRemove(readExclusionsFile(paths.exclusionsPath), activityId), paths);
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.end(`Internal Server Error: ${error.message}`);
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  res.writeHead(405, { 'Content-Type': 'text/plain' });
+  res.end('Method Not Allowed');
+}
+
+// --- Reviewed routes (PUT/DELETE /__curate/reviewed/:activityId) -----------
+//
+// D-16: a sibling of the exclusions route sharing its gate, validators, body
+// cap and atomic write. Unlike exclusions it is NEVER mirrored (D-01).
+
+async function handleReviewedWrite(req, res, urlPath, paths = resolveServerPaths()) {
+  const activityId = resolveWriteTarget(req, res, urlPath, REVIEWED_ROUTE_PREFIX);
+  if (activityId === null) return;
+
+  if (req.method === 'PUT') {
+    const bodyResult = await readJsonBody(req);
+    if (!bodyResult.ok) {
+      res.writeHead(bodyResult.status, { 'Content-Type': 'text/plain' });
+      res.end(bodyResult.message);
+      return;
+    }
+    const body = bodyResult.body && typeof bodyResult.body === 'object' ? bodyResult.body : {};
+    // D-17: the reason is the developer's own judgement; required, non-empty.
+    const reason = normalizeReason(body.reason);
+    if (reason === null) {
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      res.end('Bad Request: reason must be a non-empty string');
+      return;
+    }
+    const fingerprint = normalizeFingerprint(body.fingerprint);
+    if (fingerprint === null) {
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      res.end('Bad Request: fingerprint is missing or malformed');
+      return;
+    }
+
+    try {
+      // D-11: refuse to create "excluded AND kept".
+      if (
+        readExclusionsFile(paths.exclusionsPath).exclusions.some((e) => e.activityId === activityId)
+      ) {
+        res.writeHead(409, { 'Content-Type': 'text/plain' });
+        res.end('Conflict: activity is excluded — remove the exclusion first');
+        return;
+      }
+      // D-05: exactly four keys; reviewedAt is stamped here, never trusted
+      // from the client.
+      const entry = { activityId, reason, reviewedAt: new Date().toISOString(), fingerprint };
+      persistReviewed(applyReviewUpsert(readReviewedFile(paths.reviewedPath), entry), paths);
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.end(`Internal Server Error: ${error.message}`);
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  if (req.method === 'DELETE') {
+    try {
+      persistReviewed(applyReviewRemove(readReviewedFile(paths.reviewedPath), activityId), paths);
     } catch (error) {
       res.writeHead(500, { 'Content-Type': 'text/plain' });
       res.end(`Internal Server Error: ${error.message}`);
@@ -795,6 +999,40 @@ async function serveCurateRoute(req, res, paths = resolveServerPaths()) {
     }
     res.writeHead(200, { 'Content-Type': 'application/javascript' });
     res.end(readFileSync(QUEUE_OUTFILE));
+    return;
+  }
+
+  // CUR-04 / T-37-05: GET /__curate/reviewed returns the developer's private
+  // review text, so it is origin-gated exactly like the queue routes above
+  // (and unlike /health). The file is not mirrored into dist/widgets, so
+  // this route is the queue's only way to read it (D-16).
+  if (req.method === 'GET' && urlPath === REVIEWED_ROUTE) {
+    if (!isTrustedOrigin(req, EXPECTED_HOST)) {
+      res.writeHead(403, { 'Content-Type': 'text/plain' });
+      res.end(
+        `Forbidden: curate serves only http://${CURATE_HOST}:${CURATE_PORT} — ` +
+          'cross-origin and mismatched-Host requests are rejected.'
+      );
+      return;
+    }
+    let doc;
+    try {
+      doc = readReviewedFile(paths.reviewedPath);
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.end(`Internal Server Error: ${error.message}`);
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(doc));
+    return;
+  }
+
+  if (
+    (req.method === 'PUT' || req.method === 'DELETE') &&
+    urlPath.startsWith(REVIEWED_ROUTE_PREFIX)
+  ) {
+    await handleReviewedWrite(req, res, urlPath, paths);
     return;
   }
 
