@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
 status: executing
-stopped_at: "Phase 36.1 plan 07 halted at H2 after the Garmin probe (export has no 2026-04-20 activity); needs a developer decision before 36.1-08. Plans 01-06 done, 07 partial (Tasks 1-2 done, Task 3 fixture not started)"
-last_updated: "2026-11-25T11:53:42.032Z"
+stopped_at: "Completed 36.1-07-PLAN.md: Garmin probe section 10 and scrubbed fixture committed (H2 resolved by L-01a). Plans 01-07 done (7 of 9); 36.1-08 is next"
+last_updated: "2026-11-25T12:20:13.747Z"
 last_activity: 2026-11-25
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 89
-  completed_plans: 86
+  completed_plans: 87
   percent: 71
 ---
 
@@ -47,7 +47,7 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 ## Current Position
 
 Phase: 36.1 (Ingestion Integrity) — EXECUTING
-Plan: plans 01-06 done (6 of 9); 07 partial: export placed and probed, HALT H2 awaiting a developer decision (Task 3 fixture not started); 08 follows
+Plan: plans 01-07 done (7 of 9); 07 closed after HALT H2 resolved by L-01a (both-present row 25121466706 = i211719792); 08 is next
 Status: Ready to execute
 
 Phase 36 planned (2026-09-28): 14 plans in 9 waves, committed `ebe0245c`. Research `4a61a19b`,
@@ -349,8 +349,8 @@ It is named here because PROJECT.md's Evolution entry still describes it as open
 
 ## Session Continuity
 
-Last session: 2026-11-25T11:51:55.114Z
-Stopped at: Phase 36 context gathered
+Last session: 2026-11-25T12:20:13.740Z
+Stopped at: Completed 36.1-07-PLAN.md (plans 01-07 done, 08 next)
 Resume file: None
 
 ---
