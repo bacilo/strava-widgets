@@ -182,7 +182,7 @@ describe('Phase 37 fingerprint contract — every derived fingerprint passes nor
     expect(contractFailures(spaced).length).toBeGreaterThan(0);
   });
 
-  it('contract: the worst case (every distance x every guard, transported) is under the 1000-char cap', () => {
+  it('contract: the worst case (every distance x every guard, transported) is under the 2000-char cap', () => {
     const efforts = [];
     for (const distance of DISTANCES) {
       for (const guard of GUARDS) {
@@ -190,7 +190,7 @@ describe('Phase 37 fingerprint contract — every derived fingerprint passes nor
       }
     }
     const fp = fingerprintFor(efforts, true);
-    expect(fp.length).toBeLessThan(1000);
+    expect(fp.length).toBeLessThanOrEqual(2000);
     expect(normalizeFingerprint(fp)).toBe(fp);
   });
 

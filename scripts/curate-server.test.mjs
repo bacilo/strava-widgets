@@ -683,7 +683,7 @@ const reviewedEntry = (id, reason = 'Looked at it; the pace is real.') => ({
   activityId: id,
   reason,
   reviewedAt: '2026-11-25T10:00:00.000Z',
-  fingerprint: '1k:ceiling|t=0',
+  fingerprint: '1k:demoted:ceiling|t=0',
 });
 
 const reviewedDoc = (...ids) => ({
@@ -741,7 +741,7 @@ describe('applyReviewRemove (D-14)', () => {
 });
 
 describe('normalizeFingerprint (T-37-07)', () => {
-  it.each(['1k:ceiling,400m:unreliable-segment|t=0', '1k:ceiling|t=1', '|t=0'])(
+  it.each(['1k:demoted:ceiling,400m:contaminated:unreliable-segment|t=0', '1k:demoted:ceiling|t=1', '|t=0'])(
     'accepts %s unchanged',
     (fp) => {
       expect(normalizeFingerprint(fp)).toBe(fp);
@@ -752,15 +752,15 @@ describe('normalizeFingerprint (T-37-07)', () => {
     ['empty', ''],
     ['non-string', 5],
     ['null', null],
-    ['1001 chars', 'a'.repeat(1001)],
+    ['2001 chars', 'a'.repeat(2001)],
     ['markup', '<script>'],
     ['a space', 'a b'],
   ])('rejects %s', (_label, raw) => {
     expect(normalizeFingerprint(raw)).toBe(null);
   });
 
-  it('accepts exactly 1000 chars', () => {
-    expect(normalizeFingerprint('a'.repeat(1000))).toBe('a'.repeat(1000));
+  it('accepts exactly 2000 chars', () => {
+    expect(normalizeFingerprint('a'.repeat(2000))).toBe('a'.repeat(2000));
   });
 });
 
@@ -938,7 +938,7 @@ describe('reviewed routes over a real socket, temporary paths (D-16, D-11)', () 
       const t0 = Date.now();
       const { status } = await put('4440001', {
         reason: '  Real effort, checked the stream.  ',
-        fingerprint: '1k:ceiling|t=0',
+        fingerprint: '1k:demoted:ceiling|t=0',
         reviewedAt: '1999-01-01T00:00:00.000Z',
         extra: 'ignored',
       });
@@ -955,7 +955,7 @@ describe('reviewed routes over a real socket, temporary paths (D-16, D-11)', () 
       ]);
       expect(entry.activityId).toBe('4440001');
       expect(entry.reason).toBe('Real effort, checked the stream.');
-      expect(entry.fingerprint).toBe('1k:ceiling|t=0');
+      expect(entry.fingerprint).toBe('1k:demoted:ceiling|t=0');
       const stamped = new Date(entry.reviewedAt).getTime();
       expect(stamped).toBeGreaterThanOrEqual(t0);
       expect(stamped).toBeLessThanOrEqual(t1);

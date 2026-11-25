@@ -143,9 +143,13 @@ function buildNameMap(indexDoc) {
 
 /**
  * D-12 fingerprint: which flags, not how much. The sorted, de-duplicated set of
- * `<distance>:<guard>` tokens over demotions and contaminated efforts, joined by ',', then
- * '|t=1' or '|t=0'. Independent of effort order, metres, reasons and durations, so metre drift
- * never resurfaces a reviewed row. Non-object efforts and non-string distance/guard are skipped.
+ * `<distance>:<kind>:<guard>` tokens, joined by ',', then '|t=1' or '|t=0'. `kind` is the
+ * literal `demoted` (from `e.demotion`: the effort does not rank) or `contaminated` (from
+ * `e.contaminated`: the effort ranks on a clean window). Both can carry the guard
+ * 'unreliable-segment', so without `kind` a demoted <-> ranked-on-clean-window flip would keep
+ * the stored fingerprint and a reviewed row would stay hidden (CR-01, D-12 amended 2026-11-25).
+ * Independent of effort order, metres, reasons and durations, so metre drift never resurfaces a
+ * reviewed row. Non-object efforts and non-string distance/guard are skipped.
  *
  * @param {unknown[]} efforts
  * @param {boolean} transported
@@ -156,9 +160,12 @@ export function fingerprintFor(efforts, transported) {
   const list = Array.isArray(efforts) ? efforts : [];
   for (const e of list) {
     if (e === null || typeof e !== 'object' || typeof e.distance !== 'string') continue;
-    for (const flag of [e.demotion, e.contaminated]) {
+    for (const [kind, flag] of [
+      ['demoted', e.demotion],
+      ['contaminated', e.contaminated],
+    ]) {
       if (flag !== null && typeof flag === 'object' && typeof flag.guard === 'string') {
-        tokens.add(`${e.distance}:${flag.guard}`);
+        tokens.add(`${e.distance}:${kind}:${flag.guard}`);
       }
     }
   }

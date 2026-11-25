@@ -450,15 +450,17 @@ export function applyReviewRemove(fileDoc, activityId) {
 /**
  * T-37-07: the fingerprint is stored in a committed file and rendered by the
  * queue, so it is held to a closed charset (the D-12 serialisation uses only
- * letters, digits and `: , | = -`) and a length cap. Returns the string
- * unchanged when valid, otherwise null.
+ * letters, digits and `: , | = -`) and a length cap. The cap is 2000: the
+ * CR-01 `<distance>:<kind>:<guard>` tokens put the synthetic worst case
+ * (every distance x every guard x both kinds, transported) at 1555 chars.
+ * Returns the string unchanged when valid, otherwise null.
  *
  * @param {unknown} raw
  * @returns {string | null}
  */
 export function normalizeFingerprint(raw) {
   if (typeof raw !== 'string') return null;
-  return /^[A-Za-z0-9:,|=-]{1,1000}$/.test(raw) ? raw : null;
+  return /^[A-Za-z0-9:,|=-]{1,2000}$/.test(raw) ? raw : null;
 }
 
 /**

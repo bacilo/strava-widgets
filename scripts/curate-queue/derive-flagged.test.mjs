@@ -401,7 +401,7 @@ describe('fingerprintFor — D-12', () => {
   };
 
   it("is the sorted token set then |t=; '1k:...' sorts before '400m:...' because '1' < '4'", () => {
-    expect(fingerprintFor([e400, e1k], false)).toBe('1k:unreliable-segment,400m:ceiling|t=0');
+    expect(fingerprintFor([e400, e1k], false)).toBe('1k:contaminated:unreliable-segment,400m:demoted:ceiling|t=0');
   });
 
   it('an empty effort list with transported is exactly |t=1', () => {
@@ -428,7 +428,7 @@ describe('fingerprintFor — D-12', () => {
 
   it('duplicate tokens collapse to one', () => {
     const dup = { distance: '400m', demotion: { guard: 'ceiling', reason: 'again' }, contaminated: null };
-    expect(fingerprintFor([e400, dup], false)).toBe('400m:ceiling|t=0');
+    expect(fingerprintFor([e400, dup], false)).toBe('400m:demoted:ceiling|t=0');
   });
 
   it('every row carries fingerprint = fingerprintFor(its efforts, transported)', () => {
@@ -436,26 +436,70 @@ describe('fingerprintFor — D-12', () => {
     const rows = deriveFlaggedActivities(bestEfforts, {}, indexDoc);
     const gc = rows.find((r) => r.activityId === 'GC');
     // GC: 400m contaminated unreliable-segment + 1k ceiling, not transported
-    expect(gc.fingerprint).toBe('1k:ceiling,400m:unreliable-segment|t=0');
+    expect(gc.fingerprint).toBe('1k:demoted:ceiling,400m:contaminated:unreliable-segment|t=0');
     const tx = rows.find((r) => r.activityId === 'TX');
     expect(tx.fingerprint).toBe('|t=1');
     const tc = rows.find((r) => r.activityId === 'TC');
-    expect(tc.fingerprint).toBe('1k:ceiling|t=1');
+    expect(tc.fingerprint).toBe('1k:demoted:ceiling|t=1');
+  });
+});
+
+// CR-01 (D-12 amended 2026-11-25): Branch 3 (demoted under 'unreliable-segment', does not rank) and
+// Branch 2 (contaminated under 'unreliable-segment', ranks on a clean window) carry the SAME guard
+// string, but opposite effects on the public records. The fingerprint must tell them apart, or a
+// reviewed-and-kept row stays hidden while a PR it never covered appears or disappears.
+describe('fingerprintFor — CR-01 demoted vs contaminated under the same guard', () => {
+  const demoted5k = effort('5k', 'unreliable-segment', 'no clean window');
+  const contaminated5k = effort('5k', null, '', 1200, 240, contam(1200, 240));
+
+  it('a 5k demoted effort and a 5k contaminated effort under the same guard fingerprint differently', () => {
+    expect(fingerprintFor([demoted5k], false)).not.toBe(fingerprintFor([contaminated5k], false));
+    expect(fingerprintFor([demoted5k], true)).not.toBe(fingerprintFor([contaminated5k], true));
+  });
+
+  it('tokens are <distance>:<kind>:<guard>, kind is demoted or contaminated', () => {
+    expect(fingerprintFor([demoted5k], false)).toBe('5k:demoted:unreliable-segment|t=0');
+    expect(fingerprintFor([contaminated5k], false)).toBe('5k:contaminated:unreliable-segment|t=0');
+  });
+
+  function flipDoc(eff) {
+    return { activities: { F1: activity('2024-03-01T00:00:00Z', [eff], false, 25) } };
+  }
+
+  it('a reviewed row resurfaces as changed when its 5k flips demoted -> contaminated (and back)', () => {
+    for (const [from, to] of [
+      [demoted5k, contaminated5k],
+      [contaminated5k, demoted5k],
+    ]) {
+      const [atReview] = deriveFlaggedActivities(flipDoc(from), {}, null);
+      const reviewed = {
+        reviewed: [
+          { activityId: 'F1', reason: 'kept', reviewedAt: '2026-11-25T10:00:00.000Z', fingerprint: atReview.fingerprint },
+        ],
+      };
+      // Control: unchanged evidence stays reviewed, so 'changed' below is not vacuous.
+      const [same] = deriveFlaggedActivities(flipDoc(from), {}, null, reviewed);
+      expect(same.reviewState).toBe('reviewed');
+      const [flipped] = deriveFlaggedActivities(flipDoc(to), {}, null, reviewed);
+      expect(flipped.reviewState).toBe('changed');
+      expect(flipped.reviewedFingerprint).toBe(atReview.fingerprint);
+      expect(rowsForView([flipped], 'to-review').map((r) => r.activityId)).toEqual(['F1']);
+    }
   });
 });
 
 // Review overlay over fixture Q. Fingerprints, derived from the fixture:
-//   G1: 400m contaminated unreliable-segment, not transported -> '400m:unreliable-segment|t=0'
-//   G3: same shape -> '400m:unreliable-segment|t=0'
-//   C1: 400m ceiling -> '400m:ceiling|t=0'
-const G_FP = '400m:unreliable-segment|t=0';
+//   G1: 400m contaminated unreliable-segment, not transported -> '400m:contaminated:unreliable-segment|t=0'
+//   G3: same shape -> '400m:contaminated:unreliable-segment|t=0'
+//   C1: 400m ceiling -> '400m:demoted:ceiling|t=0'
+const G_FP = '400m:contaminated:unreliable-segment|t=0';
 function reviewedDocFor() {
   return {
     reviewed: [
       { activityId: 'G1', reason: 'kept: jump is on a bridge', reviewedAt: '2026-11-01T10:00:00.000Z', fingerprint: G_FP },
       // stale: a token was removed (an extra 1k flag existed at review time); G3 now has only 400m
-      { activityId: 'G3', reason: 'old reason', reviewedAt: '2026-10-01T10:00:00.000Z', fingerprint: `1k:ceiling,${G_FP}` },
-      { activityId: 'C1', reason: 'hand edit', reviewedAt: '2026-11-02T10:00:00.000Z', fingerprint: '400m:ceiling|t=0' },
+      { activityId: 'G3', reason: 'old reason', reviewedAt: '2026-10-01T10:00:00.000Z', fingerprint: `1k:demoted:ceiling,${G_FP}` },
+      { activityId: 'C1', reason: 'hand edit', reviewedAt: '2026-11-02T10:00:00.000Z', fingerprint: '400m:demoted:ceiling|t=0' },
       { activityId: 'ghost', reason: 'gone', reviewedAt: '2026-09-01T10:00:00.000Z', fingerprint: 'x|t=0' },
     ],
   };
@@ -483,7 +527,7 @@ describe('review overlay, views, orphans — D-10 D-11 D-13 D-15', () => {
       reviewState: 'changed',
       reviewReason: 'old reason',
       reviewedAt: '2026-10-01T10:00:00.000Z',
-      reviewedFingerprint: `1k:ceiling,${G_FP}`,
+      reviewedFingerprint: `1k:demoted:ceiling,${G_FP}`,
     });
   });
 

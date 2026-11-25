@@ -122,6 +122,7 @@ Two findings recorded so they are not re-derived:
   resurfaces when a new distance or guard is flagged or transported appears. Metre drift from
   re-derivation or recalibration does NOT resurface rows. Canonical, order-independent
   serialisation so the stored value is stable. No new threshold constant.
+  Amended 2026-11-25 after code review CR-01 (developer-approved): tokens are (distance, kind, guard) so a demoted↔ranked-on-clean-window flip resurfaces a reviewed row.
 - **D-13:** **Orphans are kept and shown.** A reviewed entry whose activity is no longer in the
   flagged set is never auto-deleted (curate must not rewrite committed state it was not asked to);
   the Reviewed view lists it as "no longer flagged" with a count, removable by hand via the normal

@@ -183,7 +183,7 @@ describe('exclusion-cli — reason text is data, never code', () => {
 
 describe('exclusion-cli — D-11 reviewed-id check', () => {
   const REVIEWED = { schemaVersion: 1, note: 'fixture', reviewed: [
-    { activityId: 'i184264408', reason: 'kept', reviewedAt: '2026-11-25T10:00:00.000Z', fingerprint: '1k:ceiling|t=0' },
+    { activityId: 'i184264408', reason: 'kept', reviewedAt: '2026-11-25T10:00:00.000Z', fingerprint: '1k:demoted:ceiling|t=0' },
   ] };
 
   function reviewedPath() {
