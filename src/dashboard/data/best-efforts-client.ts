@@ -164,6 +164,15 @@ export function parseActivityBestEfforts(raw: unknown): ActivityBestEfforts | nu
     distanceSource: raw.distanceSource,
     efforts,
     excludedFromRecords: raw.excludedFromRecords,
+    // Phase 37 D-07, fail-closed: NaN, Infinity, negative, non-number or absent
+    // all become 0, which sorts last in the review queue, so a stale or
+    // malformed value can never inflate queue priority.
+    contaminatedMetres:
+      typeof raw.contaminatedMetres === 'number' &&
+      Number.isFinite(raw.contaminatedMetres) &&
+      raw.contaminatedMetres >= 0
+        ? raw.contaminatedMetres
+        : 0,
   };
 }
 

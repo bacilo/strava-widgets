@@ -148,6 +148,7 @@ describe('computeAgeGrading — cross-referencing and degradation contract', () 
       distanceSource: 'native',
       efforts: [],
       excludedFromRecords: false,
+      contaminatedMetres: 0,
       ...overrides,
     };
   }

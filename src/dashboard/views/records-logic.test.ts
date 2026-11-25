@@ -80,6 +80,7 @@ function fixtureActivity(
   return {
     distanceSource: 'native',
     excludedFromRecords: false,
+    contaminatedMetres: 0,
     ...overrides,
   };
 }

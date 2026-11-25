@@ -56,6 +56,7 @@ function activity(overrides: Partial<ActivityBestEfforts> = {}): ActivityBestEff
     distanceSource: 'native',
     efforts: [],
     excludedFromRecords: false,
+    contaminatedMetres: 0,
     ...overrides,
   };
 }

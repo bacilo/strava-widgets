@@ -56,11 +56,35 @@ const validShard = {
     },
   ],
   excludedFromRecords: false,
+  contaminatedMetres: 37.5,
 };
 
 describe('parseActivityBestEfforts', () => {
   it('returns the document for a well-formed body', () => {
     expect(parseActivityBestEfforts(validShard)).toEqual(validShard);
+  });
+
+  it('keeps a valid contaminatedMetres figure', () => {
+    expect(parseActivityBestEfforts(validShard)!.contaminatedMetres).toBe(37.5);
+  });
+
+  it.each([
+    ['NaN', Number.NaN],
+    ['Infinity', Number.POSITIVE_INFINITY],
+    ['negative', -1],
+    ['string', '12'],
+    ['null', null],
+  ])('contaminatedMetres %s fails closed to 0 without rejecting the activity', (_label, bad) => {
+    const parsed = parseActivityBestEfforts({ ...validShard, contaminatedMetres: bad });
+    expect(parsed).not.toBeNull();
+    expect(parsed!.contaminatedMetres).toBe(0);
+  });
+
+  it('an absent contaminatedMetres key fails closed to 0 without rejecting the activity', () => {
+    const { contaminatedMetres: _omit, ...withoutField } = validShard;
+    const parsed = parseActivityBestEfforts(withoutField);
+    expect(parsed).not.toBeNull();
+    expect(parsed!.contaminatedMetres).toBe(0);
   });
 
   it('returns null for null/array/non-object', () => {

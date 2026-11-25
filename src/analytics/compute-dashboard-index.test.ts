@@ -416,6 +416,7 @@ describe('computeDashboardIndex — archive orchestration', () => {
           distanceSource: 'native',
           efforts: [],
           excludedFromRecords: true,
+          contaminatedMetres: 0,
         },
       },
     });
@@ -452,6 +453,7 @@ describe('computeDashboardIndex — archive orchestration', () => {
           startDate: '2026-01-01T07:00:00Z',
           distanceSource: 'native',
           excludedFromRecords: false,
+          contaminatedMetres: 0,
           efforts: [
             {
               distance: '400m',
