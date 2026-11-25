@@ -21,10 +21,14 @@
  */
 
 import {
+  QUEUE_VIEWS,
   buildPrefillReason,
   countMalformedExclusions,
+  countMalformedReviewed,
   deriveFlaggedActivities,
-  summarizeQueue,
+  deriveOrphans,
+  rowsForView,
+  summarizeViews,
 } from './derive-flagged.mjs';
 import {
   activityDetailUrl,
@@ -32,7 +36,38 @@ import {
   formatEffortDuration,
   formatPace,
 } from './format.mjs';
-import { removeExclusion, runRecompute, saveExclusion } from '../curate-overlay/index.js';
+import {
+  loadReviewedDoc,
+  removeExclusion,
+  removeReviewed,
+  runRecompute,
+  saveExclusion,
+  saveReviewed,
+} from '../curate-overlay/index.js';
+
+type QueueRow = ReturnType<typeof deriveFlaggedActivities>[number];
+type Orphan = ReturnType<typeof deriveOrphans>[number];
+
+const VIEW_LABELS: Record<string, string> = {
+  'to-review': 'To review',
+  reviewed: 'Reviewed',
+  excluded: 'Excluded',
+  all: 'All',
+};
+
+/** D-15: the active view lives in `#view=<name>` so the transport's reload returns to it. */
+function readViewFromHash(): string {
+  const match = /^#view=([a-z-]+)$/.exec(location.hash);
+  if (match !== null && (QUEUE_VIEWS as string[]).includes(match[1])) {
+    return match[1];
+  }
+  return 'to-review';
+}
+
+/** The date part of a stored ISO timestamp. */
+function dateOnly(iso: string | null): string {
+  return typeof iso === 'string' ? iso.slice(0, 10) : '';
+}
 
 /**
  * Never-throw fetch of the best-efforts document, mirroring `exclusion-panel.ts`'s
@@ -133,10 +168,7 @@ function appendEmptyState(main: HTMLElement, bestEffortsDoc: unknown): void {
  * the stored reason when already excluded, otherwise `buildPrefillReason`'s join of this row's
  * flagged-effort demotion reasons (D-11) rather than starting empty.
  */
-function mountRowControls(
-  container: HTMLElement,
-  row: ReturnType<typeof deriveFlaggedActivities>[number]
-): void {
+function mountRowControls(container: HTMLElement, row: QueueRow): void {
   const checkboxLabel = document.createElement('label');
   const checkbox = document.createElement('input');
   checkbox.type = 'checkbox';
@@ -238,12 +270,110 @@ function mountRowControls(
   }
 }
 
+/** Appends a plain `<p>` line with the given text and optional marker attribute. */
+function appendLine(container: HTMLElement, text: string, marker?: string): HTMLElement {
+  const line = document.createElement('p');
+  if (marker !== undefined) {
+    line.setAttribute(marker, '');
+  }
+  line.textContent = text;
+  container.appendChild(line);
+  return line;
+}
+
+/**
+ * D-14/D-18: one Un-review button bound to one entry. The confirm() guard sits in front of the
+ * only removeReviewed call; the transport owns the reload.
+ */
+function mountUnreviewControl(container: HTMLElement, activityId: string): void {
+  const button = document.createElement('button');
+  button.textContent = 'Un-review';
+  container.appendChild(button);
+  const status = document.createElement('p');
+  status.setAttribute('data-queue-status', '');
+  container.appendChild(status);
+
+  button.addEventListener('click', async () => {
+    const confirmed = window.confirm(
+      'Un-reviewing deletes this reviewed-and-kept entry. The activity returns to the queue. Continue?'
+    );
+    if (!confirmed) {
+      return;
+    }
+    try {
+      await removeReviewed(activityId);
+    } catch (error) {
+      status.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+}
+
+/**
+ * D-17/D-18: the one review control. A blank, required reason (the developer's own judgement,
+ * never prefilled) and one Save bound to this row. Used by 'none' and 'changed' rows alike.
+ */
+function mountReviewControl(container: HTMLElement, row: QueueRow, label: string): void {
+  const reasonLabel = document.createElement('span');
+  reasonLabel.textContent = label;
+  container.appendChild(reasonLabel);
+
+  const reviewReasonInput = document.createElement('textarea');
+  reviewReasonInput.placeholder = 'Why is this evidence acceptable?';
+  container.appendChild(reviewReasonInput);
+
+  const saveButton = document.createElement('button');
+  saveButton.textContent = 'Save reviewed and kept';
+  container.appendChild(saveButton);
+
+  const status = document.createElement('p');
+  status.setAttribute('data-queue-status', '');
+  container.appendChild(status);
+
+  saveButton.addEventListener('click', async () => {
+    const reason = reviewReasonInput.value.trim();
+    if (reason.length === 0) {
+      status.textContent = 'A reason is required.';
+      reviewReasonInput.focus();
+      return;
+    }
+    try {
+      await saveReviewed(row.activityId, reason, row.fingerprint);
+    } catch (error) {
+      status.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+}
+
+function tierLine(row: QueueRow): string {
+  if (row.tier === 1) {
+    return 'Transported pause';
+  }
+  if (row.tier === 2) {
+    return 'Moved by the unreliable-segment guard';
+  }
+  return 'Other demotion';
+}
+
+function effortText(effort: QueueRow['flaggedEfforts'][number]): string {
+  return (
+    `${effort.distance} · ${effort.guard} · ${effort.reason} · ` +
+    `${formatEffortDuration(effort.durationSec)} · ${formatPace(effort.paceSecPerKm)}`
+  );
+}
+
 /** Builds one `<li data-queue-row>` for a derived queue row (D-12). */
-function buildRowElement(row: ReturnType<typeof deriveFlaggedActivities>[number]): HTMLElement {
+function buildRowElement(row: QueueRow): HTMLElement {
   const item = document.createElement('li');
   item.setAttribute('data-queue-row', '');
   item.setAttribute('data-activity-id', row.activityId);
   item.setAttribute('data-excluded', String(row.excluded));
+  item.setAttribute('data-tier', String(row.tier));
+  item.setAttribute(
+    'data-contaminated-metres',
+    row.contaminatedMetres === null ? '' : String(row.contaminatedMetres)
+  );
+  item.setAttribute('data-review-state', row.reviewState);
+  item.setAttribute('data-transported', String(row.transported));
 
   const rowHeading = document.createElement('h2');
   const link = document.createElement('a');
@@ -259,13 +389,44 @@ function buildRowElement(row: ReturnType<typeof deriveFlaggedActivities>[number]
     item.appendChild(state);
   }
 
+  appendLine(item, tierLine(row), 'data-queue-tier');
+  if (row.tier !== 3 && row.contaminatedMetres !== null) {
+    appendLine(item, `Contaminated metres: ${row.contaminatedMetres} m`, 'data-queue-metres');
+  }
+
+  if (row.reviewState === 'changed') {
+    appendLine(
+      item,
+      `changed since review — reviewed on ${dateOnly(row.reviewedAt)}: ${row.reviewReason}`,
+      'data-queue-changed'
+    );
+    appendLine(item, `Flags when reviewed: ${row.reviewedFingerprint}`);
+    appendLine(item, `Flags now: ${row.fingerprint}`);
+  } else if (row.reviewState === 'reviewed') {
+    appendLine(
+      item,
+      `Reviewed and kept on ${dateOnly(row.reviewedAt)}: ${row.reviewReason}`,
+      'data-queue-reviewed'
+    );
+  }
+
+  if (row.contaminatedEfforts.length > 0) {
+    appendLine(item, 'Efforts ranked on a clean window:');
+    const contaminatedList = document.createElement('ul');
+    contaminatedList.setAttribute('data-queue-contaminated', '');
+    for (const effort of row.contaminatedEfforts) {
+      const effortItem = document.createElement('li');
+      effortItem.textContent = effortText(effort);
+      contaminatedList.appendChild(effortItem);
+    }
+    item.appendChild(contaminatedList);
+  }
+
   const effortsList = document.createElement('ul');
   effortsList.setAttribute('data-queue-efforts', '');
   for (const effort of row.flaggedEfforts) {
     const effortItem = document.createElement('li');
-    effortItem.textContent =
-      `${effort.distance} · ${effort.guard} · ${effort.reason} · ` +
-      `${formatEffortDuration(effort.durationSec)} · ${formatPace(effort.paceSecPerKm)}`;
+    effortItem.textContent = effortText(effort);
     effortsList.appendChild(effortItem);
   }
   item.appendChild(effortsList);
@@ -273,8 +434,39 @@ function buildRowElement(row: ReturnType<typeof deriveFlaggedActivities>[number]
   const controls = document.createElement('div');
   controls.setAttribute('data-queue-controls', '');
   item.appendChild(controls);
-  mountRowControls(controls, row);
+  // D-11: excluded and reviewed-and-kept are mutually exclusive in the UI.
+  if (row.excluded) {
+    mountRowControls(controls, row);
+    appendLine(controls, 'Remove the exclusion first to mark this reviewed and kept.');
+  } else if (row.reviewState === 'reviewed') {
+    mountUnreviewControl(controls, row.activityId);
+    appendLine(controls, 'Un-review first to exclude this activity.');
+  } else if (row.reviewState === 'changed') {
+    mountReviewControl(controls, row, 'Review again');
+    mountUnreviewControl(controls, row.activityId);
+    appendLine(controls, 'Un-review first to exclude this activity.');
+  } else {
+    mountRowControls(controls, row);
+    mountReviewControl(controls, row, 'Reviewed and kept — why?');
+  }
 
+  return item;
+}
+
+/** D-13: one reviewed entry whose activity is no longer flagged. */
+function buildOrphanElement(orphan: Orphan): HTMLElement {
+  const item = document.createElement('li');
+  item.setAttribute('data-queue-orphan', '');
+  item.setAttribute('data-activity-id', orphan.activityId);
+  const link = document.createElement('a');
+  link.href = activityDetailUrl(orphan.activityId);
+  link.textContent = `Activity ${orphan.activityId}`;
+  item.appendChild(link);
+  appendLine(
+    item,
+    `no longer flagged — reviewed and kept on ${dateOnly(orphan.reviewedAt)}: ${orphan.reason}`
+  );
+  mountUnreviewControl(item, orphan.activityId);
   return item;
 }
 
@@ -290,30 +482,69 @@ async function renderQueue(): Promise<void> {
   heading.textContent = 'Review queue';
   main.appendChild(heading);
 
-  const [bestEffortsDoc, exclusionsDoc, indexDoc] = await Promise.all([
+  const [bestEffortsDoc, exclusionsDoc, indexDoc, reviewedDoc] = await Promise.all([
     loadBestEffortsDoc(),
     loadExclusionsDoc(),
     loadIndexDoc(),
+    loadReviewedDoc(),
   ]);
 
-  const rows = deriveFlaggedActivities(bestEffortsDoc, exclusionsDoc, indexDoc);
-  const { flaggedCount, excludedCount } = summarizeQueue(rows);
+  const rows = deriveFlaggedActivities(
+    bestEffortsDoc,
+    exclusionsDoc,
+    indexDoc,
+    reviewedDoc ?? undefined
+  );
+  const orphans = deriveOrphans(rows, reviewedDoc);
+  const counts = summarizeViews(rows, orphans);
 
   const summary = document.createElement('p');
   summary.setAttribute('data-queue-summary', '');
-  summary.textContent = `${flaggedCount} flagged · ${excludedCount} already excluded`;
+  summary.textContent =
+    `To review ${counts.toReview} (${counts.changed} changed since review) · ` +
+    `Reviewed ${counts.reviewed} (${counts.orphans} no longer flagged) · ` +
+    `Excluded ${counts.excluded} · All ${counts.all}`;
   main.appendChild(summary);
 
-  // TD-03/D-09: rendered only when the count is greater than zero, so an ordinary session (the
-  // real archive today has zero malformed entries) gains no noise — its absence here is that
-  // deliberate choice, not a missing feature. countMalformedExclusions is called once, alongside
-  // deriveFlaggedActivities, with the same exclusionsDoc already loaded above.
+  const viewBar = document.createElement('div');
+  viewBar.setAttribute('data-queue-views', '');
+  main.appendChild(viewBar);
+
+  // TD-03/D-09: notes render only when the count is greater than zero.
   const malformedCount = countMalformedExclusions(exclusionsDoc);
   if (malformedCount > 0) {
-    const malformedNote = document.createElement('p');
-    malformedNote.setAttribute('data-queue-malformed-note', '');
-    malformedNote.textContent = `${malformedCount} exclusion entries ignored (malformed)`;
-    main.appendChild(malformedNote);
+    appendLine(main, `${malformedCount} exclusion entries ignored (malformed)`, 'data-queue-malformed-note');
+  }
+  const malformedReviewed = countMalformedReviewed(reviewedDoc);
+  if (malformedReviewed > 0) {
+    appendLine(
+      main,
+      `${malformedReviewed} reviewed entries ignored (malformed)`,
+      'data-queue-malformed-reviewed-note'
+    );
+  }
+  if (counts.metresMissing > 0) {
+    appendLine(
+      main,
+      `${counts.metresMissing} rows have no contaminated-metres figure; their order within the ` +
+        'tier falls back to newest-first. Run Recompute.',
+      'data-queue-metres-note'
+    );
+  }
+  if (counts.conflicts > 0) {
+    appendLine(
+      main,
+      `${counts.conflicts} activities are both excluded and reviewed-and-kept (hand-edited ` +
+        'files); they are shown under Excluded only.',
+      'data-queue-conflict-note'
+    );
+  }
+  if (reviewedDoc === null) {
+    appendLine(
+      main,
+      'The reviewed file could not be read; every row is shown as not reviewed.',
+      'data-queue-reviewed-unavailable-note'
+    );
   }
 
   const recomputeNote = document.createElement('p');
@@ -353,18 +584,59 @@ async function renderQueue(): Promise<void> {
       });
   });
 
-  if (rows.length === 0) {
+  if (rows.length === 0 && orphans.length === 0) {
     appendEmptyState(main, bestEffortsDoc);
     document.body.appendChild(main);
     return;
   }
 
-  const list = document.createElement('ol');
-  list.setAttribute('data-queue-list', '');
-  for (const row of rows) {
-    list.appendChild(buildRowElement(row));
+  // D-15: the list region is rebuilt in place on a view change; no reload, no class.
+  const content = document.createElement('div');
+  main.appendChild(content);
+
+  function renderView(view: string): void {
+    for (const button of Array.from(viewBar.children)) {
+      button.setAttribute('aria-pressed', String(button.getAttribute('data-queue-view') === view));
+    }
+    const viewRows = rowsForView(rows, view);
+    const list = document.createElement('ol');
+    list.setAttribute('data-queue-list', '');
+    for (const row of viewRows) {
+      list.appendChild(buildRowElement(row));
+    }
+    const parts: HTMLElement[] = [];
+    if (viewRows.length === 0) {
+      const empty = document.createElement('p');
+      empty.setAttribute('data-queue-empty', '');
+      empty.textContent = `No rows in ${VIEW_LABELS[view]}.`;
+      parts.push(empty);
+    } else {
+      parts.push(list);
+    }
+    if (view === 'reviewed' && orphans.length > 0) {
+      const orphanHeading = document.createElement('h2');
+      orphanHeading.textContent = `No longer flagged (${orphans.length})`;
+      parts.push(orphanHeading);
+      const orphanList = document.createElement('ul');
+      for (const orphan of orphans) {
+        orphanList.appendChild(buildOrphanElement(orphan));
+      }
+      parts.push(orphanList);
+    }
+    content.replaceChildren(...parts);
   }
-  main.appendChild(list);
+
+  for (const name of QUEUE_VIEWS as string[]) {
+    const button = document.createElement('button');
+    button.setAttribute('data-queue-view', name);
+    button.textContent = VIEW_LABELS[name];
+    button.addEventListener('click', () => {
+      location.hash = `view=${name}`;
+      renderView(name);
+    });
+    viewBar.appendChild(button);
+  }
+  renderView(readViewFromHash());
 
   document.body.appendChild(main);
 }
