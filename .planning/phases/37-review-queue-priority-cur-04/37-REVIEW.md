@@ -38,6 +38,14 @@ findings:
   info: 5
   total: 11
 status: issues_found
+fixed:
+  - id: CR-01
+    commit: 0896c257
+    fixed_at: 2026-11-25
+  - id: WR-01
+    commit: 199b810f
+    fixed_at: 2026-11-25
+open: [WR-02, WR-03, WR-04, WR-05, IN-01, IN-02, IN-03, IN-04, IN-05]
 ---
 
 # Phase 37: Code Review Report
@@ -105,6 +113,14 @@ a PR it never covered appears on (or disappears from) the dashboard.
 D-12 asks for "which flags, not how much". Whether an effort ranks at all is a "which" fact, not a
 "how much" one. The serialisation format is explicitly Claude's discretion in 37-CONTEXT.md.
 
+**Status: FIXED in `0896c257` (2026-11-25).** Tokens are now `<distance>:<kind>:<guard>` with
+kind `demoted` or `contaminated`. Sorting, de-duplication and the `|t=0|1` suffix are unchanged.
+`normalizeFingerprint`'s cap rose from 1000 to 2000, because the synthetic worst case is now
+1555 chars. All fixtures and contract tests use the new format. The new tests in
+`derive-flagged.test.mjs` ("CR-01 demoted vs contaminated") were red 3/3 against the old token
+and are green now. One of them is a 5k demoted<->contaminated flip that resurfaces a reviewed
+row as `changed`. D-12 amended in 37-CONTEXT.md. `reviewed.json` untouched (still empty).
+
 **Fix:** Encode the kind in the token. `normalizeFingerprint`'s charset already allows `:`. Ship it
 while `data/curation/reviewed.json` has `"reviewed": []`, so no stored entry is invalidated:
 
@@ -134,6 +150,12 @@ real-socket write suites (lines ~840-1100) run. Reproduced in a scratch suite:
 The guard therefore passes even if a later test writes `data/best-effort-exclusions.json` or
 `data/curation/reviewed.json`. This is the "no test may write to a tracked file" protection, and it
 would not detect a regression.
+
+**Status: FIXED in `199b810f` (2026-11-25).** The `beforeAll`/`afterAll` pair now sits at file scope.
+It was proved with a temporary probe test (never committed) that appended a byte to the real
+`data/curation/reviewed.json`. Under the old layout the file stayed green (125/125). Under the new
+layout the file fails with the SHA-256 mismatch. The data files were restored, and
+`git diff --exit-code` is clean.
 
 **Fix:** Move the hooks to file scope (top-level `beforeAll`/`afterAll`, outside any `describe`), so
 they run after every suite in the file. Prove it can fail: temporarily append a test that touches
