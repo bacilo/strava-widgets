@@ -21,4 +21,11 @@ declare module '@garmin/fitsdk' {
       errors: unknown[];
     };
   }
+  export class Encoder {
+    constructor(opts?: { fieldDescriptions?: unknown });
+    onMesg(mesgNum: number, mesg: Record<string, unknown>): void;
+    writeMesg(mesg: Record<string, unknown>): void;
+    close(): Uint8Array;
+  }
+  export const Profile: { MesgNum: Record<string, number> };
 }
