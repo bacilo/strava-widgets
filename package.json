@@ -33,6 +33,7 @@
     "compute-clean-window-before-state": "npm run build && node scripts/compute-clean-window-before-state.mjs",
     "compute-unreliable-segment-calibration": "npm run build && node scripts/compute-unreliable-segment-calibration.mjs",
     "compute-unreliable-segment-recount": "node scripts/compute-unreliable-segment-recount.mjs",
+    "compute-review-queue-recount": "node scripts/compute-review-queue-recount.mjs",
     "compute-coverage-identity-recount": "npm run build && node scripts/compute-coverage-identity-recount.mjs",
     "compute-unreliable-segment-severity-calibration": "npm run build && node scripts/compute-unreliable-segment-severity-calibration.mjs",
     "compute-stream-checksums": "node scripts/compute-stream-checksums.mjs",
