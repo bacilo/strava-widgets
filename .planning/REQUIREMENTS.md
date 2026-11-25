@@ -108,7 +108,7 @@ Scoped from a live investigation on 2026-09-19 of three developer-flagged activi
 
 ### Ingestion integrity (ING)
 
-- [ ] **ING-01**: The nightly pipeline commits fetched activity data and deploys even when an assertion pinned to an archive count (a calibration count, a recount, a named-activity figure) disagrees after new runs land. Those assertions still run and their disagreement is reported visibly; a genuine logic regression still blocks the deploy. Both directions are demonstrated: planted count drift → reported, deploy proceeds; planted logic regression → deploy blocked.
+- [x] **ING-01**: The nightly pipeline commits fetched activity data and deploys even when an assertion pinned to an archive count (a calibration count, a recount, a named-activity figure) disagrees after new runs land. Those assertions still run and their disagreement is reported visibly; a genuine logic regression still blocks the deploy. Both directions are demonstrated: planted count drift → reported, deploy proceeds; planted logic regression → deploy blocked.
 - [ ] **ING-02**: A Garmin bulk export in `export_data/garmin/` is parsed by an adapter written against the real export structure (probed, not guessed) and reconciled against the archive, listing every run present in the export and absent from the archive by date and Garmin activity id. The reconciliation is shown, on a real export, to find the known miss (the 2026-11-18 morning run, absent from the archive) and not to list Garmin-era run 18180779941 (2026-04-20), which is present via the Strava export (`source_provider: strava-export`).
 - [ ] **ING-03**: A run missing from intervals.icu can be imported from its original FIT file into `data/activities/` and `data/streams/` with provenance recorded, deduplicated by start time so a later intervals.icu delivery of the same run creates no duplicate.
 - [ ] **ING-04**: Each reconciliation writes an audit stating the export used, its coverage window, and the missing-run count and ids, so a silent gap surfaces without inspecting the archive, and the audit never claims completeness beyond the export's window.
@@ -172,7 +172,7 @@ Deferred, tracked, not in this roadmap.
 | PR-07 | Phase 36 | Complete |
 | PR-08 | Phase 36 | Complete |
 | PR-09 | Phase 36 | Complete |
-| ING-01 | Phase 36.1 | Pending |
+| ING-01 | Phase 36.1 | Complete |
 | ING-02 | Phase 36.1 | Pending |
 | ING-03 | Phase 36.1 | Pending |
 | ING-04 | Phase 36.1 | Pending |
