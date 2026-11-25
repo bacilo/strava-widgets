@@ -1,11 +1,11 @@
 ---
 phase: 36
 slug: best-effort-clean-window-search-ceiling-recalibration
-status: partial
-nyquist_compliant: false
+status: passed
+nyquist_compliant: true
 wave_0_complete: true
 created: 2026-09-28
-updated: 2026-11-24
+updated: 2026-11-25
 ---
 
 # Phase 36 — Validation Strategy
@@ -407,16 +407,31 @@ Its output: 400m dem 4 {max-speed 3, ceiling 1} demInclExcl 5 cont 247 contInclE
 | f | PR-07 | PASS | none (carries forward, see the f carry-forward row) | yes |
 | g | PR-08 | FAIL (row defect) | g2 | no, superseded; verdict stays on record |
 | h | PR-09 | PASS | h2 | no, superseded; verdict stays on record |
-| d2 | PR-07 | pending | none | yes |
-| e2 | PR-07 | pending | none | yes |
-| g2 | PR-08 | pending | none | yes |
-| i | PR-07 | pending | none | yes |
-| b2 | PR-07 | pending | none | yes |
-| h2 | PR-09 | pending | none | yes |
+| d2 | PR-07 | PASS | none | yes |
+| e2 | PR-07 | PASS | none | yes |
+| g2 | PR-08 | PASS | none | yes |
+| i | PR-07 | PASS | none | yes |
+| b2 | PR-07 | PASS | none | yes |
+| h2 | PR-09 | PASS | none | yes |
 
 A requirement is ticked only when every non-superseded row mapped to it is PASS; for PR-09 the developer's round-2 signature is additionally required.
 
 Frontmatter `status: partial` and `nyquist_compliant: false` stay until plan 36-20. Approval is left as it is.
+
+### Round 2 Requirement Disposition (plan 36-20, Task 3)
+
+Read from the Row-to-Requirement Mapping above (superseded rows d, e, g, h do not count; their verdicts stay on record). The mapping's `pending` verdict cells for d2, e2, g2, i, b2 and h2 were filled with PASS from the verbatim verdicts in the Round 2 Checkpoint Rows.
+
+| Requirement | Non-superseded rows | Verdicts | Outcome |
+|---|---|---|---|
+| PR-06 | a | PASS | stays ticked |
+| PR-07 | b, c, f (carried forward, not re-run), d2, e2, i, b2 | all PASS | ticked. Honest limit: d2 is partly vacuous, it cannot discriminate the WR-04 contaminated-and-demoted clause on live data (`contAndDemoted` 0 at every distance); that clause is covered by plan 36-18's unit test alone (`-t "skips demoted efforts WR-04"`, 3 matched). Row f was carried forward from round 1, not re-judged on the round-2 bundle. |
+| PR-08 | g2 | PASS | ticked (half fails open, populationN 71, 33 unreliable-segment, 0 ceiling) |
+| PR-09 | a, h2, plus the round-2 decision | PASS, PASS; `sign-both` (reconfirmed after the full fail-open readout) | ticked; the Reopened note stays |
+
+SEG-05b is not re-dispositioned. ROADMAP.md and STATE.md are untouched by this plan.
+
+Frontmatter: every Per-Task Verification Map row, round 1 and round 2, is green (every `-t` row with a non-zero matched count; the scripted/exit-code rows carry `n/a` by design) and every non-superseded checkpoint row is PASS, so `nyquist_compliant: true` and `status: passed`. This is a checkpoint disposition, not phase verification: the verifier still runs, and a `gaps_found` result reopens the artifacts.
 
 ---
 
@@ -429,6 +444,8 @@ Frontmatter `status: partial` and `nyquist_compliant: false` stay until plan 36-
 - [x] Every `-t` row records its matched test count (two originally-vacuous commands corrected above)
 - [x] Every guard demonstrated red on a planted violation before it may pass
 - [x] Feedback latency < 30s
-- [ ] `nyquist_compliant: true` set in frontmatter (withheld: checkpoint rows d, e, g FAIL)
+- [x] `nyquist_compliant: true` set in frontmatter (round 2, plan 36-20: every non-superseded checkpoint row PASS)
 
 **Approval:** partial — checkpoint round run 2026-11-24 (a, b, c, f, h PASS; d, e, g FAIL, row defects left unpatched); PR-09 signed (`sign-both`)
+
+**Approval (round 2, 2026-11-25):** passed at checkpoint level — d2, e2, g2, i, b2, h2 PASS (f carried forward); PR-09 re-signed (`sign-both`) over the corrected diff. Phase verification still pending.
