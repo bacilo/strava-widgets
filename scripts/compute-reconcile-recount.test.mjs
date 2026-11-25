@@ -6,13 +6,15 @@
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { readStravaExportForReconcile } from '../dist/exports/adapters/strava.js';
 import { loadArchiveIndex, reconcile } from '../dist/exports/reconcile.js';
-import { parseCsvIndependent, parseDateIndependent, recount } from './compute-reconcile-recount.mjs';
+import { readGarminExportForReconcile } from '../dist/exports/adapters/garmin.js';
+import { findSummaryFiles, parseCsvIndependent, parseDateIndependent, recount, recountGarmin } from './compute-reconcile-recount.mjs';
 
 const SCRIPT_PATH = fileURLToPath(new URL('./compute-reconcile-recount.mjs', import.meta.url));
 
@@ -142,6 +144,67 @@ describe('core vs recount', () => {
     const out = recount({ csvText: csv + cells.join(',') + '\n', archiveJsonTexts: [] });
     expect(out.exportRuns).toBe(1);
     expect(out.missingIds).toEqual(['9']);
+  });
+});
+
+const GARMIN_FIXTURE = fileURLToPath(new URL('../src/exports/__fixtures__/garmin', import.meta.url));
+
+function garminBoth(archiveDir) {
+  const adapter = readGarminExportForReconcile(GARMIN_FIXTURE);
+  const core = reconcile('garmin', adapter.runs, loadArchiveIndex(archiveDir), { preIgnored: adapter.preIgnored });
+  const files = readdirSync(archiveDir).filter((f) => f.endsWith('.json')).sort();
+  const independent = recountGarmin({
+    summaryJsonTexts: findSummaryFiles(GARMIN_FIXTURE).map((f) => readFileSync(f, 'utf8')),
+    archiveJsonTexts: files.map((f) => readFileSync(join(archiveDir, f), 'utf8')),
+  });
+  return { core, independent, fileCount: files.length };
+}
+
+function garminArchive() {
+  const dir = mkdtempSync(join(tmpdir(), 'reconcile-recount-garmin-'));
+  dirs.push(dir);
+  const put = (id, epoch) =>
+    writeFileSync(join(dir, id + '.json'), JSON.stringify({ id, start_date: new Date(epoch * 1000).toISOString() }));
+  put('g1', 1773126000);
+  put('g2', 1795014403); // both-present row (L-01a)
+  put('g3', 1772348400); // near row is 60 s later
+  return dir;
+}
+
+describe('garmin core vs recount', () => {
+  it('agrees on every count and the missing ids', () => {
+    const { core, independent } = garminBoth(garminArchive());
+    expect(core.exportRunCount).toBe(independent.exportRuns);
+    expect(core.matchedExact).toBe(independent.matchedExact);
+    expect(core.near.length).toBe(independent.near);
+    expect(core.missing.map((m) => m.sourceId)).toEqual(independent.missingIds);
+    expect(core.ignoredTypes).toEqual(independent.ignoredTypes);
+    expect(independent.missingIds).toEqual(['900000000003']);
+    expect(independent.matchedExact).toBe(2);
+  });
+
+  it('CAN-FAIL: removing the both-present archive record raises missing by exactly 1 in BOTH', () => {
+    const dir = garminArchive();
+    const base = garminBoth(dir);
+    const before = base.fileCount;
+    rmSync(join(dir, 'g2.json'));
+    const after = garminBoth(dir);
+    expect(after.fileCount).toBe(before - 1);
+    expect(after.core.missing.length).toBe(base.core.missing.length + 1);
+    expect(after.independent.missingIds.length).toBe(base.independent.missingIds.length + 1);
+    expect(after.core.missing.map((m) => m.sourceId)).toContain('900000000002');
+    expect(after.independent.missingIds).toContain('900000000002');
+  });
+
+  it('CLI --source garmin matches the library, and the default source stays strava', () => {
+    const dir = garminArchive();
+    const out = JSON.parse(
+      execFileSync('node', [SCRIPT_PATH, '--source', 'garmin', '--export', GARMIN_FIXTURE, '--activities', dir], { encoding: 'utf8' })
+    );
+    expect(out.missingIds).toEqual(['900000000003']);
+    expect(() =>
+      execFileSync('node', [SCRIPT_PATH, '--export', GARMIN_FIXTURE, '--activities', dir], { encoding: 'utf8', stdio: 'pipe' })
+    ).toThrow();
   });
 });
 

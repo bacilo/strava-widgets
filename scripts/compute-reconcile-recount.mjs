@@ -13,7 +13,11 @@
  * parser keeps only the exact type "Run"; a run-like type it drops therefore
  * shows up here as a disagreement instead of being hidden.
  *
- * Usage: node scripts/compute-reconcile-recount.mjs --export <dir> --activities <dir>
+ * Garmin branch (--source garmin): restates the probe units independently below and
+ * finds summary files by walking the WHOLE export root for names ending in the
+ * summary suffix (the production adapter reads one probed directory instead).
+ *
+ * Usage: node scripts/compute-reconcile-recount.mjs [--source strava|garmin] --export <dir> --activities <dir>
  */
 import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
@@ -113,6 +117,59 @@ export function recount({ csvText, archiveJsonTexts, nearToleranceS = 120 }) {
   return { exportRuns, matchedExact, near, missingIds, ignoredTypes };
 }
 
+/**
+ * Garmin recount. Independent restatement of 36.1-GARMIN-PROBE.md sections 2-4:
+ * summary files hold [{"summarizedActivitiesExport":[rows]}]; the id is `activityId`,
+ * the start is `startTimeGmt` in epoch MILLISECONDS (divide by 1000), the type is
+ * `activityType`. Distance is not needed for the counts.
+ */
+export function recountGarmin({ summaryJsonTexts, archiveJsonTexts, nearToleranceS = 120 }) {
+  if (summaryJsonTexts.length === 0) throw new Error('recountGarmin: no summary files');
+  const archiveList = archiveJsonTexts.map((t) => Math.floor(Date.parse(JSON.parse(t).start_date) / 1000));
+  const archiveEpochs = new Set(archiveList);
+
+  let exportRuns = 0;
+  let matchedExact = 0;
+  let near = 0;
+  const missingIds = [];
+  const ignoredTypes = {};
+  for (const text of summaryJsonTexts) {
+    const rows = JSON.parse(text)[0].summarizedActivitiesExport;
+    if (!Array.isArray(rows) || rows.length === 0) throw new Error('recountGarmin: empty or malformed summary file');
+    for (const row of rows) {
+      const type = row.activityType ?? '';
+      if (!isRunLikeLocal(type)) {
+        ignoredTypes[type] = (ignoredTypes[type] ?? 0) + 1;
+        continue;
+      }
+      if (row.activityId === undefined || typeof row.startTimeGmt !== 'number') {
+        throw new Error('recountGarmin: row without activityId or startTimeGmt');
+      }
+      const epoch = Math.floor(row.startTimeGmt / 1000);
+      exportRuns++;
+      if (archiveEpochs.has(epoch)) matchedExact++;
+      else if (archiveList.some((a) => Math.abs(a - epoch) <= nearToleranceS)) near++;
+      else missingIds.push(String(row.activityId));
+    }
+  }
+  missingIds.sort();
+  return { exportRuns, matchedExact, near, missingIds, ignoredTypes };
+}
+
+/** Recursive walk of the whole export root for summary files, sorted. */
+export function findSummaryFiles(root) {
+  const found = [];
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.isFile() && entry.name.endsWith('_summarizedActivities.json')) found.push(full);
+    }
+  };
+  walk(root);
+  return found.sort();
+}
+
 function isRunLike(type) {
   return isRunLikeLocal(type);
 }
@@ -126,13 +183,20 @@ function main() {
   try {
     const exportDir = arg('--export');
     const activitiesDir = arg('--activities');
-    if (!exportDir || !activitiesDir) throw new Error('usage: --export <dir> --activities <dir>');
-    const csvText = readFileSync(join(exportDir, 'activities.csv'), 'utf8');
+    const source = arg('--source') ?? 'strava';
+    if (!exportDir || !activitiesDir) throw new Error('usage: [--source strava|garmin] --export <dir> --activities <dir>');
+    if (source !== 'strava' && source !== 'garmin') throw new Error(`unknown source: ${source}`);
     const archiveJsonTexts = readdirSync(activitiesDir)
       .filter((f) => f.endsWith('.json'))
       .sort()
       .map((f) => readFileSync(join(activitiesDir, f), 'utf8'));
-    console.log(JSON.stringify(recount({ csvText, archiveJsonTexts }), null, 2));
+    if (source === 'garmin') {
+      const summaryJsonTexts = findSummaryFiles(exportDir).map((f) => readFileSync(f, 'utf8'));
+      console.log(JSON.stringify(recountGarmin({ summaryJsonTexts, archiveJsonTexts }), null, 2));
+    } else {
+      const csvText = readFileSync(join(exportDir, 'activities.csv'), 'utf8');
+      console.log(JSON.stringify(recount({ csvText, archiveJsonTexts }), null, 2));
+    }
   } catch (err) {
     console.error(err instanceof Error ? err.message : String(err));
     process.exitCode = 1;
