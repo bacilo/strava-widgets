@@ -464,11 +464,11 @@ Plans:
 **Goal**: No run is lost silently between the watch and the published site. A nightly run that adds activities can no longer be blocked from committing and deploying by an assertion pinned to an archive count, and runs intervals.icu never received are detected from an independent export, imported from their original file, and surfaced instead of discovered months later by eye.
 **Depends on**: Phase 36
 **Requirements**: ING-01, ING-02, ING-03, ING-04
-**Why urgent (2026-11-25)**: 61 consecutive nightly runs (2026-09-19 to 2026-11-24) fetched new runs successfully and then discarded them, because a blocking test failed before the commit step (quick task 261125-cvq). Separately, intervals.icu has been shown to drop Garmin activities that Garmin delivered to Strava: Garmin 18180779941 (2026-04-20, since recovered via the Strava export, so present in the archive) and the 2026-11-18 morning run (still absent).
+**Why urgent (2026-11-25)**: 61 consecutive nightly runs (2026-09-19 to 2026-11-24) fetched new runs successfully and then discarded them, because a blocking test failed before the commit step (quick task 261125-cvq). Separately, runs recorded on the watch never reached the archive: the 2026-11-18 morning run (Garmin 25116720114) is absent, and the 2026-11-25 Garmin export shows four more older misses. (18180779941, 2026-04-20, once cited here, turned out to be a Strava phone recording made when the watch was dead — it has no Garmin twin and is in the archive via the Strava export.)
 **Success Criteria** (what must be TRUE):
 
   1. A nightly run whose newly fetched activities move an archive-pinned assertion still commits the fetched data and deploys; the archive-pinned assertions still run and their failure is reported visibly, shown with a planted count drift (red/reported, deploy proceeds) and with a genuine logic regression (deploy blocked).
-  2. A Garmin bulk export placed in `export_data/garmin/` is reconciled against the archive: every run in the export and missing from the archive is listed by date and Garmin activity id, and, given an export covering 2026-11-18, the list is shown to contain the 2026-11-18 morning run; given an export covering 2026-04-20, it is shown NOT to list 18180779941, which the archive already holds via the Strava export.
+  2. A Garmin bulk export placed in `export_data/garmin/` is reconciled against the archive: every run in the export and missing from the archive is listed by date and Garmin activity id, and, given an export covering 2026-11-18, the list is shown to contain the 2026-11-18 morning run and NOT to list the 2026-11-18 afternoon run (Garmin 25121466706), which the archive already holds as i211719792. (18180779941, 2026-04-20, is a Strava-only phone recording outside the Garmin export, so the Garmin reconciliation does not cover it.)
   3. A missing run can be imported from its original FIT file without intervals.icu, landing in `data/activities/` and `data/streams/` with provenance recorded and deduplicated by start time, so a later intervals.icu delivery of the same run does not create a duplicate.
   4. The reconciliation result is written to a committed or published audit (count, ids, date of the export used), so a gap is visible without reading the archive, and the audit states the export's coverage window rather than implying completeness beyond it.
 
@@ -493,15 +493,15 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3; blocking human checkpoint)*
 
-- [ ] 36.1-07-PLAN.md — ING-02: place the Garmin export, probe the real structure, compute the 2026-11-18 and 2026-04-20 figures, scrubbed fixture
+- [ ] 36.1-07-PLAN.md — ING-02: place the Garmin export, probe the real structure, compute the 2026-11-18 morning (missing) and afternoon (both-present) figures, scrubbed fixture
 
 **Wave 5** *(blocked on Wave 4)*
 
-- [ ] 36.1-08-PLAN.md — ING-02: Garmin adapter + recount branch; real export lists the 2026-11-18 run, not the 2026-04-20 run, both rows planted in reverse; garmin audit
+- [ ] 36.1-08-PLAN.md — ING-02: Garmin adapter + recount branch; real export lists the 2026-11-18 morning run, not the afternoon run 25121466706 = i211719792, both rows planted in reverse; garmin audit missing equal to the recount
 
 **Wave 6** *(blocked on Wave 5)*
 
-- [ ] 36.1-09-PLAN.md — ING-03: import the 2026-11-18 run from its original FIT, provenance and dedupe proven, audit shows the gap closed, publish gates
+- [ ] 36.1-09-PLAN.md — ING-03: import the 2026-11-18 morning run from its original FIT, provenance and dedupe proven, audit shows the gap closed (other missing runs stay listed), publish gates
 
 ### Phase 37: Review-Queue Priority & CUR-04
 
