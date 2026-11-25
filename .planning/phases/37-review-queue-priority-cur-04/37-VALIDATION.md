@@ -39,25 +39,25 @@ Baseline before the phase: the curate-related files ran 184 tests green in about
 
 ## Per-Task Verification Map
 
-Task IDs are bound when plans are written. One row per behaviour; the executor fills the Task ID and Status.
+Task IDs bound by the planner on 2026-11-25 (`<plan>-T<n>` = task n of that plan). One row per behaviour; executors fill Status and the matched test count. Manual-only rows below are executed by 37-07-T1 (automated guard red/green, recount capture, served digest) and 37-07-T2 (human gestures).
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| TBD | TBD | TBD | CUR-06 | — | N/A | unit | `npx vitest run src/analytics/compute-best-efforts.test.ts` (`contaminatedMetres` de-duplicated per activity, Branch 2 + 3, 0 when none) | ✅ extend | ⬜ pending |
-| TBD | TBD | TBD | CUR-06 | — | Fail-closed parse (NaN, negative, string, absent → 0) | unit | `npx vitest run src/dashboard/data/best-efforts-client.test.ts` | ✅ extend | ⬜ pending |
-| TBD | TBD | TBD | CUR-06 | — | N/A | unit | `npx vitest run scripts/curate-queue/derive-flagged.test.mjs` (union membership, tiers, comparator, tie-breaks; D-05 block rewritten) | ✅ rewrite | ⬜ pending |
-| TBD | TBD | TBD | CUR-06 | — | N/A | integration (`skipIf` no data) | `npx vitest run scripts/compute-review-queue-recount.test.mjs` (derive == recount on count AND order) | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | CUR-06 | — | N/A | unit | same file (recount fails on tier swap, no-dedupe metres, reversed order, dropped row, altered shipped field; passes on real derive) | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | CUR-06 | — | No forbidden import, no import-time I/O | unit | same file + `vi.mock('fs')` import guard (positive controls) | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | CUR-04 | T-37 V5 | `applyReviewUpsert`/`applyReviewRemove` exact entry shape, no mutation | unit | `npx vitest run scripts/curate-server.test.mjs` | ✅ extend | ⬜ pending |
-| TBD | TBD | TBD | CUR-04 | T-37 V4/V5 | 400 bad id/empty reason/bad fingerprint, 403 cross-origin (incl. GET), 409 exclusion conflict both directions, 413; tmp paths only | integration | `npx vitest run scripts/curate-server.test.mjs` | ✅ extend | ⬜ pending |
-| TBD | TBD | TBD | CUR-04 | — | Real tracked files unchanged by the suite (SHA before/after) | unit | `npx vitest run scripts/curate-server.test.mjs` | ✅ extend | ⬜ pending |
-| TBD | TBD | TBD | CUR-04 | — | Committed `reviewed.json` and `best-effort-exclusions.json` share no activityId | unit | `npx vitest run scripts/curate-server.test.mjs` | ✅ extend | ⬜ pending |
-| TBD | TBD | TBD | CUR-04 | — | N/A | unit | `npx vitest run scripts/curate-queue/derive-flagged.test.mjs` (fingerprint order-independent, ignores metres; views incl. changed, orphans) | ✅ extend | ⬜ pending |
-| TBD | TBD | TBD | CUR-04 | T-37 XSS | textContent-only, no route literal, no forbidden tokens | source-text | `npx vitest run scripts/curate-queue.test.mjs scripts/curate-overlay.test.mjs` | ✅ extend | ⬜ pending |
-| TBD | TBD | TBD | CUR-04 | T-37 leak | Guard 1 flags planted `data/curation/reviewed.json`, planted sibling, planted `data/reviewed.json`; clean control `[]`; exclusions not flagged; `UNSCANNED_EXTENSIONS` still `['.json']` | unit | `npx vitest run scripts/lib/curation-guard.test.mjs` | ✅ extend | ⬜ pending |
-| TBD | TBD | TBD | CUR-04 | T-37 leak | Guard 2 clean run prints three new `→ 404` lines; each planted leak exits non-zero naming the path | subprocess | `npx vitest run scripts/verify-dashboard-publish-guard.test.mjs` | ✅ extend | ⬜ pending |
-| TBD | TBD | TBD | CUR-04 | — | `derive-flagged.mjs` zero `import`, zero `console` (planted-violation proof) | source-text | `npx vitest run scripts/curate-queue/derive-flagged.test.mjs` | ❌ W0 | ⬜ pending |
+| 37-01-T1 | 37-01 | 1 | CUR-06 | — | N/A | unit | `npx vitest run src/analytics/compute-best-efforts.test.ts` (`contaminatedMetres` de-duplicated per activity, Branch 2 + 3, 0 when none) | ✅ extend | ⬜ pending |
+| 37-01-T2 | 37-01 | 1 | CUR-06 | — | Fail-closed parse (NaN, negative, string, absent → 0) | unit | `npx vitest run src/dashboard/data/best-efforts-client.test.ts` | ✅ extend | ⬜ pending |
+| 37-04-T1 | 37-04 | 1 | CUR-06 | — | N/A | unit | `npx vitest run scripts/curate-queue/derive-flagged.test.mjs` (union membership, tiers, comparator, tie-breaks; D-05 block rewritten) | ✅ rewrite | ⬜ pending |
+| 37-05-T2 | 37-05 | 2 | CUR-06 | — | N/A | integration (`skipIf` no data) | `npx vitest run scripts/compute-review-queue-recount.test.mjs` (derive == recount on count AND order) | ❌ W0 | ⬜ pending |
+| 37-05-T1 | 37-05 | 2 | CUR-06 | — | N/A | unit | same file (recount fails on tier swap, no-dedupe metres, reversed order, dropped row, altered shipped field; passes on real derive) | ❌ W0 | ⬜ pending |
+| 37-05-T1, 37-05-T2 | 37-05 | 2 | CUR-06 | — | No forbidden import, no import-time I/O | unit | same file + `vi.mock('fs')` import guard (positive controls) | ❌ W0 | ⬜ pending |
+| 37-02-T2 | 37-02 | 1 | CUR-04 | T-37 V5 | `applyReviewUpsert`/`applyReviewRemove` exact entry shape, no mutation | unit | `npx vitest run scripts/curate-server.test.mjs` | ✅ extend | ⬜ pending |
+| 37-02-T2 | 37-02 | 1 | CUR-04 | T-37 V4/V5 | 400 bad id/empty reason/bad fingerprint, 403 cross-origin (incl. GET), 409 exclusion conflict both directions, 413; tmp paths only | integration | `npx vitest run scripts/curate-server.test.mjs` | ✅ extend | ⬜ pending |
+| 37-02-T1 | 37-02 | 1 | CUR-04 | — | Real tracked files unchanged by the suite (SHA before/after) | unit | `npx vitest run scripts/curate-server.test.mjs` | ✅ extend | ⬜ pending |
+| 37-02-T3 | 37-02 | 1 | CUR-04 | — | Committed `reviewed.json` and `best-effort-exclusions.json` share no activityId | unit | `npx vitest run scripts/curate-server.test.mjs` | ✅ extend | ⬜ pending |
+| 37-04-T2 | 37-04 | 1 | CUR-04 | — | N/A | unit | `npx vitest run scripts/curate-queue/derive-flagged.test.mjs` (fingerprint order-independent, ignores metres; views incl. changed, orphans) | ✅ extend | ⬜ pending |
+| 37-06-T1, 37-06-T2 | 37-06 | 2 | CUR-04 | T-37 XSS | textContent-only, no route literal, no forbidden tokens | source-text | `npx vitest run scripts/curate-queue.test.mjs scripts/curate-overlay.test.mjs` | ✅ extend | ⬜ pending |
+| 37-03-T1 | 37-03 | 1 | CUR-04 | T-37 leak | Guard 1 flags planted `data/curation/reviewed.json`, planted sibling, planted `data/reviewed.json`; clean control `[]`; exclusions not flagged; `UNSCANNED_EXTENSIONS` still `['.json']` | unit | `npx vitest run scripts/lib/curation-guard.test.mjs` | ✅ extend | ⬜ pending |
+| 37-03-T2 | 37-03 | 1 | CUR-04 | T-37 leak | Guard 2 clean run prints three new `→ 404` lines; each planted leak exits non-zero naming the path | subprocess | `npx vitest run scripts/verify-dashboard-publish-guard.test.mjs` | ✅ extend | ⬜ pending |
+| 37-04-T1 | 37-04 | 1 | CUR-04 | — | `derive-flagged.mjs` zero `import`, zero `console` (planted-violation proof) | source-text | `npx vitest run scripts/curate-queue/derive-flagged.test.mjs` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -65,11 +65,11 @@ Task IDs are bound when plans are written. One row per behaviour; the executor f
 
 ## Wave 0 Requirements
 
-- [ ] `scripts/compute-review-queue-recount.mjs` + `.test.mjs`, plus a `package.json` script `compute-review-queue-recount`
-- [ ] A `vi.mock('fs')` import-time guard for the recount (copy `unreliable-segment-import-guards.test.mjs`'s mechanism and positive controls)
-- [ ] `data/curation/reviewed.json` seed (committed)
-- [ ] Zero-import/zero-console scan test for `derive-flagged.mjs`
-- [ ] Injectable-paths refactor of `createServer` before any write-route test is written
+- [ ] `scripts/compute-review-queue-recount.mjs` + `.test.mjs`, plus a `package.json` script `compute-review-queue-recount` (37-05-T1)
+- [ ] A `vi.mock('fs')` import-time guard for the recount (copy `unreliable-segment-import-guards.test.mjs`'s mechanism and positive controls) (37-05-T2)
+- [ ] `data/curation/reviewed.json` seed (committed) (37-02-T2)
+- [ ] Zero-import/zero-console scan test for `derive-flagged.mjs` (37-04-T1)
+- [ ] Injectable-paths refactor of `createServer` before any write-route test is written (37-02-T1, which precedes 37-02-T2)
 - [ ] Framework install: none needed
 
 ---

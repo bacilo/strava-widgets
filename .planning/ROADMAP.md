@@ -514,7 +514,24 @@ Plans:
   2. Both existing publish guards are shown red under a planted leak of the new route/file and green on the served build.
   3. The review queue also lists activities whose best effort was moved by the unreliable-segment guard and activities carrying a transported-class pause, ordered transported-first then by contaminated metres, with the count equal to an independent recount.
 
-**Plans**: TBD
+**Plans**: 7 plans in 3 waves
+Plans:
+**Wave 1**
+
+- [ ] 37-01-PLAN.md — D-07 additive `contaminatedMetres` (compute, de-duplicated per activity, Branch 2+3) + fail-closed client parse
+- [ ] 37-02-PLAN.md — Path-injectable curate server, reviewed routes (GET/PUT/DELETE), seed `data/curation/reviewed.json`, D-11 409 both ways + CLI check
+- [ ] 37-03-PLAN.md — Publish guards: guard-1 path rules (data/curation, reviewed.json) + guard-2 literal 404s, planted red/green
+- [ ] 37-04-PLAN.md — derive-flagged: D-06 union, D-08 tiers/order, D-12 fingerprint, D-10 resurface, D-15 views, D-13 orphans
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 37-05-PLAN.md — D-09 zero-import review-queue recount (count AND order), five mutation proofs, live comparison
+- [ ] 37-06-PLAN.md — Queue UI: four views, reviewed-and-kept controls, orphans, notes; overlay transport
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 37-07-PLAN.md — Primary-checkout checkpoint: digest-verified build, DOM vs recount, guards red/green, human lifecycle verdicts
+
 **UI hint**: yes
 
 ## Progress
