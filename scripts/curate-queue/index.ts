@@ -5,7 +5,7 @@
  * file is outside tsconfig.json's `include`, outside every Vite config's input graph, and outside
  * build-widgets.mjs's copy lists (Phase 24's D-01 structural-absence rule, inherited unchanged).
  * It is bundled only by scripts/curate-server.mjs's esbuild step into the gitignored
- * `.curate-dist/`, and served from `/__curate/queue.js`.
+ * `.curate-dist/`, and served by the curate server as queue.js.
  *
  * Importing `../curate-overlay/index.js` (`saveExclusion`/`removeExclusion`/`runRecompute`) is
  * deliberate reuse of the existing write transport, never a reimplementation (D-10 — that import
