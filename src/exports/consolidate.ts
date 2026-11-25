@@ -134,9 +134,14 @@ function toCanonical(run: ExportRun): StravaActivity {
   };
 }
 
-/** Accept only `<source>:<relative path>` with no NUL and no '..' segment; anything else yields no link. */
+/**
+ * Accept only `<source>:<relative path>` with no NUL, no '..' segment and no '@'
+ * (an account identifier from a Garmin bulk-export filename must never reach the
+ * public provenance file); anything else yields no link.
+ */
 function safeOriginalFile(value: unknown): string | undefined {
   if (typeof value !== 'string' || !/^[a-z]+:[^\0]+$/.test(value)) return undefined;
+  if (value.includes('@')) return undefined;
   if (value.split(/[\\/:]/).includes('..')) return undefined;
   return value;
 }

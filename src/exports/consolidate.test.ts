@@ -126,17 +126,24 @@ describe('consolidateExports garmin-export provenance', () => {
 
   it('fails closed on traversal or malformed original_file', async () => {
     const f = fixture(base);
-    for (const [i, bad] of ['garmin:../../etc/passwd', 'garmin:a/../b.fit', 'nocolon', 'garmin:'].entries()) {
+    for (const [i, bad] of [
+      'garmin:../../etc/passwd',
+      'garmin:a/../b.fit',
+      'nocolon',
+      'garmin:',
+      'garmin:UploadedFiles/user@example.com_123.fit',
+    ].entries()) {
       fs.writeFileSync(
         path.join(f.activitiesDir, `5555555555${i}.json`),
         rec(`5555555555${i}`, `2021-01-0${i + 1}T00:00:00Z`, { source_provider: 'garmin-export', original_file: bad })
       );
     }
     const doc = JSON.parse(await run(f));
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 5; i++) {
       expect(doc.activities[`5555555555${i}`]).toBeUndefined();
       expect(doc.archive_without_original).toContain(`5555555555${i}`);
     }
+    expect(JSON.stringify(doc)).not.toContain('@');
   });
 
   it('keeps the default paths unchanged', () => {

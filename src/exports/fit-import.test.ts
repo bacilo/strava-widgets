@@ -182,7 +182,7 @@ describe('importFit', () => {
       total_elevation_gain: 12,
       source_provider: 'garmin-export',
       garmin_activity_id: '12345678901',
-      external_id: 'x.fit',
+      external_id: '12345678901.fit',
       original_file: 'garmin:x.fit',
       field_origin: 'fit-session',
     });
@@ -227,6 +227,58 @@ describe('importFit', () => {
     expect(result.status).toBe('imported');
     const prov = JSON.parse(fs.readFileSync(dirs.provenancePath, 'utf-8'));
     expect(prov.activities['12345678901'].original).toBe('garmin:sub/y.fit.gz');
+    const rec = JSON.parse(fs.readFileSync(path.join(dirs.activitiesDir, '12345678901.json'), 'utf-8'));
+    expect(rec.external_id).toBe('12345678901.fit.gz');
+  });
+
+  describe('account identifier in the path (CR-01)', () => {
+    /** Every file under tmp, relative, sorted: an independent view of what was written. */
+    function listTree(root: string): string[] {
+      const out: string[] = [];
+      const walk = (dir: string): void => {
+        for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+          const p = path.join(dir, e.name);
+          if (e.isDirectory()) walk(p);
+          else out.push(path.relative(root, p).split(path.sep).join('/'));
+        }
+      };
+      walk(root);
+      return out.sort();
+    }
+
+    it('refuses a bulk-export style user@example.com_123.fit and writes nothing', async () => {
+      const fit = place('user@example.com_123.fit', buildFit());
+      fs.writeFileSync(dirs.provenancePath, JSON.stringify({ activities: {} }));
+      const provBefore = fs.readFileSync(dirs.provenancePath, 'utf-8');
+      await expect(run(fit)).rejects.toThrow(/account identifier/);
+      // Only the planted FIT and the pre-seeded provenance exist; no activity,
+      // stream or manifest was written.
+      expect(listTree(tmp)).toEqual(['export/garmin/user@example.com_123.fit', 'provenance.json']);
+      expect(fs.readFileSync(dirs.provenancePath, 'utf-8')).toBe(provBefore);
+    });
+
+    it('refuses an @ in a directory segment and through a neutral symlink', async () => {
+      const inDir = place('UploadedFiles/user@example.com/1.fit', buildFit());
+      await expect(run(inDir)).rejects.toThrow(/account identifier/);
+
+      const target = place('user@example.com_456.fit', buildFit());
+      const link = path.join(dirs.exportRoot, 'garmin', 'neutral.fit');
+      fs.symlinkSync(target, link);
+      await expect(run(link)).rejects.toThrow(/account identifier/);
+
+      expect(listTree(tmp)).toEqual([
+        'export/garmin/UploadedFiles/user@example.com/1.fit',
+        'export/garmin/neutral.fit',
+        'export/garmin/user@example.com_456.fit',
+      ]);
+    });
+
+    it('never derives external_id from the filename', async () => {
+      await run(place('Some_Name_ACTIVITY.fit', buildFit()));
+      const rec = JSON.parse(fs.readFileSync(path.join(dirs.activitiesDir, '12345678901.json'), 'utf-8'));
+      expect(rec.external_id).toBe('12345678901.fit');
+      expect(rec.original_file).toBe('garmin:Some_Name_ACTIVITY.fit');
+    });
   });
 
   it('dedupes on session.startTime, not fileId.timeCreated (+2 s apart)', async () => {

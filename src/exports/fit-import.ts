@@ -153,6 +153,21 @@ export async function importFit(opts: FitImportOptions): Promise<FitImportResult
     throw new Error(`outside export root: ${opts.fitPath}`);
   }
 
+  // 2b. Account-identifier refusal (CR-01). Garmin bulk exports name uploaded
+  // FIT files `<account-email>_<n>.fit`, and the relative path becomes the
+  // public `original_file` / provenance `original`. Refuse any '@' in either
+  // the path as given or the resolved path (a neutral symlink can point at an
+  // email-named file), before anything is read or written.
+  const rel = path
+    .relative(sourceRoot, resolvedFit)
+    .split(path.sep)
+    .join('/');
+  if (opts.fitPath.includes('@') || rel.includes('@')) {
+    throw new Error(
+      'refusing: FIT path contains an account identifier (@); copy it to a neutral name first'
+    );
+  }
+
   // 3. Size cap, before reading.
   if (fs.statSync(resolvedFit).size > MAX_FIT_BYTES) {
     throw new Error(`FIT file too large (> ${MAX_FIT_BYTES} bytes): ${opts.fitPath}`);
@@ -226,17 +241,19 @@ export async function importFit(opts: FitImportOptions): Promise<FitImportResult
     throw new Error(`id collision: ${id} already exists in ${opts.activitiesDir}`);
   }
 
-  // Build everything before writing.
-  const rel = path
-    .relative(sourceRoot, resolvedFit)
-    .split(path.sep)
-    .join('/');
+  // Build everything before writing. external_id is derived from the id, never
+  // from the source filename (CR-01); `original` stays the `<source>:<rel>`
+  // locator that backfill-streams resolves, already refused above if it holds '@'.
   const original = `${opts.source}:${rel}`;
+  const externalId = `${id}${resolvedFit.endsWith('.gz') ? '.fit.gz' : '.fit'}`;
+  if (original.includes('@') || externalId.includes('@')) {
+    throw new Error('refusing: derived public field contains an account identifier (@)');
+  }
   const activity = fitSessionToActivity(messages, {
     garminId: id,
     name: opts.name,
     original,
-    externalId: path.basename(opts.fitPath),
+    externalId,
   });
 
   const samples = fitRecordsToSamples(messages.recordMesgs ?? []);
