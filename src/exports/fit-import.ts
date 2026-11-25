@@ -193,7 +193,12 @@ export async function importFit(opts: FitImportOptions): Promise<FitImportResult
   const decoder = new Decoder(Stream.fromBuffer(buf));
   if (!decoder.isFIT()) throw new Error(`not a FIT file: ${opts.fitPath}`);
   if (!decoder.checkIntegrity()) throw new Error(`FIT integrity check failed: ${opts.fitPath}`);
-  const { messages: rawMessages } = decoder.read();
+  const { messages: rawMessages, errors } = decoder.read();
+  // A file can pass the CRC yet hold undecodable records; importing what did
+  // decode would be a partial activity (36.1 WR-09). Fail closed.
+  if (Array.isArray(errors) && errors.length > 0) {
+    throw new Error(`FIT decode errors (${errors.length}): ${String(errors[0])}: ${opts.fitPath}`);
+  }
   const messages = rawMessages as unknown as DecodedMessages;
 
   // 6-8. Session checks.

@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { gzipSync } from 'node:zlib';
 
-import { Decoder, Encoder, Profile, Stream } from '@garmin/fitsdk';
+import { CrcCalculator, Decoder, Encoder, Profile, Stream } from '@garmin/fitsdk';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { FileStore } from '../storage/file-store.js';
@@ -93,6 +93,25 @@ function buildFit(o: BuildOpts = {}): Buffer {
       Math.floor(ts.getTime() / 1000) - FIT_EPOCH_OFFSET_S + (o.localOffsetS ?? 3600),
   });
   return Buffer.from(enc.close());
+}
+
+/**
+ * Append a data record for a never-defined local message type, then rewrite
+ * the header data size and both CRCs: the result passes isFIT() and
+ * checkIntegrity() but Decoder.read() reports an error (WR-09).
+ */
+function withDecodeError(buf: Buffer): Buffer {
+  const headerSize = buf[0];
+  const dataSize = buf.readUInt32LE(4);
+  const data = buf.subarray(headerSize, headerSize + dataSize);
+  const newData = Buffer.concat([data, Buffer.from([0x0f, 0, 0, 0, 0])]);
+  const header = Buffer.from(buf.subarray(0, headerSize));
+  header.writeUInt32LE(newData.length, 4);
+  if (headerSize >= 14) header.writeUInt16LE(CrcCalculator.calculateCRC(header, 0, 12), 12);
+  const body = Buffer.concat([header, newData]);
+  const crc = Buffer.alloc(2);
+  crc.writeUInt16LE(CrcCalculator.calculateCRC(body, 0, body.length), 0);
+  return Buffer.concat([body, crc]);
 }
 
 let tmp: string;
@@ -335,6 +354,21 @@ describe('importFit', () => {
     fs.closeSync(fd);
     await expect(run(big)).rejects.toThrow(/too large/);
 
+    expect(counts()).toEqual({ activities: 0, streams: 0, provenance: 0 });
+  });
+
+  it('refuses a FIT that passes the CRC but has decode errors (WR-09)', async () => {
+    const bad = withDecodeError(buildFit());
+    // Independent check that the planted file really is CRC-valid with a
+    // decodable session: only the errors array distinguishes it.
+    const d = new Decoder(Stream.fromBuffer(bad));
+    expect(d.isFIT()).toBe(true);
+    expect(d.checkIntegrity()).toBe(true);
+    const decoded = d.read();
+    expect(decoded.errors.length).toBeGreaterThan(0);
+    expect((decoded.messages.sessionMesgs as unknown[]).length).toBe(1);
+
+    await expect(run(place('x.fit', bad))).rejects.toThrow(/FIT decode errors/);
     expect(counts()).toEqual({ activities: 0, streams: 0, provenance: 0 });
   });
 

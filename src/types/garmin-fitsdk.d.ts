@@ -28,4 +28,7 @@ declare module '@garmin/fitsdk' {
     close(): Uint8Array;
   }
   export const Profile: { MesgNum: Record<string, number> };
+  export const CrcCalculator: {
+    calculateCRC(buf: Uint8Array, start: number, end: number): number;
+  };
 }
