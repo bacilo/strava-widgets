@@ -1264,7 +1264,7 @@ describe('computeDashboardIndex — archive orchestration', () => {
      * coveredM=1600, coveredSec=500, excludedM=60, excludedSec=2 (hand,
      * per the docblock above) → runningPaceSecPerKm = 500/(1600/1000) =
      * 312.5. ratio = 312.5/296 ≈ 1.0557, clears
-     * `PACE_DISAGREEMENT_RUNNING_RATIO` (1.0173) — this fixture IS flagged.
+     * `PACE_DISAGREEMENT_RUNNING_RATIO` (1.0171) — this fixture IS flagged.
      */
     function makeFlaggedStream(): CanonicalStream {
       return buildRunningPaceFixtureStream({ pairDtSec: 10, pairDdM: 32, pairCount: 25 });
@@ -1273,7 +1273,7 @@ describe('computeDashboardIndex — archive orchestration', () => {
     /**
      * coveredM=1500, coveredSec=450, excludedM=60, excludedSec=2 (hand) →
      * runningPaceSecPerKm = 450/(1500/1000) = 300.0. ratio = 300/296 ≈
-     * 1.0135, does NOT clear 1.0173 — this fixture is eligible (excludedM >
+     * 1.0135, does NOT clear 1.0171 — this fixture is eligible (excludedM >
      * 0, D-02's gate) but NOT flagged. The mirror of `makeFlaggedStream`,
      * proving reachability fails in the correct direction too, not just the
      * accept direction.
@@ -1612,20 +1612,11 @@ describe('pace disagreement', () => {
 
     const expectedCount = await parsedArchiveWideFlaggedCount();
 
-    // Phase 36 gap closure (`.planning/debug/36-recount-isolated-jump.md`, bucket Q; detector fix
-    // in `unreliable-segments.ts`'s `extendThroughTrailingStall`): 35-CALIBRATION.md's parsed count
-    // (125) was rendered against the PRE-fix detector, which false-flagged a quantized-stream
-    // catch-up lump immediately followed by a stall as `isolated-jump` on these two activities —
-    // excluding real covered distance from `deriveRunningPace`'s denominator and pushing their
-    // derived running pace far enough from metadata pace to clear `PACE_DISAGREEMENT_RUNNING_RATIO`.
-    // Post-fix, both windows are correctly recognised as reliable, their running pace moves back
-    // into agreement, and they stop being flagged — a diagnosed, one-time, EXPLAINED two-activity
-    // delta, not comparator drift and not a real regression. Verified: re-running the full sweep
-    // against the pre-fix detector (git-committed `unreliable-segments.ts` as of `f5e72aa8`)
-    // reproduces 35-CALIBRATION.md's 125 exactly, and the only set difference between the two runs
-    // is these two ids. `35-CALIBRATION.md` itself (and the `PACE_DISAGREEMENT_RUNNING_RATIO`
-    // constant it calibrates) is NOT regenerated here — re-deriving that archive-wide ratio
-    // statistic is a separate, heavier recalibration decision, out of this gap-closure's scope.
+    // Phase 36 gap closure (`.planning/debug/36-recount-isolated-jump.md`): the detector fix in
+    // `unreliable-segments.ts`'s `extendThroughTrailingStall` stopped these two activities being
+    // flagged. 35-CALIBRATION.md was re-derived on 2026-11-25 (quick 261125-cvq) against the
+    // post-fix detector, so its parsed count already reflects that and NO subtraction applies. The
+    // two ids are still asserted unflagged below as an independent check.
     const PHASE_36_GAP_CLOSURE_NO_LONGER_FLAGGED = ['14675028146', '4598855187'];
     for (const id of PHASE_36_GAP_CLOSURE_NO_LONGER_FLAGGED) {
       expect(
@@ -1639,13 +1630,13 @@ describe('pace disagreement', () => {
     expect(
       flagged.length,
       `flagged.length (${flagged.length}) !== 35-CALIBRATION.md's parsed archive-wide count ` +
-        `(${expectedCount}) minus the ${PHASE_36_GAP_CLOSURE_NO_LONGER_FLAGGED.length} diagnosed ` +
-        'Phase 36 gap-closure exceptions above. A further mismatch most likely means the nightly ' +
+        `(${expectedCount}). ` +
+        'A mismatch most likely means the nightly ' +
         "archive moved since 35-CALIBRATION.md was rendered — re-run 35-07's generator (idempotent, " +
         'content-addressed to `rev-parse HEAD:data/streams`) and recommit the artifact. A mismatch ' +
         'of tens means the comparator has diverged from the calibration — the failure this row ' +
         'exists to catch. Never widen or soften this assertion to make it pass.'
-    ).toBe(expectedCount - PHASE_36_GAP_CLOSURE_NO_LONGER_FLAGGED.length);
+    ).toBe(expectedCount);
     // Reads and derives pace over the whole ~1,890-activity archive, which lands
     // just under vitest's 5s default and fails intermittently on a busy machine.
     // The budget is generous on purpose — this guards the assertions above, not

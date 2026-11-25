@@ -1064,13 +1064,13 @@ export function paceHistogramAccounting(
 /**
  * The one calibrated constant RPACE-03 ships (D-01/D-07). Measures: the 95th
  * percentile of `runningPaceSecPerKm / metadataPaceSecPerKm` over control
- * population C (`excludedM === 0`, N=377) — every member of C provably has
+ * population C (`excludedM === 0`, N=382) — every member of C provably has
  * zero distance withheld off the clock and zero time withheld, so a cut
  * derived from C cannot be circular with respect to the eligible population.
  *
  * Provenance (verbatim from `.planning/phases/35-stream-derived-running-pace/
  * 35-CALIBRATION.md` § Chosen constants): "PACE_DISAGREEMENT_RUNNING_RATIO
- * provenance: calibrated (shape C3, base population C, N=377)". Basis gate:
+ * provenance: calibrated (shape C3, base population C, N=382)". Basis gate:
  * PASS — 3475724402 is eligible and its ratio (1.0731) exceeds this cut.
  *
  * Standing rule: this constant is NEVER tuned toward a badged count. Any
@@ -1078,6 +1078,8 @@ export function paceHistogramAccounting(
  * against the full seven-shape pre-declaration and regenerates
  * `35-CALIBRATION.md`; the value here is copied from that artifact's own
  * "## Chosen constants" line, never hand-edited.
+ * Re-derived 2026-11-25 (quick 261125-cvq) against the post-Phase-36 detector
+ * and the synced archive: 1.0173 (N=377) -> 1.0171 (N=382).
  *
  * Amended 2026-09-24 (35-CONTEXT.md D-01/D-02/D-07): this constant replaces
  * two retired constants — both removed by this same task, their identifiers
@@ -1095,7 +1097,7 @@ export function paceHistogramAccounting(
  * pace (not the retired span-based per-activity pace this same task deletes)
  * under D-02's zero-free-parameter eligibility gate.
  */
-export const PACE_DISAGREEMENT_RUNNING_RATIO = 1.0173;
+export const PACE_DISAGREEMENT_RUNNING_RATIO = 1.0171;
 
 /** The result of a material metadata-vs-running-pace disagreement (RPACE-03, D-01). */
 export interface PaceDisagreementResult {

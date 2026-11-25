@@ -83,13 +83,13 @@ The planner has seen 35-CONTEXT.md's probe percentiles over the full computable 
 
 ## Strawmen watched failing
 
-Base population: E (N=1291), statistic: delta, cut=-96.2006
+Base population: E (N=1322), statistic: delta, cut=-96.2006
 
 | Axis | Detail | Status |
 |---|---|---|
-| Axis A — judged-contribution removal | badgedCount=1290 baseCut=-96.2006 removedCut=— movement=— | failed |
-| Axis B — proportional planting | baseItems=1291 plantsEntered=13 plantedItems=1304 baseCut=-96.2006 plantedCut=21.6440 movement=122.4988% | failed |
-| Axis C — base-tail removal | membersRemoved=13 baseItems=1291 trimmedItems=1278 baseCut=-96.2006 trimmedCut=21.6416 movement=122.4963% | failed |
+| Axis A — judged-contribution removal | badgedCount=1321 baseCut=-96.2006 removedCut=— movement=— | failed |
+| Axis B — proportional planting | baseItems=1322 plantsEntered=14 plantedItems=1336 baseCut=-96.2006 plantedCut=21.6440 movement=122.4988% | failed |
+| Axis C — base-tail removal | membersRemoved=14 baseItems=1322 trimmedItems=1308 baseCut=-96.2006 trimmedCut=18.5553 movement=119.2882% | failed |
 
 shapeClears: false
 
@@ -99,85 +99,85 @@ shapeClears: false
 
 ### S0
 
-Base population: E (N=1291), statistic: delta, cut=-96.2006
+Base population: E (N=1322), statistic: delta, cut=-96.2006
 
 | Axis | Detail | Status |
 |---|---|---|
-| Axis A — judged-contribution removal | badgedCount=1290 baseCut=-96.2006 removedCut=— movement=— | failed |
-| Axis B — proportional planting | baseItems=1291 plantsEntered=13 plantedItems=1304 baseCut=-96.2006 plantedCut=21.6440 movement=122.4988% | failed |
-| Axis C — base-tail removal | membersRemoved=13 baseItems=1291 trimmedItems=1278 baseCut=-96.2006 trimmedCut=21.6416 movement=122.4963% | failed |
+| Axis A — judged-contribution removal | badgedCount=1321 baseCut=-96.2006 removedCut=— movement=— | failed |
+| Axis B — proportional planting | baseItems=1322 plantsEntered=14 plantedItems=1336 baseCut=-96.2006 plantedCut=21.6440 movement=122.4988% | failed |
+| Axis C — base-tail removal | membersRemoved=14 baseItems=1322 trimmedItems=1308 baseCut=-96.2006 trimmedCut=18.5553 movement=119.2882% | failed |
 
 shapeClears: false
 
 ### C1
 
-Base population: C (N=377), statistic: delta, cut=7.3259
+Base population: C (N=382), statistic: delta, cut=7.2738
 
 | Axis | Detail | Status |
 |---|---|---|
 | Axis A — judged-contribution removal | not applicable -- base population is disjoint from the badged population by construction | structural (0 by construction) |
-| Axis B — proportional planting | baseItems=377 plantsEntered=4 plantedItems=381 baseCut=7.3259 plantedCut=8.1486 movement=11.2293% | failed |
-| Axis C — base-tail removal | membersRemoved=4 baseItems=377 trimmedItems=373 baseCut=7.3259 trimmedCut=6.1500 movement=16.0523% | failed |
+| Axis B — proportional planting | baseItems=382 plantsEntered=4 plantedItems=386 baseCut=7.2738 plantedCut=7.9944 movement=9.9059% | failed |
+| Axis C — base-tail removal | membersRemoved=4 baseItems=382 trimmedItems=378 baseCut=7.2738 trimmedCut=6.0942 movement=16.2177% | failed |
 
 shapeClears: false
 
 ### C3
 
-Base population: C (N=377), statistic: ratio, cut=1.0173
+Base population: C (N=382), statistic: ratio, cut=1.0171
 
 | Axis | Detail | Status |
 |---|---|---|
 | Axis A — judged-contribution removal | not applicable -- base population is disjoint from the badged population by construction | structural (0 by construction) |
-| Axis B — proportional planting | baseItems=377 plantsEntered=4 plantedItems=381 baseCut=1.0173 plantedCut=1.0214 movement=0.4077% | cleared |
-| Axis C — base-tail removal | membersRemoved=4 baseItems=377 trimmedItems=373 baseCut=1.0173 trimmedCut=1.0157 movement=0.1587% | cleared |
+| Axis B — proportional planting | baseItems=382 plantsEntered=4 plantedItems=386 baseCut=1.0171 plantedCut=1.0210 movement=0.3836% | cleared |
+| Axis C — base-tail removal | membersRemoved=4 baseItems=382 trimmedItems=378 baseCut=1.0171 trimmedCut=1.0156 movement=0.1417% | cleared |
 
 shapeClears: true
 
 ### C2
 
-Base population: C (N=377), statistic: delta, cut=13.7942
+Base population: C (N=382), statistic: delta, cut=13.7721
 
 | Axis | Detail | Status |
 |---|---|---|
 | Axis A — judged-contribution removal | not applicable -- base population is disjoint from the badged population by construction | structural (0 by construction) |
-| Axis B — proportional planting | baseItems=377 plantsEntered=4 plantedItems=381 baseCut=13.7942 plantedCut=53.2845 movement=286.2809% | failed |
-| Axis C — base-tail removal | membersRemoved=4 baseItems=377 trimmedItems=373 baseCut=13.7942 trimmedCut=11.1555 movement=19.1294% | failed |
+| Axis B — proportional planting | baseItems=382 plantsEntered=4 plantedItems=386 baseCut=13.7721 plantedCut=53.2845 movement=286.9006% | failed |
+| Axis C — base-tail removal | membersRemoved=4 baseItems=382 trimmedItems=378 baseCut=13.7721 trimmedCut=11.1507 movement=19.0345% | failed |
 
 shapeClears: false
 
 ### C4
 
-Base population: C (N=377), statistic: ratio, cut=1.0333
+Base population: C (N=382), statistic: ratio, cut=1.0330
 
 | Axis | Detail | Status |
 |---|---|---|
 | Axis A — judged-contribution removal | not applicable -- base population is disjoint from the badged population by construction | structural (0 by construction) |
-| Axis B — proportional planting | baseItems=377 plantsEntered=4 plantedItems=381 baseCut=1.0333 plantedCut=1.1092 movement=7.3428% | failed |
-| Axis C — base-tail removal | membersRemoved=4 baseItems=377 trimmedItems=373 baseCut=1.0333 trimmedCut=1.0247 movement=0.8355% | cleared |
+| Axis B — proportional planting | baseItems=382 plantsEntered=4 plantedItems=386 baseCut=1.0330 plantedCut=1.1092 movement=7.3745% | failed |
+| Axis C — base-tail removal | membersRemoved=4 baseItems=382 trimmedItems=378 baseCut=1.0330 trimmedCut=1.0247 movement=0.8086% | cleared |
 
 shapeClears: false
 
 ### B1
 
-Base population: B (N=575), statistic: delta, cut=7.4861
+Base population: B (N=598), statistic: delta, cut=7.4377
 
 | Axis | Detail | Status |
 |---|---|---|
 | Axis A — judged-contribution removal | not applicable -- base population is disjoint from the badged population by construction | structural (0 by construction) |
-| Axis B — proportional planting | baseItems=575 plantsEntered=6 plantedItems=581 baseCut=7.4861 plantedCut=8.5824 movement=14.6452% | failed |
-| Axis C — base-tail removal | membersRemoved=6 baseItems=575 trimmedItems=569 baseCut=7.4861 trimmedCut=6.1946 movement=17.2518% | failed |
+| Axis B — proportional planting | baseItems=598 plantsEntered=6 plantedItems=604 baseCut=7.4377 plantedCut=8.4313 movement=13.3587% | failed |
+| Axis C — base-tail removal | membersRemoved=6 baseItems=598 trimmedItems=592 baseCut=7.4377 trimmedCut=5.7569 movement=22.5978% | failed |
 
 shapeClears: false
 
 ### B2
 
-Base population: B (N=575), statistic: ratio, cut=1.0186
+Base population: B (N=598), statistic: ratio, cut=1.0180
 
 | Axis | Detail | Status |
 |---|---|---|
 | Axis A — judged-contribution removal | not applicable -- base population is disjoint from the badged population by construction | structural (0 by construction) |
-| Axis B — proportional planting | baseItems=575 plantsEntered=6 plantedItems=581 baseCut=1.0186 plantedCut=1.0227 movement=0.4093% | cleared |
-| Axis C — base-tail removal | membersRemoved=6 baseItems=575 trimmedItems=569 baseCut=1.0186 trimmedCut=1.0158 movement=0.2668% | cleared |
+| Axis B — proportional planting | baseItems=598 plantsEntered=6 plantedItems=604 baseCut=1.0180 plantedCut=1.0223 movement=0.4267% | cleared |
+| Axis C — base-tail removal | membersRemoved=6 baseItems=598 trimmedItems=592 baseCut=1.0180 trimmedCut=1.0157 movement=0.2302% | cleared |
 
 shapeClears: true
 
@@ -185,18 +185,18 @@ Selected: C3
 
 ## Chosen constants
 
-PACE_DISAGREEMENT_RUNNING_RATIO = 1.0173
-PACE_DISAGREEMENT_RUNNING_RATIO provenance: calibrated (shape C3, base population C, N=377)
+PACE_DISAGREEMENT_RUNNING_RATIO = 1.0171
+PACE_DISAGREEMENT_RUNNING_RATIO provenance: calibrated (shape C3, base population C, N=382)
 
 ## Gates
 
 | Gate | Measured | Status |
 |---|---|---|
-| Basis gate (3475724402 badged under eligibility + slower-only direction) | eligible=true targetValue=1.0731 cut=1.0173 | PASS |
+| Basis gate (3475724402 badged under eligibility + slower-only direction) | eligible=true targetValue=1.0731 cut=1.0171 | PASS |
 
-Newly-disputed count under the chosen cut (population E): 125
+Newly-disputed count under the chosen cut (population E): 124
 Faster-side count at the mirror cut (D-06 finding, never badged): 15
-Gate-excluded population (excludedM === 0, D-02's eligibility gate excludes this set): n=575, own delta summary: q50=0.53 min=-4.16 max=212.80
+Gate-excluded population (excludedM === 0, D-02's eligibility gate excludes this set): n=598, own delta summary: q50=0.50 min=-4.16 max=212.80
 Non-computable (deriveRunningPace): 1 ({"stream has no covered distance or no covered time":1})
 
 | Named activity | found | eligible | delta | ratio | status |
@@ -208,7 +208,7 @@ Non-computable (deriveRunningPace): 1 ({"stream has no covered distance or no co
 
 ## Inputs
 
-- Streams scanned: 1874, parse errors: 0, missing metadata: 0
-- data/streams git tree (git rev-parse HEAD:data/streams): `dfdc7b352f0a138645ad54fe91b881afdb9bbd5f`
-- Newest activity start date: 2026-09-18T05:02:46Z
+- Streams scanned: 1929, parse errors: 0, missing metadata: 0
+- data/streams git tree (git rev-parse HEAD:data/streams): `423cdc2bafc3dd0f0927e0e070cf0bdeb2bfe0e7`
+- Newest activity start date: 2026-11-24T06:34:17Z
 - Regenerate: `npm run compute-running-pace-dispute-calibration`
