@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generated_at": "2026-09-18T09:16:36.327Z",
+  "generated_at": "2026-11-25T08:20:30.175Z",
   "note": "Stream availability index for data/streams/. Written by both backfill-streams and the daily intervals.icu sync. available:false means no data/streams/<id>.json exists for that activity.",
   "totals": {
-    "activities": 1899,
-    "with_streams": 1874,
+    "activities": 1954,
+    "with_streams": 1929,
     "without_streams": 25,
     "by_reason": {
       "manual": 23,
@@ -24467,6 +24467,721 @@
       "source": "intervals",
       "distanceSource": "native",
       "sampleCount": 803,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i188439154": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1787,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i188740622": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 915,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i189082290": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 898,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i189585575": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1190,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i189805671": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1028,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i190137725": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 791,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i190790252": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1460,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i191091569": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 904,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i191558072": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1365,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i191786020": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1068,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i192121318": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1019,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i192494036": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 498,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i193326262": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1780,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i193897994": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1065,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i194138244": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1021,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i194564751": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1081,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i195076616": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1071,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i195309770": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 798,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i195675686": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1405,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i196358072": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 997,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i196867005": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1393,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i197529103": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1222,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i197847011": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1139,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i198553211": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1534,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i199118280": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1176,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i199345781": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1261,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i199841395": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1004,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i200271413": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 897,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i200610684": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 806,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i201442346": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1770,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i201791163": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1119,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i202196690": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1183,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i202827325": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1361,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i203032222": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1080,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i203939098": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 2165,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i204676056": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 861,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i205093703": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1010,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i205583703": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 865,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i206283195": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1217,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i206452459": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 929,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i207319071": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1940,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i207677530": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1063,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i207890562": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1144,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i208578848": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1313,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i209040460": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1217,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i211617588": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 865,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i211617594": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1213,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i211617604": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 803,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i211617608": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1112,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i211719792": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1109,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i211937973": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 895,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i212380786": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 905,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i213116409": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 518,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i213520731": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 893,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": true,
+        "cadence": true,
+        "elevation": true
+      }
+    },
+    "i213984455": {
+      "available": true,
+      "source": "intervals",
+      "distanceSource": "native",
+      "sampleCount": 1041,
       "channels": {
         "time": true,
         "distance": true,

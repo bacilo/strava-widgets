@@ -1,0 +1,25 @@
+{
+  "id": "i193897994",
+  "name": "Copenhagen Running",
+  "type": "Run",
+  "start_date": "2026-10-05T14:55:25Z",
+  "start_date_local": "2026-10-05T16:55:25",
+  "distance": 13407.7,
+  "moving_time": 4441,
+  "elapsed_time": 4721,
+  "total_elevation_gain": 38.603905,
+  "average_speed": 3.013,
+  "max_speed": 3.602,
+  "average_heartrate": 146,
+  "max_heartrate": 163,
+  "start_latlng": [
+    55.65874,
+    12.590689
+  ],
+  "map": {
+    "summary_polyline": "czurIybzkA?FDER]@NDPBdAALKr@CZ?JCVGb@?JI`@ANADAPCFMTSj@AJCTMj@Gn@K~@C\\@r@Rx@BLDx@?JGh@EPERO|@AHMt@Ef@@LHFZHPXGh@A~@D`A@HGf@G|@FXDNJ^Lb@Az@AhAARG~@Ip@GdAAREdA?F?HE`AIf@E\\G^Ib@Q|@ELK`AAFKbAARI|@Kv@Cb@Gd@K`AAFGbAEZI`AGdAAHARO~@Wv@EXS|@CD[b@WZSTKNGZHb@?f@Fd@\\VDBZ^DJTj@JTTd@BPENUp@GZQb@Sx@ILCBCFSr@ENUv@GLWv@AFWx@IVWv@GPOz@EDEHCJABADDj@B^ANAPDn@N^R\\JJ@N?FCDG^K`AENAFOx@AFOz@AFQ`AEZO|@EPMv@G\\Gd@E`A?HIPYDKDGFC@GLBNHT?F?FCFMP@CA??HGT[p@]h@]f@a@h@c@l@[`@Uz@ANFd@XtA@`@GZe@|A?D?Z?HCAE@GDCD?@AJADGJIRQVCDEF[h@MPc@b@MP[\\CDMTW`@a@j@SVMRIJu@|AADAFEv@I^Mh@Sf@CRK\\Ut@GRMt@FjA]h@Q\\K~@NnACVUXS^KXEZFh@Ft@Qh@U|@IdACLCFCFIV?JBb@HTJp@Ej@E`AIZEJMd@Ux@Op@?dADFA`@CHCP?DCH????GT?d@Ih@ENCHAFCFIt@BHAhAM~@?H?HDh@L|@BV?JCl@G`@@x@@|@Ch@Cr@Ox@Ud@Ad@?JAF?FEz@EVo@v@?@Cr@AHKl@CNQ~@Kp@AJG\\G`@AHKp@Kv@Ov@CPARCXOx@Ox@AFOx@ALI`ACNSl@YTCC[KIFCAUEE@]Ac@\\EB_@N[HCAU?CBMTEJCDGNCJEb@AJEx@AVAJAdAGf@?HCPG`AC`AAFCf@EbAEd@Ir@A`@ARARGz@AN?HAd@AD?F@z@?d@Il@M~@?HFfABZCl@Gn@At@AZA~@A\\GfAA\\CdAAHAPGd@An@?PGt@AVCb@Er@CbAAZ?HCfA?JCr@AF?dA?DGz@CPCr@Cb@Ch@AZA`@AN?NAT?R?V?h@AZAVAh@AN?bA?FGv@AFGv@Gz@E~@Eb@EVGl@I~@AbA?RCd@Cd@CZEt@?RIt@Ax@Eb@Ad@Af@AZG`ACR?HEx@AZAf@AHCFARAz@?HGv@?HI~@BT@VA~@AF?H@p@?R@`A@F?H@\\?HC|@C|@A^Ar@A\\AjAAp@An@Bd@@P@f@CTEdAAP?b@?l@@fAAd@?~@Ej@C`AAHCdA?H?H?HE`A?H?dAAZ@bA?\\@`A?\\C`A?F?FAdA?\\@dA?\\?ZDr@CbAB^?JCbAIbA?P?H?l@Aj@?d@AVE^Fz@@RHhA@LBLB`A?H?hA?XBbA?HK~@Cb@IfAC\\CbA?HC`AAP@`ACbA?DAfA?H?bAAR?RAz@AdAAH?dA?bA?T?R?n@ARC~@?VAp@AfA?HAhA?Z?fA?^?JAbA@^E`A@l@@JEt@Ax@An@?~@E~@?FA~@?p@?bA?RAz@?RC\\?dA@^@~@A\\?|@Ah@A`@@r@?JSxBAN?RBx@Hx@A\\@d@@^AZAx@?bAAv@?bA?HA`AAHAbA@x@AZ?x@@bA?HAX@p@?dAAz@AZA\\E`A?HG`AAFCDO^IV?DHRL~@L~@@R@~@A~@AZAd@@~@?\\?`A?R?dA?|@?bAAdA?dA?PA`AAJC~@?R?dA?PA`A?FIt@Qz@Ov@Uf@Yd@U\\a@Vc@TKDc@TEB_@d@IJ_@b@EB_@Vg@JE?]@a@Bg@Ji@DE@g@@g@BE?a@Nc@Ra@X_@XSNIDEB_@JKFSDe@@K?[FKDa@\\IJ_@b@MN[b@Y^UZ]j@KN]n@QZ]Z]Pe@X[Tc@XIDc@\\YNYNYJQR?DAVCBKDO?g@AE?e@?I?e@DC?UL_@l@Y`@_@j@GJ[\\e@Va@Ve@TIF_@J_@Fa@NYHE?c@FE@g@TI@i@Hg@@E?a@B[Ac@BYJc@HKDe@RE?]Di@?KCg@HED[@c@De@HC?a@Fe@Ng@Jg@BC?WPg@Fc@Le@FC@i@NQDUFI@a@Hg@De@@C@e@DE?UR?FDRDh@?NBVFdA@D?p@AX?r@?FBdA?FB`A?FCf@Uj@UTYJE@G@QFMBc@NODe@ROHc@Vc@Ta@Pe@Re@P_@Pc@Z_@Xi@\\[J[?e@Lc@NMF[F]LIBOD_@Le@NCBe@TOFc@TC@e@\\YV]Rc@^E@a@ZID[TWTc@\\[f@WRc@\\IJa@\\MLSVQ\\]N]Xa@\\c@JWRc@Ta@\\ID[NOZY\\YTc@\\KDYRMNc@ZE?[Z]`@KJ[^SRYVa@\\MJc@\\GFUT]b@CFc@b@GF_@\\QLKFc@Z]R_@`@ABMLo@t@C@E@[L]\\YEc@KGBg@Vc@VC?]T_@FYJc@JI@a@PKDYLE?CAc@L]`@CBc@JQCa@A]CG?e@?G?c@ME@c@Bg@@C?YAS@]^Gn@@`@@bAF~@?HEn@a@Xc@JKDCBe@HQDKBa@NYLe@DE?E?c@LADAN?HBt@AXAPEf@APA\\Ej@AXCh@Ex@Cv@?FGl@ETITKXCDU^KLMLC@IFIHW`@[^WX]f@EFYj@EPY^a@b@CBQLYp@EPGBODM?UQc@QCAO@IDc@Ae@Oe@MIBc@Fc@OEA_@Qc@QMIYMMICA_@a@c@a@CE_@_@e@Qe@E_@Ga@?c@?E?]FOFWHa@JUDMFg@NSLe@NC@e@NQHc@NEBa@Nc@Le@RMFSTADDj@Hd@BXFj@J|@@H?bA@FHt@Cj@CDYPMb@AB"
+  },
+  "source_provider": "intervals",
+  "source_raw_id": "i193897994",
+  "strava_id": null
+}
