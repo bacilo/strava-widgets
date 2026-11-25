@@ -338,6 +338,14 @@ describe('importFit', () => {
     expect(counts()).toEqual({ activities: 0, streams: 0, provenance: 0 });
   });
 
+  it('refuses a small .fit.gz that inflates past MAX_FIT_BYTES (WR-08)', async () => {
+    const bomb = gzipSync(Buffer.alloc(MAX_FIT_BYTES + 1));
+    expect(bomb.length).toBeLessThan(MAX_FIT_BYTES); // the compressed-size check alone passes it
+    await expect(run(place('bomb.fit.gz', bomb))).rejects.toThrow(/too large.*decompressed/);
+    await expect(run(place('junk.fit.gz', Buffer.from('not gzip')))).rejects.toThrow(/could not decompress/);
+    expect(counts()).toEqual({ activities: 0, streams: 0, provenance: 0 });
+  });
+
   it('refuses a path outside <exportRoot>/<source>/', async () => {
     const outside = path.join(tmp, 'elsewhere.fit');
     fs.writeFileSync(outside, buildFit());

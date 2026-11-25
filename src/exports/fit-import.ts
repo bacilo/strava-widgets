@@ -175,7 +175,19 @@ export async function importFit(opts: FitImportOptions): Promise<FitImportResult
 
   // 4-5. Read and decode.
   let buf: Buffer = fs.readFileSync(resolvedFit);
-  if (resolvedFit.endsWith('.gz')) buf = gunzipSync(buf);
+  if (resolvedFit.endsWith('.gz')) {
+    // The size check above bounds only the compressed bytes; cap the inflated
+    // output too, or a small .fit.gz can exhaust memory (36.1 WR-08).
+    try {
+      buf = gunzipSync(buf, { maxOutputLength: MAX_FIT_BYTES });
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'ERR_BUFFER_TOO_LARGE' || /maxOutputLength|buffer too large/i.test((error as Error).message)) {
+        throw new Error(`FIT file too large (> ${MAX_FIT_BYTES} bytes once decompressed): ${opts.fitPath}`);
+      }
+      throw new Error(`could not decompress ${opts.fitPath}: ${(error as Error).message}`);
+    }
+  }
 
   const { Decoder, Stream } = await import('@garmin/fitsdk');
   const decoder = new Decoder(Stream.fromBuffer(buf));
