@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
-status: ready_to_plan
-stopped_at: Phase 36.1 complete (9/9) — ready to discuss Phase 37
-last_updated: 2026-11-25T13:00:50.907Z
+status: planning
+stopped_at: Phase 37 context gathered
+last_updated: "2026-11-25T13:51:13.611Z"
 last_activity: 2026-11-25
 progress:
   total_phases: 7
@@ -349,9 +349,9 @@ It is named here because PROJECT.md's Evolution entry still describes it as open
 
 ## Session Continuity
 
-Last session: 2026-11-25T12:27:48.094Z
-Stopped at: Completed 36.1-09-PLAN.md (all 9 plans executed; verification pending)
-Resume file: None
+Last session: 2026-11-25T13:51:13.588Z
+Stopped at: Phase 37 context gathered
+Resume file: .planning/phases/37-review-queue-priority-cur-04/37-CONTEXT.md
 
 ---
 *Last updated: 2026-08-11 — Phase 17 (activity-browser-detail-views) all 15 planned plans executed and summarized; human checkpoint on plan 17-15 came back PARTIAL — 8/10 Manual-Only Verifications rows confirmed clean, GAP 1 (DETAIL-02, route-map basemap tiles absent) and GAP 2 (DETAIL-03/04, chart band x-axis misalignment) have open gaps pending gap-closure planning (`/gsd-plan-phase 17 --gaps`) before the phase gate closes*
