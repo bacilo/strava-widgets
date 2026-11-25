@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
-status: ready_to_plan
-stopped_at: Phase 36 complete (20/20) — ready to discuss Phase 37
-last_updated: 2026-11-25T08:04:37.542Z
-last_activity: 2026-11-25 -- Phase 36 complete (gap-closure round 2 verified passed)
+status: planning
+stopped_at: Phase 36.1 (Ingestion Integrity) inserted — ready to plan
+last_updated: "2026-11-25T08:59:46.952Z"
+last_activity: "2026-11-25 - Completed quick task 261125-cvq: unblock the nightly deploy (55 intervals.icu runs synced, pace-disagreement ratio recalibrated, clean-clone CI green; pushed 7ed30c1e; CI run 45576545685 deployed)"
 progress:
-  total_phases: 6
+  total_phases: 7
   completed_phases: 5
   total_plans: 80
   completed_plans: 80
-  percent: 83
+  percent: 71
 ---
 
 # Project State
@@ -46,9 +46,9 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 ## Current Position
 
-Phase: 37
+Phase: 36.1 (ingestion-integrity, INSERTED) — not planned
 Plan: Not started
-Status: Ready to plan
+Status: Ready to plan — next: /gsd-plan-phase 36.1 (Phase 37 follows)
 
 Phase 36 planned (2026-09-28): 14 plans in 9 waves, committed `ebe0245c`. Research `4a61a19b`,
 validation/pattern artifacts `e9a16e61`. Plan-checker returned VERIFICATION PASSED — 0 blockers,
@@ -80,7 +80,7 @@ Carried into execution:
 `.planning/phases/34-pause-classification-forgotten-stop/34-{01..16}-SUMMARY.md` and git history.
 Phases 34 and 35 are both closed in ROADMAP.md.)*
 
-Last activity: 2026-11-25 - Completed quick task 261125-cvq: unblock the nightly deploy (55 intervals.icu runs synced, pace-disagreement ratio recalibrated, clean-clone CI green; push pending)
+Last activity: 2026-11-25 - Completed quick task 261125-cvq: unblock the nightly deploy (55 intervals.icu runs synced, pace-disagreement ratio recalibrated, clean-clone CI green; pushed 7ed30c1e, CI run 45576545685 green and deployed 1,954 activities); Phase 36.1 Ingestion Integrity inserted
 
 ## Performance Metrics
 
@@ -152,6 +152,7 @@ Last activity: 2026-11-25 - Completed quick task 261125-cvq: unblock the nightly
 ### Roadmap Evolution
 
 - Phase 31 added (2026-09-19): Tech-Debt Closure — Silent-Failure Guards & Docs Reconciliation. Source: `v2.2-MILESTONE-AUDIT.md` (option B chosen over completing with the debt). Scope seeded in ROADMAP § Phase 31; out-of-scope items recorded there so they are not re-litigated.
+- Phase 36.1 inserted after Phase 36: Ingestion Integrity: archive-pinned assertions must not block the nightly commit/deploy (61 runs of fetched data discarded 2026-09-19..11-24); export-vs-archive reconciliation + FIT backfill for runs intervals.icu dropped (Garmin 18180779941 2026-04-20, 2026-11-18 AM) (URGENT)
 
 ### Decisions
 
@@ -281,7 +282,7 @@ Previously resolved — SQLITE_CANTOPEN CI failure resolved by quick-1-01 (lazy 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 1 | Fix Daily Widget Refresh GitHub Actions workflow error | 2026-02-18 | 0f1d761 | [1-fix-daily-widget-refresh-github-actions-](./quick/1-fix-daily-widget-refresh-github-actions-/) |
-| 261125-cvq | Unblock the nightly deploy: sync 55 intervals.icu runs (CI had discarded them nightly since 2026-09-19 — test gate red on origin), recalibrate PACE_DISAGREEMENT_RUNNING_RATIO 1.0173→1.0171 (0 badge flips), clean-clone CI green; push pending | 2026-11-25 | c6241d9d | [261125-cvq-unblock-the-nightly-deploy-sync-new-inte](./quick/261125-cvq-unblock-the-nightly-deploy-sync-new-inte/) |
+| 261125-cvq | Unblock the nightly deploy: sync 55 intervals.icu runs (CI had discarded them nightly since 2026-09-19 — test gate red on origin), recalibrate PACE_DISAGREEMENT_RUNNING_RATIO 1.0173→1.0171 (0 badge flips), clean-clone CI green; pushed 7ed30c1e, deploy green | 2026-11-25 | c6241d9d | [261125-cvq-unblock-the-nightly-deploy-sync-new-inte](./quick/261125-cvq-unblock-the-nightly-deploy-sync-new-inte/) |
 
 ## Deferred Items
 

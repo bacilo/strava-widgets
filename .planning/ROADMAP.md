@@ -111,6 +111,7 @@ context, measured facts and decisions in `PROJECT.md` § Current Milestone; requ
 - [x] **Phase 34: Pause Classification & Forgotten-Stop** - Every gap/merged segment classified stationary/walked/transported; sustained near-zero speed inside recorded time flagged, never corrected (completed 2026-09-23)
 - [x] **Phase 35: Stream-Derived Running Pace** - A stream-derived running pace (unreliable segments and gaps excluded) shown beside metadata pace; "Pace disputed" extended to fire on material disagreement (completed 2026-09-28)
 - [x] **Phase 36: Best-Effort Clean-Window Search & Ceiling Recalibration** - Efforts spanning an unreliable segment are demoted-and-kept while the search continues in clean sub-intervals; ceiling recalibrated on the excluded population; both diffs signed (completed 2026-11-25)
+- [ ] **Phase 36.1: Ingestion Integrity** (INSERTED) - Runs can no longer be lost silently: archive-pinned assertions stop blocking the nightly data commit/deploy, and an export-vs-archive reconciliation imports runs intervals.icu never received
 - [ ] **Phase 37: Review-Queue Priority & CUR-04** - Queue reordered by pause class and guard-moved efforts; a reversible "reviewed and kept" action distinct from exclude
 
 ## Phase Details
@@ -458,6 +459,21 @@ Plans:
 
 **UI hint**: yes
 
+### Phase 36.1: Ingestion Integrity (INSERTED)
+
+**Goal**: No run is lost silently between the watch and the published site. A nightly run that adds activities can no longer be blocked from committing and deploying by an assertion pinned to an archive count, and runs intervals.icu never received are detected from an independent export, imported from their original file, and surfaced instead of discovered months later by eye.
+**Depends on**: Phase 36
+**Requirements**: ING-01, ING-02, ING-03, ING-04
+**Why urgent (2026-11-25)**: 61 consecutive nightly runs (2026-09-19 to 2026-11-24) fetched new runs successfully and then discarded them, because a blocking test failed before the commit step (quick task 261125-cvq). Separately, intervals.icu has been shown to drop Garmin activities that Garmin delivered to Strava: Garmin 18180779941 (2026-04-20, since recovered via the Strava export, so present in the archive) and the 2026-11-18 morning run (still absent).
+**Success Criteria** (what must be TRUE):
+
+  1. A nightly run whose newly fetched activities move an archive-pinned assertion still commits the fetched data and deploys; the archive-pinned assertions still run and their failure is reported visibly, shown with a planted count drift (red/reported, deploy proceeds) and with a genuine logic regression (deploy blocked).
+  2. A Garmin bulk export placed in `export_data/garmin/` is reconciled against the archive: every run in the export and missing from the archive is listed by date and Garmin activity id, and, given an export covering 2026-11-18, the list is shown to contain the 2026-11-18 morning run; given an export covering 2026-04-20, it is shown NOT to list 18180779941, which the archive already holds via the Strava export.
+  3. A missing run can be imported from its original FIT file without intervals.icu, landing in `data/activities/` and `data/streams/` with provenance recorded and deduplicated by start time, so a later intervals.icu delivery of the same run does not create a duplicate.
+  4. The reconciliation result is written to a committed or published audit (count, ids, date of the export used), so a gap is visible without reading the archive, and the audit states the export's coverage window rather than implying completeness beyond it.
+
+**Plans**: TBD
+
 ### Phase 37: Review-Queue Priority & CUR-04
 
 **Goal**: The curation review queue is reordered by pause-classification and unreliable-segment guard priority, and a queue row can be marked "reviewed and kept" — a reversible, distinct-from-exclude terminal state persisted in its own committed file — through the existing overlay transport, with both publish guards re-verified against the new state.
@@ -514,6 +530,7 @@ Plans:
 | 34. Pause Classification & Forgotten-Stop | v2.3 | 16/16 | Complete    | 2026-09-23 |
 | 35. Stream-Derived Running Pace | v2.3 | 13/13 | Complete    | 2026-09-28 |
 | 36. Best-Effort Clean-Window Search & Ceiling Recalibration | v2.3 | 20/20 | Complete    | 2026-11-25 |
+| 36.1. Ingestion Integrity (INSERTED) | v2.3 | 0/TBD | Not started | - |
 | 37. Review-Queue Priority & CUR-04 | v2.3 | 0/TBD | Not started | - |
 
 *Last updated: 2026-09-19 — **v2.3 Pause & Slew Integrity roadmap created**: 6 phases (32-37), 24/24 requirements mapped, derived from research/SUMMARY.md's suggested sequence (detection → coverage integration → pause/stop → stream pace → best-effort/ceiling → review queue), with the hard dependency chain 32→33→36 preserved. SEG-06 (the unreliable-segment quality signal/badge) placed in Phase 33 rather than Phase 32, keeping Phase 32 compute/calibration-only and grouping the badge with the other consumers `classifyGaps`' output feeds. Phases 33-37 add rendered surfaces and close on a human browser checkpoint; Phase 32 does not. No archive-wide target rates were guessed into any success criterion — v2.2's "~5%" criterion was found jointly unsatisfiable; where a rate is unknown this milestone, the criterion is "measured and reported in a regenerable artifact."
