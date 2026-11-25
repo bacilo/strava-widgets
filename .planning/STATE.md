@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
-status: executing
-stopped_at: Phase 36 gap-closure round executing (36-15..36-20, --gaps-only)
-last_updated: "2026-11-24T22:49:52.721Z"
-last_activity: 2026-11-24 -- Phase 36 execution started
+status: ready_to_plan
+stopped_at: Phase 36 complete (20/20) — ready to discuss Phase 37
+last_updated: 2026-11-25T08:04:37.542Z
+last_activity: 2026-11-25 -- Phase 36 complete (gap-closure round 2 verified passed)
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 80
-  completed_plans: 74
-  percent: 67
+  completed_plans: 80
+  percent: 83
 ---
 
 # Project State
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 36 — best-effort-clean-window-search-ceiling-recalibration
+**Current focus:** Phase 37 — review queue priority & cur 04
 
 **Carried into the next milestone** (full list with reasons in PROJECT.md § Active):
 
@@ -46,9 +46,9 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 ## Current Position
 
-Phase: 36 (best-effort-clean-window-search-ceiling-recalibration) — EXECUTING
-Plan: 14 of 20 (gap-closure plans 36-15..36-20 executing)
-Status: Executing Phase 36 gap-closure round
+Phase: 37
+Plan: Not started
+Status: Ready to plan
 
 Phase 36 planned (2026-09-28): 14 plans in 9 waves, committed `ebe0245c`. Research `4a61a19b`,
 validation/pattern artifacts `e9a16e61`. Plan-checker returned VERIFICATION PASSED — 0 blockers,
@@ -80,7 +80,7 @@ Carried into execution:
 `.planning/phases/34-pause-classification-forgotten-stop/34-{01..16}-SUMMARY.md` and git history.
 Phases 34 and 35 are both closed in ROADMAP.md.)*
 
-Last activity: 2026-11-24 -- Phase 36 gap-closure execution started (36-15..36-20)
+Last activity: 2026-11-25 -- Phase 36 complete: gap-closure round 2 (36-15..36-20) executed, PR-09 re-signed (sign-both, 36-DIFF.md e67f3cba…), round-2 review 0 critical / 3 warnings (follow-ups recorded in 36-VERIFICATION.md), re-verification passed 4/4
 
 ## Performance Metrics
 

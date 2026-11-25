@@ -110,7 +110,7 @@ context, measured facts and decisions in `PROJECT.md` § Current Milestone; requ
 - [x] **Phase 33: Coverage Integration — Pace Clipping & Segment Signal** - Pace chart, histogram, splits and coverage caption clip unreliable segments exactly as gaps are clipped; the segment count/metres/seconds/mechanisms surface as a disclosed per-activity quality signal (completed 2026-09-22)
 - [x] **Phase 34: Pause Classification & Forgotten-Stop** - Every gap/merged segment classified stationary/walked/transported; sustained near-zero speed inside recorded time flagged, never corrected (completed 2026-09-23)
 - [x] **Phase 35: Stream-Derived Running Pace** - A stream-derived running pace (unreliable segments and gaps excluded) shown beside metadata pace; "Pace disputed" extended to fire on material disagreement (completed 2026-09-28)
-- [ ] **Phase 36: Best-Effort Clean-Window Search & Ceiling Recalibration** - Efforts spanning an unreliable segment are demoted-and-kept while the search continues in clean sub-intervals; ceiling recalibrated on the excluded population; both diffs signed
+- [x] **Phase 36: Best-Effort Clean-Window Search & Ceiling Recalibration** - Efforts spanning an unreliable segment are demoted-and-kept while the search continues in clean sub-intervals; ceiling recalibrated on the excluded population; both diffs signed (completed 2026-11-25)
 - [ ] **Phase 37: Review-Queue Priority & CUR-04** - Queue reordered by pause class and guard-moved efforts; a reversible "reviewed and kept" action distinct from exclude
 
 ## Phase Details
@@ -513,7 +513,7 @@ Plans:
 | 33. Coverage Integration — Pace Clipping & Segment Signal | v2.3 | 14/14 | Complete    | 2026-09-22 |
 | 34. Pause Classification & Forgotten-Stop | v2.3 | 16/16 | Complete    | 2026-09-23 |
 | 35. Stream-Derived Running Pace | v2.3 | 13/13 | Complete    | 2026-09-28 |
-| 36. Best-Effort Clean-Window Search & Ceiling Recalibration | v2.3 | 20/20 | In Progress|  |
+| 36. Best-Effort Clean-Window Search & Ceiling Recalibration | v2.3 | 20/20 | Complete    | 2026-11-25 |
 | 37. Review-Queue Priority & CUR-04 | v2.3 | 0/TBD | Not started | - |
 
 *Last updated: 2026-09-19 — **v2.3 Pause & Slew Integrity roadmap created**: 6 phases (32-37), 24/24 requirements mapped, derived from research/SUMMARY.md's suggested sequence (detection → coverage integration → pause/stop → stream pace → best-effort/ceiling → review queue), with the hard dependency chain 32→33→36 preserved. SEG-06 (the unreliable-segment quality signal/badge) placed in Phase 33 rather than Phase 32, keeping Phase 32 compute/calibration-only and grouping the badge with the other consumers `classifyGaps`' output feeds. Phases 33-37 add rendered surfaces and close on a human browser checkpoint; Phase 32 does not. No archive-wide target rates were guessed into any success criterion — v2.2's "~5%" criterion was found jointly unsatisfiable; where a rate is unknown this milestone, the criterion is "measured and reported in a regenerable artifact."
