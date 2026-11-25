@@ -17,6 +17,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildPrefillReason,
+  compareQueueRows,
   countMalformedExclusions,
   deriveFlaggedActivities,
   summarizeQueue,
@@ -27,26 +28,43 @@ import { recountDemotedActivities } from '../compute-pr-ceiling-recount.mjs';
 const REPO_ROOT = path.resolve(new URL('../..', import.meta.url).pathname);
 const BEST_EFFORTS_PATH = path.resolve(REPO_ROOT, 'data/stats/best-efforts.json');
 const EXCLUSIONS_PATH = path.resolve(REPO_ROOT, 'data/best-effort-exclusions.json');
+const DERIVE_PATH = path.resolve(REPO_ROOT, 'scripts/curate-queue/derive-flagged.mjs');
 
 describe('collection canary', () => {
-  it('the three exports are functions', () => {
+  it('the exports are functions', () => {
     expect(typeof deriveFlaggedActivities).toBe('function');
     expect(typeof buildPrefillReason).toBe('function');
     expect(typeof summarizeQueue).toBe('function');
+    expect(typeof compareQueueRows).toBe('function');
+    expect(typeof countMalformedExclusions).toBe('function');
   });
 });
 
-function effort(distance, guard, reason, durationSec = 100, paceSecPerKm = 250) {
+function effort(distance, guard, reason, durationSec = 100, paceSecPerKm = 250, contaminated = null) {
   return {
     distance,
     durationSec,
     paceSecPerKm,
     demotion: guard === null ? null : { guard, reason },
+    contaminated,
   };
 }
 
-function activity(startDate, efforts, excludedFromRecords = false) {
-  return { startDate, efforts, excludedFromRecords };
+function contam(durationSec = 90, paceSecPerKm = 240) {
+  return {
+    guard: 'unreliable-segment',
+    reason: 'contaminated window',
+    durationSec,
+    paceSecPerKm,
+    startOffsetSec: 0,
+    endOffsetSec: durationSec,
+  };
+}
+
+function activity(startDate, efforts, excludedFromRecords = false, contaminatedMetres = undefined) {
+  const entry = { startDate, efforts, excludedFromRecords };
+  if (contaminatedMetres !== undefined) entry.contaminatedMetres = contaminatedMetres;
+  return entry;
 }
 
 describe('deriveFlaggedActivities — D-01 population (all guards, not ceiling-only)', () => {
@@ -213,32 +231,114 @@ describe('deriveFlaggedActivities — D-02 exclusion overlay', () => {
   });
 });
 
-describe('deriveFlaggedActivities — D-05 ordering', () => {
-  it('two pending and two excluded sort not-yet-excluded first, then newest-first within each group', () => {
-    const doc = {
-      activities: {
-        pendingOld: activity('2020-01-01T00:00:00Z', [effort('400m', 'ceiling', 'r')]),
-        pendingNew: activity('2022-01-01T00:00:00Z', [effort('400m', 'ceiling', 'r')]),
-        excludedOld: activity('2021-01-01T00:00:00Z', [effort('400m', 'ceiling', 'r')]),
-        excludedNew: activity('2023-01-01T00:00:00Z', [effort('400m', 'ceiling', 'r')]),
-      },
-    };
-    const exclusionsDoc = {
-      exclusions: [
-        { activityId: 'excludedOld', reason: 'r' },
-        { activityId: 'excludedNew', reason: 'r' },
-      ],
-    };
-    const rows = deriveFlaggedActivities(doc, exclusionsDoc);
-    expect(rows.map((r) => r.activityId)).toEqual([
-      'pendingNew',
-      'pendingOld',
-      'excludedNew',
-      'excludedOld',
-    ]);
+// Fixture Q (hand-built; every expected value is derived here from the fixture, never from live data).
+//   tier 1 (transported, index transportedCount > 0): T1 metres 40 (2021), T0 metres 0 (2024),
+//     TX no best-efforts entry at all (index startDate 2023), TC transported + ceiling demotion, 0 (2022-06)
+//   tier 2 (guard-moved): G1 contaminated 120 (2020-01), G2 Branch-3 demotion 30 (2020-05),
+//     G3 contaminated 30 (2022-01), GC contaminated 400m + ceiling 1k, 10 (2019)
+//   tier 3 (other demotions, no metres key): C1 ceiling (2023-03), W1 world-record (2018)
+//   N1: no flags, not transported -> absent
+// Derivation of the order: tier asc. Tier 1 by metres desc: T1 (40), then the three 0s by startDate
+//   desc: T0 2024, TX 2023, TC 2022. Tier 2 by metres desc: G1 120, then the 30 tie broken newest-first
+//   G3 2022 before G2 2020, then GC 10. Tier 3 by startDate desc: C1 2023, W1 2018.
+const Q_ORDER = ['T1', 'T0', 'TX', 'TC', 'G1', 'G3', 'G2', 'GC', 'C1', 'W1'];
+
+function fixtureQ(keyOrder = null) {
+  const entries = {
+    T1: activity('2021-01-01T00:00:00Z', [effort('400m', null, '', 100, 250, contam())], false, 40),
+    T0: activity('2024-01-01T00:00:00Z', [effort('400m', null, '')], false, 0),
+    TC: activity('2022-06-01T00:00:00Z', [effort('1k', 'ceiling', 'ceiling reason')], false, 0),
+    G1: activity('2020-01-01T00:00:00Z', [effort('400m', null, '', 100, 250, contam())], false, 120),
+    G2: activity('2020-05-01T00:00:00Z', [effort('1k', 'unreliable-segment', 'no clean window')], false, 30),
+    G3: activity('2022-01-01T00:00:00Z', [effort('400m', null, '', 100, 250, contam())], false, 30),
+    GC: activity(
+      '2019-01-01T00:00:00Z',
+      [effort('400m', null, '', 100, 250, contam()), effort('1k', 'ceiling', 'gc ceiling reason')],
+      false,
+      10
+    ),
+    C1: activity('2023-03-01T00:00:00Z', [effort('400m', 'ceiling', 'c1 ceiling reason')]),
+    W1: activity('2018-01-01T00:00:00Z', [effort('1k', 'world-record', 'w1 wr reason')]),
+    N1: activity('2025-01-01T00:00:00Z', [effort('400m', null, '')], false, 0),
+  };
+  const keys = keyOrder ?? Object.keys(entries);
+  const bestEfforts = { activities: Object.fromEntries(keys.map((k) => [k, entries[k]])) };
+  const indexRows = [
+    { id: 'T1', startDate: '2021-01-01T00:00:00Z', quality: { pauseClassification: { transportedCount: 1 } } },
+    { id: 'T0', startDate: '2024-01-01T00:00:00Z', quality: { pauseClassification: { transportedCount: 2 } } },
+    { id: 'TX', startDate: '2023-01-01T00:00:00Z', quality: { pauseClassification: { transportedCount: 1 } } },
+    { id: 'TC', startDate: '2022-06-01T00:00:00Z', quality: { pauseClassification: { transportedCount: 1 } } },
+    { id: 'N1', startDate: '2025-01-01T00:00:00Z', quality: { pauseClassification: { transportedCount: 0 } } },
+  ];
+  return { bestEfforts, indexDoc: { activities: keyOrder ? [...indexRows].reverse() : indexRows } };
+}
+
+describe('deriveFlaggedActivities — D-08 ordering', () => {
+  it('fixture Q orders exactly as derived above', () => {
+    const { bestEfforts, indexDoc } = fixtureQ();
+    const rows = deriveFlaggedActivities(bestEfforts, {}, indexDoc);
+    expect(rows.map((r) => r.activityId)).toEqual(Q_ORDER);
+    expect(rows.map((r) => r.tier)).toEqual([1, 1, 1, 1, 2, 2, 2, 2, 3, 3]);
+    expect(rows.map((r) => r.contaminatedMetres)).toEqual([40, 0, 0, 0, 120, 30, 30, 10, null, null]);
   });
 
-  it('two rows with identical startDate sort by activityId ascending, a total reload-stable order', () => {
+  it('D-06: TX has no best-efforts entry yet is present, metres 0, not missing, no flagged efforts, start date from the index', () => {
+    const { bestEfforts, indexDoc } = fixtureQ();
+    expect(bestEfforts.activities.TX).toBeUndefined();
+    const tx = deriveFlaggedActivities(bestEfforts, {}, indexDoc).find((r) => r.activityId === 'TX');
+    expect(tx).toMatchObject({
+      tier: 1,
+      contaminatedMetres: 0,
+      metresMissing: false,
+      transported: true,
+      flaggedEfforts: [],
+      startDate: '2023-01-01T00:00:00Z',
+    });
+  });
+
+  it('N1 (no flags, transportedCount 0) is absent', () => {
+    const { bestEfforts, indexDoc } = fixtureQ();
+    const ids = deriveFlaggedActivities(bestEfforts, {}, indexDoc).map((r) => r.activityId);
+    expect(ids).not.toContain('N1');
+  });
+
+  it('TC is transported AND ceiling-demoted: tier 1 wins (not tier 3)', () => {
+    const { bestEfforts, indexDoc } = fixtureQ();
+    const tc = deriveFlaggedActivities(bestEfforts, {}, indexDoc).find((r) => r.activityId === 'TC');
+    expect(tc.tier).toBe(1);
+    expect(tc.flaggedEfforts.length).toBe(1);
+  });
+
+  it('GC: a guard-moved effort beats a plain ceiling demotion (tier 2, not 3)', () => {
+    const { bestEfforts, indexDoc } = fixtureQ();
+    const gc = deriveFlaggedActivities(bestEfforts, {}, indexDoc).find((r) => r.activityId === 'GC');
+    expect(gc.tier).toBe(2);
+  });
+
+  it('D-17: GC prefill carries only the ceiling line; the 400m contaminated line is listed separately', () => {
+    const { bestEfforts, indexDoc } = fixtureQ();
+    const gc = deriveFlaggedActivities(bestEfforts, {}, indexDoc).find((r) => r.activityId === 'GC');
+    expect(gc.prefillReason).toBe('1k: gc ceiling reason');
+    expect(gc.contaminatedEfforts.map((e) => `${e.distance}:${e.guard}`)).toEqual(['400m:unreliable-segment']);
+    expect(gc.flaggedEfforts.map((e) => e.distance)).toEqual(['1k']);
+  });
+
+  it('stale or invalid contaminatedMetres reads as 0 and is counted metresMissing (D-07, fail closed)', () => {
+    for (const bad of [undefined, NaN, -5, '120', null, Infinity]) {
+      const { bestEfforts, indexDoc } = fixtureQ();
+      if (bad === undefined) delete bestEfforts.activities.G1.contaminatedMetres;
+      else bestEfforts.activities.G1.contaminatedMetres = bad;
+      const g1 = deriveFlaggedActivities(bestEfforts, {}, indexDoc).find((r) => r.activityId === 'G1');
+      expect(g1.contaminatedMetres, String(bad)).toBe(0);
+      expect(g1.metresMissing, String(bad)).toBe(true);
+    }
+    const { bestEfforts, indexDoc } = fixtureQ();
+    const rows = deriveFlaggedActivities(bestEfforts, {}, indexDoc);
+    // a valid 0 (T0) is not missing; tier 3 rows are not missing
+    expect(rows.filter((r) => r.metresMissing)).toEqual([]);
+  });
+
+  it('two rows with identical startDate and metres sort by activityId ascending', () => {
     const doc = {
       activities: {
         b2: activity('2024-01-01T00:00:00Z', [effort('400m', 'ceiling', 'r')]),
@@ -247,6 +347,62 @@ describe('deriveFlaggedActivities — D-05 ordering', () => {
     };
     const rows = deriveFlaggedActivities(doc, {});
     expect(rows.map((r) => r.activityId)).toEqual(['a1', 'b2']);
+    const g = {
+      activities: {
+        y: activity('2024-01-01T00:00:00Z', [effort('400m', null, '', 1, 1, contam())], false, 7),
+        x: activity('2024-01-01T00:00:00Z', [effort('400m', null, '', 1, 1, contam())], false, 7),
+      },
+    };
+    expect(deriveFlaggedActivities(g, {}).map((r) => r.activityId)).toEqual(['x', 'y']);
+  });
+
+  it('the order is total and reload-stable: 5 different input key orders give the identical output', () => {
+    const baseline = deriveFlaggedActivities(fixtureQ().bestEfforts, {}, fixtureQ().indexDoc).map((r) => r.activityId);
+    const keys = Object.keys(fixtureQ().bestEfforts.activities);
+    const orders = [
+      [...keys].reverse(),
+      [...keys.slice(3), ...keys.slice(0, 3)],
+      [...keys.slice(7), ...keys.slice(0, 7)],
+      [...keys].sort(),
+      [...keys].sort().reverse(),
+    ];
+    for (const order of orders) {
+      const { bestEfforts, indexDoc } = fixtureQ(order);
+      expect(deriveFlaggedActivities(bestEfforts, {}, indexDoc).map((r) => r.activityId)).toEqual(baseline);
+    }
+    expect(baseline).toEqual(Q_ORDER);
+  });
+
+  it('excluded rows are no longer sorted last: an excluded tier-1 row stays in tier order (D-08 retires the excluded-first comparator)', () => {
+    const { bestEfforts, indexDoc } = fixtureQ();
+    const rows = deriveFlaggedActivities(bestEfforts, { exclusions: [{ activityId: 'T1', reason: 'r' }] }, indexDoc);
+    expect(rows.map((r) => r.activityId)).toEqual(Q_ORDER);
+    expect(rows[0].excluded).toBe(true);
+  });
+});
+
+describe('derive-flagged.mjs zero-import, zero-console contract', () => {
+  function stripComments(source) {
+    return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(?<!:)\/\/.*$/gm, '');
+  }
+  function violations(source) {
+    const stripped = stripComments(source);
+    return {
+      hasImport: /^\s*import\b/m.test(stripped),
+      hasConsole: /\bconsole\./.test(stripped),
+    };
+  }
+
+  it('the scan is reachable: a planted fixture with an import and a console call is flagged, and comment-only mentions are not', () => {
+    const planted = ['// import x from "y"', '/* console.log(1) */', "import fs from 'fs';", 'console.log(1);'].join('\n');
+    expect(violations(planted)).toEqual({ hasImport: true, hasConsole: true });
+    const commentOnly = ['// import x from "y"', '/* console.log(1) */', 'const a = 1;'].join('\n');
+    expect(violations(commentOnly)).toEqual({ hasImport: false, hasConsole: false });
+  });
+
+  it('derive-flagged.mjs has no import and no console statement once comments are stripped', () => {
+    const raw = readFileSync(DERIVE_PATH, 'utf8');
+    expect(violations(raw)).toEqual({ hasImport: false, hasConsole: false });
   });
 });
 
@@ -523,17 +679,20 @@ describe('summarizeQueue', () => {
 
 // D-16 / Task 3: ties this derivation to scripts/compute-pr-ceiling-recount.mjs's own arithmetic,
 // which imports none of the ceiling/compute/util/types modules. Two independent implementations
-// agreeing is the assertion — no count is ever hardcoded here, since the archive grows nightly
+// agreeing is the assertion; no count is ever hardcoded here, since the archive grows nightly
 // via CI sync (T-29-14). Skipped when the shipped data is absent (e.g. a fresh worktree where
 // data/stats/ and data/dashboard/ are gitignored).
+// Phase 37: the queue is now a superset (union, D-06), so this check is re-scoped to the
+// demotion-bearing subset (rows with flaggedEfforts), which preserves the Phase 29 D-01 guarantee.
+// Full-set count and order move to plan 37-05's independent recount.
 describe.skipIf(!existsSync(BEST_EFFORTS_PATH))('live archive cross-check', () => {
-  it('deriveFlaggedActivities agrees with recountDemotedActivities on the live archive', () => {
+  it('the demotion-bearing subset of deriveFlaggedActivities agrees with recountDemotedActivities on the live archive', () => {
     const bestEfforts = JSON.parse(readFileSync(BEST_EFFORTS_PATH, 'utf8'));
     const exclusions = existsSync(EXCLUSIONS_PATH)
       ? JSON.parse(readFileSync(EXCLUSIONS_PATH, 'utf8'))
       : undefined;
 
-    const rows = deriveFlaggedActivities(bestEfforts, exclusions);
+    const rows = deriveFlaggedActivities(bestEfforts, exclusions).filter((r) => r.flaggedEfforts.length > 0);
     const recount = recountDemotedActivities(bestEfforts, exclusions);
 
     expect(rows.length).toBe(recount.flaggedActivityCount);

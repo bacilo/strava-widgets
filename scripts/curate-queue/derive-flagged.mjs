@@ -11,11 +11,18 @@
  * while proving nothing). MUST have zero `import` statements and zero `console` calls — it runs
  * in the browser, unbundled by any module loader beyond esbuild's own IIFE step.
  *
- * D-01: population is any effort with a non-null object `demotion` — all three guards
- * (world-record/max-speed/ceiling), never a ceiling-only subset. D-02: an already-excluded
- * flagged activity stays listed, marked excluded, carrying its stored reason — the listed set
- * equals the flagged set exactly. D-03: one row per activity, its flagged efforts nested inside.
- * D-05: not-yet-excluded first, then newest-first within each group, stable across reloads.
+ * Phase 37 (CUR-06 / CUR-04) extends this contract. D-06: the population is the UNION of (a) any
+ * effort with a non-null object `demotion` (all guards), (b) any effort with a non-null object
+ * `contaminated`, and (c) any activity whose index row has
+ * `quality.pauseClassification.transportedCount > 0`, including one with no best-efforts entry.
+ * Phase 29 D-02/D-03 stand: an excluded activity stays listed, one row per activity.
+ * D-08 REPLACES Phase 29 D-05: tier 1 transported, tier 2 guard-moved, tier 3 other demotions; tiers
+ * 1-2 by contaminatedMetres desc, then startDate desc, then activityId asc (tier 3 skips metres).
+ * D-07: contaminatedMetres is read fail-closed (finite, non-negative, else 0 plus metresMissing).
+ * The Exclude prefill stays demotion-only (D-17 / Phase 29 D-11).
+ *
+ * Contract restated: zero `import` statements and zero `console` calls (a comment-stripping scan in
+ * the test file proves it and is itself shown to fail on a planted violation).
  */
 
 /**
@@ -38,6 +45,11 @@
  * @property {boolean} excluded
  * @property {string|null} exclusionReason
  * @property {string} prefillReason
+ * @property {FlaggedEffortLine[]} contaminatedEfforts
+ * @property {1|2|3} tier
+ * @property {number|null} contaminatedMetres null on tier 3
+ * @property {boolean} metresMissing
+ * @property {boolean} transported
  */
 
 /**
@@ -124,18 +136,63 @@ function buildNameMap(indexDoc) {
 }
 
 /**
- * Derives the ordered, one-row-per-activity flagged set (D-01 through D-05, D-11, D-12, PD-01).
- * Never throws — a missing, null or malformed input document degrades to an empty array. Mirrors
- * recountDemoted's defensive shape: default `activities` to `{}` when absent or not an object,
- * default `efforts` to `[]` when not an array, and treat any `demotion` that is not a non-null
- * object as absent (T-29-13).
+ * Builds a Map from String(id) -> { transported, startDate } over `indexDoc.activities`, in the
+ * buildNameMap style. transported means `quality.pauseClassification.transportedCount` is a number
+ * greater than 0. Rows that are not objects, or whose id is null/undefined, are skipped.
+ *
+ * @param {unknown} indexDoc
+ * @returns {Map<string, { transported: boolean, startDate: string }>}
+ */
+function buildTransportedMap(indexDoc) {
+  const map = new Map();
+  const activities =
+    indexDoc && Array.isArray(indexDoc.activities) ? indexDoc.activities : [];
+  for (const row of activities) {
+    if (row === null || typeof row !== 'object' || row.id === undefined || row.id === null) {
+      continue;
+    }
+    const count =
+      row.quality && row.quality.pauseClassification
+        ? row.quality.pauseClassification.transportedCount
+        : undefined;
+    map.set(String(row.id), {
+      transported: typeof count === 'number' && count > 0,
+      startDate: typeof row.startDate === 'string' ? row.startDate : '',
+    });
+  }
+  return map;
+}
+
+/**
+ * Total, reload-stable comparator (D-08): tier ascending; within tiers 1-2 contaminatedMetres
+ * descending; then startDate descending (string compare); then activityId ascending.
+ *
+ * @param {QueueRow} a
+ * @param {QueueRow} b
+ * @returns {number}
+ */
+export function compareQueueRows(a, b) {
+  if (a.tier !== b.tier) return a.tier - b.tier;
+  if (a.tier < 3 && a.contaminatedMetres !== b.contaminatedMetres) {
+    return b.contaminatedMetres - a.contaminatedMetres;
+  }
+  if (a.startDate !== b.startDate) return a.startDate < b.startDate ? 1 : -1;
+  return a.activityId < b.activityId ? -1 : a.activityId > b.activityId ? 1 : 0;
+}
+
+/**
+ * Derives the ordered, one-row-per-activity queue set (D-06 union, D-08 order). Never throws: a
+ * missing, null or malformed input document degrades to an empty array. Defaults `activities` to
+ * `{}`, `efforts` to `[]`, and treats any `demotion` / `contaminated` that is not a non-null object
+ * as absent (T-29-13).
  *
  * @param {unknown} bestEffortsDoc
  * @param {unknown} exclusionsDoc
  * @param {unknown} [indexDoc]
+ * @param {unknown} [reviewedDoc] accepted for the review overlay (applied below)
  * @returns {QueueRow[]}
  */
-export function deriveFlaggedActivities(bestEffortsDoc, exclusionsDoc, indexDoc) {
+export function deriveFlaggedActivities(bestEffortsDoc, exclusionsDoc, indexDoc, reviewedDoc) {
   const activities =
     bestEffortsDoc && bestEffortsDoc.activities && typeof bestEffortsDoc.activities === 'object'
       ? bestEffortsDoc.activities
@@ -143,33 +200,81 @@ export function deriveFlaggedActivities(bestEffortsDoc, exclusionsDoc, indexDoc)
 
   const { map: exclusionsMap } = buildExclusionsMap(exclusionsDoc);
   const nameMap = buildNameMap(indexDoc);
+  const transportedMap = buildTransportedMap(indexDoc);
+
+  // D-06: union of the best-efforts keys and transported ids that have no entry at all.
+  const ids = Object.keys(activities).filter((id) => id !== '__proto__');
+  const seen = new Set(ids);
+  for (const [id, info] of transportedMap) {
+    if (id === '__proto__' || !info.transported || seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+  }
 
   const rows = [];
 
-  for (const activityId of Object.keys(activities)) {
-    if (activityId === '__proto__') continue;
-
-    const activity = activities[activityId];
+  for (const activityId of ids) {
+    const hasEntry = Object.prototype.hasOwnProperty.call(activities, activityId);
+    const activity = hasEntry ? activities[activityId] : undefined;
     const efforts = activity && Array.isArray(activity.efforts) ? activity.efforts : [];
+    const indexInfo = transportedMap.get(activityId);
+    const transported = indexInfo !== undefined && indexInfo.transported;
 
     /** @type {FlaggedEffortLine[]} */
     const flaggedEfforts = [];
+    /** @type {FlaggedEffortLine[]} */
+    const contaminatedEfforts = [];
+    let guardMoved = false;
     for (const effortEntry of efforts) {
       if (effortEntry === null || typeof effortEntry !== 'object') continue;
       const demotion = effortEntry.demotion;
-      if (demotion === null || typeof demotion !== 'object') continue;
-      flaggedEfforts.push({
-        distance: effortEntry.distance,
-        guard: demotion.guard,
-        reason: demotion.reason,
-        durationSec: effortEntry.durationSec,
-        paceSecPerKm: effortEntry.paceSecPerKm,
-      });
+      if (demotion !== null && typeof demotion === 'object') {
+        flaggedEfforts.push({
+          distance: effortEntry.distance,
+          guard: demotion.guard,
+          reason: demotion.reason,
+          durationSec: effortEntry.durationSec,
+          paceSecPerKm: effortEntry.paceSecPerKm,
+        });
+        if (demotion.guard === 'unreliable-segment') guardMoved = true;
+      }
+      const contaminated = effortEntry.contaminated;
+      if (contaminated !== null && typeof contaminated === 'object') {
+        contaminatedEfforts.push({
+          distance: effortEntry.distance,
+          guard: contaminated.guard,
+          reason: contaminated.reason,
+          durationSec: contaminated.durationSec,
+          paceSecPerKm: contaminated.paceSecPerKm,
+        });
+        guardMoved = true;
+      }
     }
 
-    if (flaggedEfforts.length === 0) continue;
+    // Fail closed: an unrecognised row falls out of the set rather than into a benign tier.
+    let tier;
+    if (transported) tier = 1;
+    else if (guardMoved) tier = 2;
+    else if (flaggedEfforts.length > 0) tier = 3;
+    else continue;
 
-    const startDate = activity && typeof activity.startDate === 'string' ? activity.startDate : '';
+    let contaminatedMetres = null;
+    let metresMissing = false;
+    if (tier < 3) {
+      const raw = hasEntry && activity !== null && typeof activity === 'object'
+        ? activity.contaminatedMetres
+        : undefined;
+      const valid = typeof raw === 'number' && Number.isFinite(raw) && raw >= 0;
+      contaminatedMetres = valid ? raw : 0;
+      metresMissing = hasEntry && !valid;
+    }
+
+    const startDate =
+      activity && typeof activity.startDate === 'string'
+        ? activity.startDate
+        : indexInfo !== undefined
+          ? indexInfo.startDate
+          : '';
     const excluded = exclusionsMap.has(activityId);
     const exclusionReason = excluded ? exclusionsMap.get(activityId) : null;
     const name = nameMap.has(activityId) ? nameMap.get(activityId) : null;
@@ -182,18 +287,18 @@ export function deriveFlaggedActivities(bestEffortsDoc, exclusionsDoc, indexDoc)
       label,
       detailUrl: `/strava-widgets/#/activity/${activityId}`,
       flaggedEfforts,
+      contaminatedEfforts,
       excluded,
       exclusionReason,
       prefillReason: buildPrefillReason(flaggedEfforts),
+      tier,
+      contaminatedMetres,
+      metresMissing,
+      transported,
     });
   }
 
-  rows.sort((a, b) => {
-    const excludedDelta = Number(a.excluded) - Number(b.excluded);
-    if (excludedDelta !== 0) return excludedDelta;
-    if (a.startDate !== b.startDate) return a.startDate < b.startDate ? 1 : -1;
-    return a.activityId < b.activityId ? -1 : a.activityId > b.activityId ? 1 : 0;
-  });
+  rows.sort(compareQueueRows);
 
   return rows;
 }
