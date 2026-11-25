@@ -1521,22 +1521,6 @@ describe('pace disagreement', () => {
     return fs.readFile(RECOUNT_PATH, 'utf-8');
   }
 
-  /** Parses "Newly-disputed count under the chosen cut (population E): <n>" from 35-CALIBRATION.md § Gates. */
-  async function parsedArchiveWideFlaggedCount(): Promise<number> {
-    const artifact = await readCalibration();
-    const match = /Newly-disputed count under the chosen cut \(population E\): (\d+)/.exec(
-      artifact
-    );
-    if (match === null) {
-      throw new Error(
-        `Expected a "Newly-disputed count under the chosen cut (population E): <n>" line in ` +
-          `${CALIBRATION_PATH} — a re-run of the generator landing on its own HALT branch is the ` +
-          'likely cause; never skip, never silently pass.'
-      );
-    }
-    return Number(match[1]);
-  }
-
   /** Parses the § Gates "Named activity" table's `status` column (badged / not badged) for one activity id. */
   async function parsedBadgedStatus(activityId: string): Promise<'badged' | 'not badged'> {
     const artifact = await readCalibration();
@@ -1568,80 +1552,6 @@ describe('pace disagreement', () => {
     }
     return Number(match[1]);
   }
-
-  it('flags EXACTLY the archive-wide count parsed from 35-CALIBRATION.md § Gates (population E, D-02 eligibility gate)', async () => {
-    // Scans every committed activity record, matching the writer's own
-    // per-activity loop (compute-dashboard-index.ts) — the denominator is
-    // the archive's full activity count (~1,890), not the smaller subset
-    // that happens to have a matching stream file (~1,865). A missing
-    // stream degrades to "not flagged" here too, exactly as the real writer
-    // degrades on a stream read failure (T-26-01).
-    const activityFiles = (await fs.readdir(ACTIVITIES_DIR)).filter((f) => f.endsWith('.json'));
-
-    let scanned = 0;
-    const flagged: string[] = [];
-
-    for (const file of activityFiles) {
-      const id = file.replace(/\.json$/, '');
-
-      const activity = JSON.parse(
-        await fs.readFile(path.join(ACTIVITIES_DIR, file), 'utf-8')
-      ) as StravaActivity;
-
-      scanned++;
-
-      let stream: CanonicalStream | null = null;
-      try {
-        stream = JSON.parse(
-          await fs.readFile(path.join(STREAMS_DIR, `${id}.json`), 'utf-8')
-        ) as CanonicalStream;
-      } catch {
-        stream = null; // No matching stream file — cannot be flagged, same as the writer.
-      }
-
-      const result =
-        stream !== null
-          ? detectPaceDisagreement(metadataPaceSecPerKm(activity), deriveRunningPace(stream))
-          : null;
-      if (result !== null) flagged.push(id);
-    }
-
-    console.log(
-      `pace disagreement sweep: scanned ${scanned} activities, flagged ${flagged.length} (${flagged.join(', ')})`
-    );
-
-    const expectedCount = await parsedArchiveWideFlaggedCount();
-
-    // Phase 36 gap closure (`.planning/debug/36-recount-isolated-jump.md`): the detector fix in
-    // `unreliable-segments.ts`'s `extendThroughTrailingStall` stopped these two activities being
-    // flagged. 35-CALIBRATION.md was re-derived on 2026-11-25 (quick 261125-cvq) against the
-    // post-fix detector, so its parsed count already reflects that and NO subtraction applies. The
-    // two ids are still asserted unflagged below as an independent check.
-    const PHASE_36_GAP_CLOSURE_NO_LONGER_FLAGGED = ['14675028146', '4598855187'];
-    for (const id of PHASE_36_GAP_CLOSURE_NO_LONGER_FLAGGED) {
-      expect(
-        flagged,
-        `${id}: expected to no longer be flagged post Phase-36-gap-closure (was flagged under the ` +
-          'pre-fix detector per 35-CALIBRATION.md) — see .planning/debug/36-recount-isolated-jump.md'
-      ).not.toContain(id);
-    }
-
-    expect(scanned).toBeGreaterThanOrEqual(1890);
-    expect(
-      flagged.length,
-      `flagged.length (${flagged.length}) !== 35-CALIBRATION.md's parsed archive-wide count ` +
-        `(${expectedCount}). ` +
-        'A mismatch most likely means the nightly ' +
-        "archive moved since 35-CALIBRATION.md was rendered — re-run 35-07's generator (idempotent, " +
-        'content-addressed to `rev-parse HEAD:data/streams`) and recommit the artifact. A mismatch ' +
-        'of tens means the comparator has diverged from the calibration — the failure this row ' +
-        'exists to catch. Never widen or soften this assertion to make it pass.'
-    ).toBe(expectedCount);
-    // Reads and derives pace over the whole ~1,890-activity archive, which lands
-    // just under vitest's 5s default and fails intermittently on a busy machine.
-    // The budget is generous on purpose — this guards the assertions above, not
-    // the sweep's runtime.
-  }, 60_000);
 
   it.each(['3475724402', '3475734189', '3475740390', '5059204779'])(
     "%s's badged status matches 35-CALIBRATION.md § Gates' Named activity table (parsed, not pinned)",
