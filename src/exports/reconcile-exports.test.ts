@@ -63,14 +63,26 @@ describe('runReconciliation', () => {
     expect(sha(file)).toBe(before);
   });
 
-  it('fails closed on garmin, unknown and traversal sources, writing nothing', async () => {
+  it('fails closed on unknown and traversal sources, writing nothing', async () => {
     const s = setup();
     const base = { exportRoot: s.exportRoot, activitiesDir: s.acts, auditDir: s.audit, exportDate: '2011-08-19' };
-    await expect(runReconciliation({ ...base, source: 'garmin' })).rejects.toThrow('no garmin adapter yet: complete the 36.1-07 probe first');
     await expect(runReconciliation({ ...base, source: 'bogus' })).rejects.toThrow('unknown source');
     await expect(runReconciliation({ ...base, source: '../x' })).rejects.toThrow('unknown source');
     await expect(runReconciliation({ ...base, source: 'constructor' })).rejects.toThrow('unknown source');
     expect(fs.existsSync(s.audit) ? fs.readdirSync(s.audit).length : 0).toBe(0);
+  });
+
+  it('garmin reconciles the fixture', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    const s = setup();
+    const fixture = path.join(path.dirname(new URL(import.meta.url).pathname), '__fixtures__', 'garmin');
+    fs.cpSync(fixture, path.join(s.exportRoot, 'garmin'), { recursive: true });
+    const a = await runReconciliation({
+      source: 'garmin', exportRoot: s.exportRoot, activitiesDir: s.acts, auditDir: s.audit, exportDate: '2026-11-25',
+    });
+    expect(a.source).toBe('garmin');
+    expect(a.counts.export_runs).toBe(4);
+    expect(a.counts.ignored_types).toEqual({ cycling: 1, floor_climbing: 1 });
   });
 
   it('throws on 0 runs and writes no audit', async () => {

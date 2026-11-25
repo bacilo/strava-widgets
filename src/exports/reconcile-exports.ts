@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { readGarminExportForReconcile } from './adapters/garmin.js';
 import { readStravaExportForReconcile, type AdapterOutput } from './adapters/strava.js';
 import { loadArchiveIndex, reconcile } from './reconcile.js';
 import { buildAudit, serializeAudit, type ReconciliationAudit } from './reconciliation-audit.js';
@@ -15,7 +16,15 @@ import { buildAudit, serializeAudit, type ReconciliationAudit } from './reconcil
 /** Source name -> adapter. A source absent here fails closed. */
 export const ADAPTERS: Record<string, (root: string) => AdapterOutput> = {
   strava: readStravaExportForReconcile,
+  garmin: readGarminExportForReconcile,
 };
+
+/** Garmin summary files carry the account email in their name; the public audit records the account part as a placeholder. */
+function publicSummaryPath(rel: string): string {
+  const dir = path.dirname(rel);
+  const base = path.basename(rel).replace(/^.*?(_\d+_summarizedActivities\.json)$/, '<account>$1');
+  return dir === '.' ? base : path.join(dir, base);
+}
 
 export async function runReconciliation(opts: {
   source: string;
@@ -27,7 +36,6 @@ export async function runReconciliation(opts: {
   const { source } = opts;
   if (!/^[a-z]+$/.test(source)) throw new Error(`unknown source: ${JSON.stringify(source)}`);
   if (!Object.prototype.hasOwnProperty.call(ADAPTERS, source)) {
-    if (source === 'garmin') throw new Error('no garmin adapter yet: complete the 36.1-07 probe first');
     throw new Error(`unknown source: ${source}`);
   }
 
@@ -36,7 +44,7 @@ export async function runReconciliation(opts: {
   const result = reconcile(source, runs, loadArchiveIndex(opts.activitiesDir), { preIgnored });
 
   const hashed = summaryFiles.map(f => ({
-    path: f,
+    path: publicSummaryPath(f),
     sha256: crypto.createHash('sha256').update(fs.readFileSync(path.join(root, f))).digest('hex'),
   }));
   const audit = buildAudit(result, { exportDate: opts.exportDate, summaryFiles: hashed });
