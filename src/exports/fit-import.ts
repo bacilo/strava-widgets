@@ -273,13 +273,39 @@ export async function importFit(opts: FitImportOptions): Promise<FitImportResult
 
   const stream = deriveFromSamples(id, samples, 'fit');
 
-  // Writes.
+  // Load and validate every document that will be rewritten, and stage all
+  // in-memory updates, BEFORE the first write (36.1 WR-07): a corrupt
+  // provenance or manifest must refuse the import, not strand a half-written one.
   const store = new FileStore('/');
   const abs = (p: string) => path.resolve(p);
   const manifestAbs = abs(opts.manifestPath);
+  const provAbs = abs(opts.provenancePath);
+
+  let provDoc: { activities: Record<string, unknown>; [k: string]: unknown } = { activities: {} };
+  if (fs.existsSync(provAbs)) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(fs.readFileSync(provAbs, 'utf-8'));
+    } catch (error) {
+      throw new Error(`provenance file is not valid JSON (${(error as Error).message}): ${opts.provenancePath}`);
+    }
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      throw new Error(`provenance file is not a JSON object: ${opts.provenancePath}`);
+    }
+    const acts = (parsed as Record<string, unknown>).activities;
+    if (acts !== undefined && (typeof acts !== 'object' || acts === null || Array.isArray(acts))) {
+      throw new Error(`provenance file "activities" is not an object: ${opts.provenancePath}`);
+    }
+    provDoc = parsed as typeof provDoc;
+    if (!provDoc.activities) provDoc.activities = {};
+  }
+  provDoc.activities[id] = { matched_by: 'imported', original };
+
   const manifest = await loadManifest(store, manifestAbs);
+  if (typeof manifest?.activities !== 'object' || manifest.activities === null || Array.isArray(manifest.activities)) {
+    throw new Error(`stream manifest has no activities object: ${opts.manifestPath}`);
+  }
   if (stream) {
-    await store.writeJson(path.join(abs(opts.streamsDir), `${id}.json`), stream);
     upsertAvailable(manifest, id, {
       source: stream.source,
       distanceSource: stream.distanceSource,
@@ -289,18 +315,15 @@ export async function importFit(opts: FitImportOptions): Promise<FitImportResult
   } else {
     upsertUnavailable(manifest, id, 'no-samples');
   }
-  await saveManifest(store, manifestAbs, manifest);
 
-  await store.writeJson(path.join(abs(opts.activitiesDir), `${id}.json`), activity);
-
-  const provAbs = abs(opts.provenancePath);
-  let doc: { activities: Record<string, unknown>; [k: string]: unknown } = { activities: {} };
-  if (fs.existsSync(provAbs)) {
-    doc = JSON.parse(fs.readFileSync(provAbs, 'utf-8'));
-    if (!doc.activities) doc.activities = {};
+  // Writes. The activity record goes last: it is the dedupe key, so a run
+  // interrupted before it stays importable on a re-run.
+  if (stream) {
+    await store.writeJson(path.join(abs(opts.streamsDir), `${id}.json`), stream);
   }
-  doc.activities[id] = { matched_by: 'imported', original };
-  await store.writeJson(provAbs, doc);
+  await saveManifest(store, manifestAbs, manifest);
+  await store.writeJson(provAbs, provDoc);
+  await store.writeJson(path.join(abs(opts.activitiesDir), `${id}.json`), activity);
 
   return {
     status: 'imported',

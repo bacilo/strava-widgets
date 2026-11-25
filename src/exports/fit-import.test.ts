@@ -351,6 +351,32 @@ describe('importFit', () => {
     expect(counts().activities).toBe(0);
   });
 
+  it.each([
+    ['truncated JSON', '{"activities": {"7": {"matched_by"', /not valid JSON/],
+    ['a JSON array', '[]', /not a JSON object/],
+    ['a non-object activities', '{"activities": []}', /"activities" is not an object/],
+  ])('refuses before the first write when provenance is %s (WR-07)', async (_label, body, re) => {
+    fs.writeFileSync(dirs.provenancePath, body);
+    const fit = place('x.fit', buildFit());
+    await expect(run(fit)).rejects.toThrow(re);
+    expect(counts()).toEqual({ activities: 0, streams: 0, provenance: 1 });
+    expect(fs.existsSync(dirs.manifestPath)).toBe(false);
+    expect(fs.readFileSync(dirs.provenancePath, 'utf-8')).toBe(body);
+    // The refusal left nothing behind, so fixing the file makes the import succeed.
+    fs.writeFileSync(dirs.provenancePath, '{"activities": {}}');
+    expect((await run(fit)).status).toBe('imported');
+  });
+
+  it('refuses before the first write when the stream manifest is corrupt (WR-07)', async () => {
+    fs.mkdirSync(dirs.streamsDir, { recursive: true });
+    fs.writeFileSync(dirs.manifestPath, '{"activities": ');
+    await expect(run(place('x.fit', buildFit()))).rejects.toThrow();
+    expect(fs.readdirSync(dirs.streamsDir)).toEqual(['manifest.json']);
+    expect(fs.readFileSync(dirs.manifestPath, 'utf-8')).toBe('{"activities": ');
+    expect(counts().activities).toBe(0);
+    expect(counts().provenance).toBe(0);
+  });
+
   it('copies only the creator productName as device_name', async () => {
     await run(place('x.fit', buildFit({ productName: 'Forerunner 965' })));
     const rec = JSON.parse(fs.readFileSync(path.join(dirs.activitiesDir, '12345678901.json'), 'utf-8'));
