@@ -161,6 +161,14 @@ describe('compute-clean-window-recount.mjs performs no disk read or write at imp
   });
 });
 
+describe('compute-review-queue-recount.mjs performs no disk read or write at import', () => {
+  it('records zero fs calls', async () => {
+    calls.length = 0;
+    await import('./compute-review-queue-recount.mjs?cache-bust-review-queue-recount-import-guard');
+    expect(calls).toEqual([]);
+  });
+});
+
 describe('32-CALIBRATION.md is byte-untouched across the calibration import', () => {
   let mtimeBeforeImport;
 
