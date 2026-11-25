@@ -77,6 +77,11 @@ export const QUEUE_OUTFILE = '.curate-dist/queue.js';
 export const EXCLUSIONS_PATH = 'data/best-effort-exclusions.json';
 export const PUBLISH_EXCLUSIONS_PATH = 'dist/widgets/data/best-effort-exclusions.json';
 
+// D-02/D-16: the reviewed-and-kept file. Curate-only state: committed by hand,
+// read and written only through the /__curate/reviewed routes, and NEVER
+// mirrored into dist/widgets (D-01). Deliberately has no PUBLISH_* sibling.
+export const REVIEWED_PATH = 'data/curation/reviewed.json';
+
 // T-24-WRITE-DOS: Node's raw req.on('data') accumulation has no built-in
 // size limit, and a reason string is never legitimately large.
 export const MAX_BODY_BYTES = 10 * 1024;
@@ -94,6 +99,10 @@ const INDEX_HTML = resolve(ROOT, 'index.html');
 // published mount, matching every other /__curate/* route in this file.
 const EXCLUSIONS_ROUTE_PREFIX = `${CURATE_PREFIX}/exclusions/`;
 const RECOMPUTE_ROUTE = `${CURATE_PREFIX}/recompute`;
+// D-16: the reviewed route is a sibling of the exclusions route, sharing its
+// gate, validators and atomic write path (not a second write surface).
+const REVIEWED_ROUTE = `${CURATE_PREFIX}/reviewed`;
+const REVIEWED_ROUTE_PREFIX = `${REVIEWED_ROUTE}/`;
 
 // D-12: computed once from the same CURATE_HOST/CURATE_PORT constants the
 // server itself binds to — never derived from request input.
@@ -399,6 +408,23 @@ export function applyRemove(fileDoc, activityId) {
 }
 
 /**
+ * Resolves every filesystem path the server reads or writes. Each key
+ * defaults to the module constant, so `createServer()` with no argument
+ * behaves exactly as before. Tests inject temporary paths so no write test
+ * ever touches a tracked file (T-37-12).
+ *
+ * @param {{exclusionsPath?: string, publishExclusionsPath?: string, publishRoot?: string, reviewedPath?: string}} [options]
+ */
+export function resolveServerPaths(options = {}) {
+  return {
+    exclusionsPath: options.exclusionsPath ?? EXCLUSIONS_PATH,
+    publishExclusionsPath: options.publishExclusionsPath ?? PUBLISH_EXCLUSIONS_PATH,
+    publishRoot: options.publishRoot ?? ROOT,
+    reviewedPath: options.reviewedPath ?? REVIEWED_PATH,
+  };
+}
+
+/**
  * D-07: atomic write. Writes `contents` to a sibling temp file
  * (`${path}.tmp-${process.pid}`) then `renameSync`s it onto `path`.
  * `renameSync` is atomic on the same filesystem, which a sibling temp file
@@ -426,23 +452,23 @@ export function writeAtomic(path, contents) {
  * state — if the PUBLISH ROOT (dist/widgets, i.e. an unbuilt tree) is
  * itself missing; callers must catch and respond 500.
  */
-export function mirrorExclusions() {
-  if (!existsSync(ROOT)) {
+export function mirrorExclusions(paths = resolveServerPaths()) {
+  if (!existsSync(paths.publishRoot)) {
     throw new Error(
-      `dist/widgets is not built (${ROOT} missing). Run \`npm run build-widgets\` first.`
+      `dist/widgets is not built (${paths.publishRoot} missing). Run \`npm run build-widgets\` first.`
     );
   }
-  mkdirSync(dirname(PUBLISH_EXCLUSIONS_PATH), { recursive: true });
-  copyFileSync(EXCLUSIONS_PATH, PUBLISH_EXCLUSIONS_PATH);
+  mkdirSync(dirname(paths.publishExclusionsPath), { recursive: true });
+  copyFileSync(paths.exclusionsPath, paths.publishExclusionsPath);
 }
 
-function readExclusionsFile() {
-  return JSON.parse(readFileSync(EXCLUSIONS_PATH, 'utf8'));
+function readExclusionsFile(path = EXCLUSIONS_PATH) {
+  return JSON.parse(readFileSync(path, 'utf8'));
 }
 
-function persistExclusions(doc) {
-  writeAtomic(EXCLUSIONS_PATH, `${JSON.stringify(doc, null, 2)}\n`);
-  mirrorExclusions();
+function persistExclusions(doc, paths = resolveServerPaths()) {
+  writeAtomic(paths.exclusionsPath, `${JSON.stringify(doc, null, 2)}\n`);
+  mirrorExclusions(paths);
 }
 
 // --- Origin/Host gate & input validation (D-12, ASVS V4/V5) ------------------
@@ -557,7 +583,7 @@ function readJsonBody(req) {
 
 // --- Write routes (PUT/DELETE /__curate/exclusions/:activityId) -------------
 
-async function handleExclusionWrite(req, res, urlPath) {
+async function handleExclusionWrite(req, res, urlPath, paths = resolveServerPaths()) {
   if (!isTrustedOrigin(req, EXPECTED_HOST)) {
     res.writeHead(403, { 'Content-Type': 'text/plain' });
     res.end('Forbidden: cross-origin write rejected');
@@ -596,7 +622,7 @@ async function handleExclusionWrite(req, res, urlPath) {
     }
 
     try {
-      persistExclusions(applyUpsert(readExclusionsFile(), activityId, reason));
+      persistExclusions(applyUpsert(readExclusionsFile(paths.exclusionsPath), activityId, reason), paths);
     } catch (error) {
       res.writeHead(500, { 'Content-Type': 'text/plain' });
       res.end(`Internal Server Error: ${error.message}`);
@@ -609,7 +635,7 @@ async function handleExclusionWrite(req, res, urlPath) {
 
   if (req.method === 'DELETE') {
     try {
-      persistExclusions(applyRemove(readExclusionsFile(), activityId));
+      persistExclusions(applyRemove(readExclusionsFile(paths.exclusionsPath), activityId), paths);
     } catch (error) {
       res.writeHead(500, { 'Content-Type': 'text/plain' });
       res.end(`Internal Server Error: ${error.message}`);
@@ -701,7 +727,7 @@ async function handleRecompute(req, res) {
 
 // --- Request handler ---------------------------------------------------------
 
-async function serveCurateRoute(req, res) {
+async function serveCurateRoute(req, res, paths = resolveServerPaths()) {
   const urlPath = (req.url ?? '/').split('?')[0];
 
   if (req.method === 'GET' && urlPath === `${CURATE_PREFIX}/health`) {
@@ -776,7 +802,7 @@ async function serveCurateRoute(req, res) {
     (req.method === 'PUT' || req.method === 'DELETE') &&
     urlPath.startsWith(EXCLUSIONS_ROUTE_PREFIX)
   ) {
-    await handleExclusionWrite(req, res, urlPath);
+    await handleExclusionWrite(req, res, urlPath, paths);
     return;
   }
 
@@ -857,7 +883,8 @@ function respond500(res, error) {
 // can exercise the shipped listener over an ephemeral port instead of
 // asserting about its source text. main() remains the only production
 // caller.
-export function createServer() {
+export function createServer(options = {}) {
+  const paths = resolveServerPaths(options);
   return http.createServer((req, res) => {
     // GAP-24-03 / CR-01: defence-in-depth — no future synchronous throw
     // anywhere in the static path (or the curate path) can terminate a
@@ -866,7 +893,7 @@ export function createServer() {
     // static branch symmetric with it.
     try {
       if (isCurateRoute(req.url ?? '/')) {
-        serveCurateRoute(req, res).catch((error) => respond500(res, error));
+        serveCurateRoute(req, res, paths).catch((error) => respond500(res, error));
         return;
       }
       serveStaticRoute(req, res);

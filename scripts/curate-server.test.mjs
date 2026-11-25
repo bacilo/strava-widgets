@@ -6,6 +6,7 @@
  */
 
 import http from 'node:http';
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -15,7 +16,10 @@ import {
   CURATE_HOST,
   CURATE_PORT,
   CURATE_PREFIX,
+  EXCLUSIONS_PATH,
   MOUNT_PREFIX,
+  PUBLISH_EXCLUSIONS_PATH,
+  REVIEWED_PATH,
   applyRemove,
   applyUpsert,
   buildQueueBundle,
@@ -27,6 +31,7 @@ import {
   isValidCurateActivityId,
   normalizeReason,
   renderQueuePage,
+  resolveServerPaths,
   safeResolve,
 } from './curate-server.mjs';
 
@@ -35,6 +40,55 @@ const SOURCE = readFileSync(new URL('./curate-server.mjs', import.meta.url), 'ut
 // Mirrors curate-server.mjs's own ROOT/INDEX_HTML computation — the liveness
 // suite below only runs when the real build artifact it serves exists.
 const INDEX_HTML = resolve(process.cwd(), 'dist/widgets/index.html');
+
+// T-37-12: file-scoped guard. No test in this file may write or git-checkout
+// a tracked file, so the SHA-256 of both tracked curation files must be
+// identical before and after the whole suite. Reads only; a missing file
+// hashes as the literal string 'absent'.
+const TRACKED_FILES_UNDER_GUARD = [EXCLUSIONS_PATH, REVIEWED_PATH];
+
+function sha256OrAbsent(path) {
+  const abs = resolve(process.cwd(), path);
+  if (!existsSync(abs)) return 'absent';
+  return createHash('sha256').update(readFileSync(abs)).digest('hex');
+}
+
+describe('tracked-file SHA guard (T-37-12)', () => {
+  let before;
+
+  beforeAll(() => {
+    before = Object.fromEntries(TRACKED_FILES_UNDER_GUARD.map((p) => [p, sha256OrAbsent(p)]));
+  });
+
+  afterAll(() => {
+    const after = Object.fromEntries(TRACKED_FILES_UNDER_GUARD.map((p) => [p, sha256OrAbsent(p)]));
+    expect(after).toEqual(before);
+  });
+
+  it('hashes both tracked paths at suite start', () => {
+    expect(Object.keys(before).sort()).toEqual([EXCLUSIONS_PATH, REVIEWED_PATH].sort());
+  });
+});
+
+describe('resolveServerPaths (path injection)', () => {
+  it('with no argument resolves to exactly the module constants', () => {
+    expect(resolveServerPaths()).toEqual({
+      exclusionsPath: EXCLUSIONS_PATH,
+      publishExclusionsPath: PUBLISH_EXCLUSIONS_PATH,
+      publishRoot: resolve(process.cwd(), 'dist/widgets'),
+      reviewedPath: REVIEWED_PATH,
+    });
+  });
+
+  it('one override leaves the other three at their defaults', () => {
+    const defaults = resolveServerPaths();
+    const overridden = resolveServerPaths({ exclusionsPath: '/tmp/x.json' });
+    expect(overridden.exclusionsPath).toBe('/tmp/x.json');
+    expect(overridden.publishExclusionsPath).toBe(defaults.publishExclusionsPath);
+    expect(overridden.publishRoot).toBe(defaults.publishRoot);
+    expect(overridden.reviewedPath).toBe(defaults.reviewedPath);
+  });
+});
 
 // D-05: a literal in-test fixture mirroring the live data/best-effort-exclusions.json
 // shape (schemaVersion: 1, a note string, two real entries with distances: null).
