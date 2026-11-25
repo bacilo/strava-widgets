@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
-status: executing
-stopped_at: "Completed 36.1-09-PLAN.md: all 9 plans executed; code review and verification pending"
-last_updated: "2026-11-25T12:27:48.102Z"
+status: ready_to_plan
+stopped_at: Phase 36.1 complete (9/9) — ready to discuss Phase 37
+last_updated: 2026-11-25T13:00:50.907Z
 last_activity: 2026-11-25
 progress:
   total_phases: 7
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 89
   completed_plans: 89
-  percent: 71
+  percent: 86
 ---
 
 # Project State
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 36.1 — Ingestion Integrity
+**Current focus:** Phase 37 — review queue priority & cur 04
 
 **Carried into the next milestone** (full list with reasons in PROJECT.md § Active):
 
@@ -46,9 +46,9 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 ## Current Position
 
-Phase: 36.1 (Ingestion Integrity) — EXECUTING
-Plan: all 9 plans executed; verification pending
-Status: Executed, awaiting code review and verification
+Phase: 37
+Plan: Not started
+Status: Ready to plan
 
 Phase 36 planned (2026-09-28): 14 plans in 9 waves, committed `ebe0245c`. Research `4a61a19b`,
 validation/pattern artifacts `e9a16e61`. Plan-checker returned VERIFICATION PASSED — 0 blockers,
