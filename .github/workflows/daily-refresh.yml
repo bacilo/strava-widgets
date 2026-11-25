@@ -119,21 +119,47 @@ jobs:
       #
       # Tradeoff (RESEARCH Pattern 3): a record that breaks the build is now
       # committed before the build proves it, so it is kept and fixed rather
-      # than lost. The later "Commit updated data and stats" step is a superset
-      # of this file_pattern and acts as the retry.
+      # than lost.
+      #
+      # The push retries up to 3 times. Between attempts it merges origin
+      # (git pull --no-rebase, never rebase) and backs off, because nightly CI
+      # and other pushes race on master (36.1 WR-01). The later "Commit updated
+      # data and stats" step is NOT a retry: after a failed push here these
+      # files are already committed locally and clean, and if test:logic fails
+      # that step never runs. If every attempt fails, the fetched data is
+      # recovered by the next nightly's overlap window re-fetching it.
       - name: Commit fetched data (before any build or test)
         id: commit_fetched
         continue-on-error: true
-        uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d  # v7.2.0
-        with:
-          commit_message: 'chore: commit fetched activities [skip ci]'
-          file_pattern: 'data/activities/*.json data/sync-state.json data/streams/*.json'
-          commit_user_name: 'github-actions[bot]'
-          commit_user_email: 'github-actions[bot]@users.noreply.github.com'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add -- 'data/activities/*.json' 'data/sync-state.json' 'data/streams/*.json'
+          if git diff --cached --quiet; then
+            echo "::notice::No fetched data to commit"
+            exit 0
+          fi
+          git commit -m 'chore: commit fetched activities [skip ci]'
+          for attempt in 1 2 3; do
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              exit 0
+            fi
+            echo "::notice::Push attempt ${attempt} of 3 failed"
+            if [ "${attempt}" -lt 3 ]; then
+              sleep $((attempt * 4))
+              if ! git pull --no-rebase --no-edit origin "${GITHUB_REF_NAME}"; then
+                git merge --abort
+                exit 1
+              fi
+            fi
+          done
+          exit 1
 
       - name: Warn on early commit failure
         if: steps.commit_fetched.outcome == 'failure'
-        run: echo "::warning::Early commit of fetched data failed (likely a non-fast-forward race with origin/master); the later commit step retries the same files"
+        run: echo "::warning::Early commit of fetched data failed after 3 push attempts; the next nightly overlap window will re-fetch it"
 
       # --- Dispatched exclusion (workflow_dispatch only) ---------------------
       #

@@ -112,12 +112,32 @@ export function checkWorkflow(text) {
     }
     if (!hasCoe(s)) add('EARLY-COMMIT', 'commit_fetched lacks continue-on-error: true');
     if (hasIf(s)) add('EARLY-COMMIT', `commit_fetched has an if: (${ifText(s)}); it must always run`);
-    const msg = /commit_message:\s*'([^']*)'/.exec(s.body);
-    if (!msg || !msg[1].split('\n')[0].includes(SKIP_TOKEN)) add('EARLY-COMMIT', 'commit_message first line lacks the skip-ci token');
-    const fp = /file_pattern:\s*'([^']*)'/.exec(s.body);
+    // The early commit is a `run:` step (not the auto-commit action) so that
+    // its push can retry: a non-fast-forward race must not drop the night's
+    // fetched data (36.1 WR-01).
+    const r = s.run;
+    if (!r) add('EARLY-COMMIT', 'commit_fetched has no run: body');
+    const sh = shellText(s);
+    if (sh !== 'bash') add('EARLY-COMMIT', `commit_fetched must use exact shell: bash (shell: ${sh})`);
+    if (!/^\s*set\s+-[a-z]*e[a-z]*\b/m.test(r)) add('EARLY-COMMIT', 'commit_fetched run body lacks set -e');
+    if (SUPPRESS_RE.test(r)) add('EARLY-COMMIT', 'commit_fetched run body suppresses the exit code');
+    const cm = /git commit\b[^\n]*-m\s+'([^']*)'/.exec(r);
+    if (!cm || !cm[1].includes(SKIP_TOKEN)) add('EARLY-COMMIT', 'git commit subject lacks the skip-ci token');
+    const addLine = /^git add\b.*$/m.exec(r);
     for (const g of ['data/activities/*.json', 'data/sync-state.json', 'data/streams/*.json']) {
-      if (!fp || !fp[1].includes(g)) add('EARLY-COMMIT', `file_pattern lacks ${g}`);
+      if (!addLine || !addLine[0].includes(g)) add('EARLY-COMMIT', `git add lacks ${g}`);
     }
+    if (!/git diff --cached --quiet/.test(r)) add('EARLY-COMMIT', 'commit_fetched does not skip cleanly when nothing is staged');
+    // Retry loop of at least 3 attempts containing the push.
+    const loop = /^\s*for\s+\w+\s+in\s+(?:\d+\s+){2,}\d+\s*;\s*do\b([\s\S]*?)^\s*done\b/m.exec(r);
+    if (!loop) {
+      add('EARLY-COMMIT', 'commit_fetched push is not inside a retry loop of at least 3 attempts');
+    } else {
+      if (!/git push\b/.test(loop[1])) add('EARLY-COMMIT', 'retry loop does not contain git push');
+      if (!/git pull\b[^\n]*--no-rebase\b/.test(loop[1])) add('EARLY-COMMIT', 'retry loop does not git pull --no-rebase between attempts');
+    }
+    if (/(^|\s)--rebase\b|git rebase\b|\bpull\.rebase\b/m.test(r)) add('EARLY-COMMIT', 'commit_fetched rebases; it must merge (--no-rebase)');
+    if (/--force\b|\s-f\s|--force-with-lease/.test(r)) add('EARLY-COMMIT', 'commit_fetched force-pushes');
   }
 
   // LOGIC-BLOCKING
