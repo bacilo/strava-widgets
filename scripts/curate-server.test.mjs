@@ -69,19 +69,26 @@ function sha256OrAbsent(path) {
   return createHash('sha256').update(readFileSync(abs)).digest('hex');
 }
 
+// WR-01: these hooks MUST stay at file scope, outside every describe. A
+// describe-scoped afterAll runs as soon as that block's own tests finish,
+// i.e. before the real-socket write suites further down, and so asserts
+// nothing. At file scope the afterAll runs after every test in this file.
+let trackedShaBefore;
+
+beforeAll(() => {
+  trackedShaBefore = Object.fromEntries(
+    TRACKED_FILES_UNDER_GUARD.map((p) => [p, sha256OrAbsent(p)])
+  );
+});
+
+afterAll(() => {
+  const after = Object.fromEntries(TRACKED_FILES_UNDER_GUARD.map((p) => [p, sha256OrAbsent(p)]));
+  expect(after).toEqual(trackedShaBefore);
+});
+
 describe('tracked-file SHA guard (T-37-12)', () => {
-  let before;
-
-  beforeAll(() => {
-    before = Object.fromEntries(TRACKED_FILES_UNDER_GUARD.map((p) => [p, sha256OrAbsent(p)]));
-  });
-
-  afterAll(() => {
-    const after = Object.fromEntries(TRACKED_FILES_UNDER_GUARD.map((p) => [p, sha256OrAbsent(p)]));
-    expect(after).toEqual(before);
-  });
-
   it('hashes both tracked paths at suite start', () => {
+    const before = trackedShaBefore;
     expect(Object.keys(before).sort()).toEqual([EXCLUSIONS_PATH, REVIEWED_PATH].sort());
   });
 });
