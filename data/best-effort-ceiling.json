@@ -1,37 +1,37 @@
 {
   "schemaVersion": 1,
   "note": "Machine-written. Exists because data/stats/ is gitignored and starts empty on every CI runner, so this file is the only durable record of the previous run's derived personal plausibility ceiling. Committed so a ceiling move is a blameable commit (Phase 28 D-06/D-07). Do not hand-edit; a malformed entry degrades that one distance to a warning, never an abort.",
-  "generatedAt": "2026-09-19T07:42:53.759Z",
+  "generatedAt": "2026-11-25T08:30:03.362Z",
   "ceilings": {
     "400m": {
-      "ceilingMps": 5.1098,
-      "p90Mps": 3.992015968063872,
-      "populationN": 1834
+      "ceilingMps": 5.0147,
+      "p90Mps": 3.9177277179236047,
+      "populationN": 1912
     },
     "1k": {
-      "ceilingMps": 4.7496,
-      "p90Mps": 3.7105751391465676,
-      "populationN": 1852
+      "ceilingMps": 4.7077,
+      "p90Mps": 3.677822728944465,
+      "populationN": 1909
     },
     "1mi": {
-      "ceilingMps": 4.6281,
-      "p90Mps": 3.6156908559874186,
-      "populationN": 1851
+      "ceilingMps": 4.592,
+      "p90Mps": 3.5874810521622824,
+      "populationN": 1904
     },
     "5k": {
-      "ceilingMps": 4.3452,
-      "p90Mps": 3.394663588838346,
-      "populationN": 1788
+      "ceilingMps": 4.3355,
+      "p90Mps": 3.387074922097277,
+      "populationN": 1787
     },
     "10k": {
-      "ceilingMps": 4.2204,
-      "p90Mps": 3.2971743216063834,
-      "populationN": 1468
+      "ceilingMps": 4.2358,
+      "p90Mps": 3.3091763460074786,
+      "populationN": 1237
     },
     "half": {
-      "ceilingMps": 4.4017,
-      "p90Mps": 3.4388192531499078,
-      "populationN": 104
+      "ceilingMps": null,
+      "p90Mps": null,
+      "populationN": 73
     },
     "marathon": {
       "ceilingMps": null,
