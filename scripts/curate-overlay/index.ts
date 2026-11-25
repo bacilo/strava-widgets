@@ -106,8 +106,64 @@ async function describeFailure(response: Response): Promise<string> {
   if (response.status === 413) {
     return 'That reason is too long for the server to accept.';
   }
+  if (response.status === 409) {
+    const conflict = (await response.text().catch(() => '')).trim();
+    return conflict
+      ? `Refused: ${conflict}`
+      : 'Refused: this activity is both excluded and reviewed-and-kept, which is not allowed — undo one first.';
+  }
   const body = await response.text().catch(() => '');
   return `Request failed (${response.status})${body ? `: ${body}` : '.'}`;
+}
+
+/**
+ * Reads the reviewed-and-kept document (Phase 37 D-16). It is not mirrored
+ * into dist/widgets, so the queue reads it through the curate server. Never
+ * throws: any failure resolves to null and the caller shows every row as not
+ * reviewed, which fails toward more attention.
+ */
+export async function loadReviewedDoc(): Promise<unknown | null> {
+  try {
+    const response = await fetch(`${CURATE_PREFIX}/reviewed`);
+    if (!response.ok) {
+      return null;
+    }
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Marks `activityId` reviewed-and-kept with the developer's own reason and
+ * the fingerprint of the evidence reviewed (D-12, D-17). The transport owns
+ * the reload, as for exclusions.
+ */
+export async function saveReviewed(
+  activityId: string,
+  reason: string,
+  fingerprint: string
+): Promise<void> {
+  const response = await fetch(`${CURATE_PREFIX}/reviewed/${encodeURIComponent(activityId)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason, fingerprint }),
+  });
+  if (!response.ok) {
+    throw new Error(await describeFailure(response));
+  }
+  location.reload();
+}
+
+/** Deletes the reviewed entry for `activityId` (D-14, no tombstone). */
+export async function removeReviewed(activityId: string): Promise<void> {
+  const response = await fetch(`${CURATE_PREFIX}/reviewed/${encodeURIComponent(activityId)}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    throw new Error(await describeFailure(response));
+  }
+  location.reload();
 }
 
 /**

@@ -148,6 +148,62 @@ describe('D-07 — recompute is separate from save', () => {
   });
 });
 
+/** Slices one exported function's body out of the stripped index source. */
+function exportBody(name) {
+  const start = INDEX_SOURCE.indexOf(`export async function ${name}`);
+  expect(start).toBeGreaterThanOrEqual(0);
+  const nextExport = INDEX_SOURCE.indexOf('\nexport ', start + 1);
+  return nextExport === -1 ? INDEX_SOURCE.slice(start) : INDEX_SOURCE.slice(start, nextExport);
+}
+
+describe('Phase 37 D-16 — reviewed transport', () => {
+  it('exports saveReviewed, removeReviewed and loadReviewedDoc', () => {
+    for (const name of ['saveReviewed', 'removeReviewed', 'loadReviewedDoc']) {
+      expect(INDEX_SOURCE.includes(`export async function ${name}`)).toBe(true);
+    }
+  });
+
+  it('saveReviewed PUTs reason and fingerprint to the reviewed route, then reloads', () => {
+    const body = exportBody('saveReviewed');
+    expect(body.includes('${CURATE_PREFIX}/reviewed/${encodeURIComponent(activityId)}')).toBe(true);
+    expect(body.includes("method: 'PUT'")).toBe(true);
+    expect(body.includes('JSON.stringify({ reason, fingerprint })')).toBe(true);
+    expect(body.includes('describeFailure')).toBe(true);
+    expect(body.includes('location.reload()')).toBe(true);
+  });
+
+  it('the saveReviewed body does not reference /exclusions or the recompute route', () => {
+    const body = exportBody('saveReviewed');
+    expect(body.includes('/exclusions')).toBe(false);
+    expect(body.includes('recompute')).toBe(false);
+  });
+
+  it('removeReviewed uses DELETE on the reviewed route and reloads', () => {
+    const body = exportBody('removeReviewed');
+    expect(body.includes('${CURATE_PREFIX}/reviewed/${encodeURIComponent(activityId)}')).toBe(true);
+    expect(body.includes("method: 'DELETE'")).toBe(true);
+    expect(body.includes('location.reload()')).toBe(true);
+  });
+
+  it('loadReviewedDoc GETs the reviewed route, returns null on !ok, and never throws', () => {
+    const body = exportBody('loadReviewedDoc');
+    expect(body.includes('${CURATE_PREFIX}/reviewed`')).toBe(true);
+    expect(body.includes('return null')).toBe(true);
+    expect(/try\s*\{[\s\S]*\}\s*catch\s*\{[\s\S]*return null/.test(body)).toBe(true);
+    expect(body.includes('throw')).toBe(false);
+  });
+
+  it('describeFailure has a 409 branch that carries the server body text', () => {
+    const start = INDEX_SOURCE.indexOf('async function describeFailure');
+    const end = INDEX_SOURCE.indexOf('export async function', start);
+    const body = INDEX_SOURCE.slice(start, end);
+    const at = body.indexOf('response.status === 409');
+    expect(at).toBeGreaterThanOrEqual(0);
+    expect(body.slice(at).includes('response.text()')).toBe(true);
+    expect(body.slice(at).includes('Refused:')).toBe(true);
+  });
+});
+
 describe('D-01 — structural absence from the publish pipeline', () => {
   const CONFIG_FILES = [
     new URL('../vite.config.ts', import.meta.url),
