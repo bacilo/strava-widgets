@@ -48,3 +48,7 @@ Known going in:
 
 See also `~/.claude` project memory `intervals-icu-migration` for the full
 migration context.
+
+## Resolution (2026-11-25)
+
+Resolved by Phase 36.1: the export was probed first (36.1-GARMIN-PROBE.md), a Garmin reconcile adapter + audit (`data/reconciliation/garmin.json`) and the `import-fit` importer were built, and the 2026-11-18 run was imported. consolidate-exports keeps garmin as inventory-only plus provenance re-derivation. Follow-ups: see the 2026-11-25 todos.
