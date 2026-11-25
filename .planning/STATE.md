@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
 status: executing
-stopped_at: "Phase 36.1 paused at 36.1-07 Task 1 (human-action): waiting for the Garmin bulk export in export_data/garmin/. Plans 01-06 done. Morning-run FIT already at export_data/garmin/single/25116720114.zip (start 2026-11-18T06:25:50Z, 12609.7 m)"
+stopped_at: "Phase 36.1 plan 07 halted at H2 after the Garmin probe (export has no 2026-04-20 activity); needs a developer decision before 36.1-08. Plans 01-06 done, 07 partial (Tasks 1-2 done, Task 3 fixture not started)"
 last_updated: "2026-11-25T11:53:42.032Z"
 last_activity: 2026-11-25
 progress:
@@ -47,7 +47,7 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 ## Current Position
 
 Phase: 36.1 (Ingestion Integrity) — EXECUTING
-Plan: plans 01-06 done (6 of 9); 07 is next (the Garmin bulk-export checkpoint)
+Plan: plans 01-06 done (6 of 9); 07 partial: export placed and probed, HALT H2 awaiting a developer decision (Task 3 fixture not started); 08 follows
 Status: Ready to execute
 
 Phase 36 planned (2026-09-28): 14 plans in 9 waves, committed `ebe0245c`. Research `4a61a19b`,
