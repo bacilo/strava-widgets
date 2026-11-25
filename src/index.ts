@@ -16,6 +16,11 @@ import * as fs from 'fs/promises';
 
 const command = process.argv[2];
 
+function flagValue(name: string): string | undefined {
+  const i = process.argv.indexOf(name);
+  return i > -1 ? process.argv[i + 1] : undefined;
+}
+
 async function authCommand() {
   try {
     const oauth = new StravaOAuth({
@@ -609,6 +614,7 @@ function printHelp() {
   console.log('  compute-all-stats [--ci] [--write-ceiling-state] - Compute all statistics (basic, advanced, geo, best efforts, age-grading, dashboard index, gear aggregate, training load). --ci: warn and continue on tolerated steps, print a failure summary; default is fail-fast. --write-ceiling-state: opt in to rewriting the committed data/best-effort-ceiling.json (28 WR-06); default leaves it untouched.');
   console.log('  sync-intervals         - Sync new activities from intervals.icu (Garmin bridge)');
   console.log('  consolidate-exports    - Reconcile bulk exports under export_data/ into the archive');
+  console.log('  import-fit <path> --garmin-id N [--source garmin] [--name "..."] - Import one original FIT (a run intervals.icu never received) into data/activities + data/streams with provenance; dedupes on session start time (ING-03)');
   console.log('  backfill-streams       - Derive committed per-activity streams from export_data/ originals, local only');
   console.log('  probe-intervals        - Dry-run the intervals.icu provider (writes nothing)');
   console.log('\nExamples:');
@@ -673,6 +679,37 @@ async function main() {
     case 'consolidate-exports': {
       const { consolidateExports } = await import('./exports/consolidate.js');
       await consolidateExports();
+      break;
+    }
+    case 'import-fit': {
+      const fitPath = process.argv[3];
+      const garminId = flagValue('--garmin-id');
+      if (!fitPath || fitPath.startsWith('--') || !garminId) {
+        console.error(
+          'Usage: import-fit <path-under-export_data/<source>/> --garmin-id <digits> [--source garmin] [--name "..."]'
+        );
+        throw new Error('import-fit: missing path or --garmin-id');
+      }
+      const { importFit } = await import('./exports/fit-import.js');
+      const result = await importFit({
+        fitPath,
+        garminId,
+        source: flagValue('--source') ?? 'garmin',
+        name: flagValue('--name'),
+        exportRoot: 'export_data',
+        activitiesDir: 'data/activities',
+        streamsDir: 'data/streams',
+        manifestPath: 'data/streams/manifest.json',
+        provenancePath: 'data/provenance.json',
+      });
+      if (result.status === 'imported') {
+        console.log(`imported ${result.id} (start ${result.startDate})`);
+        console.log(
+          'Archive changed: regenerate stats before deploying; the nightly will also pick it up.'
+        );
+      } else {
+        console.log(`duplicate of ${result.existingId} (start ${result.startDate}); nothing written`);
+      }
       break;
     }
     case 'backfill-streams': {
