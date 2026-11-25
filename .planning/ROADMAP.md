@@ -526,7 +526,7 @@ Plans:
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [x] 37-05-PLAN.md — D-09 zero-import review-queue recount (count AND order), five mutation proofs, live comparison
-- [ ] 37-06-PLAN.md — Queue UI: four views, reviewed-and-kept controls, orphans, notes; overlay transport
+- [x] 37-06-PLAN.md — Queue UI: four views, reviewed-and-kept controls, orphans, notes; overlay transport
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -577,7 +577,7 @@ Plans:
 | 35. Stream-Derived Running Pace | v2.3 | 13/13 | Complete    | 2026-09-28 |
 | 36. Best-Effort Clean-Window Search & Ceiling Recalibration | v2.3 | 20/20 | Complete    | 2026-11-25 |
 | 36.1. Ingestion Integrity (INSERTED) | v2.3 | 9/9 | Complete    | 2026-11-25 |
-| 37. Review-Queue Priority & CUR-04 | v2.3 | 5/7 | In Progress|  |
+| 37. Review-Queue Priority & CUR-04 | v2.3 | 6/7 | In Progress|  |
 
 *Last updated: 2026-09-19 — **v2.3 Pause & Slew Integrity roadmap created**: 6 phases (32-37), 24/24 requirements mapped, derived from research/SUMMARY.md's suggested sequence (detection → coverage integration → pause/stop → stream pace → best-effort/ceiling → review queue), with the hard dependency chain 32→33→36 preserved. SEG-06 (the unreliable-segment quality signal/badge) placed in Phase 33 rather than Phase 32, keeping Phase 32 compute/calibration-only and grouping the badge with the other consumers `classifyGaps`' output feeds. Phases 33-37 add rendered surfaces and close on a human browser checkpoint; Phase 32 does not. No archive-wide target rates were guessed into any success criterion — v2.2's "~5%" criterion was found jointly unsatisfiable; where a rate is unknown this milestone, the criterion is "measured and reported in a regenerable artifact."
 

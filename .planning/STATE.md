@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
 status: executing
-stopped_at: Completed 37-05-PLAN.md
-last_updated: "2026-11-25T14:49:36.544Z"
+stopped_at: Completed 37-06-PLAN.md
+last_updated: "2026-11-25T14:52:40.099Z"
 last_activity: 2026-11-25
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 96
-  completed_plans: 94
+  completed_plans: 95
   percent: 86
 ---
 
@@ -47,7 +47,7 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 ## Current Position
 
 Phase: 37 (review-queue-priority-cur-04) — EXECUTING
-Plan: 6 of 7
+Plan: 7 of 7
 Status: Ready to execute
 
 Phase 37 planned (2026-11-25): 7 plans in 3 waves (01-04 | 05, 06 | 07 checkpoint), committed
@@ -154,6 +154,7 @@ Last activity: 2026-11-25
 | Phase 37 P01 | 30min | 2 tasks | 9 files |
 | Phase 37 P02 | 25min | 3 tasks | 5 files |
 | Phase 37 P04 | 35min | 2 tasks | 2 files |
+| Phase 37 P06 | 40min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -247,6 +248,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 37]: 37-02: reviewed routes dispatch PUT|DELETE only (GET/POST on /reviewed/:id fall to 404); corrupt reviewed file fails closed (500 server, non-zero CLI); reviewedAt is server-stamped ISO
 - [Phase 37]: Unknown queue view falls back to to-review; excluded+reviewed rows sit under Excluded with reviewConflict; tier ladder fails closed
 - [Phase 37]: Recount forbidden-module scan is specifier-scoped; message and data-path strings legitimately name compute-best-efforts and pace-quality
+- [Phase 37]: Queue view persists in location.hash #view=<name>; changed rows offer Review again and Un-review with no exclude control; a null reviewed doc shows all rows unreviewed with a note
 
 ### Key Findings
 
@@ -360,8 +362,8 @@ It is named here because PROJECT.md's Evolution entry still describes it as open
 
 ## Session Continuity
 
-Last session: 2026-11-25T14:49:32.039Z
-Stopped at: Completed 37-05-PLAN.md
+Last session: 2026-11-25T14:52:36.954Z
+Stopped at: Completed 37-06-PLAN.md
 Resume file: None
 
 ---
