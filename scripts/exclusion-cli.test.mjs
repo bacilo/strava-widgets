@@ -180,3 +180,56 @@ describe('exclusion-cli — reason text is data, never code', () => {
     expect(readDoc().exclusions.find((e) => e.activityId === 'i184264408').reason).toBe(hostile);
   });
 });
+
+describe('exclusion-cli — D-11 reviewed-id check', () => {
+  const REVIEWED = { schemaVersion: 1, note: 'fixture', reviewed: [
+    { activityId: 'i184264408', reason: 'kept', reviewedAt: '2026-11-25T10:00:00.000Z', fingerprint: '1k:ceiling|t=0' },
+  ] };
+
+  function reviewedPath() {
+    return resolve(fixture, 'data/curation/reviewed.json');
+  }
+
+  function writeReviewed(contents) {
+    mkdirSync(resolve(fixture, 'data/curation'), { recursive: true });
+    writeFileSync(reviewedPath(), contents);
+  }
+
+  it('refuses an add for a reviewed id, names "reviewed", and leaves the exclusions file byte-identical', () => {
+    writeReviewed(JSON.stringify(REVIEWED));
+    const before = readFileSync(exclusionsPath(), 'utf8');
+
+    const result = run('--id', 'i184264408', '--reason', 'Treadmill run.');
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('reviewed');
+    expect(readFileSync(exclusionsPath(), 'utf8')).toBe(before);
+  });
+
+  it('behaves as before when there is no reviewed file', () => {
+    const result = run('--id', 'i184264408', '--reason', 'Treadmill run.');
+
+    expect(result.status).toBe(0);
+    expect(readDoc().exclusions.some((e) => e.activityId === 'i184264408')).toBe(true);
+  });
+
+  it('fails closed on a corrupt reviewed file and leaves the exclusions file byte-identical', () => {
+    writeReviewed('{corrupt');
+    const before = readFileSync(exclusionsPath(), 'utf8');
+
+    const result = run('--id', 'i184264408', '--reason', 'Treadmill run.');
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('data/curation/reviewed.json');
+    expect(readFileSync(exclusionsPath(), 'utf8')).toBe(before);
+  });
+
+  it('still allows --remove for an id that is listed in the reviewed file', () => {
+    writeReviewed(JSON.stringify({ ...REVIEWED, reviewed: [{ ...REVIEWED.reviewed[0], activityId: '3475726256' }] }));
+
+    const result = run('--id', '3475726256', '--remove');
+
+    expect(result.status).toBe(0);
+    expect(readDoc().exclusions.some((e) => e.activityId === '3475726256')).toBe(false);
+  });
+});

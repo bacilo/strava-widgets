@@ -48,6 +48,7 @@ import {
   renderQueuePage,
   resolveServerPaths,
   safeResolve,
+  sharedActivityIds,
 } from './curate-server.mjs';
 
 const SOURCE = readFileSync(new URL('./curate-server.mjs', import.meta.url), 'utf8');
@@ -1123,5 +1124,32 @@ describe('persistReviewed source discipline (D-01, T-37-11)', () => {
     expect(body).toContain('writeAtomic');
     expect(body).not.toContain('mirrorExclusions');
     expect(body).not.toContain('dist');
+  });
+});
+
+// D-11 over the COMMITTED files. Read-only. The planted in-memory pair shows
+// the helper can fail; the committed pair shows it can pass.
+describe('excluded and reviewed are disjoint (D-11)', () => {
+  it('planted: two in-memory docs that both list X share exactly [X]', () => {
+    expect(
+      sharedActivityIds(
+        { exclusions: [{ activityId: 'X' }, { activityId: 'Y' }] },
+        { reviewed: [{ activityId: 'X' }, { activityId: 'Z' }] }
+      )
+    ).toEqual(['X']);
+  });
+
+  it('skips non-object entries and non-string ids', () => {
+    expect(
+      sharedActivityIds({ exclusions: [null, { activityId: 5 }] }, { reviewed: [null, { activityId: 5 }] })
+    ).toEqual([]);
+  });
+
+  it('committed: data/best-effort-exclusions.json and data/curation/reviewed.json share no activityId', () => {
+    const exclusions = JSON.parse(readFileSync(resolve(process.cwd(), EXCLUSIONS_PATH), 'utf8'));
+    const reviewed = JSON.parse(readFileSync(resolve(process.cwd(), REVIEWED_PATH), 'utf8'));
+    expect(Array.isArray(exclusions.exclusions)).toBe(true);
+    expect(Array.isArray(reviewed.reviewed)).toBe(true);
+    expect(sharedActivityIds(exclusions, reviewed)).toEqual([]);
   });
 });

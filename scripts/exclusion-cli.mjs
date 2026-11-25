@@ -34,10 +34,12 @@ import { pathToFileURL } from 'node:url';
 import {
   EXCLUSIONS_PATH,
   MAX_REASON_CHARS,
+  REVIEWED_PATH,
   applyRemove,
   applyUpsert,
   isValidCurateActivityId,
   normalizeReason,
+  readReviewedFile,
   writeAtomic,
 } from './curate-server.mjs';
 
@@ -111,6 +113,21 @@ export function main() {
     updated = applyRemove(doc, id);
     summary = `Removed exclusion for ${id}`;
   } else {
+    // D-11: excluded and reviewed-and-kept are mutually exclusive. Removal
+    // (above) is never blocked. A missing reviewed file reads as empty; a
+    // corrupt one fails CLOSED rather than skipping the check.
+    let reviewedDoc;
+    try {
+      reviewedDoc = readReviewedFile(resolve(REVIEWED_PATH));
+    } catch (error) {
+      fail(`Cannot read ${REVIEWED_PATH} to check D-11: ${error.message}`);
+    }
+    if (reviewedDoc.reviewed.some((e) => e.activityId === id)) {
+      fail(
+        `Activity ${id} is marked reviewed and kept in ${REVIEWED_PATH} — un-review it in ` +
+          'npm run curate first (D-11: excluded and reviewed are mutually exclusive).'
+      );
+    }
     const cleanReason = normalizeReason(reason);
     if (cleanReason === null) {
       fail(
