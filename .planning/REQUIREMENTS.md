@@ -115,8 +115,8 @@ Scoped from a live investigation on 2026-09-19 of three developer-flagged activi
 
 ### Curation (CUR)
 
-- [ ] **CUR-04**: In `npm run curate`, a queue row can be marked "reviewed and kept" with a required reason, distinct from exclude. It persists in its own committed file — not in `best-effort-exclusions.json`, which is load-bearing for ranking — through the existing overlay transport only (no second write surface), the row leaves the default queue view and remains reachable under a "reviewed" filter, and the action is reversible. Both publish guards are shown red under a planted leak and green on the served build.
-- [ ] **CUR-06**: The review queue also lists activities whose best effort was moved by the unreliable-segment guard and activities with a transported-class pause, ordered by a stated priority (transported first, then by contaminated metres), with the count equal to an independent recount.
+- [x] **CUR-04**: In `npm run curate`, a queue row can be marked "reviewed and kept" with a required reason, distinct from exclude. It persists in its own committed file — not in `best-effort-exclusions.json`, which is load-bearing for ranking — through the existing overlay transport only (no second write surface), the row leaves the default queue view and remains reachable under a "reviewed" filter, and the action is reversible. Both publish guards are shown red under a planted leak and green on the served build.
+- [x] **CUR-06**: The review queue also lists activities whose best effort was moved by the unreliable-segment guard and activities with a transported-class pause, ordered by a stated priority (transported first, then by contaminated metres), with the count equal to an independent recount.
 
 ## Future Requirements
 
@@ -176,5 +176,5 @@ Deferred, tracked, not in this roadmap.
 | ING-02 | Phase 36.1 | Complete |
 | ING-03 | Phase 36.1 | Complete |
 | ING-04 | Phase 36.1 | Complete |
-| CUR-04 | Phase 37 | Pending |
-| CUR-06 | Phase 37 | Pending |
+| CUR-04 | Phase 37 | Complete |
+| CUR-06 | Phase 37 | Complete |
