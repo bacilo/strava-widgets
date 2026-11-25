@@ -1,0 +1,54 @@
+[
+  {
+    "summarizedActivitiesExport": [
+      {
+        "activityId": 900000000001,
+        "startTimeGmt": 1773126000000,
+        "activityType": "running",
+        "distance": 1000000,
+        "duration": 3600000,
+        "name": "Fixture run"
+      },
+      {
+        "activityId": 900000000002,
+        "startTimeGmt": 1795014403000,
+        "activityType": "running",
+        "distance": 1343713,
+        "duration": 4501000,
+        "name": "Fixture run"
+      },
+      {
+        "activityId": 900000000003,
+        "startTimeGmt": 1794983400000,
+        "activityType": "running",
+        "distance": 1260970,
+        "duration": 4520000,
+        "name": "Fixture run"
+      },
+      {
+        "activityId": 900000000004,
+        "startTimeGmt": 1772348460000,
+        "activityType": "running",
+        "distance": 500000,
+        "duration": 1800000,
+        "name": "Fixture run"
+      },
+      {
+        "activityId": 900000000005,
+        "startTimeGmt": 1773212400000,
+        "activityType": "cycling",
+        "distance": 2500000,
+        "duration": 5400000,
+        "name": "Fixture run"
+      },
+      {
+        "activityId": 900000000006,
+        "startTimeGmt": 1773298800000,
+        "activityType": "floor_climbing",
+        "distance": 0,
+        "duration": 900000,
+        "name": "Fixture run"
+      }
+    ]
+  }
+]
