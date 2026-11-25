@@ -5,7 +5,7 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { runReconciliation } from './reconcile-exports.js';
+import { publicSummaryPath, runReconciliation } from './reconcile-exports.js';
 
 const HEADER = 'Activity ID,Activity Date,Activity Name,Activity Type,Activity Description,Elapsed Time,Distance,Max Heart Rate,Relative Effort,Commute,Activity Private Note,Activity Gear,Filename,Athlete Weight,Bike Weight,Elapsed Time,Moving Time,Distance,Max Speed,Average Speed,Elevation Gain,Elevation Loss,Elevation Low,Elevation High,Max Grade,Average Grade,Average Positive Grade,Average Negative Grade,Max Cadence,Average Cadence,Max Heart Rate,Average Heart Rate,Max Watts,Average Watts,Calories,Max Temperature,Average Temperature,Relative Effort,Total Work,Number of Runs,Uphill Time,Downhill Time,Other Time,Perceived Exertion,Type,Start Time,Weighted Average Power,Power Count,Prefer Perceived Exertion,Perceived Relative Effort,Commute,Total Weight Lifted,From Upload,Grade Adjusted Distance,Weather Observation Time,Weather Condition,Weather Temperature,Apparent Temperature,Dewpoint,Humidity,Weather Pressure,Wind Speed,Wind Gust,Wind Bearing,Precipitation Intensity,Sunrise Time,Sunset Time,Moon Phase,Bike,Gear,Precipitation Probability,Precipitation Type,Cloud Cover,Weather Visibility,UV Index,Weather Ozone,Jump Count,Total Grit,Average Flow,Flagged,Average Elapsed Speed,Dirt Distance,Newly Explored Distance,Newly Explored Dirt Distance,Activity Count,Total Steps,Carbon Saved,Pool Length,Training Load,Intensity,Average Grade Adjusted Pace,Timer Time,Total Cycles,Recovery,With Pet,Competition,Long Run,For a Cause,With Kid,Downhill Distance,Total Sets,Total Reps,Media';
 
@@ -116,5 +116,48 @@ describe('runReconciliation', () => {
       path: 'activities.csv',
       sha256: crypto.createHash('sha256').update(fs.readFileSync(path.join(s.exportRoot, 'strava', 'activities.csv'))).digest('hex'),
     });
+  });
+});
+
+describe('publicSummaryPath (WR-03: fail-closed account scrub)', () => {
+  const D = path.join('DI_CONNECT', 'DI-Connect-Fitness');
+
+  it.each([
+    ['x@y.z_1_summarizedActivities.json', '<account>_1_summarizedActivities.json'],
+    ['x@y.z_summarizedActivities.json', '<account>_summarizedActivities.json'],
+    ['x@y.z_renamed_page_summarizedActivities.json', '<account>_summarizedActivities.json'],
+    ['x@y.z_12_summarizedActivities.json', '<account>_12_summarizedActivities.json'],
+    ['activities.csv', 'activities.csv'],
+    ['x@y.z_activities.csv', '<account>_activities.csv'],
+    ['x@y.z', '<account>'],
+  ])('%s -> %s', (name, expected) => {
+    expect(publicSummaryPath(path.join(D, name))).toBe(path.join(D, expected));
+    expect(publicSummaryPath(name)).toBe(expected);
+  });
+
+  it('scrubs a directory segment holding @', () => {
+    expect(publicSummaryPath(path.join('x@y.z', 'activities.csv'))).toBe(path.join('<account>', 'activities.csv'));
+  });
+
+  it('throws when @ cannot be scrubbed rather than writing it', () => {
+    expect(() => publicSummaryPath('a_x@y.z.csv')).toThrow(/scrub failed/);
+  });
+
+  it('an unusually named Garmin summary file never reaches the written audit', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    const s = setup();
+    const fixture = path.join(path.dirname(new URL(import.meta.url).pathname), '__fixtures__', 'garmin');
+    const groot = path.join(s.exportRoot, 'garmin');
+    fs.cpSync(fixture, groot, { recursive: true });
+    const dir = path.join(groot, D);
+    const [orig] = fs.readdirSync(dir).filter(n => n.endsWith('_summarizedActivities.json'));
+    fs.renameSync(path.join(dir, orig), path.join(dir, 'x@y.z_summarizedActivities.json'));
+    const a = await runReconciliation({
+      source: 'garmin', exportRoot: s.exportRoot, activitiesDir: s.acts, auditDir: s.audit, exportDate: '2026-11-25',
+    });
+    expect(a.export_identity.summary_files.map(f => f.path)).toEqual([path.join(D, '<account>_summarizedActivities.json')]);
+    const written = fs.readFileSync(path.join(s.audit, 'garmin.json'), 'utf-8');
+    expect(written).not.toContain('@');
+    expect(written).not.toContain('x@y');
   });
 });

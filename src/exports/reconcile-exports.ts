@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { readGarminExportForReconcile } from './adapters/garmin.js';
+import { GARMIN_SUMMARY_SUFFIX, readGarminExportForReconcile } from './adapters/garmin.js';
 import { readStravaExportForReconcile, type AdapterOutput } from './adapters/strava.js';
 import { loadArchiveIndex, reconcile } from './reconcile.js';
 import { buildAudit, serializeAudit, type ReconciliationAudit } from './reconciliation-audit.js';
@@ -19,11 +19,31 @@ export const ADAPTERS: Record<string, (root: string) => AdapterOutput> = {
   garmin: readGarminExportForReconcile,
 };
 
-/** Garmin summary files carry the account email in their name; the public audit records the account part as a placeholder. */
-function publicSummaryPath(rel: string): string {
-  const dir = path.dirname(rel);
-  const base = path.basename(rel).replace(/^.*?(_\d+_summarizedActivities\.json)$/, '<account>$1');
-  return dir === '.' ? base : path.join(dir, base);
+/**
+ * Garmin summary files carry the account email in their name; the public audit
+ * records the account part as a placeholder (36.1 WR-03: fail closed, not
+ * allow-and-hope). A `*_summarizedActivities.json` name keeps only its optional
+ * page number and the suffix, whatever precedes them; any other segment holding
+ * '@' has its account part replaced. If '@' survives anyway, throw.
+ */
+export function publicSummaryPath(rel: string): string {
+  const scrubSegment = (seg: string): string => {
+    if (seg.endsWith(GARMIN_SUMMARY_SUFFIX)) {
+      const m = /(_\d+)?_summarizedActivities\.json$/.exec(seg);
+      return `<account>${m ? m[0] : GARMIN_SUMMARY_SUFFIX}`;
+    }
+    if (!seg.includes('@')) return seg;
+    // `who@where_rest` -> `<account>_rest`; a bare `who@where` -> `<account>`.
+    // Any other shape keeps its '@' and is refused by the check below.
+    return seg.replace(/^[^_]*@[^_]*/, '<account>');
+  };
+  const segments = rel.split(/[\\/]/);
+  const out = segments.map((seg, i) =>
+    i === segments.length - 1 ? scrubSegment(seg) : seg.includes('@') ? '<account>' : seg
+  );
+  const pub = out.length === 1 ? out[0] : path.join(...out);
+  if (pub.includes('@')) throw new Error('summary file path scrub failed: account identifier (@) remains');
+  return pub;
 }
 
 export async function runReconciliation(opts: {
