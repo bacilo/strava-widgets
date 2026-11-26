@@ -1,32 +1,32 @@
 {
   "schemaVersion": 1,
   "note": "Machine-written. Exists because data/stats/ is gitignored and starts empty on every CI runner, so this file is the only durable record of the previous run's derived personal plausibility ceiling. Committed so a ceiling move is a blameable commit (Phase 28 D-06/D-07). Do not hand-edit; a malformed entry degrades that one distance to a warning, never an abort.",
-  "generatedAt": "2026-11-25T12:58:40.173Z",
+  "generatedAt": "2026-11-26T14:43:16.297Z",
   "ceilings": {
     "400m": {
       "ceilingMps": 5.0147,
       "p90Mps": 3.9177277179236047,
-      "populationN": 1913
+      "populationN": 1915
     },
     "1k": {
       "ceilingMps": 4.7077,
       "p90Mps": 3.677822728944465,
-      "populationN": 1910
+      "populationN": 1912
     },
     "1mi": {
       "ceilingMps": 4.592,
       "p90Mps": 3.5874810521622824,
-      "populationN": 1905
+      "populationN": 1907
     },
     "5k": {
-      "ceilingMps": 4.3355,
-      "p90Mps": 3.387074922097277,
-      "populationN": 1788
+      "ceilingMps": 4.3346,
+      "p90Mps": 3.3863867253640367,
+      "populationN": 1790
     },
     "10k": {
-      "ceilingMps": 4.2358,
-      "p90Mps": 3.3091763460074786,
-      "populationN": 1238
+      "ceilingMps": 4.2274,
+      "p90Mps": 3.302618976848641,
+      "populationN": 1240
     },
     "half": {
       "ceilingMps": null,
