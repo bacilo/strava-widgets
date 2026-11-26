@@ -227,12 +227,13 @@ describe('consolidateExports near-match (SC3)', () => {
   it('logs ids, date and signed delta only, never the activity name', async () => {
     const f = fixture([...base, { id: '777', date: csvDateAt(-60) }]);
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    let lines: string[];
     try {
       await consolidateExports(f);
+      lines = log.mock.calls.map(c => String(c[0])).filter(l => l.includes('near-match:'));
     } finally {
       log.mockRestore();
     }
-    const lines = log.mock.calls.map(c => String(c[0])).filter(l => l.includes('near-match:'));
     expect(lines).toHaveLength(1);
     expect(lines[0]).toContain('777');
     expect(lines[0]).toContain('111');

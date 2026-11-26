@@ -7,6 +7,7 @@ import { IntervalsProvider } from '../api/intervals-provider.js';
 import type { StravaActivity } from '../types/strava.types.js';
 import { columnIndices, parseCsv, parseStravaExportDate } from './csv.js';
 import { readOriginal } from './geometry-readers.js';
+import { findNearMatch, type NearCandidate } from './near-match.js';
 
 /**
  * Consolidate bulk exports under export_data/ against the canonical archive.
@@ -176,6 +177,7 @@ export async function consolidateExports(
   // Canonical archive index.
   const archiveById = new Map<string, string>(); // id -> filename
   const archiveByEpoch = new Map<number, string>(); // epoch -> id
+  const nearCandidates: NearCandidate[] = []; // every archive record, equal epochs not collapsed
   const garminImported: Array<{ id: string; original?: string }> = [];
   for (const file of fs.readdirSync(activitiesDir).filter(f => f.endsWith('.json'))) {
     const activity = JSON.parse(fs.readFileSync(path.join(activitiesDir, file), 'utf-8'));
@@ -184,7 +186,9 @@ export async function consolidateExports(
       garminImported.push({ id, original: safeOriginalFile(activity.original_file) });
     }
     archiveById.set(id, file);
-    archiveByEpoch.set(Math.floor(new Date(activity.start_date).getTime() / 1000), id);
+    const startEpoch = Math.floor(new Date(activity.start_date).getTime() / 1000);
+    archiveByEpoch.set(startEpoch, id);
+    nearCandidates.push({ id, epoch: startEpoch });
   }
   console.log(`Canonical archive: ${archiveById.size} activities\n`);
 
@@ -214,6 +218,7 @@ export async function consolidateExports(
 
     let byId = 0;
     let byEpoch = 0;
+    let nearSkipped = 0;
     const missing: ExportRun[] = [];
 
     for (const run of runs) {
@@ -226,11 +231,20 @@ export async function consolidateExports(
         const id = archiveByEpoch.get(run.epoch)!;
         provenance[id] = { strava_id: run.stravaId, matched_by: 'start_date', original, gear: run.gear };
       } else {
-        missing.push(run);
+        const near = findNearMatch(run.epoch, nearCandidates);
+        if (near) {
+          nearSkipped++;
+          console.log(
+            `   near-match: export ${run.stravaId} (${run.iso.slice(0, 10)}) starts ${near.deltaS}s from archive record ${near.id}; skipped`
+          );
+        } else {
+          missing.push(run);
+        }
       }
     }
 
     console.log(`   matched: ${byId} by strava id, ${byEpoch} by start_date`);
+    if (nearSkipped > 0) console.log(`   near-match skipped: ${nearSkipped}`);
     console.log(`   missing from archive: ${missing.length}`);
 
     // Import what the archive lacks.
@@ -278,6 +292,7 @@ export async function consolidateExports(
       csv_runs: runs.length,
       matched_by_id: byId,
       matched_by_epoch: byEpoch,
+      ...(nearSkipped > 0 ? { near_match_skipped: nearSkipped } : {}),
       imported: missing.length,
       runs_without_original: runs.filter(r => !r.file).length,
       non_runs: Object.fromEntries(nonRuns),
