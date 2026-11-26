@@ -12,8 +12,13 @@
  * - "FIT-imported" means the archive record's `source_provider` is in
  *   FIT_IMPORT_PROVIDERS. `strava-export` is deliberately excluded.
  *
- * This is the only definition of the window in src/. A test fails if another
- * source file carries its own copy. No fs or path imports: the module is pure.
+ * This is the only definition of the window in src/. near-match.test.ts
+ * enforces two things. Every non-test .ts file under src/ is checked for a
+ * redefinition of NEAR_MATCH_TOLERANCE_S. The five files that dedupe by start
+ * epoch (fit-import, reconcile, intervals-sync, consolidate, index) are also
+ * checked for a private window literal (120, 120_000, 120000, 120n, 0x78,
+ * 2 * 60, 60 * 2). Other files are not scanned for literals. No fs or path
+ * imports: the module is pure.
  */
 
 export const NEAR_MATCH_TOLERANCE_S = 120;

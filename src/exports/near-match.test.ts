@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
@@ -22,11 +22,31 @@ export function stripComments(source: string): string {
   return withoutBlockComments.replace(/(?<!:)\/\/.*$/gm, '');
 }
 
+/** 120 s spelled as seconds, milliseconds, bigint, hex, or a 2-minute product. */
+const WINDOW_LITERAL_PATTERNS: RegExp[] = [
+  /(?<![\w.$])120(?:_?000)?n?(?![\w.])/g,
+  /(?<![\w.$])0x78(?![\w.])/gi,
+  /(?<![\w.$])2\s*\*\s*60(?![\w.])/g,
+  /(?<![\w.$])60\s*\*\s*2(?![\w.])/g,
+];
+
+export function findConstantRedefinitions(sourcesByPath: Record<string, string>): string[] {
+  const violations: string[] = [];
+  for (const [p, src] of Object.entries(sourcesByPath)) {
+    for (const _m of stripComments(src).matchAll(/\bNEAR_MATCH_TOLERANCE_S\s*=(?!=)/g)) {
+      violations.push(`${p}: defines NEAR_MATCH_TOLERANCE_S`);
+    }
+  }
+  return violations;
+}
+
 export function findWindowLiterals(sourcesByPath: Record<string, string>): string[] {
   const violations: string[] = [];
   for (const [p, src] of Object.entries(sourcesByPath)) {
     const code = stripComments(src);
-    for (const _m of code.matchAll(/(?<![\w.$])120(?![\w.])/g)) violations.push(`${p}: literal 120`);
+    for (const re of WINDOW_LITERAL_PATTERNS) {
+      for (const m of code.matchAll(re)) violations.push(`${p}: literal ${m[0]}`);
+    }
     for (const _m of code.matchAll(/\bNEAR_MATCH_TOLERANCE_S\s*=(?!=)/g)) {
       violations.push(`${p}: defines NEAR_MATCH_TOLERANCE_S`);
     }
@@ -60,7 +80,19 @@ const SCANNED = {
   'fit-import.ts': fitImport,
   'reconcile.ts': reconcile,
   'intervals-sync.ts': intervalsSync,
+  'consolidate.ts': read('./consolidate.ts'),
+  'index.ts': read('../index.ts'),
 };
+
+/** Every non-test .ts file under src/, keyed by path relative to src/. */
+const SRC_ROOT = new URL('../', import.meta.url);
+const ALL_SRC: Record<string, string> = Object.fromEntries(
+  (readdirSync(SRC_ROOT, { recursive: true }) as string[])
+    .map(f => f.split('\\').join('/'))
+    .filter(f => f.endsWith('.ts') && !f.endsWith('.test.ts'))
+    .sort()
+    .map(f => [f, readFileSync(new URL(f, SRC_ROOT), 'utf8')]),
+);
 
 describe('constants and predicate', () => {
   it('pins the window and providers against literals', () => {
@@ -146,12 +178,47 @@ describe('structural guard: one definition of the window (SC3)', () => {
     const v = findWindowLiterals({ 'x.ts': 'export const NEAR_MATCH_TOLERANCE_S = 60;' });
     expect(v).toEqual(['x.ts: defines NEAR_MATCH_TOLERANCE_S']);
   });
+  it.each(['120_000', '120000', '120n', '0x78', '0X78', '2 * 60', '60 * 2', '2*60*1000'])(
+    'a planted %s window is caught',
+    lit => {
+      expect(findWindowLiterals({ 'x.ts': `const W = ${lit};` }).length).toBeGreaterThan(0);
+    },
+  );
   it('comments and look-alike numbers are not violations', () => {
     expect(findWindowLiterals({ 'x.ts': '// 120 s' })).toEqual([]);
     expect(findWindowLiterals({ 'x.ts': '/* +-120 s */' })).toEqual([]);
-    for (const s of ['const a = 1200;', 'const a = 0.120;', 'const x120 = 1;']) {
+    for (const s of [
+      'const a = 1200;',
+      'const a = 0.120;',
+      'const x120 = 1;',
+      'const a = 1120;',
+      'const a = 12 * 60;',
+      'const a = 2 * 600;',
+      'const a = 60 * 24;',
+      'const a = 0x780;',
+    ]) {
       expect(findWindowLiterals({ 'x.ts': s })).toEqual([]);
     }
+  });
+});
+
+describe('structural guard: no redefinition anywhere in src/', () => {
+  it('scans the real tree, not an empty one', () => {
+    // Independent anchors: these files exist on disk and must be in the scan.
+    for (const f of ['exports/near-match.ts', 'exports/consolidate.ts', 'index.ts', 'sync/intervals-sync.ts']) {
+      expect(Object.keys(ALL_SRC)).toContain(f);
+    }
+    expect(Object.keys(ALL_SRC).some(f => f.endsWith('.test.ts'))).toBe(false);
+    expect(Object.keys(ALL_SRC).length).toBeGreaterThan(100);
+  });
+  it('only near-match.ts defines NEAR_MATCH_TOLERANCE_S', () => {
+    expect(findConstantRedefinitions(ALL_SRC)).toEqual(['exports/near-match.ts: defines NEAR_MATCH_TOLERANCE_S']);
+  });
+  it('a redefinition planted in an unscanned-for-literals file is caught', () => {
+    const p = 'analytics/compute-best-efforts.ts';
+    expect(ALL_SRC[p]).toBeDefined();
+    const mutated = { ...ALL_SRC, [p]: ALL_SRC[p] + '\nconst NEAR_MATCH_TOLERANCE_S = 60;\n' };
+    expect(findConstantRedefinitions(mutated)).toContain(`${p}: defines NEAR_MATCH_TOLERANCE_S`);
   });
 });
 
