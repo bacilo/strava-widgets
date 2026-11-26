@@ -6,6 +6,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 
 import { diffDataTree, snapshotDataTree, type DataTreeSnapshot } from '../test-support/data-write-guard.js';
 import { consolidateExports } from './consolidate.js';
+import { parseStravaExportDate } from './csv.js';
 
 // Header line copied from a real Strava export (header only, no data rows).
 const HEADER = 'Activity ID,Activity Date,Activity Name,Activity Type,Activity Description,Elapsed Time,Distance,Max Heart Rate,Relative Effort,Commute,Activity Private Note,Activity Gear,Filename,Athlete Weight,Bike Weight,Elapsed Time,Moving Time,Distance,Max Speed,Average Speed,Elevation Gain,Elevation Loss,Elevation Low,Elevation High,Max Grade,Average Grade,Average Positive Grade,Average Negative Grade,Max Cadence,Average Cadence,Max Heart Rate,Average Heart Rate,Max Watts,Average Watts,Calories,Max Temperature,Average Temperature,Relative Effort,Total Work,Number of Runs,Uphill Time,Downhill Time,Other Time,Perceived Exertion,Type,Start Time,Weighted Average Power,Power Count,Prefer Perceived Exertion,Perceived Relative Effort,Commute,Total Weight Lifted,From Upload,Grade Adjusted Distance,Weather Observation Time,Weather Condition,Weather Temperature,Apparent Temperature,Dewpoint,Humidity,Weather Pressure,Wind Speed,Wind Gust,Wind Bearing,Precipitation Intensity,Sunrise Time,Sunset Time,Moon Phase,Bike,Gear,Precipitation Probability,Precipitation Type,Cloud Cover,Weather Visibility,UV Index,Weather Ozone,Jump Count,Total Grit,Average Flow,Flagged,Average Elapsed Speed,Dirt Distance,Newly Explored Distance,Newly Explored Dirt Distance,Activity Count,Total Steps,Carbon Saved,Pool Length,Training Load,Intensity,Average Grade Adjusted Pace,Timer Time,Total Cycles,Recovery,With Pet,Competition,Long Run,For a Cause,With Kid,Downhill Distance,Total Sets,Total Reps,Media';
@@ -152,5 +153,100 @@ describe('consolidateExports garmin-export provenance', () => {
     expect(src).toContain("const ACTIVITIES_DIR = 'data/activities'");
     expect(src).toContain("const PROVENANCE_PATH = 'data/provenance.json'");
     expect(src).toContain("opts.exportRoot ?? 'export_data'");
+  });
+});
+
+// Independent anchor: the ISO start of archive record 111 in the fixture.
+const BASE_111 = Date.parse('2011-08-16T18:55:32Z') / 1000;
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** Strava export date string (UTC, 12-hour clock) for an absolute epoch in seconds. */
+function csvDateAtEpoch(sec: number): string {
+  const d = new Date(sec * 1000);
+  const h24 = d.getUTCHours();
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  const two = (n: number): string => String(n).padStart(2, '0');
+  return (
+    `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}, ` +
+    `${h12}:${two(d.getUTCMinutes())}:${two(d.getUTCSeconds())} ${h24 < 12 ? 'AM' : 'PM'}`
+  );
+}
+const csvDateAt = (offsetS: number): string => csvDateAtEpoch(BASE_111 + offsetS);
+
+const NEAR_OFFSETS = [1, -1, 60, 120, -120];
+const FAR_OFFSETS = [121, -121];
+const strip = (t: string): string => t.replace(/^\s*"generated_at":.*$/m, '');
+
+describe('consolidateExports near-match (SC3)', () => {
+  it.each([...NEAR_OFFSETS, ...FAR_OFFSETS, 0, 3600])('csvDateAt(%i) round-trips through parseStravaExportDate', offset => {
+    expect(parseStravaExportDate(csvDateAt(offset))).toBe(BASE_111 + offset);
+  });
+
+  it.each(NEAR_OFFSETS)('does not import an export row %i s from an archive record', async offset => {
+    const f = fixture([...base, { id: '777', date: csvDateAt(offset) }]);
+    const doc = JSON.parse(await run(f));
+    expect(fs.readdirSync(f.activitiesDir)).toHaveLength(4);
+    expect(fs.existsSync(path.join(f.activitiesDir, '777.json'))).toBe(false);
+    expect(doc.activities['777']).toBeUndefined();
+    expect(doc.sources.strava.near_match_skipped).toBe(1);
+    expect(doc.sources.strava.imported).toBe(0);
+  });
+
+  it.each(FAR_OFFSETS)('still imports an export row %i s from an archive record', async offset => {
+    const f = fixture([...base, { id: '777', date: csvDateAt(offset) }]);
+    const doc = JSON.parse(await run(f));
+    expect(fs.readdirSync(f.activitiesDir)).toHaveLength(5);
+    expect(fs.existsSync(path.join(f.activitiesDir, '777.json'))).toBe(true);
+    expect(doc.activities['777'].matched_by).toBe('imported');
+    expect('near_match_skipped' in doc.sources.strava).toBe(false);
+  });
+
+  it('resolves an exact epoch by start_date before the near rule', async () => {
+    const f = fixture([{ id: '222', date: D2 }, { id: '888', date: D1 }]);
+    const doc = JSON.parse(await run(f));
+    expect(doc.activities['111'].matched_by).toBe('start_date');
+    expect(doc.activities['111'].strava_id).toBe('888');
+    expect(fs.readdirSync(f.activitiesDir)).toHaveLength(4);
+    expect('near_match_skipped' in doc.sources.strava).toBe(false);
+  });
+
+  it('imports both rows of an in-batch near pair (candidates are the archive as indexed)', async () => {
+    const t = Date.parse('2012-01-01T10:00:00Z') / 1000;
+    const f = fixture([...base, { id: '801', date: csvDateAtEpoch(t) }, { id: '802', date: csvDateAtEpoch(t + 60) }]);
+    const doc = JSON.parse(await run(f));
+    expect(fs.readdirSync(f.activitiesDir)).toHaveLength(6);
+    expect(doc.activities['801'].matched_by).toBe('imported');
+    expect(doc.activities['802'].matched_by).toBe('imported');
+  });
+
+  it('omits near_match_skipped when no row is near', async () => {
+    const doc = JSON.parse(await run(fixture(base)));
+    expect('near_match_skipped' in doc.sources.strava).toBe(false);
+  });
+
+  it('logs ids, date and signed delta only, never the activity name', async () => {
+    const f = fixture([...base, { id: '777', date: csvDateAt(-60) }]);
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      await consolidateExports(f);
+    } finally {
+      log.mockRestore();
+    }
+    const lines = log.mock.calls.map(c => String(c[0])).filter(l => l.includes('near-match:'));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain('777');
+    expect(lines[0]).toContain('111');
+    expect(lines[0]).toContain('-60');
+    expect(lines[0]).not.toContain('n777');
+  });
+
+  it('is byte-identical across runs with a near row present', async () => {
+    const f = fixture([...base, { id: '777', date: csvDateAt(60) }]);
+    const a = await run(f);
+    const listing = fs.readdirSync(f.activitiesDir).sort();
+    const b = await run(f);
+    expect(strip(b)).toBe(strip(a));
+    expect(fs.readdirSync(f.activitiesDir).sort()).toEqual(listing);
+    expect(listing).toHaveLength(4);
   });
 });

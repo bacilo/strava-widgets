@@ -75,12 +75,13 @@ const fitImport = read('./fit-import.ts');
 const reconcile = read('./reconcile.ts');
 const nearMatch = read('./near-match.ts');
 const intervalsSync = read('../sync/intervals-sync.ts');
+const consolidate = read('./consolidate.ts');
 
 const SCANNED = {
   'fit-import.ts': fitImport,
   'reconcile.ts': reconcile,
   'intervals-sync.ts': intervalsSync,
-  'consolidate.ts': read('./consolidate.ts'),
+  'consolidate.ts': consolidate,
   'index.ts': read('../index.ts'),
 };
 
@@ -227,9 +228,10 @@ describe('structural guard: shared import and call', () => {
     'fit-import.ts': fitImport,
     'reconcile.ts': reconcile,
     'intervals-sync.ts': intervalsSync,
+    'consolidate.ts': consolidate,
   };
-  const needsCall = ['fit-import.ts', 'reconcile.ts', 'intervals-sync.ts'];
-  it('real sources import the shared module and all three call findNearMatch', () => {
+  const needsCall = ['fit-import.ts', 'reconcile.ts', 'intervals-sync.ts', 'consolidate.ts'];
+  it('real sources import the shared module and all four call findNearMatch', () => {
     expect(findMissingSharedImports(required, needsCall)).toEqual([]);
   });
   it('deleting the import line is caught', () => {
@@ -249,6 +251,19 @@ describe('structural guard: shared import and call', () => {
     expect(findMissingSharedImports(mutated, ['fit-import.ts'])).toContain(
       'fit-import.ts: missing findNearMatch( call',
     );
+  });
+  it('deleting the import line from consolidate is caught', () => {
+    const mutated = {
+      ...required,
+      'consolidate.ts': consolidate.replace(/^.*from '\.\/near-match\.js';.*$/m, ''),
+    };
+    expect(mutated['consolidate.ts']).not.toBe(consolidate);
+    expect(findMissingSharedImports(mutated, needsCall)).toContain('consolidate.ts: missing near-match import');
+  });
+  it('removing the call from consolidate is caught', () => {
+    const mutated = { ...required, 'consolidate.ts': consolidate.replaceAll('findNearMatch(', 'other(') };
+    expect(mutated['consolidate.ts']).not.toBe(consolidate);
+    expect(findMissingSharedImports(mutated, needsCall)).toEqual(['consolidate.ts: missing findNearMatch( call']);
   });
   describe('synthetic intervals-sync source', () => {
     const SYNTH =
