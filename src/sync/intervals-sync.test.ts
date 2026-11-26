@@ -6,6 +6,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FileStore } from '../storage/file-store.js';
+import { SyncStateManager } from '../storage/sync-state.js';
 import { emptyManifest, saveManifest, upsertUnavailable } from '../streams/stream-manifest.js';
 import { IntervalsSync } from './intervals-sync.js';
 
@@ -254,7 +255,17 @@ describe('IntervalsSync.syncNewActivities - near-match dedupe (ING-05)', () => {
     expect(res.newRuns).toBe(0);
     expect(fs.existsSync(path.join(tmpDir, 'activities', 'i2001.json'))).toBe(false);
     expect(state.getAllStreamsCalls).toBe(0);
-    expect(saveCalls).toHaveLength(0);
+    // WR-05: the skip is now persisted (assertion changed from 0 saves to 1; the
+    // manifest-unchanged and no-activity-file guards below are untouched).
+    expect(saveCalls).toHaveLength(1);
+    expect(saveCalls[0]).toMatchObject({
+      last_sync_timestamp: 0,
+      last_activity_id: '',
+      total_activities: 0,
+      near_match_skips: {
+        i2001: { existingId: '25000000001', deltaS: 60, startDate: at(60) },
+      },
+    });
     expect(fs.readFileSync(manifestPath)).toEqual(before);
     expect(res.nearMatches).toEqual([
       { intervalsId: 'i2001', existingId: '25000000001', deltaS: 60, startDate: at(60) },
@@ -304,5 +315,125 @@ describe('IntervalsSync.syncNewActivities - near-match dedupe (ING-05)', () => {
     expect(res.skipped).toBe(1);
     expect(fs.existsSync(path.join(tmpDir, 'activities', 'i2001.json'))).toBe(false);
     expect(nearLogLines()).toHaveLength(0);
+  });
+});
+
+describe('IntervalsSync near-match skips persist in sync-state (WR-05)', () => {
+  const E = '2026-08-01T06:00:00Z';
+  const STATE_FILE = 'sync-state.json';
+  const LEGACY = {
+    last_sync_timestamp: 1785560000,
+    last_activity_id: 'i1999',
+    total_activities: 7,
+    last_sync_date: '2026-08-01T05:00:00.000Z',
+  };
+  const SKIP_I2001 = {
+    existingId: '25000000001',
+    deltaS: 60,
+    startDate: '2026-08-01T06:01:00Z',
+    firstSeen: '2026-11-26T12:00:00.000Z',
+  };
+  let tmpDir: string;
+  let fileStore: FileStore;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'intervals-wr05-'));
+    fileStore = new FileStore(tmpDir);
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-26T12:00:00.000Z'));
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  afterEach(async () => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    await fsp.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  function seedFit() {
+    fs.mkdirSync(path.join(tmpDir, 'activities'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, 'activities', '25000000001.json'),
+      JSON.stringify({ id: '25000000001', start_date: E, source_provider: 'garmin-export' })
+    );
+  }
+
+  function writeState(obj: unknown) {
+    fs.writeFileSync(path.join(tmpDir, STATE_FILE), JSON.stringify(obj, null, 2));
+  }
+
+  function readState(): Record<string, unknown> {
+    return JSON.parse(fs.readFileSync(path.join(tmpDir, STATE_FILE), 'utf-8'));
+  }
+
+  function run(deliveries: Record<string, unknown>[]) {
+    const { client } = makeFakeClient(FULL_STREAMS_PAYLOAD, deliveries);
+    const sync = new IntervalsSync({
+      client: client as never,
+      fileStore,
+      syncStateManager: new SyncStateManager(STATE_FILE, fileStore),
+      activitiesDir: 'activities',
+      streamsDir: 'streams',
+      streamsManifestPath: 'streams/manifest.json',
+    });
+    return sync.syncNewActivities();
+  }
+
+  const d = (id: string, startDate: string) => ({ ...RAW_ACTIVITY, id, start_date: startDate });
+  const AT_60 = '2026-08-01T06:01:00Z';
+  const AT_3600 = '2026-08-01T07:00:00Z';
+  const AT_7200 = '2026-08-01T08:00:00Z';
+
+  it('Row A: a skip recorded earlier in a run survives a later per-activity save', async () => {
+    seedFit();
+    const res = await run([d('i2003', AT_3600), d('i2001', AT_60)]);
+    expect(res.newRuns).toBe(1);
+    const onDisk = readState();
+    expect(onDisk.near_match_skips).toEqual({ i2001: SKIP_I2001 });
+    expect(onDisk.last_sync_timestamp).toBe(1785567600);
+    expect(onDisk.last_activity_id).toBe('i2003');
+  });
+
+  it('Row B: a skip-only run persists the skip and leaves the watermark fields unchanged', async () => {
+    seedFit();
+    writeState(LEGACY);
+    const res = await run([d('i2001', AT_60)]);
+    expect(res.newRuns).toBe(0);
+    expect(fs.existsSync(path.join(tmpDir, 'activities', 'i2001.json'))).toBe(false);
+    expect(readState()).toEqual({ ...LEGACY, near_match_skips: { i2001: SKIP_I2001 } });
+  });
+
+  it('Row C: re-seeing the same skip keeps firstSeen and leaves the file byte-identical', async () => {
+    seedFit();
+    writeState(LEGACY);
+    await run([d('i2001', AT_60)]);
+    const bytes1 = fs.readFileSync(path.join(tmpDir, STATE_FILE));
+    vi.setSystemTime(new Date('2026-11-27T12:00:00.000Z'));
+    await run([d('i2001', AT_60)]);
+    const bytes2 = fs.readFileSync(path.join(tmpDir, STATE_FILE));
+    expect((readState().near_match_skips as Record<string, { firstSeen: string }>).i2001.firstSeen).toBe(
+      '2026-11-26T12:00:00.000Z'
+    );
+    expect(bytes2.equals(bytes1)).toBe(true);
+  });
+
+  it('Row D: a pre-existing entry keeps its firstSeen and a later write does not drop it', async () => {
+    seedFit();
+    writeState({
+      ...LEGACY,
+      near_match_skips: { i2001: { ...SKIP_I2001, firstSeen: '2026-01-01T00:00:00.000Z' } },
+    });
+    const res = await run([d('i2003', AT_3600), d('i2001', AT_60)]);
+    expect(res.newRuns).toBe(1);
+    expect(fs.existsSync(path.join(tmpDir, 'activities', 'i2003.json'))).toBe(true);
+    const skips = readState().near_match_skips as Record<string, { firstSeen: string }>;
+    expect(skips.i2001.firstSeen).toBe('2026-01-01T00:00:00.000Z');
+  });
+
+  it('Row E: a legacy file with no skips loads, syncs, and stays free of near_match_skips', async () => {
+    writeState(LEGACY);
+    const res = await run([d('i2002', AT_7200)]);
+    expect(res.newRuns).toBe(1);
+    expect(Object.keys(readState())).not.toContain('near_match_skips');
   });
 });
