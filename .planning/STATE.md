@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
-status: milestone_complete
-stopped_at: Phase 37.2 complete and verified (final v2.3 phase); milestone close pending
-last_updated: 2026-11-26T22:12:35.232Z
-last_activity: 2026-11-26
+status: Awaiting next milestone
+stopped_at: Milestone v2.3 completed and archived
+last_updated: "2026-11-26T22:22:38.235Z"
+last_activity: 2026-11-26 — Milestone v2.3 completed and archived
 progress:
   total_phases: 9
   completed_phases: 9
@@ -18,10 +18,10 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
+See: .planning/PROJECT.md (updated 2026-11-26 after the v2.3 close)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Milestone complete
+**Current focus:** Planning next milestone (v2.3 shipped 2026-11-26)
 
 **Carried into the next milestone** (full list with reasons in PROJECT.md § Active):
 
@@ -46,58 +46,10 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 ## Current Position
 
-Phase: 37.2 — COMPLETE (verification passed 5/5)
-Plan: 2 of 2
-Status: All v2.3 phases complete — milestone not yet closed (re-audit, then `/gsd-complete-milestone`)
-
-Phase 37.2 complete (2026-11-26): publish gate checks all 11 emitted quality sub-keys + 16 shard keys from shared
-`scripts/lib/quality-keys.mjs` (`ee2cb774`); consolidate.ts resolves id -> exact -> shared `findNearMatch` (`da4cb673`);
-SC5 archive digest unchanged. Review `b494476d`: 0 critical, 5 warning (WR-01 exact-first pin and WR-04 every-row
-check proven vacuous by verifier mutation probes — test-strength only, hardening quick task recommended).
-
-Phase 37.1 complete (UAT 5/5 passed `9bf91ee6`); v2.3 audit `c988c42d` came back `tech_debt`, so 37.2 was
-inserted to close it before the milestone closes.
-
-Phase 37.2 planned (2026-11-26): 2 plans in 2 waves (01 W1 publish gate | 02 W3 consolidate near-match, serialised:
-both need the primary checkout). Research + validation `1af72d4c`, plans `aa4cb250`, revised `ef2ca3a2`
-(SC5 check fails closed). Checker passed twice.
-
-Phase 37 planned (2026-11-25): 7 plans in 3 waves (01-04 | 05, 06 | 07 checkpoint), committed
-`e7120b32`, revised `c29c6ea5` + `f66323cb`. Research `fa2c388e`, validation `10e7ad8f`, patterns
-`838dd27e`. Planned with `--skip-ui` (user's choice; UI contract = CONTEXT D-15..D-18). Plan-checker:
-round 1 ISSUES FOUND (1 blocker — 37-06 discriminators had no RED→GREEN proof — plus 6 warnings);
-round 2 VERIFICATION PASSED with 2 warnings, both closed by hand in `f66323cb`.
-
-Gates: requirements coverage 2/2 (CUR-04, CUR-06); decision coverage 20/20 (D-01..D-20 in
-frontmatter `must_haves.decisions`).
-
-Carried into execution:
-
-- **37-05's live derive-vs-recount block fails closed in a worktree** with stale `data/stats`
-  (the `contaminatedMetres` field is missing). That is designed; the live evidence is deferred to 37-07
-  on the primary checkout after regeneration. Schema-widening wave: regenerate `compute-best-efforts` +
-  `build-widgets` on the primary checkout before the post-merge `npm test`.
-
-- **37-06's fingerprint-contract mutation lives in the test file**, never in `derive-flagged.mjs`
-  (owned by 37-04 and imported by 37-05 in the same wave).
-
-- **37-07 runs on the primary checkout**, `autonomous: false`. It asserts a clean start on
-  `data/curation/reviewed.json` and has a DELETE-first fallback restore. It takes working-tree, dist and
-  served digests for all three queue inputs, and ticks CUR-04/CUR-06 only on all-rows-PASS.
-
-- **Choices adopted from research:** `contaminatedMetres` is one per-activity number (A2);
-  `exclusion-cli.mjs` refuses reviewed ids (A7); guard 1 forbids the whole `data/curation` tree plus
-  any `reviewed.json`.
-
-*(Phase 36's planning narrative previously sat here; it is preserved in the Phase 36 plan/summary files
-and git history. Phase 34's narrative before it is in
-`.planning/phases/34-pause-classification-forgotten-stop/34-{01..16}-SUMMARY.md`.)*
-
-*(Phase 34's execution narrative previously sat in this section; it is preserved in
-`.planning/phases/34-pause-classification-forgotten-stop/34-{01..16}-SUMMARY.md` and git history.
-Phases 34 and 35 are both closed in ROADMAP.md.)*
-
-Last activity: 2026-11-26 - Completed quick task 261126-w9z: harden 37.2 vacuous guards
+Phase: Milestone v2.3 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-11-26 — Milestone v2.3 completed and archived
 
 ## Performance Metrics
 
@@ -316,6 +268,27 @@ Previously resolved — SQLITE_CANTOPEN CI failure resolved by quick-1-01 (lazy 
 
 ## Deferred Items
 
+### v2.3 close (2026-11-26)
+
+Items acknowledged and deferred at the v2.3 milestone close. The audit-open scanner flagged 10. Five were false positives and are not debt: 4 quick tasks that all have SUMMARYs (1, 261125-cvq, 261126-tnj and 261126-w9z; the scanner wants a `status` field, though 261126-tnj does have `status: complete`), and the 36.1 HUMAN-UAT, which is `resolved` with 0 open scenarios. The real carry-forward is every pending todo, plus the open integration debt in `.planning/milestones/v2.3-MILESTONE-AUDIT.md` (W2, W4, N1, N3).
+
+| Category | Item | Status |
+|----------|------|--------|
+| todo | 2026-09-22-pace-chart-y-axis-compressed-by-pre-pause-run-in-samples.md | pending |
+| todo | 2026-09-23-not-classifiable-mechanism-breakdown-in-pauses-row.md | pending |
+| todo | 2026-09-23-pause03-generator-and-recount-hardening.md | pending |
+| todo | 2026-09-23-read-and-render-caps-for-shard-lists.md | pending |
+| todo | 2026-09-23-validate-stream-series-null-safety-at-source.md | pending |
+| todo | 2026-11-25-exports-fail-open-hardening.md | pending |
+| todo | 2026-11-25-import-four-remaining-garmin-missing-runs.md | pending |
+| todo | 2026-11-25-reverse-reconcile-archive-only-runs.md | pending |
+| todo | 2026-11-25-review-queue-degraded-input-hardening.md | pending |
+| todo | 2026-11-25-wr04-consolidate-drops-strava-provenance.md | pending |
+| integration_warning | W2/N1 (ING-05): IntervalsSync `near_match_skips` has no surfacing reader; consolidate near-skips leave no durable id record | open |
+| integration_warning | W4: FIT runs without productName get no device_name (label only) | open |
+
+### v2.0 close (2026-08-12)
+
 Items acknowledged and deferred at the v2.0 milestone close on 2026-08-12.
 
 **Update 2026-08-12:** six of these were absorbed into milestone v2.1 as requirements and are now tracked in ROADMAP.md, not here — CUR-01 (Phase 24), FIX-01 (Phase 21), FIX-02 / CI-01 / CI-02 / VER-01 (Phase 25). They remain listed below for the record but are no longer outstanding debt. Full detail in `.planning/v2.0-MILESTONE-AUDIT.md` (status `tech_debt`).
@@ -483,4 +456,4 @@ Phase 25 (CI Hardening & Light-Theme Verification) has no dependency on Phase 24
 
 ## Operator Next Steps
 
-- Execute Phase 32 with /gsd-execute-phase 32 (plan 32-05 stops at a blocking decision)
+- Start the next milestone with /gsd-new-milestone

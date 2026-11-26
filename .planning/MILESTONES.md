@@ -1,5 +1,46 @@
 # Milestones
 
+## v2.3 Pause & Slew Integrity (Shipped: 2026-11-26)
+
+**Phases completed:** 9 phases (32-37, plus inserted 36.1, 37.1 and 37.2), 100 plans, 201 tasks. 42,591 LOC TypeScript in src/ (non-test). 4,442 logic tests across 125 files. Ran 68 days, 2026-09-19 to 2026-11-26.
+**Git range:** `2746c7ff` (first `docs(32-…)`) to the close, 670 commits, 117 `feat(` commits. The diff outside `.planning/` and `data/` is 155 files, +57,178 / -769 lines.
+
+**Key accomplishments:**
+
+- **Unreliable-segment detection (Phase 32).** One calibrated detector, `src/analytics/unreliable-segments.ts`, merges gap-adjacent slew bursts, hidden-pause bursts and isolated GPS jumps into segments that conserve real distance and time. It labels each segment with its mechanism. All three constants (7.35 m/s, 3.0 m, 116.95 m) were derived from the archive. A gap-first recount that never imports the detector agrees with it on all 1,874 committed streams. It was shown failing against a deliberately broken detector first. The committed `data/streams/` files are pinned by a sha256 manifest.
+- **Coverage integration (Phase 33).** The pace chart, histogram, splits and coverage caption clip unreliable segments exactly as they clip gaps. The segment count, metres, seconds and mechanisms surface as a seventh disclosed quality signal. That signal is structurally excluded from the severe composite, and the shipped 299-severe figure is unchanged. The D-07 severity cut was HALTed when its candidate and its strawman turned out to be the same computation on the real archive. It was re-derived from a disjoint reference population (0.00423).
+- **Pause classification and forgotten stop (Phase 34).** Every gap and merged segment is classified stationary, walked or transported. Sustained near-zero speed inside recorded time is flagged and never corrected. Both are pinned to developer-confirmed walking-break controls.
+- **Stream-derived running pace (Phase 35).** A running pace that excludes unreliable segments and gaps is shown beside the metadata pace. "Pace disputed" now also fires on material disagreement between the two.
+- **Best-effort clean-window search (Phase 36).** Efforts that span an unreliable segment are demoted and kept, while the search continues in clean sub-intervals. The ceiling was recalibrated on the excluded population, and both archive-wide diffs were signed.
+- **Ingestion integrity (Phases 36.1, 37.1 and 37.2, all inserted).**
+  - 61 consecutive nightly runs had fetched new activities and then discarded them because an archive-pinned test failed before the only commit. Fetched data is now committed first. `test:logic` blocks the deploy, and `test:archive` turns the job red only after the deploy.
+  - An export-vs-archive reconciliation imports the runs intervals.icu never delivered.
+  - A shared ±120 s near-match rule (`src/exports/near-match.ts`) dedupes FIT import, IntervalsSync, reconcile and Strava-export consolidation from one definition.
+  - The publish gate now checks every v2.3 quality key it previously could not see.
+- **Review-queue priority and CUR-04 (Phase 37).** The curation queue is ordered transported-first, then by de-duplicated contaminated metres. It gains a reversible "reviewed and kept" action, distinct from exclude, whose fingerprint (distance, kind, guard) resurfaces a row when its demotion changes.
+
+**Requirements:** 30/30 satisfied (SEG-01..04, SEG-05a/05b, SEG-06, PACE-08/09, COV-03, PAUSE-01..03, STOP-01..03, RPACE-01..03, PR-06..09, ING-01..05, CUR-04, CUR-06). Every phase that added a rendered surface closed on a human browser checkpoint.
+
+**Milestone audit:** `tech_debt`, run twice on 2026-11-26.
+- **First run (`c988c42d`):** 30/30 requirements, 4/4 flows, with two integration warnings, W1 (the publish gate blind to the v2.3 keys) and W3 (consolidate on exact epoch only). Phase 37.2 was inserted to close both.
+- **Re-audit (`107d5bc6`):** 30/30 requirements, 9/9 phases, 30/30 integration, 5/5 flows, with W1 and W3 closed. Both audits are preserved in `milestones/v2.3-MILESTONE-AUDIT.md`.
+
+**Known deferred items at close: 12** (see STATE.md § Deferred Items → v2.3 close). These are 10 pending todos plus 2 open integration warnings:
+- **W2/N1:** near-match skips are durable in `sync-state.json` but surfaced nowhere, and consolidate near-skips leave no id record.
+- **W4:** FIT runs without a productName have no device name.
+
+audit-open also flagged 5 false positives, which are not counted here: 4 quick tasks whose SUMMARYs lack a `status:` field, and the resolved 36.1 UAT. Open review warnings per phase are listed in the audit.
+
+**Defining pattern of the milestone:** a guard that cannot fail is not a guard. Several defects were found only because a check was probed against a deliberately broken input:
+- **Phase 32:** two fs spies could never observe a named import.
+- **Phase 33:** the histogram's most natural assertions missed the defect class they were written for.
+- **Phase 37.1:** a near-match ordering pin could never fail.
+- **Phase 37.2:** the exact-before-near pin and the "every row" check both passed under mutants, before quick task 261126-w9z hardened them.
+
+The convention that carries forward is to show every new guard red, against a mutant or a pre-change tree, before trusting it green.
+
+---
+
 ## v2.2 Pace Data Quality (Shipped: 2026-09-19)
 
 **Phases completed:** 6 phases (26-31), 69 plans, 168 tasks | 36,210 LOC TypeScript in src/ (non-test) | 2,192 tests across 85 files | 11 days (2026-09-08 → 2026-09-19)

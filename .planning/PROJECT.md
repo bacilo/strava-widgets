@@ -2,13 +2,24 @@
 
 ## What This Is
 
-A personal running-data pipeline and visualization platform. It ingests run data (via intervals.icu since Aug 2026, originally the Strava API), commits per-activity streams for the whole 1,899-activity archive, computes custom statistics (aggregations, streaks, trends, geographic data, self-computed best efforts, training load) and publishes two things to GitHub Pages: ten embeddable Custom Element widgets (stats, comparisons, streaks, geographic tables and statistics, route maps, heatmap, pin map — all HTML-attribute-configurable with dark/light theming) with standalone full-page map views, and a static-SPA analytics dashboard over pre-computed JSON with an activity browser, per-run detail views, PR records, trends and a localhost-only curation mode. Since v2.2 every pace figure the dashboard derives is gap-aware and coverage-honest, every activity carries visible quality signals (pace, device era, elevation), and PR ranking is guarded by a personal plausibility ceiling that demotes-and-flags rather than deletes. Lives in its own repo (strava-widgets), with a daily GitHub Actions pipeline for automated refresh.
+A personal running-data pipeline and visualization platform. It ingests run data (via intervals.icu since Aug 2026, originally the Strava API), commits per-activity streams for the whole 1,955-activity archive, computes custom statistics (aggregations, streaks, trends, geographic data, self-computed best efforts, training load) and publishes two things to GitHub Pages: ten embeddable Custom Element widgets (stats, comparisons, streaks, geographic tables and statistics, route maps, heatmap, pin map — all HTML-attribute-configurable with dark/light theming) with standalone full-page map views, and a static-SPA analytics dashboard over pre-computed JSON with an activity browser, per-run detail views, PR records, trends and a localhost-only curation mode. Since v2.2 every pace figure the dashboard derives is gap-aware and coverage-honest, every activity carries visible quality signals (pace, device era, elevation), and PR ranking is guarded by a personal plausibility ceiling that demotes-and-flags rather than deletes. Lives in its own repo (strava-widgets), with a daily GitHub Actions pipeline for automated refresh.
 
 ## Core Value
 
 Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
 
-## Current Milestone: v2.3 Pause & Slew Integrity
+## Next Milestone Goals
+
+No milestone is scoped yet. Start one with `/gsd-new-milestone`. These candidates are carried forward and are not committed:
+
+- **Surface near-match skips** (v2.3 audit W2/N1, ING-05). IntervalsSync writes `near_match_skips` that nothing reads, and Strava-export consolidation leaves no durable id record for a near-skipped row. A distinct recording within 120 s of an already-matched one could be dropped with no trace.
+- **Stream re-derivation from the 1 Hz originals** (STREAM-05/06). The v2.2 and v2.3 quality signals now exist to measure whether it is worth about 200 MB of git.
+- **`index-client.ts` `ParsedDashboardIndexRow` retype** (phase-sized).
+- **The 10 pending todos** in `.planning/todos/pending/`. These cover the pace-chart y-axis, the pauses-row mechanism breakdown, PAUSE-03 generator hardening, shard-list caps, stream null-safety, exports fail-open, the four remaining Garmin-missing runs, reverse reconcile, review-queue degraded input, and WR-04 consolidate provenance.
+- **Developer decisions handed forward from v2.2:** 28 WR-06 (ceiling-file write gate) and 30 WR-02/WR-03 (elevation badge wording).
+
+<details>
+<summary>v2.3 Pause & Slew Integrity: milestone goal, target features and scoping evidence (archived 2026-11-26)</summary>
 
 **Goal:** Stop distance covered off the clock from being reported as speed — pauses, hidden pauses and GPS jumps no longer leak into pace charts, overall pace or PRs — without rewriting a stream or deleting a byte of data.
 
@@ -36,7 +47,30 @@ Compute and visualize running statistics that Strava doesn't readily offer, embe
 - Forgotten stops are flagged, never corrected — nothing in the data distinguishes a deliberate rest from a forgotten stop.
 - Manual curation remains first-class: some of these cannot reasonably be automated, which is why CUR-04 is in scope.
 
+</details>
+
 ## Current State
+
+**Shipped: v2.3 Pause & Slew Integrity** (2026-11-26)
+- **Scope:** phases 32-37 plus inserted 36.1, 37.1 and 37.2. 100 plans, 201 tasks, 30/30 requirements, 68 days.
+- **Milestone audit:** `tech_debt`, re-audited after 37.2: 30/30 requirements, 9/9 phases, 30/30 integration, 5/5 flows, no blockers.
+- **Live:** https://bacilo.github.io/strava-widgets/, on the 1,955-activity archive.
+
+What shipped:
+- Distance covered off the clock no longer reaches pace or PRs. One calibrated detector finds gap-adjacent slews, hidden-pause bursts and isolated GPS jumps.
+- Pace surfaces clip those segments exactly as they clip gaps. Pauses are classified, and forgotten stops are flagged.
+- A stream-derived running pace sits beside the metadata pace.
+- Best efforts are demoted and kept, while the search continues in clean windows.
+- The review queue is ordered by contamination and gains "reviewed and kept".
+- No stream was rewritten.
+
+Ingestion was hardened mid-milestone:
+- Fetched data is committed before any test.
+- Reconciliation imports runs intervals.icu never delivered.
+- One shared ±120 s near-match rule dedupes every ingestion path.
+- The publish gate checks every v2.3 quality key.
+
+Defining pattern: a guard that cannot fail is not a guard. Every new check is shown red, against a mutant or the pre-change tree, before it is trusted green.
 
 **Shipped: v2.2 Pace Data Quality** (2026-09-19) — phases 26-31, 69 plans, 168 tasks, 33/33 requirements, 11 days; milestone audit `passed` (33/33, 6/6 phases, 11/11 seams, 4/4 flows, 6/6 Nyquist). Live at https://bacilo.github.io/strava-widgets/ on the merged 1,899-activity archive. Every stream-derived pace figure now comes from one gap-aware, adaptive-window derivation with exact, always-visible coverage; every activity carries six individually-disclosed quality signals (decimation, gap profile, impossible samples, device era, elapsed-vs-moving, elevation) badged with their measured values; a personal plausibility ceiling derived from the athlete's own filtered history demotes-and-flags implausible efforts from PR ranking without deleting them (32 on the merged archive, reconciled three ways, the diff signed by the developer against its sha256); a curation review queue lists every demoted effort for one-click whole-activity exclusion through the existing write path; and `data/streams/` is byte-identical to where v2.1 left it. Phase 31, added from the close-out audit, closed the milestone's five silent-and-passing findings at the source before completion. Archived to `milestones/v2.2-ROADMAP.md`, `v2.2-REQUIREMENTS.md` and three audits. Full narrative in `.planning/MILESTONES.md`; lessons in `.planning/RETROSPECTIVE.md`.
 
@@ -187,19 +221,17 @@ Milestone audit: `tech_debt` — 29/29 requirements satisfied, 0 blockers, 41/43
 - ✓ Calendar week start & totals — selectable Sunday/Monday week start that persists and drives which days each week total sums, with per-week totals at the end of every row, legible down to phone widths (CAL-01, CAL-02, CAL-03) — v2.1, Phase 22
 - ✓ Local curation mode — localhost-only `npm run curate` server with an inline whole-activity PR-exclusion tickbox, the write path proven absent from the published bundle by a build-time content scan and an HTTP-layer assertion (CUR-01) — v2.1, Phase 24
 
+- ✓ Unreliable-segment detection: gap-adjacent slews, hidden-pause bursts and isolated GPS jumps, calibrated against the archive, with a single source (SEG-01..04, SEG-05a/05b). v2.3, Phase 32
+- ✓ Pace chart, histogram, splits and coverage caption clip and disclose unreliable segments, shown as a seventh quality signal (PACE-08, PACE-09, COV-03, SEG-06). v2.3, Phase 33
+- ✓ Pause classification (stationary, walked, ran-through, transported) and a forgotten-stop flag that never corrects anything (PAUSE-01..03, STOP-01..03). v2.3, Phase 34
+- ✓ Stream-derived running pace beside metadata pace, with "Pace disputed" on material disagreement (RPACE-01..03). v2.3, Phase 35
+- ✓ Best-effort clean-window search, demote-and-keep, and a recalibrated ceiling, with both archive diffs signed (PR-06..09). v2.3, Phase 36
+- ✓ Ingestion integrity and one shared near-match rule across FIT import, IntervalsSync, reconcile and consolidate. The publish gate covers the v2.3 keys (ING-01..05). v2.3, Phases 36.1, 37.1 and 37.2
+- ✓ Review-queue priority by contamination, and a reversible "reviewed and kept" action (CUR-04, CUR-06). v2.3, Phase 37
+
 ### Active
 
-**v2.3 Pause & Slew Integrity** (started 2026-09-19) — see § Current Milestone for goal, target features and the measured scoping evidence. REQ-IDs are defined in `.planning/REQUIREMENTS.md`.
-
-- [x] Unreliable-segment detection (gap-adjacent slews, hidden-pause bursts, isolated GPS jumps), calibrated against the archive — Validated in Phase 32 (SEG-01..SEG-04, SEG-05a; SEG-05b deferred to the consuming phases 33/35/36)
-- [x] Pace chart, histogram and coverage caption clip and disclose unreliable segments — Validated in Phase 33 (PACE-08, PACE-09, COV-03, SEG-06: `unreliable` is the fourth, top-priority `GapKind`; clipping inherited with zero call-site change; archive-wide recount 1,874 streams / 0 mismatches; seventh quality signal at `UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION = 0.00423`, excluded from the severe composite by D-06; SEG-05b still open for Phases 35/36)
-- [x] Best efforts exclude windows spanning an unreliable segment — demote-and-keep plus clean-window search, with a signed archive-wide diff — Validated in Phase 36 (PR-06..PR-09; diff re-signed 2026-11-25 over sha256 e67f3cba… after round 2 corrected CR-01)
-- [x] Ingestion integrity (inserted 2026-11-25) — the nightly commits fetched data before any test, archive-count assertions are reported rather than deploy-blocking, and export-vs-archive reconciliation (Strava + Garmin) writes committed audits; the missing 2026-11-18 run was imported from its original FIT — Validated in Phase 36.1 (ING-01..ING-04)
-- [x] Near-match dedupe in IntervalsSync (inserted 2026-11-26): an intervals.icu delivery whose start is within 120 s of a FIT-imported archive record is skipped and reported, not written as a second record. The importer and IntervalsSync share one definition in `src/exports/near-match.ts`. Validated in Phase 37.1 (ING-05).
-- [ ] Stream-derived running pace shown beside metadata pace, "Pace disputed" raised on material disagreement
-- [x] Gap classification (stationary / walked / ran-through / transported) — Validated in Phase 34 (PAUSE-01, PAUSE-02, PAUSE-03; four classes, not three, per D-02: 3475724402's merged segments sit at continued-running speed through signal loss, which none of the original three described)
-- [x] Forgotten-stop flag — Validated in Phase 34 (STOP-01, STOP-02, STOP-03; flag only, untiered, structurally excluded from the severe composite)
-- [x] CUR-04 queue dismiss action (pulled in from the v2.2 hand-forward list below) — Validated in Phase 37 (CUR-04, CUR-06: reviewed-and-kept persisted in its own committed `data/curation/reviewed.json`, mutually exclusive with exclude, reversible, resurfaces on a changed (distance, kind, guard) fingerprint; queue ordered transported-first then contaminated metres, 565 rows equal to a zero-import recount)
+No milestone is active. v2.3 shipped 2026-11-26, and its requirements are archived in `milestones/v2.3-REQUIREMENTS.md`. Candidates for the next milestone are listed in § Next Milestone Goals.
 
 Candidates the v2.2 close explicitly handed forward (each deliberately out of scope for v2.2, recorded so it is not re-litigated; CUR-04 is now scheduled in v2.3, the rest remain unscheduled):
 
@@ -306,6 +338,12 @@ Repository: github.com/bacilo/strava-widgets (public).
 | A classifier-independent recount per phase, and two-run idempotence for every generated artifact | Phase 28's Round 1 passed on the defect's own output because recount and classifier shared a blind spot; Phase 27's prose correction silently reverted on regeneration | ✓ Good — the milestone's most load-bearing habit |
 | Insert a tech-debt phase from the close-out audit rather than complete with the debt | Five findings shared the silent-and-passing shape the project's own lessons single out | ✓ Good — closed at source in one day, each with a demonstrated-failing test |
 | Executing a milestone 402 commits ahead of an origin the nightly CI kept moving | Avoided merge churn during execution; cost one pre-close obligation (MERGE-01) and a re-sign | ⚠️ Revisit — merge origin at least per phase; the archive moved under two calibration artifacts |
+| Detect unreliable segments at the sample level, and never rewrite a stream (v2.3) | The v2.2 effort ceiling could not see 100-170 m bursts diluted into a 400 m window. Clipping and demotion leave `data/streams/` byte-identical | ✓ Good |
+| PRs: demote the contaminated effort and search for the best clean window (v2.3 amendment to "demotion, never recalculation") | A demotion alone left the true clean best effort unranked | ✓ Good, with a signed diff |
+| Flag forgotten stops and never correct them | Nothing in the data tells a deliberate rest from a forgotten stop | ✓ Good |
+| Commit fetched data before any test, and report archive-pinned assertions instead of letting them block the deploy | 61 nightly runs had fetched new activities and then discarded them because a calibration-count test failed before the only commit | ✓ Good |
+| One shared near-match module, with a structural guard against local copies of the window | IntervalsSync, consolidate and the FIT importer had drifted onto different dedupe rules | ✓ Good, but near-skip surfacing is still open (W2/N1) |
+| Insert tech-debt phases (37.1, 37.2) before closing, rather than completing with integration warnings | Both audits' warnings had the silent-and-passing shape the project singles out | ✓ Good |
 
 ## Evolution
 
@@ -325,6 +363,8 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
+*Last updated: 2026-11-26 after the v2.3 milestone (Pause & Slew Integrity shipped and archived, audit `tech_debt`, 30/30).*
+
 *Last updated: 2026-11-26 — **Phase 37.2 (Publish-Gate v2.3 Quality Keys + Consolidate Near-Match, INSERTED) complete**, closing v2.3 audit W1 and W3 and making it the final v2.3 phase. 2 plans in two serialised waves on the primary checkout. `37.2-VERIFICATION.md` passed 5/5, and no new requirement IDs were added (it hardens SEG-06, PAUSE-01..03, STOP-01..03, ING-02 and ING-05). The publish gate now reads its key lists from `scripts/lib/quality-keys.mjs`: 11 signal sub-keys, checked on every index row and on sampled shards, and 16 shard top-level keys, including `pauseIntervals` and `unreliableSegments`. A missing key fails the gate with the key named. A drift test ties both lists to the emitter's runtime output in both directions, with no exempt list. Before the fix, 24 planted removals passed the old gate. `consolidate.ts` now resolves id, then exact epoch, then the shared `findNearMatch`. A near row is skipped without a provenance entry, and `near_match_skipped` is added only when the count is above 0. The 37.1 structural guard covers it. SC5 was measured on a scratch copy of the real archive: the digest was identical before and after, and nothing in `data/` was touched. Carried forward, non-blocking (`37.2-REVIEW.md`, 0 Critical / 5 Warning / 3 Info): the verifier's mutation probes showed WR-01 (the exact-before-near pin passes under reversed order, the same shape as 37.1 WR-04) and WR-04 (no planted test targets a row other than `activities[0]`) cannot fail. Both are test-strength only; the shipped code is correct. Also WR-02 (near-skips leave no durable id record), WR-03 (emitter-vs-list check for the computable `signals` copy needs dist) and WR-05 (a non-object `quality` crashes the gate rather than naming it). The milestone still needs a re-audit and `/gsd-complete-milestone`.*
 
 *Last updated: 2026-11-26 — **Phase 37.1 (Near-Match Dedupe in IntervalsSync, INSERTED) complete**. This is the final v2.3 phase. 2 plans in two waves. `37.1-VERIFICATION.md` passed 5/5, closing ING-05 (v2.3 audit WR-06). The 120 s window, `isFitImported` and `findNearMatch` now live in `src/exports/near-match.ts`. The FIT importer and IntervalsSync both call it, and a structural guard (shown red under planted mutations) fails if either carries its own copy. IntervalsSync checks for an exact match first. It then skips any delivery within ±120 s of a garmin-export record, writing nothing and fetching no streams, and reports both ids and the offset in `result.nearMatches` and the nightly log. ±121 s and non-FIT neighbours are still written. Red-first was proven twice: 6 of 101 rows failed against the pre-change `intervals-sync.ts`, once by the executor and once independently by the verifier in a scratch export. SC5 was recomputed from `data/reconciliation/garmin.json`: 2 near rows (-46 s, -47 s), both Strava-origin and so left as they are, and none within 120 s of the single garmin-export record. Nothing in `data/` was touched. Carried forward, non-blocking (`37.1-REVIEW.md`, 0 Critical / 5 Warning / 5 Info): WR-01 (a tie between two equally near records resolves in readdir order, so the reported id can vary by filesystem), WR-02 (reconcile shares only the constant and keeps its own comparison), WR-03 (the guard scans three files and misses forms such as `120_000` or `2 * 60`), WR-04 (no test can fail on the exact-before-near ordering), WR-05 (a near-skip is only printed to the console, so it stops being reported once the watermark moves past it).*
