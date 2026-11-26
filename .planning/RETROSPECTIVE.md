@@ -256,6 +256,60 @@
 
 ---
 
+## Milestone: v2.3 — Pause & Slew Integrity
+
+**Shipped:** 2026-11-26
+**Phases:** 9 (32-37, plus inserted 36.1, 37.1 and 37.2) | **Plans:** 100 | **Tasks:** 201 | **Duration:** 68 days (2026-09-19 → 2026-11-26). Active work was 09-19 to 09-28, then 11-24 to 11-26.
+
+### What Was Built
+
+- **Unreliable-segment detection** (Phase 32). A sample-level detector merges gap-adjacent slews, hidden-pause bursts and isolated GPS jumps into segments that conserve real distance and time. All three constants were derived from the archive. A zero-import recount agrees with the detector on all 1,874 streams, and it was first shown failing against a broken detector.
+- **Coverage integration** (Phase 33). The chart, histogram, splits and caption clip segments exactly as they clip gaps. The segment signal is the seventh quality signal and sits structurally outside the severe composite, which stays at 299.
+- **Pause classification and forgotten stop** (Phase 34). Every gap is classified into four classes, which is one more than the three that were scoped. Forgotten stops are flagged and never corrected.
+- **Stream-derived running pace** (Phase 35). It is shown beside the metadata pace, and "Pace disputed" now also fires on material disagreement.
+- **Clean-window best efforts** (Phase 36). An effort that spans a segment is demoted and kept, and the search continues for the best clean window. The ceiling was recalibrated, and both diffs were signed.
+- **Ingestion integrity** (Phases 36.1, 37.1 and 37.2, inserted). Data is committed before the tests run. Export-vs-archive reconciliation imports runs intervals.icu never delivered. One shared ±120 s near-match rule now serves every ingestion path. The publish gate checks every v2.3 key.
+- **Review-queue priority and CUR-04** (Phase 37). The queue is ordered by contamination, and "reviewed and kept" is a reversible action separate from exclude.
+
+### What Worked
+
+- **Showing every guard red before trusting it green.** The habit kept finding guards that could not fail, every time it was applied:
+  - Phase 32: fs spies blind to named imports.
+  - Phase 33: histogram assertions that missed their own defect class.
+  - Phase 37.1: an ordering pin that could never fail.
+  - Phase 37.2: the exact-before-near pin and the "every row" check. Here the verifier's scratch-copy mutation probes caught both after the phase's own red/green evidence had passed. Quick task 261126-w9z then hardened them.
+- **HALTing instead of tuning.** The 33-08 severity cut found that its candidate and its strawman were the same computation on the real archive. The plan stopped with a NO CANDIDATE CLEARS artifact rather than shipping a constant, and a disjoint reference population then cleared cleanly.
+- **Re-auditing after a closure phase.** The first audit's W1 and W3 were closed by 37.2, and the re-audit confirmed it on the real build: all 1,955 rows and shards were recomputed to exactly the gate's key lists.
+
+### What Was Inefficient
+
+- **A two-month gap mid-milestone.** Between 09-28 and 11-24, 61 nightly runs fetched new activities and then discarded them, because an archive-pinned test ran before the only commit. Phase 36.1 had to be inserted to stop data loss the pipeline had been reporting as green.
+- **Tracking tools mis-stepped on decimal phases.**
+  - `roadmap update-plan-progress` skipped plan 37.2-01, then ticked the whole phase Complete before verification.
+  - `phase.complete` left the progress counters at 8/9 and 89%, and declared the milestone complete.
+  - `milestone.complete` reverted `stopped_at`.
+  - Each needed a hand repair.
+- **audit-open false positives again.** It flagged 4 quick tasks with SUMMARYs and a resolved UAT. This is the fourth consecutive close.
+
+### Patterns Established
+
+- Mutation probes go in a scratch copy, never in tracked files, and the matched count is recorded for every `-t` filter.
+- One shared module per cross-cutting rule (near-match, quality keys). Each has a structural guard that fails on a local copy, and each is tied to the producer's runtime output in both directions.
+- Archive-pinned assertions report after the deploy. Only logic tests block it.
+
+### Key Lessons
+
+1. A phase's own red/green evidence can still bless a guard that cannot fail. The verifier's independent mutation probe is what caught 37.2's two vacuous pins.
+2. A pipeline that is green can still be losing data. Commit what you fetched before anything is allowed to fail.
+3. Near-match skips need a durable, surfaced record, or a skip looks the same as a silent drop. This is still open (W2/N1).
+
+### Cost Observations
+
+- Model mix: opus for orchestration and planning, sonnet for executors, verifiers, reviewers and auditors.
+- Notable: the closing tail took one session — 37.2 execution, review, verification, security, a hardening quick task, re-audit and close.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -268,6 +322,7 @@
 | v2.0 Training Dashboard | 5 | 56 | 3 days | Dashboard SPA; first milestone audit; privacy guards |
 | v2.1 Interface Polish | 7 | 103 | 24 days | Human browser checkpoint per phase; mutation-proved guards; gap-closure rounds became the dominant unit of work |
 | v2.2 Pace Data Quality | 6 | 69 | 11 days | Classifier-independent recount per phase; two-run idempotence for generated artifacts; tech-debt phase inserted from the close-out audit; audit `passed` (first since v1.1) |
+| v2.3 Pause & Slew Integrity | 9 | 100 | 68 days (about 13 active) | Sample-level detection with no stream rewrite; three inserted phases (ingestion integrity plus two audit closures); a re-audit after the closure phase; scratch-copy mutation probes by the verifier |
 
 ### Cumulative Quality
 
@@ -279,6 +334,7 @@
 | v2.0 | 884 | 26,430 | Two-layer publish guard introduced |
 | v2.1 | 1,617 (63 files) | 29,955 | +83% tests on +13% source — guard layers, not features |
 | v2.2 | 2,192 (85 files) | 36,210 | +36% tests on +21% source — real product surface this time; plus 7 regenerable artifacts of record |
+| v2.3 | 4,442 (125 files, test:logic) | 42,591* | +103% tests. *Counted as all non-test `.ts` under src/, which may not be the same method as v2.2 |
 
 ### Top Lessons (Verified Across Milestones)
 
@@ -291,7 +347,7 @@
    Phase 25's VER-01 — after two intervening phases ran human checkpoints on the same shell without
    discharging them.
 3. **`audit-open` output needs triage, not tallying.** The same false positive was counted as open debt
-   at three consecutive (v2.0, v2.1, v2.2) milestone closes; v2.0's audit repeated an error of the same class on a todo file
+   at four consecutive (v2.0 to v2.3) milestone closes; v2.0's audit repeated an error of the same class on a todo file
    that had actually shipped in Phase 16.
 4. **Independent re-derivation is the only check that has caught every class of defect.** v2.0's black
    page passed 15/15 checks that resolved absolute URLs at the wrong root; v2.1's CR-01 passed three
