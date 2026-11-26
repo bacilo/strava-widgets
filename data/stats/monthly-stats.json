@@ -1136,10 +1136,10 @@
   {
     "periodStart": "2026-11-01T00:00:00.000Z",
     "periodLabel": "Nov 2026",
-    "totalKm": 263.0688,
-    "runCount": 21,
-    "avgPaceMinPerKm": 5.862724884136773,
-    "elevationGain": 540.2771475,
-    "totalMovingTimeMin": 1542.3
+    "totalKm": 290.06834,
+    "runCount": 23,
+    "avgPaceMinPerKm": 5.8602282023148975,
+    "elevationGain": 586.9014195,
+    "totalMovingTimeMin": 1699.8666666666666
   }
 ]

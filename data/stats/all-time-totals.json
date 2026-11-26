@@ -1,10 +1,10 @@
 {
-  "totalKm": 23529.102739999988,
-  "totalRuns": 1955,
-  "totalHours": 2245.264722222222,
-  "totalElevation": 126654.63842979996,
-  "avgPaceMinPerKm": 5.72550023781031,
+  "totalKm": 23556.10227999999,
+  "totalRuns": 1957,
+  "totalHours": 2247.8908333333334,
+  "totalElevation": 126701.26270179995,
+  "avgPaceMinPerKm": 5.725626778013798,
   "firstActivityDate": "2011-08-16T18:55:32Z",
-  "lastActivityDate": "2026-11-24T06:34:17Z",
-  "generatedAt": "2026-11-25T12:58:38.164Z"
+  "lastActivityDate": "2026-11-26T07:00:35Z",
+  "generatedAt": "2026-11-26T14:43:13.714Z"
 }
