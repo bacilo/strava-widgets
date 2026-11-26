@@ -404,7 +404,8 @@ async function computeAllStatsCommand() {
  * Replacement ingestion path for the Strava sync after Strava paywalled
  * Standard-tier API access. Dedupes against everything already in
  * data/activities/ by start_date epoch, so running it alongside or after the
- * old Strava archive is safe.
+ * old Strava archive is safe. A delivery within the near-match window of a
+ * FIT-imported record is skipped and reported, not written.
  */
 async function syncIntervalsCommand() {
   try {
@@ -433,6 +434,11 @@ async function syncIntervalsCommand() {
     console.log(`New runs saved: ${result.newRuns}`);
     console.log(`Total activities fetched: ${result.totalFetched}`);
     console.log(`Skipped (duplicates/non-runs): ${result.skipped}`);
+    console.log(`Near-match skipped (FIT-imported): ${result.nearMatches.length}`);
+    for (const m of result.nearMatches) {
+      const signed = m.deltaS > 0 ? `+${m.deltaS}` : `${m.deltaS}`;
+      console.log(`  ${m.intervalsId} ~ ${m.existingId} (${signed}s, ${m.startDate})`);
+    }
 
     // Same reasoning as syncCommand (WR-04): still a hard exit because this
     // command holds keep-alive sockets and retry timers. The nightly runs it

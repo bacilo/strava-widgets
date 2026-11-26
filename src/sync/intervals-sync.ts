@@ -1,10 +1,26 @@
 import { IntervalsClient } from '../api/intervals-client.js';
 import { IntervalsProvider } from '../api/intervals-provider.js';
+import { findNearMatch, isFitImported, type NearCandidate } from '../exports/near-match.js';
 import { FileStore } from '../storage/file-store.js';
 import { SyncStateManager } from '../storage/sync-state.js';
 import { deriveFromIntervalsStreams } from '../streams/derive-stream.js';
 import { loadManifest, saveManifest, upsertAvailable, upsertUnavailable } from '../streams/stream-manifest.js';
 import type { StreamManifest } from '../streams/stream.types.js';
+
+/** A delivery skipped because it starts within the near-match window of a FIT-imported record. Ids, date, signed delta only. */
+export interface NearMatchSkip {
+  intervalsId: string;
+  existingId: string;
+  deltaS: number;
+  startDate: string;
+}
+
+export interface IntervalsSyncResult {
+  newRuns: number;
+  totalFetched: number;
+  skipped: number;
+  nearMatches: NearMatchSkip[];
+}
 
 /**
  * Sync loop for the intervals.icu provider.
@@ -18,9 +34,16 @@ import type { StreamManifest } from '../streams/stream.types.js';
  *   intervals.icu ships no encoded polyline or start_latlng on the summary.
  *   Every reconstructed route is validated against the device's recorded
  *   distance before it is trusted (see IntervalsProvider.validateGeometry).
- * - Dedupe is by start_date epoch, not id. Verified against live data: all 113
- *   activities in the archive/intervals overlap window matched exactly, and
- *   start_date is unique across all 1,808 archived activities.
+ * - Dedupe is by start_date epoch, not id, against every record on disk.
+ *   Verified against live data: all 113 activities in the archive/intervals
+ *   overlap window matched exactly, and start_date is unique across all 1,808
+ *   archived activities. On top of that, a delivery within the shared
+ *   near-match window (findNearMatch, window defined in near-match.ts) of a
+ *   FIT-imported record (source_provider garmin-export; strava-export is not
+ *   FIT-imported) is skipped and reported, never written and never replacing
+ *   the FIT record. Only FIT-imported records read from disk are compared,
+ *   never epochs added earlier in the same batch. The 1-day watermark overlap
+ *   re-reports the same skip on the next night.
  */
 export class IntervalsSync {
   private provider: IntervalsProvider;
@@ -53,30 +76,41 @@ export class IntervalsSync {
     this.streamsManifestPath = streamsManifestPath;
   }
 
-  /** Epoch seconds of every activity already on disk, for dedupe. */
-  private async existingStartEpochs(): Promise<Set<number>> {
+  /**
+   * Epoch seconds of every activity on disk (exact dedupe), plus the FIT-imported
+   * ones as near-match candidates. An unreadable record is skipped rather than
+   * aborting the sync, so an unreadable FIT-imported record is absent from the
+   * near index too.
+   */
+  private async loadArchiveIndex(): Promise<{ epochs: Set<number>; fitImported: NearCandidate[] }> {
     const epochs = new Set<number>();
+    const fitImported: NearCandidate[] = [];
     const files = await this.fileStore.listFiles(this.activitiesDir, '.json');
     for (const file of files) {
       try {
-        const activity = await this.fileStore.readJson<{ start_date?: string }>(
+        const activity = await this.fileStore.readJson<{ start_date?: string; source_provider?: string }>(
           `${this.activitiesDir}/${file}`
         );
         if (activity.start_date) {
-          epochs.add(Math.floor(new Date(activity.start_date).getTime() / 1000));
+          const epoch = Math.floor(new Date(activity.start_date).getTime() / 1000);
+          epochs.add(epoch);
+          if (isFitImported(activity.source_provider) && Number.isFinite(epoch)) {
+            fitImported.push({ id: file.replace(/\.json$/, ''), epoch });
+          }
         }
       } catch {
         // Unreadable file — skip rather than abort the sync.
       }
     }
-    return epochs;
+    return { epochs, fitImported };
   }
 
-  async syncNewActivities(): Promise<{ newRuns: number; totalFetched: number; skipped: number }> {
+  async syncNewActivities(): Promise<IntervalsSyncResult> {
     const state = await this.syncStateManager.load();
 
     // Overlap the watermark by a day: the activities endpoint filters by local
-    // date, not instant, and dedupe-by-epoch makes re-fetching harmless.
+    // date, not instant, and dedupe-by-epoch (plus the near rule
+    // against FIT-imported records) makes re-fetching harmless.
     const since =
       state.last_sync_timestamp > 0
         ? new Date((state.last_sync_timestamp - 24 * 60 * 60) * 1000)
@@ -91,7 +125,8 @@ export class IntervalsSync {
     const rawActivities = await this.provider.fetchRawActivities({ since });
     console.log(`Fetched ${rawActivities.length} activities from intervals.icu`);
 
-    const existing = await this.existingStartEpochs();
+    const { epochs: existing, fitImported } = await this.loadArchiveIndex();
+    const nearMatches: NearMatchSkip[] = [];
 
     // Loaded once before the loop, saved once after — a 30-activity sync
     // writes the manifest a single time, not per activity.
@@ -113,6 +148,22 @@ export class IntervalsSync {
       const epoch = Math.floor(new Date(activity.start_date).getTime() / 1000);
       if (existing.has(epoch)) {
         skipped++;
+        continue;
+      }
+
+      // Near rule: FIT-imported records read from disk only; `existing` also
+      // holds epochs added in this batch and is deliberately not consulted.
+      const near = findNearMatch(epoch, fitImported);
+      if (near) {
+        skipped++;
+        nearMatches.push({
+          intervalsId: String(activity.id),
+          existingId: near.id,
+          deltaS: near.deltaS,
+          startDate: activity.start_date,
+        });
+        const signed = near.deltaS > 0 ? `+${near.deltaS}` : `${near.deltaS}`;
+        console.log(`  ~ near-match skip: ${activity.id} (${activity.start_date}) is ${signed}s from FIT-imported ${near.id}; not written`);
         continue;
       }
 
@@ -188,6 +239,6 @@ export class IntervalsSync {
       `Sync complete: ${newRuns} new runs saved, ${skipped} skipped (already present or not runs)`
     );
 
-    return { newRuns, totalFetched: rawActivities.length, skipped };
+    return { newRuns, totalFetched: rawActivities.length, skipped, nearMatches };
   }
 }
