@@ -114,6 +114,7 @@ context, measured facts and decisions in `PROJECT.md` § Current Milestone; requ
 - [x] **Phase 36.1: Ingestion Integrity** (INSERTED) - Runs can no longer be lost silently: archive-pinned assertions stop blocking the nightly data commit/deploy, and an export-vs-archive reconciliation imports runs intervals.icu never received (completed 2026-11-25)
 - [x] **Phase 37: Review-Queue Priority & CUR-04** - Queue reordered by pause class and guard-moved efforts; a reversible "reviewed and kept" action distinct from exclude (completed 2026-11-25)
 - [x] **Phase 37.1: Near-Match Dedupe in IntervalsSync** (INSERTED) - WR-06: IntervalsSync dedupes on exact start epoch only, so a +N s intervals.icu delivery of a FIT-imported run would duplicate; match within the importer's 120 s window instead (completed 2026-11-26)
+- [ ] **Phase 37.2: Address tech debt: publish-gate v2.3 quality keys + consolidate near-match** (INSERTED) - Close v2.3 audit tech debt: publish gate covers the v2.3 quality keys; near-match logic consolidated on the shared module
 
 ## Phase Details
 
@@ -561,6 +562,24 @@ Plans:
 
 - [x] 37.1-02-PLAN.md — Red-first dedupe rows (inverted CAN-FAIL), then IntervalsSync near-match skip + nearMatches report + summary line
 
+### Phase 37.2: Address tech debt: publish-gate v2.3 quality keys + consolidate near-match (INSERTED)
+
+**Goal**: Close the two integration findings from the v2.3 audit. The publish gate fails when a v2.3 quality key is missing from the built dashboard data, instead of checking only the six pre-v2.3 keys. Strava-export consolidation uses the same near-match rule as the FIT importer and IntervalsSync, so a start a few seconds off an existing record is not imported as a second activity.
+**Depends on**: Phase 37.1 (shared `src/exports/near-match.ts`)
+**Requirements**: none new. Hardens SEG-06, PAUSE-01..03, STOP-01..03 (W1) and ING-02, ING-05 (W3)
+**Source**: v2.3 audit tech_debt W1 + W3 (`.planning/v2.3-MILESTONE-AUDIT.md`). W2, W4 and the bookkeeping items are out of scope.
+**Success Criteria** (what must be TRUE):
+
+  1. `scripts/verify-dashboard-publish.mjs` checks every quality sub-key the emitter writes on index rows and on sampled shards (`signals`), not only the six pre-v2.3 ones. Research measured 11 at HEAD, adding `unreliableSegments`, `pauseClassification`, `forgottenStop`, `anySevere`, `notComputableReason`. It also checks the shard top-level keys that carry v2.3 data, such as `pauseIntervals`. Removing any one checked key from a built fixture makes the gate exit non-zero and name the key, and that is shown failing before the fix passes.
+  2. The gate's key list cannot drift from the emitter silently. A test fails if the emitter produces a quality sub-key the gate does not check, or if the gate checks one the emitter does not produce.
+  3. `src/exports/consolidate.ts` resolves an export row that matches no archive record by id or exact epoch with `findNearMatch` from `src/exports/near-match.ts`, using the same shared window (`findNearMatch` excludes offset 0 by design, so the exact path stays first, as in `fit-import.ts`). An export row within the window of an existing record (on either side, including the far edge) is not imported again. A row outside the window is still imported. Both directions are shown, and the near case is shown failing against the pre-change code.
+  4. The structural guard from 37.1, which fails if a caller carries its own copy of the window, covers `consolidate.ts` too.
+  5. No existing archive record is rewritten or deleted. Re-running consolidation on the current archive produces the same output as before.
+**Plans**: 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 37.2 to break down)
+
 ## Progress
 
 **Execution Order:** Phases execute in numeric order: 1 → … → 31 (all shipped) → 32 → … → 37 (v2.3 Pause & Slew Integrity, in progress).
@@ -606,6 +625,7 @@ Plans:
 | 36.1. Ingestion Integrity (INSERTED) | v2.3 | 9/9 | Complete    | 2026-11-25 |
 | 37. Review-Queue Priority & CUR-04 | v2.3 | 7/7 | Complete    | 2026-11-25 |
 | 37.1. Address tech debt: near-match dedupe in IntervalsSync (INSERTED) | v2.3 | 2/2 | Complete    | 2026-11-26 |
+| 37.2. Address tech debt: publish-gate v2.3 quality keys + consolidate near-match (INSERTED) | v2.3 | 0/0 | Not started | - |
 
 *Last updated: 2026-09-19 — **v2.3 Pause & Slew Integrity roadmap created**: 6 phases (32-37), 24/24 requirements mapped, derived from research/SUMMARY.md's suggested sequence (detection → coverage integration → pause/stop → stream pace → best-effort/ceiling → review queue), with the hard dependency chain 32→33→36 preserved. SEG-06 (the unreliable-segment quality signal/badge) placed in Phase 33 rather than Phase 32, keeping Phase 32 compute/calibration-only and grouping the badge with the other consumers `classifyGaps`' output feeds. Phases 33-37 add rendered surfaces and close on a human browser checkpoint; Phase 32 does not. No archive-wide target rates were guessed into any success criterion — v2.2's "~5%" criterion was found jointly unsatisfiable; where a rate is unknown this milestone, the criterion is "measured and reported in a regenerable artifact."
 
