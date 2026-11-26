@@ -4,8 +4,8 @@ milestone: v2.3
 milestone_name: Pause & Slew Integrity
 status: executing
 stopped_at: Phase 37.2 planned (2 plans, 2 waves); ready to execute
-last_updated: "2026-11-26T21:39:17.691Z"
-last_activity: 2026-11-26 -- Phase 37.2 planning complete
+last_updated: "2026-11-26T22:02:16.389Z"
+last_activity: 2026-11-26
 progress:
   total_phases: 9
   completed_phases: 8
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 37.2 — v2.3 audit tech debt (publish-gate quality keys, near-match consolidation)
+**Current focus:** Phase 37.2 — address-tech-debt-publish-gate-v2-3-quality-keys-consolidate
 
 **Carried into the next milestone** (full list with reasons in PROJECT.md § Active):
 
@@ -46,9 +46,9 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 ## Current Position
 
-Phase: 37.2 (INSERTED)
-Plan: 0 of 2
-Status: Ready to execute — next `/gsd-execute-phase 37.2`
+Phase: 37.2 (address-tech-debt-publish-gate-v2-3-quality-keys-consolidate) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
 
 Phase 37.1 complete (UAT 5/5 passed `9bf91ee6`); v2.3 audit `c988c42d` came back `tech_debt`, so 37.2 was
 inserted to close it before the milestone closes.
@@ -92,7 +92,7 @@ and git history. Phase 34's narrative before it is in
 `.planning/phases/34-pause-classification-forgotten-stop/34-{01..16}-SUMMARY.md` and git history.
 Phases 34 and 35 are both closed in ROADMAP.md.)*
 
-Last activity: 2026-11-26 -- Phase 37.2 planning complete
+Last activity: 2026-11-26
 
 ## Performance Metrics
 
