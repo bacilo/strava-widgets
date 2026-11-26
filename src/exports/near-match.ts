@@ -5,6 +5,8 @@
  *   distance from a candidate is 1..tolerance is "near".
  * - deltaS is signed: `epoch - candidate.epoch` (new minus existing), the same
  *   convention as reconcile().
+ * - The nearest candidate wins; on a tie the earlier candidate epoch wins
+ *   (same as reconcile()), independent of candidate order.
  * - An exact match (offset 0) is NOT near; exact is the caller's own path.
  * - A non-finite epoch (query or candidate) never matches and never throws.
  * - "FIT-imported" means the archive record's `source_provider` is in
@@ -43,7 +45,13 @@ export function findNearMatch(
     const deltaS = epoch - c.epoch;
     const abs = Math.abs(deltaS);
     if (abs < 1 || abs > tolerance) continue;
-    if (best === undefined || abs < Math.abs(best.deltaS)) {
+    // Ties go to the earlier candidate epoch, the same rule as reconcile(), so
+    // the result never depends on candidate (directory) order.
+    if (
+      best === undefined ||
+      abs < Math.abs(best.deltaS) ||
+      (abs === Math.abs(best.deltaS) && c.epoch < best.epoch)
+    ) {
       best = { id: c.id, epoch: c.epoch, deltaS };
     }
   }

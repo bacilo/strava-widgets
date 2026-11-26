@@ -96,13 +96,21 @@ describe('findNearMatch', () => {
     const r = findNearMatch(E + 5, [{ id: 'bad', epoch: NaN }, { id: 'a', epoch: E }]);
     expect(r?.id).toBe('a');
   });
-  it('picks the smallest |deltaS|, first on a tie', () => {
+  it('picks the smallest |deltaS|, earlier epoch on a tie', () => {
     const r = findNearMatch(E, [
       { id: 'far', epoch: E + 50 },
       { id: 'near1', epoch: E - 10 },
       { id: 'near2', epoch: E + 10 },
     ]);
     expect(r).toEqual({ id: 'near1', epoch: E - 10, deltaS: 10 });
+  });
+  it('tie-break is the earlier epoch even when the later candidate is listed first', () => {
+    // Discriminates "earlier epoch wins" from "first in list wins" (directory order).
+    const r = findNearMatch(E, [
+      { id: 'late', epoch: E + 10 },
+      { id: 'early', epoch: E - 10 },
+    ]);
+    expect(r).toEqual({ id: 'early', epoch: E - 10, deltaS: 10 });
   });
   it('honours a custom tolerance and handles empty candidates', () => {
     expect(findNearMatch(E + 30, cands, 10)).toBeUndefined();
