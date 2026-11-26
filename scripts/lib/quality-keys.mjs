@@ -25,7 +25,29 @@ export const QUALITY_SUB_KEYS = Object.freeze([
   'deviceEra',
   'elapsedVsMoving',
   'elevation',
+  'unreliableSegments',
+  'pauseClassification',
+  'forgottenStop',
+  'anySevere',
+  'notComputableReason',
 ]);
 
 /** Every top-level key of the emitter's PaceQualityShard. */
-export const PACE_QUALITY_SHARD_KEYS = Object.freeze(['activityId', 'signals']);
+export const PACE_QUALITY_SHARD_KEYS = Object.freeze([
+  'activityId',
+  'signals',
+  'gapIntervals',
+  'impossibleSamples',
+  'impossibleSamplesTruncated',
+  'zeroAdvanceRunProfile',
+  'adaptiveWindowSec',
+  'notComputableReason',
+  'elevationVerticalRateSamples',
+  'elevationVerticalRateSamplesTruncated',
+  'elevationLoopRadiusM',
+  'elevationStartEndDistM',
+  'unreliableSegments',
+  'unreliableSegmentsTruncated',
+  'pauseIntervals',
+  'pauseIntervalsTruncated',
+]);

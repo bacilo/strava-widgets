@@ -7,20 +7,19 @@
  * browser and is a human checkpoint; this script deliberately does not
  * attempt to fake that with a headless-browser dependency (D-01).
  *
- * ESM, Node built-ins only (`node:http`, `node:fs`, `node:path`) — no new
- * dependency, matching scripts/build-widgets.mjs's style.
+ * ESM, Node built-ins only (`node:http`, `node:fs`, `node:path`) plus one
+ * local side-effect-free shared-constants import (./lib/quality-keys.mjs) — no
+ * new dependency, matching scripts/build-widgets.mjs's style.
  */
 
 import http from 'node:http';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve, extname, join } from 'node:path';
+import { QUALITY_SUB_KEYS, PACE_QUALITY_SHARD_KEYS } from './lib/quality-keys.mjs';
 
 const ROOT = resolve(process.cwd(), 'dist/widgets');
 const INDEX_HTML = join(ROOT, 'index.html');
 const INDEX_JSON = join(ROOT, 'data/dashboard/index.json');
-
-/** The six named quality sub-keys (Phase 27, QUAL-01; Phase 30 ELEV-01 T-30-11 added 'elevation') — shared between the index-row check and the shard-sample check below. */
-const QUALITY_SUB_KEYS = ['decimation', 'gapProfile', 'impossibleSamples', 'deviceEra', 'elapsedVsMoving', 'elevation'];
 
 let failures = 0;
 let checks = 0;
@@ -305,23 +304,37 @@ async function main() {
         const hasAnyQuality = parsed.activities.some(
           (row) => row.quality !== null && row.quality !== undefined
         );
-        const missingQualityRow = parsed.activities.find(
-          (row) =>
-            row.quality === null ||
-            row.quality === undefined ||
-            QUALITY_SUB_KEYS.some((key) => !(key in row.quality))
-        );
+        let missingQualityId = null;
+        let missingQualityKey = null;
+        let qualityObjectMissing = false;
+        for (const row of parsed.activities) {
+          if (row.quality === null || row.quality === undefined) {
+            missingQualityId = row.id;
+            qualityObjectMissing = true;
+            break;
+          }
+          const absent = QUALITY_SUB_KEYS.find((key) => !(key in row.quality));
+          if (absent !== undefined) {
+            missingQualityId = row.id;
+            missingQualityKey = absent;
+            break;
+          }
+        }
         if (!hasAnyQuality) {
           fail(
             '/data/dashboard/index.json no row has a non-null "quality" — Phase 27 signal computation may not have survived publication'
           );
-        } else if (missingQualityRow) {
+        } else if (qualityObjectMissing) {
           fail(
-            `/data/dashboard/index.json activity ${missingQualityRow.id} is missing "quality" or one of its six named sub-keys — a partial rollout, not a total one (T-27-14)`
+            `/data/dashboard/index.json activity ${missingQualityId} is missing "quality" — a partial rollout, not a total one (T-27-14)`
+          );
+        } else if (missingQualityKey !== null) {
+          fail(
+            `/data/dashboard/index.json activity ${missingQualityId} "quality" is missing sub-key "${missingQualityKey}" — a partial rollout, not a total one (T-27-14)`
           );
         } else {
           ok(
-            `/data/dashboard/index.json every row (${parsed.activities.length}) has a "quality" object with all six named sub-keys`
+            `/data/dashboard/index.json every row (${parsed.activities.length}) has a "quality" object with all ${QUALITY_SUB_KEYS.length} named sub-keys`
           );
         }
 
@@ -861,23 +874,23 @@ async function main() {
           const parsedShard = parseJsonOrFail(`/data/stats/pace-quality/${shardId}.json`, shardBody);
           if (parsedShard === null) {
             // already reported
+          } else if (PACE_QUALITY_SHARD_KEYS.some((key) => !(key in parsedShard))) {
+            const missingTop = PACE_QUALITY_SHARD_KEYS.find((key) => !(key in parsedShard));
+            fail(`/data/stats/pace-quality/${shardId}.json is missing top-level key "${missingTop}"`);
           } else if (String(parsedShard.activityId) !== String(shardId)) {
             fail(
               `/data/stats/pace-quality/${shardId}.json "activityId" expected "${shardId}", got ${JSON.stringify(
                 parsedShard.activityId
               )} — the index and the shard directory disagree about what exists`
             );
-          } else if (
-            parsedShard.signals === null ||
-            typeof parsedShard.signals !== 'object' ||
-            QUALITY_SUB_KEYS.some((key) => !(key in parsedShard.signals))
-          ) {
-            fail(
-              `/data/stats/pace-quality/${shardId}.json "signals" is missing or missing one of the six named sub-keys, got ${JSON.stringify(parsedShard.signals)}`
-            );
+          } else if (parsedShard.signals === null || typeof parsedShard.signals !== 'object') {
+            fail(`/data/stats/pace-quality/${shardId}.json "signals" is missing or not an object`);
+          } else if (QUALITY_SUB_KEYS.some((key) => !(key in parsedShard.signals))) {
+            const missingSub = QUALITY_SUB_KEYS.find((key) => !(key in parsedShard.signals));
+            fail(`/data/stats/pace-quality/${shardId}.json "signals" is missing sub-key "${missingSub}"`);
           } else {
             ok(
-              `/data/stats/pace-quality/${shardId}.json parses with activityId "${shardId}" and a "signals" object carrying all six named sub-keys`
+              `/data/stats/pace-quality/${shardId}.json parses with activityId "${shardId}" and a "signals" object carrying all ${QUALITY_SUB_KEYS.length} named sub-keys and all ${PACE_QUALITY_SHARD_KEYS.length} top-level keys`
             );
           }
         }

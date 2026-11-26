@@ -258,7 +258,7 @@ describe.skipIf(!existsSync(INDEX_HTML))('verify-dashboard-publish.mjs: T-30-11/
 
     expect(result.status).not.toBe(0);
     expect(result.output).toContain(
-      `✗ /data/dashboard/index.json activity ${targetRow.id} is missing "quality" or one of its six named sub-keys — a partial rollout, not a total one (T-27-14)`
+      `✗ /data/dashboard/index.json activity ${targetRow.id} "quality" is missing sub-key "elevation" — a partial rollout, not a total one (T-27-14)`
     );
   });
 });
