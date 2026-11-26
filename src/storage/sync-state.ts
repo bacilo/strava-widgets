@@ -5,6 +5,7 @@ import { FileStore } from './file-store.js';
  * Manages sync state with high watermark tracking.
  *
  * Tracks the most recent activity timestamp for incremental sync.
+ * Any save must carry near_match_skips through, or it is clobbered.
  */
 export class SyncStateManager {
   constructor(
@@ -59,6 +60,7 @@ export class SyncStateManager {
       last_activity_id: mostRecent.id.toString(),
       total_activities: currentState.total_activities + activities.length,
       last_sync_date: new Date().toISOString(),
+      ...(currentState.near_match_skips ? { near_match_skips: currentState.near_match_skips } : {}),
     };
 
     await this.save(newState);

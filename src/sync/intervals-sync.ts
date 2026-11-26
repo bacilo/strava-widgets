@@ -6,6 +6,7 @@ import { SyncStateManager } from '../storage/sync-state.js';
 import { deriveFromIntervalsStreams } from '../streams/derive-stream.js';
 import { loadManifest, saveManifest, upsertAvailable, upsertUnavailable } from '../streams/stream-manifest.js';
 import type { StreamManifest } from '../streams/stream.types.js';
+import type { NearMatchSkipRecord, SyncState } from '../types/strava.types.js';
 
 /** A delivery skipped because it starts within the near-match window of a FIT-imported record. Ids, date, signed delta only. */
 export interface NearMatchSkip {
@@ -42,12 +43,14 @@ export interface IntervalsSyncResult {
  *   FIT-imported record (source_provider garmin-export; strava-export is not
  *   FIT-imported) is skipped and reported, never written and never replacing
  *   the FIT record. Only FIT-imported records read from disk are compared,
- *   never epochs added earlier in the same batch. A skip is reported only in
- *   the returned nearMatches and the console log; nothing is written to data/.
- *   The 1-day watermark overlap re-reports it on later nights only while the
- *   watermark stays within a day of the skipped start. Once a later run is
- *   written and the watermark moves past that, the skip is never reported
- *   again, so the CI log is the only trace.
+ *   never epochs added earlier in the same batch. Each skip is also
+ *   recorded durably in sync-state.json near_match_skips, keyed by intervalsId,
+ *   with {existingId, deltaS, startDate, firstSeen}. Recording is idempotent: a
+ *   skip already present keeps its original firstSeen, and a run that adds
+ *   nothing new does not rewrite the file for it. Every save carries the map,
+ *   so writing a later activity never drops it. Console and nearMatches
+ *   reporting still only re-report while the watermark is within a day of the
+ *   skipped start.
  */
 export class IntervalsSync {
   private provider: IntervalsProvider;
@@ -139,6 +142,9 @@ export class IntervalsSync {
     let newRuns = 0;
     let skipped = 0;
     let maxTimestamp = state.last_sync_timestamp;
+    const skipRecords: Record<string, NearMatchSkipRecord> = { ...(state.near_match_skips ?? {}) };
+    let skipsDirty = false;
+    let lastSaved: SyncState = state;
 
     // Oldest first, so the watermark only ever covers what has been written.
     for (const raw of [...rawActivities].reverse()) {
@@ -166,6 +172,16 @@ export class IntervalsSync {
           deltaS: near.deltaS,
           startDate: activity.start_date,
         });
+        const key = String(activity.id);
+        if (!(key in skipRecords)) {
+          skipRecords[key] = {
+            existingId: near.id,
+            deltaS: near.deltaS,
+            startDate: activity.start_date,
+            firstSeen: new Date().toISOString(),
+          };
+          skipsDirty = true;
+        }
         const signed = near.deltaS > 0 ? `+${near.deltaS}` : `${near.deltaS}`;
         console.log(`  ~ near-match skip: ${activity.id} (${activity.start_date}) is ${signed}s from FIT-imported ${near.id}; not written`);
         continue;
@@ -222,12 +238,16 @@ export class IntervalsSync {
       if (epoch > maxTimestamp) maxTimestamp = epoch;
 
       // Advance the watermark as we go so an interrupted sync resumes cleanly.
-      await this.syncStateManager.save({
+      const nextState: SyncState = {
         last_sync_timestamp: maxTimestamp,
         last_activity_id: String(activity.id),
         total_activities: state.total_activities + newRuns,
         last_sync_date: new Date().toISOString(),
-      });
+        ...(Object.keys(skipRecords).length > 0 ? { near_match_skips: skipRecords } : {}),
+      };
+      await this.syncStateManager.save(nextState);
+      lastSaved = nextState;
+      skipsDirty = false;
 
       console.log(
         `  + ${activity.start_date.slice(0, 10)} ${activity.name} ` +
@@ -238,6 +258,12 @@ export class IntervalsSync {
     // Written once per sync, not per activity — a no-op on disk when nothing
     // about the entries changed.
     await saveManifest(this.fileStore, this.streamsManifestPath, manifest);
+
+    // A skip after the last written activity, or a skip-only run: watermark
+    // fields stay exactly as last saved (or as loaded).
+    if (skipsDirty) {
+      await this.syncStateManager.save({ ...lastSaved, near_match_skips: skipRecords });
+    }
 
     console.log(
       `Sync complete: ${newRuns} new runs saved, ${skipped} skipped (already present or not runs)`

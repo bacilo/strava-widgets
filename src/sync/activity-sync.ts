@@ -85,6 +85,7 @@ export class ActivitySync {
         last_activity_id: activities[0]?.id || state.last_activity_id,
         total_activities: state.total_activities + activities.length,
         last_sync_date: new Date(maxTimestamp * 1000).toISOString(),
+        ...(state.near_match_skips ? { near_match_skips: state.near_match_skips } : {}),
       });
 
       pagesProcessed++;

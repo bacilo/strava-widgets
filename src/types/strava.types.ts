@@ -41,9 +41,19 @@ export interface StravaActivity {
 /**
  * Sync state tracking high watermark for incremental sync
  */
+/** Near-match skip record: ids, date, signed delta and first-seen ISO time only, no health or location fields. */
+export interface NearMatchSkipRecord {
+  existingId: string;
+  deltaS: number;
+  startDate: string;
+  firstSeen: string;
+}
+
 export interface SyncState {
   last_sync_timestamp: number; // Unix epoch seconds
   last_activity_id: number | string; // Activity ID (number from API, string for compatibility)
   total_activities: number;
   last_sync_date: string; // ISO 8601
+  /** Keyed by intervals.icu activity id. Written by IntervalsSync; optional so legacy files load. */
+  near_match_skips?: Record<string, NearMatchSkipRecord>;
 }
