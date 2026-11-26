@@ -575,10 +575,13 @@ Plans:
   3. `src/exports/consolidate.ts` resolves an export row that matches no archive record by id or exact epoch with `findNearMatch` from `src/exports/near-match.ts`, using the same shared window (`findNearMatch` excludes offset 0 by design, so the exact path stays first, as in `fit-import.ts`). An export row within the window of an existing record (on either side, including the far edge) is not imported again. A row outside the window is still imported. Both directions are shown, and the near case is shown failing against the pre-change code.
   4. The structural guard from 37.1, which fails if a caller carries its own copy of the window, covers `consolidate.ts` too.
   5. No existing archive record is rewritten or deleted. Re-running consolidation on the current archive produces the same output as before.
-**Plans**: 0 plans
+**Plans**: 2 plans (1 wave)
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 37.2 to break down)
+**Wave 1**
+
+- [ ] 37.2-01-PLAN.md — W1: shared quality-key module, gate checks every emitted row/shard key and names it, emitter drift test, planted-removal shadow-tree cases (SC1, SC2)
+- [ ] 37.2-02-PLAN.md — W3: consolidate resolves near-start export rows with shared findNearMatch, guard covers consolidate.ts, scratch-copy SC5 idempotence probe (SC3, SC4, SC5)
 
 ## Progress
 
