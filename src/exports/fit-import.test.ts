@@ -316,6 +316,20 @@ describe('importFit', () => {
     expect(NEAR_MATCH_TOLERANCE_S).toBeGreaterThanOrEqual(60);
   });
 
+  // Archive record start = FIT start + archiveOffsetS (archive minus FIT).
+  it.each([120, -120])('refuses an archive record %i s from the FIT (window edge) with nothing written', async archiveOffsetS => {
+    seedArchive('i998', new Date(START.getTime() + archiveOffsetS * 1000).toISOString().replace('.000Z', 'Z'));
+    const before = counts();
+    await expect(run(place('x.fit', buildFit()))).rejects.toThrow(/near-match/);
+    expect(counts()).toEqual(before);
+  });
+
+  it.each([121, -121])('imports when the archive record is %i s from the FIT (outside the window)', async archiveOffsetS => {
+    seedArchive('i998', new Date(START.getTime() + archiveOffsetS * 1000).toISOString().replace('.000Z', 'Z'));
+    const result = await run(place('x.fit', buildFit()));
+    expect(result.status).toBe('imported');
+  });
+
   it('refuses an id collision by filename, record id, and garmin_activity_id', async () => {
     seedArchive('12345678901', '2026-01-01T00:00:00Z');
     await expect(run(place('x.fit', buildFit()))).rejects.toThrow(/collision/);
