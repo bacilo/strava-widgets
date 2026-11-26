@@ -112,7 +112,7 @@ Scoped from a live investigation on 2026-09-19 of three developer-flagged activi
 - [x] **ING-02**: A Garmin bulk export in `export_data/garmin/` is parsed by an adapter written against the real export structure (probed, not guessed) and reconciled against the archive, listing every run present in the export and absent from the archive by date and Garmin activity id. The reconciliation is shown, on a real export, to find the known miss (the 2026-11-18 morning run, absent from the archive) and not to list a run present in both (the 2026-11-18 afternoon run, Garmin 25121466706, held in the archive as i211719792). Run 18180779941 (2026-04-20) is a Strava-only phone recording outside the Garmin export, so the Garmin reconciliation does not cover it.
 - [x] **ING-03**: A run missing from intervals.icu can be imported from its original FIT file into `data/activities/` and `data/streams/` with provenance recorded, deduplicated by start time so a later intervals.icu delivery of the same run creates no duplicate.
 - [x] **ING-04**: Each reconciliation writes an audit stating the export used, its coverage window, and the missing-run count and ids, so a silent gap surfaces without inspecting the archive, and the audit never claims completeness beyond the export's window.
-- [ ] **ING-05**: IntervalsSync and the FIT importer share one near-match rule. An intervals.icu delivery whose start lies within the importer's window of a FIT-imported record is treated as a duplicate and reported, not written as a second record. Deliveries outside the window are still written. (v2.3 audit WR-06, Phase 37.1.)
+- [x] **ING-05**: IntervalsSync and the FIT importer share one near-match rule. An intervals.icu delivery whose start lies within the importer's window of a FIT-imported record is treated as a duplicate and reported, not written as a second record. Deliveries outside the window are still written. (v2.3 audit WR-06, Phase 37.1.)
 
 ### Curation (CUR)
 
@@ -177,6 +177,6 @@ Deferred, tracked, not in this roadmap.
 | ING-02 | Phase 36.1 | Complete |
 | ING-03 | Phase 36.1 | Complete |
 | ING-04 | Phase 36.1 | Complete |
-| ING-05 | Phase 37.1 | Pending |
+| ING-05 | Phase 37.1 | Complete |
 | CUR-04 | Phase 37 | Complete |
 | CUR-06 | Phase 37 | Complete |
