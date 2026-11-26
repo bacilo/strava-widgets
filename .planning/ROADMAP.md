@@ -113,6 +113,7 @@ context, measured facts and decisions in `PROJECT.md` § Current Milestone; requ
 - [x] **Phase 36: Best-Effort Clean-Window Search & Ceiling Recalibration** - Efforts spanning an unreliable segment are demoted-and-kept while the search continues in clean sub-intervals; ceiling recalibrated on the excluded population; both diffs signed (completed 2026-11-25)
 - [x] **Phase 36.1: Ingestion Integrity** (INSERTED) - Runs can no longer be lost silently: archive-pinned assertions stop blocking the nightly data commit/deploy, and an export-vs-archive reconciliation imports runs intervals.icu never received (completed 2026-11-25)
 - [x] **Phase 37: Review-Queue Priority & CUR-04** - Queue reordered by pause class and guard-moved efforts; a reversible "reviewed and kept" action distinct from exclude (completed 2026-11-25)
+- [ ] **Phase 37.1: Near-Match Dedupe in IntervalsSync** (INSERTED) - WR-06: IntervalsSync dedupes on exact start epoch only, so a +N s intervals.icu delivery of a FIT-imported run would duplicate; match within the importer's 120 s window instead
 
 ## Phase Details
 
@@ -534,6 +535,25 @@ Plans:
 
 **UI hint**: yes
 
+### Phase 37.1: Address tech debt: near-match dedupe in IntervalsSync (INSERTED)
+
+**Goal**: A run imported from its FIT file cannot be duplicated by a later intervals.icu delivery that is a few seconds off. IntervalsSync and the FIT importer agree on what counts as the same run: a start within the importer's near-match window of a FIT-imported record is a duplicate, not a second archive entry.
+**Depends on**: Phase 36.1 (ING-03 importer and IntervalsSync dedupe)
+**Requirements**: ING-05
+**Source**: v2.3 audit WR-06 (`.planning/v2.3-MILESTONE-AUDIT.md`); 36.1 HUMAN-UAT item 3; todo `.planning/todos/pending/2026-11-25-wr06-*.md`
+**Success Criteria** (what must be TRUE):
+
+  1. An intervals.icu activity whose start lies within the near-match window of a FIT-imported archive record (on either side, including +1 s and the far edge of the window) creates no second record in `data/activities/` or `data/streams/`. The skip is reported in the sync output by both ids and the offset, so it is never silent.
+  2. An intervals.icu activity outside that window, or near a record that was not FIT-imported, is still written. The change does not swallow genuine back-to-back runs. Both directions are shown in tests.
+  3. The importer and IntervalsSync read the window from one shared definition. A test fails if either side carries its own copy.
+  4. The 36.1 CAN-FAIL test in `fit-import.test.ts` that pins today's duplicate is updated deliberately to the new behaviour. The new assertions are shown failing against the pre-change IntervalsSync before they pass.
+  5. The archive's existing near matches (`data/reconciliation/garmin.json`) are counted and dispositioned from that file's actual contents, not from the audit's quoted figures. No existing archive record is rewritten or deleted.
+
+**Plans**: 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 37.1 to break down)
+
 ## Progress
 
 **Execution Order:** Phases execute in numeric order: 1 → … → 31 (all shipped) → 32 → … → 37 (v2.3 Pause & Slew Integrity, in progress).
@@ -578,6 +598,7 @@ Plans:
 | 36. Best-Effort Clean-Window Search & Ceiling Recalibration | v2.3 | 20/20 | Complete    | 2026-11-25 |
 | 36.1. Ingestion Integrity (INSERTED) | v2.3 | 9/9 | Complete    | 2026-11-25 |
 | 37. Review-Queue Priority & CUR-04 | v2.3 | 7/7 | Complete    | 2026-11-25 |
+| 37.1. Address tech debt: near-match dedupe in IntervalsSync (INSERTED) | v2.3 | 0/0 | Not started | - |
 
 *Last updated: 2026-09-19 — **v2.3 Pause & Slew Integrity roadmap created**: 6 phases (32-37), 24/24 requirements mapped, derived from research/SUMMARY.md's suggested sequence (detection → coverage integration → pause/stop → stream pace → best-effort/ceiling → review queue), with the hard dependency chain 32→33→36 preserved. SEG-06 (the unreliable-segment quality signal/badge) placed in Phase 33 rather than Phase 32, keeping Phase 32 compute/calibration-only and grouping the badge with the other consumers `classifyGaps`' output feeds. Phases 33-37 add rendered surfaces and close on a human browser checkpoint; Phase 32 does not. No archive-wide target rates were guessed into any success criterion — v2.2's "~5%" criterion was found jointly unsatisfiable; where a rate is unknown this milestone, the criterion is "measured and reported in a regenerable artifact."
 

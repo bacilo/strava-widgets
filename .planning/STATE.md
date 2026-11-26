@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
-status: milestone_complete
-stopped_at: Milestone complete (Phase 37 was final phase)
-last_updated: 2026-11-25T18:07:20.700Z
+status: in_progress
+stopped_at: Phase 37.1 inserted (WR-06 near-match dedupe); not planned yet
+last_updated: "2026-11-26T12:27:12.298Z"
 last_activity: 2026-11-25
 progress:
-  total_phases: 7
+  total_phases: 8
   completed_phases: 7
   total_plans: 96
   completed_plans: 96
-  percent: 100
+  percent: 88
 ---
 
 # Project State
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Milestone complete
+**Current focus:** Phase 37.1 — near-match dedupe in IntervalsSync (WR-06, v2.3 audit tech debt)
 
 **Carried into the next milestone** (full list with reasons in PROJECT.md § Active):
 
@@ -46,9 +46,9 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 ## Current Position
 
-Phase: 37
+Phase: 37.1
 Plan: Not started
-Status: Milestone complete
+Status: Inserted 2026-11-26 after Phase 37; next `/gsd-plan-phase 37.1`
 
 Phase 37 planned (2026-11-25): 7 plans in 3 waves (01-04 | 05, 06 | 07 checkpoint), committed
 `e7120b32`, revised `c29c6ea5` + `f66323cb`. Research `fa2c388e`, validation `10e7ad8f`, patterns
@@ -162,6 +162,7 @@ Last activity: 2026-11-25
 
 - Phase 31 added (2026-09-19): Tech-Debt Closure — Silent-Failure Guards & Docs Reconciliation. Source: `v2.2-MILESTONE-AUDIT.md` (option B chosen over completing with the debt). Scope seeded in ROADMAP § Phase 31; out-of-scope items recorded there so they are not re-litigated.
 - Phase 36.1 inserted after Phase 36: Ingestion Integrity: archive-pinned assertions must not block the nightly commit/deploy (61 runs of fetched data discarded 2026-09-19..11-24); export-vs-archive reconciliation + FIT backfill for runs intervals.icu dropped (Garmin 18180779941 2026-04-20, 2026-11-18 AM) (URGENT)
+- Phase 37.1 inserted after Phase 37: Address tech debt: near-match dedupe in IntervalsSync (WR-06 from v2.3 audit) (URGENT)
 
 ### Decisions
 
