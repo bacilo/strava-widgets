@@ -42,8 +42,12 @@ export interface IntervalsSyncResult {
  *   FIT-imported record (source_provider garmin-export; strava-export is not
  *   FIT-imported) is skipped and reported, never written and never replacing
  *   the FIT record. Only FIT-imported records read from disk are compared,
- *   never epochs added earlier in the same batch. The 1-day watermark overlap
- *   re-reports the same skip on the next night.
+ *   never epochs added earlier in the same batch. A skip is reported only in
+ *   the returned nearMatches and the console log; nothing is written to data/.
+ *   The 1-day watermark overlap re-reports it on later nights only while the
+ *   watermark stays within a day of the skipped start. Once a later run is
+ *   written and the watermark moves past that, the skip is never reported
+ *   again, so the CI log is the only trace.
  */
 export class IntervalsSync {
   private provider: IntervalsProvider;
