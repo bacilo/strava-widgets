@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
-status: in_progress
-stopped_at: Phase 37.2 inserted (tech debt from v2.3 audit); not planned yet
-last_updated: "2026-11-26T20:44:56.836Z"
-last_activity: "2026-11-26 - Completed quick task 261126-tnj: WR-05 persist IntervalsSync near-match skips in sync-state.json"
+status: executing
+stopped_at: Phase 37.2 planned (2 plans, 2 waves); ready to execute
+last_updated: "2026-11-26T21:39:17.691Z"
+last_activity: 2026-11-26 -- Phase 37.2 planning complete
 progress:
   total_phases: 9
   completed_phases: 8
-  total_plans: 98
+  total_plans: 100
   completed_plans: 98
   percent: 89
 ---
@@ -47,11 +47,15 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 ## Current Position
 
 Phase: 37.2 (INSERTED)
-Plan: not planned
-Status: Ready to plan — next `/gsd-plan-phase 37.2`
+Plan: 0 of 2
+Status: Ready to execute — next `/gsd-execute-phase 37.2`
 
 Phase 37.1 complete (UAT 5/5 passed `9bf91ee6`); v2.3 audit `c988c42d` came back `tech_debt`, so 37.2 was
 inserted to close it before the milestone closes.
+
+Phase 37.2 planned (2026-11-26): 2 plans in 2 waves (01 W1 publish gate | 02 W3 consolidate near-match, serialised:
+both need the primary checkout). Research + validation `1af72d4c`, plans `aa4cb250`, revised `ef2ca3a2`
+(SC5 check fails closed). Checker passed twice.
 
 Phase 37 planned (2026-11-25): 7 plans in 3 waves (01-04 | 05, 06 | 07 checkpoint), committed
 `e7120b32`, revised `c29c6ea5` + `f66323cb`. Research `fa2c388e`, validation `10e7ad8f`, patterns
@@ -88,7 +92,7 @@ and git history. Phase 34's narrative before it is in
 `.planning/phases/34-pause-classification-forgotten-stop/34-{01..16}-SUMMARY.md` and git history.
 Phases 34 and 35 are both closed in ROADMAP.md.)*
 
-Last activity: 2026-11-26 - Completed quick task 261126-tnj: WR-05 persist IntervalsSync near-match skips in sync-state.json
+Last activity: 2026-11-26 -- Phase 37.2 planning complete
 
 ## Performance Metrics
 
@@ -370,7 +374,7 @@ It is named here because PROJECT.md's Evolution entry still describes it as open
 ## Session Continuity
 
 Last session: 2026-11-26T12:57:08.387Z
-Stopped at: Phase 37.2 inserted (tech debt from v2.3 audit); not planned yet
+Stopped at: Phase 37.2 planned (2 plans, 2 waves); ready to execute
 Resume file: None
 
 ---
