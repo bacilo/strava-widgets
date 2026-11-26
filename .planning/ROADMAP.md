@@ -114,7 +114,7 @@ context, measured facts and decisions in `PROJECT.md` § Current Milestone; requ
 - [x] **Phase 36.1: Ingestion Integrity** (INSERTED) - Runs can no longer be lost silently: archive-pinned assertions stop blocking the nightly data commit/deploy, and an export-vs-archive reconciliation imports runs intervals.icu never received (completed 2026-11-25)
 - [x] **Phase 37: Review-Queue Priority & CUR-04** - Queue reordered by pause class and guard-moved efforts; a reversible "reviewed and kept" action distinct from exclude (completed 2026-11-25)
 - [x] **Phase 37.1: Near-Match Dedupe in IntervalsSync** (INSERTED) - WR-06: IntervalsSync dedupes on exact start epoch only, so a +N s intervals.icu delivery of a FIT-imported run would duplicate; match within the importer's 120 s window instead (completed 2026-11-26)
-- [ ] **Phase 37.2: Address tech debt: publish-gate v2.3 quality keys + consolidate near-match** (INSERTED) - Close v2.3 audit tech debt: publish gate covers the v2.3 quality keys; near-match logic consolidated on the shared module
+- [x] **Phase 37.2: Address tech debt: publish-gate v2.3 quality keys + consolidate near-match** (INSERTED) - Close v2.3 audit tech debt: publish gate covers the v2.3 quality keys; near-match logic consolidated on the shared module (completed 2026-11-26)
 
 ## Phase Details
 
@@ -631,7 +631,7 @@ Plans:
 | 36.1. Ingestion Integrity (INSERTED) | v2.3 | 9/9 | Complete    | 2026-11-25 |
 | 37. Review-Queue Priority & CUR-04 | v2.3 | 7/7 | Complete    | 2026-11-25 |
 | 37.1. Address tech debt: near-match dedupe in IntervalsSync (INSERTED) | v2.3 | 2/2 | Complete    | 2026-11-26 |
-| 37.2. Address tech debt: publish-gate v2.3 quality keys + consolidate near-match (INSERTED) | v2.3 | 2/2 | In Progress|  |
+| 37.2. Address tech debt: publish-gate v2.3 quality keys + consolidate near-match (INSERTED) | v2.3 | 2/2 | Complete    | 2026-11-26 |
 
 *Last updated: 2026-09-19 — **v2.3 Pause & Slew Integrity roadmap created**: 6 phases (32-37), 24/24 requirements mapped, derived from research/SUMMARY.md's suggested sequence (detection → coverage integration → pause/stop → stream pace → best-effort/ceiling → review queue), with the hard dependency chain 32→33→36 preserved. SEG-06 (the unreliable-segment quality signal/badge) placed in Phase 33 rather than Phase 32, keeping Phase 32 compute/calibration-only and grouping the badge with the other consumers `classifyGaps`' output feeds. Phases 33-37 add rendered surfaces and close on a human browser checkpoint; Phase 32 does not. No archive-wide target rates were guessed into any success criterion — v2.2's "~5%" criterion was found jointly unsatisfiable; where a rate is unknown this milestone, the criterion is "measured and reported in a regenerable artifact."
 
