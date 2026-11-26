@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Pause & Slew Integrity
 status: executing
-stopped_at: Phase 37.1 planned (2 plans, 2 waves); next /gsd-execute-phase 37.1
-last_updated: "2026-11-26T12:50:28.282Z"
-last_activity: 2026-11-26 -- Phase 37.1 planning complete
+stopped_at: Completed 37.1-01-PLAN.md; next 37.1-02 (ING-05 not yet satisfied)
+last_updated: "2026-11-26T12:54:32.675Z"
+last_activity: 2026-11-26
 progress:
   total_phases: 8
   completed_phases: 7
   total_plans: 98
-  completed_plans: 96
+  completed_plans: 97
   percent: 88
 ---
 
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 **Core value:** Compute and visualize running statistics that Strava doesn't readily offer, embeddable anywhere on a personal website.
-**Current focus:** Phase 37.1 — near-match dedupe in IntervalsSync (WR-06, v2.3 audit tech debt)
+**Current focus:** Phase 37.1 — address-tech-debt-near-match-dedupe-in-intervalssync
 
 **Carried into the next milestone** (full list with reasons in PROJECT.md § Active):
 
@@ -46,8 +46,8 @@ See: .planning/PROJECT.md (updated 2026-09-19 after the v2.2 close)
 
 ## Current Position
 
-Phase: 37.1
-Plan: Not started
+Phase: 37.1 (address-tech-debt-near-match-dedupe-in-intervalssync) — EXECUTING
+Plan: 2 of 2
 Status: Ready to execute
 
 Phase 37 planned (2026-11-25): 7 plans in 3 waves (01-04 | 05, 06 | 07 checkpoint), committed
@@ -85,7 +85,7 @@ and git history. Phase 34's narrative before it is in
 `.planning/phases/34-pause-classification-forgotten-stop/34-{01..16}-SUMMARY.md` and git history.
 Phases 34 and 35 are both closed in ROADMAP.md.)*
 
-Last activity: 2026-11-26 -- Phase 37.1 planning complete
+Last activity: 2026-11-26
 
 ## Performance Metrics
 
@@ -250,6 +250,7 @@ Roadmap-level decisions for v2.0 (from research, see .planning/research/SUMMARY.
 - [Phase 37]: Unknown queue view falls back to to-review; excluded+reviewed rows sit under Excluded with reviewConflict; tier ladder fails closed
 - [Phase 37]: Recount forbidden-module scan is specifier-scoped; message and data-path strings legitimately name compute-best-efforts and pace-quality
 - [Phase 37]: Queue view persists in location.hash #view=<name>; changed rows offer Review again and Un-review with no exclude control; a null reviewed doc shows all rows unreviewed with a note
+- [Phase 37.1]: 37.1-01: near-match.ts owns the window; FIT-imported = source_provider garmin-export (strava-export excluded)
 
 ### Key Findings
 
@@ -363,7 +364,7 @@ It is named here because PROJECT.md's Evolution entry still describes it as open
 
 ## Session Continuity
 
-Last session: 2026-11-25T17:54:00.308Z
+Last session: 2026-11-26T12:54:27.592Z
 Stopped at: Completed 37-07-PLAN.md
 Resume file: None
 
