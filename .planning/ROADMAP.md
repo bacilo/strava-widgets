@@ -580,7 +580,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 37.2-01-PLAN.md — W1: shared quality-key module, gate checks every emitted row/shard key and names it, emitter drift test, planted-removal shadow-tree cases (SC1, SC2)
+- [x] 37.2-01-PLAN.md — W1: shared quality-key module, gate checks every emitted row/shard key and names it, emitter drift test, planted-removal shadow-tree cases (SC1, SC2)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -631,7 +631,7 @@ Plans:
 | 36.1. Ingestion Integrity (INSERTED) | v2.3 | 9/9 | Complete    | 2026-11-25 |
 | 37. Review-Queue Priority & CUR-04 | v2.3 | 7/7 | Complete    | 2026-11-25 |
 | 37.1. Address tech debt: near-match dedupe in IntervalsSync (INSERTED) | v2.3 | 2/2 | Complete    | 2026-11-26 |
-| 37.2. Address tech debt: publish-gate v2.3 quality keys + consolidate near-match (INSERTED) | v2.3 | 0/2 | Planned    |  |
+| 37.2. Address tech debt: publish-gate v2.3 quality keys + consolidate near-match (INSERTED) | v2.3 | 1/2 | In Progress |  |
 
 *Last updated: 2026-09-19 — **v2.3 Pause & Slew Integrity roadmap created**: 6 phases (32-37), 24/24 requirements mapped, derived from research/SUMMARY.md's suggested sequence (detection → coverage integration → pause/stop → stream pace → best-effort/ceiling → review queue), with the hard dependency chain 32→33→36 preserved. SEG-06 (the unreliable-segment quality signal/badge) placed in Phase 33 rather than Phase 32, keeping Phase 32 compute/calibration-only and grouping the badge with the other consumers `classifyGaps`' output feeds. Phases 33-37 add rendered surfaces and close on a human browser checkpoint; Phase 32 does not. No archive-wide target rates were guessed into any success criterion — v2.2's "~5%" criterion was found jointly unsatisfiable; where a rate is unknown this milestone, the criterion is "measured and reported in a regenerable artifact."
 
