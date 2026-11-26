@@ -201,13 +201,32 @@ describe('consolidateExports near-match (SC3)', () => {
     expect('near_match_skipped' in doc.sources.strava).toBe(false);
   });
 
+  // Decoy archive record 555 sits 30 s after 111, inside the 1..120 s near window.
+  // A near-first order would skip the exact/by-id row against it, so these pins can fail.
+  const writeDecoy = (f: { activitiesDir: string }): void => {
+    const decoyIso = '2011-08-16T18:56:02Z';
+    expect(Date.parse(decoyIso) / 1000 - BASE_111).toBe(30);
+    fs.writeFileSync(path.join(f.activitiesDir, '555.json'), rec('555', decoyIso));
+  };
+
   it('resolves an exact epoch by start_date before the near rule', async () => {
     const f = fixture([{ id: '222', date: D2 }, { id: '888', date: D1 }]);
+    writeDecoy(f);
     const doc = JSON.parse(await run(f));
     expect(doc.activities['111'].matched_by).toBe('start_date');
     expect(doc.activities['111'].strava_id).toBe('888');
-    expect(fs.readdirSync(f.activitiesDir)).toHaveLength(4);
+    expect(fs.readdirSync(f.activitiesDir)).toHaveLength(5);
+    expect(fs.existsSync(path.join(f.activitiesDir, '888.json'))).toBe(false);
     expect('near_match_skipped' in doc.sources.strava).toBe(false);
+  });
+
+  it('resolves a strava id match before the near rule', async () => {
+    const f = fixture(base);
+    writeDecoy(f);
+    const doc = JSON.parse(await run(f));
+    expect(doc.activities['111'].matched_by).toBe('strava_id');
+    expect('near_match_skipped' in doc.sources.strava).toBe(false);
+    expect(fs.readdirSync(f.activitiesDir)).toHaveLength(5);
   });
 
   it('imports both rows of an in-batch near pair (candidates are the archive as indexed)', async () => {
