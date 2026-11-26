@@ -1,10 +1,11 @@
 ---
 phase: 37
 slug: review-queue-priority-cur-04
-status: draft
+status: validated
 nyquist_compliant: true
-wave_0_complete: false
+wave_0_complete: true
 created: 2026-11-25
+audited: 2026-11-26
 ---
 
 # Phase 37 — Validation Strategy
@@ -48,7 +49,7 @@ Task IDs bound by the planner on 2026-11-25 (`<plan>-T<n>` = task n of that plan
 | 37-04-T1 | 37-04 | 1 | CUR-06 | — | N/A | unit | `npx vitest run scripts/curate-queue/derive-flagged.test.mjs` (union membership, tiers, comparator, tie-breaks; D-05 block rewritten) | ✅ rewrite | ✅ green |
 | 37-05-T2 | 37-05 | 2 | CUR-06 | — | N/A | integration (`skipIf` no data) | `npx vitest run scripts/compute-review-queue-recount.test.mjs` (derive == recount on count AND order; the live block's evidence is taken on the primary checkout in 37-07-T1, and a live-only fail-closed result in a worktree is recorded, not counted) | ❌ W0 | ✅ green |
 | 37-05-T1 | 37-05 | 2 | CUR-06 | — | N/A | unit | same file (recount fails on tier swap, no-dedupe metres, reversed order, dropped row, altered shipped field; passes on real derive) | ❌ W0 | ✅ green |
-| 37-05-T1, 37-05-T2 | 37-05 | 2 | CUR-06 | — | No forbidden import, no import-time I/O | unit | same file + `vi.mock('fs')` import guard (positive controls) | ❌ W0 | ✅ green |
+| 37-05-T1, 37-05-T2 | 37-05 | 2 | CUR-06 | — | No forbidden import, no import-time I/O | unit | same file + `npx vitest run scripts/unreliable-segment-import-guards.test.mjs` (`vi.mock('fs')` block at :164, positive controls) | ✅ W0 done | ✅ green |
 | 37-02-T2 | 37-02 | 1 | CUR-04 | T-37 V5 | `applyReviewUpsert`/`applyReviewRemove` exact entry shape, no mutation | unit | `npx vitest run scripts/curate-server.test.mjs` | ✅ extend | ✅ green |
 | 37-02-T2 | 37-02 | 1 | CUR-04 | T-37 V4/V5 | 400 bad id/empty reason/bad fingerprint, 403 cross-origin (incl. GET), 409 exclusion conflict both directions, 413; tmp paths only | integration | `npx vitest run scripts/curate-server.test.mjs` | ✅ extend | ✅ green |
 | 37-02-T1 | 37-02 | 1 | CUR-04 | — | Real tracked files unchanged by the suite (SHA before/after); guard seen RED on a written tmp stand-in, and the publishRoot-empty and corrupt-not-overwritten tests seen RED under mutation (37-02-T2 step 9) | unit | `npx vitest run scripts/curate-server.test.mjs` | ✅ extend | ✅ green |
@@ -57,7 +58,10 @@ Task IDs bound by the planner on 2026-11-25 (`<plan>-T<n>` = task n of that plan
 | 37-06-T1, 37-06-T2 | 37-06 | 2 | CUR-04 | T-37 XSS | textContent-only, no route literal, no forbidden tokens, one saveReviewed call site, confirm-guarded un-review, blank reason, fingerprint contract; each check seen RED under a recorded mutation (37-06-T1 a-e, 37-06-T2 a-e) | source-text | `npx vitest run scripts/curate-queue.test.mjs scripts/curate-overlay.test.mjs` | ✅ extend | ✅ green |
 | 37-03-T1 | 37-03 | 1 | CUR-04 | T-37 leak | Guard 1 flags planted `data/curation/reviewed.json`, planted sibling, planted `data/reviewed.json`; clean control `[]`; exclusions not flagged; `UNSCANNED_EXTENSIONS` still `['.json']` | unit | `npx vitest run scripts/lib/curation-guard.test.mjs` | ✅ extend | ✅ green |
 | 37-03-T2 | 37-03 | 1 | CUR-04 | T-37 leak | Guard 2 clean run prints three new `→ 404` lines; each planted leak exits non-zero naming the path | subprocess | `npx vitest run scripts/verify-dashboard-publish-guard.test.mjs` | ✅ extend | ✅ green |
-| 37-04-T1 | 37-04 | 1 | CUR-04 | — | `derive-flagged.mjs` zero `import`, zero `console` (planted-violation proof) | source-text | `npx vitest run scripts/curate-queue/derive-flagged.test.mjs` | ❌ W0 | ✅ green |
+| 37-04-T1 | 37-04 | 1 | CUR-04 | — | `derive-flagged.mjs` zero `import`, zero `console` (planted-violation proof) | source-text | `npx vitest run scripts/curate-queue/derive-flagged.test.mjs` | ✅ W0 done | ✅ green |
+| fix CR-01 (0896c257) | review | — | CUR-04 | — | Fingerprint tokens are `<distance>:<kind>:<guard>`; a 5k demoted↔contaminated flip resurfaces a reviewed row as `changed` (both directions, with an unchanged-evidence control) | unit | `npx vitest run scripts/curate-queue/derive-flagged.test.mjs` (tests at :455, :460, :469; RED on pre-fix derive per 37-VERIFICATION) | ✅ | ✅ green |
+| fix WR-01 (199b810f) | review | — | CUR-04 | T-37-12 | Tracked-file SHA guard hooks at file scope, so they run after every write suite | unit | `npx vitest run scripts/curate-server.test.mjs` (hooks :78-87; RED under a probe write per commit 199b810f) | ✅ | ✅ green |
+| audit 2026-11-26 | validate | — | CUR-04 | T-37-07 | Producer↔validator contract: every `fingerprintFor` output passes `normalizeFingerprint`. Realistic worst case 482 chars, loose bound 1555 (both derived from source vocabulary), every live row (565, max 219 chars), the cap pinned against source | unit | `npx vitest run scripts/curate-queue/fingerprint-contract.test.mjs` (9 tests; RED under a charset mutation (4 failed) and a length mutation (2 failed), plus in-test negative controls) | ✅ new | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -65,12 +69,12 @@ Task IDs bound by the planner on 2026-11-25 (`<plan>-T<n>` = task n of that plan
 
 ## Wave 0 Requirements
 
-- [ ] `scripts/compute-review-queue-recount.mjs` + `.test.mjs`, plus a `package.json` script `compute-review-queue-recount` (37-05-T1)
-- [ ] A `vi.mock('fs')` import-time guard for the recount (copy `unreliable-segment-import-guards.test.mjs`'s mechanism and positive controls) (37-05-T2)
-- [ ] `data/curation/reviewed.json` seed (committed) (37-02-T2)
-- [ ] Zero-import/zero-console scan test for `derive-flagged.mjs` (37-04-T1)
-- [ ] Injectable-paths refactor of `createServer` before any write-route test is written (37-02-T1, which precedes 37-02-T2)
-- [ ] Framework install: none needed
+- [x] `scripts/compute-review-queue-recount.mjs` + `.test.mjs`, plus a `package.json` script `compute-review-queue-recount` (37-05-T1)
+- [x] A `vi.mock('fs')` import-time guard for the recount (copy `unreliable-segment-import-guards.test.mjs`'s mechanism and positive controls) (37-05-T2)
+- [x] `data/curation/reviewed.json` seed (committed) (37-02-T2)
+- [x] Zero-import/zero-console scan test for `derive-flagged.mjs` (37-04-T1)
+- [x] Injectable-paths refactor of `createServer` before any write-route test is written (37-02-T1, which precedes 37-02-T2)
+- [x] Framework install: none needed
 
 ---
 
@@ -98,14 +102,14 @@ Task IDs bound by the planner on 2026-11-25 (`<plan>-T<n>` = task n of that plan
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 5s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 5s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** Nyquist audit passed 2026-11-26 (`/gsd-validate-phase 37`). Human UAT sign-off is still `/gsd-verify-work`'s call.
 
 ---
 
@@ -154,3 +158,21 @@ Served build: curate server 127.0.0.1:4173 serving the digest-verified build fro
 Sequencing deviation: the orchestrator applied the step-5 fingerprint edit and the step-6 orphan append together before the developer checked step 4's reviewed half. The reviewed row had already resurfaced, so the orchestrator restored the matching fingerprint, the developer confirmed step 4 (reviewed half) and step 6 together, and the orchestrator re-broke the fingerprint for step 5. Verdicts are unaffected.
 
 Requirement disposition: every row mapped to CUR-04 and CUR-06 is PASS, so both are ticked in REQUIREMENTS.md. Sign-off approval remains for /gsd-verify-work.
+
+---
+
+## Validation Audit 2026-11-26
+
+Every mapped file was re-run on the primary checkout: 9 files, 425 tests passed, 0 skipped, 0 failed, and the tree was clean afterwards. After the new contract test and the import-guard file were added, all of it was green again. The new test also runs under `vitest.logic.config.ts` (9 passed). The quick-run command (curate files) took about 0.6 s.
+
+| Metric | Count |
+|--------|-------|
+| Gaps found | 1 (producer↔validator fingerprint contract, MISSING) |
+| Resolved | 1 (`scripts/curate-queue/fingerprint-contract.test.mjs`) |
+| Escalated | 0 |
+| Map rows added | 3 (CR-01, WR-01, contract) |
+| Map rows corrected | 1 (the recount import guard now names `unreliable-segment-import-guards.test.mjs`) |
+
+Caveat: the 482 / 1555 exact-length pins fail on any vocabulary change (a new distance, a new guard or a longer name). That is intended. Redo the derivation in the test's header comment when they fire.
+
+Out of scope here (they are review findings, not requirement gaps; tracked as a todo by 9782bd14): WR-02/WR-03 (fetch fails open, so the queue is silently partial), WR-04 (a `null` reviewed entry makes writes answer 500), WR-05, IN-01..IN-05.
