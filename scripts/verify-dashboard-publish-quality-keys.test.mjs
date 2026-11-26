@@ -279,6 +279,33 @@ describe.skipIf(!HAS_DIST)('quality-keys planted removal', () => {
     expect(output).toContain(`activity ${rowId} "quality" is missing sub-key "${key}"`);
   });
 
+  it.each(EMITTED_SIGNAL_KEYS.flatMap((k) => [[k, 'mid'], [k, 'last']]))(
+    'row quality without %s on the %s row fails and names that row',
+    (key, where) => {
+      const n = cleanIndex.activities.length;
+      const idx = where === 'last' ? n - 1 : Math.floor(n / 2);
+      const id = cleanIndex.activities[idx].id;
+      expect(n).toBeGreaterThanOrEqual(3);
+      expect(idx).toBeGreaterThan(0);
+      expect(Math.floor(n / 2)).toBeLessThan(n - 1);
+      expect(id).not.toBe(rowId);
+      const { status, output } = withMutation(
+        shadowIndexPath,
+        cleanIndex,
+        (m) => {
+          delete m.activities[idx].quality[key];
+        },
+        (c, m) => {
+          expect(key in c.activities[idx].quality).toBe(true);
+          expect(key in m.activities[idx].quality).toBe(false);
+          expect(key in m.activities[0].quality).toBe(true);
+        }
+      );
+      expect(status, output).not.toBe(0);
+      expect(output).toContain(`activity ${id} "quality" is missing sub-key "${key}"`);
+    }
+  );
+
   it.each(EMITTED_SIGNAL_KEYS)('shard signals without %s fails and names it', (key) => {
     const { status, output } = withMutation(
       shadowShardPath,
