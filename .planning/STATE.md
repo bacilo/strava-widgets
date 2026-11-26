@@ -97,7 +97,7 @@ and git history. Phase 34's narrative before it is in
 `.planning/phases/34-pause-classification-forgotten-stop/34-{01..16}-SUMMARY.md` and git history.
 Phases 34 and 35 are both closed in ROADMAP.md.)*
 
-Last activity: 2026-11-26
+Last activity: 2026-11-26 - Completed quick task 261126-w9z: harden 37.2 vacuous guards
 
 ## Performance Metrics
 
@@ -312,6 +312,7 @@ Previously resolved — SQLITE_CANTOPEN CI failure resolved by quick-1-01 (lazy 
 | 1 | Fix Daily Widget Refresh GitHub Actions workflow error | 2026-02-18 | 0f1d761 | [1-fix-daily-widget-refresh-github-actions-](./quick/1-fix-daily-widget-refresh-github-actions-/) |
 | 261125-cvq | Unblock the nightly deploy: sync 55 intervals.icu runs (CI had discarded them nightly since 2026-09-19 — test gate red on origin), recalibrate PACE_DISAGREEMENT_RUNNING_RATIO 1.0173→1.0171 (0 badge flips), clean-clone CI green; pushed 7ed30c1e, deploy green | 2026-11-25 | c6241d9d | [261125-cvq-unblock-the-nightly-deploy-sync-new-inte](./quick/261125-cvq-unblock-the-nightly-deploy-sync-new-inte/) |
 | 261126-tnj | WR-05 (37.1 review): persist IntervalsSync near-match skips in data/sync-state.json as `near_match_skips`, carried through all three SyncState save sites; failing-first clobber test + 3 mutation checks; 37.1-REVIEW-FIX.md now all_fixed | 2026-11-26 | 5a9e1b76 | [261126-tnj-wr-05-persist-intervalssync-near-match-s](./quick/261126-tnj-wr-05-persist-intervalssync-near-match-s/) |
+| 261126-w9z | Harden 37.2 vacuous guards (WR-01 exact/id-before-near decoy pins, WR-04 middle+last row plants; both shown red under scratch mutants) | 2026-11-26 | 884a0aa8 | [261126-w9z-harden-37-2-vacuous-guards](./quick/261126-w9z-harden-37-2-vacuous-guards/) |
 
 ## Deferred Items
 
