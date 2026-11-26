@@ -148,9 +148,14 @@ describe('structural guard: one definition of the window (SC3)', () => {
 });
 
 describe('structural guard: shared import and call', () => {
-  const required = { 'fit-import.ts': fitImport, 'reconcile.ts': reconcile };
-  it('real sources import the shared module; fit-import calls findNearMatch', () => {
-    expect(findMissingSharedImports(required, ['fit-import.ts'])).toEqual([]);
+  const required = {
+    'fit-import.ts': fitImport,
+    'reconcile.ts': reconcile,
+    'intervals-sync.ts': intervalsSync,
+  };
+  const needsCall = ['fit-import.ts', 'intervals-sync.ts'];
+  it('real sources import the shared module; fit-import and intervals-sync call findNearMatch', () => {
+    expect(findMissingSharedImports(required, needsCall)).toEqual([]);
   });
   it('deleting the import line is caught', () => {
     const mutated = {
@@ -165,5 +170,21 @@ describe('structural guard: shared import and call', () => {
     expect(findMissingSharedImports(mutated, ['fit-import.ts'])).toContain(
       'fit-import.ts: missing findNearMatch( call',
     );
+  });
+  describe('synthetic intervals-sync source', () => {
+    const SYNTH =
+      "import { findNearMatch, isFitImported } from '../exports/near-match.js';\n" +
+      'const near = findNearMatch(epoch, fitImported);\n';
+    it('control is clean; removing the import or the call is caught', () => {
+      expect(findMissingSharedImports({ 'intervals-sync.ts': SYNTH }, ['intervals-sync.ts'])).toEqual([]);
+      const noImport = SYNTH.replace(/^import .*$/m, '');
+      expect(
+        findMissingSharedImports({ 'intervals-sync.ts': noImport }, ['intervals-sync.ts']).join('\n'),
+      ).toContain('intervals-sync.ts');
+      const noCall = SYNTH.replace('findNearMatch(epoch, fitImported)', 'other(epoch)');
+      expect(
+        findMissingSharedImports({ 'intervals-sync.ts': noCall }, ['intervals-sync.ts']).join('\n'),
+      ).toContain('intervals-sync.ts: missing findNearMatch( call');
+    });
   });
 });

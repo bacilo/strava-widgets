@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import os from 'node:os';
@@ -5,7 +6,7 @@ import path from 'node:path';
 import { gzipSync } from 'node:zlib';
 
 import { CrcCalculator, Decoder, Encoder, Profile, Stream } from '@garmin/fitsdk';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FileStore } from '../storage/file-store.js';
 import { IntervalsSync } from '../sync/intervals-sync.js';
@@ -475,7 +476,41 @@ describe('importFit', () => {
 });
 
 describe('importFit then IntervalsSync (nightly dedupe)', () => {
-  function intervalsPayload(startDate: string) {
+  beforeEach(() => {
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /** Sorted name:sha256 list of a directory; empty when absent. Directory-snapshot no-write guard. */
+  function dirDigest(dir: string): string[] {
+    if (!fs.existsSync(dir)) return [];
+    return fs
+      .readdirSync(dir)
+      .sort()
+      .map(n => {
+        const full = path.join(dir, n);
+        const h = fs.statSync(full).isFile()
+          ? createHash('sha256').update(fs.readFileSync(full)).digest('hex')
+          : 'dir';
+        return `${n}:${h}`;
+      });
+  }
+
+  function at(offsetS: number): string {
+    return new Date(Date.parse('2026-11-18T06:30:00Z') + offsetS * 1000)
+      .toISOString()
+      .replace('.000Z', 'Z');
+  }
+
+  function nearLogLines(): string[] {
+    return (console.log as unknown as { mock: { calls: unknown[][] } }).mock.calls
+      .map(c => String(c[0]))
+      .filter(l => l.includes('near-match skip'));
+  }
+
+  function intervalsPayload(startDate: string, calls = { getAllStreams: 0 }) {
     const raw = {
       id: 'i5001',
       type: 'Run',
@@ -494,6 +529,7 @@ describe('importFit then IntervalsSync (nightly dedupe)', () => {
         return [];
       },
       async getAllStreams() {
+        calls.getAllStreams++;
         return [];
       },
     };
@@ -521,10 +557,42 @@ describe('importFit then IntervalsSync (nightly dedupe)', () => {
     expect(fs.readdirSync(dirs.activitiesDir)).toHaveLength(1);
   });
 
-  it('CAN-FAIL: start_date shifted by 1 s does create a record', async () => {
+  const NEAR_ROWS: Array<[string, number]> = [
+    ['CAN-FAIL: start_date shifted by 1 s is a reported near-match, no second record', 1],
+    ['start_date shifted by -1 s is a reported near-match', -1],
+    ['start_date shifted by +120 s is a reported near-match', 120],
+    ['start_date shifted by -120 s is a reported near-match', -120],
+  ];
+  it.each(NEAR_ROWS)('%s', async (_name, off) => {
     await run(place('x.fit', buildFit()));
-    const res = await intervalsPayload('2026-11-18T06:30:01Z').syncNewActivities();
+    const actBefore = dirDigest(dirs.activitiesDir);
+    const strBefore = dirDigest(dirs.streamsDir);
+    const manifestBefore = fs.existsSync(dirs.manifestPath) ? fs.readFileSync(dirs.manifestPath) : null;
+    const calls = { getAllStreams: 0 };
+    const startDate = at(off);
+    const res = await intervalsPayload(startDate, calls).syncNewActivities();
+    expect(res.newRuns).toBe(0);
+    expect(dirDigest(dirs.activitiesDir)).toEqual(actBefore);
+    expect(dirDigest(dirs.streamsDir)).toEqual(strBefore);
+    const manifestAfter = fs.existsSync(dirs.manifestPath) ? fs.readFileSync(dirs.manifestPath) : null;
+    expect(manifestAfter).toEqual(manifestBefore);
+    expect(calls.getAllStreams).toBe(0);
+    expect(res.nearMatches).toEqual([
+      { intervalsId: 'i5001', existingId: '12345678901', deltaS: off, startDate },
+    ]);
+    const lines = nearLogLines();
+    expect(lines).toHaveLength(1);
+    const signed = off > 0 ? `+${off}s` : `${off}s`;
+    expect(lines[0]).toContain('i5001');
+    expect(lines[0]).toContain('12345678901');
+    expect(lines[0]).toContain(signed);
+  });
+
+  it.each([121, -121])('start_date shifted by %i s is written', async off => {
+    await run(place('x.fit', buildFit()));
+    const res = await intervalsPayload(at(off)).syncNewActivities();
     expect(res.newRuns).toBe(1);
     expect(fs.readdirSync(dirs.activitiesDir)).toHaveLength(2);
+    expect(nearLogLines()).toHaveLength(0);
   });
 });

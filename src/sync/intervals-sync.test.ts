@@ -3,9 +3,10 @@ import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FileStore } from '../storage/file-store.js';
+import { emptyManifest, saveManifest, upsertUnavailable } from '../streams/stream-manifest.js';
 import { IntervalsSync } from './intervals-sync.js';
 
 /**
@@ -50,12 +51,15 @@ const RAW_ACTIVITY = {
  * `types` exactly like the live API's `?types=` query does; `getAllStreams`
  * ignores type entirely, matching the unfiltered endpoint.
  */
-function makeFakeClient(payload: Record<string, unknown>[] | 'throw') {
+function makeFakeClient(
+  payload: Record<string, unknown>[] | 'throw',
+  activities: Record<string, unknown>[] = [RAW_ACTIVITY]
+) {
   const getStreamsCalls: string[][] = [];
   const state = { getAllStreamsCalls: 0 };
   const client = {
     async getActivities(_params: { oldest?: string; newest?: string }) {
-      return [RAW_ACTIVITY];
+      return activities;
     },
     async getStreams(_activityId: string, types: string[]) {
       getStreamsCalls.push(types);
@@ -181,5 +185,110 @@ describe('IntervalsSync.syncNewActivities — stream persistence', () => {
     const manifestPath = path.join(tmpDir, 'streams', 'manifest.json');
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
     expect(manifest.activities['i1001']).toEqual({ available: false, reason: 'no-samples' });
+  });
+});
+
+describe('IntervalsSync.syncNewActivities - near-match dedupe (ING-05)', () => {
+  const E = '2026-08-01T06:00:00Z';
+  let tmpDir: string;
+  let fileStore: FileStore;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'intervals-near-'));
+    fileStore = new FileStore(tmpDir);
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  afterEach(async () => {
+    vi.restoreAllMocks();
+    await fsp.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  function seed(id: string, startDate: string, extra: Record<string, unknown> = {}) {
+    fs.mkdirSync(path.join(tmpDir, 'activities'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, 'activities', `${id}.json`),
+      JSON.stringify({ id, start_date: startDate, ...extra })
+    );
+  }
+
+  function at(offsetS: number): string {
+    return new Date(Date.parse(E) + offsetS * 1000).toISOString().replace('.000Z', 'Z');
+  }
+
+  function delivery(id: string, startDate: string) {
+    return { ...RAW_ACTIVITY, id, start_date: startDate };
+  }
+
+  function build(activities: Record<string, unknown>[]) {
+    const { client, state } = makeFakeClient(FULL_STREAMS_PAYLOAD, activities);
+    const { manager, saveCalls } = makeFakeSyncStateManager();
+    const sync = new IntervalsSync({
+      client: client as never,
+      fileStore,
+      syncStateManager: manager as never,
+      activitiesDir: 'activities',
+      streamsDir: 'streams',
+      streamsManifestPath: 'streams/manifest.json',
+    });
+    return { sync, state, saveCalls };
+  }
+
+  function nearLogLines(): string[] {
+    return (console.log as unknown as { mock: { calls: unknown[][] } }).mock.calls
+      .map(c => String(c[0]))
+      .filter(l => l.includes('near-match skip'));
+  }
+
+  it('skips and reports a delivery 60 s from a hand-seeded FIT-imported record, writing nothing', async () => {
+    seed('25000000001', E, { source_provider: 'garmin-export' });
+    const m = emptyManifest();
+    upsertUnavailable(m, '25000000001', 'no-samples');
+    await saveManifest(fileStore, 'streams/manifest.json', m);
+    const manifestPath = path.join(tmpDir, 'streams', 'manifest.json');
+    const before = fs.readFileSync(manifestPath);
+
+    const { sync, state, saveCalls } = build([delivery('i2001', at(60))]);
+    const res = await sync.syncNewActivities();
+
+    expect(res.newRuns).toBe(0);
+    expect(fs.existsSync(path.join(tmpDir, 'activities', 'i2001.json'))).toBe(false);
+    expect(state.getAllStreamsCalls).toBe(0);
+    expect(saveCalls).toHaveLength(0);
+    expect(fs.readFileSync(manifestPath)).toEqual(before);
+    expect(res.nearMatches).toEqual([
+      { intervalsId: 'i2001', existingId: '25000000001', deltaS: 60, startDate: at(60) },
+    ]);
+  });
+
+  it.each([
+    ['intervals', { source_provider: 'intervals' }],
+    ['Strava-origin (no source_provider)', {}],
+    ['strava-export', { source_provider: 'strava-export' }],
+  ])('writes a delivery 1 s from a %s record', async (_label, extra) => {
+    seed('30000000001', E, extra);
+    const { sync } = build([delivery('i2002', at(1))]);
+    const res = await sync.syncNewActivities();
+    expect(res.newRuns).toBe(1);
+    expect(fs.existsSync(path.join(tmpDir, 'activities', 'i2002.json'))).toBe(true);
+    expect(nearLogLines()).toHaveLength(0);
+  });
+
+  it('writes both of two deliveries 60 s apart in one batch when no FIT record exists', async () => {
+    const { sync } = build([delivery('i2001', at(0)), delivery('i2002', at(60))]);
+    const res = await sync.syncNewActivities();
+    expect(res.newRuns).toBe(2);
+    expect(fs.existsSync(path.join(tmpDir, 'activities', 'i2001.json'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, 'activities', 'i2002.json'))).toBe(true);
+  });
+
+  it('skips an exact-start duplicate of a FIT-imported record without reporting a near match', async () => {
+    seed('25000000001', E, { source_provider: 'garmin-export' });
+    const { sync } = build([delivery('i2001', E)]);
+    const res = await sync.syncNewActivities();
+    expect(res.newRuns).toBe(0);
+    expect(res.skipped).toBe(1);
+    expect(fs.existsSync(path.join(tmpDir, 'activities', 'i2001.json'))).toBe(false);
+    expect(nearLogLines()).toHaveLength(0);
   });
 });
