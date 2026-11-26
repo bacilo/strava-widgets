@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { NEAR_MATCH_TOLERANCE_S } from './near-match.js';
+import { NEAR_MATCH_TOLERANCE_S, findNearMatch, type NearCandidate } from './near-match.js';
 
 /**
  * Source-agnostic reconciliation core (Phase 36.1, ING-02).
@@ -132,22 +132,21 @@ export function reconcile(
       continue;
     }
 
-    // Nearest archive epoch (ties go to the earlier one).
+    // Only the two archive neighbours can be nearest. The window and tie-break
+    // (earlier epoch wins) are the shared rule in near-match.ts.
     const i = lowerBound(sortedEpochs, run.startEpoch);
-    let best: number | undefined;
-    for (const candidate of [sortedEpochs[i - 1], sortedEpochs[i]]) {
-      if (candidate === undefined) continue;
-      if (best === undefined || Math.abs(candidate - run.startEpoch) < Math.abs(best - run.startEpoch)) {
-        best = candidate;
-      }
+    const neighbours: NearCandidate[] = [];
+    for (const epoch of [sortedEpochs[i - 1], sortedEpochs[i]]) {
+      if (epoch !== undefined) neighbours.push({ id: idByEpoch.get(epoch)!, epoch });
     }
+    const best = findNearMatch(run.startEpoch, neighbours, tolerance);
 
-    if (best !== undefined && Math.abs(best - run.startEpoch) <= tolerance) {
+    if (best !== undefined) {
       near.push({
         sourceId: run.sourceId,
         startEpoch: run.startEpoch,
-        archiveId: idByEpoch.get(best)!,
-        deltaS: run.startEpoch - best,
+        archiveId: best.id,
+        deltaS: best.deltaS,
       });
     } else {
       missing.push({

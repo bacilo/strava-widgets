@@ -64,6 +64,21 @@ describe('reconcile matching', () => {
     expect(r.missing.map(m => m.sourceId)).toEqual(['x3']);
   });
 
+  it('negative edge: near at -120 s, missing at -121 s; a tie goes to the earlier archive epoch', () => {
+    // Archive listed later-first so input order cannot decide the tie.
+    const archive = [
+      { id: 'late', epoch: E + 10 },
+      { id: 'early', epoch: E - 10 },
+      { id: 'b', epoch: E + 100000 },
+    ];
+    const r = reconcile('t', [run('t1', E), run('n1', E + 100000 - 120), run('m1', E + 100000 - 121)], archive);
+    expect(r.near.map(n => [n.sourceId, n.deltaS, n.archiveId])).toEqual([
+      ['t1', 10, 'early'],
+      ['n1', -120, 'b'],
+    ]);
+    expect(r.missing.map(m => m.sourceId)).toEqual(['m1']);
+  });
+
   it('lists a run between two archive neighbours as missing with an ISO startDate', () => {
     const archive = [
       { id: 'i211617588', epoch: 1794895612 },

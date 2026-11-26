@@ -161,8 +161,8 @@ describe('structural guard: shared import and call', () => {
     'reconcile.ts': reconcile,
     'intervals-sync.ts': intervalsSync,
   };
-  const needsCall = ['fit-import.ts', 'intervals-sync.ts'];
-  it('real sources import the shared module; fit-import and intervals-sync call findNearMatch', () => {
+  const needsCall = ['fit-import.ts', 'reconcile.ts', 'intervals-sync.ts'];
+  it('real sources import the shared module and all three call findNearMatch', () => {
     expect(findMissingSharedImports(required, needsCall)).toEqual([]);
   });
   it('deleting the import line is caught', () => {
@@ -172,6 +172,10 @@ describe('structural guard: shared import and call', () => {
     };
     const v = findMissingSharedImports(mutated, ['fit-import.ts']);
     expect(v).toContain('fit-import.ts: missing near-match import');
+  });
+  it('removing the call from reconcile is caught', () => {
+    const mutated = { ...required, 'reconcile.ts': reconcile.replaceAll('findNearMatch(', 'other(') };
+    expect(findMissingSharedImports(mutated, needsCall)).toEqual(['reconcile.ts: missing findNearMatch( call']);
   });
   it('removing the call is caught', () => {
     const mutated = { ...required, 'fit-import.ts': fitImport.replaceAll('findNearMatch(', 'other(') };
