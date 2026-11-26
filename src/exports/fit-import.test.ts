@@ -13,7 +13,7 @@ import { deriveFromSamples } from '../streams/derive-stream.js';
 import { diffDataTree, snapshotDataTree, type DataTreeSnapshot } from '../test-support/data-write-guard.js';
 import { fitRecordsToSamples } from './geometry-readers.js';
 import { importFit, MAX_FIT_BYTES } from './fit-import.js';
-import { NEAR_MATCH_TOLERANCE_S } from './reconcile.js';
+import { NEAR_MATCH_TOLERANCE_S } from './near-match.js';
 
 /**
  * No test here may write to the real data/ tree: every directory is a mkdtemp

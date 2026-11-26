@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { NEAR_MATCH_TOLERANCE_S } from './near-match.js';
+
 /**
  * Source-agnostic reconciliation core (Phase 36.1, ING-02).
  *
@@ -21,7 +23,7 @@ import path from 'node:path';
  * Pure apart from `loadArchiveIndex`, which reads only the directory it is given.
  */
 
-export const NEAR_MATCH_TOLERANCE_S = 120;
+export { NEAR_MATCH_TOLERANCE_S } from './near-match.js';
 export const TRIVIAL_DISTANCE_M = 100;
 
 export interface ReconcileExportRun {

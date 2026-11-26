@@ -14,7 +14,7 @@ import {
 } from '../streams/stream-manifest.js';
 import type { StravaActivity } from '../types/strava.types.js';
 import { fitRecordsToSamples } from './geometry-readers.js';
-import { NEAR_MATCH_TOLERANCE_S } from './reconcile.js';
+import { findNearMatch } from './near-match.js';
 
 /**
  * Import ONE original FIT file into the archive (ING-03).
@@ -255,13 +255,14 @@ export async function importFit(opts: FitImportOptions): Promise<FitImportResult
   if (exact !== undefined) {
     return { status: 'duplicate', existingId: exact, startDate };
   }
-  for (const [otherEpoch, otherId] of epochToId) {
-    const delta = Math.abs(otherEpoch - epoch);
-    if (delta >= 1 && delta <= NEAR_MATCH_TOLERANCE_S) {
-      throw new Error(
-        `near-match: archive record ${otherId} starts ${delta}s from this FIT; refusing to import`
-      );
-    }
+  const near = findNearMatch(
+    epoch,
+    [...epochToId].map(([otherEpoch, otherId]) => ({ id: otherId, epoch: otherEpoch }))
+  );
+  if (near) {
+    throw new Error(
+      `near-match: archive record ${near.id} starts ${Math.abs(near.deltaS)}s from this FIT; refusing to import`
+    );
   }
   if (takenIds.has(id)) {
     throw new Error(`id collision: ${id} already exists in ${opts.activitiesDir}`);
