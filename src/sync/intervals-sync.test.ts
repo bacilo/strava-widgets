@@ -282,6 +282,20 @@ describe('IntervalsSync.syncNewActivities - near-match dedupe (ING-05)', () => {
     expect(fs.existsSync(path.join(tmpDir, 'activities', 'i2002.json'))).toBe(true);
   });
 
+  it('an exact match on a non-FIT record wins over a near FIT record (no near report)', async () => {
+    // Order-dependent: the delivery is exact on the intervals record AND 30 s
+    // from the FIT record, so it is reported near only if the near check runs first.
+    seed('i3000', at(30));
+    seed('25000000001', E, { source_provider: 'garmin-export' });
+    const { sync } = build([delivery('i2001', at(30))]);
+    const res = await sync.syncNewActivities();
+    expect(res.newRuns).toBe(0);
+    expect(res.skipped).toBe(1);
+    expect(res.nearMatches).toEqual([]);
+    expect(nearLogLines()).toHaveLength(0);
+    expect(fs.existsSync(path.join(tmpDir, 'activities', 'i2001.json'))).toBe(false);
+  });
+
   it('skips an exact-start duplicate of a FIT-imported record without reporting a near match', async () => {
     seed('25000000001', E, { source_provider: 'garmin-export' });
     const { sync } = build([delivery('i2001', E)]);
