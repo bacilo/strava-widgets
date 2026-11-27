@@ -39,7 +39,7 @@
  * a real file read as an import-time side effect.
  *
  * Default read targets are `data/streams/3475724402.json` (raw `t`/`d` arrays) and
- * `.planning/phases/32-unreliable-segment-detection-calibration/32-CALIBRATION.md` (the
+ * `.planning/milestones/v2.3-phases/32-unreliable-segment-detection-calibration/32-CALIBRATION.md` (the
  * committed calibration artifact, written by plan 32-07 — until that plan lands, `main()` fails
  * closed with a readable "artifact missing" message rather than throwing). Writes nothing, ever.
  *
@@ -63,7 +63,7 @@ const ARTIFACT_PATH = join(
   __dirname,
   '..',
   '.planning',
-  'phases',
+  'milestones', 'v2.3-phases',
   '32-unreliable-segment-detection-calibration',
   '32-CALIBRATION.md'
 );

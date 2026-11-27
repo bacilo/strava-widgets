@@ -39,11 +39,11 @@
  * a real file read as an import-time side effect.
  *
  * Default read targets are `data/streams/3475724402.json` (raw `t`/`d` arrays),
- * `.planning/phases/32-unreliable-segment-detection-calibration/32-CALIBRATION.md` (the detector's
+ * `.planning/milestones/v2.3-phases/32-unreliable-segment-detection-calibration/32-CALIBRATION.md` (the detector's
  * own `UNRELIABLE_SPEED_LIMIT_MPS`/`UNRELIABLE_EXCESS_FLOOR_M`, read via
  * `parseCalibrationArtifact` exactly as `compute-unreliable-segment-recount.mjs`'s own `main` does
  * — this recount needs the SAME gap-first merge parameters, not a second guess at them), and
- * `.planning/phases/34-pause-classification-forgotten-stop/34-CALIBRATION.md` (this phase's own
+ * `.planning/milestones/v2.3-phases/34-pause-classification-forgotten-stop/34-CALIBRATION.md` (this phase's own
  * `## Chosen constants` band values and its `## Per-interval class table` for `3475724402`). Fails
  * closed with a readable message on any missing file. Writes nothing, ever.
  *
@@ -75,7 +75,7 @@ const UNRELIABLE_ARTIFACT_PATH = join(
   __dirname,
   '..',
   '.planning',
-  'phases',
+  'milestones', 'v2.3-phases',
   '32-unreliable-segment-detection-calibration',
   '32-CALIBRATION.md'
 );
@@ -86,7 +86,7 @@ const UNRELIABLE_ARTIFACT_PATH = join(
 // mistake this phase's own directory name for a forbidden import specifier — the same trick
 // `compute-walking-break-evidence.mjs` uses for the same reason.
 const PHASE_DIR_NAME = ['34-pause', 'classification-forgotten-stop'].join('-');
-const PAUSE_ARTIFACT_PATH = join(__dirname, '..', '.planning', 'phases', PHASE_DIR_NAME, '34-CALIBRATION.md');
+const PAUSE_ARTIFACT_PATH = join(__dirname, '..', '.planning', 'milestones', 'v2.3-phases', PHASE_DIR_NAME, '34-CALIBRATION.md');
 
 const CHOSEN_CONSTANTS_HEADING = '## Chosen constants';
 const CLASS_TABLE_HEADING = `## Per-interval class table — ${RECOUNT_ACTIVITY_ID} (classifier output)`;

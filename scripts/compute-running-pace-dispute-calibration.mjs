@@ -38,7 +38,7 @@ const STREAMS_DIR = join(ROOT_DIR, 'data/streams');
 const ACTIVITIES_DIR = join(ROOT_DIR, 'data/activities');
 const OUTPUT_PATH = join(
   ROOT_DIR,
-  '.planning/phases/35-stream-derived-running-pace/35-CALIBRATION.md'
+  '.planning/milestones/v2.3-phases/35-stream-derived-running-pace/35-CALIBRATION.md'
 );
 const REGENERATE_COMMAND = 'npm run compute-running-pace-dispute-calibration';
 

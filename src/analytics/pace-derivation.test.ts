@@ -320,7 +320,7 @@ describe('detectPaceDisagreement — totality, never throws, always null on malf
 describe('detectPaceDisagreement — calibrated cut, D-02 gate, D-06 direction (RPACE-03, pinned to 35-CALIBRATION.md)', () => {
   const ARTIFACT_PATH = path.join(
     '.planning',
-    'phases',
+    'milestones', 'v2.3-phases',
     '35-stream-derived-running-pace',
     '35-CALIBRATION.md'
   );

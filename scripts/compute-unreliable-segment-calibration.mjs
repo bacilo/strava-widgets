@@ -69,7 +69,7 @@ const STREAMS_DIR = join(ROOT_DIR, 'data/streams');
 const ACTIVITIES_DIR = join(ROOT_DIR, 'data/activities');
 const OUTPUT_PATH = join(
   ROOT_DIR,
-  '.planning/phases/32-unreliable-segment-detection-calibration/32-CALIBRATION.md'
+  '.planning/milestones/v2.3-phases/32-unreliable-segment-detection-calibration/32-CALIBRATION.md'
 );
 
 const REGENERATE_COMMAND = 'npm run compute-unreliable-segment-calibration';
@@ -727,7 +727,7 @@ export function insensitivityCheck(
 /** Absolute path to the 32-05 blocking decision this plan is bound by. */
 export const DECISION_SUMMARY_PATH = join(
   ROOT_DIR,
-  '.planning/phases/32-unreliable-segment-detection-calibration/32-05-SUMMARY.md'
+  '.planning/milestones/v2.3-phases/32-unreliable-segment-detection-calibration/32-05-SUMMARY.md'
 );
 
 /**

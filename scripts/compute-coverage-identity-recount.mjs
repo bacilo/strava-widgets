@@ -98,14 +98,14 @@ const STREAMS_DIR = join(ROOT_DIR, 'data', 'streams');
 const CALIBRATION_ARTIFACT_PATH = join(
   ROOT_DIR,
   '.planning',
-  'phases',
+  'milestones', 'v2.3-phases',
   '32-unreliable-segment-detection-calibration',
   '32-CALIBRATION.md'
 );
 const OUT_ARTIFACT_PATH = join(
   ROOT_DIR,
   '.planning',
-  'phases',
+  'milestones', 'v2.3-phases',
   '33-coverage-integration-pace-clipping-segment-signal',
   '33-COVERAGE-IDENTITY.md'
 );
@@ -982,7 +982,7 @@ function renderArtifact({
   lines.push(`- Stream directory: \`data/streams/\``);
   lines.push(`- Stream files scanned (\`isStreamFile\`, excluding \`manifest.json\`): **${streamCount}**`);
   lines.push(
-    `- Constants used — \`speedLimitMps\`: ${constants.speedLimitMps} m/s, \`excessFloorMetres\`: ${constants.excessFloorMetres} m, \`hiddenPauseMinMetres\`: ${constants.hiddenPauseMinMetres} m, all parsed from \`.planning/phases/32-unreliable-segment-detection-calibration/32-CALIBRATION.md\`'s own "## Chosen constants" table (never hand-copied literals) — \`LOCAL_GAP_THRESHOLD_SEC\`: ${LOCAL_GAP_THRESHOLD_SEC} s, a local literal duplicate of \`RECORDING_GAP_ABS_THRESHOLD_SEC\` (\`src/analytics/pace-derivation.ts\`).`
+    `- Constants used — \`speedLimitMps\`: ${constants.speedLimitMps} m/s, \`excessFloorMetres\`: ${constants.excessFloorMetres} m, \`hiddenPauseMinMetres\`: ${constants.hiddenPauseMinMetres} m, all parsed from \`.planning/milestones/v2.3-phases/32-unreliable-segment-detection-calibration/32-CALIBRATION.md\`'s own "## Chosen constants" table (never hand-copied literals) — \`LOCAL_GAP_THRESHOLD_SEC\`: ${LOCAL_GAP_THRESHOLD_SEC} s, a local literal duplicate of \`RECORDING_GAP_ABS_THRESHOLD_SEC\` (\`src/analytics/pace-derivation.ts\`).`
   );
   lines.push(`- Stream archive git tree (\`HEAD:data/streams\`): \`${provenance.streamsTree}\``);
   lines.push('');

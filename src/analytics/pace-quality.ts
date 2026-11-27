@@ -1151,7 +1151,7 @@ export const GAP_PROFILE_MINOR_FRACTION = 0.05;
  * exceeds the 1% D-13 tolerance) to **0.00423** — D-13 insensitivity
  * deltas removedDelta 0.2848%, plantedDelta 0.5081%, both against the 1%
  * tolerance, all four quoted from
- * `.planning/phases/33-coverage-integration-pace-clipping-segment-signal/33-CALIBRATION.md`
+ * `.planning/milestones/v2.3-phases/33-coverage-integration-pace-clipping-segment-signal/33-CALIBRATION.md`
  * § "Chosen constant" / "Shape arbitration", the source of record for this
  * value.
  *

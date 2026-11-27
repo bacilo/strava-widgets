@@ -937,7 +937,7 @@ describe('classifyForgottenStop', () => {
 describe('shipped from 34-CALIBRATION', () => {
   const ARTIFACT_PATH = path.join(
     '.planning',
-    'phases',
+    'milestones', 'v2.3-phases',
     '34-pause-classification-forgotten-stop',
     '34-CALIBRATION.md'
   );
@@ -1028,13 +1028,13 @@ describe('shipped from 34-CALIBRATION', () => {
 describe('walking-break control', () => {
   const CONTROL_PATH = path.join(
     '.planning',
-    'phases',
+    'milestones', 'v2.3-phases',
     '34-pause-classification-forgotten-stop',
     '34-WALKING-BREAK-CONTROL.md'
   );
   const EVIDENCE_PATH = path.join(
     '.planning',
-    'phases',
+    'milestones', 'v2.3-phases',
     '34-pause-classification-forgotten-stop',
     '34-WALKING-BREAK-EVIDENCE.md'
   );

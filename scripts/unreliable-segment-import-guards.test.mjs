@@ -78,7 +78,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = join(__dirname, '..');
 const CALIBRATION_ARTIFACT_PATH = join(
   ROOT_DIR,
-  '.planning/phases/32-unreliable-segment-detection-calibration/32-CALIBRATION.md'
+  '.planning/milestones/v2.3-phases/32-unreliable-segment-detection-calibration/32-CALIBRATION.md'
 );
 
 describe('control — a module that reads at import via a NAMED fs import is observed', () => {

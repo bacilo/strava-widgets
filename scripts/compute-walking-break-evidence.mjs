@@ -46,7 +46,7 @@ const OUTPUT_PATH = join(
   __dirname,
   '..',
   '.planning',
-  'phases',
+  'milestones', 'v2.3-phases',
   PHASE_DIR_NAME,
   '34-WALKING-BREAK-EVIDENCE.md'
 );

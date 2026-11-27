@@ -1490,13 +1490,13 @@ describe('pace disagreement', () => {
   const STREAMS_DIR = 'data/streams';
   const CALIBRATION_PATH = path.join(
     '.planning',
-    'phases',
+    'milestones', 'v2.3-phases',
     '35-stream-derived-running-pace',
     '35-CALIBRATION.md'
   );
   const RECOUNT_PATH = path.join(
     '.planning',
-    'phases',
+    'milestones', 'v2.3-phases',
     '35-stream-derived-running-pace',
     '35-RUNNING-PACE-RECOUNT.md'
   );

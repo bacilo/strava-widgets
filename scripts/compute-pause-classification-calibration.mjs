@@ -57,11 +57,11 @@ const STREAMS_DIR = join(ROOT_DIR, 'data/streams');
 const ACTIVITIES_DIR = join(ROOT_DIR, 'data/activities');
 const CONTROL_FILE_PATH = join(
   ROOT_DIR,
-  '.planning/phases/34-pause-classification-forgotten-stop/34-WALKING-BREAK-CONTROL.md'
+  '.planning/milestones/v2.3-phases/34-pause-classification-forgotten-stop/34-WALKING-BREAK-CONTROL.md'
 );
 const OUTPUT_PATH = join(
   ROOT_DIR,
-  '.planning/phases/34-pause-classification-forgotten-stop/34-CALIBRATION.md'
+  '.planning/milestones/v2.3-phases/34-pause-classification-forgotten-stop/34-CALIBRATION.md'
 );
 const REGENERATE_COMMAND = 'npm run compute-pause-classification-calibration';
 

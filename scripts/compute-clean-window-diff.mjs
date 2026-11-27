@@ -4,7 +4,7 @@
  *
  * `36-CEILING-RECALIBRATION.md` (plan 36-10) records HOW every per-distance
  * ceiling moved. This script and its artifact
- * (`.planning/phases/36-.../36-DIFF.md`) record the much larger, per-EFFORT
+ * (`.planning/milestones/v2.3-phases/36-.../36-DIFF.md`) record the much larger, per-EFFORT
  * change: every rank change, every newly demoted effort, every reinstated
  * effort (both kinds — see below), every moved-but-still-ranked effort, and
  * the same ceiling table cross-checked against 36-10's own artifact.
@@ -99,14 +99,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = join(__dirname, '..');
 const OUTPUT_PATH = join(
   ROOT_DIR,
-  '.planning/phases/36-best-effort-clean-window-search-ceiling-recalibration/36-DIFF.md'
+  '.planning/milestones/v2.3-phases/36-best-effort-clean-window-search-ceiling-recalibration/36-DIFF.md'
 );
 const RECALIBRATION_ARTIFACT_PATH = join(
   ROOT_DIR,
-  '.planning/phases/36-best-effort-clean-window-search-ceiling-recalibration/36-CEILING-RECALIBRATION.md'
+  '.planning/milestones/v2.3-phases/36-best-effort-clean-window-search-ceiling-recalibration/36-CEILING-RECALIBRATION.md'
 );
 const RECALIBRATION_ARTIFACT_RELATIVE_PATH =
-  '.planning/phases/36-best-effort-clean-window-search-ceiling-recalibration/36-CEILING-RECALIBRATION.md';
+  '.planning/milestones/v2.3-phases/36-best-effort-clean-window-search-ceiling-recalibration/36-CEILING-RECALIBRATION.md';
 
 const REGENERATE_COMMAND = 'npm run compute-clean-window-diff';
 const RECOUNT_SCRIPT = 'scripts/compute-clean-window-recount.mjs';

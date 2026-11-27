@@ -1,6 +1,6 @@
 # Garmin export fixture
 
-Derived from 36.1-GARMIN-PROBE.md sections 2-5 and 10 (`.planning/phases/36.1-ingestion-integrity/`).
+Derived from 36.1-GARMIN-PROBE.md sections 2-5 and 10 (`.planning/milestones/v2.3-phases/36.1-ingestion-integrity/`).
 Layout: `DI_CONNECT/DI-Connect-Fitness/<prefix>_N_summarizedActivities.json`, wrapped as `[{"summarizedActivitiesExport":[...]}]`.
 Distance is in centimetres, duration in milliseconds, `startTimeGmt` in epoch milliseconds.
 

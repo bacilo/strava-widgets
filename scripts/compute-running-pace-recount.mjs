@@ -37,7 +37,7 @@
  *     (`src/analytics/pace-derivation.ts`).
  *   - `LOCAL_SPEED_LIMIT_MPS = 7.35`, a local duplicate of `UNRELIABLE_SPEED_LIMIT_MPS`
  *     (`src/analytics/unreliable-segments.ts`; the shipped figure of record is also recorded in
- *     `.planning/phases/32-unreliable-segment-detection-calibration/32-CALIBRATION.md`).
+ *     `.planning/milestones/v2.3-phases/32-unreliable-segment-detection-calibration/32-CALIBRATION.md`).
  *   - `localQuantileR7`, a local duplicate of the R-7 quantile SHAPE used by `quantile`
  *     (`src/analytics/pace-derivation.ts`), written independently (own variable names, own loop) so
  *     this recount does not share `quantile`'s vocabulary with the code under test.
@@ -61,7 +61,7 @@
  * of at least two finite, non-decreasing numbers, is skipped and counted by reason — the sweep never
  * throws on a bad file.
  *
- * Write target: `.planning/phases/35-stream-derived-running-pace/35-RUNNING-PACE-RECOUNT.md`, only
+ * Write target: `.planning/milestones/v2.3-phases/35-stream-derived-running-pace/35-RUNNING-PACE-RECOUNT.md`, only
  * when invoked with `--write`; a bare invocation prints to stdout and writes nothing. This plan
  * (35-04) BUILDS this script; plan 35-05 is the one that runs it and commits the artifact.
  */
@@ -78,7 +78,7 @@ const ACTIVITIES_DIR = join(ROOT_DIR, 'data', 'activities');
 const OUTPUT_PATH = join(
   ROOT_DIR,
   '.planning',
-  'phases',
+  'milestones', 'v2.3-phases',
   '35-stream-derived-running-pace',
   '35-RUNNING-PACE-RECOUNT.md'
 );
@@ -105,7 +105,7 @@ const LOCAL_PAUSE_MULTIPLIER = 5;
 /**
  * A LOCAL DUPLICATE of `UNRELIABLE_SPEED_LIMIT_MPS` (`src/analytics/unreliable-segments.ts`, live
  * value read this session; also the shipped figure of record in
- * `.planning/phases/32-unreliable-segment-detection-calibration/32-CALIBRATION.md`), NOT imported
+ * `.planning/milestones/v2.3-phases/32-unreliable-segment-detection-calibration/32-CALIBRATION.md`), NOT imported
  * from there. Exported (2026-09-26 correction) for the same reason as `LOCAL_GAP_THRESHOLD_SEC`
  * above.
  */

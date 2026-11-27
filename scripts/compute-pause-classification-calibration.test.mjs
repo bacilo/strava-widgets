@@ -2132,7 +2132,7 @@ describe('exit contract', () => {
 // ---------------------------------------------------------------------------
 
 describe('provenance chain', () => {
-  const CONTEXT_PATH = '.planning/phases/34-pause-classification-forgotten-stop/34-CONTEXT.md';
+  const CONTEXT_PATH = '.planning/milestones/v2.3-phases/34-pause-classification-forgotten-stop/34-CONTEXT.md';
   const GENERATOR_PATH = 'scripts/compute-pause-classification-calibration.mjs';
   const CONTEXT_LINE_PATTERN = /^DECLARED STATIONARY_MAX_SPEED_MPS = ([0-9.]+)$/m;
   const GENERATOR_TEXT_LINE_PATTERN = /export const DECLARED_STATIONARY_MAX_SPEED_MPS_TEXT = '([0-9.]+)';/;

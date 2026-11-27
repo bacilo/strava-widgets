@@ -45,7 +45,7 @@ const ACTIVITIES_DIR = join(ROOT_DIR, 'data/activities');
 const OUTPUT_PATH = join(
   ROOT_DIR,
   '.planning',
-  'phases',
+  'milestones', 'v2.3-phases',
   '34-pause-classification-forgotten-stop',
   '34-PAUSE03-REMEASUREMENT.md'
 );

@@ -72,7 +72,7 @@ export interface DetectorParams {
  * The calibrated speed limit (D-10): `ceil(multiplier x S-A x 100) / 100`, where S-A is the
  * 32-05 Decision's chosen statistic (R-7 p90 across activities of each activity's own R-7 p95
  * folded covered-step speed, 4.404 m/s, n=1873) and the multiplier is measured, not chosen — see
- * `.planning/phases/32-unreliable-segment-detection-calibration/32-CALIBRATION.md` section
+ * `.planning/milestones/v2.3-phases/32-unreliable-segment-detection-calibration/32-CALIBRATION.md` section
  * "Chosen constants" for the live-derived value and section "Non-circularity (D-13)" for its
  * insensitivity check.
  *

@@ -5,7 +5,7 @@
  * `compute-pr-ceiling-calibration.mjs`) records how the personal plausibility
  * ceiling was DERIVED — the constants `CEILING_K`/`CEILING_MIN_POPULATION`
  * and the archive evidence that justified them. This script and its artifact
- * (`.planning/phases/36-.../36-CEILING-RECALIBRATION.md`) record something
+ * (`.planning/milestones/v2.3-phases/36-.../36-CEILING-RECALIBRATION.md`) record something
  * different: how every per-distance ceiling MOVED once Phase 36's
  * clean-window search began partitioning contaminated timings out of the
  * ceiling's own input population. Neither constant changes; only the
@@ -70,7 +70,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = join(__dirname, '..');
 const OUTPUT_PATH = join(
   ROOT_DIR,
-  '.planning/phases/36-best-effort-clean-window-search-ceiling-recalibration/36-CEILING-RECALIBRATION.md'
+  '.planning/milestones/v2.3-phases/36-best-effort-clean-window-search-ceiling-recalibration/36-CEILING-RECALIBRATION.md'
 );
 const COMMITTED_BASELINE_PATH = 'data/best-effort-ceiling.json';
 

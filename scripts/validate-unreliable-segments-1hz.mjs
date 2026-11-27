@@ -78,7 +78,7 @@ const STREAMS_DIR = join(ROOT_DIR, 'data/streams');
 const ACTIVITIES_DIR = join(ROOT_DIR, 'data/activities');
 const OUTPUT_PATH = join(
   ROOT_DIR,
-  '.planning/phases/32-unreliable-segment-detection-calibration/32-1HZ-VALIDATION.md'
+  '.planning/milestones/v2.3-phases/32-unreliable-segment-detection-calibration/32-1HZ-VALIDATION.md'
 );
 
 const NAMED_ACTIVITY_IDS = ['3475724402', '3475734189', '3475740390', '4556693525'];

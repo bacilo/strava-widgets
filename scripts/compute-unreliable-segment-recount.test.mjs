@@ -1,7 +1,7 @@
 /**
  * Guard test for the pure helpers exported by compute-unreliable-segment-recount.mjs (Phase 32
  * plan 03, D-15). Importing this module must not read `data/streams/3475724402.json` or
- * `.planning/phases/32-unreliable-segment-detection-calibration/32-CALIBRATION.md` as an
+ * `.planning/milestones/v2.3-phases/32-unreliable-segment-detection-calibration/32-CALIBRATION.md` as an
  * import-time side effect — the self-execution guard documented at the bottom of
  * compute-unreliable-segment-recount.mjs is what prevents that.
  *

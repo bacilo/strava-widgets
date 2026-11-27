@@ -2211,7 +2211,7 @@ describe('elevation assembly, anySevere exclusion, and not-computable rollup (D-
 describe('UNRELIABLE_SEGMENTS_SEVERE_EXCESS_FRACTION shipped from 33-CALIBRATION', () => {
   const ARTIFACT_PATH = path.join(
     '.planning',
-    'phases',
+    'milestones', 'v2.3-phases',
     '33-coverage-integration-pace-clipping-segment-signal',
     '33-CALIBRATION.md'
   );

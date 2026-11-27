@@ -97,7 +97,7 @@ import {
 
 const ARTIFACT_PATH = path.join(
   '.planning',
-  'phases',
+  'milestones', 'v2.3-phases',
   '35-stream-derived-running-pace',
   '35-RUNNING-PACE-RECOUNT.md'
 );

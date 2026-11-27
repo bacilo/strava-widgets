@@ -85,7 +85,7 @@ const ROOT_DIR = join(__dirname, '..');
 const STREAMS_DIR = join(ROOT_DIR, 'data/streams');
 const OUTPUT_PATH = join(
   ROOT_DIR,
-  '.planning/phases/33-coverage-integration-pace-clipping-segment-signal/33-CALIBRATION.md'
+  '.planning/milestones/v2.3-phases/33-coverage-integration-pace-clipping-segment-signal/33-CALIBRATION.md'
 );
 
 const REGENERATE_COMMAND = 'npm run build && npm run compute-unreliable-segment-severity-calibration';

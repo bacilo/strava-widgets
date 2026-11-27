@@ -1068,7 +1068,7 @@ export function paceHistogramAccounting(
  * zero distance withheld off the clock and zero time withheld, so a cut
  * derived from C cannot be circular with respect to the eligible population.
  *
- * Provenance (verbatim from `.planning/phases/35-stream-derived-running-pace/
+ * Provenance (verbatim from `.planning/milestones/v2.3-phases/35-stream-derived-running-pace/
  * 35-CALIBRATION.md` § Chosen constants): "PACE_DISAGREEMENT_RUNNING_RATIO
  * provenance: calibrated (shape C3, base population C, N=382)". Basis gate:
  * PASS — 3475724402 is eligible and its ratio (1.0731) exceeds this cut.

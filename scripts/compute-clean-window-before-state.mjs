@@ -43,7 +43,7 @@ const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = resolve(SCRIPT_DIR, '..');
 const PHASE_DIR = join(
   ROOT_DIR,
-  '.planning/phases/36-best-effort-clean-window-search-ceiling-recalibration'
+  '.planning/milestones/v2.3-phases/36-best-effort-clean-window-search-ceiling-recalibration'
 );
 const DEFAULT_DIFF_PATH = join(PHASE_DIR, '36-DIFF.md');
 const RECALIBRATION_PATH = join(PHASE_DIR, '36-CEILING-RECALIBRATION.md');

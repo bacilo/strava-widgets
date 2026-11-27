@@ -2,7 +2,7 @@
  * Guard test for `compute-coverage-identity-recount.mjs` (Phase 33 plan 07, D-03).
  *
  * Two structural guards plus pure-function cases on small synthetic fixtures — never reads
- * `data/streams/` or `.planning/phases/32-.../32-CALIBRATION.md` as an import-time side effect
+ * `data/streams/` or `.planning/milestones/v2.3-phases/32-.../32-CALIBRATION.md` as an import-time side effect
  * (the self-execution guard at the bottom of the script under test is what prevents that), and
  * never scans the whole archive — this file runs every `npm test`.
  *
