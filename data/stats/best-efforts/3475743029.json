@@ -59,5 +59,6 @@
       "excludedFromRecords": false
     }
   ],
-  "excludedFromRecords": false
+  "excludedFromRecords": false,
+  "contaminatedMetres": 118.3
 }

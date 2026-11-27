@@ -1,9 +1,9 @@
 {
-  "currentStreak": 5,
+  "currentStreak": 6,
   "longestStreak": 31,
   "withinCurrentStreak": true,
   "currentStreakStart": "2026-11-22T00:00:00.000Z",
-  "currentStreakEnd": "2026-11-26T00:00:00.000Z",
+  "currentStreakEnd": "2026-11-27T00:00:00.000Z",
   "longestStreakStart": "2021-06-13T00:00:00.000Z",
   "longestStreakEnd": "2021-07-13T00:00:00.000Z",
   "weeklyConsistency": {

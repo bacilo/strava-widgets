@@ -27,7 +27,7 @@
       "lowConfidence": false,
       "demotion": {
         "guard": "ceiling",
-        "reason": "implied 5.504 m/s exceeds personal ceiling 4.708 m/s by 0.796 m/s (1.28 x p90 3.678 m/s over 1912 filtered 1k efforts)"
+        "reason": "implied 5.504 m/s exceeds personal ceiling 4.708 m/s by 0.796 m/s (1.28 x p90 3.678 m/s over 1913 filtered 1k efforts)"
       },
       "contaminated": null,
       "wasPRAtTheTime": false,
@@ -84,5 +84,6 @@
       "excludedFromRecords": false
     }
   ],
-  "excludedFromRecords": false
+  "excludedFromRecords": false,
+  "contaminatedMetres": 234
 }
