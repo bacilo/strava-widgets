@@ -21,6 +21,7 @@
  * browser (plan 18-16).
  */
 
+import { formatDayTooltipTitle, formatMonthTooltipTitle, formatVolumeTooltipTitle, titleFromItems } from './chart-tooltip-title.js';
 import {
   Chart,
   BarController,
@@ -241,6 +242,8 @@ export function mountVolumeChart(
         plugins: {
           tooltip: {
             callbacks: {
+              title: (items: readonly { parsed: { x: unknown } }[]) =>
+                titleFromItems(items, (x) => formatVolumeTooltipTitle(x, granularity)),
               label: (context: { dataIndex: number }) => {
                 const point = points[context.dataIndex];
                 if (!point) return '';
@@ -319,6 +322,8 @@ export function mountVolumeChart(
         zoom: buildZoomPluginOptions({ scaleKey, bounds, onSettle: (c) => controller?.settle(c) }),
         tooltip: {
           callbacks: {
+            title: (items: readonly { parsed: { x: unknown } }[]) =>
+              titleFromItems(items, (x) => formatVolumeTooltipTitle(x, granularity)),
             label: (context: { dataIndex: number }) => {
               const point = points[context.dataIndex];
               if (!point) return '';
@@ -648,6 +653,8 @@ function buildChannelBand(
           : {}),
         tooltip: {
           callbacks: {
+            title: (items: readonly { parsed: { x: unknown } }[]) =>
+              titleFromItems(items, (x) => formatMonthTooltipTitle(x)),
             label: (context: { dataIndex: number }) => {
               const point = points[context.dataIndex];
               if (!point || point.value === null) {
@@ -911,6 +918,8 @@ export function mountTrainingLoadChart(
           decimation: DECIMATION_CONFIG,
           tooltip: {
             callbacks: {
+              title: (items: readonly { parsed: { x: unknown } }[]) =>
+                titleFromItems(items, (x) => formatDayTooltipTitle(x)),
               label: (context: { dataset: { label?: string }; parsed: { y: unknown } }) =>
                 `${context.dataset.label ?? ''}: ${formatLoadValue(context.parsed.y)}`,
             },
@@ -1006,6 +1015,8 @@ export function mountTrainingLoadChart(
         decimation: DECIMATION_CONFIG,
         tooltip: {
           callbacks: {
+            title: (items: readonly { parsed: { x: unknown } }[]) =>
+              titleFromItems(items, (x) => formatDayTooltipTitle(x)),
             label: (context: { dataset: { label?: string }; parsed: { y: unknown } }) =>
               `${context.dataset.label ?? ''}: ${formatLoadValue(context.parsed.y)}`,
           },

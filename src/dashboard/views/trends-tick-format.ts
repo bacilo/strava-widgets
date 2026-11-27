@@ -23,9 +23,9 @@
  *   same year once the step reaches this threshold.
  *
  * NOT a tooltip formatter. Finding 6 (the Training Load tooltip title
- * rendering a raw epoch, `1,769,990,400,000`) is explicitly OUT OF SCOPE
- * for Phase 23 and this module must not acquire a tooltip `title`
- * callback, however tempting the adjacency — see `23-VALIDATION.md`.
+ * rendering a raw epoch, `1,769,990,400,000`) is now resolved by
+ * `chart-tooltip-title.ts` (quick 261127-gha); the prohibition on adding a
+ * tooltip `title` callback to THIS module still stands.
  *
  * No DOM, no charting-library import — loadable under vitest's
  * `environment: 'node'`, matching `trends-zoom-logic.ts`'s house style.

@@ -16,6 +16,7 @@
  * browser (plan 17-15).
  */
 
+import { formatDetailTooltipTitle, titleFromItems } from './chart-tooltip-title.js';
 import {
   Chart,
   LineController,
@@ -497,6 +498,10 @@ export function mountChartBands(container: HTMLElement, options: MountChartBands
           decimation: DECIMATION_CONFIG,
           tooltip: {
             callbacks: {
+              title: (items: readonly { datasetIndex: number; parsed: { x: unknown } }[]) => {
+                const primary = items.find((it) => it.datasetIndex === datasetChannels.length - 1) ?? items[0];
+                return titleFromItems(primary ? [primary] : [], (x) => formatDetailTooltipTitle(x, xAxisMode));
+              },
               label: (context: { datasetIndex: number; parsed: { y: unknown } }) => {
                 const ch = datasetChannels[context.datasetIndex];
                 const raw = context.parsed.y;

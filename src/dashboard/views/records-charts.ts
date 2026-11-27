@@ -22,6 +22,7 @@
  * browser (plan 18-16).
  */
 
+import { formatDateTooltipTitle, titleFromItems } from './chart-tooltip-title.js';
 import { Chart, LineController, LineElement, PointElement, LinearScale, Tooltip } from 'chart.js';
 
 import type { TargetDistanceKey } from '../../analytics/best-effort.types.js';
@@ -103,6 +104,8 @@ export function mountEvolutionCharts(cards: readonly EvolutionChartCard[]): Evol
         plugins: {
           tooltip: {
             callbacks: {
+              title: (items: readonly { parsed: { x: unknown } }[]) =>
+                titleFromItems(items, (x) => formatDateTooltipTitle(x)),
               label: (context: { parsed: { y: unknown } }) => {
                 const raw = context.parsed.y;
                 return typeof raw === 'number' ? formatEffortDuration(raw) : '';
