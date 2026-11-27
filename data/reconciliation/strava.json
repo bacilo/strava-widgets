@@ -1,25 +1,25 @@
 {
   "schema_version": 1,
   "source": "strava",
-  "export_date": "2026-08-08",
+  "export_date": "2026-11-27",
   "export_identity": {
     "summary_files": [
       {
         "path": "activities.csv",
-        "sha256": "f17075ce4ed2b3fc9ea6fa8f8ed4edee0a20afa843091496f888288d47e58645"
+        "sha256": "18de3e56906e610ec6d0236a27a7e95ea684a306328e13a7006307f8db299088"
       }
     ]
   },
   "coverage_window": {
     "first_run_start": "2011-08-16T18:55:32Z",
-    "last_run_start": "2026-08-08T05:14:17Z"
+    "last_run_start": "2026-11-27T07:00:12Z"
   },
-  "claim": "This audit covers only runs recorded in this export that start between 2011-08-16T18:55:32Z and 2026-08-08T05:14:17Z inclusive. It makes no claim about runs outside that window or absent from the export.",
+  "claim": "This audit covers only runs recorded in this export that start between 2011-08-16T18:55:32Z and 2026-11-27T07:00:12Z inclusive. It makes no claim about runs outside that window or absent from the export.",
   "counts": {
-    "export_runs": 1865,
-    "matched_exact": 1865,
+    "export_runs": 1958,
+    "matched_exact": 1957,
     "near": 0,
-    "missing": 0,
+    "missing": 1,
     "missing_trivial": 0,
     "ignored_types": {
       "E-Bike Ride": 1,
@@ -30,5 +30,13 @@
     }
   },
   "near": [],
-  "missing": []
+  "missing": [
+    {
+      "source_id": "20057888467",
+      "start_date": "2026-09-06T08:12:03Z",
+      "activity_type": "Run",
+      "distance_m": 15348.1,
+      "trivial": false
+    }
+  ]
 }

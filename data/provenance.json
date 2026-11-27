@@ -1,12 +1,15 @@
 {
-  "generated_at": "2026-08-10T09:54:55.971Z",
+  "generated_at": "2026-11-27T10:40:21.109Z",
   "note": "Maps canonical activity ids to original recordings under export_data/ (gitignored, local-only). Regenerate with: node dist/index.js consolidate-exports",
   "sources": {
+    "garmin": {
+      "status": "inventoried; reconcile via reconcile-exports, import via import-fit"
+    },
     "strava": {
-      "csv_runs": 1865,
-      "matched_by_id": 1808,
-      "matched_by_epoch": 53,
-      "imported": 4,
+      "csv_runs": 1958,
+      "matched_by_id": 1812,
+      "matched_by_epoch": 145,
+      "imported": 1,
       "runs_without_original": 24,
       "non_runs": {
         "Workout": 17,
@@ -17,10 +20,11 @@
       }
     }
   },
-  "archive_total": 1866,
+  "archive_total": 1959,
   "archive_without_original": [
     "14268770224",
     "16031289959",
+    "18702664326",
     "3475711256",
     "3475712684",
     "3475713008",
@@ -2907,6 +2911,558 @@
       "original": "strava:activities/4578388679.fit.gz",
       "gear": "Vibram blue Five Fingers"
     },
+    "i215217932": {
+      "strava_id": "21140106469",
+      "matched_by": "start_date",
+      "original": "strava:activities/22310157865.fit.gz",
+      "gear": "Nike Pegasus 42 Beige "
+    },
+    "i214819392": {
+      "strava_id": "21128589583",
+      "matched_by": "start_date",
+      "original": "strava:activities/22298455301.fit.gz",
+      "gear": "Nike Pegasus 42 Beige "
+    },
+    "i214579476": {
+      "strava_id": "21121326352",
+      "matched_by": "start_date",
+      "original": "strava:activities/22291083936.fit.gz",
+      "gear": "Nike Pegasus 42 Beige "
+    },
+    "i213984455": {
+      "strava_id": "21104398847",
+      "matched_by": "start_date",
+      "original": "strava:activities/22273905968.fit.gz",
+      "gear": "Nike Pegasus 42 Beige "
+    },
+    "i213520731": {
+      "strava_id": "21091417501",
+      "matched_by": "start_date",
+      "original": "strava:activities/22260718700.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i213116409": {
+      "strava_id": "21080239570",
+      "matched_by": "start_date",
+      "original": "strava:activities/22249315112.fit.gz",
+      "gear": "Nike Pegasus 42 Beige "
+    },
+    "i212380786": {
+      "strava_id": "21055679978",
+      "matched_by": "start_date",
+      "original": "strava:activities/22224319466.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i211937973": {
+      "strava_id": "21043554191",
+      "matched_by": "start_date",
+      "original": "strava:activities/22212006050.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i211719792": {
+      "strava_id": "21036234631",
+      "matched_by": "start_date",
+      "original": "strava:activities/22204589931.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "25116720114": {
+      "strava_id": "21031055697",
+      "matched_by": "start_date",
+      "original": "strava:activities/22199330147.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i211617588": {
+      "strava_id": "21018019789",
+      "matched_by": "start_date",
+      "original": "strava:activities/22186107625.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i211617594": {
+      "strava_id": "21005814008",
+      "matched_by": "start_date",
+      "original": "strava:activities/22173719867.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i211617604": {
+      "strava_id": "20985985512",
+      "matched_by": "start_date",
+      "original": "strava:activities/22153519949.fit.gz",
+      "gear": "HOKA Clifton First Hokas"
+    },
+    "i211617608": {
+      "strava_id": "20969038322",
+      "matched_by": "start_date",
+      "original": "strava:activities/22136298319.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i209040460": {
+      "strava_id": "20956916653",
+      "matched_by": "start_date",
+      "original": "strava:activities/22124005965.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i208578848": {
+      "strava_id": "20942984591",
+      "matched_by": "start_date",
+      "original": "strava:activities/22109849927.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i207890562": {
+      "strava_id": "20922501343",
+      "matched_by": "start_date",
+      "original": "strava:activities/22089074144.fit.gz",
+      "gear": "Nike Pegasus 37 Pegasus 37 (Magasin)"
+    },
+    "i207677530": {
+      "strava_id": "20916884559",
+      "matched_by": "start_date",
+      "original": "strava:activities/22083363907.fit.gz",
+      "gear": "Nike Pegasus 37 Pegasus 37 (Magasin)"
+    },
+    "i207319071": {
+      "strava_id": "20905651629",
+      "matched_by": "start_date",
+      "original": "strava:activities/22071943767.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i206452459": {
+      "strava_id": "20879094979",
+      "matched_by": "start_date",
+      "original": "strava:activities/22044917503.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i206283195": {
+      "strava_id": "20873395200",
+      "matched_by": "start_date",
+      "original": "strava:activities/22039127750.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i205583703": {
+      "strava_id": "20853662363",
+      "matched_by": "start_date",
+      "original": "strava:activities/22019100097.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i205093703": {
+      "strava_id": "20838937959",
+      "matched_by": "start_date",
+      "original": "strava:activities/22004139640.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i204676056": {
+      "strava_id": "20825920395",
+      "matched_by": "start_date",
+      "original": "strava:activities/21990835627.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i203939098": {
+      "strava_id": "20803837449",
+      "matched_by": "start_date",
+      "original": "strava:activities/21968194401.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i203032222": {
+      "strava_id": "20774724216",
+      "matched_by": "start_date",
+      "original": "strava:activities/21938306982.fit.gz",
+      "gear": "Nike Pegasus 40 White Pegasus"
+    },
+    "i202827325": {
+      "strava_id": "20766870760",
+      "matched_by": "start_date",
+      "original": "strava:activities/21930333703.fit.gz",
+      "gear": "Nike Pegasus 40 White Pegasus"
+    },
+    "i202196690": {
+      "strava_id": "20747195006",
+      "matched_by": "start_date",
+      "original": "strava:activities/21910336600.fit.gz",
+      "gear": "HOKA Clifton First Hokas"
+    },
+    "i201791163": {
+      "strava_id": "20734382290",
+      "matched_by": "start_date",
+      "original": "strava:activities/21897309916.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i201442346": {
+      "strava_id": "20725465533",
+      "matched_by": "start_date",
+      "original": "strava:activities/21888168854.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i200610684": {
+      "strava_id": "20696811392",
+      "matched_by": "start_date",
+      "original": "strava:activities/21858958784.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i200271413": {
+      "strava_id": "20684616694",
+      "matched_by": "start_date",
+      "original": "strava:activities/21846565412.fit.gz",
+      "gear": "Nike Pegasus 37 Pegasus 37 (Magasin)"
+    },
+    "i199841395": {
+      "strava_id": "20671006272",
+      "matched_by": "start_date",
+      "original": "strava:activities/21832701861.fit.gz",
+      "gear": "Nike Pegasus 40 White Pegasus"
+    },
+    "i199345781": {
+      "strava_id": "20656730661",
+      "matched_by": "start_date",
+      "original": "strava:activities/21818205761.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i199118280": {
+      "strava_id": "20649302422",
+      "matched_by": "start_date",
+      "original": "strava:activities/21810659535.fit.gz",
+      "gear": "Nike Pegasus 37 Pegasus 37 (Magasin)"
+    },
+    "i198553211": {
+      "strava_id": "20630676325",
+      "matched_by": "start_date",
+      "original": "strava:activities/21791669629.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i197847011": {
+      "strava_id": "20605175333",
+      "matched_by": "start_date",
+      "original": "strava:activities/21765566850.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i197529103": {
+      "strava_id": "20592917681",
+      "matched_by": "start_date",
+      "original": "strava:activities/21753090265.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i196867005": {
+      "strava_id": "20569336554",
+      "matched_by": "start_date",
+      "original": "strava:activities/21729048284.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i196358072": {
+      "strava_id": "20550434041",
+      "matched_by": "start_date",
+      "original": "strava:activities/21709737811.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i195675686": {
+      "strava_id": "20523768773",
+      "matched_by": "start_date",
+      "original": "strava:activities/21682407156.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i195309770": {
+      "strava_id": "20511327812",
+      "matched_by": "start_date",
+      "original": "strava:activities/21669674779.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i195076616": {
+      "strava_id": "20502464398",
+      "matched_by": "start_date",
+      "original": "strava:activities/21660619179.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i194564751": {
+      "strava_id": "20485250871",
+      "matched_by": "start_date",
+      "original": "strava:activities/21643029716.fit.gz",
+      "gear": "Nike Vomero Plus Green Vomero"
+    },
+    "i194138244": {
+      "strava_id": "20470303494",
+      "matched_by": "start_date",
+      "original": "strava:activities/21627772586.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i193897994": {
+      "strava_id": "20462069024",
+      "matched_by": "start_date",
+      "original": "strava:activities/21619385570.fit.gz",
+      "gear": "Nike Pegasus 37 Pegasus 37 (Magasin)"
+    },
+    "i193326262": {
+      "strava_id": "20444082397",
+      "matched_by": "start_date",
+      "original": "strava:activities/21600963917.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i192494036": {
+      "strava_id": "20415866871",
+      "matched_by": "start_date",
+      "original": "strava:activities/21572154442.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i192121318": {
+      "strava_id": "20403193771",
+      "matched_by": "start_date",
+      "original": "strava:activities/21559211214.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i191786020": {
+      "strava_id": "20389056813",
+      "matched_by": "start_date",
+      "original": "strava:activities/21544772417.fit.gz",
+      "gear": "Nike Pegasus 37 Pegasus 37 (Magasin)"
+    },
+    "i191558072": {
+      "strava_id": "20379658168",
+      "matched_by": "start_date",
+      "original": "strava:activities/21535193419.fit.gz",
+      "gear": "Nike Pegasus 37 Pegasus 37 (Magasin)"
+    },
+    "i191091569": {
+      "strava_id": "20360540678",
+      "matched_by": "start_date",
+      "original": "strava:activities/21515708890.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i190790252": {
+      "strava_id": "20348140199",
+      "matched_by": "start_date",
+      "original": "strava:activities/21502820425.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i190137725": {
+      "strava_id": "20319659846",
+      "matched_by": "start_date",
+      "original": "strava:activities/21473786873.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i189805671": {
+      "strava_id": "20306661805",
+      "matched_by": "start_date",
+      "original": "strava:activities/21460579656.fit.gz",
+      "gear": "Nike Pegasus 40 Yellow lightning "
+    },
+    "i189585575": {
+      "strava_id": "20297482767",
+      "matched_by": "start_date",
+      "original": "strava:activities/21451250094.fit.gz",
+      "gear": "Nike Pegasus 40 Yellow lightning "
+    },
+    "i189082290": {
+      "strava_id": "20277477534",
+      "matched_by": "start_date",
+      "original": "strava:activities/21430904962.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i188740622": {
+      "strava_id": "20263495334",
+      "matched_by": "start_date",
+      "original": "strava:activities/21416671485.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i188439154": {
+      "strava_id": "20250937763",
+      "matched_by": "start_date",
+      "original": "strava:activities/21403849711.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i187834797": {
+      "strava_id": "20222966873",
+      "matched_by": "start_date",
+      "original": "strava:activities/21375268878.fit.gz",
+      "gear": "Nike Vomero Plus Green Vomero"
+    },
+    "i187349936": {
+      "strava_id": "20201488844",
+      "matched_by": "start_date",
+      "original": "strava:activities/21353284411.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i187200897": {
+      "strava_id": "20195894403",
+      "matched_by": "start_date",
+      "original": "strava:activities/21347497646.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i186827690": {
+      "strava_id": "20180549829",
+      "matched_by": "start_date",
+      "original": "strava:activities/21331367404.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i186504794": {
+      "strava_id": "20167161841",
+      "matched_by": "start_date",
+      "original": "strava:activities/21317156416.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i186166234": {
+      "strava_id": "20154759165",
+      "matched_by": "start_date",
+      "original": "strava:activities/21303980378.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i185592958": {
+      "strava_id": "20129533201",
+      "matched_by": "start_date",
+      "original": "strava:activities/21277197457.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i184935210": {
+      "strava_id": "20103519718",
+      "matched_by": "start_date",
+      "original": "strava:activities/21249463798.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i184819711": {
+      "strava_id": "20099002031",
+      "matched_by": "start_date",
+      "original": "strava:activities/21244672768.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i184264408": {
+      "strava_id": "20075299092",
+      "matched_by": "start_date",
+      "original": "strava:activities/21219418882.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i184111348": {
+      "strava_id": "20069703868",
+      "matched_by": "start_date",
+      "original": "strava:activities/21213479798.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i183856843": {
+      "strava_id": "20058479099",
+      "matched_by": "start_date",
+      "original": "strava:activities/21201447662.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i183546832": {
+      "strava_id": "20045314745",
+      "matched_by": "start_date",
+      "original": "strava:activities/21187377839.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i182749188": {
+      "strava_id": "20015963471",
+      "matched_by": "start_date",
+      "original": "strava:activities/21155899252.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i182570742": {
+      "strava_id": "20009041310",
+      "matched_by": "start_date",
+      "original": "strava:activities/21148469509.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i182358139": {
+      "strava_id": "20001311566",
+      "matched_by": "start_date",
+      "original": "strava:activities/21140272695.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i181973987": {
+      "strava_id": "19986357205",
+      "matched_by": "start_date",
+      "original": "strava:activities/21124747602.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i181193214": {
+      "strava_id": "19957643263",
+      "matched_by": "start_date",
+      "original": "strava:activities/21095125404.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i180870297": {
+      "strava_id": "19943863870",
+      "matched_by": "start_date",
+      "original": "strava:activities/21080911454.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i180123879": {
+      "strava_id": "19911918050",
+      "matched_by": "start_date",
+      "original": "strava:activities/21048025997.fit.gz",
+      "gear": "Nike Vaporfly Next&4 - light green First Vaporfly"
+    },
+    "i180111421": {
+      "strava_id": "19911443459",
+      "matched_by": "start_date",
+      "original": "strava:activities/21047542968.fit.gz",
+      "gear": "Nike Vaporfly Next&4 - light green First Vaporfly"
+    },
+    "i180086552": {
+      "strava_id": "19910277881",
+      "matched_by": "start_date",
+      "original": "strava:activities/21046359121.fit.gz",
+      "gear": "Nike Vaporfly Next&4 - light green First Vaporfly"
+    },
+    "i179496597": {
+      "strava_id": "19888627190",
+      "matched_by": "start_date",
+      "original": "strava:activities/21024198425.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i178790425": {
+      "strava_id": "19860088466",
+      "matched_by": "start_date",
+      "original": "strava:activities/20994899154.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i178192177": {
+      "strava_id": "19833416320",
+      "matched_by": "start_date",
+      "original": "strava:activities/20967451036.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i177813929": {
+      "strava_id": "19819080897",
+      "matched_by": "start_date",
+      "original": "strava:activities/20952713949.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i176661719": {
+      "strava_id": "19775662629",
+      "matched_by": "start_date",
+      "original": "strava:activities/20908210723.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i176333352": {
+      "strava_id": "19762342146",
+      "matched_by": "start_date",
+      "original": "strava:activities/20894468334.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i175664232": {
+      "strava_id": "19734942043",
+      "matched_by": "start_date",
+      "original": "strava:activities/20866216585.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i175185539": {
+      "strava_id": "19712818498",
+      "matched_by": "start_date",
+      "original": "strava:activities/20843464042.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i175010486": {
+      "strava_id": "19706712846",
+      "matched_by": "start_date",
+      "original": "strava:activities/20837128662.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i174601247": {
+      "strava_id": "19690998962",
+      "matched_by": "start_date",
+      "original": "strava:activities/20820875308.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
+    "i174284902": {
+      "strava_id": "19677110995",
+      "matched_by": "start_date",
+      "original": "strava:activities/20806460076.fit.gz",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
     "i174109943": {
       "strava_id": "19649800613",
       "matched_by": "start_date",
@@ -3051,6 +3607,10 @@
       "original": "strava:activities/19811293837.fit.gz",
       "gear": "Nike Pegasus 40 Orange checkers NP40"
     },
+    "18702664326": {
+      "matched_by": "strava_id",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
+    },
     "i174110369": {
       "strava_id": "18702644874",
       "matched_by": "start_date",
@@ -3152,6 +3712,11 @@
       "matched_by": "start_date",
       "original": "strava:activities/19311630262.fit.gz",
       "gear": "Nike Pegasus 37 Pegasus 37 (Magasin)"
+    },
+    "18180779941": {
+      "matched_by": "strava_id",
+      "original": "strava:activities/18180779941.gpx",
+      "gear": "Nike Pegasus 40 Orange checkers NP40"
     },
     "i174110096": {
       "strava_id": "18155217643",
@@ -5222,6 +5787,11 @@
       "matched_by": "strava_id",
       "original": "strava:activities/12005649916.fit.gz",
       "gear": "Nike Pegasus 40 Yellow lightning "
+    },
+    "11183705198": {
+      "matched_by": "strava_id",
+      "original": "strava:activities/11951171113.fit.gz",
+      "gear": "Nike Pegasus 38 Pegasus 38 - white and grey"
     },
     "11183703704": {
       "matched_by": "strava_id",
@@ -8489,6 +9059,11 @@
       "original": "strava:activities/4921262674.fit.gz",
       "gear": "Nike lunarglide (Lixo) Expensive Nike"
     },
+    "4598855187": {
+      "matched_by": "strava_id",
+      "original": "strava:activities/4912492091.fit.gz",
+      "gear": "Nike Pegasus 37 Pegasus 37 (Magasin)"
+    },
     "4589971990": {
       "matched_by": "strava_id",
       "original": "strava:activities/4903216832.fit.gz",
@@ -8732,28 +9307,10 @@
       "matched_by": "strava_id",
       "gear": "Mizuno Old (Lixo) First Mizuno"
     },
-    "18702664326": {
+    "20057888467": {
       "matched_by": "imported",
-      "gear": "Nike Pegasus 40 Orange checkers NP40"
-    },
-    "18180779941": {
-      "matched_by": "imported",
-      "original": "strava:activities/18180779941.gpx",
-      "gear": "Nike Pegasus 40 Orange checkers NP40"
-    },
-    "11183705198": {
-      "matched_by": "imported",
-      "original": "strava:activities/11951171113.fit.gz",
-      "gear": "Nike Pegasus 38 Pegasus 38 - white and grey"
-    },
-    "4598855187": {
-      "matched_by": "imported",
-      "original": "strava:activities/4912492091.fit.gz",
-      "gear": "Nike Pegasus 37 Pegasus 37 (Magasin)"
-    },
-    "25116720114": {
-      "matched_by": "imported",
-      "original": "garmin:_extracted/single_25116720114/25116720114_ACTIVITY.fit"
+      "original": "strava:activities/20057888467.gpx",
+      "gear": "Nike Vomero Plus Green Vomero"
     }
   }
 }

@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generated_at": "2026-11-27T09:55:22.318Z",
+  "generated_at": "2026-11-27T10:40:25.888Z",
   "note": "Stream availability index for data/streams/. Written by both backfill-streams and the daily intervals.icu sync. available:false means no data/streams/<id>.json exists for that activity.",
   "totals": {
-    "activities": 1958,
-    "with_streams": 1933,
+    "activities": 1959,
+    "with_streams": 1934,
     "without_streams": 25,
     "by_reason": {
       "manual": 23,
@@ -15079,6 +15079,19 @@
     "18702664326": {
       "available": false,
       "reason": "no-original"
+    },
+    "20057888467": {
+      "available": true,
+      "source": "gpx",
+      "distanceSource": "geo",
+      "sampleCount": 2731,
+      "channels": {
+        "time": true,
+        "distance": true,
+        "hr": false,
+        "cadence": false,
+        "elevation": true
+      }
     },
     "25116720114": {
       "available": true,
