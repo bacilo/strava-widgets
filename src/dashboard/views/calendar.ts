@@ -88,33 +88,25 @@ export function formatWeekDuration(totalTimeSec: number): string {
 }
 
 /**
- * The `.sr-only` accessible name for a week-total cell (DISC-9/D-11/D-14).
- * Built as ONE template literal per case, mirroring `buildDayCellButton`'s
- * rest-day branch having its own whole sentence rather than splicing an
- * optional segment into the normal sentence. The date range is derived from
- * the first and last non-null cells in `week`, using the en-dash U+2013 (the
- * same glyph as the rest-day cell) rather than a hyphen-minus.
+ * The `.sr-only` accessible name for a week-total cell (DISC-9/D-11). Quick
+ * task 261127-fu8 SUPERSEDES D-13 and REVISES D-14: the name states the true
+ * 7-day range from `startDateKey`/`endDateKey` and no longer carries a
+ * "Partial week, N days shown" disclosure. Built as ONE template literal per
+ * range case. Keys are parsed with integer splits — no Date or locale API —
+ * and joined with the en-dash U+2013 (same glyph as the rest-day cell).
  */
-export function weekTotalAccessibleName(
-  total: WeekTotal,
-  week: readonly (DayCell | null)[],
-  month: CalendarMonth
-): string {
-  const cells = week.filter((c): c is DayCell => c !== null);
-  if (cells.length === 0) return 'Empty week';
-
-  const [monthName, year] = monthLabel(month).split(' ');
-  const first = cells[0];
-  const last = cells[cells.length - 1];
+export function weekTotalAccessibleName(total: WeekTotal): string {
+  const [y1, m1, d1] = total.startDateKey.split('-').map(Number);
+  const [y2, m2, d2] = total.endDateKey.split('-').map(Number);
+  const [name1] = monthLabel({ year: y1, month: m1 }).split(' ');
+  const [name2] = monthLabel({ year: y2, month: m2 }).split(' ');
   const range =
-    first.dayOfMonth === last.dayOfMonth
-      ? `${monthName} ${first.dayOfMonth}, ${year}`
-      : `${monthName} ${first.dayOfMonth}–${last.dayOfMonth}, ${year}`;
-
-  const dayWord = total.daysShown === 1 ? 'day' : 'days';
-  const prefix = total.isPartial
-    ? `Partial week, ${total.daysShown} ${dayWord} shown, week of ${range}`
-    : `Week of ${range}`;
+    y1 !== y2
+      ? `${name1} ${d1}, ${y1} – ${name2} ${d2}, ${y2}`
+      : m1 !== m2
+        ? `${name1} ${d1} – ${name2} ${d2}, ${y1}`
+        : `${name1} ${d1}–${d2}, ${y1}`;
+  const prefix = `Week of ${range}`;
 
   if (total.runCount === 0) return `${prefix}, rest week`;
 
@@ -258,17 +250,13 @@ function buildDayCellButton(
  * reaches the DOM via a `textContent` assignment, never via raw markup
  * injection (T-18-XSS-01).
  */
-function buildWeekTotalCell(
-  total: WeekTotal,
-  week: readonly (DayCell | null)[],
-  month: CalendarMonth
-): HTMLElement {
+function buildWeekTotalCell(total: WeekTotal): HTMLElement {
   const cellEl = document.createElement('div');
   cellEl.className = 'calendar-week-total';
 
   const nameEl = document.createElement('span');
   nameEl.className = 'sr-only';
-  nameEl.textContent = weekTotalAccessibleName(total, week, month);
+  nameEl.textContent = weekTotalAccessibleName(total);
   cellEl.appendChild(nameEl);
 
   const distanceEl = document.createElement('span');
@@ -278,9 +266,9 @@ function buildWeekTotalCell(
   if (total.runCount === 0) {
     // Rest week: only the en-dash, matching the rest-day cell's `–`
     // (calendar.ts:206 above). No time or count span at all — omitted,
-    // not `0h 0m` / `×0` (D-12). The cell renders identically for a
-    // partial and a full rest week (D-14) — the disclosure lives only in
-    // the .sr-only sentence built above.
+    // not `0h 0m` / `×0` (D-12). The cell renders identically for every
+    // rest week — the true range lives only in the .sr-only sentence built
+    // above (D-14 revised by quick 261127-fu8).
     distanceEl.textContent = '–';
     cellEl.appendChild(distanceEl);
     return cellEl;
@@ -343,7 +331,7 @@ function renderGrid(
         buildDayCellButton(cell, month, (openedCell) => renderPicker(pickerHost, openedCell, indexClient))
       );
     }
-    children.push(buildWeekTotalCell(grid.weekTotals[i], week, month));
+    children.push(buildWeekTotalCell(grid.weekTotals[i]));
   });
 
   gridEl.replaceChildren(...children);

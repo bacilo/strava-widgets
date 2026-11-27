@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import { weekdayLabels, formatWeekDuration, weekTotalAccessibleName } from './calendar.js';
-import type { DayCell, WeekTotal } from './calendar-logic.js';
+import type { WeekTotal } from './calendar-logic.js';
 
 /**
  * Vitest runs here with `environment: 'node'` — there is no jsdom and no
@@ -12,18 +12,6 @@ import type { DayCell, WeekTotal } from './calendar-logic.js';
  * accessible name is announced) is plan 22-05's browser checkpoint
  * (PROJECT.md line 49 — automated gates never discharge a visual claim).
  */
-
-function dayCell(overrides: Partial<DayCell> & { dayOfMonth: number }): DayCell {
-  return {
-    dateKey: `2025-10-${String(overrides.dayOfMonth).padStart(2, '0')}`,
-    totalDistanceM: 0,
-    totalTimeSec: 0,
-    runCount: 0,
-    activityIds: [],
-    tintStep: 0,
-    ...overrides,
-  };
-}
 
 describe('weekdayLabels', () => {
   it('returns the exact Sunday-first seven-element array', () => {
@@ -93,127 +81,43 @@ describe('formatWeekDuration', () => {
 });
 
 describe('weekTotalAccessibleName', () => {
-  const october2025 = { year: 2025, month: 10 };
-  const june2025 = { year: 2025, month: 6 };
+  const mk = (
+    totalDistanceM: number,
+    totalTimeSec: number,
+    runCount: number,
+    startDateKey: string,
+    endDateKey: string
+  ): WeekTotal => ({ totalDistanceM, totalTimeSec, runCount, startDateKey, endDateKey });
 
-  it('full week with runs: October 13-19, 2025, 80.0 km, 5 runs', () => {
-    const week: (DayCell | null)[] = [
-      dayCell({ dayOfMonth: 13 }),
-      dayCell({ dayOfMonth: 14 }),
-      dayCell({ dayOfMonth: 15 }),
-      dayCell({ dayOfMonth: 16 }),
-      dayCell({ dayOfMonth: 17 }),
-      dayCell({ dayOfMonth: 18 }),
-      dayCell({ dayOfMonth: 19 }),
-    ];
-    const total: WeekTotal = {
-      totalDistanceM: 80000,
-      totalTimeSec: 28691,
-      runCount: 5,
-      daysShown: 7,
-      isPartial: false,
-    };
-    expect(weekTotalAccessibleName(total, week, october2025)).toBe(
+  it('same-month week: October 13–19, 2025, 80.0 km, 5 runs', () => {
+    expect(weekTotalAccessibleName(mk(80000, 28691, 5, '2025-10-13', '2025-10-19'))).toBe(
       'Week of October 13–19, 2025, 80.0 km, 7h 58m, 5 runs'
     );
   });
 
-  it('partial week with runs: October 1-5, 2025, 59.1 km, 5 runs', () => {
-    const week: (DayCell | null)[] = [
-      dayCell({ dayOfMonth: 1 }),
-      dayCell({ dayOfMonth: 2 }),
-      dayCell({ dayOfMonth: 3 }),
-      dayCell({ dayOfMonth: 4 }),
-      dayCell({ dayOfMonth: 5 }),
-    ];
-    const total: WeekTotal = {
-      totalDistanceM: 59100,
-      totalTimeSec: 20500,
-      runCount: 5,
-      daysShown: 5,
-      isPartial: true,
-    };
-    expect(weekTotalAccessibleName(total, week, october2025)).toBe(
-      'Partial week, 5 days shown, week of October 1–5, 2025, 59.1 km, 5h 42m, 5 runs'
+  it('cross-month week states the true 7-day range with a spaced en-dash and no partial-week disclosure', () => {
+    const name = weekTotalAccessibleName(mk(59100, 20500, 5, '2025-09-29', '2025-10-05'));
+    expect(name).toBe('Week of September 29 – October 5, 2025, 59.1 km, 5h 42m, 5 runs');
+    expect(name).not.toContain('Partial week');
+    expect(name).not.toContain('shown');
+  });
+
+  it('cross-year rest week: December 28, 2025 – January 3, 2026, rest week', () => {
+    expect(weekTotalAccessibleName(mk(0, 0, 0, '2025-12-28', '2026-01-03'))).toBe(
+      'Week of December 28, 2025 – January 3, 2026, rest week'
     );
   });
 
-  it('begins with "Partial week, 5 days shown,"', () => {
-    const week: (DayCell | null)[] = [
-      dayCell({ dayOfMonth: 1 }),
-      dayCell({ dayOfMonth: 2 }),
-      dayCell({ dayOfMonth: 3 }),
-      dayCell({ dayOfMonth: 4 }),
-      dayCell({ dayOfMonth: 5 }),
-    ];
-    const total: WeekTotal = {
-      totalDistanceM: 59100,
-      totalTimeSec: 20500,
-      runCount: 5,
-      daysShown: 5,
-      isPartial: true,
-    };
-    expect(weekTotalAccessibleName(total, week, october2025)).toMatch(/^Partial week, 5 days shown,/);
-  });
-
-  it('full rest week: June 16-22, 2025, rest week', () => {
-    const week: (DayCell | null)[] = [
-      dayCell({ dayOfMonth: 16 }),
-      dayCell({ dayOfMonth: 17 }),
-      dayCell({ dayOfMonth: 18 }),
-      dayCell({ dayOfMonth: 19 }),
-      dayCell({ dayOfMonth: 20 }),
-      dayCell({ dayOfMonth: 21 }),
-      dayCell({ dayOfMonth: 22 }),
-    ];
-    const total: WeekTotal = {
-      totalDistanceM: 0,
-      totalTimeSec: 0,
-      runCount: 0,
-      daysShown: 7,
-      isPartial: false,
-    };
-    expect(weekTotalAccessibleName(total, week, june2025)).toBe('Week of June 16–22, 2025, rest week');
-  });
-
-  it('single-day partial rest week: June 1, 2025, rest week, begins with "Partial week, 1 day shown,"', () => {
-    const week: (DayCell | null)[] = [dayCell({ dayOfMonth: 1 })];
-    const total: WeekTotal = {
-      totalDistanceM: 0,
-      totalTimeSec: 0,
-      runCount: 0,
-      daysShown: 1,
-      isPartial: true,
-    };
-    const name = weekTotalAccessibleName(total, week, june2025);
-    expect(name).toBe('Partial week, 1 day shown, week of June 1, 2025, rest week');
-    expect(name).toMatch(/^Partial week, 1 day shown,/);
+  it('full rest week: June 16–22, 2025, rest week', () => {
+    expect(weekTotalAccessibleName(mk(0, 0, 0, '2025-06-16', '2025-06-22'))).toBe(
+      'Week of June 16–22, 2025, rest week'
+    );
   });
 
   it('uses the singular "1 run" for a one-run week', () => {
-    const week: (DayCell | null)[] = [dayCell({ dayOfMonth: 1 })];
-    const total: WeekTotal = {
-      totalDistanceM: 5000,
-      totalTimeSec: 1800,
-      runCount: 1,
-      daysShown: 1,
-      isPartial: true,
-    };
-    expect(weekTotalAccessibleName(total, week, june2025)).toContain('1 run');
-    expect(weekTotalAccessibleName(total, week, june2025)).not.toContain('1 runs');
-  });
-
-  it('an all-null week returns "Empty week" and does not throw', () => {
-    const week: (DayCell | null)[] = [null, null, null, null, null, null, null];
-    const total: WeekTotal = {
-      totalDistanceM: 0,
-      totalTimeSec: 0,
-      runCount: 0,
-      daysShown: 0,
-      isPartial: true,
-    };
-    expect(() => weekTotalAccessibleName(total, week, october2025)).not.toThrow();
-    expect(weekTotalAccessibleName(total, week, october2025)).toBe('Empty week');
+    const name = weekTotalAccessibleName(mk(5000, 1800, 1, '2025-06-01', '2025-06-07'));
+    expect(name).toContain('1 run');
+    expect(name).not.toContain('1 runs');
   });
 });
 
