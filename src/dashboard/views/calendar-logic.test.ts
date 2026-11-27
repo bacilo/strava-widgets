@@ -422,7 +422,7 @@ describe('buildMonthGrid — weekTotals derivation', () => {
     expect(grid.weekTotals.length).toBe(grid.weeks.length);
   });
 
-  it('a full in-month week sums distance/time/runCount over its non-null cells, daysShown 7, isPartial false', () => {
+  it('a full in-month week sums distance/time/runCount over its 7 dates and reports its true range', () => {
     // September 2024: Sept 1 is a Sunday, so week 0 under Sunday-start is
     // Sep 1-7, entirely in-month — a full week.
     const rows = [
@@ -434,26 +434,67 @@ describe('buildMonthGrid — weekTotals derivation', () => {
       totalDistanceM: 13000,
       totalTimeSec: 4200,
       runCount: 2,
-      daysShown: 7,
-      isPartial: false,
+      startDateKey: '2024-09-01',
+      endDateKey: '2024-09-07',
     });
   });
 
-  it('D-13: a boundary week sums ONLY its in-month cells — a fixture run in the previous month, though inside the row\'s true calendar week, is excluded from both the week total and monthTotalM', () => {
+  it('quick 261127-fu8 (supersedes D-13): a leading boundary week counts out-of-month runs in its week total but NOT in monthTotalM, runCount or any DayCell', () => {
     const rows = [
-      // Feb 27, 2024 falls inside week 0's true 7-day calendar week (Sun Feb 25 - Sat Mar 2)
-      // under a Sunday-start March grid, but it is in February, not March.
+      // Feb 27, 2024 is inside week 0's true 7-day week (Sun Feb 25 - Sat Mar 2)
+      // under a Sunday-start March grid, but it is in February.
       fixtureRow({ id: 'feb-boundary', startDateLocal: '2024-02-27T09:00:00Z', distanceM: 9999 }),
       fixtureRow({ id: 'mar1', startDateLocal: '2024-03-01T09:00:00Z', distanceM: 3000 }),
     ];
     const grid = buildMonthGrid(rows, { year: 2024, month: 3 }, 'sunday');
-    expect(grid.weekTotals[0].daysShown).toBe(2); // only Mar 1 (Fri) and Mar 2 (Sat)
-    expect(grid.weekTotals[0].isPartial).toBe(true);
-    expect(grid.weekTotals[0].totalDistanceM).toBe(3000); // the Feb 27 run is excluded
-    expect(grid.monthTotalM).toBe(3000); // and excluded from the month total too
+    expect(grid.weekTotals[0].totalDistanceM).toBe(12999);
+    expect(grid.weekTotals[0].runCount).toBe(2);
+    expect(grid.weekTotals[0].startDateKey).toBe('2024-02-25');
+    expect(grid.weekTotals[0].endDateKey).toBe('2024-03-02');
+    expect(grid.monthTotalM).toBe(3000);
+    expect(grid.runCount).toBe(1);
+    const ids = grid.weeks.flat().flatMap((c) => c?.activityIds ?? []);
+    expect(ids).not.toContain('feb-boundary');
+    expect(grid.weeks[0].slice(0, 5)).toEqual([null, null, null, null, null]);
   });
 
-  it('a rest week (no runs, daysShown 7) yields real zero values, not a sentinel, isPartial consistent with daysShown', () => {
+  it('quick 261127-fu8: a trailing boundary week counts next-month runs inside its 7 dates, but not runs beyond the row', () => {
+    const rows = [
+      fixtureRow({ id: 'mar31', startDateLocal: '2024-03-31T09:00:00Z', distanceM: 4000, movingTimeSec: 1500 }),
+      fixtureRow({ id: 'apr3', startDateLocal: '2024-04-03T09:00:00Z', distanceM: 6000, movingTimeSec: 2100 }),
+      // Sun Apr 7 is outside Sunday-start row 5 (Mar 31 - Apr 6).
+      fixtureRow({ id: 'apr7', startDateLocal: '2024-04-07T09:00:00Z', distanceM: 5000 }),
+    ];
+    const grid = buildMonthGrid(rows, { year: 2024, month: 3 }, 'sunday');
+    expect(grid.weekTotals[5]).toEqual({
+      totalDistanceM: 10000,
+      totalTimeSec: 3600,
+      runCount: 2,
+      startDateKey: '2024-03-31',
+      endDateKey: '2024-04-06',
+    });
+    expect(grid.monthTotalM).toBe(4000);
+    expect(grid.runCount).toBe(1);
+  });
+
+  it('quick 261127-fu8: which out-of-month runs a boundary row counts follows the injected weekStart', () => {
+    const rows = [
+      fixtureRow({ id: 'feb25', startDateLocal: '2024-02-25T09:00:00Z', distanceM: 7000 }),
+      fixtureRow({ id: 'mar1', startDateLocal: '2024-03-01T09:00:00Z', distanceM: 3000 }),
+      fixtureRow({ id: 'mar3', startDateLocal: '2024-03-03T09:00:00Z', distanceM: 2000 }),
+    ];
+    const sun = buildMonthGrid(rows, { year: 2024, month: 3 }, 'sunday');
+    expect(sun.weekTotals[0].totalDistanceM).toBe(10000); // feb25 + mar1
+    expect(sun.weekTotals[0].runCount).toBe(2);
+    expect(sun.monthTotalM).toBe(5000);
+    const mon = buildMonthGrid(rows, { year: 2024, month: 3 }, 'monday');
+    expect(mon.weekTotals[0].totalDistanceM).toBe(5000); // mar1 + mar3; feb25 is before Mon Feb 26
+    expect(mon.weekTotals[0].runCount).toBe(2);
+    expect(mon.weekTotals[0].startDateKey).toBe('2024-02-26');
+    expect(mon.monthTotalM).toBe(5000);
+  });
+
+  it('a rest week yields real zero values, not a sentinel, and its true range', () => {
     // February 2023: Feb 1 is a Wednesday, Sunday-start padding is 3.
     // Week 1 (Feb 5-11) is entirely in-month — a full rest week.
     const grid = buildMonthGrid([], { year: 2023, month: 2 }, 'sunday');
@@ -461,8 +502,8 @@ describe('buildMonthGrid — weekTotals derivation', () => {
       totalDistanceM: 0,
       totalTimeSec: 0,
       runCount: 0,
-      daysShown: 7,
-      isPartial: false,
+      startDateKey: '2023-02-05',
+      endDateKey: '2023-02-11',
     });
   });
 
@@ -478,6 +519,8 @@ describe('buildMonthGrid — weekTotals derivation', () => {
     expect(grid.weekTotals[0].totalTimeSec).toBe(3600);
   });
 
+  // Holds only because every fixture row is in-month: week totals now cross
+  // month boundaries (quick 261127-fu8), so in general they exceed monthTotalM.
   it('reconciliation: weekTotals distance sum equals monthTotalM and runCount sum equals runCount, for the same month under both week starts', () => {
     const rows = [
       fixtureRow({ id: 'r1', startDateLocal: '2024-03-03T09:00:00Z', distanceM: 4000 }),

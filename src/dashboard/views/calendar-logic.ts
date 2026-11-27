@@ -91,6 +91,11 @@ export function activityDayKey(startDateLocal: string): string | null {
   const d = new Date(normalized);
   if (Number.isNaN(d.getTime())) return null;
 
+  return utcDateKey(d);
+}
+
+/** `YYYY-MM-DD` from a Date's getUTC* components (never a local-time getter). */
+function utcDateKey(d: Date): string {
   const year = String(d.getUTCFullYear()).padStart(4, '0');
   const month = String(d.getUTCMonth() + 1).padStart(2, '0');
   const day = String(d.getUTCDate()).padStart(2, '0');
@@ -117,20 +122,21 @@ export interface DayCell {
 }
 
 /**
- * One week row's total (CAL-02). D-13: sums ONLY the visible in-month
- * `DayCell`s in that row — never the true 7-day calendar week across a
- * month boundary. `daysShown` is the count of non-null cells in the row;
- * `isPartial` is `daysShown < 7`, D-14's accessible-name disclosure
- * trigger. A row with zero runs still yields real zero values, never a
- * sentinel — the `–` en-dash rendering is the view's job, not this
- * module's.
+ * One week row's total (CAL-02). Quick task 261127-fu8 SUPERSEDES Phase 17
+ * D-13: the totals cover all 7 real calendar dates of the row, including
+ * leading/trailing dates that fall in the adjacent month. D-14 is REVISED:
+ * the partial-week count fields are dropped; the true range
+ * (`startDateKey`..`endDateKey`, `YYYY-MM-DD`) is the disclosure and the view
+ * states it. Day cells, `monthTotalM` and grid `runCount` remain in-month
+ * only. A row with zero runs still yields real zero values, never a
+ * sentinel — the `–` en-dash rendering is the view's job, not this module's.
  */
 export interface WeekTotal {
   totalDistanceM: number;
   totalTimeSec: number;
   runCount: number;
-  daysShown: number;
-  isPartial: boolean;
+  startDateKey: string;
+  endDateKey: string;
 }
 
 /** A full month grid, column order determined by the injected `weekStart`, plus month-level totals. */
@@ -193,6 +199,15 @@ function leadingPaddingFor(m: CalendarMonth, weekStart: WeekStart): number {
 }
 
 /**
+ * Date key for grid slot `slot` (0-based, row-major) of `month` given the
+ * leading `padding`. Negative / overflow days roll into adjacent months and
+ * years via Date.UTC, read back through getUTC* only.
+ */
+function slotDateKey(month: CalendarMonth, padding: number, slot: number): string {
+  return utcDateKey(new Date(Date.UTC(month.year, month.month - 1, slot - padding + 1)));
+}
+
+/**
  * Groups `rows` by local day, lays out a 7-column month grid — column
  * order determined by the injected `weekStart` — with leading/trailing
  * `null` padding so every week row has exactly 7 entries, and computes
@@ -203,7 +218,10 @@ function leadingPaddingFor(m: CalendarMonth, weekStart: WeekStart): number {
  * that fix (an off-union value used to produce `NaN` and throw
  * `RangeError: Invalid array length`). Rows whose `startDateLocal` doesn't
  * parse (`activityDayKey` returns null) or that fall outside the requested
- * month are skipped, not counted (T-17-CAL-02). `activityIds` within a day
+ * month are skipped from day cells and month totals (T-17-CAL-02). Week
+ * totals (quick 261127-fu8) are the exception: they sum the row's true 7
+ * dates, including out-of-month dates, while cells, `monthTotalM` and
+ * `runCount` stay in-month only. `activityIds` within a day
  * preserves the input array's ordering (the published index is
  * newest-first; this function does not re-sort — see
  * `dashboard-index.types.ts`). `weekStart` stays a REQUIRED parameter with
@@ -218,10 +236,17 @@ export function buildMonthGrid(
 ): MonthGrid {
   const monthPrefix = formatMonthParam(month);
   const byDay = new Map<string, DashboardIndexRow[]>();
+  const allByDay = new Map<string, DashboardIndexRow[]>();
 
   for (const row of rows) {
     const dayKey = activityDayKey(row.startDateLocal);
     if (dayKey === null) continue;
+    const anyDay = allByDay.get(dayKey);
+    if (anyDay) {
+      anyDay.push(row);
+    } else {
+      allByDay.set(dayKey, [row]);
+    }
     if (!dayKey.startsWith(`${monthPrefix}-`)) continue;
 
     const existing = byDay.get(dayKey);
@@ -268,12 +293,23 @@ export function buildMonthGrid(
     weeks.push(flatCells.slice(i, i + 7));
   }
 
-  const weekTotals: WeekTotal[] = weeks.map((week) => {
-    const cells = week.filter((c): c is DayCell => c !== null);
-    const totalDistanceM = cells.reduce((sum, c) => sum + c.totalDistanceM, 0);
-    const totalTimeSec = cells.reduce((sum, c) => sum + c.totalTimeSec, 0);
-    const runCount = cells.reduce((sum, c) => sum + c.runCount, 0);
-    return { totalDistanceM, totalTimeSec, runCount, daysShown: cells.length, isPartial: cells.length < 7 };
+  const weekTotals: WeekTotal[] = weeks.map((_week, w) => {
+    let totalDistanceM = 0;
+    let totalTimeSec = 0;
+    let runCount = 0;
+    for (let slot = w * 7; slot < w * 7 + 7; slot++) {
+      const dayRows = allByDay.get(slotDateKey(month, padding, slot)) ?? [];
+      totalDistanceM += dayRows.reduce((sum, r) => sum + (r.distanceM || 0), 0);
+      totalTimeSec += dayRows.reduce((sum, r) => sum + (r.movingTimeSec || 0), 0);
+      runCount += dayRows.length;
+    }
+    return {
+      totalDistanceM,
+      totalTimeSec,
+      runCount,
+      startDateKey: slotDateKey(month, padding, w * 7),
+      endDateKey: slotDateKey(month, padding, w * 7 + 6),
+    };
   });
 
   return { month, weeks, weekTotals, monthTotalM, runCount };
