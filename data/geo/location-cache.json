@@ -89706,6 +89706,36 @@
       "cityName": "Christianshavn",
       "countryName": "Denmark",
       "countryIso2": "DK"
+    },
+    "55.7141,12.4565": {
+      "cityName": "Herlev",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.7072,12.4547": {
+      "cityName": "Herlev",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.6859,12.4308": {
+      "cityName": "Rødovre",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.6982,12.4216": {
+      "cityName": "Rødovre",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.7059,12.4276": {
+      "cityName": "Herlev",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
+    },
+    "55.714,12.4376": {
+      "cityName": "Herlev",
+      "countryName": "Denmark",
+      "countryIso2": "DK"
     }
   }
 }
