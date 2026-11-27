@@ -627,6 +627,10 @@ function buildChannelBand(
       responsive: true,
       maintainAspectRatio: false,
       parsing: false,
+      // Points are hidden (pointRadius 0), so the default nearest+intersect
+      // hit test needs a ~1px direct hit; index mode answers anywhere over the
+      // band, matching Training Load.
+      interaction: { mode: 'index', intersect: false },
       scales: {
         x: {
           type: 'linear',

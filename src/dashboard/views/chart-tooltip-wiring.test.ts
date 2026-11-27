@@ -173,6 +173,12 @@ describe('Cadence & HR bands tooltip title', () => {
     expect(captured).toHaveLength(2);
     for (const c of captured) expect(titleOf(c.config)([{ parsed: { x: Date.UTC(2025, 8, 1) } }])).toBe('September 2025');
   });
+  it('both bands answer hover anywhere over the band (points are hidden, pointRadius 0)', () => {
+    const mp = (x: number) => ({ x, monthKey: 'k', value: 80, runs: 1, contributing: 1 });
+    mountChannelBands(new FakeElement('div') as any, [mp(Date.UTC(2025, 7, 1))], [mp(Date.UTC(2025, 7, 1))], noHeader);
+    expect(captured).toHaveLength(2);
+    for (const c of captured) expect((c.config as any).options.interaction).toEqual({ mode: 'index', intersect: false });
+  });
 });
 
 describe('Training Load tooltip title', () => {
