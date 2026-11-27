@@ -49,7 +49,7 @@ See: .planning/PROJECT.md (updated 2026-11-26 after the v2.3 close)
 Phase: Milestone v2.3 complete
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-11-26 — Milestone v2.3 completed and archived
+Last activity: 2026-11-27 — Completed quick task 261127-fu8: calendar week totals span the true 7-day week
 
 ## Performance Metrics
 
@@ -265,6 +265,7 @@ Previously resolved — SQLITE_CANTOPEN CI failure resolved by quick-1-01 (lazy 
 | 261125-cvq | Unblock the nightly deploy: sync 55 intervals.icu runs (CI had discarded them nightly since 2026-09-19 — test gate red on origin), recalibrate PACE_DISAGREEMENT_RUNNING_RATIO 1.0173→1.0171 (0 badge flips), clean-clone CI green; pushed 7ed30c1e, deploy green | 2026-11-25 | c6241d9d | [261125-cvq-unblock-the-nightly-deploy-sync-new-inte](./quick/261125-cvq-unblock-the-nightly-deploy-sync-new-inte/) |
 | 261126-tnj | WR-05 (37.1 review): persist IntervalsSync near-match skips in data/sync-state.json as `near_match_skips`, carried through all three SyncState save sites; failing-first clobber test + 3 mutation checks; 37.1-REVIEW-FIX.md now all_fixed | 2026-11-26 | 5a9e1b76 | [261126-tnj-wr-05-persist-intervalssync-near-match-s](./quick/261126-tnj-wr-05-persist-intervalssync-near-match-s/) |
 | 261126-w9z | Harden 37.2 vacuous guards (WR-01 exact/id-before-near decoy pins, WR-04 middle+last row plants; both shown red under scratch mutants) | 2026-11-26 | 884a0aa8 | [261126-w9z-harden-37-2-vacuous-guards](./quick/261126-w9z-harden-37-2-vacuous-guards/) |
+| 261127-fu8 | Calendar week totals span the true 7-day week across month boundaries (supersedes Phase 17 D-13; sr-only name states the real range) | 2026-11-27 | 89e8dc76 | [261127-fu8-calendar-week-totals-span-true-7-day-wee](./quick/261127-fu8-calendar-week-totals-span-true-7-day-wee/) |
 
 ## Deferred Items
 
